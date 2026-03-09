@@ -57,10 +57,6 @@ If you already control your event source, publish native `ApertureEvent`s direct
 
 Use an adapter only when you want Aperture to translate to and from an external system like Paperclip or Codex.
 
-## Preview
-
-![Attention Lab preview](docs/assets/attention-lab-preview.svg)
-
 ## Quickstart
 
 Install dependencies and run the checks:

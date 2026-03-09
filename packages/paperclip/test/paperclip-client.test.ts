@@ -109,3 +109,51 @@ test("executes Paperclip actions via fetch", async () => {
   assert.equal((fetchCalls[0]?.init?.headers as Record<string, string>).Authorization, "Bearer token");
   assert.equal(fetchCalls[0]?.init?.body, JSON.stringify({ decisionNote: "Ship it." }));
 });
+
+test("rejects Paperclip base URLs with unsupported schemes", async () => {
+  await assert.rejects(
+    async () => {
+      for await (const _event of streamPaperclipLiveEvents("company:paperclip", {
+        baseUrl: "file:///tmp/paperclip",
+        fetch: async () => createFetchResponse(""),
+      })) {
+        void _event;
+      }
+    },
+    /baseUrl must use http or https/,
+  );
+});
+
+test("rejects Paperclip base URLs with embedded credentials", async () => {
+  await assert.rejects(
+    () =>
+      executePaperclipAction(
+        {
+          kind: "approval.approve",
+          approvalId: "approval:1",
+          method: "POST",
+          path: "/api/approvals/approval:1/approve",
+        },
+        {
+          baseUrl: "https://user:pass@example.com",
+          fetch: async () => createFetchResponse("{}"),
+        },
+      ),
+    /must not include embedded credentials/,
+  );
+});
+
+test("fails fast on oversized SSE buffers without boundaries", async () => {
+  const oversizedChunk = `data: ${"x".repeat(300_000)}`;
+  await assert.rejects(
+    async () => {
+      for await (const _event of streamPaperclipLiveEvents("company:paperclip", {
+        baseUrl: "http://localhost:3000",
+        fetch: async () => createFetchResponse(oversizedChunk),
+      })) {
+        void _event;
+      }
+    },
+    /exceeded 262144 bytes/,
+  );
+});

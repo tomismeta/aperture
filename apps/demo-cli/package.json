@@ -1,0 +1,23 @@
+{
+  "name": "@aperture/demo-cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "demo": "tsx src/index.ts",
+    "demo:codex": "tsx src/codex-demo.ts",
+    "demo:mixed": "tsx src/mixed-adapters-demo.ts",
+    "demo:multi-source": "tsx src/multi-source-demo.ts",
+    "demo:paperclip-mock-live": "tsx src/paperclip-mock-live-demo.ts",
+    "demo:paperclip": "tsx src/paperclip-demo.ts",
+    "demo:paperclip-live": "tsx src/paperclip-live-demo.ts",
+    "demo:scenarios": "tsx src/traced-scenarios.ts",
+    "demo:scenario-report": "tsx src/traced-scenarios.ts --report"
+  },
+  "dependencies": {
+    "@aperture/cli": "workspace:*",
+    "@aperture/codex": "workspace:*",
+    "@aperture/core": "workspace:*",
+    "@aperture/paperclip": "workspace:*"
+  }
+}

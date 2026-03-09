@@ -1,0 +1,14 @@
+.DS_Store
+.claude
+node_modules
+dist
+.turbo
+*.tsbuildinfo
+apps/attention-lab/vite.config.js
+apps/attention-lab/vite.config.js.map
+apps/attention-lab/vite.config.d.ts
+apps/attention-lab/vite.config.d.ts.map
+packages/paperclip/test/*.js
+packages/paperclip/test/*.js.map
+packages/paperclip/test/*.d.ts
+packages/paperclip/test/*.d.ts.map

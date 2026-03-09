@@ -1,0 +1,9 @@
+export { ApertureCore } from "./aperture-core.js";
+export { scoreFrame } from "./frame-score.js";
+export type { AttentionState } from "./attention-state.js";
+export type * from "./events.js";
+export type * from "./frame.js";
+export type * from "./frame-response.js";
+export type * from "./interaction-signal.js";
+export type { DeferredCounts, SignalCounts, SignalSummary } from "./signal-summary.js";
+export type * from "./trace.js";

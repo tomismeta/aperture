@@ -1,0 +1,27 @@
+{
+  "name": "aperture",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.29.1",
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf packages/*/dist apps/*/dist",
+    "demo:cli": "pnpm --filter @aperture/demo-cli demo",
+    "demo:codex": "pnpm --filter @aperture/demo-cli demo:codex",
+    "demo:lab": "pnpm --filter @aperture/attention-lab dev",
+    "demo:mixed": "pnpm --filter @aperture/demo-cli demo:mixed",
+    "demo:multi-source": "pnpm --filter @aperture/demo-cli demo:multi-source",
+    "demo:paperclip-mock-live": "pnpm --filter @aperture/demo-cli demo:paperclip-mock-live",
+    "demo:paperclip": "pnpm --filter @aperture/demo-cli demo:paperclip",
+    "demo:paperclip-live": "pnpm --filter @aperture/demo-cli demo:paperclip-live",
+    "demo:scenarios": "pnpm --filter @aperture/demo-cli demo:scenarios",
+    "demo:scenario-report": "pnpm --filter @aperture/demo-cli demo:scenario-report",
+    "test": "tsx --test packages/*/test/**/*.test.ts",
+    "typecheck": "tsc -b --pretty"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.5",
+    "typescript": "^5.8.3"
+  }
+}

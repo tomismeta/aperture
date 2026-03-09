@@ -2,6 +2,8 @@
 
 Aperture is the human attention engine for agent systems.
 
+LLMs spend model tokens. Operators spend attention tokens.
+
 A small TypeScript library that decides what deserves human attention now, what should wait, and what can remain ambient.
 
 It is not:
@@ -55,6 +57,10 @@ If you already control your event source, publish native `ApertureEvent`s direct
 
 Use an adapter only when you want Aperture to translate to and from an external system like Paperclip or Codex.
 
+## Preview
+
+![Attention Lab preview](docs/assets/attention-lab-preview.svg)
+
 ## Quickstart
 
 Install dependencies and run the checks:
@@ -65,13 +71,13 @@ pnpm test
 pnpm typecheck
 ```
 
-Run the smallest end-to-end transport loop:
+Run the smallest end-to-end Paperclip transport loop:
 
 ```bash
 pnpm demo:paperclip-mock-live
 ```
 
-Run the mixed-source demo:
+Run the mixed-source terminal demo:
 
 ```bash
 pnpm demo:mixed
@@ -193,13 +199,18 @@ Helpful contributions right now:
 
 ## Docs
 
+Start here:
+
 - [Docs Index](docs/README.md)
 - [Components](docs/components.md)
-- [Codex Adapter](docs/codex.md)
-- [Paperclip Adapter](docs/paperclip.md)
 - [Frame Contract](docs/frame.md)
+- [Paperclip Adapter](docs/paperclip.md)
+- [Codex Adapter](docs/codex.md)
+
+More:
+
 - [Engine Roadmap](docs/engine-roadmap.md)
-- [First Publish Checklist](docs/publish-checklist.md)
 - [Human Attention Research](docs/human-attention-research.md)
-- [Agent Workforce Use Case](docs/agent-workforce-use-case.md)
 - [Interaction Signals](docs/interaction-signals.md)
+- [Agent Workforce Use Case](docs/agent-workforce-use-case.md)
+- [First Publish Checklist](docs/publish-checklist.md)

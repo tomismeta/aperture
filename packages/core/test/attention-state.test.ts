@@ -10,10 +10,13 @@ function createSummary(overrides: Partial<SignalSummary> = {}): SignalSummary {
     lifetimeSignals: 0,
     counts: {
       presented: 0,
+      viewed: 0,
       responded: 0,
       dismissed: 0,
       deferred: 0,
       contextExpanded: 0,
+      contextSkipped: 0,
+      timedOut: 0,
       returned: 0,
       attentionShifted: 0,
     },
@@ -35,10 +38,13 @@ test("overloaded requires enough observed activity", () => {
   const lowSample = createSummary({
     counts: {
       presented: 1,
+      viewed: 0,
       responded: 0,
       dismissed: 0,
       deferred: 3,
       contextExpanded: 0,
+      contextSkipped: 0,
+      timedOut: 0,
       returned: 0,
       attentionShifted: 0,
     },
@@ -56,10 +62,13 @@ test("avoiding requires enough presented samples", () => {
   const lowSample = createSummary({
     counts: {
       presented: 3,
+      viewed: 0,
       responded: 0,
       dismissed: 2,
       deferred: 2,
       contextExpanded: 0,
+      contextSkipped: 0,
+      timedOut: 0,
       returned: 0,
       attentionShifted: 0,
     },
@@ -78,10 +87,13 @@ test("engaged requires enough presented samples", () => {
   const lowSample = createSummary({
     counts: {
       presented: 4,
+      viewed: 0,
       responded: 4,
       dismissed: 0,
       deferred: 0,
       contextExpanded: 0,
+      contextSkipped: 0,
+      timedOut: 0,
       returned: 0,
       attentionShifted: 0,
     },

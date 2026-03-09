@@ -1,6 +1,7 @@
 import type { Frame } from "./index.js";
 
 import { deriveAttentionState } from "./attention-state.js";
+import { deriveAttentionTrends } from "./attention-trends.js";
 import type { InteractionCandidate } from "./interaction-candidate.js";
 import type { SignalSummary } from "./signal-summary.js";
 
@@ -28,6 +29,8 @@ export class AttentionHeuristics {
     let offset = 0;
     const attentionState = deriveAttentionState(taskSummary);
     const globalAttentionState = deriveAttentionState(globalSummary);
+    const taskTrends = deriveAttentionTrends(taskSummary);
+    const globalTrends = deriveAttentionTrends(globalSummary);
 
     if (candidate.mode === "status") {
       const isHighConsequenceStatus = candidate.consequence === "high" || candidate.tone === "critical";
@@ -55,6 +58,10 @@ export class AttentionHeuristics {
       if (!isHighConsequenceStatus && attentionState !== "overloaded" && globalAttentionState === "overloaded") {
         offset -= 5;
       }
+
+      if (!isHighConsequenceStatus && globalTrends.includes("fragmented_attention")) {
+        offset -= 5;
+      }
     }
 
     if (candidate.blocking && taskSummary.counts.contextExpanded >= 2) {
@@ -71,6 +78,10 @@ export class AttentionHeuristics {
       offset += 5;
     }
 
+    if (candidate.blocking && taskTrends.includes("defer_then_return")) {
+      offset += 5;
+    }
+
     return offset;
   }
 
@@ -83,6 +94,8 @@ export class AttentionHeuristics {
     const reasons: string[] = [];
     const attentionState = deriveAttentionState(taskSummary);
     const globalAttentionState = deriveAttentionState(globalSummary);
+    const taskTrends = deriveAttentionTrends(taskSummary);
+    const globalTrends = deriveAttentionTrends(globalSummary);
 
     if (candidate.mode === "status" && taskSummary.dismissalRate >= 0.5) {
       reasons.push("status updates for this task are often dismissed");
@@ -124,6 +137,15 @@ export class AttentionHeuristics {
       reasons.push("overall operator activity suggests attention is already saturated");
     }
 
+    if (
+      candidate.mode === "status" &&
+      candidate.consequence !== "high" &&
+      candidate.tone !== "critical" &&
+      globalTrends.includes("fragmented_attention")
+    ) {
+      reasons.push("recent attention has already shifted repeatedly across work");
+    }
+
     if (candidate.blocking && taskSummary.counts.contextExpanded >= 2) {
       reasons.push("this task often requires deeper context before action");
     }
@@ -139,6 +161,10 @@ export class AttentionHeuristics {
 
     if (candidate.blocking && attentionState === "hesitating") {
       reasons.push("similar blocking interactions appear to require more deliberation");
+    }
+
+    if (candidate.blocking && taskTrends.includes("defer_then_return")) {
+      reasons.push("similar interactions are often deferred and resumed later");
     }
 
     if (attentionScoreOffset === 0) {

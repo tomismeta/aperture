@@ -71,10 +71,13 @@ Current artifacts:
 - `FrameResponse`
 - `InteractionSignal` with current engine signals:
   - `presented`
+  - `viewed`
   - `responded`
   - `dismissed`
   - `deferred`
   - `context_expanded`
+  - `context_skipped`
+  - `timed_out`
   - `returned`
   - `attention_shifted`
 
@@ -198,6 +201,7 @@ The current implementation keeps this tight:
 
 - raw interaction signals stay simple
 - richer states are derived internally
+- compact trends are derived internally from repeated signal patterns
 - the coordinator uses those derived states only for bounded scoring and suppression decisions
 - learning what context is or is not useful
 - informing future coordination decisions

@@ -3,10 +3,13 @@ import type { FrameResponse } from "./frame-response.js";
 
 export type InteractionSignal =
   | InteractionPresentedSignal
+  | InteractionViewedSignal
   | InteractionRespondedSignal
   | InteractionDismissedSignal
   | InteractionDeferredSignal
   | InteractionContextExpandedSignal
+  | InteractionContextSkippedSignal
+  | InteractionTimedOutSignal
   | InteractionReturnedSignal
   | InteractionAttentionShiftedSignal;
 
@@ -22,6 +25,10 @@ type InteractionSignalBase = {
 
 export type InteractionPresentedSignal = InteractionSignalBase & {
   kind: "presented";
+};
+
+export type InteractionViewedSignal = InteractionSignalBase & {
+  kind: "viewed";
 };
 
 export type InteractionRespondedSignal = InteractionSignalBase & {
@@ -43,6 +50,16 @@ export type InteractionDeferredSignal = InteractionSignalBase & {
 export type InteractionContextExpandedSignal = InteractionSignalBase & {
   kind: "context_expanded";
   section?: string;
+};
+
+export type InteractionContextSkippedSignal = InteractionSignalBase & {
+  kind: "context_skipped";
+  section?: string;
+};
+
+export type InteractionTimedOutSignal = InteractionSignalBase & {
+  kind: "timed_out";
+  timeoutMs?: number;
 };
 
 export type InteractionReturnedSignal = InteractionSignalBase & {

@@ -35,10 +35,13 @@ export class InteractionSignalStore {
     const recentSignals = this.recentSignals(signals);
     const counts = {
       presented: 0,
+      viewed: 0,
       responded: 0,
       dismissed: 0,
       deferred: 0,
       contextExpanded: 0,
+      contextSkipped: 0,
+      timedOut: 0,
       returned: 0,
       attentionShifted: 0,
     };
@@ -57,6 +60,9 @@ export class InteractionSignalStore {
       switch (signal.kind) {
         case "presented":
           counts.presented += 1;
+          break;
+        case "viewed":
+          counts.viewed += 1;
           break;
         case "responded":
           counts.responded += 1;
@@ -80,6 +86,12 @@ export class InteractionSignalStore {
           break;
         case "context_expanded":
           counts.contextExpanded += 1;
+          break;
+        case "context_skipped":
+          counts.contextSkipped += 1;
+          break;
+        case "timed_out":
+          counts.timedOut += 1;
           break;
         case "returned":
           counts.returned += 1;

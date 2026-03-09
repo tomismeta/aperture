@@ -126,6 +126,36 @@ test("recordSignal stores explicit operator behavior signals", () => {
   assert.equal(core.getSignalSummary("task:presented").counts.contextExpanded, 1);
 });
 
+test("core records silent interaction signals through convenience methods", () => {
+  const core = new ApertureCore();
+
+  core.publish({
+    id: "evt:view",
+    taskId: "task:view",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:view",
+    title: "Approve rollout",
+    summary: "A rollout is waiting for approval.",
+    request: { kind: "approval" },
+  });
+
+  core.markViewed("task:view", "interaction:view", { surface: "lab" });
+  core.markContextSkipped("task:view", "interaction:view", {
+    surface: "lab",
+    section: "provenance",
+  });
+  core.markTimedOut("task:view", "interaction:view", {
+    surface: "lab",
+    timeoutMs: 15_000,
+  });
+
+  const summary = core.getSignalSummary("task:view");
+  assert.equal(summary.counts.viewed, 1);
+  assert.equal(summary.counts.contextSkipped, 1);
+  assert.equal(summary.counts.timedOut, 1);
+});
+
 test("queued and ambient decisions record deferred signals", () => {
   const core = new ApertureCore();
 
@@ -227,6 +257,7 @@ test("signal summaries derive response and deferral metrics", () => {
   assert.equal(summary.recentSignals, 5);
   assert.equal(summary.lifetimeSignals, 5);
   assert.equal(summary.counts.presented, 2);
+  assert.equal(summary.counts.viewed, 0);
   assert.equal(summary.counts.responded, 1);
   assert.equal(summary.counts.dismissed, 1);
   assert.equal(summary.counts.deferred, 1);

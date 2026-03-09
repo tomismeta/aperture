@@ -29,10 +29,13 @@ function createSummary(overrides: Partial<SignalSummary> = {}): SignalSummary {
     lifetimeSignals: 0,
     counts: {
       presented: 0,
+      viewed: 0,
       responded: 0,
       dismissed: 0,
       deferred: 0,
       contextExpanded: 0,
+      contextSkipped: 0,
+      timedOut: 0,
       returned: 0,
       attentionShifted: 0,
     },
@@ -56,10 +59,13 @@ test("suppresses status candidates that match repeated dismissal and suppression
     createSummary({
       counts: {
         presented: 8,
+        viewed: 0,
         responded: 0,
         dismissed: 6,
         deferred: 3,
         contextExpanded: 0,
+        contextSkipped: 0,
+        timedOut: 0,
         returned: 0,
         attentionShifted: 0,
       },
@@ -89,10 +95,13 @@ test("keeps critical status work visible despite quieting heuristics", () => {
     createSummary({
       counts: {
         presented: 8,
+        viewed: 0,
         responded: 0,
         dismissed: 6,
         deferred: 2,
         contextExpanded: 0,
+        contextSkipped: 0,
+        timedOut: 0,
         returned: 0,
         attentionShifted: 0,
       },
@@ -115,10 +124,13 @@ test("quiets low-value status work when recent behavior suggests overload", () =
     createSummary({
       counts: {
         presented: 2,
+        viewed: 0,
         responded: 0,
         dismissed: 1,
         deferred: 3,
         contextExpanded: 0,
+        contextSkipped: 0,
+        timedOut: 0,
         returned: 0,
         attentionShifted: 1,
       },
@@ -141,10 +153,13 @@ test("quiets low-value status work when overall operator activity is overloaded"
     createSummary({
       counts: {
         presented: 2,
+        viewed: 0,
         responded: 1,
         dismissed: 0,
         deferred: 0,
         contextExpanded: 0,
+        contextSkipped: 0,
+        timedOut: 0,
         returned: 0,
         attentionShifted: 0,
       },
@@ -153,10 +168,13 @@ test("quiets low-value status work when overall operator activity is overloaded"
     createSummary({
       counts: {
         presented: 9,
+        viewed: 0,
         responded: 1,
         dismissed: 2,
         deferred: 4,
         contextExpanded: 0,
+        contextSkipped: 0,
+        timedOut: 0,
         returned: 0,
         attentionShifted: 3,
       },
@@ -170,8 +188,9 @@ test("quiets low-value status work when overall operator activity is overloaded"
     }),
   );
 
-  assert.equal(adjusted.attentionScoreOffset, -5);
+  assert.equal(adjusted.attentionScoreOffset, -10);
   assert.ok(adjusted.attentionRationale?.includes("overall operator activity suggests attention is already saturated"));
+  assert.ok(adjusted.attentionRationale?.includes("recent attention has already shifted repeatedly across work"));
 });
 
 test("boosts blocking interactions when history shows context-seeking and quick response", () => {
@@ -193,10 +212,13 @@ test("boosts blocking interactions when history shows context-seeking and quick 
     createSummary({
       counts: {
         presented: 5,
+        viewed: 0,
         responded: 4,
         dismissed: 0,
         deferred: 0,
         contextExpanded: 2,
+        contextSkipped: 0,
+        timedOut: 0,
         returned: 0,
         attentionShifted: 0,
       },
@@ -231,10 +253,13 @@ test("nudges blocking work upward when similar tasks show hesitation", () => {
     createSummary({
       counts: {
         presented: 2,
+        viewed: 0,
         responded: 2,
         dismissed: 0,
         deferred: 0,
         contextExpanded: 1,
+        contextSkipped: 0,
+        timedOut: 0,
         returned: 0,
         attentionShifted: 0,
       },
@@ -247,4 +272,85 @@ test("nudges blocking work upward when similar tasks show hesitation", () => {
   assert.deepEqual(adjusted.attentionRationale, [
     "similar blocking interactions appear to require more deliberation",
   ]);
+});
+
+test("quiets low-value status work when attention is fragmented across tasks", () => {
+  const adjusted = heuristics.apply(
+    createCandidate(),
+    createSummary({
+      counts: {
+        presented: 1,
+        viewed: 0,
+        responded: 0,
+        dismissed: 0,
+        deferred: 0,
+        contextExpanded: 0,
+        contextSkipped: 0,
+        timedOut: 0,
+        returned: 0,
+        attentionShifted: 0,
+      },
+    }),
+    createSummary({
+      counts: {
+        presented: 6,
+        viewed: 3,
+        responded: 2,
+        dismissed: 1,
+        deferred: 2,
+        contextExpanded: 0,
+        contextSkipped: 0,
+        timedOut: 1,
+        returned: 0,
+        attentionShifted: 4,
+      },
+      responseRate: 2 / 6,
+      dismissalRate: 1 / 6,
+    }),
+  );
+
+  assert.equal(adjusted.attentionScoreOffset, -5);
+  assert.ok(adjusted.attentionRationale?.includes("recent attention has already shifted repeatedly across work"));
+});
+
+test("boosts blocking work when similar interactions are deferred and later resumed", () => {
+  const adjusted = heuristics.apply(
+    createCandidate({
+      mode: "approval",
+      tone: "focused",
+      consequence: "medium",
+      priority: "high",
+      blocking: true,
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+    }),
+    createSummary({
+      counts: {
+        presented: 4,
+        viewed: 2,
+        responded: 2,
+        dismissed: 0,
+        deferred: 3,
+        contextExpanded: 0,
+        contextSkipped: 0,
+        timedOut: 1,
+        returned: 1,
+        attentionShifted: 1,
+      },
+      responseRate: 0.5,
+      deferred: {
+        queued: 2,
+        suppressed: 1,
+        manual: 0,
+      },
+    }),
+  );
+
+  assert.equal(adjusted.attentionScoreOffset, 5);
+  assert.ok(adjusted.attentionRationale?.includes("similar interactions are often deferred and resumed later"));
 });

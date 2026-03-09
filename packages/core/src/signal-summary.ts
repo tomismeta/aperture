@@ -1,9 +1,12 @@
 export type SignalCounts = {
   presented: number;
+  viewed: number;
   responded: number;
   dismissed: number;
   deferred: number;
   contextExpanded: number;
+  contextSkipped: number;
+  timedOut: number;
   returned: number;
   attentionShifted: number;
 };

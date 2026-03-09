@@ -251,6 +251,47 @@ export class ApertureCore {
     return deriveAttentionState(this.signals.summarize(taskId));
   }
 
+  markViewed(taskId: string, interactionId: string, options: { surface?: string } = {}): void {
+    const frame = this.findFrame(taskId, interactionId);
+    this.recordSignal(this.observationSignal("viewed", taskId, interactionId, frame, options));
+  }
+
+  markTimedOut(
+    taskId: string,
+    interactionId: string,
+    options: { surface?: string; timeoutMs?: number } = {},
+  ): void {
+    const frame = this.findFrame(taskId, interactionId);
+    this.recordSignal({
+      ...this.observationSignal("timed_out", taskId, interactionId, frame, options),
+      ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
+    });
+  }
+
+  markContextExpanded(
+    taskId: string,
+    interactionId: string,
+    options: { surface?: string; section?: string } = {},
+  ): void {
+    const frame = this.findFrame(taskId, interactionId);
+    this.recordSignal({
+      ...this.observationSignal("context_expanded", taskId, interactionId, frame, options),
+      ...(options.section !== undefined ? { section: options.section } : {}),
+    });
+  }
+
+  markContextSkipped(
+    taskId: string,
+    interactionId: string,
+    options: { surface?: string; section?: string } = {},
+  ): void {
+    const frame = this.findFrame(taskId, interactionId);
+    this.recordSignal({
+      ...this.observationSignal("context_skipped", taskId, interactionId, frame, options),
+      ...(options.section !== undefined ? { section: options.section } : {}),
+    });
+  }
+
   recordSignal(signal: InteractionSignal): void {
     this.assertValidSignal(signal);
     this.signals.record(signal);
@@ -437,6 +478,41 @@ export class ApertureCore {
       ...(next.source !== undefined ? { source: next.source } : {}),
       from,
     });
+  }
+
+  private observationSignal(
+    kind: "viewed" | "timed_out" | "context_expanded" | "context_skipped",
+    taskId: string,
+    interactionId: string,
+    frame: Frame | null,
+    options: { surface?: string },
+  ): Extract<
+    InteractionSignal,
+    { kind: "viewed" | "timed_out" | "context_expanded" | "context_skipped" }
+  > {
+    return {
+      kind,
+      taskId,
+      interactionId,
+      timestamp: new Date().toISOString(),
+      ...(frame?.id !== undefined ? { frameId: frame.id } : {}),
+      ...(frame?.source !== undefined ? { source: frame.source } : {}),
+      ...(options.surface !== undefined ? { surface: options.surface } : {}),
+    };
+  }
+
+  private findFrame(taskId: string, interactionId: string): Frame | null {
+    const taskView = this.taskViews.get(taskId);
+    if (taskView.active?.interactionId === interactionId) {
+      return taskView.active;
+    }
+
+    const queued = taskView.queued.find((frame) => frame.interactionId === interactionId);
+    if (queued) {
+      return queued;
+    }
+
+    return taskView.ambient.find((frame) => frame.interactionId === interactionId) ?? null;
   }
 
   private assertValidEvent(event: ApertureEvent): void {

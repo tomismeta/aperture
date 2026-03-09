@@ -93,8 +93,10 @@ Without it, Aperture cannot learn, reason, or anticipate. It can only route.
 ### Current Strengths
 
 - explicit signal capture for `presented`, `deferred`, `responded`, `dismissed`, and `context_expanded`
+- silent-signal capture for `viewed`, `context_skipped`, and `timed_out`
 - sequence-aware signals for attention return and attention shift
 - derived signal summaries for response rate, dismissal rate, latency, and deferral counts
+- compact trend derivation for context-seeking, defer-then-return, fragmented attention, and stalling
 - recency-bounded summaries so stale behavior does not dominate current judgment
 - minimum-sample thresholds before stable behavioral states are inferred
 - signal summaries already inform deterministic heuristics without coupling to source-specific logic

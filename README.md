@@ -4,6 +4,10 @@ Aperture is the human attention engine for agent systems.
 
 A small TypeScript library that decides what deserves human attention now, what should wait, and what can remain ambient.
 
+LLMs spend model tokens. Operators spend attention tokens.
+
+Aperture is the layer that helps agent systems spend those human attention tokens deliberately instead of burning them on every event.
+
 It is not:
 
 - an orchestrator
@@ -22,6 +26,12 @@ If you are supervising multiple agents, everything can interrupt at once:
 
 Most agent software can emit events. Very little of it is good at spending human attention.
 
+That is the wedge:
+
+- not emitting more events
+- not rendering more dashboards
+- deciding which events are worth spending human attention on at all
+
 Aperture exists to answer three questions:
 
 - what deserves attention now
@@ -39,14 +49,15 @@ flowchart LR
 
 The first cut is small:
 
-- `@aperture/core`
-- `@aperture/paperclip`
-- `@aperture/codex`
-- `@aperture/cli`
-- `@aperture/attention-lab`
-- `@aperture/demo-cli`
+- Standalone library: `@aperture/core`
+- Optional adapters: `@aperture/paperclip`, `@aperture/codex`, `@aperture/cli`
+- Demo apps: `@aperture/attention-lab`, `@aperture/demo-cli`
 
-`@aperture/core` stands on its own. The adapters are optional translation layers for external systems like Paperclip and Codex.
+`@aperture/core` stands on its own.
+
+If you already control your event source, publish native `ApertureEvent`s directly into core.
+
+Use an adapter only when you want Aperture to translate to and from an external system like Paperclip or Codex.
 
 ## Quickstart
 

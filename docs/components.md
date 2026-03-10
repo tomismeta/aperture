@@ -231,17 +231,7 @@ Skip adapters when:
   - signal storage
   - direct network transport by itself
 
-#### `@aperture/cli`
-
-- Classification: adapter
-- Lives in [packages/cli/src/index.ts](../packages/cli/src/index.ts)
-- Purpose: render `Frame`, `TaskView`, and `AttentionView` in the terminal
-- Owns:
-  - text rendering only
-- Does not own:
-  - judgment
-  - coordination
-  - signal storage
+### Attention Surface
 
 #### `@aperture/tui`
 
@@ -256,22 +246,6 @@ Skip adapters when:
   - attention judgment
   - signal storage
 
-### Demo
-
-#### `@aperture/demo-cli`
-
-- Classification: demo harness
-- Lives in:
-  - [apps/demo-cli/src/index.ts](../apps/demo-cli/src/index.ts)
-  - [apps/demo-cli/src/multi-source-demo.ts](../apps/demo-cli/src/multi-source-demo.ts)
-  - [apps/demo-cli/src/lib.ts](../apps/demo-cli/src/lib.ts)
-- Purpose: prove single-task and multi-source CLI workflows
-- Owns:
-  - example scenarios
-  - interactive prompt loop
-- Does not own:
-  - reusable core behavior
-
 ## Boundary Summary
 
 The shortest accurate model is:
@@ -285,12 +259,11 @@ Everything else is support structure around that loop.
 The product is:
 
 - `@aperture/core`
-- the deterministic engine
-- the contract surface
-- the behavioral signal layer
+- `@aperture/claude-code`
+- `@aperture/paperclip`
+- `@aperture/codex`
+- `@aperture/tui`
 
 The product is not:
 
-- the CLI renderer
-- the demo apps
-- any future source adapter
+- temporary demo harnesses

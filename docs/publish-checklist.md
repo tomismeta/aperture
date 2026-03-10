@@ -23,11 +23,7 @@ These commands should all work from the repo root:
 pnpm install
 pnpm test
 pnpm typecheck
-pnpm demo:paperclip
-pnpm demo:paperclip-mock-live
-pnpm demo:codex
-pnpm demo:mixed
-pnpm demo:scenario-report
+pnpm demo:tui
 ```
 
 ## Engine Gate

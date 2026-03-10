@@ -19,4 +19,4 @@ Everything in this set matches the current engine-first product:
 
 - a small attention engine in `@aperture/core`
 - Claude Code, Paperclip, and Codex adapters as real ingress/egress paths
-- a TUI plus CLI demos as the current proving grounds
+- a source-agnostic TUI as the primary companion surface

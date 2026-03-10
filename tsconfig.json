@@ -4,8 +4,7 @@
     { "path": "./packages/core" },
     { "path": "./packages/claude-code" },
     { "path": "./packages/paperclip" },
-    { "path": "./packages/cli" },
-    { "path": "./packages/tui" },
-    { "path": "./apps/demo-cli" }
+    { "path": "./packages/codex" },
+    { "path": "./packages/tui" }
   ]
 }

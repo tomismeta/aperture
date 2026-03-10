@@ -90,18 +90,7 @@ core.onResponse(async (response) => {
 });
 ```
 
-## Live Demo
-
-You can point the demo CLI at a real Paperclip stream:
-
-```bash
-PAPERCLIP_BASE_URL=http://localhost:3000 \
-PAPERCLIP_COMPANY_ID=company-id \
-PAPERCLIP_AUTH_TOKEN=token \
-pnpm demo:paperclip-live
-```
-
-That path uses:
+That integration path uses:
 
 - `streamPaperclipLiveEvents(...)` for ingress
 - `mapPaperclipLiveEvent(...)` into `ApertureEvent`

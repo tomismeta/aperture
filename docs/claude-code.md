@@ -24,10 +24,10 @@ It translates Claude Code hook payloads into `ApertureEvent` values and translat
 - mapping lives in [`packages/claude-code/src/index.ts`](../packages/claude-code/src/index.ts)
 - local HTTP hook server lives in [`packages/claude-code/src/server.ts`](../packages/claude-code/src/server.ts)
 
-## Demo
+## Surface
 
-Run the synthetic Claude Code demo:
+Use the shared terminal attention surface while validating Claude Code flows:
 
 ```bash
-pnpm demo:claude-code
+pnpm demo:tui
 ```

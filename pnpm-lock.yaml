@@ -18,34 +18,7 @@ importers:
         specifier: ^5.8.3
         version: 5.9.3
 
-  apps/demo-cli:
-    dependencies:
-      '@aperture/claude-code':
-        specifier: workspace:*
-        version: link:../../packages/claude-code
-      '@aperture/cli':
-        specifier: workspace:*
-        version: link:../../packages/cli
-      '@aperture/codex':
-        specifier: workspace:*
-        version: link:../../packages/codex
-      '@aperture/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@aperture/paperclip':
-        specifier: workspace:*
-        version: link:../../packages/paperclip
-      '@aperture/tui':
-        specifier: workspace:*
-        version: link:../../packages/tui
-
   packages/claude-code:
-    dependencies:
-      '@aperture/core':
-        specifier: workspace:*
-        version: link:../core
-
-  packages/cli:
     dependencies:
       '@aperture/core':
         specifier: workspace:*

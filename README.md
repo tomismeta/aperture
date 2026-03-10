@@ -45,11 +45,11 @@ flowchart LR
   E --> F["Adapter action back to source"]
 ```
 
-The first cut is small:
+The public footprint is intentionally small:
 
 - Standalone library: `@aperture/core`
-- Optional adapters and surfaces: `@aperture/claude-code`, `@aperture/paperclip`, `@aperture/codex`, `@aperture/cli`, `@aperture/tui`
-- Demo app: `@aperture/demo-cli`
+- Optional source adapters: `@aperture/claude-code`, `@aperture/paperclip`, `@aperture/codex`
+- Optional companion surface: `@aperture/tui`
 
 `@aperture/core` stands on its own.
 
@@ -67,43 +67,10 @@ pnpm test
 pnpm typecheck
 ```
 
-Run the synthetic Claude Code hook demo:
-
-```bash
-pnpm demo:claude-code
-```
-
-Run the smallest end-to-end Paperclip transport loop:
-
-```bash
-pnpm demo:paperclip-mock-live
-```
-
-Run the mixed-source terminal demo:
-
-```bash
-pnpm demo:mixed
-```
-
 Run the persistent terminal attention surface:
 
 ```bash
 pnpm demo:tui
-```
-
-Run any demo with trace output:
-
-```bash
-APERTURE_TRACE=1 pnpm demo:mixed
-```
-
-Connect to a real Paperclip stream:
-
-```bash
-PAPERCLIP_BASE_URL=http://localhost:3000 \
-PAPERCLIP_COMPANY_ID=company-id \
-PAPERCLIP_AUTH_TOKEN=token \
-pnpm demo:paperclip-live
 ```
 
 ## Minimal Loop
@@ -182,7 +149,7 @@ That loop is the product:
 - Paperclip ingress mapping
 - Paperclip return-path mapping
 - real Paperclip transport helpers
-- CLI, TUI, and browser demo harnesses
+- a source-agnostic TUI companion surface
 
 ## What Does Not Exist Yet
 
@@ -208,11 +175,11 @@ Start here:
 
 - [Docs Index](docs/README.md)
 - [Components](docs/components.md)
+- [TUI Surface](docs/tui.md)
 - [Claude Code Adapter](docs/claude-code.md)
 - [Frame Contract](docs/frame.md)
 - [Paperclip Adapter](docs/paperclip.md)
 - [Codex Adapter](docs/codex.md)
-- [TUI Surface](docs/tui.md)
 
 More:
 

@@ -43,25 +43,10 @@ pnpm test
 pnpm typecheck
 ```
 
-Run the demos:
+Run the companion surface:
 
 ```bash
-pnpm demo:paperclip-mock-live
-pnpm demo:mixed
-pnpm demo:scenario-report
-pnpm demo:lab
-pnpm demo:paperclip
-pnpm demo:codex
-```
-
-Optional:
-
-```bash
-APERTURE_TRACE=1 pnpm demo:mixed
-PAPERCLIP_BASE_URL=http://localhost:3000 \
-PAPERCLIP_COMPANY_ID=company-id \
-PAPERCLIP_AUTH_TOKEN=token \
-pnpm demo:paperclip-live
+pnpm demo:tui
 ```
 
 ## Scope Discipline

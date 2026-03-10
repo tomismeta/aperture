@@ -84,6 +84,80 @@ test("falls back to ask when a held PreToolUse request times out", async () => {
   }
 });
 
+test("handles concurrent held PreToolUse requests independently", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core, { holdTimeoutMs: 250 });
+  const { url } = await server.listen();
+
+  try {
+    const responsePromiseOne = fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "PreToolUse",
+        tool_name: "Bash",
+        tool_use_id: "tool-1",
+        tool_input: {
+          command: "git push --force origin main",
+        },
+      }),
+    });
+
+    const responsePromiseTwo = fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "PreToolUse",
+        tool_name: "Bash",
+        tool_use_id: "tool-2",
+        tool_input: {
+          command: "git push origin main",
+        },
+      }),
+    });
+
+    await sleep(25);
+
+    core.submit({
+      taskId: "claude-code:task:session-1:tool-2",
+      interactionId: "claude-code:tool:session-1:tool-2",
+      response: { kind: "approved" },
+    });
+
+    core.submit({
+      taskId: "claude-code:task:session-1:tool-1",
+      interactionId: "claude-code:tool:session-1:tool-1",
+      response: { kind: "approved" },
+    });
+
+    const [responseOne, responseTwo] = await Promise.all([
+      responsePromiseOne,
+      responsePromiseTwo,
+    ]);
+
+    assert.equal(responseOne.status, 200);
+    assert.equal(responseTwo.status, 200);
+    assert.deepEqual(await responseOne.json(), {
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "allow",
+      },
+    });
+    assert.deepEqual(await responseTwo.json(), {
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "allow",
+      },
+    });
+  } finally {
+    await server.close();
+  }
+});
+
 test("publishes PostToolUseFailure events and acknowledges immediately", async () => {
   const core = new ApertureCore();
   const server = createClaudeCodeHookServer(core);

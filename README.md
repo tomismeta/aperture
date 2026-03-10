@@ -49,7 +49,7 @@ The first cut is small:
 
 - Standalone library: `@aperture/core`
 - Optional adapters and surfaces: `@aperture/claude-code`, `@aperture/paperclip`, `@aperture/codex`, `@aperture/cli`, `@aperture/tui`
-- Demo apps: `@aperture/attention-lab`, `@aperture/demo-cli`
+- Demo app: `@aperture/demo-cli`
 
 `@aperture/core` stands on its own.
 
@@ -89,12 +89,6 @@ Run the persistent terminal attention surface:
 
 ```bash
 pnpm demo:tui
-```
-
-Open the browser replay harness:
-
-```bash
-pnpm demo:lab
 ```
 
 Run any demo with trace output:

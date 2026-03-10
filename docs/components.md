@@ -272,22 +272,6 @@ Skip adapters when:
 - Does not own:
   - reusable core behavior
 
-#### `@aperture/attention-lab`
-
-- Classification: demo harness
-- Lives in:
-  - [apps/attention-lab/src/main.ts](../apps/attention-lab/src/main.ts)
-  - [apps/attention-lab/index.html](../apps/attention-lab/index.html)
-- Purpose: replay a mixed Paperclip + Codex event stream in the browser over a simulated two-minute window
-- Owns:
-  - browser visualization of `Frame`, `AttentionView`, and trace output
-  - replay controls for pause, reset, and speed
-  - manual response submission against the active frame
-- Does not own:
-  - attention judgment
-  - adapter logic
-  - reusable core behavior
-
 ## Boundary Summary
 
 The shortest accurate model is:
@@ -308,5 +292,5 @@ The product is:
 The product is not:
 
 - the CLI renderer
-- the demo app
+- the demo apps
 - any future source adapter

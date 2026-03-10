@@ -9,7 +9,6 @@
     "demo:claude-code": "pnpm --filter @aperture/demo-cli demo:claude-code",
     "demo:cli": "pnpm --filter @aperture/demo-cli demo",
     "demo:codex": "pnpm --filter @aperture/demo-cli demo:codex",
-    "demo:lab": "pnpm --filter @aperture/attention-lab dev",
     "demo:mixed": "pnpm --filter @aperture/demo-cli demo:mixed",
     "demo:multi-source": "pnpm --filter @aperture/demo-cli demo:multi-source",
     "demo:paperclip-mock-live": "pnpm --filter @aperture/demo-cli demo:paperclip-mock-live",

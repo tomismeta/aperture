@@ -92,3 +92,27 @@ test("renderAttentionScreen shows numbered choice options in the active pane", (
   assert.match(screen, /\[1\] staging/);
   assert.match(screen, /\[2\] production/);
 });
+
+test("renderAttentionScreen shows acknowledge controls for active status work", () => {
+  const attentionView: AttentionView = {
+    active: makeFrame({
+      mode: "status",
+      title: "Bash failed",
+      summary: "The deploy command failed.",
+      tone: "critical",
+      consequence: "high",
+      responseSpec: {
+        kind: "acknowledge",
+        actions: [
+          { id: "acknowledge", label: "Acknowledge", kind: "acknowledge", emphasis: "primary" },
+        ],
+      },
+    }),
+    queued: [],
+    ambient: [],
+  };
+
+  const screen = renderAttentionScreen(attentionView, { title: "Aperture TUI" });
+
+  assert.match(screen, /\[enter\] acknowledge/i);
+});

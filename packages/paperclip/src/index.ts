@@ -69,6 +69,8 @@ export function mapPaperclipFrameResponse(response: FrameResponse): PaperclipAct
   }
 
   switch (response.response.kind) {
+    case "acknowledged":
+      return null;
     case "approved":
       return {
         kind: "approval.approve",

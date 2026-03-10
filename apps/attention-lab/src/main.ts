@@ -394,6 +394,17 @@ function bindResponseControls(activeFrame: Frame | null): void {
 
   const frameId = activeFrame.interactionId;
 
+  if (activeFrame.responseSpec.kind === "acknowledge") {
+    document.querySelector<HTMLButtonElement>("#acknowledge-frame")?.addEventListener("click", () => {
+      respond({
+        taskId: activeFrame.taskId,
+        interactionId: activeFrame.interactionId,
+        response: { kind: "acknowledged" },
+      });
+    });
+    return;
+  }
+
   if (activeFrame.responseSpec.kind === "approval") {
     document.querySelectorAll<HTMLButtonElement>("[data-action-kind]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -514,6 +525,14 @@ function renderActiveFrame(frame: Frame | null): string {
 function renderResponseSurface(frame: Frame): string {
   if (!frame.responseSpec || frame.responseSpec.kind === "none") {
     return `<p class="empty">No response required.</p>`;
+  }
+
+  if (frame.responseSpec.kind === "acknowledge") {
+    return `
+      <div class="actions">
+        <button id="acknowledge-frame" class="primary">Acknowledge</button>
+      </div>
+    `;
   }
 
   if (frame.responseSpec.kind === "approval") {

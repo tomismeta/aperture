@@ -203,6 +203,16 @@ function handleActiveKeypress(
   }
 
   switch (spec.kind) {
+    case "acknowledge": {
+      if (key.name === "return" || key.name === "a") {
+        core.submit(acknowledgedResponse(frame));
+      } else if (key.name === "x" || key.name === "escape") {
+        core.submit(dismissedResponse(frame));
+      } else {
+        state.statusLine = "Use [enter] acknowledge or [x] dismiss";
+      }
+      break;
+    }
     case "approval": {
       if (key.name === "a") {
         core.submit(approvedResponse(frame));
@@ -371,6 +381,10 @@ function renderControls(active: Frame | null, formDraft: FormDraft | null, color
   }
 
   switch (active.responseSpec?.kind) {
+    case "acknowledge":
+      return [
+        `${styleMuted("keys", color)} ${styleKey("enter", color)} acknowledge  ${styleKey("x", color)} dismiss  ${styleKey("q", color)} quit`,
+      ];
     case "approval":
       return [
         `${styleMuted("keys", color)} ${styleKey("a", color)} approve  ${styleKey("r", color)} reject  ${styleKey("x", color)} dismiss  ${styleKey("q", color)} quit`,
@@ -493,6 +507,8 @@ function setupTerminal(input: InputLike, output: OutputLike): () => void {
 
 function describeResponse(response: FrameResponse): string {
   switch (response.response.kind) {
+    case "acknowledged":
+      return "Acknowledged";
     case "approved":
       return "Approved";
     case "rejected":
@@ -511,6 +527,14 @@ function approvedResponse(frame: Frame): FrameResponse {
     taskId: frame.taskId,
     interactionId: frame.interactionId,
     response: { kind: "approved" },
+  };
+}
+
+function acknowledgedResponse(frame: Frame): FrameResponse {
+  return {
+    taskId: frame.taskId,
+    interactionId: frame.interactionId,
+    response: { kind: "acknowledged" },
   };
 }
 

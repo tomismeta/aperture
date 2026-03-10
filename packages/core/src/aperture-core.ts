@@ -545,6 +545,7 @@ export class ApertureCore {
     this.assertNonEmpty("response.interactionId", response.interactionId);
 
     switch (response.response.kind) {
+      case "acknowledged":
       case "approved":
       case "rejected":
       case "dismissed":

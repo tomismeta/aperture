@@ -101,6 +101,14 @@ async function promptForFrame(
   }
 
   switch (frame.responseSpec?.kind) {
+    case "acknowledge": {
+      await rl.question("Acknowledge and continue? [enter]: ");
+      return {
+        taskId: frame.taskId,
+        interactionId: frame.interactionId,
+        response: { kind: "acknowledged" },
+      };
+    }
     case "approval": {
       const answer = await rl.question("Approve or reject? [a/r]: ");
       return {

@@ -38,6 +38,7 @@ test("task.updated blocked becomes a focused normal-priority status", () => {
   assert.equal(result.candidate.priority, "normal");
   assert.equal(result.candidate.tone, "focused");
   assert.equal(result.candidate.consequence, "medium");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
   assert.equal(result.candidate.provenance?.whyNow, "Work is blocked and may require operator attention.");
 });
 
@@ -56,6 +57,7 @@ test("task.updated failed becomes a critical high-priority status", () => {
   assert.equal(result.candidate.priority, "high");
   assert.equal(result.candidate.tone, "critical");
   assert.equal(result.candidate.consequence, "high");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
 });
 
 test("approval requests become blocking approval candidates", () => {

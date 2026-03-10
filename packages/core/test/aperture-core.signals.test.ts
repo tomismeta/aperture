@@ -41,6 +41,38 @@ test("submit records a responded interaction signal", () => {
   assert.equal(core.getSignals("task:signal").length, 2);
 });
 
+test("submit records acknowledged status responses as responded signals", () => {
+  const core = new ApertureCore();
+  const seen: InteractionSignal[] = [];
+
+  core.onSignal((signal) => {
+    seen.push(signal);
+  });
+
+  core.publish({
+    id: "evt:failed",
+    taskId: "task:ack",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    type: "task.updated",
+    title: "Bash failed",
+    summary: "The deploy command failed.",
+    status: "failed",
+  });
+
+  core.submit({
+    taskId: "task:ack",
+    interactionId: "interaction:task:ack:status",
+    response: { kind: "acknowledged" },
+  });
+
+  assert.equal(seen.length, 2);
+  assert.equal(seen[0]?.kind, "presented");
+  assert.equal(seen[1]?.kind, "responded");
+  if (seen[1]?.kind === "responded") {
+    assert.equal(seen[1].responseKind, "acknowledged");
+  }
+});
+
 test("publish emits a trace for candidate decisions", () => {
   const core = new ApertureCore();
   let seenKind: string | null = null;

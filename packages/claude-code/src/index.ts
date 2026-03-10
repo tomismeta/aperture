@@ -98,6 +98,8 @@ export function mapClaudeCodeFrameResponse(
   }
 
   switch (response.response.kind) {
+    case "acknowledged":
+      return null;
     case "approved":
       return {
         hookSpecificOutput: {

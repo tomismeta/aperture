@@ -36,6 +36,7 @@ export type FrameContext = {
 
 export type FrameResponseSpec =
   | ApprovalResponseSpec
+  | AcknowledgeResponseSpec
   | ChoiceResponseSpec
   | FormResponseSpec
   | NoResponseSpec;
@@ -48,6 +49,11 @@ export type ApprovalResponseSpec = {
   kind: "approval";
   actions: FrameAction[];
   requireReason?: boolean;
+};
+
+export type AcknowledgeResponseSpec = {
+  kind: "acknowledge";
+  actions: FrameAction[];
 };
 
 export type ChoiceResponseSpec = {
@@ -66,7 +72,7 @@ export type FormResponseSpec = {
 export type FrameAction = {
   id: string;
   label: string;
-  kind: "submit" | "approve" | "reject" | "cancel" | "dismiss";
+  kind: "submit" | "approve" | "reject" | "cancel" | "dismiss" | "acknowledge";
   emphasis: "primary" | "secondary" | "danger";
 };
 

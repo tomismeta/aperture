@@ -92,6 +92,8 @@ export function mapCodexFrameResponse(response: FrameResponse): CodexClientRespo
 
   if (parsed.kind === "approval") {
     switch (response.response.kind) {
+      case "acknowledged":
+        return null;
       case "approved":
         return { id: parsed.requestId, result: { decision: "approved" } };
       case "rejected":

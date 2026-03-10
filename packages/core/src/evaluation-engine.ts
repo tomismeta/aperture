@@ -1,4 +1,5 @@
 import type {
+  AcknowledgeResponseSpec,
   ApertureEvent,
   ChoiceResponseSpec,
   FrameAction,
@@ -58,6 +59,7 @@ export class EvaluationEngine {
     const priority = this.priorityForStatus(event.status);
     const tone = this.toneForStatus(event.status);
     const consequence = this.consequenceForStatus(event.status);
+    const responseSpec = this.responseSpecForStatus(event.status);
 
     return {
       taskId: event.taskId,
@@ -67,7 +69,7 @@ export class EvaluationEngine {
       tone,
       consequence,
       title: event.title,
-      responseSpec: { kind: "none" },
+      responseSpec,
       priority,
       blocking: false,
       timestamp: event.timestamp,
@@ -160,6 +162,28 @@ export class EvaluationEngine {
           fields: event.request.fields,
           actions,
         };
+    }
+  }
+
+  private responseSpecForStatus(status: TaskUpdatedEvent["status"]): AcknowledgeResponseSpec | { kind: "none" } {
+    switch (status) {
+      case "blocked":
+      case "failed":
+        return {
+          kind: "acknowledge",
+          actions: [
+            {
+              id: "acknowledge",
+              label: "Acknowledge",
+              kind: "acknowledge",
+              emphasis: "primary",
+            },
+          ],
+        };
+      case "running":
+      case "waiting":
+      case "completed":
+        return { kind: "none" };
     }
   }
 

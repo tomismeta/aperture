@@ -1,11 +1,11 @@
-import { ApertureCore } from "@aperture/core";
-import type { ClaudeCodeHookEvent } from "@aperture/claude-code";
-import { mapClaudeCodeHookEvent } from "@aperture/claude-code";
-import type { CodexServerRequest } from "@aperture/codex";
-import { mapCodexServerRequest } from "@aperture/codex";
-import type { PaperclipLiveEvent } from "@aperture/paperclip";
-import { mapPaperclipLiveEvent } from "@aperture/paperclip";
-import { runAttentionTui } from "@aperture/tui";
+import { ApertureCore } from "../packages/core/src/index.ts";
+import type { ClaudeCodeHookEvent } from "../packages/claude-code/src/index.ts";
+import { mapClaudeCodeHookEvent } from "../packages/claude-code/src/index.ts";
+import type { CodexServerRequest } from "../packages/codex/src/index.ts";
+import { mapCodexServerRequest } from "../packages/codex/src/index.ts";
+import type { PaperclipLiveEvent } from "../packages/paperclip/src/index.ts";
+import { mapPaperclipLiveEvent } from "../packages/paperclip/src/index.ts";
+import { runAttentionTui } from "../packages/tui/src/index.ts";
 
 async function main(): Promise<void> {
   const core = new ApertureCore();

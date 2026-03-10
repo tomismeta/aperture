@@ -5,6 +5,7 @@
     { "path": "./packages/claude-code" },
     { "path": "./packages/paperclip" },
     { "path": "./packages/cli" },
+    { "path": "./packages/tui" },
     { "path": "./apps/demo-cli" },
     { "path": "./apps/attention-lab" }
   ]

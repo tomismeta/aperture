@@ -412,6 +412,16 @@ function renderFocusPane(frame: Frame | null, color: boolean): string[] {
       lines.push(...boxedBody(`${item.label}: ${item.value ?? "n/a"}`, color));
     }
   }
+  if (frame.responseSpec?.kind === "choice") {
+    for (const [index, option] of frame.responseSpec.options.entries()) {
+      lines.push(
+        ...boxedBody(
+          `${styleKey(String(index + 1), color)} ${option.label}`,
+          color,
+        ),
+      );
+    }
+  }
   if (attention.scoreOffset !== 0) {
     lines.push(...boxedBody(`${styleMuted("offset", color)} ${formatSigned(attention.scoreOffset)}`, color));
   }

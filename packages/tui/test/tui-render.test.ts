@@ -66,3 +66,29 @@ test("renderAttentionScreen shows active, queued, and ambient summaries", () => 
   assert.match(screen, /Run failed/);
   assert.match(screen, /score 1211/);
 });
+
+test("renderAttentionScreen shows numbered choice options in the active pane", () => {
+  const choiceFrame = makeFrame({
+    mode: "choice",
+    title: "Which environment should be used?",
+    summary: "Target selection",
+    responseSpec: {
+      kind: "choice",
+      options: [
+        { id: "staging", label: "staging" },
+        { id: "prod", label: "production" },
+      ],
+    },
+  });
+
+  const attentionView: AttentionView = {
+    active: choiceFrame,
+    queued: [],
+    ambient: [],
+  };
+
+  const screen = renderAttentionScreen(attentionView, { title: "Aperture TUI" });
+
+  assert.match(screen, /\[1\] staging/);
+  assert.match(screen, /\[2\] production/);
+});

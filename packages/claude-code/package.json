@@ -1,0 +1,24 @@
+{
+  "name": "@aperture/claude-code",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/src/server.d.ts",
+      "default": "./dist/src/server.js"
+    }
+  },
+  "dependencies": {
+    "@aperture/core": "workspace:*"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  }
+}

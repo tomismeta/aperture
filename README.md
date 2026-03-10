@@ -48,7 +48,7 @@ flowchart LR
 The first cut is small:
 
 - Standalone library: `@aperture/core`
-- Optional adapters: `@aperture/paperclip`, `@aperture/codex`, `@aperture/cli`
+- Optional adapters: `@aperture/claude-code`, `@aperture/paperclip`, `@aperture/codex`, `@aperture/cli`
 - Demo apps: `@aperture/attention-lab`, `@aperture/demo-cli`
 
 `@aperture/core` stands on its own.
@@ -65,6 +65,12 @@ Install dependencies and run the checks:
 pnpm install
 pnpm test
 pnpm typecheck
+```
+
+Run the synthetic Claude Code hook demo:
+
+```bash
+pnpm demo:claude-code
 ```
 
 Run the smallest end-to-end Paperclip transport loop:
@@ -168,6 +174,9 @@ That loop is the product:
 
 - deterministic attention judgment
 - behavioral signal capture and recency-bounded summaries
+- Claude Code ingress mapping
+- Claude Code return-path mapping
+- local Claude Code hook server
 - Codex ingress mapping
 - Codex return-path mapping
 - Paperclip ingress mapping
@@ -199,6 +208,7 @@ Start here:
 
 - [Docs Index](docs/README.md)
 - [Components](docs/components.md)
+- [Claude Code Adapter](docs/claude-code.md)
 - [Frame Contract](docs/frame.md)
 - [Paperclip Adapter](docs/paperclip.md)
 - [Codex Adapter](docs/codex.md)

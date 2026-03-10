@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc -b",
     "clean": "rm -rf packages/*/dist apps/*/dist",
+    "demo:claude-code": "pnpm --filter @aperture/demo-cli demo:claude-code",
     "demo:cli": "pnpm --filter @aperture/demo-cli demo",
     "demo:codex": "pnpm --filter @aperture/demo-cli demo:codex",
     "demo:lab": "pnpm --filter @aperture/attention-lab dev",

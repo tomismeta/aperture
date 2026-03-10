@@ -19,6 +19,8 @@
     "paths": {
       "@aperture/core": ["packages/core/src/index.ts"],
       "@aperture/cli": ["packages/cli/src/index.ts"],
+      "@aperture/claude-code": ["packages/claude-code/src/index.ts"],
+      "@aperture/claude-code/server": ["packages/claude-code/src/server.ts"],
       "@aperture/codex": ["packages/codex/src/index.ts"],
       "@aperture/paperclip": ["packages/paperclip/src/index.ts"]
     }

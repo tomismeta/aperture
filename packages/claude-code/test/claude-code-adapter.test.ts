@@ -26,7 +26,7 @@ test("maps PreToolUse Bash hooks into approval events", () => {
   assert.equal(mapped.length, 1);
   assert.equal(mapped[0]?.type, "human.input.requested");
   if (mapped[0]?.type === "human.input.requested") {
-    assert.equal(mapped[0].taskId, "claude-code:task:session-1:tool-1");
+    assert.equal(mapped[0].taskId, "claude-code:session:session-1");
     assert.equal(mapped[0].interactionId, "claude-code:tool:session-1:tool-1");
     assert.equal(mapped[0].request.kind, "approval");
     assert.equal(mapped[0].summary, "git push origin main");
@@ -66,7 +66,7 @@ test("maps PostToolUseFailure hooks into failed task updates", () => {
   assert.equal(mapped.length, 1);
   assert.equal(mapped[0]?.type, "task.updated");
   if (mapped[0]?.type === "task.updated") {
-    assert.equal(mapped[0].taskId, "claude-code:task:session-2:tool-2");
+    assert.equal(mapped[0].taskId, "claude-code:session:session-2");
     assert.equal(mapped[0].status, "failed");
     assert.equal(mapped[0].summary, "Command exited with code 1");
   }
@@ -75,7 +75,7 @@ test("maps PostToolUseFailure hooks into failed task updates", () => {
 test("maps approval responses back to Claude Code hook decisions", () => {
   assert.deepEqual(
     mapClaudeCodeFrameResponse({
-      taskId: "claude-code:task:session-1:tool-1",
+      taskId: "claude-code:session:session-1",
       interactionId: "claude-code:tool:session-1:tool-1",
       response: { kind: "approved" },
     }),
@@ -89,7 +89,7 @@ test("maps approval responses back to Claude Code hook decisions", () => {
 
   assert.deepEqual(
     mapClaudeCodeFrameResponse({
-      taskId: "claude-code:task:session-1:tool-1",
+      taskId: "claude-code:session:session-1",
       interactionId: "claude-code:tool:session-1:tool-1",
       response: { kind: "rejected", reason: "Too risky" },
     }),
@@ -106,7 +106,7 @@ test("maps approval responses back to Claude Code hook decisions", () => {
 test("maps dismissed approval responses to ask", () => {
   assert.deepEqual(
     mapClaudeCodeFrameResponse({
-      taskId: "claude-code:task:session-1:tool-1",
+      taskId: "claude-code:session:session-1",
       interactionId: "claude-code:tool:session-1:tool-1",
       response: { kind: "dismissed" },
     }),

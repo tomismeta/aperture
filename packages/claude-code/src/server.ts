@@ -95,28 +95,32 @@ export function createClaudeCodeHookServer(
           writeJson(res, 200, askResponse());
           return;
         }
+        if (firstMappedEvent.type !== "human.input.requested") {
+          writeJson(res, 200, askResponse());
+          return;
+        }
 
-        const published = core.publish(firstMappedEvent);
-        if (!published) {
+        core.publish(firstMappedEvent);
+        if (!hasInteraction(core, firstMappedEvent.taskId, firstMappedEvent.interactionId)) {
           writeJson(res, 200, askResponse());
           return;
         }
 
         const key = pendingKey({
-          taskId: published.taskId,
-          interactionId: published.interactionId,
+          taskId: firstMappedEvent.taskId,
+          interactionId: firstMappedEvent.interactionId,
         });
         const timeout = setTimeout(() => {
           core.submit({
-            taskId: published.taskId,
-            interactionId: published.interactionId,
+            taskId: firstMappedEvent.taskId,
+            interactionId: firstMappedEvent.interactionId,
             response: { kind: "dismissed" },
           });
         }, holdTimeoutMs);
 
         pending.set(key, {
-          taskId: published.taskId,
-          interactionId: published.interactionId,
+          taskId: firstMappedEvent.taskId,
+          interactionId: firstMappedEvent.interactionId,
           response: res,
           timeout,
         });
@@ -316,4 +320,13 @@ function writeJson(
     Connection: "close",
   });
   res.end(JSON.stringify(body));
+}
+
+function hasInteraction(core: ApertureCore, taskId: string, interactionId: string): boolean {
+  const taskView = core.getTaskView(taskId);
+  return (
+    taskView.active?.interactionId === interactionId ||
+    taskView.queued.some((frame) => frame.interactionId === interactionId) ||
+    taskView.ambient.some((frame) => frame.interactionId === interactionId)
+  );
 }

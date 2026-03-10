@@ -32,7 +32,7 @@ test("holds PreToolUse requests until Aperture responds", async () => {
     assert.equal(frame?.interactionId, "claude-code:tool:session-1:tool-1");
 
     core.submit({
-      taskId: "claude-code:task:session-1:tool-1",
+      taskId: "claude-code:session:session-1",
       interactionId: "claude-code:tool:session-1:tool-1",
       response: { kind: "approved" },
     });
@@ -121,16 +121,22 @@ test("handles concurrent held PreToolUse requests independently", async () => {
     });
 
     await sleep(25);
+    const taskView = core.getTaskView("claude-code:session:session-1");
+    assert.equal(taskView.active?.interactionId, "claude-code:tool:session-1:tool-1");
+    assert.deepEqual(
+      taskView.queued.map((frame) => frame.interactionId),
+      ["claude-code:tool:session-1:tool-2"],
+    );
 
     core.submit({
-      taskId: "claude-code:task:session-1:tool-2",
-      interactionId: "claude-code:tool:session-1:tool-2",
+      taskId: "claude-code:session:session-1",
+      interactionId: "claude-code:tool:session-1:tool-1",
       response: { kind: "approved" },
     });
 
     core.submit({
-      taskId: "claude-code:task:session-1:tool-1",
-      interactionId: "claude-code:tool:session-1:tool-1",
+      taskId: "claude-code:session:session-1",
+      interactionId: "claude-code:tool:session-1:tool-2",
       response: { kind: "approved" },
     });
 

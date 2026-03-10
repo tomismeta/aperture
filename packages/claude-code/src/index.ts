@@ -147,7 +147,7 @@ function mapPreToolUse(
   return {
     id: claudeEventId(event, "human.input.requested"),
     type: "human.input.requested",
-    taskId: claudeTaskId(event.session_id, event.tool_use_id),
+    taskId: claudeTaskId(event.session_id),
     interactionId: claudeInteractionId(event.session_id, event.tool_use_id),
     timestamp: new Date().toISOString(),
     source: claudeSource(event.session_id),
@@ -176,7 +176,7 @@ function mapPostToolUseFailure(
   return {
     id: claudeEventId(event, "task.updated"),
     type: "task.updated",
-    taskId: claudeTaskId(event.session_id, event.tool_use_id),
+    taskId: claudeTaskId(event.session_id),
     timestamp: new Date().toISOString(),
     source: claudeSource(event.session_id),
     title: `${event.tool_name} failed`,
@@ -193,7 +193,7 @@ function mapPostToolUse(event: ClaudeCodePostToolUseEvent): TaskUpdatedEvent {
   return {
     id: claudeEventId(event, "task.updated"),
     type: "task.updated",
-    taskId: claudeTaskId(event.session_id, event.tool_use_id),
+    taskId: claudeTaskId(event.session_id),
     timestamp: new Date().toISOString(),
     source: claudeSource(event.session_id),
     title: `${event.tool_name} completed`,
@@ -239,8 +239,8 @@ function parseClaudeInteractionId(
   };
 }
 
-function claudeTaskId(sessionId: string, toolUseId: string): string {
-  return `claude-code:task:${encodeURIComponent(sessionId)}:${encodeURIComponent(toolUseId)}`;
+function claudeTaskId(sessionId: string): string {
+  return `claude-code:session:${encodeURIComponent(sessionId)}`;
 }
 
 function claudeInteractionId(sessionId: string, toolUseId: string): string {

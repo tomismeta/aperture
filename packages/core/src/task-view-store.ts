@@ -17,9 +17,14 @@ export class TaskViewStore {
 
   setActive(taskId: string, frame: Frame): TaskView {
     const taskView = this.get(taskId);
+    const nextQueued = taskView.queued.filter((item) => item.interactionId !== frame.interactionId);
+    const previousActive =
+      taskView.active && taskView.active.interactionId !== frame.interactionId
+        ? taskView.active
+        : null;
     const next: TaskView = {
       active: frame,
-      queued: taskView.queued.filter((item) => item.interactionId !== frame.interactionId),
+      queued: previousActive ? [previousActive, ...nextQueued] : nextQueued,
       ambient: taskView.ambient.filter((item) => item.interactionId !== frame.interactionId),
     };
     this.taskViews.set(taskId, next);

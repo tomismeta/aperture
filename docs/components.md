@@ -6,7 +6,7 @@ The intent is simple:
 
 - keep the public product surface small
 - keep internal engine pieces clear
-- separate core product code from adapters and demos
+- separate the engine from adapters and the companion surface
 
 ## Classification
 
@@ -266,4 +266,4 @@ The product is:
 
 The product is not:
 
-- temporary demo harnesses
+- internal repo scripts

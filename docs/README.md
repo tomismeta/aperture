@@ -8,6 +8,7 @@ These are the docs intended to ship with the first public GitHub version of Aper
 - [Codex Adapter](codex.md)
 - [Paperclip Adapter](paperclip.md)
 - [TUI Surface](tui.md)
+- [TUI Design](tui-design.md)
 - [Engine Roadmap](engine-roadmap.md)
 - [First Publish Checklist](publish-checklist.md)
 - [Interaction Signals](interaction-signals.md)

@@ -31,3 +31,7 @@ Run the tri-source TUI demo:
 ```bash
 pnpm demo:tui
 ```
+
+## Design direction
+
+For the intended layout and attention principles behind the TUI, see [TUI Design](./tui-design.md).

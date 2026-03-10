@@ -48,54 +48,52 @@ export function renderAttentionScreen(
   const lines: string[] = [];
   const title = options?.title ?? "Aperture TUI";
   const statusLine = options?.statusLine ?? "";
+  const active = attentionView.active;
+  const queued = attentionView.queued;
+  const ambient = attentionView.ambient;
 
   lines.push(title);
-  lines.push("Persistent terminal attention surface for Aperture Core");
-  lines.push("");
   lines.push(
     [
-      summarizeColumn("ACTIVE", attentionView.active ? 1 : 0),
-      summarizeColumn("QUEUED", attentionView.queued.length),
-      summarizeColumn("AMBIENT", attentionView.ambient.length),
+      summarizeColumn("active", active ? 1 : 0),
+      summarizeColumn("queued", queued.length),
+      summarizeColumn("ambient", ambient.length),
     ].join("   "),
   );
-  lines.push("");
+  lines.push(horizontalRule());
+  lines.push("Focus");
+  lines.push(...renderFocusPane(active));
 
-  lines.push("Active");
-  lines.push(...renderFrameBlock(attentionView.active));
-  lines.push("");
+  if (options?.formDraft && active) {
+    lines.push("");
+    lines.push("Input");
+    lines.push(...renderFormDraft(active, options.formDraft));
+  }
 
-  lines.push("Queued");
-  if (attentionView.queued.length === 0) {
+  lines.push("");
+  lines.push("Queue");
+  if (queued.length === 0) {
     lines.push("  none");
   } else {
-    for (const frame of attentionView.queued) {
-      lines.push(...renderFrameSummary(frame));
+    for (const frame of queued) {
+      lines.push(...renderCompactFrame(frame));
     }
   }
 
   lines.push("");
   lines.push("Ambient");
-  if (attentionView.ambient.length === 0) {
+  if (ambient.length === 0) {
     lines.push("  none");
   } else {
-    for (const frame of attentionView.ambient) {
-      lines.push(...renderFrameSummary(frame));
+    for (const frame of ambient) {
+      lines.push(...renderAmbientFrame(frame));
     }
   }
 
-  if (options?.formDraft && attentionView.active) {
-    lines.push("");
-    lines.push("Form input");
-    lines.push(...renderFormDraft(attentionView.active, options.formDraft));
-  }
-
-  lines.push("");
-  lines.push("Controls");
-  lines.push(...renderControls(attentionView.active, options?.formDraft ?? null));
+  lines.push(horizontalRule());
+  lines.push(...renderControls(active, options?.formDraft ?? null));
 
   if (statusLine) {
-    lines.push("");
     lines.push(`Status: ${statusLine}`);
   }
 
@@ -359,31 +357,37 @@ function stringifyFieldValue(value: unknown): string {
 
 function renderControls(active: Frame | null, formDraft: FormDraft | null): string[] {
   if (!active) {
-    return ["  q quit"];
+    return ["Controls: q quit"];
   }
 
   if (formDraft) {
-    return ["  type to edit, Enter next/submit, Esc cancel, q quit after closing form"];
+    return ["Controls: type to edit · Enter next/submit · Esc cancel · q quit after closing form"];
   }
 
   switch (active.responseSpec?.kind) {
     case "approval":
-      return ["  a approve   r reject   x dismiss   q quit"];
+      return ["Controls: a approve · r reject · x dismiss · q quit"];
     case "choice":
-      return ["  1-9 choose option   x dismiss   q quit"];
+      return ["Controls: 1-9 choose option · x dismiss · q quit"];
     case "form":
-      return ["  i fill form   x dismiss   q quit"];
+      return ["Controls: i fill form · x dismiss · q quit"];
     default:
-      return ["  q quit"];
+      return ["Controls: q quit"];
   }
 }
 
-function renderFrameBlock(frame: Frame | null): string[] {
+function renderFocusPane(frame: Frame | null): string[] {
   if (!frame) {
-    return ["  none"];
+    return ["  calm surface · nothing currently needs attention"];
   }
 
-  const lines = renderFrameSummary(frame);
+  const source = frame.source?.label ?? frame.source?.id ?? "unknown";
+  const score = readScore(frame);
+  const lines = [
+    `  ${frame.title}`,
+    `  ${source} · ${frame.mode} · ${frame.tone} · ${frame.consequence} · score ${score}`,
+  ];
+
   if (frame.summary) {
     lines.push(`  ${frame.summary}`);
   }
@@ -392,26 +396,43 @@ function renderFrameBlock(frame: Frame | null): string[] {
       lines.push(`  ${item.label}: ${item.value ?? "n/a"}`);
     }
   }
+  const attention = readAttention(frame);
+  if (attention.scoreOffset !== 0) {
+    lines.push(`  offset ${attention.scoreOffset}`);
+  }
+  if (attention.rationale.length > 0) {
+    lines.push(`  why ${attention.rationale.join("; ")}`);
+  }
   return lines;
 }
 
-function renderFrameSummary(frame: Frame): string[] {
+function renderCompactFrame(frame: Frame): string[] {
   const source = frame.source?.label ?? frame.source?.id ?? "unknown";
   const score = readScore(frame);
-  const lines = [`  ${frame.title} [${source}] score=${score}`];
-  lines.push(`  ${frame.mode} · ${frame.tone} · ${frame.consequence}`);
-  const attention = readAttention(frame);
-  if (attention.scoreOffset !== 0) {
-    lines.push(`  offset=${attention.scoreOffset}`);
+  const lines = [`  • ${frame.title}`];
+  lines.push(`    ${source} · score ${score} · ${frame.tone}`);
+  if (frame.summary) {
+    lines.push(`    ${frame.summary}`);
   }
-  if (attention.rationale.length > 0) {
-    lines.push(`  why: ${attention.rationale.join("; ")}`);
+  return lines;
+}
+
+function renderAmbientFrame(frame: Frame): string[] {
+  const source = frame.source?.label ?? frame.source?.id ?? "unknown";
+  const lines = [`  · ${frame.title}`];
+  lines.push(`    ${source} · ${frame.tone} · ${frame.consequence}`);
+  if (frame.summary) {
+    lines.push(`    ${frame.summary}`);
   }
   return lines;
 }
 
 function summarizeColumn(label: string, count: number): string {
   return `${label} ${count}`;
+}
+
+function horizontalRule(): string {
+  return "─".repeat(72);
 }
 
 function clearScreen(): string {

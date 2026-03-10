@@ -58,9 +58,9 @@ test("renderAttentionScreen shows active, queued, and ambient summaries", () => 
   assert.match(screen, /active 1/);
   assert.match(screen, /queued 1/);
   assert.match(screen, /ambient 1/);
-  assert.match(screen, /Focus/);
-  assert.match(screen, /Queue/);
-  assert.match(screen, /Ambient/);
+  assert.match(screen, /Active now/);
+  assert.match(screen, /Up next/);
+  assert.match(screen, /Background/);
   assert.match(screen, /Approve deployment/);
   assert.match(screen, /Choose target/);
   assert.match(screen, /Run failed/);

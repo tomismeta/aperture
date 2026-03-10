@@ -43,58 +43,61 @@ export function renderAttentionScreen(
     title?: string;
     statusLine?: string;
     formDraft?: FormDraft | null;
+    color?: boolean;
   },
 ): string {
   const lines: string[] = [];
   const title = options?.title ?? "Aperture TUI";
   const statusLine = options?.statusLine ?? "";
+  const color = options?.color ?? false;
   const active = attentionView.active;
   const queued = attentionView.queued;
   const ambient = attentionView.ambient;
+  const globalTone = active?.tone ?? (queued[0]?.tone ?? "ambient");
 
-  lines.push(title);
+  lines.push(styleTitle(title, color));
   lines.push(
     [
-      summarizeColumn("active", active ? 1 : 0),
-      summarizeColumn("queued", queued.length),
-      summarizeColumn("ambient", ambient.length),
+      summarizeColumn("● active", active ? 1 : 0, color, globalTone),
+      summarizeColumn("◦ queued", queued.length, color, "focused"),
+      summarizeColumn("· ambient", ambient.length, color, "ambient"),
     ].join("   "),
   );
-  lines.push(horizontalRule());
-  lines.push("Focus");
-  lines.push(...renderFocusPane(active));
+  lines.push(horizontalRule(color));
+  lines.push(styleSection("Active now", color, globalTone));
+  lines.push(...renderFocusPane(active, color));
 
   if (options?.formDraft && active) {
     lines.push("");
-    lines.push("Input");
-    lines.push(...renderFormDraft(active, options.formDraft));
+    lines.push(styleSection("Input", color, "focused"));
+    lines.push(...renderFormDraft(active, options.formDraft, color));
   }
 
   lines.push("");
-  lines.push("Queue");
+  lines.push(styleSection("Up next", color, "focused"));
   if (queued.length === 0) {
-    lines.push("  none");
+    lines.push(styleMuted("  no queued work", color));
   } else {
-    for (const frame of queued) {
-      lines.push(...renderCompactFrame(frame));
+    for (const [index, frame] of queued.entries()) {
+      lines.push(...renderCompactFrame(frame, index + 1, color));
     }
   }
 
   lines.push("");
-  lines.push("Ambient");
+  lines.push(styleSection("Background", color, "ambient"));
   if (ambient.length === 0) {
-    lines.push("  none");
+    lines.push(styleMuted("  calm background", color));
   } else {
     for (const frame of ambient) {
-      lines.push(...renderAmbientFrame(frame));
+      lines.push(...renderAmbientFrame(frame, color));
     }
   }
 
-  lines.push(horizontalRule());
-  lines.push(...renderControls(active, options?.formDraft ?? null));
+  lines.push(horizontalRule(color));
+  lines.push(...renderControls(active, options?.formDraft ?? null, color));
 
   if (statusLine) {
-    lines.push(`Status: ${statusLine}`);
+    lines.push(`${styleMuted("status", color)} ${statusLine}`);
   }
 
   return lines.join("\n");
@@ -120,6 +123,7 @@ export async function runAttentionTui(
         title: options?.title ?? "Aperture TUI",
         statusLine: state.statusLine,
         formDraft: state.formDraft,
+        color: Boolean(output.isTTY),
       }),
     );
   };
@@ -336,18 +340,18 @@ function normalizeFieldValue(field: FrameField, raw: string): unknown {
   }
 }
 
-function renderFormDraft(frame: Frame, formDraft: FormDraft): string[] {
+function renderFormDraft(frame: Frame, formDraft: FormDraft, color: boolean): string[] {
   const spec = frame.responseSpec;
   if (!spec || spec.kind !== "form") {
     return [];
   }
 
   return spec.fields.map((field, index) => {
-    const marker = index === formDraft.fieldIndex ? ">" : " ";
+    const marker = index === formDraft.fieldIndex ? styleAccent("›", color) : styleMuted("·", color);
     const value = index === formDraft.fieldIndex
       ? formDraft.buffer
       : stringifyFieldValue(formDraft.values[field.id]);
-    return `  ${marker} ${field.label}: ${value || "(empty)"}`;
+    return `  ${marker} ${styleStrong(field.label, color)} ${styleMuted("·", color)} ${value || styleMuted("(empty)", color)}`;
   });
 }
 
@@ -355,84 +359,102 @@ function stringifyFieldValue(value: unknown): string {
   return value === undefined || value === null ? "" : String(value);
 }
 
-function renderControls(active: Frame | null, formDraft: FormDraft | null): string[] {
+function renderControls(active: Frame | null, formDraft: FormDraft | null, color: boolean): string[] {
   if (!active) {
-    return ["Controls: q quit"];
+    return [`${styleMuted("keys", color)} ${styleKey("q", color)} quit`];
   }
 
   if (formDraft) {
-    return ["Controls: type to edit · Enter next/submit · Esc cancel · q quit after closing form"];
+    return [
+      `${styleMuted("keys", color)} ${styleKey("type", color)} edit  ${styleKey("enter", color)} next/submit  ${styleKey("esc", color)} cancel  ${styleKey("q", color)} quit`,
+    ];
   }
 
   switch (active.responseSpec?.kind) {
     case "approval":
-      return ["Controls: a approve · r reject · x dismiss · q quit"];
+      return [
+        `${styleMuted("keys", color)} ${styleKey("a", color)} approve  ${styleKey("r", color)} reject  ${styleKey("x", color)} dismiss  ${styleKey("q", color)} quit`,
+      ];
     case "choice":
-      return ["Controls: 1-9 choose option · x dismiss · q quit"];
+      return [
+        `${styleMuted("keys", color)} ${styleKey("1-9", color)} choose  ${styleKey("x", color)} dismiss  ${styleKey("q", color)} quit`,
+      ];
     case "form":
-      return ["Controls: i fill form · x dismiss · q quit"];
+      return [
+        `${styleMuted("keys", color)} ${styleKey("i", color)} input  ${styleKey("x", color)} dismiss  ${styleKey("q", color)} quit`,
+      ];
     default:
-      return ["Controls: q quit"];
+      return [`${styleMuted("keys", color)} ${styleKey("q", color)} quit`];
   }
 }
 
-function renderFocusPane(frame: Frame | null): string[] {
+function renderFocusPane(frame: Frame | null, color: boolean): string[] {
   if (!frame) {
-    return ["  calm surface · nothing currently needs attention"];
+    return [
+      styleMuted("  no active frame", color),
+      styleMuted("  the surface is intentionally calm", color),
+    ];
   }
 
   const source = frame.source?.label ?? frame.source?.id ?? "unknown";
   const score = readScore(frame);
-  const lines = [
-    `  ${frame.title}`,
-    `  ${source} · ${frame.mode} · ${frame.tone} · ${frame.consequence} · score ${score}`,
-  ];
+  const attention = readAttention(frame);
+  const lines = boxed([
+    `${styleStrong(frame.title, color)}`,
+    `${styleMuted(source, color)} ${styleMuted("·", color)} ${styleTone(frame.tone, color)} ${styleMuted("·", color)} ${styleMuted(frame.mode, color)} ${styleMuted("·", color)} ${styleMuted(frame.consequence, color)} ${styleMuted("·", color)} ${styleScore(score, color)}`,
+  ], color, frame.tone);
 
   if (frame.summary) {
-    lines.push(`  ${frame.summary}`);
+    lines.push(...boxedBody(frame.summary, color));
   }
   if (frame.context?.items?.length) {
     for (const item of frame.context.items.slice(0, 4)) {
-      lines.push(`  ${item.label}: ${item.value ?? "n/a"}`);
+      lines.push(...boxedBody(`${item.label}: ${item.value ?? "n/a"}`, color));
     }
   }
-  const attention = readAttention(frame);
   if (attention.scoreOffset !== 0) {
-    lines.push(`  offset ${attention.scoreOffset}`);
+    lines.push(...boxedBody(`${styleMuted("offset", color)} ${formatSigned(attention.scoreOffset)}`, color));
   }
   if (attention.rationale.length > 0) {
-    lines.push(`  why ${attention.rationale.join("; ")}`);
+    lines.push(...boxedBody(`${styleMuted("why", color)} ${attention.rationale.join("; ")}`, color));
   }
-  return lines;
+  return closeBox(lines, color, frame.tone);
 }
 
-function renderCompactFrame(frame: Frame): string[] {
+function renderCompactFrame(frame: Frame, rank: number, color: boolean): string[] {
   const source = frame.source?.label ?? frame.source?.id ?? "unknown";
   const score = readScore(frame);
-  const lines = [`  • ${frame.title}`];
-  lines.push(`    ${source} · score ${score} · ${frame.tone}`);
+  const lines = [
+    `  ${styleRank(rank, color)} ${styleStrong(frame.title, color)}`,
+    `    ${styleMuted(source, color)} ${styleMuted("·", color)} ${styleScore(score, color)} ${styleMuted("·", color)} ${styleTone(frame.tone, color)}`,
+  ];
   if (frame.summary) {
-    lines.push(`    ${frame.summary}`);
+    lines.push(`    ${styleMuted(frame.summary, color)}`);
   }
   return lines;
 }
 
-function renderAmbientFrame(frame: Frame): string[] {
+function renderAmbientFrame(frame: Frame, color: boolean): string[] {
   const source = frame.source?.label ?? frame.source?.id ?? "unknown";
-  const lines = [`  · ${frame.title}`];
-  lines.push(`    ${source} · ${frame.tone} · ${frame.consequence}`);
+  const score = readScore(frame);
+  const lines = [
+    `  ${styleMuted("·", color)} ${styleMuted(frame.title, color)}`,
+    `    ${styleMuted(source, color)} ${styleMuted("·", color)} ${styleMuted(frame.consequence, color)} ${styleMuted("·", color)} ${styleMuted(frame.tone, color)} ${styleMuted("·", color)} ${styleMuted(`score ${score}`, color)}`,
+  ];
   if (frame.summary) {
-    lines.push(`    ${frame.summary}`);
+    lines.push(`    ${styleMuted(frame.summary, color)}`);
   }
   return lines;
 }
 
-function summarizeColumn(label: string, count: number): string {
-  return `${label} ${count}`;
+function summarizeColumn(label: string, count: number, color: boolean, tone: Frame["tone"]): string {
+  const text = `${label} ${count}`;
+  return color ? `${toneColor(tone)}${ANSI.bold}${text}${ANSI.reset}` : text;
 }
 
-function horizontalRule(): string {
-  return "─".repeat(72);
+function horizontalRule(color: boolean): string {
+  const line = "─".repeat(72);
+  return color ? `${ANSI.dim}${line}${ANSI.reset}` : line;
 }
 
 function clearScreen(): string {
@@ -533,4 +555,102 @@ function readAttention(frame: Frame): { scoreOffset: number; rationale: string[]
       : [];
 
   return { scoreOffset, rationale };
+}
+
+const ANSI = {
+  reset: "\u001B[0m",
+  bold: "\u001B[1m",
+  dim: "\u001B[2m",
+  cyan: "\u001B[36m",
+  blue: "\u001B[94m",
+  yellow: "\u001B[93m",
+  red: "\u001B[91m",
+  white: "\u001B[97m",
+  gray: "\u001B[90m",
+} as const;
+
+function toneColor(tone: Frame["tone"]): string {
+  switch (tone) {
+    case "critical":
+      return ANSI.red;
+    case "focused":
+      return ANSI.blue;
+    default:
+      return ANSI.gray;
+  }
+}
+
+function styleTitle(value: string, color: boolean): string {
+  return color ? `${ANSI.bold}${ANSI.white}${value}${ANSI.reset}` : value;
+}
+
+function styleSection(value: string, color: boolean, tone: Frame["tone"]): string {
+  return color ? `${ANSI.bold}${toneColor(tone)}${value}${ANSI.reset}` : value;
+}
+
+function styleStrong(value: string, color: boolean): string {
+  return color ? `${ANSI.bold}${ANSI.white}${value}${ANSI.reset}` : value;
+}
+
+function styleMuted(value: string, color: boolean): string {
+  return color ? `${ANSI.dim}${value}${ANSI.reset}` : value;
+}
+
+function styleAccent(value: string, color: boolean): string {
+  return color ? `${ANSI.blue}${value}${ANSI.reset}` : value;
+}
+
+function styleTone(value: string, color: boolean): string {
+  if (!color) {
+    return value;
+  }
+  return `${toneColor(value as Frame["tone"])}${value}${ANSI.reset}`;
+}
+
+function styleScore(score: number, color: boolean): string {
+  const value = `score ${score}`;
+  return color ? `${ANSI.bold}${ANSI.cyan}${value}${ANSI.reset}` : value;
+}
+
+function styleKey(value: string, color: boolean): string {
+  const wrapped = `[${value}]`;
+  return color ? `${ANSI.bold}${ANSI.cyan}${wrapped}${ANSI.reset}` : wrapped;
+}
+
+function styleRank(rank: number, color: boolean): string {
+  const value = `${rank}.`;
+  return color ? `${ANSI.bold}${ANSI.blue}${value}${ANSI.reset}` : value;
+}
+
+function boxed(lines: string[], color: boolean, tone: Frame["tone"]): string[] {
+  const border = color ? `${toneColor(tone)}┌${"─".repeat(70)}┐${ANSI.reset}` : `┌${"─".repeat(70)}┐`;
+  return [border, ...lines.map((line) => wrapBoxLine(line))];
+}
+
+function boxedBody(value: string, _color: boolean): string[] {
+  return [wrapBoxLine(value)];
+}
+
+function closeBox(lines: string[], color: boolean, tone: Frame["tone"]): string[] {
+  const border = color ? `${toneColor(tone)}└${"─".repeat(70)}┘${ANSI.reset}` : `└${"─".repeat(70)}┘`;
+  return [...lines, border];
+}
+
+function wrapBoxLine(value: string): string {
+  const width = 68;
+  const visible = visibleLength(value);
+  const padded = visible < width ? `${value}${" ".repeat(width - visible)}` : value;
+  return `│ ${padded} │`;
+}
+
+function formatSigned(value: number): string {
+  return value > 0 ? `+${value}` : String(value);
+}
+
+function visibleLength(value: string): number {
+  return stripAnsi(value).length;
+}
+
+function stripAnsi(value: string): string {
+  return value.replace(/\u001B\[[0-9;]*m/g, "");
 }

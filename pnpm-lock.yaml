@@ -36,6 +36,9 @@ importers:
 
   apps/demo-cli:
     dependencies:
+      '@aperture/claude-code':
+        specifier: workspace:*
+        version: link:../../packages/claude-code
       '@aperture/cli':
         specifier: workspace:*
         version: link:../../packages/cli
@@ -48,6 +51,15 @@ importers:
       '@aperture/paperclip':
         specifier: workspace:*
         version: link:../../packages/paperclip
+      '@aperture/tui':
+        specifier: workspace:*
+        version: link:../../packages/tui
+
+  packages/claude-code:
+    dependencies:
+      '@aperture/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/cli:
     dependencies:
@@ -64,6 +76,12 @@ importers:
   packages/core: {}
 
   packages/paperclip:
+    dependencies:
+      '@aperture/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/tui:
     dependencies:
       '@aperture/core':
         specifier: workspace:*

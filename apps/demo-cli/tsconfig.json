@@ -9,6 +9,7 @@
     { "path": "../../packages/core" },
     { "path": "../../packages/cli" },
     { "path": "../../packages/claude-code" },
+    { "path": "../../packages/tui" },
     { "path": "../../packages/codex" },
     { "path": "../../packages/paperclip" }
   ]

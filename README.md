@@ -48,7 +48,7 @@ flowchart LR
 The first cut is small:
 
 - Standalone library: `@aperture/core`
-- Optional adapters: `@aperture/claude-code`, `@aperture/paperclip`, `@aperture/codex`, `@aperture/cli`
+- Optional adapters and surfaces: `@aperture/claude-code`, `@aperture/paperclip`, `@aperture/codex`, `@aperture/cli`, `@aperture/tui`
 - Demo apps: `@aperture/attention-lab`, `@aperture/demo-cli`
 
 `@aperture/core` stands on its own.
@@ -83,6 +83,12 @@ Run the mixed-source terminal demo:
 
 ```bash
 pnpm demo:mixed
+```
+
+Run the persistent terminal attention surface:
+
+```bash
+pnpm demo:tui
 ```
 
 Open the browser replay harness:
@@ -182,7 +188,7 @@ That loop is the product:
 - Paperclip ingress mapping
 - Paperclip return-path mapping
 - real Paperclip transport helpers
-- CLI and browser demo harnesses
+- CLI, TUI, and browser demo harnesses
 
 ## What Does Not Exist Yet
 
@@ -212,6 +218,7 @@ Start here:
 - [Frame Contract](docs/frame.md)
 - [Paperclip Adapter](docs/paperclip.md)
 - [Codex Adapter](docs/codex.md)
+- [TUI Surface](docs/tui.md)
 
 More:
 

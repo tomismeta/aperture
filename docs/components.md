@@ -243,6 +243,19 @@ Skip adapters when:
   - coordination
   - signal storage
 
+#### `@aperture/tui`
+
+- Classification: surface package
+- Lives in [packages/tui/src/index.ts](../packages/tui/src/index.ts)
+- Purpose: provide a persistent terminal-native attention surface above `@aperture/core`
+- Owns:
+  - full-screen terminal rendering
+  - keyboard-driven `FrameResponse` submission
+- Does not own:
+  - source-specific mapping
+  - attention judgment
+  - signal storage
+
 ### Demo
 
 #### `@aperture/demo-cli`

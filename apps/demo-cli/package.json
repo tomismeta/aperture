@@ -13,13 +13,15 @@
     "demo:paperclip": "tsx src/paperclip-demo.ts",
     "demo:paperclip-live": "tsx src/paperclip-live-demo.ts",
     "demo:scenarios": "tsx src/traced-scenarios.ts",
-    "demo:scenario-report": "tsx src/traced-scenarios.ts --report"
+    "demo:scenario-report": "tsx src/traced-scenarios.ts --report",
+    "demo:tui": "tsx src/tui-demo.ts"
   },
   "dependencies": {
     "@aperture/cli": "workspace:*",
     "@aperture/claude-code": "workspace:*",
     "@aperture/codex": "workspace:*",
     "@aperture/core": "workspace:*",
-    "@aperture/paperclip": "workspace:*"
+    "@aperture/paperclip": "workspace:*",
+    "@aperture/tui": "workspace:*"
   }
 }

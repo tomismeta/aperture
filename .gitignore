@@ -12,3 +12,7 @@ packages/paperclip/test/*.js
 packages/paperclip/test/*.js.map
 packages/paperclip/test/*.d.ts
 packages/paperclip/test/*.d.ts.map
+packages/*/test/*.js
+packages/*/test/*.js.map
+packages/*/test/*.d.ts
+packages/*/test/*.d.ts.map

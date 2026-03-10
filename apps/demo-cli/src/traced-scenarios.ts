@@ -1,4 +1,6 @@
 import { ApertureCore, type ApertureEvent, type FrameResponse } from "@aperture/core";
+import type { ClaudeCodeHookEvent } from "@aperture/claude-code";
+import { mapClaudeCodeHookEvent } from "@aperture/claude-code";
 import type { CodexServerRequest } from "@aperture/codex";
 import { mapCodexServerRequest } from "@aperture/codex";
 import { renderAttentionView, renderTrace } from "@aperture/cli";
@@ -46,6 +48,11 @@ function main(): void {
       id: "mixed-queue",
       title: "Paperclip and Codex requests share one queued attention stream",
       run: scenarioMixedQueue,
+    },
+    {
+      id: "tri-source",
+      title: "Claude Code, Paperclip, and Codex share one attention stream",
+      run: scenarioTriSource,
     },
     {
       id: "critical-rescue",
@@ -267,6 +274,87 @@ function scenarioMixedQueue(options: ScenarioOptions): ScenarioReport {
   return summarizeScenario(core, traces);
 }
 
+function scenarioTriSource(options: ScenarioOptions): ScenarioReport {
+  const { core, traces } = createScenarioCore(options.verbose);
+  const now = Date.now();
+
+  const paperclipEvents = flattenPaperclipEvents([
+    {
+      id: 1,
+      companyId: "company:paperclip",
+      type: "activity.logged",
+      createdAt: new Date(now).toISOString(),
+      payload: {
+        entityType: "approval",
+        entityId: "approval:hire:3",
+        action: "approval.created",
+        details: {
+          type: "hire_agent",
+          requestedByAgentId: "agent:alpha",
+          issueIds: ["ISS-303"],
+        },
+      },
+    },
+  ]);
+
+  const codexEvents = flattenCodexRequests([
+    {
+      id: "req-choice-tri",
+      method: "item/tool/requestUserInput",
+      params: {
+        itemId: "item:input:tri",
+        threadId: "thread-tri",
+        turnId: "turn-tri",
+        questions: [
+          {
+            id: "target",
+            header: "Target",
+            question: "Which environment should be used?",
+            options: [
+              { label: "staging", description: "Preview environment" },
+              { label: "production", description: "Live traffic" },
+            ],
+          },
+        ],
+      },
+    },
+  ]);
+
+  const claudeEvents = flattenClaudeCodeHooks([
+    {
+      session_id: "session-tri",
+      cwd: "/workspace/repo-tri",
+      hook_event_name: "PreToolUse",
+      tool_name: "Bash",
+      tool_use_id: "tool-tri-1",
+      tool_input: {
+        command: "git push --force origin main",
+        description: "Claude Code wants to force-push the deployment branch.",
+      },
+    },
+    {
+      session_id: "session-tri-fail",
+      cwd: "/workspace/repo-tri",
+      hook_event_name: "PostToolUseFailure",
+      tool_name: "Bash",
+      tool_use_id: "tool-tri-2",
+      error: "Migration failed in staging",
+    },
+  ]);
+
+  publishAll(core, [...paperclipEvents, ...codexEvents, ...claudeEvents]);
+  logAttention(core, "after tri-source publish", options.verbose);
+
+  core.submit({
+    taskId: "paperclip:approval:approval:hire:3",
+    interactionId: "paperclip:approval:approval:hire:3:review",
+    response: { kind: "approved" },
+  });
+
+  logAttention(core, "after tri-source promotion", options.verbose);
+  return summarizeScenario(core, traces);
+}
+
 function scenarioCriticalRescue(options: ScenarioOptions): ScenarioReport {
   const { core, traces } = createScenarioCore(options.verbose);
   const base = Date.parse("2026-03-09T13:00:00.000Z");
@@ -409,6 +497,10 @@ function flattenPaperclipEvents(events: PaperclipLiveEvent[]): ApertureEvent[] {
 
 function flattenCodexRequests(requests: CodexServerRequest[]): ApertureEvent[] {
   return requests.flatMap((request) => mapCodexServerRequest(request));
+}
+
+function flattenClaudeCodeHooks(events: ClaudeCodeHookEvent[]): ApertureEvent[] {
+  return events.flatMap((event) => mapClaudeCodeHookEvent(event));
 }
 
 function seedPresented(core: ApertureCore, taskId: string, interactionId: string, timestampMs: number): void {

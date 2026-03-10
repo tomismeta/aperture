@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "demo:claude-code": "tsx src/claude-code-demo.ts",
     "demo": "tsx src/index.ts",
     "demo:codex": "tsx src/codex-demo.ts",
     "demo:mixed": "tsx src/mixed-adapters-demo.ts",
@@ -16,6 +17,7 @@
   },
   "dependencies": {
     "@aperture/cli": "workspace:*",
+    "@aperture/claude-code": "workspace:*",
     "@aperture/codex": "workspace:*",
     "@aperture/core": "workspace:*",
     "@aperture/paperclip": "workspace:*"

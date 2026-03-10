@@ -202,6 +202,22 @@ Skip adapters when:
   - signal storage
   - direct Codex transport by itself
 
+#### `@aperture/claude-code`
+
+- Classification: source adapter
+- Lives in:
+  - [packages/claude-code/src/index.ts](../packages/claude-code/src/index.ts)
+  - [packages/claude-code/src/server.ts](../packages/claude-code/src/server.ts)
+- Purpose: translate Claude Code hook payloads into `ApertureEvent`, translate `FrameResponse` back into Claude Code hook responses, and optionally host a local HTTP hook endpoint for Claude Code
+- Owns:
+  - Claude Code ingress mapping
+  - Claude Code return-path mapping
+  - local hook transport
+- Does not own:
+  - attention judgment
+  - signal storage
+  - Claude Code session management
+
 #### `@aperture/paperclip`
 
 - Classification: source adapter

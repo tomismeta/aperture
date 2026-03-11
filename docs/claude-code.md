@@ -46,7 +46,40 @@ This quickstart is for the second main Aperture use case:
 
 - use the shared Aperture runtime, TUI, and Claude adapter to manage live Claude Code workload
 
-Most people only need one setup command and one daily command.
+This is the single recommended quickstart path.
+
+Start here:
+
+```bash
+git clone git@github.com:tomismeta/aperture.git
+cd aperture
+pnpm install
+pnpm claude:connect --global
+pnpm aperture
+```
+
+Step by step:
+
+1. `git clone git@github.com:tomismeta/aperture.git`
+   Download the Aperture repo to your machine.
+2. `cd aperture`
+   Enter the repo so the local scripts and package commands resolve correctly.
+3. `pnpm install`
+   Install the workspace dependencies.
+4. `pnpm claude:connect --global`
+   Write Aperture's Claude hook config into `~/.claude/settings.json`.
+5. `pnpm aperture`
+   Start the default local Aperture stack: runtime, Claude adapter, and TUI.
+
+Then:
+
+1. restart Claude Code
+2. run `/hooks` once
+3. use Claude normally
+
+Most people only need that flow.
+
+Everything below is the same setup broken into manual steps.
 
 One-time setup:
 
@@ -56,17 +89,23 @@ Global:
 pnpm claude:connect --global
 ```
 
+- Write Aperture's Claude hook config into `~/.claude/settings.json`
+
 Project-local setup instead:
 
 ```bash
 pnpm claude:connect /path/to/project
 ```
 
+- Write Aperture's Claude hook config into `.claude/settings.local.json` for a single repo
+
 Daily use:
 
 ```bash
 pnpm aperture
 ```
+
+- Start the full local Aperture stack in one command
 
 After connecting Claude for the first time, restart Claude Code and run `/hooks` once to confirm the hook set loaded.
 

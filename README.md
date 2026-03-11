@@ -53,6 +53,44 @@ Adapters emit `ConformedEvent`s into the runtime. `@aperture/core` normalizes se
 
 ## Quickstart
 
+This is the single recommended quickstart path for Aperture today.
+
+If you want Aperture managing Claude Code on this machine, do this:
+
+```bash
+git clone git@github.com:tomismeta/aperture.git
+cd aperture
+pnpm install
+pnpm claude:connect --global
+pnpm aperture
+```
+
+Step by step:
+
+1. `git clone git@github.com:tomismeta/aperture.git`
+   Download the Aperture repo to your machine.
+2. `cd aperture`
+   Enter the repo so the local scripts and package commands resolve correctly.
+3. `pnpm install`
+   Install the workspace dependencies.
+4. `pnpm claude:connect --global`
+   Write Aperture's Claude hook config into `~/.claude/settings.json`.
+5. `pnpm aperture`
+   Start the default local Aperture stack: runtime, Claude adapter, and TUI.
+
+Then:
+
+1. restart Claude Code
+2. run `/hooks` once inside Claude Code
+3. use Claude normally
+
+That is the happy path.
+
+Everything else in this README is either:
+- library embedding
+- manual runtime/adapter commands
+- development commands
+
 ### Library Use
 
 Install and use `@aperture/core` when you want rating/attention judgment in your own code.
@@ -99,7 +137,19 @@ for (const event of mapPaperclipLiveEvent(liveEvent)) {
 
 Use Aperture to manage live Claude Code approvals, failures, and follow-up handoff.
 
-Most people only need one setup command and one daily command.
+The quickstart above is the default path.
+
+If you want the same flow broken into explicit manual steps, use:
+
+```bash
+git clone git@github.com:tomismeta/aperture.git
+cd aperture
+pnpm install
+```
+
+- `git clone ...`: download the repo
+- `cd aperture`: enter the repo
+- `pnpm install`: install dependencies
 
 One-time setup:
 
@@ -107,17 +157,23 @@ One-time setup:
 pnpm claude:connect --global
 ```
 
+- Connect Claude Code globally by writing Aperture's hook config into `~/.claude/settings.json`
+
 Project-local setup instead:
 
 ```bash
 pnpm claude:connect /path/to/project
 ```
 
+- Connect Claude Code only for one project by writing `.claude/settings.local.json` there
+
 Daily use:
 
 ```bash
 pnpm aperture
 ```
+
+- Start the full local Aperture stack in one command
 
 After connecting Claude for the first time, restart Claude Code and run `/hooks` once to confirm the hook set loaded.
 
@@ -129,7 +185,7 @@ pnpm claude:disconnect --global
 
 ## Command Reference
 
-These are the commands that matter for local use.
+These are the commands behind the quickstart and for manual/advanced use.
 
 | Command | What it does | When to use it |
 | --- | --- | --- |
@@ -152,12 +208,32 @@ Manual and development commands:
 | `pnpm typecheck` | Runs TypeScript project checks. |
 | `pnpm clean` | Removes built package output. |
 
-If you are using Aperture with Claude Code day to day, the normal flow is:
+If you are using Aperture with Claude Code day to day, the normal flow is still:
 
 ```bash
+git clone git@github.com:tomismeta/aperture.git
+cd aperture
+pnpm install
 pnpm claude:connect --global
 pnpm aperture
 ```
+
+## Packaging Status
+
+The cleanest surface right now is still:
+
+```bash
+git clone git@github.com:tomismeta/aperture.git
+cd aperture
+pnpm install
+```
+
+I would not push a broader `npm install` / published-package story yet for the full Claude-runtime-TUI stack. The command surface is now clean, but the product shape is still settling.
+
+For now:
+- use the repo directly for the Claude adapter/runtime/TUI flow
+- treat `pnpm aperture` as the real product entrypoint
+- revisit registry publishing once the multi-adapter runtime path is more stable
 
 ## Today
 

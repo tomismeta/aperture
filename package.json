@@ -5,8 +5,10 @@
   "packageManager": "pnpm@10.29.1",
   "scripts": {
     "build": "tsc -b",
+    "claude:serve": "tsx scripts/claude-hook-server.ts",
+    "claude:tui": "tsx scripts/claude-hook-tui.ts",
     "clean": "rm -rf packages/*/dist",
-    "demo:claude-hook": "tsx scripts/claude-hook-tui.ts",
+    "demo:claude-hook": "pnpm claude:serve",
     "demo:tui": "tsx scripts/demo-tui.ts",
     "setup:claude-hook": "node scripts/setup-claude-hook.mjs",
     "test": "tsx --test packages/*/test/**/*.test.ts",

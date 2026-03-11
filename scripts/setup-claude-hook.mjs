@@ -8,6 +8,7 @@ const DEFAULT_HOOK_SPECS = [
   { eventName: "PostToolUseFailure", matcher: "*" },
   { eventName: "Notification" },
   { eventName: "UserPromptSubmit" },
+  { eventName: "Stop" },
 ];
 
 async function main() {
@@ -46,10 +47,13 @@ async function main() {
   stdout.write("\n");
   stdout.write("Next steps:\n");
   stdout.write(
-    `1. In this repo, run: ${includePostToolUse ? "APERTURE_INCLUDE_POST_TOOL_USE=1 " : ""}pnpm demo:claude-hook\n`,
+    `1. In this repo, start the runtime: ${includePostToolUse ? "APERTURE_INCLUDE_POST_TOOL_USE=1 " : ""}pnpm claude:serve\n`,
   );
-  stdout.write(`2. Restart Claude Code${global ? "" : " in the target project"}.\n`);
-  stdout.write("3. Run /hooks in Claude Code to confirm the hooks loaded.\n");
+  stdout.write(
+    "2. In another terminal, attach the TUI: pnpm claude:tui\n",
+  );
+  stdout.write(`3. Restart Claude Code${global ? "" : " in the target project"}.\n`);
+  stdout.write("4. Run /hooks in Claude Code to confirm the hooks loaded.\n");
 }
 
 async function readSettings(settingsPath) {
@@ -99,7 +103,9 @@ function normalizeHooks(value) {
 }
 
 function ensureCommandHook(existing, command, matcher) {
-  const entries = Array.isArray(existing) ? existing.map(cloneEntry) : [];
+  const entries = Array.isArray(existing)
+    ? existing.map(cloneEntry).filter((entry) => !isLegacyApertureHookEntry(entry, command))
+    : [];
   const hook = { type: "command", command };
 
   for (const entry of entries) {
@@ -157,6 +163,29 @@ function hasCommand(entry, command) {
 
 function sameMatcher(left, right) {
   return (left ?? null) === (right ?? null);
+}
+
+function isLegacyApertureHookEntry(entry, command) {
+  if (!Array.isArray(entry.hooks)) {
+    return false;
+  }
+
+  return entry.hooks.some((hook) => {
+    if (!hook || typeof hook !== "object" || Array.isArray(hook)) {
+      return false;
+    }
+
+    if (hook.type !== "command" || typeof hook.command !== "string") {
+      return false;
+    }
+
+    if (hook.command === command) {
+      return false;
+    }
+
+    return hook.command.includes("http://127.0.0.1:4545/hook")
+      || hook.command.includes("http://localhost:4545/hook");
+  });
 }
 
 main().catch((error) => {

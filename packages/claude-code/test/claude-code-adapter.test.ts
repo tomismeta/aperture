@@ -9,6 +9,7 @@ import {
   type ClaudeCodeNotificationEvent,
   type ClaudeCodePostToolUseFailureEvent,
   type ClaudeCodePreToolUseEvent,
+  type ClaudeCodeStopEvent,
   type ClaudeCodeUserPromptSubmitEvent,
 } from "../src/index.js";
 
@@ -32,6 +33,7 @@ test("maps PreToolUse Bash hooks into approval events", () => {
     assert.equal(mapped[0].taskId, "claude-code:session:session-1");
     assert.equal(mapped[0].interactionId, "claude-code:tool:session-1:tool-1");
     assert.equal(mapped[0].request.kind, "approval");
+    assert.equal(mapped[0].title, "Approve Bash");
     assert.equal(mapped[0].summary, "git push origin main");
     assert.equal(mapped[0].riskHint, "medium");
     assert.deepEqual(mapped[0].source, {
@@ -178,7 +180,28 @@ test("maps low-risk reads into low consequence approvals", () => {
   assert.equal(mapped.length, 1);
   assert.equal(mapped[0]?.type, "human.input.requested");
   if (mapped[0]?.type === "human.input.requested") {
+    assert.equal(mapped[0].title, "Approve Read index.ts");
     assert.equal(mapped[0].riskHint, "low");
+  }
+});
+
+test("uses compact detail labels for glob approvals", () => {
+  const event: ClaudeCodePreToolUseEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "PreToolUse",
+    tool_name: "Glob",
+    tool_use_id: "tool-glob",
+    tool_input: {
+      pattern: "**/*.{ts,tsx,md}",
+    },
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "human.input.requested");
+  if (mapped[0]?.type === "human.input.requested") {
+    assert.equal(mapped[0].title, "Approve Glob **/*.{ts,tsx,md}");
   }
 });
 
@@ -215,6 +238,59 @@ test("maps user prompt submit into task completion to clear waiting state", () =
   assert.equal(mapped[0]?.type, "task.completed");
   if (mapped[0]?.type === "task.completed") {
     assert.equal(mapped[0].taskId, "claude-code:session:session-1");
+  }
+});
+
+test("maps stop events with follow-up questions into waiting status", () => {
+  const event: ClaudeCodeStopEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "Stop",
+    stop_reason: "end_turn",
+    last_assistant_message: "Is there a specific story you'd like me to dig deeper into?",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.updated");
+  if (mapped[0]?.type === "task.updated") {
+    assert.equal(mapped[0].status, "blocked");
+    assert.equal(mapped[0].title, "Claude is waiting for follow-up");
+  }
+});
+
+test("maps plain stop events into ambient completion status", () => {
+  const event: ClaudeCodeStopEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "Stop",
+    stop_reason: "end_turn",
+    last_assistant_message: "I summarized the results above.",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.updated");
+  if (mapped[0]?.type === "task.updated") {
+    assert.equal(mapped[0].status, "running");
+    assert.equal(mapped[0].title, "Claude completed a turn");
+  }
+});
+
+test("maps stop events without assistant text into generic completion awareness", () => {
+  const event: ClaudeCodeStopEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "Stop",
+    stop_reason: "end_turn",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.updated");
+  if (mapped[0]?.type === "task.updated") {
+    assert.equal(mapped[0].status, "running");
+    assert.equal(mapped[0].summary, "Claude finished responding.");
   }
 });
 

@@ -125,6 +125,19 @@ test("global attention can leave low-value ambient work unfocused when it has be
   assert.equal(attentionView.ambient[0]?.interactionId, "interaction:quiet");
 });
 
+test("global attention leaves score-zero ambient work unfocused", () => {
+  const quiet = createFrame({
+    taskId: "task:zero",
+    interactionId: "interaction:zero",
+    title: "Completed successfully",
+  });
+
+  const attentionView = buildAttentionView([createTaskView({ active: quiet })]);
+
+  assert.equal(attentionView.active, null);
+  assert.equal(attentionView.ambient[0]?.interactionId, "interaction:zero");
+});
+
 test("global overload keeps medium ambient status out of focus", () => {
   const blocked = createFrame({
     taskId: "task:blocked",

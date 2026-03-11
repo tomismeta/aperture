@@ -16,7 +16,8 @@
     }
   },
   "dependencies": {
-    "@aperture/core": "workspace:*"
+    "@aperture/core": "workspace:*",
+    "@aperture/runtime": "workspace:*"
   },
   "scripts": {
     "build": "tsc -b"

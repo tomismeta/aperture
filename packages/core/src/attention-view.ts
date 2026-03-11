@@ -59,7 +59,7 @@ export function buildAttentionView(
     const [active, ...rest] = ambient;
     if (
       active &&
-      (scoreFrame(active, { now: referenceNow }) < 0 ||
+      (scoreFrame(active, { now: referenceNow }) <= 0 ||
         (options.globalAttentionState === "overloaded" && scoreFrame(active, { now: referenceNow }) < 200))
     ) {
       return {

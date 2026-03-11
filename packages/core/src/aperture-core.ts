@@ -216,10 +216,6 @@ export class ApertureCore {
 
   submit(response: FrameResponse): void {
     this.assertValidFrameResponse(response);
-    for (const listener of this.responseListeners) {
-      listener(response);
-    }
-
     const current = this.frames.get(response.taskId);
     if (!current || current.interactionId !== response.interactionId) {
       return;
@@ -241,6 +237,10 @@ export class ApertureCore {
     }
     this.notifyTaskView(response.taskId, taskView);
     this.notifyAttentionView();
+
+    for (const listener of this.responseListeners) {
+      listener(response);
+    }
   }
 
   getTaskView(taskId: string): TaskView {

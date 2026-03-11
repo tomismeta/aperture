@@ -3,7 +3,6 @@ import { stdin as defaultInput, stdout as defaultOutput } from "node:process";
 
 import { scoreFrame } from "@aperture/core";
 import type {
-  ApertureCore,
   AttentionState,
   AttentionView,
   Frame,
@@ -19,6 +18,15 @@ type InputLike = NodeJS.ReadStream & {
 };
 
 type OutputLike = NodeJS.WriteStream;
+
+type AttentionSurface = {
+  getAttentionView(): AttentionView;
+  getSignalSummary(): SignalSummary;
+  getAttentionState(): AttentionState;
+  subscribeAttentionView(listener: (attentionView: AttentionView) => void): () => void;
+  onResponse(listener: (response: FrameResponse) => void): () => void;
+  submit(response: FrameResponse): void;
+};
 
 export type AttentionTuiOptions = {
   title?: string;
@@ -132,7 +140,7 @@ export function renderAttentionScreen(
 }
 
 export async function runAttentionTui(
-  core: ApertureCore,
+  core: AttentionSurface,
   options?: AttentionTuiOptions,
 ): Promise<void> {
   const input = options?.input ?? defaultInput;
@@ -167,12 +175,15 @@ export async function runAttentionTui(
   output.on("resize", onResize);
 
   const unsubAttention = core.subscribeAttentionView((attentionView) => {
+    const previousActiveId = state.attentionView.active?.interactionId ?? null;
     state.attentionView = attentionView;
     const active = attentionView.active;
     if (!active) {
       state.formDraft = null;
       state.expanded = false;
       state.statusLine = "Nothing currently needs attention";
+    } else if (active.interactionId !== previousActiveId) {
+      state.statusLine = `Focused on ${active.title}`;
     } else if (state.formDraft && state.formDraft.interactionId !== active.interactionId) {
       state.formDraft = null;
       state.expanded = false;
@@ -183,7 +194,8 @@ export async function runAttentionTui(
 
   const unsubResponse = core.onResponse((response) => {
     state.formDraft = null;
-    state.statusLine = describeResponse(response);
+    const nextActive = core.getAttentionView().active;
+    state.statusLine = describeResponse(response, nextActive);
     render();
   });
 
@@ -239,7 +251,7 @@ export async function runAttentionTui(
 }
 
 function handleActiveKeypress(
-  core: ApertureCore,
+  core: AttentionSurface,
   state: TuiState,
   frame: Frame,
   key: { name?: string; sequence?: string },
@@ -307,7 +319,7 @@ function handleActiveKeypress(
 }
 
 function handleFormKeypress(
-  core: ApertureCore,
+  core: AttentionSurface,
   state: TuiState,
   key: { name?: string; sequence?: string; ctrl?: boolean },
 ): void {
@@ -597,7 +609,16 @@ function setupTerminal(input: InputLike, output: OutputLike): () => void {
   };
 }
 
-function describeResponse(response: FrameResponse): string {
+function describeResponse(response: FrameResponse, nextActive: Frame | null): string {
+  const base = responseLabel(response);
+  if (nextActive && nextActive.interactionId !== response.interactionId) {
+    return `${base} · focused on ${nextActive.title}`;
+  }
+
+  return base;
+}
+
+function responseLabel(response: FrameResponse): string {
   switch (response.response.kind) {
     case "acknowledged":
       return "Acknowledged";

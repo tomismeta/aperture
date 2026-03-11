@@ -14,14 +14,16 @@ export type ClaudeCodeHookEvent =
   | ClaudeCodePostToolUseFailureEvent
   | ClaudeCodePostToolUseEvent
   | ClaudeCodeNotificationEvent
-  | ClaudeCodeUserPromptSubmitEvent;
+  | ClaudeCodeUserPromptSubmitEvent
+  | ClaudeCodeStopEvent;
 
 export type ClaudeCodeHookEventName =
   | "PreToolUse"
   | "PostToolUseFailure"
   | "PostToolUse"
   | "Notification"
-  | "UserPromptSubmit";
+  | "UserPromptSubmit"
+  | "Stop";
 
 export type ClaudeCodeHookBaseEvent = {
   session_id: string;
@@ -72,6 +74,14 @@ export type ClaudeCodeUserPromptSubmitEvent = ClaudeCodeHookBaseEvent & {
   prompt: string;
 };
 
+export type ClaudeCodeStopEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "Stop";
+  stop_hook_active?: boolean;
+  stop_reason?: string;
+  message?: string;
+  last_assistant_message?: string;
+};
+
 export type ClaudeCodeHookResponse =
   | {
       hookSpecificOutput: {
@@ -81,6 +91,11 @@ export type ClaudeCodeHookResponse =
       };
     }
   | Record<string, never>;
+
+export type ClaudeCodePreToolUseMappedEvent = Extract<
+  ReturnType<typeof mapPreToolUse>,
+  ConformedHumanInputRequestedEvent
+>;
 
 export type ClaudeCodeMappingOptions = {
   tools?: string[];
@@ -116,6 +131,8 @@ export function mapClaudeCodeHookEvent(
       return mapNotification(event);
     case "UserPromptSubmit":
       return [mapUserPromptSubmit(event)];
+    case "Stop":
+      return mapStop(event);
   }
 }
 
@@ -219,7 +236,7 @@ function mapPreToolUse(
     interactionId: claudeInteractionId(event.session_id, event.tool_use_id),
     timestamp: new Date().toISOString(),
     source: claudeSource(event),
-    title: `Approve ${event.tool_name}`,
+    title: approvalTitle(event, summary),
     summary,
     request: {
       kind: "approval",
@@ -303,6 +320,41 @@ function mapUserPromptSubmit(
     source: claudeSource(event),
     summary: "Operator replied in Claude Code.",
   };
+}
+
+function mapStop(event: ClaudeCodeStopEvent): ConformedEvent[] {
+  if (event.stop_hook_active) {
+    return [];
+  }
+
+  const message = stopSummary(event);
+  if (message && looksLikeFollowUpQuestion(message)) {
+    return [
+      {
+        id: claudeEventId(event, "task.updated"),
+        type: "task.updated",
+        taskId: claudeTaskId(event.session_id),
+        timestamp: new Date().toISOString(),
+        source: claudeSource(event),
+        title: "Claude is waiting for follow-up",
+        summary: message,
+        status: "blocked",
+      },
+    ];
+  }
+
+  return [
+    {
+      id: claudeEventId(event, "task.updated"),
+      type: "task.updated",
+      taskId: claudeTaskId(event.session_id),
+      timestamp: new Date().toISOString(),
+      source: claudeSource(event),
+      title: "Claude completed a turn",
+      summary: message ?? "Claude finished responding.",
+      status: "running",
+    },
+  ];
 }
 
 function parseClaudeInteractionId(
@@ -414,6 +466,45 @@ function toolInputSummary(event: ClaudeCodePreToolUseEvent): string {
   return event.tool_name;
 }
 
+function approvalTitle(event: ClaudeCodePreToolUseEvent, summary: string): string {
+  const detail = approvalTitleDetail(event, summary);
+  return detail ? `Approve ${event.tool_name} ${detail}` : `Approve ${event.tool_name}`;
+}
+
+function approvalTitleDetail(event: ClaudeCodePreToolUseEvent, summary: string): string | null {
+  const toolName = event.tool_name.toLowerCase();
+  const input = event.tool_input;
+
+  if (toolName === "bash") {
+    return null;
+  }
+
+  const filePath = readString(input.file_path) ?? readString(input.path);
+  if (filePath) {
+    return basename(filePath);
+  }
+
+  const pattern = readString(input.pattern);
+  if (pattern) {
+    return truncateLabel(pattern, 24);
+  }
+
+  const query = readString(input.query);
+  if (query) {
+    return truncateLabel(query, 24);
+  }
+
+  if (summary && summary !== event.tool_name) {
+    return truncateLabel(summary, 24);
+  }
+
+  return null;
+}
+
+function truncateLabel(value: string, limit: number): string {
+  return value.length <= limit ? value : `${value.slice(0, limit - 1)}…`;
+}
+
 function hasSensitivePath(event: ClaudeCodePreToolUseEvent): boolean {
   return collectStringValues(event.tool_input).some((value) => isSensitivePathValue(value, event.cwd));
 }
@@ -464,6 +555,30 @@ function collectStringValues(value: unknown): string[] {
   }
 
   return [];
+}
+
+function stopSummary(event: ClaudeCodeStopEvent): string | undefined {
+  const direct =
+    readString(event.last_assistant_message) ??
+    readString(event.message);
+  if (direct) {
+    return direct.trim();
+  }
+
+  if (event.stop_reason === "end_turn") {
+    return "Claude finished responding.";
+  }
+
+  return undefined;
+}
+
+function looksLikeFollowUpQuestion(value: string): boolean {
+  const lines = value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  const lastLine = lines.at(-1) ?? value.trim();
+  return /\?\s*$/.test(lastLine);
 }
 
 function toolInputContextItems(

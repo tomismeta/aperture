@@ -2,6 +2,7 @@
   "files": [],
   "references": [
     { "path": "./packages/core" },
+    { "path": "./packages/runtime" },
     { "path": "./packages/claude-code" },
     { "path": "./packages/paperclip" },
     { "path": "./packages/codex" },

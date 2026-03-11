@@ -23,6 +23,9 @@ importers:
       '@aperture/core':
         specifier: workspace:*
         version: link:../core
+      '@aperture/runtime':
+        specifier: workspace:*
+        version: link:../runtime
 
   packages/codex:
     dependencies:
@@ -38,11 +41,20 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/runtime:
+    dependencies:
+      '@aperture/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/tui:
     dependencies:
       '@aperture/core':
         specifier: workspace:*
         version: link:../core
+      '@aperture/runtime':
+        specifier: workspace:*
+        version: link:../runtime
 
 packages:
 

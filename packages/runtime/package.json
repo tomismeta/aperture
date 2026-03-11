@@ -1,0 +1,28 @@
+{
+  "name": "@aperture/runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/src/runtime-client.d.ts",
+      "default": "./dist/src/runtime-client.js"
+    },
+    "./discovery": {
+      "types": "./dist/src/runtime-discovery.d.ts",
+      "default": "./dist/src/runtime-discovery.js"
+    }
+  },
+  "dependencies": {
+    "@aperture/core": "workspace:*"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  }
+}

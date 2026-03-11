@@ -11,6 +11,7 @@ It translates Claude Code hook payloads into `ConformedEvent` values and transla
 - optional `PostToolUse` mapping
 - `Notification` hook payloads for waiting/input handoff
 - `UserPromptSubmit` hook payloads to clear waiting state
+- `Stop` hook payloads for conversational follow-up handoff
 - local HTTP hook server
 - command-hook shim transport
 - tool-aware risk hints for `Read` / `Write` / `Edit` / `WebSearch` / `Bash`
@@ -18,7 +19,6 @@ It translates Claude Code hook payloads into `ConformedEvent` values and transla
 ## What it does not support yet
 
 - `PermissionRequest`
-- `Stop`
 - transcript parsing
 - session or subagent lifecycle mapping
 
@@ -26,7 +26,11 @@ It translates Claude Code hook payloads into `ConformedEvent` values and transla
 
 - mapping lives in [`packages/claude-code/src/index.ts`](../packages/claude-code/src/index.ts)
 - local HTTP hook server lives in [`packages/claude-code/src/server.ts`](../packages/claude-code/src/server.ts)
-- local Claude quickstart launcher lives in [`scripts/claude-hook-tui.ts`](../scripts/claude-hook-tui.ts)
+- shared Aperture runtime lives in [`packages/runtime/src/runtime.ts`](../packages/runtime/src/runtime.ts)
+- optional TUI runtime client lives in [`packages/runtime/src/runtime-client.ts`](../packages/runtime/src/runtime-client.ts)
+- local runtime discovery lives in [`packages/runtime/src/runtime-discovery.ts`](../packages/runtime/src/runtime-discovery.ts)
+- local Claude runtime launcher lives in [`scripts/claude-hook-server.ts`](../scripts/claude-hook-server.ts)
+- local Claude TUI launcher lives in [`scripts/claude-hook-tui.ts`](../scripts/claude-hook-tui.ts)
 - command-hook forwarder lives in [`scripts/claude-hook-forward.mjs`](../scripts/claude-hook-forward.mjs)
 
 ## Quickstart
@@ -55,18 +59,28 @@ Global plus successful completions:
 pnpm setup:claude-hook --global --include-post-tool-use
 ```
 
-Then start the local hook server and shared terminal attention surface:
+Then start the persistent Claude runtime:
 
 ```bash
-pnpm demo:claude-hook
+pnpm claude:serve
 ```
 
-This listens on `http://127.0.0.1:4545/hook` by default and opens the TUI.
+In another terminal, attach the TUI:
+
+```bash
+pnpm claude:tui
+```
+
+By default:
+
+- Claude hooks POST to `http://127.0.0.1:4545/hook`
+- the TUI attaches to `http://127.0.0.1:4546/runtime`
+- if no explicit runtime URL is set, the TUI auto-discovers live local Claude runtimes from the local runtime registry
 
 If you configured `PostToolUse` too, start the launcher with the matching environment flag:
 
 ```bash
-APERTURE_INCLUDE_POST_TOOL_USE=1 pnpm demo:claude-hook
+APERTURE_INCLUDE_POST_TOOL_USE=1 pnpm claude:serve
 ```
 
 The setup command writes `.claude/settings.local.json` in the target project and preserves existing hooks. The generated command points at the local forwarder in this repo.
@@ -117,6 +131,16 @@ If you prefer to wire it manually, the resulting config shape is:
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /path/to/aperture/scripts/claude-hook-forward.mjs"
+          }
+        ]
+      }
     ]
   }
 }
@@ -129,8 +153,13 @@ Restart Claude Code after editing settings, then use `/hooks` inside Claude Code
 ## Notes
 
 - The forwarder reads the Claude hook payload from stdin and POSTs it to the local Aperture server.
+- The shared Aperture runtime owns `ApertureCore`; the Claude hook server is one ingress into it, and the TUI is an optional client surface.
+- Live Aperture runtimes register themselves locally so the TUI can detect what is up before it connects.
+- If no surface is attached, `PreToolUse` approvals return `ask` immediately instead of waiting on the hold timeout.
+- If a held approval times out, Aperture emits an ambient fallback note so the handoff back to Claude Code is visible.
 - Claude frames are labeled with workspace basename plus a short session token so multiple Claude Code sessions are distinguishable in the TUI.
 - Idle/input notifications show up as focused waiting status so you can see which Claude instance is blocked on you.
+- End-of-turn follow-up questions from Claude can surface through `Stop` when the assistant message actually looks like a question.
 - `pnpm setup:claude-hook --global` writes `~/.claude/settings.json`; the project-level command writes `.claude/settings.local.json`.
 - `Read`, `Grep`, `Glob`, `LS`, and web tools map to low risk; writes default to medium and escalate to high for sensitive paths.
 - Bash commands still use pattern-based risk classification for destructive commands.

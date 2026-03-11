@@ -8,6 +8,8 @@ import {
   type ClaudeCodeHookEvent,
   type ClaudeCodeHookResponse,
   type ClaudeCodeMappingOptions,
+  type ClaudeCodePreToolUseEvent,
+  type ClaudeCodePreToolUseMappedEvent,
 } from "./index.js";
 
 export type ClaudeCodeHookServerOptions = ClaudeCodeMappingOptions & {
@@ -16,6 +18,14 @@ export type ClaudeCodeHookServerOptions = ClaudeCodeMappingOptions & {
   port?: number;
   holdTimeoutMs?: number;
   bodyLimitBytes?: number;
+  preToolUsePolicy?: (
+    event: ClaudeCodePreToolUseEvent,
+    mappedEvent: ClaudeCodePreToolUseMappedEvent,
+  ) => "hold" | "ask";
+  onPreToolUseFallback?: (
+    event: ClaudeCodePreToolUseEvent,
+    reason: "no_surface" | "not_held" | "timed_out",
+  ) => void;
 };
 
 export type ClaudeCodeHookServer = {
@@ -100,8 +110,16 @@ export function createClaudeCodeHookServer(
           return;
         }
 
+        const preToolUsePolicy = options.preToolUsePolicy?.(event, firstMappedEvent);
+        if (preToolUsePolicy === "ask") {
+          options.onPreToolUseFallback?.(event, "no_surface");
+          writeJson(res, 200, askResponse());
+          return;
+        }
+
         core.publishConformed(firstMappedEvent);
         if (!hasInteraction(core, firstMappedEvent.taskId, firstMappedEvent.interactionId)) {
+          options.onPreToolUseFallback?.(event, "not_held");
           writeJson(res, 200, askResponse());
           return;
         }
@@ -111,6 +129,7 @@ export function createClaudeCodeHookServer(
           interactionId: firstMappedEvent.interactionId,
         });
         const timeout = setTimeout(() => {
+          options.onPreToolUseFallback?.(event, "timed_out");
           core.submit({
             taskId: firstMappedEvent.taskId,
             interactionId: firstMappedEvent.interactionId,
@@ -240,7 +259,8 @@ async function readHookEvent(
     parsed.hook_event_name !== "PostToolUse" &&
     parsed.hook_event_name !== "PostToolUseFailure" &&
     parsed.hook_event_name !== "Notification" &&
-    parsed.hook_event_name !== "UserPromptSubmit"
+    parsed.hook_event_name !== "UserPromptSubmit" &&
+    parsed.hook_event_name !== "Stop"
   ) {
     throw new Error(`Unsupported Claude Code hook event: ${parsed.hook_event_name}`);
   }
@@ -320,6 +340,22 @@ async function readHookEvent(
       ...(typeof parsed["permission_mode"] === "string" ? { permission_mode: parsed["permission_mode"] } : {}),
       ...(typeof parsed["transcript_path"] === "string" ? { transcript_path: parsed["transcript_path"] } : {}),
       prompt: parsed.prompt,
+    };
+  }
+
+  if (parsed.hook_event_name === "Stop") {
+    return {
+      session_id: parsed.session_id,
+      cwd: parsed.cwd,
+      hook_event_name: "Stop",
+      ...(typeof parsed["permission_mode"] === "string" ? { permission_mode: parsed["permission_mode"] } : {}),
+      ...(typeof parsed["transcript_path"] === "string" ? { transcript_path: parsed["transcript_path"] } : {}),
+      ...(typeof parsed["stop_hook_active"] === "boolean" ? { stop_hook_active: parsed["stop_hook_active"] } : {}),
+      ...(typeof parsed["stop_reason"] === "string" ? { stop_reason: parsed["stop_reason"] } : {}),
+      ...(typeof parsed["message"] === "string" ? { message: parsed["message"] } : {}),
+      ...(typeof parsed["last_assistant_message"] === "string"
+        ? { last_assistant_message: parsed["last_assistant_message"] }
+        : {}),
     };
   }
 

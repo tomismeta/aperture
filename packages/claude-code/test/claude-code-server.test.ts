@@ -264,6 +264,60 @@ test("user prompt submit clears a waiting notification frame", async () => {
   }
 });
 
+test("publishes stop events with follow-up questions as waiting status", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core);
+  const { url } = await server.listen();
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "Stop",
+        stop_reason: "end_turn",
+        last_assistant_message: "Is there a specific story you'd like me to dig deeper into?",
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {});
+    const frame = core.getAttentionView().active;
+    assert.ok(frame);
+    assert.equal(frame?.title, "Claude is waiting for follow-up");
+  } finally {
+    await server.close();
+  }
+});
+
+test("publishes plain stop events as ambient completion awareness", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core);
+  const { url } = await server.listen();
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "Stop",
+        stop_reason: "end_turn",
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {});
+    assert.equal(core.getAttentionView().active, null);
+    assert.equal(core.getAttentionView().ambient[0]?.title, "Claude completed a turn");
+  } finally {
+    await server.close();
+  }
+});
+
 function sleep(durationMs: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, durationMs);

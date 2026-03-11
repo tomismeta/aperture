@@ -39,7 +39,7 @@ test("marks destructive Bash commands as high consequence", () => {
   assert.equal(bashConsequence("git push origin main"), "medium");
 });
 
-test("ignores unsupported tools by default", () => {
+test("accepts all tools by default", () => {
   const event: ClaudeCodePreToolUseEvent = {
     session_id: "session-1",
     cwd: "/repo",
@@ -49,7 +49,20 @@ test("ignores unsupported tools by default", () => {
     tool_input: {},
   };
 
-  assert.deepEqual(mapClaudeCodeHookEvent(event), []);
+  assert.equal(mapClaudeCodeHookEvent(event).length, 1);
+});
+
+test("filters tools when explicit list is provided", () => {
+  const event: ClaudeCodePreToolUseEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "PreToolUse",
+    tool_name: "Read",
+    tool_use_id: "tool-1",
+    tool_input: {},
+  };
+
+  assert.deepEqual(mapClaudeCodeHookEvent(event, { tools: ["Bash"] }), []);
 });
 
 test("maps PostToolUseFailure hooks into failed task updates", () => {

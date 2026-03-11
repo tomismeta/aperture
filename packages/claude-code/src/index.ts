@@ -63,7 +63,7 @@ export type ClaudeCodeMappingOptions = {
   classifyCommand?: (command: string, event: ClaudeCodePreToolUseEvent) => ConsequenceLevel;
 };
 
-const DEFAULT_TOOLS = ["Bash"];
+const DEFAULT_TOOLS: string[] | undefined = undefined;
 const HIGH_CONSEQUENCE_PATTERNS = [
   /\brm\s+-rf\b/i,
   /\bgit\s+push\s+--force\b/i,
@@ -82,7 +82,7 @@ export function mapClaudeCodeHookEvent(
 
   switch (event.hook_event_name) {
     case "PreToolUse":
-      return tools.includes(event.tool_name) ? [mapPreToolUse(event, options)] : [];
+      return !tools || tools.includes(event.tool_name) ? [mapPreToolUse(event, options)] : [];
     case "PostToolUseFailure":
       return [mapPostToolUseFailure(event)];
     case "PostToolUse":
@@ -141,11 +141,24 @@ function mapPreToolUse(
   event: ClaudeCodePreToolUseEvent,
   options: ClaudeCodeMappingOptions,
 ): ConformedHumanInputRequestedEvent {
-  const command = readString(event.tool_input.command) ?? event.tool_name;
+  const command = readString(event.tool_input.command);
   const classifyCommand = options.classifyCommand ?? bashConsequence;
+  const summary = command ?? toolInputSummary(event);
   const whyNow =
     readString(event.tool_input.description) ??
     `Claude Code requested approval before running ${event.tool_name}.`;
+
+  const contextItems: { id: string; label: string; value: string }[] = [];
+  if (command) {
+    contextItems.push({ id: "command", label: "Command", value: command });
+  } else {
+    contextItems.push(...toolInputContextItems(event));
+  }
+  contextItems.push({ id: "cwd", label: "Working directory", value: event.cwd });
+
+  const consequence: ConsequenceLevel = command
+    ? classifyCommand(command, event)
+    : "medium";
 
   return {
     id: claudeEventId(event, "human.input.requested"),
@@ -154,17 +167,14 @@ function mapPreToolUse(
     interactionId: claudeInteractionId(event.session_id, event.tool_use_id),
     timestamp: new Date().toISOString(),
     source: claudeSource(event.session_id),
-    title: "Approve Bash command",
-    summary: command,
+    title: `Approve ${event.tool_name}`,
+    summary,
     request: {
       kind: "approval",
     },
-    riskHint: classifyCommand(command, event),
+    riskHint: consequence,
     context: {
-      items: [
-        { id: "command", label: "Command", value: command },
-        { id: "cwd", label: "Working directory", value: event.cwd },
-      ],
+      items: contextItems,
     },
     provenance: {
       whyNow,
@@ -262,6 +272,36 @@ function claudeSource(sessionId: string) {
     kind: "claude-code",
     label: "Claude Code",
   };
+}
+
+function toolInputSummary(event: ClaudeCodePreToolUseEvent): string {
+  const input = event.tool_input;
+  // Try common field names across Claude Code tools
+  const filePath = readString(input.file_path) ?? readString(input.path);
+  const pattern = readString(input.pattern);
+  const query = readString(input.query);
+  const url = readString(input.url);
+
+  if (filePath && pattern) return `${pattern} in ${filePath}`;
+  if (filePath) return filePath;
+  if (pattern) return pattern;
+  if (query) return query;
+  if (url) return url;
+  return event.tool_name;
+}
+
+function toolInputContextItems(
+  event: ClaudeCodePreToolUseEvent,
+): { id: string; label: string; value: string }[] {
+  const items: { id: string; label: string; value: string }[] = [];
+  const input = event.tool_input;
+
+  for (const [key, value] of Object.entries(input)) {
+    if (typeof value === "string" && value.length > 0 && value.length < 500) {
+      items.push({ id: key, label: key, value });
+    }
+  }
+  return items;
 }
 
 function readString(value: unknown): string | undefined {

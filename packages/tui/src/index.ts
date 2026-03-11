@@ -791,7 +791,37 @@ function wrapBoxLine(value: string): string {
 
 function padVisible(value: string, width: number): string {
   const visible = visibleLength(value);
-  return visible < width ? `${value}${" ".repeat(width - visible)}` : value;
+  if (visible < width) {
+    return `${value}${" ".repeat(width - visible)}`;
+  }
+  if (visible > width) {
+    return truncateVisible(value, width);
+  }
+  return value;
+}
+
+function truncateVisible(value: string, width: number): string {
+  if (width < 1) return "";
+  let visible = 0;
+  let i = 0;
+  const ansiPattern = /\u001B\[[0-9;]*m/;
+  while (i < value.length && visible < width) {
+    const remaining = value.slice(i);
+    const match = remaining.match(ansiPattern);
+    if (match && match.index === 0) {
+      i += match[0].length;
+      continue;
+    }
+    visible++;
+    i++;
+  }
+  // Collect any trailing ANSI reset sequences
+  const tail = value.slice(i);
+  const trailingAnsi = tail.match(/^(\u001B\[[0-9;]*m)+/);
+  if (trailingAnsi) {
+    return value.slice(0, i) + trailingAnsi[0];
+  }
+  return value.slice(0, i) + ANSI.reset;
 }
 
 function alignLine(left: string, right: string, width: number): string {
@@ -808,7 +838,7 @@ function formatSigned(value: number): string {
 
 function wrapText(value: string, width: number): string[] {
   const normalized = value.trim();
-  if (normalized === "") {
+  if (normalized === "" || width < 1) {
     return [""];
   }
 
@@ -817,18 +847,23 @@ function wrapText(value: string, width: number): string[] {
   let current = "";
 
   for (const word of words) {
-    if (current === "") {
-      current = word;
-      continue;
-    }
+    // Hard-break words that exceed the available width
+    const chunks = hardBreak(word, width);
 
-    if (`${current} ${word}`.length <= width) {
-      current = `${current} ${word}`;
-      continue;
-    }
+    for (const chunk of chunks) {
+      if (current === "") {
+        current = chunk;
+        continue;
+      }
 
-    lines.push(current);
-    current = word;
+      if (`${current} ${chunk}`.length <= width) {
+        current = `${current} ${chunk}`;
+        continue;
+      }
+
+      lines.push(current);
+      current = chunk;
+    }
   }
 
   if (current !== "") {
@@ -836,6 +871,20 @@ function wrapText(value: string, width: number): string[] {
   }
 
   return lines;
+}
+
+function hardBreak(word: string, width: number): string[] {
+  if (word.length <= width) {
+    return [word];
+  }
+
+  const chunks: string[] = [];
+  let offset = 0;
+  while (offset < word.length) {
+    chunks.push(word.slice(offset, offset + width));
+    offset += width;
+  }
+  return chunks;
 }
 
 function visibleLength(value: string): number {

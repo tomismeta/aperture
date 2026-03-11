@@ -109,12 +109,22 @@ export class EvaluationEngine {
       title: event.title,
       summary: event.summary,
       responseSpec,
-      priority: "high",
+      priority: this.priorityForHumanInput(event),
       blocking: true,
       timestamp: event.timestamp,
       ...(event.context !== undefined ? { context: event.context } : {}),
       ...(event.provenance !== undefined ? { provenance: event.provenance } : {}),
     };
+  }
+
+  private priorityForHumanInput(
+    event: HumanInputRequestedEvent,
+  ): InteractionCandidate["priority"] {
+    if (event.request.kind === "approval" && event.consequence === "low") {
+      return "normal";
+    }
+
+    return "high";
   }
 
   private createActions(event: HumanInputRequestedEvent): FrameAction[] {

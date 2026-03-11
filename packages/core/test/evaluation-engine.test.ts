@@ -87,6 +87,28 @@ test("approval requests become blocking approval candidates", () => {
   );
 });
 
+test("low-risk approvals become normal-priority blocking candidates", () => {
+  const result = evaluation.evaluate({
+    id: "evt:approval:read",
+    taskId: "task:1",
+    timestamp: "2026-03-08T12:03:30.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:approval:read",
+    title: "Approve read",
+    summary: "Read src/index.ts",
+    consequence: "low",
+    request: {
+      kind: "approval",
+    },
+  });
+
+  assert.equal(result.kind, "candidate");
+  assert.equal(result.candidate.mode, "approval");
+  assert.equal(result.candidate.blocking, true);
+  assert.equal(result.candidate.priority, "normal");
+  assert.equal(result.candidate.consequence, "low");
+});
+
 test("completed tasks clear current interaction state", () => {
   const result = evaluation.evaluate({
     id: "evt:complete",

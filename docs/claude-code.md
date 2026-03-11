@@ -9,17 +9,18 @@ It translates Claude Code hook payloads into `ConformedEvent` values and transla
 - `PreToolUse` hook payloads
 - `PostToolUseFailure` hook payloads
 - optional `PostToolUse` mapping
+- `Notification` hook payloads for waiting/input handoff
+- `UserPromptSubmit` hook payloads to clear waiting state
 - local HTTP hook server
 - command-hook shim transport
-- Bash command consequence classification
-- generic approval mapping for non-Bash tools
+- tool-aware risk hints for `Read` / `Write` / `Edit` / `WebSearch` / `Bash`
 
 ## What it does not support yet
 
 - `PermissionRequest`
+- `Stop`
 - transcript parsing
 - session or subagent lifecycle mapping
-- tool-specific `Edit` / `Write` / `Read` consequence mapping
 
 ## Current shape
 
@@ -84,6 +85,27 @@ If you prefer to wire it manually, the resulting config shape is:
           }
         ]
       }
+    ],
+    "Notification": [
+      {
+        "matcher": "idle_prompt|elicitation_dialog",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /path/to/aperture/scripts/claude-hook-forward.mjs"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /path/to/aperture/scripts/claude-hook-forward.mjs"
+          }
+        ]
+      }
     ]
   }
 }
@@ -97,5 +119,6 @@ Restart Claude Code after editing settings, then use `/hooks` inside Claude Code
 
 - The forwarder reads the Claude hook payload from stdin and POSTs it to the local Aperture server.
 - Claude frames are labeled with workspace basename plus a short session token so multiple Claude Code sessions are distinguishable in the TUI.
-- Non-Bash tools are currently treated as generic blocking approvals with `medium` consequence.
-- Bash commands still receive the only built-in high-risk classification.
+- Idle/input notifications show up as focused waiting status so you can see which Claude instance is blocked on you.
+- `Read`, `Grep`, `Glob`, `LS`, and web tools map to low risk; writes default to medium and escalate to high for sensitive paths.
+- Bash commands still use pattern-based risk classification for destructive commands.

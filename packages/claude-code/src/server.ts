@@ -238,7 +238,9 @@ async function readHookEvent(
   if (
     parsed.hook_event_name !== "PreToolUse" &&
     parsed.hook_event_name !== "PostToolUse" &&
-    parsed.hook_event_name !== "PostToolUseFailure"
+    parsed.hook_event_name !== "PostToolUseFailure" &&
+    parsed.hook_event_name !== "Notification" &&
+    parsed.hook_event_name !== "UserPromptSubmit"
   ) {
     throw new Error(`Unsupported Claude Code hook event: ${parsed.hook_event_name}`);
   }
@@ -286,6 +288,38 @@ async function readHookEvent(
         ? { tool_input: parsed["tool_input"] as Record<string, unknown> }
         : {}),
       error: parsed["error"],
+    };
+  }
+
+  if (parsed.hook_event_name === "Notification") {
+    if (typeof parsed.message !== "string" || typeof parsed.notification_type !== "string") {
+      throw new Error("Notification hook request is missing required fields");
+    }
+
+    return {
+      session_id: parsed.session_id,
+      cwd: parsed.cwd,
+      hook_event_name: "Notification",
+      ...(typeof parsed["permission_mode"] === "string" ? { permission_mode: parsed["permission_mode"] } : {}),
+      ...(typeof parsed["transcript_path"] === "string" ? { transcript_path: parsed["transcript_path"] } : {}),
+      message: parsed.message,
+      ...(typeof parsed["title"] === "string" ? { title: parsed["title"] } : {}),
+      notification_type: parsed.notification_type as "permission_prompt" | "idle_prompt" | "auth_success" | "elicitation_dialog",
+    };
+  }
+
+  if (parsed.hook_event_name === "UserPromptSubmit") {
+    if (typeof parsed.prompt !== "string") {
+      throw new Error("UserPromptSubmit hook request is missing a prompt");
+    }
+
+    return {
+      session_id: parsed.session_id,
+      cwd: parsed.cwd,
+      hook_event_name: "UserPromptSubmit",
+      ...(typeof parsed["permission_mode"] === "string" ? { permission_mode: parsed["permission_mode"] } : {}),
+      ...(typeof parsed["transcript_path"] === "string" ? { transcript_path: parsed["transcript_path"] } : {}),
+      prompt: parsed.prompt,
     };
   }
 

@@ -3,6 +3,7 @@ import { basename } from "node:path";
 import type {
   ConformedEvent,
   ConformedHumanInputRequestedEvent,
+  ConformedTaskCompletedEvent,
   ConformedTaskUpdatedEvent,
   ConsequenceLevel,
   FrameResponse,
@@ -11,12 +12,16 @@ import type {
 export type ClaudeCodeHookEvent =
   | ClaudeCodePreToolUseEvent
   | ClaudeCodePostToolUseFailureEvent
-  | ClaudeCodePostToolUseEvent;
+  | ClaudeCodePostToolUseEvent
+  | ClaudeCodeNotificationEvent
+  | ClaudeCodeUserPromptSubmitEvent;
 
 export type ClaudeCodeHookEventName =
   | "PreToolUse"
   | "PostToolUseFailure"
-  | "PostToolUse";
+  | "PostToolUse"
+  | "Notification"
+  | "UserPromptSubmit";
 
 export type ClaudeCodeHookBaseEvent = {
   session_id: string;
@@ -47,6 +52,24 @@ export type ClaudeCodePostToolUseEvent = ClaudeCodeHookBaseEvent & {
   tool_use_id: string;
   tool_input?: Record<string, unknown>;
   tool_response?: Record<string, unknown>;
+};
+
+export type ClaudeCodeNotificationType =
+  | "permission_prompt"
+  | "idle_prompt"
+  | "auth_success"
+  | "elicitation_dialog";
+
+export type ClaudeCodeNotificationEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "Notification";
+  message: string;
+  title?: string;
+  notification_type: ClaudeCodeNotificationType;
+};
+
+export type ClaudeCodeUserPromptSubmitEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "UserPromptSubmit";
+  prompt: string;
 };
 
 export type ClaudeCodeHookResponse =
@@ -89,6 +112,10 @@ export function mapClaudeCodeHookEvent(
       return [mapPostToolUseFailure(event)];
     case "PostToolUse":
       return options.includePostToolUse ? [mapPostToolUse(event)] : [];
+    case "Notification":
+      return mapNotification(event);
+    case "UserPromptSubmit":
+      return [mapUserPromptSubmit(event)];
   }
 }
 
@@ -139,12 +166,37 @@ export function bashConsequence(command: string): ConsequenceLevel {
     : "medium";
 }
 
+export function classifyToolRisk(
+  event: ClaudeCodePreToolUseEvent,
+  options: Pick<ClaudeCodeMappingOptions, "classifyCommand"> = {},
+): ConsequenceLevel {
+  const command = readString(event.tool_input.command);
+  const classifyCommand = options.classifyCommand ?? bashConsequence;
+  if (command) {
+    return classifyCommand(command, event);
+  }
+
+  const toolName = event.tool_name.toLowerCase();
+  if (toolName === "read" || toolName === "grep" || toolName === "glob" || toolName === "ls") {
+    return "low";
+  }
+
+  if (toolName === "websearch" || toolName === "web_fetch" || toolName === "webfetch") {
+    return "low";
+  }
+
+  if (toolName === "write" || toolName === "edit" || toolName === "multiedit") {
+    return hasSensitivePath(event) ? "high" : "medium";
+  }
+
+  return "medium";
+}
+
 function mapPreToolUse(
   event: ClaudeCodePreToolUseEvent,
   options: ClaudeCodeMappingOptions,
 ): ConformedHumanInputRequestedEvent {
   const command = readString(event.tool_input.command);
-  const classifyCommand = options.classifyCommand ?? bashConsequence;
   const summary = command ?? toolInputSummary(event);
   const whyNow =
     readString(event.tool_input.description) ??
@@ -158,9 +210,7 @@ function mapPreToolUse(
   }
   contextItems.push({ id: "cwd", label: "Working directory", value: event.cwd });
 
-  const consequence: ConsequenceLevel = command
-    ? classifyCommand(command, event)
-    : "medium";
+  const consequence = classifyToolRisk(event, options);
 
   return {
     id: claudeEventId(event, "human.input.requested"),
@@ -216,6 +266,45 @@ function mapPostToolUse(event: ClaudeCodePostToolUseEvent): ConformedTaskUpdated
   };
 }
 
+function mapNotification(event: ClaudeCodeNotificationEvent): ConformedEvent[] {
+  if (
+    event.notification_type !== "idle_prompt"
+    && event.notification_type !== "elicitation_dialog"
+  ) {
+    return [];
+  }
+
+  const title = event.notification_type === "elicitation_dialog"
+    ? "Claude requested input"
+    : "Claude is waiting for input";
+
+  return [
+    {
+      id: claudeEventId(event, "task.updated"),
+      type: "task.updated",
+      taskId: claudeTaskId(event.session_id),
+      timestamp: new Date().toISOString(),
+      source: claudeSource(event),
+      title,
+      summary: event.title ? `${event.title}: ${event.message}` : event.message,
+      status: "blocked",
+    },
+  ];
+}
+
+function mapUserPromptSubmit(
+  event: ClaudeCodeUserPromptSubmitEvent,
+): ConformedTaskCompletedEvent {
+  return {
+    id: claudeEventId(event, "task.completed"),
+    type: "task.completed",
+    taskId: claudeTaskId(event.session_id),
+    timestamp: new Date().toISOString(),
+    source: claudeSource(event),
+    summary: "Operator replied in Claude Code.",
+  };
+}
+
 function parseClaudeInteractionId(
   interactionId: string,
 ):
@@ -265,7 +354,7 @@ function claudeEventId(
   event: ClaudeCodeHookEvent,
   suffix: string,
 ): string {
-  return `claude-code:${encodeURIComponent(event.session_id)}:${event.hook_event_name}:${encodeURIComponent(event.tool_use_id ?? "none")}:${suffix}`;
+  return `claude-code:${encodeURIComponent(event.session_id)}:${event.hook_event_name}:${encodeURIComponent("tool_use_id" in event ? event.tool_use_id ?? "none" : "none")}:${suffix}`;
 }
 
 function claudeSource(event: Pick<ClaudeCodeHookBaseEvent, "session_id" | "cwd">) {
@@ -323,6 +412,58 @@ function toolInputSummary(event: ClaudeCodePreToolUseEvent): string {
   if (query) return query;
   if (url) return url;
   return event.tool_name;
+}
+
+function hasSensitivePath(event: ClaudeCodePreToolUseEvent): boolean {
+  return collectStringValues(event.tool_input).some((value) => isSensitivePathValue(value, event.cwd));
+}
+
+function isSensitivePathValue(value: string, cwd: string): boolean {
+  const normalized = value.replace(/\\/g, "/");
+  const lower = normalized.toLowerCase();
+  const cwdNormalized = cwd.replace(/\\/g, "/").replace(/[\\/]+$/, "");
+
+  if (lower.includes(".env") || lower.includes(".ssh/") || lower.endsWith("/.ssh")) {
+    return true;
+  }
+
+  if (
+    lower.includes(".github/workflows") ||
+    lower.endsWith("package.json") ||
+    lower.endsWith("pnpm-lock.yaml") ||
+    lower.endsWith("package-lock.json") ||
+    lower.endsWith("yarn.lock") ||
+    lower.endsWith("dockerfile") ||
+    lower.endsWith(".git/config") ||
+    lower.endsWith(".npmrc") ||
+    lower.endsWith(".bashrc") ||
+    lower.endsWith(".zshrc") ||
+    lower.endsWith("tsconfig.json")
+  ) {
+    return true;
+  }
+
+  if (normalized.startsWith("/") && cwdNormalized.length > 0 && !normalized.startsWith(`${cwdNormalized}/`)) {
+    return true;
+  }
+
+  return false;
+}
+
+function collectStringValues(value: unknown): string[] {
+  if (typeof value === "string") {
+    return value.length > 0 ? [value] : [];
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => collectStringValues(item));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.values(value).flatMap((item) => collectStringValues(item));
+  }
+
+  return [];
 }
 
 function toolInputContextItems(

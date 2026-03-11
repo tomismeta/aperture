@@ -194,6 +194,76 @@ test("publishes PostToolUseFailure events and acknowledges immediately", async (
   }
 });
 
+test("publishes idle notifications as waiting status", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core);
+  const { url } = await server.listen();
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "Notification",
+        notification_type: "idle_prompt",
+        title: "Waiting on you",
+        message: "Claude is waiting for your input.",
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {});
+    const frame = core.getAttentionView().active;
+    assert.ok(frame);
+    assert.equal(frame?.title, "Claude is waiting for input");
+    assert.equal(frame?.source?.label, "Claude Code repo #session1");
+  } finally {
+    await server.close();
+  }
+});
+
+test("user prompt submit clears a waiting notification frame", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core);
+  const { url } = await server.listen();
+
+  try {
+    await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "Notification",
+        notification_type: "idle_prompt",
+        message: "Claude is waiting for your input.",
+      }),
+    });
+
+    const active = await waitFor(() => core.getAttentionView().active);
+    assert.ok(active);
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "UserPromptSubmit",
+        prompt: "The site is actively maintained.",
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {});
+    assert.equal(core.getAttentionView().active, null);
+  } finally {
+    await server.close();
+  }
+});
+
 function sleep(durationMs: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, durationMs);

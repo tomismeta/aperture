@@ -58,6 +58,28 @@ test("normalizes medium-risk human input into focused approval semantics", () =>
   }
 });
 
+test("normalizes low-risk human input into focused low-consequence approval semantics", () => {
+  const event: ConformedEvent = {
+    id: "evt:approval",
+    type: "human.input.requested",
+    taskId: "task:1",
+    interactionId: "interaction:1",
+    timestamp,
+    source: source("claude-code"),
+    title: "Approve read",
+    summary: "Read src/index.ts",
+    request: { kind: "approval" },
+    riskHint: "low",
+  };
+
+  const normalized = normalizeConformedEvent(event);
+  assert.equal(normalized.type, "human.input.requested");
+  if (normalized.type === "human.input.requested") {
+    assert.equal(normalized.tone, "focused");
+    assert.equal(normalized.consequence, "low");
+  }
+});
+
 test("uses medium consequence by default when no risk hint is provided", () => {
   const event: ConformedEvent = {
     id: "evt:choice",

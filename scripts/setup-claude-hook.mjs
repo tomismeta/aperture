@@ -3,7 +3,12 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { stderr, stdout, exit } from "node:process";
 
-const EVENT_NAMES = ["PreToolUse", "PostToolUseFailure"];
+const DEFAULT_HOOK_SPECS = [
+  { eventName: "PreToolUse", matcher: "*" },
+  { eventName: "PostToolUseFailure", matcher: "*" },
+  { eventName: "Notification", matcher: "idle_prompt|elicitation_dialog" },
+  { eventName: "UserPromptSubmit" },
+];
 
 async function main() {
   const args = process.argv.slice(2);
@@ -16,9 +21,9 @@ async function main() {
     return;
   }
 
-  const eventNames = includePostToolUse
-    ? [...EVENT_NAMES, "PostToolUse"]
-    : EVENT_NAMES;
+  const hookSpecs = includePostToolUse
+    ? [...DEFAULT_HOOK_SPECS, { eventName: "PostToolUse", matcher: "*" }]
+    : DEFAULT_HOOK_SPECS;
 
   const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
   const targetRoot = resolve(targetArg);
@@ -27,7 +32,7 @@ async function main() {
   const command = `node ${forwarderPath}`;
 
   const settings = await readSettings(settingsPath);
-  const updated = mergeHooks(settings, eventNames, command);
+  const updated = mergeHooks(settings, hookSpecs, command);
 
   await mkdir(dirname(settingsPath), { recursive: true });
   await writeFile(settingsPath, `${JSON.stringify(updated, null, 2)}\n`, "utf8");
@@ -65,12 +70,12 @@ function isMissingFile(error) {
   return Boolean(error) && typeof error === "object" && "code" in error && error.code === "ENOENT";
 }
 
-function mergeHooks(settings, eventNames, command) {
+function mergeHooks(settings, hookSpecs, command) {
   const next = { ...settings };
   const hooks = normalizeHooks(next.hooks);
 
-  for (const eventName of eventNames) {
-    hooks[eventName] = ensureCommandHook(hooks[eventName], command);
+  for (const hookSpec of hookSpecs) {
+    hooks[hookSpec.eventName] = ensureCommandHook(hooks[hookSpec.eventName], command, hookSpec.matcher);
   }
 
   next.hooks = hooks;
@@ -89,26 +94,26 @@ function normalizeHooks(value) {
   return { ...value };
 }
 
-function ensureCommandHook(existing, command) {
+function ensureCommandHook(existing, command, matcher) {
   const entries = Array.isArray(existing) ? existing.map(cloneEntry) : [];
   const hook = { type: "command", command };
 
   for (const entry of entries) {
-    if (hasCommand(entry, command)) {
+    if (hasCommand(entry, command) && sameMatcher(entry.matcher, matcher)) {
       return entries;
     }
   }
 
-  const wildcardEntry = entries.find((entry) => entry.matcher === "*" && Array.isArray(entry.hooks));
-  if (wildcardEntry) {
-    wildcardEntry.hooks.push(hook);
+  const matchedEntry = entries.find((entry) => sameMatcher(entry.matcher, matcher) && Array.isArray(entry.hooks));
+  if (matchedEntry) {
+    matchedEntry.hooks.push(hook);
     return entries;
   }
 
-  entries.push({
-    matcher: "*",
-    hooks: [hook],
-  });
+  const nextEntry = matcher !== undefined
+    ? { matcher, hooks: [hook] }
+    : { hooks: [hook] };
+  entries.push(nextEntry);
 
   return entries;
 }
@@ -118,11 +123,10 @@ function cloneEntry(entry) {
     throw new Error("hook entries must be objects");
   }
 
-  const matcher = typeof entry.matcher === "string" ? entry.matcher : "*";
   const hooks = Array.isArray(entry.hooks) ? entry.hooks.map(cloneHook) : [];
   return {
     ...entry,
-    matcher,
+    ...(typeof entry.matcher === "string" ? { matcher: entry.matcher } : {}),
     hooks,
   };
 }
@@ -145,6 +149,10 @@ function hasCommand(entry, command) {
         && hook.type === "command"
         && hook.command === command,
     );
+}
+
+function sameMatcher(left, right) {
+  return (left ?? null) === (right ?? null);
 }
 
 main().catch((error) => {

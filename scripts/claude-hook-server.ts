@@ -2,7 +2,7 @@ import { stderr } from "node:process";
 
 import type { ClaudeCodePreToolUseEvent } from "../packages/claude-code/src/index.ts";
 import { createClaudeCodeHookServer } from "../packages/claude-code/src/server.ts";
-import { createApertureRuntime } from "../packages/runtime/src/index.ts";
+import { ApertureRuntimeAdapterClient, createApertureRuntime } from "../packages/runtime/src/index.ts";
 
 async function main(): Promise<void> {
   const host = process.env.APERTURE_CLAUDE_HOST ?? "127.0.0.1";
@@ -23,8 +23,16 @@ async function main(): Promise<void> {
     },
   });
   const runtimeBinding = await runtime.listen();
+  const adapterClient = await ApertureRuntimeAdapterClient.connect({
+    baseUrl: runtimeBinding.controlUrl,
+    kind: "claude-code",
+    label: "Claude Code hook server",
+    metadata: {
+      transport: "hook-server",
+    },
+  });
 
-  const hookServer = createClaudeCodeHookServer(runtime.getCore(), {
+  const hookServer = createClaudeCodeHookServer(adapterClient, {
     host,
     port,
     path,
@@ -33,7 +41,7 @@ async function main(): Promise<void> {
     preToolUsePolicy: () => (runtime.hasAttachedSurface() ? "hold" : "ask"),
     onPreToolUseFallback: (event, reason) => {
       if (reason === "timed_out" || reason === "not_held") {
-        runtime.getCore().publishConformed(claudeApprovalFallbackEvent(event, reason));
+        void adapterClient.publishConformed(claudeApprovalFallbackEvent(event, reason));
       }
     },
   });
@@ -47,6 +55,7 @@ async function main(): Promise<void> {
     process.off("SIGINT", onSignal);
     process.off("SIGTERM", onSignal);
     await hookServer.close();
+    await adapterClient.close();
     await runtime.close();
     process.exit(0);
   };

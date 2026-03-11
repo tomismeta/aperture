@@ -14,6 +14,10 @@
       "types": "./dist/src/runtime-client.d.ts",
       "default": "./dist/src/runtime-client.js"
     },
+    "./adapter": {
+      "types": "./dist/src/adapter-client.d.ts",
+      "default": "./dist/src/adapter-client.js"
+    },
     "./discovery": {
       "types": "./dist/src/runtime-discovery.d.ts",
       "default": "./dist/src/runtime-discovery.js"

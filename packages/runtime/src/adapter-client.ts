@@ -1,29 +1,40 @@
 import type {
-  AttentionState,
   AttentionView,
+  ConformedEvent,
   FrameResponse,
-  SignalSummary,
 } from "@aperture/core";
 
 import type { ApertureRuntimeEvent, ApertureRuntimeSnapshot } from "./runtime.js";
 
-export type ApertureRuntimeClientOptions = {
+export type ApertureRuntimeAdapterClientOptions = {
   baseUrl: string;
-  pollIntervalMs?: number;
+  kind: string;
+  id?: string;
   label?: string;
+  heartbeatIntervalMs?: number;
+  pollIntervalMs?: number;
+  metadata?: Record<string, string>;
 };
 
-type AttentionViewListener = (attentionView: AttentionView) => void;
 type ResponseListener = (response: FrameResponse) => void;
 
+const DEFAULT_HEARTBEAT_INTERVAL_MS = 5_000;
 const DEFAULT_POLL_INTERVAL_MS = 250;
 
-export class ApertureRuntimeClient {
+export class ApertureRuntimeAdapterClient {
   private readonly baseUrl: string;
+  private readonly kind: string;
+  private readonly requestedId: string | undefined;
+  private readonly label: string | undefined;
+  private readonly requestedHeartbeatIntervalMs: number;
   private readonly pollIntervalMs: number;
-  private readonly label: string;
-  private readonly attentionListeners = new Set<AttentionViewListener>();
+  private readonly metadata: Record<string, string> | undefined;
   private readonly responseListeners = new Set<ResponseListener>();
+  private adapterId: string | null = null;
+  private heartbeatIntervalId: NodeJS.Timeout | null = null;
+  private pollIntervalId: NodeJS.Timeout | null = null;
+  private nextSequence = 0;
+  private closed = false;
   private snapshotState: ApertureRuntimeSnapshot = {
     attentionView: { active: null, queued: [], ambient: [] },
     signalSummary: {
@@ -56,42 +67,28 @@ export class ApertureRuntimeClient {
     adapters: [],
     surfaceCount: 0,
   };
-  private surfaceId: string | null = null;
-  private heartbeatIntervalId: NodeJS.Timeout | null = null;
-  private pollIntervalId: NodeJS.Timeout | null = null;
-  private nextSequence = 0;
-  private closed = false;
 
-  private constructor(options: ApertureRuntimeClientOptions) {
+  private constructor(options: ApertureRuntimeAdapterClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
+    this.kind = options.kind;
+    this.requestedId = options.id;
+    this.label = options.label;
+    this.requestedHeartbeatIntervalMs =
+      options.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS;
     this.pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
-    this.label = options.label ?? "tui";
+    this.metadata = options.metadata;
   }
 
-  static async connect(options: ApertureRuntimeClientOptions): Promise<ApertureRuntimeClient> {
-    const client = new ApertureRuntimeClient(options);
+  static async connect(
+    options: ApertureRuntimeAdapterClientOptions,
+  ): Promise<ApertureRuntimeAdapterClient> {
+    const client = new ApertureRuntimeAdapterClient(options);
     await client.initialize();
     return client;
   }
 
   getAttentionView(): AttentionView {
     return this.snapshotState.attentionView;
-  }
-
-  getSignalSummary(): SignalSummary {
-    return this.snapshotState.signalSummary;
-  }
-
-  getAttentionState(): AttentionState {
-    return this.snapshotState.attentionState;
-  }
-
-  subscribeAttentionView(listener: AttentionViewListener): () => void {
-    this.attentionListeners.add(listener);
-    listener(this.snapshotState.attentionView);
-    return () => {
-      this.attentionListeners.delete(listener);
-    };
   }
 
   onResponse(listener: ResponseListener): () => void {
@@ -101,43 +98,64 @@ export class ApertureRuntimeClient {
     };
   }
 
-  submit(response: FrameResponse): void {
-    void this.post("/responses", response)
-      .then(() => this.refreshState())
-      .catch(() => {});
+  async publishConformed(event: ConformedEvent): Promise<void> {
+    await this.post("/events/conformed", { event });
+    await this.refreshState();
+  }
+
+  async publishConformedBatch(events: ConformedEvent[]): Promise<void> {
+    if (events.length === 0) {
+      return;
+    }
+    await this.post("/events/conformed", { events });
+    await this.refreshState();
+  }
+
+  async submit(response: FrameResponse): Promise<void> {
+    await this.post("/responses", response);
+    await this.refreshState();
   }
 
   async close(): Promise<void> {
     this.closed = true;
-    if (this.pollIntervalId) {
-      clearInterval(this.pollIntervalId);
-      this.pollIntervalId = null;
-    }
     if (this.heartbeatIntervalId) {
       clearInterval(this.heartbeatIntervalId);
       this.heartbeatIntervalId = null;
     }
-    if (this.surfaceId) {
-      await fetch(`${this.baseUrl}/surfaces/${encodeURIComponent(this.surfaceId)}`, {
+    if (this.pollIntervalId) {
+      clearInterval(this.pollIntervalId);
+      this.pollIntervalId = null;
+    }
+    if (this.adapterId) {
+      await fetch(`${this.baseUrl}/adapters/${encodeURIComponent(this.adapterId)}`, {
         method: "DELETE",
       }).catch(() => {});
-      this.surfaceId = null;
+      this.adapterId = null;
     }
   }
 
   private async initialize(): Promise<void> {
-    const attach = await this.post<{ surfaceId: string; heartbeatIntervalMs: number }>(
-      "/surfaces/attach",
-      { label: this.label },
+    const attach = await this.post<{ adapterId: string; heartbeatIntervalMs: number }>(
+      "/adapters/register",
+      {
+        kind: this.kind,
+        ...(this.requestedId ? { id: this.requestedId } : {}),
+        ...(this.label ? { label: this.label } : {}),
+        ...(this.metadata ? { metadata: this.metadata } : {}),
+      },
     );
-    this.surfaceId = attach.surfaceId;
+    this.adapterId = attach.adapterId;
     await this.refreshState();
+    const heartbeatMs = Math.min(
+      attach.heartbeatIntervalMs,
+      Math.max(1_000, this.requestedHeartbeatIntervalMs),
+    );
     this.heartbeatIntervalId = setInterval(() => {
-      if (!this.surfaceId || this.closed) {
+      if (!this.adapterId || this.closed) {
         return;
       }
-      void this.post(`/surfaces/${encodeURIComponent(this.surfaceId)}/heartbeat`, {}).catch(() => {});
-    }, attach.heartbeatIntervalMs);
+      void this.post(`/adapters/${encodeURIComponent(this.adapterId)}/heartbeat`, {}).catch(() => {});
+    }, heartbeatMs);
     this.pollIntervalId = setInterval(() => {
       void this.poll().catch(() => {});
     }, this.pollIntervalMs);
@@ -162,14 +180,7 @@ export class ApertureRuntimeClient {
   }
 
   private async refreshState(): Promise<void> {
-    const snapshot = await this.get<ApertureRuntimeSnapshot>("/state");
-    const previous = this.snapshotState.attentionView;
-    this.snapshotState = snapshot;
-    if (!sameAttentionView(previous, snapshot.attentionView)) {
-      for (const listener of this.attentionListeners) {
-        listener(snapshot.attentionView);
-      }
-    }
+    this.snapshotState = await this.get<ApertureRuntimeSnapshot>("/state");
   }
 
   private async get<T>(path: string): Promise<T> {
@@ -193,8 +204,4 @@ export class ApertureRuntimeClient {
     }
     return response.json() as Promise<T>;
   }
-}
-
-function sameAttentionView(left: AttentionView, right: AttentionView): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
 }

@@ -1,11 +1,13 @@
 export {
   createApertureRuntime,
+  type ApertureRuntimeAdapter,
   type ApertureRuntime,
   type ApertureRuntimeEvent,
   type ApertureRuntimeOptions,
   type ApertureRuntimeSnapshot,
 } from "./runtime.js";
 export { ApertureRuntimeClient, type ApertureRuntimeClientOptions } from "./runtime-client.js";
+export { ApertureRuntimeAdapterClient, type ApertureRuntimeAdapterClientOptions } from "./adapter-client.js";
 export {
   discoverLocalRuntimes,
   removeLocalRuntimeRegistration,

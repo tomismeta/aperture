@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
-import { ApertureCore, type FrameResponse } from "@aperture/core";
+import type { AttentionView, ConformedEvent, FrameResponse } from "@aperture/core";
 
 import {
   mapClaudeCodeFrameResponse,
@@ -45,8 +45,15 @@ type PendingDecision = {
   timeout: NodeJS.Timeout;
 };
 
+type ClaudeCodeEventHost = {
+  publishConformed(event: ConformedEvent): unknown | Promise<unknown>;
+  submit(response: FrameResponse): unknown | Promise<unknown>;
+  getAttentionView(): AttentionView;
+  onResponse(listener: (response: FrameResponse) => void): () => void;
+};
+
 export function createClaudeCodeHookServer(
-  core: ApertureCore,
+  hostClient: ClaudeCodeEventHost,
   options: ClaudeCodeHookServerOptions = {},
 ): ClaudeCodeHookServer {
   const host = options.host ?? DEFAULT_HOST;
@@ -56,7 +63,7 @@ export function createClaudeCodeHookServer(
   const bodyLimitBytes = options.bodyLimitBytes ?? DEFAULT_BODY_LIMIT_BYTES;
   const pending = new Map<string, PendingDecision>();
 
-  const unsubscribe = core.onResponse((response) => {
+  const unsubscribe = hostClient.onResponse((response) => {
     const key = pendingKey(response);
     const decision = pending.get(key);
     if (!decision) {
@@ -117,8 +124,8 @@ export function createClaudeCodeHookServer(
           return;
         }
 
-        core.publishConformed(firstMappedEvent);
-        if (!hasInteraction(core, firstMappedEvent.taskId, firstMappedEvent.interactionId)) {
+        await hostClient.publishConformed(firstMappedEvent);
+        if (!hasInteraction(hostClient.getAttentionView(), firstMappedEvent.taskId, firstMappedEvent.interactionId)) {
           options.onPreToolUseFallback?.(event, "not_held");
           writeJson(res, 200, askResponse());
           return;
@@ -130,7 +137,7 @@ export function createClaudeCodeHookServer(
         });
         const timeout = setTimeout(() => {
           options.onPreToolUseFallback?.(event, "timed_out");
-          core.submit({
+          void hostClient.submit({
             taskId: firstMappedEvent.taskId,
             interactionId: firstMappedEvent.interactionId,
             response: { kind: "dismissed" },
@@ -147,7 +154,7 @@ export function createClaudeCodeHookServer(
       }
 
       for (const apertureEvent of mapped) {
-        core.publishConformed(apertureEvent);
+        await hostClient.publishConformed(apertureEvent);
       }
 
       writeJson(res, 200, {});
@@ -392,11 +399,14 @@ function writeJson(
   res.end(JSON.stringify(body));
 }
 
-function hasInteraction(core: ApertureCore, taskId: string, interactionId: string): boolean {
-  const taskView = core.getTaskView(taskId);
+function hasInteraction(
+  attentionView: AttentionView,
+  taskId: string,
+  interactionId: string,
+): boolean {
   return (
-    taskView.active?.interactionId === interactionId ||
-    taskView.queued.some((frame) => frame.interactionId === interactionId) ||
-    taskView.ambient.some((frame) => frame.interactionId === interactionId)
+    (attentionView.active?.taskId === taskId && attentionView.active.interactionId === interactionId) ||
+    attentionView.queued.some((frame) => frame.taskId === taskId && frame.interactionId === interactionId) ||
+    attentionView.ambient.some((frame) => frame.taskId === taskId && frame.interactionId === interactionId)
   );
 }

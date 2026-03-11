@@ -5,6 +5,7 @@ import {
   ApertureCore,
   type AttentionState,
   type AttentionView,
+  type ConformedEvent,
   type FrameResponse,
   type SignalSummary,
 } from "@aperture/core";
@@ -20,6 +21,7 @@ export type ApertureRuntimeOptions = {
   controlPathPrefix?: string;
   controlPort?: number;
   eventLogLimit?: number;
+  adapterTtlMs?: number;
   surfaceTtlMs?: number;
   metadata?: Record<string, string>;
 };
@@ -35,7 +37,17 @@ export type ApertureRuntimeSnapshot = {
   attentionView: AttentionView;
   signalSummary: SignalSummary;
   attentionState: AttentionState;
+  adapters: ApertureRuntimeAdapter[];
   surfaceCount: number;
+};
+
+export type ApertureRuntimeAdapter = {
+  id: string;
+  kind: string;
+  label?: string;
+  metadata?: Record<string, string>;
+  lastSeenAt: string;
+  connectedAt: string;
 };
 
 export type ApertureRuntime = {
@@ -48,6 +60,8 @@ export type ApertureRuntime = {
   close(): Promise<void>;
   getCore(): ApertureCore;
   hasAttachedSurface(): boolean;
+  publishConformed(event: ConformedEvent): void;
+  publishConformedBatch(events: ConformedEvent[]): void;
 };
 
 type SurfaceSession = {
@@ -56,10 +70,20 @@ type SurfaceSession = {
   label?: string;
 };
 
+type AdapterSession = {
+  id: string;
+  kind: string;
+  lastSeenAt: number;
+  connectedAt: string;
+  label?: string;
+  metadata?: Record<string, string>;
+};
+
 const DEFAULT_KIND = "aperture";
 const DEFAULT_CONTROL_HOST = "127.0.0.1";
 const DEFAULT_CONTROL_PATH_PREFIX = "/runtime";
 const DEFAULT_EVENT_LOG_LIMIT = 128;
+const DEFAULT_ADAPTER_TTL_MS = 30_000;
 const DEFAULT_SURFACE_TTL_MS = 15_000;
 const REGISTRATION_HEARTBEAT_MS = 5_000;
 
@@ -74,9 +98,11 @@ export function createApertureRuntime(
     options.controlPathPrefix ?? DEFAULT_CONTROL_PATH_PREFIX,
   );
   const eventLogLimit = options.eventLogLimit ?? DEFAULT_EVENT_LOG_LIMIT;
+  const adapterTtlMs = options.adapterTtlMs ?? DEFAULT_ADAPTER_TTL_MS;
   const surfaceTtlMs = options.surfaceTtlMs ?? DEFAULT_SURFACE_TTL_MS;
   const runtimeId = randomUUID();
   const startedAt = new Date().toISOString();
+  const adapters = new Map<string, AdapterSession>();
   const surfaces = new Map<string, SurfaceSession>();
   const events: ApertureRuntimeEvent[] = [];
   let sequence = 0;
@@ -102,6 +128,7 @@ export function createApertureRuntime(
       }
 
       pruneSurfaces();
+      pruneAdapters();
       const url = new URL(req.url, `http://${controlHost}`);
       const path = url.pathname;
 
@@ -110,6 +137,7 @@ export function createApertureRuntime(
           ok: true,
           runtimeId,
           kind,
+          adapterCount: adapters.size,
           surfaceCount: surfaces.size,
           metadata: options.metadata ?? {},
         });
@@ -133,6 +161,69 @@ export function createApertureRuntime(
       if (req.method === "POST" && path === `${controlPathPrefix}/responses`) {
         const response = (await readJson(req)) as FrameResponse;
         core.submit(response);
+        writeJson(res, 200, {});
+        return;
+      }
+
+      if (req.method === "POST" && path === `${controlPathPrefix}/events/conformed`) {
+        const payload = (await readJson(req)) as { event?: ConformedEvent; events?: ConformedEvent[] } | ConformedEvent;
+        const events = normalizeConformedPayload(payload);
+        for (const event of events) {
+          core.publishConformed(event);
+        }
+        writeJson(res, 200, { published: events.length });
+        return;
+      }
+
+      if (req.method === "POST" && path === `${controlPathPrefix}/adapters/register`) {
+        const payload = (await readJson(req)) as {
+          id?: string;
+          kind: string;
+          label?: string;
+          metadata?: Record<string, string>;
+        };
+        if (typeof payload.kind !== "string" || payload.kind.trim() === "") {
+          throw new Error("adapter registration requires a non-empty kind");
+        }
+        const adapterId = payload.id?.trim() || randomUUID();
+        const connectedAt = new Date().toISOString();
+        adapters.set(adapterId, {
+          id: adapterId,
+          kind: payload.kind,
+          lastSeenAt: Date.now(),
+          connectedAt,
+          ...(payload.label ? { label: payload.label } : {}),
+          ...(payload.metadata ? { metadata: payload.metadata } : {}),
+        });
+        writeJson(res, 200, {
+          adapterId,
+          heartbeatIntervalMs: Math.max(1_000, Math.floor(adapterTtlMs / 3)),
+          expiresAt: new Date(Date.now() + adapterTtlMs).toISOString(),
+        });
+        return;
+      }
+
+      const adapterHeartbeatMatch = path.match(
+        new RegExp(`^${escapeRegExp(controlPathPrefix)}/adapters/([^/]+)/heartbeat$`),
+      );
+      if (req.method === "POST" && adapterHeartbeatMatch?.[1]) {
+        const adapterId = decodeURIComponent(adapterHeartbeatMatch[1]);
+        const adapter = adapters.get(adapterId);
+        if (!adapter) {
+          writeJson(res, 404, { error: "unknown adapter" });
+          return;
+        }
+        adapter.lastSeenAt = Date.now();
+        writeJson(res, 200, {});
+        return;
+      }
+
+      const adapterDetachMatch = path.match(
+        new RegExp(`^${escapeRegExp(controlPathPrefix)}/adapters/([^/]+)$`),
+      );
+      if (req.method === "DELETE" && adapterDetachMatch?.[1]) {
+        const adapterId = decodeURIComponent(adapterDetachMatch[1]);
+        adapters.delete(adapterId);
         writeJson(res, 200, {});
         return;
       }
@@ -247,6 +338,14 @@ export function createApertureRuntime(
       pruneSurfaces();
       return surfaces.size > 0;
     },
+    publishConformed(event) {
+      core.publishConformed(event);
+    },
+    publishConformedBatch(events) {
+      for (const event of events) {
+        core.publishConformed(event);
+      }
+    },
   };
 
   function pruneSurfaces(): void {
@@ -258,11 +357,30 @@ export function createApertureRuntime(
     }
   }
 
+  function pruneAdapters(): void {
+    const cutoff = Date.now() - adapterTtlMs;
+    for (const [adapterId, adapter] of adapters.entries()) {
+      if (adapter.lastSeenAt < cutoff) {
+        adapters.delete(adapterId);
+      }
+    }
+  }
+
   function snapshot(): ApertureRuntimeSnapshot {
     return {
       attentionView: core.getAttentionView(),
       signalSummary: core.getSignalSummary(),
       attentionState: core.getAttentionState(),
+      adapters: [...adapters.values()]
+        .sort((left, right) => right.lastSeenAt - left.lastSeenAt)
+        .map((adapter) => ({
+          id: adapter.id,
+          kind: adapter.kind,
+          ...(adapter.label ? { label: adapter.label } : {}),
+          ...(adapter.metadata ? { metadata: adapter.metadata } : {}),
+          lastSeenAt: new Date(adapter.lastSeenAt).toISOString(),
+          connectedAt: adapter.connectedAt,
+        })),
       surfaceCount: surfaces.size,
     };
   }
@@ -278,6 +396,20 @@ export function createApertureRuntime(
       ...(options.metadata ? { metadata: options.metadata } : {}),
     });
   }
+}
+
+function normalizeConformedPayload(
+  payload: { event?: ConformedEvent; events?: ConformedEvent[] } | ConformedEvent,
+): ConformedEvent[] {
+  if (Array.isArray((payload as { events?: ConformedEvent[] }).events)) {
+    return (payload as { events: ConformedEvent[] }).events;
+  }
+
+  if ((payload as { event?: ConformedEvent }).event) {
+    return [(payload as { event: ConformedEvent }).event];
+  }
+
+  return [payload as ConformedEvent];
 }
 
 function normalizePathPrefix(pathPrefix: string): string {

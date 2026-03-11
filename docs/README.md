@@ -19,5 +19,6 @@ These are the docs intended to ship with the first public GitHub version of Aper
 Everything in this set matches the current engine-first product:
 
 - a small attention engine in `@aperture/core`
-- Claude Code, Paperclip, and Codex adapters as real ingress/egress paths
+- a shared local host in `@aperture/runtime`
+- Claude Code, Paperclip, and Codex adapters as real adapter paths into that host
 - a source-agnostic TUI as the primary companion surface

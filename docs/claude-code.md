@@ -1,8 +1,14 @@
 # Claude Code Adapter
 
-`@aperture/claude-code` is an optional adapter for [`@aperture/core`](../packages/core/src/index.ts).
+`@aperture/claude-code` is an optional adapter for Aperture.
 
 It translates Claude Code hook payloads into `ConformedEvent` values and translates `FrameResponse` values back into Claude Code hook responses.
+
+In the current product shape, the intended operational path is:
+
+- `@aperture/runtime` owns the live `ApertureCore`
+- `@aperture/claude-code` feeds Claude hook events into that runtime
+- `@aperture/tui` attaches as a surface
 
 ## What it supports today
 
@@ -34,6 +40,10 @@ It translates Claude Code hook payloads into `ConformedEvent` values and transla
 - command-hook forwarder lives in [`scripts/claude-hook-forward.mjs`](../scripts/claude-hook-forward.mjs)
 
 ## Quickstart
+
+This quickstart is for the second main Aperture use case:
+
+- use the shared Aperture runtime, TUI, and Claude adapter to manage live Claude Code workload
 
 Write Claude Code hook configuration into a target project:
 
@@ -75,7 +85,7 @@ By default:
 
 - Claude hooks POST to `http://127.0.0.1:4545/hook`
 - the TUI attaches to `http://127.0.0.1:4546/runtime`
-- if no explicit runtime URL is set, the TUI auto-discovers live local Claude runtimes from the local runtime registry
+- if no explicit runtime URL is set, the TUI auto-discovers live local Aperture runtimes from the local runtime registry
 
 If you configured `PostToolUse` too, start the launcher with the matching environment flag:
 

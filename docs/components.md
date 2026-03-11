@@ -6,7 +6,7 @@ The intent is simple:
 
 - keep the public product surface small
 - keep internal engine pieces clear
-- separate the engine from adapters and the companion surface
+- separate the engine from the shared runtime, adapters, and companion surfaces
 
 ## Classification
 
@@ -16,7 +16,7 @@ These are part of Aperture itself.
 
 #### `ApertureCore`
 
-- Classification: runtime facade
+- Classification: engine facade
 - Lives in [packages/core/src/aperture-core.ts](../packages/core/src/aperture-core.ts)
 - Purpose: the main engine entrypoint
 - Owns:
@@ -35,6 +35,27 @@ These are part of Aperture itself.
   - rendering
   - transport protocols
   - persistence beyond in-memory state
+
+#### `@aperture/runtime`
+
+- Classification: shared host
+- Lives in:
+  - [packages/runtime/src/runtime.ts](../packages/runtime/src/runtime.ts)
+  - [packages/runtime/src/runtime-client.ts](../packages/runtime/src/runtime-client.ts)
+  - [packages/runtime/src/adapter-client.ts](../packages/runtime/src/adapter-client.ts)
+  - [packages/runtime/src/runtime-discovery.ts](../packages/runtime/src/runtime-discovery.ts)
+- Purpose: own one live `ApertureCore` instance and expose source-agnostic APIs for adapters and surfaces
+- Owns:
+  - one shared `ApertureCore`
+  - runtime control API
+  - adapter registration and liveness
+  - conformed-event ingestion
+  - surface attachment and response routing
+  - local runtime discovery
+- Does not own:
+  - source-specific mapping
+  - rendering
+  - semantic policy beyond what `ApertureCore` already decides
 
 #### `ApertureEvent`
 
@@ -210,7 +231,7 @@ Skip adapters when:
 
 - Classification: source adapter
 - Lives in [packages/codex/src/index.ts](../packages/codex/src/index.ts)
-- Purpose: translate Codex app-server approval and user-input requests into `ConformedEvent`, and translate `FrameResponse` back into Codex response descriptors
+- Purpose: translate Codex app-server approval and user-input requests into `ConformedEvent`, translate `FrameResponse` back into Codex response descriptors, and optionally publish through `@aperture/runtime`
 - Owns:
   - Codex ingress mapping
   - Codex return-path mapping
@@ -225,7 +246,7 @@ Skip adapters when:
 - Lives in:
   - [packages/claude-code/src/index.ts](../packages/claude-code/src/index.ts)
   - [packages/claude-code/src/server.ts](../packages/claude-code/src/server.ts)
-- Purpose: translate Claude Code hook payloads into `ConformedEvent`, translate `FrameResponse` back into Claude Code hook responses, and optionally host a local HTTP hook endpoint for Claude Code
+- Purpose: translate Claude Code hook payloads into `ConformedEvent`, translate `FrameResponse` back into Claude Code hook responses, and optionally host a local HTTP hook endpoint that talks to `@aperture/runtime`
 - Owns:
   - Claude Code ingress mapping
   - Claude Code return-path mapping
@@ -239,7 +260,7 @@ Skip adapters when:
 
 - Classification: source adapter
 - Lives in [packages/paperclip/src/index.ts](../packages/paperclip/src/index.ts)
-- Purpose: translate Paperclip live events into `ConformedEvent` and translate `FrameResponse` back into Paperclip actions
+- Purpose: translate Paperclip live events into `ConformedEvent` and translate `FrameResponse` back into Paperclip actions, with optional publishing through `@aperture/runtime`
 - Owns:
   - Paperclip ingress mapping
   - Paperclip return-path mapping
@@ -254,7 +275,7 @@ Skip adapters when:
 
 - Classification: surface package
 - Lives in [packages/tui/src/index.ts](../packages/tui/src/index.ts)
-- Purpose: provide a persistent terminal-native attention surface above `@aperture/core`
+- Purpose: provide a persistent terminal-native attention surface above `@aperture/core` or the shared `@aperture/runtime`
 - Owns:
   - full-screen terminal rendering
   - keyboard-driven `FrameResponse` submission

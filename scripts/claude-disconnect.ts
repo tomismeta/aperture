@@ -1,7 +1,11 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { stderr, stdout } from "node:process";
 import { fileURLToPath } from "node:url";
-import { stderr, stdout, exit } from "node:process";
+
+type JsonObject = Record<string, unknown>;
+type HookDefinition = { type: string; command?: string } & Record<string, unknown>;
+type HookEntry = { matcher?: string; hooks: HookDefinition[] } & Record<string, unknown>;
 
 const HOOK_EVENT_NAMES = [
   "PreToolUse",
@@ -12,7 +16,7 @@ const HOOK_EVENT_NAMES = [
   "Stop",
 ];
 
-async function main() {
+async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const global = args.includes("--global") || args.includes("-g");
   const targetArg = args.find((arg) => !arg.startsWith("--"));
@@ -20,17 +24,17 @@ async function main() {
   if (!global && !targetArg) {
     stderr.write("Usage: pnpm claude:disconnect /path/to/project\n");
     stderr.write("   or: pnpm claude:disconnect --global\n");
-    exit(1);
-    return;
+    process.exit(1);
   }
 
   const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
   const targetRoot = targetArg ? resolve(targetArg) : null;
   const settingsPath = global
     ? resolve(process.env.HOME ?? "~", ".claude", "settings.json")
-    : resolve(targetRoot, ".claude", "settings.local.json");
-  const forwarderPath = resolve(repoRoot, "scripts", "claude-forward.mjs");
-  const command = `node ${forwarderPath}`;
+    : resolve(targetRoot ?? ".", ".claude", "settings.local.json");
+  const forwarderPath = resolve(repoRoot, "scripts", "claude-forward.ts");
+  const tsxPath = resolve(repoRoot, "node_modules", ".bin", "tsx");
+  const command = `${shellQuote(tsxPath)} ${shellQuote(forwarderPath)}`;
 
   const settings = await readSettings(settingsPath);
   const updated = removeHooks(settings, command);
@@ -43,14 +47,14 @@ async function main() {
   stdout.write(`Restart Claude Code${global ? "" : " in the target project"}.\n`);
 }
 
-async function readSettings(settingsPath) {
+async function readSettings(settingsPath: string): Promise<JsonObject> {
   try {
     const raw = await readFile(settingsPath, "utf8");
-    const parsed = JSON.parse(raw);
+    const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       throw new Error("settings must be a JSON object");
     }
-    return parsed;
+    return parsed as JsonObject;
   } catch (error) {
     if (isMissingFile(error)) {
       return {};
@@ -61,11 +65,11 @@ async function readSettings(settingsPath) {
   }
 }
 
-function isMissingFile(error) {
+function isMissingFile(error: unknown): boolean {
   return Boolean(error) && typeof error === "object" && "code" in error && error.code === "ENOENT";
 }
 
-function removeHooks(settings, command) {
+function removeHooks(settings: JsonObject, command: string): JsonObject {
   const next = { ...settings };
   const hooks = normalizeHooks(next.hooks);
 
@@ -102,7 +106,7 @@ function removeHooks(settings, command) {
   return next;
 }
 
-function normalizeHooks(value) {
+function normalizeHooks(value: unknown): Record<string, unknown> {
   if (value === undefined) {
     return {};
   }
@@ -111,35 +115,32 @@ function normalizeHooks(value) {
     throw new Error("settings.hooks must be an object when present");
   }
 
-  return { ...value };
+  return { ...(value as Record<string, unknown>) };
 }
 
-function cloneEntry(entry) {
+function cloneEntry(entry: unknown): HookEntry {
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
     throw new Error("hook entries must be objects");
   }
 
-  const hooks = Array.isArray(entry.hooks) ? entry.hooks.map(cloneHook) : [];
+  const typedEntry = entry as Record<string, unknown>;
+  const hooks = Array.isArray(typedEntry.hooks) ? typedEntry.hooks.map(cloneHook) : [];
   return {
-    ...entry,
-    ...(typeof entry.matcher === "string" ? { matcher: entry.matcher } : {}),
+    ...typedEntry,
+    ...(typeof typedEntry.matcher === "string" ? { matcher: typedEntry.matcher } : {}),
     hooks,
   };
 }
 
-function cloneHook(hook) {
+function cloneHook(hook: unknown): HookDefinition {
   if (!hook || typeof hook !== "object" || Array.isArray(hook)) {
     throw new Error("hook definitions must be objects");
   }
 
-  return { ...hook };
+  return { ...(hook as HookDefinition) };
 }
 
-function isApertureHook(hook, command) {
-  if (!hook || typeof hook !== "object" || Array.isArray(hook)) {
-    return false;
-  }
-
+function isApertureHook(hook: HookDefinition, command: string): boolean {
   if (hook.type !== "command" || typeof hook.command !== "string") {
     return false;
   }
@@ -147,12 +148,17 @@ function isApertureHook(hook, command) {
   return hook.command === command
     || hook.command.includes("/scripts/claude-hook-forward.mjs")
     || hook.command.includes("/scripts/claude-forward.mjs")
+    || hook.command.includes("/scripts/claude-forward.ts")
     || hook.command.includes("http://127.0.0.1:4545/hook")
     || hook.command.includes("http://localhost:4545/hook");
 }
 
-main().catch((error) => {
+function shellQuote(value: string): string {
+  return `"${value.replace(/(["\\$`])/g, "\\$1")}"`;
+}
+
+void main().catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
   stderr.write(`${message}\n`);
-  exit(1);
+  process.exit(1);
 });

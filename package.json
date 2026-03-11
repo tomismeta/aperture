@@ -6,8 +6,8 @@
   "scripts": {
     "aperture": "tsx scripts/aperture.ts",
     "build": "tsc -b",
-    "claude:connect": "node scripts/claude-connect.mjs",
-    "claude:disconnect": "node scripts/claude-disconnect.mjs",
+    "claude:connect": "tsx scripts/claude-connect.ts",
+    "claude:disconnect": "tsx scripts/claude-disconnect.ts",
     "claude:start": "tsx scripts/claude-adapter.ts",
     "clean": "rm -rf packages/*/dist",
     "demo:tui": "tsx scripts/demo-tui.ts",

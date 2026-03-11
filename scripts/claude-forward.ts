@@ -1,8 +1,8 @@
-import { stdin, stdout, stderr, exit } from "node:process";
+import { stderr, stdin, stdout } from "node:process";
 
-const chunks = [];
+const chunks: Buffer[] = [];
 
-stdin.on("data", (chunk) => {
+stdin.on("data", (chunk: Buffer | string) => {
   chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
 });
 
@@ -25,7 +25,7 @@ stdin.on("end", async () => {
       if (text) {
         stderr.write(`${text}\n`);
       }
-      exit(0);
+      process.exit(0);
       return;
     }
 
@@ -35,6 +35,6 @@ stdin.on("end", async () => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     stderr.write(`Aperture hook forward failed: ${message}\n`);
-    exit(0);
+    process.exit(0);
   }
 });

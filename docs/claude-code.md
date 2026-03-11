@@ -38,7 +38,7 @@ In the current product shape, the intended operational path is:
 - local Claude adapter launcher lives in [`scripts/claude-adapter.ts`](../scripts/claude-adapter.ts)
 - local runtime launcher lives in [`scripts/runtime-server.ts`](../scripts/runtime-server.ts)
 - generic TUI launcher lives in [`scripts/aperture-tui.ts`](../scripts/aperture-tui.ts)
-- Claude forwarder lives in [`scripts/claude-forward.mjs`](../scripts/claude-forward.mjs)
+- Claude forwarder lives in [`scripts/claude-forward.ts`](../scripts/claude-forward.ts)
 
 ## Quickstart
 
@@ -134,7 +134,7 @@ If you prefer to wire it manually, the resulting config shape is:
         "hooks": [
           {
             "type": "command",
-            "command": "node /path/to/aperture/scripts/claude-forward.mjs"
+            "command": "\"/path/to/aperture/node_modules/.bin/tsx\" \"/path/to/aperture/scripts/claude-forward.ts\""
           }
         ]
       }
@@ -145,7 +145,7 @@ If you prefer to wire it manually, the resulting config shape is:
         "hooks": [
           {
             "type": "command",
-            "command": "node /path/to/aperture/scripts/claude-forward.mjs"
+            "command": "\"/path/to/aperture/node_modules/.bin/tsx\" \"/path/to/aperture/scripts/claude-forward.ts\""
           }
         ]
       }
@@ -156,7 +156,7 @@ If you prefer to wire it manually, the resulting config shape is:
         "hooks": [
           {
             "type": "command",
-            "command": "node /path/to/aperture/scripts/claude-forward.mjs"
+            "command": "\"/path/to/aperture/node_modules/.bin/tsx\" \"/path/to/aperture/scripts/claude-forward.ts\""
           }
         ]
       }
@@ -166,7 +166,7 @@ If you prefer to wire it manually, the resulting config shape is:
         "hooks": [
           {
             "type": "command",
-            "command": "node /path/to/aperture/scripts/claude-forward.mjs"
+            "command": "\"/path/to/aperture/node_modules/.bin/tsx\" \"/path/to/aperture/scripts/claude-forward.ts\""
           }
         ]
       }
@@ -176,7 +176,7 @@ If you prefer to wire it manually, the resulting config shape is:
         "hooks": [
           {
             "type": "command",
-            "command": "node /path/to/aperture/scripts/claude-forward.mjs"
+            "command": "\"/path/to/aperture/node_modules/.bin/tsx\" \"/path/to/aperture/scripts/claude-forward.ts\""
           }
         ]
       }
@@ -186,7 +186,7 @@ If you prefer to wire it manually, the resulting config shape is:
         "hooks": [
           {
             "type": "command",
-            "command": "node /path/to/aperture/scripts/claude-forward.mjs"
+            "command": "\"/path/to/aperture/node_modules/.bin/tsx\" \"/path/to/aperture/scripts/claude-forward.ts\""
           }
         ]
       }

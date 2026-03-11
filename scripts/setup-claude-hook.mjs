@@ -6,17 +6,19 @@ import { stderr, stdout, exit } from "node:process";
 const DEFAULT_HOOK_SPECS = [
   { eventName: "PreToolUse", matcher: "*" },
   { eventName: "PostToolUseFailure", matcher: "*" },
-  { eventName: "Notification", matcher: "idle_prompt|elicitation_dialog" },
+  { eventName: "Notification" },
   { eventName: "UserPromptSubmit" },
 ];
 
 async function main() {
   const args = process.argv.slice(2);
   const includePostToolUse = args.includes("--include-post-tool-use");
+  const global = args.includes("--global") || args.includes("-g");
   const targetArg = args.find((arg) => !arg.startsWith("--"));
 
-  if (!targetArg) {
+  if (!global && !targetArg) {
     stderr.write("Usage: pnpm setup:claude-hook /path/to/project [--include-post-tool-use]\n");
+    stderr.write("   or: pnpm setup:claude-hook --global [--include-post-tool-use]\n");
     exit(1);
     return;
   }
@@ -26,8 +28,10 @@ async function main() {
     : DEFAULT_HOOK_SPECS;
 
   const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-  const targetRoot = resolve(targetArg);
-  const settingsPath = resolve(targetRoot, ".claude", "settings.local.json");
+  const targetRoot = targetArg ? resolve(targetArg) : null;
+  const settingsPath = global
+    ? resolve(process.env.HOME ?? "~", ".claude", "settings.json")
+    : resolve(targetRoot, ".claude", "settings.local.json");
   const forwarderPath = resolve(repoRoot, "scripts", "claude-hook-forward.mjs");
   const command = `node ${forwarderPath}`;
 
@@ -44,7 +48,7 @@ async function main() {
   stdout.write(
     `1. In this repo, run: ${includePostToolUse ? "APERTURE_INCLUDE_POST_TOOL_USE=1 " : ""}pnpm demo:claude-hook\n`,
   );
-  stdout.write("2. Restart Claude Code in the target project.\n");
+  stdout.write(`2. Restart Claude Code${global ? "" : " in the target project"}.\n`);
   stdout.write("3. Run /hooks in Claude Code to confirm the hooks loaded.\n");
 }
 

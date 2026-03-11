@@ -37,10 +37,22 @@ Write Claude Code hook configuration into a target project:
 pnpm setup:claude-hook /path/to/project
 ```
 
+Or write the hooks once at the user level for all projects:
+
+```bash
+pnpm setup:claude-hook --global
+```
+
 If you also want successful tool completions to show up as status updates:
 
 ```bash
 pnpm setup:claude-hook /path/to/project --include-post-tool-use
+```
+
+Global plus successful completions:
+
+```bash
+pnpm setup:claude-hook --global --include-post-tool-use
 ```
 
 Then start the local hook server and shared terminal attention surface:
@@ -88,7 +100,6 @@ If you prefer to wire it manually, the resulting config shape is:
     ],
     "Notification": [
       {
-        "matcher": "idle_prompt|elicitation_dialog",
         "hooks": [
           {
             "type": "command",
@@ -120,5 +131,6 @@ Restart Claude Code after editing settings, then use `/hooks` inside Claude Code
 - The forwarder reads the Claude hook payload from stdin and POSTs it to the local Aperture server.
 - Claude frames are labeled with workspace basename plus a short session token so multiple Claude Code sessions are distinguishable in the TUI.
 - Idle/input notifications show up as focused waiting status so you can see which Claude instance is blocked on you.
+- `pnpm setup:claude-hook --global` writes `~/.claude/settings.json`; the project-level command writes `.claude/settings.local.json`.
 - `Read`, `Grep`, `Glob`, `LS`, and web tools map to low risk; writes default to medium and escalate to high for sensitive paths.
 - Bash commands still use pattern-based risk classification for destructive commands.

@@ -269,6 +269,123 @@ That means:
 
 It should feel closer to a serious terminal tool than a browser card layout moved into a terminal.
 
+## Aesthetic Analysis
+
+The most useful terminal references converge on a shared idea:
+
+- the terminal should feel authored, not merely rendered
+- the layout should make one thing feel primary without flooding the screen
+- ornament should clarify posture, not compete with work
+
+### Claude Code
+
+Claude Code's strongest aesthetic move is restraint.
+
+It uses a calm neutral substrate and keeps the chrome disciplined enough that action lines feel immediate.
+
+The lesson for Aperture:
+
+- keep the global frame quiet
+- spend emphasis on the current demand
+- make approvals and input flows feel frictionless
+
+### Codex
+
+Codex feels denser and more operational.
+
+Its strength is not decoration but control surfaces: status, footer discipline, and a feeling that inspection is always nearby without being fully expanded.
+
+The lesson for Aperture:
+
+- preserve compact status and control rails
+- avoid chat-style sprawl
+- let detail appear inside a strong operator frame
+
+### OpenClaw
+
+OpenClaw points toward the "agent console" family of TUIs: persistent context, stable boundaries, and an overall operator posture.
+
+The lesson for Aperture:
+
+- maintain a persistent console identity
+- keep the frame stable even as content changes
+- imply system continuity, not transient chat turns
+
+### Lazygit and K9s
+
+These tools show why popular TUIs remain readable under pressure.
+
+They use strong pane borders, consistent scanlines, aggressive keyboard affordance, and a queue-like sense of rank and locality.
+
+The lesson for Aperture:
+
+- hierarchy should come from structure before color
+- queue items should read in one fast pass
+- the footer should lower recall cost
+
+### btop and Glow
+
+btop proves that terminals can carry ornament when the ornament is systematic. Glow proves that text surfaces can feel beautiful through rhythm, spacing, and typography alone.
+
+The lesson for Aperture:
+
+- add a recognizable brand layer
+- keep color rules limited and semantic
+- let whitespace and line rhythm do more than extra boxes
+
+### Obsidian
+
+Obsidian is not a TUI, but it is useful as an aesthetic reference because it makes knowledge feel spatial, moody, and personal instead of purely utilitarian.
+
+The lesson for Aperture:
+
+- give the surface identity
+- let the product feel like an environment, not just a widget
+- preserve a slight sense of mystique around the system as a whole while keeping the current task explicit
+
+## New Aesthetic Read
+
+The linked "New Aesthetics" note argues that modern interfaces are moving toward a neutral comfort substrate while expression becomes more ambient, individualized, and layered on top.
+
+That is the right model for Aperture.
+
+The TUI should not become a maximalist sci-fi cockpit.
+
+It should become:
+
+- a neutral operator substrate
+- with a distinct branded masthead
+- with just enough surface character to feel intentional
+- while the active frame carries the strongest authored treatment
+
+In other words:
+
+- the shell is calm
+- the focal pane is expressive
+- queued and ambient work stay present but peripheral
+
+This is the aesthetic target for the next pass.
+
+## Visual Direction
+
+The immediate visual target is a calm observatory.
+
+That means:
+
+- a neutral shell with a cool purple/blue accent family
+- a compact aperture mark (`/·\` `\·/`) and wordmark, not a noisy logo block
+- rounded borders only where the active frame deserves extra presence
+- one accent color (bright purple) for brand, keys, scores, and ranks
+- focused tone in blue, critical tone in bright purple, ambient in gray
+- progressively dimmer treatment from active to queued to ambient
+- footer pinned to terminal bottom, masthead pinned to top
+
+The desired emotional effect is:
+
+- active feels illuminated
+- queued feels nearby
+- ambient feels safely out of focus
+
 ## Interaction Model
 
 The TUI should be keyboard-first and compact.

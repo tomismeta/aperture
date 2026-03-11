@@ -11,6 +11,29 @@ async function main(): Promise<void> {
   const core = new ApertureCore();
   const now = Date.now();
 
+  // Seed signal history so the stats line appears (presented >= 5).
+  // Simulates a session where the operator already handled several items.
+  for (let i = 0; i < 8; i++) {
+    const ts = new Date(now - (8 - i) * 60_000).toISOString();
+    core.recordSignal({
+      kind: "presented",
+      taskId: `seed-task-${i}`,
+      interactionId: `seed-interaction-${i}`,
+      timestamp: ts,
+      surface: "tui",
+    });
+    core.recordSignal({
+      kind: "responded",
+      taskId: `seed-task-${i}`,
+      interactionId: `seed-interaction-${i}`,
+      responseKind: i % 3 === 0 ? "approved" : "acknowledged",
+      latencyMs: 200 + Math.floor(Math.random() * 400),
+      timestamp: ts,
+      surface: "tui",
+    });
+  }
+
+  // Paperclip: hiring approval
   const paperclipEvents: PaperclipLiveEvent[] = [
     {
       id: 1,
@@ -30,6 +53,7 @@ async function main(): Promise<void> {
     },
   ];
 
+  // Codex: environment choice
   const codexRequests: CodexServerRequest[] = [
     {
       id: "req-choice",
@@ -53,6 +77,7 @@ async function main(): Promise<void> {
     },
   ];
 
+  // Claude Code: force push approval + deploy failure
   const claudeEvents: ClaudeCodeHookEvent[] = [
     {
       hook_event_name: "PreToolUse",

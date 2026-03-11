@@ -4,11 +4,13 @@ import { stdin as defaultInput, stdout as defaultOutput } from "node:process";
 import { scoreFrame } from "@aperture/core";
 import type {
   ApertureCore,
+  AttentionState,
   AttentionView,
   Frame,
   FrameField,
   FrameResponse,
   FrameResponseSpec,
+  SignalSummary,
 } from "@aperture/core";
 
 type InputLike = NodeJS.ReadStream & {
@@ -35,7 +37,12 @@ type TuiState = {
   attentionView: AttentionView;
   statusLine: string;
   formDraft: FormDraft | null;
+  expanded: boolean;
 };
+
+const PANEL_CONTENT_WIDTH = 74;
+const PANEL_BORDER_WIDTH = PANEL_CONTENT_WIDTH + 2;
+const SCREEN_WIDTH = PANEL_BORDER_WIDTH + 2;
 
 export function renderAttentionScreen(
   attentionView: AttentionView,
@@ -44,6 +51,9 @@ export function renderAttentionScreen(
     statusLine?: string;
     formDraft?: FormDraft | null;
     color?: boolean;
+    height?: number;
+    stats?: { summary: SignalSummary; state: AttentionState } | null;
+    expanded?: boolean;
   },
 ): string {
   const lines: string[] = [];
@@ -55,26 +65,31 @@ export function renderAttentionScreen(
   const ambient = attentionView.ambient;
   const globalTone = active?.tone ?? (queued[0]?.tone ?? "ambient");
 
-  lines.push(styleTitle(title, color));
+  lines.push(...renderMasthead(title, color, globalTone));
+  lines.push(horizontalRule(color));
   lines.push(
-    [
-      summarizeColumn("● active", active ? 1 : 0, color, globalTone),
-      summarizeColumn("◦ queued", queued.length, color, "focused"),
-      summarizeColumn("· ambient", ambient.length, color, "ambient"),
-    ].join("   "),
+    alignLine(
+      [
+        summarizeColumn("active", active ? 1 : 0, color, globalTone),
+        summarizeColumn("queued", queued.length, color, "focused"),
+        summarizeColumn("ambient", ambient.length, color, "ambient"),
+      ].join("   "),
+      `${styleMuted("posture", color)} ${styleTone(globalTone, color)}`,
+      SCREEN_WIDTH,
+    ),
   );
   lines.push(horizontalRule(color));
-  lines.push(styleSection("Active now", color, globalTone));
-  lines.push(...renderFocusPane(active, color));
+  lines.push(styleSection("ACTIVE NOW", color, globalTone));
+  lines.push(...renderFocusPane(active, color, options?.expanded ?? false));
 
   if (options?.formDraft && active) {
     lines.push("");
-    lines.push(styleSection("Input", color, "focused"));
+    lines.push(styleSection("INPUT", color, "focused"));
     lines.push(...renderFormDraft(active, options.formDraft, color));
   }
 
   lines.push("");
-  lines.push(styleSection("Up next", color, "focused"));
+  lines.push(styleSection("QUEUE", color, "focused"));
   if (queued.length === 0) {
     lines.push(styleMuted("  no queued work", color));
   } else {
@@ -84,7 +99,7 @@ export function renderAttentionScreen(
   }
 
   lines.push("");
-  lines.push(styleSection("Background", color, "ambient"));
+  lines.push(styleSection("AMBIENT", color, "ambient"));
   if (ambient.length === 0) {
     lines.push(styleMuted("  calm background", color));
   } else {
@@ -93,13 +108,26 @@ export function renderAttentionScreen(
     }
   }
 
-  lines.push(horizontalRule(color));
-  lines.push(...renderControls(active, options?.formDraft ?? null, color));
-
-  if (statusLine) {
-    lines.push(`${styleMuted("status", color)} ${statusLine}`);
+  const footer: string[] = [];
+  footer.push(horizontalRule(color));
+  footer.push(...renderControls(active, options?.formDraft ?? null, color));
+  const statsLine = renderStatsLine(options?.stats ?? null, color);
+  if (statsLine && statusLine) {
+    footer.push(alignLine(statsLine, `${styleMuted("status", color)} ${statusLine}`, SCREEN_WIDTH));
+  } else if (statsLine) {
+    footer.push(statsLine);
+  } else if (statusLine) {
+    footer.push(`${styleMuted("status", color)} ${statusLine}`);
   }
 
+  if (options?.height) {
+    const padding = Math.max(0, options.height - lines.length - footer.length);
+    for (let i = 0; i < padding; i++) {
+      lines.push("");
+    }
+  }
+
+  lines.push(...footer);
   return lines.join("\n");
 }
 
@@ -113,6 +141,7 @@ export async function runAttentionTui(
     attentionView: core.getAttentionView(),
     statusLine: "Waiting for events",
     formDraft: null,
+    expanded: false,
   };
 
   const cleanup = setupTerminal(input, output);
@@ -123,19 +152,30 @@ export async function runAttentionTui(
         title: options?.title ?? "Aperture TUI",
         statusLine: state.statusLine,
         formDraft: state.formDraft,
+        expanded: state.expanded,
         color: Boolean(output.isTTY),
+        height: output.rows,
+        stats: {
+          summary: core.getSignalSummary(),
+          state: core.getAttentionState(),
+        },
       }),
     );
   };
+
+  const onResize = () => render();
+  output.on("resize", onResize);
 
   const unsubAttention = core.subscribeAttentionView((attentionView) => {
     state.attentionView = attentionView;
     const active = attentionView.active;
     if (!active) {
       state.formDraft = null;
+      state.expanded = false;
       state.statusLine = "Nothing currently needs attention";
     } else if (state.formDraft && state.formDraft.interactionId !== active.interactionId) {
       state.formDraft = null;
+      state.expanded = false;
       state.statusLine = `Focused on ${active.title}`;
     }
     render();
@@ -175,12 +215,19 @@ export async function runAttentionTui(
         return;
       }
 
+      if (key.name === "space") {
+        state.expanded = !state.expanded;
+        render();
+        return;
+      }
+
       handleActiveKeypress(core, state, active, key);
       render();
     };
 
     const close = () => {
       input.off("keypress", onKeypress);
+      output.off("resize", onResize);
       unsubAttention();
       unsubResponse();
       cleanup();
@@ -371,102 +418,147 @@ function stringifyFieldValue(value: unknown): string {
 
 function renderControls(active: Frame | null, formDraft: FormDraft | null, color: boolean): string[] {
   if (!active) {
-    return [`${styleMuted("keys", color)} ${styleKey("q", color)} quit`];
+    return [`${styleMuted("controls", color)} ${styleKey("q", color)} quit`];
   }
 
   if (formDraft) {
     return [
-      `${styleMuted("keys", color)} ${styleKey("type", color)} edit  ${styleKey("enter", color)} next/submit  ${styleKey("esc", color)} cancel  ${styleKey("q", color)} quit`,
+      `${styleMuted("controls", color)} ${styleKey("type", color)} edit  ${styleKey("enter", color)} next/submit  ${styleKey("esc", color)} cancel  ${styleKey("q", color)} quit`,
     ];
   }
 
+  const detail = `${styleKey("space", color)} detail`;
   switch (active.responseSpec?.kind) {
     case "acknowledge":
       return [
-        `${styleMuted("keys", color)} ${styleKey("enter", color)} acknowledge  ${styleKey("x", color)} dismiss  ${styleKey("q", color)} quit`,
+        `${styleMuted("controls", color)} ${styleKey("enter", color)} acknowledge  ${styleKey("x", color)} dismiss  ${detail}  ${styleKey("q", color)} quit`,
       ];
     case "approval":
       return [
-        `${styleMuted("keys", color)} ${styleKey("a", color)} approve  ${styleKey("r", color)} reject  ${styleKey("x", color)} dismiss  ${styleKey("q", color)} quit`,
+        `${styleMuted("controls", color)} ${styleKey("a", color)} approve  ${styleKey("r", color)} reject  ${styleKey("x", color)} dismiss  ${detail}  ${styleKey("q", color)} quit`,
       ];
     case "choice":
       return [
-        `${styleMuted("keys", color)} ${styleKey("1-9", color)} choose  ${styleKey("x", color)} dismiss  ${styleKey("q", color)} quit`,
+        `${styleMuted("controls", color)} ${styleKey("1-9", color)} choose  ${styleKey("x", color)} dismiss  ${detail}  ${styleKey("q", color)} quit`,
       ];
     case "form":
       return [
-        `${styleMuted("keys", color)} ${styleKey("i", color)} input  ${styleKey("x", color)} dismiss  ${styleKey("q", color)} quit`,
+        `${styleMuted("controls", color)} ${styleKey("i", color)} input  ${styleKey("x", color)} dismiss  ${detail}  ${styleKey("q", color)} quit`,
       ];
     default:
-      return [`${styleMuted("keys", color)} ${styleKey("q", color)} quit`];
+      return [`${styleMuted("controls", color)} ${detail}  ${styleKey("q", color)} quit`];
   }
 }
 
-function renderFocusPane(frame: Frame | null, color: boolean): string[] {
+function renderStatsLine(
+  stats: { summary: SignalSummary; state: AttentionState } | null,
+  color: boolean,
+): string | null {
+  if (!stats || stats.summary.counts.presented < 5) {
+    return null;
+  }
+
+  const { summary, state } = stats;
+  const routed = `${summary.counts.presented} routed`;
+  const responded = `${summary.counts.responded} responded`;
+  const avg = summary.averageResponseLatencyMs !== null
+    ? `${Math.round(summary.averageResponseLatencyMs)}ms avg`
+    : null;
+
+  const parts = [routed, responded];
+  if (avg) {
+    parts.push(avg);
+  }
+
+  const statsText = parts.map((p) => styleMuted(p, color)).join(styleMuted(" · ", color));
+  const stateColored = state === "engaged" || state === "monitoring"
+    ? styleAccent(state, color)
+    : styleMuted(state, color);
+
+  return `${statsText} ${styleMuted("·", color)} ${stateColored}`;
+}
+
+function renderFocusPane(frame: Frame | null, color: boolean, expanded = false): string[] {
   if (!frame) {
-    return [
-      styleMuted("  no active frame", color),
-      styleMuted("  the surface is intentionally calm", color),
-    ];
+    return panel(
+      [
+        styleMuted("no active frame", color),
+        "",
+        styleMuted("the surface is intentionally calm", color),
+      ],
+      color,
+      "ambient",
+    );
   }
 
   const source = frame.source?.label ?? frame.source?.id ?? "unknown";
   const score = readScore(frame);
   const attention = readAttention(frame);
-  const lines = boxed([
-    `${styleStrong(frame.title, color)}`,
-    `${styleMuted(source, color)} ${styleMuted("·", color)} ${styleTone(frame.tone, color)} ${styleMuted("·", color)} ${styleMuted(frame.mode, color)} ${styleMuted("·", color)} ${styleMuted(frame.consequence, color)} ${styleMuted("·", color)} ${styleScore(score, color)}`,
-  ], color, frame.tone);
+  const lines = [
+    alignLine(
+      styleStrong(frame.title, color),
+      styleScore(score, color),
+      PANEL_CONTENT_WIDTH,
+    ),
+    styleMuted(source, color),
+    `${styleMuted("mode", color)} ${styleMuted(frame.mode, color)}   ${styleMuted("tone", color)} ${styleTone(frame.tone, color)}   ${styleMuted("consequence", color)} ${styleMuted(frame.consequence, color)}`,
+  ];
 
   if (frame.summary) {
-    lines.push(...boxedBody(frame.summary, color));
+    lines.push("");
+    lines.push(...wrapText(frame.summary, PANEL_CONTENT_WIDTH));
   }
-  if (frame.context?.items?.length) {
+
+  if (expanded && frame.context?.items?.length) {
+    lines.push("");
+    lines.push(styleMuted("context", color));
     for (const item of frame.context.items.slice(0, 4)) {
-      lines.push(...boxedBody(`${item.label}: ${item.value ?? "n/a"}`, color));
+      lines.push(...renderLabeledBlock(item.label, String(item.value ?? "n/a"), color));
     }
   }
+
   if (frame.responseSpec?.kind === "choice") {
+    lines.push("");
+    lines.push(styleMuted("options", color));
     for (const [index, option] of frame.responseSpec.options.entries()) {
-      lines.push(
-        ...boxedBody(
-          `${styleKey(String(index + 1), color)} ${option.label}`,
-          color,
-        ),
-      );
+      lines.push(...renderPrefixedBlock(`${styleKey(String(index + 1), color)} `, option.label));
     }
   }
-  if (attention.scoreOffset !== 0) {
-    lines.push(...boxedBody(`${styleMuted("offset", color)} ${formatSigned(attention.scoreOffset)}`, color));
+
+  if (expanded) {
+    if (attention.scoreOffset !== 0 || attention.rationale.length > 0) {
+      lines.push("");
+    }
+    if (attention.scoreOffset !== 0) {
+      lines.push(...renderLabeledBlock("offset", formatSigned(attention.scoreOffset), color));
+    }
+    if (attention.rationale.length > 0) {
+      lines.push(...renderLabeledBlock("why", attention.rationale.join("; "), color));
+    }
   }
-  if (attention.rationale.length > 0) {
-    lines.push(...boxedBody(`${styleMuted("why", color)} ${attention.rationale.join("; ")}`, color));
-  }
-  return closeBox(lines, color, frame.tone);
+
+  return panel(lines, color, frame.tone);
 }
 
 function renderCompactFrame(frame: Frame, rank: number, color: boolean): string[] {
   const source = frame.source?.label ?? frame.source?.id ?? "unknown";
   const score = readScore(frame);
-  const lines = [
-    `  ${styleRank(rank, color)} ${styleStrong(frame.title, color)}`,
-    `    ${styleMuted(source, color)} ${styleMuted("·", color)} ${styleScore(score, color)} ${styleMuted("·", color)} ${styleTone(frame.tone, color)}`,
-  ];
-  if (frame.summary) {
-    lines.push(`    ${styleMuted(frame.summary, color)}`);
-  }
-  return lines;
+  const left = `${styleRank(rank, color)} ${styleStrong(frame.title, color)} ${styleMuted(source, color)}`;
+  const right = styleMuted(`score ${score}`, color);
+  return [`  ${alignLine(left, right, PANEL_CONTENT_WIDTH - 2)}`];
 }
 
 function renderAmbientFrame(frame: Frame, color: boolean): string[] {
   const source = frame.source?.label ?? frame.source?.id ?? "unknown";
   const score = readScore(frame);
   const lines = [
-    `  ${styleMuted("·", color)} ${styleMuted(frame.title, color)}`,
+    `  ${styleMuted("~", color)} ${styleDeepMuted(frame.title, color)}`,
     `    ${styleMuted(source, color)} ${styleMuted("·", color)} ${styleMuted(frame.consequence, color)} ${styleMuted("·", color)} ${styleMuted(frame.tone, color)} ${styleMuted("·", color)} ${styleMuted(`score ${score}`, color)}`,
   ];
   if (frame.summary) {
-    lines.push(`    ${styleMuted(frame.summary, color)}`);
+    for (const line of wrapText(frame.summary, PANEL_CONTENT_WIDTH - 4).slice(0, 2)) {
+      lines.push(`    ${styleDeepMuted(line, color)}`);
+    }
   }
   return lines;
 }
@@ -477,16 +569,16 @@ function summarizeColumn(label: string, count: number, color: boolean, tone: Fra
 }
 
 function horizontalRule(color: boolean): string {
-  const line = "─".repeat(72);
+  const line = "─".repeat(SCREEN_WIDTH);
   return color ? `${ANSI.dim}${line}${ANSI.reset}` : line;
 }
 
 function clearScreen(): string {
-  return "\u001B[?1049h\u001B[2J\u001B[H";
+  return "\u001B[?25l\u001B[?1049h\u001B[2J\u001B[H";
 }
 
 function restoreScreen(): string {
-  return "\u001B[2J\u001B[H\u001B[?1049l";
+  return "\u001B[?25h\u001B[2J\u001B[H\u001B[?1049l";
 }
 
 function setupTerminal(input: InputLike, output: OutputLike): () => void {
@@ -595,18 +687,16 @@ const ANSI = {
   reset: "\u001B[0m",
   bold: "\u001B[1m",
   dim: "\u001B[2m",
-  cyan: "\u001B[36m",
-  blue: "\u001B[94m",
-  yellow: "\u001B[93m",
-  red: "\u001B[91m",
   white: "\u001B[97m",
   gray: "\u001B[90m",
+  blue: "\u001B[94m",
+  brightPurple: "\u001B[95m",
 } as const;
 
 function toneColor(tone: Frame["tone"]): string {
   switch (tone) {
     case "critical":
-      return ANSI.red;
+      return ANSI.brightPurple;
     case "focused":
       return ANSI.blue;
     default:
@@ -614,12 +704,12 @@ function toneColor(tone: Frame["tone"]): string {
   }
 }
 
-function styleTitle(value: string, color: boolean): string {
-  return color ? `${ANSI.bold}${ANSI.white}${value}${ANSI.reset}` : value;
-}
-
 function styleSection(value: string, color: boolean, tone: Frame["tone"]): string {
-  return color ? `${ANSI.bold}${toneColor(tone)}${value}${ANSI.reset}` : value;
+  const label = `▸ ${value} `;
+  const fill = "·".repeat(Math.max(0, SCREEN_WIDTH - label.length));
+  return color
+    ? `${ANSI.bold}${toneColor(tone)}${label}${ANSI.reset}${ANSI.dim}${fill}${ANSI.reset}`
+    : `${label}${fill}`;
 }
 
 function styleStrong(value: string, color: boolean): string {
@@ -630,8 +720,12 @@ function styleMuted(value: string, color: boolean): string {
   return color ? `${ANSI.dim}${value}${ANSI.reset}` : value;
 }
 
+function styleDeepMuted(value: string, color: boolean): string {
+  return color ? `${ANSI.dim}${ANSI.gray}${value}${ANSI.reset}` : value;
+}
+
 function styleAccent(value: string, color: boolean): string {
-  return color ? `${ANSI.blue}${value}${ANSI.reset}` : value;
+  return color ? `${ANSI.brightPurple}${value}${ANSI.reset}` : value;
 }
 
 function styleTone(value: string, color: boolean): string {
@@ -643,42 +737,105 @@ function styleTone(value: string, color: boolean): string {
 
 function styleScore(score: number, color: boolean): string {
   const value = `score ${score}`;
-  return color ? `${ANSI.bold}${ANSI.cyan}${value}${ANSI.reset}` : value;
+  return color ? `${ANSI.bold}${ANSI.brightPurple}${value}${ANSI.reset}` : value;
 }
 
 function styleKey(value: string, color: boolean): string {
   const wrapped = `[${value}]`;
-  return color ? `${ANSI.bold}${ANSI.cyan}${wrapped}${ANSI.reset}` : wrapped;
+  return color ? `${ANSI.bold}${ANSI.brightPurple}${wrapped}${ANSI.reset}` : wrapped;
 }
 
 function styleRank(rank: number, color: boolean): string {
-  const value = `${rank}.`;
-  return color ? `${ANSI.bold}${ANSI.blue}${value}${ANSI.reset}` : value;
+  const value = `[${String(rank).padStart(2, "0")}]`;
+  return color ? `${ANSI.bold}${ANSI.brightPurple}${value}${ANSI.reset}` : value;
 }
 
-function boxed(lines: string[], color: boolean, tone: Frame["tone"]): string[] {
-  const border = color ? `${toneColor(tone)}┌${"─".repeat(70)}┐${ANSI.reset}` : `┌${"─".repeat(70)}┐`;
-  return [border, ...lines.map((line) => wrapBoxLine(line))];
+function renderMasthead(title: string, color: boolean, _tone: Frame["tone"]): string[] {
+  return [
+    "",
+    `  ${styleAccent("/·\\", color)}  ${styleBrand("APERTURE", color)}`,
+    `  ${styleAccent("\\·/", color)}  ${styleDeepMuted(title, color)}`,
+    "",
+  ];
 }
 
-function boxedBody(value: string, _color: boolean): string[] {
-  return [wrapBoxLine(value)];
+function styleBrand(value: string, color: boolean): string {
+  return color ? `${ANSI.bold}${ANSI.brightPurple}${value}${ANSI.reset}` : value;
 }
 
-function closeBox(lines: string[], color: boolean, tone: Frame["tone"]): string[] {
-  const border = color ? `${toneColor(tone)}└${"─".repeat(70)}┘${ANSI.reset}` : `└${"─".repeat(70)}┘`;
-  return [...lines, border];
+function panel(lines: string[], color: boolean, tone: Frame["tone"]): string[] {
+  const top = color
+    ? `${toneColor(tone)}╭${"─".repeat(PANEL_BORDER_WIDTH)}╮${ANSI.reset}`
+    : `╭${"─".repeat(PANEL_BORDER_WIDTH)}╮`;
+  const bottom = color
+    ? `${toneColor(tone)}╰${"─".repeat(PANEL_BORDER_WIDTH)}╯${ANSI.reset}`
+    : `╰${"─".repeat(PANEL_BORDER_WIDTH)}╯`;
+
+  return [top, ...lines.map((line) => wrapBoxLine(line)), bottom];
+}
+
+function renderLabeledBlock(label: string, value: string, color: boolean): string[] {
+  return renderPrefixedBlock(`${styleMuted(`${label} `, color)}`, value, `${" ".repeat(label.length)} `);
+}
+
+function renderPrefixedBlock(prefix: string, value: string, continuationPrefix = "    "): string[] {
+  const prefixWidth = visibleLength(prefix);
+  const wrapped = wrapText(value, PANEL_CONTENT_WIDTH - prefixWidth);
+  return wrapped.map((line, index) => `${index === 0 ? prefix : continuationPrefix}${line}`);
 }
 
 function wrapBoxLine(value: string): string {
-  const width = 68;
-  const visible = visibleLength(value);
-  const padded = visible < width ? `${value}${" ".repeat(width - visible)}` : value;
+  const padded = padVisible(value, PANEL_CONTENT_WIDTH);
   return `│ ${padded} │`;
+}
+
+function padVisible(value: string, width: number): string {
+  const visible = visibleLength(value);
+  return visible < width ? `${value}${" ".repeat(width - visible)}` : value;
+}
+
+function alignLine(left: string, right: string, width: number): string {
+  const gap = width - visibleLength(left) - visibleLength(right);
+  if (gap <= 1) {
+    return left;
+  }
+  return `${left}${" ".repeat(gap)}${right}`;
 }
 
 function formatSigned(value: number): string {
   return value > 0 ? `+${value}` : String(value);
+}
+
+function wrapText(value: string, width: number): string[] {
+  const normalized = value.trim();
+  if (normalized === "") {
+    return [""];
+  }
+
+  const words = normalized.split(/\s+/);
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of words) {
+    if (current === "") {
+      current = word;
+      continue;
+    }
+
+    if (`${current} ${word}`.length <= width) {
+      current = `${current} ${word}`;
+      continue;
+    }
+
+    lines.push(current);
+    current = word;
+  }
+
+  if (current !== "") {
+    lines.push(current);
+  }
+
+  return lines;
 }
 
 function visibleLength(value: string): number {

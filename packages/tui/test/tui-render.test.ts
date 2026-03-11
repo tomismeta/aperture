@@ -55,12 +55,13 @@ test("renderAttentionScreen shows active, queued, and ambient summaries", () => 
   const screen = renderAttentionScreen(attentionView, { title: "Aperture TUI" });
 
   assert.match(screen, /Aperture TUI/);
+  assert.match(screen, /APERTURE/);
   assert.match(screen, /active 1/);
   assert.match(screen, /queued 1/);
   assert.match(screen, /ambient 1/);
-  assert.match(screen, /Active now/);
-  assert.match(screen, /Up next/);
-  assert.match(screen, /Background/);
+  assert.match(screen, /ACTIVE NOW/);
+  assert.match(screen, /QUEUE/);
+  assert.match(screen, /AMBIENT/);
   assert.match(screen, /Approve deployment/);
   assert.match(screen, /Choose target/);
   assert.match(screen, /Run failed/);
@@ -115,4 +116,31 @@ test("renderAttentionScreen shows acknowledge controls for active status work", 
   const screen = renderAttentionScreen(attentionView, { title: "Aperture TUI" });
 
   assert.match(screen, /\[enter\] acknowledge/i);
+});
+
+test("renderAttentionScreen hides rationale by default and shows when expanded", () => {
+  const attentionView: AttentionView = {
+    active: makeFrame(),
+    queued: [],
+    ambient: [],
+  };
+
+  const collapsed = renderAttentionScreen(attentionView, { title: "Aperture TUI" });
+  assert.doesNotMatch(collapsed, /blocking work remains sticky/);
+  assert.doesNotMatch(collapsed, /offset/);
+
+  const expanded = renderAttentionScreen(attentionView, { title: "Aperture TUI", expanded: true });
+  assert.match(expanded, /blocking work remains sticky/);
+  assert.match(expanded, /\+5/);
+});
+
+test("renderAttentionScreen shows space key hint in controls", () => {
+  const attentionView: AttentionView = {
+    active: makeFrame(),
+    queued: [],
+    ambient: [],
+  };
+
+  const screen = renderAttentionScreen(attentionView, { title: "Aperture TUI" });
+  assert.match(screen, /\[space\] detail/);
 });

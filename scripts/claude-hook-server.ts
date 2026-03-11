@@ -2,29 +2,18 @@ import { stderr } from "node:process";
 
 import type { ClaudeCodePreToolUseEvent } from "../packages/claude-code/src/index.ts";
 import { createClaudeCodeHookServer } from "../packages/claude-code/src/server.ts";
-import { ApertureRuntimeAdapterClient, createApertureRuntime } from "../packages/runtime/src/index.ts";
+import {
+  ApertureRuntimeAdapterClient,
+  discoverLocalRuntimes,
+} from "../packages/runtime/src/index.ts";
 
 async function main(): Promise<void> {
   const host = process.env.APERTURE_CLAUDE_HOST ?? "127.0.0.1";
   const port = readNumber(process.env.APERTURE_CLAUDE_PORT) ?? 4545;
   const path = process.env.APERTURE_CLAUDE_PATH ?? "/hook";
-  const controlHost = process.env.APERTURE_CLAUDE_CONTROL_HOST ?? "127.0.0.1";
-  const controlPort = readNumber(process.env.APERTURE_CLAUDE_CONTROL_PORT) ?? 4546;
-  const controlPathPrefix = process.env.APERTURE_CLAUDE_CONTROL_PATH ?? "/runtime";
-  const includePostToolUse = process.env.APERTURE_INCLUDE_POST_TOOL_USE === "1";
-
-  const runtime = createApertureRuntime({
-    kind: "aperture",
-    controlHost,
-    controlPort,
-    controlPathPrefix,
-    metadata: {
-      adapters: "claude-code",
-    },
-  });
-  const runtimeBinding = await runtime.listen();
+  const runtimeBaseUrl = await resolveRuntimeUrl();
   const adapterClient = await ApertureRuntimeAdapterClient.connect({
-    baseUrl: runtimeBinding.controlUrl,
+    baseUrl: runtimeBaseUrl,
     kind: "claude-code",
     label: "Claude Code hook server",
     metadata: {
@@ -36,9 +25,9 @@ async function main(): Promise<void> {
     host,
     port,
     path,
-    includePostToolUse,
+    includePostToolUse: true,
     tools: undefined,
-    preToolUsePolicy: () => (runtime.hasAttachedSurface() ? "hold" : "ask"),
+    preToolUsePolicy: () => (adapterClient.getAttentionView().surfaceCount > 0 ? "hold" : "ask"),
     onPreToolUseFallback: (event, reason) => {
       if (reason === "timed_out" || reason === "not_held") {
         void adapterClient.publishConformed(claudeApprovalFallbackEvent(event, reason));
@@ -48,15 +37,14 @@ async function main(): Promise<void> {
   const hookBinding = await hookServer.listen();
 
   stderr.write(`Aperture Claude hook server listening at ${hookBinding.url}\n`);
-  stderr.write(`Aperture runtime control listening at ${runtimeBinding.controlUrl}\n`);
-  stderr.write("Run the TUI separately with: pnpm claude:tui\n");
+  stderr.write(`Connected Claude adapter to runtime ${runtimeBaseUrl}\n`);
+  stderr.write("Run the TUI separately with: pnpm tui\n");
 
   const close = async () => {
     process.off("SIGINT", onSignal);
     process.off("SIGTERM", onSignal);
     await hookServer.close();
     await adapterClient.close();
-    await runtime.close();
     process.exit(0);
   };
 
@@ -66,6 +54,28 @@ async function main(): Promise<void> {
 
   process.on("SIGINT", onSignal);
   process.on("SIGTERM", onSignal);
+}
+
+async function resolveRuntimeUrl(): Promise<string> {
+  const explicit = process.env.APERTURE_RUNTIME_URL ?? process.env.APERTURE_CLAUDE_RUNTIME_URL;
+  if (explicit) {
+    return explicit.replace(/\/+$/, "");
+  }
+
+  const runtimes = await discoverLocalRuntimes({ kind: "aperture" });
+  if (runtimes.length === 0) {
+    throw new Error("No live Aperture runtime found. Start one with `pnpm serve`.");
+  }
+
+  if (runtimes.length > 1) {
+    stderr.write("Multiple live Aperture runtimes detected:\n");
+    for (const runtime of runtimes) {
+      stderr.write(`- ${runtime.controlUrl} (pid ${runtime.pid}, updated ${runtime.updatedAt})\n`);
+    }
+    stderr.write(`Connecting Claude adapter to the most recent runtime: ${runtimes[0]?.controlUrl}\n`);
+  }
+
+  return runtimes[0]?.controlUrl ?? "http://127.0.0.1:4546/runtime";
 }
 
 function readNumber(raw: string | undefined): number | null {

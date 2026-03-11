@@ -14,7 +14,7 @@ async function main(): Promise<void> {
   stderr.write(`Connected Aperture TUI to ${baseUrl}\n`);
 
   try {
-    await runAttentionTui(client, { title: "Aperture · Claude Code" });
+    await runAttentionTui(client, { title: "Aperture" });
   } finally {
     await client.close();
   }
@@ -28,7 +28,7 @@ async function resolveRuntimeUrl(): Promise<string> {
 
   const runtimes = await discoverLocalRuntimes({ kind: "aperture" });
   if (runtimes.length === 0) {
-    throw new Error("No live Aperture runtime found. Start one with `pnpm claude:serve`.");
+    throw new Error("No live Aperture runtime found. Start one with `pnpm serve`.");
   }
 
   if (runtimes.length > 1) {

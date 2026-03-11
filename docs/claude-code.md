@@ -14,7 +14,7 @@ In the current product shape, the intended operational path is:
 
 - `PreToolUse` hook payloads
 - `PostToolUseFailure` hook payloads
-- optional `PostToolUse` mapping
+- `PostToolUse` hook payloads for non-blocking completion awareness
 - `Notification` hook payloads for waiting/input handoff
 - `UserPromptSubmit` hook payloads to clear waiting state
 - `Stop` hook payloads for conversational follow-up handoff
@@ -35,8 +35,9 @@ In the current product shape, the intended operational path is:
 - shared Aperture runtime lives in [`packages/runtime/src/runtime.ts`](../packages/runtime/src/runtime.ts)
 - optional TUI runtime client lives in [`packages/runtime/src/runtime-client.ts`](../packages/runtime/src/runtime-client.ts)
 - local runtime discovery lives in [`packages/runtime/src/runtime-discovery.ts`](../packages/runtime/src/runtime-discovery.ts)
-- local Claude runtime launcher lives in [`scripts/claude-hook-server.ts`](../scripts/claude-hook-server.ts)
-- local Claude TUI launcher lives in [`scripts/claude-hook-tui.ts`](../scripts/claude-hook-tui.ts)
+- local Claude adapter launcher lives in [`scripts/claude-hook-server.ts`](../scripts/claude-hook-server.ts)
+- local runtime launcher lives in [`scripts/runtime-server.ts`](../scripts/runtime-server.ts)
+- generic TUI launcher lives in [`scripts/claude-hook-tui.ts`](../scripts/claude-hook-tui.ts)
 - command-hook forwarder lives in [`scripts/claude-hook-forward.mjs`](../scripts/claude-hook-forward.mjs)
 
 ## Quickstart
@@ -45,53 +46,45 @@ This quickstart is for the second main Aperture use case:
 
 - use the shared Aperture runtime, TUI, and Claude adapter to manage live Claude Code workload
 
-Write Claude Code hook configuration into a target project:
+1. Set up Claude hooks:
 
-```bash
-pnpm setup:claude-hook /path/to/project
-```
-
-Or write the hooks once at the user level for all projects:
+Global:
 
 ```bash
 pnpm setup:claude-hook --global
 ```
 
-If you also want successful tool completions to show up as status updates:
+Or for one project only:
 
 ```bash
-pnpm setup:claude-hook /path/to/project --include-post-tool-use
+pnpm setup:claude-hook /path/to/project
 ```
 
-Global plus successful completions:
+2. Start Aperture:
 
 ```bash
-pnpm setup:claude-hook --global --include-post-tool-use
+pnpm serve
 ```
 
-Then start the persistent Claude runtime:
+3. In another terminal, start the Claude adapter:
 
 ```bash
 pnpm claude:serve
 ```
 
-In another terminal, attach the TUI:
+4. In another terminal, open the TUI:
 
 ```bash
-pnpm claude:tui
+pnpm tui
 ```
+
+5. Restart Claude Code, then run `/hooks` to confirm the hook set loaded.
 
 By default:
 
 - Claude hooks POST to `http://127.0.0.1:4545/hook`
 - the TUI attaches to `http://127.0.0.1:4546/runtime`
 - if no explicit runtime URL is set, the TUI auto-discovers live local Aperture runtimes from the local runtime registry
-
-If you configured `PostToolUse` too, start the launcher with the matching environment flag:
-
-```bash
-APERTURE_INCLUDE_POST_TOOL_USE=1 pnpm claude:serve
-```
 
 The setup command writes `.claude/settings.local.json` in the target project and preserves existing hooks. The generated command points at the local forwarder in this repo.
 
@@ -101,6 +94,17 @@ If you prefer to wire it manually, the resulting config shape is:
 {
   "hooks": {
     "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /path/to/aperture/scripts/claude-hook-forward.mjs"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
       {
         "matcher": "*",
         "hooks": [
@@ -155,10 +159,6 @@ If you prefer to wire it manually, the resulting config shape is:
   }
 }
 ```
-
-If `APERTURE_INCLUDE_POST_TOOL_USE=1` is enabled, add a matching `PostToolUse` hook section too.
-
-Restart Claude Code after editing settings, then use `/hooks` inside Claude Code to confirm the hooks loaded.
 
 ## Notes
 

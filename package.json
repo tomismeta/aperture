@@ -6,12 +6,14 @@
   "scripts": {
     "build": "tsc -b",
     "claude:serve": "tsx scripts/claude-hook-server.ts",
-    "claude:tui": "tsx scripts/claude-hook-tui.ts",
+    "claude:tui": "pnpm tui",
     "clean": "rm -rf packages/*/dist",
-    "demo:claude-hook": "pnpm claude:serve",
+    "demo:claude-hook": "tsx scripts/demo-claude-stack.ts",
     "demo:tui": "tsx scripts/demo-tui.ts",
+    "serve": "tsx scripts/runtime-server.ts",
     "setup:claude-hook": "node scripts/setup-claude-hook.mjs",
     "test": "tsx --test packages/*/test/**/*.test.ts",
+    "tui": "tsx scripts/claude-hook-tui.ts",
     "typecheck": "tsc -b --pretty"
   },
   "devDependencies": {

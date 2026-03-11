@@ -5,6 +5,7 @@ import { stderr, stdout, exit } from "node:process";
 
 const DEFAULT_HOOK_SPECS = [
   { eventName: "PreToolUse", matcher: "*" },
+  { eventName: "PostToolUse", matcher: "*" },
   { eventName: "PostToolUseFailure", matcher: "*" },
   { eventName: "Notification" },
   { eventName: "UserPromptSubmit" },
@@ -13,20 +14,15 @@ const DEFAULT_HOOK_SPECS = [
 
 async function main() {
   const args = process.argv.slice(2);
-  const includePostToolUse = args.includes("--include-post-tool-use");
   const global = args.includes("--global") || args.includes("-g");
   const targetArg = args.find((arg) => !arg.startsWith("--"));
 
   if (!global && !targetArg) {
-    stderr.write("Usage: pnpm setup:claude-hook /path/to/project [--include-post-tool-use]\n");
-    stderr.write("   or: pnpm setup:claude-hook --global [--include-post-tool-use]\n");
+    stderr.write("Usage: pnpm setup:claude-hook /path/to/project\n");
+    stderr.write("   or: pnpm setup:claude-hook --global\n");
     exit(1);
     return;
   }
-
-  const hookSpecs = includePostToolUse
-    ? [...DEFAULT_HOOK_SPECS, { eventName: "PostToolUse", matcher: "*" }]
-    : DEFAULT_HOOK_SPECS;
 
   const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
   const targetRoot = targetArg ? resolve(targetArg) : null;
@@ -37,7 +33,7 @@ async function main() {
   const command = `node ${forwarderPath}`;
 
   const settings = await readSettings(settingsPath);
-  const updated = mergeHooks(settings, hookSpecs, command);
+  const updated = mergeHooks(settings, DEFAULT_HOOK_SPECS, command);
 
   await mkdir(dirname(settingsPath), { recursive: true });
   await writeFile(settingsPath, `${JSON.stringify(updated, null, 2)}\n`, "utf8");
@@ -46,14 +42,11 @@ async function main() {
   stdout.write(`Hook command: ${command}\n`);
   stdout.write("\n");
   stdout.write("Next steps:\n");
-  stdout.write(
-    `1. In this repo, start the runtime: ${includePostToolUse ? "APERTURE_INCLUDE_POST_TOOL_USE=1 " : ""}pnpm claude:serve\n`,
-  );
-  stdout.write(
-    "2. In another terminal, attach the TUI: pnpm claude:tui\n",
-  );
-  stdout.write(`3. Restart Claude Code${global ? "" : " in the target project"}.\n`);
-  stdout.write("4. Run /hooks in Claude Code to confirm the hooks loaded.\n");
+  stdout.write("1. In this repo, start Aperture: pnpm serve\n");
+  stdout.write("2. In another terminal, start the Claude adapter: pnpm claude:serve\n");
+  stdout.write("3. In another terminal, open the TUI: pnpm tui\n");
+  stdout.write(`4. Restart Claude Code${global ? "" : " in the target project"}.\n`);
+  stdout.write("5. Run /hooks in Claude Code to confirm the hooks loaded.\n");
 }
 
 async function readSettings(settingsPath) {

@@ -97,40 +97,39 @@ for (const event of mapPaperclipLiveEvent(liveEvent)) {
 
 ### Claude Code Use
 
-Use the runtime + TUI + Claude adapter when you want Aperture to manage a live Claude workload.
+Use Aperture to manage live Claude Code approvals, failures, and follow-up handoff.
 
-1. Write Claude hooks:
+1. Set up Claude hooks:
 
 ```bash
 pnpm setup:claude-hook --global
 ```
 
-Or per project:
+Or for one project only:
 
 ```bash
 pnpm setup:claude-hook /path/to/project
 ```
 
-2. Start the shared Aperture runtime:
+2. Start Aperture:
+
+```bash
+pnpm serve
+```
+
+3. Start the Claude adapter in another terminal:
 
 ```bash
 pnpm claude:serve
 ```
 
-3. In another terminal, attach the TUI:
+4. Open the TUI in another terminal:
 
 ```bash
-pnpm claude:tui
+pnpm tui
 ```
 
-If you want successful tool completions too:
-
-```bash
-pnpm setup:claude-hook --global --include-post-tool-use
-APERTURE_INCLUDE_POST_TOOL_USE=1 pnpm claude:serve
-```
-
-Then restart Claude Code and run `/hooks` to confirm the hook set loaded.
+5. Restart Claude Code, then run `/hooks` to confirm the hook set loaded.
 
 ## Today
 

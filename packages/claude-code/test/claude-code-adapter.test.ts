@@ -31,6 +31,11 @@ test("maps PreToolUse Bash hooks into approval events", () => {
     assert.equal(mapped[0].request.kind, "approval");
     assert.equal(mapped[0].summary, "git push origin main");
     assert.equal(mapped[0].riskHint, "medium");
+    assert.deepEqual(mapped[0].source, {
+      id: "claude-code:session-1",
+      kind: "claude-code",
+      label: "Claude Code repo #session1",
+    });
   }
 });
 
@@ -63,6 +68,23 @@ test("filters tools when explicit list is provided", () => {
   };
 
   assert.deepEqual(mapClaudeCodeHookEvent(event, { tools: ["Bash"] }), []);
+});
+
+test("labels Claude Code instances with workspace and short session id", () => {
+  const event: ClaudeCodePreToolUseEvent = {
+    session_id: "8b4d2f66-89e1-4a55-b978-ff11aa22bb33",
+    cwd: "/Users/tom/dev/project-alpha",
+    hook_event_name: "PreToolUse",
+    tool_name: "Read",
+    tool_use_id: "tool-1",
+    tool_input: {
+      file_path: "/Users/tom/dev/project-alpha/src/index.ts",
+    },
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.source?.label, "Claude Code project-alpha #8b4d2f");
 });
 
 test("maps PostToolUseFailure hooks into failed task updates", () => {

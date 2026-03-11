@@ -8,6 +8,7 @@
     "clean": "rm -rf packages/*/dist",
     "demo:claude-hook": "tsx scripts/claude-hook-tui.ts",
     "demo:tui": "tsx scripts/demo-tui.ts",
+    "setup:claude-hook": "node scripts/setup-claude-hook.mjs",
     "test": "tsx --test packages/*/test/**/*.test.ts",
     "typecheck": "tsc -b --pretty"
   },

@@ -30,7 +30,19 @@ It translates Claude Code hook payloads into `ConformedEvent` values and transla
 
 ## Quickstart
 
-Start the local hook server and shared terminal attention surface:
+Write Claude Code hook configuration into a target project:
+
+```bash
+pnpm setup:claude-hook /path/to/project
+```
+
+If you also want successful tool completions to show up as status updates:
+
+```bash
+pnpm setup:claude-hook /path/to/project --include-post-tool-use
+```
+
+Then start the local hook server and shared terminal attention surface:
 
 ```bash
 pnpm demo:claude-hook
@@ -38,13 +50,15 @@ pnpm demo:claude-hook
 
 This listens on `http://127.0.0.1:4545/hook` by default and opens the TUI.
 
-If you also want successful tool completions to show up as status updates:
+If you configured `PostToolUse` too, start the launcher with the matching environment flag:
 
 ```bash
 APERTURE_INCLUDE_POST_TOOL_USE=1 pnpm demo:claude-hook
 ```
 
-Configure Claude Code in the target project with a local `.claude/settings.local.json`:
+The setup command writes `.claude/settings.local.json` in the target project and preserves existing hooks. The generated command points at the local forwarder in this repo.
+
+If you prefer to wire it manually, the resulting config shape is:
 
 ```json
 {
@@ -82,5 +96,6 @@ Restart Claude Code after editing settings, then use `/hooks` inside Claude Code
 ## Notes
 
 - The forwarder reads the Claude hook payload from stdin and POSTs it to the local Aperture server.
+- Claude frames are labeled with workspace basename plus a short session token so multiple Claude Code sessions are distinguishable in the TUI.
 - Non-Bash tools are currently treated as generic blocking approvals with `medium` consequence.
 - Bash commands still receive the only built-in high-risk classification.

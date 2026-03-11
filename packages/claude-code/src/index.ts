@@ -1,3 +1,5 @@
+import { basename } from "node:path";
+
 import type {
   ConformedEvent,
   ConformedHumanInputRequestedEvent,
@@ -166,7 +168,7 @@ function mapPreToolUse(
     taskId: claudeTaskId(event.session_id),
     interactionId: claudeInteractionId(event.session_id, event.tool_use_id),
     timestamp: new Date().toISOString(),
-    source: claudeSource(event.session_id),
+    source: claudeSource(event),
     title: `Approve ${event.tool_name}`,
     summary,
     request: {
@@ -190,7 +192,7 @@ function mapPostToolUseFailure(
     type: "task.updated",
     taskId: claudeTaskId(event.session_id),
     timestamp: new Date().toISOString(),
-    source: claudeSource(event.session_id),
+    source: claudeSource(event),
     title: `${event.tool_name} failed`,
     summary: event.error,
     status: "failed",
@@ -207,7 +209,7 @@ function mapPostToolUse(event: ClaudeCodePostToolUseEvent): ConformedTaskUpdated
     type: "task.updated",
     taskId: claudeTaskId(event.session_id),
     timestamp: new Date().toISOString(),
-    source: claudeSource(event.session_id),
+    source: claudeSource(event),
     title: `${event.tool_name} completed`,
     summary,
     status: "running",
@@ -266,12 +268,45 @@ function claudeEventId(
   return `claude-code:${encodeURIComponent(event.session_id)}:${event.hook_event_name}:${encodeURIComponent(event.tool_use_id ?? "none")}:${suffix}`;
 }
 
-function claudeSource(sessionId: string) {
+function claudeSource(event: Pick<ClaudeCodeHookBaseEvent, "session_id" | "cwd">) {
+  const workspace = workspaceLabel(event.cwd);
+  const session = shortSessionLabel(event.session_id);
+  const label = workspace
+    ? `Claude Code ${workspace} #${session}`
+    : `Claude Code #${session}`;
+
   return {
-    id: `claude-code:${sessionId}`,
+    id: `claude-code:${event.session_id}`,
     kind: "claude-code",
-    label: "Claude Code",
+    label,
   };
+}
+
+function workspaceLabel(cwd: string): string | null {
+  const normalized = cwd.replace(/[\\/]+$/, "");
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  const label = basename(normalized);
+  return label.length > 0 ? label : normalized;
+}
+
+function shortSessionLabel(sessionId: string): string {
+  const collapsed = sessionId.replace(/[^a-zA-Z0-9]/g, "");
+  if (collapsed.length > 0 && collapsed.length <= 8) {
+    return collapsed.toLowerCase();
+  }
+
+  if (collapsed.length > 8) {
+    return collapsed.slice(0, 6).toLowerCase();
+  }
+
+  if (sessionId.length <= 12) {
+    return sessionId;
+  }
+
+  return sessionId.slice(0, 12);
 }
 
 function toolInputSummary(event: ClaudeCodePreToolUseEvent): string {

@@ -26,8 +26,7 @@ test("holds PreToolUse requests until Aperture responds", async () => {
       }),
     });
 
-    await sleep(25);
-    const frame = core.getAttentionView().active;
+    const frame = await waitFor(() => core.getAttentionView().active);
     assert.ok(frame);
     assert.equal(frame?.interactionId, "claude-code:tool:session-1:tool-1");
 
@@ -120,8 +119,10 @@ test("handles concurrent held PreToolUse requests independently", async () => {
       }),
     });
 
-    await sleep(25);
-    const taskView = core.getTaskView("claude-code:session:session-1");
+    const taskView = await waitFor(() => {
+      const next = core.getTaskView("claude-code:session:session-1");
+      return next.active ? next : null;
+    });
     assert.equal(taskView.active?.interactionId, "claude-code:tool:session-1:tool-1");
     assert.deepEqual(
       taskView.queued.map((frame) => frame.interactionId),
@@ -197,4 +198,23 @@ function sleep(durationMs: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, durationMs);
   });
+}
+
+async function waitFor<T>(
+  read: () => T | null,
+  options: { timeoutMs?: number; intervalMs?: number } = {},
+): Promise<T> {
+  const timeoutMs = options.timeoutMs ?? 200;
+  const intervalMs = options.intervalMs ?? 10;
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt <= timeoutMs) {
+    const value = read();
+    if (value !== null) {
+      return value;
+    }
+    await sleep(intervalMs);
+  }
+
+  return read() as T;
 }

@@ -48,7 +48,8 @@ async function main(): Promise<void> {
 
 function spawnPnpm(args: string[]): ChildProcess {
   return spawn("pnpm", args, {
-    stdio: ["inherit", "inherit", "pipe"],
+    // The background runtime and adapter should never compete with the TUI for stdin.
+    stdio: ["ignore", "inherit", "pipe"],
     env: process.env,
   });
 }

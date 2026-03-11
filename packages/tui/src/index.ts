@@ -48,6 +48,11 @@ type TuiState = {
   expanded: boolean;
 };
 
+type QueueGroup = {
+  frame: Frame;
+  count: number;
+};
+
 const PANEL_CONTENT_WIDTH = 74;
 const PANEL_BORDER_WIDTH = PANEL_CONTENT_WIDTH + 2;
 const SCREEN_WIDTH = PANEL_BORDER_WIDTH + 2;
@@ -72,6 +77,7 @@ export function renderAttentionScreen(
   const queued = attentionView.queued;
   const ambient = attentionView.ambient;
   const globalTone = active?.tone ?? (queued[0]?.tone ?? "ambient");
+  const activePendingCount = active ? countMatchingFrames(active, queued) : 0;
 
   lines.push(...renderMasthead(title, color, globalTone));
   lines.push(horizontalRule(color));
@@ -88,7 +94,7 @@ export function renderAttentionScreen(
   );
   lines.push(horizontalRule(color));
   lines.push(styleSection("ACTIVE NOW", color, globalTone));
-  lines.push(...renderFocusPane(active, color, options?.expanded ?? false));
+  lines.push(...renderFocusPane(active, color, options?.expanded ?? false, activePendingCount));
 
   if (options?.formDraft && active) {
     lines.push("");
@@ -101,8 +107,8 @@ export function renderAttentionScreen(
   if (queued.length === 0) {
     lines.push(styleMuted("  no queued work", color));
   } else {
-    for (const [index, frame] of queued.entries()) {
-      lines.push(...renderCompactFrame(frame, index + 1, color));
+    for (const [index, group] of groupQueuedFrames(queued).entries()) {
+      lines.push(...renderCompactFrame(group, index + 1, color));
     }
   }
 
@@ -490,7 +496,12 @@ function renderStatsLine(
   return `${statsText} ${styleMuted("·", color)} ${stateColored}`;
 }
 
-function renderFocusPane(frame: Frame | null, color: boolean, expanded = false): string[] {
+function renderFocusPane(
+  frame: Frame | null,
+  color: boolean,
+  expanded = false,
+  pendingCount = 0,
+): string[] {
   if (!frame) {
     return panel(
       [
@@ -506,9 +517,10 @@ function renderFocusPane(frame: Frame | null, color: boolean, expanded = false):
   const source = frame.source?.label ?? frame.source?.id ?? "unknown";
   const score = readScore(frame);
   const attention = readAttention(frame);
+  const title = pendingCount > 1 ? `${frame.title} ${styleMuted(`×${pendingCount}`, color)}` : frame.title;
   const lines = [
     alignLine(
-      styleStrong(frame.title, color),
+      styleStrong(title, color),
       styleScore(score, color),
       PANEL_CONTENT_WIDTH,
     ),
@@ -552,12 +564,50 @@ function renderFocusPane(frame: Frame | null, color: boolean, expanded = false):
   return panel(lines, color, frame.tone);
 }
 
-function renderCompactFrame(frame: Frame, rank: number, color: boolean): string[] {
+function renderCompactFrame(group: QueueGroup, rank: number, color: boolean): string[] {
+  const { frame, count } = group;
   const source = frame.source?.label ?? frame.source?.id ?? "unknown";
   const score = readScore(frame);
-  const left = `${styleRank(rank, color)} ${styleStrong(frame.title, color)} ${styleMuted(source, color)}`;
+  const title = count > 1 ? `${frame.title} ${styleMuted(`×${count}`, color)}` : frame.title;
+  const left = `${styleRank(rank, color)} ${styleStrong(title, color)} ${styleMuted(source, color)}`;
   const right = styleMuted(`score ${score}`, color);
   return [`  ${alignLine(left, right, PANEL_CONTENT_WIDTH - 2)}`];
+}
+
+function groupQueuedFrames(frames: Frame[]): QueueGroup[] {
+  const groups = new Map<string, QueueGroup>();
+  const ordered: QueueGroup[] = [];
+
+  for (const frame of frames) {
+    const key = queueGroupKey(frame);
+    const existing = groups.get(key);
+    if (existing) {
+      existing.count += 1;
+      continue;
+    }
+
+    const group = { frame, count: 1 };
+    groups.set(key, group);
+    ordered.push(group);
+  }
+
+  return ordered;
+}
+
+function queueGroupKey(frame: Frame): string {
+  const source = frame.source?.label ?? frame.source?.id ?? "";
+  return [frame.mode, frame.tone, frame.consequence, frame.title, frame.summary ?? "", source].join("::");
+}
+
+function countMatchingFrames(frame: Frame, queued: Frame[]): number {
+  const key = queueGroupKey(frame);
+  let count = 1;
+  for (const queuedFrame of queued) {
+    if (queueGroupKey(queuedFrame) === key) {
+      count += 1;
+    }
+  }
+  return count;
 }
 
 function renderAmbientFrame(frame: Frame, color: boolean): string[] {

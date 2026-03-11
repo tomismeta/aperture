@@ -192,3 +192,80 @@ test("renderAttentionScreen preserves status text when stats are also shown", ()
 
   assert.match(screen, /Approved · focused on Approve Bash ls -la/);
 });
+
+test("renderAttentionScreen compacts repeated queued notifications", () => {
+  const repeated = makeFrame({
+    id: "frame-2",
+    interactionId: "interaction-2",
+    title: "Approve Read package.json",
+    source: {
+      id: "claude-code:session-1",
+      kind: "claude-code",
+      label: "Claude Code tom #61cc80",
+    },
+  });
+
+  const attentionView: AttentionView = {
+    active: makeFrame({
+      title: "Approve Read package.json",
+      source: {
+        id: "claude-code:session-1",
+        kind: "claude-code",
+        label: "Claude Code tom #61cc80",
+      },
+    }),
+    queued: [
+      repeated,
+      { ...repeated, id: "frame-3", interactionId: "interaction-3" },
+      makeFrame({
+        id: "frame-4",
+        interactionId: "interaction-4",
+        title: "Approve Read README.md",
+        source: {
+          id: "claude-code:session-2",
+          kind: "claude-code",
+          label: "Claude Code aperture #f3d677",
+        },
+      }),
+    ],
+    ambient: [],
+  };
+
+  const screen = renderAttentionScreen(attentionView, { title: "Aperture" });
+
+  assert.match(screen, /Approve Read package\.json .*×2/);
+  assert.match(screen, /Approve Read package\.json .*×3/);
+  assert.equal((screen.match(/Approve Read package\.json/g) ?? []).length, 2);
+});
+
+test("renderAttentionScreen shows duplicate active approvals as a pending count", () => {
+  const duplicate = makeFrame({
+    id: "frame-2",
+    interactionId: "interaction-2",
+    title: "Approve Read components.md",
+    summary: "/Users/tom/dev/aperture/docs/components.md",
+    source: {
+      id: "claude-code:session-1",
+      kind: "claude-code",
+      label: "Claude Code tom #61cc80",
+    },
+  });
+
+  const attentionView: AttentionView = {
+    active: makeFrame({
+      title: "Approve Read components.md",
+      summary: "/Users/tom/dev/aperture/docs/components.md",
+      source: {
+        id: "claude-code:session-1",
+        kind: "claude-code",
+        label: "Claude Code tom #61cc80",
+      },
+    }),
+    queued: [duplicate],
+    ambient: [],
+  };
+
+  const screen = renderAttentionScreen(attentionView, { title: "Aperture" });
+
+  assert.match(screen, /Approve Read components\.md .*×2/);
+});

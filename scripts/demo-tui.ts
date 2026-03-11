@@ -1,4 +1,5 @@
 import { ApertureCore } from "../packages/core/src/index.ts";
+import type { ApertureTrace } from "../packages/core/src/index.ts";
 import type { ClaudeCodeHookEvent } from "../packages/claude-code/src/index.ts";
 import { mapClaudeCodeHookEvent } from "../packages/claude-code/src/index.ts";
 import type { CodexServerRequest } from "../packages/codex/src/index.ts";
@@ -10,6 +11,17 @@ import { runAttentionTui } from "../packages/tui/src/index.ts";
 async function main(): Promise<void> {
   const core = new ApertureCore();
   const now = Date.now();
+  const traceLines: string[] = [];
+  const traceEnabled = process.env.APERTURE_TRACE === "1";
+
+  if (traceEnabled) {
+    core.onTrace((trace) => {
+      traceLines.push(formatTrace(trace));
+      if (traceLines.length > 40) {
+        traceLines.shift();
+      }
+    });
+  }
 
   // Seed signal history so the stats line appears (presented >= 5).
   // Simulates a session where the operator already handled several items.
@@ -123,6 +135,33 @@ async function main(): Promise<void> {
   }
 
   await runAttentionTui(core, { title: "Aperture TUI Demo" });
+
+  if (traceEnabled) {
+    process.stderr.write("\nAperture trace log\n");
+    process.stderr.write(`${traceLines.join("\n")}\n`);
+  }
 }
 
 void main();
+
+function formatTrace(trace: ApertureTrace): string {
+  if (trace.evaluation.kind !== "candidate") {
+    return `${trace.timestamp} ${trace.evaluation.kind} ${trace.event.taskId}`;
+  }
+
+  const reasons =
+    trace.coordination.reasons.length > 0
+      ? ` :: ${trace.coordination.reasons.join("; ")}`
+      : "";
+
+  return [
+    trace.timestamp,
+    trace.coordination.kind.padEnd(8, " "),
+    trace.evaluation.adjusted.taskId,
+    `candidate=${trace.coordination.candidateScore}`,
+    `current=${trace.coordination.currentScore ?? "n/a"}`,
+    reasons,
+  ]
+    .filter((part) => part !== "")
+    .join(" ");
+}

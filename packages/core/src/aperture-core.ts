@@ -91,12 +91,17 @@ export class ApertureCore {
       }
       case "candidate": {
         const current = this.getFrame(event.taskId);
+        const currentAttentionView = this.getAttentionView();
         const candidate = this.heuristics.apply(
           evaluation.candidate,
           taskSummary,
           globalSummary,
         );
-        const explanation = this.coordinator.explain(current, candidate);
+        const explanation = this.coordinator.explain(current, candidate, {
+          attentionView: currentAttentionView,
+          taskSummary,
+          globalSummary,
+        });
         let result: Frame | null;
         switch (explanation.decision.kind) {
           case "keep":
@@ -132,6 +137,7 @@ export class ApertureCore {
             candidateScore: explanation.candidateScore,
             currentScore: explanation.currentScore,
             currentPriority: explanation.currentPriority,
+            reasons: explanation.reasons,
           },
           taskSummary,
           globalSummary,

@@ -166,3 +166,60 @@ test("global overload still allows critical ambient status to take focus", () =>
 
   assert.equal(attentionView.active?.interactionId, "interaction:failed");
 });
+
+test("newer focused work outranks stale focused work when base scores match", () => {
+  const stale = createFrame({
+    taskId: "task:stale",
+    interactionId: "interaction:stale",
+    tone: "focused",
+    consequence: "medium",
+    title: "Stale blocked follow-up",
+    timing: {
+      createdAt: "2026-03-09T08:00:00.000Z",
+      updatedAt: "2026-03-09T08:00:00.000Z",
+    },
+  });
+  const fresh = createFrame({
+    taskId: "task:fresh",
+    interactionId: "interaction:fresh",
+    tone: "focused",
+    consequence: "medium",
+    title: "Fresh blocked follow-up",
+    timing: {
+      createdAt: "2026-03-09T12:25:00.000Z",
+      updatedAt: "2026-03-09T12:25:00.000Z",
+    },
+  });
+
+  const attentionView = buildAttentionView(
+    [createTaskView({ active: stale }), createTaskView({ active: fresh })],
+    { now: "2026-03-09T12:30:00.000Z" },
+  );
+
+  assert.equal(attentionView.active?.interactionId, "interaction:fresh");
+  assert.equal(attentionView.ambient[0]?.interactionId, "interaction:stale");
+});
+
+test("aging does not suppress recent critical work during overload", () => {
+  const failed = createFrame({
+    taskId: "task:recent-failed",
+    interactionId: "interaction:recent-failed",
+    tone: "critical",
+    consequence: "high",
+    title: "Recent critical failure",
+    timing: {
+      createdAt: "2026-03-09T12:20:00.000Z",
+      updatedAt: "2026-03-09T12:20:00.000Z",
+    },
+  });
+
+  const attentionView = buildAttentionView(
+    [createTaskView({ active: failed })],
+    {
+      globalAttentionState: "overloaded" satisfies AttentionState,
+      now: "2026-03-09T12:30:00.000Z",
+    },
+  );
+
+  assert.equal(attentionView.active?.interactionId, "interaction:recent-failed");
+});

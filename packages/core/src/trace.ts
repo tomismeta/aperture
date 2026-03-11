@@ -51,6 +51,7 @@ export type ApertureTrace =
         candidateScore: number;
         currentScore: number | null;
         currentPriority: InteractionPriority | null;
+        reasons: string[];
       };
       taskSummary: SignalSummary;
       globalSummary: SignalSummary;

@@ -1,6 +1,10 @@
 import type { Frame } from "./frame.js";
 import type { InteractionCandidate, InteractionPriority } from "./interaction-candidate.js";
 
+type FrameScoreOptions = {
+  now?: string;
+};
+
 export function scoreCandidate(candidate: InteractionCandidate): number {
   return (
     priorityWeight(candidate.priority) * 100 +
@@ -11,13 +15,14 @@ export function scoreCandidate(candidate: InteractionCandidate): number {
   );
 }
 
-export function scoreFrame(frame: Frame): number {
+export function scoreFrame(frame: Frame, options: FrameScoreOptions = {}): number {
   return (
     priorityWeight(priorityForFrame(frame)) * 100 +
     consequenceWeight(frame.consequence) * 10 +
     toneWeight(frame.tone) +
     (isBlockingFrame(frame) ? 1000 : 0) +
-    readFrameAttentionOffset(frame)
+    readFrameAttentionOffset(frame) +
+    agePenalty(frame, options.now)
   );
 }
 
@@ -84,4 +89,64 @@ function toneWeight(tone: Frame["tone"]): number {
     case "critical":
       return 2;
   }
+}
+
+function agePenalty(frame: Frame, now: string | undefined): number {
+  const reference = now ?? frame.timing.updatedAt;
+  const updatedAt = Date.parse(frame.timing.updatedAt);
+  const referenceAt = Date.parse(reference);
+
+  if (Number.isNaN(updatedAt) || Number.isNaN(referenceAt) || referenceAt <= updatedAt) {
+    return 0;
+  }
+
+  const elapsedMs = referenceAt - updatedAt;
+  const profile = ageProfile(frame);
+  if (elapsedMs <= profile.graceMs) {
+    return 0;
+  }
+
+  const steps = Math.floor((elapsedMs - profile.graceMs) / profile.stepMs) + 1;
+  return -Math.min(profile.maxPenalty, steps * profile.penaltyPerStep);
+}
+
+function ageProfile(frame: Frame): {
+  graceMs: number;
+  stepMs: number;
+  penaltyPerStep: number;
+  maxPenalty: number;
+} {
+  if (isBlockingFrame(frame)) {
+    return {
+      graceMs: 30 * 60 * 1000,
+      stepMs: 10 * 60 * 1000,
+      penaltyPerStep: 1,
+      maxPenalty: 6,
+    };
+  }
+
+  if (frame.tone === "critical" || frame.consequence === "high") {
+    return {
+      graceMs: 20 * 60 * 1000,
+      stepMs: 10 * 60 * 1000,
+      penaltyPerStep: 1,
+      maxPenalty: 8,
+    };
+  }
+
+  if (frame.tone === "focused" || frame.consequence === "medium") {
+    return {
+      graceMs: 10 * 60 * 1000,
+      stepMs: 10 * 60 * 1000,
+      penaltyPerStep: 2,
+      maxPenalty: 12,
+    };
+  }
+
+  return {
+    graceMs: 5 * 60 * 1000,
+    stepMs: 10 * 60 * 1000,
+    penaltyPerStep: 3,
+    maxPenalty: 18,
+  };
 }

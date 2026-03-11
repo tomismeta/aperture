@@ -7,7 +7,6 @@ LLMs spend model tokens. Operators spend attention tokens.
 A small TypeScript library that decides what deserves human attention now, what should wait, and what can remain ambient.
 
 It is not:
-
 - an orchestrator
 - a protocol
 - a renderer
@@ -16,65 +15,32 @@ It is not:
 ## Why
 
 If you are supervising multiple agents, everything can interrupt at once:
-
 - approvals
 - failures
 - blocked work
 - status noise
 
-Most agent software can emit events. Very little of it is good at spending human attention.
-
-That is the wedge:
-
-- not emitting more events
-- not rendering more dashboards
-- deciding which events are worth spending human attention on at all
-
 Aperture exists to answer three questions:
-
 - what deserves attention now
 - what should queue behind it
 - what should stay ambient
 
-```mermaid
-flowchart LR
-  A["Agents / orchestrators / machine events"] --> B["Aperture Core"]
-  B --> C["Frame / AttentionView"]
-  C --> D["Human"]
-  D --> E["FrameResponse"]
-  E --> F["Adapter action back to source"]
-```
+## Footprint
 
-The public footprint is intentionally small:
+- `@aperture/core`: standalone library
+- `@aperture/claude-code`, `@aperture/paperclip`, `@aperture/codex`: optional source adapters
+- `@aperture/tui`: optional attention surface
 
-- Standalone library: `@aperture/core`
-- Optional source adapters: `@aperture/claude-code`, `@aperture/paperclip`, `@aperture/codex`
-- Optional companion surface: `@aperture/tui`
-
-`@aperture/core` stands on its own.
-
-If you already control your event source, publish native `ApertureEvent`s directly into core.
-
-Use an adapter only when you want Aperture to translate to and from an external system like Paperclip, Codex, or Claude Code.
-Adapters emit `ConformedEvent`s, and core applies the final semantic normalization.
+Adapters emit `ConformedEvent`s. `@aperture/core` normalizes semantics and decides what should be active, queued, or ambient.
 
 ## Quickstart
-
-Install dependencies and run the checks:
 
 ```bash
 pnpm install
 pnpm test
 pnpm typecheck
-```
-
-Run the persistent terminal attention surface:
-
-```bash
 pnpm demo:tui
 ```
-
-## Minimal Loop
 
 Use core directly when you already control the event source:
 
@@ -83,7 +49,7 @@ import { ApertureCore, type ApertureEvent } from "@aperture/core";
 
 const core = new ApertureCore();
 
-const event: ApertureEvent = {
+core.publish({
   id: "evt:approval",
   taskId: "task:deploy",
   timestamp: new Date().toISOString(),
@@ -92,101 +58,42 @@ const event: ApertureEvent = {
   title: "Approve production deploy",
   summary: "A production deploy is waiting for review.",
   request: { kind: "approval" },
-};
-
-core.publish(event);
-
-core.onResponse((response) => {
-  console.log(response);
 });
 ```
 
-Use an adapter when you want Aperture to sit between a specific upstream system and the human loop:
+Use an adapter when you want Aperture to sit between an upstream system and the human loop:
 
 ```ts
 import { ApertureCore } from "@aperture/core";
-import {
-  executePaperclipAction,
-  mapPaperclipFrameResponse,
-  mapPaperclipLiveEvent,
-  streamPaperclipLiveEvents,
-} from "@aperture/paperclip";
+import { mapPaperclipLiveEvent } from "@aperture/paperclip";
 
 const core = new ApertureCore();
 
-for await (const liveEvent of streamPaperclipLiveEvents("company-id", {
-  baseUrl: "http://localhost:3000",
-  headers: { Authorization: "Bearer token" },
-})) {
-  for (const event of mapPaperclipLiveEvent(liveEvent)) {
-    core.publishConformed(event);
-  }
+for (const event of mapPaperclipLiveEvent(liveEvent)) {
+  core.publishConformed(event);
 }
-
-core.onResponse(async (response) => {
-  const action = mapPaperclipFrameResponse(response);
-  if (!action) return;
-
-  await executePaperclipAction(action, {
-    baseUrl: "http://localhost:3000",
-    headers: { Authorization: "Bearer token" },
-  });
-});
 ```
 
-That loop is the product:
-
-`PaperclipLiveEvent -> ConformedEvent -> ApertureCore -> ApertureEvent -> Frame / AttentionView -> FrameResponse -> PaperclipAction`
-
-## What Exists
+## Today
 
 - deterministic attention judgment
-- behavioral signal capture and recency-bounded summaries
-- Claude Code ingress mapping
-- Claude Code return-path mapping
-- local Claude Code hook server
-- Codex ingress mapping
-- Codex return-path mapping
-- Paperclip ingress mapping
-- Paperclip return-path mapping
-- real Paperclip transport helpers
-- a source-agnostic TUI companion surface
+- behavioral signals, trends, and recency-bounded summaries
+- Claude Code, Codex, and Paperclip adapters
+- a source-agnostic TUI surface
 
-## What Does Not Exist Yet
+## Feedback
 
-- production persistence
-- multiple mature adapters
-- model-assisted reasoning
-- API stability guarantees
-
-## Early Feedback
-
-If you are running multi-agent workflows and want to test Aperture against real human attention pressure, that feedback is especially useful.
-
-Helpful contributions right now:
-
+Helpful feedback right now:
+- traces where the engine made the wrong call
 - reports from real multi-agent supervision workloads
-- traces and scenario captures where the engine made the wrong call
 - new adapters for additional event sources
 - tighter return-path mappings for existing adapters
 
 ## Docs
 
-Start here:
-
-- [Docs Index](docs/README.md)
 - [Components](docs/components.md)
 - [Semantic Normalization](docs/semantic-normalization.md)
 - [TUI Surface](docs/tui.md)
 - [Claude Code Adapter](docs/claude-code.md)
-- [Frame Contract](docs/frame.md)
 - [Paperclip Adapter](docs/paperclip.md)
 - [Codex Adapter](docs/codex.md)
-
-More:
-
-- [Engine Roadmap](docs/engine-roadmap.md)
-- [Human Attention Research](docs/human-attention-research.md)
-- [Interaction Signals](docs/interaction-signals.md)
-- [Agent Workforce Use Case](docs/agent-workforce-use-case.md)
-- [First Publish Checklist](docs/publish-checklist.md)

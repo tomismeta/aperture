@@ -81,6 +81,37 @@ test("runtime conformed event endpoint accepts batches directly", async () => {
   }
 });
 
+test("runtime adapter client observes attached surfaces through snapshot state", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { controlUrl } = await runtime.listen();
+  const client = await ApertureRuntimeAdapterClient.connect({
+    baseUrl: controlUrl,
+    kind: "claude-code",
+    label: "Claude adapter",
+    pollIntervalMs: 25,
+  });
+
+  try {
+    assert.equal(client.getSurfaceCount(), 0);
+
+    const attach = await fetch(`${controlUrl}/surfaces/attach`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label: "tui" }),
+    });
+    assert.equal(attach.status, 200);
+
+    const surfaceCount = await waitFor(() => {
+      const count = client.getSurfaceCount();
+      return count > 0 ? count : null;
+    }, { timeoutMs: 750 });
+    assert.equal(surfaceCount, 1);
+  } finally {
+    await client.close();
+    await runtime.close();
+  }
+});
+
 function blockedEvent(taskId: string): ConformedEvent {
   return {
     id: `${taskId}:blocked`,

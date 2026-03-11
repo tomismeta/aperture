@@ -476,7 +476,7 @@ function approvalTitleDetail(event: ClaudeCodePreToolUseEvent, summary: string):
   const input = event.tool_input;
 
   if (toolName === "bash") {
-    return null;
+    return summary && summary !== event.tool_name ? truncateLabel(summary, 24) : null;
   }
 
   const filePath = readString(input.file_path) ?? readString(input.path);

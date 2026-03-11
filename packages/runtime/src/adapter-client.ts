@@ -91,6 +91,10 @@ export class ApertureRuntimeAdapterClient {
     return this.snapshotState.attentionView;
   }
 
+  getSurfaceCount(): number {
+    return this.snapshotState.surfaceCount;
+  }
+
   onResponse(listener: ResponseListener): () => void {
     this.responseListeners.add(listener);
     return () => {

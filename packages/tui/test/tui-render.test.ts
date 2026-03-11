@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { AttentionView, Frame } from "@aperture/core";
+import type { AttentionState, AttentionView, Frame, SignalSummary } from "@aperture/core";
 
 import { renderAttentionScreen } from "../src/index.js";
 
@@ -143,4 +143,52 @@ test("renderAttentionScreen shows space key hint in controls", () => {
 
   const screen = renderAttentionScreen(attentionView, { title: "Aperture TUI" });
   assert.match(screen, /\[space\] detail/);
+});
+
+test("renderAttentionScreen preserves status text when stats are also shown", () => {
+  const attentionView: AttentionView = {
+    active: makeFrame({
+      title: "Approve Bash find /Users/tom/dev/ape…",
+    }),
+    queued: [],
+    ambient: [],
+  };
+
+  const summary: SignalSummary = {
+    recentSignals: 9,
+    lifetimeSignals: 9,
+    counts: {
+      presented: 9,
+      viewed: 0,
+      responded: 6,
+      dismissed: 0,
+      deferred: 0,
+      contextExpanded: 0,
+      contextSkipped: 0,
+      timedOut: 0,
+      returned: 0,
+      attentionShifted: 0,
+    },
+    deferred: {
+      queued: 0,
+      suppressed: 0,
+      manual: 0,
+    },
+    responseRate: 0.66,
+    dismissalRate: 0,
+    averageResponseLatencyMs: 4220,
+    averageDismissalLatencyMs: null,
+    lastSignalAt: "2026-03-10T00:00:00.000Z",
+  };
+
+  const screen = renderAttentionScreen(attentionView, {
+    title: "Aperture",
+    statusLine: "Approved · focused on Approve Bash ls -la",
+    stats: {
+      summary,
+      state: "overloaded" satisfies AttentionState,
+    },
+  });
+
+  assert.match(screen, /Approved · focused on Approve Bash ls -la/);
 });

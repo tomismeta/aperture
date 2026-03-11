@@ -27,7 +27,7 @@ async function main(): Promise<void> {
     path,
     includePostToolUse: true,
     tools: undefined,
-    preToolUsePolicy: () => (adapterClient.getAttentionView().surfaceCount > 0 ? "hold" : "ask"),
+    preToolUsePolicy: () => (adapterClient.getSurfaceCount() > 0 ? "hold" : "ask"),
     onPreToolUseFallback: (event, reason) => {
       if (reason === "timed_out" || reason === "not_held") {
         void adapterClient.publishConformed(claudeApprovalFallbackEvent(event, reason));
@@ -36,7 +36,7 @@ async function main(): Promise<void> {
   });
   const hookBinding = await hookServer.listen();
 
-  stderr.write(`Aperture Claude hook server listening at ${hookBinding.url}\n`);
+  stderr.write(`Aperture Claude adapter listening at ${hookBinding.url}\n`);
   stderr.write(`Connected Claude adapter to runtime ${runtimeBaseUrl}\n`);
   stderr.write("Run the TUI separately with: pnpm tui\n");
 

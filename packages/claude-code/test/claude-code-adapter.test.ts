@@ -33,7 +33,7 @@ test("maps PreToolUse Bash hooks into approval events", () => {
     assert.equal(mapped[0].taskId, "claude-code:session:session-1");
     assert.equal(mapped[0].interactionId, "claude-code:tool:session-1:tool-1");
     assert.equal(mapped[0].request.kind, "approval");
-    assert.equal(mapped[0].title, "Approve Bash");
+    assert.equal(mapped[0].title, "Approve Bash git push origin main");
     assert.equal(mapped[0].summary, "git push origin main");
     assert.equal(mapped[0].riskHint, "medium");
     assert.deepEqual(mapped[0].source, {
@@ -41,6 +41,26 @@ test("maps PreToolUse Bash hooks into approval events", () => {
       kind: "claude-code",
       label: "Claude Code repo #session1",
     });
+  }
+});
+
+test("uses compact detail labels for bash approvals", () => {
+  const event: ClaudeCodePreToolUseEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "PreToolUse",
+    tool_name: "Bash",
+    tool_use_id: "tool-1",
+    tool_input: {
+      command: "find /Users/tom/dev/aperture -type d -name \"packages\" -o -type d -name \"docs\" | head -10",
+    },
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "human.input.requested");
+  if (mapped[0]?.type === "human.input.requested") {
+    assert.equal(mapped[0].title, "Approve Bash find /Users/tom/dev/ape…");
   }
 });
 

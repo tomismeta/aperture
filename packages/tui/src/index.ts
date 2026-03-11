@@ -121,7 +121,7 @@ export function renderAttentionScreen(
   footer.push(...renderControls(active, options?.formDraft ?? null, color));
   const statsLine = renderStatsLine(options?.stats ?? null, color);
   if (statsLine && statusLine) {
-    footer.push(alignLine(statsLine, `${styleMuted("status", color)} ${statusLine}`, SCREEN_WIDTH));
+    footer.push(alignFooterStats(statsLine, `${styleMuted("status", color)} ${statusLine}`, SCREEN_WIDTH));
   } else if (statsLine) {
     footer.push(statsLine);
   } else if (statusLine) {
@@ -851,6 +851,24 @@ function alignLine(left: string, right: string, width: number): string {
     return left;
   }
   return `${left}${" ".repeat(gap)}${right}`;
+}
+
+function alignFooterStats(left: string, right: string, width: number): string {
+  const rightWidth = visibleLength(right);
+  if (rightWidth >= width) {
+    return truncateVisible(right, width);
+  }
+
+  const availableLeft = Math.max(0, width - rightWidth - 1);
+  if (availableLeft === 0) {
+    return right;
+  }
+
+  const fittedLeft = visibleLength(left) > availableLeft
+    ? truncateVisible(left, Math.max(1, availableLeft - 1))
+    : left;
+  const gap = Math.max(1, width - visibleLength(fittedLeft) - rightWidth);
+  return `${fittedLeft}${" ".repeat(gap)}${right}`;
 }
 
 function formatSigned(value: number): string {

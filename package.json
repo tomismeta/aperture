@@ -4,16 +4,16 @@
   "private": true,
   "packageManager": "pnpm@10.29.1",
   "scripts": {
+    "aperture": "tsx scripts/aperture.ts",
     "build": "tsc -b",
-    "claude:serve": "tsx scripts/claude-hook-server.ts",
-    "claude:tui": "pnpm tui",
+    "claude:connect": "node scripts/claude-connect.mjs",
+    "claude:disconnect": "node scripts/claude-disconnect.mjs",
+    "claude:start": "tsx scripts/claude-adapter.ts",
     "clean": "rm -rf packages/*/dist",
-    "demo:claude-hook": "tsx scripts/demo-claude-stack.ts",
     "demo:tui": "tsx scripts/demo-tui.ts",
     "serve": "tsx scripts/runtime-server.ts",
-    "setup:claude-hook": "node scripts/setup-claude-hook.mjs",
     "test": "tsx --test packages/*/test/**/*.test.ts",
-    "tui": "tsx scripts/claude-hook-tui.ts",
+    "tui": "tsx scripts/aperture-tui.ts",
     "typecheck": "tsc -b --pretty"
   },
   "devDependencies": {

@@ -9,11 +9,14 @@ async function main(): Promise<void> {
   children.push(runtime);
   await waitForReady(runtime, "Aperture runtime listening");
 
-  const claude = spawnPnpm(["claude:serve"]);
+  const claude = spawnPnpm(["claude:start"]);
   children.push(claude);
+  await waitForReady(claude, "Aperture Claude adapter listening");
 
-  stderr.write("Aperture runtime and Claude adapter are running.\n");
-  stderr.write("Open the TUI separately with: pnpm tui\n");
+  const tui = spawn("pnpm", ["tui"], {
+    stdio: "inherit",
+    env: process.env,
+  });
 
   const close = async () => {
     if (shuttingDown) {
@@ -37,6 +40,10 @@ async function main(): Promise<void> {
 
   process.on("SIGINT", onSignal);
   process.on("SIGTERM", onSignal);
+
+  tui.once("exit", () => {
+    void close();
+  });
 }
 
 function spawnPnpm(args: string[]): ChildProcess {

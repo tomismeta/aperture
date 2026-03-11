@@ -35,10 +35,10 @@ In the current product shape, the intended operational path is:
 - shared Aperture runtime lives in [`packages/runtime/src/runtime.ts`](../packages/runtime/src/runtime.ts)
 - optional TUI runtime client lives in [`packages/runtime/src/runtime-client.ts`](../packages/runtime/src/runtime-client.ts)
 - local runtime discovery lives in [`packages/runtime/src/runtime-discovery.ts`](../packages/runtime/src/runtime-discovery.ts)
-- local Claude adapter launcher lives in [`scripts/claude-hook-server.ts`](../scripts/claude-hook-server.ts)
+- local Claude adapter launcher lives in [`scripts/claude-adapter.ts`](../scripts/claude-adapter.ts)
 - local runtime launcher lives in [`scripts/runtime-server.ts`](../scripts/runtime-server.ts)
-- generic TUI launcher lives in [`scripts/claude-hook-tui.ts`](../scripts/claude-hook-tui.ts)
-- command-hook forwarder lives in [`scripts/claude-hook-forward.mjs`](../scripts/claude-hook-forward.mjs)
+- generic TUI launcher lives in [`scripts/aperture-tui.ts`](../scripts/aperture-tui.ts)
+- Claude forwarder lives in [`scripts/claude-forward.mjs`](../scripts/claude-forward.mjs)
 
 ## Quickstart
 
@@ -46,39 +46,35 @@ This quickstart is for the second main Aperture use case:
 
 - use the shared Aperture runtime, TUI, and Claude adapter to manage live Claude Code workload
 
-1. Set up Claude hooks:
+Most people only need one setup command and one daily command.
+
+One-time setup:
 
 Global:
 
 ```bash
-pnpm setup:claude-hook --global
+pnpm claude:connect --global
 ```
 
-Or for one project only:
+Project-local setup instead:
 
 ```bash
-pnpm setup:claude-hook /path/to/project
+pnpm claude:connect /path/to/project
 ```
 
-2. Start Aperture:
+Daily use:
 
 ```bash
-pnpm serve
+pnpm aperture
 ```
 
-3. In another terminal, start the Claude adapter:
+After connecting Claude for the first time, restart Claude Code and run `/hooks` once to confirm the hook set loaded.
+
+To remove Aperture's Claude hook entries later:
 
 ```bash
-pnpm claude:serve
+pnpm claude:disconnect --global
 ```
-
-4. In another terminal, open the TUI:
-
-```bash
-pnpm tui
-```
-
-5. Restart Claude Code, then run `/hooks` to confirm the hook set loaded.
 
 By default:
 
@@ -86,7 +82,7 @@ By default:
 - the TUI attaches to `http://127.0.0.1:4546/runtime`
 - if no explicit runtime URL is set, the TUI auto-discovers live local Aperture runtimes from the local runtime registry
 
-The setup command writes `.claude/settings.local.json` in the target project and preserves existing hooks. The generated command points at the local forwarder in this repo.
+The connect command writes `.claude/settings.local.json` in the target project and preserves existing hooks. The generated command points at the local forwarder in this repo.
 
 If you prefer to wire it manually, the resulting config shape is:
 
@@ -99,7 +95,7 @@ If you prefer to wire it manually, the resulting config shape is:
         "hooks": [
           {
             "type": "command",
-            "command": "node /path/to/aperture/scripts/claude-hook-forward.mjs"
+            "command": "node /path/to/aperture/scripts/claude-forward.mjs"
           }
         ]
       }
@@ -110,7 +106,7 @@ If you prefer to wire it manually, the resulting config shape is:
         "hooks": [
           {
             "type": "command",
-            "command": "node /path/to/aperture/scripts/claude-hook-forward.mjs"
+            "command": "node /path/to/aperture/scripts/claude-forward.mjs"
           }
         ]
       }
@@ -121,7 +117,7 @@ If you prefer to wire it manually, the resulting config shape is:
         "hooks": [
           {
             "type": "command",
-            "command": "node /path/to/aperture/scripts/claude-hook-forward.mjs"
+            "command": "node /path/to/aperture/scripts/claude-forward.mjs"
           }
         ]
       }
@@ -131,7 +127,7 @@ If you prefer to wire it manually, the resulting config shape is:
         "hooks": [
           {
             "type": "command",
-            "command": "node /path/to/aperture/scripts/claude-hook-forward.mjs"
+            "command": "node /path/to/aperture/scripts/claude-forward.mjs"
           }
         ]
       }
@@ -141,7 +137,7 @@ If you prefer to wire it manually, the resulting config shape is:
         "hooks": [
           {
             "type": "command",
-            "command": "node /path/to/aperture/scripts/claude-hook-forward.mjs"
+            "command": "node /path/to/aperture/scripts/claude-forward.mjs"
           }
         ]
       }
@@ -151,7 +147,7 @@ If you prefer to wire it manually, the resulting config shape is:
         "hooks": [
           {
             "type": "command",
-            "command": "node /path/to/aperture/scripts/claude-hook-forward.mjs"
+            "command": "node /path/to/aperture/scripts/claude-forward.mjs"
           }
         ]
       }
@@ -170,6 +166,7 @@ If you prefer to wire it manually, the resulting config shape is:
 - Claude frames are labeled with workspace basename plus a short session token so multiple Claude Code sessions are distinguishable in the TUI.
 - Idle/input notifications show up as focused waiting status so you can see which Claude instance is blocked on you.
 - End-of-turn follow-up questions from Claude can surface through `Stop` when the assistant message actually looks like a question.
-- `pnpm setup:claude-hook --global` writes `~/.claude/settings.json`; the project-level command writes `.claude/settings.local.json`.
+- `pnpm claude:connect --global` writes `~/.claude/settings.json`; the project-level command writes `.claude/settings.local.json`.
+- `pnpm claude:disconnect --global` removes only Aperture's Claude hook commands and leaves unrelated Claude hooks alone.
 - `Read`, `Grep`, `Glob`, `LS`, and web tools map to low risk; writes default to medium and escalate to high for sensitive paths.
 - Bash commands still use pattern-based risk classification for destructive commands.

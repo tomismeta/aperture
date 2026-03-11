@@ -18,8 +18,8 @@ async function main() {
   const targetArg = args.find((arg) => !arg.startsWith("--"));
 
   if (!global && !targetArg) {
-    stderr.write("Usage: pnpm setup:claude-hook /path/to/project\n");
-    stderr.write("   or: pnpm setup:claude-hook --global\n");
+    stderr.write("Usage: pnpm claude:connect /path/to/project\n");
+    stderr.write("   or: pnpm claude:connect --global\n");
     exit(1);
     return;
   }
@@ -29,7 +29,7 @@ async function main() {
   const settingsPath = global
     ? resolve(process.env.HOME ?? "~", ".claude", "settings.json")
     : resolve(targetRoot, ".claude", "settings.local.json");
-  const forwarderPath = resolve(repoRoot, "scripts", "claude-hook-forward.mjs");
+  const forwarderPath = resolve(repoRoot, "scripts", "claude-forward.mjs");
   const command = `node ${forwarderPath}`;
 
   const settings = await readSettings(settingsPath);
@@ -42,11 +42,9 @@ async function main() {
   stdout.write(`Hook command: ${command}\n`);
   stdout.write("\n");
   stdout.write("Next steps:\n");
-  stdout.write("1. In this repo, start Aperture: pnpm serve\n");
-  stdout.write("2. In another terminal, start the Claude adapter: pnpm claude:serve\n");
-  stdout.write("3. In another terminal, open the TUI: pnpm tui\n");
-  stdout.write(`4. Restart Claude Code${global ? "" : " in the target project"}.\n`);
-  stdout.write("5. Run /hooks in Claude Code to confirm the hooks loaded.\n");
+  stdout.write("1. In this repo, start Aperture: pnpm aperture\n");
+  stdout.write(`2. Restart Claude Code${global ? "" : " in the target project"}.\n`);
+  stdout.write("3. Run /hooks in Claude Code to confirm the hooks loaded.\n");
 }
 
 async function readSettings(settingsPath) {
@@ -174,6 +172,10 @@ function isLegacyApertureHookEntry(entry, command) {
 
     if (hook.command === command) {
       return false;
+    }
+
+    if (hook.command.includes("/scripts/claude-hook-forward.mjs")) {
+      return true;
     }
 
     return hook.command.includes("http://127.0.0.1:4545/hook")

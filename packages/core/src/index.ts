@@ -1,6 +1,7 @@
 export { ApertureCore } from "./aperture-core.js";
 export { scoreFrame } from "./frame-score.js";
 export type { AttentionState } from "./attention-state.js";
+export type * from "./conformed-event.js";
 export type * from "./events.js";
 export type * from "./frame.js";
 export type * from "./frame-response.js";

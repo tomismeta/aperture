@@ -1,4 +1,4 @@
-import type { ApertureEvent, ConsequenceLevel, FrameResponse, SourceRef, TaskStatus } from "@aperture/core";
+import type { ConformedEvent, ConsequenceLevel, FrameResponse, SourceRef, TaskStatus } from "@aperture/core";
 
 export { executePaperclipAction, streamPaperclipLiveEvents, type PaperclipClientOptions } from "./client.js";
 
@@ -47,7 +47,7 @@ export type PaperclipAction =
       };
     };
 
-export function mapPaperclipLiveEvent(event: PaperclipLiveEvent): ApertureEvent[] {
+export function mapPaperclipLiveEvent(event: PaperclipLiveEvent): ConformedEvent[] {
   switch (event.type) {
     case "heartbeat.run.queued":
       return mapHeartbeatQueued(event);
@@ -112,7 +112,7 @@ export function mapPaperclipFrameResponse(response: FrameResponse): PaperclipAct
   }
 }
 
-function mapHeartbeatQueued(event: PaperclipLiveEvent): ApertureEvent[] {
+function mapHeartbeatQueued(event: PaperclipLiveEvent): ConformedEvent[] {
   const payload = event.payload;
   const runId = readString(payload.runId);
   if (!runId) {
@@ -132,7 +132,7 @@ function mapHeartbeatQueued(event: PaperclipLiveEvent): ApertureEvent[] {
   ];
 }
 
-function mapHeartbeatStatus(event: PaperclipLiveEvent): ApertureEvent[] {
+function mapHeartbeatStatus(event: PaperclipLiveEvent): ConformedEvent[] {
   const payload = event.payload;
   const runId = readString(payload.runId);
   const status = readString(payload.status);
@@ -211,7 +211,7 @@ function mapHeartbeatStatus(event: PaperclipLiveEvent): ApertureEvent[] {
   }
 }
 
-function mapActivity(event: PaperclipLiveEvent): ApertureEvent[] {
+function mapActivity(event: PaperclipLiveEvent): ConformedEvent[] {
   const payload = event.payload;
   const entityType = readString(payload.entityType);
   const entityId = readString(payload.entityId);
@@ -238,7 +238,7 @@ function mapApprovalActivity(
   approvalId: string,
   action: string,
   details: Record<string, unknown> | null,
-): ApertureEvent[] {
+): ConformedEvent[] {
   const taskId = approvalTaskId(approvalId);
   const approvalType = readString(details?.type);
   const issueIds = readStringArray(details?.issueIds) ?? readStringArray(details?.linkedIssueIds) ?? [];
@@ -257,11 +257,10 @@ function mapApprovalActivity(
         source,
         title: approvalTitle(approvalType),
         summary: "A Paperclip approval is waiting for operator review.",
-        consequence,
-        tone: consequence === "high" ? "critical" : "focused",
         request: {
           kind: "approval",
         },
+        riskHint: consequence,
         ...(issueIds.length > 0
           ? {
               context: {
@@ -315,7 +314,7 @@ function mapIssueActivity(
   issueId: string,
   action: string,
   details: Record<string, unknown> | null,
-): ApertureEvent[] {
+): ConformedEvent[] {
   const source = sourceRef(readString(event.payload.agentId), "issue");
   const description = readString(details?.description);
   const title =

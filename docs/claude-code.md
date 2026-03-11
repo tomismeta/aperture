@@ -2,7 +2,7 @@
 
 `@aperture/claude-code` is an optional adapter for [`@aperture/core`](../packages/core/src/index.ts).
 
-It translates Claude Code hook payloads into `ApertureEvent` values and translates `FrameResponse` values back into Claude Code hook responses.
+It translates Claude Code hook payloads into `ConformedEvent` values and translates `FrameResponse` values back into Claude Code hook responses.
 
 ## What it supports today
 

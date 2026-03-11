@@ -13,7 +13,7 @@ It is intentionally split into two parts:
 
 Ingress:
 
-- `PaperclipLiveEvent -> ApertureEvent[]`
+- `PaperclipLiveEvent -> ConformedEvent[]`
 
 Egress:
 
@@ -24,7 +24,7 @@ Transport helpers:
 - `streamPaperclipLiveEvents(companyId, options)`
 - `executePaperclipAction(action, options)`
 
-The adapter does not change Aperture semantics. It only translates Paperclip shapes into Aperture's core contracts and back out again.
+The adapter does not decide final Aperture semantics. It translates Paperclip shapes into conformed core inputs and maps responses back out again.
 
 ## Supported Paperclip Live Events
 
@@ -75,7 +75,7 @@ for await (const liveEvent of streamPaperclipLiveEvents("company-id", {
   headers: { Authorization: "Bearer token" },
 })) {
   for (const event of mapPaperclipLiveEvent(liveEvent)) {
-    core.publish(event);
+    core.publishConformed(event);
   }
 }
 
@@ -93,8 +93,8 @@ core.onResponse(async (response) => {
 That integration path uses:
 
 - `streamPaperclipLiveEvents(...)` for ingress
-- `mapPaperclipLiveEvent(...)` into `ApertureEvent`
-- `ApertureCore` for attention decisions
+- `mapPaperclipLiveEvent(...)` into `ConformedEvent`
+- `ApertureCore` for semantic normalization and attention decisions
 - `mapPaperclipFrameResponse(...)` back to Paperclip actions
 - `executePaperclipAction(...)` for egress
 

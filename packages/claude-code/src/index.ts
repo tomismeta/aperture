@@ -1,9 +1,9 @@
 import type {
-  ApertureEvent,
+  ConformedEvent,
+  ConformedHumanInputRequestedEvent,
+  ConformedTaskUpdatedEvent,
   ConsequenceLevel,
   FrameResponse,
-  HumanInputRequestedEvent,
-  TaskUpdatedEvent,
 } from "@aperture/core";
 
 export type ClaudeCodeHookEvent =
@@ -60,6 +60,7 @@ export type ClaudeCodeHookResponse =
 export type ClaudeCodeMappingOptions = {
   tools?: string[];
   includePostToolUse?: boolean;
+  classifyCommand?: (command: string, event: ClaudeCodePreToolUseEvent) => ConsequenceLevel;
 };
 
 const DEFAULT_TOOLS = ["Bash"];
@@ -76,12 +77,12 @@ const HIGH_CONSEQUENCE_PATTERNS = [
 export function mapClaudeCodeHookEvent(
   event: ClaudeCodeHookEvent,
   options: ClaudeCodeMappingOptions = {},
-): ApertureEvent[] {
+): ConformedEvent[] {
   const tools = options.tools ?? DEFAULT_TOOLS;
 
   switch (event.hook_event_name) {
     case "PreToolUse":
-      return tools.includes(event.tool_name) ? [mapPreToolUse(event)] : [];
+      return tools.includes(event.tool_name) ? [mapPreToolUse(event, options)] : [];
     case "PostToolUseFailure":
       return [mapPostToolUseFailure(event)];
     case "PostToolUse":
@@ -138,8 +139,10 @@ export function bashConsequence(command: string): ConsequenceLevel {
 
 function mapPreToolUse(
   event: ClaudeCodePreToolUseEvent,
-): HumanInputRequestedEvent {
+  options: ClaudeCodeMappingOptions,
+): ConformedHumanInputRequestedEvent {
   const command = readString(event.tool_input.command) ?? event.tool_name;
+  const classifyCommand = options.classifyCommand ?? bashConsequence;
   const whyNow =
     readString(event.tool_input.description) ??
     `Claude Code requested approval before running ${event.tool_name}.`;
@@ -153,11 +156,10 @@ function mapPreToolUse(
     source: claudeSource(event.session_id),
     title: "Approve Bash command",
     summary: command,
-    tone: "focused",
-    consequence: bashConsequence(command),
     request: {
       kind: "approval",
     },
+    riskHint: classifyCommand(command, event),
     context: {
       items: [
         { id: "command", label: "Command", value: command },
@@ -172,7 +174,7 @@ function mapPreToolUse(
 
 function mapPostToolUseFailure(
   event: ClaudeCodePostToolUseFailureEvent,
-): TaskUpdatedEvent {
+): ConformedTaskUpdatedEvent {
   return {
     id: claudeEventId(event, "task.updated"),
     type: "task.updated",
@@ -185,7 +187,7 @@ function mapPostToolUseFailure(
   };
 }
 
-function mapPostToolUse(event: ClaudeCodePostToolUseEvent): TaskUpdatedEvent {
+function mapPostToolUse(event: ClaudeCodePostToolUseEvent): ConformedTaskUpdatedEvent {
   const summary =
     readString(event.tool_response?.message) ??
     `${event.tool_name} completed successfully.`;

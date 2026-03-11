@@ -100,7 +100,7 @@ export function createClaudeCodeHookServer(
           return;
         }
 
-        core.publish(firstMappedEvent);
+        core.publishConformed(firstMappedEvent);
         if (!hasInteraction(core, firstMappedEvent.taskId, firstMappedEvent.interactionId)) {
           writeJson(res, 200, askResponse());
           return;
@@ -128,7 +128,7 @@ export function createClaudeCodeHookServer(
       }
 
       for (const apertureEvent of mapped) {
-        core.publish(apertureEvent);
+        core.publishConformed(apertureEvent);
       }
 
       writeJson(res, 200, {});

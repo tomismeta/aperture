@@ -6,15 +6,15 @@ Use it when you want Aperture to sit between Codex app-server requests and the h
 
 It preserves the same boundary as `@aperture/paperclip`:
 
-- map upstream request shapes into `ApertureEvent`
+- map upstream request shapes into `ConformedEvent`
 - map `FrameResponse` back into upstream response descriptors
-- keep all attention judgment inside `@aperture/core`
+- keep semantic normalization and attention judgment inside `@aperture/core`
 
 ## What It Does
 
 Ingress:
 
-- `CodexServerRequest -> ApertureEvent[]`
+- `CodexServerRequest -> ConformedEvent[]`
 
 Egress:
 
@@ -71,7 +71,7 @@ const request: CodexServerRequest = {
 };
 
 for (const event of mapCodexServerRequest(request)) {
-  core.publish(event);
+  core.publishConformed(event);
 }
 
 core.onResponse((response) => {

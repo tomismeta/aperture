@@ -30,7 +30,7 @@ test("maps PreToolUse Bash hooks into approval events", () => {
     assert.equal(mapped[0].interactionId, "claude-code:tool:session-1:tool-1");
     assert.equal(mapped[0].request.kind, "approval");
     assert.equal(mapped[0].summary, "git push origin main");
-    assert.equal(mapped[0].consequence, "medium");
+    assert.equal(mapped[0].riskHint, "medium");
   }
 });
 

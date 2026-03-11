@@ -20,7 +20,9 @@ These are part of Aperture itself.
 - Lives in [packages/core/src/aperture-core.ts](../packages/core/src/aperture-core.ts)
 - Purpose: the main engine entrypoint
 - Owns:
+  - semantic normalization of adapter inputs
   - ingesting `ApertureEvent`
+  - ingesting `ConformedEvent`
   - producing `Frame`
   - producing `TaskView`
   - producing `AttentionView`
@@ -48,6 +50,21 @@ These are part of Aperture itself.
   - attention judgment
   - grouping
   - display logic
+
+#### `ConformedEvent`
+
+- Classification: adapter-to-core conformance contract
+- Lives in [packages/core/src/conformed-event.ts](../packages/core/src/conformed-event.ts)
+- Purpose: source-agnostic factual input produced by adapters before core applies semantic normalization
+- Owns:
+  - task and interaction identity
+  - source identity
+  - request payloads and context
+  - factual hints like `riskHint`
+- Does not own:
+  - final Aperture `tone`
+  - final Aperture `consequence`
+  - attention judgment
 
 #### `Frame`
 
@@ -123,7 +140,7 @@ These are part of the core implementation, but not the product surface to emphas
 
 - Classification: semantic evaluator
 - Lives in [packages/core/src/evaluation-engine.ts](../packages/core/src/evaluation-engine.ts)
-- Purpose: convert `ApertureEvent` into candidate interactions
+- Purpose: convert semantically normalized `ApertureEvent` into candidate interactions
 - Boundary:
   - decides what interaction a raw event implies
   - does not decide whether that interaction wins attention
@@ -193,7 +210,7 @@ Skip adapters when:
 
 - Classification: source adapter
 - Lives in [packages/codex/src/index.ts](../packages/codex/src/index.ts)
-- Purpose: translate Codex app-server approval and user-input requests into `ApertureEvent`, and translate `FrameResponse` back into Codex response descriptors
+- Purpose: translate Codex app-server approval and user-input requests into `ConformedEvent`, and translate `FrameResponse` back into Codex response descriptors
 - Owns:
   - Codex ingress mapping
   - Codex return-path mapping
@@ -208,7 +225,7 @@ Skip adapters when:
 - Lives in:
   - [packages/claude-code/src/index.ts](../packages/claude-code/src/index.ts)
   - [packages/claude-code/src/server.ts](../packages/claude-code/src/server.ts)
-- Purpose: translate Claude Code hook payloads into `ApertureEvent`, translate `FrameResponse` back into Claude Code hook responses, and optionally host a local HTTP hook endpoint for Claude Code
+- Purpose: translate Claude Code hook payloads into `ConformedEvent`, translate `FrameResponse` back into Claude Code hook responses, and optionally host a local HTTP hook endpoint for Claude Code
 - Owns:
   - Claude Code ingress mapping
   - Claude Code return-path mapping
@@ -222,7 +239,7 @@ Skip adapters when:
 
 - Classification: source adapter
 - Lives in [packages/paperclip/src/index.ts](../packages/paperclip/src/index.ts)
-- Purpose: translate Paperclip live events into `ApertureEvent` and translate `FrameResponse` back into Paperclip actions
+- Purpose: translate Paperclip live events into `ConformedEvent` and translate `FrameResponse` back into Paperclip actions
 - Owns:
   - Paperclip ingress mapping
   - Paperclip return-path mapping
@@ -250,7 +267,7 @@ Skip adapters when:
 
 The shortest accurate model is:
 
-`ApertureEvent -> ApertureCore -> Frame / AttentionView -> FrameResponse`
+`ConformedEvent -> ApertureCore -> ApertureEvent -> Frame / AttentionView -> FrameResponse`
 
 Everything else is support structure around that loop.
 

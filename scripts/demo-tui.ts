@@ -83,18 +83,18 @@ async function main(): Promise<void> {
 
   for (const liveEvent of paperclipEvents) {
     for (const event of mapPaperclipLiveEvent(liveEvent)) {
-      core.publish(event);
+      core.publishConformed(event);
     }
   }
 
   for (const request of codexRequests) {
     for (const event of mapCodexServerRequest(request)) {
-      core.publish(event);
+      core.publishConformed(event);
     }
   }
 
   for (const event of claudeEvents.flatMap((hook) => mapClaudeCodeHookEvent(hook))) {
-    core.publish(event);
+    core.publishConformed(event);
   }
 
   await runAttentionTui(core, { title: "Aperture TUI Demo" });

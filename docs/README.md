@@ -3,6 +3,7 @@
 These are the docs intended to ship with the first public GitHub version of Aperture.
 
 - [Components](components.md)
+- [Semantic Normalization](semantic-normalization.md)
 - [Frame](frame.md)
 - [Claude Code Adapter](claude-code.md)
 - [Codex Adapter](codex.md)

@@ -55,7 +55,8 @@ The public footprint is intentionally small:
 
 If you already control your event source, publish native `ApertureEvent`s directly into core.
 
-Use an adapter only when you want Aperture to translate to and from an external system like Paperclip or Codex.
+Use an adapter only when you want Aperture to translate to and from an external system like Paperclip, Codex, or Claude Code.
+Adapters emit `ConformedEvent`s, and core applies the final semantic normalization.
 
 ## Quickstart
 
@@ -118,7 +119,7 @@ for await (const liveEvent of streamPaperclipLiveEvents("company-id", {
   headers: { Authorization: "Bearer token" },
 })) {
   for (const event of mapPaperclipLiveEvent(liveEvent)) {
-    core.publish(event);
+    core.publishConformed(event);
   }
 }
 
@@ -135,7 +136,7 @@ core.onResponse(async (response) => {
 
 That loop is the product:
 
-`PaperclipLiveEvent -> ApertureEvent -> ApertureCore -> Frame / AttentionView -> FrameResponse -> PaperclipAction`
+`PaperclipLiveEvent -> ConformedEvent -> ApertureCore -> ApertureEvent -> Frame / AttentionView -> FrameResponse -> PaperclipAction`
 
 ## What Exists
 
@@ -175,6 +176,7 @@ Start here:
 
 - [Docs Index](docs/README.md)
 - [Components](docs/components.md)
+- [Semantic Normalization](docs/semantic-normalization.md)
 - [TUI Surface](docs/tui.md)
 - [Claude Code Adapter](docs/claude-code.md)
 - [Frame Contract](docs/frame.md)

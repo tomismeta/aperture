@@ -1,8 +1,10 @@
 import type {
   ApertureEvent,
   AttentionView,
+  ConformedEvent,
   Frame,
   FrameResponse,
+  HumanInputRequest,
   InteractionSignal,
   TaskView,
 } from "./index.js";
@@ -14,6 +16,7 @@ import { EvaluationEngine } from "./evaluation-engine.js";
 import { FramePlanner } from "./frame-planner.js";
 import { InteractionCoordinator } from "./interaction-coordinator.js";
 import { InteractionSignalStore } from "./interaction-signal-store.js";
+import { normalizeConformedEvent } from "./semantic-normalizer.js";
 import type { SignalSummary } from "./signal-summary.js";
 import { TaskViewStore } from "./task-view-store.js";
 import type { ApertureTrace } from "./trace.js";
@@ -39,6 +42,11 @@ export class ApertureCore {
   private readonly evaluation = new EvaluationEngine();
   private readonly coordinator = new InteractionCoordinator();
   private readonly planner = new FramePlanner();
+
+  publishConformed(event: ConformedEvent): Frame | null {
+    this.assertValidConformedEvent(event);
+    return this.publish(normalizeConformedEvent(event));
+  }
 
   publish(event: ApertureEvent): Frame | null {
     this.assertValidEvent(event);
@@ -540,6 +548,42 @@ export class ApertureCore {
     }
   }
 
+  private assertValidConformedEvent(event: ConformedEvent): void {
+    this.assertNonEmpty("event.id", event.id);
+    this.assertNonEmpty("event.taskId", event.taskId);
+    this.assertTimestamp("event.timestamp", event.timestamp);
+
+    if (event.source) {
+      this.assertNonEmpty("event.source.id", event.source.id);
+    }
+
+    switch (event.type) {
+      case "task.started":
+        this.assertNonEmpty("event.title", event.title);
+        return;
+      case "task.updated":
+        this.assertNonEmpty("event.title", event.title);
+        this.assertTaskStatus("event.status", event.status);
+        return;
+      case "task.completed":
+        return;
+      case "task.cancelled":
+        if (event.reason !== undefined) {
+          this.assertNonEmpty("event.reason", event.reason);
+        }
+        return;
+      case "human.input.requested":
+        this.assertNonEmpty("event.interactionId", event.interactionId);
+        this.assertNonEmpty("event.title", event.title);
+        this.assertNonEmpty("event.summary", event.summary);
+        this.assertHumanInputRequest("event.request", event.request);
+        if (event.riskHint !== undefined) {
+          this.assertConsequenceLevel("event.riskHint", event.riskHint);
+        }
+        return;
+    }
+  }
+
   private assertValidFrameResponse(response: FrameResponse): void {
     this.assertNonEmpty("response.taskId", response.taskId);
     this.assertNonEmpty("response.interactionId", response.interactionId);
@@ -587,6 +631,44 @@ export class ApertureCore {
     this.assertNonEmpty(label, value);
     if (Number.isNaN(Date.parse(value))) {
       throw new Error(`${label} must be a valid ISO timestamp`);
+    }
+  }
+
+  private assertTaskStatus(label: string, value: string): void {
+    if (!["running", "blocked", "waiting", "completed", "failed"].includes(value)) {
+      throw new Error(`${label} must be a valid task status`);
+    }
+  }
+
+  private assertConsequenceLevel(label: string, value: string): void {
+    if (!["low", "medium", "high"].includes(value)) {
+      throw new Error(`${label} must be a valid consequence level`);
+    }
+  }
+
+  private assertHumanInputRequest(
+    label: string,
+    value: HumanInputRequest,
+  ): void {
+    if (!value || typeof value !== "object" || !("kind" in value)) {
+      throw new Error(`${label} must be a valid human input request`);
+    }
+
+    switch (value.kind) {
+      case "approval":
+        return;
+      case "choice":
+        if (!Array.isArray(value.options) || value.options.length === 0) {
+          throw new Error(`${label}.options must contain at least one option`);
+        }
+        return;
+      case "form":
+        if (!Array.isArray(value.fields) || value.fields.length === 0) {
+          throw new Error(`${label}.fields must contain at least one field`);
+        }
+        return;
+      default:
+        throw new Error(`${label} must have a supported request kind`);
     }
   }
 }

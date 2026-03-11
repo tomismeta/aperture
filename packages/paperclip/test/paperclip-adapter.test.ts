@@ -34,7 +34,7 @@ test("maps approval creation into a human input request", () => {
   if (events[0]?.type === "human.input.requested") {
     assert.equal(events[0].taskId, "paperclip:approval:approval:1");
     assert.equal(events[0].request.kind, "approval");
-    assert.equal(events[0].consequence, "high");
+    assert.equal(events[0].riskHint, "high");
     assert.equal(events[0].context?.items?.length, 2);
   }
 });

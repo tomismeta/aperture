@@ -1,4 +1,10 @@
-import type { ApertureEvent, FrameField, FrameResponse, HumanInputRequestedEvent, SourceRef } from "@aperture/core";
+import type {
+  ConformedEvent,
+  ConformedHumanInputRequestedEvent,
+  FrameField,
+  FrameResponse,
+  SourceRef,
+} from "@aperture/core";
 
 export type JsonRpcId = string | number;
 
@@ -73,7 +79,7 @@ export type CodexClientResponse =
       };
     };
 
-export function mapCodexServerRequest(request: CodexServerRequest): ApertureEvent[] {
+export function mapCodexServerRequest(request: CodexServerRequest): ConformedEvent[] {
   switch (request.method) {
     case "item/commandExecution/requestApproval":
       return [mapCommandApprovalRequest(request)];
@@ -135,7 +141,7 @@ export function mapCodexFrameResponse(response: FrameResponse): CodexClientRespo
   return null;
 }
 
-function mapCommandApprovalRequest(request: CodexCommandApprovalRequest): HumanInputRequestedEvent {
+function mapCommandApprovalRequest(request: CodexCommandApprovalRequest): ConformedHumanInputRequestedEvent {
   const source = codexSource(request.params.threadId);
   const title = request.params.command ? "Approve Codex command" : "Approve Codex action";
   const contextItems = [
@@ -154,8 +160,6 @@ function mapCommandApprovalRequest(request: CodexCommandApprovalRequest): HumanI
     source,
     title,
     summary: request.params.reason ?? "Codex requested approval before continuing.",
-    tone: "focused",
-    consequence: "medium",
     request: {
       kind: "approval",
     },
@@ -170,7 +174,7 @@ function mapCommandApprovalRequest(request: CodexCommandApprovalRequest): HumanI
   };
 }
 
-function mapLegacyExecApprovalRequest(request: CodexLegacyExecApprovalRequest): HumanInputRequestedEvent {
+function mapLegacyExecApprovalRequest(request: CodexLegacyExecApprovalRequest): ConformedHumanInputRequestedEvent {
   return {
     id: codexEventId(request.id, "human.input.requested"),
     type: "human.input.requested",
@@ -180,8 +184,6 @@ function mapLegacyExecApprovalRequest(request: CodexLegacyExecApprovalRequest): 
     source: codexSource(request.params.conversationId),
     title: "Approve Codex command",
     summary: request.params.reason ?? "Codex requested approval before executing a command.",
-    tone: "focused",
-    consequence: "medium",
     request: {
       kind: "approval",
     },
@@ -201,7 +203,7 @@ function mapLegacyExecApprovalRequest(request: CodexLegacyExecApprovalRequest): 
   };
 }
 
-function mapToolRequestUserInputRequest(request: CodexToolRequestUserInputRequest): ApertureEvent[] {
+function mapToolRequestUserInputRequest(request: CodexToolRequestUserInputRequest): ConformedEvent[] {
   if (request.params.questions.length === 0) {
     return [];
   }
@@ -223,8 +225,6 @@ function mapToolRequestUserInputRequest(request: CodexToolRequestUserInputReques
         source,
         title: question.question || question.header || "Codex needs input",
         summary: question.header ? `${question.header} selection` : "Codex requested a choice before continuing.",
-        tone: "focused",
-        consequence: "medium",
         request: {
           kind: "choice",
           selectionMode: "single",
@@ -270,8 +270,6 @@ function mapToolRequestUserInputRequest(request: CodexToolRequestUserInputReques
         request.params.questions.length === 1
           ? (firstQuestion?.header ? `${firstQuestion.header} required before continuing.` : "Codex requested user input before continuing.")
           : `Codex requested ${request.params.questions.length} inputs before continuing.`,
-      tone: "focused",
-      consequence: "medium",
       request: {
         kind: "form",
         fields,
@@ -323,7 +321,7 @@ function codexFormInteractionId(requestId: JsonRpcId, itemId: string): string {
   return `codex:form:${encodeURIComponent(String(requestId))}:${encodeURIComponent(itemId)}`;
 }
 
-function codexEventId(requestId: JsonRpcId, type: ApertureEvent["type"]): string {
+function codexEventId(requestId: JsonRpcId, type: ConformedEvent["type"]): string {
   return `codex:${encodeURIComponent(String(requestId))}:${type}`;
 }
 

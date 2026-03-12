@@ -170,19 +170,18 @@ Default visible:
 
 - title
 - source
-- mode
-- tone
-- consequence
-- summary
-- important context items
+- mode (displayed as: permission, choose, input needed, update)
+- urgency (displayed as: low urgency, needs attention, urgent)
+- risk (displayed as: low risk, medium risk, high risk)
+- summary (single line, truncated)
+
+Optional (press `[space]` to expand):
+
+- full summary
+- context items
 - score and score offset
-- primary actions
-
-Optional:
-
 - rationale
 - provenance
-- richer context
 
 Purpose:
 
@@ -194,10 +193,9 @@ Shows ranked queued items.
 
 Default visible:
 
-- title
+- title (truncated to fit single line)
 - source
-- score
-- one-line summary
+- mode
 
 Purpose:
 
@@ -461,30 +459,29 @@ The TUI can choose how to *express*:
 
 But it should not reinterpret what those mean.
 
-## Current Gaps In The Prototype
+## Completed
 
-The current TUI prototype proves the basic loop, but it is not yet the intended design.
+These gaps from earlier iterations have been addressed:
 
-Current weaknesses:
-
-- too much card-like structure
-- too much whitespace
-- queue and ambient work are too visually similar
-- rationale and context are not yet progressive enough
-- top-level status/orientation is too weak
+- statusline with active/queued/ambient counts and posture
+- one focus pane, one compact queue rail, one thin ambient strip
+- progressive disclosure: summary visible, context/score/rationale behind `[space]`
+- reduced whitespace and visual chrome
+- operator-friendly labels (permission, update, choose, input needed; urgency and risk)
+- plain-language titles from adapters ("Claude Code wants to read index.ts")
+- single-line queue items with truncation
+- status updates routed to ambient, not queue
+- footer pinned with controls, stats, and status
+- clean exit on `q`
 
 ## Near-Term TUI Direction
 
-The next TUI pass should do this:
+The next TUI pass should consider:
 
-1. add a real statusline
-2. replace the current multi-block layout with:
-   - one focus pane
-   - one compact queue rail
-   - one thin ambient strip
-3. make explanation collapsible
-4. reduce whitespace and visual chrome
-5. preserve full source agnosticism
+1. auto-approve policy for low-risk tools
+2. richer ambient lane (count or last-N items instead of placeholder)
+3. multi-session grouping or filtering
+4. trace/debug mode toggle for engine rationale
 
 ## Standard For Good
 

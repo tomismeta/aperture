@@ -21,17 +21,17 @@ The active frame shows:
 - **Title** — what is happening, in plain language (e.g., "Approve deployment", "Build failed")
 - **Source** — where it came from (e.g., "Claude Code", "Codex", "Paperclip")
 - **Mode** — what kind of interaction this is:
-  - `approval` — you can approve or reject
-  - `choice` — pick an option
-  - `form` — fill in fields
-  - `status` — informational, sometimes acknowledge-only
+  - `permission` — you can approve or reject
+  - `choose` — pick an option
+  - `input needed` — fill in fields
+  - `update` — informational, sometimes acknowledge-only
 - **Urgency** — shown as one of:
   - `low urgency` — background awareness
   - `needs attention` — worth looking at
   - `urgent` — strongest urgency, should cut through
 - **Risk** — shown as one of: `low risk`, `medium risk`, `high risk`
 - **Summary / context** — details about the request (file paths, commands, working directory)
-- **Score** — a relative ranking number. Higher means "more likely to deserve focus than other frames on screen." Not a severity label. Computed from blocking-ness, priority, consequence, tone, and heuristic adjustments. Useful for understanding why one frame was promoted over another, but not something you need to act on.
+- **Score** — hidden by default. Press `[space]` to reveal. A relative ranking number — higher means "more likely to deserve focus." Computed from blocking-ness, priority, consequence, tone, and heuristic adjustments. Useful for debugging, not for operating.
 
 ### QUEUE
 

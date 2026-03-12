@@ -216,29 +216,14 @@ pnpm claude:connect --global
 pnpm aperture
 ```
 
-## Packaging Status
-
-The cleanest surface right now is still:
-
-```bash
-git clone git@github.com:tomismeta/aperture.git
-cd aperture
-pnpm install
-```
-
-I would not push a broader `npm install` / published-package story yet for the full Claude-runtime-TUI stack. The command surface is now clean, but the product shape is still settling.
-
-For now:
-- use the repo directly for the Claude adapter/runtime/TUI flow
-- treat `pnpm aperture` as the real product entrypoint
-- revisit registry publishing once the multi-adapter runtime path is more stable
-
 ## Today
 
 - deterministic attention judgment
 - behavioral signals, trends, and recency-bounded summaries
 - shared runtime host for adapters and surfaces
-- Claude Code, Codex, and Paperclip adapters
+- live Claude Code integration
+- prepared Codex adapter boundary, pending a real Codex transport surface
+- Paperclip adapter mapping and transport helpers
 - a source-agnostic TUI surface
 
 ## Feedback
@@ -263,9 +248,14 @@ For the full operator guide, see [How to Read the TUI](docs/tui.md#how-to-read-t
 
 ## Docs
 
-- [Components](docs/components.md)
-- [Semantic Normalization](docs/semantic-normalization.md)
+Start here:
+
 - [TUI Surface](docs/tui.md)
+- [Components](docs/components.md)
 - [Claude Code Adapter](docs/claude-code.md)
+
+Reference docs:
+
+- [Semantic Normalization](docs/semantic-normalization.md)
 - [Paperclip Adapter](docs/paperclip.md)
 - [Codex Adapter](docs/codex.md)

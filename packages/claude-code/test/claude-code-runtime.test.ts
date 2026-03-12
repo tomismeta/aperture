@@ -64,7 +64,7 @@ test("holds approvals when a surface is attached", async () => {
 
     const frame = await waitFor(() => runtime.getCore().getAttentionView().active);
     assert.ok(frame);
-    assert.equal(frame?.title, "Approve Bash git push origin main");
+    assert.equal(frame?.title, "Claude Code wants to run a shell command");
 
     runtime.getCore().submit({
       taskId: "claude-code:session:session-1",

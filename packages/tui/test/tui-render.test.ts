@@ -65,7 +65,11 @@ test("renderAttentionScreen shows active, queued, and ambient summaries", () => 
   assert.match(screen, /Approve deployment/);
   assert.match(screen, /Choose target/);
   assert.match(screen, /Run failed/);
-  assert.match(screen, /score 1211/);
+  assert.match(screen, /approval · needs attention · medium risk/);
+  assert.doesNotMatch(screen, /score 1211/, "score should be hidden by default");
+
+  const expanded = renderAttentionScreen(attentionView, { title: "Aperture TUI", expanded: true });
+  assert.match(expanded, /score 1211/);
 });
 
 test("renderAttentionScreen shows numbered choice options in the active pane", () => {

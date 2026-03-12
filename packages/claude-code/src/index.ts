@@ -468,7 +468,8 @@ function toolInputSummary(event: ClaudeCodePreToolUseEvent): string {
 
 function approvalTitle(event: ClaudeCodePreToolUseEvent, summary: string): string {
   const detail = approvalTitleDetail(event, summary);
-  return detail ? `Approve ${event.tool_name} ${detail}` : `Approve ${event.tool_name}`;
+  const action = approvalActionLabel(event);
+  return detail ? `Claude Code wants to ${action} ${detail}` : `Claude Code wants to ${action}`;
 }
 
 function approvalTitleDetail(event: ClaudeCodePreToolUseEvent, summary: string): string | null {
@@ -476,7 +477,7 @@ function approvalTitleDetail(event: ClaudeCodePreToolUseEvent, summary: string):
   const input = event.tool_input;
 
   if (toolName === "bash") {
-    return summary && summary !== event.tool_name ? truncateLabel(summary, 24) : null;
+    return "a shell command";
   }
 
   const filePath = readString(input.file_path) ?? readString(input.path);
@@ -503,6 +504,35 @@ function approvalTitleDetail(event: ClaudeCodePreToolUseEvent, summary: string):
 
 function truncateLabel(value: string, limit: number): string {
   return value.length <= limit ? value : `${value.slice(0, limit - 1)}…`;
+}
+
+function approvalActionLabel(event: ClaudeCodePreToolUseEvent): string {
+  const toolName = event.tool_name.toLowerCase();
+
+  switch (toolName) {
+    case "read":
+      return "read";
+    case "write":
+      return "write";
+    case "edit":
+    case "multiedit":
+      return "edit";
+    case "glob":
+      return "search files with";
+    case "grep":
+      return "search file contents with";
+    case "ls":
+      return "list files in";
+    case "websearch":
+      return "search the web for";
+    case "web_fetch":
+    case "webfetch":
+      return "fetch";
+    case "bash":
+      return "run";
+    default:
+      return `use ${event.tool_name}`;
+  }
 }
 
 function hasSensitivePath(event: ClaudeCodePreToolUseEvent): boolean {

@@ -251,6 +251,18 @@ Helpful feedback right now:
 - new adapters for additional event sources
 - tighter return-path mappings for existing adapters
 
+## Reading the TUI
+
+The TUI has three sections:
+
+- **ACTIVE NOW** — the one thing that needs your attention. Read the title, check the context, use the controls at the bottom to act.
+- **QUEUE** — important items waiting behind the active frame.
+- **AMBIENT** — background awareness. Not interrupting you.
+
+The controls line at the bottom tells you what you can do: `[a] approve`, `[r] reject`, `[x] dismiss`, `[enter] acknowledge`, etc. When connected to Claude Code, approvals are tool permission requests (Read, Bash, Edit, etc.).
+
+For the full operator guide, see [How to Read the TUI](docs/tui.md#how-to-read-the-tui).
+
 ## Docs
 
 - [Components](docs/components.md)

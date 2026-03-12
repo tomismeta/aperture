@@ -518,14 +518,12 @@ function renderFocusPane(
   const score = readScore(frame);
   const attention = readAttention(frame);
   const title = pendingCount > 1 ? `${frame.title} ${styleMuted(`×${pendingCount}`, color)}` : frame.title;
+  const meta = [humanMode(frame.mode), humanTone(frame.tone), humanConsequence(frame.consequence)]
+    .map((p) => styleMuted(p, color))
+    .join(styleMuted(" · ", color));
   const lines = [
-    alignLine(
-      styleStrong(title, color),
-      styleScore(score, color),
-      PANEL_CONTENT_WIDTH,
-    ),
-    styleMuted(source, color),
-    `${styleMuted("mode", color)} ${styleMuted(frame.mode, color)}   ${styleMuted("tone", color)} ${styleTone(frame.tone, color)}   ${styleMuted("consequence", color)} ${styleMuted(frame.consequence, color)}`,
+    `${styleStrong(title, color)} ${styleMuted("·", color)} ${styleAccent(source, color)}`,
+    meta,
   ];
 
   if (frame.summary) {
@@ -550,9 +548,8 @@ function renderFocusPane(
   }
 
   if (expanded) {
-    if (attention.scoreOffset !== 0 || attention.rationale.length > 0) {
-      lines.push("");
-    }
+    lines.push("");
+    lines.push(...renderLabeledBlock("score", String(score), color));
     if (attention.scoreOffset !== 0) {
       lines.push(...renderLabeledBlock("offset", formatSigned(attention.scoreOffset), color));
     }
@@ -567,10 +564,9 @@ function renderFocusPane(
 function renderCompactFrame(group: QueueGroup, rank: number, color: boolean): string[] {
   const { frame, count } = group;
   const source = frame.source?.label ?? frame.source?.id ?? "unknown";
-  const score = readScore(frame);
   const title = count > 1 ? `${frame.title} ${styleMuted(`×${count}`, color)}` : frame.title;
-  const left = `${styleRank(rank, color)} ${styleStrong(title, color)} ${styleMuted(source, color)}`;
-  const right = styleMuted(`score ${score}`, color);
+  const left = `${styleRank(rank, color)} ${styleStrong(title, color)} ${styleAccent(source, color)}`;
+  const right = styleMuted(humanMode(frame.mode), color);
   return [`  ${alignLine(left, right, PANEL_CONTENT_WIDTH - 2)}`];
 }
 
@@ -612,17 +608,9 @@ function countMatchingFrames(frame: Frame, queued: Frame[]): number {
 
 function renderAmbientFrame(frame: Frame, color: boolean): string[] {
   const source = frame.source?.label ?? frame.source?.id ?? "unknown";
-  const score = readScore(frame);
-  const lines = [
-    `  ${styleMuted("~", color)} ${styleDeepMuted(frame.title, color)}`,
-    `    ${styleMuted(source, color)} ${styleMuted("·", color)} ${styleMuted(frame.consequence, color)} ${styleMuted("·", color)} ${styleMuted(frame.tone, color)} ${styleMuted("·", color)} ${styleMuted(`score ${score}`, color)}`,
+  return [
+    `  ${styleMuted("~", color)} ${styleDeepMuted(frame.title, color)} ${styleMuted("·", color)} ${styleDeepMuted(source, color)}`,
   ];
-  if (frame.summary) {
-    for (const line of wrapText(frame.summary, PANEL_CONTENT_WIDTH - 4).slice(0, 2)) {
-      lines.push(`    ${styleDeepMuted(line, color)}`);
-    }
-  }
-  return lines;
 }
 
 function summarizeColumn(label: string, count: number, color: boolean, tone: Frame["tone"]): string {
@@ -923,6 +911,34 @@ function alignFooterStats(left: string, right: string, width: number): string {
 
 function formatSigned(value: number): string {
   return value > 0 ? `+${value}` : String(value);
+}
+
+function humanMode(mode: Frame["mode"]): string {
+  switch (mode) {
+    case "approval": return "approval";
+    case "choice": return "choice";
+    case "form": return "form";
+    case "status": return "status";
+    default: return mode;
+  }
+}
+
+function humanTone(tone: Frame["tone"]): string {
+  switch (tone) {
+    case "critical": return "urgent";
+    case "focused": return "needs attention";
+    case "ambient": return "low urgency";
+    default: return tone;
+  }
+}
+
+function humanConsequence(consequence: Frame["consequence"]): string {
+  switch (consequence) {
+    case "high": return "high risk";
+    case "medium": return "medium risk";
+    case "low": return "low risk";
+    default: return consequence;
+  }
 }
 
 function wrapText(value: string, width: number): string[] {

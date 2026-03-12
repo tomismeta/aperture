@@ -63,6 +63,10 @@ type FrameContext = {
 type FrameResponseSpec =
   | { kind: "none" }
   | {
+      kind: "acknowledge";
+      actions: FrameAction[];
+    }
+  | {
       kind: "approval";
       actions: FrameAction[];
       requireReason?: boolean;
@@ -82,7 +86,7 @@ type FrameResponseSpec =
 type FrameAction = {
   id: string;
   label: string;
-  kind: "submit" | "approve" | "reject" | "cancel" | "dismiss";
+  kind: "submit" | "approve" | "reject" | "cancel" | "dismiss" | "acknowledge";
   emphasis: "primary" | "secondary" | "danger";
 };
 ```
@@ -129,6 +133,7 @@ type FrameResponse = {
   taskId: string;
   interactionId: string;
   response:
+    | { kind: "acknowledged" }
     | { kind: "approved"; reason?: string }
     | { kind: "rejected"; reason?: string }
     | { kind: "option_selected"; optionIds: string[] }

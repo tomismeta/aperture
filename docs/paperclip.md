@@ -1,6 +1,13 @@
 # Paperclip Adapter
 
-`@aperture/paperclip` is an optional adapter for `@aperture/core`.
+`@aperture/paperclip` is an optional adapter for Aperture.
+
+In the current product shape:
+
+- `@aperture/runtime` owns the live `ApertureCore`
+- `@aperture/paperclip` maps Paperclip events into `ConformedEvent`
+- the runtime consumes those events and emits `FrameResponse`
+- `@aperture/paperclip` maps those responses back into Paperclip actions
 
 Use it when you want Aperture to sit between Paperclip and the human loop.
 
@@ -24,7 +31,7 @@ Transport helpers:
 - `streamPaperclipLiveEvents(companyId, options)`
 - `executePaperclipAction(action, options)`
 
-The adapter does not decide final Aperture semantics. It translates Paperclip shapes into conformed core inputs and maps responses back out again.
+The adapter does not decide final Aperture semantics. It translates Paperclip shapes into conformed inputs and maps responses back out again.
 
 ## Supported Paperclip Live Events
 
@@ -58,6 +65,8 @@ Currently not mapped:
 Those return `null` until there is a concrete upstream meaning worth preserving.
 
 ## Example
+
+Direct-core example:
 
 ```ts
 import { ApertureCore } from "@aperture/core";
@@ -100,6 +109,6 @@ That integration path uses:
 
 ## Boundary
 
-`@aperture/core` remains Paperclip-agnostic.
+`@aperture/core` remains Paperclip-agnostic, and the long-term intended host for this adapter is `@aperture/runtime`.
 
 If this package is removed, core still compiles and behaves the same.

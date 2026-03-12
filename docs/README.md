@@ -2,6 +2,13 @@
 
 These are the docs intended to ship with the first public GitHub version of Aperture.
 
+Recommended reading order for someone new to the repo:
+
+1. [README](../README.md) for the single Claude quickstart path and the two main product entrypoints
+2. [TUI Surface](tui.md) for how to read the operator surface
+3. [Components](components.md) for the current package/runtime architecture
+4. adapter docs like [Claude Code Adapter](claude-code.md), [Codex Adapter](codex.md), or [Paperclip Adapter](paperclip.md) as needed
+
 - [Components](components.md)
 - [Semantic Normalization](semantic-normalization.md)
 - [Frame](frame.md)

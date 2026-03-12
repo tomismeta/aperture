@@ -1,14 +1,19 @@
 # Codex Adapter
 
-`@aperture/codex` is an optional adapter for `@aperture/core`.
+`@aperture/codex` is an optional adapter for Aperture.
 
-Use it when you want Aperture to sit between Codex app-server requests and the human loop.
+In the current product shape:
 
-It preserves the same boundary as `@aperture/paperclip`:
+- `@aperture/runtime` owns the live `ApertureCore`
+- `@aperture/codex` maps Codex requests into `ConformedEvent`
+- the runtime consumes those events and emits `FrameResponse`
+- `@aperture/codex` maps those responses back into Codex response descriptors
 
-- map upstream request shapes into `ConformedEvent`
-- map `FrameResponse` back into upstream response descriptors
-- keep semantic normalization and attention judgment inside `@aperture/core`
+That keeps the same boundary as the other adapters:
+
+- adapters translate source-native payloads
+- `@aperture/core` owns semantic normalization and attention judgment
+- `@aperture/runtime` is the shared host
 
 ## What It Does
 
@@ -20,7 +25,7 @@ Egress:
 
 - `FrameResponse -> CodexClientResponse | null`
 
-This first cut is mapping-first. Unlike `@aperture/paperclip`, it does not ship a transport client yet because Codex transport depends on the host integration shape.
+This first cut is still mapping-first. Unlike `@aperture/paperclip`, it does not ship a transport client yet because Codex transport depends on the host integration shape.
 
 ## Supported Codex Requests
 
@@ -46,6 +51,8 @@ Currently mapped:
 - choice and form responses -> `answers` payloads for Codex `request_user_input`
 
 ## Example
+
+Direct-core example:
 
 ```ts
 import { ApertureCore } from "@aperture/core";
@@ -84,6 +91,6 @@ core.onResponse((response) => {
 
 ## Boundary
 
-`@aperture/core` remains Codex-agnostic.
+`@aperture/core` remains Codex-agnostic, and the long-term intended host for this adapter is `@aperture/runtime`.
 
 If this package is removed, core still compiles and behaves the same.

@@ -528,7 +528,10 @@ function renderFocusPane(
 
   if (frame.summary) {
     lines.push("");
-    lines.push(...wrapText(frame.summary, PANEL_CONTENT_WIDTH));
+    const summaryText = frame.summary.length > PANEL_CONTENT_WIDTH
+      ? `${frame.summary.slice(0, PANEL_CONTENT_WIDTH - 1)}…`
+      : frame.summary;
+    lines.push(styleMuted(summaryText, color));
   }
 
   if (expanded && frame.context?.items?.length) {

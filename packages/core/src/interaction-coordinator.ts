@@ -68,7 +68,8 @@ export class InteractionCoordinator {
       reasons.push("blocking work keeps non-blocking updates in the periphery");
       return {
         decision:
-          candidate.priority === "background"
+          candidate.priority === "background" ||
+          (candidate.mode === "status" && candidate.consequence !== "high" && candidate.tone !== "critical")
             ? { kind: "ambient", candidate }
             : { kind: "queue", candidate },
         candidateScore,

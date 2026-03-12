@@ -472,10 +472,19 @@ function toolInputSummary(event: ClaudeCodePreToolUseEvent): string {
   return event.tool_name;
 }
 
+const TITLE_MAX_WIDTH = 72; // 80 col terminal minus panel border + padding
+
 function approvalTitle(event: ClaudeCodePreToolUseEvent, summary: string): string {
-  const detail = approvalTitleDetail(event, summary);
   const action = approvalActionLabel(event);
-  return detail ? `Claude Code wants to ${action} ${detail}` : `Claude Code wants to ${action}`;
+  const prefix = `Claude Code wants to ${action}`;
+  const detail = approvalTitleDetail(event, summary);
+  if (!detail) return prefix;
+  const full = `${prefix} ${detail}`;
+  if (full.length <= TITLE_MAX_WIDTH) return full;
+  // Always preserve prefix, truncate only the detail
+  const available = TITLE_MAX_WIDTH - prefix.length - 2; // 2 = space + ellipsis
+  if (available <= 0) return prefix;
+  return `${prefix} ${detail.slice(0, available)}…`;
 }
 
 function approvalTitleDetail(event: ClaudeCodePreToolUseEvent, summary: string): string | null {
@@ -492,18 +501,12 @@ function approvalTitleDetail(event: ClaudeCodePreToolUseEvent, summary: string):
   }
 
   const pattern = readString(input.pattern);
-  if (pattern) {
-    return truncateLabel(pattern, 24);
-  }
+  if (pattern) return pattern;
 
   const query = readSearchQuery(input);
-  if (query) {
-    return truncateLabel(query, 24);
-  }
+  if (query) return query;
 
-  if (summary && summary !== event.tool_name) {
-    return truncateLabel(summary, 24);
-  }
+  if (summary && summary !== event.tool_name) return summary;
 
   return null;
 }

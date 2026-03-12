@@ -4,50 +4,20 @@ Aperture is the human attention engine for agent systems.
 
 A small TypeScript library that decides what deserves human attention now, what should wait, and what can remain ambient.
 
+Current real use case:
+- run Aperture with Claude Code to triage tool permissions, failures, and follow-up handoff in one terminal surface
+
+What you get:
+- one shared local runtime
+- one terminal attention surface
+- live Claude Code integration today
+- Codex and Paperclip adapter boundaries prepared for broader multi-agent use
+
 It is not:
 - an orchestrator
 - a protocol
 - a renderer
 - a dashboard
-
-## Two Ways To Use It
-
-### 1. Embed `@aperture/core`
-
-Use Aperture as a small library inside your own app or service when you already control the event source and just want attention judgment.
-
-You publish `ApertureEvent` or `ConformedEvent` values and consume `AttentionView`.
-
-### 2. Run Aperture For Claude Code
-
-Use the shared Aperture runtime plus the TUI and Claude adapter when you want Aperture to manage live Claude Code approvals, failures, and follow-up handoff.
-
-This gives you:
-- a long-lived local Aperture runtime
-- a terminal attention surface
-- Claude Code hook ingestion into the shared runtime
-
-## Why
-
-If you are supervising multiple agents, everything can interrupt at once:
-- approvals
-- failures
-- blocked work
-- status noise
-
-Aperture exists to answer three questions:
-- what deserves attention now
-- what should queue behind it
-- what should stay ambient
-
-## Footprint
-
-- `@aperture/core`: standalone library
-- `@aperture/runtime`: shared local host for `ApertureCore`, adapters, and surfaces
-- `@aperture/claude-code`, `@aperture/paperclip`, `@aperture/codex`: optional source adapters
-- `@aperture/tui`: optional attention surface
-
-Adapters emit `ConformedEvent`s into the runtime. `@aperture/core` normalizes semantics and decides what should be active, queued, or ambient. Surfaces subscribe to the runtime.
 
 ## Quickstart
 
@@ -88,6 +58,40 @@ Everything else in this README is either:
 - library embedding
 - manual runtime/adapter commands
 - development commands
+
+## Why
+
+If you are supervising multiple agents, everything can interrupt at once:
+- approvals
+- failures
+- blocked work
+- status noise
+
+Aperture exists to answer three questions:
+- what deserves attention now
+- what should queue behind it
+- what should stay ambient
+
+## Two Ways To Use It
+
+### 1. Embed `@aperture/core`
+
+Use Aperture as a small library inside your own app or service when you already control the event source and just want attention judgment.
+
+You publish `ApertureEvent` or `ConformedEvent` values and consume `AttentionView`.
+
+### 2. Run Aperture For Claude Code
+
+Use the shared Aperture runtime plus the TUI and Claude adapter when you want Aperture to manage live Claude Code approvals, failures, and follow-up handoff.
+
+## Footprint
+
+- `@aperture/core`: standalone library
+- `@aperture/runtime`: shared local host for `ApertureCore`, adapters, and surfaces
+- `@aperture/claude-code`, `@aperture/paperclip`, `@aperture/codex`: optional source adapters
+- `@aperture/tui`: optional attention surface
+
+Adapters emit `ConformedEvent`s into the runtime. `@aperture/core` normalizes semantics and decides what should be active, queued, or ambient. Surfaces subscribe to the runtime.
 
 ### Library Use
 

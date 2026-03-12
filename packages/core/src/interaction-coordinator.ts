@@ -25,6 +25,19 @@ export type CoordinationContext = {
   globalSummary?: SignalSummary;
 };
 
+function shouldBeAmbient(candidate: InteractionCandidate): boolean {
+  if (candidate.priority === "background") return true;
+  if (
+    candidate.mode === "status" &&
+    !candidate.blocking &&
+    candidate.consequence !== "high" &&
+    candidate.tone !== "critical"
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export class InteractionCoordinator {
   coordinate(
     current: Frame | null,
@@ -68,8 +81,7 @@ export class InteractionCoordinator {
       reasons.push("blocking work keeps non-blocking updates in the periphery");
       return {
         decision:
-          candidate.priority === "background" ||
-          (candidate.mode === "status" && candidate.consequence !== "high" && candidate.tone !== "critical")
+          shouldBeAmbient(candidate)
             ? { kind: "ambient", candidate }
             : { kind: "queue", candidate },
         candidateScore,
@@ -97,7 +109,7 @@ export class InteractionCoordinator {
       reasons.push("rapid successive updates from the same task stay bundled instead of stealing focus");
       return {
         decision:
-          candidate.priority === "background"
+          shouldBeAmbient(candidate)
             ? { kind: "ambient", candidate }
             : { kind: "queue", candidate },
         candidateScore,
@@ -111,7 +123,7 @@ export class InteractionCoordinator {
       reasons.push("existing urgent backlog keeps lower-value status work queued");
       return {
         decision:
-          candidate.priority === "background"
+          shouldBeAmbient(candidate)
             ? { kind: "ambient", candidate }
             : { kind: "queue", candidate },
         candidateScore,
@@ -136,7 +148,7 @@ export class InteractionCoordinator {
       reasons.push("current work still outranks the new candidate");
       return {
         decision:
-          candidate.priority === "background"
+          shouldBeAmbient(candidate)
             ? { kind: "ambient", candidate }
             : { kind: "queue", candidate },
         candidateScore,

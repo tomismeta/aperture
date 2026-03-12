@@ -166,7 +166,7 @@ test("uses stored attention offsets to keep more important current work active",
   assert.equal(decision.kind, "queue");
 });
 
-test("keeps low-value status queued when urgent backlog is already present", () => {
+test("keeps low-value status ambient when urgent backlog is already present", () => {
   const decision = coordinator.coordinate(
     createFrame({
       taskId: "task:current",
@@ -220,7 +220,7 @@ test("keeps low-value status queued when urgent backlog is already present", () 
     },
   );
 
-  assert.equal(decision.kind, "queue");
+  assert.equal(decision.kind, "ambient");
 });
 
 test("escalates repeatedly deferred status when scores are otherwise tied", () => {

@@ -472,19 +472,10 @@ function toolInputSummary(event: ClaudeCodePreToolUseEvent): string {
   return event.tool_name;
 }
 
-const TITLE_MAX_WIDTH = 72; // 80 col terminal minus panel border + padding
-
 function approvalTitle(event: ClaudeCodePreToolUseEvent, summary: string): string {
   const action = approvalActionLabel(event);
-  const prefix = `Claude Code wants to ${action}`;
   const detail = approvalTitleDetail(event, summary);
-  if (!detail) return prefix;
-  const full = `${prefix} ${detail}`;
-  if (full.length <= TITLE_MAX_WIDTH) return full;
-  // Always preserve prefix, truncate only the detail
-  const available = TITLE_MAX_WIDTH - prefix.length - 2; // 2 = space + ellipsis
-  if (available <= 0) return prefix;
-  return `${prefix} ${detail.slice(0, available)}…`;
+  return detail ? `Claude Code wants to ${action} ${detail}` : `Claude Code wants to ${action}`;
 }
 
 function approvalTitleDetail(event: ClaudeCodePreToolUseEvent, summary: string): string | null {
@@ -611,7 +602,12 @@ function stopSummary(event: ClaudeCodeStopEvent): string | undefined {
     readString(event.last_assistant_message) ??
     readString(event.message);
   if (direct) {
-    return direct.trim();
+    // Take only the first non-empty line to avoid dumping full responses
+    const firstLine = direct
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => l.length > 0);
+    return firstLine ?? "Claude finished responding.";
   }
 
   if (event.stop_reason === "end_turn") {

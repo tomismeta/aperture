@@ -517,7 +517,15 @@ function renderFocusPane(
   const source = frame.source?.label ?? frame.source?.id ?? "unknown";
   const score = readScore(frame);
   const attention = readAttention(frame);
-  const title = pendingCount > 1 ? `${frame.title} ${styleMuted(`×${pendingCount}`, color)}` : frame.title;
+  const countSuffix = pendingCount > 1 ? ` ×${pendingCount}` : "";
+  // Truncate title to fit on one line with source: "title · source"
+  const sourceChunk = ` · ${source}`;
+  const maxTitle = PANEL_CONTENT_WIDTH - sourceChunk.length - countSuffix.length;
+  const rawTitle = frame.title;
+  const truncatedTitle = rawTitle.length > maxTitle && maxTitle > 3
+    ? `${rawTitle.slice(0, maxTitle - 1)}…`
+    : rawTitle;
+  const title = `${truncatedTitle}${countSuffix}`;
   const meta = [humanMode(frame.mode), humanTone(frame.tone), humanConsequence(frame.consequence)]
     .map((p) => styleMuted(p, color))
     .join(styleMuted(" · ", color));
@@ -567,9 +575,19 @@ function renderFocusPane(
 function renderCompactFrame(group: QueueGroup, rank: number, color: boolean): string[] {
   const { frame, count } = group;
   const source = frame.source?.label ?? frame.source?.id ?? "unknown";
-  const title = count > 1 ? `${frame.title} ${styleMuted(`×${count}`, color)}` : frame.title;
-  const left = `${styleRank(rank, color)} ${styleStrong(title, color)} ${styleAccent(source, color)}`;
-  const right = styleMuted(humanMode(frame.mode), color);
+  const rankStr = `[${String(rank).padStart(2, "0")}]`;
+  const modeStr = humanMode(frame.mode);
+  const countSuffix = count > 1 ? ` ×${count}` : "";
+  // Available width: line width - indent(2) - rank - spaces(3) - source - mode
+  const fixedWidth = 2 + rankStr.length + 1 + source.length + 1 + modeStr.length + 2 + countSuffix.length;
+  const available = PANEL_CONTENT_WIDTH - fixedWidth;
+  const rawTitle = frame.title;
+  const title = rawTitle.length > available && available > 3
+    ? `${rawTitle.slice(0, available - 1)}…`
+    : rawTitle;
+  const displayTitle = count > 1 ? `${title}${countSuffix}` : title;
+  const left = `${styleRank(rank, color)} ${styleStrong(displayTitle, color)} ${styleAccent(source, color)}`;
+  const right = styleMuted(modeStr, color);
   return [`  ${alignLine(left, right, PANEL_CONTENT_WIDTH - 2)}`];
 }
 
@@ -646,6 +664,7 @@ function setupTerminal(input: InputLike, output: OutputLike): () => void {
     if (input.isTTY && input.setRawMode) {
       input.setRawMode(false);
     }
+    input.pause();
     output.write(restoreScreen());
   };
 }
@@ -812,11 +831,11 @@ function styleRank(rank: number, color: boolean): string {
   return color ? `${ANSI.bold}${ANSI.brightPurple}${value}${ANSI.reset}` : value;
 }
 
-function renderMasthead(title: string, color: boolean, _tone: Frame["tone"]): string[] {
+function renderMasthead(_title: string, color: boolean, _tone: Frame["tone"]): string[] {
   return [
     "",
     `  ${styleAccent("/·\\", color)}  ${styleBrand("APERTURE", color)}`,
-    `  ${styleAccent("\\·/", color)}  ${styleDeepMuted(title, color)}`,
+    `  ${styleAccent("\\·/", color)}  ${styleDeepMuted("The human attention engine for multi-agent systems.", color)}`,
     "",
   ];
 }
@@ -918,10 +937,10 @@ function formatSigned(value: number): string {
 
 function humanMode(mode: Frame["mode"]): string {
   switch (mode) {
-    case "approval": return "approval";
-    case "choice": return "choice";
-    case "form": return "form";
-    case "status": return "status";
+    case "approval": return "permission";
+    case "choice": return "choose";
+    case "form": return "input needed";
+    case "status": return "update";
     default: return mode;
   }
 }

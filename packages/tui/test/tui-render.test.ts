@@ -54,8 +54,8 @@ test("renderAttentionScreen shows active, queued, and ambient summaries", () => 
 
   const screen = renderAttentionScreen(attentionView, { title: "Aperture TUI" });
 
-  assert.match(screen, /Aperture TUI/);
   assert.match(screen, /APERTURE/);
+  assert.match(screen, /human attention engine/);
   assert.match(screen, /active 1/);
   assert.match(screen, /queued 1/);
   assert.match(screen, /ambient 1/);
@@ -65,7 +65,7 @@ test("renderAttentionScreen shows active, queued, and ambient summaries", () => 
   assert.match(screen, /Approve deployment/);
   assert.match(screen, /Choose target/);
   assert.match(screen, /Run failed/);
-  assert.match(screen, /approval · needs attention · medium risk/);
+  assert.match(screen, /permission · needs attention · medium risk/);
   assert.doesNotMatch(screen, /score 1211/, "score should be hidden by default");
 
   const expanded = renderAttentionScreen(attentionView, { title: "Aperture TUI", expanded: true });

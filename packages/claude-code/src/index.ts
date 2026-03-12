@@ -469,7 +469,7 @@ function toolInputSummary(event: ClaudeCodePreToolUseEvent): string {
 function approvalTitle(event: ClaudeCodePreToolUseEvent, summary: string): string {
   const detail = approvalTitleDetail(event, summary);
   const action = approvalActionLabel(event);
-  return detail ? `Claude Code wants to ${action} ${detail}` : `Claude Code wants to ${action}`;
+  return detail ? `wants to ${action} ${detail}` : `wants to ${action}`;
 }
 
 function approvalTitleDetail(event: ClaudeCodePreToolUseEvent, summary: string): string | null {

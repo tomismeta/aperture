@@ -4,11 +4,11 @@ import assert from "node:assert/strict";
 import type { ConformedEvent, FrameResponse } from "@aperture/core";
 
 import {
-  createCodexRuntimeBridge,
+  createCodexAdapter,
   type CodexCommandApprovalRequest,
 } from "../src/index.js";
 
-test("Codex runtime bridge publishes approval requests into the host", async () => {
+test("Codex adapter publishes approval requests into the host", async () => {
   const published: ConformedEvent[] = [];
   const responses: unknown[] = [];
   const host = createHost({
@@ -16,14 +16,14 @@ test("Codex runtime bridge publishes approval requests into the host", async () 
       published.push(event);
     },
   });
-  const bridge = createCodexRuntimeBridge(host, {
+  const adapter = createCodexAdapter(host, {
     sendCodexResponse(response) {
       responses.push(response);
     },
   });
 
   try {
-    await bridge.handleCodexRequest(commandApprovalRequest());
+    await adapter.handleCodexRequest(commandApprovalRequest());
 
     assert.equal(published.length, 1);
     assert.equal(published[0]?.type, "human.input.requested");
@@ -34,14 +34,14 @@ test("Codex runtime bridge publishes approval requests into the host", async () 
     }
     assert.deepEqual(responses, []);
   } finally {
-    bridge.close();
+    adapter.close();
   }
 });
 
-test("Codex runtime bridge maps aperture responses back to Codex results", async () => {
+test("Codex adapter maps aperture responses back to Codex results", async () => {
   const responses: unknown[] = [];
   const host = createHost();
-  const bridge = createCodexRuntimeBridge(host, {
+  const adapter = createCodexAdapter(host, {
     sendCodexResponse(response) {
       responses.push(response);
     },
@@ -62,7 +62,7 @@ test("Codex runtime bridge maps aperture responses back to Codex results", async
       },
     });
   } finally {
-    bridge.close();
+    adapter.close();
   }
 });
 

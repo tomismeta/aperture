@@ -79,12 +79,20 @@ export type CodexClientResponse =
       };
     };
 
-export {
-  createCodexRuntimeBridge,
-  type CodexEventHost,
-  type CodexResponseSink,
-  type CodexRuntimeBridge,
-} from "./runtime.js";
+export type CodexEventHost = {
+  publishConformed(event: ConformedEvent): void | Promise<void>;
+  publishConformedBatch?(events: ConformedEvent[]): void | Promise<void>;
+  onResponse(listener: (response: FrameResponse) => void): () => void;
+};
+
+export type CodexResponseSink = {
+  sendCodexResponse(response: CodexClientResponse): void | Promise<void>;
+};
+
+export type CodexAdapter = {
+  handleCodexRequest(request: CodexServerRequest): Promise<void>;
+  close(): void;
+};
 
 export function mapCodexServerRequest(request: CodexServerRequest): ConformedEvent[] {
   switch (request.method) {
@@ -146,6 +154,40 @@ export function mapCodexFrameResponse(response: FrameResponse): CodexClientRespo
   }
 
   return null;
+}
+
+export function createCodexAdapter(
+  host: CodexEventHost,
+  sink: CodexResponseSink,
+): CodexAdapter {
+  const unsubscribe = host.onResponse((response) => {
+    const codexResponse = mapCodexFrameResponse(response);
+    if (!codexResponse) {
+      return;
+    }
+    void Promise.resolve(sink.sendCodexResponse(codexResponse));
+  });
+
+  return {
+    async handleCodexRequest(request) {
+      const events = mapCodexServerRequest(request);
+      if (events.length === 0) {
+        return;
+      }
+
+      if (host.publishConformedBatch) {
+        await host.publishConformedBatch(events);
+        return;
+      }
+
+      for (const event of events) {
+        await host.publishConformed(event);
+      }
+    },
+    close() {
+      unsubscribe();
+    },
+  };
 }
 
 function mapCommandApprovalRequest(request: CodexCommandApprovalRequest): ConformedHumanInputRequestedEvent {

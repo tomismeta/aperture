@@ -30,8 +30,7 @@ This first cut is still transport-agnostic. Unlike `@aperture/claude-code`, it d
 What it does ship now:
 
 - a stable mapping layer
-- a runtime bridge that can publish Codex requests into `@aperture/runtime`
-- a mock adapter path so we can validate the multi-agent runtime before real Codex hooks land
+- an adapter helper that can publish Codex requests into `@aperture/runtime`
 
 ## Supported Codex Requests
 
@@ -56,9 +55,9 @@ Currently mapped:
 - approval `dismissed -> { decision: "abort" }`
 - choice and form responses -> `answers` payloads for Codex `request_user_input`
 
-## Runtime Bridge
+## Adapter Helper
 
-Use `createCodexRuntimeBridge(...)` when you have a Codex-native request stream and a way to send responses back. The bridge:
+Use `createCodexAdapter(...)` when you have a Codex-native request stream and a way to send responses back. The adapter helper:
 
 - maps `CodexServerRequest -> ConformedEvent[]`
 - publishes those events into the shared runtime
@@ -74,9 +73,7 @@ Direct-runtime example:
 ```ts
 import { ApertureRuntimeAdapterClient } from "@aperture/runtime";
 import {
-  createCodexRuntimeBridge,
-  mapCodexFrameResponse,
-  mapCodexServerRequest,
+  createCodexAdapter,
   type CodexServerRequest,
 } from "@aperture/codex";
 
@@ -86,7 +83,7 @@ const adapterClient = await ApertureRuntimeAdapterClient.connect({
   label: "Codex bridge",
 });
 
-const bridge = createCodexRuntimeBridge(adapterClient, {
+const adapter = createCodexAdapter(adapterClient, {
   async sendCodexResponse(response) {
     console.log(response);
   },
@@ -105,23 +102,11 @@ const request: CodexServerRequest = {
   },
 };
 
-await bridge.handleCodexRequest(request);
+await adapter.handleCodexRequest(request);
 ```
-
-## Mock Path
-
-Until Codex exposes a real hook surface, you can test the shared runtime path with:
-
-```bash
-pnpm serve
-pnpm tui
-pnpm codex:mock
-```
-
-`pnpm codex:mock` connects to the shared runtime and publishes a sample Codex approval request. If you pipe newline-delimited JSON requests into it, it will publish those instead and print mapped Codex responses back to stderr.
 
 ## Boundary
 
-`@aperture/core` remains Codex-agnostic, and the intended host for this adapter is `@aperture/runtime`.
+`@aperture/core` remains Codex-agnostic, and the intended host for this adapter is `@aperture/runtime`. When Codex exposes a stable hook or transport surface, that source-native ingress should live in `@aperture/codex` and use these adapter helpers rather than changing runtime/core boundaries.
 
 If this package is removed, core still compiles and behaves the same.

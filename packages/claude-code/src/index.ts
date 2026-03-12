@@ -198,7 +198,12 @@ export function classifyToolRisk(
     return "low";
   }
 
-  if (toolName === "websearch" || toolName === "web_fetch" || toolName === "webfetch") {
+  if (
+    toolName === "websearch"
+    || toolName === "toolsearch"
+    || toolName === "web_fetch"
+    || toolName === "webfetch"
+  ) {
     return "low";
   }
 
@@ -455,13 +460,14 @@ function toolInputSummary(event: ClaudeCodePreToolUseEvent): string {
   // Try common field names across Claude Code tools
   const filePath = readString(input.file_path) ?? readString(input.path);
   const pattern = readString(input.pattern);
-  const query = readString(input.query);
+  const query = readSearchQuery(input);
   const url = readString(input.url);
 
   if (filePath && pattern) return `${pattern} in ${filePath}`;
   if (filePath) return filePath;
   if (pattern) return pattern;
   if (query) return query;
+  if (event.tool_name.toLowerCase() === "toolsearch") return "web search";
   if (url) return url;
   return event.tool_name;
 }
@@ -469,7 +475,7 @@ function toolInputSummary(event: ClaudeCodePreToolUseEvent): string {
 function approvalTitle(event: ClaudeCodePreToolUseEvent, summary: string): string {
   const detail = approvalTitleDetail(event, summary);
   const action = approvalActionLabel(event);
-  return detail ? `wants to ${action} ${detail}` : `wants to ${action}`;
+  return detail ? `Claude Code wants to ${action} ${detail}` : `Claude Code wants to ${action}`;
 }
 
 function approvalTitleDetail(event: ClaudeCodePreToolUseEvent, summary: string): string | null {
@@ -490,7 +496,7 @@ function approvalTitleDetail(event: ClaudeCodePreToolUseEvent, summary: string):
     return truncateLabel(pattern, 24);
   }
 
-  const query = readString(input.query);
+  const query = readSearchQuery(input);
   if (query) {
     return truncateLabel(query, 24);
   }
@@ -524,6 +530,7 @@ function approvalActionLabel(event: ClaudeCodePreToolUseEvent): string {
     case "ls":
       return "list files in";
     case "websearch":
+    case "toolsearch":
       return "search the web for";
     case "web_fetch":
     case "webfetch":
@@ -533,6 +540,15 @@ function approvalActionLabel(event: ClaudeCodePreToolUseEvent): string {
     default:
       return `use ${event.tool_name}`;
   }
+}
+
+function readSearchQuery(input: Record<string, unknown>): string | undefined {
+  return (
+    readString(input.query)
+    ?? readString(input.search_query)
+    ?? readString(input.q)
+    ?? readString(input.searchTerm)
+  );
 }
 
 function hasSensitivePath(event: ClaudeCodePreToolUseEvent): boolean {

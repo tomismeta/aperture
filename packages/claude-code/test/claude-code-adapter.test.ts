@@ -33,7 +33,7 @@ test("maps PreToolUse Bash hooks into approval events", () => {
     assert.equal(mapped[0].taskId, "claude-code:session:session-1");
     assert.equal(mapped[0].interactionId, "claude-code:tool:session-1:tool-1");
     assert.equal(mapped[0].request.kind, "approval");
-    assert.equal(mapped[0].title, "wants to run a shell command");
+    assert.equal(mapped[0].title, "Claude Code wants to run a shell command");
     assert.equal(mapped[0].summary, "git push origin main");
     assert.equal(mapped[0].riskHint, "medium");
     assert.deepEqual(mapped[0].source, {
@@ -60,7 +60,7 @@ test("uses compact detail labels for bash approvals", () => {
   assert.equal(mapped.length, 1);
   assert.equal(mapped[0]?.type, "human.input.requested");
   if (mapped[0]?.type === "human.input.requested") {
-    assert.equal(mapped[0].title, "wants to run a shell command");
+    assert.equal(mapped[0].title, "Claude Code wants to run a shell command");
   }
 });
 
@@ -200,7 +200,7 @@ test("maps low-risk reads into low consequence approvals", () => {
   assert.equal(mapped.length, 1);
   assert.equal(mapped[0]?.type, "human.input.requested");
   if (mapped[0]?.type === "human.input.requested") {
-    assert.equal(mapped[0].title, "wants to read index.ts");
+    assert.equal(mapped[0].title, "Claude Code wants to read index.ts");
     assert.equal(mapped[0].riskHint, "low");
   }
 });
@@ -221,7 +221,28 @@ test("uses compact detail labels for glob approvals", () => {
   assert.equal(mapped.length, 1);
   assert.equal(mapped[0]?.type, "human.input.requested");
   if (mapped[0]?.type === "human.input.requested") {
-    assert.equal(mapped[0].title, "wants to search files with **/*.{ts,tsx,md}");
+    assert.equal(mapped[0].title, "Claude Code wants to search files with **/*.{ts,tsx,md}");
+  }
+});
+
+test("maps ToolSearch into low-risk web search wording", () => {
+  const event: ClaudeCodePreToolUseEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "PreToolUse",
+    tool_name: "ToolSearch",
+    tool_use_id: "tool-search",
+    tool_input: {
+      query: "gold prices",
+    },
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "human.input.requested");
+  if (mapped[0]?.type === "human.input.requested") {
+    assert.equal(mapped[0].title, "Claude Code wants to search the web for gold prices");
+    assert.equal(mapped[0].riskHint, "low");
   }
 });
 

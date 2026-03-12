@@ -79,6 +79,13 @@ export type CodexClientResponse =
       };
     };
 
+export {
+  createCodexRuntimeBridge,
+  type CodexEventHost,
+  type CodexResponseSink,
+  type CodexRuntimeBridge,
+} from "./runtime.js";
+
 export function mapCodexServerRequest(request: CodexServerRequest): ConformedEvent[] {
   switch (request.method) {
     case "item/commandExecution/requestApproval":

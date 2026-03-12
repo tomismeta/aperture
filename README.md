@@ -195,6 +195,7 @@ These are the commands behind the quickstart and for manual/advanced use.
 | `pnpm claude:connect --global` | Writes Aperture's Claude config into `~/.claude/settings.json`. | Use this once to connect Claude Code across all projects. |
 | `pnpm claude:connect /path/to/project` | Writes Aperture's Claude config into `.claude/settings.local.json` for one project. | Use this when you only want Claude connected in one repo. |
 | `pnpm claude:start` | Starts the Claude Code adapter process and connects it to a live Aperture runtime. | Use this when you want to run the Claude adapter separately from the default `pnpm aperture` stack. |
+| `pnpm codex:mock` | Starts a mock Codex adapter and connects it to a live Aperture runtime. | Use this to validate the Codex runtime path before Codex exposes real hooks. |
 | `pnpm claude:disconnect --global` | Removes only Aperture's Claude hook entries from `~/.claude/settings.json`. | Use this to uninstall the global Claude integration. |
 | `pnpm claude:disconnect /path/to/project` | Removes only Aperture's Claude hook entries from `.claude/settings.local.json` in one project. | Use this to uninstall the project-local Claude integration. |
 

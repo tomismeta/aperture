@@ -25,7 +25,13 @@ Egress:
 
 - `FrameResponse -> CodexClientResponse | null`
 
-This first cut is still mapping-first. Unlike `@aperture/paperclip`, it does not ship a transport client yet because Codex transport depends on the host integration shape.
+This first cut is still transport-agnostic. Unlike `@aperture/claude-code`, it does not ship a real live transport yet because Codex does not expose a stable hook surface today.
+
+What it does ship now:
+
+- a stable mapping layer
+- a runtime bridge that can publish Codex requests into `@aperture/runtime`
+- a mock adapter path so we can validate the multi-agent runtime before real Codex hooks land
 
 ## Supported Codex Requests
 
@@ -50,19 +56,41 @@ Currently mapped:
 - approval `dismissed -> { decision: "abort" }`
 - choice and form responses -> `answers` payloads for Codex `request_user_input`
 
+## Runtime Bridge
+
+Use `createCodexRuntimeBridge(...)` when you have a Codex-native request stream and a way to send responses back. The bridge:
+
+- maps `CodexServerRequest -> ConformedEvent[]`
+- publishes those events into the shared runtime
+- listens for `FrameResponse`
+- maps relevant responses back into `CodexClientResponse`
+
+That gives us a clean seam to swap in real Codex hooks later without rewriting the adapter logic.
+
 ## Example
 
-Direct-core example:
+Direct-runtime example:
 
 ```ts
-import { ApertureCore } from "@aperture/core";
+import { ApertureRuntimeAdapterClient } from "@aperture/runtime";
 import {
+  createCodexRuntimeBridge,
   mapCodexFrameResponse,
   mapCodexServerRequest,
   type CodexServerRequest,
 } from "@aperture/codex";
 
-const core = new ApertureCore();
+const adapterClient = await ApertureRuntimeAdapterClient.connect({
+  baseUrl: "http://127.0.0.1:4546/runtime",
+  kind: "codex",
+  label: "Codex bridge",
+});
+
+const bridge = createCodexRuntimeBridge(adapterClient, {
+  async sendCodexResponse(response) {
+    console.log(response);
+  },
+});
 
 const request: CodexServerRequest = {
   id: 17,
@@ -77,20 +105,23 @@ const request: CodexServerRequest = {
   },
 };
 
-for (const event of mapCodexServerRequest(request)) {
-  core.publishConformed(event);
-}
-
-core.onResponse((response) => {
-  const codexResponse = mapCodexFrameResponse(response);
-  if (!codexResponse) return;
-
-  console.log(codexResponse);
-});
+await bridge.handleCodexRequest(request);
 ```
+
+## Mock Path
+
+Until Codex exposes a real hook surface, you can test the shared runtime path with:
+
+```bash
+pnpm serve
+pnpm tui
+pnpm codex:mock
+```
+
+`pnpm codex:mock` connects to the shared runtime and publishes a sample Codex approval request. If you pipe newline-delimited JSON requests into it, it will publish those instead and print mapped Codex responses back to stderr.
 
 ## Boundary
 
-`@aperture/core` remains Codex-agnostic, and the long-term intended host for this adapter is `@aperture/runtime`.
+`@aperture/core` remains Codex-agnostic, and the intended host for this adapter is `@aperture/runtime`.
 
 If this package is removed, core still compiles and behaves the same.

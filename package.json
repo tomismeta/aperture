@@ -6,6 +6,7 @@
   "scripts": {
     "aperture": "tsx scripts/aperture.ts",
     "build": "tsc -b",
+    "codex:mock": "tsx scripts/codex-mock.ts",
     "claude:connect": "tsx scripts/claude-connect.ts",
     "claude:disconnect": "tsx scripts/claude-disconnect.ts",
     "claude:start": "tsx scripts/claude-adapter.ts",

@@ -1,0 +1,135 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import type { ConformedEvent, FrameResponse } from "@aperture/core";
+
+import {
+  createCodexRuntimeBridge,
+  type CodexCommandApprovalRequest,
+} from "../src/index.js";
+
+test("Codex runtime bridge publishes approval requests into the host", async () => {
+  const published: ConformedEvent[] = [];
+  const responses: unknown[] = [];
+  const host = createHost({
+    publishConformed(event) {
+      published.push(event);
+    },
+  });
+  const bridge = createCodexRuntimeBridge(host, {
+    sendCodexResponse(response) {
+      responses.push(response);
+    },
+  });
+
+  try {
+    await bridge.handleCodexRequest(commandApprovalRequest());
+
+    assert.equal(published.length, 1);
+    assert.equal(published[0]?.type, "human.input.requested");
+    if (published[0]?.type === "human.input.requested") {
+      assert.equal(published[0].source?.kind, "codex");
+      assert.equal(published[0].title, "Approve Codex command");
+      assert.equal(published[0].context?.items?.[0]?.value, "git push origin main");
+    }
+    assert.deepEqual(responses, []);
+  } finally {
+    bridge.close();
+  }
+});
+
+test("Codex runtime bridge maps aperture responses back to Codex results", async () => {
+  const responses: unknown[] = [];
+  const host = createHost();
+  const bridge = createCodexRuntimeBridge(host, {
+    sendCodexResponse(response) {
+      responses.push(response);
+    },
+  });
+
+  try {
+    host.emitResponse({
+      taskId: "codex:thread:thread-1:turn:turn-1",
+      interactionId: "codex:approval:17:item%3Acmd%3A1",
+      response: { kind: "approved" },
+    });
+
+    const response = await waitFor(() => responses[0] ?? null);
+    assert.deepEqual(response, {
+      id: 17,
+      result: {
+        decision: "approved",
+      },
+    });
+  } finally {
+    bridge.close();
+  }
+});
+
+function commandApprovalRequest(): CodexCommandApprovalRequest {
+  return {
+    id: 17,
+    method: "item/commandExecution/requestApproval",
+    params: {
+      itemId: "item:cmd:1",
+      threadId: "thread-1",
+      turnId: "turn-1",
+      command: "git push origin main",
+      cwd: "/repo",
+      reason: "Network access required",
+    },
+  };
+}
+
+function sleep(durationMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, durationMs);
+  });
+}
+
+async function waitFor<T>(
+  read: () => T | null,
+  options: { timeoutMs?: number; intervalMs?: number } = {},
+): Promise<T> {
+  const timeoutMs = options.timeoutMs ?? 500;
+  const intervalMs = options.intervalMs ?? 10;
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt <= timeoutMs) {
+    const value = read();
+    if (value !== null) {
+      return value;
+    }
+    await sleep(intervalMs);
+  }
+
+  return read() as T;
+}
+
+function createHost(overrides: {
+  publishConformed?(event: ConformedEvent): void;
+} = {}) {
+  const listeners = new Set<(response: FrameResponse) => void>();
+
+  return {
+    publishConformed(event: ConformedEvent) {
+      overrides.publishConformed?.(event);
+    },
+    publishConformedBatch(events: ConformedEvent[]) {
+      for (const event of events) {
+        overrides.publishConformed?.(event);
+      }
+    },
+    onResponse(listener: (response: FrameResponse) => void) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    emitResponse(response: FrameResponse) {
+      for (const listener of listeners) {
+        listener(response);
+      }
+    },
+  };
+}

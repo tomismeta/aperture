@@ -2,8 +2,6 @@
 
 Aperture is the human attention engine for agent systems.
 
-LLMs spend model tokens. Operators spend attention tokens.
-
 A small TypeScript library that decides what deserves human attention now, what should wait, and what can remain ambient.
 
 It is not:

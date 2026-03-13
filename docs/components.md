@@ -34,7 +34,10 @@ These are part of Aperture itself.
 - Does not own:
   - rendering
   - transport protocols
-  - persistence beyond in-memory state
+  - source-specific transport or storage formats
+- Optional persistence boundary:
+  - can load and checkpoint compact Markdown-backed judgment state through `ProfileStore`
+  - still keeps raw runtime state in memory
 
 #### `@aperture/runtime`
 

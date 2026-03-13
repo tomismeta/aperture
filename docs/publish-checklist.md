@@ -2,11 +2,11 @@
 
 This is the bar for the first public GitHub publish.
 
-The goal is not broad feature coverage. The goal is a small repo that clearly proves the engine.
+The goal is not broad feature coverage. The goal is a focused repo that clearly proves the engine.
 
 ## What Must Be True
 
-- the repo tells one story: `Aperture = engine-first attention middleware`
+- the repo tells one story: `Aperture = engine-first human attention engine`
 - the public package surface is clean and intentionally small
 - `@aperture/core` remains adapter-agnostic
 - adapters remain translation-only layers
@@ -45,7 +45,7 @@ The first publish should not claim:
 - mature API stability
 - model-assisted reasoning
 - anticipation beyond roadmap intent
-- support for many adapters beyond the current Paperclip and Codex paths
+- support for many live adapters beyond the current Claude Code path
 
 ## Publish Decision
 
@@ -54,6 +54,6 @@ The repo is ready to publish when:
 1. the commands above are green
 2. the mixed-source story is easy to understand from the README
 3. the traced scenarios still look defensible after one final review pass
-4. the mock Paperclip transport loop proves ingress and egress end to end
+4. the live Claude Code path is easy to run and the Paperclip transport loop still proves ingress and egress end to end
 
 If any of those fail, keep iterating on the engine rather than broadening the project.

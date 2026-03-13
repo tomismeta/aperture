@@ -10,7 +10,7 @@ The moat lives in the core:
 
 - deterministic judgment
 - interaction signal capture
-- operator-shaped memory
+- human-shaped memory
 - queue and episode planning
 - anticipatory guidance
 
@@ -24,7 +24,7 @@ Not in:
 
 Aperture should be positioned as:
 
-**the engine that learns how this operator spends attention and protects it**
+**the engine that learns how this human spends attention and protects it**
 
 Not as:
 
@@ -36,7 +36,7 @@ The wedge is not "AI decides what matters."
 
 The wedge is:
 
-**Aperture learns how this operator spends attention and protects it faster, cheaper, and more transparently than a model in the hot path ever could.**
+**Aperture learns how this human spends attention and protects it faster, cheaper, and more transparently than a model in the hot path ever could.**
 
 A model reasons from prompt context. Aperture reasons from system state. Prompt context is ephemeral and expensive. System state is durable, structured, and gets better with use.
 
@@ -66,7 +66,7 @@ What is built:
 - `policy -> utility -> planner` architecture
 - pure Markdown `USER.md`, `MEMORY.md`, and `JUDGMENT.md`
 - memory-backed adaptive utility scoring
-- consequence calibration from operator disagreement
+- consequence calibration from human disagreement
 - predictive pressure forecasting
 - episode batching and merge heuristics
 - runtime-safe hardening around markdown schema and task clearing
@@ -79,7 +79,7 @@ What is built:
 
 - interaction signals and derived summaries
 - durable memory checkpointing and reload
-- operator-specific response, context, and deferral patterns feeding back into judgment
+- human-specific response, context, and deferral patterns feeding back into judgment
 - replay evaluation foundation for merged episodes, deferred activation, and actionable episodes
 
 What is still missing:
@@ -141,9 +141,9 @@ The engine accumulates patterns like:
 - which tool families get approved quickly
 - which interactions usually need more context
 - which work gets deferred and later resumed
-- how this operator behaves under pressure
+- how this human behaves under pressure
 
-This creates operator-specific switching costs and makes the system better with use.
+This creates human-specific switching costs and makes the system better with use.
 
 ### 3. Episode Modeling
 
@@ -155,7 +155,7 @@ Examples:
 - repeated failed status updates on the same task
 - a queued episode update that later becomes actionable
 
-This matches how human operators actually reason about work.
+This matches how humans actually reason about work.
 
 ### 4. The Closed Loop
 
@@ -173,7 +173,7 @@ This is the most important strategic objection to answer clearly.
 
 The hard problem is not making a plausible judgment. It is making a reliable judgment in the hot path.
 
-A model can produce a plausible ranking. But the hot path needs all six of these simultaneously: fast, cheap, deterministic, inspectable, operator-specific, and compounding over time. You rarely get all six from a model in the loop.
+A model can produce a plausible ranking. But the hot path needs all six of these simultaneously: fast, cheap, deterministic, inspectable, human-specific, and compounding over time. You rarely get all six from a model in the loop.
 
 ### 1. The Hot Path Must Be Fast
 
@@ -212,11 +212,11 @@ Aperture can explain a judgment through:
 
 That kind of decomposition is much harder to maintain with a model making first-order routing decisions.
 
-### 5. The Hot Path Must Learn Operator-Specific Patterns
+### 5. The Hot Path Must Learn Human-Specific Patterns
 
 A general model can reason about risk in the abstract.
 
-It does not naturally accumulate durable, operator-specific behavioral memory unless the system around it already exists.
+It does not naturally accumulate durable, human-specific behavioral memory unless the system around it already exists.
 
 That surrounding system is exactly what Aperture is building.
 
@@ -280,7 +280,7 @@ Current constructs:
 Purpose:
 
 - record how attention actually moved
-- distill durable operator patterns
+- distill durable human patterns
 - feed those patterns back into future judgment
 
 Current constructs:
@@ -333,7 +333,7 @@ Aperture becomes differentiated when it can do all of these together:
 - normalize many event sources into one attention model
 - adjudicate competing work deterministically
 - learn from explicit and silent attention signals
-- build durable operator-specific memory
+- build durable human-specific memory
 - reason in terms of episodes instead of alerts
 - improve future decisions through replay and feedback
 - add anticipation without surrendering policy control
@@ -348,7 +348,7 @@ Ordered by impact:
 
 1. **Evaluator-driven tuning** — replay traces to answer "what if we had deferred this?" and use the answer to refine judgment defaults.
 2. **Episode expiry** — add stale-state transitions for abandoned episodes and time-based demotion.
-3. **Deterministic low-risk pass-through** — let bounded low-risk tool families resolve without interrupting the operator, which is likely the biggest remaining UX win.
+3. **Deterministic low-risk pass-through** — let bounded low-risk tool families resolve without interrupting the human, which is likely the biggest remaining UX win.
 4. **Anticipation behaviors** — add "wait for correlated event", likely-next-context, and pre-batching behavior.
 5. **Advisory model seam** — add optional model reasoning for ambiguous episodes and speculative context, outside the hot path.
 6. **Multi-source transport breadth** — add live Codex and Paperclip connections and stronger cross-source episode correlation.

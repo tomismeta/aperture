@@ -2,7 +2,7 @@
 
 Aperture is the human attention engine for agent systems.
 
-A small TypeScript library that decides what deserves human attention now, what should wait, and what can remain ambient.
+An engine-first TypeScript workspace that decides what deserves human attention now, what should wait, and what can remain ambient.
 
 Current real use case:
 - run Aperture with Claude Code to triage tool permissions, failures, and follow-up handoff in one terminal surface
@@ -11,7 +11,7 @@ What you get:
 - one shared local runtime
 - one terminal attention surface
 - live Claude Code integration today
-- Codex and Paperclip adapter boundaries prepared for broader multi-agent use
+- Codex and Paperclip adapter mappings for broader multi-agent use
 
 It is not:
 - an orchestrator
@@ -76,7 +76,7 @@ Aperture exists to answer three questions:
 
 ### 1. Embed `@aperture/core`
 
-Use Aperture as a small library inside your own app or service when you already control the event source and just want attention judgment.
+Use Aperture as a focused engine inside your own app or service when you already control the event source and just want attention judgment.
 
 You publish `ApertureEvent` or `ConformedEvent` values and consume `AttentionView`.
 
@@ -86,16 +86,16 @@ Use the shared Aperture runtime plus the TUI and Claude adapter when you want Ap
 
 ## Footprint
 
-- `@aperture/core`: standalone library
+- `@aperture/core`: the judgment engine
 - `@aperture/runtime`: shared local host for `ApertureCore`, adapters, and surfaces
-- `@aperture/claude-code`, `@aperture/paperclip`, `@aperture/codex`: optional source adapters
-- `@aperture/tui`: optional attention surface
+- `@aperture/claude-code`, `@aperture/paperclip`, `@aperture/codex`: source adapters with different transport maturity
+- `@aperture/tui`: terminal-native attention surface
 
 Adapters emit `ConformedEvent`s into the runtime. `@aperture/core` normalizes semantics and decides what should be active, queued, or ambient. Surfaces subscribe to the runtime.
 
 ### Library Use
 
-Install and use `@aperture/core` when you want rating/attention judgment in your own code.
+Install and use `@aperture/core` when you want attention judgment in your own code.
 
 ```bash
 pnpm install
@@ -224,10 +224,12 @@ pnpm aperture
 
 - deterministic attention judgment
 - behavioral signals, trends, and recency-bounded summaries
+- pure Markdown `USER.md`, `MEMORY.md`, and `JUDGMENT.md` for durable judgment state
 - shared runtime host for adapters and surfaces
 - live Claude Code integration
-- prepared Codex adapter boundary, pending a real Codex transport surface
+- Codex adapter mapping, pending a real live transport
 - Paperclip adapter mapping and transport helpers
+- episode-aware planning, pressure forecasting, and replay evaluation
 - a source-agnostic TUI surface
 
 ## Feedback

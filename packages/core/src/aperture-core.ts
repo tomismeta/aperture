@@ -29,6 +29,7 @@ import { QueuePlanner } from "./queue-planner.js";
 import type { SignalSummary } from "./signal-summary.js";
 import { TaskViewStore } from "./task-view-store.js";
 import type { ApertureTrace } from "./trace.js";
+import { TraceRecorder } from "./trace-recorder.js";
 import { UtilityScore } from "./utility-score.js";
 
 type FrameListener = (frame: Frame | null) => void;
@@ -59,6 +60,7 @@ export class ApertureCore {
   private readonly episodes = new EpisodeStore();
   private readonly heuristics = new AttentionHeuristics();
   private readonly evaluation = new EvaluationEngine();
+  private readonly traceRecorder = new TraceRecorder();
   private coordinator: InteractionCoordinator;
   private readonly planner = new FramePlanner();
   private readonly profileStore: ProfileStore | undefined;
@@ -176,10 +178,9 @@ export class ApertureCore {
 
     switch (evaluation.kind) {
       case "noop": {
-        this.notifyTrace({
+        this.notifyTrace(this.traceRecorder.recordNoop({
           timestamp: new Date().toISOString(),
           event,
-          evaluation: { kind: "noop" },
           taskSummary,
           globalSummary,
           taskAttentionState,
@@ -188,16 +189,15 @@ export class ApertureCore {
           current: this.getFrame(event.taskId),
           taskView: this.getTaskView(event.taskId),
           attentionView: this.getAttentionView(),
-        });
+        }));
         return null;
       }
       case "clear": {
         const current = this.getFrame(event.taskId);
         const result = this.applyClear(event.taskId);
-        this.notifyTrace({
+        this.notifyTrace(this.traceRecorder.recordClear({
           timestamp: new Date().toISOString(),
           event,
-          evaluation: { kind: "clear", taskId: event.taskId },
           taskSummary,
           globalSummary,
           taskAttentionState,
@@ -206,7 +206,7 @@ export class ApertureCore {
           current,
           taskView: this.getTaskView(event.taskId),
           attentionView: this.getAttentionView(),
-        });
+        }, event.taskId));
         return result;
       }
       case "candidate": {
@@ -257,57 +257,23 @@ export class ApertureCore {
                 : this.commitFrame(this.planner.plan(explanation.decision.candidate, current));
             break;
         }
-        this.notifyTrace({
+        this.notifyTrace(this.traceRecorder.recordCandidate({
           timestamp: new Date().toISOString(),
           event,
-          evaluation: {
-            kind: "candidate",
-            original: evaluation.candidate,
-            adjusted: candidate,
-          },
-          heuristics: {
-            scoreOffset: candidate.attentionScoreOffset ?? 0,
-            rationale: candidate.attentionRationale ?? [],
-          },
-          episode: candidate.episodeId
-            ? {
-                id: candidate.episodeId,
-                key: candidate.episodeKey ?? candidate.episodeId,
-                state: candidate.episodeState ?? "emerging",
-                size: candidate.episodeSize ?? 1,
-                evidenceScore: candidate.episodeEvidenceScore ?? 0,
-                evidenceReasons: candidate.episodeEvidenceReasons ?? [],
-                lastInteractionId: candidate.interactionId,
-                updatedAt: candidate.timestamp,
-              }
-            : null,
-          policy: explanation.policy,
-          utility: {
-            candidate: explanation.utility,
-            currentScore: explanation.currentScore,
-            currentPriority: explanation.currentPriority,
-          },
-          planner: {
-            kind: explanation.decision.kind,
-            reasons: explanation.reasons,
-          },
-          coordination: {
-            kind: explanation.decision.kind,
-            candidateScore: explanation.candidateScore,
-            currentScore: explanation.currentScore,
-            currentPriority: explanation.currentPriority,
-            reasons: explanation.reasons,
-          },
           taskSummary,
           globalSummary,
           taskAttentionState,
           globalAttentionState,
-          pressureForecast: explanation.pressureForecast,
+          pressureForecast,
           current,
           taskView: this.getTaskView(event.taskId),
           attentionView: this.getAttentionView(),
+        }, {
+          original: evaluation.candidate,
+          adjusted: candidate,
+          explanation,
           result,
-        });
+        }));
         return result;
       }
     }

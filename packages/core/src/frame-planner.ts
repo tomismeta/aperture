@@ -25,6 +25,8 @@ export class FramePlanner {
             key: candidate.episodeKey,
             state: candidate.episodeState,
             size: candidate.episodeSize ?? 1,
+            evidenceScore: candidate.episodeEvidenceScore ?? 0,
+            evidenceReasons: candidate.episodeEvidenceReasons ?? [],
             lastInteractionId: candidate.interactionId,
             updatedAt: candidate.timestamp,
           }

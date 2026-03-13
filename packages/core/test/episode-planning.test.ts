@@ -22,6 +22,8 @@ function createCandidate(overrides: Partial<InteractionCandidate> = {}): Interac
     episodeKey: "claude-code:interruptive:/workspace/config.ts",
     episodeState: "waiting",
     episodeSize: 2,
+    episodeEvidenceScore: 0,
+    episodeEvidenceReasons: [],
     ...overrides,
   };
 }
@@ -53,6 +55,8 @@ function createFrame(overrides: Partial<Frame> = {}): Frame {
         key: "claude-code:interruptive:/workspace/config.ts",
         state: "actionable",
         size: 2,
+        evidenceScore: 4,
+        evidenceReasons: ["operator-facing work makes this episode immediately actionable"],
         lastInteractionId: "interaction:current",
         updatedAt: "2026-03-08T12:00:00.000Z",
       },
@@ -112,6 +116,8 @@ test("visible queued episode work batches new related interactions with no activ
               key: "claude-code:interruptive:/workspace/config.ts",
               state: "batched",
               size: 2,
+              evidenceScore: 1,
+              evidenceReasons: ["multiple related interactions have accumulated in this episode"],
               lastInteractionId: "interaction:queued",
               updatedAt: "2026-03-08T12:00:30.000Z",
             },
@@ -136,11 +142,13 @@ test("visible queued episode work stays bundled even when unrelated current work
         episode: {
           id: "episode:other",
           key: "claude-code:interruptive:/workspace/other.ts",
-          state: "actionable",
-          size: 1,
-          lastInteractionId: "interaction:other-current",
-          updatedAt: "2026-03-08T12:00:00.000Z",
-        },
+                state: "actionable",
+                size: 1,
+                evidenceScore: 4,
+                evidenceReasons: ["operator-facing work makes this episode immediately actionable"],
+                lastInteractionId: "interaction:other-current",
+                updatedAt: "2026-03-08T12:00:00.000Z",
+              },
       },
     }),
     createCandidate({
@@ -156,11 +164,13 @@ test("visible queued episode work stays bundled even when unrelated current work
             episode: {
               id: "episode:other",
               key: "claude-code:interruptive:/workspace/other.ts",
-              state: "actionable",
-              size: 1,
-              lastInteractionId: "interaction:other-current",
-              updatedAt: "2026-03-08T12:00:00.000Z",
-            },
+                state: "actionable",
+                size: 1,
+                evidenceScore: 4,
+                evidenceReasons: ["operator-facing work makes this episode immediately actionable"],
+                lastInteractionId: "interaction:other-current",
+                updatedAt: "2026-03-08T12:00:00.000Z",
+              },
           },
         }),
         queued: [
@@ -175,6 +185,8 @@ test("visible queued episode work stays bundled even when unrelated current work
                 key: "claude-code:interruptive:/workspace/config.ts",
                 state: "batched",
                 size: 2,
+                evidenceScore: 1,
+                evidenceReasons: ["multiple related interactions have accumulated in this episode"],
                 lastInteractionId: "interaction:queued",
                 updatedAt: "2026-03-08T12:00:30.000Z",
               },
@@ -185,6 +197,56 @@ test("visible queued episode work stays bundled even when unrelated current work
       } satisfies AttentionView,
     },
   );
+
+  assert.equal(decision.kind, "queue");
+});
+
+test("actionable episode evidence can activate non-blocking work when nothing is active", () => {
+  const coordinator = new InteractionCoordinator();
+  const decision = coordinator.coordinate(null, createCandidate({
+    mode: "choice",
+    consequence: "high",
+    responseSpec: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [{ id: "retry", label: "Retry" }],
+    },
+    episodeState: "actionable",
+    episodeEvidenceScore: 5,
+    episodeEvidenceReasons: ["high-signal evidence is stacking up across the episode"],
+  }));
+
+  assert.equal(decision.kind, "activate");
+});
+
+test("actionable episode evidence stays queued under high pressure", () => {
+  const coordinator = new InteractionCoordinator();
+  const decision = coordinator.coordinate(null, createCandidate({
+    mode: "choice",
+    consequence: "high",
+    responseSpec: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [{ id: "retry", label: "Retry" }],
+    },
+    episodeState: "actionable",
+    episodeEvidenceScore: 5,
+    episodeEvidenceReasons: ["high-signal evidence is stacking up across the episode"],
+  }), {
+    pressureForecast: {
+      level: "high",
+      overloadRisk: "high",
+      score: 7,
+      metrics: {
+        recentDemand: 8,
+        interruptiveVisible: 2,
+        averageResponseLatencyMs: 15_000,
+        deferredCount: 4,
+        suppressedCount: 2,
+      },
+      reasons: ["incoming demand is arriving quickly"],
+    },
+  });
 
   assert.equal(decision.kind, "queue");
 });

@@ -274,6 +274,8 @@ export class ApertureCore {
                 key: candidate.episodeKey ?? candidate.episodeId,
                 state: candidate.episodeState ?? "emerging",
                 size: candidate.episodeSize ?? 1,
+                evidenceScore: candidate.episodeEvidenceScore ?? 0,
+                evidenceReasons: candidate.episodeEvidenceReasons ?? [],
                 lastInteractionId: candidate.interactionId,
                 updatedAt: candidate.timestamp,
               }

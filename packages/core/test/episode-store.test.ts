@@ -54,6 +54,9 @@ test("episode store groups related interactions by source and anchor", () => {
   assert.equal(first.episodeId, second.episodeId);
   assert.equal(second.episodeState, "actionable");
   assert.equal(second.episodeSize, 2);
+  assert.equal(second.episodeEvidenceScore, 6);
+  assert.ok(second.episodeEvidenceReasons?.includes("operator-facing work makes this episode immediately actionable"));
+  assert.ok(second.episodeEvidenceReasons?.includes("multiple related interactions have accumulated in this episode"));
 });
 
 test("frame planner persists episode metadata onto frames", () => {
@@ -64,6 +67,8 @@ test("frame planner persists episode metadata onto frames", () => {
       episodeKey: "claude-code:interruptive:/workspace/config.ts",
       episodeState: "actionable",
       episodeSize: 2,
+      episodeEvidenceScore: 5,
+      episodeEvidenceReasons: ["multiple related interactions have accumulated in this episode"],
     }),
     null,
   );
@@ -74,6 +79,8 @@ test("frame planner persists episode metadata onto frames", () => {
     key: "claude-code:interruptive:/workspace/config.ts",
     state: "actionable",
     size: 2,
+    evidenceScore: 5,
+    evidenceReasons: ["multiple related interactions have accumulated in this episode"],
     lastInteractionId: "interaction:one",
     updatedAt: "2026-03-08T12:00:00.000Z",
   });
@@ -101,4 +108,31 @@ test("episode store marks repeated non-blocking work as batched", () => {
 
   assert.equal(second.episodeState, "batched");
   assert.equal(second.episodeSize, 2);
+});
+
+test("high-signal recurring status work can make an episode actionable", () => {
+  const store = new EpisodeStore();
+  store.assign(
+    createCandidate({
+      blocking: false,
+      mode: "status",
+      consequence: "high",
+      responseSpec: { kind: "none" },
+    }),
+  );
+  const second = store.assign(
+    createCandidate({
+      interactionId: "interaction:two",
+      blocking: false,
+      mode: "status",
+      consequence: "high",
+      title: "Config sync failed again",
+      responseSpec: { kind: "none" },
+      timestamp: "2026-03-08T12:01:00.000Z",
+    }),
+  );
+
+  assert.equal(second.episodeState, "actionable");
+  assert.equal(second.episodeEvidenceScore, 4);
+  assert.ok(second.episodeEvidenceReasons?.includes("high-signal evidence is stacking up across the episode"));
 });

@@ -4,6 +4,7 @@ import { ApertureRuntimeClient, discoverLocalRuntimes } from "../packages/runtim
 import { runAttentionTui } from "../packages/tui/src/index.ts";
 
 async function main(): Promise<void> {
+  process.title = "Aperture";
   const baseUrl = await resolveRuntimeUrl();
 
   const client = await ApertureRuntimeClient.connect({

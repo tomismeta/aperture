@@ -5,6 +5,7 @@ async function main(): Promise<void> {
   const children: ChildProcess[] = [];
   let shuttingDown = false;
 
+  process.title = "Aperture";
   setTerminalTitle("Aperture");
 
   const runtime = spawnPnpm(["serve"]);
@@ -90,7 +91,10 @@ function setTerminalTitle(title: string): void {
     return;
   }
 
-  stdout.write(`\u001b]0;${title.replace(/[\u0007\u001b]/g, "")}\u0007`);
+  const cleanTitle = title.replace(/[\u0007\u001b]/g, "");
+  stdout.write(`\u001b]0;${cleanTitle}\u0007`);
+  stdout.write(`\u001b]1;${cleanTitle}\u0007`);
+  stdout.write(`\u001b]2;${cleanTitle}\u0007`);
 }
 
 async function waitForExit(child: ChildProcess): Promise<void> {

@@ -676,7 +676,10 @@ function writeTerminalTitle(output: OutputLike, title: string): void {
     return;
   }
 
-  output.write(`\u001b]0;${title.replace(/[\u0007\u001b]/g, "")}\u0007`);
+  const cleanTitle = title.replace(/[\u0007\u001b]/g, "");
+  output.write(`\u001b]0;${cleanTitle}\u0007`);
+  output.write(`\u001b]1;${cleanTitle}\u0007`);
+  output.write(`\u001b]2;${cleanTitle}\u0007`);
 }
 
 function describeResponse(response: FrameResponse, nextActive: Frame | null): string {

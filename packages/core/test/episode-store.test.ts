@@ -78,3 +78,27 @@ test("frame planner persists episode metadata onto frames", () => {
     updatedAt: "2026-03-08T12:00:00.000Z",
   });
 });
+
+test("episode store marks repeated non-blocking work as batched", () => {
+  const store = new EpisodeStore();
+  store.assign(
+    createCandidate({
+      blocking: false,
+      mode: "status",
+      responseSpec: { kind: "none" },
+    }),
+  );
+  const second = store.assign(
+    createCandidate({
+      interactionId: "interaction:two",
+      blocking: false,
+      mode: "status",
+      title: "Still working on config.ts",
+      responseSpec: { kind: "none" },
+      timestamp: "2026-03-08T12:01:00.000Z",
+    }),
+  );
+
+  assert.equal(second.episodeState, "batched");
+  assert.equal(second.episodeSize, 2);
+});

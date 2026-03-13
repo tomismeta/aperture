@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import type { AttentionView } from "../src/frame.js";
 import type { Frame } from "../src/frame.js";
 import type { InteractionCandidate } from "../src/interaction-candidate.js";
 import { InteractionCoordinator } from "../src/interaction-coordinator.js";
@@ -90,4 +91,100 @@ test("same episode can promote a new blocking step over a status frame", () => {
   );
 
   assert.equal(decision.kind, "activate");
+});
+
+test("visible queued episode work batches new related interactions with no active task frame", () => {
+  const coordinator = new InteractionCoordinator();
+  const decision = coordinator.coordinate(null, createCandidate({
+    episodeState: "batched",
+  }), {
+    attentionView: {
+      active: null,
+      queued: [
+        createFrame({
+          taskId: "task:other",
+          interactionId: "interaction:queued",
+          mode: "status",
+          responseSpec: { kind: "none" },
+          metadata: {
+            episode: {
+              id: "episode:shared",
+              key: "claude-code:interruptive:/workspace/config.ts",
+              state: "batched",
+              size: 2,
+              lastInteractionId: "interaction:queued",
+              updatedAt: "2026-03-08T12:00:30.000Z",
+            },
+          },
+        }),
+      ],
+      ambient: [],
+    } satisfies AttentionView,
+  });
+
+  assert.equal(decision.kind, "queue");
+});
+
+test("visible queued episode work stays bundled even when unrelated current work is active", () => {
+  const coordinator = new InteractionCoordinator();
+  const decision = coordinator.coordinate(
+    createFrame({
+      id: "frame:unrelated",
+      taskId: "task:other-current",
+      interactionId: "interaction:other-current",
+      metadata: {
+        episode: {
+          id: "episode:other",
+          key: "claude-code:interruptive:/workspace/other.ts",
+          state: "actionable",
+          size: 1,
+          lastInteractionId: "interaction:other-current",
+          updatedAt: "2026-03-08T12:00:00.000Z",
+        },
+      },
+    }),
+    createCandidate({
+      episodeState: "batched",
+    }),
+    {
+      attentionView: {
+        active: createFrame({
+          id: "frame:other-active",
+          taskId: "task:other-current",
+          interactionId: "interaction:other-current",
+          metadata: {
+            episode: {
+              id: "episode:other",
+              key: "claude-code:interruptive:/workspace/other.ts",
+              state: "actionable",
+              size: 1,
+              lastInteractionId: "interaction:other-current",
+              updatedAt: "2026-03-08T12:00:00.000Z",
+            },
+          },
+        }),
+        queued: [
+          createFrame({
+            taskId: "task:batched",
+            interactionId: "interaction:queued",
+            mode: "status",
+            responseSpec: { kind: "none" },
+            metadata: {
+              episode: {
+                id: "episode:shared",
+                key: "claude-code:interruptive:/workspace/config.ts",
+                state: "batched",
+                size: 2,
+                lastInteractionId: "interaction:queued",
+                updatedAt: "2026-03-08T12:00:30.000Z",
+              },
+            },
+          }),
+        ],
+        ambient: [],
+      } satisfies AttentionView,
+    },
+  );
+
+  assert.equal(decision.kind, "queue");
 });

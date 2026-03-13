@@ -4,13 +4,15 @@
 
 **The human attention control plane for agent systems.**
 
+
 <img src="docs/assets/demo.gif" alt="Aperture demo" width="1100">
+
 
 </div>
 
 Aperture sits between many possible event sources and one human decision surface, then decides what deserves attention now, what should wait, and what should remain ambient.
 
-**Live path today:** Claude Code -> Aperture runtime -> terminal attention surface
+**Live path today:** Claude Code → Aperture runtime → terminal attention surface
 
 ```bash
 git clone git@github.com:tomismeta/aperture.git
@@ -71,7 +73,7 @@ What is real on `main` today:
 - `@aperture/codex` and `@aperture/paperclip` provide mapping layers today, with different transport maturity
 - `@aperture/core` now exposes the main judgment primitives for future SDK use
 - the default runtime uses local learning persistence through `.aperture/MEMORY.md`
-- `USER.md`, `MEMORY.md`, and `JUDGMENT.md` remain the broader human-readable judgment-state model inside core
+- `USER.md`, `MEMORY.md`, and `JUDGMENT.md` remain the broader core judgment-state model, even though `MEMORY.md` is the live default persistence path today
 
 What the engine already does:
 
@@ -132,7 +134,7 @@ You publish `ApertureEvent` or `ConformedEvent` values and consume `AttentionVie
 
 The flow is:
 
-`source event -> adapter -> conformed event -> core judgment -> attention surface -> human response -> new signals`
+`source event → adapter → conformed event → core judgment → attention surface → human response → new signals`
 
 ## Using Core Directly
 

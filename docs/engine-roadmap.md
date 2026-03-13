@@ -2,15 +2,16 @@
 
 ## Purpose
 
-This document defines the roadmap for Aperture's core engine itself.
+This document defines the roadmap for Aperture's core engine.
 
 The product only works if the engine becomes meaningfully better than application-level interrupt logic.
 
-That means the moat must live in the core:
+The moat must live in the core:
 
 - deterministic judgment
 - interaction signal capture
-- reasoned attention decisions
+- operator-shaped memory
+- queue and episode planning
 - anticipatory guidance
 
 Not in:
@@ -19,265 +20,331 @@ Not in:
 - host integration glue
 - protocol adapters
 
-## Core Principle
+## Product Positioning
 
-The engine should progress in four layers:
+Aperture should be positioned as:
 
-1. `Deterministic Engine`
-2. `Signal Engine`
-3. `Reasoning Engine`
-4. `Anticipation Engine`
+**the engine that learns how human attention should be spent**
+
+Not as:
+
+- a notification center
+- a generic priority queue
+- an LLM wrapper around approval prompts
+
+The wedge is not "AI decides what matters."
+
+The wedge is:
+
+**Aperture protects operator attention faster, cheaper, more deterministically, and more transparently than a model in the hot path can.**
+
+## Current Status
+
+As of `main` after the judgment stabilization milestone:
+
+### Phase 1: Deterministic Router
+
+Status: `complete`
+
+What is built:
+
+- event normalization into candidate interactions
+- deterministic `activate / queue / ambient` coordination
+- policy, utility, and planner separation
+- queue-aware and consequence-aware planning
+- source-agnostic task and attention views
+- inspectable scoring and planner rationale
+
+### Phase 2: Judgment Substrate
+
+Status: `complete`
+
+What is built:
+
+- `policy -> utility -> planner` architecture
+- pure Markdown `USER.md`, `MEMORY.md`, and `JUDGMENT.md`
+- memory-backed adaptive utility scoring
+- consequence calibration from operator disagreement
+- predictive pressure forecasting
+- episode batching and merge heuristics
+- runtime-safe hardening around markdown schema and task clearing
+
+### Phase 3: Closed-Loop Adaptation
+
+Status: `partially built`
+
+What is built:
+
+- interaction signals and derived summaries
+- durable memory checkpointing and reload
+- operator-specific response, context, and deferral patterns feeding back into judgment
+- replay evaluation foundation for merged episodes, deferred activation, and actionable episodes
+
+What is still missing:
+
+- evaluator-driven tuning loop
+- explicit stale episode lifecycle
+- richer cross-session adaptation beyond summary carry-forward
+- stronger replay/counterfactual analysis
+
+### Phase 4: Anticipation
+
+Status: `started, early`
+
+What is built:
+
+- pressure forecasting before overload
+- pre-overload suppression of lower-value work
+
+What is still missing:
+
+- "wait for correlated event" behavior
+- prefetch recommendations
+- likely-next-context gathering
+- likely-next-action recommendations
+- synthesized episode-level anticipation frames
+
+### Phase 5: Multi-Agent Scale
+
+Status: `early substrate only`
+
+What is built:
+
+- multi-source normalization into one attention model
+- cross-task and cross-source competition in the shared planner
+
+What is still missing:
+
+- broader live transports beyond Claude Code
+- cross-source episode correlation
+- distributed runtime concerns
+- scale-oriented performance characterization
+
+## The Moats
+
+The current wedge is already visible in four areas.
+
+### 1. Consequence Calibration
+
+The engine learns when a source or adapter is wrong about risk.
+
+That means "low risk" is not trusted forever just because the adapter said so.
+
+This is hard to copy because it depends on closed-loop disagreement data over time, not static prompt instructions.
+
+### 2. Operator Memory
+
+The engine accumulates patterns like:
+
+- which tool families get approved quickly
+- which interactions usually need more context
+- which work gets deferred and later resumed
+- how this operator behaves under pressure
+
+This creates operator-specific switching costs and makes the system better with use.
+
+### 3. Episode Modeling
+
+The engine treats related work as one evolving decision instead of many isolated interrupts.
+
+Examples:
+
+- `Read -> Edit -> Bash` on one file
+- repeated failed status updates on the same task
+- a queued episode update that later becomes actionable
+
+This matches how human operators actually reason about work.
+
+### 4. The Closed Loop
+
+The core loop is:
+
+`signals -> memory -> utility -> planner -> presentation -> response -> new signals`
+
+Any one step can be rebuilt.
+
+The moat is the compounding effect of all of them together.
+
+## Why The Judgment Layer Is Not An LLM Call
+
+This is the most important strategic objection.
+
+The answer is not that models are bad at reasoning.
+
+The answer is that the hot path has different requirements.
+
+### 1. The Hot Path Must Be Fast
+
+Tool approvals and interaction routing happen constantly.
+
+The judgment core runs on arithmetic and in-memory state.
+
+An LLM in the decision path would add seconds of latency to routine decisions and make the operator experience worse.
+
+### 2. The Hot Path Must Be Cheap
+
+The engine makes many small decisions.
+
+Those decisions should have near-zero marginal cost.
+
+A model-based judgment call on every event scales cost linearly with usage.
+
+### 3. The Hot Path Must Be Deterministic
+
+Some policies must be absolute:
+
+- env writes require stronger presentation
+- destructive bash requires approval
+- explicit guardrails must never silently fail
+
+Those are policy problems, not probabilistic reasoning problems.
+
+### 4. The Hot Path Must Be Inspectable
+
+Aperture can explain a judgment through:
+
+- policy verdict
+- utility components
+- planner rationale
+- trace replay
+
+That kind of decomposition is much harder to maintain with a model making first-order routing decisions.
+
+### 5. The Hot Path Must Learn Operator-Specific Patterns
+
+A general model can reason about risk in the abstract.
+
+It does not naturally accumulate durable, operator-specific behavioral memory unless the system around it already exists.
+
+That surrounding system is exactly what Aperture is building.
+
+### The Right Role For Models
+
+Models belong later, as an optional advisory layer on top of the deterministic substrate.
+
+Good model-assisted tasks include:
+
+- ambiguous episode merge suggestions
+- context shaping
+- likely-next-context recommendations
+- "wait for correlated event" hints
+- speculative anticipation
+
+Models should not replace:
+
+- hard policy
+- hot-path routing
+- deterministic planning
+- safety-critical gating
+
+## Engine Architecture
+
+The engine now has four practical layers:
+
+1. `Deterministic Coordination`
+2. `Signal and Memory`
+3. `Reasoning and Episodes`
+4. `Anticipation`
 
 Each layer should strengthen the same wedge:
 
 **deciding how human attention should be spent**
 
-## Layer 1: Deterministic Engine
+### 1. Deterministic Coordination
 
-This is the foundation.
+Purpose:
 
-It should be policy-driven, testable, inspectable, and reliable.
+- convert events into candidate interactions
+- apply hard policy
+- estimate utility
+- plan presentation
 
-### Current Constructs
+Current constructs:
 
 - `EvaluationEngine`
-- `InteractionCoordinator`
+- `PolicyGates`
+- `UtilityScore`
+- `QueuePlanner`
 - `FramePlanner`
 - `TaskViewStore`
 - `AttentionView`
 
-### Current Strengths
+### 2. Signal and Memory
 
-- deterministic tests for evaluation and coordination
-- explicit blocking vs non-blocking handling
-- source-agnostic task and attention views
-- heuristic score adjustments informed by task-level signal history
-- frame-level attention rationale persisted in metadata
+Purpose:
 
-### Current Responsibilities
+- record how attention actually moved
+- distill durable operator patterns
+- feed those patterns back into future judgment
 
-- convert `ApertureEvent` into candidate interactions
-- rank candidates against current interaction state
-- decide activate vs queue vs ambient
-- emit `Frame`
-- derive `TaskView`
-- derive `AttentionView`
-
-### What Must Improve Next
-
-- richer priority model than `background/normal/high`
-- explicit suppression rules
-- explicit replacement rules
-- grouping rules for related interactions
-- cross-source competition logic
-- source-aware escalation
-- bounded invariants and test coverage for all of the above
-
-### Success Criteria
-
-- deterministic outcomes are explainable
-- the engine is predictable under concurrent events
-- multiple sources can compete without the host inventing attention policy
-
-## Layer 2: Signal Engine
-
-This layer captures how attention was actually spent.
-
-Without it, Aperture cannot learn, reason, or anticipate. It can only route.
-
-### Current Constructs
+Current constructs:
 
 - `InteractionSignal`
 - `InteractionSignalStore`
+- `ProfileStore`
+- `MemoryAggregator`
+- `USER.md`
+- `MEMORY.md`
+- `JUDGMENT.md`
 
-### Current Strengths
+### 3. Reasoning and Episodes
 
-- explicit signal capture for `presented`, `deferred`, `responded`, `dismissed`, and `context_expanded`
-- silent-signal capture for `viewed`, `context_skipped`, and `timed_out`
-- sequence-aware signals for attention return and attention shift
-- derived signal summaries for response rate, dismissal rate, latency, and deferral counts
-- compact trend derivation for context-seeking, defer-then-return, fragmented attention, and stalling
-- recency-bounded summaries so stale behavior does not dominate current judgment
-- minimum-sample thresholds before stable behavioral states are inferred
-- signal summaries already inform deterministic heuristics without coupling to source-specific logic
+Purpose:
 
-### Current Responsibilities
+- decide when many events are one decision
+- keep related work continuous instead of fragmented
+- calibrate trust and consequence over time
 
-- record explicit response signals
-- record presented signals
-- record deferred signals
-- preserve response latency
+Current constructs:
 
-### Signals Aperture Should Eventually Capture
+- `EpisodeStore`
+- consequence calibration in `UtilityScore`
+- episode-aware planning and merge heuristics
+- `TraceEvaluator`
 
-Explicit:
+### 4. Anticipation
 
-- `responded`
-- `dismissed`
+Purpose:
 
-Temporal:
-
-- time-to-present
-- time-to-response
-- time-to-dismiss
-- time deferred before response
-
-Structural:
-
-- `context_expanded`
-- section opened
-- repeated provenance inspection
-
-Comparative:
-
-- which frame won attention first
-- which queued frames were starved
-- which ambient items remained untouched
-
-Silent:
-
-- frames never responded to
-- repeated omissions
-- suppressed frames that stayed irrelevant
-
-### What Must Improve Next
-
-- durable signal storage
-- cross-surface signal normalization
-- signal summaries per task, source, and operator
-- scoring derived from raw signals
-- operator-level attention heuristics on top of those summaries
-
-### Success Criteria
-
-- Aperture can describe not just what was shown, but how attention moved
-- signals are usable by future reasoning without being tied to one host surface
-
-## Layer 3: Reasoning Engine
-
-This is where Aperture stops being only a policy router.
-
-The reasoning layer interprets event context and interaction signals to improve judgment.
-
-It should be advisory at first.
-
-### Responsibilities
-
-- decide whether two events are one decision or two
-- decide whether an interruption should surface now or later
-- decide how much context should be shown by default
-- infer likely confusion, urgency, or confidence from interaction patterns
-- recommend grouping, deferral, escalation, or suppression
-
-### Inputs
-
-- `ApertureEvent`
-- current `TaskView`
-- current `AttentionView`
-- historical `InteractionSignal`
-
-### Outputs
-
-- suggested priority adjustments
-- suggested grouping or merge decisions
-- suggested context shaping
-- rationale and confidence
-
-### Guardrails
-
-- deterministic policy still wins on high-consequence decisions
-- reasoning must remain inspectable
-- the engine must never silently hide important work without traceability
-
-### Success Criteria
-
-- the engine makes better decisions than a static ruleset
-- developers can still understand why it made them
-
-## Layer 4: Anticipation Engine
-
-This layer helps the system prepare before the human asks.
-
-It should not be framed as autonomous decision-making.
-
-It is guidance.
-
-### Responsibilities
-
-- predict likely next human questions
-- predict likely next actions
-- suggest context to gather in advance
-- pre-stage likely next frames
-- recommend likely next best interactions to the coordinator
+- suppress low-value work before overload
 - suggest when not to interrupt yet
+- prepare likely next context
 
-### Inputs
+Current constructs:
 
-- historical `InteractionSignal`
-- current `AttentionView`
-- current source/task state
-- reasoning outputs
+- `PressureForecast`
 
-### Outputs
+Future constructs:
 
-- anticipation hints
-- prefetch recommendations
-- precomputed options
-- suggested next-frame candidates
-- operator-specific or workflow-specific timing hints
+- evaluator-driven tuning loop
+- optional reasoning advisor seam
+- anticipation-specific planner hints
 
-### Guardrails
+## What Makes Aperture Hard To Copy
 
-- no silent auto-action for consequential workflows
-- suggestions remain inspectable
-- anticipation must be easy to disable
-
-### Success Criteria
-
-- less latency between need and context
-- fewer unnecessary interruptions
-- smoother operator flow without losing control
-
-## Engine Build Sequence
-
-The practical implementation order should be:
-
-1. harden deterministic coordination
-2. expand and persist interaction signals
-3. derive signal summaries and heuristics
-4. add advisory reasoning outputs
-5. add advisory anticipation outputs
-
-This is the order in which the engine becomes difficult to copy.
-
-## What Makes The Engine Hard To Copy
-
-The engine becomes differentiated when it can do all of these together:
+Aperture becomes differentiated when it can do all of these together:
 
 - normalize many event sources into one attention model
-- adjudicate multiple competing interactions deterministically
+- adjudicate competing work deterministically
 - learn from explicit and silent attention signals
-- improve future attention decisions through reasoning
-- prepare future interactions through anticipation
+- build durable operator-specific memory
+- reason in terms of episodes instead of alerts
+- improve future decisions through replay and feedback
+- add anticipation without surrendering policy control
 
-Any one of these alone can be rebuilt.
+Any single one of these can be replicated.
 
 The combination is the moat.
 
-## Near-Term Priorities
+## Next Macro Steps
 
 The next engine milestones should be:
 
-1. strengthen `InteractionCoordinator` rules
-2. add durable signal storage and signal summaries
-3. add source-aware and consequence-aware heuristics
-4. expose attention-decision rationale in core outputs
-
-Only after those should Aperture invest heavily in:
-
-- model-assisted reasoning
-- anticipation
-- broader surface support
+1. evaluator-driven tuning from replayed traces
+2. explicit stale and expiry lifecycle for episodes
+3. richer anticipation behavior
+4. optional advisory model seam outside the hot path
+5. broader transport realism and multi-source scale work
 
 ## Recommendation
 

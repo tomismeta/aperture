@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { AttentionHeuristics } from "../src/attention-heuristics.js";
+import { AttentionAdjustments } from "../src/attention-adjustments.js";
 import type { InteractionCandidate } from "../src/interaction-candidate.js";
 import type { SignalSummary } from "../src/signal-summary.js";
 
-const heuristics = new AttentionHeuristics();
+const heuristics = new AttentionAdjustments();
 
 function createCandidate(overrides: Partial<InteractionCandidate> = {}): InteractionCandidate {
   return {

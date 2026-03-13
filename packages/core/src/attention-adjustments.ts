@@ -5,7 +5,7 @@ import { deriveAttentionTrends } from "./attention-trends.js";
 import type { InteractionCandidate } from "./interaction-candidate.js";
 import type { SignalSummary } from "./signal-summary.js";
 
-export class AttentionHeuristics {
+export class AttentionAdjustments {
   apply(
     candidate: InteractionCandidate,
     taskSummary: SignalSummary,

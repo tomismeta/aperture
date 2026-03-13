@@ -276,7 +276,7 @@ Purpose:
 
 Current constructs:
 
-- `EvaluationEngine`
+- `EventEvaluator`
 - `AttentionPolicy`
 - `AttentionValue`
 - `AttentionPlanner`

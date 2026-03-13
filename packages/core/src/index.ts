@@ -1,4 +1,5 @@
 export { ApertureCore } from "./aperture-core.js";
+export { AttentionAdjustments } from "./attention-adjustments.js";
 export { AttentionPlanner } from "./attention-planner.js";
 export type {
   AttentionPlanningContext,
@@ -19,6 +20,7 @@ export type {
   FrameAttentionValueBreakdown,
 } from "./attention-value.js";
 export { EpisodeTracker } from "./episode-tracker.js";
+export { EventEvaluator } from "./event-evaluator.js";
 export { JudgmentCoordinator } from "./judgment-coordinator.js";
 export type {
   JudgmentContext,

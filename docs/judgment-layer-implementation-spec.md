@@ -122,7 +122,7 @@ Everything else should continue to reuse existing constructs.
 
 ### Existing Modules To Keep
 
-- `EvaluationEngine`
+- `EventEvaluator`
 - `FramePlanner`
 - `TaskViewStore`
 - `AttentionSignalStore`
@@ -679,7 +679,7 @@ The core runtime should remain simple and composable.
 
 ### Publish Flow
 
-1. `EvaluationEngine` converts an event into a candidate.
+1. `EventEvaluator` converts an event into a candidate.
 2. `AttentionSignalStore` provides recent task/global summaries.
 3. `EpisodeTracker` assigns the candidate to an episode.
 4. `AttentionPolicy` evaluates hard constraints using:

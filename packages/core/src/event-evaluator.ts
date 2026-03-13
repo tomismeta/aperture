@@ -15,7 +15,7 @@ export type EvaluationResult =
   | { kind: "clear"; taskId: string }
   | { kind: "noop"; taskId: string };
 
-export class EvaluationEngine {
+export class EventEvaluator {
   evaluate(event: ApertureEvent): EvaluationResult {
     switch (event.type) {
       case "task.started":

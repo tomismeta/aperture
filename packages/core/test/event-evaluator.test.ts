@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { EvaluationEngine } from "../src/evaluation-engine.js";
+import { EventEvaluator } from "../src/event-evaluator.js";
 
-const evaluation = new EvaluationEngine();
+const evaluation = new EventEvaluator();
 
 test("task.started becomes a background status candidate", () => {
   const result = evaluation.evaluate({

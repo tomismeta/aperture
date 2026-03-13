@@ -160,10 +160,10 @@ These are part of Aperture itself.
 
 These are part of the core implementation, but not the product surface to emphasize.
 
-#### `EvaluationEngine`
+#### `EventEvaluator`
 
 - Classification: semantic evaluator
-- Lives in [packages/core/src/evaluation-engine.ts](../packages/core/src/evaluation-engine.ts)
+- Lives in [packages/core/src/event-evaluator.ts](../packages/core/src/event-evaluator.ts)
 - Purpose: convert semantically normalized `ApertureEvent` into candidate interactions
 - Boundary:
   - decides what interaction a raw event implies
@@ -205,10 +205,10 @@ These are part of the core implementation, but not the product surface to emphas
 - Lives in [packages/core/src/attention-signal-store.ts](../packages/core/src/attention-signal-store.ts)
 - Purpose: store signals and compute summaries
 
-#### `AttentionHeuristics`
+#### `AttentionAdjustments`
 
 - Classification: lightweight scoring layer
-- Lives in [packages/core/src/attention-heuristics.ts](../packages/core/src/attention-heuristics.ts)
+- Lives in [packages/core/src/attention-adjustments.ts](../packages/core/src/attention-adjustments.ts)
 - Purpose: apply small, source-agnostic score adjustments from signal history
 - Boundary:
   - heuristic only

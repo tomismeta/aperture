@@ -10,10 +10,10 @@ import type {
 } from "./index.js";
 
 import { buildAttentionView } from "./attention-view.js";
-import { AttentionHeuristics } from "./attention-heuristics.js";
+import { AttentionAdjustments } from "./attention-adjustments.js";
 import { deriveAttentionState, type AttentionState } from "./attention-state.js";
 import { EpisodeTracker, readFrameEpisodeId } from "./episode-tracker.js";
-import { EvaluationEngine } from "./evaluation-engine.js";
+import { EventEvaluator } from "./event-evaluator.js";
 import { FramePlanner } from "./frame-planner.js";
 import { JudgmentCoordinator } from "./judgment-coordinator.js";
 import type { InteractionCandidate } from "./interaction-candidate.js";
@@ -58,8 +58,8 @@ export class ApertureCore {
   private readonly taskViews = new TaskViewStore();
   private readonly signals = new AttentionSignalStore();
   private readonly episodes = new EpisodeTracker();
-  private readonly heuristics = new AttentionHeuristics();
-  private readonly evaluation = new EvaluationEngine();
+  private readonly heuristics = new AttentionAdjustments();
+  private readonly evaluation = new EventEvaluator();
   private readonly traceRecorder = new TraceRecorder();
   private coordinator: JudgmentCoordinator;
   private readonly planner = new FramePlanner();

@@ -1,10 +1,10 @@
 import type { AttentionState } from "./attention-state.js";
-import type { EpisodeSummary } from "./episode-store.js";
+import type { EpisodeSummary } from "./episode-tracker.js";
 import type { ApertureEvent } from "./events.js";
 import type { AttentionView, Frame, TaskView } from "./frame.js";
-import type { CoordinationExplanation } from "./interaction-coordinator.js";
+import type { JudgmentExplanation } from "./judgment-coordinator.js";
 import type { InteractionCandidate } from "./interaction-candidate.js";
-import type { PressureForecast } from "./pressure-forecast.js";
+import type { AttentionPressure } from "./attention-pressure.js";
 import type { SignalSummary } from "./signal-summary.js";
 import type { ApertureTrace } from "./trace.js";
 
@@ -15,7 +15,7 @@ export type TraceSnapshot = {
   globalSummary: SignalSummary;
   taskAttentionState: AttentionState;
   globalAttentionState: AttentionState;
-  pressureForecast: PressureForecast;
+  pressureForecast: AttentionPressure;
   current: Frame | null;
   taskView: TaskView;
   attentionView: AttentionView;
@@ -24,7 +24,7 @@ export type TraceSnapshot = {
 type CandidateTraceInput = {
   original: InteractionCandidate;
   adjusted: InteractionCandidate;
-  explanation: CoordinationExplanation;
+  explanation: JudgmentExplanation;
   result: Frame | null;
 };
 

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import type { InteractionCandidate } from "../src/interaction-candidate.js";
-import { EpisodeStore, readFrameEpisodeId } from "../src/episode-store.js";
+import { EpisodeTracker, readFrameEpisodeId } from "../src/episode-tracker.js";
 import { FramePlanner } from "../src/frame-planner.js";
 
 function createCandidate(overrides: Partial<InteractionCandidate> = {}): InteractionCandidate {
@@ -34,8 +34,8 @@ function createCandidate(overrides: Partial<InteractionCandidate> = {}): Interac
   };
 }
 
-test("episode store groups related interactions by source and anchor", () => {
-  const store = new EpisodeStore();
+test("episode tracker groups related interactions by source and anchor", () => {
+  const store = new EpisodeTracker();
   const first = store.assign(createCandidate());
   const second = store.assign(
     createCandidate({
@@ -86,8 +86,8 @@ test("frame planner persists episode metadata onto frames", () => {
   });
 });
 
-test("episode store marks repeated non-blocking work as batched", () => {
-  const store = new EpisodeStore();
+test("episode tracker marks repeated non-blocking work as batched", () => {
+  const store = new EpisodeTracker();
   store.assign(
     createCandidate({
       blocking: false,
@@ -111,7 +111,7 @@ test("episode store marks repeated non-blocking work as batched", () => {
 });
 
 test("high-signal recurring status work can make an episode actionable", () => {
-  const store = new EpisodeStore();
+  const store = new EpisodeTracker();
   store.assign(
     createCandidate({
       blocking: false,

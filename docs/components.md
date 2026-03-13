@@ -169,10 +169,10 @@ These are part of the core implementation, but not the product surface to emphas
   - decides what interaction a raw event implies
   - does not decide whether that interaction wins attention
 
-#### `InteractionCoordinator`
+#### `JudgmentCoordinator`
 
 - Classification: attention adjudicator
-- Lives in [packages/core/src/interaction-coordinator.ts](../packages/core/src/interaction-coordinator.ts)
+- Lives in [packages/core/src/judgment-coordinator.ts](../packages/core/src/judgment-coordinator.ts)
 - Purpose: decide activate vs queue vs ambient vs keep
 - Boundary:
   - owns interruption judgment
@@ -199,10 +199,10 @@ These are part of the core implementation, but not the product surface to emphas
 - Lives in [packages/core/src/attention-view.ts](../packages/core/src/attention-view.ts)
 - Purpose: derive one `AttentionView` across many tasks
 
-#### `InteractionSignalStore`
+#### `AttentionSignalStore`
 
 - Classification: signal memory
-- Lives in [packages/core/src/interaction-signal-store.ts](../packages/core/src/interaction-signal-store.ts)
+- Lives in [packages/core/src/attention-signal-store.ts](../packages/core/src/attention-signal-store.ts)
 - Purpose: store signals and compute summaries
 
 #### `AttentionHeuristics`

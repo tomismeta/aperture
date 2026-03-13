@@ -1,14 +1,14 @@
 import type { AttentionView, Frame } from "./index.js";
 
-import { readFrameEpisodeId } from "./episode-store.js";
+import { readFrameEpisodeId } from "./episode-tracker.js";
 import { isBlockingFrame, priorityForFrame } from "./frame-score.js";
 import type { InteractionCandidate, InteractionPriority } from "./interaction-candidate.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
 import type { PlannerDefaults } from "./judgment-config.js";
-import type { PolicyVerdict } from "./policy-gates.js";
-import type { PressureForecast } from "./pressure-forecast.js";
+import type { AttentionPolicyVerdict } from "./attention-policy.js";
+import type { AttentionPressure } from "./attention-pressure.js";
 import type { SignalSummary } from "./signal-summary.js";
-import type { UtilityBreakdown } from "./utility-score.js";
+import type { AttentionValueBreakdown } from "./attention-value.js";
 
 // These defaults intentionally stay conservative so explicit policy still
 // dominates. We centralize them in one module to keep future tuning and
@@ -22,39 +22,39 @@ export type PlannedDecision =
   | { kind: "keep"; frame: Frame | null }
   | { kind: "clear" };
 
-export type PlanningExplanation = {
+export type AttentionPlanningExplanation = {
   decision: PlannedDecision;
   currentPriority: InteractionPriority | null;
   currentScore: number | null;
   reasons: string[];
 };
 
-export type QueuePlanningContext = {
+export type AttentionPlanningContext = {
   attentionView: AttentionView | undefined;
   taskSummary: SignalSummary | undefined;
-  policyVerdict: PolicyVerdict;
-  utility: UtilityBreakdown;
-  pressureForecast: PressureForecast;
+  policyVerdict: AttentionPolicyVerdict;
+  utility: AttentionValueBreakdown;
+  pressureForecast: AttentionPressure;
   candidateScore: number;
   currentScore: number | null;
 };
 
-type QueuePlannerOptions = {
+type AttentionPlannerOptions = {
   plannerDefaults?: PlannerDefaults;
 };
 
-export class QueuePlanner {
+export class AttentionPlanner {
   private readonly plannerDefaults: PlannerDefaults | undefined;
 
-  constructor(options: QueuePlannerOptions = {}) {
+  constructor(options: AttentionPlannerOptions = {}) {
     this.plannerDefaults = options.plannerDefaults;
   }
 
   explain(
     current: Frame | null,
     candidate: InteractionCandidate,
-    context: QueuePlanningContext,
-  ): PlanningExplanation {
+    context: AttentionPlanningContext,
+  ): AttentionPlanningExplanation {
     const reasons: string[] = [];
     const actionableEpisode = this.isActionableEpisode(candidate);
 
@@ -339,7 +339,7 @@ export class QueuePlanner {
 
   private peripheralDecision(
     candidate: InteractionCandidate,
-    policyVerdict: PolicyVerdict,
+    policyVerdict: AttentionPolicyVerdict,
   ): Extract<PlannedDecision, { kind: "queue" | "ambient" }> {
     if (policyVerdict.minimumPresentation === "ambient") {
       return { kind: "ambient", candidate };
@@ -350,7 +350,7 @@ export class QueuePlanner {
 
   private batchedDecision(
     candidate: InteractionCandidate,
-    policyVerdict: PolicyVerdict,
+    policyVerdict: AttentionPolicyVerdict,
     attentionView: AttentionView | undefined,
   ): Extract<PlannedDecision, { kind: "queue" | "ambient" }> {
     const episodeIsAlreadyInterruptive =
@@ -368,8 +368,8 @@ export class QueuePlanner {
 
   private suppressedDecision(
     candidate: InteractionCandidate,
-    policyVerdict: PolicyVerdict,
-    utility: UtilityBreakdown,
+    policyVerdict: AttentionPolicyVerdict,
+    utility: AttentionValueBreakdown,
   ): Extract<PlannedDecision, { kind: "queue" | "ambient" }> {
     if (
       (utility.components.deferralAffinity > 0 || utility.components.consequenceCalibration > 0)
@@ -426,8 +426,8 @@ export class QueuePlanner {
 
   private shouldPreemptForPressure(
     candidate: InteractionCandidate,
-    policyVerdict: PolicyVerdict,
-    pressureForecast: PressureForecast,
+    policyVerdict: AttentionPolicyVerdict,
+    pressureForecast: AttentionPressure,
   ): boolean {
     if (pressureForecast.overloadRisk === "low") {
       return false;
@@ -507,7 +507,7 @@ export class QueuePlanner {
   private shouldWaitForContext(
     current: Frame,
     candidate: InteractionCandidate,
-    utility: UtilityBreakdown,
+    utility: AttentionValueBreakdown,
     candidateScore: number,
     currentScore: number,
   ): boolean {

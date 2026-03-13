@@ -76,7 +76,7 @@ What is built:
 - pure Markdown `USER.md`, `MEMORY.md`, and `JUDGMENT.md`
 - memory-backed adaptive utility scoring
 - consequence calibration from human disagreement
-- predictive pressure forecasting
+- predictive attention pressureing
 - episode batching and merge heuristics
 - runtime-safe hardening around markdown schema and task clearing
 
@@ -103,7 +103,7 @@ Status: `early foundation`
 
 What is built:
 
-- pressure forecasting before overload hits
+- attention pressureing before overload hits
 - pre-overload suppression of lower-value work
 
 What is still missing:
@@ -277,9 +277,9 @@ Purpose:
 Current constructs:
 
 - `EvaluationEngine`
-- `PolicyGates`
-- `UtilityScore`
-- `QueuePlanner`
+- `AttentionPolicy`
+- `AttentionValue`
+- `AttentionPlanner`
 - `FramePlanner`
 - `TaskViewStore`
 - `AttentionView`
@@ -295,7 +295,7 @@ Purpose:
 Current constructs:
 
 - `InteractionSignal`
-- `InteractionSignalStore`
+- `AttentionSignalStore`
 - `ProfileStore`
 - `MemoryAggregator`
 - `USER.md`
@@ -312,8 +312,8 @@ Purpose:
 
 Current constructs:
 
-- `EpisodeStore`
-- consequence calibration in `UtilityScore`
+- `EpisodeTracker`
+- consequence calibration in `AttentionValue`
 - episode-aware planning and merge heuristics
 - `TraceEvaluator`
 
@@ -327,7 +327,7 @@ Purpose:
 
 Current constructs:
 
-- `PressureForecast`
+- `AttentionPressure`
 
 Future constructs:
 
@@ -343,8 +343,8 @@ The goal is not to turn Aperture into a generic orchestration framework. The goa
 
 That means a future `@aperture/core` should expose:
 
-- the full deterministic judgment stack (`PolicyGates`, `UtilityScore`, `QueuePlanner`, `InteractionCoordinator`)
-- the memory loop (`InteractionSignalStore`, memory aggregation, profile persistence)
+- the full deterministic judgment stack (`AttentionPolicy`, `AttentionValue`, `AttentionPlanner`, `JudgmentCoordinator`)
+- the memory loop (`AttentionSignalStore`, memory aggregation, profile persistence)
 - the full-engine path (`ApertureCore`) for hosts that want the whole attention model
 
 This would let another agent runtime keep its own orchestration model while delegating human-attention judgment to Aperture.

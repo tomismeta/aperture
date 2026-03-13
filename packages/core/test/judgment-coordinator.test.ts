@@ -3,15 +3,15 @@ import assert from "node:assert/strict";
 
 import type { Frame } from "../src/index.js";
 
-import { InteractionCoordinator } from "../src/interaction-coordinator.js";
+import { JudgmentCoordinator } from "../src/judgment-coordinator.js";
 import type { InteractionCandidate } from "../src/interaction-candidate.js";
 import type { AttentionView } from "../src/frame.js";
-import { PolicyGates } from "../src/policy-gates.js";
-import type { PressureForecast } from "../src/pressure-forecast.js";
-import { QueuePlanner } from "../src/queue-planner.js";
-import { UtilityScore } from "../src/utility-score.js";
+import { AttentionPolicy } from "../src/attention-policy.js";
+import type { AttentionPressure } from "../src/attention-pressure.js";
+import { AttentionPlanner } from "../src/attention-planner.js";
+import { AttentionValue } from "../src/attention-value.js";
 
-const coordinator = new InteractionCoordinator();
+const coordinator = new JudgmentCoordinator();
 
 function createFrame(overrides: Partial<Frame> = {}): Frame {
   return {
@@ -60,7 +60,7 @@ function createCandidate(overrides: Partial<InteractionCandidate> = {}): Interac
   };
 }
 
-function createPressureForecast(overrides: Partial<PressureForecast> = {}): PressureForecast {
+function createAttentionPressure(overrides: Partial<AttentionPressure> = {}): AttentionPressure {
   return {
     level: "elevated",
     overloadRisk: "rising",
@@ -299,9 +299,9 @@ test("escalates repeatedly deferred status when scores are otherwise tied", () =
 });
 
 test("queues context-heavy work until it clearly outranks current work", () => {
-  const contextAwareCoordinator = new InteractionCoordinator(
-    new PolicyGates(),
-    new UtilityScore({
+  const contextAwareCoordinator = new JudgmentCoordinator(
+    new AttentionPolicy(),
+    new AttentionValue({
       memoryProfile: {
         version: 1,
         operatorId: "default",
@@ -317,7 +317,7 @@ test("queues context-heavy work until it clearly outranks current work", () => {
         },
       },
     }),
-    new QueuePlanner(),
+    new AttentionPlanner(),
   );
 
   const decision = contextAwareCoordinator.coordinate(
@@ -347,9 +347,9 @@ test("queues context-heavy work until it clearly outranks current work", () => {
 });
 
 test("keeps deferred-returning work queued during pressure instead of ambient", () => {
-  const memoryAwareCoordinator = new InteractionCoordinator(
-    new PolicyGates(),
-    new UtilityScore({
+  const memoryAwareCoordinator = new JudgmentCoordinator(
+    new AttentionPolicy(),
+    new AttentionValue({
       memoryProfile: {
         version: 1,
         operatorId: "default",
@@ -365,7 +365,7 @@ test("keeps deferred-returning work queued during pressure instead of ambient", 
         },
       },
     }),
-    new QueuePlanner(),
+    new AttentionPlanner(),
   );
 
   const decision = memoryAwareCoordinator.coordinate(
@@ -434,9 +434,9 @@ test("keeps deferred-returning work queued during pressure instead of ambient", 
 });
 
 test("keeps low consequence work queued during pressure when calibration says the band is understated", () => {
-  const calibratedCoordinator = new InteractionCoordinator(
-    new PolicyGates(),
-    new UtilityScore({
+  const calibratedCoordinator = new JudgmentCoordinator(
+    new AttentionPolicy(),
+    new AttentionValue({
       memoryProfile: {
         version: 1,
         operatorId: "default",
@@ -450,7 +450,7 @@ test("keeps low consequence work queued during pressure when calibration says th
         },
       },
     }),
-    new QueuePlanner(),
+    new AttentionPlanner(),
   );
 
   const decision = calibratedCoordinator.coordinate(
@@ -530,7 +530,7 @@ test("preemptively suppresses low-value status when pressure is rising", () => {
       responseSpec: { kind: "none" },
     }),
     {
-      pressureForecast: createPressureForecast(),
+      pressureForecast: createAttentionPressure(),
     },
   );
 

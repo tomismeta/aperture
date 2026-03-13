@@ -1,12 +1,12 @@
 import type { AttentionState } from "./attention-state.js";
-import type { EpisodeSummary } from "./episode-store.js";
+import type { EpisodeSummary } from "./episode-tracker.js";
 import type { ApertureEvent } from "./events.js";
 import type { AttentionView, Frame, TaskView } from "./frame.js";
 import type { InteractionCandidate, InteractionPriority } from "./interaction-candidate.js";
-import type { PolicyVerdict } from "./policy-gates.js";
-import type { PressureForecast } from "./pressure-forecast.js";
+import type { AttentionPolicyVerdict } from "./attention-policy.js";
+import type { AttentionPressure } from "./attention-pressure.js";
 import type { SignalSummary } from "./signal-summary.js";
-import type { UtilityBreakdown } from "./utility-score.js";
+import type { AttentionValueBreakdown } from "./attention-value.js";
 
 export type ApertureTrace =
   | {
@@ -19,7 +19,7 @@ export type ApertureTrace =
       globalSummary: SignalSummary;
       taskAttentionState: AttentionState;
       globalAttentionState: AttentionState;
-      pressureForecast: PressureForecast;
+      pressureForecast: AttentionPressure;
       current: Frame | null;
       taskView: TaskView;
       attentionView: AttentionView;
@@ -35,7 +35,7 @@ export type ApertureTrace =
       globalSummary: SignalSummary;
       taskAttentionState: AttentionState;
       globalAttentionState: AttentionState;
-      pressureForecast: PressureForecast;
+      pressureForecast: AttentionPressure;
       current: Frame | null;
       taskView: TaskView;
       attentionView: AttentionView;
@@ -53,9 +53,9 @@ export type ApertureTrace =
         rationale: string[];
       };
       episode: EpisodeSummary | null;
-      policy: PolicyVerdict;
+      policy: AttentionPolicyVerdict;
       utility: {
-        candidate: UtilityBreakdown;
+        candidate: AttentionValueBreakdown;
         currentScore: number | null;
         currentPriority: InteractionPriority | null;
       };
@@ -74,7 +74,7 @@ export type ApertureTrace =
       globalSummary: SignalSummary;
       taskAttentionState: AttentionState;
       globalAttentionState: AttentionState;
-      pressureForecast: PressureForecast;
+      pressureForecast: AttentionPressure;
       current: Frame | null;
       taskView: TaskView;
       attentionView: AttentionView;

@@ -8,10 +8,10 @@ import { ApertureCore } from "../src/aperture-core.js";
 import { serializeJudgmentConfig } from "../src/judgment-config.js";
 import type { Frame } from "../src/frame.js";
 import type { InteractionCandidate } from "../src/interaction-candidate.js";
-import { InteractionCoordinator } from "../src/interaction-coordinator.js";
-import { PolicyGates } from "../src/policy-gates.js";
-import { QueuePlanner } from "../src/queue-planner.js";
-import { UtilityScore } from "../src/utility-score.js";
+import { JudgmentCoordinator } from "../src/judgment-coordinator.js";
+import { AttentionPolicy } from "../src/attention-policy.js";
+import { AttentionPlanner } from "../src/attention-planner.js";
+import { AttentionValue } from "../src/attention-value.js";
 
 function createCandidate(overrides: Partial<InteractionCandidate> = {}): InteractionCandidate {
   return {
@@ -54,8 +54,8 @@ function createFrame(overrides: Partial<Frame> = {}): Frame {
   };
 }
 
-test("policy gates keep background work ambient by default", () => {
-  const gates = new PolicyGates();
+test("attention policy keeps background work ambient by default", () => {
+  const gates = new AttentionPolicy();
   const verdict = gates.evaluate(createCandidate());
 
   assert.deepEqual(verdict, {
@@ -66,8 +66,8 @@ test("policy gates keep background work ambient by default", () => {
   });
 });
 
-test("utility score exposes componentized candidate scoring", () => {
-  const utility = new UtilityScore().scoreCandidate(
+test("attention value exposes componentized candidate scoring", () => {
+  const utility = new AttentionValue().scoreCandidate(
     createCandidate({
       priority: "normal",
       tone: "focused",
@@ -93,8 +93,8 @@ test("utility score exposes componentized candidate scoring", () => {
   assert.deepEqual(utility.rationale, ["history suggests this resolves quickly"]);
 });
 
-test("utility score applies durable source trust from memory", () => {
-  const utility = new UtilityScore({
+test("attention value applies durable source trust from memory", () => {
+  const utility = new AttentionValue({
     memoryProfile: {
       version: 1,
       operatorId: "default",
@@ -122,8 +122,8 @@ test("utility score applies durable source trust from memory", () => {
   assert.ok(utility.rationale.includes("durable source trust adjusts this interaction's utility"));
 });
 
-test("utility score boosts low consequence work when that band is often rejected", () => {
-  const utility = new UtilityScore({
+test("attention value boosts low consequence work when that band is often rejected", () => {
+  const utility = new AttentionValue({
     memoryProfile: {
       version: 1,
       operatorId: "default",
@@ -149,8 +149,8 @@ test("utility score boosts low consequence work when that band is often rejected
   assert.ok(utility.rationale.includes("memory suggests this consequence band is often understated and deserves more attention"));
 });
 
-test("utility score tempers high consequence work when that band is often rejected", () => {
-  const utility = new UtilityScore({
+test("attention value tempers high consequence work when that band is often rejected", () => {
+  const utility = new AttentionValue({
     memoryProfile: {
       version: 1,
       operatorId: "default",
@@ -183,8 +183,8 @@ test("utility score tempers high consequence work when that band is often reject
   assert.ok(utility.rationale.includes("memory suggests this consequence band is often overstated and should be tempered"));
 });
 
-test("utility score ignores low-sample tool family memory", () => {
-  const utility = new UtilityScore({
+test("attention value ignores low-sample tool family memory", () => {
+  const utility = new AttentionValue({
     memoryProfile: {
       version: 1,
       operatorId: "default",
@@ -226,8 +226,8 @@ test("utility score ignores low-sample tool family memory", () => {
   assert.equal(utility.components.consequenceCalibration, 0);
 });
 
-test("utility score boosts quick-response tool families from memory", () => {
-  const utility = new UtilityScore({
+test("attention value boosts quick-response tool families from memory", () => {
+  const utility = new AttentionValue({
     memoryProfile: {
       version: 1,
       operatorId: "default",
@@ -263,8 +263,8 @@ test("utility score boosts quick-response tool families from memory", () => {
   assert.ok(utility.rationale.includes("memory suggests this kind of interaction usually resolves quickly"));
 });
 
-test("utility score penalizes high context-cost tool families from memory", () => {
-  const utility = new UtilityScore({
+test("attention value penalizes high context-cost tool families from memory", () => {
+  const utility = new AttentionValue({
     memoryProfile: {
       version: 1,
       operatorId: "default",
@@ -301,8 +301,8 @@ test("utility score penalizes high context-cost tool families from memory", () =
   assert.ok(utility.rationale.includes("memory suggests this interaction usually needs extra context before action"));
 });
 
-test("utility score boosts tool families that commonly return after deferral", () => {
-  const utility = new UtilityScore({
+test("attention value boosts tool families that commonly return after deferral", () => {
+  const utility = new AttentionValue({
     memoryProfile: {
       version: 1,
       operatorId: "default",
@@ -338,8 +338,8 @@ test("utility score boosts tool families that commonly return after deferral", (
   assert.ok(utility.rationale.includes("memory suggests deferred interactions of this kind are usually resumed"));
 });
 
-test("coordinator explanations surface policy and utility alongside planning", () => {
-  const coordinator = new InteractionCoordinator();
+test("judgment coordinator explanations surface attention policy and attention value alongside planning", () => {
+  const coordinator = new JudgmentCoordinator();
   const explanation = coordinator.explain(
     createFrame(),
     createCandidate({
@@ -356,8 +356,8 @@ test("coordinator explanations surface policy and utility alongside planning", (
   assert.match(explanation.reasons[0] ?? "", /blocking work keeps non-blocking updates in the periphery/);
 });
 
-test("policy gates apply user overrides for tool families", () => {
-  const gates = new PolicyGates({
+test("attention policy applies user overrides for tool families", () => {
+  const gates = new AttentionPolicy({
     userProfile: {
       version: 1,
       operatorId: "default",
@@ -393,8 +393,8 @@ test("policy gates apply user overrides for tool families", () => {
   assert.ok(verdict.rationale.includes("user override applies for read interactions"));
 });
 
-test("policy gates prefer explicit tool family metadata over title heuristics", () => {
-  const gates = new PolicyGates({
+test("attention policy prefers explicit tool family metadata over title heuristics", () => {
+  const gates = new AttentionPolicy({
     userProfile: {
       version: 1,
       operatorId: "default",
@@ -431,7 +431,7 @@ test("policy gates prefer explicit tool family metadata over title heuristics", 
 });
 
 test("configured lowRiskRead policy does not match incidental reading language", () => {
-  const gates = new PolicyGates({
+  const gates = new AttentionPolicy({
     judgmentConfig: {
       version: 1,
       updatedAt: "2026-03-12T10:15:00.000Z",
@@ -529,10 +529,10 @@ test("markdown-backed core can keep configured low-risk reads ambient with no ac
 });
 
 test("planner defaults can disable burst batching", () => {
-  const coordinator = new InteractionCoordinator(
-    new PolicyGates(),
-    new UtilityScore(),
-    new QueuePlanner({
+  const coordinator = new JudgmentCoordinator(
+    new AttentionPolicy(),
+    new AttentionValue(),
+    new AttentionPlanner({
       plannerDefaults: {
         batchStatusBursts: false,
       },
@@ -569,10 +569,10 @@ test("planner defaults can disable burst batching", () => {
 });
 
 test("planner defaults can disable pressure-based suppression", () => {
-  const coordinator = new InteractionCoordinator(
-    new PolicyGates(),
-    new UtilityScore(),
-    new QueuePlanner({
+  const coordinator = new JudgmentCoordinator(
+    new AttentionPolicy(),
+    new AttentionValue(),
+    new AttentionPlanner({
       plannerDefaults: {
         deferLowValueDuringPressure: false,
       },

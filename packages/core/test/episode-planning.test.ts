@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import type { AttentionView } from "../src/frame.js";
 import type { Frame } from "../src/frame.js";
 import type { InteractionCandidate } from "../src/interaction-candidate.js";
-import { InteractionCoordinator } from "../src/interaction-coordinator.js";
+import { JudgmentCoordinator } from "../src/judgment-coordinator.js";
 
 function createCandidate(overrides: Partial<InteractionCandidate> = {}): InteractionCandidate {
   return {
@@ -66,14 +66,14 @@ function createFrame(overrides: Partial<Frame> = {}): Frame {
 }
 
 test("same-episode status stays bundled with the active blocking episode", () => {
-  const coordinator = new InteractionCoordinator();
+  const coordinator = new JudgmentCoordinator();
   const decision = coordinator.coordinate(createFrame(), createCandidate());
 
   assert.equal(decision.kind, "ambient");
 });
 
 test("same episode can promote a new blocking step over a status frame", () => {
-  const coordinator = new InteractionCoordinator();
+  const coordinator = new JudgmentCoordinator();
   const decision = coordinator.coordinate(
     createFrame({
       mode: "status",
@@ -98,7 +98,7 @@ test("same episode can promote a new blocking step over a status frame", () => {
 });
 
 test("visible queued episode work batches new related interactions with no active task frame", () => {
-  const coordinator = new InteractionCoordinator();
+  const coordinator = new JudgmentCoordinator();
   const decision = coordinator.coordinate(null, createCandidate({
     episodeState: "batched",
   }), {
@@ -132,7 +132,7 @@ test("visible queued episode work batches new related interactions with no activ
 });
 
 test("visible queued episode work stays bundled even when unrelated current work is active", () => {
-  const coordinator = new InteractionCoordinator();
+  const coordinator = new JudgmentCoordinator();
   const decision = coordinator.coordinate(
     createFrame({
       id: "frame:unrelated",
@@ -202,7 +202,7 @@ test("visible queued episode work stays bundled even when unrelated current work
 });
 
 test("actionable episode evidence can activate non-blocking work when nothing is active", () => {
-  const coordinator = new InteractionCoordinator();
+  const coordinator = new JudgmentCoordinator();
   const decision = coordinator.coordinate(null, createCandidate({
     mode: "choice",
     consequence: "high",
@@ -220,7 +220,7 @@ test("actionable episode evidence can activate non-blocking work when nothing is
 });
 
 test("actionable episode evidence stays queued under high pressure", () => {
-  const coordinator = new InteractionCoordinator();
+  const coordinator = new JudgmentCoordinator();
   const decision = coordinator.coordinate(null, createCandidate({
     mode: "choice",
     consequence: "high",

@@ -22,12 +22,12 @@ The package path should broaden distribution, not redefine the product.
 Today, the real judgment layer already lives in [@aperture/core](../packages/core/package.json):
 
 - `ApertureCore`
-- `PolicyGates`
-- `UtilityScore`
-- `QueuePlanner`
-- `InteractionCoordinator`
-- `InteractionSignalStore`
-- `EpisodeStore`
+- `AttentionPolicy`
+- `AttentionValue`
+- `AttentionPlanner`
+- `JudgmentCoordinator`
+- `AttentionSignalStore`
+- `EpisodeTracker`
 - memory aggregation and profile persistence
 - trace evaluation
 
@@ -109,11 +109,11 @@ This is for consumers who already have their own runtime and only want Aperture'
 
 They should be able to use:
 
-- `PolicyGates`
-- `UtilityScore`
-- `QueuePlanner`
-- `InteractionCoordinator`
-- `forecastPressure`
+- `AttentionPolicy`
+- `AttentionValue`
+- `AttentionPlanner`
+- `JudgmentCoordinator`
+- `forecastAttentionPressure`
 - memory/profile helpers
 
 This lets another runtime keep its own task model while delegating attention judgment to Aperture.
@@ -125,13 +125,13 @@ The first public SDK surface should expose only what is already conceptually sta
 Recommended exports:
 
 - `ApertureCore`
-- `PolicyGates`
-- `UtilityScore`
-- `QueuePlanner`
-- `InteractionCoordinator`
+- `AttentionPolicy`
+- `AttentionValue`
+- `AttentionPlanner`
+- `JudgmentCoordinator`
 - `ProfileStore`
 - `buildMemoryProfile`
-- `forecastPressure`
+- `forecastAttentionPressure`
 - `evaluateTraceSession`
 - current core event/frame/trace/profile types
 

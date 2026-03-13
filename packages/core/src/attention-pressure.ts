@@ -2,7 +2,7 @@ import type { AttentionView, Frame } from "./frame.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
 import type { SignalSummary } from "./signal-summary.js";
 
-export type PressureForecast = {
+export type AttentionPressure = {
   level: "steady" | "elevated" | "high";
   overloadRisk: "low" | "rising" | "high";
   score: number;
@@ -16,10 +16,10 @@ export type PressureForecast = {
   reasons: string[];
 };
 
-export function forecastPressure(
+export function forecastAttentionPressure(
   summary?: SignalSummary,
   attentionView?: AttentionView,
-): PressureForecast {
+): AttentionPressure {
   const recentDemand =
     (summary?.counts.presented ?? 0)
     + (summary?.counts.deferred ?? 0)
@@ -103,7 +103,7 @@ export function forecastPressure(
   };
 }
 
-export function idlePressureForecast(): PressureForecast {
+export function idleAttentionPressure(): AttentionPressure {
   return {
     level: "steady",
     overloadRisk: "low",

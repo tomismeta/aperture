@@ -202,7 +202,7 @@ The current implementation keeps this tight:
 - raw interaction signals stay simple
 - richer states are derived internally
 - compact trends are derived internally from repeated signal patterns
-- the coordinator uses those derived states only for bounded scoring and suppression decisions
+- the judgment coordinator uses those derived states only for bounded scoring and suppression decisions
 - learning what context is or is not useful
 - informing future coordination decisions
 

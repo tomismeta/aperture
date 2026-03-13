@@ -24,7 +24,7 @@ type EpisodeRecord = EpisodeSummary & {
 
 const DEFAULTS = JUDGMENT_DEFAULTS.episodeEvidence;
 
-export class EpisodeStore {
+export class EpisodeTracker {
   private readonly byKey = new Map<string, EpisodeRecord>();
   private readonly byInteractionId = new Map<string, string>();
 

@@ -98,7 +98,7 @@ test("trace reasons explain why lower-priority work is queued", () => {
   );
 });
 
-test("trace includes pressure forecast for candidate decisions", () => {
+test("trace includes attention pressure for candidate decisions", () => {
   const core = new ApertureCore();
   const traces: ApertureTrace[] = [];
 

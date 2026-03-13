@@ -4,7 +4,7 @@ import type { InteractionCandidate } from "./interaction-candidate.js";
 import { inferToolFamily } from "./interaction-taxonomy.js";
 import type { MemoryProfile } from "./profile-store.js";
 
-export type UtilityBreakdown = {
+export type AttentionValueBreakdown = {
   total: number;
   components: {
     priority: number;
@@ -21,7 +21,7 @@ export type UtilityBreakdown = {
   rationale: string[];
 };
 
-export type FrameUtilityBreakdown = {
+export type FrameAttentionValueBreakdown = {
   total: number;
   components: {
     attentionAdjustment: number;
@@ -32,18 +32,18 @@ type UtilityFrameOptions = {
   now?: string;
 };
 
-type UtilityScoreOptions = {
+type AttentionValueOptions = {
   memoryProfile?: MemoryProfile;
 };
 
-export class UtilityScore {
+export class AttentionValue {
   private readonly memoryProfile: MemoryProfile | undefined;
 
-  constructor(options: UtilityScoreOptions = {}) {
+  constructor(options: AttentionValueOptions = {}) {
     this.memoryProfile = options.memoryProfile;
   }
 
-  scoreCandidate(candidate: InteractionCandidate): UtilityBreakdown {
+  scoreCandidate(candidate: InteractionCandidate): AttentionValueBreakdown {
     const sourceTrustAdjustment = this.sourceTrustAdjustment(candidate);
     const consequenceCalibration = this.consequenceCalibrationAdjustment(candidate);
     const responseAffinity = this.responseAffinityAdjustment(candidate);
@@ -99,7 +99,7 @@ export class UtilityScore {
     };
   }
 
-  scoreFrame(frame: Frame, options: UtilityFrameOptions = {}): FrameUtilityBreakdown {
+  scoreFrame(frame: Frame, options: UtilityFrameOptions = {}): FrameAttentionValueBreakdown {
     return {
       total: scoreFrame(frame, options),
       components: {

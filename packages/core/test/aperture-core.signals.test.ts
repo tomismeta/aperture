@@ -373,7 +373,7 @@ test("submit rejects malformed responses with a useful error", () => {
   );
 });
 
-test("signal store retains a bounded history per task", () => {
+test("attention signal store retains a bounded history per task", () => {
   const core = new ApertureCore();
 
   for (let index = 0; index < 300; index += 1) {

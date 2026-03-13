@@ -2,7 +2,7 @@ import type { InteractionSignal } from "./index.js";
 
 import type { SignalSummary } from "./signal-summary.js";
 
-export class InteractionSignalStore {
+export class AttentionSignalStore {
   private static readonly RECENT_SIGNAL_LIMIT = 32;
   private static readonly RECENT_WINDOW_MS = 30 * 60 * 1000;
   private static readonly MAX_RETAINED_SIGNALS = 256;
@@ -14,8 +14,8 @@ export class InteractionSignalStore {
     const next = [...current, signal];
     this.byTaskId.set(
       signal.taskId,
-      next.length > InteractionSignalStore.MAX_RETAINED_SIGNALS
-        ? next.slice(-InteractionSignalStore.MAX_RETAINED_SIGNALS)
+      next.length > AttentionSignalStore.MAX_RETAINED_SIGNALS
+        ? next.slice(-AttentionSignalStore.MAX_RETAINED_SIGNALS)
         : next,
     );
   }
@@ -118,7 +118,7 @@ export class InteractionSignalStore {
   }
 
   private recentSignals(signals: InteractionSignal[]): InteractionSignal[] {
-    const bounded = signals.slice(-InteractionSignalStore.RECENT_SIGNAL_LIMIT);
+    const bounded = signals.slice(-AttentionSignalStore.RECENT_SIGNAL_LIMIT);
     const latestTimestamp = bounded[bounded.length - 1]?.timestamp;
 
     if (latestTimestamp === undefined) {
@@ -136,7 +136,7 @@ export class InteractionSignalStore {
         return true;
       }
 
-      return latestMs - signalMs <= InteractionSignalStore.RECENT_WINDOW_MS;
+      return latestMs - signalMs <= AttentionSignalStore.RECENT_WINDOW_MS;
     });
 
     return recent.length > 0 ? recent : bounded;

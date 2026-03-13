@@ -12,25 +12,25 @@ import type {
 import { buildAttentionView } from "./attention-view.js";
 import { AttentionHeuristics } from "./attention-heuristics.js";
 import { deriveAttentionState, type AttentionState } from "./attention-state.js";
-import { EpisodeStore, readFrameEpisodeId } from "./episode-store.js";
+import { EpisodeTracker, readFrameEpisodeId } from "./episode-tracker.js";
 import { EvaluationEngine } from "./evaluation-engine.js";
 import { FramePlanner } from "./frame-planner.js";
-import { InteractionCoordinator } from "./interaction-coordinator.js";
+import { JudgmentCoordinator } from "./judgment-coordinator.js";
 import type { InteractionCandidate } from "./interaction-candidate.js";
-import { InteractionSignalStore } from "./interaction-signal-store.js";
+import { AttentionSignalStore } from "./attention-signal-store.js";
 import { loadJudgmentConfig, type JudgmentConfig } from "./judgment-config.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
 import { buildMemoryProfile, signalMetadataForFrame } from "./memory-aggregator.js";
 import { normalizeConformedEvent } from "./semantic-normalizer.js";
-import { PolicyGates } from "./policy-gates.js";
-import { forecastPressure } from "./pressure-forecast.js";
+import { AttentionPolicy } from "./attention-policy.js";
+import { forecastAttentionPressure } from "./attention-pressure.js";
 import { ProfileStore, type MemoryProfile, type UserProfile } from "./profile-store.js";
-import { QueuePlanner } from "./queue-planner.js";
+import { AttentionPlanner } from "./attention-planner.js";
 import type { SignalSummary } from "./signal-summary.js";
 import { TaskViewStore } from "./task-view-store.js";
 import type { ApertureTrace } from "./trace.js";
 import { TraceRecorder } from "./trace-recorder.js";
-import { UtilityScore } from "./utility-score.js";
+import { AttentionValue } from "./attention-value.js";
 
 type FrameListener = (frame: Frame | null) => void;
 type TaskViewListener = (taskView: TaskView) => void;
@@ -56,12 +56,12 @@ export class ApertureCore {
   private readonly signalListeners = new Set<SignalListener>();
   private readonly traceListeners = new Set<TraceListener>();
   private readonly taskViews = new TaskViewStore();
-  private readonly signals = new InteractionSignalStore();
-  private readonly episodes = new EpisodeStore();
+  private readonly signals = new AttentionSignalStore();
+  private readonly episodes = new EpisodeTracker();
   private readonly heuristics = new AttentionHeuristics();
   private readonly evaluation = new EvaluationEngine();
   private readonly traceRecorder = new TraceRecorder();
-  private coordinator: InteractionCoordinator;
+  private coordinator: JudgmentCoordinator;
   private readonly planner = new FramePlanner();
   private readonly profileStore: ProfileStore | undefined;
   private readonly markdownRootDir: string | undefined;
@@ -83,16 +83,16 @@ export class ApertureCore {
     this.coordinator = this.createCoordinator();
   }
 
-  private createCoordinator(): InteractionCoordinator {
-    return new InteractionCoordinator(
-      new PolicyGates({
+  private createCoordinator(): JudgmentCoordinator {
+    return new JudgmentCoordinator(
+      new AttentionPolicy({
         ...(this.userProfile !== undefined ? { userProfile: this.userProfile } : {}),
         ...(this.judgmentConfig !== undefined ? { judgmentConfig: this.judgmentConfig } : {}),
       }),
-      new UtilityScore({
+      new AttentionValue({
         memoryProfile: this.baseMemoryProfile,
       }),
-      new QueuePlanner({
+      new AttentionPlanner({
         ...(this.judgmentConfig?.plannerDefaults !== undefined
           ? { plannerDefaults: this.judgmentConfig.plannerDefaults }
           : {}),
@@ -173,7 +173,7 @@ export class ApertureCore {
     const globalSummary = this.signals.summarize();
     const taskAttentionState = deriveAttentionState(taskSummary);
     const globalAttentionState = deriveAttentionState(globalSummary);
-    const pressureForecast = forecastPressure(globalSummary, this.getAttentionView());
+    const pressureForecast = forecastAttentionPressure(globalSummary, this.getAttentionView());
     const evaluation = this.evaluation.evaluate(event);
 
     switch (evaluation.kind) {

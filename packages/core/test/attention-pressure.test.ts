@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { forecastPressure } from "../src/pressure-forecast.js";
+import { forecastAttentionPressure } from "../src/attention-pressure.js";
 import type { AttentionView, Frame } from "../src/frame.js";
 import type { SignalSummary } from "../src/signal-summary.js";
 
@@ -62,8 +62,8 @@ function createFrame(overrides: Partial<Frame> = {}): Frame {
   };
 }
 
-test("forecastPressure identifies rising overload before backlog spikes", () => {
-  const forecast = forecastPressure(
+test("forecastAttentionPressure identifies rising overload before backlog spikes", () => {
+  const forecast = forecastAttentionPressure(
     createSummary({
       counts: {
         presented: 4,
@@ -97,8 +97,8 @@ test("forecastPressure identifies rising overload before backlog spikes", () => 
   assert.match(forecast.reasons.join(" "), /incoming demand is climbing/);
 });
 
-test("forecastPressure identifies high overload risk when demand and latency spike together", () => {
-  const forecast = forecastPressure(
+test("forecastAttentionPressure identifies high overload risk when demand and latency spike together", () => {
+  const forecast = forecastAttentionPressure(
     createSummary({
       counts: {
         presented: 5,

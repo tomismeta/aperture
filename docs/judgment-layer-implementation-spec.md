@@ -111,10 +111,10 @@ Properties:
 
 The next implementation phase should introduce only these modules:
 
-- `policy-gates.ts`
-- `utility-score.ts`
-- `queue-planner.ts`
-- `episode-store.ts`
+- `attention-policy.ts`
+- `attention-value.ts`
+- `attention-planner.ts`
+- `episode-tracker.ts`
 - `profile-store.ts`
 - `consequence-calibration.ts`
 
@@ -125,7 +125,7 @@ Everything else should continue to reuse existing constructs.
 - `EvaluationEngine`
 - `FramePlanner`
 - `TaskViewStore`
-- `InteractionSignalStore`
+- `AttentionSignalStore`
 - `AttentionView`
 - `ApertureCore`
 
@@ -328,7 +328,7 @@ This avoids a file format that becomes an accidental database.
 
 ## Boundary Rules
 
-### `InteractionSignalStore`
+### `AttentionSignalStore`
 
 Keep responsibility:
 
@@ -360,7 +360,7 @@ Persistence:
 
 It should not decide final presentation mode.
 
-### `PolicyGates`
+### `AttentionPolicy`
 
 New responsibility:
 
@@ -369,7 +369,7 @@ New responsibility:
 Suggested output:
 
 ```ts
-type PolicyVerdict = {
+type AttentionPolicyVerdict = {
   mayInterrupt: boolean;
   requiresOperatorResponse: boolean;
   minimumPresentation: "ambient" | "queue" | "active";
@@ -384,7 +384,7 @@ Persistence:
 - load explicit policy and guardrails from `JUDGMENT.md`
 - allow user-specific overrides from `USER.md`
 
-### `UtilityScore`
+### `AttentionValue`
 
 New responsibility:
 
@@ -393,7 +393,7 @@ New responsibility:
 Suggested output:
 
 ```ts
-type UtilityBreakdown = {
+type AttentionValueBreakdown = {
   total: number;
   components: {
     baseUrgency: number;
@@ -414,11 +414,11 @@ Persistence:
 - use learned summaries from `MEMORY.md`
 - use short-horizon state from in-memory signal summaries, not persisted files
 
-### `QueuePlanner`
+### `AttentionPlanner`
 
 New responsibility:
 
-- choose presentation outcome using policy verdicts, utility scores, queue context, and episodes
+- choose presentation outcome using policy verdicts, attention values, queue context, and episodes
 
 Suggested outcomes:
 
@@ -433,7 +433,7 @@ type PlannedOutcome =
 
 The planner should not mutate profile state.
 
-### `EpisodeStore`
+### `EpisodeTracker`
 
 New responsibility:
 
@@ -500,7 +500,7 @@ If an episode produces a durable lesson, that lesson should be distilled into `M
 
 ## Utility Scoring Design
 
-The utility score should remain simple and inspectable.
+The attention value should remain simple and inspectable.
 
 Suggested first-pass components:
 
@@ -524,7 +524,7 @@ Suggested first-pass components:
 
 - huge magic constants
 - hidden model outputs
-- direct planner logic inside the utility score
+- direct planner logic inside the attention value
 
 ## Profile Store Design
 
@@ -570,7 +570,7 @@ Allowed machine writer:
 
 Primary readers:
 
-- `PolicyGates`
+- `AttentionPolicy`
 - `ProfileStore`
 
 Allowed contents:
@@ -606,7 +606,7 @@ Supporting writer:
 
 Primary readers:
 
-- `UtilityScore`
+- `AttentionValue`
 - `ProfileStore`
 - optional trace/evaluation tools
 
@@ -646,8 +646,8 @@ Allowed machine writer:
 
 Primary readers:
 
-- `PolicyGates`
-- `QueuePlanner`
+- `AttentionPolicy`
+- `AttentionPlanner`
 
 Allowed contents:
 
@@ -674,26 +674,26 @@ The core runtime should remain simple and composable.
 
 1. `ProfileStore` loads `USER.md`.
 2. `ProfileStore` loads `MEMORY.md`.
-3. `PolicyGates` loads `JUDGMENT.md`.
-4. `ApertureCore` initializes in-memory signal and episode stores.
+3. `AttentionPolicy` loads `JUDGMENT.md`.
+4. `ApertureCore` initializes in-memory signal and episode trackers.
 
 ### Publish Flow
 
 1. `EvaluationEngine` converts an event into a candidate.
-2. `InteractionSignalStore` provides recent task/global summaries.
-3. `EpisodeStore` assigns the candidate to an episode.
-4. `PolicyGates` evaluates hard constraints using:
+2. `AttentionSignalStore` provides recent task/global summaries.
+3. `EpisodeTracker` assigns the candidate to an episode.
+4. `AttentionPolicy` evaluates hard constraints using:
    - candidate data
    - `USER.md` overrides
    - `JUDGMENT.md` policy
 5. `ConsequenceCalibration` provides trust adjustments using `MEMORY.md`.
-6. `UtilityScore` computes value using:
+6. `AttentionValue` computes value using:
    - candidate data
    - signal summaries
    - durable memory from `MEMORY.md`
-7. `QueuePlanner` decides presentation using:
+7. `AttentionPlanner` decides presentation using:
    - policy verdict
-   - utility score
+   - attention value
    - attention view
    - episode context
 8. `FramePlanner` converts the result into a frame update.
@@ -701,8 +701,8 @@ The core runtime should remain simple and composable.
 ### Response Flow
 
 1. `ApertureCore.submit()` records response signals.
-2. `InteractionSignalStore` updates in-memory summaries.
-3. `EpisodeStore` updates episode state.
+2. `AttentionSignalStore` updates in-memory summaries.
+3. `EpisodeTracker` updates episode state.
 4. `ProfileStore` updates rolling learned aggregates.
 5. `ConsequenceCalibration` updates trust aggregates if the response implies disagreement or confirmation.
 6. periodic checkpoint writes updated summaries into `MEMORY.md`.
@@ -719,12 +719,12 @@ No checkpoint should write to `USER.md` or `JUDGMENT.md`.
 
 To keep the architecture tight:
 
-- `PolicyGates` may read `USER.md` and `JUDGMENT.md`, but not `MEMORY.md`
-- `UtilityScore` may read `MEMORY.md`, but must not read `JUDGMENT.md` directly
-- `QueuePlanner` may consume policy verdicts and utility outputs, but must not parse files itself
+- `AttentionPolicy` may read `USER.md` and `JUDGMENT.md`, but not `MEMORY.md`
+- `AttentionValue` may read `MEMORY.md`, but must not read `JUDGMENT.md` directly
+- `AttentionPlanner` may consume policy verdicts and utility outputs, but must not parse files itself
 - `ProfileStore` owns persistence for learned memory
 - `ConsequenceCalibration` contributes data to `MEMORY.md`, but does not own file I/O
-- `EpisodeStore` remains runtime-only unless a durable summary is intentionally distilled into `MEMORY.md`
+- `EpisodeTracker` remains runtime-only unless a durable summary is intentionally distilled into `MEMORY.md`
 
 That separation is what keeps the system understandable even as it gets smarter.
 
@@ -798,9 +798,9 @@ This is critical for building later evaluation without adding a separate analyti
 
 Deliverables:
 
-- extract `policy-gates.ts`
-- extract `utility-score.ts`
-- extract `queue-planner.ts`
+- extract `attention-policy.ts`
+- extract `attention-value.ts`
+- extract `attention-planner.ts`
 - preserve current behavior as closely as possible
 - update traces to show the three decisions separately
 
@@ -813,7 +813,7 @@ Success criteria:
 
 Deliverables:
 
-- add `EpisodeStore`
+- add `EpisodeTracker`
 - group related candidates before planning
 - allow planner to batch correlated interactions
 
@@ -934,11 +934,11 @@ without changing the core architecture.
 
 ## Recommended Next PR Sequence
 
-1. Extract `policy-gates.ts` from current coordinator behavior.
-2. Extract `utility-score.ts` from current score and heuristic logic.
-3. Replace coordinator internals with `queue-planner.ts`.
+1. Extract `attention-policy.ts` from current coordinator behavior.
+2. Extract `attention-value.ts` from current score and heuristic logic.
+3. Replace coordinator internals with `attention-planner.ts`.
 4. Expand trace schema in `trace.ts` and `aperture-core.ts`.
-5. Add `EpisodeStore` with deterministic grouping.
+5. Add `EpisodeTracker` with deterministic grouping.
 6. Add `ProfileStore` with Markdown persistence.
 7. Add `ConsequenceCalibration`.
 

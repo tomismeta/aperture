@@ -5,28 +5,28 @@ import type { UserProfile } from "./profile-store.js";
 
 export type MinimumPresentation = "ambient" | "queue" | "active";
 
-export type PolicyVerdict = {
+export type AttentionPolicyVerdict = {
   mayInterrupt: boolean;
   requiresOperatorResponse: boolean;
   minimumPresentation: MinimumPresentation;
   rationale: string[];
 };
 
-type PolicyGatesOptions = {
+type AttentionPolicyOptions = {
   judgmentConfig?: JudgmentConfig;
   userProfile?: UserProfile;
 };
 
-export class PolicyGates {
+export class AttentionPolicy {
   private readonly judgmentConfig: JudgmentConfig | undefined;
   private readonly userProfile: UserProfile | undefined;
 
-  constructor(options: PolicyGatesOptions = {}) {
+  constructor(options: AttentionPolicyOptions = {}) {
     this.judgmentConfig = options.judgmentConfig;
     this.userProfile = options.userProfile;
   }
 
-  evaluate(candidate: InteractionCandidate): PolicyVerdict {
+  evaluate(candidate: InteractionCandidate): AttentionPolicyVerdict {
     const configured = this.configuredVerdict(candidate);
     if (configured) {
       return configured;
@@ -71,7 +71,7 @@ export class PolicyGates {
     };
   }
 
-  private configuredVerdict(candidate: InteractionCandidate): PolicyVerdict | null {
+  private configuredVerdict(candidate: InteractionCandidate): AttentionPolicyVerdict | null {
     const toolFamily = inferToolFamily(candidate);
     const toolOverride = toolFamily
       ? this.userProfile?.overrides?.tools?.[toolFamily]

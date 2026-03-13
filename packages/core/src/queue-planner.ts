@@ -61,6 +61,16 @@ export class QueuePlanner {
     const reasons: string[] = [];
 
     if (!current) {
+      if (this.shouldBatchVisibleEpisode(candidate, context.attentionView)) {
+        reasons.push("related episode work is already visible, so this interaction batches with it instead of interrupting");
+        return {
+          decision: this.batchedDecision(candidate, context.policyVerdict, context.attentionView),
+          currentPriority: null,
+          currentScore: null,
+          reasons,
+        };
+      }
+
       if (!context.policyVerdict.mayInterrupt && context.policyVerdict.minimumPresentation === "ambient") {
         reasons.push("policy keeps this interaction ambient until stronger context arrives");
         return {
@@ -86,6 +96,16 @@ export class QueuePlanner {
         decision: { kind: "activate", candidate },
         currentPriority: null,
         currentScore: null,
+        reasons,
+      };
+    }
+
+    if (this.shouldBatchVisibleEpisode(candidate, context.attentionView)) {
+      reasons.push("related episode work is already building in the queue, so this interaction stays bundled with it");
+      return {
+        decision: this.batchedDecision(candidate, context.policyVerdict, context.attentionView),
+        currentPriority: null,
+        currentScore: context.currentScore,
         reasons,
       };
     }
@@ -233,6 +253,24 @@ export class QueuePlanner {
     return { kind: "queue", candidate };
   }
 
+  private batchedDecision(
+    candidate: InteractionCandidate,
+    policyVerdict: PolicyVerdict,
+    attentionView: AttentionView | undefined,
+  ): Extract<PlannedDecision, { kind: "queue" | "ambient" }> {
+    const episodeIsAlreadyInterruptive =
+      candidate.episodeId !== undefined
+      && [attentionView?.active, ...(attentionView?.queued ?? [])]
+        .filter((frame): frame is Frame => frame !== null)
+        .some((frame) => frame.interactionId !== candidate.interactionId && readFrameEpisodeId(frame) === candidate.episodeId);
+
+    if (episodeIsAlreadyInterruptive) {
+      return { kind: "queue", candidate };
+    }
+
+    return this.peripheralDecision(candidate, policyVerdict);
+  }
+
   private suppressedDecision(
     candidate: InteractionCandidate,
     policyVerdict: PolicyVerdict,
@@ -289,6 +327,29 @@ export class QueuePlanner {
       }).length;
 
     return urgentBacklog >= 2;
+  }
+
+  private shouldBatchVisibleEpisode(
+    candidate: InteractionCandidate,
+    attentionView: AttentionView | undefined,
+  ): boolean {
+    if (!candidate.episodeId || !attentionView) {
+      return false;
+    }
+
+    if (candidate.blocking || candidate.consequence === "high" || candidate.tone === "critical") {
+      return false;
+    }
+
+    const visibleRelatedFrames = [attentionView.active, ...attentionView.queued, ...attentionView.ambient]
+      .filter((frame): frame is Frame => frame !== null)
+      .filter((frame) => frame.interactionId !== candidate.interactionId && readFrameEpisodeId(frame) === candidate.episodeId);
+
+    if (visibleRelatedFrames.length === 0) {
+      return false;
+    }
+
+    return candidate.episodeState === "batched" || (candidate.episodeSize ?? 1) >= 2 || visibleRelatedFrames.length >= 2;
   }
 
   private shouldEscalateDeferredTask(

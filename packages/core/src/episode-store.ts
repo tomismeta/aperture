@@ -31,8 +31,8 @@ export class EpisodeStore {
     record.interactions.add(candidate.interactionId);
     record.lastInteractionId = candidate.interactionId;
     record.updatedAt = candidate.timestamp;
-    record.state = nextEpisodeState(record.state, candidate);
     record.size = record.interactions.size;
+    record.state = nextEpisodeState(record.state, candidate, record.size);
 
     this.byKey.set(record.key, record);
     this.byInteractionId.set(candidate.interactionId, record.id);
@@ -148,13 +148,17 @@ function episodeAnchor(candidate: InteractionCandidate): string {
   return candidate.taskId;
 }
 
-function nextEpisodeState(current: EpisodeState, candidate: InteractionCandidate): EpisodeState {
+function nextEpisodeState(current: EpisodeState, candidate: InteractionCandidate, size: number): EpisodeState {
   if (candidate.blocking) {
     return "actionable";
   }
 
   if (current === "actionable") {
     return "waiting";
+  }
+
+  if (size >= 2) {
+    return "batched";
   }
 
   return "emerging";

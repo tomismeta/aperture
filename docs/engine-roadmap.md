@@ -51,7 +51,7 @@ Over time, Aperture should be able to exist in two complementary forms:
 
 ## Current Status
 
-As of `main` after the judgment stabilization milestone:
+As of `main` after the learning persistence and live judgment-control milestone:
 
 ### Phase 1: Deterministic Router
 
@@ -88,6 +88,9 @@ What is built:
 
 - interaction signals and derived summaries
 - durable memory checkpointing and reload
+- default local learning persistence through `.aperture/MEMORY.md`
+- default local judgment control through scaffolded `.aperture/JUDGMENT.md`
+- bounded deterministic auto-approval for `lowRiskRead` and `lowRiskWeb`
 - human-specific response, context, and deferral patterns feeding back into judgment
 - replay evaluation foundation for merged episodes, deferred activation, and actionable episodes
 

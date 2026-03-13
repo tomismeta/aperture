@@ -26,6 +26,7 @@ Under the hood, Aperture already includes:
 
 - deterministic policy, attention value, and planning layers
 - behavioral signals and memory-backed judgment
+- scaffolded local judgment control for bounded approvals and interrupt rules
 - episode-aware coordination across related work
 - attention pressure forecasting before overload
 - replay evaluation for judgment behavior
@@ -45,6 +46,8 @@ It is not:
 The core bet is simple:
 
 **human attention should be allocated by a fast, deterministic, inspectable engine that gets better with use**
+
+Today, that includes a live local judgment surface: Aperture scaffolds `.aperture/JUDGMENT.md`, loads it on startup, and uses it to control bounded auto-approval, interruption policy, and planner defaults.
 
 ## Why It Exists
 
@@ -119,6 +122,12 @@ Use `pnpm aperture --learning off` if you want an ephemeral session with no loca
 - planner defaults: `batch status bursts`, `defer low value during pressure`
 
 If a category still requires a human response to proceed, keep it `active`. Use `auto approve` only for bounded approval categories you want Aperture to resolve immediately and deterministically.
+
+In the default scaffold:
+
+- `lowRiskRead` and `lowRiskWeb` auto-approve immediately
+- `fileWrite` stays active for explicit human approval
+- `envWrite` and `destructiveBash` stay active and require context expansion
 
 ## Two Ways To Use It
 

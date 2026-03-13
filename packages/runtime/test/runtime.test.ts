@@ -132,7 +132,7 @@ test("runtime bootstraps learning persistence and checkpoints memory", async () 
     assert.match(memoryRaw, /^# Memory/m);
     assert.match(judgmentRaw, /^# Judgment/m);
     assert.match(judgmentRaw, /Accepted rule names today:/);
-    assert.match(judgmentRaw, /minimum presentation: ambient \| queue \| active/);
+    assert.match(judgmentRaw, /auto approve: true \| false/);
 
     const client = await ApertureRuntimeAdapterClient.connect({
       baseUrl: controlUrl,
@@ -197,7 +197,9 @@ test("runtime loads scaffolded judgment config and can reload it on demand", asy
     });
 
     const initialTaskView = runtime.getCore().getTaskView("task:read:1");
-    assert.equal(initialTaskView.active?.interactionId, "interaction:read:1");
+    assert.equal(initialTaskView.active, null);
+    const initialSignal = runtime.getCore().getSignals("task:read:1")[0];
+    assert.equal(initialSignal?.kind, "responded");
 
     await writeFile(
       join(root, ".aperture", "JUDGMENT.md"),

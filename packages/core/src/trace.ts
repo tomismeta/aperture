@@ -60,11 +60,11 @@ export type ApertureTrace =
         currentPriority: InteractionPriority | null;
       };
       planner: {
-        kind: "activate" | "queue" | "ambient" | "keep" | "clear";
+        kind: "auto_approve" | "activate" | "queue" | "ambient" | "keep" | "clear";
         reasons: string[];
       };
       coordination: {
-        kind: "activate" | "queue" | "ambient" | "keep" | "clear";
+        kind: "auto_approve" | "activate" | "queue" | "ambient" | "keep" | "clear";
         candidateScore: number;
         currentScore: number | null;
         currentPriority: InteractionPriority | null;

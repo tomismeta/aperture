@@ -1,5 +1,6 @@
 import type { AttentionView, Frame } from "./index.js";
 
+import type { FrameResponse } from "./frame-response.js";
 import { scoreFrame } from "./frame-score.js";
 import type { InteractionCandidate, InteractionPriority } from "./interaction-candidate.js";
 import { AttentionPolicy, type AttentionPolicyVerdict } from "./attention-policy.js";
@@ -9,6 +10,7 @@ import type { SignalSummary } from "./signal-summary.js";
 import { AttentionValue, type AttentionValueBreakdown } from "./attention-value.js";
 
 export type JudgmentDecision =
+  | { kind: "auto_approve"; candidate: InteractionCandidate; response: FrameResponse }
   | { kind: "activate"; candidate: InteractionCandidate }
   | { kind: "queue"; candidate: InteractionCandidate }
   | { kind: "ambient"; candidate: InteractionCandidate }
@@ -68,6 +70,32 @@ export class JudgmentCoordinator {
       context.pressureForecast
       ?? forecastAttentionPressure(context.globalSummary ?? context.taskSummary, context.attentionView)
       ?? idleAttentionPressure();
+
+    if (policy.autoApprove) {
+      const reasons = [
+        ...policy.rationale,
+        "bounded approval work is auto-resolved instead of entering the attention surface",
+      ];
+      return {
+        decision: {
+          kind: "auto_approve",
+          candidate,
+          response: {
+            taskId: candidate.taskId,
+            interactionId: candidate.interactionId,
+            response: { kind: "approved" },
+          },
+        },
+        policy,
+        utility,
+        pressureForecast,
+        candidateScore: utility.total,
+        currentScore,
+        currentPriority: null,
+        reasons,
+      };
+    }
+
     const planning = this.queuePlanner.explain(current, candidate, {
       attentionView: context.attentionView,
       taskSummary: context.taskSummary,

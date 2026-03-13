@@ -20,7 +20,7 @@ import type { InteractionCandidate } from "./interaction-candidate.js";
 import { AttentionSignalStore } from "./attention-signal-store.js";
 import { loadJudgmentConfig, type JudgmentConfig } from "./judgment-config.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
-import { buildMemoryProfile, signalMetadataForFrame } from "./memory-aggregator.js";
+import { buildMemoryProfile, signalMetadataForCandidate, signalMetadataForFrame } from "./memory-aggregator.js";
 import { normalizeConformedEvent } from "./semantic-normalizer.js";
 import { AttentionPolicy } from "./attention-policy.js";
 import { forecastAttentionPressure } from "./attention-pressure.js";
@@ -225,6 +225,12 @@ export class ApertureCore {
         });
         let result: Frame | null;
         switch (explanation.decision.kind) {
+          case "auto_approve":
+            result = this.applyAutoResponse(
+              explanation.decision.candidate,
+              explanation.decision.response,
+            );
+            break;
           case "keep":
             result = explanation.decision.frame;
             break;
@@ -668,6 +674,27 @@ export class ApertureCore {
       responseKind: response.response.kind,
       ...(latencyMs !== undefined ? { latencyMs } : {}),
     };
+  }
+
+  private applyAutoResponse(candidate: InteractionCandidate, response: FrameResponse): null {
+    const timestamp = new Date().toISOString();
+    this.recordSignal({
+      kind: "responded",
+      taskId: candidate.taskId,
+      interactionId: candidate.interactionId,
+      timestamp,
+      ...(candidate.source !== undefined ? { source: candidate.source } : {}),
+      responseKind: response.response.kind === "dismissed" ? "acknowledged" : response.response.kind,
+      metadata: {
+        ...signalMetadataForCandidate(candidate),
+        autoResolved: true,
+      },
+    });
+    this.episodes.resolveInteraction(candidate.interactionId);
+    for (const listener of this.responseListeners) {
+      listener(response);
+    }
+    return null;
   }
 
   private calculateLatency(frame: Frame, timestamp: string): number | undefined {

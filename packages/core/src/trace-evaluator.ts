@@ -5,6 +5,7 @@ type CandidateDecision = CandidateTrace["coordination"]["kind"];
 
 export type TraceEvaluationReport = {
   totalCandidates: number;
+  autoApproved: number;
   activated: number;
   queued: number;
   ambient: number;
@@ -19,6 +20,7 @@ export type TraceEvaluationReport = {
 export function evaluateTraceSession(traces: ApertureTrace[]): TraceEvaluationReport {
   const report: TraceEvaluationReport = {
     totalCandidates: 0,
+    autoApproved: 0,
     activated: 0,
     queued: 0,
     ambient: 0,
@@ -98,6 +100,9 @@ function incrementDecisionCount(report: TraceEvaluationReport, decision: Candida
   switch (decision) {
     case "activate":
       report.activated += 1;
+      break;
+    case "auto_approve":
+      report.autoApproved += 1;
       break;
     case "queue":
       report.queued += 1;

@@ -124,13 +124,6 @@ export function createClaudeCodeHookServer(
           return;
         }
 
-        await hostClient.publishConformed(firstMappedEvent);
-        if (!hasInteraction(hostClient.getAttentionView(), firstMappedEvent.taskId, firstMappedEvent.interactionId)) {
-          options.onPreToolUseFallback?.(event, "not_held");
-          writeJson(res, 200, askResponse());
-          return;
-        }
-
         const key = pendingKey({
           taskId: firstMappedEvent.taskId,
           interactionId: firstMappedEvent.interactionId,
@@ -150,6 +143,18 @@ export function createClaudeCodeHookServer(
           response: res,
           timeout,
         });
+
+        await hostClient.publishConformed(firstMappedEvent);
+        if (res.writableEnded) {
+          return;
+        }
+        if (!hasInteraction(hostClient.getAttentionView(), firstMappedEvent.taskId, firstMappedEvent.interactionId)) {
+          clearTimeout(timeout);
+          pending.delete(key);
+          options.onPreToolUseFallback?.(event, "not_held");
+          writeJson(res, 200, askResponse());
+          return;
+        }
         return;
       }
 

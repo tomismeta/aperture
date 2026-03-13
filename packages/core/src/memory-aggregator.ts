@@ -1,4 +1,5 @@
 import type { Frame } from "./frame.js";
+import type { InteractionCandidate } from "./interaction-candidate.js";
 import type { InteractionSignal } from "./interaction-signal.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
 import { inferToolFamily, sourceKey } from "./interaction-taxonomy.js";
@@ -35,6 +36,24 @@ export function signalMetadataForFrame(frame: Frame): Record<string, unknown> {
   }
 
   const key = sourceKey(frame.source);
+  if (key) {
+    metadata.sourceKey = key;
+  }
+
+  return metadata;
+}
+
+export function signalMetadataForCandidate(candidate: InteractionCandidate): Record<string, unknown> {
+  const metadata: Record<string, unknown> = {
+    consequence: candidate.consequence,
+  };
+
+  const toolFamily = inferToolFamily(candidate);
+  if (toolFamily) {
+    metadata.toolFamily = toolFamily;
+  }
+
+  const key = sourceKey(candidate.source);
   if (key) {
     metadata.sourceKey = key;
   }

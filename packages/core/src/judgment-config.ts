@@ -22,6 +22,7 @@ export type PlannerDefaults = {
 };
 
 export type JudgmentRule = {
+  autoApprove?: boolean;
   mayInterrupt?: boolean;
   minimumPresentation?: "ambient" | "queue" | "active";
   requireContextExpansion?: boolean;
@@ -112,6 +113,9 @@ export function serializeJudgmentConfig(config: JudgmentConfig): string {
     lines.push("", "## Policy");
     for (const [name, rule] of Object.entries(config.policy)) {
       lines.push("", `### ${name}`);
+      if (rule.autoApprove !== undefined) {
+        lines.push(formatBullet("auto approve", rule.autoApprove));
+      }
       if (rule.mayInterrupt !== undefined) {
         lines.push(formatBullet("may interrupt", rule.mayInterrupt));
       }

@@ -59,6 +59,7 @@ test("attention policy keeps background work ambient by default", () => {
   const verdict = gates.evaluate(createCandidate());
 
   assert.deepEqual(verdict, {
+    autoApprove: false,
     mayInterrupt: false,
     requiresOperatorResponse: false,
     minimumPresentation: "ambient",
@@ -389,6 +390,7 @@ test("attention policy applies user overrides for tool families", () => {
     }),
   );
 
+  assert.equal(verdict.autoApprove, false);
   assert.equal(verdict.minimumPresentation, "active");
   assert.equal(verdict.mayInterrupt, true);
   assert.ok(verdict.rationale.includes("user override applies for read interactions"));
@@ -428,10 +430,47 @@ test("attention policy prefers explicit tool family metadata over title heuristi
     }),
   );
 
+  assert.equal(verdict.autoApprove, false);
   assert.equal(verdict.minimumPresentation, "active");
   assert.equal(verdict.mayInterrupt, true);
   assert.ok(verdict.rationale.includes("user override applies for read interactions"));
   assert.ok(verdict.rationale.includes("operator-response work cannot remain passive without auto-resolution"));
+});
+
+test("configured lowRiskRead policy can auto-approve bounded approvals", () => {
+  const gates = new AttentionPolicy({
+    judgmentConfig: {
+      version: 1,
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      policy: {
+        lowRiskRead: {
+          autoApprove: true,
+        },
+      },
+    },
+  });
+
+  const verdict = gates.evaluate(
+    createCandidate({
+      mode: "approval",
+      blocking: true,
+      consequence: "low",
+      title: "Claude Code wants to read config.ts",
+      summary: "config.ts",
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(verdict.autoApprove, true);
+  assert.equal(verdict.requiresOperatorResponse, false);
+  assert.equal(verdict.mayInterrupt, false);
+  assert.ok(verdict.rationale.includes("configured judgment policy auto-approves this bounded approval"));
 });
 
 test("configured lowRiskRead policy does not match incidental reading language", () => {
@@ -441,8 +480,7 @@ test("configured lowRiskRead policy does not match incidental reading language",
       updatedAt: "2026-03-12T10:15:00.000Z",
       policy: {
         lowRiskRead: {
-          mayInterrupt: true,
-          minimumPresentation: "active",
+          autoApprove: true,
         },
       },
     },
@@ -506,7 +544,7 @@ test("configured judgment policy can require context expansion", () => {
   assert.ok(verdict.rationale.includes("configured judgment policy applies to this interaction"));
 });
 
-test("markdown-backed core keeps low-risk read approvals active until explicit auto-approval exists", async () => {
+test("markdown-backed core can auto-approve low-risk read approvals", async () => {
   const root = await mkdtemp(join(tmpdir(), "aperture-core-markdown-"));
   await writeFile(
     join(root, "USER.md"),
@@ -542,8 +580,7 @@ test("markdown-backed core keeps low-risk read approvals active until explicit a
       updatedAt: "2026-03-12T10:15:00.000Z",
       policy: {
         lowRiskRead: {
-          mayInterrupt: true,
-          minimumPresentation: "active",
+          autoApprove: true,
         },
       },
     }),
@@ -565,7 +602,8 @@ test("markdown-backed core keeps low-risk read approvals active until explicit a
   });
 
   const taskView = core.getTaskView("task:read");
-  assert.equal(taskView.active?.interactionId, "interaction:read");
+  assert.equal(taskView.active, null);
+  assert.equal(core.getSignals("task:read")[0]?.kind, "responded");
 });
 
 test("planner defaults can disable burst batching", () => {

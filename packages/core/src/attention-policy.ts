@@ -6,6 +6,7 @@ import type { UserProfile } from "./profile-store.js";
 export type MinimumPresentation = "ambient" | "queue" | "active";
 
 export type AttentionPolicyVerdict = {
+  autoApprove: boolean;
   mayInterrupt: boolean;
   requiresOperatorResponse: boolean;
   minimumPresentation: MinimumPresentation;
@@ -34,6 +35,7 @@ export class AttentionPolicy {
 
     if (candidate.blocking) {
       return {
+        autoApprove: false,
         mayInterrupt: true,
         requiresOperatorResponse: true,
         minimumPresentation: "active",
@@ -43,6 +45,7 @@ export class AttentionPolicy {
 
     if (candidate.priority === "background") {
       return {
+        autoApprove: false,
         mayInterrupt: false,
         requiresOperatorResponse: false,
         minimumPresentation: "ambient",
@@ -56,6 +59,7 @@ export class AttentionPolicy {
       candidate.tone !== "critical"
     ) {
       return {
+        autoApprove: false,
         mayInterrupt: false,
         requiresOperatorResponse: false,
         minimumPresentation: "ambient",
@@ -64,6 +68,7 @@ export class AttentionPolicy {
     }
 
     return {
+      autoApprove: false,
       mayInterrupt: true,
       requiresOperatorResponse: false,
       minimumPresentation: "queue",
@@ -80,17 +85,30 @@ export class AttentionPolicy {
     const requireContextExpansion =
       toolOverride?.requireContextExpansion === true
       || policyRule?.requireContextExpansion === true;
+    const autoApprove =
+      policyRule?.autoApprove === true
+      && candidate.mode === "approval"
+      && candidate.responseSpec.kind === "approval"
+      && !requireContextExpansion;
 
     const minimumPresentation = readMinimumPresentation(toolOverride?.defaultPresentation)
       ?? policyRule?.minimumPresentation
       ?? (requireContextExpansion ? "active" : undefined);
     const mayInterrupt = policyRule?.mayInterrupt;
     const requiresOperatorResponse =
+      !autoApprove
+      && (
       candidate.blocking
       || minimumPresentation === "active"
-      || requireContextExpansion;
+      || requireContextExpansion
+      );
 
-    if (minimumPresentation === undefined && mayInterrupt === undefined && !toolOverride) {
+    if (
+      minimumPresentation === undefined
+      && mayInterrupt === undefined
+      && !toolOverride
+      && !autoApprove
+    ) {
       return null;
     }
 
@@ -102,9 +120,21 @@ export class AttentionPolicy {
       rationale.push("configured judgment policy applies to this interaction");
     }
 
+    if (autoApprove) {
+      rationale.push("configured judgment policy auto-approves this bounded approval");
+      return {
+        autoApprove: true,
+        mayInterrupt: false,
+        requiresOperatorResponse: false,
+        minimumPresentation: "ambient",
+        rationale,
+      };
+    }
+
     if (requiresOperatorResponse) {
       rationale.push("operator-response work cannot remain passive without auto-resolution");
       return {
+        autoApprove: false,
         mayInterrupt: true,
         requiresOperatorResponse: true,
         minimumPresentation: "active",
@@ -113,6 +143,7 @@ export class AttentionPolicy {
     }
 
     return {
+      autoApprove: false,
       mayInterrupt: mayInterrupt ?? false,
       requiresOperatorResponse,
       minimumPresentation: minimumPresentation ?? (candidate.blocking ? "active" : "queue"),

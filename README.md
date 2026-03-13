@@ -115,10 +115,10 @@ Use `pnpm aperture --learning off` if you want an ephemeral session with no loca
 `JUDGMENT.md` is a small human-owned config template. The accepted live values today are:
 
 - rule names: `lowRiskRead`, `envWrite`, `destructiveBash`
-- rule fields: `may interrupt`, `minimum presentation`, `require context expansion`
+- rule fields: `auto approve`, `may interrupt`, `minimum presentation`, `require context expansion`
 - planner defaults: `batch status bursts`, `defer low value during pressure`
 
-If a category still requires a human response to proceed, keep it `active` until Aperture supports explicit auto-approval for that category.
+If a category still requires a human response to proceed, keep it `active`. Use `auto approve` only for bounded approval categories you want Aperture to resolve immediately and deterministically.
 
 ## Two Ways To Use It
 

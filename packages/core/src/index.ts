@@ -28,6 +28,7 @@ export type {
   JudgmentExplanation,
 } from "./judgment-coordinator.js";
 export { buildMemoryProfile } from "./memory-aggregator.js";
+export { signalMetadataForCandidate } from "./memory-aggregator.js";
 export { scoreFrame } from "./frame-score.js";
 export type { AttentionState } from "./attention-state.js";
 export type { ApertureCoreOptions } from "./aperture-core.js";

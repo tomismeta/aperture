@@ -49,6 +49,50 @@ test("holds PreToolUse requests until Aperture responds", async () => {
   }
 });
 
+test("returns allow immediately when policy auto-approves a held read request", async () => {
+  const core = new ApertureCore({
+    judgmentConfig: {
+      version: 1,
+      updatedAt: "2026-03-13T12:00:00.000Z",
+      policy: {
+        lowRiskRead: {
+          autoApprove: true,
+        },
+      },
+    },
+  });
+  const server = createClaudeCodeHookServer(core, { holdTimeoutMs: 250 });
+  const { url } = await server.listen();
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "PreToolUse",
+        tool_name: "Read",
+        tool_use_id: "tool-read-1",
+        tool_input: {
+          file_path: "/repo/src/index.ts",
+        },
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "allow",
+      },
+    });
+    assert.equal(core.getAttentionView().active, null);
+  } finally {
+    await server.close();
+  }
+});
+
 test("falls back to ask when a held PreToolUse request times out", async () => {
   const core = new ApertureCore();
   const server = createClaudeCodeHookServer(core, { holdTimeoutMs: 25 });

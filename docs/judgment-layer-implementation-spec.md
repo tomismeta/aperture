@@ -294,8 +294,7 @@ Example `JUDGMENT.md`:
 
 ## Policy
 ### lowRiskRead
-- may interrupt: true
-- minimum presentation: active
+- auto approve: true
 
 ### destructiveBash
 - may interrupt: true
@@ -652,6 +651,7 @@ Allowed contents:
 
 - interruption guardrails
 - minimum presentation rules
+- bounded auto-approval rules
 - planner defaults
 - context expansion requirements
 
@@ -665,7 +665,7 @@ Rule:
 
 - Aperture should read `JUDGMENT.md` as configuration, not as memory
 - `JUDGMENT.md` should only expose accepted values that are consumed by live code
-- operator-response work should remain `active` unless Aperture has an explicit auto-resolution path for that category
+- operator-response work should remain `active` unless Aperture has an explicit auto-resolution path such as `auto approve`
 
 ## Runtime Process Flow
 

@@ -94,8 +94,7 @@ test("judgment config loader reads pure markdown judgment files", async () => {
     updatedAt: "2026-03-12T10:15:00.000Z",
     policy: {
       lowRiskRead: {
-        mayInterrupt: true,
-        minimumPresentation: "active",
+        autoApprove: true,
       },
     },
   });
@@ -107,7 +106,7 @@ test("judgment config loader reads pure markdown judgment files", async () => {
     updatedAt: "1970-01-01T00:00:00.000Z",
   });
 
-  assert.equal(loaded.policy?.lowRiskRead?.minimumPresentation, "active");
+  assert.equal(loaded.policy?.lowRiskRead?.autoApprove, true);
 });
 
 test("judgment config loader falls back when markdown uses an unsupported version", async () => {
@@ -124,7 +123,7 @@ test("judgment config loader falls back when markdown uses an unsupported versio
       "## Policy",
       "",
       "### lowRiskRead",
-      "- minimum presentation: active",
+      "- auto approve: true",
       "",
     ].join("\n"),
     "utf8",
@@ -249,8 +248,7 @@ test("markdown-backed core can reload judgment rules without restarting", async 
       updatedAt: "2026-03-12T10:15:00.000Z",
       policy: {
         lowRiskRead: {
-          mayInterrupt: true,
-          minimumPresentation: "active",
+          autoApprove: true,
         },
       },
     }),
@@ -270,7 +268,8 @@ test("markdown-backed core can reload judgment rules without restarting", async 
     consequence: "low",
     request: { kind: "approval" },
   });
-  assert.equal(core.getTaskView("task:ambient").active?.interactionId, "interaction:ambient");
+  assert.equal(core.getTaskView("task:ambient").active, null);
+  assert.equal(core.getSignals("task:ambient")[0]?.kind, "responded");
 
   await writeFile(
     judgmentPath,

@@ -2,11 +2,11 @@
 
 ## Purpose
 
-This document defines the roadmap for Aperture's core engine.
+This document defines where the engine is, where it is going, and why it is built the way it is.
 
 The product only works if the engine becomes meaningfully better than application-level interrupt logic.
 
-The moat must live in the core:
+The moat lives in the core:
 
 - deterministic judgment
 - interaction signal capture
@@ -24,7 +24,7 @@ Not in:
 
 Aperture should be positioned as:
 
-**the engine that learns how human attention should be spent**
+**the engine that learns how this operator spends attention and protects it**
 
 Not as:
 
@@ -36,7 +36,9 @@ The wedge is not "AI decides what matters."
 
 The wedge is:
 
-**Aperture protects operator attention faster, cheaper, more deterministically, and more transparently than a model in the hot path can.**
+**Aperture learns how this operator spends attention and protects it faster, cheaper, and more transparently than a model in the hot path ever could.**
+
+A model reasons from prompt context. Aperture reasons from system state. Prompt context is ephemeral and expensive. System state is durable, structured, and gets better with use.
 
 ## Current Status
 
@@ -71,7 +73,7 @@ What is built:
 
 ### Phase 3: Closed-Loop Adaptation
 
-Status: `partially built`
+Status: `live, not yet mature`
 
 What is built:
 
@@ -82,43 +84,43 @@ What is built:
 
 What is still missing:
 
-- evaluator-driven tuning loop
-- explicit stale episode lifecycle
+- evaluator-driven tuning loop ("what if we had deferred this by 90 seconds?")
+- explicit stale episode lifecycle (state defined, not yet assigned)
 - richer cross-session adaptation beyond summary carry-forward
-- stronger replay/counterfactual analysis
 
 ### Phase 4: Anticipation
 
-Status: `started, early`
+Status: `early foundation`
 
 What is built:
 
-- pressure forecasting before overload
+- pressure forecasting before overload hits
 - pre-overload suppression of lower-value work
 
 What is still missing:
 
-- "wait for correlated event" behavior
-- prefetch recommendations
-- likely-next-context gathering
+- "wait for correlated event before interrupting" behavior
+- likely-next-context prefetching
 - likely-next-action recommendations
 - synthesized episode-level anticipation frames
+- optional model-based advisory seam for speculative reasoning
 
 ### Phase 5: Multi-Agent Scale
 
-Status: `early substrate only`
+Status: `multi-source arbitration started, scale not started`
 
 What is built:
 
 - multi-source normalization into one attention model
-- cross-task and cross-source competition in the shared planner
+- cross-task and cross-source attention competition in the shared planner
+- three adapter boundaries prepared (Claude Code live, Codex and Paperclip mapped)
 
 What is still missing:
 
-- broader live transports beyond Claude Code
+- live transports beyond Claude Code
 - cross-source episode correlation
-- distributed runtime concerns
-- scale-oriented performance characterization
+- distributed runtime
+- performance characterization at scale
 
 ## The Moats
 
@@ -167,11 +169,11 @@ The moat is the compounding effect of all of them together.
 
 ## Why The Judgment Layer Is Not An LLM Call
 
-This is the most important strategic objection.
+This is the most important strategic objection to answer clearly.
 
-The answer is not that models are bad at reasoning.
+The hard problem is not making a plausible judgment. It is making a reliable judgment in the hot path.
 
-The answer is that the hot path has different requirements.
+A model can produce a plausible ranking. But the hot path needs all six of these simultaneously: fast, cheap, deterministic, inspectable, operator-specific, and compounding over time. You rarely get all six from a model in the loop.
 
 ### 1. The Hot Path Must Be Fast
 
@@ -217,6 +219,10 @@ A general model can reason about risk in the abstract.
 It does not naturally accumulate durable, operator-specific behavioral memory unless the system around it already exists.
 
 That surrounding system is exactly what Aperture is building.
+
+### 6. A Model Reasons From Prompt Context. Aperture Reasons From System State.
+
+Prompt context is ephemeral, expensive to construct, and discarded after each call. System state is durable, structured, and compounds with use. Aperture's memory profiles, episode history, and consequence calibration are system state that improves every session without re-prompting.
 
 ### The Right Role For Models
 
@@ -332,19 +338,20 @@ Aperture becomes differentiated when it can do all of these together:
 - improve future decisions through replay and feedback
 - add anticipation without surrendering policy control
 
-Any single one of these can be replicated.
+Any single one of these can be replicated in isolation.
 
-The combination is the moat.
+The combination — and the compounding effect of the closed loop connecting them — is the moat.
 
 ## Next Macro Steps
 
-The next engine milestones should be:
+Ordered by impact:
 
-1. evaluator-driven tuning from replayed traces
-2. explicit stale and expiry lifecycle for episodes
-3. richer anticipation behavior
-4. optional advisory model seam outside the hot path
-5. broader transport realism and multi-source scale work
+1. **Evaluator-driven tuning** — replay traces to answer "what if we had deferred this?" and use the answer to refine judgment defaults.
+2. **Episode expiry** — add stale-state transitions for abandoned episodes and time-based demotion.
+3. **Deterministic low-risk pass-through** — let bounded low-risk tool families resolve without interrupting the operator, which is likely the biggest remaining UX win.
+4. **Anticipation behaviors** — add "wait for correlated event", likely-next-context, and pre-batching behavior.
+5. **Advisory model seam** — add optional model reasoning for ambiguous episodes and speculative context, outside the hot path.
+6. **Multi-source transport breadth** — add live Codex and Paperclip connections and stronger cross-source episode correlation.
 
 ## Recommendation
 

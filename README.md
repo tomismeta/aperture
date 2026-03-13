@@ -6,13 +6,13 @@
 
 
 <img src="docs/assets/demo.gif" alt="Aperture demo" width="1100">
-
-
+<p></p>
 </div>
+
 
 Aperture sits between many possible event sources and one human decision surface, then decides what deserves attention now, what should wait, and what should remain ambient.
 
-**Live path today:** Claude Code → Aperture runtime → terminal attention surface
+**Live path today:** Claude Code (multiple agents) → Aperture runtime → terminal attention surface
 
 ```bash
 git clone git@github.com:tomismeta/aperture.git

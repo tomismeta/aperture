@@ -25,6 +25,7 @@ Reference docs:
 - [Engine Roadmap](engine-roadmap.md)
 - [Reference Judgment Flow](reference-judgment-flow.md)
 - [SDK Path](sdk-path.md)
+- [Technical Product Roadmap](technical-product-roadmap.md)
 - [Interaction Signals](interaction-signals.md)
 - [Human Attention Research](human-attention-research.md)
 - [Agent Workforce Use Case](agent-workforce-use-case.md)

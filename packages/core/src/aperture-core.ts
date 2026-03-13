@@ -342,8 +342,8 @@ export class ApertureCore {
 
   submit(response: FrameResponse): void {
     this.assertValidFrameResponse(response);
-    const current = this.frames.get(response.taskId);
-    if (!current || current.interactionId !== response.interactionId) {
+    const current = this.findFrameByInteractionId(response.taskId, response.interactionId);
+    if (!current) {
       return;
     }
 
@@ -352,14 +352,15 @@ export class ApertureCore {
     this.episodes.resolveInteraction(response.interactionId);
 
     const previousTaskView = this.taskViews.get(response.taskId);
-    this.frames.delete(response.taskId);
     const taskView = this.taskViews.resolve(response.taskId, response.interactionId);
-    if (taskView.active) {
-      this.recordAttentionShift(previousTaskView.active, taskView.active, timestamp);
-      this.recordReturnSignal(previousTaskView, taskView.active, timestamp);
-      this.frames.set(response.taskId, taskView.active);
-      this.notifyFrame(response.taskId, taskView.active);
+    const newPrimary = taskView.active;
+    if (newPrimary) {
+      this.frames.set(response.taskId, newPrimary);
+      this.recordAttentionShift(previousTaskView.active, newPrimary, timestamp);
+      this.recordReturnSignal(previousTaskView, newPrimary, timestamp);
+      this.notifyFrame(response.taskId, newPrimary);
     } else {
+      this.frames.delete(response.taskId);
       this.notifyFrame(response.taskId, null);
     }
     this.notifyTaskView(response.taskId, taskView);
@@ -557,6 +558,30 @@ export class ApertureCore {
     }
 
     return "queue";
+  }
+
+  private findFrameByInteractionId(taskId: string, interactionId: string): Frame | null {
+    const primary = this.frames.get(taskId);
+    if (primary?.interactionId === interactionId) {
+      return primary;
+    }
+
+    const taskView = this.taskViews.get(taskId);
+    if (taskView.active?.interactionId === interactionId) {
+      return taskView.active;
+    }
+
+    const queued = taskView.queued.find((frame) => frame.interactionId === interactionId);
+    if (queued) {
+      return queued;
+    }
+
+    const ambient = taskView.ambient.find((frame) => frame.interactionId === interactionId);
+    if (ambient) {
+      return ambient;
+    }
+
+    return null;
   }
 
   private findPeripheralEpisodeFrame(

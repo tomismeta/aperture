@@ -12,10 +12,12 @@ export type JudgmentConfig = {
   version: number;
   updatedAt: string;
   policy?: Record<string, JudgmentRule>;
-  plannerDefaults?: {
-    batchStatusBursts?: boolean;
-    deferLowValueDuringPressure?: boolean;
-  };
+  plannerDefaults?: PlannerDefaults;
+};
+
+export type PlannerDefaults = {
+  batchStatusBursts?: boolean;
+  deferLowValueDuringPressure?: boolean;
 };
 
 export type JudgmentRule = {

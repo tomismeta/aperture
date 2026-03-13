@@ -10,6 +10,7 @@ import type { Frame } from "../src/frame.js";
 import type { InteractionCandidate } from "../src/interaction-candidate.js";
 import { InteractionCoordinator } from "../src/interaction-coordinator.js";
 import { PolicyGates } from "../src/policy-gates.js";
+import { QueuePlanner } from "../src/queue-planner.js";
 import { UtilityScore } from "../src/utility-score.js";
 
 function createCandidate(overrides: Partial<InteractionCandidate> = {}): InteractionCandidate {
@@ -232,4 +233,111 @@ test("markdown-backed core can keep configured low-risk reads ambient with no ac
   const taskView = core.getTaskView("task:read");
   assert.equal(taskView.active, null);
   assert.equal(taskView.ambient[0]?.interactionId, "interaction:read");
+});
+
+test("planner defaults can disable burst batching", () => {
+  const coordinator = new InteractionCoordinator(
+    new PolicyGates(),
+    new UtilityScore(),
+    new QueuePlanner({
+      plannerDefaults: {
+        batchStatusBursts: false,
+      },
+    }),
+  );
+
+  const decision = coordinator.coordinate(
+    createFrame({
+      taskId: "task:test",
+      interactionId: "interaction:current",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      responseSpec: { kind: "none" },
+      timing: {
+        createdAt: "2026-03-08T12:00:00.000Z",
+        updatedAt: "2026-03-08T12:00:00.000Z",
+      },
+    }),
+    createCandidate({
+      taskId: "task:test",
+      interactionId: "interaction:new",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      priority: "normal",
+      blocking: false,
+      responseSpec: { kind: "none" },
+      timestamp: "2026-03-08T12:00:30.000Z",
+    }),
+  );
+
+  assert.equal(decision.kind, "activate");
+});
+
+test("planner defaults can disable pressure-based suppression", () => {
+  const coordinator = new InteractionCoordinator(
+    new PolicyGates(),
+    new UtilityScore(),
+    new QueuePlanner({
+      plannerDefaults: {
+        deferLowValueDuringPressure: false,
+      },
+    }),
+  );
+
+  const decision = coordinator.coordinate(
+    createFrame({
+      taskId: "task:current",
+      interactionId: "interaction:current",
+      mode: "status",
+      tone: "ambient",
+      consequence: "low",
+      responseSpec: { kind: "none" },
+    }),
+    createCandidate({
+      taskId: "task:incoming",
+      interactionId: "interaction:incoming",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      priority: "normal",
+      blocking: false,
+      responseSpec: { kind: "none" },
+      timestamp: "2026-03-08T12:01:00.000Z",
+    }),
+    {
+      attentionView: {
+        active: createFrame({
+          taskId: "task:critical:1",
+          interactionId: "interaction:critical:1",
+          mode: "status",
+          tone: "critical",
+          consequence: "high",
+          responseSpec: { kind: "none" },
+          timing: {
+            createdAt: "2026-03-08T12:00:20.000Z",
+            updatedAt: "2026-03-08T12:00:20.000Z",
+          },
+        }),
+        queued: [
+          createFrame({
+            taskId: "task:critical:2",
+            interactionId: "interaction:critical:2",
+            mode: "status",
+            tone: "critical",
+            consequence: "high",
+            responseSpec: { kind: "none" },
+            timing: {
+              createdAt: "2026-03-08T12:00:30.000Z",
+              updatedAt: "2026-03-08T12:00:30.000Z",
+            },
+          }),
+        ],
+        ambient: [],
+      },
+    },
+  );
+
+  assert.equal(decision.kind, "activate");
 });

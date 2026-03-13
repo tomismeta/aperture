@@ -22,6 +22,7 @@ import { loadJudgmentConfig, type JudgmentConfig } from "./judgment-config.js";
 import { normalizeConformedEvent } from "./semantic-normalizer.js";
 import { PolicyGates } from "./policy-gates.js";
 import { ProfileStore, type MemoryProfile, type UserProfile } from "./profile-store.js";
+import { QueuePlanner } from "./queue-planner.js";
 import type { SignalSummary } from "./signal-summary.js";
 import { TaskViewStore } from "./task-view-store.js";
 import type { ApertureTrace } from "./trace.js";
@@ -86,7 +87,11 @@ export class ApertureCore {
       new UtilityScore({
         memoryProfile: this.baseMemoryProfile,
       }),
-      undefined,
+      new QueuePlanner({
+        ...(this.judgmentConfig?.plannerDefaults !== undefined
+          ? { plannerDefaults: this.judgmentConfig.plannerDefaults }
+          : {}),
+      }),
     );
   }
 

@@ -3,6 +3,7 @@ import type { AttentionView, Frame } from "./index.js";
 import { readFrameEpisodeId } from "./episode-store.js";
 import { isBlockingFrame, priorityForFrame } from "./frame-score.js";
 import type { InteractionCandidate, InteractionPriority } from "./interaction-candidate.js";
+import type { PlannerDefaults } from "./judgment-config.js";
 import type { PolicyVerdict } from "./policy-gates.js";
 import type { SignalSummary } from "./signal-summary.js";
 
@@ -28,7 +29,17 @@ export type QueuePlanningContext = {
   currentScore: number | null;
 };
 
+type QueuePlannerOptions = {
+  plannerDefaults?: PlannerDefaults;
+};
+
 export class QueuePlanner {
+  private readonly plannerDefaults: PlannerDefaults | undefined;
+
+  constructor(options: QueuePlannerOptions = {}) {
+    this.plannerDefaults = options.plannerDefaults;
+  }
+
   explain(
     current: Frame | null,
     candidate: InteractionCandidate,
@@ -197,6 +208,10 @@ export class QueuePlanner {
     attentionView: AttentionView | undefined,
     now: string,
   ): boolean {
+    if (this.plannerDefaults?.deferLowValueDuringPressure === false) {
+      return false;
+    }
+
     if (candidate.blocking || candidate.consequence === "high" || candidate.tone === "critical") {
       return false;
     }
@@ -261,6 +276,10 @@ export class QueuePlanner {
   }
 
   private shouldDampenBurst(current: Frame, candidate: InteractionCandidate): boolean {
+    if (this.plannerDefaults?.batchStatusBursts === false) {
+      return false;
+    }
+
     if (
       current.taskId !== candidate.taskId ||
       current.mode !== "status" ||

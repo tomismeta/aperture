@@ -23,6 +23,7 @@ Reference docs:
 - [Paperclip Adapter](paperclip.md)
 - [TUI Design](tui-design.md)
 - [Engine Roadmap](engine-roadmap.md)
+- [SDK Path](sdk-path.md)
 - [Interaction Signals](interaction-signals.md)
 - [Human Attention Research](human-attention-research.md)
 - [Agent Workforce Use Case](agent-workforce-use-case.md)

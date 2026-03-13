@@ -44,6 +44,11 @@ The wedge is:
 
 A model reasons from prompt context. Aperture reasons from system state. Prompt context is ephemeral and expensive. System state is durable, structured, and gets better with use.
 
+Over time, Aperture should be able to exist in two complementary forms:
+
+- as a product runtime and surface for humans supervising agents
+- as an embeddable judgment SDK other agent runtimes can adopt directly
+
 ## Current Status
 
 As of `main` after the judgment stabilization milestone:
@@ -330,6 +335,22 @@ Future constructs:
 - optional reasoning advisor seam
 - anticipation-specific planner hints
 
+## SDK Path
+
+The long-term package story should follow the same wedge.
+
+The goal is not to turn Aperture into a generic orchestration framework. The goal is to make the judgment substrate portable.
+
+That means a future `@aperture/core` should expose:
+
+- the full deterministic judgment stack (`PolicyGates`, `UtilityScore`, `QueuePlanner`, `InteractionCoordinator`)
+- the memory loop (`InteractionSignalStore`, memory aggregation, profile persistence)
+- the full-engine path (`ApertureCore`) for hosts that want the whole attention model
+
+This would let another agent runtime keep its own orchestration model while delegating human-attention judgment to Aperture.
+
+The package path matters because it broadens distribution, but it should come after the product path stays stable. The priority is still proving the engine in the live runtime first.
+
 ## What Makes Aperture Hard To Copy
 
 Aperture becomes differentiated when it can do all of these together:
@@ -356,6 +377,7 @@ Ordered by impact:
 4. **Anticipation behaviors** — add "wait for correlated event", likely-next-context, and pre-batching behavior.
 5. **Advisory model seam** — add optional model reasoning for ambiguous episodes and speculative context, outside the hot path.
 6. **Multi-source transport breadth** — add live Codex and Paperclip connections and stronger cross-source episode correlation.
+7. **SDK/package readiness** — publish a stable `@aperture/core` surface so other runtimes can embed the judgment layer directly.
 
 ## Recommendation
 

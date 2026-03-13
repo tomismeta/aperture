@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
-import type { AttentionView, ConformedEvent, FrameResponse } from "@aperture/core";
+import type { AttentionResponse as FrameResponse, AttentionView, ConformedEvent } from "@aperture/core";
 
 import {
   mapClaudeCodeFrameResponse,

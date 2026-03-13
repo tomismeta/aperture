@@ -6,7 +6,7 @@ In the current product shape:
 
 - `@aperture/runtime` owns the live `ApertureCore`
 - `@aperture/paperclip` maps Paperclip events into `ConformedEvent`
-- the runtime consumes those events and emits `FrameResponse`
+- the runtime consumes those events and emits `AttentionResponse`
 - `@aperture/paperclip` maps those responses back into Paperclip actions
 
 Use it when you want Aperture to sit between Paperclip and the human loop.
@@ -24,7 +24,7 @@ Ingress:
 
 Egress:
 
-- `FrameResponse -> PaperclipAction | null`
+- `AttentionResponse -> PaperclipAction | null`
 
 Transport helpers:
 
@@ -104,7 +104,7 @@ That integration path uses:
 - `streamPaperclipLiveEvents(...)` for ingress
 - `mapPaperclipLiveEvent(...)` into `ConformedEvent`
 - `ApertureCore` for semantic normalization and attention decisions
-- `mapPaperclipFrameResponse(...)` back to Paperclip actions
+- `mapPaperclipFrameResponse(...)` back to Paperclip actions from `AttentionResponse`
 - `executePaperclipAction(...)` for egress
 
 ## Boundary

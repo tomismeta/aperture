@@ -21,12 +21,13 @@ export type AttentionValueBreakdown = {
   rationale: string[];
 };
 
-export type FrameAttentionValueBreakdown = {
+export type AttentionFrameValueBreakdown = {
   total: number;
   components: {
     attentionAdjustment: number;
   };
 };
+export type FrameAttentionValueBreakdown = AttentionFrameValueBreakdown;
 
 type UtilityFrameOptions = {
   now?: string;
@@ -99,7 +100,7 @@ export class AttentionValue {
     };
   }
 
-  scoreFrame(frame: Frame, options: UtilityFrameOptions = {}): FrameAttentionValueBreakdown {
+  scoreFrame(frame: Frame, options: UtilityFrameOptions = {}): AttentionFrameValueBreakdown {
     return {
       total: scoreFrame(frame, options),
       components: {

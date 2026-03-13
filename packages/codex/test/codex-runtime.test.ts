@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import type { ConformedEvent, FrameResponse } from "@aperture/core";
+import type { AttentionResponse as FrameResponse, ConformedEvent } from "@aperture/core";
 
 import {
   createCodexAdapter,

@@ -3,11 +3,11 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 
 import {
   ApertureCore,
+  type AttentionResponse,
+  type AttentionSignalSummary,
   type AttentionState,
   type AttentionView,
   type ConformedEvent,
-  type FrameResponse,
-  type SignalSummary,
 } from "@aperture/core";
 
 import type { LearningPersistenceState } from "./learning-persistence.js";
@@ -33,12 +33,12 @@ export type ApertureRuntimeEvent =
   | {
       sequence: number;
       type: "response";
-      response: FrameResponse;
+      response: AttentionResponse;
     };
 
 export type ApertureRuntimeSnapshot = {
   attentionView: AttentionView;
-  signalSummary: SignalSummary;
+  signalSummary: AttentionSignalSummary;
   attentionState: AttentionState;
   adapters: ApertureRuntimeAdapter[];
   surfaceCount: number;
@@ -202,7 +202,7 @@ export function createApertureRuntime(
       }
 
       if (req.method === "POST" && path === `${controlPathPrefix}/responses`) {
-        const response = (await readJson(req, bodyLimitBytes)) as FrameResponse;
+        const response = (await readJson(req, bodyLimitBytes)) as AttentionResponse;
         core.submit(response);
         writeJson(res, 200, {});
         return;

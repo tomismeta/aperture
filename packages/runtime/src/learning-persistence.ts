@@ -2,8 +2,8 @@ import { mkdir, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
+  APERTURE_STATE_SCHEMA_VERSION,
   ApertureCore,
-  MARKDOWN_SCHEMA_VERSION,
   ProfileStore,
   type MemoryProfile,
 } from "@aperture/core";
@@ -34,7 +34,7 @@ export async function bootstrapLearningPersistence(
   await mkdir(rootDir, { recursive: true });
 
   const fallback: MemoryProfile = {
-    version: MARKDOWN_SCHEMA_VERSION,
+    version: APERTURE_STATE_SCHEMA_VERSION,
     operatorId: "default",
     updatedAt: now,
     sessionCount: 0,
@@ -73,7 +73,7 @@ function defaultJudgmentTemplate(updatedAt: string): string {
     "and can reload it later, but it will not rewrite your policy choices.",
     "",
     "## Meta",
-    `- version: ${MARKDOWN_SCHEMA_VERSION}`,
+    `- version: ${APERTURE_STATE_SCHEMA_VERSION}`,
     `- updated at: ${updatedAt}`,
     "",
     "## Policy",

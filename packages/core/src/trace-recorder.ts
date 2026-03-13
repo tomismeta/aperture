@@ -1,7 +1,7 @@
 import type { AttentionState } from "./attention-state.js";
 import type { EpisodeSummary } from "./episode-tracker.js";
 import type { ApertureEvent } from "./events.js";
-import type { AttentionView, Frame, TaskView } from "./frame.js";
+import type { AttentionFrame as Frame, AttentionTaskView as TaskView, AttentionView } from "./frame.js";
 import type { JudgmentExplanation } from "./judgment-coordinator.js";
 import type { InteractionCandidate } from "./interaction-candidate.js";
 import type { AttentionPressure } from "./attention-pressure.js";

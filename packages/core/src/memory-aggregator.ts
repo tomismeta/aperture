@@ -5,7 +5,7 @@ import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
 import { inferToolFamily, sourceKey } from "./interaction-taxonomy.js";
 import type { MemoryProfile } from "./profile-store.js";
 
-export function buildMemoryProfile(
+export function distillMemoryProfile(
   baseMemoryProfile: MemoryProfile,
   signals: InteractionSignal[],
   now: string,
@@ -24,6 +24,8 @@ export function buildMemoryProfile(
     ...(Object.keys(consequenceProfiles).length > 0 ? { consequenceProfiles } : {}),
   };
 }
+
+export const buildMemoryProfile = distillMemoryProfile;
 
 export function signalMetadataForFrame(frame: Frame): Record<string, unknown> {
   const metadata: Record<string, unknown> = {

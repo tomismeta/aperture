@@ -1,4 +1,4 @@
-import type { AttentionView, Frame, TaskView } from "./index.js";
+import type { AttentionFrame as Frame, AttentionTaskView as TaskView, AttentionView } from "./frame.js";
 import type { AttentionState } from "./attention-state.js";
 import { scoreFrame } from "./frame-score.js";
 

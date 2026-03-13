@@ -1,12 +1,12 @@
 import { basename } from "node:path";
 
 import type {
+  AttentionConsequenceLevel as ConsequenceLevel,
+  AttentionResponse as FrameResponse,
   ConformedEvent,
   ConformedHumanInputRequestedEvent,
   ConformedTaskCompletedEvent,
   ConformedTaskUpdatedEvent,
-  ConsequenceLevel,
-  FrameResponse,
 } from "@aperture/core";
 
 export type ClaudeCodeHookEvent =

@@ -2,7 +2,7 @@
 
 Aperture now uses an explicit layered event model:
 
-`SourceEvent -> ConformedEvent -> ApertureEvent -> InteractionCandidate -> Frame -> FrameResponse`
+`SourceEvent -> ConformedEvent -> ApertureEvent -> AttentionCandidate -> AttentionFrame -> AttentionResponse`
 
 The intent is simple:
 

@@ -1,4 +1,4 @@
-import type { Frame, TaskView } from "./index.js";
+import type { AttentionFrame as Frame, AttentionTaskView as TaskView } from "./frame.js";
 
 type FrameBucket = "active" | "queued" | "ambient";
 

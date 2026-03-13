@@ -1,8 +1,8 @@
 import type {
+  AttentionResponse,
+  AttentionSignalSummary,
   AttentionState,
   AttentionView,
-  FrameResponse,
-  SignalSummary,
 } from "@aperture/core";
 
 import type { ApertureRuntimeEvent, ApertureRuntimeSnapshot } from "./runtime.js";
@@ -14,7 +14,7 @@ export type ApertureRuntimeClientOptions = {
 };
 
 type AttentionViewListener = (attentionView: AttentionView) => void;
-type ResponseListener = (response: FrameResponse) => void;
+type ResponseListener = (response: AttentionResponse) => void;
 
 const DEFAULT_POLL_INTERVAL_MS = 250;
 
@@ -78,7 +78,7 @@ export class ApertureRuntimeClient {
     return this.snapshotState.attentionView;
   }
 
-  getSignalSummary(): SignalSummary {
+  getSignalSummary(): AttentionSignalSummary {
     return this.snapshotState.signalSummary;
   }
 
@@ -101,7 +101,7 @@ export class ApertureRuntimeClient {
     };
   }
 
-  submit(response: FrameResponse): void {
+  submit(response: AttentionResponse): void {
     void this.post("/responses", response)
       .then(() => this.refreshState())
       .catch(() => {});

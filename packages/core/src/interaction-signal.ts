@@ -1,7 +1,7 @@
 import type { SourceRef } from "./events.js";
 import type { FrameResponse } from "./frame-response.js";
 
-export type InteractionSignal =
+export type AttentionSignal =
   | InteractionPresentedSignal
   | InteractionViewedSignal
   | InteractionRespondedSignal
@@ -12,6 +12,7 @@ export type InteractionSignal =
   | InteractionTimedOutSignal
   | InteractionReturnedSignal
   | InteractionAttentionShiftedSignal;
+export type InteractionSignal = AttentionSignal;
 
 type InteractionSignalBase = {
   taskId: string;

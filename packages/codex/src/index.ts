@@ -1,8 +1,8 @@
 import type {
+  AttentionField as FrameField,
+  AttentionResponse as FrameResponse,
   ConformedEvent,
   ConformedHumanInputRequestedEvent,
-  FrameField,
-  FrameResponse,
   SourceRef,
 } from "@aperture/core";
 

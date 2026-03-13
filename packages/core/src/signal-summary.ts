@@ -1,4 +1,4 @@
-export type SignalCounts = {
+export type AttentionSignalCounts = {
   presented: number;
   viewed: number;
   responded: number;
@@ -10,21 +10,24 @@ export type SignalCounts = {
   returned: number;
   attentionShifted: number;
 };
+export type SignalCounts = AttentionSignalCounts;
 
-export type DeferredCounts = {
+export type DeferredSignalCounts = {
   queued: number;
   suppressed: number;
   manual: number;
 };
+export type DeferredCounts = DeferredSignalCounts;
 
-export type SignalSummary = {
+export type AttentionSignalSummary = {
   recentSignals: number;
   lifetimeSignals: number;
-  counts: SignalCounts;
-  deferred: DeferredCounts;
+  counts: AttentionSignalCounts;
+  deferred: DeferredSignalCounts;
   responseRate: number;
   dismissalRate: number;
   averageResponseLatencyMs: number | null;
   averageDismissalLatencyMs: number | null;
   lastSignalAt: string | null;
 };
+export type SignalSummary = AttentionSignalSummary;

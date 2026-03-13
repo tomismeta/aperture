@@ -1,49 +1,75 @@
 export { ApertureCore } from "./aperture-core.js";
-export { AttentionAdjustments } from "./attention-adjustments.js";
+export type { ApertureCoreOptions } from "./aperture-core.js";
+
+export { AttentionPolicy } from "./attention-policy.js";
+export type { AttentionPolicyVerdict, MinimumPresentation } from "./attention-policy.js";
+
+export { AttentionValue } from "./attention-value.js";
+export type {
+  AttentionFrameValueBreakdown,
+  AttentionValueBreakdown,
+} from "./attention-value.js";
+
+export { scoreAttentionFrame } from "./frame-score.js";
+
 export { AttentionPlanner } from "./attention-planner.js";
 export type {
   AttentionPlanningContext,
   AttentionPlanningExplanation,
   PlannedDecision,
 } from "./attention-planner.js";
-export { AttentionPolicy } from "./attention-policy.js";
-export type { AttentionPolicyVerdict, MinimumPresentation } from "./attention-policy.js";
-export {
-  forecastAttentionPressure,
-  idleAttentionPressure,
-} from "./attention-pressure.js";
-export type { AttentionPressure } from "./attention-pressure.js";
-export { AttentionSignalStore } from "./attention-signal-store.js";
-export { AttentionValue } from "./attention-value.js";
-export type {
-  AttentionValueBreakdown,
-  FrameAttentionValueBreakdown,
-} from "./attention-value.js";
-export { EpisodeTracker } from "./episode-tracker.js";
-export { EventEvaluator } from "./event-evaluator.js";
+
 export { JudgmentCoordinator } from "./judgment-coordinator.js";
 export type {
   JudgmentContext,
   JudgmentDecision,
   JudgmentExplanation,
 } from "./judgment-coordinator.js";
-export { buildMemoryProfile } from "./memory-aggregator.js";
-export { signalMetadataForCandidate } from "./memory-aggregator.js";
-export { scoreFrame } from "./frame-score.js";
-export type { AttentionState } from "./attention-state.js";
-export type { ApertureCoreOptions } from "./aperture-core.js";
-export type * from "./conformed-event.js";
-export type * from "./events.js";
-export type * from "./frame.js";
-export type * from "./frame-response.js";
-export type * from "./interaction-signal.js";
-export type * from "./interaction-taxonomy.js";
-export type * from "./judgment-config.js";
-export { serializeJudgmentConfig } from "./judgment-config.js";
-export { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
+
+export {
+  forecastAttentionPressure,
+  idleAttentionPressure,
+} from "./attention-pressure.js";
+export type { AttentionPressure } from "./attention-pressure.js";
+
+export { distillMemoryProfile } from "./memory-aggregator.js";
 export { ProfileStore } from "./profile-store.js";
-export type * from "./profile-store.js";
-export type { DeferredCounts, SignalCounts, SignalSummary } from "./signal-summary.js";
-export type * from "./trace.js";
 export { evaluateTraceSession } from "./trace-evaluator.js";
 export type { TraceEvaluationReport } from "./trace-evaluator.js";
+
+export { APERTURE_STATE_SCHEMA_VERSION } from "./judgment-defaults.js";
+
+export type * from "./events.js";
+export type * from "./conformed-event.js";
+export type {
+  AttentionAction,
+  AttentionAcknowledgeResponseSpec,
+  AttentionApprovalResponseSpec,
+  AttentionChoiceResponseSpec,
+  AttentionConsequenceLevel,
+  AttentionContext,
+  AttentionField,
+  AttentionFormResponseSpec,
+  AttentionFrame,
+  AttentionFrameMode,
+  AttentionNoResponseSpec,
+  AttentionOption,
+  AttentionProvenance,
+  AttentionResponseSpec,
+  AttentionTaskView,
+  AttentionTiming,
+  AttentionTone,
+  AttentionView,
+} from "./frame.js";
+export type { AttentionResponse } from "./frame-response.js";
+export type { AttentionSignal } from "./interaction-signal.js";
+export type { AttentionCandidate, AttentionPriority } from "./interaction-candidate.js";
+export type {
+  AttentionSignalCounts,
+  AttentionSignalSummary,
+  DeferredSignalCounts,
+} from "./signal-summary.js";
+export type { AttentionState } from "./attention-state.js";
+export type * from "./profile-store.js";
+export type * from "./judgment-config.js";
+export type * from "./trace.js";

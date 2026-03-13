@@ -126,10 +126,10 @@ type FrameTiming = {
 
 ## Response Contract
 
-`FrameResponse` is the return path back into the engine:
+`AttentionResponse` is the return path back into the engine:
 
 ```ts
-type FrameResponse = {
+type AttentionResponse = {
   taskId: string;
   interactionId: string;
   response:

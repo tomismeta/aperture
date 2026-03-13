@@ -1,7 +1,7 @@
 import type {
+  AttentionResponse,
   AttentionView,
   ConformedEvent,
-  FrameResponse,
 } from "@aperture/core";
 
 import type { ApertureRuntimeEvent, ApertureRuntimeSnapshot } from "./runtime.js";
@@ -16,7 +16,7 @@ export type ApertureRuntimeAdapterClientOptions = {
   metadata?: Record<string, string>;
 };
 
-type ResponseListener = (response: FrameResponse) => void;
+type ResponseListener = (response: AttentionResponse) => void;
 
 const DEFAULT_HEARTBEAT_INTERVAL_MS = 5_000;
 const DEFAULT_POLL_INTERVAL_MS = 250;
@@ -115,7 +115,7 @@ export class ApertureRuntimeAdapterClient {
     await this.refreshState();
   }
 
-  async submit(response: FrameResponse): Promise<void> {
+  async submit(response: AttentionResponse): Promise<void> {
     await this.post("/responses", response);
     await this.refreshState();
   }

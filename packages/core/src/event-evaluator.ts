@@ -1,12 +1,14 @@
 import type {
-  AcknowledgeResponseSpec,
   ApertureEvent,
-  ChoiceResponseSpec,
-  FrameAction,
-  FormResponseSpec,
   HumanInputRequestedEvent,
   TaskUpdatedEvent,
-} from "./index.js";
+} from "./events.js";
+import type {
+  AttentionAcknowledgeResponseSpec as AcknowledgeResponseSpec,
+  AttentionAction as FrameAction,
+  AttentionChoiceResponseSpec as ChoiceResponseSpec,
+  AttentionFormResponseSpec as FormResponseSpec,
+} from "./frame.js";
 
 import type { InteractionCandidate } from "./interaction-candidate.js";
 

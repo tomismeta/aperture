@@ -1,4 +1,4 @@
-import type { AttentionView, Frame } from "./index.js";
+import type { AttentionFrame as Frame, AttentionView } from "./frame.js";
 
 import { readFrameEpisodeId } from "./episode-tracker.js";
 import { isBlockingFrame, priorityForFrame } from "./frame-score.js";

@@ -6,7 +6,7 @@ It does not know about Paperclip, Codex, Claude Code, or any other source. It on
 
 - `AttentionView`
 - `Frame`
-- `FrameResponse`
+- `AttentionResponse`
 
 ## How to Read the TUI
 

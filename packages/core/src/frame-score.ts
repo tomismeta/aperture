@@ -15,7 +15,7 @@ export function scoreCandidate(candidate: InteractionCandidate): number {
   );
 }
 
-export function scoreFrame(frame: Frame, options: FrameScoreOptions = {}): number {
+export function scoreAttentionFrame(frame: Frame, options: FrameScoreOptions = {}): number {
   return (
     priorityWeight(priorityForFrame(frame)) * 100 +
     consequenceWeight(frame.consequence) * 10 +
@@ -25,6 +25,7 @@ export function scoreFrame(frame: Frame, options: FrameScoreOptions = {}): numbe
     agePenalty(frame, options.now)
   );
 }
+export const scoreFrame = scoreAttentionFrame;
 
 export function priorityForFrame(frame: Frame): InteractionPriority {
   if (frame.mode === "status") {

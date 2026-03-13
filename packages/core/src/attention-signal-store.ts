@@ -1,4 +1,4 @@
-import type { InteractionSignal } from "./index.js";
+import type { AttentionSignal as InteractionSignal } from "./interaction-signal.js";
 
 import type { SignalSummary } from "./signal-summary.js";
 

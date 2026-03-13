@@ -1,4 +1,10 @@
-import type { ConformedEvent, ConsequenceLevel, FrameResponse, SourceRef, TaskStatus } from "@aperture/core";
+import type {
+  AttentionConsequenceLevel as ConsequenceLevel,
+  AttentionResponse as FrameResponse,
+  ConformedEvent,
+  SourceRef,
+  TaskStatus,
+} from "@aperture/core";
 
 export { executePaperclipAction, streamPaperclipLiveEvents, type PaperclipClientOptions } from "./client.js";
 

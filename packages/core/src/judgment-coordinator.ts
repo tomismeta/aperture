@@ -1,4 +1,4 @@
-import type { AttentionView, Frame } from "./index.js";
+import type { AttentionFrame as Frame, AttentionView } from "./frame.js";
 
 import type { FrameResponse } from "./frame-response.js";
 import { scoreFrame } from "./frame-score.js";

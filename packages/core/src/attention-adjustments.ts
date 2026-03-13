@@ -1,4 +1,4 @@
-import type { Frame } from "./index.js";
+import type { AttentionFrame as Frame } from "./frame.js";
 
 import { deriveAttentionState } from "./attention-state.js";
 import { deriveAttentionTrends } from "./attention-trends.js";

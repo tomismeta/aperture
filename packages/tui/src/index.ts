@@ -1,15 +1,15 @@
 import { emitKeypressEvents } from "node:readline";
 import { stdin as defaultInput, stdout as defaultOutput } from "node:process";
 
-import { scoreFrame } from "@aperture/core";
+import { scoreAttentionFrame } from "@aperture/core";
 import type {
+  AttentionField as FrameField,
+  AttentionFrame as Frame,
+  AttentionResponse as FrameResponse,
+  AttentionResponseSpec as FrameResponseSpec,
+  AttentionSignalSummary as SignalSummary,
   AttentionState,
   AttentionView,
-  Frame,
-  FrameField,
-  FrameResponse,
-  FrameResponseSpec,
-  SignalSummary,
 } from "@aperture/core";
 
 type InputLike = NodeJS.ReadStream & {
@@ -755,7 +755,7 @@ function readScore(frame: Frame): number {
   if (attention && typeof attention === "object" && "score" in attention && typeof attention.score === "number") {
     return attention.score;
   }
-  return scoreFrame(frame);
+  return scoreAttentionFrame(frame);
 }
 
 function readAttention(frame: Frame): { scoreOffset: number; rationale: string[] } {

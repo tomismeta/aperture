@@ -1,28 +1,29 @@
 import type {
-  Frame,
-  FrameAction,
-  FrameContext,
-  FrameProvenance,
-  FrameResponseSpec,
-  SourceRef,
-} from "./index.js";
+  AttentionAction,
+  AttentionContext,
+  AttentionFrame,
+  AttentionProvenance,
+  AttentionResponseSpec,
+} from "./frame.js";
+import type { SourceRef } from "./events.js";
 
-export type InteractionPriority = "background" | "normal" | "high";
+export type AttentionPriority = "background" | "normal" | "high";
+export type InteractionPriority = AttentionPriority;
 
-export type InteractionCandidate = {
+export type AttentionCandidate = {
   taskId: string;
   interactionId: string;
   source?: SourceRef;
   toolFamily?: string;
-  mode: Frame["mode"];
-  tone: Frame["tone"];
-  consequence: Frame["consequence"];
+  mode: AttentionFrame["mode"];
+  tone: AttentionFrame["tone"];
+  consequence: AttentionFrame["consequence"];
   title: string;
   summary?: string;
-  context?: FrameContext;
-  provenance?: FrameProvenance;
-  responseSpec: FrameResponseSpec;
-  priority: InteractionPriority;
+  context?: AttentionContext;
+  provenance?: AttentionProvenance;
+  responseSpec: AttentionResponseSpec;
+  priority: AttentionPriority;
   blocking: boolean;
   timestamp: string;
   attentionScoreOffset?: number;
@@ -34,12 +35,13 @@ export type InteractionCandidate = {
   episodeEvidenceScore?: number;
   episodeEvidenceReasons?: string[];
 };
+export type InteractionCandidate = AttentionCandidate;
 
-export type ApprovalCandidate = InteractionCandidate & {
+export type ApprovalCandidate = AttentionCandidate & {
   mode: "approval";
   responseSpec: {
     kind: "approval";
-    actions: FrameAction[];
+    actions: AttentionAction[];
     requireReason?: boolean;
   };
 };

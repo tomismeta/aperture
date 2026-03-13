@@ -1,4 +1,4 @@
-export type FrameResponse = {
+export type AttentionResponse = {
   taskId: string;
   interactionId: string;
   response:
@@ -9,3 +9,4 @@ export type FrameResponse = {
     | { kind: "form_submitted"; values: Record<string, unknown> }
     | { kind: "dismissed" };
 };
+export type FrameResponse = AttentionResponse;

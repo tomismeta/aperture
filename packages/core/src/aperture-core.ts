@@ -1,13 +1,17 @@
 import type {
   ApertureEvent,
-  AttentionView,
-  ConformedEvent,
-  Frame,
-  FrameResponse,
   HumanInputRequest,
-  InteractionSignal,
-  TaskView,
-} from "./index.js";
+} from "./events.js";
+import type { ConformedEvent } from "./conformed-event.js";
+import type {
+  AttentionFrame,
+  AttentionTaskView,
+  AttentionView,
+  AttentionFrame as Frame,
+  AttentionTaskView as TaskView,
+} from "./frame.js";
+import type { AttentionResponse, AttentionResponse as FrameResponse } from "./frame-response.js";
+import type { AttentionSignal, AttentionSignal as InteractionSignal } from "./interaction-signal.js";
 
 import { buildAttentionView } from "./attention-view.js";
 import { AttentionAdjustments } from "./attention-adjustments.js";
@@ -20,7 +24,7 @@ import type { InteractionCandidate } from "./interaction-candidate.js";
 import { AttentionSignalStore } from "./attention-signal-store.js";
 import { loadJudgmentConfig, type JudgmentConfig } from "./judgment-config.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
-import { buildMemoryProfile, signalMetadataForCandidate, signalMetadataForFrame } from "./memory-aggregator.js";
+import { distillMemoryProfile, signalMetadataForCandidate, signalMetadataForFrame } from "./memory-aggregator.js";
 import { normalizeConformedEvent } from "./semantic-normalizer.js";
 import { AttentionPolicy } from "./attention-policy.js";
 import { forecastAttentionPressure } from "./attention-pressure.js";
@@ -32,11 +36,11 @@ import type { ApertureTrace } from "./trace.js";
 import { TraceRecorder } from "./trace-recorder.js";
 import { AttentionValue } from "./attention-value.js";
 
-type FrameListener = (frame: Frame | null) => void;
-type TaskViewListener = (taskView: TaskView) => void;
+type FrameListener = (frame: AttentionFrame | null) => void;
+type TaskViewListener = (taskView: AttentionTaskView) => void;
 type AttentionViewListener = (attentionView: AttentionView) => void;
-type ResponseListener = (response: FrameResponse) => void;
-type SignalListener = (signal: InteractionSignal) => void;
+type ResponseListener = (response: AttentionResponse) => void;
+type SignalListener = (signal: AttentionSignal) => void;
 type TraceListener = (trace: ApertureTrace) => void;
 
 export type ApertureCoreOptions = {
@@ -162,12 +166,12 @@ export class ApertureCore {
     return true;
   }
 
-  publishConformed(event: ConformedEvent): Frame | null {
+  publishConformed(event: ConformedEvent): AttentionFrame | null {
     this.assertValidConformedEvent(event);
     return this.publish(normalizeConformedEvent(event));
   }
 
-  publish(event: ApertureEvent): Frame | null {
+  publish(event: ApertureEvent): AttentionFrame | null {
     this.assertValidEvent(event);
     const taskSummary = this.signals.summarize(event.taskId);
     const globalSummary = this.signals.summarize();
@@ -223,7 +227,7 @@ export class ApertureCore {
           globalSummary,
           pressureForecast,
         });
-        let result: Frame | null;
+        let result: AttentionFrame | null;
         switch (explanation.decision.kind) {
           case "auto_approve":
             result = this.applyAutoResponse(
@@ -285,7 +289,7 @@ export class ApertureCore {
     }
   }
 
-  getFrame(taskId: string): Frame | null {
+  getFrame(taskId: string): AttentionFrame | null {
     return this.frames.get(taskId) ?? null;
   }
 
@@ -377,7 +381,7 @@ export class ApertureCore {
     }
   }
 
-  getTaskView(taskId: string): TaskView {
+  getTaskView(taskId: string): AttentionTaskView {
     return this.taskViews.get(taskId);
   }
 
@@ -387,7 +391,7 @@ export class ApertureCore {
     });
   }
 
-  getSignals(taskId?: string): InteractionSignal[] {
+  getSignals(taskId?: string): AttentionSignal[] {
     return this.signals.list(taskId);
   }
 
@@ -400,7 +404,7 @@ export class ApertureCore {
   }
 
   snapshotMemoryProfile(now: string = new Date().toISOString()): MemoryProfile {
-    return buildMemoryProfile(this.baseMemoryProfile, this.signals.list(), now);
+    return distillMemoryProfile(this.baseMemoryProfile, this.signals.list(), now);
   }
 
   async checkpointMemory(now: string = new Date().toISOString()): Promise<MemoryProfile | null> {

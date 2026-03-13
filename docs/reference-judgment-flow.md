@@ -20,7 +20,7 @@ That loop is the product.
 
 These are the major engine questions, in order:
 
-1. **`EventEvaluator`** — what interaction does this event imply?
+1. **`EventEvaluator`** — what attention candidate does this event imply?
 2. **`AttentionAdjustments`** — what bounded in-session nudges should apply from recent signal patterns?
 3. **`EpisodeTracker`** — is this part of an existing decision episode?
 4. **`AttentionPolicy`** — what is allowed?
@@ -38,7 +38,7 @@ Imagine a new approval arrives from an agent.
 
 ### 1. Event -> Candidate
 
-[EventEvaluator](../packages/core/src/event-evaluator.ts) turns the raw event into an `InteractionCandidate`.
+[EventEvaluator](../packages/core/src/event-evaluator.ts) turns the raw event into an `AttentionCandidate`.
 
 That candidate includes things like:
 
@@ -204,7 +204,7 @@ Those summaries already influence in-session judgment through:
 
 ### 3. Signals become durable memory
 
-When Aperture checkpoints learned state, [buildMemoryProfile](../packages/core/src/memory-aggregator.ts) distills signals into compact durable memory.
+When Aperture checkpoints learned state, [distillMemoryProfile](../packages/core/src/memory-aggregator.ts) distills signals into compact durable memory.
 
 That memory currently includes:
 

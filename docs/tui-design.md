@@ -442,7 +442,7 @@ It should consume:
 
 - `AttentionView`
 - `Frame`
-- `FrameResponse`
+- `AttentionResponse`
 
 It should not:
 

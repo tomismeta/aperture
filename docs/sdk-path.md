@@ -26,9 +26,8 @@ Today, the real judgment layer already lives in [@aperture/core](../packages/cor
 - `AttentionValue`
 - `AttentionPlanner`
 - `JudgmentCoordinator`
-- `AttentionSignalStore`
-- `EpisodeTracker`
-- memory aggregation and profile persistence
+- `distillMemoryProfile`
+- profile persistence
 - trace evaluation
 
 Those pieces are live and wired in the current engine path.
@@ -97,8 +96,8 @@ They should be able to:
 
 - construct `ApertureCore`
 - publish `ApertureEvent` or `ConformedEvent`
-- receive `Frame`, `TaskView`, `AttentionView`, `Trace`
-- submit `FrameResponse`
+- receive `AttentionFrame`, `AttentionTaskView`, `AttentionView`, `ApertureTrace`
+- submit `AttentionResponse`
 - checkpoint and reload learned memory
 
 This is the easiest integration path.
@@ -113,6 +112,7 @@ They should be able to use:
 - `AttentionValue`
 - `AttentionPlanner`
 - `JudgmentCoordinator`
+- `AttentionCandidate`
 - `forecastAttentionPressure`
 - memory/profile helpers
 
@@ -129,8 +129,11 @@ Recommended exports:
 - `AttentionValue`
 - `AttentionPlanner`
 - `JudgmentCoordinator`
+- `AttentionCandidate`
+- `AttentionFrame`
+- `AttentionResponse`
 - `ProfileStore`
-- `buildMemoryProfile`
+- `distillMemoryProfile`
 - `forecastAttentionPressure`
 - `evaluateTraceSession`
 - current core event/frame/trace/profile types
@@ -153,7 +156,7 @@ The loop is:
 For SDK consumers, that means:
 
 - `ApertureCore` should continue to record interaction signals
-- `buildMemoryProfile` should remain available for distilling learned state
+- `distillMemoryProfile` should remain available for distilling learned state
 - `ProfileStore` should remain the default persistence helper
 - persistence should stay optional
 

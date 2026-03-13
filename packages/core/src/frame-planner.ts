@@ -1,4 +1,4 @@
-import type { Frame } from "./index.js";
+import type { AttentionFrame as Frame } from "./frame.js";
 
 import { scoreCandidate } from "./frame-score.js";
 import type { InteractionCandidate } from "./interaction-candidate.js";

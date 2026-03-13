@@ -1,11 +1,11 @@
 import type { AttentionState } from "./attention-state.js";
 import type { EpisodeSummary } from "./episode-tracker.js";
 import type { ApertureEvent } from "./events.js";
-import type { AttentionView, Frame, TaskView } from "./frame.js";
-import type { InteractionCandidate, InteractionPriority } from "./interaction-candidate.js";
+import type { AttentionFrame, AttentionTaskView, AttentionView } from "./frame.js";
+import type { AttentionCandidate, AttentionPriority } from "./interaction-candidate.js";
 import type { AttentionPolicyVerdict } from "./attention-policy.js";
 import type { AttentionPressure } from "./attention-pressure.js";
-import type { SignalSummary } from "./signal-summary.js";
+import type { AttentionSignalSummary } from "./signal-summary.js";
 import type { AttentionValueBreakdown } from "./attention-value.js";
 
 export type ApertureTrace =
@@ -15,13 +15,13 @@ export type ApertureTrace =
       evaluation: {
         kind: "noop";
       };
-      taskSummary: SignalSummary;
-      globalSummary: SignalSummary;
+      taskSummary: AttentionSignalSummary;
+      globalSummary: AttentionSignalSummary;
       taskAttentionState: AttentionState;
       globalAttentionState: AttentionState;
       pressureForecast: AttentionPressure;
-      current: Frame | null;
-      taskView: TaskView;
+      current: AttentionFrame | null;
+      taskView: AttentionTaskView;
       attentionView: AttentionView;
     }
   | {
@@ -31,13 +31,13 @@ export type ApertureTrace =
         kind: "clear";
         taskId: string;
       };
-      taskSummary: SignalSummary;
-      globalSummary: SignalSummary;
+      taskSummary: AttentionSignalSummary;
+      globalSummary: AttentionSignalSummary;
       taskAttentionState: AttentionState;
       globalAttentionState: AttentionState;
       pressureForecast: AttentionPressure;
-      current: Frame | null;
-      taskView: TaskView;
+      current: AttentionFrame | null;
+      taskView: AttentionTaskView;
       attentionView: AttentionView;
     }
   | {
@@ -45,8 +45,8 @@ export type ApertureTrace =
       event: ApertureEvent;
       evaluation: {
         kind: "candidate";
-        original: InteractionCandidate;
-        adjusted: InteractionCandidate;
+        original: AttentionCandidate;
+        adjusted: AttentionCandidate;
       };
       heuristics: {
         scoreOffset: number;
@@ -57,7 +57,7 @@ export type ApertureTrace =
       utility: {
         candidate: AttentionValueBreakdown;
         currentScore: number | null;
-        currentPriority: InteractionPriority | null;
+        currentPriority: AttentionPriority | null;
       };
       planner: {
         kind: "auto_approve" | "activate" | "queue" | "ambient" | "keep" | "clear";
@@ -67,16 +67,16 @@ export type ApertureTrace =
         kind: "auto_approve" | "activate" | "queue" | "ambient" | "keep" | "clear";
         candidateScore: number;
         currentScore: number | null;
-        currentPriority: InteractionPriority | null;
+        currentPriority: AttentionPriority | null;
         reasons: string[];
       };
-      taskSummary: SignalSummary;
-      globalSummary: SignalSummary;
+      taskSummary: AttentionSignalSummary;
+      globalSummary: AttentionSignalSummary;
       taskAttentionState: AttentionState;
       globalAttentionState: AttentionState;
       pressureForecast: AttentionPressure;
-      current: Frame | null;
-      taskView: TaskView;
+      current: AttentionFrame | null;
+      taskView: AttentionTaskView;
       attentionView: AttentionView;
-      result: Frame | null;
+      result: AttentionFrame | null;
     };

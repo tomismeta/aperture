@@ -6,7 +6,7 @@ In the current product shape:
 
 - `@aperture/runtime` owns the live `ApertureCore`
 - `@aperture/codex` maps Codex requests into `ConformedEvent`
-- the runtime consumes those events and emits `FrameResponse`
+- the runtime consumes those events and emits `AttentionResponse`
 - `@aperture/codex` maps those responses back into Codex response descriptors
 
 That keeps the same boundary as the other adapters:
@@ -23,7 +23,7 @@ Ingress:
 
 Egress:
 
-- `FrameResponse -> CodexClientResponse | null`
+- `AttentionResponse -> CodexClientResponse | null`
 
 This first cut is still transport-agnostic. Unlike `@aperture/claude-code`, it does not ship a real live transport yet because Codex does not expose a stable hook surface today.
 
@@ -61,7 +61,7 @@ Use `createCodexAdapter(...)` when you have a Codex-native request stream and a 
 
 - maps `CodexServerRequest -> ConformedEvent[]`
 - publishes those events into the shared runtime
-- listens for `FrameResponse`
+- listens for `AttentionResponse`
 - maps relevant responses back into `CodexClientResponse`
 
 That gives us a clean seam to swap in real Codex hooks later without rewriting the adapter logic.

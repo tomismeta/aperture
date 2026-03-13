@@ -1,30 +1,34 @@
 import type { SourceRef } from "./events.js";
 
-export type FrameMode = "status" | "approval" | "choice" | "form";
+export type AttentionFrameMode = "status" | "approval" | "choice" | "form";
+export type FrameMode = AttentionFrameMode;
 
-export type FrameTone = "ambient" | "focused" | "critical";
+export type AttentionTone = "ambient" | "focused" | "critical";
+export type FrameTone = AttentionTone;
 
-export type ConsequenceLevel = "low" | "medium" | "high";
+export type AttentionConsequenceLevel = "low" | "medium" | "high";
+export type ConsequenceLevel = AttentionConsequenceLevel;
 
-export type Frame = {
+export type AttentionFrame = {
   id: string;
   taskId: string;
   interactionId: string;
   source?: SourceRef;
   version: number;
-  mode: FrameMode;
-  tone: FrameTone;
-  consequence: ConsequenceLevel;
+  mode: AttentionFrameMode;
+  tone: AttentionTone;
+  consequence: AttentionConsequenceLevel;
   title: string;
   summary?: string;
-  context?: FrameContext;
-  responseSpec?: FrameResponseSpec;
-  provenance?: FrameProvenance;
-  timing: FrameTiming;
+  context?: AttentionContext;
+  responseSpec?: AttentionResponseSpec;
+  provenance?: AttentionProvenance;
+  timing: AttentionTiming;
   metadata?: Record<string, unknown>;
 };
+export type Frame = AttentionFrame;
 
-export type FrameContext = {
+export type AttentionContext = {
   stage?: string;
   progress?: number;
   items?: Array<{
@@ -33,56 +37,65 @@ export type FrameContext = {
     value?: string;
   }>;
 };
+export type FrameContext = AttentionContext;
 
-export type FrameResponseSpec =
-  | ApprovalResponseSpec
-  | AcknowledgeResponseSpec
-  | ChoiceResponseSpec
-  | FormResponseSpec
-  | NoResponseSpec;
+export type AttentionResponseSpec =
+  | AttentionApprovalResponseSpec
+  | AttentionAcknowledgeResponseSpec
+  | AttentionChoiceResponseSpec
+  | AttentionFormResponseSpec
+  | AttentionNoResponseSpec;
+export type FrameResponseSpec = AttentionResponseSpec;
 
-export type NoResponseSpec = {
+export type AttentionNoResponseSpec = {
   kind: "none";
 };
+export type NoResponseSpec = AttentionNoResponseSpec;
 
-export type ApprovalResponseSpec = {
+export type AttentionApprovalResponseSpec = {
   kind: "approval";
-  actions: FrameAction[];
+  actions: AttentionAction[];
   requireReason?: boolean;
 };
+export type ApprovalResponseSpec = AttentionApprovalResponseSpec;
 
-export type AcknowledgeResponseSpec = {
+export type AttentionAcknowledgeResponseSpec = {
   kind: "acknowledge";
-  actions: FrameAction[];
+  actions: AttentionAction[];
 };
+export type AcknowledgeResponseSpec = AttentionAcknowledgeResponseSpec;
 
-export type ChoiceResponseSpec = {
+export type AttentionChoiceResponseSpec = {
   kind: "choice";
   selectionMode: "single" | "multiple";
-  options: FrameOption[];
-  actions: FrameAction[];
+  options: AttentionOption[];
+  actions: AttentionAction[];
 };
+export type ChoiceResponseSpec = AttentionChoiceResponseSpec;
 
-export type FormResponseSpec = {
+export type AttentionFormResponseSpec = {
   kind: "form";
-  fields: FrameField[];
-  actions: FrameAction[];
+  fields: AttentionField[];
+  actions: AttentionAction[];
 };
+export type FormResponseSpec = AttentionFormResponseSpec;
 
-export type FrameAction = {
+export type AttentionAction = {
   id: string;
   label: string;
   kind: "submit" | "approve" | "reject" | "cancel" | "dismiss" | "acknowledge";
   emphasis: "primary" | "secondary" | "danger";
 };
+export type FrameAction = AttentionAction;
 
-export type FrameOption = {
+export type AttentionOption = {
   id: string;
   label: string;
   summary?: string;
 };
+export type FrameOption = AttentionOption;
 
-export type FrameField = {
+export type AttentionField = {
   id: string;
   label: string;
   type: "text" | "textarea" | "number" | "select" | "boolean";
@@ -91,8 +104,9 @@ export type FrameField = {
   options?: Array<{ value: string; label: string }>;
   helpText?: string;
 };
+export type FrameField = AttentionField;
 
-export type FrameProvenance = {
+export type AttentionProvenance = {
   whyNow?: string;
   factors?: string[];
   sources?: Array<{
@@ -100,21 +114,24 @@ export type FrameProvenance = {
     ref?: string;
   }>;
 };
+export type FrameProvenance = AttentionProvenance;
 
-export type FrameTiming = {
+export type AttentionTiming = {
   createdAt: string;
   updatedAt: string;
   expiresAt?: string;
 };
+export type FrameTiming = AttentionTiming;
 
-export type TaskView = {
-  active: Frame | null;
-  queued: Frame[];
-  ambient: Frame[];
+export type AttentionTaskView = {
+  active: AttentionFrame | null;
+  queued: AttentionFrame[];
+  ambient: AttentionFrame[];
 };
+export type TaskView = AttentionTaskView;
 
 export type AttentionView = {
-  active: Frame | null;
-  queued: Frame[];
-  ambient: Frame[];
+  active: AttentionFrame | null;
+  queued: AttentionFrame[];
+  ambient: AttentionFrame[];
 };

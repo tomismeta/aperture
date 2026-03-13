@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { AttentionState, AttentionView, Frame, SignalSummary } from "@aperture/core";
+import type {
+  AttentionFrame as Frame,
+  AttentionSignalSummary as SignalSummary,
+  AttentionState,
+  AttentionView,
+} from "@aperture/core";
 
 import { renderAttentionScreen } from "../src/index.js";
 

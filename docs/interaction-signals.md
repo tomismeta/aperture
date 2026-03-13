@@ -21,7 +21,7 @@ This is a core part of the engine.
 
 ## Core Thesis
 
-The explicit `FrameResponse` is only one signal.
+The explicit `AttentionResponse` is only one signal.
 
 The broader intelligence comes from:
 
@@ -68,7 +68,7 @@ Examples:
 
 Current artifacts:
 
-- `FrameResponse`
+- `AttentionResponse`
 - `InteractionSignal` with current engine signals:
   - `presented`
   - `viewed`

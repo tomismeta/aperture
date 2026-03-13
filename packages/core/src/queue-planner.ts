@@ -239,8 +239,7 @@ export class QueuePlanner {
     utility: UtilityBreakdown,
   ): Extract<PlannedDecision, { kind: "queue" | "ambient" }> {
     if (
-      utility.components.deferralAffinity > 0
-      && policyVerdict.mayInterrupt
+      (utility.components.deferralAffinity > 0 || utility.components.consequenceCalibration > 0)
       && policyVerdict.minimumPresentation !== "active"
     ) {
       return { kind: "queue", candidate };

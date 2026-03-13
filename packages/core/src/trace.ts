@@ -1,8 +1,11 @@
 import type { AttentionState } from "./attention-state.js";
+import type { EpisodeSummary } from "./episode-store.js";
 import type { ApertureEvent } from "./events.js";
 import type { AttentionView, Frame, TaskView } from "./frame.js";
 import type { InteractionCandidate, InteractionPriority } from "./interaction-candidate.js";
+import type { PolicyVerdict } from "./policy-gates.js";
 import type { SignalSummary } from "./signal-summary.js";
+import type { UtilityBreakdown } from "./utility-score.js";
 
 export type ApertureTrace =
   | {
@@ -45,6 +48,17 @@ export type ApertureTrace =
       heuristics: {
         scoreOffset: number;
         rationale: string[];
+      };
+      episode: EpisodeSummary | null;
+      policy: PolicyVerdict;
+      utility: {
+        candidate: UtilityBreakdown;
+        currentScore: number | null;
+        currentPriority: InteractionPriority | null;
+      };
+      planner: {
+        kind: "activate" | "queue" | "ambient" | "keep" | "clear";
+        reasons: string[];
       };
       coordination: {
         kind: "activate" | "queue" | "ambient" | "keep" | "clear";

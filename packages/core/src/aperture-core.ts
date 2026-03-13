@@ -12,14 +12,19 @@ import type {
 import { buildAttentionView } from "./attention-view.js";
 import { AttentionHeuristics } from "./attention-heuristics.js";
 import { deriveAttentionState, type AttentionState } from "./attention-state.js";
+import { EpisodeStore } from "./episode-store.js";
 import { EvaluationEngine } from "./evaluation-engine.js";
 import { FramePlanner } from "./frame-planner.js";
 import { InteractionCoordinator } from "./interaction-coordinator.js";
 import { InteractionSignalStore } from "./interaction-signal-store.js";
+import { loadJudgmentConfig, type JudgmentConfig } from "./judgment-config.js";
 import { normalizeConformedEvent } from "./semantic-normalizer.js";
+import { PolicyGates } from "./policy-gates.js";
+import { ProfileStore, type MemoryProfile, type UserProfile } from "./profile-store.js";
 import type { SignalSummary } from "./signal-summary.js";
 import { TaskViewStore } from "./task-view-store.js";
 import type { ApertureTrace } from "./trace.js";
+import { UtilityScore } from "./utility-score.js";
 
 type FrameListener = (frame: Frame | null) => void;
 type TaskViewListener = (taskView: TaskView) => void;
@@ -27,6 +32,12 @@ type AttentionViewListener = (attentionView: AttentionView) => void;
 type ResponseListener = (response: FrameResponse) => void;
 type SignalListener = (signal: InteractionSignal) => void;
 type TraceListener = (trace: ApertureTrace) => void;
+
+export type ApertureCoreOptions = {
+  userProfile?: UserProfile;
+  memoryProfile?: MemoryProfile;
+  judgmentConfig?: JudgmentConfig;
+};
 
 export class ApertureCore {
   private readonly frames = new Map<string, Frame>();
@@ -38,10 +49,55 @@ export class ApertureCore {
   private readonly traceListeners = new Set<TraceListener>();
   private readonly taskViews = new TaskViewStore();
   private readonly signals = new InteractionSignalStore();
+  private readonly episodes = new EpisodeStore();
   private readonly heuristics = new AttentionHeuristics();
   private readonly evaluation = new EvaluationEngine();
-  private readonly coordinator = new InteractionCoordinator();
+  private readonly coordinator: InteractionCoordinator;
   private readonly planner = new FramePlanner();
+
+  constructor(options: ApertureCoreOptions = {}) {
+    this.coordinator = new InteractionCoordinator(
+      new PolicyGates({
+        ...(options.userProfile !== undefined ? { userProfile: options.userProfile } : {}),
+        ...(options.judgmentConfig !== undefined ? { judgmentConfig: options.judgmentConfig } : {}),
+      }),
+      new UtilityScore({
+        ...(options.memoryProfile !== undefined ? { memoryProfile: options.memoryProfile } : {}),
+      }),
+      undefined,
+    );
+  }
+
+  static async fromMarkdown(rootDir: string): Promise<ApertureCore> {
+    const profileStore = new ProfileStore(rootDir);
+    const fallbackUser: UserProfile = {
+      version: 1,
+      operatorId: "default",
+      updatedAt: new Date(0).toISOString(),
+    };
+    const fallbackMemory: MemoryProfile = {
+      version: 1,
+      operatorId: "default",
+      updatedAt: new Date(0).toISOString(),
+      sessionCount: 0,
+    };
+    const fallbackJudgment: JudgmentConfig = {
+      version: 1,
+      updatedAt: new Date(0).toISOString(),
+    };
+
+    const [userProfile, memoryProfile, judgmentConfig] = await Promise.all([
+      profileStore.loadUserProfile(fallbackUser),
+      profileStore.loadMemoryProfile(fallbackMemory),
+      loadJudgmentConfig(rootDir, fallbackJudgment),
+    ]);
+
+    return new ApertureCore({
+      userProfile,
+      memoryProfile,
+      judgmentConfig,
+    });
+  }
 
   publishConformed(event: ConformedEvent): Frame | null {
     this.assertValidConformedEvent(event);
@@ -92,11 +148,11 @@ export class ApertureCore {
       case "candidate": {
         const current = this.getFrame(event.taskId);
         const currentAttentionView = this.getAttentionView();
-        const candidate = this.heuristics.apply(
+        const candidate = this.episodes.assign(this.heuristics.apply(
           evaluation.candidate,
           taskSummary,
           globalSummary,
-        );
+        ));
         const explanation = this.coordinator.explain(current, candidate, {
           attentionView: currentAttentionView,
           taskSummary,
@@ -131,6 +187,26 @@ export class ApertureCore {
           heuristics: {
             scoreOffset: candidate.attentionScoreOffset ?? 0,
             rationale: candidate.attentionRationale ?? [],
+          },
+          episode: candidate.episodeId
+            ? {
+                id: candidate.episodeId,
+                key: candidate.episodeKey ?? candidate.episodeId,
+                state: candidate.episodeState ?? "emerging",
+                size: candidate.episodeSize ?? 1,
+                lastInteractionId: candidate.interactionId,
+                updatedAt: candidate.timestamp,
+              }
+            : null,
+          policy: explanation.policy,
+          utility: {
+            candidate: explanation.utility,
+            currentScore: explanation.currentScore,
+            currentPriority: explanation.currentPriority,
+          },
+          planner: {
+            kind: explanation.decision.kind,
+            reasons: explanation.reasons,
           },
           coordination: {
             kind: explanation.decision.kind,
@@ -223,6 +299,7 @@ export class ApertureCore {
 
     const timestamp = new Date().toISOString();
     this.recordSignal(this.signalForResponse(current, response, timestamp));
+    this.episodes.resolveInteraction(response.interactionId);
 
     const previousTaskView = this.taskViews.get(response.taskId);
     this.frames.delete(response.taskId);

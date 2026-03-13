@@ -26,6 +26,10 @@ export type InteractionCandidate = {
   timestamp: string;
   attentionScoreOffset?: number;
   attentionRationale?: string[];
+  episodeId?: string;
+  episodeKey?: string;
+  episodeState?: "emerging" | "actionable" | "batched" | "waiting" | "stale" | "resolved";
+  episodeSize?: number;
 };
 
 export type ApprovalCandidate = InteractionCandidate & {

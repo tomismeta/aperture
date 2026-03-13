@@ -13,6 +13,19 @@ export class FramePlanner {
       scoreOffset: candidate.attentionScoreOffset ?? 0,
       rationale: candidate.attentionRationale ?? [],
     };
+    const currentEpisode = current?.metadata?.episode;
+    const nextEpisode =
+      candidate.episodeId
+        ? {
+            ...(currentEpisode && typeof currentEpisode === "object" ? currentEpisode : {}),
+            id: candidate.episodeId,
+            key: candidate.episodeKey,
+            state: candidate.episodeState,
+            size: candidate.episodeSize ?? 1,
+            lastInteractionId: candidate.interactionId,
+            updatedAt: candidate.timestamp,
+          }
+        : currentEpisode;
 
     return {
       id: isUpdate ? current.id : `frame:${candidate.interactionId}`,
@@ -32,6 +45,7 @@ export class FramePlanner {
       metadata: {
         ...(current?.metadata ?? {}),
         attention: nextAttention,
+        ...(nextEpisode ? { episode: nextEpisode } : {}),
       },
       ...(candidate.summary !== undefined ? { summary: candidate.summary } : {}),
       ...(candidate.context !== undefined ? { context: candidate.context } : {}),

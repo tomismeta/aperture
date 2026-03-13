@@ -1,8 +1,11 @@
 import type { AttentionView, Frame } from "./index.js";
 
-import { isBlockingFrame, priorityForFrame, scoreCandidate, scoreFrame } from "./frame-score.js";
+import { scoreFrame } from "./frame-score.js";
 import type { InteractionCandidate, InteractionPriority } from "./interaction-candidate.js";
+import { PolicyGates, type PolicyVerdict } from "./policy-gates.js";
+import { QueuePlanner } from "./queue-planner.js";
 import type { SignalSummary } from "./signal-summary.js";
+import { UtilityScore, type UtilityBreakdown } from "./utility-score.js";
 
 export type CoordinationDecision =
   | { kind: "activate"; candidate: InteractionCandidate }
@@ -13,6 +16,8 @@ export type CoordinationDecision =
 
 export type CoordinationExplanation = {
   decision: CoordinationDecision;
+  policy: PolicyVerdict;
+  utility: UtilityBreakdown;
   candidateScore: number;
   currentScore: number | null;
   currentPriority: InteractionPriority | null;
@@ -25,20 +30,21 @@ export type CoordinationContext = {
   globalSummary?: SignalSummary;
 };
 
-function shouldBeAmbient(candidate: InteractionCandidate): boolean {
-  if (candidate.priority === "background") return true;
-  if (
-    candidate.mode === "status" &&
-    !candidate.blocking &&
-    candidate.consequence !== "high" &&
-    candidate.tone !== "critical"
-  ) {
-    return true;
-  }
-  return false;
-}
-
 export class InteractionCoordinator {
+  private readonly policyGates: PolicyGates;
+  private readonly utilityScore: UtilityScore;
+  private readonly queuePlanner: QueuePlanner;
+
+  constructor(
+    policyGates: PolicyGates = new PolicyGates(),
+    utilityScore: UtilityScore = new UtilityScore(),
+    queuePlanner: QueuePlanner = new QueuePlanner(),
+  ) {
+    this.policyGates = policyGates;
+    this.utilityScore = utilityScore;
+    this.queuePlanner = queuePlanner;
+  }
+
   coordinate(
     current: Frame | null,
     candidate: InteractionCandidate,
@@ -52,220 +58,29 @@ export class InteractionCoordinator {
     candidate: InteractionCandidate,
     context: CoordinationContext = {},
   ): CoordinationExplanation {
-    const reasons: string[] = [];
-    const candidateScore = scoreCandidate(candidate);
-
-    if (!current) {
-      return {
-        decision: { kind: "activate", candidate },
-        candidateScore,
-        currentScore: null,
-        currentPriority: null,
-        reasons,
-      };
-    }
-
-    if (current.interactionId === candidate.interactionId) {
-      reasons.push("same interaction refreshes the existing frame");
-      return {
-        decision: { kind: "activate", candidate },
-        candidateScore,
-        currentScore: null,
-        currentPriority: null,
-        reasons,
-      };
-    }
-
-    const currentBlocking = isBlockingFrame(current);
-    if (currentBlocking && !candidate.blocking) {
-      reasons.push("blocking work keeps non-blocking updates in the periphery");
-      return {
-        decision:
-          shouldBeAmbient(candidate)
-            ? { kind: "ambient", candidate }
-            : { kind: "queue", candidate },
-        candidateScore,
-        currentScore: null,
-        currentPriority: null,
-        reasons,
-      };
-    }
-
-    if (!currentBlocking && candidate.blocking) {
-      reasons.push("blocking work interrupts non-blocking activity");
-      return {
-        decision: { kind: "activate", candidate },
-        candidateScore,
-        currentScore: null,
-        currentPriority: null,
-        reasons,
-      };
-    }
-
-    const currentPriority = priorityForFrame(current);
-    const currentScore = scoreFrame(current, { now: candidate.timestamp });
-
-    if (this.shouldDampenBurst(current, candidate)) {
-      reasons.push("rapid successive updates from the same task stay bundled instead of stealing focus");
-      return {
-        decision:
-          shouldBeAmbient(candidate)
-            ? { kind: "ambient", candidate }
-            : { kind: "queue", candidate },
-        candidateScore,
-        currentScore,
-        currentPriority,
-        reasons,
-      };
-    }
-
-    if (this.shouldSuppressForBacklog(candidate, context.attentionView, candidate.timestamp)) {
-      reasons.push("existing urgent backlog keeps lower-value status work queued");
-      return {
-        decision:
-          shouldBeAmbient(candidate)
-            ? { kind: "ambient", candidate }
-            : { kind: "queue", candidate },
-        candidateScore,
-        currentScore,
-        currentPriority,
-        reasons,
-      };
-    }
-
-    if (this.shouldEscalateDeferredTask(current, candidate, candidateScore, currentScore, context.taskSummary)) {
-      reasons.push("repeated deferral makes this task more deserving of current focus");
-      return {
-        decision: { kind: "activate", candidate },
-        candidateScore,
-        currentScore,
-        currentPriority,
-        reasons,
-      };
-    }
-
-    if (candidateScore < currentScore) {
-      reasons.push("current work still outranks the new candidate");
-      return {
-        decision:
-          shouldBeAmbient(candidate)
-            ? { kind: "ambient", candidate }
-            : { kind: "queue", candidate },
-        candidateScore,
-        currentScore,
-        currentPriority,
-        reasons,
-      };
-    }
-
-    if (candidateScore === currentScore) {
-      const candidateTimestamp = Date.parse(candidate.timestamp);
-      const currentTimestamp = Date.parse(current.timing.updatedAt);
-      if (!Number.isNaN(candidateTimestamp) && !Number.isNaN(currentTimestamp) && candidateTimestamp < currentTimestamp) {
-        reasons.push("older work yields when scores tie");
-        return {
-          decision:
-            candidate.priority === "background"
-              ? { kind: "ambient", candidate }
-              : { kind: "queue", candidate },
-          candidateScore,
-          currentScore,
-          currentPriority,
-          reasons,
-        };
-      }
-    }
-
-    reasons.push("new work outranks the current frame");
-    return {
-      decision: { kind: "activate", candidate },
-      candidateScore,
+    const policy = this.policyGates.evaluate(candidate);
+    const utility = this.utilityScore.scoreCandidate(candidate);
+    const currentScore = current ? scoreFrame(current, { now: candidate.timestamp }) : null;
+    const planning = this.queuePlanner.explain(current, candidate, {
+      attentionView: context.attentionView,
+      taskSummary: context.taskSummary,
+      policyVerdict: policy,
+      candidateScore: utility.total,
       currentScore,
-      currentPriority,
-      reasons,
+    });
+
+    return {
+      decision: planning.decision,
+      policy,
+      utility,
+      candidateScore: utility.total,
+      currentScore: planning.currentScore,
+      currentPriority: planning.currentPriority,
+      reasons: planning.reasons,
     };
   }
 
   clear(): CoordinationDecision {
-    return { kind: "clear" };
-  }
-
-  private shouldSuppressForBacklog(
-    candidate: InteractionCandidate,
-    attentionView: AttentionView | undefined,
-    now: string,
-  ): boolean {
-    if (candidate.blocking || candidate.consequence === "high" || candidate.tone === "critical") {
-      return false;
-    }
-
-    if (!attentionView) {
-      return false;
-    }
-
-    const urgentBacklog = [attentionView.active, ...attentionView.queued]
-      .filter((frame): frame is Frame => frame !== null)
-      .filter((frame) => {
-        if (frame.interactionId === candidate.interactionId) {
-          return false;
-        }
-        return isBlockingFrame(frame) || frame.consequence === "high" || frame.tone === "critical";
-      })
-      .filter((frame) => {
-        const ageMs = Date.parse(now) - Date.parse(frame.timing.updatedAt);
-        return Number.isNaN(ageMs) ? true : ageMs <= 90_000;
-      }).length;
-
-    return urgentBacklog >= 2;
-  }
-
-  private shouldEscalateDeferredTask(
-    current: Frame,
-    candidate: InteractionCandidate,
-    candidateScore: number,
-    currentScore: number,
-    taskSummary: SignalSummary | undefined,
-  ): boolean {
-    if (candidate.blocking || candidate.priority === "background") {
-      return false;
-    }
-
-    if (isBlockingFrame(current)) {
-      return false;
-    }
-
-    if (!taskSummary) {
-      return false;
-    }
-
-    const repeatedlyDeferred = taskSummary.counts.deferred >= 3;
-    const repeatedlyReturned = taskSummary.counts.returned >= 2;
-
-    if (!repeatedlyDeferred && !repeatedlyReturned) {
-      return false;
-    }
-
-    return candidateScore >= currentScore - 10;
-  }
-
-  private shouldDampenBurst(current: Frame, candidate: InteractionCandidate): boolean {
-    if (
-      current.taskId !== candidate.taskId ||
-      current.mode !== "status" ||
-      candidate.mode !== "status" ||
-      candidate.blocking ||
-      candidate.consequence === "high" ||
-      candidate.tone === "critical"
-    ) {
-      return false;
-    }
-
-    const currentTimestamp = Date.parse(current.timing.updatedAt);
-    const candidateTimestamp = Date.parse(candidate.timestamp);
-    if (Number.isNaN(currentTimestamp) || Number.isNaN(candidateTimestamp)) {
-      return false;
-    }
-
-    return candidateTimestamp - currentTimestamp <= 60_000;
+    return this.queuePlanner.clear();
   }
 }

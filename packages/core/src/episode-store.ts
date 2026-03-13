@@ -8,12 +8,17 @@ export type EpisodeSummary = {
   key: string;
   state: EpisodeState;
   size: number;
+  evidenceScore: number;
+  evidenceReasons: string[];
   lastInteractionId: string;
   updatedAt: string;
 };
 
 type EpisodeRecord = EpisodeSummary & {
   interactions: Set<string>;
+  modes: Set<InteractionCandidate["mode"]>;
+  highSignals: number;
+  blockingSignals: number;
 };
 
 export class EpisodeStore {
@@ -32,7 +37,17 @@ export class EpisodeStore {
     record.lastInteractionId = candidate.interactionId;
     record.updatedAt = candidate.timestamp;
     record.size = record.interactions.size;
-    record.state = nextEpisodeState(record.state, candidate, record.size);
+    record.modes.add(candidate.mode);
+    if (candidate.blocking) {
+      record.blockingSignals += 1;
+    }
+    if (candidate.consequence === "high" || candidate.tone === "critical") {
+      record.highSignals += 1;
+    }
+    const evidence = measureEpisodeEvidence(record, candidate);
+    record.evidenceScore = evidence.score;
+    record.evidenceReasons = evidence.reasons;
+    record.state = nextEpisodeState(record.state, candidate, record, evidence.score);
 
     this.byKey.set(record.key, record);
     this.byInteractionId.set(candidate.interactionId, record.id);
@@ -43,6 +58,8 @@ export class EpisodeStore {
       episodeKey: record.key,
       episodeState: record.state,
       episodeSize: record.size,
+      episodeEvidenceScore: record.evidenceScore,
+      episodeEvidenceReasons: [...record.evidenceReasons],
     };
   }
 
@@ -75,6 +92,8 @@ export class EpisodeStore {
     const key = readString(metadata, "key");
     const state = readState(metadata, "state");
     const size = readNumber(metadata, "size");
+    const evidenceScore = readNumber(metadata, "evidenceScore") ?? 0;
+    const evidenceReasons = readStringList(metadata, "evidenceReasons");
     const lastInteractionId = readString(metadata, "lastInteractionId");
     const updatedAt = readString(metadata, "updatedAt");
 
@@ -82,7 +101,7 @@ export class EpisodeStore {
       return null;
     }
 
-    return { id, key, state, size, lastInteractionId, updatedAt };
+    return { id, key, state, size, evidenceScore, evidenceReasons, lastInteractionId, updatedAt };
   }
 
   private createRecord(key: string, candidate: InteractionCandidate): EpisodeRecord {
@@ -91,9 +110,16 @@ export class EpisodeStore {
       key,
       state: candidate.blocking ? "actionable" : "emerging",
       size: 0,
+      evidenceScore: candidate.blocking ? 4 : 0,
+      evidenceReasons: candidate.blocking
+        ? ["operator-facing work makes this episode immediately actionable"]
+        : [],
       lastInteractionId: candidate.interactionId,
       updatedAt: candidate.timestamp,
       interactions: new Set<string>(),
+      modes: new Set([candidate.mode]),
+      highSignals: candidate.consequence === "high" || candidate.tone === "critical" ? 1 : 0,
+      blockingSignals: candidate.blocking ? 1 : 0,
     };
   }
 
@@ -148,8 +174,17 @@ function episodeAnchor(candidate: InteractionCandidate): string {
   return candidate.taskId;
 }
 
-function nextEpisodeState(current: EpisodeState, candidate: InteractionCandidate, size: number): EpisodeState {
+function nextEpisodeState(
+  current: EpisodeState,
+  candidate: InteractionCandidate,
+  record: EpisodeRecord,
+  evidenceScore: number,
+): EpisodeState {
   if (candidate.blocking) {
+    return "actionable";
+  }
+
+  if (evidenceScore >= 4) {
     return "actionable";
   }
 
@@ -157,11 +192,51 @@ function nextEpisodeState(current: EpisodeState, candidate: InteractionCandidate
     return "waiting";
   }
 
-  if (size >= 2) {
+  if (record.size >= 2) {
     return "batched";
   }
 
   return "emerging";
+}
+
+function measureEpisodeEvidence(
+  record: EpisodeRecord,
+  candidate: InteractionCandidate,
+): { score: number; reasons: string[] } {
+  let score = 0;
+  const reasons: string[] = [];
+
+  if (candidate.blocking) {
+    score += 4;
+    reasons.push("operator-facing work makes this episode immediately actionable");
+  }
+
+  if (record.size >= 2) {
+    score += 1;
+    reasons.push("multiple related interactions have accumulated in this episode");
+  }
+
+  if (record.size >= 3) {
+    score += 1;
+    reasons.push("the same episode keeps recurring without resolution");
+  }
+
+  if (record.highSignals >= 1) {
+    score += 2;
+    reasons.push("at least one related interaction carried high consequence or critical tone");
+  }
+
+  if (record.modes.size >= 2) {
+    score += 1;
+    reasons.push("related work has spread across multiple interaction modes");
+  }
+
+  if (record.highSignals >= 1 && record.size >= 2) {
+    score += 1;
+    reasons.push("high-signal evidence is stacking up across the episode");
+  }
+
+  return { score, reasons };
 }
 
 function normalizeEpisodePart(value: string): string {
@@ -204,4 +279,17 @@ function readState(value: unknown, key: string): EpisodeState | null {
     default:
       return null;
   }
+}
+
+function readStringList(value: unknown, key: string): string[] {
+  if (!value || typeof value !== "object" || !(key in value)) {
+    return [];
+  }
+
+  const candidate = (value as Record<string, unknown>)[key];
+  if (!Array.isArray(candidate)) {
+    return [];
+  }
+
+  return candidate.filter((entry): entry is string => typeof entry === "string" && entry.length > 0);
 }

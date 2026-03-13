@@ -13,3 +13,5 @@ export type * from "./profile-store.js";
 export type * from "./pressure-forecast.js";
 export type { DeferredCounts, SignalCounts, SignalSummary } from "./signal-summary.js";
 export type * from "./trace.js";
+export { evaluateTraceSession } from "./trace-evaluator.js";
+export type { TraceEvaluationReport } from "./trace-evaluator.js";

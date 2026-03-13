@@ -31,6 +31,8 @@ export type InteractionCandidate = {
   episodeKey?: string;
   episodeState?: "emerging" | "actionable" | "batched" | "waiting" | "stale" | "resolved";
   episodeSize?: number;
+  episodeEvidenceScore?: number;
+  episodeEvidenceReasons?: string[];
 };
 
 export type ApprovalCandidate = InteractionCandidate & {

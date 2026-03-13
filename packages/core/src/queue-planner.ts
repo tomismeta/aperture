@@ -19,6 +19,8 @@ const RETURNED_ESCALATION_THRESHOLD = 2;
 const ESCALATION_SCORE_SLACK = 10;
 const HIGH_CONTEXT_QUEUE_MARGIN = 8;
 const MEDIUM_CONTEXT_QUEUE_MARGIN = 4;
+const ACTIONABLE_EPISODE_EVIDENCE_THRESHOLD = 4;
+const ACTIONABLE_EPISODE_SCORE_SLACK = 15;
 
 export type PlannedDecision =
   | { kind: "activate"; candidate: InteractionCandidate }
@@ -61,22 +63,53 @@ export class QueuePlanner {
     context: QueuePlanningContext,
   ): PlanningExplanation {
     const reasons: string[] = [];
+    const actionableEpisode = this.isActionableEpisode(candidate);
 
     if (!current) {
-      if (this.shouldPreemptForPressure(candidate, context.policyVerdict, context.pressureForecast)) {
-        reasons.push("predicted overload keeps lower-value work peripheral before the queue spikes");
+      if (this.shouldBatchVisibleEpisode(candidate, context.attentionView)) {
+        reasons.push("related episode work is already visible, so this interaction batches with it instead of interrupting");
         return {
-          decision: this.suppressedDecision(candidate, context.policyVerdict, context.utility),
+          decision: this.batchedDecision(candidate, context.policyVerdict, context.attentionView),
           currentPriority: null,
           currentScore: null,
           reasons,
         };
       }
 
-      if (this.shouldBatchVisibleEpisode(candidate, context.attentionView)) {
-        reasons.push("related episode work is already visible, so this interaction batches with it instead of interrupting");
+      if (actionableEpisode) {
+        if (context.pressureForecast.overloadRisk === "high") {
+          reasons.push("the episode has become actionable, but predicted overload keeps it queued instead of interrupting");
+          return {
+            decision: { kind: "queue", candidate },
+            currentPriority: null,
+            currentScore: null,
+            reasons,
+          };
+        }
+
+        if (context.policyVerdict.mayInterrupt) {
+          reasons.push("the episode has accumulated enough evidence to deserve interruptive attention");
+          return {
+            decision: { kind: "activate", candidate },
+            currentPriority: null,
+            currentScore: null,
+            reasons,
+          };
+        }
+
+        reasons.push("the episode has become actionable, so it stays visible even though policy still prevents interrupting");
         return {
-          decision: this.batchedDecision(candidate, context.policyVerdict, context.attentionView),
+          decision: { kind: "queue", candidate },
+          currentPriority: null,
+          currentScore: null,
+          reasons,
+        };
+      }
+
+      if (this.shouldPreemptForPressure(candidate, context.policyVerdict, context.pressureForecast)) {
+        reasons.push("predicted overload keeps lower-value work peripheral before the queue spikes");
+        return {
+          decision: this.suppressedDecision(candidate, context.policyVerdict, context.utility),
           currentPriority: null,
           currentScore: null,
           reasons,
@@ -140,6 +173,53 @@ export class QueuePlanner {
         decision: this.peripheralDecision(candidate, context.policyVerdict),
         currentPriority: null,
         currentScore: null,
+        reasons,
+      };
+    }
+
+    if (actionableEpisode) {
+      if (currentBlocking || context.pressureForecast.overloadRisk === "high") {
+        reasons.push(
+          currentBlocking
+            ? "the episode has become actionable, but current blocking work keeps it queued"
+            : "the episode has become actionable, but predicted overload keeps it queued",
+        );
+        return {
+          decision: { kind: "queue", candidate },
+          currentPriority: priorityForFrame(current),
+          currentScore: context.currentScore,
+          reasons,
+        };
+      }
+
+      if (
+        context.currentScore !== null
+        && context.candidateScore < context.currentScore - ACTIONABLE_EPISODE_SCORE_SLACK
+      ) {
+        reasons.push("actionable episode evidence keeps this work visible even though the current frame is still stronger");
+        return {
+          decision: { kind: "queue", candidate },
+          currentPriority: priorityForFrame(current),
+          currentScore: context.currentScore,
+          reasons,
+        };
+      }
+
+      if (context.policyVerdict.mayInterrupt) {
+        reasons.push("the episode has accumulated enough evidence to compete for current focus");
+        return {
+          decision: { kind: "activate", candidate },
+          currentPriority: priorityForFrame(current),
+          currentScore: context.currentScore,
+          reasons,
+        };
+      }
+
+      reasons.push("the episode has become actionable, so it stays queued even though policy still prevents interrupting");
+      return {
+        decision: { kind: "queue", candidate },
+        currentPriority: priorityForFrame(current),
+        currentScore: context.currentScore,
         reasons,
       };
     }
@@ -484,5 +564,13 @@ export class QueuePlanner {
     }
 
     return candidateTimestamp - currentTimestamp <= STATUS_BURST_WINDOW_MS;
+  }
+
+  private isActionableEpisode(candidate: InteractionCandidate): boolean {
+    return (
+      !candidate.blocking
+      && candidate.episodeState === "actionable"
+      && (candidate.episodeEvidenceScore ?? 0) >= ACTIONABLE_EPISODE_EVIDENCE_THRESHOLD
+    );
   }
 }

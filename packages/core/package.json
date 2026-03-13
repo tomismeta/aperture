@@ -1,7 +1,7 @@
 {
   "name": "@aperture/core",
   "version": "0.1.0",
-  "description": "Deterministic, self-learning attention judgment for agent systems.",
+  "description": "Deterministic, self-tuning attention judgment for agent systems.",
   "license": "MIT",
   "homepage": "https://github.com/tomismeta/aperture#readme",
   "repository": {

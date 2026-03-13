@@ -1,6 +1,6 @@
 # `@aperture/core`
 
-Deterministic, self-learning attention judgment for agent systems.
+Deterministic, self-tuning attention judgment for agent systems.
 
 `@aperture/core` is the SDK substrate behind Aperture. It contains the judgment engine, the learning loop, and the stable types needed to embed Aperture inside another runtime without depending on the local host or TUI.
 

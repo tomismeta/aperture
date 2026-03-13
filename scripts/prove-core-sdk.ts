@@ -16,11 +16,11 @@ const coreDir = join(repoRoot, "packages", "core");
 const examples: Example[] = [
   {
     name: "core-full-engine",
-    entrypoint: join(repoRoot, "examples", "core-full-engine", "index.mjs"),
+    entrypoint: join(repoRoot, "examples", "core-full-engine", "index.ts"),
   },
   {
     name: "core-judgment-primitives",
-    entrypoint: join(repoRoot, "examples", "core-judgment-primitives", "index.mjs"),
+    entrypoint: join(repoRoot, "examples", "core-judgment-primitives", "index.ts"),
   },
 ];
 
@@ -113,7 +113,7 @@ async function main(): Promise<void> {
     for (const example of examples) {
       const exampleDir = join(tempRoot, example.name);
       await mkdir(exampleDir, { recursive: true });
-      await cp(example.entrypoint, join(exampleDir, "index.mjs"));
+      await cp(example.entrypoint, join(exampleDir, "index.ts"));
       await writeFile(
         join(exampleDir, "package.json"),
         `${JSON.stringify({
@@ -123,12 +123,15 @@ async function main(): Promise<void> {
           dependencies: {
             "@aperture/core": `file:${tarballPath}`,
           },
+          devDependencies: {
+            tsx: "^4.20.5",
+          },
         }, null, 2)}\n`,
         "utf8",
       );
 
       run("pnpm", ["install", "--offline"], exampleDir);
-      run("node", ["index.mjs"], exampleDir);
+      run("pnpm", ["exec", "tsx", "index.ts"], exampleDir);
     }
   } finally {
     await rm(tempRoot, { recursive: true, force: true });

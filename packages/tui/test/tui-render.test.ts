@@ -55,7 +55,7 @@ test("renderAttentionScreen shows active, queued, and ambient summaries", () => 
   const screen = renderAttentionScreen(attentionView, { title: "Aperture TUI" });
 
   assert.match(screen, /APERTURE/);
-  assert.match(screen, /human attention engine/);
+  assert.match(screen, /human attention control plane/);
   assert.match(screen, /active 1/);
   assert.match(screen, /queued 1/);
   assert.match(screen, /ambient 1/);

@@ -1,6 +1,6 @@
 # Aperture
 
-Aperture is a human attention engine for agent systems.
+Aperture is the human attention control plane for agent systems.
 
 It sits between many possible event sources and one human decision surface, then decides:
 
@@ -22,7 +22,7 @@ Under the hood, Aperture already includes:
 
 ## What Aperture Is
 
-Aperture is an engine-first TypeScript workspace for protecting human attention in agent-heavy workflows.
+Aperture is an engine-first TypeScript workspace for allocating and protecting human attention in agent-heavy workflows.
 
 It is not:
 

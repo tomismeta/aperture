@@ -646,7 +646,8 @@ function horizontalRule(color: boolean): string {
 }
 
 function clearScreen(): string {
-  return "\u001B[?25l\u001B[?1049h\u001B[2J\u001B[H";
+  process.title = "Aperture";
+  return "\u001B]0;Aperture\u0007\u001B[?25l\u001B[?1049h\u001B[2J\u001B[H";
 }
 
 function restoreScreen(): string {
@@ -846,7 +847,7 @@ function renderMasthead(_title: string, color: boolean, _tone: Frame["tone"]): s
   return [
     "",
     `  ${styleAccent("/·\\", color)}  ${styleBrand("APERTURE", color)}`,
-    `  ${styleAccent("\\·/", color)}  ${styleDeepMuted("The human attention engine for multi-agent systems.", color)}`,
+    `  ${styleAccent("\\·/", color)}  ${styleDeepMuted("The human attention control plane for agent systems.", color)}`,
     "",
   ];
 }

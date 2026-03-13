@@ -24,6 +24,10 @@ Not in:
 
 Aperture should be positioned as:
 
+**the human attention control plane for agent systems**
+
+More specifically:
+
 **the engine that learns how this human spends attention and protects it**
 
 Not as:

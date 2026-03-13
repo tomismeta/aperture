@@ -6,7 +6,7 @@ The goal is not broad feature coverage. The goal is a focused repo that clearly 
 
 ## What Must Be True
 
-- the repo tells one story: `Aperture = engine-first human attention engine`
+- the repo tells one story: `Aperture = the human attention control plane for agent systems`
 - the public package surface is clean and intentionally small
 - `@aperture/core` remains adapter-agnostic
 - adapters remain translation-only layers

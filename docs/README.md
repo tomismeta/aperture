@@ -30,7 +30,7 @@ Reference docs:
 
 Everything in this set matches the current engine-first product:
 
-- a judgment engine in `@aperture/core`
+- a human attention control plane in `@aperture/core`
 - a shared local host in `@aperture/runtime`
 - Claude Code as the current live adapter path
 - Codex and Paperclip as additional adapters with different transport maturity

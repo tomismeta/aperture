@@ -6,6 +6,9 @@ import type { Frame } from "../src/index.js";
 import { InteractionCoordinator } from "../src/interaction-coordinator.js";
 import type { InteractionCandidate } from "../src/interaction-candidate.js";
 import type { AttentionView } from "../src/frame.js";
+import { PolicyGates } from "../src/policy-gates.js";
+import { QueuePlanner } from "../src/queue-planner.js";
+import { UtilityScore } from "../src/utility-score.js";
 
 const coordinator = new InteractionCoordinator();
 
@@ -274,4 +277,139 @@ test("escalates repeatedly deferred status when scores are otherwise tied", () =
   );
 
   assert.equal(decision.kind, "activate");
+});
+
+test("queues context-heavy work until it clearly outranks current work", () => {
+  const contextAwareCoordinator = new InteractionCoordinator(
+    new PolicyGates(),
+    new UtilityScore({
+      memoryProfile: {
+        version: 1,
+        operatorId: "default",
+        updatedAt: "2026-03-12T10:15:00.000Z",
+        sessionCount: 1,
+        toolFamilies: {
+          bash: {
+            presentations: 5,
+            responses: 3,
+            dismissals: 0,
+            contextExpansionRate: 0.7,
+          },
+        },
+      },
+    }),
+    new QueuePlanner(),
+  );
+
+  const decision = contextAwareCoordinator.coordinate(
+    createFrame({
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      responseSpec: { kind: "none" },
+      timing: {
+        createdAt: "2026-03-08T12:00:00.000Z",
+        updatedAt: "2026-03-08T12:00:00.000Z",
+      },
+    }),
+    createCandidate({
+      mode: "approval",
+      toolFamily: "bash",
+      title: "Run deployment cleanup",
+      summary: "Shell command will remove stale build artifacts",
+      consequence: "medium",
+      priority: "normal",
+      blocking: false,
+      responseSpec: { kind: "none" },
+    }),
+  );
+
+  assert.equal(decision.kind, "queue");
+});
+
+test("keeps deferred-returning work queued during pressure instead of ambient", () => {
+  const memoryAwareCoordinator = new InteractionCoordinator(
+    new PolicyGates(),
+    new UtilityScore({
+      memoryProfile: {
+        version: 1,
+        operatorId: "default",
+        updatedAt: "2026-03-12T10:15:00.000Z",
+        sessionCount: 1,
+        toolFamilies: {
+          bash: {
+            presentations: 5,
+            responses: 3,
+            dismissals: 0,
+            returnAfterDeferralRate: 0.8,
+          },
+        },
+      },
+    }),
+    new QueuePlanner(),
+  );
+
+  const decision = memoryAwareCoordinator.coordinate(
+    createFrame({
+      taskId: "task:current",
+      interactionId: "interaction:current",
+      mode: "status",
+      tone: "critical",
+      consequence: "high",
+      responseSpec: { kind: "none" },
+    }),
+    createCandidate({
+      taskId: "task:incoming",
+      interactionId: "interaction:incoming",
+      toolFamily: "bash",
+      title: "Run deploy command",
+      summary: "Operator usually comes back to these after deferring",
+      mode: "approval",
+      tone: "focused",
+      consequence: "medium",
+      priority: "normal",
+      blocking: false,
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+      timestamp: "2026-03-08T12:01:00.000Z",
+    }),
+    {
+      attentionView: {
+        active: createFrame({
+          taskId: "task:critical:1",
+          interactionId: "interaction:critical:1",
+          mode: "status",
+          tone: "critical",
+          consequence: "high",
+          responseSpec: { kind: "none" },
+          timing: {
+            createdAt: "2026-03-08T12:00:20.000Z",
+            updatedAt: "2026-03-08T12:00:20.000Z",
+          },
+        }),
+        queued: [
+          createFrame({
+            taskId: "task:critical:2",
+            interactionId: "interaction:critical:2",
+            mode: "status",
+            tone: "critical",
+            consequence: "high",
+            responseSpec: { kind: "none" },
+            timing: {
+              createdAt: "2026-03-08T12:00:30.000Z",
+              updatedAt: "2026-03-08T12:00:30.000Z",
+            },
+          }),
+        ],
+        ambient: [],
+      } satisfies AttentionView,
+    },
+  );
+
+  assert.equal(decision.kind, "queue");
 });

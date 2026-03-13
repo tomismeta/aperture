@@ -6,6 +6,7 @@ import type { InteractionCandidate, InteractionPriority } from "./interaction-ca
 import type { PlannerDefaults } from "./judgment-config.js";
 import type { PolicyVerdict } from "./policy-gates.js";
 import type { SignalSummary } from "./signal-summary.js";
+import type { UtilityBreakdown } from "./utility-score.js";
 
 // These thresholds are intentionally conservative for v1 so reviewable policy
 // still dominates. We can move them into JUDGMENT.md once real usage shows
@@ -15,6 +16,8 @@ const URGENT_BACKLOG_WINDOW_MS = 90_000;
 const DEFERRED_ESCALATION_THRESHOLD = 3;
 const RETURNED_ESCALATION_THRESHOLD = 2;
 const ESCALATION_SCORE_SLACK = 10;
+const HIGH_CONTEXT_QUEUE_MARGIN = 8;
+const MEDIUM_CONTEXT_QUEUE_MARGIN = 4;
 
 export type PlannedDecision =
   | { kind: "activate"; candidate: InteractionCandidate }
@@ -34,6 +37,7 @@ export type QueuePlanningContext = {
   attentionView: AttentionView | undefined;
   taskSummary: SignalSummary | undefined;
   policyVerdict: PolicyVerdict;
+  utility: UtilityBreakdown;
   candidateScore: number;
   currentScore: number | null;
 };
@@ -142,9 +146,13 @@ export class QueuePlanner {
     }
 
     if (this.shouldSuppressForBacklog(candidate, context.attentionView, candidate.timestamp)) {
-      reasons.push("existing urgent backlog keeps lower-value status work queued");
+      reasons.push(
+        context.utility.components.deferralAffinity > 0
+          ? "existing urgent backlog defers this work, but memory keeps it queued because it usually returns after deferral"
+          : "existing urgent backlog keeps lower-value status work queued",
+      );
       return {
-        decision: this.peripheralDecision(candidate, context.policyVerdict),
+        decision: this.suppressedDecision(candidate, context.policyVerdict, context.utility),
         currentPriority,
         currentScore,
         reasons,
@@ -158,6 +166,19 @@ export class QueuePlanner {
       reasons.push("repeated deferral makes this task more deserving of current focus");
       return {
         decision: { kind: "activate", candidate },
+        currentPriority,
+        currentScore,
+        reasons,
+      };
+    }
+
+    if (
+      currentScore !== null
+      && this.shouldWaitForContext(current, candidate, context.utility, context.candidateScore, currentScore)
+    ) {
+      reasons.push("memory suggests this interaction usually needs context, so it stays peripheral until it clearly outranks current work");
+      return {
+        decision: this.peripheralDecision(candidate, context.policyVerdict),
         currentPriority,
         currentScore,
         reasons,
@@ -210,6 +231,22 @@ export class QueuePlanner {
     }
 
     return { kind: "queue", candidate };
+  }
+
+  private suppressedDecision(
+    candidate: InteractionCandidate,
+    policyVerdict: PolicyVerdict,
+    utility: UtilityBreakdown,
+  ): Extract<PlannedDecision, { kind: "queue" | "ambient" }> {
+    if (
+      utility.components.deferralAffinity > 0
+      && policyVerdict.mayInterrupt
+      && policyVerdict.minimumPresentation !== "active"
+    ) {
+      return { kind: "queue", candidate };
+    }
+
+    return this.peripheralDecision(candidate, policyVerdict);
   }
 
   private shouldSuppressForBacklog(
@@ -282,6 +319,36 @@ export class QueuePlanner {
     }
 
     return candidateScore >= currentScore - ESCALATION_SCORE_SLACK;
+  }
+
+  private shouldWaitForContext(
+    current: Frame,
+    candidate: InteractionCandidate,
+    utility: UtilityBreakdown,
+    candidateScore: number,
+    currentScore: number,
+  ): boolean {
+    if (candidate.blocking || isBlockingFrame(current)) {
+      return false;
+    }
+
+    if (candidate.consequence === "high" || candidate.tone === "critical") {
+      return false;
+    }
+
+    if (candidateScore <= currentScore) {
+      return false;
+    }
+
+    if (utility.components.contextCost <= -6) {
+      return candidateScore < currentScore + HIGH_CONTEXT_QUEUE_MARGIN;
+    }
+
+    if (utility.components.contextCost <= -3) {
+      return candidateScore < currentScore + MEDIUM_CONTEXT_QUEUE_MARGIN;
+    }
+
+    return false;
   }
 
   private shouldDampenBurst(current: Frame, candidate: InteractionCandidate): boolean {

@@ -13,6 +13,7 @@ export type InteractionCandidate = {
   taskId: string;
   interactionId: string;
   source?: SourceRef;
+  toolFamily?: string;
   mode: Frame["mode"];
   tone: Frame["tone"];
   consequence: Frame["consequence"];
@@ -26,6 +27,10 @@ export type InteractionCandidate = {
   timestamp: string;
   attentionScoreOffset?: number;
   attentionRationale?: string[];
+  episodeId?: string;
+  episodeKey?: string;
+  episodeState?: "emerging" | "actionable" | "batched" | "waiting" | "stale" | "resolved";
+  episodeSize?: number;
 };
 
 export type ApprovalCandidate = InteractionCandidate & {

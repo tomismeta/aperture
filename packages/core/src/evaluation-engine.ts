@@ -103,6 +103,7 @@ export class EvaluationEngine {
       taskId: event.taskId,
       interactionId: event.interactionId,
       ...(event.source !== undefined ? { source: event.source } : {}),
+      ...(event.toolFamily !== undefined ? { toolFamily: event.toolFamily } : {}),
       mode: event.request.kind,
       tone: event.tone ?? "focused",
       consequence: event.consequence ?? "medium",

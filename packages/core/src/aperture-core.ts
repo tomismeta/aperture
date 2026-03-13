@@ -12,14 +12,21 @@ import type {
 import { buildAttentionView } from "./attention-view.js";
 import { AttentionHeuristics } from "./attention-heuristics.js";
 import { deriveAttentionState, type AttentionState } from "./attention-state.js";
+import { EpisodeStore } from "./episode-store.js";
 import { EvaluationEngine } from "./evaluation-engine.js";
 import { FramePlanner } from "./frame-planner.js";
 import { InteractionCoordinator } from "./interaction-coordinator.js";
+import { inferToolFamily, sourceKey } from "./interaction-taxonomy.js";
 import { InteractionSignalStore } from "./interaction-signal-store.js";
+import { loadJudgmentConfig, type JudgmentConfig } from "./judgment-config.js";
 import { normalizeConformedEvent } from "./semantic-normalizer.js";
+import { PolicyGates } from "./policy-gates.js";
+import { ProfileStore, type MemoryProfile, type UserProfile } from "./profile-store.js";
+import { QueuePlanner } from "./queue-planner.js";
 import type { SignalSummary } from "./signal-summary.js";
 import { TaskViewStore } from "./task-view-store.js";
 import type { ApertureTrace } from "./trace.js";
+import { UtilityScore } from "./utility-score.js";
 
 type FrameListener = (frame: Frame | null) => void;
 type TaskViewListener = (taskView: TaskView) => void;
@@ -27,6 +34,14 @@ type AttentionViewListener = (attentionView: AttentionView) => void;
 type ResponseListener = (response: FrameResponse) => void;
 type SignalListener = (signal: InteractionSignal) => void;
 type TraceListener = (trace: ApertureTrace) => void;
+
+export type ApertureCoreOptions = {
+  userProfile?: UserProfile;
+  memoryProfile?: MemoryProfile;
+  judgmentConfig?: JudgmentConfig;
+  profileStore?: ProfileStore;
+  markdownRootDir?: string;
+};
 
 export class ApertureCore {
   private readonly frames = new Map<string, Frame>();
@@ -38,10 +53,109 @@ export class ApertureCore {
   private readonly traceListeners = new Set<TraceListener>();
   private readonly taskViews = new TaskViewStore();
   private readonly signals = new InteractionSignalStore();
+  private readonly episodes = new EpisodeStore();
   private readonly heuristics = new AttentionHeuristics();
   private readonly evaluation = new EvaluationEngine();
-  private readonly coordinator = new InteractionCoordinator();
+  private coordinator: InteractionCoordinator;
   private readonly planner = new FramePlanner();
+  private readonly profileStore: ProfileStore | undefined;
+  private readonly markdownRootDir: string | undefined;
+  private baseMemoryProfile: MemoryProfile;
+  private userProfile: UserProfile | undefined;
+  private judgmentConfig: JudgmentConfig | undefined;
+
+  constructor(options: ApertureCoreOptions = {}) {
+    this.markdownRootDir = options.markdownRootDir;
+    this.profileStore = options.profileStore;
+    this.userProfile = options.userProfile;
+    this.judgmentConfig = options.judgmentConfig;
+    this.baseMemoryProfile = options.memoryProfile ?? {
+      version: 1,
+      operatorId: "default",
+      updatedAt: new Date(0).toISOString(),
+      sessionCount: 0,
+    };
+    this.coordinator = this.createCoordinator();
+  }
+
+  private createCoordinator(): InteractionCoordinator {
+    return new InteractionCoordinator(
+      new PolicyGates({
+        ...(this.userProfile !== undefined ? { userProfile: this.userProfile } : {}),
+        ...(this.judgmentConfig !== undefined ? { judgmentConfig: this.judgmentConfig } : {}),
+      }),
+      new UtilityScore({
+        memoryProfile: this.baseMemoryProfile,
+      }),
+      new QueuePlanner({
+        ...(this.judgmentConfig?.plannerDefaults !== undefined
+          ? { plannerDefaults: this.judgmentConfig.plannerDefaults }
+          : {}),
+      }),
+    );
+  }
+
+  static async fromMarkdown(rootDir: string): Promise<ApertureCore> {
+    const profileStore = new ProfileStore(rootDir);
+    const fallbackUser: UserProfile = {
+      version: 1,
+      operatorId: "default",
+      updatedAt: new Date(0).toISOString(),
+    };
+    const fallbackMemory: MemoryProfile = {
+      version: 1,
+      operatorId: "default",
+      updatedAt: new Date(0).toISOString(),
+      sessionCount: 0,
+    };
+    const fallbackJudgment: JudgmentConfig = {
+      version: 1,
+      updatedAt: new Date(0).toISOString(),
+    };
+
+    const [userProfile, memoryProfile, judgmentConfig] = await Promise.all([
+      profileStore.loadUserProfile(fallbackUser),
+      profileStore.loadMemoryProfile(fallbackMemory),
+      loadJudgmentConfig(rootDir, fallbackJudgment),
+    ]);
+
+    return new ApertureCore({
+      userProfile,
+      memoryProfile,
+      judgmentConfig,
+      profileStore,
+      markdownRootDir: rootDir,
+    });
+  }
+
+  async reloadMarkdown(): Promise<boolean> {
+    if (!this.profileStore || !this.markdownRootDir) {
+      return false;
+    }
+
+    const fallbackUser: UserProfile = this.userProfile ?? {
+      version: 1,
+      operatorId: "default",
+      updatedAt: new Date(0).toISOString(),
+    };
+    const fallbackMemory: MemoryProfile = this.baseMemoryProfile;
+    const fallbackJudgment: JudgmentConfig = this.judgmentConfig ?? {
+      version: 1,
+      updatedAt: new Date(0).toISOString(),
+    };
+
+    const [userProfile, memoryProfile, judgmentConfig] = await Promise.all([
+      this.profileStore.loadUserProfile(fallbackUser),
+      this.profileStore.loadMemoryProfile(fallbackMemory),
+      loadJudgmentConfig(this.markdownRootDir, fallbackJudgment),
+    ]);
+
+    this.userProfile = userProfile;
+    this.baseMemoryProfile = memoryProfile;
+    this.judgmentConfig = judgmentConfig;
+    this.coordinator = this.createCoordinator();
+    return true;
+  }
 
   publishConformed(event: ConformedEvent): Frame | null {
     this.assertValidConformedEvent(event);
@@ -92,11 +206,11 @@ export class ApertureCore {
       case "candidate": {
         const current = this.getFrame(event.taskId);
         const currentAttentionView = this.getAttentionView();
-        const candidate = this.heuristics.apply(
+        const candidate = this.episodes.assign(this.heuristics.apply(
           evaluation.candidate,
           taskSummary,
           globalSummary,
-        );
+        ));
         const explanation = this.coordinator.explain(current, candidate, {
           attentionView: currentAttentionView,
           taskSummary,
@@ -131,6 +245,26 @@ export class ApertureCore {
           heuristics: {
             scoreOffset: candidate.attentionScoreOffset ?? 0,
             rationale: candidate.attentionRationale ?? [],
+          },
+          episode: candidate.episodeId
+            ? {
+                id: candidate.episodeId,
+                key: candidate.episodeKey ?? candidate.episodeId,
+                state: candidate.episodeState ?? "emerging",
+                size: candidate.episodeSize ?? 1,
+                lastInteractionId: candidate.interactionId,
+                updatedAt: candidate.timestamp,
+              }
+            : null,
+          policy: explanation.policy,
+          utility: {
+            candidate: explanation.utility,
+            currentScore: explanation.currentScore,
+            currentPriority: explanation.currentPriority,
+          },
+          planner: {
+            kind: explanation.decision.kind,
+            reasons: explanation.reasons,
           },
           coordination: {
             kind: explanation.decision.kind,
@@ -223,6 +357,7 @@ export class ApertureCore {
 
     const timestamp = new Date().toISOString();
     this.recordSignal(this.signalForResponse(current, response, timestamp));
+    this.episodes.resolveInteraction(response.interactionId);
 
     const previousTaskView = this.taskViews.get(response.taskId);
     this.frames.delete(response.taskId);
@@ -263,6 +398,34 @@ export class ApertureCore {
 
   getAttentionState(taskId?: string): AttentionState {
     return deriveAttentionState(this.signals.summarize(taskId));
+  }
+
+  snapshotMemoryProfile(now: string = new Date().toISOString()): MemoryProfile {
+    const toolFamilies = this.toolFamilyMemory();
+    const sourceTrust = this.sourceTrustMemory();
+    const consequenceProfiles = this.consequenceMemory();
+
+    return {
+      ...this.baseMemoryProfile,
+      version: 1,
+      updatedAt: now,
+      sessionCount: this.baseMemoryProfile.sessionCount + 1,
+      ...(Object.keys(toolFamilies).length > 0 ? { toolFamilies } : {}),
+      ...(Object.keys(sourceTrust).length > 0 ? { sourceTrust } : {}),
+      ...(Object.keys(consequenceProfiles).length > 0 ? { consequenceProfiles } : {}),
+    };
+  }
+
+  async checkpointMemory(now: string = new Date().toISOString()): Promise<MemoryProfile | null> {
+    if (!this.profileStore) {
+      return null;
+    }
+
+    const snapshot = this.snapshotMemoryProfile(now);
+    await this.profileStore.saveMemoryProfile(snapshot);
+    this.baseMemoryProfile = snapshot;
+    this.coordinator = this.createCoordinator();
+    return snapshot;
   }
 
   markViewed(taskId: string, interactionId: string, options: { surface?: string } = {}): void {
@@ -328,6 +491,7 @@ export class ApertureCore {
       timestamp: frame.timing.updatedAt,
       frameId: frame.id,
       ...(frame.source !== undefined ? { source: frame.source } : {}),
+      metadata: this.signalMetadataForFrame(frame),
     });
     this.notifyFrame(frame.taskId, frame);
     this.notifyTaskView(frame.taskId, taskView);
@@ -357,6 +521,7 @@ export class ApertureCore {
       frameId: frame.id,
       ...(frame.source !== undefined ? { source: frame.source } : {}),
       reason: "queued",
+      metadata: this.signalMetadataForFrame(frame),
     });
     this.notifyTaskView(taskId, taskView);
     this.notifyAttentionView();
@@ -373,6 +538,7 @@ export class ApertureCore {
       frameId: frame.id,
       ...(frame.source !== undefined ? { source: frame.source } : {}),
       reason: "suppressed",
+      metadata: this.signalMetadataForFrame(frame),
     });
     this.notifyTaskView(taskId, taskView);
     this.notifyAttentionView();
@@ -412,6 +578,7 @@ export class ApertureCore {
       timestamp,
       frameId: frame.id,
       ...(frame.source !== undefined ? { source: frame.source } : {}),
+      metadata: this.signalMetadataForFrame(frame),
     };
 
     if (response.response.kind === "dismissed") {
@@ -511,8 +678,214 @@ export class ApertureCore {
       timestamp: new Date().toISOString(),
       ...(frame?.id !== undefined ? { frameId: frame.id } : {}),
       ...(frame?.source !== undefined ? { source: frame.source } : {}),
+      ...(frame ? { metadata: this.signalMetadataForFrame(frame) } : {}),
       ...(options.surface !== undefined ? { surface: options.surface } : {}),
     };
+  }
+
+  private signalMetadataForFrame(frame: Frame): Record<string, unknown> {
+    const metadata: Record<string, unknown> = {
+      consequence: frame.consequence,
+    };
+
+    const toolFamily = inferToolFamily(frame);
+    if (toolFamily) {
+      metadata.toolFamily = toolFamily;
+    }
+
+    const key = sourceKey(frame.source);
+    if (key) {
+      metadata.sourceKey = key;
+    }
+
+    return metadata;
+  }
+
+  // TODO: Extract checkpoint aggregation into a dedicated module once the
+  // markdown memory schema settles. ApertureCore should only orchestrate the
+  // checkpoint boundary, not own every aggregation detail long term.
+  private toolFamilyMemory(): NonNullable<MemoryProfile["toolFamilies"]> {
+    const next = { ...(this.baseMemoryProfile.toolFamilies ?? {}) };
+    const session = new Map<string, {
+      presentations: number;
+      responses: number;
+      dismissals: number;
+      responseLatencyTotal: number;
+      responseLatencyCount: number;
+      dismissalLatencyTotal: number;
+      dismissalLatencyCount: number;
+      contextExpanded: number;
+      deferrals: number;
+      returns: number;
+    }>();
+
+    for (const signal of this.signals.list()) {
+      const toolFamily = readSignalString(signal.metadata, "toolFamily");
+      if (!toolFamily) {
+        continue;
+      }
+
+      const current = session.get(toolFamily) ?? {
+        presentations: 0,
+        responses: 0,
+        dismissals: 0,
+        responseLatencyTotal: 0,
+        responseLatencyCount: 0,
+        dismissalLatencyTotal: 0,
+        dismissalLatencyCount: 0,
+        contextExpanded: 0,
+        deferrals: 0,
+        returns: 0,
+      };
+
+      switch (signal.kind) {
+        case "presented":
+          current.presentations += 1;
+          break;
+        case "responded":
+          current.responses += 1;
+          if (signal.latencyMs !== undefined) {
+            current.responseLatencyTotal += signal.latencyMs;
+            current.responseLatencyCount += 1;
+          }
+          break;
+        case "dismissed":
+          current.dismissals += 1;
+          if (signal.latencyMs !== undefined) {
+            current.dismissalLatencyTotal += signal.latencyMs;
+            current.dismissalLatencyCount += 1;
+          }
+          break;
+        case "context_expanded":
+          current.contextExpanded += 1;
+          break;
+        case "deferred":
+          current.deferrals += 1;
+          break;
+        case "returned":
+          current.returns += 1;
+          break;
+      }
+
+      session.set(toolFamily, current);
+    }
+
+    for (const [toolFamily, current] of session.entries()) {
+      const previous = next[toolFamily] ?? {
+        presentations: 0,
+        responses: 0,
+        dismissals: 0,
+      };
+      const presentations = previous.presentations + current.presentations;
+      const responses = previous.responses + current.responses;
+      const dismissals = previous.dismissals + current.dismissals;
+      next[toolFamily] = {
+        presentations,
+        responses,
+        dismissals,
+        ...(current.responseLatencyCount > 0
+          ? {
+              avgResponseLatencyMs: Math.round(current.responseLatencyTotal / current.responseLatencyCount),
+            }
+          : previous.avgResponseLatencyMs !== undefined
+            ? { avgResponseLatencyMs: previous.avgResponseLatencyMs }
+            : {}),
+        ...(current.dismissalLatencyCount > 0
+          ? {
+              avgDismissalLatencyMs: Math.round(current.dismissalLatencyTotal / current.dismissalLatencyCount),
+            }
+          : previous.avgDismissalLatencyMs !== undefined
+            ? { avgDismissalLatencyMs: previous.avgDismissalLatencyMs }
+            : {}),
+        ...(presentations > 0
+          ? {
+              contextExpansionRate: roundRate(current.contextExpanded / presentations),
+            }
+          : previous.contextExpansionRate !== undefined
+            ? { contextExpansionRate: previous.contextExpansionRate }
+            : {}),
+        ...(current.deferrals > 0
+          ? {
+              returnAfterDeferralRate: roundRate(current.returns / current.deferrals),
+            }
+          : previous.returnAfterDeferralRate !== undefined
+            ? { returnAfterDeferralRate: previous.returnAfterDeferralRate }
+            : {}),
+      };
+    }
+
+    return next;
+  }
+
+  private sourceTrustMemory(): NonNullable<MemoryProfile["sourceTrust"]> {
+    const next = structuredClone(this.baseMemoryProfile.sourceTrust ?? {});
+
+    for (const signal of this.signals.list()) {
+      const source = readSignalString(signal.metadata, "sourceKey");
+      const consequence = readSignalString(signal.metadata, "consequence");
+      if (!source || (consequence !== "low" && consequence !== "medium" && consequence !== "high")) {
+        continue;
+      }
+
+      const current = next[source]?.[consequence] ?? {
+        confirmations: 0,
+        disagreements: 0,
+        trustAdjustment: 0,
+      };
+
+      if (signal.kind === "responded") {
+        if (signal.responseKind === "rejected") {
+          current.disagreements += 1;
+        } else {
+          current.confirmations += 1;
+        }
+      } else if (signal.kind === "dismissed") {
+        current.disagreements += 1;
+      }
+
+      const total = current.confirmations + current.disagreements;
+      current.trustAdjustment = total > 0
+        ? Math.round(((current.confirmations - current.disagreements) / total) * 10)
+        : 0;
+
+      next[source] = {
+        ...(next[source] ?? {}),
+        [consequence]: current,
+      };
+    }
+
+    return next;
+  }
+
+  private consequenceMemory(): NonNullable<MemoryProfile["consequenceProfiles"]> {
+    const next = { ...(this.baseMemoryProfile.consequenceProfiles ?? {}) };
+    const totals = new Map<string, { reviewed: number; rejected: number }>();
+
+    for (const signal of this.signals.list()) {
+      const consequence = readSignalString(signal.metadata, "consequence");
+      if (consequence !== "low" && consequence !== "medium" && consequence !== "high") {
+        continue;
+      }
+
+      if (signal.kind !== "responded") {
+        continue;
+      }
+
+      const current = totals.get(consequence) ?? { reviewed: 0, rejected: 0 };
+      current.reviewed += 1;
+      if (signal.responseKind === "rejected") {
+        current.rejected += 1;
+      }
+      totals.set(consequence, current);
+    }
+
+    for (const [consequence, current] of totals.entries()) {
+      next[consequence] = {
+        rejectionRate: current.reviewed > 0 ? roundRate(current.rejected / current.reviewed) : 0,
+      };
+    }
+
+    return next;
   }
 
   private findFrame(taskId: string, interactionId: string): Frame | null {
@@ -677,4 +1050,13 @@ export class ApertureCore {
         throw new Error(`${label} must have a supported request kind`);
     }
   }
+}
+
+function readSignalString(metadata: Record<string, unknown> | undefined, key: string): string | null {
+  const value = metadata?.[key];
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function roundRate(value: number): number {
+  return Math.round(value * 1000) / 1000;
 }

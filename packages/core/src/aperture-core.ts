@@ -16,6 +16,7 @@ import { EpisodeStore } from "./episode-store.js";
 import { EvaluationEngine } from "./evaluation-engine.js";
 import { FramePlanner } from "./frame-planner.js";
 import { InteractionCoordinator } from "./interaction-coordinator.js";
+import { inferToolFamily, sourceKey } from "./interaction-taxonomy.js";
 import { InteractionSignalStore } from "./interaction-signal-store.js";
 import { loadJudgmentConfig, type JudgmentConfig } from "./judgment-config.js";
 import { normalizeConformedEvent } from "./semantic-normalizer.js";
@@ -37,6 +38,7 @@ export type ApertureCoreOptions = {
   userProfile?: UserProfile;
   memoryProfile?: MemoryProfile;
   judgmentConfig?: JudgmentConfig;
+  profileStore?: ProfileStore;
 };
 
 export class ApertureCore {
@@ -54,8 +56,17 @@ export class ApertureCore {
   private readonly evaluation = new EvaluationEngine();
   private readonly coordinator: InteractionCoordinator;
   private readonly planner = new FramePlanner();
+  private readonly profileStore: ProfileStore | undefined;
+  private readonly baseMemoryProfile: MemoryProfile;
 
   constructor(options: ApertureCoreOptions = {}) {
+    this.profileStore = options.profileStore;
+    this.baseMemoryProfile = options.memoryProfile ?? {
+      version: 1,
+      operatorId: "default",
+      updatedAt: new Date(0).toISOString(),
+      sessionCount: 0,
+    };
     this.coordinator = new InteractionCoordinator(
       new PolicyGates({
         ...(options.userProfile !== undefined ? { userProfile: options.userProfile } : {}),
@@ -96,6 +107,7 @@ export class ApertureCore {
       userProfile,
       memoryProfile,
       judgmentConfig,
+      profileStore,
     });
   }
 
@@ -342,6 +354,32 @@ export class ApertureCore {
     return deriveAttentionState(this.signals.summarize(taskId));
   }
 
+  snapshotMemoryProfile(now: string = new Date().toISOString()): MemoryProfile {
+    const toolFamilies = this.toolFamilyMemory();
+    const sourceTrust = this.sourceTrustMemory();
+    const consequenceProfiles = this.consequenceMemory();
+
+    return {
+      ...this.baseMemoryProfile,
+      version: 1,
+      updatedAt: now,
+      sessionCount: this.baseMemoryProfile.sessionCount + 1,
+      ...(Object.keys(toolFamilies).length > 0 ? { toolFamilies } : {}),
+      ...(Object.keys(sourceTrust).length > 0 ? { sourceTrust } : {}),
+      ...(Object.keys(consequenceProfiles).length > 0 ? { consequenceProfiles } : {}),
+    };
+  }
+
+  async checkpointMemory(now: string = new Date().toISOString()): Promise<MemoryProfile | null> {
+    if (!this.profileStore) {
+      return null;
+    }
+
+    const snapshot = this.snapshotMemoryProfile(now);
+    await this.profileStore.saveMemoryProfile(snapshot);
+    return snapshot;
+  }
+
   markViewed(taskId: string, interactionId: string, options: { surface?: string } = {}): void {
     const frame = this.findFrame(taskId, interactionId);
     this.recordSignal(this.observationSignal("viewed", taskId, interactionId, frame, options));
@@ -405,6 +443,7 @@ export class ApertureCore {
       timestamp: frame.timing.updatedAt,
       frameId: frame.id,
       ...(frame.source !== undefined ? { source: frame.source } : {}),
+      metadata: this.signalMetadataForFrame(frame),
     });
     this.notifyFrame(frame.taskId, frame);
     this.notifyTaskView(frame.taskId, taskView);
@@ -434,6 +473,7 @@ export class ApertureCore {
       frameId: frame.id,
       ...(frame.source !== undefined ? { source: frame.source } : {}),
       reason: "queued",
+      metadata: this.signalMetadataForFrame(frame),
     });
     this.notifyTaskView(taskId, taskView);
     this.notifyAttentionView();
@@ -450,6 +490,7 @@ export class ApertureCore {
       frameId: frame.id,
       ...(frame.source !== undefined ? { source: frame.source } : {}),
       reason: "suppressed",
+      metadata: this.signalMetadataForFrame(frame),
     });
     this.notifyTaskView(taskId, taskView);
     this.notifyAttentionView();
@@ -489,6 +530,7 @@ export class ApertureCore {
       timestamp,
       frameId: frame.id,
       ...(frame.source !== undefined ? { source: frame.source } : {}),
+      metadata: this.signalMetadataForFrame(frame),
     };
 
     if (response.response.kind === "dismissed") {
@@ -588,8 +630,211 @@ export class ApertureCore {
       timestamp: new Date().toISOString(),
       ...(frame?.id !== undefined ? { frameId: frame.id } : {}),
       ...(frame?.source !== undefined ? { source: frame.source } : {}),
+      ...(frame ? { metadata: this.signalMetadataForFrame(frame) } : {}),
       ...(options.surface !== undefined ? { surface: options.surface } : {}),
     };
+  }
+
+  private signalMetadataForFrame(frame: Frame): Record<string, unknown> {
+    const metadata: Record<string, unknown> = {
+      consequence: frame.consequence,
+    };
+
+    const toolFamily = inferToolFamily(frame);
+    if (toolFamily) {
+      metadata.toolFamily = toolFamily;
+    }
+
+    const key = sourceKey(frame.source);
+    if (key) {
+      metadata.sourceKey = key;
+    }
+
+    return metadata;
+  }
+
+  private toolFamilyMemory(): NonNullable<MemoryProfile["toolFamilies"]> {
+    const next = { ...(this.baseMemoryProfile.toolFamilies ?? {}) };
+    const session = new Map<string, {
+      presentations: number;
+      responses: number;
+      dismissals: number;
+      responseLatencyTotal: number;
+      responseLatencyCount: number;
+      dismissalLatencyTotal: number;
+      dismissalLatencyCount: number;
+      contextExpanded: number;
+      deferrals: number;
+      returns: number;
+    }>();
+
+    for (const signal of this.signals.list()) {
+      const toolFamily = readSignalString(signal.metadata, "toolFamily");
+      if (!toolFamily) {
+        continue;
+      }
+
+      const current = session.get(toolFamily) ?? {
+        presentations: 0,
+        responses: 0,
+        dismissals: 0,
+        responseLatencyTotal: 0,
+        responseLatencyCount: 0,
+        dismissalLatencyTotal: 0,
+        dismissalLatencyCount: 0,
+        contextExpanded: 0,
+        deferrals: 0,
+        returns: 0,
+      };
+
+      switch (signal.kind) {
+        case "presented":
+          current.presentations += 1;
+          break;
+        case "responded":
+          current.responses += 1;
+          if (signal.latencyMs !== undefined) {
+            current.responseLatencyTotal += signal.latencyMs;
+            current.responseLatencyCount += 1;
+          }
+          break;
+        case "dismissed":
+          current.dismissals += 1;
+          if (signal.latencyMs !== undefined) {
+            current.dismissalLatencyTotal += signal.latencyMs;
+            current.dismissalLatencyCount += 1;
+          }
+          break;
+        case "context_expanded":
+          current.contextExpanded += 1;
+          break;
+        case "deferred":
+          current.deferrals += 1;
+          break;
+        case "returned":
+          current.returns += 1;
+          break;
+      }
+
+      session.set(toolFamily, current);
+    }
+
+    for (const [toolFamily, current] of session.entries()) {
+      const previous = next[toolFamily] ?? {
+        presentations: 0,
+        responses: 0,
+        dismissals: 0,
+      };
+      const presentations = previous.presentations + current.presentations;
+      const responses = previous.responses + current.responses;
+      const dismissals = previous.dismissals + current.dismissals;
+      next[toolFamily] = {
+        presentations,
+        responses,
+        dismissals,
+        ...(current.responseLatencyCount > 0
+          ? {
+              avgResponseLatencyMs: Math.round(current.responseLatencyTotal / current.responseLatencyCount),
+            }
+          : previous.avgResponseLatencyMs !== undefined
+            ? { avgResponseLatencyMs: previous.avgResponseLatencyMs }
+            : {}),
+        ...(current.dismissalLatencyCount > 0
+          ? {
+              avgDismissalLatencyMs: Math.round(current.dismissalLatencyTotal / current.dismissalLatencyCount),
+            }
+          : previous.avgDismissalLatencyMs !== undefined
+            ? { avgDismissalLatencyMs: previous.avgDismissalLatencyMs }
+            : {}),
+        ...(presentations > 0
+          ? {
+              contextExpansionRate: roundRate(current.contextExpanded / presentations),
+            }
+          : previous.contextExpansionRate !== undefined
+            ? { contextExpansionRate: previous.contextExpansionRate }
+            : {}),
+        ...(current.deferrals > 0
+          ? {
+              returnAfterDeferralRate: roundRate(current.returns / current.deferrals),
+            }
+          : previous.returnAfterDeferralRate !== undefined
+            ? { returnAfterDeferralRate: previous.returnAfterDeferralRate }
+            : {}),
+      };
+    }
+
+    return next;
+  }
+
+  private sourceTrustMemory(): NonNullable<MemoryProfile["sourceTrust"]> {
+    const next = structuredClone(this.baseMemoryProfile.sourceTrust ?? {});
+
+    for (const signal of this.signals.list()) {
+      const source = readSignalString(signal.metadata, "sourceKey");
+      const consequence = readSignalString(signal.metadata, "consequence");
+      if (!source || (consequence !== "low" && consequence !== "medium" && consequence !== "high")) {
+        continue;
+      }
+
+      const current = next[source]?.[consequence] ?? {
+        confirmations: 0,
+        disagreements: 0,
+        trustAdjustment: 0,
+      };
+
+      if (signal.kind === "responded") {
+        if (signal.responseKind === "rejected") {
+          current.disagreements += 1;
+        } else {
+          current.confirmations += 1;
+        }
+      } else if (signal.kind === "dismissed") {
+        current.disagreements += 1;
+      }
+
+      const total = current.confirmations + current.disagreements;
+      current.trustAdjustment = total > 0
+        ? Math.round(((current.confirmations - current.disagreements) / total) * 10)
+        : 0;
+
+      next[source] = {
+        ...(next[source] ?? {}),
+        [consequence]: current,
+      };
+    }
+
+    return next;
+  }
+
+  private consequenceMemory(): NonNullable<MemoryProfile["consequenceProfiles"]> {
+    const next = { ...(this.baseMemoryProfile.consequenceProfiles ?? {}) };
+    const totals = new Map<string, { reviewed: number; rejected: number }>();
+
+    for (const signal of this.signals.list()) {
+      const consequence = readSignalString(signal.metadata, "consequence");
+      if (consequence !== "low" && consequence !== "medium" && consequence !== "high") {
+        continue;
+      }
+
+      if (signal.kind !== "responded") {
+        continue;
+      }
+
+      const current = totals.get(consequence) ?? { reviewed: 0, rejected: 0 };
+      current.reviewed += 1;
+      if (signal.responseKind === "rejected") {
+        current.rejected += 1;
+      }
+      totals.set(consequence, current);
+    }
+
+    for (const [consequence, current] of totals.entries()) {
+      next[consequence] = {
+        rejectionRate: current.reviewed > 0 ? roundRate(current.rejected / current.reviewed) : 0,
+      };
+    }
+
+    return next;
   }
 
   private findFrame(taskId: string, interactionId: string): Frame | null {
@@ -754,4 +999,13 @@ export class ApertureCore {
         throw new Error(`${label} must have a supported request kind`);
     }
   }
+}
+
+function readSignalString(metadata: Record<string, unknown> | undefined, key: string): string | null {
+  const value = metadata?.[key];
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function roundRate(value: number): number {
+  return Math.round(value * 1000) / 1000;
 }

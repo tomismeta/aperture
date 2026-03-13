@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { loadJudgmentConfig } from "../src/judgment-config.js";
+import { ApertureCore } from "../src/aperture-core.js";
 import { parseFrontmatter, serializeFrontmatter } from "../src/markdown-frontmatter.js";
 import { ProfileStore } from "../src/profile-store.js";
 
@@ -89,4 +90,77 @@ test("judgment config loader reads JUDGMENT markdown frontmatter", async () => {
   });
 
   assert.equal(loaded.policy?.lowRiskRead?.minimumPresentation, "ambient");
+});
+
+test("markdown-backed core checkpoints distilled memory back to MEMORY.md", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-checkpoint-memory-"));
+  await writeFile(
+    join(root, "USER.md"),
+    serializeFrontmatter(
+      {
+        version: 1,
+        operatorId: "default",
+        updatedAt: "2026-03-12T10:15:00.000Z",
+      },
+      "Explicit operator preferences.",
+    ),
+    "utf8",
+  );
+  await writeFile(
+    join(root, "MEMORY.md"),
+    serializeFrontmatter(
+      {
+        version: 1,
+        operatorId: "default",
+        updatedAt: "2026-03-12T10:15:00.000Z",
+        sessionCount: 1,
+      },
+      "Durable learned summaries.",
+    ),
+    "utf8",
+  );
+  await writeFile(
+    join(root, "JUDGMENT.md"),
+    serializeFrontmatter(
+      {
+        version: 1,
+        updatedAt: "2026-03-12T10:15:00.000Z",
+      },
+      "Explicit attention policy.",
+    ),
+    "utf8",
+  );
+
+  const core = await ApertureCore.fromMarkdown(root);
+  core.publish({
+    id: "event:1",
+    type: "human.input.requested",
+    taskId: "task:read",
+    interactionId: "interaction:read",
+    timestamp: "2026-03-12T10:15:00.000Z",
+    source: { id: "session:1", kind: "claude-code" },
+    title: "Claude Code wants to read config.ts",
+    summary: "config.ts",
+    consequence: "low",
+    request: { kind: "approval" },
+  });
+  core.submit({
+    taskId: "task:read",
+    interactionId: "interaction:read",
+    response: { kind: "approved" },
+  });
+
+  const snapshot = await core.checkpointMemory("2026-03-12T10:16:00.000Z");
+  assert.equal(snapshot?.sessionCount, 2);
+  assert.equal(snapshot?.toolFamilies?.read?.presentations, 1);
+  assert.equal(snapshot?.toolFamilies?.read?.responses, 1);
+
+  const persisted = await new ProfileStore(root).loadMemoryProfile({
+    version: 1,
+    operatorId: "missing",
+    updatedAt: "1970-01-01T00:00:00.000Z",
+    sessionCount: 0,
+  });
+  assert.equal(persisted.sessionCount, 2);
+  assert.equal(persisted.toolFamilies?.read?.responses, 1);
 });

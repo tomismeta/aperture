@@ -1,4 +1,5 @@
 import type { InteractionCandidate } from "./interaction-candidate.js";
+import { inferToolFamily } from "./interaction-taxonomy.js";
 import type { JudgmentConfig } from "./judgment-config.js";
 import type { UserProfile } from "./profile-store.js";
 
@@ -122,20 +123,6 @@ export class PolicyGates {
 
     return undefined;
   }
-}
-
-function inferToolFamily(candidate: InteractionCandidate): string | null {
-  const value = `${candidate.title} ${candidate.summary ?? ""}`.toLowerCase();
-  if (value.includes(" read ")) return "read";
-  if (value.includes(" wants to read")) return "read";
-  if (value.includes(" write ")) return "write";
-  if (value.includes(" wants to write")) return "write";
-  if (value.includes(" edit ")) return "edit";
-  if (value.includes(" wants to edit")) return "edit";
-  if (value.includes(" shell command") || value.includes(" wants to run")) return "bash";
-  if (value.includes("search the web")) return "web";
-  if (value.includes("search files") || value.includes("search file contents")) return "search";
-  return null;
 }
 
 function policyTagsForCandidate(candidate: InteractionCandidate): string[] {

@@ -1,23 +1,28 @@
+<div align="center">
+
 # Aperture
 
-Aperture is the human attention control plane for agent systems.
+**The human attention control plane for agent systems.**
 
-It sits between many possible event sources and one human decision surface, then decides:
+Aperture sits between many possible event sources and one human decision surface, then decides what deserves attention now, what should wait, and what should remain ambient.
 
-- what deserves attention now
-- what should wait in the queue
-- what should remain ambient
+**Live path today:** Claude Code -> Aperture runtime -> terminal attention surface
 
-Today, the main live path is:
+**Once installed:**
 
-- Claude Code -> Aperture runtime -> terminal attention surface
+<pre><code>pnpm claude:connect --global
+pnpm aperture</code></pre>
+
+<img src="docs/assets/demo.gif" alt="Aperture demo" width="1100">
+
+</div>
 
 Under the hood, Aperture already includes:
 
-- deterministic policy, utility, and planning layers
+- deterministic policy, attention value, and planning layers
 - behavioral signals and memory-backed judgment
 - episode-aware coordination across related work
-- pressure forecasting before overload
+- attention pressure forecasting before overload
 - replay evaluation for judgment behavior
 
 ## What Aperture Is

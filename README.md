@@ -61,7 +61,9 @@ What is real on `main` today:
 - `@aperture/tui` is the terminal-native attention surface
 - `@aperture/claude-code` is the current end-to-end live adapter path
 - `@aperture/codex` and `@aperture/paperclip` provide mapping layers today, with different transport maturity
-- `USER.md`, `MEMORY.md`, and `JUDGMENT.md` provide human-readable durable judgment state
+- `@aperture/core` now exposes the main judgment primitives for future SDK use
+- the default runtime uses local learning persistence through `.aperture/MEMORY.md`
+- `USER.md`, `MEMORY.md`, and `JUDGMENT.md` remain the broader human-readable judgment-state model inside core
 
 What the engine already does:
 

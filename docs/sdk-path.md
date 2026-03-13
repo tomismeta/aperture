@@ -36,9 +36,9 @@ Those pieces are live and wired in the current engine path.
 What is not ready yet:
 
 - `@aperture/core` is still private
-- the export surface does not expose the full judgment stack
+- the export surface is now broad enough for the main judgment stack, but it has not yet been hardened as a published package contract
 - there is no package README or SDK integration guide
-- the API is usable internally, but not yet shaped as a public contract
+- the API is usable internally, but not yet validated through an external install path
 
 ## Design Principles
 
@@ -176,7 +176,7 @@ To keep the SDK clean:
 ### Milestone 1: Public Export Surface
 
 - remove `private: true` from `@aperture/core`
-- export the stable judgment primitives
+- keep the stable judgment primitives exported and treat them as the intended package contract
 - add a package README
 - add one basic SDK example
 

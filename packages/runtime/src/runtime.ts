@@ -10,6 +10,7 @@ import {
   type SignalSummary,
 } from "@aperture/core";
 
+import type { LearningPersistenceState } from "./learning-persistence.js";
 import {
   removeLocalRuntimeRegistration,
   writeLocalRuntimeRegistration,
@@ -24,6 +25,8 @@ export type ApertureRuntimeOptions = {
   adapterTtlMs?: number;
   surfaceTtlMs?: number;
   metadata?: Record<string, string>;
+  core?: ApertureCore;
+  learningPersistence?: LearningPersistenceState;
 };
 
 export type ApertureRuntimeEvent =
@@ -39,6 +42,7 @@ export type ApertureRuntimeSnapshot = {
   attentionState: AttentionState;
   adapters: ApertureRuntimeAdapter[];
   surfaceCount: number;
+  learningPersistence?: LearningPersistenceState;
 };
 
 export type ApertureRuntimeAdapter = {
@@ -90,7 +94,7 @@ const REGISTRATION_HEARTBEAT_MS = 5_000;
 export function createApertureRuntime(
   options: ApertureRuntimeOptions = {},
 ): ApertureRuntime {
-  const core = new ApertureCore();
+  const core = options.core ?? new ApertureCore();
   const kind = options.kind ?? DEFAULT_KIND;
   const controlHost = options.controlHost ?? DEFAULT_CONTROL_HOST;
   const controlPort = options.controlPort ?? 0;
@@ -107,6 +111,7 @@ export function createApertureRuntime(
   const events: ApertureRuntimeEvent[] = [];
   let sequence = 0;
   let registrationInterval: NodeJS.Timeout | null = null;
+  let learningPersistence = options.learningPersistence;
 
   const pushEvent = (event: Omit<ApertureRuntimeEvent, "sequence">) => {
     sequence += 1;
@@ -146,6 +151,24 @@ export function createApertureRuntime(
 
       if (req.method === "GET" && path === `${controlPathPrefix}/state`) {
         writeJson(res, 200, snapshot());
+        return;
+      }
+
+      if (req.method === "POST" && path === `${controlPathPrefix}/learning/checkpoint`) {
+        const snapshot = await core.checkpointMemory();
+        if (!snapshot) {
+          writeJson(res, 200, { checkpointed: false });
+          return;
+        }
+        learningPersistence = {
+          ...(learningPersistence ?? { enabled: true }),
+          lastCheckpointAt: snapshot.updatedAt,
+        };
+        writeJson(res, 200, {
+          checkpointed: true,
+          updatedAt: snapshot.updatedAt,
+          sessionCount: snapshot.sessionCount,
+        });
         return;
       }
 
@@ -309,6 +332,13 @@ export function createApertureRuntime(
       };
     },
     async close() {
+      const snapshot = await core.checkpointMemory();
+      if (snapshot) {
+        learningPersistence = {
+          ...(learningPersistence ?? { enabled: true }),
+          lastCheckpointAt: snapshot.updatedAt,
+        };
+      }
       unsubscribeResponse();
       if (registrationInterval) {
         clearInterval(registrationInterval);
@@ -382,6 +412,7 @@ export function createApertureRuntime(
           connectedAt: adapter.connectedAt,
         })),
       surfaceCount: surfaces.size,
+      ...(learningPersistence ? { learningPersistence } : {}),
     };
   }
 

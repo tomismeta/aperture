@@ -4,10 +4,11 @@ import { stderr } from "node:process";
 async function main(): Promise<void> {
   const children: ChildProcess[] = [];
   let shuttingDown = false;
+  const learningArgs = readLearningArgs(process.argv.slice(2));
 
   process.title = "aperture";
 
-  const runtime = spawnPnpm(["serve"]);
+  const runtime = spawnPnpm(["serve", "--", ...learningArgs]);
   children.push(runtime);
   await waitForReady(runtime, "Aperture runtime listening");
 
@@ -54,6 +55,16 @@ function spawnPnpm(args: string[]): ChildProcess {
     stdio: ["ignore", "inherit", "pipe"],
     env: process.env,
   });
+}
+
+function readLearningArgs(args: string[]): string[] {
+  const flagIndex = args.findIndex((arg) => arg === "--learning");
+  if (flagIndex === -1) {
+    return ["--learning", "on"];
+  }
+
+  const value = args[flagIndex + 1];
+  return ["--learning", value === "off" ? "off" : "on"];
 }
 
 async function waitForReady(child: ChildProcess, marker: string): Promise<void> {

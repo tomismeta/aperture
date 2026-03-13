@@ -14,3 +14,8 @@ export {
   writeLocalRuntimeRegistration,
   type ApertureLocalRuntimeRegistration,
 } from "./runtime-discovery.js";
+export {
+  bootstrapLearningPersistence,
+  type LearningMode,
+  type LearningPersistenceState,
+} from "./learning-persistence.js";

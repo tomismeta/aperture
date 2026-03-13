@@ -95,6 +95,9 @@ That starts the default local Aperture stack:
 - shared runtime
 - Claude Code adapter
 - terminal attention surface
+- local learning persistence in `.aperture/MEMORY.md`
+
+Use `pnpm aperture --learning off` if you want an ephemeral session with no local learning persistence.
 
 ## Two Ways To Use It
 
@@ -163,7 +166,8 @@ for (const event of mapPaperclipLiveEvent(liveEvent)) {
 
 | Command | What it does |
 | --- | --- |
-| `pnpm aperture` | Starts the default local Aperture stack: runtime, Claude adapter, and TUI. |
+| `pnpm aperture` | Starts the default local Aperture stack: runtime, Claude adapter, TUI, and local learning persistence in `.aperture/MEMORY.md`. |
+| `pnpm aperture --learning off` | Starts the default local stack without local learning persistence. |
 | `pnpm claude:connect --global` | Connects Claude Code globally by writing Aperture hook config into `~/.claude/settings.json`. |
 | `pnpm claude:disconnect --global` | Removes Aperture's Claude hook entries from `~/.claude/settings.json`. |
 

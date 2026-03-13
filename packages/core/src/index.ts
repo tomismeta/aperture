@@ -9,6 +9,8 @@ export type * from "./frame-response.js";
 export type * from "./interaction-signal.js";
 export type * from "./interaction-taxonomy.js";
 export type * from "./judgment-config.js";
+export { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
+export { ProfileStore } from "./profile-store.js";
 export type * from "./profile-store.js";
 export type * from "./pressure-forecast.js";
 export type { DeferredCounts, SignalCounts, SignalSummary } from "./signal-summary.js";

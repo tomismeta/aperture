@@ -1,8 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import type { ConformedEvent } from "@aperture/core";
 
+import { bootstrapLearningPersistence } from "../src/learning-persistence.js";
 import { createApertureRuntime } from "../src/runtime.js";
 import { ApertureRuntimeAdapterClient } from "../src/adapter-client.js";
 import type { ApertureRuntimeSnapshot } from "../src/index.js";
@@ -112,6 +116,62 @@ test("runtime adapter client observes attached surfaces through snapshot state",
   }
 });
 
+test("runtime bootstraps learning persistence and checkpoints memory", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-runtime-learning-"));
+  const learning = await bootstrapLearningPersistence(root);
+  const runtime = createApertureRuntime({
+    controlPort: 0,
+    core: learning.core,
+    learningPersistence: learning.state,
+  });
+  const { controlUrl } = await runtime.listen();
+
+  try {
+    const memoryRaw = await readFile(join(root, ".aperture", "MEMORY.md"), "utf8");
+    assert.match(memoryRaw, /^# Memory/m);
+
+    const client = await ApertureRuntimeAdapterClient.connect({
+      baseUrl: controlUrl,
+      kind: "claude-code",
+      label: "Claude",
+    });
+
+    try {
+      await client.publishConformed(approvalEvent("task:learn"));
+      await fetch(`${controlUrl}/responses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskId: "task:learn",
+          interactionId: "interaction:learn",
+          response: { kind: "approved" },
+        }),
+      });
+
+      const checkpoint = await fetch(`${controlUrl}/learning/checkpoint`, {
+        method: "POST",
+      });
+      assert.equal(checkpoint.status, 200);
+      assert.deepEqual(await checkpoint.json(), {
+        checkpointed: true,
+        updatedAt: await readCheckpointUpdatedAt(join(root, ".aperture", "MEMORY.md")),
+        sessionCount: 1,
+      });
+
+      const state = await fetch(`${controlUrl}/state`);
+      const snapshot = await state.json() as ApertureRuntimeSnapshot;
+      assert.equal(snapshot.learningPersistence?.enabled, true);
+      assert.equal(snapshot.learningPersistence?.rootDir, join(root, ".aperture"));
+      assert.equal(snapshot.learningPersistence?.memoryPath, join(root, ".aperture", "MEMORY.md"));
+      assert.ok(snapshot.learningPersistence?.lastCheckpointAt);
+    } finally {
+      await client.close();
+    }
+  } finally {
+    await runtime.close();
+  }
+});
+
 function blockedEvent(taskId: string): ConformedEvent {
   return {
     id: `${taskId}:blocked`,
@@ -142,6 +202,31 @@ function completedEvent(taskId: string): ConformedEvent {
     },
     summary: "Handled.",
   };
+}
+
+function approvalEvent(taskId: string): ConformedEvent {
+  return {
+    id: `${taskId}:approval`,
+    type: "human.input.requested",
+    taskId,
+    interactionId: "interaction:learn",
+    timestamp: new Date().toISOString(),
+    source: {
+      id: "claude-code:workspace",
+      kind: "claude-code",
+      label: "Claude",
+    },
+    title: "Read config",
+    summary: "Read config.ts",
+    request: { kind: "approval" },
+    riskHint: "low",
+  };
+}
+
+async function readCheckpointUpdatedAt(path: string): Promise<string> {
+  const raw = await readFile(path, "utf8");
+  const line = raw.split("\n").find((entry) => entry.startsWith("- updated at: "));
+  return line?.slice("- updated at: ".length) ?? "";
 }
 
 function sleep(durationMs: number): Promise<void> {

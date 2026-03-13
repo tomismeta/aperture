@@ -83,7 +83,11 @@ test("utility score exposes componentized candidate scoring", () => {
     consequence: 10,
     tone: 1,
     blocking: 0,
-    learnedAdjustment: 5,
+    heuristics: 5,
+    sourceTrust: 0,
+    responseAffinity: 0,
+    contextCost: 0,
+    deferralAffinity: 0,
   });
   assert.deepEqual(utility.rationale, ["history suggests this resolves quickly"]);
 });
@@ -113,8 +117,120 @@ test("utility score applies durable source trust from memory", () => {
   );
 
   assert.equal(utility.total, 93);
-  assert.equal(utility.components.learnedAdjustment, -7);
+  assert.equal(utility.components.sourceTrust, -7);
   assert.ok(utility.rationale.includes("durable source trust adjusts this interaction's utility"));
+});
+
+test("utility score boosts quick-response tool families from memory", () => {
+  const utility = new UtilityScore({
+    memoryProfile: {
+      version: 1,
+      operatorId: "default",
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      sessionCount: 1,
+      toolFamilies: {
+        read: {
+          presentations: 10,
+          responses: 10,
+          dismissals: 0,
+          avgResponseLatencyMs: 1500,
+        },
+      },
+    },
+  }).scoreCandidate(
+    createCandidate({
+      mode: "approval",
+      blocking: true,
+      priority: "normal",
+      title: "Claude Code wants to read config.ts",
+      summary: "config.ts",
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(utility.components.responseAffinity, 8);
+  assert.ok(utility.rationale.includes("memory suggests this kind of interaction usually resolves quickly"));
+});
+
+test("utility score penalizes high context-cost tool families from memory", () => {
+  const utility = new UtilityScore({
+    memoryProfile: {
+      version: 1,
+      operatorId: "default",
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      sessionCount: 1,
+      toolFamilies: {
+        bash: {
+          presentations: 8,
+          responses: 5,
+          dismissals: 0,
+          contextExpansionRate: 0.75,
+        },
+      },
+    },
+  }).scoreCandidate(
+    createCandidate({
+      mode: "approval",
+      blocking: true,
+      priority: "high",
+      title: "Claude Code wants to run a shell command",
+      summary: "rm -rf build",
+      consequence: "high",
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(utility.components.contextCost, -6);
+  assert.ok(utility.rationale.includes("memory suggests this interaction usually needs extra context before action"));
+});
+
+test("utility score boosts tool families that commonly return after deferral", () => {
+  const utility = new UtilityScore({
+    memoryProfile: {
+      version: 1,
+      operatorId: "default",
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      sessionCount: 1,
+      toolFamilies: {
+        read: {
+          presentations: 10,
+          responses: 6,
+          dismissals: 0,
+          returnAfterDeferralRate: 0.7,
+        },
+      },
+    },
+  }).scoreCandidate(
+    createCandidate({
+      mode: "approval",
+      blocking: true,
+      priority: "normal",
+      title: "Claude Code wants to read settings.ts",
+      summary: "settings.ts",
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(utility.components.deferralAffinity, 6);
+  assert.ok(utility.rationale.includes("memory suggests deferred interactions of this kind are usually resumed"));
 });
 
 test("coordinator explanations surface policy and utility alongside planning", () => {

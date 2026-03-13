@@ -133,6 +133,8 @@ test("runtime bootstraps learning persistence and checkpoints memory", async () 
     assert.match(judgmentRaw, /^# Judgment/m);
     assert.match(judgmentRaw, /Accepted rule names today:/);
     assert.match(judgmentRaw, /auto approve: true \| false/);
+    assert.match(judgmentRaw, /lowRiskWeb/);
+    assert.match(judgmentRaw, /fileWrite/);
 
     const client = await ApertureRuntimeAdapterClient.connect({
       baseUrl: controlUrl,

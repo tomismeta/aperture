@@ -473,6 +473,42 @@ test("configured lowRiskRead policy can auto-approve bounded approvals", () => {
   assert.ok(verdict.rationale.includes("configured judgment policy auto-approves this bounded approval"));
 });
 
+test("configured lowRiskWeb policy can auto-approve bounded web approvals", () => {
+  const gates = new AttentionPolicy({
+    judgmentConfig: {
+      version: 1,
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      policy: {
+        lowRiskWeb: {
+          autoApprove: true,
+        },
+      },
+    },
+  });
+
+  const verdict = gates.evaluate(
+    createCandidate({
+      mode: "approval",
+      blocking: true,
+      consequence: "low",
+      toolFamily: "web",
+      title: "Claude Code wants to search the web",
+      summary: "Search for API docs",
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(verdict.autoApprove, true);
+  assert.equal(verdict.requiresOperatorResponse, false);
+  assert.equal(verdict.mayInterrupt, false);
+});
+
 test("configured lowRiskRead policy does not match incidental reading language", () => {
   const gates = new AttentionPolicy({
     judgmentConfig: {
@@ -542,6 +578,43 @@ test("configured judgment policy can require context expansion", () => {
   assert.equal(verdict.minimumPresentation, "active");
   assert.equal(verdict.requiresOperatorResponse, true);
   assert.ok(verdict.rationale.includes("configured judgment policy applies to this interaction"));
+});
+
+test("configured fileWrite policy keeps writes interruptive", () => {
+  const gates = new AttentionPolicy({
+    judgmentConfig: {
+      version: 1,
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      policy: {
+        fileWrite: {
+          mayInterrupt: true,
+          minimumPresentation: "active",
+        },
+      },
+    },
+  });
+
+  const verdict = gates.evaluate(
+    createCandidate({
+      mode: "approval",
+      blocking: false,
+      consequence: "medium",
+      toolFamily: "write",
+      title: "Claude Code wants to write config.ts",
+      summary: "Update config.ts",
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(verdict.autoApprove, false);
+  assert.equal(verdict.minimumPresentation, "active");
+  assert.equal(verdict.requiresOperatorResponse, true);
 });
 
 test("markdown-backed core can auto-approve low-risk read approvals", async () => {

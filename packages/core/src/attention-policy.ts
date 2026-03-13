@@ -184,8 +184,16 @@ function policyTagsForCandidate(candidate: InteractionCandidate): string[] {
     tags.push("lowRiskRead");
   }
 
+  if (candidate.consequence === "low" && toolFamily === "web") {
+    tags.push("lowRiskWeb");
+  }
+
   if (value.includes(".env") && (toolFamily === "write" || toolFamily === "edit" || toolFamily === "bash")) {
     tags.push("envWrite");
+  }
+
+  if (toolFamily === "write" || toolFamily === "edit") {
+    tags.push("fileWrite");
   }
 
   if (toolFamily === "bash" && candidate.consequence === "high") {

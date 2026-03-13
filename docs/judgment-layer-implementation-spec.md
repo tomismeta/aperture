@@ -296,6 +296,13 @@ Example `JUDGMENT.md`:
 ### lowRiskRead
 - auto approve: true
 
+### lowRiskWeb
+- auto approve: true
+
+### fileWrite
+- may interrupt: true
+- minimum presentation: active
+
 ### destructiveBash
 - may interrupt: true
 - minimum presentation: active

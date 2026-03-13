@@ -413,3 +413,78 @@ test("keeps deferred-returning work queued during pressure instead of ambient", 
 
   assert.equal(decision.kind, "queue");
 });
+
+test("keeps low consequence work queued during pressure when calibration says the band is understated", () => {
+  const calibratedCoordinator = new InteractionCoordinator(
+    new PolicyGates(),
+    new UtilityScore({
+      memoryProfile: {
+        version: 1,
+        operatorId: "default",
+        updatedAt: "2026-03-12T10:15:00.000Z",
+        sessionCount: 1,
+        consequenceProfiles: {
+          low: {
+            rejectionRate: 0.6,
+          },
+        },
+      },
+    }),
+    new QueuePlanner(),
+  );
+
+  const decision = calibratedCoordinator.coordinate(
+    createFrame({
+      taskId: "task:current",
+      interactionId: "interaction:current",
+      mode: "status",
+      tone: "critical",
+      consequence: "high",
+      responseSpec: { kind: "none" },
+    }),
+    createCandidate({
+      taskId: "task:incoming",
+      interactionId: "interaction:incoming",
+      mode: "status",
+      tone: "focused",
+      consequence: "low",
+      priority: "normal",
+      blocking: false,
+      responseSpec: { kind: "none" },
+      timestamp: "2026-03-08T12:01:00.000Z",
+    }),
+    {
+      attentionView: {
+        active: createFrame({
+          taskId: "task:critical:1",
+          interactionId: "interaction:critical:1",
+          mode: "status",
+          tone: "critical",
+          consequence: "high",
+          responseSpec: { kind: "none" },
+          timing: {
+            createdAt: "2026-03-08T12:00:20.000Z",
+            updatedAt: "2026-03-08T12:00:20.000Z",
+          },
+        }),
+        queued: [
+          createFrame({
+            taskId: "task:critical:2",
+            interactionId: "interaction:critical:2",
+            mode: "status",
+            tone: "critical",
+            consequence: "high",
+            responseSpec: { kind: "none" },
+            timing: {
+              createdAt: "2026-03-08T12:00:30.000Z",
+              updatedAt: "2026-03-08T12:00:30.000Z",
+            },
+          }),
+        ],
+        ambient: [],
+      } satisfies AttentionView,
+    },
+  );
+
+  assert.equal(decision.kind, "queue");
+});

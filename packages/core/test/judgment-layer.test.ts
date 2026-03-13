@@ -85,6 +85,7 @@ test("utility score exposes componentized candidate scoring", () => {
     blocking: 0,
     heuristics: 5,
     sourceTrust: 0,
+    consequenceCalibration: 0,
     responseAffinity: 0,
     contextCost: 0,
     deferralAffinity: 0,
@@ -119,6 +120,65 @@ test("utility score applies durable source trust from memory", () => {
   assert.equal(utility.total, 93);
   assert.equal(utility.components.sourceTrust, -7);
   assert.ok(utility.rationale.includes("durable source trust adjusts this interaction's utility"));
+});
+
+test("utility score boosts low consequence work when that band is often rejected", () => {
+  const utility = new UtilityScore({
+    memoryProfile: {
+      version: 1,
+      operatorId: "default",
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      sessionCount: 1,
+      consequenceProfiles: {
+        low: {
+          rejectionRate: 0.6,
+        },
+      },
+    },
+  }).scoreCandidate(
+    createCandidate({
+      priority: "normal",
+      consequence: "low",
+      mode: "status",
+      blocking: false,
+    }),
+  );
+
+  assert.equal(utility.components.consequenceCalibration, 8);
+  assert.ok(utility.rationale.includes("memory suggests this consequence band is often understated and deserves more attention"));
+});
+
+test("utility score tempers high consequence work when that band is often rejected", () => {
+  const utility = new UtilityScore({
+    memoryProfile: {
+      version: 1,
+      operatorId: "default",
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      sessionCount: 1,
+      consequenceProfiles: {
+        high: {
+          rejectionRate: 0.5,
+        },
+      },
+    },
+  }).scoreCandidate(
+    createCandidate({
+      priority: "high",
+      consequence: "high",
+      mode: "approval",
+      blocking: false,
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(utility.components.consequenceCalibration, -4);
+  assert.ok(utility.rationale.includes("memory suggests this consequence band is often overstated and should be tempered"));
 });
 
 test("utility score boosts quick-response tool families from memory", () => {

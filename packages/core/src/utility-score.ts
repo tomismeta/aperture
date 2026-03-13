@@ -13,6 +13,7 @@ export type UtilityBreakdown = {
     blocking: number;
     heuristics: number;
     sourceTrust: number;
+    consequenceCalibration: number;
     responseAffinity: number;
     contextCost: number;
     deferralAffinity: number;
@@ -44,6 +45,7 @@ export class UtilityScore {
 
   scoreCandidate(candidate: InteractionCandidate): UtilityBreakdown {
     const sourceTrustAdjustment = this.sourceTrustAdjustment(candidate);
+    const consequenceCalibration = this.consequenceCalibrationAdjustment(candidate);
     const responseAffinity = this.responseAffinityAdjustment(candidate);
     const contextCost = this.contextCostAdjustment(candidate);
     const deferralAffinity = this.deferralAffinityAdjustment(candidate);
@@ -54,6 +56,7 @@ export class UtilityScore {
       blocking: candidate.blocking ? 1000 : 0,
       heuristics: candidate.attentionScoreOffset ?? 0,
       sourceTrust: sourceTrustAdjustment,
+      consequenceCalibration,
       responseAffinity,
       contextCost,
       deferralAffinity,
@@ -62,6 +65,12 @@ export class UtilityScore {
     const rationale = candidate.attentionRationale ? [...candidate.attentionRationale] : [];
     if (sourceTrustAdjustment !== 0) {
       rationale.push("durable source trust adjusts this interaction's utility");
+    }
+    if (consequenceCalibration > 0) {
+      rationale.push("memory suggests this consequence band is often understated and deserves more attention");
+    }
+    if (consequenceCalibration < 0) {
+      rationale.push("memory suggests this consequence band is often overstated and should be tempered");
     }
     if (responseAffinity > 0) {
       rationale.push("memory suggests this kind of interaction usually resolves quickly");
@@ -81,6 +90,7 @@ export class UtilityScore {
         + components.blocking
         + components.heuristics
         + components.sourceTrust
+        + components.consequenceCalibration
         + components.responseAffinity
         + components.contextCost
         + components.deferralAffinity,
@@ -127,6 +137,40 @@ export class UtilityScore {
     }
 
     return 0;
+  }
+
+  private consequenceCalibrationAdjustment(candidate: InteractionCandidate): number {
+    const rejectionRate = this.memoryProfile?.consequenceProfiles?.[candidate.consequence]?.rejectionRate;
+    if (rejectionRate === undefined) {
+      return 0;
+    }
+
+    switch (candidate.consequence) {
+      case "low":
+        if (rejectionRate >= 0.5) {
+          return 8;
+        }
+        if (rejectionRate >= 0.25) {
+          return 4;
+        }
+        return 0;
+      case "medium":
+        if (rejectionRate >= 0.5) {
+          return 4;
+        }
+        if (rejectionRate >= 0.25) {
+          return 2;
+        }
+        return 0;
+      case "high":
+        if (rejectionRate >= 0.5) {
+          return -4;
+        }
+        if (rejectionRate >= 0.25) {
+          return -2;
+        }
+        return 0;
+    }
   }
 
   private contextCostAdjustment(candidate: InteractionCandidate): number {

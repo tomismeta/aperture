@@ -3,10 +3,8 @@ import { join } from "node:path";
 
 import {
   ApertureCore,
-  serializeJudgmentConfig,
   MARKDOWN_SCHEMA_VERSION,
   ProfileStore,
-  type JudgmentConfig,
   type MemoryProfile,
 } from "@aperture/core";
 
@@ -49,7 +47,7 @@ export async function bootstrapLearningPersistence(
 
   const judgmentExists = await fileExists(judgmentPath);
   if (!judgmentExists) {
-    await writeFile(judgmentPath, serializeJudgmentConfig(defaultJudgmentConfig(now)), "utf8");
+    await writeFile(judgmentPath, defaultJudgmentTemplate(now), "utf8");
   }
 
   return {
@@ -65,31 +63,59 @@ export async function bootstrapLearningPersistence(
   };
 }
 
-function defaultJudgmentConfig(updatedAt: string): JudgmentConfig {
-  return {
-    version: MARKDOWN_SCHEMA_VERSION,
-    updatedAt,
-    policy: {
-      lowRiskRead: {
-        mayInterrupt: false,
-        minimumPresentation: "ambient",
-      },
-      envWrite: {
-        mayInterrupt: true,
-        minimumPresentation: "active",
-        requireContextExpansion: true,
-      },
-      destructiveBash: {
-        mayInterrupt: true,
-        minimumPresentation: "active",
-        requireContextExpansion: true,
-      },
-    },
-    plannerDefaults: {
-      batchStatusBursts: true,
-      deferLowValueDuringPressure: true,
-    },
-  };
+function defaultJudgmentTemplate(updatedAt: string): string {
+  return [
+    "# Judgment",
+    "",
+    "Human-owned attention policy for Aperture.",
+    "",
+    "Only use the accepted values described below. Aperture reads this file at startup",
+    "and can reload it later, but it will not rewrite your policy choices.",
+    "",
+    "## Meta",
+    `- version: ${MARKDOWN_SCHEMA_VERSION}`,
+    `- updated at: ${updatedAt}`,
+    "",
+    "## Policy",
+    "",
+    "Policy rules map named interaction categories to deterministic handling.",
+    "",
+    "Accepted rule names today:",
+    "- lowRiskRead",
+    "- envWrite",
+    "- destructiveBash",
+    "",
+    "Accepted fields:",
+    "- may interrupt: true | false",
+    "- minimum presentation: ambient | queue | active",
+    "- require context expansion: true | false",
+    "",
+    "### lowRiskRead",
+    "- may interrupt: false",
+    "- minimum presentation: ambient",
+    "",
+    "### envWrite",
+    "- may interrupt: true",
+    "- minimum presentation: active",
+    "- require context expansion: true",
+    "",
+    "### destructiveBash",
+    "- may interrupt: true",
+    "- minimum presentation: active",
+    "- require context expansion: true",
+    "",
+    "## Planner Defaults",
+    "",
+    "Planner defaults are coarse switches for queue behavior.",
+    "",
+    "Accepted fields:",
+    "- batch status bursts: true | false",
+    "- defer low value during pressure: true | false",
+    "",
+    "- batch status bursts: true",
+    "- defer low value during pressure: true",
+    "",
+  ].join("\n");
 }
 
 async function fileExists(path: string): Promise<boolean> {

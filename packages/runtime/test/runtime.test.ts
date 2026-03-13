@@ -131,6 +131,8 @@ test("runtime bootstraps learning persistence and checkpoints memory", async () 
     const judgmentRaw = await readFile(join(root, ".aperture", "JUDGMENT.md"), "utf8");
     assert.match(memoryRaw, /^# Memory/m);
     assert.match(judgmentRaw, /^# Judgment/m);
+    assert.match(judgmentRaw, /Accepted rule names today:/);
+    assert.match(judgmentRaw, /minimum presentation: ambient \| queue \| active/);
 
     const client = await ApertureRuntimeAdapterClient.connect({
       baseUrl: controlUrl,

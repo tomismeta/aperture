@@ -653,7 +653,7 @@ Allowed contents:
 - interruption guardrails
 - minimum presentation rules
 - planner defaults
-- consequence floors
+- context expansion requirements
 
 Forbidden contents:
 
@@ -664,6 +664,7 @@ Forbidden contents:
 Rule:
 
 - Aperture should read `JUDGMENT.md` as configuration, not as memory
+- `JUDGMENT.md` should only expose accepted values that are consumed by live code
 
 ## Runtime Process Flow
 

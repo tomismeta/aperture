@@ -112,6 +112,12 @@ That starts the default local Aperture stack:
 
 Use `pnpm aperture --learning off` if you want an ephemeral session with no local learning persistence.
 
+`JUDGMENT.md` is a small human-owned config template. The accepted live values today are:
+
+- rule names: `lowRiskRead`, `envWrite`, `destructiveBash`
+- rule fields: `may interrupt`, `minimum presentation`, `require context expansion`
+- planner defaults: `batch status bursts`, `defer low value during pressure`
+
 ## Two Ways To Use It
 
 ### 1. Run Aperture With Claude Code

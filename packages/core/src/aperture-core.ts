@@ -21,6 +21,7 @@ import { InteractionSignalStore } from "./interaction-signal-store.js";
 import { loadJudgmentConfig, type JudgmentConfig } from "./judgment-config.js";
 import { normalizeConformedEvent } from "./semantic-normalizer.js";
 import { PolicyGates } from "./policy-gates.js";
+import { forecastPressure } from "./pressure-forecast.js";
 import { ProfileStore, type MemoryProfile, type UserProfile } from "./profile-store.js";
 import { QueuePlanner } from "./queue-planner.js";
 import type { SignalSummary } from "./signal-summary.js";
@@ -168,6 +169,7 @@ export class ApertureCore {
     const globalSummary = this.signals.summarize();
     const taskAttentionState = deriveAttentionState(taskSummary);
     const globalAttentionState = deriveAttentionState(globalSummary);
+    const pressureForecast = forecastPressure(globalSummary, this.getAttentionView());
     const evaluation = this.evaluation.evaluate(event);
 
     switch (evaluation.kind) {
@@ -180,6 +182,7 @@ export class ApertureCore {
           globalSummary,
           taskAttentionState,
           globalAttentionState,
+          pressureForecast,
           current: this.getFrame(event.taskId),
           taskView: this.getTaskView(event.taskId),
           attentionView: this.getAttentionView(),
@@ -197,6 +200,7 @@ export class ApertureCore {
           globalSummary,
           taskAttentionState,
           globalAttentionState,
+          pressureForecast,
           current,
           taskView: this.getTaskView(event.taskId),
           attentionView: this.getAttentionView(),
@@ -215,6 +219,7 @@ export class ApertureCore {
           attentionView: currentAttentionView,
           taskSummary,
           globalSummary,
+          pressureForecast,
         });
         let result: Frame | null;
         switch (explanation.decision.kind) {
@@ -277,6 +282,7 @@ export class ApertureCore {
           globalSummary,
           taskAttentionState,
           globalAttentionState,
+          pressureForecast: explanation.pressureForecast,
           current,
           taskView: this.getTaskView(event.taskId),
           attentionView: this.getAttentionView(),

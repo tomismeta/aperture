@@ -10,5 +10,6 @@ export type * from "./interaction-signal.js";
 export type * from "./interaction-taxonomy.js";
 export type * from "./judgment-config.js";
 export type * from "./profile-store.js";
+export type * from "./pressure-forecast.js";
 export type { DeferredCounts, SignalCounts, SignalSummary } from "./signal-summary.js";
 export type * from "./trace.js";

@@ -7,6 +7,7 @@ import { InteractionCoordinator } from "../src/interaction-coordinator.js";
 import type { InteractionCandidate } from "../src/interaction-candidate.js";
 import type { AttentionView } from "../src/frame.js";
 import { PolicyGates } from "../src/policy-gates.js";
+import type { PressureForecast } from "../src/pressure-forecast.js";
 import { QueuePlanner } from "../src/queue-planner.js";
 import { UtilityScore } from "../src/utility-score.js";
 
@@ -55,6 +56,24 @@ function createCandidate(overrides: Partial<InteractionCandidate> = {}): Interac
     priority: "high",
     blocking: true,
     timestamp: "2026-03-08T12:01:00.000Z",
+    ...overrides,
+  };
+}
+
+function createPressureForecast(overrides: Partial<PressureForecast> = {}): PressureForecast {
+  return {
+    level: "elevated",
+    overloadRisk: "rising",
+    score: 3,
+    metrics: {
+      recentDemand: 5,
+      interruptiveVisible: 1,
+      averageResponseLatencyMs: 9_000,
+      deferredCount: 2,
+      suppressedCount: 1,
+      ...(overrides.metrics ?? {}),
+    },
+    reasons: ["incoming demand is climbing"],
     ...overrides,
   };
 }
@@ -487,4 +506,32 @@ test("keeps low consequence work queued during pressure when calibration says th
   );
 
   assert.equal(decision.kind, "queue");
+});
+
+test("preemptively suppresses low-value status when pressure is rising", () => {
+  const decision = coordinator.coordinate(
+    createFrame({
+      taskId: "task:current",
+      interactionId: "interaction:current",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      responseSpec: { kind: "none" },
+    }),
+    createCandidate({
+      taskId: "task:incoming",
+      interactionId: "interaction:incoming",
+      mode: "status",
+      tone: "ambient",
+      consequence: "low",
+      priority: "background",
+      blocking: false,
+      responseSpec: { kind: "none" },
+    }),
+    {
+      pressureForecast: createPressureForecast(),
+    },
+  );
+
+  assert.equal(decision.kind, "ambient");
 });

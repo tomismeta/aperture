@@ -294,8 +294,8 @@ Example `JUDGMENT.md`:
 
 ## Policy
 ### lowRiskRead
-- may interrupt: false
-- minimum presentation: ambient
+- may interrupt: true
+- minimum presentation: active
 
 ### destructiveBash
 - may interrupt: true
@@ -665,6 +665,7 @@ Rule:
 
 - Aperture should read `JUDGMENT.md` as configuration, not as memory
 - `JUDGMENT.md` should only expose accepted values that are consumed by live code
+- operator-response work should remain `active` unless Aperture has an explicit auto-resolution path for that category
 
 ## Runtime Process Flow
 

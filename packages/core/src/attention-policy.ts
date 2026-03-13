@@ -102,8 +102,18 @@ export class AttentionPolicy {
       rationale.push("configured judgment policy applies to this interaction");
     }
 
+    if (requiresOperatorResponse) {
+      rationale.push("operator-response work cannot remain passive without auto-resolution");
+      return {
+        mayInterrupt: true,
+        requiresOperatorResponse: true,
+        minimumPresentation: "active",
+        rationale,
+      };
+    }
+
     return {
-      mayInterrupt: mayInterrupt ?? minimumPresentation === "active",
+      mayInterrupt: mayInterrupt ?? false,
       requiresOperatorResponse,
       minimumPresentation: minimumPresentation ?? (candidate.blocking ? "active" : "queue"),
       rationale,

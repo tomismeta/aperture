@@ -389,8 +389,10 @@ test("attention policy applies user overrides for tool families", () => {
     }),
   );
 
-  assert.equal(verdict.minimumPresentation, "ambient");
+  assert.equal(verdict.minimumPresentation, "active");
+  assert.equal(verdict.mayInterrupt, true);
   assert.ok(verdict.rationale.includes("user override applies for read interactions"));
+  assert.ok(verdict.rationale.includes("operator-response work cannot remain passive without auto-resolution"));
 });
 
 test("attention policy prefers explicit tool family metadata over title heuristics", () => {
@@ -426,8 +428,10 @@ test("attention policy prefers explicit tool family metadata over title heuristi
     }),
   );
 
-  assert.equal(verdict.minimumPresentation, "ambient");
+  assert.equal(verdict.minimumPresentation, "active");
+  assert.equal(verdict.mayInterrupt, true);
   assert.ok(verdict.rationale.includes("user override applies for read interactions"));
+  assert.ok(verdict.rationale.includes("operator-response work cannot remain passive without auto-resolution"));
 });
 
 test("configured lowRiskRead policy does not match incidental reading language", () => {
@@ -437,8 +441,8 @@ test("configured lowRiskRead policy does not match incidental reading language",
       updatedAt: "2026-03-12T10:15:00.000Z",
       policy: {
         lowRiskRead: {
-          mayInterrupt: false,
-          minimumPresentation: "ambient",
+          mayInterrupt: true,
+          minimumPresentation: "active",
         },
       },
     },
@@ -502,7 +506,7 @@ test("configured judgment policy can require context expansion", () => {
   assert.ok(verdict.rationale.includes("configured judgment policy applies to this interaction"));
 });
 
-test("markdown-backed core can keep configured low-risk reads ambient with no active frame", async () => {
+test("markdown-backed core keeps low-risk read approvals active until explicit auto-approval exists", async () => {
   const root = await mkdtemp(join(tmpdir(), "aperture-core-markdown-"));
   await writeFile(
     join(root, "USER.md"),
@@ -538,8 +542,8 @@ test("markdown-backed core can keep configured low-risk reads ambient with no ac
       updatedAt: "2026-03-12T10:15:00.000Z",
       policy: {
         lowRiskRead: {
-          mayInterrupt: false,
-          minimumPresentation: "ambient",
+          mayInterrupt: true,
+          minimumPresentation: "active",
         },
       },
     }),
@@ -561,8 +565,7 @@ test("markdown-backed core can keep configured low-risk reads ambient with no ac
   });
 
   const taskView = core.getTaskView("task:read");
-  assert.equal(taskView.active, null);
-  assert.equal(taskView.ambient[0]?.interactionId, "interaction:read");
+  assert.equal(taskView.active?.interactionId, "interaction:read");
 });
 
 test("planner defaults can disable burst batching", () => {

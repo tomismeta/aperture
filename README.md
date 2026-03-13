@@ -118,6 +118,8 @@ Use `pnpm aperture --learning off` if you want an ephemeral session with no loca
 - rule fields: `may interrupt`, `minimum presentation`, `require context expansion`
 - planner defaults: `batch status bursts`, `defer low value during pressure`
 
+If a category still requires a human response to proceed, keep it `active` until Aperture supports explicit auto-approval for that category.
+
 ## Two Ways To Use It
 
 ### 1. Run Aperture With Claude Code

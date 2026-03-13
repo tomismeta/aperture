@@ -197,9 +197,7 @@ test("runtime loads scaffolded judgment config and can reload it on demand", asy
     });
 
     const initialTaskView = runtime.getCore().getTaskView("task:read:1");
-    assert.equal(initialTaskView.active, null);
-    const initialPeripheral = initialTaskView.queued[0] ?? initialTaskView.ambient[0];
-    assert.equal(initialPeripheral?.interactionId, "interaction:read:1");
+    assert.equal(initialTaskView.active?.interactionId, "interaction:read:1");
 
     await writeFile(
       join(root, ".aperture", "JUDGMENT.md"),
@@ -242,6 +240,10 @@ test("runtime loads scaffolded judgment config and can reload it on demand", asy
 
     const reloadedFrame = await waitFor(() => runtime.getCore().getTaskView("task:read:2").active);
     assert.equal(reloadedFrame?.interactionId, "interaction:read:2");
+
+    const state = await fetch(`${controlUrl}/state`);
+    const snapshot = await state.json() as ApertureRuntimeSnapshot;
+    assert.ok(snapshot.learningPersistence?.lastLoadedAt);
   } finally {
     await runtime.close();
   }

@@ -294,10 +294,12 @@ Example `JUDGMENT.md`:
 
 ## Policy
 ### lowRiskRead
-- auto approve: true
+- may interrupt: true
+- minimum presentation: active
 
 ### lowRiskWeb
-- auto approve: true
+- may interrupt: true
+- minimum presentation: active
 
 ### fileWrite
 - may interrupt: true
@@ -311,6 +313,7 @@ Example `JUDGMENT.md`:
 ### envWrite
 - may interrupt: true
 - minimum presentation: active
+- require context expansion: true
 
 ## Planner Defaults
 - batch status bursts: true
@@ -318,6 +321,9 @@ Example `JUDGMENT.md`:
 
 Explicit attention policy and guardrails.
 ```
+
+Start conservative, then ratchet bounded categories like `lowRiskRead` or `lowRiskWeb`
+down to `auto approve: true` only when that behavior is explicitly desired.
 
 ### Persistence Rules
 

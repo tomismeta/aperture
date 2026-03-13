@@ -90,7 +90,7 @@ What is built:
 - durable memory checkpointing and reload
 - default local learning persistence through `.aperture/MEMORY.md`
 - default local judgment control through scaffolded `.aperture/JUDGMENT.md`
-- bounded deterministic auto-approval for `lowRiskRead` and `lowRiskWeb`
+- bounded deterministic auto-approval for configured safe categories such as `lowRiskRead` and `lowRiskWeb`
 - human-specific response, context, and deferral patterns feeding back into judgment
 - replay evaluation foundation for merged episodes, deferred activation, and actionable episodes
 

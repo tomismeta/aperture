@@ -125,9 +125,9 @@ If a category still requires a human response to proceed, keep it `active`. Use 
 
 In the default scaffold:
 
-- `lowRiskRead` and `lowRiskWeb` auto-approve immediately
-- `fileWrite` stays active for explicit human approval
+- `lowRiskRead`, `lowRiskWeb`, and `fileWrite` stay active for explicit human approval
 - `envWrite` and `destructiveBash` stay active and require context expansion
+- ratchet categories down to `auto approve` only when you explicitly want bounded pass-through
 
 ## Two Ways To Use It
 

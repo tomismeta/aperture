@@ -198,10 +198,10 @@ test("runtime loads scaffolded judgment config and can reload it on demand", asy
       }),
     });
 
-    const initialTaskView = runtime.getCore().getTaskView("task:read:1");
-    assert.equal(initialTaskView.active, null);
-    const initialSignal = runtime.getCore().getSignals("task:read:1")[0];
-    assert.equal(initialSignal?.kind, "responded");
+    const initialTaskView = await waitFor(() => runtime.getCore().getTaskView("task:read:1").active);
+    assert.equal(initialTaskView?.interactionId, "interaction:read:1");
+    const initialSignals = runtime.getCore().getSignals("task:read:1");
+    assert.equal(initialSignals.some((signal) => signal.kind === "responded"), false);
 
     await writeFile(
       join(root, ".aperture", "JUDGMENT.md"),

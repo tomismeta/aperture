@@ -15,7 +15,7 @@ import type { AttentionValueBreakdown } from "./attention-value.js";
 // JUDGMENT.md exposure reviewable.
 const DEFAULTS = JUDGMENT_DEFAULTS.queuePlanner;
 
-export type PlannedDecision =
+export type AttentionPlanDecision =
   | { kind: "activate"; candidate: InteractionCandidate }
   | { kind: "queue"; candidate: InteractionCandidate }
   | { kind: "ambient"; candidate: InteractionCandidate }
@@ -23,7 +23,7 @@ export type PlannedDecision =
   | { kind: "clear" };
 
 export type AttentionPlanningExplanation = {
-  decision: PlannedDecision;
+  decision: AttentionPlanDecision;
   currentPriority: InteractionPriority | null;
   currentScore: number | null;
   reasons: string[];
@@ -333,14 +333,14 @@ export class AttentionPlanner {
     };
   }
 
-  clear(): PlannedDecision {
+  clear(): AttentionPlanDecision {
     return { kind: "clear" };
   }
 
   private peripheralDecision(
     candidate: InteractionCandidate,
     policyVerdict: AttentionPolicyVerdict,
-  ): Extract<PlannedDecision, { kind: "queue" | "ambient" }> {
+  ): Extract<AttentionPlanDecision, { kind: "queue" | "ambient" }> {
     if (policyVerdict.minimumPresentation === "ambient") {
       return { kind: "ambient", candidate };
     }
@@ -352,7 +352,7 @@ export class AttentionPlanner {
     candidate: InteractionCandidate,
     policyVerdict: AttentionPolicyVerdict,
     attentionView: AttentionView | undefined,
-  ): Extract<PlannedDecision, { kind: "queue" | "ambient" }> {
+  ): Extract<AttentionPlanDecision, { kind: "queue" | "ambient" }> {
     const episodeIsAlreadyInterruptive =
       candidate.episodeId !== undefined
       && [attentionView?.active, ...(attentionView?.queued ?? [])]
@@ -370,7 +370,7 @@ export class AttentionPlanner {
     candidate: InteractionCandidate,
     policyVerdict: AttentionPolicyVerdict,
     utility: AttentionValueBreakdown,
-  ): Extract<PlannedDecision, { kind: "queue" | "ambient" }> {
+  ): Extract<AttentionPlanDecision, { kind: "queue" | "ambient" }> {
     if (
       (utility.components.deferralAffinity > 0 || utility.components.consequenceCalibration > 0)
       && policyVerdict.minimumPresentation !== "active"

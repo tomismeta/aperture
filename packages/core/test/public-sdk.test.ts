@@ -15,7 +15,6 @@ test("@aperture/core exposes the intended public SDK surface", () => {
   assert.ok("ProfileStore" in sdk);
   assert.ok("evaluateTraceSession" in sdk);
   assert.ok("scoreAttentionFrame" in sdk);
-  assert.ok("APERTURE_STATE_SCHEMA_VERSION" in sdk);
 
   assert.equal("AttentionAdjustments" in sdk, false);
   assert.equal("AttentionSignalStore" in sdk, false);
@@ -24,5 +23,6 @@ test("@aperture/core exposes the intended public SDK surface", () => {
   assert.equal("buildMemoryProfile" in sdk, false);
   assert.equal("scoreFrame" in sdk, false);
   assert.equal("serializeJudgmentConfig" in sdk, false);
+  assert.equal("APERTURE_STATE_SCHEMA_VERSION" in sdk, false);
   assert.equal("MARKDOWN_SCHEMA_VERSION" in sdk, false);
 });

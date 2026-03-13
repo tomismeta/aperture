@@ -2,6 +2,7 @@
   "name": "@aperture/core",
   "version": "0.1.0",
   "description": "Deterministic, self-tuning attention judgment for agent systems.",
+  "author": "Tom",
   "license": "MIT",
   "homepage": "https://github.com/tomismeta/aperture#readme",
   "repository": {
@@ -21,6 +22,9 @@
   ],
   "publishConfig": {
     "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "type": "module",
   "main": "./dist/index.js",

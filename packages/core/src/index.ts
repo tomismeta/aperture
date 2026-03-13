@@ -1,5 +1,13 @@
 export { ApertureCore } from "./aperture-core.js";
-export type { ApertureCoreOptions } from "./aperture-core.js";
+export type {
+  ApertureCoreOptions,
+  AttentionFrameListener,
+  AttentionTaskViewListener,
+  AttentionViewListener,
+  AttentionResponseListener,
+  AttentionSignalListener,
+  AttentionTraceListener,
+} from "./aperture-core.js";
 
 export { AttentionPolicy } from "./attention-policy.js";
 export type { AttentionPolicyVerdict, MinimumPresentation } from "./attention-policy.js";
@@ -16,7 +24,7 @@ export { AttentionPlanner } from "./attention-planner.js";
 export type {
   AttentionPlanningContext,
   AttentionPlanningExplanation,
-  PlannedDecision,
+  AttentionPlanDecision,
 } from "./attention-planner.js";
 
 export { JudgmentCoordinator } from "./judgment-coordinator.js";
@@ -36,8 +44,6 @@ export { distillMemoryProfile } from "./memory-aggregator.js";
 export { ProfileStore } from "./profile-store.js";
 export { evaluateTraceSession } from "./trace-evaluator.js";
 export type { TraceEvaluationReport } from "./trace-evaluator.js";
-
-export { APERTURE_STATE_SCHEMA_VERSION } from "./judgment-defaults.js";
 
 export type * from "./events.js";
 export type * from "./conformed-event.js";

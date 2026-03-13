@@ -6,17 +6,24 @@ import type {
   AttentionConsequenceLevel,
   AttentionDeferredSignalCounts,
   AttentionFrame,
+  AttentionFrameListener,
+  AttentionPlanDecision,
   AttentionPlanningContext,
   AttentionPolicyVerdict,
   AttentionPressure,
   AttentionResponse,
+  AttentionResponseListener,
   AttentionSignal,
   AttentionSignalCounts,
+  AttentionSignalListener,
   AttentionSignalSummary,
   AttentionState,
   AttentionTaskView,
+  AttentionTaskViewListener,
+  AttentionTraceListener,
   AttentionValueBreakdown,
   AttentionView,
+  AttentionViewListener,
   ConformedEvent,
   JudgmentConfig,
   JudgmentDecision,
@@ -27,6 +34,12 @@ import type {
 } from "../src/index.js";
 
 void (0 as unknown as ApertureCoreOptions);
+void (0 as unknown as AttentionFrameListener);
+void (0 as unknown as AttentionTaskViewListener);
+void (0 as unknown as AttentionViewListener);
+void (0 as unknown as AttentionResponseListener);
+void (0 as unknown as AttentionSignalListener);
+void (0 as unknown as AttentionTraceListener);
 void (0 as unknown as ApertureEvent);
 void (0 as unknown as ConformedEvent);
 void (0 as unknown as AttentionCandidate);
@@ -41,6 +54,7 @@ void (0 as unknown as AttentionView);
 void (0 as unknown as AttentionPolicyVerdict);
 void (0 as unknown as AttentionValueBreakdown);
 void (0 as unknown as AttentionPlanningContext);
+void (0 as unknown as AttentionPlanDecision);
 void (0 as unknown as AttentionPressure);
 void (0 as unknown as JudgmentDecision);
 void (0 as unknown as JudgmentConfig);

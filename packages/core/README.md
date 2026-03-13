@@ -2,7 +2,11 @@
 
 Deterministic, self-tuning attention judgment for agent systems.
 
+`@aperture/core` is for runtimes that need to decide what deserves human attention now, what should wait, and what can stay in the background as agent activity competes for limited human focus.
+
 `@aperture/core` is the SDK substrate behind Aperture. It contains the judgment engine, the learning loop, and the stable types needed to embed Aperture inside another runtime without depending on the local host or TUI.
+
+This package is ESM-only and requires Node.js 18+.
 
 It is not:
 
@@ -31,6 +35,10 @@ The public surface is centered on a few core concepts:
   - optional local persistence helper
 - `forecastAttentionPressure`
   - predictive overload signal
+- `idleAttentionPressure`
+  - zero-load pressure baseline for hosts that want an explicit idle state
+- `scoreAttentionFrame`
+  - frame scoring helper for diagnostics and replay tooling
 - `evaluateTraceSession`
   - replay and evaluation helper
 
@@ -45,6 +53,7 @@ The key public schemas are:
 - `MemoryProfile`
 - `JudgmentConfig`
 - `ApertureTrace`
+- subscription listener types for frames, task views, signals, responses, and traces
 
 The SDK uses the explicit `Attention*` naming family intentionally. Earlier generic names like `Frame` or `FrameResponse` are not part of the public contract.
 
@@ -93,6 +102,8 @@ core.publish({
 const attentionView = core.getAttentionView();
 ```
 
+`publish()` returns the newly materialized `AttentionFrame` when work enters the surface, or `null` when an event is normalized into a no-op or clear action.
+
 ### Judgment Primitive Mode
 
 Use the judgment primitives when you already have your own runtime and only want Aperture’s attention adjudication.
@@ -133,6 +144,8 @@ const candidate: AttentionCandidate = {
 
 const decision = coordinator.coordinate(null, candidate);
 ```
+
+If you want the full rationale instead of just the final decision, call `coordinator.explain(...)`.
 
 ## Learning Persistence
 

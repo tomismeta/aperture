@@ -34,12 +34,12 @@ import type { ApertureTrace } from "./trace.js";
 import { TraceRecorder } from "./trace-recorder.js";
 import { AttentionValue } from "./attention-value.js";
 
-type FrameListener = (frame: AttentionFrame | null) => void;
-type TaskViewListener = (taskView: AttentionTaskView) => void;
-type AttentionViewListener = (attentionView: AttentionView) => void;
-type ResponseListener = (response: AttentionResponse) => void;
-type SignalListener = (signal: AttentionSignal) => void;
-type TraceListener = (trace: ApertureTrace) => void;
+export type AttentionFrameListener = (frame: AttentionFrame | null) => void;
+export type AttentionTaskViewListener = (taskView: AttentionTaskView) => void;
+export type AttentionViewListener = (attentionView: AttentionView) => void;
+export type AttentionResponseListener = (response: AttentionResponse) => void;
+export type AttentionSignalListener = (signal: AttentionSignal) => void;
+export type AttentionTraceListener = (trace: ApertureTrace) => void;
 
 export type ApertureCoreOptions = {
   userProfile?: UserProfile;
@@ -51,12 +51,12 @@ export type ApertureCoreOptions = {
 
 export class ApertureCore {
   private readonly frames = new Map<string, AttentionFrame>();
-  private readonly frameListeners = new Map<string, Set<FrameListener>>();
-  private readonly taskViewListeners = new Map<string, Set<TaskViewListener>>();
+  private readonly frameListeners = new Map<string, Set<AttentionFrameListener>>();
+  private readonly taskViewListeners = new Map<string, Set<AttentionTaskViewListener>>();
   private readonly attentionViewListeners = new Set<AttentionViewListener>();
-  private readonly responseListeners = new Set<ResponseListener>();
-  private readonly signalListeners = new Set<SignalListener>();
-  private readonly traceListeners = new Set<TraceListener>();
+  private readonly responseListeners = new Set<AttentionResponseListener>();
+  private readonly signalListeners = new Set<AttentionSignalListener>();
+  private readonly traceListeners = new Set<AttentionTraceListener>();
   private readonly taskViews = new TaskViewStore();
   private readonly signals = new AttentionSignalStore();
   private readonly episodes = new EpisodeTracker();
@@ -291,8 +291,8 @@ export class ApertureCore {
     return this.frames.get(taskId) ?? null;
   }
 
-  subscribe(taskId: string, listener: FrameListener): () => void {
-    const listeners = this.frameListeners.get(taskId) ?? new Set<FrameListener>();
+  subscribe(taskId: string, listener: AttentionFrameListener): () => void {
+    const listeners = this.frameListeners.get(taskId) ?? new Set<AttentionFrameListener>();
     listeners.add(listener);
     this.frameListeners.set(taskId, listeners);
     listener(this.getFrame(taskId));
@@ -305,8 +305,8 @@ export class ApertureCore {
     };
   }
 
-  subscribeTaskView(taskId: string, listener: TaskViewListener): () => void {
-    const listeners = this.taskViewListeners.get(taskId) ?? new Set<TaskViewListener>();
+  subscribeTaskView(taskId: string, listener: AttentionTaskViewListener): () => void {
+    const listeners = this.taskViewListeners.get(taskId) ?? new Set<AttentionTaskViewListener>();
     listeners.add(listener);
     this.taskViewListeners.set(taskId, listeners);
     listener(this.getTaskView(taskId));
@@ -327,21 +327,21 @@ export class ApertureCore {
     };
   }
 
-  onResponse(listener: ResponseListener): () => void {
+  onResponse(listener: AttentionResponseListener): () => void {
     this.responseListeners.add(listener);
     return () => {
       this.responseListeners.delete(listener);
     };
   }
 
-  onSignal(listener: SignalListener): () => void {
+  onSignal(listener: AttentionSignalListener): () => void {
     this.signalListeners.add(listener);
     return () => {
       this.signalListeners.delete(listener);
     };
   }
 
-  onTrace(listener: TraceListener): () => void {
+  onTrace(listener: AttentionTraceListener): () => void {
     this.traceListeners.add(listener);
     return () => {
       this.traceListeners.delete(listener);

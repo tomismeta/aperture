@@ -1,6 +1,6 @@
 import type { AttentionFrame as Frame, AttentionView } from "./frame.js";
 
-import type { FrameResponse } from "./frame-response.js";
+import type { AttentionResponse } from "./frame-response.js";
 import { scoreFrame } from "./frame-score.js";
 import type { InteractionCandidate, InteractionPriority } from "./interaction-candidate.js";
 import { AttentionPolicy, type AttentionPolicyVerdict } from "./attention-policy.js";
@@ -10,7 +10,7 @@ import type { SignalSummary } from "./signal-summary.js";
 import { AttentionValue, type AttentionValueBreakdown } from "./attention-value.js";
 
 export type JudgmentDecision =
-  | { kind: "auto_approve"; candidate: InteractionCandidate; response: FrameResponse }
+  | { kind: "auto_approve"; candidate: InteractionCandidate; response: AttentionResponse }
   | { kind: "activate"; candidate: InteractionCandidate }
   | { kind: "queue"; candidate: InteractionCandidate }
   | { kind: "ambient"; candidate: InteractionCandidate }

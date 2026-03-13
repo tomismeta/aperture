@@ -34,10 +34,8 @@ Those pieces are live and wired in the current engine path.
 
 What is not ready yet:
 
-- `@aperture/core` is still private
-- the export surface is now broad enough for the main judgment stack, but it has not yet been hardened as a published package contract
-- the package is not yet set up for npm publishing
-- package contents are still broader than a first public tarball should be
+- the package is not yet published
+- first-release versioning and scope are still a product decision
 
 ## Design Principles
 
@@ -201,6 +199,13 @@ Status:
 - verify a clean install/build path outside this monorepo
 - test that another runtime can import and use the package
 - keep the API intentionally narrow
+- keep the tarball limited to the published contract
+
+Status:
+
+- built
+- `@aperture/core` now has package metadata, a package-local license, and a `files` whitelist
+- `pnpm sdk:prove` verifies both external consumption and tarball shape
 
 ## Success Criteria
 

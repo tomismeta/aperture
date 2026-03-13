@@ -1,10 +1,35 @@
 {
   "name": "@aperture/core",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "Deterministic, self-learning attention judgment for agent systems.",
+  "license": "MIT",
+  "homepage": "https://github.com/tomismeta/aperture#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tomismeta/aperture.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/tomismeta/aperture/issues"
+  },
+  "keywords": [
+    "ai-agents",
+    "attention-management",
+    "control-plane",
+    "human-in-the-loop",
+    "typescript"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -12,6 +37,8 @@
     }
   },
   "scripts": {
-    "build": "tsc -b"
-  }
+    "build": "node -e \"const fs=require('node:fs'); fs.rmSync('dist',{recursive:true,force:true}); fs.rmSync('tsconfig.tsbuildinfo',{force:true});\" && tsc -b",
+    "prepack": "pnpm run build"
+  },
+  "sideEffects": false
 }

@@ -91,7 +91,7 @@ What is true today:
 
 #### Package Surface
 
-Status: `SDK-aware`
+Status: `SDK-ready`
 
 What is true today:
 
@@ -99,13 +99,13 @@ What is true today:
 - lower-level judgment primitives are available
 - learning persistence is part of the core model
 - the SDK path is documented
+- external consumers can install a packed tarball and run both full-engine and judgment-primitive examples
+- package metadata and tarball contents are now curated for first release
 
 What is not true yet:
 
-- `@aperture/core` is not yet a hardened public contract
-- there is no external-consumer proof outside the monorepo
-- there is no package README focused on SDK consumers
-- npm publishing would still be premature
+- the package is not yet published
+- first-release versioning and release notes are still a decision, not a settled policy
 
 ## The Maturity Ladder
 
@@ -160,20 +160,20 @@ Definitions:
   - the public contract is intentionally small and explicitly documented
 
 - `SDK-ready`
-  - packaging, metadata, examples, and install flows are ready for first release
+  - packaging, metadata, examples, tarball hygiene, and install flows are ready for first release
 
 - `published`
   - the package is actually on npm and being used as a substrate
 
 Current placement:
 
-- `@aperture/core`: `SDK-proving`
+- `@aperture/core`: `SDK-ready`
 
-The next target is `SDK-proving`.
+The next target is `published`.
 
-## What SDK-Proving Should Mean
+## What SDK-Ready Should Mean
 
-Before npm publishing, Aperture should prove the core package in one small external integration.
+Before npm publishing, Aperture should prove the core package in one small external integration and tighten the artifact itself.
 
 That should mean:
 
@@ -182,8 +182,9 @@ That should mean:
 - exercise `ApertureCore` in full-engine mode
 - exercise at least one lower-level judgment primitive path
 - verify the learning loop still works outside the built-in runtime
+- keep the tarball limited to the published contract
 
-This is the right next step because it reveals real API friction without forcing a public compatibility promise too early.
+This is the right step because it reveals real API friction and packaging sloppiness before we make a public compatibility promise.
 
 ## Publish Gates For `@aperture/core`
 
@@ -194,6 +195,7 @@ This is the right next step because it reveals real API friction without forcing
 3. package metadata and README make sense without repo context
 4. the learning loop still works in embedded usage
 5. internal implementation modules are not leaking as accidental public contract
+6. the tarball only contains the published package surface
 
 That keeps publishing as a packaging milestone, not a speculative branding move.
 
@@ -201,9 +203,9 @@ That keeps publishing as a packaging milestone, not a speculative branding move.
 
 Ordered by leverage:
 
-1. **Harden the proven consumer path**
-   - keep the packed-tarball install healthy
-   - keep one full-engine and one judgment-primitive consumer working as the contract evolves
+1. **Decide first release posture**
+   - versioning and release notes
+   - explicit non-goals for the first public package
 
 2. **Keep Claude Code as the flagship live adapter**
    - keep one path obviously working while the substrate matures
@@ -211,14 +213,13 @@ Ordered by leverage:
 3. **Choose the second real source**
    - Paperclip or Codex, based on actual demand and access
 
-4. **Add package-facing examples**
+4. **Keep package-facing examples healthy**
    - one full-engine example
    - one judgment-primitive example
 
-5. **Only then harden npm posture**
-   - package metadata
-   - package README
-   - non-private publish surface
+5. **Make the publish/no-publish decision deliberately**
+   - package metadata is ready
+   - publish is now a product choice, not a packaging scramble
 
 ## What To Avoid
 
@@ -233,7 +234,7 @@ To keep the productization path clean:
 
 If we have limited time and limited live adapter demand, the best technical productization move is:
 
-**progress `@aperture/core` from `SDK-proving` to `SDK-ready`**
+**decide whether to publish `@aperture/core` now that it is SDK-ready**
 
 That is the closest, most controllable maturity step:
 

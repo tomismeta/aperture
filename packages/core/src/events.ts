@@ -39,6 +39,7 @@ export type HumanInputRequestKind = "approval" | "choice" | "form";
 export type HumanInputRequestedEvent = EventBase & {
   type: "human.input.requested";
   interactionId: string;
+  toolFamily?: string;
   title: string;
   summary: string;
   tone?: "ambient" | "focused" | "critical";

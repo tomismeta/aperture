@@ -127,17 +127,24 @@ export class PolicyGates {
 
 function policyTagsForCandidate(candidate: InteractionCandidate): string[] {
   const tags: string[] = [];
-  const value = `${candidate.title} ${candidate.summary ?? ""} ${candidate.context?.items?.map((item) => item.value ?? "").join(" ") ?? ""}`.toLowerCase();
+  const toolFamily = inferToolFamily(candidate);
+  const value = [
+    candidate.title,
+    candidate.summary ?? "",
+    ...(candidate.context?.items?.flatMap((item) => [item.label, item.value ?? ""]) ?? []),
+  ]
+    .join(" ")
+    .toLowerCase();
 
-  if (candidate.consequence === "low" && value.includes("read")) {
+  if (candidate.consequence === "low" && toolFamily === "read") {
     tags.push("lowRiskRead");
   }
 
-  if (value.includes(".env")) {
+  if (value.includes(".env") && (toolFamily === "write" || toolFamily === "edit" || toolFamily === "bash")) {
     tags.push("envWrite");
   }
 
-  if ((value.includes("shell command") || value.includes("run")) && candidate.consequence === "high") {
+  if (toolFamily === "bash" && candidate.consequence === "high") {
     tags.push("destructiveBash");
   }
 

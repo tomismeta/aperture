@@ -65,6 +65,7 @@ function normalizeHumanInput(
     interactionId: event.interactionId,
     timestamp: event.timestamp,
     ...(event.source !== undefined ? { source: event.source } : {}),
+    ...(event.toolFamily !== undefined ? { toolFamily: event.toolFamily } : {}),
     title: event.title,
     summary: event.summary,
     tone,

@@ -32,6 +32,7 @@ export type ConformedTaskUpdatedEvent = ConformedEventBase & {
 export type ConformedHumanInputRequestedEvent = ConformedEventBase & {
   type: "human.input.requested";
   interactionId: string;
+  toolFamily?: string;
   title: string;
   summary: string;
   request: HumanInputRequest;

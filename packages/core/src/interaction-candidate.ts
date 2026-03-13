@@ -13,6 +13,7 @@ export type InteractionCandidate = {
   taskId: string;
   interactionId: string;
   source?: SourceRef;
+  toolFamily?: string;
   mode: Frame["mode"];
   tone: Frame["tone"];
   consequence: Frame["consequence"];

@@ -701,6 +701,9 @@ export class ApertureCore {
     return metadata;
   }
 
+  // TODO: Extract checkpoint aggregation into a dedicated module once the
+  // markdown memory schema settles. ApertureCore should only orchestrate the
+  // checkpoint boundary, not own every aggregation detail long term.
   private toolFamilyMemory(): NonNullable<MemoryProfile["toolFamilies"]> {
     const next = { ...(this.baseMemoryProfile.toolFamilies ?? {}) };
     const session = new Map<string, {

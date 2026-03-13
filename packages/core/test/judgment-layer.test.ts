@@ -172,6 +172,78 @@ test("policy gates apply user overrides for tool families", () => {
   assert.ok(verdict.rationale.includes("user override applies for read interactions"));
 });
 
+test("policy gates prefer explicit tool family metadata over title heuristics", () => {
+  const gates = new PolicyGates({
+    userProfile: {
+      version: 1,
+      operatorId: "default",
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      overrides: {
+        tools: {
+          read: {
+            defaultPresentation: "ambient",
+          },
+        },
+      },
+    },
+  });
+
+  const verdict = gates.evaluate(
+    createCandidate({
+      mode: "approval",
+      blocking: true,
+      toolFamily: "read",
+      title: "Need your eyes on this",
+      summary: "Review the latest config access",
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(verdict.minimumPresentation, "ambient");
+  assert.ok(verdict.rationale.includes("user override applies for read interactions"));
+});
+
+test("configured lowRiskRead policy does not match incidental reading language", () => {
+  const gates = new PolicyGates({
+    judgmentConfig: {
+      version: 1,
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      policy: {
+        lowRiskRead: {
+          mayInterrupt: false,
+          minimumPresentation: "ambient",
+        },
+      },
+    },
+  });
+
+  const verdict = gates.evaluate(
+    createCandidate({
+      mode: "approval",
+      blocking: true,
+      consequence: "low",
+      title: "Already reading prior output",
+      summary: "Waiting for the next operator step",
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(verdict.minimumPresentation, "active");
+  assert.ok(verdict.rationale.includes("blocking interactions require explicit operator attention"));
+});
+
 test("markdown-backed core can keep configured low-risk reads ambient with no active frame", async () => {
   const root = await mkdtemp(join(tmpdir(), "aperture-core-markdown-"));
   await writeFile(

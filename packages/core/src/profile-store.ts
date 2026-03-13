@@ -85,6 +85,9 @@ export class ProfileStore {
 }
 
 function parseUserProfile(content: string): UserProfile | null {
+  // TODO: Add explicit migrations if the markdown schema needs a breaking
+  // change. For now we keep the format additive and fall back to defaults when
+  // required metadata is missing.
   const meta = new Map<string, string[]>();
   const preferences = new Map<string, string[]>();
   const toolOverrides = new Map<string, Record<string, string | boolean | number>>();
@@ -168,6 +171,9 @@ function parseUserProfile(content: string): UserProfile | null {
 }
 
 function parseMemoryProfile(content: string): MemoryProfile | null {
+  // TODO: Add explicit migrations if the markdown schema needs a breaking
+  // change. For now we keep the format additive and fall back to defaults when
+  // required metadata is missing.
   const meta = new Map<string, string[]>();
   const toolFamilies = new Map<string, ToolFamilyMemory>();
   const sourceTrust = new Map<string, Record<string, SourceTrustMemory>>();

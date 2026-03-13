@@ -7,6 +7,15 @@ import type { PlannerDefaults } from "./judgment-config.js";
 import type { PolicyVerdict } from "./policy-gates.js";
 import type { SignalSummary } from "./signal-summary.js";
 
+// These thresholds are intentionally conservative for v1 so reviewable policy
+// still dominates. We can move them into JUDGMENT.md once real usage shows
+// which ones operators actually want to tune.
+const STATUS_BURST_WINDOW_MS = 60_000;
+const URGENT_BACKLOG_WINDOW_MS = 90_000;
+const DEFERRED_ESCALATION_THRESHOLD = 3;
+const RETURNED_ESCALATION_THRESHOLD = 2;
+const ESCALATION_SCORE_SLACK = 10;
+
 export type PlannedDecision =
   | { kind: "activate"; candidate: InteractionCandidate }
   | { kind: "queue"; candidate: InteractionCandidate }
@@ -240,7 +249,7 @@ export class QueuePlanner {
       })
       .filter((frame) => {
         const ageMs = Date.parse(now) - Date.parse(frame.timing.updatedAt);
-        return Number.isNaN(ageMs) ? true : ageMs <= 90_000;
+        return Number.isNaN(ageMs) ? true : ageMs <= URGENT_BACKLOG_WINDOW_MS;
       }).length;
 
     return urgentBacklog >= 2;
@@ -265,14 +274,14 @@ export class QueuePlanner {
       return false;
     }
 
-    const repeatedlyDeferred = taskSummary.counts.deferred >= 3;
-    const repeatedlyReturned = taskSummary.counts.returned >= 2;
+    const repeatedlyDeferred = taskSummary.counts.deferred >= DEFERRED_ESCALATION_THRESHOLD;
+    const repeatedlyReturned = taskSummary.counts.returned >= RETURNED_ESCALATION_THRESHOLD;
 
     if (!repeatedlyDeferred && !repeatedlyReturned) {
       return false;
     }
 
-    return candidateScore >= currentScore - 10;
+    return candidateScore >= currentScore - ESCALATION_SCORE_SLACK;
   }
 
   private shouldDampenBurst(current: Frame, candidate: InteractionCandidate): boolean {
@@ -297,6 +306,6 @@ export class QueuePlanner {
       return false;
     }
 
-    return candidateTimestamp - currentTimestamp <= 60_000;
+    return candidateTimestamp - currentTimestamp <= STATUS_BURST_WINDOW_MS;
   }
 }

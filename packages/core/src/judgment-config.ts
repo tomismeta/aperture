@@ -35,6 +35,9 @@ export async function loadJudgmentConfig(
 }
 
 function parseJudgmentConfig(content: string): JudgmentConfig | null {
+  // TODO: Add explicit migrations if the markdown schema needs a breaking
+  // change. For now we keep the format additive and fall back to defaults when
+  // required metadata is missing.
   const meta = new Map<string, string>();
   const policy = new Map<string, JudgmentRule>();
   const plannerDefaults = new Map<string, boolean>();

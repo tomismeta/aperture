@@ -14,6 +14,9 @@ export class FramePlanner {
       rationale: candidate.attentionRationale ?? [],
     };
     const currentEpisode = current?.metadata?.episode;
+    const toolFamily =
+      candidate.toolFamily
+      ?? (typeof current?.metadata?.toolFamily === "string" ? current.metadata.toolFamily : undefined);
     const nextEpisode =
       candidate.episodeId
         ? {
@@ -45,6 +48,7 @@ export class FramePlanner {
       metadata: {
         ...(current?.metadata ?? {}),
         attention: nextAttention,
+        ...(toolFamily !== undefined ? { toolFamily } : {}),
         ...(nextEpisode ? { episode: nextEpisode } : {}),
       },
       ...(candidate.summary !== undefined ? { summary: candidate.summary } : {}),

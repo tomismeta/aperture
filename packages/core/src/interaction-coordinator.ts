@@ -65,6 +65,7 @@ export class InteractionCoordinator {
       attentionView: context.attentionView,
       taskSummary: context.taskSummary,
       policyVerdict: policy,
+      utility,
       candidateScore: utility.total,
       currentScore,
     });

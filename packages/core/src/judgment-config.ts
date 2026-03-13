@@ -25,7 +25,6 @@ export type JudgmentRule = {
   mayInterrupt?: boolean;
   minimumPresentation?: "ambient" | "queue" | "active";
   requireContextExpansion?: boolean;
-  requireReasonOnReject?: boolean;
 };
 
 export async function loadJudgmentConfig(
@@ -121,9 +120,6 @@ export function serializeJudgmentConfig(config: JudgmentConfig): string {
       }
       if (rule.requireContextExpansion !== undefined) {
         lines.push(formatBullet("require context expansion", rule.requireContextExpansion));
-      }
-      if (rule.requireReasonOnReject !== undefined) {
-        lines.push(formatBullet("require reason on reject", rule.requireReasonOnReject));
       }
     }
   }

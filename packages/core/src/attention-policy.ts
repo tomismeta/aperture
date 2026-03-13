@@ -77,15 +77,18 @@ export class AttentionPolicy {
       ? this.userProfile?.overrides?.tools?.[toolFamily]
       : undefined;
     const policyRule = this.matchPolicyRule(candidate);
+    const requireContextExpansion =
+      toolOverride?.requireContextExpansion === true
+      || policyRule?.requireContextExpansion === true;
 
     const minimumPresentation = readMinimumPresentation(toolOverride?.defaultPresentation)
       ?? policyRule?.minimumPresentation
-      ?? (toolOverride?.requireContextExpansion ? "active" : undefined);
+      ?? (requireContextExpansion ? "active" : undefined);
     const mayInterrupt = policyRule?.mayInterrupt;
     const requiresOperatorResponse =
       candidate.blocking
       || minimumPresentation === "active"
-      || toolOverride?.requireContextExpansion === true;
+      || requireContextExpansion;
 
     if (minimumPresentation === undefined && mayInterrupt === undefined && !toolOverride) {
       return null;

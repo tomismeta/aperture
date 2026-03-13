@@ -305,7 +305,6 @@ Example `JUDGMENT.md`:
 ### envWrite
 - may interrupt: true
 - minimum presentation: active
-- require reason on reject: true
 
 ## Planner Defaults
 - batch status bursts: true

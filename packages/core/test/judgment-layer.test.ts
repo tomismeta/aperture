@@ -465,6 +465,43 @@ test("configured lowRiskRead policy does not match incidental reading language",
   assert.ok(verdict.rationale.includes("blocking interactions require explicit operator attention"));
 });
 
+test("configured judgment policy can require context expansion", () => {
+  const gates = new AttentionPolicy({
+    judgmentConfig: {
+      version: 1,
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      policy: {
+        envWrite: {
+          mayInterrupt: true,
+          minimumPresentation: "active",
+          requireContextExpansion: true,
+        },
+      },
+    },
+  });
+
+  const verdict = gates.evaluate(
+    createCandidate({
+      mode: "approval",
+      blocking: false,
+      consequence: "medium",
+      title: "Claude Code wants to write .env",
+      summary: "Update API token",
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(verdict.minimumPresentation, "active");
+  assert.equal(verdict.requiresOperatorResponse, true);
+  assert.ok(verdict.rationale.includes("configured judgment policy applies to this interaction"));
+});
+
 test("markdown-backed core can keep configured low-risk reads ambient with no active frame", async () => {
   const root = await mkdtemp(join(tmpdir(), "aperture-core-markdown-"));
   await writeFile(

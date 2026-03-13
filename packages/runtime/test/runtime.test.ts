@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -128,7 +128,9 @@ test("runtime bootstraps learning persistence and checkpoints memory", async () 
 
   try {
     const memoryRaw = await readFile(join(root, ".aperture", "MEMORY.md"), "utf8");
+    const judgmentRaw = await readFile(join(root, ".aperture", "JUDGMENT.md"), "utf8");
     assert.match(memoryRaw, /^# Memory/m);
+    assert.match(judgmentRaw, /^# Judgment/m);
 
     const client = await ApertureRuntimeAdapterClient.connect({
       baseUrl: controlUrl,
@@ -163,10 +165,81 @@ test("runtime bootstraps learning persistence and checkpoints memory", async () 
       assert.equal(snapshot.learningPersistence?.enabled, true);
       assert.equal(snapshot.learningPersistence?.rootDir, join(root, ".aperture"));
       assert.equal(snapshot.learningPersistence?.memoryPath, join(root, ".aperture", "MEMORY.md"));
+      assert.equal(snapshot.learningPersistence?.judgmentPath, join(root, ".aperture", "JUDGMENT.md"));
       assert.ok(snapshot.learningPersistence?.lastCheckpointAt);
     } finally {
       await client.close();
     }
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("runtime loads scaffolded judgment config and can reload it on demand", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-runtime-judgment-"));
+  const learning = await bootstrapLearningPersistence(root);
+  const runtime = createApertureRuntime({
+    controlPort: 0,
+    core: learning.core,
+    learningPersistence: learning.state,
+  });
+  const { controlUrl } = await runtime.listen();
+
+  try {
+    await fetch(`${controlUrl}/events/conformed`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event: lowRiskReadEvent("task:read:1", "interaction:read:1"),
+      }),
+    });
+
+    const initialTaskView = runtime.getCore().getTaskView("task:read:1");
+    assert.equal(initialTaskView.active, null);
+    const initialPeripheral = initialTaskView.queued[0] ?? initialTaskView.ambient[0];
+    assert.equal(initialPeripheral?.interactionId, "interaction:read:1");
+
+    await writeFile(
+      join(root, ".aperture", "JUDGMENT.md"),
+      [
+        "# Judgment",
+        "",
+        "## Meta",
+        "- version: 1",
+        "- updated at: 2026-03-13T12:00:00.000Z",
+        "",
+        "## Policy",
+        "",
+        "### lowRiskRead",
+        "- may interrupt: true",
+        "- minimum presentation: active",
+        "",
+        "## Planner Defaults",
+        "- batch status bursts: true",
+        "- defer low value during pressure: true",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const reload = await fetch(`${controlUrl}/learning/reload`, {
+      method: "POST",
+    });
+    assert.equal(reload.status, 200);
+    const reloadPayload = await reload.json() as { reloaded: boolean; loadedAt: string };
+    assert.equal(reloadPayload.reloaded, true);
+    assert.ok(reloadPayload.loadedAt);
+
+    await fetch(`${controlUrl}/events/conformed`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event: lowRiskReadEvent("task:read:2", "interaction:read:2"),
+      }),
+    });
+
+    const reloadedFrame = await waitFor(() => runtime.getCore().getTaskView("task:read:2").active);
+    assert.equal(reloadedFrame?.interactionId, "interaction:read:2");
   } finally {
     await runtime.close();
   }
@@ -242,6 +315,25 @@ function approvalEvent(taskId: string): ConformedEvent {
     },
     title: "Read config",
     summary: "Read config.ts",
+    request: { kind: "approval" },
+    riskHint: "low",
+  };
+}
+
+function lowRiskReadEvent(taskId: string, interactionId: string): ConformedEvent {
+  return {
+    id: `${taskId}:read`,
+    type: "human.input.requested",
+    taskId,
+    interactionId,
+    timestamp: new Date().toISOString(),
+    source: {
+      id: "claude-code:workspace",
+      kind: "claude-code",
+      label: "Claude Code aperture",
+    },
+    title: "Claude Code wants to read config.ts",
+    summary: "config.ts",
     request: { kind: "approval" },
     riskHint: "low",
   };

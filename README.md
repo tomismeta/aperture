@@ -72,8 +72,8 @@ What is real on `main` today:
 - `@aperture/claude-code` is the current end-to-end live adapter path
 - `@aperture/codex` and `@aperture/paperclip` provide mapping layers today, with different transport maturity
 - `@aperture/core` now exposes the main judgment primitives for future SDK use
-- the default runtime uses local learning persistence through `.aperture/MEMORY.md`
-- `USER.md`, `MEMORY.md`, and `JUDGMENT.md` remain the broader core judgment-state model, even though `MEMORY.md` is the live default persistence path today
+- the default runtime uses local learning persistence through `.aperture/MEMORY.md` and a scaffolded `.aperture/JUDGMENT.md`
+- `USER.md`, `MEMORY.md`, and `JUDGMENT.md` remain the broader core judgment-state model, even though `MEMORY.md` and `JUDGMENT.md` are the live default local surfaces today
 
 What the engine already does:
 
@@ -108,6 +108,7 @@ That starts the default local Aperture stack:
 - Claude Code adapter
 - terminal attention surface
 - local learning persistence in `.aperture/MEMORY.md`
+- scaffolded local judgment defaults in `.aperture/JUDGMENT.md`
 
 Use `pnpm aperture --learning off` if you want an ephemeral session with no local learning persistence.
 
@@ -178,7 +179,7 @@ for (const event of mapPaperclipLiveEvent(liveEvent)) {
 
 | Command | What it does |
 | --- | --- |
-| `pnpm aperture` | Starts the default local Aperture stack: runtime, Claude adapter, TUI, and local learning persistence in `.aperture/MEMORY.md`. |
+| `pnpm aperture` | Starts the default local Aperture stack: runtime, Claude adapter, TUI, local learning persistence in `.aperture/MEMORY.md`, and scaffolded judgment config in `.aperture/JUDGMENT.md`. |
 | `pnpm aperture --learning off` | Starts the default local stack without local learning persistence. |
 | `pnpm claude:connect --global` | Connects Claude Code globally by writing Aperture hook config into `~/.claude/settings.json`. |
 | `pnpm claude:disconnect --global` | Removes Aperture's Claude hook entries from `~/.claude/settings.json`. |

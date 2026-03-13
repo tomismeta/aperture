@@ -174,6 +174,24 @@ export function createApertureRuntime(
         return;
       }
 
+      if (req.method === "POST" && path === `${controlPathPrefix}/learning/reload`) {
+        const reloaded = await core.reloadMarkdown();
+        if (!reloaded) {
+          writeJson(res, 200, { reloaded: false });
+          return;
+        }
+        const loadedAt = new Date().toISOString();
+        learningPersistence = {
+          ...(learningPersistence ?? { enabled: true }),
+          lastLoadedAt: loadedAt,
+        };
+        writeJson(res, 200, {
+          reloaded: true,
+          loadedAt,
+        });
+        return;
+      }
+
       if (req.method === "GET" && path === `${controlPathPrefix}/events`) {
         const since = Number(url.searchParams.get("since") ?? "0");
         writeJson(res, 200, {

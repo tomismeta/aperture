@@ -9,6 +9,7 @@ import {
   readMarkdownFile,
   writeMarkdownFile,
 } from "./markdown-state.js";
+import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
 
 export type UserProfile = {
   version: number;
@@ -136,7 +137,7 @@ function parseUserProfile(content: string): UserProfile | null {
   const updatedAt = first(meta, "updated at");
   const version = numberValue(first(meta, "version"));
 
-  if (!operatorId || !updatedAt || version === null) {
+  if (!operatorId || !updatedAt || version === null || version !== MARKDOWN_SCHEMA_VERSION) {
     return null;
   }
 
@@ -244,7 +245,13 @@ function parseMemoryProfile(content: string): MemoryProfile | null {
   const updatedAt = first(meta, "updated at");
   const version = numberValue(first(meta, "version"));
   const sessionCount = numberValue(first(meta, "session count"));
-  if (!operatorId || !updatedAt || version === null || sessionCount === null) {
+  if (
+    !operatorId
+    || !updatedAt
+    || version === null
+    || version !== MARKDOWN_SCHEMA_VERSION
+    || sessionCount === null
+  ) {
     return null;
   }
 

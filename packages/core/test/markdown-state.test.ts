@@ -51,6 +51,34 @@ test("profile store saves and loads memory without extra dependencies", async ()
   assert.match(raw, /^## Tool Families/m);
 });
 
+test("profile store falls back when memory markdown uses an unsupported version", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-memory-version-"));
+  await writeFile(
+    join(root, "MEMORY.md"),
+    [
+      "# Memory",
+      "",
+      "## Meta",
+      "- version: 2",
+      "- operator id: migrated",
+      "- updated at: 2026-03-12T10:15:00.000Z",
+      "- session count: 5",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+
+  const loaded = await new ProfileStore(root).loadMemoryProfile({
+    version: 1,
+    operatorId: "fallback",
+    updatedAt: "1970-01-01T00:00:00.000Z",
+    sessionCount: 0,
+  });
+
+  assert.equal(loaded.operatorId, "fallback");
+  assert.equal(loaded.sessionCount, 0);
+});
+
 test("judgment config loader reads pure markdown judgment files", async () => {
   const root = await mkdtemp(join(tmpdir(), "aperture-judgment-config-"));
   const path = join(root, "JUDGMENT.md");
@@ -73,6 +101,36 @@ test("judgment config loader reads pure markdown judgment files", async () => {
   });
 
   assert.equal(loaded.policy?.lowRiskRead?.minimumPresentation, "ambient");
+});
+
+test("judgment config loader falls back when markdown uses an unsupported version", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-judgment-version-"));
+  await writeFile(
+    join(root, "JUDGMENT.md"),
+    [
+      "# Judgment",
+      "",
+      "## Meta",
+      "- version: 2",
+      "- updated at: 2026-03-12T10:15:00.000Z",
+      "",
+      "## Policy",
+      "",
+      "### lowRiskRead",
+      "- minimum presentation: ambient",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+
+  const loaded = await loadJudgmentConfig(root, {
+    version: 1,
+    updatedAt: "1970-01-01T00:00:00.000Z",
+  });
+
+  assert.equal(loaded.version, 1);
+  assert.equal(loaded.updatedAt, "1970-01-01T00:00:00.000Z");
+  assert.equal(loaded.policy, undefined);
 });
 
 test("markdown-backed core checkpoints distilled memory back to MEMORY.md", async () => {

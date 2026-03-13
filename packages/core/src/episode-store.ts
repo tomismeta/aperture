@@ -1,5 +1,6 @@
 import type { Frame } from "./frame.js";
 import type { InteractionCandidate } from "./interaction-candidate.js";
+import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
 
 export type EpisodeState = "emerging" | "actionable" | "batched" | "waiting" | "stale" | "resolved";
 
@@ -20,6 +21,8 @@ type EpisodeRecord = EpisodeSummary & {
   highSignals: number;
   blockingSignals: number;
 };
+
+const DEFAULTS = JUDGMENT_DEFAULTS.episodeEvidence;
 
 export class EpisodeStore {
   private readonly byKey = new Map<string, EpisodeRecord>();
@@ -110,7 +113,7 @@ export class EpisodeStore {
       key,
       state: candidate.blocking ? "actionable" : "emerging",
       size: 0,
-      evidenceScore: candidate.blocking ? 4 : 0,
+      evidenceScore: candidate.blocking ? DEFAULTS.blockingBoost : 0,
       evidenceReasons: candidate.blocking
         ? ["operator-facing work makes this episode immediately actionable"]
         : [],
@@ -184,7 +187,7 @@ function nextEpisodeState(
     return "actionable";
   }
 
-  if (evidenceScore >= 4) {
+  if (evidenceScore >= DEFAULTS.actionableThreshold) {
     return "actionable";
   }
 
@@ -207,32 +210,32 @@ function measureEpisodeEvidence(
   const reasons: string[] = [];
 
   if (candidate.blocking) {
-    score += 4;
+    score += DEFAULTS.blockingBoost;
     reasons.push("operator-facing work makes this episode immediately actionable");
   }
 
   if (record.size >= 2) {
-    score += 1;
+    score += DEFAULTS.recurringEpisodeBoost;
     reasons.push("multiple related interactions have accumulated in this episode");
   }
 
   if (record.size >= 3) {
-    score += 1;
+    score += DEFAULTS.persistentEpisodeBoost;
     reasons.push("the same episode keeps recurring without resolution");
   }
 
   if (record.highSignals >= 1) {
-    score += 2;
+    score += DEFAULTS.highSignalBoost;
     reasons.push("at least one related interaction carried high consequence or critical tone");
   }
 
   if (record.modes.size >= 2) {
-    score += 1;
+    score += DEFAULTS.multiModeBoost;
     reasons.push("related work has spread across multiple interaction modes");
   }
 
   if (record.highSignals >= 1 && record.size >= 2) {
-    score += 1;
+    score += DEFAULTS.stackingBoost;
     reasons.push("high-signal evidence is stacking up across the episode");
   }
 

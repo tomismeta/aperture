@@ -3,24 +3,17 @@ import type { AttentionView, Frame } from "./index.js";
 import { readFrameEpisodeId } from "./episode-store.js";
 import { isBlockingFrame, priorityForFrame } from "./frame-score.js";
 import type { InteractionCandidate, InteractionPriority } from "./interaction-candidate.js";
+import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
 import type { PlannerDefaults } from "./judgment-config.js";
 import type { PolicyVerdict } from "./policy-gates.js";
 import type { PressureForecast } from "./pressure-forecast.js";
 import type { SignalSummary } from "./signal-summary.js";
 import type { UtilityBreakdown } from "./utility-score.js";
 
-// These thresholds are intentionally conservative for v1 so reviewable policy
-// still dominates. We can move them into JUDGMENT.md once real usage shows
-// which ones operators actually want to tune.
-const STATUS_BURST_WINDOW_MS = 60_000;
-const URGENT_BACKLOG_WINDOW_MS = 90_000;
-const DEFERRED_ESCALATION_THRESHOLD = 3;
-const RETURNED_ESCALATION_THRESHOLD = 2;
-const ESCALATION_SCORE_SLACK = 10;
-const HIGH_CONTEXT_QUEUE_MARGIN = 8;
-const MEDIUM_CONTEXT_QUEUE_MARGIN = 4;
-const ACTIONABLE_EPISODE_EVIDENCE_THRESHOLD = 4;
-const ACTIONABLE_EPISODE_SCORE_SLACK = 15;
+// These defaults intentionally stay conservative so explicit policy still
+// dominates. We centralize them in one module to keep future tuning and
+// JUDGMENT.md exposure reviewable.
+const DEFAULTS = JUDGMENT_DEFAULTS.queuePlanner;
 
 export type PlannedDecision =
   | { kind: "activate"; candidate: InteractionCandidate }
@@ -194,7 +187,7 @@ export class QueuePlanner {
 
       if (
         context.currentScore !== null
-        && context.candidateScore < context.currentScore - ACTIONABLE_EPISODE_SCORE_SLACK
+        && context.candidateScore < context.currentScore - DEFAULTS.actionableEpisodeScoreSlack
       ) {
         reasons.push("actionable episode evidence keeps this work visible even though the current frame is still stronger");
         return {
@@ -425,7 +418,7 @@ export class QueuePlanner {
       })
       .filter((frame) => {
         const ageMs = Date.parse(now) - Date.parse(frame.timing.updatedAt);
-        return Number.isNaN(ageMs) ? true : ageMs <= URGENT_BACKLOG_WINDOW_MS;
+        return Number.isNaN(ageMs) ? true : ageMs <= DEFAULTS.urgentBacklogWindowMs;
       }).length;
 
     return urgentBacklog >= 2;
@@ -501,14 +494,14 @@ export class QueuePlanner {
       return false;
     }
 
-    const repeatedlyDeferred = taskSummary.counts.deferred >= DEFERRED_ESCALATION_THRESHOLD;
-    const repeatedlyReturned = taskSummary.counts.returned >= RETURNED_ESCALATION_THRESHOLD;
+    const repeatedlyDeferred = taskSummary.counts.deferred >= DEFAULTS.deferredEscalationThreshold;
+    const repeatedlyReturned = taskSummary.counts.returned >= DEFAULTS.returnedEscalationThreshold;
 
     if (!repeatedlyDeferred && !repeatedlyReturned) {
       return false;
     }
 
-    return candidateScore >= currentScore - ESCALATION_SCORE_SLACK;
+    return candidateScore >= currentScore - DEFAULTS.escalationScoreSlack;
   }
 
   private shouldWaitForContext(
@@ -531,11 +524,11 @@ export class QueuePlanner {
     }
 
     if (utility.components.contextCost <= -6) {
-      return candidateScore < currentScore + HIGH_CONTEXT_QUEUE_MARGIN;
+      return candidateScore < currentScore + DEFAULTS.highContextQueueMargin;
     }
 
     if (utility.components.contextCost <= -3) {
-      return candidateScore < currentScore + MEDIUM_CONTEXT_QUEUE_MARGIN;
+      return candidateScore < currentScore + DEFAULTS.mediumContextQueueMargin;
     }
 
     return false;
@@ -563,14 +556,14 @@ export class QueuePlanner {
       return false;
     }
 
-    return candidateTimestamp - currentTimestamp <= STATUS_BURST_WINDOW_MS;
+    return candidateTimestamp - currentTimestamp <= DEFAULTS.statusBurstWindowMs;
   }
 
   private isActionableEpisode(candidate: InteractionCandidate): boolean {
     return (
       !candidate.blocking
       && candidate.episodeState === "actionable"
-      && (candidate.episodeEvidenceScore ?? 0) >= ACTIONABLE_EPISODE_EVIDENCE_THRESHOLD
+      && (candidate.episodeEvidenceScore ?? 0) >= DEFAULTS.actionableEpisodeEvidenceThreshold
     );
   }
 }

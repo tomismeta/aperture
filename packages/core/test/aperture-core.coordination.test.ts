@@ -261,3 +261,31 @@ test("queue-worthy episode updates can promote an ambient episode frame into the
   assert.equal(attentionView.ambient.length, 0);
   assert.equal(attentionView.queued[0]?.interactionId, "interaction:task:episode:b:status");
 });
+
+test("completed tasks clear ambient-only task state", () => {
+  const core = new ApertureCore();
+
+  core.publish({
+    id: "evt:ambient",
+    taskId: "task:ambient",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    type: "task.updated",
+    source: { id: "paperclip:vps", kind: "paperclip" },
+    title: "Remote approval needed",
+    summary: "A remote agent needs a human decision.",
+    status: "blocked",
+  });
+
+  assert.ok(core.getAttentionView().active);
+
+  core.publish({
+    id: "evt:complete",
+    taskId: "task:ambient",
+    timestamp: "2026-03-08T12:00:10.000Z",
+    type: "task.completed",
+    summary: "Handled.",
+  });
+
+  assert.equal(core.getAttentionView().active, null);
+  assert.equal(core.getTaskView("task:ambient").ambient.length, 0);
+});

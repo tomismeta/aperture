@@ -7,6 +7,7 @@ import {
   parseScalar,
   readMarkdownFile,
 } from "./markdown-state.js";
+import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
 
 export type JudgmentConfig = {
   version: number;
@@ -87,7 +88,7 @@ function parseJudgmentConfig(content: string): JudgmentConfig | null {
 
   const version = readNumber(meta.get("version"));
   const updatedAt = meta.get("updated at");
-  if (version === null || !updatedAt) {
+  if (version === null || version !== MARKDOWN_SCHEMA_VERSION || !updatedAt) {
     return null;
   }
 

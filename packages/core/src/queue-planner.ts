@@ -5,6 +5,7 @@ import { isBlockingFrame, priorityForFrame } from "./frame-score.js";
 import type { InteractionCandidate, InteractionPriority } from "./interaction-candidate.js";
 import type { PlannerDefaults } from "./judgment-config.js";
 import type { PolicyVerdict } from "./policy-gates.js";
+import type { PressureForecast } from "./pressure-forecast.js";
 import type { SignalSummary } from "./signal-summary.js";
 import type { UtilityBreakdown } from "./utility-score.js";
 
@@ -38,6 +39,7 @@ export type QueuePlanningContext = {
   taskSummary: SignalSummary | undefined;
   policyVerdict: PolicyVerdict;
   utility: UtilityBreakdown;
+  pressureForecast: PressureForecast;
   candidateScore: number;
   currentScore: number | null;
 };
@@ -61,6 +63,16 @@ export class QueuePlanner {
     const reasons: string[] = [];
 
     if (!current) {
+      if (this.shouldPreemptForPressure(candidate, context.policyVerdict, context.pressureForecast)) {
+        reasons.push("predicted overload keeps lower-value work peripheral before the queue spikes");
+        return {
+          decision: this.suppressedDecision(candidate, context.policyVerdict, context.utility),
+          currentPriority: null,
+          currentScore: null,
+          reasons,
+        };
+      }
+
       if (this.shouldBatchVisibleEpisode(candidate, context.attentionView)) {
         reasons.push("related episode work is already visible, so this interaction batches with it instead of interrupting");
         return {
@@ -159,6 +171,16 @@ export class QueuePlanner {
       reasons.push("rapid successive updates from the same task stay bundled instead of stealing focus");
       return {
         decision: this.peripheralDecision(candidate, context.policyVerdict),
+        currentPriority,
+        currentScore,
+        reasons,
+      };
+    }
+
+    if (this.shouldPreemptForPressure(candidate, context.policyVerdict, context.pressureForecast)) {
+      reasons.push("predicted overload keeps lower-value work peripheral before the queue spikes");
+      return {
+        decision: this.suppressedDecision(candidate, context.policyVerdict, context.utility),
         currentPriority,
         currentScore,
         reasons,
@@ -327,6 +349,34 @@ export class QueuePlanner {
       }).length;
 
     return urgentBacklog >= 2;
+  }
+
+  private shouldPreemptForPressure(
+    candidate: InteractionCandidate,
+    policyVerdict: PolicyVerdict,
+    pressureForecast: PressureForecast,
+  ): boolean {
+    if (pressureForecast.overloadRisk === "low") {
+      return false;
+    }
+
+    if (candidate.blocking || policyVerdict.requiresOperatorResponse || policyVerdict.minimumPresentation === "active") {
+      return false;
+    }
+
+    if (candidate.consequence === "high" || candidate.tone === "critical") {
+      return false;
+    }
+
+    if (pressureForecast.overloadRisk === "high") {
+      return true;
+    }
+
+    return (
+      candidate.mode === "status"
+      || candidate.priority === "background"
+      || candidate.consequence === "low"
+    );
   }
 
   private shouldBatchVisibleEpisode(

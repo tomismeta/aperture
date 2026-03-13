@@ -4,6 +4,7 @@ import type { ApertureEvent } from "./events.js";
 import type { AttentionView, Frame, TaskView } from "./frame.js";
 import type { InteractionCandidate, InteractionPriority } from "./interaction-candidate.js";
 import type { PolicyVerdict } from "./policy-gates.js";
+import type { PressureForecast } from "./pressure-forecast.js";
 import type { SignalSummary } from "./signal-summary.js";
 import type { UtilityBreakdown } from "./utility-score.js";
 
@@ -18,6 +19,7 @@ export type ApertureTrace =
       globalSummary: SignalSummary;
       taskAttentionState: AttentionState;
       globalAttentionState: AttentionState;
+      pressureForecast: PressureForecast;
       current: Frame | null;
       taskView: TaskView;
       attentionView: AttentionView;
@@ -33,6 +35,7 @@ export type ApertureTrace =
       globalSummary: SignalSummary;
       taskAttentionState: AttentionState;
       globalAttentionState: AttentionState;
+      pressureForecast: PressureForecast;
       current: Frame | null;
       taskView: TaskView;
       attentionView: AttentionView;
@@ -71,6 +74,7 @@ export type ApertureTrace =
       globalSummary: SignalSummary;
       taskAttentionState: AttentionState;
       globalAttentionState: AttentionState;
+      pressureForecast: PressureForecast;
       current: Frame | null;
       taskView: TaskView;
       attentionView: AttentionView;

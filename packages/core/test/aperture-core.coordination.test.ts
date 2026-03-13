@@ -97,3 +97,60 @@ test("trace reasons explain why lower-priority work is queued", () => {
     /current work still outranks the new candidate/,
   );
 });
+
+test("trace includes pressure forecast for candidate decisions", () => {
+  const core = new ApertureCore();
+  const traces: ApertureTrace[] = [];
+
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+
+  core.publish({
+    id: "evt:active",
+    taskId: "task:pressure",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:active",
+    title: "Approve deploy",
+    summary: "A deploy needs approval.",
+    consequence: "high",
+    request: { kind: "approval" },
+  });
+
+  core.publish({
+    id: "evt:status",
+    taskId: "task:status",
+    timestamp: "2026-03-08T12:00:20.000Z",
+    type: "task.updated",
+    title: "Background sync",
+    summary: "A background sync is still running.",
+    status: "running",
+    progress: 50,
+  });
+
+  core.publish({
+    id: "evt:choice",
+    taskId: "task:choice",
+    timestamp: "2026-03-08T12:00:30.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:choice",
+    title: "Choose rollout option",
+    summary: "A rollout option is needed.",
+    consequence: "medium",
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [{ id: "retry", label: "Retry" }],
+    },
+  });
+
+  const candidateTrace = traces.findLast((trace) => trace.evaluation.kind === "candidate");
+  assert.ok(candidateTrace);
+  if (!candidateTrace || candidateTrace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.ok(candidateTrace.pressureForecast.score >= 0);
+  assert.ok(["low", "rising", "high"].includes(candidateTrace.pressureForecast.overloadRisk));
+});

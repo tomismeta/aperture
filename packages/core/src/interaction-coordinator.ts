@@ -3,6 +3,7 @@ import type { AttentionView, Frame } from "./index.js";
 import { scoreFrame } from "./frame-score.js";
 import type { InteractionCandidate, InteractionPriority } from "./interaction-candidate.js";
 import { PolicyGates, type PolicyVerdict } from "./policy-gates.js";
+import { forecastPressure, idlePressureForecast, type PressureForecast } from "./pressure-forecast.js";
 import { QueuePlanner } from "./queue-planner.js";
 import type { SignalSummary } from "./signal-summary.js";
 import { UtilityScore, type UtilityBreakdown } from "./utility-score.js";
@@ -18,6 +19,7 @@ export type CoordinationExplanation = {
   decision: CoordinationDecision;
   policy: PolicyVerdict;
   utility: UtilityBreakdown;
+  pressureForecast: PressureForecast;
   candidateScore: number;
   currentScore: number | null;
   currentPriority: InteractionPriority | null;
@@ -28,6 +30,7 @@ export type CoordinationContext = {
   attentionView?: AttentionView;
   taskSummary?: SignalSummary;
   globalSummary?: SignalSummary;
+  pressureForecast?: PressureForecast;
 };
 
 export class InteractionCoordinator {
@@ -61,11 +64,16 @@ export class InteractionCoordinator {
     const policy = this.policyGates.evaluate(candidate);
     const utility = this.utilityScore.scoreCandidate(candidate);
     const currentScore = current ? scoreFrame(current, { now: candidate.timestamp }) : null;
+    const pressureForecast =
+      context.pressureForecast
+      ?? forecastPressure(context.globalSummary ?? context.taskSummary, context.attentionView)
+      ?? idlePressureForecast();
     const planning = this.queuePlanner.explain(current, candidate, {
       attentionView: context.attentionView,
       taskSummary: context.taskSummary,
       policyVerdict: policy,
       utility,
+      pressureForecast,
       candidateScore: utility.total,
       currentScore,
     });
@@ -74,6 +82,7 @@ export class InteractionCoordinator {
       decision: planning.decision,
       policy,
       utility,
+      pressureForecast,
       candidateScore: utility.total,
       currentScore: planning.currentScore,
       currentPriority: planning.currentPriority,

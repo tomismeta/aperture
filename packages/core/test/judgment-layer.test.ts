@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { ApertureCore } from "../src/aperture-core.js";
-import { serializeFrontmatter } from "../src/markdown-frontmatter.js";
+import { serializeJudgmentConfig } from "../src/judgment-config.js";
 import type { Frame } from "../src/frame.js";
 import type { InteractionCandidate } from "../src/interaction-candidate.js";
 import { InteractionCoordinator } from "../src/interaction-coordinator.js";
@@ -175,44 +175,43 @@ test("markdown-backed core can keep configured low-risk reads ambient with no ac
   const root = await mkdtemp(join(tmpdir(), "aperture-core-markdown-"));
   await writeFile(
     join(root, "USER.md"),
-    serializeFrontmatter(
-      {
-        version: 1,
-        operatorId: "default",
-        updatedAt: "2026-03-12T10:15:00.000Z",
-      },
-      "Explicit operator preferences.",
-    ),
+    [
+      "# User",
+      "",
+      "## Meta",
+      "- version: 1",
+      "- operator id: default",
+      "- updated at: 2026-03-12T10:15:00.000Z",
+      "",
+    ].join("\n"),
     "utf8",
   );
   await writeFile(
     join(root, "MEMORY.md"),
-    serializeFrontmatter(
-      {
-        version: 1,
-        operatorId: "default",
-        updatedAt: "2026-03-12T10:15:00.000Z",
-        sessionCount: 1,
-      },
-      "Durable learned summaries.",
-    ),
+    [
+      "# Memory",
+      "",
+      "## Meta",
+      "- version: 1",
+      "- operator id: default",
+      "- updated at: 2026-03-12T10:15:00.000Z",
+      "- session count: 1",
+      "",
+    ].join("\n"),
     "utf8",
   );
   await writeFile(
     join(root, "JUDGMENT.md"),
-    serializeFrontmatter(
-      {
-        version: 1,
-        updatedAt: "2026-03-12T10:15:00.000Z",
-        policy: {
-          lowRiskRead: {
-            mayInterrupt: false,
-            minimumPresentation: "ambient",
-          },
+    serializeJudgmentConfig({
+      version: 1,
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      policy: {
+        lowRiskRead: {
+          mayInterrupt: false,
+          minimumPresentation: "ambient",
         },
       },
-      "Explicit attention policy.",
-    ),
+    }),
     "utf8",
   );
 

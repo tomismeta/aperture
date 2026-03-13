@@ -196,38 +196,39 @@ If Aperture already has a better runtime directory convention, use that instead,
 
 ### Markdown File Format
 
-Use frontmatter between `---` delimiters plus optional notes below it.
+Use pure Markdown with fixed headings and simple bullet key-value lines.
 
-To keep the implementation dependency-free, v1 should encode the frontmatter payload as formatted JSON.
+The v1 house style should be:
 
-That keeps the files human-readable while avoiding a general-purpose YAML parser.
+- `#` for the document title
+- `##` for top-level sections
+- `###` for named entries inside a section
+- `- key: value` for machine-readable fields
+- `- value` for plain bullet lists
+
+This keeps the files fully human-readable and editable without any YAML or JSON layer embedded inside them.
 
 Example `USER.md`:
 
 ```md
----
-{
-  "version": 1,
-  "operatorId": "default",
-  "updatedAt": "2026-03-12T10:15:00.000Z",
-  "preferences": {
-    "quietHours": [],
-    "preferBatchingFor": ["status"],
-    "alwaysExpandContextFor": ["destructive_bash"],
-    "neverAutoApprove": ["env_write"]
-  },
-  "overrides": {
-    "tools": {
-      "read": {
-        "defaultPresentation": "ambient"
-      },
-      "bash": {
-        "requireContextExpansion": true
-      }
-    }
-  }
-}
----
+# User
+
+## Meta
+- version: 1
+- operator id: default
+- updated at: 2026-03-12T10:15:00.000Z
+
+## Preferences
+- prefer batching for: status
+- always expand context for: destructive_bash
+- never auto approve: env_write
+
+## Tool Overrides
+### read
+- default presentation: ambient
+
+### bash
+- require context expansion: true
 
 Explicit operator preferences and hard overrides.
 ```
@@ -235,55 +236,49 @@ Explicit operator preferences and hard overrides.
 Example `MEMORY.md`:
 
 ```md
----
-{
-  "version": 1,
-  "operatorId": "default",
-  "updatedAt": "2026-03-12T10:15:00.000Z",
-  "sessionCount": 4,
-  "toolFamilies": {
-    "read": {
-      "presentations": 28,
-      "responses": 27,
-      "dismissals": 0,
-      "avgResponseLatencyMs": 1800,
-      "contextExpansionRate": 0.04
-    },
-    "bash": {
-      "presentations": 11,
-      "responses": 7,
-      "dismissals": 1,
-      "avgResponseLatencyMs": 9200,
-      "contextExpansionRate": 0.63
-    }
-  },
-  "sourceTrust": {
-    "claude-code": {
-      "low": {
-        "confirmations": 41,
-        "disagreements": 6,
-        "trustAdjustment": -0.15
-      },
-      "medium": {
-        "confirmations": 17,
-        "disagreements": 4,
-        "trustAdjustment": -0.08
-      }
-    }
-  },
-  "consequenceProfiles": {
-    "low": {
-      "rejectionRate": 0.03
-    },
-    "medium": {
-      "rejectionRate": 0.19
-    },
-    "high": {
-      "rejectionRate": 0.44
-    }
-  }
-}
----
+# Memory
+
+## Meta
+- version: 1
+- operator id: default
+- updated at: 2026-03-12T10:15:00.000Z
+- session count: 4
+
+## Tool Families
+### read
+- presentations: 28
+- responses: 27
+- dismissals: 0
+- avg response latency ms: 1800
+- context expansion rate: 0.04
+
+### bash
+- presentations: 11
+- responses: 7
+- dismissals: 1
+- avg response latency ms: 9200
+- context expansion rate: 0.63
+
+## Source Trust
+### claude-code / low
+- confirmations: 41
+- disagreements: 6
+- trust adjustment: -0.15
+
+### claude-code / medium
+- confirmations: 17
+- disagreements: 4
+- trust adjustment: -0.08
+
+## Consequence Profiles
+### low
+- rejection rate: 0.03
+
+### medium
+- rejection rate: 0.19
+
+### high
+- rejection rate: 0.44
 
 Durable learned summaries and trust calibration.
 ```
@@ -291,32 +286,30 @@ Durable learned summaries and trust calibration.
 Example `JUDGMENT.md`:
 
 ```md
----
-{
-  "version": 1,
-  "updatedAt": "2026-03-12T10:15:00.000Z",
-  "policy": {
-    "lowRiskRead": {
-      "mayInterrupt": false,
-      "minimumPresentation": "ambient"
-    },
-    "destructiveBash": {
-      "mayInterrupt": true,
-      "minimumPresentation": "active",
-      "requireContextExpansion": true
-    },
-    "envWrite": {
-      "mayInterrupt": true,
-      "minimumPresentation": "active",
-      "requireReasonOnReject": true
-    }
-  },
-  "plannerDefaults": {
-    "batchStatusBursts": true,
-    "deferLowValueDuringPressure": true
-  }
-}
----
+# Judgment
+
+## Meta
+- version: 1
+- updated at: 2026-03-12T10:15:00.000Z
+
+## Policy
+### lowRiskRead
+- may interrupt: false
+- minimum presentation: ambient
+
+### destructiveBash
+- may interrupt: true
+- minimum presentation: active
+- require context expansion: true
+
+### envWrite
+- may interrupt: true
+- minimum presentation: active
+- require reason on reject: true
+
+## Planner Defaults
+- batch status bursts: true
+- defer low value during pressure: true
 
 Explicit attention policy and guardrails.
 ```

@@ -39,6 +39,7 @@ export type ApertureCoreOptions = {
   memoryProfile?: MemoryProfile;
   judgmentConfig?: JudgmentConfig;
   profileStore?: ProfileStore;
+  markdownRootDir?: string;
 };
 
 export class ApertureCore {
@@ -54,26 +55,36 @@ export class ApertureCore {
   private readonly episodes = new EpisodeStore();
   private readonly heuristics = new AttentionHeuristics();
   private readonly evaluation = new EvaluationEngine();
-  private readonly coordinator: InteractionCoordinator;
+  private coordinator: InteractionCoordinator;
   private readonly planner = new FramePlanner();
   private readonly profileStore: ProfileStore | undefined;
-  private readonly baseMemoryProfile: MemoryProfile;
+  private readonly markdownRootDir: string | undefined;
+  private baseMemoryProfile: MemoryProfile;
+  private userProfile: UserProfile | undefined;
+  private judgmentConfig: JudgmentConfig | undefined;
 
   constructor(options: ApertureCoreOptions = {}) {
+    this.markdownRootDir = options.markdownRootDir;
     this.profileStore = options.profileStore;
+    this.userProfile = options.userProfile;
+    this.judgmentConfig = options.judgmentConfig;
     this.baseMemoryProfile = options.memoryProfile ?? {
       version: 1,
       operatorId: "default",
       updatedAt: new Date(0).toISOString(),
       sessionCount: 0,
     };
-    this.coordinator = new InteractionCoordinator(
+    this.coordinator = this.createCoordinator();
+  }
+
+  private createCoordinator(): InteractionCoordinator {
+    return new InteractionCoordinator(
       new PolicyGates({
-        ...(options.userProfile !== undefined ? { userProfile: options.userProfile } : {}),
-        ...(options.judgmentConfig !== undefined ? { judgmentConfig: options.judgmentConfig } : {}),
+        ...(this.userProfile !== undefined ? { userProfile: this.userProfile } : {}),
+        ...(this.judgmentConfig !== undefined ? { judgmentConfig: this.judgmentConfig } : {}),
       }),
       new UtilityScore({
-        ...(options.memoryProfile !== undefined ? { memoryProfile: options.memoryProfile } : {}),
+        memoryProfile: this.baseMemoryProfile,
       }),
       undefined,
     );
@@ -108,7 +119,37 @@ export class ApertureCore {
       memoryProfile,
       judgmentConfig,
       profileStore,
+      markdownRootDir: rootDir,
     });
+  }
+
+  async reloadMarkdown(): Promise<boolean> {
+    if (!this.profileStore || !this.markdownRootDir) {
+      return false;
+    }
+
+    const fallbackUser: UserProfile = this.userProfile ?? {
+      version: 1,
+      operatorId: "default",
+      updatedAt: new Date(0).toISOString(),
+    };
+    const fallbackMemory: MemoryProfile = this.baseMemoryProfile;
+    const fallbackJudgment: JudgmentConfig = this.judgmentConfig ?? {
+      version: 1,
+      updatedAt: new Date(0).toISOString(),
+    };
+
+    const [userProfile, memoryProfile, judgmentConfig] = await Promise.all([
+      this.profileStore.loadUserProfile(fallbackUser),
+      this.profileStore.loadMemoryProfile(fallbackMemory),
+      loadJudgmentConfig(this.markdownRootDir, fallbackJudgment),
+    ]);
+
+    this.userProfile = userProfile;
+    this.baseMemoryProfile = memoryProfile;
+    this.judgmentConfig = judgmentConfig;
+    this.coordinator = this.createCoordinator();
+    return true;
   }
 
   publishConformed(event: ConformedEvent): Frame | null {
@@ -377,6 +418,8 @@ export class ApertureCore {
 
     const snapshot = this.snapshotMemoryProfile(now);
     await this.profileStore.saveMemoryProfile(snapshot);
+    this.baseMemoryProfile = snapshot;
+    this.coordinator = this.createCoordinator();
     return snapshot;
   }
 

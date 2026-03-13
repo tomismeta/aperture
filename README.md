@@ -4,18 +4,21 @@
 
 **The human attention control plane for agent systems.**
 
+<img src="docs/assets/demo.gif" alt="Aperture demo" width="1100">
+
+</div>
+
 Aperture sits between many possible event sources and one human decision surface, then decides what deserves attention now, what should wait, and what should remain ambient.
 
 **Live path today:** Claude Code -> Aperture runtime -> terminal attention surface
 
-**Once installed:**
-
-<pre><code>pnpm claude:connect --global
-pnpm aperture</code></pre>
-
-<img src="docs/assets/demo.gif" alt="Aperture demo" width="1100">
-
-</div>
+```bash
+git clone git@github.com:tomismeta/aperture.git
+cd aperture
+pnpm install
+pnpm claude:connect --global
+pnpm aperture
+```
 
 Under the hood, Aperture already includes:
 

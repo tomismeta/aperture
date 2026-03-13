@@ -51,87 +51,119 @@ Over time, Aperture should be able to exist in two complementary forms:
 
 ## Current Status
 
-As of `main` after the learning persistence and live judgment-control milestone:
+As of `main`, Aperture has moved past the "can this route interrupts?" stage.
 
-### Phase 1: Deterministic Router
+The product arc now looks like this:
 
-Status: `complete`
+### 1. Filter
 
-What is built:
+Status: `built`
+
+Aperture can already decide:
+
+- what should interrupt now
+- what should wait in the queue
+- what should remain ambient
+
+This includes:
 
 - event normalization into candidate interactions
 - deterministic `activate / queue / ambient` coordination
-- policy, utility, and planner separation
-- queue-aware and consequence-aware planning
 - source-agnostic task and attention views
-- inspectable scoring and planner rationale
+- inspectable policy, value, and planner rationale
 
-### Phase 2: Judgment Substrate
+### 2. Learn
 
-Status: `complete`
+Status: `built, not yet mature`
 
-What is built:
-
-- `policy -> utility -> planner` architecture
-- pure Markdown `USER.md`, `MEMORY.md`, and `JUDGMENT.md`
-- memory-backed adaptive utility scoring
-- consequence calibration from human disagreement
-- predictive attention pressureing
-- episode batching and merge heuristics
-- runtime-safe hardening around markdown schema and task clearing
-
-### Phase 3: Closed-Loop Adaptation
-
-Status: `live, not yet mature`
-
-What is built:
+Aperture can already improve from use:
 
 - interaction signals and derived summaries
-- durable memory checkpointing and reload
-- default local learning persistence through `.aperture/MEMORY.md`
-- default local judgment control through scaffolded `.aperture/JUDGMENT.md`
-- bounded deterministic auto-approval for configured safe categories such as `lowRiskRead` and `lowRiskWeb`
+- durable learning persistence through `.aperture/MEMORY.md`
+- local judgment control through scaffolded `.aperture/JUDGMENT.md`
+- bounded deterministic auto-approval for explicitly configured safe categories
+- consequence calibration from human disagreement
 - human-specific response, context, and deferral patterns feeding back into judgment
-- replay evaluation foundation for merged episodes, deferred activation, and actionable episodes
 
 What is still missing:
 
-- evaluator-driven tuning loop ("what if we had deferred this by 90 seconds?")
-- explicit stale episode lifecycle (state defined, not yet assigned)
+- evaluator-driven tuning from replay evidence
 - richer cross-session adaptation beyond summary carry-forward
+- explicit migration paths for persisted schema changes
 
-### Phase 4: Anticipation
+### 3. Orchestrate
+
+Status: `underway`
+
+Aperture no longer treats work as a flat queue. It can already:
+
+- separate hard policy from adaptive value and planning
+- group related work into episodes
+- batch status bursts
+- merge related updates
+- keep queue behavior aware of consequence and pressure
+
+What is still missing:
+
+- explicit stale episode lifecycle
+- stronger cross-task episode continuity
+- more episode-aware presentation shaping
+
+### 4. Anticipate
 
 Status: `early foundation`
 
-What is built:
+Aperture has begun to prepare attention before overload:
 
-- attention pressureing before overload hits
+- predictive attention pressure
 - pre-overload suppression of lower-value work
 
 What is still missing:
 
 - "wait for correlated event before interrupting" behavior
-- likely-next-context prefetching
+- likely-next-context preparation
 - likely-next-action recommendations
 - synthesized episode-level anticipation frames
 - optional model-based advisory seam for speculative reasoning
 
-### Phase 5: Multi-Agent Scale
+### 5. Compound
 
-Status: `multi-source arbitration started, scale not started`
+Status: `emerging`
 
-What is built:
+This is the moat-deepening phase: the point where Aperture becomes meaningfully better because it has history.
 
-- multi-source normalization into one attention model
-- cross-task and cross-source attention competition in the shared planner
-- three adapter boundaries prepared (Claude Code live, Codex and Paperclip mapped)
+The foundation is already present:
+
+- closed-loop signals → memory → judgment → response
+- replay evaluation foundation
+- durable learned state
+
+What is still missing:
+
+- replay-driven threshold refinement
+- stronger evidence-based planner tuning
+- broader consequence and source calibration over time
+
+### 6. Embed
+
+Status: `planned`
+
+The long-term shape is still two complementary forms:
+
+- a product runtime and surface for humans supervising agents
+- an embeddable judgment SDK other runtimes can adopt
+
+What is already true:
+
+- the core judgment stack is real and exported
+- multi-source normalization already exists
+- Claude Code is the live end-to-end path
+- Codex and Paperclip boundaries are prepared
 
 What is still missing:
 
 - live transports beyond Claude Code
-- cross-source episode correlation
-- distributed runtime
+- stable external package contracts
 - performance characterization at scale
 
 ## The Moats
@@ -374,13 +406,13 @@ The combination — and the compounding effect of the closed loop connecting the
 
 Ordered by impact:
 
-1. **Evaluator-driven tuning** — replay traces to answer "what if we had deferred this?" and use the answer to refine judgment defaults.
-2. **Episode expiry** — add stale-state transitions for abandoned episodes and time-based demotion.
-3. **Deterministic low-risk pass-through** — let bounded low-risk tool families resolve without interrupting the human, which is likely the biggest remaining UX win.
-4. **Anticipation behaviors** — add "wait for correlated event", likely-next-context, and pre-batching behavior.
-5. **Advisory model seam** — add optional model reasoning for ambiguous episodes and speculative context, outside the hot path.
-6. **Multi-source transport breadth** — add live Codex and Paperclip connections and stronger cross-source episode correlation.
-7. **SDK/package readiness** — publish a stable `@aperture/core` surface so other runtimes can embed the judgment layer directly.
+1. **Move from learning to compounding** — use replay evidence to refine planner behavior and judgment defaults from real sessions instead of intuition.
+2. **Complete orchestration** — give episodes a full lifecycle, including stale-state transitions and graceful fading for abandoned work.
+3. **Deepen anticipation** — move from pressure sensing into better timing: wait for correlated events, prepare likely context, and shape stronger decision frames.
+4. **Expand bounded pass-through** — let more clearly safe categories resolve deterministically without interrupting the human, while keeping guardrails explicit and inspectable.
+5. **Add an advisory reasoning seam** — introduce optional model assistance for ambiguous, speculative work outside the hot path.
+6. **Broaden the live runtime surface** — add transport breadth beyond Claude Code and strengthen cross-source episode handling.
+7. **Prove the substrate can travel** — harden `@aperture/core` into a stable embeddable judgment package once the live product path has settled.
 
 ## Recommendation
 

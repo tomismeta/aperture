@@ -172,6 +172,30 @@ test("runtime bootstraps learning persistence and checkpoints memory", async () 
   }
 });
 
+test("runtime rejects oversized request bodies", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { controlUrl } = await runtime.listen();
+
+  try {
+    const response = await fetch(`${controlUrl}/events/conformed`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event: {
+          ...blockedEvent("task-oversized"),
+          summary: "x".repeat(70_000),
+        },
+      }),
+    });
+
+    assert.equal(response.status, 400);
+    const payload = await response.json() as { error: string };
+    assert.match(payload.error, /request body exceeded/i);
+  } finally {
+    await runtime.close();
+  }
+});
+
 function blockedEvent(taskId: string): ConformedEvent {
   return {
     id: `${taskId}:blocked`,

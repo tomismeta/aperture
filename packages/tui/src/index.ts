@@ -828,11 +828,6 @@ function styleTone(value: string, color: boolean): string {
   return `${toneColor(value as Frame["tone"])}${value}${ANSI.reset}`;
 }
 
-function styleScore(score: number, color: boolean): string {
-  const value = `score ${score}`;
-  return color ? `${ANSI.bold}${ANSI.brightPurple}${value}${ANSI.reset}` : value;
-}
-
 function styleKey(value: string, color: boolean): string {
   const wrapped = `[${value}]`;
   return color ? `${ANSI.bold}${ANSI.brightPurple}${wrapped}${ANSI.reset}` : wrapped;

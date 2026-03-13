@@ -59,6 +59,17 @@ function toolFamilyMemory(
     deferrals: number;
     returns: number;
   }>();
+  const interactions = new Map<string, {
+    toolFamily: string;
+    presented: boolean;
+    responded: boolean;
+    dismissed: boolean;
+    responseLatencyMs?: number;
+    dismissalLatencyMs?: number;
+    contextExpanded: boolean;
+    deferred: boolean;
+    returned: boolean;
+  }>();
 
   for (const signal of signals) {
     const toolFamily = readSignalString(signal.metadata, "toolFamily");
@@ -66,7 +77,51 @@ function toolFamilyMemory(
       continue;
     }
 
-    const current = session.get(toolFamily) ?? {
+    const interactionKey = `${toolFamily}::${signal.interactionId}`;
+    const current = interactions.get(interactionKey) ?? {
+      toolFamily,
+      presented: false,
+      responded: false,
+      dismissed: false,
+      contextExpanded: false,
+      deferred: false,
+      returned: false,
+    };
+    switch (signal.kind) {
+      case "presented":
+        current.presented = true;
+        break;
+      case "responded":
+        current.responded = true;
+        current.dismissed = false;
+        if (signal.latencyMs !== undefined) {
+          current.responseLatencyMs = signal.latencyMs;
+        }
+        break;
+      case "dismissed":
+        if (!current.responded) {
+          current.dismissed = true;
+          if (signal.latencyMs !== undefined) {
+            current.dismissalLatencyMs = signal.latencyMs;
+          }
+        }
+        break;
+      case "context_expanded":
+        current.contextExpanded = true;
+        break;
+      case "deferred":
+        current.deferred = true;
+        break;
+      case "returned":
+        current.returned = true;
+        break;
+    }
+
+    interactions.set(interactionKey, current);
+  }
+
+  for (const interaction of interactions.values()) {
+    const current = session.get(interaction.toolFamily) ?? {
       presentations: 0,
       responses: 0,
       dismissals: 0,
@@ -79,36 +134,33 @@ function toolFamilyMemory(
       returns: 0,
     };
 
-    switch (signal.kind) {
-      case "presented":
-        current.presentations += 1;
-        break;
-      case "responded":
-        current.responses += 1;
-        if (signal.latencyMs !== undefined) {
-          current.responseLatencyTotal += signal.latencyMs;
-          current.responseLatencyCount += 1;
-        }
-        break;
-      case "dismissed":
-        current.dismissals += 1;
-        if (signal.latencyMs !== undefined) {
-          current.dismissalLatencyTotal += signal.latencyMs;
-          current.dismissalLatencyCount += 1;
-        }
-        break;
-      case "context_expanded":
-        current.contextExpanded += 1;
-        break;
-      case "deferred":
-        current.deferrals += 1;
-        break;
-      case "returned":
+    if (interaction.presented || interaction.responded || interaction.dismissed) {
+      current.presentations += 1;
+    }
+    if (interaction.responded) {
+      current.responses += 1;
+      if (interaction.responseLatencyMs !== undefined) {
+        current.responseLatencyTotal += interaction.responseLatencyMs;
+        current.responseLatencyCount += 1;
+      }
+    } else if (interaction.dismissed) {
+      current.dismissals += 1;
+      if (interaction.dismissalLatencyMs !== undefined) {
+        current.dismissalLatencyTotal += interaction.dismissalLatencyMs;
+        current.dismissalLatencyCount += 1;
+      }
+    }
+    if (interaction.contextExpanded) {
+      current.contextExpanded += 1;
+    }
+    if (interaction.deferred) {
+      current.deferrals += 1;
+      if (interaction.returned) {
         current.returns += 1;
-        break;
+      }
     }
 
-    session.set(toolFamily, current);
+    session.set(interaction.toolFamily, current);
   }
 
   for (const [toolFamily, current] of session.entries()) {
@@ -120,27 +172,47 @@ function toolFamilyMemory(
     const presentations = previous.presentations + current.presentations;
     const responses = previous.responses + current.responses;
     const dismissals = previous.dismissals + current.dismissals;
+    const currentResponseAverage = current.responseLatencyCount > 0
+      ? current.responseLatencyTotal / current.responseLatencyCount
+      : undefined;
+    const currentDismissalAverage = current.dismissalLatencyCount > 0
+      ? current.dismissalLatencyTotal / current.dismissalLatencyCount
+      : undefined;
+    const previousContextExpanded = previous.contextExpansionRate !== undefined
+      ? previous.contextExpansionRate * previous.presentations
+      : 0;
+    const currentContextExpanded = current.contextExpanded;
     next[toolFamily] = {
       presentations,
       responses,
       dismissals,
-      ...(current.responseLatencyCount > 0
+      ...(currentResponseAverage !== undefined
         ? {
-            avgResponseLatencyMs: Math.round(current.responseLatencyTotal / current.responseLatencyCount),
+            avgResponseLatencyMs: weightedAverage(
+              previous.avgResponseLatencyMs,
+              previous.responses,
+              currentResponseAverage,
+              current.responseLatencyCount,
+            ),
           }
         : previous.avgResponseLatencyMs !== undefined
           ? { avgResponseLatencyMs: previous.avgResponseLatencyMs }
           : {}),
-      ...(current.dismissalLatencyCount > 0
+      ...(currentDismissalAverage !== undefined
         ? {
-            avgDismissalLatencyMs: Math.round(current.dismissalLatencyTotal / current.dismissalLatencyCount),
+            avgDismissalLatencyMs: weightedAverage(
+              previous.avgDismissalLatencyMs,
+              previous.dismissals,
+              currentDismissalAverage,
+              current.dismissalLatencyCount,
+            ),
           }
         : previous.avgDismissalLatencyMs !== undefined
           ? { avgDismissalLatencyMs: previous.avgDismissalLatencyMs }
           : {}),
       ...(presentations > 0
         ? {
-            contextExpansionRate: roundRate(current.contextExpanded / presentations),
+            contextExpansionRate: roundRate((previousContextExpanded + currentContextExpanded) / presentations),
           }
         : previous.contextExpansionRate !== undefined
           ? { contextExpansionRate: previous.contextExpansionRate }
@@ -163,6 +235,13 @@ function sourceTrustMemory(
   signals: InteractionSignal[],
 ): NonNullable<MemoryProfile["sourceTrust"]> {
   const next = structuredClone(baseMemoryProfile.sourceTrust ?? {});
+  const interactions = new Map<string, {
+    source: string;
+    consequence: "low" | "medium" | "high";
+    responded: boolean;
+    rejected: boolean;
+    dismissed: boolean;
+  }>();
 
   for (const signal of signals) {
     const source = readSignalString(signal.metadata, "sourceKey");
@@ -170,31 +249,52 @@ function sourceTrustMemory(
     if (!source || (consequence !== "low" && consequence !== "medium" && consequence !== "high")) {
       continue;
     }
+    const interactionKey = `${source}::${consequence}::${signal.interactionId}`;
+    const current = interactions.get(interactionKey) ?? {
+      source,
+      consequence,
+      responded: false,
+      rejected: false,
+      dismissed: false,
+    };
+    if (signal.kind === "responded") {
+      current.responded = true;
+      current.dismissed = false;
+      current.rejected = signal.responseKind === "rejected";
+    } else if (signal.kind === "dismissed") {
+      if (!current.responded) {
+        current.dismissed = true;
+      }
+    }
 
-    const current = next[source]?.[consequence] ?? {
+    interactions.set(interactionKey, current);
+  }
+
+  for (const interaction of interactions.values()) {
+    const current = next[interaction.source]?.[interaction.consequence] ?? {
       confirmations: 0,
       disagreements: 0,
       trustAdjustment: 0,
     };
 
-    if (signal.kind === "responded") {
-      if (signal.responseKind === "rejected") {
+    if (interaction.responded) {
+      if (interaction.rejected) {
         current.disagreements += 1;
       } else {
         current.confirmations += 1;
       }
-    } else if (signal.kind === "dismissed") {
+    } else if (interaction.dismissed) {
       current.disagreements += 1;
     }
 
     const total = current.confirmations + current.disagreements;
     current.trustAdjustment = total > 0
-      ? Math.round(((current.confirmations - current.disagreements) / total) * 10)
+      ? Math.round((((current.confirmations - current.disagreements) / total) * 10) * Math.min(total / 5, 1))
       : 0;
 
-    next[source] = {
-      ...(next[source] ?? {}),
-      [consequence]: current,
+    next[interaction.source] = {
+      ...(next[interaction.source] ?? {}),
+      [interaction.consequence]: current,
     };
   }
 
@@ -206,7 +306,7 @@ function consequenceMemory(
   signals: InteractionSignal[],
 ): NonNullable<MemoryProfile["consequenceProfiles"]> {
   const next = { ...(baseMemoryProfile.consequenceProfiles ?? {}) };
-  const totals = new Map<string, { reviewed: number; rejected: number }>();
+  const interactions = new Map<string, { consequence: "low" | "medium" | "high"; rejected: boolean }>();
 
   for (const signal of signals) {
     const consequence = readSignalString(signal.metadata, "consequence");
@@ -218,17 +318,30 @@ function consequenceMemory(
       continue;
     }
 
-    const current = totals.get(consequence) ?? { reviewed: 0, rejected: 0 };
+    interactions.set(`${consequence}::${signal.interactionId}`, {
+      consequence,
+      rejected: signal.responseKind === "rejected",
+    });
+  }
+
+  const totals = new Map<string, { reviewed: number; rejected: number }>();
+  for (const interaction of interactions.values()) {
+    const current = totals.get(interaction.consequence) ?? { reviewed: 0, rejected: 0 };
     current.reviewed += 1;
-    if (signal.responseKind === "rejected") {
+    if (interaction.rejected) {
       current.rejected += 1;
     }
-    totals.set(consequence, current);
+    totals.set(interaction.consequence, current);
   }
 
   for (const [consequence, current] of totals.entries()) {
+    const previous = next[consequence] ?? { rejectionRate: 0, reviewedCount: 0 };
+    const reviewedCount = (previous.reviewedCount ?? 0) + current.reviewed;
     next[consequence] = {
-      rejectionRate: current.reviewed > 0 ? roundRate(current.rejected / current.reviewed) : 0,
+      rejectionRate: reviewedCount > 0
+        ? roundRate((((previous.reviewedCount ?? 0) * previous.rejectionRate) + current.rejected) / reviewedCount)
+        : 0,
+      reviewedCount,
     };
   }
 
@@ -242,4 +355,20 @@ function readSignalString(metadata: Record<string, unknown> | undefined, key: st
 
 function roundRate(value: number): number {
   return Math.round(value * 1000) / 1000;
+}
+
+function weightedAverage(
+  previousAverage: number | undefined,
+  previousCount: number,
+  currentAverage: number,
+  currentCount: number,
+): number {
+  const totalCount = previousCount + currentCount;
+  if (totalCount <= 0) {
+    return Math.round(currentAverage);
+  }
+
+  const previousTotal = (previousAverage ?? 0) * previousCount;
+  const currentTotal = currentAverage * currentCount;
+  return Math.round((previousTotal + currentTotal) / totalCount);
 }

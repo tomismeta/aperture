@@ -33,6 +33,12 @@ test("profile store saves and loads memory without extra dependencies", async ()
       },
     },
     lessons: ["Read approvals resolve quickly."],
+    consequenceProfiles: {
+      low: {
+        rejectionRate: 0.25,
+        reviewedCount: 4,
+      },
+    },
   });
 
   const loaded = await store.loadMemoryProfile({
@@ -45,6 +51,7 @@ test("profile store saves and loads memory without extra dependencies", async ()
   assert.equal(loaded.operatorId, "default");
   assert.equal(loaded.toolFamilies?.read?.avgResponseLatencyMs, 1800);
   assert.deepEqual(loaded.lessons, ["Read approvals resolve quickly."]);
+  assert.equal(loaded.consequenceProfiles?.low?.reviewedCount, 4);
 
   const raw = await readFile(join(root, "MEMORY.md"), "utf8");
   assert.match(raw, /^# Memory/m);
@@ -288,4 +295,54 @@ test("markdown-backed core can reload judgment rules without restarting", async 
     request: { kind: "approval" },
   });
   assert.equal(core.getTaskView("task:active").active?.interactionId, "interaction:active");
+});
+
+test("memory snapshots deduplicate repeated terminal signals for one interaction", () => {
+  const core = new ApertureCore();
+
+  core.recordSignal({
+    kind: "presented",
+    taskId: "task:read",
+    interactionId: "interaction:read",
+    timestamp: "2026-03-12T10:15:00.000Z",
+    metadata: {
+      toolFamily: "read",
+      consequence: "low",
+      sourceKey: "claude-code",
+    },
+  });
+  core.recordSignal({
+    kind: "responded",
+    taskId: "task:read",
+    interactionId: "interaction:read",
+    responseKind: "approved",
+    latencyMs: 1200,
+    timestamp: "2026-03-12T10:15:01.000Z",
+    metadata: {
+      toolFamily: "read",
+      consequence: "low",
+      sourceKey: "claude-code",
+    },
+  });
+  core.recordSignal({
+    kind: "responded",
+    taskId: "task:read",
+    interactionId: "interaction:read",
+    responseKind: "approved",
+    latencyMs: 900,
+    timestamp: "2026-03-12T10:15:02.000Z",
+    metadata: {
+      toolFamily: "read",
+      consequence: "low",
+      sourceKey: "claude-code",
+    },
+  });
+
+  const snapshot = core.snapshotMemoryProfile("2026-03-12T10:16:00.000Z");
+
+  assert.equal(snapshot.toolFamilies?.read?.presentations, 1);
+  assert.equal(snapshot.toolFamilies?.read?.responses, 1);
+  assert.equal(snapshot.toolFamilies?.read?.avgResponseLatencyMs, 900);
+  assert.equal(snapshot.sourceTrust?.["claude-code"]?.low?.confirmations, 1);
+  assert.equal(snapshot.consequenceProfiles?.low?.reviewedCount, 1);
 });

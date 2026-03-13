@@ -445,6 +445,7 @@ test("keeps low consequence work queued during pressure when calibration says th
         consequenceProfiles: {
           low: {
             rejectionRate: 0.6,
+            reviewedCount: 8,
           },
         },
       },

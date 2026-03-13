@@ -132,6 +132,7 @@ test("utility score boosts low consequence work when that band is often rejected
       consequenceProfiles: {
         low: {
           rejectionRate: 0.6,
+          reviewedCount: 8,
         },
       },
     },
@@ -158,6 +159,7 @@ test("utility score tempers high consequence work when that band is often reject
       consequenceProfiles: {
         high: {
           rejectionRate: 0.5,
+          reviewedCount: 8,
         },
       },
     },
@@ -179,6 +181,49 @@ test("utility score tempers high consequence work when that band is often reject
 
   assert.equal(utility.components.consequenceCalibration, -4);
   assert.ok(utility.rationale.includes("memory suggests this consequence band is often overstated and should be tempered"));
+});
+
+test("utility score ignores low-sample tool family memory", () => {
+  const utility = new UtilityScore({
+    memoryProfile: {
+      version: 1,
+      operatorId: "default",
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      sessionCount: 1,
+      toolFamilies: {
+        read: {
+          presentations: 1,
+          responses: 1,
+          dismissals: 0,
+          avgResponseLatencyMs: 900,
+        },
+      },
+      consequenceProfiles: {
+        low: {
+          rejectionRate: 1,
+          reviewedCount: 1,
+        },
+      },
+    },
+  }).scoreCandidate(
+    createCandidate({
+      priority: "normal",
+      mode: "approval",
+      blocking: true,
+      title: "Claude Code wants to read config.ts",
+      summary: "config.ts",
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(utility.components.responseAffinity, 0);
+  assert.equal(utility.components.consequenceCalibration, 0);
 });
 
 test("utility score boosts quick-response tool families from memory", () => {

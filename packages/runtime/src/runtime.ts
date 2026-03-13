@@ -89,6 +89,7 @@ const DEFAULT_CONTROL_PATH_PREFIX = "/runtime";
 const DEFAULT_EVENT_LOG_LIMIT = 128;
 const DEFAULT_ADAPTER_TTL_MS = 30_000;
 const DEFAULT_SURFACE_TTL_MS = 15_000;
+const DEFAULT_BODY_LIMIT_BYTES = 64 * 1024;
 const REGISTRATION_HEARTBEAT_MS = 5_000;
 
 export function createApertureRuntime(
@@ -104,6 +105,7 @@ export function createApertureRuntime(
   const eventLogLimit = options.eventLogLimit ?? DEFAULT_EVENT_LOG_LIMIT;
   const adapterTtlMs = options.adapterTtlMs ?? DEFAULT_ADAPTER_TTL_MS;
   const surfaceTtlMs = options.surfaceTtlMs ?? DEFAULT_SURFACE_TTL_MS;
+  const bodyLimitBytes = DEFAULT_BODY_LIMIT_BYTES;
   const runtimeId = randomUUID();
   const startedAt = new Date().toISOString();
   const adapters = new Map<string, AdapterSession>();
@@ -182,14 +184,14 @@ export function createApertureRuntime(
       }
 
       if (req.method === "POST" && path === `${controlPathPrefix}/responses`) {
-        const response = (await readJson(req)) as FrameResponse;
+        const response = (await readJson(req, bodyLimitBytes)) as FrameResponse;
         core.submit(response);
         writeJson(res, 200, {});
         return;
       }
 
       if (req.method === "POST" && path === `${controlPathPrefix}/events/conformed`) {
-        const payload = (await readJson(req)) as { event?: ConformedEvent; events?: ConformedEvent[] } | ConformedEvent;
+        const payload = (await readJson(req, bodyLimitBytes)) as { event?: ConformedEvent; events?: ConformedEvent[] } | ConformedEvent;
         const events = normalizeConformedPayload(payload);
         for (const event of events) {
           core.publishConformed(event);
@@ -199,7 +201,7 @@ export function createApertureRuntime(
       }
 
       if (req.method === "POST" && path === `${controlPathPrefix}/adapters/register`) {
-        const payload = (await readJson(req)) as {
+        const payload = (await readJson(req, bodyLimitBytes)) as {
           id?: string;
           kind: string;
           label?: string;
@@ -252,7 +254,7 @@ export function createApertureRuntime(
       }
 
       if (req.method === "POST" && path === `${controlPathPrefix}/surfaces/attach`) {
-        const payload = (await readOptionalJson(req)) as { label?: string } | null;
+        const payload = (await readOptionalJson(req, bodyLimitBytes)) as { label?: string } | null;
         const surfaceId = randomUUID();
         surfaces.set(surfaceId, {
           id: surfaceId,
@@ -455,10 +457,16 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-async function readOptionalJson(req: IncomingMessage): Promise<unknown | null> {
+async function readOptionalJson(req: IncomingMessage, bodyLimitBytes: number): Promise<unknown | null> {
   const chunks: Buffer[] = [];
+  let totalBytes = 0;
   for await (const chunk of req) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    totalBytes += buffer.byteLength;
+    if (totalBytes > bodyLimitBytes) {
+      throw new Error(`request body exceeded ${bodyLimitBytes} bytes`);
+    }
+    chunks.push(buffer);
   }
   if (chunks.length === 0) {
     return null;
@@ -466,8 +474,8 @@ async function readOptionalJson(req: IncomingMessage): Promise<unknown | null> {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
-async function readJson(req: IncomingMessage): Promise<unknown> {
-  const parsed = await readOptionalJson(req);
+async function readJson(req: IncomingMessage, bodyLimitBytes: number): Promise<unknown> {
+  const parsed = await readOptionalJson(req, bodyLimitBytes);
   if (parsed === null) {
     throw new Error("request body is empty");
   }

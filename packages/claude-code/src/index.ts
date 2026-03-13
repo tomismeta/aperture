@@ -502,10 +502,6 @@ function approvalTitleDetail(event: ClaudeCodePreToolUseEvent, summary: string):
   return null;
 }
 
-function truncateLabel(value: string, limit: number): string {
-  return value.length <= limit ? value : `${value.slice(0, limit - 1)}…`;
-}
-
 function approvalActionLabel(event: ClaudeCodePreToolUseEvent): string {
   const toolName = event.tool_name.toLowerCase();
 

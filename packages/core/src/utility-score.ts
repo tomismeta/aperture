@@ -124,7 +124,7 @@ export class UtilityScore {
     }
 
     const memory = this.memoryProfile?.toolFamilies?.[toolFamily];
-    if (!memory || memory.avgResponseLatencyMs === undefined) {
+    if (!memory || memory.avgResponseLatencyMs === undefined || memory.presentations < 3 || memory.responses < 3) {
       return 0;
     }
 
@@ -140,8 +140,9 @@ export class UtilityScore {
   }
 
   private consequenceCalibrationAdjustment(candidate: InteractionCandidate): number {
-    const rejectionRate = this.memoryProfile?.consequenceProfiles?.[candidate.consequence]?.rejectionRate;
-    if (rejectionRate === undefined) {
+    const profile = this.memoryProfile?.consequenceProfiles?.[candidate.consequence];
+    const rejectionRate = profile?.rejectionRate;
+    if (rejectionRate === undefined || (profile?.reviewedCount ?? 0) < 4) {
       return 0;
     }
 
@@ -180,7 +181,7 @@ export class UtilityScore {
     }
 
     const rate = this.memoryProfile?.toolFamilies?.[toolFamily]?.contextExpansionRate;
-    if (rate === undefined) {
+    if (rate === undefined || (this.memoryProfile?.toolFamilies?.[toolFamily]?.presentations ?? 0) < 3) {
       return 0;
     }
 
@@ -202,7 +203,7 @@ export class UtilityScore {
     }
 
     const rate = this.memoryProfile?.toolFamilies?.[toolFamily]?.returnAfterDeferralRate;
-    if (rate === undefined) {
+    if (rate === undefined || (this.memoryProfile?.toolFamilies?.[toolFamily]?.presentations ?? 0) < 3) {
       return 0;
     }
 

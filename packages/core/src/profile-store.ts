@@ -55,6 +55,7 @@ export type SourceTrustMemory = {
 
 export type ConsequenceMemory = {
   rejectionRate: number;
+  reviewedCount?: number;
 };
 
 export class ProfileStore {
@@ -319,6 +320,9 @@ function serializeMemoryProfile(profile: MemoryProfile): string {
     for (const [consequence, values] of Object.entries(profile.consequenceProfiles)) {
       lines.push("", `### ${consequence}`);
       lines.push(formatBullet("rejection rate", values.rejectionRate));
+      if (values.reviewedCount !== undefined) {
+        lines.push(formatBullet("reviewed count", values.reviewedCount));
+      }
     }
   }
 

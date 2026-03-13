@@ -151,6 +151,7 @@ export async function runAttentionTui(
 ): Promise<void> {
   const input = options?.input ?? defaultInput;
   const output = options?.output ?? defaultOutput;
+  const title = options?.title ?? "Aperture";
   const state: TuiState = {
     attentionView: core.getAttentionView(),
     statusLine: "Waiting for events",
@@ -158,12 +159,12 @@ export async function runAttentionTui(
     expanded: false,
   };
 
-  const cleanup = setupTerminal(input, output);
+  const cleanup = setupTerminal(input, output, title);
   const render = () => {
     output.write(clearScreen());
     output.write(
       renderAttentionScreen(state.attentionView, {
-        title: options?.title ?? "Aperture TUI",
+        title,
         statusLine: state.statusLine,
         formDraft: state.formDraft,
         expanded: state.expanded,
@@ -652,12 +653,13 @@ function restoreScreen(): string {
   return "\u001B[?25h\u001B[2J\u001B[H\u001B[?1049l";
 }
 
-function setupTerminal(input: InputLike, output: OutputLike): () => void {
+function setupTerminal(input: InputLike, output: OutputLike, title: string): () => void {
   emitKeypressEvents(input);
   if (input.isTTY && input.setRawMode) {
     input.setRawMode(true);
   }
   input.resume();
+  writeTerminalTitle(output, title);
   output.write(clearScreen());
 
   return () => {
@@ -667,6 +669,14 @@ function setupTerminal(input: InputLike, output: OutputLike): () => void {
     input.pause();
     output.write(restoreScreen());
   };
+}
+
+function writeTerminalTitle(output: OutputLike, title: string): void {
+  if (!output.isTTY) {
+    return;
+  }
+
+  output.write(`\u001b]0;${title.replace(/[\u0007\u001b]/g, "")}\u0007`);
 }
 
 function describeResponse(response: FrameResponse, nextActive: Frame | null): string {

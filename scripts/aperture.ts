@@ -1,9 +1,11 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { stderr } from "node:process";
+import { stderr, stdout } from "node:process";
 
 async function main(): Promise<void> {
   const children: ChildProcess[] = [];
   let shuttingDown = false;
+
+  setTerminalTitle("Aperture");
 
   const runtime = spawnPnpm(["serve"]);
   children.push(runtime);
@@ -81,6 +83,14 @@ async function waitForReady(child: ChildProcess, marker: string): Promise<void> 
     child.stderr?.on("data", onData);
     child.on("exit", onExit);
   });
+}
+
+function setTerminalTitle(title: string): void {
+  if (!stdout.isTTY) {
+    return;
+  }
+
+  stdout.write(`\u001b]0;${title.replace(/[\u0007\u001b]/g, "")}\u0007`);
 }
 
 async function waitForExit(child: ChildProcess): Promise<void> {

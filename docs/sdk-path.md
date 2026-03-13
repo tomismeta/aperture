@@ -36,8 +36,8 @@ What is not ready yet:
 
 - `@aperture/core` is still private
 - the export surface is now broad enough for the main judgment stack, but it has not yet been hardened as a published package contract
-- there is no package README or SDK integration guide
-- the API is usable internally, but not yet validated through an external install path
+- the package is not yet set up for npm publishing
+- package contents are still broader than a first public tarball should be
 
 ## Design Principles
 
@@ -185,9 +185,16 @@ To keep the SDK clean:
 
 ### Milestone 2: Integration Guides
 
-- document full-engine mode
-- document judgment-primitive mode
-- document learning persistence in embedded environments
+- prove a packed-tarball install outside the monorepo
+- add one full-engine example
+- add one judgment-primitive example
+- verify learning persistence in embedded environments
+
+Status:
+
+- built
+- examples live in `examples/core-full-engine` and `examples/core-judgment-primitives`
+- verification script is `pnpm sdk:prove`
 
 ### Milestone 3: First Consumer Readiness
 

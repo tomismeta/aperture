@@ -48,6 +48,26 @@ The key public schemas are:
 
 The SDK uses the explicit `Attention*` naming family intentionally. Earlier generic names like `Frame` or `FrameResponse` are not part of the public contract.
 
+## Proving The SDK Outside The Monorepo
+
+This repo includes two package-facing examples:
+
+- `examples/core-full-engine`
+- `examples/core-judgment-primitives`
+
+And one verification command:
+
+```bash
+pnpm sdk:prove
+```
+
+That command:
+
+- builds `@aperture/core`
+- packs it into a tarball
+- installs it into temporary consumer projects
+- runs both examples outside monorepo import assumptions
+
 ## Integration Modes
 
 ### Full Engine Mode

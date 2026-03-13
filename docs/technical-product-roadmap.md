@@ -167,7 +167,7 @@ Definitions:
 
 Current placement:
 
-- `@aperture/core`: `SDK-aware`
+- `@aperture/core`: `SDK-proving`
 
 The next target is `SDK-proving`.
 
@@ -201,8 +201,9 @@ That keeps publishing as a packaging milestone, not a speculative branding move.
 
 Ordered by leverage:
 
-1. **Prove one external consumer path**
-   - treat this as the gateway to all serious SDK work
+1. **Harden the proven consumer path**
+   - keep the packed-tarball install healthy
+   - keep one full-engine and one judgment-primitive consumer working as the contract evolves
 
 2. **Keep Claude Code as the flagship live adapter**
    - keep one path obviously working while the substrate matures
@@ -232,7 +233,7 @@ To keep the productization path clean:
 
 If we have limited time and limited live adapter demand, the best technical productization move is:
 
-**progress `@aperture/core` from `SDK-aware` to `SDK-proving`**
+**progress `@aperture/core` from `SDK-proving` to `SDK-ready`**
 
 That is the closest, most controllable maturity step:
 

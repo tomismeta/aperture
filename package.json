@@ -11,6 +11,7 @@
     "claude:start": "tsx scripts/claude-adapter.ts",
     "clean": "rm -rf packages/*/dist",
     "demo:tui": "tsx scripts/demo-tui.ts",
+    "sdk:prove": "tsx scripts/prove-core-sdk.ts",
     "serve": "tsx scripts/runtime-server.ts",
     "test": "tsx --test packages/*/test/**/*.test.ts",
     "tui": "tsx scripts/aperture-tui.ts",

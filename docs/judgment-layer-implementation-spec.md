@@ -918,9 +918,9 @@ If we want to prepare for this without overbuilding, define one optional interfa
 ```ts
 type ReasoningAdvisor = {
   advise(input: {
-    candidate: InteractionCandidate;
-    taskSummary: SignalSummary;
-    globalSummary: SignalSummary;
+    candidate: AttentionCandidate;
+    taskSummary: AttentionSignalSummary;
+    globalSummary: AttentionSignalSummary;
   }): {
     utilityAdjustments?: Record<string, number>;
     episodeHints?: { key?: string; rationale?: string[] };

@@ -5,7 +5,7 @@
 It does not know about Paperclip, Codex, Claude Code, or any other source. It only consumes core contracts:
 
 - `AttentionView`
-- `Frame`
+- `AttentionFrame`
 - `AttentionResponse`
 
 ## How to Read the TUI

@@ -7,11 +7,9 @@ import type {
   AttentionFrame,
   AttentionTaskView,
   AttentionView,
-  AttentionFrame as Frame,
-  AttentionTaskView as TaskView,
 } from "./frame.js";
-import type { AttentionResponse, AttentionResponse as FrameResponse } from "./frame-response.js";
-import type { AttentionSignal, AttentionSignal as InteractionSignal } from "./interaction-signal.js";
+import type { AttentionResponse } from "./frame-response.js";
+import type { AttentionSignal } from "./interaction-signal.js";
 
 import { buildAttentionView } from "./attention-view.js";
 import { AttentionAdjustments } from "./attention-adjustments.js";
@@ -20,7 +18,7 @@ import { EpisodeTracker, readFrameEpisodeId } from "./episode-tracker.js";
 import { EventEvaluator } from "./event-evaluator.js";
 import { FramePlanner } from "./frame-planner.js";
 import { JudgmentCoordinator } from "./judgment-coordinator.js";
-import type { InteractionCandidate } from "./interaction-candidate.js";
+import type { AttentionCandidate } from "./interaction-candidate.js";
 import { AttentionSignalStore } from "./attention-signal-store.js";
 import { loadJudgmentConfig, type JudgmentConfig } from "./judgment-config.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
@@ -30,7 +28,7 @@ import { AttentionPolicy } from "./attention-policy.js";
 import { forecastAttentionPressure } from "./attention-pressure.js";
 import { ProfileStore, type MemoryProfile, type UserProfile } from "./profile-store.js";
 import { AttentionPlanner } from "./attention-planner.js";
-import type { SignalSummary } from "./signal-summary.js";
+import type { AttentionSignalSummary } from "./signal-summary.js";
 import { TaskViewStore } from "./task-view-store.js";
 import type { ApertureTrace } from "./trace.js";
 import { TraceRecorder } from "./trace-recorder.js";
@@ -52,7 +50,7 @@ export type ApertureCoreOptions = {
 };
 
 export class ApertureCore {
-  private readonly frames = new Map<string, Frame>();
+  private readonly frames = new Map<string, AttentionFrame>();
   private readonly frameListeners = new Map<string, Set<FrameListener>>();
   private readonly taskViewListeners = new Map<string, Set<TaskViewListener>>();
   private readonly attentionViewListeners = new Set<AttentionViewListener>();
@@ -350,7 +348,7 @@ export class ApertureCore {
     };
   }
 
-  submit(response: FrameResponse): void {
+  submit(response: AttentionResponse): void {
     this.assertValidFrameResponse(response);
     const current = this.findFrameByInteractionId(response.taskId, response.interactionId);
     if (!current) {
@@ -395,7 +393,7 @@ export class ApertureCore {
     return this.signals.list(taskId);
   }
 
-  getSignalSummary(taskId?: string): SignalSummary {
+  getSignalSummary(taskId?: string): AttentionSignalSummary {
     return this.signals.summarize(taskId);
   }
 
@@ -460,7 +458,7 @@ export class ApertureCore {
     });
   }
 
-  recordSignal(signal: InteractionSignal): void {
+  recordSignal(signal: AttentionSignal): void {
     this.assertValidSignal(signal);
     this.signals.record(signal);
     for (const listener of this.signalListeners) {
@@ -468,7 +466,7 @@ export class ApertureCore {
     }
   }
 
-  private commitFrame(frame: Frame): Frame {
+  private commitFrame(frame: AttentionFrame): AttentionFrame {
     const previousTaskView = this.taskViews.get(frame.taskId);
     const previousActive = previousTaskView.active;
     this.frames.set(frame.taskId, frame);
@@ -509,7 +507,7 @@ export class ApertureCore {
     return null;
   }
 
-  private queueFrame(taskId: string, frame: Frame): Frame {
+  private queueFrame(taskId: string, frame: AttentionFrame): AttentionFrame {
     const taskView = this.taskViews.enqueue(taskId, frame);
     this.recordDeferredSignal(frame, "queued");
     this.notifyTaskView(taskId, taskView);
@@ -517,7 +515,7 @@ export class ApertureCore {
     return this.frames.get(taskId) ?? frame;
   }
 
-  private addAmbientFrame(taskId: string, frame: Frame): Frame {
+  private addAmbientFrame(taskId: string, frame: AttentionFrame): AttentionFrame {
     const taskView = this.taskViews.addAmbient(taskId, frame);
     this.recordDeferredSignal(frame, "suppressed");
     this.notifyTaskView(taskId, taskView);
@@ -526,10 +524,10 @@ export class ApertureCore {
   }
 
   private materializePeripheralFrame(
-    candidate: InteractionCandidate,
+    candidate: AttentionCandidate,
     bucket: "queue" | "ambient",
     attentionView: AttentionView,
-  ): Frame {
+  ): AttentionFrame {
     const existing = candidate.episodeId ? this.findPeripheralEpisodeFrame(candidate.episodeId, attentionView) : null;
     if (!existing) {
       const planned = this.planner.plan(candidate, null);
@@ -557,7 +555,7 @@ export class ApertureCore {
     return merged;
   }
 
-  private preferredPeripheralBucket(candidate: InteractionCandidate): "queue" | "ambient" {
+  private preferredPeripheralBucket(candidate: AttentionCandidate): "queue" | "ambient" {
     if (
       !candidate.blocking
       && candidate.mode === "status"
@@ -570,7 +568,7 @@ export class ApertureCore {
     return "queue";
   }
 
-  private findFrameByInteractionId(taskId: string, interactionId: string): Frame | null {
+  private findFrameByInteractionId(taskId: string, interactionId: string): AttentionFrame | null {
     const primary = this.frames.get(taskId);
     if (primary?.interactionId === interactionId) {
       return primary;
@@ -597,7 +595,7 @@ export class ApertureCore {
   private findPeripheralEpisodeFrame(
     episodeId: string,
     attentionView: AttentionView,
-  ): { frame: Frame; bucket: "queue" | "ambient" } | null {
+  ): { frame: AttentionFrame; bucket: "queue" | "ambient" } | null {
     const queued = attentionView.queued.find((frame) => readFrameEpisodeId(frame) === episodeId);
     if (queued) {
       return { frame: queued, bucket: "queue" };
@@ -612,9 +610,9 @@ export class ApertureCore {
   }
 
   private recordDeferredSignal(
-    frame: Frame,
+    frame: AttentionFrame,
     reason: "queued" | "suppressed",
-    sourceFrame: Pick<Frame, "taskId" | "interactionId" | "source"> = frame,
+    sourceFrame: Pick<AttentionFrame, "taskId" | "interactionId" | "source"> = frame,
   ): void {
     this.recordSignal({
       kind: "deferred",
@@ -628,13 +626,13 @@ export class ApertureCore {
     });
   }
 
-  private notifyFrame(taskId: string, frame: Frame | null): void {
+  private notifyFrame(taskId: string, frame: AttentionFrame | null): void {
     for (const listener of this.frameListeners.get(taskId) ?? []) {
       listener(frame);
     }
   }
 
-  private notifyTaskView(taskId: string, taskView: TaskView): void {
+  private notifyTaskView(taskId: string, taskView: AttentionTaskView): void {
     for (const listener of this.taskViewListeners.get(taskId) ?? []) {
       listener(taskView);
     }
@@ -653,7 +651,7 @@ export class ApertureCore {
     }
   }
 
-  private signalForResponse(frame: Frame, response: FrameResponse, timestamp: string): InteractionSignal {
+  private signalForResponse(frame: AttentionFrame, response: AttentionResponse, timestamp: string): AttentionSignal {
     const latencyMs = this.calculateLatency(frame, timestamp);
     const base = {
       taskId: frame.taskId,
@@ -680,7 +678,7 @@ export class ApertureCore {
     };
   }
 
-  private applyAutoResponse(candidate: InteractionCandidate, response: FrameResponse): null {
+  private applyAutoResponse(candidate: AttentionCandidate, response: AttentionResponse): null {
     const timestamp = new Date().toISOString();
     this.recordSignal({
       kind: "responded",
@@ -701,7 +699,7 @@ export class ApertureCore {
     return null;
   }
 
-  private calculateLatency(frame: Frame, timestamp: string): number | undefined {
+  private calculateLatency(frame: AttentionFrame, timestamp: string): number | undefined {
     const startedAt = Date.parse(frame.timing.updatedAt);
     const completedAt = Date.parse(timestamp);
 
@@ -712,12 +710,12 @@ export class ApertureCore {
     return Math.max(0, completedAt - startedAt);
   }
 
-  private recordAttentionShift(previous: Frame | null, next: Frame, timestamp: string): void {
+  private recordAttentionShift(previous: AttentionFrame | null, next: AttentionFrame, timestamp: string): void {
     if (!previous || previous.interactionId === next.interactionId) {
       return;
     }
 
-    const destinationSignal: InteractionSignal = {
+    const destinationSignal: AttentionSignal = {
       kind: "attention_shifted",
       taskId: next.taskId,
       interactionId: next.interactionId,
@@ -743,7 +741,7 @@ export class ApertureCore {
     }
   }
 
-  private recordReturnSignal(previousTaskView: TaskView, next: Frame, timestamp: string): void {
+  private recordReturnSignal(previousTaskView: AttentionTaskView, next: AttentionFrame, timestamp: string): void {
     const from = previousTaskView.queued.some((frame) => frame.interactionId === next.interactionId)
       ? "queued"
       : previousTaskView.ambient.some((frame) => frame.interactionId === next.interactionId)
@@ -769,10 +767,10 @@ export class ApertureCore {
     kind: "viewed" | "timed_out" | "context_expanded" | "context_skipped",
     taskId: string,
     interactionId: string,
-    frame: Frame | null,
+    frame: AttentionFrame | null,
     options: { surface?: string },
   ): Extract<
-    InteractionSignal,
+    AttentionSignal,
     { kind: "viewed" | "timed_out" | "context_expanded" | "context_skipped" }
   > {
     return {
@@ -787,7 +785,7 @@ export class ApertureCore {
     };
   }
 
-  private findFrame(taskId: string, interactionId: string): Frame | null {
+  private findFrame(taskId: string, interactionId: string): AttentionFrame | null {
     const taskView = this.taskViews.get(taskId);
     if (taskView.active?.interactionId === interactionId) {
       return taskView.active;
@@ -862,7 +860,7 @@ export class ApertureCore {
     }
   }
 
-  private assertValidFrameResponse(response: FrameResponse): void {
+  private assertValidFrameResponse(response: AttentionResponse): void {
     this.assertNonEmpty("response.taskId", response.taskId);
     this.assertNonEmpty("response.interactionId", response.interactionId);
 
@@ -889,7 +887,7 @@ export class ApertureCore {
     }
   }
 
-  private assertValidSignal(signal: InteractionSignal): void {
+  private assertValidSignal(signal: AttentionSignal): void {
     this.assertNonEmpty("signal.taskId", signal.taskId);
     this.assertNonEmpty("signal.interactionId", signal.interactionId);
     this.assertTimestamp("signal.timestamp", signal.timestamp);

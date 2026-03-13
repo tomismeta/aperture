@@ -67,9 +67,19 @@ export type { AttentionCandidate, AttentionPriority } from "./interaction-candid
 export type {
   AttentionSignalCounts,
   AttentionSignalSummary,
-  DeferredSignalCounts,
+  AttentionDeferredSignalCounts,
 } from "./signal-summary.js";
 export type { AttentionState } from "./attention-state.js";
-export type * from "./profile-store.js";
-export type * from "./judgment-config.js";
-export type * from "./trace.js";
+export type {
+  ConsequenceMemory,
+  MemoryProfile,
+  SourceTrustMemory,
+  ToolFamilyMemory,
+  UserProfile,
+} from "./profile-store.js";
+export type {
+  JudgmentConfig,
+  JudgmentRule,
+  PlannerDefaults,
+} from "./judgment-config.js";
+export type { ApertureTrace } from "./trace.js";

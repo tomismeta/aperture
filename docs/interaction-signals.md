@@ -69,7 +69,7 @@ Examples:
 Current artifacts:
 
 - `AttentionResponse`
-- `InteractionSignal` with current engine signals:
+- `AttentionSignal` with current engine signals:
   - `presented`
   - `viewed`
   - `responded`
@@ -184,11 +184,11 @@ This is one of the strongest arguments for Aperture as an interaction intelligen
 
 This expands the Aperture product from:
 
-- a system that emits `Frame`s
+- a system that emits `AttentionFrame`s
 
 to:
 
-- a system that emits `Frame`s
+- a system that emits `AttentionFrame`s
 - observes interaction signals around them
 - learns from explicit and implicit human behavior
 - improves future interaction judgment

@@ -1,8 +1,8 @@
-# Frame
+# Attention Frame
 
 ## Purpose
 
-A `Frame` is the atomic interaction contract emitted by `Aperture Core`.
+An `AttentionFrame` is the atomic interaction contract emitted by `Aperture Core`.
 
 It is intentionally small:
 
@@ -11,46 +11,46 @@ It is intentionally small:
 - not a UI component tree
 - not a cross-task grouping object
 
-Grouped attention state lives in `TaskView` and `AttentionView`.
+Grouped attention state lives in `AttentionTaskView` and `AttentionView`.
 
 ## Current Contract
 
 ```ts
-type FrameMode = "status" | "approval" | "choice" | "form";
+type AttentionFrameMode = "status" | "approval" | "choice" | "form";
 
-type FrameTone = "ambient" | "focused" | "critical";
+type AttentionTone = "ambient" | "focused" | "critical";
 
-type ConsequenceLevel = "low" | "medium" | "high";
+type AttentionConsequenceLevel = "low" | "medium" | "high";
 
-type Frame = {
+type AttentionFrame = {
   id: string;
   taskId: string;
   interactionId: string;
   version: number;
-  mode: FrameMode;
-  tone: FrameTone;
-  consequence: ConsequenceLevel;
+  mode: AttentionFrameMode;
+  tone: AttentionTone;
+  consequence: AttentionConsequenceLevel;
   title: string;
   summary?: string;
-  context?: FrameContext;
-  responseSpec?: FrameResponseSpec;
-  provenance?: FrameProvenance;
-  timing: FrameTiming;
+  context?: AttentionContext;
+  responseSpec?: AttentionResponseSpec;
+  provenance?: AttentionProvenance;
+  timing: AttentionTiming;
   metadata?: Record<string, unknown>;
 };
 ```
 
 ## Design Constraints
 
-- `Frame` carries semantics, not presentation.
-- `Frame` should be stable across CLI and other host surfaces.
-- `Frame` should stay small enough that developers can reason about it quickly.
-- `Frame` should only represent one bounded human moment.
+- `AttentionFrame` carries semantics, not presentation.
+- `AttentionFrame` should be stable across CLI and other host surfaces.
+- `AttentionFrame` should stay small enough that developers can reason about it quickly.
+- `AttentionFrame` should only represent one bounded human moment.
 
 ## Supporting Types
 
 ```ts
-type FrameContext = {
+type AttentionContext = {
   stage?: string;
   progress?: number;
   items?: Array<{
@@ -60,30 +60,30 @@ type FrameContext = {
   }>;
 };
 
-type FrameResponseSpec =
+type AttentionResponseSpec =
   | { kind: "none" }
   | {
       kind: "acknowledge";
-      actions: FrameAction[];
+      actions: AttentionAction[];
     }
   | {
       kind: "approval";
-      actions: FrameAction[];
+      actions: AttentionAction[];
       requireReason?: boolean;
     }
   | {
       kind: "choice";
       selectionMode: "single" | "multiple";
-      options: FrameOption[];
-      actions: FrameAction[];
+      options: AttentionOption[];
+      actions: AttentionAction[];
     }
   | {
       kind: "form";
-      fields: FrameField[];
-      actions: FrameAction[];
+      fields: AttentionField[];
+      actions: AttentionAction[];
     };
 
-type FrameAction = {
+type AttentionAction = {
   id: string;
   label: string;
   kind: "submit" | "approve" | "reject" | "cancel" | "dismiss" | "acknowledge";
@@ -92,13 +92,13 @@ type FrameAction = {
 ```
 
 ```ts
-type FrameOption = {
+type AttentionOption = {
   id: string;
   label: string;
   summary?: string;
 };
 
-type FrameField = {
+type AttentionField = {
   id: string;
   label: string;
   type: "text" | "textarea" | "number" | "select" | "boolean";
@@ -108,7 +108,7 @@ type FrameField = {
   helpText?: string;
 };
 
-type FrameProvenance = {
+type AttentionProvenance = {
   whyNow?: string;
   factors?: string[];
   sources?: Array<{
@@ -117,7 +117,7 @@ type FrameProvenance = {
   }>;
 };
 
-type FrameTiming = {
+type AttentionTiming = {
   createdAt: string;
   updatedAt: string;
   expiresAt?: string;
@@ -144,24 +144,24 @@ type AttentionResponse = {
 
 ## Grouped Views
 
-`Frame` is not the whole host-facing model.
+`AttentionFrame` is not the whole host-facing model.
 
 ```ts
-type TaskView = {
-  active: Frame | null;
-  queued: Frame[];
-  ambient: Frame[];
+type AttentionTaskView = {
+  active: AttentionFrame | null;
+  queued: AttentionFrame[];
+  ambient: AttentionFrame[];
 };
 
 type AttentionView = {
-  active: Frame | null;
-  queued: Frame[];
-  ambient: Frame[];
+  active: AttentionFrame | null;
+  queued: AttentionFrame[];
+  ambient: AttentionFrame[];
 };
 ```
 
 Use them like this:
 
-- `Frame`: one interaction
-- `TaskView`: one task's local coordination state
+- `AttentionFrame`: one interaction
+- `AttentionTaskView`: one task's local coordination state
 - `AttentionView`: cross-task attention state

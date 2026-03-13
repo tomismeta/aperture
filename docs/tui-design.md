@@ -441,7 +441,7 @@ The TUI is a surface, not a decision layer.
 It should consume:
 
 - `AttentionView`
-- `Frame`
+- `AttentionFrame`
 - `AttentionResponse`
 
 It should not:

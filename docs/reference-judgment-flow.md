@@ -12,7 +12,7 @@ Aperture does not just rank events.
 
 It runs a compact judgment loop:
 
-`event -> candidate -> policy -> value -> pressure -> planning -> frame -> human response -> signals -> memory -> next judgment`
+`event -> candidate -> policy -> value -> pressure -> planning -> attention frame -> human response -> signals -> memory -> next judgment`
 
 That loop is the product.
 
@@ -28,7 +28,7 @@ These are the major engine questions, in order:
 6. **`AttentionPressure`** — how much cognitive load is already building?
 7. **`AttentionPlanner`** — where should this go: `activate`, `queue`, or `ambient`?
 8. **`JudgmentCoordinator`** — compose the judgment into one inspectable decision
-9. **`FramePlanner`** — materialize the chosen interaction into a `Frame`
+9. **`FramePlanner`** — materialize the chosen interaction into an `AttentionFrame`
 
 In practice, those modules live inside [ApertureCore](../packages/core/src/aperture-core.ts).
 
@@ -166,7 +166,7 @@ It produces one inspectable explanation containing:
 
 ### 9. Materialization
 
-[FramePlanner](../packages/core/src/frame-planner.ts) turns the chosen interaction into a `Frame`, and [TaskViewStore](../packages/core/src/task-view-store.ts) updates task-local state.
+[FramePlanner](../packages/core/src/frame-planner.ts) turns the chosen interaction into an `AttentionFrame`, and [TaskViewStore](../packages/core/src/task-view-store.ts) updates task-local state.
 
 From there, Aperture derives the cross-task `AttentionView` that surfaces see.
 
@@ -186,7 +186,7 @@ When the human:
 - expands context
 - ignores one frame while choosing another
 
-Aperture records [InteractionSignal](../packages/core/src/interaction-signal.ts) values through [AttentionSignalStore](../packages/core/src/attention-signal-store.ts).
+Aperture records [AttentionSignal](../packages/core/src/interaction-signal.ts) values through [AttentionSignalStore](../packages/core/src/attention-signal-store.ts).
 
 ### 2. Signals produce summaries
 

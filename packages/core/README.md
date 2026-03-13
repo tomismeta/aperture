@@ -46,6 +46,8 @@ The key public schemas are:
 - `JudgmentConfig`
 - `ApertureTrace`
 
+The SDK uses the explicit `Attention*` naming family intentionally. Earlier generic names like `Frame` or `FrameResponse` are not part of the public contract.
+
 ## Integration Modes
 
 ### Full Engine Mode

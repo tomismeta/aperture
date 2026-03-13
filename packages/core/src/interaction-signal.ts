@@ -1,5 +1,5 @@
 import type { SourceRef } from "./events.js";
-import type { FrameResponse } from "./frame-response.js";
+import type { AttentionResponse } from "./frame-response.js";
 
 export type AttentionSignal =
   | InteractionPresentedSignal
@@ -34,7 +34,7 @@ export type InteractionViewedSignal = InteractionSignalBase & {
 
 export type InteractionRespondedSignal = InteractionSignalBase & {
   kind: "responded";
-  responseKind: Exclude<FrameResponse["response"]["kind"], "dismissed">;
+  responseKind: Exclude<AttentionResponse["response"]["kind"], "dismissed">;
   latencyMs?: number;
 };
 

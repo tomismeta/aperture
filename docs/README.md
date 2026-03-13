@@ -18,7 +18,7 @@ Primary docs:
 Reference docs:
 
 - [Semantic Normalization](semantic-normalization.md)
-- [Frame](frame.md)
+- [Attention Frame](frame.md)
 - [Codex Adapter](codex.md)
 - [Paperclip Adapter](paperclip.md)
 - [TUI Design](tui-design.md)

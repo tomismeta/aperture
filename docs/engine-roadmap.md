@@ -329,7 +329,7 @@ Purpose:
 
 Current constructs:
 
-- `InteractionSignal`
+- `AttentionSignal`
 - `AttentionSignalStore`
 - `ProfileStore`
 - `MemoryAggregator`

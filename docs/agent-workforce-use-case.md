@@ -151,7 +151,7 @@ Bad event categories:
 
 ## Current Interrupt Types
 
-The current core supports these `Frame` modes:
+The current core supports these `AttentionFrame` modes:
 
 - `approval`
   - approve a plan

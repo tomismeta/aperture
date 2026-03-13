@@ -23,11 +23,11 @@ These are part of Aperture itself.
   - semantic normalization of adapter inputs
   - ingesting `ApertureEvent`
   - ingesting `ConformedEvent`
-  - producing `Frame`
-  - producing `TaskView`
+  - producing `AttentionFrame`
+  - producing `AttentionTaskView`
   - producing `AttentionView`
   - accepting `AttentionResponse`
-  - recording `InteractionSignal`
+  - recording `AttentionSignal`
 - Can be used directly:
   - with native `ApertureEvent`s
   - without any adapter package
@@ -90,7 +90,7 @@ These are part of Aperture itself.
   - final Aperture `consequence`
   - attention judgment
 
-#### `Frame`
+#### `AttentionFrame`
 
 - Classification: atomic interaction contract
 - Lives in [packages/core/src/frame.ts](../packages/core/src/frame.ts)
@@ -119,7 +119,7 @@ These are part of Aperture itself.
   - implicit behavioral interpretation
   - attention scoring
 
-#### `TaskView`
+#### `AttentionTaskView`
 
 - Classification: task-scoped grouped state
 - Lives in [packages/core/src/frame.ts](../packages/core/src/frame.ts)
@@ -145,7 +145,7 @@ These are part of Aperture itself.
   - rendering
   - source-specific logic
 
-#### `InteractionSignal`
+#### `AttentionSignal`
 
 - Classification: behavioral signal contract
 - Lives in [packages/core/src/interaction-signal.ts](../packages/core/src/interaction-signal.ts)
@@ -182,7 +182,7 @@ These are part of the core implementation, but not the product surface to emphas
 
 - Classification: frame constructor
 - Lives in [packages/core/src/frame-planner.ts](../packages/core/src/frame-planner.ts)
-- Purpose: convert a chosen candidate into a `Frame`
+- Purpose: convert a chosen candidate into an `AttentionFrame`
 - Boundary:
   - owns frame construction
   - does not rank competing interactions

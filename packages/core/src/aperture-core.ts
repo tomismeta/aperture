@@ -12,10 +12,11 @@ import type {
 import { buildAttentionView } from "./attention-view.js";
 import { AttentionHeuristics } from "./attention-heuristics.js";
 import { deriveAttentionState, type AttentionState } from "./attention-state.js";
-import { EpisodeStore } from "./episode-store.js";
+import { EpisodeStore, readFrameEpisodeId } from "./episode-store.js";
 import { EvaluationEngine } from "./evaluation-engine.js";
 import { FramePlanner } from "./frame-planner.js";
 import { InteractionCoordinator } from "./interaction-coordinator.js";
+import type { InteractionCandidate } from "./interaction-candidate.js";
 import { inferToolFamily, sourceKey } from "./interaction-taxonomy.js";
 import { InteractionSignalStore } from "./interaction-signal-store.js";
 import { loadJudgmentConfig, type JudgmentConfig } from "./judgment-config.js";
@@ -230,13 +231,29 @@ export class ApertureCore {
             result = this.applyClear(event.taskId);
             break;
           case "ambient":
-            result = this.addAmbientFrame(event.taskId, this.planner.plan(explanation.decision.candidate, null));
+            result = this.materializePeripheralFrame(
+              explanation.decision.candidate,
+              "ambient",
+              currentAttentionView,
+            );
             break;
           case "queue":
-            result = this.queueFrame(event.taskId, this.planner.plan(explanation.decision.candidate, null));
+            result = this.materializePeripheralFrame(
+              explanation.decision.candidate,
+              "queue",
+              currentAttentionView,
+            );
             break;
           case "activate":
-            result = this.commitFrame(this.planner.plan(explanation.decision.candidate, current));
+            result =
+              explanation.decision.candidate.episodeId
+              && this.findPeripheralEpisodeFrame(explanation.decision.candidate.episodeId, currentAttentionView)
+                ? this.materializePeripheralFrame(
+                    explanation.decision.candidate,
+                    this.preferredPeripheralBucket(explanation.decision.candidate),
+                    currentAttentionView,
+                  )
+                : this.commitFrame(this.planner.plan(explanation.decision.candidate, current));
             break;
         }
         this.notifyTrace({
@@ -519,16 +536,7 @@ export class ApertureCore {
 
   private queueFrame(taskId: string, frame: Frame): Frame {
     const taskView = this.taskViews.enqueue(taskId, frame);
-    this.recordSignal({
-      kind: "deferred",
-      taskId: frame.taskId,
-      interactionId: frame.interactionId,
-      timestamp: frame.timing.updatedAt,
-      frameId: frame.id,
-      ...(frame.source !== undefined ? { source: frame.source } : {}),
-      reason: "queued",
-      metadata: this.signalMetadataForFrame(frame),
-    });
+    this.recordDeferredSignal(frame, "queued");
     this.notifyTaskView(taskId, taskView);
     this.notifyAttentionView();
     return this.frames.get(taskId) ?? frame;
@@ -536,19 +544,89 @@ export class ApertureCore {
 
   private addAmbientFrame(taskId: string, frame: Frame): Frame {
     const taskView = this.taskViews.addAmbient(taskId, frame);
-    this.recordSignal({
-      kind: "deferred",
-      taskId: frame.taskId,
-      interactionId: frame.interactionId,
-      timestamp: frame.timing.updatedAt,
-      frameId: frame.id,
-      ...(frame.source !== undefined ? { source: frame.source } : {}),
-      reason: "suppressed",
-      metadata: this.signalMetadataForFrame(frame),
-    });
+    this.recordDeferredSignal(frame, "suppressed");
     this.notifyTaskView(taskId, taskView);
     this.notifyAttentionView();
     return this.frames.get(taskId) ?? frame;
+  }
+
+  private materializePeripheralFrame(
+    candidate: InteractionCandidate,
+    bucket: "queue" | "ambient",
+    attentionView: AttentionView,
+  ): Frame {
+    const existing = candidate.episodeId ? this.findPeripheralEpisodeFrame(candidate.episodeId, attentionView) : null;
+    if (!existing) {
+      const planned = this.planner.plan(candidate, null);
+      return bucket === "queue"
+        ? this.queueFrame(candidate.taskId, planned)
+        : this.addAmbientFrame(candidate.taskId, planned);
+    }
+
+    const nextBucket = existing.bucket === "queue" || bucket === "queue" ? "queue" : "ambient";
+    const planned = this.planner.plan(candidate, existing.frame);
+    const merged = {
+      ...planned,
+      id: existing.frame.id,
+    };
+    const previousTaskView = this.taskViews.discard(existing.frame.taskId, existing.frame.interactionId);
+    this.notifyTaskView(existing.frame.taskId, previousTaskView);
+
+    const nextTaskView =
+      nextBucket === "queue"
+        ? this.taskViews.enqueue(merged.taskId, merged)
+        : this.taskViews.addAmbient(merged.taskId, merged);
+    this.recordDeferredSignal(merged, nextBucket === "queue" ? "queued" : "suppressed", candidate);
+    this.notifyTaskView(merged.taskId, nextTaskView);
+    this.notifyAttentionView();
+    return merged;
+  }
+
+  private preferredPeripheralBucket(candidate: InteractionCandidate): "queue" | "ambient" {
+    if (
+      !candidate.blocking
+      && candidate.mode === "status"
+      && candidate.consequence !== "high"
+      && candidate.tone !== "critical"
+    ) {
+      return "ambient";
+    }
+
+    return "queue";
+  }
+
+  private findPeripheralEpisodeFrame(
+    episodeId: string,
+    attentionView: AttentionView,
+  ): { frame: Frame; bucket: "queue" | "ambient" } | null {
+    const queued = attentionView.queued.find((frame) => readFrameEpisodeId(frame) === episodeId);
+    if (queued) {
+      return { frame: queued, bucket: "queue" };
+    }
+
+    const ambient = attentionView.ambient.find((frame) => readFrameEpisodeId(frame) === episodeId);
+    if (ambient) {
+      return { frame: ambient, bucket: "ambient" };
+    }
+
+    return null;
+  }
+
+  private recordDeferredSignal(
+    frame: Frame,
+    reason: "queued" | "suppressed",
+    sourceFrame: Pick<Frame, "taskId" | "interactionId" | "source"> = frame,
+  ): void {
+    this.recordSignal({
+      kind: "deferred",
+      taskId: sourceFrame.taskId,
+      interactionId: sourceFrame.interactionId,
+      timestamp: frame.timing.updatedAt,
+      frameId: frame.id,
+      ...(sourceFrame.source !== undefined ? { source: sourceFrame.source } : {}),
+      reason,
+      metadata: this.signalMetadataForFrame(frame),
+    });
   }
 
   private notifyFrame(taskId: string, frame: Frame | null): void {

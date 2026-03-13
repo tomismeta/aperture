@@ -154,3 +154,110 @@ test("trace includes pressure forecast for candidate decisions", () => {
   assert.ok(candidateTrace.pressureForecast.score >= 0);
   assert.ok(["low", "rising", "high"].includes(candidateTrace.pressureForecast.overloadRisk));
 });
+
+test("related episode updates merge into an existing queued frame instead of adding fragments", () => {
+  const core = new ApertureCore();
+
+  core.publish({
+    id: "evt:active",
+    taskId: "task:active",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:active",
+    title: "Approve deploy",
+    summary: "A deploy needs approval.",
+    consequence: "high",
+    request: { kind: "approval" },
+  });
+
+  core.publish({
+    id: "evt:queued:first",
+    taskId: "task:episode:a",
+    timestamp: "2026-03-08T12:00:20.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:episode:a",
+    source: { id: "session:1", kind: "claude-code" },
+    title: "Choose config fix",
+    summary: "config.ts",
+    consequence: "medium",
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [{ id: "retry", label: "Retry" }],
+    },
+  });
+
+  const firstQueued = core.getAttentionView().queued[0];
+  assert.ok(firstQueued);
+  if (!firstQueued) {
+    return;
+  }
+
+  core.publish({
+    id: "evt:queued:second",
+    taskId: "task:episode:b",
+    timestamp: "2026-03-08T12:00:30.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:episode:b",
+    source: { id: "session:1", kind: "claude-code" },
+    title: "Choose config fallback",
+    summary: "config.ts",
+    consequence: "medium",
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [{ id: "fallback", label: "Fallback" }],
+    },
+  });
+
+  const attentionView = core.getAttentionView();
+  assert.equal(attentionView.queued.length, 1);
+  assert.equal(core.getTaskView("task:episode:a").queued.length, 0);
+  assert.equal(core.getTaskView("task:episode:b").queued.length, 1);
+  assert.equal(core.getTaskView("task:episode:b").queued[0]?.id, firstQueued.id);
+  assert.equal(core.getTaskView("task:episode:b").queued[0]?.interactionId, "interaction:episode:b");
+});
+
+test("queue-worthy episode updates can promote an ambient episode frame into the queue", () => {
+  const core = new ApertureCore();
+
+  core.publish({
+    id: "evt:active",
+    taskId: "task:active",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:active",
+    title: "Approve deploy",
+    summary: "A deploy needs approval.",
+    consequence: "high",
+    request: { kind: "approval" },
+  });
+
+  core.publish({
+    id: "evt:ambient",
+    taskId: "task:episode:a",
+    timestamp: "2026-03-08T12:00:10.000Z",
+    type: "task.updated",
+    source: { id: "session:1", kind: "claude-code" },
+    title: "Config sync running",
+    summary: "config.ts",
+    status: "running",
+    progress: 25,
+  });
+
+  core.publish({
+    id: "evt:queue",
+    taskId: "task:episode:b",
+    timestamp: "2026-03-08T12:00:20.000Z",
+    type: "task.updated",
+    source: { id: "session:1", kind: "claude-code" },
+    title: "Config sync failed",
+    summary: "config.ts",
+    status: "failed",
+  });
+
+  const attentionView = core.getAttentionView();
+  assert.equal(attentionView.queued.length, 1);
+  assert.equal(attentionView.ambient.length, 0);
+  assert.equal(attentionView.queued[0]?.interactionId, "interaction:task:episode:b:status");
+});

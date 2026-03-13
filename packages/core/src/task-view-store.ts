@@ -49,6 +49,17 @@ export class TaskViewStore {
     return next;
   }
 
+  discard(taskId: string, interactionId: string): TaskView {
+    const taskView = this.get(taskId);
+    const next: TaskView = {
+      active: taskView.active?.interactionId === interactionId ? null : taskView.active,
+      queued: taskView.queued.filter((frame) => frame.interactionId !== interactionId),
+      ambient: taskView.ambient.filter((frame) => frame.interactionId !== interactionId),
+    };
+    this.taskViews.set(taskId, next);
+    return next;
+  }
+
   resolve(taskId: string, interactionId: string): TaskView {
     const taskView = this.get(taskId);
     const remainingQueued = taskView.queued.filter((frame) => frame.interactionId !== interactionId);

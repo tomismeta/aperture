@@ -146,7 +146,7 @@ What is still missing:
 
 ### 6. Embed
 
-Status: `planned`
+Status: `underway`
 
 The long-term shape is still two complementary forms:
 
@@ -159,11 +159,12 @@ What is already true:
 - multi-source normalization already exists
 - Claude Code is the live end-to-end path
 - Codex and Paperclip boundaries are prepared
+- `@tomismeta/aperture-core` is published on npm
 
 What is still missing:
 
 - live transports beyond Claude Code
-- stable external package contracts
+- broader external adoption and pressure-tested package contracts
 - performance characterization at scale
 
 ## Near-Term Core Maturation
@@ -457,15 +458,15 @@ The long-term package story should follow the same wedge.
 
 The goal is not to turn Aperture into a generic orchestration framework. The goal is to make the judgment substrate portable.
 
-That means a future `@tomismeta/aperture-core` should expose:
+That means `@tomismeta/aperture-core` should continue to expose:
 
 - the full deterministic judgment stack (`AttentionPolicy`, `AttentionValue`, `AttentionPlanner`, `JudgmentCoordinator`)
 - the memory loop (`AttentionSignalStore`, memory aggregation, profile persistence)
 - the full-engine path (`ApertureCore`) for hosts that want the whole attention model
 
-This would let another agent runtime keep its own orchestration model while delegating human-attention judgment to Aperture.
+This lets another agent runtime keep its own orchestration model while delegating human-attention judgment to Aperture.
 
-The package path matters because it broadens distribution, but it should come after the product path stays stable. The priority is still proving the engine in the live runtime first.
+The package path already broadens distribution, but it should remain secondary to proving the engine in live runtimes and real host integrations.
 
 ## What Makes Aperture Hard To Copy
 
@@ -493,7 +494,7 @@ Ordered by impact:
 4. **Expand bounded pass-through** — let more clearly safe categories resolve deterministically without interrupting the human, while keeping guardrails explicit and inspectable.
 5. **Add an advisory reasoning seam** — introduce optional model assistance for ambiguous, speculative work outside the hot path.
 6. **Broaden the live runtime surface** — add transport breadth beyond Claude Code and strengthen cross-source episode handling.
-7. **Prove the substrate can travel** — harden `@tomismeta/aperture-core` into a stable embeddable judgment package once the live product path has settled.
+7. **Pressure-test the substrate in real hosts** — use one real non-TUI integration to validate the package contract, surface constraints, and judgment behavior under another product's UX assumptions.
 
 ## Recommendation
 

@@ -16,7 +16,7 @@ This technical roadmap answers:
 
 The goal is to improve distribution and maturity without diluting the product.
 
-## Two Parallel Tracks
+## Three Parallel Tracks
 
 There are three technical productization tracks:
 
@@ -108,6 +108,12 @@ What is true today:
 - package metadata and tarball contents are now curated for first release
 - `@tomismeta/aperture-core@0.1.1` is published on npm
 
+Namespace note:
+
+- the package is published as `@tomismeta/aperture-core` because the `@aperture` npm scope was not available at first release
+- the product and architecture language remain "Aperture" and "Aperture Core"
+- a future scope migration is possible without changing the underlying product thesis
+
 ## The Maturity Ladder
 
 ### Adapter Ladder
@@ -191,9 +197,9 @@ What is not true yet:
 - named attention profiles do not yet exist as a first-class product concept
 - mode-shaping side signals are not yet deliberately modeled
 
-## What SDK-Ready Should Mean
+## What SDK-Ready Meant Before Publishing
 
-Before and through npm publishing, Aperture should prove the core package in one small external integration and keep tightening the artifact itself.
+Before the first npm publish, Aperture needed to prove the core package in one small external integration and keep tightening the artifact itself.
 
 That should mean:
 
@@ -204,9 +210,9 @@ That should mean:
 - verify the learning loop still works outside the built-in runtime
 - keep the tarball limited to the published contract
 
-This is the right step because it reveals real API friction and packaging sloppiness before we make a public compatibility promise.
+This was the right step because it revealed real API friction and packaging sloppiness before making a public compatibility promise.
 
-## Publish Gates For The Aperture Core SDK
+## Publish Gates We Used For The First SDK Release
 
 These were the gates for the first publish:
 
@@ -250,10 +256,10 @@ For the engine-maturation ordering, see [ClawRouter-Inspired Core Maturation](./
 
 To keep the productization path clean:
 
-- do not publish the Aperture core SDK package before an external consumer proves the surface
 - do not widen the public API just because internal modules exist
 - do not let package ergonomics pull attention away from the judgment product
 - do not treat Codex or Paperclip parity as a prerequisite for SDK work
+- do not treat publication as the end of the SDK work; the next phase is adoption and pressure-testing
 
 ## Recommendation
 

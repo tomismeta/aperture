@@ -259,13 +259,23 @@ Suggested routes:
 
 ## UI Design
 
-V1 should be an alternative inbox view, not a full inbox rewrite.
+V1 should begin with plugin surfaces, not an inbox rewrite.
 
-Suggested route:
+Preferred first surfaces:
 
-- `/inbox/attention`
+- a `sidebarPanel`
+- a `dashboardWidget`
 
-Within that view, the page sections should be:
+These are the least confrontational places to prove the value of Aperture inside Paperclip.
+
+They keep the integration:
+
+- additive
+- easy to compare with the current product
+- respectful of Paperclip's most opinionated operator surface
+- clearly optional
+
+Within those surfaces, the presentation buckets should map to:
 
 - active
 - queued
@@ -280,15 +290,6 @@ Each frame card should render:
 - consequence
 - why-now context
 - actions from `responseSpec`
-
-The existing inbox remains intact. The Aperture-backed attention view sits beside it as an alternate operator view.
-
-If the plugin path is used first, do not begin by inserting this directly into `/inbox`.
-
-Instead, prefer less confrontational plugin surfaces first:
-
-- a `sidebarPanel`
-- a `dashboardWidget`
 
 Only move toward an inbox-adjacent attention tab after the value is clear and the integration feels native.
 

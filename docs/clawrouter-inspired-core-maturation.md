@@ -3,6 +3,9 @@
 This note captures the design inspirations from ClawRouter that appear most useful
 for Aperture's core engine.
 
+ClawRouter is an open-source model routing system. The value here is not its product framing.
+The value is a few disciplined decision-architecture patterns that can be translated into Aperture's own language.
+
 The goal is not to copy ClawRouter's literal routing logic.
 
 The goal is to borrow the parts of its decision architecture that can strengthen
@@ -14,9 +17,9 @@ than model selection.
 The strongest transferable ideas are:
 
 1. explicit ambiguity handling
-2. first-class attention profiles
-3. mode-shaping side signals
-4. host-capability-aware planning
+2. attention-surface-aware planning
+3. first-class attention profiles
+4. mode-shaping side signals
 
 These should be treated as engine maturation ideas, not urgent release blockers.
 
@@ -74,18 +77,18 @@ Likely public surface impact:
 - maybe one config concept for ambiguity defaults
 - maybe richer explanations / traces
 
-### Priority 2: Host-capability-aware planning
+### Priority 2: Attention-surface-aware planning
 
 This is the most important integration-driven idea.
 
 Problem:
 
-- Aperture currently plans attention state without a strongly explicit model of what the host surface can actually render or accept.
+- Aperture currently plans attention state without a strongly explicit model of what the attention surface can actually render or accept.
 - As the SDK grows beyond the TUI, this becomes more important.
 
 Proposal:
 
-- let the host declare its capabilities
+- let the attention surface declare its capabilities
 - make the planner respect those constraints
 
 Examples:
@@ -109,7 +112,7 @@ Likely code areas:
 Likely public surface impact:
 
 - moderate
-- one new config concept such as `hostCapabilities`
+- one new config concept such as `surfaceCapabilities`
 
 ### Priority 3: First-class attention profiles
 
@@ -198,7 +201,7 @@ Likely public surface impact:
 If we pursue these ideas, the order should be:
 
 1. ambiguity handling
-2. host capability config
+2. attention surface capability config
 3. attention profiles
 4. side-channel mode signals
 
@@ -214,7 +217,7 @@ That order gives the best tradeoff between:
 
 This improves the engine's decision safety immediately without forcing much surface change.
 
-### Capabilities second
+### Attention surface capabilities second
 
 This makes the SDK more honest for multiple host surfaces and supports real integrations.
 

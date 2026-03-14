@@ -188,6 +188,8 @@ export function mapOpencodeResponse(response: AttentionResponse): OpencodeRespon
 
   switch (response.response.kind) {
     case "option_selected":
+      // V1 ingress only produces choice-mode questions for a single prompt,
+      // so the selected options intentionally occupy a single answer group.
       return {
         kind: "question.reply",
         requestId: parsed.requestId,

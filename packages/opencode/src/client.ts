@@ -182,5 +182,9 @@ function parseSseEvent(raw: string): OpencodeSseMessage | null {
     return null;
   }
 
-  return JSON.parse(dataLines.join("\n")) as OpencodeSseMessage;
+  try {
+    return JSON.parse(dataLines.join("\n")) as OpencodeSseMessage;
+  } catch {
+    return null;
+  }
 }

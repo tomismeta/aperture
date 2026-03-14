@@ -61,7 +61,9 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
 
       responseUnsubscribe = runtimeClient.onResponse((response: AttentionResponse) => {
         void handleRuntimeResponse(response).catch((error) => {
-          void reportBridgeIssue(response.taskId, "OpenCode reply failed", error);
+          void reportBridgeIssue(response.taskId, "OpenCode reply failed", error).catch((reportError) => {
+            console.error("Failed to publish OpenCode bridge issue", reportError);
+          });
         });
       });
 
@@ -136,7 +138,9 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
         }
 
         attempts += 1;
-        await reportBridgeIssue(undefined, "OpenCode event stream disconnected", error);
+        await reportBridgeIssue(undefined, "OpenCode event stream disconnected", error).catch((reportError) => {
+          console.error("Failed to publish OpenCode bridge issue", reportError);
+        });
         if (attempts > reconnectMaxAttempts) {
           return;
         }
@@ -226,7 +230,7 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
       source: {
         id: `opencode:${createOpencodeInstanceKey(mappingContext)}`,
         kind: "opencode",
-        label: "OpenCode",
+        label: mappingContext.sourceLabel ?? "OpenCode",
       },
       title,
       summary: error instanceof Error ? error.message : String(error),

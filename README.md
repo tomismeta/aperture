@@ -141,6 +141,12 @@ This is the main product path today.
 
 Use the core engine directly when you already control the event source and want attention judgment inside your own app or service.
 
+Install it from npm:
+
+```bash
+npm install @aperture/core
+```
+
 You publish `ApertureEvent` or `SourceEvent` values and consume `AttentionView`.
 
 ## Architecture
@@ -156,7 +162,9 @@ The flow is:
 
 ## Using Core Directly
 
-If you already own the source event stream, you can use `@aperture/core` directly:
+`@aperture/core` is now published on npm for embeddable judgment use.
+
+If you already own the source event stream, you can use it directly:
 
 ```ts
 import { ApertureCore } from "@aperture/core";

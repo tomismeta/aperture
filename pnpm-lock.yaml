@@ -35,6 +35,15 @@ importers:
 
   packages/core: {}
 
+  packages/opencode:
+    dependencies:
+      '@aperture/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      '@tomismeta/aperture-core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/paperclip:
     dependencies:
       '@tomismeta/aperture-core':

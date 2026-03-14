@@ -34,3 +34,25 @@ export type {
   OpencodeQuestionRejectedEvent,
   OpencodeQuestionRepliedEvent,
 } from "./types.js";
+export {
+  OpencodeClient,
+  type OpencodeEventStreamOptions,
+  type OpencodeSseHandler,
+} from "./client.js";
+export {
+  createOpencodeInstanceKey,
+  mapOpencodeEvent,
+  mapOpencodeNativeResolution,
+  mapOpencodeResponse,
+  opencodeInteractionId,
+  opencodeTaskId,
+  parseOpencodeInteractionId,
+  type OpencodeMappingContext,
+  type OpencodeNativeResolution,
+  type OpencodeResponseAction,
+} from "./mapping.js";
+export {
+  createOpencodeBridge,
+  type OpencodeBridge,
+  type OpencodeBridgeOptions,
+} from "./bridge.js";

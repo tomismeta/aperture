@@ -11,6 +11,10 @@
       "default": "./dist/index.js"
     }
   },
+  "dependencies": {
+    "@aperture/runtime": "workspace:*",
+    "@tomismeta/aperture-core": "workspace:*"
+  },
   "scripts": {
     "build": "tsc -b"
   }

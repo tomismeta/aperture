@@ -18,9 +18,14 @@
     "baseUrl": ".",
     "paths": {
       "@tomismeta/aperture-core": ["packages/core/src/index.ts"],
+      "@aperture/runtime": ["packages/runtime/src/index.ts"],
+      "@aperture/runtime/adapter": ["packages/runtime/src/adapter-client.ts"],
+      "@aperture/runtime/client": ["packages/runtime/src/runtime-client.ts"],
+      "@aperture/runtime/discovery": ["packages/runtime/src/runtime-discovery.ts"],
       "@aperture/claude-code": ["packages/claude-code/src/index.ts"],
       "@aperture/claude-code/server": ["packages/claude-code/src/server.ts"],
       "@aperture/codex": ["packages/codex/src/index.ts"],
+      "@aperture/opencode": ["packages/opencode/src/index.ts"],
       "@aperture/paperclip": ["packages/paperclip/src/index.ts"],
       "@aperture/tui": ["packages/tui/src/index.ts"]
     }

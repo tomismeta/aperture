@@ -100,7 +100,7 @@ The first ingress sources worth targeting are:
 
 These should be treated as event producers, not as the place where Aperture's semantics live.
 
-That means each source should have an ingress adapter or plugin that maps source-native events into `SourceEvent`, which `@aperture/core` then normalizes semantically.
+That means each source should have an ingress adapter or plugin that maps source-native events into `SourceEvent`, which `@tomismeta/aperture-core` then normalizes semantically.
 
 ## Plugin / Adapter Implication
 

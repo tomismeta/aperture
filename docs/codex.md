@@ -12,7 +12,7 @@ In the current product shape:
 That keeps the same boundary as the other adapters:
 
 - adapters translate source-native payloads
-- `@aperture/core` owns semantic normalization and attention judgment
+- `@tomismeta/aperture-core` owns semantic normalization and attention judgment
 - `@aperture/runtime` is the shared host
 
 ## What It Does
@@ -107,6 +107,6 @@ await adapter.handleCodexRequest(request);
 
 ## Boundary
 
-`@aperture/core` remains Codex-agnostic, and the intended host for this adapter is `@aperture/runtime`. When Codex exposes a stable hook or transport surface, that source-native ingress should live in `@aperture/codex` and use these adapter helpers rather than changing runtime/core boundaries.
+`@tomismeta/aperture-core` remains Codex-agnostic, and the intended host for this adapter is `@aperture/runtime`. When Codex exposes a stable hook or transport surface, that source-native ingress should live in `@aperture/codex` and use these adapter helpers rather than changing runtime/core boundaries.
 
 If this package is removed, core still compiles and behaves the same.

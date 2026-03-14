@@ -376,7 +376,7 @@ The long-term package story should follow the same wedge.
 
 The goal is not to turn Aperture into a generic orchestration framework. The goal is to make the judgment substrate portable.
 
-That means a future `@aperture/core` should expose:
+That means a future `@tomismeta/aperture-core` should expose:
 
 - the full deterministic judgment stack (`AttentionPolicy`, `AttentionValue`, `AttentionPlanner`, `JudgmentCoordinator`)
 - the memory loop (`AttentionSignalStore`, memory aggregation, profile persistence)
@@ -412,7 +412,7 @@ Ordered by impact:
 4. **Expand bounded pass-through** — let more clearly safe categories resolve deterministically without interrupting the human, while keeping guardrails explicit and inspectable.
 5. **Add an advisory reasoning seam** — introduce optional model assistance for ambiguous, speculative work outside the hot path.
 6. **Broaden the live runtime surface** — add transport breadth beyond Claude Code and strengthen cross-source episode handling.
-7. **Prove the substrate can travel** — harden `@aperture/core` into a stable embeddable judgment package once the live product path has settled.
+7. **Prove the substrate can travel** — harden `@tomismeta/aperture-core` into a stable embeddable judgment package once the live product path has settled.
 
 ## Recommendation
 

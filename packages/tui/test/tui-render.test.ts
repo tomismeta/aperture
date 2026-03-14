@@ -6,7 +6,7 @@ import type {
   AttentionSignalSummary as SignalSummary,
   AttentionState,
   AttentionView,
-} from "@aperture/core";
+} from "@tomismeta/aperture-core";
 
 import { renderAttentionScreen } from "../src/index.js";
 

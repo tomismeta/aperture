@@ -4,7 +4,7 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { SourceEvent } from "@aperture/core";
+import type { SourceEvent } from "@tomismeta/aperture-core";
 
 import { bootstrapLearningPersistence } from "../src/learning-persistence.js";
 import { createApertureRuntime } from "../src/runtime.js";

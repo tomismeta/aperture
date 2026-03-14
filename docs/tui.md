@@ -1,6 +1,6 @@
 # TUI Surface
 
-`@aperture/tui` is an optional terminal-native surface for [`@aperture/core`](../packages/core/src/index.ts).
+`@aperture/tui` is an optional terminal-native surface for [`@tomismeta/aperture-core`](../packages/core/src/index.ts).
 
 It does not know about Paperclip, Codex, Claude Code, or any other source. It only consumes core contracts:
 

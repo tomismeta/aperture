@@ -11,7 +11,7 @@ The product roadmap answers:
 This technical roadmap answers:
 
 - how mature each adapter path is
-- how close `@aperture/core` is to becoming a real SDK
+- how close `@tomismeta/aperture-core` is to becoming a real SDK
 - what should happen before npm publishing
 
 The goal is to improve distribution and maturity without diluting the product.
@@ -83,7 +83,7 @@ Status: `strong`
 
 What is true today:
 
-- the real judgment layer lives in `@aperture/core`
+- the real judgment layer lives in `@tomismeta/aperture-core`
 - the judgment vocabulary is coherent
 - the learning loop lives in core, not just runtime glue
 - the main judgment primitives are exported
@@ -167,7 +167,7 @@ Definitions:
 
 Current placement:
 
-- `@aperture/core`: `SDK-ready`
+- `@tomismeta/aperture-core`: `SDK-ready`
 
 The next target is `published`.
 
@@ -178,7 +178,7 @@ Before npm publishing, Aperture should prove the core package in one small exter
 That should mean:
 
 - create a tiny consumer outside the workspace
-- install or pack `@aperture/core`
+- install or pack `@tomismeta/aperture-core`
 - exercise `ApertureCore` in full-engine mode
 - exercise at least one lower-level judgment primitive path
 - verify the learning loop still works outside the built-in runtime
@@ -186,9 +186,9 @@ That should mean:
 
 This is the right step because it reveals real API friction and packaging sloppiness before we make a public compatibility promise.
 
-## Publish Gates For `@aperture/core`
+## Publish Gates For `@tomismeta/aperture-core`
 
-`@aperture/core` should not be published until all of these are true:
+`@tomismeta/aperture-core` should not be published until all of these are true:
 
 1. the exported API is intentionally narrow and documented
 2. one external consumer has already exercised the package successfully
@@ -225,7 +225,7 @@ Ordered by leverage:
 
 To keep the productization path clean:
 
-- do not publish `@aperture/core` before an external consumer proves the surface
+- do not publish `@tomismeta/aperture-core` before an external consumer proves the surface
 - do not widen the public API just because internal modules exist
 - do not let package ergonomics pull attention away from the judgment product
 - do not treat Codex or Paperclip parity as a prerequisite for SDK work
@@ -234,7 +234,7 @@ To keep the productization path clean:
 
 If we have limited time and limited live adapter demand, the best technical productization move is:
 
-**decide whether to publish `@aperture/core` now that it is SDK-ready**
+**decide whether to publish `@tomismeta/aperture-core` now that it is SDK-ready**
 
 That is the closest, most controllable maturity step:
 

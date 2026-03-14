@@ -7,7 +7,7 @@ import type {
   SourceHumanInputRequestedEvent,
   SourceTaskCompletedEvent,
   SourceTaskUpdatedEvent,
-} from "@aperture/core";
+} from "@tomismeta/aperture-core";
 
 export type ClaudeCodeHookEvent =
   | ClaudeCodePreToolUseEvent

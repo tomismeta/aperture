@@ -8,7 +8,7 @@ The goal is not broad feature coverage. The goal is a focused repo that clearly 
 
 - the repo tells one story: `Aperture = the human attention control plane for agent systems`
 - the public package surface is clean and intentionally small
-- `@aperture/core` remains adapter-agnostic
+- `@tomismeta/aperture-core` remains adapter-agnostic
 - adapters remain translation-only layers
 - one real mixed-source workflow is runnable and understandable
 - the engine can explain its decisions through trace output and scenario reports

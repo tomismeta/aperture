@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
-import type { AttentionResponse as FrameResponse, AttentionView, SourceEvent } from "@aperture/core";
+import type { AttentionResponse as FrameResponse, AttentionView, SourceEvent } from "@tomismeta/aperture-core";
 
 import {
   mapClaudeCodeFrameResponse,

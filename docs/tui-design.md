@@ -4,7 +4,7 @@ This document defines the design direction for Aperture's terminal surface.
 
 It is not a source-specific UI.
 
-It is a source-agnostic attention surface above `@aperture/core`.
+It is a source-agnostic attention surface above `@tomismeta/aperture-core`.
 
 ## Purpose
 

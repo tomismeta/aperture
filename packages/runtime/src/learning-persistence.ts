@@ -5,7 +5,7 @@ import {
   ApertureCore,
   ProfileStore,
   type MemoryProfile,
-} from "@aperture/core";
+} from "@tomismeta/aperture-core";
 
 export type LearningMode = "on" | "off";
 

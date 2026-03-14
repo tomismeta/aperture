@@ -20,16 +20,16 @@ importers:
 
   packages/claude-code:
     dependencies:
-      '@aperture/core':
-        specifier: workspace:*
-        version: link:../core
       '@aperture/runtime':
         specifier: workspace:*
         version: link:../runtime
+      '@tomismeta/aperture-core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/codex:
     dependencies:
-      '@aperture/core':
+      '@tomismeta/aperture-core':
         specifier: workspace:*
         version: link:../core
 
@@ -37,24 +37,24 @@ importers:
 
   packages/paperclip:
     dependencies:
-      '@aperture/core':
+      '@tomismeta/aperture-core':
         specifier: workspace:*
         version: link:../core
 
   packages/runtime:
     dependencies:
-      '@aperture/core':
+      '@tomismeta/aperture-core':
         specifier: workspace:*
         version: link:../core
 
   packages/tui:
     dependencies:
-      '@aperture/core':
-        specifier: workspace:*
-        version: link:../core
       '@aperture/runtime':
         specifier: workspace:*
         version: link:../runtime
+      '@tomismeta/aperture-core':
+        specifier: workspace:*
+        version: link:../core
 
 packages:
 

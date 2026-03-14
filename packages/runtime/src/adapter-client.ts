@@ -2,7 +2,7 @@ import type {
   AttentionResponse,
   AttentionView,
   SourceEvent,
-} from "@aperture/core";
+} from "@tomismeta/aperture-core";
 
 import type { ApertureRuntimeEvent, ApertureRuntimeSnapshot } from "./runtime.js";
 

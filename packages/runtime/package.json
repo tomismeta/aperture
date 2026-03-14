@@ -24,7 +24,7 @@
     }
   },
   "dependencies": {
-    "@aperture/core": "workspace:*"
+    "@tomismeta/aperture-core": "workspace:*"
   },
   "scripts": {
     "build": "tsc -b"

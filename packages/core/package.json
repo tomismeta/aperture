@@ -1,5 +1,5 @@
 {
-  "name": "@aperture/core",
+  "name": "@tomismeta/aperture-core",
   "version": "0.1.0",
   "description": "Deterministic, self-tuning attention judgment for agent systems.",
   "author": "tomismeta <tomismeta@gmail.com>",

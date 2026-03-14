@@ -22,7 +22,7 @@ Examples:
 - Paperclip live events
 - Codex request objects
 
-These never enter `@aperture/core` directly.
+These never enter `@tomismeta/aperture-core` directly.
 
 ### `SourceEvent`
 

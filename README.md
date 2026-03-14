@@ -69,12 +69,12 @@ Aperture exists to answer that in the hot path, without turning every judgment i
 
 What is real on `main` today:
 
-- `@aperture/core` is the judgment engine
+- `@tomismeta/aperture-core` is the judgment engine
 - `@aperture/runtime` hosts one live shared core for adapters and surfaces
 - `@aperture/tui` is the terminal-native attention surface
 - `@aperture/claude-code` is the current end-to-end live adapter path
 - `@aperture/codex` and `@aperture/paperclip` provide mapping layers today, with different transport maturity
-- `@aperture/core` now exposes the main judgment primitives for future SDK use
+- `@tomismeta/aperture-core` now exposes the main judgment primitives for future SDK use
 - the default runtime uses local learning persistence through `.aperture/MEMORY.md` and a scaffolded `.aperture/JUDGMENT.md`
 - `USER.md`, `MEMORY.md`, and `JUDGMENT.md` remain the broader core judgment-state model, even though `MEMORY.md` and `JUDGMENT.md` are the live default local surfaces today
 
@@ -137,21 +137,21 @@ Use the shared runtime, Claude adapter, and TUI when you want a working local at
 
 This is the main product path today.
 
-### 2. Embed `@aperture/core`
+### 2. Embed `@tomismeta/aperture-core`
 
 Use the core engine directly when you already control the event source and want attention judgment inside your own app or service.
 
-Once `@aperture/core` is published to npm, install it with:
+Once `@tomismeta/aperture-core` is published to npm, install it with:
 
 ```bash
-npm install @aperture/core
+npm install @tomismeta/aperture-core
 ```
 
 You publish `ApertureEvent` or `SourceEvent` values and consume `AttentionView`.
 
 ## Architecture
 
-- `@aperture/core`: deterministic judgment engine
+- `@tomismeta/aperture-core`: deterministic judgment engine
 - `@aperture/runtime`: shared local host for one live `ApertureCore`
 - `@aperture/claude-code`, `@aperture/codex`, `@aperture/paperclip`: source adapters
 - `@aperture/tui`: source-agnostic terminal surface
@@ -165,7 +165,7 @@ The flow is:
 If you already own the source event stream, you can use it directly:
 
 ```ts
-import { ApertureCore } from "@aperture/core";
+import { ApertureCore } from "@tomismeta/aperture-core";
 
 const core = new ApertureCore();
 
@@ -186,7 +186,7 @@ console.log(core.getAttentionView());
 If your integration already emits factual source events, publish `SourceEvent` instead:
 
 ```ts
-import { ApertureCore } from "@aperture/core";
+import { ApertureCore } from "@tomismeta/aperture-core";
 import { mapPaperclipLiveEvent } from "@aperture/paperclip";
 
 const core = new ApertureCore();

@@ -121,7 +121,7 @@ async function main(): Promise<void> {
           private: true,
           type: "module",
           dependencies: {
-            "@aperture/core": `file:${tarballPath}`,
+            "@tomismeta/aperture-core": `file:${tarballPath}`,
           },
           devDependencies: {
             tsx: "^4.20.5",

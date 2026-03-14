@@ -4,7 +4,7 @@ import type {
   SourceEvent,
   SourceHumanInputRequestedEvent,
   SourceRef,
-} from "@aperture/core";
+} from "@tomismeta/aperture-core";
 
 export type JsonRpcId = string | number;
 

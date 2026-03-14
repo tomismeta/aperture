@@ -1,7 +1,7 @@
 import { emitKeypressEvents } from "node:readline";
 import { stdin as defaultInput, stdout as defaultOutput } from "node:process";
 
-import { scoreAttentionFrame } from "@aperture/core";
+import { scoreAttentionFrame } from "@tomismeta/aperture-core";
 import type {
   AttentionField as FrameField,
   AttentionFrame as Frame,
@@ -10,7 +10,7 @@ import type {
   AttentionSignalSummary as SignalSummary,
   AttentionState,
   AttentionView,
-} from "@aperture/core";
+} from "@tomismeta/aperture-core";
 
 type InputLike = NodeJS.ReadStream & {
   setRawMode?: (mode: boolean) => void;

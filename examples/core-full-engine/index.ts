@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { ApertureCore } from "@aperture/core";
+import { ApertureCore } from "@tomismeta/aperture-core";
 
 const timestamp = "2026-03-13T18:00:00.000Z";
 const stateDir = await mkdtemp(join(tmpdir(), "aperture-core-example-"));

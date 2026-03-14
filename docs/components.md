@@ -278,7 +278,7 @@ Skip adapters when:
 
 - Classification: surface package
 - Lives in [packages/tui/src/index.ts](../packages/tui/src/index.ts)
-- Purpose: provide a persistent terminal-native attention surface above `@aperture/core` or the shared `@aperture/runtime`
+- Purpose: provide a persistent terminal-native attention surface above `@tomismeta/aperture-core` or the shared `@aperture/runtime`
 - Owns:
   - full-screen terminal rendering
   - keyboard-driven `AttentionResponse` submission
@@ -299,7 +299,7 @@ Everything else is support structure around that loop.
 
 The product is:
 
-- `@aperture/core`
+- `@tomismeta/aperture-core`
 - `@aperture/claude-code`
 - `@aperture/paperclip`
 - `@aperture/codex`

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import * as sdk from "../src/index.js";
 
-test("@aperture/core exposes the intended public SDK surface", () => {
+test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.ok("ApertureCore" in sdk);
   assert.ok("AttentionPolicy" in sdk);
   assert.ok("AttentionValue" in sdk);

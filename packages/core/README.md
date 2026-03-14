@@ -1,10 +1,10 @@
-# `@aperture/core`
+# `@tomismeta/aperture-core`
 
 Deterministic, self-tuning attention judgment for agent systems.
 
-`@aperture/core` is for runtimes that need to decide what deserves human attention now, what should wait, and what can stay in the background as agent activity competes for limited human focus.
+`@tomismeta/aperture-core` is for runtimes that need to decide what deserves human attention now, what should wait, and what can stay in the background as agent activity competes for limited human focus.
 
-`@aperture/core` is the SDK substrate behind Aperture. It contains the judgment engine, the learning loop, and the stable types needed to embed Aperture inside another runtime without depending on the local host or TUI.
+`@tomismeta/aperture-core` is the SDK substrate behind Aperture. It contains the judgment engine, the learning loop, and the stable types needed to embed Aperture inside another runtime without depending on the local host or TUI.
 
 This package is ESM-only and requires Node.js 18+.
 
@@ -72,7 +72,7 @@ pnpm sdk:prove
 
 That command:
 
-- builds `@aperture/core`
+- builds `@tomismeta/aperture-core`
 - packs it into a tarball
 - installs it into temporary consumer projects
 - runs both examples outside monorepo import assumptions
@@ -84,7 +84,7 @@ That command:
 Use `ApertureCore` when you want Aperture to own the attention model end to end.
 
 ```ts
-import { ApertureCore } from "@aperture/core";
+import { ApertureCore } from "@tomismeta/aperture-core";
 
 const core = new ApertureCore();
 
@@ -115,7 +115,7 @@ import {
   AttentionValue,
   JudgmentCoordinator,
   type AttentionCandidate,
-} from "@aperture/core";
+} from "@tomismeta/aperture-core";
 
 const coordinator = new JudgmentCoordinator(
   new AttentionPolicy(),
@@ -162,7 +162,7 @@ That means SDK consumers can:
 
 ## Design Principles
 
-`@aperture/core` is intended to stay:
+`@tomismeta/aperture-core` is intended to stay:
 
 - small-footprint
 - zero-runtime-dependency

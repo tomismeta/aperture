@@ -6,7 +6,7 @@ import {
   AttentionValue,
   JudgmentCoordinator,
   forecastAttentionPressure,
-} from "@aperture/core";
+} from "@tomismeta/aperture-core";
 
 const coordinator = new JudgmentCoordinator(
   new AttentionPolicy(),

@@ -4,7 +4,7 @@ This repo is still early and engine-first.
 
 The bar for contributions is simple:
 
-- keep `@aperture/core` small
+- keep `@tomismeta/aperture-core` small
 - do not couple source-specific logic into core
 - prefer deterministic, testable behavior over speculative abstraction
 - keep adapter logic thin and reversible
@@ -25,7 +25,7 @@ Additional adapters are welcome.
 Good adapter contributions:
 
 - preserve the `ApertureEvent -> ApertureCore -> FrameResponse` boundary cleanly
-- keep source-specific transport and mapping outside `@aperture/core`
+- keep source-specific transport and mapping outside `@tomismeta/aperture-core`
 - make ingress and egress both explicit when the upstream system supports them
 
 ## Development

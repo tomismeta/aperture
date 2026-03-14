@@ -69,7 +69,7 @@ Those return `null` until there is a concrete upstream meaning worth preserving.
 Direct-core example:
 
 ```ts
-import { ApertureCore } from "@aperture/core";
+import { ApertureCore } from "@tomismeta/aperture-core";
 import {
   executePaperclipAction,
   mapPaperclipFrameResponse,
@@ -109,6 +109,6 @@ That integration path uses:
 
 ## Boundary
 
-`@aperture/core` remains Paperclip-agnostic, and the long-term intended host for this adapter is `@aperture/runtime`.
+`@tomismeta/aperture-core` remains Paperclip-agnostic, and the long-term intended host for this adapter is `@aperture/runtime`.
 
 If this package is removed, core still compiles and behaves the same.

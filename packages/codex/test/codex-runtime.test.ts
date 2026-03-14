@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import type { AttentionResponse as FrameResponse, SourceEvent } from "@aperture/core";
+import type { AttentionResponse as FrameResponse, SourceEvent } from "@tomismeta/aperture-core";
 
 import {
   createCodexAdapter,

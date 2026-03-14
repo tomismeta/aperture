@@ -16,7 +16,7 @@
     }
   },
   "dependencies": {
-    "@aperture/core": "workspace:*",
+    "@tomismeta/aperture-core": "workspace:*",
     "@aperture/runtime": "workspace:*"
   },
   "scripts": {

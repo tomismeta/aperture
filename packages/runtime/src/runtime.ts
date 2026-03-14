@@ -8,7 +8,7 @@ import {
   type AttentionState,
   type AttentionView,
   type SourceEvent,
-} from "@aperture/core";
+} from "@tomismeta/aperture-core";
 
 import type { LearningPersistenceState } from "./learning-persistence.js";
 import {

@@ -4,7 +4,7 @@ import type {
   SourceEvent,
   SourceRef,
   TaskStatus,
-} from "@aperture/core";
+} from "@tomismeta/aperture-core";
 
 export { executePaperclipAction, streamPaperclipLiveEvents, type PaperclipClientOptions } from "./client.js";
 

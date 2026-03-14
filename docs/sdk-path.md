@@ -34,8 +34,8 @@ Those pieces are live and wired in the current engine path.
 
 What is not ready yet:
 
-- ongoing support and iteration as a published package
-- feedback from real external consumers
+- the package is not yet published
+- first-release versioning and scope are still a product decision
 
 ## Design Principles
 
@@ -206,7 +206,6 @@ Status:
 - built
 - `@aperture/core` now has package metadata, a package-local license, and a `files` whitelist
 - `pnpm sdk:prove` verifies both external consumption and tarball shape
-- `@aperture/core@0.1.0` is published on npm
 
 ## Success Criteria
 

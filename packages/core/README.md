@@ -19,6 +19,76 @@ It is not:
 - a source-specific adapter
 - a generic agent orchestration framework
 
+## Start Here
+
+Most consumers only need four things:
+
+- `ApertureCore`
+- `ApertureEvent`
+- `AttentionFrame`
+- `AttentionResponse`
+
+The recommended loop is:
+
+1. create `ApertureCore`
+2. publish an `ApertureEvent` with `core.publish(...)`
+3. if you get back an `AttentionFrame`, show it or route it to your UI
+4. when the human responds, call `core.submit(...)`
+
+Use `SourceEvent` and `core.publishSourceEvent(...)` only when you are building an adapter from source-native events and want Aperture to normalize them first.
+
+## Quickstart
+
+```ts
+import { ApertureCore, type ApertureEvent } from "@tomismeta/aperture-core";
+
+const core = new ApertureCore();
+
+const event: ApertureEvent = {
+  id: "evt:approval",
+  taskId: "task:deploy",
+  timestamp: new Date().toISOString(),
+  type: "human.input.requested",
+  interactionId: "interaction:deploy:review",
+  title: "Approve production deploy",
+  summary: "A production deploy is waiting for review.",
+  request: { kind: "approval" },
+};
+
+const frame = core.publish(event);
+
+if (frame) {
+  console.log(frame.title);
+  console.log(frame.mode);
+
+  core.submit({
+    taskId: frame.taskId,
+    interactionId: frame.interactionId,
+    response: { kind: "approved" },
+  });
+}
+```
+
+If you want the whole current surface after each event, call `core.getAttentionView()`.
+
+## Choose Your Input Type
+
+### Recommended: `ApertureEvent`
+
+Use `ApertureEvent` when your runtime can already express:
+
+- task lifecycle updates
+- human input requests
+- consequence, tone, and context when you know them
+
+This is the easiest integration path and the one most new consumers should start with.
+
+### Advanced: `SourceEvent`
+
+Use `SourceEvent` when you are mapping source-native facts into Aperture and want the SDK to normalize them into `ApertureEvent` internally.
+
+This is mainly for adapter authors.
+
 ## What It Exposes
 
 The public surface is centered on a few core concepts:
@@ -109,6 +179,8 @@ const attentionView = core.getAttentionView();
 ```
 
 `publish()` returns the newly materialized `AttentionFrame` when work enters the surface, or `null` when an event is normalized into a no-op or clear action.
+
+If you are starting from raw source-native events instead, use `core.publishSourceEvent(...)` with `SourceEvent`.
 
 ### Judgment Primitive Mode
 

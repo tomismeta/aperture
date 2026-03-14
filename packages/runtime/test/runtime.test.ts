@@ -4,14 +4,14 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { ConformedEvent } from "@aperture/core";
+import type { AdapterEvent } from "@aperture/core";
 
 import { bootstrapLearningPersistence } from "../src/learning-persistence.js";
 import { createApertureRuntime } from "../src/runtime.js";
 import { ApertureRuntimeAdapterClient } from "../src/adapter-client.js";
 import type { ApertureRuntimeSnapshot } from "../src/index.js";
 
-test("runtime adapter client publishes conformed events into the shared core", async () => {
+test("runtime adapter client publishes adapter events into the shared core", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
   const { controlUrl } = await runtime.listen();
   const client = await ApertureRuntimeAdapterClient.connect({
@@ -21,7 +21,7 @@ test("runtime adapter client publishes conformed events into the shared core", a
   });
 
   try {
-    await client.publishConformed(blockedEvent("task-1"));
+    await client.publishAdapterEvent(blockedEvent("task-1"));
 
     const active = await waitFor(() => runtime.getCore().getAttentionView().active);
     assert.ok(active);
@@ -64,12 +64,12 @@ test("runtime tracks registered adapters in the snapshot", async () => {
   }
 });
 
-test("runtime conformed event endpoint accepts batches directly", async () => {
+test("runtime adapter event endpoint accepts batches directly", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
   const { controlUrl } = await runtime.listen();
 
   try {
-    const response = await fetch(`${controlUrl}/events/conformed`, {
+    const response = await fetch(`${controlUrl}/events/adapter`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -143,7 +143,7 @@ test("runtime bootstraps learning persistence and checkpoints memory", async () 
     });
 
     try {
-      await client.publishConformed(approvalEvent("task:learn"));
+      await client.publishAdapterEvent(approvalEvent("task:learn"));
       await fetch(`${controlUrl}/responses`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -190,7 +190,7 @@ test("runtime loads scaffolded judgment config and can reload it on demand", asy
   const { controlUrl } = await runtime.listen();
 
   try {
-    await fetch(`${controlUrl}/events/conformed`, {
+    await fetch(`${controlUrl}/events/adapter`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -234,7 +234,7 @@ test("runtime loads scaffolded judgment config and can reload it on demand", asy
     assert.equal(reloadPayload.reloaded, true);
     assert.ok(reloadPayload.loadedAt);
 
-    await fetch(`${controlUrl}/events/conformed`, {
+    await fetch(`${controlUrl}/events/adapter`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -258,7 +258,7 @@ test("runtime rejects oversized request bodies", async () => {
   const { controlUrl } = await runtime.listen();
 
   try {
-    const response = await fetch(`${controlUrl}/events/conformed`, {
+    const response = await fetch(`${controlUrl}/events/adapter`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -277,7 +277,7 @@ test("runtime rejects oversized request bodies", async () => {
   }
 });
 
-function blockedEvent(taskId: string): ConformedEvent {
+function blockedEvent(taskId: string): AdapterEvent {
   return {
     id: `${taskId}:blocked`,
     type: "task.updated",
@@ -294,7 +294,7 @@ function blockedEvent(taskId: string): ConformedEvent {
   };
 }
 
-function completedEvent(taskId: string): ConformedEvent {
+function completedEvent(taskId: string): AdapterEvent {
   return {
     id: `${taskId}:completed`,
     type: "task.completed",
@@ -309,7 +309,7 @@ function completedEvent(taskId: string): ConformedEvent {
   };
 }
 
-function approvalEvent(taskId: string): ConformedEvent {
+function approvalEvent(taskId: string): AdapterEvent {
   return {
     id: `${taskId}:approval`,
     type: "human.input.requested",
@@ -328,7 +328,7 @@ function approvalEvent(taskId: string): ConformedEvent {
   };
 }
 
-function lowRiskReadEvent(taskId: string, interactionId: string): ConformedEvent {
+function lowRiskReadEvent(taskId: string, interactionId: string): AdapterEvent {
   return {
     id: `${taskId}:read`,
     type: "human.input.requested",

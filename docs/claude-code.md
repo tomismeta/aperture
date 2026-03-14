@@ -2,7 +2,7 @@
 
 `@aperture/claude-code` is an optional adapter for Aperture.
 
-It translates Claude Code hook payloads into `ConformedEvent` values and translates `AttentionResponse` values back into Claude Code hook responses.
+It translates Claude Code hook payloads into `AdapterEvent` values and translates `AttentionResponse` values back into Claude Code hook responses.
 
 In the current product shape, the intended operational path is:
 

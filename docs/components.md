@@ -22,7 +22,7 @@ These are part of Aperture itself.
 - Owns:
   - semantic normalization of adapter inputs
   - ingesting `ApertureEvent`
-  - ingesting `ConformedEvent`
+  - ingesting `AdapterEvent`
   - producing `AttentionFrame`
   - producing `AttentionTaskView`
   - producing `AttentionView`
@@ -52,7 +52,7 @@ These are part of Aperture itself.
   - one shared `ApertureCore`
   - runtime control API
   - adapter registration and liveness
-  - conformed-event ingestion
+  - adapter-event ingestion
   - surface attachment and response routing
   - local runtime discovery
 - Does not own:
@@ -75,10 +75,10 @@ These are part of Aperture itself.
   - grouping
   - display logic
 
-#### `ConformedEvent`
+#### `AdapterEvent`
 
-- Classification: adapter-to-core conformance contract
-- Lives in [packages/core/src/conformed-event.ts](../packages/core/src/conformed-event.ts)
+- Classification: adapter-to-core ingress contract
+- Lives in [packages/core/src/adapter-event.ts](../packages/core/src/adapter-event.ts)
 - Purpose: source-agnostic factual input produced by adapters before core applies semantic normalization
 - Owns:
   - task and interaction identity
@@ -234,7 +234,7 @@ Skip adapters when:
 
 - Classification: source adapter
 - Lives in [packages/codex/src/index.ts](../packages/codex/src/index.ts)
-- Purpose: translate Codex app-server approval and user-input requests into `ConformedEvent`, translate `AttentionResponse` back into Codex response descriptors, and optionally publish through `@aperture/runtime`
+- Purpose: translate Codex app-server approval and user-input requests into `AdapterEvent`, translate `AttentionResponse` back into Codex response descriptors, and optionally publish through `@aperture/runtime`
 - Owns:
   - Codex ingress mapping
   - Codex return-path mapping
@@ -249,7 +249,7 @@ Skip adapters when:
 - Lives in:
   - [packages/claude-code/src/index.ts](../packages/claude-code/src/index.ts)
   - [packages/claude-code/src/server.ts](../packages/claude-code/src/server.ts)
-- Purpose: translate Claude Code hook payloads into `ConformedEvent`, translate `AttentionResponse` back into Claude Code hook responses, and optionally host a local HTTP hook endpoint that talks to `@aperture/runtime`
+- Purpose: translate Claude Code hook payloads into `AdapterEvent`, translate `AttentionResponse` back into Claude Code hook responses, and optionally host a local HTTP hook endpoint that talks to `@aperture/runtime`
 - Owns:
   - Claude Code ingress mapping
   - Claude Code return-path mapping
@@ -263,7 +263,7 @@ Skip adapters when:
 
 - Classification: source adapter
 - Lives in [packages/paperclip/src/index.ts](../packages/paperclip/src/index.ts)
-- Purpose: translate Paperclip live events into `ConformedEvent` and translate `AttentionResponse` back into Paperclip actions, with optional publishing through `@aperture/runtime`
+- Purpose: translate Paperclip live events into `AdapterEvent` and translate `AttentionResponse` back into Paperclip actions, with optional publishing through `@aperture/runtime`
 - Owns:
   - Paperclip ingress mapping
   - Paperclip return-path mapping
@@ -291,7 +291,7 @@ Skip adapters when:
 
 The shortest accurate model is:
 
-`ConformedEvent -> ApertureCore -> ApertureEvent -> AttentionFrame / AttentionView -> AttentionResponse`
+`AdapterEvent -> ApertureCore -> ApertureEvent -> AttentionFrame / AttentionView -> AttentionResponse`
 
 Everything else is support structure around that loop.
 

@@ -2,7 +2,7 @@
 
 Aperture now uses an explicit layered event model:
 
-`SourceEvent -> ConformedEvent -> ApertureEvent -> AttentionCandidate -> AttentionFrame -> AttentionResponse`
+`SourceEvent -> AdapterEvent -> ApertureEvent -> AttentionCandidate -> AttentionFrame -> AttentionResponse`
 
 The intent is simple:
 
@@ -24,13 +24,13 @@ Examples:
 
 These never enter `@aperture/core`.
 
-### `ConformedEvent`
+### `AdapterEvent`
 
 Source-agnostic factual input produced by adapters and consumed by core.
 
-Lives in [packages/core/src/conformed-event.ts](../packages/core/src/conformed-event.ts).
+Lives in [packages/core/src/adapter-event.ts](../packages/core/src/adapter-event.ts).
 
-`ConformedEvent` preserves:
+`AdapterEvent` preserves:
 
 - task identity
 - interaction identity
@@ -52,7 +52,7 @@ Semantically normalized engine event owned by core.
 
 Lives in [packages/core/src/events.ts](../packages/core/src/events.ts).
 
-Core converts `ConformedEvent` into `ApertureEvent` through the internal semantic normalizer in [packages/core/src/semantic-normalizer.ts](../packages/core/src/semantic-normalizer.ts).
+Core converts `AdapterEvent` into `ApertureEvent` through the internal semantic normalizer in [packages/core/src/semantic-normalizer.ts](../packages/core/src/semantic-normalizer.ts).
 
 This is where Aperture decides things like:
 
@@ -74,7 +74,7 @@ After normalization, the existing engine applies:
 
 - source-native payload parsing
 - source identity and ID preservation
-- factual conformance into `ConformedEvent`
+- adapter shaping into `AdapterEvent`
 - response mapping back to the source
 - transport, if needed
 
@@ -90,8 +90,8 @@ After normalization, the existing engine applies:
 
 Direct users can still publish native `ApertureEvent`s into `ApertureCore`.
 
-Adapters now emit `ConformedEvent`s and should be passed into:
+Adapters now emit `AdapterEvent`s and should be passed into:
 
-- `core.publishConformed(event)`
+- `core.publishAdapterEvent(event)`
 
 This keeps direct-core usage available while making adapter semantics more consistent.

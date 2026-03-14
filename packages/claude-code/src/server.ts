@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
-import type { AttentionResponse as FrameResponse, AttentionView, ConformedEvent } from "@aperture/core";
+import type { AttentionResponse as FrameResponse, AttentionView, AdapterEvent } from "@aperture/core";
 
 import {
   mapClaudeCodeFrameResponse,
@@ -46,7 +46,7 @@ type PendingDecision = {
 };
 
 type ClaudeCodeEventHost = {
-  publishConformed(event: ConformedEvent): unknown | Promise<unknown>;
+  publishAdapterEvent(event: AdapterEvent): unknown | Promise<unknown>;
   submit(response: FrameResponse): unknown | Promise<unknown>;
   getAttentionView(): AttentionView;
   onResponse(listener: (response: FrameResponse) => void): () => void;
@@ -144,7 +144,7 @@ export function createClaudeCodeHookServer(
           timeout,
         });
 
-        await hostClient.publishConformed(firstMappedEvent);
+        await hostClient.publishAdapterEvent(firstMappedEvent);
         if (res.writableEnded) {
           return;
         }
@@ -159,7 +159,7 @@ export function createClaudeCodeHookServer(
       }
 
       for (const apertureEvent of mapped) {
-        await hostClient.publishConformed(apertureEvent);
+        await hostClient.publishAdapterEvent(apertureEvent);
       }
 
       writeJson(res, 200, {});

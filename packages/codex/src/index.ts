@@ -1,8 +1,8 @@
 import type {
   AttentionField as FrameField,
   AttentionResponse as FrameResponse,
-  ConformedEvent,
-  ConformedHumanInputRequestedEvent,
+  AdapterEvent,
+  AdapterHumanInputRequestedEvent,
   SourceRef,
 } from "@aperture/core";
 
@@ -80,8 +80,8 @@ export type CodexClientResponse =
     };
 
 export type CodexEventHost = {
-  publishConformed(event: ConformedEvent): void | Promise<void>;
-  publishConformedBatch?(events: ConformedEvent[]): void | Promise<void>;
+  publishAdapterEvent(event: AdapterEvent): void | Promise<void>;
+  publishAdapterEventBatch?(events: AdapterEvent[]): void | Promise<void>;
   onResponse(listener: (response: FrameResponse) => void): () => void;
 };
 
@@ -94,7 +94,7 @@ export type CodexAdapter = {
   close(): void;
 };
 
-export function mapCodexServerRequest(request: CodexServerRequest): ConformedEvent[] {
+export function mapCodexServerRequest(request: CodexServerRequest): AdapterEvent[] {
   switch (request.method) {
     case "item/commandExecution/requestApproval":
       return [mapCommandApprovalRequest(request)];
@@ -175,13 +175,13 @@ export function createCodexAdapter(
         return;
       }
 
-      if (host.publishConformedBatch) {
-        await host.publishConformedBatch(events);
+      if (host.publishAdapterEventBatch) {
+        await host.publishAdapterEventBatch(events);
         return;
       }
 
       for (const event of events) {
-        await host.publishConformed(event);
+        await host.publishAdapterEvent(event);
       }
     },
     close() {
@@ -190,7 +190,7 @@ export function createCodexAdapter(
   };
 }
 
-function mapCommandApprovalRequest(request: CodexCommandApprovalRequest): ConformedHumanInputRequestedEvent {
+function mapCommandApprovalRequest(request: CodexCommandApprovalRequest): AdapterHumanInputRequestedEvent {
   const source = codexSource(request.params.threadId);
   const title = request.params.command ? "Approve Codex command" : "Approve Codex action";
   const contextItems = [
@@ -223,7 +223,7 @@ function mapCommandApprovalRequest(request: CodexCommandApprovalRequest): Confor
   };
 }
 
-function mapLegacyExecApprovalRequest(request: CodexLegacyExecApprovalRequest): ConformedHumanInputRequestedEvent {
+function mapLegacyExecApprovalRequest(request: CodexLegacyExecApprovalRequest): AdapterHumanInputRequestedEvent {
   return {
     id: codexEventId(request.id, "human.input.requested"),
     type: "human.input.requested",
@@ -252,7 +252,7 @@ function mapLegacyExecApprovalRequest(request: CodexLegacyExecApprovalRequest): 
   };
 }
 
-function mapToolRequestUserInputRequest(request: CodexToolRequestUserInputRequest): ConformedEvent[] {
+function mapToolRequestUserInputRequest(request: CodexToolRequestUserInputRequest): AdapterEvent[] {
   if (request.params.questions.length === 0) {
     return [];
   }
@@ -370,7 +370,7 @@ function codexFormInteractionId(requestId: JsonRpcId, itemId: string): string {
   return `codex:form:${encodeURIComponent(String(requestId))}:${encodeURIComponent(itemId)}`;
 }
 
-function codexEventId(requestId: JsonRpcId, type: ConformedEvent["type"]): string {
+function codexEventId(requestId: JsonRpcId, type: AdapterEvent["type"]): string {
   return `codex:${encodeURIComponent(String(requestId))}:${type}`;
 }
 

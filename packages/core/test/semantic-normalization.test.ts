@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 
 import {
   ApertureCore,
-  type ConformedEvent,
+  type AdapterEvent,
   type SourceRef,
 } from "../src/index.js";
-import { normalizeConformedEvent } from "../src/semantic-normalizer.js";
+import { normalizeAdapterEvent } from "../src/semantic-normalizer.js";
 
 const timestamp = "2026-03-10T12:00:00.000Z";
 
@@ -15,7 +15,7 @@ function source(id: string): SourceRef {
 }
 
 test("normalizes high-risk human input into critical approval semantics", () => {
-  const event: ConformedEvent = {
+  const event: AdapterEvent = {
     id: "evt:approval",
     type: "human.input.requested",
     taskId: "task:1",
@@ -28,7 +28,7 @@ test("normalizes high-risk human input into critical approval semantics", () => 
     riskHint: "high",
   };
 
-  const normalized = normalizeConformedEvent(event);
+  const normalized = normalizeAdapterEvent(event);
   assert.equal(normalized.type, "human.input.requested");
   if (normalized.type === "human.input.requested") {
     assert.equal(normalized.tone, "critical");
@@ -37,7 +37,7 @@ test("normalizes high-risk human input into critical approval semantics", () => 
 });
 
 test("normalizes medium-risk human input into focused approval semantics", () => {
-  const event: ConformedEvent = {
+  const event: AdapterEvent = {
     id: "evt:approval",
     type: "human.input.requested",
     taskId: "task:1",
@@ -50,7 +50,7 @@ test("normalizes medium-risk human input into focused approval semantics", () =>
     riskHint: "medium",
   };
 
-  const normalized = normalizeConformedEvent(event);
+  const normalized = normalizeAdapterEvent(event);
   assert.equal(normalized.type, "human.input.requested");
   if (normalized.type === "human.input.requested") {
     assert.equal(normalized.tone, "focused");
@@ -59,7 +59,7 @@ test("normalizes medium-risk human input into focused approval semantics", () =>
 });
 
 test("normalizes low-risk human input into focused low-consequence approval semantics", () => {
-  const event: ConformedEvent = {
+  const event: AdapterEvent = {
     id: "evt:approval",
     type: "human.input.requested",
     taskId: "task:1",
@@ -72,7 +72,7 @@ test("normalizes low-risk human input into focused low-consequence approval sema
     riskHint: "low",
   };
 
-  const normalized = normalizeConformedEvent(event);
+  const normalized = normalizeAdapterEvent(event);
   assert.equal(normalized.type, "human.input.requested");
   if (normalized.type === "human.input.requested") {
     assert.equal(normalized.tone, "focused");
@@ -81,7 +81,7 @@ test("normalizes low-risk human input into focused low-consequence approval sema
 });
 
 test("uses medium consequence by default when no risk hint is provided", () => {
-  const event: ConformedEvent = {
+  const event: AdapterEvent = {
     id: "evt:choice",
     type: "human.input.requested",
     taskId: "task:1",
@@ -99,7 +99,7 @@ test("uses medium consequence by default when no risk hint is provided", () => {
     },
   };
 
-  const normalized = normalizeConformedEvent(event);
+  const normalized = normalizeAdapterEvent(event);
   assert.equal(normalized.type, "human.input.requested");
   if (normalized.type === "human.input.requested") {
     assert.equal(normalized.tone, "focused");
@@ -108,7 +108,7 @@ test("uses medium consequence by default when no risk hint is provided", () => {
 });
 
 test("preserves factual task status updates without adapter-owned semantic drift", () => {
-  const event: ConformedEvent = {
+  const event: AdapterEvent = {
     id: "evt:failed",
     type: "task.updated",
     taskId: "task:run:1",
@@ -120,15 +120,15 @@ test("preserves factual task status updates without adapter-owned semantic drift
     progress: 82,
   };
 
-  const normalized = normalizeConformedEvent(event);
+  const normalized = normalizeAdapterEvent(event);
   assert.deepEqual(normalized, event);
 });
 
-test("equivalent conformed approvals normalize to equivalent semantics across sources", () => {
+test("equivalent adapter approvals normalize to equivalent semantics across sources", () => {
   const sources = [source("claude-code"), source("codex"), source("paperclip")];
 
   const normalized = sources.map((src, index) =>
-    normalizeConformedEvent({
+    normalizeAdapterEvent({
       id: `evt:${index}`,
       type: "human.input.requested",
       taskId: `task:${index}`,
@@ -152,10 +152,10 @@ test("equivalent conformed approvals normalize to equivalent semantics across so
   }
 });
 
-test("publishConformed feeds normalized events into the existing attention engine", () => {
+test("publishAdapterEvent feeds normalized events into the existing attention engine", () => {
   const core = new ApertureCore();
 
-  core.publishConformed({
+  core.publishAdapterEvent({
     id: "evt:approval",
     type: "human.input.requested",
     taskId: "task:deploy",

@@ -7,7 +7,7 @@ import {
   type AttentionSignalSummary,
   type AttentionState,
   type AttentionView,
-  type ConformedEvent,
+  type AdapterEvent,
 } from "@aperture/core";
 
 import type { LearningPersistenceState } from "./learning-persistence.js";
@@ -64,8 +64,8 @@ export type ApertureRuntime = {
   close(): Promise<void>;
   getCore(): ApertureCore;
   hasAttachedSurface(): boolean;
-  publishConformed(event: ConformedEvent): void;
-  publishConformedBatch(events: ConformedEvent[]): void;
+  publishAdapterEvent(event: AdapterEvent): void;
+  publishAdapterEventBatch(events: AdapterEvent[]): void;
 };
 
 type SurfaceSession = {
@@ -208,11 +208,11 @@ export function createApertureRuntime(
         return;
       }
 
-      if (req.method === "POST" && path === `${controlPathPrefix}/events/conformed`) {
-        const payload = (await readJson(req, bodyLimitBytes)) as { event?: ConformedEvent; events?: ConformedEvent[] } | ConformedEvent;
-        const events = normalizeConformedPayload(payload);
+      if (req.method === "POST" && path === `${controlPathPrefix}/events/adapter`) {
+        const payload = (await readJson(req, bodyLimitBytes)) as { event?: AdapterEvent; events?: AdapterEvent[] } | AdapterEvent;
+        const events = normalizeAdapterEventPayload(payload);
         for (const event of events) {
-          core.publishConformed(event);
+          core.publishAdapterEvent(event);
         }
         writeJson(res, 200, { published: events.length });
         return;
@@ -388,12 +388,12 @@ export function createApertureRuntime(
       pruneSurfaces();
       return surfaces.size > 0;
     },
-    publishConformed(event) {
-      core.publishConformed(event);
+    publishAdapterEvent(event) {
+      core.publishAdapterEvent(event);
     },
-    publishConformedBatch(events) {
+    publishAdapterEventBatch(events) {
       for (const event of events) {
-        core.publishConformed(event);
+        core.publishAdapterEvent(event);
       }
     },
   };
@@ -449,18 +449,18 @@ export function createApertureRuntime(
   }
 }
 
-function normalizeConformedPayload(
-  payload: { event?: ConformedEvent; events?: ConformedEvent[] } | ConformedEvent,
-): ConformedEvent[] {
-  if (Array.isArray((payload as { events?: ConformedEvent[] }).events)) {
-    return (payload as { events: ConformedEvent[] }).events;
+function normalizeAdapterEventPayload(
+  payload: { event?: AdapterEvent; events?: AdapterEvent[] } | AdapterEvent,
+): AdapterEvent[] {
+  if (Array.isArray((payload as { events?: AdapterEvent[] }).events)) {
+    return (payload as { events: AdapterEvent[] }).events;
   }
 
-  if ((payload as { event?: ConformedEvent }).event) {
-    return [(payload as { event: ConformedEvent }).event];
+  if ((payload as { event?: AdapterEvent }).event) {
+    return [(payload as { event: AdapterEvent }).event];
   }
 
-  return [payload as ConformedEvent];
+  return [payload as AdapterEvent];
 }
 
 function normalizePathPrefix(pathPrefix: string): string {

@@ -3,10 +3,10 @@ import { basename } from "node:path";
 import type {
   AttentionConsequenceLevel as ConsequenceLevel,
   AttentionResponse as FrameResponse,
-  ConformedEvent,
-  ConformedHumanInputRequestedEvent,
-  ConformedTaskCompletedEvent,
-  ConformedTaskUpdatedEvent,
+  AdapterEvent,
+  AdapterHumanInputRequestedEvent,
+  AdapterTaskCompletedEvent,
+  AdapterTaskUpdatedEvent,
 } from "@aperture/core";
 
 export type ClaudeCodeHookEvent =
@@ -94,7 +94,7 @@ export type ClaudeCodeHookResponse =
 
 export type ClaudeCodePreToolUseMappedEvent = Extract<
   ReturnType<typeof mapPreToolUse>,
-  ConformedHumanInputRequestedEvent
+  AdapterHumanInputRequestedEvent
 >;
 
 export type ClaudeCodeMappingOptions = {
@@ -117,7 +117,7 @@ const HIGH_CONSEQUENCE_PATTERNS = [
 export function mapClaudeCodeHookEvent(
   event: ClaudeCodeHookEvent,
   options: ClaudeCodeMappingOptions = {},
-): ConformedEvent[] {
+): AdapterEvent[] {
   const tools = options.tools ?? DEFAULT_TOOLS;
 
   switch (event.hook_event_name) {
@@ -217,7 +217,7 @@ export function classifyToolRisk(
 function mapPreToolUse(
   event: ClaudeCodePreToolUseEvent,
   options: ClaudeCodeMappingOptions,
-): ConformedHumanInputRequestedEvent {
+): AdapterHumanInputRequestedEvent {
   const command = readString(event.tool_input.command);
   const summary = command ?? toolInputSummary(event);
   const whyNow =
@@ -258,7 +258,7 @@ function mapPreToolUse(
 
 function mapPostToolUseFailure(
   event: ClaudeCodePostToolUseFailureEvent,
-): ConformedTaskUpdatedEvent {
+): AdapterTaskUpdatedEvent {
   return {
     id: claudeEventId(event, "task.updated"),
     type: "task.updated",
@@ -271,7 +271,7 @@ function mapPostToolUseFailure(
   };
 }
 
-function mapPostToolUse(event: ClaudeCodePostToolUseEvent): ConformedTaskUpdatedEvent {
+function mapPostToolUse(event: ClaudeCodePostToolUseEvent): AdapterTaskUpdatedEvent {
   const summary =
     readString(event.tool_response?.message) ??
     `${event.tool_name} completed successfully.`;
@@ -288,7 +288,7 @@ function mapPostToolUse(event: ClaudeCodePostToolUseEvent): ConformedTaskUpdated
   };
 }
 
-function mapNotification(event: ClaudeCodeNotificationEvent): ConformedEvent[] {
+function mapNotification(event: ClaudeCodeNotificationEvent): AdapterEvent[] {
   if (
     event.notification_type !== "idle_prompt"
     && event.notification_type !== "elicitation_dialog"
@@ -316,7 +316,7 @@ function mapNotification(event: ClaudeCodeNotificationEvent): ConformedEvent[] {
 
 function mapUserPromptSubmit(
   event: ClaudeCodeUserPromptSubmitEvent,
-): ConformedTaskCompletedEvent {
+): AdapterTaskCompletedEvent {
   return {
     id: claudeEventId(event, "task.completed"),
     type: "task.completed",
@@ -327,7 +327,7 @@ function mapUserPromptSubmit(
   };
 }
 
-function mapStop(event: ClaudeCodeStopEvent): ConformedEvent[] {
+function mapStop(event: ClaudeCodeStopEvent): AdapterEvent[] {
   if (event.stop_hook_active) {
     return [];
   }

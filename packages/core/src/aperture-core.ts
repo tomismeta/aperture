@@ -2,7 +2,7 @@ import type {
   ApertureEvent,
   HumanInputRequest,
 } from "./events.js";
-import type { ConformedEvent } from "./conformed-event.js";
+import type { AdapterEvent } from "./adapter-event.js";
 import type {
   AttentionFrame,
   AttentionTaskView,
@@ -23,7 +23,7 @@ import { AttentionSignalStore } from "./attention-signal-store.js";
 import { loadJudgmentConfig, type JudgmentConfig } from "./judgment-config.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
 import { distillMemoryProfile, signalMetadataForCandidate, signalMetadataForFrame } from "./memory-aggregator.js";
-import { normalizeConformedEvent } from "./semantic-normalizer.js";
+import { normalizeAdapterEvent } from "./semantic-normalizer.js";
 import { AttentionPolicy } from "./attention-policy.js";
 import { forecastAttentionPressure } from "./attention-pressure.js";
 import { ProfileStore, type MemoryProfile, type UserProfile } from "./profile-store.js";
@@ -164,9 +164,9 @@ export class ApertureCore {
     return true;
   }
 
-  publishConformed(event: ConformedEvent): AttentionFrame | null {
-    this.assertValidConformedEvent(event);
-    return this.publish(normalizeConformedEvent(event));
+  publishAdapterEvent(event: AdapterEvent): AttentionFrame | null {
+    this.assertValidAdapterEvent(event);
+    return this.publish(normalizeAdapterEvent(event));
   }
 
   publish(event: ApertureEvent): AttentionFrame | null {
@@ -824,7 +824,7 @@ export class ApertureCore {
     }
   }
 
-  private assertValidConformedEvent(event: ConformedEvent): void {
+  private assertValidAdapterEvent(event: AdapterEvent): void {
     this.assertNonEmpty("event.id", event.id);
     this.assertNonEmpty("event.taskId", event.taskId);
     this.assertTimestamp("event.timestamp", event.timestamp);

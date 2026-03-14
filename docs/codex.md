@@ -5,7 +5,7 @@
 In the current product shape:
 
 - `@aperture/runtime` owns the live `ApertureCore`
-- `@aperture/codex` maps Codex requests into `ConformedEvent`
+- `@aperture/codex` maps Codex requests into `AdapterEvent`
 - the runtime consumes those events and emits `AttentionResponse`
 - `@aperture/codex` maps those responses back into Codex response descriptors
 
@@ -19,7 +19,7 @@ That keeps the same boundary as the other adapters:
 
 Ingress:
 
-- `CodexServerRequest -> ConformedEvent[]`
+- `CodexServerRequest -> AdapterEvent[]`
 
 Egress:
 
@@ -59,7 +59,7 @@ Currently mapped:
 
 Use `createCodexAdapter(...)` when you have a Codex-native request stream and a way to send responses back. The adapter helper:
 
-- maps `CodexServerRequest -> ConformedEvent[]`
+- maps `CodexServerRequest -> AdapterEvent[]`
 - publishes those events into the shared runtime
 - listens for `AttentionResponse`
 - maps relevant responses back into `CodexClientResponse`

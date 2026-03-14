@@ -46,7 +46,7 @@ export { evaluateTraceSession } from "./trace-evaluator.js";
 export type { TraceEvaluationReport } from "./trace-evaluator.js";
 
 export type * from "./events.js";
-export type * from "./conformed-event.js";
+export type * from "./adapter-event.js";
 export type {
   AttentionAction,
   AttentionAcknowledgeResponseSpec,

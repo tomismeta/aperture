@@ -1,9 +1,9 @@
-import type { ConformedEvent } from "./conformed-event.js";
+import type { AdapterEvent } from "./adapter-event.js";
 import type { ApertureEvent, HumanInputRequestedEvent } from "./events.js";
 import type { ConsequenceLevel, FrameTone } from "./frame.js";
 
-export function normalizeConformedEvent(event: ConformedEvent): ApertureEvent {
-  // Non-human-input conformed events are intentionally thin for now. The adapter
+export function normalizeAdapterEvent(event: AdapterEvent): ApertureEvent {
+  // Non-human-input adapter events are intentionally thin for now. The adapter
   // preserves factual state, while core owns the extension point for future
   // semantic enrichment before the attention engine runs.
   switch (event.type) {
@@ -53,7 +53,7 @@ export function normalizeConformedEvent(event: ConformedEvent): ApertureEvent {
 }
 
 function normalizeHumanInput(
-  event: Extract<ConformedEvent, { type: "human.input.requested" }>,
+  event: Extract<AdapterEvent, { type: "human.input.requested" }>,
 ): HumanInputRequestedEvent {
   const consequence = event.riskHint ?? "medium";
   const tone = toneForRisk(consequence);

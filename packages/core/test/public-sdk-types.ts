@@ -24,7 +24,7 @@ import type {
   AttentionValueBreakdown,
   AttentionView,
   AttentionViewListener,
-  ConformedEvent,
+  AdapterEvent,
   JudgmentConfig,
   JudgmentDecision,
   MemoryProfile,
@@ -41,7 +41,7 @@ void (0 as unknown as AttentionResponseListener);
 void (0 as unknown as AttentionSignalListener);
 void (0 as unknown as AttentionTraceListener);
 void (0 as unknown as ApertureEvent);
-void (0 as unknown as ConformedEvent);
+void (0 as unknown as AdapterEvent);
 void (0 as unknown as AttentionCandidate);
 void (0 as unknown as AttentionFrame);
 void (0 as unknown as AttentionResponse);

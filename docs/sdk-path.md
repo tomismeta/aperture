@@ -93,7 +93,7 @@ This is for consumers who want Aperture to own the attention model end to end.
 They should be able to:
 
 - construct `ApertureCore`
-- publish `ApertureEvent` or `ConformedEvent`
+- publish `ApertureEvent` or `AdapterEvent`
 - receive `AttentionFrame`, `AttentionTaskView`, `AttentionView`, `ApertureTrace`
 - submit `AttentionResponse`
 - checkpoint and reload learned memory

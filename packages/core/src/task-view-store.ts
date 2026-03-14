@@ -85,7 +85,7 @@ export class TaskViewStore {
     const dedupedAmbient = taskView.ambient.filter((item) => item.interactionId !== frame.interactionId);
 
     const next: AttentionTaskView = {
-      active: taskView.active?.interactionId === frame.interactionId ? taskView.active : taskView.active,
+      active: taskView.active?.interactionId === frame.interactionId ? frame : taskView.active,
       queued: bucket === "queued" ? [frame, ...dedupedQueued] : dedupedQueued,
       ambient: bucket === "ambient" ? [frame, ...dedupedAmbient] : dedupedAmbient,
     };

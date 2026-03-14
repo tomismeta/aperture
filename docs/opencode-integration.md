@@ -64,6 +64,7 @@ OpenCode already exposes the right primitives:
 - list/reply APIs for pending permissions
 - list/reply APIs for pending question requests
 - stable session identifiers and tool call identifiers
+- optional HTTP basic auth on the server
 
 That means Aperture does not need to intercept stdin, replace a TUI, or patch OpenCode internals.
 
@@ -73,6 +74,24 @@ Instead, it can:
 2. bootstrap pending human work from list endpoints
 3. render that work in Aperture
 4. submit human responses back through OpenCode's existing reply endpoints
+
+## What The Operator Gains
+
+This integration is not only an Aperture validation exercise.
+
+For an OpenCode user, the value is:
+
+- one human attention surface across multiple OpenCode sessions
+- better prioritization than a flat stream of native prompts
+- active / queued / ambient treatment instead of binary interruption
+- learned approval and response patterns over time
+- better pressure handling when many OpenCode sessions are active at once
+- a cleaner path toward episode-level grouping across related tool activity
+
+The product story should be:
+
+- OpenCode gives you a strong coding agent runtime
+- Aperture gives you a stronger control plane for supervising it
 
 ## What OpenCode Continues To Own
 
@@ -213,6 +232,7 @@ The bridge should use:
 
 - SSE subscription for live events
 - list endpoints for initial pending state bootstrap
+- optional HTTP basic auth headers when the OpenCode server is protected
 
 Recommended bootstrap sequence:
 
@@ -223,6 +243,36 @@ Recommended bootstrap sequence:
 5. then begin SSE subscription
 
 This reduces startup races and ensures Aperture does not miss already-waiting human work.
+
+### Verification Prerequisite
+
+Before implementation, validate the live OpenCode server against a running `opencode serve` instance:
+
+1. connect to the SSE stream
+2. log raw event payloads
+3. confirm the exact event type strings
+4. confirm the actual payload shapes for:
+   - `permission.asked`
+   - `permission.replied`
+   - `question.asked`
+   - `question.replied`
+   - `question.rejected`
+   - `session.status`
+   - `message.part.updated`
+
+The current design uses the event names and shapes visible in OpenCode's source and generated SDK types, but the first implementation should still confirm the live wire format before building the mapping layer.
+
+### Authentication
+
+OpenCode's server can run unsecured on localhost, but it also supports HTTP basic auth when `OPENCODE_SERVER_PASSWORD` is set.
+
+So the bridge client should support:
+
+- unauthenticated localhost mode
+- authenticated mode with:
+  - `Authorization: Basic ...`
+
+This should be a standard client option, not a later add-on.
 
 ### Initial Event Set
 
@@ -352,6 +402,22 @@ For V1, the safe mapping is:
 
 Only introduce `"always"` when Aperture intentionally exposes that choice.
 
+### `"always"` Is A Policy Seam
+
+OpenCode's `"always"` response is not just a one-off approval convenience.
+
+It changes the effective permission model for the rest of the OpenCode session by auto-approving future matching requests.
+
+That means Aperture should not expose `"always"` casually.
+
+For V1:
+
+- do not expose `"always"` by default
+- use `"once"` as the default approval response
+- treat `"always"` as a later explicit product choice
+
+If Aperture ever introduces `"always"` in this integration, it should do so intentionally and transparently, because it becomes part of the operator's policy surface, not just the attention surface.
+
 ### Question responses
 
 Map Aperture responses to:
@@ -378,18 +444,25 @@ Recommended identity model:
 - `taskId`
   - primarily session-scoped
   - examples:
-    - `opencode:session:{sessionID}`
-    - `opencode:session:{sessionID}:permission`
+    - `opencode:{instanceKey}:session:{sessionID}`
+    - `opencode:{instanceKey}:session:{sessionID}:permission`
 
 - `interactionId`
   - specific pending human request
   - examples:
-    - `opencode:permission:{requestID}`
-    - `opencode:question:{requestID}`
+    - `opencode:{instanceKey}:permission:{requestID}`
+    - `opencode:{instanceKey}:question:{requestID}`
 
 - `source`
   - `kind: "opencode"`
   - include workspace or directory label when available
+
+Where `instanceKey` should be derived from stable bridge-local identity such as:
+
+- OpenCode base URL
+- workspace or directory
+
+This avoids collisions when one Aperture runtime observes multiple OpenCode instances or multiple workspaces attached to the same OpenCode server.
 
 This should preserve:
 
@@ -418,6 +491,33 @@ If a user is also actively using OpenCode's native TUI or web client:
 - OpenCode will still show its own permission/question UI
 - Aperture can still reply first
 - but Aperture cannot suppress the native UI without upstream changes
+
+If OpenCode's native UI resolves a request first, the bridge should rely on:
+
+- `permission.replied`
+- `question.replied`
+- `question.rejected`
+
+to clear or reconcile the corresponding Aperture interaction immediately.
+
+That behavior is mandatory for the duplicative path; otherwise Aperture will show stale requests that OpenCode has already resolved.
+
+## Native Permission Config Gaps
+
+OpenCode has its own permission configuration and may auto-approve some actions without ever emitting a human-facing permission request.
+
+That means:
+
+- Aperture will only see requests that actually become pending human work
+- some tool execution will never appear as `permission.asked`
+- the early Aperture view may have gaps in the surrounding tool timeline
+
+This is acceptable for V1.
+
+It means the first integration is strongest as:
+
+- a human attention surface for explicit pending work
+- plus a gradually richer context surface from session and message-part events
 
 So:
 

@@ -246,7 +246,7 @@ Examples may include:
 
 These should come last, because they are the easiest to overcomplicate and are best informed by real integrations and traces.
 
-For a fuller design note, see [ClawRouter-Inspired Core Maturation](./clawrouter-inspired-core-maturation.md).
+For a fuller design note, see [Core Maturation Plan](./core-maturation-plan.md).
 
 ## The Moats
 

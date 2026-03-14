@@ -250,7 +250,7 @@ Ordered by leverage:
    - keep the README and npm-facing docs honest
    - harden based on real consumer friction
 
-For the engine-maturation ordering, see [ClawRouter-Inspired Core Maturation](./clawrouter-inspired-core-maturation.md).
+For the engine-maturation ordering, see [Core Maturation Plan](./core-maturation-plan.md).
 
 ## What To Avoid
 

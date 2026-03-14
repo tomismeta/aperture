@@ -47,9 +47,9 @@ The preferred first shape is:
 In other words:
 
 - `opencode serve` runs OpenCode's server
-- `@aperture/runtime` hosts `ApertureCore`
-- `@aperture/opencode` connects to OpenCode and forwards events into Aperture
-- `@aperture/tui` renders the human attention surface
+- the runtime package (`@aperture/runtime`) hosts `ApertureCore` from the core SDK (`@tomismeta/aperture-core`)
+- the OpenCode adapter package (`@aperture/opencode`, planned) connects to OpenCode and forwards events into the runtime
+- the TUI package (`@aperture/tui`) renders the human attention surface
 
 The bridge should accept normal connection options such as:
 
@@ -144,7 +144,7 @@ V1 should not try to:
 The first implementation should look like this:
 
 ```text
-OpenCode server -> @aperture/opencode bridge -> @aperture/runtime -> Aperture TUI
+OpenCode server -> OpenCode adapter package (@aperture/opencode) -> runtime package (@aperture/runtime) -> TUI package (@aperture/tui)
        ^                                                           |
        |-----------------------------------------------------------|
                         response APIs back into OpenCode
@@ -154,9 +154,9 @@ Flow:
 
 1. OpenCode emits an event over SSE.
 2. The OpenCode bridge maps that source-native event to one or more `SourceEvent`s.
-3. The bridge publishes those `SourceEvent`s into the shared Aperture runtime.
+3. The bridge publishes those `SourceEvent`s into the shared runtime package.
 4. Aperture updates `AttentionView`.
-5. The Aperture TUI renders frames and view state.
+5. The TUI package renders frames and view state.
 6. The human responds in Aperture.
 7. The OpenCode bridge maps that `AttentionResponse` back into an OpenCode reply call.
 8. OpenCode resolves the waiting permission/question and continues execution.
@@ -165,7 +165,7 @@ Flow:
 
 Recommended new package:
 
-- `packages/opencode`
+- `packages/opencode` (`@aperture/opencode`, planned)
 
 Suggested file shape:
 
@@ -220,16 +220,16 @@ This should follow the same shape as the Claude Code path, but with a different 
 
 Claude Code today is:
 
-- Claude hooks -> Claude adapter -> Aperture runtime -> TUI
+- Claude hooks -> Claude adapter package (`@aperture/claude-code`) -> runtime package (`@aperture/runtime`) -> TUI package (`@aperture/tui`)
 
 OpenCode should become:
 
-- OpenCode server -> OpenCode adapter bridge -> Aperture runtime -> TUI
+- OpenCode server -> OpenCode adapter package (`@aperture/opencode`, planned) -> runtime package (`@aperture/runtime`) -> TUI package (`@aperture/tui`)
 
 So the full Aperture side remains familiar:
 
-- `@aperture/runtime` still owns the live `ApertureCore`
-- `@aperture/tui` remains the surface
+- the runtime package (`@aperture/runtime`) still owns the live `ApertureCore` from the core SDK (`@tomismeta/aperture-core`)
+- the TUI package (`@aperture/tui`) remains the surface
 - only the source-specific ingress changes
 
 ## Ingress

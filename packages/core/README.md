@@ -99,6 +99,19 @@ You can also publish task lifecycle events like:
 
 Use `SourceEvent` only when you are building an adapter and want Aperture to normalize source-native facts into `ApertureEvent` first.
 
+The input fields that matter most to Aperture's judgment are:
+
+- `type`
+  - whether this is a task update or something that needs human action
+- `request.kind`
+  - whether the human is being asked to approve, choose, or fill out a form
+- `consequence`
+  - how risky or important the event is if handled badly
+- `tone`
+  - how strongly the event should feel in the surface
+- `taskId` and `interactionId`
+  - continuity for the task and stable matching for the human response
+
 ## 2. What Do I Get Back From Aperture?
 
 - input: publish an `ApertureEvent` with `core.publish(...)`
@@ -204,6 +217,15 @@ Common response shapes:
 { taskId, interactionId, response: { kind: "acknowledged" } }
 { taskId, interactionId, response: { kind: "dismissed" } }
 ```
+
+The response fields that matter most are:
+
+- `response.kind`
+  - tells Aperture what the human actually decided
+- `reason`
+  - useful when a rejection or dismissal should carry explanation
+- `optionIds` or `values`
+  - the concrete human choice for choice and form interactions
 
 ## 3. Do I Need Any Config Or Persistent Files?
 

@@ -51,6 +51,13 @@ In other words:
 - `@aperture/opencode` connects to OpenCode and forwards events into Aperture
 - `@aperture/tui` renders the human attention surface
 
+The bridge should accept normal connection options such as:
+
+- base URL
+- port
+- optional auth credentials
+- optional project directory scoping
+
 This is not a second OpenCode runtime.
 
 It is an external attention plane attached to the existing OpenCode runtime.
@@ -65,6 +72,7 @@ OpenCode already exposes the right primitives:
 - list/reply APIs for pending question requests
 - stable session identifiers and tool call identifiers
 - optional HTTP basic auth on the server
+- `server.connected` and `server.heartbeat` SSE events for stream health
 
 That means Aperture does not need to intercept stdin, replace a TUI, or patch OpenCode internals.
 
@@ -233,6 +241,7 @@ The bridge should use:
 - SSE subscription for live events
 - list endpoints for initial pending state bootstrap
 - optional HTTP basic auth headers when the OpenCode server is protected
+- optional `x-opencode-directory` header or `?directory=` query parameter for project scoping
 
 Recommended bootstrap sequence:
 
@@ -243,6 +252,13 @@ Recommended bootstrap sequence:
 5. then begin SSE subscription
 
 This reduces startup races and ensures Aperture does not miss already-waiting human work.
+
+The bridge should also use:
+
+- `server.connected`
+- `server.heartbeat`
+
+as liveness signals for reconnect and health monitoring.
 
 ### Verification Prerequisite
 
@@ -270,9 +286,33 @@ So the bridge client should support:
 
 - unauthenticated localhost mode
 - authenticated mode with:
+  - username, defaulting to `opencode`
   - `Authorization: Basic ...`
 
+If the OpenCode server is protected, the effective credentials are:
+
+- username: `OPENCODE_SERVER_USERNAME` or `opencode`
+- password: `OPENCODE_SERVER_PASSWORD`
+
 This should be a standard client option, not a later add-on.
+
+### Legacy Permission System
+
+OpenCode currently contains both:
+
+- a newer `PermissionNext` service
+- an older legacy permission system
+
+The public server routes and generated SDK types used by this integration are based on the newer permission system.
+
+So the bridge should treat these as authoritative:
+
+- `permission.asked`
+- `permission.replied`
+
+and should not base its primary logic on legacy-only events such as:
+
+- `permission.updated`
 
 ### Initial Event Set
 
@@ -402,6 +442,14 @@ For V1, the safe mapping is:
 
 Only introduce `"always"` when Aperture intentionally exposes that choice.
 
+OpenCode also supports:
+
+- `{ reply: "reject", message: "..." }`
+
+for richer rejection feedback.
+
+That is a good V2 enhancement path for Aperture, because it would let a human rejection carry corrective context back into the agent loop instead of only a bare denial.
+
 ### `"always"` Is A Policy Seam
 
 OpenCode's `"always"` response is not just a one-off approval convenience.
@@ -425,6 +473,17 @@ Map Aperture responses to:
 - `option_selected` -> question reply answers
 - `form_submitted` -> question reply answers
 - `dismissed` -> question reject
+
+The concrete OpenCode reply shape is:
+
+- `{ answers: string[][] }`
+
+That means:
+
+- one outer array entry per question
+- each question answer is an array of selected option labels
+
+The egress mapping should preserve that exact shape instead of flattening it.
 
 ### Responses We Should Not Pretend To Support
 
@@ -460,7 +519,7 @@ Recommended identity model:
 Where `instanceKey` should be derived from stable bridge-local identity such as:
 
 - OpenCode base URL
-- workspace or directory
+- project directory passed via `x-opencode-directory` or `?directory=`
 
 This avoids collisions when one Aperture runtime observes multiple OpenCode instances or multiple workspaces attached to the same OpenCode server.
 
@@ -483,6 +542,15 @@ That gives the cleanest operator story:
 - the human responds in Aperture
 
 This avoids fighting OpenCode's own TUI for attention.
+
+The bridge should not assume one fixed port.
+
+OpenCode may listen on:
+
+- `4096`
+- or another port if `4096` is unavailable or another port is explicitly configured
+
+So the base URL or port should always be explicit bridge configuration, not a hardcoded assumption.
 
 ## Important Limitation
 

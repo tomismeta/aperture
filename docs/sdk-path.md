@@ -206,7 +206,7 @@ Status:
 - built
 - the Aperture core SDK package now has package metadata, a package-local license, and a `files` whitelist
 - `pnpm sdk:prove` verifies both external consumption and tarball shape
-- `@tomismeta/aperture-core@0.1.0` is published on npm
+- `@tomismeta/aperture-core@0.1.1` is published on npm
 
 ## Success Criteria
 

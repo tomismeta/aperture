@@ -101,7 +101,7 @@ What is true today:
 - the SDK path is documented
 - external consumers can install a packed tarball and run both full-engine and judgment-primitive examples
 - package metadata and tarball contents are now curated for first release
-- `@tomismeta/aperture-core@0.1.0` is published on npm
+- `@tomismeta/aperture-core@0.1.1` is published on npm
 
 ## The Maturity Ladder
 

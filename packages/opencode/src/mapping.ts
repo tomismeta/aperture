@@ -200,7 +200,7 @@ export function mapOpencodeResponse(response: AttentionResponse): OpencodeRespon
         kind: "question.reply",
         requestId: parsed.requestId,
         body: {
-          answers: [Object.values(response.response.values).map((value) => String(value))],
+          answers: Object.values(response.response.values).map((value) => normalizeAnswerGroup(value)),
         },
       };
     case "rejected":
@@ -491,6 +491,16 @@ function patternSummary(patterns: OpencodeToolCallPattern[] | undefined): string
 
 function fieldItem(id: string, label: string, value: string | undefined | null) {
   return value ? { id, label, value } : null;
+}
+
+function normalizeAnswerGroup(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((entry) => String(entry));
+  }
+  if (value === null || value === undefined) {
+    return [];
+  }
+  return [String(value)];
 }
 
 function rejectedResponse(reason: string | undefined): AttentionResponse["response"] {

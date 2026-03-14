@@ -112,6 +112,29 @@ test("maps native permission resolution to a synthetic Aperture response", () =>
   assert.deepEqual(mapped?.response.response, { kind: "rejected", reason: "too risky" });
 });
 
+test("maps form submissions to one answer group per field", () => {
+  const response: AttentionResponse = {
+    taskId: `opencode:${createOpencodeInstanceKey(context)}:session:ses-4`,
+    interactionId: `opencode:${createOpencodeInstanceKey(context)}:question:question-form-1`,
+    response: {
+      kind: "form_submitted",
+      values: {
+        name: "Tom",
+        tags: ["sdk", "adapter"],
+        confirm: true,
+      },
+    },
+  };
+
+  assert.deepEqual(mapOpencodeResponse(response), {
+    kind: "question.reply",
+    requestId: "question-form-1",
+    body: {
+      answers: [["Tom"], ["sdk", "adapter"], ["true"]],
+    },
+  });
+});
+
 test("parses OpenCode interaction ids", () => {
   const parsed = parseOpencodeInteractionId(
     `opencode:${createOpencodeInstanceKey(context)}:question:question-7`,

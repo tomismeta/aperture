@@ -1,10 +1,13 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { stderr } from "node:process";
 
+import { listEnabledGlobalOpencodeProfiles } from "./opencode-config.ts";
+
 async function main(): Promise<void> {
   const children: ChildProcess[] = [];
   let shuttingDown = false;
   const learningArgs = readLearningArgs(process.argv.slice(2));
+  const hasOpencodeProfiles = (await listEnabledGlobalOpencodeProfiles()).length > 0;
 
   process.title = "aperture";
 
@@ -15,6 +18,12 @@ async function main(): Promise<void> {
   const claude = spawnPnpm(["claude:start"]);
   children.push(claude);
   await waitForReady(claude, "Aperture Claude adapter listening");
+
+  if (hasOpencodeProfiles) {
+    const opencode = spawnPnpm(["opencode:start"]);
+    children.push(opencode);
+    await waitForReady(opencode, "Aperture OpenCode adapter ready");
+  }
 
   const tui = spawn("pnpm", ["tui"], {
     stdio: "inherit",

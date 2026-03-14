@@ -31,7 +31,7 @@ async function main(): Promise<void> {
 
   stderr.write(`Aperture runtime listening at ${binding.controlUrl}\n`);
   stderr.write(`Learning persistence ${learning === "on" ? "enabled" : "disabled"}\n`);
-  stderr.write("Start adapters separately, for example: pnpm claude:start\n");
+  stderr.write("Start adapters separately, for example: pnpm claude:start or pnpm opencode:start\n");
   stderr.write("Open the TUI separately with: pnpm tui\n");
 
   const close = async () => {

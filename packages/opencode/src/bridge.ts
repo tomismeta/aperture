@@ -16,6 +16,7 @@ export type OpencodeBridgeOptions = {
   runtimeBaseUrl: string;
   runtimeLabel?: string;
   runtimeMetadata?: Record<string, string>;
+  sourceLabel?: string;
   client: OpencodeClientOptions;
 };
 
@@ -29,6 +30,7 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
   const mappingContext: OpencodeMappingContext = {
     baseUrl: options.client.baseUrl,
     ...(options.client.scope ? { scope: options.client.scope } : {}),
+    ...(options.sourceLabel ? { sourceLabel: options.sourceLabel } : {}),
   };
   const adapterId = `opencode-${createOpencodeInstanceKey(mappingContext)}`;
   let runtimeClient: ApertureRuntimeAdapterClient | null = null;

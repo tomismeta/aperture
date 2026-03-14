@@ -2,7 +2,7 @@
 
 Aperture now uses an explicit layered event model:
 
-`SourceEvent -> AdapterEvent -> ApertureEvent -> AttentionCandidate -> AttentionFrame -> AttentionResponse`
+`raw source payload -> SourceEvent -> ApertureEvent -> AttentionCandidate -> AttentionFrame -> AttentionResponse`
 
 The intent is simple:
 
@@ -12,7 +12,7 @@ The intent is simple:
 
 ## Layers
 
-### `SourceEvent`
+### Raw source payload
 
 Raw upstream payloads owned by adapters only.
 
@@ -22,15 +22,15 @@ Examples:
 - Paperclip live events
 - Codex request objects
 
-These never enter `@aperture/core`.
+These never enter `@aperture/core` directly.
 
-### `AdapterEvent`
+### `SourceEvent`
 
-Source-agnostic factual input produced by adapters and consumed by core.
+Source-agnostic factual input consumed by core.
 
-Lives in [packages/core/src/adapter-event.ts](../packages/core/src/adapter-event.ts).
+Lives in [packages/core/src/source-event.ts](../packages/core/src/source-event.ts).
 
-`AdapterEvent` preserves:
+`SourceEvent` preserves:
 
 - task identity
 - interaction identity
@@ -52,7 +52,7 @@ Semantically normalized engine event owned by core.
 
 Lives in [packages/core/src/events.ts](../packages/core/src/events.ts).
 
-Core converts `AdapterEvent` into `ApertureEvent` through the internal semantic normalizer in [packages/core/src/semantic-normalizer.ts](../packages/core/src/semantic-normalizer.ts).
+Core converts `SourceEvent` into `ApertureEvent` through the internal semantic normalizer in [packages/core/src/semantic-normalizer.ts](../packages/core/src/semantic-normalizer.ts).
 
 This is where Aperture decides things like:
 
@@ -74,7 +74,7 @@ After normalization, the existing engine applies:
 
 - source-native payload parsing
 - source identity and ID preservation
-- adapter shaping into `AdapterEvent`
+- shaping source input into `SourceEvent`
 - response mapping back to the source
 - transport, if needed
 
@@ -90,8 +90,8 @@ After normalization, the existing engine applies:
 
 Direct users can still publish native `ApertureEvent`s into `ApertureCore`.
 
-Adapters now emit `AdapterEvent`s and should be passed into:
+Integrations that emit `SourceEvent`s should pass them into:
 
-- `core.publishAdapterEvent(event)`
+- `core.publishSourceEvent(event)`
 
 This keeps direct-core usage available while making adapter semantics more consistent.

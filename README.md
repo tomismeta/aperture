@@ -141,7 +141,7 @@ This is the main product path today.
 
 Use the core engine directly when you already control the event source and want attention judgment inside your own app or service.
 
-You publish `ApertureEvent` or `AdapterEvent` values and consume `AttentionView`.
+You publish `ApertureEvent` or `SourceEvent` values and consume `AttentionView`.
 
 ## Architecture
 
@@ -152,7 +152,7 @@ You publish `ApertureEvent` or `AdapterEvent` values and consume `AttentionView`
 
 The flow is:
 
-`source event → adapter → adapter event → core judgment → attention surface → human response → new signals`
+`raw source payload → SourceEvent → core judgment → attention surface → human response → new signals`
 
 ## Using Core Directly
 
@@ -177,7 +177,7 @@ core.publish({
 console.log(core.getAttentionView());
 ```
 
-If your adapter already emits factual source events, publish `AdapterEvent` instead:
+If your integration already emits factual source events, publish `SourceEvent` instead:
 
 ```ts
 import { ApertureCore } from "@aperture/core";
@@ -186,7 +186,7 @@ import { mapPaperclipLiveEvent } from "@aperture/paperclip";
 const core = new ApertureCore();
 
 for (const event of mapPaperclipLiveEvent(liveEvent)) {
-  core.publishAdapterEvent(event);
+  core.publishSourceEvent(event);
 }
 ```
 

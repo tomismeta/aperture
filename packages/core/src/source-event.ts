@@ -1,27 +1,27 @@
 import type { HumanInputRequest, SourceRef, TaskStatus } from "./events.js";
 import type { ConsequenceLevel, FrameContext, FrameProvenance } from "./frame.js";
 
-export type AdapterEvent =
-  | AdapterTaskStartedEvent
-  | AdapterTaskUpdatedEvent
-  | AdapterHumanInputRequestedEvent
-  | AdapterTaskCompletedEvent
-  | AdapterTaskCancelledEvent;
+export type SourceEvent =
+  | SourceTaskStartedEvent
+  | SourceTaskUpdatedEvent
+  | SourceHumanInputRequestedEvent
+  | SourceTaskCompletedEvent
+  | SourceTaskCancelledEvent;
 
-type AdapterEventBase = {
+type SourceEventBase = {
   id: string;
   taskId: string;
   timestamp: string;
   source?: SourceRef;
 };
 
-export type AdapterTaskStartedEvent = AdapterEventBase & {
+export type SourceTaskStartedEvent = SourceEventBase & {
   type: "task.started";
   title: string;
   summary?: string;
 };
 
-export type AdapterTaskUpdatedEvent = AdapterEventBase & {
+export type SourceTaskUpdatedEvent = SourceEventBase & {
   type: "task.updated";
   title: string;
   summary?: string;
@@ -29,7 +29,7 @@ export type AdapterTaskUpdatedEvent = AdapterEventBase & {
   progress?: number;
 };
 
-export type AdapterHumanInputRequestedEvent = AdapterEventBase & {
+export type SourceHumanInputRequestedEvent = SourceEventBase & {
   type: "human.input.requested";
   interactionId: string;
   toolFamily?: string;
@@ -41,12 +41,12 @@ export type AdapterHumanInputRequestedEvent = AdapterEventBase & {
   riskHint?: ConsequenceLevel;
 };
 
-export type AdapterTaskCompletedEvent = AdapterEventBase & {
+export type SourceTaskCompletedEvent = SourceEventBase & {
   type: "task.completed";
   summary?: string;
 };
 
-export type AdapterTaskCancelledEvent = AdapterEventBase & {
+export type SourceTaskCancelledEvent = SourceEventBase & {
   type: "task.cancelled";
   reason?: string;
 };

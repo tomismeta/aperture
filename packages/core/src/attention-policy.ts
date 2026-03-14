@@ -3,13 +3,13 @@ import { inferToolFamily } from "./interaction-taxonomy.js";
 import type { JudgmentConfig } from "./judgment-config.js";
 import type { UserProfile } from "./profile-store.js";
 
-export type MinimumPresentation = "ambient" | "queue" | "active";
+export type AttentionPresentationFloor = "ambient" | "queue" | "active";
 
 export type AttentionPolicyVerdict = {
   autoApprove: boolean;
   mayInterrupt: boolean;
   requiresOperatorResponse: boolean;
-  minimumPresentation: MinimumPresentation;
+  minimumPresentation: AttentionPresentationFloor;
   rationale: string[];
 };
 
@@ -91,7 +91,7 @@ export class AttentionPolicy {
       && candidate.responseSpec.kind === "approval"
       && !requireContextExpansion;
 
-    const minimumPresentation = readMinimumPresentation(toolOverride?.defaultPresentation)
+    const minimumPresentation = readAttentionPresentationFloor(toolOverride?.defaultPresentation)
       ?? policyRule?.minimumPresentation
       ?? (requireContextExpansion ? "active" : undefined);
     const mayInterrupt = policyRule?.mayInterrupt;
@@ -203,7 +203,7 @@ function policyTagsForCandidate(candidate: InteractionCandidate): string[] {
   return tags;
 }
 
-function readMinimumPresentation(value: unknown): MinimumPresentation | undefined {
+function readAttentionPresentationFloor(value: unknown): AttentionPresentationFloor | undefined {
   switch (value) {
     case "ambient":
     case "queue":

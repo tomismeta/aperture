@@ -7,7 +7,7 @@ import {
   type AttentionSignalSummary,
   type AttentionState,
   type AttentionView,
-  type AdapterEvent,
+  type SourceEvent,
 } from "@aperture/core";
 
 import type { LearningPersistenceState } from "./learning-persistence.js";
@@ -64,8 +64,8 @@ export type ApertureRuntime = {
   close(): Promise<void>;
   getCore(): ApertureCore;
   hasAttachedSurface(): boolean;
-  publishAdapterEvent(event: AdapterEvent): void;
-  publishAdapterEventBatch(events: AdapterEvent[]): void;
+  publishSourceEvent(event: SourceEvent): void;
+  publishSourceEventBatch(events: SourceEvent[]): void;
 };
 
 type SurfaceSession = {
@@ -208,11 +208,11 @@ export function createApertureRuntime(
         return;
       }
 
-      if (req.method === "POST" && path === `${controlPathPrefix}/events/adapter`) {
-        const payload = (await readJson(req, bodyLimitBytes)) as { event?: AdapterEvent; events?: AdapterEvent[] } | AdapterEvent;
-        const events = normalizeAdapterEventPayload(payload);
+      if (req.method === "POST" && path === `${controlPathPrefix}/events/source`) {
+        const payload = (await readJson(req, bodyLimitBytes)) as { event?: SourceEvent; events?: SourceEvent[] } | SourceEvent;
+        const events = normalizeSourceEventPayload(payload);
         for (const event of events) {
-          core.publishAdapterEvent(event);
+          core.publishSourceEvent(event);
         }
         writeJson(res, 200, { published: events.length });
         return;
@@ -388,12 +388,12 @@ export function createApertureRuntime(
       pruneSurfaces();
       return surfaces.size > 0;
     },
-    publishAdapterEvent(event) {
-      core.publishAdapterEvent(event);
+    publishSourceEvent(event) {
+      core.publishSourceEvent(event);
     },
-    publishAdapterEventBatch(events) {
+    publishSourceEventBatch(events) {
       for (const event of events) {
-        core.publishAdapterEvent(event);
+        core.publishSourceEvent(event);
       }
     },
   };
@@ -449,18 +449,18 @@ export function createApertureRuntime(
   }
 }
 
-function normalizeAdapterEventPayload(
-  payload: { event?: AdapterEvent; events?: AdapterEvent[] } | AdapterEvent,
-): AdapterEvent[] {
-  if (Array.isArray((payload as { events?: AdapterEvent[] }).events)) {
-    return (payload as { events: AdapterEvent[] }).events;
+function normalizeSourceEventPayload(
+  payload: { event?: SourceEvent; events?: SourceEvent[] } | SourceEvent,
+): SourceEvent[] {
+  if (Array.isArray((payload as { events?: SourceEvent[] }).events)) {
+    return (payload as { events: SourceEvent[] }).events;
   }
 
-  if ((payload as { event?: AdapterEvent }).event) {
-    return [(payload as { event: AdapterEvent }).event];
+  if ((payload as { event?: SourceEvent }).event) {
+    return [(payload as { event: SourceEvent }).event];
   }
 
-  return [payload as AdapterEvent];
+  return [payload as SourceEvent];
 }
 
 function normalizePathPrefix(pathPrefix: string): string {

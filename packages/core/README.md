@@ -45,7 +45,7 @@ The public surface is centered on a few core concepts:
 The key public schemas are:
 
 - `ApertureEvent`
-- `AdapterEvent`
+- `SourceEvent`
 - `AttentionCandidate`
 - `AttentionFrame`
 - `AttentionResponse`

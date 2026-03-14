@@ -4,11 +4,15 @@ import type {
   ApertureTrace,
   AttentionCandidate,
   AttentionConsequenceLevel,
+  AttentionDecision,
+  AttentionDecisionContext,
+  AttentionDecisionExplanation,
   AttentionDeferredSignalCounts,
   AttentionFrame,
   AttentionFrameListener,
   AttentionPlanDecision,
   AttentionPlanningContext,
+  AttentionPresentationFloor,
   AttentionPolicyVerdict,
   AttentionPressure,
   AttentionResponse,
@@ -24,9 +28,8 @@ import type {
   AttentionValueBreakdown,
   AttentionView,
   AttentionViewListener,
-  AdapterEvent,
+  SourceEvent,
   JudgmentConfig,
-  JudgmentDecision,
   MemoryProfile,
   PlannerDefaults,
   TraceEvaluationReport,
@@ -41,7 +44,7 @@ void (0 as unknown as AttentionResponseListener);
 void (0 as unknown as AttentionSignalListener);
 void (0 as unknown as AttentionTraceListener);
 void (0 as unknown as ApertureEvent);
-void (0 as unknown as AdapterEvent);
+void (0 as unknown as SourceEvent);
 void (0 as unknown as AttentionCandidate);
 void (0 as unknown as AttentionFrame);
 void (0 as unknown as AttentionResponse);
@@ -55,8 +58,11 @@ void (0 as unknown as AttentionPolicyVerdict);
 void (0 as unknown as AttentionValueBreakdown);
 void (0 as unknown as AttentionPlanningContext);
 void (0 as unknown as AttentionPlanDecision);
+void (0 as unknown as AttentionPresentationFloor);
 void (0 as unknown as AttentionPressure);
-void (0 as unknown as JudgmentDecision);
+void (0 as unknown as AttentionDecision);
+void (0 as unknown as AttentionDecisionContext);
+void (0 as unknown as AttentionDecisionExplanation);
 void (0 as unknown as JudgmentConfig);
 void (0 as unknown as PlannerDefaults);
 void (0 as unknown as AttentionState);

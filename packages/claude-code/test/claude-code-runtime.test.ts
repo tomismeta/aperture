@@ -95,7 +95,7 @@ test("publishes an ambient fallback note when a held approval times out", async 
     preToolUsePolicy: () => (runtime.hasAttachedSurface() ? "hold" : "ask"),
     onPreToolUseFallback: (event, reason) => {
       if (reason === "timed_out" || reason === "not_held") {
-        runtime.getCore().publishAdapterEvent(fallbackEvent(event, reason));
+        runtime.getCore().publishSourceEvent(fallbackEvent(event, reason));
       }
     },
   });

@@ -30,7 +30,7 @@ async function main(): Promise<void> {
     preToolUsePolicy: () => (adapterClient.getSurfaceCount() > 0 ? "hold" : "ask"),
     onPreToolUseFallback: (event, reason) => {
       if (reason === "timed_out" || reason === "not_held") {
-        void adapterClient.publishAdapterEvent(claudeApprovalFallbackEvent(event, reason));
+        void adapterClient.publishSourceEvent(claudeApprovalFallbackEvent(event, reason));
       }
     },
   });

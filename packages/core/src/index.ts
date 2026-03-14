@@ -10,7 +10,7 @@ export type {
 } from "./aperture-core.js";
 
 export { AttentionPolicy } from "./attention-policy.js";
-export type { AttentionPolicyVerdict, MinimumPresentation } from "./attention-policy.js";
+export type { AttentionPolicyVerdict, AttentionPresentationFloor } from "./attention-policy.js";
 
 export { AttentionValue } from "./attention-value.js";
 export type {
@@ -29,9 +29,9 @@ export type {
 
 export { JudgmentCoordinator } from "./judgment-coordinator.js";
 export type {
-  JudgmentContext,
-  JudgmentDecision,
-  JudgmentExplanation,
+  AttentionDecisionContext,
+  AttentionDecision,
+  AttentionDecisionExplanation,
 } from "./judgment-coordinator.js";
 
 export {
@@ -46,7 +46,7 @@ export { evaluateTraceSession } from "./trace-evaluator.js";
 export type { TraceEvaluationReport } from "./trace-evaluator.js";
 
 export type * from "./events.js";
-export type * from "./adapter-event.js";
+export type * from "./source-event.js";
 export type {
   AttentionAction,
   AttentionAcknowledgeResponseSpec,

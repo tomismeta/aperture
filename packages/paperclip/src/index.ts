@@ -1,7 +1,7 @@
 import type {
   AttentionConsequenceLevel as ConsequenceLevel,
   AttentionResponse as FrameResponse,
-  AdapterEvent,
+  SourceEvent,
   SourceRef,
   TaskStatus,
 } from "@aperture/core";
@@ -53,7 +53,7 @@ export type PaperclipAction =
       };
     };
 
-export function mapPaperclipLiveEvent(event: PaperclipLiveEvent): AdapterEvent[] {
+export function mapPaperclipLiveEvent(event: PaperclipLiveEvent): SourceEvent[] {
   switch (event.type) {
     case "heartbeat.run.queued":
       return mapHeartbeatQueued(event);
@@ -118,7 +118,7 @@ export function mapPaperclipFrameResponse(response: FrameResponse): PaperclipAct
   }
 }
 
-function mapHeartbeatQueued(event: PaperclipLiveEvent): AdapterEvent[] {
+function mapHeartbeatQueued(event: PaperclipLiveEvent): SourceEvent[] {
   const payload = event.payload;
   const runId = readString(payload.runId);
   if (!runId) {
@@ -138,7 +138,7 @@ function mapHeartbeatQueued(event: PaperclipLiveEvent): AdapterEvent[] {
   ];
 }
 
-function mapHeartbeatStatus(event: PaperclipLiveEvent): AdapterEvent[] {
+function mapHeartbeatStatus(event: PaperclipLiveEvent): SourceEvent[] {
   const payload = event.payload;
   const runId = readString(payload.runId);
   const status = readString(payload.status);
@@ -217,7 +217,7 @@ function mapHeartbeatStatus(event: PaperclipLiveEvent): AdapterEvent[] {
   }
 }
 
-function mapActivity(event: PaperclipLiveEvent): AdapterEvent[] {
+function mapActivity(event: PaperclipLiveEvent): SourceEvent[] {
   const payload = event.payload;
   const entityType = readString(payload.entityType);
   const entityId = readString(payload.entityId);
@@ -244,7 +244,7 @@ function mapApprovalActivity(
   approvalId: string,
   action: string,
   details: Record<string, unknown> | null,
-): AdapterEvent[] {
+): SourceEvent[] {
   const taskId = approvalTaskId(approvalId);
   const approvalType = readString(details?.type);
   const issueIds = readStringArray(details?.issueIds) ?? readStringArray(details?.linkedIssueIds) ?? [];
@@ -320,7 +320,7 @@ function mapIssueActivity(
   issueId: string,
   action: string,
   details: Record<string, unknown> | null,
-): AdapterEvent[] {
+): SourceEvent[] {
   const source = sourceRef(readString(event.payload.agentId), "issue");
   const description = readString(details?.description);
   const title =

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import type { AttentionResponse as FrameResponse, AdapterEvent } from "@aperture/core";
+import type { AttentionResponse as FrameResponse, SourceEvent } from "@aperture/core";
 
 import {
   createCodexAdapter,
@@ -9,10 +9,10 @@ import {
 } from "../src/index.js";
 
 test("Codex adapter publishes approval requests into the host", async () => {
-  const published: AdapterEvent[] = [];
+  const published: SourceEvent[] = [];
   const responses: unknown[] = [];
   const host = createHost({
-    publishAdapterEvent(event) {
+    publishSourceEvent(event) {
       published.push(event);
     },
   });
@@ -107,17 +107,17 @@ async function waitFor<T>(
 }
 
 function createHost(overrides: {
-  publishAdapterEvent?(event: AdapterEvent): void;
+  publishSourceEvent?(event: SourceEvent): void;
 } = {}) {
   const listeners = new Set<(response: FrameResponse) => void>();
 
   return {
-    publishAdapterEvent(event: AdapterEvent) {
-      overrides.publishAdapterEvent?.(event);
+    publishSourceEvent(event: SourceEvent) {
+      overrides.publishSourceEvent?.(event);
     },
-    publishAdapterEventBatch(events: AdapterEvent[]) {
+    publishSourceEventBatch(events: SourceEvent[]) {
       for (const event of events) {
-        overrides.publishAdapterEvent?.(event);
+        overrides.publishSourceEvent?.(event);
       }
     },
     onResponse(listener: (response: FrameResponse) => void) {

@@ -1,7 +1,7 @@
 import type {
   AttentionResponse,
   AttentionView,
-  AdapterEvent,
+  SourceEvent,
 } from "@aperture/core";
 
 import type { ApertureRuntimeEvent, ApertureRuntimeSnapshot } from "./runtime.js";
@@ -102,16 +102,16 @@ export class ApertureRuntimeAdapterClient {
     };
   }
 
-  async publishAdapterEvent(event: AdapterEvent): Promise<void> {
-    await this.post("/events/adapter", { event });
+  async publishSourceEvent(event: SourceEvent): Promise<void> {
+    await this.post("/events/source", { event });
     await this.refreshState();
   }
 
-  async publishAdapterEventBatch(events: AdapterEvent[]): Promise<void> {
+  async publishSourceEventBatch(events: SourceEvent[]): Promise<void> {
     if (events.length === 0) {
       return;
     }
-    await this.post("/events/adapter", { events });
+    await this.post("/events/source", { events });
     await this.refreshState();
   }
 

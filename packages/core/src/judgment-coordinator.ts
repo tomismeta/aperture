@@ -9,7 +9,7 @@ import { AttentionPlanner } from "./attention-planner.js";
 import type { SignalSummary } from "./signal-summary.js";
 import { AttentionValue, type AttentionValueBreakdown } from "./attention-value.js";
 
-export type JudgmentDecision =
+export type AttentionDecision =
   | { kind: "auto_approve"; candidate: InteractionCandidate; response: AttentionResponse }
   | { kind: "activate"; candidate: InteractionCandidate }
   | { kind: "queue"; candidate: InteractionCandidate }
@@ -17,8 +17,8 @@ export type JudgmentDecision =
   | { kind: "keep"; frame: Frame | null }
   | { kind: "clear" };
 
-export type JudgmentExplanation = {
-  decision: JudgmentDecision;
+export type AttentionDecisionExplanation = {
+  decision: AttentionDecision;
   policy: AttentionPolicyVerdict;
   utility: AttentionValueBreakdown;
   pressureForecast: AttentionPressure;
@@ -28,7 +28,7 @@ export type JudgmentExplanation = {
   reasons: string[];
 };
 
-export type JudgmentContext = {
+export type AttentionDecisionContext = {
   attentionView?: AttentionView;
   taskSummary?: SignalSummary;
   globalSummary?: SignalSummary;
@@ -53,16 +53,16 @@ export class JudgmentCoordinator {
   coordinate(
     current: Frame | null,
     candidate: InteractionCandidate,
-    context: JudgmentContext = {},
-  ): JudgmentDecision {
+    context: AttentionDecisionContext = {},
+  ): AttentionDecision {
     return this.explain(current, candidate, context).decision;
   }
 
   explain(
     current: Frame | null,
     candidate: InteractionCandidate,
-    context: JudgmentContext = {},
-  ): JudgmentExplanation {
+    context: AttentionDecisionContext = {},
+  ): AttentionDecisionExplanation {
     const policy = this.policyGates.evaluate(candidate);
     const utility = this.utilityScore.scoreCandidate(candidate);
     const currentScore = current ? scoreFrame(current, { now: candidate.timestamp }) : null;
@@ -118,7 +118,7 @@ export class JudgmentCoordinator {
     };
   }
 
-  clear(): JudgmentDecision {
+  clear(): AttentionDecision {
     return this.queuePlanner.clear();
   }
 }

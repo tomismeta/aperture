@@ -23,6 +23,9 @@ test("@aperture/core exposes the intended public SDK surface", () => {
   assert.equal("buildMemoryProfile" in sdk, false);
   assert.equal("scoreFrame" in sdk, false);
   assert.equal("serializeJudgmentConfig" in sdk, false);
+  assert.equal("AdapterEvent" in sdk, false);
+  assert.equal("MinimumPresentation" in sdk, false);
+  assert.equal("JudgmentDecision" in sdk, false);
   assert.equal("APERTURE_STATE_SCHEMA_VERSION" in sdk, false);
   assert.equal("MARKDOWN_SCHEMA_VERSION" in sdk, false);
 });

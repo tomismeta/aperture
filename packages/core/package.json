@@ -41,7 +41,7 @@
     }
   },
   "scripts": {
-    "build": "node -e \"const fs=require('node:fs'); fs.rmSync('dist',{recursive:true,force:true}); fs.rmSync('tsconfig.tsbuildinfo',{force:true});\" && tsc -b",
+    "build": "node -e \"const fs=require('node:fs'); fs.rmSync('dist',{recursive:true,force:true}); fs.rmSync('tsconfig.tsbuildinfo',{force:true});\" && tsc -p tsconfig.json",
     "prepack": "pnpm run build"
   },
   "sideEffects": false

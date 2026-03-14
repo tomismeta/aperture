@@ -5,7 +5,7 @@
 In the current product shape:
 
 - `@aperture/runtime` owns the live `ApertureCore`
-- `@aperture/paperclip` maps Paperclip events into `AdapterEvent`
+- `@aperture/paperclip` maps Paperclip events into `SourceEvent`
 - the runtime consumes those events and emits `AttentionResponse`
 - `@aperture/paperclip` maps those responses back into Paperclip actions
 
@@ -20,7 +20,7 @@ It is intentionally split into two parts:
 
 Ingress:
 
-- `PaperclipLiveEvent -> AdapterEvent[]`
+- `PaperclipLiveEvent -> SourceEvent[]`
 
 Egress:
 
@@ -84,7 +84,7 @@ for await (const liveEvent of streamPaperclipLiveEvents("company-id", {
   headers: { Authorization: "Bearer token" },
 })) {
   for (const event of mapPaperclipLiveEvent(liveEvent)) {
-    core.publishAdapterEvent(event);
+    core.publishSourceEvent(event);
   }
 }
 
@@ -102,7 +102,7 @@ core.onResponse(async (response) => {
 That integration path uses:
 
 - `streamPaperclipLiveEvents(...)` for ingress
-- `mapPaperclipLiveEvent(...)` into `AdapterEvent`
+- `mapPaperclipLiveEvent(...)` into `SourceEvent`
 - `ApertureCore` for semantic normalization and attention decisions
 - `mapPaperclipFrameResponse(...)` back to Paperclip actions from `AttentionResponse`
 - `executePaperclipAction(...)` for egress

@@ -91,7 +91,7 @@ What is true today:
 
 #### Package Surface
 
-Status: `SDK-ready`
+Status: `published`
 
 What is true today:
 
@@ -101,11 +101,7 @@ What is true today:
 - the SDK path is documented
 - external consumers can install a packed tarball and run both full-engine and judgment-primitive examples
 - package metadata and tarball contents are now curated for first release
-
-What is not true yet:
-
-- the package is not yet published
-- first-release versioning and release notes are still a decision, not a settled policy
+- `@tomismeta/aperture-core@0.1.0` is published on npm
 
 ## The Maturity Ladder
 
@@ -167,13 +163,13 @@ Definitions:
 
 Current placement:
 
-- `@tomismeta/aperture-core`: `SDK-ready`
+- `@tomismeta/aperture-core`: `published`
 
-The next target is `published`.
+The next target is adoption and iteration.
 
 ## What SDK-Ready Should Mean
 
-Before npm publishing, Aperture should prove the core package in one small external integration and tighten the artifact itself.
+Before and through npm publishing, Aperture should prove the core package in one small external integration and keep tightening the artifact itself.
 
 That should mean:
 
@@ -188,7 +184,7 @@ This is the right step because it reveals real API friction and packaging sloppi
 
 ## Publish Gates For `@tomismeta/aperture-core`
 
-`@tomismeta/aperture-core` should not be published until all of these are true:
+These were the gates for the first publish:
 
 1. the exported API is intentionally narrow and documented
 2. one external consumer has already exercised the package successfully
@@ -203,23 +199,20 @@ That keeps publishing as a packaging milestone, not a speculative branding move.
 
 Ordered by leverage:
 
-1. **Decide first release posture**
-   - versioning and release notes
-   - explicit non-goals for the first public package
-
-2. **Keep Claude Code as the flagship live adapter**
+1. **Keep Claude Code as the flagship live adapter**
    - keep one path obviously working while the substrate matures
 
-3. **Choose the second real source**
+2. **Choose the second real source**
    - Paperclip or Codex, based on actual demand and access
 
-4. **Keep package-facing examples healthy**
+3. **Keep package-facing examples healthy**
    - one full-engine example
    - one judgment-primitive example
 
-5. **Make the publish/no-publish decision deliberately**
-   - package metadata is ready
-   - publish is now a product choice, not a packaging scramble
+4. **Support the published package deliberately**
+   - tag releases cleanly
+   - keep the README and npm-facing docs honest
+   - harden based on real consumer friction
 
 ## What To Avoid
 
@@ -234,7 +227,7 @@ To keep the productization path clean:
 
 If we have limited time and limited live adapter demand, the best technical productization move is:
 
-**decide whether to publish `@tomismeta/aperture-core` now that it is SDK-ready**
+**support `@tomismeta/aperture-core` as a published SDK while keeping the judgment engine itself moving**
 
 That is the closest, most controllable maturity step:
 

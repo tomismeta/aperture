@@ -141,7 +141,7 @@ This is the main product path today.
 
 Use the core engine directly when you already control the event source and want attention judgment inside your own app or service.
 
-Once `@tomismeta/aperture-core` is published to npm, install it with:
+Install it from npm:
 
 ```bash
 npm install @tomismeta/aperture-core
@@ -161,6 +161,8 @@ The flow is:
 `raw source payload → SourceEvent → core judgment → attention surface → human response → new signals`
 
 ## Using Core Directly
+
+`@tomismeta/aperture-core` is now published on npm for embeddable judgment use.
 
 If you already own the source event stream, you can use it directly:
 

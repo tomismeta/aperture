@@ -1,10 +1,12 @@
-# `@tomismeta/aperture-core`
+# Aperture Core SDK
 
 Deterministic, self-tuning attention judgment for agent systems.
 
-`@tomismeta/aperture-core` is for runtimes that need to decide what deserves human attention now, what should wait, and what can stay in the background as agent activity competes for limited human focus.
+Published on npm as `@tomismeta/aperture-core`.
 
-`@tomismeta/aperture-core` is the SDK substrate behind Aperture. It contains the judgment engine, the learning loop, and the stable types needed to embed Aperture inside another runtime without depending on the local host or TUI.
+The Aperture core SDK is for runtimes that need to decide what deserves human attention now, what should wait, and what can stay in the background as agent activity competes for limited human focus.
+
+The Aperture core SDK is the SDK substrate behind Aperture. It contains the judgment engine, the learning loop, and the stable types needed to embed Aperture inside another runtime without depending on the local host or TUI.
 
 This package is ESM-only and requires Node.js 18+.
 
@@ -72,7 +74,7 @@ pnpm sdk:prove
 
 That command:
 
-- builds `@tomismeta/aperture-core`
+- builds the Aperture core SDK package
 - packs it into a tarball
 - installs it into temporary consumer projects
 - runs both examples outside monorepo import assumptions
@@ -162,7 +164,7 @@ That means SDK consumers can:
 
 ## Design Principles
 
-`@tomismeta/aperture-core` is intended to stay:
+The Aperture core SDK is intended to stay:
 
 - small-footprint
 - zero-runtime-dependency

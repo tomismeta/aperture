@@ -19,7 +19,7 @@ The package path should broaden distribution, not redefine the product.
 
 ## Current State
 
-Today, the real judgment layer already lives in [@tomismeta/aperture-core](../packages/core/package.json):
+Today, the real judgment layer already lives in the [Aperture core SDK package](../packages/core/package.json), published on npm as `@tomismeta/aperture-core`:
 
 - `ApertureCore`
 - `AttentionPolicy`
@@ -54,7 +54,7 @@ The right package surface should expose judgment constructs, not internal implem
 
 ## Intended Package Shapes
 
-### `@tomismeta/aperture-core`
+### Aperture Core SDK
 
 This should be the main public SDK package.
 
@@ -166,9 +166,9 @@ The package contract should be about learning persistence, not Markdown as a pro
 
 To keep the SDK clean:
 
-- `@tomismeta/aperture-core` must remain adapter-agnostic
-- `@tomismeta/aperture-core` must not depend on `@aperture/runtime`
-- `@tomismeta/aperture-core` must not depend on the TUI
+- the Aperture core SDK package must remain adapter-agnostic
+- the Aperture core SDK package must not depend on `@aperture/runtime`
+- the Aperture core SDK package must not depend on the TUI
 - adapters should continue to translate source-specific events into Aperture contracts
 - the runtime should continue to be just one host around core, not the only way to use it
 
@@ -176,7 +176,7 @@ To keep the SDK clean:
 
 ### Milestone 1: Public Export Surface
 
-- remove `private: true` from `@tomismeta/aperture-core`
+- remove `private: true` from the Aperture core SDK package
 - keep the stable judgment primitives exported and treat them as the intended package contract
 - add a package README
 - add one basic SDK example
@@ -204,7 +204,7 @@ Status:
 Status:
 
 - built
-- `@tomismeta/aperture-core` now has package metadata, a package-local license, and a `files` whitelist
+- the Aperture core SDK package now has package metadata, a package-local license, and a `files` whitelist
 - `pnpm sdk:prove` verifies both external consumption and tarball shape
 - `@tomismeta/aperture-core@0.1.0` is published on npm
 
@@ -212,7 +212,7 @@ Status:
 
 The SDK path is successful when:
 
-- another runtime can install `@tomismeta/aperture-core` and use it without vendoring the repo
+- another runtime can install the Aperture core SDK package and use it without vendoring the repo
 - the same deterministic judgment stack works both in Aperture's own runtime and in an embedded host
 - the learning loop still works outside the built-in runtime host
 - Aperture remains clearly positioned as the judgment substrate, not as a generic agent framework

@@ -69,12 +69,12 @@ Aperture exists to answer that in the hot path, without turning every judgment i
 
 What is real on `main` today:
 
-- `@tomismeta/aperture-core` is the judgment engine
+- the Aperture core SDK (`@tomismeta/aperture-core`) is the judgment engine
 - `@aperture/runtime` hosts one live shared core for adapters and surfaces
 - `@aperture/tui` is the terminal-native attention surface
 - `@aperture/claude-code` is the current end-to-end live adapter path
 - `@aperture/codex` and `@aperture/paperclip` provide mapping layers today, with different transport maturity
-- `@tomismeta/aperture-core` now exposes the main judgment primitives for future SDK use
+- the Aperture core SDK now exposes the main judgment primitives for future SDK use
 - the default runtime uses local learning persistence through `.aperture/MEMORY.md` and a scaffolded `.aperture/JUDGMENT.md`
 - `USER.md`, `MEMORY.md`, and `JUDGMENT.md` remain the broader core judgment-state model, even though `MEMORY.md` and `JUDGMENT.md` are the live default local surfaces today
 
@@ -137,11 +137,11 @@ Use the shared runtime, Claude adapter, and TUI when you want a working local at
 
 This is the main product path today.
 
-### 2. Embed `@tomismeta/aperture-core`
+### 2. Embed The Aperture Core SDK
 
 Use the core engine directly when you already control the event source and want attention judgment inside your own app or service.
 
-Install it from npm:
+Install it from npm as `@tomismeta/aperture-core`:
 
 ```bash
 npm install @tomismeta/aperture-core
@@ -151,7 +151,7 @@ You publish `ApertureEvent` or `SourceEvent` values and consume `AttentionView`.
 
 ## Architecture
 
-- `@tomismeta/aperture-core`: deterministic judgment engine
+- Aperture core SDK (`@tomismeta/aperture-core`): deterministic judgment engine
 - `@aperture/runtime`: shared local host for one live `ApertureCore`
 - `@aperture/claude-code`, `@aperture/codex`, `@aperture/paperclip`: source adapters
 - `@aperture/tui`: source-agnostic terminal surface
@@ -162,7 +162,7 @@ The flow is:
 
 ## Using Core Directly
 
-`@tomismeta/aperture-core` is now published on npm for embeddable judgment use.
+The Aperture core SDK is now published on npm as `@tomismeta/aperture-core` for embeddable judgment use.
 
 If you already own the source event stream, you can use it directly:
 

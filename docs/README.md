@@ -21,6 +21,7 @@ Reference docs:
 - [Attention Frame](frame.md)
 - [Codex Adapter](codex.md)
 - [OpenCode Integration](opencode-integration.md)
+- [OpenCode Implementation Plan](opencode-implementation-plan.md)
 - [Paperclip Adapter](paperclip.md)
 - [TUI Design](tui-design.md)
 - [Engine Roadmap](engine-roadmap.md)

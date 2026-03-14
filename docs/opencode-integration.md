@@ -4,6 +4,8 @@ This document describes how Aperture should integrate with [OpenCode](https://gi
 
 **the integration must require zero OpenCode changes.**
 
+For the milestone and PR sequence that follows from this design, see [OpenCode Implementation Plan](./opencode-implementation-plan.md).
+
 That means:
 
 - OpenCode remains the agent runtime

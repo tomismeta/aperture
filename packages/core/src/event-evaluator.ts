@@ -4,16 +4,16 @@ import type {
   TaskUpdatedEvent,
 } from "./events.js";
 import type {
-  AttentionAcknowledgeResponseSpec as AcknowledgeResponseSpec,
-  AttentionAction as FrameAction,
-  AttentionChoiceResponseSpec as ChoiceResponseSpec,
-  AttentionFormResponseSpec as FormResponseSpec,
+  AttentionAcknowledgeResponseSpec,
+  AttentionAction,
+  AttentionApprovalResponseSpec,
+  AttentionChoiceResponseSpec,
+  AttentionFormResponseSpec,
 } from "./frame.js";
-
-import type { InteractionCandidate } from "./interaction-candidate.js";
+import type { AttentionCandidate } from "./interaction-candidate.js";
 
 export type EvaluationResult =
-  | { kind: "candidate"; candidate: InteractionCandidate }
+  | { kind: "candidate"; candidate: AttentionCandidate }
   | { kind: "clear"; taskId: string }
   | { kind: "noop"; taskId: string };
 
@@ -57,7 +57,7 @@ export class EventEvaluator {
     }
   }
 
-  private evaluateTaskUpdate(event: TaskUpdatedEvent): InteractionCandidate {
+  private evaluateTaskUpdate(event: TaskUpdatedEvent): AttentionCandidate {
     const priority = this.priorityForStatus(event.status);
     const tone = this.toneForStatus(event.status);
     const consequence = this.consequenceForStatus(event.status);
@@ -97,7 +97,7 @@ export class EventEvaluator {
     };
   }
 
-  private evaluateHumanInput(event: HumanInputRequestedEvent): InteractionCandidate {
+  private evaluateHumanInput(event: HumanInputRequestedEvent): AttentionCandidate {
     const actions = this.createActions(event);
     const responseSpec = this.createResponseSpec(event, actions);
 
@@ -122,7 +122,7 @@ export class EventEvaluator {
 
   private priorityForHumanInput(
     event: HumanInputRequestedEvent,
-  ): InteractionCandidate["priority"] {
+  ): AttentionCandidate["priority"] {
     if (event.request.kind === "approval" && event.consequence === "low") {
       return "normal";
     }
@@ -130,7 +130,7 @@ export class EventEvaluator {
     return "high";
   }
 
-  private createActions(event: HumanInputRequestedEvent): FrameAction[] {
+  private createActions(event: HumanInputRequestedEvent): AttentionAction[] {
     switch (event.request.kind) {
       case "approval":
         return [
@@ -148,8 +148,8 @@ export class EventEvaluator {
 
   private createResponseSpec(
     event: HumanInputRequestedEvent,
-    actions: FrameAction[],
-  ): ChoiceResponseSpec | FormResponseSpec | { kind: "approval"; actions: FrameAction[]; requireReason?: boolean } {
+    actions: AttentionAction[],
+  ): AttentionChoiceResponseSpec | AttentionFormResponseSpec | AttentionApprovalResponseSpec {
     switch (event.request.kind) {
       case "approval":
         return event.request.requireReason !== undefined
@@ -178,7 +178,9 @@ export class EventEvaluator {
     }
   }
 
-  private responseSpecForStatus(status: TaskUpdatedEvent["status"]): AcknowledgeResponseSpec | { kind: "none" } {
+  private responseSpecForStatus(
+    status: TaskUpdatedEvent["status"],
+  ): AttentionAcknowledgeResponseSpec | { kind: "none" } {
     switch (status) {
       case "blocked":
       case "failed":
@@ -200,7 +202,7 @@ export class EventEvaluator {
     }
   }
 
-  private priorityForStatus(status: TaskUpdatedEvent["status"]): InteractionCandidate["priority"] {
+  private priorityForStatus(status: TaskUpdatedEvent["status"]): AttentionCandidate["priority"] {
     switch (status) {
       case "blocked":
         return "normal";
@@ -213,7 +215,7 @@ export class EventEvaluator {
     }
   }
 
-  private toneForStatus(status: TaskUpdatedEvent["status"]): InteractionCandidate["tone"] {
+  private toneForStatus(status: TaskUpdatedEvent["status"]): AttentionCandidate["tone"] {
     switch (status) {
       case "blocked":
         return "focused";
@@ -226,7 +228,7 @@ export class EventEvaluator {
     }
   }
 
-  private consequenceForStatus(status: TaskUpdatedEvent["status"]): InteractionCandidate["consequence"] {
+  private consequenceForStatus(status: TaskUpdatedEvent["status"]): AttentionCandidate["consequence"] {
     switch (status) {
       case "blocked":
         return "medium";

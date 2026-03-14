@@ -1,4 +1,4 @@
-import type { InteractionCandidate } from "./interaction-candidate.js";
+import type { AttentionCandidate } from "./interaction-candidate.js";
 import { inferToolFamily } from "./interaction-taxonomy.js";
 import type { JudgmentConfig } from "./judgment-config.js";
 import type { UserProfile } from "./profile-store.js";
@@ -27,7 +27,7 @@ export class AttentionPolicy {
     this.userProfile = options.userProfile;
   }
 
-  evaluate(candidate: InteractionCandidate): AttentionPolicyVerdict {
+  evaluate(candidate: AttentionCandidate): AttentionPolicyVerdict {
     const configured = this.configuredVerdict(candidate);
     if (configured) {
       return configured;
@@ -76,7 +76,7 @@ export class AttentionPolicy {
     };
   }
 
-  private configuredVerdict(candidate: InteractionCandidate): AttentionPolicyVerdict | null {
+  private configuredVerdict(candidate: AttentionCandidate): AttentionPolicyVerdict | null {
     const toolFamily = inferToolFamily(candidate);
     const toolOverride = toolFamily
       ? this.userProfile?.overrides?.tools?.[toolFamily]
@@ -151,7 +151,7 @@ export class AttentionPolicy {
     };
   }
 
-  private matchPolicyRule(candidate: InteractionCandidate) {
+  private matchPolicyRule(candidate: AttentionCandidate) {
     const policy = this.judgmentConfig?.policy;
     if (!policy) {
       return undefined;
@@ -169,7 +169,7 @@ export class AttentionPolicy {
   }
 }
 
-function policyTagsForCandidate(candidate: InteractionCandidate): string[] {
+function policyTagsForCandidate(candidate: AttentionCandidate): string[] {
   const tags: string[] = [];
   const toolFamily = inferToolFamily(candidate);
   const value = [

@@ -1,15 +1,14 @@
-import type { AttentionSignal as InteractionSignal } from "./interaction-signal.js";
-
-import type { SignalSummary } from "./signal-summary.js";
+import type { AttentionSignal } from "./interaction-signal.js";
+import type { AttentionSignalSummary } from "./signal-summary.js";
 
 export class AttentionSignalStore {
   private static readonly RECENT_SIGNAL_LIMIT = 32;
   private static readonly RECENT_WINDOW_MS = 30 * 60 * 1000;
   private static readonly MAX_RETAINED_SIGNALS = 256;
 
-  private readonly byTaskId = new Map<string, InteractionSignal[]>();
+  private readonly byTaskId = new Map<string, AttentionSignal[]>();
 
-  record(signal: InteractionSignal): void {
+  record(signal: AttentionSignal): void {
     const current = this.byTaskId.get(signal.taskId) ?? [];
     const next = [...current, signal];
     this.byTaskId.set(
@@ -20,7 +19,7 @@ export class AttentionSignalStore {
     );
   }
 
-  list(taskId?: string): InteractionSignal[] {
+  list(taskId?: string): AttentionSignal[] {
     if (taskId !== undefined) {
       return [...(this.byTaskId.get(taskId) ?? [])];
     }
@@ -30,7 +29,7 @@ export class AttentionSignalStore {
       .sort((left, right) => left.timestamp.localeCompare(right.timestamp));
   }
 
-  summarize(taskId?: string): SignalSummary {
+  summarize(taskId?: string): AttentionSignalSummary {
     const signals = this.list(taskId);
     const recentSignals = this.recentSignals(signals);
     const counts = {
@@ -117,7 +116,7 @@ export class AttentionSignalStore {
     };
   }
 
-  private recentSignals(signals: InteractionSignal[]): InteractionSignal[] {
+  private recentSignals(signals: AttentionSignal[]): AttentionSignal[] {
     const bounded = signals.slice(-AttentionSignalStore.RECENT_SIGNAL_LIMIT);
     const latestTimestamp = bounded[bounded.length - 1]?.timestamp;
 

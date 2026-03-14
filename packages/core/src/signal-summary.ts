@@ -10,15 +10,12 @@ export type AttentionSignalCounts = {
   returned: number;
   attentionShifted: number;
 };
-export type SignalCounts = AttentionSignalCounts;
 
 export type AttentionDeferredSignalCounts = {
   queued: number;
   suppressed: number;
   manual: number;
 };
-export type DeferredSignalCounts = AttentionDeferredSignalCounts;
-export type DeferredCounts = AttentionDeferredSignalCounts;
 
 export type AttentionSignalSummary = {
   recentSignals: number;
@@ -31,4 +28,3 @@ export type AttentionSignalSummary = {
   averageDismissalLatencyMs: number | null;
   lastSignalAt: string | null;
 };
-export type SignalSummary = AttentionSignalSummary;

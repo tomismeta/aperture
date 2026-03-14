@@ -1,13 +1,13 @@
-import type { Frame } from "./frame.js";
-import type { InteractionCandidate } from "./interaction-candidate.js";
-import type { InteractionSignal } from "./interaction-signal.js";
+import type { AttentionFrame } from "./frame.js";
+import type { AttentionCandidate } from "./interaction-candidate.js";
+import type { AttentionSignal } from "./interaction-signal.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
 import { inferToolFamily, sourceKey } from "./interaction-taxonomy.js";
 import type { MemoryProfile } from "./profile-store.js";
 
 export function distillMemoryProfile(
   baseMemoryProfile: MemoryProfile,
-  signals: InteractionSignal[],
+  signals: AttentionSignal[],
   now: string,
 ): MemoryProfile {
   const toolFamilies = toolFamilyMemory(baseMemoryProfile, signals);
@@ -25,9 +25,7 @@ export function distillMemoryProfile(
   };
 }
 
-export const buildMemoryProfile = distillMemoryProfile;
-
-export function signalMetadataForFrame(frame: Frame): Record<string, unknown> {
+export function signalMetadataForFrame(frame: AttentionFrame): Record<string, unknown> {
   const metadata: Record<string, unknown> = {
     consequence: frame.consequence,
   };
@@ -45,7 +43,7 @@ export function signalMetadataForFrame(frame: Frame): Record<string, unknown> {
   return metadata;
 }
 
-export function signalMetadataForCandidate(candidate: InteractionCandidate): Record<string, unknown> {
+export function signalMetadataForCandidate(candidate: AttentionCandidate): Record<string, unknown> {
   const metadata: Record<string, unknown> = {
     consequence: candidate.consequence,
   };
@@ -65,7 +63,7 @@ export function signalMetadataForCandidate(candidate: InteractionCandidate): Rec
 
 function toolFamilyMemory(
   baseMemoryProfile: MemoryProfile,
-  signals: InteractionSignal[],
+  signals: AttentionSignal[],
 ): NonNullable<MemoryProfile["toolFamilies"]> {
   const next = { ...(baseMemoryProfile.toolFamilies ?? {}) };
   const session = new Map<string, {
@@ -253,7 +251,7 @@ function toolFamilyMemory(
 
 function sourceTrustMemory(
   baseMemoryProfile: MemoryProfile,
-  signals: InteractionSignal[],
+  signals: AttentionSignal[],
 ): NonNullable<MemoryProfile["sourceTrust"]> {
   const next = structuredClone(baseMemoryProfile.sourceTrust ?? {});
   const interactions = new Map<string, {
@@ -324,7 +322,7 @@ function sourceTrustMemory(
 
 function consequenceMemory(
   baseMemoryProfile: MemoryProfile,
-  signals: InteractionSignal[],
+  signals: AttentionSignal[],
 ): NonNullable<MemoryProfile["consequenceProfiles"]> {
   const next = { ...(baseMemoryProfile.consequenceProfiles ?? {}) };
   const interactions = new Map<string, { consequence: "low" | "medium" | "high"; rejected: boolean }>();

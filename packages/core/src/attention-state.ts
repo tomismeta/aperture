@@ -1,8 +1,8 @@
-import type { SignalSummary } from "./signal-summary.js";
+import type { AttentionSignalSummary } from "./signal-summary.js";
 
 export type AttentionState = "engaged" | "hesitating" | "monitoring" | "avoiding" | "overloaded";
 
-export function deriveAttentionState(summary: SignalSummary): AttentionState {
+export function deriveAttentionState(summary: AttentionSignalSummary): AttentionState {
   const enoughPresentedForPattern = summary.counts.presented >= 5;
   const enoughObservedForPressure = summary.counts.presented + summary.counts.deferred >= 5;
 

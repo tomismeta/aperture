@@ -1,6 +1,6 @@
-import type { AttentionView, Frame } from "./frame.js";
+import type { AttentionFrame, AttentionView } from "./frame.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
-import type { SignalSummary } from "./signal-summary.js";
+import type { AttentionSignalSummary } from "./signal-summary.js";
 
 export type AttentionPressure = {
   level: "steady" | "elevated" | "high";
@@ -17,7 +17,7 @@ export type AttentionPressure = {
 };
 
 export function forecastAttentionPressure(
-  summary?: SignalSummary,
+  summary?: AttentionSignalSummary,
   attentionView?: AttentionView,
 ): AttentionPressure {
   const recentDemand =
@@ -125,11 +125,11 @@ function countInterruptiveVisible(attentionView?: AttentionView): number {
   }
 
   return [attentionView.active, ...attentionView.queued]
-    .filter((frame): frame is Frame => frame !== null)
+    .filter((frame): frame is AttentionFrame => frame !== null)
     .filter(isInterruptive)
     .length;
 }
 
-function isInterruptive(frame: Frame): boolean {
+function isInterruptive(frame: AttentionFrame): boolean {
   return frame.mode !== "status" || frame.consequence === "high" || frame.tone === "critical";
 }

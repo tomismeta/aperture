@@ -1,10 +1,10 @@
-import type { AttentionFrame as Frame } from "./frame.js";
+import type { AttentionFrame } from "./frame.js";
 
 import { scoreCandidate } from "./frame-score.js";
-import type { InteractionCandidate } from "./interaction-candidate.js";
+import type { AttentionCandidate } from "./interaction-candidate.js";
 
 export class FramePlanner {
-  plan(candidate: InteractionCandidate, current: Frame | null): Frame {
+  plan(candidate: AttentionCandidate, current: AttentionFrame | null): AttentionFrame {
     const isUpdate = current?.interactionId === candidate.interactionId;
     const currentAttention = current?.metadata?.attention;
     const nextAttention = {

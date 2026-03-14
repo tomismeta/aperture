@@ -1,6 +1,6 @@
-import type { AttentionFrame as Frame, AttentionTaskView as TaskView, AttentionView } from "./frame.js";
+import type { AttentionFrame, AttentionTaskView, AttentionView } from "./frame.js";
 import type { AttentionState } from "./attention-state.js";
-import { scoreFrame } from "./frame-score.js";
+import { scoreAttentionFrame } from "./frame-score.js";
 
 type AttentionViewOptions = {
   globalAttentionState?: AttentionState;
@@ -8,11 +8,11 @@ type AttentionViewOptions = {
 };
 
 export function buildAttentionView(
-  taskViews: Iterable<TaskView>,
+  taskViews: Iterable<AttentionTaskView>,
   options: AttentionViewOptions = {},
 ): AttentionView {
-  let interruptive: Frame[] = [];
-  let ambient: Frame[] = [];
+  let interruptive: AttentionFrame[] = [];
+  let ambient: AttentionFrame[] = [];
 
   for (const taskView of taskViews) {
     if (taskView.active) {
@@ -29,11 +29,11 @@ export function buildAttentionView(
 
   const referenceNow = options.now ?? latestTimestamp([...interruptive, ...ambient]);
   if (countUrgentFrames([...interruptive, ...ambient]) >= 2) {
-    const promotedInterruptive: Frame[] = [];
-    const demotedAmbient: Frame[] = [];
+    const promotedInterruptive: AttentionFrame[] = [];
+    const demotedAmbient: AttentionFrame[] = [];
 
     for (const frame of interruptive) {
-      if (!isUrgent(frame) && scoreFrame(frame, { now: referenceNow }) < 200) {
+      if (!isUrgent(frame) && scoreAttentionFrame(frame, { now: referenceNow }) < 200) {
         demotedAmbient.push(frame);
       } else {
         promotedInterruptive.push(frame);
@@ -59,8 +59,9 @@ export function buildAttentionView(
     const [active, ...rest] = ambient;
     if (
       active &&
-      (scoreFrame(active, { now: referenceNow }) <= 0 ||
-        (options.globalAttentionState === "overloaded" && scoreFrame(active, { now: referenceNow }) < 200))
+      (scoreAttentionFrame(active, { now: referenceNow }) <= 0 ||
+        (options.globalAttentionState === "overloaded"
+          && scoreAttentionFrame(active, { now: referenceNow }) < 200))
     ) {
       return {
         active: null,
@@ -82,20 +83,20 @@ export function buildAttentionView(
   };
 }
 
-function isBackground(frame: Frame): boolean {
+function isBackground(frame: AttentionFrame): boolean {
   return frame.mode === "status" || frame.tone === "ambient";
 }
 
-function isUrgent(frame: Frame): boolean {
+function isUrgent(frame: AttentionFrame): boolean {
   return frame.mode !== "status" || frame.tone === "critical" || frame.consequence === "high";
 }
 
-function countUrgentFrames(frames: Frame[]): number {
+function countUrgentFrames(frames: AttentionFrame[]): number {
   return frames.filter(isUrgent).length;
 }
 
-function compareFrames(left: Frame, right: Frame, now: string): number {
-  const score = scoreFrame(right, { now }) - scoreFrame(left, { now });
+function compareFrames(left: AttentionFrame, right: AttentionFrame, now: string): number {
+  const score = scoreAttentionFrame(right, { now }) - scoreAttentionFrame(left, { now });
   if (score !== 0) {
     return score;
   }
@@ -103,7 +104,7 @@ function compareFrames(left: Frame, right: Frame, now: string): number {
   return left.timing.createdAt.localeCompare(right.timing.createdAt);
 }
 
-function latestTimestamp(frames: Frame[]): string {
+function latestTimestamp(frames: AttentionFrame[]): string {
   let latest = "1970-01-01T00:00:00.000Z";
 
   for (const frame of frames) {

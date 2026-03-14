@@ -1,4 +1,4 @@
-import type { SignalSummary } from "./signal-summary.js";
+import type { AttentionSignalSummary } from "./signal-summary.js";
 
 export type AttentionTrend =
   | "context_before_action"
@@ -6,7 +6,7 @@ export type AttentionTrend =
   | "fragmented_attention"
   | "stalling";
 
-export function deriveAttentionTrends(summary: SignalSummary): AttentionTrend[] {
+export function deriveAttentionTrends(summary: AttentionSignalSummary): AttentionTrend[] {
   const trends: AttentionTrend[] = [];
 
   if (summary.counts.contextExpanded >= 1 && summary.counts.responded >= 1) {

@@ -1,13 +1,10 @@
 import type { SourceRef } from "./events.js";
 
 export type AttentionFrameMode = "status" | "approval" | "choice" | "form";
-export type FrameMode = AttentionFrameMode;
 
 export type AttentionTone = "ambient" | "focused" | "critical";
-export type FrameTone = AttentionTone;
 
 export type AttentionConsequenceLevel = "low" | "medium" | "high";
-export type ConsequenceLevel = AttentionConsequenceLevel;
 
 export type AttentionFrame = {
   id: string;
@@ -26,7 +23,6 @@ export type AttentionFrame = {
   timing: AttentionTiming;
   metadata?: Record<string, unknown>;
 };
-export type Frame = AttentionFrame;
 
 export type AttentionContext = {
   stage?: string;
@@ -37,7 +33,6 @@ export type AttentionContext = {
     value?: string;
   }>;
 };
-export type FrameContext = AttentionContext;
 
 export type AttentionResponseSpec =
   | AttentionApprovalResponseSpec
@@ -45,25 +40,21 @@ export type AttentionResponseSpec =
   | AttentionChoiceResponseSpec
   | AttentionFormResponseSpec
   | AttentionNoResponseSpec;
-export type FrameResponseSpec = AttentionResponseSpec;
 
 export type AttentionNoResponseSpec = {
   kind: "none";
 };
-export type NoResponseSpec = AttentionNoResponseSpec;
 
 export type AttentionApprovalResponseSpec = {
   kind: "approval";
   actions: AttentionAction[];
   requireReason?: boolean;
 };
-export type ApprovalResponseSpec = AttentionApprovalResponseSpec;
 
 export type AttentionAcknowledgeResponseSpec = {
   kind: "acknowledge";
   actions: AttentionAction[];
 };
-export type AcknowledgeResponseSpec = AttentionAcknowledgeResponseSpec;
 
 export type AttentionChoiceResponseSpec = {
   kind: "choice";
@@ -71,14 +62,12 @@ export type AttentionChoiceResponseSpec = {
   options: AttentionOption[];
   actions: AttentionAction[];
 };
-export type ChoiceResponseSpec = AttentionChoiceResponseSpec;
 
 export type AttentionFormResponseSpec = {
   kind: "form";
   fields: AttentionField[];
   actions: AttentionAction[];
 };
-export type FormResponseSpec = AttentionFormResponseSpec;
 
 export type AttentionAction = {
   id: string;
@@ -86,14 +75,12 @@ export type AttentionAction = {
   kind: "submit" | "approve" | "reject" | "cancel" | "dismiss" | "acknowledge";
   emphasis: "primary" | "secondary" | "danger";
 };
-export type FrameAction = AttentionAction;
 
 export type AttentionOption = {
   id: string;
   label: string;
   summary?: string;
 };
-export type FrameOption = AttentionOption;
 
 export type AttentionField = {
   id: string;
@@ -104,7 +91,6 @@ export type AttentionField = {
   options?: Array<{ value: string; label: string }>;
   helpText?: string;
 };
-export type FrameField = AttentionField;
 
 export type AttentionProvenance = {
   whyNow?: string;
@@ -114,21 +100,18 @@ export type AttentionProvenance = {
     ref?: string;
   }>;
 };
-export type FrameProvenance = AttentionProvenance;
 
 export type AttentionTiming = {
   createdAt: string;
   updatedAt: string;
   expiresAt?: string;
 };
-export type FrameTiming = AttentionTiming;
 
 export type AttentionTaskView = {
   active: AttentionFrame | null;
   queued: AttentionFrame[];
   ambient: AttentionFrame[];
 };
-export type TaskView = AttentionTaskView;
 
 export type AttentionView = {
   active: AttentionFrame | null;

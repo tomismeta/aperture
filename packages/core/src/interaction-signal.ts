@@ -2,19 +2,18 @@ import type { SourceRef } from "./events.js";
 import type { AttentionResponse } from "./frame-response.js";
 
 export type AttentionSignal =
-  | InteractionPresentedSignal
-  | InteractionViewedSignal
-  | InteractionRespondedSignal
-  | InteractionDismissedSignal
-  | InteractionDeferredSignal
-  | InteractionContextExpandedSignal
-  | InteractionContextSkippedSignal
-  | InteractionTimedOutSignal
-  | InteractionReturnedSignal
-  | InteractionAttentionShiftedSignal;
-export type InteractionSignal = AttentionSignal;
+  | AttentionPresentedSignal
+  | AttentionViewedSignal
+  | AttentionRespondedSignal
+  | AttentionDismissedSignal
+  | AttentionDeferredSignal
+  | AttentionContextExpandedSignal
+  | AttentionContextSkippedSignal
+  | AttentionTimedOutSignal
+  | AttentionReturnedSignal
+  | AttentionAttentionShiftedSignal;
 
-type InteractionSignalBase = {
+type AttentionSignalBase = {
   taskId: string;
   interactionId: string;
   timestamp: string;
@@ -24,51 +23,51 @@ type InteractionSignalBase = {
   metadata?: Record<string, unknown>;
 };
 
-export type InteractionPresentedSignal = InteractionSignalBase & {
+export type AttentionPresentedSignal = AttentionSignalBase & {
   kind: "presented";
 };
 
-export type InteractionViewedSignal = InteractionSignalBase & {
+export type AttentionViewedSignal = AttentionSignalBase & {
   kind: "viewed";
 };
 
-export type InteractionRespondedSignal = InteractionSignalBase & {
+export type AttentionRespondedSignal = AttentionSignalBase & {
   kind: "responded";
   responseKind: Exclude<AttentionResponse["response"]["kind"], "dismissed">;
   latencyMs?: number;
 };
 
-export type InteractionDismissedSignal = InteractionSignalBase & {
+export type AttentionDismissedSignal = AttentionSignalBase & {
   kind: "dismissed";
   latencyMs?: number;
 };
 
-export type InteractionDeferredSignal = InteractionSignalBase & {
+export type AttentionDeferredSignal = AttentionSignalBase & {
   kind: "deferred";
   reason?: "queued" | "suppressed" | "manual";
 };
 
-export type InteractionContextExpandedSignal = InteractionSignalBase & {
+export type AttentionContextExpandedSignal = AttentionSignalBase & {
   kind: "context_expanded";
   section?: string;
 };
 
-export type InteractionContextSkippedSignal = InteractionSignalBase & {
+export type AttentionContextSkippedSignal = AttentionSignalBase & {
   kind: "context_skipped";
   section?: string;
 };
 
-export type InteractionTimedOutSignal = InteractionSignalBase & {
+export type AttentionTimedOutSignal = AttentionSignalBase & {
   kind: "timed_out";
   timeoutMs?: number;
 };
 
-export type InteractionReturnedSignal = InteractionSignalBase & {
+export type AttentionReturnedSignal = AttentionSignalBase & {
   kind: "returned";
   from: "queued" | "ambient";
 };
 
-export type InteractionAttentionShiftedSignal = InteractionSignalBase & {
+export type AttentionAttentionShiftedSignal = AttentionSignalBase & {
   kind: "attention_shifted";
   fromInteractionId: string;
   toInteractionId: string;

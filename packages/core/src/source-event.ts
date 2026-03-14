@@ -1,5 +1,9 @@
 import type { HumanInputRequest, SourceRef, TaskStatus } from "./events.js";
-import type { ConsequenceLevel, FrameContext, FrameProvenance } from "./frame.js";
+import type {
+  AttentionConsequenceLevel,
+  AttentionContext,
+  AttentionProvenance,
+} from "./frame.js";
 
 export type SourceEvent =
   | SourceTaskStartedEvent
@@ -36,9 +40,9 @@ export type SourceHumanInputRequestedEvent = SourceEventBase & {
   title: string;
   summary: string;
   request: HumanInputRequest;
-  context?: FrameContext;
-  provenance?: FrameProvenance;
-  riskHint?: ConsequenceLevel;
+  context?: AttentionContext;
+  provenance?: AttentionProvenance;
+  riskHint?: AttentionConsequenceLevel;
 };
 
 export type SourceTaskCompletedEvent = SourceEventBase & {

@@ -1,11 +1,11 @@
-import type { Frame } from "./frame.js";
-import type { InteractionCandidate, InteractionPriority } from "./interaction-candidate.js";
+import type { AttentionFrame } from "./frame.js";
+import type { AttentionCandidate, AttentionPriority } from "./interaction-candidate.js";
 
 type FrameScoreOptions = {
   now?: string;
 };
 
-export function scoreCandidate(candidate: InteractionCandidate): number {
+export function scoreCandidate(candidate: AttentionCandidate): number {
   return (
     priorityWeight(candidate.priority) * 100 +
     consequenceWeight(candidate.consequence) * 10 +
@@ -15,7 +15,7 @@ export function scoreCandidate(candidate: InteractionCandidate): number {
   );
 }
 
-export function scoreAttentionFrame(frame: Frame, options: FrameScoreOptions = {}): number {
+export function scoreAttentionFrame(frame: AttentionFrame, options: FrameScoreOptions = {}): number {
   return (
     priorityWeight(priorityForFrame(frame)) * 100 +
     consequenceWeight(frame.consequence) * 10 +
@@ -25,9 +25,8 @@ export function scoreAttentionFrame(frame: Frame, options: FrameScoreOptions = {
     agePenalty(frame, options.now)
   );
 }
-export const scoreFrame = scoreAttentionFrame;
 
-export function priorityForFrame(frame: Frame): InteractionPriority {
+export function priorityForFrame(frame: AttentionFrame): AttentionPriority {
   if (frame.mode === "status") {
     if (frame.tone === "critical" || frame.consequence === "high") {
       return "high";
@@ -41,7 +40,7 @@ export function priorityForFrame(frame: Frame): InteractionPriority {
   return "high";
 }
 
-export function readFrameAttentionOffset(frame: Frame): number {
+export function readFrameAttentionOffset(frame: AttentionFrame): number {
   const attention = frame.metadata?.attention;
   if (
     attention &&
@@ -55,11 +54,11 @@ export function readFrameAttentionOffset(frame: Frame): number {
   return 0;
 }
 
-export function isBlockingFrame(frame: Frame): boolean {
+export function isBlockingFrame(frame: AttentionFrame): boolean {
   return frame.mode !== "status" && frame.responseSpec?.kind !== "none";
 }
 
-function priorityWeight(priority: InteractionPriority): number {
+function priorityWeight(priority: AttentionPriority): number {
   switch (priority) {
     case "background":
       return 0;
@@ -70,7 +69,7 @@ function priorityWeight(priority: InteractionPriority): number {
   }
 }
 
-function consequenceWeight(consequence: Frame["consequence"]): number {
+function consequenceWeight(consequence: AttentionFrame["consequence"]): number {
   switch (consequence) {
     case "low":
       return 0;
@@ -81,7 +80,7 @@ function consequenceWeight(consequence: Frame["consequence"]): number {
   }
 }
 
-function toneWeight(tone: Frame["tone"]): number {
+function toneWeight(tone: AttentionFrame["tone"]): number {
   switch (tone) {
     case "ambient":
       return 0;
@@ -92,7 +91,7 @@ function toneWeight(tone: Frame["tone"]): number {
   }
 }
 
-function agePenalty(frame: Frame, now: string | undefined): number {
+function agePenalty(frame: AttentionFrame, now: string | undefined): number {
   const reference = now ?? frame.timing.updatedAt;
   const updatedAt = Date.parse(frame.timing.updatedAt);
   const referenceAt = Date.parse(reference);
@@ -111,7 +110,7 @@ function agePenalty(frame: Frame, now: string | undefined): number {
   return -Math.min(profile.maxPenalty, steps * profile.penaltyPerStep);
 }
 
-function ageProfile(frame: Frame): {
+function ageProfile(frame: AttentionFrame): {
   graceMs: number;
   stepMs: number;
   penaltyPerStep: number;

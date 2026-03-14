@@ -1,5 +1,5 @@
-import type { Frame } from "./frame.js";
-import type { InteractionCandidate } from "./interaction-candidate.js";
+import type { AttentionFrame } from "./frame.js";
+import type { AttentionCandidate } from "./interaction-candidate.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
 
 export type EpisodeState = "emerging" | "actionable" | "batched" | "waiting" | "stale" | "resolved";
@@ -17,7 +17,7 @@ export type EpisodeSummary = {
 
 type EpisodeRecord = EpisodeSummary & {
   interactions: Set<string>;
-  modes: Set<InteractionCandidate["mode"]>;
+  modes: Set<AttentionCandidate["mode"]>;
   highSignals: number;
   blockingSignals: number;
 };
@@ -28,7 +28,7 @@ export class EpisodeTracker {
   private readonly byKey = new Map<string, EpisodeRecord>();
   private readonly byInteractionId = new Map<string, string>();
 
-  assign(candidate: InteractionCandidate): InteractionCandidate {
+  assign(candidate: AttentionCandidate): AttentionCandidate {
     const key = buildEpisodeKey(candidate);
     const existingId = this.byInteractionId.get(candidate.interactionId);
     const record =
@@ -81,7 +81,7 @@ export class EpisodeTracker {
     this.byKey.set(record.key, record);
   }
 
-  readFrameEpisode(frame: Frame | null): EpisodeSummary | null {
+  readFrameEpisode(frame: AttentionFrame | null): EpisodeSummary | null {
     if (!frame) {
       return null;
     }
@@ -107,7 +107,7 @@ export class EpisodeTracker {
     return { id, key, state, size, evidenceScore, evidenceReasons, lastInteractionId, updatedAt };
   }
 
-  private createRecord(key: string, candidate: InteractionCandidate): EpisodeRecord {
+  private createRecord(key: string, candidate: AttentionCandidate): EpisodeRecord {
     return {
       id: `episode:${key}`,
       key,
@@ -137,18 +137,18 @@ export class EpisodeTracker {
   }
 }
 
-export function buildEpisodeKey(candidate: InteractionCandidate): string {
+export function buildEpisodeKey(candidate: AttentionCandidate): string {
   const source = candidate.source?.kind ?? candidate.source?.id ?? "unknown";
   const anchor = episodeAnchor(candidate);
   const modeClass = candidate.blocking ? "interruptive" : "status";
   return normalizeEpisodePart([source, modeClass, anchor].join(":"));
 }
 
-export function readFrameEpisodeId(frame: Frame | null): string | null {
+export function readFrameEpisodeId(frame: AttentionFrame | null): string | null {
   return frame ? readString(frame.metadata?.episode, "id") : null;
 }
 
-function episodeAnchor(candidate: InteractionCandidate): string {
+function episodeAnchor(candidate: AttentionCandidate): string {
   const items = candidate.context?.items ?? [];
   const preferred = items.find((item) => {
     const id = item.id.toLowerCase();
@@ -179,7 +179,7 @@ function episodeAnchor(candidate: InteractionCandidate): string {
 
 function nextEpisodeState(
   current: EpisodeState,
-  candidate: InteractionCandidate,
+  candidate: AttentionCandidate,
   record: EpisodeRecord,
   evidenceScore: number,
 ): EpisodeState {
@@ -204,7 +204,7 @@ function nextEpisodeState(
 
 function measureEpisodeEvidence(
   record: EpisodeRecord,
-  candidate: InteractionCandidate,
+  candidate: AttentionCandidate,
 ): { score: number; reasons: string[] } {
   let score = 0;
   const reasons: string[] = [];

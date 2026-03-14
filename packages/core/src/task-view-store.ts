@@ -1,11 +1,11 @@
-import type { AttentionFrame as Frame, AttentionTaskView as TaskView } from "./frame.js";
+import type { AttentionFrame, AttentionTaskView } from "./frame.js";
 
 type FrameBucket = "active" | "queued" | "ambient";
 
 export class TaskViewStore {
-  private readonly taskViews = new Map<string, TaskView>();
+  private readonly taskViews = new Map<string, AttentionTaskView>();
 
-  get(taskId: string): TaskView {
+  get(taskId: string): AttentionTaskView {
     return (
       this.taskViews.get(taskId) ?? {
         active: null,
@@ -15,14 +15,14 @@ export class TaskViewStore {
     );
   }
 
-  setActive(taskId: string, frame: Frame): TaskView {
+  setActive(taskId: string, frame: AttentionFrame): AttentionTaskView {
     const taskView = this.get(taskId);
     const nextQueued = taskView.queued.filter((item) => item.interactionId !== frame.interactionId);
     const previousActive =
       taskView.active && taskView.active.interactionId !== frame.interactionId
         ? taskView.active
         : null;
-    const next: TaskView = {
+    const next: AttentionTaskView = {
       active: frame,
       queued: previousActive ? [previousActive, ...nextQueued] : nextQueued,
       ambient: taskView.ambient.filter((item) => item.interactionId !== frame.interactionId),
@@ -31,16 +31,16 @@ export class TaskViewStore {
     return next;
   }
 
-  enqueue(taskId: string, frame: Frame): TaskView {
+  enqueue(taskId: string, frame: AttentionFrame): AttentionTaskView {
     return this.upsert(taskId, "queued", frame);
   }
 
-  addAmbient(taskId: string, frame: Frame): TaskView {
+  addAmbient(taskId: string, frame: AttentionFrame): AttentionTaskView {
     return this.upsert(taskId, "ambient", frame);
   }
 
-  clear(taskId: string): TaskView {
-    const next: TaskView = {
+  clear(taskId: string): AttentionTaskView {
+    const next: AttentionTaskView = {
       active: null,
       queued: [],
       ambient: [],
@@ -49,9 +49,9 @@ export class TaskViewStore {
     return next;
   }
 
-  discard(taskId: string, interactionId: string): TaskView {
+  discard(taskId: string, interactionId: string): AttentionTaskView {
     const taskView = this.get(taskId);
-    const next: TaskView = {
+    const next: AttentionTaskView = {
       active: taskView.active?.interactionId === interactionId ? null : taskView.active,
       queued: taskView.queued.filter((frame) => frame.interactionId !== interactionId),
       ambient: taskView.ambient.filter((frame) => frame.interactionId !== interactionId),
@@ -60,7 +60,7 @@ export class TaskViewStore {
     return next;
   }
 
-  resolve(taskId: string, interactionId: string): TaskView {
+  resolve(taskId: string, interactionId: string): AttentionTaskView {
     const taskView = this.get(taskId);
     const remainingQueued = taskView.queued.filter((frame) => frame.interactionId !== interactionId);
     const remainingAmbient = taskView.ambient.filter((frame) => frame.interactionId !== interactionId);
@@ -70,7 +70,7 @@ export class TaskViewStore {
       nextActive = remainingQueued.shift() ?? null;
     }
 
-    const next: TaskView = {
+    const next: AttentionTaskView = {
       active: nextActive,
       queued: remainingQueued,
       ambient: remainingAmbient,
@@ -79,12 +79,12 @@ export class TaskViewStore {
     return next;
   }
 
-  private upsert(taskId: string, bucket: FrameBucket, frame: Frame): TaskView {
+  private upsert(taskId: string, bucket: FrameBucket, frame: AttentionFrame): AttentionTaskView {
     const taskView = this.get(taskId);
     const dedupedQueued = taskView.queued.filter((item) => item.interactionId !== frame.interactionId);
     const dedupedAmbient = taskView.ambient.filter((item) => item.interactionId !== frame.interactionId);
 
-    const next: TaskView = {
+    const next: AttentionTaskView = {
       active: taskView.active?.interactionId === frame.interactionId ? taskView.active : taskView.active,
       queued: bucket === "queued" ? [frame, ...dedupedQueued] : dedupedQueued,
       ambient: bucket === "ambient" ? [frame, ...dedupedAmbient] : dedupedAmbient,
@@ -94,7 +94,7 @@ export class TaskViewStore {
     return next;
   }
 
-  values(): Iterable<TaskView> {
+  values(): Iterable<AttentionTaskView> {
     return this.taskViews.values();
   }
 }

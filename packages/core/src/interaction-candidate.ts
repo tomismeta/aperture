@@ -8,7 +8,6 @@ import type {
 import type { SourceRef } from "./events.js";
 
 export type AttentionPriority = "background" | "normal" | "high";
-export type InteractionPriority = AttentionPriority;
 
 export type AttentionCandidate = {
   taskId: string;
@@ -34,14 +33,4 @@ export type AttentionCandidate = {
   episodeSize?: number;
   episodeEvidenceScore?: number;
   episodeEvidenceReasons?: string[];
-};
-export type InteractionCandidate = AttentionCandidate;
-
-export type ApprovalCandidate = AttentionCandidate & {
-  mode: "approval";
-  responseSpec: {
-    kind: "approval";
-    actions: AttentionAction[];
-    requireReason?: boolean;
-  };
 };

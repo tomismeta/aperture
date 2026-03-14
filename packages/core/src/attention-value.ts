@@ -1,6 +1,6 @@
-import type { Frame } from "./frame.js";
-import { readFrameAttentionOffset, scoreCandidate, scoreFrame } from "./frame-score.js";
-import type { InteractionCandidate } from "./interaction-candidate.js";
+import type { AttentionFrame } from "./frame.js";
+import { readFrameAttentionOffset, scoreCandidate, scoreAttentionFrame } from "./frame-score.js";
+import type { AttentionCandidate } from "./interaction-candidate.js";
 import { inferToolFamily } from "./interaction-taxonomy.js";
 import type { MemoryProfile } from "./profile-store.js";
 
@@ -27,7 +27,6 @@ export type AttentionFrameValueBreakdown = {
     attentionAdjustment: number;
   };
 };
-export type FrameAttentionValueBreakdown = AttentionFrameValueBreakdown;
 
 type UtilityFrameOptions = {
   now?: string;
@@ -44,7 +43,7 @@ export class AttentionValue {
     this.memoryProfile = options.memoryProfile;
   }
 
-  scoreCandidate(candidate: InteractionCandidate): AttentionValueBreakdown {
+  scoreCandidate(candidate: AttentionCandidate): AttentionValueBreakdown {
     const sourceTrustAdjustment = this.sourceTrustAdjustment(candidate);
     const consequenceCalibration = this.consequenceCalibrationAdjustment(candidate);
     const responseAffinity = this.responseAffinityAdjustment(candidate);
@@ -100,16 +99,19 @@ export class AttentionValue {
     };
   }
 
-  scoreFrame(frame: Frame, options: UtilityFrameOptions = {}): AttentionFrameValueBreakdown {
+  scoreAttentionFrame(
+    frame: AttentionFrame,
+    options: UtilityFrameOptions = {},
+  ): AttentionFrameValueBreakdown {
     return {
-      total: scoreFrame(frame, options),
+      total: scoreAttentionFrame(frame, options),
       components: {
         attentionAdjustment: readFrameAttentionOffset(frame),
       },
     };
   }
 
-  private sourceTrustAdjustment(candidate: InteractionCandidate): number {
+  private sourceTrustAdjustment(candidate: AttentionCandidate): number {
     const sourceKey = candidate.source?.kind ?? candidate.source?.id;
     if (!sourceKey) {
       return 0;
@@ -118,7 +120,7 @@ export class AttentionValue {
     return this.memoryProfile?.sourceTrust?.[sourceKey]?.[candidate.consequence]?.trustAdjustment ?? 0;
   }
 
-  private responseAffinityAdjustment(candidate: InteractionCandidate): number {
+  private responseAffinityAdjustment(candidate: AttentionCandidate): number {
     const toolFamily = inferToolFamily(candidate);
     if (!toolFamily) {
       return 0;
@@ -140,7 +142,7 @@ export class AttentionValue {
     return 0;
   }
 
-  private consequenceCalibrationAdjustment(candidate: InteractionCandidate): number {
+  private consequenceCalibrationAdjustment(candidate: AttentionCandidate): number {
     const profile = this.memoryProfile?.consequenceProfiles?.[candidate.consequence];
     const rejectionRate = profile?.rejectionRate;
     if (rejectionRate === undefined || (profile?.reviewedCount ?? 0) < 4) {
@@ -175,7 +177,7 @@ export class AttentionValue {
     }
   }
 
-  private contextCostAdjustment(candidate: InteractionCandidate): number {
+  private contextCostAdjustment(candidate: AttentionCandidate): number {
     const toolFamily = inferToolFamily(candidate);
     if (!toolFamily) {
       return 0;
@@ -197,7 +199,7 @@ export class AttentionValue {
     return 0;
   }
 
-  private deferralAffinityAdjustment(candidate: InteractionCandidate): number {
+  private deferralAffinityAdjustment(candidate: AttentionCandidate): number {
     const toolFamily = inferToolFamily(candidate);
     if (!toolFamily) {
       return 0;
@@ -220,7 +222,7 @@ export class AttentionValue {
   }
 }
 
-function priorityWeight(priority: InteractionCandidate["priority"]): number {
+function priorityWeight(priority: AttentionCandidate["priority"]): number {
   switch (priority) {
     case "background":
       return 0;
@@ -231,7 +233,7 @@ function priorityWeight(priority: InteractionCandidate["priority"]): number {
   }
 }
 
-function consequenceWeight(consequence: InteractionCandidate["consequence"]): number {
+function consequenceWeight(consequence: AttentionCandidate["consequence"]): number {
   switch (consequence) {
     case "low":
       return 0;
@@ -242,7 +244,7 @@ function consequenceWeight(consequence: InteractionCandidate["consequence"]): nu
   }
 }
 
-function toneWeight(tone: InteractionCandidate["tone"]): number {
+function toneWeight(tone: AttentionCandidate["tone"]): number {
   switch (tone) {
     case "ambient":
       return 0;

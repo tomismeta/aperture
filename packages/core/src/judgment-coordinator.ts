@@ -1,20 +1,20 @@
-import type { AttentionFrame as Frame, AttentionView } from "./frame.js";
+import type { AttentionFrame, AttentionView } from "./frame.js";
 
 import type { AttentionResponse } from "./frame-response.js";
-import { scoreFrame } from "./frame-score.js";
-import type { InteractionCandidate, InteractionPriority } from "./interaction-candidate.js";
+import { scoreAttentionFrame } from "./frame-score.js";
+import type { AttentionCandidate, AttentionPriority } from "./interaction-candidate.js";
 import { AttentionPolicy, type AttentionPolicyVerdict } from "./attention-policy.js";
 import { forecastAttentionPressure, idleAttentionPressure, type AttentionPressure } from "./attention-pressure.js";
 import { AttentionPlanner } from "./attention-planner.js";
-import type { SignalSummary } from "./signal-summary.js";
+import type { AttentionSignalSummary } from "./signal-summary.js";
 import { AttentionValue, type AttentionValueBreakdown } from "./attention-value.js";
 
 export type AttentionDecision =
-  | { kind: "auto_approve"; candidate: InteractionCandidate; response: AttentionResponse }
-  | { kind: "activate"; candidate: InteractionCandidate }
-  | { kind: "queue"; candidate: InteractionCandidate }
-  | { kind: "ambient"; candidate: InteractionCandidate }
-  | { kind: "keep"; frame: Frame | null }
+  | { kind: "auto_approve"; candidate: AttentionCandidate; response: AttentionResponse }
+  | { kind: "activate"; candidate: AttentionCandidate }
+  | { kind: "queue"; candidate: AttentionCandidate }
+  | { kind: "ambient"; candidate: AttentionCandidate }
+  | { kind: "keep"; frame: AttentionFrame | null }
   | { kind: "clear" };
 
 export type AttentionDecisionExplanation = {
@@ -24,14 +24,14 @@ export type AttentionDecisionExplanation = {
   pressureForecast: AttentionPressure;
   candidateScore: number;
   currentScore: number | null;
-  currentPriority: InteractionPriority | null;
+  currentPriority: AttentionPriority | null;
   reasons: string[];
 };
 
 export type AttentionDecisionContext = {
   attentionView?: AttentionView;
-  taskSummary?: SignalSummary;
-  globalSummary?: SignalSummary;
+  taskSummary?: AttentionSignalSummary;
+  globalSummary?: AttentionSignalSummary;
   pressureForecast?: AttentionPressure;
 };
 
@@ -51,21 +51,21 @@ export class JudgmentCoordinator {
   }
 
   coordinate(
-    current: Frame | null,
-    candidate: InteractionCandidate,
+    current: AttentionFrame | null,
+    candidate: AttentionCandidate,
     context: AttentionDecisionContext = {},
   ): AttentionDecision {
     return this.explain(current, candidate, context).decision;
   }
 
   explain(
-    current: Frame | null,
-    candidate: InteractionCandidate,
+    current: AttentionFrame | null,
+    candidate: AttentionCandidate,
     context: AttentionDecisionContext = {},
   ): AttentionDecisionExplanation {
     const policy = this.policyGates.evaluate(candidate);
     const utility = this.utilityScore.scoreCandidate(candidate);
-    const currentScore = current ? scoreFrame(current, { now: candidate.timestamp }) : null;
+    const currentScore = current ? scoreAttentionFrame(current, { now: candidate.timestamp }) : null;
     const pressureForecast =
       context.pressureForecast
       ?? forecastAttentionPressure(context.globalSummary ?? context.taskSummary, context.attentionView)

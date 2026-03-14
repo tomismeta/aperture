@@ -1,6 +1,6 @@
 import type { SourceEvent } from "./source-event.js";
 import type { ApertureEvent, HumanInputRequestedEvent } from "./events.js";
-import type { ConsequenceLevel, FrameTone } from "./frame.js";
+import type { AttentionConsequenceLevel, AttentionTone } from "./frame.js";
 
 export function normalizeSourceEvent(event: SourceEvent): ApertureEvent {
   // Non-human-input source events are intentionally thin for now. The adapter
@@ -76,7 +76,7 @@ function normalizeHumanInput(
   };
 }
 
-function toneForRisk(risk: ConsequenceLevel): FrameTone {
+function toneForRisk(risk: AttentionConsequenceLevel): AttentionTone {
   switch (risk) {
     case "high":
       return "critical";

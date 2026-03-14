@@ -44,6 +44,7 @@ export { distillMemoryProfile } from "./memory-aggregator.js";
 export { ProfileStore } from "./profile-store.js";
 export { evaluateTraceSession } from "./trace-evaluator.js";
 export type { TraceEvaluationReport } from "./trace-evaluator.js";
+export type { EpisodeSummary } from "./episode-tracker.js";
 
 export type * from "./events.js";
 export type * from "./source-event.js";

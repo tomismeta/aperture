@@ -1,13 +1,13 @@
-import type { AttentionFrame as Frame, AttentionView } from "./frame.js";
+import type { AttentionFrame, AttentionView } from "./frame.js";
 
 import { readFrameEpisodeId } from "./episode-tracker.js";
 import { isBlockingFrame, priorityForFrame } from "./frame-score.js";
-import type { InteractionCandidate, InteractionPriority } from "./interaction-candidate.js";
+import type { AttentionCandidate, AttentionPriority } from "./interaction-candidate.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
 import type { PlannerDefaults } from "./judgment-config.js";
 import type { AttentionPolicyVerdict } from "./attention-policy.js";
 import type { AttentionPressure } from "./attention-pressure.js";
-import type { SignalSummary } from "./signal-summary.js";
+import type { AttentionSignalSummary } from "./signal-summary.js";
 import type { AttentionValueBreakdown } from "./attention-value.js";
 
 // These defaults intentionally stay conservative so explicit policy still
@@ -16,22 +16,22 @@ import type { AttentionValueBreakdown } from "./attention-value.js";
 const DEFAULTS = JUDGMENT_DEFAULTS.queuePlanner;
 
 export type AttentionPlanDecision =
-  | { kind: "activate"; candidate: InteractionCandidate }
-  | { kind: "queue"; candidate: InteractionCandidate }
-  | { kind: "ambient"; candidate: InteractionCandidate }
-  | { kind: "keep"; frame: Frame | null }
+  | { kind: "activate"; candidate: AttentionCandidate }
+  | { kind: "queue"; candidate: AttentionCandidate }
+  | { kind: "ambient"; candidate: AttentionCandidate }
+  | { kind: "keep"; frame: AttentionFrame | null }
   | { kind: "clear" };
 
 export type AttentionPlanningExplanation = {
   decision: AttentionPlanDecision;
-  currentPriority: InteractionPriority | null;
+  currentPriority: AttentionPriority | null;
   currentScore: number | null;
   reasons: string[];
 };
 
 export type AttentionPlanningContext = {
   attentionView: AttentionView | undefined;
-  taskSummary: SignalSummary | undefined;
+  taskSummary: AttentionSignalSummary | undefined;
   policyVerdict: AttentionPolicyVerdict;
   utility: AttentionValueBreakdown;
   pressureForecast: AttentionPressure;
@@ -51,8 +51,8 @@ export class AttentionPlanner {
   }
 
   explain(
-    current: Frame | null,
-    candidate: InteractionCandidate,
+    current: AttentionFrame | null,
+    candidate: AttentionCandidate,
     context: AttentionPlanningContext,
   ): AttentionPlanningExplanation {
     const reasons: string[] = [];
@@ -338,7 +338,7 @@ export class AttentionPlanner {
   }
 
   private peripheralDecision(
-    candidate: InteractionCandidate,
+    candidate: AttentionCandidate,
     policyVerdict: AttentionPolicyVerdict,
   ): Extract<AttentionPlanDecision, { kind: "queue" | "ambient" }> {
     if (policyVerdict.minimumPresentation === "ambient") {
@@ -349,14 +349,14 @@ export class AttentionPlanner {
   }
 
   private batchedDecision(
-    candidate: InteractionCandidate,
+    candidate: AttentionCandidate,
     policyVerdict: AttentionPolicyVerdict,
     attentionView: AttentionView | undefined,
   ): Extract<AttentionPlanDecision, { kind: "queue" | "ambient" }> {
     const episodeIsAlreadyInterruptive =
       candidate.episodeId !== undefined
       && [attentionView?.active, ...(attentionView?.queued ?? [])]
-        .filter((frame): frame is Frame => frame !== null)
+        .filter((frame): frame is AttentionFrame => frame !== null)
         .some((frame) => frame.interactionId !== candidate.interactionId && readFrameEpisodeId(frame) === candidate.episodeId);
 
     if (episodeIsAlreadyInterruptive) {
@@ -367,7 +367,7 @@ export class AttentionPlanner {
   }
 
   private suppressedDecision(
-    candidate: InteractionCandidate,
+    candidate: AttentionCandidate,
     policyVerdict: AttentionPolicyVerdict,
     utility: AttentionValueBreakdown,
   ): Extract<AttentionPlanDecision, { kind: "queue" | "ambient" }> {
@@ -382,7 +382,7 @@ export class AttentionPlanner {
   }
 
   private shouldSuppressForBacklog(
-    candidate: InteractionCandidate,
+    candidate: AttentionCandidate,
     attentionView: AttentionView | undefined,
     now: string,
   ): boolean {
@@ -401,7 +401,7 @@ export class AttentionPlanner {
     const relatedEpisodeVisible =
       candidate.episodeId !== undefined
       && [attentionView.active, ...attentionView.queued]
-        .filter((frame): frame is Frame => frame !== null)
+        .filter((frame): frame is AttentionFrame => frame !== null)
         .some((frame) => frame.interactionId !== candidate.interactionId && readFrameEpisodeId(frame) === candidate.episodeId);
 
     if (relatedEpisodeVisible) {
@@ -409,7 +409,7 @@ export class AttentionPlanner {
     }
 
     const urgentBacklog = [attentionView.active, ...attentionView.queued]
-      .filter((frame): frame is Frame => frame !== null)
+      .filter((frame): frame is AttentionFrame => frame !== null)
       .filter((frame) => {
         if (frame.interactionId === candidate.interactionId) {
           return false;
@@ -425,7 +425,7 @@ export class AttentionPlanner {
   }
 
   private shouldPreemptForPressure(
-    candidate: InteractionCandidate,
+    candidate: AttentionCandidate,
     policyVerdict: AttentionPolicyVerdict,
     pressureForecast: AttentionPressure,
   ): boolean {
@@ -453,7 +453,7 @@ export class AttentionPlanner {
   }
 
   private shouldBatchVisibleEpisode(
-    candidate: InteractionCandidate,
+    candidate: AttentionCandidate,
     attentionView: AttentionView | undefined,
   ): boolean {
     if (!candidate.episodeId || !attentionView) {
@@ -465,7 +465,7 @@ export class AttentionPlanner {
     }
 
     const visibleRelatedFrames = [attentionView.active, ...attentionView.queued, ...attentionView.ambient]
-      .filter((frame): frame is Frame => frame !== null)
+      .filter((frame): frame is AttentionFrame => frame !== null)
       .filter((frame) => frame.interactionId !== candidate.interactionId && readFrameEpisodeId(frame) === candidate.episodeId);
 
     if (visibleRelatedFrames.length === 0) {
@@ -476,11 +476,11 @@ export class AttentionPlanner {
   }
 
   private shouldEscalateDeferredTask(
-    current: Frame,
-    candidate: InteractionCandidate,
+    current: AttentionFrame,
+    candidate: AttentionCandidate,
     candidateScore: number,
     currentScore: number,
-    taskSummary: SignalSummary | undefined,
+    taskSummary: AttentionSignalSummary | undefined,
   ): boolean {
     if (candidate.blocking || candidate.priority === "background") {
       return false;
@@ -505,8 +505,8 @@ export class AttentionPlanner {
   }
 
   private shouldWaitForContext(
-    current: Frame,
-    candidate: InteractionCandidate,
+    current: AttentionFrame,
+    candidate: AttentionCandidate,
     utility: AttentionValueBreakdown,
     candidateScore: number,
     currentScore: number,
@@ -534,7 +534,7 @@ export class AttentionPlanner {
     return false;
   }
 
-  private shouldDampenBurst(current: Frame, candidate: InteractionCandidate): boolean {
+  private shouldDampenBurst(current: AttentionFrame, candidate: AttentionCandidate): boolean {
     if (this.plannerDefaults?.batchStatusBursts === false) {
       return false;
     }
@@ -559,7 +559,7 @@ export class AttentionPlanner {
     return candidateTimestamp - currentTimestamp <= DEFAULTS.statusBurstWindowMs;
   }
 
-  private isActionableEpisode(candidate: InteractionCandidate): boolean {
+  private isActionableEpisode(candidate: AttentionCandidate): boolean {
     return (
       !candidate.blocking
       && candidate.episodeState === "actionable"

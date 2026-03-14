@@ -1,16 +1,14 @@
-import type { AttentionFrame as Frame } from "./frame.js";
-
 import { deriveAttentionState } from "./attention-state.js";
 import { deriveAttentionTrends } from "./attention-trends.js";
-import type { InteractionCandidate } from "./interaction-candidate.js";
-import type { SignalSummary } from "./signal-summary.js";
+import type { AttentionCandidate } from "./interaction-candidate.js";
+import type { AttentionSignalSummary } from "./signal-summary.js";
 
 export class AttentionAdjustments {
   apply(
-    candidate: InteractionCandidate,
-    taskSummary: SignalSummary,
-    globalSummary: SignalSummary = taskSummary,
-  ): InteractionCandidate {
+    candidate: AttentionCandidate,
+    taskSummary: AttentionSignalSummary,
+    globalSummary: AttentionSignalSummary = taskSummary,
+  ): AttentionCandidate {
     const attentionScoreOffset = this.scoreOffset(candidate, taskSummary, globalSummary);
     const attentionRationale = this.rationale(candidate, taskSummary, globalSummary, attentionScoreOffset);
 
@@ -22,9 +20,9 @@ export class AttentionAdjustments {
   }
 
   private scoreOffset(
-    candidate: InteractionCandidate,
-    taskSummary: SignalSummary,
-    globalSummary: SignalSummary,
+    candidate: AttentionCandidate,
+    taskSummary: AttentionSignalSummary,
+    globalSummary: AttentionSignalSummary,
   ): number {
     let offset = 0;
     const attentionState = deriveAttentionState(taskSummary);
@@ -86,9 +84,9 @@ export class AttentionAdjustments {
   }
 
   private rationale(
-    candidate: InteractionCandidate,
-    taskSummary: SignalSummary,
-    globalSummary: SignalSummary,
+    candidate: AttentionCandidate,
+    taskSummary: AttentionSignalSummary,
+    globalSummary: AttentionSignalSummary,
     attentionScoreOffset: number,
   ): string[] {
     const reasons: string[] = [];
@@ -172,19 +170,5 @@ export class AttentionAdjustments {
     }
 
     return reasons;
-  }
-
-  readFrameOffset(frame: Frame): number {
-    const attention = frame.metadata?.attention;
-    if (
-      attention &&
-      typeof attention === "object" &&
-      "scoreOffset" in attention &&
-      typeof attention.scoreOffset === "number"
-    ) {
-      return attention.scoreOffset;
-    }
-
-    return 0;
   }
 }

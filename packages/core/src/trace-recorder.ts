@@ -1,31 +1,31 @@
 import type { AttentionState } from "./attention-state.js";
 import type { EpisodeSummary } from "./episode-tracker.js";
 import type { ApertureEvent } from "./events.js";
-import type { AttentionFrame as Frame, AttentionTaskView as TaskView, AttentionView } from "./frame.js";
+import type { AttentionFrame, AttentionTaskView, AttentionView } from "./frame.js";
 import type { AttentionDecisionExplanation } from "./judgment-coordinator.js";
-import type { InteractionCandidate } from "./interaction-candidate.js";
+import type { AttentionCandidate } from "./interaction-candidate.js";
 import type { AttentionPressure } from "./attention-pressure.js";
-import type { SignalSummary } from "./signal-summary.js";
+import type { AttentionSignalSummary } from "./signal-summary.js";
 import type { ApertureTrace } from "./trace.js";
 
 export type TraceSnapshot = {
   timestamp: string;
   event: ApertureEvent;
-  taskSummary: SignalSummary;
-  globalSummary: SignalSummary;
+  taskSummary: AttentionSignalSummary;
+  globalSummary: AttentionSignalSummary;
   taskAttentionState: AttentionState;
   globalAttentionState: AttentionState;
   pressureForecast: AttentionPressure;
-  current: Frame | null;
-  taskView: TaskView;
+  current: AttentionFrame | null;
+  taskView: AttentionTaskView;
   attentionView: AttentionView;
 };
 
 type CandidateTraceInput = {
-  original: InteractionCandidate;
-  adjusted: InteractionCandidate;
+  original: AttentionCandidate;
+  adjusted: AttentionCandidate;
   explanation: AttentionDecisionExplanation;
-  result: Frame | null;
+  result: AttentionFrame | null;
 };
 
 export class TraceRecorder {
@@ -81,7 +81,7 @@ export class TraceRecorder {
   }
 }
 
-function buildEpisodeSummary(candidate: InteractionCandidate): EpisodeSummary | null {
+function buildEpisodeSummary(candidate: AttentionCandidate): EpisodeSummary | null {
   if (!candidate.episodeId) {
     return null;
   }

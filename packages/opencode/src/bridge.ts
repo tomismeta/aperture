@@ -1,5 +1,5 @@
 import { ApertureRuntimeAdapterClient } from "@aperture/runtime/adapter";
-import type { AttentionResponse } from "@tomismeta/aperture-core";
+import type { AttentionResponse, SourceEvent } from "@tomismeta/aperture-core";
 
 import { OpencodeClient } from "./client.js";
 import {
@@ -35,10 +35,18 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
   let streamController: AbortController | null = null;
   let responseUnsubscribe: (() => void) | null = null;
   let streamTask: Promise<void> | null = null;
-  const suppressEgress = new Set<string>();
+  let closed = false;
+  const suppressEgress = new Map<string, NodeJS.Timeout>();
+  const startupBufferedEvents: Array<{ event: Parameters<typeof mapOpencodeEvent>[0]; receivedAt: string }> = [];
+  let bootstrapping = true;
+
+  const reconnectInitialDelayMs = options.client.reconnect?.initialDelayMs ?? 1_000;
+  const reconnectMaxDelayMs = options.client.reconnect?.maxDelayMs ?? 10_000;
+  const reconnectMaxAttempts = options.client.reconnect?.maxAttempts ?? Infinity;
 
   return {
     async start() {
+      closed = false;
       runtimeClient = await ApertureRuntimeAdapterClient.connect({
         baseUrl: options.runtimeBaseUrl,
         kind: "opencode",
@@ -52,8 +60,13 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
       });
 
       responseUnsubscribe = runtimeClient.onResponse((response: AttentionResponse) => {
-        void handleRuntimeResponse(response);
+        void handleRuntimeResponse(response).catch((error) => {
+          void reportBridgeIssue(response.taskId, "OpenCode reply failed", error);
+        });
       });
+
+      streamController = new AbortController();
+      streamTask = runEventLoop(streamController.signal);
 
       const [permissions, questions] = await Promise.all([
         client.listPermissions(),
@@ -69,23 +82,15 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
         ),
       ];
       await runtimeClient.publishSourceEventBatch(bootstrapEvents);
+      const bootstrapEventIds = new Set(bootstrapEvents.map((event) => event.id));
 
-      streamController = new AbortController();
-      streamTask = client.consumeEvents(async (event) => {
-        const nativeResolution = mapOpencodeNativeResolution(event, mappingContext);
-        if (nativeResolution && runtimeClient) {
-          suppressEgress.add(nativeResolution.response.interactionId);
-          await runtimeClient.submit(nativeResolution.response);
-          return;
-        }
-
-        const mapped = mapOpencodeEvent(event, mappingContext);
-        if (mapped.length > 0 && runtimeClient) {
-          await runtimeClient.publishSourceEventBatch(mapped);
-        }
-      }, { signal: streamController.signal });
+      bootstrapping = false;
+      for (const buffered of startupBufferedEvents.splice(0)) {
+        await processEvent(buffered.event, bootstrapEventIds);
+      }
     },
     async close() {
+      closed = true;
       streamController?.abort();
       streamController = null;
       if (streamTask) {
@@ -98,13 +103,69 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
         await runtimeClient.close();
         runtimeClient = null;
       }
+      for (const timeout of suppressEgress.values()) {
+        clearTimeout(timeout);
+      }
       suppressEgress.clear();
     },
   };
 
+  async function runEventLoop(signal: AbortSignal): Promise<void> {
+    let attempts = 0;
+    let delayMs = reconnectInitialDelayMs;
+
+    while (!closed && !signal.aborted) {
+      try {
+        for await (const event of client.streamEvents({ signal })) {
+          attempts = 0;
+          delayMs = reconnectInitialDelayMs;
+          if (bootstrapping) {
+            startupBufferedEvents.push({ event, receivedAt: new Date().toISOString() });
+            continue;
+          }
+          await processEvent(event);
+        }
+
+        if (closed || signal.aborted) {
+          return;
+        }
+        throw new Error("OpenCode event stream ended");
+      } catch (error) {
+        if (closed || signal.aborted) {
+          return;
+        }
+
+        attempts += 1;
+        await reportBridgeIssue(undefined, "OpenCode event stream disconnected", error);
+        if (attempts > reconnectMaxAttempts) {
+          return;
+        }
+        await sleep(delayMs);
+        delayMs = Math.min(reconnectMaxDelayMs, delayMs * 2);
+      }
+    }
+  }
+
+  async function processEvent(
+    event: Parameters<typeof mapOpencodeEvent>[0],
+    skipEventIds: Set<string> = new Set(),
+  ): Promise<void> {
+    const nativeResolution = mapOpencodeNativeResolution(event, mappingContext);
+    if (nativeResolution && runtimeClient) {
+      suppressInteraction(nativeResolution.response.interactionId);
+      await runtimeClient.submit(nativeResolution.response);
+      return;
+    }
+
+    const mapped = mapOpencodeEvent(event, mappingContext).filter((sourceEvent) => !skipEventIds.has(sourceEvent.id));
+    if (mapped.length > 0 && runtimeClient) {
+      await runtimeClient.publishSourceEventBatch(mapped);
+    }
+  }
+
   async function handleRuntimeResponse(response: AttentionResponse): Promise<void> {
     if (suppressEgress.has(response.interactionId)) {
-      suppressEgress.delete(response.interactionId);
+      clearSuppressedInteraction(response.interactionId);
       return;
     }
 
@@ -129,4 +190,52 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
         return;
     }
   }
+
+  function suppressInteraction(interactionId: string): void {
+    clearSuppressedInteraction(interactionId);
+    suppressEgress.set(
+      interactionId,
+      setTimeout(() => {
+        suppressEgress.delete(interactionId);
+      }, 60_000),
+    );
+  }
+
+  function clearSuppressedInteraction(interactionId: string): void {
+    const timeout = suppressEgress.get(interactionId);
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    suppressEgress.delete(interactionId);
+  }
+
+  async function reportBridgeIssue(
+    taskId: string | undefined,
+    title: string,
+    error: unknown,
+  ): Promise<void> {
+    if (!runtimeClient) {
+      return;
+    }
+
+    const event: SourceEvent = {
+      id: `opencode:${createOpencodeInstanceKey(mappingContext)}:bridge:${encodeURIComponent(title)}:${Date.now()}`,
+      type: "task.updated",
+      taskId: taskId ?? `opencode:${createOpencodeInstanceKey(mappingContext)}:session:bridge`,
+      timestamp: new Date().toISOString(),
+      source: {
+        id: `opencode:${createOpencodeInstanceKey(mappingContext)}`,
+        kind: "opencode",
+        label: "OpenCode",
+      },
+      title,
+      summary: error instanceof Error ? error.message : String(error),
+      status: "waiting",
+    };
+    await runtimeClient.publishSourceEvent(event);
+  }
+}
+
+function sleep(durationMs: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, durationMs));
 }

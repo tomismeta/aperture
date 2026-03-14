@@ -83,6 +83,20 @@ test("maps OpenCode approvals back to permission reply calls", () => {
   });
 });
 
+test("maps non-decisive permission responses conservatively to reject", () => {
+  const response: AttentionResponse = {
+    taskId: `opencode:${createOpencodeInstanceKey(context)}:session:ses-1`,
+    interactionId: `opencode:${createOpencodeInstanceKey(context)}:permission:perm-1`,
+    response: { kind: "acknowledged" },
+  };
+
+  assert.deepEqual(mapOpencodeResponse(response), {
+    kind: "permission.reply",
+    requestId: "perm-1",
+    body: { reply: "reject" },
+  });
+});
+
 test("maps native permission resolution to a synthetic Aperture response", () => {
   const mapped = mapOpencodeNativeResolution({
     type: "permission.replied",

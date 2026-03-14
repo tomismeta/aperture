@@ -153,6 +153,9 @@ export function mapOpencodeResponse(response: AttentionResponse): OpencodeRespon
   if (parsed.kind === "permission") {
     switch (response.response.kind) {
       case "approved":
+        // V1 intentionally uses the safer session-local approval path.
+        // OpenCode also supports reply: "always", but Aperture should only
+        // expose that once it has an explicit surface-level policy choice.
         return {
           kind: "permission.reply",
           requestId: parsed.requestId,
@@ -169,6 +172,14 @@ export function mapOpencodeResponse(response: AttentionResponse): OpencodeRespon
         };
       case "dismissed":
       case "acknowledged":
+        // OpenCode permissions are blocking and require a concrete decision.
+        // Treat non-decisive responses conservatively so the request does not
+        // stay pending while Aperture makes it look resolved.
+        return {
+          kind: "permission.reply",
+          requestId: parsed.requestId,
+          body: { reply: "reject" },
+        };
       case "option_selected":
       case "form_submitted":
         return null;

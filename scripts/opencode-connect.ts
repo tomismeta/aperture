@@ -26,6 +26,9 @@ async function main(): Promise<void> {
   let password: string | undefined;
   if (username && !passwordEnv) {
     password = await promptHiddenPassword(`OpenCode password for ${username}: `);
+    if (password) {
+      stdout.write("Warning: storing a direct password in ~/.aperture/opencode.json. Prefer --password-env for better security.\n");
+    }
   }
 
   const profile = await saveGlobalOpencodeProfile({
@@ -69,7 +72,11 @@ function readFlag(args: string[], name: string): string | undefined {
   if (index === -1) {
     return undefined;
   }
-  return args[index + 1];
+  const value = args[index + 1];
+  if (!value || value.startsWith("-")) {
+    return undefined;
+  }
+  return value;
 }
 
 void main().catch((error) => {

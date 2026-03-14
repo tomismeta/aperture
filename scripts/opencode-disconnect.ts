@@ -25,7 +25,11 @@ function readFlag(args: string[], name: string): string | undefined {
   if (index === -1) {
     return undefined;
   }
-  return args[index + 1];
+  const value = args[index + 1];
+  if (!value || value.startsWith("-")) {
+    return undefined;
+  }
+  return value;
 }
 
 void main().catch((error) => {

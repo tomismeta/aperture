@@ -11,26 +11,7 @@ async function main(): Promise<void> {
 
   process.title = "aperture";
 
-  const runtime = spawnPnpm(["serve", "--", ...learningArgs]);
-  children.push(runtime);
-  await waitForReady(runtime, "Aperture runtime listening");
-
-  const claude = spawnPnpm(["claude:start"]);
-  children.push(claude);
-  await waitForReady(claude, "Aperture Claude adapter listening");
-
-  if (hasOpencodeProfiles) {
-    const opencode = spawnPnpm(["opencode:start"]);
-    children.push(opencode);
-    await waitForReady(opencode, "Aperture OpenCode adapter ready");
-  }
-
-  const tui = spawn("pnpm", ["tui"], {
-    stdio: "inherit",
-    env: process.env,
-  });
-
-  const close = async () => {
+  const close = async (exitCode = 0) => {
     if (shuttingDown) {
       return;
     }
@@ -43,7 +24,7 @@ async function main(): Promise<void> {
     }
 
     await Promise.all(children.map(waitForExit));
-    process.exit(0);
+    process.exit(exitCode);
   };
 
   const onSignal = () => {
@@ -53,9 +34,34 @@ async function main(): Promise<void> {
   process.on("SIGINT", onSignal);
   process.on("SIGTERM", onSignal);
 
-  tui.once("exit", () => {
-    void close();
-  });
+  try {
+    const runtime = spawnPnpm(["serve", "--", ...learningArgs]);
+    children.push(runtime);
+    await waitForReady(runtime, "Aperture runtime listening");
+
+    const claude = spawnPnpm(["claude:start"]);
+    children.push(claude);
+    await waitForReady(claude, "Aperture Claude adapter listening");
+
+    if (hasOpencodeProfiles) {
+      const opencode = spawnPnpm(["opencode:start"]);
+      children.push(opencode);
+      await waitForReady(opencode, "Aperture OpenCode adapter ready");
+    }
+
+    const tui = spawn("pnpm", ["tui"], {
+      stdio: "inherit",
+      env: process.env,
+    });
+
+    tui.once("exit", (code) => {
+      void close(code ?? 0);
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    stderr.write(`${message}\n`);
+    await close(1);
+  }
 }
 
 function spawnPnpm(args: string[]): ChildProcess {

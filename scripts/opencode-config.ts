@@ -85,9 +85,13 @@ export async function removeGlobalOpencodeProfile(profileId: string): Promise<bo
 }
 
 export function normalizeBaseUrl(raw: string): string {
-  const url = new URL(raw);
-  url.pathname = url.pathname.replace(/\/+$/, "");
-  return url.toString().replace(/\/+$/, "");
+  try {
+    const url = new URL(raw);
+    url.pathname = url.pathname.replace(/\/+$/, "");
+    return url.toString().replace(/\/+$/, "");
+  } catch {
+    throw new Error(`Invalid OpenCode URL: ${raw}`);
+  }
 }
 
 export function globalOpencodeConfigPath(): string {

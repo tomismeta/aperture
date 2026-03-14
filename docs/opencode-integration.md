@@ -1,0 +1,522 @@
+# OpenCode Integration
+
+This document describes how Aperture should integrate with [OpenCode](https://github.com/anomalyco/opencode) with one hard constraint:
+
+**the integration must require zero OpenCode changes.**
+
+That means:
+
+- OpenCode remains the agent runtime
+- Aperture remains the attention judgment layer
+- the integration must work from OpenCode's existing public server, SDK, and event surfaces
+
+## Goal
+
+Add Aperture as an optional intermediary attention layer for OpenCode that can decide:
+
+- what deserves human attention now
+- what should wait
+- what should remain ambient
+
+The intended loop is still:
+
+- OpenCode event in
+- Aperture frame out
+- human answer in
+- OpenCode action or state update out
+
+## Core Constraint
+
+This integration must not depend on:
+
+- new OpenCode plugin hooks
+- new OpenCode routes
+- new OpenCode event types
+- suppressing or replacing OpenCode's native permission UI
+
+It has to work against OpenCode as it exists today.
+
+## Recommended Integration Mode
+
+The preferred first shape is:
+
+- **external sidecar adapter**
+- **shared Aperture runtime**
+- **separate Aperture TUI**
+
+In other words:
+
+- `opencode serve` runs OpenCode's server
+- `@aperture/runtime` hosts `ApertureCore`
+- `@aperture/opencode` connects to OpenCode and forwards events into Aperture
+- `@aperture/tui` renders the human attention surface
+
+This is not a second OpenCode runtime.
+
+It is an external attention plane attached to the existing OpenCode runtime.
+
+## Why This Works Without OpenCode Changes
+
+OpenCode already exposes the right primitives:
+
+- a headless server mode via `opencode serve`
+- instance and global SSE event streams
+- list/reply APIs for pending permissions
+- list/reply APIs for pending question requests
+- stable session identifiers and tool call identifiers
+
+That means Aperture does not need to intercept stdin, replace a TUI, or patch OpenCode internals.
+
+Instead, it can:
+
+1. watch OpenCode's event stream
+2. bootstrap pending human work from list endpoints
+3. render that work in Aperture
+4. submit human responses back through OpenCode's existing reply endpoints
+
+## What OpenCode Continues To Own
+
+OpenCode should continue to own:
+
+- agent execution
+- session lifecycle
+- provider/model execution
+- tool execution
+- native permissions config
+- question prompting semantics
+- message and tool history
+
+## What Aperture Owns
+
+Aperture should own:
+
+- semantic normalization of OpenCode events
+- attention judgment
+- active / queued / ambient presentation state
+- cross-session attention shaping
+- operator-facing prioritization and response routing
+
+## V1 Scope
+
+V1 should focus on the OpenCode events and responses that already form a real human loop:
+
+- permission requests
+- question requests
+- session status changes
+- selected tool lifecycle events from session message parts
+
+V1 should not try to:
+
+- replace the native OpenCode UI
+- own every OpenCode event type
+- change OpenCode's permission policy model
+- hide duplicate native prompts when a user is also looking at OpenCode's own UI
+
+## Architecture
+
+The first implementation should look like this:
+
+```text
+OpenCode server -> @aperture/opencode bridge -> @aperture/runtime -> Aperture TUI
+       ^                                                           |
+       |-----------------------------------------------------------|
+                        response APIs back into OpenCode
+```
+
+Flow:
+
+1. OpenCode emits an event over SSE.
+2. The OpenCode bridge maps that source-native event to one or more `SourceEvent`s.
+3. The bridge publishes those `SourceEvent`s into the shared Aperture runtime.
+4. Aperture updates `AttentionView`.
+5. The Aperture TUI renders frames and view state.
+6. The human responds in Aperture.
+7. The OpenCode bridge maps that `AttentionResponse` back into an OpenCode reply call.
+8. OpenCode resolves the waiting permission/question and continues execution.
+
+## Package Shape
+
+Recommended new package:
+
+- `packages/opencode`
+
+Suggested file shape:
+
+- `packages/opencode/src/index.ts`
+- `packages/opencode/src/client.ts`
+- `packages/opencode/src/bridge.ts`
+- `packages/opencode/src/mapping.ts`
+- `packages/opencode/src/types.ts`
+- `packages/opencode/test/opencode-adapter.test.ts`
+- `packages/opencode/test/opencode-runtime.test.ts`
+
+Suggested responsibilities:
+
+### `client.ts`
+
+Own the OpenCode transport layer:
+
+- connect to SSE
+- list pending permissions
+- list pending questions
+- reply to permissions
+- reply to questions
+- reject questions
+
+### `mapping.ts`
+
+Own source-native translation:
+
+- OpenCode event -> `SourceEvent[]`
+- `AttentionResponse` -> OpenCode reply call
+
+### `bridge.ts`
+
+Own the running adapter loop:
+
+- subscribe to OpenCode
+- publish into Aperture runtime
+- listen for Aperture responses
+- send those replies back into OpenCode
+
+### `index.ts`
+
+Export:
+
+- mapping helpers
+- transport helpers
+- bridge constructor
+
+## Runtime Topology
+
+This should follow the same shape as the Claude Code path, but with a different ingress.
+
+Claude Code today is:
+
+- Claude hooks -> Claude adapter -> Aperture runtime -> TUI
+
+OpenCode should become:
+
+- OpenCode server -> OpenCode adapter bridge -> Aperture runtime -> TUI
+
+So the full Aperture side remains familiar:
+
+- `@aperture/runtime` still owns the live `ApertureCore`
+- `@aperture/tui` remains the surface
+- only the source-specific ingress changes
+
+## Ingress
+
+### Transport
+
+The bridge should use:
+
+- SSE subscription for live events
+- list endpoints for initial pending state bootstrap
+
+Recommended bootstrap sequence:
+
+1. connect to OpenCode server
+2. list pending permissions
+3. list pending questions
+4. publish those into Aperture first
+5. then begin SSE subscription
+
+This reduces startup races and ensures Aperture does not miss already-waiting human work.
+
+### Initial Event Set
+
+The first mapped OpenCode event set should be:
+
+- `permission.asked`
+- `permission.replied`
+- `question.asked`
+- `question.replied`
+- `question.rejected`
+- `session.status`
+- `message.part.updated`
+
+### Why These First
+
+These give us the three most important categories:
+
+- explicit human requests
+- explicit human responses
+- surrounding session/tool lifecycle context
+
+That is enough for a real Aperture loop without needing every OpenCode event.
+
+## Event Mapping
+
+### `permission.asked`
+
+Map to:
+
+- `human.input.requested`
+
+Use:
+
+- `sessionID` as the primary task anchor
+- `requestID` as the interaction anchor
+- tool metadata and patterns as context
+
+Recommended semantics:
+
+- request kind: `approval`
+- title from permission type
+- summary from permission metadata / patterns
+- source label should clearly say `OpenCode`
+
+### `question.asked`
+
+Map to:
+
+- `human.input.requested`
+
+Depending on structure:
+
+- multiple-choice question -> `choice`
+- multi-field question set -> `form`
+
+The important thing is preserving:
+
+- question headers
+- options
+- order
+- whether custom input is allowed
+
+### `permission.replied`
+
+Map to factual state-clearing or follow-up events only when useful.
+
+For V1, it is enough to:
+
+- clear or reconcile the outstanding attention interaction
+- optionally record a source event for timeline continuity
+
+### `question.replied` / `question.rejected`
+
+Same approach:
+
+- clear or reconcile the matching interaction
+- optionally record an ambient follow-up note if useful
+
+### `session.status`
+
+Map to:
+
+- `task.updated`
+
+This gives Aperture continuity context such as:
+
+- busy
+- idle
+- retrying
+
+These should not necessarily create interruptive frames by themselves.
+
+They mainly help Aperture understand whether an OpenCode session is blocked, active, or recovering.
+
+### `message.part.updated`
+
+Use this selectively.
+
+The OpenCode message-part stream is rich, but V1 should only derive a few high-signal events:
+
+- tool started
+- tool failed
+- step finished with meaningful result
+- maybe a waiting / blocked tool path when clearly visible
+
+This should be thin and factual.
+
+Do not try to semantically outsmart OpenCode here.
+
+## Egress
+
+The first response mapping should be intentionally narrow and reliable.
+
+### Permission responses
+
+Map Aperture responses to:
+
+- `approved` -> permission reply `"once"` or `"always"`
+- `rejected` -> permission reply `"reject"`
+- `dismissed` -> permission reply `"reject"` or no-op, depending on the desired semantics
+
+For V1, the safe mapping is:
+
+- `approved` -> `"once"`
+- `rejected` -> `"reject"`
+- `dismissed` -> `"reject"`
+
+Only introduce `"always"` when Aperture intentionally exposes that choice.
+
+### Question responses
+
+Map Aperture responses to:
+
+- `option_selected` -> question reply answers
+- `form_submitted` -> question reply answers
+- `dismissed` -> question reject
+
+### Responses We Should Not Pretend To Support
+
+Do not invent meanings for:
+
+- arbitrary freeform responses when the OpenCode question expects enumerated answers
+- multi-step workflow mutations outside permissions/questions
+
+V1 should stay honest and only map what OpenCode already exposes cleanly.
+
+## Identity Rules
+
+The bridge needs stable IDs so Aperture can preserve continuity.
+
+Recommended identity model:
+
+- `taskId`
+  - primarily session-scoped
+  - examples:
+    - `opencode:session:{sessionID}`
+    - `opencode:session:{sessionID}:permission`
+
+- `interactionId`
+  - specific pending human request
+  - examples:
+    - `opencode:permission:{requestID}`
+    - `opencode:question:{requestID}`
+
+- `source`
+  - `kind: "opencode"`
+  - include workspace or directory label when available
+
+This should preserve:
+
+- one session as one evolving attention stream
+- one permission/question as one human interaction
+
+## Recommended Product Shape
+
+The strongest no-change OpenCode integration story is:
+
+- run OpenCode headless with `opencode serve`
+- run Aperture as the human attention surface
+
+That gives the cleanest operator story:
+
+- OpenCode executes
+- Aperture decides what reaches the human
+- the human responds in Aperture
+
+This avoids fighting OpenCode's own TUI for attention.
+
+## Important Limitation
+
+If a user is also actively using OpenCode's native TUI or web client:
+
+- OpenCode will still show its own permission/question UI
+- Aperture can still reply first
+- but Aperture cannot suppress the native UI without upstream changes
+
+So:
+
+- **headless OpenCode + Aperture TUI** is the cleanest path
+- **OpenCode UI + Aperture UI together** is possible, but duplicative
+
+## Why This Is Still Worth Doing
+
+Even with that limitation, this is a strong integration because it would prove:
+
+- Aperture can attach to a real agent runtime without custom hooks
+- Aperture can consume SSE/server-mediated human loops
+- Aperture can return human answers back into another product's live execution
+- Aperture does not require a proprietary transport shape to be useful
+
+That is an important validation of the engine and adapter model.
+
+## Phased Plan
+
+### Phase 1: Thin Approval/Question Bridge
+
+Build:
+
+- OpenCode transport client
+- event mapping for permissions/questions
+- response mapping back into reply endpoints
+- runtime bridge + TUI demo
+
+Success means:
+
+- an OpenCode permission appears in Aperture
+- a human approves or rejects in Aperture
+- OpenCode continues correctly
+
+### Phase 2: Session Context Enrichment
+
+Add:
+
+- `session.status`
+- selective `message.part.updated`
+- better waiting / retry / failure context
+
+Success means:
+
+- Aperture frames carry more surrounding context
+- active / queued / ambient feels more intelligent than mirroring prompts
+
+### Phase 3: Host Maturity
+
+Add:
+
+- better startup bootstrap and reconnect behavior
+- stronger timeout handling
+- stronger duplicate suppression between bootstrap and SSE
+- docs and example scripts
+
+## Testing Strategy
+
+The first package should have three test layers:
+
+### Pure mapping tests
+
+- raw OpenCode event -> `SourceEvent[]`
+- `AttentionResponse` -> OpenCode reply payload
+
+### Bridge tests
+
+- simulate pending permissions/questions
+- verify publish into runtime
+- verify response loop back into OpenCode client
+
+### Runtime integration tests
+
+- OpenCode-like pending request
+- Aperture frame appears
+- response clears state and sends the expected reply call
+
+## Recommended First Deliverable
+
+The best first deliverable is:
+
+- `packages/opencode`
+- a local script like `scripts/opencode-adapter.ts`
+- one demo flow:
+  - start OpenCode server
+  - start Aperture runtime + TUI
+  - attach OpenCode bridge
+  - answer a permission request from Aperture
+
+That is enough to prove the architecture.
+
+## Recommendation
+
+Build OpenCode support as:
+
+- a **thin source adapter and bridge**
+- not a replacement runtime
+- not an upstream patch
+
+OpenCode is already the runtime.
+
+The right Aperture move is to become the external attention plane that can listen, judge, and answer through OpenCode's existing server APIs.

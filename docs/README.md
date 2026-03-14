@@ -20,6 +20,7 @@ Reference docs:
 - [Semantic Normalization](semantic-normalization.md)
 - [Attention Frame](frame.md)
 - [Codex Adapter](codex.md)
+- [OpenCode Integration](opencode-integration.md)
 - [Paperclip Adapter](paperclip.md)
 - [TUI Design](tui-design.md)
 - [Engine Roadmap](engine-roadmap.md)

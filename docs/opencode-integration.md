@@ -49,7 +49,7 @@ The preferred first shape is:
 In other words:
 
 - `opencode serve` runs OpenCode's server
-- the runtime package (`@aperture/runtime`) hosts `ApertureCore` from the core SDK (`@tomismeta/aperture-core`)
+- the runtime package (`@aperture/runtime`) hosts `ApertureCore` from the core package (`packages/core`, published as `@tomismeta/aperture-core`)
 - the OpenCode adapter package (`@aperture/opencode`, planned) connects to OpenCode and forwards events into the runtime
 - the TUI package (`@aperture/tui`) renders the human attention surface
 
@@ -230,7 +230,7 @@ OpenCode should become:
 
 So the full Aperture side remains familiar:
 
-- the runtime package (`@aperture/runtime`) still owns the live `ApertureCore` from the core SDK (`@tomismeta/aperture-core`)
+- the runtime package (`@aperture/runtime`) still owns the live `ApertureCore` from the core package (`packages/core`, published as `@tomismeta/aperture-core`)
 - the TUI package (`@aperture/tui`) remains the surface
 - only the source-specific ingress changes
 

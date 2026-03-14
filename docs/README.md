@@ -35,7 +35,7 @@ Reference docs:
 
 Everything in this set matches the current engine-first product:
 
-- a human attention control plane in the Aperture core SDK (`@tomismeta/aperture-core`)
+- a human attention control plane in the core package (`packages/core`, published as `@tomismeta/aperture-core`)
 - a shared local host in `@aperture/runtime`
 - Claude Code as the current live adapter path
 - Codex and Paperclip as additional adapters with different transport maturity

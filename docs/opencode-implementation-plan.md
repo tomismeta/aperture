@@ -18,11 +18,11 @@ The OpenCode adapter should prove something important about Aperture:
 - the adapter can be source-specific
 - the runtime can remain generic
 - the TUI can remain source-agnostic
-- the core SDK can remain unchanged
+- the core package can remain unchanged
 
 That means the default assumption for this plan is:
 
-- **no required changes to the core SDK package (`@tomismeta/aperture-core`)**
+- **no required changes to the core package (`packages/core`, published as `@tomismeta/aperture-core`)**
 
 If implementation pressure reveals a real engine gap, that should become a separate explicitly-justified core PR, not a convenience leak from adapter work.
 
@@ -54,7 +54,7 @@ Planned new package:
 Expected live stack:
 
 - `opencode serve` runs OpenCode's server
-- the runtime package (`@aperture/runtime`) hosts `ApertureCore` from the core SDK (`@tomismeta/aperture-core`)
+- the runtime package (`@aperture/runtime`) hosts `ApertureCore` from the core package (`packages/core`, published as `@tomismeta/aperture-core`)
 - the OpenCode adapter package (`@aperture/opencode`, planned) connects to OpenCode and publishes source events into the runtime
 - the TUI package (`@aperture/tui`) renders the human attention surface
 
@@ -72,7 +72,7 @@ Deliverables:
 - milestone issues for each phase below
 - this implementation-plan doc
 - explicit constraint recorded in issue/PR templates:
-  - no required core SDK changes
+  - no required core package changes
 
 Exit criteria:
 
@@ -379,13 +379,13 @@ Every PR should state:
 
 - what milestone it belongs to
 - what is intentionally out of scope
-- whether it changes core SDK behavior
+- whether it changes core package behavior
 
 Recommended PR checklist:
 
 - tests added or updated
 - docs updated if behavior changed
-- no accidental core SDK changes
+- no accidental core package changes
 - runtime boundary remains generic
 - known risks or follow-ups called out
 
@@ -474,6 +474,6 @@ The OpenCode adapter is successful when:
 
 - Aperture can supervise a live OpenCode server with zero upstream OpenCode changes
 - the permission/question loop works through the existing runtime + TUI path
-- the adapter does not force changes into the core SDK
+- the adapter does not force changes into the core package
 - the implementation is reviewable and maintainable package-by-package
 - the docs tell a truthful story about what works today

@@ -1,14 +1,16 @@
 # Aperture Core SDK
 
-Deterministic, self-tuning attention judgment for agent systems.
+The human attention control plane for agent systems.
 
 Published on npm as `@tomismeta/aperture-core`.
 
-Use this when multiple agent events compete for limited human attention and you need deterministic, inspectable prioritization.
+Use this SDK when your agents can produce approvals, follow-up questions, status updates, or blocked work, and you need one place to decide:
 
-The Aperture core SDK is for runtimes that need to decide what deserves human attention now, what should wait, and what can stay in the background as agent activity competes for limited human focus.
+- what should interrupt a human now
+- what should wait in a queue
+- what should stay in the background
 
-The Aperture core SDK is the SDK substrate behind Aperture. It contains the judgment engine, the optional learning and persistence loop, and the stable types needed to embed Aperture inside another runtime without depending on the local host or TUI.
+You send events in, Aperture gives you frames to render, and you send the human's answer back.
 
 This package is ESM-only and requires Node.js 18+.
 
@@ -19,9 +21,15 @@ It is not:
 - a source-specific adapter
 - a generic agent orchestration framework
 
+## Install
+
+```bash
+npm install @tomismeta/aperture-core
+```
+
 ## Start Here
 
-Most consumers only need four things:
+If you are new to the SDK, start with:
 
 - `ApertureCore`
 - `ApertureEvent`
@@ -32,12 +40,24 @@ The recommended loop is:
 
 1. create `ApertureCore`
 2. publish an `ApertureEvent` with `core.publish(...)`
-3. if you get back an `AttentionFrame`, show it or route it to your UI
+3. if you get back an `AttentionFrame`, render it in your UI or workflow layer
 4. when the human responds, call `core.submit(...)`
 
 Use `SourceEvent` and `core.publishSourceEvent(...)` only when you are building an adapter from source-native events and want Aperture to normalize them first.
 
-## Quickstart
+In practice, you usually build a small frame-handling component or service around this loop:
+
+- events come in from your agents or runtime
+- Aperture returns frames that your UI or workflow layer renders
+- human actions on those frames are sent back with `core.submit(...)`
+
+This is the same pattern the Aperture TUI uses.
+
+## 1. What Do I Send Into Aperture?
+
+For most integrations, you call `core.publish(...)` with an `ApertureEvent`.
+
+Start with the simplest useful case: a human input request.
 
 ```ts
 import { ApertureCore, type ApertureEvent } from "@tomismeta/aperture-core";
@@ -46,13 +66,13 @@ const core = new ApertureCore();
 
 const event: ApertureEvent = {
   id: "evt:approval",
-  taskId: "task:deploy",
+  taskId: "task:deploy", // the broader unit of work this belongs to
   timestamp: new Date().toISOString(),
-  type: "human.input.requested",
-  interactionId: "interaction:deploy:review",
+  type: "human.input.requested", // this event needs human action
+  interactionId: "interaction:deploy:review", // stable id for this one decision
   title: "Approve production deploy",
   summary: "A production deploy is waiting for review.",
-  request: { kind: "approval" },
+  request: { kind: "approval" }, // ask Aperture for an approve/reject frame
 };
 
 const frame = core.publish(event);
@@ -60,6 +80,7 @@ const frame = core.publish(event);
 if (frame) {
   console.log(frame.title);
   console.log(frame.mode);
+  console.log(core.getAttentionView()); // render the full current surface, not just this one frame
 
   core.submit({
     taskId: frame.taskId,
@@ -69,122 +90,184 @@ if (frame) {
 }
 ```
 
-If you want the whole current surface after each event, call `core.getAttentionView()`.
+You can also publish task lifecycle events like:
 
-## Choose Your Input Type
+- `task.started`
+- `task.updated`
+- `task.completed`
+- `task.cancelled`
 
-### Recommended: `ApertureEvent`
+Use `SourceEvent` only when you are building an adapter and want Aperture to normalize source-native facts into `ApertureEvent` first.
 
-Use `ApertureEvent` when your runtime can already express:
+## 2. What Do I Get Back From Aperture?
 
-- task lifecycle updates
-- human input requests
-- consequence, tone, and context when you know them
+- input: publish an `ApertureEvent` with `core.publish(...)`
+- immediate result: `AttentionFrame | null`
+- current surface: `core.getAttentionView()`
+- human action: submit an `AttentionResponse` with `core.submit(...)`
 
-This is the easiest integration path and the one most new consumers should start with.
+`publish()` returns an `AttentionFrame` when Aperture thinks the event should enter the human attention surface. It returns `null` when the event becomes a no-op or clear action.
 
-### Advanced: `SourceEvent`
-
-Use `SourceEvent` when you are mapping source-native facts into Aperture and want the SDK to normalize them into `ApertureEvent` internally.
-
-This is mainly for adapter authors.
-
-## What It Exposes
-
-The public surface is centered on a few core concepts:
-
-- `ApertureCore`
-  - the full engine facade
-- `AttentionPolicy`
-  - deterministic guardrails and approval rules
-- `AttentionValue`
-  - adaptive value-of-attention scoring
-- `AttentionPlanner`
-  - queue and presentation planning
-- `JudgmentCoordinator`
-  - composition of policy, value, pressure, and planning
-- `distillMemoryProfile`
-  - learned memory distillation
-- `ProfileStore`
-  - optional local persistence helper
-- `forecastAttentionPressure`
-  - predictive overload signal
-- `idleAttentionPressure`
-  - zero-load pressure baseline for hosts that want an explicit idle state
-- `scoreAttentionFrame`
-  - frame scoring helper for diagnostics and replay tooling
-- `evaluateTraceSession`
-  - replay and evaluation helper
-
-The key public schemas are:
-
-- `ApertureEvent`
-- `SourceEvent`
-- `AttentionCandidate`
-- `AttentionFrame`
-- `AttentionResponse`
-- `AttentionSignal`
-- `MemoryProfile`
-- `JudgmentConfig`
-- `ApertureTrace`
-- subscription listener types for frames, task views, signals, responses, and traces
-
-The SDK uses the explicit `Attention*` naming family intentionally. Earlier generic names like `Frame` or `FrameResponse` are not part of the public contract.
-
-## Repo Verification
-
-This section is for repo maintainers, not package consumers.
-
-This repo includes two package-facing examples:
-
-- `examples/core-full-engine`
-- `examples/core-judgment-primitives`
-
-And one verification command:
-
-```bash
-pnpm sdk:prove
-```
-
-That command:
-
-- builds the Aperture core SDK package
-- packs it into a tarball
-- installs it into temporary consumer projects
-- runs both examples outside monorepo import assumptions
-
-## Integration Modes
-
-### Full Engine Mode
-
-Use `ApertureCore` when you want Aperture to own the attention model end to end.
+A returned frame looks like this:
 
 ```ts
-import { ApertureCore } from "@tomismeta/aperture-core";
-
-const core = new ApertureCore();
-
-core.publish({
-  id: "evt:approval",
+{
   taskId: "task:deploy",
-  timestamp: new Date().toISOString(),
-  type: "human.input.requested",
   interactionId: "interaction:deploy:review",
+  mode: "approval",
+  tone: "focused",
+  consequence: "medium",
   title: "Approve production deploy",
   summary: "A production deploy is waiting for review.",
-  request: { kind: "approval" },
-});
-
-const attentionView = core.getAttentionView();
+  responseSpec: {
+    kind: "approval",
+    actions: [
+      { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+      { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+    ],
+  },
+}
 ```
 
-`publish()` returns the newly materialized `AttentionFrame` when work enters the surface, or `null` when an event is normalized into a no-op or clear action.
+The important fields are:
 
-If you are starting from raw source-native events instead, use `core.publishSourceEvent(...)` with `SourceEvent`.
+- `mode`
+  - what kind of interaction this is, like `approval`, `choice`, `form`, or `status`
+- `tone` and `consequence`
+  - cues for urgency, emphasis, or visual treatment in your UI
+- `title` and `summary`
+  - the human-readable content to show
+- `responseSpec`
+  - how the human can answer
+- `taskId` and `interactionId`
+  - the ids you send back in `core.submit(...)`
 
-### Judgment Primitive Mode
+Your UI or workflow layer reads `frame.responseSpec`, renders the available actions or fields, and sends the chosen answer back with `core.submit(...)`.
 
-Use the judgment primitives when you already have your own runtime and only want Aperture’s attention adjudication.
+If you want the whole current surface after each event, call `core.getAttentionView()`. It returns:
+
+- `active`
+  - the item that should hold focus now
+- `queued`
+  - items that still matter, but should wait
+- `ambient`
+  - low-urgency background items
+
+For async integrations, you can also subscribe instead of polling:
+
+- `core.subscribe(taskId, listener)`
+- `core.subscribeAttentionView(listener)`
+- `core.onResponse(listener)`
+- `core.onSignal(listener)`
+
+## Why Are `publish(...)` And `submit(...)` Separate?
+
+Because Aperture keeps state across events and responses.
+
+- `publish(...)`
+  - tells Aperture that something happened
+- `submit(...)`
+  - tells Aperture how the human answered
+
+That lets Aperture keep track of:
+
+- what is already active
+- what is queued
+- what the human has already answered
+- signals that should affect future judgment
+
+So the real loop is:
+
+- event in
+- frame out
+- human answer in
+- state updates
+
+## How Do I Submit A Human Response?
+
+When the human acts on a frame, call `core.submit(...)` with an `AttentionResponse`.
+
+Common response shapes:
+
+```ts
+// approval
+{ taskId, interactionId, response: { kind: "approved" } }
+{ taskId, interactionId, response: { kind: "rejected", reason: "Needs rollback plan" } }
+
+// choice
+{ taskId, interactionId, response: { kind: "option_selected", optionIds: ["safe"] } }
+
+// form
+{ taskId, interactionId, response: { kind: "form_submitted", values: { reviewer: "Tom" } } }
+
+// acknowledgement or dismissal
+{ taskId, interactionId, response: { kind: "acknowledged" } }
+{ taskId, interactionId, response: { kind: "dismissed" } }
+```
+
+## 3. Do I Need Any Config Or Persistent Files?
+
+No. The default path needs no files at all:
+
+```ts
+const core = new ApertureCore();
+```
+
+That gives you an in-memory engine with no required persistence or file management.
+
+Only opt into persistence if you want learned behavior or local markdown-backed config. The opt-in path is `ApertureCore.fromMarkdown(rootDir)`.
+
+The main options are:
+
+- `ProfileStore`
+  - saves and loads learned memory
+- `ApertureCore.fromMarkdown(rootDir)`
+  - loads markdown-backed state from a directory
+- `core.checkpointMemory()`
+  - writes the current learned memory snapshot
+- `core.reloadMarkdown()`
+  - reloads markdown-backed state
+
+If you use the markdown-backed path, Aperture may read:
+
+- `MEMORY.md`
+  - learned behavior across sessions
+- `JUDGMENT.md`
+  - human-edited judgment and planner defaults
+- `USER.md`
+  - optional user preferences and overrides
+
+You do not need to create or monitor these files unless you explicitly want persistence or human-editable local config.
+
+If you want learned behavior across sessions, a minimal persistence flow looks like:
+
+```ts
+import { ProfileStore } from "@tomismeta/aperture-core";
+
+const profileStore = new ProfileStore("/path/to/state");
+const snapshot = core.snapshotMemoryProfile();
+await profileStore.saveMemoryProfile(snapshot);
+```
+
+For a markdown-backed setup, opt in with `ApertureCore.fromMarkdown(rootDir)` and then use `core.checkpointMemory()`.
+
+## Advanced: Lower-Level Primitives
+
+If you need more control than the full-engine flow, the package also exposes:
+
+- `AttentionPolicy`
+- `AttentionValue`
+- `AttentionPlanner`
+- `JudgmentCoordinator`
+- `distillMemoryProfile`
+- `forecastAttentionPressure`
+- `evaluateTraceSession`
+
+Start with `ApertureCore` unless you already know you need the lower-level judgment primitives.
+
+### Judgment Primitive Example
+
+Use the judgment primitives when you already have your own runtime and only want Aperture's attention adjudication.
 
 ```ts
 import {
@@ -225,27 +308,6 @@ const decision = coordinator.coordinate(null, candidate);
 
 If you want the full rationale instead of just the final decision, call `coordinator.explain(...)`.
 
-## Learning Persistence
+## More Context
 
-The learning loop is part of the package, not just the host runtime:
-
-`signals -> memory -> value -> planner -> presentation -> response -> new signals`
-
-That means SDK consumers can:
-
-- let `ApertureCore` accumulate signals
-- distill learned state with `distillMemoryProfile`
-- persist it with `ProfileStore`
-- keep persistence entirely optional
-
-## Design Principles
-
-The Aperture core SDK is intended to stay:
-
-- small-footprint
-- zero-runtime-dependency
-- deterministic in the hot path
-- inspectable in its judgment
-- adapter-agnostic
-
-If the package becomes harder to explain than the product, the surface is too wide.
+For the full product story, adapters, and runtime docs, see the main [Aperture repository](https://github.com/tomismeta/aperture).

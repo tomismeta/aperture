@@ -14,11 +14,24 @@ Aperture sits between many possible event sources and one human decision surface
 
 **Live path today:** Claude Code (multiple agents) → Aperture runtime → terminal attention surface
 
-**Published SDK:** `@tomismeta/aperture-core`
+## Start Here
+
+Choose one path:
+
+- use the published SDK if you want to embed Aperture's judgment engine in your own runtime or UI
+- run the full local stack if you want the working Claude Code + runtime + TUI experience on this machine
+
+### Use The Published SDK
+
+**npm package:** `@tomismeta/aperture-core`
 
 ```bash
 npm install @tomismeta/aperture-core
 ```
+
+See the full SDK docs in [packages/core/README.md](/Users/tom/dev/aperture/packages/core/README.md).
+
+### Run The Full Local Stack
 
 ```bash
 git clone git@github.com:tomismeta/aperture.git
@@ -27,6 +40,12 @@ pnpm install
 pnpm claude:connect --global
 pnpm aperture
 ```
+
+This starts the current live path:
+
+- Claude Code adapter
+- Aperture runtime
+- terminal attention surface
 
 Under the hood, Aperture already includes:
 

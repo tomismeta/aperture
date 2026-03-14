@@ -166,6 +166,87 @@ What is still missing:
 - stable external package contracts
 - performance characterization at scale
 
+## Near-Term Core Maturation
+
+The next meaningful core-engine improvements should stay inside Aperture's own language and product framing.
+
+They are not about importing router concepts from other systems.
+
+They are about making Aperture's judgment loop more explicit, safer under uncertainty, and better suited to multiple attention surfaces.
+
+Priority order:
+
+1. explicit ambiguity handling
+2. attention surface capabilities
+3. first-class attention profiles
+4. mode-shaping side signals
+
+### 1. Explicit Ambiguity Handling
+
+Status: `next`
+
+The engine should have a first-class answer for:
+
+- "I am not confident enough to interrupt"
+- "I am not confident enough to suppress"
+
+That means uncertainty should not blur into ordinary scoring.
+
+Instead, Aperture should define safe default behavior for ambiguous cases, such as:
+
+- uncertain interrupt -> queue
+- uncertain suppression -> ambient
+- uncertain response path -> explicit review
+
+This is the highest-leverage next engine improvement because it improves safety and predictability without widening the public surface very much.
+
+### 2. Attention Surface Capabilities
+
+Status: `next after ambiguity`
+
+As Aperture becomes a real SDK for multiple surfaces, the engine should understand the shape of the attention surface it is embedded in.
+
+This is not about event producer capabilities.
+
+It is about attention surface capabilities such as:
+
+- whether the surface supports ambient presentation
+- whether it can show multiple queued items
+- whether it can render richer response paths like forms or choice flows
+
+The planner should respect those constraints instead of planning for an idealized generic surface.
+
+### 3. First-Class Attention Profiles
+
+Status: `later`
+
+After ambiguity handling and surface capability constraints are more explicit, Aperture should likely support named attention profiles.
+
+Examples:
+
+- `balanced`
+- `conservative`
+- `interrupt-minimizing`
+- `review-heavy`
+
+These would tune planner and presentation defaults without changing the core loop or the event model.
+
+### 4. Mode-Shaping Side Signals
+
+Status: `later`
+
+Some signals should influence presentation mode or planning behavior without dominating the total judgment score.
+
+Examples may include:
+
+- workflow continuity risk
+- human commitment cost
+- operator context cost
+
+These should come last, because they are the easiest to overcomplicate and are best informed by real integrations and traces.
+
+For a fuller design note, see [ClawRouter-Inspired Core Maturation](./clawrouter-inspired-core-maturation.md).
+
 ## The Moats
 
 The current wedge is already visible in four areas.

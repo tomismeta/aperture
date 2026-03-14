@@ -12,20 +12,25 @@ This technical roadmap answers:
 
 - how mature each adapter path is
 - how close the Aperture core SDK package is to becoming a real SDK
-- what should happen before npm publishing
+- what should happen before and after npm publishing
 
 The goal is to improve distribution and maturity without diluting the product.
 
 ## Two Parallel Tracks
 
-There are two technical productization tracks:
+There are three technical productization tracks:
 
 1. adapter maturity
 2. core package and SDK readiness
+3. core engine maturation for embed and multi-surface use
 
 They should move in parallel, but they do not need to move at the same speed.
 
-Right now, the SDK path is closer than broad adapter maturity.
+Right now:
+
+- the SDK path is already published
+- the next adapter proving ground is likely Paperclip
+- the next core-engine maturity work should be explicit ambiguity handling
 
 ## Current Read
 
@@ -167,6 +172,25 @@ Current placement:
 
 The next target is adoption and iteration.
 
+### Core Engine Maturation
+
+#### Status
+
+Status: `defined, not yet implemented`
+
+What is true today:
+
+- the judgment core is already strong enough to publish and embed
+- the loop is coherent: policy -> value -> planning -> presentation -> response
+- the engine already learns from signals over time
+
+What is not true yet:
+
+- ambiguity is not yet a first-class explicit policy seam
+- attention surface capabilities are not yet strongly explicit planner inputs
+- named attention profiles do not yet exist as a first-class product concept
+- mode-shaping side signals are not yet deliberately modeled
+
 ## What SDK-Ready Should Mean
 
 Before and through npm publishing, Aperture should prove the core package in one small external integration and keep tightening the artifact itself.
@@ -202,17 +226,25 @@ Ordered by leverage:
 1. **Keep Claude Code as the flagship live adapter**
    - keep one path obviously working while the substrate matures
 
-2. **Choose the second real source**
-   - Paperclip or Codex, based on actual demand and access
+2. **Prove one second real surface**
+   - Paperclip is the strongest current candidate because it can validate both the adapter seam and the SDK surface
 
-3. **Keep package-facing examples healthy**
+3. **Tighten the core engine where integrations will pressure it**
+   - explicit ambiguity handling first
+   - attention surface capabilities second
+   - attention profiles later
+   - mode-shaping side signals last
+
+4. **Keep package-facing examples healthy**
    - one full-engine example
    - one judgment-primitive example
 
-4. **Support the published package deliberately**
+5. **Support the published package deliberately**
    - tag releases cleanly
    - keep the README and npm-facing docs honest
    - harden based on real consumer friction
+
+For the engine-maturation ordering, see [ClawRouter-Inspired Core Maturation](./clawrouter-inspired-core-maturation.md).
 
 ## What To Avoid
 
@@ -227,11 +259,12 @@ To keep the productization path clean:
 
 If we have limited time and limited live adapter demand, the best technical productization move is:
 
-**support the Aperture core SDK package as a published SDK while keeping the judgment engine itself moving**
+**support the published Aperture core SDK package while using one real integration to pressure-test the next core-engine maturity seams**
 
-That is the closest, most controllable maturity step:
+The best next sequence is:
 
-- it does not depend on external platform hooks
-- it makes the substrate more real
-- it supports the long-term embed story
-- it keeps the project moving while adapter availability is uneven
+1. keep Claude Code strong
+2. use Paperclip as the likely second proving ground
+3. implement explicit ambiguity handling before broader core expansions
+
+That keeps the project moving without diluting the product or widening the engine prematurely.

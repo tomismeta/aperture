@@ -47,15 +47,15 @@ V1 should not try to:
 
 ## Package And Runtime Shape
 
-Planned new package:
+Current package:
 
-- `packages/opencode` (`@aperture/opencode`, planned)
+- `packages/opencode` (`@aperture/opencode`)
 
 Expected live stack:
 
 - `opencode serve` runs OpenCode's server
 - the runtime package (`@aperture/runtime`) hosts `ApertureCore` from the core package (`packages/core`, published as `@tomismeta/aperture-core`)
-- the OpenCode adapter package (`@aperture/opencode`, planned) connects to OpenCode and publishes source events into the runtime
+- the OpenCode adapter package (`@aperture/opencode`) connects to OpenCode and publishes source events into the runtime
 - the TUI package (`@aperture/tui`) renders the human attention surface
 
 ## Milestones
@@ -174,7 +174,7 @@ Exit criteria:
 
 PR shape:
 
-- **PR 2: add OpenCode client transport and bootstrap support**
+- typically lands inside the main buildout PR
 
 ### Milestone 3: Source Mapping And Response Mapping
 
@@ -215,7 +215,7 @@ Exit criteria:
 
 PR shape:
 
-- **PR 3: map OpenCode events and responses to Aperture semantics**
+- typically lands inside the main buildout PR
 
 ### Milestone 4: Runtime Bridge
 
@@ -253,7 +253,7 @@ Exit criteria:
 
 PR shape:
 
-- **PR 4: add OpenCode runtime bridge**
+- typically lands inside the main buildout PR
 
 ### Milestone 5: Local Dev UX And Documentation
 
@@ -296,7 +296,7 @@ Exit criteria:
 
 PR shape:
 
-- **PR 5: add OpenCode adapter launcher and developer docs**
+- typically lands inside the UX/polish PR
 
 ### Milestone 6: Hardening And Release Readiness
 
@@ -324,7 +324,7 @@ Exit criteria:
 
 PR shape:
 
-- **PR 6: harden OpenCode adapter behavior**
+- typically lands inside the UX/polish PR, with any extra runtime hardening split out only if it grows too large
 
 This is the first milestone where publication should even be discussed.
 
@@ -332,14 +332,17 @@ This is the first milestone where publication should even be discussed.
 
 This project is large enough that one branch and one PR would be a mistake.
 
+In practice, the clean review shape is:
+
+1. scaffold and typed contracts
+2. main adapter buildout
+3. operator/dev UX and polish
+
 Recommended branch naming:
 
 - `codex/opencode-m1-scaffold`
-- `codex/opencode-m2-client`
-- `codex/opencode-m3-mapping`
-- `codex/opencode-m4-bridge`
-- `codex/opencode-m5-devx`
-- `codex/opencode-m6-hardening`
+- `codex/opencode-m2-buildout`
+- `codex/opencode-m3-ux`
 
 Recommended PR sizing rule:
 
@@ -349,11 +352,8 @@ Recommended PR sizing rule:
 Recommended PR sequence:
 
 1. scaffold
-2. transport
-3. mapping
-4. bridge
-5. dev UX
-6. hardening
+2. transport + mapping + runtime bridge
+3. dev UX + shared-stack wiring + documentation
 
 ## GitHub Hygiene
 

@@ -50,7 +50,7 @@ In other words:
 
 - `opencode serve` runs OpenCode's server
 - the runtime package (`@aperture/runtime`) hosts `ApertureCore` from the core package (`packages/core`, published as `@tomismeta/aperture-core`)
-- the OpenCode adapter package (`@aperture/opencode`, planned) connects to OpenCode and forwards events into the runtime
+- the OpenCode adapter package (`@aperture/opencode`) connects to OpenCode and forwards events into the runtime
 - the TUI package (`@aperture/tui`) renders the human attention surface
 
 The bridge should accept normal connection options such as:
@@ -63,6 +63,28 @@ The bridge should accept normal connection options such as:
 This is not a second OpenCode runtime.
 
 It is an external attention plane attached to the existing OpenCode runtime.
+
+## Command Surface
+
+The intended OpenCode command path should mirror the Claude Code ergonomics, while keeping all OpenCode-specific configuration on the Aperture side:
+
+```bash
+pnpm install
+pnpm opencode:connect --global
+pnpm aperture
+```
+
+That means:
+
+- `pnpm opencode:connect --global` stores an Aperture-side OpenCode connection profile in `~/.aperture/opencode.json`
+- `pnpm aperture` starts the shared runtime, the Claude adapter, any configured OpenCode adapters, and the shared TUI
+- OpenCode itself still runs separately via `opencode serve`
+
+If no auth parameters are provided, the connection profile assumes a local unauthenticated OpenCode server.
+
+If a username is provided without a password env var, Aperture should prompt for the password and store it in the Aperture-side connection profile.
+
+The product value is that Claude Code and OpenCode can both stream into one shared Aperture runtime and one shared TUI.
 
 ## Why This Works Without OpenCode Changes
 
@@ -167,7 +189,7 @@ Flow:
 
 Recommended new package:
 
-- `packages/opencode` (`@aperture/opencode`, planned)
+- `packages/opencode` (`@aperture/opencode`)
 
 Suggested file shape:
 
@@ -226,7 +248,7 @@ Claude Code today is:
 
 OpenCode should become:
 
-- OpenCode server -> OpenCode adapter package (`@aperture/opencode`, planned) -> runtime package (`@aperture/runtime`) -> TUI package (`@aperture/tui`)
+- OpenCode server -> OpenCode adapter package (`@aperture/opencode`) -> runtime package (`@aperture/runtime`) -> TUI package (`@aperture/tui`)
 
 So the full Aperture side remains familiar:
 

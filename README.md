@@ -14,6 +14,12 @@ Aperture sits between many possible event sources and one human decision surface
 
 **Live path today:** Claude Code (multiple agents) → Aperture runtime → terminal attention surface
 
+**Published SDK:** `@tomismeta/aperture-core`
+
+```bash
+npm install @tomismeta/aperture-core
+```
+
 ```bash
 git clone git@github.com:tomismeta/aperture.git
 cd aperture

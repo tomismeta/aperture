@@ -147,7 +147,20 @@ Install it from npm as `@tomismeta/aperture-core`:
 npm install @tomismeta/aperture-core
 ```
 
-You publish `ApertureEvent` or `SourceEvent` values and consume `AttentionView`.
+The recommended SDK loop is:
+
+- publish an `ApertureEvent`
+- get back an `AttentionFrame` if it should enter the human attention surface
+- render that frame in your UI or workflow layer
+- submit the human answer back into Aperture
+
+In other words:
+
+`event in -> frame out -> human answer in -> state updates`
+
+Start with `ApertureEvent` for most integrations. Use `SourceEvent` only when you are building an adapter from source-native events and want Aperture to normalize them first.
+
+For the full package-facing SDK docs, see [packages/core/README.md](/Users/tom/dev/aperture/packages/core/README.md).
 
 ## Architecture
 
@@ -164,7 +177,7 @@ The flow is:
 
 The Aperture core SDK is now published on npm as `@tomismeta/aperture-core` for embeddable judgment use.
 
-If you already own the source event stream, you can use it directly:
+If you already own the event stream, start with `ApertureEvent` and `core.publish(...)`:
 
 ```ts
 import { ApertureCore } from "@tomismeta/aperture-core";
@@ -185,7 +198,7 @@ core.publish({
 console.log(core.getAttentionView());
 ```
 
-If your integration already emits factual source events, publish `SourceEvent` instead:
+If your integration is building an adapter from source-native facts, publish `SourceEvent` instead:
 
 ```ts
 import { ApertureCore } from "@tomismeta/aperture-core";

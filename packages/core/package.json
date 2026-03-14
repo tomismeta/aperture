@@ -1,7 +1,7 @@
 {
   "name": "@tomismeta/aperture-core",
   "version": "0.1.0",
-  "description": "Deterministic, self-tuning attention judgment for agent systems.",
+  "description": "Deterministic, self-tuning attention judgment SDK for human-in-the-loop agent systems.",
   "author": "tomismeta <tomismeta@gmail.com>",
   "license": "MIT",
   "homepage": "https://github.com/tomismeta/aperture#readme",
@@ -18,6 +18,12 @@
     "attention-management",
     "control-plane",
     "human-in-the-loop",
+    "judgment",
+    "agent-orchestration",
+    "priority",
+    "queue",
+    "llm",
+    "notification",
     "typescript"
   ],
   "publishConfig": {

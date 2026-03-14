@@ -4,9 +4,11 @@ Deterministic, self-tuning attention judgment for agent systems.
 
 Published on npm as `@tomismeta/aperture-core`.
 
+Use this when multiple agent events compete for limited human attention and you need deterministic, inspectable prioritization.
+
 The Aperture core SDK is for runtimes that need to decide what deserves human attention now, what should wait, and what can stay in the background as agent activity competes for limited human focus.
 
-The Aperture core SDK is the SDK substrate behind Aperture. It contains the judgment engine, the learning loop, and the stable types needed to embed Aperture inside another runtime without depending on the local host or TUI.
+The Aperture core SDK is the SDK substrate behind Aperture. It contains the judgment engine, the optional learning and persistence loop, and the stable types needed to embed Aperture inside another runtime without depending on the local host or TUI.
 
 This package is ESM-only and requires Node.js 18+.
 
@@ -59,7 +61,9 @@ The key public schemas are:
 
 The SDK uses the explicit `Attention*` naming family intentionally. Earlier generic names like `Frame` or `FrameResponse` are not part of the public contract.
 
-## Proving The SDK Outside The Monorepo
+## Repo Verification
+
+This section is for repo maintainers, not package consumers.
 
 This repo includes two package-facing examples:
 

@@ -18,6 +18,14 @@ import {
   type AttentionSurfaceCapabilities,
 } from "./surface-capabilities.js";
 import type { AttentionValueBreakdown } from "./attention-value.js";
+import type { ContinuityRule } from "./continuity/continuity-rule.js";
+import { evaluateBurstDampeningContinuityRule } from "./continuity/burst-dampening-continuity-rule.js";
+import { evaluateContextPatienceContinuityRule } from "./continuity/context-patience-continuity-rule.js";
+import { evaluateDeferralEscalationContinuityRule } from "./continuity/deferral-escalation-continuity-rule.js";
+import { evaluateMinimumDwellContinuityRule } from "./continuity/minimum-dwell-continuity-rule.js";
+import { evaluateSameEpisodeContinuityRule } from "./continuity/same-episode-continuity-rule.js";
+import { evaluateSameInteractionContinuityRule } from "./continuity/same-interaction-continuity-rule.js";
+import { evaluateVisibleEpisodeContinuityRule } from "./continuity/visible-episode-continuity-rule.js";
 
 // These defaults intentionally stay conservative so explicit policy still
 // dominates. We centralize them in one module to keep future tuning and
@@ -48,6 +56,16 @@ export type AttentionPlanningContext = {
   currentScore: number | null;
   surfaceCapabilities?: AttentionSurfaceCapabilities;
 } & AttentionEvidenceInput;
+
+const CONTINUITY_RULES: readonly ContinuityRule[] = [
+  evaluateSameInteractionContinuityRule,
+  evaluateVisibleEpisodeContinuityRule,
+  evaluateSameEpisodeContinuityRule,
+  evaluateMinimumDwellContinuityRule,
+  evaluateBurstDampeningContinuityRule,
+  evaluateDeferralEscalationContinuityRule,
+  evaluateContextPatienceContinuityRule,
+];
 
 type AttentionPlannerOptions = {
   plannerDefaults?: PlannerDefaults;
@@ -218,113 +236,6 @@ export class AttentionPlanner {
       || candidate.priority === "background"
       || candidate.consequence === "low"
     );
-  }
-
-  private shouldBatchVisibleEpisode(
-    candidate: AttentionCandidate,
-    attentionView: AttentionView | undefined,
-  ): boolean {
-    if (!candidate.episodeId || !attentionView) {
-      return false;
-    }
-
-    if (candidate.blocking || candidate.consequence === "high" || candidate.tone === "critical") {
-      return false;
-    }
-
-    const visibleRelatedFrames = [attentionView.active, ...attentionView.queued, ...attentionView.ambient]
-      .filter((frame): frame is AttentionFrame => frame !== null)
-      .filter((frame) => frame.interactionId !== candidate.interactionId && readFrameEpisodeId(frame) === candidate.episodeId);
-
-    if (visibleRelatedFrames.length === 0) {
-      return false;
-    }
-
-    return candidate.episodeState === "batched" || (candidate.episodeSize ?? 1) >= 2 || visibleRelatedFrames.length >= 2;
-  }
-
-  private shouldEscalateDeferredTask(
-    current: AttentionFrame,
-    candidate: AttentionCandidate,
-    candidateScore: number,
-    currentScore: number,
-    taskSummary: AttentionSignalSummary | undefined,
-  ): boolean {
-    if (candidate.blocking || candidate.priority === "background") {
-      return false;
-    }
-
-    if (isBlockingFrame(current)) {
-      return false;
-    }
-
-    if (!taskSummary) {
-      return false;
-    }
-
-    const repeatedlyDeferred = taskSummary.counts.deferred >= DEFAULTS.deferredEscalationThreshold;
-    const repeatedlyReturned = taskSummary.counts.returned >= DEFAULTS.returnedEscalationThreshold;
-
-    if (!repeatedlyDeferred && !repeatedlyReturned) {
-      return false;
-    }
-
-    return candidateScore >= currentScore - DEFAULTS.escalationScoreSlack;
-  }
-
-  private shouldWaitForContext(
-    current: AttentionFrame,
-    candidate: AttentionCandidate,
-    utility: AttentionValueBreakdown,
-    candidateScore: number,
-    currentScore: number,
-  ): boolean {
-    if (candidate.blocking || isBlockingFrame(current)) {
-      return false;
-    }
-
-    if (candidate.consequence === "high" || candidate.tone === "critical") {
-      return false;
-    }
-
-    if (candidateScore <= currentScore) {
-      return false;
-    }
-
-    if (utility.components.contextCost <= -6) {
-      return candidateScore < currentScore + DEFAULTS.highContextQueueMargin;
-    }
-
-    if (utility.components.contextCost <= -3) {
-      return candidateScore < currentScore + DEFAULTS.mediumContextQueueMargin;
-    }
-
-    return false;
-  }
-
-  private shouldDampenBurst(current: AttentionFrame, candidate: AttentionCandidate): boolean {
-    if (this.plannerDefaults?.batchStatusBursts === false) {
-      return false;
-    }
-
-    if (
-      current.taskId !== candidate.taskId ||
-      current.mode !== "status" ||
-      candidate.mode !== "status" ||
-      candidate.blocking ||
-      candidate.consequence === "high" ||
-      candidate.tone === "critical"
-    ) {
-      return false;
-    }
-
-    const currentTimestamp = Date.parse(current.timing.updatedAt);
-    const candidateTimestamp = Date.parse(candidate.timestamp);
-    if (Number.isNaN(currentTimestamp) || Number.isNaN(candidateTimestamp)) {
-      return false;
-    }
-
-    return candidateTimestamp - currentTimestamp <= DEFAULTS.statusBurstWindowMs;
   }
 
   private isActionableEpisode(candidate: AttentionCandidate): boolean {
@@ -543,124 +454,29 @@ export class AttentionPlanner {
     evidence: AttentionEvidenceContext,
     routed: AttentionPlanningExplanation,
   ): AttentionPlanningExplanation {
-    const activeFrame = evidence.currentFrame;
-    if (!activeFrame) {
-      if (this.shouldBatchVisibleEpisode(candidate, evidence.attentionView)) {
-        return this.explainDecision(
-          this.batchedDecision(
-            candidate,
-            context.policyVerdict,
-            evidence.attentionView,
-            evidence.surfaceCapabilities,
-          ),
-          null,
-          null,
-          "related episode work is already visible, so this interaction batches with it instead of interrupting",
-        );
-      }
+    const winningEvaluation = CONTINUITY_RULES
+      .map((rule) => rule({
+        candidate,
+        context,
+        evidence,
+        routed,
+        plannerDefaults: this.plannerDefaults,
+        helpers: {
+          peripheralDecision: this.peripheralDecision.bind(this),
+          batchedDecision: this.batchedDecision.bind(this),
+        },
+      }))
+      .find((evaluation) => evaluation.kind === "override");
 
+    if (!winningEvaluation) {
       return routed;
     }
 
-    if (activeFrame.interactionId === candidate.interactionId) {
-      return this.explainDecision(
-        { kind: "activate", candidate },
-        null,
-        null,
-        "same interaction refreshes the existing frame",
-      );
-    }
-
-    if (this.shouldBatchVisibleEpisode(candidate, evidence.attentionView)) {
-      return this.explainDecision(
-        this.batchedDecision(
-          candidate,
-          context.policyVerdict,
-          evidence.attentionView,
-          evidence.surfaceCapabilities,
-        ),
-        null,
-        context.currentScore,
-        "related episode work is already building in the queue, so this interaction stays bundled with it",
-      );
-    }
-
-    const currentBlocking = isBlockingFrame(activeFrame);
-    const currentEpisodeId = readFrameEpisodeId(activeFrame);
-    if (candidate.episodeId && currentEpisodeId && candidate.episodeId === currentEpisodeId) {
-      if (candidate.blocking && !currentBlocking) {
-        return this.explainDecision(
-          { kind: "activate", candidate },
-          null,
-          null,
-          "the active episode has progressed into an interruptive step",
-        );
-      }
-
-      return this.explainDecision(
-        this.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
-        null,
-        null,
-        "related work stays bundled with the active episode",
-      );
-    }
-
-    const currentPriority = priorityForFrame(activeFrame);
-    const currentScore = context.currentScore;
-
-    if (this.shouldDampenBurst(activeFrame, candidate)) {
-      return this.explainDecision(
-        this.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
-        currentPriority,
-        currentScore,
-        "rapid successive updates from the same task stay bundled instead of stealing focus",
-      );
-    }
-
-    if (
-      currentScore !== null &&
-      this.shouldEscalateDeferredTask(
-        activeFrame,
-        candidate,
-        context.candidateScore,
-        currentScore,
-        evidence.taskSignalSummary,
-      )
-    ) {
-      return this.explainDecision(
-        { kind: "activate", candidate },
-        currentPriority,
-        currentScore,
-        "repeated deferral makes this task more deserving of current focus",
-      );
-    }
-
-    if (
-      currentScore !== null
-      && this.shouldWaitForContext(activeFrame, candidate, context.utility, context.candidateScore, currentScore)
-    ) {
-      return this.explainDecision(
-        this.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
-        currentPriority,
-        currentScore,
-        "memory suggests this interaction usually needs context, so it stays peripheral until it clearly outranks current work",
-      );
-    }
-
-    return routed;
-  }
-
-  private explainDecision(
-    decision: AttentionPlanDecision,
-    currentPriority: AttentionPriority | null,
-    currentScore: number | null,
-    ...reasons: string[]
-  ): AttentionPlanningExplanation {
     return {
-      decision,
-      currentPriority,
-      currentScore,
-      reasons,
+      decision: winningEvaluation.decision,
+      currentPriority: winningEvaluation.currentPriority,
+      currentScore: winningEvaluation.currentScore,
+      reasons: [...routed.reasons, ...winningEvaluation.rationale],
     };
   }
 

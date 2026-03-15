@@ -96,6 +96,9 @@ test("judgment config loader reads pure markdown judgment files", async () => {
       nonBlockingActivationThreshold: 190,
       promotionMargin: 24,
     },
+    plannerDefaults: {
+      minimumDwellMs: 25_000,
+    },
     policy: {
       lowRiskRead: {
         autoApprove: true,
@@ -113,6 +116,7 @@ test("judgment config loader reads pure markdown judgment files", async () => {
   assert.equal(loaded.policy?.lowRiskRead?.autoApprove, true);
   assert.equal(loaded.ambiguityDefaults?.nonBlockingActivationThreshold, 190);
   assert.equal(loaded.ambiguityDefaults?.promotionMargin, 24);
+  assert.equal(loaded.plannerDefaults?.minimumDwellMs, 25_000);
 });
 
 test("judgment config loader falls back when markdown uses an unsupported version", async () => {

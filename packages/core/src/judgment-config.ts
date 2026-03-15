@@ -25,6 +25,7 @@ export type AmbiguityDefaults = {
 export type PlannerDefaults = {
   batchStatusBursts?: boolean;
   deferLowValueDuringPressure?: boolean;
+  minimumDwellMs?: number;
 };
 
 export type JudgmentRule = {
@@ -48,7 +49,7 @@ function parseJudgmentConfig(content: string): JudgmentConfig | null {
   const meta = new Map<string, string>();
   const policy = new Map<string, JudgmentRule>();
   const ambiguityDefaults = new Map<string, number>();
-  const plannerDefaults = new Map<string, boolean>();
+  const plannerDefaults = new Map<string, boolean | number>();
   let section: string | null = null;
   let ruleName: string | null = null;
 
@@ -87,7 +88,7 @@ function parseJudgmentConfig(content: string): JudgmentConfig | null {
 
     if (section === "Planner Defaults") {
       const value = parseScalar(bullet.value);
-      if (typeof value === "boolean") {
+      if (typeof value === "boolean" || typeof value === "number") {
         plannerDefaults.set(camelKey(bullet.key), value);
       }
       continue;
@@ -153,6 +154,9 @@ export function serializeJudgmentConfig(config: JudgmentConfig): string {
     }
     if (config.plannerDefaults.deferLowValueDuringPressure !== undefined) {
       lines.push(formatBullet("defer low value during pressure", config.plannerDefaults.deferLowValueDuringPressure));
+    }
+    if (config.plannerDefaults.minimumDwellMs !== undefined) {
+      lines.push(formatBullet("minimum dwell ms", config.plannerDefaults.minimumDwellMs));
     }
   }
 

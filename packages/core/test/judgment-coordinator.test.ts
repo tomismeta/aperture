@@ -184,6 +184,88 @@ test("keeps narrow score gains queued instead of stealing focus immediately", ()
   assert.equal(decision.kind, "queue");
 });
 
+test("keeps freshly surfaced non-blocking work active during the minimum dwell window", () => {
+  const decision = coordinator.coordinate(
+    createFrame({
+      taskId: "task:current",
+      interactionId: "interaction:current",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      responseSpec: { kind: "none" },
+      timing: {
+        createdAt: "2026-03-08T12:00:55.000Z",
+        updatedAt: "2026-03-08T12:00:55.000Z",
+      },
+    }),
+    createCandidate({
+      taskId: "task:incoming",
+      interactionId: "interaction:incoming",
+      mode: "approval",
+      tone: "focused",
+      consequence: "medium",
+      priority: "high",
+      blocking: false,
+      timestamp: "2026-03-08T12:01:00.000Z",
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(decision.kind, "queue");
+});
+
+test("planner defaults can disable the minimum dwell window", () => {
+  const dwellDisabledCoordinator = new JudgmentCoordinator(
+    new AttentionPolicy(),
+    new AttentionValue(),
+    new AttentionPlanner({
+      plannerDefaults: {
+        minimumDwellMs: 0,
+      },
+    }),
+  );
+
+  const decision = dwellDisabledCoordinator.coordinate(
+    createFrame({
+      taskId: "task:current",
+      interactionId: "interaction:current",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      responseSpec: { kind: "none" },
+      timing: {
+        createdAt: "2026-03-08T12:00:55.000Z",
+        updatedAt: "2026-03-08T12:00:55.000Z",
+      },
+    }),
+    createCandidate({
+      taskId: "task:incoming",
+      interactionId: "interaction:incoming",
+      mode: "approval",
+      tone: "focused",
+      consequence: "medium",
+      priority: "high",
+      blocking: false,
+      timestamp: "2026-03-08T12:01:00.000Z",
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(decision.kind, "activate");
+});
+
 test("explanation marks ambiguity when low-signal work stays peripheral", () => {
   const explanation = coordinator.explain(
     null,

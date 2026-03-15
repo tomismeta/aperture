@@ -7,6 +7,7 @@ export const JUDGMENT_DEFAULTS = {
     promotionMargin: 20,
   },
   queuePlanner: {
+    minimumDwellMs: 30_000,
     statusBurstWindowMs: 60_000,
     urgentBacklogWindowMs: 90_000,
     deferredEscalationThreshold: 3,

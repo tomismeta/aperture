@@ -406,7 +406,33 @@ function mapMessagePartUpdated(event: OpencodeMessagePartUpdatedEvent, context: 
   const partType = readString(part?.type);
   const state = readString(part?.state) ?? readString(part?.status);
   const instanceKey = createOpencodeInstanceKey(context);
-  if (!sessionId || !partType || !state) {
+  if (!sessionId || !partType) {
+    return [];
+  }
+
+  if (partType === "text") {
+    const text = readString(part?.text);
+    if (text && looksLikeFollowUpQuestion(text)) {
+      return [
+        {
+          id: `opencode:${instanceKey}:event:message.part.updated:${encodeURIComponent(readString(part?.id) ?? `${Date.now()}`)}:follow-up`,
+          type: "task.updated",
+          taskId: opencodeTaskId(instanceKey, sessionId),
+          timestamp: new Date().toISOString(),
+          source: {
+            id: `opencode:${instanceKey}`,
+            kind: "opencode",
+            label: context.sourceLabel ?? "OpenCode",
+          },
+          title: "OpenCode is waiting for your reply",
+          summary: text,
+          status: "blocked",
+        },
+      ];
+    }
+  }
+
+  if (!state) {
     return [];
   }
 
@@ -676,6 +702,15 @@ function normalizeAnswerGroup(value: unknown): string[] {
     return [];
   }
   return [String(value)];
+}
+
+function looksLikeFollowUpQuestion(value: string): boolean {
+  const lines = value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  const lastLine = lines.at(-1) ?? value.trim();
+  return /\?\s*$/.test(lastLine);
 }
 
 function rejectedResponse(reason: string | undefined): AttentionResponse["response"] {

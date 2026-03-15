@@ -78,6 +78,37 @@ test("maps external directory approvals from the real OpenCode permission shape"
   ]);
 });
 
+test("maps follow-up text parts into blocked awareness", () => {
+  const mapped = mapOpencodeEvent({
+    type: "message.part.updated",
+    properties: {
+      sessionID: "ses-follow-up",
+      part: {
+        id: "part-text-1",
+        type: "text",
+        text: "Could you please provide the full path and name for the new directory?",
+      },
+    },
+  }, context);
+
+  assert.deepEqual(mapped, [
+    {
+      id: `opencode:${createOpencodeInstanceKey(context)}:event:message.part.updated:part-text-1:follow-up`,
+      type: "task.updated",
+      taskId: `opencode:${createOpencodeInstanceKey(context)}:session:ses-follow-up`,
+      timestamp: mapped[0]?.timestamp,
+      source: {
+        id: `opencode:${createOpencodeInstanceKey(context)}`,
+        kind: "opencode",
+        label: "OpenCode",
+      },
+      title: "OpenCode is waiting for your reply",
+      summary: "Could you please provide the full path and name for the new directory?",
+      status: "blocked",
+    },
+  ]);
+});
+
 test("maps question.asked with options to a choice request", () => {
   const mapped = mapOpencodeEvent({
     type: "question.asked",

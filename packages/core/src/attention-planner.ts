@@ -21,6 +21,7 @@ import type { AttentionValueBreakdown } from "./attention-value.js";
 import type { ContinuityRule, ContinuityRuleEvaluation } from "./continuity/continuity-rule.js";
 import { evaluateBurstDampeningContinuityRule } from "./continuity/burst-dampening-continuity-rule.js";
 import { evaluateContextPatienceContinuityRule } from "./continuity/context-patience-continuity-rule.js";
+import { evaluateDecisionStreamContinuityRule } from "./continuity/decision-stream-continuity-rule.js";
 import { evaluateDeferralEscalationContinuityRule } from "./continuity/deferral-escalation-continuity-rule.js";
 import { evaluateMinimumDwellContinuityRule } from "./continuity/minimum-dwell-continuity-rule.js";
 import { evaluateSameEpisodeContinuityRule } from "./continuity/same-episode-continuity-rule.js";
@@ -65,6 +66,7 @@ const CONTINUITY_RULES: readonly ContinuityRule[] = [
   evaluateMinimumDwellContinuityRule,
   evaluateBurstDampeningContinuityRule,
   evaluateDeferralEscalationContinuityRule,
+  evaluateDecisionStreamContinuityRule,
   evaluateContextPatienceContinuityRule,
 ];
 

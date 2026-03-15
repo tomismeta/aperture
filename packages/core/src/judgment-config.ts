@@ -26,6 +26,7 @@ export type PlannerDefaults = {
   batchStatusBursts?: boolean;
   deferLowValueDuringPressure?: boolean;
   minimumDwellMs?: number;
+  streamContinuityMargin?: number;
 };
 
 export type JudgmentRule = {
@@ -157,6 +158,9 @@ export function serializeJudgmentConfig(config: JudgmentConfig): string {
     }
     if (config.plannerDefaults.minimumDwellMs !== undefined) {
       lines.push(formatBullet("minimum dwell ms", config.plannerDefaults.minimumDwellMs));
+    }
+    if (config.plannerDefaults.streamContinuityMargin !== undefined) {
+      lines.push(formatBullet("stream continuity margin", config.plannerDefaults.streamContinuityMargin));
     }
   }
 

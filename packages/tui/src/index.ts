@@ -158,10 +158,11 @@ export async function runAttentionTui(
     formDraft: null,
     expanded: false,
   };
+  let renderScheduled = false;
 
   const cleanup = setupTerminal(input, output, title);
   const render = () => {
-    output.write(clearScreen());
+    output.write(redrawScreen());
     output.write(
       renderAttentionScreen(state.attentionView, {
         title,
@@ -177,8 +178,19 @@ export async function runAttentionTui(
       }),
     );
   };
+  const requestRender = () => {
+    if (renderScheduled) {
+      return;
+    }
 
-  const onResize = () => render();
+    renderScheduled = true;
+    setImmediate(() => {
+      renderScheduled = false;
+      render();
+    });
+  };
+
+  const onResize = () => requestRender();
   output.on("resize", onResize);
 
   const unsubAttention = core.subscribeAttentionView((attentionView) => {
@@ -196,14 +208,14 @@ export async function runAttentionTui(
       state.expanded = false;
       state.statusLine = `Focused on ${active.title}`;
     }
-    render();
+    requestRender();
   });
 
   const unsubResponse = core.onResponse((response) => {
     state.formDraft = null;
     const nextActive = core.getAttentionView().active;
     state.statusLine = describeResponse(response, nextActive);
-    render();
+    requestRender();
   });
 
   render();
@@ -217,7 +229,7 @@ export async function runAttentionTui(
 
       if (state.formDraft) {
         handleFormKeypress(core, state, key);
-        render();
+        requestRender();
         return;
       }
 
@@ -236,12 +248,12 @@ export async function runAttentionTui(
 
       if (key.name === "space") {
         state.expanded = !state.expanded;
-        render();
+        requestRender();
         return;
       }
 
       handleActiveKeypress(core, state, active, key);
-      render();
+      requestRender();
     };
 
     const close = () => {
@@ -648,6 +660,10 @@ function horizontalRule(color: boolean): string {
 function clearScreen(): string {
   process.title = "Aperture";
   return "\u001B]0;Aperture\u0007\u001B[?25l\u001B[?1049h\u001B[2J\u001B[H";
+}
+
+function redrawScreen(): string {
+  return "\u001B[H\u001B[2J";
 }
 
 function restoreScreen(): string {

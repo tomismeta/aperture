@@ -66,304 +66,8 @@ export class AttentionPlanner {
     context: AttentionPlanningContext,
   ): AttentionPlanningExplanation {
     const evidence = this.resolveEvidenceContext(current, context);
-    const reasons: string[] = [];
-    const actionableEpisode = this.isActionableEpisode(candidate);
-    const activeFrame = evidence.currentFrame;
-
-    if (!activeFrame) {
-      if (this.shouldBatchVisibleEpisode(candidate, evidence.attentionView)) {
-        reasons.push("related episode work is already visible, so this interaction batches with it instead of interrupting");
-        return {
-          decision: this.batchedDecision(
-            candidate,
-            context.policyVerdict,
-            evidence.attentionView,
-            evidence.surfaceCapabilities,
-          ),
-          currentPriority: null,
-          currentScore: null,
-          reasons,
-        };
-      }
-
-      if (actionableEpisode) {
-        if (evidence.pressureForecast.overloadRisk === "high") {
-          reasons.push("the episode has become actionable, but predicted overload keeps it queued instead of interrupting");
-          return {
-            decision: { kind: "queue", candidate },
-            currentPriority: null,
-            currentScore: null,
-            reasons,
-          };
-        }
-
-        if (context.policyVerdict.mayInterrupt) {
-          reasons.push("the episode has accumulated enough evidence to deserve interruptive attention");
-          return {
-            decision: { kind: "activate", candidate },
-            currentPriority: null,
-            currentScore: null,
-            reasons,
-          };
-        }
-
-        reasons.push("the episode has become actionable, so it stays visible even though policy still prevents interrupting");
-        return {
-          decision: { kind: "queue", candidate },
-          currentPriority: null,
-          currentScore: null,
-          reasons,
-        };
-      }
-
-      if (this.shouldPreemptForPressure(candidate, context.policyVerdict, evidence.pressureForecast)) {
-        reasons.push("predicted overload keeps lower-value work peripheral before the queue spikes");
-        return {
-          decision: this.suppressedDecision(
-            candidate,
-            context.policyVerdict,
-            context.utility,
-            evidence.surfaceCapabilities,
-          ),
-          currentPriority: null,
-          currentScore: null,
-          reasons,
-        };
-      }
-
-      if (!context.policyVerdict.mayInterrupt && context.policyVerdict.minimumPresentation === "ambient") {
-        reasons.push("policy keeps this interaction ambient until stronger context arrives");
-        return {
-          decision: this.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
-          currentPriority: null,
-          currentScore: null,
-          reasons,
-        };
-      }
-
-      reasons.push("no current frame is active for this task");
-      return {
-        decision: { kind: "activate", candidate },
-        currentPriority: null,
-        currentScore: null,
-        reasons,
-      };
-    }
-
-    if (activeFrame.interactionId === candidate.interactionId) {
-      reasons.push("same interaction refreshes the existing frame");
-      return {
-        decision: { kind: "activate", candidate },
-        currentPriority: null,
-        currentScore: null,
-        reasons,
-      };
-    }
-
-    if (this.shouldBatchVisibleEpisode(candidate, evidence.attentionView)) {
-      reasons.push("related episode work is already building in the queue, so this interaction stays bundled with it");
-      return {
-        decision: this.batchedDecision(
-          candidate,
-          context.policyVerdict,
-          evidence.attentionView,
-          evidence.surfaceCapabilities,
-        ),
-        currentPriority: null,
-        currentScore: context.currentScore,
-        reasons,
-      };
-    }
-
-    const currentBlocking = isBlockingFrame(activeFrame);
-    const currentEpisodeId = readFrameEpisodeId(activeFrame);
-    if (candidate.episodeId && currentEpisodeId && candidate.episodeId === currentEpisodeId) {
-      if (candidate.blocking && !currentBlocking) {
-        reasons.push("the active episode has progressed into an interruptive step");
-        return {
-          decision: { kind: "activate", candidate },
-          currentPriority: null,
-          currentScore: null,
-          reasons,
-        };
-      }
-
-      reasons.push("related work stays bundled with the active episode");
-      return {
-        decision: this.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
-        currentPriority: null,
-        currentScore: null,
-        reasons,
-      };
-    }
-
-    if (actionableEpisode) {
-      if (currentBlocking || evidence.pressureForecast.overloadRisk === "high") {
-        reasons.push(
-          currentBlocking
-            ? "the episode has become actionable, but current blocking work keeps it queued"
-            : "the episode has become actionable, but predicted overload keeps it queued",
-        );
-        return {
-          decision: { kind: "queue", candidate },
-          currentPriority: priorityForFrame(activeFrame),
-          currentScore: context.currentScore,
-          reasons,
-        };
-      }
-
-      if (
-        context.currentScore !== null
-        && context.candidateScore < context.currentScore - DEFAULTS.actionableEpisodeScoreSlack
-      ) {
-        reasons.push("actionable episode evidence keeps this work visible even though the current frame is still stronger");
-        return {
-          decision: { kind: "queue", candidate },
-          currentPriority: priorityForFrame(activeFrame),
-          currentScore: context.currentScore,
-          reasons,
-        };
-      }
-
-      if (context.policyVerdict.mayInterrupt) {
-        reasons.push("the episode has accumulated enough evidence to compete for current focus");
-        return {
-          decision: { kind: "activate", candidate },
-          currentPriority: priorityForFrame(activeFrame),
-          currentScore: context.currentScore,
-          reasons,
-        };
-      }
-
-      reasons.push("the episode has become actionable, so it stays queued even though policy still prevents interrupting");
-      return {
-        decision: { kind: "queue", candidate },
-        currentPriority: priorityForFrame(activeFrame),
-        currentScore: context.currentScore,
-        reasons,
-      };
-    }
-
-    if (currentBlocking && !candidate.blocking) {
-      reasons.push("blocking work keeps non-blocking updates in the periphery");
-      return {
-        decision: this.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
-        currentPriority: null,
-        currentScore: null,
-        reasons,
-      };
-    }
-
-    if (!currentBlocking && candidate.blocking) {
-      reasons.push("blocking work interrupts non-blocking activity");
-      return {
-        decision: { kind: "activate", candidate },
-        currentPriority: null,
-        currentScore: null,
-        reasons,
-      };
-    }
-
-    const currentPriority = priorityForFrame(activeFrame);
-    const currentScore = context.currentScore;
-
-    if (this.shouldDampenBurst(activeFrame, candidate)) {
-      reasons.push("rapid successive updates from the same task stay bundled instead of stealing focus");
-      return {
-        decision: this.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
-        currentPriority,
-        currentScore,
-        reasons,
-      };
-    }
-
-    if (this.shouldPreemptForPressure(candidate, context.policyVerdict, evidence.pressureForecast)) {
-      reasons.push("predicted overload keeps lower-value work peripheral before the queue spikes");
-      return {
-        decision: this.suppressedDecision(candidate, context.policyVerdict, context.utility),
-        currentPriority,
-        currentScore,
-        reasons,
-      };
-    }
-
-    if (this.shouldSuppressForBacklog(candidate, evidence.attentionView, candidate.timestamp)) {
-      reasons.push(
-        context.utility.components.deferralAffinity > 0
-          ? "existing urgent backlog defers this work, but memory keeps it queued because it usually returns after deferral"
-          : "existing urgent backlog keeps lower-value status work queued",
-      );
-      return {
-        decision: this.suppressedDecision(candidate, context.policyVerdict, context.utility),
-        currentPriority,
-        currentScore,
-        reasons,
-      };
-    }
-
-    if (
-      currentScore !== null &&
-      this.shouldEscalateDeferredTask(
-        activeFrame,
-        candidate,
-        context.candidateScore,
-        currentScore,
-        evidence.taskSignalSummary,
-      )
-    ) {
-      reasons.push("repeated deferral makes this task more deserving of current focus");
-      return {
-        decision: { kind: "activate", candidate },
-        currentPriority,
-        currentScore,
-        reasons,
-      };
-    }
-
-    if (
-      currentScore !== null
-      && this.shouldWaitForContext(activeFrame, candidate, context.utility, context.candidateScore, currentScore)
-    ) {
-      reasons.push("memory suggests this interaction usually needs context, so it stays peripheral until it clearly outranks current work");
-      return {
-        decision: this.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
-        currentPriority,
-        currentScore,
-        reasons,
-      };
-    }
-
-    if (currentScore !== null && context.candidateScore < currentScore) {
-      reasons.push("current work still outranks the new candidate");
-      return {
-        decision: this.peripheralDecision(candidate, context.policyVerdict),
-        currentPriority,
-        currentScore,
-        reasons,
-      };
-    }
-
-    if (currentScore !== null && context.candidateScore === currentScore) {
-      const candidateTimestamp = Date.parse(candidate.timestamp);
-      const currentTimestamp = Date.parse(activeFrame.timing.updatedAt);
-      if (!Number.isNaN(candidateTimestamp) && !Number.isNaN(currentTimestamp) && candidateTimestamp < currentTimestamp) {
-        reasons.push("older work yields when scores tie");
-        return {
-          decision: this.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
-          currentPriority,
-          currentScore,
-          reasons,
-        };
-      }
-    }
-
-    reasons.push("new work outranks the current frame");
-    return {
-      decision: { kind: "activate", candidate },
-      currentPriority,
-      currentScore,
-      reasons,
-    };
+    const routing = this.route(candidate, context, evidence);
+    return this.applyContinuity(candidate, context, evidence, routing);
   }
 
   clear(): AttentionPlanDecision {
@@ -629,6 +333,335 @@ export class AttentionPlanner {
       && candidate.episodeState === "actionable"
       && (candidate.episodeEvidenceScore ?? 0) >= DEFAULTS.actionableEpisodeEvidenceThreshold
     );
+  }
+
+  private route(
+    candidate: AttentionCandidate,
+    context: AttentionPlanningContext,
+    evidence: AttentionEvidenceContext,
+  ): AttentionPlanningExplanation {
+    const reasons: string[] = [];
+    const actionableEpisode = this.isActionableEpisode(candidate);
+    const activeFrame = evidence.currentFrame;
+
+    if (!activeFrame) {
+      if (actionableEpisode) {
+        if (evidence.pressureForecast.overloadRisk === "high") {
+          reasons.push("the episode has become actionable, but predicted overload keeps it queued instead of interrupting");
+          return {
+            decision: { kind: "queue", candidate },
+            currentPriority: null,
+            currentScore: null,
+            reasons,
+          };
+        }
+
+        if (context.policyVerdict.mayInterrupt) {
+          reasons.push("the episode has accumulated enough evidence to deserve interruptive attention");
+          return {
+            decision: { kind: "activate", candidate },
+            currentPriority: null,
+            currentScore: null,
+            reasons,
+          };
+        }
+
+        reasons.push("the episode has become actionable, so it stays visible even though policy still prevents interrupting");
+        return {
+          decision: { kind: "queue", candidate },
+          currentPriority: null,
+          currentScore: null,
+          reasons,
+        };
+      }
+
+      if (this.shouldPreemptForPressure(candidate, context.policyVerdict, evidence.pressureForecast)) {
+        reasons.push("predicted overload keeps lower-value work peripheral before the queue spikes");
+        return {
+          decision: this.suppressedDecision(
+            candidate,
+            context.policyVerdict,
+            context.utility,
+            evidence.surfaceCapabilities,
+          ),
+          currentPriority: null,
+          currentScore: null,
+          reasons,
+        };
+      }
+
+      if (!context.policyVerdict.mayInterrupt && context.policyVerdict.minimumPresentation === "ambient") {
+        reasons.push("policy keeps this interaction ambient until stronger context arrives");
+        return {
+          decision: this.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
+          currentPriority: null,
+          currentScore: null,
+          reasons,
+        };
+      }
+
+      reasons.push("no current frame is active for this task");
+      return {
+        decision: { kind: "activate", candidate },
+        currentPriority: null,
+        currentScore: null,
+        reasons,
+      };
+    }
+
+    const currentBlocking = isBlockingFrame(activeFrame);
+    const currentPriority = priorityForFrame(activeFrame);
+    const currentScore = context.currentScore;
+
+    if (actionableEpisode) {
+      if (currentBlocking || evidence.pressureForecast.overloadRisk === "high") {
+        reasons.push(
+          currentBlocking
+            ? "the episode has become actionable, but current blocking work keeps it queued"
+            : "the episode has become actionable, but predicted overload keeps it queued",
+        );
+        return {
+          decision: { kind: "queue", candidate },
+          currentPriority,
+          currentScore,
+          reasons,
+        };
+      }
+
+      if (
+        currentScore !== null
+        && context.candidateScore < currentScore - DEFAULTS.actionableEpisodeScoreSlack
+      ) {
+        reasons.push("actionable episode evidence keeps this work visible even though the current frame is still stronger");
+        return {
+          decision: { kind: "queue", candidate },
+          currentPriority,
+          currentScore,
+          reasons,
+        };
+      }
+
+      if (context.policyVerdict.mayInterrupt) {
+        reasons.push("the episode has accumulated enough evidence to compete for current focus");
+        return {
+          decision: { kind: "activate", candidate },
+          currentPriority,
+          currentScore,
+          reasons,
+        };
+      }
+
+      reasons.push("the episode has become actionable, so it stays queued even though policy still prevents interrupting");
+      return {
+        decision: { kind: "queue", candidate },
+        currentPriority,
+        currentScore,
+        reasons,
+      };
+    }
+
+    if (currentBlocking && !candidate.blocking) {
+      reasons.push("blocking work keeps non-blocking updates in the periphery");
+      return {
+        decision: this.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
+        currentPriority: null,
+        currentScore: null,
+        reasons,
+      };
+    }
+
+    if (!currentBlocking && candidate.blocking) {
+      reasons.push("blocking work interrupts non-blocking activity");
+      return {
+        decision: { kind: "activate", candidate },
+        currentPriority: null,
+        currentScore: null,
+        reasons,
+      };
+    }
+
+    if (this.shouldPreemptForPressure(candidate, context.policyVerdict, evidence.pressureForecast)) {
+      reasons.push("predicted overload keeps lower-value work peripheral before the queue spikes");
+      return {
+        decision: this.suppressedDecision(candidate, context.policyVerdict, context.utility),
+        currentPriority,
+        currentScore,
+        reasons,
+      };
+    }
+
+    if (this.shouldSuppressForBacklog(candidate, evidence.attentionView, candidate.timestamp)) {
+      reasons.push(
+        context.utility.components.deferralAffinity > 0
+          ? "existing urgent backlog defers this work, but memory keeps it queued because it usually returns after deferral"
+          : "existing urgent backlog keeps lower-value status work queued",
+      );
+      return {
+        decision: this.suppressedDecision(candidate, context.policyVerdict, context.utility),
+        currentPriority,
+        currentScore,
+        reasons,
+      };
+    }
+
+    if (currentScore !== null && context.candidateScore < currentScore) {
+      reasons.push("current work still outranks the new candidate");
+      return {
+        decision: this.peripheralDecision(candidate, context.policyVerdict),
+        currentPriority,
+        currentScore,
+        reasons,
+      };
+    }
+
+    if (currentScore !== null && context.candidateScore === currentScore) {
+      const candidateTimestamp = Date.parse(candidate.timestamp);
+      const currentTimestamp = Date.parse(activeFrame.timing.updatedAt);
+      if (!Number.isNaN(candidateTimestamp) && !Number.isNaN(currentTimestamp) && candidateTimestamp < currentTimestamp) {
+        reasons.push("older work yields when scores tie");
+        return {
+          decision: this.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
+          currentPriority,
+          currentScore,
+          reasons,
+        };
+      }
+    }
+
+    reasons.push("new work outranks the current frame");
+    return {
+      decision: { kind: "activate", candidate },
+      currentPriority,
+      currentScore,
+      reasons,
+    };
+  }
+
+  private applyContinuity(
+    candidate: AttentionCandidate,
+    context: AttentionPlanningContext,
+    evidence: AttentionEvidenceContext,
+    routed: AttentionPlanningExplanation,
+  ): AttentionPlanningExplanation {
+    const activeFrame = evidence.currentFrame;
+    if (!activeFrame) {
+      if (this.shouldBatchVisibleEpisode(candidate, evidence.attentionView)) {
+        return this.explainDecision(
+          this.batchedDecision(
+            candidate,
+            context.policyVerdict,
+            evidence.attentionView,
+            evidence.surfaceCapabilities,
+          ),
+          null,
+          null,
+          "related episode work is already visible, so this interaction batches with it instead of interrupting",
+        );
+      }
+
+      return routed;
+    }
+
+    if (activeFrame.interactionId === candidate.interactionId) {
+      return this.explainDecision(
+        { kind: "activate", candidate },
+        null,
+        null,
+        "same interaction refreshes the existing frame",
+      );
+    }
+
+    if (this.shouldBatchVisibleEpisode(candidate, evidence.attentionView)) {
+      return this.explainDecision(
+        this.batchedDecision(
+          candidate,
+          context.policyVerdict,
+          evidence.attentionView,
+          evidence.surfaceCapabilities,
+        ),
+        null,
+        context.currentScore,
+        "related episode work is already building in the queue, so this interaction stays bundled with it",
+      );
+    }
+
+    const currentBlocking = isBlockingFrame(activeFrame);
+    const currentEpisodeId = readFrameEpisodeId(activeFrame);
+    if (candidate.episodeId && currentEpisodeId && candidate.episodeId === currentEpisodeId) {
+      if (candidate.blocking && !currentBlocking) {
+        return this.explainDecision(
+          { kind: "activate", candidate },
+          null,
+          null,
+          "the active episode has progressed into an interruptive step",
+        );
+      }
+
+      return this.explainDecision(
+        this.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
+        null,
+        null,
+        "related work stays bundled with the active episode",
+      );
+    }
+
+    const currentPriority = priorityForFrame(activeFrame);
+    const currentScore = context.currentScore;
+
+    if (this.shouldDampenBurst(activeFrame, candidate)) {
+      return this.explainDecision(
+        this.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
+        currentPriority,
+        currentScore,
+        "rapid successive updates from the same task stay bundled instead of stealing focus",
+      );
+    }
+
+    if (
+      currentScore !== null &&
+      this.shouldEscalateDeferredTask(
+        activeFrame,
+        candidate,
+        context.candidateScore,
+        currentScore,
+        evidence.taskSignalSummary,
+      )
+    ) {
+      return this.explainDecision(
+        { kind: "activate", candidate },
+        currentPriority,
+        currentScore,
+        "repeated deferral makes this task more deserving of current focus",
+      );
+    }
+
+    if (
+      currentScore !== null
+      && this.shouldWaitForContext(activeFrame, candidate, context.utility, context.candidateScore, currentScore)
+    ) {
+      return this.explainDecision(
+        this.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
+        currentPriority,
+        currentScore,
+        "memory suggests this interaction usually needs context, so it stays peripheral until it clearly outranks current work",
+      );
+    }
+
+    return routed;
+  }
+
+  private explainDecision(
+    decision: AttentionPlanDecision,
+    currentPriority: AttentionPriority | null,
+    currentScore: number | null,
+    ...reasons: string[]
+  ): AttentionPlanningExplanation {
+    return {
+      decision,
+      currentPriority,
+      currentScore,
+      reasons,
+    };
   }
 
   private resolveEvidenceContext(

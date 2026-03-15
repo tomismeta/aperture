@@ -4,11 +4,11 @@ These are the docs intended to ship with the first public GitHub version of Aper
 
 Recommended reading order for someone new to the repo:
 
-1. [README](../README.md) for the product overview and single quickstart path
+1. [README](../README.md) for the product overview, shared-stack model, and full-stack quickstarts
 2. [TUI Surface](tui.md) for how to read the human attention surface
 3. [Components](components.md) for the package/runtime architecture
-4. [Claude Code Adapter](claude-code.md) if you are using the Claude path
-5. [OpenCode Integration](opencode-integration.md) if you are using the OpenCode path
+4. [Claude Code Adapter](claude-code.md) for the Claude Code live source path
+5. [OpenCode Integration](opencode-integration.md) for the OpenCode live source path
 
 Primary docs:
 
@@ -39,6 +39,6 @@ Everything in this set matches the current engine-first product:
 
 - a human attention control plane in the core package (`packages/core`, published as `@tomismeta/aperture-core`)
 - a shared local host in `@aperture/runtime`
-- Claude Code and OpenCode as current live adapter paths
+- Claude Code and OpenCode as current first-class live adapter paths
 - Codex and Paperclip as additional adapters with different transport maturity
 - a source-agnostic TUI as the primary companion surface

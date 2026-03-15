@@ -19,7 +19,7 @@ Aperture sits between many possible event sources and one human decision surface
 Choose one path:
 
 - use the published SDK if you want to embed Aperture's judgment engine in your own runtime or UI
-- run the full local stack if you want the working adapter + runtime + TUI experience on this machine
+- run the full local stack if you want one shared Aperture runtime and TUI supervising live source adapters on this machine
 
 ### Use The Published SDK
 
@@ -37,15 +37,31 @@ See the full SDK docs in [packages/core/README.md](/Users/tom/dev/aperture/packa
 git clone git@github.com:tomismeta/aperture.git
 cd aperture
 pnpm install
+```
+
+Then connect at least one live source path:
+
+```bash
 pnpm claude:connect --global
+```
+
+or
+
+```bash
+pnpm opencode:connect --global --url http://127.0.0.1:4096
+```
+
+Then start Aperture:
+
+```bash
 pnpm aperture
 ```
 
-This starts the current live path:
+This starts the current shared stack:
 
-- Claude Code adapter
-- any configured OpenCode adapters
 - Aperture runtime
+- any configured Claude Code adapters
+- any configured OpenCode adapters
 - terminal attention surface
 
 Under the hood, Aperture already includes:
@@ -114,9 +130,24 @@ What the engine already does:
 - suppress lower-value work before overload
 - explain decisions through score components, planner rationale, and replay traces
 
-## Quickstart
+## Live Source Paths
 
-This is the recommended path if you want Aperture managing Claude Code on this machine.
+Aperture's current full-stack story is one shared runtime and one shared TUI with multiple live source adapters feeding it.
+
+Today, the two first-class source paths are:
+
+- **Claude Code**
+  - connection model: Aperture writes Claude hook config, then Claude posts hook payloads into the shared runtime
+  - supported shape: local Claude Code sessions with the Aperture hook path enabled
+- **OpenCode**
+  - connection model: Aperture stores an OpenCode server profile, then connects to `opencode serve` as an external attention plane
+  - supported shape: OpenCode server plus terminal attach flow
+
+Both can feed the same TUI at once.
+
+## Full-Stack Quickstarts
+
+### Claude Code
 
 ```bash
 git clone git@github.com:tomismeta/aperture.git
@@ -132,7 +163,7 @@ Then:
 2. run `/hooks` once inside Claude Code
 3. use Claude normally
 
-That starts the default local Aperture stack:
+That starts the shared local Aperture stack with the Claude path enabled:
 
 - shared runtime
 - Claude Code adapter
@@ -142,25 +173,44 @@ That starts the default local Aperture stack:
 
 Use `pnpm aperture --learning off` if you want an ephemeral session with no local learning persistence.
 
-## OpenCode Quickstart
-
-This is the recommended path if you want Aperture supervising OpenCode through the same shared runtime and TUI.
+### OpenCode
 
 ```bash
 git clone git@github.com:tomismeta/aperture.git
 cd aperture
 pnpm install
+opencode serve --port 4096
+```
+
+In another terminal:
+
+```bash
 pnpm opencode:connect --global --url http://127.0.0.1:4096
+pnpm aperture
 ```
 
 Then:
 
-1. start OpenCode separately with `opencode serve --port 4096`
-2. start Aperture with `pnpm aperture`
-3. if you want OpenCode's terminal UI on the same server, use `opencode attach http://127.0.0.1:4096`
-4. use the shared Aperture TUI to supervise Claude Code and OpenCode together
+1. if you want OpenCode's terminal UI on the same server, use `opencode attach http://127.0.0.1:4096`
+2. use the shared Aperture TUI to supervise OpenCode, or OpenCode and Claude Code together
 
-## OpenCode Capabilities
+## Supported Capabilities
+
+### Claude Code
+
+What Aperture currently supports for Claude Code:
+
+- tool-aware permission frames from hook payloads
+- post-tool failure awareness
+- non-blocking completion awareness
+- waiting / input-needed awareness
+- follow-up handoff when Claude ends a turn with a real question
+- one shared runtime and one shared TUI across Claude Code and OpenCode
+- connection management via:
+  - `pnpm claude:connect --global`
+  - `pnpm claude:disconnect --global`
+
+### OpenCode
 
 What Aperture currently supports for OpenCode:
 
@@ -172,16 +222,37 @@ What Aperture currently supports for OpenCode:
   - `pnpm opencode:connect --global`
   - `pnpm opencode:disconnect --global`
 
-What is currently the supported story:
+### Supported Operator Story
 
-- `opencode serve`
-- `pnpm aperture`
-- `opencode attach http://127.0.0.1:4096`
+The supported live path today is:
 
-Current limitation:
+- Claude Code with Aperture hook config enabled
+- OpenCode via `opencode serve` and `opencode attach`
+- `pnpm aperture` as the shared runtime + TUI entrypoint
+
+### Current Limitations
+
+Claude Code:
+
+- transport is hook-shaped, so the connection step remains Claude-specific
+- transcript-level or lifecycle-level understanding is still narrower than the hook surface
+
+OpenCode:
 
 - the native OpenCode macOS desktop app does not yet reliably surface all human gates through the same server-visible event path Aperture consumes
 - generic freeform text entry in the Aperture TUI is not implemented yet, so OpenCode questions that implicitly allow custom typed answers are only partially represented today
+
+## Connection Model
+
+Today, source connections are owned by the source-specific scripts and the shared runtime, not by the TUI.
+
+That is intentional:
+
+- the TUI stays source-agnostic
+- Claude Code and OpenCode each need different connection/setup semantics
+- runtime startup and adapter liveness stay outside the presentation layer
+
+The TUI may eventually become a nicer place to inspect or launch connections, but it should still remain a surface attached to the shared runtime rather than becoming the owner of source-specific transports.
 
 `JUDGMENT.md` is a small human-owned config template. The accepted live values today are:
 
@@ -199,7 +270,7 @@ In the default scaffold:
 
 ## Two Ways To Use It
 
-### 1. Run Aperture With Claude Code
+### 1. Run Aperture As A Shared Local Stack
 
 Use the shared runtime, one or more adapters, and the TUI when you want a working local attention surface for live approvals, failures, and follow-up handoff.
 
@@ -285,7 +356,7 @@ for (const event of mapPaperclipLiveEvent(liveEvent)) {
 
 | Command | What it does |
 | --- | --- |
-| `pnpm aperture` | Starts the default local Aperture stack: runtime, Claude adapter, TUI, local learning persistence in `.aperture/MEMORY.md`, and scaffolded judgment config in `.aperture/JUDGMENT.md`. |
+| `pnpm aperture` | Starts the default local Aperture stack: runtime, any configured Claude/OpenCode adapters, TUI, local learning persistence in `.aperture/MEMORY.md`, and scaffolded judgment config in `.aperture/JUDGMENT.md`. |
 | `pnpm aperture --learning off` | Starts the default local stack without local learning persistence. |
 | `pnpm claude:connect --global` | Connects Claude Code globally by writing Aperture hook config into `~/.claude/settings.json`. |
 | `pnpm claude:disconnect --global` | Removes Aperture's Claude hook entries from `~/.claude/settings.json`. |
@@ -323,10 +394,11 @@ for (const event of mapPaperclipLiveEvent(liveEvent)) {
 - replay evaluation foundation
 - shared local runtime and source-agnostic TUI
 - live Claude Code integration
+- live OpenCode server / terminal integration
 
 ## What Is Not Mature Yet
 
-- live transports beyond Claude Code
+- desktop-grade OpenCode parity outside the server / terminal path
 - evaluator-driven tuning loops
 - stale episode lifecycle
 - richer anticipation behavior
@@ -350,6 +422,7 @@ Start here:
 - [Engine Roadmap](docs/engine-roadmap.md)
 - [TUI Surface](docs/tui.md)
 - [Claude Code Adapter](docs/claude-code.md)
+- [OpenCode Integration](docs/opencode-integration.md)
 
 Reference docs:
 

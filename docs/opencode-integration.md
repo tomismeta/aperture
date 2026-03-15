@@ -1,16 +1,18 @@
 # OpenCode Integration
 
-This document describes how Aperture should integrate with [OpenCode](https://github.com/anomalyco/opencode) with one hard constraint:
-
-**the integration must require zero OpenCode changes.**
+This document describes the current OpenCode live source path for Aperture, along with the design constraints that shaped it.
 
 For the milestone and PR sequence that follows from this design, see [OpenCode Implementation Plan](./opencode-implementation-plan.md).
+
+The hard constraint remains:
+
+- the integration must require zero OpenCode changes
 
 That means:
 
 - OpenCode remains the agent runtime
 - Aperture remains the attention judgment layer
-- the integration must work from OpenCode's existing public server, SDK, and event surfaces
+- the integration must work from OpenCode's existing public server and event surfaces
 
 ## Current Status
 
@@ -31,6 +33,30 @@ The currently supported operator path is:
 - `opencode serve --port 4096`
 - `pnpm aperture`
 - `opencode attach http://127.0.0.1:4096`
+
+## Quickstart
+
+This is the recommended full-stack OpenCode path:
+
+```bash
+git clone git@github.com:tomismeta/aperture.git
+cd aperture
+pnpm install
+opencode serve --port 4096
+```
+
+In another terminal:
+
+```bash
+pnpm opencode:connect --global --url http://127.0.0.1:4096
+pnpm aperture
+```
+
+Then, if you want OpenCode's terminal UI on the same server:
+
+```bash
+opencode attach http://127.0.0.1:4096
+```
 
 Current limitations:
 
@@ -88,6 +114,17 @@ The bridge should accept normal connection options such as:
 This is not a second OpenCode runtime.
 
 It is an external attention plane attached to the existing OpenCode runtime.
+
+## Connection Model
+
+OpenCode stays source-specific at the setup boundary:
+
+- OpenCode runs its own server via `opencode serve`
+- Aperture stores an OpenCode connection profile on the Aperture side
+- the OpenCode adapter connects to that server and publishes source events into the shared runtime
+- the TUI remains source-agnostic and does not own OpenCode connection setup
+
+This is different from Claude Code because OpenCode's public integration seam is a server API rather than a hook config file.
 
 ## Command Surface
 

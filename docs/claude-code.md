@@ -1,14 +1,47 @@
 # Claude Code Adapter
 
-`@aperture/claude-code` is an optional adapter for Aperture.
+This document describes the Claude Code live source path for Aperture.
 
-It translates Claude Code hook payloads into `SourceEvent` values and translates `AttentionResponse` values back into Claude Code hook responses.
+`@aperture/claude-code` translates Claude Code hook payloads into `SourceEvent` values and translates `AttentionResponse` values back into Claude Code hook responses.
 
 In the current product shape, the intended operational path is:
 
 - `@aperture/runtime` owns the live `ApertureCore`
 - `@aperture/claude-code` feeds Claude hook events into that runtime
 - `@aperture/tui` attaches as a surface
+
+## Current Status
+
+The Claude Code adapter is a real working capability on `main`.
+
+Today, Aperture supports:
+
+- Claude Code tool approval requests
+- post-tool failure awareness
+- non-blocking completion awareness
+- waiting / input-needed awareness
+- follow-up handoff when Claude ends a turn with a real question
+- one shared Aperture runtime and one shared TUI across Claude Code and OpenCode
+- local connection setup via:
+  - `pnpm claude:connect --global`
+  - `pnpm claude:disconnect --global`
+
+The supported operator path is:
+
+- `pnpm claude:connect --global`
+- `pnpm aperture`
+- restart Claude Code
+- run `/hooks` once
+
+## Connection Model
+
+Claude Code stays source-specific at the setup boundary:
+
+- Aperture writes Claude hook config
+- Claude sends hook payloads into the shared Aperture runtime
+- the TUI remains source-agnostic and does not own Claude connection setup
+
+This is different from OpenCode because Claude's public integration seam is hook configuration rather than a server profile.
 
 ## What it supports today
 
@@ -42,13 +75,7 @@ In the current product shape, the intended operational path is:
 
 ## Quickstart
 
-This quickstart is for the second main Aperture use case:
-
-- use the shared Aperture runtime, TUI, and Claude adapter to manage live Claude Code workload
-
-This is the single recommended quickstart path.
-
-Start here:
+This is the recommended full-stack Claude Code path:
 
 ```bash
 git clone git@github.com:tomismeta/aperture.git
@@ -69,7 +96,7 @@ Step by step:
 4. `pnpm claude:connect --global`
    Write Aperture's Claude hook config into `~/.claude/settings.json`.
 5. `pnpm aperture`
-   Start the default local Aperture stack: runtime, Claude adapter, and TUI.
+   Start the shared local Aperture stack: runtime, any configured adapters, and the TUI.
 
 Then:
 
@@ -199,6 +226,7 @@ If you prefer to wire it manually, the resulting config shape is:
 
 - The forwarder reads the Claude hook payload from stdin and POSTs it to the local Aperture server.
 - The shared Aperture runtime owns `ApertureCore`; the Claude hook server is one ingress into it, and the TUI is an optional client surface.
+- Claude Code and OpenCode share the same runtime and TUI; only their ingress and connection setup differ.
 - Live Aperture runtimes register themselves locally so the TUI can detect what is up before it connects.
 - If no surface is attached, `PreToolUse` approvals return `ask` immediately instead of waiting on the hold timeout.
 - If a held approval times out, Aperture emits an ambient fallback note so the handoff back to Claude Code is visible.

@@ -18,7 +18,11 @@ import {
   type AttentionSurfaceCapabilities,
 } from "./surface-capabilities.js";
 import type { AttentionValueBreakdown } from "./attention-value.js";
-import type { ContinuityRule, ContinuityRuleEvaluation } from "./continuity/continuity-rule.js";
+import {
+  noopContinuityRule,
+  type ContinuityRule,
+  type ContinuityRuleEvaluation,
+} from "./continuity/continuity-rule.js";
 import { evaluateBurstDampeningContinuityRule } from "./continuity/burst-dampening-continuity-rule.js";
 import { evaluateConflictingInterruptContinuityRule } from "./continuity/conflicting-interrupt-continuity-rule.js";
 import { evaluateContextPatienceContinuityRule } from "./continuity/context-patience-continuity-rule.js";
@@ -459,18 +463,30 @@ export class AttentionPlanner {
     evidence: AttentionEvidenceContext,
     routed: AttentionPlanningExplanation,
   ): AttentionPlanningExplanation {
+    const disabledContinuityRules = new Set(this.plannerDefaults?.disabledContinuityRules ?? []);
     const continuityEvaluations = CONTINUITY_RULES
-      .map((rule) => rule({
-        candidate,
-        context,
-        evidence,
-        routed,
-        plannerDefaults: this.plannerDefaults,
-        helpers: {
-          peripheralDecision: this.peripheralDecision.bind(this),
-          batchedDecision: this.batchedDecision.bind(this),
-        },
-      }));
+      .map((rule) => {
+        const evaluation = rule({
+          candidate,
+          context,
+          evidence,
+          routed,
+          plannerDefaults: this.plannerDefaults,
+          helpers: {
+            peripheralDecision: this.peripheralDecision.bind(this),
+            batchedDecision: this.batchedDecision.bind(this),
+          },
+        });
+
+        if (!disabledContinuityRules.has(evaluation.rule)) {
+          return evaluation;
+        }
+
+        return noopContinuityRule(
+          evaluation.rule,
+          [`operator disabled the ${evaluation.rule} continuity rule`],
+        );
+      });
     const winningEvaluation = continuityEvaluations.find((evaluation) => evaluation.kind === "override");
 
     if (!winningEvaluation) {

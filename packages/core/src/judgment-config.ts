@@ -7,6 +7,7 @@ import {
   parseScalar,
   readMarkdownFile,
 } from "./markdown-state.js";
+import type { ContinuityRuleName } from "./continuity/continuity-rule.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
 
 export type JudgmentConfig = {
@@ -28,6 +29,7 @@ export type PlannerDefaults = {
   minimumDwellMs?: number;
   streamContinuityMargin?: number;
   conflictingInterruptMargin?: number;
+  disabledContinuityRules?: ContinuityRuleName[];
 };
 
 export type JudgmentRule = {
@@ -51,7 +53,7 @@ function parseJudgmentConfig(content: string): JudgmentConfig | null {
   const meta = new Map<string, string>();
   const policy = new Map<string, JudgmentRule>();
   const ambiguityDefaults = new Map<string, number>();
-  const plannerDefaults = new Map<string, boolean | number>();
+  const plannerDefaults = new Map<string, boolean | number | ContinuityRuleName[]>();
   let section: string | null = null;
   let ruleName: string | null = null;
 
@@ -89,9 +91,18 @@ function parseJudgmentConfig(content: string): JudgmentConfig | null {
     }
 
     if (section === "Planner Defaults") {
+      const key = camelKey(bullet.key);
+      if (key === "disabledContinuityRules") {
+        const rules = parseContinuityRuleList(bullet.value);
+        if (rules.length > 0) {
+          plannerDefaults.set(key, rules);
+        }
+        continue;
+      }
+
       const value = parseScalar(bullet.value);
       if (typeof value === "boolean" || typeof value === "number") {
-        plannerDefaults.set(camelKey(bullet.key), value);
+        plannerDefaults.set(key, value);
       }
       continue;
     }
@@ -171,6 +182,17 @@ export function serializeJudgmentConfig(config: JudgmentConfig): string {
         ),
       );
     }
+    if (
+      config.plannerDefaults.disabledContinuityRules !== undefined
+      && config.plannerDefaults.disabledContinuityRules.length > 0
+    ) {
+      lines.push(
+        formatBullet(
+          "disabled continuity rules",
+          config.plannerDefaults.disabledContinuityRules.join(", "),
+        ),
+      );
+    }
   }
 
   if (config.ambiguityDefaults && Object.keys(config.ambiguityDefaults).length > 0) {
@@ -198,4 +220,31 @@ function readNumber(value: string | undefined): number | null {
 
 function camelKey(value: string): string {
   return value.replace(/\s+([a-z])/g, (_match, letter: string) => letter.toUpperCase());
+}
+
+const CONTINUITY_RULE_NAMES: readonly ContinuityRuleName[] = [
+  "same_interaction",
+  "visible_episode",
+  "same_episode",
+  "minimum_dwell",
+  "burst_dampening",
+  "deferral_escalation",
+  "conflicting_interrupt",
+  "decision_stream_continuity",
+  "context_patience",
+];
+
+function parseContinuityRuleList(value: string): ContinuityRuleName[] {
+  const recognized = new Set<ContinuityRuleName>();
+  for (const part of value.split(",")) {
+    const normalized = part.trim();
+    if (isContinuityRuleName(normalized)) {
+      recognized.add(normalized);
+    }
+  }
+  return [...recognized];
+}
+
+function isContinuityRuleName(value: string): value is ContinuityRuleName {
+  return CONTINUITY_RULE_NAMES.includes(value as ContinuityRuleName);
 }

@@ -9,6 +9,17 @@ import type {
 import type { AttentionPolicyVerdict } from "../attention-policy.js";
 import type { AttentionSurfaceCapabilities } from "../surface-capabilities.js";
 
+export type ContinuityRuleName =
+  | "same_interaction"
+  | "visible_episode"
+  | "same_episode"
+  | "minimum_dwell"
+  | "burst_dampening"
+  | "deferral_escalation"
+  | "conflicting_interrupt"
+  | "decision_stream_continuity"
+  | "context_patience";
+
 export type ContinuityRuleInput = {
   candidate: AttentionCandidate;
   context: AttentionPlanningContext;
@@ -32,12 +43,12 @@ export type ContinuityRuleInput = {
 
 export type ContinuityRuleEvaluation =
   | {
-      rule: string;
+      rule: ContinuityRuleName;
       kind: "noop";
       rationale: string[];
     }
   | {
-      rule: string;
+      rule: ContinuityRuleName;
       kind: "override";
       decision: AttentionPlanDecision;
       currentPriority: AttentionPriority | null;
@@ -47,7 +58,10 @@ export type ContinuityRuleEvaluation =
 
 export type ContinuityRule = (input: ContinuityRuleInput) => ContinuityRuleEvaluation;
 
-export function noopContinuityRule(rule: string, rationale: string[] = []): ContinuityRuleEvaluation {
+export function noopContinuityRule(
+  rule: ContinuityRuleName,
+  rationale: string[] = [],
+): ContinuityRuleEvaluation {
   return {
     rule,
     kind: "noop",
@@ -56,7 +70,7 @@ export function noopContinuityRule(rule: string, rationale: string[] = []): Cont
 }
 
 export function overrideContinuityRule(
-  rule: string,
+  rule: ContinuityRuleName,
   decision: AttentionPlanDecision,
   currentPriority: AttentionPriority | null,
   currentScore: number | null,

@@ -306,6 +306,60 @@ test("planner defaults can disable the minimum dwell window", () => {
   assert.equal(decision.kind, "activate");
 });
 
+test("disabled continuity rules bypass the minimum dwell override", () => {
+  const continuityDisabledCoordinator = new JudgmentCoordinator(
+    new AttentionPolicy(),
+    new AttentionValue(),
+    new AttentionPlanner({
+      plannerDefaults: {
+        disabledContinuityRules: ["minimum_dwell"],
+      },
+    }),
+  );
+
+  const explanation = continuityDisabledCoordinator.explain(
+    createFrame({
+      taskId: "task:current",
+      interactionId: "interaction:current",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      responseSpec: { kind: "none" },
+      timing: {
+        createdAt: "2026-03-08T12:00:55.000Z",
+        updatedAt: "2026-03-08T12:00:55.000Z",
+      },
+    }),
+    createCandidate({
+      taskId: "task:incoming",
+      interactionId: "interaction:incoming",
+      mode: "approval",
+      tone: "focused",
+      consequence: "medium",
+      priority: "high",
+      blocking: false,
+      timestamp: "2026-03-08T12:01:00.000Z",
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "activate");
+  assert.deepEqual(
+    explanation.continuityEvaluations?.find((evaluation) => evaluation.rule === "minimum_dwell"),
+    {
+      rule: "minimum_dwell",
+      kind: "noop",
+      rationale: ["operator disabled the minimum_dwell continuity rule"],
+    },
+  );
+});
+
 test("keeps cross-stream work peripheral when the current stream is still close in value", () => {
   const decision = coordinator.coordinate(
     createFrame({

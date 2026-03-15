@@ -41,6 +41,7 @@ import type {
   MemoryProfile,
   PlannerDefaults,
   ContinuityRuleEvaluation,
+  ContinuityRuleName,
   TraceEvaluationReport,
   UserProfile,
 } from "../src/index.js";
@@ -83,6 +84,7 @@ void (0 as unknown as AttentionInterruptCriterionVerdict);
 void (0 as unknown as JudgmentConfig);
 void (0 as unknown as PlannerDefaults);
 void (0 as unknown as ContinuityRuleEvaluation);
+void (0 as unknown as ContinuityRuleName);
 void (0 as unknown as AttentionState);
 void (0 as unknown as MemoryProfile);
 void (0 as unknown as UserProfile);

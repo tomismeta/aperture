@@ -35,7 +35,7 @@ export type {
   AttentionPlanningExplanation,
   AttentionPlanDecision,
 } from "./attention-planner.js";
-export type { ContinuityRuleEvaluation } from "./continuity/continuity-rule.js";
+export type { ContinuityRuleEvaluation, ContinuityRuleName } from "./continuity/continuity-rule.js";
 
 export { JudgmentCoordinator } from "./judgment-coordinator.js";
 export type {

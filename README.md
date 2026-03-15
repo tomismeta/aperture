@@ -116,7 +116,6 @@ What is real on `main` today:
 - `@aperture/tui` is the terminal-native attention surface
 - `@aperture/claude-code` is the current end-to-end live adapter path
 - `@aperture/opencode` is a working live adapter path for OpenCode server and terminal sessions
-- `@aperture/codex` and `@aperture/paperclip` provide mapping layers today, with different transport maturity
 - the Aperture core SDK now exposes the main judgment primitives for future SDK use
 - the default runtime uses local learning persistence through `.aperture/MEMORY.md` and a scaffolded `.aperture/JUDGMENT.md`
 - `USER.md`, `MEMORY.md`, and `JUDGMENT.md` remain the broader core judgment-state model, even though `MEMORY.md` and `JUDGMENT.md` are the live default local surfaces today
@@ -305,7 +304,7 @@ For the full package-facing SDK docs, see [packages/core/README.md](/Users/tom/d
 
 - Aperture core SDK (`@tomismeta/aperture-core`): deterministic judgment engine
 - `@aperture/runtime`: shared local host for one live `ApertureCore`
-- `@aperture/claude-code`, `@aperture/opencode`, `@aperture/codex`, `@aperture/paperclip`: source adapters
+- `@aperture/claude-code`, `@aperture/opencode`: live source adapters
 - `@aperture/tui`: source-agnostic terminal surface
 
 The flow is:
@@ -340,12 +339,35 @@ console.log(core.getAttentionView());
 If your integration is building an adapter from source-native facts, publish `SourceEvent` instead:
 
 ```ts
-import { ApertureCore } from "@tomismeta/aperture-core";
-import { mapPaperclipLiveEvent } from "@aperture/paperclip";
+import { ApertureCore, type SourceEvent } from "@tomismeta/aperture-core";
 
 const core = new ApertureCore();
 
-for (const event of mapPaperclipLiveEvent(liveEvent)) {
+const sourceEvents: SourceEvent[] = [
+  {
+    id: "src:approval",
+    source: {
+      system: "custom-runtime",
+      label: "Custom Runtime",
+    },
+    task: {
+      id: "task:deploy",
+      title: "Deploy review",
+    },
+    interaction: {
+      id: "interaction:deploy:review",
+    },
+    occurredAt: new Date().toISOString(),
+    event: {
+      type: "human.input.requested",
+      title: "Approve production deploy",
+      summary: "A deployment is waiting for review.",
+      request: { kind: "approval" },
+    },
+  },
+];
+
+for (const event of sourceEvents) {
   core.publishSourceEvent(event);
 }
 ```
@@ -428,8 +450,6 @@ Reference docs:
 
 - [Semantic Normalization](docs/semantic-normalization.md)
 - [Interaction Signals](docs/interaction-signals.md)
-- [Codex Adapter](docs/codex.md)
-- [Paperclip Adapter](docs/paperclip.md)
 - [Frame](docs/frame.md)
 
 ## Feedback

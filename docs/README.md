@@ -21,10 +21,8 @@ Reference docs:
 
 - [Semantic Normalization](semantic-normalization.md)
 - [Attention Frame](frame.md)
-- [Codex Adapter](codex.md)
 - [OpenCode Integration](opencode-integration.md)
 - [OpenCode Implementation Plan](opencode-implementation-plan.md)
-- [Paperclip Adapter](paperclip.md)
 - [TUI Design](tui-design.md)
 - [Engine Roadmap](engine-roadmap.md)
 - [Reference Judgment Flow](reference-judgment-flow.md)
@@ -40,5 +38,4 @@ Everything in this set matches the current engine-first product:
 - a human attention control plane in the core package (`packages/core`, published as `@tomismeta/aperture-core`)
 - a shared local host in `@aperture/runtime`
 - Claude Code and OpenCode as current first-class live adapter paths
-- Codex and Paperclip as additional adapters with different transport maturity
 - a source-agnostic TUI as the primary companion surface

@@ -91,6 +91,22 @@ The core bet is simple:
 
 Today, that includes a live local judgment surface: Aperture scaffolds `.aperture/JUDGMENT.md`, loads it on startup, and uses it to control bounded auto-approval, interruption policy, and planner defaults.
 
+## Judgment Doctrine
+
+Aperture is governed by a simple idea:
+
+**Aperture protects your attention in a world designed to abuse it.**
+
+That means:
+
+- interruption is a scarce semantic resource
+- the engine should surface decisions, not raw events
+- queue and ambient modes help preserve the meaning of interruption
+- low-confidence cases should stay peripheral instead of stealing focus
+- the human attention loop should be deterministic, inspectable, and behaviorally grounded
+
+The full doctrine lives in [docs/attention-judgment-doctrine.md](/Users/tom/dev/aperture/docs/attention-judgment-doctrine.md).
+
 ## Why It Exists
 
 When you supervise multiple agents, everything can interrupt at once:

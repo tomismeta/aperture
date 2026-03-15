@@ -22,6 +22,7 @@ import type {
   AttentionSignalListener,
   AttentionSignalSummary,
   AttentionState,
+  AttentionSurfaceCapabilities,
   AttentionTaskView,
   AttentionTaskViewListener,
   AttentionTraceListener,
@@ -52,6 +53,7 @@ void (0 as unknown as AttentionSignal);
 void (0 as unknown as AttentionSignalCounts);
 void (0 as unknown as AttentionDeferredSignalCounts);
 void (0 as unknown as AttentionSignalSummary);
+void (0 as unknown as AttentionSurfaceCapabilities);
 void (0 as unknown as AttentionTaskView);
 void (0 as unknown as AttentionView);
 void (0 as unknown as AttentionPolicyVerdict);

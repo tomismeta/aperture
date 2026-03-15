@@ -8,6 +8,7 @@ import { AttentionPolicy, type AttentionPolicyVerdict } from "./attention-policy
 import { forecastAttentionPressure, idleAttentionPressure, type AttentionPressure } from "./attention-pressure.js";
 import { AttentionPlanner } from "./attention-planner.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
+import type { AttentionSurfaceCapabilities } from "./surface-capabilities.js";
 import { AttentionValue, type AttentionValueBreakdown } from "./attention-value.js";
 import type { AmbiguityDefaults } from "./judgment-config.js";
 
@@ -42,6 +43,7 @@ export type AttentionDecisionContext = {
   taskSummary?: AttentionSignalSummary;
   globalSummary?: AttentionSignalSummary;
   pressureForecast?: AttentionPressure;
+  surfaceCapabilities?: AttentionSurfaceCapabilities;
 };
 
 type JudgmentCoordinatorOptions = {
@@ -140,6 +142,7 @@ export class JudgmentCoordinator {
       pressureForecast,
       candidateScore: utility.total,
       currentScore,
+      ...(context.surfaceCapabilities ? { surfaceCapabilities: context.surfaceCapabilities } : {}),
     });
 
     return {

@@ -1,6 +1,10 @@
 import { stderr } from "node:process";
 
-import { ApertureRuntimeClient, discoverLocalRuntimes } from "../packages/runtime/src/index.ts";
+import {
+  DEFAULT_ATTENTION_SURFACE_CAPABILITIES,
+  ApertureRuntimeClient,
+  discoverLocalRuntimes,
+} from "../packages/runtime/src/index.ts";
 import { runAttentionTui } from "../packages/tui/src/index.ts";
 
 async function main(): Promise<void> {
@@ -10,6 +14,7 @@ async function main(): Promise<void> {
   const client = await ApertureRuntimeClient.connect({
     baseUrl,
     label: "tui",
+    surfaceCapabilities: DEFAULT_ATTENTION_SURFACE_CAPABILITIES,
   });
 
   stderr.write(`Connected Aperture TUI to ${baseUrl}\n`);

@@ -67,6 +67,14 @@ export class ApertureRuntimeAdapterClient {
     attentionState: "monitoring",
     adapters: [],
     surfaceCount: 0,
+    surfaceCapabilities: {
+      supportsQueue: true,
+      supportsAmbient: true,
+      supportsSingleChoice: true,
+      supportsMultipleChoice: false,
+      supportsForms: true,
+      supportsFreeformText: false,
+    },
   };
 
   private constructor(options: ApertureRuntimeAdapterClientOptions) {

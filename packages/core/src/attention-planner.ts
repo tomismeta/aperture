@@ -8,6 +8,10 @@ import type { PlannerDefaults } from "./judgment-config.js";
 import type { AttentionPolicyVerdict } from "./attention-policy.js";
 import type { AttentionPressure } from "./attention-pressure.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
+import {
+  DEFAULT_ATTENTION_SURFACE_CAPABILITIES,
+  type AttentionSurfaceCapabilities,
+} from "./surface-capabilities.js";
 import type { AttentionValueBreakdown } from "./attention-value.js";
 
 // These defaults intentionally stay conservative so explicit policy still
@@ -37,6 +41,7 @@ export type AttentionPlanningContext = {
   pressureForecast: AttentionPressure;
   candidateScore: number;
   currentScore: number | null;
+  surfaceCapabilities?: AttentionSurfaceCapabilities;
 };
 
 type AttentionPlannerOptions = {
@@ -62,7 +67,12 @@ export class AttentionPlanner {
       if (this.shouldBatchVisibleEpisode(candidate, context.attentionView)) {
         reasons.push("related episode work is already visible, so this interaction batches with it instead of interrupting");
         return {
-          decision: this.batchedDecision(candidate, context.policyVerdict, context.attentionView),
+          decision: this.batchedDecision(
+            candidate,
+            context.policyVerdict,
+            context.attentionView,
+            context.surfaceCapabilities,
+          ),
           currentPriority: null,
           currentScore: null,
           reasons,
@@ -102,7 +112,12 @@ export class AttentionPlanner {
       if (this.shouldPreemptForPressure(candidate, context.policyVerdict, context.pressureForecast)) {
         reasons.push("predicted overload keeps lower-value work peripheral before the queue spikes");
         return {
-          decision: this.suppressedDecision(candidate, context.policyVerdict, context.utility),
+          decision: this.suppressedDecision(
+            candidate,
+            context.policyVerdict,
+            context.utility,
+            context.surfaceCapabilities,
+          ),
           currentPriority: null,
           currentScore: null,
           reasons,
@@ -112,7 +127,7 @@ export class AttentionPlanner {
       if (!context.policyVerdict.mayInterrupt && context.policyVerdict.minimumPresentation === "ambient") {
         reasons.push("policy keeps this interaction ambient until stronger context arrives");
         return {
-          decision: { kind: "ambient", candidate },
+          decision: this.peripheralDecision(candidate, context.policyVerdict, context.surfaceCapabilities),
           currentPriority: null,
           currentScore: null,
           reasons,
@@ -141,7 +156,12 @@ export class AttentionPlanner {
     if (this.shouldBatchVisibleEpisode(candidate, context.attentionView)) {
       reasons.push("related episode work is already building in the queue, so this interaction stays bundled with it");
       return {
-        decision: this.batchedDecision(candidate, context.policyVerdict, context.attentionView),
+        decision: this.batchedDecision(
+          candidate,
+          context.policyVerdict,
+          context.attentionView,
+          context.surfaceCapabilities,
+        ),
         currentPriority: null,
         currentScore: context.currentScore,
         reasons,
@@ -163,7 +183,7 @@ export class AttentionPlanner {
 
       reasons.push("related work stays bundled with the active episode");
       return {
-        decision: this.peripheralDecision(candidate, context.policyVerdict),
+        decision: this.peripheralDecision(candidate, context.policyVerdict, context.surfaceCapabilities),
         currentPriority: null,
         currentScore: null,
         reasons,
@@ -220,7 +240,7 @@ export class AttentionPlanner {
     if (currentBlocking && !candidate.blocking) {
       reasons.push("blocking work keeps non-blocking updates in the periphery");
       return {
-        decision: this.peripheralDecision(candidate, context.policyVerdict),
+        decision: this.peripheralDecision(candidate, context.policyVerdict, context.surfaceCapabilities),
         currentPriority: null,
         currentScore: null,
         reasons,
@@ -243,7 +263,7 @@ export class AttentionPlanner {
     if (this.shouldDampenBurst(current, candidate)) {
       reasons.push("rapid successive updates from the same task stay bundled instead of stealing focus");
       return {
-        decision: this.peripheralDecision(candidate, context.policyVerdict),
+        decision: this.peripheralDecision(candidate, context.policyVerdict, context.surfaceCapabilities),
         currentPriority,
         currentScore,
         reasons,
@@ -293,7 +313,7 @@ export class AttentionPlanner {
     ) {
       reasons.push("memory suggests this interaction usually needs context, so it stays peripheral until it clearly outranks current work");
       return {
-        decision: this.peripheralDecision(candidate, context.policyVerdict),
+        decision: this.peripheralDecision(candidate, context.policyVerdict, context.surfaceCapabilities),
         currentPriority,
         currentScore,
         reasons,
@@ -316,7 +336,7 @@ export class AttentionPlanner {
       if (!Number.isNaN(candidateTimestamp) && !Number.isNaN(currentTimestamp) && candidateTimestamp < currentTimestamp) {
         reasons.push("older work yields when scores tie");
         return {
-          decision: this.peripheralDecision(candidate, context.policyVerdict),
+          decision: this.peripheralDecision(candidate, context.policyVerdict, context.surfaceCapabilities),
           currentPriority,
           currentScore,
           reasons,
@@ -340,8 +360,10 @@ export class AttentionPlanner {
   private peripheralDecision(
     candidate: AttentionCandidate,
     policyVerdict: AttentionPolicyVerdict,
+    surfaceCapabilities?: AttentionSurfaceCapabilities,
   ): Extract<AttentionPlanDecision, { kind: "queue" | "ambient" }> {
-    if (policyVerdict.minimumPresentation === "ambient") {
+    const capabilities = surfaceCapabilities ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES;
+    if (policyVerdict.minimumPresentation === "ambient" && this.canRemainAmbient(candidate, capabilities)) {
       return { kind: "ambient", candidate };
     }
 
@@ -352,6 +374,7 @@ export class AttentionPlanner {
     candidate: AttentionCandidate,
     policyVerdict: AttentionPolicyVerdict,
     attentionView: AttentionView | undefined,
+    surfaceCapabilities?: AttentionSurfaceCapabilities,
   ): Extract<AttentionPlanDecision, { kind: "queue" | "ambient" }> {
     const episodeIsAlreadyInterruptive =
       candidate.episodeId !== undefined
@@ -363,13 +386,14 @@ export class AttentionPlanner {
       return { kind: "queue", candidate };
     }
 
-    return this.peripheralDecision(candidate, policyVerdict);
+    return this.peripheralDecision(candidate, policyVerdict, surfaceCapabilities);
   }
 
   private suppressedDecision(
     candidate: AttentionCandidate,
     policyVerdict: AttentionPolicyVerdict,
     utility: AttentionValueBreakdown,
+    surfaceCapabilities?: AttentionSurfaceCapabilities,
   ): Extract<AttentionPlanDecision, { kind: "queue" | "ambient" }> {
     if (
       (utility.components.deferralAffinity > 0 || utility.components.consequenceCalibration > 0)
@@ -378,7 +402,31 @@ export class AttentionPlanner {
       return { kind: "queue", candidate };
     }
 
-    return this.peripheralDecision(candidate, policyVerdict);
+    return this.peripheralDecision(candidate, policyVerdict, surfaceCapabilities);
+  }
+
+  private canRemainAmbient(
+    candidate: AttentionCandidate,
+    surfaceCapabilities: AttentionSurfaceCapabilities,
+  ): boolean {
+    if (!surfaceCapabilities.supportsAmbient) {
+      return false;
+    }
+
+    switch (candidate.responseSpec.kind) {
+      case "approval":
+        return true;
+      case "choice":
+        return candidate.responseSpec.selectionMode === "multiple"
+          ? surfaceCapabilities.supportsMultipleChoice
+          : surfaceCapabilities.supportsSingleChoice;
+      case "form":
+        return surfaceCapabilities.supportsForms;
+      case "none":
+        return true;
+    }
+
+    return false;
   }
 
   private shouldSuppressForBacklog(

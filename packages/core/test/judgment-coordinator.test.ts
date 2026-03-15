@@ -112,6 +112,32 @@ test("keeps background work ambient while a blocking frame is waiting", () => {
   assert.equal(decision.kind, "ambient");
 });
 
+test("falls back to queue when a surface cannot render ambient work", () => {
+  const decision = coordinator.coordinate(
+    createFrame(),
+    createCandidate({
+      mode: "status",
+      tone: "ambient",
+      consequence: "low",
+      priority: "background",
+      blocking: false,
+      responseSpec: { kind: "none" },
+    }),
+    {
+      surfaceCapabilities: {
+        supportsQueue: true,
+        supportsAmbient: false,
+        supportsSingleChoice: true,
+        supportsMultipleChoice: false,
+        supportsForms: true,
+        supportsFreeformText: false,
+      },
+    },
+  );
+
+  assert.equal(decision.kind, "queue");
+});
+
 test("queues lower-consequence candidates at equal priority", () => {
   const decision = coordinator.coordinate(
     createFrame({ consequence: "high" }),

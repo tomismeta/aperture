@@ -1,6 +1,7 @@
 import type {
   AttentionResponse,
   AttentionSignalSummary,
+  AttentionSurfaceCapabilities,
   AttentionState,
   AttentionView,
 } from "@tomismeta/aperture-core";
@@ -11,6 +12,7 @@ export type ApertureRuntimeClientOptions = {
   baseUrl: string;
   pollIntervalMs?: number;
   label?: string;
+  surfaceCapabilities?: Partial<AttentionSurfaceCapabilities>;
 };
 
 type AttentionViewListener = (attentionView: AttentionView) => void;
@@ -22,6 +24,7 @@ export class ApertureRuntimeClient {
   private readonly baseUrl: string;
   private readonly pollIntervalMs: number;
   private readonly label: string;
+  private readonly surfaceCapabilities: Partial<AttentionSurfaceCapabilities> | undefined;
   private readonly attentionListeners = new Set<AttentionViewListener>();
   private readonly responseListeners = new Set<ResponseListener>();
   private snapshotState: ApertureRuntimeSnapshot = {
@@ -56,6 +59,14 @@ export class ApertureRuntimeClient {
     attentionState: "monitoring",
     adapters: [],
     surfaceCount: 0,
+    surfaceCapabilities: {
+      supportsQueue: true,
+      supportsAmbient: true,
+      supportsSingleChoice: true,
+      supportsMultipleChoice: false,
+      supportsForms: true,
+      supportsFreeformText: false,
+    },
   };
   private surfaceId: string | null = null;
   private heartbeatIntervalId: NodeJS.Timeout | null = null;
@@ -67,6 +78,7 @@ export class ApertureRuntimeClient {
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
     this.pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
     this.label = options.label ?? "tui";
+    this.surfaceCapabilities = options.surfaceCapabilities;
   }
 
   static async connect(options: ApertureRuntimeClientOptions): Promise<ApertureRuntimeClient> {
@@ -129,7 +141,10 @@ export class ApertureRuntimeClient {
   private async initialize(): Promise<void> {
     const attach = await this.post<{ surfaceId: string; heartbeatIntervalMs: number }>(
       "/surfaces/attach",
-      { label: this.label },
+      {
+        label: this.label,
+        ...(this.surfaceCapabilities ? { capabilities: this.surfaceCapabilities } : {}),
+      },
     );
     this.surfaceId = attach.surfaceId;
     await this.refreshState();

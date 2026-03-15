@@ -136,7 +136,17 @@ test("runtime adapter client observes attached surfaces through snapshot state",
     const attach = await fetch(`${controlUrl}/surfaces/attach`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ label: "tui" }),
+      body: JSON.stringify({
+        label: "tui",
+        capabilities: {
+          supportsQueue: true,
+          supportsAmbient: false,
+          supportsSingleChoice: true,
+          supportsMultipleChoice: false,
+          supportsForms: true,
+          supportsFreeformText: false,
+        },
+      }),
     });
     assert.equal(attach.status, 200);
 
@@ -145,6 +155,12 @@ test("runtime adapter client observes attached surfaces through snapshot state",
       return count > 0 ? count : null;
     }, { timeoutMs: 750 });
     assert.equal(surfaceCount, 1);
+
+    const state = await fetch(`${controlUrl}/state`);
+    const snapshot = await state.json() as ApertureRuntimeSnapshot;
+    assert.equal(snapshot.surfaceCapabilities.supportsAmbient, false);
+    assert.equal(snapshot.surfaceCapabilities.supportsForms, true);
+    assert.equal(runtime.getCore().getSurfaceCapabilities().supportsAmbient, false);
   } finally {
     await client.close();
     await runtime.close();

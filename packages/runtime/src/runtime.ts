@@ -3,11 +3,14 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 
 import {
   ApertureCore,
+  DEFAULT_ATTENTION_SURFACE_CAPABILITIES,
   type AttentionResponse,
   type AttentionSignalSummary,
+  type AttentionSurfaceCapabilities,
   type AttentionState,
   type AttentionView,
   type SourceEvent,
+  mergeAttentionSurfaceCapabilities,
 } from "@tomismeta/aperture-core";
 
 import type { LearningPersistenceState } from "./learning-persistence.js";
@@ -43,6 +46,7 @@ export type ApertureRuntimeSnapshot = {
   attentionState: AttentionState;
   adapters: ApertureRuntimeAdapter[];
   surfaceCount: number;
+  surfaceCapabilities: AttentionSurfaceCapabilities;
   learningPersistence?: LearningPersistenceState;
 };
 
@@ -73,6 +77,7 @@ type SurfaceSession = {
   id: string;
   lastSeenAt: number;
   label?: string;
+  capabilities: AttentionSurfaceCapabilities;
 };
 
 type AdapterSession = {
@@ -295,13 +300,18 @@ export function createApertureRuntime(
       }
 
       if (req.method === "POST" && path === `${controlPathPrefix}/surfaces/attach`) {
-        const payload = (await readOptionalJson(req, bodyLimitBytes)) as { label?: string } | null;
+        const payload = (await readOptionalJson(req, bodyLimitBytes)) as {
+          label?: string;
+          capabilities?: Partial<AttentionSurfaceCapabilities>;
+        } | null;
         const surfaceId = randomUUID();
         surfaces.set(surfaceId, {
           id: surfaceId,
           lastSeenAt: Date.now(),
+          capabilities: normalizeSurfaceCapabilities(payload?.capabilities),
           ...(payload?.label ? { label: payload.label } : {}),
         });
+        core.setSurfaceCapabilities(aggregateSurfaceCapabilities());
         bumpStateVersion();
         writeJson(res, 200, {
           surfaceId,
@@ -332,6 +342,7 @@ export function createApertureRuntime(
       if (req.method === "DELETE" && detachMatch?.[1]) {
         const surfaceId = decodeURIComponent(detachMatch[1]);
         if (surfaces.delete(surfaceId)) {
+          core.setSurfaceCapabilities(aggregateSurfaceCapabilities());
           bumpStateVersion();
         }
         writeJson(res, 200, {});
@@ -437,6 +448,7 @@ export function createApertureRuntime(
       }
     }
     if (removed) {
+      core.setSurfaceCapabilities(aggregateSurfaceCapabilities());
       bumpStateVersion();
     }
   }
@@ -470,10 +482,15 @@ export function createApertureRuntime(
           ...(adapter.metadata ? { metadata: adapter.metadata } : {}),
           lastSeenAt: new Date(adapter.lastSeenAt).toISOString(),
           connectedAt: adapter.connectedAt,
-        })),
+      })),
       surfaceCount: surfaces.size,
+      surfaceCapabilities: aggregateSurfaceCapabilities(),
       ...(learningPersistence ? { learningPersistence } : {}),
     };
+  }
+
+  function aggregateSurfaceCapabilities(): AttentionSurfaceCapabilities {
+    return mergeAttentionSurfaceCapabilities([...surfaces.values()].map((surface) => surface.capabilities));
   }
 
   async function registerRuntime(controlUrl: string): Promise<void> {
@@ -513,6 +530,22 @@ function normalizePathPrefix(pathPrefix: string): string {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeSurfaceCapabilities(
+  capabilities: Partial<AttentionSurfaceCapabilities> | undefined,
+): AttentionSurfaceCapabilities {
+  return {
+    supportsQueue: capabilities?.supportsQueue ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES.supportsQueue,
+    supportsAmbient: capabilities?.supportsAmbient ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES.supportsAmbient,
+    supportsSingleChoice:
+      capabilities?.supportsSingleChoice ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES.supportsSingleChoice,
+    supportsMultipleChoice:
+      capabilities?.supportsMultipleChoice ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES.supportsMultipleChoice,
+    supportsForms: capabilities?.supportsForms ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES.supportsForms,
+    supportsFreeformText:
+      capabilities?.supportsFreeformText ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES.supportsFreeformText,
+  };
 }
 
 async function readOptionalJson(req: IncomingMessage, bodyLimitBytes: number): Promise<unknown | null> {

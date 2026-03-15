@@ -29,6 +29,10 @@ import { forecastAttentionPressure } from "./attention-pressure.js";
 import { ProfileStore, type MemoryProfile, type UserProfile } from "./profile-store.js";
 import { AttentionPlanner } from "./attention-planner.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
+import {
+  DEFAULT_ATTENTION_SURFACE_CAPABILITIES,
+  type AttentionSurfaceCapabilities,
+} from "./surface-capabilities.js";
 import { TaskViewStore } from "./task-view-store.js";
 import type { ApertureTrace } from "./trace.js";
 import { TraceRecorder } from "./trace-recorder.js";
@@ -47,6 +51,7 @@ export type ApertureCoreOptions = {
   judgmentConfig?: JudgmentConfig;
   profileStore?: ProfileStore;
   markdownRootDir?: string;
+  surfaceCapabilities?: AttentionSurfaceCapabilities;
 };
 
 export class ApertureCore {
@@ -70,12 +75,14 @@ export class ApertureCore {
   private baseMemoryProfile: MemoryProfile;
   private userProfile: UserProfile | undefined;
   private judgmentConfig: JudgmentConfig | undefined;
+  private surfaceCapabilities: AttentionSurfaceCapabilities;
 
   constructor(options: ApertureCoreOptions = {}) {
     this.markdownRootDir = options.markdownRootDir;
     this.profileStore = options.profileStore;
     this.userProfile = options.userProfile;
     this.judgmentConfig = options.judgmentConfig;
+    this.surfaceCapabilities = options.surfaceCapabilities ?? { ...DEFAULT_ATTENTION_SURFACE_CAPABILITIES };
     this.baseMemoryProfile = options.memoryProfile ?? {
       version: MARKDOWN_SCHEMA_VERSION,
       operatorId: "default",
@@ -230,6 +237,7 @@ export class ApertureCore {
           taskSummary,
           globalSummary,
           pressureForecast,
+          surfaceCapabilities: this.surfaceCapabilities,
         });
         let result: AttentionFrame | null;
         switch (explanation.decision.kind) {
@@ -406,6 +414,14 @@ export class ApertureCore {
 
   getAttentionState(taskId?: string): AttentionState {
     return deriveAttentionState(this.signals.summarize(taskId));
+  }
+
+  getSurfaceCapabilities(): AttentionSurfaceCapabilities {
+    return { ...this.surfaceCapabilities };
+  }
+
+  setSurfaceCapabilities(capabilities: AttentionSurfaceCapabilities): void {
+    this.surfaceCapabilities = { ...capabilities };
   }
 
   snapshotMemoryProfile(now: string = new Date().toISOString()): MemoryProfile {

@@ -8,6 +8,7 @@ import type { AttentionPolicyVerdict } from "./attention-policy.js";
 import type { AttentionPressure } from "./attention-pressure.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import type { AttentionValueBreakdown } from "./attention-value.js";
+import type { ContinuityRuleEvaluation } from "./continuity/continuity-rule.js";
 
 export type ApertureTrace =
   | {
@@ -63,6 +64,7 @@ export type ApertureTrace =
       planner: {
         kind: "auto_approve" | "activate" | "queue" | "ambient" | "keep" | "clear";
         reasons: string[];
+        continuityEvaluations: ContinuityRuleEvaluation[];
       };
       coordination: {
         kind: "auto_approve" | "activate" | "queue" | "ambient" | "keep" | "clear";
@@ -71,6 +73,7 @@ export type ApertureTrace =
         currentPriority: AttentionPriority | null;
         ambiguity: AttentionDecisionAmbiguity | null;
         reasons: string[];
+        continuityEvaluations: ContinuityRuleEvaluation[];
       };
       taskSummary: AttentionSignalSummary;
       globalSummary: AttentionSignalSummary;

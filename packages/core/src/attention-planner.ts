@@ -18,7 +18,7 @@ import {
   type AttentionSurfaceCapabilities,
 } from "./surface-capabilities.js";
 import type { AttentionValueBreakdown } from "./attention-value.js";
-import type { ContinuityRule } from "./continuity/continuity-rule.js";
+import type { ContinuityRule, ContinuityRuleEvaluation } from "./continuity/continuity-rule.js";
 import { evaluateBurstDampeningContinuityRule } from "./continuity/burst-dampening-continuity-rule.js";
 import { evaluateContextPatienceContinuityRule } from "./continuity/context-patience-continuity-rule.js";
 import { evaluateDeferralEscalationContinuityRule } from "./continuity/deferral-escalation-continuity-rule.js";
@@ -44,6 +44,7 @@ export type AttentionPlanningExplanation = {
   currentPriority: AttentionPriority | null;
   currentScore: number | null;
   reasons: string[];
+  continuityEvaluations?: ContinuityRuleEvaluation[];
 };
 
 export type AttentionPlanningContext = {
@@ -454,7 +455,7 @@ export class AttentionPlanner {
     evidence: AttentionEvidenceContext,
     routed: AttentionPlanningExplanation,
   ): AttentionPlanningExplanation {
-    const winningEvaluation = CONTINUITY_RULES
+    const continuityEvaluations = CONTINUITY_RULES
       .map((rule) => rule({
         candidate,
         context,
@@ -465,11 +466,14 @@ export class AttentionPlanner {
           peripheralDecision: this.peripheralDecision.bind(this),
           batchedDecision: this.batchedDecision.bind(this),
         },
-      }))
-      .find((evaluation) => evaluation.kind === "override");
+      }));
+    const winningEvaluation = continuityEvaluations.find((evaluation) => evaluation.kind === "override");
 
     if (!winningEvaluation) {
-      return routed;
+      return {
+        ...routed,
+        continuityEvaluations,
+      };
     }
 
     return {
@@ -477,6 +481,7 @@ export class AttentionPlanner {
       currentPriority: winningEvaluation.currentPriority,
       currentScore: winningEvaluation.currentScore,
       reasons: [...routed.reasons, ...winningEvaluation.rationale],
+      continuityEvaluations,
     };
   }
 

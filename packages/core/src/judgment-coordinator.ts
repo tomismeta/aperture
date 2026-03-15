@@ -16,6 +16,7 @@ import {
 } from "./attention-policy.js";
 import { forecastAttentionPressure, idleAttentionPressure, type AttentionPressure } from "./attention-pressure.js";
 import { AttentionPlanner } from "./attention-planner.js";
+import type { ContinuityRuleEvaluation } from "./continuity/continuity-rule.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import type { AttentionSurfaceCapabilities } from "./surface-capabilities.js";
 import { AttentionValue, type AttentionValueBreakdown } from "./attention-value.js";
@@ -40,6 +41,7 @@ export type AttentionDecisionExplanation = {
   currentPriority: AttentionPriority | null;
   ambiguity: AttentionDecisionAmbiguity | null;
   reasons: string[];
+  continuityEvaluations: ContinuityRuleEvaluation[];
 };
 
 type LegacyAttentionDecisionContext = {
@@ -119,6 +121,7 @@ export class JudgmentCoordinator {
         currentPriority: null,
         ambiguity: null,
         reasons,
+        continuityEvaluations: [],
       };
     }
 
@@ -151,6 +154,7 @@ export class JudgmentCoordinator {
         currentPriority: evidence.currentFrame ? priorityForFrame(evidence.currentFrame) : null,
         ambiguity: criterion.ambiguity,
         reasons,
+        continuityEvaluations: [],
       };
     }
 
@@ -174,6 +178,7 @@ export class JudgmentCoordinator {
       currentPriority: planning.currentPriority,
       ambiguity: null,
       reasons: planning.reasons,
+      continuityEvaluations: planning.continuityEvaluations ?? [],
     };
   }
 

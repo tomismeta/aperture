@@ -67,6 +67,7 @@ export class TraceRecorder {
       planner: {
         kind: explanation.decision.kind,
         reasons: explanation.reasons,
+        continuityEvaluations: explanation.continuityEvaluations,
       },
       coordination: {
         kind: explanation.decision.kind,
@@ -75,6 +76,7 @@ export class TraceRecorder {
         currentPriority: explanation.currentPriority,
         ambiguity: explanation.ambiguity,
         reasons: explanation.reasons,
+        continuityEvaluations: explanation.continuityEvaluations,
       },
       pressureForecast: explanation.pressureForecast,
       result,

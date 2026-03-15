@@ -77,11 +77,13 @@ test("publish emits a trace for candidate decisions", () => {
   const core = new ApertureCore();
   let seenKind: string | null = null;
   let seenDecision: string | null = null;
+  let seenContinuityRules: string[] = [];
 
   core.onTrace((trace) => {
     seenKind = trace.evaluation.kind;
     if (trace.evaluation.kind === "candidate") {
       seenDecision = trace.coordination.kind;
+      seenContinuityRules = trace.coordination.continuityEvaluations.map((evaluation) => evaluation.rule);
     }
   });
 
@@ -100,6 +102,8 @@ test("publish emits a trace for candidate decisions", () => {
 
   assert.equal(seenKind, "candidate");
   assert.equal(seenDecision, "activate");
+  assert.ok(seenContinuityRules.includes("same_interaction"));
+  assert.ok(seenContinuityRules.includes("minimum_dwell"));
 });
 
 test("submit records dismissed signals distinctly", () => {

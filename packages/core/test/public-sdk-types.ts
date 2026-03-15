@@ -9,6 +9,7 @@ import type {
   AttentionDecisionContext,
   AttentionDecisionExplanation,
   AttentionDeferredSignalCounts,
+  AttentionOperatorPresence,
   AttentionEvidenceContext,
   AttentionEvidenceInput,
   AttentionFrame,
@@ -77,6 +78,7 @@ void (0 as unknown as AttentionDecision);
 void (0 as unknown as AttentionDecisionAmbiguity);
 void (0 as unknown as AttentionDecisionContext);
 void (0 as unknown as AttentionDecisionExplanation);
+void (0 as unknown as AttentionOperatorPresence);
 void (0 as unknown as AttentionEvidenceContext);
 void (0 as unknown as AttentionEvidenceInput);
 void (0 as unknown as AttentionInterruptCriterion);

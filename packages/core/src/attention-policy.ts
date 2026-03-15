@@ -9,6 +9,7 @@ import { evaluateConfiguredPolicyGateRule } from "./policy/configured-policy-gat
 import { evaluateInterruptiveDefaultPolicyGateRule } from "./policy/interruptive-default-policy-gate-rule.js";
 import { evaluateInterruptEligibilityCriterionRule } from "./policy/interrupt-eligibility-criterion-rule.js";
 import { evaluateNoActiveFrameCriterionRule } from "./policy/no-active-frame-criterion-rule.js";
+import { evaluateOperatorAbsenceCriterionRule } from "./policy/operator-absence-criterion-rule.js";
 import { evaluatePeripheralStatusPolicyGateRule } from "./policy/peripheral-status-policy-gate-rule.js";
 import { evaluateSmallScoreGapCriterionRule } from "./policy/small-score-gap-criterion-rule.js";
 import type { PolicyCriterionRule, PolicyCriterionRuleInput } from "./policy/policy-criterion-rule.js";
@@ -51,6 +52,7 @@ const POLICY_GATE_RULES: readonly PolicyGateRule[] = [
 ];
 
 const POLICY_CRITERION_RULES: readonly PolicyCriterionRule[] = [
+  evaluateOperatorAbsenceCriterionRule,
   evaluateInterruptEligibilityCriterionRule,
   evaluateNoActiveFrameCriterionRule,
   evaluateSmallScoreGapCriterionRule,

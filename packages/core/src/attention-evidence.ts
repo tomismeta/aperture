@@ -8,6 +8,8 @@ import {
   type AttentionSurfaceCapabilities,
 } from "./surface-capabilities.js";
 
+export type AttentionOperatorPresence = "present" | "absent";
+
 export type AttentionEvidenceContext = {
   currentFrame: AttentionFrame | null;
   currentTaskView: AttentionTaskView;
@@ -19,6 +21,7 @@ export type AttentionEvidenceContext = {
   globalAttentionState: AttentionState;
   pressureForecast: AttentionPressure;
   surfaceCapabilities: AttentionSurfaceCapabilities;
+  operatorPresence: AttentionOperatorPresence;
 };
 
 export type AttentionEvidenceInput = Partial<AttentionEvidenceContext>;
@@ -45,6 +48,7 @@ export function createAttentionEvidenceContext(
           topology: { ...baseAttentionSurfaceCapabilities.topology },
           responses: { ...baseAttentionSurfaceCapabilities.responses },
         },
+    operatorPresence: input.operatorPresence ?? "present",
   };
 }
 

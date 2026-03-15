@@ -96,6 +96,24 @@ test("queues ambiguous non-blocking work when the surface is empty", () => {
   assert.equal(decision.kind, "queue");
 });
 
+test("operator absence keeps blocking work queued instead of activating immediately", () => {
+  const explanation = coordinator.explain(
+    null,
+    createCandidate(),
+    {
+      operatorPresence: "absent",
+    },
+  );
+
+  assert.equal(explanation.decision.kind, "queue");
+  assert.equal(explanation.criterion?.ambiguity, null);
+  assert.ok(
+    explanation.reasons.includes(
+      "operator absence keeps interruptive work peripheral until active attention returns",
+    ),
+  );
+});
+
 test("keeps background work ambient while a blocking frame is waiting", () => {
   const decision = coordinator.coordinate(
     createFrame(),

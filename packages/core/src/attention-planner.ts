@@ -531,6 +531,7 @@ export class AttentionPlanner {
       ...(context.globalAttentionState !== undefined ? { globalAttentionState: context.globalAttentionState } : {}),
       ...(context.pressureForecast !== undefined ? { pressureForecast: context.pressureForecast } : {}),
       ...(context.surfaceCapabilities !== undefined ? { surfaceCapabilities: context.surfaceCapabilities } : {}),
+      ...(context.operatorPresence !== undefined ? { operatorPresence: context.operatorPresence } : {}),
       ...(context.taskSummary !== undefined ? { taskSignalSummary: context.taskSummary } : {}),
     });
   }
@@ -547,6 +548,7 @@ export class AttentionPlanner {
       && "globalAttentionState" in context
       && "pressureForecast" in context
       && "surfaceCapabilities" in context
+      && "operatorPresence" in context
     );
   }
 }

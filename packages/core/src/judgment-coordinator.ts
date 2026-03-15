@@ -219,6 +219,7 @@ export class JudgmentCoordinator {
       ...(context.taskAttentionState !== undefined ? { taskAttentionState: context.taskAttentionState } : {}),
       ...(context.globalAttentionState !== undefined ? { globalAttentionState: context.globalAttentionState } : {}),
       ...(context.surfaceCapabilities !== undefined ? { surfaceCapabilities: context.surfaceCapabilities } : {}),
+      ...(context.operatorPresence !== undefined ? { operatorPresence: context.operatorPresence } : {}),
       pressureForecast,
     });
   }
@@ -235,6 +236,7 @@ export class JudgmentCoordinator {
       && "globalAttentionState" in context
       && "pressureForecast" in context
       && "surfaceCapabilities" in context
+      && "operatorPresence" in context
     );
   }
 }

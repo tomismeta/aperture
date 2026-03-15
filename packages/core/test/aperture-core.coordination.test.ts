@@ -49,6 +49,27 @@ test("global urgent backlog demotes lower-value queued status into ambient", () 
   );
 });
 
+test("absent operator keeps blocking requests queued in the shared view", () => {
+  const core = new ApertureCore({ operatorPresence: "absent" });
+
+  core.publish({
+    id: "evt:approval",
+    taskId: "task:approval",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:approval",
+    title: "Approve agent hire",
+    summary: "A hire request needs approval.",
+    request: { kind: "approval" },
+  });
+
+  const attentionView = core.getAttentionView();
+
+  assert.equal(attentionView.active, null);
+  assert.equal(attentionView.queued.length, 1);
+  assert.equal(attentionView.queued[0]?.interactionId, "interaction:approval");
+});
+
 test("trace reasons explain why lower-priority work is queued", () => {
   const core = new ApertureCore();
   const traces: ApertureTrace[] = [];

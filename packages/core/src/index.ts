@@ -9,6 +9,7 @@ export type {
   AttentionTraceListener,
 } from "./aperture-core.js";
 export type {
+  AttentionOperatorPresence,
   AttentionEvidenceContext,
   AttentionEvidenceInput,
 } from "./attention-evidence.js";

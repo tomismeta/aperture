@@ -13,7 +13,10 @@ import type { AttentionSignal } from "./interaction-signal.js";
 
 import { buildAttentionView } from "./attention-view.js";
 import { AttentionAdjustments } from "./attention-adjustments.js";
-import type { AttentionEvidenceContext } from "./attention-evidence.js";
+import type {
+  AttentionEvidenceContext,
+  AttentionOperatorPresence,
+} from "./attention-evidence.js";
 import { deriveAttentionState, type AttentionState } from "./attention-state.js";
 import { EpisodeTracker, readFrameEpisodeId } from "./episode-tracker.js";
 import { EventEvaluator } from "./event-evaluator.js";
@@ -53,6 +56,7 @@ export type ApertureCoreOptions = {
   profileStore?: ProfileStore;
   markdownRootDir?: string;
   surfaceCapabilities?: AttentionSurfaceCapabilities;
+  operatorPresence?: AttentionOperatorPresence;
 };
 
 export class ApertureCore {
@@ -77,6 +81,7 @@ export class ApertureCore {
   private userProfile: UserProfile | undefined;
   private judgmentConfig: JudgmentConfig | undefined;
   private surfaceCapabilities: AttentionSurfaceCapabilities;
+  private operatorPresence: AttentionOperatorPresence;
 
   constructor(options: ApertureCoreOptions = {}) {
     this.markdownRootDir = options.markdownRootDir;
@@ -92,6 +97,7 @@ export class ApertureCore {
           topology: { ...baseAttentionSurfaceCapabilities.topology },
           responses: { ...baseAttentionSurfaceCapabilities.responses },
         };
+    this.operatorPresence = options.operatorPresence ?? "present";
     this.baseMemoryProfile = options.memoryProfile ?? {
       version: MARKDOWN_SCHEMA_VERSION,
       operatorId: "default",
@@ -399,6 +405,7 @@ export class ApertureCore {
   getAttentionView(): AttentionView {
     return buildAttentionView(this.taskViews.values(), {
       globalAttentionState: this.getAttentionState(),
+      operatorPresence: this.getOperatorPresence(),
     });
   }
 
@@ -419,6 +426,14 @@ export class ApertureCore {
       topology: { ...this.surfaceCapabilities.topology },
       responses: { ...this.surfaceCapabilities.responses },
     };
+  }
+
+  getOperatorPresence(): AttentionOperatorPresence {
+    return this.operatorPresence;
+  }
+
+  setOperatorPresence(presence: AttentionOperatorPresence): void {
+    this.operatorPresence = presence;
   }
 
   setSurfaceCapabilities(capabilities: AttentionSurfaceCapabilities): void {
@@ -538,6 +553,7 @@ export class ApertureCore {
       globalAttentionState,
       pressureForecast,
       surfaceCapabilities: this.getSurfaceCapabilities(),
+      operatorPresence: this.getOperatorPresence(),
     };
   }
 

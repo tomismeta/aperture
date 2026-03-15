@@ -1,9 +1,11 @@
 import type { AttentionFrame, AttentionTaskView, AttentionView } from "./frame.js";
+import type { AttentionOperatorPresence } from "./attention-evidence.js";
 import type { AttentionState } from "./attention-state.js";
 import { scoreAttentionFrame } from "./frame-score.js";
 
 type AttentionViewOptions = {
   globalAttentionState?: AttentionState;
+  operatorPresence?: AttentionOperatorPresence;
   now?: string;
 };
 
@@ -45,6 +47,14 @@ export function buildAttentionView(
   }
   interruptive.sort((left, right) => compareFrames(left, right, referenceNow));
   ambient.sort((left, right) => compareFrames(left, right, referenceNow));
+
+  if (options.operatorPresence === "absent") {
+    return {
+      active: null,
+      queued: interruptive,
+      ambient,
+    };
+  }
 
   if (interruptive.length > 0) {
     const [active, ...queued] = interruptive;

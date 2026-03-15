@@ -9,7 +9,7 @@ import type { AttentionPolicyVerdict } from "./attention-policy.js";
 import type { AttentionPressure } from "./attention-pressure.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import {
-  DEFAULT_ATTENTION_SURFACE_CAPABILITIES,
+  baseAttentionSurfaceCapabilities,
   type AttentionSurfaceCapabilities,
 } from "./surface-capabilities.js";
 import type { AttentionValueBreakdown } from "./attention-value.js";
@@ -362,7 +362,7 @@ export class AttentionPlanner {
     policyVerdict: AttentionPolicyVerdict,
     surfaceCapabilities?: AttentionSurfaceCapabilities,
   ): Extract<AttentionPlanDecision, { kind: "queue" | "ambient" }> {
-    const capabilities = surfaceCapabilities ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES;
+    const capabilities = surfaceCapabilities ?? baseAttentionSurfaceCapabilities;
     if (policyVerdict.minimumPresentation === "ambient" && this.canRemainAmbient(candidate, capabilities)) {
       return { kind: "ambient", candidate };
     }

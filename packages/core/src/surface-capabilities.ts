@@ -14,7 +14,7 @@ export type AttentionSurfaceCapabilities = {
   responses: AttentionResponseCapabilities;
 };
 
-export const DEFAULT_ATTENTION_SURFACE_CAPABILITIES: AttentionSurfaceCapabilities = {
+export const baseAttentionSurfaceCapabilities: AttentionSurfaceCapabilities = {
   topology: {
     supportsAmbient: true,
   },
@@ -31,11 +31,15 @@ export function mergeAttentionSurfaceCapabilities(
 ): AttentionSurfaceCapabilities {
   if (capabilities.length === 0) {
     return {
-      topology: { ...DEFAULT_ATTENTION_SURFACE_CAPABILITIES.topology },
-      responses: { ...DEFAULT_ATTENTION_SURFACE_CAPABILITIES.responses },
+      topology: { ...baseAttentionSurfaceCapabilities.topology },
+      responses: { ...baseAttentionSurfaceCapabilities.responses },
     };
   }
 
+  // Shared-runtime planning should only assume capabilities that every
+  // attached attention surface can satisfy. Richer surface-specific planning
+  // should happen against a single declared surface, not by widening the core
+  // contract to the union of all attached surfaces.
   return {
     topology: {
       supportsAmbient: capabilities.every((value) => value.topology.supportsAmbient),
@@ -48,3 +52,8 @@ export function mergeAttentionSurfaceCapabilities(
     },
   };
 }
+
+/**
+ * @deprecated Prefer `baseAttentionSurfaceCapabilities`.
+ */
+export const DEFAULT_ATTENTION_SURFACE_CAPABILITIES = baseAttentionSurfaceCapabilities;

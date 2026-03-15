@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 
 import {
   ApertureCore,
-  DEFAULT_ATTENTION_SURFACE_CAPABILITIES,
+  baseAttentionSurfaceCapabilities,
   type AttentionResponse,
   type AttentionSignalSummary,
   type AttentionSurfaceCapabilities,
@@ -539,21 +539,21 @@ function normalizeSurfaceCapabilities(
     topology: {
       supportsAmbient:
         capabilities?.topology?.supportsAmbient
-        ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES.topology.supportsAmbient,
+        ?? baseAttentionSurfaceCapabilities.topology.supportsAmbient,
     },
     responses: {
       supportsSingleChoice:
         capabilities?.responses?.supportsSingleChoice
-        ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES.responses.supportsSingleChoice,
+        ?? baseAttentionSurfaceCapabilities.responses.supportsSingleChoice,
       supportsMultipleChoice:
         capabilities?.responses?.supportsMultipleChoice
-        ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES.responses.supportsMultipleChoice,
+        ?? baseAttentionSurfaceCapabilities.responses.supportsMultipleChoice,
       supportsForm:
         capabilities?.responses?.supportsForm
-        ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES.responses.supportsForm,
+        ?? baseAttentionSurfaceCapabilities.responses.supportsForm,
       supportsTextResponse:
         capabilities?.responses?.supportsTextResponse
-        ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES.responses.supportsTextResponse,
+        ?? baseAttentionSurfaceCapabilities.responses.supportsTextResponse,
     },
   };
 }

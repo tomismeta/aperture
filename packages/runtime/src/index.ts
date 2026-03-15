@@ -9,6 +9,7 @@ export {
 export { ApertureRuntimeClient, type ApertureRuntimeClientOptions } from "./runtime-client.js";
 export { ApertureRuntimeAdapterClient, type ApertureRuntimeAdapterClientOptions } from "./adapter-client.js";
 export {
+  baseAttentionSurfaceCapabilities,
   DEFAULT_ATTENTION_SURFACE_CAPABILITIES,
   mergeAttentionSurfaceCapabilities,
   type AttentionResponseCapabilities,

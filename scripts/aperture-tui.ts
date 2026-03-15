@@ -1,7 +1,7 @@
 import { stderr } from "node:process";
 
 import {
-  DEFAULT_ATTENTION_SURFACE_CAPABILITIES,
+  baseAttentionSurfaceCapabilities,
   ApertureRuntimeClient,
   discoverLocalRuntimes,
 } from "../packages/runtime/src/index.ts";
@@ -15,9 +15,9 @@ async function main(): Promise<void> {
     baseUrl,
     label: "tui",
     surfaceCapabilities: {
-      ...DEFAULT_ATTENTION_SURFACE_CAPABILITIES,
+      ...baseAttentionSurfaceCapabilities,
       responses: {
-        ...DEFAULT_ATTENTION_SURFACE_CAPABILITIES.responses,
+        ...baseAttentionSurfaceCapabilities.responses,
         supportsTextResponse: true,
       },
     },

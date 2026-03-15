@@ -45,9 +45,14 @@ export { distillMemoryProfile } from "./memory-aggregator.js";
 export { ProfileStore } from "./profile-store.js";
 export { evaluateTraceSession } from "./trace-evaluator.js";
 export {
+  baseAttentionSurfaceCapabilities,
   DEFAULT_ATTENTION_SURFACE_CAPABILITIES,
   mergeAttentionSurfaceCapabilities,
 } from "./surface-capabilities.js";
+export {
+  APERTURE_STATE_SCHEMA_VERSION,
+  MARKDOWN_SCHEMA_VERSION,
+} from "./judgment-defaults.js";
 export type { TraceEvaluationReport } from "./trace-evaluator.js";
 export type { EpisodeSummary } from "./episode-tracker.js";
 export type {

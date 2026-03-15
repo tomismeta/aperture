@@ -30,7 +30,7 @@ import { ProfileStore, type MemoryProfile, type UserProfile } from "./profile-st
 import { AttentionPlanner } from "./attention-planner.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import {
-  DEFAULT_ATTENTION_SURFACE_CAPABILITIES,
+  baseAttentionSurfaceCapabilities,
   type AttentionSurfaceCapabilities,
 } from "./surface-capabilities.js";
 import { TaskViewStore } from "./task-view-store.js";
@@ -88,8 +88,8 @@ export class ApertureCore {
           responses: { ...options.surfaceCapabilities.responses },
         }
       : {
-          topology: { ...DEFAULT_ATTENTION_SURFACE_CAPABILITIES.topology },
-          responses: { ...DEFAULT_ATTENTION_SURFACE_CAPABILITIES.responses },
+          topology: { ...baseAttentionSurfaceCapabilities.topology },
+          responses: { ...baseAttentionSurfaceCapabilities.responses },
         };
     this.baseMemoryProfile = options.memoryProfile ?? {
       version: MARKDOWN_SCHEMA_VERSION,

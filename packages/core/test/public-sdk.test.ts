@@ -15,6 +15,9 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.ok("ProfileStore" in sdk);
   assert.ok("evaluateTraceSession" in sdk);
   assert.ok("scoreAttentionFrame" in sdk);
+  assert.ok("baseAttentionSurfaceCapabilities" in sdk);
+  assert.ok("APERTURE_STATE_SCHEMA_VERSION" in sdk);
+  assert.ok("MARKDOWN_SCHEMA_VERSION" in sdk);
 
   assert.equal("AttentionAdjustments" in sdk, false);
   assert.equal("AttentionSignalStore" in sdk, false);
@@ -26,6 +29,4 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.equal("AdapterEvent" in sdk, false);
   assert.equal("MinimumPresentation" in sdk, false);
   assert.equal("JudgmentDecision" in sdk, false);
-  assert.equal("APERTURE_STATE_SCHEMA_VERSION" in sdk, false);
-  assert.equal("MARKDOWN_SCHEMA_VERSION" in sdk, false);
 });

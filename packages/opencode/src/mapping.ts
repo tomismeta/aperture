@@ -269,10 +269,6 @@ function mapPermissionAsked(
     ?? readString(event.properties.metadata?.title);
   const description = readString(event.properties.metadata?.description);
   const patternText = patternSummary(event.properties.metadata?.patterns);
-  const title =
-    declaredTitle
-    ?? inferPermissionTitle(tool, patternText)
-    ?? "OpenCode needs approval";
   const summary =
     inferPermissionSummary({
       tool,
@@ -282,15 +278,14 @@ function mapPermissionAsked(
       patternText,
     })
     ?? "OpenCode requested approval before continuing.";
+  const title = approvalTitle(tool, summary, declaredTitle);
   const whyNow = description
     ?? "OpenCode paused and needs a human approval decision.";
 
   const contextItems = [
-    fieldItem("session", "Session", sessionId),
-    fieldItem("tool", "Tool", tool),
+    fieldItem(detailFieldId(tool), detailFieldLabel(tool), preferredContextValue(tool, patternText, summary)),
+    fieldItem("cwd", "Working directory", context.scope?.directory),
     fieldItem("call", "Call ID", readString(event.properties.metadata?.callID)),
-    fieldItem("request", "Request", declaredTitle),
-    fieldItem(patternFieldId(tool), patternFieldLabel(tool), patternText),
   ].filter((item): item is { id: string; label: string; value: string } => item !== null);
 
   const result: SourceHumanInputRequestedEvent = {
@@ -502,25 +497,6 @@ function patternSummary(patterns: OpencodeToolCallPattern[] | undefined): string
     .join(", ");
 }
 
-function inferPermissionTitle(tool: string | undefined, patternText: string | undefined): string | undefined {
-  if (tool === "bash" && patternText) {
-    return "OpenCode wants to run a command";
-  }
-  if (tool === "edit" && patternText) {
-    return "OpenCode wants to edit files";
-  }
-  if (tool === "webfetch" && patternText) {
-    return "OpenCode wants to fetch a URL";
-  }
-  if (patternText?.includes("/")) {
-    return "OpenCode wants to access a path";
-  }
-  if (tool) {
-    return `OpenCode wants to use ${tool}`;
-  }
-  return undefined;
-}
-
 function inferPermissionSummary(input: {
   tool: string | undefined;
   title: string | undefined;
@@ -535,21 +511,72 @@ function inferPermissionSummary(input: {
   }
 
   if (tool === "bash") {
-    return `Run command: ${preferredText}`;
+    return preferredText;
   }
   if (tool === "edit") {
-    return `Edit target: ${preferredText}`;
+    return preferredText;
   }
   if (tool === "webfetch") {
-    return `Fetch target: ${preferredText}`;
-  }
-  if (title && !isGenericPermissionText(title)) {
-    return `${title}: ${preferredText}`;
+    return preferredText;
   }
   if (preferredText.includes("/")) {
-    return `Access target: ${preferredText}`;
+    return preferredText;
   }
   return preferredText;
+}
+
+function approvalTitle(
+  tool: string | undefined,
+  summary: string,
+  declaredTitle: string | undefined,
+): string {
+  const action = approvalActionLabel(tool);
+  const detail = approvalTitleDetail(tool, summary, declaredTitle);
+  return detail ? `OpenCode wants to ${action} ${detail}` : `OpenCode wants to ${action}`;
+}
+
+function approvalActionLabel(tool: string | undefined): string {
+  switch (tool?.toLowerCase()) {
+    case "bash":
+      return "run";
+    case "edit":
+      return "edit";
+    case "webfetch":
+      return "fetch";
+    case "external_directory":
+      return "access";
+    default:
+      return tool ? `use ${tool}` : "continue";
+  }
+}
+
+function approvalTitleDetail(
+  tool: string | undefined,
+  summary: string,
+  declaredTitle: string | undefined,
+): string | null {
+  switch (tool?.toLowerCase()) {
+    case "bash":
+      return "a shell command";
+    case "edit":
+      return "files";
+    case "webfetch":
+      return "a URL";
+    case "external_directory":
+      return "a path";
+    default:
+      break;
+  }
+
+  if (declaredTitle && !isGenericPermissionText(declaredTitle)) {
+    return declaredTitle;
+  }
+
+  if (summary && !isGenericPermissionText(summary)) {
+    return summary;
+  }
+
+  return null;
 }
 
 function firstSpecificText(...values: Array<string | undefined>): string | undefined {
@@ -573,7 +600,7 @@ function isGenericPermissionText(value: string): boolean {
     || normalized === "run bash tool";
 }
 
-function patternFieldId(tool: string | undefined): string {
+function detailFieldId(tool: string | undefined): string {
   switch (tool) {
     case "bash":
       return "command";
@@ -586,7 +613,7 @@ function patternFieldId(tool: string | undefined): string {
   }
 }
 
-function patternFieldLabel(tool: string | undefined): string {
+function detailFieldLabel(tool: string | undefined): string {
   switch (tool) {
     case "bash":
       return "Command";
@@ -597,6 +624,20 @@ function patternFieldLabel(tool: string | undefined): string {
     default:
       return "Pattern";
   }
+}
+
+function preferredContextValue(
+  tool: string | undefined,
+  patternText: string | undefined,
+  summary: string,
+): string {
+  if (patternText) {
+    return patternText;
+  }
+  if (tool === "bash" && summary.startsWith("Run command: ")) {
+    return summary.slice("Run command: ".length);
+  }
+  return summary;
 }
 
 function fieldItem(id: string, label: string, value: string | undefined | null) {

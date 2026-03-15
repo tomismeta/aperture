@@ -40,14 +40,12 @@ test("maps permission.asked to an approval request", () => {
   }
   assert.equal(mapped[0].request.kind, "approval");
   assert.equal(mapped[0].taskId, `opencode:${createOpencodeInstanceKey(context)}:session:ses-1`);
-  assert.equal(mapped[0].title, "Create directory");
-  assert.equal(mapped[0].summary, "Run command: mkdir -p /tmp/aperture-opencode-smoke");
+  assert.equal(mapped[0].title, "OpenCode wants to run a shell command");
+  assert.equal(mapped[0].summary, "mkdir -p /tmp/aperture-opencode-smoke");
   assert.deepEqual(mapped[0].context?.items, [
-    { id: "session", label: "Session", value: "ses-1" },
-    { id: "tool", label: "Tool", value: "bash" },
-    { id: "call", label: "Call ID", value: "call-1" },
-    { id: "request", label: "Request", value: "Create directory" },
     { id: "command", label: "Command", value: "mkdir -p /tmp/aperture-opencode-smoke" },
+    { id: "cwd", label: "Working directory", value: "/workspace/project" },
+    { id: "call", label: "Call ID", value: "call-1" },
   ]);
 });
 

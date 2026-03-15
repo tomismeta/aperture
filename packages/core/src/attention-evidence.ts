@@ -1,3 +1,4 @@
+import { idleAttentionBurden, type AttentionBurden } from "./attention-burden.js";
 import type { AttentionState } from "./attention-state.js";
 import type { EpisodeSummary } from "./episode-tracker.js";
 import type { AttentionFrame, AttentionTaskView, AttentionView } from "./frame.js";
@@ -20,6 +21,7 @@ export type AttentionEvidenceContext = {
   taskAttentionState: AttentionState;
   globalAttentionState: AttentionState;
   pressureForecast: AttentionPressure;
+  attentionBurden: AttentionBurden;
   surfaceCapabilities: AttentionSurfaceCapabilities;
   operatorPresence: AttentionOperatorPresence;
 };
@@ -39,6 +41,7 @@ export function createAttentionEvidenceContext(
     taskAttentionState: input.taskAttentionState ?? "monitoring",
     globalAttentionState: input.globalAttentionState ?? "monitoring",
     pressureForecast: input.pressureForecast ?? idleAttentionPressure(),
+    attentionBurden: input.attentionBurden ?? idleAttentionBurden(),
     surfaceCapabilities: input.surfaceCapabilities
       ? {
           topology: { ...input.surfaceCapabilities.topology },

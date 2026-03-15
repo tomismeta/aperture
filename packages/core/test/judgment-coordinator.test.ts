@@ -968,6 +968,45 @@ test("low-trust sources need a clearer margin before they interrupt current work
   assert.equal(explanation.criterion?.criterion.promotionMargin, 24);
   assert.deepEqual(explanation.criterion?.rationale, [
     "low-trust source signals need a clearer margin before interrupting",
+    "small score gaps resolve to the periphery instead of stealing focus immediately",
+  ]);
+});
+
+test("sustained attention burden raises the interrupt bar for borderline work", () => {
+  const explanation = coordinator.explain(
+    null,
+    createCandidate({
+      blocking: false,
+      priority: "normal",
+      consequence: "medium",
+      tone: "focused",
+      attentionScoreOffset: 75,
+    }),
+    {
+      attentionBurden: {
+        level: "high",
+        thresholdOffset: 12,
+        metrics: {
+          recentDecisions: 8,
+          deferredCount: 3,
+          averageResponseLatencyMs: 16_000,
+          interruptiveVisible: 2,
+          pressureLevel: "high",
+          attentionState: "overloaded",
+        },
+        reasons: [
+          "current pressure is already high",
+          "recent operator behavior indicates overload",
+        ],
+      },
+    },
+  );
+
+  assert.equal(explanation.decision.kind, "queue");
+  assert.equal(explanation.criterion?.criterion.activationThreshold, 192);
+  assert.deepEqual(explanation.criterion?.rationale, [
+    "sustained attention burden raises the interrupt bar until the operator load eases",
+    "uncertain interruptive work stays peripheral until its signal is stronger",
   ]);
 });
 

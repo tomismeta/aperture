@@ -3,6 +3,7 @@ import type {
   ApertureEvent,
   ApertureTrace,
   AttentionCandidate,
+  AttentionBurden,
   AttentionConsequenceLevel,
   AttentionDecision,
   AttentionDecisionAmbiguity,
@@ -58,6 +59,7 @@ void (0 as unknown as AttentionTraceListener);
 void (0 as unknown as ApertureEvent);
 void (0 as unknown as SourceEvent);
 void (0 as unknown as AttentionCandidate);
+void (0 as unknown as AttentionBurden);
 void (0 as unknown as AttentionFrame);
 void (0 as unknown as AttentionResponse);
 void (0 as unknown as AttentionSignal);

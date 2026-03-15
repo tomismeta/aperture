@@ -1,5 +1,6 @@
 import type { AttentionFrame, AttentionView } from "./frame.js";
 
+import { deriveAttentionBurden } from "./attention-burden.js";
 import {
   createAttentionEvidenceContext,
   type AttentionEvidenceContext,
@@ -530,6 +531,14 @@ export class AttentionPlanner {
       ...(context.taskAttentionState !== undefined ? { taskAttentionState: context.taskAttentionState } : {}),
       ...(context.globalAttentionState !== undefined ? { globalAttentionState: context.globalAttentionState } : {}),
       ...(context.pressureForecast !== undefined ? { pressureForecast: context.pressureForecast } : {}),
+      attentionBurden:
+        context.attentionBurden
+        ?? deriveAttentionBurden(
+          context.globalSignalSummary,
+          context.pressureForecast,
+          context.globalAttentionState,
+          context.operatorPresence,
+        ),
       ...(context.surfaceCapabilities !== undefined ? { surfaceCapabilities: context.surfaceCapabilities } : {}),
       ...(context.operatorPresence !== undefined ? { operatorPresence: context.operatorPresence } : {}),
       ...(context.taskSummary !== undefined ? { taskSignalSummary: context.taskSummary } : {}),
@@ -547,6 +556,7 @@ export class AttentionPlanner {
       && "taskAttentionState" in context
       && "globalAttentionState" in context
       && "pressureForecast" in context
+      && "attentionBurden" in context
       && "surfaceCapabilities" in context
       && "operatorPresence" in context
     );

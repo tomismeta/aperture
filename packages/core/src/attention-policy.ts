@@ -7,6 +7,7 @@ import { evaluateBackgroundPolicyGateRule } from "./policy/background-policy-gat
 import { evaluateBlockingPolicyGateRule } from "./policy/blocking-policy-gate-rule.js";
 import { evaluateConfiguredPolicyGateRule } from "./policy/configured-policy-gate-rule.js";
 import { evaluateInterruptiveDefaultPolicyGateRule } from "./policy/interruptive-default-policy-gate-rule.js";
+import { evaluateAttentionBudgetCriterionRule } from "./policy/attention-budget-criterion-rule.js";
 import { evaluateInterruptEligibilityCriterionRule } from "./policy/interrupt-eligibility-criterion-rule.js";
 import { evaluateNoActiveFrameCriterionRule } from "./policy/no-active-frame-criterion-rule.js";
 import { evaluateOperatorAbsenceCriterionRule } from "./policy/operator-absence-criterion-rule.js";
@@ -57,6 +58,7 @@ const POLICY_CRITERION_RULES: readonly PolicyCriterionRule[] = [
   evaluateOperatorAbsenceCriterionRule,
   evaluateInterruptEligibilityCriterionRule,
   evaluateSourceTrustCriterionRule,
+  evaluateAttentionBudgetCriterionRule,
   evaluateNoActiveFrameCriterionRule,
   evaluateSmallScoreGapCriterionRule,
 ];
@@ -102,24 +104,33 @@ export class AttentionPolicy {
     currentScore: number | null,
     options: { ambiguityDefaults?: AmbiguityDefaults } = {},
   ): AttentionInterruptCriterionVerdict {
-    const criterion = this.readInterruptCriterion(options.ambiguityDefaults);
+    let criterion = this.readInterruptCriterion(options.ambiguityDefaults);
     const peripheralResolution = this.readPeripheralResolution(policyVerdict);
     const sourceTrustAdjustment = this.readSourceTrustAdjustment(candidate);
-    const input = this.buildPolicyCriterionInput(
-      candidate,
-      policyVerdict,
-      evidence,
-      candidateScore,
-      currentScore,
-      criterion,
-      sourceTrustAdjustment,
-      peripheralResolution,
-    );
+    const criterionRationale: string[] = [];
 
     for (const rule of POLICY_CRITERION_RULES) {
-      const evaluation = rule(input);
+      const evaluation = rule(this.buildPolicyCriterionInput(
+        candidate,
+        policyVerdict,
+        evidence,
+        candidateScore,
+        currentScore,
+        criterion,
+        sourceTrustAdjustment,
+        peripheralResolution,
+      ));
+      if (evaluation.kind === "adjust") {
+        criterion = evaluation.criterion;
+        criterionRationale.push(...evaluation.rationale);
+        continue;
+      }
+
       if (evaluation.kind === "verdict") {
-        return evaluation.verdict;
+        return {
+          ...evaluation.verdict,
+          rationale: [...criterionRationale, ...evaluation.verdict.rationale],
+        };
       }
     }
 
@@ -127,7 +138,7 @@ export class AttentionPolicy {
       criterion,
       peripheralResolution: null,
       ambiguity: null,
-      rationale: [],
+      rationale: criterionRationale,
     };
   }
 

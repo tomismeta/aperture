@@ -1,6 +1,7 @@
 import type { AttentionFrame, AttentionView } from "./frame.js";
 
 import type { AttentionDecisionAmbiguity } from "./attention-ambiguity.js";
+import { deriveAttentionBurden, type AttentionBurden } from "./attention-burden.js";
 import type { AttentionResponse } from "./frame-response.js";
 import { priorityForFrame, scoreAttentionFrame } from "./frame-score.js";
 import type { AttentionCandidate, AttentionPriority } from "./interaction-candidate.js";
@@ -36,6 +37,7 @@ export type AttentionDecisionExplanation = {
   utility: AttentionValueBreakdown;
   criterion: AttentionInterruptCriterionVerdict | null;
   pressureForecast: AttentionPressure;
+  attentionBurden: AttentionBurden;
   candidateScore: number;
   currentScore: number | null;
   currentPriority: AttentionPriority | null;
@@ -116,6 +118,7 @@ export class JudgmentCoordinator {
         utility,
         criterion: null,
         pressureForecast,
+        attentionBurden: evidence.attentionBurden,
         candidateScore: utility.total,
         currentScore,
         currentPriority: null,
@@ -149,6 +152,7 @@ export class JudgmentCoordinator {
         utility,
         criterion,
         pressureForecast,
+        attentionBurden: evidence.attentionBurden,
         candidateScore: utility.total,
         currentScore,
         currentPriority: evidence.currentFrame ? priorityForFrame(evidence.currentFrame) : null,
@@ -173,6 +177,7 @@ export class JudgmentCoordinator {
       utility,
       criterion,
       pressureForecast,
+      attentionBurden: evidence.attentionBurden,
       candidateScore: utility.total,
       currentScore: planning.currentScore,
       currentPriority: planning.currentPriority,
@@ -208,6 +213,14 @@ export class JudgmentCoordinator {
       context.pressureForecast
       ?? forecastAttentionPressure(globalSignalSummary ?? idleAttentionSummary(), attentionView)
       ?? idleAttentionPressure();
+    const operatorPresence = context.operatorPresence ?? "present";
+    const attentionBurden = context.attentionBurden
+      ?? deriveAttentionBurden(
+        globalSignalSummary ?? idleAttentionSummary(),
+        pressureForecast,
+        context.globalAttentionState,
+        operatorPresence,
+      );
 
     return createAttentionEvidenceContext({
       currentFrame: current,
@@ -218,8 +231,9 @@ export class JudgmentCoordinator {
       ...(globalSignalSummary !== undefined ? { globalSignalSummary } : {}),
       ...(context.taskAttentionState !== undefined ? { taskAttentionState: context.taskAttentionState } : {}),
       ...(context.globalAttentionState !== undefined ? { globalAttentionState: context.globalAttentionState } : {}),
+      attentionBurden,
       ...(context.surfaceCapabilities !== undefined ? { surfaceCapabilities: context.surfaceCapabilities } : {}),
-      ...(context.operatorPresence !== undefined ? { operatorPresence: context.operatorPresence } : {}),
+      operatorPresence,
       pressureForecast,
     });
   }
@@ -235,6 +249,7 @@ export class JudgmentCoordinator {
       && "taskAttentionState" in context
       && "globalAttentionState" in context
       && "pressureForecast" in context
+      && "attentionBurden" in context
       && "surfaceCapabilities" in context
       && "operatorPresence" in context
     );

@@ -1,3 +1,4 @@
+import type { AttentionBurden } from "./attention-burden.js";
 import type { AttentionState } from "./attention-state.js";
 import type { EpisodeSummary } from "./episode-tracker.js";
 import type { ApertureEvent } from "./events.js";
@@ -22,6 +23,7 @@ export type ApertureTrace =
       taskAttentionState: AttentionState;
       globalAttentionState: AttentionState;
       pressureForecast: AttentionPressure;
+      attentionBurden: AttentionBurden;
       current: AttentionFrame | null;
       taskView: AttentionTaskView;
       attentionView: AttentionView;
@@ -38,6 +40,7 @@ export type ApertureTrace =
       taskAttentionState: AttentionState;
       globalAttentionState: AttentionState;
       pressureForecast: AttentionPressure;
+      attentionBurden: AttentionBurden;
       current: AttentionFrame | null;
       taskView: AttentionTaskView;
       attentionView: AttentionView;
@@ -80,6 +83,7 @@ export type ApertureTrace =
       taskAttentionState: AttentionState;
       globalAttentionState: AttentionState;
       pressureForecast: AttentionPressure;
+      attentionBurden: AttentionBurden;
       current: AttentionFrame | null;
       taskView: AttentionTaskView;
       attentionView: AttentionView;

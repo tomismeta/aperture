@@ -50,6 +50,32 @@ export const JUDGMENT_DEFAULTS = {
       highRisk: 6,
     },
   },
+  attentionBudget: {
+    thresholdOffset: {
+      elevated: 6,
+      high: 12,
+    },
+    recentDecisions: {
+      elevatedCount: 4,
+      highCount: 8,
+    },
+    responseLatencyMs: {
+      elevated: 8_000,
+      high: 15_000,
+    },
+    deferredCount: {
+      elevated: 2,
+      high: 4,
+    },
+    interruptiveVisible: {
+      elevated: 1,
+      high: 2,
+    },
+    scoreBands: {
+      elevatedScore: 2,
+      highScore: 5,
+    },
+  },
   episodeEvidence: {
     blockingBoost: 4,
     recurringEpisodeBoost: 1,

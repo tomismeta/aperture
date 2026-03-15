@@ -26,6 +26,12 @@ export type PolicyCriterionRuleEvaluation =
     }
   | {
       rule: string;
+      kind: "adjust";
+      criterion: AttentionInterruptCriterion;
+      rationale: string[];
+    }
+  | {
+      rule: string;
       kind: "verdict";
       verdict: AttentionInterruptCriterionVerdict;
       rationale: string[];
@@ -53,6 +59,19 @@ export function verdictPolicyCriterionRule(
     rule,
     kind: "verdict",
     verdict,
+    rationale,
+  };
+}
+
+export function adjustCriterionRule(
+  rule: string,
+  criterion: AttentionInterruptCriterion,
+  rationale: string[],
+): PolicyCriterionRuleEvaluation {
+  return {
+    rule,
+    kind: "adjust",
+    criterion,
     rationale,
   };
 }

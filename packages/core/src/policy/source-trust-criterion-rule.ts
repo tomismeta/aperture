@@ -1,8 +1,6 @@
 import {
-  ambiguousPeripheralCriterionVerdict,
-  clearCriterionVerdict,
+  adjustCriterionRule,
   noopPolicyCriterionRule,
-  verdictPolicyCriterionRule,
   type PolicyCriterionRule,
 } from "./policy-criterion-rule.js";
 
@@ -10,14 +8,7 @@ const TRUST_CRITERION_DIVISOR = 2;
 const MAX_TRUST_CRITERION_OFFSET = 6;
 
 export const evaluateSourceTrustCriterionRule: PolicyCriterionRule = (input) => {
-  const {
-    candidateScore,
-    currentScore,
-    criterion,
-    peripheralResolution,
-    sourceTrustAdjustment,
-    evidence,
-  } = input;
+  const { criterion, sourceTrustAdjustment } = input;
 
   const trustCriterionOffset = readTrustCriterionOffset(sourceTrustAdjustment);
   if (trustCriterionOffset === 0) {
@@ -33,59 +24,7 @@ export const evaluateSourceTrustCriterionRule: PolicyCriterionRule = (input) => 
     ? "durable source trust lowers the interrupt bar for this source"
     : "low-trust source signals need a clearer margin before interrupting";
 
-  if (!evidence.currentFrame) {
-    if (candidateScore >= adjustedCriterion.activationThreshold) {
-      return verdictPolicyCriterionRule(
-        "source_trust",
-        {
-          ...clearCriterionVerdict(adjustedCriterion),
-          rationale: [trustRationale],
-        },
-      );
-    }
-
-    return verdictPolicyCriterionRule(
-      "source_trust",
-      ambiguousPeripheralCriterionVerdict(
-        adjustedCriterion,
-        peripheralResolution,
-        {
-          kind: "interrupt",
-          reason: "low_signal",
-          resolution: peripheralResolution,
-        },
-        [trustRationale],
-      ),
-    );
-  }
-
-  if (currentScore === null || candidateScore <= currentScore) {
-    return noopPolicyCriterionRule("source_trust");
-  }
-
-  if (candidateScore >= currentScore + adjustedCriterion.promotionMargin) {
-    return verdictPolicyCriterionRule(
-      "source_trust",
-      {
-        ...clearCriterionVerdict(adjustedCriterion),
-        rationale: [trustRationale],
-      },
-    );
-  }
-
-  return verdictPolicyCriterionRule(
-    "source_trust",
-    ambiguousPeripheralCriterionVerdict(
-      adjustedCriterion,
-      peripheralResolution,
-      {
-        kind: "interrupt",
-        reason: "small_score_gap",
-        resolution: peripheralResolution,
-      },
-      [trustRationale],
-    ),
-  );
+  return adjustCriterionRule("source_trust", adjustedCriterion, [trustRationale]);
 };
 
 function readTrustCriterionOffset(sourceTrustAdjustment: number): number {

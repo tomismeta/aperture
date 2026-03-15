@@ -13,6 +13,7 @@ import type { AttentionSignal } from "./interaction-signal.js";
 
 import { buildAttentionView } from "./attention-view.js";
 import { AttentionAdjustments } from "./attention-adjustments.js";
+import { deriveAttentionBurden } from "./attention-burden.js";
 import type {
   AttentionEvidenceContext,
   AttentionOperatorPresence,
@@ -202,6 +203,7 @@ export class ApertureCore {
     const globalAttentionState = evidence.globalAttentionState;
     const preAttentionView = evidence.attentionView;
     const pressureForecast = evidence.pressureForecast;
+    const attentionBurden = evidence.attentionBurden;
     const evaluation = this.evaluation.evaluate(event);
 
     switch (evaluation.kind) {
@@ -214,6 +216,7 @@ export class ApertureCore {
           taskAttentionState,
           globalAttentionState,
           pressureForecast,
+          attentionBurden,
           current: evidence.currentFrame,
           taskView: evidence.currentTaskView,
           attentionView: preAttentionView,
@@ -231,6 +234,7 @@ export class ApertureCore {
           taskAttentionState,
           globalAttentionState,
           pressureForecast,
+          attentionBurden,
           current: evidence.currentFrame,
           taskView: this.getTaskView(event.taskId),
           attentionView: postAttentionView,
@@ -293,6 +297,7 @@ export class ApertureCore {
           taskAttentionState,
           globalAttentionState,
           pressureForecast,
+          attentionBurden,
           current: evidence.currentFrame,
           taskView: this.getTaskView(event.taskId),
           attentionView: postAttentionView,
@@ -542,6 +547,13 @@ export class ApertureCore {
     const currentTaskView = this.getTaskView(taskId);
     const attentionView = this.getAttentionView();
     const pressureForecast = forecastAttentionPressure(globalSignalSummary, attentionView);
+    const operatorPresence = this.getOperatorPresence();
+    const attentionBurden = deriveAttentionBurden(
+      globalSignalSummary,
+      pressureForecast,
+      globalAttentionState,
+      operatorPresence,
+    );
 
     return {
       currentFrame,
@@ -553,8 +565,9 @@ export class ApertureCore {
       taskAttentionState,
       globalAttentionState,
       pressureForecast,
+      attentionBurden,
       surfaceCapabilities: this.getSurfaceCapabilities(),
-      operatorPresence: this.getOperatorPresence(),
+      operatorPresence,
     };
   }
 

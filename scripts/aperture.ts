@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { stderr } from "node:process";
 
+import { discoverLocalRuntimes } from "../packages/runtime/src/index.ts";
 import { listEnabledGlobalOpencodeProfiles } from "./opencode-config.ts";
 
 async function main(): Promise<void> {
@@ -38,20 +39,29 @@ async function main(): Promise<void> {
     const runtime = spawnPnpm(["serve", "--", ...learningArgs]);
     children.push(runtime);
     await waitForReady(runtime, "Aperture runtime listening");
+    const runtimeBaseUrl = await resolveRuntimeUrl();
+    const childEnv = {
+      ...process.env,
+      APERTURE_RUNTIME_URL: runtimeBaseUrl,
+    };
 
-    const claude = spawnPnpm(["claude:start"]);
+    const claude = spawnPnpm(["claude:start"], childEnv);
     children.push(claude);
-    await waitForReady(claude, "Aperture Claude adapter listening");
+    const adapterReadiness: Promise<void>[] = [
+      waitForReady(claude, "Aperture Claude adapter listening"),
+    ];
 
     if (hasOpencodeProfiles) {
-      const opencode = spawnPnpm(["opencode:start"]);
+      const opencode = spawnPnpm(["opencode:start"], childEnv);
       children.push(opencode);
-      await waitForReady(opencode, "Aperture OpenCode adapter ready");
+      adapterReadiness.push(waitForReady(opencode, "Aperture OpenCode adapter ready"));
     }
+
+    await Promise.all(adapterReadiness);
 
     const tui = spawn("pnpm", ["tui"], {
       stdio: "inherit",
-      env: process.env,
+      env: childEnv,
     });
 
     tui.once("exit", (code) => {
@@ -64,11 +74,11 @@ async function main(): Promise<void> {
   }
 }
 
-function spawnPnpm(args: string[]): ChildProcess {
+function spawnPnpm(args: string[], env: NodeJS.ProcessEnv = process.env): ChildProcess {
   return spawn("pnpm", args, {
     // The background runtime and adapter should never compete with the TUI for stdin.
     stdio: ["ignore", "inherit", "pipe"],
-    env: process.env,
+    env,
   });
 }
 
@@ -120,6 +130,20 @@ async function waitForExit(child: ChildProcess): Promise<void> {
 
     child.once("exit", () => resolve());
   });
+}
+
+async function resolveRuntimeUrl(): Promise<string> {
+  const explicit = process.env.APERTURE_RUNTIME_URL;
+  if (explicit) {
+    return explicit.replace(/\/+$/, "");
+  }
+
+  const runtimes = await discoverLocalRuntimes({ kind: "aperture" });
+  if (runtimes.length === 0) {
+    throw new Error("Aperture runtime became ready but could not be discovered.");
+  }
+
+  return runtimes[0]?.controlUrl ?? "http://127.0.0.1:4546/runtime";
 }
 
 void main();

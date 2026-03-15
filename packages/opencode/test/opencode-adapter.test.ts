@@ -22,11 +22,12 @@ test("maps permission.asked to an approval request", () => {
     properties: {
       id: "perm-1",
       sessionID: "ses-1",
+      title: "Create directory",
       message: "Run bash tool",
       metadata: {
         tool: "bash",
         callID: "call-1",
-        patterns: [{ value: "git push origin main" }],
+        patterns: [{ value: "mkdir -p /tmp/aperture-opencode-smoke" }],
       },
       createdAt: "2026-03-14T12:00:00.000Z",
     },
@@ -39,6 +40,15 @@ test("maps permission.asked to an approval request", () => {
   }
   assert.equal(mapped[0].request.kind, "approval");
   assert.equal(mapped[0].taskId, `opencode:${createOpencodeInstanceKey(context)}:session:ses-1`);
+  assert.equal(mapped[0].title, "Create directory");
+  assert.equal(mapped[0].summary, "Run command: mkdir -p /tmp/aperture-opencode-smoke");
+  assert.deepEqual(mapped[0].context?.items, [
+    { id: "session", label: "Session", value: "ses-1" },
+    { id: "tool", label: "Tool", value: "bash" },
+    { id: "call", label: "Call ID", value: "call-1" },
+    { id: "request", label: "Request", value: "Create directory" },
+    { id: "command", label: "Command", value: "mkdir -p /tmp/aperture-opencode-smoke" },
+  ]);
 });
 
 test("maps question.asked with options to a choice request", () => {

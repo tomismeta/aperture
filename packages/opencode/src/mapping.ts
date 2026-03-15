@@ -263,23 +263,34 @@ function mapPermissionAsked(
   const instanceKey = createOpencodeInstanceKey(context);
   const requestId = event.properties.id;
   const sessionId = readString(event.properties.sessionID) ?? readString(event.properties.metadata?.sessionID);
-  const title =
+  const tool = readString(event.properties.metadata?.tool);
+  const declaredTitle =
     readString(event.properties.title)
-    ?? readString(event.properties.metadata?.title)
+    ?? readString(event.properties.metadata?.title);
+  const description = readString(event.properties.metadata?.description);
+  const patternText = patternSummary(event.properties.metadata?.patterns);
+  const title =
+    declaredTitle
+    ?? inferPermissionTitle(tool, patternText)
     ?? "OpenCode needs approval";
   const summary =
-    readString(event.properties.message)
-    ?? readString(event.properties.metadata?.description)
-    ?? patternSummary(event.properties.metadata?.patterns)
+    inferPermissionSummary({
+      tool,
+      title: declaredTitle,
+      message: readString(event.properties.message),
+      description,
+      patternText,
+    })
     ?? "OpenCode requested approval before continuing.";
-  const whyNow = readString(event.properties.metadata?.description)
+  const whyNow = description
     ?? "OpenCode paused and needs a human approval decision.";
 
   const contextItems = [
     fieldItem("session", "Session", sessionId),
-    fieldItem("tool", "Tool", readString(event.properties.metadata?.tool)),
+    fieldItem("tool", "Tool", tool),
     fieldItem("call", "Call ID", readString(event.properties.metadata?.callID)),
-    fieldItem("patterns", "Patterns", patternSummary(event.properties.metadata?.patterns)),
+    fieldItem("request", "Request", declaredTitle),
+    fieldItem(patternFieldId(tool), patternFieldLabel(tool), patternText),
   ].filter((item): item is { id: string; label: string; value: string } => item !== null);
 
   const result: SourceHumanInputRequestedEvent = {
@@ -293,7 +304,7 @@ function mapPermissionAsked(
       kind: "opencode",
       label: context.sourceLabel ?? "OpenCode",
     },
-    toolFamily: readString(event.properties.metadata?.tool) ?? "opencode",
+    toolFamily: tool ?? "opencode",
     title,
     summary,
     request: {
@@ -489,6 +500,103 @@ function patternSummary(patterns: OpencodeToolCallPattern[] | undefined): string
     .map((pattern) => pattern.value ?? pattern.source)
     .filter((value): value is string => Boolean(value))
     .join(", ");
+}
+
+function inferPermissionTitle(tool: string | undefined, patternText: string | undefined): string | undefined {
+  if (tool === "bash" && patternText) {
+    return "OpenCode wants to run a command";
+  }
+  if (tool === "edit" && patternText) {
+    return "OpenCode wants to edit files";
+  }
+  if (tool === "webfetch" && patternText) {
+    return "OpenCode wants to fetch a URL";
+  }
+  if (patternText?.includes("/")) {
+    return "OpenCode wants to access a path";
+  }
+  if (tool) {
+    return `OpenCode wants to use ${tool}`;
+  }
+  return undefined;
+}
+
+function inferPermissionSummary(input: {
+  tool: string | undefined;
+  title: string | undefined;
+  message: string | undefined;
+  description: string | undefined;
+  patternText: string | undefined;
+}): string | undefined {
+  const { tool, title, message, description, patternText } = input;
+  const preferredText = firstSpecificText(patternText, description, message);
+  if (!preferredText) {
+    return undefined;
+  }
+
+  if (tool === "bash") {
+    return `Run command: ${preferredText}`;
+  }
+  if (tool === "edit") {
+    return `Edit target: ${preferredText}`;
+  }
+  if (tool === "webfetch") {
+    return `Fetch target: ${preferredText}`;
+  }
+  if (title && !isGenericPermissionText(title)) {
+    return `${title}: ${preferredText}`;
+  }
+  if (preferredText.includes("/")) {
+    return `Access target: ${preferredText}`;
+  }
+  return preferredText;
+}
+
+function firstSpecificText(...values: Array<string | undefined>): string | undefined {
+  for (const value of values) {
+    if (!value) {
+      continue;
+    }
+    if (isGenericPermissionText(value)) {
+      continue;
+    }
+    return value;
+  }
+  return undefined;
+}
+
+function isGenericPermissionText(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return normalized === "permission required"
+    || normalized === "opencode needs approval"
+    || normalized === "opencode requested approval before continuing."
+    || normalized === "run bash tool";
+}
+
+function patternFieldId(tool: string | undefined): string {
+  switch (tool) {
+    case "bash":
+      return "command";
+    case "edit":
+      return "target";
+    case "webfetch":
+      return "url";
+    default:
+      return "pattern";
+  }
+}
+
+function patternFieldLabel(tool: string | undefined): string {
+  switch (tool) {
+    case "bash":
+      return "Command";
+    case "edit":
+      return "Target";
+    case "webfetch":
+      return "URL";
+    default:
+      return "Pattern";
+  }
 }
 
 function fieldItem(id: string, label: string, value: string | undefined | null) {

@@ -7,7 +7,11 @@ import { evaluateBackgroundPolicyGateRule } from "./policy/background-policy-gat
 import { evaluateBlockingPolicyGateRule } from "./policy/blocking-policy-gate-rule.js";
 import { evaluateConfiguredPolicyGateRule } from "./policy/configured-policy-gate-rule.js";
 import { evaluateInterruptiveDefaultPolicyGateRule } from "./policy/interruptive-default-policy-gate-rule.js";
+import { evaluateInterruptEligibilityCriterionRule } from "./policy/interrupt-eligibility-criterion-rule.js";
+import { evaluateNoActiveFrameCriterionRule } from "./policy/no-active-frame-criterion-rule.js";
 import { evaluatePeripheralStatusPolicyGateRule } from "./policy/peripheral-status-policy-gate-rule.js";
+import { evaluateSmallScoreGapCriterionRule } from "./policy/small-score-gap-criterion-rule.js";
+import type { PolicyCriterionRule, PolicyCriterionRuleInput } from "./policy/policy-criterion-rule.js";
 import type { PolicyGateRule, PolicyGateRuleInput } from "./policy/policy-gate-rule.js";
 import type { UserProfile } from "./profile-store.js";
 
@@ -44,6 +48,12 @@ const POLICY_GATE_RULES: readonly PolicyGateRule[] = [
   evaluateBackgroundPolicyGateRule,
   evaluatePeripheralStatusPolicyGateRule,
   evaluateInterruptiveDefaultPolicyGateRule,
+];
+
+const POLICY_CRITERION_RULES: readonly PolicyCriterionRule[] = [
+  evaluateInterruptEligibilityCriterionRule,
+  evaluateNoActiveFrameCriterionRule,
+  evaluateSmallScoreGapCriterionRule,
 ];
 
 export class AttentionPolicy {
@@ -86,73 +96,29 @@ export class AttentionPolicy {
     options: { ambiguityDefaults?: AmbiguityDefaults } = {},
   ): AttentionInterruptCriterionVerdict {
     const criterion = this.readInterruptCriterion(options.ambiguityDefaults);
-
-    if (
-      candidate.blocking
-      || candidate.episodeState === "actionable"
-      || policyVerdict.autoApprove
-      || !policyVerdict.mayInterrupt
-      || policyVerdict.requiresOperatorResponse
-      || policyVerdict.minimumPresentation === "active"
-    ) {
-      return {
-        criterion,
-        peripheralResolution: null,
-        ambiguity: null,
-        rationale: [],
-      };
-    }
-
     const peripheralResolution = this.readPeripheralResolution(policyVerdict);
-    if (!evidence.currentFrame) {
-      if (candidateScore >= criterion.activationThreshold) {
-        return {
-          criterion,
-          peripheralResolution: null,
-          ambiguity: null,
-          rationale: [],
-        };
+    const input = this.buildPolicyCriterionInput(
+      candidate,
+      policyVerdict,
+      evidence,
+      candidateScore,
+      currentScore,
+      criterion,
+      peripheralResolution,
+    );
+
+    for (const rule of POLICY_CRITERION_RULES) {
+      const evaluation = rule(input);
+      if (evaluation.kind === "verdict") {
+        return evaluation.verdict;
       }
-
-      return {
-        criterion,
-        peripheralResolution,
-        ambiguity: {
-          kind: "interrupt",
-          reason: "low_signal",
-          resolution: peripheralResolution,
-        },
-        rationale: ["uncertain interruptive work stays peripheral until its signal is stronger"],
-      };
-    }
-
-    if (currentScore === null || candidateScore <= currentScore) {
-      return {
-        criterion,
-        peripheralResolution: null,
-        ambiguity: null,
-        rationale: [],
-      };
-    }
-
-    if (candidateScore >= currentScore + criterion.promotionMargin) {
-      return {
-        criterion,
-        peripheralResolution: null,
-        ambiguity: null,
-        rationale: [],
-      };
     }
 
     return {
       criterion,
-      peripheralResolution,
-      ambiguity: {
-        kind: "interrupt",
-        reason: "small_score_gap",
-        resolution: peripheralResolution,
-      },
-      rationale: ["small score gaps resolve to the periphery instead of stealing focus immediately"],
+      peripheralResolution: null,
+      ambiguity: null,
+      rationale: [],
     };
   }
 
@@ -178,6 +144,26 @@ export class AttentionPolicy {
       candidate,
       ...(this.judgmentConfig !== undefined ? { judgmentConfig: this.judgmentConfig } : {}),
       ...(this.userProfile !== undefined ? { userProfile: this.userProfile } : {}),
+    };
+  }
+
+  private buildPolicyCriterionInput(
+    candidate: AttentionCandidate,
+    policyVerdict: AttentionPolicyVerdict,
+    evidence: AttentionEvidenceContext,
+    candidateScore: number,
+    currentScore: number | null,
+    criterion: AttentionInterruptCriterion,
+    peripheralResolution: "queue" | "ambient",
+  ): PolicyCriterionRuleInput {
+    return {
+      candidate,
+      policyVerdict,
+      evidence,
+      candidateScore,
+      currentScore,
+      criterion,
+      peripheralResolution,
     };
   }
 }

@@ -82,37 +82,23 @@ export type OpencodePermissionListItem = {
 
 export type OpencodeQuestionOption = {
   label: string;
-  value?: string;
   description?: string;
+  value?: string;
   selected?: boolean;
-  [key: string]: unknown;
-};
-
-export type OpencodeQuestionField = {
-  id: string;
-  label: string;
-  kind?: string;
-  required?: boolean;
-  placeholder?: string;
-  options?: OpencodeQuestionOption[];
   [key: string]: unknown;
 };
 
 export type OpencodeQuestionPrompt = {
   id?: string;
   header?: string;
+  question?: string;
   label?: string;
   prompt?: string;
+  multiple?: boolean;
+  custom?: boolean;
   allowCustomInput?: boolean;
   multiSelect?: boolean;
   options?: OpencodeQuestionOption[];
-  fields?: OpencodeQuestionField[];
-  [key: string]: unknown;
-};
-
-export type OpencodeQuestionForm = {
-  title?: string;
-  prompts: OpencodeQuestionPrompt[];
   [key: string]: unknown;
 };
 
@@ -122,7 +108,11 @@ export type OpencodeQuestionListItem = {
   title?: string;
   message?: string;
   questions?: OpencodeQuestionPrompt[];
-  form?: OpencodeQuestionForm;
+  tool?: {
+    messageID?: string;
+    callID?: string;
+    [key: string]: unknown;
+  };
   createdAt?: string;
   updatedAt?: string;
   [key: string]: unknown;
@@ -162,7 +152,8 @@ export type OpencodePermissionAskedEvent = OpencodeSseEvent<
 export type OpencodePermissionRepliedEvent = OpencodeSseEvent<
   "permission.replied",
   {
-    id: string;
+    id?: string;
+    requestID?: string;
     sessionID?: string;
     reply?: OpencodePermissionDecision;
     message?: string;
@@ -178,7 +169,8 @@ export type OpencodeQuestionAskedEvent = OpencodeSseEvent<
 export type OpencodeQuestionRepliedEvent = OpencodeSseEvent<
   "question.replied",
   {
-    id: string;
+    id?: string;
+    requestID?: string;
     sessionID?: string;
     answers?: string[][];
     [key: string]: unknown;
@@ -188,7 +180,8 @@ export type OpencodeQuestionRepliedEvent = OpencodeSseEvent<
 export type OpencodeQuestionRejectedEvent = OpencodeSseEvent<
   "question.rejected",
   {
-    id: string;
+    id?: string;
+    requestID?: string;
     sessionID?: string;
     message?: string;
     [key: string]: unknown;
@@ -199,7 +192,12 @@ export type OpencodeSessionStatusEvent = OpencodeSseEvent<
   "session.status",
   {
     sessionID?: string;
-    status?: string;
+    status?: string | {
+      type?: string;
+      reason?: string;
+      message?: string;
+      [key: string]: unknown;
+    };
     reason?: string;
     [key: string]: unknown;
   }

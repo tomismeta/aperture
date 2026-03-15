@@ -84,13 +84,16 @@ test("maps question.asked with options to a choice request", () => {
     properties: {
       id: "question-1",
       sessionID: "ses-2",
+      tool: {
+        callID: "call-question-1",
+      },
       questions: [
         {
-          id: "pick",
-          label: "Choose one",
+          header: "Directory",
+          question: "Where should I create the new directory?",
           options: [
-            { label: "Yes", value: "yes" },
-            { label: "No", value: "no" },
+            { label: "Current directory", description: "Create in current working directory" },
+            { label: "Parent directory", description: "Create in the parent directory" },
           ],
         },
       ],
@@ -103,7 +106,17 @@ test("maps question.asked with options to a choice request", () => {
     return;
   }
   assert.equal(mapped[0].request.kind, "choice");
-  assert.deepEqual(mapped[0].request.options.map((option) => option.id), ["yes", "no"]);
+  assert.equal(mapped[0].title, "Directory");
+  assert.equal(mapped[0].summary, "Where should I create the new directory?");
+  assert.deepEqual(mapped[0].request.options.map((option) => option.id), [
+    "Current directory",
+    "Parent directory",
+  ]);
+  assert.deepEqual(mapped[0].context?.items, [
+    { id: "session", label: "Session", value: "ses-2" },
+    { id: "questions", label: "Questions", value: "1" },
+    { id: "call", label: "Call ID", value: "call-question-1" },
+  ]);
 });
 
 test("maps OpenCode approvals back to permission reply calls", () => {
@@ -138,7 +151,7 @@ test("maps native permission resolution to a synthetic Aperture response", () =>
   const mapped = mapOpencodeNativeResolution({
     type: "permission.replied",
     properties: {
-      id: "perm-2",
+      requestID: "perm-2",
       sessionID: "ses-3",
       reply: "reject",
       message: "too risky",
@@ -147,6 +160,26 @@ test("maps native permission resolution to a synthetic Aperture response", () =>
 
   assert.ok(mapped);
   assert.deepEqual(mapped?.response.response, { kind: "rejected", reason: "too risky" });
+});
+
+test("maps native question resolution using requestID", () => {
+  const mapped = mapOpencodeNativeResolution({
+    type: "question.replied",
+    properties: {
+      requestID: "question-7",
+      sessionID: "ses-7",
+      answers: [["Current directory"]],
+    },
+  }, context);
+
+  assert.ok(mapped);
+  assert.deepEqual(mapped?.response, {
+    taskId: `opencode:${createOpencodeInstanceKey(context)}:session:ses-7`,
+    interactionId: `opencode:${createOpencodeInstanceKey(context)}:question:question-7`,
+    response: {
+      kind: "acknowledged",
+    },
+  });
 });
 
 test("maps form submissions to one answer group per field", () => {

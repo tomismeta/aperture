@@ -92,7 +92,7 @@ export function mapOpencodeNativeResolution(
   const instanceKey = createOpencodeInstanceKey(context);
   switch (event.type) {
     case "permission.replied": {
-      const requestId = readString(event.properties.id);
+      const requestId = readString(event.properties.requestID) ?? readString(event.properties.id);
       if (!requestId) {
         return null;
       }
@@ -110,7 +110,7 @@ export function mapOpencodeNativeResolution(
       };
     }
     case "question.replied": {
-      const requestId = readString(event.properties.id);
+      const requestId = readString(event.properties.requestID) ?? readString(event.properties.id);
       if (!requestId) {
         return null;
       }
@@ -125,7 +125,7 @@ export function mapOpencodeNativeResolution(
       };
     }
     case "question.rejected": {
-      const requestId = readString(event.properties.id);
+      const requestId = readString(event.properties.requestID) ?? readString(event.properties.id);
       if (!requestId) {
         return null;
       }
@@ -324,14 +324,14 @@ function mapQuestionAsked(
   const instanceKey = createOpencodeInstanceKey(context);
   const requestId = event.properties.id;
   const sessionId = readString(event.properties.sessionID);
-  const prompts = event.properties.questions ?? event.properties.form?.prompts ?? [];
+  const prompts = event.properties.questions ?? [];
   const title =
     readString(event.properties.title)
     ?? prompts[0]?.header
     ?? prompts[0]?.label
     ?? "OpenCode needs input";
   const derivedSummary = prompts
-    .map((prompt) => prompt.prompt ?? prompt.label ?? prompt.header)
+    .map((prompt) => prompt.question ?? prompt.prompt ?? prompt.label ?? prompt.header)
     .filter((value): value is string => Boolean(value))
     .join(" / ");
   const summary =
@@ -343,6 +343,7 @@ function mapQuestionAsked(
   const contextItems = [
     fieldItem("session", "Session", sessionId),
     fieldItem("questions", "Questions", String(prompts.length || 1)),
+    fieldItem("call", "Call ID", readString(event.properties.tool?.callID)),
   ].filter((item): item is { id: string; label: string; value: string } => item !== null);
 
   const result: SourceHumanInputRequestedEvent = {
@@ -374,7 +375,7 @@ function mapQuestionAsked(
 function mapSessionStatus(event: Extract<OpencodeSseMessage, { type: "session.status" }>, context: OpencodeMappingContext): SourceEvent[] {
   const instanceKey = createOpencodeInstanceKey(context);
   const sessionId = readString(event.properties.sessionID);
-  const status = normalizeTaskStatus(readString(event.properties.status));
+  const status = normalizeTaskStatus(readSessionStatus(event.properties.status));
   if (!sessionId || !status) {
     return [];
   }
@@ -392,7 +393,7 @@ function mapSessionStatus(event: Extract<OpencodeSseMessage, { type: "session.st
     title: `OpenCode session ${status}`,
     status,
   };
-  const reason = readString(event.properties.reason);
+  const reason = readString(event.properties.reason) ?? readStatusReason(event.properties.status);
   if (reason) {
     update.summary = reason;
   }
@@ -435,7 +436,7 @@ function promptsToRequest(prompts: OpencodeQuestionPrompt[]) {
   if (prompts.length === 1 && prompts[0]?.options?.length) {
     return {
       kind: "choice" as const,
-      selectionMode: prompts[0].multiSelect ? "multiple" as const : "single" as const,
+      selectionMode: prompts[0].multiple || prompts[0].multiSelect ? "multiple" as const : "single" as const,
       options: prompts[0].options.map((option, index) => ({
         id: option.value ?? option.label ?? `option-${index}`,
         label: option.label,
@@ -448,7 +449,7 @@ function promptsToRequest(prompts: OpencodeQuestionPrompt[]) {
     kind: "form" as const,
     fields: prompts.map((prompt, index) => ({
       id: prompt.id ?? `field-${index}`,
-      label: prompt.label ?? prompt.header ?? prompt.prompt ?? `Field ${index + 1}`,
+      label: prompt.question ?? prompt.label ?? prompt.header ?? prompt.prompt ?? `Field ${index + 1}`,
       type: prompt.options?.length ? "select" as const : "textarea" as const,
       ...(prompt.options?.length
         ? {
@@ -481,6 +482,25 @@ function normalizeTaskStatus(status: string | undefined) {
     default:
       return null;
   }
+}
+
+function readSessionStatus(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value && typeof value === "object") {
+    const status = value as Record<string, unknown>;
+    return readString(status.type);
+  }
+  return undefined;
+}
+
+function readStatusReason(value: unknown): string | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+  const status = value as Record<string, unknown>;
+  return readString(status.reason) ?? readString(status.message);
 }
 
 function normalizePermissionDecision(value: unknown): OpencodePermissionDecision | null {

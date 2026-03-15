@@ -10,8 +10,6 @@ export type {
   OpencodePermissionListItem,
   OpencodePermissionReplyInput,
   OpencodeProjectScopeMode,
-  OpencodeQuestionField,
-  OpencodeQuestionForm,
   OpencodeQuestionListItem,
   OpencodeQuestionOption,
   OpencodeQuestionPrompt,

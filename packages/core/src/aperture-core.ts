@@ -175,7 +175,8 @@ export class ApertureCore {
     const globalSummary = this.signals.summarize();
     const taskAttentionState = deriveAttentionState(taskSummary);
     const globalAttentionState = deriveAttentionState(globalSummary);
-    const pressureForecast = forecastAttentionPressure(globalSummary, this.getAttentionView());
+    const preAttentionView = this.getAttentionView();
+    const pressureForecast = forecastAttentionPressure(globalSummary, preAttentionView);
     const evaluation = this.evaluation.evaluate(event);
 
     switch (evaluation.kind) {
@@ -190,13 +191,14 @@ export class ApertureCore {
           pressureForecast,
           current: this.getFrame(event.taskId),
           taskView: this.getTaskView(event.taskId),
-          attentionView: this.getAttentionView(),
+          attentionView: preAttentionView,
         }));
         return null;
       }
       case "clear": {
         const current = this.getFrame(event.taskId);
         const result = this.applyClear(event.taskId);
+        const postAttentionView = this.getAttentionView();
         this.notifyTrace(this.traceRecorder.recordClear({
           timestamp: new Date().toISOString(),
           event,
@@ -207,20 +209,19 @@ export class ApertureCore {
           pressureForecast,
           current,
           taskView: this.getTaskView(event.taskId),
-          attentionView: this.getAttentionView(),
+          attentionView: postAttentionView,
         }, event.taskId));
         return result;
       }
       case "candidate": {
         const current = this.getFrame(event.taskId);
-        const currentAttentionView = this.getAttentionView();
         const candidate = this.episodes.assign(this.heuristics.apply(
           evaluation.candidate,
           taskSummary,
           globalSummary,
         ));
         const explanation = this.coordinator.explain(current, candidate, {
-          attentionView: currentAttentionView,
+          attentionView: preAttentionView,
           taskSummary,
           globalSummary,
           pressureForecast,
@@ -243,28 +244,29 @@ export class ApertureCore {
             result = this.materializePeripheralFrame(
               explanation.decision.candidate,
               "ambient",
-              currentAttentionView,
+              preAttentionView,
             );
             break;
           case "queue":
             result = this.materializePeripheralFrame(
               explanation.decision.candidate,
               "queue",
-              currentAttentionView,
+              preAttentionView,
             );
             break;
           case "activate":
             result =
               explanation.decision.candidate.episodeId
-              && this.findPeripheralEpisodeFrame(explanation.decision.candidate.episodeId, currentAttentionView)
+              && this.findPeripheralEpisodeFrame(explanation.decision.candidate.episodeId, preAttentionView)
                 ? this.materializePeripheralFrame(
                     explanation.decision.candidate,
                     this.preferredPeripheralBucket(explanation.decision.candidate),
-                    currentAttentionView,
+                    preAttentionView,
                   )
                 : this.commitFrame(this.planner.plan(explanation.decision.candidate, current));
             break;
         }
+        const postAttentionView = this.getAttentionView();
         this.notifyTrace(this.traceRecorder.recordCandidate({
           timestamp: new Date().toISOString(),
           event,
@@ -275,7 +277,7 @@ export class ApertureCore {
           pressureForecast,
           current,
           taskView: this.getTaskView(event.taskId),
-          attentionView: this.getAttentionView(),
+          attentionView: postAttentionView,
         }, {
           original: evaluation.candidate,
           adjusted: candidate,

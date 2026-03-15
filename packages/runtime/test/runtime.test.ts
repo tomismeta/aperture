@@ -54,12 +54,47 @@ test("runtime tracks registered adapters in the snapshot", async () => {
     const state = await fetch(`${controlUrl}/state`);
     assert.equal(state.status, 200);
     const snapshot = await state.json() as ApertureRuntimeSnapshot;
+    assert.equal(typeof snapshot.version, "number");
     assert.equal(snapshot.adapters.length, 1);
     assert.equal(snapshot.adapters[0]?.kind, "custom-agent");
     assert.equal(snapshot.adapters[0]?.label, "Mac mini");
     assert.equal(snapshot.adapters[0]?.metadata?.location, "lan");
   } finally {
     await client.close();
+    await runtime.close();
+  }
+});
+
+test("runtime increments snapshot version when source events change state", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { controlUrl } = await runtime.listen();
+
+  try {
+    const before = await fetch(`${controlUrl}/state`);
+    assert.equal(before.status, 200);
+    const beforeSnapshot = await before.json() as ApertureRuntimeSnapshot;
+
+    const publish = await fetch(`${controlUrl}/events/source`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event: blockedEvent("task-version"),
+      }),
+    });
+    assert.equal(publish.status, 200);
+
+    const eventPoll = await fetch(`${controlUrl}/events?since=0`);
+    assert.equal(eventPoll.status, 200);
+    const eventPayload = await eventPoll.json() as { stateVersion: number; nextSequence: number };
+
+    const after = await fetch(`${controlUrl}/state`);
+    assert.equal(after.status, 200);
+    const afterSnapshot = await after.json() as ApertureRuntimeSnapshot;
+
+    assert.ok(afterSnapshot.version > beforeSnapshot.version);
+    assert.equal(eventPayload.stateVersion, afterSnapshot.version);
+    assert.equal(typeof eventPayload.nextSequence, "number");
+  } finally {
     await runtime.close();
   }
 });

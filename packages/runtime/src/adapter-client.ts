@@ -36,6 +36,7 @@ export class ApertureRuntimeAdapterClient {
   private nextSequence = 0;
   private closed = false;
   private snapshotState: ApertureRuntimeSnapshot = {
+    version: 0,
     attentionView: { active: null, queued: [], ambient: [] },
     signalSummary: {
       recentSignals: 0,
@@ -169,11 +170,13 @@ export class ApertureRuntimeAdapterClient {
     if (this.closed) {
       return;
     }
-    await this.refreshState();
-    const payload = await this.get<{ events: ApertureRuntimeEvent[]; nextSequence: number }>(
+    const payload = await this.get<{ events: ApertureRuntimeEvent[]; nextSequence: number; stateVersion: number }>(
       `/events?since=${this.nextSequence}`,
     );
     this.nextSequence = payload.nextSequence;
+    if (payload.stateVersion !== this.snapshotState.version) {
+      await this.refreshState();
+    }
     for (const event of payload.events) {
       if (event.type === "response") {
         for (const listener of this.responseListeners) {

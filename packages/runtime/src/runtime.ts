@@ -37,6 +37,7 @@ export type ApertureRuntimeEvent =
     };
 
 export type ApertureRuntimeSnapshot = {
+  version: number;
   attentionView: AttentionView;
   signalSummary: AttentionSignalSummary;
   attentionState: AttentionState;
@@ -112,8 +113,14 @@ export function createApertureRuntime(
   const surfaces = new Map<string, SurfaceSession>();
   const events: ApertureRuntimeEvent[] = [];
   let sequence = 0;
+  let stateVersion = 0;
   let registrationInterval: NodeJS.Timeout | null = null;
   let learningPersistence = options.learningPersistence;
+  let seededAttentionViewSubscription = false;
+
+  const bumpStateVersion = () => {
+    stateVersion += 1;
+  };
 
   const pushEvent = (event: Omit<ApertureRuntimeEvent, "sequence">) => {
     sequence += 1;
@@ -125,6 +132,16 @@ export function createApertureRuntime(
 
   const unsubscribeResponse = core.onResponse((response) => {
     pushEvent({ type: "response", response });
+  });
+  const unsubscribeSignal = core.onSignal(() => {
+    bumpStateVersion();
+  });
+  const unsubscribeAttentionView = core.subscribeAttentionView(() => {
+    if (!seededAttentionViewSubscription) {
+      seededAttentionViewSubscription = true;
+      return;
+    }
+    bumpStateVersion();
   });
 
   const controlServer = createServer(async (req, res) => {
@@ -166,6 +183,7 @@ export function createApertureRuntime(
           ...(learningPersistence ?? { enabled: true }),
           lastCheckpointAt: snapshot.updatedAt,
         };
+        bumpStateVersion();
         writeJson(res, 200, {
           checkpointed: true,
           updatedAt: snapshot.updatedAt,
@@ -185,6 +203,7 @@ export function createApertureRuntime(
           ...(learningPersistence ?? { enabled: true }),
           lastLoadedAt: loadedAt,
         };
+        bumpStateVersion();
         writeJson(res, 200, {
           reloaded: true,
           loadedAt,
@@ -197,6 +216,7 @@ export function createApertureRuntime(
         writeJson(res, 200, {
           events: events.filter((event) => event.sequence > since),
           nextSequence: sequence,
+          stateVersion,
         });
         return;
       }
@@ -238,6 +258,7 @@ export function createApertureRuntime(
           ...(payload.label ? { label: payload.label } : {}),
           ...(payload.metadata ? { metadata: payload.metadata } : {}),
         });
+        bumpStateVersion();
         writeJson(res, 200, {
           adapterId,
           heartbeatIntervalMs: Math.max(1_000, Math.floor(adapterTtlMs / 3)),
@@ -266,7 +287,9 @@ export function createApertureRuntime(
       );
       if (req.method === "DELETE" && adapterDetachMatch?.[1]) {
         const adapterId = decodeURIComponent(adapterDetachMatch[1]);
-        adapters.delete(adapterId);
+        if (adapters.delete(adapterId)) {
+          bumpStateVersion();
+        }
         writeJson(res, 200, {});
         return;
       }
@@ -279,6 +302,7 @@ export function createApertureRuntime(
           lastSeenAt: Date.now(),
           ...(payload?.label ? { label: payload.label } : {}),
         });
+        bumpStateVersion();
         writeJson(res, 200, {
           surfaceId,
           heartbeatIntervalMs: Math.max(1_000, Math.floor(surfaceTtlMs / 3)),
@@ -307,7 +331,9 @@ export function createApertureRuntime(
       );
       if (req.method === "DELETE" && detachMatch?.[1]) {
         const surfaceId = decodeURIComponent(detachMatch[1]);
-        surfaces.delete(surfaceId);
+        if (surfaces.delete(surfaceId)) {
+          bumpStateVersion();
+        }
         writeJson(res, 200, {});
         return;
       }
@@ -358,8 +384,11 @@ export function createApertureRuntime(
           ...(learningPersistence ?? { enabled: true }),
           lastCheckpointAt: snapshot.updatedAt,
         };
+        bumpStateVersion();
       }
       unsubscribeResponse();
+      unsubscribeSignal();
+      unsubscribeAttentionView();
       if (registrationInterval) {
         clearInterval(registrationInterval);
         registrationInterval = null;
@@ -400,24 +429,35 @@ export function createApertureRuntime(
 
   function pruneSurfaces(): void {
     const cutoff = Date.now() - surfaceTtlMs;
+    let removed = false;
     for (const [surfaceId, surface] of surfaces.entries()) {
       if (surface.lastSeenAt < cutoff) {
         surfaces.delete(surfaceId);
+        removed = true;
       }
+    }
+    if (removed) {
+      bumpStateVersion();
     }
   }
 
   function pruneAdapters(): void {
     const cutoff = Date.now() - adapterTtlMs;
+    let removed = false;
     for (const [adapterId, adapter] of adapters.entries()) {
       if (adapter.lastSeenAt < cutoff) {
         adapters.delete(adapterId);
+        removed = true;
       }
+    }
+    if (removed) {
+      bumpStateVersion();
     }
   }
 
   function snapshot(): ApertureRuntimeSnapshot {
     return {
+      version: stateVersion,
       attentionView: core.getAttentionView(),
       signalSummary: core.getSignalSummary(),
       attentionState: core.getAttentionState(),

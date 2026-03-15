@@ -25,6 +25,7 @@ export class ApertureRuntimeClient {
   private readonly attentionListeners = new Set<AttentionViewListener>();
   private readonly responseListeners = new Set<ResponseListener>();
   private snapshotState: ApertureRuntimeSnapshot = {
+    version: 0,
     attentionView: { active: null, queued: [], ambient: [] },
     signalSummary: {
       recentSignals: 0,
@@ -147,11 +148,13 @@ export class ApertureRuntimeClient {
     if (this.closed) {
       return;
     }
-    await this.refreshState();
-    const payload = await this.get<{ events: ApertureRuntimeEvent[]; nextSequence: number }>(
+    const payload = await this.get<{ events: ApertureRuntimeEvent[]; nextSequence: number; stateVersion: number }>(
       `/events?since=${this.nextSequence}`,
     );
     this.nextSequence = payload.nextSequence;
+    if (payload.stateVersion !== this.snapshotState.version) {
+      await this.refreshState();
+    }
     for (const event of payload.events) {
       if (event.type === "response") {
         for (const listener of this.responseListeners) {
@@ -163,9 +166,9 @@ export class ApertureRuntimeClient {
 
   private async refreshState(): Promise<void> {
     const snapshot = await this.get<ApertureRuntimeSnapshot>("/state");
-    const previous = this.snapshotState.attentionView;
+    const versionChanged = snapshot.version !== this.snapshotState.version;
     this.snapshotState = snapshot;
-    if (!sameAttentionView(previous, snapshot.attentionView)) {
+    if (versionChanged) {
       for (const listener of this.attentionListeners) {
         listener(snapshot.attentionView);
       }
@@ -193,8 +196,4 @@ export class ApertureRuntimeClient {
     }
     return response.json() as Promise<T>;
   }
-}
-
-function sameAttentionView(left: AttentionView, right: AttentionView): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
 }

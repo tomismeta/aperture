@@ -29,4 +29,5 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.equal("AdapterEvent" in sdk, false);
   assert.equal("MinimumPresentation" in sdk, false);
   assert.equal("JudgmentDecision" in sdk, false);
+  assert.equal("DEFAULT_ATTENTION_SURFACE_CAPABILITIES" in sdk, false);
 });

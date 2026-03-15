@@ -52,8 +52,3 @@ export function mergeAttentionSurfaceCapabilities(
     },
   };
 }
-
-/**
- * @deprecated Prefer `baseAttentionSurfaceCapabilities`.
- */
-export const DEFAULT_ATTENTION_SURFACE_CAPABILITIES = baseAttentionSurfaceCapabilities;

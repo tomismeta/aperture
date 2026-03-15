@@ -46,7 +46,6 @@ export { ProfileStore } from "./profile-store.js";
 export { evaluateTraceSession } from "./trace-evaluator.js";
 export {
   baseAttentionSurfaceCapabilities,
-  DEFAULT_ATTENTION_SURFACE_CAPABILITIES,
   mergeAttentionSurfaceCapabilities,
 } from "./surface-capabilities.js";
 export {

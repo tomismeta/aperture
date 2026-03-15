@@ -173,7 +173,13 @@ export class JudgmentCoordinator {
     ambiguity: AttentionDecisionAmbiguity;
     reason: string;
   } | null {
-    if (candidate.blocking || policy.autoApprove || !policy.mayInterrupt || policy.requiresOperatorResponse) {
+    if (
+      candidate.blocking
+      || candidate.episodeState === "actionable"
+      || policy.autoApprove
+      || !policy.mayInterrupt
+      || policy.requiresOperatorResponse
+    ) {
       return null;
     }
 

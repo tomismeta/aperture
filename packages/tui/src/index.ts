@@ -45,8 +45,6 @@ type FormDraft = {
 type TextDraft = {
   kind: "text";
   interactionId: string;
-  label: string;
-  placeholder?: string;
   buffer: string;
 };
 
@@ -329,11 +327,11 @@ function handleActiveKeypress(
         }
       } else if (key.name === "x" || key.name === "escape") {
         core.submit(dismissedResponse(frame));
-      } else if (spec.allowCustomInput && key.name === "i") {
+      } else if (spec.allowTextResponse && key.name === "i") {
         state.inputDraft = createTextDraft(frame, spec);
-        state.statusLine = `Typing ${spec.customInputLabel ?? "reply"}`;
+        state.statusLine = "Typing reply";
       } else {
-        state.statusLine = spec.allowCustomInput
+        state.statusLine = spec.allowTextResponse
           ? "Press an option number or [i] to type a reply"
           : "Press the option number to select it";
       }
@@ -447,8 +445,6 @@ function createTextDraft(
   return {
     kind: "text",
     interactionId: frame.interactionId,
-    label: spec.customInputLabel ?? "Reply",
-    ...(spec.customInputPlaceholder ? { placeholder: spec.customInputPlaceholder } : {}),
     buffer: "",
   };
 }
@@ -542,9 +538,9 @@ function stringifyFieldValue(value: unknown): string {
 }
 
 function renderTextDraft(textDraft: TextDraft, color: boolean): string[] {
-  const value = textDraft.buffer || textDraft.placeholder || "";
+  const value = textDraft.buffer || "";
   return [
-    `  ${styleAccent("›", color)} ${styleStrong(textDraft.label, color)} ${styleMuted("·", color)} ${value || styleMuted("(empty)", color)}`,
+    `  ${styleAccent("›", color)} ${styleStrong("Reply", color)} ${styleMuted("·", color)} ${value || styleMuted("(empty)", color)}`,
   ];
 }
 
@@ -571,7 +567,7 @@ function renderControls(active: Frame | null, inputDraft: InputDraft | null, col
       ];
     case "choice":
       return [
-        `${styleMuted("controls", color)} ${styleKey("1-9", color)} choose${active.responseSpec.allowCustomInput ? `  ${styleKey("i", color)} input` : ""}  ${styleKey("x", color)} dismiss  ${detail}  ${styleKey("q", color)} quit`,
+        `${styleMuted("controls", color)} ${styleKey("1-9", color)} choose${active.responseSpec.allowTextResponse ? `  ${styleKey("i", color)} reply` : ""}  ${styleKey("x", color)} dismiss  ${detail}  ${styleKey("q", color)} quit`,
       ];
     case "form":
       return [
@@ -670,8 +666,8 @@ function renderFocusPane(
     for (const [index, option] of frame.responseSpec.options.entries()) {
       lines.push(...renderPrefixedBlock(`${styleKey(String(index + 1), color)} `, option.label));
     }
-    if (frame.responseSpec.allowCustomInput) {
-      lines.push(...renderPrefixedBlock(`${styleKey("i", color)} `, frame.responseSpec.customInputLabel ?? "Type your own answer"));
+    if (frame.responseSpec.allowTextResponse) {
+      lines.push(...renderPrefixedBlock(`${styleKey("i", color)} `, "Type a reply"));
     }
   }
 

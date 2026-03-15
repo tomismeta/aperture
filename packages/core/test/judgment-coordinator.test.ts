@@ -125,12 +125,15 @@ test("falls back to queue when a surface cannot render ambient work", () => {
     }),
     {
       surfaceCapabilities: {
-        supportsQueue: true,
-        supportsAmbient: false,
-        supportsSingleChoice: true,
-        supportsMultipleChoice: false,
-        supportsForms: true,
-        supportsFreeformText: false,
+        topology: {
+          supportsAmbient: false,
+        },
+        responses: {
+          supportsSingleChoice: true,
+          supportsMultipleChoice: false,
+          supportsForm: true,
+          supportsTextResponse: false,
+        },
       },
     },
   );

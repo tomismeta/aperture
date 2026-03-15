@@ -150,7 +150,7 @@ test("maps question.asked with options to a choice request", () => {
   ]);
 });
 
-test("maps question.asked custom choice affordance to generic custom input", () => {
+test("maps question.asked custom choice affordance to generic text response", () => {
   const mapped = mapOpencodeEvent({
     type: "question.asked",
     properties: {
@@ -175,9 +175,7 @@ test("maps question.asked custom choice affordance to generic custom input", () 
     return;
   }
 
-  assert.equal(mapped[0].request.allowCustomInput, true);
-  assert.equal(mapped[0].request.customInputLabel, "Type your own answer");
-  assert.equal(mapped[0].request.customInputPlaceholder, "What should be the name of the new directory?");
+  assert.equal(mapped[0].request.allowTextResponse, true);
 });
 
 test("maps OpenCode approvals back to permission reply calls", () => {

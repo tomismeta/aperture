@@ -50,7 +50,11 @@ export {
 } from "./surface-capabilities.js";
 export type { TraceEvaluationReport } from "./trace-evaluator.js";
 export type { EpisodeSummary } from "./episode-tracker.js";
-export type { AttentionSurfaceCapabilities } from "./surface-capabilities.js";
+export type {
+  AttentionResponseCapabilities,
+  AttentionSurfaceCapabilities,
+  AttentionTopologyCapabilities,
+} from "./surface-capabilities.js";
 
 export type * from "./events.js";
 export type * from "./source-event.js";

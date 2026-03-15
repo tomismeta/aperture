@@ -16,6 +16,7 @@ import type {
   AttentionPolicyVerdict,
   AttentionPressure,
   AttentionResponse,
+  AttentionResponseCapabilities,
   AttentionResponseListener,
   AttentionSignal,
   AttentionSignalCounts,
@@ -23,6 +24,7 @@ import type {
   AttentionSignalSummary,
   AttentionState,
   AttentionSurfaceCapabilities,
+  AttentionTopologyCapabilities,
   AttentionTaskView,
   AttentionTaskViewListener,
   AttentionTraceListener,
@@ -54,6 +56,8 @@ void (0 as unknown as AttentionSignalCounts);
 void (0 as unknown as AttentionDeferredSignalCounts);
 void (0 as unknown as AttentionSignalSummary);
 void (0 as unknown as AttentionSurfaceCapabilities);
+void (0 as unknown as AttentionTopologyCapabilities);
+void (0 as unknown as AttentionResponseCapabilities);
 void (0 as unknown as AttentionTaskView);
 void (0 as unknown as AttentionView);
 void (0 as unknown as AttentionPolicyVerdict);

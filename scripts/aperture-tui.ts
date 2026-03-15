@@ -11,12 +11,15 @@ async function main(): Promise<void> {
   process.title = "aperture-tui";
   const baseUrl = await resolveRuntimeUrl();
 
-const client = await ApertureRuntimeClient.connect({
+  const client = await ApertureRuntimeClient.connect({
     baseUrl,
     label: "tui",
     surfaceCapabilities: {
       ...DEFAULT_ATTENTION_SURFACE_CAPABILITIES,
-      supportsFreeformText: true,
+      responses: {
+        ...DEFAULT_ATTENTION_SURFACE_CAPABILITIES.responses,
+        supportsTextResponse: true,
+      },
     },
   });
 

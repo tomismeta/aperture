@@ -64,9 +64,7 @@ export type HumanInputRequest =
   | {
       kind: "choice";
       selectionMode: "single" | "multiple";
-      allowCustomInput?: boolean;
-      customInputLabel?: string;
-      customInputPlaceholder?: string;
+      allowTextResponse?: boolean;
       options: Array<{
         id: string;
         label: string;

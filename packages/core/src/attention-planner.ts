@@ -409,7 +409,7 @@ export class AttentionPlanner {
     candidate: AttentionCandidate,
     surfaceCapabilities: AttentionSurfaceCapabilities,
   ): boolean {
-    if (!surfaceCapabilities.supportsAmbient) {
+    if (!surfaceCapabilities.topology.supportsAmbient) {
       return false;
     }
 
@@ -419,12 +419,12 @@ export class AttentionPlanner {
       case "choice":
         return (
           (candidate.responseSpec.selectionMode === "multiple"
-            ? surfaceCapabilities.supportsMultipleChoice
-            : surfaceCapabilities.supportsSingleChoice)
-          && (!candidate.responseSpec.allowCustomInput || surfaceCapabilities.supportsFreeformText)
+            ? surfaceCapabilities.responses.supportsMultipleChoice
+            : surfaceCapabilities.responses.supportsSingleChoice)
+          && (!candidate.responseSpec.allowTextResponse || surfaceCapabilities.responses.supportsTextResponse)
         );
       case "form":
-        return surfaceCapabilities.supportsForms;
+        return surfaceCapabilities.responses.supportsForm;
       case "none":
         return true;
     }

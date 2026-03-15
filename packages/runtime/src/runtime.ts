@@ -302,7 +302,7 @@ export function createApertureRuntime(
       if (req.method === "POST" && path === `${controlPathPrefix}/surfaces/attach`) {
         const payload = (await readOptionalJson(req, bodyLimitBytes)) as {
           label?: string;
-          capabilities?: Partial<AttentionSurfaceCapabilities>;
+          capabilities?: PartialSurfaceCapabilities;
         } | null;
         const surfaceId = randomUUID();
         surfaces.set(surfaceId, {
@@ -533,20 +533,35 @@ function escapeRegExp(value: string): string {
 }
 
 function normalizeSurfaceCapabilities(
-  capabilities: Partial<AttentionSurfaceCapabilities> | undefined,
+  capabilities: PartialSurfaceCapabilities | undefined,
 ): AttentionSurfaceCapabilities {
   return {
-    supportsQueue: capabilities?.supportsQueue ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES.supportsQueue,
-    supportsAmbient: capabilities?.supportsAmbient ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES.supportsAmbient,
-    supportsSingleChoice:
-      capabilities?.supportsSingleChoice ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES.supportsSingleChoice,
-    supportsMultipleChoice:
-      capabilities?.supportsMultipleChoice ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES.supportsMultipleChoice,
-    supportsForms: capabilities?.supportsForms ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES.supportsForms,
-    supportsFreeformText:
-      capabilities?.supportsFreeformText ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES.supportsFreeformText,
+    topology: {
+      supportsAmbient:
+        capabilities?.topology?.supportsAmbient
+        ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES.topology.supportsAmbient,
+    },
+    responses: {
+      supportsSingleChoice:
+        capabilities?.responses?.supportsSingleChoice
+        ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES.responses.supportsSingleChoice,
+      supportsMultipleChoice:
+        capabilities?.responses?.supportsMultipleChoice
+        ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES.responses.supportsMultipleChoice,
+      supportsForm:
+        capabilities?.responses?.supportsForm
+        ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES.responses.supportsForm,
+      supportsTextResponse:
+        capabilities?.responses?.supportsTextResponse
+        ?? DEFAULT_ATTENTION_SURFACE_CAPABILITIES.responses.supportsTextResponse,
+    },
   };
 }
+
+type PartialSurfaceCapabilities = {
+  topology?: Partial<AttentionSurfaceCapabilities["topology"]>;
+  responses?: Partial<AttentionSurfaceCapabilities["responses"]>;
+};
 
 async function readOptionalJson(req: IncomingMessage, bodyLimitBytes: number): Promise<unknown | null> {
   const chunks: Buffer[] = [];

@@ -59,9 +59,7 @@ export type AttentionAcknowledgeResponseSpec = {
 export type AttentionChoiceResponseSpec = {
   kind: "choice";
   selectionMode: "single" | "multiple";
-  allowCustomInput?: boolean;
-  customInputLabel?: string;
-  customInputPlaceholder?: string;
+  allowTextResponse?: boolean;
   options: AttentionOption[];
   actions: AttentionAction[];
 };

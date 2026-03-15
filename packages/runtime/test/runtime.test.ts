@@ -139,12 +139,15 @@ test("runtime adapter client observes attached surfaces through snapshot state",
       body: JSON.stringify({
         label: "tui",
         capabilities: {
-          supportsQueue: true,
-          supportsAmbient: false,
-          supportsSingleChoice: true,
-          supportsMultipleChoice: false,
-          supportsForms: true,
-          supportsFreeformText: false,
+          topology: {
+            supportsAmbient: false,
+          },
+          responses: {
+            supportsSingleChoice: true,
+            supportsMultipleChoice: false,
+            supportsForm: true,
+            supportsTextResponse: false,
+          },
         },
       }),
     });
@@ -158,9 +161,9 @@ test("runtime adapter client observes attached surfaces through snapshot state",
 
     const state = await fetch(`${controlUrl}/state`);
     const snapshot = await state.json() as ApertureRuntimeSnapshot;
-    assert.equal(snapshot.surfaceCapabilities.supportsAmbient, false);
-    assert.equal(snapshot.surfaceCapabilities.supportsForms, true);
-    assert.equal(runtime.getCore().getSurfaceCapabilities().supportsAmbient, false);
+    assert.equal(snapshot.surfaceCapabilities.topology.supportsAmbient, false);
+    assert.equal(snapshot.surfaceCapabilities.responses.supportsForm, true);
+    assert.equal(runtime.getCore().getSurfaceCapabilities().topology.supportsAmbient, false);
   } finally {
     await client.close();
     await runtime.close();

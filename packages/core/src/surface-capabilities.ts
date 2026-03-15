@@ -1,34 +1,50 @@
-export type AttentionSurfaceCapabilities = {
-  supportsQueue: boolean;
+export type AttentionTopologyCapabilities = {
   supportsAmbient: boolean;
+};
+
+export type AttentionResponseCapabilities = {
   supportsSingleChoice: boolean;
   supportsMultipleChoice: boolean;
-  supportsForms: boolean;
-  supportsFreeformText: boolean;
+  supportsForm: boolean;
+  supportsTextResponse: boolean;
+};
+
+export type AttentionSurfaceCapabilities = {
+  topology: AttentionTopologyCapabilities;
+  responses: AttentionResponseCapabilities;
 };
 
 export const DEFAULT_ATTENTION_SURFACE_CAPABILITIES: AttentionSurfaceCapabilities = {
-  supportsQueue: true,
-  supportsAmbient: true,
-  supportsSingleChoice: true,
-  supportsMultipleChoice: false,
-  supportsForms: true,
-  supportsFreeformText: false,
+  topology: {
+    supportsAmbient: true,
+  },
+  responses: {
+    supportsSingleChoice: true,
+    supportsMultipleChoice: false,
+    supportsForm: true,
+    supportsTextResponse: false,
+  },
 };
 
 export function mergeAttentionSurfaceCapabilities(
   capabilities: AttentionSurfaceCapabilities[],
 ): AttentionSurfaceCapabilities {
   if (capabilities.length === 0) {
-    return { ...DEFAULT_ATTENTION_SURFACE_CAPABILITIES };
+    return {
+      topology: { ...DEFAULT_ATTENTION_SURFACE_CAPABILITIES.topology },
+      responses: { ...DEFAULT_ATTENTION_SURFACE_CAPABILITIES.responses },
+    };
   }
 
   return {
-    supportsQueue: capabilities.some((value) => value.supportsQueue),
-    supportsAmbient: capabilities.some((value) => value.supportsAmbient),
-    supportsSingleChoice: capabilities.some((value) => value.supportsSingleChoice),
-    supportsMultipleChoice: capabilities.some((value) => value.supportsMultipleChoice),
-    supportsForms: capabilities.some((value) => value.supportsForms),
-    supportsFreeformText: capabilities.some((value) => value.supportsFreeformText),
+    topology: {
+      supportsAmbient: capabilities.every((value) => value.topology.supportsAmbient),
+    },
+    responses: {
+      supportsSingleChoice: capabilities.every((value) => value.responses.supportsSingleChoice),
+      supportsMultipleChoice: capabilities.every((value) => value.responses.supportsMultipleChoice),
+      supportsForm: capabilities.every((value) => value.responses.supportsForm),
+      supportsTextResponse: capabilities.every((value) => value.responses.supportsTextResponse),
+    },
   };
 }

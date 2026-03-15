@@ -11,7 +11,9 @@ export { ApertureRuntimeAdapterClient, type ApertureRuntimeAdapterClientOptions 
 export {
   DEFAULT_ATTENTION_SURFACE_CAPABILITIES,
   mergeAttentionSurfaceCapabilities,
+  type AttentionResponseCapabilities,
   type AttentionSurfaceCapabilities,
+  type AttentionTopologyCapabilities,
 } from "@tomismeta/aperture-core";
 export {
   discoverLocalRuntimes,

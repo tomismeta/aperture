@@ -68,12 +68,15 @@ export class ApertureRuntimeAdapterClient {
     adapters: [],
     surfaceCount: 0,
     surfaceCapabilities: {
-      supportsQueue: true,
-      supportsAmbient: true,
-      supportsSingleChoice: true,
-      supportsMultipleChoice: false,
-      supportsForms: true,
-      supportsFreeformText: false,
+      topology: {
+        supportsAmbient: true,
+      },
+      responses: {
+        supportsSingleChoice: true,
+        supportsMultipleChoice: false,
+        supportsForm: true,
+        supportsTextResponse: false,
+      },
     },
   };
 

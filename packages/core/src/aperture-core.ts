@@ -82,7 +82,15 @@ export class ApertureCore {
     this.profileStore = options.profileStore;
     this.userProfile = options.userProfile;
     this.judgmentConfig = options.judgmentConfig;
-    this.surfaceCapabilities = options.surfaceCapabilities ?? { ...DEFAULT_ATTENTION_SURFACE_CAPABILITIES };
+    this.surfaceCapabilities = options.surfaceCapabilities
+      ? {
+          topology: { ...options.surfaceCapabilities.topology },
+          responses: { ...options.surfaceCapabilities.responses },
+        }
+      : {
+          topology: { ...DEFAULT_ATTENTION_SURFACE_CAPABILITIES.topology },
+          responses: { ...DEFAULT_ATTENTION_SURFACE_CAPABILITIES.responses },
+        };
     this.baseMemoryProfile = options.memoryProfile ?? {
       version: MARKDOWN_SCHEMA_VERSION,
       operatorId: "default",
@@ -417,11 +425,17 @@ export class ApertureCore {
   }
 
   getSurfaceCapabilities(): AttentionSurfaceCapabilities {
-    return { ...this.surfaceCapabilities };
+    return {
+      topology: { ...this.surfaceCapabilities.topology },
+      responses: { ...this.surfaceCapabilities.responses },
+    };
   }
 
   setSurfaceCapabilities(capabilities: AttentionSurfaceCapabilities): void {
-    this.surfaceCapabilities = { ...capabilities };
+    this.surfaceCapabilities = {
+      topology: { ...capabilities.topology },
+      responses: { ...capabilities.responses },
+    };
   }
 
   snapshotMemoryProfile(now: string = new Date().toISOString()): MemoryProfile {

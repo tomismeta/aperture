@@ -12,7 +12,12 @@ export type ApertureRuntimeClientOptions = {
   baseUrl: string;
   pollIntervalMs?: number;
   label?: string;
-  surfaceCapabilities?: Partial<AttentionSurfaceCapabilities>;
+  surfaceCapabilities?: PartialSurfaceCapabilities;
+};
+
+type PartialSurfaceCapabilities = {
+  topology?: Partial<AttentionSurfaceCapabilities["topology"]>;
+  responses?: Partial<AttentionSurfaceCapabilities["responses"]>;
 };
 
 type AttentionViewListener = (attentionView: AttentionView) => void;
@@ -24,7 +29,7 @@ export class ApertureRuntimeClient {
   private readonly baseUrl: string;
   private readonly pollIntervalMs: number;
   private readonly label: string;
-  private readonly surfaceCapabilities: Partial<AttentionSurfaceCapabilities> | undefined;
+  private readonly surfaceCapabilities: PartialSurfaceCapabilities | undefined;
   private readonly attentionListeners = new Set<AttentionViewListener>();
   private readonly responseListeners = new Set<ResponseListener>();
   private snapshotState: ApertureRuntimeSnapshot = {
@@ -60,12 +65,15 @@ export class ApertureRuntimeClient {
     adapters: [],
     surfaceCount: 0,
     surfaceCapabilities: {
-      supportsQueue: true,
-      supportsAmbient: true,
-      supportsSingleChoice: true,
-      supportsMultipleChoice: false,
-      supportsForms: true,
-      supportsFreeformText: false,
+      topology: {
+        supportsAmbient: true,
+      },
+      responses: {
+        supportsSingleChoice: true,
+        supportsMultipleChoice: false,
+        supportsForm: true,
+        supportsTextResponse: false,
+      },
     },
   };
   private surfaceId: string | null = null;

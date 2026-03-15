@@ -475,9 +475,7 @@ function promptsToRequest(prompts: OpencodeQuestionPrompt[]) {
       selectionMode: prompt.multiple || prompt.multiSelect ? "multiple" as const : "single" as const,
       ...(prompt.custom === true || prompt.allowCustomInput === true
         ? {
-            allowCustomInput: true,
-            customInputLabel: "Type your own answer",
-            customInputPlaceholder: prompt.question ?? prompt.prompt ?? prompt.header ?? prompt.label,
+            allowTextResponse: true,
           }
         : {}),
       options: options.map((option, index) => ({

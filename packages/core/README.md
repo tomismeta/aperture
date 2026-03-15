@@ -210,6 +210,9 @@ Common response shapes:
 // choice
 { taskId, interactionId, response: { kind: "option_selected", optionIds: ["safe"] } }
 
+// text response
+{ taskId, interactionId, response: { kind: "text_submitted", text: "Use /Users/tom/dev/test" } }
+
 // form
 { taskId, interactionId, response: { kind: "form_submitted", values: { reviewer: "Tom" } } }
 
@@ -241,6 +244,8 @@ Only opt into persistence if you want learned behavior or local markdown-backed 
 
 The main options are:
 
+- `surfaceCapabilities`
+  - optional declaration of what the current attention surface can support for planning purposes
 - `ProfileStore`
   - saves and loads learned memory
 - `ApertureCore.fromMarkdown(rootDir)`

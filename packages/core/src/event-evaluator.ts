@@ -166,6 +166,15 @@ export class EventEvaluator {
         return {
           kind: "choice",
           selectionMode: event.request.selectionMode,
+          ...(event.request.allowCustomInput !== undefined
+            ? { allowCustomInput: event.request.allowCustomInput }
+            : {}),
+          ...(event.request.customInputLabel !== undefined
+            ? { customInputLabel: event.request.customInputLabel }
+            : {}),
+          ...(event.request.customInputPlaceholder !== undefined
+            ? { customInputPlaceholder: event.request.customInputPlaceholder }
+            : {}),
           options: event.request.options,
           actions,
         };

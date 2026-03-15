@@ -6,6 +6,7 @@ export type AttentionResponse = {
     | { kind: "approved"; reason?: string }
     | { kind: "rejected"; reason?: string }
     | { kind: "option_selected"; optionIds: string[] }
+    | { kind: "text_submitted"; text: string }
     | { kind: "form_submitted"; values: Record<string, unknown> }
     | { kind: "dismissed" };
 };

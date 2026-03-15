@@ -898,6 +898,9 @@ export class ApertureCore {
           throw new Error("response.optionIds must contain at least one option id");
         }
         return;
+      case "text_submitted":
+        this.assertNonEmpty("response.text", response.response.text);
+        return;
       case "form_submitted":
         if (
           response.response.values === null ||

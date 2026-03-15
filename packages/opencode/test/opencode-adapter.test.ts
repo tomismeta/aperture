@@ -150,6 +150,36 @@ test("maps question.asked with options to a choice request", () => {
   ]);
 });
 
+test("maps question.asked custom choice affordance to generic custom input", () => {
+  const mapped = mapOpencodeEvent({
+    type: "question.asked",
+    properties: {
+      id: "question-custom-1",
+      sessionID: "ses-custom-1",
+      questions: [
+        {
+          header: "Folder name",
+          question: "What should be the name of the new directory?",
+          custom: true,
+          options: [
+            { label: "project" },
+            { label: "src" },
+          ],
+        },
+      ],
+    },
+  }, context);
+
+  assert.equal(mapped[0]?.type, "human.input.requested");
+  if (mapped[0]?.type !== "human.input.requested" || mapped[0].request.kind !== "choice") {
+    return;
+  }
+
+  assert.equal(mapped[0].request.allowCustomInput, true);
+  assert.equal(mapped[0].request.customInputLabel, "Type your own answer");
+  assert.equal(mapped[0].request.customInputPlaceholder, "What should be the name of the new directory?");
+});
+
 test("maps OpenCode approvals back to permission reply calls", () => {
   const response: AttentionResponse = {
     taskId: `opencode:${createOpencodeInstanceKey(context)}:session:ses-1`,
@@ -232,6 +262,25 @@ test("maps form submissions to one answer group per field", () => {
     requestId: "question-form-1",
     body: {
       answers: [["Tom"], ["sdk", "adapter"], ["true"]],
+    },
+  });
+});
+
+test("maps text submissions to a single question answer group", () => {
+  const response: AttentionResponse = {
+    taskId: `opencode:${createOpencodeInstanceKey(context)}:session:ses-5`,
+    interactionId: `opencode:${createOpencodeInstanceKey(context)}:question:question-custom-1`,
+    response: {
+      kind: "text_submitted",
+      text: "tomleslie",
+    },
+  };
+
+  assert.deepEqual(mapOpencodeResponse(response), {
+    kind: "question.reply",
+    requestId: "question-custom-1",
+    body: {
+      answers: [["tomleslie"]],
     },
   });
 });

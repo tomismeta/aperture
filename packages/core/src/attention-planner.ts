@@ -417,9 +417,12 @@ export class AttentionPlanner {
       case "approval":
         return true;
       case "choice":
-        return candidate.responseSpec.selectionMode === "multiple"
-          ? surfaceCapabilities.supportsMultipleChoice
-          : surfaceCapabilities.supportsSingleChoice;
+        return (
+          (candidate.responseSpec.selectionMode === "multiple"
+            ? surfaceCapabilities.supportsMultipleChoice
+            : surfaceCapabilities.supportsSingleChoice)
+          && (!candidate.responseSpec.allowCustomInput || surfaceCapabilities.supportsFreeformText)
+        );
       case "form":
         return surfaceCapabilities.supportsForms;
       case "none":

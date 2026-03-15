@@ -35,16 +35,27 @@ export type AttentionTuiOptions = {
 };
 
 type FormDraft = {
+  kind: "form";
   interactionId: string;
   fieldIndex: number;
   values: Record<string, unknown>;
   buffer: string;
 };
 
+type TextDraft = {
+  kind: "text";
+  interactionId: string;
+  label: string;
+  placeholder?: string;
+  buffer: string;
+};
+
+type InputDraft = FormDraft | TextDraft;
+
 type TuiState = {
   attentionView: AttentionView;
   statusLine: string;
-  formDraft: FormDraft | null;
+  inputDraft: InputDraft | null;
   expanded: boolean;
 };
 
@@ -62,7 +73,7 @@ export function renderAttentionScreen(
   options?: {
     title?: string;
     statusLine?: string;
-    formDraft?: FormDraft | null;
+    inputDraft?: InputDraft | null;
     color?: boolean;
     height?: number;
     stats?: { summary: SignalSummary; state: AttentionState } | null;
@@ -96,10 +107,10 @@ export function renderAttentionScreen(
   lines.push(styleSection("ACTIVE NOW", color, globalTone));
   lines.push(...renderFocusPane(active, color, options?.expanded ?? false, activePendingCount));
 
-  if (options?.formDraft && active) {
+  if (options?.inputDraft && active) {
     lines.push("");
     lines.push(styleSection("INPUT", color, "focused"));
-    lines.push(...renderFormDraft(active, options.formDraft, color));
+    lines.push(...renderInputDraft(active, options.inputDraft, color));
   }
 
   lines.push("");
@@ -124,7 +135,7 @@ export function renderAttentionScreen(
 
   const footer: string[] = [];
   footer.push(horizontalRule(color));
-  footer.push(...renderControls(active, options?.formDraft ?? null, color));
+  footer.push(...renderControls(active, options?.inputDraft ?? null, color));
   const statsLine = renderStatsLine(options?.stats ?? null, color);
   if (statsLine && statusLine) {
     footer.push(alignFooterStats(statsLine, `${styleMuted("status", color)} ${statusLine}`, SCREEN_WIDTH));
@@ -155,7 +166,7 @@ export async function runAttentionTui(
   const state: TuiState = {
     attentionView: core.getAttentionView(),
     statusLine: "Waiting for events",
-    formDraft: null,
+    inputDraft: null,
     expanded: false,
   };
   let renderScheduled = false;
@@ -167,7 +178,7 @@ export async function runAttentionTui(
       renderAttentionScreen(state.attentionView, {
         title,
         statusLine: state.statusLine,
-        formDraft: state.formDraft,
+        inputDraft: state.inputDraft,
         expanded: state.expanded,
         color: Boolean(output.isTTY),
         height: output.rows,
@@ -198,13 +209,13 @@ export async function runAttentionTui(
     state.attentionView = attentionView;
     const active = attentionView.active;
     if (!active) {
-      state.formDraft = null;
+      state.inputDraft = null;
       state.expanded = false;
       state.statusLine = "Nothing currently needs attention";
     } else if (active.interactionId !== previousActiveId) {
       state.statusLine = `Focused on ${active.title}`;
-    } else if (state.formDraft && state.formDraft.interactionId !== active.interactionId) {
-      state.formDraft = null;
+    } else if (state.inputDraft && state.inputDraft.interactionId !== active.interactionId) {
+      state.inputDraft = null;
       state.expanded = false;
       state.statusLine = `Focused on ${active.title}`;
     }
@@ -212,7 +223,7 @@ export async function runAttentionTui(
   });
 
   const unsubResponse = core.onResponse((response) => {
-    state.formDraft = null;
+    state.inputDraft = null;
     const nextActive = core.getAttentionView().active;
     state.statusLine = describeResponse(response, nextActive);
     requestRender();
@@ -227,8 +238,8 @@ export async function runAttentionTui(
         return;
       }
 
-      if (state.formDraft) {
-        handleFormKeypress(core, state, key);
+      if (state.inputDraft) {
+        handleInputKeypress(core, state, key);
         requestRender();
         return;
       }
@@ -318,14 +329,19 @@ function handleActiveKeypress(
         }
       } else if (key.name === "x" || key.name === "escape") {
         core.submit(dismissedResponse(frame));
+      } else if (spec.allowCustomInput && key.name === "i") {
+        state.inputDraft = createTextDraft(frame, spec);
+        state.statusLine = `Typing ${spec.customInputLabel ?? "reply"}`;
       } else {
-        state.statusLine = "Press the option number to select it";
+        state.statusLine = spec.allowCustomInput
+          ? "Press an option number or [i] to type a reply"
+          : "Press the option number to select it";
       }
       break;
     }
     case "form": {
       if (key.name === "i" || key.name === "return") {
-        state.formDraft = createFormDraft(frame);
+        state.inputDraft = createFormDraft(frame);
         state.statusLine = `Editing ${spec.fields[0]?.label ?? "form"}`;
       } else if (key.name === "x" || key.name === "escape") {
         core.submit(dismissedResponse(frame));
@@ -337,26 +353,39 @@ function handleActiveKeypress(
   }
 }
 
+function handleInputKeypress(
+  core: AttentionSurface,
+  state: TuiState,
+  key: { name?: string; sequence?: string; ctrl?: boolean },
+): void {
+  if (state.inputDraft?.kind === "text") {
+    handleTextKeypress(core, state, key);
+    return;
+  }
+
+  handleFormKeypress(core, state, key);
+}
+
 function handleFormKeypress(
   core: AttentionSurface,
   state: TuiState,
   key: { name?: string; sequence?: string; ctrl?: boolean },
 ): void {
   const active = state.attentionView.active;
-  const draft = state.formDraft;
-  if (!active || !draft || !active.responseSpec || active.responseSpec.kind !== "form") {
-    state.formDraft = null;
+  const draft = state.inputDraft;
+  if (!active || !draft || draft.kind !== "form" || !active.responseSpec || active.responseSpec.kind !== "form") {
+    state.inputDraft = null;
     return;
   }
 
   const field = active.responseSpec.fields[draft.fieldIndex];
   if (!field) {
-    state.formDraft = null;
+    state.inputDraft = null;
     return;
   }
 
   if (key.name === "escape") {
-    state.formDraft = null;
+    state.inputDraft = null;
     state.statusLine = "Form editing cancelled";
     return;
   }
@@ -375,7 +404,7 @@ function handleFormKeypress(
         interactionId: active.interactionId,
         response: { kind: "form_submitted", values: draft.values },
       });
-      state.formDraft = null;
+      state.inputDraft = null;
       return;
     }
 
@@ -394,6 +423,7 @@ function createFormDraft(frame: Frame): FormDraft {
   const spec = frame.responseSpec;
   if (!spec || spec.kind !== "form") {
     return {
+      kind: "form",
       interactionId: frame.interactionId,
       fieldIndex: 0,
       values: {},
@@ -402,11 +432,67 @@ function createFormDraft(frame: Frame): FormDraft {
   }
 
   return {
+    kind: "form",
     interactionId: frame.interactionId,
     fieldIndex: 0,
     values: {},
     buffer: fieldSeed(spec.fields[0], {}),
   };
+}
+
+function createTextDraft(
+  frame: Frame,
+  spec: Extract<FrameResponseSpec, { kind: "choice" }>,
+): TextDraft {
+  return {
+    kind: "text",
+    interactionId: frame.interactionId,
+    label: spec.customInputLabel ?? "Reply",
+    ...(spec.customInputPlaceholder ? { placeholder: spec.customInputPlaceholder } : {}),
+    buffer: "",
+  };
+}
+
+function handleTextKeypress(
+  core: AttentionSurface,
+  state: TuiState,
+  key: { name?: string; sequence?: string; ctrl?: boolean },
+): void {
+  const active = state.attentionView.active;
+  const draft = state.inputDraft;
+  if (!active || !draft || draft.kind !== "text") {
+    state.inputDraft = null;
+    return;
+  }
+
+  if (key.name === "escape") {
+    state.inputDraft = null;
+    state.statusLine = "Reply cancelled";
+    return;
+  }
+
+  if (key.name === "backspace") {
+    draft.buffer = draft.buffer.slice(0, -1);
+    return;
+  }
+
+  if (key.name === "return") {
+    if (draft.buffer.trim() === "") {
+      state.statusLine = "Enter a reply before submitting";
+      return;
+    }
+    core.submit({
+      taskId: active.taskId,
+      interactionId: active.interactionId,
+      response: { kind: "text_submitted", text: draft.buffer },
+    });
+    state.inputDraft = null;
+    return;
+  }
+
+  if (key.sequence && key.sequence.length === 1 && !key.ctrl) {
+    draft.buffer += key.sequence;
+  }
 }
 
 function fieldSeed(field: FrameField | undefined, values: Record<string, unknown>): string {
@@ -428,6 +514,14 @@ function normalizeFieldValue(field: FrameField, raw: string): unknown {
   }
 }
 
+function renderInputDraft(frame: Frame, inputDraft: InputDraft, color: boolean): string[] {
+  if (inputDraft.kind === "text") {
+    return renderTextDraft(inputDraft, color);
+  }
+
+  return renderFormDraft(frame, inputDraft, color);
+}
+
 function renderFormDraft(frame: Frame, formDraft: FormDraft, color: boolean): string[] {
   const spec = frame.responseSpec;
   if (!spec || spec.kind !== "form") {
@@ -447,12 +541,19 @@ function stringifyFieldValue(value: unknown): string {
   return value === undefined || value === null ? "" : String(value);
 }
 
-function renderControls(active: Frame | null, formDraft: FormDraft | null, color: boolean): string[] {
+function renderTextDraft(textDraft: TextDraft, color: boolean): string[] {
+  const value = textDraft.buffer || textDraft.placeholder || "";
+  return [
+    `  ${styleAccent("›", color)} ${styleStrong(textDraft.label, color)} ${styleMuted("·", color)} ${value || styleMuted("(empty)", color)}`,
+  ];
+}
+
+function renderControls(active: Frame | null, inputDraft: InputDraft | null, color: boolean): string[] {
   if (!active) {
     return [`${styleMuted("controls", color)} ${styleKey("q", color)} quit`];
   }
 
-  if (formDraft) {
+  if (inputDraft) {
     return [
       `${styleMuted("controls", color)} ${styleKey("type", color)} edit  ${styleKey("enter", color)} next/submit  ${styleKey("esc", color)} cancel  ${styleKey("q", color)} quit`,
     ];
@@ -470,7 +571,7 @@ function renderControls(active: Frame | null, formDraft: FormDraft | null, color
       ];
     case "choice":
       return [
-        `${styleMuted("controls", color)} ${styleKey("1-9", color)} choose  ${styleKey("x", color)} dismiss  ${detail}  ${styleKey("q", color)} quit`,
+        `${styleMuted("controls", color)} ${styleKey("1-9", color)} choose${active.responseSpec.allowCustomInput ? `  ${styleKey("i", color)} input` : ""}  ${styleKey("x", color)} dismiss  ${detail}  ${styleKey("q", color)} quit`,
       ];
     case "form":
       return [
@@ -568,6 +669,9 @@ function renderFocusPane(
     lines.push(styleMuted("options", color));
     for (const [index, option] of frame.responseSpec.options.entries()) {
       lines.push(...renderPrefixedBlock(`${styleKey(String(index + 1), color)} `, option.label));
+    }
+    if (frame.responseSpec.allowCustomInput) {
+      lines.push(...renderPrefixedBlock(`${styleKey("i", color)} `, frame.responseSpec.customInputLabel ?? "Type your own answer"));
     }
   }
 
@@ -718,6 +822,8 @@ function responseLabel(response: FrameResponse): string {
       return "Dismissed";
     case "option_selected":
       return `Selected ${response.response.optionIds.join(", ")}`;
+    case "text_submitted":
+      return "Submitted reply";
     case "form_submitted":
       return "Submitted form";
   }

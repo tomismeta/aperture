@@ -197,6 +197,14 @@ export function mapOpencodeResponse(response: AttentionResponse): OpencodeRespon
           answers: [response.response.optionIds],
         },
       };
+    case "text_submitted":
+      return {
+        kind: "question.reply",
+        requestId: parsed.requestId,
+        body: {
+          answers: [[response.response.text]],
+        },
+      };
     case "form_submitted":
       return {
         kind: "question.reply",
@@ -460,10 +468,19 @@ function mapMessagePartUpdated(event: OpencodeMessagePartUpdatedEvent, context: 
 
 function promptsToRequest(prompts: OpencodeQuestionPrompt[]) {
   if (prompts.length === 1 && prompts[0]?.options?.length) {
+    const prompt = prompts[0];
+    const options = prompt.options ?? [];
     return {
       kind: "choice" as const,
-      selectionMode: prompts[0].multiple || prompts[0].multiSelect ? "multiple" as const : "single" as const,
-      options: prompts[0].options.map((option, index) => ({
+      selectionMode: prompt.multiple || prompt.multiSelect ? "multiple" as const : "single" as const,
+      ...(prompt.custom === true || prompt.allowCustomInput === true
+        ? {
+            allowCustomInput: true,
+            customInputLabel: "Type your own answer",
+            customInputPlaceholder: prompt.question ?? prompt.prompt ?? prompt.header ?? prompt.label,
+          }
+        : {}),
+      options: options.map((option, index) => ({
         id: option.value ?? option.label ?? `option-${index}`,
         label: option.label,
         ...(option.description ? { summary: option.description } : {}),

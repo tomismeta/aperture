@@ -173,6 +173,7 @@ export function mapClaudeCodeFrameResponse(
       };
     case "option_selected":
     case "form_submitted":
+    case "text_submitted":
       return null;
   }
 }

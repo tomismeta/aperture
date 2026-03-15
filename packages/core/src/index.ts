@@ -31,6 +31,7 @@ export { JudgmentCoordinator } from "./judgment-coordinator.js";
 export type {
   AttentionDecisionContext,
   AttentionDecision,
+  AttentionDecisionAmbiguity,
   AttentionDecisionExplanation,
 } from "./judgment-coordinator.js";
 
@@ -85,6 +86,7 @@ export type {
   UserProfile,
 } from "./profile-store.js";
 export type {
+  AmbiguityDefaults,
   JudgmentConfig,
   JudgmentRule,
   PlannerDefaults,

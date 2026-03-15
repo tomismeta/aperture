@@ -83,6 +83,19 @@ test("activates a candidate when nothing is active", () => {
   assert.equal(decision.kind, "activate");
 });
 
+test("queues ambiguous non-blocking work when the surface is empty", () => {
+  const decision = coordinator.coordinate(
+    null,
+    createCandidate({
+      priority: "normal",
+      blocking: false,
+      responseSpec: { kind: "none" },
+    }),
+  );
+
+  assert.equal(decision.kind, "queue");
+});
+
 test("keeps background work ambient while a blocking frame is waiting", () => {
   const decision = coordinator.coordinate(
     createFrame(),
@@ -115,6 +128,50 @@ test("activates higher-consequence candidates at equal priority", () => {
   );
 
   assert.equal(decision.kind, "activate");
+});
+
+test("keeps narrow score gains queued instead of stealing focus immediately", () => {
+  const decision = coordinator.coordinate(
+    createFrame({
+      taskId: "task:current",
+      interactionId: "interaction:current",
+      mode: "status",
+      tone: "ambient",
+      consequence: "medium",
+      responseSpec: { kind: "none" },
+    }),
+    createCandidate({
+      taskId: "task:incoming",
+      interactionId: "interaction:incoming",
+      mode: "approval",
+      tone: "focused",
+      consequence: "medium",
+      priority: "normal",
+      blocking: false,
+      responseSpec: { kind: "none" },
+    }),
+  );
+
+  assert.equal(decision.kind, "queue");
+});
+
+test("explanation marks ambiguity when low-signal work stays peripheral", () => {
+  const explanation = coordinator.explain(
+    null,
+    createCandidate({
+      priority: "normal",
+      blocking: false,
+      responseSpec: { kind: "none" },
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "queue");
+  assert.deepEqual(explanation.ambiguity, {
+    kind: "interrupt",
+    reason: "low_signal",
+    resolution: "queue",
+  });
+  assert.ok(explanation.reasons.includes("uncertain interruptive work stays peripheral until its signal is stronger"));
 });
 
 test("re-activates updates to the same interaction id", () => {

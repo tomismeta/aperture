@@ -92,6 +92,10 @@ test("judgment config loader reads pure markdown judgment files", async () => {
   const content = serializeJudgmentConfig({
     version: 1,
     updatedAt: "2026-03-12T10:15:00.000Z",
+    ambiguityDefaults: {
+      nonBlockingActivationThreshold: 190,
+      promotionMargin: 24,
+    },
     policy: {
       lowRiskRead: {
         autoApprove: true,
@@ -107,6 +111,8 @@ test("judgment config loader reads pure markdown judgment files", async () => {
   });
 
   assert.equal(loaded.policy?.lowRiskRead?.autoApprove, true);
+  assert.equal(loaded.ambiguityDefaults?.nonBlockingActivationThreshold, 190);
+  assert.equal(loaded.ambiguityDefaults?.promotionMargin, 24);
 });
 
 test("judgment config loader falls back when markdown uses an unsupported version", async () => {

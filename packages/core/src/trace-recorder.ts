@@ -73,6 +73,7 @@ export class TraceRecorder {
         candidateScore: explanation.candidateScore,
         currentScore: explanation.currentScore,
         currentPriority: explanation.currentPriority,
+        ambiguity: explanation.ambiguity,
         reasons: explanation.reasons,
       },
       pressureForecast: explanation.pressureForecast,

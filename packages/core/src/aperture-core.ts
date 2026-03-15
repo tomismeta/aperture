@@ -99,6 +99,11 @@ export class ApertureCore {
           ? { plannerDefaults: this.judgmentConfig.plannerDefaults }
           : {}),
       }),
+      {
+        ...(this.judgmentConfig?.ambiguityDefaults !== undefined
+          ? { ambiguityDefaults: this.judgmentConfig.ambiguityDefaults }
+          : {}),
+      },
     );
   }
 

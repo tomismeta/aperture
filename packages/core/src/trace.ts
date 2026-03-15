@@ -7,6 +7,7 @@ import type { AttentionPolicyVerdict } from "./attention-policy.js";
 import type { AttentionPressure } from "./attention-pressure.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import type { AttentionValueBreakdown } from "./attention-value.js";
+import type { AttentionDecisionAmbiguity } from "./judgment-coordinator.js";
 
 export type ApertureTrace =
   | {
@@ -68,6 +69,7 @@ export type ApertureTrace =
         candidateScore: number;
         currentScore: number | null;
         currentPriority: AttentionPriority | null;
+        ambiguity: AttentionDecisionAmbiguity | null;
         reasons: string[];
       };
       taskSummary: AttentionSignalSummary;

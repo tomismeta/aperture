@@ -2,6 +2,10 @@ export const APERTURE_STATE_SCHEMA_VERSION = 1;
 export const MARKDOWN_SCHEMA_VERSION = APERTURE_STATE_SCHEMA_VERSION;
 
 export const JUDGMENT_DEFAULTS = {
+  ambiguity: {
+    nonBlockingActivationThreshold: 180,
+    promotionMargin: 20,
+  },
   queuePlanner: {
     statusBurstWindowMs: 60_000,
     urgentBacklogWindowMs: 90_000,

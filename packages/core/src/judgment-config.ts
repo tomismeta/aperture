@@ -13,7 +13,13 @@ export type JudgmentConfig = {
   version: number;
   updatedAt: string;
   policy?: Record<string, JudgmentRule>;
+  ambiguityDefaults?: AmbiguityDefaults;
   plannerDefaults?: PlannerDefaults;
+};
+
+export type AmbiguityDefaults = {
+  nonBlockingActivationThreshold?: number;
+  promotionMargin?: number;
 };
 
 export type PlannerDefaults = {
@@ -41,6 +47,7 @@ function parseJudgmentConfig(content: string): JudgmentConfig | null {
   // required metadata is missing.
   const meta = new Map<string, string>();
   const policy = new Map<string, JudgmentRule>();
+  const ambiguityDefaults = new Map<string, number>();
   const plannerDefaults = new Map<string, boolean>();
   let section: string | null = null;
   let ruleName: string | null = null;
@@ -83,6 +90,14 @@ function parseJudgmentConfig(content: string): JudgmentConfig | null {
       if (typeof value === "boolean") {
         plannerDefaults.set(camelKey(bullet.key), value);
       }
+      continue;
+    }
+
+    if (section === "Ambiguity Defaults") {
+      const value = parseScalar(bullet.value);
+      if (typeof value === "number") {
+        ambiguityDefaults.set(camelKey(bullet.key), value);
+      }
     }
   }
 
@@ -96,6 +111,9 @@ function parseJudgmentConfig(content: string): JudgmentConfig | null {
     version,
     updatedAt,
     ...(policy.size > 0 ? { policy: Object.fromEntries(policy.entries()) } : {}),
+    ...(ambiguityDefaults.size > 0
+      ? { ambiguityDefaults: Object.fromEntries(ambiguityDefaults.entries()) }
+      : {}),
     ...(plannerDefaults.size > 0 ? { plannerDefaults: Object.fromEntries(plannerDefaults.entries()) } : {}),
   };
 }
@@ -135,6 +153,21 @@ export function serializeJudgmentConfig(config: JudgmentConfig): string {
     }
     if (config.plannerDefaults.deferLowValueDuringPressure !== undefined) {
       lines.push(formatBullet("defer low value during pressure", config.plannerDefaults.deferLowValueDuringPressure));
+    }
+  }
+
+  if (config.ambiguityDefaults && Object.keys(config.ambiguityDefaults).length > 0) {
+    lines.push("", "## Ambiguity Defaults");
+    if (config.ambiguityDefaults.nonBlockingActivationThreshold !== undefined) {
+      lines.push(
+        formatBullet(
+          "non blocking activation threshold",
+          config.ambiguityDefaults.nonBlockingActivationThreshold,
+        ),
+      );
+    }
+    if (config.ambiguityDefaults.promotionMargin !== undefined) {
+      lines.push(formatBullet("promotion margin", config.ambiguityDefaults.promotionMargin));
     }
   }
 

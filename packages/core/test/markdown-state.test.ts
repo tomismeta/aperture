@@ -99,6 +99,7 @@ test("judgment config loader reads pure markdown judgment files", async () => {
     plannerDefaults: {
       minimumDwellMs: 25_000,
       streamContinuityMargin: 18,
+      conflictingInterruptMargin: 14,
     },
     policy: {
       lowRiskRead: {
@@ -119,6 +120,7 @@ test("judgment config loader reads pure markdown judgment files", async () => {
   assert.equal(loaded.ambiguityDefaults?.promotionMargin, 24);
   assert.equal(loaded.plannerDefaults?.minimumDwellMs, 25_000);
   assert.equal(loaded.plannerDefaults?.streamContinuityMargin, 18);
+  assert.equal(loaded.plannerDefaults?.conflictingInterruptMargin, 14);
 });
 
 test("judgment config loader falls back when markdown uses an unsupported version", async () => {

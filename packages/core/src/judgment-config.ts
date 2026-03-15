@@ -27,6 +27,7 @@ export type PlannerDefaults = {
   deferLowValueDuringPressure?: boolean;
   minimumDwellMs?: number;
   streamContinuityMargin?: number;
+  conflictingInterruptMargin?: number;
 };
 
 export type JudgmentRule = {
@@ -161,6 +162,14 @@ export function serializeJudgmentConfig(config: JudgmentConfig): string {
     }
     if (config.plannerDefaults.streamContinuityMargin !== undefined) {
       lines.push(formatBullet("stream continuity margin", config.plannerDefaults.streamContinuityMargin));
+    }
+    if (config.plannerDefaults.conflictingInterruptMargin !== undefined) {
+      lines.push(
+        formatBullet(
+          "conflicting interrupt margin",
+          config.plannerDefaults.conflictingInterruptMargin,
+        ),
+      );
     }
   }
 

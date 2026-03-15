@@ -159,6 +159,46 @@ test("activates higher-consequence candidates at equal priority", () => {
   assert.equal(decision.kind, "activate");
 });
 
+test("keeps the current interrupt active when a competing interrupt is only equally urgent", () => {
+  const decision = coordinator.coordinate(
+    createFrame(),
+    createCandidate(),
+  );
+
+  assert.equal(decision.kind, "queue");
+});
+
+test("conflicting interrupt resolution yields when the challenger is clearly stronger", () => {
+  const decision = coordinator.coordinate(
+    createFrame(),
+    createCandidate({
+      consequence: "high",
+      attentionScoreOffset: 8,
+    }),
+  );
+
+  assert.equal(decision.kind, "activate");
+});
+
+test("planner defaults can disable conflicting interrupt resolution", () => {
+  const interruptConflictDisabledCoordinator = new JudgmentCoordinator(
+    new AttentionPolicy(),
+    new AttentionValue(),
+    new AttentionPlanner({
+      plannerDefaults: {
+        conflictingInterruptMargin: 0,
+      },
+    }),
+  );
+
+  const decision = interruptConflictDisabledCoordinator.coordinate(
+    createFrame(),
+    createCandidate(),
+  );
+
+  assert.equal(decision.kind, "activate");
+});
+
 test("keeps narrow score gains queued instead of stealing focus immediately", () => {
   const decision = coordinator.coordinate(
     createFrame({
@@ -266,49 +306,59 @@ test("planner defaults can disable the minimum dwell window", () => {
   assert.equal(decision.kind, "activate");
 });
 
-test("keeps cross-stream work queued when the current stream is still close in value", () => {
+test("keeps cross-stream work peripheral when the current stream is still close in value", () => {
   const decision = coordinator.coordinate(
     createFrame({
+      taskId: "task:current",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      responseSpec: { kind: "none" },
       source: { id: "session:claude", kind: "claude-code" },
       metadata: {
         toolFamily: "read",
       },
     }),
     createCandidate({
+      taskId: "task:incoming",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      priority: "normal",
+      blocking: false,
       source: { id: "session:open", kind: "opencode" },
       toolFamily: "bash",
-      responseSpec: {
-        kind: "approval",
-        actions: [
-          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
-          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
-        ],
-      },
+      responseSpec: { kind: "none" },
     }),
   );
 
-  assert.equal(decision.kind, "queue");
+  assert.equal(decision.kind, "ambient");
 });
 
 test("decision-stream continuity yields when cross-stream work is clearly stronger", () => {
   const decision = coordinator.coordinate(
     createFrame({
+      taskId: "task:current",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      responseSpec: { kind: "none" },
       source: { id: "session:claude", kind: "claude-code" },
       metadata: {
         toolFamily: "read",
       },
     }),
     createCandidate({
+      taskId: "task:incoming",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      priority: "normal",
+      blocking: false,
+      attentionScoreOffset: 24,
       source: { id: "session:open", kind: "opencode" },
       toolFamily: "bash",
-      consequence: "high",
-      responseSpec: {
-        kind: "approval",
-        actions: [
-          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
-          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
-        ],
-      },
+      responseSpec: { kind: "none" },
     }),
   );
 
@@ -328,21 +378,26 @@ test("planner defaults can disable decision-stream continuity", () => {
 
   const decision = streamContinuityDisabledCoordinator.coordinate(
     createFrame({
+      taskId: "task:current",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      responseSpec: { kind: "none" },
       source: { id: "session:claude", kind: "claude-code" },
       metadata: {
         toolFamily: "read",
       },
     }),
     createCandidate({
+      taskId: "task:incoming",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      priority: "normal",
+      blocking: false,
       source: { id: "session:open", kind: "opencode" },
       toolFamily: "bash",
-      responseSpec: {
-        kind: "approval",
-        actions: [
-          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
-          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
-        ],
-      },
+      responseSpec: { kind: "none" },
     }),
   );
 

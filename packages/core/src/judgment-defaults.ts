@@ -9,6 +9,7 @@ export const JUDGMENT_DEFAULTS = {
   queuePlanner: {
     minimumDwellMs: 30_000,
     streamContinuityMargin: 20,
+    conflictingInterruptMargin: 10,
     statusBurstWindowMs: 60_000,
     urgentBacklogWindowMs: 90_000,
     deferredEscalationThreshold: 3,

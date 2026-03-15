@@ -17,6 +17,7 @@ import type {
   AttentionInterruptCriterion,
   AttentionInterruptCriterionVerdict,
   AttentionPlanDecision,
+  AttentionPlanningExplanation,
   AttentionPlanningContext,
   AttentionPresentationFloor,
   AttentionPolicyVerdict,
@@ -72,6 +73,7 @@ void (0 as unknown as AttentionPolicyVerdict);
 void (0 as unknown as AttentionValueBreakdown);
 void (0 as unknown as AttentionPlanningContext);
 void (0 as unknown as AttentionPlanDecision);
+void (0 as unknown as AttentionPlanningExplanation);
 void (0 as unknown as AttentionPresentationFloor);
 void (0 as unknown as AttentionPressure);
 void (0 as unknown as AttentionDecision);

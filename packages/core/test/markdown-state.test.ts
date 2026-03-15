@@ -128,6 +128,35 @@ test("judgment config loader reads pure markdown judgment files", async () => {
   ]);
 });
 
+test("judgment config loader deduplicates recognized disabled continuity rules and drops unknown names", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-judgment-disabled-rules-"));
+  await writeFile(
+    join(root, "JUDGMENT.md"),
+    [
+      "# Judgment",
+      "",
+      "## Meta",
+      "- version: 1",
+      "- updated at: 2026-03-12T10:15:00.000Z",
+      "",
+      "## Planner Defaults",
+      "- disabled continuity rules: minimum_dwell, typo_rule, minimum_dwell, decision_stream_continuity",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+
+  const loaded = await loadJudgmentConfig(root, {
+    version: 1,
+    updatedAt: "1970-01-01T00:00:00.000Z",
+  });
+
+  assert.deepEqual(loaded.plannerDefaults?.disabledContinuityRules, [
+    "minimum_dwell",
+    "decision_stream_continuity",
+  ]);
+});
+
 test("judgment config loader falls back when markdown uses an unsupported version", async () => {
   const root = await mkdtemp(join(tmpdir(), "aperture-judgment-version-"));
   await writeFile(

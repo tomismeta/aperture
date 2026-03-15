@@ -222,17 +222,19 @@ function camelKey(value: string): string {
   return value.replace(/\s+([a-z])/g, (_match, letter: string) => letter.toUpperCase());
 }
 
-const CONTINUITY_RULE_NAMES: readonly ContinuityRuleName[] = [
-  "same_interaction",
-  "visible_episode",
-  "same_episode",
-  "minimum_dwell",
-  "burst_dampening",
-  "deferral_escalation",
-  "conflicting_interrupt",
-  "decision_stream_continuity",
-  "context_patience",
-];
+const CONTINUITY_RULE_NAME_FLAGS = {
+  same_interaction: true,
+  visible_episode: true,
+  same_episode: true,
+  minimum_dwell: true,
+  burst_dampening: true,
+  deferral_escalation: true,
+  conflicting_interrupt: true,
+  decision_stream_continuity: true,
+  context_patience: true,
+} satisfies Record<ContinuityRuleName, true>;
+
+const CONTINUITY_RULE_NAMES = Object.keys(CONTINUITY_RULE_NAME_FLAGS) as ContinuityRuleName[];
 
 function parseContinuityRuleList(value: string): ContinuityRuleName[] {
   const recognized = new Set<ContinuityRuleName>();

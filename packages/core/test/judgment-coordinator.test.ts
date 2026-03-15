@@ -378,6 +378,160 @@ test("disabled continuity rules bypass the minimum dwell override", () => {
   );
 });
 
+test("disabling one continuity rule still allows others to fire", () => {
+  const selectivelyDisabledCoordinator = new JudgmentCoordinator(
+    new AttentionPolicy(),
+    new AttentionValue(),
+    new AttentionPlanner({
+      plannerDefaults: {
+        disabledContinuityRules: ["minimum_dwell"],
+      },
+    }),
+  );
+
+  const explanation = selectivelyDisabledCoordinator.explain(
+    createFrame({
+      taskId: "task:current",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      responseSpec: { kind: "none" },
+      timing: {
+        createdAt: "2026-03-08T12:00:55.000Z",
+        updatedAt: "2026-03-08T12:00:55.000Z",
+      },
+      source: { id: "session:claude", kind: "claude-code" },
+      metadata: {
+        toolFamily: "read",
+      },
+    }),
+    createCandidate({
+      taskId: "task:incoming",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      priority: "normal",
+      blocking: false,
+      timestamp: "2026-03-08T12:01:00.000Z",
+      source: { id: "session:open", kind: "opencode" },
+      toolFamily: "bash",
+      responseSpec: { kind: "none" },
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "ambient");
+  assert.deepEqual(
+    explanation.continuityEvaluations?.find((evaluation) => evaluation.rule === "minimum_dwell"),
+    {
+      rule: "minimum_dwell",
+      kind: "noop",
+      rationale: ["operator disabled the minimum_dwell continuity rule"],
+    },
+  );
+  const streamContinuityEvaluation = explanation.continuityEvaluations?.find((evaluation) =>
+    evaluation.rule === "decision_stream_continuity"
+  );
+  assert.equal(streamContinuityEvaluation?.kind, "override");
+  assert.equal(streamContinuityEvaluation?.decision.kind, "ambient");
+  assert.deepEqual(streamContinuityEvaluation?.rationale, [
+    "the current decision stream stays active until cross-stream work is clearly stronger",
+  ]);
+});
+
+test("disabling multiple continuity rules bypasses both overrides together", () => {
+  const multiplyDisabledCoordinator = new JudgmentCoordinator(
+    new AttentionPolicy(),
+    new AttentionValue(),
+    new AttentionPlanner({
+      plannerDefaults: {
+        disabledContinuityRules: ["minimum_dwell", "decision_stream_continuity"],
+      },
+    }),
+  );
+
+  const explanation = multiplyDisabledCoordinator.explain(
+    createFrame({
+      taskId: "task:current",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      responseSpec: { kind: "none" },
+      timing: {
+        createdAt: "2026-03-08T12:00:55.000Z",
+        updatedAt: "2026-03-08T12:00:55.000Z",
+      },
+      source: { id: "session:claude", kind: "claude-code" },
+      metadata: {
+        toolFamily: "read",
+      },
+    }),
+    createCandidate({
+      taskId: "task:incoming",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      priority: "normal",
+      blocking: false,
+      timestamp: "2026-03-08T12:01:00.000Z",
+      source: { id: "session:open", kind: "opencode" },
+      toolFamily: "bash",
+      responseSpec: { kind: "none" },
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "activate");
+  assert.deepEqual(
+    explanation.continuityEvaluations?.filter((evaluation) => evaluation.kind === "noop"),
+    [
+      {
+        rule: "same_interaction",
+        kind: "noop",
+        rationale: [],
+      },
+      {
+        rule: "visible_episode",
+        kind: "noop",
+        rationale: [],
+      },
+      {
+        rule: "same_episode",
+        kind: "noop",
+        rationale: [],
+      },
+      {
+        rule: "minimum_dwell",
+        kind: "noop",
+        rationale: ["operator disabled the minimum_dwell continuity rule"],
+      },
+      {
+        rule: "burst_dampening",
+        kind: "noop",
+        rationale: [],
+      },
+      {
+        rule: "deferral_escalation",
+        kind: "noop",
+        rationale: [],
+      },
+      {
+        rule: "conflicting_interrupt",
+        kind: "noop",
+        rationale: [],
+      },
+      {
+        rule: "decision_stream_continuity",
+        kind: "noop",
+        rationale: ["operator disabled the decision_stream_continuity continuity rule"],
+      },
+      {
+        rule: "context_patience",
+        kind: "noop",
+        rationale: [],
+      },
+    ],
+  );
+});
+
 test("keeps cross-stream work peripheral when the current stream is still close in value", () => {
   const decision = coordinator.coordinate(
     createFrame({

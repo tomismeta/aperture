@@ -1,10 +1,19 @@
 import type { AttentionFrame, AttentionView } from "./frame.js";
 
+import type { AttentionDecisionAmbiguity } from "./attention-ambiguity.js";
 import type { AttentionResponse } from "./frame-response.js";
 import { priorityForFrame, scoreAttentionFrame } from "./frame-score.js";
 import type { AttentionCandidate, AttentionPriority } from "./interaction-candidate.js";
-import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
-import { AttentionPolicy, type AttentionPolicyVerdict } from "./attention-policy.js";
+import {
+  createAttentionEvidenceContext,
+  type AttentionEvidenceContext,
+  type AttentionEvidenceInput,
+} from "./attention-evidence.js";
+import {
+  AttentionPolicy,
+  type AttentionInterruptCriterionVerdict,
+  type AttentionPolicyVerdict,
+} from "./attention-policy.js";
 import { forecastAttentionPressure, idleAttentionPressure, type AttentionPressure } from "./attention-pressure.js";
 import { AttentionPlanner } from "./attention-planner.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
@@ -24,6 +33,7 @@ export type AttentionDecisionExplanation = {
   decision: AttentionDecision;
   policy: AttentionPolicyVerdict;
   utility: AttentionValueBreakdown;
+  criterion: AttentionInterruptCriterionVerdict | null;
   pressureForecast: AttentionPressure;
   candidateScore: number;
   currentScore: number | null;
@@ -32,19 +42,15 @@ export type AttentionDecisionExplanation = {
   reasons: string[];
 };
 
-export type AttentionDecisionAmbiguity = {
-  kind: "interrupt";
-  reason: "low_signal" | "small_score_gap";
-  resolution: "queue" | "ambient";
-};
-
-export type AttentionDecisionContext = {
+type LegacyAttentionDecisionContext = {
   attentionView?: AttentionView;
   taskSummary?: AttentionSignalSummary;
   globalSummary?: AttentionSignalSummary;
   pressureForecast?: AttentionPressure;
   surfaceCapabilities?: AttentionSurfaceCapabilities;
-};
+} & AttentionEvidenceInput;
+
+export type AttentionDecisionContext = AttentionEvidenceContext | LegacyAttentionDecisionContext;
 
 type JudgmentCoordinatorOptions = {
   ambiguityDefaults?: AmbiguityDefaults;
@@ -81,13 +87,13 @@ export class JudgmentCoordinator {
     candidate: AttentionCandidate,
     context: AttentionDecisionContext = {},
   ): AttentionDecisionExplanation {
-    const policy = this.policyGates.evaluate(candidate);
+    const evidence = this.resolveEvidenceContext(current, context);
+    const policy = this.policyGates.evaluateGates(candidate);
     const utility = this.utilityScore.scoreCandidate(candidate);
-    const currentScore = current ? scoreAttentionFrame(current, { now: candidate.timestamp }) : null;
-    const pressureForecast =
-      context.pressureForecast
-      ?? forecastAttentionPressure(context.globalSummary ?? context.taskSummary, context.attentionView)
-      ?? idleAttentionPressure();
+    const currentScore = evidence.currentFrame
+      ? scoreAttentionFrame(evidence.currentFrame, { now: candidate.timestamp })
+      : null;
+    const pressureForecast = evidence.pressureForecast;
 
     if (policy.autoApprove) {
       const reasons = [
@@ -106,6 +112,7 @@ export class JudgmentCoordinator {
         },
         policy,
         utility,
+        criterion: null,
         pressureForecast,
         candidateScore: utility.total,
         currentScore,
@@ -115,40 +122,52 @@ export class JudgmentCoordinator {
       };
     }
 
-    const ambiguityResolution = this.resolveInterruptAmbiguity(current, candidate, policy, utility.total, currentScore);
-    if (ambiguityResolution) {
+    const criterion = this.policyGates.evaluateInterruptCriterion(
+      candidate,
+      policy,
+      evidence,
+      utility.total,
+      currentScore,
+      this.ambiguityDefaults !== undefined
+        ? { ambiguityDefaults: this.ambiguityDefaults }
+        : {},
+    );
+    if (criterion.peripheralResolution) {
       const reasons = [
         ...policy.rationale,
-        ambiguityResolution.reason,
+        ...criterion.rationale,
       ];
       return {
-        decision: ambiguityResolution.decision,
+        decision: {
+          kind: criterion.peripheralResolution,
+          candidate,
+        },
         policy,
         utility,
+        criterion,
         pressureForecast,
         candidateScore: utility.total,
         currentScore,
-        currentPriority: current ? priorityForFrame(current) : null,
-        ambiguity: ambiguityResolution.ambiguity,
+        currentPriority: evidence.currentFrame ? priorityForFrame(evidence.currentFrame) : null,
+        ambiguity: criterion.ambiguity,
         reasons,
       };
     }
 
-    const planning = this.queuePlanner.explain(current, candidate, {
-      attentionView: context.attentionView,
-      taskSummary: context.taskSummary,
+    const planning = this.queuePlanner.explain(evidence.currentFrame, candidate, {
+      ...evidence,
       policyVerdict: policy,
       utility,
       pressureForecast,
       candidateScore: utility.total,
       currentScore,
-      ...(context.surfaceCapabilities ? { surfaceCapabilities: context.surfaceCapabilities } : {}),
     });
 
     return {
       decision: planning.decision,
       policy,
       utility,
+      criterion,
       pressureForecast,
       candidateScore: utility.total,
       currentScore: planning.currentScore,
@@ -162,79 +181,84 @@ export class JudgmentCoordinator {
     return this.queuePlanner.clear();
   }
 
-  private resolveInterruptAmbiguity(
+  private resolveEvidenceContext(
     current: AttentionFrame | null,
-    candidate: AttentionCandidate,
-    policy: AttentionPolicyVerdict,
-    candidateScore: number,
-    currentScore: number | null,
-  ): {
-    decision: Extract<AttentionDecision, { kind: "queue" | "ambient" }>;
-    ambiguity: AttentionDecisionAmbiguity;
-    reason: string;
-  } | null {
-    if (
-      candidate.blocking
-      || candidate.episodeState === "actionable"
-      || policy.autoApprove
-      || !policy.mayInterrupt
-      || policy.requiresOperatorResponse
-    ) {
-      return null;
-    }
-
-    if (policy.minimumPresentation === "active") {
-      return null;
-    }
-
-    const resolution = this.peripheralDecision(candidate, policy);
-    if (!current) {
-      const threshold =
-        this.ambiguityDefaults?.nonBlockingActivationThreshold
-        ?? JUDGMENT_DEFAULTS.ambiguity.nonBlockingActivationThreshold;
-      if (candidateScore >= threshold) {
-        return null;
+    context: AttentionDecisionContext,
+  ): AttentionEvidenceContext {
+    if (this.isEvidenceContext(context)) {
+      if (context.currentFrame === current) {
+        return context;
       }
 
-      return {
-        decision: resolution,
-        ambiguity: {
-          kind: "interrupt",
-          reason: "low_signal",
-          resolution: resolution.kind,
-        },
-        reason: "uncertain interruptive work stays peripheral until its signal is stronger",
-      };
+      return createAttentionEvidenceContext({
+        ...context,
+        currentFrame: current,
+      });
     }
 
-    if (currentScore === null || candidateScore <= currentScore) {
-      return null;
-    }
+    const attentionView = context.attentionView;
+    const taskSignalSummary = context.taskSignalSummary ?? context.taskSummary;
+    const globalSignalSummary = context.globalSignalSummary ?? context.globalSummary;
+    const pressureForecast =
+      context.pressureForecast
+      ?? forecastAttentionPressure(globalSignalSummary ?? idleAttentionSummary(), attentionView)
+      ?? idleAttentionPressure();
 
-    const margin = this.ambiguityDefaults?.promotionMargin ?? JUDGMENT_DEFAULTS.ambiguity.promotionMargin;
-    if (candidateScore >= currentScore + margin) {
-      return null;
-    }
-
-    return {
-      decision: resolution,
-      ambiguity: {
-        kind: "interrupt",
-        reason: "small_score_gap",
-        resolution: resolution.kind,
-      },
-      reason: "small score gaps resolve to the periphery instead of stealing focus immediately",
-    };
+    return createAttentionEvidenceContext({
+      currentFrame: current,
+      ...(context.currentTaskView !== undefined ? { currentTaskView: context.currentTaskView } : {}),
+      ...(context.currentEpisode !== undefined ? { currentEpisode: context.currentEpisode } : {}),
+      ...(attentionView !== undefined ? { attentionView } : {}),
+      ...(taskSignalSummary !== undefined ? { taskSignalSummary } : {}),
+      ...(globalSignalSummary !== undefined ? { globalSignalSummary } : {}),
+      ...(context.taskAttentionState !== undefined ? { taskAttentionState: context.taskAttentionState } : {}),
+      ...(context.globalAttentionState !== undefined ? { globalAttentionState: context.globalAttentionState } : {}),
+      ...(context.surfaceCapabilities !== undefined ? { surfaceCapabilities: context.surfaceCapabilities } : {}),
+      pressureForecast,
+    });
   }
 
-  private peripheralDecision(
-    candidate: AttentionCandidate,
-    policy: AttentionPolicyVerdict,
-  ): Extract<AttentionDecision, { kind: "queue" | "ambient" }> {
-    if (policy.minimumPresentation === "ambient") {
-      return { kind: "ambient", candidate };
-    }
-
-    return { kind: "queue", candidate };
+  private isEvidenceContext(context: AttentionDecisionContext): context is AttentionEvidenceContext {
+    return (
+      "currentFrame" in context
+      && "currentTaskView" in context
+      && "currentEpisode" in context
+      && "attentionView" in context
+      && "taskSignalSummary" in context
+      && "globalSignalSummary" in context
+      && "taskAttentionState" in context
+      && "globalAttentionState" in context
+      && "pressureForecast" in context
+      && "surfaceCapabilities" in context
+    );
   }
+}
+
+function idleAttentionSummary(): AttentionSignalSummary {
+  return {
+    recentSignals: 0,
+    lifetimeSignals: 0,
+    counts: {
+      presented: 0,
+      viewed: 0,
+      responded: 0,
+      dismissed: 0,
+      deferred: 0,
+      contextExpanded: 0,
+      contextSkipped: 0,
+      timedOut: 0,
+      returned: 0,
+      attentionShifted: 0,
+    },
+    deferred: {
+      queued: 0,
+      suppressed: 0,
+      manual: 0,
+    },
+    responseRate: 0,
+    dismissalRate: 0,
+    averageResponseLatencyMs: null,
+    averageDismissalLatencyMs: null,
+    lastSignalAt: null,
+  };
 }

@@ -5,11 +5,16 @@ import type {
   AttentionCandidate,
   AttentionConsequenceLevel,
   AttentionDecision,
+  AttentionDecisionAmbiguity,
   AttentionDecisionContext,
   AttentionDecisionExplanation,
   AttentionDeferredSignalCounts,
+  AttentionEvidenceContext,
+  AttentionEvidenceInput,
   AttentionFrame,
   AttentionFrameListener,
+  AttentionInterruptCriterion,
+  AttentionInterruptCriterionVerdict,
   AttentionPlanDecision,
   AttentionPlanningContext,
   AttentionPresentationFloor,
@@ -67,8 +72,13 @@ void (0 as unknown as AttentionPlanDecision);
 void (0 as unknown as AttentionPresentationFloor);
 void (0 as unknown as AttentionPressure);
 void (0 as unknown as AttentionDecision);
+void (0 as unknown as AttentionDecisionAmbiguity);
 void (0 as unknown as AttentionDecisionContext);
 void (0 as unknown as AttentionDecisionExplanation);
+void (0 as unknown as AttentionEvidenceContext);
+void (0 as unknown as AttentionEvidenceInput);
+void (0 as unknown as AttentionInterruptCriterion);
+void (0 as unknown as AttentionInterruptCriterionVerdict);
 void (0 as unknown as JudgmentConfig);
 void (0 as unknown as PlannerDefaults);
 void (0 as unknown as AttentionState);

@@ -3,11 +3,11 @@ import type { EpisodeSummary } from "./episode-tracker.js";
 import type { ApertureEvent } from "./events.js";
 import type { AttentionFrame, AttentionTaskView, AttentionView } from "./frame.js";
 import type { AttentionCandidate, AttentionPriority } from "./interaction-candidate.js";
+import type { AttentionDecisionAmbiguity } from "./attention-ambiguity.js";
 import type { AttentionPolicyVerdict } from "./attention-policy.js";
 import type { AttentionPressure } from "./attention-pressure.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import type { AttentionValueBreakdown } from "./attention-value.js";
-import type { AttentionDecisionAmbiguity } from "./judgment-coordinator.js";
 
 export type ApertureTrace =
   | {

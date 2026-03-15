@@ -8,9 +8,18 @@ export type {
   AttentionSignalListener,
   AttentionTraceListener,
 } from "./aperture-core.js";
+export type {
+  AttentionEvidenceContext,
+  AttentionEvidenceInput,
+} from "./attention-evidence.js";
 
 export { AttentionPolicy } from "./attention-policy.js";
-export type { AttentionPolicyVerdict, AttentionPresentationFloor } from "./attention-policy.js";
+export type {
+  AttentionInterruptCriterion,
+  AttentionInterruptCriterionVerdict,
+  AttentionPolicyVerdict,
+  AttentionPresentationFloor,
+} from "./attention-policy.js";
 
 export { AttentionValue } from "./attention-value.js";
 export type {
@@ -31,9 +40,9 @@ export { JudgmentCoordinator } from "./judgment-coordinator.js";
 export type {
   AttentionDecisionContext,
   AttentionDecision,
-  AttentionDecisionAmbiguity,
   AttentionDecisionExplanation,
 } from "./judgment-coordinator.js";
+export type { AttentionDecisionAmbiguity } from "./attention-ambiguity.js";
 
 export {
   forecastAttentionPressure,

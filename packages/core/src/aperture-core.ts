@@ -13,6 +13,7 @@ import type { AttentionSignal } from "./interaction-signal.js";
 
 import { buildAttentionView } from "./attention-view.js";
 import { AttentionAdjustments } from "./attention-adjustments.js";
+import type { AttentionEvidenceContext } from "./attention-evidence.js";
 import { deriveAttentionState, type AttentionState } from "./attention-state.js";
 import { EpisodeTracker, readFrameEpisodeId } from "./episode-tracker.js";
 import { EventEvaluator } from "./event-evaluator.js";
@@ -114,11 +115,6 @@ export class ApertureCore {
           ? { plannerDefaults: this.judgmentConfig.plannerDefaults }
           : {}),
       }),
-      {
-        ...(this.judgmentConfig?.ambiguityDefaults !== undefined
-          ? { ambiguityDefaults: this.judgmentConfig.ambiguityDefaults }
-          : {}),
-      },
     );
   }
 
@@ -191,12 +187,14 @@ export class ApertureCore {
 
   publish(event: ApertureEvent): AttentionFrame | null {
     this.assertValidEvent(event);
-    const taskSummary = this.signals.summarize(event.taskId);
-    const globalSummary = this.signals.summarize();
-    const taskAttentionState = deriveAttentionState(taskSummary);
-    const globalAttentionState = deriveAttentionState(globalSummary);
-    const preAttentionView = this.getAttentionView();
-    const pressureForecast = forecastAttentionPressure(globalSummary, preAttentionView);
+    const current = this.getFrame(event.taskId);
+    const evidence = this.assembleAttentionEvidenceContext(event.taskId, current);
+    const taskSummary = evidence.taskSignalSummary;
+    const globalSummary = evidence.globalSignalSummary;
+    const taskAttentionState = evidence.taskAttentionState;
+    const globalAttentionState = evidence.globalAttentionState;
+    const preAttentionView = evidence.attentionView;
+    const pressureForecast = evidence.pressureForecast;
     const evaluation = this.evaluation.evaluate(event);
 
     switch (evaluation.kind) {
@@ -209,14 +207,13 @@ export class ApertureCore {
           taskAttentionState,
           globalAttentionState,
           pressureForecast,
-          current: this.getFrame(event.taskId),
-          taskView: this.getTaskView(event.taskId),
+          current: evidence.currentFrame,
+          taskView: evidence.currentTaskView,
           attentionView: preAttentionView,
         }));
         return null;
       }
       case "clear": {
-        const current = this.getFrame(event.taskId);
         const result = this.applyClear(event.taskId);
         const postAttentionView = this.getAttentionView();
         this.notifyTrace(this.traceRecorder.recordClear({
@@ -227,26 +224,19 @@ export class ApertureCore {
           taskAttentionState,
           globalAttentionState,
           pressureForecast,
-          current,
+          current: evidence.currentFrame,
           taskView: this.getTaskView(event.taskId),
           attentionView: postAttentionView,
         }, event.taskId));
         return result;
       }
       case "candidate": {
-        const current = this.getFrame(event.taskId);
         const candidate = this.episodes.assign(this.heuristics.apply(
           evaluation.candidate,
           taskSummary,
           globalSummary,
         ));
-        const explanation = this.coordinator.explain(current, candidate, {
-          attentionView: preAttentionView,
-          taskSummary,
-          globalSummary,
-          pressureForecast,
-          surfaceCapabilities: this.surfaceCapabilities,
-        });
+        const explanation = this.coordinator.explain(evidence.currentFrame, candidate, evidence);
         let result: AttentionFrame | null;
         switch (explanation.decision.kind) {
           case "auto_approve":
@@ -284,7 +274,7 @@ export class ApertureCore {
                     this.preferredPeripheralBucket(explanation.decision.candidate),
                     preAttentionView,
                   )
-                : this.commitFrame(this.planner.plan(explanation.decision.candidate, current));
+                : this.commitFrame(this.planner.plan(explanation.decision.candidate, evidence.currentFrame));
             break;
         }
         const postAttentionView = this.getAttentionView();
@@ -296,7 +286,7 @@ export class ApertureCore {
           taskAttentionState,
           globalAttentionState,
           pressureForecast,
-          current,
+          current: evidence.currentFrame,
           taskView: this.getTaskView(event.taskId),
           attentionView: postAttentionView,
         }, {
@@ -523,6 +513,32 @@ export class ApertureCore {
     this.notifyTaskView(frame.taskId, taskView);
     this.notifyAttentionView();
     return frame;
+  }
+
+  private assembleAttentionEvidenceContext(
+    taskId: string,
+    currentFrame: AttentionFrame | null,
+  ): AttentionEvidenceContext {
+    const taskSignalSummary = this.signals.summarize(taskId);
+    const globalSignalSummary = this.signals.summarize();
+    const taskAttentionState = deriveAttentionState(taskSignalSummary);
+    const globalAttentionState = deriveAttentionState(globalSignalSummary);
+    const currentTaskView = this.getTaskView(taskId);
+    const attentionView = this.getAttentionView();
+    const pressureForecast = forecastAttentionPressure(globalSignalSummary, attentionView);
+
+    return {
+      currentFrame,
+      currentTaskView,
+      currentEpisode: this.episodes.readFrameEpisode(currentFrame),
+      attentionView,
+      taskSignalSummary,
+      globalSignalSummary,
+      taskAttentionState,
+      globalAttentionState,
+      pressureForecast,
+      surfaceCapabilities: this.getSurfaceCapabilities(),
+    };
   }
 
   private applyClear(taskId: string): null {

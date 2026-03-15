@@ -1,6 +1,9 @@
+import type { AttentionDecisionAmbiguity } from "./attention-ambiguity.js";
+import type { AttentionEvidenceContext } from "./attention-evidence.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import { inferToolFamily } from "./interaction-taxonomy.js";
-import type { JudgmentConfig } from "./judgment-config.js";
+import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
+import type { AmbiguityDefaults, JudgmentConfig } from "./judgment-config.js";
 import type { UserProfile } from "./profile-store.js";
 
 export type AttentionPresentationFloor = "ambient" | "queue" | "active";
@@ -10,6 +13,18 @@ export type AttentionPolicyVerdict = {
   mayInterrupt: boolean;
   requiresOperatorResponse: boolean;
   minimumPresentation: AttentionPresentationFloor;
+  rationale: string[];
+};
+
+export type AttentionInterruptCriterion = {
+  activationThreshold: number;
+  promotionMargin: number;
+};
+
+export type AttentionInterruptCriterionVerdict = {
+  criterion: AttentionInterruptCriterion;
+  peripheralResolution: "queue" | "ambient" | null;
+  ambiguity: AttentionDecisionAmbiguity | null;
   rationale: string[];
 };
 
@@ -28,6 +43,10 @@ export class AttentionPolicy {
   }
 
   evaluate(candidate: AttentionCandidate): AttentionPolicyVerdict {
+    return this.evaluateGates(candidate);
+  }
+
+  evaluateGates(candidate: AttentionCandidate): AttentionPolicyVerdict {
     const configured = this.configuredVerdict(candidate);
     if (configured) {
       return configured;
@@ -73,6 +92,85 @@ export class AttentionPolicy {
       requiresOperatorResponse: false,
       minimumPresentation: "queue",
       rationale: ["urgent non-blocking work may compete for interruptive attention"],
+    };
+  }
+
+  evaluateInterruptCriterion(
+    candidate: AttentionCandidate,
+    policyVerdict: AttentionPolicyVerdict,
+    evidence: AttentionEvidenceContext,
+    candidateScore: number,
+    currentScore: number | null,
+    options: { ambiguityDefaults?: AmbiguityDefaults } = {},
+  ): AttentionInterruptCriterionVerdict {
+    const criterion = this.readInterruptCriterion(options.ambiguityDefaults);
+
+    if (
+      candidate.blocking
+      || candidate.episodeState === "actionable"
+      || policyVerdict.autoApprove
+      || !policyVerdict.mayInterrupt
+      || policyVerdict.requiresOperatorResponse
+      || policyVerdict.minimumPresentation === "active"
+    ) {
+      return {
+        criterion,
+        peripheralResolution: null,
+        ambiguity: null,
+        rationale: [],
+      };
+    }
+
+    const peripheralResolution = this.readPeripheralResolution(policyVerdict);
+    if (!evidence.currentFrame) {
+      if (candidateScore >= criterion.activationThreshold) {
+        return {
+          criterion,
+          peripheralResolution: null,
+          ambiguity: null,
+          rationale: [],
+        };
+      }
+
+      return {
+        criterion,
+        peripheralResolution,
+        ambiguity: {
+          kind: "interrupt",
+          reason: "low_signal",
+          resolution: peripheralResolution,
+        },
+        rationale: ["uncertain interruptive work stays peripheral until its signal is stronger"],
+      };
+    }
+
+    if (currentScore === null || candidateScore <= currentScore) {
+      return {
+        criterion,
+        peripheralResolution: null,
+        ambiguity: null,
+        rationale: [],
+      };
+    }
+
+    if (candidateScore >= currentScore + criterion.promotionMargin) {
+      return {
+        criterion,
+        peripheralResolution: null,
+        ambiguity: null,
+        rationale: [],
+      };
+    }
+
+    return {
+      criterion,
+      peripheralResolution,
+      ambiguity: {
+        kind: "interrupt",
+        reason: "small_score_gap",
+        resolution: peripheralResolution,
+      },
+      rationale: ["small score gaps resolve to the periphery instead of stealing focus immediately"],
     };
   }
 
@@ -166,6 +264,23 @@ export class AttentionPolicy {
     }
 
     return undefined;
+  }
+
+  private readInterruptCriterion(ambiguityDefaults?: AmbiguityDefaults): AttentionInterruptCriterion {
+    return {
+      activationThreshold:
+        ambiguityDefaults?.nonBlockingActivationThreshold
+        ?? this.judgmentConfig?.ambiguityDefaults?.nonBlockingActivationThreshold
+        ?? JUDGMENT_DEFAULTS.ambiguity.nonBlockingActivationThreshold,
+      promotionMargin:
+        ambiguityDefaults?.promotionMargin
+        ?? this.judgmentConfig?.ambiguityDefaults?.promotionMargin
+        ?? JUDGMENT_DEFAULTS.ambiguity.promotionMargin,
+    };
+  }
+
+  private readPeripheralResolution(policyVerdict: AttentionPolicyVerdict): "queue" | "ambient" {
+    return policyVerdict.minimumPresentation === "ambient" ? "ambient" : "queue";
   }
 }
 

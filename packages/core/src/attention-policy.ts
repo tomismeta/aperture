@@ -12,9 +12,10 @@ import { evaluateNoActiveFrameCriterionRule } from "./policy/no-active-frame-cri
 import { evaluateOperatorAbsenceCriterionRule } from "./policy/operator-absence-criterion-rule.js";
 import { evaluatePeripheralStatusPolicyGateRule } from "./policy/peripheral-status-policy-gate-rule.js";
 import { evaluateSmallScoreGapCriterionRule } from "./policy/small-score-gap-criterion-rule.js";
+import { evaluateSourceTrustCriterionRule } from "./policy/source-trust-criterion-rule.js";
 import type { PolicyCriterionRule, PolicyCriterionRuleInput } from "./policy/policy-criterion-rule.js";
 import type { PolicyGateRule, PolicyGateRuleInput } from "./policy/policy-gate-rule.js";
-import type { UserProfile } from "./profile-store.js";
+import type { MemoryProfile, UserProfile } from "./profile-store.js";
 
 export type AttentionPresentationFloor = "ambient" | "queue" | "active";
 
@@ -41,6 +42,7 @@ export type AttentionInterruptCriterionVerdict = {
 type AttentionPolicyOptions = {
   judgmentConfig?: JudgmentConfig;
   userProfile?: UserProfile;
+  memoryProfile?: MemoryProfile;
 };
 
 const POLICY_GATE_RULES: readonly PolicyGateRule[] = [
@@ -54,6 +56,7 @@ const POLICY_GATE_RULES: readonly PolicyGateRule[] = [
 const POLICY_CRITERION_RULES: readonly PolicyCriterionRule[] = [
   evaluateOperatorAbsenceCriterionRule,
   evaluateInterruptEligibilityCriterionRule,
+  evaluateSourceTrustCriterionRule,
   evaluateNoActiveFrameCriterionRule,
   evaluateSmallScoreGapCriterionRule,
 ];
@@ -61,10 +64,12 @@ const POLICY_CRITERION_RULES: readonly PolicyCriterionRule[] = [
 export class AttentionPolicy {
   private readonly judgmentConfig: JudgmentConfig | undefined;
   private readonly userProfile: UserProfile | undefined;
+  private readonly memoryProfile: MemoryProfile | undefined;
 
   constructor(options: AttentionPolicyOptions = {}) {
     this.judgmentConfig = options.judgmentConfig;
     this.userProfile = options.userProfile;
+    this.memoryProfile = options.memoryProfile;
   }
 
   evaluate(candidate: AttentionCandidate): AttentionPolicyVerdict {
@@ -99,6 +104,7 @@ export class AttentionPolicy {
   ): AttentionInterruptCriterionVerdict {
     const criterion = this.readInterruptCriterion(options.ambiguityDefaults);
     const peripheralResolution = this.readPeripheralResolution(policyVerdict);
+    const sourceTrustAdjustment = this.readSourceTrustAdjustment(candidate);
     const input = this.buildPolicyCriterionInput(
       candidate,
       policyVerdict,
@@ -106,6 +112,7 @@ export class AttentionPolicy {
       candidateScore,
       currentScore,
       criterion,
+      sourceTrustAdjustment,
       peripheralResolution,
     );
 
@@ -141,6 +148,15 @@ export class AttentionPolicy {
     return policyVerdict.minimumPresentation === "ambient" ? "ambient" : "queue";
   }
 
+  private readSourceTrustAdjustment(candidate: AttentionCandidate): number {
+    const sourceKey = candidate.source?.kind ?? candidate.source?.id;
+    if (!sourceKey) {
+      return 0;
+    }
+
+    return this.memoryProfile?.sourceTrust?.[sourceKey]?.[candidate.consequence]?.trustAdjustment ?? 0;
+  }
+
   private buildPolicyGateInput(candidate: AttentionCandidate): PolicyGateRuleInput {
     return {
       candidate,
@@ -156,6 +172,7 @@ export class AttentionPolicy {
     candidateScore: number,
     currentScore: number | null,
     criterion: AttentionInterruptCriterion,
+    sourceTrustAdjustment: number,
     peripheralResolution: "queue" | "ambient",
   ): PolicyCriterionRuleInput {
     return {
@@ -165,6 +182,7 @@ export class AttentionPolicy {
       candidateScore,
       currentScore,
       criterion,
+      sourceTrustAdjustment,
       peripheralResolution,
     };
   }

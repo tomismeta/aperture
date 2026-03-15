@@ -112,6 +112,7 @@ export class ApertureCore {
       new AttentionPolicy({
         ...(this.userProfile !== undefined ? { userProfile: this.userProfile } : {}),
         ...(this.judgmentConfig !== undefined ? { judgmentConfig: this.judgmentConfig } : {}),
+        memoryProfile: this.baseMemoryProfile,
       }),
       new AttentionValue({
         memoryProfile: this.baseMemoryProfile,

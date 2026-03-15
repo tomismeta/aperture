@@ -14,6 +14,7 @@ export type PolicyCriterionRuleInput = {
   candidateScore: number;
   currentScore: number | null;
   criterion: AttentionInterruptCriterion;
+  sourceTrustAdjustment: number;
   peripheralResolution: "queue" | "ambient";
 };
 

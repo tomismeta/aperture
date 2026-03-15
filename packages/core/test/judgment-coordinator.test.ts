@@ -878,6 +878,99 @@ test("queues context-heavy work until it clearly outranks current work", () => {
   assert.equal(decision.kind, "queue");
 });
 
+test("durable source trust can lower the interrupt bar when no frame is active", () => {
+  const trustAwareCoordinator = new JudgmentCoordinator(
+    new AttentionPolicy({
+      memoryProfile: {
+        version: 1,
+        operatorId: "default",
+        updatedAt: "2026-03-12T10:15:00.000Z",
+        sessionCount: 1,
+        sourceTrust: {
+          "claude-code": {
+            medium: {
+              confirmations: 4,
+              disagreements: 0,
+              trustAdjustment: 8,
+            },
+          },
+        },
+      },
+    }),
+    new AttentionValue(),
+    new AttentionPlanner(),
+  );
+
+  const explanation = trustAwareCoordinator.explain(
+    null,
+    createCandidate({
+      blocking: false,
+      priority: "normal",
+      consequence: "medium",
+      tone: "focused",
+      source: { id: "session:1", kind: "claude-code" },
+      attentionScoreOffset: 65,
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "activate");
+  assert.equal(explanation.criterion?.criterion.activationThreshold, 176);
+  assert.deepEqual(explanation.criterion?.rationale, [
+    "durable source trust lowers the interrupt bar for this source",
+  ]);
+});
+
+test("low-trust sources need a clearer margin before they interrupt current work", () => {
+  const trustAwareCoordinator = new JudgmentCoordinator(
+    new AttentionPolicy({
+      memoryProfile: {
+        version: 1,
+        operatorId: "default",
+        updatedAt: "2026-03-12T10:15:00.000Z",
+        sessionCount: 1,
+        sourceTrust: {
+          "claude-code": {
+            medium: {
+              confirmations: 1,
+              disagreements: 4,
+              trustAdjustment: -8,
+            },
+          },
+        },
+      },
+    }),
+    new AttentionValue(),
+    new AttentionPlanner(),
+  );
+
+  const explanation = trustAwareCoordinator.explain(
+    createFrame({
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      responseSpec: { kind: "none" },
+      timing: {
+        createdAt: "2026-03-08T12:00:00.000Z",
+        updatedAt: "2026-03-08T12:00:00.000Z",
+      },
+    }),
+    createCandidate({
+      blocking: false,
+      priority: "normal",
+      consequence: "medium",
+      tone: "focused",
+      source: { id: "session:1", kind: "claude-code" },
+      attentionScoreOffset: 22,
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "queue");
+  assert.equal(explanation.criterion?.criterion.promotionMargin, 24);
+  assert.deepEqual(explanation.criterion?.rationale, [
+    "low-trust source signals need a clearer margin before interrupting",
+  ]);
+});
+
 test("keeps deferred-returning work queued during pressure instead of ambient", () => {
   const memoryAwareCoordinator = new JudgmentCoordinator(
     new AttentionPolicy(),

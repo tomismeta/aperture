@@ -19,6 +19,7 @@ Primary docs:
 
 Reference docs:
 
+- [Attention And Judgment Doctrine](attention-judgment-doctrine.md)
 - [Semantic Normalization](semantic-normalization.md)
 - [Attention Frame](frame.md)
 - [OpenCode Adapter](opencode-integration.md)

@@ -444,7 +444,7 @@ Start here:
 - [Engine Roadmap](docs/engine-roadmap.md)
 - [TUI Surface](docs/tui.md)
 - [Claude Code Adapter](docs/claude-code.md)
-- [OpenCode Integration](docs/opencode-integration.md)
+- [OpenCode Adapter](docs/opencode-integration.md)
 
 Reference docs:
 

@@ -8,20 +8,20 @@ Recommended reading order for someone new to the repo:
 2. [TUI Surface](tui.md) for how to read the human attention surface
 3. [Components](components.md) for the package/runtime architecture
 4. [Claude Code Adapter](claude-code.md) for the Claude Code live source path
-5. [OpenCode Integration](opencode-integration.md) for the OpenCode live source path
+5. [OpenCode Adapter](opencode-integration.md) for the OpenCode live source path
 
 Primary docs:
 
 - [TUI Surface](tui.md)
 - [Components](components.md)
 - [Claude Code Adapter](claude-code.md)
-- [OpenCode Integration](opencode-integration.md)
+- [OpenCode Adapter](opencode-integration.md)
 
 Reference docs:
 
 - [Semantic Normalization](semantic-normalization.md)
 - [Attention Frame](frame.md)
-- [OpenCode Integration](opencode-integration.md)
+- [OpenCode Adapter](opencode-integration.md)
 - [OpenCode Implementation Plan](opencode-implementation-plan.md)
 - [TUI Design](tui-design.md)
 - [Engine Roadmap](engine-roadmap.md)

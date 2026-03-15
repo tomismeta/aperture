@@ -1,4 +1,4 @@
-# OpenCode Integration
+# OpenCode Adapter
 
 This document describes the current OpenCode live source path for Aperture, along with the design constraints that shaped it.
 

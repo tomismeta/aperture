@@ -219,6 +219,15 @@ These are part of the core implementation, but not the product surface to emphas
 
 Adapters are optional.
 
+Current practical split:
+
+- live adapters:
+  - `@aperture/claude-code`
+  - `@aperture/opencode`
+- non-live / design-stage adapters:
+  - `@aperture/codex`
+  - `@aperture/paperclip`
+
 Use an adapter when:
 
 - the upstream system has its own event vocabulary
@@ -233,6 +242,7 @@ Skip adapters when:
 #### `@aperture/codex`
 
 - Classification: source adapter
+- Status: design-stage boundary
 - Lives in [packages/codex/src/index.ts](../packages/codex/src/index.ts)
 - Purpose: translate Codex app-server approval and user-input requests into `SourceEvent`, translate `AttentionResponse` back into Codex response descriptors, and optionally publish through `@aperture/runtime`
 - Owns:
@@ -246,6 +256,7 @@ Skip adapters when:
 #### `@aperture/claude-code`
 
 - Classification: source adapter
+- Status: live
 - Lives in:
   - [packages/claude-code/src/index.ts](../packages/claude-code/src/index.ts)
   - [packages/claude-code/src/server.ts](../packages/claude-code/src/server.ts)
@@ -259,9 +270,28 @@ Skip adapters when:
   - signal storage
   - Claude Code session management
 
+#### `@aperture/opencode`
+
+- Classification: source adapter
+- Status: live
+- Lives in:
+  - [packages/opencode/src/index.ts](../packages/opencode/src/index.ts)
+  - [packages/opencode/src/client.ts](../packages/opencode/src/client.ts)
+  - [packages/opencode/src/bridge.ts](../packages/opencode/src/bridge.ts)
+- Purpose: translate OpenCode server events into `SourceEvent`, translate `AttentionResponse` back into OpenCode reply calls, and connect an existing `opencode serve` instance to `@aperture/runtime`
+- Owns:
+  - OpenCode ingress mapping
+  - OpenCode return-path mapping
+  - OpenCode server transport
+- Does not own:
+  - attention judgment
+  - signal storage
+  - OpenCode runtime execution
+
 #### `@aperture/paperclip`
 
 - Classification: source adapter
+- Status: design-stage boundary
 - Lives in [packages/paperclip/src/index.ts](../packages/paperclip/src/index.ts)
 - Purpose: translate Paperclip live events into `SourceEvent` and translate `AttentionResponse` back into Paperclip actions, with optional publishing through `@aperture/runtime`
 - Owns:
@@ -300,10 +330,12 @@ Everything else is support structure around that loop.
 The product is:
 
 - `@tomismeta/aperture-core`
+- `@aperture/runtime`
 - `@aperture/claude-code`
-- `@aperture/paperclip`
-- `@aperture/codex`
+- `@aperture/opencode`
 - `@aperture/tui`
+
+Additional adapter boundaries exist in the repo for future/design-stage work, but they are not part of the practical live product surface today.
 
 The product is not:
 

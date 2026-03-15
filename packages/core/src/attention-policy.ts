@@ -1,9 +1,14 @@
 import type { AttentionDecisionAmbiguity } from "./attention-ambiguity.js";
 import type { AttentionEvidenceContext } from "./attention-evidence.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
-import { inferToolFamily } from "./interaction-taxonomy.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
 import type { AmbiguityDefaults, JudgmentConfig } from "./judgment-config.js";
+import { evaluateBackgroundPolicyGateRule } from "./policy/background-policy-gate-rule.js";
+import { evaluateBlockingPolicyGateRule } from "./policy/blocking-policy-gate-rule.js";
+import { evaluateConfiguredPolicyGateRule } from "./policy/configured-policy-gate-rule.js";
+import { evaluateInterruptiveDefaultPolicyGateRule } from "./policy/interruptive-default-policy-gate-rule.js";
+import { evaluatePeripheralStatusPolicyGateRule } from "./policy/peripheral-status-policy-gate-rule.js";
+import type { PolicyGateRule, PolicyGateRuleInput } from "./policy/policy-gate-rule.js";
 import type { UserProfile } from "./profile-store.js";
 
 export type AttentionPresentationFloor = "ambient" | "queue" | "active";
@@ -33,6 +38,14 @@ type AttentionPolicyOptions = {
   userProfile?: UserProfile;
 };
 
+const POLICY_GATE_RULES: readonly PolicyGateRule[] = [
+  evaluateConfiguredPolicyGateRule,
+  evaluateBlockingPolicyGateRule,
+  evaluateBackgroundPolicyGateRule,
+  evaluatePeripheralStatusPolicyGateRule,
+  evaluateInterruptiveDefaultPolicyGateRule,
+];
+
 export class AttentionPolicy {
   private readonly judgmentConfig: JudgmentConfig | undefined;
   private readonly userProfile: UserProfile | undefined;
@@ -47,43 +60,12 @@ export class AttentionPolicy {
   }
 
   evaluateGates(candidate: AttentionCandidate): AttentionPolicyVerdict {
-    const configured = this.configuredVerdict(candidate);
-    if (configured) {
-      return configured;
-    }
-
-    if (candidate.blocking) {
-      return {
-        autoApprove: false,
-        mayInterrupt: true,
-        requiresOperatorResponse: true,
-        minimumPresentation: "active",
-        rationale: ["blocking interactions require explicit operator attention"],
-      };
-    }
-
-    if (candidate.priority === "background") {
-      return {
-        autoApprove: false,
-        mayInterrupt: false,
-        requiresOperatorResponse: false,
-        minimumPresentation: "ambient",
-        rationale: ["background work should remain peripheral by default"],
-      };
-    }
-
-    if (
-      candidate.mode === "status" &&
-      candidate.consequence !== "high" &&
-      candidate.tone !== "critical"
-    ) {
-      return {
-        autoApprove: false,
-        mayInterrupt: false,
-        requiresOperatorResponse: false,
-        minimumPresentation: "ambient",
-        rationale: ["non-critical status work should start in the periphery"],
-      };
+    const input = this.buildPolicyGateInput(candidate);
+    for (const rule of POLICY_GATE_RULES) {
+      const evaluation = rule(input);
+      if (evaluation.kind === "verdict") {
+        return evaluation.verdict;
+      }
     }
 
     return {
@@ -174,98 +156,6 @@ export class AttentionPolicy {
     };
   }
 
-  private configuredVerdict(candidate: AttentionCandidate): AttentionPolicyVerdict | null {
-    const toolFamily = inferToolFamily(candidate);
-    const toolOverride = toolFamily
-      ? this.userProfile?.overrides?.tools?.[toolFamily]
-      : undefined;
-    const policyRule = this.matchPolicyRule(candidate);
-    const requireContextExpansion =
-      toolOverride?.requireContextExpansion === true
-      || policyRule?.requireContextExpansion === true;
-    const autoApprove =
-      policyRule?.autoApprove === true
-      && candidate.mode === "approval"
-      && candidate.responseSpec.kind === "approval"
-      && !requireContextExpansion;
-
-    const minimumPresentation = readAttentionPresentationFloor(toolOverride?.defaultPresentation)
-      ?? policyRule?.minimumPresentation
-      ?? (requireContextExpansion ? "active" : undefined);
-    const mayInterrupt = policyRule?.mayInterrupt;
-    const requiresOperatorResponse =
-      !autoApprove
-      && (
-      candidate.blocking
-      || minimumPresentation === "active"
-      || requireContextExpansion
-      );
-
-    if (
-      minimumPresentation === undefined
-      && mayInterrupt === undefined
-      && !toolOverride
-      && !autoApprove
-    ) {
-      return null;
-    }
-
-    const rationale: string[] = [];
-    if (toolFamily && toolOverride) {
-      rationale.push(`user override applies for ${toolFamily} interactions`);
-    }
-    if (policyRule) {
-      rationale.push("configured judgment policy applies to this interaction");
-    }
-
-    if (autoApprove) {
-      rationale.push("configured judgment policy auto-approves this bounded approval");
-      return {
-        autoApprove: true,
-        mayInterrupt: false,
-        requiresOperatorResponse: false,
-        minimumPresentation: "ambient",
-        rationale,
-      };
-    }
-
-    if (requiresOperatorResponse) {
-      rationale.push("operator-response work cannot remain passive without auto-resolution");
-      return {
-        autoApprove: false,
-        mayInterrupt: true,
-        requiresOperatorResponse: true,
-        minimumPresentation: "active",
-        rationale,
-      };
-    }
-
-    return {
-      autoApprove: false,
-      mayInterrupt: mayInterrupt ?? false,
-      requiresOperatorResponse,
-      minimumPresentation: minimumPresentation ?? (candidate.blocking ? "active" : "queue"),
-      rationale,
-    };
-  }
-
-  private matchPolicyRule(candidate: AttentionCandidate) {
-    const policy = this.judgmentConfig?.policy;
-    if (!policy) {
-      return undefined;
-    }
-
-    const tags = policyTagsForCandidate(candidate);
-    for (const tag of tags) {
-      const rule = policy[tag];
-      if (rule) {
-        return rule;
-      }
-    }
-
-    return undefined;
-  }
-
   private readInterruptCriterion(ambiguityDefaults?: AmbiguityDefaults): AttentionInterruptCriterion {
     return {
       activationThreshold:
@@ -282,49 +172,12 @@ export class AttentionPolicy {
   private readPeripheralResolution(policyVerdict: AttentionPolicyVerdict): "queue" | "ambient" {
     return policyVerdict.minimumPresentation === "ambient" ? "ambient" : "queue";
   }
-}
 
-function policyTagsForCandidate(candidate: AttentionCandidate): string[] {
-  const tags: string[] = [];
-  const toolFamily = inferToolFamily(candidate);
-  const value = [
-    candidate.title,
-    candidate.summary ?? "",
-    ...(candidate.context?.items?.flatMap((item) => [item.label, item.value ?? ""]) ?? []),
-  ]
-    .join(" ")
-    .toLowerCase();
-
-  if (candidate.consequence === "low" && toolFamily === "read") {
-    tags.push("lowRiskRead");
-  }
-
-  if (candidate.consequence === "low" && toolFamily === "web") {
-    tags.push("lowRiskWeb");
-  }
-
-  if (value.includes(".env") && (toolFamily === "write" || toolFamily === "edit" || toolFamily === "bash")) {
-    tags.push("envWrite");
-  }
-
-  if (toolFamily === "write" || toolFamily === "edit") {
-    tags.push("fileWrite");
-  }
-
-  if (toolFamily === "bash" && candidate.consequence === "high") {
-    tags.push("destructiveBash");
-  }
-
-  return tags;
-}
-
-function readAttentionPresentationFloor(value: unknown): AttentionPresentationFloor | undefined {
-  switch (value) {
-    case "ambient":
-    case "queue":
-    case "active":
-      return value;
-    default:
-      return undefined;
+  private buildPolicyGateInput(candidate: AttentionCandidate): PolicyGateRuleInput {
+    return {
+      candidate,
+      ...(this.judgmentConfig !== undefined ? { judgmentConfig: this.judgmentConfig } : {}),
+      ...(this.userProfile !== undefined ? { userProfile: this.userProfile } : {}),
+    };
   }
 }

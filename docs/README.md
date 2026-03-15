@@ -20,6 +20,7 @@ Primary docs:
 Reference docs:
 
 - [Attention And Judgment Doctrine](attention-judgment-doctrine.md)
+- [Core Engine Architecture](core-engine-architecture.md)
 - [Semantic Normalization](semantic-normalization.md)
 - [Attention Frame](frame.md)
 - [OpenCode Adapter](opencode-integration.md)

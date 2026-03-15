@@ -158,12 +158,13 @@ What is already true:
 - the core judgment stack is real and exported
 - multi-source normalization already exists
 - Claude Code is the live end-to-end path
+- OpenCode is also a live end-to-end path through the server / terminal flow
 - Codex and Paperclip boundaries are prepared
 - `@tomismeta/aperture-core` is published on npm
 
 What is still missing:
 
-- live transports beyond Claude Code
+- more hardened live transports beyond the flagship Claude path
 - broader external adoption and pressure-tested package contracts
 - performance characterization at scale
 
@@ -495,6 +496,12 @@ Ordered by impact:
 5. **Add an advisory reasoning seam** — introduce optional model assistance for ambiguous, speculative work outside the hot path.
 6. **Broaden the live runtime surface** — add transport breadth beyond Claude Code and strengthen cross-source episode handling.
 7. **Pressure-test the substrate in real hosts** — use one real non-TUI integration to validate the package contract, surface constraints, and judgment behavior under another product's UX assumptions.
+
+Near-term interpretation:
+
+- Claude Code remains the flagship live path
+- OpenCode now provides the second live path and a different transport shape
+- the next host-level proving ground is likely Paperclip, not because Aperture lacks a second source, but because it lacks a second host surface
 
 ## Recommendation
 

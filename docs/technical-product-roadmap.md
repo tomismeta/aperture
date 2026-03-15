@@ -29,7 +29,8 @@ They should move in parallel, but they do not need to move at the same speed.
 Right now:
 
 - the SDK path is already published
-- the next adapter proving ground is likely Paperclip
+- OpenCode is now a second real live adapter path
+- the next non-TUI proving ground is likely Paperclip
 - the next core-engine maturity work should be explicit ambiguity handling
 
 ## Current Read
@@ -50,21 +51,38 @@ What is true today:
 
 This is the flagship path.
 
-#### Paperclip
+#### OpenCode
 
-Status: `partial`
+Status: `live`
 
 What is true today:
 
-- mapping layer exists
-- client/transport helpers exist
-- integration boundary is real
+- live end-to-end integration path through the OpenCode server and terminal flow
+- connection profile flow through Aperture-side config
+- permission approvals, structured questions, and blocked-awareness all route through the shared runtime and TUI
+- one shared TUI can supervise Claude Code and OpenCode together
 
 What is not true yet:
 
-- not a polished live default path
-- not documented as a production-grade integration
-- not hardened to the same level as Claude Code
+- not yet as battle-tested as Claude Code
+- native macOS desktop app support is still partial / experimental
+- generic freeform text entry in the TUI is still a separate follow-on feature
+
+#### Paperclip
+
+Status: `designed`
+
+What is true today:
+
+- the integration thesis is well-defined
+- the adapter boundary is clear
+- the preferred plugin-hosted V1 shape is designed
+
+What is not true yet:
+
+- no implemented plugin or live transport path yet
+- no end-to-end product flow yet
+- not yet pressure-testing the SDK in a second host product
 
 #### Codex
 
@@ -142,7 +160,8 @@ Definitions:
 Current placement:
 
 - Claude Code: `live`, close to `hardened`
-- Paperclip: between `mapped` and `transported`
+- OpenCode: `live`
+- Paperclip: between `mapped` and `transported`, but still design-led rather than operator-ready
 - Codex: `mapped`
 
 ### SDK Ladder
@@ -232,20 +251,23 @@ Ordered by leverage:
 1. **Keep Claude Code as the flagship live adapter**
    - keep one path obviously working while the substrate matures
 
-2. **Prove one second real surface**
-   - Paperclip is the strongest current candidate because it can validate both the adapter seam and the SDK surface
+2. **Keep OpenCode healthy as the second live path**
+   - pressure-test the shared runtime and TUI with a server-based source that Aperture does not control
 
-3. **Tighten the core engine where integrations will pressure it**
+3. **Prove one non-TUI host surface**
+   - Paperclip is still the strongest current candidate because it can validate both the adapter seam and the SDK surface under another product's UI assumptions
+
+4. **Tighten the core engine where integrations will pressure it**
    - explicit ambiguity handling first
    - attention surface capabilities second
    - attention profiles later
    - mode-shaping side signals last
 
-4. **Keep package-facing examples healthy**
+5. **Keep package-facing examples healthy**
    - one full-engine example
    - one judgment-primitive example
 
-5. **Support the published package deliberately**
+6. **Support the published package deliberately**
    - tag releases cleanly
    - keep the README and npm-facing docs honest
    - harden based on real consumer friction
@@ -270,7 +292,8 @@ If we have limited time and limited live adapter demand, the best technical prod
 The best next sequence is:
 
 1. keep Claude Code strong
-2. use Paperclip as the likely second proving ground
-3. implement explicit ambiguity handling before broader core expansions
+2. keep OpenCode healthy as the second live path
+3. use Paperclip as the likely next non-TUI proving ground
+4. implement explicit ambiguity handling before broader core expansions
 
 That keeps the project moving without diluting the product or widening the engine prematurely.

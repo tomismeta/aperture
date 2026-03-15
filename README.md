@@ -29,7 +29,7 @@ Choose one path:
 npm install @tomismeta/aperture-core
 ```
 
-See the full SDK docs in [packages/core/README.md](/Users/tom/dev/aperture/packages/core/README.md).
+See the full SDK docs in [packages/core/README.md](packages/core/README.md).
 
 ### Run The Full Local Stack
 
@@ -105,7 +105,7 @@ That means:
 - low-confidence cases should stay peripheral instead of stealing focus
 - the human attention loop should be deterministic, inspectable, and behaviorally grounded
 
-The full doctrine lives in [docs/attention-judgment-doctrine.md](/Users/tom/dev/aperture/docs/attention-judgment-doctrine.md).
+The full doctrine lives in [docs/attention-judgment-doctrine.md](docs/attention-judgment-doctrine.md).
 
 ## Why It Exists
 
@@ -314,7 +314,7 @@ In other words:
 
 Start with `ApertureEvent` for most integrations. Use `SourceEvent` only when you are building an adapter from source-native events and want Aperture to normalize them first.
 
-For the full package-facing SDK docs, see [packages/core/README.md](/Users/tom/dev/aperture/packages/core/README.md).
+For the full package-facing SDK docs, see [packages/core/README.md](packages/core/README.md).
 
 ## Architecture
 

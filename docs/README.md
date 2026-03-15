@@ -7,13 +7,15 @@ Recommended reading order for someone new to the repo:
 1. [README](../README.md) for the product overview and single quickstart path
 2. [TUI Surface](tui.md) for how to read the human attention surface
 3. [Components](components.md) for the package/runtime architecture
-4. [Claude Code Adapter](claude-code.md) if you are using the current live integration
+4. [Claude Code Adapter](claude-code.md) if you are using the Claude path
+5. [OpenCode Integration](opencode-integration.md) if you are using the OpenCode path
 
 Primary docs:
 
 - [TUI Surface](tui.md)
 - [Components](components.md)
 - [Claude Code Adapter](claude-code.md)
+- [OpenCode Integration](opencode-integration.md)
 
 Reference docs:
 
@@ -37,6 +39,6 @@ Everything in this set matches the current engine-first product:
 
 - a human attention control plane in the core package (`packages/core`, published as `@tomismeta/aperture-core`)
 - a shared local host in `@aperture/runtime`
-- Claude Code as the current live adapter path
+- Claude Code and OpenCode as current live adapter paths
 - Codex and Paperclip as additional adapters with different transport maturity
 - a source-agnostic TUI as the primary companion surface

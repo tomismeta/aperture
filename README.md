@@ -99,6 +99,7 @@ What is real on `main` today:
 - `@aperture/runtime` hosts one live shared core for adapters and surfaces
 - `@aperture/tui` is the terminal-native attention surface
 - `@aperture/claude-code` is the current end-to-end live adapter path
+- `@aperture/opencode` is a working live adapter path for OpenCode server and terminal sessions
 - `@aperture/codex` and `@aperture/paperclip` provide mapping layers today, with different transport maturity
 - the Aperture core SDK now exposes the main judgment primitives for future SDK use
 - the default runtime uses local learning persistence through `.aperture/MEMORY.md` and a scaffolded `.aperture/JUDGMENT.md`
@@ -149,15 +150,38 @@ This is the recommended path if you want Aperture supervising OpenCode through t
 git clone git@github.com:tomismeta/aperture.git
 cd aperture
 pnpm install
-pnpm opencode:connect --global
-pnpm aperture
+pnpm opencode:connect --global --url http://127.0.0.1:4096
 ```
 
 Then:
 
-1. start OpenCode separately with `opencode serve`
+1. start OpenCode separately with `opencode serve --port 4096`
 2. start Aperture with `pnpm aperture`
-3. use the shared Aperture TUI to supervise Claude Code and OpenCode together
+3. if you want OpenCode's terminal UI on the same server, use `opencode attach http://127.0.0.1:4096`
+4. use the shared Aperture TUI to supervise Claude Code and OpenCode together
+
+## OpenCode Capabilities
+
+What Aperture currently supports for OpenCode:
+
+- permission approvals from the OpenCode server / terminal path
+- structured `question.asked` prompts from the OpenCode server / terminal path
+- lightweight awareness when OpenCode is blocked waiting for a human reply
+- one shared runtime and one shared TUI across Claude Code and OpenCode
+- connection profiles via:
+  - `pnpm opencode:connect --global`
+  - `pnpm opencode:disconnect --global`
+
+What is currently the supported story:
+
+- `opencode serve`
+- `pnpm aperture`
+- `opencode attach http://127.0.0.1:4096`
+
+Current limitation:
+
+- the native OpenCode macOS desktop app does not yet reliably surface all human gates through the same server-visible event path Aperture consumes
+- generic freeform text entry in the Aperture TUI is not implemented yet, so OpenCode questions that implicitly allow custom typed answers are only partially represented today
 
 `JUDGMENT.md` is a small human-owned config template. The accepted live values today are:
 
@@ -210,7 +234,7 @@ For the full package-facing SDK docs, see [packages/core/README.md](/Users/tom/d
 
 - Aperture core SDK (`@tomismeta/aperture-core`): deterministic judgment engine
 - `@aperture/runtime`: shared local host for one live `ApertureCore`
-- `@aperture/claude-code`, `@aperture/codex`, `@aperture/paperclip`: source adapters
+- `@aperture/claude-code`, `@aperture/opencode`, `@aperture/codex`, `@aperture/paperclip`: source adapters
 - `@aperture/tui`: source-agnostic terminal surface
 
 The flow is:

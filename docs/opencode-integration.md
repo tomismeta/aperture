@@ -12,6 +12,31 @@ That means:
 - Aperture remains the attention judgment layer
 - the integration must work from OpenCode's existing public server, SDK, and event surfaces
 
+## Current Status
+
+The OpenCode adapter is now a real working capability on `main`.
+
+Today, Aperture supports:
+
+- OpenCode permission approvals through the server / terminal path
+- structured `question.asked` prompts through the server / terminal path
+- lightweight blocked-awareness when OpenCode is waiting for a human follow-up reply
+- one shared Aperture runtime and one shared TUI across Claude Code and OpenCode
+- local Aperture-side connection profiles via:
+  - `pnpm opencode:connect --global`
+  - `pnpm opencode:disconnect --global`
+
+The currently supported operator path is:
+
+- `opencode serve --port 4096`
+- `pnpm aperture`
+- `opencode attach http://127.0.0.1:4096`
+
+Current limitations:
+
+- the native OpenCode macOS desktop app does not yet reliably surface all human gates through the same server-visible event path Aperture consumes
+- generic freeform text entry in the Aperture TUI is not implemented yet, so OpenCode questions that implicitly allow custom typed answers are only partially represented today
+
 ## Goal
 
 Add Aperture as an optional intermediary attention layer for OpenCode that can decide:
@@ -70,7 +95,7 @@ The intended OpenCode command path should mirror the Claude Code ergonomics, whi
 
 ```bash
 pnpm install
-pnpm opencode:connect --global
+pnpm opencode:connect --global --url http://127.0.0.1:4096
 pnpm aperture
 ```
 
@@ -79,6 +104,7 @@ That means:
 - `pnpm opencode:connect --global` stores an Aperture-side OpenCode connection profile in `~/.aperture/opencode.json`
 - `pnpm aperture` starts the shared runtime, the Claude adapter, any configured OpenCode adapters, and the shared TUI
 - OpenCode itself still runs separately via `opencode serve`
+- the clean OpenCode terminal flow is `opencode attach http://127.0.0.1:4096`
 
 If no auth parameters are provided, the connection profile assumes a local unauthenticated OpenCode server.
 
@@ -155,6 +181,7 @@ V1 should focus on the OpenCode events and responses that already form a real hu
 - question requests
 - session status changes
 - selected tool lifecycle events from session message parts
+- lightweight blocked-awareness for follow-up questions carried in assistant text parts
 
 V1 should not try to:
 
@@ -162,6 +189,7 @@ V1 should not try to:
 - own every OpenCode event type
 - change OpenCode's permission policy model
 - hide duplicate native prompts when a user is also looking at OpenCode's own UI
+- add freeform text-entry support to the Aperture TUI as part of the adapter itself
 
 ## Architecture
 

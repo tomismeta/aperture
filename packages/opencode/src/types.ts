@@ -45,7 +45,7 @@ export type OpencodeQuestionRejectInput = {
   message?: string;
 };
 
-export type OpencodeToolCallPattern = {
+export type OpencodeToolCallPattern = string | {
   value?: string;
   source?: string;
   [key: string]: unknown;
@@ -64,6 +64,14 @@ export type OpencodePermissionMetadata = {
 export type OpencodePermissionListItem = {
   id: string;
   sessionID?: string;
+  permission?: string;
+  patterns?: OpencodeToolCallPattern[];
+  always?: string[];
+  tool?: {
+    messageID?: string;
+    callID?: string;
+    [key: string]: unknown;
+  };
   message?: string;
   title?: string;
   metadata?: OpencodePermissionMetadata;

@@ -49,6 +49,35 @@ test("maps permission.asked to an approval request", () => {
   ]);
 });
 
+test("maps external directory approvals from the real OpenCode permission shape", () => {
+  const mapped = mapOpencodeEvent({
+    type: "permission.asked",
+    properties: {
+      id: "perm-2",
+      sessionID: "ses-2",
+      permission: "external_directory",
+      patterns: ["/private/tmp/aperture-opencode-smoke/*"],
+      tool: {
+        callID: "call-external-1",
+      },
+    },
+  }, context);
+
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "human.input.requested");
+  if (mapped[0]?.type !== "human.input.requested") {
+    return;
+  }
+
+  assert.equal(mapped[0].title, "OpenCode wants to access a path");
+  assert.equal(mapped[0].summary, "/private/tmp/aperture-opencode-smoke/*");
+  assert.deepEqual(mapped[0].context?.items, [
+    { id: "path", label: "Path", value: "/private/tmp/aperture-opencode-smoke/*" },
+    { id: "cwd", label: "Working directory", value: "/workspace/project" },
+    { id: "call", label: "Call ID", value: "call-external-1" },
+  ]);
+});
+
 test("maps question.asked with options to a choice request", () => {
   const mapped = mapOpencodeEvent({
     type: "question.asked",

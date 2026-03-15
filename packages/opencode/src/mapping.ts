@@ -263,12 +263,12 @@ function mapPermissionAsked(
   const instanceKey = createOpencodeInstanceKey(context);
   const requestId = event.properties.id;
   const sessionId = readString(event.properties.sessionID) ?? readString(event.properties.metadata?.sessionID);
-  const tool = readString(event.properties.metadata?.tool);
+  const tool = readString(event.properties.permission) ?? readString(event.properties.metadata?.tool);
   const declaredTitle =
     readString(event.properties.title)
     ?? readString(event.properties.metadata?.title);
   const description = readString(event.properties.metadata?.description);
-  const patternText = patternSummary(event.properties.metadata?.patterns);
+  const patternText = patternSummary(event.properties.patterns ?? event.properties.metadata?.patterns);
   const summary =
     inferPermissionSummary({
       tool,
@@ -285,7 +285,7 @@ function mapPermissionAsked(
   const contextItems = [
     fieldItem(detailFieldId(tool), detailFieldLabel(tool), preferredContextValue(tool, patternText, summary)),
     fieldItem("cwd", "Working directory", context.scope?.directory),
-    fieldItem("call", "Call ID", readString(event.properties.metadata?.callID)),
+    fieldItem("call", "Call ID", readString(event.properties.tool?.callID) ?? readString(event.properties.metadata?.callID)),
   ].filter((item): item is { id: string; label: string; value: string } => item !== null);
 
   const result: SourceHumanInputRequestedEvent = {
@@ -492,7 +492,7 @@ function patternSummary(patterns: OpencodeToolCallPattern[] | undefined): string
     return undefined;
   }
   return patterns
-    .map((pattern) => pattern.value ?? pattern.source)
+    .map((pattern) => typeof pattern === "string" ? pattern : pattern.value ?? pattern.source)
     .filter((value): value is string => Boolean(value))
     .join(", ");
 }
@@ -608,6 +608,8 @@ function detailFieldId(tool: string | undefined): string {
       return "target";
     case "webfetch":
       return "url";
+    case "external_directory":
+      return "path";
     default:
       return "pattern";
   }
@@ -621,6 +623,8 @@ function detailFieldLabel(tool: string | undefined): string {
       return "Target";
     case "webfetch":
       return "URL";
+    case "external_directory":
+      return "Path";
     default:
       return "Pattern";
   }

@@ -44,6 +44,7 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
 
   const reconnectInitialDelayMs = options.client.reconnect?.initialDelayMs ?? 1_000;
   const reconnectMaxDelayMs = options.client.reconnect?.maxDelayMs ?? 10_000;
+  const heartbeatTimeoutMs = options.client.reconnect?.heartbeatTimeoutMs ?? 30_000;
   const reconnectMaxAttempts = options.client.reconnect?.maxAttempts ?? Infinity;
 
   return {
@@ -119,8 +120,33 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
     let delayMs = reconnectInitialDelayMs;
 
     while (!closed && !signal.aborted) {
+      const attemptController = new AbortController();
+      const onAbort = () => {
+        attemptController.abort();
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+      let heartbeatTimedOut = false;
+      let heartbeatTimer: NodeJS.Timeout | null = null;
+
+      const clearHeartbeatTimer = () => {
+        if (heartbeatTimer) {
+          clearTimeout(heartbeatTimer);
+          heartbeatTimer = null;
+        }
+      };
+
+      const resetHeartbeatTimer = () => {
+        clearHeartbeatTimer();
+        heartbeatTimer = setTimeout(() => {
+          heartbeatTimedOut = true;
+          attemptController.abort();
+        }, heartbeatTimeoutMs);
+      };
+
       try {
-        for await (const event of client.streamEvents({ signal })) {
+        resetHeartbeatTimer();
+        for await (const event of client.streamEvents({ signal: attemptController.signal })) {
+          resetHeartbeatTimer();
           attempts = 0;
           delayMs = reconnectInitialDelayMs;
           if (bootstrapping) {
@@ -140,7 +166,10 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
         }
 
         attempts += 1;
-        await reportBridgeIssue(undefined, "OpenCode event stream disconnected", error).catch((reportError) => {
+        const disconnectError = heartbeatTimedOut
+          ? new Error(`OpenCode event stream heartbeat timed out after ${heartbeatTimeoutMs}ms`)
+          : error;
+        await reportBridgeIssue(undefined, "OpenCode event stream disconnected", disconnectError).catch((reportError) => {
           console.error("Failed to publish OpenCode bridge issue", reportError);
         });
         if (attempts > reconnectMaxAttempts) {
@@ -148,6 +177,9 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
         }
         await sleep(delayMs);
         delayMs = Math.min(reconnectMaxDelayMs, delayMs * 2);
+      } finally {
+        clearHeartbeatTimer();
+        signal.removeEventListener("abort", onAbort);
       }
     }
   }

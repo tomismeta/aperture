@@ -118,6 +118,178 @@ test("bootstraps pending permissions and routes runtime responses back to OpenCo
   }
 });
 
+test("reconnects when the OpenCode event stream closes unexpectedly", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { controlUrl } = await runtime.listen();
+  let eventConnections = 0;
+
+  const server = createServer(async (req, res) => {
+    const url = new URL(req.url ?? "/", "http://127.0.0.1");
+
+    if (req.method === "GET" && url.pathname === "/permission") {
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify([]));
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/question") {
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify([]));
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/event") {
+      eventConnections += 1;
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      });
+      res.write(`data: ${JSON.stringify({ type: "server.connected", properties: {} })}\n\n`);
+
+      if (eventConnections === 1) {
+        setTimeout(() => {
+          res.end();
+        }, 25);
+        return;
+      }
+
+      res.write(`data: ${JSON.stringify({
+        type: "permission.asked",
+        properties: {
+          id: "perm-reconnect",
+          sessionID: "ses-reconnect",
+          message: "Reconnect permission",
+          metadata: { tool: "bash" },
+          createdAt: "2026-03-14T12:00:00.000Z",
+        },
+      })}\n\n`);
+      return;
+    }
+
+    res.statusCode = 404;
+    res.end();
+  });
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("test server did not bind");
+  }
+
+  const bridge = createOpencodeBridge({
+    runtimeBaseUrl: controlUrl,
+    client: {
+      baseUrl: `http://127.0.0.1:${address.port}`,
+      reconnect: {
+        initialDelayMs: 10,
+        maxDelayMs: 20,
+        maxAttempts: 3,
+      },
+    },
+  });
+
+  try {
+    await bridge.start();
+
+    const active = await waitFor(() => runtime.getCore().getAttentionView().active, { timeoutMs: 1_000 });
+    assert.ok(active);
+    assert.equal(active?.responseSpec?.kind, "approval");
+    assert.ok(eventConnections >= 2);
+  } finally {
+    await bridge.close();
+    await runtime.close();
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => error ? reject(error) : resolve());
+    });
+  }
+});
+
+test("reconnects when the OpenCode event stream stops heartbeating", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { controlUrl } = await runtime.listen();
+  let eventConnections = 0;
+
+  const server = createServer(async (req, res) => {
+    const url = new URL(req.url ?? "/", "http://127.0.0.1");
+
+    if (req.method === "GET" && url.pathname === "/permission") {
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify([]));
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/question") {
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify([]));
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/event") {
+      eventConnections += 1;
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      });
+      res.write(`data: ${JSON.stringify({ type: "server.connected", properties: {} })}\n\n`);
+
+      if (eventConnections === 1) {
+        return;
+      }
+
+      res.write(`data: ${JSON.stringify({
+        type: "permission.asked",
+        properties: {
+          id: "perm-heartbeat",
+          sessionID: "ses-heartbeat",
+          message: "Heartbeat permission",
+          metadata: { tool: "bash" },
+          createdAt: "2026-03-14T12:00:00.000Z",
+        },
+      })}\n\n`);
+      return;
+    }
+
+    res.statusCode = 404;
+    res.end();
+  });
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("test server did not bind");
+  }
+
+  const bridge = createOpencodeBridge({
+    runtimeBaseUrl: controlUrl,
+    client: {
+      baseUrl: `http://127.0.0.1:${address.port}`,
+      reconnect: {
+        initialDelayMs: 10,
+        maxDelayMs: 20,
+        heartbeatTimeoutMs: 40,
+        maxAttempts: 4,
+      },
+    },
+  });
+
+  try {
+    await bridge.start();
+
+    const active = await waitFor(() => runtime.getCore().getAttentionView().active, { timeoutMs: 1_000 });
+    assert.ok(active);
+    assert.equal(active?.responseSpec?.kind, "approval");
+    assert.ok(eventConnections >= 2);
+  } finally {
+    await bridge.close();
+    await runtime.close();
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => error ? reject(error) : resolve());
+    });
+  }
+});
+
 async function readJson(req: import("node:http").IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) {

@@ -470,10 +470,17 @@ function promptsToRequest(prompts: OpencodeQuestionPrompt[]) {
   if (prompts.length === 1 && prompts[0]?.options?.length) {
     const prompt = prompts[0];
     const options = prompt.options ?? [];
+    const allowTextResponse =
+      prompt.custom === true
+      || prompt.allowCustomInput === true
+      // OpenCode's native clients can offer a freeform "type your own answer"
+      // path for single-question choice prompts even when the server payload
+      // does not include an explicit custom-input flag.
+      || (prompt.multiple !== true && prompt.multiSelect !== true);
     return {
       kind: "choice" as const,
       selectionMode: prompt.multiple || prompt.multiSelect ? "multiple" as const : "single" as const,
-      ...(prompt.custom === true || prompt.allowCustomInput === true
+      ...(allowTextResponse
         ? {
             allowTextResponse: true,
           }

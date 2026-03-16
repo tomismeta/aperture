@@ -178,6 +178,33 @@ test("maps question.asked custom choice affordance to generic text response", ()
   assert.equal(mapped[0].request.allowTextResponse, true);
 });
 
+test("maps single-question choice prompts to include freeform reply affordance", () => {
+  const mapped = mapOpencodeEvent({
+    type: "question.asked",
+    properties: {
+      id: "question-implicit-custom-1",
+      sessionID: "ses-implicit-custom-1",
+      questions: [
+        {
+          header: "Content",
+          question: "What content would you like in the file?",
+          options: [
+            { label: "Empty template" },
+            { label: "Include aperture info" },
+          ],
+        },
+      ],
+    },
+  }, context);
+
+  assert.equal(mapped[0]?.type, "human.input.requested");
+  if (mapped[0]?.type !== "human.input.requested" || mapped[0].request.kind !== "choice") {
+    return;
+  }
+
+  assert.equal(mapped[0].request.allowTextResponse, true);
+});
+
 test("maps OpenCode approvals back to permission reply calls", () => {
   const response: AttentionResponse = {
     taskId: `opencode:${createOpencodeInstanceKey(context)}:session:ses-1`,

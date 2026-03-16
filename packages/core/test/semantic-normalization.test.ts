@@ -87,7 +87,7 @@ test("uses medium consequence by default when no risk hint is provided", () => {
     taskId: "task:1",
     interactionId: "interaction:1",
     timestamp,
-    source: source("paperclip"),
+    source: source("custom-agent"),
     title: "Choose environment",
     summary: "Select a deployment target",
     request: {
@@ -113,7 +113,7 @@ test("preserves factual task status updates without adapter-owned semantic drift
     type: "task.updated",
     taskId: "task:run:1",
     timestamp,
-    source: source("paperclip"),
+    source: source("custom-agent"),
     title: "Run failed",
     summary: "Migration failed in staging",
     status: "failed",
@@ -125,7 +125,7 @@ test("preserves factual task status updates without adapter-owned semantic drift
 });
 
 test("equivalent source approvals normalize to equivalent semantics across sources", () => {
-  const sources = [source("claude-code"), source("codex"), source("paperclip")];
+  const sources = [source("claude-code"), source("codex"), source("opencode")];
 
   const normalized = sources.map((src, index) =>
     normalizeSourceEvent({

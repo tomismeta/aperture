@@ -18,10 +18,8 @@ export const ANSI = {
   italic: "\u001B[3m",
   white: "\u001B[97m",
   gray: "\u001B[90m",
-  // Semantic — used sparingly
-  red: "\u001B[91m",
-  green: "\u001B[32m",
-  yellow: "\u001B[93m",
+  // Brand — single accent hue, hierarchy through weight
+  cyan: "\u001B[96m",
 } as const;
 
 // ── Style functions ──────────────────────────────────────────────────
@@ -58,9 +56,9 @@ export function styleRank(rank: number, color: boolean): string {
   return color ? `${ANSI.dim}${value}${ANSI.reset}` : value;
 }
 
-/** Brand "APERTURE" — bold white. Stands out through weight, not color. */
+/** Brand "APERTURE" — bold cyan. The single accent gives it identity. */
 export function styleBrand(value: string, color: boolean): string {
-  return color ? `${ANSI.bold}${ANSI.white}${value}${ANSI.reset}` : value;
+  return color ? `${ANSI.bold}${ANSI.cyan}${value}${ANSI.reset}` : value;
 }
 
 /** Source labels — dim, informational, not interactive */
@@ -68,9 +66,38 @@ export function styleSource(value: string, color: boolean): string {
   return color ? `${ANSI.dim}${value}${ANSI.reset}` : value;
 }
 
+/** Numeric values worth highlighting — cyan, draws eye to key data */
+export function styleValue(value: string, color: boolean): string {
+  return color ? `${ANSI.cyan}${value}${ANSI.reset}` : value;
+}
+
+/**
+ * Title with filename highlighting — filenames and paths pop in cyan
+ * while the rest stays bold white. Matches common patterns:
+ * - bare filenames: render-why.ts, package.json
+ * - absolute paths: /Users/tom/dev/aperture/src/render.ts
+ * - relative paths: src/render.ts, ./render.ts
+ */
+export function styleTitle(value: string, color: boolean): string {
+  if (!color) return value;
+  // Match paths or filenames with extensions
+  const filePattern = /(?:(?:\.?\/)?(?:[\w@.-]+\/)+[\w@.-]+\.\w+|[\w@.-]+\.\w{1,10})/g;
+  let result = "";
+  let lastIndex = 0;
+  for (const match of value.matchAll(filePattern)) {
+    const before = value.slice(lastIndex, match.index);
+    if (before) result += `${ANSI.bold}${ANSI.white}${before}${ANSI.reset}`;
+    result += `${ANSI.bold}${ANSI.cyan}${match[0]}${ANSI.reset}`;
+    lastIndex = match.index + match[0].length;
+  }
+  const remaining = value.slice(lastIndex);
+  if (remaining) result += `${ANSI.bold}${ANSI.white}${remaining}${ANSI.reset}`;
+  return result || styleStrong(value, color);
+}
+
 // ── Semantic colors (used very sparingly) ────────────────────────────
 
-/** Posture and status — only place color is used for meaning */
+/** Posture — single cyan hue, hierarchy through weight (dim/normal/bold) */
 export function stylePosture(posture: Posture, flash: boolean, color: boolean): string {
   const icons: Record<Posture, string> = {
     calm: "○",
@@ -81,26 +108,26 @@ export function stylePosture(posture: Posture, flash: boolean, color: boolean): 
   if (!color) return text;
   switch (posture) {
     case "calm":
-      return `${ANSI.dim}${text}${ANSI.reset}`;
+      return `${ANSI.dim}${ANSI.cyan}${text}${ANSI.reset}`;
     case "elevated":
       return flash
-        ? `${ANSI.bold}${ANSI.yellow}${text}${ANSI.reset}`
-        : `${ANSI.yellow}${text}${ANSI.reset}`;
+        ? `${ANSI.bold}${ANSI.cyan}${text}${ANSI.reset}`
+        : `${ANSI.cyan}${text}${ANSI.reset}`;
     case "busy":
       return flash
-        ? `${ANSI.bold}${ANSI.red}${text}${ANSI.reset}`
-        : `${ANSI.red}${text}${ANSI.reset}`;
+        ? `${ANSI.bold}${ANSI.cyan}${text}${ANSI.reset}`
+        : `${ANSI.bold}${ANSI.cyan}${text}${ANSI.reset}`;
   }
 }
 
-/** Why-mode: verdict/override labels — yellow, the only bright semantic color */
+/** Why-mode: verdict/override labels — bold cyan, brand accent */
 export function styleVerdict(value: string, color: boolean): string {
-  return color ? `${ANSI.yellow}${value}${ANSI.reset}` : value;
+  return color ? `${ANSI.bold}${ANSI.cyan}${value}${ANSI.reset}` : value;
 }
 
-/** Why-mode: active gate names that produced a decision */
+/** Why-mode: active gate names that produced a decision — cyan */
 export function styleActiveGate(value: string, color: boolean): string {
-  return color ? `${ANSI.white}${value}${ANSI.reset}` : value;
+  return color ? `${ANSI.cyan}${value}${ANSI.reset}` : value;
 }
 
 // ── Text utilities ───────────────────────────────────────────────────

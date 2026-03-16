@@ -307,7 +307,8 @@ function mapPermissionAsked(
       kind: "opencode",
       label: context.sourceLabel ?? "OpenCode",
     },
-    toolFamily: tool ?? "opencode",
+    toolFamily: opencodeToolFamily(tool),
+    activityClass: "permission_request",
     title,
     summary,
     request: {
@@ -366,6 +367,7 @@ function mapQuestionAsked(
       label: context.sourceLabel ?? "OpenCode",
     },
     toolFamily: "opencode",
+    activityClass: "question_request",
     title,
     summary,
     request,
@@ -398,6 +400,7 @@ function mapSessionStatus(event: Extract<OpencodeSseMessage, { type: "session.st
       kind: "opencode",
       label: context.sourceLabel ?? "OpenCode",
     },
+    activityClass: "session_status",
     title: `OpenCode session ${status}`,
     status,
   };
@@ -432,6 +435,7 @@ function mapMessagePartUpdated(event: OpencodeMessagePartUpdatedEvent, context: 
             kind: "opencode",
             label: context.sourceLabel ?? "OpenCode",
           },
+          activityClass: "follow_up",
           title: "OpenCode is waiting for your reply",
           summary: text,
           status: "blocked",
@@ -456,6 +460,7 @@ function mapMessagePartUpdated(event: OpencodeMessagePartUpdatedEvent, context: 
           kind: "opencode",
           label: context.sourceLabel ?? "OpenCode",
         },
+        activityClass: "tool_failure",
         title: "OpenCode tool step failed",
         summary: `${partType} reported ${state}.`,
         status: "failed",
@@ -741,4 +746,19 @@ function rejectedResponse(reason: string | undefined): AttentionResponse["respon
 
 function readString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() !== "" ? value : undefined;
+}
+
+function opencodeToolFamily(tool: string | undefined): string {
+  switch (tool?.toLowerCase()) {
+    case "bash":
+      return "bash";
+    case "edit":
+      return "edit";
+    case "webfetch":
+      return "web";
+    case "external_directory":
+      return "read";
+    default:
+      return tool?.trim() ? tool.toLowerCase() : "opencode";
+  }
 }

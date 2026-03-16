@@ -61,7 +61,7 @@ Why this comes first:
 - high leverage
 - low surface-area cost
 - improves safety
-- improves predictability for integrations like Paperclip
+- improves predictability for integrations beyond the terminal
 
 Likely code areas:
 
@@ -98,7 +98,7 @@ Examples:
 Why this comes second:
 
 - high leverage for multi-surface SDK adoption
-- especially relevant for Paperclip and future custom UIs
+- especially relevant for future custom UIs
 - keeps the core loop unchanged while making the engine more realistic
 
 Likely code areas:
@@ -232,7 +232,7 @@ These are powerful but easiest to get wrong. They should follow real host/integr
 Before implementation, answer:
 
 - what should the safe default be when the engine is unsure?
-- what host constraints actually matter across TUI, Paperclip, and custom UIs?
+- what host constraints actually matter across TUI and future custom UIs?
 - which profile differences are real product needs versus naming over internal config?
 - which side-channel signals show up repeatedly in traces and operator behavior?
 

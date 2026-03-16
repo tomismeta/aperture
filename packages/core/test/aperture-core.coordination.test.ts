@@ -113,6 +113,7 @@ test("trace reasons explain why lower-priority work is queued", () => {
   }
 
   assert.equal(candidateTrace.coordination.kind, "queue");
+  assert.equal(candidateTrace.coordination.resultBucket, "queued");
   assert.match(
     candidateTrace.coordination.reasons.join(" "),
     /current work still outranks the new candidate/,
@@ -291,7 +292,7 @@ test("completed tasks clear ambient-only task state", () => {
     taskId: "task:ambient",
     timestamp: "2026-03-08T12:00:00.000Z",
     type: "task.updated",
-    source: { id: "paperclip:vps", kind: "paperclip" },
+    source: { id: "custom-agent:vps", kind: "custom-agent" },
     title: "Remote approval needed",
     summary: "A remote agent needs a human decision.",
     status: "blocked",
@@ -309,4 +310,109 @@ test("completed tasks clear ambient-only task state", () => {
 
   assert.equal(core.getAttentionView().active, null);
   assert.equal(core.getTaskView("task:ambient").ambient.length, 0);
+});
+
+test("same-interaction status updates can demote an active frame into ambient", () => {
+  const core = new ApertureCore();
+  const traces: ApertureTrace[] = [];
+
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+
+  core.publish({
+    id: "evt:blocked",
+    taskId: "task:status",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    type: "task.updated",
+    title: "Claude is waiting for follow-up",
+    summary: "A follow-up question needs input.",
+    status: "blocked",
+  });
+
+  assert.equal(core.getAttentionView().active?.title, "Claude is waiting for follow-up");
+
+  core.publish({
+    id: "evt:running",
+    taskId: "task:status",
+    timestamp: "2026-03-08T12:00:01.000Z",
+    type: "task.updated",
+    title: "Read completed",
+    summary: "Read completed successfully.",
+    status: "running",
+  });
+
+  assert.equal(core.getAttentionView().active, null);
+  assert.equal(core.getAttentionView().ambient[0]?.title, "Read completed");
+
+  const candidateTrace = traces.findLast((trace) => trace.evaluation.kind === "candidate");
+  assert.ok(candidateTrace);
+  if (!candidateTrace || candidateTrace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(candidateTrace.coordination.kind, "ambient");
+  assert.equal(candidateTrace.coordination.resultBucket, "ambient");
+});
+
+test("committed bucket matches queued routing under operator absence", () => {
+  const core = new ApertureCore({ operatorPresence: "absent" });
+  const traces: ApertureTrace[] = [];
+
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+
+  core.publish({
+    id: "evt:approval",
+    taskId: "task:approval",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:approval",
+    title: "Approve deploy",
+    summary: "A deploy needs approval.",
+    request: { kind: "approval" },
+  });
+
+  const candidateTrace = traces.findLast((trace) => trace.evaluation.kind === "candidate");
+  assert.ok(candidateTrace);
+  if (!candidateTrace || candidateTrace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(candidateTrace.coordination.kind, "queue");
+  assert.equal(candidateTrace.coordination.resultBucket, "queued");
+  assert.equal(core.getAttentionView().queued[0]?.interactionId, "interaction:approval");
+});
+
+test("committed bucket matches ambient routing for passive status", () => {
+  const core = new ApertureCore();
+  const traces: ApertureTrace[] = [];
+
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+
+  core.publish({
+    id: "evt:status",
+    taskId: "task:status",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    type: "task.updated",
+    title: "Read completed",
+    summary: "Read completed successfully.",
+    toolFamily: "read",
+    activityClass: "tool_completion",
+    status: "running",
+  });
+
+  const candidateTrace = traces.findLast((trace) => trace.evaluation.kind === "candidate");
+  assert.ok(candidateTrace);
+  if (!candidateTrace || candidateTrace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(candidateTrace.coordination.kind, "ambient");
+  assert.equal(candidateTrace.coordination.resultBucket, "ambient");
+  assert.equal(core.getAttentionView().active, null);
+  assert.equal(core.getAttentionView().ambient[0]?.interactionId, "interaction:task:status:status");
 });

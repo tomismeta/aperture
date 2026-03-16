@@ -1,6 +1,7 @@
 # Aperture Technical Product Roadmap
 
-This document tracks the productization work that sits alongside the core product roadmap.
+This document tracks the technical productization work that sits beside the
+engine roadmap.
 
 The product roadmap answers:
 
@@ -8,292 +9,186 @@ The product roadmap answers:
 - where the moat deepens
 - what the next macro product moves are
 
-This technical roadmap answers:
+This document answers:
 
-- how mature each adapter path is
-- how close the Aperture core SDK package is to becoming a real SDK
-- what should happen before and after npm publishing
+- how mature the live adapter paths are
+- how healthy the shared runtime/TUI product path is
+- how the published core SDK should evolve from here
 
-The goal is to improve distribution and maturity without diluting the product.
+## Current State
 
-## Three Parallel Tracks
+Right now Aperture has:
 
-There are three technical productization tracks:
+- a published core SDK:
+  - `@tomismeta/aperture-core@0.2.1`
+- two live adapter paths:
+  - Claude Code
+  - OpenCode
+- one shared local runtime
+- one shared TUI
+- a recently completed hardening phase focused on:
+  - explicit semantics before judgment
+  - bounded fallback heuristics
+  - route-vs-surface invariants
+  - golden host scenarios
+
+The immediate technical priority is not breadth. It is confidence:
+
+- confidence in the live adapter paths
+- confidence in the published SDK surface
+- confidence in replayable deterministic behavior
+
+## The Three Tracks
+
+There are still three parallel technical tracks:
 
 1. adapter maturity
-2. core package and SDK readiness
-3. core engine maturation for embed and multi-surface use
+2. SDK/package maturity
+3. engine maturity for embed and multi-surface use
 
-They should move in parallel, but they do not need to move at the same speed.
+They should influence each other, but they do not have to move in lockstep.
 
-Right now:
+## Adapter Maturity
 
-- the SDK path is already published
-- OpenCode is now a second real live adapter path
-- the next non-TUI proving ground is likely Paperclip
-- the next core-engine maturity work should be explicit ambiguity handling
+### Claude Code
 
-## Current Read
+Status: `live, close to hardened`
 
-### Adapter Maturity
+What is true today:
 
-#### Claude Code
+- live end-to-end hook path
+- approval / hold / timeout behavior
+- follow-up and passive-status handling
+- explicit semantics for high-value passive and interactive paths
+- strong regression coverage
+
+This remains the flagship live path.
+
+### OpenCode
 
 Status: `live`
 
 What is true today:
 
-- live end-to-end integration path
-- hook-based connection flow
-- approval/hold/timeout behavior
-- strong test coverage
-- default product path in the README
+- live end-to-end server + terminal flow
+- Aperture-side connection profile setup
+- permissions, structured questions, blocked awareness, and session-status paths
+- shared runtime + shared TUI alongside Claude Code
+- explicit semantics threaded through the high-value paths
 
-This is the flagship path.
+What is still weaker than Claude:
 
-#### OpenCode
+- less battle-tested
+- more host-surface variance
+- desktop/macOS behavior is still less proven than the server/terminal path
 
-Status: `live`
-
-What is true today:
-
-- live end-to-end integration path through the OpenCode server and terminal flow
-- connection profile flow through Aperture-side config
-- permission approvals, structured questions, and blocked-awareness all route through the shared runtime and TUI
-- one shared TUI can supervise Claude Code and OpenCode together
-
-What is not true yet:
-
-- not yet as battle-tested as Claude Code
-- native macOS desktop app support is still partial / experimental
-- generic freeform text entry in the TUI is still a separate follow-on feature
-
-#### Paperclip
-
-Status: `designed`
-
-What is true today:
-
-- the integration thesis is well-defined
-- the adapter boundary is clear
-- the preferred plugin-hosted V1 shape is designed
-
-What is not true yet:
-
-- no implemented plugin or live transport path yet
-- no end-to-end product flow yet
-- not yet pressure-testing the SDK in a second host product
-
-#### Codex
+### Codex
 
 Status: `boundary only`
 
 What is true today:
 
-- semantic mapping layer exists
-- package boundary is in place
+- semantic mapping boundary exists
+- package boundary exists
 
 What is not true yet:
 
 - no live transport path
 - no end-to-end product flow
 
-### Core / SDK Readiness
+## SDK / Package Maturity
 
-#### Architecture
-
-Status: `strong`
-
-What is true today:
-
-- the real judgment layer lives in the Aperture core SDK package (`@tomismeta/aperture-core`)
-- the judgment vocabulary is coherent
-- the learning loop lives in core, not just runtime glue
-- the main judgment primitives are exported
-- the product and SDK stories are now aligned
-
-#### Package Surface
+### Current State
 
 Status: `published`
 
 What is true today:
 
-- `ApertureCore` is a plausible full-engine integration surface
+- `ApertureCore` is a real integration surface
 - lower-level judgment primitives are available
-- learning persistence is part of the core model
-- the SDK path is documented
-- external consumers can install a packed tarball and run both full-engine and judgment-primitive examples
-- package metadata and tarball contents are now curated for first release
-- `@tomismeta/aperture-core@0.1.1` is published on npm
+- the learning loop is part of the package story
+- examples and external-consumer proof paths exist
+- release notes and npm-facing docs are live
 
-Namespace note:
+### What Matters Now
 
-- the package is published as `@tomismeta/aperture-core` because the `@aperture` npm scope was not available at first release
-- the product and architecture language remain "Aperture" and "Aperture Core"
-- a future scope migration is possible without changing the underlying product thesis
+The SDK question is no longer:
 
-## The Maturity Ladder
+- can Aperture be published?
 
-### Adapter Ladder
+It is now:
 
-The adapter track should move through four levels:
+- how do we keep the published surface honest as the engine evolves?
 
-1. `mapped`
-2. `transported`
-3. `live`
-4. `hardened`
+That means:
 
-Definitions:
+- keep the README and npm-facing docs accurate
+- keep examples healthy
+- avoid expanding the public surface casually
+- support external consumers based on actual friction, not guesswork
 
-- `mapped`
-  - source events translate cleanly into Aperture contracts
+## Engine Maturity For Embed And Multi-Surface Use
 
-- `transported`
-  - there is a working live transport path
-
-- `live`
-  - the path is documented and usable end to end
-
-- `hardened`
-  - the path is tested, reliable, and worth foregrounding in the product
-
-Current placement:
-
-- Claude Code: `live`, close to `hardened`
-- OpenCode: `live`
-- Paperclip: between `mapped` and `transported`, but still design-led rather than operator-ready
-- Codex: `mapped`
-
-### SDK Ladder
-
-The SDK track should move through five levels:
-
-1. `SDK-aware`
-2. `SDK-proving`
-3. `SDK-hardened`
-4. `SDK-ready`
-5. `published`
-
-Definitions:
-
-- `SDK-aware`
-  - the architecture is exportable and the naming is coherent
-
-- `SDK-proving`
-  - an external consumer can use the package outside the monorepo
-
-- `SDK-hardened`
-  - the public contract is intentionally small and explicitly documented
-
-- `SDK-ready`
-  - packaging, metadata, examples, tarball hygiene, and install flows are ready for first release
-
-- `published`
-  - the package is actually on npm and being used as a substrate
-
-Current placement:
-
-- the Aperture core SDK package: `published`
-
-The next target is adoption and iteration.
-
-### Core Engine Maturation
-
-#### Status
-
-Status: `defined, not yet implemented`
+Status: `strong foundation, next stage defined`
 
 What is true today:
 
-- the judgment core is already strong enough to publish and embed
-- the loop is coherent: policy -> value -> planning -> presentation -> response
-- the engine already learns from signals over time
+- the deterministic loop is coherent:
+  - policy
+  - value
+  - planning
+  - continuity
+  - presentation
+  - response
+- the hardening phase materially reduced routing-critical fragility
+- explicit semantics now dominate the critical paths
+- traces can explain both routed and surfaced outcomes
 
-What is not true yet:
+What is still next, not done:
 
-- ambiguity is not yet a first-class explicit policy seam
-- attention surface capabilities are not yet strongly explicit planner inputs
-- named attention profiles do not yet exist as a first-class product concept
-- mode-shaping side signals are not yet deliberately modeled
+- explicit ambiguity handling
+- stronger attention-surface capability modeling
+- broader replay/eval tooling
+- more mature host-level validation outside the shared TUI
 
-## What SDK-Ready Meant Before Publishing
+For the engine ordering, see:
 
-Before the first npm publish, Aperture needed to prove the core package in one small external integration and keep tightening the artifact itself.
-
-That should mean:
-
-- create a tiny consumer outside the workspace
-- install or pack the Aperture core SDK package
-- exercise `ApertureCore` in full-engine mode
-- exercise at least one lower-level judgment primitive path
-- verify the learning loop still works outside the built-in runtime
-- keep the tarball limited to the published contract
-
-This was the right step because it revealed real API friction and packaging sloppiness before making a public compatibility promise.
-
-## Publish Gates We Used For The First SDK Release
-
-These were the gates for the first publish:
-
-1. the exported API is intentionally narrow and documented
-2. one external consumer has already exercised the package successfully
-3. package metadata and README make sense without repo context
-4. the learning loop still works in embedded usage
-5. internal implementation modules are not leaking as accidental public contract
-6. the tarball only contains the published package surface
-
-That keeps publishing as a packaging milestone, not a speculative branding move.
+- [Engine Roadmap](./engine-roadmap.md)
+- [Core Maturation Plan](./core-maturation-plan.md)
+- [Architecture Principles](./architecture-principles.md)
 
 ## Recommended Near-Term Sequence
 
 Ordered by leverage:
 
-1. **Keep Claude Code as the flagship live adapter**
-   - keep one path obviously working while the substrate matures
+1. **Keep Claude Code healthy as the flagship path**
+   - it should remain the easiest obvious success path
 
 2. **Keep OpenCode healthy as the second live path**
-   - pressure-test the shared runtime and TUI with a server-based source that Aperture does not control
+   - it pressure-tests the shared runtime and TUI with a source Aperture does not control
 
-3. **Prove one non-TUI host surface**
-   - Paperclip is still the strongest current candidate because it can validate both the adapter seam and the SDK surface under another product's UI assumptions
+3. **Build replay / evaluation as a first-class loop**
+   - compare routing behavior
+   - review disagreements
+   - tune thresholds offline
 
-4. **Tighten the core engine where integrations will pressure it**
-   - explicit ambiguity handling first
-   - attention surface capabilities second
-   - attention profiles later
-   - mode-shaping side signals last
-
-5. **Keep package-facing examples healthy**
-   - one full-engine example
-   - one judgment-primitive example
-
-6. **Support the published package deliberately**
-   - tag releases cleanly
-   - keep the README and npm-facing docs honest
+4. **Support the published package deliberately**
+   - keep examples healthy
+   - keep npm/GitHub docs honest
    - harden based on real consumer friction
 
-For the engine-maturation ordering, see [Core Maturation Plan](./core-maturation-plan.md).
+5. **Prove one non-TUI host surface later**
+   - only after the evaluation loop is more mature
 
 ## What To Avoid
 
-To keep the productization path clean:
+- adding new adapters just to broaden the source list
+- widening the public SDK surface casually
+- moving tuning or learning into the hot path
+- letting host-specific convenience leak into core judgment semantics
 
-- do not widen the public API just because internal modules exist
-- do not let package ergonomics pull attention away from the judgment product
-- do not treat Codex or Paperclip parity as a prerequisite for SDK work
-- do not treat publication as the end of the SDK work; the next phase is adoption and pressure-testing
+The right bias now is:
 
-## Recommendation
-
-If we have limited time and limited live adapter demand, the best technical productization move is:
-
-**support the published Aperture core SDK package while using one real integration to pressure-test the next core-engine maturity seams**
-
-The best next sequence is:
-
-1. keep Claude Code strong
-2. keep OpenCode healthy as the second live path
-3. use Paperclip as the likely next non-TUI proving ground
-4. implement explicit ambiguity handling before broader core expansions
-
-That keeps the project moving without diluting the product or widening the engine prematurely.
+- keep the live paths trustworthy
+- keep the published package honest
+- deepen confidence before broadening scope

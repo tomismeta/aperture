@@ -159,7 +159,7 @@ What is already true:
 - multi-source normalization already exists
 - Claude Code is the live end-to-end path
 - OpenCode is also a live end-to-end path through the server / terminal flow
-- Codex and Paperclip boundaries are prepared
+- Codex boundaries are prepared
 - `@tomismeta/aperture-core` is published on npm
 
 What is still missing:
@@ -501,7 +501,7 @@ Near-term interpretation:
 
 - Claude Code remains the flagship live path
 - OpenCode now provides the second live path and a different transport shape
-- the next host-level proving ground is likely Paperclip, not because Aperture lacks a second source, but because it lacks a second host surface
+- the next host-level proving ground should come from a real external host, not just another terminal adapter
 
 ## Recommendation
 

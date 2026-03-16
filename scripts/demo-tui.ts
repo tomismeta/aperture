@@ -4,8 +4,6 @@ import type { ClaudeCodeHookEvent } from "../packages/claude-code/src/index.ts";
 import { mapClaudeCodeHookEvent } from "../packages/claude-code/src/index.ts";
 import type { CodexServerRequest } from "../packages/codex/src/index.ts";
 import { mapCodexServerRequest } from "../packages/codex/src/index.ts";
-import type { PaperclipLiveEvent } from "../packages/paperclip/src/index.ts";
-import { mapPaperclipLiveEvent } from "../packages/paperclip/src/index.ts";
 import { runAttentionTui } from "../packages/tui/src/index.ts";
 
 async function main(): Promise<void> {
@@ -44,26 +42,6 @@ async function main(): Promise<void> {
       surface: "tui",
     });
   }
-
-  // Paperclip: hiring approval
-  const paperclipEvents: PaperclipLiveEvent[] = [
-    {
-      id: 1,
-      companyId: "company:paperclip",
-      type: "activity.logged",
-      createdAt: new Date(now).toISOString(),
-      payload: {
-        entityType: "approval",
-        entityId: "approval:hire:1",
-        action: "approval.created",
-        details: {
-          type: "hire_agent",
-          requestedByAgentId: "agent:alpha",
-          issueIds: ["ISS-101"],
-        },
-      },
-    },
-  ];
 
   // Codex: environment choice
   const codexRequests: CodexServerRequest[] = [
@@ -117,12 +95,6 @@ async function main(): Promise<void> {
       error: "Bash failed while pushing deployment fix.",
     },
   ];
-
-  for (const liveEvent of paperclipEvents) {
-    for (const event of mapPaperclipLiveEvent(liveEvent)) {
-      core.publishSourceEvent(event);
-    }
-  }
 
   for (const request of codexRequests) {
     for (const event of mapCodexServerRequest(request)) {

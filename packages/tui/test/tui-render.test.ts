@@ -63,9 +63,9 @@ test("renderAttentionScreen shows active, queued, and ambient summaries", () => 
   assert.match(screen, /active 1/);
   assert.match(screen, /queued 1/);
   assert.match(screen, /ambient 1/);
-  // New layout uses ┄ section headers and ⏺ marker with ⎿ tree connectors
-  assert.match(screen, /┄ queue ┄/);
-  assert.match(screen, /┄ ambient ┄/);
+  // New layout uses ── section headers and ⏺ marker with ⎿ tree connectors
+  assert.match(screen, /── queue ──/);
+  assert.match(screen, /── ambient ──/);
   assert.match(screen, /⏺/); // active frame marker
   assert.match(screen, /⎿/); // tree connector for child lines
   assert.match(screen, /Approve deployment/);
@@ -125,7 +125,7 @@ test("renderAttentionScreen shows acknowledge controls for active status work", 
 
   const screen = renderAttentionScreen(attentionView, { title: "Aperture TUI" });
 
-  assert.match(screen, /\[enter\] acknowledge/i);
+  assert.match(screen, /\[enter\] ack/i);
 });
 
 test("renderAttentionScreen hides rationale by default and shows when expanded", () => {
@@ -357,6 +357,7 @@ test("renderAttentionScreen judgment line prioritizes trace coordination over he
     planner: { kind: "activate" as const, reasons: [], continuityEvaluations: [] },
     coordination: {
       kind: "activate" as const,
+      resultBucket: "active" as const,
       candidateScore: 1211,
       currentScore: null,
       currentPriority: null,
@@ -405,6 +406,7 @@ test("renderAttentionScreen judgment line shows continuity overrides first", () 
     planner: { kind: "activate" as const, reasons: [], continuityEvaluations: [] },
     coordination: {
       kind: "activate" as const,
+      resultBucket: "active" as const,
       candidateScore: 1211,
       currentScore: null,
       currentPriority: null,
@@ -453,13 +455,98 @@ test("renderAttentionScreen why mode replaces queue and ambient", () => {
   };
 
   const normalScreen = renderAttentionScreen(attentionView);
-  assert.match(normalScreen, /┄ queue ┄/);
-  assert.match(normalScreen, /┄ ambient ┄/);
+  assert.match(normalScreen, /── queue ──/);
+  assert.match(normalScreen, /── ambient ──/);
 
   const whyScreen = renderAttentionScreen(attentionView, { whyMode: true });
   // In why mode, queue and ambient sections should not appear
-  assert.doesNotMatch(whyScreen, /┄ queue ┄/);
-  assert.doesNotMatch(whyScreen, /┄ ambient ┄/);
+  assert.doesNotMatch(whyScreen, /── queue ──/);
+  assert.doesNotMatch(whyScreen, /── ambient ──/);
   // Should show trace-related content (or "no trace available")
   assert.match(whyScreen, /no trace available/);
+});
+
+test("renderAttentionScreen why mode collapsed hides noop rules and shows count", () => {
+  const attentionView: AttentionView = {
+    active: makeFrame(),
+    queued: [],
+    ambient: [],
+  };
+
+  const trace = {
+    timestamp: "2026-03-10T00:00:00.000Z",
+    event: { kind: "submitted", taskId: "task-1", interaction: {} },
+    evaluation: {
+      kind: "candidate" as const,
+      original: {} as any,
+      adjusted: { interactionId: "interaction-1" } as any,
+    },
+    heuristics: { scoreOffset: 0, rationale: [] },
+    episode: null,
+    policy: {} as any,
+    policyRules: {
+      gateEvaluations: [
+        { rule: "configured_policy", kind: "noop", rationale: [] },
+        { rule: "blocking_work", kind: "verdict", rationale: ["requires operator response"] },
+        { rule: "background_task", kind: "noop", rationale: [] },
+        { rule: "status_update", kind: "noop", rationale: [] },
+      ],
+      criterion: null,
+      criterionEvaluations: [],
+    },
+    utility: { candidate: {} as any, currentScore: null, currentPriority: null },
+    planner: { kind: "activate" as const, reasons: [], continuityEvaluations: [] },
+    coordination: {
+      kind: "activate" as const,
+      resultBucket: "active" as const,
+      candidateScore: 1211,
+      currentScore: null,
+      currentPriority: null,
+      criterion: null,
+      ambiguity: null,
+      reasons: ["blocking work requires operator response"],
+      continuityEvaluations: [],
+    },
+    taskSummary: {} as any,
+    globalSummary: {} as any,
+    taskAttentionState: "calm" as any,
+    globalAttentionState: "calm" as any,
+    pressureForecast: {} as any,
+    attentionBurden: {} as any,
+    current: null,
+    taskView: {} as any,
+    attentionView: { active: null, queued: [], ambient: [] },
+    result: null,
+  };
+
+  // Collapsed (default) — only verdict rules shown, noops hidden with count
+  const collapsed = renderAttentionScreen(attentionView, { whyMode: true, trace });
+  assert.match(collapsed, /blocking work/);
+  assert.match(collapsed, /set policy/);
+  assert.match(collapsed, /surface:\s+active/);
+  assert.match(collapsed, /\+ 3 rules did not apply/);
+  assert.doesNotMatch(collapsed, /configured policy/);
+
+  // Expanded — all rules shown, no count line
+  const expanded = renderAttentionScreen(attentionView, { whyMode: true, whyExpanded: true, trace });
+  assert.match(expanded, /configured policy/);
+  assert.match(expanded, /blocking work/);
+  assert.match(expanded, /background task/);
+  assert.match(expanded, /status update/);
+  assert.doesNotMatch(expanded, /rules did not apply/);
+});
+
+test("renderAttentionScreen why mode controls show expand/collapse hint", () => {
+  const attentionView: AttentionView = {
+    active: makeFrame(),
+    queued: [],
+    ambient: [],
+  };
+
+  const whyCollapsed = renderAttentionScreen(attentionView, { whyMode: true });
+  assert.match(whyCollapsed, /\[i\] expand/);
+  assert.match(whyCollapsed, /\[y\] close/);
+
+  const whyExpanded = renderAttentionScreen(attentionView, { whyMode: true, whyExpanded: true });
+  assert.match(whyExpanded, /\[i\] collapse/);
 });

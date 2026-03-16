@@ -219,6 +219,7 @@ function mapPreToolUse(
   event: ClaudeCodePreToolUseEvent,
   options: ClaudeCodeMappingOptions,
 ): SourceHumanInputRequestedEvent {
+  const toolFamily = claudeToolFamily(event.tool_name);
   const command = readString(event.tool_input.command);
   const summary = command ?? toolInputSummary(event);
   const whyNow =
@@ -242,6 +243,8 @@ function mapPreToolUse(
     interactionId: claudeInteractionId(event.session_id, event.tool_use_id),
     timestamp: new Date().toISOString(),
     source: claudeSource(event),
+    ...(toolFamily !== undefined ? { toolFamily } : {}),
+    activityClass: "permission_request",
     title: approvalTitle(event, summary),
     summary,
     request: {
@@ -260,12 +263,15 @@ function mapPreToolUse(
 function mapPostToolUseFailure(
   event: ClaudeCodePostToolUseFailureEvent,
 ): SourceTaskUpdatedEvent {
+  const toolFamily = claudeToolFamily(event.tool_name);
   return {
     id: claudeEventId(event, "task.updated"),
     type: "task.updated",
     taskId: claudeTaskId(event.session_id),
     timestamp: new Date().toISOString(),
     source: claudeSource(event),
+    ...(toolFamily !== undefined ? { toolFamily } : {}),
+    activityClass: "tool_failure",
     title: `${event.tool_name} failed`,
     summary: event.error,
     status: "failed",
@@ -273,6 +279,7 @@ function mapPostToolUseFailure(
 }
 
 function mapPostToolUse(event: ClaudeCodePostToolUseEvent): SourceTaskUpdatedEvent {
+  const toolFamily = claudeToolFamily(event.tool_name);
   const summary =
     readString(event.tool_response?.message) ??
     `${event.tool_name} completed successfully.`;
@@ -283,6 +290,8 @@ function mapPostToolUse(event: ClaudeCodePostToolUseEvent): SourceTaskUpdatedEve
     taskId: claudeTaskId(event.session_id),
     timestamp: new Date().toISOString(),
     source: claudeSource(event),
+    ...(toolFamily !== undefined ? { toolFamily } : {}),
+    activityClass: "tool_completion",
     title: `${event.tool_name} completed`,
     summary,
     status: "running",
@@ -308,6 +317,7 @@ function mapNotification(event: ClaudeCodeNotificationEvent): SourceEvent[] {
       taskId: claudeTaskId(event.session_id),
       timestamp: new Date().toISOString(),
       source: claudeSource(event),
+      activityClass: "follow_up",
       title,
       summary: event.title ? `${event.title}: ${event.message}` : event.message,
       status: "blocked",
@@ -342,6 +352,7 @@ function mapStop(event: ClaudeCodeStopEvent): SourceEvent[] {
         taskId: claudeTaskId(event.session_id),
         timestamp: new Date().toISOString(),
         source: claudeSource(event),
+        activityClass: "follow_up",
         title: "Claude is waiting for follow-up",
         summary: message,
         status: "blocked",
@@ -356,6 +367,7 @@ function mapStop(event: ClaudeCodeStopEvent): SourceEvent[] {
       taskId: claudeTaskId(event.session_id),
       timestamp: new Date().toISOString(),
       source: claudeSource(event),
+      activityClass: "status_update",
       title: "Claude completed a turn",
       summary: message ?? "Claude finished responding.",
       status: "running",
@@ -471,6 +483,30 @@ function toolInputSummary(event: ClaudeCodePreToolUseEvent): string {
   if (event.tool_name.toLowerCase() === "toolsearch") return "web search";
   if (url) return url;
   return event.tool_name;
+}
+
+function claudeToolFamily(toolName: string): string | undefined {
+  switch (toolName.toLowerCase()) {
+    case "read":
+    case "grep":
+    case "glob":
+    case "ls":
+      return "read";
+    case "write":
+      return "write";
+    case "edit":
+    case "multiedit":
+      return "edit";
+    case "bash":
+      return "bash";
+    case "websearch":
+    case "toolsearch":
+    case "web_fetch":
+    case "webfetch":
+      return "web";
+    default:
+      return undefined;
+  }
 }
 
 function approvalTitle(event: ClaudeCodePreToolUseEvent, summary: string): string {

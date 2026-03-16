@@ -39,6 +39,8 @@ test("maps permission.asked to an approval request", () => {
     return;
   }
   assert.equal(mapped[0].request.kind, "approval");
+  assert.equal(mapped[0].toolFamily, "bash");
+  assert.equal(mapped[0].activityClass, "permission_request");
   assert.equal(mapped[0].taskId, `opencode:${createOpencodeInstanceKey(context)}:session:ses-1`);
   assert.equal(mapped[0].title, "OpenCode wants to run a shell command");
   assert.equal(mapped[0].summary, "mkdir -p /tmp/aperture-opencode-smoke");
@@ -69,6 +71,8 @@ test("maps external directory approvals from the real OpenCode permission shape"
     return;
   }
 
+  assert.equal(mapped[0].toolFamily, "read");
+  assert.equal(mapped[0].activityClass, "permission_request");
   assert.equal(mapped[0].title, "OpenCode wants to access a path");
   assert.equal(mapped[0].summary, "/private/tmp/aperture-opencode-smoke/*");
   assert.deepEqual(mapped[0].context?.items, [
@@ -102,6 +106,7 @@ test("maps follow-up text parts into blocked awareness", () => {
         kind: "opencode",
         label: "OpenCode",
       },
+      activityClass: "follow_up",
       title: "OpenCode is waiting for your reply",
       summary: "Could you please provide the full path and name for the new directory?",
       status: "blocked",
@@ -137,6 +142,7 @@ test("maps question.asked with options to a choice request", () => {
     return;
   }
   assert.equal(mapped[0].request.kind, "choice");
+  assert.equal(mapped[0].activityClass, "question_request");
   assert.equal(mapped[0].title, "Directory");
   assert.equal(mapped[0].summary, "Where should I create the new directory?");
   assert.deepEqual(mapped[0].request.options.map((option) => option.id), [
@@ -175,6 +181,7 @@ test("maps question.asked custom choice affordance to generic text response", ()
     return;
   }
 
+  assert.equal(mapped[0].activityClass, "question_request");
   assert.equal(mapped[0].request.allowTextResponse, true);
 });
 
@@ -202,7 +209,52 @@ test("maps single-question choice prompts to include freeform reply affordance",
     return;
   }
 
+  assert.equal(mapped[0].activityClass, "question_request");
   assert.equal(mapped[0].request.allowTextResponse, true);
+});
+
+test("maps session.status into explicit session-status awareness", () => {
+  const mapped = mapOpencodeEvent({
+    type: "session.status",
+    properties: {
+      sessionID: "ses-9",
+      status: {
+        type: "running",
+        reason: "OpenCode is still working.",
+      },
+    },
+  }, context);
+
+  assert.equal(mapped[0]?.type, "task.updated");
+  if (mapped[0]?.type !== "task.updated") {
+    return;
+  }
+
+  assert.equal(mapped[0].activityClass, "session_status");
+  assert.equal(mapped[0].status, "running");
+  assert.equal(mapped[0].summary, "OpenCode is still working.");
+});
+
+test("maps failed message parts into explicit tool-failure awareness", () => {
+  const mapped = mapOpencodeEvent({
+    type: "message.part.updated",
+    properties: {
+      sessionID: "ses-error",
+      partID: "part-err-1",
+      part: {
+        type: "tool",
+        status: "failed",
+      },
+    },
+  }, context);
+
+  assert.equal(mapped[0]?.type, "task.updated");
+  if (mapped[0]?.type !== "task.updated") {
+    return;
+  }
+
+  assert.equal(mapped[0].activityClass, "tool_failure");
+  assert.equal(mapped[0].status, "failed");
 });
 
 test("maps OpenCode approvals back to permission reply calls", () => {

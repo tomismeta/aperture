@@ -1,14 +1,15 @@
 # Aperture SDK Path
 
-This document outlines how Aperture can become an embeddable package without changing what the product is.
+This document describes the current SDK shape and the rules that should govern
+it going forward.
 
 The goal is not to turn Aperture into a generic orchestration framework.
-
-The goal is to let other agent runtimes adopt Aperture's judgment layer directly.
+The goal is to let other runtimes adopt Aperture's judgment layer directly
+without diluting the product.
 
 ## Purpose
 
-The SDK path should make it possible to:
+The SDK path exists to make it possible to:
 
 - embed Aperture's judgment stack inside another runtime
 - preserve Aperture's deterministic and self-learning attention model
@@ -19,23 +20,26 @@ The package path should broaden distribution, not redefine the product.
 
 ## Current State
 
-Today, the real judgment layer already lives in the [Aperture core SDK package](../packages/core/package.json), published on npm as `@tomismeta/aperture-core`:
+Today, the real judgment layer lives in the [Aperture core SDK package](../packages/core/package.json), published on npm as `@tomismeta/aperture-core`.
 
-- `ApertureCore`
-- `AttentionPolicy`
-- `AttentionValue`
-- `AttentionPlanner`
-- `JudgmentCoordinator`
-- `distillMemoryProfile`
-- profile persistence
-- trace evaluation
+Current version:
 
-Those pieces are live and wired in the current engine path.
+- `@tomismeta/aperture-core@0.2.1`
 
-What is not ready yet:
+What is already true:
 
-- ongoing support and iteration as a published package
+- `ApertureCore` is exported and usable as a full engine surface
+- lower-level judgment primitives are exported
+- profile and memory helpers are available
+- trace/replay helpers are available
+- external-consumer proof paths exist
+- `pnpm sdk:prove` verifies both external consumption and tarball shape
+
+What is still maturing:
+
+- ongoing support discipline for the published package
 - feedback from real external consumers
+- long-term boundary decisions around persistence helpers
 
 ## Design Principles
 
@@ -49,19 +53,18 @@ The SDK path should preserve the same product principles:
 - no coupling to any one adapter or host
 
 The easiest failure mode here would be publishing too much.
+The right package surface should expose judgment constructs, not internal churn.
 
-The right package surface should expose judgment constructs, not internal implementation churn.
-
-## Intended Package Shapes
+## Current Package Shapes
 
 ### Aperture Core SDK
 
-This should be the main public SDK package.
+This is the main public SDK package.
 
-It should contain:
+It currently contains:
 
 - the full engine facade for consumers who want the whole attention model
-- lower-level judgment primitives for consumers who want to integrate selectively
+- lower-level judgment primitives for selective integration
 - profile and memory helpers for learning loops
 - trace and replay helpers for evaluation
 
@@ -74,7 +77,7 @@ It should not contain:
 
 ### `@aperture/runtime`
 
-This should remain an optional host package.
+This remains an optional host package.
 
 Its job is:
 
@@ -102,7 +105,8 @@ This is the easiest integration path.
 
 ### 2. Judgment Primitive Mode
 
-This is for consumers who already have their own runtime and only want Aperture's adjudication layer.
+This is for consumers who already have their own runtime and only want
+Aperture's adjudication layer.
 
 They should be able to use:
 
@@ -114,13 +118,14 @@ They should be able to use:
 - `forecastAttentionPressure`
 - memory/profile helpers
 
-This lets another runtime keep its own task model while delegating attention judgment to Aperture.
+This lets another runtime keep its own task model while delegating attention
+judgment to Aperture.
 
-## Minimal Public Surface
+## Public Surface Discipline
 
-The first public SDK surface should expose only what is already conceptually stable.
+The public SDK surface should expose only what is conceptually stable.
 
-Recommended exports:
+Current emphasized exports:
 
 - `ApertureCore`
 - `AttentionPolicy`
@@ -136,7 +141,7 @@ Recommended exports:
 - `evaluateTraceSession`
 - current core event/frame/trace/profile types
 
-Not recommended for early public export:
+Still not recommended as primary public surface:
 
 - internal task stores
 - frame construction internals
@@ -145,7 +150,8 @@ Not recommended for early public export:
 
 ## Learning Loop In The SDK
 
-The SDK must preserve Aperture's learning loop, because that is part of the wedge.
+The SDK must preserve Aperture's learning loop, because that is part of the
+wedge.
 
 The loop is:
 
@@ -155,12 +161,11 @@ For SDK consumers, that means:
 
 - `ApertureCore` should continue to record interaction signals
 - `distillMemoryProfile` should remain available for distilling learned state
-- `ProfileStore` should remain the default persistence helper
+- `ProfileStore` is currently the default persistence helper
 - persistence should stay optional
 
-The storage format can change later.
-
-The package contract should be about learning persistence, not Markdown as a product concept.
+The package contract should be about learning persistence, not Markdown as a
+product concept.
 
 ## Package Boundary Rules
 
@@ -172,41 +177,19 @@ To keep the SDK clean:
 - adapters should continue to translate source-specific events into Aperture contracts
 - the runtime should continue to be just one host around core, not the only way to use it
 
-## Rollout Plan
+## What Matters Next
 
-### Milestone 1: Public Export Surface
+The next SDK priorities are:
 
-- remove `private: true` from the Aperture core SDK package
-- keep the stable judgment primitives exported and treat them as the intended package contract
-- add a package README
-- add one basic SDK example
+1. keep the README and npm-facing docs accurate
+2. keep examples healthy as the engine matures
+3. avoid expanding the public surface casually
+4. support real external consumers based on actual friction
 
-### Milestone 2: Integration Guides
+Longer-term questions still open:
 
-- prove a packed-tarball install outside the monorepo
-- add one full-engine example
-- add one judgment-primitive example
-- verify learning persistence in embedded environments
-
-Status:
-
-- built
-- examples live in `examples/core-full-engine` and `examples/core-judgment-primitives`
-- verification script is `pnpm sdk:prove`
-
-### Milestone 3: First Consumer Readiness
-
-- verify a clean install/build path outside this monorepo
-- test that another runtime can import and use the package
-- keep the API intentionally narrow
-- keep the tarball limited to the published contract
-
-Status:
-
-- built
-- the Aperture core SDK package now has package metadata, a package-local license, and a `files` whitelist
-- `pnpm sdk:prove` verifies both external consumption and tarball shape
-- `@tomismeta/aperture-core@0.1.1` is published on npm
+- whether markdown/profile persistence belongs in the core package forever
+- whether some persistence helpers should eventually move behind a narrower boundary
 
 ## Success Criteria
 

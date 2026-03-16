@@ -1,4 +1,4 @@
-import { inferToolFamily, sourceKey } from "../interaction-taxonomy.js";
+import { readExplicitToolFamily, sourceKey } from "../interaction-taxonomy.js";
 import { priorityForFrame } from "../frame-score.js";
 import { JUDGMENT_DEFAULTS } from "../judgment-defaults.js";
 import { noopContinuityRule, overrideContinuityRule, type ContinuityRule } from "./continuity-rule.js";
@@ -83,8 +83,8 @@ function isSameDecisionStream(
     return true;
   }
 
-  const activeToolFamily = inferToolFamily(activeFrame);
-  const candidateToolFamily = inferToolFamily(candidate);
+  const activeToolFamily = readExplicitToolFamily(activeFrame);
+  const candidateToolFamily = readExplicitToolFamily(candidate);
   if (
     activeToolFamily
     && candidateToolFamily

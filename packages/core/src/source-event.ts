@@ -1,4 +1,9 @@
-import type { HumanInputRequest, SourceRef, TaskStatus } from "./events.js";
+import type {
+  AttentionActivityClass,
+  HumanInputRequest,
+  SourceRef,
+  TaskStatus,
+} from "./events.js";
 import type {
   AttentionConsequenceLevel,
   AttentionContext,
@@ -27,6 +32,8 @@ export type SourceTaskStartedEvent = SourceEventBase & {
 
 export type SourceTaskUpdatedEvent = SourceEventBase & {
   type: "task.updated";
+  toolFamily?: string;
+  activityClass?: AttentionActivityClass;
   title: string;
   summary?: string;
   status: TaskStatus;
@@ -37,6 +44,7 @@ export type SourceHumanInputRequestedEvent = SourceEventBase & {
   type: "human.input.requested";
   interactionId: string;
   toolFamily?: string;
+  activityClass?: AttentionActivityClass;
   title: string;
   summary: string;
   request: HumanInputRequest;

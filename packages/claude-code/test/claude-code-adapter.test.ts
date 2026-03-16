@@ -32,6 +32,8 @@ test("maps PreToolUse Bash hooks into approval events", () => {
   if (mapped[0]?.type === "human.input.requested") {
     assert.equal(mapped[0].taskId, "claude-code:session:session-1");
     assert.equal(mapped[0].interactionId, "claude-code:tool:session-1:tool-1");
+    assert.equal(mapped[0].toolFamily, "bash");
+    assert.equal(mapped[0].activityClass, "permission_request");
     assert.equal(mapped[0].request.kind, "approval");
     assert.equal(mapped[0].title, "Claude Code wants to run a shell command");
     assert.equal(mapped[0].summary, "git push origin main");
@@ -179,6 +181,8 @@ test("maps PostToolUseFailure hooks into failed task updates", () => {
   assert.equal(mapped[0]?.type, "task.updated");
   if (mapped[0]?.type === "task.updated") {
     assert.equal(mapped[0].taskId, "claude-code:session:session-2");
+    assert.equal(mapped[0].toolFamily, "bash");
+    assert.equal(mapped[0].activityClass, "tool_failure");
     assert.equal(mapped[0].status, "failed");
     assert.equal(mapped[0].summary, "Command exited with code 1");
   }
@@ -200,8 +204,32 @@ test("maps low-risk reads into low consequence approvals", () => {
   assert.equal(mapped.length, 1);
   assert.equal(mapped[0]?.type, "human.input.requested");
   if (mapped[0]?.type === "human.input.requested") {
+    assert.equal(mapped[0].toolFamily, "read");
+    assert.equal(mapped[0].activityClass, "permission_request");
     assert.equal(mapped[0].title, "Claude Code wants to read index.ts");
     assert.equal(mapped[0].riskHint, "low");
+  }
+});
+
+test("maps PostToolUse updates with explicit tool family", () => {
+  const mapped = mapClaudeCodeHookEvent({
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "PostToolUse",
+    tool_name: "Read",
+    tool_use_id: "tool-read",
+    tool_response: {
+      message: "Read completed successfully.",
+    },
+  }, { includePostToolUse: true });
+
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.updated");
+  if (mapped[0]?.type === "task.updated") {
+    assert.equal(mapped[0].toolFamily, "read");
+    assert.equal(mapped[0].activityClass, "tool_completion");
+    assert.equal(mapped[0].status, "running");
+    assert.equal(mapped[0].title, "Read completed");
   }
 });
 
@@ -295,6 +323,7 @@ test("maps stop events with follow-up questions into waiting status", () => {
   assert.equal(mapped.length, 1);
   assert.equal(mapped[0]?.type, "task.updated");
   if (mapped[0]?.type === "task.updated") {
+    assert.equal(mapped[0].activityClass, "follow_up");
     assert.equal(mapped[0].status, "blocked");
     assert.equal(mapped[0].title, "Claude is waiting for follow-up");
   }
@@ -313,6 +342,7 @@ test("maps plain stop events into ambient completion status", () => {
   assert.equal(mapped.length, 1);
   assert.equal(mapped[0]?.type, "task.updated");
   if (mapped[0]?.type === "task.updated") {
+    assert.equal(mapped[0].activityClass, "status_update");
     assert.equal(mapped[0].status, "running");
     assert.equal(mapped[0].title, "Claude completed a turn");
   }
@@ -330,6 +360,7 @@ test("maps stop events without assistant text into generic completion awareness"
   assert.equal(mapped.length, 1);
   assert.equal(mapped[0]?.type, "task.updated");
   if (mapped[0]?.type === "task.updated") {
+    assert.equal(mapped[0].activityClass, "status_update");
     assert.equal(mapped[0].status, "running");
     assert.equal(mapped[0].summary, "Claude finished responding.");
   }

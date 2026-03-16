@@ -9,6 +9,7 @@ The intent is simple:
 - keep adapters thin and factual
 - keep core source-agnostic
 - keep semantic policy consistent across adapters
+- make explicit semantics primary and heuristics bounded
 
 ## Layers
 
@@ -19,7 +20,7 @@ Raw upstream payloads owned by adapters only.
 Examples:
 
 - Claude Code hook JSON
-- Paperclip live events
+- OpenCode server events
 - Codex request objects
 
 These never enter `@tomismeta/aperture-core` directly.
@@ -39,6 +40,9 @@ Lives in [packages/core/src/source-event.ts](../packages/core/src/source-event.t
 - request payloads
 - context and provenance
 - optional factual hints like `riskHint`
+- explicit semantic fields when adapters know them, such as:
+  - `toolFamily`
+  - `activityClass`
 
 It does **not** assign final Aperture semantics like:
 
@@ -59,6 +63,12 @@ This is where Aperture decides things like:
 - a high-risk approval becomes `critical` / `high`
 - a medium-risk approval becomes `focused` / `medium`
 
+This is also where the adapter/core boundary matters most:
+
+- adapters should provide facts
+- core should provide canonical semantics and judgment
+- loose text inference should remain bounded fallback, not the primary source of meaning
+
 ### Attention engine
 
 After normalization, the existing engine applies:
@@ -67,6 +77,12 @@ After normalization, the existing engine applies:
 - heuristics
 - coordination
 - frame planning
+
+In the current hardened design:
+
+- policy-critical paths prefer explicit semantics
+- bounded heuristics are still allowed where the source truly omits structure
+- generic approval paths are the main remaining place where bounded tool-family inference may apply
 
 ## Responsibilities
 

@@ -72,6 +72,7 @@ export type TuiState = {
   inputDraft: InputDraft | null;
   expanded: boolean;
   whyMode: boolean;
+  whyExpanded: boolean;
   traceCache: Map<string, ApertureTrace>;
   posture: Posture;
   previousPosture: Posture;
@@ -92,6 +93,7 @@ export type RenderOptions = {
   stats?: { summary: SignalSummary; state: AttentionState } | null;
   expanded?: boolean;
   whyMode?: boolean;
+  whyExpanded?: boolean;
   trace?: ApertureTrace | null;
   posture?: Posture;
   animation?: AnimationState;

@@ -81,6 +81,7 @@ export type ApertureTrace =
       };
       coordination: {
         kind: "auto_approve" | "activate" | "queue" | "ambient" | "clear";
+        resultBucket: "active" | "queued" | "ambient" | "none";
         candidateScore: number;
         currentScore: number | null;
         currentPriority: AttentionPriority | null;

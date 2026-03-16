@@ -257,6 +257,52 @@ test("queued and ambient decisions record deferred signals", () => {
   }
 });
 
+test("passive status signals do not infer tool family from title text alone", () => {
+  const core = new ApertureCore();
+
+  core.publish({
+    id: "evt:status:read",
+    taskId: "task:status:read",
+    timestamp: "2026-03-08T12:03:00.000Z",
+    type: "task.updated",
+    title: "Read completed",
+    summary: "Read completed successfully.",
+    status: "completed",
+  });
+
+  const signals = core.getSignals("task:status:read");
+  assert.equal(signals.length, 1);
+  assert.ok(signals[0]);
+  assert.ok(signals[0]?.kind === "presented" || signals[0]?.kind === "deferred");
+  assert.equal(signals[0]?.metadata?.toolFamily, undefined);
+});
+
+test("explicit question requests do not record inferred tool family from title text alone", () => {
+  const core = new ApertureCore();
+
+  core.publish({
+    id: "evt:question:read",
+    taskId: "task:question:read",
+    timestamp: "2026-03-08T12:04:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:question:read",
+    activityClass: "question_request",
+    title: "Should we read the config first?",
+    summary: "Choose the next step.",
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      allowTextResponse: true,
+      options: [{ id: "yes", label: "Yes" }],
+    },
+  });
+
+  const signals = core.getSignals("task:question:read");
+  assert.equal(signals.length, 1);
+  assert.equal(signals[0]?.kind, "presented");
+  assert.equal(signals[0]?.metadata?.toolFamily, undefined);
+});
+
 test("signal summaries derive response and deferral metrics", () => {
   const core = new ApertureCore();
 

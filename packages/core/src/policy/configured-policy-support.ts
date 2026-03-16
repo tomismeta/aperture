@@ -1,7 +1,8 @@
-import { inferToolFamily } from "../interaction-taxonomy.js";
+import { readBoundedToolFamily } from "../interaction-taxonomy.js";
 import type { AttentionCandidate } from "../interaction-candidate.js";
 import type { JudgmentConfig } from "../judgment-config.js";
 import type { AttentionPresentationFloor } from "../attention-policy.js";
+import type { AttentionActivityClass } from "../events.js";
 
 export function matchPolicyRule(
   judgmentConfig: JudgmentConfig | undefined,
@@ -34,9 +35,21 @@ export function readAttentionPresentationFloor(value: unknown): AttentionPresent
   }
 }
 
+export function inferConfiguredPolicyToolFamily(candidate: AttentionCandidate): string | null {
+  if (!isToolPolicyCandidate(candidate)) {
+    return null;
+  }
+
+  return readBoundedToolFamily(candidate);
+}
+
 function policyTagsForCandidate(candidate: AttentionCandidate): string[] {
   const tags: string[] = [];
-  const toolFamily = inferToolFamily(candidate);
+  if (!isToolPolicyCandidate(candidate)) {
+    return tags;
+  }
+
+  const toolFamily = inferConfiguredPolicyToolFamily(candidate);
   const value = [
     candidate.title,
     candidate.summary ?? "",
@@ -66,4 +79,30 @@ function policyTagsForCandidate(candidate: AttentionCandidate): string[] {
   }
 
   return tags;
+}
+
+function isToolPolicyCandidate(candidate: AttentionCandidate): boolean {
+  if (candidate.activityClass !== undefined) {
+    return isToolPolicyActivity(candidate.activityClass);
+  }
+
+  return candidate.mode === "approval";
+}
+
+function isToolPolicyActivity(activityClass: AttentionActivityClass): boolean {
+  switch (activityClass) {
+    case "permission_request":
+      return true;
+    case "question_request":
+    case "follow_up":
+    case "tool_completion":
+    case "tool_failure":
+    case "session_status":
+    case "status_update":
+      return false;
+    default: {
+      const exhaustive: never = activityClass;
+      return exhaustive;
+    }
+  }
 }

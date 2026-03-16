@@ -39,7 +39,7 @@ Do not borrow:
 - single-source assumptions
 - chat-centric layout
 
-### OpenClaw
+### Agent-console TUIs
 
 Borrow:
 
@@ -299,9 +299,10 @@ The lesson for Aperture:
 - avoid chat-style sprawl
 - let detail appear inside a strong operator frame
 
-### OpenClaw
+### Agent-console TUIs
 
-OpenClaw points toward the "agent console" family of TUIs: persistent context, stable boundaries, and an overall operator posture.
+The broader "agent console" family points toward persistent context, stable
+boundaries, and an overall operator posture.
 
 The lesson for Aperture:
 

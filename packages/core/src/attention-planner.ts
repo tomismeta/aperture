@@ -63,11 +63,11 @@ export type AttentionPlanningContext = {
 } & AttentionEvidenceInput;
 
 const CONTINUITY_RULES: readonly ContinuityRule[] = [
-  evaluateSameInteractionContinuityRule,
   evaluateVisibleEpisodeContinuityRule,
   evaluateSameEpisodeContinuityRule,
   evaluateMinimumDwellContinuityRule,
   evaluateBurstDampeningContinuityRule,
+  evaluateSameInteractionContinuityRule,
   evaluateDeferralEscalationContinuityRule,
   evaluateConflictingInterruptContinuityRule,
   evaluateDecisionStreamContinuityRule,

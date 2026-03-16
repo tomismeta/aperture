@@ -54,6 +54,6 @@ The repo is ready to publish when:
 1. the commands above are green
 2. the mixed-source story is easy to understand from the README
 3. the traced scenarios still look defensible after one final review pass
-4. the live Claude Code path is easy to run and the Paperclip transport loop still proves ingress and egress end to end
+4. the live Claude Code path is easy to run and the mixed-source demo still proves the shared attention surface end to end
 
 If any of those fail, keep iterating on the engine rather than broadening the project.

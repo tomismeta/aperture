@@ -78,6 +78,7 @@ export class TraceRecorder {
       },
       coordination: {
         kind: explanation.decision.kind,
+        resultBucket: findResultBucket(snapshot.attentionView, adjusted.taskId, adjusted.interactionId),
         candidateScore: explanation.candidateScore,
         currentScore: explanation.currentScore,
         currentPriority: explanation.currentPriority,
@@ -108,4 +109,28 @@ function buildEpisodeSummary(candidate: AttentionCandidate): EpisodeSummary | nu
     lastInteractionId: candidate.interactionId,
     updatedAt: candidate.timestamp,
   };
+}
+
+function findResultBucket(
+  attentionView: AttentionView,
+  taskId: string,
+  interactionId: string,
+): "active" | "queued" | "ambient" | "none" {
+  if (
+    attentionView.active
+    && attentionView.active.taskId === taskId
+    && attentionView.active.interactionId === interactionId
+  ) {
+    return "active";
+  }
+
+  if (attentionView.queued.some((frame) => frame.taskId === taskId && frame.interactionId === interactionId)) {
+    return "queued";
+  }
+
+  if (attentionView.ambient.some((frame) => frame.taskId === taskId && frame.interactionId === interactionId)) {
+    return "ambient";
+  }
+
+  return "none";
 }

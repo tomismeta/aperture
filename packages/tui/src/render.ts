@@ -6,6 +6,7 @@ import {
   CONTENT_WIDTH,
   SCREEN_WIDTH,
   styleStrong,
+  styleTitle,
   styleMuted,
   styleDeepMuted,
   styleKey,
@@ -62,12 +63,12 @@ export function renderAttentionScreen(
 
   if (options?.whyMode) {
     // Why mode: replace queue + ambient with judgment trace overlay
-    lines.push(...renderWhyOverlay(options.trace ?? null, color));
+    lines.push(...renderWhyOverlay(options.trace ?? null, color, options.whyExpanded ?? false));
   } else {
     lines.push("");
     lines.push(sectionHeader("queue", color, "focused"));
     if (queued.length === 0) {
-      lines.push(styleMuted("  no queued work", color));
+      lines.push(styleMuted("  —", color));
     } else {
       for (const [index, group] of groupQueuedFrames(queued).entries()) {
         lines.push(...renderCompactFrame(group, index + 1, color));
@@ -77,7 +78,7 @@ export function renderAttentionScreen(
     lines.push("");
     lines.push(sectionHeader("ambient", color, "ambient"));
     if (ambient.length === 0) {
-      lines.push(styleMuted("  calm background", color));
+      lines.push(styleMuted("  quiet", color));
     } else {
       for (const frame of ambient) {
         lines.push(...renderAmbientFrame(frame, color));
@@ -87,7 +88,7 @@ export function renderAttentionScreen(
 
   const footer: string[] = [];
   footer.push(heavyRule(color));
-  footer.push(...renderControls(active, options?.inputDraft ?? null, color));
+  footer.push(...renderControls(active, options?.inputDraft ?? null, options?.whyMode ?? false, options?.whyExpanded ?? false, color));
 
   const statsLine = renderStatsLine(options?.stats ?? null, color);
   if (statsLine && options?.statusLine) {
@@ -152,7 +153,7 @@ function renderActiveFrame(
   if (!frame) {
     return [
       "",
-      styleMuted("   no active frame — the surface is intentionally calm", color),
+      styleMuted("  all clear", color),
       "",
     ];
   }
@@ -175,7 +176,7 @@ function renderActiveFrame(
     : styleMuted("⏺", color);
 
   const titleLine = alignLine(
-    ` ${marker} ${styleStrong(`${truncatedTitle}${countSuffix}`, color)}`,
+    ` ${marker} ${styleTitle(`${truncatedTitle}${countSuffix}`, color)}`,
     styleSource(source, color),
     SCREEN_WIDTH,
   );
@@ -330,7 +331,7 @@ function renderCompactFrame(group: QueueGroup, rank: number, color: boolean): st
     ? `${rawTitle.slice(0, available - 1)}…`
     : rawTitle;
   const displayTitle = count > 1 ? `${title}${countSuffix}` : title;
-  const left = `  ${styleRank(rank, color)} ${styleStrong(displayTitle, color)} ${styleSource(source, color)}`;
+  const left = `  ${styleRank(rank, color)} ${styleTitle(displayTitle, color)} ${styleSource(source, color)}`;
   const right = styleMuted(modeStr, color);
   return [`${alignLine(left, right, SCREEN_WIDTH)}`];
 }
@@ -382,12 +383,10 @@ function renderAmbientFrame(frame: Frame, color: boolean): string[] {
 
 // ── Section Headers ─────────────────────────────────────────────────
 
-function sectionHeader(label: string, color: boolean, tone: Frame["tone"]): string {
-  const prefix = ` ┄ ${label} `;
-  const fill = "┄".repeat(Math.max(0, SCREEN_WIDTH - prefix.length));
-  return color
-    ? `${ANSI.dim}${prefix}${fill}${ANSI.reset}`
-    : `${prefix}${fill}`;
+function sectionHeader(label: string, color: boolean, _tone: Frame["tone"]): string {
+  const dashes = "──";
+  const text = `${dashes} ${label} ${dashes}`;
+  return color ? `${ANSI.dim}${text}${ANSI.reset}` : text;
 }
 
 function heavyRule(color: boolean): string {
@@ -400,6 +399,8 @@ function heavyRule(color: boolean): string {
 function renderControls(
   active: Frame | null,
   inputDraft: InputDraft | null,
+  whyMode: boolean,
+  whyExpanded: boolean,
   color: boolean,
 ): string[] {
   if (!active) {
@@ -412,28 +413,41 @@ function renderControls(
     ];
   }
 
-  const detail = `${styleKey("space", color)} detail`;
-  const why = `${styleKey("y", color)} why`;
+  const parts: string[] = [];
+
+  // Response actions
   switch (active.responseSpec?.kind) {
     case "acknowledge":
-      return [
-        `${styleMuted("controls", color)} ${styleKey("enter", color)} acknowledge  ${styleKey("x", color)} dismiss  ${detail}  ${why}  ${styleKey("q", color)} quit`,
-      ];
+      parts.push(`${styleKey("enter", color)} ack`);
+      parts.push(`${styleKey("x", color)} dismiss`);
+      break;
     case "approval":
-      return [
-        `${styleMuted("controls", color)} ${styleKey("a", color)} approve  ${styleKey("r", color)} reject  ${styleKey("x", color)} dismiss  ${detail}  ${why}  ${styleKey("q", color)} quit`,
-      ];
+      parts.push(`${styleKey("a", color)} approve`);
+      parts.push(`${styleKey("r", color)} reject`);
+      parts.push(`${styleKey("x", color)} dismiss`);
+      break;
     case "choice":
-      return [
-        `${styleMuted("controls", color)} ${styleKey("1-9", color)} choose${active.responseSpec.allowTextResponse ? `  ${styleKey("i", color)} reply` : ""}  ${styleKey("x", color)} dismiss  ${detail}  ${why}  ${styleKey("q", color)} quit`,
-      ];
+      parts.push(`${styleKey("1-9", color)} choose`);
+      if (active.responseSpec.allowTextResponse && !whyMode) {
+        parts.push(`${styleKey("i", color)} reply`);
+      }
+      parts.push(`${styleKey("x", color)} dismiss`);
+      break;
     case "form":
-      return [
-        `${styleMuted("controls", color)} ${styleKey("i", color)} input  ${styleKey("x", color)} dismiss  ${detail}  ${why}  ${styleKey("q", color)} quit`,
-      ];
-    default:
-      return [`${styleMuted("controls", color)} ${detail}  ${why}  ${styleKey("q", color)} quit`];
+      if (!whyMode) parts.push(`${styleKey("i", color)} input`);
+      parts.push(`${styleKey("x", color)} dismiss`);
+      break;
   }
+
+  // View controls
+  parts.push(`${styleKey("space", color)} detail`);
+  parts.push(whyMode ? `${styleKey("y", color)} close` : `${styleKey("y", color)} why`);
+  if (whyMode) {
+    parts.push(`${styleKey("i", color)} ${whyExpanded ? "collapse" : "expand"}`);
+  }
+  parts.push(`${styleKey("q", color)} quit`);
+
+  return [`${styleMuted("controls", color)} ${parts.join("  ")}`];
 }
 
 // ── Stats ───────────────────────────────────────────────────────────

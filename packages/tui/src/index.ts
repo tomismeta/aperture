@@ -41,6 +41,7 @@ export async function runAttentionTui(
     inputDraft: null,
     expanded: false,
     whyMode: false,
+    whyExpanded: false,
     traceCache: new Map(),
     posture: computePosture(initialSummary, initialView),
     previousPosture: "calm",
@@ -126,8 +127,10 @@ export async function runAttentionTui(
       state.inputDraft = null;
       state.expanded = false;
       state.whyMode = false;
+      state.whyExpanded = false;
       state.statusLine = "Nothing currently needs attention";
     } else if (active.interactionId !== previousActiveId) {
+      state.whyExpanded = false;
       state.statusLine = `Focused on ${active.title}`;
     } else if (state.inputDraft && state.inputDraft.interactionId !== active.interactionId) {
       state.inputDraft = null;
@@ -202,6 +205,13 @@ export async function runAttentionTui(
 
       if (key.name === "y") {
         state.whyMode = !state.whyMode;
+        if (!state.whyMode) state.whyExpanded = false;
+        requestRender();
+        return;
+      }
+
+      if (key.name === "i" && state.whyMode) {
+        state.whyExpanded = !state.whyExpanded;
         requestRender();
         return;
       }
@@ -252,6 +262,7 @@ function renderAttentionScreenWithWhy(
     posture: state.posture,
     animation: state.animation,
     whyMode: true,
+    whyExpanded: state.whyExpanded,
     trace,
   });
 }

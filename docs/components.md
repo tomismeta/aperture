@@ -85,6 +85,9 @@ These are part of Aperture itself.
   - source identity
   - request payloads and context
   - factual hints like `riskHint`
+  - explicit semantics when adapters know them, such as:
+    - `toolFamily`
+    - `activityClass`
 - Does not own:
   - final Aperture `tone`
   - final Aperture `consequence`
@@ -168,6 +171,7 @@ These are part of the core implementation, but not the product surface to emphas
 - Boundary:
   - decides what interaction a raw event implies
   - does not decide whether that interaction wins attention
+  - prefers explicit semantics before bounded inference
 
 #### `JudgmentCoordinator`
 
@@ -214,6 +218,7 @@ These are part of the core implementation, but not the product surface to emphas
   - heuristic only
   - not model reasoning
   - not source-specific policy
+  - should never become the authority on source meaning
 
 ### Adapter
 
@@ -226,7 +231,6 @@ Current practical split:
   - `@aperture/opencode`
 - non-live / design-stage adapters:
   - `@aperture/codex`
-  - `@aperture/paperclip`
 
 Use an adapter when:
 
@@ -287,20 +291,6 @@ Skip adapters when:
   - attention judgment
   - signal storage
   - OpenCode runtime execution
-
-#### `@aperture/paperclip`
-
-- Classification: source adapter
-- Status: design-stage boundary
-- Lives in [packages/paperclip/src/index.ts](../packages/paperclip/src/index.ts)
-- Purpose: translate Paperclip live events into `SourceEvent` and translate `AttentionResponse` back into Paperclip actions, with optional publishing through `@aperture/runtime`
-- Owns:
-  - Paperclip ingress mapping
-  - Paperclip return-path mapping
-- Does not own:
-  - attention judgment
-  - signal storage
-  - direct network transport by itself
 
 ### Attention Surface
 

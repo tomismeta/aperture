@@ -1,10 +1,13 @@
-import { inferToolFamily } from "../interaction-taxonomy.js";
-import { matchPolicyRule, readAttentionPresentationFloor } from "./configured-policy-support.js";
+import {
+  inferConfiguredPolicyToolFamily,
+  matchPolicyRule,
+  readAttentionPresentationFloor,
+} from "./configured-policy-support.js";
 import { noopPolicyGateRule, verdictPolicyGateRule, type PolicyGateRule } from "./policy-gate-rule.js";
 
 export const evaluateConfiguredPolicyGateRule: PolicyGateRule = (input) => {
   const { candidate, judgmentConfig, userProfile } = input;
-  const toolFamily = inferToolFamily(candidate);
+  const toolFamily = inferConfiguredPolicyToolFamily(candidate);
   const toolOverride = toolFamily
     ? userProfile?.overrides?.tools?.[toolFamily]
     : undefined;

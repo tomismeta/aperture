@@ -2,7 +2,7 @@ import type { AttentionFrame } from "./frame.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import type { AttentionSignal } from "./interaction-signal.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
-import { inferToolFamily, sourceKey } from "./interaction-taxonomy.js";
+import { readBoundedToolFamily, sourceKey } from "./interaction-taxonomy.js";
 import type { MemoryProfile } from "./profile-store.js";
 
 export function distillMemoryProfile(
@@ -30,7 +30,7 @@ export function signalMetadataForFrame(frame: AttentionFrame): Record<string, un
     consequence: frame.consequence,
   };
 
-  const toolFamily = inferToolFamily(frame);
+  const toolFamily = signalToolFamily(frame);
   if (toolFamily) {
     metadata.toolFamily = toolFamily;
   }
@@ -48,7 +48,7 @@ export function signalMetadataForCandidate(candidate: AttentionCandidate): Recor
     consequence: candidate.consequence,
   };
 
-  const toolFamily = inferToolFamily(candidate);
+  const toolFamily = signalToolFamily(candidate);
   if (toolFamily) {
     metadata.toolFamily = toolFamily;
   }
@@ -59,6 +59,10 @@ export function signalMetadataForCandidate(candidate: AttentionCandidate): Recor
   }
 
   return metadata;
+}
+
+function signalToolFamily(input: AttentionFrame | AttentionCandidate): string | null {
+  return readBoundedToolFamily(input);
 }
 
 function toolFamilyMemory(

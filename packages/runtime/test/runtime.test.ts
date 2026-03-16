@@ -16,8 +16,8 @@ test("runtime adapter client publishes source events into the shared core", asyn
   const { controlUrl } = await runtime.listen();
   const client = await ApertureRuntimeAdapterClient.connect({
     baseUrl: controlUrl,
-    kind: "paperclip",
-    label: "Paperclip VPS",
+    kind: "custom-agent",
+    label: "Edge worker",
   });
 
   try {
@@ -338,9 +338,9 @@ function blockedEvent(taskId: string): SourceEvent {
     taskId,
     timestamp: new Date().toISOString(),
     source: {
-      id: "paperclip:vps",
-      kind: "paperclip",
-      label: "Paperclip VPS",
+      id: "custom-agent:vps",
+      kind: "custom-agent",
+      label: "Edge worker",
     },
     title: "Remote approval needed",
     summary: "A remote agent needs a human decision.",
@@ -355,9 +355,9 @@ function completedEvent(taskId: string): SourceEvent {
     taskId,
     timestamp: new Date().toISOString(),
     source: {
-      id: "paperclip:vps",
-      kind: "paperclip",
-      label: "Paperclip VPS",
+      id: "custom-agent:vps",
+      kind: "custom-agent",
+      label: "Edge worker",
     },
     summary: "Handled.",
   };

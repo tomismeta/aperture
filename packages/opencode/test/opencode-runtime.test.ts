@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import test from "node:test";
 
 import { createApertureRuntime } from "../../runtime/src/index.js";
+import { ApertureCore } from "../../core/src/index.js";
 import { createOpencodeBridge } from "../src/index.js";
 
 test("bootstraps pending permissions and routes runtime responses back to OpenCode", async () => {
@@ -109,6 +110,111 @@ test("bootstraps pending permissions and routes runtime responses back to OpenCo
 
     const cleared = await waitFor(() => runtime.getCore().getAttentionView().active === null ? true : null);
     assert.equal(cleared, true);
+  } finally {
+    await bridge.close();
+    await runtime.close();
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => error ? reject(error) : resolve());
+    });
+  }
+});
+
+test("question requests with read wording stay interactive under lowRiskRead auto-approve policy", async () => {
+  const runtime = createApertureRuntime({
+    controlPort: 0,
+    core: new ApertureCore({
+      judgmentConfig: {
+        version: 1,
+        updatedAt: "2026-03-16T12:00:00.000Z",
+        policy: {
+          lowRiskRead: {
+            autoApprove: true,
+          },
+        },
+      },
+    }),
+  });
+  const { controlUrl } = await runtime.listen();
+  const sseClients = new Set<import("node:http").ServerResponse>();
+
+  const server = createServer(async (req, res) => {
+    const url = new URL(req.url ?? "/", "http://127.0.0.1");
+
+    if (req.method === "GET" && url.pathname === "/permission") {
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify([]));
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/question") {
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify([]));
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/event") {
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      });
+      sseClients.add(res);
+      res.write(`data: ${JSON.stringify({ type: "server.connected", properties: {} })}\n\n`);
+      req.on("close", () => {
+        sseClients.delete(res);
+      });
+      return;
+    }
+
+    res.statusCode = 404;
+    res.end();
+  });
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("test server did not bind");
+  }
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  const bridge = createOpencodeBridge({
+    runtimeBaseUrl: controlUrl,
+    client: {
+      baseUrl,
+      scope: {
+        directory: "/workspace/project",
+      },
+    },
+  });
+
+  try {
+    await bridge.start();
+
+    for (const client of sseClients) {
+      client.write(`data: ${JSON.stringify({
+        type: "question.asked",
+        properties: {
+          id: "question-read-1",
+          sessionID: "ses-question-1",
+          questions: [
+            {
+              header: "Read first?",
+              question: "Should I read the config before continuing?",
+              options: [
+                { label: "Yes", description: "Read config first" },
+                { label: "No", description: "Skip the read step" },
+              ],
+            },
+          ],
+        },
+      })}\n\n`);
+    }
+
+    const active = await waitFor(() => runtime.getCore().getAttentionView().active, { timeoutMs: 1_000 });
+    assert.ok(active);
+    assert.equal(active?.mode, "choice");
+    assert.equal(active?.responseSpec?.kind, "choice");
+    assert.equal(active?.title, "Read first?");
   } finally {
     await bridge.close();
     await runtime.close();

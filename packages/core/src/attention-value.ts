@@ -1,7 +1,7 @@
 import type { AttentionFrame } from "./frame.js";
 import { readFrameAttentionOffset, scoreCandidate, scoreAttentionFrame } from "./frame-score.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
-import { inferToolFamily } from "./interaction-taxonomy.js";
+import { readBoundedToolFamily } from "./interaction-taxonomy.js";
 import type { MemoryProfile } from "./profile-store.js";
 
 export type AttentionValueBreakdown = {
@@ -121,7 +121,7 @@ export class AttentionValue {
   }
 
   private responseAffinityAdjustment(candidate: AttentionCandidate): number {
-    const toolFamily = inferToolFamily(candidate);
+    const toolFamily = scoringToolFamily(candidate);
     if (!toolFamily) {
       return 0;
     }
@@ -178,7 +178,7 @@ export class AttentionValue {
   }
 
   private contextCostAdjustment(candidate: AttentionCandidate): number {
-    const toolFamily = inferToolFamily(candidate);
+    const toolFamily = scoringToolFamily(candidate);
     if (!toolFamily) {
       return 0;
     }
@@ -200,7 +200,7 @@ export class AttentionValue {
   }
 
   private deferralAffinityAdjustment(candidate: AttentionCandidate): number {
-    const toolFamily = inferToolFamily(candidate);
+    const toolFamily = scoringToolFamily(candidate);
     if (!toolFamily) {
       return 0;
     }
@@ -220,6 +220,10 @@ export class AttentionValue {
 
     return 0;
   }
+}
+
+function scoringToolFamily(candidate: AttentionCandidate): string | null {
+  return readBoundedToolFamily(candidate);
 }
 
 function priorityWeight(priority: AttentionCandidate["priority"]): number {

@@ -362,6 +362,88 @@ test("publishes plain stop events as ambient completion awareness", async () => 
   }
 });
 
+test("publishes PostToolUse completion updates as ambient awareness when enabled", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core, { includePostToolUse: true });
+  const { url } = await server.listen();
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "PostToolUse",
+        tool_name: "Read",
+        tool_use_id: "tool-read-1",
+        tool_input: {
+          file_path: "/repo/src/index.ts",
+        },
+        tool_response: {
+          message: "Read completed successfully.",
+        },
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {});
+    assert.equal(core.getAttentionView().active, null);
+    assert.equal(core.getAttentionView().ambient[0]?.title, "Read completed");
+  } finally {
+    await server.close();
+  }
+});
+
+test("PostToolUse completion can demote a prior waiting frame into ambient awareness", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core, { includePostToolUse: true });
+  const { url } = await server.listen();
+
+  try {
+    const waitingResponse = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "Notification",
+        notification_type: "idle_prompt",
+        title: "Waiting on you",
+        message: "Claude is waiting for your input.",
+      }),
+    });
+
+    assert.equal(waitingResponse.status, 200);
+    assert.equal(core.getAttentionView().active?.title, "Claude is waiting for input");
+
+    const completionResponse = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "PostToolUse",
+        tool_name: "Read",
+        tool_use_id: "tool-read-2",
+        tool_input: {
+          file_path: "/repo/src/index.ts",
+        },
+        tool_response: {
+          message: "Read completed successfully.",
+        },
+      }),
+    });
+
+    assert.equal(completionResponse.status, 200);
+    assert.deepEqual(await completionResponse.json(), {});
+    assert.equal(core.getAttentionView().active, null);
+    assert.equal(core.getAttentionView().ambient[0]?.title, "Read completed");
+  } finally {
+    await server.close();
+  }
+});
+
 function sleep(durationMs: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, durationMs);

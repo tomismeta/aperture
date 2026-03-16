@@ -44,12 +44,6 @@ importers:
         specifier: workspace:*
         version: link:../core
 
-  packages/paperclip:
-    dependencies:
-      '@tomismeta/aperture-core':
-        specifier: workspace:*
-        version: link:../core
-
   packages/runtime:
     dependencies:
       '@tomismeta/aperture-core':

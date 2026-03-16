@@ -26,7 +26,8 @@ Examples:
 
 - Codex coding agents
 - Claude Code sessions
-- OpenClaw / ACT agent workers
+- OpenCode sessions
+- other coding-agent workers
 - subagents spawned from larger jobs
 - supporting automation and diagnostics processes
 
@@ -96,7 +97,8 @@ The first ingress sources worth targeting are:
 
 - `Codex`
 - `Claude Code`
-- `OpenClaw` / ACT worker agents
+- `OpenCode`
+- other coding-agent workers
 
 These should be treated as event producers, not as the place where Aperture's semantics live.
 
@@ -108,7 +110,7 @@ If this is the primary use case, Aperture likely needs source-specific collectio
 
 ### Likely First Adapters
 
-- `@aperture/openclaw`
+- `@aperture/opencode`
 - `@aperture/codex`
 - `@aperture/claude-code`
 
@@ -198,7 +200,7 @@ This use case is worth pursuing only if Aperture can beat direct event handling 
 
 The first proof should be:
 
-- multiple Codex / Claude Code / OpenClaw sources
+- multiple Codex / Claude Code / OpenCode sources
 - one shared `AttentionView`
 - one human operator
 - fewer context switches
@@ -212,7 +214,7 @@ If Aperture does not make that workflow feel calmer and more legible quickly, th
 If Aperture pursues this path, the next product questions become:
 
 1. What are the first 5-7 interrupt types for coding-agent supervision?
-2. What source metadata must be preserved from Codex, Claude Code, and OpenClaw?
+2. What source metadata must be preserved from Codex, Claude Code, and OpenCode?
 3. What does a useful CLI-first `AttentionView` look like for an operator?
 4. What should remain ambient versus interruptive by default?
 5. Which source adapter should be built first?

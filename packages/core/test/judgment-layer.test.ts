@@ -562,6 +562,263 @@ test("configured lowRiskRead policy does not match incidental reading language",
   assert.ok(verdict.rationale.includes("blocking interactions require explicit operator attention"));
 });
 
+test("configured lowRiskRead policy does not match passive status updates", () => {
+  const gates = new AttentionPolicy({
+    judgmentConfig: {
+      version: 1,
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      policy: {
+        lowRiskRead: {
+          mayInterrupt: false,
+          minimumPresentation: "queue",
+        },
+      },
+    },
+  });
+
+  const verdict = gates.evaluateGates(
+    createCandidate({
+      mode: "status",
+      blocking: false,
+      consequence: "low",
+      priority: "background",
+      title: "Read completed",
+      summary: "Read completed successfully.",
+      responseSpec: { kind: "none" },
+    }),
+  );
+
+  assert.equal(verdict.minimumPresentation, "ambient");
+  assert.equal(verdict.mayInterrupt, false);
+  assert.ok(verdict.rationale.includes("background work should remain peripheral by default"));
+});
+
+test("configured lowRiskRead policy does not match passive status updates with explicit tool metadata", () => {
+  const gates = new AttentionPolicy({
+    judgmentConfig: {
+      version: 1,
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      policy: {
+        lowRiskRead: {
+          mayInterrupt: false,
+          minimumPresentation: "queue",
+        },
+      },
+    },
+  });
+
+  const verdict = gates.evaluateGates(
+    createCandidate({
+      mode: "status",
+      blocking: false,
+      consequence: "low",
+      priority: "background",
+      title: "Read completed",
+      summary: "Read completed successfully.",
+      toolFamily: "read",
+      activityClass: "tool_completion",
+      responseSpec: { kind: "none" },
+    }),
+  );
+
+  assert.equal(verdict.minimumPresentation, "ambient");
+  assert.equal(verdict.mayInterrupt, false);
+  assert.ok(verdict.rationale.includes("background work should remain peripheral by default"));
+});
+
+test("only permission-request status enters the tool policy path", () => {
+  const gates = new AttentionPolicy({
+    judgmentConfig: {
+      version: 1,
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      policy: {
+        lowRiskRead: {
+          mayInterrupt: false,
+          minimumPresentation: "queue",
+        },
+      },
+    },
+  });
+
+  const passiveActivityClasses = [
+    "question_request",
+    "follow_up",
+    "tool_completion",
+    "tool_failure",
+    "session_status",
+    "status_update",
+  ] as const;
+
+  for (const activityClass of passiveActivityClasses) {
+    const verdict = gates.evaluateGates(
+      createCandidate({
+        mode: "status",
+        blocking: false,
+        consequence: "low",
+        priority: "background",
+        title: "Read completed",
+        summary: "Read completed successfully.",
+        toolFamily: "read",
+        activityClass,
+        responseSpec: { kind: "none" },
+      }),
+    );
+
+    assert.equal(verdict.minimumPresentation, "ambient");
+    assert.equal(verdict.mayInterrupt, false);
+    assert.ok(verdict.rationale.includes("background work should remain peripheral by default"));
+  }
+});
+
+test("tool policies do not match explicit question requests by title wording alone", () => {
+  const gates = new AttentionPolicy({
+    judgmentConfig: {
+      version: 1,
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      policy: {
+        lowRiskRead: {
+          autoApprove: true,
+        },
+      },
+    },
+  });
+
+  const verdict = gates.evaluateGates(
+    createCandidate({
+      mode: "choice",
+      blocking: true,
+      priority: "normal",
+      consequence: "low",
+      title: "Should we read the config first?",
+      summary: "Choose the next step.",
+      activityClass: "question_request",
+      responseSpec: {
+        kind: "choice",
+        selectionMode: "single",
+        allowTextResponse: true,
+        options: [{ id: "yes", label: "Yes" }],
+        actions: [
+          { id: "submit", label: "Submit", kind: "submit", emphasis: "primary" },
+          { id: "dismiss", label: "Dismiss", kind: "dismiss", emphasis: "secondary" },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(verdict.autoApprove, false);
+  assert.equal(verdict.requiresOperatorResponse, true);
+  assert.equal(verdict.minimumPresentation, "active");
+  assert.ok(verdict.rationale.includes("blocking interactions require explicit operator attention"));
+});
+
+test("attention value does not infer tool-family memory for explicit question requests", () => {
+  const utility = new AttentionValue({
+    memoryProfile: {
+      version: 1,
+      operatorId: "default",
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      sessionCount: 1,
+      toolFamilies: {
+        read: {
+          presentations: 10,
+          responses: 10,
+          dismissals: 0,
+          avgResponseLatencyMs: 1500,
+        },
+      },
+    },
+  }).scoreCandidate(
+    createCandidate({
+      mode: "choice",
+      blocking: true,
+      priority: "normal",
+      title: "Should we read the config first?",
+      summary: "Choose the next step.",
+      activityClass: "question_request",
+      responseSpec: {
+        kind: "choice",
+        selectionMode: "single",
+        allowTextResponse: true,
+        options: [{ id: "yes", label: "Yes" }],
+        actions: [
+          { id: "submit", label: "Submit", kind: "submit", emphasis: "primary" },
+          { id: "dismiss", label: "Dismiss", kind: "dismiss", emphasis: "secondary" },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(utility.components.responseAffinity, 0);
+});
+
+test("tool-family user overrides do not match passive status updates by title alone", () => {
+  const gates = new AttentionPolicy({
+    userProfile: {
+      version: 1,
+      operatorId: "default",
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      overrides: {
+        tools: {
+          read: {
+            defaultPresentation: "active",
+          },
+        },
+      },
+    },
+  });
+
+  const verdict = gates.evaluateGates(
+    createCandidate({
+      mode: "status",
+      blocking: false,
+      consequence: "low",
+      priority: "background",
+      title: "Read completed",
+      summary: "Read completed successfully.",
+      responseSpec: { kind: "none" },
+    }),
+  );
+
+  assert.equal(verdict.minimumPresentation, "ambient");
+  assert.equal(verdict.mayInterrupt, false);
+  assert.ok(verdict.rationale.includes("background work should remain peripheral by default"));
+});
+
+test("tool-family user overrides do not match passive status updates with explicit tool metadata", () => {
+  const gates = new AttentionPolicy({
+    userProfile: {
+      version: 1,
+      operatorId: "default",
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      overrides: {
+        tools: {
+          read: {
+            defaultPresentation: "active",
+          },
+        },
+      },
+    },
+  });
+
+  const verdict = gates.evaluateGates(
+    createCandidate({
+      mode: "status",
+      blocking: false,
+      consequence: "low",
+      priority: "background",
+      title: "Read completed",
+      summary: "Read completed successfully.",
+      toolFamily: "read",
+      activityClass: "tool_completion",
+      responseSpec: { kind: "none" },
+    }),
+  );
+
+  assert.equal(verdict.minimumPresentation, "ambient");
+  assert.equal(verdict.mayInterrupt, false);
+  assert.ok(verdict.rationale.includes("background work should remain peripheral by default"));
+});
+
 test("configured judgment policy can require context expansion", () => {
   const gates = new AttentionPolicy({
     judgmentConfig: {

@@ -227,7 +227,7 @@ test("surface capability fallback still keeps lower-ranked work queued when ambi
   assert.equal(decision.kind, "queue");
 });
 
-test("configured ambient policy keeps status work ambient even when it outranks a weak current frame", () => {
+test("tool-oriented configured policy does not preserve passive status routing even with explicit tool metadata", () => {
   const configuredCoordinator = new JudgmentCoordinator(
     new AttentionPolicy({
       judgmentConfig: {
@@ -270,13 +270,13 @@ test("configured ambient policy keeps status work ambient even when it outranks 
     }),
   );
 
-  assert.equal(explanation.decision.kind, "ambient");
+  assert.equal(explanation.decision.kind, "activate");
   assert.equal(explanation.policy.minimumPresentation, "ambient");
-  assert.equal(explanation.criterion?.peripheralResolution, "ambient");
+  assert.equal(explanation.criterion?.peripheralResolution ?? null, null);
   assert.equal(explanation.policyCriterionEvaluations[1]?.rule, "interrupt_eligibility");
 });
 
-test("configured ambient policy falls back to queue when the surface cannot render ambient work", () => {
+test("passive status ignores ambient-surface fallback when no sticky peripheral rule applies", () => {
   const configuredCoordinator = new JudgmentCoordinator(
     new AttentionPolicy({
       judgmentConfig: {
@@ -332,9 +332,9 @@ test("configured ambient policy falls back to queue when the surface cannot rend
     },
   );
 
-  assert.equal(explanation.decision.kind, "queue");
+  assert.equal(explanation.decision.kind, "activate");
   assert.equal(explanation.policy.minimumPresentation, "ambient");
-  assert.equal(explanation.criterion?.peripheralResolution, "queue");
+  assert.equal(explanation.criterion?.peripheralResolution ?? null, null);
 });
 
 test("queues lower-consequence candidates at equal priority", () => {
@@ -710,11 +710,6 @@ test("disabling multiple continuity rules bypasses both overrides together", () 
     explanation.continuityEvaluations?.filter((evaluation) => evaluation.kind === "noop"),
     [
       {
-        rule: "same_interaction",
-        kind: "noop",
-        rationale: [],
-      },
-      {
         rule: "visible_episode",
         kind: "noop",
         rationale: [],
@@ -731,6 +726,11 @@ test("disabling multiple continuity rules bypasses both overrides together", () 
       },
       {
         rule: "burst_dampening",
+        kind: "noop",
+        rationale: [],
+      },
+      {
+        rule: "same_interaction",
         kind: "noop",
         rationale: [],
       },
@@ -780,6 +780,33 @@ test("keeps cross-stream work peripheral when the current stream is still close 
       blocking: false,
       source: { id: "session:open", kind: "opencode" },
       toolFamily: "bash",
+      responseSpec: { kind: "none" },
+    }),
+  );
+
+  assert.equal(decision.kind, "ambient");
+});
+
+test("decision-stream continuity ignores incidental tool wording without explicit metadata", () => {
+  const decision = coordinator.coordinate(
+    createFrame({
+      taskId: "task:current",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      title: "Read current file",
+      summary: "Inspect the current result",
+      responseSpec: { kind: "none" },
+    }),
+    createCandidate({
+      taskId: "task:incoming",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      priority: "normal",
+      blocking: false,
+      title: "Read completed",
+      summary: "Read completed successfully.",
       responseSpec: { kind: "none" },
     }),
   );
@@ -917,6 +944,48 @@ test("re-activates updates to the same interaction id", () => {
   );
 
   assert.equal(decision.kind, "activate");
+});
+
+test("rapid same-interaction status refreshes stay peripheral instead of forcing focus", () => {
+  const explanation = coordinator.explain(
+    createFrame({
+      taskId: "task:refresh",
+      interactionId: "interaction:refresh",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      responseSpec: { kind: "none" },
+      timing: {
+        createdAt: "2026-03-08T12:00:00.000Z",
+        updatedAt: "2026-03-08T12:00:00.000Z",
+      },
+    }),
+    createCandidate({
+      taskId: "task:refresh",
+      interactionId: "interaction:refresh",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      priority: "normal",
+      blocking: false,
+      timestamp: "2026-03-08T12:00:00.746Z",
+      responseSpec: { kind: "none" },
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "ambient");
+  assert.equal(
+    explanation.continuityEvaluations?.find((evaluation) => evaluation.rule === "same_interaction")?.kind,
+    "override",
+  );
+  assert.equal(
+    explanation.continuityEvaluations?.find((evaluation) => evaluation.rule === "minimum_dwell")?.kind,
+    "override",
+  );
+  assert.match(
+    explanation.reasons.join(" "),
+    /recently surfaced work keeps focus|rapid successive updates/,
+  );
 });
 
 test("queues non-blocking high-status work while a blocking frame is waiting", () => {

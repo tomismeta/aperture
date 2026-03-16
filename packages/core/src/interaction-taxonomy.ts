@@ -1,3 +1,5 @@
+import type { AttentionActivityClass } from "./events.js";
+
 type TaxonomyInput = {
   title: string;
   summary?: string;
@@ -12,11 +14,21 @@ type TaxonomyInput = {
   metadata?: Record<string, unknown>;
 };
 
-export function inferToolFamily(input: TaxonomyInput): string | null {
-  const explicit =
+type BoundedToolFamilyInput = TaxonomyInput & {
+  mode: "status" | "approval" | "choice" | "form";
+  activityClass?: AttentionActivityClass;
+};
+
+export function readExplicitToolFamily(input: TaxonomyInput): string | null {
+  return (
     normalizeToolFamily(input.toolFamily)
     ?? normalizeToolFamily(readMetadataToolFamily(input.metadata))
-    ?? normalizeToolFamily(readContextToolFamily(input.context));
+    ?? normalizeToolFamily(readContextToolFamily(input.context))
+  );
+}
+
+export function inferToolFamily(input: TaxonomyInput): string | null {
+  const explicit = readExplicitToolFamily(input);
   if (explicit) {
     return explicit;
   }
@@ -29,6 +41,22 @@ export function inferToolFamily(input: TaxonomyInput): string | null {
   if (hasPhrase(value, "search the web")) return "web";
   if (hasPhrase(value, "search files") || hasPhrase(value, "search file contents")) return "search";
   return null;
+}
+
+export function readBoundedToolFamily(input: BoundedToolFamilyInput): string | null {
+  if (input.mode === "status") {
+    return readExplicitToolFamily(input);
+  }
+
+  if (input.activityClass !== undefined && input.activityClass !== "permission_request") {
+    return readExplicitToolFamily(input);
+  }
+
+  if (input.mode !== "approval") {
+    return readExplicitToolFamily(input);
+  }
+
+  return inferToolFamily(input);
 }
 
 export function sourceKey(source?: { kind?: string; id: string }): string | null {

@@ -281,7 +281,7 @@ Study people supervising:
 
 - Codex sessions
 - Claude Code sessions
-- OpenClaw / Paperclip-like multi-agent systems
+- OpenCode and other multi-agent systems
 
 Watch for:
 

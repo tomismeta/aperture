@@ -7,6 +7,15 @@ export type ApertureEvent =
 
 export type TaskStatus = "running" | "blocked" | "waiting" | "completed" | "failed";
 
+export type AttentionActivityClass =
+  | "permission_request"
+  | "question_request"
+  | "follow_up"
+  | "tool_completion"
+  | "tool_failure"
+  | "session_status"
+  | "status_update";
+
 export type SourceRef = {
   id: string;
   kind?: string;
@@ -28,6 +37,8 @@ export type TaskStartedEvent = EventBase & {
 
 export type TaskUpdatedEvent = EventBase & {
   type: "task.updated";
+  toolFamily?: string;
+  activityClass?: AttentionActivityClass;
   title: string;
   summary?: string;
   status: TaskStatus;
@@ -40,6 +51,7 @@ export type HumanInputRequestedEvent = EventBase & {
   type: "human.input.requested";
   interactionId: string;
   toolFamily?: string;
+  activityClass?: AttentionActivityClass;
   title: string;
   summary: string;
   tone?: "ambient" | "focused" | "critical";

@@ -5,7 +5,7 @@ import type {
   AttentionProvenance,
   AttentionResponseSpec,
 } from "./frame.js";
-import type { SourceRef } from "./events.js";
+import type { AttentionActivityClass, SourceRef } from "./events.js";
 
 export type AttentionPriority = "background" | "normal" | "high";
 
@@ -14,6 +14,7 @@ export type AttentionCandidate = {
   interactionId: string;
   source?: SourceRef;
   toolFamily?: string;
+  activityClass?: AttentionActivityClass;
   mode: AttentionFrame["mode"];
   tone: AttentionFrame["tone"];
   consequence: AttentionFrame["consequence"];

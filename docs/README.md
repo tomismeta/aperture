@@ -1,44 +1,70 @@
-# Public Docs
+# Docs
 
-These are the docs intended to ship with the first public GitHub version of Aperture.
+This folder contains three kinds of documentation:
 
-Recommended reading order for someone new to the repo:
+- **current product docs** for the live Aperture surface
+- **current reference docs** for the engine and SDK
+- **archived docs** for historical plans and shipped specs
 
-1. [README](../README.md) for the product overview, shared-stack model, and full-stack quickstarts
-2. [TUI Surface](tui.md) for how to read the human attention surface
-3. [Components](components.md) for the package/runtime architecture
-4. [Claude Code Adapter](claude-code.md) for the Claude Code live source path
-5. [OpenCode Adapter](opencode-integration.md) for the OpenCode live source path
+If you are new to the repo, read the current product docs first.
 
-Primary docs:
+## Start Here
 
-- [TUI Surface](tui.md)
-- [Components](components.md)
-- [Claude Code Adapter](claude-code.md)
-- [OpenCode Adapter](opencode-integration.md)
+1. [README](../README.md)
+2. [TUI Surface](./tui.md)
+3. [Components](./components.md)
+4. [System Architecture Diagram](./system-architecture-diagram.md)
+5. [Claude Code Adapter](./claude-code.md)
+6. [OpenCode Adapter](./opencode-integration.md)
 
-Reference docs:
+## Current Product Docs
 
-- [Attention And Judgment Doctrine](attention-judgment-doctrine.md)
-- [Core Engine Architecture](core-engine-architecture.md)
-- [Semantic Normalization](semantic-normalization.md)
-- [Attention Frame](frame.md)
-- [OpenCode Adapter](opencode-integration.md)
-- [OpenCode Implementation Plan](opencode-implementation-plan.md)
-- [TUI Design](tui-design.md)
-- [TUI Redesign Spec](tui-redesign-spec.md)
-- [Engine Roadmap](engine-roadmap.md)
-- [Reference Judgment Flow](reference-judgment-flow.md)
-- [SDK Path](sdk-path.md)
-- [Technical Product Roadmap](technical-product-roadmap.md)
-- [Interaction Signals](interaction-signals.md)
-- [Human Attention Research](human-attention-research.md)
-- [Agent Workforce Use Case](agent-workforce-use-case.md)
-- [First Publish Checklist](publish-checklist.md)
+- [TUI Surface](./tui.md)
+- [Components](./components.md)
+- [Claude Code Adapter](./claude-code.md)
+- [OpenCode Adapter](./opencode-integration.md)
+- [System Architecture Diagram](./system-architecture-diagram.md)
 
-Everything in this set matches the current engine-first product:
+These are the best entrypoints for understanding what Aperture is today:
 
-- a human attention control plane in the core package (`packages/core`, published as `@tomismeta/aperture-core`)
+- a deterministic human attention engine in `packages/core`
 - a shared local host in `@aperture/runtime`
-- Claude Code and OpenCode as current first-class live adapter paths
-- a source-agnostic TUI as the primary companion surface
+- Claude Code and OpenCode as the live adapter paths
+- a source-agnostic TUI with operator mode and `why` inspection mode
+
+## Current Reference Docs
+
+- [Architecture Principles](./architecture-principles.md)
+- [Attention And Judgment Doctrine](./attention-judgment-doctrine.md)
+- [Core Engine Architecture](./core-engine-architecture.md)
+- [Reference Judgment Flow](./reference-judgment-flow.md)
+- [Semantic Normalization](./semantic-normalization.md)
+- [Attention Frame](./frame.md)
+- [Engine Roadmap](./engine-roadmap.md)
+- [Core Maturation Plan](./core-maturation-plan.md)
+- [SDK Path](./sdk-path.md)
+- [Technical Product Roadmap](./technical-product-roadmap.md)
+- [Interaction Signals](./interaction-signals.md)
+- [Human Attention Research](./human-attention-research.md)
+
+These docs explain how the engine works, how it should evolve, and how the SDK
+boundary should stay clean over time.
+
+## Background / Design Context
+
+- [TUI Design](./tui-design.md)
+- [Agent Workforce Use Case](./agent-workforce-use-case.md)
+- [Engine Architecture Evaluation](./engine-architecture-evaluation.md)
+
+These are useful context docs, but they are not the primary product contract.
+
+## Archived
+
+- [Archive Index](./archive/README.md)
+- [TUI Redesign Spec](./archive/tui-redesign-spec.md)
+- [OpenCode Implementation Plan](./archive/opencode-implementation-plan.md)
+- [Judgment Layer Implementation Spec](./archive/judgment-layer-implementation-spec.md)
+- [First Publish Checklist](./archive/publish-checklist.md)
+
+Archived docs are kept for implementation history and design provenance. They
+should not be treated as the source of truth for the current product surface.

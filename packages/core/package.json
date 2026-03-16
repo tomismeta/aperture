@@ -15,15 +15,15 @@
   },
   "keywords": [
     "ai-agents",
+    "multi-agent",
+    "agent-orchestration",
     "attention-management",
     "control-plane",
     "human-in-the-loop",
-    "judgment",
-    "agent-orchestration",
-    "priority",
-    "queue",
-    "llm",
-    "notification",
+    "judgment-engine",
+    "decision-engine",
+    "interrupt-management",
+    "approval-workflows",
     "typescript"
   ],
   "publishConfig": {

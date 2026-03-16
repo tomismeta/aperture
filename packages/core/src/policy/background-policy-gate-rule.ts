@@ -12,6 +12,7 @@ export const evaluateBackgroundPolicyGateRule: PolicyGateRule = (input) => {
       mayInterrupt: false,
       requiresOperatorResponse: false,
       minimumPresentation: "ambient",
+      minimumPresentationIsSticky: true,
       rationale: ["background work should remain peripheral by default"],
     },
   );

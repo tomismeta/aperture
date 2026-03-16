@@ -1,3 +1,6 @@
+import type { AttentionFrame } from "../frame.js";
+import { readFrameEpisodeId } from "../episode-tracker.js";
+
 import {
   ambiguousPeripheralCriterionVerdict,
   clearCriterionVerdict,
@@ -7,8 +10,27 @@ import {
 } from "./policy-criterion-rule.js";
 
 export const evaluateNoActiveFrameCriterionRule: PolicyCriterionRule = (input) => {
-  const { evidence, candidateScore, criterion, peripheralResolution } = input;
+  const {
+    candidate,
+    evidence,
+    candidateScore,
+    criterion,
+    peripheralResolution,
+  } = input;
   if (evidence.currentFrame) {
+    return noopPolicyCriterionRule("no_active_frame");
+  }
+
+  if (
+    candidate.episodeId !== undefined
+    && [
+      evidence.attentionView.active,
+      ...evidence.attentionView.queued,
+      ...evidence.attentionView.ambient,
+    ]
+      .filter((frame): frame is AttentionFrame => frame !== null)
+      .some((frame) => frame.interactionId !== candidate.interactionId && readFrameEpisodeId(frame) === candidate.episodeId)
+  ) {
     return noopPolicyCriterionRule("no_active_frame");
   }
 

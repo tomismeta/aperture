@@ -130,6 +130,34 @@ test("keeps background work ambient while a blocking frame is waiting", () => {
   assert.equal(decision.kind, "ambient");
 });
 
+test("keeps background work ambient even when it outranks a weak current frame", () => {
+  const explanation = coordinator.explain(
+    createFrame({
+      mode: "status",
+      tone: "ambient",
+      consequence: "low",
+      responseSpec: { kind: "none" },
+      timing: {
+        createdAt: "2026-03-08T11:59:00.000Z",
+        updatedAt: "2026-03-08T11:59:00.000Z",
+      },
+    }),
+    createCandidate({
+      mode: "status",
+      tone: "ambient",
+      consequence: "low",
+      priority: "background",
+      blocking: false,
+      responseSpec: { kind: "none" },
+      attentionScoreOffset: 100,
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "ambient");
+  assert.equal(explanation.criterion?.peripheralResolution, "ambient");
+  assert.equal(explanation.policyCriterionEvaluations[1]?.rule, "interrupt_eligibility");
+});
+
 test("falls back to queue when a surface cannot render ambient work", () => {
   const decision = coordinator.coordinate(
     createFrame(),
@@ -197,6 +225,116 @@ test("surface capability fallback still keeps lower-ranked work queued when ambi
   );
 
   assert.equal(decision.kind, "queue");
+});
+
+test("configured ambient policy keeps status work ambient even when it outranks a weak current frame", () => {
+  const configuredCoordinator = new JudgmentCoordinator(
+    new AttentionPolicy({
+      judgmentConfig: {
+        version: 1,
+        updatedAt: "2026-03-12T10:15:00.000Z",
+        policy: {
+          lowRiskRead: {
+            mayInterrupt: false,
+            minimumPresentation: "ambient",
+          },
+        },
+      },
+    }),
+    new AttentionValue(),
+    new AttentionPlanner(),
+  );
+
+  const explanation = configuredCoordinator.explain(
+    createFrame({
+      mode: "status",
+      tone: "ambient",
+      consequence: "low",
+      responseSpec: { kind: "none" },
+      timing: {
+        createdAt: "2026-03-08T11:59:00.000Z",
+        updatedAt: "2026-03-08T11:59:00.000Z",
+      },
+    }),
+    createCandidate({
+      mode: "status",
+      title: "Read config file",
+      summary: "Open config for review",
+      tone: "ambient",
+      consequence: "low",
+      priority: "normal",
+      blocking: false,
+      toolFamily: "read",
+      responseSpec: { kind: "none" },
+      attentionScoreOffset: 100,
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "ambient");
+  assert.equal(explanation.policy.minimumPresentation, "ambient");
+  assert.equal(explanation.criterion?.peripheralResolution, "ambient");
+  assert.equal(explanation.policyCriterionEvaluations[1]?.rule, "interrupt_eligibility");
+});
+
+test("configured ambient policy falls back to queue when the surface cannot render ambient work", () => {
+  const configuredCoordinator = new JudgmentCoordinator(
+    new AttentionPolicy({
+      judgmentConfig: {
+        version: 1,
+        updatedAt: "2026-03-12T10:15:00.000Z",
+        policy: {
+          lowRiskRead: {
+            mayInterrupt: false,
+            minimumPresentation: "ambient",
+          },
+        },
+      },
+    }),
+    new AttentionValue(),
+    new AttentionPlanner(),
+  );
+
+  const explanation = configuredCoordinator.explain(
+    createFrame({
+      mode: "status",
+      tone: "ambient",
+      consequence: "low",
+      responseSpec: { kind: "none" },
+      timing: {
+        createdAt: "2026-03-08T11:59:00.000Z",
+        updatedAt: "2026-03-08T11:59:00.000Z",
+      },
+    }),
+    createCandidate({
+      mode: "status",
+      title: "Read config file",
+      summary: "Open config for review",
+      tone: "ambient",
+      consequence: "low",
+      priority: "normal",
+      blocking: false,
+      toolFamily: "read",
+      responseSpec: { kind: "none" },
+      attentionScoreOffset: 100,
+    }),
+    {
+      surfaceCapabilities: {
+        topology: {
+          supportsAmbient: false,
+        },
+        responses: {
+          supportsSingleChoice: true,
+          supportsMultipleChoice: false,
+          supportsForm: true,
+          supportsTextResponse: false,
+        },
+      },
+    },
+  );
+
+  assert.equal(explanation.decision.kind, "queue");
+  assert.equal(explanation.policy.minimumPresentation, "ambient");
+  assert.equal(explanation.criterion?.peripheralResolution, "queue");
 });
 
 test("queues lower-consequence candidates at equal priority", () => {
@@ -1399,4 +1537,48 @@ test("configured bounded approvals can auto-approve through the coordinator", ()
     interactionId: "interaction:new",
     response: { kind: "approved" },
   });
+});
+
+test("configured non-interruptive queue policy keeps optional approvals queued when the surface is empty", () => {
+  const configuredCoordinator = new JudgmentCoordinator(
+    new AttentionPolicy({
+      judgmentConfig: {
+        version: 1,
+        updatedAt: "2026-03-12T10:15:00.000Z",
+        policy: {
+          lowRiskRead: {
+            mayInterrupt: false,
+            minimumPresentation: "queue",
+          },
+        },
+      },
+    }),
+    new AttentionValue(),
+    new AttentionPlanner(),
+  );
+
+  const explanation = configuredCoordinator.explain(
+    null,
+    createCandidate({
+      mode: "approval",
+      title: "Read config file",
+      summary: "Open config for review",
+      consequence: "low",
+      priority: "normal",
+      blocking: false,
+      toolFamily: "read",
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "queue");
+  assert.equal(explanation.policy.minimumPresentation, "queue");
+  assert.equal(explanation.criterion?.peripheralResolution, "queue");
+  assert.equal(explanation.policyCriterionEvaluations[1]?.rule, "interrupt_eligibility");
 });

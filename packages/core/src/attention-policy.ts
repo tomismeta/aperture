@@ -33,6 +33,9 @@ export type AttentionPolicyVerdict = {
   mayInterrupt: boolean;
   requiresOperatorResponse: boolean;
   minimumPresentation: AttentionPresentationFloor;
+  // Some policy rules establish a true floor (for example, configured ambient/queue
+  // policy) rather than a soft starting posture. Criterion should preserve those.
+  minimumPresentationIsSticky: boolean;
   rationale: string[];
 };
 
@@ -116,6 +119,7 @@ export class AttentionPolicy {
       mayInterrupt: true,
       requiresOperatorResponse: false,
       minimumPresentation: "queue",
+      minimumPresentationIsSticky: false,
       rationale: ["urgent non-blocking work may compete for interruptive attention"],
     };
 

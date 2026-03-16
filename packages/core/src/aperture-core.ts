@@ -58,6 +58,7 @@ export type ApertureCoreOptions = {
   markdownRootDir?: string;
   surfaceCapabilities?: AttentionSurfaceCapabilities;
   operatorPresence?: AttentionOperatorPresence;
+  responseExpiryMs?: number;
 };
 
 export class ApertureCore {
@@ -82,6 +83,7 @@ export class ApertureCore {
   private judgmentConfig: JudgmentConfig | undefined;
   private surfaceCapabilities: AttentionSurfaceCapabilities;
   private operatorPresence: AttentionOperatorPresence;
+  private readonly responseExpiryMs: number | undefined;
 
   constructor(options: ApertureCoreOptions = {}) {
     this.markdownRootDir = options.markdownRootDir;
@@ -98,6 +100,7 @@ export class ApertureCore {
           responses: { ...baseAttentionSurfaceCapabilities.responses },
         };
     this.operatorPresence = options.operatorPresence ?? "present";
+    this.responseExpiryMs = options.responseExpiryMs;
     this.baseMemoryProfile = options.memoryProfile ?? {
       version: MARKDOWN_SCHEMA_VERSION,
       operatorId: "default",
@@ -285,7 +288,9 @@ export class ApertureCore {
                     ),
                     preAttentionView,
                   )
-                : this.commitFrame(this.planner.plan(explanation.decision.candidate, evidence.currentFrame));
+                : this.commitFrame(this.applyResponseExpiry(
+                    this.planner.plan(explanation.decision.candidate, evidence.currentFrame),
+                  ));
             break;
         }
         const postAttentionView = this.getAttentionView();
@@ -378,6 +383,13 @@ export class ApertureCore {
     const current = this.findFrameByInteractionId(response.taskId, response.interactionId);
     if (!current) {
       return;
+    }
+
+    const expiredAt = this.readExpiredResponseTimestamp(current, new Date().toISOString());
+    if (expiredAt) {
+      throw new Error(
+        `response for interaction ${response.interactionId} expired at ${expiredAt} and must be revalidated before submission`,
+      );
     }
 
     const timestamp = new Date().toISOString();
@@ -598,14 +610,14 @@ export class ApertureCore {
   ): AttentionFrame {
     const existing = candidate.episodeId ? this.findPeripheralEpisodeFrame(candidate.episodeId, attentionView) : null;
     if (!existing) {
-      const planned = this.planner.plan(candidate, null);
+      const planned = this.applyResponseExpiry(this.planner.plan(candidate, null));
       return bucket === "queue"
         ? this.queueFrame(candidate.taskId, planned)
         : this.addAmbientFrame(candidate.taskId, planned);
     }
 
     const nextBucket = existing.bucket === "queue" || bucket === "queue" ? "queue" : "ambient";
-    const planned = this.planner.plan(candidate, existing.frame);
+    const planned = this.applyResponseExpiry(this.planner.plan(candidate, existing.frame));
     const merged = {
       ...planned,
       id: existing.frame.id,
@@ -625,6 +637,40 @@ export class ApertureCore {
 
   private findFrameByInteractionId(taskId: string, interactionId: string): AttentionFrame | null {
     return this.findFrame(taskId, interactionId);
+  }
+
+  private applyResponseExpiry(frame: AttentionFrame): AttentionFrame {
+    if (this.responseExpiryMs === undefined || frame.responseSpec?.kind === "none") {
+      return frame;
+    }
+
+    const updatedAt = Date.parse(frame.timing.updatedAt);
+    if (Number.isNaN(updatedAt)) {
+      return frame;
+    }
+
+    return {
+      ...frame,
+      timing: {
+        ...frame.timing,
+        expiresAt: new Date(updatedAt + this.responseExpiryMs).toISOString(),
+      },
+    };
+  }
+
+  private readExpiredResponseTimestamp(frame: AttentionFrame, now: string): string | null {
+    const expiresAt = frame.timing.expiresAt;
+    if (!expiresAt) {
+      return null;
+    }
+
+    const expiresAtMs = Date.parse(expiresAt);
+    const nowMs = Date.parse(now);
+    if (Number.isNaN(expiresAtMs) || Number.isNaN(nowMs) || nowMs <= expiresAtMs) {
+      return null;
+    }
+
+    return expiresAt;
   }
 
   private findPeripheralEpisodeFrame(

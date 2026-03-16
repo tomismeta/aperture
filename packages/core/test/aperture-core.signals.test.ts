@@ -383,6 +383,33 @@ test("submit rejects malformed responses with a useful error", () => {
   );
 });
 
+test("submit rejects expired approval responses so the host can revalidate them", () => {
+  const core = new ApertureCore({
+    responseExpiryMs: 1,
+  });
+
+  core.publish({
+    id: "evt:expiring-approval",
+    taskId: "task:expiring",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:expiring",
+    title: "Approve deploy",
+    summary: "A deployment is waiting for approval.",
+    request: { kind: "approval" },
+  });
+
+  assert.throws(
+    () =>
+      core.submit({
+        taskId: "task:expiring",
+        interactionId: "interaction:expiring",
+        response: { kind: "approved" },
+      }),
+    /expired .* must be revalidated before submission/,
+  );
+});
+
 test("attention signal store retains a bounded history per task", () => {
   const core = new ApertureCore();
 

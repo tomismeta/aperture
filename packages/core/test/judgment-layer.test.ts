@@ -64,6 +64,7 @@ test("attention policy keeps background work ambient by default", () => {
     mayInterrupt: false,
     requiresOperatorResponse: false,
     minimumPresentation: "ambient",
+    minimumPresentationIsSticky: true,
     rationale: ["background work should remain peripheral by default"],
   });
 });

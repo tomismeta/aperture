@@ -87,6 +87,19 @@ export function clearCriterionVerdict(
   };
 }
 
+export function preservedPeripheralCriterionVerdict(
+  criterion: AttentionInterruptCriterion,
+  peripheralResolution: "queue" | "ambient",
+  rationale: string[] = [],
+): AttentionInterruptCriterionVerdict {
+  return {
+    criterion,
+    peripheralResolution,
+    ambiguity: null,
+    rationale,
+  };
+}
+
 export function ambiguousPeripheralCriterionVerdict(
   criterion: AttentionInterruptCriterion,
   peripheralResolution: "queue" | "ambient",

@@ -56,6 +56,7 @@ export const evaluateConfiguredPolicyGateRule: PolicyGateRule = (input) => {
         mayInterrupt: false,
         requiresOperatorResponse: false,
         minimumPresentation: "ambient",
+        minimumPresentationIsSticky: true,
         rationale,
       },
     );
@@ -70,6 +71,7 @@ export const evaluateConfiguredPolicyGateRule: PolicyGateRule = (input) => {
         mayInterrupt: true,
         requiresOperatorResponse: true,
         minimumPresentation: "active",
+        minimumPresentationIsSticky: false,
         rationale,
       },
     );
@@ -82,6 +84,7 @@ export const evaluateConfiguredPolicyGateRule: PolicyGateRule = (input) => {
       mayInterrupt: mayInterrupt ?? false,
       requiresOperatorResponse,
       minimumPresentation: minimumPresentation ?? (candidate.blocking ? "active" : "queue"),
+      minimumPresentationIsSticky: minimumPresentation !== undefined || mayInterrupt === false,
       rationale,
     },
   );

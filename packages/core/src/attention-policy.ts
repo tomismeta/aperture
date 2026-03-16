@@ -74,10 +74,6 @@ export class AttentionPolicy {
     this.memoryProfile = options.memoryProfile;
   }
 
-  evaluate(candidate: AttentionCandidate): AttentionPolicyVerdict {
-    return this.evaluateGates(candidate);
-  }
-
   evaluateGates(candidate: AttentionCandidate): AttentionPolicyVerdict {
     const input = this.buildPolicyGateInput(candidate);
     for (const rule of POLICY_GATE_RULES) {

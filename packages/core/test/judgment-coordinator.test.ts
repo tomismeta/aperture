@@ -198,6 +198,34 @@ test("conflicting interrupt resolution yields when the challenger is clearly str
   assert.equal(decision.kind, "activate");
 });
 
+test("non-blocking approvals still count as interrupt-class challengers", () => {
+  const decision = coordinator.coordinate(
+    createFrame({
+      mode: "status",
+      tone: "critical",
+      consequence: "high",
+      responseSpec: { kind: "none" },
+    }),
+    createCandidate({
+      mode: "approval",
+      blocking: false,
+      priority: "normal",
+      consequence: "medium",
+      tone: "focused",
+      attentionScoreOffset: 40,
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(decision.kind, "queue");
+});
+
 test("planner defaults can disable conflicting interrupt resolution", () => {
   const interruptConflictDisabledCoordinator = new JudgmentCoordinator(
     new AttentionPolicy(),

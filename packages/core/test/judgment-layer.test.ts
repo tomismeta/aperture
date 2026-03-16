@@ -56,7 +56,7 @@ function createFrame(overrides: Partial<Frame> = {}): Frame {
 
 test("attention policy keeps background work ambient by default", () => {
   const gates = new AttentionPolicy();
-  const verdict = gates.evaluate(createCandidate());
+  const verdict = gates.evaluateGates(createCandidate());
 
   assert.deepEqual(verdict, {
     autoApprove: false,
@@ -373,7 +373,7 @@ test("attention policy applies user overrides for tool families", () => {
     },
   });
 
-  const verdict = gates.evaluate(
+  const verdict = gates.evaluateGates(
     createCandidate({
       source: { id: "session:1", kind: "claude-code" },
       mode: "approval",
@@ -413,7 +413,7 @@ test("attention policy prefers explicit tool family metadata over title heuristi
     },
   });
 
-  const verdict = gates.evaluate(
+  const verdict = gates.evaluateGates(
     createCandidate({
       mode: "approval",
       blocking: true,
@@ -450,7 +450,7 @@ test("configured lowRiskRead policy can auto-approve bounded approvals", () => {
     },
   });
 
-  const verdict = gates.evaluate(
+  const verdict = gates.evaluateGates(
     createCandidate({
       mode: "approval",
       blocking: true,
@@ -486,7 +486,7 @@ test("configured lowRiskWeb policy can auto-approve bounded web approvals", () =
     },
   });
 
-  const verdict = gates.evaluate(
+  const verdict = gates.evaluateGates(
     createCandidate({
       mode: "approval",
       blocking: true,
@@ -522,7 +522,7 @@ test("configured lowRiskRead policy does not match incidental reading language",
     },
   });
 
-  const verdict = gates.evaluate(
+  const verdict = gates.evaluateGates(
     createCandidate({
       mode: "approval",
       blocking: true,
@@ -558,7 +558,7 @@ test("configured judgment policy can require context expansion", () => {
     },
   });
 
-  const verdict = gates.evaluate(
+  const verdict = gates.evaluateGates(
     createCandidate({
       mode: "approval",
       blocking: false,
@@ -594,7 +594,7 @@ test("configured fileWrite policy keeps writes interruptive", () => {
     },
   });
 
-  const verdict = gates.evaluate(
+  const verdict = gates.evaluateGates(
     createCandidate({
       mode: "approval",
       blocking: false,

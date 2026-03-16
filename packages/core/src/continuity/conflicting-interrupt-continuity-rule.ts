@@ -73,6 +73,8 @@ function interruptClassForFrame(frame: {
 function interruptClassForCandidate(
   candidate: {
     blocking: boolean;
+    mode: string;
+    responseSpec: { kind: string };
     tone: string;
     consequence: string;
   },
@@ -87,6 +89,10 @@ function interruptClassForCandidate(
 
   if (candidate.tone === "critical" || candidate.consequence === "high") {
     return 2;
+  }
+
+  if (candidate.mode !== "status" && candidate.responseSpec.kind !== "none") {
+    return 1;
   }
 
   return 0;

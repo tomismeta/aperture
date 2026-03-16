@@ -62,7 +62,6 @@ export type ApertureCoreOptions = {
 };
 
 export class ApertureCore {
-  private readonly frames = new Map<string, AttentionFrame>();
   private readonly frameListeners = new Map<string, Set<AttentionFrameListener>>();
   private readonly taskViewListeners = new Map<string, Set<AttentionTaskViewListener>>();
   private readonly attentionViewListeners = new Set<AttentionViewListener>();
@@ -318,7 +317,7 @@ export class ApertureCore {
   }
 
   getFrame(taskId: string): AttentionFrame | null {
-    return this.frames.get(taskId) ?? null;
+    return this.taskViews.get(taskId).active ?? null;
   }
 
   subscribe(taskId: string, listener: AttentionFrameListener): () => void {
@@ -393,12 +392,10 @@ export class ApertureCore {
     const taskView = this.taskViews.resolve(response.taskId, response.interactionId);
     const newPrimary = taskView.active;
     if (newPrimary) {
-      this.frames.set(response.taskId, newPrimary);
       this.recordAttentionShift(previousTaskView.active, newPrimary, timestamp);
       this.recordReturnSignal(previousTaskView, newPrimary, timestamp);
       this.notifyFrame(response.taskId, newPrimary);
     } else {
-      this.frames.delete(response.taskId);
       this.notifyFrame(response.taskId, null);
     }
     this.notifyTaskView(response.taskId, taskView);
@@ -522,7 +519,6 @@ export class ApertureCore {
   private commitFrame(frame: AttentionFrame): AttentionFrame {
     const previousTaskView = this.taskViews.get(frame.taskId);
     const previousActive = previousTaskView.active;
-    this.frames.set(frame.taskId, frame);
     const taskView = this.taskViews.setActive(frame.taskId, frame);
     this.recordAttentionShift(previousActive, frame, frame.timing.updatedAt);
     this.recordReturnSignal(previousTaskView, frame, frame.timing.updatedAt);
@@ -579,15 +575,13 @@ export class ApertureCore {
   private applyClear(taskId: string): null {
     const existingTaskView = this.taskViews.get(taskId);
     const hadAnyVisibleState =
-      this.frames.has(taskId)
-      || existingTaskView.active !== null
+      existingTaskView.active !== null
       || existingTaskView.queued.length > 0
       || existingTaskView.ambient.length > 0;
 
     if (!hadAnyVisibleState) {
       return null;
     }
-    this.frames.delete(taskId);
     const taskView = this.taskViews.clear(taskId);
     this.notifyFrame(taskId, null);
     this.notifyTaskView(taskId, taskView);
@@ -600,7 +594,7 @@ export class ApertureCore {
     this.recordDeferredSignal(frame, "queued");
     this.notifyTaskView(taskId, taskView);
     this.notifyAttentionView();
-    return this.frames.get(taskId) ?? frame;
+    return taskView.active ?? frame;
   }
 
   private addAmbientFrame(taskId: string, frame: AttentionFrame): AttentionFrame {
@@ -608,7 +602,7 @@ export class ApertureCore {
     this.recordDeferredSignal(frame, "suppressed");
     this.notifyTaskView(taskId, taskView);
     this.notifyAttentionView();
-    return this.frames.get(taskId) ?? frame;
+    return taskView.active ?? frame;
   }
 
   private materializePeripheralFrame(
@@ -644,11 +638,6 @@ export class ApertureCore {
   }
 
   private findFrameByInteractionId(taskId: string, interactionId: string): AttentionFrame | null {
-    const primary = this.frames.get(taskId);
-    if (primary?.interactionId === interactionId) {
-      return primary;
-    }
-
     const taskView = this.taskViews.get(taskId);
     if (taskView.active?.interactionId === interactionId) {
       return taskView.active;

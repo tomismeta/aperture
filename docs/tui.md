@@ -98,3 +98,6 @@ pnpm demo:tui
 ## Design direction
 
 For the intended layout and attention principles behind the TUI, see [TUI Design](./tui-design.md).
+
+For the next implementation pass that adds judgment-legible operator copy and a
+`why` inspection mode, see [TUI Redesign Spec](./tui-redesign-spec.md).

@@ -26,6 +26,7 @@ Reference docs:
 - [OpenCode Adapter](opencode-integration.md)
 - [OpenCode Implementation Plan](opencode-implementation-plan.md)
 - [TUI Design](tui-design.md)
+- [TUI Redesign Spec](tui-redesign-spec.md)
 - [Engine Roadmap](engine-roadmap.md)
 - [Reference Judgment Flow](reference-judgment-flow.md)
 - [SDK Path](sdk-path.md)

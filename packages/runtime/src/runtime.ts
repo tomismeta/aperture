@@ -4,6 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import {
   ApertureCore,
   baseAttentionSurfaceCapabilities,
+  type ApertureTrace,
   type AttentionResponse,
   type AttentionSignalSummary,
   type AttentionSurfaceCapabilities,
@@ -37,6 +38,11 @@ export type ApertureRuntimeEvent =
       sequence: number;
       type: "response";
       response: AttentionResponse;
+    }
+  | {
+      sequence: number;
+      type: "trace";
+      trace: ApertureTrace;
     };
 
 export type ApertureRuntimeSnapshot = {
@@ -127,7 +133,7 @@ export function createApertureRuntime(
     stateVersion += 1;
   };
 
-  const pushEvent = (event: Omit<ApertureRuntimeEvent, "sequence">) => {
+  const pushEvent = (event: { type: "response"; response: AttentionResponse } | { type: "trace"; trace: ApertureTrace }) => {
     sequence += 1;
     events.push({ sequence, ...event });
     if (events.length > eventLogLimit) {
@@ -137,6 +143,9 @@ export function createApertureRuntime(
 
   const unsubscribeResponse = core.onResponse((response) => {
     pushEvent({ type: "response", response });
+  });
+  const unsubscribeTrace = core.onTrace((trace) => {
+    pushEvent({ type: "trace", trace });
   });
   const unsubscribeSignal = core.onSignal(() => {
     bumpStateVersion();
@@ -398,6 +407,7 @@ export function createApertureRuntime(
         bumpStateVersion();
       }
       unsubscribeResponse();
+      unsubscribeTrace();
       unsubscribeSignal();
       unsubscribeAttentionView();
       if (registrationInterval) {

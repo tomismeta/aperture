@@ -1,4 +1,5 @@
 import type {
+  ApertureTrace,
   AttentionResponse,
   AttentionSignalSummary,
   AttentionSurfaceCapabilities,
@@ -22,6 +23,7 @@ type PartialSurfaceCapabilities = {
 
 type AttentionViewListener = (attentionView: AttentionView) => void;
 type ResponseListener = (response: AttentionResponse) => void;
+type TraceListener = (trace: ApertureTrace) => void;
 
 const DEFAULT_POLL_INTERVAL_MS = 250;
 
@@ -32,6 +34,7 @@ export class ApertureRuntimeClient {
   private readonly surfaceCapabilities: PartialSurfaceCapabilities | undefined;
   private readonly attentionListeners = new Set<AttentionViewListener>();
   private readonly responseListeners = new Set<ResponseListener>();
+  private readonly traceListeners = new Set<TraceListener>();
   private snapshotState: ApertureRuntimeSnapshot = {
     version: 0,
     attentionView: { active: null, queued: [], ambient: [] },
@@ -122,6 +125,13 @@ export class ApertureRuntimeClient {
     };
   }
 
+  onTrace(listener: TraceListener): () => void {
+    this.traceListeners.add(listener);
+    return () => {
+      this.traceListeners.delete(listener);
+    };
+  }
+
   submit(response: AttentionResponse): void {
     void this.post("/responses", response)
       .then(() => this.refreshState())
@@ -182,6 +192,10 @@ export class ApertureRuntimeClient {
       if (event.type === "response") {
         for (const listener of this.responseListeners) {
           listener(event.response);
+        }
+      } else if (event.type === "trace") {
+        for (const listener of this.traceListeners) {
+          listener(event.trace);
         }
       }
     }

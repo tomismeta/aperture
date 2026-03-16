@@ -60,13 +60,14 @@ test("renderAttentionScreen shows active, queued, and ambient summaries", () => 
   const screen = renderAttentionScreen(attentionView, { title: "Aperture TUI" });
 
   assert.match(screen, /APERTURE/);
-  assert.match(screen, /human attention control plane/);
   assert.match(screen, /active 1/);
   assert.match(screen, /queued 1/);
   assert.match(screen, /ambient 1/);
-  assert.match(screen, /ACTIVE NOW/);
-  assert.match(screen, /QUEUE/);
-  assert.match(screen, /AMBIENT/);
+  // New layout uses ┄ section headers and ⏺ marker with ⎿ tree connectors
+  assert.match(screen, /┄ queue ┄/);
+  assert.match(screen, /┄ ambient ┄/);
+  assert.match(screen, /⏺/); // active frame marker
+  assert.match(screen, /⎿/); // tree connector for child lines
   assert.match(screen, /Approve deployment/);
   assert.match(screen, /Choose target/);
   assert.match(screen, /Run failed/);
@@ -135,7 +136,8 @@ test("renderAttentionScreen hides rationale by default and shows when expanded",
   };
 
   const collapsed = renderAttentionScreen(attentionView, { title: "Aperture TUI" });
-  assert.doesNotMatch(collapsed, /blocking work remains sticky/);
+  // Rationale now shows as judgment line (from metadata.attention.rationale)
+  // but the full "why" debug section with offset is hidden
   assert.doesNotMatch(collapsed, /offset/);
 
   const expanded = renderAttentionScreen(attentionView, { title: "Aperture TUI", expanded: true });
@@ -277,4 +279,187 @@ test("renderAttentionScreen shows duplicate active approvals as a pending count"
   const screen = renderAttentionScreen(attentionView, { title: "Aperture" });
 
   assert.match(screen, /Approve Read components\.md .*×2/);
+});
+
+test("renderAttentionScreen single-line header with posture indicator", () => {
+  const attentionView: AttentionView = {
+    active: makeFrame(),
+    queued: [],
+    ambient: [],
+  };
+
+  const screen = renderAttentionScreen(attentionView, { posture: "calm" });
+  // Header should be on one line with brand + counts + posture
+  assert.match(screen, /APERTURE/);
+  assert.match(screen, /calm/);
+  // No tagline
+  assert.doesNotMatch(screen, /human attention control plane/);
+});
+
+test("renderAttentionScreen borderless active frame with judgment line", () => {
+  const attentionView: AttentionView = {
+    active: makeFrame({ mode: "approval", consequence: "high" }),
+    queued: [],
+    ambient: [],
+  };
+
+  const screen = renderAttentionScreen(attentionView);
+  // No box borders
+  assert.doesNotMatch(screen, /╭/);
+  assert.doesNotMatch(screen, /╰/);
+  // Has judgment line (from metadata.attention.rationale since no trace is provided)
+  assert.match(screen, /blocking work remains sticky/);
+
+  // Without metadata rationale, falls back to synthesized line
+  const noMetaView: AttentionView = {
+    active: makeFrame({ mode: "approval", consequence: "high", metadata: {} }),
+    queued: [],
+    ambient: [],
+  };
+  const noMetaScreen = renderAttentionScreen(noMetaView);
+  assert.match(noMetaScreen, /High-risk action requires operator approval/);
+});
+
+test("renderAttentionScreen judgment line prioritizes trace coordination over heuristics", () => {
+  const attentionView: AttentionView = {
+    active: makeFrame({
+      metadata: {
+        attention: {
+          score: 1211,
+          scoreOffset: 5,
+          rationale: ["heuristic rationale should be lower priority"],
+        },
+      },
+    }),
+    queued: [],
+    ambient: [],
+  };
+
+  // Without trace: falls back to metadata heuristic rationale
+  const noTraceScreen = renderAttentionScreen(attentionView);
+  assert.match(noTraceScreen, /heuristic rationale should be lower priority/);
+
+  // With a candidate trace that has coordination reasons:
+  // the coordination reason should take priority over heuristic rationale
+  const traceWithReasons = {
+    timestamp: "2026-03-10T00:00:00.000Z",
+    event: { kind: "submitted", taskId: "task-1", interaction: {} },
+    evaluation: {
+      kind: "candidate" as const,
+      original: {} as any,
+      adjusted: { interactionId: "interaction-1" } as any,
+    },
+    heuristics: { scoreOffset: 0, rationale: [] },
+    episode: null,
+    policy: {} as any,
+    policyRules: { gateEvaluations: [], criterion: null, criterionEvaluations: [] },
+    utility: { candidate: {} as any, currentScore: null, currentPriority: null },
+    planner: { kind: "activate" as const, reasons: [], continuityEvaluations: [] },
+    coordination: {
+      kind: "activate" as const,
+      candidateScore: 1211,
+      currentScore: null,
+      currentPriority: null,
+      criterion: null,
+      ambiguity: null,
+      reasons: ["blocking work requires operator response"],
+      continuityEvaluations: [],
+    },
+    taskSummary: {} as any,
+    globalSummary: {} as any,
+    taskAttentionState: "calm" as any,
+    globalAttentionState: "calm" as any,
+    pressureForecast: {} as any,
+    attentionBurden: {} as any,
+    current: null,
+    taskView: {} as any,
+    attentionView: { active: null, queued: [], ambient: [] },
+    result: null,
+  };
+
+  const withTraceScreen = renderAttentionScreen(attentionView, { trace: traceWithReasons });
+  assert.match(withTraceScreen, /blocking work requires operator response/);
+  assert.doesNotMatch(withTraceScreen, /heuristic rationale/);
+});
+
+test("renderAttentionScreen judgment line shows continuity overrides first", () => {
+  const attentionView: AttentionView = {
+    active: makeFrame(),
+    queued: [],
+    ambient: [],
+  };
+
+  const traceWithOverride = {
+    timestamp: "2026-03-10T00:00:00.000Z",
+    event: { kind: "submitted", taskId: "task-1", interaction: {} },
+    evaluation: {
+      kind: "candidate" as const,
+      original: {} as any,
+      adjusted: { interactionId: "interaction-1" } as any,
+    },
+    heuristics: { scoreOffset: 0, rationale: [] },
+    episode: null,
+    policy: {} as any,
+    policyRules: { gateEvaluations: [], criterion: null, criterionEvaluations: [] },
+    utility: { candidate: {} as any, currentScore: null, currentPriority: null },
+    planner: { kind: "activate" as const, reasons: [], continuityEvaluations: [] },
+    coordination: {
+      kind: "activate" as const,
+      candidateScore: 1211,
+      currentScore: null,
+      currentPriority: null,
+      criterion: null,
+      ambiguity: null,
+      reasons: ["coordination reason"],
+      continuityEvaluations: [
+        { rule: "conflicting_interrupt", kind: "override", rationale: ["suppressed due to active approval"] },
+        { rule: "burst_dampening", kind: "noop", rationale: [] },
+      ],
+    },
+    taskSummary: {} as any,
+    globalSummary: {} as any,
+    taskAttentionState: "calm" as any,
+    globalAttentionState: "calm" as any,
+    pressureForecast: {} as any,
+    attentionBurden: {} as any,
+    current: null,
+    taskView: {} as any,
+    attentionView: { active: null, queued: [], ambient: [] },
+    result: null,
+  };
+
+  const screen = renderAttentionScreen(attentionView, { trace: traceWithOverride });
+  // Continuity override should take priority over coordination reasons
+  assert.match(screen, /conflicting_interrupt.*suppressed due to active approval/);
+  assert.doesNotMatch(screen, /coordination reason/);
+});
+
+test("renderAttentionScreen why mode key hint", () => {
+  const attentionView: AttentionView = {
+    active: makeFrame(),
+    queued: [],
+    ambient: [],
+  };
+
+  const screen = renderAttentionScreen(attentionView);
+  assert.match(screen, /\[y\] why/);
+});
+
+test("renderAttentionScreen why mode replaces queue and ambient", () => {
+  const attentionView: AttentionView = {
+    active: makeFrame(),
+    queued: [makeFrame({ id: "frame-2", title: "Queued item" })],
+    ambient: [makeFrame({ id: "frame-3", title: "Ambient item", mode: "status", responseSpec: { kind: "none" } })],
+  };
+
+  const normalScreen = renderAttentionScreen(attentionView);
+  assert.match(normalScreen, /┄ queue ┄/);
+  assert.match(normalScreen, /┄ ambient ┄/);
+
+  const whyScreen = renderAttentionScreen(attentionView, { whyMode: true });
+  // In why mode, queue and ambient sections should not appear
+  assert.doesNotMatch(whyScreen, /┄ queue ┄/);
+  assert.doesNotMatch(whyScreen, /┄ ambient ┄/);
+  // Should show trace-related content (or "no trace available")
+  assert.match(whyScreen, /no trace available/);
 });

@@ -148,6 +148,8 @@ test("judgment config loader reads pure markdown judgment files", async () => {
       promotionMargin: 24,
     },
     plannerDefaults: {
+      batchStatusBursts: false,
+      deferLowValueDuringPressure: false,
       minimumDwellMs: 25_000,
       streamContinuityMargin: 18,
       conflictingInterruptMargin: 14,
@@ -170,6 +172,8 @@ test("judgment config loader reads pure markdown judgment files", async () => {
   assert.equal(loaded.policy?.lowRiskRead?.autoApprove, true);
   assert.equal(loaded.ambiguityDefaults?.nonBlockingActivationThreshold, 190);
   assert.equal(loaded.ambiguityDefaults?.promotionMargin, 24);
+  assert.equal(loaded.plannerDefaults?.batchStatusBursts, false);
+  assert.equal(loaded.plannerDefaults?.deferLowValueDuringPressure, false);
   assert.equal(loaded.plannerDefaults?.minimumDwellMs, 25_000);
   assert.equal(loaded.plannerDefaults?.streamContinuityMargin, 18);
   assert.equal(loaded.plannerDefaults?.conflictingInterruptMargin, 14);

@@ -110,6 +110,7 @@ export class AttentionPolicy {
       }
     }
 
+    // Safety net if the policy gate rule list changes and no rule returns a verdict.
     const verdict: AttentionPolicyVerdict = {
       autoApprove: false,
       mayInterrupt: true,

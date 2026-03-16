@@ -159,6 +159,46 @@ test("falls back to queue when a surface cannot render ambient work", () => {
   assert.equal(decision.kind, "queue");
 });
 
+test("surface capability fallback still keeps lower-ranked work queued when ambient is unsupported", () => {
+  const decision = coordinator.coordinate(
+    createFrame({
+      mode: "approval",
+      tone: "focused",
+      consequence: "medium",
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+    }),
+    createCandidate({
+      mode: "status",
+      tone: "ambient",
+      consequence: "low",
+      priority: "background",
+      blocking: false,
+      responseSpec: { kind: "none" },
+    }),
+    {
+      surfaceCapabilities: {
+        topology: {
+          supportsAmbient: false,
+        },
+        responses: {
+          supportsSingleChoice: true,
+          supportsMultipleChoice: false,
+          supportsForm: true,
+          supportsTextResponse: false,
+        },
+      },
+    },
+  );
+
+  assert.equal(decision.kind, "queue");
+});
+
 test("queues lower-consequence candidates at equal priority", () => {
   const decision = coordinator.coordinate(
     createFrame({ consequence: "high" }),
@@ -220,6 +260,28 @@ test("non-blocking approvals still count as interrupt-class challengers", () => 
           { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
         ],
       },
+    }),
+  );
+
+  assert.equal(decision.kind, "queue");
+});
+
+test("informational non-status candidates still participate in conflicting interrupt resolution", () => {
+  const decision = coordinator.coordinate(
+    createFrame({
+      mode: "choice",
+      tone: "focused",
+      consequence: "medium",
+      responseSpec: { kind: "none" },
+    }),
+    createCandidate({
+      mode: "choice",
+      tone: "focused",
+      consequence: "medium",
+      priority: "normal",
+      blocking: false,
+      attentionScoreOffset: -5,
+      responseSpec: { kind: "none" },
     }),
   );
 
@@ -585,6 +647,41 @@ test("keeps cross-stream work peripheral when the current stream is still close 
   );
 
   assert.equal(decision.kind, "ambient");
+});
+
+test("blocking work bypasses decision-stream continuity", () => {
+  const decision = coordinator.coordinate(
+    createFrame({
+      taskId: "task:current",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      responseSpec: { kind: "none" },
+      source: { id: "session:claude", kind: "claude-code" },
+      metadata: {
+        toolFamily: "read",
+      },
+    }),
+    createCandidate({
+      taskId: "task:incoming",
+      mode: "approval",
+      tone: "focused",
+      consequence: "medium",
+      priority: "normal",
+      blocking: true,
+      source: { id: "session:open", kind: "opencode" },
+      toolFamily: "bash",
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(decision.kind, "activate");
 });
 
 test("decision-stream continuity yields when cross-stream work is clearly stronger", () => {
@@ -1254,4 +1351,52 @@ test("preemptively suppresses low-value status when pressure is rising", () => {
   );
 
   assert.equal(decision.kind, "ambient");
+});
+
+test("configured bounded approvals can auto-approve through the coordinator", () => {
+  const autoApproveCoordinator = new JudgmentCoordinator(
+    new AttentionPolicy({
+      judgmentConfig: {
+        version: 1,
+        updatedAt: "2026-03-12T10:15:00.000Z",
+        policy: {
+          lowRiskRead: {
+            autoApprove: true,
+          },
+        },
+      },
+    }),
+    new AttentionValue(),
+    new AttentionPlanner(),
+  );
+
+  const explanation = autoApproveCoordinator.explain(
+    null,
+    createCandidate({
+      mode: "approval",
+      consequence: "low",
+      title: "Read config.ts",
+      summary: "config.ts",
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+      blocking: true,
+      priority: "normal",
+      toolFamily: "read",
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "auto_approve");
+  if (explanation.decision.kind !== "auto_approve") {
+    return;
+  }
+  assert.deepEqual(explanation.decision.response, {
+    taskId: "task:1",
+    interactionId: "interaction:new",
+    response: { kind: "approved" },
+  });
 });

@@ -13,11 +13,11 @@ import type { AttentionSignal } from "./interaction-signal.js";
 
 import { buildAttentionView } from "./attention-view.js";
 import { AttentionAdjustments } from "./attention-adjustments.js";
-import { deriveAttentionBurden } from "./attention-burden.js";
 import type {
   AttentionEvidenceContext,
   AttentionOperatorPresence,
 } from "./attention-evidence.js";
+import { resolveAttentionEvidenceContext } from "./attention-evidence.js";
 import { deriveAttentionState, type AttentionState } from "./attention-state.js";
 import { EpisodeTracker, readFrameEpisodeId } from "./episode-tracker.js";
 import { EventEvaluator } from "./event-evaluator.js";
@@ -31,7 +31,6 @@ import { distillMemoryProfile, signalMetadataForCandidate, signalMetadataForFram
 import { normalizeSourceEvent } from "./semantic-normalizer.js";
 import { AttentionPolicy } from "./attention-policy.js";
 import { selectPeripheralBucket } from "./attention-planner.js";
-import { forecastAttentionPressure } from "./attention-pressure.js";
 import { ProfileStore, type MemoryProfile, type UserProfile } from "./profile-store.js";
 import { AttentionPlanner } from "./attention-planner.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
@@ -547,16 +546,8 @@ export class ApertureCore {
     const globalAttentionState = deriveAttentionState(globalSignalSummary);
     const currentTaskView = this.getTaskView(taskId);
     const attentionView = this.getAttentionView();
-    const pressureForecast = forecastAttentionPressure(globalSignalSummary, attentionView);
     const operatorPresence = this.getOperatorPresence();
-    const attentionBurden = deriveAttentionBurden(
-      globalSignalSummary,
-      pressureForecast,
-      globalAttentionState,
-      operatorPresence,
-    );
-
-    return {
+    return resolveAttentionEvidenceContext(currentFrame, {
       currentFrame,
       currentTaskView,
       currentEpisode: this.episodes.readFrameEpisode(currentFrame),
@@ -565,11 +556,9 @@ export class ApertureCore {
       globalSignalSummary,
       taskAttentionState,
       globalAttentionState,
-      pressureForecast,
-      attentionBurden,
       surfaceCapabilities: this.getSurfaceCapabilities(),
       operatorPresence,
-    };
+    });
   }
 
   private applyClear(taskId: string): null {
@@ -638,22 +627,7 @@ export class ApertureCore {
   }
 
   private findFrameByInteractionId(taskId: string, interactionId: string): AttentionFrame | null {
-    const taskView = this.taskViews.get(taskId);
-    if (taskView.active?.interactionId === interactionId) {
-      return taskView.active;
-    }
-
-    const queued = taskView.queued.find((frame) => frame.interactionId === interactionId);
-    if (queued) {
-      return queued;
-    }
-
-    const ambient = taskView.ambient.find((frame) => frame.interactionId === interactionId);
-    if (ambient) {
-      return ambient;
-    }
-
-    return null;
+    return this.findFrame(taskId, interactionId);
   }
 
   private findPeripheralEpisodeFrame(

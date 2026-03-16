@@ -10,7 +10,7 @@ export const evaluateDecisionStreamContinuityRule: ContinuityRule = (input) => {
     return noopContinuityRule("decision_stream_continuity");
   }
 
-  if (candidate.consequence === "high" || candidate.tone === "critical") {
+  if (candidate.blocking || candidate.consequence === "high" || candidate.tone === "critical") {
     return noopContinuityRule("decision_stream_continuity");
   }
 

@@ -91,7 +91,7 @@ function interruptClassForCandidate(
     return 2;
   }
 
-  if (candidate.mode !== "status" && candidate.responseSpec.kind !== "none") {
+  if (candidate.mode !== "status") {
     return 1;
   }
 

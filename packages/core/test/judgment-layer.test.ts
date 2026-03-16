@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { ApertureCore } from "../src/aperture-core.js";
+import { isAttentionEvidenceContext } from "../src/attention-evidence.js";
 import { serializeJudgmentConfig } from "../src/judgment-config.js";
 import type { Frame } from "../src/frame.js";
 import type { InteractionCandidate } from "../src/interaction-candidate.js";
@@ -65,6 +66,23 @@ test("attention policy keeps background work ambient by default", () => {
     minimumPresentation: "ambient",
     rationale: ["background work should remain peripheral by default"],
   });
+});
+
+test("evidence context guard rejects partial objects with undefined derived fields", () => {
+  assert.equal(isAttentionEvidenceContext({
+    currentFrame: null,
+    currentTaskView: { active: null, queued: [], ambient: [] },
+    currentEpisode: null,
+    attentionView: undefined,
+    taskSignalSummary: undefined,
+    globalSignalSummary: undefined,
+    taskAttentionState: undefined,
+    globalAttentionState: undefined,
+    pressureForecast: undefined,
+    attentionBurden: undefined,
+    surfaceCapabilities: undefined,
+    operatorPresence: undefined,
+  }), false);
 });
 
 test("attention value exposes componentized candidate scoring", () => {

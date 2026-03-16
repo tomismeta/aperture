@@ -112,6 +112,15 @@ export function isAttentionEvidenceContext(
     && "attentionBurden" in input
     && "surfaceCapabilities" in input
     && "operatorPresence" in input
+    && input.attentionView !== undefined
+    && input.taskSignalSummary !== undefined
+    && input.globalSignalSummary !== undefined
+    && input.taskAttentionState !== undefined
+    && input.globalAttentionState !== undefined
+    && input.pressureForecast !== undefined
+    && input.attentionBurden !== undefined
+    && input.surfaceCapabilities !== undefined
+    && input.operatorPresence !== undefined
   );
 }
 

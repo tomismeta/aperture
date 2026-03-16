@@ -382,7 +382,12 @@ export class AttentionPlanner {
     if (this.shouldPreemptForPressure(candidate, context.policyVerdict, evidence.pressureForecast)) {
       reasons.push("predicted overload keeps lower-value work peripheral before the queue spikes");
       return {
-        decision: this.suppressedDecision(candidate, context.policyVerdict, context.utility),
+        decision: this.suppressedDecision(
+          candidate,
+          context.policyVerdict,
+          context.utility,
+          evidence.surfaceCapabilities,
+        ),
         currentPriority,
         currentScore,
         reasons,
@@ -396,7 +401,12 @@ export class AttentionPlanner {
           : "existing urgent backlog keeps lower-value status work queued",
       );
       return {
-        decision: this.suppressedDecision(candidate, context.policyVerdict, context.utility),
+        decision: this.suppressedDecision(
+          candidate,
+          context.policyVerdict,
+          context.utility,
+          evidence.surfaceCapabilities,
+        ),
         currentPriority,
         currentScore,
         reasons,
@@ -406,7 +416,7 @@ export class AttentionPlanner {
     if (currentScore !== null && context.candidateScore < currentScore) {
       reasons.push("current work still outranks the new candidate");
       return {
-        decision: this.peripheralDecision(candidate, context.policyVerdict),
+        decision: this.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
         currentPriority,
         currentScore,
         reasons,

@@ -36,6 +36,13 @@ If you are new to the SDK, start with:
 - `AttentionFrame`
 - `AttentionResponse`
 
+If you only want the happy path, stop there. Most integrations do not need to instantiate or understand:
+
+- `AttentionPolicy`
+- `AttentionValue`
+- `AttentionPlanner`
+- `JudgmentCoordinator`
+
 The recommended loop is:
 
 1. create `ApertureCore`
@@ -52,6 +59,12 @@ In practice, you usually build a small frame-handling component or service aroun
 - human actions on those frames are sent back with `core.submit(...)`
 
 This is the same pattern the Aperture TUI uses.
+
+The intended developer experience is:
+
+`event in -> frame out -> human response in`
+
+The engine can do much more internally, but you do not need to model the middle to use the package successfully.
 
 ## How Judgment Is Structured
 
@@ -337,6 +350,8 @@ If you need more control than the full-engine flow, the package also exposes:
 - `evaluateTraceSession`
 
 Start with `ApertureCore` unless you already know you need the lower-level judgment primitives.
+
+Everything below this line is an advanced path. If you want Aperture as a clean black box, you can ignore the lower-level primitives entirely.
 
 ### Judgment Primitive Example
 

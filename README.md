@@ -31,6 +31,10 @@ npm install @tomismeta/aperture-core
 
 See the full SDK docs in [packages/core/README.md](packages/core/README.md).
 
+The intended SDK loop is intentionally small:
+
+`ApertureEvent in -> AttentionFrame out -> AttentionResponse in`
+
 ### Run The Full Local Stack
 
 ```bash

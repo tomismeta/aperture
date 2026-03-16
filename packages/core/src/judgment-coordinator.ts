@@ -15,6 +15,8 @@ import {
   type AttentionInterruptCriterionVerdict,
   type AttentionPolicyVerdict,
 } from "./attention-policy.js";
+import type { PolicyCriterionRuleEvaluation } from "./policy/policy-criterion-rule.js";
+import type { PolicyGateRuleEvaluation } from "./policy/policy-gate-rule.js";
 import type { AttentionPressure } from "./attention-pressure.js";
 import { AttentionPlanner } from "./attention-planner.js";
 import type { ContinuityRuleEvaluation } from "./continuity/continuity-rule.js";
@@ -34,8 +36,10 @@ export type AttentionDecision =
 export type AttentionDecisionExplanation = {
   decision: AttentionDecision;
   policy: AttentionPolicyVerdict;
+  policyGateEvaluations: PolicyGateRuleEvaluation[];
   utility: AttentionValueBreakdown;
   criterion: AttentionInterruptCriterionVerdict | null;
+  policyCriterionEvaluations: PolicyCriterionRuleEvaluation[];
   pressureForecast: AttentionPressure;
   attentionBurden: AttentionBurden;
   candidateScore: number;
@@ -92,7 +96,8 @@ export class JudgmentCoordinator {
     context: AttentionDecisionContext = {},
   ): AttentionDecisionExplanation {
     const evidence = this.resolveEvidenceContext(current, context);
-    const policy = this.policyGates.evaluateGates(candidate);
+    const gateExplanation = this.policyGates.explainGates(candidate);
+    const policy = gateExplanation.verdict;
     const utility = this.utilityScore.scoreCandidate(candidate);
     const currentScore = evidence.currentFrame
       ? scoreAttentionFrame(evidence.currentFrame, { now: candidate.timestamp })
@@ -115,8 +120,10 @@ export class JudgmentCoordinator {
           },
         },
         policy,
+        policyGateEvaluations: gateExplanation.evaluations,
         utility,
         criterion: null,
+        policyCriterionEvaluations: [],
         pressureForecast,
         attentionBurden: evidence.attentionBurden,
         candidateScore: utility.total,
@@ -128,7 +135,7 @@ export class JudgmentCoordinator {
       };
     }
 
-    const criterion = this.policyGates.evaluateInterruptCriterion(
+    const criterionExplanation = this.policyGates.explainInterruptCriterion(
       candidate,
       policy,
       evidence,
@@ -138,6 +145,7 @@ export class JudgmentCoordinator {
         ? { ambiguityDefaults: this.ambiguityDefaults }
         : {},
     );
+    const criterion = criterionExplanation.verdict;
     if (criterion.peripheralResolution) {
       const reasons = [
         ...policy.rationale,
@@ -149,8 +157,10 @@ export class JudgmentCoordinator {
           candidate,
         },
         policy,
+        policyGateEvaluations: gateExplanation.evaluations,
         utility,
         criterion,
+        policyCriterionEvaluations: criterionExplanation.evaluations,
         pressureForecast,
         attentionBurden: evidence.attentionBurden,
         candidateScore: utility.total,
@@ -174,8 +184,10 @@ export class JudgmentCoordinator {
     return {
       decision: planning.decision,
       policy,
+      policyGateEvaluations: gateExplanation.evaluations,
       utility,
       criterion,
+      policyCriterionEvaluations: criterionExplanation.evaluations,
       pressureForecast,
       attentionBurden: evidence.attentionBurden,
       candidateScore: utility.total,

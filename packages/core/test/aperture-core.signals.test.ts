@@ -78,12 +78,16 @@ test("publish emits a trace for candidate decisions", () => {
   let seenKind: string | null = null;
   let seenDecision: string | null = null;
   let seenContinuityRules: string[] = [];
+  let seenPolicyGateRules: string[] = [];
+  let seenPolicyCriterionRules: string[] = [];
 
   core.onTrace((trace) => {
     seenKind = trace.evaluation.kind;
     if (trace.evaluation.kind === "candidate") {
       seenDecision = trace.coordination.kind;
       seenContinuityRules = trace.coordination.continuityEvaluations.map((evaluation) => evaluation.rule);
+      seenPolicyGateRules = trace.policyRules.gateEvaluations.map((evaluation) => evaluation.rule);
+      seenPolicyCriterionRules = trace.policyRules.criterionEvaluations.map((evaluation) => evaluation.rule);
     }
   });
 
@@ -104,6 +108,8 @@ test("publish emits a trace for candidate decisions", () => {
   assert.equal(seenDecision, "activate");
   assert.ok(seenContinuityRules.includes("same_interaction"));
   assert.ok(seenContinuityRules.includes("minimum_dwell"));
+  assert.deepEqual(seenPolicyGateRules, ["configured_policy", "blocking"]);
+  assert.deepEqual(seenPolicyCriterionRules, ["operator_absence", "interrupt_eligibility"]);
 });
 
 test("submit records dismissed signals distinctly", () => {

@@ -944,6 +944,18 @@ test("durable source trust can lower the interrupt bar when no frame is active",
   assert.deepEqual(explanation.criterion?.rationale, [
     "durable source trust lowers the interrupt bar for this source",
   ]);
+  assert.equal(explanation.policyGateEvaluations.at(-1)?.rule, "interruptive_default");
+  assert.deepEqual(
+    explanation.policyCriterionEvaluations.map((evaluation) => evaluation.rule),
+    [
+      "operator_absence",
+      "interrupt_eligibility",
+      "source_trust",
+      "attention_budget",
+      "no_active_frame",
+    ],
+  );
+  assert.equal(explanation.policyCriterionEvaluations[2]?.kind, "adjust");
 });
 
 test("low-trust sources need a clearer margin before they interrupt current work", () => {
@@ -996,6 +1008,19 @@ test("low-trust sources need a clearer margin before they interrupt current work
     "low-trust source signals need a clearer margin before interrupting",
     "small score gaps resolve to the periphery instead of stealing focus immediately",
   ]);
+  assert.deepEqual(
+    explanation.policyCriterionEvaluations.map((evaluation) => evaluation.rule),
+    [
+      "operator_absence",
+      "interrupt_eligibility",
+      "source_trust",
+      "attention_budget",
+      "no_active_frame",
+      "small_score_gap",
+    ],
+  );
+  assert.equal(explanation.policyCriterionEvaluations[2]?.kind, "adjust");
+  assert.equal(explanation.policyCriterionEvaluations.at(-1)?.kind, "verdict");
 });
 
 test("sustained attention burden raises the interrupt bar for borderline work", () => {
@@ -1034,6 +1059,10 @@ test("sustained attention burden raises the interrupt bar for borderline work", 
     "sustained attention burden raises the interrupt bar until the operator load eases",
     "uncertain interruptive work stays peripheral until its signal is stronger",
   ]);
+  assert.equal(explanation.policyCriterionEvaluations[3]?.rule, "attention_budget");
+  assert.equal(explanation.policyCriterionEvaluations[3]?.kind, "adjust");
+  assert.equal(explanation.policyCriterionEvaluations.at(-1)?.rule, "no_active_frame");
+  assert.equal(explanation.policyCriterionEvaluations.at(-1)?.kind, "verdict");
 });
 
 test("keeps deferred-returning work queued during pressure instead of ambient", () => {

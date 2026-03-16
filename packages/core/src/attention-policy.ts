@@ -14,8 +14,16 @@ import { evaluateOperatorAbsenceCriterionRule } from "./policy/operator-absence-
 import { evaluatePeripheralStatusPolicyGateRule } from "./policy/peripheral-status-policy-gate-rule.js";
 import { evaluateSmallScoreGapCriterionRule } from "./policy/small-score-gap-criterion-rule.js";
 import { evaluateSourceTrustCriterionRule } from "./policy/source-trust-criterion-rule.js";
-import type { PolicyCriterionRule, PolicyCriterionRuleInput } from "./policy/policy-criterion-rule.js";
-import type { PolicyGateRule, PolicyGateRuleInput } from "./policy/policy-gate-rule.js";
+import type {
+  PolicyCriterionRule,
+  PolicyCriterionRuleEvaluation,
+  PolicyCriterionRuleInput,
+} from "./policy/policy-criterion-rule.js";
+import type {
+  PolicyGateRule,
+  PolicyGateRuleEvaluation,
+  PolicyGateRuleInput,
+} from "./policy/policy-gate-rule.js";
 import type { MemoryProfile, UserProfile } from "./profile-store.js";
 
 export type AttentionPresentationFloor = "ambient" | "queue" | "active";
@@ -38,6 +46,16 @@ export type AttentionInterruptCriterionVerdict = {
   peripheralResolution: "queue" | "ambient" | null;
   ambiguity: AttentionDecisionAmbiguity | null;
   rationale: string[];
+};
+
+export type AttentionPolicyGateExplanation = {
+  verdict: AttentionPolicyVerdict;
+  evaluations: PolicyGateRuleEvaluation[];
+};
+
+export type AttentionPolicyCriterionExplanation = {
+  verdict: AttentionInterruptCriterionVerdict;
+  evaluations: PolicyCriterionRuleEvaluation[];
 };
 
 type AttentionPolicyOptions = {
@@ -75,20 +93,34 @@ export class AttentionPolicy {
   }
 
   evaluateGates(candidate: AttentionCandidate): AttentionPolicyVerdict {
+    return this.explainGates(candidate).verdict;
+  }
+
+  explainGates(candidate: AttentionCandidate): AttentionPolicyGateExplanation {
     const input = this.buildPolicyGateInput(candidate);
+    const evaluations: PolicyGateRuleEvaluation[] = [];
     for (const rule of POLICY_GATE_RULES) {
       const evaluation = rule(input);
+      evaluations.push(evaluation);
       if (evaluation.kind === "verdict") {
-        return evaluation.verdict;
+        return {
+          verdict: evaluation.verdict,
+          evaluations,
+        };
       }
     }
 
-    return {
+    const verdict: AttentionPolicyVerdict = {
       autoApprove: false,
       mayInterrupt: true,
       requiresOperatorResponse: false,
       minimumPresentation: "queue",
       rationale: ["urgent non-blocking work may compete for interruptive attention"],
+    };
+
+    return {
+      verdict,
+      evaluations,
     };
   }
 
@@ -100,10 +132,29 @@ export class AttentionPolicy {
     currentScore: number | null,
     options: { ambiguityDefaults?: AmbiguityDefaults } = {},
   ): AttentionInterruptCriterionVerdict {
+    return this.explainInterruptCriterion(
+      candidate,
+      policyVerdict,
+      evidence,
+      candidateScore,
+      currentScore,
+      options,
+    ).verdict;
+  }
+
+  explainInterruptCriterion(
+    candidate: AttentionCandidate,
+    policyVerdict: AttentionPolicyVerdict,
+    evidence: AttentionEvidenceContext,
+    candidateScore: number,
+    currentScore: number | null,
+    options: { ambiguityDefaults?: AmbiguityDefaults } = {},
+  ): AttentionPolicyCriterionExplanation {
     let criterion = this.readInterruptCriterion(options.ambiguityDefaults);
     const peripheralResolution = this.readPeripheralResolution(policyVerdict);
     const sourceTrustAdjustment = this.readSourceTrustAdjustment(candidate);
     const criterionRationale: string[] = [];
+    const evaluations: PolicyCriterionRuleEvaluation[] = [];
 
     for (const rule of POLICY_CRITERION_RULES) {
       const evaluation = rule(this.buildPolicyCriterionInput(
@@ -116,6 +167,7 @@ export class AttentionPolicy {
         sourceTrustAdjustment,
         peripheralResolution,
       ));
+      evaluations.push(evaluation);
       if (evaluation.kind === "adjust") {
         criterion = evaluation.criterion;
         criterionRationale.push(...evaluation.rationale);
@@ -124,17 +176,23 @@ export class AttentionPolicy {
 
       if (evaluation.kind === "verdict") {
         return {
-          ...evaluation.verdict,
-          rationale: [...criterionRationale, ...evaluation.verdict.rationale],
+          verdict: {
+            ...evaluation.verdict,
+            rationale: [...criterionRationale, ...evaluation.verdict.rationale],
+          },
+          evaluations,
         };
       }
     }
 
     return {
-      criterion,
-      peripheralResolution: null,
-      ambiguity: null,
-      rationale: criterionRationale,
+      verdict: {
+        criterion,
+        peripheralResolution: null,
+        ambiguity: null,
+        rationale: criterionRationale,
+      },
+      evaluations,
     };
   }
 

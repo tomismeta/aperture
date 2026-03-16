@@ -18,6 +18,8 @@ import type {
   AttentionFrameListener,
   AttentionInterruptCriterion,
   AttentionInterruptCriterionVerdict,
+  AttentionPolicyCriterionExplanation,
+  AttentionPolicyGateExplanation,
   AttentionPlanDecision,
   AttentionPlanningExplanation,
   AttentionPlanningContext,
@@ -49,6 +51,8 @@ import type {
   JudgmentConfig,
   MemoryProfile,
   PlannerDefaults,
+  PolicyCriterionRuleEvaluation,
+  PolicyGateRuleEvaluation,
   ToolFamilyMemory,
   ContinuityRuleEvaluation,
   ContinuityRuleName,
@@ -95,12 +99,16 @@ void (0 as unknown as AttentionEvidenceContext);
 void (0 as unknown as AttentionEvidenceInput);
 void (0 as unknown as AttentionInterruptCriterion);
 void (0 as unknown as AttentionInterruptCriterionVerdict);
+void (0 as unknown as AttentionPolicyCriterionExplanation);
+void (0 as unknown as AttentionPolicyGateExplanation);
 void (0 as unknown as AmbiguityDefaults);
 void (0 as unknown as ConsequenceMemory);
 void (0 as unknown as EpisodeSummary);
 void (0 as unknown as JudgmentConfig);
 void (0 as unknown as JudgmentRule);
 void (0 as unknown as PlannerDefaults);
+void (0 as unknown as PolicyCriterionRuleEvaluation);
+void (0 as unknown as PolicyGateRuleEvaluation);
 void (0 as unknown as ContinuityRuleEvaluation);
 void (0 as unknown as ContinuityRuleName);
 void (0 as unknown as AttentionState);

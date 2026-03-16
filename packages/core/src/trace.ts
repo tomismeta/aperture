@@ -5,8 +5,13 @@ import type { ApertureEvent } from "./events.js";
 import type { AttentionFrame, AttentionTaskView, AttentionView } from "./frame.js";
 import type { AttentionCandidate, AttentionPriority } from "./interaction-candidate.js";
 import type { AttentionDecisionAmbiguity } from "./attention-ambiguity.js";
-import type { AttentionPolicyVerdict } from "./attention-policy.js";
+import type {
+  AttentionInterruptCriterionVerdict,
+  AttentionPolicyVerdict,
+} from "./attention-policy.js";
 import type { AttentionPressure } from "./attention-pressure.js";
+import type { PolicyCriterionRuleEvaluation } from "./policy/policy-criterion-rule.js";
+import type { PolicyGateRuleEvaluation } from "./policy/policy-gate-rule.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import type { AttentionValueBreakdown } from "./attention-value.js";
 import type { ContinuityRuleEvaluation } from "./continuity/continuity-rule.js";
@@ -59,6 +64,11 @@ export type ApertureTrace =
       };
       episode: EpisodeSummary | null;
       policy: AttentionPolicyVerdict;
+      policyRules: {
+        gateEvaluations: PolicyGateRuleEvaluation[];
+        criterion: AttentionInterruptCriterionVerdict | null;
+        criterionEvaluations: PolicyCriterionRuleEvaluation[];
+      };
       utility: {
         candidate: AttentionValueBreakdown;
         currentScore: number | null;
@@ -74,6 +84,7 @@ export type ApertureTrace =
         candidateScore: number;
         currentScore: number | null;
         currentPriority: AttentionPriority | null;
+        criterion: AttentionInterruptCriterionVerdict | null;
         ambiguity: AttentionDecisionAmbiguity | null;
         reasons: string[];
         continuityEvaluations: ContinuityRuleEvaluation[];

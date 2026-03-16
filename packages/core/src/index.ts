@@ -21,9 +21,13 @@ export { AttentionPolicy } from "./attention-policy.js";
 export type {
   AttentionInterruptCriterion,
   AttentionInterruptCriterionVerdict,
+  AttentionPolicyCriterionExplanation,
+  AttentionPolicyGateExplanation,
   AttentionPolicyVerdict,
   AttentionPresentationFloor,
 } from "./attention-policy.js";
+export type { PolicyCriterionRuleEvaluation } from "./policy/policy-criterion-rule.js";
+export type { PolicyGateRuleEvaluation } from "./policy/policy-gate-rule.js";
 
 export { AttentionValue } from "./attention-value.js";
 export type {

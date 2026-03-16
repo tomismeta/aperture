@@ -61,6 +61,11 @@ export class TraceRecorder {
       },
       episode: buildEpisodeSummary(adjusted),
       policy: explanation.policy,
+      policyRules: {
+        gateEvaluations: explanation.policyGateEvaluations,
+        criterion: explanation.criterion,
+        criterionEvaluations: explanation.policyCriterionEvaluations,
+      },
       utility: {
         candidate: explanation.utility,
         currentScore: explanation.currentScore,
@@ -76,6 +81,7 @@ export class TraceRecorder {
         candidateScore: explanation.candidateScore,
         currentScore: explanation.currentScore,
         currentPriority: explanation.currentPriority,
+        criterion: explanation.criterion,
         ambiguity: explanation.ambiguity,
         reasons: explanation.reasons,
         continuityEvaluations: explanation.continuityEvaluations,

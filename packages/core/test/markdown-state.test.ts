@@ -86,6 +86,57 @@ test("profile store falls back when memory markdown uses an unsupported version"
   assert.equal(loaded.sessionCount, 0);
 });
 
+test("profile store loads user preferences and tool overrides from markdown", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-user-profile-"));
+  await writeFile(
+    join(root, "USER.md"),
+    [
+      "# User",
+      "",
+      "## Meta",
+      "- version: 1",
+      "- operator id: default",
+      "- updated at: 2026-03-12T10:15:00.000Z",
+      "",
+      "## Preferences",
+      "- quiet hours: 22:00-06:00",
+      "- quiet hours: weekend",
+      "- prefer batching for: status",
+      "- prefer batching for: background",
+      "- always expand context for: destructive_bash",
+      "- never auto approve: production_deploy",
+      "",
+      "## Tool Overrides",
+      "",
+      "### bash",
+      "- may interrupt: true",
+      "- minimum presentation: active",
+      "- require context expansion: true",
+      "- score boost: 12",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+
+  const loaded = await new ProfileStore(root).loadUserProfile({
+    version: 1,
+    operatorId: "fallback",
+    updatedAt: "1970-01-01T00:00:00.000Z",
+  });
+
+  assert.equal(loaded.operatorId, "default");
+  assert.deepEqual(loaded.preferences?.quietHours, ["22:00-06:00", "weekend"]);
+  assert.deepEqual(loaded.preferences?.preferBatchingFor, ["status", "background"]);
+  assert.deepEqual(loaded.preferences?.alwaysExpandContextFor, ["destructive_bash"]);
+  assert.deepEqual(loaded.preferences?.neverAutoApprove, ["production_deploy"]);
+  assert.deepEqual(loaded.overrides?.tools?.bash, {
+    mayInterrupt: true,
+    minimumPresentation: "active",
+    requireContextExpansion: true,
+    scoreBoost: 12,
+  });
+});
+
 test("judgment config loader reads pure markdown judgment files", async () => {
   const root = await mkdtemp(join(tmpdir(), "aperture-judgment-config-"));
   const path = join(root, "JUDGMENT.md");
@@ -126,6 +177,42 @@ test("judgment config loader reads pure markdown judgment files", async () => {
     "minimum_dwell",
     "decision_stream_continuity",
   ]);
+});
+
+test("judgment config loader parses all judgment rule fields from markdown", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-judgment-policy-fields-"));
+  await writeFile(
+    join(root, "JUDGMENT.md"),
+    [
+      "# Judgment",
+      "",
+      "## Meta",
+      "- version: 1",
+      "- updated at: 2026-03-12T10:15:00.000Z",
+      "",
+      "## Policy",
+      "",
+      "### destructiveBash",
+      "- auto approve: false",
+      "- may interrupt: true",
+      "- minimum presentation: active",
+      "- require context expansion: true",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+
+  const loaded = await loadJudgmentConfig(root, {
+    version: 1,
+    updatedAt: "1970-01-01T00:00:00.000Z",
+  });
+
+  assert.deepEqual(loaded.policy?.destructiveBash, {
+    autoApprove: false,
+    mayInterrupt: true,
+    minimumPresentation: "active",
+    requireContextExpansion: true,
+  });
 });
 
 test("judgment config loader deduplicates recognized disabled continuity rules and drops unknown names", async () => {

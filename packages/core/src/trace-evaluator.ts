@@ -110,7 +110,6 @@ function incrementDecisionCount(report: TraceEvaluationReport, decision: Candida
     case "ambient":
       report.ambient += 1;
       break;
-    case "keep":
     case "clear":
       break;
   }

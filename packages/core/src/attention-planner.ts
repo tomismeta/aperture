@@ -42,7 +42,6 @@ export type AttentionPlanDecision =
   | { kind: "activate"; candidate: AttentionCandidate }
   | { kind: "queue"; candidate: AttentionCandidate }
   | { kind: "ambient"; candidate: AttentionCandidate }
-  | { kind: "keep"; frame: AttentionFrame | null }
   | { kind: "clear" };
 
 export type AttentionPlanningExplanation = {
@@ -55,7 +54,6 @@ export type AttentionPlanningExplanation = {
 
 export type AttentionPlanningContext = {
   attentionView?: AttentionView;
-  taskSummary?: AttentionSignalSummary;
   policyVerdict: AttentionPolicyVerdict;
   utility: AttentionValueBreakdown;
   pressureForecast: AttentionPressure;
@@ -510,7 +508,6 @@ export class AttentionPlanner {
       ...(context.attentionBurden !== undefined ? { attentionBurden: context.attentionBurden } : {}),
       ...(context.surfaceCapabilities !== undefined ? { surfaceCapabilities: context.surfaceCapabilities } : {}),
       ...(context.operatorPresence !== undefined ? { operatorPresence: context.operatorPresence } : {}),
-      ...(context.taskSummary !== undefined ? { taskSignalSummary: context.taskSummary } : {}),
     });
   }
 }

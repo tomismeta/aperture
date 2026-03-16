@@ -75,12 +75,12 @@ export type ApertureTrace =
         currentPriority: AttentionPriority | null;
       };
       planner: {
-        kind: "auto_approve" | "activate" | "queue" | "ambient" | "keep" | "clear";
+        kind: "auto_approve" | "activate" | "queue" | "ambient" | "clear";
         reasons: string[];
         continuityEvaluations: ContinuityRuleEvaluation[];
       };
       coordination: {
-        kind: "auto_approve" | "activate" | "queue" | "ambient" | "keep" | "clear";
+        kind: "auto_approve" | "activate" | "queue" | "ambient" | "clear";
         candidateScore: number;
         currentScore: number | null;
         currentPriority: AttentionPriority | null;

@@ -921,7 +921,7 @@ test("escalates repeatedly deferred status when scores are otherwise tied", () =
       responseSpec: { kind: "none" },
     }),
     {
-      taskSummary: {
+      taskSignalSummary: {
         recentSignals: 6,
         lifetimeSignals: 12,
         counts: {

@@ -30,7 +30,6 @@ export type AttentionDecision =
   | { kind: "activate"; candidate: AttentionCandidate }
   | { kind: "queue"; candidate: AttentionCandidate }
   | { kind: "ambient"; candidate: AttentionCandidate }
-  | { kind: "keep"; frame: AttentionFrame | null }
   | { kind: "clear" };
 
 export type AttentionDecisionExplanation = {
@@ -50,15 +49,7 @@ export type AttentionDecisionExplanation = {
   continuityEvaluations: ContinuityRuleEvaluation[];
 };
 
-type LegacyAttentionDecisionContext = {
-  attentionView?: AttentionView;
-  taskSummary?: AttentionSignalSummary;
-  globalSummary?: AttentionSignalSummary;
-  pressureForecast?: AttentionPressure;
-  surfaceCapabilities?: AttentionSurfaceCapabilities;
-} & AttentionEvidenceInput;
-
-export type AttentionDecisionContext = AttentionEvidenceContext | LegacyAttentionDecisionContext;
+export type AttentionDecisionContext = AttentionEvidenceContext | AttentionEvidenceInput;
 
 type JudgmentCoordinatorOptions = {
   ambiguityDefaults?: AmbiguityDefaults;
@@ -213,12 +204,6 @@ export class JudgmentCoordinator {
       ...(context.attentionView !== undefined ? { attentionView: context.attentionView } : {}),
       ...(context.taskSignalSummary !== undefined ? { taskSignalSummary: context.taskSignalSummary } : {}),
       ...(context.globalSignalSummary !== undefined ? { globalSignalSummary: context.globalSignalSummary } : {}),
-      ...("taskSummary" in context && context.taskSummary !== undefined
-        ? { taskSignalSummary: context.taskSummary }
-        : {}),
-      ...("globalSummary" in context && context.globalSummary !== undefined
-        ? { globalSignalSummary: context.globalSummary }
-        : {}),
       ...(context.taskAttentionState !== undefined ? { taskAttentionState: context.taskAttentionState } : {}),
       ...(context.globalAttentionState !== undefined ? { globalAttentionState: context.globalAttentionState } : {}),
       ...(context.pressureForecast !== undefined ? { pressureForecast: context.pressureForecast } : {}),

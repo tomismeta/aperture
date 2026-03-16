@@ -255,9 +255,6 @@ export class ApertureCore {
               explanation.decision.response,
             );
             break;
-          case "keep":
-            result = explanation.decision.frame;
-            break;
           case "clear":
             result = this.applyClear(event.taskId);
             break;

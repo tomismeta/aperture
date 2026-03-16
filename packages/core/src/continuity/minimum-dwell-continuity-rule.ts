@@ -28,11 +28,13 @@ export const evaluateMinimumDwellContinuityRule: ContinuityRule = (input) => {
     return noopContinuityRule("minimum_dwell");
   }
 
+  const remainingMs = minimumDwellMs - (candidateTimestamp - activeTimestamp);
+
   return overrideContinuityRule(
     "minimum_dwell",
     helpers.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
     priorityForFrame(activeFrame),
     context.currentScore,
-    ["recently surfaced work keeps focus long enough to avoid a premature switch"],
+    [`recently surfaced work keeps focus for another ${remainingMs}ms to avoid a premature switch`],
   );
 };

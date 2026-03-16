@@ -1,5 +1,5 @@
 import { readFrameEpisodeId } from "../episode-tracker.js";
-import { isBlockingFrame } from "../frame-score.js";
+import { isBlockingFrame, priorityForFrame } from "../frame-score.js";
 import { noopContinuityRule, overrideContinuityRule, type ContinuityRule } from "./continuity-rule.js";
 
 export const evaluateSameEpisodeContinuityRule: ContinuityRule = (input) => {
@@ -18,8 +18,8 @@ export const evaluateSameEpisodeContinuityRule: ContinuityRule = (input) => {
     return overrideContinuityRule(
       "same_episode",
       { kind: "activate", candidate },
-      null,
-      null,
+      priorityForFrame(activeFrame),
+      context.currentScore,
       ["the active episode has progressed into an interruptive step"],
     );
   }
@@ -27,8 +27,8 @@ export const evaluateSameEpisodeContinuityRule: ContinuityRule = (input) => {
   return overrideContinuityRule(
     "same_episode",
     helpers.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
-    null,
-    null,
+    priorityForFrame(activeFrame),
+    context.currentScore,
     ["related work stays bundled with the active episode"],
   );
 };

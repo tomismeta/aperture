@@ -1,8 +1,7 @@
 import type { AttentionFrame, AttentionView } from "./frame.js";
 
-import { deriveAttentionBurden } from "./attention-burden.js";
 import {
-  createAttentionEvidenceContext,
+  resolveAttentionEvidenceContext,
   type AttentionEvidenceContext,
   type AttentionEvidenceInput,
 } from "./attention-evidence.js";
@@ -102,17 +101,23 @@ export class AttentionPlanner {
     return { kind: "clear" };
   }
 
+  preferredPeripheralBucket(
+    candidate: AttentionCandidate,
+    policyVerdict: AttentionPolicyVerdict,
+    surfaceCapabilities?: AttentionSurfaceCapabilities,
+  ): "queue" | "ambient" {
+    return selectPeripheralBucket(candidate, policyVerdict, surfaceCapabilities);
+  }
+
   private peripheralDecision(
     candidate: AttentionCandidate,
     policyVerdict: AttentionPolicyVerdict,
     surfaceCapabilities?: AttentionSurfaceCapabilities,
   ): Extract<AttentionPlanDecision, { kind: "queue" | "ambient" }> {
-    const capabilities = surfaceCapabilities ?? baseAttentionSurfaceCapabilities;
-    if (policyVerdict.minimumPresentation === "ambient" && this.canRemainAmbient(candidate, capabilities)) {
-      return { kind: "ambient", candidate };
-    }
-
-    return { kind: "queue", candidate };
+    return {
+      kind: this.preferredPeripheralBucket(candidate, policyVerdict, surfaceCapabilities),
+      candidate,
+    };
   }
 
   private batchedDecision(
@@ -148,33 +153,6 @@ export class AttentionPlanner {
     }
 
     return this.peripheralDecision(candidate, policyVerdict, surfaceCapabilities);
-  }
-
-  private canRemainAmbient(
-    candidate: AttentionCandidate,
-    surfaceCapabilities: AttentionSurfaceCapabilities,
-  ): boolean {
-    if (!surfaceCapabilities.topology.supportsAmbient) {
-      return false;
-    }
-
-    switch (candidate.responseSpec.kind) {
-      case "approval":
-        return true;
-      case "choice":
-        return (
-          (candidate.responseSpec.selectionMode === "multiple"
-            ? surfaceCapabilities.responses.supportsMultipleChoice
-            : surfaceCapabilities.responses.supportsSingleChoice)
-          && (!candidate.responseSpec.allowTextResponse || surfaceCapabilities.responses.supportsTextResponse)
-        );
-      case "form":
-        return surfaceCapabilities.responses.supportsForm;
-      case "none":
-        return true;
-    }
-
-    return false;
   }
 
   private shouldSuppressForBacklog(
@@ -510,19 +488,7 @@ export class AttentionPlanner {
     current: AttentionFrame | null,
     context: AttentionPlanningContext,
   ): AttentionEvidenceContext {
-    if (this.isEvidenceContext(context)) {
-      if (context.currentFrame === current) {
-        return context;
-      }
-
-      return createAttentionEvidenceContext({
-        ...context,
-        currentFrame: current,
-      });
-    }
-
-    return createAttentionEvidenceContext({
-      currentFrame: current,
+    return resolveAttentionEvidenceContext(current, {
       ...(context.currentTaskView !== undefined ? { currentTaskView: context.currentTaskView } : {}),
       ...(context.currentEpisode !== undefined ? { currentEpisode: context.currentEpisode } : {}),
       ...(context.attentionView !== undefined ? { attentionView: context.attentionView } : {}),
@@ -531,34 +497,49 @@ export class AttentionPlanner {
       ...(context.taskAttentionState !== undefined ? { taskAttentionState: context.taskAttentionState } : {}),
       ...(context.globalAttentionState !== undefined ? { globalAttentionState: context.globalAttentionState } : {}),
       ...(context.pressureForecast !== undefined ? { pressureForecast: context.pressureForecast } : {}),
-      attentionBurden:
-        context.attentionBurden
-        ?? deriveAttentionBurden(
-          context.globalSignalSummary,
-          context.pressureForecast,
-          context.globalAttentionState,
-          context.operatorPresence,
-        ),
+      ...(context.attentionBurden !== undefined ? { attentionBurden: context.attentionBurden } : {}),
       ...(context.surfaceCapabilities !== undefined ? { surfaceCapabilities: context.surfaceCapabilities } : {}),
       ...(context.operatorPresence !== undefined ? { operatorPresence: context.operatorPresence } : {}),
       ...(context.taskSummary !== undefined ? { taskSignalSummary: context.taskSummary } : {}),
     });
   }
+}
 
-  private isEvidenceContext(context: AttentionPlanningContext): context is AttentionPlanningContext & AttentionEvidenceContext {
-    return (
-      "currentFrame" in context
-      && "currentTaskView" in context
-      && "currentEpisode" in context
-      && "attentionView" in context
-      && "taskSignalSummary" in context
-      && "globalSignalSummary" in context
-      && "taskAttentionState" in context
-      && "globalAttentionState" in context
-      && "pressureForecast" in context
-      && "attentionBurden" in context
-      && "surfaceCapabilities" in context
-      && "operatorPresence" in context
-    );
+export function selectPeripheralBucket(
+  candidate: AttentionCandidate,
+  policyVerdict: AttentionPolicyVerdict,
+  surfaceCapabilities: AttentionSurfaceCapabilities = baseAttentionSurfaceCapabilities,
+): "queue" | "ambient" {
+  if (policyVerdict.minimumPresentation === "ambient" && canRemainAmbientOnSurface(candidate, surfaceCapabilities)) {
+    return "ambient";
   }
+
+  return "queue";
+}
+
+export function canRemainAmbientOnSurface(
+  candidate: AttentionCandidate,
+  surfaceCapabilities: AttentionSurfaceCapabilities,
+): boolean {
+  if (!surfaceCapabilities.topology.supportsAmbient) {
+    return false;
+  }
+
+  switch (candidate.responseSpec.kind) {
+    case "approval":
+      return true;
+    case "choice":
+      return (
+        (candidate.responseSpec.selectionMode === "multiple"
+          ? surfaceCapabilities.responses.supportsMultipleChoice
+          : surfaceCapabilities.responses.supportsSingleChoice)
+        && (!candidate.responseSpec.allowTextResponse || surfaceCapabilities.responses.supportsTextResponse)
+      );
+    case "form":
+      return surfaceCapabilities.responses.supportsForm;
+    case "none":
+      return true;
+  }
+
+  return false;
 }

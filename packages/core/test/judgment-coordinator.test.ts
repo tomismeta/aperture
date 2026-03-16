@@ -433,9 +433,7 @@ test("disabling one continuity rule still allows others to fire", () => {
   );
   assert.equal(streamContinuityEvaluation?.kind, "override");
   assert.equal(streamContinuityEvaluation?.decision.kind, "ambient");
-  assert.deepEqual(streamContinuityEvaluation?.rationale, [
-    "the current decision stream stays active until cross-stream work is clearly stronger",
-  ]);
+  assert.match(streamContinuityEvaluation?.rationale?.[0] ?? "", /current decision stream stays active/);
 });
 
 test("disabling multiple continuity rules bypasses both overrides together", () => {

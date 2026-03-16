@@ -10,6 +10,7 @@ import type {
   AttentionDecisionContext,
   AttentionDecisionExplanation,
   AttentionDeferredSignalCounts,
+  AttentionFrameValueBreakdown,
   AttentionOperatorPresence,
   AttentionEvidenceContext,
   AttentionEvidenceInput,
@@ -39,10 +40,16 @@ import type {
   AttentionValueBreakdown,
   AttentionView,
   AttentionViewListener,
+  AmbiguityDefaults,
+  ConsequenceMemory,
+  EpisodeSummary,
+  JudgmentRule,
+  SourceTrustMemory,
   SourceEvent,
   JudgmentConfig,
   MemoryProfile,
   PlannerDefaults,
+  ToolFamilyMemory,
   ContinuityRuleEvaluation,
   ContinuityRuleName,
   TraceEvaluationReport,
@@ -60,6 +67,7 @@ void (0 as unknown as ApertureEvent);
 void (0 as unknown as SourceEvent);
 void (0 as unknown as AttentionCandidate);
 void (0 as unknown as AttentionBurden);
+void (0 as unknown as AttentionFrameValueBreakdown);
 void (0 as unknown as AttentionFrame);
 void (0 as unknown as AttentionResponse);
 void (0 as unknown as AttentionSignal);
@@ -87,12 +95,18 @@ void (0 as unknown as AttentionEvidenceContext);
 void (0 as unknown as AttentionEvidenceInput);
 void (0 as unknown as AttentionInterruptCriterion);
 void (0 as unknown as AttentionInterruptCriterionVerdict);
+void (0 as unknown as AmbiguityDefaults);
+void (0 as unknown as ConsequenceMemory);
+void (0 as unknown as EpisodeSummary);
 void (0 as unknown as JudgmentConfig);
+void (0 as unknown as JudgmentRule);
 void (0 as unknown as PlannerDefaults);
 void (0 as unknown as ContinuityRuleEvaluation);
 void (0 as unknown as ContinuityRuleName);
 void (0 as unknown as AttentionState);
+void (0 as unknown as SourceTrustMemory);
 void (0 as unknown as MemoryProfile);
+void (0 as unknown as ToolFamilyMemory);
 void (0 as unknown as UserProfile);
 void (0 as unknown as ApertureTrace);
 void (0 as unknown as TraceEvaluationReport);

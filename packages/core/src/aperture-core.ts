@@ -30,6 +30,7 @@ import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
 import { distillMemoryProfile, signalMetadataForCandidate, signalMetadataForFrame } from "./memory-aggregator.js";
 import { normalizeSourceEvent } from "./semantic-normalizer.js";
 import { AttentionPolicy } from "./attention-policy.js";
+import { selectPeripheralBucket } from "./attention-planner.js";
 import { forecastAttentionPressure } from "./attention-pressure.js";
 import { ProfileStore, type MemoryProfile, type UserProfile } from "./profile-store.js";
 import { AttentionPlanner } from "./attention-planner.js";
@@ -282,7 +283,11 @@ export class ApertureCore {
               && this.findPeripheralEpisodeFrame(explanation.decision.candidate.episodeId, preAttentionView)
                 ? this.materializePeripheralFrame(
                     explanation.decision.candidate,
-                    this.preferredPeripheralBucket(explanation.decision.candidate),
+                    selectPeripheralBucket(
+                      explanation.decision.candidate,
+                      explanation.policy,
+                      evidence.surfaceCapabilities,
+                    ),
                     preAttentionView,
                   )
                 : this.commitFrame(this.planner.plan(explanation.decision.candidate, evidence.currentFrame));
@@ -636,19 +641,6 @@ export class ApertureCore {
     this.notifyTaskView(merged.taskId, nextTaskView);
     this.notifyAttentionView();
     return merged;
-  }
-
-  private preferredPeripheralBucket(candidate: AttentionCandidate): "queue" | "ambient" {
-    if (
-      !candidate.blocking
-      && candidate.mode === "status"
-      && candidate.consequence !== "high"
-      && candidate.tone !== "critical"
-    ) {
-      return "ambient";
-    }
-
-    return "queue";
   }
 
   private findFrameByInteractionId(taskId: string, interactionId: string): AttentionFrame | null {

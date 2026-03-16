@@ -4,8 +4,8 @@ import { noopContinuityRule, overrideContinuityRule, type ContinuityRule } from 
 
 export const evaluateBurstDampeningContinuityRule: ContinuityRule = (input) => {
   const activeFrame = input.evidence.currentFrame;
-  const { candidate, context, evidence, helpers, plannerDefaults } = input;
-  if (!activeFrame || plannerDefaults?.batchStatusBursts === false) {
+  const { candidate, context, evidence, helpers, plannerDefaults, routed } = input;
+  if (!activeFrame || routed.decision.kind !== "activate" || plannerDefaults?.batchStatusBursts === false) {
     return noopContinuityRule("burst_dampening");
   }
 
@@ -35,6 +35,8 @@ export const evaluateBurstDampeningContinuityRule: ContinuityRule = (input) => {
     helpers.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
     priorityForFrame(activeFrame),
     context.currentScore,
-    ["rapid successive updates from the same task stay bundled instead of stealing focus"],
+    [
+      `rapid successive updates within ${candidateTimestamp - currentTimestamp}ms stay bundled instead of stealing focus`,
+    ],
   );
 };

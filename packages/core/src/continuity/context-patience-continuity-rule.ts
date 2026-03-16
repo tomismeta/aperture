@@ -32,11 +32,15 @@ export const evaluateContextPatienceContinuityRule: ContinuityRule = (input) => 
     return noopContinuityRule("context_patience");
   }
 
+  const scoreGap = context.candidateScore - context.currentScore;
+
   return overrideContinuityRule(
     "context_patience",
     helpers.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
     priorityForFrame(activeFrame),
     context.currentScore,
-    ["memory suggests this interaction usually needs context, so it stays peripheral until it clearly outranks current work"],
+    [
+      `memory suggests this interaction usually needs context, so it stays peripheral until it clears the ${margin}-point margin (gap: ${scoreGap})`,
+    ],
   );
 };

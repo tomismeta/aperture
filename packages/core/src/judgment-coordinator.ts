@@ -1,12 +1,12 @@
 import type { AttentionFrame, AttentionView } from "./frame.js";
 
 import type { AttentionDecisionAmbiguity } from "./attention-ambiguity.js";
-import { deriveAttentionBurden, type AttentionBurden } from "./attention-burden.js";
+import type { AttentionBurden } from "./attention-burden.js";
 import type { AttentionResponse } from "./frame-response.js";
 import { priorityForFrame, scoreAttentionFrame } from "./frame-score.js";
 import type { AttentionCandidate, AttentionPriority } from "./interaction-candidate.js";
 import {
-  createAttentionEvidenceContext,
+  resolveAttentionEvidenceContext,
   type AttentionEvidenceContext,
   type AttentionEvidenceInput,
 } from "./attention-evidence.js";
@@ -15,7 +15,7 @@ import {
   type AttentionInterruptCriterionVerdict,
   type AttentionPolicyVerdict,
 } from "./attention-policy.js";
-import { forecastAttentionPressure, idleAttentionPressure, type AttentionPressure } from "./attention-pressure.js";
+import type { AttentionPressure } from "./attention-pressure.js";
 import { AttentionPlanner } from "./attention-planner.js";
 import type { ContinuityRuleEvaluation } from "./continuity/continuity-rule.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
@@ -195,92 +195,24 @@ export class JudgmentCoordinator {
     current: AttentionFrame | null,
     context: AttentionDecisionContext,
   ): AttentionEvidenceContext {
-    if (this.isEvidenceContext(context)) {
-      if (context.currentFrame === current) {
-        return context;
-      }
-
-      return createAttentionEvidenceContext({
-        ...context,
-        currentFrame: current,
-      });
-    }
-
-    const attentionView = context.attentionView;
-    const taskSignalSummary = context.taskSignalSummary ?? context.taskSummary;
-    const globalSignalSummary = context.globalSignalSummary ?? context.globalSummary;
-    const pressureForecast =
-      context.pressureForecast
-      ?? forecastAttentionPressure(globalSignalSummary ?? idleAttentionSummary(), attentionView)
-      ?? idleAttentionPressure();
-    const operatorPresence = context.operatorPresence ?? "present";
-    const attentionBurden = context.attentionBurden
-      ?? deriveAttentionBurden(
-        globalSignalSummary ?? idleAttentionSummary(),
-        pressureForecast,
-        context.globalAttentionState,
-        operatorPresence,
-      );
-
-    return createAttentionEvidenceContext({
-      currentFrame: current,
+    return resolveAttentionEvidenceContext(current, {
       ...(context.currentTaskView !== undefined ? { currentTaskView: context.currentTaskView } : {}),
       ...(context.currentEpisode !== undefined ? { currentEpisode: context.currentEpisode } : {}),
-      ...(attentionView !== undefined ? { attentionView } : {}),
-      ...(taskSignalSummary !== undefined ? { taskSignalSummary } : {}),
-      ...(globalSignalSummary !== undefined ? { globalSignalSummary } : {}),
+      ...(context.attentionView !== undefined ? { attentionView: context.attentionView } : {}),
+      ...(context.taskSignalSummary !== undefined ? { taskSignalSummary: context.taskSignalSummary } : {}),
+      ...(context.globalSignalSummary !== undefined ? { globalSignalSummary: context.globalSignalSummary } : {}),
+      ...("taskSummary" in context && context.taskSummary !== undefined
+        ? { taskSignalSummary: context.taskSummary }
+        : {}),
+      ...("globalSummary" in context && context.globalSummary !== undefined
+        ? { globalSignalSummary: context.globalSummary }
+        : {}),
       ...(context.taskAttentionState !== undefined ? { taskAttentionState: context.taskAttentionState } : {}),
       ...(context.globalAttentionState !== undefined ? { globalAttentionState: context.globalAttentionState } : {}),
-      attentionBurden,
+      ...(context.pressureForecast !== undefined ? { pressureForecast: context.pressureForecast } : {}),
+      ...(context.attentionBurden !== undefined ? { attentionBurden: context.attentionBurden } : {}),
       ...(context.surfaceCapabilities !== undefined ? { surfaceCapabilities: context.surfaceCapabilities } : {}),
-      operatorPresence,
-      pressureForecast,
+      ...(context.operatorPresence !== undefined ? { operatorPresence: context.operatorPresence } : {}),
     });
   }
-
-  private isEvidenceContext(context: AttentionDecisionContext): context is AttentionEvidenceContext {
-    return (
-      "currentFrame" in context
-      && "currentTaskView" in context
-      && "currentEpisode" in context
-      && "attentionView" in context
-      && "taskSignalSummary" in context
-      && "globalSignalSummary" in context
-      && "taskAttentionState" in context
-      && "globalAttentionState" in context
-      && "pressureForecast" in context
-      && "attentionBurden" in context
-      && "surfaceCapabilities" in context
-      && "operatorPresence" in context
-    );
-  }
-}
-
-function idleAttentionSummary(): AttentionSignalSummary {
-  return {
-    recentSignals: 0,
-    lifetimeSignals: 0,
-    counts: {
-      presented: 0,
-      viewed: 0,
-      responded: 0,
-      dismissed: 0,
-      deferred: 0,
-      contextExpanded: 0,
-      contextSkipped: 0,
-      timedOut: 0,
-      returned: 0,
-      attentionShifted: 0,
-    },
-    deferred: {
-      queued: 0,
-      suppressed: 0,
-      manual: 0,
-    },
-    responseRate: 0,
-    dismissalRate: 0,
-    averageResponseLatencyMs: null,
-    averageDismissalLatencyMs: null,
-    lastSignalAt: null,
-  };
 }

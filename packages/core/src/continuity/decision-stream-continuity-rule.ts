@@ -33,12 +33,16 @@ export const evaluateDecisionStreamContinuityRule: ContinuityRule = (input) => {
     return noopContinuityRule("decision_stream_continuity");
   }
 
+  const scoreGap = context.candidateScore - context.currentScore;
+
   return overrideContinuityRule(
     "decision_stream_continuity",
     helpers.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
     priorityForFrame(activeFrame),
     context.currentScore,
-    ["the current decision stream stays active until cross-stream work is clearly stronger"],
+    [
+      `the current decision stream stays active until cross-stream work clears the ${streamContinuityMargin}-point margin (gap: ${scoreGap})`,
+    ],
   );
 };
 

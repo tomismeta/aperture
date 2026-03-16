@@ -30,6 +30,12 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.equal("MinimumPresentation" in sdk, false);
   assert.equal("JudgmentDecision" in sdk, false);
   assert.equal("DEFAULT_ATTENTION_SURFACE_CAPABILITIES" in sdk, false);
+  assert.equal("AttentionEvidenceContext" in sdk, false);
+  assert.equal("AttentionEvidenceInput" in sdk, false);
+  assert.equal("PolicyCriterionRuleEvaluation" in sdk, false);
+  assert.equal("PolicyGateRuleEvaluation" in sdk, false);
+  assert.equal("ContinuityRuleEvaluation" in sdk, false);
+  assert.equal("ContinuityRuleName" in sdk, false);
   assert.equal("createAttentionEvidenceContext" in sdk, false);
   assert.equal("resolveAttentionEvidenceContext" in sdk, false);
   assert.equal("isAttentionEvidenceContext" in sdk, false);

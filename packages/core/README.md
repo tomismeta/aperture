@@ -74,8 +74,6 @@ The core engine now follows a stable hot path:
 
 In practical terms:
 
-- `AttentionEvidenceContext`
-  - what the engine knows right now
 - `AttentionPolicy`
   - hard gates and interrupt criterion
 - `AttentionValue`
@@ -352,6 +350,8 @@ If you need more control than the full-engine flow, the package also exposes:
 Start with `ApertureCore` unless you already know you need the lower-level judgment primitives.
 
 Everything below this line is an advanced path. If you want Aperture as a clean black box, you can ignore the lower-level primitives entirely.
+
+Some internal lane-plumbing types intentionally stay off the root package surface. If you are using the SDK in the normal way, that is by design.
 
 ### Judgment Primitive Example
 

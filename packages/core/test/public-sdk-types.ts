@@ -12,8 +12,6 @@ import type {
   AttentionDeferredSignalCounts,
   AttentionFrameValueBreakdown,
   AttentionOperatorPresence,
-  AttentionEvidenceContext,
-  AttentionEvidenceInput,
   AttentionFrame,
   AttentionFrameListener,
   AttentionInterruptCriterion,
@@ -51,11 +49,7 @@ import type {
   JudgmentConfig,
   MemoryProfile,
   PlannerDefaults,
-  PolicyCriterionRuleEvaluation,
-  PolicyGateRuleEvaluation,
   ToolFamilyMemory,
-  ContinuityRuleEvaluation,
-  ContinuityRuleName,
   TraceEvaluationReport,
   UserProfile,
 } from "../src/index.js";
@@ -95,8 +89,6 @@ void (0 as unknown as AttentionDecisionAmbiguity);
 void (0 as unknown as AttentionDecisionContext);
 void (0 as unknown as AttentionDecisionExplanation);
 void (0 as unknown as AttentionOperatorPresence);
-void (0 as unknown as AttentionEvidenceContext);
-void (0 as unknown as AttentionEvidenceInput);
 void (0 as unknown as AttentionInterruptCriterion);
 void (0 as unknown as AttentionInterruptCriterionVerdict);
 void (0 as unknown as AttentionPolicyCriterionExplanation);
@@ -107,10 +99,6 @@ void (0 as unknown as EpisodeSummary);
 void (0 as unknown as JudgmentConfig);
 void (0 as unknown as JudgmentRule);
 void (0 as unknown as PlannerDefaults);
-void (0 as unknown as PolicyCriterionRuleEvaluation);
-void (0 as unknown as PolicyGateRuleEvaluation);
-void (0 as unknown as ContinuityRuleEvaluation);
-void (0 as unknown as ContinuityRuleName);
 void (0 as unknown as AttentionState);
 void (0 as unknown as SourceTrustMemory);
 void (0 as unknown as MemoryProfile);

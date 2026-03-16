@@ -13,8 +13,6 @@ export type {
 } from "./attention-burden.js";
 export type {
   AttentionOperatorPresence,
-  AttentionEvidenceContext,
-  AttentionEvidenceInput,
 } from "./attention-evidence.js";
 
 export { AttentionPolicy } from "./attention-policy.js";
@@ -26,8 +24,6 @@ export type {
   AttentionPolicyVerdict,
   AttentionPresentationFloor,
 } from "./attention-policy.js";
-export type { PolicyCriterionRuleEvaluation } from "./policy/policy-criterion-rule.js";
-export type { PolicyGateRuleEvaluation } from "./policy/policy-gate-rule.js";
 
 export { AttentionValue } from "./attention-value.js";
 export type {
@@ -43,7 +39,6 @@ export type {
   AttentionPlanningExplanation,
   AttentionPlanDecision,
 } from "./attention-planner.js";
-export type { ContinuityRuleEvaluation, ContinuityRuleName } from "./continuity/continuity-rule.js";
 
 export { JudgmentCoordinator } from "./judgment-coordinator.js";
 export type {

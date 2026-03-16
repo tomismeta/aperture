@@ -53,6 +53,32 @@ In practice, you usually build a small frame-handling component or service aroun
 
 This is the same pattern the Aperture TUI uses.
 
+## How Judgment Is Structured
+
+The core engine now follows a stable hot path:
+
+`evidence -> policy gates -> evaluation -> policy criterion -> routing -> continuity -> frame -> feedback`
+
+In practical terms:
+
+- `AttentionEvidenceContext`
+  - what the engine knows right now
+- `AttentionPolicy`
+  - hard gates and interrupt criterion
+- `AttentionValue`
+  - candidate utility and memory-backed scoring
+- `AttentionPlanner`
+  - routing and continuity-aware switching
+- `JudgmentCoordinator`
+  - composes the path above and can explain the decision
+
+If you call `coordinator.explain(...)` or inspect Aperture traces, you now get rule-level visibility into both:
+
+- policy gate and criterion evaluation
+- continuity rule evaluation
+
+For the deeper implementation note behind that shape, see [docs/core-engine-architecture.md](../../docs/core-engine-architecture.md).
+
 ## 1. What Do I Send Into Aperture?
 
 For most integrations, you call `core.publish(...)` with an `ApertureEvent`.
@@ -254,6 +280,26 @@ The main options are:
   - writes the current learned memory snapshot
 - `core.reloadMarkdown()`
   - reloads markdown-backed state
+
+If you use markdown-backed state, Aperture intentionally exposes only a small operator-facing judgment surface today:
+
+- policy rule fields:
+  - `auto approve`
+  - `may interrupt`
+  - `minimum presentation`
+  - `require context expansion`
+- ambiguity defaults:
+  - `non blocking activation threshold`
+  - `promotion margin`
+- planner defaults:
+  - `batch status bursts`
+  - `defer low value during pressure`
+  - `minimum dwell ms`
+  - `stream continuity margin`
+  - `conflicting interrupt margin`
+  - `disabled continuity rules`
+
+That boundary is deliberate. Aperture exposes the knobs that are useful to tune locally and keeps the rest of the judgment engine deterministic and inspectable by default.
 
 If you use the markdown-backed path, Aperture may read:
 

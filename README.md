@@ -273,7 +273,14 @@ The TUI may eventually become a nicer place to inspect or launch connections, bu
 
 - rule names: `lowRiskRead`, `lowRiskWeb`, `fileWrite`, `envWrite`, `destructiveBash`
 - rule fields: `auto approve`, `may interrupt`, `minimum presentation`, `require context expansion`
-- planner defaults: `batch status bursts`, `defer low value during pressure`
+- ambiguity defaults: `non blocking activation threshold`, `promotion margin`
+- planner defaults:
+  - `batch status bursts`
+  - `defer low value during pressure`
+  - `minimum dwell ms`
+  - `stream continuity margin`
+  - `conflicting interrupt margin`
+  - `disabled continuity rules`
 
 If a category still requires a human response to proceed, keep it `active`. Use `auto approve` only for bounded approval categories you want Aperture to resolve immediately and deterministically.
 
@@ -282,6 +289,12 @@ In the default scaffold:
 - `lowRiskRead`, `lowRiskWeb`, and `fileWrite` stay active for explicit human approval
 - `envWrite` and `destructiveBash` stay active and require context expansion
 - ratchet categories down to `auto approve` only when you explicitly want bounded pass-through
+
+The hot path behind those settings now reads as:
+
+`evidence -> policy gates -> evaluation -> policy criterion -> routing -> continuity -> frame -> feedback`
+
+That structure is intentional: Aperture exposes a few human-owned controls, keeps the rest deterministic in code, and makes the resulting judgment path inspectable through traces instead of hiding it inside opaque heuristics.
 
 ## Two Ways To Use It
 

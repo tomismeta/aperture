@@ -1,6 +1,6 @@
 {
   "name": "@tomismeta/aperture-core",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "The human attention control plane for agent systems.",
   "author": "tomismeta <tomismeta@gmail.com>",
   "license": "MIT",

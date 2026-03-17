@@ -120,7 +120,7 @@ That means:
 
 - interruption is a scarce semantic resource
 - the engine should surface decisions, not raw events
-- queue and ambient modes help preserve the meaning of interruption
+- next and ambient modes help preserve the meaning of interruption
 - low-confidence cases should stay peripheral instead of stealing focus
 - the human attention loop should be deterministic, inspectable, and behaviorally grounded
 
@@ -158,7 +158,7 @@ What is real on `main` today:
 What the engine already does:
 
 - normalize source events into one shared attention model
-- separate hard policy from adaptive utility and queue planning
+- separate hard policy from adaptive utility and next-step planning
 - learn from response latency, context expansion, deferral, and disagreement
 - keep related work continuous through episode modeling
 - suppress lower-value work before overload

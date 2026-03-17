@@ -13,8 +13,8 @@ Use this SDK when your agents can produce approvals, follow-up questions,
 status updates, or blocked work, and you need one place to decide:
 
 - what should interrupt a human now
-- what should wait in a queue
-- what should stay in the background
+- what should wait until next
+- what should stay ambient
 
 You send events in, Aperture gives you frames and surfaced state to render, and
 you send the human's answer back.

@@ -4,18 +4,6 @@ The human attention control plane for agent systems.
 
 Published on npm as `@tomismeta/aperture-core`.
 
-## Recent Updates
-
-- `0.2.2`
-  - hardened adapter/core semantics so routing-critical decisions prefer explicit source facts over loose text inference
-  - tightened route-vs-surface invariants and judgment trace clarity across core and TUI
-  - fixed pressure and posture cooling so burst activity no longer leaves the system stuck in a busy state after work goes quiet
-
-- `0.2.1`
-  - fixed peripheral routing edge cases where ambient or queued work could incorrectly activate
-  - tightened policy and criterion consistency for explicit peripheral rules
-  - added optional response expiry with host-side revalidation support for stale approvals
-
 Use this SDK when your agents can produce approvals, follow-up questions, status updates, or blocked work, and you need one place to decide:
 
 - what should interrupt a human now

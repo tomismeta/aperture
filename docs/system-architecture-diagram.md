@@ -18,49 +18,94 @@ Aperture is easiest to understand as nine connected layers, with one offline loo
 beside them:
 
 1. **Source Hosts**
+   - Owned by: external tools
    - The tools where work originates.
    - Today that means Claude Code, OpenCode, and Codex.
 
 2. **Source Adapters**
+   - Owned by: adapter packages
    - Source-specific translators.
    - They turn native payloads into Aperture `SourceEvent` values.
    - Their job is to provide explicit facts when the source knows them.
 
 3. **Runtime Attachment**
+   - Owned by: runtime or direct host integration
    - The place where adapters attach to a shared runtime, or connect directly to
      core in-process.
    - This is transport and hosting, not judgment.
 
 4. **Event Intake and Normalization**
+   - Owned by: `@tomismeta/aperture-core`
    - The engine intake path.
    - It validates events, normalizes them, evaluates candidate shape, applies
      bounded adjustments, and assigns episode context.
 
 5. **Evidence Context**
+   - Owned by: `@tomismeta/aperture-core`
    - The shared picture of what is true right now.
    - This includes the current surface state, signal summaries, operator
      presence, pressure, burden, and surface capabilities.
 
 6. **Deterministic Judgment Engine**
+   - Owned by: `@tomismeta/aperture-core`
    - The authoritative live decision path.
    - This is where policy, value, routing, and continuity run.
 
 7. **State, Trace, and Learning**
+   - Owned by: `@tomismeta/aperture-core`
    - The layer that commits decisions into surfaced state.
    - It also records traces, interaction signals, and compact learned summaries.
 
 8. **Operator and Client Surfaces**
+   - Owned by: `@aperture/tui` and any future client surface
    - The places where a human or other client consumes Aperture.
    - Today that mainly means the TUI operator surface, the TUI why surface,
      and any future client consuming the same core contracts.
 
 9. **Response Return Path**
+   - Owned by: core plus the relevant adapter or host integration
    - The path where human responses are validated, applied, and translated back
      into source-native actions.
 
 **Offline Evaluation**
+- Owned by: tooling beside the live engine
 - Replay, scenario review, and threshold tuning.
 - This should shape the live engine indirectly, not sit in the hot path.
+
+## Package Boundary Summary
+
+The repo is easiest to understand with this ownership split:
+
+- **External tools** own the raw source events.
+- **Adapter packages** own source translation and explicit semantic facts.
+- **`@tomismeta/aperture-core`** owns normalization, evidence, judgment, state,
+  trace, and learning.
+- **`@aperture/runtime`** owns shared live hosting and transport.
+- **`@aperture/tui`** owns the terminal operator surface.
+- **Offline tooling** owns replay, evaluation, and supporting analysis.
+
+This is the practical implementation form of the main architectural rule:
+
+**Adapters provide facts. Core provides judgment.**
+
+## Live Path Summary
+
+The live authoritative path is:
+
+1. **Event Intake and Normalization**
+2. **Evidence Context**
+3. **Deterministic Judgment Engine**
+4. **State, Trace, and Learning**
+
+These layers are where Aperture's real product behavior is decided.
+
+The surrounding layers are still important, but they play different roles:
+
+- **Source Hosts** and **Source Adapters** provide the input facts
+- **Runtime Attachment** provides transport and hosting
+- **Operator and Client Surfaces** render and inspect the result
+- **Response Return Path** carries human action back to the source
+- **Offline Evaluation** improves the system without entering the hot path
 
 ## Architectural Rule
 
@@ -90,6 +135,219 @@ Both diagrams use the same visual language:
 ## Diagram 1: End-To-End System
 
 This view shows the full system from source event to human response and back out.
+
+The top-to-bottom version is the easiest one to read when you want the main
+story of the system:
+
+- work starts in a source host
+- adapters establish meaning
+- core judges what to do
+- state is committed and surfaced
+- responses return to the source
+
+### Vertical view
+
+```mermaid
+flowchart TD
+  subgraph L1["1. Source Hosts"]
+    CC["Claude Code"]
+    OC["OpenCode"]
+    CX["Codex"]
+  end
+
+  subgraph L2["2. Source Adapters"]
+    A1["Claude adapter
+Turns Claude hook payloads into Aperture source events"]
+    A2["OpenCode adapter
+Turns OpenCode server events into Aperture source events"]
+    A3["Codex adapter
+Turns Codex requests and approvals into Aperture source events"]
+    AF["Adapter facts
+Explicit semantics when known:
+tool family, activity class, request type, risk hints, source identity"]
+    AH["Adapter fallback heuristics
+Used only when the source does not provide enough explicit facts"]
+  end
+
+  CC --> A1 --> AF
+  OC --> A2 --> AF
+  CX --> A3 --> AF
+  AH -.-> AF
+
+  subgraph L3["3. Runtime Attachment"]
+    RT["Shared Aperture runtime
+Hosts one live engine and shared surfaces"]
+    DP["Direct in-process attachment
+Sends source events straight into the engine"]
+  end
+
+  AF --> RT
+  AF --> DP
+
+  subgraph L4["4. Event Intake and Normalization"]
+    V["Validation
+Checks source event and canonical event shape"]
+    N["Semantic normalization
+Turns SourceEvent into ApertureEvent"]
+    E["Event evaluation
+Decides whether the event implies a candidate, a clear, or a no-op"]
+    J["Bounded adjustments
+Applies recent local nudges from signal patterns"]
+    EP["Episode tracking
+Assigns interaction and episode context"]
+    TX["Interaction taxonomy
+Prefers explicit tool family and uses bounded fallback inference only where allowed"]
+  end
+
+  RT --> V
+  DP --> V
+  V --> N --> E --> J --> EP
+  TX -.-> E
+  TX -.-> J
+  TX -.-> EP
+
+  subgraph L5["5. Evidence Context"]
+    SS["Signal summaries
+What recent and lifetime behavior say about attention use"]
+    PR["Attention pressure
+Forecast of interruption demand building up"]
+    BU["Attention burden
+Estimate of current cognitive load"]
+    EC["Evidence context
+Current frame, visible state, operator presence, pressure, burden, surface limits"]
+  end
+
+  SS --> PR
+  SS --> BU
+  PR --> EC
+  BU --> EC
+  EP --> EC
+
+  subgraph L6["6. Deterministic Judgment Engine"]
+    PG["Policy gates
+Hard rules about what is allowed or forbidden"]
+    VL["Value lane
+Named scoring components:
+priority, consequence, tone, trust, context cost, response affinity, memory"]
+    PC["Policy criterion
+Rules that shape interrupt eligibility and threshold behavior"]
+    PL["Planner and routing
+Chooses active, queued, ambient, keep, or clear"]
+    CR["Continuity rules
+Protect focus, preserve episodes, avoid bursty switching, keep streams coherent"]
+    JD["Judgment coordinator
+Produces the final decision and explanation"]
+  end
+
+  EC --> PG
+  EC --> VL
+  EC --> PC
+  EC --> PL
+  EC --> CR
+
+  PG --> PC
+  VL --> PL
+  PC --> PL
+  PL --> CR
+
+  PG --> JD
+  VL --> JD
+  PC --> JD
+  PL --> JD
+  CR --> JD
+
+  subgraph L7["7. State, Trace, and Learning"]
+    FP["Frame planning
+Turns the decision into a renderable frame"]
+    TV["Task view store
+Maintains per-task active, queued, and ambient state"]
+    AV["Attention view assembly
+Builds the global active, queued, and ambient surface"]
+    SG["Signal store
+Records presented, responded, dismissed, deferred, returned, shifted"]
+    TR["Trace recorder
+Records rule evaluations, score parts, route, and surfaced result"]
+    MM["Memory distillation
+Summarizes useful long-term behavior patterns"]
+    PS["Optional profile and markdown persistence
+Keeps local state and judgment config on disk"]
+  end
+
+  JD --> FP --> TV --> AV
+  TV --> SG
+  JD --> TR
+  AV --> TR
+  SG --> MM
+  MM -.-> PS
+  PS -.-> PG
+  PS -.-> VL
+
+  subgraph L8["8. Operator and Client Surfaces"]
+    API["Surface API
+Current attention view, current state, traces, submit"]
+    TUI["TUI operator mode
+Calm attention surface for now, next, and background"]
+    WHY["TUI why mode
+Inspection view for route, policy, criterion, continuity, and surfaced result"]
+    OTH["Other clients
+Tests and future surfaces"]
+  end
+
+  AV --> API
+  TR --> API
+  API --> TUI
+  API --> WHY
+  API --> OTH
+
+  subgraph L9["9. Response Return Path"]
+    SUB["Submit response
+Validate the response, apply it, update state, emit signals"]
+    RM["Response mapping
+Turn AttentionResponse back into a source-native action"]
+    OUT1["Claude response path"]
+    OUT2["OpenCode response path"]
+    OUT3["Codex response path"]
+  end
+
+  TUI --> SUB
+  OTH --> SUB
+  SUB --> SG
+  SUB --> TV
+  SUB --> RM
+  RM --> OUT1
+  RM --> OUT2
+  RM --> OUT3
+
+  subgraph L10["Offline Evaluation"]
+    EVL["Replay and evaluation
+Compare traces, review scenarios, tune thresholds, study disagreement"]
+  end
+
+  TR --> EVL
+  SG --> EVL
+  MM --> EVL
+
+  classDef source fill:#f6f7f8,stroke:#6b7280,color:#111827;
+  classDef semantics fill:#e8f5e9,stroke:#2e7d32,color:#111827;
+  classDef heuristic fill:#fff8e1,stroke:#f59e0b,color:#111827;
+  classDef judgment fill:#e8f1ff,stroke:#2563eb,color:#111827;
+  classDef state fill:#f3e8ff,stroke:#7c3aed,color:#111827;
+  classDef egress fill:#fff3e0,stroke:#ea580c,color:#111827;
+  classDef infra fill:#f3f4f6,stroke:#9ca3af,color:#111827,stroke-dasharray: 5 5;
+
+  class CC,OC,CX source;
+  class A1,A2,A3,AF,N semantics;
+  class AH,J,TX heuristic;
+  class V,E,EP,SS,PR,BU,EC,PG,VL,PC,PL,CR,JD,FP judgment;
+  class TV,AV,SG,TR,MM,PS state;
+  class SUB,RM,OUT1,OUT2,OUT3 egress;
+  class RT,DP,API,TUI,WHY,OTH,EVL infra;
+```
+
+### Horizontal view
+
+Use the horizontal version when you want to compare lanes and support paths
+side by side.
 
 ```mermaid
 flowchart LR
@@ -292,13 +550,15 @@ Compare traces, review scenarios, tune thresholds, study disagreement"]
 
 This view zooms into the deterministic engine itself.
 
-It shows the five major internal concepts:
+It follows the same top-to-bottom logic as the full system diagram:
 
-- evidence
-- rules
-- value
-- routing
-- state commit
+- a candidate arrives with context
+- policy decides what is allowed
+- value decides how worthwhile attention is
+- criterion sets the interrupt bar
+- planning picks a route
+- continuity protects focus
+- the final route is committed into surfaced state
 
 It also makes the four rule categories explicit:
 
@@ -310,69 +570,118 @@ It also makes the four rule categories explicit:
 ```mermaid
 flowchart TD
   subgraph E["Evidence and Candidate Context"]
-    C["Candidate
-Normalized event with episode context and bounded adjustments"]
-    X["Evidence context
-Current frame, visible state, operator presence, pressure, burden, surface limits"]
+    C["Candidate arriving from event intake
+This is the current interaction after normalization, bounded adjustments, and episode assignment"]
+    X["Shared evidence context
+This is the current situation Aperture judges against:
+what is already visible, how busy the surface is, and how much cognitive load is building"]
   end
 
   subgraph G["Rule Category 1: Policy Gates"]
-    G1["configured_policy"]
-    G2["blocking"]
-    G3["background"]
-    G4["peripheral_status"]
-    G5["interruptive_default"]
+    G1["Configured policy
+Applies operator-owned rules and explicit tool policy
+(configured_policy)"]
+    G2["Blocking work policy
+Preserves interruptions for work that blocks progress
+(blocking)"]
+    G3["Background work policy
+Keeps low-priority background work peripheral
+(background)"]
+    G4["Peripheral status policy
+Keeps passive status from acting like a demand for attention
+(peripheral_status)"]
+    G5["Interruptive default policy
+Applies the default attention posture when no stronger gate has already decided
+(interruptive_default)"]
     GV["Policy gate verdict
-What hard policy already determines"]
+The hard policy answer so far:
+what is allowed, forbidden, or already constrained"]
   end
 
   subgraph V["Named Value Lane"]
-    V1["Base value
-Priority, consequence, tone, blocking"]
+    V1["Base attention value
+Scores the interaction from priority, consequence, tone, and blocking-ness"]
     V2["Memory and trust effects
-Source trust, calibration, response affinity, context cost, deferral affinity"]
-    VS["Value score and rationale parts"]
+Adjusts the score using durable source trust and learned response patterns"]
+    VS["Value result
+The named score components and the reasons they moved the candidate"]
   end
 
   subgraph C1["Rule Category 2: Policy Criterion"]
-    C2["operator_absence"]
-    C3["interrupt_eligibility"]
-    C4["no_active_frame"]
-    C5["small_score_gap"]
-    C6["source_trust"]
-    C7["attention_budget"]
+    C2["Operator absence criterion
+Raises or reshapes the interrupt bar when the operator is not present
+(operator_absence)"]
+    C3["Interrupt eligibility criterion
+Decides whether this kind of work is eligible to interrupt at all
+(interrupt_eligibility)"]
+    C4["No-active-frame criterion
+Handles the special case where the surface is currently empty
+(no_active_frame)"]
+    C5["Small-score-gap criterion
+Avoids noisy switching when two options are too close in value
+(small_score_gap)"]
+    C6["Source trust criterion
+Requires a clearer margin for lower-trust sources
+(source_trust)"]
+    C7["Attention budget criterion
+Raises the bar when recent decision demand is already high
+(attention_budget)"]
     CV["Criterion verdict
-Threshold, margin, ambiguity, peripheral preservation or clearing"]
+The current interrupt bar:
+threshold, required margin, ambiguity, and whether peripheral posture is preserved"]
   end
 
   subgraph P["Rule Category 3: Planner and Routing"]
     P1["Planner
-Combines value, criterion, pressure, backlog, and episode state"]
-    PV["Initial route
-Activate, queue, ambient, keep, or clear"]
+Combines value, criterion, pressure, backlog, and episode state to choose the best route"]
+    PV["Initial routing decision
+The first answer about whether this should activate, queue, stay ambient, remain as-is, or clear"]
   end
 
   subgraph K["Rule Category 4: Continuity"]
-    K1["visible_episode"]
-    K2["same_episode"]
-    K3["minimum_dwell"]
-    K4["burst_dampening"]
-    K5["same_interaction"]
-    K6["deferral_escalation"]
-    K7["conflicting_interrupt"]
-    K8["decision_stream_continuity"]
-    K9["context_patience"]
-    KV["Continuity-adjusted route"]
+    K1["Visible episode continuity
+Keeps related visible work bundled when the episode is already on screen
+(visible_episode)"]
+    K2["Same-episode continuity
+Keeps related work together instead of fragmenting one episode into many interruptions
+(same_episode)"]
+    K3["Minimum dwell continuity
+Prevents premature switching away from something that only just surfaced
+(minimum_dwell)"]
+    K4["Burst dampening continuity
+Suppresses rapid-fire updates that would otherwise cause attention thrash
+(burst_dampening)"]
+    K5["Same-interaction continuity
+Refreshes an existing interaction instead of treating it as a new competing demand
+(same_interaction)"]
+    K6["Deferral escalation continuity
+Lets repeatedly deferred work return more strongly when appropriate
+(deferral_escalation)"]
+    K7["Conflicting interrupt continuity
+Resolves conflicts when multiple interruptions compete at once
+(conflicting_interrupt)"]
+    K8["Decision-stream continuity
+Keeps one decision stream from stealing focus too easily from another
+(decision_stream_continuity)"]
+    K9["Context patience continuity
+Protects focus when the current context is still worth preserving
+(context_patience)"]
+    KV["Continuity-adjusted route
+The final routing answer after focus-protection rules have had their say"]
   end
 
   subgraph D["Decision and Commit"]
     D1["Judgment coordinator
-Assembles explanation across all lanes"]
-    D2["Frame planning"]
-    D3["Task view store"]
-    D4["Attention view"]
+Assembles one explanation across policy, value, criterion, planning, and continuity"]
+    D2["Frame planning
+Turns the decision into the frame shape a surface can actually render"]
+    D3["Task view store
+Commits the route into per-task active, queued, and ambient state"]
+    D4["Attention view
+Builds the global surfaced view the operator or client sees"]
     D5["Trace recorder
-Rule evaluations, score parts, route, surfaced bucket"]
+Records how the decision happened:
+rule evaluations, score parts, route, and the final surfaced bucket"]
   end
 
   C --> G1

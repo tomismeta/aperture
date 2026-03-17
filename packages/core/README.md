@@ -19,8 +19,6 @@ status updates, or blocked work, and you need one place to decide:
 You send events in, Aperture gives you frames and surfaced state to render, and
 you send the human's answer back.
 
-This package is ESM-only and requires Node.js 18+.
-
 It is not:
 
 - a transport server

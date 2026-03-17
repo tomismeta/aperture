@@ -4,6 +4,11 @@
 
 **The human attention control plane for agent systems.**
 
+[![npm core](https://img.shields.io/npm/v/%40tomismeta%2Faperture-core?label=npm%20core&color=0f766e)](https://www.npmjs.com/package/@tomismeta/aperture-core)
+[![node](https://img.shields.io/badge/node-%3E%3D18-1f6feb)](https://nodejs.org/)
+[![license](https://img.shields.io/badge/license-MIT-6f42c1)](./LICENSE)
+[![docs](https://img.shields.io/badge/docs-architecture%20overview-475569)](./docs/system-architecture-diagram.md)
+
 
 <img src="docs/assets/demo.gif" alt="Aperture demo" width="1100">
 <p></p>

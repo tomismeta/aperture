@@ -137,3 +137,79 @@ test("forecastAttentionPressure identifies high overload risk when demand and la
   assert.equal(forecast.metrics.interruptiveVisible, 2);
   assert.match(forecast.reasons.join(" "), /recent response latency is slow/);
 });
+
+test("forecastAttentionPressure cools stale bursts when nothing interruptive is visible", () => {
+  const forecast = forecastAttentionPressure(
+    createSummary({
+      counts: {
+        presented: 8,
+        viewed: 0,
+        responded: 1,
+        dismissed: 0,
+        deferred: 4,
+        contextExpanded: 0,
+        contextSkipped: 0,
+        timedOut: 0,
+        returned: 2,
+        attentionShifted: 0,
+      },
+      deferred: {
+        queued: 2,
+        suppressed: 2,
+        manual: 0,
+      },
+      responseRate: 0.2,
+      averageResponseLatencyMs: 18_000,
+      lastSignalAt: "2026-03-15T12:00:00.000Z",
+    }),
+    {
+      active: null,
+      queued: [],
+      ambient: [],
+    } satisfies AttentionView,
+    "2026-03-15T12:03:00.000Z",
+  );
+
+  assert.equal(forecast.level, "steady");
+  assert.equal(forecast.overloadRisk, "low");
+  assert.equal(forecast.metrics.recentDemand, 0);
+  assert.equal(forecast.metrics.deferredCount, 0);
+  assert.equal(forecast.metrics.averageResponseLatencyMs, null);
+});
+
+test("forecastAttentionPressure preserves visible interruptive work even after a quiet gap", () => {
+  const forecast = forecastAttentionPressure(
+    createSummary({
+      counts: {
+        presented: 8,
+        viewed: 0,
+        responded: 1,
+        dismissed: 0,
+        deferred: 4,
+        contextExpanded: 0,
+        contextSkipped: 0,
+        timedOut: 0,
+        returned: 2,
+        attentionShifted: 0,
+      },
+      deferred: {
+        queued: 2,
+        suppressed: 2,
+        manual: 0,
+      },
+      responseRate: 0.2,
+      averageResponseLatencyMs: 18_000,
+      lastSignalAt: "2026-03-15T12:00:00.000Z",
+    }),
+    {
+      active: createFrame(),
+      queued: [],
+      ambient: [],
+    } satisfies AttentionView,
+    "2026-03-15T12:03:00.000Z",
+  );
+
+  assert.equal(forecast.level, "steady");
+  assert.equal(forecast.overloadRisk, "low");
+  assert.equal(forecast.metrics.interruptiveVisible, 1);
+});

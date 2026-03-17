@@ -2,6 +2,8 @@ import type { AttentionFrame, AttentionView } from "./frame.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 
+type PressureReferenceTime = number | string | Date;
+
 export type AttentionPressure = {
   level: "steady" | "elevated" | "high";
   overloadRisk: "low" | "rising" | "high";
@@ -19,18 +21,23 @@ export type AttentionPressure = {
 export function forecastAttentionPressure(
   summary?: AttentionSignalSummary,
   attentionView?: AttentionView,
+  now?: PressureReferenceTime,
 ): AttentionPressure {
-  const recentDemand =
-    (summary?.counts.presented ?? 0)
-    + (summary?.counts.deferred ?? 0)
-    + (summary?.counts.returned ?? 0);
   const interruptiveVisible = countInterruptiveVisible(attentionView);
-  const averageResponseLatencyMs = summary?.averageResponseLatencyMs ?? null;
-  const deferredCount = summary?.counts.deferred ?? 0;
-  const suppressedCount = summary?.deferred.suppressed ?? 0;
   const reasons: string[] = [];
   let score = 0;
   const defaults = JUDGMENT_DEFAULTS.pressureForecast;
+  const lastSignalAgeMs = getLastSignalAgeMs(summary, now);
+  const demandFresh = lastSignalAgeMs === null || lastSignalAgeMs <= defaults.freshness.demandMs;
+  const residualFresh = lastSignalAgeMs === null || lastSignalAgeMs <= defaults.freshness.residualMs;
+  const recentDemand = demandFresh
+    ? (summary?.counts.presented ?? 0) + (summary?.counts.deferred ?? 0) + (summary?.counts.returned ?? 0)
+    : 0;
+  const averageResponseLatencyMs = residualFresh ? summary?.averageResponseLatencyMs ?? null : null;
+  const deferredCount = residualFresh ? summary?.counts.deferred ?? 0 : 0;
+  const suppressedCount = residualFresh ? summary?.deferred.suppressed ?? 0 : 0;
+  const responseRate = residualFresh ? summary?.responseRate ?? 0 : 0;
+  const presentedCount = residualFresh ? summary?.counts.presented ?? 0 : 0;
 
   if (interruptiveVisible >= defaults.visibleInterruptiveBoost.highCount) {
     score += 2;
@@ -71,8 +78,8 @@ export function forecastAttentionPressure(
   }
 
   if (
-    (summary?.counts.presented ?? 0) >= defaults.slowClearance.presentedCount
-    && (summary?.responseRate ?? 0) <= defaults.slowClearance.responseRate
+    presentedCount >= defaults.slowClearance.presentedCount
+    && responseRate <= defaults.slowClearance.responseRate
   ) {
     score += 1;
     reasons.push("presented work is being cleared slowly");
@@ -101,6 +108,38 @@ export function forecastAttentionPressure(
     },
     reasons,
   };
+}
+
+function getLastSignalAgeMs(
+  summary: AttentionSignalSummary | undefined,
+  now: PressureReferenceTime | undefined,
+): number | null {
+  const lastSignalAt = summary?.lastSignalAt;
+  if (!lastSignalAt || now === undefined) {
+    return null;
+  }
+
+  const lastSignalMs = Date.parse(lastSignalAt);
+  const referenceMs = toTimestampMs(now);
+  if (Number.isNaN(lastSignalMs) || referenceMs === null) {
+    return null;
+  }
+
+  return Math.max(0, referenceMs - lastSignalMs);
+}
+
+function toTimestampMs(value: PressureReferenceTime): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (value instanceof Date) {
+    const ms = value.getTime();
+    return Number.isFinite(ms) ? ms : null;
+  }
+
+  const ms = Date.parse(value);
+  return Number.isNaN(ms) ? null : ms;
 }
 
 export function idleAttentionPressure(): AttentionPressure {

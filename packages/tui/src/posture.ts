@@ -5,7 +5,7 @@ export function computePosture(
   summary: SignalSummary,
   view: AttentionView,
 ): Posture {
-  const pressure = forecastAttentionPressure(summary, view);
+  const pressure = forecastAttentionPressure(summary, view, Date.now());
 
   switch (pressure.level) {
     case "high":

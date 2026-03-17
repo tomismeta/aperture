@@ -76,7 +76,8 @@ export function resolveAttentionEvidenceContext(
   }
 
   const globalSignalSummary = input.globalSignalSummary ?? emptyAttentionSignalSummary();
-  const pressureForecast = input.pressureForecast ?? forecastAttentionPressure(globalSignalSummary, input.attentionView);
+  const now = Date.now();
+  const pressureForecast = input.pressureForecast ?? forecastAttentionPressure(globalSignalSummary, input.attentionView, now);
   const operatorPresence = input.operatorPresence ?? "present";
 
   return createAttentionEvidenceContext({
@@ -91,6 +92,7 @@ export function resolveAttentionEvidenceContext(
         pressureForecast,
         input.globalAttentionState,
         operatorPresence,
+        now,
       ),
     operatorPresence,
   });

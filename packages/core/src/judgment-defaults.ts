@@ -21,6 +21,10 @@ export const JUDGMENT_DEFAULTS = {
     actionableEpisodeScoreSlack: 15,
   },
   pressureForecast: {
+    freshness: {
+      demandMs: 20_000,
+      residualMs: 120_000,
+    },
     visibleInterruptiveBoost: {
       elevatedCount: 1,
       highCount: 2,

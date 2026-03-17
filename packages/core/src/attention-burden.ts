@@ -4,6 +4,8 @@ import type { AttentionPressure } from "./attention-pressure.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import type { AttentionState } from "./attention-state.js";
 
+type BurdenReferenceTime = number | string | Date;
+
 export type AttentionBurden = {
   level: "light" | "elevated" | "high";
   thresholdOffset: number;
@@ -23,20 +25,23 @@ export function deriveAttentionBurden(
   pressure: AttentionPressure | undefined,
   attentionState: AttentionState | undefined,
   operatorPresence: AttentionOperatorPresence = "present",
+  now?: BurdenReferenceTime,
 ): AttentionBurden {
   if (operatorPresence === "absent") {
     return idleAttentionBurden();
   }
 
   const defaults = JUDGMENT_DEFAULTS.attentionBudget;
-  const recentDecisions =
-    (summary?.counts.responded ?? 0)
-    + (summary?.counts.dismissed ?? 0)
-    + (summary?.counts.deferred ?? 0)
-    + (summary?.counts.contextExpanded ?? 0)
-    + (summary?.counts.contextSkipped ?? 0);
-  const deferredCount = summary?.counts.deferred ?? 0;
-  const averageResponseLatencyMs = summary?.averageResponseLatencyMs ?? null;
+  const summaryFresh = isSummaryFresh(summary, now);
+  const recentDecisions = summaryFresh
+    ? (summary?.counts.responded ?? 0)
+      + (summary?.counts.dismissed ?? 0)
+      + (summary?.counts.deferred ?? 0)
+      + (summary?.counts.contextExpanded ?? 0)
+      + (summary?.counts.contextSkipped ?? 0)
+    : 0;
+  const deferredCount = summaryFresh ? summary?.counts.deferred ?? 0 : 0;
+  const averageResponseLatencyMs = summaryFresh ? summary?.averageResponseLatencyMs ?? null : null;
   const interruptiveVisible = pressure?.metrics.interruptiveVisible ?? 0;
   const resolvedAttentionState = attentionState ?? "monitoring";
   const pressureLevel = pressure?.level ?? "steady";
@@ -117,6 +122,38 @@ export function deriveAttentionBurden(
     },
     reasons,
   };
+}
+
+function isSummaryFresh(
+  summary: AttentionSignalSummary | undefined,
+  now: BurdenReferenceTime | undefined,
+): boolean {
+  const lastSignalAt = summary?.lastSignalAt;
+  if (!lastSignalAt || now === undefined) {
+    return true;
+  }
+
+  const lastSignalMs = Date.parse(lastSignalAt);
+  const referenceMs = toTimestampMs(now);
+  if (Number.isNaN(lastSignalMs) || referenceMs === null) {
+    return true;
+  }
+
+  return referenceMs - lastSignalMs <= JUDGMENT_DEFAULTS.pressureForecast.freshness.residualMs;
+}
+
+function toTimestampMs(value: BurdenReferenceTime): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (value instanceof Date) {
+    const ms = value.getTime();
+    return Number.isFinite(ms) ? ms : null;
+  }
+
+  const ms = Date.parse(value);
+  return Number.isNaN(ms) ? null : ms;
 }
 
 export function idleAttentionBurden(): AttentionBurden {

@@ -103,3 +103,56 @@ test("deriveAttentionBurden resets to light while the operator is absent", () =>
   assert.equal(burden.thresholdOffset, 0);
   assert.deepEqual(burden.reasons, []);
 });
+
+test("deriveAttentionBurden ignores stale summary pressure after a quiet period", () => {
+  const burden = deriveAttentionBurden(
+    {
+      recentSignals: 8,
+      lifetimeSignals: 20,
+      counts: {
+        presented: 8,
+        viewed: 0,
+        responded: 2,
+        dismissed: 1,
+        deferred: 3,
+        contextExpanded: 1,
+        contextSkipped: 1,
+        timedOut: 0,
+        returned: 0,
+        attentionShifted: 0,
+      },
+      deferred: {
+        queued: 2,
+        suppressed: 1,
+        manual: 0,
+      },
+      responseRate: 0.25,
+      dismissalRate: 0.125,
+      averageResponseLatencyMs: 16_000,
+      averageDismissalLatencyMs: null,
+      lastSignalAt: "2026-03-15T12:00:00.000Z",
+    },
+    {
+      level: "steady",
+      overloadRisk: "low",
+      score: 0,
+      metrics: {
+        recentDemand: 0,
+        interruptiveVisible: 0,
+        averageResponseLatencyMs: null,
+        deferredCount: 0,
+        suppressedCount: 0,
+      },
+      reasons: [],
+    },
+    "monitoring",
+    "present",
+    "2026-03-15T12:03:00.000Z",
+  );
+
+  assert.equal(burden.level, "light");
+  assert.equal(burden.thresholdOffset, 0);
+  assert.equal(burden.metrics.recentDecisions, 0);
+  assert.equal(burden.metrics.deferredCount, 0);
+  assert.equal(burden.metrics.averageResponseLatencyMs, null);
+});

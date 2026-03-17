@@ -10,7 +10,7 @@
     "claude:disconnect": "tsx scripts/claude-disconnect.ts",
     "claude:start": "tsx scripts/claude-adapter.ts",
     "clean": "rm -rf packages/*/dist",
-    "demo:record": "bash scripts/record-demo.sh",
+    "demo:record": "tsx scripts/record-demo.ts",
     "demo:tui": "tsx scripts/demo-tui.ts",
     "opencode:connect": "tsx scripts/opencode-connect.ts",
     "opencode:disconnect": "tsx scripts/opencode-disconnect.ts",

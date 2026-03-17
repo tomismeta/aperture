@@ -60,11 +60,11 @@ test("renderAttentionScreen shows active, queued, and ambient summaries", () => 
   const screen = renderAttentionScreen(attentionView, { title: "Aperture TUI" });
 
   assert.match(screen, /APERTURE/);
-  assert.match(screen, /active 1/);
-  assert.match(screen, /queued 1/);
+  assert.match(screen, /now 1/);
+  assert.match(screen, /next 1/);
   assert.match(screen, /ambient 1/);
   // New layout uses ── section headers and ⏺ marker with ⎿ tree connectors
-  assert.match(screen, /── queue ──/);
+  assert.match(screen, /── next ──/);
   assert.match(screen, /── ambient ──/);
   assert.match(screen, /⏺/); // active frame marker
   assert.match(screen, /⎿/); // tree connector for child lines
@@ -78,7 +78,7 @@ test("renderAttentionScreen shows active, queued, and ambient summaries", () => 
   assert.match(expanded, /score 1211/);
 });
 
-test("renderAttentionScreen shows numbered choice options in the active pane", () => {
+test("renderAttentionScreen shows numbered choice options in the now pane", () => {
   const choiceFrame = makeFrame({
     mode: "choice",
     title: "Which environment should be used?",
@@ -455,12 +455,12 @@ test("renderAttentionScreen why mode replaces queue and ambient", () => {
   };
 
   const normalScreen = renderAttentionScreen(attentionView);
-  assert.match(normalScreen, /── queue ──/);
+  assert.match(normalScreen, /── next ──/);
   assert.match(normalScreen, /── ambient ──/);
 
   const whyScreen = renderAttentionScreen(attentionView, { whyMode: true });
-  // In why mode, queue and ambient sections should not appear
-  assert.doesNotMatch(whyScreen, /── queue ──/);
+  // In why mode, next and ambient sections should not appear
+  assert.doesNotMatch(whyScreen, /── next ──/);
   assert.doesNotMatch(whyScreen, /── ambient ──/);
   // Should show trace-related content (or "no trace available")
   assert.match(whyScreen, /no trace available/);

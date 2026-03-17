@@ -20,8 +20,8 @@ The TUI now has two primary modes:
 The screen is organized into four practical regions:
 
 1. **Header**
-2. **Active now**
-3. **Queue / ambient**
+2. **Now**
+3. **Next / ambient**
 4. **Controls + status**
 
 The point is not to show everything. The point is to show what deserves the
@@ -31,8 +31,8 @@ human next while keeping background work visible but quiet.
 
 The header shows:
 
-- active count
-- queued count
+- now count
+- next count
 - ambient count
 - a global posture indicator:
   - `○ calm`
@@ -42,11 +42,11 @@ The header shows:
 That posture is derived from real engine burden/pressure state, not just frame
 tone.
 
-## Active Now
+## Now
 
-The active frame is the one thing Aperture thinks deserves the operator first.
+The now frame is the one thing Aperture thinks deserves the operator first.
 
-The active pane shows:
+The now pane shows:
 
 - **Title** — what is happening, in plain language
 - **Source** — where it came from
@@ -61,7 +61,7 @@ The active pane shows:
 - **Judgment line** — one short reason for why Aperture put this item here
 - **Context** — the first 1-2 context items are visible by default; more appear behind `[space]`
 
-The default active pane is intentionally calm. It should answer:
+The default now pane is intentionally calm. It should answer:
 
 - what is this
 - what should I do
@@ -69,18 +69,18 @@ The default active pane is intentionally calm. It should answer:
 
 without turning the surface into a trace console.
 
-## Queue
+## Next
 
-The queue contains work that matters, but not enough to displace the current
-active item.
+The next section contains work that matters, but not enough to displace the
+current item.
 
-Queued items are:
+Next items are:
 
 - compact
 - ranked
 - visible for orientation
 
-When the active frame resolves, the top queued item can promote to active.
+When the current item resolves, the top next item can promote into now.
 
 ## Ambient
 
@@ -119,7 +119,7 @@ When typing:
 
 Press `[y]` to inspect the current judgment trace.
 
-Why mode keeps the active frame visible and replaces the lower part of the
+Why mode keeps the now frame visible and replaces the lower part of the
 screen with the routed explanation. It shows:
 
 - decision route and surfaced bucket
@@ -133,7 +133,7 @@ rule machinery by default.
 
 ## What The TUI Supports Today
 
-- full-screen rendering of active, queued, and ambient work
+- full-screen rendering of now, next, and ambient work
 - keyboard-driven responses for approvals, choices, and forms
 - text replies through the inline input row where supported
 - one-line operator-facing judgment copy

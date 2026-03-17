@@ -14,6 +14,17 @@ Aperture sits between many possible event sources and one human decision surface
 
 **Live path today:** Claude Code and OpenCode can both feed one shared Aperture runtime and one terminal attention surface.
 
+```text
++-----------+    +-------------+    +-------------+    +-------------+    +-------------+
+|  Arrive   | -> |  Translate  | -> |    Judge    | -> |    Show     | -> |   Respond   |
+|  events   |    |    facts    |    |  attention  |    |   surface   |    |   action    |
++-----------+    +-------------+    +-------------+    +-------------+    +-------------+
+
+tool hooks       explicit facts      does this         what the          operator decision
+from coding      from raw payloads   deserve           operator          carried back
+agents                               attention now?    actually sees     to the tool
+```
+
 ## Start Here
 
 Choose one path:
@@ -340,9 +351,8 @@ For the full package-facing SDK docs, see [packages/core/README.md](packages/cor
 - `@aperture/claude-code`, `@aperture/opencode`: live source adapters
 - `@aperture/tui`: source-agnostic terminal surface
 
-The flow is:
-
-`raw source payload → SourceEvent → core judgment → attention surface → human response → new signals`
+For the full architectural overview, including the napkin, event sequence, and
+detailed system diagrams, see [Architecture Overview](docs/system-architecture-diagram.md).
 
 ## Using Core Directly
 
@@ -464,8 +474,8 @@ for (const event of sourceEvents) {
 
 The TUI has three sections:
 
-- **ACTIVE NOW**: the one thing Aperture thinks the human should look at first
-- **QUEUE**: important items waiting behind the active frame
+- **NOW**: what deserves your attention right now
+- **NEXT**: what is waiting behind it
 - **AMBIENT**: awareness-only items that should not interrupt
 
 For the full guide, see [How to Read the TUI](docs/tui.md#how-to-read-the-tui).

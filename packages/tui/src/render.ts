@@ -66,7 +66,7 @@ export function renderAttentionScreen(
     lines.push(...renderWhyOverlay(options.trace ?? null, color, options.whyExpanded ?? false));
   } else {
     lines.push("");
-    lines.push(sectionHeader("queue", color, "focused"));
+    lines.push(sectionHeader("next", color, "focused"));
     if (queued.length === 0) {
       lines.push(styleMuted('    [○"]', color));
     } else {
@@ -126,8 +126,8 @@ function renderHeader(
   const brand = ` ${styleMuted("/·\\", color)} ${styleBrand("APERTURE", color)}`;
 
   const counts = [
-    summarizeCount("active", activeCount, color),
-    summarizeCount("queued", queuedCount, color),
+    summarizeCount("now", activeCount, color),
+    summarizeCount("next", queuedCount, color),
     summarizeCount("ambient", ambientCount, color),
   ].join("   ");
 

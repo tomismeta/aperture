@@ -54,14 +54,11 @@ export async function runAttentionTui(
   const render = () => {
     output.write(redrawScreen());
 
-    // If in why mode, render the overlay version
     if (state.whyMode) {
       const activeTrace = state.attentionView.active
         ? state.traceCache.get(state.attentionView.active.interactionId) ?? null
         : null;
 
-      // Render header + active frame + why overlay + footer
-      // We use renderAttentionScreen with whyMode flag
       output.write(
         renderAttentionScreenWithWhy(state, title, output, activeTrace),
       );
@@ -198,7 +195,11 @@ export async function runAttentionTui(
       }
 
       if (key.name === "space") {
-        state.expanded = !state.expanded;
+        if (state.whyMode) {
+          state.whyExpanded = !state.whyExpanded;
+        } else {
+          state.expanded = !state.expanded;
+        }
         requestRender();
         return;
       }
@@ -206,12 +207,6 @@ export async function runAttentionTui(
       if (key.name === "y") {
         state.whyMode = !state.whyMode;
         if (!state.whyMode) state.whyExpanded = false;
-        requestRender();
-        return;
-      }
-
-      if (key.name === "i" && state.whyMode) {
-        state.whyExpanded = !state.whyExpanded;
         requestRender();
         return;
       }

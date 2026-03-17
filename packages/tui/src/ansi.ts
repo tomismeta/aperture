@@ -18,8 +18,8 @@ export const ANSI = {
   italic: "\u001B[3m",
   white: "\u001B[97m",
   gray: "\u001B[90m",
-  // Brand — single accent hue, hierarchy through weight
-  cyan: "\u001B[96m",
+  // Brand — single accent hue (256-color 74: calm teal-blue #5FAFAF)
+  brand: "\u001B[38;5;74m",
 } as const;
 
 // ── Style functions ──────────────────────────────────────────────────
@@ -44,10 +44,10 @@ export function styleItalicMuted(value: string, color: boolean): string {
   return color ? `${ANSI.dim}${ANSI.italic}${value}${ANSI.reset}` : value;
 }
 
-/** Key hints: [a], [enter] — bold white, the only bright element in controls */
+/** Key hints: [a], [enter] — key in bold brand blue, brackets in dim */
 export function styleKey(value: string, color: boolean): string {
-  const wrapped = `[${value}]`;
-  return color ? `${ANSI.bold}${ANSI.white}${wrapped}${ANSI.reset}` : wrapped;
+  if (!color) return `[${value}]`;
+  return `${ANSI.dim}[${ANSI.reset}${ANSI.bold}${ANSI.brand}${value}${ANSI.reset}${ANSI.dim}]${ANSI.reset}`;
 }
 
 /** Queue rank numbers — dim, not attention-grabbing */
@@ -58,7 +58,7 @@ export function styleRank(rank: number, color: boolean): string {
 
 /** Brand "APERTURE" — bold cyan. The single accent gives it identity. */
 export function styleBrand(value: string, color: boolean): string {
-  return color ? `${ANSI.bold}${ANSI.cyan}${value}${ANSI.reset}` : value;
+  return color ? `${ANSI.bold}${ANSI.brand}${value}${ANSI.reset}` : value;
 }
 
 /** Source labels — dim, informational, not interactive */
@@ -68,7 +68,7 @@ export function styleSource(value: string, color: boolean): string {
 
 /** Numeric values worth highlighting — cyan, draws eye to key data */
 export function styleValue(value: string, color: boolean): string {
-  return color ? `${ANSI.cyan}${value}${ANSI.reset}` : value;
+  return color ? `${ANSI.brand}${value}${ANSI.reset}` : value;
 }
 
 /**
@@ -87,7 +87,7 @@ export function styleTitle(value: string, color: boolean): string {
   for (const match of value.matchAll(filePattern)) {
     const before = value.slice(lastIndex, match.index);
     if (before) result += `${ANSI.bold}${ANSI.white}${before}${ANSI.reset}`;
-    result += `${ANSI.bold}${ANSI.cyan}${match[0]}${ANSI.reset}`;
+    result += `${ANSI.bold}${ANSI.brand}${match[0]}${ANSI.reset}`;
     lastIndex = match.index + match[0].length;
   }
   const remaining = value.slice(lastIndex);
@@ -108,26 +108,26 @@ export function stylePosture(posture: Posture, flash: boolean, color: boolean): 
   if (!color) return text;
   switch (posture) {
     case "calm":
-      return `${ANSI.dim}${ANSI.cyan}${text}${ANSI.reset}`;
+      return `${ANSI.dim}${ANSI.brand}${text}${ANSI.reset}`;
     case "elevated":
       return flash
-        ? `${ANSI.bold}${ANSI.cyan}${text}${ANSI.reset}`
-        : `${ANSI.cyan}${text}${ANSI.reset}`;
+        ? `${ANSI.bold}${ANSI.brand}${text}${ANSI.reset}`
+        : `${ANSI.brand}${text}${ANSI.reset}`;
     case "busy":
       return flash
-        ? `${ANSI.bold}${ANSI.cyan}${text}${ANSI.reset}`
-        : `${ANSI.bold}${ANSI.cyan}${text}${ANSI.reset}`;
+        ? `${ANSI.bold}${ANSI.brand}${text}${ANSI.reset}`
+        : `${ANSI.bold}${ANSI.brand}${text}${ANSI.reset}`;
   }
 }
 
 /** Why-mode: verdict/override labels — bold cyan, brand accent */
 export function styleVerdict(value: string, color: boolean): string {
-  return color ? `${ANSI.bold}${ANSI.cyan}${value}${ANSI.reset}` : value;
+  return color ? `${ANSI.bold}${ANSI.brand}${value}${ANSI.reset}` : value;
 }
 
 /** Why-mode: active gate names that produced a decision — cyan */
 export function styleActiveGate(value: string, color: boolean): string {
-  return color ? `${ANSI.cyan}${value}${ANSI.reset}` : value;
+  return color ? `${ANSI.brand}${value}${ANSI.reset}` : value;
 }
 
 // ── Text utilities ───────────────────────────────────────────────────

@@ -91,12 +91,15 @@ export function renderAttentionScreen(
   footer.push(...renderControls(active, options?.inputDraft ?? null, options?.whyMode ?? false, options?.whyExpanded ?? false, color));
 
   const statsLine = renderStatsLine(options?.stats ?? null, color);
-  if (statsLine && options?.statusLine) {
-    footer.push(alignFooterStats(statsLine, `${styleMuted("status", color)} ${options.statusLine}`, SCREEN_WIDTH));
+  const statusText = options?.statusLine
+    ? truncateToWidth(`${styleMuted("status", color)} ${options.statusLine}`, options.statusLine, SCREEN_WIDTH)
+    : null;
+  if (statsLine && statusText) {
+    footer.push(alignFooterStats(statsLine, statusText, SCREEN_WIDTH));
   } else if (statsLine) {
     footer.push(statsLine);
-  } else if (options?.statusLine) {
-    footer.push(`${styleMuted("status", color)} ${options.statusLine}`);
+  } else if (statusText) {
+    footer.push(statusText);
   }
 
   if (options?.height) {
@@ -158,15 +161,10 @@ function renderActiveFrame(
     ];
   }
 
-  const source = frame.source?.label ?? frame.source?.id ?? "unknown";
+  const rawSource = frame.source?.label ?? frame.source?.id ?? "unknown";
+  // Shorten source: drop session hash suffixes like "Claude Code aperture #8443e0" → "Claude Code"
+  const source = rawSource.replace(/ (aperture|session)?\s*#[a-f0-9]+$/i, "").trim();
   const countSuffix = pendingCount > 1 ? ` ×${pendingCount}` : "";
-  const sourceChunk = `  ${source}`;
-  const markerWidth = 3; // " ⏺ "
-  const maxTitle = SCREEN_WIDTH - markerWidth - sourceChunk.length - countSuffix.length;
-  const rawTitle = frame.title;
-  const truncatedTitle = rawTitle.length > maxTitle && maxTitle > 3
-    ? `${rawTitle.slice(0, maxTitle - 1)}…`
-    : rawTitle;
 
   const entranceFlash = animation?.frameEntrance
     && animation.frameEntrance.interactionId === frame.interactionId
@@ -175,9 +173,18 @@ function renderActiveFrame(
     ? styleStrong("⏺", color)
     : styleMuted("⏺", color);
 
+  // Title line — give it full width, source on the right
+  const rawTitle = frame.title;
+  const sourceRight = styleSource(source, color);
+  const markerWidth = 3; // " ⏺ "
+  const maxTitle = SCREEN_WIDTH - markerWidth - source.length - countSuffix.length;
+  const displayTitle = rawTitle.length > maxTitle && maxTitle > 3
+    ? `${rawTitle.slice(0, maxTitle - 1)}…`
+    : rawTitle;
+
   const titleLine = alignLine(
-    ` ${marker} ${styleTitle(`${truncatedTitle}${countSuffix}`, color)}`,
-    styleSource(source, color),
+    ` ${marker} ${styleTitle(`${displayTitle}${countSuffix}`, color)}`,
+    sourceRight,
     SCREEN_WIDTH,
   );
 
@@ -375,7 +382,8 @@ export function countMatchingFrames(frame: Frame, queued: Frame[]): number {
 // ── Ambient ─────────────────────────────────────────────────────────
 
 function renderAmbientFrame(frame: Frame, color: boolean): string[] {
-  const source = frame.source?.label ?? frame.source?.id ?? "unknown";
+  const rawSource = frame.source?.label ?? frame.source?.id ?? "unknown";
+  const source = rawSource.replace(/ (aperture|session)?\s*#[a-f0-9]+$/i, "").trim();
   return [
     `  ${styleMuted("~", color)} ${styleDeepMuted(frame.title, color)} ${styleMuted("·", color)} ${styleDeepMuted(source, color)}`,
   ];
@@ -414,40 +422,43 @@ function renderControls(
   }
 
   const parts: string[] = [];
+  const label = (text: string) => styleMuted(text, color);
 
   // Response actions
   switch (active.responseSpec?.kind) {
     case "acknowledge":
-      parts.push(`${styleKey("enter", color)} ack`);
-      parts.push(`${styleKey("x", color)} dismiss`);
+      parts.push(`${styleKey("⏎", color)}${label("ack")}`);
+      parts.push(`${styleKey("x", color)}${label("dismiss")}`);
       break;
     case "approval":
-      parts.push(`${styleKey("a", color)} approve`);
-      parts.push(`${styleKey("r", color)} reject`);
-      parts.push(`${styleKey("x", color)} dismiss`);
+      parts.push(`${styleKey("a", color)}${label("approve")}`);
+      parts.push(`${styleKey("r", color)}${label("reject")}`);
+      parts.push(`${styleKey("x", color)}${label("dismiss")}`);
       break;
     case "choice":
-      parts.push(`${styleKey("1-9", color)} choose`);
+      parts.push(`${styleKey("1-9", color)}${label("choose")}`);
       if (active.responseSpec.allowTextResponse && !whyMode) {
-        parts.push(`${styleKey("i", color)} reply`);
+        parts.push(`${styleKey("i", color)}${label("reply")}`);
       }
-      parts.push(`${styleKey("x", color)} dismiss`);
+      parts.push(`${styleKey("x", color)}${label("dismiss")}`);
       break;
     case "form":
-      if (!whyMode) parts.push(`${styleKey("i", color)} input`);
-      parts.push(`${styleKey("x", color)} dismiss`);
+      if (!whyMode) parts.push(`${styleKey("i", color)}${label("input")}`);
+      parts.push(`${styleKey("x", color)}${label("dismiss")}`);
       break;
   }
 
-  // View controls
-  parts.push(`${styleKey("space", color)} detail`);
-  parts.push(whyMode ? `${styleKey("y", color)} close` : `${styleKey("y", color)} why`);
+  // View controls — ⎵ does double duty: detail on main, expand on why
   if (whyMode) {
-    parts.push(`${styleKey("i", color)} ${whyExpanded ? "collapse" : "expand"}`);
+    parts.push(`${styleKey("⎵", color)}${label(whyExpanded ? "collapse" : "expand")}`);
+    parts.push(`${styleKey("y", color)}${label("close")}`);
+  } else {
+    parts.push(`${styleKey("⎵", color)}${label("detail")}`);
+    parts.push(`${styleKey("y", color)}${label("why")}`);
   }
-  parts.push(`${styleKey("q", color)} quit`);
+  parts.push(`${styleKey("q", color)}${label("quit")}`);
 
-  return [`${styleMuted("controls", color)} ${parts.join("  ")}`];
+  return [parts.join("  ")];
 }
 
 // ── Stats ───────────────────────────────────────────────────────────
@@ -540,4 +551,13 @@ export function humanConsequence(consequence: Frame["consequence"]): string {
 function sanitizeContextValue(value: unknown): string {
   const raw = value === undefined || value === null ? "n/a" : String(value);
   return raw.replace(/[\n\r]+/g, " ").trim();
+}
+
+/** Truncate a styled string by its visible (plain) content to fit width. */
+function truncateToWidth(styled: string, plain: string, maxWidth: number): string {
+  if (plain.length + 7 <= maxWidth) return styled; // "status " prefix = 7 chars
+  const available = maxWidth - 7 - 1; // leave room for …
+  if (available <= 0) return "";
+  const truncatedPlain = plain.slice(0, available) + "…";
+  return `${ANSI.dim}status${ANSI.reset} ${truncatedPlain}`;
 }

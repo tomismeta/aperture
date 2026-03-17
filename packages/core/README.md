@@ -4,8 +4,8 @@ The human attention control plane for agent systems.
 
 [![npm version](https://img.shields.io/npm/v/%40tomismeta%2Faperture-core?label=npm&color=0f766e)](https://www.npmjs.com/package/@tomismeta/aperture-core)
 [![node](https://img.shields.io/badge/node-%3E%3D18-1f6feb)](https://nodejs.org/)
-[![license](https://img.shields.io/badge/license-MIT-6f42c1)](../../LICENSE)
-[![architecture](https://img.shields.io/badge/docs-architecture-475569)](../../docs/system-architecture-diagram.md)
+[![license](https://img.shields.io/badge/license-MIT-6f42c1)](https://github.com/tomismeta/aperture/blob/main/LICENSE)
+[![architecture](https://img.shields.io/badge/docs-architecture-475569)](https://github.com/tomismeta/aperture/blob/main/docs/system-architecture-diagram.md)
 
 Published on npm as `@tomismeta/aperture-core`.
 
@@ -56,7 +56,7 @@ or SourceEvent    meaning +          criterion,        for now / next /     back
 ```
 
 If you want the full repo-level architecture, including runtime, adapters, and
-the TUI, see [Architecture Overview](../../docs/system-architecture-diagram.md).
+the TUI, see [Architecture Overview](https://github.com/tomismeta/aperture/blob/main/docs/system-architecture-diagram.md).
 
 ## Install
 
@@ -125,7 +125,7 @@ If you call `coordinator.explain(...)` or inspect Aperture traces, you now get r
 - policy gate and criterion evaluation
 - continuity rule evaluation
 
-For the deeper implementation note behind that shape, see [docs/core-engine-architecture.md](../../docs/core-engine-architecture.md).
+For the deeper implementation note behind that shape, see [docs/core-engine-architecture.md](https://github.com/tomismeta/aperture/blob/main/docs/core-engine-architecture.md).
 
 ## 1. What Do I Send Into Aperture?
 

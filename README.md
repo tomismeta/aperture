@@ -12,8 +12,6 @@
 
 Aperture sits between many possible event sources and one human decision surface, then decides what deserves attention now, what should wait, and what should remain ambient.
 
-**Live path today:** Claude Code and OpenCode can both feed one shared Aperture runtime and one terminal attention surface.
-
 ```text
 +-----------+    +-------------+    +-------------+    +-------------+    +-------------+
 |  Arrive   | -> |  Translate  | -> |    Judge    | -> |    Show     | -> |   Respond   |
@@ -24,6 +22,8 @@ tool hooks       explicit facts      does this         what the          operato
 from coding      from raw payloads   deserve           operator          carried back
 agents                               attention now?    actually sees     to the tool
 ```
+
+**Live path today:** Claude Code and OpenCode can both feed one shared Aperture runtime and one terminal attention surface.
 
 ## Start Here
 

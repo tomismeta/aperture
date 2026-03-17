@@ -41,6 +41,7 @@ export type AttentionTuiOptions = {
   title?: string;
   input?: InputLike;
   output?: OutputLike;
+  reducedMotion?: boolean;
 };
 
 export type FormDraft = {

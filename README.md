@@ -437,6 +437,7 @@ for (const event of sourceEvents) {
 | `pnpm typecheck` | Runs TypeScript project checks. |
 | `pnpm build` | Builds the TypeScript packages. |
 | `pnpm demo:tui` | Runs the standalone demo renderer with sample data. |
+| `pnpm demo:record` | Regenerates `docs/assets/demo.gif` and `docs/assets/demo.mp4` with a scripted Claude Code + OpenCode capture. Requires `vhs`. |
 | `pnpm clean` | Removes built package output. |
 
 ## What Is Built Today

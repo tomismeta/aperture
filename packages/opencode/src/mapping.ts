@@ -603,15 +603,19 @@ function approvalTitle(
   summary: string,
   declaredTitle: string | undefined,
 ): string {
-  const action = approvalActionLabel(tool);
+  const action = approvalActionLabel(tool, summary, declaredTitle);
   const detail = approvalTitleDetail(tool, summary, declaredTitle);
   return detail ? `OpenCode wants to ${action} ${detail}` : `OpenCode wants to ${action}`;
 }
 
-function approvalActionLabel(tool: string | undefined): string {
+function approvalActionLabel(
+  tool: string | undefined,
+  summary: string,
+  declaredTitle: string | undefined,
+): string {
   switch (tool?.toLowerCase()) {
     case "bash":
-      return "run";
+      return bashPermissionIntent(tool, summary, declaredTitle)?.action ?? "run";
     case "edit":
       return "edit";
     case "webfetch":
@@ -630,7 +634,7 @@ function approvalTitleDetail(
 ): string | null {
   switch (tool?.toLowerCase()) {
     case "bash":
-      return "a shell command";
+      return bashPermissionIntent(tool, summary, declaredTitle)?.detail ?? "a shell command";
     case "edit":
       return "files";
     case "webfetch":
@@ -647,6 +651,26 @@ function approvalTitleDetail(
 
   if (summary && !isGenericPermissionText(summary)) {
     return summary;
+  }
+
+  return null;
+}
+
+function bashPermissionIntent(
+  tool: string | undefined,
+  summary?: string,
+  declaredTitle?: string,
+): { action: string; detail: string } | null {
+  if (tool?.toLowerCase() !== "bash") {
+    return null;
+  }
+
+  const text = `${declaredTitle ?? ""} ${summary ?? ""}`.toLowerCase();
+  if (/\bmkdir\b/.test(text) || /\bcreate (?:a )?new directory\b/.test(text)) {
+    return {
+      action: "create",
+      detail: "a new directory",
+    };
   }
 
   return null;

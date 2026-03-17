@@ -31,9 +31,13 @@ export async function runAttentionTui(
   const input = (options?.input ?? defaultInput) as InputLike;
   const output = (options?.output ?? defaultOutput) as OutputLike;
   const title = options?.title ?? "Aperture";
+  const reducedMotion = options?.reducedMotion ?? false;
 
   const initialView = core.getAttentionView();
   const initialSummary = core.getSignalSummary();
+  const initialPosture = reducedMotion && isAttentionViewEmpty(initialView)
+    ? "calm"
+    : computePosture(initialSummary, initialView);
 
   const state: TuiState = {
     attentionView: initialView,
@@ -43,7 +47,7 @@ export async function runAttentionTui(
     whyMode: false,
     whyExpanded: false,
     traceCache: new Map(),
-    posture: computePosture(initialSummary, initialView),
+    posture: initialPosture,
     previousPosture: "calm",
     animation: createAnimationState(),
   };
@@ -60,24 +64,25 @@ export async function runAttentionTui(
         : null;
 
       output.write(
-        renderAttentionScreenWithWhy(state, title, output, activeTrace),
+        renderAttentionScreenWithWhy(state, title, output, activeTrace, reducedMotion),
       );
     } else {
+      const renderOptions = {
+        title,
+        statusLine: state.statusLine,
+        inputDraft: state.inputDraft,
+        expanded: state.expanded,
+        color: Boolean(output.isTTY),
+        height: output.rows,
+        stats: {
+          summary: core.getSignalSummary(),
+          state: core.getAttentionState(),
+        },
+        posture: state.posture,
+        animation: state.animation,
+      };
       output.write(
-        renderAttentionScreen(state.attentionView, {
-          title,
-          statusLine: state.statusLine,
-          inputDraft: state.inputDraft,
-          expanded: state.expanded,
-          color: Boolean(output.isTTY),
-          height: output.rows,
-          stats: {
-            summary: core.getSignalSummary(),
-            state: core.getAttentionState(),
-          },
-          posture: state.posture,
-          animation: state.animation,
-        }),
+        renderAttentionScreen(state.attentionView, renderOptions),
       );
     }
   };
@@ -96,12 +101,22 @@ export async function runAttentionTui(
 
   // Animation tick (500ms)
   const animationInterval = setInterval(() => {
-    const hadActiveAnimation = tickAnimation(state.animation);
-    // Re-render for active animations (posture flash, frame entrance)
-    // or for the idle lens pulse when surface is truly empty
     const isEmpty = !state.attentionView.active
       && state.attentionView.queued.length === 0
       && state.attentionView.ambient.length === 0;
+
+    if (reducedMotion) {
+      if (!isEmpty) {
+        return;
+      }
+      state.animation.idleTick = (state.animation.idleTick + 1) % 4;
+      requestRender();
+      return;
+    }
+
+    const hadActiveAnimation = tickAnimation(state.animation);
+    // Re-render for active animations (posture flash, frame entrance)
+    // or for the idle lens pulse when surface is truly empty
     if (hadActiveAnimation || isEmpty) {
       requestRender();
     }
@@ -114,15 +129,17 @@ export async function runAttentionTui(
     const active = attentionView.active;
 
     // Update posture
-    const newPosture = computePosture(core.getSignalSummary(), attentionView);
-    if (newPosture !== state.posture) {
+    const newPosture = reducedMotion && isAttentionViewEmpty(attentionView)
+      ? "calm"
+      : computePosture(core.getSignalSummary(), attentionView);
+    if (!reducedMotion && newPosture !== state.posture) {
       state.previousPosture = state.posture;
       state.animation.postureFlash = { previous: state.posture, ticksRemaining: 2 };
-      state.posture = newPosture;
     }
+    state.posture = newPosture;
 
     // Frame entrance animation
-    if (active && active.interactionId !== previousActiveId) {
+    if (!reducedMotion && active && active.interactionId !== previousActiveId) {
       state.animation.frameEntrance = { interactionId: active.interactionId, ticksRemaining: 1 };
     }
 
@@ -227,7 +244,9 @@ export async function runAttentionTui(
     };
 
     const close = () => {
-      clearInterval(animationInterval);
+      if (animationInterval) {
+        clearInterval(animationInterval);
+      }
       input.off("keypress", onKeypress);
       output.off("resize", onResize);
       unsubAttention();
@@ -254,8 +273,9 @@ function renderAttentionScreenWithWhy(
   title: string,
   output: OutputLike,
   trace: ApertureTrace | null,
+  reducedMotion: boolean,
 ): string {
-  return renderAttentionScreen(state.attentionView, {
+  const renderOptions = {
     title,
     statusLine: state.statusLine,
     color: Boolean(output.isTTY),
@@ -265,7 +285,9 @@ function renderAttentionScreenWithWhy(
     whyMode: true,
     whyExpanded: state.whyExpanded,
     trace,
-  });
+  };
+
+  return renderAttentionScreen(state.attentionView, renderOptions);
 }
 
 // ── Terminal Helpers ─────────────────────────────────────────────────
@@ -281,6 +303,12 @@ function setupTerminal(input: InputLike, output: OutputLike, title: string): () 
     input.pause();
     output.write(restoreScreen());
   };
+}
+
+function isAttentionViewEmpty(attentionView: TuiState["attentionView"]): boolean {
+  return !attentionView.active
+    && attentionView.queued.length === 0
+    && attentionView.ambient.length === 0;
 }
 
 function writeTerminalTitle(output: OutputLike, title: string): void {

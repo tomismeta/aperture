@@ -158,6 +158,14 @@ Run the mixed-source TUI demo:
 pnpm demo:tui
 ```
 
+Regenerate the scripted demo recording used in the repo:
+
+```bash
+pnpm demo:record
+```
+
+This writes both `docs/assets/demo.gif` and `docs/assets/demo.mp4` from the same VHS tape.
+
 ## Related Docs
 
 - [System Architecture Diagram](./system-architecture-diagram.md)

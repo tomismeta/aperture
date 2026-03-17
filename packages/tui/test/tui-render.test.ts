@@ -550,3 +550,66 @@ test("renderAttentionScreen why mode controls show expand/collapse hint", () => 
   const whyExpanded = renderAttentionScreen(attentionView, { whyMode: true, whyExpanded: true });
   assert.match(whyExpanded, /\[⎵\].*collapse/);
 });
+
+test("renderAttentionScreen why mode keeps threshold details on separate lines", () => {
+  const attentionView: AttentionView = {
+    active: makeFrame(),
+    queued: [],
+    ambient: [],
+  };
+
+  const trace = {
+    timestamp: "2026-03-10T00:00:00.000Z",
+    event: { kind: "submitted", taskId: "task-1", interaction: {} },
+    evaluation: {
+      kind: "candidate" as const,
+      original: {} as any,
+      adjusted: { interactionId: "interaction-1" } as any,
+    },
+    heuristics: { scoreOffset: 0, rationale: [] },
+    episode: null,
+    policy: {} as any,
+    policyRules: {
+      gateEvaluations: [],
+      criterion: {
+        criterion: {
+          activationThreshold: 1150,
+          promotionMargin: 80,
+        },
+        ambiguity: {
+          reason: "threshold sits close to the currently active approval",
+        },
+      },
+      criterionEvaluations: [
+        { rule: "continuity_headroom", kind: "adjust", rationale: ["keeps headroom for active work"] },
+      ],
+    },
+    utility: { candidate: {} as any, currentScore: 1100, currentPriority: null },
+    planner: { kind: "queue" as const, reasons: [], continuityEvaluations: [] },
+    coordination: {
+      kind: "queue" as const,
+      resultBucket: "queued" as const,
+      candidateScore: 1120,
+      currentScore: 1100,
+      currentPriority: null,
+      criterion: null,
+      ambiguity: null,
+      reasons: ["continuity keeps the existing item active"],
+      continuityEvaluations: [],
+    },
+    taskSummary: {} as any,
+    globalSummary: {} as any,
+    taskAttentionState: "calm" as any,
+    globalAttentionState: "calm" as any,
+    pressureForecast: {} as any,
+    attentionBurden: {} as any,
+    current: null,
+    taskView: {} as any,
+    attentionView: { active: null, queued: [], ambient: [] },
+    result: null,
+  };
+
+  const screen = renderAttentionScreen(attentionView, { whyMode: true, trace });
+  assert.match(screen, /score:\s+1120[\s\S]*current:\s+1100[\s\S]*threshold:\s+1150/);
+  assert.match(screen, /criterion[\s\S]*threshold:\s+1150[\s\S]*margin:\s+80[\s\S]*ambiguity:\s+threshold sits close to the currently active approval/);
+});

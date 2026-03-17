@@ -119,7 +119,12 @@ function renderCandidateTrace(trace: CandidateTrace, color: boolean, expanded: b
   const candidateScore = trace.coordination.candidateScore;
   const currentScore = trace.coordination.currentScore;
   const threshold = trace.policyRules.criterion?.criterion?.activationThreshold ?? "—";
-  lines.push(`   ${styleMuted("route:", color)} ${styleActiveGate(humanDecisionKind(route), color)}  ${styleMuted("·", color)}  ${styleMuted("surface:", color)} ${styleVerdict(surfaced, color)}  ${styleMuted("·", color)}  ${styleMuted("score:", color)} ${styleValue(String(candidateScore), color)}  ${styleMuted("·", color)}  ${styleMuted("current:", color)} ${styleValue(String(currentScore ?? "—"), color)}  ${styleMuted("·", color)}  ${styleMuted("threshold:", color)} ${styleValue(String(threshold), color)}`);
+  lines.push(
+    `   ${styleMuted("route:", color)} ${styleActiveGate(humanDecisionKind(route), color)}  ${styleMuted("·", color)}  ${styleMuted("surface:", color)} ${styleVerdict(surfaced, color)}  ${styleMuted("·", color)}  ${styleMuted("score:", color)} ${styleValue(String(candidateScore), color)}`,
+  );
+  lines.push(
+    `   ${styleMuted("current:", color)} ${styleValue(String(currentScore ?? "—"), color)}  ${styleMuted("·", color)}  ${styleMuted("threshold:", color)} ${styleValue(String(threshold), color)}`,
+  );
   if (trace.coordination.reasons.length > 0) {
     lines.push(`   ${styleMuted(trace.coordination.reasons.join("; "), color)}`);
   }
@@ -142,7 +147,12 @@ function renderCandidateTrace(trace: CandidateTrace, color: boolean, expanded: b
     const thresholdVal = String(crit.criterion?.activationThreshold ?? "—");
     const marginVal = String(crit.criterion?.promotionMargin ?? "—");
     const ambiguityVal = crit.ambiguity ? crit.ambiguity.reason : "none";
-    lines.push(`   ${styleMuted("threshold:", color)} ${styleValue(thresholdVal, color)}  ${styleMuted("·", color)}  ${styleMuted("margin:", color)} ${styleValue(marginVal, color)}  ${styleMuted("·", color)}  ${styleMuted("ambiguity:", color)} ${styleMuted(ambiguityVal, color)}`);
+    lines.push(
+      `   ${styleMuted("threshold:", color)} ${styleValue(thresholdVal, color)}  ${styleMuted("·", color)}  ${styleMuted("margin:", color)} ${styleValue(marginVal, color)}`,
+    );
+    lines.push(
+      `   ${styleMuted("ambiguity:", color)} ${styleMuted(ambiguityVal, color)}`,
+    );
 
     lines.push(...renderRuleSection(
       trace.policyRules.criterionEvaluations,

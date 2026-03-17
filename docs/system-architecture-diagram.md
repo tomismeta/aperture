@@ -123,7 +123,7 @@ That means:
 
 ## Color Legend
 
-Both diagrams use the same visual language:
+All diagrams use the same visual language:
 
 - **Green** = explicit semantics and factual translation
 - **Yellow** = heuristics or bounded inference
@@ -143,10 +143,10 @@ It answers one question:
 ```mermaid
 flowchart LR
   A["Arrive<br/>events<br/><br/>Tool hooks and source events arrive from coding agents"]
-  T["Translate<br/>facts<br/><br/>Source adapters turn raw payloads into explicit facts about what just happened"]
-  J["Judge<br/>routing<br/><br/>Core decides whether the work should interrupt now, wait, stay ambient, or clear"]
+  T["Translate<br/>facts<br/><br/>Source adapters turn raw payloads into explicit facts"]
+  J["Judge<br/>attention<br/><br/>Core decides whether the work deserves attention now, should wait, stay ambient, or clear"]
   S["Show<br/>attention<br/><br/>Surfaces show the operator what matters now, what is next, and what stays quiet"]
-  R["Respond<br/>action<br/><br/>The operator's decision is translated back into a source-native action"]
+  R["Respond<br/>action<br/><br/>The operator's decision is returned as a source-native action"]
 
   A --> T --> J --> S --> R
 
@@ -161,6 +161,22 @@ flowchart LR
   class J judgment;
   class S state;
   class R egress;
+```
+
+### Monospace sketch
+
+This version is useful for README notes, rough design discussions, and
+first-read architecture conversations.
+
+```text
++-----------+    +-------------+    +-------------+    +-------------+    +-------------+
+|  Arrive   | -> |  Translate  | -> |    Judge    | -> |    Show     | -> |   Respond   |
+|  events   |    |    facts    |    |  attention  |    |  attention  |    |   action    |
++-----------+    +-------------+    +-------------+    +-------------+    +-------------+
+
+tool hooks       explicit facts      does this         what the          operator decision
+from coding      from raw payloads   deserve           operator          carried back
+agents                               attention now?    actually sees     to the tool
 ```
 
 This simple view maps to the more detailed layer names below:
@@ -190,13 +206,12 @@ sequenceDiagram
   AD->>RT: Send SourceEvent
   RT->>CO: Hand event to the live engine
   CO->>CO: Validate, normalize, and build candidate context
-  CO->>CO: Judge route using policy, value, criterion, planning, and continuity
-  CO->>CO: Commit state, record trace, and build the surfaced view
+  CO->>CO: Judge route and commit surfaced state
   CO->>SF: Show what matters now
-  SF->>RP: Operator responds
-  RP->>CO: Submit response
-  CO->>RP: Validate and apply decision
-  RP->>SH: Return source-native action
+  SF->>CO: Operator responds
+  CO->>CO: Validate and apply decision
+  CO->>RP: Return source-native action
+  RP->>SH: Deliver source-native action
 ```
 
 ## Diagram 1: End-To-End System

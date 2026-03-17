@@ -132,6 +132,73 @@ Both diagrams use the same visual language:
 - **Orange** = human response and source return path
 - **Gray** = runtime, infrastructure, or offline support paths
 
+## Napkin Overview
+
+This is the fastest way to explain Aperture.
+
+It answers one question:
+
+**What happens to an event?**
+
+```mermaid
+flowchart LR
+  A["Arrive<br/>events<br/><br/>Tool hooks and source events arrive from coding agents"]
+  T["Translate<br/>facts<br/><br/>Source adapters turn raw payloads into explicit facts about what just happened"]
+  J["Judge<br/>routing<br/><br/>Core decides whether the work should interrupt now, wait, stay ambient, or clear"]
+  S["Show<br/>attention<br/><br/>Surfaces show the operator what matters now, what is next, and what stays quiet"]
+  R["Respond<br/>action<br/><br/>The operator's decision is translated back into a source-native action"]
+
+  A --> T --> J --> S --> R
+
+  classDef source fill:#f6f7f8,stroke:#6b7280,color:#111827;
+  classDef semantics fill:#e8f5e9,stroke:#2e7d32,color:#111827;
+  classDef judgment fill:#e8f1ff,stroke:#2563eb,color:#111827;
+  classDef state fill:#f3e8ff,stroke:#7c3aed,color:#111827;
+  classDef egress fill:#fff3e0,stroke:#ea580c,color:#111827;
+
+  class A source;
+  class T semantics;
+  class J judgment;
+  class S state;
+  class R egress;
+```
+
+This simple view maps to the more detailed layer names below:
+
+- **Arrive** -> Source Hosts
+- **Translate** -> Source Adapters
+- **Judge** -> Event Intake and Normalization, Evidence Context, Deterministic Judgment Engine
+- **Show** -> State, Trace, and Learning, plus Operator and Client Surfaces
+- **Respond** -> Response Return Path
+
+## One Event Through The System
+
+This view shows the life of one event in a little more detail, while still
+keeping the same verb-first language as the napkin.
+
+```mermaid
+sequenceDiagram
+  participant SH as Source Host
+  participant AD as Source Adapter
+  participant RT as Runtime / Host
+  participant CO as Aperture Core
+  participant SF as Surface
+  participant RP as Return Path
+
+  SH->>AD: Event arrives from a tool or agent
+  AD->>AD: Translate raw payload into explicit facts
+  AD->>RT: Send SourceEvent
+  RT->>CO: Hand event to the live engine
+  CO->>CO: Validate, normalize, and build candidate context
+  CO->>CO: Judge route using policy, value, criterion, planning, and continuity
+  CO->>CO: Commit state, record trace, and build the surfaced view
+  CO->>SF: Show what matters now
+  SF->>RP: Operator responds
+  RP->>CO: Submit response
+  CO->>RP: Validate and apply decision
+  RP->>SH: Return source-native action
+```
+
 ## Diagram 1: End-To-End System
 
 This view shows the full system from source event to human response and back out.

@@ -4,13 +4,15 @@ The human attention control plane for agent systems.
 
 Published on npm as `@tomismeta/aperture-core`.
 
-Use this SDK when your agents can produce approvals, follow-up questions, status updates, or blocked work, and you need one place to decide:
+Use this SDK when your agents can produce approvals, follow-up questions,
+status updates, or blocked work, and you need one place to decide:
 
 - what should interrupt a human now
 - what should wait in a queue
 - what should stay in the background
 
-You send events in, Aperture gives you frames to render, and you send the human's answer back.
+You send events in, Aperture gives you frames and surfaced state to render, and
+you send the human's answer back.
 
 This package is ESM-only and requires Node.js 18+.
 
@@ -20,6 +22,38 @@ It is not:
 - a terminal UI
 - a source-specific adapter
 - a generic agent orchestration framework
+
+## What Core Does
+
+`@tomismeta/aperture-core` does five things:
+
+1. accepts events about agent work
+2. normalizes their meaning into a shared attention model
+3. judges what deserves attention now
+4. maintains surfaced state your UI can render
+5. accepts the human response back into the same loop
+
+In practice, that means:
+
+- `ApertureEvent` or `SourceEvent` in
+- `AttentionFrame` and `AttentionView` out
+- `AttentionResponse` back in
+
+## Core Loop
+
+```text
++-----------+    +-------------+    +-------------+    +-------------+    +-------------+
+|   Arrive  | -> |  Normalize  | -> |    Judge    | -> |   Surface   | -> |  Respond    |
+|   events  |    |   meaning   |    |  attention  |    |    state    |    |  decision   |
++-----------+    +-------------+    +-------------+    +-------------+    +-------------+
+
+ApertureEvent     shared event       policy, value,    surfaced state       AttentionResponse
+or SourceEvent    meaning +          criterion,        for now / next /     back into core
+                  context            continuity        ambient
+```
+
+If you want the full repo-level architecture, including runtime, adapters, and
+the TUI, see [Architecture Overview](../../docs/system-architecture-diagram.md).
 
 ## Install
 
@@ -197,11 +231,11 @@ Your UI or workflow layer reads `frame.responseSpec`, renders the available acti
 If you want the whole current surface after each event, call `core.getAttentionView()`. It returns:
 
 - `active`
-  - the item that should hold focus now
+  - the item that should hold focus now (`now` in user-facing language)
 - `queued`
-  - items that still matter, but should wait
+  - items that still matter, but should wait (`next` in user-facing language)
 - `ambient`
-  - low-urgency background items
+  - low-urgency background items (`ambient` in user-facing language too)
 
 For async integrations, you can also subscribe instead of polling:
 

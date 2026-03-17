@@ -4,6 +4,7 @@ export function createAnimationState(): AnimationState {
   return {
     postureFlash: null,
     frameEntrance: null,
+    idleTick: 0,
   };
 }
 
@@ -31,6 +32,9 @@ export function tickAnimation(animation: AnimationState): boolean {
     }
     changed = true;
   }
+
+  // Idle tick always advances (for lens pulse when surface is empty)
+  animation.idleTick = (animation.idleTick + 1) % 4;
 
   return changed;
 }

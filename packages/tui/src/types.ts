@@ -64,6 +64,8 @@ export type Posture = "calm" | "elevated" | "busy";
 export type AnimationState = {
   postureFlash: { previous: Posture; ticksRemaining: number } | null;
   frameEntrance: { interactionId: string; ticksRemaining: number } | null;
+  /** Continuous tick counter for idle lens pulse */
+  idleTick: number;
 };
 
 export type TuiState = {

@@ -125,7 +125,7 @@ test("renderAttentionScreen shows acknowledge controls for active status work", 
 
   const screen = renderAttentionScreen(attentionView, { title: "Aperture TUI" });
 
-  assert.match(screen, /ack/i);
+  assert.match(screen, /\[⏎\].*ack/i);
 });
 
 test("renderAttentionScreen hides rationale by default and shows when expanded", () => {
@@ -153,7 +153,7 @@ test("renderAttentionScreen shows space key hint in controls", () => {
   };
 
   const screen = renderAttentionScreen(attentionView, { title: "Aperture TUI" });
-  assert.match(screen, /detail/);
+  assert.match(screen, /\[⎵\].*detail/);
 });
 
 test("renderAttentionScreen preserves status text when stats are also shown", () => {
@@ -544,9 +544,9 @@ test("renderAttentionScreen why mode controls show expand/collapse hint", () => 
   };
 
   const whyCollapsed = renderAttentionScreen(attentionView, { whyMode: true });
-  assert.match(whyCollapsed, /expand/);
-  assert.match(whyCollapsed, /close/);
+  assert.match(whyCollapsed, /\[⎵\].*expand/);
+  assert.match(whyCollapsed, /\[y\].*close/);
 
   const whyExpanded = renderAttentionScreen(attentionView, { whyMode: true, whyExpanded: true });
-  assert.match(whyExpanded, /collapse/);
+  assert.match(whyExpanded, /\[⎵\].*collapse/);
 });

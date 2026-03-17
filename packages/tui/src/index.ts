@@ -96,7 +96,13 @@ export async function runAttentionTui(
 
   // Animation tick (500ms)
   const animationInterval = setInterval(() => {
-    if (tickAnimation(state.animation)) {
+    const hadActiveAnimation = tickAnimation(state.animation);
+    // Re-render for active animations (posture flash, frame entrance)
+    // or for the idle lens pulse when surface is truly empty
+    const isEmpty = !state.attentionView.active
+      && state.attentionView.queued.length === 0
+      && state.attentionView.ambient.length === 0;
+    if (hadActiveAnimation || isEmpty) {
       requestRender();
     }
   }, 500);

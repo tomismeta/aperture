@@ -8,6 +8,7 @@ test("createAnimationState returns default idle state", () => {
 
   assert.equal(state.postureFlash, null);
   assert.equal(state.frameEntrance, null);
+  assert.equal(state.idleTick, 0);
 });
 
 test("tickAnimation decrements posture flash ticks", () => {
@@ -37,10 +38,11 @@ test("tickAnimation decrements frame entrance ticks", () => {
   assert.equal(state.frameEntrance, null);
 });
 
-test("tickAnimation returns false when nothing is animating", () => {
+test("tickAnimation returns false when nothing is animating but still advances idle tick", () => {
   const state = createAnimationState();
   const changed = tickAnimation(state);
   assert.equal(changed, false);
+  assert.equal(state.idleTick, 1);
 });
 
 test("tickAnimation returns true when flash is active", () => {

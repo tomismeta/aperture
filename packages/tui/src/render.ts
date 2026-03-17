@@ -68,7 +68,7 @@ export function renderAttentionScreen(
     lines.push("");
     lines.push(sectionHeader("queue", color, "focused"));
     if (queued.length === 0) {
-      lines.push(styleMuted("  —", color));
+      lines.push(styleMuted('    [○"]', color));
     } else {
       for (const [index, group] of groupQueuedFrames(queued).entries()) {
         lines.push(...renderCompactFrame(group, index + 1, color));
@@ -78,7 +78,7 @@ export function renderAttentionScreen(
     lines.push("");
     lines.push(sectionHeader("ambient", color, "ambient"));
     if (ambient.length === 0) {
-      lines.push(styleMuted("  quiet", color));
+      lines.push(styleDeepMuted('    [·"]', color));
     } else {
       for (const frame of ambient) {
         lines.push(...renderAmbientFrame(frame, color));
@@ -154,9 +154,19 @@ function renderActiveFrame(
   trace: ApertureTrace | null,
 ): string[] {
   if (!frame) {
+    // Pulsing lens — alternates between brand blue and dim on idle tick
+    const tick = animation?.idleTick ?? 0;
+    const bright = tick < 2; // 2 ticks bright, 2 ticks dim = slow pulse
+    const lensGlyph = '[◉"]';
+    const lens = color
+      ? (bright
+        ? `${ANSI.brand}${lensGlyph}${ANSI.reset}`
+        : `${ANSI.dim}${lensGlyph}${ANSI.reset}`)
+      : lensGlyph;
     return [
       "",
-      styleMuted("  all clear", color),
+      "",
+      `    ${lens}`,
       "",
     ];
   }

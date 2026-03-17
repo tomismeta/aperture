@@ -1,196 +1,469 @@
-# System Architecture Diagram
+# Architecture Overview
 
-This is the full end-to-end Aperture system view:
+This document is the living architectural overview for Aperture.
 
-- source hosts
-- adapters
-- runtime attachment
-- core ingress
-- deterministic judgment lanes
-- state commit and traces
-- TUI surfaces
-- response routing back to sources
+It should answer four questions clearly:
 
-It also marks where:
+- where events come from
+- where meaning is established
+- where judgment happens
+- how decisions become surfaced state and responses back to the source
 
-- explicit semantics enter
-- bounded heuristics still exist
-- the four rule categories execute
+The goal is not to capture every implementation detail.
+The goal is to keep the main system shape understandable and current.
 
-## Diagram
+## The Main Layering
+
+Aperture is easiest to understand as nine connected layers, with one offline loop
+beside them:
+
+1. **Source Hosts**
+   - The tools where work originates.
+   - Today that means Claude Code, OpenCode, and Codex.
+
+2. **Source Adapters**
+   - Source-specific translators.
+   - They turn native payloads into Aperture `SourceEvent` values.
+   - Their job is to provide explicit facts when the source knows them.
+
+3. **Runtime Attachment**
+   - The place where adapters attach to a shared runtime, or connect directly to
+     core in-process.
+   - This is transport and hosting, not judgment.
+
+4. **Event Intake and Normalization**
+   - The engine intake path.
+   - It validates events, normalizes them, evaluates candidate shape, applies
+     bounded adjustments, and assigns episode context.
+
+5. **Evidence Context**
+   - The shared picture of what is true right now.
+   - This includes the current surface state, signal summaries, operator
+     presence, pressure, burden, and surface capabilities.
+
+6. **Deterministic Judgment Engine**
+   - The authoritative live decision path.
+   - This is where policy, value, routing, and continuity run.
+
+7. **State, Trace, and Learning**
+   - The layer that commits decisions into surfaced state.
+   - It also records traces, interaction signals, and compact learned summaries.
+
+8. **Operator and Client Surfaces**
+   - The places where a human or other client consumes Aperture.
+   - Today that mainly means the TUI operator surface, the TUI why surface,
+     and any future client consuming the same core contracts.
+
+9. **Response Return Path**
+   - The path where human responses are validated, applied, and translated back
+     into source-native actions.
+
+**Offline Evaluation**
+- Replay, scenario review, and threshold tuning.
+- This should shape the live engine indirectly, not sit in the hot path.
+
+## Architectural Rule
+
+The main boundary rule is:
+
+**Adapters provide facts. Core provides judgment.**
+
+That means:
+
+- source-specific semantics belong at the adapter boundary
+- canonical normalization belongs in core
+- routing-critical judgment should prefer explicit semantics over loose text
+  inference
+- the live decision path should stay deterministic and replayable
+
+## Color Legend
+
+Both diagrams use the same visual language:
+
+- **Green** = explicit semantics and factual translation
+- **Yellow** = heuristics or bounded inference
+- **Blue** = deterministic live judgment
+- **Purple** = committed state, trace, and learning
+- **Orange** = human response and source return path
+- **Gray** = runtime, infrastructure, or offline support paths
+
+## Diagram 1: End-To-End System
+
+This view shows the full system from source event to human response and back out.
 
 ```mermaid
 flowchart LR
-  subgraph S["1. Source Hosts"]
-    CC["Claude Code<br/>hooks, notifications, tool events"]
-    OC["OpenCode<br/>SSE events, permissions, questions"]
-    CX["Codex<br/>request/approval boundary"]
+  subgraph L1["1. Source Hosts"]
+    CC["Claude Code"]
+    OC["OpenCode"]
+    CX["Codex"]
   end
 
-  subgraph A["2. Adapters"]
-    AC["Claude adapter<br/>packages/claude-code"]
-    AO["OpenCode adapter<br/>packages/opencode"]
-    AX["Codex adapter<br/>packages/codex"]
-    AF["Adapter facts output<br/>SourceEvent<br/><br/>explicit semantics when known:<br/>toolFamily<br/>activityClass<br/>request kind<br/>risk hints<br/>source identity"]
-    AH["Adapter fallback heuristics<br/><br/>source-local parsing only<br/>used when upstream omits facts"]
+  subgraph L2["2. Source Adapters"]
+    A1["Claude adapter
+Turns Claude hook payloads into Aperture source events"]
+    A2["OpenCode adapter
+Turns OpenCode server events into Aperture source events"]
+    A3["Codex adapter
+Turns Codex requests and approvals into Aperture source events"]
+    AF["Adapter facts
+Explicit semantics when known:
+tool family, activity class, request type, risk hints, source identity"]
+    AH["Adapter fallback heuristics
+Used only when the source does not provide enough explicit facts"]
   end
 
-  CC --> AC --> AF
-  OC --> AO --> AF
-  CX --> AX --> AF
+  CC --> A1 --> AF
+  OC --> A2 --> AF
+  CX --> A3 --> AF
   AH -.-> AF
 
-  subgraph T["3. Attachment / Transport"]
-    RT["Shared runtime<br/>packages/runtime"]
-    DP["Direct in-process core attach<br/>publishSourceEvent(...)"]
+  subgraph L3["3. Runtime Attachment"]
+    RT["Shared Aperture runtime
+Hosts one live engine and shared surfaces"]
+    DP["Direct in-process attachment
+Sends source events straight into the engine"]
   end
 
   AF --> RT
   AF --> DP
 
-  subgraph CI["4. Core Ingress"]
-    V["Validation<br/>assertValidSourceEvent / assertValidEvent"]
-    SN["Semantic normalizer<br/>SourceEvent -> ApertureEvent"]
-    EV["EventEvaluator<br/>ApertureEvent -> candidate / clear / noop"]
-    ADJ["AttentionAdjustments<br/>bounded in-session score offsets"]
-    EP["EpisodeTracker<br/>episode assignment / evidence"]
-    TAX["Interaction taxonomy<br/>readExplicitToolFamily()<br/>readBoundedToolFamily()<br/>inferToolFamily() fallback"]
+  subgraph L4["4. Event Intake and Normalization"]
+    V["Validation
+Checks source event and canonical event shape"]
+    N["Semantic normalization
+Turns SourceEvent into ApertureEvent"]
+    E["Event evaluation
+Decides whether the event implies a candidate, a clear, or a no-op"]
+    J["Bounded adjustments
+Applies recent local nudges from signal patterns"]
+    EP["Episode tracking
+Assigns interaction and episode context"]
+    TX["Interaction taxonomy
+Prefers explicit tool family and uses bounded fallback inference only where allowed"]
   end
 
   RT --> V
   DP --> V
-  V --> SN --> EV --> ADJ --> EP
-  TAX -.-> EV
-  TAX -.-> ADJ
+  V --> N --> E --> J --> EP
+  TX -.-> E
+  TX -.-> J
+  TX -.-> EP
 
-  subgraph EC["5. Evidence Context"]
-    SIGSUM["Signal summaries<br/>recent + lifetime behavior"]
-    PRESS["forecastAttentionPressure()<br/>pressure ladder"]
-    BURDEN["deriveAttentionBurden()<br/>burden ladder"]
-    EVID["AttentionEvidenceContext<br/><br/>current frame<br/>surface capabilities<br/>operator presence<br/>signal summaries<br/>pressure + burden"]
+  subgraph L5["5. Evidence Context"]
+    SS["Signal summaries
+What recent and lifetime behavior say about attention use"]
+    PR["Attention pressure
+Forecast of interruption demand building up"]
+    BU["Attention burden
+Estimate of current cognitive load"]
+    EC["Evidence context
+Current frame, visible state, operator presence, pressure, burden, surface limits"]
   end
 
-  SIGSUM --> PRESS
-  SIGSUM --> BURDEN
-  PRESS --> EVID
-  BURDEN --> EVID
-  EP --> EVID
+  SS --> PR
+  SS --> BU
+  PR --> EC
+  BU --> EC
+  EP --> EC
 
-  subgraph J["6. Deterministic Judgment Engine"]
-    PG["Rule Category 1<br/>Policy gates<br/><br/>configured_policy<br/>blocking<br/>background<br/>peripheral_status<br/>interruptive_default"]
-    VAL["Named value lane<br/><br/>priority<br/>consequence<br/>tone<br/>blocking<br/>heuristics<br/>source trust<br/>consequence calibration<br/>response affinity<br/>context cost<br/>deferral affinity"]
-    PC["Rule Category 2<br/>Policy criterion<br/><br/>operator_absence<br/>interrupt_eligibility<br/>no_active_frame<br/>small_score_gap<br/>source_trust<br/>attention_budget"]
-    PLAN["Rule Category 3<br/>Planner / routing<br/><br/>activate<br/>queue<br/>ambient<br/>keep<br/>clear"]
-    CONT["Rule Category 4<br/>Continuity rules<br/><br/>visible_episode<br/>same_episode<br/>minimum_dwell<br/>burst_dampening<br/>same_interaction<br/>deferral_escalation<br/>conflicting_interrupt<br/>decision_stream_continuity<br/>context_patience"]
-    DEC["JudgmentCoordinator<br/>final decision + explanation"]
+  subgraph L6["6. Deterministic Judgment Engine"]
+    PG["Policy gates
+Hard rules about what is allowed or forbidden"]
+    VL["Value lane
+Named scoring components:
+priority, consequence, tone, trust, context cost, response affinity, memory"]
+    PC["Policy criterion
+Rules that shape interrupt eligibility and threshold behavior"]
+    PL["Planner and routing
+Chooses active, queued, ambient, keep, or clear"]
+    CR["Continuity rules
+Protect focus, preserve episodes, avoid bursty switching, keep streams coherent"]
+    JD["Judgment coordinator
+Produces the final decision and explanation"]
   end
 
-  EVID --> PG
-  EVID --> VAL
-  EVID --> PC
-  EVID --> PLAN
-  EVID --> CONT
+  EC --> PG
+  EC --> VL
+  EC --> PC
+  EC --> PL
+  EC --> CR
+
   PG --> PC
-  VAL --> PLAN
-  PC --> PLAN
-  PLAN --> CONT
-  PG --> DEC
-  VAL --> DEC
-  PC --> DEC
-  PLAN --> DEC
-  CONT --> DEC
+  VL --> PL
+  PC --> PL
+  PL --> CR
 
-  subgraph ST["7. State, Trace, Learning"]
-    FP["FramePlanner<br/>candidate -> AttentionFrame"]
-    TV["TaskViewStore<br/>task active / queued / ambient"]
-    AV["buildAttentionView()<br/>global active / queued / ambient"]
-    SIG["AttentionSignalStore<br/><br/>presented<br/>responded<br/>dismissed<br/>deferred<br/>returned<br/>attention_shifted"]
-    TR["TraceRecorder<br/><br/>rule evals<br/>scores<br/>route<br/>resultBucket"]
-    MEM["distillMemoryProfile()<br/>compact learned summaries"]
-    PROF["ProfileStore / markdown helpers<br/>optional persistence boundary"]
+  PG --> JD
+  VL --> JD
+  PC --> JD
+  PL --> JD
+  CR --> JD
+
+  subgraph L7["7. State, Trace, and Learning"]
+    FP["Frame planning
+Turns the decision into a renderable frame"]
+    TV["Task view store
+Maintains per-task active, queued, and ambient state"]
+    AV["Attention view assembly
+Builds the global active, queued, and ambient surface"]
+    SG["Signal store
+Records presented, responded, dismissed, deferred, returned, shifted"]
+    TR["Trace recorder
+Records rule evaluations, score parts, route, and surfaced result"]
+    MM["Memory distillation
+Summarizes useful long-term behavior patterns"]
+    PS["Optional profile and markdown persistence
+Keeps local state and judgment config on disk"]
   end
 
-  DEC --> FP --> TV --> AV
-  TV --> SIG
-  DEC --> TR
+  JD --> FP --> TV --> AV
+  TV --> SG
+  JD --> TR
   AV --> TR
-  SIG --> MEM
-  MEM -.-> PROF
-  PROF -.-> PG
-  PROF -.-> VAL
+  SG --> MM
+  MM -.-> PS
+  PS -.-> PG
+  PS -.-> VL
 
-  subgraph U["8. Surfaces"]
-    SURF["Core / runtime surface APIs<br/><br/>getAttentionView()<br/>getAttentionState()<br/>onTrace()<br/>submit()"]
-    TUI["TUI operator mode<br/><br/>active<br/>queued<br/>ambient<br/>judgment line<br/>posture"]
-    WHY["TUI why mode<br/><br/>route + surface<br/>policy<br/>criterion<br/>continuity"]
-    CLI["Other clients / tests / future UIs"]
+  subgraph L8["8. Operator and Client Surfaces"]
+    API["Surface API
+Current attention view, current state, traces, submit"]
+    TUI["TUI operator mode
+Calm attention surface for now, next, and background"]
+    WHY["TUI why mode
+Inspection view for route, policy, criterion, continuity, and surfaced result"]
+    OTH["Other clients
+Tests and future surfaces"]
   end
 
-  AV --> SURF
-  TR --> SURF
-  SURF --> TUI
-  SURF --> WHY
-  SURF --> CLI
+  AV --> API
+  TR --> API
+  API --> TUI
+  API --> WHY
+  API --> OTH
 
-  subgraph R["9. Response / Egress"]
-    SUB["submit(response)<br/>validate -> apply -> emit signals"]
-    MAP["Adapter response mapping<br/>AttentionResponse -> native action"]
-    CCO["Claude response path"]
-    OCO["OpenCode response path"]
-    CXO["Codex response path"]
+  subgraph L9["9. Response Return Path"]
+    SUB["Submit response
+Validate the response, apply it, update state, emit signals"]
+    RM["Response mapping
+Turn AttentionResponse back into a source-native action"]
+    OUT1["Claude response path"]
+    OUT2["OpenCode response path"]
+    OUT3["Codex response path"]
   end
 
   TUI --> SUB
-  CLI --> SUB
-  SUB --> SIG
+  OTH --> SUB
+  SUB --> SG
   SUB --> TV
-  SUB --> MAP
-  MAP --> CCO
-  MAP --> OCO
-  MAP --> CXO
+  SUB --> RM
+  RM --> OUT1
+  RM --> OUT2
+  RM --> OUT3
 
-  subgraph O["10. Offline Evaluation"]
-    REPLAY["Replay / eval / tuning<br/><br/>golden scenarios<br/>trace comparison<br/>threshold refinement"]
+  subgraph L10["Offline Evaluation"]
+    EVL["Replay and evaluation
+Compare traces, review scenarios, tune thresholds, study disagreement"]
   end
 
-  TR --> REPLAY
-  SIG --> REPLAY
-  MEM --> REPLAY
+  TR --> EVL
+  SG --> EVL
+  MM --> EVL
+
+  classDef source fill:#f6f7f8,stroke:#6b7280,color:#111827;
+  classDef semantics fill:#e8f5e9,stroke:#2e7d32,color:#111827;
+  classDef heuristic fill:#fff8e1,stroke:#f59e0b,color:#111827;
+  classDef judgment fill:#e8f1ff,stroke:#2563eb,color:#111827;
+  classDef state fill:#f3e8ff,stroke:#7c3aed,color:#111827;
+  classDef egress fill:#fff3e0,stroke:#ea580c,color:#111827;
+  classDef infra fill:#f3f4f6,stroke:#9ca3af,color:#111827,stroke-dasharray: 5 5;
+
+  class CC,OC,CX source;
+  class A1,A2,A3,AF,N semantics;
+  class AH,J,TX heuristic;
+  class V,E,EP,SS,PR,BU,EC,PG,VL,PC,PL,CR,JD,FP judgment;
+  class TV,AV,SG,TR,MM,PS state;
+  class SUB,RM,OUT1,OUT2,OUT3 egress;
+  class RT,DP,API,TUI,WHY,OTH,EVL infra;
 ```
 
-## Legend
+## Diagram 2: Judgment Engine Deep Dive
 
-- Explicit semantics enter at the adapter `SourceEvent` boundary.
-- Bounded heuristics still exist in:
-  - adapter-local fallback parsing
-  - `AttentionAdjustments`
-  - bounded tool-family fallback for generic approvals
-- The authoritative live routing path remains deterministic:
-  - policy
-  - value
-  - criterion
-  - planner
-  - continuity
-  - state commit
+This view zooms into the deterministic engine itself.
+
+It shows the five major internal concepts:
+
+- evidence
+- rules
+- value
+- routing
+- state commit
+
+It also makes the four rule categories explicit:
+
+1. policy gates
+2. policy criterion
+3. planner and routing
+4. continuity
+
+```mermaid
+flowchart TD
+  subgraph E["Evidence and Candidate Context"]
+    C["Candidate
+Normalized event with episode context and bounded adjustments"]
+    X["Evidence context
+Current frame, visible state, operator presence, pressure, burden, surface limits"]
+  end
+
+  subgraph G["Rule Category 1: Policy Gates"]
+    G1["configured_policy"]
+    G2["blocking"]
+    G3["background"]
+    G4["peripheral_status"]
+    G5["interruptive_default"]
+    GV["Policy gate verdict
+What hard policy already determines"]
+  end
+
+  subgraph V["Named Value Lane"]
+    V1["Base value
+Priority, consequence, tone, blocking"]
+    V2["Memory and trust effects
+Source trust, calibration, response affinity, context cost, deferral affinity"]
+    VS["Value score and rationale parts"]
+  end
+
+  subgraph C1["Rule Category 2: Policy Criterion"]
+    C2["operator_absence"]
+    C3["interrupt_eligibility"]
+    C4["no_active_frame"]
+    C5["small_score_gap"]
+    C6["source_trust"]
+    C7["attention_budget"]
+    CV["Criterion verdict
+Threshold, margin, ambiguity, peripheral preservation or clearing"]
+  end
+
+  subgraph P["Rule Category 3: Planner and Routing"]
+    P1["Planner
+Combines value, criterion, pressure, backlog, and episode state"]
+    PV["Initial route
+Activate, queue, ambient, keep, or clear"]
+  end
+
+  subgraph K["Rule Category 4: Continuity"]
+    K1["visible_episode"]
+    K2["same_episode"]
+    K3["minimum_dwell"]
+    K4["burst_dampening"]
+    K5["same_interaction"]
+    K6["deferral_escalation"]
+    K7["conflicting_interrupt"]
+    K8["decision_stream_continuity"]
+    K9["context_patience"]
+    KV["Continuity-adjusted route"]
+  end
+
+  subgraph D["Decision and Commit"]
+    D1["Judgment coordinator
+Assembles explanation across all lanes"]
+    D2["Frame planning"]
+    D3["Task view store"]
+    D4["Attention view"]
+    D5["Trace recorder
+Rule evaluations, score parts, route, surfaced bucket"]
+  end
+
+  C --> G1
+  C --> V1
+  C --> C2
+  X --> G1
+  X --> V1
+  X --> C2
+
+  G1 --> G2 --> G3 --> G4 --> G5 --> GV
+  V1 --> V2 --> VS
+  GV --> C2
+  C2 --> C3 --> C4 --> C5 --> C6 --> C7 --> CV
+  VS --> P1
+  CV --> P1
+  X --> P1
+  P1 --> PV
+  PV --> K1 --> K2 --> K3 --> K4 --> K5 --> K6 --> K7 --> K8 --> K9 --> KV
+
+  GV --> D1
+  VS --> D1
+  CV --> D1
+  PV --> D1
+  KV --> D1
+
+  KV --> D2 --> D3 --> D4
+  D1 --> D5
+  D4 --> D5
+
+  classDef semantics fill:#e8f5e9,stroke:#2e7d32,color:#111827;
+  classDef heuristic fill:#fff8e1,stroke:#f59e0b,color:#111827;
+  classDef judgment fill:#e8f1ff,stroke:#2563eb,color:#111827;
+  classDef state fill:#f3e8ff,stroke:#7c3aed,color:#111827;
+
+  class C,X semantics;
+  class G1,G2,G3,G4,G5,GV,C2,C3,C4,C5,C6,C7,CV,P1,PV,K1,K2,K3,K4,K5,K6,K7,K8,K9,KV,D1 judgment;
+  class V1,V2,VS heuristic;
+  class D2,D3,D4,D5 state;
+```
+
+## What To Keep Updated
+
+This document should be updated when any of these change:
+
+- a new major layer is introduced
+- the adapter/core boundary changes
+- the live judgment order changes
+- a new public surface is added
+- a new rule category appears
+- traces or surfaced-state commit move to a different layer
+
+It does **not** need to be updated for:
+
+- small rule tweaks within an existing category
+- threshold changes
+- cosmetic TUI changes
+- test-only refactors
 
 ## Code Anchors
 
-- Adapters:
-  - [Claude adapter](/Users/tom/dev/aperture/packages/claude-code/src/index.ts)
-  - [OpenCode mapping](/Users/tom/dev/aperture/packages/opencode/src/mapping.ts)
-  - [Codex adapter](/Users/tom/dev/aperture/packages/codex/src/index.ts)
-- Core ingress:
-  - [semantic-normalizer.ts](/Users/tom/dev/aperture/packages/core/src/semantic-normalizer.ts)
-  - [event-evaluator.ts](/Users/tom/dev/aperture/packages/core/src/event-evaluator.ts)
-  - [interaction-taxonomy.ts](/Users/tom/dev/aperture/packages/core/src/interaction-taxonomy.ts)
-- Judgment lanes:
-  - [attention-policy.ts](/Users/tom/dev/aperture/packages/core/src/attention-policy.ts)
-  - [attention-value.ts](/Users/tom/dev/aperture/packages/core/src/attention-value.ts)
-  - [attention-planner.ts](/Users/tom/dev/aperture/packages/core/src/attention-planner.ts)
-  - [continuity/](/Users/tom/dev/aperture/packages/core/src/continuity)
-- State and trace:
-  - [task-view-store.ts](/Users/tom/dev/aperture/packages/core/src/task-view-store.ts)
-  - [trace-recorder.ts](/Users/tom/dev/aperture/packages/core/src/trace-recorder.ts)
-- TUI:
-  - [render.ts](/Users/tom/dev/aperture/packages/tui/src/render.ts)
-  - [render-why.ts](/Users/tom/dev/aperture/packages/tui/src/render-why.ts)
+### Source adapters
+
+- [Claude adapter](/Users/tom/dev/aperture/packages/claude-code/src/index.ts)
+- [OpenCode mapping](/Users/tom/dev/aperture/packages/opencode/src/mapping.ts)
+- [Codex adapter](/Users/tom/dev/aperture/packages/codex/src/index.ts)
+
+### Core ingress
+
+- [semantic-normalizer.ts](/Users/tom/dev/aperture/packages/core/src/semantic-normalizer.ts)
+- [event-evaluator.ts](/Users/tom/dev/aperture/packages/core/src/event-evaluator.ts)
+- [interaction-taxonomy.ts](/Users/tom/dev/aperture/packages/core/src/interaction-taxonomy.ts)
+- [episode-tracker.ts](/Users/tom/dev/aperture/packages/core/src/episode-tracker.ts)
+
+### Deterministic judgment engine
+
+- [attention-policy.ts](/Users/tom/dev/aperture/packages/core/src/attention-policy.ts)
+- [attention-value.ts](/Users/tom/dev/aperture/packages/core/src/attention-value.ts)
+- [attention-planner.ts](/Users/tom/dev/aperture/packages/core/src/attention-planner.ts)
+- [continuity/](/Users/tom/dev/aperture/packages/core/src/continuity)
+- [judgment-coordinator.ts](/Users/tom/dev/aperture/packages/core/src/judgment-coordinator.ts)
+
+### State, trace, and learning
+
+- [frame-planner.ts](/Users/tom/dev/aperture/packages/core/src/frame-planner.ts)
+- [task-view-store.ts](/Users/tom/dev/aperture/packages/core/src/task-view-store.ts)
+- [trace-recorder.ts](/Users/tom/dev/aperture/packages/core/src/trace-recorder.ts)
+- [memory-aggregator.ts](/Users/tom/dev/aperture/packages/core/src/memory-aggregator.ts)
+- [profile-store.ts](/Users/tom/dev/aperture/packages/core/src/profile-store.ts)
+
+### Operator surfaces
+
+- [render.ts](/Users/tom/dev/aperture/packages/tui/src/render.ts)
+- [render-why.ts](/Users/tom/dev/aperture/packages/tui/src/render-why.ts)
+- [index.ts](/Users/tom/dev/aperture/packages/tui/src/index.ts)

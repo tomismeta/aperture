@@ -145,7 +145,7 @@ flowchart LR
   A["Arrive<br/>events<br/><br/>Tool hooks and source events arrive from coding agents"]
   T["Translate<br/>facts<br/><br/>Source adapters turn raw payloads into explicit facts"]
   J["Judge<br/>attention<br/><br/>Core decides whether the work deserves attention now, should wait, stay ambient, or clear"]
-  S["Show<br/>attention<br/><br/>Surfaces show the operator what matters now, what is next, and what stays quiet"]
+  S["Show<br/>surface<br/><br/>Surfaces show the operator what matters now, what is next, and what stays quiet"]
   R["Respond<br/>action<br/><br/>The operator's decision is returned as a source-native action"]
 
   A --> T --> J --> S --> R
@@ -171,7 +171,7 @@ first-read architecture conversations.
 ```text
 +-----------+    +-------------+    +-------------+    +-------------+    +-------------+
 |  Arrive   | -> |  Translate  | -> |    Judge    | -> |    Show     | -> |   Respond   |
-|  events   |    |    facts    |    |  attention  |    |  attention  |    |   action    |
+|  events   |    |    facts    |    |  attention  |    |   surface   |    |   action    |
 +-----------+    +-------------+    +-------------+    +-------------+    +-------------+
 
 tool hooks       explicit facts      does this         what the          operator decision

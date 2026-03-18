@@ -229,8 +229,8 @@ Current practical split:
 - live adapters:
   - `@aperture/claude-code`
   - `@aperture/opencode`
-- future adapter opportunities:
-  - Codex App Server
+- experimental adapter:
+  - `@aperture/codex`
 
 Use an adapter when:
 
@@ -278,6 +278,25 @@ Skip adapters when:
   - signal storage
   - OpenCode runtime execution
 
+#### `@aperture/codex`
+
+- Classification: source adapter
+- Status: experimental
+- Lives in:
+  - [packages/codex/src/client.ts](../packages/codex/src/client.ts)
+  - [packages/codex/src/mapping.ts](../packages/codex/src/mapping.ts)
+  - [packages/codex/src/bridge.ts](../packages/codex/src/bridge.ts)
+- Purpose: connect Codex App Server to `@aperture/runtime`, translate attention-significant App Server requests and notifications into `SourceEvent`, and translate `AttentionResponse` back into Codex server-request responses
+- Owns:
+  - App Server stdio transport
+  - Codex ingress mapping
+  - Codex return-path mapping
+  - Codex request and interaction correlation
+- Does not own:
+  - attention judgment
+  - signal storage
+  - Codex thread orchestration policy above the native App Server contract
+
 ### Attention Surface
 
 #### `@aperture/tui`
@@ -311,7 +330,8 @@ The product is:
 - `@aperture/opencode`
 - `@aperture/tui`
 
-Additional adapter boundaries exist in the repo for future/design-stage work, but they are not part of the practical live product surface today.
+`@aperture/codex` now exists as an experimental adapter package, but it is not
+yet part of the practical mainline product surface.
 
 The product is not:
 

@@ -6,6 +6,7 @@
     { "path": "./packages/runtime" },
     { "path": "./packages/claude-code" },
     { "path": "./packages/opencode" },
+    { "path": "./packages/codex" },
     { "path": "./packages/tui" }
   ]
 }

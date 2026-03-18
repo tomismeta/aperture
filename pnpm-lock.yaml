@@ -27,6 +27,15 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/codex:
+    dependencies:
+      '@aperture/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      '@tomismeta/aperture-core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/core: {}
 
   packages/opencode:

@@ -1,15 +1,38 @@
 # Codex App Server Integration Architecture
 
-This note defines the fresh-start architecture for a future Codex integration.
+This note defines the fresh-start architecture for the new Codex App Server integration.
 
 It assumes:
 
-- the old `@aperture/codex` package has been removed
-- the future Codex integration should be built around **Codex App Server**
+- the legacy Codex adapter has been removed
+- the current `@aperture/codex` package is rebuilt around **Codex App Server**
 - `@tomismeta/aperture-core` must remain Codex-agnostic
 - the new integration should have a minimal footprint and a clean boundary
 
-This is a target-state design note, not an implementation commit plan.
+This is both:
+
+- the architecture note for the current minimal implementation
+- the target direction for future Codex expansion
+
+## Current Foundation
+
+The repo now includes a minimal `@aperture/codex` package with:
+
+- a stdio App Server transport client
+- a small typed protocol subset for the MVP request and notification surface
+- request and notification mapping into `SourceEvent`
+- `AttentionResponse` mapping back into Codex server-request responses
+- a runtime bridge that connects Codex App Server to `@aperture/runtime`
+
+The implementation is intentionally narrow:
+
+- command approvals
+- file-change approvals
+- tool-driven user input
+- coarse thread, turn, and review lifecycle updates
+
+It does not yet attempt to cover the full App Server schema or expose a broad
+host-control surface above Codex.
 
 ## Why App Server
 
@@ -86,7 +109,7 @@ That means:
 
 ## Minimal-Footprint Recommendation
 
-Build exactly **one new package**:
+Build and keep exactly **one package**:
 
 - `@aperture/codex`
 

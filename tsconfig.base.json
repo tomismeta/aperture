@@ -24,6 +24,7 @@
       "@aperture/runtime/discovery": ["packages/runtime/src/runtime-discovery.ts"],
       "@aperture/claude-code": ["packages/claude-code/src/index.ts"],
       "@aperture/claude-code/server": ["packages/claude-code/src/server.ts"],
+      "@aperture/codex": ["packages/codex/src/index.ts"],
       "@aperture/opencode": ["packages/opencode/src/index.ts"],
       "@aperture/tui": ["packages/tui/src/index.ts"]
     }

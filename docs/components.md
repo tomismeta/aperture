@@ -232,6 +232,9 @@ Current practical split:
 - experimental adapter:
   - `@aperture/codex`
 
+For the current cross-adapter architecture standard and verification matrix, see
+[Adapter Status](./adapter-status.md).
+
 Use an adapter when:
 
 - the upstream system has its own event vocabulary
@@ -249,6 +252,7 @@ Skip adapters when:
 - Status: live
 - Lives in:
   - [packages/claude-code/src/index.ts](../packages/claude-code/src/index.ts)
+  - [packages/claude-code/src/mapping.ts](../packages/claude-code/src/mapping.ts)
   - [packages/claude-code/src/server.ts](../packages/claude-code/src/server.ts)
 - Purpose: translate Claude Code hook payloads into `SourceEvent`, translate `AttentionResponse` back into Claude Code hook responses, and optionally host a local HTTP hook endpoint that talks to `@aperture/runtime`
 - Owns:
@@ -267,6 +271,7 @@ Skip adapters when:
 - Lives in:
   - [packages/opencode/src/index.ts](../packages/opencode/src/index.ts)
   - [packages/opencode/src/client.ts](../packages/opencode/src/client.ts)
+  - [packages/opencode/src/mapping.ts](../packages/opencode/src/mapping.ts)
   - [packages/opencode/src/bridge.ts](../packages/opencode/src/bridge.ts)
 - Purpose: translate OpenCode server events into `SourceEvent`, translate `AttentionResponse` back into OpenCode reply calls, and connect an existing `opencode serve` instance to `@aperture/runtime`
 - Owns:
@@ -284,6 +289,7 @@ Skip adapters when:
 - Status: experimental
 - Lives in:
   - [packages/codex/src/client.ts](../packages/codex/src/client.ts)
+  - [packages/codex/src/transport.ts](../packages/codex/src/transport.ts)
   - [packages/codex/src/mapping.ts](../packages/codex/src/mapping.ts)
   - [packages/codex/src/bridge.ts](../packages/codex/src/bridge.ts)
 - Purpose: connect Codex App Server to `@aperture/runtime`, translate attention-significant App Server requests and notifications into `SourceEvent`, and translate `AttentionResponse` back into Codex server-request responses

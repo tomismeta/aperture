@@ -16,11 +16,13 @@ If you are new to the repo, read the current product docs first.
 4. [System Architecture Diagram](./system-architecture-diagram.md)
 5. [Claude Code Adapter](./claude-code.md)
 6. [OpenCode Adapter](./opencode-integration.md)
+7. [Adapter Status](./adapter-status.md)
 
 ## Current Product Docs
 
 - [TUI Surface](./tui.md)
 - [Components](./components.md)
+- [Adapter Status](./adapter-status.md)
 - [Claude Code Adapter](./claude-code.md)
 - [OpenCode Adapter](./opencode-integration.md)
 - [System Architecture Diagram](./system-architecture-diagram.md)
@@ -30,6 +32,7 @@ These are the best entrypoints for understanding what Aperture is today:
 - a deterministic human attention engine in `packages/core`
 - a shared local host in `@aperture/runtime`
 - Claude Code and OpenCode as the live adapter paths
+- Codex as an experimental adapter path with a clean but still limited boundary
 - a source-agnostic TUI with operator mode and `why` inspection mode
 
 ## Current Reference Docs

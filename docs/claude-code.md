@@ -63,7 +63,8 @@ This is different from OpenCode because Claude's public integration seam is hook
 
 ## Current shape
 
-- mapping lives in [`packages/claude-code/src/index.ts`](../packages/claude-code/src/index.ts)
+- mapping lives in [`packages/claude-code/src/mapping.ts`](../packages/claude-code/src/mapping.ts)
+- package exports live in [`packages/claude-code/src/index.ts`](../packages/claude-code/src/index.ts)
 - local HTTP hook server lives in [`packages/claude-code/src/server.ts`](../packages/claude-code/src/server.ts)
 - shared Aperture runtime lives in [`packages/runtime/src/runtime.ts`](../packages/runtime/src/runtime.ts)
 - optional TUI runtime client lives in [`packages/runtime/src/runtime-client.ts`](../packages/runtime/src/runtime-client.ts)

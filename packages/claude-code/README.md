@@ -12,7 +12,7 @@ judgment engine without leaking Claude-specific hook details into
 
 - receives Claude Code hook payloads
 - translates those hook events into `SourceEvent`
-- publishes them into Aperture runtime and core
+- forwards them into an attached Aperture host such as `@aperture/runtime`
 - maps `AttentionResponse` back into Claude Code hook responses
 
 ## Napkin
@@ -63,7 +63,7 @@ Aperture owns:
 The package currently includes:
 
 - a mapping layer for Claude hook events
-- a local hook server for hold-and-reply behavior
+- a host-facing local hook server for hold-and-reply behavior
 - tool-aware risk hints for Bash, read, write, edit, and web-style tool calls
 - mapping from `AttentionResponse` back into Claude hook responses
 

@@ -38,6 +38,8 @@ async function main(): Promise<void> {
       : (await client.threadStart({
           ...(options.cwd ? { cwd: options.cwd } : {}),
           ...(options.model ? { model: options.model } : {}),
+          ...(options.approvalPolicy ? { approvalPolicy: options.approvalPolicy } : {}),
+          ...(options.sandbox ? { sandbox: options.sandbox } : {}),
         })).thread;
 
     const turn = await client.turnStart({
@@ -45,6 +47,7 @@ async function main(): Promise<void> {
       input: buildCodexRunInput(options.prompt),
       ...(options.cwd ? { cwd: options.cwd } : {}),
       ...(options.model ? { model: options.model } : {}),
+      ...(options.approvalPolicy ? { approvalPolicy: options.approvalPolicy } : {}),
       ...(options.effort ? { effort: options.effort } : {}),
       ...(options.summary ? { summary: options.summary } : {}),
       ...(options.personality ? { personality: options.personality } : {}),
@@ -52,6 +55,12 @@ async function main(): Promise<void> {
 
     stderr.write(`Started Codex thread ${thread.id}\n`);
     stderr.write(`Started Codex turn ${turn.turn.id}\n`);
+    if (options.approvalPolicy) {
+      stderr.write(`Codex approval policy: ${options.approvalPolicy}\n`);
+    }
+    if (options.sandbox) {
+      stderr.write(`Codex sandbox mode: ${options.sandbox}\n`);
+    }
     stderr.write("Aperture will surface approvals and questions in the TUI when Codex requests them.\n");
     stderr.write("Press Ctrl+C to stop the Codex session runner.\n");
 

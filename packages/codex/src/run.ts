@@ -3,12 +3,15 @@ import type {
   CodexPersonality,
   CodexReasoningEffort,
   CodexReasoningSummary,
+  CodexThreadStartParams,
 } from "./protocol.js";
 
 export type CodexRunOptions = {
   cwd?: string;
   resumeThreadId?: string;
   model?: string;
+  approvalPolicy?: CodexThreadStartParams["approvalPolicy"];
+  sandbox?: CodexThreadStartParams["sandbox"];
   effort?: CodexReasoningEffort;
   summary?: CodexReasoningSummary;
   personality?: CodexPersonality;
@@ -23,6 +26,8 @@ export function parseCodexRunArgs(args: string[]): CodexRunOptions {
   let cwd: string | undefined;
   let resumeThreadId: string | undefined;
   let model: string | undefined;
+  let approvalPolicy: CodexThreadStartParams["approvalPolicy"] | undefined;
+  let sandbox: CodexThreadStartParams["sandbox"] | undefined;
   let effort: CodexReasoningEffort | undefined;
   let summary: CodexReasoningSummary | undefined;
   let personality: CodexPersonality | undefined;
@@ -56,6 +61,29 @@ export function parseCodexRunArgs(args: string[]): CodexRunOptions {
           index += 1;
         }
         continue;
+      case "--approval-policy":
+        if (
+          next === "untrusted"
+          || next === "on-failure"
+          || next === "on-request"
+          || next === "never"
+        ) {
+          approvalPolicy = next;
+          index += 1;
+          continue;
+        }
+        throw new Error(
+          "`--approval-policy` must be one of: untrusted, on-failure, on-request, never.",
+        );
+      case "--sandbox":
+        if (next === "read-only" || next === "workspace-write" || next === "danger-full-access") {
+          sandbox = next;
+          index += 1;
+          continue;
+        }
+        throw new Error(
+          "`--sandbox` must be one of: read-only, workspace-write, danger-full-access.",
+        );
       case "--effort":
         if (
           next === "none"
@@ -101,6 +129,8 @@ export function parseCodexRunArgs(args: string[]): CodexRunOptions {
     ...(cwd ? { cwd } : {}),
     ...(resumeThreadId ? { resumeThreadId } : {}),
     ...(model ? { model } : {}),
+    ...(approvalPolicy ? { approvalPolicy } : {}),
+    ...(sandbox ? { sandbox } : {}),
     ...(effort ? { effort } : {}),
     ...(summary ? { summary } : {}),
     ...(personality ? { personality } : {}),

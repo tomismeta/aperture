@@ -140,6 +140,18 @@ Protocol note:
 - if official prose examples and generated protocol artifacts disagree, trust
   the generated schema from the installed Codex binary
 
+## What We Are Waiting On
+
+- `A stronger App Server interruption contract`
+  - more first-class, actionable human-interruption points for external clients
+
+- `A unified App Server client path across Codex surfaces`
+  - macOS app, TUI, VS Code, and other clients converging on the same App
+    Server transport route
+
+- `Generated protocol staying the compatibility contract`
+  - generated schema continuing to outrank prose examples when they differ
+
 ## Main Rule
 
 Adapters provide facts. Core provides judgment.

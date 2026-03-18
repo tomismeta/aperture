@@ -182,6 +182,35 @@ So the current posture should be:
 - keep the adapter available for continued learning and spot validation
 - wait for more Codex App Server developments or a clearer request surface
 
+## What We Are Waiting On
+
+Two macro developments would materially improve this integration:
+
+- `A stronger App Server interruption contract`
+  - more first-class, actionable points where external clients can intervene
+  - clearer guarantees around when human-relevant moments become server
+    requests instead of remaining ordinary notifications
+  - better semantics for:
+    - request opened
+    - request resolved
+    - blocked on human input
+    - resumed after human input
+    - completed
+
+- `A unified App Server client path across Codex surfaces`
+  - macOS app, TUI, VS Code, and other Codex clients converging on the same
+    App Server transport path
+  - less ambiguity about whether external integrators are building against the
+    same client contract OpenAI itself is standardizing on
+  - lower risk that some important human-interruption behaviors only exist in a
+    native client path and not in App Server
+
+One secondary but important hygiene item:
+
+- `Generated protocol remains the compatibility contract`
+  - generated schema should stay more authoritative than prose examples
+  - this matters most when request names, enums, or payload shapes evolve
+
 ## Current Foundation
 
 The repo now includes a minimal `@aperture/codex` package with:

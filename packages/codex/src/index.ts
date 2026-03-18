@@ -15,5 +15,10 @@ export {
   type CodexMappingContext,
   type CodexResponsePayload,
 } from "./mapping.js";
+export {
+  buildCodexRunInput,
+  parseCodexRunArgs,
+  type CodexRunOptions,
+} from "./run.js";
 export * from "./protocol.js";
 export { CodexAppServerStdio, type CodexAppServerStdioOptions } from "./stdio.js";

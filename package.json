@@ -7,6 +7,7 @@
     "aperture": "tsx scripts/aperture.ts",
     "build": "tsc -b",
     "codex:start": "tsx scripts/codex-adapter.ts",
+    "codex:run": "tsx scripts/codex-run.ts",
     "claude:connect": "tsx scripts/claude-connect.ts",
     "claude:disconnect": "tsx scripts/claude-disconnect.ts",
     "claude:start": "tsx scripts/claude-adapter.ts",

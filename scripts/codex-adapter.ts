@@ -1,10 +1,10 @@
 import { stderr } from "node:process";
 
 import { createCodexBridge } from "../packages/codex/src/index.ts";
-import { discoverLocalRuntimes } from "../packages/runtime/src/index.ts";
+import { createStderrLogger, resolveCodexRuntimeUrl } from "./codex-shared.ts";
 
 async function main(): Promise<void> {
-  const runtimeBaseUrl = await resolveRuntimeUrl();
+  const runtimeBaseUrl = await resolveCodexRuntimeUrl();
   const bridge = createCodexBridge({
     runtimeBaseUrl,
     runtimeLabel: process.env.APERTURE_CODEX_LABEL ?? "Codex adapter",
@@ -17,17 +17,7 @@ async function main(): Promise<void> {
         : {}),
       ...(process.env.APERTURE_CODEX_CWD ? { cwd: process.env.APERTURE_CODEX_CWD } : {}),
     },
-    logger: {
-      info(message: string) {
-        stderr.write(`${message}\n`);
-      },
-      warn(message: string) {
-        stderr.write(`${message}\n`);
-      },
-      error(message: string) {
-        stderr.write(`${message}\n`);
-      },
-    },
+    logger: createStderrLogger(),
   });
 
   await bridge.start();
@@ -48,28 +38,6 @@ async function main(): Promise<void> {
 
   process.on("SIGINT", onSignal);
   process.on("SIGTERM", onSignal);
-}
-
-async function resolveRuntimeUrl(): Promise<string> {
-  const explicit = process.env.APERTURE_RUNTIME_URL ?? process.env.APERTURE_CODEX_RUNTIME_URL;
-  if (explicit) {
-    return explicit.replace(/\/+$/, "");
-  }
-
-  const runtimes = await discoverLocalRuntimes({ kind: "aperture" });
-  if (runtimes.length === 0) {
-    throw new Error("No live Aperture runtime found. Start one with `pnpm serve`.");
-  }
-
-  if (runtimes.length > 1) {
-    stderr.write("Multiple live Aperture runtimes detected:\n");
-    for (const runtime of runtimes) {
-      stderr.write(`- ${runtime.controlUrl} (pid ${runtime.pid}, updated ${runtime.updatedAt})\n`);
-    }
-    stderr.write(`Connecting Codex adapter to the most recent runtime: ${runtimes[0]?.controlUrl}\n`);
-  }
-
-  return runtimes[0]?.controlUrl ?? "http://127.0.0.1:4546/runtime";
 }
 
 void main().catch((error) => {

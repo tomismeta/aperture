@@ -1,0 +1,62 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import { buildCodexRunInput, parseCodexRunArgs } from "../src/run.js";
+
+test("parseCodexRunArgs parses a new thread launch", () => {
+  assert.deepEqual(
+    parseCodexRunArgs([
+      "--cwd",
+      "/repo",
+      "--model",
+      "gpt-5.4",
+      "--effort",
+      "high",
+      "Fix",
+      "the",
+      "failing",
+      "test",
+    ]),
+    {
+      cwd: "/repo",
+      model: "gpt-5.4",
+      effort: "high",
+      prompt: "Fix the failing test",
+    },
+  );
+});
+
+test("parseCodexRunArgs parses a resumed thread launch", () => {
+  assert.deepEqual(
+    parseCodexRunArgs([
+      "--thread",
+      "thread-123",
+      "--summary",
+      "Quick fix",
+      "--personality",
+      "calm",
+      "Explain",
+      "the",
+      "change",
+    ]),
+    {
+      resumeThreadId: "thread-123",
+      summary: "Quick fix",
+      personality: "calm",
+      prompt: "Explain the change",
+    },
+  );
+});
+
+test("parseCodexRunArgs requires a prompt", () => {
+  assert.throws(
+    () => parseCodexRunArgs(["--cwd", "/repo"]),
+    /Provide a Codex prompt/,
+  );
+});
+
+test("buildCodexRunInput wraps the prompt as a text item", () => {
+  assert.deepEqual(buildCodexRunInput("Ship it"), [
+    { type: "text", text: "Ship it" },
+  ]);
+});

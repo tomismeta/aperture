@@ -124,6 +124,22 @@ Current observed limitation:
 So today the main limit is usually the expressiveness of what Codex App Server
 chooses to externalize, not the basic Aperture adapter path
 
+## Current Assessment
+
+- `proven`
+  - real approval requests can be surfaced and answered end to end
+- `promising`
+  - the App Server boundary, transport seam, and mapping model are sound
+- `not ready for the live path`
+  - only a small set of request families are live-verified
+  - most of the Codex stream is still status and deltas without actionable
+    hooks
+
+Protocol note:
+
+- if official prose examples and generated protocol artifacts disagree, trust
+  the generated schema from the installed Codex binary
+
 ## Main Rule
 
 Adapters provide facts. Core provides judgment.

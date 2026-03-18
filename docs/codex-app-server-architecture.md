@@ -159,6 +159,29 @@ What is an adapter limitation today:
   - coarse lifecycle becomes ambient
   - noisy deltas are not promoted into attention claims
 
+## Current Assessment
+
+Where the integration stands today:
+
+- `proven`
+  - the end-to-end approval path works
+  - real Codex App Server requests can become focused Aperture frames
+  - approving in the TUI successfully resumes Codex work
+- `promising`
+  - the transport seam is correct
+  - the adapter boundary is clean
+  - coarse lifecycle and approval supervision are behaving as designed
+- `not ready for the live path`
+  - only a limited set of request families are live-verified
+  - conversational user-input flows are still weak or absent
+  - most of the stream is still status and deltas without actionable hooks
+
+So the current posture should be:
+
+- freeze the architecture here
+- keep the adapter available for continued learning and spot validation
+- wait for more Codex App Server developments or a clearer request surface
+
 ## Current Foundation
 
 The repo now includes a minimal `@aperture/codex` package with:
@@ -654,6 +677,16 @@ This is important enough to be a hard rule:
   }
 }
 ```
+
+One more rule from the official Codex App Server documentation and our live
+testing:
+
+- if prose examples, blog snippets, and generated protocol artifacts disagree,
+  trust the generated schema from the installed Codex binary
+- keep using `codex app-server generate-ts` and
+  `codex app-server generate-json-schema` as the canonical source of truth for
+  request names, enum values, and payload shapes
+- treat docs examples as orientation, not as the final compatibility contract
 
 ## MVP Scope
 

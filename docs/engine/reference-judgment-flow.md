@@ -30,7 +30,7 @@ These are the major engine questions, in order:
 8. **`JudgmentCoordinator`** — compose the judgment into one inspectable decision
 9. **`FramePlanner`** — materialize the chosen interaction into an `AttentionFrame`
 
-In practice, those modules live inside [ApertureCore](../packages/core/src/aperture-core.ts).
+In practice, those modules live inside [ApertureCore](../../packages/core/src/aperture-core.ts).
 
 ## One Decision, Step By Step
 
@@ -38,7 +38,7 @@ Imagine a new approval arrives from an agent.
 
 ### 1. Event -> Candidate
 
-[EventEvaluator](../packages/core/src/event-evaluator.ts) turns the raw event into an `AttentionCandidate`.
+[EventEvaluator](../../packages/core/src/event-evaluator.ts) turns the raw event into an `AttentionCandidate`.
 
 That candidate includes things like:
 
@@ -53,7 +53,7 @@ This is where source facts become Aperture semantics.
 
 ### 2. Candidate -> Attention Adjustments
 
-[AttentionAdjustments](../packages/core/src/attention-adjustments.ts) looks at recent task and global summaries and applies bounded score offsets and rationale.
+[AttentionAdjustments](../../packages/core/src/attention-adjustments.ts) looks at recent task and global summaries and applies bounded score offsets and rationale.
 
 This is still deterministic.
 
@@ -67,7 +67,7 @@ These are in-session adjustments, not durable memory.
 
 ### 3. Candidate -> Episode
 
-[EpisodeTracker](../packages/core/src/episode-tracker.ts) decides whether this interaction belongs to an existing episode.
+[EpisodeTracker](../../packages/core/src/episode-tracker.ts) decides whether this interaction belongs to an existing episode.
 
 That lets Aperture treat related steps as one evolving decision instead of many isolated interrupts.
 
@@ -79,7 +79,7 @@ Examples:
 
 ### 4. Policy
 
-[AttentionPolicy](../packages/core/src/attention-policy.ts) answers:
+[AttentionPolicy](../../packages/core/src/attention-policy.ts) answers:
 
 **what is allowed?**
 
@@ -93,7 +93,7 @@ This is the hard-guardrail layer.
 
 ### 5. Value
 
-[AttentionValue](../packages/core/src/attention-value.ts) answers:
+[AttentionValue](../../packages/core/src/attention-value.ts) answers:
 
 **how valuable is human attention for this interaction right now?**
 
@@ -114,7 +114,7 @@ This is the main learned scoring layer.
 
 ### 6. Pressure
 
-[AttentionPressure](../packages/core/src/attention-pressure.ts) answers:
+[AttentionPressure](../../packages/core/src/attention-pressure.ts) answers:
 
 **how much attention is already being consumed or strained?**
 
@@ -130,7 +130,7 @@ This is how Aperture starts anticipating overload instead of merely reacting to 
 
 ### 7. Planning
 
-[AttentionPlanner](../packages/core/src/attention-planner.ts) answers:
+[AttentionPlanner](../../packages/core/src/attention-planner.ts) answers:
 
 **given policy, value, pressure, and queue state, what should happen now?**
 
@@ -154,7 +154,7 @@ This is where Aperture reasons over:
 
 ### 8. Coordination
 
-[JudgmentCoordinator](../packages/core/src/judgment-coordinator.ts) is the top-level judgment combiner.
+[JudgmentCoordinator](../../packages/core/src/judgment-coordinator.ts) is the top-level judgment combiner.
 
 It produces one inspectable explanation containing:
 
@@ -166,7 +166,7 @@ It produces one inspectable explanation containing:
 
 ### 9. Materialization
 
-[FramePlanner](../packages/core/src/frame-planner.ts) turns the chosen interaction into an `AttentionFrame`, and [TaskViewStore](../packages/core/src/task-view-store.ts) updates task-local state.
+[FramePlanner](../../packages/core/src/frame-planner.ts) turns the chosen interaction into an `AttentionFrame`, and [TaskViewStore](../../packages/core/src/task-view-store.ts) updates task-local state.
 
 From there, Aperture derives the cross-task `AttentionView` that surfaces see.
 
@@ -186,7 +186,7 @@ When the human:
 - expands context
 - ignores one frame while choosing another
 
-Aperture records [AttentionSignal](../packages/core/src/interaction-signal.ts) values through [AttentionSignalStore](../packages/core/src/attention-signal-store.ts).
+Aperture records [AttentionSignal](../../packages/core/src/interaction-signal.ts) values through [AttentionSignalStore](../../packages/core/src/attention-signal-store.ts).
 
 ### 2. Signals produce summaries
 
@@ -204,7 +204,7 @@ Those summaries already influence in-session judgment through:
 
 ### 3. Signals become durable memory
 
-When Aperture checkpoints learned state, [distillMemoryProfile](../packages/core/src/memory-aggregator.ts) distills signals into compact durable memory.
+When Aperture checkpoints learned state, [distillMemoryProfile](../../packages/core/src/memory-aggregator.ts) distills signals into compact durable memory.
 
 That memory currently includes:
 
@@ -216,7 +216,7 @@ The default runtime persists this into `.aperture/MEMORY.md`.
 
 ### 4. Next startup loads prior memory
 
-On the next run, the runtime loads that learned memory back into [ApertureCore](../packages/core/src/aperture-core.ts).
+On the next run, the runtime loads that learned memory back into [ApertureCore](../../packages/core/src/aperture-core.ts).
 
 Now `AttentionValue` starts with prior knowledge about:
 

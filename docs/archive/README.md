@@ -16,6 +16,6 @@ Do not treat them as the source of truth for the current engine, SDK, or TUI.
 For the live product/docs surface, start from:
 
 - [Docs Index](../README.md)
-- [Architecture Principles](../architecture-principles.md)
-- [Reference Judgment Flow](../reference-judgment-flow.md)
-- [TUI Surface](../tui.md)
+- [Architecture Principles](../engine/architecture-principles.md)
+- [Reference Judgment Flow](../engine/reference-judgment-flow.md)
+- [TUI Surface](../product/tui.md)

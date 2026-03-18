@@ -13,20 +13,20 @@ The docs are organized into five groups:
 ## Start Here
 
 1. [README](../README.md)
-2. [Architecture Overview](./architecture-overview.md)
-3. [Components](./components.md)
-4. [Adapter Contract](./adapter-contract.md)
-5. [TUI Surface](./tui.md)
+2. [Architecture Overview](./product/architecture-overview.md)
+3. [Components](./product/components.md)
+4. [Adapter Contract](./product/adapter-contract.md)
+5. [TUI Surface](./product/tui.md)
 
 If you are new to the repo, that path gives the fastest accurate picture of the product.
 
 ## Product Surface
 
-- [Architecture Overview](./architecture-overview.md)
-- [Components](./components.md)
-- [Adapter Contract](./adapter-contract.md)
-- [TUI Surface](./tui.md)
-- [SDK Path](./sdk-path.md)
+- [Architecture Overview](./product/architecture-overview.md)
+- [Components](./product/components.md)
+- [Adapter Contract](./product/adapter-contract.md)
+- [TUI Surface](./product/tui.md)
+- [SDK Path](./product/sdk-path.md)
 
 These docs define the current Aperture product surface:
 
@@ -37,10 +37,10 @@ These docs define the current Aperture product surface:
 
 ## Source Adapters
 
-- [Claude Code Adapter](./claude-code-adapter.md)
-- [OpenCode Adapter](./opencode-adapter.md)
-- [Codex Adapter](./codex-adapter.md)
-- [Codex Surfaces](./codex-surfaces.md)
+- [Claude Code Adapter](./adapters/claude-code-adapter.md)
+- [OpenCode Adapter](./adapters/opencode-adapter.md)
+- [Codex Adapter](./adapters/codex-adapter.md)
+- [Codex Surfaces](./adapters/codex-surfaces.md)
 
 These docs explain the source-specific integration seams:
 
@@ -50,27 +50,27 @@ These docs explain the source-specific integration seams:
 
 ## Engine And SDK Reference
 
-- [Architecture Principles](./architecture-principles.md)
-- [Attention And Judgment Doctrine](./attention-judgment-doctrine.md)
-- [Core Engine Architecture](./core-engine-architecture.md)
-- [Canonical Judgment Model](./canonical-judgment-model.md)
-- [Reference Judgment Flow](./reference-judgment-flow.md)
-- [Semantic Normalization](./semantic-normalization.md)
-- [Attention Frame](./frame.md)
-- [SDK Path](./sdk-path.md)
-- [Interaction Signals](./interaction-signals.md)
+- [Architecture Principles](./engine/architecture-principles.md)
+- [Attention And Judgment Doctrine](./engine/attention-judgment-doctrine.md)
+- [Core Engine Architecture](./engine/core-engine-architecture.md)
+- [Canonical Judgment Model](./engine/canonical-judgment-model.md)
+- [Reference Judgment Flow](./engine/reference-judgment-flow.md)
+- [Semantic Normalization](./engine/semantic-normalization.md)
+- [Attention Frame](./engine/frame.md)
+- [SDK Path](./product/sdk-path.md)
+- [Interaction Signals](./engine/interaction-signals.md)
 
 These docs explain the deterministic judgment model, the engine boundary, and the SDK-facing contracts.
 
 ## Roadmaps And Design Context
 
-- [Engine Roadmap](./engine-roadmap.md)
-- [Core Maturation Plan](./core-maturation-plan.md)
-- [Technical Product Roadmap](./technical-product-roadmap.md)
-- [Human Attention Research](./human-attention-research.md)
-- [Engine Architecture Evaluation](./engine-architecture-evaluation.md)
-- [Agent Workforce Use Case](./agent-workforce-use-case.md)
-- [TUI Design](./tui-design.md)
+- [Engine Roadmap](./roadmap/engine-roadmap.md)
+- [Core Maturation Plan](./roadmap/core-maturation-plan.md)
+- [Technical Product Roadmap](./roadmap/technical-product-roadmap.md)
+- [Human Attention Research](./roadmap/human-attention-research.md)
+- [Engine Architecture Evaluation](./roadmap/engine-architecture-evaluation.md)
+- [Agent Workforce Use Case](./roadmap/agent-workforce-use-case.md)
+- [TUI Design](./roadmap/tui-design.md)
 
 These docs are useful when you want to understand why the product is shaped this way or where it should go next.
 

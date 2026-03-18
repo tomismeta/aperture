@@ -17,7 +17,7 @@ These are part of Aperture itself.
 #### `ApertureCore`
 
 - Classification: engine facade
-- Lives in [packages/core/src/aperture-core.ts](../packages/core/src/aperture-core.ts)
+- Lives in [packages/core/src/aperture-core.ts](../../packages/core/src/aperture-core.ts)
 - Purpose: the main engine entrypoint
 - Owns:
   - semantic normalization of adapter inputs
@@ -43,10 +43,10 @@ These are part of Aperture itself.
 
 - Classification: shared host
 - Lives in:
-  - [packages/runtime/src/runtime.ts](../packages/runtime/src/runtime.ts)
-  - [packages/runtime/src/runtime-client.ts](../packages/runtime/src/runtime-client.ts)
-  - [packages/runtime/src/adapter-client.ts](../packages/runtime/src/adapter-client.ts)
-  - [packages/runtime/src/runtime-discovery.ts](../packages/runtime/src/runtime-discovery.ts)
+  - [packages/runtime/src/runtime.ts](../../packages/runtime/src/runtime.ts)
+  - [packages/runtime/src/runtime-client.ts](../../packages/runtime/src/runtime-client.ts)
+  - [packages/runtime/src/adapter-client.ts](../../packages/runtime/src/adapter-client.ts)
+  - [packages/runtime/src/runtime-discovery.ts](../../packages/runtime/src/runtime-discovery.ts)
 - Purpose: own one live `ApertureCore` instance and expose source-agnostic APIs for adapters and surfaces
 - Owns:
   - one shared `ApertureCore`
@@ -63,7 +63,7 @@ These are part of Aperture itself.
 #### `ApertureEvent`
 
 - Classification: ingress contract
-- Lives in [packages/core/src/events.ts](../packages/core/src/events.ts)
+- Lives in [packages/core/src/events.ts](../../packages/core/src/events.ts)
 - Purpose: normalized machine or agent event entering the engine
 - Owns:
   - task identity
@@ -78,7 +78,7 @@ These are part of Aperture itself.
 #### `SourceEvent`
 
 - Classification: source-to-core ingress contract
-- Lives in [packages/core/src/source-event.ts](../packages/core/src/source-event.ts)
+- Lives in [packages/core/src/source-event.ts](../../packages/core/src/source-event.ts)
 - Purpose: source-agnostic factual input produced before core applies semantic normalization
 - Owns:
   - task and interaction identity
@@ -96,7 +96,7 @@ These are part of Aperture itself.
 #### `AttentionFrame`
 
 - Classification: atomic interaction contract
-- Lives in [packages/core/src/frame.ts](../packages/core/src/frame.ts)
+- Lives in [packages/core/src/frame.ts](../../packages/core/src/frame.ts)
 - Purpose: one bounded human-facing interaction
 - Owns:
   - semantic mode
@@ -111,7 +111,7 @@ These are part of Aperture itself.
 #### `AttentionResponse`
 
 - Classification: return contract
-- Lives in [packages/core/src/frame-response.ts](../packages/core/src/frame-response.ts)
+- Lives in [packages/core/src/frame-response.ts](../../packages/core/src/frame-response.ts)
 - Purpose: explicit human response back into the engine
 - Owns:
   - approval/rejection
@@ -125,7 +125,7 @@ These are part of Aperture itself.
 #### `AttentionTaskView`
 
 - Classification: task-scoped grouped state
-- Lives in [packages/core/src/frame.ts](../packages/core/src/frame.ts)
+- Lives in [packages/core/src/frame.ts](../../packages/core/src/frame.ts)
 - Purpose: local coordination state for one task
 - Owns:
   - `active`
@@ -138,7 +138,7 @@ These are part of Aperture itself.
 #### `AttentionView`
 
 - Classification: host-facing grouped attention state
-- Lives in [packages/core/src/frame.ts](../packages/core/src/frame.ts)
+- Lives in [packages/core/src/frame.ts](../../packages/core/src/frame.ts)
 - Purpose: one cross-task view of what deserves attention now
 - Owns:
   - current active frame
@@ -151,7 +151,7 @@ These are part of Aperture itself.
 #### `AttentionSignal`
 
 - Classification: behavioral signal contract
-- Lives in [packages/core/src/interaction-signal.ts](../packages/core/src/interaction-signal.ts)
+- Lives in [packages/core/src/interaction-signal.ts](../../packages/core/src/interaction-signal.ts)
 - Purpose: capture explicit and implicit interaction behavior
 - Owns:
   - presented/responded/dismissed/deferred/context-expanded events
@@ -166,7 +166,7 @@ These are part of the core implementation, but not the product surface to emphas
 #### `EventEvaluator`
 
 - Classification: semantic evaluator
-- Lives in [packages/core/src/event-evaluator.ts](../packages/core/src/event-evaluator.ts)
+- Lives in [packages/core/src/event-evaluator.ts](../../packages/core/src/event-evaluator.ts)
 - Purpose: convert semantically normalized `ApertureEvent` into candidate interactions
 - Boundary:
   - decides what interaction a raw event implies
@@ -176,7 +176,7 @@ These are part of the core implementation, but not the product surface to emphas
 #### `JudgmentCoordinator`
 
 - Classification: attention adjudicator
-- Lives in [packages/core/src/judgment-coordinator.ts](../packages/core/src/judgment-coordinator.ts)
+- Lives in [packages/core/src/judgment-coordinator.ts](../../packages/core/src/judgment-coordinator.ts)
 - Purpose: decide activate vs queue vs ambient vs keep
 - Boundary:
   - owns interruption judgment
@@ -185,7 +185,7 @@ These are part of the core implementation, but not the product surface to emphas
 #### `FramePlanner`
 
 - Classification: frame constructor
-- Lives in [packages/core/src/frame-planner.ts](../packages/core/src/frame-planner.ts)
+- Lives in [packages/core/src/frame-planner.ts](../../packages/core/src/frame-planner.ts)
 - Purpose: convert a chosen candidate into an `AttentionFrame`
 - Boundary:
   - owns frame construction
@@ -194,25 +194,25 @@ These are part of the core implementation, but not the product surface to emphas
 #### `TaskViewStore`
 
 - Classification: in-memory task-state store
-- Lives in [packages/core/src/task-view-store.ts](../packages/core/src/task-view-store.ts)
+- Lives in [packages/core/src/task-view-store.ts](../../packages/core/src/task-view-store.ts)
 - Purpose: maintain per-task `active`, `queued`, and `ambient` state
 
 #### `buildAttentionView`
 
 - Classification: aggregator
-- Lives in [packages/core/src/attention-view.ts](../packages/core/src/attention-view.ts)
+- Lives in [packages/core/src/attention-view.ts](../../packages/core/src/attention-view.ts)
 - Purpose: derive one `AttentionView` across many tasks
 
 #### `AttentionSignalStore`
 
 - Classification: signal memory
-- Lives in [packages/core/src/attention-signal-store.ts](../packages/core/src/attention-signal-store.ts)
+- Lives in [packages/core/src/attention-signal-store.ts](../../packages/core/src/attention-signal-store.ts)
 - Purpose: store signals and compute summaries
 
 #### `AttentionAdjustments`
 
 - Classification: lightweight scoring layer
-- Lives in [packages/core/src/attention-adjustments.ts](../packages/core/src/attention-adjustments.ts)
+- Lives in [packages/core/src/attention-adjustments.ts](../../packages/core/src/attention-adjustments.ts)
 - Purpose: apply small, source-agnostic score adjustments from signal history
 - Boundary:
   - heuristic only
@@ -251,9 +251,9 @@ Skip adapters when:
 - Classification: source adapter
 - Status: live
 - Lives in:
-  - [packages/claude-code/src/index.ts](../packages/claude-code/src/index.ts)
-  - [packages/claude-code/src/mapping.ts](../packages/claude-code/src/mapping.ts)
-  - [packages/claude-code/src/server.ts](../packages/claude-code/src/server.ts)
+  - [packages/claude-code/src/index.ts](../../packages/claude-code/src/index.ts)
+  - [packages/claude-code/src/mapping.ts](../../packages/claude-code/src/mapping.ts)
+  - [packages/claude-code/src/server.ts](../../packages/claude-code/src/server.ts)
 - Purpose: translate Claude Code hook payloads into `SourceEvent`, translate `AttentionResponse` back into Claude Code hook responses, and optionally host a local HTTP hook endpoint that talks to `@aperture/runtime`
 - Owns:
   - Claude Code ingress mapping
@@ -269,10 +269,10 @@ Skip adapters when:
 - Classification: source adapter
 - Status: live
 - Lives in:
-  - [packages/opencode/src/index.ts](../packages/opencode/src/index.ts)
-  - [packages/opencode/src/client.ts](../packages/opencode/src/client.ts)
-  - [packages/opencode/src/mapping.ts](../packages/opencode/src/mapping.ts)
-  - [packages/opencode/src/bridge.ts](../packages/opencode/src/bridge.ts)
+  - [packages/opencode/src/index.ts](../../packages/opencode/src/index.ts)
+  - [packages/opencode/src/client.ts](../../packages/opencode/src/client.ts)
+  - [packages/opencode/src/mapping.ts](../../packages/opencode/src/mapping.ts)
+  - [packages/opencode/src/bridge.ts](../../packages/opencode/src/bridge.ts)
 - Purpose: translate OpenCode server events into `SourceEvent`, translate `AttentionResponse` back into OpenCode reply calls, and connect an existing `opencode serve` instance to `@aperture/runtime`
 - Owns:
   - OpenCode ingress mapping
@@ -288,10 +288,10 @@ Skip adapters when:
 - Classification: source adapter
 - Status: experimental
 - Lives in:
-  - [packages/codex/src/client.ts](../packages/codex/src/client.ts)
-  - [packages/codex/src/transport.ts](../packages/codex/src/transport.ts)
-  - [packages/codex/src/mapping.ts](../packages/codex/src/mapping.ts)
-  - [packages/codex/src/bridge.ts](../packages/codex/src/bridge.ts)
+  - [packages/codex/src/client.ts](../../packages/codex/src/client.ts)
+  - [packages/codex/src/transport.ts](../../packages/codex/src/transport.ts)
+  - [packages/codex/src/mapping.ts](../../packages/codex/src/mapping.ts)
+  - [packages/codex/src/bridge.ts](../../packages/codex/src/bridge.ts)
 - Purpose: connect Codex App Server to `@aperture/runtime`, translate attention-significant App Server requests and notifications into `SourceEvent`, and translate `AttentionResponse` back into Codex server-request responses
 - Owns:
   - App Server stdio transport
@@ -308,7 +308,7 @@ Skip adapters when:
 #### `@aperture/tui`
 
 - Classification: surface package
-- Lives in [packages/tui/src/index.ts](../packages/tui/src/index.ts)
+- Lives in [packages/tui/src/index.ts](../../packages/tui/src/index.ts)
 - Purpose: provide a persistent terminal-native attention surface above `@tomismeta/aperture-core` or the shared `@aperture/runtime`
 - Owns:
   - full-screen terminal rendering

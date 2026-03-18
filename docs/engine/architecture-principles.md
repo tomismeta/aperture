@@ -221,8 +221,8 @@ Borrow ideas from solvers, planners, and rule engines, but keep the structure sh
 Current code paths:
 
 - doctrine and architecture docs:
-  - [docs/attention-judgment-doctrine.md](/Users/tom/dev/aperture/docs/attention-judgment-doctrine.md)
-  - [docs/core-engine-architecture.md](/Users/tom/dev/aperture/docs/core-engine-architecture.md)
+  - [docs/attention-judgment-doctrine.md](./attention-judgment-doctrine.md)
+  - [docs/core-engine-architecture.md](./core-engine-architecture.md)
 - Aperture-native judgment flow:
   - [packages/core/src/judgment-coordinator.ts](/Users/tom/dev/aperture/packages/core/src/judgment-coordinator.ts)
   - [packages/core/src/attention-policy.ts](/Users/tom/dev/aperture/packages/core/src/attention-policy.ts)
@@ -401,6 +401,6 @@ The next hardening tranche should prioritize:
 
 See also:
 
-- [Engine Architecture Evaluation](./engine-architecture-evaluation.md)
+- [Engine Architecture Evaluation](../roadmap/engine-architecture-evaluation.md)
 - [Semantic Normalization](./semantic-normalization.md)
 - [Core Engine Architecture](./core-engine-architecture.md)

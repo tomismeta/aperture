@@ -63,16 +63,16 @@ This is different from OpenCode because Claude's public integration seam is hook
 
 ## Current shape
 
-- mapping lives in [`packages/claude-code/src/mapping.ts`](../packages/claude-code/src/mapping.ts)
-- package exports live in [`packages/claude-code/src/index.ts`](../packages/claude-code/src/index.ts)
-- local HTTP hook server lives in [`packages/claude-code/src/server.ts`](../packages/claude-code/src/server.ts)
-- shared Aperture runtime lives in [`packages/runtime/src/runtime.ts`](../packages/runtime/src/runtime.ts)
-- optional TUI runtime client lives in [`packages/runtime/src/runtime-client.ts`](../packages/runtime/src/runtime-client.ts)
-- local runtime discovery lives in [`packages/runtime/src/runtime-discovery.ts`](../packages/runtime/src/runtime-discovery.ts)
-- local Claude adapter launcher lives in [`scripts/claude-adapter.ts`](../scripts/claude-adapter.ts)
-- local runtime launcher lives in [`scripts/runtime-server.ts`](../scripts/runtime-server.ts)
-- generic TUI launcher lives in [`scripts/aperture-tui.ts`](../scripts/aperture-tui.ts)
-- Claude forwarder lives in [`scripts/claude-forward.ts`](../scripts/claude-forward.ts)
+- mapping lives in [`packages/claude-code/src/mapping.ts`](../../packages/claude-code/src/mapping.ts)
+- package exports live in [`packages/claude-code/src/index.ts`](../../packages/claude-code/src/index.ts)
+- local HTTP hook server lives in [`packages/claude-code/src/server.ts`](../../packages/claude-code/src/server.ts)
+- shared Aperture runtime lives in [`packages/runtime/src/runtime.ts`](../../packages/runtime/src/runtime.ts)
+- optional TUI runtime client lives in [`packages/runtime/src/runtime-client.ts`](../../packages/runtime/src/runtime-client.ts)
+- local runtime discovery lives in [`packages/runtime/src/runtime-discovery.ts`](../../packages/runtime/src/runtime-discovery.ts)
+- local Claude adapter launcher lives in [`scripts/claude-adapter.ts`](../../scripts/claude-adapter.ts)
+- local runtime launcher lives in [`scripts/runtime-server.ts`](../../scripts/runtime-server.ts)
+- generic TUI launcher lives in [`scripts/aperture-tui.ts`](../../scripts/aperture-tui.ts)
+- Claude forwarder lives in [`scripts/claude-forward.ts`](../../scripts/claude-forward.ts)
 
 ## Quickstart
 

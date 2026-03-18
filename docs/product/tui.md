@@ -1,6 +1,6 @@
 # TUI Surface
 
-`@aperture/tui` is an optional terminal-native surface for [`@tomismeta/aperture-core`](../packages/core/src/index.ts).
+`@aperture/tui` is an optional terminal-native surface for [`@tomismeta/aperture-core`](../../packages/core/src/index.ts).
 
 It is source-agnostic. It does not know about Claude Code, OpenCode, Codex, or
 any other producer directly. It only consumes core contracts such as:
@@ -169,5 +169,5 @@ This writes both `docs/assets/demo.gif` and `docs/assets/demo.mp4` from the same
 ## Related Docs
 
 - [Architecture Overview](./architecture-overview.md)
-- [Architecture Principles](./architecture-principles.md)
-- [TUI Design](./tui-design.md)
+- [Architecture Principles](../engine/architecture-principles.md)
+- [TUI Design](../roadmap/tui-design.md)

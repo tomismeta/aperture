@@ -155,7 +155,7 @@ For the engine ordering, see:
 
 - [Engine Roadmap](./engine-roadmap.md)
 - [Core Maturation Plan](./core-maturation-plan.md)
-- [Architecture Principles](./architecture-principles.md)
+- [Architecture Principles](../engine/architecture-principles.md)
 
 ## Recommended Near-Term Sequence
 

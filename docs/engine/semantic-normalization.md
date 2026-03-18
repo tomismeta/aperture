@@ -29,7 +29,7 @@ These never enter `@tomismeta/aperture-core` directly.
 
 Source-agnostic factual input consumed by core.
 
-Lives in [packages/core/src/source-event.ts](../packages/core/src/source-event.ts).
+Lives in [packages/core/src/source-event.ts](../../packages/core/src/source-event.ts).
 
 `SourceEvent` preserves:
 
@@ -54,9 +54,9 @@ It does **not** assign final Aperture semantics like:
 
 Semantically normalized engine event owned by core.
 
-Lives in [packages/core/src/events.ts](../packages/core/src/events.ts).
+Lives in [packages/core/src/events.ts](../../packages/core/src/events.ts).
 
-Core converts `SourceEvent` into `ApertureEvent` through the internal semantic normalizer in [packages/core/src/semantic-normalizer.ts](../packages/core/src/semantic-normalizer.ts).
+Core converts `SourceEvent` into `ApertureEvent` through the internal semantic normalizer in [packages/core/src/semantic-normalizer.ts](../../packages/core/src/semantic-normalizer.ts).
 
 This is where Aperture decides things like:
 

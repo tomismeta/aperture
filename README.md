@@ -6,7 +6,7 @@
 
 [![npm core](https://img.shields.io/npm/v/%40tomismeta%2Faperture-core?label=npm%20core&color=0f766e)](https://www.npmjs.com/package/@tomismeta/aperture-core)
 [![license](https://img.shields.io/badge/license-MIT-6f42c1)](./LICENSE)
-[![docs](https://img.shields.io/badge/docs-architecture%20overview-475569)](./docs/architecture-overview.md)
+[![docs](https://img.shields.io/badge/docs-architecture%20overview-475569)](./docs/product/architecture-overview.md)
 
 
 <img src="docs/assets/demo.gif" alt="Aperture demo" width="1100">
@@ -118,7 +118,7 @@ That means:
 - low-confidence cases should stay peripheral instead of stealing focus
 - the human attention loop should be deterministic, inspectable, and behaviorally grounded
 
-The full doctrine lives in [docs/attention-judgment-doctrine.md](docs/attention-judgment-doctrine.md).
+The full doctrine lives in [docs/engine/attention-judgment-doctrine.md](docs/engine/attention-judgment-doctrine.md).
 
 ## Current Product Shape
 
@@ -334,7 +334,7 @@ For the full package-facing SDK docs, see [packages/core/README.md](packages/cor
 - `@aperture/tui`: source-agnostic terminal surface
 
 For the full architectural overview, including the napkin, event sequence, and
-detailed system diagrams, see [Architecture Overview](docs/architecture-overview.md).
+detailed system diagrams, see [Architecture Overview](docs/product/architecture-overview.md).
 
 ## Using Core Directly
 
@@ -460,25 +460,25 @@ The TUI has three sections:
 - **NEXT**: what is waiting behind it
 - **AMBIENT**: awareness-only items that should not interrupt
 
-For the full guide, see [How to Read the TUI](docs/tui.md#how-to-read-the-tui).
+For the full guide, see [How to Read the TUI](docs/product/tui.md#how-to-read-the-tui).
 
 ## Docs
 
 Start here:
 
 - [Docs Index](docs/README.md)
-- [Architecture Overview](docs/architecture-overview.md)
-- [Components](docs/components.md)
-- [Adapter Contract](docs/adapter-contract.md)
-- [TUI Surface](docs/tui.md)
-- [Claude Code Adapter](docs/claude-code-adapter.md)
-- [OpenCode Adapter](docs/opencode-adapter.md)
+- [Architecture Overview](docs/product/architecture-overview.md)
+- [Components](docs/product/components.md)
+- [Adapter Contract](docs/product/adapter-contract.md)
+- [TUI Surface](docs/product/tui.md)
+- [Claude Code Adapter](docs/adapters/claude-code-adapter.md)
+- [OpenCode Adapter](docs/adapters/opencode-adapter.md)
 
 Reference docs:
 
-- [Semantic Normalization](docs/semantic-normalization.md)
-- [Interaction Signals](docs/interaction-signals.md)
-- [Frame](docs/frame.md)
+- [Semantic Normalization](docs/engine/semantic-normalization.md)
+- [Interaction Signals](docs/engine/interaction-signals.md)
+- [Frame](docs/engine/frame.md)
 
 ## Feedback
 

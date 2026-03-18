@@ -20,7 +20,7 @@ The package path should broaden distribution, not redefine the product.
 
 ## Current State
 
-Today, the real judgment layer lives in the [Aperture core SDK package](../packages/core/package.json), published on npm as `@tomismeta/aperture-core`.
+Today, the real judgment layer lives in the [Aperture core SDK package](../../packages/core/package.json), published on npm as `@tomismeta/aperture-core`.
 
 Current version:
 

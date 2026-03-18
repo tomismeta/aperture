@@ -173,5 +173,5 @@ For Codex, that means:
 
 ## Learn More
 
-- [Codex Adapter](/Users/tom/dev/aperture/docs/codex-adapter.md)
-- [Canonical Judgment Model](/Users/tom/dev/aperture/docs/canonical-judgment-model.md)
+- [Codex Adapter](https://github.com/tomismeta/aperture/blob/main/docs/adapters/codex-adapter.md)
+- [Canonical Judgment Model](https://github.com/tomismeta/aperture/blob/main/docs/engine/canonical-judgment-model.md)

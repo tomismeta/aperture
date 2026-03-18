@@ -18,10 +18,10 @@ The goal is to keep Aperture's boundaries clean:
 
 The repo now has a working Codex App Server adapter:
 
-- [packages/codex/src/client.ts](../packages/codex/src/client.ts)
-- [packages/codex/src/bridge.ts](../packages/codex/src/bridge.ts)
-- [packages/codex/src/mapping.ts](../packages/codex/src/mapping.ts)
-- [scripts/codex-adapter.ts](../scripts/codex-adapter.ts)
+- [packages/codex/src/client.ts](../../packages/codex/src/client.ts)
+- [packages/codex/src/bridge.ts](../../packages/codex/src/bridge.ts)
+- [packages/codex/src/mapping.ts](../../packages/codex/src/mapping.ts)
+- [scripts/codex-adapter.ts](../../scripts/codex-adapter.ts)
 
 What works today:
 
@@ -245,8 +245,8 @@ These should stay true in both paths.
 
 Those stay in:
 
-- [packages/codex/src/client.ts](../packages/codex/src/client.ts)
-- [packages/codex/src/bridge.ts](../packages/codex/src/bridge.ts)
+- [packages/codex/src/client.ts](../../packages/codex/src/client.ts)
+- [packages/codex/src/bridge.ts](../../packages/codex/src/bridge.ts)
 - future host/client packages or scripts
 
 ## What To Build Next For Terminal

@@ -2,7 +2,7 @@
 
 This document turns the OpenCode integration design into an execution plan.
 
-It is intentionally narrower than the full design spec in [OpenCode Adapter](../opencode-adapter.md).
+It is intentionally narrower than the full design spec in [OpenCode Adapter](../adapters/opencode-adapter.md).
 
 The goal here is to define:
 

@@ -3,7 +3,7 @@
 This document describes the current OpenCode live source path for Aperture, along with the design constraints that shaped it.
 
 For the historical milestone and PR sequence that led to this implementation,
-see [OpenCode Implementation Plan](./archive/opencode-implementation-plan.md).
+see [OpenCode Implementation Plan](../archive/opencode-implementation-plan.md).
 
 The hard constraint remains:
 

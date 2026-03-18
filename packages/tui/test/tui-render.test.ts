@@ -254,7 +254,7 @@ test("renderAttentionScreen shows duplicate active approvals as a pending count"
     id: "frame-2",
     interactionId: "interaction-2",
     title: "Approve Read components.md",
-    summary: "/Users/tom/dev/aperture/docs/components.md",
+    summary: "/Users/tom/dev/aperture/docs/product/components.md",
     source: {
       id: "claude-code:session-1",
       kind: "claude-code",
@@ -265,7 +265,7 @@ test("renderAttentionScreen shows duplicate active approvals as a pending count"
   const attentionView: AttentionView = {
     active: makeFrame({
       title: "Approve Read components.md",
-      summary: "/Users/tom/dev/aperture/docs/components.md",
+      summary: "/Users/tom/dev/aperture/docs/product/components.md",
       source: {
         id: "claude-code:session-1",
         kind: "claude-code",

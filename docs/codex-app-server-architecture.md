@@ -14,6 +14,44 @@ This is both:
 - the architecture note for the current minimal implementation
 - the target direction for future Codex expansion
 
+## Napkin
+
+At the simplest level, the Codex integration is:
+
+```text
++--------------+    +------------------+    +------------------+    +------------------+    +------------------+
+|   Codex App  | -> |   @aperture/     | -> |   Aperture       | -> |   @aperture/     | -> |   Codex App      |
+|    Server    |    |     codex        |    |      core        |    |     codex        |    |    Server        |
+|  protocol    |    |  translate facts |    | judge attention  |    | translate reply  |    |  native result   |
++--------------+    +------------------+    +------------------+    +------------------+    +------------------+
+
+JSON-RPC over        requests / notices     SourceEvent in        AttentionResponse     approval answer,
+stdio today          -> SourceEvent         AttentionView out     -> Codex payload       user input answer,
+other transports     thread / turn local    no Codex types        request correlation    request resolved
+later
+```
+
+The more explicit boundary view is:
+
+```text
++--------------+    +------------------+    +------------------+    +------------------+
+|   Codex App  | -> |  CodexTransport  | -> |   Codex mapper   | -> |  Aperture core   |
+|    Server    |    |  stdio today     |    |  explicit facts  |    |  judgment only   |
+|              |    |  replaceable     |    |  no heuristics   |    |  now/next/ambient|
++--------------+    +------------------+    +------------------+    +------------------+
+        ^                                                                 |
+        |                                                                 v
+        +------------------- @aperture/codex response mapping <-----------+
+                              AttentionResponse -> Codex-native reply
+```
+
+This is the key alignment:
+
+- Codex App Server is the integration boundary
+- `@aperture/codex` owns transport, event mapping, and response mapping
+- `@tomismeta/aperture-core` only sees `SourceEvent` and `AttentionResponse`
+- stdio is the current transport implementation, not the architecture itself
+
 ## Current Foundation
 
 The repo now includes a minimal `@aperture/codex` package with:

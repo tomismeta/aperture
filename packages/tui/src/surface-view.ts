@@ -1,6 +1,6 @@
 import type { AttentionView, Frame } from "./types.js";
 
-export const DEFAULT_AMBIENT_STALE_MS = 5 * 60 * 1000;
+export const DEFAULT_AMBIENT_STALE_MS = 60 * 1000;
 
 export function buildSurfaceAttentionView(
   attentionView: AttentionView,

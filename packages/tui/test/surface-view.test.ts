@@ -35,8 +35,8 @@ test("buildSurfaceAttentionView drops stale passive ambient status frames", () =
         interactionId: "interaction-2",
         title: "Recent session running",
         timing: {
-          createdAt: "2026-03-18T10:04:30.000Z",
-          updatedAt: "2026-03-18T10:04:30.000Z",
+          createdAt: "2026-03-18T10:05:30.000Z",
+          updatedAt: "2026-03-18T10:05:30.000Z",
         },
       }),
     ],
@@ -44,7 +44,7 @@ test("buildSurfaceAttentionView drops stale passive ambient status frames", () =
 
   const filtered = buildSurfaceAttentionView(attentionView, {
     nowMs: Date.parse("2026-03-18T10:06:00.000Z"),
-    ambientStaleMs: 5 * 60 * 1000,
+    ambientStaleMs: 60 * 1000,
   });
 
   assert.equal(filtered.ambient.length, 1);
@@ -69,7 +69,7 @@ test("buildSurfaceAttentionView keeps actionable ambient frames even when old", 
 
   const filtered = buildSurfaceAttentionView(attentionView, {
     nowMs: Date.parse("2026-03-18T10:10:00.000Z"),
-    ambientStaleMs: 5 * 60 * 1000,
+    ambientStaleMs: 60 * 1000,
   });
 
   assert.equal(filtered.ambient.length, 1);

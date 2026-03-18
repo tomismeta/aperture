@@ -14,7 +14,7 @@
 </div>
 
 
-Aperture sits between many possible event sources and one human decision surface, then decides what deserves attention now, what should wait, and what should remain ambient.
+Aperture sits between many agent event sources and one human decision surface. It decides what deserves attention now, what should wait until next, and what should stay ambient.
 
 ```text
 +-----------+    +-------------+    +-------------+    +-------------+    +-------------+
@@ -27,30 +27,28 @@ from coding      from raw payloads   deserve           operator          carried
 agents                               attention now?    actually sees     to the tool
 ```
 
-**Live path today:** Claude Code and OpenCode can both feed one shared Aperture runtime and one terminal attention surface.
-
 ## Start Here
 
 Choose one path:
 
-- use the published SDK if you want to embed Aperture's judgment engine in your own runtime or UI
-- run the full local stack if you want one shared Aperture runtime and TUI supervising live source adapters on this machine
+- **use the SDK** if you want to embed Aperture's judgment engine in your own runtime or UI
+- **run the local stack** if you want one shared Aperture runtime and TUI supervising live source adapters on this machine
 
-### Use The Published SDK
+### Use The SDK
 
-**npm package:** `@tomismeta/aperture-core`
+**Package:** `@tomismeta/aperture-core`
 
 ```bash
 npm install @tomismeta/aperture-core
 ```
 
-See the full SDK docs in [packages/core/README.md](packages/core/README.md).
-
-The intended SDK loop is intentionally small:
+The SDK loop is intentionally small:
 
 `ApertureEvent in -> AttentionFrame out -> AttentionResponse in`
 
-### Run The Full Local Stack
+See [packages/core/README.md](packages/core/README.md).
+
+### Run The Local Stack
 
 ```bash
 git clone git@github.com:tomismeta/aperture.git
@@ -76,55 +74,19 @@ Then start Aperture:
 pnpm aperture
 ```
 
-This starts the current shared stack:
+This starts:
 
 - Aperture runtime
-- any configured Claude Code adapters
-- any configured OpenCode adapters
+- configured source adapters
 - terminal attention surface
-
-Under the hood, Aperture already includes:
-
-- deterministic policy, attention value, and planning layers
-- behavioral signals and memory-backed judgment
-- scaffolded local judgment control for bounded approvals and interrupt rules
-- episode-aware coordination across related work
-- attention pressure forecasting before overload
-- replay evaluation for judgment behavior
 
 ## What Aperture Is
 
-Aperture is an engine-first TypeScript workspace for allocating and protecting human attention in agent-heavy workflows.
+Aperture is a judgment engine for human attention in agent systems.
 
-It is not:
+Aperture takes events from tools and agents, turns them into explicit facts, and decides what deserves attention now, what should wait until next, and what should remain ambient.
 
-- an orchestrator
-- a chat UI
-- a dashboard
-- a generic queue
-- an LLM call wrapped around approval prompts
-
-The core bet is simple:
-
-**human attention should be allocated by a fast, deterministic, inspectable engine that gets better with use**
-
-Today, that includes a live local judgment surface: Aperture scaffolds `.aperture/JUDGMENT.md`, loads it on startup, and uses it to control bounded auto-approval, interruption policy, and planner defaults.
-
-## Judgment Doctrine
-
-Aperture is governed by a simple idea:
-
-**Aperture protects your attention in a world designed to abuse it.**
-
-That means:
-
-- interruption is a scarce semantic resource
-- the engine should surface decisions, not raw events
-- next and ambient modes help preserve the meaning of interruption
-- low-confidence cases should stay peripheral instead of stealing focus
-- the human attention loop should be deterministic, inspectable, and behaviorally grounded
-
-The full doctrine lives in [docs/attention-judgment-doctrine.md](docs/attention-judgment-doctrine.md).
+The goal is simple: give one human a calm, deterministic way to supervise many parallel agent workflows.
 
 ## Why It Exists
 
@@ -141,6 +103,22 @@ The hard problem is not moving events around.
 The hard problem is deciding how human attention should be spent.
 
 Aperture exists to answer that in the hot path, without turning every judgment into a slow or expensive model call.
+
+## Judgment Doctrine
+
+Aperture is governed by a simple idea:
+
+**Aperture protects your attention in a world designed to abuse it.**
+
+That means:
+
+- interruption is a scarce semantic resource
+- the engine should surface decisions, not raw events
+- next and ambient modes help preserve the meaning of interruption
+- low-confidence cases should stay peripheral instead of stealing focus
+- the human attention loop should be deterministic, inspectable, and behaviorally grounded
+
+The full doctrine lives in [docs/attention-judgment-doctrine.md](docs/attention-judgment-doctrine.md).
 
 ## Current Product Shape
 

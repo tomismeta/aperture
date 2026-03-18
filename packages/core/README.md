@@ -19,12 +19,8 @@ status updates, or blocked work, and you need one place to decide:
 You send events in, Aperture gives you frames and surfaced state to render, and
 you send the human's answer back.
 
-It is not:
-
-- a transport server
-- a terminal UI
-- a source-specific adapter
-- a generic agent orchestration framework
+This package is the judgment engine only. Runtime hosting, source adapters, and
+the TUI live elsewhere in the repo.
 
 ## What Core Does
 

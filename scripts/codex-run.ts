@@ -17,12 +17,14 @@ async function main(): Promise<void> {
       ? { sourceLabel: process.env.APERTURE_CODEX_SOURCE_LABEL }
       : {}),
     appServer: {
-      ...(process.env.APERTURE_CODEX_COMMAND
-        ? { command: process.env.APERTURE_CODEX_COMMAND }
-        : {}),
-      ...(options.cwd ?? process.env.APERTURE_CODEX_CWD
-        ? { cwd: options.cwd ?? process.env.APERTURE_CODEX_CWD }
-        : {}),
+      stdio: {
+        ...(process.env.APERTURE_CODEX_COMMAND
+          ? { command: process.env.APERTURE_CODEX_COMMAND }
+          : {}),
+        ...(options.cwd ?? process.env.APERTURE_CODEX_CWD
+          ? { cwd: options.cwd ?? process.env.APERTURE_CODEX_CWD }
+          : {}),
+      },
     },
     logger: createStderrLogger(),
   });

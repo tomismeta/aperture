@@ -21,4 +21,11 @@ export {
   type CodexRunOptions,
 } from "./run.js";
 export * from "./protocol.js";
+export type {
+  CodexExitListener,
+  CodexNotificationListener,
+  CodexRequestListener,
+  CodexStderrListener,
+  CodexTransport,
+} from "./transport.js";
 export { CodexAppServerStdio, type CodexAppServerStdioOptions } from "./stdio.js";

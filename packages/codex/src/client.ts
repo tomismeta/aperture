@@ -6,8 +6,6 @@ import type {
   CodexClientInfo,
   CodexReviewStartParams,
   CodexReviewStartResult,
-  CodexRawServerNotification,
-  CodexRawServerRequest,
   CodexThreadResumeParams,
   CodexThreadResumeResult,
   CodexThreadStartParams,
@@ -20,23 +18,31 @@ import type {
   CodexInitializeResult,
   JsonRpcId,
 } from "./protocol.js";
+import type {
+  CodexExitListener,
+  CodexNotificationListener,
+  CodexRequestListener,
+  CodexStderrListener,
+  CodexTransport,
+} from "./transport.js";
 
-export type CodexAppServerClientOptions = CodexAppServerStdioOptions & {
+export type CodexAppServerClientOptions = {
   clientInfo?: CodexClientInfo;
+  transport?: CodexTransport;
+  transportFactory?: () => CodexTransport;
+  // Used only when the client falls back to the built-in stdio transport.
+  stdio?: CodexAppServerStdioOptions;
 };
 
-type NotificationListener = (notification: CodexRawServerNotification) => void;
-type RequestListener = (request: CodexRawServerRequest) => void;
-type ExitListener = (error: Error) => void;
-type StderrListener = (line: string) => void;
-
 export class CodexAppServerClient {
-  private readonly transport: CodexAppServerStdio;
+  private readonly transport: CodexTransport;
   private readonly clientInfo: CodexClientInfo;
   private nextId = 1;
 
   constructor(options: CodexAppServerClientOptions = {}) {
-    this.transport = new CodexAppServerStdio(options);
+    this.transport = options.transport
+      ?? options.transportFactory?.()
+      ?? new CodexAppServerStdio(options.stdio);
     this.clientInfo = options.clientInfo ?? {
       name: "aperture_codex",
       title: "Aperture Codex Adapter",
@@ -60,19 +66,19 @@ export class CodexAppServerClient {
     return result;
   }
 
-  onNotification(listener: NotificationListener): () => void {
+  onNotification(listener: CodexNotificationListener): () => void {
     return this.transport.onNotification(listener);
   }
 
-  onServerRequest(listener: RequestListener): () => void {
+  onServerRequest(listener: CodexRequestListener): () => void {
     return this.transport.onServerRequest(listener);
   }
 
-  onExit(listener: ExitListener): () => void {
+  onExit(listener: CodexExitListener): () => void {
     return this.transport.onExit(listener);
   }
 
-  onStderr(listener: StderrListener): () => void {
+  onStderr(listener: CodexStderrListener): () => void {
     return this.transport.onStderr(listener);
   }
 

@@ -104,7 +104,7 @@ export function createCodexBridge(options: CodexBridgeOptions): CodexBridge {
         id: adapterId,
         label: options.runtimeLabel ?? "Codex adapter",
         metadata: {
-          transport: "app-server-stdio",
+          transport: "app-server",
           ...(options.runtimeMetadata ?? {}),
         },
       });

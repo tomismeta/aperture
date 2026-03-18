@@ -16,6 +16,13 @@ import {
   isCodexServerNotification,
   isCodexServerRequest,
 } from "./protocol.js";
+import type {
+  CodexExitListener,
+  CodexNotificationListener,
+  CodexRequestListener,
+  CodexStderrListener,
+  CodexTransport,
+} from "./transport.js";
 
 export type CodexAppServerStdioOptions = {
   command?: string;
@@ -29,12 +36,7 @@ type PendingRequest = {
   reject: (error: Error) => void;
 };
 
-type NotificationListener = (notification: CodexRawServerNotification) => void;
-type RequestListener = (request: CodexRawServerRequest) => void;
-type ExitListener = (error: Error) => void;
-type StderrListener = (line: string) => void;
-
-export class CodexAppServerStdio {
+export class CodexAppServerStdio implements CodexTransport {
   private readonly command: string;
   private readonly args: string[];
   private readonly cwd: string | undefined;
@@ -43,10 +45,10 @@ export class CodexAppServerStdio {
   private stdoutReader: ReadlineInterface | null = null;
   private stderrReader: ReadlineInterface | null = null;
   private readonly pending = new Map<JsonRpcId, PendingRequest>();
-  private readonly notificationListeners = new Set<NotificationListener>();
-  private readonly requestListeners = new Set<RequestListener>();
-  private readonly exitListeners = new Set<ExitListener>();
-  private readonly stderrListeners = new Set<StderrListener>();
+  private readonly notificationListeners = new Set<CodexNotificationListener>();
+  private readonly requestListeners = new Set<CodexRequestListener>();
+  private readonly exitListeners = new Set<CodexExitListener>();
+  private readonly stderrListeners = new Set<CodexStderrListener>();
   private closed = false;
 
   constructor(options: CodexAppServerStdioOptions = {}) {
@@ -98,28 +100,28 @@ export class CodexAppServerStdio {
     });
   }
 
-  onNotification(listener: NotificationListener): () => void {
+  onNotification(listener: CodexNotificationListener): () => void {
     this.notificationListeners.add(listener);
     return () => {
       this.notificationListeners.delete(listener);
     };
   }
 
-  onServerRequest(listener: RequestListener): () => void {
+  onServerRequest(listener: CodexRequestListener): () => void {
     this.requestListeners.add(listener);
     return () => {
       this.requestListeners.delete(listener);
     };
   }
 
-  onExit(listener: ExitListener): () => void {
+  onExit(listener: CodexExitListener): () => void {
     this.exitListeners.add(listener);
     return () => {
       this.exitListeners.delete(listener);
     };
   }
 
-  onStderr(listener: StderrListener): () => void {
+  onStderr(listener: CodexStderrListener): () => void {
     this.stderrListeners.add(listener);
     return () => {
       this.stderrListeners.delete(listener);

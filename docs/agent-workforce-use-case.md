@@ -111,8 +111,8 @@ If this is the primary use case, Aperture likely needs source-specific collectio
 ### Likely First Adapters
 
 - `@aperture/opencode`
-- `@aperture/codex`
 - `@aperture/claude-code`
+- future Codex App Server adapter
 
 The job of these adapters is:
 

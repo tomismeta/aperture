@@ -229,8 +229,8 @@ Current practical split:
 - live adapters:
   - `@aperture/claude-code`
   - `@aperture/opencode`
-- non-live / design-stage adapters:
-  - `@aperture/codex`
+- future adapter opportunities:
+  - Codex App Server
 
 Use an adapter when:
 
@@ -242,20 +242,6 @@ Skip adapters when:
 - you already control the event source
 - you can emit `ApertureEvent` directly
 - you want to consume `AttentionResponse` directly in your own app or service
-
-#### `@aperture/codex`
-
-- Classification: source adapter
-- Status: design-stage boundary
-- Lives in [packages/codex/src/index.ts](../packages/codex/src/index.ts)
-- Purpose: translate Codex app-server approval and user-input requests into `SourceEvent`, translate `AttentionResponse` back into Codex response descriptors, and optionally publish through `@aperture/runtime`
-- Owns:
-  - Codex ingress mapping
-  - Codex return-path mapping
-- Does not own:
-  - attention judgment
-  - signal storage
-  - direct Codex transport by itself
 
 #### `@aperture/claude-code`
 

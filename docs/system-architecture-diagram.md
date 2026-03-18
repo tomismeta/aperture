@@ -20,7 +20,7 @@ beside them:
 1. **Source Hosts**
    - Owned by: external tools
    - The tools where work originates.
-   - Today that means Claude Code, OpenCode, and Codex.
+   - Today that means Claude Code and OpenCode. Future hosts should enter through the same adapter boundary.
 
 2. **Source Adapters**
    - Owned by: adapter packages
@@ -226,7 +226,7 @@ flowchart LR
   subgraph L1["1. Source Hosts"]
     CC["Claude Code"]
     OC["OpenCode"]
-    CX["Codex"]
+    CX["Future source host"]
   end
 
   subgraph L2["2. Source Adapters"]
@@ -234,8 +234,8 @@ flowchart LR
 Turns Claude hook payloads into Aperture source events"]
     A2["OpenCode adapter
 Turns OpenCode server events into Aperture source events"]
-    A3["Codex adapter
-Turns Codex requests and approvals into Aperture source events"]
+    A3["Future adapter
+Turns source-native payloads into Aperture source events"]
     AF["Adapter facts
 Explicit semantics when known:
 tool family, activity class, request type, risk hints, source identity"]
@@ -380,7 +380,7 @@ Validate the response, apply it, update state, emit signals"]
 Turn AttentionResponse back into a source-native action"]
     OUT1["Claude response path"]
     OUT2["OpenCode response path"]
-    OUT3["Codex response path"]
+    OUT3["Future source response path"]
   end
 
   TUI --> SUB
@@ -559,7 +559,6 @@ It does **not** need to be updated for:
 
 - [Claude adapter](/Users/tom/dev/aperture/packages/claude-code/src/index.ts)
 - [OpenCode mapping](/Users/tom/dev/aperture/packages/opencode/src/mapping.ts)
-- [Codex adapter](/Users/tom/dev/aperture/packages/codex/src/index.ts)
 
 ### Core ingress
 

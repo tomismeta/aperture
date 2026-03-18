@@ -64,7 +64,6 @@ Current code paths:
 - adapter ingress:
   - [packages/claude-code/src/index.ts](/Users/tom/dev/aperture/packages/claude-code/src/index.ts)
   - [packages/opencode/src/mapping.ts](/Users/tom/dev/aperture/packages/opencode/src/mapping.ts)
-  - [packages/codex/src/index.ts](/Users/tom/dev/aperture/packages/codex/src/index.ts)
 - source event contract:
   - [packages/core/src/source-event.ts](/Users/tom/dev/aperture/packages/core/src/source-event.ts)
 - canonical event contract:
@@ -317,7 +316,6 @@ Relevant files:
 
 - [packages/claude-code/src/index.ts](/Users/tom/dev/aperture/packages/claude-code/src/index.ts)
 - [packages/opencode/src/mapping.ts](/Users/tom/dev/aperture/packages/opencode/src/mapping.ts)
-- [packages/codex/src/index.ts](/Users/tom/dev/aperture/packages/codex/src/index.ts)
 
 ### Core normalization changes
 

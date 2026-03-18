@@ -42,6 +42,7 @@ export type AttentionTuiOptions = {
   input?: InputLike;
   output?: OutputLike;
   reducedMotion?: boolean;
+  ambientStaleMs?: number;
 };
 
 export type FormDraft = {

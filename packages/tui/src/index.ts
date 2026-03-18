@@ -11,6 +11,7 @@ import {
   describeResponse,
 } from "./interaction.js";
 import { displaySourceLabel } from "./source-label.js";
+import { buildSurfaceAttentionView, sameAttentionView } from "./surface-view.js";
 
 import type {
   AttentionSurface,
@@ -33,8 +34,10 @@ export async function runAttentionTui(
   const output = (options?.output ?? defaultOutput) as OutputLike;
   const title = options?.title ?? "Aperture";
   const reducedMotion = options?.reducedMotion ?? false;
+  const ambientStaleMs = options?.ambientStaleMs;
+  const surfaceViewOptions = ambientStaleMs !== undefined ? { ambientStaleMs } : {};
 
-  const initialView = core.getAttentionView();
+  const initialView = buildSurfaceAttentionView(core.getAttentionView(), surfaceViewOptions);
   const initialSummary = core.getSignalSummary();
   const initialPosture = reducedMotion && isAttentionViewEmpty(initialView)
     ? "calm"
@@ -94,42 +97,15 @@ export async function runAttentionTui(
     setImmediate(() => {
       renderScheduled = false;
       render();
-    });
+      });
   };
 
-  const onResize = () => requestRender();
-  output.on("resize", onResize);
-
-  // Animation tick (500ms)
-  const animationInterval = setInterval(() => {
-    const isEmpty = !state.attentionView.active
-      && state.attentionView.queued.length === 0
-      && state.attentionView.ambient.length === 0;
-
-    if (reducedMotion) {
-      if (!isEmpty) {
-        return;
-      }
-      state.animation.idleTick = (state.animation.idleTick + 1) % 4;
-      requestRender();
-      return;
-    }
-
-    const hadActiveAnimation = tickAnimation(state.animation);
-    // Re-render for active animations (posture flash, frame entrance)
-    // or for the idle lens pulse when surface is truly empty
-    if (hadActiveAnimation || isEmpty) {
-      requestRender();
-    }
-  }, 500);
-
-  // Subscribe to attention view updates
-  const unsubAttention = core.subscribeAttentionView((attentionView) => {
+  const applyAttentionView = (attentionView: typeof state.attentionView) => {
     const previousActiveId = state.attentionView.active?.interactionId ?? null;
+    const previousView = state.attentionView;
     state.attentionView = attentionView;
     const active = attentionView.active;
 
-    // Update posture
     const newPosture = reducedMotion && isAttentionViewEmpty(attentionView)
       ? "calm"
       : computePosture(core.getSignalSummary(), attentionView);
@@ -139,7 +115,6 @@ export async function runAttentionTui(
     }
     state.posture = newPosture;
 
-    // Frame entrance animation
     if (!reducedMotion && active && active.interactionId !== previousActiveId) {
       state.animation.frameEntrance = { interactionId: active.interactionId, ticksRemaining: 1 };
     }
@@ -159,7 +134,6 @@ export async function runAttentionTui(
       state.statusLine = `Focused on ${active.title} · ${displaySourceLabel(active.source)}`;
     }
 
-    // Prune trace cache — only keep traces for visible interactions
     const visibleIds = new Set<string>();
     if (active) visibleIds.add(active.interactionId);
     for (const f of attentionView.queued) visibleIds.add(f.interactionId);
@@ -168,6 +142,39 @@ export async function runAttentionTui(
       if (!visibleIds.has(id)) state.traceCache.delete(id);
     }
 
+    return !sameAttentionView(previousView, attentionView);
+  };
+
+  const onResize = () => requestRender();
+  output.on("resize", onResize);
+
+  // Animation tick (500ms)
+  const animationInterval = setInterval(() => {
+    const latestView = buildSurfaceAttentionView(core.getAttentionView(), surfaceViewOptions);
+    const viewChanged = applyAttentionView(latestView);
+    const isEmpty = isAttentionViewEmpty(state.attentionView);
+    const hasNoActiveFrame = state.attentionView.active === null;
+
+    if (reducedMotion) {
+      if (!hasNoActiveFrame && !viewChanged) {
+        return;
+      }
+      state.animation.idleTick = (state.animation.idleTick + 1) % 4;
+      requestRender();
+      return;
+    }
+
+    const hadActiveAnimation = tickAnimation(state.animation);
+    // Re-render for active animations, live posture/view cooling, or the idle lens pulse
+    // whenever nothing currently owns the operator's focus.
+    if (hadActiveAnimation || viewChanged || hasNoActiveFrame || isEmpty) {
+      requestRender();
+    }
+  }, 500);
+
+  // Subscribe to attention view updates
+  const unsubAttention = core.subscribeAttentionView((attentionView) => {
+    applyAttentionView(buildSurfaceAttentionView(attentionView, surfaceViewOptions));
     requestRender();
   });
 

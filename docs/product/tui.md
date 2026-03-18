@@ -93,6 +93,10 @@ items include:
 - completed work
 - low-priority notifications
 
+The terminal surface also lets stale passive ambient work age off after a quiet
+horizon. That keeps long-silent background status from leaving the screen in a
+permanently "busy" visual posture.
+
 ## Controls And Status
 
 The controls line at the bottom of the screen is the source of truth for what
@@ -120,6 +124,10 @@ When typing:
 
 - `[enter]` advances or submits
 - `[esc]` cancels editing
+
+When there is no active frame, the idle lens pulse continues calmly even if
+ambient work is still present. That makes the "nothing currently owns my
+attention" transition feel explicit instead of frozen.
 
 ## Why Mode
 

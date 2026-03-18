@@ -80,6 +80,85 @@ The important rule is:
 - if a surface only proves that OpenAI itself is using App Server internally,
   it is useful validation but not yet a direct Aperture integration seam
 
+## Verified Behavior
+
+What is now proven end to end:
+
+- Aperture can supervise a real Codex App Server session
+- Codex can emit a real server request that `@aperture/codex` maps into
+  `SourceEvent`
+- Aperture TUI can surface that request as a focused `Now` frame
+- approving in the TUI maps back into a Codex-native response and Codex
+  continues the turn
+
+The verified request family is:
+
+- `item/commandExecution/requestApproval`
+
+Observed approval round trip:
+
+```text
+[codex] server request item/commandExecution/requestApproval
+[codex] mapped request item/commandExecution/requestApproval -> 1 SourceEvent(s)
+[codex] runtime response approved for codex:commandApproval:...
+[codex] notification serverRequest/resolved
+```
+
+That is the milestone:
+
+```text
+Codex App Server
+-> @aperture/codex
+-> Aperture runtime/core
+-> Aperture TUI
+-> AttentionResponse
+-> Codex App Server
+```
+
+## Known-Good Smoke Test
+
+This is the current deterministic approval-path smoke test:
+
+```bash
+APERTURE_CODEX_DEBUG=1 pnpm codex:run --cwd /Users/tom/dev/aperture --approval-policy on-request --sandbox read-only "Create a directory named codex-smoke-test and create hello.txt inside it."
+```
+
+Why this works:
+
+- `on-request` allows Codex to ask instead of silently denying or auto-running
+- `read-only` forces a real approval request for write-producing work
+- the task is simple enough that the resulting approval is easy to understand
+
+Current observed result:
+
+- with `workspace-write`, simple workspace writes may not trigger approval
+- with `read-only`, the same write request does trigger a real server request
+
+## Current Limits
+
+What appears to be a Codex App Server behavior limit today:
+
+- not every human-relevant moment becomes a server request
+- conversational prompts like "ask me first" do not necessarily become
+  `item/tool/requestUserInput`
+- many events remain notifications only:
+  - `item/started`
+  - `item/completed`
+  - `item/agentMessage/delta`
+  - `thread/status/changed`
+  - `turn/completed`
+
+So the main current limitation is usually not the Aperture adapter. It is that
+Codex only externalizes some decision points as server requests.
+
+What is an adapter limitation today:
+
+- only some request families have been live-verified so far
+- richer supervision is still intentionally conservative:
+  - explicit server requests become `Now`
+  - coarse lifecycle becomes ambient
+  - noisy deltas are not promoted into attention claims
+
 ## Current Foundation
 
 The repo now includes a minimal `@aperture/codex` package with:

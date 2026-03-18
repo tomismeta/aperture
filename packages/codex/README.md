@@ -94,6 +94,36 @@ Current Aperture disposition by surface:
 +-------------------------+----------------------+--------------------------------------------+
 ```
 
+## Verified Today
+
+What is now proven:
+
+- `@aperture/codex` can supervise a real Codex App Server session end to end
+- Codex can emit a real approval request that Aperture maps into `SourceEvent`
+- Aperture TUI can surface that request as a focused `Now` frame
+- approving in the TUI routes a native response back to Codex and Codex
+  continues the turn
+
+The verified request family is:
+
+- `item/commandExecution/requestApproval`
+
+Known-good smoke test:
+
+```bash
+APERTURE_CODEX_DEBUG=1 pnpm codex:run --cwd /Users/tom/dev/aperture --approval-policy on-request --sandbox read-only "Create a directory named codex-smoke-test and create hello.txt inside it."
+```
+
+Current observed limitation:
+
+- simple writes under `workspace-write` may not trigger approval at all
+- not every conversational "ask the human" moment becomes
+  `item/tool/requestUserInput`
+- many Codex events stay as notifications rather than server requests
+
+So today the main limit is usually the expressiveness of what Codex App Server
+chooses to externalize, not the basic Aperture adapter path
+
 ## Main Rule
 
 Adapters provide facts. Core provides judgment.

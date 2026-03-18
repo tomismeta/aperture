@@ -69,6 +69,21 @@ So the missing piece is not the adapter. The missing pieces are the **shared
 Codex client path** above the adapter and the **interruption semantics** that
 external clients can reliably build around.
 
+## Current Transport Story
+
+Transport is no longer the main unknown on the Aperture side:
+
+- `stdio` is the default and best-supported Codex path today
+- `websocket` is now available for shared or remote App Server setups
+- the adapter can accommodate both without changing Aperture core
+
+The remaining uncertainty is above the transport seam:
+
+- Codex still needs a stronger App Server interruption contract so more
+  human-relevant moments become real requests
+- Codex surfaces still need to converge on one shared App Server client path
+  if we want clean macOS app + TUI + IDE supervision through the same seam
+
 ## Two Real Product Paths
 
 There are two credible ways to make Codex feel integrated with Aperture.

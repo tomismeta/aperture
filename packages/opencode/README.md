@@ -65,6 +65,8 @@ The package currently includes:
 - mapping from OpenCode events into `SourceEvent`
 - mapping from `AttentionResponse` back into OpenCode reply calls
 - a bridge that connects the live OpenCode server path to Aperture runtime
+- bootstrap of pending permissions and questions from the server
+- reconnect and heartbeat handling for the live event stream
 
 ## Current Assessment
 

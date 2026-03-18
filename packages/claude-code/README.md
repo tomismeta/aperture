@@ -54,6 +54,7 @@ Aperture owns:
 
 - hook-event mapping into `SourceEvent`
 - held approval behavior at the adapter boundary
+- conservative fallback-to-ask when Aperture cannot hold or answer in time
 - attention judgment
 - operator-facing response routing
 
@@ -63,6 +64,7 @@ The package currently includes:
 
 - a mapping layer for Claude hook events
 - a local hook server for hold-and-reply behavior
+- tool-aware risk hints for Bash, read, write, edit, and web-style tool calls
 - mapping from `AttentionResponse` back into Claude hook responses
 
 ## Current Assessment

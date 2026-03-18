@@ -5,14 +5,21 @@ import type {
 } from "@tomismeta/aperture-core";
 
 import type {
+  CodexApplyPatchApprovalParams,
+  CodexApplyPatchApprovalResponse,
   CodexCommandExecutionApprovalDecision,
   CodexCommandExecutionRequestApprovalParams,
+  CodexExecCommandApprovalParams,
+  CodexExecCommandApprovalResponse,
   CodexFileChangeApprovalDecision,
   CodexFileChangeRequestApprovalParams,
   CodexItemCompletedNotification,
   CodexItemStartedNotification,
+  CodexPermissionsRequestApprovalParams,
+  CodexPermissionsRequestApprovalResponse,
   CodexRawServerNotification,
   CodexRawServerRequest,
+  CodexReviewDecision,
   CodexServerNotification,
   CodexServerRequest,
   CodexThreadStartedNotification,
@@ -37,6 +44,9 @@ export type CodexResponsePayload =
   | {
       decision: CodexCommandExecutionApprovalDecision | CodexFileChangeApprovalDecision;
     }
+  | CodexExecCommandApprovalResponse
+  | CodexApplyPatchApprovalResponse
+  | CodexPermissionsRequestApprovalResponse
   | {
       answers: Record<string, { answers: string[] }>;
     };
@@ -63,6 +73,26 @@ type ParsedInteractionId =
       threadId: string;
       turnId: string;
       itemId: string;
+    }
+  | {
+      kind: "execCommandApproval";
+      requestId: string;
+      threadId: string;
+      itemId: string;
+      approvalId?: string;
+    }
+  | {
+      kind: "applyPatchApproval";
+      requestId: string;
+      threadId: string;
+      itemId: string;
+    }
+  | {
+      kind: "permissionsApproval";
+      requestId: string;
+      threadId: string;
+      turnId: string;
+      itemId: string;
     };
 
 export function mapCodexServerRequest(
@@ -81,6 +111,18 @@ export function mapCodexServerRequest(
     case "item/tool/requestUserInput":
       return isToolRequestUserInputParams(request.params)
         ? mapToolRequestUserInputRequest(request.id, request.params, context)
+        : null;
+    case "item/permissions/requestApproval":
+      return isPermissionsRequestApprovalParams(request.params)
+        ? mapPermissionsApprovalRequest(request.id, request.params, context)
+        : null;
+    case "execCommandApproval":
+      return isExecCommandApprovalParams(request.params)
+        ? mapExecCommandApprovalRequest(request.id, request.params, context)
+        : null;
+    case "applyPatchApproval":
+      return isApplyPatchApprovalParams(request.params)
+        ? mapApplyPatchApprovalRequest(request.id, request.params, context)
         : null;
     default:
       return null;
@@ -147,6 +189,25 @@ export function mapCodexResponse(
       return {
         answers: mapToolRequestAnswers(response, request.params),
       };
+    case "item/permissions/requestApproval":
+      if (!isPermissionsRequestApprovalParams(request.params)) {
+        return null;
+      }
+      return mapPermissionsApprovalResponse(response, request.params);
+    case "execCommandApproval":
+      if (!isExecCommandApprovalParams(request.params)) {
+        return null;
+      }
+      return {
+        decision: mapReviewDecision(response),
+      };
+    case "applyPatchApproval":
+      if (!isApplyPatchApprovalParams(request.params)) {
+        return null;
+      }
+      return {
+        decision: mapReviewDecision(response),
+      };
     default:
       return null;
   }
@@ -180,6 +241,29 @@ export function parseCodexInteractionId(interactionId: string): ParsedInteractio
         itemId: decodeURIComponent(itemId),
       };
     case "userInput":
+      return {
+        kind,
+        requestId: decodeURIComponent(requestId),
+        threadId: decodeURIComponent(threadId),
+        turnId: decodeURIComponent(turnId),
+        itemId: decodeURIComponent(itemId),
+      };
+    case "execCommandApproval":
+      return {
+        kind,
+        requestId: decodeURIComponent(requestId),
+        threadId: decodeURIComponent(threadId),
+        itemId: decodeURIComponent(turnId),
+        ...(itemId ? { approvalId: decodeURIComponent(itemId) } : {}),
+      };
+    case "applyPatchApproval":
+      return {
+        kind,
+        requestId: decodeURIComponent(requestId),
+        threadId: decodeURIComponent(threadId),
+        itemId: decodeURIComponent(turnId),
+      };
+    case "permissionsApproval":
       return {
         kind,
         requestId: decodeURIComponent(requestId),
@@ -367,6 +451,141 @@ function mapToolRequestUserInputRequest(
   };
 }
 
+function mapPermissionsApprovalRequest(
+  requestId: JsonRpcId,
+  params: CodexPermissionsRequestApprovalParams,
+  context: CodexMappingContext,
+): CodexMappedRequest {
+  const taskId = codexTurnTaskId(params.threadId, params.turnId);
+  const interactionId = codexInteractionId(
+    "permissionsApproval",
+    requestId,
+    params.threadId,
+    params.turnId,
+    params.itemId,
+  );
+
+  const event: SourceHumanInputRequestedEvent = {
+    id: codexEventId(requestId, "human.input.requested", params.itemId),
+    type: "human.input.requested",
+    taskId,
+    interactionId,
+    timestamp: new Date().toISOString(),
+    source: codexSource(params.threadId, context),
+    activityClass: "permission_request",
+    title: "Approve Codex permissions",
+    summary: params.reason ?? describeAdditionalPermissions(params.permissions),
+    request: {
+      kind: "approval",
+    },
+    ...(params.reason ? { provenance: { whyNow: params.reason } } : {}),
+  };
+
+  return {
+    interactionId,
+    taskId,
+    events: [event],
+  };
+}
+
+function mapExecCommandApprovalRequest(
+  requestId: JsonRpcId,
+  params: CodexExecCommandApprovalParams,
+  context: CodexMappingContext,
+): CodexMappedRequest {
+  const taskId = codexThreadTaskId(params.conversationId);
+  const interactionId = codexInteractionId(
+    "execCommandApproval",
+    requestId,
+    params.conversationId,
+    params.callId,
+    params.approvalId ?? params.callId,
+  );
+
+  const event: SourceHumanInputRequestedEvent = {
+    id: codexEventId(requestId, "human.input.requested", params.callId),
+    type: "human.input.requested",
+    taskId,
+    interactionId,
+    timestamp: new Date().toISOString(),
+    source: codexSource(params.conversationId, context),
+    toolFamily: "bash",
+    activityClass: "permission_request",
+    title: "Approve Codex command",
+    summary: params.reason ?? "Codex requested approval before running a command.",
+    request: {
+      kind: "approval",
+    },
+    context: {
+      items: [
+        { id: "command", label: "Command", value: params.command.join(" ") },
+        { id: "cwd", label: "Working directory", value: params.cwd },
+        ...(params.reason ? [{ id: "reason", label: "Reason", value: params.reason }] : []),
+      ],
+    },
+    ...(params.reason ? { provenance: { whyNow: params.reason } } : {}),
+  };
+
+  return {
+    interactionId,
+    taskId,
+    events: [event],
+  };
+}
+
+function mapApplyPatchApprovalRequest(
+  requestId: JsonRpcId,
+  params: CodexApplyPatchApprovalParams,
+  context: CodexMappingContext,
+): CodexMappedRequest {
+  const taskId = codexThreadTaskId(params.conversationId);
+  const interactionId = codexInteractionId(
+    "applyPatchApproval",
+    requestId,
+    params.conversationId,
+    params.callId,
+    "patch",
+  );
+  const changedFiles = Object.keys(params.fileChanges ?? {});
+
+  const event: SourceHumanInputRequestedEvent = {
+    id: codexEventId(requestId, "human.input.requested", params.callId),
+    type: "human.input.requested",
+    taskId,
+    interactionId,
+    timestamp: new Date().toISOString(),
+    source: codexSource(params.conversationId, context),
+    toolFamily: "write",
+    activityClass: "permission_request",
+    title: "Approve Codex file changes",
+    summary: params.reason ?? "Codex requested approval before applying file changes.",
+    request: {
+      kind: "approval",
+    },
+    ...(changedFiles.length > 0 || params.grantRoot
+      ? {
+          context: {
+            items: [
+              ...(params.grantRoot
+                ? [{ id: "grantRoot", label: "Grant root", value: params.grantRoot }]
+                : []),
+              ...(changedFiles.length > 0
+                ? [{ id: "files", label: "Files", value: changedFiles.join(", ") }]
+                : []),
+            ],
+          },
+        }
+      : {}),
+    ...(params.reason ? { provenance: { whyNow: params.reason } } : {}),
+  };
+
+  return {
+    interactionId,
+    taskId,
+    events: [event],
+  };
+}
+
 function mapThreadStarted(
   notification: CodexThreadStartedNotification,
   context: CodexMappingContext,
@@ -547,6 +766,21 @@ function mapFileChangeApprovalDecision(response: AttentionResponse): CodexFileCh
   }
 }
 
+function mapReviewDecision(response: AttentionResponse): CodexReviewDecision {
+  switch (response.response.kind) {
+    case "approved":
+      return "approved";
+    case "rejected":
+      return "denied";
+    case "dismissed":
+    case "acknowledged":
+    case "option_selected":
+    case "text_submitted":
+    case "form_submitted":
+      return "abort";
+  }
+}
+
 function mapToolRequestAnswers(
   response: AttentionResponse,
   params: CodexToolRequestUserInputParams,
@@ -576,6 +810,29 @@ function mapToolRequestAnswers(
     answers[question.id] = { answers: [] };
   }
   return answers;
+}
+
+function mapPermissionsApprovalResponse(
+  response: AttentionResponse,
+  params: CodexPermissionsRequestApprovalParams,
+): CodexPermissionsRequestApprovalResponse {
+  switch (response.response.kind) {
+    case "approved":
+      return {
+        permissions: grantAdditionalPermissions(params.permissions),
+        scope: "turn",
+      };
+    case "rejected":
+    case "dismissed":
+    case "acknowledged":
+    case "option_selected":
+    case "text_submitted":
+    case "form_submitted":
+      return {
+        permissions: {},
+        scope: "turn",
+      };
+  }
 }
 
 function codexSource(threadId: string, context: CodexMappingContext) {
@@ -649,6 +906,41 @@ function isToolRequestUserInputParams(
     && typeof params.turnId === "string"
     && typeof params.itemId === "string"
     && Array.isArray(params.questions)
+  );
+}
+
+function isPermissionsRequestApprovalParams(
+  params: unknown,
+): params is CodexPermissionsRequestApprovalParams {
+  return (
+    isRecord(params)
+    && typeof params.threadId === "string"
+    && typeof params.turnId === "string"
+    && typeof params.itemId === "string"
+    && isRecord(params.permissions)
+  );
+}
+
+function isExecCommandApprovalParams(
+  params: unknown,
+): params is CodexExecCommandApprovalParams {
+  return (
+    isRecord(params)
+    && typeof params.conversationId === "string"
+    && typeof params.callId === "string"
+    && Array.isArray(params.command)
+    && typeof params.cwd === "string"
+  );
+}
+
+function isApplyPatchApprovalParams(
+  params: unknown,
+): params is CodexApplyPatchApprovalParams {
+  return (
+    isRecord(params)
+    && typeof params.conversationId === "string"
+    && typeof params.callId === "string"
+    && isRecord(params.fileChanges)
   );
 }
 
@@ -758,6 +1050,37 @@ function describeThreadStatus(status: { type: string; activeFlags?: string[] }):
     return status.type;
   }
   return `${status.type}: ${status.activeFlags.join(", ")}`;
+}
+
+function describeAdditionalPermissions(
+  permissions: CodexPermissionsRequestApprovalParams["permissions"],
+): string {
+  const parts: string[] = [];
+  if (permissions.network?.enabled) {
+    parts.push("network access");
+  }
+  if (permissions.fileSystem?.read?.length) {
+    parts.push(`read access to ${permissions.fileSystem.read.join(", ")}`);
+  }
+  if (permissions.fileSystem?.write?.length) {
+    parts.push(`write access to ${permissions.fileSystem.write.join(", ")}`);
+  }
+  if (permissions.macos) {
+    parts.push("macOS permissions");
+  }
+  return parts.length > 0
+    ? `Codex requested ${parts.join(" and ")}.`
+    : "Codex requested additional permissions before continuing.";
+}
+
+function grantAdditionalPermissions(
+  permissions: CodexPermissionsRequestApprovalParams["permissions"],
+): CodexPermissionsRequestApprovalResponse["permissions"] {
+  return {
+    ...(permissions.network ? { network: permissions.network } : {}),
+    ...(permissions.fileSystem ? { fileSystem: permissions.fileSystem } : {}),
+    ...(permissions.macos ? { macos: permissions.macos } : {}),
+  };
 }
 
 function normalizeAnswer(value: unknown): string[] {

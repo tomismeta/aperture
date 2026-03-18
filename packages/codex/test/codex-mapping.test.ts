@@ -58,6 +58,81 @@ test("maps file change approvals into write approval SourceEvents", () => {
   }
 });
 
+test("maps top-level exec command approvals into approval SourceEvents", () => {
+  const request: CodexServerRequest = {
+    id: "req-exec",
+    method: "execCommandApproval",
+    params: {
+      conversationId: "thread-legacy",
+      callId: "call-1",
+      approvalId: "approval-1",
+      command: ["mkdir", "codex-smoke-test"],
+      cwd: "/repo",
+      reason: "Create requested directory",
+      parsedCmd: [],
+    },
+  };
+
+  const mapped = mapCodexServerRequest(request);
+  assert.ok(mapped);
+  assert.equal(mapped?.events[0]?.type, "human.input.requested");
+  if (mapped?.events[0]?.type === "human.input.requested") {
+    assert.equal(mapped.events[0].toolFamily, "bash");
+    assert.equal(mapped.events[0].activityClass, "permission_request");
+    assert.equal(mapped.events[0].taskId, "codex:thread:thread-legacy");
+  }
+});
+
+test("maps top-level apply patch approvals into write approval SourceEvents", () => {
+  const request: CodexServerRequest = {
+    id: "req-patch",
+    method: "applyPatchApproval",
+    params: {
+      conversationId: "thread-legacy",
+      callId: "patch-1",
+      fileChanges: {
+        "/repo/hello.txt": { type: "add", content: "hello\n" },
+      },
+      reason: "Apply generated patch",
+      grantRoot: "/repo",
+    },
+  };
+
+  const mapped = mapCodexServerRequest(request);
+  assert.ok(mapped);
+  assert.equal(mapped?.events[0]?.type, "human.input.requested");
+  if (mapped?.events[0]?.type === "human.input.requested") {
+    assert.equal(mapped.events[0].toolFamily, "write");
+    assert.equal(mapped.events[0].activityClass, "permission_request");
+  }
+});
+
+test("maps permissions approvals into approval SourceEvents", () => {
+  const request: CodexServerRequest = {
+    id: "req-perms",
+    method: "item/permissions/requestApproval",
+    params: {
+      threadId: "thread-1",
+      turnId: "turn-9",
+      itemId: "item:perm:1",
+      reason: "Need network access",
+      permissions: {
+        network: { enabled: true },
+        fileSystem: null,
+        macos: null,
+      },
+    },
+  };
+
+  const mapped = mapCodexServerRequest(request);
+  assert.ok(mapped);
+  assert.equal(mapped?.events[0]?.type, "human.input.requested");
+  if (mapped?.events[0]?.type === "human.input.requested") {
+    assert.equal(mapped.events[0].activityClass, "permission_request");
+    assert.equal(mapped.events[0].title, "Approve Codex permissions");
+  }
+});
+
 test("maps single-question user input with options into a choice request", () => {
   const request: CodexServerRequest = {
     id: "req-choice",
@@ -157,6 +232,61 @@ test("maps approval responses back to codex decisions", () => {
   });
 });
 
+test("maps exec command approval responses back to review decisions", () => {
+  const request: CodexServerRequest = {
+    id: "req-exec",
+    method: "execCommandApproval",
+    params: {
+      conversationId: "thread-legacy",
+      callId: "call-1",
+      approvalId: "approval-1",
+      command: ["mkdir", "codex-smoke-test"],
+      cwd: "/repo",
+      reason: "Create requested directory",
+      parsedCmd: [],
+    },
+  };
+  const response: AttentionResponse = {
+    taskId: "codex:thread:thread-legacy",
+    interactionId: "codex:execCommandApproval:req-exec:thread-legacy:call-1:approval-1",
+    response: { kind: "approved" },
+  };
+
+  assert.deepEqual(mapCodexResponse(response, request), {
+    decision: "approved",
+  });
+});
+
+test("maps permissions approval responses back to granted permissions", () => {
+  const request: CodexServerRequest = {
+    id: "req-perms",
+    method: "item/permissions/requestApproval",
+    params: {
+      threadId: "thread-1",
+      turnId: "turn-9",
+      itemId: "item:perm:1",
+      reason: "Need network access",
+      permissions: {
+        network: { enabled: true },
+        fileSystem: null,
+        macos: null,
+      },
+    },
+  };
+  const response: AttentionResponse = {
+    taskId: "codex:thread:thread-1:turn:turn-9",
+    interactionId: "codex:permissionsApproval:req-perms:thread-1:turn-9:item%3Aperm%3A1",
+    response: { kind: "approved" },
+  };
+
+  assert.deepEqual(mapCodexResponse(response, request), {
+    permissions: {
+      network: { enabled: true },
+    },
+    scope: "turn",
+  });
+});
+
 test("maps user-input form responses back to answer payloads", () => {
   const request: CodexServerRequest = {
     id: "req-form",
@@ -242,6 +372,17 @@ test("parses codex interaction ids", () => {
       threadId: "thread-2",
       turnId: "turn-3",
       itemId: "item:input:2",
+    },
+  );
+
+  assert.deepEqual(
+    parseCodexInteractionId("codex:execCommandApproval:req-exec:thread-legacy:call-1:approval-1"),
+    {
+      kind: "execCommandApproval",
+      requestId: "req-exec",
+      threadId: "thread-legacy",
+      itemId: "call-1",
+      approvalId: "approval-1",
     },
   );
 });

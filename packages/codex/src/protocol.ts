@@ -1,5 +1,9 @@
 import type { ClientInfo as GeneratedClientInfo } from "./generated/app-server/ClientInfo.js";
 import type { ClientNotification as GeneratedClientNotification } from "./generated/app-server/ClientNotification.js";
+import type { ApplyPatchApprovalParams as GeneratedApplyPatchApprovalParams } from "./generated/app-server/ApplyPatchApprovalParams.js";
+import type { ApplyPatchApprovalResponse as GeneratedApplyPatchApprovalResponse } from "./generated/app-server/ApplyPatchApprovalResponse.js";
+import type { ExecCommandApprovalParams as GeneratedExecCommandApprovalParams } from "./generated/app-server/ExecCommandApprovalParams.js";
+import type { ExecCommandApprovalResponse as GeneratedExecCommandApprovalResponse } from "./generated/app-server/ExecCommandApprovalResponse.js";
 import type { InitializeParams as GeneratedInitializeParams } from "./generated/app-server/InitializeParams.js";
 import type { InitializeResponse as GeneratedInitializeResponse } from "./generated/app-server/InitializeResponse.js";
 import type { JsonValue } from "./generated/app-server/serde_json/JsonValue.js";
@@ -7,6 +11,7 @@ import type { Personality as GeneratedPersonality } from "./generated/app-server
 import type { ReasoningEffort as GeneratedReasoningEffort } from "./generated/app-server/ReasoningEffort.js";
 import type { ReasoningSummary as GeneratedReasoningSummary } from "./generated/app-server/ReasoningSummary.js";
 import type { RequestId as GeneratedRequestId } from "./generated/app-server/RequestId.js";
+import type { ReviewDecision as GeneratedReviewDecision } from "./generated/app-server/ReviewDecision.js";
 import type { ServerNotification as GeneratedServerNotification } from "./generated/app-server/ServerNotification.js";
 import type { ServerRequest as GeneratedServerRequest } from "./generated/app-server/ServerRequest.js";
 import type { AskForApproval } from "./generated/app-server/v2/AskForApproval.js";
@@ -22,6 +27,8 @@ import type { ReviewStartResponse as GeneratedReviewStartResponse } from "./gene
 import type { ReviewTarget as GeneratedReviewTarget } from "./generated/app-server/v2/ReviewTarget.js";
 import type { SandboxMode } from "./generated/app-server/v2/SandboxMode.js";
 import type { SandboxPolicy } from "./generated/app-server/v2/SandboxPolicy.js";
+import type { PermissionsRequestApprovalParams as GeneratedPermissionsRequestApprovalParams } from "./generated/app-server/v2/PermissionsRequestApprovalParams.js";
+import type { PermissionsRequestApprovalResponse as GeneratedPermissionsRequestApprovalResponse } from "./generated/app-server/v2/PermissionsRequestApprovalResponse.js";
 import type { ServerRequestResolvedNotification as GeneratedServerRequestResolvedNotification } from "./generated/app-server/v2/ServerRequestResolvedNotification.js";
 import type { Thread as GeneratedThread } from "./generated/app-server/v2/Thread.js";
 import type { ThreadItem as GeneratedThreadItem } from "./generated/app-server/v2/ThreadItem.js";
@@ -108,6 +115,13 @@ export type CodexCommandExecutionRequestApprovalParams =
   GeneratedCommandExecutionRequestApprovalParams;
 export type CodexFileChangeRequestApprovalParams = GeneratedFileChangeRequestApprovalParams;
 export type CodexToolRequestUserInputParams = GeneratedToolRequestUserInputParams;
+export type CodexPermissionsRequestApprovalParams = GeneratedPermissionsRequestApprovalParams;
+export type CodexExecCommandApprovalParams = GeneratedExecCommandApprovalParams;
+export type CodexApplyPatchApprovalParams = GeneratedApplyPatchApprovalParams;
+export type CodexReviewDecision = GeneratedReviewDecision;
+export type CodexExecCommandApprovalResponse = GeneratedExecCommandApprovalResponse;
+export type CodexApplyPatchApprovalResponse = GeneratedApplyPatchApprovalResponse;
+export type CodexPermissionsRequestApprovalResponse = GeneratedPermissionsRequestApprovalResponse;
 
 export type CodexRawServerRequest = {
   method: string;

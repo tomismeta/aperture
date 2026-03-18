@@ -6,8 +6,8 @@ import type {
   CodexClientInfo,
   CodexReviewStartParams,
   CodexReviewStartResult,
-  CodexServerNotification,
-  CodexServerRequest,
+  CodexRawServerNotification,
+  CodexRawServerRequest,
   CodexThreadResumeParams,
   CodexThreadResumeResult,
   CodexThreadStartParams,
@@ -25,8 +25,10 @@ export type CodexAppServerClientOptions = CodexAppServerStdioOptions & {
   clientInfo?: CodexClientInfo;
 };
 
-type NotificationListener = (notification: CodexServerNotification) => void;
-type RequestListener = (request: CodexServerRequest) => void;
+type NotificationListener = (notification: CodexRawServerNotification) => void;
+type RequestListener = (request: CodexRawServerRequest) => void;
+type ExitListener = (error: Error) => void;
+type StderrListener = (line: string) => void;
 
 export class CodexAppServerClient {
   private readonly transport: CodexAppServerStdio;
@@ -63,6 +65,14 @@ export class CodexAppServerClient {
 
   onServerRequest(listener: RequestListener): () => void {
     return this.transport.onServerRequest(listener);
+  }
+
+  onExit(listener: ExitListener): () => void {
+    return this.transport.onExit(listener);
+  }
+
+  onStderr(listener: StderrListener): () => void {
+    return this.transport.onStderr(listener);
   }
 
   async threadStart(params: CodexThreadStartParams = {}): Promise<CodexThreadStartResult> {

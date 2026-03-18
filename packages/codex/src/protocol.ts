@@ -184,6 +184,12 @@ export type CodexToolRequestUserInputParams = {
   questions: CodexToolRequestUserInputQuestion[];
 };
 
+export type CodexRawServerRequest = {
+  method: string;
+  id: JsonRpcId;
+  params?: unknown;
+};
+
 export type CodexServerRequest =
   | {
       method: "item/commandExecution/requestApproval";
@@ -270,6 +276,11 @@ export type CodexServerRequestResolvedNotification = {
   requestId: JsonRpcId;
 };
 
+export type CodexRawServerNotification = {
+  method: string;
+  params?: unknown;
+};
+
 export type CodexServerNotification =
   | {
       method: "thread/started";
@@ -332,35 +343,23 @@ export type CodexClientNotification = {
 export type CodexJsonRpcEnvelope =
   | CodexJsonRpcSuccess
   | CodexJsonRpcError
-  | CodexServerRequest
-  | CodexServerNotification
+  | CodexRawServerRequest
+  | CodexRawServerNotification
   | CodexClientNotification
   | CodexJsonRpcRequest;
 
-export function isCodexServerRequest(value: unknown): value is CodexServerRequest {
+export function isCodexServerRequest(value: unknown): value is CodexRawServerRequest {
   if (!isObject(value) || typeof value.method !== "string" || !("id" in value)) {
     return false;
   }
-  return (
-    value.method === "item/commandExecution/requestApproval"
-    || value.method === "item/fileChange/requestApproval"
-    || value.method === "item/tool/requestUserInput"
-  );
+  return typeof value.id === "string" || typeof value.id === "number";
 }
 
-export function isCodexServerNotification(value: unknown): value is CodexServerNotification {
+export function isCodexServerNotification(value: unknown): value is CodexRawServerNotification {
   if (!isObject(value) || typeof value.method !== "string" || ("id" in value)) {
     return false;
   }
-  return (
-    value.method === "thread/started"
-    || value.method === "thread/status/changed"
-    || value.method === "turn/started"
-    || value.method === "turn/completed"
-    || value.method === "item/started"
-    || value.method === "item/completed"
-    || value.method === "serverRequest/resolved"
-  );
+  return true;
 }
 
 export function isCodexJsonRpcSuccess<TResult = unknown>(

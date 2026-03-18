@@ -6,6 +6,8 @@ import type {
   CodexJsonRpcNotification,
   CodexJsonRpcRequest,
   CodexJsonRpcSuccess,
+  CodexRawServerNotification,
+  CodexRawServerRequest,
   JsonRpcId,
 } from "./protocol.js";
 import {
@@ -13,8 +15,6 @@ import {
   isCodexJsonRpcSuccess,
   isCodexServerNotification,
   isCodexServerRequest,
-  type CodexServerNotification,
-  type CodexServerRequest,
 } from "./protocol.js";
 
 export type CodexAppServerStdioOptions = {
@@ -29,8 +29,10 @@ type PendingRequest = {
   reject: (error: Error) => void;
 };
 
-type NotificationListener = (notification: CodexServerNotification) => void;
-type RequestListener = (request: CodexServerRequest) => void;
+type NotificationListener = (notification: CodexRawServerNotification) => void;
+type RequestListener = (request: CodexRawServerRequest) => void;
+type ExitListener = (error: Error) => void;
+type StderrListener = (line: string) => void;
 
 export class CodexAppServerStdio {
   private readonly command: string;
@@ -39,9 +41,12 @@ export class CodexAppServerStdio {
   private readonly env: NodeJS.ProcessEnv | undefined;
   private child: ChildProcessWithoutNullStreams | null = null;
   private stdoutReader: ReadlineInterface | null = null;
+  private stderrReader: ReadlineInterface | null = null;
   private readonly pending = new Map<JsonRpcId, PendingRequest>();
   private readonly notificationListeners = new Set<NotificationListener>();
   private readonly requestListeners = new Set<RequestListener>();
+  private readonly exitListeners = new Set<ExitListener>();
+  private readonly stderrListeners = new Set<StderrListener>();
   private closed = false;
 
   constructor(options: CodexAppServerStdioOptions = {}) {
@@ -67,14 +72,11 @@ export class CodexAppServerStdio {
       const reason = new Error(
         `Codex App Server exited${code !== null ? ` with code ${code}` : ""}${signal ? ` (${signal})` : ""}`,
       );
-      this.failPending(reason);
-      this.child = null;
-      this.stdoutReader?.close();
-      this.stdoutReader = null;
+      this.handleDisconnect(reason);
     });
 
     this.child.on("error", (error) => {
-      this.failPending(error instanceof Error ? error : new Error(String(error)));
+      this.handleDisconnect(error instanceof Error ? error : new Error(String(error)));
     });
 
     this.stdoutReader = createInterface({
@@ -83,6 +85,16 @@ export class CodexAppServerStdio {
     });
     this.stdoutReader.on("line", (line) => {
       this.handleLine(line);
+    });
+
+    this.stderrReader = createInterface({
+      input: this.child.stderr,
+      crlfDelay: Infinity,
+    });
+    this.stderrReader.on("line", (line) => {
+      for (const listener of this.stderrListeners) {
+        listener(line);
+      }
     });
   }
 
@@ -97,6 +109,20 @@ export class CodexAppServerStdio {
     this.requestListeners.add(listener);
     return () => {
       this.requestListeners.delete(listener);
+    };
+  }
+
+  onExit(listener: ExitListener): () => void {
+    this.exitListeners.add(listener);
+    return () => {
+      this.exitListeners.delete(listener);
+    };
+  }
+
+  onStderr(listener: StderrListener): () => void {
+    this.stderrListeners.add(listener);
+    return () => {
+      this.stderrListeners.delete(listener);
     };
   }
 
@@ -132,6 +158,8 @@ export class CodexAppServerStdio {
     this.closed = true;
     this.stdoutReader?.close();
     this.stdoutReader = null;
+    this.stderrReader?.close();
+    this.stderrReader = null;
     const child = this.child;
     this.child = null;
     this.failPending(new Error("Codex App Server transport closed"));
@@ -221,5 +249,20 @@ export class CodexAppServerStdio {
       pending.reject(error);
     }
     this.pending.clear();
+  }
+
+  private handleDisconnect(error: Error): void {
+    this.failPending(error);
+    this.child = null;
+    this.stdoutReader?.close();
+    this.stdoutReader = null;
+    this.stderrReader?.close();
+    this.stderrReader = null;
+    if (this.closed) {
+      return;
+    }
+    for (const listener of this.exitListeners) {
+      listener(error);
+    }
   }
 }

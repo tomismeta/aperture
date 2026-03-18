@@ -7,8 +7,10 @@ import { listEnabledGlobalOpencodeProfiles } from "./opencode-config.ts";
 async function main(): Promise<void> {
   const children: ChildProcess[] = [];
   let shuttingDown = false;
-  const learningArgs = readLearningArgs(process.argv.slice(2));
+  const cliArgs = process.argv.slice(2);
+  const learningArgs = readLearningArgs(cliArgs);
   const hasOpencodeProfiles = (await listEnabledGlobalOpencodeProfiles()).length > 0;
+  const enableCodex = shouldEnableCodex(cliArgs);
 
   process.title = "aperture";
 
@@ -57,6 +59,12 @@ async function main(): Promise<void> {
       adapterReadiness.push(waitForReady(opencode, "Aperture OpenCode adapter ready"));
     }
 
+    if (enableCodex) {
+      const codex = spawnPnpm(["codex:start"], childEnv);
+      children.push(codex);
+      adapterReadiness.push(waitForReady(codex, "Aperture Codex adapter ready"));
+    }
+
     await Promise.all(adapterReadiness);
 
     const tui = spawn("pnpm", ["tui"], {
@@ -90,6 +98,10 @@ function readLearningArgs(args: string[]): string[] {
 
   const value = args[flagIndex + 1];
   return ["--learning", value === "off" ? "off" : "on"];
+}
+
+function shouldEnableCodex(args: string[]): boolean {
+  return process.env.APERTURE_ENABLE_CODEX === "1" || args.includes("--codex");
 }
 
 async function waitForReady(child: ChildProcess, marker: string): Promise<void> {

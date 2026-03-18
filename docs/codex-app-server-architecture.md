@@ -23,6 +23,7 @@ The repo now includes a minimal `@aperture/codex` package with:
 - request and notification mapping into `SourceEvent`
 - `AttentionResponse` mapping back into Codex server-request responses
 - a runtime bridge that connects Codex App Server to `@aperture/runtime`
+- a runnable adapter entrypoint via `pnpm codex:start` or `pnpm aperture --codex`
 
 The implementation is intentionally narrow:
 

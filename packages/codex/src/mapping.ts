@@ -11,6 +11,8 @@ import type {
   CodexFileChangeRequestApprovalParams,
   CodexItemCompletedNotification,
   CodexItemStartedNotification,
+  CodexRawServerNotification,
+  CodexRawServerRequest,
   CodexServerNotification,
   CodexServerRequest,
   CodexThreadStartedNotification,
@@ -64,36 +66,56 @@ type ParsedInteractionId =
     };
 
 export function mapCodexServerRequest(
-  request: CodexServerRequest,
+  request: CodexRawServerRequest,
   context: CodexMappingContext = {},
 ): CodexMappedRequest | null {
   switch (request.method) {
     case "item/commandExecution/requestApproval":
-      return mapCommandApprovalRequest(request.id, request.params, context);
+      return isCommandExecutionApprovalParams(request.params)
+        ? mapCommandApprovalRequest(request.id, request.params, context)
+        : null;
     case "item/fileChange/requestApproval":
-      return mapFileChangeApprovalRequest(request.id, request.params, context);
+      return isFileChangeApprovalParams(request.params)
+        ? mapFileChangeApprovalRequest(request.id, request.params, context)
+        : null;
     case "item/tool/requestUserInput":
-      return mapToolRequestUserInputRequest(request.id, request.params, context);
+      return isToolRequestUserInputParams(request.params)
+        ? mapToolRequestUserInputRequest(request.id, request.params, context)
+        : null;
+    default:
+      return null;
   }
 }
 
 export function mapCodexNotification(
-  notification: CodexServerNotification,
+  notification: CodexRawServerNotification,
   context: CodexMappingContext = {},
 ): SourceEvent[] {
   switch (notification.method) {
     case "thread/started":
-      return [mapThreadStarted(notification.params, context)];
+      return isThreadStartedNotification(notification.params)
+        ? [mapThreadStarted(notification.params, context)]
+        : [];
     case "thread/status/changed":
-      return [mapThreadStatusChanged(notification.params, context)];
+      return isThreadStatusChangedNotification(notification.params)
+        ? [mapThreadStatusChanged(notification.params, context)]
+        : [];
     case "turn/started":
-      return [mapTurnStarted(notification.params, context)];
+      return isTurnStartedNotification(notification.params)
+        ? [mapTurnStarted(notification.params, context)]
+        : [];
     case "turn/completed":
-      return [mapTurnCompleted(notification.params, context)];
+      return isTurnCompletedNotification(notification.params)
+        ? [mapTurnCompleted(notification.params, context)]
+        : [];
     case "item/started":
-      return mapItemStarted(notification.params, context);
+      return isItemStartedNotification(notification.params)
+        ? mapItemStarted(notification.params, context)
+        : [];
     case "item/completed":
-      return mapItemCompleted(notification.params, context);
+      return isItemCompletedNotification(notification.params)
+        ? mapItemCompleted(notification.params, context)
+        : [];
     default:
       return [];
   }
@@ -101,21 +123,32 @@ export function mapCodexNotification(
 
 export function mapCodexResponse(
   response: AttentionResponse,
-  request: CodexServerRequest,
+  request: CodexRawServerRequest,
 ): CodexResponsePayload | null {
   switch (request.method) {
     case "item/commandExecution/requestApproval":
+      if (!isCommandExecutionApprovalParams(request.params)) {
+        return null;
+      }
       return {
         decision: mapCommandApprovalDecision(response),
       };
     case "item/fileChange/requestApproval":
+      if (!isFileChangeApprovalParams(request.params)) {
+        return null;
+      }
       return {
         decision: mapFileChangeApprovalDecision(response),
       };
     case "item/tool/requestUserInput":
+      if (!isToolRequestUserInputParams(request.params)) {
+        return null;
+      }
       return {
         answers: mapToolRequestAnswers(response, request.params),
       };
+    default:
+      return null;
   }
 }
 
@@ -553,6 +586,10 @@ function codexSource(threadId: string, context: CodexMappingContext) {
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 function withOptionalSummary(summary: string | undefined): { summary?: string } {
   return summary ? { summary } : {};
 }
@@ -579,6 +616,102 @@ function isExitedReviewModeItem(
   item: CodexItemCompletedNotification["item"],
 ): item is Extract<CodexItemCompletedNotification["item"], { type: "exitedReviewMode" }> {
   return item.type === "exitedReviewMode" && typeof item.review === "string";
+}
+
+function isCommandExecutionApprovalParams(
+  params: unknown,
+): params is CodexCommandExecutionRequestApprovalParams {
+  return (
+    isRecord(params)
+    && typeof params.threadId === "string"
+    && typeof params.turnId === "string"
+    && typeof params.itemId === "string"
+  );
+}
+
+function isFileChangeApprovalParams(
+  params: unknown,
+): params is CodexFileChangeRequestApprovalParams {
+  return (
+    isRecord(params)
+    && typeof params.threadId === "string"
+    && typeof params.turnId === "string"
+    && typeof params.itemId === "string"
+  );
+}
+
+function isToolRequestUserInputParams(
+  params: unknown,
+): params is CodexToolRequestUserInputParams {
+  return (
+    isRecord(params)
+    && typeof params.threadId === "string"
+    && typeof params.turnId === "string"
+    && typeof params.itemId === "string"
+    && Array.isArray(params.questions)
+  );
+}
+
+function isThreadStartedNotification(params: unknown): params is CodexThreadStartedNotification {
+  return (
+    isRecord(params)
+    && isRecord(params.thread)
+    && typeof params.thread.id === "string"
+    && typeof params.thread.preview === "string"
+  );
+}
+
+function isThreadStatusChangedNotification(
+  params: unknown,
+): params is CodexThreadStatusChangedNotification {
+  return (
+    isRecord(params)
+    && typeof params.threadId === "string"
+    && isRecord(params.status)
+    && typeof params.status.type === "string"
+  );
+}
+
+function isTurnStartedNotification(params: unknown): params is CodexTurnStartedNotification {
+  return isTurnNotification(params);
+}
+
+function isTurnCompletedNotification(params: unknown): params is CodexTurnCompletedNotification {
+  return isTurnNotification(params);
+}
+
+function isTurnNotification(
+  params: unknown,
+): params is CodexTurnStartedNotification | CodexTurnCompletedNotification {
+  return (
+    isRecord(params)
+    && typeof params.threadId === "string"
+    && isRecord(params.turn)
+    && typeof params.turn.id === "string"
+    && typeof params.turn.status === "string"
+    && Array.isArray(params.turn.items)
+  );
+}
+
+function isItemStartedNotification(params: unknown): params is CodexItemStartedNotification {
+  return isItemNotification(params);
+}
+
+function isItemCompletedNotification(params: unknown): params is CodexItemCompletedNotification {
+  return isItemNotification(params);
+}
+
+function isItemNotification(
+  params: unknown,
+): params is CodexItemStartedNotification | CodexItemCompletedNotification {
+  return (
+    isRecord(params)
+    && typeof params.threadId === "string"
+    && typeof params.turnId === "string"
+    && isRecord(params.item)
+    && typeof params.item.id === "string"
+    && typeof params.item.type === "string"
+  );
 }
 
 function codexThreadTaskId(threadId: string): string {

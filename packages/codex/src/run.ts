@@ -1,17 +1,22 @@
-import type { CodexInputItem, CodexReasoningEffort } from "./protocol.js";
+import type {
+  CodexInputItem,
+  CodexPersonality,
+  CodexReasoningEffort,
+  CodexReasoningSummary,
+} from "./protocol.js";
 
 export type CodexRunOptions = {
   cwd?: string;
   resumeThreadId?: string;
   model?: string;
   effort?: CodexReasoningEffort;
-  summary?: string;
-  personality?: string;
+  summary?: CodexReasoningSummary;
+  personality?: CodexPersonality;
   prompt: string;
 };
 
 export function buildCodexRunInput(prompt: string): CodexInputItem[] {
-  return [{ type: "text", text: prompt }];
+  return [{ type: "text", text: prompt, text_elements: [] }];
 }
 
 export function parseCodexRunArgs(args: string[]): CodexRunOptions {
@@ -19,8 +24,8 @@ export function parseCodexRunArgs(args: string[]): CodexRunOptions {
   let resumeThreadId: string | undefined;
   let model: string | undefined;
   let effort: CodexReasoningEffort | undefined;
-  let summary: string | undefined;
-  let personality: string | undefined;
+  let summary: CodexReasoningSummary | undefined;
+  let personality: CodexPersonality | undefined;
   const promptParts: string[] = [];
 
   for (let index = 0; index < args.length; index += 1) {
@@ -52,23 +57,33 @@ export function parseCodexRunArgs(args: string[]): CodexRunOptions {
         }
         continue;
       case "--effort":
-        if (next === "low" || next === "medium" || next === "high" || next === "xhigh") {
+        if (
+          next === "none"
+          || next === "minimal"
+          || next === "low"
+          || next === "medium"
+          || next === "high"
+          || next === "xhigh"
+        ) {
           effort = next;
           index += 1;
+          continue;
         }
-        continue;
+        throw new Error("`--effort` must be one of: none, minimal, low, medium, high, xhigh.");
       case "--summary":
-        if (next) {
+        if (next === "auto" || next === "concise" || next === "detailed" || next === "none") {
           summary = next;
           index += 1;
+          continue;
         }
-        continue;
+        throw new Error("`--summary` must be one of: auto, concise, detailed, none.");
       case "--personality":
-        if (next) {
+        if (next === "none" || next === "friendly" || next === "pragmatic") {
           personality = next;
           index += 1;
+          continue;
         }
-        continue;
+        throw new Error("`--personality` must be one of: none, friendly, pragmatic.");
       default:
         promptParts.push(arg);
         continue;

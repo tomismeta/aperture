@@ -15,7 +15,7 @@ test("bridge publishes mapped codex requests into runtime and routes responses b
 
   const fakeClient: CodexBridgeClient = {
     async start() {
-      return { userAgent: "codex-test" };
+      return { userAgent: "codex-test", platformFamily: "unix", platformOs: "macos" };
     },
     onServerRequest(listener: (request: CodexServerRequest) => void) {
       requestListener = listener;
@@ -138,7 +138,7 @@ test("bridge rejects unsupported server requests explicitly", async () => {
 
   const fakeClient: CodexBridgeClient = {
     async start() {
-      return { userAgent: "codex-test" };
+      return { userAgent: "codex-test", platformFamily: "unix", platformOs: "macos" };
     },
     onServerRequest(listener: (request: { method: string; id: JsonRpcId; params?: unknown }) => void) {
       requestListener = listener;
@@ -230,7 +230,7 @@ test("bridge reconnects after the codex app server exits", async () => {
   const fakeClient: CodexBridgeClient = {
     async start() {
       startCount += 1;
-      return { userAgent: "codex-test" };
+      return { userAgent: "codex-test", platformFamily: "unix", platformOs: "macos" };
     },
     onServerRequest() {
       return () => {};

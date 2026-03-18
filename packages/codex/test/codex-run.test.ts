@@ -32,17 +32,17 @@ test("parseCodexRunArgs parses a resumed thread launch", () => {
       "--thread",
       "thread-123",
       "--summary",
-      "Quick fix",
+      "concise",
       "--personality",
-      "calm",
+      "pragmatic",
       "Explain",
       "the",
       "change",
     ]),
     {
       resumeThreadId: "thread-123",
-      summary: "Quick fix",
-      personality: "calm",
+      summary: "concise",
+      personality: "pragmatic",
       prompt: "Explain the change",
     },
   );
@@ -57,6 +57,13 @@ test("parseCodexRunArgs requires a prompt", () => {
 
 test("buildCodexRunInput wraps the prompt as a text item", () => {
   assert.deepEqual(buildCodexRunInput("Ship it"), [
-    { type: "text", text: "Ship it" },
+    { type: "text", text: "Ship it", text_elements: [] },
   ]);
+});
+
+test("parseCodexRunArgs rejects unsupported summary values", () => {
+  assert.throws(
+    () => parseCodexRunArgs(["--summary", "verbose", "Ship", "it"]),
+    /--summary/,
+  );
 });

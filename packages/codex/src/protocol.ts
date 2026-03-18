@@ -1,40 +1,65 @@
-export type JsonRpcId = string | number;
+import type { ClientInfo as GeneratedClientInfo } from "./generated/app-server/ClientInfo.js";
+import type { ClientNotification as GeneratedClientNotification } from "./generated/app-server/ClientNotification.js";
+import type { InitializeParams as GeneratedInitializeParams } from "./generated/app-server/InitializeParams.js";
+import type { InitializeResponse as GeneratedInitializeResponse } from "./generated/app-server/InitializeResponse.js";
+import type { JsonValue } from "./generated/app-server/serde_json/JsonValue.js";
+import type { Personality as GeneratedPersonality } from "./generated/app-server/Personality.js";
+import type { ReasoningEffort as GeneratedReasoningEffort } from "./generated/app-server/ReasoningEffort.js";
+import type { ReasoningSummary as GeneratedReasoningSummary } from "./generated/app-server/ReasoningSummary.js";
+import type { RequestId as GeneratedRequestId } from "./generated/app-server/RequestId.js";
+import type { ServerNotification as GeneratedServerNotification } from "./generated/app-server/ServerNotification.js";
+import type { ServerRequest as GeneratedServerRequest } from "./generated/app-server/ServerRequest.js";
+import type { AskForApproval } from "./generated/app-server/v2/AskForApproval.js";
+import type { CommandExecutionApprovalDecision as GeneratedCommandExecutionApprovalDecision } from "./generated/app-server/v2/CommandExecutionApprovalDecision.js";
+import type { CommandExecutionRequestApprovalParams as GeneratedCommandExecutionRequestApprovalParams } from "./generated/app-server/v2/CommandExecutionRequestApprovalParams.js";
+import type { FileChangeApprovalDecision as GeneratedFileChangeApprovalDecision } from "./generated/app-server/v2/FileChangeApprovalDecision.js";
+import type { FileChangeRequestApprovalParams as GeneratedFileChangeRequestApprovalParams } from "./generated/app-server/v2/FileChangeRequestApprovalParams.js";
+import type { ItemCompletedNotification as GeneratedItemCompletedNotification } from "./generated/app-server/v2/ItemCompletedNotification.js";
+import type { ItemStartedNotification as GeneratedItemStartedNotification } from "./generated/app-server/v2/ItemStartedNotification.js";
+import type { ReviewDelivery as GeneratedReviewDelivery } from "./generated/app-server/v2/ReviewDelivery.js";
+import type { ReviewStartParams as GeneratedReviewStartParams } from "./generated/app-server/v2/ReviewStartParams.js";
+import type { ReviewStartResponse as GeneratedReviewStartResponse } from "./generated/app-server/v2/ReviewStartResponse.js";
+import type { ReviewTarget as GeneratedReviewTarget } from "./generated/app-server/v2/ReviewTarget.js";
+import type { SandboxMode } from "./generated/app-server/v2/SandboxMode.js";
+import type { SandboxPolicy } from "./generated/app-server/v2/SandboxPolicy.js";
+import type { ServerRequestResolvedNotification as GeneratedServerRequestResolvedNotification } from "./generated/app-server/v2/ServerRequestResolvedNotification.js";
+import type { Thread as GeneratedThread } from "./generated/app-server/v2/Thread.js";
+import type { ThreadItem as GeneratedThreadItem } from "./generated/app-server/v2/ThreadItem.js";
+import type { ThreadResumeParams as GeneratedThreadResumeParams } from "./generated/app-server/v2/ThreadResumeParams.js";
+import type { ThreadResumeResponse as GeneratedThreadResumeResponse } from "./generated/app-server/v2/ThreadResumeResponse.js";
+import type { ThreadStartedNotification as GeneratedThreadStartedNotification } from "./generated/app-server/v2/ThreadStartedNotification.js";
+import type { ThreadStartResponse as GeneratedThreadStartResponse } from "./generated/app-server/v2/ThreadStartResponse.js";
+import type { ThreadStatusChangedNotification as GeneratedThreadStatusChangedNotification } from "./generated/app-server/v2/ThreadStatusChangedNotification.js";
+import type { ToolRequestUserInputParams as GeneratedToolRequestUserInputParams } from "./generated/app-server/v2/ToolRequestUserInputParams.js";
+import type { ToolRequestUserInputQuestion as GeneratedToolRequestUserInputQuestion } from "./generated/app-server/v2/ToolRequestUserInputQuestion.js";
+import type { ToolRequestUserInputOption as GeneratedToolRequestUserInputOption } from "./generated/app-server/v2/ToolRequestUserInputOption.js";
+import type { Turn as GeneratedTurn } from "./generated/app-server/v2/Turn.js";
+import type { TurnCompletedNotification as GeneratedTurnCompletedNotification } from "./generated/app-server/v2/TurnCompletedNotification.js";
+import type { TurnInterruptParams as GeneratedTurnInterruptParams } from "./generated/app-server/v2/TurnInterruptParams.js";
+import type { TurnStartResponse as GeneratedTurnStartResponse } from "./generated/app-server/v2/TurnStartResponse.js";
+import type { TurnStartedNotification as GeneratedTurnStartedNotification } from "./generated/app-server/v2/TurnStartedNotification.js";
+import type { TurnSteerResponse as GeneratedTurnSteerResponse } from "./generated/app-server/v2/TurnSteerResponse.js";
+import type { UserInput as GeneratedUserInput } from "./generated/app-server/v2/UserInput.js";
 
-export type CodexClientInfo = {
-  name: string;
-  title?: string;
-  version: string;
-};
+export type JsonRpcId = GeneratedRequestId;
 
-export type CodexInputItem =
-  | {
-      type: "text";
-      text: string;
-    }
-  | {
-      type: "skill";
-      name: string;
-      path: string;
-    }
-  | {
-      type: "mention";
-      name: string;
-      path: string;
-    };
-
-export type CodexReasoningEffort = "low" | "medium" | "high" | "xhigh";
+export type CodexClientInfo = GeneratedClientInfo;
+export type CodexInputItem = GeneratedUserInput;
+export type CodexReasoningEffort = GeneratedReasoningEffort;
+export type CodexReasoningSummary = GeneratedReasoningSummary;
+export type CodexPersonality = GeneratedPersonality;
 
 export type CodexTurnStartParams = {
   threadId: string;
   input: CodexInputItem[];
   cwd?: string;
-  approvalPolicy?: string;
-  sandboxPolicy?: Record<string, unknown>;
+  approvalPolicy?: AskForApproval;
+  sandboxPolicy?: SandboxPolicy;
   model?: string;
   effort?: CodexReasoningEffort;
-  summary?: string;
-  personality?: string;
-  outputSchema?: Record<string, unknown>;
+  summary?: CodexReasoningSummary;
+  personality?: CodexPersonality;
+  outputSchema?: JsonValue;
 };
 
 export type CodexTurnSteerParams = {
@@ -42,147 +67,47 @@ export type CodexTurnSteerParams = {
   input: CodexInputItem[];
 };
 
-export type CodexTurnInterruptParams = {
-  threadId: string;
-  turnId: string;
-};
+export type CodexTurnInterruptParams = GeneratedTurnInterruptParams;
 
-export type CodexReviewTarget =
-  | { type: "uncommittedChanges" }
-  | { type: "baseBranch"; branch: string }
-  | { type: "commit"; sha: string; title?: string | null }
-  | { type: "custom"; instructions: string };
-
-export type CodexReviewDelivery = "inline" | "detached";
-
-export type CodexReviewStartParams = {
-  threadId: string;
-  target: CodexReviewTarget;
-  delivery?: CodexReviewDelivery;
-};
+export type CodexReviewTarget = GeneratedReviewTarget;
+export type CodexReviewDelivery = GeneratedReviewDelivery;
+export type CodexReviewStartParams = GeneratedReviewStartParams;
 
 export type CodexThreadStartParams = {
   cwd?: string;
   model?: string;
+  approvalPolicy?: AskForApproval;
+  sandbox?: SandboxMode;
+  personality?: CodexPersonality;
+  baseInstructions?: string;
+  developerInstructions?: string;
+  ephemeral?: boolean;
 };
 
-export type CodexThreadResumeParams = {
-  threadId: string;
-};
+export type CodexThreadResumeParams = GeneratedThreadResumeParams;
 
-export type CodexInitializeParams = {
-  clientInfo: CodexClientInfo;
-};
+export type CodexInitializeParams = GeneratedInitializeParams;
+export type CodexInitializeResult = GeneratedInitializeResponse;
 
-export type CodexInitializeResult = {
-  userAgent: string;
-};
+export type CodexTurn = GeneratedTurn;
+export type CodexThread = GeneratedThread;
 
-export type CodexTurn = {
-  id: string;
-  status: string;
-  items: Array<Record<string, unknown>>;
-  error: Record<string, unknown> | null;
-};
+export type CodexThreadStartResult = Pick<GeneratedThreadStartResponse, "thread">;
+export type CodexThreadResumeResult = Pick<GeneratedThreadResumeResponse, "thread">;
+export type CodexTurnStartResult = GeneratedTurnStartResponse;
+export type CodexTurnSteerResult = GeneratedTurnSteerResponse;
+export type CodexReviewStartResult = GeneratedReviewStartResponse;
 
-export type CodexThread = {
-  id: string;
-  preview: string;
-  status: { type: string; activeFlags?: string[] };
-  cwd: string;
-  path?: string | null;
-  name?: string | null;
-  turns: CodexTurn[];
-};
+export type CodexCommandExecutionApprovalDecision = GeneratedCommandExecutionApprovalDecision;
+export type CodexFileChangeApprovalDecision = GeneratedFileChangeApprovalDecision;
 
-export type CodexThreadStartResult = {
-  thread: CodexThread;
-};
+export type CodexToolRequestUserInputOption = GeneratedToolRequestUserInputOption;
+export type CodexToolRequestUserInputQuestion = GeneratedToolRequestUserInputQuestion;
 
-export type CodexThreadResumeResult = {
-  thread: CodexThread;
-};
-
-export type CodexTurnStartResult = {
-  turn: CodexTurn;
-};
-
-export type CodexTurnSteerResult = {
-  turnId: string;
-};
-
-export type CodexReviewStartResult = {
-  turn: CodexTurn;
-  reviewThreadId: string;
-};
-
-export type CodexCommandExecutionApprovalDecision =
-  | "accept"
-  | "acceptForSession"
-  | "decline"
-  | "cancel"
-  | {
-      acceptWithExecpolicyAmendment: {
-        execpolicy_amendment: string[];
-      };
-    }
-  | {
-      applyNetworkPolicyAmendment: {
-        network_policy_amendment: Record<string, unknown>;
-      };
-    };
-
-export type CodexFileChangeApprovalDecision =
-  | "accept"
-  | "acceptForSession"
-  | "decline"
-  | "cancel";
-
-export type CodexToolRequestUserInputOption = {
-  label: string;
-  description: string;
-};
-
-export type CodexToolRequestUserInputQuestion = {
-  id: string;
-  header: string;
-  question: string;
-  isOther: boolean;
-  isSecret: boolean;
-  options: CodexToolRequestUserInputOption[] | null;
-};
-
-export type CodexCommandExecutionRequestApprovalParams = {
-  threadId: string;
-  turnId: string;
-  itemId: string;
-  approvalId?: string | null;
-  reason?: string | null;
-  networkApprovalContext?: Record<string, unknown> | null;
-  command?: string | null;
-  cwd?: string | null;
-  commandActions?: Array<Record<string, unknown>> | null;
-  additionalPermissions?: Record<string, unknown> | null;
-  skillMetadata?: Record<string, unknown> | null;
-  proposedExecpolicyAmendment?: string[] | null;
-  proposedNetworkPolicyAmendments?: Array<Record<string, unknown>> | null;
-  availableDecisions?: CodexCommandExecutionApprovalDecision[] | null;
-};
-
-export type CodexFileChangeRequestApprovalParams = {
-  threadId: string;
-  turnId: string;
-  itemId: string;
-  reason?: string | null;
-  grantRoot?: string | null;
-};
-
-export type CodexToolRequestUserInputParams = {
-  threadId: string;
-  turnId: string;
-  itemId: string;
-  questions: CodexToolRequestUserInputQuestion[];
-};
+export type CodexCommandExecutionRequestApprovalParams =
+  GeneratedCommandExecutionRequestApprovalParams;
+export type CodexFileChangeRequestApprovalParams = GeneratedFileChangeRequestApprovalParams;
+export type CodexToolRequestUserInputParams = GeneratedToolRequestUserInputParams;
 
 export type CodexRawServerRequest = {
   method: string;
@@ -190,126 +115,24 @@ export type CodexRawServerRequest = {
   params?: unknown;
 };
 
-export type CodexServerRequest =
-  | {
-      method: "item/commandExecution/requestApproval";
-      id: JsonRpcId;
-      params: CodexCommandExecutionRequestApprovalParams;
-    }
-  | {
-      method: "item/fileChange/requestApproval";
-      id: JsonRpcId;
-      params: CodexFileChangeRequestApprovalParams;
-    }
-  | {
-      method: "item/tool/requestUserInput";
-      id: JsonRpcId;
-      params: CodexToolRequestUserInputParams;
-    };
+export type CodexServerRequest = GeneratedServerRequest;
 
-export type CodexThreadStartedNotification = {
-  thread: CodexThread;
-};
-
-export type CodexThreadStatusChangedNotification = {
-  threadId: string;
-  status: { type: string; activeFlags?: string[] };
-};
-
-export type CodexTurnStartedNotification = {
-  threadId: string;
-  turn: CodexTurn;
-};
-
-export type CodexTurnCompletedNotification = {
-  threadId: string;
-  turn: CodexTurn;
-};
-
-export type CodexThreadItem =
-  | {
-      type: "commandExecution";
-      id: string;
-      command: string;
-      cwd: string;
-      status: string;
-      aggregatedOutput?: string | null;
-      exitCode?: number | null;
-      durationMs?: number | null;
-    }
-  | {
-      type: "fileChange";
-      id: string;
-      changes: Array<Record<string, unknown>>;
-      status: string;
-    }
-  | {
-      type: "enteredReviewMode";
-      id: string;
-      review: string;
-    }
-  | {
-      type: "exitedReviewMode";
-      id: string;
-      review: string;
-    }
-  | {
-      type: string;
-      id: string;
-      [key: string]: unknown;
-    };
-
-export type CodexItemStartedNotification = {
-  threadId: string;
-  turnId: string;
-  item: CodexThreadItem;
-};
-
-export type CodexItemCompletedNotification = {
-  threadId: string;
-  turnId: string;
-  item: CodexThreadItem;
-};
-
-export type CodexServerRequestResolvedNotification = {
-  threadId: string;
-  requestId: JsonRpcId;
-};
+export type CodexThreadStartedNotification = GeneratedThreadStartedNotification;
+export type CodexThreadStatusChangedNotification = GeneratedThreadStatusChangedNotification;
+export type CodexTurnStartedNotification = GeneratedTurnStartedNotification;
+export type CodexTurnCompletedNotification = GeneratedTurnCompletedNotification;
+export type CodexThreadItem = GeneratedThreadItem;
+export type CodexItemStartedNotification = GeneratedItemStartedNotification;
+export type CodexItemCompletedNotification = GeneratedItemCompletedNotification;
+export type CodexServerRequestResolvedNotification =
+  GeneratedServerRequestResolvedNotification;
 
 export type CodexRawServerNotification = {
   method: string;
   params?: unknown;
 };
 
-export type CodexServerNotification =
-  | {
-      method: "thread/started";
-      params: CodexThreadStartedNotification;
-    }
-  | {
-      method: "thread/status/changed";
-      params: CodexThreadStatusChangedNotification;
-    }
-  | {
-      method: "turn/started";
-      params: CodexTurnStartedNotification;
-    }
-  | {
-      method: "turn/completed";
-      params: CodexTurnCompletedNotification;
-    }
-  | {
-      method: "item/started";
-      params: CodexItemStartedNotification;
-    }
-  | {
-      method: "item/completed";
-      params: CodexItemCompletedNotification;
-    }
-  | {
-      method: "serverRequest/resolved";
-      params: CodexServerRequestResolvedNotification;
-    };
+export type CodexServerNotification = GeneratedServerNotification;
 
 export type CodexJsonRpcRequest<TMethod extends string = string, TParams = unknown> = {
   method: TMethod;
@@ -336,9 +159,7 @@ export type CodexJsonRpcError = {
   };
 };
 
-export type CodexClientNotification = {
-  method: "initialized";
-};
+export type CodexClientNotification = GeneratedClientNotification;
 
 export type CodexJsonRpcEnvelope =
   | CodexJsonRpcSuccess
@@ -378,6 +199,6 @@ export function isCodexJsonRpcError(value: unknown): value is CodexJsonRpcError 
   );
 }
 
-function isObject(value: unknown): value is Record<string, any> {
+function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }

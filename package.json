@@ -6,6 +6,7 @@
   "scripts": {
     "aperture": "tsx scripts/aperture.ts",
     "build": "tsc -b",
+    "codex:generate-protocol": "tsx scripts/update-codex-protocol.ts",
     "codex:start": "tsx scripts/codex-adapter.ts",
     "codex:run": "tsx scripts/codex-run.ts",
     "claude:connect": "tsx scripts/claude-connect.ts",

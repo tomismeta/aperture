@@ -51,6 +51,7 @@ export class CodexAppServerClient {
       id: this.allocateId(),
       params: {
         clientInfo: this.clientInfo,
+        capabilities: null,
       },
     });
     this.transport.notify({
@@ -76,19 +77,38 @@ export class CodexAppServerClient {
   }
 
   async threadStart(params: CodexThreadStartParams = {}): Promise<CodexThreadStartResult> {
-    return this.transport.request<CodexThreadStartResult>({
+    const result = await this.transport.request<{
+      thread: CodexThreadStartResult["thread"];
+    }>({
       method: "thread/start",
       id: this.allocateId(),
-      params,
+      params: {
+        ...(params.cwd ? { cwd: params.cwd } : {}),
+        ...(params.model ? { model: params.model } : {}),
+        ...(params.approvalPolicy ? { approvalPolicy: params.approvalPolicy } : {}),
+        ...(params.sandbox ? { sandbox: params.sandbox } : {}),
+        ...(params.personality ? { personality: params.personality } : {}),
+        ...(params.baseInstructions ? { baseInstructions: params.baseInstructions } : {}),
+        ...(params.developerInstructions
+          ? { developerInstructions: params.developerInstructions }
+          : {}),
+        ...(params.ephemeral !== undefined ? { ephemeral: params.ephemeral } : {}),
+        experimentalRawEvents: false,
+        persistExtendedHistory: false,
+      },
     });
+    return { thread: result.thread };
   }
 
   async threadResume(params: CodexThreadResumeParams): Promise<CodexThreadResumeResult> {
-    return this.transport.request<CodexThreadResumeResult>({
+    const result = await this.transport.request<{
+      thread: CodexThreadResumeResult["thread"];
+    }>({
       method: "thread/resume",
       id: this.allocateId(),
       params,
     });
+    return { thread: result.thread };
   }
 
   async turnStart(params: CodexTurnStartParams): Promise<CodexTurnStartResult> {

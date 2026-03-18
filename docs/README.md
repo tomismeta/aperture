@@ -39,6 +39,7 @@ These are the best entrypoints for understanding what Aperture is today:
 - [Core Engine Architecture](./core-engine-architecture.md)
 - [Canonical Judgment Model](./canonical-judgment-model.md)
 - [Codex App Server Architecture](./codex-app-server-architecture.md)
+- [Codex Integration Paths](./codex-integration-paths.md)
 - [Reference Judgment Flow](./reference-judgment-flow.md)
 - [Semantic Normalization](./semantic-normalization.md)
 - [Attention Frame](./frame.md)

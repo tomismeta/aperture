@@ -52,6 +52,34 @@ This is the key alignment:
 - `@tomismeta/aperture-core` only sees `SourceEvent` and `AttentionResponse`
 - stdio is the current transport implementation, not the architecture itself
 
+## Compatibility By Surface
+
+This is the current Aperture disposition by Codex surface:
+
+```text
++---------------------------+----------------------+-----------------------------------------------+
+| Surface                   | Current disposition  | What it means                                  |
++---------------------------+----------------------+-----------------------------------------------+
+| pnpm codex:run            | supported            | Real Codex App Server path through our client |
+| pnpm codex:start          | supported            | Live adapter bridge into Aperture runtime     |
+| pnpm aperture --codex     | supported            | Full local stack with TUI supervision         |
+| direct Codex App Server   | supported in design  | The architectural boundary we target          |
+| shared external transport | planned              | Future replacement for local stdio launch     |
+| Codex macOS app           | indirect only        | Validates the App Server direction, but not   |
+|                           |                      | a current Aperture event source               |
+| Codex VS Code extension   | indirect only        | Same boundary, but no current shared session  |
+| Codex JetBrains/Xcode     | indirect only        | Same story as other Codex host clients        |
+| stock Codex CLI/TUI       | not integrated       | Use our App Server client path instead        |
++---------------------------+----------------------+-----------------------------------------------+
+```
+
+The important rule is:
+
+- if a surface lets Aperture talk to Codex through the App Server boundary we
+  can support it cleanly
+- if a surface only proves that OpenAI itself is using App Server internally,
+  it is useful validation but not yet a direct Aperture integration seam
+
 ## Current Foundation
 
 The repo now includes a minimal `@aperture/codex` package with:

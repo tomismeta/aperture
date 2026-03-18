@@ -74,6 +74,26 @@ The package currently includes:
 - mapping from `AttentionResponse` back into Codex-native replies
 - a runtime bridge for live Aperture integration
 
+## Compatibility
+
+Current Aperture disposition by surface:
+
+```text
++-------------------------+----------------------+--------------------------------------------+
+| Surface                 | Current disposition  | What it means                               |
++-------------------------+----------------------+--------------------------------------------+
+| pnpm codex:run          | supported            | Real Codex App Server path through         |
+|                         |                      | Aperture's client                           |
+| pnpm codex:start        | supported            | Live adapter bridge into Aperture runtime  |
+| pnpm aperture --codex   | supported            | Full local stack with TUI supervision      |
+| Codex App Server        | supported in design  | The protocol boundary this package targets |
+| shared external server  | planned              | Future replacement for local stdio launch  |
+| Codex macOS app         | indirect only        | Not a direct Aperture event source today   |
+| Codex VS Code client    | indirect only        | Same App Server family, no shared seam yet |
+| stock Codex CLI/TUI     | not integrated       | Use the App Server client path instead     |
++-------------------------+----------------------+--------------------------------------------+
+```
+
 ## Main Rule
 
 Adapters provide facts. Core provides judgment.

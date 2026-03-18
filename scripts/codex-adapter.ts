@@ -19,6 +19,7 @@ async function main(): Promise<void> {
         ...(process.env.APERTURE_CODEX_CWD ? { cwd: process.env.APERTURE_CODEX_CWD } : {}),
       },
     },
+    debug: process.env.APERTURE_CODEX_DEBUG === "1",
     logger: createStderrLogger(),
   });
 

@@ -29,6 +29,7 @@ export type CodexBridgeOptions = {
     maxDelayMs?: number;
     maxAttempts?: number;
   };
+  debug?: boolean;
   logger?: Pick<Console, "error" | "warn" | "info">;
   runtimeClientFactory?: (
     options: ApertureRuntimeAdapterClientOptions,
@@ -79,6 +80,7 @@ export function createCodexBridge(options: CodexBridgeOptions): CodexBridge {
   };
   const adapterId = "codex-app-server";
   const logger = options.logger ?? console;
+  const debug = options.debug ?? false;
   const reconnectInitialDelayMs = options.reconnect?.initialDelayMs ?? 1_000;
   const reconnectMaxDelayMs = options.reconnect?.maxDelayMs ?? 10_000;
   const reconnectMaxAttempts = options.reconnect?.maxAttempts ?? Infinity;
@@ -157,6 +159,9 @@ export function createCodexBridge(options: CodexBridgeOptions): CodexBridge {
     if (!runtimeClient) {
       return;
     }
+    if (debug) {
+      logger.info?.(`[codex] server request ${request.method}`);
+    }
     const mapped = mapCodexServerRequest(request, mappingContext);
     if (!mapped) {
       logger.warn?.(`[codex] unsupported server request ${request.method}`);
@@ -165,6 +170,11 @@ export function createCodexBridge(options: CodexBridgeOptions): CodexBridge {
         message: `Unsupported Codex server request: ${request.method}`,
       });
       return;
+    }
+    if (debug) {
+      logger.info?.(
+        `[codex] mapped request ${request.method} -> ${mapped.events.length} SourceEvent(s)`,
+      );
     }
     pendingByInteractionId.set(mapped.interactionId, {
       interactionId: mapped.interactionId,
@@ -181,6 +191,9 @@ export function createCodexBridge(options: CodexBridgeOptions): CodexBridge {
     if (!runtimeClient) {
       return;
     }
+    if (debug) {
+      logger.info?.(`[codex] notification ${notification.method}`);
+    }
     if (
       notification.method === "serverRequest/resolved"
       && isServerRequestResolvedNotification(notification.params)
@@ -194,6 +207,11 @@ export function createCodexBridge(options: CodexBridgeOptions): CodexBridge {
     }
 
     const events = mapCodexNotification(notification, mappingContext);
+    if (debug && events.length > 0) {
+      logger.info?.(
+        `[codex] mapped notification ${notification.method} -> ${events.length} SourceEvent(s)`,
+      );
+    }
     if (events.length === 0) {
       return;
     }
@@ -201,6 +219,9 @@ export function createCodexBridge(options: CodexBridgeOptions): CodexBridge {
   }
 
   async function handleRuntimeResponse(response: AttentionResponse): Promise<void> {
+    if (debug) {
+      logger.info?.(`[codex] runtime response ${response.response.kind} for ${response.interactionId}`);
+    }
     const pending = pendingByInteractionId.get(response.interactionId);
     if (!pending) {
       return;

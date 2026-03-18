@@ -26,6 +26,7 @@ async function main(): Promise<void> {
           : {}),
       },
     },
+    debug: process.env.APERTURE_CODEX_DEBUG === "1",
     logger: createStderrLogger(),
   });
 

@@ -1,4 +1,4 @@
-# Adapter Status
+# Adapter Contract
 
 This document is the current cross-adapter contract for Aperture.
 

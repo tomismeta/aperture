@@ -233,7 +233,7 @@ Current practical split:
   - `@aperture/codex`
 
 For the current cross-adapter architecture standard and verification matrix, see
-[Adapter Status](./adapter-status.md).
+[Adapter Contract](./adapter-contract.md).
 
 Use an adapter when:
 

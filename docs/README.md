@@ -16,13 +16,13 @@ If you are new to the repo, read the current product docs first.
 4. [System Architecture Diagram](./system-architecture-diagram.md)
 5. [Claude Code Adapter](./claude-code.md)
 6. [OpenCode Adapter](./opencode-integration.md)
-7. [Adapter Status](./adapter-status.md)
+7. [Adapter Contract](./adapter-contract.md)
 
 ## Current Product Docs
 
 - [TUI Surface](./tui.md)
 - [Components](./components.md)
-- [Adapter Status](./adapter-status.md)
+- [Adapter Contract](./adapter-contract.md)
 - [Claude Code Adapter](./claude-code.md)
 - [OpenCode Adapter](./opencode-integration.md)
 - [System Architecture Diagram](./system-architecture-diagram.md)

@@ -8,6 +8,7 @@ import type {
   FormDraft,
   TextDraft,
 } from "./types.js";
+import { displaySourceLabel } from "./source-label.js";
 
 export function handleActiveKeypress(
   core: AttentionSurface,
@@ -288,7 +289,7 @@ function normalizeFieldValue(field: FrameField, raw: string): unknown {
 export function describeResponse(response: FrameResponse, nextActive: Frame | null): string {
   const base = responseLabel(response);
   if (nextActive && nextActive.interactionId !== response.interactionId) {
-    return `${base} · focused on ${nextActive.title}`;
+    return `${base} · focused on ${nextActive.title} · ${displaySourceLabel(nextActive.source)}`;
   }
 
   return base;

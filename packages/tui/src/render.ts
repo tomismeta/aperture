@@ -1,6 +1,7 @@
 import { scoreAttentionFrame } from "@tomismeta/aperture-core";
 import type { Frame, InputDraft, QueueGroup, RenderOptions, Posture, AnimationState, ApertureTrace } from "./types.js";
 import { renderWhyOverlay } from "./render-why.js";
+import { displaySourceLabel } from "./source-label.js";
 import {
   ANSI,
   CONTENT_WIDTH,
@@ -171,9 +172,7 @@ function renderActiveFrame(
     ];
   }
 
-  const rawSource = frame.source?.label ?? frame.source?.id ?? "unknown";
-  // Shorten source: drop session hash suffixes like "Claude Code aperture #8443e0" → "Claude Code"
-  const source = rawSource.replace(/ (aperture|session)?\s*#[a-f0-9]+$/i, "").trim();
+  const source = displaySourceLabel(frame.source);
   const countSuffix = pendingCount > 1 ? ` ×${pendingCount}` : "";
 
   const entranceFlash = animation?.frameEntrance
@@ -337,7 +336,7 @@ function renderProgressBar(progress: number, width: number, color: boolean): str
 
 function renderCompactFrame(group: QueueGroup, rank: number, color: boolean): string[] {
   const { frame, count } = group;
-  const source = frame.source?.label ?? frame.source?.id ?? "unknown";
+  const source = displaySourceLabel(frame.source);
   const rankStr = `${String(rank).padStart(2, "0")}`;
   const modeStr = humanMode(frame.mode);
   const countSuffix = count > 1 ? ` ×${count}` : "";
@@ -392,8 +391,7 @@ export function countMatchingFrames(frame: Frame, queued: Frame[]): number {
 // ── Ambient ─────────────────────────────────────────────────────────
 
 function renderAmbientFrame(frame: Frame, color: boolean): string[] {
-  const rawSource = frame.source?.label ?? frame.source?.id ?? "unknown";
-  const source = rawSource.replace(/ (aperture|session)?\s*#[a-f0-9]+$/i, "").trim();
+  const source = displaySourceLabel(frame.source);
   return [
     `  ${styleMuted("~", color)} ${styleDeepMuted(frame.title, color)} ${styleMuted("·", color)} ${styleDeepMuted(source, color)}`,
   ];

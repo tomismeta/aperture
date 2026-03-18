@@ -49,7 +49,7 @@ The now frame is the one thing Aperture thinks deserves the operator first.
 The now pane shows:
 
 - **Title** — what is happening, in plain language
-- **Source** — where it came from
+- **Source** — where it came from, using a compact operator-facing source label
 - **Mode**:
   - `approval`
   - `choice`
@@ -93,10 +93,16 @@ items include:
 - completed work
 - low-priority notifications
 
-## Controls
+## Controls And Status
 
 The controls line at the bottom of the screen is the source of truth for what
 you can do right now.
+
+The status line directly beneath it is the fast feedback loop. It tells you:
+
+- what response Aperture just submitted
+- what item is now focused
+- which source currently owns the operator's attention
 
 Typical controls:
 

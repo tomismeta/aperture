@@ -10,6 +10,7 @@ import {
   handleInputKeypress,
   describeResponse,
 } from "./interaction.js";
+import { displaySourceLabel } from "./source-label.js";
 
 import type {
   AttentionSurface,
@@ -151,11 +152,11 @@ export async function runAttentionTui(
       state.statusLine = "Nothing currently needs attention";
     } else if (active.interactionId !== previousActiveId) {
       state.whyExpanded = false;
-      state.statusLine = `Focused on ${active.title}`;
+      state.statusLine = `Focused on ${active.title} · ${displaySourceLabel(active.source)}`;
     } else if (state.inputDraft && state.inputDraft.interactionId !== active.interactionId) {
       state.inputDraft = null;
       state.expanded = false;
-      state.statusLine = `Focused on ${active.title}`;
+      state.statusLine = `Focused on ${active.title} · ${displaySourceLabel(active.source)}`;
     }
 
     // Prune trace cache — only keep traces for visible interactions

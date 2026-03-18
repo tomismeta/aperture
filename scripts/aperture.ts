@@ -9,6 +9,7 @@ async function main(): Promise<void> {
   let shuttingDown = false;
   const cliArgs = process.argv.slice(2);
   const learningArgs = readLearningArgs(cliArgs);
+  const codexArgs = readCodexArgs(cliArgs);
   const hasOpencodeProfiles = (await listEnabledGlobalOpencodeProfiles()).length > 0;
   const enableCodex = shouldEnableCodex(cliArgs);
 
@@ -60,7 +61,7 @@ async function main(): Promise<void> {
     }
 
     if (enableCodex) {
-      const codex = spawnPnpm(["codex:start"], childEnv);
+      const codex = spawnPnpm(["codex:start", ...(codexArgs.length > 0 ? ["--", ...codexArgs] : [])], childEnv);
       children.push(codex);
       adapterReadiness.push(waitForReady(codex, "Aperture Codex adapter ready"));
     }
@@ -102,6 +103,43 @@ function readLearningArgs(args: string[]): string[] {
 
 function shouldEnableCodex(args: string[]): boolean {
   return process.env.APERTURE_ENABLE_CODEX === "1" || args.includes("--codex");
+}
+
+function readCodexArgs(args: string[]): string[] {
+  const codexArgs: string[] = [];
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    const next = args[index + 1];
+    if (!arg) {
+      continue;
+    }
+
+    switch (arg) {
+      case "--codex-transport":
+        if (next && !next.startsWith("-")) {
+          codexArgs.push("--transport", next);
+          index += 1;
+        }
+        continue;
+      case "--codex-url":
+        if (next && !next.startsWith("-")) {
+          codexArgs.push("--url", next);
+          index += 1;
+        }
+        continue;
+      case "--codex-command":
+        if (next && !next.startsWith("-")) {
+          codexArgs.push("--command", next);
+          index += 1;
+        }
+        continue;
+      default:
+        continue;
+    }
+  }
+
+  return codexArgs;
 }
 
 async function waitForReady(child: ChildProcess, marker: string): Promise<void> {

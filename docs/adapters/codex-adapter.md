@@ -1,18 +1,20 @@
 # Codex Adapter
 
-This note defines the fresh-start architecture for the new Codex App Server integration.
+This note defines the current architecture and operating posture of
+`@aperture/codex`.
 
-It assumes:
+The adapter is built around **Codex App Server** and keeps a strict boundary:
 
-- the legacy Codex adapter has been removed
-- the current `@aperture/codex` package is rebuilt around **Codex App Server**
-- `@tomismeta/aperture-core` must remain Codex-agnostic
-- the new integration should have a minimal footprint and a clean boundary
+- `@aperture/codex` owns transport, protocol, mapping, and response routing
+- `@tomismeta/aperture-core` remains Codex-agnostic
+- Codex continues to own execution, auth, sandboxing, and native request
+  identity
 
-This is both:
+This document is both:
 
-- the architecture note for the current minimal implementation
-- the target direction for future Codex expansion
+- the architecture note for the adapter as currently implemented
+- the reference point for future Codex expansion while the integration remains
+  experimental
 
 ## Napkin
 
@@ -26,9 +28,9 @@ At the simplest level, the Codex integration is:
 +--------------+    +------------------+    +------------------+    +------------------+    +------------------+
 
 JSON-RPC over        requests / notices     SourceEvent in        AttentionResponse     approval answer,
-stdio today          -> SourceEvent         AttentionView out     -> Codex payload       user input answer,
-other transports     thread / turn local    no Codex types        request correlation    request resolved
-later
+stdio by default     -> SourceEvent         AttentionView out     -> Codex payload       user input answer,
+websocket optional   thread / turn local    no Codex types        request correlation    request resolved
+today
 ```
 
 The more explicit boundary view is:
@@ -50,7 +52,9 @@ This is the key alignment:
 - Codex App Server is the integration boundary
 - `@aperture/codex` owns transport, event mapping, and response mapping
 - `@tomismeta/aperture-core` only sees `SourceEvent` and `AttentionResponse`
-- stdio is the current transport implementation, not the architecture itself
+- `stdio` is the default transport, not the architecture itself
+- `websocket` is available for shared or remote App Server sessions, but still
+  experimental
 
 ## Compatibility By Surface
 
@@ -139,6 +143,39 @@ can forward them via:
 ```bash
 pnpm aperture -- --codex --codex-transport websocket --codex-url ws://127.0.0.1:8765
 ```
+
+## Current Transport Story
+
+Where the transport story stands today:
+
+- `stdio` is the default and best-supported live path
+- `websocket` is implemented and available for shared or remote App Server
+  setups
+- the adapter can accommodate both transport paths without changing the core
+  judgment stack
+- transport is no longer the main architecture constraint
+
+What is still limiting the live Codex path:
+
+- `A stronger App Server interruption contract`
+  - Codex still externalizes too few human-relevant moments as first-class
+    server requests
+  - too much remains notification-only instead of becoming a blocked-on-human
+    interaction Aperture can supervise directly
+
+- `A unified App Server client path across Codex surfaces`
+  - even with websocket support on our side, the bigger open question is
+    whether macOS app, TUI, VS Code, and other Codex surfaces converge on one
+    shared App Server seam
+  - until that hardens, multi-surface Codex supervision is still structurally
+    uncertain
+
+So the current posture is:
+
+- keep `stdio` as the default live path
+- keep `websocket` available for shared-surface experiments
+- wait for Codex's request externalization and surface convergence story to
+  mature
 
 Why this works:
 
@@ -232,8 +269,9 @@ One secondary but important hygiene item:
 
 The repo now includes a minimal `@aperture/codex` package with:
 
+- a generated App Server protocol snapshot plus Aperture-owned wrappers
 - a stdio App Server transport client
-- a small typed protocol subset for the MVP request and notification surface
+- a websocket App Server transport client
 - request and notification mapping into `SourceEvent`
 - `AttentionResponse` mapping back into Codex server-request responses
 - a runtime bridge that connects Codex App Server to `@aperture/runtime`
@@ -328,9 +366,9 @@ Build and keep exactly **one package**:
 
 - `@aperture/codex`
 
-That package should be **App Server-only**. Do not make it transport-agnostic.
-Do not support legacy Codex request shapes. Do not try to be a general Codex
-SDK wrapper.
+That package should stay **App Server-only**. It can support more than one
+transport underneath the App Server boundary, but it should not become a
+general Codex SDK wrapper or leak Codex-native client assumptions into core.
 
 ### Why one package is enough
 
@@ -349,7 +387,7 @@ SDK wrapper.
     "protocol/generated": "generated TypeScript types from the installed Codex App Server version",
     "protocol/compat": "thin wrappers and guards around generated types",
     "transport/stdio": "spawn and manage `codex app-server` over stdio JSONL",
-    "transport/ws": "optional later; not part of MVP",
+    "transport/ws": "connect to a shared or remote App Server over websocket",
     "session/client": "high-level App Server client for initialize, thread, turn, review, and server-request routing",
     "mapping/events": "Codex notifications and server requests -> SourceEvent[]",
     "mapping/responses": "AttentionResponse -> Codex server-request response payloads",

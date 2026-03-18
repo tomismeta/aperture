@@ -2,6 +2,10 @@ import {
   type CodexAppServerStdioOptions,
   CodexAppServerStdio,
 } from "./stdio.js";
+import {
+  type CodexAppServerWebSocketOptions,
+  CodexAppServerWebSocket,
+} from "./websocket.js";
 import type {
   CodexClientInfo,
   CodexReviewStartParams,
@@ -30,8 +34,11 @@ export type CodexAppServerClientOptions = {
   clientInfo?: CodexClientInfo;
   transport?: CodexTransport;
   transportFactory?: () => CodexTransport;
+  transportKind?: "stdio" | "websocket";
   // Used only when the client falls back to the built-in stdio transport.
   stdio?: CodexAppServerStdioOptions;
+  // Used only when the client falls back to the built-in websocket transport.
+  websocket?: CodexAppServerWebSocketOptions;
 };
 
 export class CodexAppServerClient {
@@ -42,7 +49,7 @@ export class CodexAppServerClient {
   constructor(options: CodexAppServerClientOptions = {}) {
     this.transport = options.transport
       ?? options.transportFactory?.()
-      ?? new CodexAppServerStdio(options.stdio);
+      ?? createBuiltInTransport(options);
     this.clientInfo = options.clientInfo ?? {
       name: "aperture_codex",
       title: "Aperture Codex Adapter",
@@ -164,4 +171,15 @@ export class CodexAppServerClient {
   private allocateId(): JsonRpcId {
     return this.nextId++;
   }
+}
+
+function createBuiltInTransport(options: CodexAppServerClientOptions): CodexTransport {
+  const transportKind = options.transportKind ?? (options.websocket ? "websocket" : "stdio");
+  if (transportKind === "websocket") {
+    if (!options.websocket) {
+      throw new Error("Codex websocket transport requires websocket options");
+    }
+    return new CodexAppServerWebSocket(options.websocket);
+  }
+  return new CodexAppServerStdio(options.stdio);
 }

@@ -1,24 +1,25 @@
 import { stderr } from "node:process";
 
 import { createCodexBridge } from "../packages/codex/src/index.ts";
-import { createStderrLogger, resolveCodexRuntimeUrl } from "./codex-shared.ts";
+import {
+  createStderrLogger,
+  parseCodexTransportArgs,
+  resolveCodexAppServerOptions,
+  resolveCodexRuntimeUrl,
+} from "./codex-shared.ts";
 
 async function main(): Promise<void> {
+  const { options: transportArgs } = parseCodexTransportArgs(process.argv.slice(2));
   const runtimeBaseUrl = await resolveCodexRuntimeUrl();
+  const appServer = resolveCodexAppServerOptions(transportArgs);
   const bridge = createCodexBridge({
     runtimeBaseUrl,
     runtimeLabel: process.env.APERTURE_CODEX_LABEL ?? "Codex adapter",
     ...(process.env.APERTURE_CODEX_SOURCE_LABEL
       ? { sourceLabel: process.env.APERTURE_CODEX_SOURCE_LABEL }
       : {}),
-    appServer: {
-      stdio: {
-        ...(process.env.APERTURE_CODEX_COMMAND
-          ? { command: process.env.APERTURE_CODEX_COMMAND }
-          : {}),
-        ...(process.env.APERTURE_CODEX_CWD ? { cwd: process.env.APERTURE_CODEX_CWD } : {}),
-      },
-    },
+    runtimeMetadata: appServer.runtimeMetadata,
+    appServer: appServer.clientOptions,
     debug: process.env.APERTURE_CODEX_DEBUG === "1",
     logger: createStderrLogger(),
   });
@@ -26,6 +27,7 @@ async function main(): Promise<void> {
   await bridge.start();
 
   stderr.write(`Aperture Codex adapter ready via runtime ${runtimeBaseUrl}\n`);
+  stderr.write(`Using Codex App Server ${appServer.transportLabel} transport\n`);
   stderr.write("Run the TUI separately with: pnpm tui\n");
 
   const close = async () => {

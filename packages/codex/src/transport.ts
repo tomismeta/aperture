@@ -13,8 +13,8 @@ export type CodexExitListener = (error: Error) => void;
 export type CodexStderrListener = (line: string) => void;
 
 // The adapter depends on this transport seam, not on a particular Codex
-// launch mechanism. Stdio is the current implementation, but shared or
-// remote App Server connections can implement the same contract later.
+// launch mechanism. Stdio is the default implementation, and alternate
+// transports such as shared or remote websocket sessions use the same contract.
 export type CodexTransport = {
   start(): Promise<void>;
   onNotification(listener: CodexNotificationListener): () => void;

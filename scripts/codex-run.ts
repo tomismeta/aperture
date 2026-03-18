@@ -5,27 +5,29 @@ import {
   createCodexBridge,
   parseCodexRunArgs,
 } from "../packages/codex/src/index.ts";
-import { createStderrLogger, resolveCodexRuntimeUrl } from "./codex-shared.ts";
+import {
+  createStderrLogger,
+  parseCodexTransportArgs,
+  resolveCodexAppServerOptions,
+  resolveCodexRuntimeUrl,
+} from "./codex-shared.ts";
 
 async function main(): Promise<void> {
-  const options = parseArgs(process.argv.slice(2));
+  const { options: transportArgs, remainingArgs } = parseCodexTransportArgs(process.argv.slice(2));
+  const options = parseArgs(remainingArgs);
   const runtimeBaseUrl = await resolveCodexRuntimeUrl();
+  const appServer = resolveCodexAppServerOptions({
+    ...transportArgs,
+    cwd: options.cwd,
+  });
   const bridge = createCodexBridge({
     runtimeBaseUrl,
     runtimeLabel: process.env.APERTURE_CODEX_LABEL ?? "Codex adapter",
     ...(process.env.APERTURE_CODEX_SOURCE_LABEL
       ? { sourceLabel: process.env.APERTURE_CODEX_SOURCE_LABEL }
       : {}),
-    appServer: {
-      stdio: {
-        ...(process.env.APERTURE_CODEX_COMMAND
-          ? { command: process.env.APERTURE_CODEX_COMMAND }
-          : {}),
-        ...(options.cwd ?? process.env.APERTURE_CODEX_CWD
-          ? { cwd: options.cwd ?? process.env.APERTURE_CODEX_CWD }
-          : {}),
-      },
-    },
+    runtimeMetadata: appServer.runtimeMetadata,
+    appServer: appServer.clientOptions,
     debug: process.env.APERTURE_CODEX_DEBUG === "1",
     logger: createStderrLogger(),
   });
@@ -56,6 +58,7 @@ async function main(): Promise<void> {
 
     stderr.write(`Started Codex thread ${thread.id}\n`);
     stderr.write(`Started Codex turn ${turn.turn.id}\n`);
+    stderr.write(`Codex App Server transport: ${appServer.transportLabel}\n`);
     if (options.approvalPolicy) {
       stderr.write(`Codex approval policy: ${options.approvalPolicy}\n`);
     }

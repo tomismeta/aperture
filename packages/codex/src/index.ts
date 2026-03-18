@@ -29,3 +29,7 @@ export type {
   CodexTransport,
 } from "./transport.js";
 export { CodexAppServerStdio, type CodexAppServerStdioOptions } from "./stdio.js";
+export {
+  CodexAppServerWebSocket,
+  type CodexAppServerWebSocketOptions,
+} from "./websocket.js";

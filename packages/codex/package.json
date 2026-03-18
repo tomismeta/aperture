@@ -13,9 +13,13 @@
   },
   "dependencies": {
     "@aperture/runtime": "workspace:*",
-    "@tomismeta/aperture-core": "workspace:*"
+    "@tomismeta/aperture-core": "workspace:*",
+    "ws": "^8.19.0"
   },
   "scripts": {
     "build": "tsc -b"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
   }
 }

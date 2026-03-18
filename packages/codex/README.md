@@ -25,9 +25,9 @@ without leaking Codex-specific transport or client details into
 +--------------+    +------------------+    +------------------+    +------------------+    +------------------+
 
 JSON-RPC over        requests / notices     SourceEvent in        AttentionResponse     approval answer,
-stdio today          -> SourceEvent         AttentionView out     -> Codex payload       user input answer,
-other transports     thread / turn local    no Codex types        request correlation    request resolved
-later
+stdio by default     -> SourceEvent         AttentionView out     -> Codex payload       user input answer,
+websocket optional   thread / turn local    no Codex types        request correlation    request resolved
+today
 ```
 
 More explicitly:
@@ -70,6 +70,7 @@ The package currently includes:
 - a Codex App Server client
 - a pluggable `CodexTransport` seam
 - a stdio transport implementation for `codex app-server`
+- a websocket transport implementation for shared or remote App Server sessions
 - mapping from Codex requests and notifications into `SourceEvent`
 - mapping from `AttentionResponse` back into Codex-native replies
 - a runtime bridge for live Aperture integration
@@ -87,12 +88,41 @@ Current Aperture disposition by surface:
 | pnpm codex:start        | supported            | Live adapter bridge into Aperture runtime  |
 | pnpm aperture --codex   | supported            | Full local stack with TUI supervision      |
 | Codex App Server        | supported in design  | The protocol boundary this package targets |
-| shared external server  | planned              | Future replacement for local stdio launch  |
+| shared external server  | experimental         | WebSocket-capable shared App Server route  |
 | Codex macOS app         | indirect only        | Not a direct Aperture event source today   |
 | Codex VS Code client    | indirect only        | Same App Server family, no shared seam yet |
 | stock Codex CLI/TUI     | not integrated       | Use the App Server client path instead     |
 +-------------------------+----------------------+--------------------------------------------+
 ```
+
+## Transport Selection
+
+`stdio` remains the default live path:
+
+```bash
+pnpm codex:start
+```
+
+You can also point the adapter at a shared or remote App Server over
+WebSocket:
+
+```bash
+pnpm codex:start -- --transport websocket --url ws://127.0.0.1:8765
+```
+
+The same explicit transport flags work for `pnpm codex:run`:
+
+```bash
+pnpm codex:run -- --transport websocket --url ws://127.0.0.1:8765 --cwd /Users/tom/dev/aperture "Review the current branch and summarize the risks."
+```
+
+And the top-level stack can forward them too:
+
+```bash
+pnpm aperture -- --codex --codex-transport websocket --codex-url ws://127.0.0.1:8765
+```
+
+Environment variables still work as a fallback.
 
 ## Verified Today
 
@@ -129,11 +159,18 @@ chooses to externalize, not the basic Aperture adapter path
 - `proven`
   - real approval requests can be surfaced and answered end to end
 - `promising`
-  - the App Server boundary, transport seam, and mapping model are sound
+  - the App Server boundary, dual transport seam, and mapping model are sound
 - `not ready for the live path`
   - only a small set of request families are live-verified
   - most of the Codex stream is still status and deltas without actionable
     hooks
+
+Transport note:
+
+- `stdio` is the default and best-supported path today
+- `websocket` is implemented for shared multi-surface topologies, but should
+  still be treated as experimental until Codex's shared App Server story
+  hardens
 
 Protocol note:
 

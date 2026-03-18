@@ -215,61 +215,79 @@ export function mapCodexResponse(
 
 export function parseCodexInteractionId(interactionId: string): ParsedInteractionId | null {
   const parts = interactionId.split(":");
-  if (parts.length < 6 || parts[0] !== "codex") {
+  if (parts[0] !== "codex") {
     return null;
   }
-  const [_, kind, requestId, threadId, turnId, itemId, extra] = parts;
-  if (!kind || !requestId || !threadId || !turnId || !itemId) {
+  const [, kind, requestId, threadId, firstSegment, secondSegment, thirdSegment] = parts;
+  if (!kind || !requestId || !threadId) {
     return null;
   }
   switch (kind) {
     case "commandApproval":
+      if (!firstSegment || !secondSegment) {
+        return null;
+      }
       return {
         kind,
         requestId: decodeURIComponent(requestId),
         threadId: decodeURIComponent(threadId),
-        turnId: decodeURIComponent(turnId),
-        itemId: decodeURIComponent(itemId),
-        ...(extra ? { approvalId: decodeURIComponent(extra) } : {}),
+        turnId: decodeURIComponent(firstSegment),
+        itemId: decodeURIComponent(secondSegment),
+        ...(thirdSegment ? { approvalId: decodeURIComponent(thirdSegment) } : {}),
       };
     case "fileChangeApproval":
+      if (!firstSegment || !secondSegment) {
+        return null;
+      }
       return {
         kind,
         requestId: decodeURIComponent(requestId),
         threadId: decodeURIComponent(threadId),
-        turnId: decodeURIComponent(turnId),
-        itemId: decodeURIComponent(itemId),
+        turnId: decodeURIComponent(firstSegment),
+        itemId: decodeURIComponent(secondSegment),
       };
     case "userInput":
+      if (!firstSegment || !secondSegment) {
+        return null;
+      }
       return {
         kind,
         requestId: decodeURIComponent(requestId),
         threadId: decodeURIComponent(threadId),
-        turnId: decodeURIComponent(turnId),
-        itemId: decodeURIComponent(itemId),
+        turnId: decodeURIComponent(firstSegment),
+        itemId: decodeURIComponent(secondSegment),
       };
     case "execCommandApproval":
+      if (!firstSegment) {
+        return null;
+      }
       return {
         kind,
         requestId: decodeURIComponent(requestId),
         threadId: decodeURIComponent(threadId),
-        itemId: decodeURIComponent(turnId),
-        ...(itemId ? { approvalId: decodeURIComponent(itemId) } : {}),
+        itemId: decodeURIComponent(firstSegment),
+        ...(secondSegment ? { approvalId: decodeURIComponent(secondSegment) } : {}),
       };
     case "applyPatchApproval":
+      if (!firstSegment) {
+        return null;
+      }
       return {
         kind,
         requestId: decodeURIComponent(requestId),
         threadId: decodeURIComponent(threadId),
-        itemId: decodeURIComponent(turnId),
+        itemId: decodeURIComponent(firstSegment),
       };
     case "permissionsApproval":
+      if (!firstSegment || !secondSegment) {
+        return null;
+      }
       return {
         kind,
         requestId: decodeURIComponent(requestId),
         threadId: decodeURIComponent(threadId),
-        turnId: decodeURIComponent(turnId),
-        itemId: decodeURIComponent(itemId),
+        turnId: decodeURIComponent(firstSegment),
+        itemId: decodeURIComponent(secondSegment),
       };
     default:
       return null;
@@ -735,22 +753,16 @@ function mapItemCompleted(
 }
 
 function mapCommandApprovalDecision(response: AttentionResponse): CodexCommandExecutionApprovalDecision {
-  switch (response.response.kind) {
-    case "approved":
-      return "accept";
-    case "rejected":
-      return "decline";
-    case "dismissed":
-    case "acknowledged":
-      return "cancel";
-    case "option_selected":
-    case "text_submitted":
-    case "form_submitted":
-      return "cancel";
-  }
+  return mapApprovalDecision(response);
 }
 
 function mapFileChangeApprovalDecision(response: AttentionResponse): CodexFileChangeApprovalDecision {
+  return mapApprovalDecision(response);
+}
+
+function mapApprovalDecision(
+  response: AttentionResponse,
+): "accept" | "decline" | "cancel" {
   switch (response.response.kind) {
     case "approved":
       return "accept";

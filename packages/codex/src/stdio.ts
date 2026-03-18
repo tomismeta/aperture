@@ -168,10 +168,23 @@ export class CodexAppServerStdio implements CodexTransport {
     if (!child) {
       return;
     }
-    child.kill();
+    child.kill("SIGTERM");
     await new Promise<void>((resolve) => {
-      child.once("exit", () => resolve());
-      setTimeout(resolve, 100);
+      let settled = false;
+      const finish = () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        resolve();
+      };
+      child.once("exit", finish);
+      setTimeout(() => {
+        if (child.exitCode === null && child.signalCode === null) {
+          child.kill("SIGKILL");
+        }
+        finish();
+      }, 5_000);
     });
   }
 

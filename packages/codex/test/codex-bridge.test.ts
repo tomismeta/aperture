@@ -316,3 +316,102 @@ test("bridge reconnects after the codex app server exits", async () => {
 
   await bridge.close();
 });
+
+test("bridge times out pending codex requests and responds with an error", async () => {
+  const errors: Array<{ id: JsonRpcId | null; error: { code: number; message: string } }> = [];
+  let requestListener: ((request: CodexServerRequest) => void) | null = null;
+
+  const fakeClient: CodexBridgeClient = {
+    async start() {
+      return { userAgent: "codex-test", platformFamily: "unix", platformOs: "macos" };
+    },
+    onServerRequest(listener: (request: CodexServerRequest) => void) {
+      requestListener = listener;
+      return () => {
+        requestListener = null;
+      };
+    },
+    onNotification() {
+      return () => {};
+    },
+    onExit() {
+      return () => {};
+    },
+    onStderr() {
+      return () => {};
+    },
+    respond() {},
+    respondError(id: JsonRpcId | null, error: { code: number; message: string }) {
+      errors.push({ id, error });
+    },
+    async threadStart() {
+      throw new Error("not implemented");
+    },
+    async threadResume() {
+      throw new Error("not implemented");
+    },
+    async turnStart() {
+      throw new Error("not implemented");
+    },
+    async turnSteer() {
+      throw new Error("not implemented");
+    },
+    async turnInterrupt() {
+      throw new Error("not implemented");
+    },
+    async reviewStart() {
+      throw new Error("not implemented");
+    },
+    async close() {},
+  };
+
+  const fakeRuntimeClient: CodexRuntimeClient = {
+    onResponse() {
+      return () => {};
+    },
+    async publishSourceEventBatch() {},
+    async close() {},
+  };
+
+  const bridge = createCodexBridge({
+    runtimeBaseUrl: "http://127.0.0.1:4546/runtime",
+    client: fakeClient,
+    runtimeClientFactory: async () => fakeRuntimeClient,
+    requestTimeoutMs: 5,
+    logger: {
+      info() {},
+      warn() {},
+      error() {},
+    },
+  });
+  await bridge.start();
+
+  if (!requestListener) {
+    assert.fail("expected codex bridge to register a server request listener");
+  }
+
+  const currentRequestListener: (request: CodexServerRequest) => void = requestListener;
+  currentRequestListener({
+    id: "timed-out-1",
+    method: "item/commandExecution/requestApproval",
+    params: {
+      threadId: "thread-timeout",
+      turnId: "turn-timeout",
+      itemId: "item:timeout:1",
+      command: "pnpm test",
+      cwd: "/repo",
+    },
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 25));
+
+  assert.deepEqual(errors[0], {
+    id: "timed-out-1",
+    error: {
+      code: -32000,
+      message: "Timed out waiting for Aperture response to item/commandExecution/requestApproval",
+    },
+  });
+
+  await bridge.close();
+});

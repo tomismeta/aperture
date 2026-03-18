@@ -18,6 +18,8 @@ export type OpencodeBridgeOptions = {
   runtimeMetadata?: Record<string, string>;
   sourceLabel?: string;
   client: OpencodeClientOptions;
+  bridgeClient?: OpencodeBridgeClient;
+  runtimeClientFactory?: () => Promise<OpencodeRuntimeClient>;
 };
 
 export type OpencodeBridge = {
@@ -25,15 +27,43 @@ export type OpencodeBridge = {
   close(): Promise<void>;
 };
 
+export type OpencodeBridgeClient = Pick<
+  OpencodeClient,
+  | "listPermissions"
+  | "listQuestions"
+  | "replyToPermission"
+  | "replyToQuestion"
+  | "rejectQuestion"
+  | "streamEvents"
+>;
+
+export type OpencodeRuntimeClient = Pick<
+  ApertureRuntimeAdapterClient,
+  "publishSourceEvent" | "publishSourceEventBatch" | "submit" | "onResponse" | "close"
+>;
+
 export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBridge {
-  const client = new OpencodeClient(options.client);
+  const client = options.bridgeClient ?? new OpencodeClient(options.client);
   const mappingContext: OpencodeMappingContext = {
     baseUrl: options.client.baseUrl,
     ...(options.client.scope ? { scope: options.client.scope } : {}),
     ...(options.sourceLabel ? { sourceLabel: options.sourceLabel } : {}),
   };
   const adapterId = `opencode-${createOpencodeInstanceKey(mappingContext)}`;
-  let runtimeClient: ApertureRuntimeAdapterClient | null = null;
+  const runtimeClientFactory =
+    options.runtimeClientFactory
+    ?? (() => ApertureRuntimeAdapterClient.connect({
+      baseUrl: options.runtimeBaseUrl,
+      kind: "opencode",
+      id: adapterId,
+      label: options.runtimeLabel ?? "OpenCode adapter",
+      metadata: {
+        baseUrl: options.client.baseUrl,
+        ...(options.client.scope?.directory ? { directory: options.client.scope.directory } : {}),
+        ...(options.runtimeMetadata ?? {}),
+      },
+    }));
+  let runtimeClient: OpencodeRuntimeClient | null = null;
   let streamController: AbortController | null = null;
   let responseUnsubscribe: (() => void) | null = null;
   let streamTask: Promise<void> | null = null;
@@ -50,17 +80,7 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
   return {
     async start() {
       closed = false;
-      runtimeClient = await ApertureRuntimeAdapterClient.connect({
-        baseUrl: options.runtimeBaseUrl,
-        kind: "opencode",
-        id: adapterId,
-        label: options.runtimeLabel ?? "OpenCode adapter",
-        metadata: {
-          baseUrl: options.client.baseUrl,
-          ...(options.client.scope?.directory ? { directory: options.client.scope.directory } : {}),
-          ...(options.runtimeMetadata ?? {}),
-        },
-      });
+      runtimeClient = await runtimeClientFactory();
 
       responseUnsubscribe = runtimeClient.onResponse((response: AttentionResponse) => {
         void handleRuntimeResponse(response).catch((error) => {

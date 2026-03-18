@@ -14,6 +14,7 @@ import {
   mapCodexNotification,
   mapCodexResponse,
   mapCodexServerRequest,
+  type CodexResponsePayload,
   type CodexMappingContext,
 } from "./mapping.js";
 
@@ -29,6 +30,7 @@ export type CodexBridgeOptions = {
     maxDelayMs?: number;
     maxAttempts?: number;
   };
+  requestTimeoutMs?: number;
   debug?: boolean;
   logger?: Pick<Console, "error" | "warn" | "info">;
   runtimeClientFactory?: (
@@ -66,6 +68,7 @@ export type CodexRuntimeClient = Pick<
 >;
 
 type PendingRequest = {
+  taskId: string;
   interactionId: string;
   request: CodexRawServerRequest;
 };
@@ -84,8 +87,10 @@ export function createCodexBridge(options: CodexBridgeOptions): CodexBridge {
   const reconnectInitialDelayMs = options.reconnect?.initialDelayMs ?? 1_000;
   const reconnectMaxDelayMs = options.reconnect?.maxDelayMs ?? 10_000;
   const reconnectMaxAttempts = options.reconnect?.maxAttempts ?? Infinity;
+  const requestTimeoutMs = options.requestTimeoutMs ?? 5 * 60_000;
   const pendingByInteractionId = new Map<string, PendingRequest>();
   const pendingByRequestId = new Map<string, PendingRequest>();
+  const timeoutByInteractionId = new Map<string, NodeJS.Timeout>();
   let runtimeClient: CodexRuntimeClient | null = null;
   let responseUnsubscribe: (() => void) | null = null;
   let notificationUnsubscribe: (() => void) | null = null;
@@ -142,8 +147,7 @@ export function createCodexBridge(options: CodexBridgeOptions): CodexBridge {
       requestUnsubscribe = null;
       exitUnsubscribe = null;
       stderrUnsubscribe = null;
-      pendingByInteractionId.clear();
-      pendingByRequestId.clear();
+      clearPendingRequests();
       await client.close();
       if (runtimeClient) {
         await runtimeClient.close();
@@ -177,13 +181,16 @@ export function createCodexBridge(options: CodexBridgeOptions): CodexBridge {
       );
     }
     pendingByInteractionId.set(mapped.interactionId, {
+      taskId: mapped.taskId,
       interactionId: mapped.interactionId,
       request,
     });
     pendingByRequestId.set(String(request.id), {
+      taskId: mapped.taskId,
       interactionId: mapped.interactionId,
       request,
     });
+    scheduleRequestTimeout(mapped.taskId, mapped.interactionId, request);
     await runtimeClient.publishSourceEventBatch(mapped.events);
   }
 
@@ -200,8 +207,7 @@ export function createCodexBridge(options: CodexBridgeOptions): CodexBridge {
     ) {
       const pending = pendingByRequestId.get(String(notification.params.requestId));
       if (pending) {
-        pendingByRequestId.delete(String(notification.params.requestId));
-        pendingByInteractionId.delete(pending.interactionId);
+        clearPendingRequest(pending.interactionId, String(notification.params.requestId));
       }
       return;
     }
@@ -226,12 +232,11 @@ export function createCodexBridge(options: CodexBridgeOptions): CodexBridge {
     if (!pending) {
       return;
     }
-    const payload = mapCodexResponse(response, pending.request);
+    const payload: CodexResponsePayload | null = mapCodexResponse(response, pending.request);
     if (!payload) {
       return;
     }
-    pendingByInteractionId.delete(response.interactionId);
-    pendingByRequestId.delete(String(pending.request.id));
+    clearPendingRequest(response.interactionId, String(pending.request.id));
     client.respond(pending.request.id as JsonRpcId, payload);
   }
 
@@ -302,14 +307,63 @@ export function createCodexBridge(options: CodexBridgeOptions): CodexBridge {
   }
 
   function clearPendingRequests(): void {
+    for (const timeout of timeoutByInteractionId.values()) {
+      clearTimeout(timeout);
+    }
+    timeoutByInteractionId.clear();
     pendingByInteractionId.clear();
     pendingByRequestId.clear();
+  }
+
+  function clearPendingRequest(interactionId: string, requestId: string): void {
+    pendingByInteractionId.delete(interactionId);
+    pendingByRequestId.delete(requestId);
+    const timeout = timeoutByInteractionId.get(interactionId);
+    if (timeout) {
+      clearTimeout(timeout);
+      timeoutByInteractionId.delete(interactionId);
+    }
+  }
+
+  function scheduleRequestTimeout(
+    taskId: string,
+    interactionId: string,
+    request: CodexRawServerRequest,
+  ): void {
+    const existing = timeoutByInteractionId.get(interactionId);
+    if (existing) {
+      clearTimeout(existing);
+    }
+    timeoutByInteractionId.set(
+      interactionId,
+      setTimeout(() => {
+        timeoutByInteractionId.delete(interactionId);
+        if (!pendingByInteractionId.has(interactionId)) {
+          return;
+        }
+        logger.warn?.(
+          `[codex] request timed out waiting for Aperture response: ${request.method} (${interactionId})`,
+        );
+        clearPendingRequest(interactionId, String(request.id));
+        client.respondError(request.id, {
+          code: -32000,
+          message: `Timed out waiting for Aperture response to ${request.method}`,
+        });
+        void publishBridgeStatusEvent(
+          "Codex request timed out",
+          `Aperture did not respond to ${request.method} in time.`,
+          "waiting",
+          taskId,
+        );
+      }, requestTimeoutMs),
+    );
   }
 
   async function publishBridgeStatusEvent(
     title: string,
     summary: string,
     status: "running" | "waiting",
+    taskId = "codex:adapter",
   ): Promise<void> {
     if (!runtimeClient) {
       return;
@@ -317,7 +371,7 @@ export function createCodexBridge(options: CodexBridgeOptions): CodexBridge {
     const event: SourceEvent = {
       id: `codex-bridge:${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}:${Date.now()}`,
       type: "task.updated",
-      taskId: "codex:adapter",
+      taskId,
       timestamp: new Date().toISOString(),
       source: {
         id: "codex-app-server",

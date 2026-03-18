@@ -385,4 +385,14 @@ test("parses codex interaction ids", () => {
       approvalId: "approval-1",
     },
   );
+
+  assert.deepEqual(
+    parseCodexInteractionId("codex:applyPatchApproval:req-patch:thread-legacy:patch-call-1:patch"),
+    {
+      kind: "applyPatchApproval",
+      requestId: "req-patch",
+      threadId: "thread-legacy",
+      itemId: "patch-call-1",
+    },
+  );
 });

@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
-import type { AttentionResponse as FrameResponse, AttentionView, SourceEvent } from "@tomismeta/aperture-core";
+import type { AttentionResponse, AttentionView, SourceEvent } from "@tomismeta/aperture-core";
 
 import {
   mapClaudeCodeFrameResponse,
@@ -10,7 +10,7 @@ import {
   type ClaudeCodeMappingOptions,
   type ClaudeCodePreToolUseEvent,
   type ClaudeCodePreToolUseMappedEvent,
-} from "./index.js";
+} from "./mapping.js";
 
 export type ClaudeCodeHookServerOptions = ClaudeCodeMappingOptions & {
   host?: string;
@@ -47,9 +47,9 @@ type PendingDecision = {
 
 type ClaudeCodeEventHost = {
   publishSourceEvent(event: SourceEvent): unknown | Promise<unknown>;
-  submit(response: FrameResponse): unknown | Promise<unknown>;
+  submit(response: AttentionResponse): unknown | Promise<unknown>;
   getAttentionView(): AttentionView;
-  onResponse(listener: (response: FrameResponse) => void): () => void;
+  onResponse(listener: (response: AttentionResponse) => void): () => void;
 };
 
 export function createClaudeCodeHookServer(
@@ -220,7 +220,7 @@ export function createClaudeCodeHookServer(
   };
 }
 
-function pendingKey(response: Pick<FrameResponse, "taskId" | "interactionId">): string {
+function pendingKey(response: Pick<AttentionResponse, "taskId" | "interactionId">): string {
   return `${response.taskId}::${response.interactionId}`;
 }
 

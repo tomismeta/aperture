@@ -52,5 +52,7 @@ export {
 export {
   createOpencodeBridge,
   type OpencodeBridge,
+  type OpencodeBridgeClient,
   type OpencodeBridgeOptions,
+  type OpencodeRuntimeClient,
 } from "./bridge.js";

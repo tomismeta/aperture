@@ -173,5 +173,5 @@ For Codex, that means:
 
 ## Learn More
 
-- [Codex App Server Architecture](/Users/tom/dev/aperture/docs/codex-app-server-architecture.md)
+- [Codex Adapter](/Users/tom/dev/aperture/docs/codex-adapter.md)
 - [Canonical Judgment Model](/Users/tom/dev/aperture/docs/canonical-judgment-model.md)

@@ -168,6 +168,6 @@ This writes both `docs/assets/demo.gif` and `docs/assets/demo.mp4` from the same
 
 ## Related Docs
 
-- [System Architecture Diagram](./system-architecture-diagram.md)
+- [Architecture Overview](./architecture-overview.md)
 - [Architecture Principles](./architecture-principles.md)
 - [TUI Design](./tui-design.md)

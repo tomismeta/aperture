@@ -1,4 +1,4 @@
-# Codex Integration Paths
+# Codex Surfaces
 
 This note explains the current Codex integration paths around the new
 `@aperture/codex` adapter:

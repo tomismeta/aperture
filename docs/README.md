@@ -1,76 +1,82 @@
 # Docs
 
-This folder contains three kinds of documentation:
+This folder contains the current Aperture documentation.
 
-- **current product docs** for the live Aperture surface
-- **current reference docs** for the engine and SDK
-- **archived docs** for historical plans and shipped specs
+The docs are organized into five groups:
 
-If you are new to the repo, read the current product docs first.
+- **entry docs** for first orientation
+- **product surface docs** for the current product contract
+- **source adapter docs** for source-specific integration paths
+- **engine and SDK reference docs** for the core judgment model
+- **roadmap and design context docs** for forward-looking or evaluative thinking
 
 ## Start Here
 
 1. [README](../README.md)
-2. [TUI Surface](./tui.md)
+2. [Architecture Overview](./architecture-overview.md)
 3. [Components](./components.md)
-4. [System Architecture Diagram](./system-architecture-diagram.md)
-5. [Claude Code Adapter](./claude-code.md)
-6. [OpenCode Adapter](./opencode-integration.md)
-7. [Adapter Contract](./adapter-contract.md)
+4. [Adapter Contract](./adapter-contract.md)
+5. [TUI Surface](./tui.md)
 
-## Current Product Docs
+If you are new to the repo, that path gives the fastest accurate picture of the product.
 
-- [TUI Surface](./tui.md)
+## Product Surface
+
+- [Architecture Overview](./architecture-overview.md)
 - [Components](./components.md)
 - [Adapter Contract](./adapter-contract.md)
-- [Claude Code Adapter](./claude-code.md)
-- [OpenCode Adapter](./opencode-integration.md)
-- [System Architecture Diagram](./system-architecture-diagram.md)
+- [TUI Surface](./tui.md)
+- [SDK Path](./sdk-path.md)
 
-These are the best entrypoints for understanding what Aperture is today:
+These docs define the current Aperture product surface:
 
-- a deterministic human attention engine in `packages/core`
-- a shared local host in `@aperture/runtime`
-- Claude Code and OpenCode as the live adapter paths
-- Codex as an experimental adapter path with a clean but still limited boundary
-- a source-agnostic TUI with operator mode and `why` inspection mode
+- what exists today
+- what the main packages are
+- how the shared runtime and TUI fit together
+- what boundaries should stay stable
 
-## Current Reference Docs
+## Source Adapters
+
+- [Claude Code Adapter](./claude-code-adapter.md)
+- [OpenCode Adapter](./opencode-adapter.md)
+- [Codex Adapter](./codex-adapter.md)
+- [Codex Surfaces](./codex-surfaces.md)
+
+These docs explain the source-specific integration seams:
+
+- Claude Code as a live hook-based path
+- OpenCode as a live server-and-terminal path
+- Codex as an experimental App Server path
+
+## Engine And SDK Reference
 
 - [Architecture Principles](./architecture-principles.md)
 - [Attention And Judgment Doctrine](./attention-judgment-doctrine.md)
 - [Core Engine Architecture](./core-engine-architecture.md)
 - [Canonical Judgment Model](./canonical-judgment-model.md)
-- [Codex App Server Architecture](./codex-app-server-architecture.md)
-- [Codex Integration Paths](./codex-integration-paths.md)
 - [Reference Judgment Flow](./reference-judgment-flow.md)
 - [Semantic Normalization](./semantic-normalization.md)
 - [Attention Frame](./frame.md)
+- [SDK Path](./sdk-path.md)
+- [Interaction Signals](./interaction-signals.md)
+
+These docs explain the deterministic judgment model, the engine boundary, and the SDK-facing contracts.
+
+## Roadmaps And Design Context
+
 - [Engine Roadmap](./engine-roadmap.md)
 - [Core Maturation Plan](./core-maturation-plan.md)
-- [SDK Path](./sdk-path.md)
 - [Technical Product Roadmap](./technical-product-roadmap.md)
-- [Interaction Signals](./interaction-signals.md)
 - [Human Attention Research](./human-attention-research.md)
-
-These docs explain how the engine works, how it should evolve, and how the SDK
-boundary should stay clean over time.
-
-## Background / Design Context
-
-- [TUI Design](./tui-design.md)
-- [Agent Workforce Use Case](./agent-workforce-use-case.md)
 - [Engine Architecture Evaluation](./engine-architecture-evaluation.md)
+- [Agent Workforce Use Case](./agent-workforce-use-case.md)
+- [TUI Design](./tui-design.md)
 
-These are useful context docs, but they are not the primary product contract.
+These docs are useful when you want to understand why the product is shaped this way or where it should go next.
 
 ## Archived
 
 - [Archive Index](./archive/README.md)
-- [TUI Redesign Spec](./archive/tui-redesign-spec.md)
-- [OpenCode Implementation Plan](./archive/opencode-implementation-plan.md)
-- [Judgment Layer Implementation Spec](./archive/judgment-layer-implementation-spec.md)
-- [First Publish Checklist](./archive/publish-checklist.md)
 
 Archived docs are kept for implementation history and design provenance. They
 should not be treated as the source of truth for the current product surface.

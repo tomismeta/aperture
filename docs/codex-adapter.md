@@ -1,4 +1,4 @@
-# Codex App Server Integration Architecture
+# Codex Adapter
 
 This note defines the fresh-start architecture for the new Codex App Server integration.
 

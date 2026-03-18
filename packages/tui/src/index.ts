@@ -11,7 +11,7 @@ import {
   describeResponse,
 } from "./interaction.js";
 import { displaySourceLabel } from "./source-label.js";
-import { buildSurfaceAttentionView, sameAttentionView } from "./surface-view.js";
+import { buildSurfaceAttentionView, isAttentionViewEmpty, sameAttentionView } from "./surface-view.js";
 
 import type {
   AttentionSurface,
@@ -154,18 +154,17 @@ export async function runAttentionTui(
     const viewChanged = applyAttentionView(latestView);
     const isEmpty = isAttentionViewEmpty(state.attentionView);
     const hasNoActiveFrame = state.attentionView.active === null;
+    const hadActiveAnimation = tickAnimation(state.animation);
 
     if (reducedMotion) {
       if (!hasNoActiveFrame && !viewChanged) {
         return;
       }
-      state.animation.idleTick = (state.animation.idleTick + 1) % 4;
       requestRender();
       return;
     }
 
-    const hadActiveAnimation = tickAnimation(state.animation);
-    // Re-render for active animations, live posture/view cooling, or the idle lens pulse
+    // Re-render for active animations, live posture/view cooling, or the calm idle pulse
     // whenever nothing currently owns the operator's focus.
     if (hadActiveAnimation || viewChanged || hasNoActiveFrame || isEmpty) {
       requestRender();
@@ -311,12 +310,6 @@ function setupTerminal(input: InputLike, output: OutputLike, title: string): () 
     input.pause();
     output.write(restoreScreen());
   };
-}
-
-function isAttentionViewEmpty(attentionView: TuiState["attentionView"]): boolean {
-  return !attentionView.active
-    && attentionView.queued.length === 0
-    && attentionView.ambient.length === 0;
 }
 
 function writeTerminalTitle(output: OutputLike, title: string): void {

@@ -25,6 +25,12 @@ export function sameAttentionView(left: AttentionView, right: AttentionView): bo
     && compareFrameLists(left.ambient, right.ambient);
 }
 
+export function isAttentionViewEmpty(attentionView: AttentionView): boolean {
+  return !attentionView.active
+    && attentionView.queued.length === 0
+    && attentionView.ambient.length === 0;
+}
+
 function compareFrame(left: Frame | null, right: Frame | null): boolean {
   if (left === right) {
     return true;

@@ -64,7 +64,7 @@ This is the current Aperture disposition by Codex surface:
 | pnpm codex:start          | supported            | Live adapter bridge into Aperture runtime     |
 | pnpm aperture --codex     | supported            | Full local stack with TUI supervision         |
 | direct Codex App Server   | supported in design  | The architectural boundary we target          |
-| shared external transport | planned              | Future replacement for local stdio launch     |
+| shared external transport | experimental         | WebSocket-capable shared App Server route     |
 | Codex macOS app           | indirect only        | Validates the App Server direction, but not   |
 |                           |                      | a current Aperture event source               |
 | Codex VS Code extension   | indirect only        | Same boundary, but no current shared session  |
@@ -121,6 +121,23 @@ This is the current deterministic approval-path smoke test:
 
 ```bash
 APERTURE_CODEX_DEBUG=1 pnpm codex:run --cwd /Users/tom/dev/aperture --approval-policy on-request --sandbox read-only "Create a directory named codex-smoke-test and create hello.txt inside it."
+```
+
+Transport selection today:
+
+```bash
+pnpm codex:start
+```
+
+```bash
+pnpm codex:start -- --transport websocket --url ws://127.0.0.1:8765
+```
+
+The same transport flags work for `pnpm codex:run`, and the full local stack
+can forward them via:
+
+```bash
+pnpm aperture -- --codex --codex-transport websocket --codex-url ws://127.0.0.1:8765
 ```
 
 Why this works:
@@ -537,7 +554,7 @@ allowed decisions.
 ```json
 {
   "approval_response_mapping": {
-    "approved": "accept or acceptForSession when explicitly chosen",
+    "approved": "accept",
     "rejected": "decline",
     "dismissed": "cancel"
   },
@@ -725,7 +742,8 @@ Keep the first implementation tight.
 {
   "mvp": {
     "transport": [
-      "stdio only"
+      "stdio (default)",
+      "websocket (experimental)"
     ],
     "supported_codex_capabilities": [
       "initialize",
@@ -740,7 +758,6 @@ Keep the first implementation tight.
       "tool requestUserInput"
     ],
     "excluded_for_now": [
-      "websocket transport",
       "dynamic tool calls",
       "experimental API fields",
       "full-fidelity delta mirroring"
@@ -754,7 +771,7 @@ Keep the first implementation tight.
 ```json
 {
   "future_extensions": [
-    "websocket transport once it is no longer experimental",
+    "making websocket the preferred shared multi-surface path once it is no longer experimental",
     "dynamic tool-call support once the API matures",
     "review-specific attention heuristics if review volume becomes a major source class",
     "host-driven Codex thread orchestration UI above Aperture",

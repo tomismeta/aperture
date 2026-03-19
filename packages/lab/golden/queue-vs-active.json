@@ -2,6 +2,23 @@
   "id": "golden:queue:vs-active",
   "title": "Medium work queues behind stronger active approval",
   "description": "A medium choice request should not steal focus from a stronger active approval.",
+  "doctrineTags": [
+    "queue_doctrine",
+    "interruption_credibility",
+    "attention_worthiness"
+  ],
+  "expectations": {
+    "finalActiveInteractionId": "interaction:active:approval",
+    "queuedInteractionIds": [
+      "interaction:queued:choice"
+    ],
+    "ambientInteractionIds": [],
+    "resultBucketCounts": {
+      "active": 1,
+      "queued": 1,
+      "ambient": 0
+    }
+  },
   "steps": [
     {
       "kind": "publish",

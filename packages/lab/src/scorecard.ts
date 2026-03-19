@@ -1,9 +1,19 @@
-import { evaluateTraceSession, type AttentionSignal, type TraceEvaluationReport } from "@tomismeta/aperture-core";
+import {
+  evaluateTraceSession,
+  type ApertureTrace,
+  type AttentionSignal,
+  type TraceEvaluationReport,
+} from "@tomismeta/aperture-core";
 
 import type { ReplayRunResult } from "./runner.js";
 
 export type ReplayScorecard = {
   trace: TraceEvaluationReport;
+  buckets: {
+    active: number;
+    queued: number;
+    ambient: number;
+  };
   signals: {
     presented: number;
     responded: number;
@@ -20,6 +30,8 @@ export type ReplayScorecard = {
     finalActiveInteractionId: string | null;
     finalQueuedCount: number;
     finalAmbientCount: number;
+    finalQueuedInteractionIds: string[];
+    finalAmbientInteractionIds: string[];
   };
 };
 
@@ -28,6 +40,7 @@ export function scoreReplayRun(result: ReplayRunResult): ReplayScorecard {
 
   return {
     trace: evaluateTraceSession(result.traces),
+    buckets: countResultBuckets(result),
     signals: countSignals(result.signals),
     outcomes: {
       totalSteps: result.steps.length,
@@ -35,8 +48,46 @@ export function scoreReplayRun(result: ReplayRunResult): ReplayScorecard {
       finalActiveInteractionId: finalView?.active?.interactionId ?? null,
       finalQueuedCount: finalView?.queued.length ?? 0,
       finalAmbientCount: finalView?.ambient.length ?? 0,
+      finalQueuedInteractionIds: finalView?.queued.map((frame) => frame.interactionId) ?? [],
+      finalAmbientInteractionIds: finalView?.ambient.map((frame) => frame.interactionId) ?? [],
     },
   };
+}
+
+function countResultBuckets(result: ReplayRunResult): ReplayScorecard["buckets"] {
+  const counts: ReplayScorecard["buckets"] = {
+    active: 0,
+    queued: 0,
+    ambient: 0,
+  };
+
+  for (const trace of result.traces) {
+    if (!isCandidateTrace(trace)) {
+      continue;
+    }
+
+    switch (trace.coordination.resultBucket) {
+      case "active":
+        counts.active += 1;
+        break;
+      case "queued":
+        counts.queued += 1;
+        break;
+      case "ambient":
+        counts.ambient += 1;
+        break;
+      case "none":
+        break;
+    }
+  }
+
+  return counts;
+}
+
+function isCandidateTrace(
+  trace: ApertureTrace,
+): trace is Extract<ApertureTrace, { evaluation: { kind: "candidate" } }> {
+  return trace.evaluation.kind === "candidate";
 }
 
 function countSignals(signals: AttentionSignal[]): ReplayScorecard["signals"] {

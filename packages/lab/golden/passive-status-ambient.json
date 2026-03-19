@@ -2,6 +2,22 @@
   "id": "golden:ambient:status",
   "title": "Passive running status stays ambient",
   "description": "A plain running status update should stay in ambient awareness rather than interrupting.",
+  "doctrineTags": [
+    "ambient_doctrine",
+    "interruption_credibility"
+  ],
+  "expectations": {
+    "finalActiveInteractionId": null,
+    "queuedInteractionIds": [],
+    "ambientInteractionIds": [
+      "interaction:task:status:status"
+    ],
+    "resultBucketCounts": {
+      "active": 0,
+      "queued": 0,
+      "ambient": 1
+    }
+  },
   "steps": [
     {
       "kind": "publish",

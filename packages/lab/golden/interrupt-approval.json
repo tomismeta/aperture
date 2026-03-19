@@ -2,6 +2,21 @@
   "id": "golden:interrupt:approval",
   "title": "High-consequence approval interrupts immediately",
   "description": "A blocking high-consequence approval should surface as the active frame.",
+  "doctrineTags": [
+    "hard_gate_interrupt",
+    "attention_worthiness",
+    "interruption_credibility"
+  ],
+  "expectations": {
+    "finalActiveInteractionId": "interaction:deploy:approval",
+    "queuedInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultBucketCounts": {
+      "active": 1,
+      "queued": 0,
+      "ambient": 0
+    }
+  },
   "steps": [
     {
       "kind": "publish",

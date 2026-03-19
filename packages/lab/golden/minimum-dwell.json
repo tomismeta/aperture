@@ -2,6 +2,22 @@
   "id": "golden:continuity:minimum-dwell",
   "title": "Small challenger does not steal focus during minimum dwell",
   "description": "Freshly surfaced work should keep focus when a only slightly weaker interaction arrives immediately after.",
+  "doctrineTags": [
+    "minimum_dwell",
+    "decision_stream_continuity"
+  ],
+  "expectations": {
+    "finalActiveInteractionId": "interaction:first",
+    "queuedInteractionIds": [
+      "interaction:challenger"
+    ],
+    "ambientInteractionIds": [],
+    "resultBucketCounts": {
+      "active": 1,
+      "queued": 1,
+      "ambient": 0
+    }
+  },
   "steps": [
     {
       "kind": "publish",

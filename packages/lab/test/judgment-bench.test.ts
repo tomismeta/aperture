@@ -16,6 +16,6 @@ test("JudgmentBench runs across the golden scenarios and produces a summary", as
 
   assert.equal(result.benchmark, "JudgmentBench");
   assert.ok(result.summary.totalScenarios >= 5);
-  assert.ok(result.summary.totalCandidates >= result.summary.totalActivated);
+  assert.ok(result.summary.totalCandidates >= result.summary.totalActiveBuckets);
   assert.equal(result.scenarios.length, result.summary.totalScenarios);
 });

@@ -2,6 +2,25 @@
   "id": "golden:overload:demotes-status",
   "title": "Low-value status work stays peripheral under load",
   "description": "Once strong interruptive work is already visible, low-value status should not claim focus.",
+  "doctrineTags": [
+    "interruption_credibility",
+    "ambient_doctrine",
+    "queue_pressure"
+  ],
+  "expectations": {
+    "finalActiveInteractionId": "interaction:approval:1",
+    "queuedInteractionIds": [
+      "interaction:approval:2"
+    ],
+    "ambientInteractionIds": [
+      "interaction:task:status:low:status"
+    ],
+    "resultBucketCounts": {
+      "active": 1,
+      "queued": 1,
+      "ambient": 1
+    }
+  },
   "steps": [
     {
       "kind": "publish",

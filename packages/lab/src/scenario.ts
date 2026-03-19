@@ -64,8 +64,21 @@ export type ReplayScenario = {
   id: string;
   title: string;
   description?: string;
+  doctrineTags?: string[];
+  expectations?: ReplayScenarioExpectations;
   core?: ApertureCoreOptions;
   steps: ReplayObservationStep[];
+};
+
+export type ReplayScenarioExpectations = {
+  finalActiveInteractionId?: string | null;
+  queuedInteractionIds?: string[];
+  ambientInteractionIds?: string[];
+  resultBucketCounts?: {
+    active?: number;
+    queued?: number;
+    ambient?: number;
+  };
 };
 
 export type ReplayViewSnapshot = {

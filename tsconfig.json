@@ -7,7 +7,7 @@
     { "path": "./packages/claude-code" },
     { "path": "./packages/opencode" },
     { "path": "./packages/codex" },
-    { "path": "./packages/evals" },
+    { "path": "./packages/lab" },
     { "path": "./packages/tui" }
   ]
 }

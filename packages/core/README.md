@@ -55,7 +55,7 @@ If you want the full repo-level architecture, including runtime, adapters, and
 the TUI, see [Architecture Overview](https://github.com/tomismeta/aperture/blob/main/docs/product/architecture-overview.md).
 
 If you want the replay, benchmark, and calibration direction for evaluating
-judgment changes, see [Aperture Lab](https://github.com/tomismeta/aperture/blob/main/docs/engine/aperture-lab.md).
+judgment changes, see [Aperture Lab](https://github.com/tomismeta/aperture/blob/main/docs/lab/aperture-lab.md).
 
 ## Install
 

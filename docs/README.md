@@ -2,12 +2,13 @@
 
 This folder contains the current Aperture documentation.
 
-The docs are organized into five groups:
+The docs are organized into six groups:
 
 - **entry docs** for first orientation
 - **product surface docs** for the current product contract
 - **source adapter docs** for source-specific integration paths
 - **engine and SDK reference docs** for the core judgment model
+- **lab docs** for replay, benchmark, and calibration work
 - **roadmap and design context docs** for forward-looking or evaluative thinking
 
 ## Start Here
@@ -57,12 +58,18 @@ These docs explain the source-specific integration seams:
 - [Reference Judgment Flow](./engine/reference-judgment-flow.md)
 - [Semantic Normalization](./engine/semantic-normalization.md)
 - [Attention Frame](./engine/frame.md)
-- [Aperture Lab](./engine/aperture-lab.md)
-- [JudgmentBench Data Strategy](./engine/judgmentbench-data-strategy.md)
 - [SDK Path](./product/sdk-path.md)
 - [Interaction Signals](./engine/interaction-signals.md)
 
 These docs explain the deterministic judgment model, the engine boundary, and the SDK-facing contracts.
+
+## Lab
+
+- [Aperture Lab](./lab/aperture-lab.md)
+- [JudgmentBench Data Strategy](./lab/judgmentbench-data-strategy.md)
+
+These docs define the offline replay, benchmark, and calibration layer that
+measures and improves Aperture's deterministic hot path.
 
 ## Roadmaps And Design Context
 

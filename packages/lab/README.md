@@ -57,7 +57,7 @@ Today this package provides:
 - not yet a public benchmark repo
 
 For the broader lab architecture and naming ontology, see
-[Aperture Lab](../../docs/engine/aperture-lab.md).
+[Aperture Lab](../../docs/lab/aperture-lab.md).
 
 For the concrete harvesting and labeling plan behind JudgmentBench, see
-[JudgmentBench Data Strategy](../../docs/engine/judgmentbench-data-strategy.md).
+[JudgmentBench Data Strategy](../../docs/lab/judgmentbench-data-strategy.md).

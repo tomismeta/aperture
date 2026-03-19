@@ -1,0 +1,23 @@
+{
+  "id": "golden:interrupt:approval",
+  "title": "High-consequence approval interrupts immediately",
+  "description": "A blocking high-consequence approval should surface as the active frame.",
+  "steps": [
+    {
+      "kind": "publish",
+      "event": {
+        "id": "evt:approval:high",
+        "taskId": "task:deploy",
+        "timestamp": "2026-03-19T12:00:00.000Z",
+        "type": "human.input.requested",
+        "interactionId": "interaction:deploy:approval",
+        "title": "Approve production deploy",
+        "summary": "A production deploy needs approval.",
+        "consequence": "high",
+        "request": {
+          "kind": "approval"
+        }
+      }
+    }
+  ]
+}

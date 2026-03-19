@@ -1,0 +1,19 @@
+{
+  "id": "golden:ambient:status",
+  "title": "Passive running status stays ambient",
+  "description": "A plain running status update should stay in ambient awareness rather than interrupting.",
+  "steps": [
+    {
+      "kind": "publish",
+      "event": {
+        "id": "evt:status:running",
+        "taskId": "task:status",
+        "timestamp": "2026-03-19T12:00:00.000Z",
+        "type": "task.updated",
+        "title": "OpenCode session running",
+        "summary": "The session is still running.",
+        "status": "running"
+      }
+    }
+  ]
+}

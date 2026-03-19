@@ -1,0 +1,44 @@
+{
+  "id": "golden:queue:vs-active",
+  "title": "Medium work queues behind stronger active approval",
+  "description": "A medium choice request should not steal focus from a stronger active approval.",
+  "steps": [
+    {
+      "kind": "publish",
+      "event": {
+        "id": "evt:active:approval",
+        "taskId": "task:active",
+        "timestamp": "2026-03-19T12:00:00.000Z",
+        "type": "human.input.requested",
+        "interactionId": "interaction:active:approval",
+        "title": "Approve deploy",
+        "summary": "A deploy needs approval.",
+        "consequence": "high",
+        "request": {
+          "kind": "approval"
+        }
+      }
+    },
+    {
+      "kind": "publish",
+      "event": {
+        "id": "evt:queued:choice",
+        "taskId": "task:queued",
+        "timestamp": "2026-03-19T12:00:05.000Z",
+        "type": "human.input.requested",
+        "interactionId": "interaction:queued:choice",
+        "title": "Choose fallback",
+        "summary": "A fallback needs a choice.",
+        "consequence": "medium",
+        "request": {
+          "kind": "choice",
+          "selectionMode": "single",
+          "options": [
+            { "id": "retry", "label": "Retry" },
+            { "id": "fallback", "label": "Fallback" }
+          ]
+        }
+      }
+    }
+  ]
+}

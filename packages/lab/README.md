@@ -49,6 +49,9 @@ Today this package provides:
 - a replay result object with frames, view snapshots, traces, signals, and
   responses
 - a basic scorecard built on top of core trace evaluation and signal summaries
+- a first golden-scenario set for `JudgmentBench`
+- a benchmark runner that can write JSON results into
+  [packages/lab/results](/Users/tom/dev/aperture/packages/lab/results)
 
 ## Status
 

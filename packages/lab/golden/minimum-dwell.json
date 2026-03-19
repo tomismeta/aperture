@@ -1,0 +1,39 @@
+{
+  "id": "golden:continuity:minimum-dwell",
+  "title": "Small challenger does not steal focus during minimum dwell",
+  "description": "Freshly surfaced work should keep focus when a only slightly weaker interaction arrives immediately after.",
+  "steps": [
+    {
+      "kind": "publish",
+      "event": {
+        "id": "evt:first",
+        "taskId": "task:first",
+        "timestamp": "2026-03-19T12:00:00.000Z",
+        "type": "human.input.requested",
+        "interactionId": "interaction:first",
+        "title": "Approve service restart",
+        "summary": "A service restart is waiting.",
+        "consequence": "medium",
+        "request": {
+          "kind": "approval"
+        }
+      }
+    },
+    {
+      "kind": "publish",
+      "event": {
+        "id": "evt:challenger",
+        "taskId": "task:challenger",
+        "timestamp": "2026-03-19T12:00:02.000Z",
+        "type": "human.input.requested",
+        "interactionId": "interaction:challenger",
+        "title": "Approve secondary restart",
+        "summary": "A second restart is waiting.",
+        "consequence": "medium",
+        "request": {
+          "kind": "approval"
+        }
+      }
+    }
+  ]
+}

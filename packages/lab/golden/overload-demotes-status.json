@@ -1,0 +1,51 @@
+{
+  "id": "golden:overload:demotes-status",
+  "title": "Low-value status work stays peripheral under load",
+  "description": "Once strong interruptive work is already visible, low-value status should not claim focus.",
+  "steps": [
+    {
+      "kind": "publish",
+      "event": {
+        "id": "evt:approval:1",
+        "taskId": "task:approval:1",
+        "timestamp": "2026-03-19T12:00:00.000Z",
+        "type": "human.input.requested",
+        "interactionId": "interaction:approval:1",
+        "title": "Approve production deploy",
+        "summary": "A production deploy is waiting.",
+        "consequence": "high",
+        "request": {
+          "kind": "approval"
+        }
+      }
+    },
+    {
+      "kind": "publish",
+      "event": {
+        "id": "evt:approval:2",
+        "taskId": "task:approval:2",
+        "timestamp": "2026-03-19T12:00:05.000Z",
+        "type": "human.input.requested",
+        "interactionId": "interaction:approval:2",
+        "title": "Approve rollback plan",
+        "summary": "A rollback plan is waiting.",
+        "consequence": "high",
+        "request": {
+          "kind": "approval"
+        }
+      }
+    },
+    {
+      "kind": "publish",
+      "event": {
+        "id": "evt:status:low",
+        "taskId": "task:status:low",
+        "timestamp": "2026-03-19T12:00:06.000Z",
+        "type": "task.updated",
+        "title": "Background session running",
+        "summary": "A background session is still running.",
+        "status": "running"
+      }
+    }
+  ]
+}

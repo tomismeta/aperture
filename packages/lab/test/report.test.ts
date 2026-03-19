@@ -11,4 +11,6 @@ test("JudgmentBench markdown report includes score and doctrine health", async (
   assert.match(markdown, /Benchmark score: \*\*/);
   assert.match(markdown, /## Doctrine Health/);
   assert.match(markdown, /interruption_credibility/);
+  assert.match(markdown, /Why headline:/);
+  assert.match(markdown, /Why target:/);
 });

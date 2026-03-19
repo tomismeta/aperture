@@ -49,6 +49,16 @@ export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
     lines.push(
       `- Buckets: active=${result.scorecard.buckets.active}, queued=${result.scorecard.buckets.queued}, ambient=${result.scorecard.buckets.ambient}`,
     );
+    if (result.scorecard.explanation.targetInteractionId) {
+      lines.push(`- Why target: ${result.scorecard.explanation.targetInteractionId} (${result.scorecard.explanation.targetBucket})`);
+      if (result.scorecard.explanation.headline) {
+        lines.push(`- Why headline: ${result.scorecard.explanation.headline}`);
+      }
+      const reasons = firstNonEmptyReasonGroup(result.scorecard.explanation);
+      if (reasons.length > 0) {
+        lines.push(`- Why reasons: ${reasons.join("; ")}`);
+      }
+    }
     if (result.assertions.length > 0) {
       lines.push(`- Assertions: ${result.assertions.filter((assertion) => assertion.passed).length}/${result.assertions.length} passed`);
     }
@@ -71,4 +81,18 @@ function formatPercent(value: number): string {
 
 function formatValue(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value);
+}
+
+function firstNonEmptyReasonGroup(run: JudgmentBenchRun["scenarios"][number]["scorecard"]["explanation"]): string[] {
+  return run.whyNow
+    ? [run.whyNow]
+    : run.continuityRationale.length > 0
+      ? run.continuityRationale
+      : run.coordinationReasons.length > 0
+        ? run.coordinationReasons
+        : run.policyRationale.length > 0
+          ? run.policyRationale
+          : run.plannerReasons.length > 0
+            ? run.plannerReasons
+            : run.attentionRationale;
 }

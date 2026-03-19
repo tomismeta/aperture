@@ -18,4 +18,6 @@ test("JudgmentBench runs across the golden scenarios and produces a summary", as
   assert.ok(result.summary.totalScenarios >= 5);
   assert.ok(result.summary.totalCandidates >= result.summary.totalActiveBuckets);
   assert.equal(result.scenarios.length, result.summary.totalScenarios);
+  assert.ok(result.scenarios.every((scenario) => scenario.scorecard.explanation.targetBucket !== undefined));
+  assert.ok(result.scenarios.some((scenario) => scenario.scorecard.explanation.headline !== null));
 });

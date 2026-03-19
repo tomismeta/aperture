@@ -14,7 +14,7 @@ export type {
   ReplayRunResult,
   ReplayStepResult,
 } from "./runner.js";
-export type { ReplayScorecard } from "./scorecard.js";
+export type { ReplayExplanationSnapshot, ReplayScorecard } from "./scorecard.js";
 export type {
   JudgmentBenchAssertionResult,
   JudgmentBenchDoctrineHealth,

@@ -6,6 +6,7 @@ import {
 } from "@tomismeta/aperture-core";
 
 import type { ReplayRunResult } from "./runner.js";
+import type { AttentionFrame } from "@tomismeta/aperture-core";
 
 export type ReplayScorecard = {
   trace: TraceEvaluationReport;
@@ -14,6 +15,7 @@ export type ReplayScorecard = {
     queued: number;
     ambient: number;
   };
+  explanation: ReplayExplanationSnapshot;
   signals: {
     presented: number;
     responded: number;
@@ -35,12 +37,26 @@ export type ReplayScorecard = {
   };
 };
 
+export type ReplayExplanationSnapshot = {
+  targetInteractionId: string | null;
+  targetBucket: "active" | "queued" | "ambient" | "none";
+  headline: string | null;
+  whyNow: string | null;
+  coordinationReasons: string[];
+  plannerReasons: string[];
+  policyRationale: string[];
+  criterionRationale: string[];
+  continuityRationale: string[];
+  attentionRationale: string[];
+};
+
 export function scoreReplayRun(result: ReplayRunResult): ReplayScorecard {
   const finalView = result.views.at(-1)?.attentionView;
 
   return {
     trace: evaluateTraceSession(result.traces),
     buckets: countResultBuckets(result),
+    explanation: buildExplanationSnapshot(result),
     signals: countSignals(result.signals),
     outcomes: {
       totalSteps: result.steps.length,
@@ -51,6 +67,75 @@ export function scoreReplayRun(result: ReplayRunResult): ReplayScorecard {
       finalQueuedInteractionIds: finalView?.queued.map((frame) => frame.interactionId) ?? [],
       finalAmbientInteractionIds: finalView?.ambient.map((frame) => frame.interactionId) ?? [],
     },
+  };
+}
+
+function buildExplanationSnapshot(result: ReplayRunResult): ReplayExplanationSnapshot {
+  const finalView = result.views.at(-1)?.attentionView;
+  const target =
+    finalView?.active
+    ?? finalView?.queued[0]
+    ?? finalView?.ambient[0]
+    ?? null;
+
+  if (!target) {
+    return {
+      targetInteractionId: null,
+      targetBucket: "none",
+      headline: null,
+      whyNow: null,
+      coordinationReasons: [],
+      plannerReasons: [],
+      policyRationale: [],
+      criterionRationale: [],
+      continuityRationale: [],
+      attentionRationale: [],
+    };
+  }
+
+  const targetBucket =
+    finalView?.active?.interactionId === target.interactionId
+      ? "active"
+      : finalView?.queued.some((frame) => frame.interactionId === target.interactionId)
+        ? "queued"
+        : "ambient";
+
+  const trace = [...result.traces]
+    .reverse()
+    .find((candidateTrace) => (
+      isCandidateTrace(candidateTrace)
+      && (
+        candidateTrace.result?.interactionId === target.interactionId
+        || candidateTrace.evaluation.adjusted.interactionId === target.interactionId
+        || candidateTrace.evaluation.original.interactionId === target.interactionId
+      )
+    ));
+
+  const candidateTrace = trace && isCandidateTrace(trace) ? trace : null;
+  const continuityRationale = candidateTrace
+    ? candidateTrace.coordination.continuityEvaluations
+      .filter((evaluation) => evaluation.kind === "override")
+      .flatMap((evaluation) => evaluation.rationale)
+    : [];
+  const attentionRationale = readAttentionRationale(target);
+  const headline =
+    target.provenance?.whyNow
+    ?? continuityRationale[0]
+    ?? candidateTrace?.coordination.reasons[0]
+    ?? attentionRationale[0]
+    ?? synthesizeHeadline(target.mode, target.consequence);
+
+  return {
+    targetInteractionId: target.interactionId,
+    targetBucket,
+    headline,
+    whyNow: target.provenance?.whyNow ?? null,
+    coordinationReasons: candidateTrace?.coordination.reasons ?? [],
+    plannerReasons: candidateTrace?.planner.reasons ?? [],
+    policyRationale: candidateTrace?.policy.rationale ?? [],
+    criterionRationale: candidateTrace?.policyRules.criterion?.rationale ?? [],
+    continuityRationale,
+    attentionRationale,
   };
 }
 
@@ -88,6 +173,38 @@ function isCandidateTrace(
   trace: ApertureTrace,
 ): trace is Extract<ApertureTrace, { evaluation: { kind: "candidate" } }> {
   return trace.evaluation.kind === "candidate";
+}
+
+function readAttentionRationale(frame: AttentionFrame): string[] {
+  const attention = frame.metadata?.attention;
+  if (!attention || typeof attention !== "object" || !("rationale" in attention)) {
+    return [];
+  }
+
+  const { rationale } = attention;
+  if (!Array.isArray(rationale)) {
+    return [];
+  }
+
+  return rationale.filter((entry): entry is string => typeof entry === "string" && entry.length > 0);
+}
+
+function synthesizeHeadline(
+  mode: "status" | "approval" | "choice" | "form",
+  consequence: "low" | "medium" | "high",
+): string | null {
+  switch (mode) {
+    case "approval":
+      return consequence === "high"
+        ? "High-risk action requires operator approval"
+        : "Approval blocking agent progress";
+    case "choice":
+      return "Waiting for operator decision";
+    case "form":
+      return "Input needed to continue";
+    case "status":
+      return null;
+  }
 }
 
 function countSignals(signals: AttentionSignal[]): ReplayScorecard["signals"] {

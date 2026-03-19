@@ -58,6 +58,7 @@ These docs explain the source-specific integration seams:
 - [Semantic Normalization](./engine/semantic-normalization.md)
 - [Attention Frame](./engine/frame.md)
 - [Aperture Lab](./engine/aperture-lab.md)
+- [JudgmentBench Data Strategy](./engine/judgmentbench-data-strategy.md)
 - [SDK Path](./product/sdk-path.md)
 - [Interaction Signals](./engine/interaction-signals.md)
 

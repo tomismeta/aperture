@@ -260,6 +260,9 @@ The eventual session-bundle shape should preserve:
 - attention-view transitions
 - outcome summaries
 
+For the concrete harvesting and labeling plan, see
+[JudgmentBench Data Strategy](./judgmentbench-data-strategy.md).
+
 It should avoid collecting:
 
 - unnecessary raw deltas

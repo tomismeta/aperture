@@ -58,3 +58,6 @@ Today this package provides:
 
 For the broader lab architecture and naming ontology, see
 [Aperture Lab](../../docs/engine/aperture-lab.md).
+
+For the concrete harvesting and labeling plan behind JudgmentBench, see
+[JudgmentBench Data Strategy](../../docs/engine/judgmentbench-data-strategy.md).

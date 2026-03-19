@@ -24,6 +24,21 @@ fixture or            publish / submit         policy / value /          replay 
 harvested data        and silent signals       planner / continuity      plus scorecard
 ```
 
+## Architecture
+
+```mermaid
+flowchart LR
+    A["Golden scenarios<br/>or harvested bundles"] --> B["Scenario loader"]
+    B --> C["Replay runner"]
+    C --> D["ApertureCore"]
+    D --> E["Replay capture<br/>views, traces, signals, responses"]
+    E --> F["Scorecard + doctrine health"]
+    E --> G["Explanation snapshots"]
+    F --> H["JudgmentBench JSON + Markdown"]
+    G --> H
+    H --> I["Future calibration"]
+```
+
 ## What This Package Owns
 
 - scenario schemas

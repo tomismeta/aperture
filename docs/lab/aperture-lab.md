@@ -111,6 +111,23 @@ synthetic cases       publish / submit         policy / value /          replay 
 or real host data     and silent signals       planner / continuity      plus metrics
 ```
 
+## Mermaid
+
+```mermaid
+flowchart LR
+    A["Golden scenarios<br/>or harvested session bundles"] --> B["@aperture/lab<br/>scenario loader"]
+    B --> C["Replay runner<br/>publish, submit, silent signals"]
+    C --> D["ApertureCore<br/>deterministic hot-path judgment"]
+    D --> E["Replay capture<br/>frames, views, traces, signals, responses"]
+    E --> F["Scorecard<br/>bucket counts, assertions, doctrine health"]
+    E --> G["Explanation snapshots<br/>why target, headline, reasons"]
+    F --> H["JudgmentBench JSON"]
+    G --> H
+    H --> I["Markdown summary<br/>benchmark score, doctrine health, scenario results"]
+    H --> J["Future calibration workflows"]
+    K["Live hosts and plugins<br/>shadow mode, harvested telemetry"] --> A
+```
+
 ## What JudgmentBench Measures
 
 The benchmark should measure human-attention quality, not generic agent task

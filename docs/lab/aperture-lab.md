@@ -77,6 +77,29 @@ It should hold:
 
 This is the implementation surface for the lab inside the monorepo.
 
+### 2a. Runtime-owned export boundary
+
+The export boundary should stay outside `@tomismeta/aperture-core`.
+
+The clean split is:
+
+- `@tomismeta/aperture-core` produces judgment state:
+  - traces
+  - signals
+  - attention-view transitions
+  - responses
+- runtime or host packages own local session recording and export orchestration
+- `@aperture/lab` owns bundle format, replay, and benchmark ingestion
+
+Core should never silently send telemetry to a central service.
+
+If sharing ever exists, it should remain:
+
+- outside core
+- explicit
+- host-controlled
+- user-reviewed before submission
+
 ### 3. JudgmentBench
 
 `JudgmentBench` is the first benchmark identity the lab should produce.

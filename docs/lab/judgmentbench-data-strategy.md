@@ -152,6 +152,31 @@ They are not the core JudgmentBench moat.
 
 The harvesting strategy should happen in phases.
 
+## Trust Boundary
+
+Session harvesting should preserve trust by keeping collection local by default.
+
+The recommended ownership split is:
+
+- `@tomismeta/aperture-core`
+  - exposes traces, signals, responses, and attention-view state
+  - does not send telemetry to any central service
+- runtime or host packages such as `@aperture/runtime`, adapters, or SDK hosts
+  - record local sessions
+  - apply de-identification and redaction
+  - export replayable bundles
+- `@aperture/lab`
+  - defines bundle shape
+  - validates imported bundles
+  - replays them offline
+
+If a central contribution path exists later, it should be:
+
+- opt-in
+- outside core
+- based on explicitly exported bundles
+- reviewable by the user before submission
+
 ### Phase 1. Golden scenarios only
 
 Hand-author a strong initial set of deterministic scenarios.
@@ -173,6 +198,7 @@ Add export helpers that can capture a redacted session bundle from:
 Goal:
 
 - make real sessions replayable offline
+- do so without making core or the hot path feel like vendor telemetry plumbing
 
 ### Phase 3. Shadow mode
 
@@ -251,6 +277,19 @@ Redact or minimize:
 - irrelevant payload detail
 
 The benchmark needs replayable judgment evidence, not maximum raw fidelity.
+
+De-identification should happen before a bundle leaves the runtime or host.
+
+At minimum, export should avoid or transform:
+
+- raw repository names
+- absolute local paths
+- stable personal identifiers
+- raw prompts or freeform text when semantic summaries are enough
+- secrets and tokens
+
+The default exported unit should be a de-identified local bundle that is safe
+for replay first, and only optionally shareable later.
 
 ## What The First Export Shape Should Look Like
 

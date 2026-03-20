@@ -11,29 +11,18 @@ export const DEFAULT_GOLDEN_SCENARIOS_DIR = path.resolve(
 export async function loadGoldenScenarios(
   directory: string = DEFAULT_GOLDEN_SCENARIOS_DIR,
 ): Promise<ReplayScenario[]> {
-  const scenarios = await readScenarioDirectory(directory);
-  return scenarios.sort((left, right) => left.id.localeCompare(right.id));
-}
-
-async function readScenarioDirectory(directory: string): Promise<ReplayScenario[]> {
   const entries = await readdir(directory, { withFileTypes: true });
   const scenarios: ReplayScenario[] = [];
 
   for (const entry of entries) {
-    const absolutePath = path.join(directory, entry.name);
-
-    if (entry.isDirectory()) {
-      scenarios.push(...await readScenarioDirectory(absolutePath));
-      continue;
-    }
-
     if (!entry.isFile() || !entry.name.endsWith(".json")) {
       continue;
     }
 
+    const absolutePath = path.join(directory, entry.name);
     const raw = await readFile(absolutePath, "utf8");
     scenarios.push(JSON.parse(raw) as ReplayScenario);
   }
 
-  return scenarios;
+  return scenarios.sort((left, right) => left.id.localeCompare(right.id));
 }

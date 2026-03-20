@@ -168,15 +168,6 @@ The first-class metric families should be:
 - ranking regret
 - explanation faithfulness
 
-JudgmentBench should also be able to score **semantic robustness** before pure
-routing:
-
-- did core read the source event correctly?
-- did dangerous wording get elevated when structure was missing?
-- did read-like wording stay low consequence?
-- did implied asks get recognized without inventing blocking work?
-- did explicit host hints override weaker built-in inference?
-
 These are the metrics that best map to Aperture's doctrine:
 
 - interruption credibility
@@ -200,7 +191,6 @@ Contains:
 - steps
 - expected context
 - optional expected outcomes
-- optional semantic expectations for `publishSource` steps
 
 Best for:
 
@@ -258,7 +248,6 @@ Runs a scenario against `ApertureCore` and captures:
 - traces
 - responses
 - signals
-- semantic snapshots for source-event interpretation
 
 ### 3. Scorecard
 

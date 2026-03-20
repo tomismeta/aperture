@@ -1,18 +1,12 @@
 import {
   ApertureCore,
-  interpretSourceEvent,
   type ApertureTrace,
   type AttentionFrame,
   type AttentionResponse,
   type AttentionSignal,
 } from "@tomismeta/aperture-core";
 
-import type {
-  ReplayObservationStep,
-  ReplayScenario,
-  ReplaySemanticSnapshot,
-  ReplayViewSnapshot,
-} from "./scenario.js";
+import type { ReplayObservationStep, ReplayScenario, ReplayViewSnapshot } from "./scenario.js";
 
 export type ReplayStepResult = {
   stepIndex: number;
@@ -27,7 +21,6 @@ export type ReplayRunResult = {
   signals: AttentionSignal[];
   responses: AttentionResponse[];
   views: ReplayViewSnapshot[];
-  semantics: ReplaySemanticSnapshot[];
 };
 
 export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
@@ -37,7 +30,6 @@ export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
   const responses: AttentionResponse[] = [];
   const steps: ReplayStepResult[] = [];
   const views: ReplayViewSnapshot[] = [];
-  const semantics: ReplaySemanticSnapshot[] = [];
 
   core.onTrace((trace) => {
     traces.push(trace);
@@ -57,12 +49,6 @@ export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
         frame = core.publish(step.event);
         break;
       case "publishSource":
-        semantics.push({
-          stepIndex,
-          stepKind: step.kind,
-          ...(step.label ? { stepLabel: step.label } : {}),
-          interpretation: interpretSourceEvent(step.event),
-        });
         frame = core.publishSourceEvent(step.event);
         break;
       case "submit":
@@ -120,6 +106,5 @@ export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
     signals,
     responses,
     views,
-    semantics,
   };
 }

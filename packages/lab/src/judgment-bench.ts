@@ -1,9 +1,4 @@
-import type {
-  ReplayScenario,
-  ReplayScenarioExpectations,
-  ReplaySemanticExpectation,
-  ReplaySemanticSnapshot,
-} from "./scenario.js";
+import type { ReplayScenario, ReplayScenarioExpectations } from "./scenario.js";
 import { runReplayScenario, type ReplayRunResult } from "./runner.js";
 import { scoreReplayRun, type ReplayScorecard } from "./scorecard.js";
 import { loadGoldenScenarios } from "./golden.js";
@@ -43,7 +38,6 @@ export type JudgmentBenchRun = {
       passedAssertions: number;
       failedAssertions: number;
       benchmarkScore: number;
-      totalSemanticReadings: number;
       totalCandidates: number;
       totalActiveBuckets: number;
       totalQueuedBuckets: number;
@@ -61,7 +55,7 @@ export async function runJudgmentBench(
   const results = loadedScenarios.map((scenario) => {
     const run = runReplayScenario(scenario);
     const scorecard = scoreReplayRun(run);
-    const assertions = evaluateScenarioExpectations(scenario.expectations, scorecard, run);
+    const assertions = evaluateScenarioExpectations(scenario.expectations, scorecard);
 
     return {
       scenario,
@@ -91,7 +85,6 @@ export async function runJudgmentBench(
       passedAssertions,
       failedAssertions: totalAssertions - passedAssertions,
       benchmarkScore: totalAssertions === 0 ? 1 : passedAssertions / totalAssertions,
-      totalSemanticReadings: sum(results.map((result) => result.run.semantics.length)),
       totalCandidates: sum(results.map((result) => result.scorecard.trace.totalCandidates)),
       totalActiveBuckets: sum(results.map((result) => result.scorecard.buckets.active)),
       totalQueuedBuckets: sum(results.map((result) => result.scorecard.buckets.queued)),
@@ -106,7 +99,6 @@ export async function runJudgmentBench(
 function evaluateScenarioExpectations(
   expectations: ReplayScenarioExpectations | undefined,
   scorecard: ReplayScorecard,
-  run: ReplayRunResult,
 ): JudgmentBenchAssertionResult[] {
   if (!expectations) {
     return [];
@@ -168,104 +160,7 @@ function evaluateScenarioExpectations(
     });
   }
 
-  for (const semanticExpectation of expectations.semanticReadings ?? []) {
-    assertions.push(...evaluateSemanticExpectation(semanticExpectation, run.semantics));
-  }
-
   return assertions;
-}
-
-function evaluateSemanticExpectation(
-  expectation: ReplaySemanticExpectation,
-  semantics: ReplaySemanticSnapshot[],
-): JudgmentBenchAssertionResult[] {
-  const target = findSemanticSnapshot(expectation, semantics);
-  const targetKey = expectation.stepLabel
-    ? `semantic reading (${expectation.stepLabel})`
-    : `semantic reading (step ${expectation.stepIndex ?? "?"})`;
-
-  if (!target) {
-    return [{
-      name: `${targetKey} present`,
-      passed: false,
-      expected: expectation.stepLabel ?? expectation.stepIndex ?? "matching semantic snapshot",
-      actual: null,
-    }];
-  }
-
-  const assertions: JudgmentBenchAssertionResult[] = [];
-  const semantic = target.interpretation;
-
-  pushFieldAssertion(assertions, `${targetKey} intent frame`, expectation.intentFrame, semantic.intentFrame);
-  pushFieldAssertion(assertions, `${targetKey} activity class`, expectation.activityClass, semantic.activityClass);
-  pushFieldAssertion(assertions, `${targetKey} tool family`, expectation.toolFamily, semantic.toolFamily ?? null);
-  pushFieldAssertion(assertions, `${targetKey} operator action required`, expectation.operatorActionRequired, semantic.operatorActionRequired);
-  pushFieldAssertion(assertions, `${targetKey} request explicitness`, expectation.requestExplicitness, semantic.requestExplicitness);
-  pushFieldAssertion(assertions, `${targetKey} consequence`, expectation.consequence, semantic.consequence);
-  pushFieldAssertion(assertions, `${targetKey} confidence`, expectation.confidence, semantic.confidence);
-  pushFieldAssertion(assertions, `${targetKey} abstained`, expectation.abstained, semantic.abstained ?? false);
-
-  if (expectation.whyNowIncludes !== undefined) {
-    assertions.push({
-      name: `${targetKey} whyNow includes`,
-      passed: typeof semantic.whyNow === "string" && semantic.whyNow.includes(expectation.whyNowIncludes),
-      expected: expectation.whyNowIncludes,
-      actual: semantic.whyNow ?? null,
-    });
-  }
-
-  if (expectation.reasonsInclude && expectation.reasonsInclude.length > 0) {
-    assertions.push({
-      name: `${targetKey} reasons include`,
-      passed: expectation.reasonsInclude.every((reason) => semantic.reasons.includes(reason)),
-      expected: expectation.reasonsInclude,
-      actual: semantic.reasons,
-    });
-  }
-
-  if (expectation.factorsInclude && expectation.factorsInclude.length > 0) {
-    assertions.push({
-      name: `${targetKey} factors include`,
-      passed: expectation.factorsInclude.every((factor) => semantic.factors.includes(factor)),
-      expected: expectation.factorsInclude,
-      actual: semantic.factors,
-    });
-  }
-
-  return assertions;
-}
-
-function findSemanticSnapshot(
-  expectation: ReplaySemanticExpectation,
-  semantics: ReplaySemanticSnapshot[],
-): ReplaySemanticSnapshot | undefined {
-  if (expectation.stepLabel !== undefined) {
-    return semantics.find((snapshot) => snapshot.stepLabel === expectation.stepLabel);
-  }
-
-  if (expectation.stepIndex !== undefined) {
-    return semantics.find((snapshot) => snapshot.stepIndex === expectation.stepIndex);
-  }
-
-  return undefined;
-}
-
-function pushFieldAssertion(
-  assertions: JudgmentBenchAssertionResult[],
-  name: string,
-  expected: unknown,
-  actual: unknown,
-): void {
-  if (expected === undefined) {
-    return;
-  }
-
-  assertions.push({
-    name,
-    passed: actual === expected,
-    expected,
-    actual,
-  });
 }
 
 function buildDoctrineHealth(

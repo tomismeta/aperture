@@ -15,7 +15,6 @@ export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
     `- Passed scenarios: ${run.summary.passedScenarios}`,
     `- Failed scenarios: ${run.summary.failedScenarios}`,
     `- Assertions: ${run.summary.passedAssertions}/${run.summary.totalAssertions} passed`,
-    `- Semantic readings: ${run.summary.totalSemanticReadings}`,
     `- Active buckets: ${run.summary.totalActiveBuckets}`,
     `- Queued buckets: ${run.summary.totalQueuedBuckets}`,
     `- Ambient buckets: ${run.summary.totalAmbientBuckets}`,
@@ -50,13 +49,6 @@ export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
     lines.push(
       `- Buckets: active=${result.scorecard.buckets.active}, queued=${result.scorecard.buckets.queued}, ambient=${result.scorecard.buckets.ambient}`,
     );
-    if (result.run.semantics.length > 0) {
-      for (const semantic of result.run.semantics) {
-        lines.push(
-          `- Semantic (${semantic.stepLabel ?? `step ${semantic.stepIndex}`}): ${semantic.interpretation.intentFrame}, consequence=${semantic.interpretation.consequence ?? "none"}, actionRequired=${semantic.interpretation.operatorActionRequired}, explicitness=${semantic.interpretation.requestExplicitness}`,
-        );
-      }
-    }
     if (result.scorecard.explanation.targetInteractionId) {
       lines.push(`- Why target: ${result.scorecard.explanation.targetInteractionId} (${result.scorecard.explanation.targetBucket})`);
       if (result.scorecard.explanation.headline) {

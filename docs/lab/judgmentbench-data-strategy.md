@@ -99,6 +99,12 @@ These should cover:
 - continuity and minimum dwell
 - defer-return patterns
 - cross-source ordering
+- semantic robustness cases such as:
+  - dangerous wording without explicit risk hints
+  - low-risk read wording
+  - implied asks in status text
+  - dramatic but passive language
+  - explicit host semantic overrides
 
 ### 2. Shadow-mode Aperture sessions
 

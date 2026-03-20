@@ -90,5 +90,7 @@ test("replay runner can exercise source-event normalization paths", () => {
 
   assert.equal(result.steps.length, 1);
   assert.ok(result.steps[0]?.frame);
+  assert.equal(result.semantics.length, 1);
+  assert.equal(result.semantics[0]?.interpretation.intentFrame, "question_request");
   assert.equal(result.views[0]?.activeInteractionId, "interaction:source:1");
 });

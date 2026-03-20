@@ -13,6 +13,8 @@ export type {
 export type {
   ReplayScenario,
   ReplayObservationStep,
+  ReplaySemanticExpectation,
+  ReplaySemanticSnapshot,
   ReplayScenarioExpectations,
   ReplayViewSnapshot,
 } from "./scenario.js";

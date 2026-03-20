@@ -63,10 +63,20 @@ Today this package provides:
 - a runner that applies steps against `ApertureCore`
 - a replay result object with frames, view snapshots, traces, signals, and
   responses
+- semantic snapshots for `publishSource` steps, so the lab can test how core
+  read a source event before the full judgment loop ran
 - a basic scorecard built on top of core trace evaluation and signal summaries
 - a first golden-scenario set for `JudgmentBench`
 - a benchmark runner that can write JSON results into
   [packages/lab/results](/Users/tom/dev/aperture/packages/lab/results)
+
+The first semantic-robustness tranche now covers:
+
+- dangerous approval wording without an explicit `riskHint`
+- read-like approval wording that should stay low consequence
+- adapter semantic overrides
+- implied asks buried in status text
+- dramatic status wording that should remain passive
 
 ## Status
 

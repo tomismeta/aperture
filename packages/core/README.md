@@ -1,11 +1,17 @@
+<div align="center">
+
 # Aperture Core SDK
 
-The deterministic judgment engine inside Aperture, the human attention control plane for agent systems.
+**The deterministic judgment engine inside Aperture.**
 
 [![npm version](https://img.shields.io/npm/v/%40tomismeta%2Faperture-core?label=npm&color=0f766e)](https://www.npmjs.com/package/@tomismeta/aperture-core)
 [![node](https://img.shields.io/badge/node-%3E%3D18-1f6feb)](https://nodejs.org/)
 [![license](https://img.shields.io/badge/license-MIT-6f42c1)](https://github.com/tomismeta/aperture/blob/main/LICENSE)
 [![architecture](https://img.shields.io/badge/docs-architecture-475569)](https://github.com/tomismeta/aperture/blob/main/docs/product/architecture-overview.md)
+
+A deterministic SDK for deciding what should interrupt now, what should wait until next, and what should stay ambient.
+
+</div>
 
 Published on npm as `@tomismeta/aperture-core`.
 
@@ -21,6 +27,51 @@ you send the human's answer back.
 
 This package is the judgment engine only. Runtime hosting, source adapters, and
 the TUI live elsewhere in the repo.
+
+## Napkin Drawing
+
+```text
++-----------+    +-------------+    +-------------+    +-------------+    +-------------+
+|   Arrive  | -> | Interpret + | -> |    Judge    | -> |   Surface   | -> |  Respond    |
+|   events  |    | Normalize   |    |  attention  |    |    state    |    |  decision   |
++-----------+    +-------------+    +-------------+    +-------------+    +-------------+
+
+ApertureEvent     explicit shared    does this         AttentionFrame /     AttentionResponse
+or SourceEvent    meaning from raw   deserve human     AttentionView        back into core
+                  source facts       attention now?
+```
+
+If you only remember one thing, remember this loop:
+
+`event in -> frame/view out -> human response in`
+
+## What Core Is
+
+`@tomismeta/aperture-core` is a judgment engine for human attention in agent systems.
+
+It takes events from tools and agents, turns them into explicit shared meaning,
+and decides what deserves attention now, what should wait until next, and what
+should remain ambient.
+
+The goal is simple: give one human a calm, deterministic way to supervise many
+parallel agent workflows.
+
+## Why It Exists
+
+When you supervise multiple agents, everything can interrupt at once:
+
+- tool approvals
+- failures
+- blocked work
+- follow-up questions
+- status noise
+
+The hard problem is not moving events around.
+
+The hard problem is deciding how human attention should be spent.
+
+`@tomismeta/aperture-core` exists to answer that in the hot path, without
+turning every judgment into a slow or expensive model call.
 
 ## What Core Does
 
@@ -40,16 +91,17 @@ In practice, that means:
 
 ## Core Loop
 
-```text
-+-----------+    +-------------+    +-------------+    +-------------+    +-------------+
-|   Arrive  | -> |  Normalize  | -> |    Judge    | -> |   Surface   | -> |  Respond    |
-|   events  |    |   meaning   |    |  attention  |    |    state    |    |  decision   |
-+-----------+    +-------------+    +-------------+    +-------------+    +-------------+
+The hot path inside core is:
 
-ApertureEvent     shared event       policy, value,    surfaced state       AttentionResponse
-or SourceEvent    meaning +          criterion,        for now / next /     back into core
-                  context            continuity        ambient
-```
+`event -> interpret and normalize -> judge -> surface -> respond`
+
+That maps to:
+
+- `ApertureEvent` or `SourceEvent`
+- shared event meaning plus context
+- policy, value, criterion, and continuity-aware judgment
+- surfaced state for now / next / ambient
+- `AttentionResponse` back into core
 
 If you want the full repo-level architecture, including runtime, adapters, and
 the TUI, see [Architecture Overview](https://github.com/tomismeta/aperture/blob/main/docs/product/architecture-overview.md).
@@ -96,10 +148,6 @@ In practice, you usually build a small frame-handling component or service aroun
 - human actions on those frames are sent back with `core.submit(...)`
 
 This is the same pattern the Aperture TUI uses.
-
-The intended developer experience is:
-
-`event in -> frame out -> human response in`
 
 The engine can do much more internally, but you do not need to model the middle to use the package successfully.
 

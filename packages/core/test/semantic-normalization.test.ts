@@ -6,6 +6,7 @@ import {
   type SourceEvent,
   type SourceRef,
 } from "../src/index.js";
+import { interpretSourceEvent } from "../src/semantic-interpreter.js";
 import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
 
 const timestamp = "2026-03-10T12:00:00.000Z";
@@ -107,7 +108,48 @@ test("uses medium consequence by default when no risk hint is provided", () => {
   }
 });
 
-test("preserves factual task status updates without adapter-owned semantic drift", () => {
+test("semantic interpreter infers high-risk approval semantics from dangerous text", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:danger",
+    type: "human.input.requested",
+    taskId: "task:danger",
+    interactionId: "interaction:danger",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Approve production cleanup",
+    summary: "Run rm -rf on production cache before deploy",
+    request: { kind: "approval" },
+  });
+
+  assert.equal(interpretation.intentFrame, "approval_request");
+  assert.equal(interpretation.consequence, "high");
+  assert.equal(interpretation.requestExplicitness, "explicit");
+});
+
+test("explicit semantic hints override inferred semantics", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:hinted",
+    type: "human.input.requested",
+    taskId: "task:hinted",
+    interactionId: "interaction:hinted",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Approve read",
+    summary: "Read a file in the repo",
+    request: { kind: "approval" },
+    semanticHints: {
+      consequence: "high",
+      whyNow: "A policy escalation requires senior review.",
+      reasons: ["adapter provided a trusted escalation hint"],
+    },
+  });
+
+  assert.equal(interpretation.consequence, "high");
+  assert.equal(interpretation.whyNow, "A policy escalation requires senior review.");
+  assert.ok(interpretation.reasons.includes("adapter provided a trusted escalation hint"));
+});
+
+test("normalizes task status updates with semantic enrichment instead of raw passthrough", () => {
   const event: SourceEvent = {
     id: "evt:failed",
     type: "task.updated",
@@ -121,7 +163,32 @@ test("preserves factual task status updates without adapter-owned semantic drift
   };
 
   const normalized = normalizeSourceEvent(event);
-  assert.deepEqual(normalized, event);
+  assert.equal(normalized.type, event.type);
+  if (normalized.type === "task.updated") {
+    assert.equal(normalized.activityClass, "tool_failure");
+    assert.equal(normalized.semantic?.intentFrame, "failure");
+    assert.equal(normalized.semantic?.consequence, "high");
+    assert.equal(normalized.semantic?.operatorActionRequired, true);
+  }
+});
+
+test("task updates can infer implied operator asks from status text", () => {
+  const normalized = normalizeSourceEvent({
+    id: "evt:blocked",
+    type: "task.updated",
+    taskId: "task:blocked",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Waiting for approval",
+    summary: "Approval required before deploy can continue",
+    status: "waiting",
+  });
+
+  assert.equal(normalized.type, "task.updated");
+  if (normalized.type === "task.updated") {
+    assert.equal(normalized.semantic?.requestExplicitness, "implied");
+    assert.equal(normalized.semantic?.operatorActionRequired, true);
+  }
 });
 
 test("equivalent source approvals normalize to equivalent semantics across sources", () => {
@@ -174,4 +241,26 @@ test("publishSourceEvent feeds normalized events into the existing attention eng
   assert.equal(frame?.tone, "critical");
   assert.equal(frame?.consequence, "high");
   assert.equal(frame?.responseSpec.kind, "approval");
+});
+
+test("publishSourceEvent can use the semantic layer to elevate dangerous approvals without an explicit risk hint", () => {
+  const core = new ApertureCore();
+
+  core.publishSourceEvent({
+    id: "evt:destructive",
+    type: "human.input.requested",
+    taskId: "task:cleanup",
+    interactionId: "interaction:cleanup",
+    timestamp,
+    source: source("claude-code"),
+    title: "Approve production cleanup",
+    summary: "Run rm -rf on production cache before deploy",
+    request: { kind: "approval" },
+  });
+
+  const frame = core.getFrame("task:cleanup");
+  assert.ok(frame);
+  assert.equal(frame?.mode, "approval");
+  assert.equal(frame?.tone, "critical");
+  assert.equal(frame?.consequence, "high");
 });

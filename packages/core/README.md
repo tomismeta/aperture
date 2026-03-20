@@ -24,13 +24,14 @@ the TUI live elsewhere in the repo.
 
 ## What Core Does
 
-`@tomismeta/aperture-core` does five things:
+`@tomismeta/aperture-core` does six things:
 
 1. accepts events about agent work
-2. normalizes their meaning into a shared attention model
-3. judges what deserves attention now
-4. maintains surfaced state your UI can render
-5. accepts the human response back into the same loop
+2. interprets source events into bounded semantic facts
+3. normalizes their meaning into a shared attention model
+4. judges what deserves attention now
+5. maintains surfaced state your UI can render
+6. accepts the human response back into the same loop
 
 In practice, that means:
 
@@ -41,14 +42,14 @@ In practice, that means:
 ## Core Loop
 
 ```text
-+-----------+    +-------------+    +-------------+    +-------------+    +-------------+
-|   Arrive  | -> |  Normalize  | -> |    Judge    | -> |   Surface   | -> |  Respond    |
-|   events  |    |   meaning   |    |  attention  |    |    state    |    |  decision   |
-+-----------+    +-------------+    +-------------+    +-------------+    +-------------+
++-----------+    +-------------+    +-------------+    +-------------+    +-------------+    +-------------+
+|   Arrive  | -> |  Interpret  | -> |  Normalize  | -> |    Judge    | -> |   Surface   | -> |  Respond    |
+|   events  |    |  semantics  |    |   meaning   |    |  attention  |    |    state    |    |  decision   |
++-----------+    +-------------+    +-------------+    +-------------+    +-------------+    +-------------+
 
-ApertureEvent     shared event       policy, value,    surfaced state       AttentionResponse
-or SourceEvent    meaning +          criterion,        for now / next /     back into core
-                  context            continuity        ambient
+SourceEvent       Semantic facts     ApertureEvent     policy, value,    surfaced state       AttentionResponse
+or ApertureEvent  (or direct         meaning +         criterion,        for now / next /     back into core
+                  ApertureEvent)     context           continuity        ambient
 ```
 
 If you want the full repo-level architecture, including runtime, adapters, and
@@ -87,6 +88,36 @@ The recommended loop is:
 4. when the human responds, call `core.submit(...)`
 
 Use `SourceEvent` and `core.publishSourceEvent(...)` only when you are building an adapter from source-native events and want Aperture to normalize them first.
+
+## Semantic Layer
+
+When you publish a `SourceEvent`, core now runs a built-in semantic layer before canonical normalization.
+
+That layer is:
+
+- deterministic
+- dependency-free
+- bounded
+- adapter-overridable through explicit `semanticHints`
+
+The flow is:
+
+`SourceEvent -> SemanticInterpretation -> ApertureEvent -> AttentionCandidate -> AttentionFrame`
+
+What the semantic layer does:
+
+- recognizes intent frames like approval request, blocked work, failure, completion, or status update
+- infers bounded consequence hints from explicit source facts and carefully limited text cues
+- preserves explicit adapter facts when the source already knows more than core can infer
+- produces structured reasons, factors, confidence, and `whyNow` hints for downstream explanation
+
+What it does not do:
+
+- hidden model calls
+- remote inference
+- opaque probabilistic ranking in the hot path
+
+If you already have fully normalized `ApertureEvent`s, you can keep publishing them directly. The semantic layer only runs on `SourceEvent`s.
 
 In practice, you usually build a small frame-handling component or service around this loop:
 
@@ -171,6 +202,8 @@ You can also publish task lifecycle events like:
 - `task.cancelled`
 
 Use `SourceEvent` only when you are building an adapter and want Aperture to normalize source-native facts into `ApertureEvent` first.
+
+If your source already knows semantic facts that core should trust, provide them through `SourceEvent.semanticHints`. Those hints take precedence over bounded inference.
 
 The input fields that matter most to Aperture's judgment are:
 

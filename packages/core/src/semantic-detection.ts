@@ -17,6 +17,8 @@ export type SemanticDetectionInput = {
   metadata?: Record<string, unknown>;
 };
 
+// Preserve path-like separators and hyphens so file paths, commands, and
+// hyphenated tool terms survive normalization as semantic anchors.
 export function normalizeSemanticText(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9/.-]+/g, " ").trim();
 }
@@ -88,6 +90,8 @@ export function inferConsequenceFromSemanticText(
   fallback: AttentionConsequenceLevel,
   toolFamily?: string,
 ): AttentionConsequenceLevel {
+  // Read/search work is treated as side-effect-free. Production wording alone
+  // should not escalate those requests beyond the explicit source fallback.
   if (toolFamily === "read" || toolFamily === "search") {
     return fallback;
   }

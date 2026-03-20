@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   ApertureCore,
+  normalizeSemanticText,
   type SourceEvent,
   type SourceRef,
 } from "../src/index.js";
@@ -207,6 +208,13 @@ test("negated approval wording does not invent an implied operator ask", () => {
   assert.equal(interpretation.operatorActionRequired, false);
 });
 
+test("semantic normalization preserves path and hyphen separators", () => {
+  assert.equal(
+    normalizeSemanticText("Inspect /workspace/foo-bar.ts before continuing."),
+    "inspect /workspace/foo-bar.ts before continuing.",
+  );
+});
+
 test("task updates can infer relation hints from recurring and resolving language", () => {
   const repeated = interpretSourceEvent({
     id: "evt:repeat",
@@ -232,6 +240,21 @@ test("task updates can infer relation hints from recurring and resolving languag
 
   assert.deepEqual(repeated.relationHints.map((hint) => hint.kind), ["same_issue", "repeats"]);
   assert.deepEqual(resolved.relationHints.map((hint) => hint.kind), ["same_issue", "resolves"]);
+});
+
+test("repeat wording without an issue signal does not infer relation hints", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:repeat-no-issue",
+    type: "task.updated",
+    taskId: "task:repeat-no-issue",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Still running",
+    summary: "The task remains active and is continuing normally.",
+    status: "running",
+  });
+
+  assert.deepEqual(interpretation.relationHints, []);
 });
 
 test("passive dramatic status does not infer repeat relations from wording alone", () => {

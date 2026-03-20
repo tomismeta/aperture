@@ -153,6 +153,9 @@ export function readFrameEpisodeId(frame: AttentionFrame | null): string | null 
 }
 
 function episodeAnchor(candidate: AttentionCandidate): string {
+  // Prefer explicit relation targets first because they are the most stable
+  // cross-wording episode anchor. Fall back to context metadata, then the
+  // human-visible summary/title, and only then the task id.
   const relationAnchor = readSemanticRelationTarget(candidate.relationHints);
   if (relationAnchor) {
     return relationAnchor;

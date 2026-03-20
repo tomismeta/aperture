@@ -5,19 +5,6 @@ import * as sdk from "../src/index.js";
 
 test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.ok("ApertureCore" in sdk);
-  assert.ok("AttentionPolicy" in sdk);
-  assert.ok("AttentionValue" in sdk);
-  assert.ok("AttentionPlanner" in sdk);
-  assert.ok("JudgmentCoordinator" in sdk);
-  assert.ok("forecastAttentionPressure" in sdk);
-  assert.ok("idleAttentionPressure" in sdk);
-  assert.ok("distillMemoryProfile" in sdk);
-  assert.ok("ProfileStore" in sdk);
-  assert.ok("evaluateTraceSession" in sdk);
-  assert.ok("scoreAttentionFrame" in sdk);
-  assert.ok("baseAttentionSurfaceCapabilities" in sdk);
-  assert.ok("APERTURE_STATE_SCHEMA_VERSION" in sdk);
-  assert.ok("MARKDOWN_SCHEMA_VERSION" in sdk);
 
   assert.equal("AttentionAdjustments" in sdk, false);
   assert.equal("AttentionSignalStore" in sdk, false);
@@ -63,6 +50,21 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.equal("semanticReasonsForTaskStatus" in sdk, false);
   assert.equal("semanticWhyNowForRequestKind" in sdk, false);
   assert.equal("semanticWhyNowForTaskStatus" in sdk, false);
+  assert.equal("interpretSourceEvent" in sdk, false);
+  assert.equal("AttentionPolicy" in sdk, false);
+  assert.equal("AttentionValue" in sdk, false);
+  assert.equal("AttentionPlanner" in sdk, false);
+  assert.equal("JudgmentCoordinator" in sdk, false);
+  assert.equal("forecastAttentionPressure" in sdk, false);
+  assert.equal("idleAttentionPressure" in sdk, false);
+  assert.equal("distillMemoryProfile" in sdk, false);
+  assert.equal("ProfileStore" in sdk, false);
+  assert.equal("evaluateTraceSession" in sdk, false);
+  assert.equal("scoreAttentionFrame" in sdk, false);
+  assert.equal("baseAttentionSurfaceCapabilities" in sdk, false);
+  assert.equal("mergeAttentionSurfaceCapabilities" in sdk, false);
+  assert.equal("APERTURE_STATE_SCHEMA_VERSION" in sdk, false);
+  assert.equal("MARKDOWN_SCHEMA_VERSION" in sdk, false);
 });
 
 test("public SDK supports the simple event in -> frame out -> response in loop", () => {

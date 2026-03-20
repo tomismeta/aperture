@@ -1,12 +1,10 @@
 import assert from "node:assert/strict";
 
-import {
-  AttentionPlanner,
-  AttentionPolicy,
-  AttentionValue,
-  JudgmentCoordinator,
-  forecastAttentionPressure,
-} from "@tomismeta/aperture-core";
+import { AttentionPlanner } from "../../packages/core/src/attention-planner.js";
+import { AttentionPolicy } from "../../packages/core/src/attention-policy.js";
+import { AttentionValue } from "../../packages/core/src/attention-value.js";
+import { JudgmentCoordinator } from "../../packages/core/src/judgment-coordinator.js";
+import { forecastAttentionPressure } from "../../packages/core/src/attention-pressure.js";
 
 const coordinator = new JudgmentCoordinator(
   new AttentionPolicy(),

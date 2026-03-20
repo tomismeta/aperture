@@ -1,11 +1,11 @@
 import {
   ApertureCore,
-  interpretSourceEvent,
-  type ApertureTrace,
   type AttentionFrame,
   type AttentionResponse,
   type AttentionSignal,
 } from "@tomismeta/aperture-core";
+import type { ApertureTrace } from "../../core/src/trace.js";
+import { interpretSourceEvent } from "../../core/src/semantic-interpreter.js";
 
 import type {
   ReplayObservationStep,

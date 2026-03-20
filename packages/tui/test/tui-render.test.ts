@@ -3,10 +3,10 @@ import test from "node:test";
 
 import type {
   AttentionFrame as Frame,
-  AttentionSignalSummary as SignalSummary,
-  AttentionState,
   AttentionView,
 } from "@tomismeta/aperture-core";
+import type { AttentionSignalSummary as SignalSummary } from "../../core/src/signal-summary.js";
+import type { AttentionState } from "../../core/src/attention-state.js";
 
 import { renderAttentionScreen } from "../src/index.js";
 

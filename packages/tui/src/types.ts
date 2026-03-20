@@ -1,13 +1,15 @@
 import type {
-  AttentionField as FrameField,
   AttentionFrame as Frame,
   AttentionResponse as FrameResponse,
-  AttentionResponseSpec as FrameResponseSpec,
-  AttentionSignalSummary as SignalSummary,
-  AttentionState,
   AttentionView,
-  ApertureTrace,
 } from "@tomismeta/aperture-core";
+import type {
+  AttentionField as FrameField,
+  AttentionResponseSpec as FrameResponseSpec,
+} from "../../core/src/frame.js";
+import type { AttentionSignalSummary as SignalSummary } from "../../core/src/signal-summary.js";
+import type { AttentionState } from "../../core/src/attention-state.js";
+import type { ApertureTrace } from "../../core/src/trace.js";
 
 export type {
   FrameField,

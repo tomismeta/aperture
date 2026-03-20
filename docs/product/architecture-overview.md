@@ -34,11 +34,12 @@ beside them:
      core in-process.
    - This is transport and hosting, not judgment.
 
-4. **Event Intake and Normalization**
+4. **Event Intake, Semantic Interpretation, and Normalization**
    - Owned by: `@tomismeta/aperture-core`
    - The engine intake path.
-   - It validates events, normalizes them, evaluates candidate shape, applies
-     bounded adjustments, and assigns episode context.
+   - It validates events, interprets bounded semantics for `SourceEvent`s,
+     normalizes them, evaluates candidate shape, applies bounded adjustments,
+     and assigns episode context.
 
 5. **Evidence Context**
    - Owned by: `@tomismeta/aperture-core`
@@ -78,7 +79,7 @@ The repo is easiest to understand with this ownership split:
 
 - **External tools** own the raw source events.
 - **Adapter packages** own source translation and explicit semantic facts.
-- **`@tomismeta/aperture-core`** owns normalization, evidence, judgment, state,
+- **`@tomismeta/aperture-core`** owns semantic interpretation, normalization, evidence, judgment, state,
   trace, and learning.
 - **`@aperture/runtime`** owns shared live hosting and transport.
 - **`@aperture/tui`** owns the terminal operator surface.
@@ -92,7 +93,7 @@ This is the practical implementation form of the main architectural rule:
 
 The live authoritative path is:
 
-1. **Event Intake and Normalization**
+1. **Event Intake, Semantic Interpretation, and Normalization**
 2. **Evidence Context**
 3. **Deterministic Judgment Engine**
 4. **State, Trace, and Learning**
@@ -144,11 +145,12 @@ It answers one question:
 flowchart LR
   A["Arrive<br/>events<br/><br/>Tool hooks and source events arrive from coding agents"]
   T["Translate<br/>facts<br/><br/>Source adapters turn raw payloads into explicit facts"]
+  I["Interpret<br/>semantics<br/><br/>Core derives bounded semantic meaning for SourceEvents before judgment"]
   J["Judge<br/>attention<br/><br/>Core decides whether the work deserves attention now, should wait, stay ambient, or clear"]
   S["Show<br/>surface<br/><br/>Surfaces show the operator what matters now, what is next, and what stays quiet"]
   R["Respond<br/>action<br/><br/>The operator's decision is returned as a source-native action"]
 
-  A --> T --> J --> S --> R
+  A --> T --> I --> J --> S --> R
 
   classDef source fill:#f6f7f8,stroke:#6b7280,color:#111827;
   classDef semantics fill:#e8f5e9,stroke:#2e7d32,color:#111827;
@@ -158,6 +160,7 @@ flowchart LR
 
   class A source;
   class T semantics;
+  class I semantics;
   class J judgment;
   class S state;
   class R egress;
@@ -169,21 +172,22 @@ This version is useful for README notes, rough design discussions, and
 first-read architecture conversations.
 
 ```text
-+-----------+    +-------------+    +-------------+    +-------------+    +-------------+
-|  Arrive   | -> |  Translate  | -> |    Judge    | -> |    Show     | -> |   Respond   |
-|  events   |    |    facts    |    |  attention  |    |   surface   |    |   action    |
-+-----------+    +-------------+    +-------------+    +-------------+    +-------------+
++-----------+    +-------------+    +-------------+    +-------------+    +-------------+    +-------------+
+|  Arrive   | -> |  Translate  | -> |  Interpret  | -> |    Judge    | -> |    Show     | -> |   Respond   |
+|  events   |    |    facts    |    |  semantics  |    |  attention  |    |   surface   |    |   action    |
++-----------+    +-------------+    +-------------+    +-------------+    +-------------+    +-------------+
 
-tool hooks       explicit facts      does this         what the          operator decision
-from coding      from raw payloads   deserve           operator          carried back
-agents                               attention now?    actually sees     to the tool
+tool hooks       explicit facts      bounded core      does this         what the          operator decision
+from coding      from raw payloads   meaning for       deserve           operator          carried back
+agents                               SourceEvents      attention now?    actually sees     to the tool
 ```
 
 This simple view maps to the more detailed layer names below:
 
 - **Arrive** -> Source Hosts
 - **Translate** -> Source Adapters
-- **Judge** -> Event Intake and Normalization, Evidence Context, Deterministic Judgment Engine
+- **Interpret** -> Event Intake, Semantic Interpretation, and Normalization
+- **Judge** -> Evidence Context, Deterministic Judgment Engine
 - **Show** -> State, Trace, and Learning, plus Operator and Client Surfaces
 - **Respond** -> Response Return Path
 
@@ -205,7 +209,7 @@ sequenceDiagram
   AD->>AD: Translate raw payload into explicit facts
   AD->>RT: Send SourceEvent
   RT->>CO: Hand event to the live engine
-  CO->>CO: Validate, normalize, and build candidate context
+  CO->>CO: Validate, interpret semantics, normalize, and build candidate context
   CO->>CO: Judge route and commit surfaced state
   CO->>SF: Show what matters now
   SF->>CO: Operator responds
@@ -258,11 +262,11 @@ Sends source events straight into the engine"]
   AF --> RT
   AF --> DP
 
-  subgraph L4["4. Event Intake and Normalization"]
+  subgraph L4["4. Event Intake, Semantic Interpretation, and Normalization"]
     V["Validation
 Checks source event and canonical event shape"]
-    N["Semantic normalization
-Turns SourceEvent into ApertureEvent"]
+    N["Semantic interpretation + normalization
+Derives bounded semantic meaning, then turns SourceEvent into ApertureEvent"]
     E["Event evaluation
 Decides whether the event implies a candidate, a clear, or a no-op"]
     J["Bounded adjustments

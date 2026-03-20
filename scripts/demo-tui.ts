@@ -1,4 +1,5 @@
-import { ApertureCore, type ApertureTrace, type SourceEvent, type AttentionView } from "../packages/core/src/index.ts";
+import { ApertureCore, type SourceEvent, type AttentionView } from "../packages/core/src/index.ts";
+import type { ApertureTrace } from "../packages/core/src/trace.ts";
 import type { ClaudeCodeHookEvent } from "../packages/claude-code/src/index.ts";
 import { mapClaudeCodeHookEvent } from "../packages/claude-code/src/index.ts";
 import type { OpencodeMappingContext, OpencodeSseMessage } from "../packages/opencode/src/index.ts";

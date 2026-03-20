@@ -44,7 +44,7 @@ npm install @tomismeta/aperture-core
 
 The SDK loop is intentionally small:
 
-`ApertureEvent in -> AttentionFrame out -> AttentionResponse in`
+`ApertureEvent or SourceEvent in -> AttentionFrame / AttentionView out -> AttentionResponse in`
 
 See [packages/core/README.md](packages/core/README.md).
 
@@ -129,18 +129,30 @@ What is real on `main` today:
 - `@aperture/tui` is the terminal-native attention surface
 - `@aperture/claude-code` is the current end-to-end live adapter path
 - `@aperture/opencode` is a working live adapter path for OpenCode server and terminal sessions
-- the Aperture core SDK now exposes the main judgment primitives for future SDK use
+- the Aperture core SDK now includes a built-in deterministic semantic layer for `SourceEvent` ingestion
 - the default runtime uses local learning persistence through `.aperture/MEMORY.md` and a scaffolded `.aperture/JUDGMENT.md`
 - `USER.md`, `MEMORY.md`, and `JUDGMENT.md` remain the broader core judgment-state model, even though `MEMORY.md` and `JUDGMENT.md` are the live default local surfaces today
 
 What the engine already does:
 
 - normalize source events into one shared attention model
+- interpret bounded semantics before normalization when the source sends `SourceEvent`s
 - separate hard policy from adaptive utility and next-step planning
 - learn from response latency, context expansion, deferral, and disagreement
 - keep related work continuous through episode modeling
 - suppress lower-value work before overload
 - explain decisions through score components, planner rationale, and replay traces
+- validate judgment changes through Aperture Lab with golden, adversarial, and perturbation-backed scenarios
+
+What the SDK intentionally does **not** expose at the root:
+
+- lower-level judgment primitives like policy, value, planner, or coordinator classes
+- semantic helper internals
+- trace, pressure, or persistence helpers intended for repo-internal use
+
+The supported npm consumer story stays small:
+
+`event in -> frame/view out -> response in`
 
 ## Live Source Paths
 

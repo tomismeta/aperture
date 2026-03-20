@@ -1,4 +1,4 @@
-import { scoreAttentionFrame } from "@tomismeta/aperture-core";
+import { scoreAttentionFrame } from "../../core/src/frame-score.js";
 import type { Frame, InputDraft, QueueGroup, RenderOptions, Posture, AnimationState, ApertureTrace } from "./types.js";
 import { renderWhyOverlay } from "./render-why.js";
 import { displaySourceLabel } from "./source-label.js";

@@ -3,9 +3,8 @@ import { join } from "node:path";
 
 import {
   ApertureCore,
-  ProfileStore,
-  type MemoryProfile,
 } from "@tomismeta/aperture-core";
+import { ProfileStore, type MemoryProfile } from "../../core/src/profile-store.js";
 
 export type LearningMode = "on" | "off";
 

@@ -1,0 +1,50 @@
+{
+  "id": "golden:semantics:resolved-status-same-issue",
+  "title": "Resolved wording is read as the same issue being cleared",
+  "description": "The semantic layer should recognize that a completed update can resolve prior work without inventing a new interrupt.",
+  "doctrineTags": [
+    "semantic_normalization",
+    "semantic_robustness",
+    "relation_semantics",
+    "ambient_doctrine"
+  ],
+  "expectations": {
+    "finalActiveInteractionId": null,
+    "queuedInteractionIds": [],
+    "ambientInteractionIds": [
+      "interaction:task:build-resolved:status"
+    ],
+    "resultBucketCounts": {
+      "active": 0,
+      "queued": 0,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "resolved status",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "operatorActionRequired": false,
+        "requestExplicitness": "none",
+        "consequence": "low",
+        "relationKindsInclude": ["same_issue", "resolves"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "resolved status",
+      "event": {
+        "id": "evt:build-resolved",
+        "type": "task.updated",
+        "taskId": "task:build-resolved",
+        "timestamp": "2026-03-20T13:06:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Build issue resolved",
+        "summary": "The deploy is fixed and no longer blocked.",
+        "status": "completed"
+      }
+    }
+  ]
+}

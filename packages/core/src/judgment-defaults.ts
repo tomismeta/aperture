@@ -87,6 +87,8 @@ export const JUDGMENT_DEFAULTS = {
     highSignalBoost: 2,
     multiModeBoost: 1,
     stackingBoost: 1,
+    relationRepeatBoost: 1,
+    relationEscalationBoost: 2,
     actionableThreshold: 4,
   },
 } as const;

@@ -1,6 +1,6 @@
 # Aperture Core SDK
 
-The human attention control plane for agent systems.
+The deterministic judgment engine inside Aperture, the human attention control plane for agent systems.
 
 [![npm version](https://img.shields.io/npm/v/%40tomismeta%2Faperture-core?label=npm&color=0f766e)](https://www.npmjs.com/package/@tomismeta/aperture-core)
 [![node](https://img.shields.io/badge/node-%3E%3D18-1f6feb)](https://nodejs.org/)
@@ -69,15 +69,16 @@ If you are new to the SDK, start with:
 
 - `ApertureCore`
 - `ApertureEvent`
+- `SourceEvent`
 - `AttentionFrame`
+- `AttentionView`
 - `AttentionResponse`
 
-If you only want the happy path, stop there. Most integrations do not need to instantiate or understand:
+If you only want the happy path, stop there.
 
-- `AttentionPolicy`
-- `AttentionValue`
-- `AttentionPlanner`
-- `JudgmentCoordinator`
+The root package intentionally stays small. It does **not** expose the lower-level
+judgment primitives or semantic helper internals that Aperture uses inside the
+repo itself.
 
 The recommended loop is:
 
@@ -125,6 +126,9 @@ If you call `coordinator.explain(...)` or inspect Aperture traces, you now get r
 - continuity rule evaluation
 
 For the deeper implementation note behind that shape, see [docs/core-engine-architecture.md](https://github.com/tomismeta/aperture/blob/main/docs/engine/core-engine-architecture.md).
+
+Those components describe how the engine is structured internally. They are not
+the intended public npm entrypoints for most SDK consumers.
 
 ## 1. What Do I Send Into Aperture?
 
@@ -319,8 +323,6 @@ The main options are:
 
 - `surfaceCapabilities`
   - optional declaration of what the current attention surface can support for planning purposes
-- `ProfileStore`
-  - saves and loads learned memory
 - `ApertureCore.fromMarkdown(rootDir)`
   - loads markdown-backed state from a directory
 - `core.checkpointMemory()`
@@ -359,78 +361,7 @@ If you use the markdown-backed path, Aperture may read:
 
 You do not need to create or monitor these files unless you explicitly want persistence or human-editable local config.
 
-If you want learned behavior across sessions, a minimal persistence flow looks like:
-
-```ts
-import { ProfileStore } from "@tomismeta/aperture-core";
-
-const profileStore = new ProfileStore("/path/to/state");
-const snapshot = core.snapshotMemoryProfile();
-await profileStore.saveMemoryProfile(snapshot);
-```
-
 For a markdown-backed setup, opt in with `ApertureCore.fromMarkdown(rootDir)` and then use `core.checkpointMemory()`.
-
-## Advanced: Lower-Level Primitives
-
-If you need more control than the full-engine flow, the package also exposes:
-
-- `AttentionPolicy`
-- `AttentionValue`
-- `AttentionPlanner`
-- `JudgmentCoordinator`
-- `distillMemoryProfile`
-- `forecastAttentionPressure`
-- `evaluateTraceSession`
-
-Start with `ApertureCore` unless you already know you need the lower-level judgment primitives.
-
-Everything below this line is an advanced path. If you want Aperture as a clean black box, you can ignore the lower-level primitives entirely.
-
-Some internal lane-plumbing types intentionally stay off the root package surface. If you are using the SDK in the normal way, that is by design.
-
-### Judgment Primitive Example
-
-Use the judgment primitives when you already have your own runtime and only want Aperture's attention adjudication.
-
-```ts
-import {
-  AttentionPlanner,
-  AttentionPolicy,
-  AttentionValue,
-  JudgmentCoordinator,
-  type AttentionCandidate,
-} from "@tomismeta/aperture-core";
-
-const coordinator = new JudgmentCoordinator(
-  new AttentionPolicy(),
-  new AttentionValue(),
-  new AttentionPlanner(),
-);
-
-const candidate: AttentionCandidate = {
-  taskId: "task:review",
-  interactionId: "interaction:review",
-  mode: "approval",
-  tone: "focused",
-  consequence: "medium",
-  title: "Review file write",
-  responseSpec: {
-    kind: "approval",
-    actions: [
-      { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
-      { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
-    ],
-  },
-  priority: "high",
-  blocking: true,
-  timestamp: new Date().toISOString(),
-};
-
-const decision = coordinator.coordinate(null, candidate);
-```
-
-If you want the full rationale instead of just the final decision, call `coordinator.explain(...)`.
 
 ## More Context
 

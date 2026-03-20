@@ -1,0 +1,52 @@
+{
+  "id": "golden:semantics:dramatic-status-stays-passive",
+  "title": "Dramatic status wording without an ask stays passive",
+  "description": "Semantics should avoid inventing operator work from dramatic but non-actionable status phrasing.",
+  "doctrineTags": [
+    "semantic_normalization",
+    "semantic_robustness",
+    "interruption_credibility",
+    "ambient_doctrine"
+  ],
+  "expectations": {
+    "finalActiveInteractionId": null,
+    "queuedInteractionIds": [],
+    "ambientInteractionIds": [
+      "interaction:task:dramatic-status:status"
+    ],
+    "resultBucketCounts": {
+      "active": 0,
+      "queued": 0,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "dramatic status",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "operatorActionRequired": false,
+        "requestExplicitness": "none",
+        "consequence": "low",
+        "confidence": "high",
+        "relationKindsExact": [],
+        "reasonsInclude": ["task update carries a non-blocking lifecycle status"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "dramatic status",
+      "event": {
+        "id": "evt:dramatic-status",
+        "type": "task.updated",
+        "taskId": "task:dramatic-status",
+        "timestamp": "2026-03-20T12:04:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Critical path still running",
+        "summary": "Critical path still running, no action needed.",
+        "status": "running"
+      }
+    }
+  ]
+}

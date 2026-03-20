@@ -4,6 +4,13 @@ import type {
   AttentionResponse,
   AttentionSignal,
   AttentionView,
+  SemanticActivityClass,
+  SemanticConfidence,
+  SemanticConsequenceLevel,
+  SemanticIntentFrame,
+  SemanticRelationHint,
+  SemanticRequestExplicitness,
+  SemanticInterpretation,
   SourceEvent,
 } from "@tomismeta/aperture-core";
 
@@ -79,6 +86,7 @@ export type ReplayScenarioExpectations = {
     queued?: number;
     ambient?: number;
   };
+  semanticReadings?: ReplaySemanticExpectation[];
 };
 
 export type ReplayViewSnapshot = {
@@ -88,4 +96,29 @@ export type ReplayViewSnapshot = {
   queuedInteractionIds: string[];
   ambientInteractionIds: string[];
   attentionView: AttentionView;
+};
+
+export type ReplaySemanticSnapshot = {
+  stepIndex: number;
+  stepKind: ReplayObservationStep["kind"];
+  stepLabel?: string;
+  interpretation: SemanticInterpretation;
+};
+
+export type ReplaySemanticExpectation = {
+  stepIndex?: number;
+  stepLabel?: string;
+  intentFrame?: SemanticIntentFrame;
+  activityClass?: SemanticActivityClass;
+  toolFamily?: string | null;
+  operatorActionRequired?: boolean;
+  requestExplicitness?: SemanticRequestExplicitness;
+  consequence?: SemanticConsequenceLevel;
+  confidence?: SemanticConfidence;
+  abstained?: boolean;
+  relationKindsInclude?: SemanticRelationHint["kind"][];
+  relationKindsExact?: SemanticRelationHint["kind"][];
+  whyNowIncludes?: string;
+  reasonsInclude?: string[];
+  factorsInclude?: string[];
 };

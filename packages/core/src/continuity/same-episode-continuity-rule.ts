@@ -1,5 +1,6 @@
 import { readFrameEpisodeId } from "../episode-tracker.js";
 import { isBlockingFrame, priorityForFrame } from "../frame-score.js";
+import { hasSemanticRelationKind } from "../semantic-relations.js";
 import { noopContinuityRule, overrideContinuityRule, type ContinuityRule } from "./continuity-rule.js";
 
 export const evaluateSameEpisodeContinuityRule: ContinuityRule = (input) => {
@@ -21,6 +22,16 @@ export const evaluateSameEpisodeContinuityRule: ContinuityRule = (input) => {
       priorityForFrame(activeFrame),
       context.currentScore,
       ["the active episode has progressed into an interruptive step"],
+    );
+  }
+
+  if (candidate.blocking && hasSemanticRelationKind(candidate.relationHints, "supersedes")) {
+    return overrideContinuityRule(
+      "same_episode",
+      { kind: "activate", candidate },
+      priorityForFrame(activeFrame),
+      context.currentScore,
+      ["the active episode has advanced to a superseding step"],
     );
   }
 

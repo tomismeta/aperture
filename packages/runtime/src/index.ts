@@ -14,7 +14,7 @@ export {
   type AttentionResponseCapabilities,
   type AttentionSurfaceCapabilities,
   type AttentionTopologyCapabilities,
-} from "@tomismeta/aperture-core";
+} from "../../core/src/surface-capabilities.js";
 export {
   discoverLocalRuntimes,
   removeLocalRuntimeRegistration,

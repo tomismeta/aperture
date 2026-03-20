@@ -1,0 +1,55 @@
+{
+  "id": "golden:adversarial:production-read-stays-low",
+  "title": "Production read wording does not overinflate a benign approval",
+  "description": "Read-oriented approvals should not become high consequence just because the text mentions production context.",
+  "doctrineTags": [
+    "semantic_normalization",
+    "semantic_robustness",
+    "interruption_credibility",
+    "adversarial_semantics"
+  ],
+  "expectations": {
+    "finalActiveInteractionId": "interaction:prod-read",
+    "queuedInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultBucketCounts": {
+      "active": 1,
+      "queued": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "production read approval",
+        "intentFrame": "approval_request",
+        "activityClass": "permission_request",
+        "toolFamily": "read",
+        "operatorActionRequired": true,
+        "requestExplicitness": "explicit",
+        "consequence": "low",
+        "confidence": "medium",
+        "relationKindsExact": [],
+        "factorsInclude": ["human.input.requested", "approval"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "production read approval",
+      "event": {
+        "id": "evt:prod-read",
+        "type": "human.input.requested",
+        "taskId": "task:prod-read",
+        "interactionId": "interaction:prod-read",
+        "timestamp": "2026-03-20T14:01:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Approve production runbook read",
+        "summary": "Read the production deploy runbook before answering.",
+        "request": {
+          "kind": "approval"
+        },
+        "toolFamily": "read"
+      }
+    }
+  ]
+}

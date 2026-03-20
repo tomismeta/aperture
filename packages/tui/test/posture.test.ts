@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { AttentionSignalSummary, AttentionView } from "@tomismeta/aperture-core";
+import type { AttentionView } from "@tomismeta/aperture-core";
+import type { AttentionSignalSummary } from "../../core/src/signal-summary.js";
 
 import { computePosture } from "../src/posture.js";
 

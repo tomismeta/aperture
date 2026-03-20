@@ -1,6 +1,8 @@
 import type { AttentionFrame } from "./frame.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
+import type { SemanticRelationHint } from "./semantic-types.js";
+import { readSemanticRelationTarget } from "./semantic-relations.js";
 
 export type EpisodeState = "emerging" | "actionable" | "batched" | "waiting" | "stale" | "resolved";
 
@@ -20,6 +22,7 @@ type EpisodeRecord = EpisodeSummary & {
   modes: Set<AttentionCandidate["mode"]>;
   highSignals: number;
   blockingSignals: number;
+  relationKinds: Set<SemanticRelationHint["kind"]>;
 };
 
 const DEFAULTS = JUDGMENT_DEFAULTS.episodeEvidence;
@@ -123,6 +126,7 @@ export class EpisodeTracker {
       modes: new Set([candidate.mode]),
       highSignals: candidate.consequence === "high" || candidate.tone === "critical" ? 1 : 0,
       blockingSignals: candidate.blocking ? 1 : 0,
+      relationKinds: new Set((candidate.relationHints ?? []).map((hint) => hint.kind)),
     };
   }
 
@@ -149,6 +153,14 @@ export function readFrameEpisodeId(frame: AttentionFrame | null): string | null 
 }
 
 function episodeAnchor(candidate: AttentionCandidate): string {
+  // Prefer explicit relation targets first because they are the most stable
+  // cross-wording episode anchor. Fall back to context metadata, then the
+  // human-visible summary/title, and only then the task id.
+  const relationAnchor = readSemanticRelationTarget(candidate.relationHints);
+  if (relationAnchor) {
+    return relationAnchor;
+  }
+
   const items = candidate.context?.items ?? [];
   const preferred = items.find((item) => {
     const id = item.id.toLowerCase();
@@ -219,6 +231,10 @@ function measureEpisodeEvidence(
     reasons.push("multiple related interactions have accumulated in this episode");
   }
 
+  for (const relationHint of candidate.relationHints ?? []) {
+    record.relationKinds.add(relationHint.kind);
+  }
+
   if (record.size >= 3) {
     score += DEFAULTS.persistentEpisodeBoost;
     reasons.push("the same episode keeps recurring without resolution");
@@ -237,6 +253,16 @@ function measureEpisodeEvidence(
   if (record.highSignals >= 1 && record.size >= 2) {
     score += DEFAULTS.stackingBoost;
     reasons.push("high-signal evidence is stacking up across the episode");
+  }
+
+  if (record.relationKinds.has("repeats")) {
+    score += DEFAULTS.relationRepeatBoost;
+    reasons.push("semantic relation hints indicate this issue is recurring");
+  }
+
+  if (record.relationKinds.has("escalates")) {
+    score += DEFAULTS.relationEscalationBoost;
+    reasons.push("semantic relation hints indicate this issue is escalating");
   }
 
   return { score, reasons };

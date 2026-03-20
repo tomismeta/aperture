@@ -1,6 +1,12 @@
 export { loadGoldenScenarios, DEFAULT_GOLDEN_SCENARIOS_DIR } from "./golden.js";
 export { compareScenarioDeterminism, normalizeReplayRun, runDeterminismAudit } from "./determinism.js";
 export { runJudgmentBench } from "./judgment-bench.js";
+export {
+  DEFAULT_PERTURBATION_PROFILES,
+  generatePerturbedSemanticScenarios,
+  loadPerturbedSemanticScenarios,
+  runPerturbedJudgmentBench,
+} from "./perturbation.js";
 export { renderJudgmentBenchMarkdown } from "./report.js";
 export { runReplayScenario } from "./runner.js";
 export { scoreReplayRun } from "./scorecard.js";
@@ -13,6 +19,8 @@ export type {
 export type {
   ReplayScenario,
   ReplayObservationStep,
+  ReplaySemanticExpectation,
+  ReplaySemanticSnapshot,
   ReplayScenarioExpectations,
   ReplayViewSnapshot,
 } from "./scenario.js";
@@ -27,3 +35,4 @@ export type {
   JudgmentBenchRun,
   JudgmentBenchScenarioResult,
 } from "./judgment-bench.js";
+export type { ScenarioPerturbationProfile } from "./perturbation.js";

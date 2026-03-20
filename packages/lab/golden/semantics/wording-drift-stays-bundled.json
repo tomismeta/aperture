@@ -1,0 +1,77 @@
+{
+  "id": "golden:semantics:wording-drift-stays-bundled",
+  "title": "Wording drift stays bundled when relation targets match",
+  "description": "Different phrasing about the same issue should stay in the same episode so follow-up status does not steal focus from the active blocker.",
+  "doctrineTags": [
+    "semantic_normalization",
+    "semantic_robustness",
+    "relation_semantics",
+    "decision_stream_continuity",
+    "ambient_doctrine"
+  ],
+  "expectations": {
+    "finalActiveInteractionId": "interaction:task:cache-blocker:status",
+    "queuedInteractionIds": [],
+    "ambientInteractionIds": [
+      "interaction:task:cache-followup:status"
+    ],
+    "resultBucketCounts": {
+      "active": 1,
+      "queued": 0,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "wording drift follow-up",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "operatorActionRequired": false,
+        "requestExplicitness": "none",
+        "consequence": "low",
+        "relationKindsInclude": ["same_issue", "repeats"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "initial blocker",
+      "event": {
+        "id": "evt:cache-blocker",
+        "type": "task.updated",
+        "taskId": "task:cache-blocker",
+        "timestamp": "2026-03-20T13:12:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Cache rebuild failed again",
+        "summary": "The cache rebuild is still blocked.",
+        "status": "failed",
+        "semanticHints": {
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:cache:prod" },
+            { "kind": "repeats", "target": "issue:cache:prod" }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "wording drift follow-up",
+      "event": {
+        "id": "evt:cache-followup",
+        "type": "task.updated",
+        "taskId": "task:cache-followup",
+        "timestamp": "2026-03-20T13:12:15.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Resync remains stalled again",
+        "summary": "The same cache issue is still running through recovery.",
+        "status": "running",
+        "semanticHints": {
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:cache:prod" },
+            { "kind": "repeats", "target": "issue:cache:prod" }
+          ]
+        }
+      }
+    }
+  ]
+}

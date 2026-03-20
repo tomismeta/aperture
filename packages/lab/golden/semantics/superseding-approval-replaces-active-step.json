@@ -1,0 +1,81 @@
+{
+  "id": "golden:semantics:superseding-approval-replaces-active-step",
+  "title": "A superseding approval replaces the active step in the same episode",
+  "description": "When a new blocking step supersedes the current one, continuity should advance the active frame instead of bundling the step away.",
+  "doctrineTags": [
+    "semantic_normalization",
+    "semantic_robustness",
+    "relation_semantics",
+    "decision_stream_continuity"
+  ],
+  "expectations": {
+    "finalActiveInteractionId": "interaction:deploy:rollback",
+    "queuedInteractionIds": [
+      "interaction:deploy:plan"
+    ],
+    "ambientInteractionIds": [],
+    "resultBucketCounts": {
+      "active": 2,
+      "queued": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "superseding rollback approval",
+        "intentFrame": "approval_request",
+        "activityClass": "permission_request",
+        "operatorActionRequired": true,
+        "requestExplicitness": "explicit",
+        "consequence": "high",
+        "relationKindsInclude": ["same_issue", "supersedes"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "initial deploy approval",
+      "event": {
+        "id": "evt:deploy:plan",
+        "type": "human.input.requested",
+        "taskId": "task:deploy",
+        "interactionId": "interaction:deploy:plan",
+        "timestamp": "2026-03-20T13:10:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Approve deploy plan",
+        "summary": "Approve the production deploy plan.",
+        "request": {
+          "kind": "approval"
+        },
+        "semanticHints": {
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:deploy:prod" }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "superseding rollback approval",
+      "event": {
+        "id": "evt:deploy:rollback",
+        "type": "human.input.requested",
+        "taskId": "task:deploy",
+        "interactionId": "interaction:deploy:rollback",
+        "timestamp": "2026-03-20T13:10:20.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Approve rollback instead",
+        "summary": "Use this rollback plan instead for the same production deploy.",
+        "request": {
+          "kind": "approval"
+        },
+        "semanticHints": {
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:deploy:prod" },
+            { "kind": "supersedes", "target": "issue:deploy:prod" }
+          ]
+        }
+      }
+    }
+  ]
+}

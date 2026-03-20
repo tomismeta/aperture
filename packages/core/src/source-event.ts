@@ -9,6 +9,7 @@ import type {
   AttentionContext,
   AttentionProvenance,
 } from "./frame.js";
+import type { SemanticInterpretationHints } from "./semantic-types.js";
 
 export type SourceEvent =
   | SourceTaskStartedEvent
@@ -22,6 +23,7 @@ type SourceEventBase = {
   taskId: string;
   timestamp: string;
   source?: SourceRef;
+  semanticHints?: SemanticInterpretationHints;
 };
 
 export type SourceTaskStartedEvent = SourceEventBase & {

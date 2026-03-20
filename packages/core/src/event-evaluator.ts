@@ -11,6 +11,8 @@ import type {
   AttentionFormResponseSpec,
 } from "./frame.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
+import { dedupeSemanticStrings } from "./semantic-detection.js";
+import { semanticWhyNowForTaskStatus } from "./semantic-language.js";
 
 export type EvaluationResult =
   | { kind: "candidate"; candidate: AttentionCandidate }
@@ -78,6 +80,7 @@ export class EventEvaluator {
       blocking: false,
       timestamp: event.timestamp,
       ...(event.summary !== undefined ? { summary: event.summary } : {}),
+      ...(event.semantic?.relationHints?.length ? { relationHints: event.semantic.relationHints } : {}),
       ...(event.progress !== undefined
         ? {
             context: {
@@ -85,17 +88,7 @@ export class EventEvaluator {
             },
           }
         : {}),
-      ...(event.status === "blocked" || event.status === "failed"
-        ? {
-            provenance: {
-              whyNow:
-                event.status === "blocked"
-                  ? "Work is blocked and may require operator attention."
-                  : "Work has failed and should be reviewed.",
-              factors: [event.status],
-            },
-          }
-        : {}),
+      ...(buildStatusProvenance(event)),
     };
   }
 
@@ -114,12 +107,25 @@ export class EventEvaluator {
       consequence: event.consequence ?? "medium",
       title: event.title,
       summary: event.summary,
+      ...(event.semantic?.relationHints?.length ? { relationHints: event.semantic.relationHints } : {}),
       responseSpec,
       priority: this.priorityForHumanInput(event),
       blocking: true,
       timestamp: event.timestamp,
       ...(event.context !== undefined ? { context: event.context } : {}),
-      ...(event.provenance !== undefined ? { provenance: event.provenance } : {}),
+      ...((event.provenance !== undefined || event.semantic?.whyNow !== undefined || event.semantic?.factors?.length)
+        ? {
+            provenance: {
+              ...(event.provenance ?? {}),
+              ...(event.provenance?.whyNow === undefined && event.semantic?.whyNow !== undefined
+                ? { whyNow: event.semantic.whyNow }
+                : {}),
+              ...(event.semantic?.factors?.length
+                ? { factors: dedupeSemanticStrings([...(event.provenance?.factors ?? []), ...event.semantic.factors]) }
+                : {}),
+            },
+          }
+        : {}),
     };
   }
 
@@ -246,4 +252,29 @@ export class EventEvaluator {
         return "low";
     }
   }
+}
+
+function buildStatusProvenance(event: TaskUpdatedEvent): { provenance: { whyNow?: string; factors?: string[] } } | {} {
+  const whyNow =
+    event.semantic?.whyNow
+    ?? (event.status === "blocked"
+      ? semanticWhyNowForTaskStatus("blocked")
+      : event.status === "failed"
+        ? semanticWhyNowForTaskStatus("failed")
+        : undefined);
+  const factors = dedupeSemanticStrings([
+    ...(event.semantic?.factors ?? []),
+    ...(event.status === "blocked" || event.status === "failed" ? [event.status] : []),
+  ]);
+
+  if (whyNow === undefined && factors.length === 0) {
+    return {};
+  }
+
+  return {
+    provenance: {
+      ...(whyNow !== undefined ? { whyNow } : {}),
+      ...(factors.length > 0 ? { factors } : {}),
+    },
+  };
 }

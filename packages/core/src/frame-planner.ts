@@ -31,6 +31,14 @@ export class FramePlanner {
             updatedAt: candidate.timestamp,
           }
         : currentEpisode;
+    const currentSemantic = current?.metadata?.semantic;
+    const nextSemantic =
+      candidate.relationHints?.length
+        ? {
+            ...(currentSemantic && typeof currentSemantic === "object" ? currentSemantic : {}),
+            relationHints: candidate.relationHints,
+          }
+        : currentSemantic;
 
     return {
       id: isUpdate ? current.id : `frame:${candidate.interactionId}`,
@@ -51,6 +59,7 @@ export class FramePlanner {
         ...(current?.metadata ?? {}),
         attention: nextAttention,
         ...(toolFamily !== undefined ? { toolFamily } : {}),
+        ...(nextSemantic ? { semantic: nextSemantic } : {}),
         ...(nextEpisode ? { episode: nextEpisode } : {}),
       },
       ...(candidate.summary !== undefined ? { summary: candidate.summary } : {}),

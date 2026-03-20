@@ -24,14 +24,13 @@ Today, the real judgment layer lives in the [Aperture core SDK package](../../pa
 
 Current version:
 
-- `@tomismeta/aperture-core@0.2.1`
+- `@tomismeta/aperture-core@0.3.0` on this branch
 
 What is already true:
 
 - `ApertureCore` is exported and usable as a full engine surface
-- lower-level judgment primitives are exported
-- profile and memory helpers are available
-- trace/replay helpers are available
+- `SourceEvent` ingestion now includes a built-in deterministic semantic layer
+- the root public surface is intentionally minimal
 - external-consumer proof paths exist
 - `pnpm sdk:prove` verifies both external consumption and tarball shape
 
@@ -39,7 +38,7 @@ What is still maturing:
 
 - ongoing support discipline for the published package
 - feedback from real external consumers
-- long-term boundary decisions around persistence helpers
+- long-term boundary decisions around persistence helpers and any future advanced subpaths
 
 ## Design Principles
 
@@ -64,9 +63,8 @@ This is the main public SDK package.
 It currently contains:
 
 - the full engine facade for consumers who want the whole attention model
-- lower-level judgment primitives for selective integration
-- profile and memory helpers for learning loops
-- trace and replay helpers for evaluation
+- core event, source-event, frame, response, signal, and semantic types
+- a deterministic semantic layer used internally by `publishSourceEvent(...)`
 
 It should not contain:
 
@@ -74,6 +72,8 @@ It should not contain:
 - local adapter registration
 - terminal rendering
 - source-specific adapters
+- lower-level judgment primitives at the root package surface
+- semantic helper internals at the root package surface
 
 ### `@aperture/runtime`
 
@@ -103,23 +103,15 @@ They should be able to:
 
 This is the easiest integration path.
 
-### 2. Judgment Primitive Mode
+### 2. Advanced Or Friend Mode
 
-This is for consumers who already have their own runtime and only want
-Aperture's adjudication layer.
+This is not the default npm-consumer story.
 
-They should be able to use:
+Repo-internal packages can still use deeper core modules directly through the
+workspace when they need rendering, runtime, or benchmark internals.
 
-- `AttentionPolicy`
-- `AttentionValue`
-- `AttentionPlanner`
-- `JudgmentCoordinator`
-- `AttentionCandidate`
-- `forecastAttentionPressure`
-- memory/profile helpers
-
-This lets another runtime keep its own task model while delegating attention
-judgment to Aperture.
+If real external demand emerges for advanced composition, it should appear as an
+intentional secondary surface later, not as casual root-package sprawl.
 
 ## Public Surface Discipline
 
@@ -128,18 +120,15 @@ The public SDK surface should expose only what is conceptually stable.
 Current emphasized exports:
 
 - `ApertureCore`
-- `AttentionPolicy`
-- `AttentionValue`
-- `AttentionPlanner`
-- `JudgmentCoordinator`
-- `AttentionCandidate`
+- `ApertureEvent`
+- `SourceEvent`
 - `AttentionFrame`
+- `AttentionTaskView`
+- `AttentionView`
 - `AttentionResponse`
-- `ProfileStore`
-- `distillMemoryProfile`
-- `forecastAttentionPressure`
-- `evaluateTraceSession`
-- current core event/frame/trace/profile types
+- `AttentionSignal`
+- semantic interpretation types
+- current core event/source/frame/response/signal types
 
 Still not recommended as primary public surface:
 
@@ -147,6 +136,8 @@ Still not recommended as primary public surface:
 - frame construction internals
 - trace recording internals
 - heuristic implementation details that may still move
+- lower-level judgment pipeline components
+- persistence helpers that are not required for the main SDK loop
 
 ## Learning Loop In The SDK
 
@@ -160,8 +151,6 @@ The loop is:
 For SDK consumers, that means:
 
 - `ApertureCore` should continue to record interaction signals
-- `distillMemoryProfile` should remain available for distilling learned state
-- `ProfileStore` is currently the default persistence helper
 - persistence should stay optional
 
 The package contract should be about learning persistence, not Markdown as a
@@ -190,6 +179,7 @@ Longer-term questions still open:
 
 - whether markdown/profile persistence belongs in the core package forever
 - whether some persistence helpers should eventually move behind a narrower boundary
+- whether a deliberate `advanced` or friend surface is needed later
 
 ## Success Criteria
 

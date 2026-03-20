@@ -97,6 +97,47 @@ test("same episode can promote a new blocking step over a status frame", () => {
   assert.equal(decision.kind, "activate");
 });
 
+test("same episode can promote a superseding blocking step over active blocking work", () => {
+  const coordinator = new JudgmentCoordinator();
+  const decision = coordinator.coordinate(
+    createFrame({
+      interactionId: "interaction:current-step",
+      title: "Approve deployment step",
+      metadata: {
+        episode: {
+          id: "episode:shared",
+          key: "claude-code:interruptive:issue:deploy:prod",
+          state: "actionable",
+          size: 2,
+          evidenceScore: 5,
+          evidenceReasons: ["operator-facing work makes this episode immediately actionable"],
+          lastInteractionId: "interaction:current-step",
+          updatedAt: "2026-03-08T12:00:00.000Z",
+        },
+      },
+    }),
+    createCandidate({
+      interactionId: "interaction:superseding-step",
+      title: "Approve rollback instead",
+      mode: "approval",
+      blocking: true,
+      priority: "high",
+      relationHints: [{ kind: "same_issue", target: "issue:deploy:prod" }, { kind: "supersedes" }],
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+      episodeState: "actionable",
+      episodeKey: "claude-code:interruptive:issue:deploy:prod",
+    }),
+  );
+
+  assert.equal(decision.kind, "activate");
+});
+
 test("visible queued episode work batches new related interactions with no active task frame", () => {
   const coordinator = new JudgmentCoordinator();
   const decision = coordinator.coordinate(null, createCandidate({

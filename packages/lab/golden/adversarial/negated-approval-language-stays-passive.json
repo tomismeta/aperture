@@ -1,0 +1,51 @@
+{
+  "id": "golden:adversarial:negated-approval-language-stays-passive",
+  "title": "Negated approval language does not invent an operator ask",
+  "description": "Status wording that mentions approval in a negated way should stay passive instead of being treated like an implied request.",
+  "doctrineTags": [
+    "semantic_normalization",
+    "semantic_robustness",
+    "ambient_doctrine",
+    "adversarial_semantics"
+  ],
+  "expectations": {
+    "finalActiveInteractionId": null,
+    "queuedInteractionIds": [],
+    "ambientInteractionIds": [
+      "interaction:task:no-approval-needed:status"
+    ],
+    "resultBucketCounts": {
+      "active": 0,
+      "queued": 0,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "negated approval status",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "operatorActionRequired": false,
+        "requestExplicitness": "none",
+        "consequence": "low",
+        "relationKindsExact": [],
+        "reasonsInclude": ["task update carries a non-blocking lifecycle status"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "negated approval status",
+      "event": {
+        "id": "evt:no-approval-needed",
+        "type": "task.updated",
+        "taskId": "task:no-approval-needed",
+        "timestamp": "2026-03-20T14:00:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Continuing automatically",
+        "summary": "No approval needed, continuing automatically.",
+        "status": "running"
+      }
+    }
+  ]
+}

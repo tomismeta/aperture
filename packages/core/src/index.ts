@@ -55,29 +55,7 @@ export {
 export type { AttentionPressure } from "./attention-pressure.js";
 
 export { distillMemoryProfile } from "./memory-aggregator.js";
-export {
-  containsAnySemanticPhrase,
-  dedupeSemanticStrings,
-  detectImpliedOperatorAsk,
-  detectSemanticRelationHints,
-  inferConsequenceFromSemanticText,
-  inferSemanticToolFamily,
-  normalizeSemanticText,
-  readExplicitSemanticToolFamily,
-} from "./semantic-detection.js";
 export { interpretSourceEvent } from "./semantic-interpreter.js";
-export {
-  hasSemanticRelationKind,
-  readSemanticRelationTarget,
-} from "./semantic-relations.js";
-export {
-  semanticActivityClassForRequestKind,
-  semanticIntentFrameForRequestKind,
-  semanticReasonsForLifecycle,
-  semanticReasonsForTaskStatus,
-  semanticWhyNowForRequestKind,
-  semanticWhyNowForTaskStatus,
-} from "./semantic-language.js";
 export { ProfileStore } from "./profile-store.js";
 export { evaluateTraceSession } from "./trace-evaluator.js";
 export {

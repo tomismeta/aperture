@@ -47,6 +47,22 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.equal("evaluateAttentionBudgetCriterionRule" in sdk, false);
   assert.equal("noopContinuityRule" in sdk, false);
   assert.equal("overrideContinuityRule" in sdk, false);
+  assert.equal("containsAnySemanticPhrase" in sdk, false);
+  assert.equal("dedupeSemanticStrings" in sdk, false);
+  assert.equal("detectImpliedOperatorAsk" in sdk, false);
+  assert.equal("detectSemanticRelationHints" in sdk, false);
+  assert.equal("inferConsequenceFromSemanticText" in sdk, false);
+  assert.equal("inferSemanticToolFamily" in sdk, false);
+  assert.equal("normalizeSemanticText" in sdk, false);
+  assert.equal("readExplicitSemanticToolFamily" in sdk, false);
+  assert.equal("hasSemanticRelationKind" in sdk, false);
+  assert.equal("readSemanticRelationTarget" in sdk, false);
+  assert.equal("semanticActivityClassForRequestKind" in sdk, false);
+  assert.equal("semanticIntentFrameForRequestKind" in sdk, false);
+  assert.equal("semanticReasonsForLifecycle" in sdk, false);
+  assert.equal("semanticReasonsForTaskStatus" in sdk, false);
+  assert.equal("semanticWhyNowForRequestKind" in sdk, false);
+  assert.equal("semanticWhyNowForTaskStatus" in sdk, false);
 });
 
 test("public SDK supports the simple event in -> frame out -> response in loop", () => {

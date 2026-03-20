@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 
 import {
   ApertureCore,
-  normalizeSemanticText,
   type SourceEvent,
   type SourceRef,
 } from "../src/index.js";
+import { normalizeSemanticText } from "../src/semantic-detection.js";
 import { interpretSourceEvent } from "../src/semantic-interpreter.js";
 import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
 

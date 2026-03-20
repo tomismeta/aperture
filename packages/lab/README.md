@@ -82,6 +82,12 @@ The first semantic-robustness tranche now covers:
   - negated approval language that should stay passive
   - production-context read wording that should not inflate consequence
 
+There is also a deterministic perturbation layer on top of those scenarios:
+
+- `pnpm judgment:fuzz`
+- generates phrasing-shifted semantic variants
+- pressure-tests the semantic layer without changing the canonical authored bench
+
 ## Status
 
 - good enough to start collecting golden scenarios

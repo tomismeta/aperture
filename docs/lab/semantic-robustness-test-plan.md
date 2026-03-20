@@ -272,6 +272,19 @@ A semantic change is ready to move past Layer 2 when:
 - benchmark score remains green
 - semantic doctrine tags remain healthy
 
+### Perturbation Layer
+
+Alongside the authored golden scenarios, Lab should also run a deterministic
+perturbation pass:
+
+- phrasing shifts
+- punctuation and casing noise
+- bounded synonym changes such as `approval` -> `sign-off` or `read` -> `inspect`
+
+This layer is not a replacement for harvested data.
+It is a cheap way to catch overfitting to exact wording before we have a large
+real-world bundle set.
+
 ## Layer 3: Manual User Acceptance Testing
 
 This is the reality check.

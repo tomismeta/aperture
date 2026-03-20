@@ -40,7 +40,7 @@ export function inferSemanticToolFamily(input: SemanticDetectionInput): string |
   }
 
   const value = normalizeSemanticText(`${input.title} ${input.summary ?? ""}`);
-  if (hasPhrase(value, "wants to read") || hasWord(value, "read")) return "read";
+  if (hasPhrase(value, "wants to read") || hasPhrase(value, "wants to inspect") || hasWord(value, "read") || hasWord(value, "inspect")) return "read";
   if (hasPhrase(value, "wants to write") || hasWord(value, "write")) return "write";
   if (hasPhrase(value, "wants to edit") || hasWord(value, "edit")) return "edit";
   if (hasPhrase(value, "shell command") || hasPhrase(value, "wants to run")) return "bash";
@@ -154,6 +154,12 @@ const IMPLIED_OPERATOR_ASKS = [
   "need your approval",
   "waiting for approval",
   "approval required",
+  "awaiting sign off",
+  "awaiting sign-off",
+  "sign off required",
+  "sign-off required",
+  "need your sign off",
+  "need your sign-off",
   "should i continue",
   "can you approve",
   "what should i do",
@@ -165,6 +171,8 @@ const IMPLIED_OPERATOR_NEGATIONS = [
   "no approval needed",
   "approval is not needed",
   "approval not needed",
+  "sign off not needed",
+  "sign-off not needed",
   "no input needed",
   "for awareness only",
   "for your awareness",

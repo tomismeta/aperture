@@ -17,6 +17,7 @@
     "demo:tui": "tsx scripts/demo-tui.ts",
     "judgment:bench": "tsx scripts/judgment-bench.ts",
     "judgment:determinism": "tsx scripts/judgment-determinism.ts",
+    "judgment:fuzz": "tsx scripts/judgment-fuzz.ts",
     "opencode:connect": "tsx scripts/opencode-connect.ts",
     "opencode:disconnect": "tsx scripts/opencode-disconnect.ts",
     "opencode:start": "tsx scripts/opencode-adapter.ts",

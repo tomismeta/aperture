@@ -1,18 +1,18 @@
 {
-  "id": "golden:semantics:dramatic-status-stays-passive",
-  "title": "Dramatic status wording without an ask stays passive",
-  "description": "Semantics should avoid inventing operator work from dramatic but non-actionable status phrasing.",
+  "id": "golden:adversarial:negated-approval-language-stays-passive",
+  "title": "Negated approval language does not invent an operator ask",
+  "description": "Status wording that mentions approval in a negated way should stay passive instead of being treated like an implied request.",
   "doctrineTags": [
     "semantic_normalization",
     "semantic_robustness",
-    "interruption_credibility",
-    "ambient_doctrine"
+    "ambient_doctrine",
+    "adversarial_semantics"
   ],
   "expectations": {
     "finalActiveInteractionId": null,
     "queuedInteractionIds": [],
     "ambientInteractionIds": [
-      "interaction:task:dramatic-status:status"
+      "interaction:task:no-approval-needed:status"
     ],
     "resultBucketCounts": {
       "active": 0,
@@ -21,13 +21,12 @@
     },
     "semanticReadings": [
       {
-        "stepLabel": "dramatic status",
+        "stepLabel": "negated approval status",
         "intentFrame": "status_update",
         "activityClass": "status_update",
         "operatorActionRequired": false,
         "requestExplicitness": "none",
         "consequence": "low",
-        "confidence": "high",
         "relationKindsExact": [],
         "reasonsInclude": ["task update carries a non-blocking lifecycle status"]
       }
@@ -36,15 +35,15 @@
   "steps": [
     {
       "kind": "publishSource",
-      "label": "dramatic status",
+      "label": "negated approval status",
       "event": {
-        "id": "evt:dramatic-status",
+        "id": "evt:no-approval-needed",
         "type": "task.updated",
-        "taskId": "task:dramatic-status",
-        "timestamp": "2026-03-20T12:04:00.000Z",
+        "taskId": "task:no-approval-needed",
+        "timestamp": "2026-03-20T14:00:00.000Z",
         "source": { "id": "custom-agent" },
-        "title": "Critical path still running",
-        "summary": "Critical path still running, no action needed.",
+        "title": "Continuing automatically",
+        "summary": "No approval needed, continuing automatically.",
         "status": "running"
       }
     }

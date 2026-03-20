@@ -78,6 +78,9 @@ The first semantic-robustness tranche now covers:
 - implied asks buried in status text
 - dramatic status wording that should remain passive
 - relation semantics for recurring and resolving issue wording
+- adversarial wording such as:
+  - negated approval language that should stay passive
+  - production-context read wording that should not inflate consequence
 
 ## Status
 

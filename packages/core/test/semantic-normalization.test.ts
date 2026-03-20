@@ -191,6 +191,22 @@ test("task updates can infer implied operator asks from status text", () => {
   }
 });
 
+test("negated approval wording does not invent an implied operator ask", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:no-approval-needed",
+    type: "task.updated",
+    taskId: "task:no-approval-needed",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Continuing automatically",
+    summary: "No approval needed, continuing automatically.",
+    status: "running",
+  });
+
+  assert.equal(interpretation.requestExplicitness, "none");
+  assert.equal(interpretation.operatorActionRequired, false);
+});
+
 test("task updates can infer relation hints from recurring and resolving language", () => {
   const repeated = interpretSourceEvent({
     id: "evt:repeat",
@@ -216,6 +232,39 @@ test("task updates can infer relation hints from recurring and resolving languag
 
   assert.deepEqual(repeated.relationHints.map((hint) => hint.kind), ["same_issue", "repeats"]);
   assert.deepEqual(resolved.relationHints.map((hint) => hint.kind), ["same_issue", "resolves"]);
+});
+
+test("passive dramatic status does not infer repeat relations from wording alone", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:dramatic-passive",
+    type: "task.updated",
+    taskId: "task:dramatic-passive",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Critical path still running",
+    summary: "Critical path still running, no action needed.",
+    status: "running",
+  });
+
+  assert.deepEqual(interpretation.relationHints, []);
+});
+
+test("read-oriented approvals mentioning production stay low consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:prod-read",
+    type: "human.input.requested",
+    taskId: "task:prod-read",
+    interactionId: "interaction:prod-read",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Approve production runbook read",
+    summary: "Read the production deploy runbook before answering.",
+    request: { kind: "approval" },
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.toolFamily, "read");
+  assert.equal(interpretation.consequence, "low");
 });
 
 test("equivalent source approvals normalize to equivalent semantics across sources", () => {

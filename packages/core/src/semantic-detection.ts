@@ -50,17 +50,25 @@ export function inferSemanticToolFamily(input: SemanticDetectionInput): string |
 }
 
 export function detectImpliedOperatorAsk(text: string): boolean {
+  if (containsAnySemanticPhrase(text, IMPLIED_OPERATOR_NEGATIONS)) {
+    return false;
+  }
+
   return containsAnySemanticPhrase(text, IMPLIED_OPERATOR_ASKS);
 }
 
 export function detectSemanticRelationHints(text: string): SemanticRelationHint[] {
   const hints: SemanticRelationHint[] = [];
+  const hasIssueSignal = containsAnySemanticPhrase(text, ISSUE_SIGNAL_PHRASES)
+    || containsAnySemanticPhrase(text, RESOLVE_PHRASES)
+    || containsAnySemanticPhrase(text, SUPERSEDE_PHRASES)
+    || containsAnySemanticPhrase(text, ESCALATE_PHRASES);
 
-  if (containsAnySemanticPhrase(text, REPEAT_PHRASES)) {
+  if (containsAnySemanticPhrase(text, REPEAT_PHRASES) && hasIssueSignal) {
     hints.push({ kind: "same_issue" }, { kind: "repeats" });
   }
 
-  if (containsAnySemanticPhrase(text, RESOLVE_PHRASES)) {
+  if (containsAnySemanticPhrase(text, RESOLVE_PHRASES) && hasIssueSignal) {
     hints.push({ kind: "same_issue" }, { kind: "resolves" });
   }
 
@@ -80,12 +88,12 @@ export function inferConsequenceFromSemanticText(
   fallback: AttentionConsequenceLevel,
   toolFamily?: string,
 ): AttentionConsequenceLevel {
-  if (containsAnySemanticPhrase(text, HIGH_RISK_PHRASES)) {
-    return "high";
+  if (toolFamily === "read" || toolFamily === "search") {
+    return fallback;
   }
 
-  if (toolFamily === "read" || toolFamily === "search") {
-    return fallback === "high" ? "high" : "low";
+  if (containsAnySemanticPhrase(text, HIGH_RISK_PHRASES)) {
+    return "high";
   }
 
   if (toolFamily === "write" || toolFamily === "edit" || toolFamily === "bash") {
@@ -152,6 +160,17 @@ const IMPLIED_OPERATOR_ASKS = [
   "please review",
 ] as const;
 
+const IMPLIED_OPERATOR_NEGATIONS = [
+  "no action needed",
+  "no approval needed",
+  "approval is not needed",
+  "approval not needed",
+  "no input needed",
+  "for awareness only",
+  "for your awareness",
+  "continuing automatically",
+] as const;
+
 const HIGH_RISK_PHRASES = [
   "production",
   "prod",
@@ -206,6 +225,24 @@ const ESCALATE_PHRASES = [
   "degraded further",
   "critical now",
   "now failing",
+] as const;
+
+const ISSUE_SIGNAL_PHRASES = [
+  "fail",
+  "failed",
+  "failing",
+  "failure",
+  "error",
+  "broken",
+  "blocked",
+  "stalled",
+  "stall",
+  "incident",
+  "issue",
+  "outage",
+  "degraded",
+  "retry",
+  "rollback",
 ] as const;
 
 function dedupeRelationHints(hints: SemanticRelationHint[]): SemanticRelationHint[] {

@@ -211,7 +211,20 @@ Goal:
 
 - language alone should not invent interruption-worthy work
 
-#### 5. Explicit host knowledge
+#### 5. Adversarial and contradictory wording
+
+Examples:
+
+- “no approval needed”
+- production context attached to read-only work
+- quoted or descriptive risky language around benign actions
+
+Goal:
+
+- semantic cues should not overreact to negation or context-only risk words
+- benign read/search work should not be inflated by sketchy surrounding phrasing
+
+#### 6. Explicit host knowledge
 
 Examples:
 

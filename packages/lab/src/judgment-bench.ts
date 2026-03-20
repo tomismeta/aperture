@@ -241,6 +241,16 @@ function evaluateSemanticExpectation(
     });
   }
 
+  if (expectation.relationKindsExact !== undefined) {
+    const actualKinds = semantic.relationHints.map((hint) => hint.kind);
+    assertions.push({
+      name: `${targetKey} relation kinds exact`,
+      passed: sameStringSet(actualKinds, expectation.relationKindsExact),
+      expected: expectation.relationKindsExact,
+      actual: actualKinds,
+    });
+  }
+
   return assertions;
 }
 

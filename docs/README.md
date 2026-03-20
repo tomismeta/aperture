@@ -67,6 +67,7 @@ These docs explain the deterministic judgment model, the engine boundary, and th
 
 - [Aperture Lab](./lab/aperture-lab.md)
 - [JudgmentBench Data Strategy](./lab/judgmentbench-data-strategy.md)
+- [Semantic Robustness Test Plan](./lab/semantic-robustness-test-plan.md)
 
 These docs define the offline replay, benchmark, and calibration layer that
 measures and improves Aperture's deterministic hot path.

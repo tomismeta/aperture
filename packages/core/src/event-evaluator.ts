@@ -85,7 +85,17 @@ export class EventEvaluator {
             },
           }
         : {}),
-      ...(buildStatusProvenance(event)),
+      ...(event.status === "blocked" || event.status === "failed"
+        ? {
+            provenance: {
+              whyNow:
+                event.status === "blocked"
+                  ? "Work is blocked and may require operator attention."
+                  : "Work has failed and should be reviewed.",
+              factors: [event.status],
+            },
+          }
+        : {}),
     };
   }
 
@@ -109,19 +119,7 @@ export class EventEvaluator {
       blocking: true,
       timestamp: event.timestamp,
       ...(event.context !== undefined ? { context: event.context } : {}),
-      ...((event.provenance !== undefined || event.semantic?.whyNow !== undefined || event.semantic?.factors?.length)
-        ? {
-            provenance: {
-              ...(event.provenance ?? {}),
-              ...(event.provenance?.whyNow === undefined && event.semantic?.whyNow !== undefined
-                ? { whyNow: event.semantic.whyNow }
-                : {}),
-              ...(event.semantic?.factors?.length
-                ? { factors: dedupeStrings([...(event.provenance?.factors ?? []), ...event.semantic.factors]) }
-                : {}),
-            },
-          }
-        : {}),
+      ...(event.provenance !== undefined ? { provenance: event.provenance } : {}),
     };
   }
 
@@ -248,33 +246,4 @@ export class EventEvaluator {
         return "low";
     }
   }
-}
-
-function dedupeStrings(values: string[]): string[] {
-  return [...new Set(values)];
-}
-
-function buildStatusProvenance(event: TaskUpdatedEvent): { provenance: { whyNow?: string; factors?: string[] } } | {} {
-  const whyNow =
-    event.semantic?.whyNow
-    ?? (event.status === "blocked"
-      ? "Work is blocked and may require operator attention."
-      : event.status === "failed"
-        ? "Work has failed and should be reviewed."
-        : undefined);
-  const factors = dedupeStrings([
-    ...(event.semantic?.factors ?? []),
-    ...(event.status === "blocked" || event.status === "failed" ? [event.status] : []),
-  ]);
-
-  if (whyNow === undefined && factors.length === 0) {
-    return {};
-  }
-
-  return {
-    provenance: {
-      ...(whyNow !== undefined ? { whyNow } : {}),
-      ...(factors.length > 0 ? { factors } : {}),
-    },
-  };
 }

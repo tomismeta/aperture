@@ -20,7 +20,7 @@ Adapters provide facts. Core provides judgment.
 That means:
 
 - source-specific semantics should enter through adapter-owned mapping code
-- bounded semantic interpretation and canonical normalization should happen in core
+- canonical normalization should happen in core
 - policy, scoring, planning, continuity, and state commit should operate on stable engine concepts rather than source prose
 
 ## Principles
@@ -57,7 +57,7 @@ Implication:
 
 Routing-critical meaning should come from structured facts before policy or scoring runs.
 
-Adapters should provide explicit semantics when they know them. Core should interpret missing routing-relevant meaning in a bounded way, then normalize those facts into canonical event and candidate shapes.
+Adapters should provide explicit semantics when they know them. Core should normalize those facts into canonical event and candidate shapes.
 
 Current code paths:
 
@@ -66,9 +66,6 @@ Current code paths:
   - [packages/opencode/src/mapping.ts](/Users/tom/dev/aperture/packages/opencode/src/mapping.ts)
 - source event contract:
   - [packages/core/src/source-event.ts](/Users/tom/dev/aperture/packages/core/src/source-event.ts)
-- semantic interpretation:
-  - [packages/core/src/semantic-interpreter.ts](/Users/tom/dev/aperture/packages/core/src/semantic-interpreter.ts)
-  - [packages/core/src/semantic-types.ts](/Users/tom/dev/aperture/packages/core/src/semantic-types.ts)
 - canonical event contract:
   - [packages/core/src/events.ts](/Users/tom/dev/aperture/packages/core/src/events.ts)
 - canonical normalization:
@@ -80,7 +77,6 @@ Current code paths:
 Implication:
 
 - policy-critical code should prefer explicit semantics over inferred text matches
-- built-in semantic interpretation should stay deterministic, bounded, and inspectable
 - heuristics can exist as fallback, but not as the primary source of truth for routing-critical decisions
 
 ### 3. Hard policy is separate from soft value

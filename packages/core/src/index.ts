@@ -55,7 +55,6 @@ export {
 export type { AttentionPressure } from "./attention-pressure.js";
 
 export { distillMemoryProfile } from "./memory-aggregator.js";
-export { interpretSourceEvent } from "./semantic-interpreter.js";
 export { ProfileStore } from "./profile-store.js";
 export { evaluateTraceSession } from "./trace-evaluator.js";
 export {
@@ -119,13 +118,3 @@ export type {
   PlannerDefaults,
 } from "./judgment-config.js";
 export type { ApertureTrace } from "./trace.js";
-export type {
-  SemanticActivityClass,
-  SemanticConfidence,
-  SemanticConsequenceLevel,
-  SemanticInterpretation,
-  SemanticInterpretationHints,
-  SemanticIntentFrame,
-  SemanticRelationHint,
-  SemanticRequestExplicitness,
-} from "./semantic-types.js";

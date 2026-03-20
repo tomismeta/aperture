@@ -1,5 +1,3 @@
-import type { SemanticInterpretation } from "./semantic-types.js";
-
 export type ApertureEvent =
   | TaskStartedEvent
   | TaskUpdatedEvent
@@ -29,7 +27,6 @@ type EventBase = {
   taskId: string;
   timestamp: string;
   source?: SourceRef;
-  semantic?: SemanticInterpretation;
 };
 
 export type TaskStartedEvent = EventBase & {

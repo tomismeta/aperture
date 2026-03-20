@@ -167,3 +167,39 @@ test("relation hints increase episode evidence for recurring and escalating work
   assert.ok(second.episodeEvidenceReasons?.includes("semantic relation hints indicate this issue is recurring"));
   assert.ok(second.episodeEvidenceReasons?.includes("semantic relation hints indicate this issue is escalating"));
 });
+
+test("relation targets group wording-drifted updates into the same episode", () => {
+  const store = new EpisodeTracker();
+  const first = store.assign(
+    createCandidate({
+      taskId: "task:one",
+      interactionId: "interaction:one",
+      blocking: false,
+      mode: "status",
+      title: "Cache rebuild still running",
+      summary: "The production cache rebuild is still in progress.",
+      responseSpec: { kind: "none" },
+      relationHints: [{ kind: "same_issue", target: "issue:cache:prod" }],
+    }),
+  );
+
+  const second = store.assign(
+    createCandidate({
+      taskId: "task:two",
+      interactionId: "interaction:two",
+      blocking: false,
+      mode: "status",
+      title: "Resync remains stalled again",
+      summary: "The cache pipeline is worse again.",
+      responseSpec: { kind: "none" },
+      relationHints: [
+        { kind: "same_issue", target: "issue:cache:prod" },
+        { kind: "repeats", target: "issue:cache:prod" },
+      ],
+      timestamp: "2026-03-08T12:01:00.000Z",
+    }),
+  );
+
+  assert.equal(first.episodeId, second.episodeId);
+  assert.ok(second.episodeKey?.includes("issue:cache:prod"));
+});

@@ -67,6 +67,10 @@ export {
 } from "./semantic-detection.js";
 export { interpretSourceEvent } from "./semantic-interpreter.js";
 export {
+  hasSemanticRelationKind,
+  readSemanticRelationTarget,
+} from "./semantic-relations.js";
+export {
   semanticActivityClassForRequestKind,
   semanticIntentFrameForRequestKind,
   semanticReasonsForLifecycle,

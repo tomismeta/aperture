@@ -2,6 +2,7 @@ import type { AttentionFrame } from "./frame.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
 import type { SemanticRelationHint } from "./semantic-types.js";
+import { readSemanticRelationTarget } from "./semantic-relations.js";
 
 export type EpisodeState = "emerging" | "actionable" | "batched" | "waiting" | "stale" | "resolved";
 
@@ -152,7 +153,7 @@ export function readFrameEpisodeId(frame: AttentionFrame | null): string | null 
 }
 
 function episodeAnchor(candidate: AttentionCandidate): string {
-  const relationAnchor = readRelationAnchor(candidate.relationHints);
+  const relationAnchor = readSemanticRelationTarget(candidate.relationHints);
   if (relationAnchor) {
     return relationAnchor;
   }
@@ -262,15 +263,6 @@ function measureEpisodeEvidence(
   }
 
   return { score, reasons };
-}
-
-function readRelationAnchor(relationHints: AttentionCandidate["relationHints"]): string | null {
-  if (!relationHints || relationHints.length === 0) {
-    return null;
-  }
-
-  const targetHint = relationHints.find((hint) => typeof hint.target === "string" && hint.target.length > 0);
-  return targetHint?.target ?? null;
 }
 
 function normalizeEpisodePart(value: string): string {

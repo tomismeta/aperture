@@ -8,11 +8,24 @@
 [![license](https://img.shields.io/badge/license-MIT-6f42c1)](./LICENSE)
 [![docs](https://img.shields.io/badge/docs-architecture%20overview-475569)](./docs/product/architecture-overview.md)
 
-A deterministic judgment engine that decides what should interrupt now, what should wait until next, and what should stay ambient.
+
+<img src="docs/assets/demo.gif" alt="Aperture demo" width="1100">
+<p></p>
 </div>
 
 
 Aperture sits between many agent event sources and one human decision surface. It decides what deserves attention now, what should wait until next, and what should stay ambient.
+
+```text
++-----------+    +-------------+    +-------------+    +-------------+    +-------------+
+|  Arrive   | -> |  Translate  | -> |    Judge    | -> |    Show     | -> |   Respond   |
+|  events   |    |    facts    |    |  attention  |    |   surface   |    |   action    |
++-----------+    +-------------+    +-------------+    +-------------+    +-------------+
+
+tool hooks       explicit facts      does this         what the          operator decision
+from coding      from raw payloads   deserve           operator          carried back
+agents                               attention now?    actually sees     to the tool
+```
 
 ## Start Here
 
@@ -31,7 +44,7 @@ npm install @tomismeta/aperture-core
 
 The SDK loop is intentionally small:
 
-`ApertureEvent or SourceEvent in -> AttentionFrame / AttentionView out -> AttentionResponse in`
+`ApertureEvent in via core.publish(...) or SourceEvent in via core.publishSourceEvent(...) -> AttentionFrame / AttentionView out -> AttentionResponse in`
 
 See [packages/core/README.md](packages/core/README.md).
 
@@ -66,25 +79,6 @@ This starts:
 - Aperture runtime
 - configured source adapters
 - terminal attention surface
-
-## In Practice
-
-```text
-+-----------+    +-------------+    +-------------+    +-------------+    +-------------+
-|  Arrive   | -> |  Translate  | -> |    Judge    | -> |    Show     | -> |   Respond   |
-|  events   |    |    facts    |    |  attention  |    |   surface   |    |   action    |
-+-----------+    +-------------+    +-------------+    +-------------+    +-------------+
-
-tool hooks       explicit facts      does this         what the          operator decision
-from coding      from raw payloads   deserve           operator          carried back
-agents                               attention now?    actually sees     to the tool
-```
-
-If you want to see the full local stack in action, the repo includes a TUI demo:
-
-<div align="center">
-  <img src="docs/assets/demo.gif" alt="Aperture demo" width="1100">
-</div>
 
 ## What Aperture Is
 

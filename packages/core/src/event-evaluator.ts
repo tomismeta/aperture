@@ -11,6 +11,8 @@ import type {
   AttentionFormResponseSpec,
 } from "./frame.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
+import { dedupeSemanticStrings } from "./semantic-detection.js";
+import { semanticWhyNowForTaskStatus } from "./semantic-language.js";
 
 export type EvaluationResult =
   | { kind: "candidate"; candidate: AttentionCandidate }
@@ -117,7 +119,7 @@ export class EventEvaluator {
                 ? { whyNow: event.semantic.whyNow }
                 : {}),
               ...(event.semantic?.factors?.length
-                ? { factors: dedupeStrings([...(event.provenance?.factors ?? []), ...event.semantic.factors]) }
+                ? { factors: dedupeSemanticStrings([...(event.provenance?.factors ?? []), ...event.semantic.factors]) }
                 : {}),
             },
           }
@@ -250,19 +252,15 @@ export class EventEvaluator {
   }
 }
 
-function dedupeStrings(values: string[]): string[] {
-  return [...new Set(values)];
-}
-
 function buildStatusProvenance(event: TaskUpdatedEvent): { provenance: { whyNow?: string; factors?: string[] } } | {} {
   const whyNow =
     event.semantic?.whyNow
     ?? (event.status === "blocked"
-      ? "Work is blocked and may require operator attention."
+      ? semanticWhyNowForTaskStatus("blocked")
       : event.status === "failed"
-        ? "Work has failed and should be reviewed."
+        ? semanticWhyNowForTaskStatus("failed")
         : undefined);
-  const factors = dedupeStrings([
+  const factors = dedupeSemanticStrings([
     ...(event.semantic?.factors ?? []),
     ...(event.status === "blocked" || event.status === "failed" ? [event.status] : []),
   ]);

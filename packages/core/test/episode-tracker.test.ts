@@ -136,3 +136,34 @@ test("high-signal recurring status work can make an episode actionable", () => {
   assert.equal(second.episodeEvidenceScore, 4);
   assert.ok(second.episodeEvidenceReasons?.includes("high-signal evidence is stacking up across the episode"));
 });
+
+test("relation hints increase episode evidence for recurring and escalating work", () => {
+  const store = new EpisodeTracker();
+  store.assign(
+    createCandidate({
+      blocking: false,
+      mode: "status",
+      consequence: "medium",
+      responseSpec: { kind: "none" },
+      relationHints: [{ kind: "same_issue" }, { kind: "repeats" }],
+    }),
+  );
+
+  const second = store.assign(
+    createCandidate({
+      interactionId: "interaction:two",
+      blocking: false,
+      mode: "status",
+      consequence: "medium",
+      title: "Config sync is worse again",
+      responseSpec: { kind: "none" },
+      relationHints: [{ kind: "same_issue" }, { kind: "repeats" }, { kind: "escalates" }],
+      timestamp: "2026-03-08T12:01:00.000Z",
+    }),
+  );
+
+  assert.equal(second.episodeState, "actionable");
+  assert.ok((second.episodeEvidenceScore ?? 0) >= 4);
+  assert.ok(second.episodeEvidenceReasons?.includes("semantic relation hints indicate this issue is recurring"));
+  assert.ok(second.episodeEvidenceReasons?.includes("semantic relation hints indicate this issue is escalating"));
+});

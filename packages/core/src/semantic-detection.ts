@@ -1,4 +1,5 @@
 import type { AttentionConsequenceLevel } from "./frame.js";
+import type { SemanticRelationHint } from "./semantic-types.js";
 
 export type SemanticDetectionContextItem = {
   id: string;
@@ -50,6 +51,28 @@ export function inferSemanticToolFamily(input: SemanticDetectionInput): string |
 
 export function detectImpliedOperatorAsk(text: string): boolean {
   return containsAnySemanticPhrase(text, IMPLIED_OPERATOR_ASKS);
+}
+
+export function detectSemanticRelationHints(text: string): SemanticRelationHint[] {
+  const hints: SemanticRelationHint[] = [];
+
+  if (containsAnySemanticPhrase(text, REPEAT_PHRASES)) {
+    hints.push({ kind: "same_issue" }, { kind: "repeats" });
+  }
+
+  if (containsAnySemanticPhrase(text, RESOLVE_PHRASES)) {
+    hints.push({ kind: "same_issue" }, { kind: "resolves" });
+  }
+
+  if (containsAnySemanticPhrase(text, SUPERSEDE_PHRASES)) {
+    hints.push({ kind: "same_issue" }, { kind: "supersedes" });
+  }
+
+  if (containsAnySemanticPhrase(text, ESCALATE_PHRASES)) {
+    hints.push({ kind: "same_issue" }, { kind: "escalates" });
+  }
+
+  return dedupeRelationHints(hints);
 }
 
 export function inferConsequenceFromSemanticText(
@@ -143,3 +166,60 @@ const HIGH_RISK_PHRASES = [
   "kill process",
   "migrate",
 ] as const;
+
+const REPEAT_PHRASES = [
+  "still",
+  "again",
+  "continues",
+  "continuing",
+  "remains",
+  "persisting",
+  "retrying",
+  "recurred",
+] as const;
+
+const RESOLVE_PHRASES = [
+  "resolved",
+  "fixed",
+  "unblocked",
+  "recovered",
+  "completed successfully",
+  "no longer blocked",
+  "succeeded after",
+] as const;
+
+const SUPERSEDE_PHRASES = [
+  "instead",
+  "superseded",
+  "supersedes",
+  "replaced by",
+  "use this plan instead",
+  "follow this plan instead",
+] as const;
+
+const ESCALATE_PHRASES = [
+  "worse",
+  "worsened",
+  "escalating",
+  "spread",
+  "broader impact",
+  "degraded further",
+  "critical now",
+  "now failing",
+] as const;
+
+function dedupeRelationHints(hints: SemanticRelationHint[]): SemanticRelationHint[] {
+  const seen = new Set<string>();
+  const result: SemanticRelationHint[] = [];
+
+  for (const hint of hints) {
+    const key = `${hint.kind}:${hint.target ?? ""}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    result.push(hint);
+  }
+
+  return result;
+}

@@ -77,6 +77,7 @@ The first semantic-robustness tranche now covers:
 - adapter semantic overrides
 - implied asks buried in status text
 - dramatic status wording that should remain passive
+- relation semantics for recurring and resolving issue wording
 
 ## Status
 

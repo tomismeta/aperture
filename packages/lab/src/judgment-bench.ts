@@ -232,6 +232,15 @@ function evaluateSemanticExpectation(
     });
   }
 
+  if (expectation.relationKindsInclude && expectation.relationKindsInclude.length > 0) {
+    assertions.push({
+      name: `${targetKey} relation kinds include`,
+      passed: expectation.relationKindsInclude.every((kind) => semantic.relationHints.some((hint) => hint.kind === kind)),
+      expected: expectation.relationKindsInclude,
+      actual: semantic.relationHints.map((hint) => hint.kind),
+    });
+  }
+
   return assertions;
 }
 

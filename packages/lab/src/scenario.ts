@@ -8,6 +8,7 @@ import type {
   SemanticConfidence,
   SemanticConsequenceLevel,
   SemanticIntentFrame,
+  SemanticRelationHint,
   SemanticRequestExplicitness,
   SemanticInterpretation,
   SourceEvent,
@@ -115,6 +116,7 @@ export type ReplaySemanticExpectation = {
   consequence?: SemanticConsequenceLevel;
   confidence?: SemanticConfidence;
   abstained?: boolean;
+  relationKindsInclude?: SemanticRelationHint["kind"][];
   whyNowIncludes?: string;
   reasonsInclude?: string[];
   factorsInclude?: string[];

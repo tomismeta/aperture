@@ -80,6 +80,7 @@ export class EventEvaluator {
       blocking: false,
       timestamp: event.timestamp,
       ...(event.summary !== undefined ? { summary: event.summary } : {}),
+      ...(event.semantic?.relationHints?.length ? { relationHints: event.semantic.relationHints } : {}),
       ...(event.progress !== undefined
         ? {
             context: {
@@ -106,6 +107,7 @@ export class EventEvaluator {
       consequence: event.consequence ?? "medium",
       title: event.title,
       summary: event.summary,
+      ...(event.semantic?.relationHints?.length ? { relationHints: event.semantic.relationHints } : {}),
       responseSpec,
       priority: this.priorityForHumanInput(event),
       blocking: true,

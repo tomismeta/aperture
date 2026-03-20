@@ -7,6 +7,7 @@ import type {
 } from "./semantic-types.js";
 import {
   dedupeSemanticStrings,
+  detectSemanticRelationHints,
   detectImpliedOperatorAsk,
   inferConsequenceFromSemanticText,
   inferSemanticToolFamily,
@@ -83,6 +84,7 @@ function inferTaskUpdateSemantics(
 ): SemanticInterpretation {
   const text = normalizeSemanticText(`${event.title} ${event.summary ?? ""}`);
   const impliedAsk = detectImpliedOperatorAsk(text);
+  const relationHints = detectSemanticRelationHints(text);
   const taxonomyInput = buildTaxonomyInput(event.title, event.summary, event.toolFamily);
   const toolFamily =
     readExplicitSemanticToolFamily(taxonomyInput) ?? inferSemanticToolFamily(taxonomyInput) ?? undefined;
@@ -98,7 +100,7 @@ function inferTaskUpdateSemantics(
         consequence: inferConsequenceFromSemanticText(text, "high", toolFamily),
         whyNow: semanticWhyNowForTaskStatus("failed") ?? "Work has failed and should be reviewed.",
         factors: ["task.updated", "failed"],
-        relationHints: [],
+        relationHints,
         confidence: impliedAsk ? "medium" : "high",
         reasons: semanticReasonsForTaskStatus("failed", { impliedAsk }),
       };
@@ -112,7 +114,7 @@ function inferTaskUpdateSemantics(
         consequence: inferConsequenceFromSemanticText(text, "medium", toolFamily),
         whyNow: semanticWhyNowForTaskStatus("blocked") ?? "Work is blocked and may require operator attention.",
         factors: ["task.updated", "blocked"],
-        relationHints: [],
+        relationHints,
         confidence: impliedAsk ? "medium" : "high",
         reasons: semanticReasonsForTaskStatus("blocked", { impliedAsk }),
       };
@@ -131,7 +133,7 @@ function inferTaskUpdateSemantics(
           return whyNow !== undefined ? { whyNow } : {};
         })(),
         factors: ["task.updated", event.status],
-        relationHints: [],
+        relationHints,
         confidence: impliedAsk ? "low" : "high",
         reasons: semanticReasonsForTaskStatus(event.status, { impliedAsk }),
       };
@@ -145,6 +147,7 @@ function inferHumanInputSemantics(
   const toolFamily =
     readExplicitSemanticToolFamily(taxonomyInput) ?? inferSemanticToolFamily(taxonomyInput) ?? undefined;
   const text = normalizeSemanticText(`${event.title} ${event.summary}`);
+  const relationHints = detectSemanticRelationHints(text);
   const baseConsequence = event.riskHint ?? consequenceFromRequestKind(event.request.kind, toolFamily);
   const consequence = inferConsequenceFromSemanticText(text, baseConsequence, toolFamily);
 
@@ -157,7 +160,7 @@ function inferHumanInputSemantics(
     consequence,
     whyNow: semanticWhyNowForRequestKind(event.request.kind, consequence),
     factors: ["human.input.requested", event.request.kind],
-    relationHints: [],
+    relationHints,
     confidence: event.riskHint ? "high" : toolFamily ? "medium" : "low",
     reasons: [
       event.riskHint

@@ -1,6 +1,7 @@
 import type { AttentionFrame } from "./frame.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
+import type { SemanticRelationHint } from "./semantic-types.js";
 
 export type EpisodeState = "emerging" | "actionable" | "batched" | "waiting" | "stale" | "resolved";
 
@@ -20,6 +21,7 @@ type EpisodeRecord = EpisodeSummary & {
   modes: Set<AttentionCandidate["mode"]>;
   highSignals: number;
   blockingSignals: number;
+  relationKinds: Set<SemanticRelationHint["kind"]>;
 };
 
 const DEFAULTS = JUDGMENT_DEFAULTS.episodeEvidence;
@@ -123,6 +125,7 @@ export class EpisodeTracker {
       modes: new Set([candidate.mode]),
       highSignals: candidate.consequence === "high" || candidate.tone === "critical" ? 1 : 0,
       blockingSignals: candidate.blocking ? 1 : 0,
+      relationKinds: new Set((candidate.relationHints ?? []).map((hint) => hint.kind)),
     };
   }
 
@@ -149,6 +152,11 @@ export function readFrameEpisodeId(frame: AttentionFrame | null): string | null 
 }
 
 function episodeAnchor(candidate: AttentionCandidate): string {
+  const relationAnchor = readRelationAnchor(candidate.relationHints);
+  if (relationAnchor) {
+    return relationAnchor;
+  }
+
   const items = candidate.context?.items ?? [];
   const preferred = items.find((item) => {
     const id = item.id.toLowerCase();
@@ -219,6 +227,10 @@ function measureEpisodeEvidence(
     reasons.push("multiple related interactions have accumulated in this episode");
   }
 
+  for (const relationHint of candidate.relationHints ?? []) {
+    record.relationKinds.add(relationHint.kind);
+  }
+
   if (record.size >= 3) {
     score += DEFAULTS.persistentEpisodeBoost;
     reasons.push("the same episode keeps recurring without resolution");
@@ -239,7 +251,26 @@ function measureEpisodeEvidence(
     reasons.push("high-signal evidence is stacking up across the episode");
   }
 
+  if (record.relationKinds.has("repeats")) {
+    score += DEFAULTS.relationRepeatBoost;
+    reasons.push("semantic relation hints indicate this issue is recurring");
+  }
+
+  if (record.relationKinds.has("escalates")) {
+    score += DEFAULTS.relationEscalationBoost;
+    reasons.push("semantic relation hints indicate this issue is escalating");
+  }
+
   return { score, reasons };
+}
+
+function readRelationAnchor(relationHints: AttentionCandidate["relationHints"]): string | null {
+  if (!relationHints || relationHints.length === 0) {
+    return null;
+  }
+
+  const targetHint = relationHints.find((hint) => typeof hint.target === "string" && hint.target.length > 0);
+  return targetHint?.target ?? null;
 }
 
 function normalizeEpisodePart(value: string): string {

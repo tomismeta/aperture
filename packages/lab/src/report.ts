@@ -55,6 +55,11 @@ export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
         lines.push(
           `- Semantic (${semantic.stepLabel ?? `step ${semantic.stepIndex}`}): ${semantic.interpretation.intentFrame}, consequence=${semantic.interpretation.consequence ?? "none"}, actionRequired=${semantic.interpretation.operatorActionRequired}, explicitness=${semantic.interpretation.requestExplicitness}`,
         );
+        if (semantic.interpretation.relationHints.length > 0) {
+          lines.push(
+            `- Semantic relations (${semantic.stepLabel ?? `step ${semantic.stepIndex}`}): ${semantic.interpretation.relationHints.map((hint) => hint.kind).join(", ")}`,
+          );
+        }
       }
     }
     if (result.scorecard.explanation.targetInteractionId) {

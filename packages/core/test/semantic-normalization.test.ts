@@ -191,6 +191,33 @@ test("task updates can infer implied operator asks from status text", () => {
   }
 });
 
+test("task updates can infer relation hints from recurring and resolving language", () => {
+  const repeated = interpretSourceEvent({
+    id: "evt:repeat",
+    type: "task.updated",
+    taskId: "task:repeat",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Build failed again",
+    summary: "The same build is still failing in production",
+    status: "failed",
+  });
+
+  const resolved = interpretSourceEvent({
+    id: "evt:resolved",
+    type: "task.updated",
+    taskId: "task:repeat",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Build issue resolved",
+    summary: "The deploy is fixed and no longer blocked",
+    status: "completed",
+  });
+
+  assert.deepEqual(repeated.relationHints.map((hint) => hint.kind), ["same_issue", "repeats"]);
+  assert.deepEqual(resolved.relationHints.map((hint) => hint.kind), ["same_issue", "resolves"]);
+});
+
 test("equivalent source approvals normalize to equivalent semantics across sources", () => {
   const sources = [source("claude-code"), source("codex"), source("opencode")];
 

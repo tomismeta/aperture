@@ -1,0 +1,48 @@
+{
+  "id": "golden:semantics:repeated-failure-same-issue",
+  "title": "Repeated failure wording is read as the same issue recurring",
+  "description": "The semantic layer should recognize recurring failure language and carry relation hints that help continuity treat it as the same issue resurfacing.",
+  "doctrineTags": [
+    "semantic_normalization",
+    "semantic_robustness",
+    "relation_semantics",
+    "interruption_credibility"
+  ],
+  "expectations": {
+    "finalActiveInteractionId": "interaction:task:build-repeat:status",
+    "queuedInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultBucketCounts": {
+      "active": 1,
+      "queued": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "repeated failure",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "operatorActionRequired": true,
+        "requestExplicitness": "none",
+        "consequence": "high",
+        "relationKindsInclude": ["same_issue", "repeats"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "repeated failure",
+      "event": {
+        "id": "evt:build-repeat",
+        "type": "task.updated",
+        "taskId": "task:build-repeat",
+        "timestamp": "2026-03-20T13:05:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Build failed again",
+        "summary": "The same build is still failing in production.",
+        "status": "failed"
+      }
+    }
+  ]
+}

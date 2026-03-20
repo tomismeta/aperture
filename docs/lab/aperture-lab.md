@@ -176,6 +176,7 @@ routing:
 - did read-like wording stay low consequence?
 - did implied asks get recognized without inventing blocking work?
 - did explicit host hints override weaker built-in inference?
+- did recurring or resolving wording preserve the right relation to prior work?
 
 These are the metrics that best map to Aperture's doctrine:
 

@@ -146,3 +146,6 @@ For the broader lab architecture and naming ontology, see
 
 For the concrete harvesting and labeling plan behind JudgmentBench, see
 [JudgmentBench Data Strategy](../../docs/lab/judgmentbench-data-strategy.md).
+
+For the first five real-session collection targets, see
+[Harvested Session Collection Runbook](../../docs/lab/harvested-session-collection-runbook.md).

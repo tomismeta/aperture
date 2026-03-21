@@ -67,6 +67,7 @@ These docs explain the deterministic judgment model, the engine boundary, and th
 
 - [Aperture Lab](./lab/aperture-lab.md)
 - [JudgmentBench Data Strategy](./lab/judgmentbench-data-strategy.md)
+- [Harvested Session Collection Runbook](./lab/harvested-session-collection-runbook.md)
 
 These docs define the offline replay, benchmark, and calibration layer that
 measures and improves Aperture's deterministic hot path.

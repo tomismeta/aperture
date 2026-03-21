@@ -9,6 +9,7 @@ import { interpretSourceEvent } from "../../core/src/semantic-interpreter.js";
 
 import type {
   ReplayObservationStep,
+  ReplayDecisionSnapshot,
   ReplayScenario,
   ReplaySemanticSnapshot,
   ReplayViewSnapshot,
@@ -28,6 +29,7 @@ export type ReplayRunResult = {
   responses: AttentionResponse[];
   views: ReplayViewSnapshot[];
   semantics: ReplaySemanticSnapshot[];
+  decisions: ReplayDecisionSnapshot[];
 };
 
 export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
@@ -38,6 +40,7 @@ export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
   const steps: ReplayStepResult[] = [];
   const views: ReplayViewSnapshot[] = [];
   const semantics: ReplaySemanticSnapshot[] = [];
+  const decisions: ReplayDecisionSnapshot[] = [];
 
   core.onTrace((trace) => {
     traces.push(trace);
@@ -51,6 +54,7 @@ export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
 
   scenario.steps.forEach((step, stepIndex) => {
     let frame: AttentionFrame | null = null;
+    const traceCountBeforeStep = traces.length;
 
     switch (step.kind) {
       case "publish":
@@ -111,6 +115,14 @@ export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
       ambientInteractionIds: attentionView.ambient.map((ambient) => ambient.interactionId),
       attentionView,
     });
+
+    if (step.kind === "publish" || step.kind === "publishSource") {
+      const newTraces = traces.slice(traceCountBeforeStep);
+      const snapshot = buildDecisionSnapshot(step, stepIndex, newTraces.at(-1));
+      if (snapshot) {
+        decisions.push(snapshot);
+      }
+    }
   });
 
   return {
@@ -121,5 +133,47 @@ export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
     responses,
     views,
     semantics,
+    decisions,
   };
+}
+
+function buildDecisionSnapshot(
+  step: ReplayObservationStep,
+  stepIndex: number,
+  trace: ApertureTrace | undefined,
+): ReplayDecisionSnapshot | null {
+  if (!trace) {
+    return null;
+  }
+
+  if (!isCandidateTrace(trace)) {
+    return {
+      stepIndex,
+      stepKind: step.kind,
+      ...(step.label ? { stepLabel: step.label } : {}),
+      evaluationKind: trace.evaluation.kind,
+      ...(trace.evaluation.kind === "clear" ? { decisionKind: "clear" } : {}),
+    };
+  }
+
+  return {
+    stepIndex,
+    stepKind: step.kind,
+    ...(step.label ? { stepLabel: step.label } : {}),
+    evaluationKind: "candidate",
+    decisionKind: trace.coordination.kind,
+    resultBucket: trace.coordination.resultBucket,
+    interactionId: trace.evaluation.adjusted.interactionId,
+    ...(trace.evaluation.adjusted.semanticConfidence !== undefined
+      ? { semanticConfidence: trace.evaluation.adjusted.semanticConfidence }
+      : {}),
+    ...(trace.evaluation.adjusted.semanticAbstained === true ? { semanticAbstained: true } : {}),
+    ambiguity: trace.coordination.ambiguity,
+  };
+}
+
+function isCandidateTrace(
+  trace: ApertureTrace,
+): trace is Extract<ApertureTrace, { evaluation: { kind: "candidate" } }> {
+  return trace.evaluation.kind === "candidate";
 }

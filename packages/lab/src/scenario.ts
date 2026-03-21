@@ -13,6 +13,12 @@ import type {
   SourceEvent,
 } from "@tomismeta/aperture-core";
 
+type ReplayDecisionAmbiguity = {
+  kind: "interrupt";
+  reason: "low_signal" | "small_score_gap";
+  resolution: "queue" | "ambient";
+};
+
 export type ReplayObservationStep =
   | {
       kind: "publish";
@@ -86,6 +92,7 @@ export type ReplayScenarioExpectations = {
     ambient?: number;
   };
   semanticReadings?: ReplaySemanticExpectation[];
+  decisionReadings?: ReplayDecisionExpectation[];
 };
 
 export type ReplayViewSnapshot = {
@@ -104,6 +111,19 @@ export type ReplaySemanticSnapshot = {
   interpretation: SemanticInterpretation;
 };
 
+export type ReplayDecisionSnapshot = {
+  stepIndex: number;
+  stepKind: ReplayObservationStep["kind"];
+  stepLabel?: string;
+  evaluationKind: "candidate" | "clear" | "noop";
+  decisionKind?: "auto_approve" | "activate" | "queue" | "ambient" | "clear";
+  resultBucket?: "active" | "queued" | "ambient" | "none";
+  interactionId?: string;
+  semanticConfidence?: SemanticConfidence;
+  semanticAbstained?: boolean;
+  ambiguity?: ReplayDecisionAmbiguity | null;
+};
+
 export type ReplaySemanticExpectation = {
   stepIndex?: number;
   stepLabel?: string;
@@ -118,4 +138,16 @@ export type ReplaySemanticExpectation = {
   whyNowIncludes?: string;
   reasonsInclude?: string[];
   factorsInclude?: string[];
+};
+
+export type ReplayDecisionExpectation = {
+  stepIndex?: number;
+  stepLabel?: string;
+  evaluationKind?: "candidate" | "clear" | "noop";
+  decisionKind?: "auto_approve" | "activate" | "queue" | "ambient" | "clear";
+  resultBucket?: "active" | "queued" | "ambient" | "none";
+  semanticConfidence?: SemanticConfidence;
+  semanticAbstained?: boolean;
+  ambiguityReason?: ReplayDecisionAmbiguity["reason"] | null;
+  ambiguityResolution?: ReplayDecisionAmbiguity["resolution"] | null;
 };

@@ -17,6 +17,8 @@ export type {
   NormalizedReplayRun,
 } from "./determinism.js";
 export type {
+  ReplayDecisionExpectation,
+  ReplayDecisionSnapshot,
   ReplayScenario,
   ReplayObservationStep,
   ReplaySemanticExpectation,

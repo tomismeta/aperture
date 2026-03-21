@@ -1,4 +1,6 @@
 import type {
+  ReplayDecisionExpectation,
+  ReplayDecisionSnapshot,
   ReplayScenario,
   ReplayScenarioExpectations,
   ReplaySemanticExpectation,
@@ -44,6 +46,8 @@ export type JudgmentBenchRun = {
       failedAssertions: number;
       benchmarkScore: number;
       totalSemanticReadings: number;
+      totalDecisionReadings: number;
+      totalAmbiguousDecisions: number;
       totalCandidates: number;
       totalActiveBuckets: number;
       totalQueuedBuckets: number;
@@ -92,6 +96,10 @@ export async function runJudgmentBench(
       failedAssertions: totalAssertions - passedAssertions,
       benchmarkScore: totalAssertions === 0 ? 1 : passedAssertions / totalAssertions,
       totalSemanticReadings: sum(results.map((result) => result.run.semantics.length)),
+      totalDecisionReadings: sum(results.map((result) => result.run.decisions.length)),
+      totalAmbiguousDecisions: sum(
+        results.map((result) => result.run.decisions.filter((decision) => decision.ambiguity !== null && decision.ambiguity !== undefined).length),
+      ),
       totalCandidates: sum(results.map((result) => result.scorecard.trace.totalCandidates)),
       totalActiveBuckets: sum(results.map((result) => result.scorecard.buckets.active)),
       totalQueuedBuckets: sum(results.map((result) => result.scorecard.buckets.queued)),
@@ -170,6 +178,10 @@ function evaluateScenarioExpectations(
 
   for (const semanticExpectation of expectations.semanticReadings ?? []) {
     assertions.push(...evaluateSemanticExpectation(semanticExpectation, run.semantics));
+  }
+
+  for (const decisionExpectation of expectations.decisionReadings ?? []) {
+    assertions.push(...evaluateDecisionExpectation(decisionExpectation, run.decisions));
   }
 
   return assertions;
@@ -262,6 +274,52 @@ function findSemanticSnapshot(
 
   if (expectation.stepIndex !== undefined) {
     return semantics.find((snapshot) => snapshot.stepIndex === expectation.stepIndex);
+  }
+
+  return undefined;
+}
+
+function evaluateDecisionExpectation(
+  expectation: ReplayDecisionExpectation,
+  decisions: ReplayDecisionSnapshot[],
+): JudgmentBenchAssertionResult[] {
+  const target = findDecisionSnapshot(expectation, decisions);
+  const targetKey = expectation.stepLabel
+    ? `decision reading (${expectation.stepLabel})`
+    : `decision reading (step ${expectation.stepIndex ?? "?"})`;
+
+  if (!target) {
+    return [{
+      name: `${targetKey} present`,
+      passed: false,
+      expected: expectation.stepLabel ?? expectation.stepIndex ?? "matching decision snapshot",
+      actual: null,
+    }];
+  }
+
+  const assertions: JudgmentBenchAssertionResult[] = [];
+
+  pushFieldAssertion(assertions, `${targetKey} evaluation kind`, expectation.evaluationKind, target.evaluationKind);
+  pushFieldAssertion(assertions, `${targetKey} decision kind`, expectation.decisionKind, target.decisionKind);
+  pushFieldAssertion(assertions, `${targetKey} result bucket`, expectation.resultBucket, target.resultBucket);
+  pushFieldAssertion(assertions, `${targetKey} semantic confidence`, expectation.semanticConfidence, target.semanticConfidence);
+  pushFieldAssertion(assertions, `${targetKey} semantic abstained`, expectation.semanticAbstained, target.semanticAbstained ?? false);
+  pushFieldAssertion(assertions, `${targetKey} ambiguity reason`, expectation.ambiguityReason, target.ambiguity?.reason ?? null);
+  pushFieldAssertion(assertions, `${targetKey} ambiguity resolution`, expectation.ambiguityResolution, target.ambiguity?.resolution ?? null);
+
+  return assertions;
+}
+
+function findDecisionSnapshot(
+  expectation: ReplayDecisionExpectation,
+  decisions: ReplayDecisionSnapshot[],
+): ReplayDecisionSnapshot | undefined {
+  if (expectation.stepLabel !== undefined) {
+    return decisions.find((snapshot) => snapshot.stepLabel === expectation.stepLabel);
+  }
+
+  if (expectation.stepIndex !== undefined) {
+    return decisions.find((snapshot) => snapshot.stepIndex === expectation.stepIndex);
   }
 
   return undefined;

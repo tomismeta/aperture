@@ -177,6 +177,8 @@ routing:
 - did implied asks get recognized without inventing blocking work?
 - did explicit host hints override weaker built-in inference?
 - did recurring or resolving wording preserve the right relation to prior work?
+- did low-confidence non-blocking semantics queue instead of interrupting?
+- did abstained semantics stay peripheral instead of inventing certainty?
 
 These are the metrics that best map to Aperture's doctrine:
 
@@ -202,6 +204,7 @@ Contains:
 - expected context
 - optional expected outcomes
 - optional semantic expectations for `publishSource` steps
+- optional decision expectations for ambiguity, bucket, and uncertainty behavior
 
 Best for:
 

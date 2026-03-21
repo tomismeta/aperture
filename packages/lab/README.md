@@ -65,6 +65,8 @@ Today this package provides:
   responses
 - semantic snapshots for `publishSource` steps, so the lab can test how core
   read a source event before the full judgment loop ran
+- decision snapshots for publish steps, so the lab can test how ambiguity and
+  semantic confidence affected routing
 - a basic scorecard built on top of core trace evaluation and signal summaries
 - a first golden-scenario set for `JudgmentBench`
 - a benchmark runner that can write JSON results into
@@ -78,6 +80,9 @@ The first semantic-robustness tranche now covers:
 - implied asks buried in status text
 - dramatic status wording that should remain passive
 - relation semantics for recurring and resolving issue wording
+- bounded semantic ambiguity handling for:
+  - low-confidence non-blocking work that should queue instead of interrupting
+  - abstained non-blocking work that should stay peripheral
 - adversarial wording such as:
   - negated approval language that should stay passive
   - production-context read wording that should not inflate consequence

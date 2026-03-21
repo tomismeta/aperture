@@ -46,6 +46,8 @@ test("replay runner captures frames, traces, responses, and final view state", (
   assert.ok(result.steps[0]?.frame);
   assert.equal(result.responses.length, 1);
   assert.ok(result.traces.some((trace) => trace.evaluation.kind === "candidate"));
+  assert.equal(result.decisions.length, 1);
+  assert.equal(result.decisions[0]?.decisionKind, "activate");
   assert.equal(scorecard.signals.presented, 1);
   assert.equal(scorecard.signals.viewed, 1);
   assert.equal(scorecard.signals.responded, 1);
@@ -91,6 +93,8 @@ test("replay runner can exercise source-event normalization paths", () => {
   assert.equal(result.steps.length, 1);
   assert.ok(result.steps[0]?.frame);
   assert.equal(result.semantics.length, 1);
+  assert.equal(result.decisions.length, 1);
   assert.equal(result.semantics[0]?.interpretation.intentFrame, "question_request");
+  assert.equal(result.decisions[0]?.semanticConfidence, "low");
   assert.equal(result.views[0]?.activeInteractionId, "interaction:source:1");
 });

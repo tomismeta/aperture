@@ -33,7 +33,7 @@ A semantic change is only really healthy when it clears all three.
 Each layer catches a different failure mode.
 
 - core tests catch local interpretation regressions
-- lab catches scenario-level doctrine drift
+- lab catches scenario-level doctrine drift and ambiguity/peripheral-routing drift
 - manual testing catches product reality gaps that still feel wrong to a human
 
 If we only do one layer, we will miss important classes of failure:
@@ -46,7 +46,7 @@ If we only do one layer, we will miss important classes of failure:
 
 ```mermaid
 flowchart LR
-    A["SourceEvent"] --> B["Core semantic interpreter<br/>intent, consequence, explicitness"]
+    A["SourceEvent"] --> B["Core semantic interpreter<br/>intent, consequence, confidence"]
     B --> C["Canonical normalization<br/>ApertureEvent"]
     C --> D["Judgment engine<br/>policy, value, continuity, routing"]
     D --> E["Attention surface outcome"]
@@ -73,6 +73,7 @@ Core tests should prove:
 - implied asks are recognized when wording supports them
 - dramatic but passive wording does not invent operator work
 - normalized events preserve semantic facts into the engine boundary
+- low-confidence or abstained non-blocking semantics stay safely peripheral
 
 ### Core Test Families
 

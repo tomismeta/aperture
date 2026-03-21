@@ -16,6 +16,8 @@ export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
     `- Failed scenarios: ${run.summary.failedScenarios}`,
     `- Assertions: ${run.summary.passedAssertions}/${run.summary.totalAssertions} passed`,
     `- Semantic readings: ${run.summary.totalSemanticReadings}`,
+    `- Decision readings: ${run.summary.totalDecisionReadings}`,
+    `- Ambiguous decisions: ${run.summary.totalAmbiguousDecisions}`,
     `- Active buckets: ${run.summary.totalActiveBuckets}`,
     `- Queued buckets: ${run.summary.totalQueuedBuckets}`,
     `- Ambient buckets: ${run.summary.totalAmbientBuckets}`,
@@ -58,6 +60,18 @@ export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
         if (semantic.interpretation.relationHints.length > 0) {
           lines.push(
             `- Semantic relations (${semantic.stepLabel ?? `step ${semantic.stepIndex}`}): ${semantic.interpretation.relationHints.map((hint) => hint.kind).join(", ")}`,
+          );
+        }
+      }
+    }
+    if (result.run.decisions.length > 0) {
+      for (const decision of result.run.decisions) {
+        lines.push(
+          `- Decision (${decision.stepLabel ?? `step ${decision.stepIndex}`}): evaluation=${decision.evaluationKind}, decision=${decision.decisionKind ?? "none"}, bucket=${decision.resultBucket ?? "none"}, semanticConfidence=${decision.semanticConfidence ?? "none"}, semanticAbstained=${decision.semanticAbstained === true ? "true" : "false"}`,
+        );
+        if (decision.ambiguity) {
+          lines.push(
+            `- Decision ambiguity (${decision.stepLabel ?? `step ${decision.stepIndex}`}): ${decision.ambiguity.reason} -> ${decision.ambiguity.resolution}`,
           );
         }
       }

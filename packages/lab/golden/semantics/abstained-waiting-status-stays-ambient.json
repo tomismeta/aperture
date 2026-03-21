@@ -1,0 +1,81 @@
+{
+  "id": "golden:semantics:abstained-waiting-status-stays-ambient",
+  "title": "Abstained blocked status stays ambient",
+  "description": "When semantic interpretation abstains on non-blocking blocked status work, the ambiguity lane should preserve an ambient outcome instead of inventing interruptive certainty.",
+  "doctrineTags": [
+    "semantic_normalization",
+    "semantic_ambiguity",
+    "ambient_doctrine"
+  ],
+  "expectations": {
+    "finalActiveInteractionId": "interaction:approval-anchor:ambient",
+    "queuedInteractionIds": [],
+    "ambientInteractionIds": [
+      "interaction:task:abstained-blocked:status"
+    ],
+    "resultBucketCounts": {
+      "active": 1,
+      "queued": 0,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "abstained blocked status",
+        "intentFrame": "blocked_work",
+        "activityClass": "status_update",
+        "consequence": "medium",
+        "confidence": "high",
+        "abstained": true,
+        "relationKindsExact": [],
+        "whyNowIncludes": "blocked",
+        "reasonsInclude": ["task status explicitly indicates blocked work"]
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "abstained blocked status",
+        "evaluationKind": "candidate",
+        "decisionKind": "ambient",
+        "resultBucket": "ambient",
+        "semanticConfidence": "high",
+        "semanticAbstained": true,
+        "ambiguityReason": "low_signal",
+        "ambiguityResolution": "ambient"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publish",
+      "label": "ambient approval anchor",
+      "event": {
+        "id": "evt:approval-anchor:ambient",
+        "type": "human.input.requested",
+        "taskId": "task:approval-anchor:ambient",
+        "interactionId": "interaction:approval-anchor:ambient",
+        "timestamp": "2026-03-21T17:40:30.000Z",
+        "title": "Approve schema migration",
+        "summary": "A schema migration needs approval before execution.",
+        "consequence": "high",
+        "request": { "kind": "approval" }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "abstained blocked status",
+      "event": {
+        "id": "evt:abstained-blocked",
+        "type": "task.updated",
+        "taskId": "task:abstained-blocked",
+        "timestamp": "2026-03-21T17:41:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Blocked on external dependency",
+        "summary": "Blocked on an external dependency, but semantics are too uncertain to force an interruptive read.",
+        "status": "blocked",
+        "semanticHints": {
+          "abstained": true
+        }
+      }
+    }
+  ]
+}

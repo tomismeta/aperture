@@ -1,0 +1,78 @@
+{
+  "id": "golden:semantics:low-confidence-failed-status-queues",
+  "title": "Low-confidence failed status stays queued instead of interrupting",
+  "description": "When semantics mark a non-blocking failed status as low confidence, the ambiguity lane should keep it queued instead of letting it interrupt immediately.",
+  "doctrineTags": [
+    "semantic_normalization",
+    "semantic_ambiguity",
+    "queue_doctrine"
+  ],
+  "expectations": {
+    "finalActiveInteractionId": "interaction:approval-anchor",
+    "queuedInteractionIds": [
+      "interaction:task:uncertain-failure:status"
+    ],
+    "ambientInteractionIds": [],
+    "resultBucketCounts": {
+      "active": 1,
+      "queued": 1,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "uncertain failure status",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "consequence": "high",
+        "confidence": "low",
+        "whyNowIncludes": "failed and should be reviewed"
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "uncertain failure status",
+        "evaluationKind": "candidate",
+        "decisionKind": "queue",
+        "resultBucket": "queued",
+        "semanticConfidence": "low",
+        "semanticAbstained": false,
+        "ambiguityReason": "low_signal",
+        "ambiguityResolution": "queue"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publish",
+      "label": "approval anchor",
+      "event": {
+        "id": "evt:approval-anchor",
+        "type": "human.input.requested",
+        "taskId": "task:approval-anchor",
+        "interactionId": "interaction:approval-anchor",
+        "timestamp": "2026-03-21T17:39:00.000Z",
+        "title": "Approve deploy",
+        "summary": "A deploy is waiting for approval.",
+        "consequence": "high",
+        "request": { "kind": "approval" }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "uncertain failure status",
+      "event": {
+        "id": "evt:uncertain-failure",
+        "type": "task.updated",
+        "taskId": "task:uncertain-failure",
+        "timestamp": "2026-03-21T17:40:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Build failed",
+        "summary": "The latest build failed and may need a retry.",
+        "status": "failed",
+        "semanticHints": {
+          "confidence": "low"
+        }
+      }
+    }
+  ]
+}

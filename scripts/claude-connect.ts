@@ -10,6 +10,7 @@ type HookEntry = { matcher?: string; hooks: HookDefinition[] } & Record<string, 
 
 const DEFAULT_HOOK_SPECS: HookSpec[] = [
   { eventName: "PreToolUse", matcher: "*" },
+  { eventName: "PermissionRequest", matcher: "*" },
   { eventName: "PostToolUse", matcher: "*" },
   { eventName: "PostToolUseFailure", matcher: "*" },
   { eventName: "Elicitation" },

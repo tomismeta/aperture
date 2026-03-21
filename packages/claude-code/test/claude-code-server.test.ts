@@ -326,6 +326,118 @@ test("holds elicitation requests until Aperture responds", async () => {
   }
 });
 
+test("holds PermissionRequest requests until Aperture responds", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core, {
+    holdTimeoutMs: 250,
+    permissionRequestPolicy: () => "hold",
+  });
+  const { url } = await server.listen();
+
+  try {
+    const responsePromise = fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "PermissionRequest",
+        tool_name: "Bash",
+        tool_input: {
+          command: "git push origin main",
+          description: "Push the release branch.",
+        },
+      }),
+    });
+
+    const frame = await waitFor(() => core.getAttentionView().active);
+    assert.ok(frame);
+    assert.match(frame?.interactionId ?? "", /^claude-code:permission:session-1:[a-f0-9]{12}$/);
+    assert.equal(frame?.title, "Claude Code wants permission to run a shell command");
+
+    core.submit({
+      taskId: "claude-code:session:session-1",
+      interactionId: frame?.interactionId ?? "",
+      response: { kind: "approved" },
+    });
+
+    const response = await responsePromise;
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      hookSpecificOutput: {
+        hookEventName: "PermissionRequest",
+        decision: {
+          behavior: "allow",
+        },
+      },
+    });
+  } finally {
+    await server.close();
+  }
+});
+
+test("lets Claude handle permission requests natively when no surface policy is active", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core, {
+    permissionRequestPolicy: () => "native",
+  });
+  const { url } = await server.listen();
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "PermissionRequest",
+        tool_name: "Write",
+        tool_input: {
+          file_path: "/repo/src/index.ts",
+        },
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {});
+    assert.equal(core.getAttentionView().active, null);
+  } finally {
+    await server.close();
+  }
+});
+
+test("times out held PermissionRequest requests back to Claude and clears the frame", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core, {
+    holdTimeoutMs: 25,
+    permissionRequestPolicy: () => "hold",
+  });
+  const { url } = await server.listen();
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "PermissionRequest",
+        tool_name: "Bash",
+        tool_input: {
+          command: "git push origin main",
+        },
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {});
+    await sleep(10);
+    assert.equal(core.getAttentionView().active, null);
+  } finally {
+    await server.close();
+  }
+});
+
 test("lets Claude handle elicitation natively when no surface policy is active", async () => {
   const core = new ApertureCore();
   const server = createClaudeCodeHookServer(core, {

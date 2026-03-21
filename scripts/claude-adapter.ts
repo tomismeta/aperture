@@ -2,6 +2,7 @@ import { stderr } from "node:process";
 
 import type {
   ClaudeCodeElicitationEvent,
+  ClaudeCodePermissionRequestEvent,
   ClaudeCodePreToolUseEvent,
 } from "../packages/claude-code/src/index.ts";
 import { createClaudeCodeHookServer } from "../packages/claude-code/src/server.ts";
@@ -31,10 +32,16 @@ async function main(): Promise<void> {
     includePostToolUse: true,
     tools: undefined,
     preToolUsePolicy: () => (adapterClient.getSurfaceCount() > 0 ? "hold" : "ask"),
+    permissionRequestPolicy: () => (adapterClient.getSurfaceCount() > 0 ? "hold" : "native"),
     elicitationPolicy: () => (adapterClient.getSurfaceCount() > 0 ? "hold" : "native"),
     onPreToolUseFallback: (event, reason) => {
       if (reason === "timed_out" || reason === "not_held") {
         void adapterClient.publishSourceEvent(claudeApprovalFallbackEvent(event, reason));
+      }
+    },
+    onPermissionRequestFallback: (event, reason) => {
+      if (reason === "timed_out" || reason === "not_held") {
+        void adapterClient.publishSourceEvent(claudePermissionFallbackEvent(event, reason));
       }
     },
     onElicitationFallback: (event, reason) => {
@@ -144,7 +151,31 @@ function claudeElicitationFallbackEvent(
   };
 }
 
-function claudeSource(event: Pick<ClaudeCodePreToolUseEvent | ClaudeCodeElicitationEvent, "session_id" | "cwd">) {
+function claudePermissionFallbackEvent(
+  event: ClaudeCodePermissionRequestEvent,
+  reason: "timed_out" | "not_held",
+) {
+  return {
+    id: `claude-code:${encodeURIComponent(event.session_id)}:PermissionRequest:${encodeURIComponent(
+      event.tool_name,
+    )}:fallback:${reason}`,
+    type: "task.updated" as const,
+    taskId: `claude-code:session:${encodeURIComponent(event.session_id)}`,
+    timestamp: new Date().toISOString(),
+    source: claudeSource(event),
+    title:
+      reason === "timed_out"
+        ? `${event.tool_name} permission timed out`
+        : `${event.tool_name} permission returned to Claude`,
+    summary:
+      reason === "timed_out"
+        ? "Aperture did not receive a permission response in time and returned this request to Claude Code."
+        : "Aperture did not retain this permission request, so Claude Code handled it natively.",
+    status: "running" as const,
+  };
+}
+
+function claudeSource(event: Pick<ClaudeCodePreToolUseEvent | ClaudeCodePermissionRequestEvent | ClaudeCodeElicitationEvent, "session_id" | "cwd">) {
   const workspace = event.cwd.split("/").filter(Boolean).at(-1) ?? "";
   const session = shortSessionLabel(event.session_id);
   return {

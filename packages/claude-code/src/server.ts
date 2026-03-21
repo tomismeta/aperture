@@ -10,6 +10,8 @@ import {
   type ClaudeCodeHookEvent,
   type ClaudeCodeHookResponse,
   type ClaudeCodeMappingOptions,
+  type ClaudeCodePermissionRequestEvent,
+  type ClaudeCodePermissionRequestMappedEvent,
   type ClaudeCodePreToolUseEvent,
   type ClaudeCodePreToolUseMappedEvent,
 } from "./mapping.js";
@@ -24,12 +26,20 @@ export type ClaudeCodeHookServerOptions = ClaudeCodeMappingOptions & {
     event: ClaudeCodePreToolUseEvent,
     mappedEvent: ClaudeCodePreToolUseMappedEvent,
   ) => "hold" | "ask";
+  permissionRequestPolicy?: (
+    event: ClaudeCodePermissionRequestEvent,
+    mappedEvent: ClaudeCodePermissionRequestMappedEvent,
+  ) => "hold" | "native";
   elicitationPolicy?: (
     event: ClaudeCodeElicitationEvent,
     mappedEvent: ClaudeCodeElicitationMappedEvent,
   ) => "hold" | "native";
   onPreToolUseFallback?: (
     event: ClaudeCodePreToolUseEvent,
+    reason: "no_surface" | "not_held" | "timed_out",
+  ) => void;
+  onPermissionRequestFallback?: (
+    event: ClaudeCodePermissionRequestEvent,
     reason: "no_surface" | "not_held" | "timed_out",
   ) => void;
   onElicitationFallback?: (
@@ -53,6 +63,7 @@ type PendingDecision = {
   interactionId: string;
   response: ServerResponse<IncomingMessage>;
   timeout: NodeJS.Timeout;
+  fallbackBody: ClaudeCodeHookResponse;
 };
 
 type ClaudeCodeEventHost = {
@@ -152,6 +163,7 @@ export function createClaudeCodeHookServer(
           interactionId: firstMappedEvent.interactionId,
           response: res,
           timeout,
+          fallbackBody: askResponse(),
         });
 
         await hostClient.publishSourceEvent(firstMappedEvent);
@@ -163,6 +175,58 @@ export function createClaudeCodeHookServer(
           pending.delete(key);
           options.onPreToolUseFallback?.(event, "not_held");
           writeJson(res, 200, askResponse());
+          return;
+        }
+        return;
+      }
+
+      if (event.hook_event_name === "PermissionRequest") {
+        const firstMappedEvent = mapped[0];
+        if (!firstMappedEvent || firstMappedEvent.type !== "human.input.requested") {
+          writeJson(res, 200, {});
+          return;
+        }
+
+        const permissionRequestPolicy = options.permissionRequestPolicy?.(event, firstMappedEvent);
+        if (permissionRequestPolicy === "native") {
+          options.onPermissionRequestFallback?.(event, "no_surface");
+          writeJson(res, 200, {});
+          return;
+        }
+
+        const key = pendingKey({
+          taskId: firstMappedEvent.taskId,
+          interactionId: firstMappedEvent.interactionId,
+        });
+        const timeout = setTimeout(() => {
+          clearTimeout(timeout);
+          pending.delete(key);
+          options.onPermissionRequestFallback?.(event, "timed_out");
+          void hostClient.submit({
+            taskId: firstMappedEvent.taskId,
+            interactionId: firstMappedEvent.interactionId,
+            response: { kind: "dismissed" },
+          });
+          writeJson(res, 200, {});
+        }, holdTimeoutMs);
+
+        pending.set(key, {
+          taskId: firstMappedEvent.taskId,
+          interactionId: firstMappedEvent.interactionId,
+          response: res,
+          timeout,
+          fallbackBody: {},
+        });
+
+        await hostClient.publishSourceEvent(firstMappedEvent);
+        if (res.writableEnded) {
+          return;
+        }
+        if (!hasInteraction(hostClient.getAttentionView(), firstMappedEvent.taskId, firstMappedEvent.interactionId)) {
+          clearTimeout(timeout);
+          pending.delete(key);
+          options.onPermissionRequestFallback?.(event, "not_held");
+          writeJson(res, 200, {});
           return;
         }
         return;
@@ -203,6 +267,7 @@ export function createClaudeCodeHookServer(
           interactionId: firstMappedEvent.interactionId,
           response: res,
           timeout,
+          fallbackBody: {},
         });
 
         await hostClient.publishSourceEvent(firstMappedEvent);
@@ -257,7 +322,7 @@ export function createClaudeCodeHookServer(
       for (const decision of pending.values()) {
         clearTimeout(decision.timeout);
         if (!decision.response.writableEnded) {
-          writeJson(decision.response, 200, askResponse());
+          writeJson(decision.response, 200, decision.fallbackBody);
         }
       }
       pending.clear();
@@ -329,6 +394,7 @@ async function readHookEvent(
 
   if (
     parsed.hook_event_name !== "PreToolUse" &&
+    parsed.hook_event_name !== "PermissionRequest" &&
     parsed.hook_event_name !== "PostToolUse" &&
     parsed.hook_event_name !== "PostToolUseFailure" &&
     parsed.hook_event_name !== "Elicitation" &&
@@ -347,6 +413,13 @@ async function readHookEvent(
     throw new Error(`${parsed.hook_event_name} hook request is missing tool fields`);
   }
 
+  if (
+    parsed.hook_event_name === "PermissionRequest"
+    && typeof parsed.tool_name !== "string"
+  ) {
+    throw new Error("PermissionRequest hook request is missing tool fields");
+  }
+
   const toolName = parsed["tool_name"] as string;
   const toolUseId = parsed["tool_use_id"] as string;
 
@@ -363,6 +436,29 @@ async function readHookEvent(
         parsed["tool_input"] && typeof parsed["tool_input"] === "object"
           ? (parsed["tool_input"] as Record<string, unknown>)
           : {},
+    };
+  }
+
+  if (parsed.hook_event_name === "PermissionRequest") {
+    return {
+      session_id: parsed.session_id,
+      cwd: parsed.cwd,
+      hook_event_name: "PermissionRequest",
+      ...(typeof parsed["permission_mode"] === "string" ? { permission_mode: parsed["permission_mode"] } : {}),
+      ...(typeof parsed["transcript_path"] === "string" ? { transcript_path: parsed["transcript_path"] } : {}),
+      tool_name: toolName,
+      tool_input:
+        parsed["tool_input"] && typeof parsed["tool_input"] === "object"
+          ? (parsed["tool_input"] as Record<string, unknown>)
+          : {},
+      ...(Array.isArray(parsed["permission_suggestions"])
+        ? {
+            permission_suggestions: parsed["permission_suggestions"].filter(
+              (suggestion): suggestion is Record<string, unknown> =>
+                Boolean(suggestion) && typeof suggestion === "object" && !Array.isArray(suggestion),
+            ),
+          }
+        : {}),
     };
   }
 

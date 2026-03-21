@@ -17,6 +17,7 @@ The Claude Code adapter is a real working capability on `main`.
 Today, Aperture supports:
 
 - Claude Code tool approval requests
+- Claude Code permission-request dialogs
 - Claude Code structured elicitation requests
 - post-tool failure awareness
 - non-blocking completion awareness
@@ -47,6 +48,7 @@ This is different from OpenCode because Claude's public integration seam is hook
 ## What it supports today
 
 - `PreToolUse` hook payloads
+- `PermissionRequest` hook payloads
 - `Elicitation` hook payloads
 - `ElicitationResult` hook payloads
 - `PostToolUseFailure` hook payloads
@@ -61,7 +63,6 @@ This is different from OpenCode because Claude's public integration seam is hook
 
 ## What it does not support yet
 
-- `PermissionRequest`
 - transcript parsing
 - session or subagent lifecycle mapping
 

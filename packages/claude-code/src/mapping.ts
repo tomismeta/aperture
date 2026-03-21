@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { basename } from "node:path";
 
 import type {
@@ -12,6 +13,7 @@ import type { AttentionConsequenceLevel as ConsequenceLevel } from "../../core/s
 
 export type ClaudeCodeHookEvent =
   | ClaudeCodePreToolUseEvent
+  | ClaudeCodePermissionRequestEvent
   | ClaudeCodePostToolUseFailureEvent
   | ClaudeCodePostToolUseEvent
   | ClaudeCodeElicitationEvent
@@ -22,6 +24,7 @@ export type ClaudeCodeHookEvent =
 
 export type ClaudeCodeHookEventName =
   | "PreToolUse"
+  | "PermissionRequest"
   | "PostToolUseFailure"
   | "PostToolUse"
   | "Elicitation"
@@ -43,6 +46,13 @@ export type ClaudeCodePreToolUseEvent = ClaudeCodeHookBaseEvent & {
   tool_name: string;
   tool_use_id: string;
   tool_input: Record<string, unknown>;
+};
+
+export type ClaudeCodePermissionRequestEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "PermissionRequest";
+  tool_name: string;
+  tool_input: Record<string, unknown>;
+  permission_suggestions?: Array<Record<string, unknown>>;
 };
 
 export type ClaudeCodePostToolUseFailureEvent = ClaudeCodeHookBaseEvent & {
@@ -120,6 +130,18 @@ export type ClaudeCodeHookResponse =
     }
   | {
       hookSpecificOutput: {
+        hookEventName: "PermissionRequest";
+        decision: {
+          behavior: "allow" | "deny";
+          updatedInput?: Record<string, unknown>;
+          updatedPermissions?: Array<Record<string, unknown>>;
+          message?: string;
+          interrupt?: boolean;
+        };
+      };
+    }
+  | {
+      hookSpecificOutput: {
         hookEventName: "Elicitation";
         action: ClaudeCodeElicitationAction;
         content?: Record<string, unknown>;
@@ -129,6 +151,11 @@ export type ClaudeCodeHookResponse =
 
 export type ClaudeCodePreToolUseMappedEvent = Extract<
   ReturnType<typeof mapPreToolUse>,
+  SourceHumanInputRequestedEvent
+>;
+
+export type ClaudeCodePermissionRequestMappedEvent = Extract<
+  ReturnType<typeof mapPermissionRequest>,
   SourceHumanInputRequestedEvent
 >;
 
@@ -166,6 +193,8 @@ export function mapClaudeCodeHookEvent(
   switch (event.hook_event_name) {
     case "PreToolUse":
       return !tools || tools.includes(event.tool_name) ? [mapPreToolUse(event, options)] : [];
+    case "PermissionRequest":
+      return !tools || tools.includes(event.tool_name) ? [mapPermissionRequest(event, options)] : [];
     case "PostToolUseFailure":
       return [mapPostToolUseFailure(event)];
     case "PostToolUse":
@@ -219,6 +248,37 @@ export function mapClaudeCodeFrameResponse(
             permissionDecision: "ask",
           },
         };
+      case "option_selected":
+      case "form_submitted":
+      case "text_submitted":
+        return null;
+    }
+  }
+
+  if (parsed.kind === "permission") {
+    switch (response.response.kind) {
+      case "approved":
+        return {
+          hookSpecificOutput: {
+            hookEventName: "PermissionRequest",
+            decision: {
+              behavior: "allow",
+            },
+          },
+        };
+      case "rejected":
+        return {
+          hookSpecificOutput: {
+            hookEventName: "PermissionRequest",
+            decision: {
+              behavior: "deny",
+              ...(response.response.reason ? { message: response.response.reason } : {}),
+            },
+          },
+        };
+      case "dismissed":
+        return {};
+      case "acknowledged":
       case "option_selected":
       case "form_submitted":
       case "text_submitted":
@@ -354,6 +414,58 @@ function mapPreToolUse(
     ...(toolFamily !== undefined ? { toolFamily } : {}),
     activityClass: "permission_request",
     title: approvalTitle(event, summary),
+    summary,
+    request: {
+      kind: "approval",
+    },
+    riskHint: consequence,
+    context: {
+      items: contextItems,
+    },
+    provenance: {
+      whyNow,
+    },
+  };
+}
+
+function mapPermissionRequest(
+  event: ClaudeCodePermissionRequestEvent,
+  options: ClaudeCodeMappingOptions,
+): SourceHumanInputRequestedEvent {
+  const toolFamily = claudeToolFamily(event.tool_name);
+  const command = readString(event.tool_input.command);
+  const summary = command ?? permissionRequestSummary(event);
+  const whyNow =
+    readString(event.tool_input.description)
+    ?? `Claude Code is asking for permission before running ${event.tool_name}.`;
+
+  const contextItems: { id: string; label: string; value: string }[] = [];
+  if (command) {
+    contextItems.push({ id: "command", label: "Command", value: command });
+  } else {
+    contextItems.push(...permissionInputContextItems(event));
+  }
+  contextItems.push({ id: "cwd", label: "Working directory", value: event.cwd });
+  if (event.permission_suggestions?.length) {
+    contextItems.push({
+      id: "permission_suggestions",
+      label: "Claude suggestions",
+      value: `${event.permission_suggestions.length} native permission suggestion${event.permission_suggestions.length === 1 ? "" : "s"}`,
+    });
+  }
+
+  const consequence = classifyPermissionRequestRisk(event, options);
+
+  return {
+    id: claudeEventId(event, "human.input.requested"),
+    type: "human.input.requested",
+    taskId: claudeTaskId(event.session_id),
+    interactionId: claudePermissionInteractionId(event.session_id, event.tool_name, event.tool_input),
+    timestamp: new Date().toISOString(),
+    source: claudeSource(event),
+    ...(toolFamily !== undefined ? { toolFamily } : {}),
+    activityClass: "permission_request",
+    title: permissionRequestTitle(event, summary),
     summary,
     request: {
       kind: "approval",
@@ -546,6 +658,11 @@ function parseClaudeInteractionId(
       toolUseId: string;
     }
   | {
+      kind: "permission";
+      sessionId: string;
+      permissionToken: string;
+    }
+  | {
       kind: "elicitation";
       sessionId: string;
       mcpServerName: string;
@@ -582,6 +699,24 @@ function parseClaudeInteractionId(
     };
   }
 
+  if (parts[1] === "permission") {
+    if (parts.length !== 4) {
+      return null;
+    }
+
+    const sessionId = safeDecode(parts[2] ?? "");
+    const permissionToken = safeDecode(parts[3] ?? "");
+    if (!sessionId || !permissionToken) {
+      return null;
+    }
+
+    return {
+      kind: "permission",
+      sessionId,
+      permissionToken,
+    };
+  }
+
   if (parts[1] !== "elicitation" || (parts.length !== 5 && parts.length !== 6)) {
     return null;
   }
@@ -609,6 +744,14 @@ function claudeTaskId(sessionId: string): string {
 
 function claudeInteractionId(sessionId: string, toolUseId: string): string {
   return `claude-code:tool:${encodeURIComponent(sessionId)}:${encodeURIComponent(toolUseId)}`;
+}
+
+function claudePermissionInteractionId(
+  sessionId: string,
+  toolName: string,
+  toolInput: Record<string, unknown>,
+): string {
+  return `claude-code:permission:${encodeURIComponent(sessionId)}:${encodeURIComponent(permissionRequestToken(toolName, toolInput))}`;
 }
 
 function claudeElicitationInteractionId(
@@ -677,6 +820,22 @@ function shortSessionLabel(sessionId: string): string {
 function toolInputSummary(event: ClaudeCodePreToolUseEvent): string {
   const input = event.tool_input;
   // Try common field names across Claude Code tools
+  const filePath = readString(input.file_path) ?? readString(input.path);
+  const pattern = readString(input.pattern);
+  const query = readSearchQuery(input);
+  const url = readString(input.url);
+
+  if (filePath && pattern) return `${pattern} in ${filePath}`;
+  if (filePath) return filePath;
+  if (pattern) return pattern;
+  if (query) return query;
+  if (event.tool_name.toLowerCase() === "toolsearch") return "web search";
+  if (url) return url;
+  return event.tool_name;
+}
+
+function permissionRequestSummary(event: ClaudeCodePermissionRequestEvent): string {
+  const input = event.tool_input;
   const filePath = readString(input.file_path) ?? readString(input.path);
   const pattern = readString(input.pattern);
   const query = readSearchQuery(input);
@@ -937,6 +1096,10 @@ function claudeEventToken(event: ClaudeCodeHookEvent): string {
     return event.tool_use_id;
   }
 
+  if ("tool_name" in event && event.hook_event_name === "PermissionRequest") {
+    return permissionRequestToken(event.tool_name, event.tool_input);
+  }
+
   if ("elicitation_id" in event) {
     return event.elicitation_id ?? ("message" in event ? event.message : "none");
   }
@@ -953,6 +1116,29 @@ function elicitationActionPastTense(action: ClaudeCodeElicitationAction): string
     case "cancel":
       return "cancelled";
   }
+}
+
+function permissionRequestToken(toolName: string, toolInput: Record<string, unknown>): string {
+  const hash = createHash("sha1");
+  hash.update(toolName);
+  hash.update(":");
+  hash.update(stableJson(toolInput));
+  return hash.digest("hex").slice(0, 12);
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableJson(item)).join(",")}]`;
+  }
+
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, nested]) => `${JSON.stringify(key)}:${stableJson(nested)}`);
+    return `{${entries.join(",")}}`;
+  }
+
+  return JSON.stringify(value);
 }
 
 function claudeToolFamily(toolName: string): string | undefined {
@@ -1039,6 +1225,34 @@ function approvalActionLabel(event: ClaudeCodePreToolUseEvent): string {
   }
 }
 
+function permissionActionLabel(toolName: string): string {
+  switch (toolName.toLowerCase()) {
+    case "read":
+      return "read";
+    case "write":
+      return "write";
+    case "edit":
+    case "multiedit":
+      return "edit";
+    case "glob":
+      return "search files with";
+    case "grep":
+      return "search file contents with";
+    case "ls":
+      return "list files in";
+    case "websearch":
+    case "toolsearch":
+      return "search the web for";
+    case "web_fetch":
+    case "webfetch":
+      return "fetch";
+    case "bash":
+      return "run";
+    default:
+      return `use ${toolName}`;
+  }
+}
+
 function readSearchQuery(input: Record<string, unknown>): string | undefined {
   return (
     readString(input.query)
@@ -1048,7 +1262,51 @@ function readSearchQuery(input: Record<string, unknown>): string | undefined {
   );
 }
 
+function classifyPermissionRequestRisk(
+  event: ClaudeCodePermissionRequestEvent,
+  options: Pick<ClaudeCodeMappingOptions, "classifyCommand"> = {},
+): ConsequenceLevel {
+  const command = readString(event.tool_input.command);
+  const classifyCommand = options.classifyCommand ?? bashConsequence;
+  if (command) {
+    return classifyCommand(command, {
+      session_id: event.session_id,
+      cwd: event.cwd,
+      hook_event_name: "PreToolUse",
+      tool_name: event.tool_name,
+      tool_use_id: permissionRequestToken(event.tool_name, event.tool_input),
+      tool_input: event.tool_input,
+      ...(event.permission_mode !== undefined ? { permission_mode: event.permission_mode } : {}),
+      ...(event.transcript_path !== undefined ? { transcript_path: event.transcript_path } : {}),
+    });
+  }
+
+  const toolName = event.tool_name.toLowerCase();
+  if (toolName === "read" || toolName === "grep" || toolName === "glob" || toolName === "ls") {
+    return "low";
+  }
+
+  if (
+    toolName === "websearch"
+    || toolName === "toolsearch"
+    || toolName === "web_fetch"
+    || toolName === "webfetch"
+  ) {
+    return "low";
+  }
+
+  if (toolName === "write" || toolName === "edit" || toolName === "multiedit") {
+    return hasSensitivePermissionPath(event) ? "high" : "medium";
+  }
+
+  return "medium";
+}
+
 function hasSensitivePath(event: ClaudeCodePreToolUseEvent): boolean {
+  return collectStringValues(event.tool_input).some((value) => isSensitivePathValue(value, event.cwd));
+}
+
+function hasSensitivePermissionPath(event: ClaudeCodePermissionRequestEvent): boolean {
   return collectStringValues(event.tool_input).some((value) => isSensitivePathValue(value, event.cwd));
 }
 
@@ -1141,6 +1399,51 @@ function toolInputContextItems(
     }
   }
   return items;
+}
+
+function permissionInputContextItems(
+  event: ClaudeCodePermissionRequestEvent,
+): { id: string; label: string; value: string }[] {
+  const items: { id: string; label: string; value: string }[] = [];
+  for (const [key, value] of Object.entries(event.tool_input)) {
+    if (typeof value === "string" && value.length > 0 && value.length < 500) {
+      items.push({ id: key, label: key, value });
+    }
+  }
+  return items;
+}
+
+function permissionRequestTitle(event: ClaudeCodePermissionRequestEvent, summary: string): string {
+  const action = permissionActionLabel(event.tool_name);
+  const detail = permissionRequestTitleDetail(event, summary);
+  return detail ? `Claude Code wants permission to ${action} ${detail}` : `Claude Code wants permission to ${action}`;
+}
+
+function permissionRequestTitleDetail(
+  event: ClaudeCodePermissionRequestEvent,
+  summary: string,
+): string | null {
+  const toolName = event.tool_name.toLowerCase();
+  const input = event.tool_input;
+
+  if (toolName === "bash") {
+    return "a shell command";
+  }
+
+  const filePath = readString(input.file_path) ?? readString(input.path);
+  if (filePath) {
+    return basename(filePath);
+  }
+
+  const pattern = readString(input.pattern);
+  if (pattern) return pattern;
+
+  const query = readSearchQuery(input);
+  if (query) return query;
+
+  if (summary && summary !== event.tool_name) return summary;
+
+  return null;
 }
 
 function readString(value: unknown): string | undefined {

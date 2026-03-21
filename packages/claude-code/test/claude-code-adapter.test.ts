@@ -10,6 +10,7 @@ import {
   type ClaudeCodeElicitationResultEvent,
   type ClaudeCodeNotificationEvent,
   type ClaudeCodePostToolUseFailureEvent,
+  type ClaudeCodePermissionRequestEvent,
   type ClaudeCodePreToolUseEvent,
   type ClaudeCodeStopEvent,
   type ClaudeCodeUserPromptSubmitEvent,
@@ -273,6 +274,49 @@ test("maps ToolSearch into low-risk web search wording", () => {
   if (mapped[0]?.type === "human.input.requested") {
     assert.equal(mapped[0].title, "Claude Code wants to search the web for gold prices");
     assert.equal(mapped[0].riskHint, "low");
+  }
+});
+
+test("maps PermissionRequest hooks into approval events", () => {
+  const event: ClaudeCodePermissionRequestEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "PermissionRequest",
+    tool_name: "Bash",
+    tool_input: {
+      command: "rm -rf ./dist",
+      description: "Clear the build output before packaging.",
+    },
+    permission_suggestions: [
+      {
+        type: "addRules",
+        behavior: "allow",
+        destination: "session",
+      },
+    ],
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "human.input.requested");
+  if (mapped[0]?.type === "human.input.requested") {
+    assert.equal(mapped[0].taskId, "claude-code:session:session-1");
+    assert.match(
+      mapped[0].interactionId,
+      /^claude-code:permission:session-1:[a-f0-9]{12}$/,
+    );
+    assert.equal(mapped[0].toolFamily, "bash");
+    assert.equal(mapped[0].activityClass, "permission_request");
+    assert.equal(mapped[0].request.kind, "approval");
+    assert.equal(mapped[0].title, "Claude Code wants permission to run a shell command");
+    assert.equal(mapped[0].summary, "rm -rf ./dist");
+    assert.equal(mapped[0].riskHint, "high");
+    assert.equal(mapped[0].provenance?.whyNow, "Clear the build output before packaging.");
+    assert.deepEqual(mapped[0].context?.items?.at(-1), {
+      id: "permission_suggestions",
+      label: "Claude suggestions",
+      value: "1 native permission suggestion",
+    });
   }
 });
 
@@ -574,6 +618,50 @@ test("maps approval responses back to Claude Code hook decisions", () => {
         permissionDecisionReason: "Too risky",
       },
     },
+  );
+});
+
+test("maps permission responses back to Claude hook decisions", () => {
+  assert.deepEqual(
+    mapClaudeCodeFrameResponse({
+      taskId: "claude-code:session:session-1",
+      interactionId: "claude-code:permission:session-1:abc123def456",
+      response: { kind: "approved" },
+    }),
+    {
+      hookSpecificOutput: {
+        hookEventName: "PermissionRequest",
+        decision: {
+          behavior: "allow",
+        },
+      },
+    },
+  );
+
+  assert.deepEqual(
+    mapClaudeCodeFrameResponse({
+      taskId: "claude-code:session:session-1",
+      interactionId: "claude-code:permission:session-1:abc123def456",
+      response: { kind: "rejected", reason: "Outside allowed working directories." },
+    }),
+    {
+      hookSpecificOutput: {
+        hookEventName: "PermissionRequest",
+        decision: {
+          behavior: "deny",
+          message: "Outside allowed working directories.",
+        },
+      },
+    },
+  );
+
+  assert.deepEqual(
+    mapClaudeCodeFrameResponse({
+      taskId: "claude-code:session:session-1",
+      interactionId: "claude-code:permission:session-1:abc123def456",
+      response: { kind: "dismissed" },
+    }),
+    {},
   );
 });
 

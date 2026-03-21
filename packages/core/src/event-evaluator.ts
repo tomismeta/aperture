@@ -11,8 +11,8 @@ import type {
   AttentionFormResponseSpec,
 } from "./frame.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
-import { dedupeSemanticStrings } from "./semantic-detection.js";
 import { semanticWhyNowForTaskStatus } from "./semantic-language.js";
+import { mergeSemanticProvenance } from "./semantic-provenance.js";
 
 export type EvaluationResult =
   | { kind: "candidate"; candidate: AttentionCandidate }
@@ -117,19 +117,13 @@ export class EventEvaluator {
       blocking: true,
       timestamp: event.timestamp,
       ...(event.context !== undefined ? { context: event.context } : {}),
-      ...((event.provenance !== undefined || event.semantic?.whyNow !== undefined || event.semantic?.factors?.length)
-        ? {
-            provenance: {
-              ...(event.provenance ?? {}),
-              ...(event.provenance?.whyNow === undefined && event.semantic?.whyNow !== undefined
-                ? { whyNow: event.semantic.whyNow }
-                : {}),
-              ...(event.semantic?.factors?.length
-                ? { factors: dedupeSemanticStrings([...(event.provenance?.factors ?? []), ...event.semantic.factors]) }
-                : {}),
-            },
-          }
-        : {}),
+      ...(() => {
+        const provenance = mergeSemanticProvenance({
+          base: event.provenance,
+          semantic: event.semantic,
+        });
+        return provenance !== undefined ? { provenance } : {};
+      })(),
     };
   }
 
@@ -259,26 +253,22 @@ export class EventEvaluator {
 }
 
 function buildStatusProvenance(event: TaskUpdatedEvent): { provenance: { whyNow?: string; factors?: string[] } } | {} {
-  const whyNow =
-    event.semantic?.whyNow
-    ?? (event.status === "blocked"
-      ? semanticWhyNowForTaskStatus("blocked")
-      : event.status === "failed"
-        ? semanticWhyNowForTaskStatus("failed")
-        : undefined);
-  const factors = dedupeSemanticStrings([
-    ...(event.semantic?.factors ?? []),
-    ...(event.status === "blocked" || event.status === "failed" ? [event.status] : []),
-  ]);
+  const provenance = mergeSemanticProvenance({
+    semantic: event.semantic,
+    fallbackWhyNow:
+      event.status === "blocked"
+        ? semanticWhyNowForTaskStatus("blocked")
+        : event.status === "failed"
+          ? semanticWhyNowForTaskStatus("failed")
+          : undefined,
+    extraFactors: event.status === "blocked" || event.status === "failed" ? [event.status] : [],
+  });
 
-  if (whyNow === undefined && factors.length === 0) {
+  if (provenance === undefined) {
     return {};
   }
 
   return {
-    provenance: {
-      ...(whyNow !== undefined ? { whyNow } : {}),
-      ...(factors.length > 0 ? { factors } : {}),
-    },
+    provenance,
   };
 }

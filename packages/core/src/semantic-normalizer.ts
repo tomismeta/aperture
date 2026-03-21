@@ -2,6 +2,7 @@ import type { SourceEvent } from "./source-event.js";
 import type { ApertureEvent, HumanInputRequestedEvent } from "./events.js";
 import type { AttentionConsequenceLevel, AttentionTone } from "./frame.js";
 import { interpretSourceEvent } from "./semantic-interpreter.js";
+import { mergeSemanticProvenance } from "./semantic-provenance.js";
 
 export function normalizeSourceEvent(event: SourceEvent): ApertureEvent {
   const semantic = interpretSourceEvent(event);
@@ -75,10 +76,10 @@ function normalizeHumanInput(
 ): HumanInputRequestedEvent {
   const consequence = semantic.consequence ?? event.riskHint ?? "medium";
   const tone = toneForRisk(consequence);
-  const factors = [
-    ...(event.provenance?.factors ?? []),
-    ...semantic.factors,
-  ];
+  const provenance = mergeSemanticProvenance({
+    base: event.provenance,
+    semantic,
+  });
 
   return {
     id: event.id,
@@ -104,17 +105,7 @@ function normalizeHumanInput(
     consequence,
     request: event.request,
     ...(event.context !== undefined ? { context: event.context } : {}),
-    ...((event.provenance !== undefined || semantic.whyNow !== undefined || factors.length > 0)
-      ? {
-          provenance: {
-            ...(event.provenance ?? {}),
-            ...(event.provenance?.whyNow === undefined && semantic.whyNow !== undefined
-              ? { whyNow: semantic.whyNow }
-              : {}),
-            ...(factors.length > 0 ? { factors: dedupeStrings(factors) } : {}),
-          },
-        }
-      : {}),
+    ...(provenance !== undefined ? { provenance } : {}),
   };
 }
 
@@ -126,8 +117,4 @@ function toneForRisk(risk: AttentionConsequenceLevel): AttentionTone {
     case "low":
       return "focused";
   }
-}
-
-function dedupeStrings(values: string[]): string[] {
-  return [...new Set(values)];
 }

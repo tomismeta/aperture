@@ -363,3 +363,52 @@ test("publishSourceEvent can use the semantic layer to elevate dangerous approva
   assert.equal(frame?.tone, "critical");
   assert.equal(frame?.consequence, "high");
 });
+
+test("publishSourceEvent matches publishing the equivalent normalized human-input event", () => {
+  const sourceEvent: SourceEvent = {
+    id: "evt:parity:approval",
+    type: "human.input.requested",
+    taskId: "task:parity:approval",
+    interactionId: "interaction:parity:approval",
+    timestamp,
+    source: source("claude-code"),
+    title: "Approve deploy",
+    summary: "A risky deploy is waiting for approval.",
+    request: { kind: "approval", requireReason: true },
+    provenance: {
+      whyNow: "Adapter already knows this is a release checkpoint.",
+      factors: ["adapter release gate"],
+    },
+  };
+  const normalizedEvent = normalizeSourceEvent(sourceEvent);
+  const sourceCore = new ApertureCore();
+  const eventCore = new ApertureCore();
+
+  sourceCore.publishSourceEvent(sourceEvent);
+  eventCore.publish(normalizedEvent);
+
+  assert.deepEqual(sourceCore.getAttentionView(), eventCore.getAttentionView());
+});
+
+test("publishSourceEvent matches publishing the equivalent normalized status event", () => {
+  const sourceEvent: SourceEvent = {
+    id: "evt:parity:status",
+    type: "task.updated",
+    taskId: "task:parity:status",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Waiting for approval",
+    summary: "Approval required before deploy can continue.",
+    status: "waiting",
+    progress: 80,
+  };
+  const normalizedEvent = normalizeSourceEvent(sourceEvent);
+  const sourceCore = new ApertureCore();
+  const eventCore = new ApertureCore();
+
+  sourceCore.publishSourceEvent(sourceEvent);
+  eventCore.publish(normalizedEvent);
+
+  assert.deepEqual(sourceCore.getTaskView(sourceEvent.taskId), eventCore.getTaskView(sourceEvent.taskId));
+  assert.deepEqual(sourceCore.getAttentionView(), eventCore.getAttentionView());
+});

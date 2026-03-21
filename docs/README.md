@@ -76,6 +76,7 @@ measures and improves Aperture's deterministic hot path.
 - [Engine Roadmap](./roadmap/engine-roadmap.md)
 - [Core Maturation Plan](./roadmap/core-maturation-plan.md)
 - [Technical Product Roadmap](./roadmap/technical-product-roadmap.md)
+- [Semantic Interpretation Research Sprint](./roadmap/semantic-interpretation-research.md)
 - [Human Attention Research](./roadmap/human-attention-research.md)
 - [Engine Architecture Evaluation](./roadmap/engine-architecture-evaluation.md)
 - [Agent Workforce Use Case](./roadmap/agent-workforce-use-case.md)

@@ -484,3 +484,27 @@ test("memory snapshots deduplicate repeated terminal signals for one interaction
   assert.equal(snapshot.sourceTrust?.["claude-code"]?.low?.confirmations, 1);
   assert.equal(snapshot.consequenceProfiles?.low?.reviewedCount, 1);
 });
+
+test("memory snapshots default to the core timeSource when no timestamp is supplied", () => {
+  const fixedTimestamp = "2026-03-12T10:16:00.000Z";
+  const core = new ApertureCore({
+    timeSource: () => Date.parse(fixedTimestamp),
+  });
+
+  core.recordSignal({
+    kind: "presented",
+    taskId: "task:read",
+    interactionId: "interaction:read",
+    timestamp: "2026-03-12T10:15:00.000Z",
+    metadata: {
+      toolFamily: "read",
+      consequence: "low",
+      sourceKey: "claude-code",
+    },
+  });
+
+  const snapshot = core.snapshotMemoryProfile();
+
+  assert.equal(snapshot.updatedAt, fixedTimestamp);
+  assert.equal(snapshot.sessionCount, 1);
+});

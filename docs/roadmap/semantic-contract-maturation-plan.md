@@ -135,11 +135,8 @@ The sharpest current gap is `task.updated`:
 
 1. define a field taxonomy for `SemanticInterpretation`
 2. decide the `task.updated` semantic contract explicitly
-3. decide whether fields like `operatorActionRequired` and
-   `requestExplicitness` are:
-   - real routing inputs
-   - explanation-only
-   - or dead and removable
+3. remove or demote semantic fields that imply routing behavior the engine does
+   not actually honor
 
 ### Deliverables
 
@@ -306,7 +303,7 @@ This is the combined recommended sequence:
 
 1. semantic field taxonomy
 2. `task.updated` contract decision
-3. dead-field decision (`operatorActionRequired`, `requestExplicitness`, etc.)
+3. semantic-field removal or demotion for ambiguous non-routing fields
 4. `TimeSource` in evidence resolution
 5. shared evidence builder
 6. shared semantic-provenance merge helper

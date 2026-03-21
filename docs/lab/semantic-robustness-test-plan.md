@@ -91,8 +91,8 @@ Assertions:
 
 - `intentFrame`
 - `activityClass`
-- `operatorActionRequired`
-- `requestExplicitness`
+- `whyNow`
+- `reasons`
 
 #### 2. Consequence interpretation
 
@@ -259,8 +259,6 @@ Each semantic scenario should assert both:
 - semantic reading:
   - `intentFrame`
   - `activityClass`
-  - `operatorActionRequired`
-  - `requestExplicitness`
   - `consequence`
   - `confidence`
   - `whyNowIncludes`

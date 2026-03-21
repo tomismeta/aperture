@@ -124,7 +124,7 @@ test("semantic interpreter infers high-risk approval semantics from dangerous te
 
   assert.equal(interpretation.intentFrame, "approval_request");
   assert.equal(interpretation.consequence, "high");
-  assert.equal(interpretation.requestExplicitness, "explicit");
+  assert.equal(interpretation.whyNow, "A high-risk action needs explicit operator approval.");
 });
 
 test("explicit semantic hints override inferred semantics", () => {
@@ -169,7 +169,7 @@ test("normalizes task status updates with semantic enrichment instead of raw pas
     assert.equal(normalized.activityClass, "tool_failure");
     assert.equal(normalized.semantic?.intentFrame, "failure");
     assert.equal(normalized.semantic?.consequence, "high");
-    assert.equal(normalized.semantic?.operatorActionRequired, true);
+    assert.equal(normalized.semantic?.whyNow, "Work has failed and should be reviewed.");
   }
 });
 
@@ -187,8 +187,9 @@ test("task updates can infer implied operator asks from status text", () => {
 
   assert.equal(normalized.type, "task.updated");
   if (normalized.type === "task.updated") {
-    assert.equal(normalized.semantic?.requestExplicitness, "implied");
-    assert.equal(normalized.semantic?.operatorActionRequired, true);
+    assert.equal(normalized.semantic?.whyNow, "Status text implies the operator may need to respond.");
+    assert.equal(normalized.semantic?.confidence, "low");
+    assert.ok(normalized.semantic?.reasons.includes("status wording suggests an implied operator request"));
   }
 });
 
@@ -204,8 +205,8 @@ test("negated approval wording does not invent an implied operator ask", () => {
     status: "running",
   });
 
-  assert.equal(interpretation.requestExplicitness, "none");
-  assert.equal(interpretation.operatorActionRequired, false);
+  assert.equal(interpretation.whyNow, undefined);
+  assert.equal(interpretation.confidence, "high");
 });
 
 test("semantic normalization preserves path and hyphen separators", () => {

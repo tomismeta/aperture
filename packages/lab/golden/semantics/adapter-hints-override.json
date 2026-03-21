@@ -21,8 +21,6 @@
         "stepLabel": "hinted approval",
         "intentFrame": "approval_request",
         "activityClass": "permission_request",
-        "operatorActionRequired": true,
-        "requestExplicitness": "explicit",
         "consequence": "high",
         "confidence": "medium",
         "whyNowIncludes": "policy escalation",

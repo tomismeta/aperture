@@ -71,8 +71,6 @@ test("task.updated semantics enrich provenance without overriding status routing
     status: "waiting",
     semantic: {
       intentFrame: "status_update",
-      operatorActionRequired: true,
-      requestExplicitness: "implied",
       consequence: "high",
       whyNow: "Waiting for operator approval before continuing.",
       factors: ["task.updated", "waiting", "implied operator ask"],
@@ -102,8 +100,6 @@ test("diagnostic status semantics do not change task.updated routing", () => {
     status: "waiting",
     semantic: {
       intentFrame: "status_update",
-      operatorActionRequired: false,
-      requestExplicitness: "none",
       factors: ["task.updated", "waiting"],
       relationHints: [],
       confidence: "high",
@@ -121,8 +117,7 @@ test("diagnostic status semantics do not change task.updated routing", () => {
     status: "waiting",
     semantic: {
       intentFrame: "status_update",
-      operatorActionRequired: true,
-      requestExplicitness: "implied",
+      whyNow: "Status text implies the operator may need to respond.",
       factors: ["task.updated", "waiting", "implied operator ask"],
       relationHints: [],
       confidence: "low",
@@ -207,8 +202,6 @@ test("event provenance whyNow remains authoritative over semantic whyNow on huma
     },
     semantic: {
       intentFrame: "approval_request",
-      operatorActionRequired: true,
-      requestExplicitness: "explicit",
       whyNow: "Semantic layer inferred a generic approval checkpoint.",
       factors: ["human.input.requested", "approval"],
       relationHints: [],

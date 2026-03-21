@@ -22,8 +22,6 @@
         "stepLabel": "repeated failure",
         "intentFrame": "failure",
         "activityClass": "tool_failure",
-        "operatorActionRequired": true,
-        "requestExplicitness": "none",
         "consequence": "high",
         "relationKindsInclude": ["same_issue", "repeats"]
       }

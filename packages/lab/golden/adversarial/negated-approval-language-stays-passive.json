@@ -24,8 +24,6 @@
         "stepLabel": "negated approval status",
         "intentFrame": "status_update",
         "activityClass": "status_update",
-        "operatorActionRequired": false,
-        "requestExplicitness": "none",
         "consequence": "low",
         "relationKindsExact": [],
         "reasonsInclude": ["task update carries a non-blocking lifecycle status"]

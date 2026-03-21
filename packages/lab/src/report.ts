@@ -53,7 +53,7 @@ export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
     if (result.run.semantics.length > 0) {
       for (const semantic of result.run.semantics) {
         lines.push(
-          `- Semantic (${semantic.stepLabel ?? `step ${semantic.stepIndex}`}): ${semantic.interpretation.intentFrame}, consequence=${semantic.interpretation.consequence ?? "none"}, actionRequired=${semantic.interpretation.operatorActionRequired}, explicitness=${semantic.interpretation.requestExplicitness}`,
+          `- Semantic (${semantic.stepLabel ?? `step ${semantic.stepIndex}`}): ${semantic.interpretation.intentFrame}, consequence=${semantic.interpretation.consequence ?? "none"}, confidence=${semantic.interpretation.confidence}`,
         );
         if (semantic.interpretation.relationHints.length > 0) {
           lines.push(

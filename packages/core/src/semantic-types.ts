@@ -22,8 +22,6 @@ export type SemanticConsequenceLevel = "low" | "medium" | "high";
 
 export type SemanticConfidence = "low" | "medium" | "high";
 
-export type SemanticRequestExplicitness = "none" | "implied" | "explicit";
-
 export type SemanticRelationHint = {
   kind: "same_issue" | "resolves" | "supersedes" | "repeats" | "escalates";
   target?: string;
@@ -39,8 +37,6 @@ export type SemanticRelationHint = {
  *   explanatory and benchmark-facing.
  * - `confidence` and `abstained` are semantic uncertainty signals, but they
  *   are not live score multipliers today.
- * - `operatorActionRequired` and `requestExplicitness` are retained for
- *   inspection and Lab assertions. They are not authoritative routing inputs.
  * - On `task.updated`, `status` remains authoritative for routing even when
  *   the semantic read is richer.
  */
@@ -51,10 +47,6 @@ export type SemanticInterpretation = {
   activityClass?: SemanticActivityClass;
   /** Decision-bearing when projected into canonical events. */
   toolFamily?: string;
-  /** Diagnostic only for now; not a live routing input. */
-  operatorActionRequired: boolean;
-  /** Diagnostic only for now; not a live routing input. */
-  requestExplicitness: SemanticRequestExplicitness;
   /** Decision-bearing on human-input normalization; non-authoritative on task status routing. */
   consequence?: SemanticConsequenceLevel;
   /** Explanation-bearing semantic summary for provenance and review surfaces. */

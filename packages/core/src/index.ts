@@ -26,5 +26,4 @@ export type {
   SemanticInterpretationHints,
   SemanticIntentFrame,
   SemanticRelationHint,
-  SemanticRequestExplicitness,
 } from "./semantic-types.js";

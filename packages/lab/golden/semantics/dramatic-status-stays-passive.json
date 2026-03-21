@@ -24,8 +24,6 @@
         "stepLabel": "dramatic status",
         "intentFrame": "status_update",
         "activityClass": "status_update",
-        "operatorActionRequired": false,
-        "requestExplicitness": "none",
         "consequence": "low",
         "confidence": "high",
         "relationKindsExact": [],

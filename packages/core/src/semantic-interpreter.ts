@@ -37,8 +37,6 @@ function inferSemanticInterpretation(event: SourceEvent): SemanticInterpretation
       return {
         intentFrame: "task_started",
         activityClass: "session_status",
-        operatorActionRequired: false,
-        requestExplicitness: "none",
         consequence: "low",
         factors: ["task.started"],
         relationHints: [],
@@ -53,8 +51,6 @@ function inferSemanticInterpretation(event: SourceEvent): SemanticInterpretation
       return {
         intentFrame: "completion",
         activityClass: "tool_completion",
-        operatorActionRequired: false,
-        requestExplicitness: "none",
         consequence: "low",
         factors: ["task.completed"],
         relationHints: [],
@@ -65,8 +61,6 @@ function inferSemanticInterpretation(event: SourceEvent): SemanticInterpretation
       return {
         intentFrame: "cancellation",
         activityClass: "status_update",
-        operatorActionRequired: false,
-        requestExplicitness: "none",
         consequence: "low",
         ...(event.reason
           ? { whyNow: semanticWhyNowForTaskStatus("completed", { wasCancelled: true }) ?? "Work was cancelled and may need review." }
@@ -95,8 +89,6 @@ function inferTaskUpdateSemantics(
         intentFrame: "failure",
         activityClass: "tool_failure",
         ...(toolFamily ? { toolFamily } : {}),
-        operatorActionRequired: true,
-        requestExplicitness: impliedAsk ? "implied" : "none",
         consequence: inferConsequenceFromSemanticText(text, "high", toolFamily),
         whyNow: semanticWhyNowForTaskStatus("failed") ?? "Work has failed and should be reviewed.",
         factors: ["task.updated", "failed"],
@@ -109,8 +101,6 @@ function inferTaskUpdateSemantics(
         intentFrame: "blocked_work",
         activityClass: "status_update",
         ...(toolFamily ? { toolFamily } : {}),
-        operatorActionRequired: true,
-        requestExplicitness: impliedAsk ? "implied" : "none",
         consequence: inferConsequenceFromSemanticText(text, "medium", toolFamily),
         whyNow: semanticWhyNowForTaskStatus("blocked") ?? "Work is blocked and may require operator attention.",
         factors: ["task.updated", "blocked"],
@@ -125,8 +115,6 @@ function inferTaskUpdateSemantics(
         intentFrame: "status_update",
         activityClass: "status_update",
         ...(toolFamily ? { toolFamily } : {}),
-        operatorActionRequired: impliedAsk,
-        requestExplicitness: impliedAsk ? "implied" : "none",
         consequence: inferConsequenceFromSemanticText(text, "low", toolFamily),
         ...(() => {
           const whyNow = impliedAsk ? semanticWhyNowForTaskStatus(event.status, { impliedAsk }) : undefined;
@@ -155,8 +143,6 @@ function inferHumanInputSemantics(
     intentFrame: semanticIntentFrameForRequestKind(event.request.kind),
     activityClass: semanticActivityClassForRequestKind(event.request.kind),
     ...(toolFamily ? { toolFamily } : {}),
-    operatorActionRequired: true,
-    requestExplicitness: "explicit",
     consequence,
     whyNow: semanticWhyNowForRequestKind(event.request.kind, consequence),
     factors: ["human.input.requested", event.request.kind],

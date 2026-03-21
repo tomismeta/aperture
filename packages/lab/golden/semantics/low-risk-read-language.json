@@ -22,8 +22,6 @@
         "intentFrame": "approval_request",
         "activityClass": "permission_request",
         "toolFamily": "read",
-        "operatorActionRequired": true,
-        "requestExplicitness": "explicit",
         "consequence": "low",
         "confidence": "medium",
         "factorsInclude": ["human.input.requested", "approval"]

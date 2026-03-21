@@ -23,8 +23,6 @@
         "stepLabel": "implied ask status",
         "intentFrame": "status_update",
         "activityClass": "status_update",
-        "operatorActionRequired": true,
-        "requestExplicitness": "implied",
         "consequence": "low",
         "confidence": "low",
         "whyNowIncludes": "implies the operator may need to respond",

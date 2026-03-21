@@ -22,8 +22,6 @@
         "stepLabel": "dangerous approval",
         "intentFrame": "approval_request",
         "activityClass": "permission_request",
-        "operatorActionRequired": true,
-        "requestExplicitness": "explicit",
         "consequence": "high",
         "whyNowIncludes": "explicit operator approval",
         "factorsInclude": ["human.input.requested", "approval"]

@@ -199,8 +199,6 @@ function evaluateSemanticExpectation(
   pushFieldAssertion(assertions, `${targetKey} intent frame`, expectation.intentFrame, semantic.intentFrame);
   pushFieldAssertion(assertions, `${targetKey} activity class`, expectation.activityClass, semantic.activityClass);
   pushFieldAssertion(assertions, `${targetKey} tool family`, expectation.toolFamily, semantic.toolFamily ?? null);
-  pushFieldAssertion(assertions, `${targetKey} operator action required`, expectation.operatorActionRequired, semantic.operatorActionRequired);
-  pushFieldAssertion(assertions, `${targetKey} request explicitness`, expectation.requestExplicitness, semantic.requestExplicitness);
   pushFieldAssertion(assertions, `${targetKey} consequence`, expectation.consequence, semantic.consequence);
   pushFieldAssertion(assertions, `${targetKey} confidence`, expectation.confidence, semantic.confidence);
   pushFieldAssertion(assertions, `${targetKey} abstained`, expectation.abstained, semantic.abstained ?? false);

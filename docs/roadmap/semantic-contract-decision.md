@@ -77,28 +77,26 @@ Current rule:
 - do not treat `confidence` as a hidden scoring multiplier
 - do not let `abstained` silently reroute work until that policy is designed explicitly
 
-### 4. Diagnostic semantics retained for now
+### 4. Removed ambiguous fields
 
-These fields are currently useful for tests, Lab assertions, and adapter-side inspection.
+These fields were removed from the core semantic shape in this tranche:
 
 - `operatorActionRequired`
 - `requestExplicitness`
 
-They are not currently authoritative routing inputs.
+Why:
 
-That means:
+- they were not authoritative routing inputs
+- they were not needed to preserve current explanation behavior
+- they encouraged readers to assume the engine honored semantics it did not actually route on
 
-- they should not silently drive interruption policy
-- they should not be treated as if they already affect scoring
-- new engine logic should not start depending on them casually
+The retained substitutes are:
 
-Their long-term fate should be one of:
+- `whyNow`
+- `reasons`
+- `confidence`
 
-- wire them into explicit policy later
-- demote them to a non-core diagnostic shape
-- remove them if they stay redundant
-
-For this tranche, they remain in the semantic object but are classified as non-routing metadata.
+Those fields preserve useful semantic signal without pretending there is already a fully live operator-action or explicitness contract in the hot path.
 
 ## `task.updated` Contract
 
@@ -123,7 +121,7 @@ The semantic layer is still useful on this path, but in a bounded way.
 - infer `activityClass` if the source omitted it
 - infer `relationHints` for continuity
 - provide `whyNow`, `factors`, and `reasons` for provenance and explanation
-- provide inspection metadata like `intentFrame`, `operatorActionRequired`, and `requestExplicitness`
+- provide inspection metadata like `intentFrame` and `confidence`
 
 ### What semantic interpretation is not allowed to do on `task.updated`
 

@@ -9,7 +9,6 @@ import type {
   SemanticConsequenceLevel,
   SemanticIntentFrame,
   SemanticRelationHint,
-  SemanticRequestExplicitness,
   SemanticInterpretation,
   SourceEvent,
 } from "@tomismeta/aperture-core";
@@ -111,8 +110,6 @@ export type ReplaySemanticExpectation = {
   intentFrame?: SemanticIntentFrame;
   activityClass?: SemanticActivityClass;
   toolFamily?: string | null;
-  operatorActionRequired?: boolean;
-  requestExplicitness?: SemanticRequestExplicitness;
   consequence?: SemanticConsequenceLevel;
   confidence?: SemanticConfidence;
   abstained?: boolean;

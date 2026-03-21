@@ -222,6 +222,59 @@ test("event provenance whyNow remains authoritative over semantic whyNow on huma
   ]);
 });
 
+test("human-input explanation semantics do not change routing shape", () => {
+  const baseline = evaluation.evaluate({
+    id: "evt:approval:baseline",
+    taskId: "task:1",
+    timestamp: "2026-03-08T12:03:45.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:approval:baseline",
+    title: "Approve deploy",
+    summary: "A deploy needs approval.",
+    consequence: "medium",
+    request: {
+      kind: "approval",
+    },
+  });
+
+  const explained = evaluation.evaluate({
+    id: "evt:approval:explained",
+    taskId: "task:1",
+    timestamp: "2026-03-08T12:03:45.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:approval:explained",
+    title: "Approve deploy",
+    summary: "A deploy needs approval.",
+    consequence: "medium",
+    semantic: {
+      intentFrame: "approval_request",
+      whyNow: "This deploy is waiting on an explicit approval checkpoint.",
+      factors: ["approval", "deploy"],
+      relationHints: [],
+      confidence: "low",
+      reasons: ["request kind establishes an explicit operator decision point"],
+    },
+    request: {
+      kind: "approval",
+    },
+  });
+
+  assert.equal(baseline.kind, "candidate");
+  assert.equal(explained.kind, "candidate");
+  if (baseline.kind !== "candidate" || explained.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(explained.candidate.mode, baseline.candidate.mode);
+  assert.equal(explained.candidate.priority, baseline.candidate.priority);
+  assert.equal(explained.candidate.tone, baseline.candidate.tone);
+  assert.equal(explained.candidate.consequence, baseline.candidate.consequence);
+  assert.equal(explained.candidate.blocking, baseline.candidate.blocking);
+  assert.equal(explained.candidate.responseSpec.kind, baseline.candidate.responseSpec.kind);
+  assert.equal(explained.candidate.provenance?.whyNow, "This deploy is waiting on an explicit approval checkpoint.");
+  assert.equal(explained.candidate.semanticConfidence, "low");
+});
+
 test("completed tasks clear current interaction state", () => {
   const result = evaluation.evaluate({
     id: "evt:complete",

@@ -413,3 +413,53 @@ test("publishSourceEvent matches publishing the equivalent normalized status eve
   assert.deepEqual(sourceCore.getTaskView(sourceEvent.taskId), eventCore.getTaskView(sourceEvent.taskId));
   assert.deepEqual(sourceCore.getAttentionView(), eventCore.getAttentionView());
 });
+
+test("publishSourceEvent matches publishing the equivalent low-confidence normalized status event", () => {
+  const sourceEvent: SourceEvent = {
+    id: "evt:parity:status:low-confidence",
+    type: "task.updated",
+    taskId: "task:parity:status:low-confidence",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Build failed",
+    summary: "The latest build failed and may need a retry.",
+    status: "failed",
+    semanticHints: {
+      confidence: "low",
+    },
+  };
+  const normalizedEvent = normalizeSourceEvent(sourceEvent);
+  const sourceCore = new ApertureCore();
+  const eventCore = new ApertureCore();
+
+  sourceCore.publishSourceEvent(sourceEvent);
+  eventCore.publish(normalizedEvent);
+
+  assert.deepEqual(sourceCore.getTaskView(sourceEvent.taskId), eventCore.getTaskView(sourceEvent.taskId));
+  assert.deepEqual(sourceCore.getAttentionView(), eventCore.getAttentionView());
+});
+
+test("publishSourceEvent matches publishing the equivalent abstained normalized status event", () => {
+  const sourceEvent: SourceEvent = {
+    id: "evt:parity:status:abstained",
+    type: "task.updated",
+    taskId: "task:parity:status:abstained",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Dependency fetch blocked",
+    summary: "Dependency fetch is blocked, but the semantic read abstains until clearer evidence arrives.",
+    status: "blocked",
+    semanticHints: {
+      abstained: true,
+    },
+  };
+  const normalizedEvent = normalizeSourceEvent(sourceEvent);
+  const sourceCore = new ApertureCore();
+  const eventCore = new ApertureCore();
+
+  sourceCore.publishSourceEvent(sourceEvent);
+  eventCore.publish(normalizedEvent);
+
+  assert.deepEqual(sourceCore.getTaskView(sourceEvent.taskId), eventCore.getTaskView(sourceEvent.taskId));
+  assert.deepEqual(sourceCore.getAttentionView(), eventCore.getAttentionView());
+});

@@ -22,6 +22,7 @@
     "opencode:disconnect": "tsx scripts/opencode-disconnect.ts",
     "opencode:start": "tsx scripts/opencode-adapter.ts",
     "sdk:prove": "tsx scripts/prove-core-sdk.ts",
+    "session:export": "tsx scripts/session-export.ts",
     "serve": "tsx scripts/runtime-server.ts",
     "test": "tsx --test packages/*/test/**/*.test.ts",
     "tui": "tsx scripts/aperture-tui.ts",

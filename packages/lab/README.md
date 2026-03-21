@@ -115,6 +115,16 @@ The first harvested-reality layer is now also live:
 These helpers are designed for redacted, local-first replay bundles rather than
 raw execution logs.
 
+The fastest way to export a live runtime capture into a Lab bundle is:
+
+```bash
+pnpm session:export
+```
+
+This will discover the most recent local Aperture runtime, fetch its session
+capture, convert that capture into a replay bundle, and write the bundle under
+[packages/lab/bundles](/Users/tom/dev/aperture/packages/lab/bundles).
+
 ## Status
 
 - good enough to start collecting golden scenarios

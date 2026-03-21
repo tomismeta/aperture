@@ -2,6 +2,7 @@ import { basename } from "node:path";
 
 import type {
   AttentionResponse,
+  HumanInputRequest,
   SourceEvent,
   SourceHumanInputRequestedEvent,
   SourceTaskCompletedEvent,
@@ -13,6 +14,8 @@ export type ClaudeCodeHookEvent =
   | ClaudeCodePreToolUseEvent
   | ClaudeCodePostToolUseFailureEvent
   | ClaudeCodePostToolUseEvent
+  | ClaudeCodeElicitationEvent
+  | ClaudeCodeElicitationResultEvent
   | ClaudeCodeNotificationEvent
   | ClaudeCodeUserPromptSubmitEvent
   | ClaudeCodeStopEvent;
@@ -21,6 +24,8 @@ export type ClaudeCodeHookEventName =
   | "PreToolUse"
   | "PostToolUseFailure"
   | "PostToolUse"
+  | "Elicitation"
+  | "ElicitationResult"
   | "Notification"
   | "UserPromptSubmit"
   | "Stop";
@@ -54,6 +59,29 @@ export type ClaudeCodePostToolUseEvent = ClaudeCodeHookBaseEvent & {
   tool_use_id: string;
   tool_input?: Record<string, unknown>;
   tool_response?: Record<string, unknown>;
+};
+
+export type ClaudeCodeElicitationMode = "form" | "url";
+
+export type ClaudeCodeElicitationEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "Elicitation";
+  mcp_server_name: string;
+  message: string;
+  mode?: ClaudeCodeElicitationMode;
+  url?: string;
+  elicitation_id?: string;
+  requested_schema?: Record<string, unknown>;
+};
+
+export type ClaudeCodeElicitationAction = "accept" | "decline" | "cancel";
+
+export type ClaudeCodeElicitationResultEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "ElicitationResult";
+  mcp_server_name: string;
+  action: ClaudeCodeElicitationAction;
+  mode?: ClaudeCodeElicitationMode;
+  elicitation_id?: string;
+  content?: Record<string, unknown>;
 };
 
 export type ClaudeCodeNotificationType =
@@ -90,10 +118,22 @@ export type ClaudeCodeHookResponse =
         permissionDecisionReason?: string;
       };
     }
+  | {
+      hookSpecificOutput: {
+        hookEventName: "Elicitation";
+        action: ClaudeCodeElicitationAction;
+        content?: Record<string, unknown>;
+      };
+    }
   | Record<string, never>;
 
 export type ClaudeCodePreToolUseMappedEvent = Extract<
   ReturnType<typeof mapPreToolUse>,
+  SourceHumanInputRequestedEvent
+>;
+
+export type ClaudeCodeElicitationMappedEvent = Extract<
+  ReturnType<typeof mapElicitation>,
   SourceHumanInputRequestedEvent
 >;
 
@@ -102,6 +142,9 @@ export type ClaudeCodeMappingOptions = {
   includePostToolUse?: boolean;
   classifyCommand?: (command: string, event: ClaudeCodePreToolUseEvent) => ConsequenceLevel;
 };
+
+type HumanInputFormRequest = Extract<HumanInputRequest, { kind: "form" }>;
+type HumanInputFormField = HumanInputFormRequest["fields"][number];
 
 const DEFAULT_TOOLS: string[] | undefined = undefined;
 const HIGH_CONSEQUENCE_PATTERNS = [
@@ -127,6 +170,10 @@ export function mapClaudeCodeHookEvent(
       return [mapPostToolUseFailure(event)];
     case "PostToolUse":
       return options.includePostToolUse ? [mapPostToolUse(event)] : [];
+    case "Elicitation":
+      return [mapElicitation(event)];
+    case "ElicitationResult":
+      return [mapElicitationResult(event)];
     case "Notification":
       return mapNotification(event);
     case "UserPromptSubmit":
@@ -140,8 +187,43 @@ export function mapClaudeCodeFrameResponse(
   response: AttentionResponse,
 ): ClaudeCodeHookResponse | null {
   const parsed = parseClaudeInteractionId(response.interactionId);
-  if (!parsed || parsed.kind !== "tool") {
+  if (!parsed) {
     return null;
+  }
+
+  if (parsed.kind === "tool") {
+    switch (response.response.kind) {
+      case "acknowledged":
+        return null;
+      case "approved":
+        return {
+          hookSpecificOutput: {
+            hookEventName: "PreToolUse",
+            permissionDecision: "allow",
+          },
+        };
+      case "rejected":
+        return {
+          hookSpecificOutput: {
+            hookEventName: "PreToolUse",
+            permissionDecision: "deny",
+            ...(response.response.reason
+              ? { permissionDecisionReason: response.response.reason }
+              : {}),
+          },
+        };
+      case "dismissed":
+        return {
+          hookSpecificOutput: {
+            hookEventName: "PreToolUse",
+            permissionDecision: "ask",
+          },
+        };
+      case "option_selected":
+      case "form_submitted":
+      case "text_submitted":
+        return null;
+    }
   }
 
   switch (response.response.kind) {
@@ -150,31 +232,57 @@ export function mapClaudeCodeFrameResponse(
     case "approved":
       return {
         hookSpecificOutput: {
-          hookEventName: "PreToolUse",
-          permissionDecision: "allow",
+          hookEventName: "Elicitation",
+          action: "accept",
         },
       };
     case "rejected":
       return {
         hookSpecificOutput: {
-          hookEventName: "PreToolUse",
-          permissionDecision: "deny",
-          ...(response.response.reason
-            ? { permissionDecisionReason: response.response.reason }
-            : {}),
+          hookEventName: "Elicitation",
+          action: "decline",
         },
       };
     case "dismissed":
       return {
         hookSpecificOutput: {
-          hookEventName: "PreToolUse",
-          permissionDecision: "ask",
+          hookEventName: "Elicitation",
+          action: "cancel",
         },
       };
-    case "option_selected":
+    case "option_selected": {
+      const content = elicitationContentFromOptionIds(parsed, response.response.optionIds);
+      if (!content) {
+        return null;
+      }
+      return {
+        hookSpecificOutput: {
+          hookEventName: "Elicitation",
+          action: "accept",
+          content,
+        },
+      };
+    }
+    case "text_submitted": {
+      const content = parsed.fieldId
+        ? { [parsed.fieldId]: response.response.text }
+        : { response: response.response.text };
+      return {
+        hookSpecificOutput: {
+          hookEventName: "Elicitation",
+          action: "accept",
+          content,
+        },
+      };
+    }
     case "form_submitted":
-    case "text_submitted":
-      return null;
+      return {
+        hookSpecificOutput: {
+          hookEventName: "Elicitation",
+          action: "accept",
+          content: response.response.values,
+        },
+      };
   }
 }
 
@@ -298,6 +406,60 @@ function mapPostToolUse(event: ClaudeCodePostToolUseEvent): SourceTaskUpdatedEve
   };
 }
 
+function mapElicitation(event: ClaudeCodeElicitationEvent): SourceHumanInputRequestedEvent {
+  const request = buildElicitationRequest(event);
+  const contextItems = [
+    { id: "mcp_server_name", label: "Server", value: event.mcp_server_name },
+  ];
+
+  if (event.mode) {
+    contextItems.push({ id: "mode", label: "Mode", value: event.mode });
+  }
+  if (event.url) {
+    contextItems.push({ id: "url", label: "URL", value: event.url });
+  }
+
+  const fieldId = singleTextFieldId(event.requested_schema);
+
+  return {
+    id: claudeEventId(event, "human.input.requested"),
+    type: "human.input.requested",
+    taskId: claudeTaskId(event.session_id),
+    interactionId: claudeElicitationInteractionId(
+      event.session_id,
+      event.mcp_server_name,
+      elicitationToken(event),
+      fieldId,
+    ),
+    timestamp: new Date().toISOString(),
+    source: claudeSource(event),
+    toolFamily: "mcp",
+    activityClass: "question_request",
+    title: event.message,
+    summary: elicitationSummary(event, request),
+    request,
+    context: {
+      items: contextItems,
+    },
+    provenance: {
+      whyNow: `Claude is waiting for input from ${event.mcp_server_name}.`,
+    },
+  };
+}
+
+function mapElicitationResult(
+  event: ClaudeCodeElicitationResultEvent,
+): SourceTaskCompletedEvent {
+  return {
+    id: claudeEventId(event, "task.completed"),
+    type: "task.completed",
+    taskId: claudeTaskId(event.session_id),
+    timestamp: new Date().toISOString(),
+    source: claudeSource(event),
+    summary: `Claude ${elicitationActionPastTense(event.action)} an input request for ${event.mcp_server_name}.`,
+  };
+}
+
 function mapNotification(event: ClaudeCodeNotificationEvent): SourceEvent[] {
   if (
     event.notification_type !== "idle_prompt"
@@ -383,32 +545,61 @@ function parseClaudeInteractionId(
       sessionId: string;
       toolUseId: string;
     }
+  | {
+      kind: "elicitation";
+      sessionId: string;
+      mcpServerName: string;
+      elicitationId: string;
+      fieldId?: string;
+    }
   | null {
   const parts = interactionId.split(":");
-  if (parts.length !== 4) {
+  if (parts.length < 4 || parts[0] !== "claude-code") {
     return null;
   }
 
-  if (parts[0] !== "claude-code" || parts[1] !== "tool") {
+  if (parts[1] === "tool") {
+    if (parts.length !== 4) {
+      return null;
+    }
+
+    const sessionIdPart = parts[2];
+    const toolUseIdPart = parts[3];
+    if (!sessionIdPart || !toolUseIdPart) {
+      return null;
+    }
+
+    const sessionId = safeDecode(sessionIdPart);
+    const toolUseId = safeDecode(toolUseIdPart);
+    if (!sessionId || !toolUseId) {
+      return null;
+    }
+
+    return {
+      kind: "tool",
+      sessionId,
+      toolUseId,
+    };
+  }
+
+  if (parts[1] !== "elicitation" || (parts.length !== 5 && parts.length !== 6)) {
     return null;
   }
 
-  const sessionIdPart = parts[2];
-  const toolUseIdPart = parts[3];
-  if (!sessionIdPart || !toolUseIdPart) {
-    return null;
-  }
-
-  const sessionId = safeDecode(sessionIdPart);
-  const toolUseId = safeDecode(toolUseIdPart);
-  if (!sessionId || !toolUseId) {
+  const sessionId = safeDecode(parts[2] ?? "");
+  const mcpServerName = safeDecode(parts[3] ?? "");
+  const elicitationId = safeDecode(parts[4] ?? "");
+  const fieldId = parts[5] ? safeDecode(parts[5]) : null;
+  if (!sessionId || !mcpServerName || !elicitationId) {
     return null;
   }
 
   return {
-    kind: "tool",
+    kind: "elicitation",
     sessionId,
-    toolUseId,
+    mcpServerName,
+    elicitationId,
+    ...(fieldId ? { fieldId } : {}),
   };
 }
 
@@ -420,11 +611,26 @@ function claudeInteractionId(sessionId: string, toolUseId: string): string {
   return `claude-code:tool:${encodeURIComponent(sessionId)}:${encodeURIComponent(toolUseId)}`;
 }
 
+function claudeElicitationInteractionId(
+  sessionId: string,
+  mcpServerName: string,
+  elicitationId: string,
+  fieldId?: string,
+): string {
+  return fieldId
+    ? `claude-code:elicitation:${encodeURIComponent(sessionId)}:${encodeURIComponent(mcpServerName)}:${encodeURIComponent(elicitationId)}:${encodeURIComponent(fieldId)}`
+    : `claude-code:elicitation:${encodeURIComponent(sessionId)}:${encodeURIComponent(mcpServerName)}:${encodeURIComponent(elicitationId)}`;
+}
+
+function elicitationToken(event: ClaudeCodeElicitationEvent): string {
+  return event.elicitation_id ?? event.message;
+}
+
 function claudeEventId(
   event: ClaudeCodeHookEvent,
   suffix: string,
 ): string {
-  return `claude-code:${encodeURIComponent(event.session_id)}:${event.hook_event_name}:${encodeURIComponent("tool_use_id" in event ? event.tool_use_id ?? "none" : "none")}:${suffix}`;
+  return `claude-code:${encodeURIComponent(event.session_id)}:${event.hook_event_name}:${encodeURIComponent(claudeEventToken(event))}:${suffix}`;
 }
 
 function claudeSource(event: Pick<ClaudeCodeHookBaseEvent, "session_id" | "cwd">) {
@@ -483,6 +689,270 @@ function toolInputSummary(event: ClaudeCodePreToolUseEvent): string {
   if (event.tool_name.toLowerCase() === "toolsearch") return "web search";
   if (url) return url;
   return event.tool_name;
+}
+
+function elicitationSummary(
+  event: ClaudeCodeElicitationEvent,
+  request: HumanInputRequest,
+): string {
+  if (request.kind === "approval" && event.url) {
+    return `Open ${event.url} to continue.`;
+  }
+
+  return `Input requested by ${event.mcp_server_name}.`;
+}
+
+function buildElicitationRequest(event: ClaudeCodeElicitationEvent): HumanInputRequest {
+  if (event.mode === "url") {
+    return {
+      kind: "approval",
+    };
+  }
+
+  const schema = event.requested_schema;
+  const singleEnum = singleEnumField(schema);
+  if (singleEnum) {
+    return {
+      kind: "choice",
+      selectionMode: "single",
+      options: singleEnum.values.map((value) => ({
+        id: elicitationChoiceOptionId(singleEnum.fieldId, value),
+        label: value,
+      })),
+    };
+  }
+
+  const singleBoolean = singleBooleanField(schema);
+  if (singleBoolean) {
+    return {
+      kind: "choice",
+      selectionMode: "single",
+      options: [
+        { id: elicitationChoiceOptionId(singleBoolean.fieldId, "true"), label: "Yes" },
+        { id: elicitationChoiceOptionId(singleBoolean.fieldId, "false"), label: "No" },
+      ],
+    };
+  }
+
+  const textFieldId = singleTextFieldId(schema);
+  if (textFieldId) {
+    return {
+      kind: "choice",
+      selectionMode: "single",
+      allowTextResponse: true,
+      options: [],
+    };
+  }
+
+  const fields = schemaToFormFields(schema);
+  if (fields.length > 0) {
+    return {
+      kind: "form",
+      fields,
+    };
+  }
+
+  return {
+    kind: "choice",
+    selectionMode: "single",
+    allowTextResponse: true,
+    options: [],
+  };
+}
+
+function schemaToFormFields(schema: Record<string, unknown> | undefined): HumanInputFormField[] {
+  const properties = schemaProperties(schema);
+  const required = schemaRequiredFields(schema);
+  return Object.entries(properties).flatMap(([fieldId, definition]) => {
+    const field = definitionToFormField(fieldId, definition, required.has(fieldId));
+    return field ? [field] : [];
+  });
+}
+
+function definitionToFormField(
+  fieldId: string,
+  definition: Record<string, unknown>,
+  required: boolean,
+): HumanInputFormField | null {
+  const label = readString(definition.title) ?? humanizeFieldId(fieldId);
+  const type = fieldType(definition);
+
+  switch (type) {
+    case "string": {
+      const enumValues = readStringArray(definition.enum);
+      if (enumValues) {
+        return {
+          id: fieldId,
+          label,
+          type: "select",
+          required,
+          options: enumValues.map((value) => ({ value, label: value })),
+        };
+      }
+      return {
+        id: fieldId,
+        label,
+        type: "text",
+        required,
+      };
+    }
+    case "integer":
+    case "number":
+      return {
+        id: fieldId,
+        label,
+        type: "number",
+        required,
+      };
+    case "boolean":
+      return {
+        id: fieldId,
+        label,
+        type: "boolean",
+        required,
+      };
+    default:
+      return null;
+  }
+}
+
+function schemaProperties(schema: Record<string, unknown> | undefined): Record<string, Record<string, unknown>> {
+  if (!schema || typeof schema !== "object") {
+    return {};
+  }
+  const properties = schema.properties;
+  if (!properties || typeof properties !== "object" || Array.isArray(properties)) {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.entries(properties).flatMap(([key, value]) => {
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        return [[key, value as Record<string, unknown>]];
+      }
+      return [];
+    }),
+  );
+}
+
+function schemaRequiredFields(schema: Record<string, unknown> | undefined): Set<string> {
+  const required = Array.isArray(schema?.required)
+    ? schema.required.filter((value): value is string => typeof value === "string")
+    : [];
+  return new Set(required);
+}
+
+function singleEnumField(
+  schema: Record<string, unknown> | undefined,
+): { fieldId: string; values: string[] } | null {
+  const properties = Object.entries(schemaProperties(schema));
+  if (properties.length !== 1) {
+    return null;
+  }
+  const [fieldId, definition] = properties[0]!;
+  const values = readStringArray(definition.enum);
+  if (!values || fieldType(definition) !== "string") {
+    return null;
+  }
+  return { fieldId, values };
+}
+
+function singleBooleanField(
+  schema: Record<string, unknown> | undefined,
+): { fieldId: string } | null {
+  const properties = Object.entries(schemaProperties(schema));
+  if (properties.length !== 1) {
+    return null;
+  }
+  const [fieldId, definition] = properties[0]!;
+  return fieldType(definition) === "boolean" ? { fieldId } : null;
+}
+
+function singleTextFieldId(schema: Record<string, unknown> | undefined): string | undefined {
+  const properties = Object.entries(schemaProperties(schema));
+  if (properties.length !== 1) {
+    return undefined;
+  }
+  const [fieldId, definition] = properties[0]!;
+  return fieldType(definition) === "string" && !readStringArray(definition.enum)
+    ? fieldId
+    : undefined;
+}
+
+function fieldType(definition: Record<string, unknown>): string | undefined {
+  return readString(definition.type);
+}
+
+function elicitationChoiceOptionId(fieldId: string, value: string): string {
+  return `${encodeURIComponent(fieldId)}=${encodeURIComponent(value)}`;
+}
+
+function elicitationContentFromOptionIds(
+  parsed: Extract<NonNullable<ReturnType<typeof parseClaudeInteractionId>>, { kind: "elicitation" }>,
+  optionIds: string[],
+): Record<string, unknown> | null {
+  const selected = optionIds[0];
+  if (!selected) {
+    return null;
+  }
+
+  const separator = selected.indexOf("=");
+  if (separator === -1) {
+    return parsed.fieldId ? { [parsed.fieldId]: selected } : null;
+  }
+
+  const fieldId = safeDecode(selected.slice(0, separator));
+  const value = safeDecode(selected.slice(separator + 1));
+  if (!fieldId || value === null) {
+    return null;
+  }
+
+  if (value === "true") {
+    return { [fieldId]: true };
+  }
+  if (value === "false") {
+    return { [fieldId]: false };
+  }
+
+  return { [fieldId]: value };
+}
+
+function readStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const next = value.filter((item): item is string => typeof item === "string" && item.length > 0);
+  return next.length > 0 ? next : undefined;
+}
+
+function humanizeFieldId(fieldId: string): string {
+  return fieldId
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function claudeEventToken(event: ClaudeCodeHookEvent): string {
+  if ("tool_use_id" in event && typeof event.tool_use_id === "string" && event.tool_use_id.length > 0) {
+    return event.tool_use_id;
+  }
+
+  if ("elicitation_id" in event) {
+    return event.elicitation_id ?? ("message" in event ? event.message : "none");
+  }
+
+  return "none";
+}
+
+function elicitationActionPastTense(action: ClaudeCodeElicitationAction): string {
+  switch (action) {
+    case "accept":
+      return "accepted";
+    case "decline":
+      return "declined";
+    case "cancel":
+      return "cancelled";
+  }
 }
 
 function claudeToolFamily(toolName: string): string | undefined {

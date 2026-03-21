@@ -17,6 +17,7 @@ The Claude Code adapter is a real working capability on `main`.
 Today, Aperture supports:
 
 - Claude Code tool approval requests
+- Claude Code structured elicitation requests
 - post-tool failure awareness
 - non-blocking completion awareness
 - waiting / input-needed awareness
@@ -46,6 +47,8 @@ This is different from OpenCode because Claude's public integration seam is hook
 ## What it supports today
 
 - `PreToolUse` hook payloads
+- `Elicitation` hook payloads
+- `ElicitationResult` hook payloads
 - `PostToolUseFailure` hook payloads
 - `PostToolUse` hook payloads for non-blocking completion awareness
 - `Notification` hook payloads for waiting/input handoff
@@ -54,6 +57,7 @@ This is different from OpenCode because Claude's public integration seam is hook
 - local HTTP hook server
 - command-hook shim transport
 - tool-aware risk hints for `Read` / `Write` / `Edit` / `WebSearch` / `Bash`
+- schema-aware mapping from Claude elicitation into Aperture choice/form/reply flows
 
 ## What it does not support yet
 
@@ -189,6 +193,26 @@ If you prefer to wire it manually, the resulting config shape is:
         ]
       }
     ],
+    "Elicitation": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/path/to/aperture/node_modules/.bin/tsx\" \"/path/to/aperture/scripts/claude-forward.ts\""
+          }
+        ]
+      }
+    ],
+    "ElicitationResult": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/path/to/aperture/node_modules/.bin/tsx\" \"/path/to/aperture/scripts/claude-forward.ts\""
+          }
+        ]
+      }
+    ],
     "Notification": [
       {
         "hooks": [
@@ -226,6 +250,7 @@ If you prefer to wire it manually, the resulting config shape is:
 ## Notes
 
 - The forwarder reads the Claude hook payload from stdin and POSTs it to the local Aperture server.
+- Claude's command-only hook events like `Elicitation` and `ElicitationResult` use the same command-hook forwarder path, so they still flow through the shared local adapter.
 - The shared Aperture runtime owns `ApertureCore`; the Claude hook server is one ingress into it, and the TUI is an optional client surface.
 - Claude Code and OpenCode share the same runtime and TUI; only their ingress and connection setup differ.
 - Live Aperture runtimes register themselves locally so the TUI can detect what is up before it connects.
@@ -233,6 +258,7 @@ If you prefer to wire it manually, the resulting config shape is:
 - If a held approval times out, Aperture emits an ambient fallback note so the handoff back to Claude Code is visible.
 - Claude frames are labeled with workspace basename plus a short session token so multiple Claude Code sessions are distinguishable in the TUI.
 - Idle/input notifications show up as focused waiting status so you can see which Claude instance is blocked on you.
+- Structured Claude elicitation can now surface as real TUI choice, form, reply, or auth-approval interactions instead of collapsing into status text.
 - End-of-turn follow-up questions from Claude can surface through `Stop` when the assistant message actually looks like a question.
 - `pnpm claude:connect --global` writes `~/.claude/settings.json`; the project-level command writes `.claude/settings.local.json`.
 - `pnpm claude:disconnect --global` removes only Aperture's Claude hook commands and leaves unrelated Claude hooks alone.

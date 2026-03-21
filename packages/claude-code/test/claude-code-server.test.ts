@@ -268,6 +268,144 @@ test("publishes idle notifications as waiting status", async () => {
   }
 });
 
+test("holds elicitation requests until Aperture responds", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core, {
+    holdTimeoutMs: 250,
+    elicitationPolicy: () => "hold",
+  });
+  const { url } = await server.listen();
+
+  try {
+    const responsePromise = fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "Elicitation",
+        mcp_server_name: "build-server",
+        elicitation_id: "elicit-1",
+        message: "Should I run the full test suite before merging this branch?",
+        mode: "form",
+        requested_schema: {
+          type: "object",
+          properties: {
+            suite: {
+              type: "string",
+              enum: ["Full suite", "Core only", "Skip tests"],
+            },
+          },
+        },
+      }),
+    });
+
+    const frame = await waitFor(() => core.getAttentionView().active);
+    assert.ok(frame);
+    assert.equal(frame?.title, "Should I run the full test suite before merging this branch?");
+
+    core.submit({
+      taskId: "claude-code:session:session-1",
+      interactionId: "claude-code:elicitation:session-1:build-server:elicit-1",
+      response: { kind: "option_selected", optionIds: ["suite=Core%20only"] },
+    });
+
+    const response = await responsePromise;
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      hookSpecificOutput: {
+        hookEventName: "Elicitation",
+        action: "accept",
+        content: {
+          suite: "Core only",
+        },
+      },
+    });
+  } finally {
+    await server.close();
+  }
+});
+
+test("lets Claude handle elicitation natively when no surface policy is active", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core, {
+    elicitationPolicy: () => "native",
+  });
+  const { url } = await server.listen();
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "Elicitation",
+        mcp_server_name: "build-server",
+        elicitation_id: "elicit-2",
+        message: "Which suite should I run?",
+        mode: "form",
+        requested_schema: {
+          type: "object",
+          properties: {
+            suite: {
+              type: "string",
+              enum: ["Full suite", "Core only"],
+            },
+          },
+        },
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {});
+    assert.equal(core.getAttentionView().active, null);
+  } finally {
+    await server.close();
+  }
+});
+
+test("times out held elicitation requests back to Claude and clears the frame", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core, {
+    holdTimeoutMs: 25,
+    elicitationPolicy: () => "hold",
+  });
+  const { url } = await server.listen();
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "Elicitation",
+        mcp_server_name: "build-server",
+        elicitation_id: "elicit-3",
+        message: "Which suite should I run?",
+        mode: "form",
+        requested_schema: {
+          type: "object",
+          properties: {
+            suite: {
+              type: "string",
+              enum: ["Full suite", "Core only"],
+            },
+          },
+        },
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {});
+    await sleep(10);
+    assert.equal(core.getAttentionView().active, null);
+  } finally {
+    await server.close();
+  }
+});
+
 test("user prompt submit clears a waiting notification frame", async () => {
   const core = new ApertureCore();
   const server = createClaudeCodeHookServer(core);

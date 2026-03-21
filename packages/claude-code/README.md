@@ -64,6 +64,7 @@ The package currently includes:
 
 - a mapping layer for Claude hook events
 - a host-facing local hook server for hold-and-reply behavior
+- structured elicitation mapping for choice, form, reply, and URL-auth requests
 - tool-aware risk hints for Bash, read, write, edit, and web-style tool calls
 - mapping from `AttentionResponse` back into Claude hook responses
 

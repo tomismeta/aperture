@@ -1,6 +1,9 @@
 import { stderr } from "node:process";
 
-import type { ClaudeCodePreToolUseEvent } from "../packages/claude-code/src/index.ts";
+import type {
+  ClaudeCodeElicitationEvent,
+  ClaudeCodePreToolUseEvent,
+} from "../packages/claude-code/src/index.ts";
 import { createClaudeCodeHookServer } from "../packages/claude-code/src/server.ts";
 import {
   ApertureRuntimeAdapterClient,
@@ -28,9 +31,15 @@ async function main(): Promise<void> {
     includePostToolUse: true,
     tools: undefined,
     preToolUsePolicy: () => (adapterClient.getSurfaceCount() > 0 ? "hold" : "ask"),
+    elicitationPolicy: () => (adapterClient.getSurfaceCount() > 0 ? "hold" : "native"),
     onPreToolUseFallback: (event, reason) => {
       if (reason === "timed_out" || reason === "not_held") {
         void adapterClient.publishSourceEvent(claudeApprovalFallbackEvent(event, reason));
+      }
+    },
+    onElicitationFallback: (event, reason) => {
+      if (reason === "timed_out" || reason === "not_held") {
+        void adapterClient.publishSourceEvent(claudeElicitationFallbackEvent(event, reason));
       }
     },
   });
@@ -111,7 +120,31 @@ function claudeApprovalFallbackEvent(
   };
 }
 
-function claudeSource(event: Pick<ClaudeCodePreToolUseEvent, "session_id" | "cwd">) {
+function claudeElicitationFallbackEvent(
+  event: ClaudeCodeElicitationEvent,
+  reason: "timed_out" | "not_held",
+) {
+  return {
+    id: `claude-code:${encodeURIComponent(event.session_id)}:Elicitation:${encodeURIComponent(
+      event.elicitation_id ?? event.message,
+    )}:fallback:${reason}`,
+    type: "task.updated" as const,
+    taskId: `claude-code:session:${encodeURIComponent(event.session_id)}`,
+    timestamp: new Date().toISOString(),
+    source: claudeSource(event),
+    title:
+      reason === "timed_out"
+        ? "Claude input request timed out"
+        : "Claude input request returned to Claude",
+    summary:
+      reason === "timed_out"
+        ? "Aperture did not receive an input response in time and returned this request to Claude Code."
+        : "Aperture did not retain this input request, so Claude Code handled it natively.",
+    status: "running" as const,
+  };
+}
+
+function claudeSource(event: Pick<ClaudeCodePreToolUseEvent | ClaudeCodeElicitationEvent, "session_id" | "cwd">) {
   const workspace = event.cwd.split("/").filter(Boolean).at(-1) ?? "";
   const session = shortSessionLabel(event.session_id);
   return {

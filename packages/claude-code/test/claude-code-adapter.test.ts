@@ -6,6 +6,8 @@ import {
   classifyToolRisk,
   mapClaudeCodeFrameResponse,
   mapClaudeCodeHookEvent,
+  type ClaudeCodeElicitationEvent,
+  type ClaudeCodeElicitationResultEvent,
   type ClaudeCodeNotificationEvent,
   type ClaudeCodePostToolUseFailureEvent,
   type ClaudeCodePreToolUseEvent,
@@ -274,6 +276,184 @@ test("maps ToolSearch into low-risk web search wording", () => {
   }
 });
 
+test("maps elicitation enum schemas into choice requests", () => {
+  const event: ClaudeCodeElicitationEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "Elicitation",
+    mcp_server_name: "build-server",
+    elicitation_id: "elicit-1",
+    message: "Should I run the full test suite before merging this branch?",
+    mode: "form",
+    requested_schema: {
+      type: "object",
+      properties: {
+        suite: {
+          type: "string",
+          title: "Suite",
+          enum: ["Full suite", "Core only", "Skip tests"],
+        },
+      },
+    },
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "human.input.requested");
+  if (mapped[0]?.type === "human.input.requested") {
+    assert.equal(mapped[0].title, event.message);
+    assert.equal(mapped[0].summary, "Input requested by build-server.");
+    assert.equal(mapped[0].toolFamily, "mcp");
+    assert.equal(mapped[0].request.kind, "choice");
+    if (mapped[0].request.kind === "choice") {
+      assert.equal(mapped[0].request.selectionMode, "single");
+      assert.deepEqual(
+        mapped[0].request.options.map((option) => option.label),
+        ["Full suite", "Core only", "Skip tests"],
+      );
+    }
+    assert.equal(
+      mapped[0].interactionId,
+      "claude-code:elicitation:session-1:build-server:elicit-1",
+    );
+  }
+});
+
+test("maps single text elicitation schemas into reply requests", () => {
+  const event: ClaudeCodeElicitationEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "Elicitation",
+    mcp_server_name: "auth-server",
+    elicitation_id: "elicit-2",
+    message: "What username should I use?",
+    mode: "form",
+    requested_schema: {
+      type: "object",
+      properties: {
+        username: {
+          type: "string",
+          title: "Username",
+        },
+      },
+      required: ["username"],
+    },
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "human.input.requested");
+  if (mapped[0]?.type === "human.input.requested") {
+    assert.equal(mapped[0].request.kind, "choice");
+    if (mapped[0].request.kind === "choice") {
+      assert.equal(mapped[0].request.allowTextResponse, true);
+      assert.deepEqual(mapped[0].request.options, []);
+    }
+    assert.equal(
+      mapped[0].interactionId,
+      "claude-code:elicitation:session-1:auth-server:elicit-2:username",
+    );
+  }
+});
+
+test("maps multi-field elicitation schemas into form requests", () => {
+  const event: ClaudeCodeElicitationEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "Elicitation",
+    mcp_server_name: "deploy-server",
+    elicitation_id: "elicit-3",
+    message: "Provide deploy parameters.",
+    mode: "form",
+    requested_schema: {
+      type: "object",
+      required: ["environment", "rollback"],
+      properties: {
+        environment: {
+          type: "string",
+          title: "Environment",
+          enum: ["staging", "production"],
+        },
+        rollback: {
+          type: "boolean",
+          title: "Rollback",
+        },
+        timeout: {
+          type: "number",
+          title: "Timeout seconds",
+        },
+      },
+    },
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "human.input.requested");
+  if (mapped[0]?.type === "human.input.requested") {
+    assert.equal(mapped[0].request.kind, "form");
+    if (mapped[0].request.kind === "form") {
+      assert.deepEqual(
+        mapped[0].request.fields.map((field) => ({
+          id: field.id,
+          type: field.type,
+          required: field.required ?? false,
+        })),
+        [
+          { id: "environment", type: "select", required: true },
+          { id: "rollback", type: "boolean", required: true },
+          { id: "timeout", type: "number", required: false },
+        ],
+      );
+    }
+  }
+});
+
+test("maps url elicitation into approval with auth context", () => {
+  const event: ClaudeCodeElicitationEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "Elicitation",
+    mcp_server_name: "auth-server",
+    elicitation_id: "elicit-4",
+    message: "Please authenticate",
+    mode: "url",
+    url: "https://auth.example.com/login",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "human.input.requested");
+  if (mapped[0]?.type === "human.input.requested") {
+    assert.equal(mapped[0].request.kind, "approval");
+    assert.equal(mapped[0].summary, "Open https://auth.example.com/login to continue.");
+    assert.deepEqual(mapped[0].context?.items?.at(-1), {
+      id: "url",
+      label: "URL",
+      value: "https://auth.example.com/login",
+    });
+  }
+});
+
+test("maps elicitation result into task completion", () => {
+  const event: ClaudeCodeElicitationResultEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "ElicitationResult",
+    mcp_server_name: "build-server",
+    elicitation_id: "elicit-1",
+    action: "accept",
+    mode: "form",
+    content: { suite: "Full suite" },
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.completed");
+  if (mapped[0]?.type === "task.completed") {
+    assert.match(mapped[0].summary ?? "", /accept/);
+  }
+});
+
 test("maps idle notifications into waiting status updates", () => {
   const event: ClaudeCodeNotificationEvent = {
     session_id: "session-1",
@@ -408,6 +588,74 @@ test("maps dismissed approval responses to ask", () => {
       hookSpecificOutput: {
         hookEventName: "PreToolUse",
         permissionDecision: "ask",
+      },
+    },
+  );
+});
+
+test("maps elicitation responses back to Claude hook decisions", () => {
+  assert.deepEqual(
+    mapClaudeCodeFrameResponse({
+      taskId: "claude-code:session:session-1",
+      interactionId: "claude-code:elicitation:session-1:build-server:elicit-1",
+      response: { kind: "option_selected", optionIds: ["suite=Full%20suite"] },
+    }),
+    {
+      hookSpecificOutput: {
+        hookEventName: "Elicitation",
+        action: "accept",
+        content: {
+          suite: "Full suite",
+        },
+      },
+    },
+  );
+
+  assert.deepEqual(
+    mapClaudeCodeFrameResponse({
+      taskId: "claude-code:session:session-1",
+      interactionId: "claude-code:elicitation:session-1:auth-server:elicit-2:username",
+      response: { kind: "text_submitted", text: "alice" },
+    }),
+    {
+      hookSpecificOutput: {
+        hookEventName: "Elicitation",
+        action: "accept",
+        content: {
+          username: "alice",
+        },
+      },
+    },
+  );
+
+  assert.deepEqual(
+    mapClaudeCodeFrameResponse({
+      taskId: "claude-code:session:session-1",
+      interactionId: "claude-code:elicitation:session-1:deploy-server:elicit-3",
+      response: { kind: "form_submitted", values: { environment: "staging", rollback: false } },
+    }),
+    {
+      hookSpecificOutput: {
+        hookEventName: "Elicitation",
+        action: "accept",
+        content: {
+          environment: "staging",
+          rollback: false,
+        },
+      },
+    },
+  );
+
+  assert.deepEqual(
+    mapClaudeCodeFrameResponse({
+      taskId: "claude-code:session:session-1",
+      interactionId: "claude-code:elicitation:session-1:auth-server:elicit-4",
+      response: { kind: "dismissed" },
+    }),
+    {
+      hookSpecificOutput: {
+        hookEventName: "Elicitation",
+        action: "cancel",
       },
     },
   );

@@ -12,6 +12,8 @@ const DEFAULT_HOOK_SPECS: HookSpec[] = [
   { eventName: "PreToolUse", matcher: "*" },
   { eventName: "PostToolUse", matcher: "*" },
   { eventName: "PostToolUseFailure", matcher: "*" },
+  { eventName: "Elicitation" },
+  { eventName: "ElicitationResult" },
   { eventName: "Notification" },
   { eventName: "UserPromptSubmit" },
   { eventName: "Stop" },

@@ -5,6 +5,8 @@ import type { AttentionResponse, AttentionView, SourceEvent } from "@tomismeta/a
 import {
   mapClaudeCodeFrameResponse,
   mapClaudeCodeHookEvent,
+  type ClaudeCodeElicitationEvent,
+  type ClaudeCodeElicitationMappedEvent,
   type ClaudeCodeHookEvent,
   type ClaudeCodeHookResponse,
   type ClaudeCodeMappingOptions,
@@ -22,8 +24,16 @@ export type ClaudeCodeHookServerOptions = ClaudeCodeMappingOptions & {
     event: ClaudeCodePreToolUseEvent,
     mappedEvent: ClaudeCodePreToolUseMappedEvent,
   ) => "hold" | "ask";
+  elicitationPolicy?: (
+    event: ClaudeCodeElicitationEvent,
+    mappedEvent: ClaudeCodeElicitationMappedEvent,
+  ) => "hold" | "native";
   onPreToolUseFallback?: (
     event: ClaudeCodePreToolUseEvent,
+    reason: "no_surface" | "not_held" | "timed_out",
+  ) => void;
+  onElicitationFallback?: (
+    event: ClaudeCodeElicitationEvent,
     reason: "no_surface" | "not_held" | "timed_out",
   ) => void;
 };
@@ -158,6 +168,57 @@ export function createClaudeCodeHookServer(
         return;
       }
 
+      if (event.hook_event_name === "Elicitation") {
+        const firstMappedEvent = mapped[0];
+        if (!firstMappedEvent || firstMappedEvent.type !== "human.input.requested") {
+          writeJson(res, 200, {});
+          return;
+        }
+
+        const elicitationPolicy = options.elicitationPolicy?.(event, firstMappedEvent);
+        if (elicitationPolicy === "native") {
+          options.onElicitationFallback?.(event, "no_surface");
+          writeJson(res, 200, {});
+          return;
+        }
+
+        const key = pendingKey({
+          taskId: firstMappedEvent.taskId,
+          interactionId: firstMappedEvent.interactionId,
+        });
+        const timeout = setTimeout(() => {
+          clearTimeout(timeout);
+          pending.delete(key);
+          options.onElicitationFallback?.(event, "timed_out");
+          void hostClient.submit({
+            taskId: firstMappedEvent.taskId,
+            interactionId: firstMappedEvent.interactionId,
+            response: { kind: "dismissed" },
+          });
+          writeJson(res, 200, {});
+        }, holdTimeoutMs);
+
+        pending.set(key, {
+          taskId: firstMappedEvent.taskId,
+          interactionId: firstMappedEvent.interactionId,
+          response: res,
+          timeout,
+        });
+
+        await hostClient.publishSourceEvent(firstMappedEvent);
+        if (res.writableEnded) {
+          return;
+        }
+        if (!hasInteraction(hostClient.getAttentionView(), firstMappedEvent.taskId, firstMappedEvent.interactionId)) {
+          clearTimeout(timeout);
+          pending.delete(key);
+          options.onElicitationFallback?.(event, "not_held");
+          writeJson(res, 200, {});
+          return;
+        }
+        return;
+      }
+
       for (const apertureEvent of mapped) {
         await hostClient.publishSourceEvent(apertureEvent);
       }
@@ -270,6 +331,8 @@ async function readHookEvent(
     parsed.hook_event_name !== "PreToolUse" &&
     parsed.hook_event_name !== "PostToolUse" &&
     parsed.hook_event_name !== "PostToolUseFailure" &&
+    parsed.hook_event_name !== "Elicitation" &&
+    parsed.hook_event_name !== "ElicitationResult" &&
     parsed.hook_event_name !== "Notification" &&
     parsed.hook_event_name !== "UserPromptSubmit" &&
     parsed.hook_event_name !== "Stop"
@@ -337,6 +400,53 @@ async function readHookEvent(
       message: parsed.message,
       ...(typeof parsed["title"] === "string" ? { title: parsed["title"] } : {}),
       notification_type: parsed.notification_type as "permission_prompt" | "idle_prompt" | "auth_success" | "elicitation_dialog",
+    };
+  }
+
+  if (parsed.hook_event_name === "Elicitation") {
+    if (typeof parsed.message !== "string" || typeof parsed.mcp_server_name !== "string") {
+      throw new Error("Elicitation hook request is missing required fields");
+    }
+
+    return {
+      session_id: parsed.session_id,
+      cwd: parsed.cwd,
+      hook_event_name: "Elicitation",
+      ...(typeof parsed["permission_mode"] === "string" ? { permission_mode: parsed["permission_mode"] } : {}),
+      ...(typeof parsed["transcript_path"] === "string" ? { transcript_path: parsed["transcript_path"] } : {}),
+      mcp_server_name: parsed.mcp_server_name,
+      message: parsed.message,
+      ...(parsed["mode"] === "form" || parsed["mode"] === "url"
+        ? { mode: parsed["mode"] }
+        : {}),
+      ...(typeof parsed["url"] === "string" ? { url: parsed["url"] } : {}),
+      ...(typeof parsed["elicitation_id"] === "string" ? { elicitation_id: parsed["elicitation_id"] } : {}),
+      ...(parsed["requested_schema"] && typeof parsed["requested_schema"] === "object"
+        ? { requested_schema: parsed["requested_schema"] as Record<string, unknown> }
+        : {}),
+    };
+  }
+
+  if (parsed.hook_event_name === "ElicitationResult") {
+    if (typeof parsed.mcp_server_name !== "string" || typeof parsed.action !== "string") {
+      throw new Error("ElicitationResult hook request is missing required fields");
+    }
+
+    return {
+      session_id: parsed.session_id,
+      cwd: parsed.cwd,
+      hook_event_name: "ElicitationResult",
+      ...(typeof parsed["permission_mode"] === "string" ? { permission_mode: parsed["permission_mode"] } : {}),
+      ...(typeof parsed["transcript_path"] === "string" ? { transcript_path: parsed["transcript_path"] } : {}),
+      mcp_server_name: parsed.mcp_server_name,
+      action: parsed.action as "accept" | "decline" | "cancel",
+      ...(parsed["mode"] === "form" || parsed["mode"] === "url"
+        ? { mode: parsed["mode"] }
+        : {}),
+      ...(typeof parsed["elicitation_id"] === "string" ? { elicitation_id: parsed["elicitation_id"] } : {}),
+      ...(parsed["content"] && typeof parsed["content"] === "object"
+        ? { content: parsed["content"] as Record<string, unknown> }
+        : {}),
     };
   }
 

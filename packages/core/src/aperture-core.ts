@@ -218,7 +218,7 @@ export class ApertureCore {
     switch (evaluation.kind) {
       case "noop": {
         this.notifyTrace(this.traceRecorder.recordNoop({
-          timestamp: new Date().toISOString(),
+          timestamp: this.nowIso(),
           event,
           taskSummary,
           globalSummary,
@@ -236,7 +236,7 @@ export class ApertureCore {
         const result = this.applyClear(event.taskId);
         const postAttentionView = this.getAttentionView();
         this.notifyTrace(this.traceRecorder.recordClear({
-          timestamp: new Date().toISOString(),
+          timestamp: this.nowIso(),
           event,
           taskSummary,
           globalSummary,
@@ -302,7 +302,7 @@ export class ApertureCore {
         }
         const postAttentionView = this.getAttentionView();
         this.notifyTrace(this.traceRecorder.recordCandidate({
-          timestamp: new Date().toISOString(),
+          timestamp: this.nowIso(),
           event,
           taskSummary,
           globalSummary,
@@ -392,14 +392,14 @@ export class ApertureCore {
       return;
     }
 
-    const expiredAt = this.readExpiredResponseTimestamp(current, new Date().toISOString());
+    const expiredAt = this.readExpiredResponseTimestamp(current, this.nowIso());
     if (expiredAt) {
       throw new Error(
         `response for interaction ${response.interactionId} expired at ${expiredAt} and must be revalidated before submission`,
       );
     }
 
-    const timestamp = new Date().toISOString();
+    const timestamp = this.nowIso();
     this.recordSignal(this.signalForResponse(current, response, timestamp));
     this.episodes.resolveInteraction(response.interactionId);
 
@@ -466,11 +466,11 @@ export class ApertureCore {
     };
   }
 
-  snapshotMemoryProfile(now: string = new Date().toISOString()): MemoryProfile {
+  snapshotMemoryProfile(now: string = this.nowIso()): MemoryProfile {
     return distillMemoryProfile(this.baseMemoryProfile, this.signals.list(), now);
   }
 
-  async checkpointMemory(now: string = new Date().toISOString()): Promise<MemoryProfile | null> {
+  async checkpointMemory(now: string = this.nowIso()): Promise<MemoryProfile | null> {
     if (!this.profileStore) {
       return null;
     }
@@ -767,7 +767,7 @@ export class ApertureCore {
   }
 
   private applyAutoResponse(candidate: AttentionCandidate, response: AttentionResponse): null {
-    const timestamp = new Date().toISOString();
+    const timestamp = this.nowIso();
     this.recordSignal({
       kind: "responded",
       taskId: candidate.taskId,
@@ -865,7 +865,7 @@ export class ApertureCore {
       kind,
       taskId,
       interactionId,
-      timestamp: new Date().toISOString(),
+      timestamp: this.nowIso(),
       ...(frame?.id !== undefined ? { frameId: frame.id } : {}),
       ...(frame?.source !== undefined ? { source: frame.source } : {}),
       ...(frame ? { metadata: signalMetadataForFrame(frame) } : {}),
@@ -885,6 +885,10 @@ export class ApertureCore {
     }
 
     return taskView.ambient.find((frame) => frame.interactionId === interactionId) ?? null;
+  }
+
+  private nowIso(): string {
+    return new Date(this.timeSource()).toISOString();
   }
 
   private assertValidEvent(event: ApertureEvent): void {

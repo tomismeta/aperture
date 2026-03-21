@@ -112,6 +112,44 @@ test("publish emits a trace for candidate decisions", () => {
   assert.deepEqual(seenPolicyCriterionRules, ["operator_absence", "interrupt_eligibility"]);
 });
 
+test("timeSource controls trace and interaction timestamps beyond evidence resolution", () => {
+  const fixedTimestamp = "2026-03-08T12:34:56.000Z";
+  const core = new ApertureCore({
+    timeSource: () => Date.parse(fixedTimestamp),
+  });
+  const traces: string[] = [];
+
+  core.onTrace((trace) => {
+    traces.push(trace.timestamp);
+  });
+
+  core.publish({
+    id: "evt:timed",
+    taskId: "task:timed",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:timed",
+    title: "Approve timed command",
+    summary: "A timed interaction is waiting.",
+    request: { kind: "approval" },
+  });
+
+  core.markViewed("task:timed", "interaction:timed", { surface: "lab" });
+
+  core.submit({
+    taskId: "task:timed",
+    interactionId: "interaction:timed",
+    response: { kind: "approved" },
+  });
+
+  assert.equal(traces.at(-1), fixedTimestamp);
+  const signals = core.getSignals("task:timed");
+  assert.equal(signals[1]?.kind, "viewed");
+  assert.equal(signals[1]?.timestamp, fixedTimestamp);
+  assert.equal(signals[2]?.kind, "responded");
+  assert.equal(signals[2]?.timestamp, fixedTimestamp);
+});
+
 test("submit records dismissed signals distinctly", () => {
   const core = new ApertureCore();
 

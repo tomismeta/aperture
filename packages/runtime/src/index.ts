@@ -4,7 +4,10 @@ export {
   type ApertureRuntime,
   type ApertureRuntimeEvent,
   type ApertureRuntimeOptions,
+  type ApertureRuntimeSessionCapture,
+  type ApertureRuntimeSessionStep,
   type ApertureRuntimeSnapshot,
+  type ApertureRuntimeViewSnapshot,
 } from "./runtime.js";
 export { ApertureRuntimeClient, type ApertureRuntimeClientOptions } from "./runtime-client.js";
 export { ApertureRuntimeAdapterClient, type ApertureRuntimeAdapterClientOptions } from "./adapter-client.js";

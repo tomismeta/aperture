@@ -210,7 +210,9 @@ Current status:
 
 - initial local-first bundle schema and load/write helpers now exist in
   `@aperture/lab`
-- runtime and host-side export paths still need to be layered on top
+- runtime can now export a local session capture directly
+- `@aperture/lab` can now convert that capture into a replayable session bundle
+- broader host and adapter export paths still need to be layered on top
 
 ### Phase 3. Shadow mode
 

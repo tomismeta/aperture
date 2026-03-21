@@ -7,7 +7,11 @@ import type { AttentionSignalSummary } from "../../core/src/signal-summary.js";
 import type { AttentionSurfaceCapabilities } from "../../core/src/surface-capabilities.js";
 import type { AttentionState } from "../../core/src/attention-state.js";
 
-import type { ApertureRuntimeEvent, ApertureRuntimeSnapshot } from "./runtime.js";
+import type {
+  ApertureRuntimeEvent,
+  ApertureRuntimeSessionCapture,
+  ApertureRuntimeSnapshot,
+} from "./runtime.js";
 
 export type ApertureRuntimeClientOptions = {
   baseUrl: string;
@@ -136,6 +140,10 @@ export class ApertureRuntimeClient {
     void this.post("/responses", response)
       .then(() => this.refreshState())
       .catch(() => {});
+  }
+
+  exportSessionCapture(): Promise<ApertureRuntimeSessionCapture> {
+    return this.get<ApertureRuntimeSessionCapture>("/session");
   }
 
   async close(): Promise<void> {

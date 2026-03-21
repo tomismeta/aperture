@@ -4,6 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import {
   ApertureCore,
   type AttentionResponse,
+  type AttentionSignal,
   type AttentionView,
   type SourceEvent,
 } from "@tomismeta/aperture-core";
@@ -58,6 +59,43 @@ export type ApertureRuntimeSnapshot = {
   learningPersistence?: LearningPersistenceState;
 };
 
+export type ApertureRuntimeSessionStep =
+  | {
+      sequence: number;
+      recordedAt: string;
+      kind: "publishSource";
+      event: SourceEvent;
+    }
+  | {
+      sequence: number;
+      recordedAt: string;
+      kind: "submit";
+      response: AttentionResponse;
+    };
+
+export type ApertureRuntimeViewSnapshot = {
+  sequence: number;
+  recordedAt: string;
+  attentionView: AttentionView;
+};
+
+export type ApertureRuntimeSessionCapture = {
+  runtimeId: string;
+  kind: string;
+  startedAt: string;
+  exportedAt: string;
+  steps: ApertureRuntimeSessionStep[];
+  sourceEvents: SourceEvent[];
+  responses: AttentionResponse[];
+  signals: AttentionSignal[];
+  traces: ApertureTrace[];
+  viewSnapshots: ApertureRuntimeViewSnapshot[];
+  attentionView: AttentionView;
+  adapters: ApertureRuntimeAdapter[];
+  metadata?: Record<string, string>;
+  learningPersistence?: LearningPersistenceState;
+};
+
 export type ApertureRuntimeAdapter = {
   id: string;
   kind: string;
@@ -77,6 +115,7 @@ export type ApertureRuntime = {
   close(): Promise<void>;
   getCore(): ApertureCore;
   hasAttachedSurface(): boolean;
+  exportSessionCapture(): ApertureRuntimeSessionCapture;
   publishSourceEvent(event: SourceEvent): void;
   publishSourceEventBatch(events: SourceEvent[]): void;
 };
@@ -125,7 +164,14 @@ export function createApertureRuntime(
   const adapters = new Map<string, AdapterSession>();
   const surfaces = new Map<string, SurfaceSession>();
   const events: ApertureRuntimeEvent[] = [];
+  const sourceEvents: SourceEvent[] = [];
+  const responseLog: AttentionResponse[] = [];
+  const signalLog: AttentionSignal[] = [];
+  const traceLog: ApertureTrace[] = [];
+  const viewSnapshots: ApertureRuntimeViewSnapshot[] = [];
+  const sessionSteps: ApertureRuntimeSessionStep[] = [];
   let sequence = 0;
+  let captureSequence = 0;
   let stateVersion = 0;
   let registrationInterval: NodeJS.Timeout | null = null;
   let learningPersistence = options.learningPersistence;
@@ -143,13 +189,28 @@ export function createApertureRuntime(
     }
   };
 
+  const pushBounded = <T>(entries: T[], entry: T) => {
+    entries.push(entry);
+    if (entries.length > eventLogLimit) {
+      entries.splice(0, entries.length - eventLogLimit);
+    }
+  };
+
+  const nextCaptureSequence = () => {
+    captureSequence += 1;
+    return captureSequence;
+  };
+
   const unsubscribeResponse = core.onResponse((response) => {
     pushEvent({ type: "response", response });
+    pushBounded(responseLog, response);
   });
   const unsubscribeTrace = core.onTrace((trace) => {
     pushEvent({ type: "trace", trace });
+    pushBounded(traceLog, trace);
   });
-  const unsubscribeSignal = core.onSignal(() => {
+  const unsubscribeSignal = core.onSignal((signal) => {
+    pushBounded(signalLog, signal);
     bumpStateVersion();
   });
   const unsubscribeAttentionView = core.subscribeAttentionView(() => {
@@ -157,6 +218,11 @@ export function createApertureRuntime(
       seededAttentionViewSubscription = true;
       return;
     }
+    pushBounded(viewSnapshots, {
+      sequence: nextCaptureSequence(),
+      recordedAt: new Date().toISOString(),
+      attentionView: core.getAttentionView(),
+    });
     bumpStateVersion();
   });
 
@@ -237,9 +303,15 @@ export function createApertureRuntime(
         return;
       }
 
+      if (req.method === "GET" && path === `${controlPathPrefix}/session`) {
+        writeJson(res, 200, exportSessionCapture());
+        return;
+      }
+
       if (req.method === "POST" && path === `${controlPathPrefix}/responses`) {
         const response = (await readJson(req, bodyLimitBytes)) as AttentionResponse;
         core.submit(response);
+        recordSubmittedResponse(response);
         writeJson(res, 200, {});
         return;
       }
@@ -249,6 +321,7 @@ export function createApertureRuntime(
         const events = normalizeSourceEventPayload(payload);
         for (const event of events) {
           core.publishSourceEvent(event);
+          recordPublishedSourceEvent(event);
         }
         writeJson(res, 200, { published: events.length });
         return;
@@ -440,12 +513,17 @@ export function createApertureRuntime(
       pruneSurfaces();
       return surfaces.size > 0;
     },
+    exportSessionCapture() {
+      return exportSessionCapture();
+    },
     publishSourceEvent(event) {
       core.publishSourceEvent(event);
+      recordPublishedSourceEvent(event);
     },
     publishSourceEventBatch(events) {
       for (const event of events) {
         core.publishSourceEvent(event);
+        recordPublishedSourceEvent(event);
       }
     },
   };
@@ -499,6 +577,46 @@ export function createApertureRuntime(
       surfaceCapabilities: aggregateSurfaceCapabilities(),
       ...(learningPersistence ? { learningPersistence } : {}),
     };
+  }
+
+  function exportSessionCapture(): ApertureRuntimeSessionCapture {
+    return {
+      runtimeId,
+      kind,
+      startedAt,
+      exportedAt: new Date().toISOString(),
+      steps: [...sessionSteps],
+      sourceEvents: [...sourceEvents],
+      responses: [...responseLog],
+      signals: [...signalLog],
+      traces: [...traceLog],
+      viewSnapshots: [...viewSnapshots],
+      attentionView: core.getAttentionView(),
+      adapters: snapshot().adapters,
+      ...(options.metadata ? { metadata: options.metadata } : {}),
+      ...(learningPersistence ? { learningPersistence } : {}),
+    };
+  }
+
+  function recordPublishedSourceEvent(event: SourceEvent): void {
+    pushBounded(sourceEvents, event);
+    pushBounded(sessionSteps, {
+      sequence: nextCaptureSequence(),
+      recordedAt: new Date().toISOString(),
+      kind: "publishSource",
+      event,
+    });
+    bumpStateVersion();
+  }
+
+  function recordSubmittedResponse(response: AttentionResponse): void {
+    pushBounded(sessionSteps, {
+      sequence: nextCaptureSequence(),
+      recordedAt: new Date().toISOString(),
+      kind: "submit",
+      response,
+    });
+    bumpStateVersion();
   }
 
   function aggregateSurfaceCapabilities(): AttentionSurfaceCapabilities {

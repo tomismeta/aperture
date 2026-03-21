@@ -12,6 +12,7 @@ export { runReplayScenario } from "./runner.js";
 export { scoreReplayRun } from "./scorecard.js";
 export {
   createSessionBundle,
+  createSessionBundleFromRuntimeCapture,
   createTempSessionBundlePath,
   defaultSessionBundlePath,
   DEFAULT_SESSION_BUNDLES_DIR,
@@ -46,6 +47,7 @@ export type {
 export type { ReplayExplanationSnapshot, ReplayScorecard } from "./scorecard.js";
 export type {
   ReplaySessionBundle,
+  RuntimeSessionCaptureLike,
   ReplaySessionBundleSource,
 } from "./session-bundle.js";
 export type {

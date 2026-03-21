@@ -120,6 +120,74 @@ test("runtime source event endpoint accepts batches directly", async () => {
   }
 });
 
+test("runtime exports a local session capture with source events, responses, and traces", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { controlUrl } = await runtime.listen();
+
+  try {
+    const event = blockedEvent("task-session-export");
+    const publish = await fetch(`${controlUrl}/events/source`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event }),
+    });
+    assert.equal(publish.status, 200);
+
+    const submit = await fetch(`${controlUrl}/responses`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        taskId: event.taskId,
+        interactionId: `interaction:${event.taskId}:status`,
+        response: { kind: "acknowledged" },
+      }),
+    });
+    assert.equal(submit.status, 200);
+
+    const capture = runtime.exportSessionCapture();
+
+    assert.equal(capture.steps.length, 2);
+    assert.equal(capture.steps[0]?.kind, "publishSource");
+    assert.equal(capture.steps[1]?.kind, "submit");
+    assert.equal(capture.sourceEvents.length, 1);
+    assert.equal(capture.responses.some((response) => response.taskId === event.taskId), true);
+    assert.equal(capture.traces.some((trace) => trace.event.id === event.id), true);
+    assert.equal(capture.signals.some((signal) => signal.taskId === event.taskId), true);
+    assert.ok(capture.viewSnapshots.length >= 1);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("runtime session endpoint exposes the same local capture shape over HTTP", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { controlUrl } = await runtime.listen();
+
+  try {
+    await fetch(`${controlUrl}/events/source`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event: blockedEvent("task-session-http") }),
+    });
+
+    const response = await fetch(`${controlUrl}/session`);
+    assert.equal(response.status, 200);
+    const payload = await response.json() as {
+      runtimeId: string;
+      steps: Array<{ kind: string }>;
+      sourceEvents: Array<{ taskId: string }>;
+      traces: Array<{ event: { taskId: string } }>;
+    };
+
+    assert.equal(payload.runtimeId.length > 0, true);
+    assert.equal(payload.steps[0]?.kind, "publishSource");
+    assert.equal(payload.sourceEvents[0]?.taskId, "task-session-http");
+    assert.equal(payload.traces.some((trace) => trace.event.taskId === "task-session-http"), true);
+  } finally {
+    await runtime.close();
+  }
+});
+
 test("runtime adapter client observes attached surfaces through snapshot state", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
   const { controlUrl } = await runtime.listen();

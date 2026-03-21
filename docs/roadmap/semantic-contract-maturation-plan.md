@@ -331,7 +331,7 @@ It is:
 
 ## Phase 5: Harvested Reality Benchmarking
 
-Status: `next`
+Status: `underway`
 
 ### Problem
 
@@ -351,7 +351,9 @@ Make harvested session bundles the next evidence layer for Aperture Lab.
 ### Deliverables
 
 - a local session-bundle schema
-- export/import support for harvested runtime or adapter traffic
+- runtime-side local capture export
+- Lab conversion from runtime capture to replayable session bundle
+- export/import support for broader harvested runtime or adapter traffic
 - replayable episode slices cut from real sessions
 - new golden scenarios derived from the most informative real failures
 

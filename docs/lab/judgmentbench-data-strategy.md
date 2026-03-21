@@ -206,6 +206,12 @@ Goal:
 - make real sessions replayable offline
 - do so without making core or the hot path feel like vendor telemetry plumbing
 
+Current status:
+
+- initial local-first bundle schema and load/write helpers now exist in
+  `@aperture/lab`
+- runtime and host-side export paths still need to be layered on top
+
 ### Phase 3. Shadow mode
 
 Run Aperture in observation mode inside hosts and record:

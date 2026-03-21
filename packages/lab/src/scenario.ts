@@ -112,6 +112,13 @@ export type ReplaySemanticSnapshot = {
   interpretation: SemanticInterpretation;
 };
 
+export type ReplayNormalizedEventSnapshot = {
+  stepIndex: number;
+  stepKind: Extract<ReplayObservationStep["kind"], "publishSource">;
+  stepLabel?: string;
+  event: ApertureEvent;
+};
+
 export type ReplayDecisionSnapshot = {
   stepIndex: number;
   stepKind: ReplayObservationStep["kind"];

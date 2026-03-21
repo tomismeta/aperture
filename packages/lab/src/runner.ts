@@ -5,11 +5,12 @@ import {
   type AttentionSignal,
 } from "@tomismeta/aperture-core";
 import type { ApertureTrace } from "../../core/src/trace.js";
-import { interpretSourceEvent } from "../../core/src/semantic-interpreter.js";
+import { normalizeSourceEvent } from "../../core/src/semantic-normalizer.js";
 
 import type {
   ReplayObservationStep,
   ReplayDecisionSnapshot,
+  ReplayNormalizedEventSnapshot,
   ReplayScenario,
   ReplaySemanticSnapshot,
   ReplayViewSnapshot,
@@ -29,6 +30,7 @@ export type ReplayRunResult = {
   responses: AttentionResponse[];
   views: ReplayViewSnapshot[];
   semantics: ReplaySemanticSnapshot[];
+  normalizedEvents: ReplayNormalizedEventSnapshot[];
   decisions: ReplayDecisionSnapshot[];
 };
 
@@ -40,6 +42,7 @@ export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
   const steps: ReplayStepResult[] = [];
   const views: ReplayViewSnapshot[] = [];
   const semantics: ReplaySemanticSnapshot[] = [];
+  const normalizedEvents: ReplayNormalizedEventSnapshot[] = [];
   const decisions: ReplayDecisionSnapshot[] = [];
 
   core.onTrace((trace) => {
@@ -61,14 +64,26 @@ export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
         frame = core.publish(step.event);
         break;
       case "publishSource":
+        {
+          const normalized = normalizeSourceEvent(step.event);
+          if (!normalized.semantic) {
+            throw new Error("Normalized source events must preserve semantic interpretation for replay capture.");
+          }
         semantics.push({
           stepIndex,
           stepKind: step.kind,
           ...(step.label ? { stepLabel: step.label } : {}),
-          interpretation: interpretSourceEvent(step.event),
+          interpretation: normalized.semantic,
         });
+          normalizedEvents.push({
+            stepIndex,
+            stepKind: step.kind,
+            ...(step.label ? { stepLabel: step.label } : {}),
+            event: normalized,
+          });
         frame = core.publishSourceEvent(step.event);
         break;
+        }
       case "submit":
         core.submit(step.response);
         break;
@@ -133,6 +148,7 @@ export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
     responses,
     views,
     semantics,
+    normalizedEvents,
     decisions,
   };
 }

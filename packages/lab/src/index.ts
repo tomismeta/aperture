@@ -10,6 +10,17 @@ export {
 export { renderJudgmentBenchMarkdown } from "./report.js";
 export { runReplayScenario } from "./runner.js";
 export { scoreReplayRun } from "./scorecard.js";
+export {
+  createSessionBundle,
+  createTempSessionBundlePath,
+  defaultSessionBundlePath,
+  DEFAULT_SESSION_BUNDLES_DIR,
+  loadSessionBundles,
+  runSessionBundle,
+  sessionBundleToScenario,
+  SESSION_BUNDLE_SCHEMA_VERSION,
+  writeSessionBundle,
+} from "./session-bundle.js";
 
 export type {
   DeterminismAuditRun,
@@ -23,6 +34,7 @@ export type {
   ReplayObservationStep,
   ReplaySemanticExpectation,
   ReplaySemanticSnapshot,
+  ReplayNormalizedEventSnapshot,
   ReplayScenarioExpectations,
   ReplayTraceExpectation,
   ReplayViewSnapshot,
@@ -32,6 +44,10 @@ export type {
   ReplayStepResult,
 } from "./runner.js";
 export type { ReplayExplanationSnapshot, ReplayScorecard } from "./scorecard.js";
+export type {
+  ReplaySessionBundle,
+  ReplaySessionBundleSource,
+} from "./session-bundle.js";
 export type {
   JudgmentBenchAssertionResult,
   JudgmentBenchDoctrineHealth,

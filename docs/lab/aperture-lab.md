@@ -232,6 +232,12 @@ Best for:
 - retrospective comparison
 - future corpus growth
 
+The first local session-bundle helpers are now live in `@aperture/lab`:
+
+- bundle creation from replay runs
+- bundle load/write helpers
+- bundle replay through the same deterministic runner
+
 ### 3. Episode slice
 
 A focused decision stream extracted from a larger session.
@@ -360,7 +366,7 @@ being optimized automatically.
 3. Implement deterministic replay against `ApertureCore`
 4. Implement the first scorecard
 5. Add golden scenarios to the repo
-6. Add harvested session bundles later
+6. Expand harvested session bundles beyond local-first replay helpers
 7. Consider a separate public benchmark repo only after the above are stable
 
 ## Current Decision

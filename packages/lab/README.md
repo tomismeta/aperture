@@ -63,12 +63,15 @@ Today this package provides:
 - a runner that applies steps against `ApertureCore`
 - a replay result object with frames, view snapshots, traces, signals, and
   responses
+- normalized event snapshots for `publishSource` steps, so harvested bundles can
+  preserve both source-native and canonical event views
 - semantic snapshots for `publishSource` steps, so the lab can test how core
   read a source event before the full judgment loop ran
 - decision snapshots for publish steps, so the lab can test how ambiguity and
   semantic confidence affected routing
 - trace-level expectations, so scenarios can assert ambiguity lifecycles like
   `queue -> active` and `ambient -> active`
+- a session-bundle format plus load/write helpers for local harvested replay
 - a basic scorecard built on top of core trace evaluation and signal summaries
 - a first golden-scenario set for `JudgmentBench`
 - a benchmark runner that can write JSON results into
@@ -95,6 +98,16 @@ There is also a deterministic perturbation layer on top of those scenarios:
 - `pnpm judgment:fuzz`
 - generates phrasing-shifted semantic variants
 - pressure-tests the semantic layer without changing the canonical authored bench
+
+The first harvested-reality layer is now also live:
+
+- `createSessionBundle(...)`
+- `writeSessionBundle(...)`
+- `loadSessionBundles(...)`
+- `runSessionBundle(...)`
+
+These helpers are designed for redacted, local-first replay bundles rather than
+raw execution logs.
 
 ## Status
 

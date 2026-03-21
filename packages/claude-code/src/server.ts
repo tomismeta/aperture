@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import type { AttentionResponse, AttentionView, SourceEvent } from "@tomismeta/aperture-core";
 
 import {
+  mapClaudeCodeAskUserQuestionResponse,
   mapClaudeCodeFrameResponse,
   mapClaudeCodeHookEvent,
   type ClaudeCodeElicitationEvent,
@@ -15,6 +16,10 @@ import {
   type ClaudeCodePreToolUseEvent,
   type ClaudeCodePreToolUseMappedEvent,
 } from "./mapping.js";
+import {
+  parseAskUserQuestionPayload,
+  readAskUserQuestionTranscriptPayload,
+} from "./transcript.js";
 
 export type ClaudeCodeHookServerOptions = ClaudeCodeMappingOptions & {
   host?: string;
@@ -64,6 +69,7 @@ type PendingDecision = {
   response: ServerResponse<IncomingMessage>;
   timeout: NodeJS.Timeout;
   fallbackBody: ClaudeCodeHookResponse;
+  mapResponse?: (response: AttentionResponse) => ClaudeCodeHookResponse | null;
 };
 
 type ClaudeCodeEventHost = {
@@ -91,7 +97,7 @@ export function createClaudeCodeHookServer(
       return;
     }
 
-    const mapped = mapClaudeCodeFrameResponse(response);
+    const mapped = decision.mapResponse?.(response) ?? mapClaudeCodeFrameResponse(response);
     if (!mapped) {
       return;
     }
@@ -114,7 +120,7 @@ export function createClaudeCodeHookServer(
         return;
       }
 
-      const event = await readHookEvent(req, bodyLimitBytes);
+      const event = await enrichHookEvent(await readHookEvent(req, bodyLimitBytes));
       const mapped = mapClaudeCodeHookEvent(event, {
         ...(options.tools ? { tools: options.tools } : {}),
         ...(options.includePostToolUse !== undefined
@@ -164,6 +170,12 @@ export function createClaudeCodeHookServer(
           response: res,
           timeout,
           fallbackBody: askResponse(),
+          ...(event.tool_name === "AskUserQuestion" && event.askUserQuestion
+            ? {
+                mapResponse: (response: AttentionResponse) =>
+                  mapClaudeCodeAskUserQuestionResponse(response, event.askUserQuestion!),
+              }
+            : {}),
         });
 
         await hostClient.publishSourceEvent(firstMappedEvent);
@@ -343,6 +355,41 @@ export function createClaudeCodeHookServer(
         });
       });
     },
+  };
+}
+
+async function enrichHookEvent(event: ClaudeCodeHookEvent): Promise<ClaudeCodeHookEvent> {
+  if (event.hook_event_name !== "PreToolUse" && event.hook_event_name !== "PostToolUse") {
+    return event;
+  }
+
+  if (event.tool_name !== "AskUserQuestion") {
+    return event;
+  }
+
+  const directPayload = parseAskUserQuestionPayload(event.tool_input);
+  if (directPayload) {
+    return {
+      ...event,
+      askUserQuestion: directPayload,
+    };
+  }
+
+  if (!event.transcript_path) {
+    return event;
+  }
+
+  const transcriptPayload = await readAskUserQuestionTranscriptPayload(
+    event.transcript_path,
+    event.tool_use_id,
+  );
+  if (!transcriptPayload) {
+    return event;
+  }
+
+  return {
+    ...event,
+    askUserQuestion: transcriptPayload,
   };
 }
 

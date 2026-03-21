@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { ApertureCore } from "../../core/src/index.js";
 
@@ -45,6 +48,85 @@ test("holds PreToolUse requests until Aperture responds", async () => {
       },
     });
   } finally {
+    await server.close();
+  }
+});
+
+test("enriches AskUserQuestion hooks from transcript data and returns a best-effort answer context", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core, { holdTimeoutMs: 250 });
+  const { url } = await server.listen();
+  const scratchDir = await mkdtemp(join(tmpdir(), "aperture-claude-ask-"));
+  const transcriptPath = join(scratchDir, "session.jsonl");
+
+  await writeFile(
+    transcriptPath,
+    `${JSON.stringify({
+      message: {
+        content: [{
+          type: "tool_use",
+          id: "tool-ask-1",
+          name: "AskUserQuestion",
+          input: {
+            questions: [{
+              question: "The on-call rotation has a gap next Thursday. Should I auto-assign or send a volunteer request?",
+              header: "On-call",
+              options: [
+                { label: "Auto-assign", description: "Round-robin to the person with fewest recent shifts" },
+                { label: "Ask for volunteers", description: "Post in #engineering and wait 24h before auto-assigning" },
+                { label: "I'll cover it", description: "Assign the shift to you directly" },
+              ],
+              multiSelect: false,
+            }],
+          },
+        }],
+      },
+    })}\n`,
+    "utf8",
+  );
+
+  try {
+    const responsePromise = fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "PreToolUse",
+        tool_name: "AskUserQuestion",
+        tool_use_id: "tool-ask-1",
+        transcript_path: transcriptPath,
+        tool_input: {},
+      }),
+    });
+
+    const frame = await waitFor(() => core.getAttentionView().active);
+    assert.ok(frame);
+    assert.equal(
+      frame?.title,
+      "The on-call rotation has a gap next Thursday. Should I auto-assign or send a volunteer request?",
+    );
+    assert.equal(frame?.interactionId, "claude-code:tool:session-1:tool-ask-1");
+
+    core.submit({
+      taskId: "claude-code:session:session-1",
+      interactionId: "claude-code:tool:session-1:tool-ask-1",
+      response: { kind: "option_selected", optionIds: ["q0:o1:Ask%20for%20volunteers"] },
+    });
+
+    const response = await responsePromise;
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "deny",
+        permissionDecisionReason: "The operator already answered in Aperture.",
+        additionalContext:
+          "User has answered your questions: \"The on-call rotation has a gap next Thursday. Should I auto-assign or send a volunteer request?\"=\"Ask for volunteers\". You can now continue with the user's answers in mind.",
+      },
+    });
+  } finally {
+    await rm(scratchDir, { recursive: true, force: true });
     await server.close();
   }
 });

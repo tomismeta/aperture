@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   bashConsequence,
   classifyToolRisk,
+  mapClaudeCodeAskUserQuestionResponse,
   mapClaudeCodeFrameResponse,
   mapClaudeCodeHookEvent,
   type ClaudeCodeElicitationEvent,
@@ -274,6 +275,44 @@ test("maps ToolSearch into low-risk web search wording", () => {
   if (mapped[0]?.type === "human.input.requested") {
     assert.equal(mapped[0].title, "Claude Code wants to search the web for gold prices");
     assert.equal(mapped[0].riskHint, "low");
+  }
+});
+
+test("maps transcript-enriched AskUserQuestion hooks into structured choice requests", () => {
+  const event: ClaudeCodePreToolUseEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "PreToolUse",
+    tool_name: "AskUserQuestion",
+    tool_use_id: "tool-ask-1",
+    tool_input: {},
+    askUserQuestion: {
+      questions: [{
+        question: "The on-call rotation has a gap next Thursday. Should I auto-assign or send a volunteer request?",
+        header: "On-call",
+        options: [
+          { label: "Auto-assign", description: "Round-robin to the person with fewest recent shifts" },
+          { label: "Ask for volunteers", description: "Post in #engineering and wait 24h before auto-assigning" },
+          { label: "I'll cover it", description: "Assign the shift to you directly" },
+        ],
+        multiSelect: false,
+      }],
+    },
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "human.input.requested");
+  if (mapped[0]?.type === "human.input.requested") {
+    assert.equal(mapped[0].activityClass, "question_request");
+    assert.equal(mapped[0].title, "The on-call rotation has a gap next Thursday. Should I auto-assign or send a volunteer request?");
+    assert.equal(mapped[0].request.kind, "choice");
+    if (mapped[0].request.kind === "choice") {
+      assert.deepEqual(
+        mapped[0].request.options.map((option) => option.label),
+        ["Auto-assign", "Ask for volunteers", "I'll cover it"],
+      );
+    }
   }
 });
 
@@ -676,6 +715,37 @@ test("maps dismissed approval responses to ask", () => {
       hookSpecificOutput: {
         hookEventName: "PreToolUse",
         permissionDecision: "ask",
+      },
+    },
+  );
+});
+
+test("maps AskUserQuestion responses into deny-plus-context PreToolUse decisions", () => {
+  assert.deepEqual(
+    mapClaudeCodeAskUserQuestionResponse(
+      {
+        taskId: "claude-code:session:session-1",
+        interactionId: "claude-code:tool:session-1:tool-ask-1",
+        response: { kind: "option_selected", optionIds: ["q0:o1:Ask%20for%20volunteers"] },
+      },
+      {
+        questions: [{
+          question: "The on-call rotation has a gap next Thursday. Should I auto-assign or send a volunteer request?",
+          header: "On-call",
+          options: [
+            { label: "Auto-assign" },
+            { label: "Ask for volunteers" },
+            { label: "I'll cover it" },
+          ],
+        }],
+      },
+    ),
+    {
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "deny",
+        permissionDecisionReason: "The operator already answered in Aperture.",
+        additionalContext: "User has answered your questions: \"The on-call rotation has a gap next Thursday. Should I auto-assign or send a volunteer request?\"=\"Ask for volunteers\". You can now continue with the user's answers in mind.",
       },
     },
   );

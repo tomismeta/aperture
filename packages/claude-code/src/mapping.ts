@@ -10,6 +10,7 @@ import type {
   SourceTaskUpdatedEvent,
 } from "@tomismeta/aperture-core";
 import type { AttentionConsequenceLevel as ConsequenceLevel } from "../../core/src/frame.js";
+import type { ClaudeCodeAskUserQuestionTranscriptPayload } from "./transcript.js";
 
 export type ClaudeCodeHookEvent =
   | ClaudeCodePreToolUseEvent
@@ -46,6 +47,7 @@ export type ClaudeCodePreToolUseEvent = ClaudeCodeHookBaseEvent & {
   tool_name: string;
   tool_use_id: string;
   tool_input: Record<string, unknown>;
+  askUserQuestion?: ClaudeCodeAskUserQuestionTranscriptPayload;
 };
 
 export type ClaudeCodePermissionRequestEvent = ClaudeCodeHookBaseEvent & {
@@ -53,6 +55,7 @@ export type ClaudeCodePermissionRequestEvent = ClaudeCodeHookBaseEvent & {
   tool_name: string;
   tool_input: Record<string, unknown>;
   permission_suggestions?: Array<Record<string, unknown>>;
+  askUserQuestion?: ClaudeCodeAskUserQuestionTranscriptPayload;
 };
 
 export type ClaudeCodePostToolUseFailureEvent = ClaudeCodeHookBaseEvent & {
@@ -69,6 +72,7 @@ export type ClaudeCodePostToolUseEvent = ClaudeCodeHookBaseEvent & {
   tool_use_id: string;
   tool_input?: Record<string, unknown>;
   tool_response?: Record<string, unknown>;
+  askUserQuestion?: ClaudeCodeAskUserQuestionTranscriptPayload;
 };
 
 export type ClaudeCodeElicitationMode = "form" | "url";
@@ -126,6 +130,8 @@ export type ClaudeCodeHookResponse =
         hookEventName: "PreToolUse";
         permissionDecision: "allow" | "deny" | "ask";
         permissionDecisionReason?: string;
+        updatedInput?: Record<string, unknown>;
+        additionalContext?: string;
       };
     }
   | {
@@ -192,7 +198,13 @@ export function mapClaudeCodeHookEvent(
 
   switch (event.hook_event_name) {
     case "PreToolUse":
-      return !tools || tools.includes(event.tool_name) ? [mapPreToolUse(event, options)] : [];
+      if (tools && !tools.includes(event.tool_name)) {
+        return [];
+      }
+      if (event.tool_name === "AskUserQuestion" && event.askUserQuestion?.questions.length) {
+        return [mapAskUserQuestion(event)];
+      }
+      return [mapPreToolUse(event, options)];
     case "PermissionRequest":
       return !tools || tools.includes(event.tool_name) ? [mapPermissionRequest(event, options)] : [];
     case "PostToolUseFailure":
@@ -346,6 +358,62 @@ export function mapClaudeCodeFrameResponse(
   }
 }
 
+export function mapClaudeCodeAskUserQuestionResponse(
+  response: AttentionResponse,
+  prompt: NonNullable<ClaudeCodePreToolUseEvent["askUserQuestion"]>,
+): ClaudeCodeHookResponse | null {
+  switch (response.response.kind) {
+    case "acknowledged":
+      return null;
+    case "approved":
+      return {
+        hookSpecificOutput: {
+          hookEventName: "PreToolUse",
+          permissionDecision: "allow",
+        },
+      };
+    case "rejected":
+      return {
+        hookSpecificOutput: {
+          hookEventName: "PreToolUse",
+          permissionDecision: "deny",
+          ...(response.response.reason
+            ? { permissionDecisionReason: response.response.reason }
+            : {}),
+        },
+      };
+    case "dismissed":
+      return {
+        hookSpecificOutput: {
+          hookEventName: "PreToolUse",
+          permissionDecision: "ask",
+        },
+      };
+    case "option_selected":
+    case "text_submitted":
+    case "form_submitted": {
+      const additionalContext = askUserQuestionAdditionalContext(prompt.questions, response.response);
+      if (!additionalContext) {
+        return {
+          hookSpecificOutput: {
+            hookEventName: "PreToolUse",
+            permissionDecision: "ask",
+          },
+        };
+      }
+
+      return {
+        hookSpecificOutput: {
+          hookEventName: "PreToolUse",
+          permissionDecision: "deny",
+          permissionDecisionReason: "The operator already answered in Aperture.",
+          additionalContext,
+        },
+      };
+    }
+  }
+}
+
 export function bashConsequence(command: string): ConsequenceLevel {
   return HIGH_CONSEQUENCE_PATTERNS.some((pattern) => pattern.test(command))
     ? "high"
@@ -428,6 +496,42 @@ function mapPreToolUse(
   };
 }
 
+function mapAskUserQuestion(
+  event: ClaudeCodePreToolUseEvent,
+): SourceHumanInputRequestedEvent {
+  const prompt = event.askUserQuestion;
+  const questions = prompt?.questions ?? [];
+  const firstQuestion = questions[0];
+  const title = firstQuestion?.question ?? "Claude requested input";
+  const summary = firstQuestion?.header
+    ? `Claude asked for input about ${firstQuestion.header}.`
+    : `Claude asked ${questions.length === 1 ? "a question" : `${questions.length} questions`} before continuing.`;
+  const contextItems = [{ id: "cwd", label: "Working directory", value: event.cwd }];
+
+  if (firstQuestion?.header) {
+    contextItems.unshift({ id: "header", label: "Header", value: firstQuestion.header });
+  }
+
+  return {
+    id: claudeEventId(event, "human.input.requested"),
+    type: "human.input.requested",
+    taskId: claudeTaskId(event.session_id),
+    interactionId: claudeInteractionId(event.session_id, event.tool_use_id),
+    timestamp: new Date().toISOString(),
+    source: claudeSource(event),
+    activityClass: "question_request",
+    title,
+    summary,
+    request: buildAskUserQuestionRequest(questions),
+    context: {
+      items: contextItems,
+    },
+    provenance: {
+      whyNow: "Claude asked the operator to answer a question before continuing.",
+    },
+  };
+}
+
 function mapPermissionRequest(
   event: ClaudeCodePermissionRequestEvent,
   options: ClaudeCodeMappingOptions,
@@ -500,9 +604,11 @@ function mapPostToolUseFailure(
 
 function mapPostToolUse(event: ClaudeCodePostToolUseEvent): SourceTaskUpdatedEvent {
   const toolFamily = claudeToolFamily(event.tool_name);
+  const answerSummary = summarizeAskUserQuestionAnswers(event.askUserQuestion?.answers);
   const summary =
-    readString(event.tool_response?.message) ??
-    `${event.tool_name} completed successfully.`;
+    answerSummary
+    ?? readString(event.tool_response?.message)
+    ?? `${event.tool_name} completed successfully.`;
 
   return {
     id: claudeEventId(event, "task.updated"),
@@ -919,6 +1025,66 @@ function buildElicitationRequest(event: ClaudeCodeElicitationEvent): HumanInputR
   };
 }
 
+function buildAskUserQuestionRequest(
+  questions: NonNullable<ClaudeCodePreToolUseEvent["askUserQuestion"]>["questions"],
+): HumanInputRequest {
+  if (questions.length <= 1) {
+    const question = questions[0];
+    if (!question) {
+      return {
+        kind: "choice",
+        selectionMode: "single",
+        allowTextResponse: true,
+        options: [],
+      };
+    }
+
+    if (question.options.length === 0) {
+      return {
+        kind: "choice",
+        selectionMode: question.multiSelect ? "multiple" : "single",
+        allowTextResponse: true,
+        options: [],
+      };
+    }
+
+    return {
+      kind: "choice",
+      selectionMode: question.multiSelect ? "multiple" : "single",
+      options: question.options.map((option, optionIndex) => ({
+        id: askUserQuestionOptionId(0, optionIndex, option.label),
+        label: option.label,
+        ...(option.description ? { summary: option.description } : {}),
+      })),
+    };
+  }
+
+  return {
+    kind: "form",
+    fields: questions.map((question, index) => {
+      if (question.options.length > 0 && !question.multiSelect) {
+        return {
+          id: askUserQuestionFieldId(index),
+          label: question.question,
+          type: "select" as const,
+          required: true,
+          options: question.options.map((option) => ({
+            value: option.label,
+            label: option.label,
+          })),
+        };
+      }
+
+      return {
+        id: askUserQuestionFieldId(index),
+        label: question.question,
+        type: "text" as const,
+        required: true,
+      };
+    }),
+  };
+}
+
 function schemaToFormFields(schema: Record<string, unknown> | undefined): HumanInputFormField[] {
   const properties = schemaProperties(schema);
   const required = schemaRequiredFields(schema);
@@ -1043,6 +1209,132 @@ function fieldType(definition: Record<string, unknown>): string | undefined {
 
 function elicitationChoiceOptionId(fieldId: string, value: string): string {
   return `${encodeURIComponent(fieldId)}=${encodeURIComponent(value)}`;
+}
+
+function askUserQuestionOptionId(questionIndex: number, optionIndex: number, label: string): string {
+  return `q${questionIndex}:o${optionIndex}:${encodeURIComponent(label)}`;
+}
+
+function askUserQuestionFieldId(questionIndex: number): string {
+  return `q${questionIndex}`;
+}
+
+function askUserQuestionAdditionalContext(
+  questions: NonNullable<ClaudeCodePreToolUseEvent["askUserQuestion"]>["questions"],
+  response:
+    | Extract<AttentionResponse["response"], { kind: "option_selected" }>
+    | Extract<AttentionResponse["response"], { kind: "text_submitted" }>
+    | Extract<AttentionResponse["response"], { kind: "form_submitted" }>,
+): string | null {
+  const answers = askUserQuestionAnswersFromResponse(questions, response);
+  const entries = Object.entries(answers);
+  if (entries.length === 0) {
+    return null;
+  }
+
+  const rendered = entries
+    .map(([question, value]) => `${JSON.stringify(question)}=${JSON.stringify(formatAskUserQuestionAnswer(value))}`)
+    .join(", ");
+
+  return `User has answered your questions: ${rendered}. You can now continue with the user's answers in mind.`;
+}
+
+function askUserQuestionAnswersFromResponse(
+  questions: NonNullable<ClaudeCodePreToolUseEvent["askUserQuestion"]>["questions"],
+  response:
+    | Extract<AttentionResponse["response"], { kind: "option_selected" }>
+    | Extract<AttentionResponse["response"], { kind: "text_submitted" }>
+    | Extract<AttentionResponse["response"], { kind: "form_submitted" }>,
+): Record<string, unknown> {
+  if (questions.length === 0) {
+    return {};
+  }
+
+  switch (response.kind) {
+    case "option_selected": {
+      const question = questions[0];
+      if (!question) {
+        return {};
+      }
+
+      const values = response.optionIds
+        .map((optionId) => askUserQuestionAnswerFromOptionId(question, optionId))
+        .filter((value): value is string => typeof value === "string" && value.length > 0);
+      if (values.length === 0) {
+        return {};
+      }
+
+      return {
+        [question.question]: question.multiSelect ? values : values[0]!,
+      };
+    }
+    case "text_submitted":
+      return {
+        [questions[0]!.question]: response.text,
+      };
+    case "form_submitted":
+      return Object.fromEntries(
+        questions.flatMap((question, index) => {
+          const value = response.values[askUserQuestionFieldId(index)];
+          return value === undefined ? [] : [[question.question, value]];
+        }),
+      );
+  }
+}
+
+function askUserQuestionAnswerFromOptionId(
+  question: NonNullable<ClaudeCodePreToolUseEvent["askUserQuestion"]>["questions"][number],
+  optionId: string,
+): string | null {
+  const matched = /^q\d+:o(\d+):(.*)$/.exec(optionId);
+  if (matched) {
+    const optionIndex = Number.parseInt(matched[1] ?? "", 10);
+    const fromQuestion = Number.isInteger(optionIndex) ? question.options[optionIndex]?.label : undefined;
+    if (fromQuestion) {
+      return fromQuestion;
+    }
+
+    return safeDecode(matched[2] ?? "");
+  }
+
+  return safeDecode(optionId);
+}
+
+function summarizeAskUserQuestionAnswers(
+  answers: Record<string, unknown> | undefined,
+): string | undefined {
+  if (!answers) {
+    return undefined;
+  }
+
+  const entries = Object.entries(answers);
+  if (entries.length === 0) {
+    return "Claude received answers to a user question.";
+  }
+
+  return entries
+    .map(([question, value]) => `${question} -> ${formatAskUserQuestionAnswer(value)}`)
+    .join("; ");
+}
+
+function formatAskUserQuestionAnswer(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value.map((item) => formatAskUserQuestionAnswer(item)).join(", ");
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "true" : "false";
+  }
+
+  if (typeof value === "number") {
+    return String(value);
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  return JSON.stringify(value);
 }
 
 function elicitationContentFromOptionIds(

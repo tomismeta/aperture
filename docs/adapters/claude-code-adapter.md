@@ -19,6 +19,8 @@ Today, Aperture supports:
 - Claude Code tool approval requests
 - Claude Code permission-request dialogs
 - Claude Code structured elicitation requests
+- transcript-enriched `AskUserQuestion` prompts rendered as real Aperture choice or form requests
+- best-effort `AskUserQuestion` round-tripping by injecting the Aperture answer back into Claude as hook context
 - post-tool failure awareness
 - non-blocking completion awareness
 - waiting / input-needed awareness
@@ -60,10 +62,11 @@ This is different from OpenCode because Claude's public integration seam is hook
 - command-hook shim transport
 - tool-aware risk hints for `Read` / `Write` / `Edit` / `WebSearch` / `Bash`
 - schema-aware mapping from Claude elicitation into Aperture choice/form/reply flows
+- selective transcript enrichment for `AskUserQuestion` when the hook payload does not include full prompt/options
 
 ## What it does not support yet
 
-- transcript parsing
+- full transcript or session replay parsing as a general Claude integration surface
 - session or subagent lifecycle mapping
 
 ## Current shape

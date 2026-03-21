@@ -66,6 +66,8 @@ The package currently includes:
 - a host-facing local hook server for hold-and-reply behavior
 - permission-request mapping for Claude-native permission dialogs
 - structured elicitation mapping for choice, form, reply, and URL-auth requests
+- transcript-enriched `AskUserQuestion` mapping into Aperture choice/form requests
+- a best-effort `AskUserQuestion` answer bridge that feeds Aperture selections back to Claude via hook context
 - tool-aware risk hints for Bash, read, write, edit, and web-style tool calls
 - mapping from `AttentionResponse` back into Claude hook responses
 
@@ -76,7 +78,7 @@ The package currently includes:
 - `mature`
   - approvals, failure awareness, waiting awareness, and follow-up handoff are all part of the current documented path
 - `bounded`
-  - this package is intentionally centered on hook events, not transcript or session introspection
+  - this package is intentionally centered on hook events, with selective transcript enrichment only where Claude's public hook payload is not sufficient on its own
 
 ## Learn More
 

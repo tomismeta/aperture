@@ -17,7 +17,10 @@ import type {
   AttentionEvidenceContext,
   AttentionOperatorPresence,
 } from "./attention-evidence.js";
-import { resolveAttentionEvidenceContext } from "./attention-evidence.js";
+import {
+  buildAttentionEvidenceInput,
+  resolveAttentionEvidenceContext,
+} from "./attention-evidence.js";
 import { deriveAttentionState, type AttentionState } from "./attention-state.js";
 import { EpisodeTracker, readFrameEpisodeId } from "./episode-tracker.js";
 import { EventEvaluator } from "./event-evaluator.js";
@@ -59,6 +62,8 @@ export type ApertureCoreOptions = {
   surfaceCapabilities?: AttentionSurfaceCapabilities;
   operatorPresence?: AttentionOperatorPresence;
   responseExpiryMs?: number;
+  /** Optional wall-clock override for deterministic replay and testing. */
+  timeSource?: () => number;
 };
 
 export class ApertureCore {
@@ -84,6 +89,7 @@ export class ApertureCore {
   private surfaceCapabilities: AttentionSurfaceCapabilities;
   private operatorPresence: AttentionOperatorPresence;
   private readonly responseExpiryMs: number | undefined;
+  private readonly timeSource: () => number;
 
   constructor(options: ApertureCoreOptions = {}) {
     this.markdownRootDir = options.markdownRootDir;
@@ -101,6 +107,7 @@ export class ApertureCore {
         };
     this.operatorPresence = options.operatorPresence ?? "present";
     this.responseExpiryMs = options.responseExpiryMs;
+    this.timeSource = options.timeSource ?? Date.now;
     this.baseMemoryProfile = options.memoryProfile ?? {
       version: MARKDOWN_SCHEMA_VERSION,
       operatorId: "default",
@@ -556,7 +563,7 @@ export class ApertureCore {
     const currentTaskView = this.getTaskView(taskId);
     const attentionView = this.getAttentionView();
     const operatorPresence = this.getOperatorPresence();
-    return resolveAttentionEvidenceContext(currentFrame, {
+    return resolveAttentionEvidenceContext(currentFrame, buildAttentionEvidenceInput({
       currentFrame,
       currentTaskView,
       currentEpisode: this.episodes.readFrameEpisode(currentFrame),
@@ -567,7 +574,7 @@ export class ApertureCore {
       globalAttentionState,
       surfaceCapabilities: this.getSurfaceCapabilities(),
       operatorPresence,
-    });
+    }), this.timeSource());
   }
 
   private applyClear(taskId: string): null {

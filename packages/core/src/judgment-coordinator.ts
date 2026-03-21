@@ -6,6 +6,7 @@ import type { AttentionResponse } from "./frame-response.js";
 import { priorityForFrame, scoreAttentionFrame } from "./frame-score.js";
 import type { AttentionCandidate, AttentionPriority } from "./interaction-candidate.js";
 import {
+  buildAttentionEvidenceInput,
   resolveAttentionEvidenceContext,
   type AttentionEvidenceContext,
   type AttentionEvidenceInput,
@@ -198,18 +199,6 @@ export class JudgmentCoordinator {
     current: AttentionFrame | null,
     context: AttentionDecisionContext,
   ): AttentionEvidenceContext {
-    return resolveAttentionEvidenceContext(current, {
-      ...(context.currentTaskView !== undefined ? { currentTaskView: context.currentTaskView } : {}),
-      ...(context.currentEpisode !== undefined ? { currentEpisode: context.currentEpisode } : {}),
-      ...(context.attentionView !== undefined ? { attentionView: context.attentionView } : {}),
-      ...(context.taskSignalSummary !== undefined ? { taskSignalSummary: context.taskSignalSummary } : {}),
-      ...(context.globalSignalSummary !== undefined ? { globalSignalSummary: context.globalSignalSummary } : {}),
-      ...(context.taskAttentionState !== undefined ? { taskAttentionState: context.taskAttentionState } : {}),
-      ...(context.globalAttentionState !== undefined ? { globalAttentionState: context.globalAttentionState } : {}),
-      ...(context.pressureForecast !== undefined ? { pressureForecast: context.pressureForecast } : {}),
-      ...(context.attentionBurden !== undefined ? { attentionBurden: context.attentionBurden } : {}),
-      ...(context.surfaceCapabilities !== undefined ? { surfaceCapabilities: context.surfaceCapabilities } : {}),
-      ...(context.operatorPresence !== undefined ? { operatorPresence: context.operatorPresence } : {}),
-    });
+    return resolveAttentionEvidenceContext(current, buildAttentionEvidenceInput(context));
   }
 }

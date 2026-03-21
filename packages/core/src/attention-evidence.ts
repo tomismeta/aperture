@@ -60,10 +60,30 @@ export function createAttentionEvidenceContext(
   };
 }
 
+export function buildAttentionEvidenceInput(
+  input: AttentionEvidenceInput = {},
+): AttentionEvidenceInput {
+  return {
+    ...(input.currentTaskView !== undefined ? { currentTaskView: input.currentTaskView } : {}),
+    ...(input.currentEpisode !== undefined ? { currentEpisode: input.currentEpisode } : {}),
+    ...(input.attentionView !== undefined ? { attentionView: input.attentionView } : {}),
+    ...(input.taskSignalSummary !== undefined ? { taskSignalSummary: input.taskSignalSummary } : {}),
+    ...(input.globalSignalSummary !== undefined ? { globalSignalSummary: input.globalSignalSummary } : {}),
+    ...(input.taskAttentionState !== undefined ? { taskAttentionState: input.taskAttentionState } : {}),
+    ...(input.globalAttentionState !== undefined ? { globalAttentionState: input.globalAttentionState } : {}),
+    ...(input.pressureForecast !== undefined ? { pressureForecast: input.pressureForecast } : {}),
+    ...(input.attentionBurden !== undefined ? { attentionBurden: input.attentionBurden } : {}),
+    ...(input.surfaceCapabilities !== undefined ? { surfaceCapabilities: input.surfaceCapabilities } : {}),
+    ...(input.operatorPresence !== undefined ? { operatorPresence: input.operatorPresence } : {}),
+  };
+}
+
 export function resolveAttentionEvidenceContext(
   currentFrame: AttentionFrame | null,
   input: AttentionEvidenceInput = {},
+  referenceTimeMs: number = Date.now(),
 ): AttentionEvidenceContext {
+  const evidenceInput = buildAttentionEvidenceInput(input);
   if (isAttentionEvidenceContext(input)) {
     if (input.currentFrame === currentFrame) {
       return input;
@@ -75,24 +95,24 @@ export function resolveAttentionEvidenceContext(
     });
   }
 
-  const globalSignalSummary = input.globalSignalSummary ?? emptyAttentionSignalSummary();
-  const now = Date.now();
-  const pressureForecast = input.pressureForecast ?? forecastAttentionPressure(globalSignalSummary, input.attentionView, now);
-  const operatorPresence = input.operatorPresence ?? "present";
+  const globalSignalSummary = evidenceInput.globalSignalSummary ?? emptyAttentionSignalSummary();
+  const pressureForecast = input.pressureForecast
+    ?? forecastAttentionPressure(globalSignalSummary, evidenceInput.attentionView, referenceTimeMs);
+  const operatorPresence = evidenceInput.operatorPresence ?? "present";
 
   return createAttentionEvidenceContext({
-    ...input,
+    ...evidenceInput,
     currentFrame,
     globalSignalSummary,
     pressureForecast,
     attentionBurden:
-      input.attentionBurden
+      evidenceInput.attentionBurden
       ?? deriveAttentionBurden(
         globalSignalSummary,
         pressureForecast,
-        input.globalAttentionState,
+        evidenceInput.globalAttentionState,
         operatorPresence,
-        now,
+        referenceTimeMs,
       ),
     operatorPresence,
   });

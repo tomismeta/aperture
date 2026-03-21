@@ -177,6 +177,73 @@ test("trace includes attention pressure for candidate decisions", () => {
   assert.ok(["low", "rising", "high"].includes(candidateTrace.pressureForecast.overloadRisk));
 });
 
+test("core timeSource keeps evidence freshness deterministic", () => {
+  const recentCore = new ApertureCore({
+    timeSource: () => Date.parse("2026-03-15T12:00:10.000Z"),
+  });
+  const staleCore = new ApertureCore({
+    timeSource: () => Date.parse("2026-03-15T12:03:10.000Z"),
+  });
+  const recentTraces: ApertureTrace[] = [];
+  const staleTraces: ApertureTrace[] = [];
+
+  recentCore.onTrace((trace) => {
+    recentTraces.push(trace);
+  });
+  staleCore.onTrace((trace) => {
+    staleTraces.push(trace);
+  });
+
+  for (let index = 0; index < 5; index += 1) {
+    const signal = {
+      kind: "presented" as const,
+      taskId: `task:seed:${index}`,
+      interactionId: `interaction:seed:${index}`,
+      frameId: `frame:seed:${index}`,
+      timestamp: "2026-03-15T12:00:00.000Z",
+    };
+    recentCore.recordSignal(signal);
+    staleCore.recordSignal(signal);
+  }
+
+  recentCore.publish({
+    id: "evt:recent",
+    taskId: "task:recent",
+    timestamp: "2026-03-15T12:00:12.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:recent",
+    title: "Approve deploy",
+    summary: "A deploy needs approval.",
+    consequence: "medium",
+    request: { kind: "approval" },
+  });
+
+  staleCore.publish({
+    id: "evt:stale",
+    taskId: "task:stale",
+    timestamp: "2026-03-15T12:03:12.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:stale",
+    title: "Approve deploy",
+    summary: "A deploy needs approval.",
+    consequence: "medium",
+    request: { kind: "approval" },
+  });
+
+  const recentTrace = recentTraces.findLast((trace) => trace.evaluation.kind === "candidate");
+  const staleTrace = staleTraces.findLast((trace) => trace.evaluation.kind === "candidate");
+
+  assert.ok(recentTrace);
+  assert.ok(staleTrace);
+  if (!recentTrace || recentTrace.evaluation.kind !== "candidate" || !staleTrace || staleTrace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(recentTrace.pressureForecast.metrics.recentDemand, 5);
+  assert.equal(staleTrace.pressureForecast.metrics.recentDemand, 0);
+  assert.equal(staleTrace.attentionBurden.metrics.recentDecisions, 0);
+});
+
 test("related episode updates merge into an existing queued frame instead of adding fragments", () => {
   const core = new ApertureCore();
 

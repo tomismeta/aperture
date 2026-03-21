@@ -43,7 +43,10 @@ Status:
 
 - partially live
 - semantic uncertainty can now keep non-blocking work in queue/ambient through the explicit ambiguity lane
+- trace and Lab evaluation can now score ambiguity outcomes and recovery paths
 - broader ambiguity handling still needs more surface-aware policy work
+- harvested session replay is now the next best validation layer before larger
+  structural refactors
 
 Problem:
 

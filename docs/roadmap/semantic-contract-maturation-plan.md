@@ -91,6 +91,86 @@ Why:
 - determinism matters most where replay and routing credibility are at stake
 - decomposition before contract clarity only spreads ambiguity into more files
 
+## Progress Snapshot
+
+This branch has moved further than the original draft assumed.
+
+Current state:
+
+- Phase 0: `done`
+- Phase 1: `done`
+- Phase 2: `done`
+- Phase 3: `done`
+- Phase 4: `mostly done`
+- orchestration decomposition: `still later`
+
+What remains open inside the original tranche:
+
+- one small continuity-ordering documentation cleanup
+- a more explicit semantic influence matrix for every semantic field
+- broader orchestration-invariant coverage if we want a harder transition shell
+
+The important implication is:
+
+- the semantic-contract tranche is no longer speculative
+- the highest-value remaining work is no longer "split ApertureCore"
+- the highest-value remaining work is to pressure-test the contract with
+  harvested reality before larger structural refactors
+
+## Learnings From The Tranche
+
+The branch changed the roadmap in a few useful ways.
+
+### 1. Ambiguity handling deserved to become a first-class milestone
+
+Originally this was mostly implied by the semantic contract work.
+
+What we learned:
+
+- confidence and abstention are not just metadata
+- they needed bounded live behavior in the engine
+- they also needed visibility in traces and JudgmentBench
+
+So ambiguity is now a real contract and benchmark concept, not just a future
+policy idea.
+
+### 2. Trace and Lab visibility mattered more than expected
+
+It was not enough to make ambiguity behavior correct in unit tests.
+
+What we learned:
+
+- ambiguity has to be visible in traces
+- Lab needs to assert recovery paths like `queue -> active` and
+  `ambient -> active`
+- doctrine health is more meaningful when lifecycle behavior is visible, not
+  just point-in-time routing
+
+### 3. Real-world replay is now a higher-value next step than decomposition
+
+The original plan placed more emphasis on eventually shrinking
+`ApertureCore`.
+
+What we learned:
+
+- the contract is much clearer now
+- the bigger remaining uncertainty is not internal architecture
+- the bigger remaining uncertainty is how the contract behaves on messy real
+  source traffic
+
+So harvested session bundles should come before publish-kernel extraction.
+
+### 4. Docs, tests, and types need to move together
+
+The best results on this branch came when:
+
+- the contract was written down
+- the type comments reflected it
+- parity and routing-boundary tests locked it
+- Lab reported the same distinction clearly
+
+That should remain the model for future semantic work.
+
 ## Phase 0: Research And Framing
 
 Status: `done on this branch`
@@ -112,7 +192,7 @@ This phase is complete enough to move into architecture decisions.
 
 ## Phase 1: Semantic Contract
 
-Status: `next`
+Status: `done on this branch`
 
 This is the highest-value phase.
 
@@ -156,7 +236,7 @@ Current decision artifacts:
 
 ## Phase 2: Determinism Hardening
 
-Status: `after contract decisions begin`
+Status: `done on this branch`
 
 ### Problem
 
@@ -178,6 +258,8 @@ derived from wall-clock time.
 - `TimeSource` or equivalent in core
 - deterministic evidence resolution under fixed time
 - replay-safe tests for that seam
+- extended fixed-time coverage for traces, interaction signals, and snapshot
+  defaults
 
 ### Value
 
@@ -187,7 +269,7 @@ derived from wall-clock time.
 
 ## Phase 3: Builder And Merge Cleanup
 
-Status: `same tranche as Phase 2`
+Status: `done on this branch`
 
 These are the low-risk cleanup wins.
 
@@ -216,13 +298,14 @@ There are two real drift seams:
 
 ## Phase 4: Contract-Locking Tests
 
-Status: `after Phases 1-3 start landing`
+Status: `mostly done on this branch`
 
 ### Goals
 
 1. add `SourceEvent` vs equivalent `ApertureEvent` parity tests
 2. add fixed-time determinism tests
 3. add semantic influence tests
+4. add Lab trace expectations for ambiguity and recovery paths
 
 ### Semantic influence tests should answer:
 
@@ -236,9 +319,51 @@ Status: `after Phases 1-3 start landing`
 - keeps future refactors honest
 - makes the semantic contract teachable to contributors
 
-## Phase 5: Orchestration Decomposition
+### Remaining gap
 
-Status: `later`
+The remaining gap here is not basic parity.
+
+It is:
+
+- making the semantic influence matrix even more explicit across all fields
+- deciding how much more orchestration-invariant coverage we want before larger
+  refactors
+
+## Phase 5: Harvested Reality Benchmarking
+
+Status: `next`
+
+### Problem
+
+The branch now proves:
+
+- authored scenarios
+- adversarial scenarios
+- perturbation-backed semantic robustness
+- ambiguity and recovery behavior under replay
+
+But it still does not exercise enough messy real-world traffic.
+
+### Goal
+
+Make harvested session bundles the next evidence layer for Aperture Lab.
+
+### Deliverables
+
+- a local session-bundle schema
+- export/import support for harvested runtime or adapter traffic
+- replayable episode slices cut from real sessions
+- new golden scenarios derived from the most informative real failures
+
+### Value
+
+- closes the biggest remaining confidence gap in the semantic contract
+- compounds JudgmentBench with real-world evidence
+- creates better input for the next engine-maturation phases
+
+## Phase 6: Orchestration Decomposition
+
+Status: `later, after harvested reality`
 
 ### Problem
 
@@ -248,8 +373,8 @@ That is real, but it is not the highest-value issue right now.
 
 ### Goal
 
-After the contract and tests are settled, extract a cleaner publish/transition
-kernel under the public `ApertureCore` shell.
+After the contract is pressure-tested on harvested reality, extract a cleaner
+publish/transition kernel under the public `ApertureCore` shell.
 
 ### Likely future seam
 
@@ -302,6 +427,8 @@ Reason:
 
 This is the combined recommended sequence:
 
+Completed:
+
 1. semantic field taxonomy
 2. `task.updated` contract decision
 3. semantic-field removal or demotion for ambiguous non-routing fields
@@ -309,7 +436,12 @@ This is the combined recommended sequence:
 5. shared evidence builder
 6. shared semantic-provenance merge helper
 7. parity and determinism tests
-8. only then larger `ApertureCore` decomposition
+8. bounded ambiguity handling and ambiguity-recovery benchmarking
+
+Next:
+
+9. harvested session bundles and replay from real traffic
+10. only then larger `ApertureCore` decomposition
 
 ## What Should Stay Stable
 

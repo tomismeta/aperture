@@ -101,12 +101,16 @@ There is also a deterministic perturbation layer on top of those scenarios:
 
 The first harvested-reality layer is now also live:
 
+- `canonicalAttentionExportToScenario(...)`
 - `createSessionBundle(...)`
+- `createSessionBundleFromCanonicalAttentionExport(...)`
+- `createSessionBundleFromScenario(...)`
 - `createSessionBundleFromRuntimeCapture(...)`
 - `writeSessionBundle(...)`
 - `loadSessionBundles(...)`
 - `runSessionBundle(...)`
 - runtime-side local captures via `exportSessionCapture()` or `GET /runtime/session`
+- canonical host exports such as Paperclip's replay/export shapes
 
 These helpers are designed for redacted, local-first replay bundles rather than
 raw execution logs.

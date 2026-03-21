@@ -4,6 +4,7 @@ import path from "node:path";
 
 import type {
   AttentionView,
+  ApertureEvent,
   ApertureCoreOptions,
   AttentionResponse,
   AttentionSignal,
@@ -95,10 +96,57 @@ export type RuntimeSessionCaptureLike = {
   attentionView: AttentionView;
 };
 
+export type CanonicalAttentionSnapshotLike = {
+  active: { interactionId: string } | null;
+  queued: Array<{ interactionId: string }>;
+  ambient: Array<{ interactionId: string }>;
+  counts: {
+    active: number;
+    queued: number;
+    ambient: number;
+  };
+};
+
+export type CanonicalAttentionLedgerSourceLike = {
+  eventType: string;
+  entityId?: string;
+  entityType?: string;
+};
+
+export type CanonicalAttentionLedgerEntryLike =
+  | {
+      kind: "event";
+      occurredAt: string;
+      source: CanonicalAttentionLedgerSourceLike;
+      apertureEvent: ApertureEvent;
+    }
+  | {
+      kind: "response";
+      occurredAt: string;
+      source: CanonicalAttentionLedgerSourceLike;
+      apertureResponse: AttentionResponse;
+    };
+
+export type CanonicalAttentionExportLike = {
+  companyId: string;
+  exportedAt: string;
+  ledger: CanonicalAttentionLedgerEntryLike[];
+  snapshot?: CanonicalAttentionSnapshotLike;
+  reconciledSnapshot?: CanonicalAttentionSnapshotLike;
+};
+
 type CreateSessionBundleOptions = {
   sessionId?: string;
   source?: ReplaySessionBundleSource;
   exportedAt?: string;
+};
+
+type CreateScenarioOptions = {
+  id?: string;
+  title?: string;
+  description?: string;
+  doctrineTags?: string[];
+  core?: ApertureCoreOptions;
 };
 
 export function createSessionBundle(
@@ -126,6 +174,13 @@ export function createSessionBundle(
     decisionSnapshots: result.decisions,
     outcomes: scorecard.outcomes,
   };
+}
+
+export function createSessionBundleFromScenario(
+  scenario: ReplayScenario,
+  options: CreateSessionBundleOptions = {},
+): ReplaySessionBundle {
+  return createSessionBundle(runReplayScenario(scenario), options);
 }
 
 export function createSessionBundleFromRuntimeCapture(
@@ -211,6 +266,64 @@ export function createSessionBundleFromRuntimeCapture(
       finalAmbientInteractionIds: capture.attentionView.ambient.map((frame) => frame.interactionId),
     },
   };
+}
+
+export function canonicalAttentionExportToScenario(
+  exportArtifact: CanonicalAttentionExportLike,
+  options: CreateScenarioOptions = {},
+): ReplayScenario {
+  const finalSnapshot = exportArtifact.reconciledSnapshot ?? exportArtifact.snapshot;
+
+  return {
+    id: options.id ?? `canonical-attention:${exportArtifact.companyId}`,
+    title: options.title ?? `Attention replay for ${exportArtifact.companyId}`,
+    ...(options.description !== undefined
+      ? { description: options.description }
+      : { description: "Replay scenario exported from a canonical Aperture ledger." }),
+    ...(options.doctrineTags !== undefined
+      ? { doctrineTags: options.doctrineTags }
+      : { doctrineTags: ["canonical_export", "replay_export"] }),
+    ...(options.core !== undefined ? { core: options.core } : {}),
+    ...(finalSnapshot
+      ? {
+          expectations: {
+            finalActiveInteractionId: finalSnapshot.active?.interactionId ?? null,
+            queuedInteractionIds: finalSnapshot.queued.map((frame) => frame.interactionId),
+            ambientInteractionIds: finalSnapshot.ambient.map((frame) => frame.interactionId),
+            resultBucketCounts: {
+              active: finalSnapshot.counts.active,
+              queued: finalSnapshot.counts.queued,
+              ambient: finalSnapshot.counts.ambient,
+            },
+          },
+        }
+      : {}),
+    steps: exportArtifact.ledger.map((entry) => (
+      entry.kind === "event"
+        ? {
+            kind: "publish" as const,
+            event: entry.apertureEvent,
+            label: `${entry.source.eventType} @ ${entry.occurredAt}`,
+          }
+        : {
+            kind: "submit" as const,
+            response: entry.apertureResponse,
+            label: `${entry.source.eventType} @ ${entry.occurredAt}`,
+          }
+    )),
+  };
+}
+
+export function createSessionBundleFromCanonicalAttentionExport(
+  exportArtifact: CanonicalAttentionExportLike,
+  options: CreateSessionBundleOptions & CreateScenarioOptions = {},
+): ReplaySessionBundle {
+  const scenario = canonicalAttentionExportToScenario(exportArtifact, options);
+  return createSessionBundleFromScenario(scenario, {
+    sessionId: options.sessionId ?? scenario.id,
+    ...(options.source !== undefined ? { source: options.source } : {}),
+    exportedAt: options.exportedAt ?? exportArtifact.exportedAt,
+  });
 }
 
 export function sessionBundleToScenario(bundle: ReplaySessionBundle): ReplayScenario {

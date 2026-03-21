@@ -11,7 +11,10 @@ export { renderJudgmentBenchMarkdown } from "./report.js";
 export { runReplayScenario } from "./runner.js";
 export { scoreReplayRun } from "./scorecard.js";
 export {
+  canonicalAttentionExportToScenario,
   createSessionBundle,
+  createSessionBundleFromCanonicalAttentionExport,
+  createSessionBundleFromScenario,
   createSessionBundleFromRuntimeCapture,
   createTempSessionBundlePath,
   defaultSessionBundlePath,
@@ -46,6 +49,10 @@ export type {
 } from "./runner.js";
 export type { ReplayExplanationSnapshot, ReplayScorecard } from "./scorecard.js";
 export type {
+  CanonicalAttentionExportLike,
+  CanonicalAttentionLedgerEntryLike,
+  CanonicalAttentionLedgerSourceLike,
+  CanonicalAttentionSnapshotLike,
   ReplaySessionBundle,
   RuntimeSessionCaptureLike,
   ReplaySessionBundleSource,

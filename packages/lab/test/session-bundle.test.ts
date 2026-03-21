@@ -5,12 +5,15 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  canonicalAttentionExportToScenario,
   createSessionBundle,
+  createSessionBundleFromCanonicalAttentionExport,
   createSessionBundleFromRuntimeCapture,
   defaultSessionBundlePath,
   loadSessionBundles,
   runReplayScenario,
   runSessionBundle,
+  type CanonicalAttentionExportLike,
   type ReplayScenario,
   type RuntimeSessionCaptureLike,
   writeSessionBundle,
@@ -166,6 +169,142 @@ test("session bundles can be written to disk and loaded back", async () => {
   assert.equal(loaded.length, 1);
   assert.equal(loaded[0]?.sessionId, bundle.sessionId);
   assert.equal(loaded[0]?.outcomes.finalActiveInteractionId, bundle.outcomes.finalActiveInteractionId);
+});
+
+test("canonical attention exports convert into replay scenarios with final-state expectations", () => {
+  const exportArtifact: CanonicalAttentionExportLike = {
+    companyId: "company:paperclip",
+    exportedAt: "2026-03-21T19:40:00.000Z",
+    ledger: [
+      {
+        kind: "event",
+        occurredAt: "2026-03-21T19:39:00.000Z",
+        source: {
+          eventType: "approval.created",
+          entityId: "approval:1",
+          entityType: "approval",
+        },
+        apertureEvent: {
+          id: "evt:paperclip:approval",
+          taskId: "task:paperclip:approval",
+          timestamp: "2026-03-21T19:39:00.000Z",
+          type: "human.input.requested",
+          interactionId: "interaction:paperclip:approval",
+          title: "Approve launch cutover",
+          summary: "Launch cutover is waiting on a human decision.",
+          consequence: "high",
+          request: { kind: "approval" },
+        },
+      },
+      {
+        kind: "response",
+        occurredAt: "2026-03-21T19:39:30.000Z",
+        source: {
+          eventType: "acknowledge-frame",
+          entityId: "approval:1",
+          entityType: "approval",
+        },
+        apertureResponse: {
+          taskId: "task:paperclip:approval",
+          interactionId: "interaction:paperclip:approval",
+          response: { kind: "acknowledged" },
+        },
+      },
+    ],
+    reconciledSnapshot: {
+      active: null,
+      queued: [],
+      ambient: [],
+      counts: {
+        active: 0,
+        queued: 0,
+        ambient: 0,
+      },
+    },
+  };
+
+  const scenario = canonicalAttentionExportToScenario(exportArtifact, {
+    doctrineTags: ["paperclip", "replay-export"],
+  });
+
+  assert.equal(scenario.id, "canonical-attention:company:paperclip");
+  assert.equal(scenario.steps.length, 2);
+  assert.equal(scenario.steps[0]?.kind, "publish");
+  assert.equal(scenario.steps[1]?.kind, "submit");
+  assert.equal(scenario.expectations?.finalActiveInteractionId, null);
+  assert.equal(scenario.expectations?.resultBucketCounts?.active, 0);
+  assert.deepEqual(scenario.doctrineTags, ["paperclip", "replay-export"]);
+});
+
+test("session bundles can be created from canonical attention exports", () => {
+  const exportArtifact: CanonicalAttentionExportLike = {
+    companyId: "company:paperclip",
+    exportedAt: "2026-03-21T19:41:00.000Z",
+    ledger: [
+      {
+        kind: "event",
+        occurredAt: "2026-03-21T19:40:00.000Z",
+        source: {
+          eventType: "approval.created",
+          entityId: "approval:1",
+          entityType: "approval",
+        },
+        apertureEvent: {
+          id: "evt:paperclip:approval",
+          taskId: "task:paperclip:approval",
+          timestamp: "2026-03-21T19:40:00.000Z",
+          type: "human.input.requested",
+          interactionId: "interaction:paperclip:approval",
+          title: "Approve launch cutover",
+          summary: "Launch cutover is waiting on a human decision.",
+          consequence: "high",
+          request: { kind: "approval" },
+        },
+      },
+      {
+        kind: "response",
+        occurredAt: "2026-03-21T19:40:30.000Z",
+        source: {
+          eventType: "acknowledge-frame",
+          entityId: "approval:1",
+          entityType: "approval",
+        },
+        apertureResponse: {
+          taskId: "task:paperclip:approval",
+          interactionId: "interaction:paperclip:approval",
+          response: { kind: "acknowledged" },
+        },
+      },
+    ],
+    reconciledSnapshot: {
+      active: null,
+      queued: [],
+      ambient: [],
+      counts: {
+        active: 0,
+        queued: 0,
+        ambient: 0,
+      },
+    },
+  };
+
+  const bundle = createSessionBundleFromCanonicalAttentionExport(exportArtifact, {
+    sessionId: "session:paperclip:export",
+    title: "Paperclip export replay",
+    source: {
+      id: "paperclip",
+      kind: "plugin",
+      label: "Paperclip",
+      redacted: true,
+    },
+  });
+
+  assert.equal(bundle.sessionId, "session:paperclip:export");
+  assert.equal(bundle.steps.length, 2);
+  assert.equal(bundle.responses.length, 1);
+  assert.equal(bundle.traces.some((trace) => trace.event.id === "evt:paperclip:approval"), true);
+  assert.equal(bundle.outcomes.finalActiveInteractionId, null);
+  assert.equal(bundle.outcomes.finalQueuedCount, 0);
 });
 
 test("session bundles can be created from runtime-style captures", () => {

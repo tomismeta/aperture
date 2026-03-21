@@ -212,6 +212,8 @@ Current status:
   `@aperture/lab`
 - runtime can now export a local session capture directly
 - `@aperture/lab` can now convert that capture into a replayable session bundle
+- canonical host exports, such as Paperclip's ledger/replay shapes, can also be
+  converted into replayable Lab scenarios and bundles
 - broader host and adapter export paths still need to be layered on top
 
 ### Phase 3. Shadow mode

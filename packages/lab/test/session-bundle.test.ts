@@ -8,11 +8,13 @@ import {
   canonicalAttentionExportToScenario,
   createSessionBundle,
   createSessionBundleFromCanonicalAttentionExport,
+  createRuntimeSessionCaptureCursor,
   createSessionBundleFromRuntimeCapture,
   defaultSessionBundlePath,
   loadSessionBundles,
   runReplayScenario,
   runSessionBundle,
+  sliceRuntimeSessionCapture,
   type CanonicalAttentionExportLike,
   type ReplayScenario,
   type RuntimeSessionCaptureLike,
@@ -741,4 +743,122 @@ test("session bundles can be created from runtime-style captures", () => {
   assert.equal(bundle.semanticSnapshots[0]?.interpretation.intentFrame, "failure");
   assert.equal(bundle.decisionSnapshots[0]?.decisionKind, "queue");
   assert.equal(bundle.outcomes.finalQueuedCount, 1);
+});
+
+test("runtime session captures can be sliced from a baseline cursor", () => {
+  const baselineCapture: RuntimeSessionCaptureLike = {
+    runtimeId: "runtime:test",
+    kind: "aperture",
+    exportedAt: "2026-03-21T20:00:00.000Z",
+    steps: [
+      {
+        sequence: 1,
+        recordedAt: "2026-03-21T19:59:00.000Z",
+        kind: "publishSource",
+        event: {
+          id: "src:baseline",
+          type: "task.updated",
+          taskId: "task:baseline",
+          timestamp: "2026-03-21T19:59:00.000Z",
+          source: { id: "custom-agent" },
+          title: "Baseline status",
+          status: "running",
+        },
+      },
+    ],
+    sourceEvents: [
+      {
+        id: "src:baseline",
+        type: "task.updated",
+        taskId: "task:baseline",
+        timestamp: "2026-03-21T19:59:00.000Z",
+        source: { id: "custom-agent" },
+        title: "Baseline status",
+        status: "running",
+      },
+    ],
+    responses: [],
+    signals: [],
+    traces: [],
+    viewSnapshots: [],
+    attentionView: {
+      active: null,
+      queued: [],
+      ambient: [],
+    },
+  };
+
+  const cursor = createRuntimeSessionCaptureCursor(baselineCapture);
+  const currentCapture: RuntimeSessionCaptureLike = {
+    ...baselineCapture,
+    exportedAt: "2026-03-21T20:05:00.000Z",
+    steps: [
+      ...baselineCapture.steps,
+      {
+        sequence: 2,
+        recordedAt: "2026-03-21T20:04:00.000Z",
+        kind: "publishSource",
+        event: {
+          id: "src:current",
+          type: "task.updated",
+          taskId: "task:current",
+          timestamp: "2026-03-21T20:04:00.000Z",
+          source: { id: "custom-agent" },
+          title: "Current failure",
+          summary: "The latest build failed and may need a retry.",
+          status: "failed",
+          semanticHints: {
+            confidence: "low",
+          },
+        },
+      },
+      {
+        sequence: 3,
+        recordedAt: "2026-03-21T20:04:20.000Z",
+        kind: "submit",
+        response: {
+          taskId: "task:current",
+          interactionId: "interaction:task:current:status",
+          response: { kind: "acknowledged" },
+        },
+      },
+    ],
+    sourceEvents: [
+      ...baselineCapture.sourceEvents,
+      {
+        id: "src:current",
+        type: "task.updated",
+        taskId: "task:current",
+        timestamp: "2026-03-21T20:04:00.000Z",
+        source: { id: "custom-agent" },
+        title: "Current failure",
+        summary: "The latest build failed and may need a retry.",
+        status: "failed",
+        semanticHints: {
+          confidence: "low",
+        },
+      },
+    ],
+    responses: [
+      {
+        taskId: "task:current",
+        interactionId: "interaction:task:current:status",
+        response: { kind: "acknowledged" },
+      },
+    ],
+    attentionView: {
+      active: null,
+      queued: [],
+      ambient: [],
+    },
+  };
+
+  const sliced = sliceRuntimeSessionCapture(currentCapture, cursor);
+
+  assert.equal(sliced.steps.length, 2);
+  assert.equal(sliced.steps[0]?.kind, "publishSource");
+  assert.equal(sliced.steps[1]?.kind, "submit");
+  assert.equal(sliced.sourceEvents.length, 1);
+  assert.equal(sliced.sourceEvents[0]?.id, "src:current");
+  assert.equal(sliced.responses.length, 1);
 });

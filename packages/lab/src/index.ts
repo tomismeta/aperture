@@ -15,6 +15,7 @@ export {
   createSessionBundle,
   createSessionBundleFromCanonicalAttentionExport,
   createSessionBundleFromScenario,
+  createRuntimeSessionCaptureCursor,
   createSessionBundleFromRuntimeCapture,
   createTempSessionBundlePath,
   defaultSessionBundlePath,
@@ -23,6 +24,7 @@ export {
   runSessionBundle,
   sessionBundleToScenario,
   SESSION_BUNDLE_SCHEMA_VERSION,
+  sliceRuntimeSessionCapture,
   writeSessionBundle,
 } from "./session-bundle.js";
 
@@ -54,6 +56,7 @@ export type {
   CanonicalAttentionLedgerSourceLike,
   CanonicalAttentionSnapshotLike,
   ReplaySessionBundle,
+  RuntimeSessionCaptureCursor,
   RuntimeSessionCaptureLike,
   ReplaySessionBundleSource,
 } from "./session-bundle.js";

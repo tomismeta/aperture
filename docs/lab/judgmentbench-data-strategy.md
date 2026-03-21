@@ -214,6 +214,8 @@ Current status:
 - `@aperture/lab` can now convert that capture into a replayable session bundle
 - the repo now includes `pnpm session:export` for turning the latest local
   runtime capture into a stored Lab bundle
+- the repo now includes `pnpm session:record` for baseline-to-finish collection
+  of a cleaner real session slice
 - canonical host exports, such as Paperclip's ledger/replay shapes, can also be
   converted into replayable Lab scenarios and bundles
 - broader host and adapter export paths still need to be layered on top

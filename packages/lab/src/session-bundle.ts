@@ -96,6 +96,19 @@ export type RuntimeSessionCaptureLike = {
   attentionView: AttentionView;
 };
 
+export type RuntimeSessionCaptureCursor = {
+  runtimeId: string;
+  counts: {
+    steps: number;
+    sourceEvents: number;
+    responses: number;
+    signals: number;
+    traces: number;
+    viewSnapshots: number;
+  };
+  exportedAt: string;
+};
+
 export type CanonicalAttentionSnapshotLike = {
   active: { interactionId: string } | null;
   queued: Array<{ interactionId: string }>;
@@ -181,6 +194,44 @@ export function createSessionBundleFromScenario(
   options: CreateSessionBundleOptions = {},
 ): ReplaySessionBundle {
   return createSessionBundle(runReplayScenario(scenario), options);
+}
+
+export function createRuntimeSessionCaptureCursor(
+  capture: RuntimeSessionCaptureLike,
+): RuntimeSessionCaptureCursor {
+  return {
+    runtimeId: capture.runtimeId,
+    counts: {
+      steps: capture.steps.length,
+      sourceEvents: capture.sourceEvents.length,
+      responses: capture.responses.length,
+      signals: capture.signals.length,
+      traces: capture.traces.length,
+      viewSnapshots: capture.viewSnapshots.length,
+    },
+    exportedAt: capture.exportedAt,
+  };
+}
+
+export function sliceRuntimeSessionCapture(
+  capture: RuntimeSessionCaptureLike,
+  cursor: RuntimeSessionCaptureCursor,
+): RuntimeSessionCaptureLike {
+  if (capture.runtimeId !== cursor.runtimeId) {
+    throw new Error("Runtime capture cursor does not match the current runtime.");
+  }
+
+  assertCaptureSliceBounds(capture, cursor);
+
+  return {
+    ...capture,
+    steps: capture.steps.slice(cursor.counts.steps),
+    sourceEvents: capture.sourceEvents.slice(cursor.counts.sourceEvents),
+    responses: capture.responses.slice(cursor.counts.responses),
+    signals: capture.signals.slice(cursor.counts.signals),
+    traces: capture.traces.slice(cursor.counts.traces),
+    viewSnapshots: capture.viewSnapshots.slice(cursor.counts.viewSnapshots),
+  };
 }
 
 export function createSessionBundleFromRuntimeCapture(
@@ -476,4 +527,20 @@ function isCandidateTrace(
   trace: ApertureTrace,
 ): trace is Extract<ApertureTrace, { evaluation: { kind: "candidate" } }> {
   return trace.evaluation.kind === "candidate";
+}
+
+function assertCaptureSliceBounds(
+  capture: RuntimeSessionCaptureLike,
+  cursor: RuntimeSessionCaptureCursor,
+): void {
+  if (
+    cursor.counts.steps > capture.steps.length
+    || cursor.counts.sourceEvents > capture.sourceEvents.length
+    || cursor.counts.responses > capture.responses.length
+    || cursor.counts.signals > capture.signals.length
+    || cursor.counts.traces > capture.traces.length
+    || cursor.counts.viewSnapshots > capture.viewSnapshots.length
+  ) {
+    throw new Error("Runtime capture cursor is newer than the provided capture.");
+  }
 }

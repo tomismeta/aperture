@@ -125,6 +125,16 @@ This will discover the most recent local Aperture runtime, fetch its session
 capture, convert that capture into a replay bundle, and write the bundle under
 [packages/lab/bundles](/Users/tom/dev/aperture/packages/lab/bundles).
 
+For cleaner real-session collection, use:
+
+```bash
+pnpm session:record
+```
+
+This records from the current runtime capture as a baseline, waits while you
+exercise the system, and exports only the new session slice when you press
+Enter.
+
 ## Status
 
 - good enough to start collecting golden scenarios

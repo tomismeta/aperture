@@ -185,7 +185,7 @@ Priority order:
 
 ### 1. Explicit Ambiguity Handling
 
-Status: `next`
+Status: `in progress`
 
 The engine should have a first-class answer for:
 
@@ -201,6 +201,15 @@ Instead, Aperture should define safe default behavior for ambiguous cases, such 
 - uncertain response path -> explicit review
 
 This is the highest-leverage next engine improvement because it improves safety and predictability without widening the public surface very much.
+
+What is live now:
+
+- low-confidence or abstained non-blocking semantics can resolve through the explicit ambiguity lane into `queue` or `ambient`
+
+What still remains:
+
+- richer surface-aware ambiguity policy
+- explicit review handling for uncertain human-decision paths
 
 ### 2. Attention Surface Capabilities
 

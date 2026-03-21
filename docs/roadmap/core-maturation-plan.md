@@ -39,6 +39,12 @@ The useful transfer is in the structure of the decision process, not the exact s
 
 This is the highest-value idea.
 
+Status:
+
+- partially live
+- semantic uncertainty can now keep non-blocking work in queue/ambient through the explicit ambiguity lane
+- broader ambiguity handling still needs more surface-aware policy work
+
 Problem:
 
 - Aperture currently makes interrupt / queue / ambient decisions, but uncertainty is not yet a fully explicit first-class outcome.

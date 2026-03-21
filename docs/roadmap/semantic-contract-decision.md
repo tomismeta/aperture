@@ -61,7 +61,7 @@ These exist to make Aperture's semantic read inspectable, benchmarkable, and eas
 
 ## 3. Confidence and abstention signals
 
-These fields are part of the semantic contract, but they are not score multipliers or policy gates today.
+These fields are part of the semantic contract. They are not hidden score multipliers, but they now have one bounded live use in the engine.
 
 - `confidence`
 - `abstained`
@@ -75,7 +75,8 @@ Near-term intent:
 Current rule:
 
 - do not treat `confidence` as a hidden scoring multiplier
-- do not let `abstained` silently reroute work until that policy is designed explicitly
+- low-confidence or abstained non-blocking work may resolve to `queue` or `ambient` through the explicit ambiguity lane
+- do not let `confidence` or `abstained` silently override explicit status routing or blocking human-input handling
 
 ### 4. Removed ambiguous fields
 
@@ -121,7 +122,7 @@ The semantic layer is still useful on this path, but in a bounded way.
 - infer `activityClass` if the source omitted it
 - infer `relationHints` for continuity
 - provide `whyNow`, `factors`, and `reasons` for provenance and explanation
-- provide inspection metadata like `intentFrame` and `confidence`
+- provide inspection metadata like `intentFrame`, `confidence`, and `abstained`
 
 ### What semantic interpretation is not allowed to do on `task.updated`
 
@@ -162,7 +163,7 @@ Near-term implementation should follow these rules:
 1. do not widen `SemanticInterpretation` further before this taxonomy stays stable
 2. keep `task.updated` status routing authoritative until a later policy change says otherwise
 3. keep relation semantics narrow and explicit
-4. treat confidence and abstention as visible signals, not hidden score math
+4. treat confidence and abstention as visible signals with bounded ambiguity behavior, not hidden score math
 5. lock the contract with parity and determinism tests before larger refactors
 
 ## Consequences For Docs And Lab

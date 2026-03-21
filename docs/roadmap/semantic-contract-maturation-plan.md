@@ -273,11 +273,12 @@ broader maturation work in [Core Maturation Plan](./core-maturation-plan.md).
 
 ### Explicit ambiguity handling
 
-This likely begins during or right after semantic contract work.
+This now begins during semantic contract work.
 
 Reason:
 
 - ambiguity handling depends on semantic confidence and abstention semantics
+- a bounded version is already live for low-confidence or abstained non-blocking work
 
 ### Attention surface capabilities
 

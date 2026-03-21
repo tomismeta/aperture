@@ -937,6 +937,90 @@ test("explanation marks ambiguity when low-signal work stays peripheral", () => 
   assert.ok(explanation.reasons.includes("uncertain interruptive work stays peripheral until its signal is stronger"));
 });
 
+test("low-confidence non-blocking work stays queued through semantic ambiguity handling", () => {
+  const explanation = coordinator.explain(
+    null,
+    createCandidate({
+      mode: "status",
+      tone: "critical",
+      consequence: "high",
+      priority: "high",
+      blocking: false,
+      responseSpec: { kind: "none" },
+      semanticConfidence: "low",
+      attentionScoreOffset: 160,
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "queue");
+  assert.deepEqual(explanation.ambiguity, {
+    kind: "interrupt",
+    reason: "low_signal",
+    resolution: "queue",
+  });
+  assert.ok(
+    explanation.reasons.includes(
+      "low-confidence semantic interpretation keeps non-blocking work peripheral until the signal is clearer",
+    ),
+  );
+  assert.deepEqual(
+    explanation.policyCriterionEvaluations.map((evaluation) => evaluation.rule),
+    [
+      "operator_absence",
+      "interrupt_eligibility",
+      "source_trust",
+      "attention_budget",
+      "semantic_uncertainty",
+    ],
+  );
+});
+
+test("semantic abstention keeps passive work ambient through the ambiguity lane", () => {
+  const explanation = coordinator.explain(
+    null,
+    createCandidate({
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      priority: "normal",
+      blocking: false,
+      responseSpec: { kind: "none" },
+      semanticAbstained: true,
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "ambient");
+  assert.deepEqual(explanation.ambiguity, {
+    kind: "interrupt",
+    reason: "low_signal",
+    resolution: "ambient",
+  });
+  assert.ok(
+    explanation.reasons.includes(
+      "semantic interpretation abstained, so non-blocking work stays peripheral until stronger explicit evidence arrives",
+    ),
+  );
+});
+
+test("explicit blocking work is not downgraded by low semantic confidence", () => {
+  const explanation = coordinator.explain(
+    null,
+    createCandidate({
+      semanticConfidence: "low",
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "activate");
+  assert.equal(explanation.ambiguity, null);
+  assert.deepEqual(
+    explanation.policyCriterionEvaluations.map((evaluation) => evaluation.rule),
+    [
+      "operator_absence",
+      "interrupt_eligibility",
+    ],
+  );
+});
+
 test("re-activates updates to the same interaction id", () => {
   const decision = coordinator.coordinate(
     createFrame({ interactionId: "interaction:same" }),
@@ -1256,6 +1340,7 @@ test("durable source trust can lower the interrupt bar when no frame is active",
       "interrupt_eligibility",
       "source_trust",
       "attention_budget",
+      "semantic_uncertainty",
       "no_active_frame",
     ],
   );
@@ -1319,6 +1404,7 @@ test("low-trust sources need a clearer margin before they interrupt current work
       "interrupt_eligibility",
       "source_trust",
       "attention_budget",
+      "semantic_uncertainty",
       "no_active_frame",
       "small_score_gap",
     ],

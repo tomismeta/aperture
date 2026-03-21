@@ -91,7 +91,9 @@ In the current hardened design:
 - policy-critical paths prefer explicit semantics
 - bounded heuristics are still allowed where the source truly omits structure
 - generic approval paths are the main remaining place where bounded tool-family inference may apply
-- confidence and abstention are recorded semantic signals, not hidden score multipliers
+- confidence and abstention are recorded semantic signals
+- they are not hidden score multipliers
+- low-confidence or abstained non-blocking work can resolve to queue/ambient through the engine's explicit ambiguity lane
 
 ## Responsibilities
 

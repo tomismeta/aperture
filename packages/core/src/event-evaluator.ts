@@ -38,6 +38,7 @@ export class EventEvaluator {
             blocking: false,
             timestamp: event.timestamp,
             ...(event.summary !== undefined ? { summary: event.summary } : {}),
+            ...buildSemanticUncertainty(event.semantic),
           },
         };
       case "task.updated":
@@ -85,6 +86,7 @@ export class EventEvaluator {
       timestamp: event.timestamp,
       ...(event.summary !== undefined ? { summary: event.summary } : {}),
       ...(event.semantic?.relationHints?.length ? { relationHints: event.semantic.relationHints } : {}),
+      ...buildSemanticUncertainty(event.semantic),
       ...(event.progress !== undefined
         ? {
             context: {
@@ -112,6 +114,7 @@ export class EventEvaluator {
       title: event.title,
       summary: event.summary,
       ...(event.semantic?.relationHints?.length ? { relationHints: event.semantic.relationHints } : {}),
+      ...buildSemanticUncertainty(event.semantic),
       responseSpec,
       priority: this.priorityForHumanInput(event),
       blocking: true,
@@ -270,5 +273,18 @@ function buildStatusProvenance(event: TaskUpdatedEvent): { provenance: { whyNow?
 
   return {
     provenance,
+  };
+}
+
+function buildSemanticUncertainty(
+  semantic: ApertureEvent["semantic"] | undefined,
+): Pick<AttentionCandidate, "semanticConfidence" | "semanticAbstained"> | {} {
+  if (!semantic) {
+    return {};
+  }
+
+  return {
+    semanticConfidence: semantic.confidence,
+    ...(semantic.abstained === true ? { semanticAbstained: true } : {}),
   };
 }

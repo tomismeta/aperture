@@ -6,7 +6,7 @@ import type {
   AttentionResponseSpec,
 } from "./frame.js";
 import type { AttentionActivityClass, SourceRef } from "./events.js";
-import type { SemanticRelationHint } from "./semantic-types.js";
+import type { SemanticConfidence, SemanticRelationHint } from "./semantic-types.js";
 
 export type AttentionPriority = "background" | "normal" | "high";
 
@@ -24,6 +24,8 @@ export type AttentionCandidate = {
   context?: AttentionContext;
   provenance?: AttentionProvenance;
   relationHints?: SemanticRelationHint[];
+  semanticConfidence?: SemanticConfidence;
+  semanticAbstained?: boolean;
   responseSpec: AttentionResponseSpec;
   priority: AttentionPriority;
   blocking: boolean;

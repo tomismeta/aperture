@@ -170,7 +170,8 @@ It applies after the hard gates in the interrupt doctrine are satisfied.
 In particular:
 
 - actionability and human exclusivity are evaluated as hard gates before this scoring applies
-- confidence is a valid future input to scoring and thresholding, but it is not a live hidden multiplier in the current engine
+- confidence is not a live hidden multiplier in the current engine
+- today, low-confidence or abstained non-blocking semantics resolve through an explicit ambiguity lane into queue/ambient handling
 - discriminability and criterion should remain conceptually separate
 
 ### 5. Perceptual urgency doctrine

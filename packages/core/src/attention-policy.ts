@@ -12,6 +12,7 @@ import { evaluateInterruptEligibilityCriterionRule } from "./policy/interrupt-el
 import { evaluateNoActiveFrameCriterionRule } from "./policy/no-active-frame-criterion-rule.js";
 import { evaluateOperatorAbsenceCriterionRule } from "./policy/operator-absence-criterion-rule.js";
 import { evaluatePeripheralStatusPolicyGateRule } from "./policy/peripheral-status-policy-gate-rule.js";
+import { evaluateSemanticUncertaintyCriterionRule } from "./policy/semantic-uncertainty-criterion-rule.js";
 import { evaluateSmallScoreGapCriterionRule } from "./policy/small-score-gap-criterion-rule.js";
 import { evaluateSourceTrustCriterionRule } from "./policy/source-trust-criterion-rule.js";
 import type {
@@ -76,10 +77,14 @@ const POLICY_GATE_RULES: readonly PolicyGateRule[] = [
 ];
 
 const POLICY_CRITERION_RULES: readonly PolicyCriterionRule[] = [
+  // Order matters: early rules preserve hard boundaries like operator absence
+  // and interrupt eligibility, mid-stage rules tune the criterion, and later
+  // rules resolve ambiguity before threshold-based activation would fire.
   evaluateOperatorAbsenceCriterionRule,
   evaluateInterruptEligibilityCriterionRule,
   evaluateSourceTrustCriterionRule,
   evaluateAttentionBudgetCriterionRule,
+  evaluateSemanticUncertaintyCriterionRule,
   evaluateNoActiveFrameCriterionRule,
   evaluateSmallScoreGapCriterionRule,
 ];

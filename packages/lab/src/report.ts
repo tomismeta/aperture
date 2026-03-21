@@ -18,6 +18,10 @@ export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
     `- Semantic readings: ${run.summary.totalSemanticReadings}`,
     `- Decision readings: ${run.summary.totalDecisionReadings}`,
     `- Ambiguous decisions: ${run.summary.totalAmbiguousDecisions}`,
+    `- Ambiguous queued: ${run.summary.totalAmbiguousQueued}`,
+    `- Ambiguous ambient: ${run.summary.totalAmbiguousAmbient}`,
+    `- Ambiguous queued -> active: ${run.summary.totalAmbiguousQueuedThenActivated}`,
+    `- Ambiguous ambient -> active: ${run.summary.totalAmbiguousAmbientThenActivated}`,
     `- Active buckets: ${run.summary.totalActiveBuckets}`,
     `- Queued buckets: ${run.summary.totalQueuedBuckets}`,
     `- Ambient buckets: ${run.summary.totalAmbientBuckets}`,
@@ -52,6 +56,11 @@ export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
     lines.push(
       `- Buckets: active=${result.scorecard.buckets.active}, queued=${result.scorecard.buckets.queued}, ambient=${result.scorecard.buckets.ambient}`,
     );
+    if (result.scorecard.trace.ambiguousDecisions > 0) {
+      lines.push(
+        `- Ambiguity trace: total=${result.scorecard.trace.ambiguousDecisions}, queued=${result.scorecard.trace.ambiguousQueued}, ambient=${result.scorecard.trace.ambiguousAmbient}, queued->active=${result.scorecard.trace.ambiguousQueuedThenActivated}, ambient->active=${result.scorecard.trace.ambiguousAmbientThenActivated}`,
+      );
+    }
     if (result.run.semantics.length > 0) {
       for (const semantic of result.run.semantics) {
         lines.push(

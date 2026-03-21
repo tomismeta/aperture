@@ -9,6 +9,13 @@ export type TraceEvaluationReport = {
   activated: number;
   queued: number;
   ambient: number;
+  ambiguousDecisions: number;
+  ambiguousQueued: number;
+  ambiguousAmbient: number;
+  ambiguousLowConfidence: number;
+  ambiguousAbstained: number;
+  ambiguousQueuedThenActivated: number;
+  ambiguousAmbientThenActivated: number;
   actionableEpisodes: number;
   actionableSurfaced: number;
   actionableActivated: number;
@@ -24,6 +31,13 @@ export function evaluateTraceSession(traces: ApertureTrace[]): TraceEvaluationRe
     activated: 0,
     queued: 0,
     ambient: 0,
+    ambiguousDecisions: 0,
+    ambiguousQueued: 0,
+    ambiguousAmbient: 0,
+    ambiguousLowConfidence: 0,
+    ambiguousAbstained: 0,
+    ambiguousQueuedThenActivated: 0,
+    ambiguousAmbientThenActivated: 0,
     actionableEpisodes: 0,
     actionableSurfaced: 0,
     actionableActivated: 0,
@@ -33,9 +47,12 @@ export function evaluateTraceSession(traces: ApertureTrace[]): TraceEvaluationRe
   };
 
   const lastDecisionByEpisode = new Map<string, CandidateDecision>();
+  const pendingAmbiguityByKey = new Map<string, "queue" | "ambient">();
   const mergedFrameIdsByEpisode = new Map<string, Set<string>>();
   const activatedAfterDeferral = new Set<string>();
   const activatedAfterSuppression = new Set<string>();
+  const activatedAfterAmbiguousQueue = new Set<string>();
+  const activatedAfterAmbiguousAmbient = new Set<string>();
 
   for (const trace of traces) {
     if (!isCandidateTrace(trace)) {
@@ -44,6 +61,34 @@ export function evaluateTraceSession(traces: ApertureTrace[]): TraceEvaluationRe
 
     report.totalCandidates += 1;
     incrementDecisionCount(report, trace.coordination.kind);
+
+    const ambiguityKey = trace.episode?.id ?? `${trace.evaluation.adjusted.taskId}:${trace.evaluation.adjusted.interactionId}`;
+    if (trace.coordination.ambiguity) {
+      report.ambiguousDecisions += 1;
+      if (trace.coordination.ambiguity.resolution === "queue") {
+        report.ambiguousQueued += 1;
+      } else {
+        report.ambiguousAmbient += 1;
+      }
+      if (trace.evaluation.adjusted.semanticConfidence === "low") {
+        report.ambiguousLowConfidence += 1;
+      }
+      if (trace.evaluation.adjusted.semanticAbstained === true) {
+        report.ambiguousAbstained += 1;
+      }
+      pendingAmbiguityByKey.set(ambiguityKey, trace.coordination.ambiguity.resolution);
+    } else if (trace.coordination.kind === "activate") {
+      const pendingResolution = pendingAmbiguityByKey.get(ambiguityKey);
+      if (pendingResolution === "queue" && !activatedAfterAmbiguousQueue.has(ambiguityKey)) {
+        activatedAfterAmbiguousQueue.add(ambiguityKey);
+        report.ambiguousQueuedThenActivated += 1;
+        pendingAmbiguityByKey.delete(ambiguityKey);
+      } else if (pendingResolution === "ambient" && !activatedAfterAmbiguousAmbient.has(ambiguityKey)) {
+        activatedAfterAmbiguousAmbient.add(ambiguityKey);
+        report.ambiguousAmbientThenActivated += 1;
+        pendingAmbiguityByKey.delete(ambiguityKey);
+      }
+    }
 
     const episode = trace.episode;
     if (!episode) {

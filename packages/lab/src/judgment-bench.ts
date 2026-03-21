@@ -48,6 +48,10 @@ export type JudgmentBenchRun = {
       totalSemanticReadings: number;
       totalDecisionReadings: number;
       totalAmbiguousDecisions: number;
+      totalAmbiguousQueued: number;
+      totalAmbiguousAmbient: number;
+      totalAmbiguousQueuedThenActivated: number;
+      totalAmbiguousAmbientThenActivated: number;
       totalCandidates: number;
       totalActiveBuckets: number;
       totalQueuedBuckets: number;
@@ -100,6 +104,10 @@ export async function runJudgmentBench(
       totalAmbiguousDecisions: sum(
         results.map((result) => result.run.decisions.filter((decision) => decision.ambiguity !== null && decision.ambiguity !== undefined).length),
       ),
+      totalAmbiguousQueued: sum(results.map((result) => result.scorecard.trace.ambiguousQueued)),
+      totalAmbiguousAmbient: sum(results.map((result) => result.scorecard.trace.ambiguousAmbient)),
+      totalAmbiguousQueuedThenActivated: sum(results.map((result) => result.scorecard.trace.ambiguousQueuedThenActivated)),
+      totalAmbiguousAmbientThenActivated: sum(results.map((result) => result.scorecard.trace.ambiguousAmbientThenActivated)),
       totalCandidates: sum(results.map((result) => result.scorecard.trace.totalCandidates)),
       totalActiveBuckets: sum(results.map((result) => result.scorecard.buckets.active)),
       totalQueuedBuckets: sum(results.map((result) => result.scorecard.buckets.queued)),

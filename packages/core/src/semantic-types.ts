@@ -29,18 +29,45 @@ export type SemanticRelationHint = {
   target?: string;
 };
 
+/**
+ * Bounded semantic read of a {@link SourceEvent}.
+ *
+ * Contract notes:
+ * - `toolFamily`, `activityClass`, `relationHints`, and human-input
+ *   `consequence` can influence canonical events or downstream judgment.
+ * - `intentFrame`, `whyNow`, `factors`, and `reasons` are primarily
+ *   explanatory and benchmark-facing.
+ * - `confidence` and `abstained` are semantic uncertainty signals, but they
+ *   are not live score multipliers today.
+ * - `operatorActionRequired` and `requestExplicitness` are retained for
+ *   inspection and Lab assertions. They are not authoritative routing inputs.
+ * - On `task.updated`, `status` remains authoritative for routing even when
+ *   the semantic read is richer.
+ */
 export type SemanticInterpretation = {
+  /** Canonical semantic frame for explanation, testing, and adapter inspection. */
   intentFrame: SemanticIntentFrame;
+  /** Decision-bearing when projected into canonical events. */
   activityClass?: SemanticActivityClass;
+  /** Decision-bearing when projected into canonical events. */
   toolFamily?: string;
+  /** Diagnostic only for now; not a live routing input. */
   operatorActionRequired: boolean;
+  /** Diagnostic only for now; not a live routing input. */
   requestExplicitness: SemanticRequestExplicitness;
+  /** Decision-bearing on human-input normalization; non-authoritative on task status routing. */
   consequence?: SemanticConsequenceLevel;
+  /** Explanation-bearing semantic summary for provenance and review surfaces. */
   whyNow?: string;
+  /** Explanation-bearing semantic factors merged into provenance. */
   factors: string[];
+  /** Continuity-bearing semantic relations. */
   relationHints: SemanticRelationHint[];
+  /** Semantic uncertainty signal reserved for future abstention-aware policy. */
   confidence: SemanticConfidence;
+  /** Explanation-bearing reason strings for tests, diagnostics, and Lab. */
   reasons: string[];
+  /** Explicit abstention signal reserved for future policy work. */
   abstained?: boolean;
 };
 

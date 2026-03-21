@@ -60,6 +60,37 @@ test("task.updated failed becomes a critical high-priority status", () => {
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
 });
 
+test("task.updated semantics enrich provenance without overriding status routing", () => {
+  const result = evaluation.evaluate({
+    id: "evt:waiting-semantic",
+    taskId: "task:1",
+    timestamp: "2026-03-08T12:02:30.000Z",
+    type: "task.updated",
+    title: "Waiting for approval",
+    summary: "Approval required before deploy can continue.",
+    status: "waiting",
+    semantic: {
+      intentFrame: "status_update",
+      operatorActionRequired: true,
+      requestExplicitness: "implied",
+      consequence: "high",
+      whyNow: "Waiting for operator approval before continuing.",
+      factors: ["task.updated", "waiting", "implied operator ask"],
+      relationHints: [{ kind: "same_issue" }, { kind: "repeats" }],
+      confidence: "low",
+      reasons: ["status text implies an operator ask"],
+    },
+  });
+
+  assert.equal(result.kind, "candidate");
+  assert.equal(result.candidate.priority, "background");
+  assert.equal(result.candidate.tone, "ambient");
+  assert.equal(result.candidate.consequence, "low");
+  assert.equal(result.candidate.responseSpec.kind, "none");
+  assert.equal(result.candidate.provenance?.whyNow, "Waiting for operator approval before continuing.");
+  assert.deepEqual(result.candidate.relationHints?.map((hint) => hint.kind), ["same_issue", "repeats"]);
+});
+
 test("approval requests become blocking approval candidates", () => {
   const result = evaluation.evaluate({
     id: "evt:approval",

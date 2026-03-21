@@ -63,6 +63,14 @@ This is where Aperture decides things like:
 - a high-risk approval becomes `critical` / `high`
 - a medium-risk approval becomes `focused` / `medium`
 
+Current contract nuance:
+
+- `human.input.requested` semantics can project into canonical event consequence
+  and provenance before routing
+- `task.updated` semantics enrich continuity, provenance, `toolFamily`, and
+  `activityClass`
+- `task.updated.status` remains authoritative for status routing
+
 This is also where the adapter/core boundary matters most:
 
 - adapters should provide facts
@@ -83,6 +91,7 @@ In the current hardened design:
 - policy-critical paths prefer explicit semantics
 - bounded heuristics are still allowed where the source truly omits structure
 - generic approval paths are the main remaining place where bounded tool-family inference may apply
+- confidence and abstention are recorded semantic signals, not hidden score multipliers
 
 ## Responsibilities
 

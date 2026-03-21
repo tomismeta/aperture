@@ -170,7 +170,7 @@ It applies after the hard gates in the interrupt doctrine are satisfied.
 In particular:
 
 - actionability and human exclusivity are evaluated as hard gates before this scoring applies
-- confidence should influence both scoring and thresholding
+- confidence is a valid future input to scoring and thresholding, but it is not a live hidden multiplier in the current engine
 - discriminability and criterion should remain conceptually separate
 
 ### 5. Perceptual urgency doctrine

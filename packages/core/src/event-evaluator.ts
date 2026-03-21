@@ -60,6 +60,10 @@ export class EventEvaluator {
   }
 
   private evaluateTaskUpdate(event: TaskUpdatedEvent): AttentionCandidate {
+    // Status events keep routing authority in the explicit task status. The
+    // semantic layer can still enrich provenance, relation hints, tool family,
+    // and activity class without silently turning status handling into a
+    // different decision path.
     const priority = this.priorityForStatus(event.status);
     const tone = this.toneForStatus(event.status);
     const consequence = this.consequenceForStatus(event.status);

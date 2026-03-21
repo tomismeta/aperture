@@ -6,9 +6,9 @@ import { interpretSourceEvent } from "./semantic-interpreter.js";
 export function normalizeSourceEvent(event: SourceEvent): ApertureEvent {
   const semantic = interpretSourceEvent(event);
 
-  // Non-human-input source events are intentionally thin for now. The adapter
-  // preserves factual state, while core owns the extension point for future
-  // semantic enrichment before the attention engine runs.
+  // Non-human-input source events stay intentionally bounded. Core enriches
+  // tool family, activity class, provenance, and relation semantics here, but
+  // task status remains the authoritative routing signal for status events.
   switch (event.type) {
     case "task.started":
       return {

@@ -147,6 +147,10 @@ The sharpest current gap is `task.updated`:
 - a decision note for `task.updated`
 - corresponding code changes in core types/interpreter/evaluator
 
+Current decision artifacts:
+
+- [Semantic Contract Decision](./semantic-contract-decision.md)
+
 ### Value
 
 - removes architectural ambiguity

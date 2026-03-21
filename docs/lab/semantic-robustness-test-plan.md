@@ -10,6 +10,14 @@ The goal is not only to prove that Aperture routes work correctly.
 The goal is to prove that Aperture first **reads source events correctly enough**
 for deterministic judgment to be meaningful.
 
+Important contract note:
+
+- some semantic fields are live routing inputs
+- some semantic fields are explanatory or benchmark-facing only
+
+The test plan should cover both, but the docs and assertions should not imply
+that every semantic field already changes routing.
+
 ## Main Rule
 
 Test the semantic layer in three stacked layers:

@@ -1,0 +1,214 @@
+{
+  "id": "harvested:claude:ask-user-question:clean-probe",
+  "title": "Claude AskUserQuestion clean probe",
+  "description": "Single-session clean probe showing AskUserQuestion rendered in Aperture and answered through the deny-plus-context bridge.",
+  "doctrineTags": [
+    "harvested",
+    "claude",
+    "ask-user-question",
+    "clean"
+  ],
+  "source": {
+    "id": "aperture",
+    "kind": "runtime",
+    "label": "Aperture runtime (aperture)",
+    "capture": {
+      "eventTransport": "hook+transcript",
+      "semanticCapture": "source+normalized+trace",
+      "responseBridge": "deny_plus_context",
+      "notes": [
+        "Single Claude session clean capture."
+      ]
+    }
+  },
+  "provenance": {
+    "promotedAt": "2026-03-21T23:47:58.332Z",
+    "promotedFromBundleSessionId": "de26c272-db0b-4583-9c9b-065449a955f7",
+    "promotedFromPath": "/Users/tom/dev/aperture/packages/lab/bundles/de26c272-db0b-4583-9c9b-065449a955f7.json"
+  },
+  "expectations": {
+    "finalActiveInteractionId": null,
+    "queuedInteractionIds": [],
+    "ambientInteractionIds": [
+      "interaction:claude-code:session:e9ec99f4-b8e2-469e-b47a-5764cac99501:status"
+    ],
+    "resultBucketCounts": {
+      "active": 0,
+      "queued": 0,
+      "ambient": 1
+    }
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:e9ec99f4-b8e2-469e-b47a-5764cac99501:UserPromptSubmit:none:task.completed",
+        "type": "task.completed",
+        "taskId": "claude-code:session:e9ec99f4-b8e2-469e-b47a-5764cac99501",
+        "timestamp": "2026-03-21T23:36:43.296Z",
+        "source": {
+          "id": "claude-code:e9ec99f4-b8e2-469e-b47a-5764cac99501",
+          "kind": "claude-code",
+          "label": "Claude Code tom #e9ec99"
+        },
+        "summary": "Operator replied in Claude Code."
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:e9ec99f4-b8e2-469e-b47a-5764cac99501:PreToolUse:toolu_01MjeZaUrMdtFCDEbvJJMBRQ:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:e9ec99f4-b8e2-469e-b47a-5764cac99501",
+        "interactionId": "claude-code:tool:e9ec99f4-b8e2-469e-b47a-5764cac99501:toolu_01MjeZaUrMdtFCDEbvJJMBRQ",
+        "timestamp": "2026-03-21T23:36:46.107Z",
+        "source": {
+          "id": "claude-code:e9ec99f4-b8e2-469e-b47a-5764cac99501",
+          "kind": "claude-code",
+          "label": "Claude Code tom #e9ec99"
+        },
+        "toolFamily": "web",
+        "activityClass": "permission_request",
+        "title": "Claude Code wants to search the web for select:AskUserQuestion",
+        "summary": "select:AskUserQuestion",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "low",
+        "context": {
+          "items": [
+            {
+              "id": "query",
+              "label": "query",
+              "value": "select:AskUserQuestion"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Claude Code requested approval before running ToolSearch."
+        }
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:e9ec99f4-b8e2-469e-b47a-5764cac99501",
+        "interactionId": "claude-code:tool:e9ec99f4-b8e2-469e-b47a-5764cac99501:toolu_01MjeZaUrMdtFCDEbvJJMBRQ",
+        "response": {
+          "kind": "approved"
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:e9ec99f4-b8e2-469e-b47a-5764cac99501:PostToolUse:toolu_01MjeZaUrMdtFCDEbvJJMBRQ:task.updated",
+        "type": "task.updated",
+        "taskId": "claude-code:session:e9ec99f4-b8e2-469e-b47a-5764cac99501",
+        "timestamp": "2026-03-21T23:36:52.064Z",
+        "source": {
+          "id": "claude-code:e9ec99f4-b8e2-469e-b47a-5764cac99501",
+          "kind": "claude-code",
+          "label": "Claude Code tom #e9ec99"
+        },
+        "toolFamily": "web",
+        "activityClass": "tool_completion",
+        "title": "ToolSearch completed",
+        "summary": "ToolSearch completed successfully.",
+        "status": "running"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:e9ec99f4-b8e2-469e-b47a-5764cac99501:PreToolUse:toolu_0114jJzPCxCwtW3Yk7dqgmpn:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:e9ec99f4-b8e2-469e-b47a-5764cac99501",
+        "interactionId": "claude-code:tool:e9ec99f4-b8e2-469e-b47a-5764cac99501:toolu_0114jJzPCxCwtW3Yk7dqgmpn",
+        "timestamp": "2026-03-21T23:36:54.758Z",
+        "source": {
+          "id": "claude-code:e9ec99f4-b8e2-469e-b47a-5764cac99501",
+          "kind": "claude-code",
+          "label": "Claude Code tom #e9ec99"
+        },
+        "activityClass": "question_request",
+        "title": "What's your preferred language for scripting tasks?",
+        "summary": "Claude asked for input about Scripting.",
+        "request": {
+          "kind": "choice",
+          "selectionMode": "single",
+          "options": [
+            {
+              "id": "q0:o0:Python",
+              "label": "Python",
+              "summary": "Use Python for scripting tasks"
+            },
+            {
+              "id": "q0:o1:Bash%2Fzsh",
+              "label": "Bash/zsh",
+              "summary": "Use Bash or zsh shell scripts"
+            },
+            {
+              "id": "q0:o2:Node.js",
+              "label": "Node.js",
+              "summary": "Use Node.js for scripting tasks"
+            }
+          ]
+        },
+        "context": {
+          "items": [
+            {
+              "id": "header",
+              "label": "Header",
+              "value": "Scripting"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Claude asked the operator to answer a question before continuing."
+        }
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:e9ec99f4-b8e2-469e-b47a-5764cac99501",
+        "interactionId": "claude-code:tool:e9ec99f4-b8e2-469e-b47a-5764cac99501:toolu_0114jJzPCxCwtW3Yk7dqgmpn",
+        "response": {
+          "kind": "option_selected",
+          "optionIds": [
+            "q0:o2:Node.js"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:e9ec99f4-b8e2-469e-b47a-5764cac99501:Stop:none:task.updated",
+        "type": "task.updated",
+        "taskId": "claude-code:session:e9ec99f4-b8e2-469e-b47a-5764cac99501",
+        "timestamp": "2026-03-21T23:37:02.988Z",
+        "source": {
+          "id": "claude-code:e9ec99f4-b8e2-469e-b47a-5764cac99501",
+          "kind": "claude-code",
+          "label": "Claude Code tom #e9ec99"
+        },
+        "activityClass": "status_update",
+        "title": "Claude completed a turn",
+        "summary": "Your preferred scripting language is **Node.js**.",
+        "status": "running"
+      }
+    }
+  ]
+}

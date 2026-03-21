@@ -135,6 +135,26 @@ This records from the current runtime capture as a baseline, waits while you
 exercise the system, and exports only the new session slice when you press
 Enter.
 
+To promote a raw bundle into a durable replay scenario, use:
+
+```bash
+pnpm session:promote --bundle packages/lab/bundles/<bundle>.json --collection wild --delete-source
+```
+
+This converts the raw capture into a replay scenario under
+[packages/lab/harvested](/Users/tom/dev/aperture/packages/lab/harvested), carries
+source provenance and capture metadata forward, and can delete the raw bundle
+once it has been distilled.
+
+The intended split is:
+
+- [packages/lab/bundles](/Users/tom/dev/aperture/packages/lab/bundles)
+  - temporary local-first raw captures
+- [packages/lab/harvested](/Users/tom/dev/aperture/packages/lab/harvested)
+  - kept replay scenarios from real sessions, including "wild capture" probes
+- [packages/lab/golden](/Users/tom/dev/aperture/packages/lab/golden)
+  - curated doctrine fixtures that should stay stable enough for JudgmentBench
+
 ## Status
 
 - good enough to start collecting golden scenarios

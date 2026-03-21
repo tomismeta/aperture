@@ -19,6 +19,27 @@ type ReplayDecisionAmbiguity = {
   resolution: "queue" | "ambient";
 };
 
+export type ReplayCaptureMetadata = {
+  eventTransport?: string;
+  semanticCapture?: string;
+  responseBridge?: string;
+  notes?: string[];
+};
+
+export type ReplayArtifactSource = {
+  id: string;
+  kind?: string;
+  label?: string;
+  redacted?: boolean;
+  capture?: ReplayCaptureMetadata;
+};
+
+export type ReplayScenarioProvenance = {
+  promotedAt?: string;
+  promotedFromBundleSessionId?: string;
+  promotedFromPath?: string;
+};
+
 export type ReplayObservationStep =
   | {
       kind: "publish";
@@ -77,6 +98,8 @@ export type ReplayScenario = {
   title: string;
   description?: string;
   doctrineTags?: string[];
+  source?: ReplayArtifactSource;
+  provenance?: ReplayScenarioProvenance;
   expectations?: ReplayScenarioExpectations;
   core?: ApertureCoreOptions;
   steps: ReplayObservationStep[];

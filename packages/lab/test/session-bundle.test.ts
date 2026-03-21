@@ -6,11 +6,14 @@ import test from "node:test";
 
 import {
   canonicalAttentionExportToScenario,
+  createScenarioFromSessionBundle,
   createSessionBundle,
   createSessionBundleFromCanonicalAttentionExport,
   createRuntimeSessionCaptureCursor,
   createSessionBundleFromRuntimeCapture,
+  defaultHarvestedScenarioPath,
   defaultSessionBundlePath,
+  loadHarvestedScenarios,
   loadSessionBundles,
   runReplayScenario,
   runSessionBundle,
@@ -18,6 +21,7 @@ import {
   type CanonicalAttentionExportLike,
   type ReplayScenario,
   type RuntimeSessionCaptureLike,
+  writeReplayScenario,
   writeSessionBundle,
 } from "../src/index.js";
 
@@ -131,6 +135,69 @@ test("session bundles can replay back into the same final attention outcome", ()
   assert.deepEqual(replayed.decisions, result.decisions);
 });
 
+test("session bundles can promote into harvested scenarios with source provenance and expectations", () => {
+  const scenario: ReplayScenario = {
+    id: "bundle:promote",
+    title: "Promote me",
+    doctrineTags: ["harvested"],
+    steps: [
+      {
+        kind: "publish",
+        event: {
+          id: "evt:bundle:promote",
+          taskId: "task:bundle:promote",
+          timestamp: "2026-03-21T18:36:00.000Z",
+          type: "human.input.requested",
+          interactionId: "interaction:bundle:promote",
+          title: "Choose a scripting language",
+          summary: "A scripting language is needed.",
+          consequence: "medium",
+          request: {
+            kind: "choice",
+            selectionMode: "single",
+            options: [
+              { id: "python", label: "Python" },
+              { id: "bash", label: "Bash/zsh" },
+            ],
+          },
+        },
+      },
+    ],
+  };
+
+  const result = runReplayScenario(scenario);
+  const bundle = createSessionBundle(result, {
+    sessionId: "session:bundle:promote",
+    source: {
+      id: "claude-code",
+      kind: "adapter",
+      label: "Claude Code",
+      capture: {
+        eventTransport: "hook+transcript",
+        semanticCapture: "source+normalized+trace",
+        responseBridge: "deny_plus_context",
+      },
+    },
+    exportedAt: "2026-03-21T18:37:00.000Z",
+  });
+
+  const promoted = createScenarioFromSessionBundle(bundle, {
+    id: "harvested:claude:ask-user-question-clean",
+    provenance: {
+      promotedAt: "2026-03-21T18:38:00.000Z",
+      promotedFromBundleSessionId: bundle.sessionId,
+      promotedFromPath: "/tmp/session:bundle:promote.json",
+    },
+  });
+
+  assert.equal(promoted.id, "harvested:claude:ask-user-question-clean");
+  assert.equal(promoted.source?.capture?.eventTransport, "hook+transcript");
+  assert.equal(promoted.source?.capture?.responseBridge, "deny_plus_context");
+  assert.equal(promoted.provenance?.promotedFromBundleSessionId, "session:bundle:promote");
+  assert.equal(promoted.expectations?.finalActiveInteractionId, "interaction:bundle:promote");
+  assert.equal(promoted.expectations?.resultBucketCounts?.active, 1);
+});
+
 test("session bundles can be written to disk and loaded back", async () => {
   const scenario: ReplayScenario = {
     id: "bundle:disk",
@@ -171,6 +238,38 @@ test("session bundles can be written to disk and loaded back", async () => {
   assert.equal(loaded.length, 1);
   assert.equal(loaded[0]?.sessionId, bundle.sessionId);
   assert.equal(loaded[0]?.outcomes.finalActiveInteractionId, bundle.outcomes.finalActiveInteractionId);
+});
+
+test("harvested replay scenarios can be written to disk and loaded back", async () => {
+  const scenario: ReplayScenario = {
+    id: "harvested:claude:clean-probe",
+    title: "Claude clean probe",
+    doctrineTags: ["harvested", "claude", "clean"],
+    source: {
+      id: "claude-code",
+      kind: "adapter",
+      label: "Claude Code",
+      redacted: true,
+      capture: {
+        eventTransport: "hook+transcript",
+        semanticCapture: "source+normalized+trace",
+        responseBridge: "deny_plus_context",
+      },
+    },
+    steps: [],
+  };
+
+  const directory = await mkdtemp(path.join(os.tmpdir(), "aperture-harvested-"));
+  const filePath = defaultHarvestedScenarioPath(scenario, directory);
+
+  await writeReplayScenario(filePath, scenario);
+
+  const raw = JSON.parse(await readFile(filePath, "utf8")) as { id: string };
+  const loaded = await loadHarvestedScenarios(directory);
+
+  assert.equal(raw.id, scenario.id);
+  assert.equal(loaded.length, 1);
+  assert.equal(loaded[0]?.source?.capture?.responseBridge, "deny_plus_context");
 });
 
 test("canonical attention exports convert into replay scenarios with final-state expectations", () => {

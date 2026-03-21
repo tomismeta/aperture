@@ -13,10 +13,13 @@ import type {
 import type { ApertureTrace } from "../../core/src/trace.js";
 
 import type {
+  ReplayArtifactSource,
   ReplayDecisionSnapshot,
   ReplayNormalizedEventSnapshot,
   ReplayObservationStep,
   ReplayScenario,
+  ReplayScenarioExpectations,
+  ReplayScenarioProvenance,
   ReplaySemanticSnapshot,
   ReplayViewSnapshot,
 } from "./scenario.js";
@@ -31,12 +34,7 @@ export const DEFAULT_SESSION_BUNDLES_DIR = path.resolve(
   "packages/lab/bundles",
 );
 
-export type ReplaySessionBundleSource = {
-  id: string;
-  kind?: string;
-  label?: string;
-  redacted?: boolean;
-};
+export type ReplaySessionBundleSource = ReplayArtifactSource;
 
 export type ReplaySessionBundle = {
   schemaVersion: typeof SESSION_BUNDLE_SCHEMA_VERSION;
@@ -159,6 +157,9 @@ type CreateScenarioOptions = {
   title?: string;
   description?: string;
   doctrineTags?: string[];
+  source?: ReplayArtifactSource;
+  provenance?: ReplayScenarioProvenance;
+  includeOutcomeExpectations?: boolean;
   core?: ApertureCoreOptions;
 };
 
@@ -377,15 +378,43 @@ export function createSessionBundleFromCanonicalAttentionExport(
   });
 }
 
-export function sessionBundleToScenario(bundle: ReplaySessionBundle): ReplayScenario {
+export function createScenarioFromSessionBundle(
+  bundle: ReplaySessionBundle,
+  options: CreateScenarioOptions = {},
+): ReplayScenario {
+  const doctrineTags = uniqueStrings([
+    ...(bundle.doctrineTags ?? []),
+    ...(options.doctrineTags ?? []),
+  ]);
+  const source = options.source ?? bundle.source;
+  const includeOutcomeExpectations = options.includeOutcomeExpectations ?? true;
+  const provenance = options.provenance;
+
   return {
-    id: `bundle:${bundle.sessionId}`,
-    title: bundle.title,
-    ...(bundle.description !== undefined ? { description: bundle.description } : {}),
-    ...(bundle.doctrineTags !== undefined ? { doctrineTags: bundle.doctrineTags } : {}),
-    ...(bundle.core !== undefined ? { core: bundle.core } : {}),
+    id: options.id ?? `bundle:${bundle.sessionId}`,
+    title: options.title ?? bundle.title,
+    ...(options.description !== undefined
+      ? { description: options.description }
+      : bundle.description !== undefined
+        ? { description: bundle.description }
+        : {}),
+    ...(doctrineTags.length > 0 ? { doctrineTags } : {}),
+    ...(source !== undefined ? { source } : {}),
+    ...(provenance !== undefined ? { provenance } : {}),
+    ...(options.core !== undefined
+      ? { core: options.core }
+      : bundle.core !== undefined
+        ? { core: bundle.core }
+        : {}),
+    ...(includeOutcomeExpectations ? { expectations: expectationsFromBundle(bundle) } : {}),
     steps: bundle.steps,
   };
+}
+
+export function sessionBundleToScenario(bundle: ReplaySessionBundle): ReplayScenario {
+  return createScenarioFromSessionBundle(bundle, {
+    includeOutcomeExpectations: false,
+  });
 }
 
 export function runSessionBundle(bundle: ReplaySessionBundle): ReplayRunResult {
@@ -456,6 +485,23 @@ async function readSessionBundleDirectory(directory: string): Promise<ReplaySess
 
 function safeBundleFilename(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9._-]+/g, "-");
+}
+
+function expectationsFromBundle(bundle: ReplaySessionBundle): ReplayScenarioExpectations {
+  return {
+    finalActiveInteractionId: bundle.outcomes.finalActiveInteractionId,
+    queuedInteractionIds: bundle.outcomes.finalQueuedInteractionIds,
+    ambientInteractionIds: bundle.outcomes.finalAmbientInteractionIds,
+    resultBucketCounts: {
+      active: bundle.outcomes.finalActiveInteractionId ? 1 : 0,
+      queued: bundle.outcomes.finalQueuedCount,
+      ambient: bundle.outcomes.finalAmbientCount,
+    },
+  };
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values.filter((value) => value.length > 0))];
 }
 
 function findNextTraceForEvent(

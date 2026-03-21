@@ -1,0 +1,1588 @@
+{
+  "id": "harvested:claude:wild:permission-request-probe-b",
+  "title": "Claude permission request wild capture B",
+  "description": "Wild captured Claude session showing structured AskUserQuestion answers interleaved with ordinary tool approvals.",
+  "doctrineTags": [
+    "harvested",
+    "claude",
+    "permission-request"
+  ],
+  "source": {
+    "id": "aperture",
+    "kind": "runtime",
+    "label": "Aperture runtime (aperture)",
+    "capture": {
+      "eventTransport": "hook+transcript",
+      "semanticCapture": "source+normalized+trace",
+      "responseBridge": "deny_plus_context",
+      "notes": [
+        "Wild capture retained for real-session replay."
+      ]
+    }
+  },
+  "provenance": {
+    "promotedAt": "2026-03-21T23:47:58.337Z",
+    "promotedFromBundleSessionId": "e3bf63ca-c0c0-4ce3-8fb1-48be0ebd7d1b",
+    "promotedFromPath": "/Users/tom/dev/aperture/packages/lab/bundles/e3bf63ca-c0c0-4ce3-8fb1-48be0ebd7d1b.json"
+  },
+  "expectations": {
+    "finalActiveInteractionId": null,
+    "queuedInteractionIds": [],
+    "ambientInteractionIds": [
+      "interaction:claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180:status",
+      "interaction:claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:status"
+    ],
+    "resultBucketCounts": {
+      "active": 0,
+      "queued": 0,
+      "ambient": 2
+    }
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:UserPromptSubmit:none:task.completed",
+        "type": "task.completed",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "timestamp": "2026-03-21T23:28:25.748Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "summary": "Operator replied in Claude Code."
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:PreToolUse:toolu_01ScHhyky36wBC6kYdQckoKU:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_01ScHhyky36wBC6kYdQckoKU",
+        "timestamp": "2026-03-21T23:28:29.500Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "toolFamily": "bash",
+        "activityClass": "permission_request",
+        "title": "Claude Code wants to run a shell command",
+        "summary": "git log --oneline -5",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "medium",
+        "context": {
+          "items": [
+            {
+              "id": "command",
+              "label": "Command",
+              "value": "git log --oneline -5"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom/dev/aperture"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Show last 5 commits"
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:PreToolUse:toolu_013VjsyXz38ksb8UFstfUM2A:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_013VjsyXz38ksb8UFstfUM2A",
+        "timestamp": "2026-03-21T23:28:30.000Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "toolFamily": "read",
+        "activityClass": "permission_request",
+        "title": "Claude Code wants to read semantic-types.ts",
+        "summary": "/Users/tom/dev/aperture/packages/core/src/semantic-types.ts",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "low",
+        "context": {
+          "items": [
+            {
+              "id": "file_path",
+              "label": "file_path",
+              "value": "/Users/tom/dev/aperture/packages/core/src/semantic-types.ts"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom/dev/aperture"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Claude Code requested approval before running Read."
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:PreToolUse:toolu_01GarLjqx4uQABgtMgFihCKK:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_01GarLjqx4uQABgtMgFihCKK",
+        "timestamp": "2026-03-21T23:28:30.949Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "toolFamily": "read",
+        "activityClass": "permission_request",
+        "title": "Claude Code wants to search file contents with src",
+        "summary": "operatorActionRequired in /Users/tom/dev/aperture/packages/core/src",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "low",
+        "context": {
+          "items": [
+            {
+              "id": "pattern",
+              "label": "pattern",
+              "value": "operatorActionRequired"
+            },
+            {
+              "id": "path",
+              "label": "path",
+              "value": "/Users/tom/dev/aperture/packages/core/src"
+            },
+            {
+              "id": "output_mode",
+              "label": "output_mode",
+              "value": "content"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom/dev/aperture"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Claude Code requested approval before running Grep."
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:UserPromptSubmit:none:task.completed",
+        "type": "task.completed",
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "timestamp": "2026-03-21T23:28:34.990Z",
+        "source": {
+          "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+          "kind": "claude-code",
+          "label": "Claude Code tom #be2fb6"
+        },
+        "summary": "Operator replied in Claude Code."
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_01ScHhyky36wBC6kYdQckoKU",
+        "response": {
+          "kind": "approved"
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:PostToolUse:toolu_01ScHhyky36wBC6kYdQckoKU:task.updated",
+        "type": "task.updated",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "timestamp": "2026-03-21T23:28:39.091Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "toolFamily": "bash",
+        "activityClass": "tool_completion",
+        "title": "Bash completed",
+        "summary": "Bash completed successfully.",
+        "status": "running"
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_013VjsyXz38ksb8UFstfUM2A",
+        "response": {
+          "kind": "approved"
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:PostToolUse:toolu_013VjsyXz38ksb8UFstfUM2A:task.updated",
+        "type": "task.updated",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "timestamp": "2026-03-21T23:28:40.579Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "toolFamily": "read",
+        "activityClass": "tool_completion",
+        "title": "Read completed",
+        "summary": "Read completed successfully.",
+        "status": "running"
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_01GarLjqx4uQABgtMgFihCKK",
+        "response": {
+          "kind": "approved"
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:PostToolUse:toolu_01GarLjqx4uQABgtMgFihCKK:task.updated",
+        "type": "task.updated",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "timestamp": "2026-03-21T23:28:41.847Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "toolFamily": "read",
+        "activityClass": "tool_completion",
+        "title": "Grep completed",
+        "summary": "Grep completed successfully.",
+        "status": "running"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:PreToolUse:toolu_01Q6YHMEpRfosC3UwRjy7pvy:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "interactionId": "claude-code:tool:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:toolu_01Q6YHMEpRfosC3UwRjy7pvy",
+        "timestamp": "2026-03-21T23:28:46.176Z",
+        "source": {
+          "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+          "kind": "claude-code",
+          "label": "Claude Code tom #be2fb6"
+        },
+        "activityClass": "question_request",
+        "title": "What's your preferred language for scripting tasks?",
+        "summary": "Claude asked for input about Language.",
+        "request": {
+          "kind": "choice",
+          "selectionMode": "single",
+          "options": [
+            {
+              "id": "q0:o0:Python",
+              "label": "Python",
+              "summary": "Great stdlib, widely used for automation"
+            },
+            {
+              "id": "q0:o1:Bash%2Fzsh",
+              "label": "Bash/zsh",
+              "summary": "Native shell, no dependencies"
+            },
+            {
+              "id": "q0:o2:TypeScript%2FNode",
+              "label": "TypeScript/Node",
+              "summary": "Consistent with frontend/backend work"
+            },
+            {
+              "id": "q0:o3:Other",
+              "label": "Other",
+              "summary": "Something else entirely"
+            }
+          ]
+        },
+        "context": {
+          "items": [
+            {
+              "id": "header",
+              "label": "Header",
+              "value": "Language"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Claude asked the operator to answer a question before continuing."
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:PreToolUse:toolu_01CbdLgWRnFtKbHBXvjf9J14:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_01CbdLgWRnFtKbHBXvjf9J14",
+        "timestamp": "2026-03-21T23:28:50.738Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "activityClass": "question_request",
+        "title": "The grep confirms operatorActionRequired was already removed from core. Should I also check the lab and claude packages for any lingering references?",
+        "summary": "Claude asked for input about Dead code.",
+        "request": {
+          "kind": "choice",
+          "selectionMode": "single",
+          "options": [
+            {
+              "id": "q0:o0:Check%20all%20packages",
+              "label": "Check all packages",
+              "summary": "Grep across the entire monorepo for any remaining references"
+            },
+            {
+              "id": "q0:o1:Core%20only%20is%20fine",
+              "label": "Core only is fine",
+              "summary": "It's gone from core, that's enough"
+            }
+          ]
+        },
+        "context": {
+          "items": [
+            {
+              "id": "header",
+              "label": "Header",
+              "value": "Dead code"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom/dev/aperture"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Claude asked the operator to answer a question before continuing."
+        }
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_01CbdLgWRnFtKbHBXvjf9J14",
+        "response": {
+          "kind": "option_selected",
+          "optionIds": [
+            "q0:o1:Core%20only%20is%20fine"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:PreToolUse:toolu_0166YNQ6iDjmpB37URPL5hLa:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_0166YNQ6iDjmpB37URPL5hLa",
+        "timestamp": "2026-03-21T23:29:04.587Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "toolFamily": "bash",
+        "activityClass": "permission_request",
+        "title": "Claude Code wants to run a shell command",
+        "summary": "mkdir -p /tmp/aperture-hook-test-2",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "medium",
+        "context": {
+          "items": [
+            {
+              "id": "command",
+              "label": "Command",
+              "value": "mkdir -p /tmp/aperture-hook-test-2"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom/dev/aperture"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Create second scratch directory"
+        }
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_0166YNQ6iDjmpB37URPL5hLa",
+        "response": {
+          "kind": "approved"
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:PostToolUse:toolu_0166YNQ6iDjmpB37URPL5hLa:task.updated",
+        "type": "task.updated",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "timestamp": "2026-03-21T23:29:07.893Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "toolFamily": "bash",
+        "activityClass": "tool_completion",
+        "title": "Bash completed",
+        "summary": "Bash completed successfully.",
+        "status": "running"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:PreToolUse:toolu_013FMfwPWeUr99ZdS3DEYsVW:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_013FMfwPWeUr99ZdS3DEYsVW",
+        "timestamp": "2026-03-21T23:29:08.109Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "toolFamily": "read",
+        "activityClass": "permission_request",
+        "title": "Claude Code wants to search files with packages/core/src/continuity/*.ts",
+        "summary": "packages/core/src/continuity/*.ts",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "low",
+        "context": {
+          "items": [
+            {
+              "id": "pattern",
+              "label": "pattern",
+              "value": "packages/core/src/continuity/*.ts"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom/dev/aperture"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Claude Code requested approval before running Glob."
+        }
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "interactionId": "claude-code:tool:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:toolu_01Q6YHMEpRfosC3UwRjy7pvy",
+        "response": {
+          "kind": "option_selected",
+          "optionIds": [
+            "q0:o1:Bash%2Fzsh"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_013FMfwPWeUr99ZdS3DEYsVW",
+        "response": {
+          "kind": "approved"
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:PostToolUse:toolu_013FMfwPWeUr99ZdS3DEYsVW:task.updated",
+        "type": "task.updated",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "timestamp": "2026-03-21T23:29:12.947Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "toolFamily": "read",
+        "activityClass": "tool_completion",
+        "title": "Glob completed",
+        "summary": "Glob completed successfully.",
+        "status": "running"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:PreToolUse:toolu_01YXPNb468RMkVogob1TDt8x:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "interactionId": "claude-code:tool:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:toolu_01YXPNb468RMkVogob1TDt8x",
+        "timestamp": "2026-03-21T23:29:14.397Z",
+        "source": {
+          "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+          "kind": "claude-code",
+          "label": "Claude Code tom #be2fb6"
+        },
+        "toolFamily": "read",
+        "activityClass": "permission_request",
+        "title": "Claude Code wants to read config.json",
+        "summary": "/Users/tom/Desktop/claude-test-suite/dummy-data/config.json",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "low",
+        "context": {
+          "items": [
+            {
+              "id": "file_path",
+              "label": "file_path",
+              "value": "/Users/tom/Desktop/claude-test-suite/dummy-data/config.json"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Claude Code requested approval before running Read."
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:PreToolUse:toolu_01EkMBgtw7LgmejQS5MMz6Xm:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_01EkMBgtw7LgmejQS5MMz6Xm",
+        "timestamp": "2026-03-21T23:29:17.940Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "toolFamily": "write",
+        "activityClass": "permission_request",
+        "title": "Claude Code wants to write continuity-rules.txt",
+        "summary": "/tmp/aperture-hook-test-2/continuity-rules.txt",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "high",
+        "context": {
+          "items": [
+            {
+              "id": "file_path",
+              "label": "file_path",
+              "value": "/tmp/aperture-hook-test-2/continuity-rules.txt"
+            },
+            {
+              "id": "content",
+              "label": "content",
+              "value": "Continuity rule evaluation order (first override wins):\n1. same_interaction\n2. visible_episode\n3. same_episode\n4. minimum_dwell\n5. burst_dampening\n6. deferral_escalation\n7. conflicting_interrupt\n8. decision_stream_continuity\n9. context_patience\n"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom/dev/aperture"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Claude Code requested approval before running Write."
+        }
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_01EkMBgtw7LgmejQS5MMz6Xm",
+        "response": {
+          "kind": "approved"
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:PostToolUse:toolu_01EkMBgtw7LgmejQS5MMz6Xm:task.updated",
+        "type": "task.updated",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "timestamp": "2026-03-21T23:29:20.167Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "toolFamily": "write",
+        "activityClass": "tool_completion",
+        "title": "Write completed",
+        "summary": "Write completed successfully.",
+        "status": "running"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:PreToolUse:toolu_01G1wnvxNQAiF9Ss3egzZ8Gc:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_01G1wnvxNQAiF9Ss3egzZ8Gc",
+        "timestamp": "2026-03-21T23:29:20.387Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "toolFamily": "read",
+        "activityClass": "permission_request",
+        "title": "Claude Code wants to read frame-score.ts",
+        "summary": "/Users/tom/dev/aperture/packages/core/src/frame-score.ts",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "low",
+        "context": {
+          "items": [
+            {
+              "id": "file_path",
+              "label": "file_path",
+              "value": "/Users/tom/dev/aperture/packages/core/src/frame-score.ts"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom/dev/aperture"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Claude Code requested approval before running Read."
+        }
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_01G1wnvxNQAiF9Ss3egzZ8Gc",
+        "response": {
+          "kind": "approved"
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:PostToolUse:toolu_01G1wnvxNQAiF9Ss3egzZ8Gc:task.updated",
+        "type": "task.updated",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "timestamp": "2026-03-21T23:29:24.159Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "toolFamily": "read",
+        "activityClass": "tool_completion",
+        "title": "Read completed",
+        "summary": "Read completed successfully.",
+        "status": "running"
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "interactionId": "claude-code:tool:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:toolu_01YXPNb468RMkVogob1TDt8x",
+        "response": {
+          "kind": "approved"
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:PostToolUse:toolu_01YXPNb468RMkVogob1TDt8x:task.updated",
+        "type": "task.updated",
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "timestamp": "2026-03-21T23:29:25.424Z",
+        "source": {
+          "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+          "kind": "claude-code",
+          "label": "Claude Code tom #be2fb6"
+        },
+        "toolFamily": "read",
+        "activityClass": "tool_completion",
+        "title": "Read completed",
+        "summary": "Read completed successfully.",
+        "status": "running"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:PreToolUse:toolu_01HVSTLW8FNSd78sZnd935gs:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "interactionId": "claude-code:tool:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:toolu_01HVSTLW8FNSd78sZnd935gs",
+        "timestamp": "2026-03-21T23:29:29.861Z",
+        "source": {
+          "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+          "kind": "claude-code",
+          "label": "Claude Code tom #be2fb6"
+        },
+        "activityClass": "question_request",
+        "title": "How do you usually organize your dotfiles?",
+        "summary": "Claude asked for input about Dotfiles.",
+        "request": {
+          "kind": "choice",
+          "selectionMode": "single",
+          "options": [
+            {
+              "id": "q0:o0:Bare%20git%20repo",
+              "label": "Bare git repo",
+              "summary": "Git repo with $HOME as worktree"
+            },
+            {
+              "id": "q0:o1:Symlinked%20folder",
+              "label": "Symlinked folder",
+              "summary": "~/dotfiles dir symlinked into place"
+            },
+            {
+              "id": "q0:o2:A%20tool%20(chezmoi%2C%20stow%2C%20etc.)",
+              "label": "A tool (chezmoi, stow, etc.)",
+              "summary": "Dedicated dotfile manager"
+            },
+            {
+              "id": "q0:o3:I%20don't%20really%20manage%20them",
+              "label": "I don't really manage them",
+              "summary": "Ad-hoc, no formal system"
+            }
+          ]
+        },
+        "context": {
+          "items": [
+            {
+              "id": "header",
+              "label": "Header",
+              "value": "Dotfiles"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Claude asked the operator to answer a question before continuing."
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:PreToolUse:toolu_01DD9WrQUmrg6YuCedBWdFv7:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_01DD9WrQUmrg6YuCedBWdFv7",
+        "timestamp": "2026-03-21T23:29:31.236Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "activityClass": "question_request",
+        "title": "frame-score.ts already accepts `now?: string` as an option — so age penalty is partially injectable. Should I wire this through to ApertureCore as a first step toward full TimeSource?",
+        "summary": "Claude asked for input about TimeSource.",
+        "request": {
+          "kind": "choice",
+          "selectionMode": "single",
+          "options": [
+            {
+              "id": "q0:o0:Yes%2C%20wire%20it%20up",
+              "label": "Yes, wire it up",
+              "summary": "Thread the existing `now` option from ApertureCore down through the scoring path"
+            },
+            {
+              "id": "q0:o1:No%2C%20leave%20it",
+              "label": "No, leave it",
+              "summary": "The option exists but doesn't need to be connected yet"
+            }
+          ]
+        },
+        "context": {
+          "items": [
+            {
+              "id": "header",
+              "label": "Header",
+              "value": "TimeSource"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom/dev/aperture"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Claude asked the operator to answer a question before continuing."
+        }
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_01DD9WrQUmrg6YuCedBWdFv7",
+        "response": {
+          "kind": "option_selected",
+          "optionIds": [
+            "q0:o1:No%2C%20leave%20it"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:PreToolUse:toolu_01X1ptZgfS77uUY2skzZpTAZ:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_01X1ptZgfS77uUY2skzZpTAZ",
+        "timestamp": "2026-03-21T23:29:43.469Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "toolFamily": "bash",
+        "activityClass": "permission_request",
+        "title": "Claude Code wants to run a shell command",
+        "summary": "cat /tmp/aperture-hook-test-2/continuity-rules.txt",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "medium",
+        "context": {
+          "items": [
+            {
+              "id": "command",
+              "label": "Command",
+              "value": "cat /tmp/aperture-hook-test-2/continuity-rules.txt"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom/dev/aperture"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Verify written file contents"
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:PreToolUse:toolu_011d6pDnwFmd16tSNA3iVLvp:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_011d6pDnwFmd16tSNA3iVLvp",
+        "timestamp": "2026-03-21T23:29:44.566Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "activityClass": "question_request",
+        "title": "All 10 interactions fired. Should I clean up /tmp/aperture-hook-test-2/?",
+        "summary": "Claude asked for input about Cleanup.",
+        "request": {
+          "kind": "choice",
+          "selectionMode": "single",
+          "options": [
+            {
+              "id": "q0:o0:Delete%20it",
+              "label": "Delete it",
+              "summary": "rm -rf /tmp/aperture-hook-test-2"
+            },
+            {
+              "id": "q0:o1:Keep%20it",
+              "label": "Keep it",
+              "summary": "Leave it for inspection"
+            }
+          ]
+        },
+        "context": {
+          "items": [
+            {
+              "id": "header",
+              "label": "Header",
+              "value": "Cleanup"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom/dev/aperture"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Claude asked the operator to answer a question before continuing."
+        }
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_01X1ptZgfS77uUY2skzZpTAZ",
+        "response": {
+          "kind": "approved"
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:PostToolUse:toolu_01X1ptZgfS77uUY2skzZpTAZ:task.updated",
+        "type": "task.updated",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "timestamp": "2026-03-21T23:29:46.492Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "toolFamily": "bash",
+        "activityClass": "tool_completion",
+        "title": "Bash completed",
+        "summary": "Bash completed successfully.",
+        "status": "running"
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_011d6pDnwFmd16tSNA3iVLvp",
+        "response": {
+          "kind": "option_selected",
+          "optionIds": [
+            "q0:o0:Delete%20it"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:PreToolUse:toolu_011pKqrZqc4UkDqVAArwNtkw:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_011pKqrZqc4UkDqVAArwNtkw",
+        "timestamp": "2026-03-21T23:29:53.382Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "toolFamily": "bash",
+        "activityClass": "permission_request",
+        "title": "Claude Code wants to run a shell command",
+        "summary": "rm -rf /tmp/aperture-hook-test-2",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "high",
+        "context": {
+          "items": [
+            {
+              "id": "command",
+              "label": "Command",
+              "value": "rm -rf /tmp/aperture-hook-test-2"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom/dev/aperture"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Remove scratch directory"
+        }
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "interactionId": "claude-code:tool:7cb30446-cf9c-44b0-8401-02bbf1732180:toolu_011pKqrZqc4UkDqVAArwNtkw",
+        "response": {
+          "kind": "approved"
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:PostToolUse:toolu_011pKqrZqc4UkDqVAArwNtkw:task.updated",
+        "type": "task.updated",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "timestamp": "2026-03-21T23:29:55.250Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "toolFamily": "bash",
+        "activityClass": "tool_completion",
+        "title": "Bash completed",
+        "summary": "Bash completed successfully.",
+        "status": "running"
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "interactionId": "claude-code:tool:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:toolu_01HVSTLW8FNSd78sZnd935gs",
+        "response": {
+          "kind": "option_selected",
+          "optionIds": [
+            "q0:o3:I%20don't%20really%20manage%20them"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:PreToolUse:toolu_01N4y8ReRv2ezyJjDG4ozk56:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "interactionId": "claude-code:tool:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:toolu_01N4y8ReRv2ezyJjDG4ozk56",
+        "timestamp": "2026-03-21T23:30:01.401Z",
+        "source": {
+          "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+          "kind": "claude-code",
+          "label": "Claude Code tom #be2fb6"
+        },
+        "toolFamily": "bash",
+        "activityClass": "permission_request",
+        "title": "Claude Code wants to run a shell command",
+        "summary": "mkdir -p /Users/tom/Desktop/claude-test-suite/dummy-data/nested && echo \"nested file\" > /Users/tom/Desktop/claude-test-suite/dummy-data/nested/deep.txt && ls /Users/tom/Desktop/claude-test-suite/dummy-data/",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "medium",
+        "context": {
+          "items": [
+            {
+              "id": "command",
+              "label": "Command",
+              "value": "mkdir -p /Users/tom/Desktop/claude-test-suite/dummy-data/nested && echo \"nested file\" > /Users/tom/Desktop/claude-test-suite/dummy-data/nested/deep.txt && ls /Users/tom/Desktop/claude-test-suite/dummy-data/"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Create nested dir and list dummy-data"
+        }
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "interactionId": "claude-code:tool:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:toolu_01N4y8ReRv2ezyJjDG4ozk56",
+        "response": {
+          "kind": "approved"
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:PostToolUse:toolu_01N4y8ReRv2ezyJjDG4ozk56:task.updated",
+        "type": "task.updated",
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "timestamp": "2026-03-21T23:30:03.276Z",
+        "source": {
+          "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+          "kind": "claude-code",
+          "label": "Claude Code tom #be2fb6"
+        },
+        "toolFamily": "bash",
+        "activityClass": "tool_completion",
+        "title": "Bash completed",
+        "summary": "Bash completed successfully.",
+        "status": "running"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180:Stop:none:task.updated",
+        "type": "task.updated",
+        "taskId": "claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180",
+        "timestamp": "2026-03-21T23:30:03.747Z",
+        "source": {
+          "id": "claude-code:7cb30446-cf9c-44b0-8401-02bbf1732180",
+          "kind": "claude-code",
+          "label": "Claude Code aperture #7cb304"
+        },
+        "activityClass": "status_update",
+        "title": "Claude completed a turn",
+        "summary": "Done. Round 2 summary:",
+        "status": "running"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:PreToolUse:toolu_01LGP5UpSaG5mcvTDHoUxYrf:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "interactionId": "claude-code:tool:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:toolu_01LGP5UpSaG5mcvTDHoUxYrf",
+        "timestamp": "2026-03-21T23:30:04.818Z",
+        "source": {
+          "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+          "kind": "claude-code",
+          "label": "Claude Code tom #be2fb6"
+        },
+        "toolFamily": "read",
+        "activityClass": "permission_request",
+        "title": "Claude Code wants to read notes.md",
+        "summary": "/Users/tom/Desktop/claude-test-suite/dummy-data/notes.md",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "low",
+        "context": {
+          "items": [
+            {
+              "id": "file_path",
+              "label": "file_path",
+              "value": "/Users/tom/Desktop/claude-test-suite/dummy-data/notes.md"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Claude Code requested approval before running Read."
+        }
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "interactionId": "claude-code:tool:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:toolu_01LGP5UpSaG5mcvTDHoUxYrf",
+        "response": {
+          "kind": "approved"
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:PostToolUse:toolu_01LGP5UpSaG5mcvTDHoUxYrf:task.updated",
+        "type": "task.updated",
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "timestamp": "2026-03-21T23:30:10.029Z",
+        "source": {
+          "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+          "kind": "claude-code",
+          "label": "Claude Code tom #be2fb6"
+        },
+        "toolFamily": "read",
+        "activityClass": "tool_completion",
+        "title": "Read completed",
+        "summary": "Read completed successfully.",
+        "status": "running"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:PreToolUse:toolu_017JX5zBRAUWebWmae7Yn2q3:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "interactionId": "claude-code:tool:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:toolu_017JX5zBRAUWebWmae7Yn2q3",
+        "timestamp": "2026-03-21T23:30:20.035Z",
+        "source": {
+          "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+          "kind": "claude-code",
+          "label": "Claude Code tom #be2fb6"
+        },
+        "activityClass": "question_request",
+        "title": "If you could only keep one CLI tool, which would it be?",
+        "summary": "Claude asked for input about Fave CLI.",
+        "request": {
+          "kind": "choice",
+          "selectionMode": "single",
+          "options": [
+            {
+              "id": "q0:o0:fzf",
+              "label": "fzf",
+              "summary": "Fuzzy finder — the glue of shell workflows"
+            },
+            {
+              "id": "q0:o1:jq",
+              "label": "jq",
+              "summary": "JSON wrangler, always handy"
+            },
+            {
+              "id": "q0:o2:ripgrep%20(rg)",
+              "label": "ripgrep (rg)",
+              "summary": "Fast search, grep but better"
+            },
+            {
+              "id": "q0:o3:tmux",
+              "label": "tmux",
+              "summary": "Session and pane management"
+            }
+          ]
+        },
+        "context": {
+          "items": [
+            {
+              "id": "header",
+              "label": "Header",
+              "value": "Fave CLI"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Claude asked the operator to answer a question before continuing."
+        }
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "interactionId": "claude-code:tool:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:toolu_017JX5zBRAUWebWmae7Yn2q3",
+        "response": {
+          "kind": "option_selected",
+          "optionIds": [
+            "q0:o1:jq"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:PreToolUse:toolu_01MoJprPLeC8tmEJJr9WFqPB:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "interactionId": "claude-code:tool:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:toolu_01MoJprPLeC8tmEJJr9WFqPB",
+        "timestamp": "2026-03-21T23:30:32.933Z",
+        "source": {
+          "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+          "kind": "claude-code",
+          "label": "Claude Code tom #be2fb6"
+        },
+        "toolFamily": "edit",
+        "activityClass": "permission_request",
+        "title": "Claude Code wants to edit config.json",
+        "summary": "/Users/tom/Desktop/claude-test-suite/dummy-data/config.json",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "medium",
+        "context": {
+          "items": [
+            {
+              "id": "file_path",
+              "label": "file_path",
+              "value": "/Users/tom/Desktop/claude-test-suite/dummy-data/config.json"
+            },
+            {
+              "id": "old_string",
+              "label": "old_string",
+              "value": "{\"name\": \"test\", \"version\": \"1.0\"}"
+            },
+            {
+              "id": "new_string",
+              "label": "new_string",
+              "value": "{\"name\": \"test\", \"version\": \"1.0\", \"environment\": \"test\"}"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Claude Code requested approval before running Edit."
+        }
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "interactionId": "claude-code:tool:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:toolu_01MoJprPLeC8tmEJJr9WFqPB",
+        "response": {
+          "kind": "approved"
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:PostToolUse:toolu_01MoJprPLeC8tmEJJr9WFqPB:task.updated",
+        "type": "task.updated",
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "timestamp": "2026-03-21T23:30:39.856Z",
+        "source": {
+          "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+          "kind": "claude-code",
+          "label": "Claude Code tom #be2fb6"
+        },
+        "toolFamily": "edit",
+        "activityClass": "tool_completion",
+        "title": "Edit completed",
+        "summary": "Edit completed successfully.",
+        "status": "running"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:PreToolUse:toolu_01TkbZWSD88bDYmJ1WkLVC3a:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "interactionId": "claude-code:tool:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:toolu_01TkbZWSD88bDYmJ1WkLVC3a",
+        "timestamp": "2026-03-21T23:30:41.761Z",
+        "source": {
+          "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+          "kind": "claude-code",
+          "label": "Claude Code tom #be2fb6"
+        },
+        "toolFamily": "write",
+        "activityClass": "permission_request",
+        "title": "Claude Code wants to write output.log",
+        "summary": "/Users/tom/Desktop/claude-test-suite/dummy-data/output.log",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "medium",
+        "context": {
+          "items": [
+            {
+              "id": "file_path",
+              "label": "file_path",
+              "value": "/Users/tom/Desktop/claude-test-suite/dummy-data/output.log"
+            },
+            {
+              "id": "content",
+              "label": "content",
+              "value": "Test run started.\n"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Claude Code requested approval before running Write."
+        }
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "interactionId": "claude-code:tool:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:toolu_01TkbZWSD88bDYmJ1WkLVC3a",
+        "response": {
+          "kind": "approved"
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:PostToolUse:toolu_01TkbZWSD88bDYmJ1WkLVC3a:task.updated",
+        "type": "task.updated",
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "timestamp": "2026-03-21T23:30:48.361Z",
+        "source": {
+          "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+          "kind": "claude-code",
+          "label": "Claude Code tom #be2fb6"
+        },
+        "toolFamily": "write",
+        "activityClass": "tool_completion",
+        "title": "Write completed",
+        "summary": "Write completed successfully.",
+        "status": "running"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:PreToolUse:toolu_01WmNjqSX2bpgexy4tm9TnaM:human.input.requested",
+        "type": "human.input.requested",
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "interactionId": "claude-code:tool:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:toolu_01WmNjqSX2bpgexy4tm9TnaM",
+        "timestamp": "2026-03-21T23:30:50.649Z",
+        "source": {
+          "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+          "kind": "claude-code",
+          "label": "Claude Code tom #be2fb6"
+        },
+        "toolFamily": "bash",
+        "activityClass": "permission_request",
+        "title": "Claude Code wants to run a shell command",
+        "summary": "echo \"hello from the test suite\" && date && ls /Users/tom/Desktop/claude-test-suite/dummy-data/",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "medium",
+        "context": {
+          "items": [
+            {
+              "id": "command",
+              "label": "Command",
+              "value": "echo \"hello from the test suite\" && date && ls /Users/tom/Desktop/claude-test-suite/dummy-data/"
+            },
+            {
+              "id": "cwd",
+              "label": "Working directory",
+              "value": "/Users/tom"
+            }
+          ]
+        },
+        "provenance": {
+          "whyNow": "Run echo + date + list final state"
+        }
+      }
+    },
+    {
+      "kind": "submit",
+      "response": {
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "interactionId": "claude-code:tool:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:toolu_01WmNjqSX2bpgexy4tm9TnaM",
+        "response": {
+          "kind": "approved"
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:PostToolUse:toolu_01WmNjqSX2bpgexy4tm9TnaM:task.updated",
+        "type": "task.updated",
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "timestamp": "2026-03-21T23:30:52.391Z",
+        "source": {
+          "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+          "kind": "claude-code",
+          "label": "Claude Code tom #be2fb6"
+        },
+        "toolFamily": "bash",
+        "activityClass": "tool_completion",
+        "title": "Bash completed",
+        "summary": "Bash completed successfully.",
+        "status": "running"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "event": {
+        "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7:Stop:none:task.updated",
+        "type": "task.updated",
+        "taskId": "claude-code:session:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+        "timestamp": "2026-03-21T23:30:56.532Z",
+        "source": {
+          "id": "claude-code:be2fb6dc-43ca-4fb5-ab5b-b07734bed1b7",
+          "kind": "claude-code",
+          "label": "Claude Code tom #be2fb6"
+        },
+        "activityClass": "status_update",
+        "title": "Claude completed a turn",
+        "summary": "All 10 interactions done:",
+        "status": "running"
+      }
+    }
+  ]
+}

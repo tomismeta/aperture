@@ -216,9 +216,29 @@ Current status:
   runtime capture into a stored Lab bundle
 - the repo now includes `pnpm session:record` for baseline-to-finish collection
   of a cleaner real session slice
+- the repo now includes `pnpm session:promote` for converting raw bundles into
+  durable replay scenarios under `packages/lab/harvested`
 - canonical host exports, such as Paperclip's ledger/replay shapes, can also be
   converted into replayable Lab scenarios and bundles
 - broader host and adapter export paths still need to be layered on top
+
+The intended storage split is now:
+
+- `packages/lab/bundles`
+  - temporary local-first raw captures
+  - useful while collecting, inspecting, or redacting
+- `packages/lab/harvested`
+  - kept replay scenarios from real sessions
+  - includes both clean probes and "wild capture" cases
+- `packages/lab/golden`
+  - curated doctrine fixtures that should stay stable enough for JudgmentBench
+
+The general workflow is:
+
+1. collect a raw bundle with `pnpm session:record` or `pnpm session:export`
+2. inspect and, if needed, redact it
+3. promote it with `pnpm session:promote`
+4. delete the raw bundle once the durable scenario exists
 
 ### Phase 3. Shadow mode
 

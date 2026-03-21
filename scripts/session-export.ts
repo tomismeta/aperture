@@ -14,7 +14,15 @@ type CliOptions = {
   sessionId?: string;
   title?: string;
   description?: string;
+  sourceId?: string;
+  sourceKind?: string;
+  sourceLabel?: string;
+  redacted?: boolean;
+  eventTransport?: string;
+  semanticCapture?: string;
+  responseBridge?: string;
   doctrineTags: string[];
+  notes: string[];
 };
 
 async function main(): Promise<void> {
@@ -28,9 +36,16 @@ async function main(): Promise<void> {
       ...(options.description !== undefined ? { description: options.description } : {}),
       ...(options.doctrineTags.length > 0 ? { doctrineTags: options.doctrineTags } : {}),
       source: {
-        id: capture.kind,
-        kind: "runtime",
-        label: `Aperture runtime (${capture.kind})`,
+        id: options.sourceId ?? capture.kind,
+        kind: options.sourceKind ?? "runtime",
+        label: options.sourceLabel ?? `Aperture runtime (${capture.kind})`,
+        ...(options.redacted === true ? { redacted: true } : {}),
+        capture: {
+          eventTransport: options.eventTransport ?? "runtime_capture",
+          semanticCapture: options.semanticCapture ?? "source+normalized+trace",
+          ...(options.responseBridge !== undefined ? { responseBridge: options.responseBridge } : {}),
+          ...(options.notes.length > 0 ? { notes: options.notes } : {}),
+        },
       },
     });
     const outputPath = options.outputPath
@@ -57,6 +72,7 @@ async function main(): Promise<void> {
 function parseArgs(args: string[]): CliOptions {
   const options: CliOptions = {
     doctrineTags: [],
+    notes: [],
   };
 
   for (let index = 0; index < args.length; index += 1) {
@@ -104,6 +120,58 @@ function parseArgs(args: string[]): CliOptions {
           throw new Error("--tag requires a value");
         }
         options.doctrineTags.push(next);
+        index += 1;
+        continue;
+      case "--note":
+        if (!next || next.startsWith("-")) {
+          throw new Error("--note requires a value");
+        }
+        options.notes.push(next);
+        index += 1;
+        continue;
+      case "--source-id":
+        if (!next || next.startsWith("-")) {
+          throw new Error("--source-id requires a value");
+        }
+        options.sourceId = next;
+        index += 1;
+        continue;
+      case "--source-kind":
+        if (!next || next.startsWith("-")) {
+          throw new Error("--source-kind requires a value");
+        }
+        options.sourceKind = next;
+        index += 1;
+        continue;
+      case "--source-label":
+        if (!next || next.startsWith("-")) {
+          throw new Error("--source-label requires a value");
+        }
+        options.sourceLabel = next;
+        index += 1;
+        continue;
+      case "--redacted":
+        options.redacted = true;
+        continue;
+      case "--event-transport":
+        if (!next || next.startsWith("-")) {
+          throw new Error("--event-transport requires a value");
+        }
+        options.eventTransport = next;
+        index += 1;
+        continue;
+      case "--semantic-capture":
+        if (!next || next.startsWith("-")) {
+          throw new Error("--semantic-capture requires a value");
+        }
+        options.semanticCapture = next;
+        index += 1;
+        continue;
+      case "--response-bridge":
+        if (!next || next.startsWith("-")) {
+          throw new Error("--response-bridge requires a value");
+        }
+        options.responseBridge = next;
         index += 1;
         continue;
       case "--help":
@@ -156,6 +224,14 @@ function printHelp(): void {
       "  --title <title>       Override the bundle title",
       "  --description <text>  Add a bundle description",
       "  --tag <tag>           Add a doctrine tag (repeatable)",
+      "  --note <text>         Add capture notes (repeatable)",
+      "  --source-id <id>      Override the bundle source id",
+      "  --source-kind <kind>  Override the bundle source kind",
+      "  --source-label <text> Override the bundle source label",
+      "  --redacted            Mark the bundle source as redacted",
+      "  --event-transport <v> Describe how events were captured",
+      "  --semantic-capture <v> Describe the semantic capture path",
+      "  --response-bridge <v> Describe how operator answers bridged back",
       "  --help                Show this help text",
       "",
       "If no runtime URL is provided, the script uses APERTURE_RUNTIME_URL or the",

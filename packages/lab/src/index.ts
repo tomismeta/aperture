@@ -1,4 +1,12 @@
-export { loadGoldenScenarios, DEFAULT_GOLDEN_SCENARIOS_DIR } from "./golden.js";
+export {
+  defaultHarvestedScenarioPath,
+  DEFAULT_GOLDEN_SCENARIOS_DIR,
+  DEFAULT_HARVESTED_SCENARIOS_DIR,
+  loadGoldenScenarios,
+  loadHarvestedScenarios,
+  loadReplayScenarios,
+  writeReplayScenario,
+} from "./golden.js";
 export { compareScenarioDeterminism, normalizeReplayRun, runDeterminismAudit } from "./determinism.js";
 export { runJudgmentBench } from "./judgment-bench.js";
 export {
@@ -12,6 +20,7 @@ export { runReplayScenario } from "./runner.js";
 export { scoreReplayRun } from "./scorecard.js";
 export {
   canonicalAttentionExportToScenario,
+  createScenarioFromSessionBundle,
   createSessionBundle,
   createSessionBundleFromCanonicalAttentionExport,
   createSessionBundleFromScenario,
@@ -34,10 +43,13 @@ export type {
   NormalizedReplayRun,
 } from "./determinism.js";
 export type {
+  ReplayArtifactSource,
+  ReplayCaptureMetadata,
   ReplayDecisionExpectation,
   ReplayDecisionSnapshot,
   ReplayScenario,
   ReplayObservationStep,
+  ReplayScenarioProvenance,
   ReplaySemanticExpectation,
   ReplaySemanticSnapshot,
   ReplayNormalizedEventSnapshot,

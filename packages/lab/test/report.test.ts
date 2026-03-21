@@ -14,6 +14,8 @@ test("JudgmentBench markdown report includes score and doctrine health", async (
   assert.match(markdown, /Semantic readings:/);
   assert.match(markdown, /Decision readings:/);
   assert.match(markdown, /Ambiguous decisions:/);
+  assert.match(markdown, /Ambiguous queued -> active:/);
+  assert.match(markdown, /Ambiguity trace:/);
   assert.match(markdown, /Semantic \(/);
   assert.match(markdown, /Decision \(/);
   assert.match(markdown, /Decision ambiguity \(/);

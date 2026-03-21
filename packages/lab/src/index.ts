@@ -24,6 +24,7 @@ export type {
   ReplaySemanticExpectation,
   ReplaySemanticSnapshot,
   ReplayScenarioExpectations,
+  ReplayTraceExpectation,
   ReplayViewSnapshot,
 } from "./scenario.js";
 export type {

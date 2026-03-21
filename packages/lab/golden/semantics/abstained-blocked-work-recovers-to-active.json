@@ -1,0 +1,130 @@
+{
+  "id": "golden:semantics:abstained-blocked-work-recovers-to-active",
+  "title": "Abstained blocked work can recover from ambient to active",
+  "description": "When semantics abstain on blocked work, the first read should stay ambient. A later stronger failure on the same status stream should activate and be counted as an ambient ambiguity recovery.",
+  "doctrineTags": [
+    "semantic_normalization",
+    "semantic_ambiguity",
+    "continuity_semantics"
+  ],
+  "expectations": {
+    "finalActiveInteractionId": "interaction:task:abstained-blocked-recovery:status",
+    "queuedInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultBucketCounts": {
+      "active": 2,
+      "queued": 0,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "abstained blocked status",
+        "intentFrame": "blocked_work",
+        "activityClass": "status_update",
+        "consequence": "medium",
+        "confidence": "high",
+        "abstained": true
+      },
+      {
+        "stepLabel": "recovered blocked status",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "consequence": "high",
+        "confidence": "high",
+        "abstained": false
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "abstained blocked status",
+        "evaluationKind": "candidate",
+        "decisionKind": "ambient",
+        "resultBucket": "ambient",
+        "semanticConfidence": "high",
+        "semanticAbstained": true,
+        "ambiguityReason": "low_signal",
+        "ambiguityResolution": "ambient"
+      },
+      {
+        "stepLabel": "recovered blocked status",
+        "evaluationKind": "candidate",
+        "decisionKind": "activate",
+        "resultBucket": "active",
+        "semanticConfidence": "high",
+        "semanticAbstained": false,
+        "ambiguityReason": null,
+        "ambiguityResolution": null
+      }
+    ],
+    "traceExpectations": {
+      "ambiguousDecisions": 1,
+      "ambiguousQueued": 0,
+      "ambiguousAmbient": 1,
+      "ambiguousLowConfidence": 0,
+      "ambiguousAbstained": 1,
+      "ambiguousQueuedThenActivated": 0,
+      "ambiguousAmbientThenActivated": 1
+    }
+  },
+  "steps": [
+    {
+      "kind": "publish",
+      "label": "ambient approval anchor",
+      "event": {
+        "id": "evt:approval-anchor:abstained-recovery",
+        "type": "human.input.requested",
+        "taskId": "task:approval-anchor:abstained-recovery",
+        "interactionId": "interaction:approval-anchor:abstained-recovery",
+        "timestamp": "2026-03-21T18:01:00.000Z",
+        "title": "Approve schema migration",
+        "summary": "A schema migration needs approval before execution.",
+        "consequence": "high",
+        "request": { "kind": "approval" }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "abstained blocked status",
+      "event": {
+        "id": "evt:abstained-blocked:recovery:first",
+        "type": "task.updated",
+        "taskId": "task:abstained-blocked-recovery",
+        "timestamp": "2026-03-21T18:01:10.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Dependency fetch blocked",
+        "summary": "Dependency fetch is blocked, but the semantic read abstains until clearer evidence arrives.",
+        "status": "blocked",
+        "semanticHints": {
+          "abstained": true
+        }
+      }
+    },
+    {
+      "kind": "publish",
+      "label": "ambient approval anchor cleared",
+      "event": {
+        "id": "evt:approval-anchor:abstained-recovery:clear",
+        "type": "task.completed",
+        "taskId": "task:approval-anchor:abstained-recovery",
+        "timestamp": "2026-03-21T18:01:20.000Z"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "recovered blocked status",
+      "event": {
+        "id": "evt:abstained-blocked:recovery:second",
+        "type": "task.updated",
+        "taskId": "task:abstained-blocked-recovery",
+        "timestamp": "2026-03-21T18:01:30.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Dependency fetch failed",
+        "summary": "The dependency fetch failed and should now be reviewed.",
+        "status": "failed",
+        "semanticHints": {
+          "confidence": "high"
+        }
+      }
+    }
+  ]
+}

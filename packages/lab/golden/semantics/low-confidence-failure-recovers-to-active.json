@@ -1,0 +1,128 @@
+{
+  "id": "golden:semantics:low-confidence-failure-recovers-to-active",
+  "title": "Low-confidence failure can recover from queue to active",
+  "description": "When an initially uncertain failure status stays queued, a later stronger reading on the same status stream should activate and be counted as an ambiguity recovery.",
+  "doctrineTags": [
+    "semantic_normalization",
+    "semantic_ambiguity",
+    "continuity_semantics"
+  ],
+  "expectations": {
+    "finalActiveInteractionId": "interaction:task:uncertain-failure-recovery:status",
+    "queuedInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultBucketCounts": {
+      "active": 2,
+      "queued": 1,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "uncertain failure status",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "consequence": "high",
+        "confidence": "low"
+      },
+      {
+        "stepLabel": "recovered failure status",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "consequence": "high",
+        "confidence": "high"
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "uncertain failure status",
+        "evaluationKind": "candidate",
+        "decisionKind": "queue",
+        "resultBucket": "queued",
+        "semanticConfidence": "low",
+        "semanticAbstained": false,
+        "ambiguityReason": "low_signal",
+        "ambiguityResolution": "queue"
+      },
+      {
+        "stepLabel": "recovered failure status",
+        "evaluationKind": "candidate",
+        "decisionKind": "activate",
+        "resultBucket": "active",
+        "semanticConfidence": "high",
+        "semanticAbstained": false,
+        "ambiguityReason": null,
+        "ambiguityResolution": null
+      }
+    ],
+    "traceExpectations": {
+      "ambiguousDecisions": 1,
+      "ambiguousQueued": 1,
+      "ambiguousAmbient": 0,
+      "ambiguousLowConfidence": 1,
+      "ambiguousAbstained": 0,
+      "ambiguousQueuedThenActivated": 1,
+      "ambiguousAmbientThenActivated": 0
+    }
+  },
+  "steps": [
+    {
+      "kind": "publish",
+      "label": "approval anchor",
+      "event": {
+        "id": "evt:approval-anchor:recovery",
+        "type": "human.input.requested",
+        "taskId": "task:approval-anchor:recovery",
+        "interactionId": "interaction:approval-anchor:recovery",
+        "timestamp": "2026-03-21T18:00:00.000Z",
+        "title": "Approve deploy",
+        "summary": "A deploy is waiting for approval.",
+        "consequence": "high",
+        "request": { "kind": "approval" }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "uncertain failure status",
+      "event": {
+        "id": "evt:uncertain-failure:recovery:first",
+        "type": "task.updated",
+        "taskId": "task:uncertain-failure-recovery",
+        "timestamp": "2026-03-21T18:00:10.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Build failed",
+        "summary": "The latest build failed and may need a retry.",
+        "status": "failed",
+        "semanticHints": {
+          "confidence": "low"
+        }
+      }
+    },
+    {
+      "kind": "publish",
+      "label": "approval anchor cleared",
+      "event": {
+        "id": "evt:approval-anchor:recovery:clear",
+        "type": "task.completed",
+        "taskId": "task:approval-anchor:recovery",
+        "timestamp": "2026-03-21T18:00:20.000Z"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "recovered failure status",
+      "event": {
+        "id": "evt:uncertain-failure:recovery:second",
+        "type": "task.updated",
+        "taskId": "task:uncertain-failure-recovery",
+        "timestamp": "2026-03-21T18:00:30.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Build failed again",
+        "summary": "The latest build failed again and should be reviewed.",
+        "status": "failed",
+        "semanticHints": {
+          "confidence": "high"
+        }
+      }
+    }
+  ]
+}

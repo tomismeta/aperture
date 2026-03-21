@@ -93,6 +93,7 @@ export type ReplayScenarioExpectations = {
   };
   semanticReadings?: ReplaySemanticExpectation[];
   decisionReadings?: ReplayDecisionExpectation[];
+  traceExpectations?: ReplayTraceExpectation;
 };
 
 export type ReplayViewSnapshot = {
@@ -150,4 +151,14 @@ export type ReplayDecisionExpectation = {
   semanticAbstained?: boolean;
   ambiguityReason?: ReplayDecisionAmbiguity["reason"] | null;
   ambiguityResolution?: ReplayDecisionAmbiguity["resolution"] | null;
+};
+
+export type ReplayTraceExpectation = {
+  ambiguousDecisions?: number;
+  ambiguousQueued?: number;
+  ambiguousAmbient?: number;
+  ambiguousLowConfidence?: number;
+  ambiguousAbstained?: number;
+  ambiguousQueuedThenActivated?: number;
+  ambiguousAmbientThenActivated?: number;
 };

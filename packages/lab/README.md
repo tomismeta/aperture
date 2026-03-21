@@ -67,6 +67,8 @@ Today this package provides:
   read a source event before the full judgment loop ran
 - decision snapshots for publish steps, so the lab can test how ambiguity and
   semantic confidence affected routing
+- trace-level expectations, so scenarios can assert ambiguity lifecycles like
+  `queue -> active` and `ambient -> active`
 - a basic scorecard built on top of core trace evaluation and signal summaries
 - a first golden-scenario set for `JudgmentBench`
 - a benchmark runner that can write JSON results into
@@ -83,6 +85,7 @@ The first semantic-robustness tranche now covers:
 - bounded semantic ambiguity handling for:
   - low-confidence non-blocking work that should queue instead of interrupting
   - abstained non-blocking work that should stay peripheral
+  - recovery paths where ambiguous work later activates once stronger evidence arrives
 - adversarial wording such as:
   - negated approval language that should stay passive
   - production-context read wording that should not inflate consequence

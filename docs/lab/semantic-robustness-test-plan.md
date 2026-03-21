@@ -34,6 +34,8 @@ Each layer catches a different failure mode.
 
 - core tests catch local interpretation regressions
 - lab catches scenario-level doctrine drift and ambiguity/peripheral-routing drift
+- lab can now also catch ambiguity lifecycle drift, like `queue -> active` and
+  `ambient -> active` recoveries
 - manual testing catches product reality gaps that still feel wrong to a human
 
 If we only do one layer, we will miss important classes of failure:
@@ -159,6 +161,7 @@ Lab scenarios should prove both:
 
 1. core read the source event correctly
 2. the engine routed it correctly after that reading
+3. ambiguity, if introduced, resolved correctly over time
 
 This is the layer that answers:
 

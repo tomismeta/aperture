@@ -5,6 +5,7 @@ import type {
   ReplayScenarioExpectations,
   ReplaySemanticExpectation,
   ReplaySemanticSnapshot,
+  ReplayTraceExpectation,
 } from "./scenario.js";
 import { runReplayScenario, type ReplayRunResult } from "./runner.js";
 import { scoreReplayRun, type ReplayScorecard } from "./scorecard.js";
@@ -192,6 +193,10 @@ function evaluateScenarioExpectations(
     assertions.push(...evaluateDecisionExpectation(decisionExpectation, run.decisions));
   }
 
+  if (expectations.traceExpectations) {
+    assertions.push(...evaluateTraceExpectation(expectations.traceExpectations, scorecard.trace));
+  }
+
   return assertions;
 }
 
@@ -314,6 +319,23 @@ function evaluateDecisionExpectation(
   pushFieldAssertion(assertions, `${targetKey} semantic abstained`, expectation.semanticAbstained, target.semanticAbstained ?? false);
   pushFieldAssertion(assertions, `${targetKey} ambiguity reason`, expectation.ambiguityReason, target.ambiguity?.reason ?? null);
   pushFieldAssertion(assertions, `${targetKey} ambiguity resolution`, expectation.ambiguityResolution, target.ambiguity?.resolution ?? null);
+
+  return assertions;
+}
+
+function evaluateTraceExpectation(
+  expectation: ReplayTraceExpectation,
+  trace: ReplayScorecard["trace"],
+): JudgmentBenchAssertionResult[] {
+  const assertions: JudgmentBenchAssertionResult[] = [];
+
+  pushFieldAssertion(assertions, "trace ambiguous decisions", expectation.ambiguousDecisions, trace.ambiguousDecisions);
+  pushFieldAssertion(assertions, "trace ambiguous queued", expectation.ambiguousQueued, trace.ambiguousQueued);
+  pushFieldAssertion(assertions, "trace ambiguous ambient", expectation.ambiguousAmbient, trace.ambiguousAmbient);
+  pushFieldAssertion(assertions, "trace ambiguous low confidence", expectation.ambiguousLowConfidence, trace.ambiguousLowConfidence);
+  pushFieldAssertion(assertions, "trace ambiguous abstained", expectation.ambiguousAbstained, trace.ambiguousAbstained);
+  pushFieldAssertion(assertions, "trace ambiguous queued then activated", expectation.ambiguousQueuedThenActivated, trace.ambiguousQueuedThenActivated);
+  pushFieldAssertion(assertions, "trace ambiguous ambient then activated", expectation.ambiguousAmbientThenActivated, trace.ambiguousAmbientThenActivated);
 
   return assertions;
 }

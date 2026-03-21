@@ -91,6 +91,57 @@ test("task.updated semantics enrich provenance without overriding status routing
   assert.deepEqual(result.candidate.relationHints?.map((hint) => hint.kind), ["same_issue", "repeats"]);
 });
 
+test("diagnostic status semantics do not change task.updated routing", () => {
+  const baseline = evaluation.evaluate({
+    id: "evt:status:baseline",
+    taskId: "task:1",
+    timestamp: "2026-03-08T12:02:30.000Z",
+    type: "task.updated",
+    title: "Waiting for approval",
+    summary: "Approval required before deploy can continue.",
+    status: "waiting",
+    semantic: {
+      intentFrame: "status_update",
+      operatorActionRequired: false,
+      requestExplicitness: "none",
+      factors: ["task.updated", "waiting"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["baseline semantic read"],
+    },
+  });
+
+  const diagnosticVariant = evaluation.evaluate({
+    id: "evt:status:diagnostic",
+    taskId: "task:1",
+    timestamp: "2026-03-08T12:02:30.000Z",
+    type: "task.updated",
+    title: "Waiting for approval",
+    summary: "Approval required before deploy can continue.",
+    status: "waiting",
+    semantic: {
+      intentFrame: "status_update",
+      operatorActionRequired: true,
+      requestExplicitness: "implied",
+      factors: ["task.updated", "waiting", "implied operator ask"],
+      relationHints: [],
+      confidence: "low",
+      reasons: ["diagnostic semantic read"],
+    },
+  });
+
+  assert.equal(baseline.kind, "candidate");
+  assert.equal(diagnosticVariant.kind, "candidate");
+  if (baseline.kind !== "candidate" || diagnosticVariant.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(diagnosticVariant.candidate.priority, baseline.candidate.priority);
+  assert.equal(diagnosticVariant.candidate.tone, baseline.candidate.tone);
+  assert.equal(diagnosticVariant.candidate.consequence, baseline.candidate.consequence);
+  assert.equal(diagnosticVariant.candidate.responseSpec.kind, baseline.candidate.responseSpec.kind);
+});
+
 test("approval requests become blocking approval candidates", () => {
   const result = evaluation.evaluate({
     id: "evt:approval",
@@ -138,6 +189,44 @@ test("low-risk approvals become normal-priority blocking candidates", () => {
   assert.equal(result.candidate.blocking, true);
   assert.equal(result.candidate.priority, "normal");
   assert.equal(result.candidate.consequence, "low");
+});
+
+test("event provenance whyNow remains authoritative over semantic whyNow on human input", () => {
+  const result = evaluation.evaluate({
+    id: "evt:approval:provenance",
+    taskId: "task:1",
+    timestamp: "2026-03-08T12:03:30.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:approval:provenance",
+    title: "Approve deploy",
+    summary: "A deploy is waiting for approval.",
+    consequence: "medium",
+    provenance: {
+      whyNow: "Adapter says release train is blocked.",
+      factors: ["adapter release gate"],
+    },
+    semantic: {
+      intentFrame: "approval_request",
+      operatorActionRequired: true,
+      requestExplicitness: "explicit",
+      whyNow: "Semantic layer inferred a generic approval checkpoint.",
+      factors: ["human.input.requested", "approval"],
+      relationHints: [],
+      confidence: "medium",
+      reasons: ["request kind establishes an explicit operator decision point"],
+    },
+    request: {
+      kind: "approval",
+    },
+  });
+
+  assert.equal(result.kind, "candidate");
+  assert.equal(result.candidate.provenance?.whyNow, "Adapter says release train is blocked.");
+  assert.deepEqual(result.candidate.provenance?.factors, [
+    "adapter release gate",
+    "human.input.requested",
+    "approval",
+  ]);
 });
 
 test("completed tasks clear current interaction state", () => {

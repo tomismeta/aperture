@@ -32,13 +32,8 @@ Launch Aperture:
 aperture
 ```
 
-If you want Claude Code, connect it once:
-
-```bash
-aperture claude connect --global
-```
-
-Then restart Claude Code and confirm `/hooks` loaded.
+If you use Claude Code, Aperture prepares Claude on first launch. Restart
+Claude Code after the first run and confirm `/hooks` loaded.
 
 If you want OpenCode, run:
 
@@ -89,7 +84,6 @@ aperture debug
 aperture completion zsh
 aperture --version
 aperture help
-aperture help claude
 aperture help opencode
 aperture help uninstall
 ```

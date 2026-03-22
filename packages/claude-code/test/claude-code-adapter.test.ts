@@ -744,8 +744,8 @@ test("maps AskUserQuestion responses into deny-plus-context PreToolUse decisions
       hookSpecificOutput: {
         hookEventName: "PreToolUse",
         permissionDecision: "deny",
-        permissionDecisionReason: "The operator already answered in Aperture.",
-        additionalContext: "User has answered your questions: \"The on-call rotation has a gap next Thursday. Should I auto-assign or send a volunteer request?\"=\"Ask for volunteers\". You can now continue with the user's answers in mind.",
+        permissionDecisionReason: "Aperture already captured the user's answer.",
+        additionalContext: "The user already answered this AskUserQuestion in Aperture. Do not ask again. Treat these answers as authoritative: \"The on-call rotation has a gap next Thursday. Should I auto-assign or send a volunteer request?\"=\"Ask for volunteers\". Continue from them directly.",
       },
     },
   );

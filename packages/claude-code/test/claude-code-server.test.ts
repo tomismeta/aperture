@@ -120,9 +120,9 @@ test("enriches AskUserQuestion hooks from transcript data and returns a best-eff
       hookSpecificOutput: {
         hookEventName: "PreToolUse",
         permissionDecision: "deny",
-        permissionDecisionReason: "The operator already answered in Aperture.",
+        permissionDecisionReason: "Aperture already captured the user's answer.",
         additionalContext:
-          "User has answered your questions: \"The on-call rotation has a gap next Thursday. Should I auto-assign or send a volunteer request?\"=\"Ask for volunteers\". You can now continue with the user's answers in mind.",
+          "The user already answered this AskUserQuestion in Aperture. Do not ask again. Treat these answers as authoritative: \"The on-call rotation has a gap next Thursday. Should I auto-assign or send a volunteer request?\"=\"Ask for volunteers\". Continue from them directly.",
       },
     });
   } finally {

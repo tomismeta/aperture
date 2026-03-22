@@ -406,7 +406,7 @@ export function mapClaudeCodeAskUserQuestionResponse(
         hookSpecificOutput: {
           hookEventName: "PreToolUse",
           permissionDecision: "deny",
-          permissionDecisionReason: "The operator already answered in Aperture.",
+          permissionDecisionReason: "Aperture already captured the user's answer.",
           additionalContext,
         },
       };
@@ -1236,7 +1236,7 @@ function askUserQuestionAdditionalContext(
     .map(([question, value]) => `${JSON.stringify(question)}=${JSON.stringify(formatAskUserQuestionAnswer(value))}`)
     .join(", ");
 
-  return `User has answered your questions: ${rendered}. You can now continue with the user's answers in mind.`;
+  return `The user already answered this AskUserQuestion in Aperture. Do not ask again. Treat these answers as authoritative: ${rendered}. Continue from them directly.`;
 }
 
 function askUserQuestionAnswersFromResponse(

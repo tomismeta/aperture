@@ -54,15 +54,15 @@ Recommended user commands:
 - `aperture`
 - `aperture --capture`
 - `aperture doctor`
-- `aperture connect claude`
-- `aperture connect opencode`
+- `aperture claude connect`
+- `aperture opencode`
 
 Recommended product promise:
 
 - install one package
 - run one command
 - connect your agent environment
-- immediately supervise approvals, blocked work, failures, and follow-ups
+- immediately work through approvals, blocked work, failures, and follow-ups
 
 ### 2. SDK Package
 
@@ -144,10 +144,10 @@ The first public CLI should stay small.
   - run the product and export a bundle on exit
 - `aperture doctor`
   - validate runtime, adapter, and environment health
-- `aperture connect claude`
+- `aperture claude connect`
   - install or validate Claude Code hooks
-- `aperture connect opencode`
-  - install or validate OpenCode profile/setup
+- `aperture opencode`
+  - show the OpenCode setup flow Aperture expects
 
 ### Day-two commands
 
@@ -201,7 +201,7 @@ Before launch, the package should support:
 
 The flagship flow should be:
 
-- Claude Code supervision
+- Claude Code in one calm surface
 
 The bar:
 

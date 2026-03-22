@@ -187,7 +187,7 @@ function renderPreflightScreen(
   lines.push(`  ${renderIdleLens(color, animation)}`);
   lines.push("");
   lines.push(...renderPrefixedBlock("  ", styleTitle("Welcome to Aperture", color), "  "));
-  lines.push(...renderPrefixedBlock("  ", styleMuted("The live attention surface for humans supervising agents.", color), "  "));
+  lines.push(...renderPrefixedBlock("  ", styleMuted("The live attention surface for humans working with agents.", color), "  "));
   if (connectionStatus.summary) {
     lines.push(...renderPrefixedBlock("  ", styleMuted(connectionStatus.summary, color), "  "));
   }

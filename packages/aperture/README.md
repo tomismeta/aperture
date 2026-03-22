@@ -1,12 +1,21 @@
 # Aperture
 
-The live attention surface for humans supervising agents.
+The attention surface for agent work.
 
-`@tomismeta/aperture` ships the `aperture` CLI as the opinionated local product:
+`@tomismeta/aperture` is the live attention surface for humans working with
+agents like Claude Code and OpenCode.
+
+Install it, run `aperture`, and keep the agent work that needs you in one
+place.
+
+## What Aperture Does
+
+Aperture ships the `aperture` CLI as the opinionated local product:
 
 - boot the shared runtime
 - connect Claude Code and OpenCode
 - open the Aperture TUI
+- route what needs you into `now`, `next`, and `ambient`
 - capture replayable sessions from real work
 
 ## Quick start
@@ -18,7 +27,15 @@ npm install -g @tomismeta/aperture
 aperture
 ```
 
-For the default OpenCode path, run:
+If you want Claude Code, connect it once:
+
+```bash
+aperture claude connect --global
+```
+
+Then restart Claude Code and confirm `/hooks` loaded.
+
+If you want OpenCode, run:
 
 ```bash
 opencode serve --port 4096
@@ -31,7 +48,10 @@ Then launch Aperture:
 aperture
 ```
 
-## Useful commands
+If you are looking for the embeddable SDK instead of the product, install
+`@tomismeta/aperture-core`.
+
+## Common commands
 
 ```bash
 aperture
@@ -44,6 +64,20 @@ aperture help
 aperture help claude
 aperture help uninstall
 ```
+
+## Why start here
+
+Most people should start with `@tomismeta/aperture`, not the SDK.
+
+Use this package if you want:
+
+- a local CLI/TUI product
+- one attention surface for Claude Code and OpenCode
+- approvals, follow-ups, failures, and blocked work in one place
+- bundle capture for troubleshooting real sessions
+
+Use `@tomismeta/aperture-core` if you want to build your own runtime, adapter,
+or surface around the judgment engine.
 
 ## Product state
 

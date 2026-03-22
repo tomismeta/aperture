@@ -2,7 +2,7 @@
 
 # Aperture
 
-**The human attention control plane for agent systems.**
+**The attention surface for agent work.**
 
 [![npm core](https://img.shields.io/npm/v/%40tomismeta%2Faperture-core?label=npm%20core&color=0f766e)](https://www.npmjs.com/package/@tomismeta/aperture-core)
 [![license](https://img.shields.io/badge/license-MIT-6f42c1)](./LICENSE)
@@ -14,7 +14,10 @@
 </div>
 
 
-Aperture sits between many agent event sources and one human decision surface. It decides what deserves attention now, what should wait until next, and what should stay ambient.
+Aperture is the live attention surface for humans working with agents. It sits
+between many agent event sources and one human decision surface, deciding what
+deserves attention now, what should wait until next, and what should stay
+ambient.
 
 ```text
 +-----------+    +-------------+    +-------------+    +-------------+    +-------------+
@@ -32,7 +35,8 @@ agents                               attention now?    actually sees     to the 
 Choose one path:
 
 - **use the SDK** if you want to embed Aperture's judgment engine in your own runtime or UI
-- **run the local stack** if you want one shared Aperture runtime and TUI supervising live source adapters on this machine
+- **run the local stack** if you want one shared Aperture runtime and TUI for
+  working with live source adapters on this machine
 
 ### Use The SDK
 
@@ -86,11 +90,12 @@ Aperture is a judgment engine for human attention in agent systems.
 
 Aperture takes events from tools and agents, turns them into explicit facts, and decides what deserves attention now, what should wait until next, and what should remain ambient.
 
-The goal is simple: give one human a calm, deterministic way to supervise many parallel agent workflows.
+The goal is simple: give one human a calm, deterministic way to work with many
+parallel agent workflows.
 
 ## Why It Exists
 
-When you supervise multiple agents, everything can interrupt at once:
+When you work with multiple agents, everything can interrupt at once:
 
 - tool approvals
 - failures
@@ -216,7 +221,7 @@ pnpm aperture
 Then:
 
 1. if you want OpenCode's terminal UI on the same server, use `opencode attach http://127.0.0.1:4096`
-2. use the shared Aperture TUI to supervise OpenCode, or OpenCode and Claude Code together
+2. use the shared Aperture TUI to work across OpenCode, or OpenCode and Claude Code together
 
 ## Supported Capabilities
 
@@ -426,10 +431,11 @@ for (const event of sourceEvents) {
 
 | Command | What it does |
 | --- | --- |
-| `pnpm serve` | Starts the shared Aperture runtime only. |
-| `pnpm tui` | Starts the terminal UI and attaches it to a live runtime. |
-| `pnpm claude:start` | Starts the Claude Code adapter separately from the default stack. |
-| `pnpm opencode:start` | Starts the OpenCode adapter(s) for the saved Aperture-side OpenCode connection profiles. |
+| `pnpm aperture help internal` | Shows the advanced product plumbing commands. |
+| `pnpm aperture internal runtime` | Starts the shared Aperture runtime only. |
+| `pnpm aperture internal tui` | Starts the terminal UI and attaches it to a live runtime. |
+| `pnpm aperture internal claude-adapter` | Starts the Claude Code adapter separately from the default stack. |
+| `pnpm aperture internal opencode-adapter` | Starts the OpenCode adapter(s) for the saved Aperture-side OpenCode connection profiles. |
 | `pnpm claude:connect /path/to/project` | Connects Claude Code only for one project via `.claude/settings.local.json`. |
 | `pnpm claude:disconnect /path/to/project` | Removes the project-local Claude hook config. |
 
@@ -500,6 +506,6 @@ Reference docs:
 Helpful feedback right now:
 
 - traces where the engine made the wrong call
-- reports from real multi-agent supervision workflows
+- reports from real multi-agent workflows
 - examples of missing anticipation behavior
 - tighter ingress/egress paths for existing adapters

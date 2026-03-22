@@ -6,7 +6,7 @@ Aperture to market.
 The central conclusion is:
 
 - Aperture should be sold and distributed first as an opinionated local product
-  for supervising agent work.
+  for working with agent activity in one place.
 - The published core SDK should remain available, but it should not be the main
   adoption path.
 
@@ -20,7 +20,7 @@ Aperture's best market position is not:
 
 It is:
 
-- the local-first supervision inbox for coding agents
+- the live attention surface for humans working with coding agents
 - the deterministic judgment layer for human attention
 - the product that decides what deserves operator focus, when, and in what form
 
@@ -29,7 +29,7 @@ This product should feel like:
 - install one package
 - run one command
 - connect Claude Code, OpenCode, Codex, and future sources
-- get a useful supervision surface immediately
+- get a useful attention surface immediately
 
 ## Market Position
 
@@ -45,7 +45,7 @@ in any one of those buckets.
 
 Instead, Aperture should position itself at the intersection of:
 
-- human supervision
+- humans working with agents
 - attention routing
 - deterministic judgment
 - cross-agent operator workflow
@@ -55,7 +55,7 @@ That means the external story should lead with:
 - operator focus
 - interruption quality
 - triage and approvals
-- replayable supervision
+- replayable real-world agent work
 
 It should not lead with:
 
@@ -70,19 +70,19 @@ Those are part of the moat, not the wedge.
 
 The wedge is:
 
-- the easiest way to run a local supervision inbox for coding agents
+- the easiest way to get one calm surface for coding-agent work
 
 The first product promise should be:
 
-- "Install Aperture, connect your agents, and get one inbox for approvals,
-  blocked work, failures, and important follow-ups."
+- "Install Aperture, connect your agents, and get one calm surface for
+  approvals, blocked work, failures, and important follow-ups."
 
 The first strong use cases are:
 
 - Claude Code approvals and structured questions
-- OpenCode live supervision
+- OpenCode live attention routing
 - mixed-agent local sessions
-- harvested replay of real supervision sessions
+- harvested replay of real sessions
 
 ## Moat
 
@@ -98,8 +98,8 @@ The moat deepens in four layers:
    - real sessions can be captured, replayed, benchmarked, and improved over
      time.
 
-4. **Cross-agent supervision**
-   - over time, Aperture can become the place where humans supervise named
+4. **Cross-agent attention**
+   - over time, Aperture can become the place where humans work with named
      agents, subagents, and multi-actor workflows.
 
 ## Product Packaging Strategy
@@ -234,7 +234,7 @@ Goal:
 
 Primary workflow:
 
-- coding-agent supervision for Claude Code
+- working with Claude Code in one calm surface
 
 Ship:
 
@@ -245,7 +245,7 @@ Ship:
 
 Success criteria:
 
-- users can say "Aperture makes Claude Code easier to supervise"
+- users can say "Aperture makes Claude Code easier to work with"
 - flagship demos are consistent and repeatable
 
 ### Phase 3: Turn Replay Into A Product Loop
@@ -267,11 +267,11 @@ Success criteria:
 - replay becomes a product feature, not just an internal engineering tool
 - improvements can be demonstrated against harvested scenarios
 
-### Phase 4: Broaden The Supervision Surface
+### Phase 4: Broaden The Attention Surface
 
 Goal:
 
-- move from a single-agent CLI story toward cross-agent supervision
+- move from a single-agent CLI story toward cross-agent attention
 
 Ship:
 
@@ -283,19 +283,19 @@ Ship:
 Success criteria:
 
 - Aperture becomes useful across more than one agent environment
-- cross-agent supervision starts to feel like a category, not a demo
+- cross-agent attention starts to feel like a category, not a demo
 
 ## Messaging
 
 Recommended positioning line:
 
-- "Aperture is the local-first supervision inbox for coding agents."
+- "Aperture is the live attention surface for humans working with coding agents."
 
 Supporting messages:
 
-- one inbox for approvals, blocked work, failures, and follow-ups
+- one calm surface for approvals, blocked work, failures, and follow-ups
 - deterministic attention judgment instead of notification spam
-- capture and replay real supervision sessions
+- capture and replay real sessions
 - works with the agents you already use
 
 Avoid leading with:
@@ -346,7 +346,7 @@ Breadth before this point will dilute the wedge.
    - The product promise depends on live integrations feeling dependable.
 
 4. **Too much abstraction too early**
-   - Multi-agent and actor-aware supervision are promising, but should be added
+   - Multi-agent and actor-aware workflows are promising, but should be added
      as bounded product seams, not as theoretical architecture work.
 
 ## Recommended Next Moves
@@ -355,4 +355,4 @@ Breadth before this point will dilute the wedge.
 2. keep `@tomismeta/aperture-core` as the advanced SDK path
 3. polish the flagship Claude Code workflow until it is obviously good
 4. make `--capture` and replay part of the default product story
-5. only then broaden to deeper multi-agent supervision and additional surfaces
+5. only then broaden to deeper multi-agent workflows and additional surfaces

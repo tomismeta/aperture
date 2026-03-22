@@ -1561,7 +1561,7 @@ async function runDoctor(): Promise<void> {
 
   const lines = [
     "Aperture Doctor",
-    "The live attention surface for humans supervising agents.",
+    "The live attention surface for humans working with agents.",
     "",
     "Product state",
     `  data dir: ${dataDir}`,
@@ -2305,7 +2305,7 @@ function printRootHelp(): void {
   stdout.write(
     [
       "Aperture",
-      "The live attention surface for humans supervising agents.",
+      "The live attention surface for humans working with agents.",
       "",
       "Usage:",
       "  aperture",

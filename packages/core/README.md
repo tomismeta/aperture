@@ -52,12 +52,12 @@ It takes events from tools and agents, turns them into explicit shared meaning,
 and decides what deserves attention now, what should wait until next, and what
 should remain ambient.
 
-The goal is simple: give one human a calm, deterministic way to supervise many
+The goal is simple: give one human a calm, deterministic way to work with many
 parallel agent workflows.
 
 ## Why It Exists
 
-When you supervise multiple agents, everything can interrupt at once:
+When you work with multiple agents, everything can interrupt at once:
 
 - tool approvals
 - failures

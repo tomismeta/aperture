@@ -121,7 +121,7 @@ test("renderAttentionScreen shows connection status when the surface is empty", 
   });
 
   assert.match(screen, /Welcome to Aperture/);
-  assert.match(screen, /The live attention surface for humans supervising agents\./);
+  assert.match(screen, /The live attention surface for humans working with agents\./);
   assert.match(screen, /── setup ──/);
   assert.match(screen, /Claude Code/);
   assert.match(screen, /OpenCode/);

@@ -12,9 +12,10 @@ test("holds PreToolUse requests until Aperture responds", async () => {
   const core = new ApertureCore();
   const server = createClaudeCodeHookServer(core, { holdTimeoutMs: 250 });
   const { url } = await server.listen();
+  let responsePromise: Promise<Response> | undefined;
 
   try {
-    const responsePromise = fetch(url, {
+    responsePromise = fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -49,6 +50,7 @@ test("holds PreToolUse requests until Aperture responds", async () => {
     });
   } finally {
     await server.close();
+    await settlePromises(responsePromise);
   }
 });
 
@@ -61,6 +63,7 @@ test("enriches AskUserQuestion hooks from transcript data and returns a best-eff
     transcriptRoots: [scratchDir],
   });
   const { url } = await server.listen();
+  let responsePromise: Promise<Response> | undefined;
 
   await writeFile(
     transcriptPath,
@@ -89,7 +92,7 @@ test("enriches AskUserQuestion hooks from transcript data and returns a best-eff
   );
 
   try {
-    const responsePromise = fetch(url, {
+    responsePromise = fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -131,6 +134,7 @@ test("enriches AskUserQuestion hooks from transcript data and returns a best-eff
   } finally {
     await rm(scratchDir, { recursive: true, force: true });
     await server.close();
+    await settlePromises(responsePromise);
   }
 });
 
@@ -141,9 +145,10 @@ test("enriches AskUserQuestion PermissionRequest payloads before holding them", 
     permissionRequestPolicy: () => "hold",
   });
   const { url } = await server.listen();
+  let responsePromise: Promise<Response> | undefined;
 
   try {
-    const responsePromise = fetch(url, {
+    responsePromise = fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -187,6 +192,7 @@ test("enriches AskUserQuestion PermissionRequest payloads before holding them", 
     });
   } finally {
     await server.close();
+    await settlePromises(responsePromise);
   }
 });
 
@@ -272,9 +278,11 @@ test("handles concurrent held PreToolUse requests independently", async () => {
   const core = new ApertureCore();
   const server = createClaudeCodeHookServer(core, { holdTimeoutMs: 250 });
   const { url } = await server.listen();
+  let responsePromiseOne: Promise<Response> | undefined;
+  let responsePromiseTwo: Promise<Response> | undefined;
 
   try {
-    const responsePromiseOne = fetch(url, {
+    responsePromiseOne = fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -289,7 +297,7 @@ test("handles concurrent held PreToolUse requests independently", async () => {
       }),
     });
 
-    const responsePromiseTwo = fetch(url, {
+    responsePromiseTwo = fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -306,7 +314,10 @@ test("handles concurrent held PreToolUse requests independently", async () => {
 
     const taskView = await waitFor(() => {
       const next = core.getTaskView("claude-code:session:session-1");
-      return next.active ? next : null;
+      return next.active?.interactionId === "claude-code:tool:session-1:tool-1"
+        && next.queued.some((frame) => frame.interactionId === "claude-code:tool:session-1:tool-2")
+        ? next
+        : null;
     });
     assert.equal(taskView.active?.interactionId, "claude-code:tool:session-1:tool-1");
     assert.deepEqual(
@@ -347,6 +358,7 @@ test("handles concurrent held PreToolUse requests independently", async () => {
     });
   } finally {
     await server.close();
+    await settlePromises(responsePromiseOne, responsePromiseTwo);
   }
 });
 
@@ -416,9 +428,10 @@ test("holds elicitation requests until Aperture responds", async () => {
     elicitationPolicy: () => "hold",
   });
   const { url } = await server.listen();
+  let responsePromise: Promise<Response> | undefined;
 
   try {
-    const responsePromise = fetch(url, {
+    responsePromise = fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -464,6 +477,7 @@ test("holds elicitation requests until Aperture responds", async () => {
     });
   } finally {
     await server.close();
+    await settlePromises(responsePromise);
   }
 });
 
@@ -474,9 +488,10 @@ test("holds PermissionRequest requests until Aperture responds", async () => {
     permissionRequestPolicy: () => "hold",
   });
   const { url } = await server.listen();
+  let responsePromise: Promise<Response> | undefined;
 
   try {
-    const responsePromise = fetch(url, {
+    responsePromise = fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -514,6 +529,7 @@ test("holds PermissionRequest requests until Aperture responds", async () => {
     });
   } finally {
     await server.close();
+    await settlePromises(responsePromise);
   }
 });
 
@@ -893,11 +909,19 @@ function sleep(durationMs: number): Promise<void> {
   });
 }
 
+async function settlePromises(...promises: Array<Promise<unknown> | undefined>): Promise<void> {
+  const pending = promises.filter((promise): promise is Promise<unknown> => promise !== undefined);
+  if (pending.length === 0) {
+    return;
+  }
+  await Promise.allSettled(pending);
+}
+
 async function waitFor<T>(
   read: () => T | null,
   options: { timeoutMs?: number; intervalMs?: number } = {},
 ): Promise<T> {
-  const timeoutMs = options.timeoutMs ?? 200;
+  const timeoutMs = options.timeoutMs ?? 1_000;
   const intervalMs = options.intervalMs ?? 10;
   const startedAt = Date.now();
 
@@ -909,5 +933,9 @@ async function waitFor<T>(
     await sleep(intervalMs);
   }
 
-  return read() as T;
+  const finalValue = read();
+  if (finalValue === null) {
+    assert.fail(`waitFor timed out after ${timeoutMs}ms`);
+  }
+  return finalValue;
 }

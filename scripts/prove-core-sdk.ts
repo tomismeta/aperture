@@ -132,7 +132,7 @@ async function main(): Promise<void> {
         "utf8",
       );
 
-      run("pnpm", ["install", "--offline"], exampleDir);
+      run("pnpm", ["install", "--prefer-offline"], exampleDir);
       run("pnpm", ["exec", "tsx", "index.ts"], exampleDir);
     }
   } finally {

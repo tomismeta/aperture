@@ -4,8 +4,8 @@ import {
   type AttentionResponse,
   type AttentionSignal,
 } from "@tomismeta/aperture-core";
+import { normalizeSourceEvent } from "@tomismeta/aperture-core/semantic";
 import { isCandidateTrace, type ApertureTrace } from "../../core/src/trace.js";
-import { normalizeSourceEvent } from "../../core/src/semantic-normalizer.js";
 
 import type {
   ReplayObservationStep,
@@ -81,7 +81,7 @@ export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
             ...(step.label ? { stepLabel: step.label } : {}),
             event: normalized,
           });
-        frame = core.publishSourceEvent(step.event);
+          frame = core.publish(normalized);
         break;
         }
       case "submit":

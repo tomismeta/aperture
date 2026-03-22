@@ -8,6 +8,7 @@
     { "path": "./packages/opencode" },
     { "path": "./packages/codex" },
     { "path": "./packages/lab" },
-    { "path": "./packages/tui" }
+    { "path": "./packages/tui" },
+    { "path": "./packages/aperture" }
   ]
 }

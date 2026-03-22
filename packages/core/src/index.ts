@@ -10,7 +10,14 @@ export type {
 } from "./aperture-core.js";
 
 export type * from "./events.js";
-export type * from "./source-event.js";
+export type {
+  SourceEvent,
+  SourceTaskStartedEvent,
+  SourceTaskUpdatedEvent,
+  SourceHumanInputRequestedEvent,
+  SourceTaskCompletedEvent,
+  SourceTaskCancelledEvent,
+} from "./source-event.js";
 export type {
   AttentionFrame,
   AttentionTaskView,

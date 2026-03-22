@@ -6,6 +6,7 @@ import type {
 
 import type {
   OpencodeDirectoryScope,
+  OpencodeMessageRole,
   OpencodeMessagePartUpdatedEvent,
   OpencodePermissionAskedEvent,
   OpencodePermissionDecision,
@@ -19,6 +20,7 @@ export type OpencodeMappingContext = {
   baseUrl: string;
   scope?: OpencodeDirectoryScope;
   sourceLabel?: string;
+  messageRole?: OpencodeMessageRole;
 };
 
 export type OpencodeResponseAction =
@@ -43,6 +45,17 @@ export type OpencodeResponseAction =
       body: {
         message?: string;
       };
+    }
+  | {
+      kind: "session.prompt";
+      sessionId: string;
+      body: {
+        parts: Array<{
+          type: "text";
+          text: string;
+          metadata?: Record<string, unknown>;
+        }>;
+      };
     };
 
 export type OpencodeNativeResolution = {
@@ -59,6 +72,12 @@ type ParsedInteractionId =
       kind: "question";
       instanceKey: string;
       requestId: string;
+    }
+  | {
+      kind: "followup";
+      instanceKey: string;
+      sessionId: string;
+      partId: string;
     };
 
 export function mapOpencodeEvent(
@@ -167,7 +186,7 @@ export function mapOpencodeResponse(response: AttentionResponse): OpencodeRespon
           requestId: parsed.requestId,
           body: {
             reply: "reject",
-            ...(response.response.reason ? { message: response.response.reason } : {}),
+            message: response.response.reason ?? "Rejected in Aperture.",
           },
         };
       case "dismissed":
@@ -178,10 +197,35 @@ export function mapOpencodeResponse(response: AttentionResponse): OpencodeRespon
         return {
           kind: "permission.reply",
           requestId: parsed.requestId,
-          body: { reply: "reject" },
+          body: {
+            reply: "reject",
+            message: "Dismissed in Aperture.",
+          },
         };
       case "option_selected":
       case "form_submitted":
+        return null;
+    }
+  }
+
+  if (parsed.kind === "followup") {
+    switch (response.response.kind) {
+      case "text_submitted": {
+        const text = response.response.text.trim();
+        if (text.length === 0) {
+          return null;
+        }
+        return followUpSessionPrompt(parsed.sessionId, text);
+      }
+      case "form_submitted": {
+        const text = extractFollowUpReplyText(response.response.values);
+        return text ? followUpSessionPrompt(parsed.sessionId, text) : null;
+      }
+      case "approved":
+      case "acknowledged":
+      case "rejected":
+      case "dismissed":
+      case "option_selected":
         return null;
     }
   }
@@ -250,7 +294,7 @@ export function opencodeInteractionId(
 }
 
 export function parseOpencodeInteractionId(interactionId: string): ParsedInteractionId | null {
-  const match = interactionId.match(/^opencode:([^:]+):(permission|question):(.+)$/);
+  const match = interactionId.match(/^opencode:([^:]+):(permission|question|followup):(.+)$/);
   if (!match) {
     return null;
   }
@@ -261,7 +305,19 @@ export function parseOpencodeInteractionId(interactionId: string): ParsedInterac
   if (kind === "permission") {
     return { kind, instanceKey, requestId: decodeURIComponent(requestId) };
   }
-  return { kind: "question", instanceKey, requestId: decodeURIComponent(requestId) };
+  if (kind === "question") {
+    return { kind: "question", instanceKey, requestId: decodeURIComponent(requestId) };
+  }
+  const [encodedSessionId, encodedPartId = "latest"] = requestId.split("|", 2);
+  if (!encodedSessionId) {
+    return null;
+  }
+  return {
+    kind: "followup",
+    instanceKey,
+    sessionId: decodeURIComponent(encodedSessionId),
+    partId: decodeURIComponent(encodedPartId),
+  };
 }
 
 function mapPermissionAsked(
@@ -413,9 +469,9 @@ function mapSessionStatus(event: Extract<OpencodeSseMessage, { type: "session.st
 
 function mapMessagePartUpdated(event: OpencodeMessagePartUpdatedEvent, context: OpencodeMappingContext): SourceEvent[] {
   const part = event.properties.part;
-  const sessionId = readString(event.properties.sessionID);
+  const sessionId = readString(event.properties.sessionID) ?? readString(part?.sessionID);
   const partType = readString(part?.type);
-  const state = readString(part?.state) ?? readString(part?.status);
+  const state = readPartState(part);
   const instanceKey = createOpencodeInstanceKey(context);
   if (!sessionId || !partType) {
     return [];
@@ -423,22 +479,45 @@ function mapMessagePartUpdated(event: OpencodeMessagePartUpdatedEvent, context: 
 
   if (partType === "text") {
     const text = readString(part?.text);
-    if (text && looksLikeFollowUpQuestion(text)) {
+    if (text && context.messageRole === "assistant" && looksLikeFollowUpQuestion(text)) {
+      const partId = readString(part?.id) ?? readString(event.properties.partID) ?? `${Date.now()}`;
       return [
         {
-          id: `opencode:${instanceKey}:event:message.part.updated:${encodeURIComponent(readString(part?.id) ?? `${Date.now()}`)}:follow-up`,
-          type: "task.updated",
+          id: `opencode:${instanceKey}:event:message.part.updated:${encodeURIComponent(partId)}:follow-up`,
+          type: "human.input.requested",
           taskId: opencodeTaskId(instanceKey, sessionId),
+          interactionId: opencodeFollowUpInteractionId(instanceKey, sessionId, partId),
           timestamp: new Date().toISOString(),
           source: {
             id: `opencode:${instanceKey}`,
             kind: "opencode",
             label: context.sourceLabel ?? "OpenCode",
           },
+          toolFamily: "opencode",
           activityClass: "follow_up",
           title: "OpenCode is waiting for your reply",
           summary: text,
-          status: "blocked",
+          request: {
+            kind: "form",
+            fields: [
+              {
+                id: "reply",
+                label: "Reply",
+                type: "textarea",
+                required: true,
+              },
+            ],
+          },
+          provenance: {
+            whyNow: "OpenCode asked a follow-up question and needs a reply before continuing.",
+          },
+          riskHint: "medium",
+          context: {
+            items: [
+              { id: "session", label: "Session", value: sessionId },
+              { id: "part", label: "Part", value: partId },
+            ],
+          },
         },
       ];
     }
@@ -554,6 +633,21 @@ function readStatusReason(value: unknown): string | undefined {
   }
   const status = value as Record<string, unknown>;
   return readString(status.reason) ?? readString(status.message);
+}
+
+function readPartState(value: unknown): string | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const part = value as Record<string, unknown>;
+  if (typeof part.state === "string") {
+    return part.state;
+  }
+  if (part.state && typeof part.state === "object") {
+    return readString((part.state as Record<string, unknown>).status);
+  }
+  return readString(part.status);
 }
 
 function normalizePermissionDecision(value: unknown): OpencodePermissionDecision | null {
@@ -745,6 +839,29 @@ function fieldItem(id: string, label: string, value: string | undefined | null) 
   return value ? { id, label, value } : null;
 }
 
+function followUpSessionPrompt(sessionId: string, text: string): OpencodeResponseAction {
+  return {
+    kind: "session.prompt",
+    sessionId,
+    body: {
+      parts: [
+        {
+          type: "text",
+          text,
+          metadata: {
+            source: "aperture",
+            interaction: "follow_up",
+          },
+        },
+      ],
+    },
+  };
+}
+
+function opencodeFollowUpInteractionId(instanceKey: string, sessionId: string, partId: string): string {
+  return `opencode:${instanceKey}:followup:${encodeURIComponent(sessionId)}|${encodeURIComponent(partId)}`;
+}
+
 function normalizeAnswerGroup(value: unknown): string[] {
   if (Array.isArray(value)) {
     return value.map((entry) => String(entry));
@@ -753,6 +870,36 @@ function normalizeAnswerGroup(value: unknown): string[] {
     return [];
   }
   return [String(value)];
+}
+
+function extractFollowUpReplyText(values: Record<string, unknown>): string | null {
+  const preferred = values.reply;
+  if (typeof preferred === "string" && preferred.trim() !== "") {
+    return preferred.trim();
+  }
+
+  for (const value of Object.values(values)) {
+    if (typeof value === "string" && value.trim() !== "") {
+      return value.trim();
+    }
+    if (Array.isArray(value)) {
+      const joined = value
+        .map((entry) => String(entry).trim())
+        .filter((entry) => entry.length > 0)
+        .join(", ");
+      if (joined.length > 0) {
+        return joined;
+      }
+    }
+    if (value !== null && value !== undefined && typeof value !== "object") {
+      const scalar = String(value).trim();
+      if (scalar.length > 0) {
+        return scalar;
+      }
+    }
+  }
+
+  return null;
 }
 
 function looksLikeFollowUpQuestion(value: string): boolean {

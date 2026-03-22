@@ -82,36 +82,74 @@ test("maps external directory approvals from the real OpenCode permission shape"
   ]);
 });
 
-test("maps follow-up text parts into blocked awareness", () => {
+test("maps follow-up text parts into a reply request", () => {
   const mapped = mapOpencodeEvent({
     type: "message.part.updated",
     properties: {
-      sessionID: "ses-follow-up",
       part: {
         id: "part-text-1",
+        sessionID: "ses-follow-up",
         type: "text",
         text: "Could you please provide the full path and name for the new directory?",
       },
     },
-  }, context);
+  }, { ...context, messageRole: "assistant" });
 
   assert.deepEqual(mapped, [
     {
       id: `opencode:${createOpencodeInstanceKey(context)}:event:message.part.updated:part-text-1:follow-up`,
-      type: "task.updated",
+      type: "human.input.requested",
       taskId: `opencode:${createOpencodeInstanceKey(context)}:session:ses-follow-up`,
+      interactionId: `opencode:${createOpencodeInstanceKey(context)}:followup:${encodeURIComponent("ses-follow-up")}|${encodeURIComponent("part-text-1")}`,
       timestamp: mapped[0]?.timestamp,
       source: {
         id: `opencode:${createOpencodeInstanceKey(context)}`,
         kind: "opencode",
         label: "OpenCode",
       },
+      toolFamily: "opencode",
       activityClass: "follow_up",
       title: "OpenCode is waiting for your reply",
       summary: "Could you please provide the full path and name for the new directory?",
-      status: "blocked",
+      request: {
+        kind: "form",
+        fields: [
+          {
+            id: "reply",
+            label: "Reply",
+            type: "textarea",
+            required: true,
+          },
+        ],
+      },
+      provenance: {
+        whyNow: "OpenCode asked a follow-up question and needs a reply before continuing.",
+      },
+      riskHint: "medium",
+      context: {
+        items: [
+          { id: "session", label: "Session", value: "ses-follow-up" },
+          { id: "part", label: "Part", value: "part-text-1" },
+        ],
+      },
     },
   ]);
+});
+
+test("does not map user-authored text questions into a reply request", () => {
+  const mapped = mapOpencodeEvent({
+    type: "message.part.updated",
+    properties: {
+      part: {
+        id: "part-text-user-1",
+        sessionID: "ses-follow-up",
+        type: "text",
+        text: "Can you ask me a single question?",
+      },
+    },
+  }, { ...context, messageRole: "user" });
+
+  assert.deepEqual(mapped, []);
 });
 
 test("maps question.asked with options to a choice request", () => {
@@ -239,11 +277,13 @@ test("maps failed message parts into explicit tool-failure awareness", () => {
   const mapped = mapOpencodeEvent({
     type: "message.part.updated",
     properties: {
-      sessionID: "ses-error",
-      partID: "part-err-1",
       part: {
+        id: "part-err-1",
+        sessionID: "ses-error",
         type: "tool",
-        status: "failed",
+        state: {
+          status: "failed",
+        },
       },
     },
   }, context);
@@ -281,7 +321,27 @@ test("maps non-decisive permission responses conservatively to reject", () => {
   assert.deepEqual(mapOpencodeResponse(response), {
     kind: "permission.reply",
     requestId: "perm-1",
-    body: { reply: "reject" },
+    body: {
+      reply: "reject",
+      message: "Dismissed in Aperture.",
+    },
+  });
+});
+
+test("maps rejected OpenCode permissions with a friendly default message", () => {
+  const response: AttentionResponse = {
+    taskId: `opencode:${createOpencodeInstanceKey(context)}:session:ses-1`,
+    interactionId: `opencode:${createOpencodeInstanceKey(context)}:permission:perm-1`,
+    response: { kind: "rejected" },
+  };
+
+  assert.deepEqual(mapOpencodeResponse(response), {
+    kind: "permission.reply",
+    requestId: "perm-1",
+    body: {
+      reply: "reject",
+      message: "Rejected in Aperture.",
+    },
   });
 });
 
@@ -362,6 +422,36 @@ test("maps text submissions to a single question answer group", () => {
   });
 });
 
+test("maps follow-up form submissions back into a session prompt", () => {
+  const response: AttentionResponse = {
+    taskId: `opencode:${createOpencodeInstanceKey(context)}:session:ses-follow-up`,
+    interactionId: `opencode:${createOpencodeInstanceKey(context)}:followup:${encodeURIComponent("ses-follow-up")}|${encodeURIComponent("part-text-1")}`,
+    response: {
+      kind: "form_submitted",
+      values: {
+        reply: "Create it under ./notes",
+      },
+    },
+  };
+
+  assert.deepEqual(mapOpencodeResponse(response), {
+    kind: "session.prompt",
+    sessionId: "ses-follow-up",
+    body: {
+      parts: [
+        {
+          type: "text",
+          text: "Create it under ./notes",
+          metadata: {
+            source: "aperture",
+            interaction: "follow_up",
+          },
+        },
+      ],
+    },
+  });
+});
+
 test("parses OpenCode interaction ids", () => {
   const parsed = parseOpencodeInteractionId(
     `opencode:${createOpencodeInstanceKey(context)}:question:question-7`,
@@ -370,5 +460,18 @@ test("parses OpenCode interaction ids", () => {
     kind: "question",
     instanceKey: createOpencodeInstanceKey(context),
     requestId: "question-7",
+  });
+});
+
+test("parses OpenCode follow-up interaction ids", () => {
+  const parsed = parseOpencodeInteractionId(
+    `opencode:${createOpencodeInstanceKey(context)}:followup:${encodeURIComponent("ses-7")}|${encodeURIComponent("part-2")}`,
+  );
+
+  assert.deepEqual(parsed, {
+    kind: "followup",
+    instanceKey: createOpencodeInstanceKey(context),
+    sessionId: "ses-7",
+    partId: "part-2",
   });
 });

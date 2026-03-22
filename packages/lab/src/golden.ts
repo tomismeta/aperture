@@ -1,16 +1,18 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import type { ReplayScenario } from "./scenario.js";
+import { validateReplayScenario } from "./validation.js";
 
 export const DEFAULT_GOLDEN_SCENARIOS_DIR = path.resolve(
-  process.cwd(),
-  "packages/lab/golden",
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../golden",
 );
 
 export const DEFAULT_HARVESTED_SCENARIOS_DIR = path.resolve(
-  process.cwd(),
-  "packages/lab/harvested",
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../harvested",
 );
 
 export async function loadGoldenScenarios(
@@ -63,7 +65,19 @@ async function readScenarioDirectory(directory: string): Promise<ReplayScenario[
     }
 
     const raw = await readFile(absolutePath, "utf8");
-    scenarios.push(JSON.parse(raw) as ReplayScenario);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (error) {
+      throw new Error(`Failed to parse replay scenario at ${absolutePath}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    const scenario = validateReplayScenario(parsed);
+    if (!scenario) {
+      throw new Error(`Invalid replay scenario at ${absolutePath}`);
+    }
+
+    scenarios.push(scenario);
   }
 
   return scenarios;

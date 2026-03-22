@@ -193,9 +193,6 @@ function consequenceFromRequestKind(
       if (toolFamily === "read" || toolFamily === "search") {
         return "low";
       }
-      if (toolFamily === "write" || toolFamily === "edit" || toolFamily === "bash") {
-        return "medium";
-      }
       return "medium";
     case "choice":
     case "form":

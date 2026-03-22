@@ -224,6 +224,161 @@ test("question requests with read wording stay interactive under lowRiskRead aut
   }
 });
 
+test("follow-up text questions can be answered back into the OpenCode session", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { controlUrl } = await runtime.listen();
+  const requests: Array<{ method: string; path: string; body: unknown }> = [];
+  const sseClients = new Set<import("node:http").ServerResponse>();
+
+  const server = createServer(async (req, res) => {
+    const url = new URL(req.url ?? "/", "http://127.0.0.1");
+
+    if (req.method === "GET" && url.pathname === "/permission") {
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify([]));
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/question") {
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify([]));
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/session/ses-follow-up/message") {
+      requests.push({ method: req.method, path: url.pathname, body: await readJson(req) });
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ info: { id: "msg-1" }, parts: [] }));
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/event") {
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      });
+      sseClients.add(res);
+      res.write(`data: ${JSON.stringify({ type: "server.connected", properties: {} })}\n\n`);
+      req.on("close", () => {
+        sseClients.delete(res);
+      });
+      return;
+    }
+
+    res.statusCode = 404;
+    res.end();
+  });
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("test server did not bind");
+  }
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  const bridge = createOpencodeBridge({
+    runtimeBaseUrl: controlUrl,
+    client: {
+      baseUrl,
+      scope: {
+        directory: "/workspace/project",
+      },
+    },
+  });
+
+  try {
+    await bridge.start();
+
+    for (const client of sseClients) {
+      client.write(`data: ${JSON.stringify({
+        type: "message.updated",
+        properties: {
+          info: {
+            id: "msg-user-1",
+            sessionID: "ses-follow-up",
+            role: "user",
+          },
+        },
+      })}\n\n`);
+      client.write(`data: ${JSON.stringify({
+        type: "message.part.updated",
+        properties: {
+          messageID: "msg-user-1",
+          part: {
+            id: "part-user-1",
+            sessionID: "ses-follow-up",
+            type: "text",
+            text: "Can you ask me a single question?",
+          },
+        },
+      })}\n\n`);
+      client.write(`data: ${JSON.stringify({
+        type: "message.updated",
+        properties: {
+          info: {
+            id: "msg-assistant-1",
+            sessionID: "ses-follow-up",
+            role: "assistant",
+          },
+        },
+      })}\n\n`);
+      client.write(`data: ${JSON.stringify({
+        type: "message.part.updated",
+        properties: {
+          messageID: "msg-assistant-1",
+          part: {
+            id: "part-follow-up-1",
+            sessionID: "ses-follow-up",
+            type: "text",
+            text: "What should I name the new directory?",
+          },
+        },
+      })}\n\n`);
+    }
+
+    const active = await waitFor(() => runtime.getCore().getAttentionView().active, { timeoutMs: 1_000 });
+    assert.ok(active);
+    assert.equal(active?.responseSpec?.kind, "form");
+    assert.equal(active?.title, "OpenCode is waiting for your reply");
+
+    runtime.getCore().submit({
+      taskId: active.taskId,
+      interactionId: active.interactionId,
+      response: {
+        kind: "form_submitted",
+        values: {
+          reply: "notes",
+        },
+      },
+    });
+
+    await waitFor(() => requests[0] ?? null, { timeoutMs: 1_000 });
+    assert.deepEqual(requests[0], {
+      method: "POST",
+      path: "/session/ses-follow-up/message",
+      body: {
+        parts: [
+          {
+            type: "text",
+            text: "notes",
+            metadata: {
+              source: "aperture",
+              interaction: "follow_up",
+            },
+          },
+        ],
+      },
+    });
+  } finally {
+    await bridge.close();
+    await runtime.close();
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => error ? reject(error) : resolve());
+    });
+  }
+});
+
 test("reconnects when the OpenCode event stream closes unexpectedly", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
   const { controlUrl } = await runtime.listen();

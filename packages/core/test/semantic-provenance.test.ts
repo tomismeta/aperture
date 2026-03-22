@@ -50,3 +50,8 @@ test("semantic provenance falls back to semantic and fallback whyNow when base i
     factors: ["derived factor"],
   });
 });
+
+test("semantic provenance returns undefined when no semantic or provenance context exists", () => {
+  const merged = mergeSemanticProvenance({});
+  assert.equal(merged, undefined);
+});

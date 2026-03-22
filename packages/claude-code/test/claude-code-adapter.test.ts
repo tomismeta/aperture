@@ -627,6 +627,24 @@ test("maps stop events with follow-up questions into waiting status", () => {
   }
 });
 
+test("treats parenthetical stop question endings as follow-up questions", () => {
+  const event: ClaudeCodeStopEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "Stop",
+    stop_reason: "end_turn",
+    last_assistant_message: "Got it — a custom workflow. What does it look like? (What triggers it, and what should happen?)",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.updated");
+  if (mapped[0]?.type === "task.updated") {
+    assert.equal(mapped[0].activityClass, "follow_up");
+    assert.equal(mapped[0].title, "Claude is waiting for follow-up");
+  }
+});
+
 test("maps plain stop events into ambient completion status", () => {
   const event: ClaudeCodeStopEvent = {
     session_id: "session-1",

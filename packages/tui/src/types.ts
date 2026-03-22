@@ -45,6 +45,32 @@ export type AttentionTuiOptions = {
   output?: OutputLike;
   reducedMotion?: boolean;
   ambientStaleMs?: number;
+  getConnectionStatus?: () => AttentionConnectionSnapshot | null;
+  subscribeConnectionStatus?: (listener: (status: AttentionConnectionSnapshot | null) => void) => () => void;
+  runConnectionAction?: (actionId: string) => void | Promise<void>;
+};
+
+export type AttentionConnectionState = "ready" | "starting" | "action" | "error" | "disabled";
+
+export type AttentionConnectionEntry = {
+  id: string;
+  label: string;
+  state: AttentionConnectionState;
+  detail: string;
+  hint?: string;
+  actions?: AttentionConnectionAction[];
+};
+
+export type AttentionConnectionSnapshot = {
+  summary?: string;
+  entries: AttentionConnectionEntry[];
+  actions?: AttentionConnectionAction[];
+};
+
+export type AttentionConnectionAction = {
+  id: string;
+  key: string;
+  label: string;
 };
 
 export type FormDraft = {
@@ -80,6 +106,7 @@ export type TuiState = {
   whyMode: boolean;
   whyExpanded: boolean;
   traceCache: Map<string, ApertureTrace>;
+  connectionStatus: AttentionConnectionSnapshot | null;
   posture: Posture;
   previousPosture: Posture;
   animation: AnimationState;
@@ -103,4 +130,5 @@ export type RenderOptions = {
   trace?: ApertureTrace | null;
   posture?: Posture;
   animation?: AnimationState;
+  connectionStatus?: AttentionConnectionSnapshot | null;
 };

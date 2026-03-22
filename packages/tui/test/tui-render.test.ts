@@ -9,6 +9,7 @@ import type { AttentionSignalSummary as SignalSummary } from "../../core/src/sig
 import type { AttentionState } from "../../core/src/attention-state.js";
 
 import { renderAttentionScreen } from "../src/index.js";
+import { ANSI } from "../src/ansi.js";
 
 function makeFrame(overrides: Partial<Frame> = {}): Frame {
   return {
@@ -78,6 +79,164 @@ test("renderAttentionScreen shows active, queued, and ambient summaries", () => 
   assert.match(expanded, /score 1211/);
 });
 
+test("renderAttentionScreen shows connection status when the surface is empty", () => {
+  const attentionView: AttentionView = {
+    active: null,
+    queued: [],
+    ambient: [],
+  };
+
+  const screen = renderAttentionScreen(attentionView, {
+    title: "Aperture",
+    connectionStatus: {
+      summary: "Bringing your agent surfaces online.",
+      entries: [
+        {
+          id: "claude",
+          label: "Claude Code",
+          state: "action",
+          detail: "Claude bridge is ready. Claude Code still needs to reload the updated hooks.",
+          hint: "Restart Claude Code and run /hooks once to finish setup.",
+          actions: [
+            { id: "refresh-claude", key: "c", label: "finish Claude setup" },
+          ],
+        },
+        {
+          id: "opencode",
+          label: "OpenCode",
+          state: "action",
+          detail: "Waiting for OpenCode at http://127.0.0.1:4096.",
+          hint: "Run: opencode serve --port 4096, then opencode attach http://127.0.0.1:4096.",
+          actions: [
+            { id: "retry-opencode", key: "r", label: "retry OpenCode" },
+          ],
+        },
+      ],
+      actions: [
+        { id: "skip-setup", key: "s", label: "skip for now" },
+        { id: "refresh-claude", key: "c", label: "finish Claude setup" },
+        { id: "retry-opencode", key: "r", label: "retry OpenCode" },
+      ],
+    },
+  });
+
+  assert.match(screen, /Welcome to Aperture/);
+  assert.match(screen, /The live attention surface for humans supervising agents\./);
+  assert.match(screen, /── setup ──/);
+  assert.match(screen, /Claude Code/);
+  assert.match(screen, /OpenCode/);
+  assert.match(screen, /needs setup/);
+  assert.match(screen, /Run: opencode serve --port 4096/);
+  assert.match(screen, /opencode attach/);
+  assert.match(screen, /http:\/\/127\.0\.0\.1:4096/);
+  assert.match(screen, /Restart Claude Code and run \/hooks once to finish setup\./);
+  assert.match(screen, /\[s\].*skip for now/);
+  assert.match(screen, /\[c\].*finish Claude setup/);
+  assert.match(screen, /\[r\].*retry OpenCode/);
+  assert.doesNotMatch(screen, /── next ──/);
+  assert.doesNotMatch(screen, /── ambient ──/);
+  assert.match(screen, /controls.*\[q\].*quit/);
+  assert.doesNotMatch(screen, /controls.*check setup/);
+});
+
+test("renderAttentionScreen hides ready-only connections when there is no setup work left", () => {
+  const attentionView: AttentionView = {
+    active: null,
+    queued: [],
+    ambient: [],
+  };
+
+  const screen = renderAttentionScreen(attentionView, {
+    title: "Aperture",
+    connectionStatus: {
+      summary: "Integrations are ready.",
+      entries: [
+        {
+          id: "claude",
+          label: "Claude Code",
+          state: "ready",
+          detail: "Attached to an existing Claude Code bridge.",
+        },
+      ],
+    },
+  });
+
+  assert.doesNotMatch(screen, /── connections ──/);
+  assert.doesNotMatch(screen, /Claude Code/);
+});
+
+test("renderAttentionScreen keeps a show setup action after setup is skipped", () => {
+  const attentionView: AttentionView = {
+    active: null,
+    queued: [],
+    ambient: [],
+  };
+
+  const screen = renderAttentionScreen(attentionView, {
+    title: "Aperture",
+    connectionStatus: {
+      entries: [
+        {
+          id: "claude",
+          label: "Claude Code",
+          state: "ready",
+          detail: "Attached to an existing Claude Code bridge.",
+        },
+      ],
+      actions: [{ id: "show-setup", key: "s", label: "show setup" }],
+    },
+  });
+
+  assert.doesNotMatch(screen, /Welcome to Aperture/);
+  assert.doesNotMatch(screen, /── setup ──/);
+  assert.match(screen, /controls.*\[s\].*show setup/);
+});
+
+test("renderAttentionScreen shows setup instead of a lone bridge-status ambient frame", () => {
+  const attentionView: AttentionView = {
+    active: null,
+    queued: [],
+    ambient: [
+      makeFrame({
+        id: "frame-bridge",
+        taskId: "opencode:http%3A%2F%2F127.0.0.1%3A4096%7C:session:bridge",
+        interactionId: "interaction:opencode:http%3A%2F%2F127.0.0.1%3A4096%7C:session:bridge:status",
+        mode: "status",
+        tone: "ambient",
+        title: "OpenCode event stream disconnected",
+        summary: "fetch failed",
+        responseSpec: { kind: "none" },
+      }),
+    ],
+  };
+
+  const screen = renderAttentionScreen(attentionView, {
+    title: "Aperture",
+    connectionStatus: {
+      summary: "Finish setup to bring your agent surfaces online.",
+      entries: [
+        {
+          id: "opencode",
+          label: "OpenCode",
+          state: "action",
+          detail: "Waiting for OpenCode at http://127.0.0.1:4096.",
+          hint: "Run: opencode serve --port 4096, then opencode attach http://127.0.0.1:4096.",
+          actions: [{ id: "retry-opencode", key: "r", label: "retry OpenCode" }],
+        },
+      ],
+      actions: [
+        { id: "skip-setup", key: "s", label: "skip for now" },
+        { id: "retry-opencode", key: "r", label: "retry OpenCode" },
+      ],
+    },
+  });
+
+  assert.match(screen, /Welcome to Aperture/);
+  assert.match(screen, /OpenCode/);
+  assert.doesNotMatch(screen, /── ambient ──/);
+  assert.doesNotMatch(screen, /OpenCode event stream disconnected/);
+});
+
 test("renderAttentionScreen shows numbered choice options in the now pane", () => {
   const choiceFrame = makeFrame({
     mode: "choice",
@@ -104,6 +263,121 @@ test("renderAttentionScreen shows numbered choice options in the now pane", () =
   assert.match(screen, /\[2\] production/);
 });
 
+test("renderAttentionScreen nests active input inside the event tree", () => {
+  const attentionView: AttentionView = {
+    active: makeFrame({
+      mode: "form",
+      title: "OpenCode is waiting for your reply",
+      summary: "What's your favorite programming language and why?",
+      responseSpec: {
+        kind: "form",
+        fields: [{ id: "reply", label: "Reply", type: "textarea" }],
+      },
+    }),
+    queued: [],
+    ambient: [],
+  };
+
+  const screen = renderAttentionScreen(attentionView, {
+    title: "Aperture",
+    inputDraft: {
+      kind: "form",
+      interactionId: "interaction-1",
+      fieldIndex: 0,
+      values: {},
+      buffer: "",
+    },
+  });
+
+  assert.doesNotMatch(screen, /── input ──/);
+  assert.match(screen, /⎿ What's your favorite programming language and why\?/);
+  assert.match(screen, /⎿ › Reply · \(empty\)/);
+});
+
+test("renderAttentionScreen expands full prompt text when expanded", () => {
+  const attentionView: AttentionView = {
+    active: makeFrame({
+      mode: "form",
+      title: "OpenCode is waiting for your reply",
+      summary: "That's a compelling vision - personalization that adapts to each user while keeping the surface calm and predictable for operators.",
+      responseSpec: {
+        kind: "form",
+        fields: [{ id: "reply", label: "Reply", type: "textarea" }],
+      },
+    }),
+    queued: [],
+    ambient: [],
+  };
+
+  const collapsed = renderAttentionScreen(attentionView, { title: "Aperture" });
+  assert.match(collapsed, /personalization that adapts to each user .*…/);
+
+  const expanded = renderAttentionScreen(attentionView, { title: "Aperture", expanded: true });
+  assert.match(expanded, /personalization that adapts to each user/);
+  assert.match(expanded, /while keeping the surface calm and predictable for operators\./);
+});
+
+test("renderAttentionScreen accents input prompts and reply labels in brand blue", () => {
+  const attentionView: AttentionView = {
+    active: makeFrame({
+      mode: "form",
+      title: "OpenCode is waiting for your reply",
+      summary: "What's your favorite programming language and why?",
+      responseSpec: {
+        kind: "form",
+        fields: [{ id: "reply", label: "Reply", type: "textarea" }],
+      },
+    }),
+    queued: [],
+    ambient: [],
+  };
+
+  const screen = renderAttentionScreen(attentionView, {
+    title: "Aperture",
+    color: true,
+    inputDraft: {
+      kind: "form",
+      interactionId: "interaction-1",
+      fieldIndex: 0,
+      values: {},
+      buffer: "",
+    },
+  });
+
+  assert.match(screen, new RegExp(`${escapeRegExp(ANSI.bold)}${escapeRegExp(ANSI.brand)}What's your favorite programming language and why\\?`));
+  assert.match(screen, new RegExp(`${escapeRegExp(ANSI.bold)}${escapeRegExp(ANSI.brand)}Reply`));
+});
+
+test("renderAttentionScreen accents approval summaries in non-bold brand blue", () => {
+  const attentionView: AttentionView = {
+    active: makeFrame({
+      mode: "approval",
+      title: "Claude Code wants to run a shell command",
+      summary: "ls /Users/tom/Desktop/aperture-test-suite",
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+    }),
+    queued: [],
+    ambient: [],
+  };
+
+  const screen = renderAttentionScreen(attentionView, {
+    title: "Aperture",
+    color: true,
+  });
+
+  assert.match(screen, new RegExp(`${escapeRegExp(ANSI.brand)}ls /Users/tom/Desktop/aperture-test-suite`));
+  assert.doesNotMatch(
+    screen,
+    new RegExp(`${escapeRegExp(ANSI.bold)}${escapeRegExp(ANSI.brand)}ls /Users/tom/Desktop/aperture-test-suite`),
+  );
+});
+
 test("renderAttentionScreen shows acknowledge controls for active status work", () => {
   const attentionView: AttentionView = {
     active: makeFrame({
@@ -127,6 +401,10 @@ test("renderAttentionScreen shows acknowledge controls for active status work", 
 
   assert.match(screen, /\[⏎\].*ack/i);
 });
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 test("renderAttentionScreen hides rationale by default and shows when expanded", () => {
   const attentionView: AttentionView = {

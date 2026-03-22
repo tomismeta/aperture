@@ -45,6 +45,16 @@ export type OpencodeQuestionRejectInput = {
   message?: string;
 };
 
+export type OpencodeSessionPromptInput = {
+  messageID?: string;
+  noReply?: boolean;
+  parts: Array<{
+    type: "text";
+    text: string;
+    metadata?: Record<string, unknown>;
+  }>;
+};
+
 export type OpencodeToolCallPattern = string | {
   value?: string;
   source?: string;
@@ -115,6 +125,15 @@ export type OpencodeQuestionListItem = {
   };
   createdAt?: string;
   updatedAt?: string;
+  [key: string]: unknown;
+};
+
+export type OpencodeMessageRole = "user" | "assistant";
+
+export type OpencodeMessageInfo = {
+  id: string;
+  sessionID?: string;
+  role: OpencodeMessageRole;
   [key: string]: unknown;
 };
 
@@ -214,6 +233,14 @@ export type OpencodeMessagePartUpdatedEvent = OpencodeSseEvent<
   }
 >;
 
+export type OpencodeMessageUpdatedEvent = OpencodeSseEvent<
+  "message.updated",
+  {
+    info?: OpencodeMessageInfo;
+    [key: string]: unknown;
+  }
+>;
+
 export type OpencodeUnknownEvent = OpencodeSseEvent<string, Record<string, unknown>>;
 
 export type OpencodeSupportedEvent =
@@ -225,6 +252,7 @@ export type OpencodeSupportedEvent =
   | OpencodeQuestionRepliedEvent
   | OpencodeQuestionRejectedEvent
   | OpencodeSessionStatusEvent
+  | OpencodeMessageUpdatedEvent
   | OpencodeMessagePartUpdatedEvent;
 
 export type OpencodeEventType = OpencodeSupportedEvent["type"];

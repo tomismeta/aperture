@@ -1710,7 +1710,8 @@ function looksLikeFollowUpQuestion(value: string): boolean {
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
   const lastLine = lines.at(-1) ?? value.trim();
-  return /\?\s*$/.test(lastLine);
+  const normalized = lastLine.replace(/[\s)\]}'"”]+$/, "");
+  return /\?$/.test(normalized);
 }
 
 function toolInputContextItems(

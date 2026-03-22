@@ -23,7 +23,7 @@
   "provenance": {
     "promotedAt": "2026-03-21T23:47:58.334Z",
     "promotedFromBundleSessionId": "6faf531b-c11b-4649-971e-34fc2436484b",
-    "promotedFromPath": "/Users/tom/dev/aperture/packages/lab/bundles/6faf531b-c11b-4649-971e-34fc2436484b.json"
+    "promotedFromPath": "$WORKSPACE_ROOT/packages/lab/bundles/6faf531b-c11b-4649-971e-34fc2436484b.json"
   },
   "expectations": {
     "finalActiveInteractionId": null,
@@ -111,7 +111,7 @@
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -136,7 +136,7 @@
         "toolFamily": "read",
         "activityClass": "permission_request",
         "title": "Claude Code wants to read package.json",
-        "summary": "/Users/tom/dev/aperture/package.json",
+        "summary": "$WORKSPACE_ROOT/package.json",
         "request": {
           "kind": "approval"
         },
@@ -146,12 +146,12 @@
             {
               "id": "file_path",
               "label": "file_path",
-              "value": "/Users/tom/dev/aperture/package.json"
+              "value": "$WORKSPACE_ROOT/package.json"
             },
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -195,7 +195,7 @@
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -309,7 +309,7 @@
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -363,7 +363,7 @@
         "toolFamily": "write",
         "activityClass": "permission_request",
         "title": "Claude Code wants to write dummy-config.json",
-        "summary": "/Users/tom/Desktop/aperture-test-scratch/dummy-config.json",
+        "summary": "$HOME/Desktop/aperture-test-scratch/dummy-config.json",
         "request": {
           "kind": "approval"
         },
@@ -373,7 +373,7 @@
             {
               "id": "file_path",
               "label": "file_path",
-              "value": "/Users/tom/Desktop/aperture-test-scratch/dummy-config.json"
+              "value": "$HOME/Desktop/aperture-test-scratch/dummy-config.json"
             },
             {
               "id": "content",
@@ -383,7 +383,7 @@
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -446,7 +446,7 @@
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -471,7 +471,7 @@
         "toolFamily": "bash",
         "activityClass": "permission_request",
         "title": "Claude Code wants to run a shell command",
-        "summary": "wc -l /Users/tom/dev/aperture/packages/core/src/aperture-core.ts",
+        "summary": "wc -l $WORKSPACE_ROOT/packages/core/src/aperture-core.ts",
         "request": {
           "kind": "approval"
         },
@@ -481,12 +481,12 @@
             {
               "id": "command",
               "label": "Command",
-              "value": "wc -l /Users/tom/dev/aperture/packages/core/src/aperture-core.ts"
+              "value": "wc -l $WORKSPACE_ROOT/packages/core/src/aperture-core.ts"
             },
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -530,7 +530,7 @@
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -627,7 +627,7 @@
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -667,7 +667,7 @@
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -701,7 +701,7 @@
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -774,7 +774,7 @@
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },

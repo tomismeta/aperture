@@ -24,7 +24,7 @@
   "provenance": {
     "promotedAt": "2026-03-21T23:47:58.332Z",
     "promotedFromBundleSessionId": "de26c272-db0b-4583-9c9b-065449a955f7",
-    "promotedFromPath": "/Users/tom/dev/aperture/packages/lab/bundles/de26c272-db0b-4583-9c9b-065449a955f7.json"
+    "promotedFromPath": "$WORKSPACE_ROOT/packages/lab/bundles/de26c272-db0b-4583-9c9b-065449a955f7.json"
   },
   "expectations": {
     "finalActiveInteractionId": null,

@@ -37,6 +37,7 @@ export {
   validateSessionBundle,
   writeSessionBundle,
 } from "./session-bundle.js";
+export { validateReplayScenario } from "./validation.js";
 
 export type {
   DeterminismAuditRun,

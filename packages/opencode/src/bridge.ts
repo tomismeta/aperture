@@ -34,6 +34,7 @@ export type OpencodeBridgeClient = Pick<
   | "replyToPermission"
   | "replyToQuestion"
   | "rejectQuestion"
+  | "promptSession"
   | "streamEvents"
 >;
 
@@ -68,7 +69,9 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
   let responseUnsubscribe: (() => void) | null = null;
   let streamTask: Promise<void> | null = null;
   let closed = false;
+  let bridgeIssueActive = false;
   const suppressEgress = new Map<string, NodeJS.Timeout>();
+  const messageRoles = new Map<string, "user" | "assistant">();
   const startupBufferedEvents: Array<{ event: Parameters<typeof mapOpencodeEvent>[0]; receivedAt: string }> = [];
   let bootstrapping = true;
 
@@ -108,6 +111,9 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
       ];
       await runtimeClient.publishSourceEventBatch(bootstrapEvents);
       const bootstrapEventIds = new Set(bootstrapEvents.map((event) => event.id));
+      if (bridgeIssueActive) {
+        await clearBridgeIssue("OpenCode bridge recovered after reaching the server again.");
+      }
 
       bootstrapping = false;
       for (const buffered of startupBufferedEvents.splice(0)) {
@@ -169,6 +175,9 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
           resetHeartbeatTimer();
           attempts = 0;
           delayMs = reconnectInitialDelayMs;
+          if (bridgeIssueActive) {
+            await clearBridgeIssue("OpenCode event stream recovered.");
+          }
           if (bootstrapping) {
             startupBufferedEvents.push({ event, receivedAt: new Date().toISOString() });
             continue;
@@ -189,6 +198,7 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
         const disconnectError = heartbeatTimedOut
           ? new Error(`OpenCode event stream heartbeat timed out after ${heartbeatTimeoutMs}ms`)
           : error;
+        bridgeIssueActive = true;
         await reportBridgeIssue(undefined, "OpenCode event stream disconnected", disconnectError).catch((reportError) => {
           console.error("Failed to publish OpenCode bridge issue", reportError);
         });
@@ -208,6 +218,8 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
     event: Parameters<typeof mapOpencodeEvent>[0],
     skipEventIds: Set<string> = new Set(),
   ): Promise<void> {
+    trackMessageRole(event);
+
     const nativeResolution = mapOpencodeNativeResolution(event, mappingContext);
     if (nativeResolution && runtimeClient) {
       suppressInteraction(nativeResolution.response.interactionId);
@@ -215,10 +227,40 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
       return;
     }
 
-    const mapped = mapOpencodeEvent(event, mappingContext).filter((sourceEvent) => !skipEventIds.has(sourceEvent.id));
+    const mapped = mapOpencodeEvent(event, mappingContextFor(event)).filter((sourceEvent) => !skipEventIds.has(sourceEvent.id));
     if (mapped.length > 0 && runtimeClient) {
       await runtimeClient.publishSourceEventBatch(mapped);
     }
+  }
+
+  function trackMessageRole(event: Parameters<typeof mapOpencodeEvent>[0]): void {
+    if (event.type !== "message.updated") {
+      return;
+    }
+    const info = event.properties.info;
+    if (!info || typeof info !== "object") {
+      return;
+    }
+    const candidate = info as Record<string, unknown>;
+    const messageId = typeof candidate.id === "string" && candidate.id.trim() !== "" ? candidate.id : null;
+    const role = candidate.role === "assistant" || candidate.role === "user" ? candidate.role : null;
+    if (messageId && role) {
+      messageRoles.set(messageId, role);
+    }
+  }
+
+  function mappingContextFor(event: Parameters<typeof mapOpencodeEvent>[0]): OpencodeMappingContext {
+    if (event.type !== "message.part.updated") {
+      return mappingContext;
+    }
+
+    const messageId = readMessageId(event.properties.messageID, event.properties.part);
+    if (!messageId) {
+      return mappingContext;
+    }
+
+    const role = messageRoles.get(messageId);
+    return role ? { ...mappingContext, messageRole: role } : mappingContext;
   }
 
   async function handleRuntimeResponse(response: AttentionResponse): Promise<void> {
@@ -245,6 +287,9 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
         return;
       case "question.reject":
         await client.rejectQuestion(action.requestId, action.body);
+        return;
+      case "session.prompt":
+        await client.promptSession(action.sessionId, action.body);
         return;
     }
   }
@@ -292,6 +337,45 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
     };
     await runtimeClient.publishSourceEvent(event);
   }
+
+  async function clearBridgeIssue(summary: string): Promise<void> {
+    if (!runtimeClient || !bridgeIssueActive) {
+      return;
+    }
+
+    bridgeIssueActive = false;
+    const instanceKey = createOpencodeInstanceKey(mappingContext);
+    const event: SourceEvent = {
+      id: `opencode:${instanceKey}:bridge:recovered:${Date.now()}`,
+      type: "task.updated",
+      taskId: `opencode:${instanceKey}:session:bridge`,
+      timestamp: new Date().toISOString(),
+      source: {
+        id: `opencode:${instanceKey}`,
+        kind: "opencode",
+        label: mappingContext.sourceLabel ?? "OpenCode",
+      },
+      title: "OpenCode event stream recovered",
+      summary,
+      status: "completed",
+    };
+    await runtimeClient.publishSourceEvent(event);
+  }
+}
+
+function readMessageId(value: unknown, part: unknown): string | null {
+  if (typeof value === "string" && value.trim() !== "") {
+    return value;
+  }
+
+  if (part && typeof part === "object") {
+    const candidate = (part as Record<string, unknown>).messageID;
+    if (typeof candidate === "string" && candidate.trim() !== "") {
+      return candidate;
+    }
+  }
+
+  return null;
 }
 
 function sleep(durationMs: number): Promise<void> {

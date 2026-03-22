@@ -120,6 +120,33 @@ test("runtime source event endpoint accepts batches directly", async () => {
   }
 });
 
+test("runtime rejects malformed source event payloads", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { controlUrl } = await runtime.listen();
+
+  try {
+    const response = await fetch(`${controlUrl}/events/source`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event: {
+          id: "evt:invalid",
+          type: "task.updated",
+          taskId: "task:invalid",
+          timestamp: "2026-03-21T18:00:00.000Z",
+          title: "Missing status",
+        },
+      }),
+    });
+
+    assert.equal(response.status, 400);
+    const payload = await response.json() as { error: string };
+    assert.match(payload.error, /invalid source event payload/i);
+  } finally {
+    await runtime.close();
+  }
+});
+
 test("runtime exports a local session capture with source events, responses, and traces", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
   const { controlUrl } = await runtime.listen();

@@ -13,6 +13,8 @@ import {
   styleKey,
   styleRank,
   styleBrand,
+  stylePrompt,
+  styleValue,
   styleItalicMuted,
   styleSource,
   stylePosture,
@@ -20,10 +22,17 @@ import {
   alignLine,
   alignFooterStats,
   renderPrefixedBlock,
+  wrapText,
   formatSigned,
 } from "./ansi.js";
 import { renderInputDraft } from "./render-input.js";
-import type { SignalSummary, AttentionState, AttentionView } from "./types.js";
+import type {
+  SignalSummary,
+  AttentionState,
+  AttentionView,
+  AttentionConnectionSnapshot,
+  AttentionConnectionState,
+} from "./types.js";
 
 export function renderAttentionScreen(
   attentionView: AttentionView,
@@ -47,6 +56,34 @@ export function renderAttentionScreen(
   ));
   lines.push(heavyRule(color));
 
+  if (shouldRenderPreflightScreen(options?.connectionStatus ?? null, attentionView)) {
+    lines.push(...renderPreflightScreen(
+      options?.connectionStatus ?? null,
+      color,
+      options?.animation ?? null,
+    ));
+    const footer: string[] = [];
+    footer.push(heavyRule(color));
+    footer.push(`${styleMuted("controls", color)} ${styleKey("q", color)} ${styleMuted("quit", color)}`);
+
+    const statusText = options?.statusLine
+      ? truncateToWidth(`${styleMuted("status", color)} ${options.statusLine}`, options.statusLine, SCREEN_WIDTH)
+      : null;
+    if (statusText) {
+      footer.push(statusText);
+    }
+
+    if (options?.height) {
+      const padding = Math.max(0, options.height - lines.length - footer.length);
+      for (let i = 0; i < padding; i++) {
+        lines.push("");
+      }
+    }
+
+    lines.push(...footer);
+    return lines.join("\n");
+  }
+
   lines.push(...renderActiveFrame(
     active,
     color,
@@ -54,13 +91,8 @@ export function renderAttentionScreen(
     activePendingCount,
     options?.animation ?? null,
     options?.trace ?? null,
+    options?.inputDraft ?? null,
   ));
-
-  if (options?.inputDraft && active) {
-    lines.push("");
-    lines.push(sectionHeader("input", color, "focused"));
-    lines.push(...renderInputDraft(active, options.inputDraft, color));
-  }
 
   if (options?.whyMode) {
     // Why mode: replace queue + ambient with judgment trace overlay
@@ -89,7 +121,14 @@ export function renderAttentionScreen(
 
   const footer: string[] = [];
   footer.push(heavyRule(color));
-  footer.push(...renderControls(active, options?.inputDraft ?? null, options?.whyMode ?? false, options?.whyExpanded ?? false, color));
+  footer.push(...renderControls(
+    active,
+    options?.inputDraft ?? null,
+    options?.whyMode ?? false,
+    options?.whyExpanded ?? false,
+    color,
+    options?.connectionStatus ?? null,
+  ));
 
   const statsLine = renderStatsLine(options?.stats ?? null, color);
   const statusText = options?.statusLine
@@ -112,6 +151,144 @@ export function renderAttentionScreen(
 
   lines.push(...footer);
   return lines.join("\n");
+}
+
+function shouldRenderPreflightScreen(
+  connectionStatus: AttentionConnectionSnapshot | null,
+  attentionView: AttentionView,
+): boolean {
+  if (!connectionStatus || connectionStatus.entries.length === 0) {
+    return false;
+  }
+
+  const hasVisibleActions = (connectionStatus.actions?.length ?? 0) > 0
+    ? connectionStatus.actions!.some((action) => action.id !== "show-setup")
+    : false;
+  const hasEntryActions = connectionStatus.entries.some((entry) => (entry.actions?.length ?? 0) > 0);
+  const needsSetup = connectionStatus.entries.some((entry) => entry.state !== "ready" && entry.state !== "disabled");
+  const hasAttentionWork = attentionView.active !== null
+    || attentionView.queued.length > 0
+    || attentionView.ambient.some((frame) => !isConnectionBridgeStatus(frame));
+
+  return !hasAttentionWork && (needsSetup || hasVisibleActions || hasEntryActions);
+}
+
+function renderPreflightScreen(
+  connectionStatus: AttentionConnectionSnapshot | null,
+  color: boolean,
+  animation: AnimationState | null,
+): string[] {
+  if (!connectionStatus || connectionStatus.entries.length === 0) {
+    return [styleDeepMuted("    [·]", color)];
+  }
+
+  const lines: string[] = [];
+  lines.push("");
+  lines.push(`  ${renderIdleLens(color, animation)}`);
+  lines.push("");
+  lines.push(...renderPrefixedBlock("  ", styleTitle("Welcome to Aperture", color), "  "));
+  lines.push(...renderPrefixedBlock("  ", styleMuted("The live attention surface for humans supervising agents.", color), "  "));
+  if (connectionStatus.summary) {
+    lines.push(...renderPrefixedBlock("  ", styleMuted(connectionStatus.summary, color), "  "));
+  }
+  lines.push("");
+  lines.push(sectionHeader("setup", color, "ambient"));
+
+  for (const entry of connectionStatus.entries) {
+    const left = `  ${styleBrand(entry.label, color)}`;
+    const right = styleConnectionState(entry.state, color);
+    lines.push(alignLine(left, right, SCREEN_WIDTH));
+    lines.push(...renderPrefixedBlock(styleMuted("  ⎿ ", color), entry.detail, styleMuted("    ", color)));
+    if (entry.hint) {
+      lines.push(...renderPrefixedBlock(styleMuted("    tip ", color), entry.hint, styleMuted("        ", color)));
+    }
+    if (entry.actions && entry.actions.length > 0) {
+      lines.push(...renderConnectionActionRow("    next ", entry.actions, color));
+    }
+  }
+
+  if (connectionStatus.actions && connectionStatus.actions.length > 0) {
+    lines.push("");
+    lines.push(...renderConnectionActionRow("  actions ", connectionStatus.actions.filter((action) => action.id === "skip-setup"), color));
+  }
+
+  return lines;
+}
+
+function renderIdleLens(color: boolean, animation: AnimationState | null): string {
+  const tick = animation?.idleTick ?? 0;
+  const bright = tick < 2;
+  const lensGlyph = '[◉"]';
+  if (!color) {
+    return lensGlyph;
+  }
+  return bright
+    ? `${ANSI.brand}${lensGlyph}${ANSI.reset}`
+    : `${ANSI.dim}${lensGlyph}${ANSI.reset}`;
+}
+
+function renderConnectionActionRow(
+  prefixText: string,
+  actions: NonNullable<AttentionConnectionSnapshot["actions"]>,
+  color: boolean,
+): string[] {
+  if (actions.length === 0) {
+    return [];
+  }
+  const prefix = styleMuted(prefixText, color);
+  const continuationPrefix = styleMuted(" ".repeat(visibleLength(prefixText)), color);
+  const segments = actions.map((action) => `${styleKey(action.key, color)} ${styleMuted(action.label, color)}`);
+  const lines: string[] = [];
+  let current = prefix;
+  let currentWidth = visibleLength(prefix);
+
+  for (const segment of segments) {
+    const separator = currentWidth > visibleLength(prefix) ? "  " : "";
+    const addition = `${separator}${segment}`;
+    const nextWidth = currentWidth + visibleLength(addition);
+    if (nextWidth > SCREEN_WIDTH && currentWidth > visibleLength(prefix)) {
+      lines.push(current);
+      current = `${continuationPrefix}${segment}`;
+      currentWidth = visibleLength(continuationPrefix) + visibleLength(segment);
+      continue;
+    }
+    current += addition;
+    currentWidth = nextWidth;
+  }
+
+  lines.push(current);
+  return lines;
+}
+
+function styleConnectionState(state: AttentionConnectionState, color: boolean): string {
+  const label = humanConnectionState(state);
+  switch (state) {
+    case "ready":
+      return styleBrand(label, color);
+    case "starting":
+      return styleMuted(label, color);
+    case "action":
+      return styleStrong(label, color);
+    case "error":
+      return styleStrong(label, color);
+    case "disabled":
+      return styleDeepMuted(label, color);
+  }
+}
+
+function humanConnectionState(state: AttentionConnectionState): string {
+  switch (state) {
+    case "ready":
+      return "ready";
+    case "starting":
+      return "starting";
+    case "action":
+      return "needs setup";
+    case "error":
+      return "error";
+    case "disabled":
+      return "off";
+  }
 }
 
 // ── Header ──────────────────────────────────────────────────────────
@@ -153,6 +330,7 @@ function renderActiveFrame(
   pendingCount: number,
   animation: AnimationState | null,
   trace: ApertureTrace | null,
+  inputDraft?: InputDraft | null,
 ): string[] {
   if (!frame) {
     // Pulsing lens — alternates between brand blue and dim on idle tick
@@ -204,11 +382,16 @@ function renderActiveFrame(
 
   if (frame.summary) {
     const sanitized = frame.summary.replace(/[\n\r]+/g, " ").trim();
-    const maxSummary = CONTENT_WIDTH - 5; // "  ⎿ " prefix
-    const summaryText = sanitized.length > maxSummary
-      ? `${sanitized.slice(0, maxSummary - 1)}…`
-      : sanitized;
-    lines.push(`${tree}${styleMuted(summaryText, color)}`);
+    if (expanded) {
+      const wrapped = wrapText(sanitized, CONTENT_WIDTH - 5);
+      lines.push(...wrapped.map((line) => `${tree}${styleFrameSummary(frame, line, color)}`));
+    } else {
+      const maxSummary = CONTENT_WIDTH - 5; // "  ⎿ " prefix
+      const summaryText = sanitized.length > maxSummary
+        ? `${sanitized.slice(0, maxSummary - 1)}…`
+        : sanitized;
+      lines.push(`${tree}${styleFrameSummary(frame, summaryText, color)}`);
+    }
   }
 
   // Progress bar (always visible if present)
@@ -245,6 +428,10 @@ function renderActiveFrame(
     lines.push(`${tree}${styleItalicMuted(judgmentLine, color)}`);
   }
 
+  if (inputDraft) {
+    lines.push(...renderInputDraft(frame, inputDraft, color, { prefix: tree }));
+  }
+
   // Expanded debug details
   if (expanded) {
     const score = readScore(frame);
@@ -259,6 +446,16 @@ function renderActiveFrame(
   }
 
   return lines;
+}
+
+function styleFrameSummary(frame: Frame, summaryText: string, color: boolean): string {
+  if (frame.responseSpec?.kind === "approval") {
+    return styleValue(summaryText, color);
+  }
+  if (frame.responseSpec?.kind === "choice" || frame.responseSpec?.kind === "form") {
+    return stylePrompt(summaryText, color);
+  }
+  return styleMuted(summaryText, color);
 }
 
 /**
@@ -418,9 +615,17 @@ function renderControls(
   whyMode: boolean,
   whyExpanded: boolean,
   color: boolean,
+  connectionStatus?: AttentionConnectionSnapshot | null,
 ): string[] {
   if (!active) {
-    return [`${styleMuted("controls", color)} ${styleKey("q", color)} quit`];
+    const parts: string[] = [];
+    if (connectionStatus?.actions) {
+      for (const action of connectionStatus.actions) {
+        parts.push(`${styleKey(action.key, color)} ${styleMuted(action.label, color)}`);
+      }
+    }
+    parts.push(`${styleKey("q", color)} ${styleMuted("quit", color)}`);
+    return [`${styleMuted("controls", color)} ${parts.join("  ")}`];
   }
 
   if (inputDraft) {
@@ -525,6 +730,16 @@ function readAttention(frame: Frame): { scoreOffset: number; rationale: string[]
       : [];
 
   return { scoreOffset, rationale };
+}
+
+function isConnectionBridgeStatus(frame: Frame): boolean {
+  if (frame.mode !== "status") {
+    return false;
+  }
+  if (typeof frame.taskId === "string" && frame.taskId.includes(":session:bridge")) {
+    return true;
+  }
+  return typeof frame.interactionId === "string" && frame.interactionId.includes(":session:bridge:status");
 }
 
 export function humanMode(mode: Frame["mode"]): string {

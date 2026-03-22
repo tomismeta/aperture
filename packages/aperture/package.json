@@ -1,0 +1,51 @@
+{
+  "name": "@tomismeta/aperture",
+  "version": "0.1.0-beta.1",
+  "private": false,
+  "description": "The opinionated local-first Aperture product package.",
+  "author": "tomismeta <tomismeta@gmail.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/tomismeta/aperture#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tomismeta/aperture.git",
+    "directory": "packages/aperture"
+  },
+  "bugs": {
+    "url": "https://github.com/tomismeta/aperture/issues"
+  },
+  "keywords": [
+    "ai-agents",
+    "local-first",
+    "human-in-the-loop",
+    "attention-management",
+    "claude-code",
+    "opencode",
+    "tui",
+    "cli"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "type": "module",
+  "bin": {
+    "aperture": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsx ./scripts/build.ts",
+    "smoke": "tsx ./scripts/smoke.ts",
+    "prepack": "pnpm run build"
+  },
+  "devDependencies": {
+    "esbuild": "^0.27.4",
+    "tsx": "^4.20.5"
+  }
+}

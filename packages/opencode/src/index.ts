@@ -29,6 +29,9 @@ export type {
   OpencodePermissionAskedEvent,
   OpencodePermissionRepliedEvent,
   OpencodeQuestionAskedEvent,
+  OpencodeMessageRole,
+  OpencodeMessageInfo,
+  OpencodeMessageUpdatedEvent,
   OpencodeQuestionRejectedEvent,
   OpencodeQuestionRepliedEvent,
 } from "./types.js";

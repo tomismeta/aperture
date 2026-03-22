@@ -9,6 +9,7 @@ import {
   DEFAULT_HARVESTED_SCENARIOS_DIR,
   type ReplayArtifactSource,
   type ReplaySessionBundle,
+  validateSessionBundle,
   writeReplayScenario,
 } from "../packages/lab/src/index.ts";
 
@@ -41,7 +42,11 @@ async function main(): Promise<void> {
     }
 
     const bundlePath = path.resolve(options.bundlePath);
-    const bundle = JSON.parse(await readFile(bundlePath, "utf8")) as ReplaySessionBundle;
+    const parsed = JSON.parse(await readFile(bundlePath, "utf8")) as unknown;
+    const bundle = validateSessionBundle(parsed);
+    if (!bundle) {
+      throw new Error(`Invalid session bundle at ${bundlePath}`);
+    }
     const source = mergeSource(bundle.source, options);
     const scenario = createScenarioFromSessionBundle(bundle, {
       ...(options.scenarioId !== undefined ? { id: options.scenarioId } : {}),
@@ -52,7 +57,7 @@ async function main(): Promise<void> {
       provenance: {
         promotedAt: new Date().toISOString(),
         promotedFromBundleSessionId: bundle.sessionId,
-        promotedFromPath: bundlePath,
+        promotedFromPath: describePromotedPath(bundlePath),
       },
       includeOutcomeExpectations: options.keepExpectations,
     });
@@ -255,6 +260,11 @@ function mergeSource(
       ...(notes.length > 0 ? { notes } : {}),
     },
   };
+}
+
+function describePromotedPath(bundlePath: string): string {
+  const relative = path.relative(process.cwd(), bundlePath);
+  return relative === "" || relative.startsWith("..") ? path.basename(bundlePath) : relative;
 }
 
 function printHelp(): void {

@@ -5,6 +5,7 @@ import type {
   OpencodePermissionReplyInput,
   OpencodeQuestionRejectInput,
   OpencodeQuestionReplyInput,
+  OpencodeSessionPromptInput,
   OpencodeSseMessage,
 } from "./types.js";
 
@@ -47,6 +48,10 @@ export class OpencodeClient {
 
   async rejectQuestion(requestId: string, input: OpencodeQuestionRejectInput = {}): Promise<unknown> {
     return this.post(`/question/${encodeURIComponent(requestId)}/reject`, input);
+  }
+
+  async promptSession(sessionId: string, input: OpencodeSessionPromptInput): Promise<unknown> {
+    return this.post(`/session/${encodeURIComponent(sessionId)}/message`, input);
   }
 
   async *streamEvents(

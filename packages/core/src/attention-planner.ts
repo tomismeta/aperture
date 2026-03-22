@@ -91,7 +91,7 @@ export class AttentionPlanner {
     candidate: AttentionCandidate,
     context: AttentionPlanningContext,
   ): AttentionPlanningExplanation {
-    const evidence = this.resolveEvidenceContext(current, context);
+    const evidence = this.resolveEvidenceContext(current, context, candidate.timestamp);
     const routing = this.route(candidate, context, evidence);
     return this.applyContinuity(candidate, context, evidence, routing);
   }
@@ -496,9 +496,19 @@ export class AttentionPlanner {
   private resolveEvidenceContext(
     current: AttentionFrame | null,
     context: AttentionPlanningContext,
+    referenceTimestamp: string,
   ): AttentionEvidenceContext {
-    return resolveAttentionEvidenceContext(current, buildAttentionEvidenceInput(context));
+    return resolveAttentionEvidenceContext(
+      current,
+      buildAttentionEvidenceInput(context),
+      parseReferenceTime(referenceTimestamp),
+    );
   }
+}
+
+function parseReferenceTime(value: string): number {
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
 export function selectPeripheralBucket(

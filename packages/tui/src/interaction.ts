@@ -7,6 +7,7 @@ import type {
   TuiState,
   FormDraft,
   TextDraft,
+  InputDraft,
 } from "./types.js";
 import { displaySourceLabel } from "./source-label.js";
 
@@ -94,6 +95,29 @@ export function handleInputKeypress(
   }
 
   handleFormKeypress(core, state, key);
+}
+
+export function createAutomaticInputDraft(frame: Frame): TextDraft | FormDraft | null {
+  const spec = frame.responseSpec;
+  if (!spec) {
+    return null;
+  }
+
+  switch (spec.kind) {
+    case "form":
+      return createFormDraft(frame);
+    default:
+      return null;
+  }
+}
+
+export function shouldReserveSpaceForExpand(inputDraft: InputDraft): boolean {
+  switch (inputDraft.kind) {
+    case "text":
+      return inputDraft.buffer.length === 0;
+    case "form":
+      return inputDraft.buffer.length === 0;
+  }
 }
 
 function handleFormKeypress(

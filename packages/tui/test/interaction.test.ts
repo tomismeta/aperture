@@ -11,6 +11,8 @@ import type { AttentionState } from "../../core/src/attention-state.js";
 import {
   handleActiveKeypress,
   describeResponse,
+  createAutomaticInputDraft,
+  shouldReserveSpaceForExpand,
 } from "../src/interaction.js";
 import type { AttentionSurface, TuiState, FrameResponse } from "../src/types.js";
 import { createAnimationState } from "../src/animation.js";
@@ -151,6 +153,67 @@ test("handleActiveKeypress does nothing for none responseSpec", () => {
   handleActiveKeypress(surface, state, frame, { name: "a" });
 
   assert.equal(submitted.length, 0);
+});
+
+test("createAutomaticInputDraft auto-opens form responses", () => {
+  const frame = makeFrame({
+    responseSpec: {
+      kind: "form",
+      fields: [
+        { id: "reply", label: "Reply", type: "textarea" },
+      ],
+    },
+  });
+
+  const draft = createAutomaticInputDraft(frame);
+
+  assert.deepEqual(draft, {
+    kind: "form",
+    interactionId: "interaction-1",
+    fieldIndex: 0,
+    values: {},
+    buffer: "",
+  });
+});
+
+test("createAutomaticInputDraft does not auto-open approvals", () => {
+  const frame = makeFrame();
+
+  const draft = createAutomaticInputDraft(frame);
+
+  assert.equal(draft, null);
+});
+
+test("shouldReserveSpaceForExpand keeps space global for empty drafts", () => {
+  assert.equal(shouldReserveSpaceForExpand({
+    kind: "form",
+    interactionId: "interaction-1",
+    fieldIndex: 0,
+    values: {},
+    buffer: "",
+  }), true);
+
+  assert.equal(shouldReserveSpaceForExpand({
+    kind: "text",
+    interactionId: "interaction-1",
+    buffer: "",
+  }), true);
+});
+
+test("shouldReserveSpaceForExpand releases space after typing starts", () => {
+  assert.equal(shouldReserveSpaceForExpand({
+    kind: "form",
+    interactionId: "interaction-1",
+    fieldIndex: 0,
+    values: {},
+    buffer: "hello",
+  }), false);
+
+  assert.equal(shouldReserveSpaceForExpand({
+    kind: "text",
+    interactionId: "interaction-1",
+    buffer: "hello",
+  }), false);
 });
 
 // ── describeResponse ──────────────────────────────────────────────

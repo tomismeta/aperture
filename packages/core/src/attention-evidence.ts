@@ -64,6 +64,7 @@ export function buildAttentionEvidenceInput(
   input: AttentionEvidenceInput = {},
 ): AttentionEvidenceInput {
   return {
+    ...(input.currentFrame !== undefined ? { currentFrame: input.currentFrame } : {}),
     ...(input.currentTaskView !== undefined ? { currentTaskView: input.currentTaskView } : {}),
     ...(input.currentEpisode !== undefined ? { currentEpisode: input.currentEpisode } : {}),
     ...(input.attentionView !== undefined ? { attentionView: input.attentionView } : {}),
@@ -81,16 +82,16 @@ export function buildAttentionEvidenceInput(
 export function resolveAttentionEvidenceContext(
   currentFrame: AttentionFrame | null,
   input: AttentionEvidenceInput = {},
-  referenceTimeMs: number = Date.now(),
+  referenceTimeMs: number,
 ): AttentionEvidenceContext {
   const evidenceInput = buildAttentionEvidenceInput(input);
-  if (isAttentionEvidenceContext(input)) {
-    if (input.currentFrame === currentFrame) {
-      return input;
+  if (isAttentionEvidenceContext(evidenceInput)) {
+    if (evidenceInput.currentFrame === currentFrame) {
+      return evidenceInput;
     }
 
     return createAttentionEvidenceContext({
-      ...input,
+      ...evidenceInput,
       currentFrame,
     });
   }
@@ -134,6 +135,9 @@ export function isAttentionEvidenceContext(
     && "attentionBurden" in input
     && "surfaceCapabilities" in input
     && "operatorPresence" in input
+    && input.currentFrame !== undefined
+    && input.currentTaskView !== undefined
+    && input.currentEpisode !== undefined
     && input.attentionView !== undefined
     && input.taskSignalSummary !== undefined
     && input.globalSignalSummary !== undefined

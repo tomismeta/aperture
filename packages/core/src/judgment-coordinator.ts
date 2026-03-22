@@ -87,7 +87,7 @@ export class JudgmentCoordinator {
     candidate: AttentionCandidate,
     context: AttentionDecisionContext = {},
   ): AttentionDecisionExplanation {
-    const evidence = this.resolveEvidenceContext(current, context);
+    const evidence = this.resolveEvidenceContext(current, context, candidate.timestamp);
     const gateExplanation = this.policyGates.explainGates(candidate);
     const policy = gateExplanation.verdict;
     const utility = this.utilityScore.scoreCandidate(candidate);
@@ -198,7 +198,17 @@ export class JudgmentCoordinator {
   private resolveEvidenceContext(
     current: AttentionFrame | null,
     context: AttentionDecisionContext,
+    referenceTimestamp: string,
   ): AttentionEvidenceContext {
-    return resolveAttentionEvidenceContext(current, buildAttentionEvidenceInput(context));
+    return resolveAttentionEvidenceContext(
+      current,
+      buildAttentionEvidenceInput(context),
+      parseReferenceTime(referenceTimestamp),
+    );
   }
+}
+
+function parseReferenceTime(value: string): number {
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
 }

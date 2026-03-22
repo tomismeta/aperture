@@ -48,3 +48,64 @@ test("medium-confidence semantics stay out of the uncertainty ambiguity path", (
     "semantic confidence is strong enough to keep ordinary interrupt rules in play",
   ]);
 });
+
+test("low-confidence semantics keep non-blocking work peripheral", () => {
+  const evaluation = evaluateSemanticUncertaintyCriterionRule({
+    candidate: {
+      ...baseCandidate,
+      semanticConfidence: "low",
+    },
+    policyVerdict: basePolicyVerdict,
+    evidence: createAttentionEvidenceContext(),
+    candidateScore: 4,
+    currentScore: null,
+    criterion: { activationThreshold: 4, promotionMargin: 1 },
+    sourceTrustAdjustment: 0,
+    peripheralResolution: "queue",
+  });
+
+  assert.equal(evaluation.kind, "verdict");
+  assert.equal(evaluation.verdict.peripheralResolution, "queue");
+  assert.equal(evaluation.verdict.ambiguity?.reason, "low_signal");
+});
+
+test("abstained semantics keep non-blocking work peripheral", () => {
+  const evaluation = evaluateSemanticUncertaintyCriterionRule({
+    candidate: {
+      ...baseCandidate,
+      semanticConfidence: "low",
+      semanticAbstained: true,
+    },
+    policyVerdict: basePolicyVerdict,
+    evidence: createAttentionEvidenceContext(),
+    candidateScore: 4,
+    currentScore: null,
+    criterion: { activationThreshold: 4, promotionMargin: 1 },
+    sourceTrustAdjustment: 0,
+    peripheralResolution: "ambient",
+  });
+
+  assert.equal(evaluation.kind, "verdict");
+  assert.equal(evaluation.verdict.peripheralResolution, "ambient");
+  assert.equal(evaluation.verdict.ambiguity?.reason, "low_signal");
+});
+
+test("blocking work bypasses the semantic uncertainty rule", () => {
+  const evaluation = evaluateSemanticUncertaintyCriterionRule({
+    candidate: {
+      ...baseCandidate,
+      blocking: true,
+      semanticConfidence: "low",
+    },
+    policyVerdict: basePolicyVerdict,
+    evidence: createAttentionEvidenceContext(),
+    candidateScore: 4,
+    currentScore: null,
+    criterion: { activationThreshold: 4, promotionMargin: 1 },
+    sourceTrustAdjustment: 0,
+    peripheralResolution: "queue",
+  });
+
+  assert.equal(evaluation.kind, "noop");
+  assert.deepEqual(evaluation.rationale, []);
+});

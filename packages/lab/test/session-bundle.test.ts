@@ -14,6 +14,7 @@ import {
   defaultHarvestedScenarioPath,
   defaultSessionBundlePath,
   loadHarvestedScenarios,
+  loadReplayScenarios,
   loadSessionBundles,
   runReplayScenario,
   runSessionBundle,
@@ -296,6 +297,34 @@ test("session bundle validation requires the core structural fields", () => {
   assert.equal(invalid, null);
 });
 
+test("session bundle validation rejects malformed array contents", () => {
+  const invalid = validateSessionBundle({
+    schemaVersion: 1,
+    sessionId: "session:invalid-arrays",
+    title: "Invalid array contents",
+    exportedAt: "2026-03-21T18:35:00.000Z",
+    steps: [42],
+    normalizedEvents: [],
+    traces: [],
+    signals: [],
+    responses: [],
+    viewSnapshots: [],
+    semanticSnapshots: [],
+    decisionSnapshots: [],
+    outcomes: {
+      totalSteps: 1,
+      surfacedFrames: 0,
+      finalActiveInteractionId: null,
+      finalQueuedCount: 0,
+      finalAmbientCount: 0,
+      finalQueuedInteractionIds: [],
+      finalAmbientInteractionIds: [],
+    },
+  });
+
+  assert.equal(invalid, null);
+});
+
 test("session bundles load recursively from nested directories", async () => {
   const scenario: ReplayScenario = {
     id: "bundle:nested",
@@ -349,6 +378,22 @@ test("harvested replay scenarios can be written to disk and loaded back", async 
   assert.equal(raw.id, scenario.id);
   assert.equal(loaded.length, 1);
   assert.equal(loaded[0]?.source?.capture?.responseBridge, "deny_plus_context");
+});
+
+test("replay scenarios reject malformed files during load", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "aperture-scenarios-invalid-"));
+  const filePath = path.join(directory, "invalid.json");
+
+  await writeFile(filePath, `${JSON.stringify({
+    id: "scenario:invalid",
+    title: "Invalid scenario",
+    steps: [null],
+  })}\n`, "utf8");
+
+  await assert.rejects(
+    loadReplayScenarios(directory),
+    /Invalid replay scenario/,
+  );
 });
 
 test("canonical attention exports convert into replay scenarios with final-state expectations", () => {

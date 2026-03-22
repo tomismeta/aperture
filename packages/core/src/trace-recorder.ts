@@ -78,7 +78,7 @@ export class TraceRecorder {
       },
       coordination: {
         kind: explanation.decision.kind,
-        resultBucket: findResultBucket(snapshot.attentionView, adjusted.taskId, adjusted.interactionId),
+        resultBucket: findResultBucket(snapshot.attentionView, adjusted.taskId, adjusted.interactionId, explanation.decision.kind),
         candidateScore: explanation.candidateScore,
         currentScore: explanation.currentScore,
         currentPriority: explanation.currentPriority,
@@ -115,7 +115,12 @@ function findResultBucket(
   attentionView: AttentionView,
   taskId: string,
   interactionId: string,
+  decisionKind: AttentionDecisionExplanation["decision"]["kind"],
 ): "active" | "queued" | "ambient" | "none" {
+  if (decisionKind === "auto_approve" || decisionKind === "clear") {
+    return "none";
+  }
+
   if (
     attentionView.active
     && attentionView.active.taskId === taskId

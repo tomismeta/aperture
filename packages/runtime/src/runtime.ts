@@ -144,6 +144,11 @@ const DEFAULT_ADAPTER_TTL_MS = 30_000;
 const DEFAULT_SURFACE_TTL_MS = 15_000;
 const DEFAULT_BODY_LIMIT_BYTES = 64 * 1024;
 const REGISTRATION_HEARTBEAT_MS = 5_000;
+const TASK_STATUSES = new Set(["running", "blocked", "waiting", "completed", "failed"]);
+const REQUEST_KINDS = new Set(["approval", "choice", "form"]);
+const SELECTION_MODES = new Set(["single", "multiple"]);
+const FIELD_TYPES = new Set(["text", "textarea", "number", "select", "boolean"]);
+const RESPONSE_KINDS = new Set(["acknowledged", "approved", "rejected", "option_selected", "text_submitted", "form_submitted", "dismissed"]);
 
 export function createApertureRuntime(
   options: ApertureRuntimeOptions = {},
@@ -309,15 +314,19 @@ export function createApertureRuntime(
       }
 
       if (req.method === "POST" && path === `${controlPathPrefix}/responses`) {
-        const response = (await readJson(req, bodyLimitBytes)) as AttentionResponse;
-        core.submit(response);
+        const payload = await readJson(req, bodyLimitBytes);
+        const response = validateAttentionResponse(payload);
+        if (!response) {
+          throw new Error("Invalid attention response payload.");
+        }
         recordSubmittedResponse(response);
+        core.submit(response);
         writeJson(res, 200, {});
         return;
       }
 
       if (req.method === "POST" && path === `${controlPathPrefix}/events/source`) {
-        const payload = (await readJson(req, bodyLimitBytes)) as { event?: SourceEvent; events?: SourceEvent[] } | SourceEvent;
+        const payload = await readJson(req, bodyLimitBytes);
         const events = normalizeSourceEventPayload(payload);
         for (const event of events) {
           core.publishSourceEvent(event);
@@ -636,18 +645,29 @@ export function createApertureRuntime(
   }
 }
 
-function normalizeSourceEventPayload(
-  payload: { event?: SourceEvent; events?: SourceEvent[] } | SourceEvent,
-): SourceEvent[] {
-  if (Array.isArray((payload as { events?: SourceEvent[] }).events)) {
-    return (payload as { events: SourceEvent[] }).events;
+function normalizeSourceEventPayload(payload: unknown): SourceEvent[] {
+  if (isRecord(payload) && Array.isArray(payload.events)) {
+    const events = payload.events.map((event) => validateSourceEvent(event));
+    if (events.some((event) => event === null)) {
+      throw new Error("Invalid source event batch payload.");
+    }
+    return events as SourceEvent[];
   }
 
-  if ((payload as { event?: SourceEvent }).event) {
-    return [(payload as { event: SourceEvent }).event];
+  if (isRecord(payload) && "event" in payload) {
+    const event = validateSourceEvent(payload.event);
+    if (!event) {
+      throw new Error("Invalid source event payload.");
+    }
+    return [event];
   }
 
-  return [payload as SourceEvent];
+  const event = validateSourceEvent(payload);
+  if (!event) {
+    throw new Error("Invalid source event payload.");
+  }
+
+  return [event];
 }
 
 function normalizePathPrefix(pathPrefix: string): string {
@@ -660,6 +680,164 @@ function normalizePathPrefix(pathPrefix: string): string {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+
+function validateAttentionResponse(value: unknown): AttentionResponse | null {
+  if (!isRecord(value) || typeof value.taskId !== "string" || typeof value.interactionId !== "string" || !isRecord(value.response)) {
+    return null;
+  }
+
+  const kind = value.response.kind;
+  if (typeof kind !== "string" || !RESPONSE_KINDS.has(kind)) {
+    return null;
+  }
+
+  switch (kind) {
+    case "acknowledged":
+    case "dismissed":
+      return value as AttentionResponse;
+    case "approved":
+    case "rejected":
+      return value.response.reason === undefined || typeof value.response.reason === "string"
+        ? value as AttentionResponse
+        : null;
+    case "option_selected":
+      return isStringArray(value.response.optionIds) ? value as AttentionResponse : null;
+    case "text_submitted":
+      return typeof value.response.text === "string" ? value as AttentionResponse : null;
+    case "form_submitted":
+      return isRecord(value.response.values) ? value as AttentionResponse : null;
+  }
+
+  return null;
+}
+
+function validateSourceEvent(value: unknown): SourceEvent | null {
+  if (!isRecord(value) || typeof value.type !== "string" || typeof value.id !== "string" || typeof value.taskId !== "string" || typeof value.timestamp !== "string") {
+    return null;
+  }
+
+  if (
+    (value.source !== undefined && validateSourceRef(value.source) === null)
+    || (value.semanticHints !== undefined && !isRecord(value.semanticHints))
+  ) {
+    return null;
+  }
+
+  switch (value.type) {
+    case "task.started":
+      return typeof value.title === "string" && (value.summary === undefined || typeof value.summary === "string")
+        ? value as SourceEvent
+        : null;
+    case "task.updated":
+      return typeof value.title === "string"
+        && (value.summary === undefined || typeof value.summary === "string")
+        && typeof value.status === "string"
+        && TASK_STATUSES.has(value.status)
+        && (value.toolFamily === undefined || typeof value.toolFamily === "string")
+        && (value.activityClass === undefined || typeof value.activityClass === "string")
+        && (value.progress === undefined || typeof value.progress === "number")
+        ? value as SourceEvent
+        : null;
+    case "human.input.requested":
+      return typeof value.interactionId === "string"
+        && typeof value.title === "string"
+        && typeof value.summary === "string"
+        && (value.toolFamily === undefined || typeof value.toolFamily === "string")
+        && (value.activityClass === undefined || typeof value.activityClass === "string")
+        && validateHumanInputRequest(value.request)
+        && (value.context === undefined || validateContext(value.context))
+        && (value.provenance === undefined || validateProvenance(value.provenance))
+        && (value.riskHint === undefined || value.riskHint === "low" || value.riskHint === "medium" || value.riskHint === "high")
+        ? value as SourceEvent
+        : null;
+    case "task.completed":
+      return value.summary === undefined || typeof value.summary === "string"
+        ? value as SourceEvent
+        : null;
+    case "task.cancelled":
+      return value.reason === undefined || typeof value.reason === "string"
+        ? value as SourceEvent
+        : null;
+    default:
+      return null;
+  }
+}
+
+function validateSourceRef(value: unknown): object | null {
+  if (!isRecord(value) || typeof value.id !== "string") {
+    return null;
+  }
+
+  if (
+    (value.kind !== undefined && typeof value.kind !== "string")
+    || (value.label !== undefined && typeof value.label !== "string")
+  ) {
+    return null;
+  }
+
+  return value;
+}
+
+function validateHumanInputRequest(value: unknown): boolean {
+  if (!isRecord(value) || typeof value.kind !== "string" || !REQUEST_KINDS.has(value.kind)) {
+    return false;
+  }
+
+  switch (value.kind) {
+    case "approval":
+      return value.requireReason === undefined || typeof value.requireReason === "boolean";
+    case "choice":
+      return typeof value.selectionMode === "string"
+        && SELECTION_MODES.has(value.selectionMode)
+        && (value.allowTextResponse === undefined || typeof value.allowTextResponse === "boolean")
+        && Array.isArray(value.options)
+        && value.options.every((option) => isRecord(option) && typeof option.id === "string" && typeof option.label === "string" && (option.summary === undefined || typeof option.summary === "string"));
+    case "form":
+      return Array.isArray(value.fields)
+        && value.fields.every((field) => (
+          isRecord(field)
+          && typeof field.id === "string"
+          && typeof field.label === "string"
+          && typeof field.type === "string"
+          && FIELD_TYPES.has(field.type)
+          && (field.required === undefined || typeof field.required === "boolean")
+          && (field.options === undefined || (Array.isArray(field.options) && field.options.every((option) => isRecord(option) && typeof option.value === "string" && typeof option.label === "string")))
+        ));
+  }
+
+  return false;
+}
+
+function validateContext(value: unknown): boolean {
+  return (
+    isRecord(value)
+    && (value.stage === undefined || typeof value.stage === "string")
+    && (value.progress === undefined || typeof value.progress === "number")
+    && (
+      value.items === undefined
+      || (
+        Array.isArray(value.items)
+        && value.items.every((item) => isRecord(item) && typeof item.id === "string" && typeof item.label === "string" && (item.value === undefined || typeof item.value === "string"))
+      )
+    )
+  );
+}
+
+function validateProvenance(value: unknown): boolean {
+  return (
+    isRecord(value)
+    && (value.whyNow === undefined || typeof value.whyNow === "string")
+    && (value.factors === undefined || isStringArray(value.factors))
+  );
 }
 
 function normalizeSurfaceCapabilities(

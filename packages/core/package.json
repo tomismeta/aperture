@@ -1,6 +1,6 @@
 {
   "name": "@tomismeta/aperture-core",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "The human attention control plane for agent systems.",
   "author": "tomismeta <tomismeta@gmail.com>",
   "license": "MIT",
@@ -33,26 +33,29 @@
     "node": ">=18"
   },
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./public-dist/index.js",
+  "types": "./public-dist/index.d.ts",
   "files": [
-    "dist",
+    "public-dist",
     "README.md",
     "LICENSE"
   ],
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "types": "./public-dist/index.d.ts",
+      "default": "./public-dist/index.js"
     },
     "./semantic": {
-      "types": "./dist/semantic.d.ts",
-      "default": "./dist/semantic.js"
+      "types": "./public-dist/semantic.d.ts",
+      "default": "./public-dist/semantic.js"
     }
   },
   "scripts": {
-    "build": "node -e \"const fs=require('node:fs'); fs.rmSync('dist',{recursive:true,force:true}); fs.rmSync('tsconfig.tsbuildinfo',{force:true});\" && tsc -p tsconfig.json",
+    "build": "tsc -b --force --pretty false && tsup",
     "prepack": "pnpm run build"
   },
-  "sideEffects": false
+  "sideEffects": false,
+  "devDependencies": {
+    "tsup": "^8.5.1"
+  }
 }

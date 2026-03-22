@@ -727,6 +727,58 @@ test("publishes stop events with follow-up questions as waiting status", async (
   }
 });
 
+test("enriches stop events from transcript text when the hook omits the assistant message", async () => {
+  const core = new ApertureCore();
+  const scratchDir = await mkdtemp(join(tmpdir(), "aperture-claude-stop-"));
+  const transcriptPath = join(scratchDir, "session.jsonl");
+  const server = createClaudeCodeHookServer(core, {
+    transcriptRoots: [scratchDir],
+  });
+  const { url } = await server.listen();
+
+  await writeFile(
+    transcriptPath,
+    `${JSON.stringify({
+      type: "assistant",
+      message: {
+        role: "assistant",
+        content: [
+          { type: "thinking", thinking: "hidden" },
+          { type: "text", text: "Got it — a custom workflow. What does it look like? (What triggers it, and what should happen?)" },
+        ],
+      },
+    })}\n`,
+    "utf8",
+  );
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "Stop",
+        stop_reason: "end_turn",
+        transcript_path: transcriptPath,
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {});
+    const frame = core.getAttentionView().active;
+    assert.ok(frame);
+    assert.equal(frame?.title, "Claude is waiting for follow-up");
+    assert.equal(
+      frame?.summary,
+      "Got it — a custom workflow. What does it look like? (What triggers it, and what should happen?)",
+    );
+  } finally {
+    await server.close();
+    await rm(scratchDir, { recursive: true, force: true });
+  }
+});
+
 test("publishes plain stop events as ambient completion awareness", async () => {
   const core = new ApertureCore();
   const server = createClaudeCodeHookServer(core);

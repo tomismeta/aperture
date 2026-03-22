@@ -80,7 +80,9 @@ function assertTarballShape(entries: string[]): void {
   assert.equal(entries.includes("package/README.md"), true, "tarball should include README.md");
   assert.equal(entries.includes("package/LICENSE"), true, "tarball should include LICENSE");
   assert.equal(entries.includes("package/package.json"), true, "tarball should include package.json");
-  assert.equal(entries.includes("package/dist/index.js"), true, "tarball should include built entrypoint");
+  assert.equal(entries.includes("package/public-dist/index.js"), true, "tarball should include built entrypoint");
+  assert.equal(entries.includes("package/public-dist/semantic.js"), true, "tarball should include semantic entrypoint");
+  assert.equal(entries.some((entry) => entry.startsWith("package/dist/")), false, "tarball should not include internal dist output");
   assert.equal(entries.some((entry) => entry.endsWith(".js.map")), false, "tarball should not include JavaScript source maps");
   assert.equal(entries.some((entry) => entry.endsWith(".d.ts.map")), false, "tarball should not include declaration maps");
   assert.equal(entries.some((entry) => entry.includes("attention-heuristics")), false, "tarball should not include stale renamed artifacts");

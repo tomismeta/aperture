@@ -61,6 +61,11 @@ export function styleBrand(value: string, color: boolean): string {
   return color ? `${ANSI.bold}${ANSI.brand}${value}${ANSI.reset}` : value;
 }
 
+/** Prompt / interactive content — same accent as filenames and brand surfaces. */
+export function stylePrompt(value: string, color: boolean): string {
+  return color ? `${ANSI.bold}${ANSI.brand}${value}${ANSI.reset}` : value;
+}
+
 /** Source labels — dim, informational, not interactive */
 export function styleSource(value: string, color: boolean): string {
   return color ? `${ANSI.dim}${value}${ANSI.reset}` : value;

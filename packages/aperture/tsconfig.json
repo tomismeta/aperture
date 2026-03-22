@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "declarationMap": false,
+    "sourceMap": false
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    { "path": "../runtime" },
+    { "path": "../claude-code" },
+    { "path": "../opencode" },
+    { "path": "../lab" },
+    { "path": "../tui" }
+  ]
+}

@@ -28,12 +28,15 @@ type TranscriptContentItem = {
   type?: string;
   id?: string;
   name?: string;
+  text?: string;
   input?: Record<string, unknown>;
   tool_use_id?: string;
 };
 
 type TranscriptLine = {
+  type?: string;
   message?: {
+    role?: string;
     content?: TranscriptContentItem[] | string;
   };
   toolUseResult?: {
@@ -50,24 +53,8 @@ export async function readAskUserQuestionTranscriptPayload(
   toolUseId: string,
   options: ClaudeCodeTranscriptReadOptions = {},
 ): Promise<ClaudeCodeAskUserQuestionTranscriptPayload | null> {
-  const resolvedPath = await resolveAllowedTranscriptPath(
-    transcriptPath,
-    options.allowedRoots ?? DEFAULT_TRANSCRIPT_ROOTS,
-  );
-  if (!resolvedPath) {
-    return null;
-  }
-
-  const maxBytes = options.maxBytes ?? DEFAULT_TRANSCRIPT_MAX_BYTES;
-  let raw: string;
-  try {
-    const info = await stat(resolvedPath);
-    if (!info.isFile() || info.size > maxBytes) {
-      return null;
-    }
-
-    raw = await readFile(resolvedPath, "utf8");
-  } catch {
+  const raw = await readTranscript(transcriptPath, options);
+  if (!raw) {
     return null;
   }
 
@@ -113,6 +100,59 @@ export async function readAskUserQuestionTranscriptPayload(
   }
 
   return answers ? { questions, answers } : { questions };
+}
+
+export async function readLatestAssistantTranscriptText(
+  transcriptPath: string,
+  options: ClaudeCodeTranscriptReadOptions = {},
+): Promise<string | null> {
+  const raw = await readTranscript(transcriptPath, options);
+  if (!raw) {
+    return null;
+  }
+
+  let latest: string | null = null;
+
+  for (const line of raw.split("\n")) {
+    if (line.trim().length === 0) {
+      continue;
+    }
+
+    let parsed: TranscriptLine;
+    try {
+      parsed = JSON.parse(line) as TranscriptLine;
+    } catch {
+      continue;
+    }
+
+    if (parsed.type !== "assistant" && parsed.message?.role !== "assistant") {
+      continue;
+    }
+
+    const content = parsed.message?.content;
+    if (typeof content === "string") {
+      const next = content.trim();
+      if (next.length > 0) {
+        latest = next;
+      }
+      continue;
+    }
+
+    if (!Array.isArray(content)) {
+      continue;
+    }
+
+    const next = content
+      .flatMap((item) => (item?.type === "text" && typeof item.text === "string" ? [item.text.trim()] : []))
+      .filter((item) => item.length > 0)
+      .join("\n")
+      .trim();
+    if (next.length > 0) {
+      latest = next;
+    }
+  }
+
+  return latest;
 }
 
 export function parseAskUserQuestionPayload(
@@ -203,6 +243,31 @@ async function resolveAllowedTranscriptPath(
 async function resolveAllowedRoot(root: string): Promise<string | null> {
   try {
     return await realpath(path.resolve(root));
+  } catch {
+    return null;
+  }
+}
+
+async function readTranscript(
+  transcriptPath: string,
+  options: ClaudeCodeTranscriptReadOptions,
+): Promise<string | null> {
+  const resolvedPath = await resolveAllowedTranscriptPath(
+    transcriptPath,
+    options.allowedRoots ?? DEFAULT_TRANSCRIPT_ROOTS,
+  );
+  if (!resolvedPath) {
+    return null;
+  }
+
+  const maxBytes = options.maxBytes ?? DEFAULT_TRANSCRIPT_MAX_BYTES;
+  try {
+    const info = await stat(resolvedPath);
+    if (!info.isFile() || info.size > maxBytes) {
+      return null;
+    }
+
+    return await readFile(resolvedPath, "utf8");
   } catch {
     return null;
   }

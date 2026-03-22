@@ -9,6 +9,8 @@ import {
   handleActiveKeypress,
   handleInputKeypress,
   describeResponse,
+  createAutomaticInputDraft,
+  shouldReserveSpaceForExpand,
 } from "./interaction.js";
 import { displaySourceLabel } from "./source-label.js";
 import { buildSurfaceAttentionView, isAttentionViewEmpty, sameAttentionView } from "./surface-view.js";
@@ -24,7 +26,14 @@ import type {
 } from "./types.js";
 
 export { renderAttentionScreen } from "./render.js";
-export type { AttentionTuiOptions, RenderOptions } from "./types.js";
+export type {
+  AttentionTuiOptions,
+  RenderOptions,
+  AttentionConnectionAction,
+  AttentionConnectionEntry,
+  AttentionConnectionSnapshot,
+  AttentionConnectionState,
+} from "./types.js";
 
 export async function runAttentionTui(
   core: AttentionSurface,
@@ -42,15 +51,21 @@ export async function runAttentionTui(
   const initialPosture = reducedMotion && isAttentionViewEmpty(initialView)
     ? "calm"
     : computePosture(initialSummary, initialView);
+  const initialInputDraft = initialView.active ? createAutomaticInputDraft(initialView.active) : null;
 
   const state: TuiState = {
     attentionView: initialView,
-    statusLine: "Waiting for events",
-    inputDraft: null,
+    statusLine: initialInputDraft
+      ? `Editing ${initialView.active?.responseSpec?.kind === "form" ? initialView.active.responseSpec.fields[0]?.label ?? initialView.active.title : initialView.active?.title ?? "reply"}`
+      : initialView.active
+      ? `Focused on ${initialView.active.title} · ${displaySourceLabel(initialView.active.source)}`
+      : "Waiting for events",
+    inputDraft: initialInputDraft,
     expanded: false,
     whyMode: false,
     whyExpanded: false,
     traceCache: new Map(),
+    connectionStatus: options?.getConnectionStatus?.() ?? null,
     posture: initialPosture,
     previousPosture: "calm",
     animation: createAnimationState(),
@@ -84,6 +99,7 @@ export async function runAttentionTui(
         },
         posture: state.posture,
         animation: state.animation,
+        connectionStatus: state.connectionStatus,
       };
       output.write(
         renderAttentionScreen(state.attentionView, renderOptions),
@@ -126,12 +142,17 @@ export async function runAttentionTui(
       state.whyExpanded = false;
       state.statusLine = "Nothing currently needs attention";
     } else if (active.interactionId !== previousActiveId) {
+      state.inputDraft = createAutomaticInputDraft(active);
       state.whyExpanded = false;
-      state.statusLine = `Focused on ${active.title} · ${displaySourceLabel(active.source)}`;
+      state.statusLine = state.inputDraft
+        ? `Editing ${active.responseSpec?.kind === "form" ? active.responseSpec.fields[0]?.label ?? active.title : active.title}`
+        : `Focused on ${active.title} · ${displaySourceLabel(active.source)}`;
     } else if (state.inputDraft && state.inputDraft.interactionId !== active.interactionId) {
-      state.inputDraft = null;
+      state.inputDraft = createAutomaticInputDraft(active);
       state.expanded = false;
-      state.statusLine = `Focused on ${active.title} · ${displaySourceLabel(active.source)}`;
+      state.statusLine = state.inputDraft
+        ? `Editing ${active.responseSpec?.kind === "form" ? active.responseSpec.fields[0]?.label ?? active.title : active.title}`
+        : `Focused on ${active.title} · ${displaySourceLabel(active.source)}`;
     }
 
     const visibleIds = new Set<string>();
@@ -200,6 +221,13 @@ export async function runAttentionTui(
     });
   }
 
+  const unsubConnectionStatus = options?.subscribeConnectionStatus
+    ? options.subscribeConnectionStatus((connectionStatus) => {
+      state.connectionStatus = connectionStatus;
+      requestRender();
+    })
+    : null;
+
   render();
 
   return new Promise<void>((resolve) => {
@@ -211,6 +239,11 @@ export async function runAttentionTui(
 
       // Frame input active — capture all keys there
       if (state.inputDraft) {
+        if (key.name === "space" && shouldReserveSpaceForExpand(state.inputDraft)) {
+          state.expanded = !state.expanded;
+          requestRender();
+          return;
+        }
         handleInputKeypress(core, state, key);
         requestRender();
         return;
@@ -242,6 +275,21 @@ export async function runAttentionTui(
       }
 
       if (!active) {
+        const action = state.connectionStatus?.actions?.find((candidate) => candidate.key === key.sequence);
+        if (action && options?.runConnectionAction) {
+          state.statusLine = `Running ${action.label}`;
+          requestRender();
+          void Promise.resolve(options.runConnectionAction(action.id))
+            .then(() => {
+              state.statusLine = `Finished ${action.label}`;
+              requestRender();
+            })
+            .catch((error) => {
+              const message = error instanceof Error ? error.message : String(error);
+              state.statusLine = `${action.label} failed: ${message}`;
+              requestRender();
+            });
+        }
         return;
       }
 
@@ -259,6 +307,7 @@ export async function runAttentionTui(
       unsubAttention();
       unsubResponse();
       if (unsubTrace) unsubTrace();
+      if (unsubConnectionStatus) unsubConnectionStatus();
       cleanup();
       resolve();
     };

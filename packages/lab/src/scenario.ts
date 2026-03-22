@@ -13,7 +13,7 @@ import type {
   SemanticIntentFrame,
   SemanticRelationHint,
   SemanticInterpretation,
-} from "../../core/src/semantic.js";
+} from "@tomismeta/aperture-core/semantic";
 
 type ReplayDecisionAmbiguity = {
   kind: "interrupt";

@@ -72,7 +72,7 @@ export function normalizeSourceEvent(event: SourceEvent): ApertureEvent {
 
 function normalizeHumanInput(
   event: Extract<SourceEvent, { type: "human.input.requested" }>,
-  semantic = interpretSourceEvent(event),
+  semantic: ReturnType<typeof interpretSourceEvent>,
 ): HumanInputRequestedEvent {
   const consequence = semantic.consequence ?? event.riskHint ?? "medium";
   const tone = toneForRisk(consequence);

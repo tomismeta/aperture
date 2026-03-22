@@ -23,7 +23,7 @@
   "provenance": {
     "promotedAt": "2026-03-21T23:47:58.337Z",
     "promotedFromBundleSessionId": "e3bf63ca-c0c0-4ce3-8fb1-48be0ebd7d1b",
-    "promotedFromPath": "/Users/tom/dev/aperture/packages/lab/bundles/e3bf63ca-c0c0-4ce3-8fb1-48be0ebd7d1b.json"
+    "promotedFromPath": "$WORKSPACE_ROOT/packages/lab/bundles/e3bf63ca-c0c0-4ce3-8fb1-48be0ebd7d1b.json"
   },
   "expectations": {
     "finalActiveInteractionId": null,
@@ -85,7 +85,7 @@
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -110,7 +110,7 @@
         "toolFamily": "read",
         "activityClass": "permission_request",
         "title": "Claude Code wants to read semantic-types.ts",
-        "summary": "/Users/tom/dev/aperture/packages/core/src/semantic-types.ts",
+        "summary": "$WORKSPACE_ROOT/packages/core/src/semantic-types.ts",
         "request": {
           "kind": "approval"
         },
@@ -120,12 +120,12 @@
             {
               "id": "file_path",
               "label": "file_path",
-              "value": "/Users/tom/dev/aperture/packages/core/src/semantic-types.ts"
+              "value": "$WORKSPACE_ROOT/packages/core/src/semantic-types.ts"
             },
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -150,7 +150,7 @@
         "toolFamily": "read",
         "activityClass": "permission_request",
         "title": "Claude Code wants to search file contents with src",
-        "summary": "operatorActionRequired in /Users/tom/dev/aperture/packages/core/src",
+        "summary": "operatorActionRequired in $WORKSPACE_ROOT/packages/core/src",
         "request": {
           "kind": "approval"
         },
@@ -165,7 +165,7 @@
             {
               "id": "path",
               "label": "path",
-              "value": "/Users/tom/dev/aperture/packages/core/src"
+              "value": "$WORKSPACE_ROOT/packages/core/src"
             },
             {
               "id": "output_mode",
@@ -175,7 +175,7 @@
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -389,7 +389,7 @@
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -442,7 +442,7 @@
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -511,7 +511,7 @@
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -578,7 +578,7 @@
         "toolFamily": "read",
         "activityClass": "permission_request",
         "title": "Claude Code wants to read config.json",
-        "summary": "/Users/tom/Desktop/claude-test-suite/dummy-data/config.json",
+        "summary": "$HOME/Desktop/claude-test-suite/dummy-data/config.json",
         "request": {
           "kind": "approval"
         },
@@ -588,7 +588,7 @@
             {
               "id": "file_path",
               "label": "file_path",
-              "value": "/Users/tom/Desktop/claude-test-suite/dummy-data/config.json"
+              "value": "$HOME/Desktop/claude-test-suite/dummy-data/config.json"
             },
             {
               "id": "cwd",
@@ -638,7 +638,7 @@
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -692,7 +692,7 @@
         "toolFamily": "read",
         "activityClass": "permission_request",
         "title": "Claude Code wants to read frame-score.ts",
-        "summary": "/Users/tom/dev/aperture/packages/core/src/frame-score.ts",
+        "summary": "$WORKSPACE_ROOT/packages/core/src/frame-score.ts",
         "request": {
           "kind": "approval"
         },
@@ -702,12 +702,12 @@
             {
               "id": "file_path",
               "label": "file_path",
-              "value": "/Users/tom/dev/aperture/packages/core/src/frame-score.ts"
+              "value": "$WORKSPACE_ROOT/packages/core/src/frame-score.ts"
             },
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -877,7 +877,7 @@
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -930,7 +930,7 @@
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -981,7 +981,7 @@
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -1063,7 +1063,7 @@
             {
               "id": "cwd",
               "label": "Working directory",
-              "value": "/Users/tom/dev/aperture"
+              "value": "$WORKSPACE_ROOT"
             }
           ]
         },
@@ -1130,7 +1130,7 @@
         "toolFamily": "bash",
         "activityClass": "permission_request",
         "title": "Claude Code wants to run a shell command",
-        "summary": "mkdir -p /Users/tom/Desktop/claude-test-suite/dummy-data/nested && echo \"nested file\" > /Users/tom/Desktop/claude-test-suite/dummy-data/nested/deep.txt && ls /Users/tom/Desktop/claude-test-suite/dummy-data/",
+        "summary": "mkdir -p $HOME/Desktop/claude-test-suite/dummy-data/nested && echo \"nested file\" > $HOME/Desktop/claude-test-suite/dummy-data/nested/deep.txt && ls $HOME/Desktop/claude-test-suite/dummy-data/",
         "request": {
           "kind": "approval"
         },
@@ -1140,7 +1140,7 @@
             {
               "id": "command",
               "label": "Command",
-              "value": "mkdir -p /Users/tom/Desktop/claude-test-suite/dummy-data/nested && echo \"nested file\" > /Users/tom/Desktop/claude-test-suite/dummy-data/nested/deep.txt && ls /Users/tom/Desktop/claude-test-suite/dummy-data/"
+              "value": "mkdir -p $HOME/Desktop/claude-test-suite/dummy-data/nested && echo \"nested file\" > $HOME/Desktop/claude-test-suite/dummy-data/nested/deep.txt && ls $HOME/Desktop/claude-test-suite/dummy-data/"
             },
             {
               "id": "cwd",
@@ -1217,7 +1217,7 @@
         "toolFamily": "read",
         "activityClass": "permission_request",
         "title": "Claude Code wants to read notes.md",
-        "summary": "/Users/tom/Desktop/claude-test-suite/dummy-data/notes.md",
+        "summary": "$HOME/Desktop/claude-test-suite/dummy-data/notes.md",
         "request": {
           "kind": "approval"
         },
@@ -1227,7 +1227,7 @@
             {
               "id": "file_path",
               "label": "file_path",
-              "value": "/Users/tom/Desktop/claude-test-suite/dummy-data/notes.md"
+              "value": "$HOME/Desktop/claude-test-suite/dummy-data/notes.md"
             },
             {
               "id": "cwd",
@@ -1360,7 +1360,7 @@
         "toolFamily": "edit",
         "activityClass": "permission_request",
         "title": "Claude Code wants to edit config.json",
-        "summary": "/Users/tom/Desktop/claude-test-suite/dummy-data/config.json",
+        "summary": "$HOME/Desktop/claude-test-suite/dummy-data/config.json",
         "request": {
           "kind": "approval"
         },
@@ -1370,7 +1370,7 @@
             {
               "id": "file_path",
               "label": "file_path",
-              "value": "/Users/tom/Desktop/claude-test-suite/dummy-data/config.json"
+              "value": "$HOME/Desktop/claude-test-suite/dummy-data/config.json"
             },
             {
               "id": "old_string",
@@ -1439,7 +1439,7 @@
         "toolFamily": "write",
         "activityClass": "permission_request",
         "title": "Claude Code wants to write output.log",
-        "summary": "/Users/tom/Desktop/claude-test-suite/dummy-data/output.log",
+        "summary": "$HOME/Desktop/claude-test-suite/dummy-data/output.log",
         "request": {
           "kind": "approval"
         },
@@ -1449,7 +1449,7 @@
             {
               "id": "file_path",
               "label": "file_path",
-              "value": "/Users/tom/Desktop/claude-test-suite/dummy-data/output.log"
+              "value": "$HOME/Desktop/claude-test-suite/dummy-data/output.log"
             },
             {
               "id": "content",
@@ -1513,7 +1513,7 @@
         "toolFamily": "bash",
         "activityClass": "permission_request",
         "title": "Claude Code wants to run a shell command",
-        "summary": "echo \"hello from the test suite\" && date && ls /Users/tom/Desktop/claude-test-suite/dummy-data/",
+        "summary": "echo \"hello from the test suite\" && date && ls $HOME/Desktop/claude-test-suite/dummy-data/",
         "request": {
           "kind": "approval"
         },
@@ -1523,7 +1523,7 @@
             {
               "id": "command",
               "label": "Command",
-              "value": "echo \"hello from the test suite\" && date && ls /Users/tom/Desktop/claude-test-suite/dummy-data/"
+              "value": "echo \"hello from the test suite\" && date && ls $HOME/Desktop/claude-test-suite/dummy-data/"
             },
             {
               "id": "cwd",

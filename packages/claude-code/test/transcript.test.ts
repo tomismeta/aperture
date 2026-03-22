@@ -4,7 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { readAskUserQuestionTranscriptPayload } from "../src/transcript.js";
+import {
+  readAskUserQuestionTranscriptPayload,
+  readLatestAssistantTranscriptText,
+} from "../src/transcript.js";
 
 test("reads matching AskUserQuestion transcript payloads within allowed roots", async () => {
   const scratchDir = await mkdtemp(join(tmpdir(), "aperture-transcript-"));
@@ -141,6 +144,45 @@ test("rejects oversized transcript files", async () => {
     );
 
     assert.equal(payload, null);
+  } finally {
+    await rm(scratchDir, { recursive: true, force: true });
+  }
+});
+
+test("reads the latest assistant text from a transcript within allowed roots", async () => {
+  const scratchDir = await mkdtemp(join(tmpdir(), "aperture-transcript-text-"));
+  const transcriptPath = join(scratchDir, "session.jsonl");
+
+  await writeFile(
+    transcriptPath,
+    [
+      JSON.stringify({
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "First reply" }],
+        },
+      }),
+      JSON.stringify({
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [
+            { type: "thinking", thinking: "hidden" },
+            { type: "text", text: "What does it look like? (What triggers it, and what should happen?)" },
+          ],
+        },
+      }),
+    ].join("\n"),
+    "utf8",
+  );
+
+  try {
+    const text = await readLatestAssistantTranscriptText(transcriptPath, {
+      allowedRoots: [scratchDir],
+    });
+
+    assert.equal(text, "What does it look like? (What triggers it, and what should happen?)");
   } finally {
     await rm(scratchDir, { recursive: true, force: true });
   }

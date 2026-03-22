@@ -1,4 +1,7 @@
 import { isCandidateTrace, type ApertureTrace, type CandidateApertureTrace } from "./trace.js";
+import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
+
+const ACTIONABLE_EPISODE_EVIDENCE_THRESHOLD = JUDGMENT_DEFAULTS.queuePlanner.actionableEpisodeEvidenceThreshold;
 
 type CandidateDecision = CandidateApertureTrace["coordination"]["kind"];
 
@@ -97,7 +100,7 @@ export function evaluateTraceSession(traces: ApertureTrace[]): TraceEvaluationRe
     const actionableEpisode =
       !trace.evaluation.adjusted.blocking
       && episode.state === "actionable"
-      && episode.evidenceScore >= 4;
+      && episode.evidenceScore >= ACTIONABLE_EPISODE_EVIDENCE_THRESHOLD;
     if (actionableEpisode) {
       report.actionableEpisodes += 1;
       if (trace.result) {

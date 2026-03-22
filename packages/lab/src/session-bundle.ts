@@ -11,6 +11,7 @@ import type {
   AttentionSignal,
   SourceEvent,
 } from "@tomismeta/aperture-core";
+import { normalizeSourceEvent } from "@tomismeta/aperture-core/semantic";
 import { isCandidateTrace, type ApertureTrace } from "../../core/src/trace.js";
 
 import type {
@@ -26,7 +27,19 @@ import type {
 } from "./scenario.js";
 import { runReplayScenario, type ReplayRunResult } from "./runner.js";
 import { scoreReplayRun } from "./scorecard.js";
-import { normalizeSourceEvent } from "../../core/src/semantic-normalizer.js";
+import {
+  isRecord,
+  isStringArray,
+  validateApertureTrace,
+  validateAttentionResponse,
+  validateAttentionSignal,
+  validateReplayDecisionSnapshot,
+  validateReplayNormalizedEventSnapshot,
+  validateReplayObservationStep,
+  validateReplaySemanticSnapshot,
+  validateReplayViewSnapshot,
+  validateSourceEvent,
+} from "./validation.js";
 
 export const SESSION_BUNDLE_SCHEMA_VERSION = 1 as const;
 
@@ -513,13 +526,21 @@ export function validateSessionBundle(value: unknown): ReplaySessionBundle | nul
     || typeof value.title !== "string"
     || typeof value.exportedAt !== "string"
     || !Array.isArray(value.steps)
+    || !value.steps.every((step) => validateReplayObservationStep(step) !== null)
     || !Array.isArray(value.normalizedEvents)
+    || !value.normalizedEvents.every((snapshot) => validateReplayNormalizedEventSnapshot(snapshot) !== null)
     || !Array.isArray(value.traces)
+    || !value.traces.every((trace) => validateApertureTrace(trace) !== null)
     || !Array.isArray(value.signals)
+    || !value.signals.every((signal) => validateAttentionSignal(signal) !== null)
     || !Array.isArray(value.responses)
+    || !value.responses.every((response) => validateAttentionResponse(response) !== null)
     || !Array.isArray(value.viewSnapshots)
+    || !value.viewSnapshots.every((snapshot) => validateReplayViewSnapshot(snapshot) !== null)
     || !Array.isArray(value.semanticSnapshots)
+    || !value.semanticSnapshots.every((snapshot) => validateReplaySemanticSnapshot(snapshot) !== null)
     || !Array.isArray(value.decisionSnapshots)
+    || !value.decisionSnapshots.every((snapshot) => validateReplayDecisionSnapshot(snapshot) !== null)
     || !isSessionBundleOutcomes(value.outcomes)
   ) {
     return null;
@@ -530,6 +551,14 @@ export function validateSessionBundle(value: unknown): ReplaySessionBundle | nul
   }
 
   if (value.doctrineTags !== undefined && !isStringArray(value.doctrineTags)) {
+    return null;
+  }
+
+  if (value.source !== undefined && validateSessionBundleSource(value.source) === null) {
+    return null;
+  }
+
+  if (value.core !== undefined && !isRecord(value.core)) {
     return null;
   }
 
@@ -551,6 +580,34 @@ function expectationsFromBundle(bundle: ReplaySessionBundle): ReplayScenarioExpe
 
 function uniqueStrings(values: string[]): string[] {
   return [...new Set(values.filter((value) => value.length > 0))];
+}
+
+function validateSessionBundleSource(value: unknown): ReplaySessionBundleSource | null {
+  if (!isRecord(value) || typeof value.id !== "string") {
+    return null;
+  }
+
+  if (
+    (value.kind !== undefined && typeof value.kind !== "string")
+    || (value.label !== undefined && typeof value.label !== "string")
+    || (value.redacted !== undefined && typeof value.redacted !== "boolean")
+  ) {
+    return null;
+  }
+
+  if (value.capture !== undefined) {
+    if (
+      !isRecord(value.capture)
+      || (value.capture.eventTransport !== undefined && typeof value.capture.eventTransport !== "string")
+      || (value.capture.semanticCapture !== undefined && typeof value.capture.semanticCapture !== "string")
+      || (value.capture.responseBridge !== undefined && typeof value.capture.responseBridge !== "string")
+      || (value.capture.notes !== undefined && !isStringArray(value.capture.notes))
+    ) {
+      return null;
+    }
+  }
+
+  return value as ReplaySessionBundleSource;
 }
 
 function findNextTraceForEvent(
@@ -624,14 +681,6 @@ function emptyAttentionView(): AttentionView {
     queued: [],
     ambient: [],
   };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
 }
 
 function isSessionBundleOutcomes(value: unknown): value is ReplaySessionBundle["outcomes"] {

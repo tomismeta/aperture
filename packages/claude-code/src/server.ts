@@ -20,6 +20,7 @@ import {
   type ClaudeCodeTranscriptReadOptions,
   parseAskUserQuestionPayload,
   readAskUserQuestionTranscriptPayload,
+  readLatestAssistantTranscriptText,
 } from "./transcript.js";
 
 export type ClaudeCodeHookServerOptions = ClaudeCodeMappingOptions & {
@@ -389,6 +390,25 @@ async function enrichHookEvent(
   event: ClaudeCodeHookEvent,
   transcriptReadOptions: ClaudeCodeTranscriptReadOptions = {},
 ): Promise<ClaudeCodeHookEvent> {
+  if (event.hook_event_name === "Stop") {
+    if (event.last_assistant_message || event.message || !event.transcript_path) {
+      return event;
+    }
+
+    const transcriptMessage = await readLatestAssistantTranscriptText(
+      event.transcript_path,
+      transcriptReadOptions,
+    );
+    if (!transcriptMessage) {
+      return event;
+    }
+
+    return {
+      ...event,
+      last_assistant_message: transcriptMessage,
+    };
+  }
+
   if (
     event.hook_event_name !== "PreToolUse"
     && event.hook_event_name !== "PermissionRequest"

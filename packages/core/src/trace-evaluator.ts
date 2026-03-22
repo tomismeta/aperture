@@ -1,7 +1,6 @@
-import type { ApertureTrace } from "./trace.js";
+import { isCandidateTrace, type ApertureTrace, type CandidateApertureTrace } from "./trace.js";
 
-type CandidateTrace = Extract<ApertureTrace, { evaluation: { kind: "candidate" } }>;
-type CandidateDecision = CandidateTrace["coordination"]["kind"];
+type CandidateDecision = CandidateApertureTrace["coordination"]["kind"];
 
 export type TraceEvaluationReport = {
   totalCandidates: number;
@@ -135,10 +134,6 @@ export function evaluateTraceSession(traces: ApertureTrace[]): TraceEvaluationRe
   }
 
   return report;
-}
-
-function isCandidateTrace(trace: ApertureTrace): trace is CandidateTrace {
-  return trace.evaluation.kind === "candidate";
 }
 
 function incrementDecisionCount(report: TraceEvaluationReport, decision: CandidateDecision): void {

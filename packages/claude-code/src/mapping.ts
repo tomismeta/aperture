@@ -538,16 +538,22 @@ function mapPermissionRequest(
 ): SourceHumanInputRequestedEvent {
   const toolFamily = claudeToolFamily(event.tool_name);
   const command = readString(event.tool_input.command);
-  const summary = command ?? permissionRequestSummary(event);
+  const firstQuestion = event.askUserQuestion?.questions[0];
+  const summary = command ?? firstQuestion?.question ?? permissionRequestSummary(event);
   const whyNow =
     readString(event.tool_input.description)
-    ?? `Claude Code is asking for permission before running ${event.tool_name}.`;
+    ?? (firstQuestion
+      ? "Claude needs permission before asking the operator a question."
+      : `Claude Code is asking for permission before running ${event.tool_name}.`);
 
   const contextItems: { id: string; label: string; value: string }[] = [];
   if (command) {
     contextItems.push({ id: "command", label: "Command", value: command });
   } else {
     contextItems.push(...permissionInputContextItems(event));
+  }
+  if (firstQuestion?.header) {
+    contextItems.unshift({ id: "header", label: "Header", value: firstQuestion.header });
   }
   contextItems.push({ id: "cwd", label: "Working directory", value: event.cwd });
   if (event.permission_suggestions?.length) {
@@ -1061,9 +1067,9 @@ function buildAskUserQuestionRequest(
 
   return {
     kind: "form",
-    fields: questions.map((question, index) => {
+    fields: questions.flatMap((question, index): HumanInputFormField[] => {
       if (question.options.length > 0 && !question.multiSelect) {
-        return {
+        return [{
           id: askUserQuestionFieldId(index),
           label: question.question,
           type: "select" as const,
@@ -1072,15 +1078,23 @@ function buildAskUserQuestionRequest(
             value: option.label,
             label: option.label,
           })),
-        };
+        }];
       }
 
-      return {
+      if (question.options.length > 0 && question.multiSelect) {
+        return question.options.map((option, optionIndex) => ({
+          id: askUserQuestionBooleanFieldId(index, optionIndex),
+          label: `${question.question}: ${option.label}`,
+          type: "boolean" as const,
+        }));
+      }
+
+      return [{
         id: askUserQuestionFieldId(index),
         label: question.question,
         type: "text" as const,
         required: true,
-      };
+      }];
     }),
   };
 }
@@ -1219,6 +1233,10 @@ function askUserQuestionFieldId(questionIndex: number): string {
   return `q${questionIndex}`;
 }
 
+function askUserQuestionBooleanFieldId(questionIndex: number, optionIndex: number): string {
+  return `q${questionIndex}:o${optionIndex}`;
+}
+
 function askUserQuestionAdditionalContext(
   questions: NonNullable<ClaudeCodePreToolUseEvent["askUserQuestion"]>["questions"],
   response:
@@ -1275,6 +1293,14 @@ function askUserQuestionAnswersFromResponse(
     case "form_submitted":
       return Object.fromEntries(
         questions.flatMap((question, index) => {
+          if (question.options.length > 0 && question.multiSelect) {
+            const selectedOptions = question.options.flatMap((option, optionIndex) => {
+              const value = response.values[askUserQuestionBooleanFieldId(index, optionIndex)];
+              return isTrueLike(value) ? [option.label] : [];
+            });
+            return selectedOptions.length > 0 ? [[question.question, selectedOptions]] : [];
+          }
+
           const value = response.values[askUserQuestionFieldId(index)];
           return value === undefined ? [] : [[question.question, value]];
         }),
@@ -1335,6 +1361,10 @@ function formatAskUserQuestionAnswer(value: unknown): string {
   }
 
   return JSON.stringify(value);
+}
+
+function isTrueLike(value: unknown): boolean {
+  return value === true || value === "true";
 }
 
 function elicitationContentFromOptionIds(
@@ -1512,6 +1542,8 @@ function approvalActionLabel(event: ClaudeCodePreToolUseEvent): string {
       return "fetch";
     case "bash":
       return "run";
+    case "askuserquestion":
+      return "ask";
     default:
       return `use ${event.tool_name}`;
   }
@@ -1540,6 +1572,8 @@ function permissionActionLabel(toolName: string): string {
       return "fetch";
     case "bash":
       return "run";
+    case "askuserquestion":
+      return "ask";
     default:
       return `use ${toolName}`;
   }

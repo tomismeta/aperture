@@ -1,4 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { readFile, realpath, stat } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 
 export type ClaudeCodeAskUserQuestionOption = {
   label: string;
@@ -15,6 +17,11 @@ export type ClaudeCodeAskUserQuestionQuestion = {
 export type ClaudeCodeAskUserQuestionTranscriptPayload = {
   questions: ClaudeCodeAskUserQuestionQuestion[];
   answers?: Record<string, unknown>;
+};
+
+export type ClaudeCodeTranscriptReadOptions = {
+  allowedRoots?: string[];
+  maxBytes?: number;
 };
 
 type TranscriptContentItem = {
@@ -35,13 +42,31 @@ type TranscriptLine = {
   };
 };
 
+const DEFAULT_TRANSCRIPT_ROOTS = [path.join(os.homedir(), ".claude")];
+const DEFAULT_TRANSCRIPT_MAX_BYTES = 512 * 1024;
+
 export async function readAskUserQuestionTranscriptPayload(
   transcriptPath: string,
   toolUseId: string,
+  options: ClaudeCodeTranscriptReadOptions = {},
 ): Promise<ClaudeCodeAskUserQuestionTranscriptPayload | null> {
+  const resolvedPath = await resolveAllowedTranscriptPath(
+    transcriptPath,
+    options.allowedRoots ?? DEFAULT_TRANSCRIPT_ROOTS,
+  );
+  if (!resolvedPath) {
+    return null;
+  }
+
+  const maxBytes = options.maxBytes ?? DEFAULT_TRANSCRIPT_MAX_BYTES;
   let raw: string;
   try {
-    raw = await readFile(transcriptPath, "utf8");
+    const info = await stat(resolvedPath);
+    if (!info.isFile() || info.size > maxBytes) {
+      return null;
+    }
+
+    raw = await readFile(resolvedPath, "utf8");
   } catch {
     return null;
   }
@@ -147,4 +172,38 @@ function parseAskUserAnswers(value: unknown): Record<string, unknown> | undefine
   }
 
   return { ...(value as Record<string, unknown>) };
+}
+
+async function resolveAllowedTranscriptPath(
+  transcriptPath: string,
+  allowedRoots: string[],
+): Promise<string | null> {
+  let resolvedPath: string;
+  try {
+    resolvedPath = await realpath(path.resolve(transcriptPath));
+  } catch {
+    return null;
+  }
+
+  for (const root of allowedRoots) {
+    const resolvedRoot = await resolveAllowedRoot(root);
+    if (!resolvedRoot) {
+      continue;
+    }
+
+    const relative = path.relative(resolvedRoot, resolvedPath);
+    if (relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))) {
+      return resolvedPath;
+    }
+  }
+
+  return null;
+}
+
+async function resolveAllowedRoot(root: string): Promise<string | null> {
+  try {
+    return await realpath(path.resolve(root));
+  } catch {
+    return null;
+  }
 }

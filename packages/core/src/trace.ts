@@ -101,3 +101,9 @@ export type ApertureTrace =
       attentionView: AttentionView;
       result: AttentionFrame | null;
     };
+
+export type CandidateApertureTrace = Extract<ApertureTrace, { evaluation: { kind: "candidate" } }>;
+
+export function isCandidateTrace(trace: ApertureTrace): trace is CandidateApertureTrace {
+  return trace.evaluation.kind === "candidate";
+}

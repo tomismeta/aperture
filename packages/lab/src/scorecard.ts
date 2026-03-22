@@ -1,5 +1,5 @@
 import type { AttentionSignal } from "@tomismeta/aperture-core";
-import type { ApertureTrace } from "../../core/src/trace.js";
+import { isCandidateTrace, type ApertureTrace } from "../../core/src/trace.js";
 import { evaluateTraceSession, type TraceEvaluationReport } from "../../core/src/trace-evaluator.js";
 
 import type { ReplayRunResult } from "./runner.js";
@@ -166,11 +166,6 @@ function countResultBuckets(result: ReplayRunResult): ReplayScorecard["buckets"]
   return counts;
 }
 
-function isCandidateTrace(
-  trace: ApertureTrace,
-): trace is Extract<ApertureTrace, { evaluation: { kind: "candidate" } }> {
-  return trace.evaluation.kind === "candidate";
-}
 
 function readAttentionRationale(frame: AttentionFrame): string[] {
   const attention = frame.metadata?.attention;

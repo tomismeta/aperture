@@ -1,6 +1,5 @@
 import {
   ambiguousPeripheralCriterionVerdict,
-  clearCriterionVerdict,
   noopPolicyCriterionRule,
   verdictPolicyCriterionRule,
   type PolicyCriterionRule,

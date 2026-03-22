@@ -4,7 +4,7 @@ import {
   type AttentionResponse,
   type AttentionSignal,
 } from "@tomismeta/aperture-core";
-import type { ApertureTrace } from "../../core/src/trace.js";
+import { isCandidateTrace, type ApertureTrace } from "../../core/src/trace.js";
 import { normalizeSourceEvent } from "../../core/src/semantic-normalizer.js";
 
 import type {
@@ -186,10 +186,4 @@ function buildDecisionSnapshot(
     ...(trace.evaluation.adjusted.semanticAbstained === true ? { semanticAbstained: true } : {}),
     ambiguity: trace.coordination.ambiguity,
   };
-}
-
-function isCandidateTrace(
-  trace: ApertureTrace,
-): trace is Extract<ApertureTrace, { evaluation: { kind: "candidate" } }> {
-  return trace.evaluation.kind === "candidate";
 }

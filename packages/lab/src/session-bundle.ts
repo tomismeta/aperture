@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import type {
   AttentionView,
@@ -10,7 +11,7 @@ import type {
   AttentionSignal,
   SourceEvent,
 } from "@tomismeta/aperture-core";
-import type { ApertureTrace } from "../../core/src/trace.js";
+import { isCandidateTrace, type ApertureTrace } from "../../core/src/trace.js";
 
 import type {
   ReplayArtifactSource,
@@ -30,8 +31,8 @@ import { normalizeSourceEvent } from "../../core/src/semantic-normalizer.js";
 export const SESSION_BUNDLE_SCHEMA_VERSION = 1 as const;
 
 export const DEFAULT_SESSION_BUNDLES_DIR = path.resolve(
-  process.cwd(),
-  "packages/lab/bundles",
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../bundles",
 );
 
 export type ReplaySessionBundleSource = ReplayArtifactSource;
@@ -224,6 +225,8 @@ export function sliceRuntimeSessionCapture(
 
   assertCaptureSliceBounds(capture, cursor);
 
+  const viewSnapshots = capture.viewSnapshots.slice(cursor.counts.viewSnapshots);
+
   return {
     ...capture,
     steps: capture.steps.slice(cursor.counts.steps),
@@ -231,7 +234,8 @@ export function sliceRuntimeSessionCapture(
     responses: capture.responses.slice(cursor.counts.responses),
     signals: capture.signals.slice(cursor.counts.signals),
     traces: capture.traces.slice(cursor.counts.traces),
-    viewSnapshots: capture.viewSnapshots.slice(cursor.counts.viewSnapshots),
+    viewSnapshots,
+    attentionView: viewSnapshots.at(-1)?.attentionView ?? emptyAttentionView(),
   };
 }
 
@@ -473,9 +477,20 @@ async function readSessionBundleDirectory(directory: string): Promise<ReplaySess
     }
 
     const raw = await readFile(absolutePath, "utf8");
-    const bundle = JSON.parse(raw) as ReplaySessionBundle;
-    if (bundle.schemaVersion !== SESSION_BUNDLE_SCHEMA_VERSION) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (error) {
+      throw new Error(`Failed to parse session bundle at ${absolutePath}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    if (!isRecord(parsed) || parsed.schemaVersion !== SESSION_BUNDLE_SCHEMA_VERSION) {
       continue;
+    }
+
+    const bundle = validateSessionBundle(parsed);
+    if (!bundle) {
+      throw new Error(`Invalid session bundle at ${absolutePath}`);
     }
     bundles.push(bundle);
   }
@@ -485,6 +500,40 @@ async function readSessionBundleDirectory(directory: string): Promise<ReplaySess
 
 function safeBundleFilename(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9._-]+/g, "-");
+}
+
+export function validateSessionBundle(value: unknown): ReplaySessionBundle | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (
+    value.schemaVersion !== SESSION_BUNDLE_SCHEMA_VERSION
+    || typeof value.sessionId !== "string"
+    || typeof value.title !== "string"
+    || typeof value.exportedAt !== "string"
+    || !Array.isArray(value.steps)
+    || !Array.isArray(value.normalizedEvents)
+    || !Array.isArray(value.traces)
+    || !Array.isArray(value.signals)
+    || !Array.isArray(value.responses)
+    || !Array.isArray(value.viewSnapshots)
+    || !Array.isArray(value.semanticSnapshots)
+    || !Array.isArray(value.decisionSnapshots)
+    || !isSessionBundleOutcomes(value.outcomes)
+  ) {
+    return null;
+  }
+
+  if (value.description !== undefined && typeof value.description !== "string") {
+    return null;
+  }
+
+  if (value.doctrineTags !== undefined && !isStringArray(value.doctrineTags)) {
+    return null;
+  }
+
+  return value as ReplaySessionBundle;
 }
 
 function expectationsFromBundle(bundle: ReplaySessionBundle): ReplayScenarioExpectations {
@@ -569,10 +618,36 @@ function isMissingDirectoryError(error: unknown): error is NodeJS.ErrnoException
   return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
 }
 
-function isCandidateTrace(
-  trace: ApertureTrace,
-): trace is Extract<ApertureTrace, { evaluation: { kind: "candidate" } }> {
-  return trace.evaluation.kind === "candidate";
+function emptyAttentionView(): AttentionView {
+  return {
+    active: null,
+    queued: [],
+    ambient: [],
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+
+function isSessionBundleOutcomes(value: unknown): value is ReplaySessionBundle["outcomes"] {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.totalSteps === "number"
+    && typeof value.surfacedFrames === "number"
+    && (value.finalActiveInteractionId === null || typeof value.finalActiveInteractionId === "string")
+    && typeof value.finalQueuedCount === "number"
+    && typeof value.finalAmbientCount === "number"
+    && isStringArray(value.finalQueuedInteractionIds)
+    && isStringArray(value.finalAmbientInteractionIds)
+  );
 }
 
 function assertCaptureSliceBounds(

@@ -34,6 +34,7 @@ export {
   sessionBundleToScenario,
   SESSION_BUNDLE_SCHEMA_VERSION,
   sliceRuntimeSessionCapture,
+  validateSessionBundle,
   writeSessionBundle,
 } from "./session-bundle.js";
 

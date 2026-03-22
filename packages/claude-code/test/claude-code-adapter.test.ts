@@ -359,6 +359,41 @@ test("maps PermissionRequest hooks into approval events", () => {
   }
 });
 
+test("maps AskUserQuestion PermissionRequest payloads into more descriptive approval events", () => {
+  const event: ClaudeCodePermissionRequestEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "PermissionRequest",
+    tool_name: "AskUserQuestion",
+    tool_input: {},
+    askUserQuestion: {
+      questions: [{
+        question: "What's your preferred language for scripting tasks?",
+        header: "Scripting",
+        options: [
+          { label: "Python" },
+          { label: "Bash/zsh" },
+          { label: "Node.js" },
+        ],
+      }],
+    },
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "human.input.requested");
+  if (mapped[0]?.type === "human.input.requested") {
+    assert.equal(mapped[0].title, "Claude Code wants permission to ask What's your preferred language for scripting tasks?");
+    assert.equal(mapped[0].summary, "What's your preferred language for scripting tasks?");
+    assert.equal(mapped[0].provenance?.whyNow, "Claude needs permission before asking the operator a question.");
+    assert.deepEqual(mapped[0].context?.items?.at(0), {
+      id: "header",
+      label: "Header",
+      value: "Scripting",
+    });
+  }
+});
+
 test("maps elicitation enum schemas into choice requests", () => {
   const event: ClaudeCodeElicitationEvent = {
     session_id: "session-1",
@@ -746,6 +781,92 @@ test("maps AskUserQuestion responses into deny-plus-context PreToolUse decisions
         permissionDecision: "deny",
         permissionDecisionReason: "Aperture already captured the user's answer.",
         additionalContext: "The user already answered this AskUserQuestion in Aperture. Do not ask again. Treat these answers as authoritative: \"The on-call rotation has a gap next Thursday. Should I auto-assign or send a volunteer request?\"=\"Ask for volunteers\". Continue from them directly.",
+      },
+    },
+  );
+});
+
+test("preserves multi-select AskUserQuestion options through form submission", () => {
+  const mapped = mapClaudeCodeHookEvent({
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "PreToolUse",
+    tool_name: "AskUserQuestion",
+    tool_use_id: "tool-ask-multi",
+    tool_input: {},
+    askUserQuestion: {
+      questions: [
+        {
+          question: "Which languages should I prepare examples for?",
+          options: [
+            { label: "Python" },
+            { label: "Node.js" },
+            { label: "Bash/zsh" },
+          ],
+          multiSelect: true,
+        },
+        {
+          question: "Anything else to note?",
+          options: [],
+        },
+      ],
+    },
+  });
+
+  assert.equal(mapped[0]?.type, "human.input.requested");
+  if (mapped[0]?.type !== "human.input.requested" || mapped[0].request.kind !== "form") {
+    return;
+  }
+
+  assert.deepEqual(
+    mapped[0].request.fields.map((field) => ({ id: field.id, type: field.type })),
+    [
+      { id: "q0:o0", type: "boolean" },
+      { id: "q0:o1", type: "boolean" },
+      { id: "q0:o2", type: "boolean" },
+      { id: "q1", type: "text" },
+    ],
+  );
+
+  assert.deepEqual(
+    mapClaudeCodeAskUserQuestionResponse(
+      {
+        taskId: "claude-code:session:session-1",
+        interactionId: "claude-code:tool:session-1:tool-ask-multi",
+        response: {
+          kind: "form_submitted",
+          values: {
+            "q0:o0": true,
+            "q0:o2": "true",
+            q1: "Need shell snippets too.",
+          },
+        },
+      },
+      {
+        questions: [
+          {
+            question: "Which languages should I prepare examples for?",
+            options: [
+              { label: "Python" },
+              { label: "Node.js" },
+              { label: "Bash/zsh" },
+            ],
+            multiSelect: true,
+          },
+          {
+            question: "Anything else to note?",
+            options: [],
+          },
+        ],
+      },
+    ),
+    {
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "deny",
+        permissionDecisionReason: "Aperture already captured the user's answer.",
+        additionalContext:
+          "The user already answered this AskUserQuestion in Aperture. Do not ask again. Treat these answers as authoritative: \"Which languages should I prepare examples for?\"=\"Python, Bash/zsh\", \"Anything else to note?\"=\"Need shell snippets too.\". Continue from them directly.",
       },
     },
   );

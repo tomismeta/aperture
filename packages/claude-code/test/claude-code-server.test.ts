@@ -54,10 +54,13 @@ test("holds PreToolUse requests until Aperture responds", async () => {
 
 test("enriches AskUserQuestion hooks from transcript data and returns a best-effort answer context", async () => {
   const core = new ApertureCore();
-  const server = createClaudeCodeHookServer(core, { holdTimeoutMs: 250 });
-  const { url } = await server.listen();
   const scratchDir = await mkdtemp(join(tmpdir(), "aperture-claude-ask-"));
   const transcriptPath = join(scratchDir, "session.jsonl");
+  const server = createClaudeCodeHookServer(core, {
+    holdTimeoutMs: 250,
+    transcriptRoots: [scratchDir],
+  });
+  const { url } = await server.listen();
 
   await writeFile(
     transcriptPath,
@@ -127,6 +130,62 @@ test("enriches AskUserQuestion hooks from transcript data and returns a best-eff
     });
   } finally {
     await rm(scratchDir, { recursive: true, force: true });
+    await server.close();
+  }
+});
+
+test("enriches AskUserQuestion PermissionRequest payloads before holding them", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core, {
+    holdTimeoutMs: 250,
+    permissionRequestPolicy: () => "hold",
+  });
+  const { url } = await server.listen();
+
+  try {
+    const responsePromise = fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "PermissionRequest",
+        tool_name: "AskUserQuestion",
+        tool_input: {
+          questions: [{
+            question: "What's your preferred language for scripting tasks?",
+            header: "Scripting",
+            options: [
+              { label: "Python" },
+              { label: "Bash/zsh" },
+              { label: "Node.js" },
+            ],
+          }],
+        },
+      }),
+    });
+
+    const frame = await waitFor(() => core.getAttentionView().active);
+    assert.ok(frame);
+    assert.equal(frame?.title, "Claude Code wants permission to ask What's your preferred language for scripting tasks?");
+
+    core.submit({
+      taskId: "claude-code:session:session-1",
+      interactionId: frame?.interactionId ?? "",
+      response: { kind: "approved" },
+    });
+
+    const response = await responsePromise;
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      hookSpecificOutput: {
+        hookEventName: "PermissionRequest",
+        decision: {
+          behavior: "allow",
+        },
+      },
+    });
+  } finally {
     await server.close();
   }
 });

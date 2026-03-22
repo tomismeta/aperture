@@ -17,6 +17,7 @@ import {
   type ClaudeCodePreToolUseMappedEvent,
 } from "./mapping.js";
 import {
+  type ClaudeCodeTranscriptReadOptions,
   parseAskUserQuestionPayload,
   readAskUserQuestionTranscriptPayload,
 } from "./transcript.js";
@@ -27,6 +28,8 @@ export type ClaudeCodeHookServerOptions = ClaudeCodeMappingOptions & {
   port?: number;
   holdTimeoutMs?: number;
   bodyLimitBytes?: number;
+  transcriptRoots?: string[];
+  transcriptMaxBytes?: number;
   preToolUsePolicy?: (
     event: ClaudeCodePreToolUseEvent,
     mappedEvent: ClaudeCodePreToolUseMappedEvent,
@@ -120,7 +123,10 @@ export function createClaudeCodeHookServer(
         return;
       }
 
-      const event = await enrichHookEvent(await readHookEvent(req, bodyLimitBytes));
+      const event = await enrichHookEvent(await readHookEvent(req, bodyLimitBytes), {
+        ...(options.transcriptRoots !== undefined ? { allowedRoots: options.transcriptRoots } : {}),
+        ...(options.transcriptMaxBytes !== undefined ? { maxBytes: options.transcriptMaxBytes } : {}),
+      });
       const mapped = mapClaudeCodeHookEvent(event, {
         ...(options.tools ? { tools: options.tools } : {}),
         ...(options.includePostToolUse !== undefined
@@ -156,12 +162,15 @@ export function createClaudeCodeHookServer(
           interactionId: firstMappedEvent.interactionId,
         });
         const timeout = setTimeout(() => {
+          clearTimeout(timeout);
+          pending.delete(key);
           options.onPreToolUseFallback?.(event, "timed_out");
           void hostClient.submit({
             taskId: firstMappedEvent.taskId,
             interactionId: firstMappedEvent.interactionId,
             response: { kind: "dismissed" },
           });
+          writeJson(res, 200, askResponse());
         }, holdTimeoutMs);
 
         pending.set(key, {
@@ -178,7 +187,13 @@ export function createClaudeCodeHookServer(
             : {}),
         });
 
-        await hostClient.publishSourceEvent(firstMappedEvent);
+        try {
+          await hostClient.publishSourceEvent(firstMappedEvent);
+        } catch (error) {
+          clearTimeout(timeout);
+          pending.delete(key);
+          throw error;
+        }
         if (res.writableEnded) {
           return;
         }
@@ -230,7 +245,13 @@ export function createClaudeCodeHookServer(
           fallbackBody: {},
         });
 
-        await hostClient.publishSourceEvent(firstMappedEvent);
+        try {
+          await hostClient.publishSourceEvent(firstMappedEvent);
+        } catch (error) {
+          clearTimeout(timeout);
+          pending.delete(key);
+          throw error;
+        }
         if (res.writableEnded) {
           return;
         }
@@ -282,7 +303,13 @@ export function createClaudeCodeHookServer(
           fallbackBody: {},
         });
 
-        await hostClient.publishSourceEvent(firstMappedEvent);
+        try {
+          await hostClient.publishSourceEvent(firstMappedEvent);
+        } catch (error) {
+          clearTimeout(timeout);
+          pending.delete(key);
+          throw error;
+        }
         if (res.writableEnded) {
           return;
         }
@@ -358,8 +385,15 @@ export function createClaudeCodeHookServer(
   };
 }
 
-async function enrichHookEvent(event: ClaudeCodeHookEvent): Promise<ClaudeCodeHookEvent> {
-  if (event.hook_event_name !== "PreToolUse" && event.hook_event_name !== "PostToolUse") {
+async function enrichHookEvent(
+  event: ClaudeCodeHookEvent,
+  transcriptReadOptions: ClaudeCodeTranscriptReadOptions = {},
+): Promise<ClaudeCodeHookEvent> {
+  if (
+    event.hook_event_name !== "PreToolUse"
+    && event.hook_event_name !== "PermissionRequest"
+    && event.hook_event_name !== "PostToolUse"
+  ) {
     return event;
   }
 
@@ -375,13 +409,14 @@ async function enrichHookEvent(event: ClaudeCodeHookEvent): Promise<ClaudeCodeHo
     };
   }
 
-  if (!event.transcript_path) {
+  if (!event.transcript_path || !("tool_use_id" in event)) {
     return event;
   }
 
   const transcriptPayload = await readAskUserQuestionTranscriptPayload(
     event.transcript_path,
     event.tool_use_id,
+    transcriptReadOptions,
   );
   if (!transcriptPayload) {
     return event;

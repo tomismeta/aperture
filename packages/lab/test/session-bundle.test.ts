@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -18,6 +18,7 @@ import {
   runReplayScenario,
   runSessionBundle,
   sliceRuntimeSessionCapture,
+  validateSessionBundle,
   type CanonicalAttentionExportLike,
   type ReplayScenario,
   type RuntimeSessionCaptureLike,
@@ -238,6 +239,84 @@ test("session bundles can be written to disk and loaded back", async () => {
   assert.equal(loaded.length, 1);
   assert.equal(loaded[0]?.sessionId, bundle.sessionId);
   assert.equal(loaded[0]?.outcomes.finalActiveInteractionId, bundle.outcomes.finalActiveInteractionId);
+});
+
+test("session bundles reject malformed schema-matching payloads on load", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "aperture-bundles-invalid-"));
+  const filePath = path.join(directory, "invalid.json");
+
+  await writeFile(filePath, `${JSON.stringify({
+    schemaVersion: 1,
+    sessionId: "session:invalid",
+    title: "Invalid bundle",
+    exportedAt: "2026-03-21T18:35:00.000Z",
+    steps: [],
+  })}\n`, "utf8");
+
+  await assert.rejects(
+    loadSessionBundles(directory),
+    /Invalid session bundle/,
+  );
+});
+
+test("session bundle validation requires the core structural fields", () => {
+  const valid = validateSessionBundle({
+    schemaVersion: 1,
+    sessionId: "session:valid",
+    title: "Valid bundle",
+    exportedAt: "2026-03-21T18:35:00.000Z",
+    steps: [],
+    normalizedEvents: [],
+    traces: [],
+    signals: [],
+    responses: [],
+    viewSnapshots: [],
+    semanticSnapshots: [],
+    decisionSnapshots: [],
+    outcomes: {
+      totalSteps: 0,
+      surfacedFrames: 0,
+      finalActiveInteractionId: null,
+      finalQueuedCount: 0,
+      finalAmbientCount: 0,
+      finalQueuedInteractionIds: [],
+      finalAmbientInteractionIds: [],
+    },
+  });
+  const invalid = validateSessionBundle({
+    schemaVersion: 1,
+    sessionId: "session:invalid",
+    title: "Invalid bundle",
+    exportedAt: "2026-03-21T18:35:00.000Z",
+    steps: [],
+    traces: [],
+  });
+
+  assert.ok(valid);
+  assert.equal(invalid, null);
+});
+
+test("session bundles load recursively from nested directories", async () => {
+  const scenario: ReplayScenario = {
+    id: "bundle:nested",
+    title: "Nested bundle replay",
+    steps: [],
+  };
+  const result = runReplayScenario(scenario);
+  const bundle = createSessionBundle(result, {
+    sessionId: "session:bundle:nested",
+    exportedAt: "2026-03-21T18:35:00.000Z",
+  });
+
+  const directory = await mkdtemp(path.join(os.tmpdir(), "aperture-bundles-nested-"));
+  const nestedDirectory = path.join(directory, "deep", "nested");
+  await mkdir(nestedDirectory, { recursive: true });
+  await writeSessionBundle(path.join(nestedDirectory, "bundle.json"), bundle);
+
+  const loaded = await loadSessionBundles(directory);
+
+  assert.equal(loaded.length, 1);
+  assert.equal(loaded[0]?.sessionId, bundle.sessionId);
 });
 
 test("harvested replay scenarios can be written to disk and loaded back", async () => {
@@ -879,7 +958,17 @@ test("runtime session captures can be sliced from a baseline cursor", () => {
     responses: [],
     signals: [],
     traces: [],
-    viewSnapshots: [],
+    viewSnapshots: [
+      {
+        sequence: 1,
+        recordedAt: "2026-03-21T19:59:00.000Z",
+        attentionView: {
+          active: null,
+          queued: [],
+          ambient: [{ interactionId: "interaction:baseline" } as never],
+        },
+      },
+    ],
     attentionView: {
       active: null,
       queued: [],
@@ -945,8 +1034,20 @@ test("runtime session captures can be sliced from a baseline cursor", () => {
         response: { kind: "acknowledged" },
       },
     ],
+    viewSnapshots: [
+      ...baselineCapture.viewSnapshots,
+      {
+        sequence: 2,
+        recordedAt: "2026-03-21T20:04:05.000Z",
+        attentionView: {
+          active: { interactionId: "interaction:current" } as never,
+          queued: [],
+          ambient: [],
+        },
+      },
+    ],
     attentionView: {
-      active: null,
+      active: { interactionId: "interaction:current" } as never,
       queued: [],
       ambient: [],
     },
@@ -960,4 +1061,6 @@ test("runtime session captures can be sliced from a baseline cursor", () => {
   assert.equal(sliced.sourceEvents.length, 1);
   assert.equal(sliced.sourceEvents[0]?.id, "src:current");
   assert.equal(sliced.responses.length, 1);
+  assert.equal(sliced.viewSnapshots.length, 1);
+  assert.equal(sliced.attentionView.active?.interactionId, "interaction:current");
 });

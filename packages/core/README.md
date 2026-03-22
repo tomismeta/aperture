@@ -151,7 +151,8 @@ This is the same pattern the Aperture TUI uses.
 The engine can do much more internally, but you do not need to model the middle to use the package successfully.
 
 If you want to invoke Aperture's semantic parsing directly before publishing a
-canonical `ApertureEvent`, use the advanced semantic entrypoint:
+canonical `ApertureEvent`, or you want the richer semantic types directly, use
+the advanced semantic entrypoint:
 
 ```ts
 import { interpretSourceEvent, normalizeSourceEvent } from "@tomismeta/aperture-core/semantic";

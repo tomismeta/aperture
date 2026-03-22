@@ -4,14 +4,16 @@ import type {
   AttentionResponse,
   AttentionSignal,
   AttentionView,
+  SourceEvent,
+} from "@tomismeta/aperture-core";
+import type {
   SemanticActivityClass,
   SemanticConfidence,
   SemanticConsequenceLevel,
   SemanticIntentFrame,
   SemanticRelationHint,
   SemanticInterpretation,
-  SourceEvent,
-} from "@tomismeta/aperture-core";
+} from "../../core/src/semantic.js";
 
 type ReplayDecisionAmbiguity = {
   kind: "interrupt";

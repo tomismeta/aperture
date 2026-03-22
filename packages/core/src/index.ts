@@ -18,12 +18,3 @@ export type {
 } from "./frame.js";
 export type { AttentionResponse } from "./frame-response.js";
 export type { AttentionSignal } from "./interaction-signal.js";
-export type {
-  SemanticActivityClass,
-  SemanticConfidence,
-  SemanticConsequenceLevel,
-  SemanticInterpretation,
-  SemanticInterpretationHints,
-  SemanticIntentFrame,
-  SemanticRelationHint,
-} from "./semantic-types.js";

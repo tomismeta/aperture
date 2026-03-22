@@ -28,7 +28,7 @@
     "session:promote": "tsx scripts/session-promote.ts",
     "session:record": "tsx scripts/session-record.ts",
     "serve": "tsx scripts/runtime-server.ts",
-    "test": "tsx --test packages/*/test/**/*.test.ts",
+    "test": "tsx --test packages/*/test/*.test.ts",
     "tui": "tsx scripts/aperture-tui.ts",
     "typecheck": "tsc -b --pretty"
   },

@@ -1,6 +1,6 @@
 {
   "name": "@tomismeta/aperture",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0",
   "private": false,
   "description": "The opinionated local-first Aperture product package.",
   "author": "tomismeta <tomismeta@gmail.com>",

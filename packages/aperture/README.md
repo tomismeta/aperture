@@ -1,29 +1,36 @@
+<div align="center">
+
 # Aperture
 
-The attention surface for agent work.
+**The attention surface for agent work.**
+
+[![npm version](https://img.shields.io/npm/v/%40tomismeta%2Faperture?label=npm&color=2563eb)](https://www.npmjs.com/package/@tomismeta/aperture)
+[![npm aperture core](https://img.shields.io/npm/v/%40tomismeta%2Faperture-core?label=aperture%20core&color=0f766e)](https://www.npmjs.com/package/@tomismeta/aperture-core)
+[![license](https://img.shields.io/badge/license-MIT-6f42c1)](https://github.com/tomismeta/aperture/blob/main/LICENSE)
+[![github](https://img.shields.io/badge/github-tomismeta%2Faperture-18181b)](https://github.com/tomismeta/aperture)
+
+</div>
 
 `@tomismeta/aperture` is the live attention surface for humans working with
 agents like Claude Code and OpenCode.
 
-Install it, run `aperture`, and keep the agent work that needs you in one
-place.
+It runs as a local CLI/TUI product. Start it with `aperture`, connect your
+agent surfaces, and keep approvals, follow-up questions, failures, and blocked
+work in one place.
 
-## What Aperture Does
-
-Aperture ships the `aperture` CLI as the opinionated local product:
-
-- boot the shared runtime
-- connect Claude Code and OpenCode
-- open the Aperture TUI
-- route what needs you into `now`, `next`, and `ambient`
-- capture replayable sessions from real work
-
-## Quick start
+## Install
 
 Requires Node 18 or newer.
 
 ```bash
 npm install -g @tomismeta/aperture
+```
+
+## Quick Start
+
+Launch Aperture:
+
+```bash
 aperture
 ```
 
@@ -48,10 +55,33 @@ Then launch Aperture:
 aperture
 ```
 
-If you are looking for the embeddable SDK instead of the product, install
-`@tomismeta/aperture-core`.
+## What You Get
 
-## Common commands
+- a local CLI/TUI product, not just an SDK
+- one shared attention surface for Claude Code and OpenCode
+- `now`, `next`, and `ambient` lanes for human attention
+- approvals, follow-ups, failures, and blocked work in one place
+- doctor, debug, completion, and uninstall commands
+- replayable capture bundles for troubleshooting real sessions
+
+## The Loop
+
+```text
++-----------+    +-------------+    +-------------+    +-------------+    +-------------+
+|  Arrive   | -> |  Translate  | -> |    Judge    | -> |    Show     | -> |   Respond   |
+|  events   |    |    facts    |    |  attention  |    |   surface   |    |   action    |
++-----------+    +-------------+    +-------------+    +-------------+    +-------------+
+
+agent hooks       explicit facts      does this         what the          operator decision
+and server        from raw payloads   deserve           operator          carried back
+events                                attention now?    actually sees     to the tool
+```
+
+If you only remember one thing, remember this:
+
+`agent events in -> attention surface out -> human response back`
+
+## Common Commands
 
 ```bash
 aperture
@@ -62,26 +92,27 @@ aperture completion zsh
 aperture --version
 aperture help
 aperture help claude
+aperture help opencode
 aperture help uninstall
 ```
 
-## Why start here
+## Start Here
 
 Most people should start with `@tomismeta/aperture`, not the SDK.
 
 Use this package if you want:
 
-- a local CLI/TUI product
-- one attention surface for Claude Code and OpenCode
-- approvals, follow-ups, failures, and blocked work in one place
-- bundle capture for troubleshooting real sessions
+- the local product
+- the TUI
+- Claude Code and OpenCode integration
+- one place for the agent work that needs you
 
 Use `@tomismeta/aperture-core` if you want to build your own runtime, adapter,
-or surface around the judgment engine.
+or surface around Aperture's judgment engine.
 
-## Product state
+## Product State
 
-Aperture stores its product-owned local state under:
+Aperture stores product-owned local state under:
 
 ```text
 ~/.aperture
@@ -92,11 +123,12 @@ That includes:
 - OpenCode connection profiles
 - launcher captures
 - runtime discovery state
-- learning state for the opinionated product runtime
+- learning state for the opinionated local runtime
 
-## Clean uninstall
+## Clean Uninstall
 
-Before uninstalling the npm package, remove Aperture-owned local state and Claude hook entries:
+Before uninstalling the npm package, remove Aperture-owned local state and
+Claude hook entries:
 
 ```bash
 aperture uninstall --yes
@@ -108,10 +140,15 @@ If you also installed project-local Claude hooks, remove those too:
 aperture uninstall --yes --project /path/to/project
 ```
 
-That project-targeted cleanup also removes the project's local `.aperture` state.
-
 Then remove the package itself:
 
 ```bash
 npm uninstall -g @tomismeta/aperture
 ```
+
+## Links
+
+- npm package: [`@tomismeta/aperture`](https://www.npmjs.com/package/@tomismeta/aperture)
+- SDK package: [`@tomismeta/aperture-core`](https://www.npmjs.com/package/@tomismeta/aperture-core)
+- GitHub repo: [tomismeta/aperture](https://github.com/tomismeta/aperture)
+- Architecture overview: [docs/product/architecture-overview.md](https://github.com/tomismeta/aperture/blob/main/docs/product/architecture-overview.md)

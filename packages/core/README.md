@@ -150,6 +150,16 @@ This is the same pattern the Aperture TUI uses.
 
 The engine can do much more internally, but you do not need to model the middle to use the package successfully.
 
+If you want to invoke Aperture's semantic parsing directly before publishing a
+canonical `ApertureEvent`, use the advanced semantic entrypoint:
+
+```ts
+import { interpretSourceEvent, normalizeSourceEvent } from "@tomismeta/aperture-core/semantic";
+```
+
+That subpath exists for advanced adapter authors. The root package remains the
+recommended SDK loop.
+
 ## How Judgment Is Structured
 
 The core engine now follows a stable hot path:

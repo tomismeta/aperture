@@ -19,8 +19,8 @@ const examples: Example[] = [
     entrypoint: join(repoRoot, "examples", "core-full-engine", "index.ts"),
   },
   {
-    name: "core-judgment-primitives",
-    entrypoint: join(repoRoot, "examples", "core-judgment-primitives", "index.ts"),
+    name: "core-semantic-entrypoint",
+    entrypoint: join(repoRoot, "examples", "core-semantic-entrypoint", "index.ts"),
   },
 ];
 

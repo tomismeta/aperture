@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import * as sdk from "../src/index.js";
+import * as semanticSdk from "../src/semantic.js";
 
 test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.ok("ApertureCore" in sdk);
@@ -104,4 +105,12 @@ test("public SDK supports the simple event in -> frame out -> response in loop",
     response: { kind: "approved" },
   });
   assert.equal(core.getSignals("task:simple-loop").at(-1)?.kind, "responded");
+});
+
+test("advanced semantic helpers live behind the semantic subpath", () => {
+  assert.equal("interpretSourceEvent" in sdk, false);
+  assert.equal("normalizeSourceEvent" in sdk, false);
+
+  assert.equal(typeof semanticSdk.interpretSourceEvent, "function");
+  assert.equal(typeof semanticSdk.normalizeSourceEvent, "function");
 });

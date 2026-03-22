@@ -5,6 +5,8 @@ node_modules
 dist
 .turbo
 *.tsbuildinfo
+packages/core/public-dist
+packages/*/*.tgz
 apps/attention-lab/vite.config.js
 apps/attention-lab/vite.config.js.map
 apps/attention-lab/vite.config.d.ts

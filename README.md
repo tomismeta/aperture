@@ -440,6 +440,9 @@ for (const event of sourceEvents) {
 | `pnpm test` | Runs the full test suite. |
 | `pnpm typecheck` | Runs TypeScript project checks. |
 | `pnpm build` | Builds the TypeScript packages. |
+| `pnpm sdk:prove` | Packs and proves the published `@tomismeta/aperture-core` artifact from clean examples. |
+| `pnpm product:smoke` | Packs and smoke-tests the installed `@tomismeta/aperture` CLI/TUI in an isolated temp environment. |
+| `pnpm release:check` | Runs the full release bar: typecheck, tests, benchmarks, sdk proof, and product smoke. |
 | `pnpm demo:tui` | Runs the standalone demo renderer with sample data. |
 | `pnpm demo:record` | Regenerates `docs/assets/demo.gif` and `docs/assets/demo.mp4` with a scripted Claude Code + OpenCode capture. Requires `vhs`. |
 | `pnpm clean` | Removes built package output. |

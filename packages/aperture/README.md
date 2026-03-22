@@ -20,8 +20,6 @@ work in one place.
 
 ## Install
 
-Requires Node 18 or newer.
-
 ```bash
 npm install -g @tomismeta/aperture
 ```

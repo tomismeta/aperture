@@ -42,6 +42,7 @@ export async function runAttentionTui(
   const input = (options?.input ?? defaultInput) as InputLike;
   const output = (options?.output ?? defaultOutput) as OutputLike;
   const title = options?.title ?? "Aperture";
+  const terminalTitle = options?.terminalTitle ?? title;
   const reducedMotion = options?.reducedMotion ?? false;
   const ambientStaleMs = options?.ambientStaleMs;
   const surfaceViewOptions = ambientStaleMs !== undefined ? { ambientStaleMs } : {};
@@ -72,7 +73,7 @@ export async function runAttentionTui(
   };
   let renderScheduled = false;
 
-  const cleanup = setupTerminal(input, output, title);
+  const cleanup = setupTerminal(input, output, terminalTitle);
 
   const render = () => {
     output.write(redrawScreen());
@@ -364,12 +365,11 @@ function setupTerminal(input: InputLike, output: OutputLike, title: string): () 
 function writeTerminalTitle(output: OutputLike, title: string): void {
   if (!output.isTTY) return;
   const cleanTitle = title.replace(/[\u0007\u001b]/g, "");
-  output.write(`\u001b]0;${cleanTitle}\u0007`);
+  output.write(`\u001b]1;${cleanTitle}\u0007`);
 }
 
 function clearScreen(): string {
-  process.title = "Aperture";
-  return "\u001B]0;Aperture\u0007\u001B[?25l\u001B[?1049h\u001B[2J\u001B[H";
+  return "\u001B[?25l\u001B[?1049h\u001B[2J\u001B[H";
 }
 
 function redrawScreen(): string {

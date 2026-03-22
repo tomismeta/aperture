@@ -360,7 +360,7 @@ async function runRuntimeServer(args: string[]): Promise<void> {
 }
 
 async function runTui(): Promise<void> {
-  process.title = "aperture-tui";
+  process.title = "aperture";
   const baseUrl = await resolveRuntimeUrl("Aperture TUI", ["APERTURE_RUNTIME_URL", "APERTURE_CLAUDE_RUNTIME_URL"]);
 
   const client = await ApertureRuntimeClient.connect({
@@ -378,7 +378,10 @@ async function runTui(): Promise<void> {
   stderr.write(`Connected Aperture TUI to ${baseUrl}\n`);
 
   try {
-    await runAttentionTui(client, { title: "Aperture" });
+    await runAttentionTui(client, {
+      title: "Aperture",
+      terminalTitle: "Aperture Live",
+    });
   } finally {
     await client.close();
   }
@@ -1410,6 +1413,7 @@ async function runLauncherTui(
   try {
     await runAttentionTui(client, {
       title: "Aperture",
+      terminalTitle: "Aperture Live",
       getConnectionStatus: () => connections.getSnapshot(),
       subscribeConnectionStatus: (listener) => connections.subscribe(listener),
       runConnectionAction,

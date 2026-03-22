@@ -41,6 +41,7 @@ export type AttentionSurface = {
 
 export type AttentionTuiOptions = {
   title?: string;
+  terminalTitle?: string;
   input?: InputLike;
   output?: OutputLike;
   reducedMotion?: boolean;

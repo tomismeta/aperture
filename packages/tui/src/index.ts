@@ -5,6 +5,7 @@ import { renderAttentionScreen, shouldRenderPreflightScreen } from "./render.js"
 import { renderWhyOverlay } from "./render-why.js";
 import { computePosture } from "./posture.js";
 import { createAnimationState, tickAnimation } from "./animation.js";
+import { ANSI } from "./ansi.js";
 import {
   handleActiveKeypress,
   handleInputKeypress,
@@ -187,8 +188,10 @@ export async function runAttentionTui(
       && (state.animation.idleTick === 0 || state.animation.idleTick === 2);
 
     if (reducedMotion) {
-      if (hadActiveAnimation || viewChanged || shouldPulseIdleLens) {
+      if (hadActiveAnimation || viewChanged) {
         requestRender();
+      } else if (shouldPulseIdleLens) {
+        writeIdleLensPulse(output, Boolean(output.isTTY), state.animation.idleTick);
       }
       return;
     }
@@ -373,6 +376,24 @@ function writeTerminalTitle(output: OutputLike, title: string): void {
   if (!output.isTTY) return;
   const cleanTitle = title.replace(/[\u0007\u001b]/g, "");
   output.write(`\u001b]1;${cleanTitle}\u0007`);
+}
+
+function writeIdleLensPulse(output: OutputLike, color: boolean, idleTick: number): void {
+  if (!output.isTTY) {
+    return;
+  }
+  output.write(`\u001B[s\u001B[4;3H${renderIdleLensGlyph(color, idleTick)}\u001B[u`);
+}
+
+function renderIdleLensGlyph(color: boolean, idleTick: number): string {
+  const lensGlyph = '[◉"]';
+  const bright = idleTick < 2;
+  if (!color) {
+    return lensGlyph;
+  }
+  return bright
+    ? `${ANSI.brand}${lensGlyph}${ANSI.reset}`
+    : `${ANSI.dim}${lensGlyph}${ANSI.reset}`;
 }
 
 function clearScreen(): string {

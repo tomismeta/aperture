@@ -30,7 +30,10 @@ export class LauncherConnectionStore {
       return actions.length > 0 ? { ...entry, actions } : entry;
     });
     const summary = summarize(entries);
-    const actions = buildGlobalActions(entries, this.suppressed.size > 0 && !hasPending(entries));
+    const actions = buildGlobalActions(
+      entries,
+      this.suppressed.size > 0 || shouldOfferShowSetup(entries),
+    );
     for (const entry of entries) {
       if (entry.actions) {
         actions.push(...entry.actions);
@@ -138,6 +141,16 @@ function buildGlobalActions(
 
 function hasPending(entries: AttentionConnectionEntry[]): boolean {
   return entries.some((entry) => entry.state !== "ready" && entry.state !== "disabled");
+}
+
+function shouldOfferShowSetup(entries: AttentionConnectionEntry[]): boolean {
+  if (entries.length === 0) {
+    return false;
+  }
+  if (hasPending(entries)) {
+    return false;
+  }
+  return entries.some((entry) => entry.state === "ready");
 }
 
 function buildEntryActions(entry: AttentionConnectionEntry): AttentionConnectionAction[] {

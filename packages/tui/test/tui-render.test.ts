@@ -192,6 +192,38 @@ test("renderAttentionScreen keeps a show setup action after setup is skipped", (
   assert.match(screen, /controls.*\[s\].*show setup/);
 });
 
+test("renderAttentionScreen hides show setup when queued work exists", () => {
+  const attentionView: AttentionView = {
+    active: null,
+    queued: [
+      makeFrame({
+        id: "frame-queued",
+        title: "Review deployment plan",
+        interactionId: "interaction-queued",
+      }),
+    ],
+    ambient: [],
+  };
+
+  const screen = renderAttentionScreen(attentionView, {
+    title: "Aperture",
+    connectionStatus: {
+      entries: [
+        {
+          id: "claude",
+          label: "Claude Code",
+          state: "ready",
+          detail: "Attached to an existing Claude Code bridge.",
+        },
+      ],
+      actions: [{ id: "show-setup", key: "s", label: "show setup" }],
+    },
+  });
+
+  assert.doesNotMatch(screen, /controls.*\[s\].*show setup/);
+  assert.match(screen, /controls.*\[q\].*quit/);
+});
+
 test("renderAttentionScreen shows setup instead of a lone bridge-status ambient frame", () => {
   const attentionView: AttentionView = {
     active: null,

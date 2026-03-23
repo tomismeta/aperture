@@ -285,6 +285,10 @@ export async function runAttentionTui(
       }
 
       if (!active) {
+        const surfaceIsQuiet = state.attentionView.queued.length === 0;
+        if (!surfaceIsQuiet) {
+          return;
+        }
         const action = state.connectionStatus?.actions?.find((candidate) => candidate.key === key.sequence);
         if (action && options?.runConnectionAction) {
           state.statusLine = `Running ${action.label}`;

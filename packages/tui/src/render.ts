@@ -128,6 +128,7 @@ export function renderAttentionScreen(
   footer.push(heavyRule(color));
   footer.push(...renderControls(
     active,
+    queued.length === 0,
     options?.inputDraft ?? null,
     options?.whyMode ?? false,
     options?.whyExpanded ?? false,
@@ -610,6 +611,7 @@ function heavyRule(color: boolean): string {
 
 function renderControls(
   active: Frame | null,
+  quiet: boolean,
   inputDraft: InputDraft | null,
   whyMode: boolean,
   whyExpanded: boolean,
@@ -618,7 +620,7 @@ function renderControls(
 ): string[] {
   if (!active) {
     const parts: string[] = [];
-    if (connectionStatus?.actions) {
+    if (quiet && connectionStatus?.actions) {
       for (const action of connectionStatus.actions) {
         parts.push(`${styleKey(action.key, color)} ${styleMuted(action.label, color)}`);
       }

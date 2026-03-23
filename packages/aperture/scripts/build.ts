@@ -1,4 +1,4 @@
-import { readFile, rm, writeFile } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,7 +9,6 @@ const PACKAGE_ROOT = path.resolve(SCRIPT_DIR, "..");
 const DIST_DIR = path.join(PACKAGE_ROOT, "dist");
 const ENTRY_POINT = path.join(PACKAGE_ROOT, "src", "cli.ts");
 const OUTFILE = path.join(DIST_DIR, "cli.js");
-const SHEBANG = "#!/usr/bin/env -S node --title=aperture";
 
 await rm(DIST_DIR, { recursive: true, force: true });
 
@@ -23,12 +22,6 @@ await build({
   packages: "bundle",
   legalComments: "none",
   banner: {
-    js: SHEBANG,
+    js: "#!/usr/bin/env node",
   },
 });
-
-const built = await readFile(OUTFILE, "utf8");
-const normalized = built.replace(/^#!.*$/m, SHEBANG);
-if (normalized !== built) {
-  await writeFile(OUTFILE, normalized, "utf8");
-}

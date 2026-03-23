@@ -1,7 +1,7 @@
 import { emitKeypressEvents } from "node:readline";
 import { env, stdin as defaultInput, stdout as defaultOutput } from "node:process";
 
-import { renderAttentionScreen } from "./render.js";
+import { renderAttentionScreen, shouldRenderPreflightScreen } from "./render.js";
 import { renderWhyOverlay } from "./render-why.js";
 import { computePosture } from "./posture.js";
 import { createAnimationState, tickAnimation } from "./animation.js";
@@ -177,8 +177,13 @@ export async function runAttentionTui(
     const isEmpty = isAttentionViewEmpty(state.attentionView);
     const hasNoActiveFrame = state.attentionView.active === null;
     const hadActiveAnimation = tickAnimation(state.animation);
+    const showingPreflight = shouldRenderPreflightScreen(
+      state.connectionStatus,
+      state.attentionView,
+    );
     const shouldPulseIdleLens = hasNoActiveFrame
       && isEmpty
+      && showingPreflight
       && (state.animation.idleTick === 0 || state.animation.idleTick === 2);
 
     if (reducedMotion) {

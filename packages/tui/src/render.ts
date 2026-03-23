@@ -158,7 +158,7 @@ export function renderAttentionScreen(
   return lines.join("\n");
 }
 
-function shouldRenderPreflightScreen(
+export function shouldRenderPreflightScreen(
   connectionStatus: AttentionConnectionSnapshot | null,
   attentionView: AttentionView,
 ): boolean {

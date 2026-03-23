@@ -15,7 +15,7 @@ The docs are organized into seven groups:
 ## Start Here
 
 1. [README](../README.md)
-2. [Aperture v0.1.0](./releases/aperture-v0.1.0.md)
+2. [Aperture v0.1.1](./releases/aperture-v0.1.1.md)
 3. [Aperture Core SDK v0.4.0](./releases/aperture-core-v0.4.0.md)
 4. [Architecture Overview](./product/architecture-overview.md)
 5. [Components](./product/components.md)
@@ -26,6 +26,7 @@ If you are new to the repo, that path gives the fastest accurate picture of the 
 
 ## Release Notes
 
+- [Aperture v0.1.1](./releases/aperture-v0.1.1.md)
 - [Aperture v0.1.0](./releases/aperture-v0.1.0.md)
 - [Aperture Core SDK v0.4.0](./releases/aperture-core-v0.4.0.md)
 

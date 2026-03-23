@@ -9,6 +9,9 @@
 [![license](https://img.shields.io/badge/license-MIT-6f42c1)](https://github.com/tomismeta/aperture/blob/main/LICENSE)
 [![github](https://img.shields.io/badge/github-tomismeta%2Faperture-18181b)](https://github.com/tomismeta/aperture)
 
+<img src="https://raw.githubusercontent.com/tomismeta/aperture/main/docs/assets/demo.gif" alt="Aperture demo" width="1100">
+<p></p>
+
 </div>
 
 `@tomismeta/aperture` is the live attention surface for humans working with
@@ -142,6 +145,6 @@ npm uninstall -g @tomismeta/aperture
 
 - npm package: [`@tomismeta/aperture`](https://www.npmjs.com/package/@tomismeta/aperture)
 - SDK package: [`@tomismeta/aperture-core`](https://www.npmjs.com/package/@tomismeta/aperture-core)
-- Release notes: [Aperture v0.1.0](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-v0.1.0.md)
+- Release notes: [Aperture v0.1.1](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-v0.1.1.md)
 - GitHub repo: [tomismeta/aperture](https://github.com/tomismeta/aperture)
 - Architecture overview: [docs/product/architecture-overview.md](https://github.com/tomismeta/aperture/blob/main/docs/product/architecture-overview.md)

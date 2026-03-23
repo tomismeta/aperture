@@ -951,6 +951,16 @@ async function startClaudeConnection(
     connections.update("claude", readyClaudeState(install?.changed ?? false, false));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    if (isClaudeBridgePortInUse(message)) {
+      const host = process.env.APERTURE_CLAUDE_HOST ?? "127.0.0.1";
+      const port = readNumber(process.env.APERTURE_CLAUDE_PORT) ?? 4545;
+      connections.update("claude", {
+        state: "action",
+        detail: `Claude bridge is already using ${host}:${port}.`,
+        hint: "If another Aperture/Claude bridge is running, keep using it. Otherwise stop the other process and retry, or launch with --no-claude.",
+      });
+      return;
+    }
     connections.update("claude", {
       state: "error",
       detail: `Claude bridge failed to start: ${message}`,
@@ -1141,6 +1151,10 @@ function readyClaudeState(changedHooks: boolean, attachedExisting: boolean): {
   };
 }
 
+function isClaudeBridgePortInUse(message: string): boolean {
+  return message.includes("EADDRINUSE");
+}
+
 function describeProfileTargets(profiles: OpencodeConnectionProfile[]): string {
   const targets = [...new Set(profiles.map((profile) => profile.baseUrl))];
   if (targets.length === 1) {
@@ -1166,6 +1180,14 @@ function opencodeAttachHint(profiles: OpencodeConnectionProfile[]): string {
     return `Run: opencode attach ${targets[0]}.`;
   }
   return "Run: opencode attach <url> for one of the configured OpenCode servers.";
+}
+
+function opencodeReadyDetail(profiles: OpencodeConnectionProfile[], reachable: number): string {
+  const targets = [...new Set(profiles.map((profile) => profile.baseUrl))];
+  if (targets.length === 1 && targets[0]) {
+    return `Connected OpenCode at ${targets[0]} (${reachable} profile${reachable === 1 ? "" : "s"}).`;
+  }
+  return `Connected ${reachable} OpenCode profile${reachable === 1 ? "" : "s"} across ${targets.length} servers.`;
 }
 
 function runtimeHasLiveOpencodeActivity(snapshot: ApertureRuntimeSnapshot): boolean {
@@ -1407,8 +1429,8 @@ async function probeOpencodeProfiles(
   if (reachable > 0) {
     return {
       kind: "ready",
-      detail: `Connected ${reachable} OpenCode profile${reachable === 1 ? "" : "s"}.`,
-      ...(unavailable[0] ? { hint: unavailable[0] } : {}),
+      detail: opencodeReadyDetail(profiles, reachable),
+      hint: unavailable[0] ?? opencodeAttachHint(profiles),
     };
   }
 

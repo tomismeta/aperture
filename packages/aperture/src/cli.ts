@@ -377,7 +377,7 @@ async function runTui(): Promise<void> {
   try {
     await runAttentionTui(client, {
       title: "Aperture",
-      terminalTitle: "Aperture Live",
+      terminalTitle: "Aperture",
     });
   } finally {
     await client.close();
@@ -1410,7 +1410,7 @@ async function runLauncherTui(
   try {
     await runAttentionTui(client, {
       title: "Aperture",
-      terminalTitle: "Aperture Live",
+      terminalTitle: "Aperture",
       getConnectionStatus: () => connections.getSnapshot(),
       subscribeConnectionStatus: (listener) => connections.subscribe(listener),
       runConnectionAction,

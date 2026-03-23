@@ -32,7 +32,7 @@
   },
   "type": "module",
   "bin": {
-    "aperture": "./dist/cli.js"
+    "aperture": "dist/cli.js"
   },
   "files": [
     "dist",

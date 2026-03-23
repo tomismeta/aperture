@@ -57,6 +57,7 @@ export function renderAttentionScreen(
   lines.push(heavyRule(color));
 
   if (shouldRenderPreflightScreen(options?.connectionStatus ?? null, attentionView)) {
+    const preflightActions = options?.connectionStatus?.actions?.filter((action) => action.id === "skip-setup") ?? [];
     lines.push(...renderPreflightScreen(
       options?.connectionStatus ?? null,
       color,
@@ -64,7 +65,11 @@ export function renderAttentionScreen(
     ));
     const footer: string[] = [];
     footer.push(heavyRule(color));
-    footer.push(`${styleMuted("controls", color)} ${styleKey("q", color)} ${styleMuted("quit", color)}`);
+    const controls = [
+      ...preflightActions.map((action) => `${styleKey(action.key, color)} ${styleMuted(action.label, color)}`),
+      `${styleKey("q", color)} ${styleMuted("quit", color)}`,
+    ];
+    footer.push(`${styleMuted("controls", color)} ${controls.join("  ")}`);
 
     const statusText = options?.statusLine
       ? truncateToWidth(`${styleMuted("status", color)} ${options.statusLine}`, options.statusLine, SCREEN_WIDTH)
@@ -206,12 +211,6 @@ function renderPreflightScreen(
       lines.push(...renderConnectionActionRow("    next ", entry.actions, color));
     }
   }
-
-  if (connectionStatus.actions && connectionStatus.actions.length > 0) {
-    lines.push("");
-    lines.push(...renderConnectionActionRow("  actions ", connectionStatus.actions.filter((action) => action.id === "skip-setup"), color));
-  }
-
   return lines;
 }
 

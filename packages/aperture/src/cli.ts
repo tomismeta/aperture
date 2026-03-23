@@ -190,8 +190,6 @@ async function runLauncher(args: string[]): Promise<void> {
   let refreshClaudeAction: (() => Promise<void>) | null = null;
   let skipSetupAction: (() => Promise<void>) | null = null;
 
-  process.title = "aperture";
-
   const registerCleanup = (cleanup: () => Promise<void>) => {
     if (shuttingDown) {
       void cleanup().catch(() => {});
@@ -360,7 +358,6 @@ async function runRuntimeServer(args: string[]): Promise<void> {
 }
 
 async function runTui(): Promise<void> {
-  process.title = "aperture";
   const baseUrl = await resolveRuntimeUrl("Aperture TUI", ["APERTURE_RUNTIME_URL", "APERTURE_CLAUDE_RUNTIME_URL"]);
 
   const client = await ApertureRuntimeClient.connect({

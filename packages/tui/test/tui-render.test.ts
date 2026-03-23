@@ -130,12 +130,12 @@ test("renderAttentionScreen shows connection status when the surface is empty", 
   assert.match(screen, /opencode attach/);
   assert.match(screen, /http:\/\/127\.0\.0\.1:4096/);
   assert.match(screen, /Restart Claude Code and run \/hooks once to finish setup\./);
-  assert.match(screen, /\[s\].*skip for now/);
   assert.match(screen, /\[c\].*finish Claude setup/);
   assert.match(screen, /\[r\].*retry OpenCode/);
   assert.doesNotMatch(screen, /── next ──/);
   assert.doesNotMatch(screen, /── ambient ──/);
-  assert.match(screen, /controls.*\[q\].*quit/);
+  assert.doesNotMatch(screen, /actions.*skip for now/);
+  assert.match(screen, /controls.*\[s\].*skip for now.*\[q\].*quit/);
   assert.doesNotMatch(screen, /controls.*check setup/);
 });
 

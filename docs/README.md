@@ -2,9 +2,10 @@
 
 This folder contains the current Aperture documentation.
 
-The docs are organized into six groups:
+The docs are organized into seven groups:
 
 - **entry docs** for first orientation
+- **release notes** for shipped package cuts
 - **product surface docs** for the current product contract
 - **source adapter docs** for source-specific integration paths
 - **engine and SDK reference docs** for the core judgment model
@@ -14,12 +15,19 @@ The docs are organized into six groups:
 ## Start Here
 
 1. [README](../README.md)
-2. [Architecture Overview](./product/architecture-overview.md)
-3. [Components](./product/components.md)
-4. [Adapter Contract](./product/adapter-contract.md)
-5. [TUI Surface](./product/tui.md)
+2. [Aperture v0.1.0](./releases/aperture-v0.1.0.md)
+3. [Aperture Core SDK v0.4.0](./releases/aperture-core-v0.4.0.md)
+4. [Architecture Overview](./product/architecture-overview.md)
+5. [Components](./product/components.md)
+6. [Adapter Contract](./product/adapter-contract.md)
+7. [TUI Surface](./product/tui.md)
 
 If you are new to the repo, that path gives the fastest accurate picture of the product.
+
+## Release Notes
+
+- [Aperture v0.1.0](./releases/aperture-v0.1.0.md)
+- [Aperture Core SDK v0.4.0](./releases/aperture-core-v0.4.0.md)
 
 ## Product Surface
 

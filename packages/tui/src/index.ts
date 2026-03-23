@@ -1,5 +1,5 @@
 import { emitKeypressEvents } from "node:readline";
-import { stdin as defaultInput, stdout as defaultOutput } from "node:process";
+import { env, stdin as defaultInput, stdout as defaultOutput } from "node:process";
 
 import { renderAttentionScreen } from "./render.js";
 import { renderWhyOverlay } from "./render-why.js";
@@ -43,7 +43,7 @@ export async function runAttentionTui(
   const output = (options?.output ?? defaultOutput) as OutputLike;
   const title = options?.title ?? "Aperture";
   const terminalTitle = options?.terminalTitle ?? title;
-  const reducedMotion = options?.reducedMotion ?? false;
+  const reducedMotion = options?.reducedMotion ?? Boolean(env.SSH_CONNECTION || env.SSH_TTY);
   const ambientStaleMs = options?.ambientStaleMs;
   const surfaceViewOptions = ambientStaleMs !== undefined ? { ambientStaleMs } : {};
 
@@ -179,10 +179,9 @@ export async function runAttentionTui(
     const hadActiveAnimation = tickAnimation(state.animation);
 
     if (reducedMotion) {
-      if (!hasNoActiveFrame && !viewChanged) {
-        return;
+      if (hadActiveAnimation || viewChanged) {
+        requestRender();
       }
-      requestRender();
       return;
     }
 
@@ -373,7 +372,7 @@ function clearScreen(): string {
 }
 
 function redrawScreen(): string {
-  return "\u001B[H\u001B[2J";
+  return "\u001B[H\u001B[J";
 }
 
 function restoreScreen(): string {

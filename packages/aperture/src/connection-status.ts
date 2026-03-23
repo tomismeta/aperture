@@ -55,10 +55,14 @@ export class LauncherConnectionStore {
     if (!current) {
       return;
     }
-    this.entries.set(id, {
+    const next = {
       ...current,
       ...patch,
-    });
+    };
+    if (sameConnectionEntry(current, next)) {
+      return;
+    }
+    this.entries.set(id, next);
     this.emit();
   }
 
@@ -161,4 +165,15 @@ export function makeConnectionEntry(
   return hint
     ? { id, label, state, detail, hint }
     : { id, label, state, detail };
+}
+
+function sameConnectionEntry(
+  a: AttentionConnectionEntry,
+  b: AttentionConnectionEntry,
+): boolean {
+  return a.id === b.id
+    && a.label === b.label
+    && a.state === b.state
+    && a.detail === b.detail
+    && a.hint === b.hint;
 }

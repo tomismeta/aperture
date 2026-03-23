@@ -182,16 +182,15 @@ export async function runAttentionTui(
       state.connectionStatus,
       state.attentionView,
     );
-    const shouldPulseIdleLens = hasNoActiveFrame
-      && isEmpty
-      && showingPreflight
+    const idleLensTarget = getIdleLensTarget(showingPreflight, hasNoActiveFrame, isEmpty);
+    const shouldPulseIdleLens = idleLensTarget !== null
       && (state.animation.idleTick === 0 || state.animation.idleTick === 2);
 
     if (reducedMotion) {
       if (hadActiveAnimation || viewChanged) {
         requestRender();
       } else if (shouldPulseIdleLens) {
-        writeIdleLensPulse(output, Boolean(output.isTTY), state.animation.idleTick);
+        writeIdleLensPulse(output, Boolean(output.isTTY), state.animation.idleTick, idleLensTarget);
       }
       return;
     }
@@ -378,11 +377,19 @@ function writeTerminalTitle(output: OutputLike, title: string): void {
   output.write(`\u001b]1;${cleanTitle}\u0007`);
 }
 
-function writeIdleLensPulse(output: OutputLike, color: boolean, idleTick: number): void {
+function writeIdleLensPulse(
+  output: OutputLike,
+  color: boolean,
+  idleTick: number,
+  target: { row: number; col: number } | null,
+): void {
   if (!output.isTTY) {
     return;
   }
-  output.write(`\u001B[s\u001B[4;3H${renderIdleLensGlyph(color, idleTick)}\u001B[u`);
+  if (!target) {
+    return;
+  }
+  output.write(`\u001B[s\u001B[${target.row};${target.col}H${renderIdleLensGlyph(color, idleTick)}\u001B[u`);
 }
 
 function renderIdleLensGlyph(color: boolean, idleTick: number): string {
@@ -394,6 +401,20 @@ function renderIdleLensGlyph(color: boolean, idleTick: number): string {
   return bright
     ? `${ANSI.brand}${lensGlyph}${ANSI.reset}`
     : `${ANSI.dim}${lensGlyph}${ANSI.reset}`;
+}
+
+function getIdleLensTarget(
+  showingPreflight: boolean,
+  hasNoActiveFrame: boolean,
+  isEmpty: boolean,
+): { row: number; col: number } | null {
+  if (showingPreflight) {
+    return { row: 4, col: 3 };
+  }
+  if (hasNoActiveFrame && isEmpty) {
+    return { row: 5, col: 5 };
+  }
+  return null;
 }
 
 function clearScreen(): string {

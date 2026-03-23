@@ -104,6 +104,7 @@ export type TuiState = {
   statusLine: string;
   inputDraft: InputDraft | null;
   expanded: boolean;
+  showSetup: boolean;
   whyMode: boolean;
   whyExpanded: boolean;
   traceCache: Map<string, ApertureTrace>;
@@ -124,6 +125,7 @@ export type RenderOptions = {
   inputDraft?: InputDraft | null;
   color?: boolean;
   height?: number;
+  showSetup?: boolean;
   stats?: { summary: SignalSummary; state: AttentionState } | null;
   expanded?: boolean;
   whyMode?: boolean;

@@ -56,8 +56,13 @@ export function renderAttentionScreen(
   ));
   lines.push(heavyRule(color));
 
-  if (shouldRenderPreflightScreen(options?.connectionStatus ?? null, attentionView)) {
+  if (shouldRenderPreflightScreen(
+    options?.connectionStatus ?? null,
+    attentionView,
+    options?.showSetup ?? false,
+  )) {
     const preflightActions = options?.connectionStatus?.actions?.filter((action) => action.id === "skip-setup") ?? [];
+    const showBack = (options?.showSetup ?? false) && preflightActions.length === 0;
     lines.push(...renderPreflightScreen(
       options?.connectionStatus ?? null,
       color,
@@ -67,6 +72,7 @@ export function renderAttentionScreen(
     footer.push(heavyRule(color));
     const controls = [
       ...preflightActions.map((action) => `${styleKey(action.key, color)} ${styleMuted(action.label, color)}`),
+      ...(showBack ? [`${styleKey("s", color)} ${styleMuted("back", color)}`] : []),
       `${styleKey("q", color)} ${styleMuted("quit", color)}`,
     ];
     footer.push(`${styleMuted("controls", color)} ${controls.join("  ")}`);
@@ -162,6 +168,7 @@ export function renderAttentionScreen(
 export function shouldRenderPreflightScreen(
   connectionStatus: AttentionConnectionSnapshot | null,
   attentionView: AttentionView,
+  showSetup = false,
 ): boolean {
   if (!connectionStatus || connectionStatus.entries.length === 0) {
     return false;
@@ -172,8 +179,11 @@ export function shouldRenderPreflightScreen(
     : false;
   const hasEntryActions = connectionStatus.entries.some((entry) => (entry.actions?.length ?? 0) > 0);
   const needsSetup = connectionStatus.entries.some((entry) => entry.state !== "ready" && entry.state !== "disabled");
-  const hasAttentionWork = attentionView.active !== null
-    || attentionView.queued.length > 0
+  const hasForegroundWork = attentionView.active !== null || attentionView.queued.length > 0;
+  if (showSetup && !hasForegroundWork) {
+    return true;
+  }
+  const hasAttentionWork = hasForegroundWork
     || attentionView.ambient.some((frame) => !isConnectionBridgeStatus(frame));
 
   return !hasAttentionWork && (needsSetup || hasVisibleActions || hasEntryActions);

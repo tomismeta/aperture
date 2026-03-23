@@ -224,6 +224,44 @@ test("renderAttentionScreen hides show setup when queued work exists", () => {
   assert.match(screen, /controls.*\[q\].*quit/);
 });
 
+test("renderAttentionScreen can force setup over ambient-only live view", () => {
+  const attentionView: AttentionView = {
+    active: null,
+    queued: [],
+    ambient: [
+      makeFrame({
+        id: "frame-ambient",
+        title: "Bash completed",
+        interactionId: "interaction-ambient",
+        mode: "status",
+        tone: "ambient",
+        responseSpec: { kind: "none" },
+      }),
+    ],
+  };
+
+  const screen = renderAttentionScreen(attentionView, {
+    title: "Aperture",
+    showSetup: true,
+    connectionStatus: {
+      entries: [
+        {
+          id: "claude",
+          label: "Claude Code",
+          state: "ready",
+          detail: "Using an existing Claude bridge at http://127.0.0.1:4545/hook.",
+        },
+      ],
+      actions: [{ id: "show-setup", key: "s", label: "show setup" }],
+    },
+  });
+
+  assert.match(screen, /Welcome to Aperture/);
+  assert.match(screen, /Claude Code/);
+  assert.match(screen, /controls.*\[s\].*back.*\[q\].*quit/);
+  assert.doesNotMatch(screen, /Bash completed/);
+});
+
 test("renderAttentionScreen shows setup instead of a lone bridge-status ambient frame", () => {
   const attentionView: AttentionView = {
     active: null,

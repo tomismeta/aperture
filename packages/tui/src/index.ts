@@ -64,6 +64,7 @@ export async function runAttentionTui(
       : "Waiting for events",
     inputDraft: initialInputDraft,
     expanded: false,
+    showSetup: false,
     whyMode: false,
     whyExpanded: false,
     traceCache: new Map(),
@@ -93,6 +94,7 @@ export async function runAttentionTui(
         statusLine: state.statusLine,
         inputDraft: state.inputDraft,
         expanded: state.expanded,
+        showSetup: state.showSetup,
         color: Boolean(output.isTTY),
         height: output.rows,
         stats: {
@@ -140,10 +142,14 @@ export async function runAttentionTui(
     if (!active) {
       state.inputDraft = null;
       state.expanded = false;
+      if (attentionView.queued.length > 0) {
+        state.showSetup = false;
+      }
       state.whyMode = false;
       state.whyExpanded = false;
       state.statusLine = "Nothing currently needs attention";
     } else if (active.interactionId !== previousActiveId) {
+      state.showSetup = false;
       state.inputDraft = createAutomaticInputDraft(active);
       state.whyExpanded = false;
       state.statusLine = state.inputDraft
@@ -181,6 +187,7 @@ export async function runAttentionTui(
     const showingPreflight = shouldRenderPreflightScreen(
       state.connectionStatus,
       state.attentionView,
+      state.showSetup,
     );
     const idleLensTarget = getIdleLensTarget(showingPreflight, hasNoActiveFrame, isEmpty);
     const shouldPulseIdleLens = idleLensTarget !== null
@@ -291,6 +298,18 @@ export async function runAttentionTui(
         }
         const action = state.connectionStatus?.actions?.find((candidate) => candidate.key === key.sequence);
         if (action && options?.runConnectionAction) {
+          if (action.id === "show-setup") {
+            state.showSetup = !state.showSetup;
+            state.statusLine = state.showSetup ? "Showing setup" : "Back to live view";
+            requestRender();
+            if (state.showSetup) {
+              void Promise.resolve(options.runConnectionAction(action.id)).catch(() => {});
+            }
+            return;
+          }
+          if (action.id === "skip-setup") {
+            state.showSetup = false;
+          }
           state.statusLine = `Running ${action.label}`;
           requestRender();
           void Promise.resolve(options.runConnectionAction(action.id))

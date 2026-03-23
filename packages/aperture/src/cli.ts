@@ -952,12 +952,21 @@ async function startClaudeConnection(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (isClaudeBridgePortInUse(message)) {
-      const host = process.env.APERTURE_CLAUDE_HOST ?? "127.0.0.1";
-      const port = readNumber(process.env.APERTURE_CLAUDE_PORT) ?? 4545;
+      const endpoint = claudeBridgeUrl();
+      const latestSnapshot = await fetchRuntimeSnapshot(runtimeBaseUrl);
+      if (runtimeHasAdapter(latestSnapshot, "claude-code") || runtimeHasLiveClaudeActivity(latestSnapshot)) {
+        connections.update("claude", {
+          ...readyClaudeState(install?.changed ?? false, true),
+          detail: install?.changed
+            ? "Using an existing Claude bridge. Claude Code still needs to reload the updated hooks."
+            : `Using an existing Claude bridge at ${endpoint}.`,
+        });
+        return;
+      }
       connections.update("claude", {
         state: "action",
-        detail: `Claude bridge is already using ${host}:${port}.`,
-        hint: "If another Aperture/Claude bridge is running, keep using it. Otherwise stop the other process and retry, or launch with --no-claude.",
+        detail: `Another Claude bridge is already listening at ${endpoint}.`,
+        hint: "If Claude is already working, keep using that bridge. Otherwise stop the other process and retry, or launch with --no-claude.",
       });
       return;
     }
@@ -1133,12 +1142,13 @@ function readyClaudeState(changedHooks: boolean, attachedExisting: boolean): {
   detail: string;
   hint?: string;
 } {
+  const endpoint = claudeBridgeUrl();
   if (changedHooks) {
     return {
       state: "action",
       detail: attachedExisting
-        ? "Claude bridge is ready, but Claude Code still needs to reload the updated hooks."
-        : "Claude bridge is ready. Claude Code still needs to reload the updated hooks.",
+        ? `Using an existing Claude bridge at ${endpoint}, but Claude Code still needs to reload the updated hooks.`
+        : `Claude bridge is ready at ${endpoint}. Claude Code still needs to reload the updated hooks.`,
       hint: "Restart Claude Code and run /hooks once to finish setup.",
     };
   }
@@ -1146,13 +1156,20 @@ function readyClaudeState(changedHooks: boolean, attachedExisting: boolean): {
   return {
     state: "ready",
     detail: attachedExisting
-      ? "Attached to an existing Claude Code bridge."
-      : "Listening for Claude Code hooks.",
+      ? `Using an existing Claude bridge at ${endpoint}.`
+      : `Listening for Claude Code hooks at ${endpoint}.`,
   };
 }
 
 function isClaudeBridgePortInUse(message: string): boolean {
   return message.includes("EADDRINUSE");
+}
+
+function claudeBridgeUrl(): string {
+  const host = process.env.APERTURE_CLAUDE_HOST ?? "127.0.0.1";
+  const port = readNumber(process.env.APERTURE_CLAUDE_PORT) ?? 4545;
+  const hookPath = process.env.APERTURE_CLAUDE_PATH ?? "/hook";
+  return `http://${host}:${port}${hookPath}`;
 }
 
 function describeProfileTargets(profiles: OpencodeConnectionProfile[]): string {
@@ -1203,6 +1220,16 @@ function runtimeHasLiveOpencodeActivity(snapshot: ApertureRuntimeSnapshot): bool
     }
     return frame.title.trim().toLowerCase() !== "opencode event stream disconnected";
   });
+}
+
+function runtimeHasLiveClaudeActivity(snapshot: ApertureRuntimeSnapshot): boolean {
+  const frames = [
+    ...(snapshot.attentionView.active ? [snapshot.attentionView.active] : []),
+    ...snapshot.attentionView.queued,
+    ...snapshot.attentionView.ambient,
+  ];
+
+  return frames.some((frame) => frame.source?.kind === "claude-code");
 }
 
 async function ensureRuntime(options: LauncherOptions): Promise<RuntimeBinding> {

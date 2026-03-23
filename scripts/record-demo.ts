@@ -1,4 +1,4 @@
-import { accessSync, constants, mkdirSync, rmSync } from "node:fs";
+import { accessSync, constants, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -7,22 +7,39 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(scriptDir, "..");
 const tapeArg = process.argv[2] ?? "demo/aperture-demo.tape";
 const tapePath = resolve(rootDir, tapeArg);
-const outputGif = resolve(rootDir, "docs/assets/demo.gif");
-const outputMp4 = resolve(rootDir, "docs/assets/demo.mp4");
-
 function main(): void {
   assertExecutable("vhs", [
     "vhs is required to record the TUI demo.",
     "Install it from https://github.com/charmbracelet/vhs and rerun pnpm demo:record.",
   ]);
   assertReadable(tapePath, `Tape file not found: ${tapePath}`);
+  const outputs = readTapeOutputs(tapePath);
 
-  mkdirSync(dirname(outputGif), { recursive: true });
-  rmSync(outputGif, { force: true });
-  rmSync(outputMp4, { force: true });
+  for (const outputPath of outputs) {
+    mkdirSync(dirname(outputPath), { recursive: true });
+    rmSync(outputPath, { force: true });
+  }
 
-  process.stdout.write(`Recording Aperture TUI demo to ${outputGif} and ${outputMp4}\n`);
+  process.stdout.write(`Recording Aperture TUI demo to ${outputs.join(" and ")}\n`);
   runOrExit("vhs", [tapePath], rootDir);
+}
+
+function readTapeOutputs(path: string): string[] {
+  const raw = readFileSync(path, "utf8");
+  const outputs = raw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("Output "))
+    .map((line) => line.slice("Output ".length).trim())
+    .filter((line) => line.length > 0)
+    .map((line) => resolve(rootDir, line));
+
+  if (outputs.length === 0) {
+    process.stderr.write(`Tape file does not declare any Output paths: ${path}\n`);
+    process.exit(1);
+  }
+
+  return outputs;
 }
 
 function assertExecutable(command: string, messageLines: string[]): void {

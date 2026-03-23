@@ -14,6 +14,8 @@
     "claude:start": "tsx scripts/claude-adapter.ts",
     "clean": "rm -rf packages/*/dist",
     "demo:record": "tsx scripts/record-demo.ts",
+    "demo:record:setup": "tsx scripts/record-demo.ts demo/aperture-demo-setup.tape",
+    "demo:setup": "tsx scripts/demo-setup-tui.ts",
     "demo:tui": "tsx scripts/demo-tui.ts",
     "judgment:bench": "tsx scripts/judgment-bench.ts",
     "judgment:determinism": "tsx scripts/judgment-determinism.ts",

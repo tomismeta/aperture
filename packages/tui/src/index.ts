@@ -177,9 +177,12 @@ export async function runAttentionTui(
     const isEmpty = isAttentionViewEmpty(state.attentionView);
     const hasNoActiveFrame = state.attentionView.active === null;
     const hadActiveAnimation = tickAnimation(state.animation);
+    const shouldPulseIdleLens = hasNoActiveFrame
+      && isEmpty
+      && (state.animation.idleTick === 0 || state.animation.idleTick === 2);
 
     if (reducedMotion) {
-      if (hadActiveAnimation || viewChanged) {
+      if (hadActiveAnimation || viewChanged || shouldPulseIdleLens) {
         requestRender();
       }
       return;

@@ -1014,10 +1014,20 @@ async function startOpencodeConnection(
 
     const probe = await probeOpencodeProfiles(profiles);
     if (probe.kind === "ready") {
+      const latestSnapshot = await fetchRuntimeSnapshot(runtimeBaseUrl);
+      if (!runtimeHasLiveOpencodeActivity(latestSnapshot)) {
+        connections.update("opencode", {
+          state: "action",
+          detail: "OpenCode server is ready. Attach the OpenCode terminal to finish setup.",
+          hint: opencodeAttachHint(profiles),
+        });
+        return;
+      }
+
       connections.update("opencode", {
         state: "ready",
         detail: attachedExistingBridge
-          ? `Attached to an existing OpenCode connection at ${describeProfileTargets(profiles)}.`
+          ? `Attached to an existing OpenCode session at ${describeProfileTargets(profiles)}.`
           : probe.detail,
         ...(probe.hint ? { hint: probe.hint } : {}),
       });
@@ -1051,11 +1061,7 @@ async function startOpencodeConnection(
         activeClose = result.close;
         stopRetryLoop();
         ensureHealthLoop();
-        connections.update("opencode", {
-          state: "ready",
-          detail: result.detail,
-          ...(result.hint ? { hint: result.hint } : {}),
-        });
+        await refreshHealth();
         return;
       }
 
@@ -1152,6 +1158,29 @@ function humanizeOpencodeError(profile: OpencodeConnectionProfile, message: stri
   }
 
   return message;
+}
+
+function opencodeAttachHint(profiles: OpencodeConnectionProfile[]): string {
+  const targets = [...new Set(profiles.map((profile) => profile.baseUrl))];
+  if (targets.length === 1 && targets[0]) {
+    return `Run: opencode attach ${targets[0]}.`;
+  }
+  return "Run: opencode attach <url> for one of the configured OpenCode servers.";
+}
+
+function runtimeHasLiveOpencodeActivity(snapshot: ApertureRuntimeSnapshot): boolean {
+  const frames = [
+    ...(snapshot.attentionView.active ? [snapshot.attentionView.active] : []),
+    ...snapshot.attentionView.queued,
+    ...snapshot.attentionView.ambient,
+  ];
+
+  return frames.some((frame) => {
+    if (frame.source?.kind !== "opencode") {
+      return false;
+    }
+    return frame.title.trim().toLowerCase() !== "opencode event stream disconnected";
+  });
 }
 
 async function ensureRuntime(options: LauncherOptions): Promise<RuntimeBinding> {

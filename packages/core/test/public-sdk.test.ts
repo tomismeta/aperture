@@ -107,6 +107,28 @@ test("public SDK supports the simple event in -> frame out -> response in loop",
   assert.equal(core.getSignals("task:simple-loop").at(-1)?.kind, "responded");
 });
 
+test("public SDK exposes surface capability types through the root package", () => {
+  const surfaceCapabilities: sdk.AttentionSurfaceCapabilities = {
+    topology: {
+      supportsAmbient: false,
+    },
+    responses: {
+      supportsSingleChoice: true,
+      supportsMultipleChoice: false,
+      supportsForm: false,
+      supportsTextResponse: true,
+    },
+  };
+
+  const core = new sdk.ApertureCore({
+    surfaceCapabilities,
+  });
+
+  assert.equal(core.getSurfaceCapabilities().topology.supportsAmbient, false);
+  assert.equal(core.getSurfaceCapabilities().responses.supportsForm, false);
+  assert.equal(core.getSurfaceCapabilities().responses.supportsTextResponse, true);
+});
+
 test("advanced semantic helpers live behind the semantic subpath", () => {
   assert.equal("interpretSourceEvent" in sdk, false);
   assert.equal("normalizeSourceEvent" in sdk, false);

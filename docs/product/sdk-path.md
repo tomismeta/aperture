@@ -24,7 +24,11 @@ Today, the real judgment layer lives in the [Aperture core SDK package](../../pa
 
 Current version:
 
-- `@tomismeta/aperture-core@0.3.0` on this branch
+- `@tomismeta/aperture-core@0.4.1`
+
+If you want the opinionated local CLI/TUI product, use `@tomismeta/aperture`.
+If you want to embed the deterministic judgment loop in your own host or
+workflow, use `@tomismeta/aperture-core`.
 
 What is already true:
 
@@ -155,6 +159,30 @@ For SDK consumers, that means:
 
 The package contract should be about learning persistence, not Markdown as a
 product concept.
+
+## Host Constraints Versus Operator Behavior
+
+SDK consumers can absolutely shape their own host behavior outside core.
+
+But if the host never tells Aperture what it can actually render or accept, the
+engine will still plan as if it is targeting the default richer surface.
+
+That is why host constraints belong in the SDK contract.
+
+This should stay separate from:
+
+- explicit operator profile
+- learned operator behavior
+
+Those are different concepts:
+
+- host constraints describe what the surface can do
+- operator profile describes what the human explicitly wants
+- operator learning describes what Aperture infers from repeated signals
+
+If those concepts blur together, the engine can learn the wrong lesson. For
+example, a constrained host may suppress ambient work even when the operator
+would prefer to see ambient items on a richer surface.
 
 ## Package Boundary Rules
 

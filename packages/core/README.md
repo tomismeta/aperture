@@ -14,6 +14,12 @@ A deterministic SDK for deciding what should interrupt now, what should wait unt
 
 Published on npm as `@tomismeta/aperture-core`.
 
+If you want the opinionated local CLI/TUI product, install
+`@tomismeta/aperture` instead.
+
+Use `@tomismeta/aperture-core` when you want to embed Aperture's judgment loop
+inside your own host, runtime, plugin, or workflow layer.
+
 Use this SDK when your agents can produce approvals, follow-up questions,
 status updates, or blocked work, and you need one place to decide:
 
@@ -108,12 +114,18 @@ the TUI, see [Architecture Overview](https://github.com/tomismeta/aperture/blob/
 If you want the replay, benchmark, and calibration direction for evaluating
 judgment changes, see [Aperture Lab](https://github.com/tomismeta/aperture/blob/main/docs/lab/aperture-lab.md).
 
-For the current shipped release summary, see [Aperture Core SDK v0.4.0](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-core-v0.4.0.md).
+For the current shipped release summary, see [Aperture Core SDK v0.4.1](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-core-v0.4.1.md).
 
 ## Install
 
 ```bash
 npm install @tomismeta/aperture-core
+```
+
+If what you want is the shipped product surface, install:
+
+```bash
+npm install -g @tomismeta/aperture
 ```
 
 ## Start Here
@@ -162,6 +174,78 @@ import { interpretSourceEvent, normalizeSourceEvent } from "@tomismeta/aperture-
 
 That subpath exists for advanced adapter authors. The root package remains the
 recommended SDK loop.
+
+## Host Constraints, Operator Profile, And Operator Learning
+
+These are three different concepts, and they should stay separate.
+
+### Host constraints
+
+These describe what your host can actually render or accept.
+
+Examples:
+
+- whether ambient work can be shown at all
+- whether the host supports single-choice or multiple-choice prompts
+- whether the host supports forms
+- whether the host supports freeform text replies
+
+Use `surfaceCapabilities` for this.
+
+```ts
+import {
+  ApertureCore,
+  type AttentionSurfaceCapabilities,
+} from "@tomismeta/aperture-core";
+
+const surfaceCapabilities: AttentionSurfaceCapabilities = {
+  topology: {
+    supportsAmbient: false,
+  },
+  responses: {
+    supportsSingleChoice: true,
+    supportsMultipleChoice: false,
+    supportsForm: false,
+    supportsTextResponse: true,
+  },
+};
+
+const core = new ApertureCore({
+  surfaceCapabilities,
+});
+```
+
+### Operator profile
+
+This is explicit human-owned configuration.
+
+Examples:
+
+- quiet hours
+- batching preferences
+- tool-specific overrides
+
+That lives in the operator profile and should reflect what the human wants, not
+what a particular host happens to support.
+
+### Operator learning
+
+This is learned behavior derived from repeated signals over time.
+
+Examples:
+
+- what gets dismissed quickly
+- what usually needs more context
+- what tends to come back after deferral
+- which sources or consequence bands have earned trust
+
+This is part of Aperture's wedge, but it should not be confused with host
+constraints. A voice host might suppress ambient items because it cannot render
+them cleanly, while the operator might still prefer ambient when using a richer
+surface.
+
+That distinction is why `surfaceCapabilities` belongs in the SDK contract even
+though consumers could model host constraints outside core themselves.
 
 ## How Judgment Is Structured
 

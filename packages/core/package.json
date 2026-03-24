@@ -1,7 +1,7 @@
 {
   "name": "@tomismeta/aperture-core",
-  "version": "0.4.0",
-  "description": "The human attention control plane for agent systems.",
+  "version": "0.4.1",
+  "description": "The deterministic judgment engine inside Aperture.",
   "author": "tomismeta <tomismeta@gmail.com>",
   "license": "MIT",
   "homepage": "https://github.com/tomismeta/aperture#readme",

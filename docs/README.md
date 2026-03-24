@@ -16,7 +16,7 @@ The docs are organized into seven groups:
 
 1. [README](../README.md)
 2. [Aperture v0.1.1](./releases/aperture-v0.1.1.md)
-3. [Aperture Core SDK v0.4.0](./releases/aperture-core-v0.4.0.md)
+3. [Aperture Core SDK v0.4.1](./releases/aperture-core-v0.4.1.md)
 4. [Architecture Overview](./product/architecture-overview.md)
 5. [Components](./product/components.md)
 6. [Adapter Contract](./product/adapter-contract.md)
@@ -28,6 +28,7 @@ If you are new to the repo, that path gives the fastest accurate picture of the 
 
 - [Aperture v0.1.1](./releases/aperture-v0.1.1.md)
 - [Aperture v0.1.0](./releases/aperture-v0.1.0.md)
+- [Aperture Core SDK v0.4.1](./releases/aperture-core-v0.4.1.md)
 - [Aperture Core SDK v0.4.0](./releases/aperture-core-v0.4.0.md)
 
 ## Product Surface
@@ -95,6 +96,7 @@ measures and improves Aperture's deterministic hot path.
 - [Human Attention Research](./roadmap/human-attention-research.md)
 - [Engine Architecture Evaluation](./roadmap/engine-architecture-evaluation.md)
 - [Agent Workforce Use Case](./roadmap/agent-workforce-use-case.md)
+- [Host Surface Expansion Note](./roadmap/host-surface-expansion-note.md)
 - [TUI Design](./roadmap/tui-design.md)
 
 These docs are useful when you want to understand why the product is shaped this way or where it should go next.

@@ -179,6 +179,7 @@ Ordered by leverage:
 
 5. **Prove one non-TUI host surface later**
    - only after the evaluation loop is more mature
+   - see [Host Surface Expansion Note](./host-surface-expansion-note.md)
 
 ## What To Avoid
 

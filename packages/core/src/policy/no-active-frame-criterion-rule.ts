@@ -1,5 +1,5 @@
 import type { AttentionFrame } from "../frame.js";
-import { readFrameEpisodeId, readFrameEpisodeState } from "../episode-tracker.js";
+import { isDormantEpisodeState, readFrameEpisodeId, readFrameEpisodeState } from "../episode-tracker.js";
 
 import {
   ambiguousPeripheralCriterionVerdict,
@@ -32,7 +32,7 @@ export const evaluateNoActiveFrameCriterionRule: PolicyCriterionRule = (input) =
       .some((frame) =>
         frame.interactionId !== candidate.interactionId
         && readFrameEpisodeId(frame) === candidate.episodeId
-        && readFrameEpisodeState(frame) !== "resolved"
+        && !isDormantEpisodeState(readFrameEpisodeState(frame))
       )
   ) {
     return noopPolicyCriterionRule("no_active_frame");

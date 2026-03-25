@@ -90,5 +90,6 @@ export const JUDGMENT_DEFAULTS = {
     relationRepeatBoost: 1,
     relationEscalationBoost: 2,
     actionableThreshold: 4,
+    staleAfterMs: 15 * 60_000,
   },
 } as const;

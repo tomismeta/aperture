@@ -314,6 +314,70 @@ test("resolved episode metadata does not keep same-episode continuity alive", ()
   );
 });
 
+test("stale episode metadata does not keep same-episode continuity alive", () => {
+  const coordinator = new JudgmentCoordinator();
+  const explanation = coordinator.explain(
+    createFrame({
+      metadata: {
+        episode: {
+          id: "episode:shared",
+          key: "claude-code:interruptive:/workspace/config.ts",
+          state: "stale",
+          size: 2,
+          evidenceScore: 4,
+          evidenceReasons: ["multiple related interactions accumulated before this episode went quiet"],
+          lastInteractionId: "interaction:current",
+          updatedAt: "2026-03-08T12:00:00.000Z",
+        },
+      },
+    }),
+    createCandidate(),
+  );
+
+  assert.equal(
+    explanation.continuityEvaluations?.find((evaluation) => evaluation.rule === "same_episode")?.kind,
+    "noop",
+  );
+});
+
+test("stale visible episode metadata does not keep visible bundling alive", () => {
+  const coordinator = new JudgmentCoordinator();
+  const explanation = coordinator.explain(null, createCandidate({
+    episodeState: "batched",
+  }), {
+    attentionView: {
+      active: null,
+      queued: [
+        createFrame({
+          taskId: "task:other",
+          interactionId: "interaction:queued",
+          mode: "status",
+          responseSpec: { kind: "none" },
+          metadata: {
+            episode: {
+              id: "episode:shared",
+              key: "claude-code:interruptive:/workspace/config.ts",
+              state: "stale",
+              size: 2,
+              evidenceScore: 1,
+              evidenceReasons: ["multiple related interactions accumulated before this episode went quiet"],
+              lastInteractionId: "interaction:queued",
+              updatedAt: "2026-03-08T11:00:00.000Z",
+            },
+          },
+        }),
+      ],
+      ambient: [],
+    } satisfies AttentionView,
+  });
+
+  assert.equal(
+    explanation.continuityEvaluations?.find((evaluation) => evaluation.rule === "visible_episode"),
+    undefined,
+  );
+  assert.equal(explanation.decision.kind, "ambient");
+});
+
 test("visible queued episode work stays bundled even when unrelated current work is active", () => {
   const coordinator = new JudgmentCoordinator();
   const decision = coordinator.coordinate(

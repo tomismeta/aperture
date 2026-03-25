@@ -22,7 +22,7 @@ import {
   resolveAttentionEvidenceContext,
 } from "./attention-evidence.js";
 import { deriveAttentionState, type AttentionState } from "./attention-state.js";
-import { EpisodeTracker, readFrameEpisodeId, readFrameEpisodeState } from "./episode-tracker.js";
+import { EpisodeTracker, isDormantEpisodeState, readFrameEpisodeId, readFrameEpisodeState } from "./episode-tracker.js";
 import { EventEvaluator } from "./event-evaluator.js";
 import { FramePlanner } from "./frame-planner.js";
 import { JudgmentCoordinator } from "./judgment-coordinator.js";
@@ -742,7 +742,7 @@ export class ApertureCore {
       frame !== null
       && frame.interactionId !== candidate.interactionId
       && readFrameEpisodeId(frame) === candidate.episodeId
-      && readFrameEpisodeState(frame) !== "resolved"
+      && !isDormantEpisodeState(readFrameEpisodeState(frame))
     );
   }
 
@@ -785,14 +785,14 @@ export class ApertureCore {
     attentionView: AttentionView,
   ): { frame: AttentionFrame; bucket: "queue" | "ambient" } | null {
     const queued = attentionView.queued.find((frame) =>
-      readFrameEpisodeId(frame) === episodeId && readFrameEpisodeState(frame) !== "resolved"
+      readFrameEpisodeId(frame) === episodeId && !isDormantEpisodeState(readFrameEpisodeState(frame))
     );
     if (queued) {
       return { frame: queued, bucket: "queue" };
     }
 
     const ambient = attentionView.ambient.find((frame) =>
-      readFrameEpisodeId(frame) === episodeId && readFrameEpisodeState(frame) !== "resolved"
+      readFrameEpisodeId(frame) === episodeId && !isDormantEpisodeState(readFrameEpisodeState(frame))
     );
     if (ambient) {
       return { frame: ambient, bucket: "ambient" };

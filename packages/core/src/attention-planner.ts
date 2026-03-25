@@ -6,7 +6,7 @@ import {
   type AttentionEvidenceContext,
   type AttentionEvidenceInput,
 } from "./attention-evidence.js";
-import { readFrameEpisodeId, readFrameEpisodeState } from "./episode-tracker.js";
+import { isDormantEpisodeState, readFrameEpisodeId, readFrameEpisodeState } from "./episode-tracker.js";
 import { isBlockingFrame, priorityForFrame } from "./frame-score.js";
 import type { AttentionCandidate, AttentionPriority } from "./interaction-candidate.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
@@ -132,7 +132,7 @@ export class AttentionPlanner {
         .some((frame) =>
           frame.interactionId !== candidate.interactionId
           && readFrameEpisodeId(frame) === candidate.episodeId
-          && readFrameEpisodeState(frame) !== "resolved"
+          && !isDormantEpisodeState(readFrameEpisodeState(frame))
         );
 
     if (episodeIsAlreadyInterruptive) {
@@ -182,7 +182,7 @@ export class AttentionPlanner {
         .some((frame) =>
           frame.interactionId !== candidate.interactionId
           && readFrameEpisodeId(frame) === candidate.episodeId
-          && readFrameEpisodeState(frame) !== "resolved"
+          && !isDormantEpisodeState(readFrameEpisodeState(frame))
         );
 
     if (relatedEpisodeVisible) {

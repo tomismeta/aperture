@@ -262,3 +262,40 @@ test("resolved episodes reopen with a fresh identity and reset evidence", () => 
   assert.equal(reopened.episodeState, "emerging");
   assert.equal(reopened.episodeEvidenceScore, 0);
 });
+
+test("long-quiet episodes reopen with a fresh identity and reset evidence", () => {
+  const store = new EpisodeTracker();
+  store.assign(
+    createCandidate({
+      blocking: false,
+      mode: "status",
+      responseSpec: { kind: "none" },
+    }),
+  );
+  const batched = store.assign(
+    createCandidate({
+      interactionId: "interaction:two",
+      blocking: false,
+      mode: "status",
+      title: "Config sync is still running",
+      responseSpec: { kind: "none" },
+      timestamp: "2026-03-08T12:01:00.000Z",
+    }),
+  );
+
+  const reopened = store.assign(
+    createCandidate({
+      interactionId: "interaction:three",
+      blocking: false,
+      mode: "status",
+      title: "Config sync resumed after a long pause",
+      responseSpec: { kind: "none" },
+      timestamp: "2026-03-08T12:20:00.000Z",
+    }),
+  );
+
+  assert.notEqual(reopened.episodeId, batched.episodeId);
+  assert.equal(reopened.episodeSize, 1);
+  assert.equal(reopened.episodeState, "emerging");
+  assert.equal(reopened.episodeEvidenceScore, 0);
+});

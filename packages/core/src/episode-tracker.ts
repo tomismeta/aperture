@@ -36,10 +36,9 @@ export class EpisodeTracker {
   assign(candidate: AttentionCandidate): AttentionCandidate {
     const key = buildEpisodeKey(candidate);
     const existingId = this.byInteractionId.get(candidate.interactionId);
-    const record =
-      (existingId ? this.byId.get(existingId) : undefined)
-      ?? this.byKey.get(key)
-      ?? this.createRecord(key, candidate);
+    const boundRecord = existingId ? this.byId.get(existingId) : undefined;
+    const keyedRecord = boundRecord ? null : this.byKey.get(key);
+    const record = boundRecord ?? this.resolveAssignableRecord(key, keyedRecord, candidate);
 
     record.interactions.add(candidate.interactionId);
     record.lastInteractionId = candidate.interactionId;
@@ -139,6 +138,37 @@ export class EpisodeTracker {
       relationKinds: new Set((candidate.relationHints ?? []).map((hint) => hint.kind)),
     };
   }
+
+  private resolveAssignableRecord(
+    key: string,
+    current: EpisodeRecord | null | undefined,
+    candidate: AttentionCandidate,
+  ): EpisodeRecord {
+    if (!current) {
+      return this.createRecord(key, candidate);
+    }
+
+    if (this.shouldRollEpisode(current, candidate.timestamp)) {
+      current.state = "stale";
+      return this.createRecord(key, candidate);
+    }
+
+    return current;
+  }
+
+  private shouldRollEpisode(record: EpisodeRecord, nextTimestamp: string): boolean {
+    if (isDormantEpisodeState(record.state)) {
+      return true;
+    }
+
+    const previousMs = Date.parse(record.updatedAt);
+    const nextMs = Date.parse(nextTimestamp);
+    if (Number.isNaN(previousMs) || Number.isNaN(nextMs)) {
+      return false;
+    }
+
+    return nextMs - previousMs >= DEFAULTS.staleAfterMs;
+  }
 }
 
 export function buildEpisodeKey(candidate: AttentionCandidate): string {
@@ -154,6 +184,10 @@ export function readFrameEpisodeId(frame: AttentionFrame | null): string | null 
 
 export function readFrameEpisodeState(frame: AttentionFrame | null): EpisodeState | null {
   return frame ? readState(frame.metadata?.episode, "state") : null;
+}
+
+export function isDormantEpisodeState(state: EpisodeState | null): boolean {
+  return state === "stale" || state === "resolved";
 }
 
 function episodeAnchor(candidate: AttentionCandidate): string {

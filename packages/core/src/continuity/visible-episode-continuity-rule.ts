@@ -1,5 +1,5 @@
 import type { AttentionFrame } from "../frame.js";
-import { readFrameEpisodeId, readFrameEpisodeState } from "../episode-tracker.js";
+import { isDormantEpisodeState, readFrameEpisodeId, readFrameEpisodeState } from "../episode-tracker.js";
 import { hasResurfacingPressure } from "./deferral-escalation-continuity-rule.js";
 import { noopContinuityRule, overrideContinuityRule, type ContinuityRule } from "./continuity-rule.js";
 
@@ -22,7 +22,7 @@ export const evaluateVisibleEpisodeContinuityRule: ContinuityRule = (input) => {
     .filter((frame) =>
       frame.interactionId !== candidate.interactionId
       && readFrameEpisodeId(frame) === candidate.episodeId
-      && readFrameEpisodeState(frame) !== "resolved"
+      && !isDormantEpisodeState(readFrameEpisodeState(frame))
     );
 
   if (

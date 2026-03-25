@@ -20,7 +20,7 @@ This document answers:
 Right now Aperture has:
 
 - a published core SDK:
-  - `@tomismeta/aperture-core@0.2.1`
+  - `@tomismeta/aperture-core@0.4.1`
 - two live adapter paths:
   - Claude Code
   - OpenCode
@@ -37,6 +37,7 @@ The immediate technical priority is not breadth. It is confidence:
 - confidence in the live adapter paths
 - confidence in the published SDK surface
 - confidence in replayable deterministic behavior
+- confidence that the engine behaves correctly across more than the flagship TUI
 
 ## The Three Tracks
 

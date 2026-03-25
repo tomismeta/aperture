@@ -24,11 +24,17 @@ Not in:
 
 Aperture should be positioned as:
 
-**the human attention control plane for agent systems**
+**the attention layer for agent work**
 
 More specifically:
 
 **the engine that learns how this human spends attention and protects it**
+
+As native hosts become more autonomous, Aperture's role gets clearer:
+
+- hosts can make more local safe decisions
+- Aperture should decide what still deserves human attention
+- Aperture should also preserve quiet awareness of meaningful host-native decisions
 
 Not as:
 
@@ -46,7 +52,7 @@ A model reasons from prompt context. Aperture reasons from system state. Prompt 
 
 Over time, Aperture should be able to exist in two complementary forms:
 
-- as a product runtime and surface for humans supervising agents
+- as a product runtime and surface for humans working with agents
 - as an embeddable judgment SDK other agent runtimes can adopt directly
 
 ## Current Status
@@ -90,6 +96,10 @@ What is still missing:
 - evaluator-driven tuning from replay evidence
 - richer cross-session adaptation beyond summary carry-forward
 - explicit migration paths for persisted schema changes
+- a cleaner split between:
+  - host constraints
+  - explicit operator profile
+  - learned operator behavior
 
 ### 3. Orchestrate
 
@@ -125,6 +135,7 @@ What is still missing:
 - likely-next-action recommendations
 - synthesized episode-level anticipation frames
 - optional model-based advisory seam for speculative reasoning
+- better handling of host-native autonomous decisions as background signal
 
 ### 5. Compound
 
@@ -150,7 +161,7 @@ Status: `underway`
 
 The long-term shape is still two complementary forms:
 
-- a product runtime and surface for humans supervising agents
+- a product runtime and surface for humans working with agents
 - an embeddable judgment SDK other runtimes can adopt
 
 What is already true:
@@ -508,6 +519,7 @@ Ordered by impact:
 5. **Add an advisory reasoning seam** — introduce optional model assistance for ambiguous, speculative work outside the hot path.
 6. **Broaden the live runtime surface** — add transport breadth beyond Claude Code and strengthen cross-source episode handling.
 7. **Pressure-test the substrate in real hosts** — use one real non-TUI integration to validate the package contract, surface constraints, and judgment behavior under another product's UX assumptions.
+8. **Treat host-native auto decisions as ambient signal** — preserve awareness of meaningful autonomous decisions without turning them into interruptions by default.
 
 Near-term interpretation:
 

@@ -110,7 +110,57 @@ The engine should learn from:
 - return
 - sequence
 
-## Core Doctrines
+## Doctrine Tiers
+
+Not every doctrine below should be treated with the same weight.
+
+The engine is healthier when we separate:
+
+- durable invariants
+- strong working theses
+- later research ideas
+
+### Tier 1: Core invariants
+
+These are the doctrines Aperture should keep treating as identity-level rules:
+
+1. interruption credibility
+2. decision over event
+3. hard-gate interrupt
+4. attention worthiness
+5. queue as deliberate deferred attention
+6. ambient as deliberate awareness
+7. surface capability awareness
+8. non-response as real signal
+
+### Tier 2: Strong working theses
+
+These are strong Aperture theses, but they should still be treated as
+implementation and validation work, not sacred law:
+
+- pattern accumulation
+- minimum dwell
+- decision-stream continuity shaping
+- queue pressure shaping
+- source trust thresholding
+- operator override learning
+- absence-aware reconnect behavior
+- surface-capability degradation
+
+### Tier 3: Later research theses
+
+These are promising but should stay behind the first two tiers:
+
+- full breakpoint-aware promotion
+- richer interrupt conflict resolution
+- more sophisticated resumption packaging
+- timing-aware task-boundary sensing
+
+## Doctrine Catalog
+
+The rest of this document keeps the full doctrine catalog so the design space is
+not lost. The tiers above define how strongly each item should steer current
+engine work.
 
 ### 1. Interruption credibility doctrine
 
@@ -491,29 +541,29 @@ It should remain:
 
 Current doctrine status:
 
-| Doctrine | Status |
-| --- | --- |
-| Interrupt gate | Implemented |
-| Queue routing | Implemented |
-| Ambient routing | Implemented |
-| Suppress or reconcile | Implemented |
-| Ambiguity handling | Implemented |
-| Surface capability awareness | Implemented |
-| Trace visibility | Implemented |
-| Generic text response path | Implemented |
-| Absence handling | Partial |
-| Pattern accumulation | Partial |
-| Minimum dwell | Not yet |
-| Decision-stream continuity | Not yet |
-| Queue pressure surfacing | Not yet |
-| Breakpoint-aware promotion | Not yet |
-| Decision fatigue thresholding | Not yet |
-| Resumption context restoration | Not yet |
-| Surface capability degradation policy | Not yet |
-| Non-response handling | Not yet |
-| Simultaneous interrupt conflict resolution | Not yet |
-| Source-trust thresholding | Partial |
-| Operator-override learning | Partial |
+| Doctrine | Tier | Status |
+| --- | --- | --- |
+| Interrupt gate | Core invariant | Implemented |
+| Queue routing | Core invariant | Implemented |
+| Ambient routing | Core invariant | Implemented |
+| Suppress or reconcile | Core invariant | Implemented |
+| Ambiguity handling | Core invariant | Implemented |
+| Surface capability awareness | Core invariant | Implemented |
+| Trace visibility | Core invariant | Implemented |
+| Generic text response path | Core invariant | Implemented |
+| Absence handling | Strong working thesis | Partial |
+| Pattern accumulation | Strong working thesis | Partial |
+| Minimum dwell | Strong working thesis | Not yet |
+| Decision-stream continuity | Strong working thesis | Not yet |
+| Queue pressure surfacing | Strong working thesis | Not yet |
+| Breakpoint-aware promotion | Later research thesis | Not yet |
+| Decision fatigue thresholding | Strong working thesis | Not yet |
+| Resumption context restoration | Later research thesis | Not yet |
+| Surface capability degradation policy | Strong working thesis | Not yet |
+| Non-response handling | Core invariant | Not yet |
+| Simultaneous interrupt conflict resolution | Later research thesis | Not yet |
+| Source-trust thresholding | Strong working thesis | Partial |
+| Operator-override learning | Strong working thesis | Partial |
 
 ## Build Priorities
 

@@ -20,17 +20,12 @@ export type {
 } from "./source-event.js";
 export type {
   AttentionFrame,
-  AttentionField,
-  AttentionResponseSpec,
   AttentionTaskView,
   AttentionView,
   AttentionConsequenceLevel,
 } from "./frame.js";
 export type { AttentionResponse } from "./frame-response.js";
 export type { AttentionSignal } from "./interaction-signal.js";
-export type { AttentionSignalSummary } from "./signal-summary.js";
-export type { AttentionState } from "./attention-state.js";
-export type { ApertureTrace } from "./trace.js";
 export type {
   AttentionTopologyCapabilities,
   AttentionResponseCapabilities,

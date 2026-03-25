@@ -1,11 +1,13 @@
 import type {
-  ApertureTrace,
   AttentionResponse,
-  AttentionSignalSummary,
-  AttentionState,
   AttentionSurfaceCapabilities,
   AttentionView,
 } from "@tomismeta/aperture-core";
+import type {
+  ApertureTrace,
+  AttentionSignalSummary,
+  AttentionState,
+} from "../../core/src/internal-contract.js";
 
 import type {
   ApertureRuntimeEvent,

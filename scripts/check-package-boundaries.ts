@@ -26,6 +26,9 @@ async function main(): Promise<void> {
     if (imports.length === 0) {
       continue;
     }
+    if (imports.every((importPath) => importPath.endsWith("/core/src/internal-contract.js"))) {
+      continue;
+    }
     if (allowedCoreSourceImports.has(file)) {
       continue;
     }

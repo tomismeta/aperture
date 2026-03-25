@@ -1,13 +1,15 @@
 import type {
-  ApertureTrace,
-  AttentionField as FrameField,
   AttentionFrame as Frame,
   AttentionResponse as FrameResponse,
+  AttentionView,
+} from "@tomismeta/aperture-core";
+import type {
+  ApertureTrace,
+  AttentionField as FrameField,
   AttentionResponseSpec as FrameResponseSpec,
   AttentionSignalSummary as SignalSummary,
   AttentionState,
-  AttentionView,
-} from "@tomismeta/aperture-core";
+} from "../../core/src/internal-contract.js";
 
 export type {
   FrameField,

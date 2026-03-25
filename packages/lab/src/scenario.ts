@@ -193,4 +193,10 @@ export type ReplayTraceExpectation = {
   ambiguousAbstained?: number;
   ambiguousQueuedThenActivated?: number;
   ambiguousAmbientThenActivated?: number;
+  actionableEpisodes?: number;
+  actionableSurfaced?: number;
+  actionableActivated?: number;
+  deferredThenActivated?: number;
+  suppressedThenActivated?: number;
+  mergedEpisodeUpdates?: number;
 };

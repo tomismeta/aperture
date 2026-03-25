@@ -612,6 +612,12 @@ function validateReplayTraceExpectation(value: unknown): ReplayTraceExpectation 
     "ambiguousAbstained",
     "ambiguousQueuedThenActivated",
     "ambiguousAmbientThenActivated",
+    "actionableEpisodes",
+    "actionableSurfaced",
+    "actionableActivated",
+    "deferredThenActivated",
+    "suppressedThenActivated",
+    "mergedEpisodeUpdates",
   ] as const;
 
   for (const key of keys) {

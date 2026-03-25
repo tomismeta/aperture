@@ -336,6 +336,12 @@ function evaluateTraceExpectation(
   pushFieldAssertion(assertions, "trace ambiguous abstained", expectation.ambiguousAbstained, trace.ambiguousAbstained);
   pushFieldAssertion(assertions, "trace ambiguous queued then activated", expectation.ambiguousQueuedThenActivated, trace.ambiguousQueuedThenActivated);
   pushFieldAssertion(assertions, "trace ambiguous ambient then activated", expectation.ambiguousAmbientThenActivated, trace.ambiguousAmbientThenActivated);
+  pushFieldAssertion(assertions, "trace actionable episodes", expectation.actionableEpisodes, trace.actionableEpisodes);
+  pushFieldAssertion(assertions, "trace actionable surfaced", expectation.actionableSurfaced, trace.actionableSurfaced);
+  pushFieldAssertion(assertions, "trace actionable activated", expectation.actionableActivated, trace.actionableActivated);
+  pushFieldAssertion(assertions, "trace deferred then activated", expectation.deferredThenActivated, trace.deferredThenActivated);
+  pushFieldAssertion(assertions, "trace suppressed then activated", expectation.suppressedThenActivated, trace.suppressedThenActivated);
+  pushFieldAssertion(assertions, "trace merged episode updates", expectation.mergedEpisodeUpdates, trace.mergedEpisodeUpdates);
 
   return assertions;
 }

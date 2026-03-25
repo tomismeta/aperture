@@ -61,7 +61,9 @@
       "ambiguousLowConfidence": 1,
       "ambiguousAbstained": 0,
       "ambiguousQueuedThenActivated": 1,
-      "ambiguousAmbientThenActivated": 0
+      "ambiguousAmbientThenActivated": 0,
+      "deferredThenActivated": 1,
+      "mergedEpisodeUpdates": 1
     }
   },
   "steps": [

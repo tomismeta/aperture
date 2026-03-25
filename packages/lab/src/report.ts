@@ -61,6 +61,16 @@ export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
         `- Ambiguity trace: total=${result.scorecard.trace.ambiguousDecisions}, queued=${result.scorecard.trace.ambiguousQueued}, ambient=${result.scorecard.trace.ambiguousAmbient}, queued->active=${result.scorecard.trace.ambiguousQueuedThenActivated}, ambient->active=${result.scorecard.trace.ambiguousAmbientThenActivated}`,
       );
     }
+    if (
+      result.scorecard.trace.actionableEpisodes > 0
+      || result.scorecard.trace.deferredThenActivated > 0
+      || result.scorecard.trace.suppressedThenActivated > 0
+      || result.scorecard.trace.mergedEpisodeUpdates > 0
+    ) {
+      lines.push(
+        `- Resurfacing trace: actionable=${result.scorecard.trace.actionableEpisodes}, surfaced=${result.scorecard.trace.actionableSurfaced}, activated=${result.scorecard.trace.actionableActivated}, deferred->active=${result.scorecard.trace.deferredThenActivated}, suppressed->active=${result.scorecard.trace.suppressedThenActivated}, merged=${result.scorecard.trace.mergedEpisodeUpdates}`,
+      );
+    }
     if (result.run.semantics.length > 0) {
       for (const semantic of result.run.semantics) {
         lines.push(

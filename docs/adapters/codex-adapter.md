@@ -124,7 +124,7 @@ Codex App Server
 This is the current deterministic approval-path smoke test:
 
 ```bash
-APERTURE_CODEX_DEBUG=1 pnpm codex:run --cwd /Users/tom/dev/aperture --approval-policy on-request --sandbox read-only "Create a directory named codex-smoke-test and create hello.txt inside it."
+APERTURE_CODEX_DEBUG=1 pnpm codex:run --cwd /path/to/repo --approval-policy on-request --sandbox read-only "Create a directory named codex-smoke-test and create hello.txt inside it."
 ```
 
 Transport selection today:

@@ -151,6 +151,59 @@ test("public SDK exposes surface capability helpers through the root package", (
   assert.equal(merged.responses.supportsTextResponse, false);
 });
 
+test("public SDK exposes trace and surface rendering types through the root package", () => {
+  const field: sdk.AttentionField = {
+    id: "why",
+    label: "Why",
+    type: "text",
+  };
+  const responseSpec: sdk.AttentionResponseSpec = {
+    kind: "form",
+    fields: [field],
+    actions: [
+      {
+        id: "submit",
+        label: "Submit",
+        kind: "submit",
+        emphasis: "primary",
+      },
+    ],
+  };
+  const summary: sdk.AttentionSignalSummary = {
+    recentSignals: 1,
+    lifetimeSignals: 1,
+    counts: {
+      presented: 1,
+      viewed: 0,
+      responded: 0,
+      dismissed: 0,
+      deferred: 0,
+      contextExpanded: 0,
+      contextSkipped: 0,
+      timedOut: 0,
+      returned: 0,
+      attentionShifted: 0,
+    },
+    deferred: {
+      queued: 0,
+      suppressed: 0,
+      manual: 0,
+    },
+    responseRate: 0,
+    dismissalRate: 0,
+    averageResponseLatencyMs: null,
+    averageDismissalLatencyMs: null,
+    lastSignalAt: null,
+  };
+  const state: sdk.AttentionState = "monitoring";
+  const trace: sdk.ApertureTrace | null = null;
+
+  assert.equal(responseSpec.kind, "form");
+  assert.equal(summary.recentSignals, 1);
+  assert.equal(state, "monitoring");
+  assert.equal(trace, null);
+});
+
 test("advanced semantic helpers live behind the semantic subpath", () => {
   assert.equal("interpretSourceEvent" in sdk, false);
   assert.equal("normalizeSourceEvent" in sdk, false);

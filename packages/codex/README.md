@@ -113,7 +113,7 @@ pnpm codex:start -- --transport websocket --url ws://127.0.0.1:8765
 The same explicit transport flags work for `pnpm codex:run`:
 
 ```bash
-pnpm codex:run -- --transport websocket --url ws://127.0.0.1:8765 --cwd /Users/tom/dev/aperture "Review the current branch and summarize the risks."
+pnpm codex:run -- --transport websocket --url ws://127.0.0.1:8765 --cwd /path/to/repo "Review the current branch and summarize the risks."
 ```
 
 And the top-level stack can forward them too:
@@ -141,7 +141,7 @@ The verified request family is:
 Known-good smoke test:
 
 ```bash
-APERTURE_CODEX_DEBUG=1 pnpm codex:run --cwd /Users/tom/dev/aperture --approval-policy on-request --sandbox read-only "Create a directory named codex-smoke-test and create hello.txt inside it."
+APERTURE_CODEX_DEBUG=1 pnpm codex:run --cwd /path/to/repo --approval-policy on-request --sandbox read-only "Create a directory named codex-smoke-test and create hello.txt inside it."
 ```
 
 Current observed limitation:

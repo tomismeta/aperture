@@ -4,16 +4,16 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import {
   ApertureCore,
   type AttentionResponse,
+  type AttentionSignalSummary,
   type AttentionSignal,
+  type AttentionState,
   type AttentionSurfaceCapabilities,
   type AttentionView,
+  type ApertureTrace,
   type SourceEvent,
   baseAttentionSurfaceCapabilities,
   mergeAttentionSurfaceCapabilities,
 } from "@tomismeta/aperture-core";
-import type { ApertureTrace } from "../../core/src/trace.js";
-import type { AttentionSignalSummary } from "../../core/src/signal-summary.js";
-import type { AttentionState } from "../../core/src/attention-state.js";
 
 import type { LearningPersistenceState } from "./learning-persistence.js";
 import {

@@ -31,6 +31,6 @@ export const evaluateDeferralEscalationContinuityRule: ContinuityRule = (input) 
     { kind: "activate", candidate },
     priorityForFrame(activeFrame),
     context.currentScore,
-    ["repeated deferral makes this task more deserving of current focus"],
+    ["repeated deferral or resurfacing makes this task more deserving of current focus"],
   );
 };

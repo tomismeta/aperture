@@ -399,16 +399,16 @@ export class ApertureCore {
       );
     }
 
+    const previousAttentionView = this.getAttentionView();
     const timestamp = this.nowIso();
     this.recordSignal(this.signalForResponse(current, response, timestamp));
     this.episodes.resolveInteraction(response.interactionId);
 
-    const previousTaskView = this.taskViews.get(response.taskId);
     const taskView = this.taskViews.resolve(response.taskId, response.interactionId);
     const newPrimary = taskView.active;
+    const nextAttentionView = this.getAttentionView();
+    this.recordAttentionTransition(previousAttentionView, nextAttentionView, timestamp);
     if (newPrimary) {
-      this.recordAttentionShift(previousTaskView.active, newPrimary, timestamp);
-      this.recordReturnSignal(previousTaskView, newPrimary, timestamp);
       this.notifyFrame(response.taskId, newPrimary);
     } else {
       this.notifyFrame(response.taskId, null);
@@ -532,11 +532,11 @@ export class ApertureCore {
   }
 
   private commitFrame(frame: AttentionFrame): AttentionFrame {
+    const previousAttentionView = this.getAttentionView();
     const previousTaskView = this.taskViews.get(frame.taskId);
-    const previousActive = previousTaskView.active;
     const taskView = this.taskViews.setActive(frame.taskId, frame);
-    this.recordAttentionShift(previousActive, frame, frame.timing.updatedAt);
-    this.recordReturnSignal(previousTaskView, frame, frame.timing.updatedAt);
+    const nextAttentionView = this.getAttentionView();
+    this.recordAttentionTransition(previousAttentionView, nextAttentionView, frame.timing.updatedAt);
     this.recordSignal({
       kind: "presented",
       taskId: frame.taskId,
@@ -578,6 +578,7 @@ export class ApertureCore {
   }
 
   private applyClear(taskId: string): null {
+    const previousAttentionView = this.getAttentionView();
     const existingTaskView = this.taskViews.get(taskId);
     const hadAnyVisibleState =
       existingTaskView.active !== null
@@ -596,6 +597,8 @@ export class ApertureCore {
     }
 
     const taskView = this.taskViews.clear(taskId);
+    const nextAttentionView = this.getAttentionView();
+    this.recordAttentionTransition(previousAttentionView, nextAttentionView, this.nowIso());
     this.notifyFrame(taskId, null);
     this.notifyTaskView(taskId, taskView);
     this.notifyAttentionView();
@@ -810,8 +813,23 @@ export class ApertureCore {
     return Math.max(0, completedAt - startedAt);
   }
 
+  private recordAttentionTransition(
+    previousAttentionView: AttentionView,
+    nextAttentionView: AttentionView,
+    timestamp: string,
+  ): void {
+    const previous = previousAttentionView.active;
+    const next = nextAttentionView.active;
+    if (!next) {
+      return;
+    }
+
+    this.recordAttentionShift(previous, next, timestamp);
+    this.recordReturnSignal(previousAttentionView, next, timestamp);
+  }
+
   private recordAttentionShift(previous: AttentionFrame | null, next: AttentionFrame, timestamp: string): void {
-    if (!previous || previous.interactionId === next.interactionId) {
+    if (!previous || sameFrame(previous, next)) {
       return;
     }
 
@@ -841,10 +859,10 @@ export class ApertureCore {
     }
   }
 
-  private recordReturnSignal(previousTaskView: AttentionTaskView, next: AttentionFrame, timestamp: string): void {
-    const from = previousTaskView.queued.some((frame) => frame.interactionId === next.interactionId)
+  private recordReturnSignal(previousAttentionView: AttentionView, next: AttentionFrame, timestamp: string): void {
+    const from = previousAttentionView.queued.some((frame) => sameFrame(frame, next))
       ? "queued"
-      : previousTaskView.ambient.some((frame) => frame.interactionId === next.interactionId)
+      : previousAttentionView.ambient.some((frame) => sameFrame(frame, next))
         ? "ambient"
         : null;
 
@@ -860,6 +878,7 @@ export class ApertureCore {
       frameId: next.id,
       ...(next.source !== undefined ? { source: next.source } : {}),
       from,
+      metadata: signalMetadataForFrame(next),
     });
   }
 
@@ -1054,4 +1073,8 @@ export class ApertureCore {
         throw new Error(`${label} must have a supported request kind`);
     }
   }
+}
+
+function sameFrame(left: AttentionFrame, right: AttentionFrame): boolean {
+  return left.id === right.id || (left.taskId === right.taskId && left.interactionId === right.interactionId);
 }

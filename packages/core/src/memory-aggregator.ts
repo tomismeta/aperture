@@ -40,6 +40,11 @@ export function signalMetadataForFrame(frame: AttentionFrame): Record<string, un
     metadata.sourceKey = key;
   }
 
+  const episode = frame.metadata?.episode;
+  if (episode && typeof episode === "object" && !Array.isArray(episode)) {
+    metadata.episode = episode;
+  }
+
   return metadata;
 }
 

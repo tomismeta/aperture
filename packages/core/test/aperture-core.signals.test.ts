@@ -572,6 +572,140 @@ test("promotion from queued work records sequence signals", () => {
   assert.equal(returned?.timestamp, shifted?.timestamp);
 });
 
+test("cross-task merged episodes record returned when they resurface into focus", () => {
+  const core = new ApertureCore();
+  const seen: InteractionSignal[] = [];
+
+  core.onSignal((signal) => {
+    seen.push(signal);
+  });
+
+  core.publish({
+    id: "evt:active",
+    taskId: "task:active",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:active",
+    title: "Approve deploy",
+    summary: "A deploy needs approval.",
+    consequence: "high",
+    request: { kind: "approval" },
+  });
+
+  core.publish({
+    id: "evt:queued:first",
+    taskId: "task:episode:a",
+    timestamp: "2026-03-08T12:00:20.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:episode:a",
+    source: { id: "session:1", kind: "claude-code" },
+    title: "Choose config fix",
+    summary: "config.ts",
+    consequence: "medium",
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [{ id: "retry", label: "Retry" }],
+    },
+  });
+
+  core.publish({
+    id: "evt:queued:second",
+    taskId: "task:episode:b",
+    timestamp: "2026-03-08T12:00:30.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:episode:b",
+    source: { id: "session:1", kind: "claude-code" },
+    title: "Choose config fallback",
+    summary: "config.ts",
+    consequence: "medium",
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [{ id: "fallback", label: "Fallback" }],
+    },
+  });
+
+  core.publish({
+    id: "evt:clear",
+    taskId: "task:active",
+    timestamp: "2026-03-08T12:00:40.000Z",
+    type: "task.completed",
+  });
+
+  const summary = core.getSignalSummary("task:episode:b");
+  assert.equal(summary.counts.returned, 1);
+
+  const returned = seen.find((signal) => signal.kind === "returned" && signal.taskId === "task:episode:b");
+  assert.ok(returned);
+  if (!returned || returned.kind !== "returned") {
+    return;
+  }
+
+  assert.equal(returned.interactionId, "interaction:episode:b");
+  assert.equal(returned.from, "queued");
+  assert.equal(returned.metadata?.episode?.lastInteractionId, "interaction:episode:b");
+});
+
+test("clearing one task can record returned work from another queued task", () => {
+  const core = new ApertureCore();
+  const seen: InteractionSignal[] = [];
+
+  core.onSignal((signal) => {
+    seen.push(signal);
+  });
+
+  core.publish({
+    id: "evt:primary",
+    taskId: "task:primary",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:primary",
+    title: "Approve change",
+    summary: "A change needs approval.",
+    consequence: "high",
+    request: {
+      kind: "approval",
+    },
+  });
+
+  core.publish({
+    id: "evt:queued",
+    taskId: "task:secondary",
+    timestamp: "2026-03-08T12:01:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:secondary",
+    title: "Choose fallback",
+    summary: "A fallback option is needed.",
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [{ id: "retry", label: "Retry" }],
+    },
+  });
+
+  core.submit({
+    taskId: "task:primary",
+    interactionId: "interaction:primary",
+    response: { kind: "approved" },
+  });
+
+  assert.equal(core.getAttentionView().active?.interactionId, "interaction:secondary");
+
+  const summary = core.getSignalSummary("task:secondary");
+  assert.equal(summary.counts.returned, 1);
+  assert.equal(summary.counts.attentionShifted, 1);
+
+  const returned = seen.find((signal) =>
+    signal.kind === "returned" && signal.taskId === "task:secondary"
+  );
+  const shifted = seen.find((signal) =>
+    signal.kind === "attention_shifted" && signal.taskId === "task:secondary"
+  );
+  assert.equal(returned?.frameId, "frame:interaction:secondary");
+  assert.equal(shifted?.frameId, "frame:interaction:secondary");
+});
+
 test("core exposes global attention state across tasks", () => {
   const core = new ApertureCore();
 

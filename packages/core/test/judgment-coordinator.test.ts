@@ -1244,6 +1244,59 @@ test("escalates repeatedly deferred status when scores are otherwise tied", () =
   assert.equal(decision.kind, "activate");
 });
 
+test("escalates repeatedly resurfaced status when scores are otherwise tied", () => {
+  const decision = coordinator.coordinate(
+    createFrame({
+      taskId: "task:current",
+      interactionId: "interaction:current",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      responseSpec: { kind: "none" },
+    }),
+    createCandidate({
+      taskId: "task:stuck",
+      interactionId: "interaction:stuck",
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      priority: "normal",
+      blocking: false,
+      responseSpec: { kind: "none" },
+    }),
+    {
+      taskSignalSummary: {
+        recentSignals: 5,
+        lifetimeSignals: 10,
+        counts: {
+          presented: 2,
+          viewed: 0,
+          responded: 0,
+          dismissed: 0,
+          deferred: 0,
+          contextExpanded: 0,
+          contextSkipped: 0,
+          timedOut: 0,
+          returned: 2,
+          attentionShifted: 0,
+        },
+        deferred: {
+          queued: 0,
+          suppressed: 0,
+          manual: 0,
+        },
+        responseRate: 0,
+        dismissalRate: 0,
+        averageResponseLatencyMs: null,
+        averageDismissalLatencyMs: null,
+        lastSignalAt: "2026-03-08T12:00:30.000Z",
+      },
+    },
+  );
+
+  assert.equal(decision.kind, "activate");
+});
+
 test("queues context-heavy work until it clearly outranks current work", () => {
   const contextAwareCoordinator = new JudgmentCoordinator(
     new AttentionPolicy(),

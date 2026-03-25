@@ -4,6 +4,9 @@
 
 This document defines where the engine is, where it is going, and why it is built the way it is.
 
+For the compact status frame we should use going forward, see
+[Engine Status Pillars](../engine/engine-status-pillars.md).
+
 The product only works if the engine becomes meaningfully better than application-level interrupt logic.
 
 The moat lives in the core:

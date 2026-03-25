@@ -62,6 +62,7 @@ These docs explain the source-specific integration seams:
 ## Engine And SDK Reference
 
 - [Core Engine Audit (2026-03)](./engine/core-engine-audit-2026-03.md)
+- [Engine Status Pillars](./engine/engine-status-pillars.md)
 - [Architecture Principles](./engine/architecture-principles.md)
 - [Attention And Judgment Doctrine](./engine/attention-judgment-doctrine.md)
 - [Core Engine Architecture](./engine/core-engine-architecture.md)

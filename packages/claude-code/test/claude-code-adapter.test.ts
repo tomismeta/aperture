@@ -144,6 +144,31 @@ test("classifies read and web tools as low consequence", () => {
   assert.equal(classifyToolRisk(webEvent), "low");
 });
 
+test("classifies Search as low consequence read work", () => {
+  const event: ClaudeCodePreToolUseEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "PreToolUse",
+    tool_name: "Search",
+    tool_use_id: "tool-search",
+    tool_input: {
+      pattern: "agent|Agent|AGENT",
+      path: "packages",
+    },
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(classifyToolRisk(event), "low");
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "human.input.requested");
+  if (mapped[0]?.type === "human.input.requested") {
+    assert.equal(mapped[0].toolFamily, "read");
+    assert.equal(mapped[0].title, "Claude Code wants to search code for agent|Agent|AGENT");
+    assert.equal(mapped[0].summary, "agent|Agent|AGENT in packages");
+    assert.equal(mapped[0].riskHint, "low");
+  }
+});
+
 test("classifies writes by path sensitivity", () => {
   const ordinaryWrite: ClaudeCodePreToolUseEvent = {
     session_id: "session-1",
@@ -356,6 +381,29 @@ test("maps PermissionRequest hooks into approval events", () => {
       label: "Claude suggestions",
       value: "1 native permission suggestion",
     });
+  }
+});
+
+test("maps Search PermissionRequest hooks into low-risk read approvals", () => {
+  const event: ClaudeCodePermissionRequestEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "PermissionRequest",
+    tool_name: "Search",
+    tool_input: {
+      pattern: "agent|Agent|AGENT",
+      path: "packages",
+    },
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "human.input.requested");
+  if (mapped[0]?.type === "human.input.requested") {
+    assert.equal(mapped[0].toolFamily, "read");
+    assert.equal(mapped[0].title, "Claude Code wants permission to search code for agent|Agent|AGENT");
+    assert.equal(mapped[0].summary, "agent|Agent|AGENT in packages");
+    assert.equal(mapped[0].riskHint, "low");
   }
 });
 

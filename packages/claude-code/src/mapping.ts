@@ -431,7 +431,13 @@ export function classifyToolRisk(
   }
 
   const toolName = event.tool_name.toLowerCase();
-  if (toolName === "read" || toolName === "grep" || toolName === "glob" || toolName === "ls") {
+  if (
+    toolName === "read"
+    || toolName === "search"
+    || toolName === "grep"
+    || toolName === "glob"
+    || toolName === "ls"
+  ) {
     return "low";
   }
 
@@ -1466,6 +1472,7 @@ function stableJson(value: unknown): string {
 function claudeToolFamily(toolName: string): string | undefined {
   switch (toolName.toLowerCase()) {
     case "read":
+    case "search":
     case "grep":
     case "glob":
     case "ls":
@@ -1501,6 +1508,16 @@ function approvalTitleDetail(event: ClaudeCodePreToolUseEvent, summary: string):
     return "a shell command";
   }
 
+  if (toolName === "search" || toolName === "grep" || toolName === "glob") {
+    const pattern = readString(input.pattern);
+    if (pattern) return pattern;
+  }
+
+  if (toolName === "websearch" || toolName === "toolsearch") {
+    const query = readSearchQuery(input);
+    if (query) return query;
+  }
+
   const filePath = readString(input.file_path) ?? readString(input.path);
   if (filePath) {
     return basename(filePath);
@@ -1523,6 +1540,8 @@ function approvalActionLabel(event: ClaudeCodePreToolUseEvent): string {
   switch (toolName) {
     case "read":
       return "read";
+    case "search":
+      return "search code for";
     case "write":
       return "write";
     case "edit":
@@ -1553,6 +1572,8 @@ function permissionActionLabel(toolName: string): string {
   switch (toolName.toLowerCase()) {
     case "read":
       return "read";
+    case "search":
+      return "search code for";
     case "write":
       return "write";
     case "edit":
@@ -1608,7 +1629,13 @@ function classifyPermissionRequestRisk(
   }
 
   const toolName = event.tool_name.toLowerCase();
-  if (toolName === "read" || toolName === "grep" || toolName === "glob" || toolName === "ls") {
+  if (
+    toolName === "read"
+    || toolName === "search"
+    || toolName === "grep"
+    || toolName === "glob"
+    || toolName === "ls"
+  ) {
     return "low";
   }
 
@@ -1755,6 +1782,16 @@ function permissionRequestTitleDetail(
 
   if (toolName === "bash") {
     return "a shell command";
+  }
+
+  if (toolName === "search" || toolName === "grep" || toolName === "glob") {
+    const pattern = readString(input.pattern);
+    if (pattern) return pattern;
+  }
+
+  if (toolName === "websearch" || toolName === "toolsearch") {
+    const query = readSearchQuery(input);
+    if (query) return query;
   }
 
   const filePath = readString(input.file_path) ?? readString(input.path);

@@ -533,6 +533,59 @@ test("holds PermissionRequest requests until Aperture responds", async () => {
   }
 });
 
+test("holds Search PermissionRequest requests until Aperture responds", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core, {
+    holdTimeoutMs: 250,
+    permissionRequestPolicy: () => "hold",
+  });
+  const { url } = await server.listen();
+  let responsePromise: Promise<Response> | undefined;
+
+  try {
+    responsePromise = fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "PermissionRequest",
+        tool_name: "Search",
+        tool_input: {
+          pattern: "agent|Agent|AGENT",
+          path: "packages",
+        },
+      }),
+    });
+
+    const frame = await waitFor(() => core.getAttentionView().active);
+    assert.ok(frame);
+    assert.match(frame?.interactionId ?? "", /^claude-code:permission:session-1:[a-f0-9]{12}$/);
+    assert.equal(frame?.title, "Claude Code wants permission to search code for agent|Agent|AGENT");
+    assert.equal(frame?.summary, "agent|Agent|AGENT in packages");
+
+    core.submit({
+      taskId: "claude-code:session:session-1",
+      interactionId: frame?.interactionId ?? "",
+      response: { kind: "approved" },
+    });
+
+    const response = await responsePromise;
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      hookSpecificOutput: {
+        hookEventName: "PermissionRequest",
+        decision: {
+          behavior: "allow",
+        },
+      },
+    });
+  } finally {
+    await server.close();
+    await settlePromises(responsePromise);
+  }
+});
+
 test("lets Claude handle permission requests natively when no surface policy is active", async () => {
   const core = new ApertureCore();
   const server = createClaudeCodeHookServer(core, {

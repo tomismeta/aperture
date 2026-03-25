@@ -285,28 +285,35 @@ export class ApertureCore {
             break;
           case "activate":
             result =
-              explanation.decision.candidate.episodeId
-              && this.findPeripheralEpisodeFrame(explanation.decision.candidate.episodeId, preAttentionView)
-                ? this.materializePeripheralFrame(
-                    explanation.decision.candidate,
-                    selectPeripheralBucket(
-                      explanation.decision.candidate,
-                      explanation.policy,
-                      evidence.surfaceCapabilities,
-                    ),
-                    preAttentionView,
-                  )
-                : this.commitFrame(
+              this.shouldRetireSupersededEpisodeFrames(
+                explanation.decision.candidate,
+                preAttentionView,
+              )
+                ? this.commitFrame(
                     this.applyResponseExpiry(
-                    this.planner.plan(explanation.decision.candidate, evidence.currentFrame),
+                      this.planner.plan(explanation.decision.candidate, evidence.currentFrame),
                     ),
-                    this.shouldRetireSupersededCurrentFrame(
+                    this.findSupersededEpisodeFrames(
                       explanation.decision.candidate,
-                      preAttentionView.active,
-                    )
-                      ? preAttentionView.active
-                      : null,
-                  );
+                      preAttentionView,
+                    ),
+                  )
+                : explanation.decision.candidate.episodeId
+                  && this.findPeripheralEpisodeFrame(explanation.decision.candidate.episodeId, preAttentionView)
+                    ? this.materializePeripheralFrame(
+                        explanation.decision.candidate,
+                        selectPeripheralBucket(
+                          explanation.decision.candidate,
+                          explanation.policy,
+                          evidence.surfaceCapabilities,
+                        ),
+                        preAttentionView,
+                      )
+                    : this.commitFrame(
+                        this.applyResponseExpiry(
+                          this.planner.plan(explanation.decision.candidate, evidence.currentFrame),
+                        ),
+                      );
             break;
         }
         const postAttentionView = this.getAttentionView();
@@ -540,16 +547,23 @@ export class ApertureCore {
     }
   }
 
-  private commitFrame(frame: AttentionFrame, supersededCurrentFrame: AttentionFrame | null = null): AttentionFrame {
+  private commitFrame(frame: AttentionFrame, retiredFrames: AttentionFrame[] = []): AttentionFrame {
     const previousAttentionView = this.getAttentionView();
-    if (supersededCurrentFrame) {
-      const supersededTaskView = this.taskViews.discard(
-        supersededCurrentFrame.taskId,
-        supersededCurrentFrame.interactionId,
+    const retiredKeys = new Set<string>();
+    for (const retiredFrame of retiredFrames) {
+      const key = `${retiredFrame.taskId}::${retiredFrame.interactionId}`;
+      if (retiredKeys.has(key)) {
+        continue;
+      }
+      retiredKeys.add(key);
+
+      const retiredTaskView = this.taskViews.discard(
+        retiredFrame.taskId,
+        retiredFrame.interactionId,
       );
-      if (supersededCurrentFrame.taskId !== frame.taskId) {
-        this.notifyFrame(supersededCurrentFrame.taskId, supersededTaskView.active);
-        this.notifyTaskView(supersededCurrentFrame.taskId, supersededTaskView);
+      if (retiredFrame.taskId !== frame.taskId) {
+        this.notifyFrame(retiredFrame.taskId, retiredTaskView.active);
+        this.notifyTaskView(retiredFrame.taskId, retiredTaskView);
       }
     }
 
@@ -676,17 +690,30 @@ export class ApertureCore {
     return this.findFrame(taskId, interactionId);
   }
 
-  private shouldRetireSupersededCurrentFrame(
+  private shouldRetireSupersededEpisodeFrames(
     candidate: AttentionCandidate,
-    currentFrame: AttentionFrame | null,
+    attentionView: AttentionView,
   ): boolean {
-    if (!currentFrame || !candidate.episodeId || !hasSemanticRelationKind(candidate.relationHints, "supersedes")) {
-      return false;
+    return this.findSupersededEpisodeFrames(candidate, attentionView).length > 0;
+  }
+
+  private findSupersededEpisodeFrames(
+    candidate: AttentionCandidate,
+    attentionView: AttentionView,
+  ): AttentionFrame[] {
+    if (!candidate.episodeId || !hasSemanticRelationKind(candidate.relationHints, "supersedes")) {
+      return [];
     }
 
-    return (
-      readFrameEpisodeId(currentFrame) === candidate.episodeId
-      && readFrameEpisodeState(currentFrame) !== "resolved"
+    return [
+      attentionView.active,
+      ...attentionView.queued,
+      ...attentionView.ambient,
+    ].filter((frame): frame is AttentionFrame =>
+      frame !== null
+      && frame.interactionId !== candidate.interactionId
+      && readFrameEpisodeId(frame) === candidate.episodeId
+      && readFrameEpisodeState(frame) !== "resolved"
     );
   }
 

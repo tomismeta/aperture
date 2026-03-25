@@ -357,6 +357,64 @@ test("responded episodes reopen with a fresh episode identity", () => {
   assert.equal(reopenedFrame.metadata?.episode?.size, 1);
 });
 
+test("superseding blocking episode steps retire the stale active step", () => {
+  const core = new ApertureCore();
+
+  core.publish({
+    id: "evt:approval:first",
+    taskId: "task:episode:a",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:episode:a",
+    source: { id: "session:1", kind: "claude-code" },
+    title: "Approve deployment step",
+    summary: "prod deploy",
+    semantic: {
+      intentFrame: "approval_request",
+      relationHints: [{ kind: "same_issue", target: "issue:deploy:prod" }],
+      confidence: "high",
+      factors: [],
+      reasons: [],
+    },
+    request: { kind: "approval" },
+  });
+
+  const firstActive = core.getAttentionView().active;
+  assert.ok(firstActive);
+  if (!firstActive) {
+    return;
+  }
+
+  core.publish({
+    id: "evt:approval:second",
+    taskId: "task:episode:b",
+    timestamp: "2026-03-08T12:00:20.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:episode:b",
+    source: { id: "session:1", kind: "claude-code" },
+    title: "Approve rollback instead",
+    summary: "prod deploy",
+    semantic: {
+      intentFrame: "approval_request",
+      relationHints: [
+        { kind: "same_issue", target: "issue:deploy:prod" },
+        { kind: "supersedes" },
+      ],
+      confidence: "high",
+      factors: [],
+      reasons: [],
+    },
+    request: { kind: "approval" },
+  });
+
+  const attentionView = core.getAttentionView();
+  assert.equal(attentionView.active?.interactionId, "interaction:episode:b");
+  assert.equal(core.getTaskView("task:episode:a").active, null);
+  assert.equal(core.getTaskView("task:episode:a").queued.length, 0);
+  assert.equal(core.getTaskView("task:episode:b").active?.interactionId, "interaction:episode:b");
+  assert.equal(readFrameEpisodeId(attentionView.active), readFrameEpisodeId(firstActive));
+});
+
 test("queue-worthy episode updates can promote an ambient episode frame into the queue", () => {
   const core = new ApertureCore();
 

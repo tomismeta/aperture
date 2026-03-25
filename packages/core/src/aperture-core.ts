@@ -32,6 +32,7 @@ import { loadJudgmentConfig, type JudgmentConfig } from "./judgment-config.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
 import { distillMemoryProfile, signalMetadataForCandidate, signalMetadataForFrame } from "./memory-aggregator.js";
 import { normalizeSourceEvent } from "./semantic-normalizer.js";
+import { hasSemanticRelationKind } from "./semantic-relations.js";
 import { AttentionPolicy } from "./attention-policy.js";
 import { selectPeripheralBucket } from "./attention-planner.js";
 import { ProfileStore, type MemoryProfile, type UserProfile } from "./profile-store.js";
@@ -295,9 +296,17 @@ export class ApertureCore {
                     ),
                     preAttentionView,
                   )
-                : this.commitFrame(this.applyResponseExpiry(
+                : this.commitFrame(
+                    this.applyResponseExpiry(
                     this.planner.plan(explanation.decision.candidate, evidence.currentFrame),
-                  ));
+                    ),
+                    this.shouldRetireSupersededCurrentFrame(
+                      explanation.decision.candidate,
+                      preAttentionView.active,
+                    )
+                      ? preAttentionView.active
+                      : null,
+                  );
             break;
         }
         const postAttentionView = this.getAttentionView();
@@ -531,9 +540,19 @@ export class ApertureCore {
     }
   }
 
-  private commitFrame(frame: AttentionFrame): AttentionFrame {
+  private commitFrame(frame: AttentionFrame, supersededCurrentFrame: AttentionFrame | null = null): AttentionFrame {
     const previousAttentionView = this.getAttentionView();
-    const previousTaskView = this.taskViews.get(frame.taskId);
+    if (supersededCurrentFrame) {
+      const supersededTaskView = this.taskViews.discard(
+        supersededCurrentFrame.taskId,
+        supersededCurrentFrame.interactionId,
+      );
+      if (supersededCurrentFrame.taskId !== frame.taskId) {
+        this.notifyFrame(supersededCurrentFrame.taskId, supersededTaskView.active);
+        this.notifyTaskView(supersededCurrentFrame.taskId, supersededTaskView);
+      }
+    }
+
     const taskView = this.taskViews.setActive(frame.taskId, frame);
     const nextAttentionView = this.getAttentionView();
     this.recordAttentionTransition(previousAttentionView, nextAttentionView, frame.timing.updatedAt);
@@ -655,6 +674,20 @@ export class ApertureCore {
 
   private findFrameByInteractionId(taskId: string, interactionId: string): AttentionFrame | null {
     return this.findFrame(taskId, interactionId);
+  }
+
+  private shouldRetireSupersededCurrentFrame(
+    candidate: AttentionCandidate,
+    currentFrame: AttentionFrame | null,
+  ): boolean {
+    if (!currentFrame || !candidate.episodeId || !hasSemanticRelationKind(candidate.relationHints, "supersedes")) {
+      return false;
+    }
+
+    return (
+      readFrameEpisodeId(currentFrame) === candidate.episodeId
+      && readFrameEpisodeState(currentFrame) !== "resolved"
+    );
   }
 
   private applyResponseExpiry(frame: AttentionFrame): AttentionFrame {

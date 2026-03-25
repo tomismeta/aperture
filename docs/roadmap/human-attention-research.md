@@ -2,6 +2,13 @@
 
 This document distills the human-attention concepts Aperture should borrow from psychology, human factors, and HCI.
 
+Read this as background research, not as the current engine status document.
+
+For the current implementation frame, use:
+
+- [Engine Status Pillars](../engine/engine-status-pillars.md)
+- [Core Engine Audit (2026-03)](../engine/core-engine-audit-2026-03.md)
+
 The goal is not broad UX theory.
 
 The goal is to sharpen the engine.

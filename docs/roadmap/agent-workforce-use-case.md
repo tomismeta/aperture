@@ -2,6 +2,14 @@
 
 ## Purpose
 
+Read this as a use-case framing document, not as the current engine or product
+source of truth.
+
+For the current implementation frame, use:
+
+- [Engine Status Pillars](../engine/engine-status-pillars.md)
+- [Core Engine Audit (2026-03)](../engine/core-engine-audit-2026-03.md)
+
 This document narrows Aperture to the first use case that currently feels concrete enough to test:
 
 **one human supervising many coding agents and subagents across CLI-heavy workflows**

@@ -2,6 +2,14 @@
 
 This note captures the next engine-maturation ideas for Aperture's core.
 
+Read this through the current engine source-of-truth frame:
+
+- [Engine Status Pillars](../engine/engine-status-pillars.md)
+- [Core Engine Audit (2026-03)](../engine/core-engine-audit-2026-03.md)
+
+This document is still useful, but it is a maturation note, not the primary
+status document for the engine.
+
 Some of these ideas were sharpened by looking at ClawRouter, an open-source model routing system, but the framing and roadmap here are Aperture's own.
 
 The goal is not to copy another system's literal routing logic.

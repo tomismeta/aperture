@@ -3,6 +3,14 @@
 This document captures the current product-direction view for bringing
 Aperture to market.
 
+Read this alongside the current engine and product source-of-truth docs:
+
+- [Engine Status Pillars](../engine/engine-status-pillars.md)
+- [Core Engine Audit (2026-03)](../engine/core-engine-audit-2026-03.md)
+
+Some wording here predates the latest positioning cleanup, so the newer engine
+and product docs should win when they disagree.
+
 The central conclusion is:
 
 - Aperture should be sold and distributed first as an opinionated local product

@@ -1,6 +1,7 @@
 import { readFrameEpisodeId, readFrameEpisodeState } from "../episode-tracker.js";
 import { isBlockingFrame, priorityForFrame } from "../frame-score.js";
 import { hasSemanticRelationKind } from "../semantic-relations.js";
+import { hasResurfacingPressure } from "./deferral-escalation-continuity-rule.js";
 import { noopContinuityRule, overrideContinuityRule, type ContinuityRule } from "./continuity-rule.js";
 
 export const evaluateSameEpisodeContinuityRule: ContinuityRule = (input) => {
@@ -37,6 +38,10 @@ export const evaluateSameEpisodeContinuityRule: ContinuityRule = (input) => {
       context.currentScore,
       ["the active episode has advanced to a superseding step"],
     );
+  }
+
+  if (hasResurfacingPressure(evidence.continuitySignalSummary)) {
+    return noopContinuityRule("same_episode");
   }
 
   return overrideContinuityRule(

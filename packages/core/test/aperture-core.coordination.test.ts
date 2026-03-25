@@ -492,6 +492,105 @@ test("superseding blocking episode steps retire stale queued episode residue", (
   assert.equal(core.getTaskView("task:episode:c").active?.interactionId, "interaction:episode:c");
 });
 
+test("repeated same-episode returns can promote queued episode work back into focus", () => {
+  const core = new ApertureCore();
+
+  core.publish({
+    id: "evt:blocker",
+    taskId: "task:blocker",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:blocker",
+    title: "Approve deploy",
+    summary: "A deploy needs approval.",
+    consequence: "high",
+    request: { kind: "approval" },
+  });
+
+  core.publish({
+    id: "evt:episode:first",
+    taskId: "task:episode:a",
+    timestamp: "2026-03-08T12:00:10.000Z",
+    type: "task.updated",
+    source: { id: "session:1", kind: "claude-code" },
+    title: "Config sync running",
+    summary: "config.ts",
+    status: "running",
+    progress: 25,
+  });
+
+  core.publish({
+    id: "evt:blocker:clear",
+    taskId: "task:blocker",
+    timestamp: "2026-03-08T12:00:20.000Z",
+    type: "task.completed",
+  });
+
+  const firstEpisodeFrame = core.getAttentionView().ambient[0];
+  assert.ok(firstEpisodeFrame);
+  if (!firstEpisodeFrame) {
+    return;
+  }
+
+  core.publish({
+    id: "evt:current",
+    taskId: "task:current",
+    timestamp: "2026-03-08T12:00:30.000Z",
+    type: "task.updated",
+    title: "Other task blocked",
+    summary: "other.ts",
+    status: "blocked",
+  });
+
+  const episodeId = readFrameEpisodeId(firstEpisodeFrame);
+  assert.ok(episodeId);
+  if (!episodeId) {
+    return;
+  }
+
+  core.recordSignal({
+    kind: "returned",
+    taskId: "task:episode:history",
+    interactionId: "interaction:episode:history",
+    timestamp: "2026-03-08T12:00:35.000Z",
+    from: "ambient",
+    metadata: {
+      episode: {
+        id: episodeId,
+      },
+    },
+  });
+
+  core.recordSignal({
+    kind: "returned",
+    taskId: "task:episode:history-2",
+    interactionId: "interaction:episode:history-2",
+    timestamp: "2026-03-08T12:00:36.000Z",
+    from: "queued",
+    metadata: {
+      episode: {
+        id: episodeId,
+      },
+    },
+  });
+
+  core.publish({
+    id: "evt:episode:second",
+    taskId: "task:episode:b",
+    timestamp: "2026-03-08T12:00:40.000Z",
+    type: "task.updated",
+    source: { id: "session:1", kind: "claude-code" },
+    title: "Config sync blocked",
+    summary: "config.ts",
+    status: "blocked",
+  });
+
+  const attentionView = core.getAttentionView();
+  assert.equal(attentionView.active?.taskId, "task:episode:b");
+  assert.equal(core.getTaskView("task:episode:a").ambient.length, 0);
+  assert.equal(core.getTaskView("task:episode:b").active?.taskId, "task:episode:b");
+});
+
 test("queue-worthy episode updates can promote an ambient episode frame into the queue", () => {
   const core = new ApertureCore();
 

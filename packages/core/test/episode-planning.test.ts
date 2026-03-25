@@ -180,6 +180,114 @@ test("visible queued episode work batches new related interactions with no activ
   );
 });
 
+test("repeated same-episode resurfacing can break visible bundling and compete for focus", () => {
+  const coordinator = new JudgmentCoordinator();
+  const explanation = coordinator.explain(
+    createFrame({
+      id: "frame:unrelated",
+      taskId: "task:other-current",
+      interactionId: "interaction:other-current",
+      mode: "status",
+      responseSpec: { kind: "none" },
+      metadata: {
+        episode: {
+          id: "episode:other",
+          key: "claude-code:interruptive:/workspace/other.ts",
+          state: "waiting",
+          size: 1,
+          evidenceScore: 0,
+          evidenceReasons: [],
+          lastInteractionId: "interaction:other-current",
+          updatedAt: "2026-03-08T12:00:00.000Z",
+        },
+      },
+    }),
+    createCandidate({
+      episodeState: "batched",
+    }),
+    {
+      attentionView: {
+        active: createFrame({
+          id: "frame:other-active",
+          taskId: "task:other-current",
+          interactionId: "interaction:other-current",
+          mode: "status",
+          responseSpec: { kind: "none" },
+          metadata: {
+            episode: {
+              id: "episode:other",
+              key: "claude-code:interruptive:/workspace/other.ts",
+              state: "waiting",
+              size: 1,
+              evidenceScore: 0,
+              evidenceReasons: [],
+              lastInteractionId: "interaction:other-current",
+              updatedAt: "2026-03-08T12:00:00.000Z",
+            },
+          },
+        }),
+        queued: [
+          createFrame({
+            taskId: "task:episode:queued",
+            interactionId: "interaction:queued",
+            mode: "status",
+            responseSpec: { kind: "none" },
+            metadata: {
+              episode: {
+                id: "episode:shared",
+                key: "claude-code:interruptive:/workspace/config.ts",
+                state: "batched",
+                size: 2,
+                evidenceScore: 1,
+                evidenceReasons: ["multiple related interactions have accumulated in this episode"],
+                lastInteractionId: "interaction:queued",
+                updatedAt: "2026-03-08T12:00:30.000Z",
+              },
+            },
+          }),
+        ],
+        ambient: [],
+      } satisfies AttentionView,
+      continuitySignalSummary: {
+        recentSignals: 4,
+        lifetimeSignals: 4,
+        counts: {
+          presented: 1,
+          viewed: 0,
+          responded: 0,
+          dismissed: 0,
+          deferred: 0,
+          contextExpanded: 0,
+          contextSkipped: 0,
+          timedOut: 0,
+          returned: 2,
+          attentionShifted: 0,
+        },
+        deferred: {
+          queued: 0,
+          suppressed: 0,
+          manual: 0,
+        },
+        responseRate: 0,
+        dismissalRate: 0,
+        averageResponseLatencyMs: null,
+        averageDismissalLatencyMs: null,
+        lastSignalAt: "2026-03-08T12:00:35.000Z",
+      },
+    },
+  );
+
+  assert.equal(explanation.decision.kind, "activate");
+  assert.equal(
+    explanation.continuityEvaluations?.find((evaluation) => evaluation.rule === "visible_episode")?.kind,
+    "noop",
+  );
+  assert.equal(
+    explanation.continuityEvaluations?.find((evaluation) => evaluation.rule === "deferral_escalation")?.kind,
+    "override",
+  );
+});
+
 test("resolved episode metadata does not keep same-episode continuity alive", () => {
   const coordinator = new JudgmentCoordinator();
   const explanation = coordinator.explain(

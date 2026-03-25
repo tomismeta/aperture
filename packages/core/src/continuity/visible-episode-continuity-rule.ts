@@ -1,5 +1,6 @@
 import type { AttentionFrame } from "../frame.js";
 import { readFrameEpisodeId, readFrameEpisodeState } from "../episode-tracker.js";
+import { hasResurfacingPressure } from "./deferral-escalation-continuity-rule.js";
 import { noopContinuityRule, overrideContinuityRule, type ContinuityRule } from "./continuity-rule.js";
 
 export const evaluateVisibleEpisodeContinuityRule: ContinuityRule = (input) => {
@@ -28,6 +29,10 @@ export const evaluateVisibleEpisodeContinuityRule: ContinuityRule = (input) => {
     visibleRelatedFrames.length === 0
     || !(candidate.episodeState === "batched" || (candidate.episodeSize ?? 1) >= 2 || visibleRelatedFrames.length >= 2)
   ) {
+    return noopContinuityRule("visible_episode");
+  }
+
+  if (hasResurfacingPressure(evidence.continuitySignalSummary)) {
     return noopContinuityRule("visible_episode");
   }
 

@@ -22,6 +22,7 @@ export type AttentionEvidenceContext = {
   currentEpisode: EpisodeSummary | null;
   attentionView: AttentionView;
   taskSignalSummary: AttentionSignalSummary;
+  continuitySignalSummary: AttentionSignalSummary;
   globalSignalSummary: AttentionSignalSummary;
   taskAttentionState: AttentionState;
   globalAttentionState: AttentionState;
@@ -36,12 +37,14 @@ export type AttentionEvidenceInput = Partial<AttentionEvidenceContext>;
 export function createAttentionEvidenceContext(
   input: AttentionEvidenceInput = {},
 ): AttentionEvidenceContext {
+  const taskSignalSummary = input.taskSignalSummary ?? emptyAttentionSignalSummary();
   return {
     currentFrame: input.currentFrame ?? null,
     currentTaskView: input.currentTaskView ?? emptyTaskView(),
     currentEpisode: input.currentEpisode ?? null,
     attentionView: input.attentionView ?? emptyAttentionView(),
-    taskSignalSummary: input.taskSignalSummary ?? emptyAttentionSignalSummary(),
+    taskSignalSummary,
+    continuitySignalSummary: input.continuitySignalSummary ?? taskSignalSummary,
     globalSignalSummary: input.globalSignalSummary ?? emptyAttentionSignalSummary(),
     taskAttentionState: input.taskAttentionState ?? "monitoring",
     globalAttentionState: input.globalAttentionState ?? "monitoring",
@@ -69,6 +72,9 @@ export function buildAttentionEvidenceInput(
     ...(input.currentEpisode !== undefined ? { currentEpisode: input.currentEpisode } : {}),
     ...(input.attentionView !== undefined ? { attentionView: input.attentionView } : {}),
     ...(input.taskSignalSummary !== undefined ? { taskSignalSummary: input.taskSignalSummary } : {}),
+    ...(input.continuitySignalSummary !== undefined
+      ? { continuitySignalSummary: input.continuitySignalSummary }
+      : {}),
     ...(input.globalSignalSummary !== undefined ? { globalSignalSummary: input.globalSignalSummary } : {}),
     ...(input.taskAttentionState !== undefined ? { taskAttentionState: input.taskAttentionState } : {}),
     ...(input.globalAttentionState !== undefined ? { globalAttentionState: input.globalAttentionState } : {}),
@@ -128,6 +134,7 @@ export function isAttentionEvidenceContext(
     && "currentEpisode" in input
     && "attentionView" in input
     && "taskSignalSummary" in input
+    && "continuitySignalSummary" in input
     && "globalSignalSummary" in input
     && "taskAttentionState" in input
     && "globalAttentionState" in input
@@ -140,6 +147,7 @@ export function isAttentionEvidenceContext(
     && input.currentEpisode !== undefined
     && input.attentionView !== undefined
     && input.taskSignalSummary !== undefined
+    && input.continuitySignalSummary !== undefined
     && input.globalSignalSummary !== undefined
     && input.taskAttentionState !== undefined
     && input.globalAttentionState !== undefined

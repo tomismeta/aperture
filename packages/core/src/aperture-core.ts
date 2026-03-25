@@ -27,7 +27,7 @@ import { EventEvaluator } from "./event-evaluator.js";
 import { FramePlanner } from "./frame-planner.js";
 import { JudgmentCoordinator } from "./judgment-coordinator.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
-import { AttentionSignalStore } from "./attention-signal-store.js";
+import { AttentionSignalStore, summarizeAttentionSignals } from "./attention-signal-store.js";
 import { loadJudgmentConfig, type JudgmentConfig } from "./judgment-config.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
 import { distillMemoryProfile, signalMetadataForCandidate, signalMetadataForFrame } from "./memory-aggregator.js";
@@ -257,7 +257,8 @@ export class ApertureCore {
           taskSummary,
           globalSummary,
         ));
-        const explanation = this.coordinator.explain(evidence.currentFrame, candidate, evidence);
+        const candidateEvidence = this.augmentContinuitySignalSummary(event.taskId, candidate, evidence);
+        const explanation = this.coordinator.explain(evidence.currentFrame, candidate, candidateEvidence);
         let result: AttentionFrame | null;
         switch (explanation.decision.kind) {
           case "auto_approve":
@@ -298,22 +299,37 @@ export class ApertureCore {
                       preAttentionView,
                     ),
                   )
-                : explanation.decision.candidate.episodeId
-                  && this.findPeripheralEpisodeFrame(explanation.decision.candidate.episodeId, preAttentionView)
-                    ? this.materializePeripheralFrame(
+                : (() => {
+                    const existingPeripheralFrame = explanation.decision.candidate.episodeId
+                      ? this.findPeripheralEpisodeFrame(explanation.decision.candidate.episodeId, preAttentionView)
+                      : null;
+
+                    if (
+                      existingPeripheralFrame
+                      && this.shouldPromotePeripheralEpisodeFrame(explanation)
+                    ) {
+                      return this.promotePeripheralEpisodeFrame(
                         explanation.decision.candidate,
-                        selectPeripheralBucket(
-                          explanation.decision.candidate,
-                          explanation.policy,
-                          evidence.surfaceCapabilities,
-                        ),
-                        preAttentionView,
-                      )
-                    : this.commitFrame(
-                        this.applyResponseExpiry(
-                          this.planner.plan(explanation.decision.candidate, evidence.currentFrame),
-                        ),
+                        existingPeripheralFrame.frame,
                       );
+                    }
+
+                    return existingPeripheralFrame
+                      ? this.materializePeripheralFrame(
+                          explanation.decision.candidate,
+                          selectPeripheralBucket(
+                            explanation.decision.candidate,
+                            explanation.policy,
+                            evidence.surfaceCapabilities,
+                          ),
+                          preAttentionView,
+                        )
+                      : this.commitFrame(
+                          this.applyResponseExpiry(
+                            this.planner.plan(explanation.decision.candidate, evidence.currentFrame),
+                          ),
+                        );
+                  })();
             break;
         }
         const postAttentionView = this.getAttentionView();
@@ -602,6 +618,7 @@ export class ApertureCore {
       currentEpisode: this.episodes.readFrameEpisode(currentFrame),
       attentionView,
       taskSignalSummary,
+      continuitySignalSummary: taskSignalSummary,
       globalSignalSummary,
       taskAttentionState,
       globalAttentionState,
@@ -684,6 +701,18 @@ export class ApertureCore {
     this.notifyTaskView(merged.taskId, nextTaskView);
     this.notifyAttentionView();
     return merged;
+  }
+
+  private promotePeripheralEpisodeFrame(
+    candidate: AttentionCandidate,
+    existingFrame: AttentionFrame,
+  ): AttentionFrame {
+    const planned = this.applyResponseExpiry(this.planner.plan(candidate, existingFrame));
+    const promoted = {
+      ...planned,
+      id: existingFrame.id,
+    };
+    return this.commitFrame(promoted, [existingFrame]);
   }
 
   private findFrameByInteractionId(taskId: string, interactionId: string): AttentionFrame | null {
@@ -770,6 +799,59 @@ export class ApertureCore {
     }
 
     return null;
+  }
+
+  private augmentContinuitySignalSummary(
+    taskId: string,
+    candidate: AttentionCandidate,
+    evidence: AttentionEvidenceContext,
+  ): AttentionEvidenceContext {
+    const continuitySignalSummary = this.resolveContinuitySignalSummary(taskId, candidate, evidence.taskSignalSummary);
+    if (continuitySignalSummary === evidence.taskSignalSummary) {
+      return evidence;
+    }
+
+    return {
+      ...evidence,
+      continuitySignalSummary,
+    };
+  }
+
+  private resolveContinuitySignalSummary(
+    taskId: string,
+    candidate: AttentionCandidate,
+    taskSignalSummary: AttentionSignalSummary,
+  ): AttentionSignalSummary {
+    if (!candidate.episodeId) {
+      return taskSignalSummary;
+    }
+
+    const taskSignals = this.signals.list(taskId);
+    const relatedEpisodeSignals = this.signals
+      .list()
+      .filter((signal) =>
+        signal.taskId !== taskId && readSignalEpisodeId(signal) === candidate.episodeId
+      );
+
+    if (relatedEpisodeSignals.length === 0) {
+      return taskSignalSummary;
+    }
+
+    return summarizeAttentionSignals(
+      [...taskSignals, ...relatedEpisodeSignals].sort((left, right) =>
+        left.timestamp.localeCompare(right.timestamp)
+      ),
+    );
+  }
+
+  private shouldPromotePeripheralEpisodeFrame(explanation: {
+    continuityEvaluations?: Array<{ rule: string; kind: string; decision?: { kind: string } }>;
+  }): boolean {
+    return explanation.continuityEvaluations?.some((evaluation) =>
+      evaluation.rule === "deferral_escalation"
+      && evaluation.kind === "override"
+      && evaluation.decision?.kind === "activate"
+    ) ?? false;
   }
 
   private recordDeferredSignal(
@@ -1133,6 +1215,16 @@ export class ApertureCore {
         throw new Error(`${label} must have a supported request kind`);
     }
   }
+}
+
+function readSignalEpisodeId(signal: AttentionSignal): string | null {
+  const episode = signal.metadata?.episode;
+  if (!episode || typeof episode !== "object" || Array.isArray(episode)) {
+    return null;
+  }
+
+  const id = (episode as Record<string, unknown>).id;
+  return typeof id === "string" && id.length > 0 ? id : null;
 }
 
 function sameFrame(left: AttentionFrame, right: AttentionFrame): boolean {

@@ -62,10 +62,11 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.equal("ProfileStore" in sdk, false);
   assert.equal("evaluateTraceSession" in sdk, false);
   assert.equal("scoreAttentionFrame" in sdk, false);
-  assert.equal("baseAttentionSurfaceCapabilities" in sdk, false);
-  assert.equal("mergeAttentionSurfaceCapabilities" in sdk, false);
   assert.equal("APERTURE_STATE_SCHEMA_VERSION" in sdk, false);
   assert.equal("MARKDOWN_SCHEMA_VERSION" in sdk, false);
+
+  assert.equal(typeof sdk.baseAttentionSurfaceCapabilities, "object");
+  assert.equal(typeof sdk.mergeAttentionSurfaceCapabilities, "function");
 });
 
 test("public SDK supports the simple event in -> frame out -> response in loop", () => {
@@ -127,6 +128,27 @@ test("public SDK exposes surface capability types through the root package", () 
   assert.equal(core.getSurfaceCapabilities().topology.supportsAmbient, false);
   assert.equal(core.getSurfaceCapabilities().responses.supportsForm, false);
   assert.equal(core.getSurfaceCapabilities().responses.supportsTextResponse, true);
+});
+
+test("public SDK exposes surface capability helpers through the root package", () => {
+  const merged = sdk.mergeAttentionSurfaceCapabilities([
+    sdk.baseAttentionSurfaceCapabilities,
+    {
+      topology: {
+        supportsAmbient: false,
+      },
+      responses: {
+        supportsSingleChoice: true,
+        supportsMultipleChoice: false,
+        supportsForm: false,
+        supportsTextResponse: true,
+      },
+    },
+  ]);
+
+  assert.equal(merged.topology.supportsAmbient, false);
+  assert.equal(merged.responses.supportsForm, false);
+  assert.equal(merged.responses.supportsTextResponse, false);
 });
 
 test("advanced semantic helpers live behind the semantic subpath", () => {

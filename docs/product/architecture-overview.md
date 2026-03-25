@@ -561,34 +561,34 @@ It does **not** need to be updated for:
 
 ### Source adapters
 
-- [Claude adapter](/Users/tom/dev/aperture/packages/claude-code/src/index.ts)
-- [OpenCode mapping](/Users/tom/dev/aperture/packages/opencode/src/mapping.ts)
+- [Claude adapter](https://github.com/tomismeta/aperture/blob/main/packages/claude-code/src/index.ts)
+- [OpenCode mapping](https://github.com/tomismeta/aperture/blob/main/packages/opencode/src/mapping.ts)
 
 ### Core ingress
 
-- [semantic-normalizer.ts](/Users/tom/dev/aperture/packages/core/src/semantic-normalizer.ts)
-- [event-evaluator.ts](/Users/tom/dev/aperture/packages/core/src/event-evaluator.ts)
-- [interaction-taxonomy.ts](/Users/tom/dev/aperture/packages/core/src/interaction-taxonomy.ts)
-- [episode-tracker.ts](/Users/tom/dev/aperture/packages/core/src/episode-tracker.ts)
+- [semantic-normalizer.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/semantic-normalizer.ts)
+- [event-evaluator.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/event-evaluator.ts)
+- [interaction-taxonomy.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/interaction-taxonomy.ts)
+- [episode-tracker.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/episode-tracker.ts)
 
 ### Deterministic judgment engine
 
-- [attention-policy.ts](/Users/tom/dev/aperture/packages/core/src/attention-policy.ts)
-- [attention-value.ts](/Users/tom/dev/aperture/packages/core/src/attention-value.ts)
-- [attention-planner.ts](/Users/tom/dev/aperture/packages/core/src/attention-planner.ts)
-- [continuity/](/Users/tom/dev/aperture/packages/core/src/continuity)
-- [judgment-coordinator.ts](/Users/tom/dev/aperture/packages/core/src/judgment-coordinator.ts)
+- [attention-policy.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-policy.ts)
+- [attention-value.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-value.ts)
+- [attention-planner.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-planner.ts)
+- [continuity/](https://github.com/tomismeta/aperture/tree/main/packages/core/src/continuity)
+- [judgment-coordinator.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/judgment-coordinator.ts)
 
 ### State, trace, and learning
 
-- [frame-planner.ts](/Users/tom/dev/aperture/packages/core/src/frame-planner.ts)
-- [task-view-store.ts](/Users/tom/dev/aperture/packages/core/src/task-view-store.ts)
-- [trace-recorder.ts](/Users/tom/dev/aperture/packages/core/src/trace-recorder.ts)
-- [memory-aggregator.ts](/Users/tom/dev/aperture/packages/core/src/memory-aggregator.ts)
-- [profile-store.ts](/Users/tom/dev/aperture/packages/core/src/profile-store.ts)
+- [frame-planner.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/frame-planner.ts)
+- [task-view-store.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/task-view-store.ts)
+- [trace-recorder.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/trace-recorder.ts)
+- [memory-aggregator.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/memory-aggregator.ts)
+- [profile-store.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/profile-store.ts)
 
 ### Operator surfaces
 
-- [render.ts](/Users/tom/dev/aperture/packages/tui/src/render.ts)
-- [render-why.ts](/Users/tom/dev/aperture/packages/tui/src/render-why.ts)
-- [index.ts](/Users/tom/dev/aperture/packages/tui/src/index.ts)
+- [render.ts](https://github.com/tomismeta/aperture/blob/main/packages/tui/src/render.ts)
+- [render-why.ts](https://github.com/tomismeta/aperture/blob/main/packages/tui/src/render-why.ts)
+- [index.ts](https://github.com/tomismeta/aperture/blob/main/packages/tui/src/index.ts)

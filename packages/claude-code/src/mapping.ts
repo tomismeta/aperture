@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { basename } from "node:path";
 
 import type {
+  AttentionConsequenceLevel as ConsequenceLevel,
   AttentionResponse,
   HumanInputRequest,
   SourceEvent,
@@ -9,7 +10,6 @@ import type {
   SourceTaskCompletedEvent,
   SourceTaskUpdatedEvent,
 } from "@tomismeta/aperture-core";
-import type { AttentionConsequenceLevel as ConsequenceLevel } from "../../core/src/frame.js";
 import type { ClaudeCodeAskUserQuestionTranscriptPayload } from "./transcript.js";
 
 export type ClaudeCodeHookEvent =

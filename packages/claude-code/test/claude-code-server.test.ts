@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { ApertureCore } from "../../core/src/index.js";
+import { ApertureCore } from "@tomismeta/aperture-core";
 
 import { createClaudeCodeHookServer } from "../src/server.js";
 

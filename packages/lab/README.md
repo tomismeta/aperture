@@ -75,7 +75,7 @@ Today this package provides:
 - a basic scorecard built on top of core trace evaluation and signal summaries
 - a first golden-scenario set for `JudgmentBench`
 - a benchmark runner that can write JSON results into
-  [packages/lab/results](/Users/tom/dev/aperture/packages/lab/results)
+  [packages/lab/results](https://github.com/tomismeta/aperture/tree/main/packages/lab/results)
 
 The first semantic-robustness tranche now covers:
 
@@ -123,7 +123,7 @@ pnpm session:export
 
 This will discover the most recent local Aperture runtime, fetch its session
 capture, convert that capture into a replay bundle, and write the bundle under
-[packages/lab/bundles](/Users/tom/dev/aperture/packages/lab/bundles).
+[packages/lab/bundles](https://github.com/tomismeta/aperture/tree/main/packages/lab/bundles).
 
 For cleaner real-session collection, use:
 
@@ -142,17 +142,17 @@ pnpm session:promote --bundle packages/lab/bundles/<bundle>.json --collection wi
 ```
 
 This converts the raw capture into a replay scenario under
-[packages/lab/harvested](/Users/tom/dev/aperture/packages/lab/harvested), carries
+[packages/lab/harvested](https://github.com/tomismeta/aperture/tree/main/packages/lab/harvested), carries
 source provenance and capture metadata forward, and can delete the raw bundle
 once it has been distilled.
 
 The intended split is:
 
-- [packages/lab/bundles](/Users/tom/dev/aperture/packages/lab/bundles)
+- [packages/lab/bundles](https://github.com/tomismeta/aperture/tree/main/packages/lab/bundles)
   - temporary local-first raw captures
-- [packages/lab/harvested](/Users/tom/dev/aperture/packages/lab/harvested)
+- [packages/lab/harvested](https://github.com/tomismeta/aperture/tree/main/packages/lab/harvested)
   - kept replay scenarios from real sessions, including "wild capture" probes
-- [packages/lab/golden](/Users/tom/dev/aperture/packages/lab/golden)
+- [packages/lab/golden](https://github.com/tomismeta/aperture/tree/main/packages/lab/golden)
   - curated doctrine fixtures that should stay stable enough for JudgmentBench
 
 ## Status

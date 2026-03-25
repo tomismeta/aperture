@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import test from "node:test";
 
 import { createApertureRuntime } from "../../runtime/src/index.js";
-import { ApertureCore } from "../../core/src/index.js";
+import { ApertureCore } from "@tomismeta/aperture-core";
 import { createOpencodeBridge } from "../src/index.js";
 
 test("bootstraps pending permissions and routes runtime responses back to OpenCode", async () => {

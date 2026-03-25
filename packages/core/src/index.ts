@@ -22,6 +22,7 @@ export type {
   AttentionFrame,
   AttentionTaskView,
   AttentionView,
+  AttentionConsequenceLevel,
 } from "./frame.js";
 export type { AttentionResponse } from "./frame-response.js";
 export type { AttentionSignal } from "./interaction-signal.js";
@@ -29,4 +30,8 @@ export type {
   AttentionTopologyCapabilities,
   AttentionResponseCapabilities,
   AttentionSurfaceCapabilities,
+} from "./surface-capabilities.js";
+export {
+  baseAttentionSurfaceCapabilities,
+  mergeAttentionSurfaceCapabilities,
 } from "./surface-capabilities.js";

@@ -39,14 +39,14 @@ Identical inputs should produce identical routing.
 Current code paths:
 
 - coordinator and final decision formation:
-  - [packages/core/src/judgment-coordinator.ts](/Users/tom/dev/aperture/packages/core/src/judgment-coordinator.ts)
+  - [packages/core/src/judgment-coordinator.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/judgment-coordinator.ts)
 - routing and continuity:
-  - [packages/core/src/attention-planner.ts](/Users/tom/dev/aperture/packages/core/src/attention-planner.ts)
+  - [packages/core/src/attention-planner.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-planner.ts)
 - state commit:
-  - [packages/core/src/task-view-store.ts](/Users/tom/dev/aperture/packages/core/src/task-view-store.ts)
+  - [packages/core/src/task-view-store.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/task-view-store.ts)
 - trace capture:
-  - [packages/core/src/trace-recorder.ts](/Users/tom/dev/aperture/packages/core/src/trace-recorder.ts)
-  - [packages/core/src/trace.ts](/Users/tom/dev/aperture/packages/core/src/trace.ts)
+  - [packages/core/src/trace-recorder.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/trace-recorder.ts)
+  - [packages/core/src/trace.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/trace.ts)
 
 Implication:
 
@@ -62,17 +62,17 @@ Adapters should provide explicit semantics when they know them. Core should norm
 Current code paths:
 
 - adapter ingress:
-  - [packages/claude-code/src/index.ts](/Users/tom/dev/aperture/packages/claude-code/src/index.ts)
-  - [packages/opencode/src/mapping.ts](/Users/tom/dev/aperture/packages/opencode/src/mapping.ts)
+  - [packages/claude-code/src/index.ts](https://github.com/tomismeta/aperture/blob/main/packages/claude-code/src/index.ts)
+  - [packages/opencode/src/mapping.ts](https://github.com/tomismeta/aperture/blob/main/packages/opencode/src/mapping.ts)
 - source event contract:
-  - [packages/core/src/source-event.ts](/Users/tom/dev/aperture/packages/core/src/source-event.ts)
+  - [packages/core/src/source-event.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/source-event.ts)
 - canonical event contract:
-  - [packages/core/src/events.ts](/Users/tom/dev/aperture/packages/core/src/events.ts)
+  - [packages/core/src/events.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/events.ts)
 - canonical normalization:
-  - [packages/core/src/semantic-normalizer.ts](/Users/tom/dev/aperture/packages/core/src/semantic-normalizer.ts)
-  - [packages/core/src/event-evaluator.ts](/Users/tom/dev/aperture/packages/core/src/event-evaluator.ts)
+  - [packages/core/src/semantic-normalizer.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/semantic-normalizer.ts)
+  - [packages/core/src/event-evaluator.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/event-evaluator.ts)
 - explicit vs inferred taxonomy:
-  - [packages/core/src/interaction-taxonomy.ts](/Users/tom/dev/aperture/packages/core/src/interaction-taxonomy.ts)
+  - [packages/core/src/interaction-taxonomy.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/interaction-taxonomy.ts)
 
 Implication:
 
@@ -96,11 +96,11 @@ Value answers:
 Current code paths:
 
 - policy:
-  - [packages/core/src/attention-policy.ts](/Users/tom/dev/aperture/packages/core/src/attention-policy.ts)
-  - [packages/core/src/policy](/Users/tom/dev/aperture/packages/core/src/policy)
+  - [packages/core/src/attention-policy.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-policy.ts)
+  - [packages/core/src/policy](https://github.com/tomismeta/aperture/tree/main/packages/core/src/policy)
 - value:
-  - [packages/core/src/attention-value.ts](/Users/tom/dev/aperture/packages/core/src/attention-value.ts)
-  - [packages/core/src/frame-score.ts](/Users/tom/dev/aperture/packages/core/src/frame-score.ts)
+  - [packages/core/src/attention-value.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-value.ts)
+  - [packages/core/src/frame-score.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/frame-score.ts)
 
 Implication:
 
@@ -118,14 +118,14 @@ Every material score contribution should have:
 Current code paths:
 
 - candidate value decomposition:
-  - [packages/core/src/attention-value.ts](/Users/tom/dev/aperture/packages/core/src/attention-value.ts)
+  - [packages/core/src/attention-value.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-value.ts)
 - evidence-side adjustments:
-  - [packages/core/src/attention-pressure.ts](/Users/tom/dev/aperture/packages/core/src/attention-pressure.ts)
-  - [packages/core/src/attention-burden.ts](/Users/tom/dev/aperture/packages/core/src/attention-burden.ts)
-  - [packages/core/src/attention-adjustments.ts](/Users/tom/dev/aperture/packages/core/src/attention-adjustments.ts)
+  - [packages/core/src/attention-pressure.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-pressure.ts)
+  - [packages/core/src/attention-burden.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-burden.ts)
+  - [packages/core/src/attention-adjustments.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-adjustments.ts)
 - explanation output:
-  - [packages/core/src/judgment-coordinator.ts](/Users/tom/dev/aperture/packages/core/src/judgment-coordinator.ts)
-  - [packages/core/src/trace.ts](/Users/tom/dev/aperture/packages/core/src/trace.ts)
+  - [packages/core/src/judgment-coordinator.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/judgment-coordinator.ts)
+  - [packages/core/src/trace.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/trace.ts)
 
 Implication:
 
@@ -139,12 +139,12 @@ Activation, queueing, ambient routing, and continuity should be treated as expli
 Current code paths:
 
 - planner:
-  - [packages/core/src/attention-planner.ts](/Users/tom/dev/aperture/packages/core/src/attention-planner.ts)
+  - [packages/core/src/attention-planner.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-planner.ts)
 - surface constraints:
-  - [packages/core/src/surface-capabilities.ts](/Users/tom/dev/aperture/packages/core/src/surface-capabilities.ts)
-  - [packages/core/src/aperture-core.ts](/Users/tom/dev/aperture/packages/core/src/aperture-core.ts)
+  - [packages/core/src/surface-capabilities.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/surface-capabilities.ts)
+  - [packages/core/src/aperture-core.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/aperture-core.ts)
 - global attention ordering:
-  - [packages/core/src/attention-view.ts](/Users/tom/dev/aperture/packages/core/src/attention-view.ts)
+  - [packages/core/src/attention-view.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-view.ts)
 
 Implication:
 
@@ -158,9 +158,9 @@ Protecting focus is part of correctness, not polish.
 Current code paths:
 
 - continuity rule set:
-  - [packages/core/src/continuity](/Users/tom/dev/aperture/packages/core/src/continuity)
+  - [packages/core/src/continuity](https://github.com/tomismeta/aperture/tree/main/packages/core/src/continuity)
 - continuity evaluation and ordering:
-  - [packages/core/src/attention-planner.ts](/Users/tom/dev/aperture/packages/core/src/attention-planner.ts)
+  - [packages/core/src/attention-planner.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-planner.ts)
 
 Implication:
 
@@ -174,14 +174,14 @@ Search, tuning, replay comparison, and threshold refinement belong in offline wo
 Current code paths:
 
 - trace evaluation:
-  - [packages/core/src/trace-evaluator.ts](/Users/tom/dev/aperture/packages/core/src/trace-evaluator.ts)
+  - [packages/core/src/trace-evaluator.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/trace-evaluator.ts)
 - signal aggregation and trend derivation:
-  - [packages/core/src/signal-summary.ts](/Users/tom/dev/aperture/packages/core/src/signal-summary.ts)
-  - [packages/core/src/attention-trends.ts](/Users/tom/dev/aperture/packages/core/src/attention-trends.ts)
-  - [packages/core/src/memory-aggregator.ts](/Users/tom/dev/aperture/packages/core/src/memory-aggregator.ts)
+  - [packages/core/src/signal-summary.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/signal-summary.ts)
+  - [packages/core/src/attention-trends.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-trends.ts)
+  - [packages/core/src/memory-aggregator.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/memory-aggregator.ts)
 - persisted profile and policy state:
-  - [packages/core/src/profile-store.ts](/Users/tom/dev/aperture/packages/core/src/profile-store.ts)
-  - [packages/core/src/markdown-state.ts](/Users/tom/dev/aperture/packages/core/src/markdown-state.ts)
+  - [packages/core/src/profile-store.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/profile-store.ts)
+  - [packages/core/src/markdown-state.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/markdown-state.ts)
 
 Implication:
 
@@ -203,12 +203,12 @@ Every routing decision should be reconstructable from:
 Current code paths:
 
 - explanation object:
-  - [packages/core/src/judgment-coordinator.ts](/Users/tom/dev/aperture/packages/core/src/judgment-coordinator.ts)
+  - [packages/core/src/judgment-coordinator.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/judgment-coordinator.ts)
 - persisted trace:
-  - [packages/core/src/trace.ts](/Users/tom/dev/aperture/packages/core/src/trace.ts)
-  - [packages/core/src/trace-recorder.ts](/Users/tom/dev/aperture/packages/core/src/trace-recorder.ts)
+  - [packages/core/src/trace.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/trace.ts)
+  - [packages/core/src/trace-recorder.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/trace-recorder.ts)
 - TUI why surface:
-  - [packages/tui/src/render-why.ts](/Users/tom/dev/aperture/packages/tui/src/render-why.ts)
+  - [packages/tui/src/render-why.ts](https://github.com/tomismeta/aperture/blob/main/packages/tui/src/render-why.ts)
 
 Implication:
 
@@ -224,9 +224,9 @@ Current code paths:
   - [docs/attention-judgment-doctrine.md](./attention-judgment-doctrine.md)
   - [docs/core-engine-architecture.md](./core-engine-architecture.md)
 - Aperture-native judgment flow:
-  - [packages/core/src/judgment-coordinator.ts](/Users/tom/dev/aperture/packages/core/src/judgment-coordinator.ts)
-  - [packages/core/src/attention-policy.ts](/Users/tom/dev/aperture/packages/core/src/attention-policy.ts)
-  - [packages/core/src/attention-planner.ts](/Users/tom/dev/aperture/packages/core/src/attention-planner.ts)
+  - [packages/core/src/judgment-coordinator.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/judgment-coordinator.ts)
+  - [packages/core/src/attention-policy.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-policy.ts)
+  - [packages/core/src/attention-planner.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-planner.ts)
 
 Implication:
 
@@ -248,19 +248,19 @@ The main boundaries are:
 Current code paths:
 
 - normalization boundary:
-  - [packages/core/src/source-event.ts](/Users/tom/dev/aperture/packages/core/src/source-event.ts)
-  - [packages/core/src/events.ts](/Users/tom/dev/aperture/packages/core/src/events.ts)
-  - [packages/core/src/semantic-normalizer.ts](/Users/tom/dev/aperture/packages/core/src/semantic-normalizer.ts)
+  - [packages/core/src/source-event.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/source-event.ts)
+  - [packages/core/src/events.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/events.ts)
+  - [packages/core/src/semantic-normalizer.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/semantic-normalizer.ts)
 - planning vs commit:
-  - [packages/core/src/attention-planner.ts](/Users/tom/dev/aperture/packages/core/src/attention-planner.ts)
-  - [packages/core/src/task-view-store.ts](/Users/tom/dev/aperture/packages/core/src/task-view-store.ts)
+  - [packages/core/src/attention-planner.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-planner.ts)
+  - [packages/core/src/task-view-store.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/task-view-store.ts)
 - learning vs authority:
-  - [packages/core/src/profile-store.ts](/Users/tom/dev/aperture/packages/core/src/profile-store.ts)
-  - [packages/core/src/memory-aggregator.ts](/Users/tom/dev/aperture/packages/core/src/memory-aggregator.ts)
-  - [packages/core/src/attention-value.ts](/Users/tom/dev/aperture/packages/core/src/attention-value.ts)
+  - [packages/core/src/profile-store.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/profile-store.ts)
+  - [packages/core/src/memory-aggregator.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/memory-aggregator.ts)
+  - [packages/core/src/attention-value.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-value.ts)
 - operator vs inspect surface:
-  - [packages/tui/src/render.ts](/Users/tom/dev/aperture/packages/tui/src/render.ts)
-  - [packages/tui/src/render-why.ts](/Users/tom/dev/aperture/packages/tui/src/render-why.ts)
+  - [packages/tui/src/render.ts](https://github.com/tomismeta/aperture/blob/main/packages/tui/src/render.ts)
+  - [packages/tui/src/render-why.ts](https://github.com/tomismeta/aperture/blob/main/packages/tui/src/render-why.ts)
 
 Implication:
 
@@ -277,10 +277,10 @@ Current bounded fallback rule:
 
 Relevant files:
 
-- [packages/core/src/interaction-taxonomy.ts](/Users/tom/dev/aperture/packages/core/src/interaction-taxonomy.ts)
-- [packages/core/src/policy/configured-policy-support.ts](/Users/tom/dev/aperture/packages/core/src/policy/configured-policy-support.ts)
-- [packages/core/src/attention-value.ts](/Users/tom/dev/aperture/packages/core/src/attention-value.ts)
-- [packages/core/src/memory-aggregator.ts](/Users/tom/dev/aperture/packages/core/src/memory-aggregator.ts)
+- [packages/core/src/interaction-taxonomy.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/interaction-taxonomy.ts)
+- [packages/core/src/policy/configured-policy-support.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/policy/configured-policy-support.ts)
+- [packages/core/src/attention-value.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-value.ts)
+- [packages/core/src/memory-aggregator.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/memory-aggregator.ts)
 
 Implication:
 
@@ -292,15 +292,15 @@ Implication:
 These are the current product invariants that should stay pinned:
 
 - Claude read-tool completion stays ambient
-  - [packages/claude-code/test/claude-code-server.test.ts](/Users/tom/dev/aperture/packages/claude-code/test/claude-code-server.test.ts)
+  - [packages/claude-code/test/claude-code-server.test.ts](https://github.com/tomismeta/aperture/blob/main/packages/claude-code/test/claude-code-server.test.ts)
 - same-interaction status demotion leaves no lingering active frame
-  - [packages/core/test/aperture-core.coordination.test.ts](/Users/tom/dev/aperture/packages/core/test/aperture-core.coordination.test.ts)
+  - [packages/core/test/aperture-core.coordination.test.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/test/aperture-core.coordination.test.ts)
 - passive status does not record inferred tool family from incidental wording
-  - [packages/core/test/aperture-core.signals.test.ts](/Users/tom/dev/aperture/packages/core/test/aperture-core.signals.test.ts)
+  - [packages/core/test/aperture-core.signals.test.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/test/aperture-core.signals.test.ts)
 - explicit question requests do not enter low-risk read policy from title wording
-  - [packages/core/test/judgment-layer.test.ts](/Users/tom/dev/aperture/packages/core/test/judgment-layer.test.ts)
+  - [packages/core/test/judgment-layer.test.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/test/judgment-layer.test.ts)
 - OpenCode question requests with read wording stay interactive under `lowRiskRead` auto-approve
-  - [packages/opencode/test/opencode-runtime.test.ts](/Users/tom/dev/aperture/packages/opencode/test/opencode-runtime.test.ts)
+  - [packages/opencode/test/opencode-runtime.test.ts](https://github.com/tomismeta/aperture/blob/main/packages/opencode/test/opencode-runtime.test.ts)
 
 ## Hardening Checklist
 
@@ -314,8 +314,8 @@ Use this checklist when changing routing-critical behavior.
 
 Relevant files:
 
-- [packages/claude-code/src/index.ts](/Users/tom/dev/aperture/packages/claude-code/src/index.ts)
-- [packages/opencode/src/mapping.ts](/Users/tom/dev/aperture/packages/opencode/src/mapping.ts)
+- [packages/claude-code/src/index.ts](https://github.com/tomismeta/aperture/blob/main/packages/claude-code/src/index.ts)
+- [packages/opencode/src/mapping.ts](https://github.com/tomismeta/aperture/blob/main/packages/opencode/src/mapping.ts)
 
 ### Core normalization changes
 
@@ -325,9 +325,9 @@ Relevant files:
 
 Relevant files:
 
-- [packages/core/src/semantic-normalizer.ts](/Users/tom/dev/aperture/packages/core/src/semantic-normalizer.ts)
-- [packages/core/src/event-evaluator.ts](/Users/tom/dev/aperture/packages/core/src/event-evaluator.ts)
-- [packages/core/src/interaction-taxonomy.ts](/Users/tom/dev/aperture/packages/core/src/interaction-taxonomy.ts)
+- [packages/core/src/semantic-normalizer.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/semantic-normalizer.ts)
+- [packages/core/src/event-evaluator.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/event-evaluator.ts)
+- [packages/core/src/interaction-taxonomy.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/interaction-taxonomy.ts)
 
 ### Policy / value / planner changes
 
@@ -337,9 +337,9 @@ Relevant files:
 
 Relevant files:
 
-- [packages/core/src/attention-policy.ts](/Users/tom/dev/aperture/packages/core/src/attention-policy.ts)
-- [packages/core/src/attention-value.ts](/Users/tom/dev/aperture/packages/core/src/attention-value.ts)
-- [packages/core/src/attention-planner.ts](/Users/tom/dev/aperture/packages/core/src/attention-planner.ts)
+- [packages/core/src/attention-policy.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-policy.ts)
+- [packages/core/src/attention-value.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-value.ts)
+- [packages/core/src/attention-planner.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-planner.ts)
 
 ### Commit / surface changes
 
@@ -349,9 +349,9 @@ Relevant files:
 
 Relevant files:
 
-- [packages/core/src/task-view-store.ts](/Users/tom/dev/aperture/packages/core/src/task-view-store.ts)
-- [packages/core/src/trace.ts](/Users/tom/dev/aperture/packages/core/src/trace.ts)
-- [packages/tui/src/render.ts](/Users/tom/dev/aperture/packages/tui/src/render.ts)
+- [packages/core/src/task-view-store.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/task-view-store.ts)
+- [packages/core/src/trace.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/trace.ts)
+- [packages/tui/src/render.ts](https://github.com/tomismeta/aperture/blob/main/packages/tui/src/render.ts)
 
 ## Bounded Fallbacks
 
@@ -364,10 +364,10 @@ Current bounded fallback rule:
 
 Relevant files:
 
-- [packages/core/src/interaction-taxonomy.ts](/Users/tom/dev/aperture/packages/core/src/interaction-taxonomy.ts)
-- [packages/core/src/policy/configured-policy-support.ts](/Users/tom/dev/aperture/packages/core/src/policy/configured-policy-support.ts)
-- [packages/core/src/attention-value.ts](/Users/tom/dev/aperture/packages/core/src/attention-value.ts)
-- [packages/core/src/memory-aggregator.ts](/Users/tom/dev/aperture/packages/core/src/memory-aggregator.ts)
+- [packages/core/src/interaction-taxonomy.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/interaction-taxonomy.ts)
+- [packages/core/src/policy/configured-policy-support.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/policy/configured-policy-support.ts)
+- [packages/core/src/attention-value.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/attention-value.ts)
+- [packages/core/src/memory-aggregator.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/src/memory-aggregator.ts)
 
 Implication:
 
@@ -379,16 +379,16 @@ Implication:
 These are the current product invariants that should stay pinned:
 
 - Claude read-tool completion stays ambient
-  - [packages/claude-code/test/claude-code-server.test.ts](/Users/tom/dev/aperture/packages/claude-code/test/claude-code-server.test.ts)
+  - [packages/claude-code/test/claude-code-server.test.ts](https://github.com/tomismeta/aperture/blob/main/packages/claude-code/test/claude-code-server.test.ts)
 - same-interaction status demotion leaves no lingering active frame
-  - [packages/core/test/aperture-core.coordination.test.ts](/Users/tom/dev/aperture/packages/core/test/aperture-core.coordination.test.ts)
+  - [packages/core/test/aperture-core.coordination.test.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/test/aperture-core.coordination.test.ts)
 - passive status does not record inferred tool family from incidental wording
-  - [packages/core/test/aperture-core.signals.test.ts](/Users/tom/dev/aperture/packages/core/test/aperture-core.signals.test.ts)
+  - [packages/core/test/aperture-core.signals.test.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/test/aperture-core.signals.test.ts)
 - explicit question requests do not enter low-risk read policy from title wording
-  - [packages/core/test/judgment-layer.test.ts](/Users/tom/dev/aperture/packages/core/test/judgment-layer.test.ts)
+  - [packages/core/test/judgment-layer.test.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/test/judgment-layer.test.ts)
 - OpenCode question requests with read wording stay interactive under `lowRiskRead` auto-approve
-  - [packages/opencode/test/opencode-runtime.test.ts](/Users/tom/dev/aperture/packages/opencode/test/opencode-runtime.test.ts)
-- [packages/tui/src/render-why.ts](/Users/tom/dev/aperture/packages/tui/src/render-why.ts)
+  - [packages/opencode/test/opencode-runtime.test.ts](https://github.com/tomismeta/aperture/blob/main/packages/opencode/test/opencode-runtime.test.ts)
+- [packages/tui/src/render-why.ts](https://github.com/tomismeta/aperture/blob/main/packages/tui/src/render-why.ts)
 
 ## Current Next Steps
 

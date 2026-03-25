@@ -23,7 +23,7 @@ workspace layout and npm layout.
 ### Public surface 2: product package
 
 - package: scoped `aperture` product package
-- current workspace shape: [packages/aperture](/Users/tom/dev/aperture/packages/aperture)
+- current workspace shape: [packages/aperture](https://github.com/tomismeta/aperture/tree/main/packages/aperture)
 - purpose: local-first product entrypoint with the `aperture` command
 - audience: operators and teams adopting Aperture as a product
 
@@ -136,7 +136,7 @@ for repo scripts.
 
 ## Product Packaging Decision
 
-The workspace package at [packages/aperture](/Users/tom/dev/aperture/packages/aperture)
+The workspace package at [packages/aperture](https://github.com/tomismeta/aperture/tree/main/packages/aperture)
 is now the correct boundary, but it is **not yet ready to publish**.
 
 ### Why it is not yet publishable

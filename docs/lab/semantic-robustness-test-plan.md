@@ -62,7 +62,7 @@ flowchart LR
 
 This layer tests the semantic layer directly and should live primarily in:
 
-- [packages/core/test/semantic-normalization.test.ts](/Users/tom/dev/aperture/packages/core/test/semantic-normalization.test.ts)
+- [packages/core/test/semantic-normalization.test.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/test/semantic-normalization.test.ts)
 
 ### What Core Must Prove
 
@@ -151,9 +151,9 @@ This layer tests semantic interpretation and routing together through replay.
 
 Primary surfaces:
 
-- [packages/lab/golden](/Users/tom/dev/aperture/packages/lab/golden)
-- [packages/lab/src/judgment-bench.ts](/Users/tom/dev/aperture/packages/lab/src/judgment-bench.ts)
-- [packages/lab/src/runner.ts](/Users/tom/dev/aperture/packages/lab/src/runner.ts)
+- [packages/lab/golden](https://github.com/tomismeta/aperture/tree/main/packages/lab/golden)
+- [packages/lab/src/judgment-bench.ts](https://github.com/tomismeta/aperture/blob/main/packages/lab/src/judgment-bench.ts)
+- [packages/lab/src/runner.ts](https://github.com/tomismeta/aperture/blob/main/packages/lab/src/runner.ts)
 
 ### What Lab Must Prove
 

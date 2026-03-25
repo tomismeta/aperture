@@ -195,20 +195,26 @@ Use `surfaceCapabilities` for this.
 ```ts
 import {
   ApertureCore,
+  baseAttentionSurfaceCapabilities,
+  mergeAttentionSurfaceCapabilities,
   type AttentionSurfaceCapabilities,
 } from "@tomismeta/aperture-core";
 
-const surfaceCapabilities: AttentionSurfaceCapabilities = {
-  topology: {
-    supportsAmbient: false,
-  },
-  responses: {
-    supportsSingleChoice: true,
-    supportsMultipleChoice: false,
-    supportsForm: false,
-    supportsTextResponse: true,
-  },
-};
+const surfaceCapabilities: AttentionSurfaceCapabilities =
+  mergeAttentionSurfaceCapabilities([
+    baseAttentionSurfaceCapabilities,
+    {
+      topology: {
+        supportsAmbient: false,
+      },
+      responses: {
+        supportsSingleChoice: true,
+        supportsMultipleChoice: false,
+        supportsForm: false,
+        supportsTextResponse: true,
+      },
+    },
+  ]);
 
 const core = new ApertureCore({
   surfaceCapabilities,

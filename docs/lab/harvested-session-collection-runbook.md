@@ -22,7 +22,7 @@ Prefer one focused session per doctrine question over one giant mixed session.
 
 ## Recording Loop
 
-From [/Users/tom/dev/aperture](/Users/tom/dev/aperture):
+From [the repository root](https://github.com/tomismeta/aperture):
 
 1. Start the live stack:
 
@@ -39,7 +39,7 @@ pnpm session:record --title "approval escalation" --tag harvested --tag approval
 3. Exercise the specific flow.
 4. Press Enter in the recorder terminal to export the bundle.
 5. Review the resulting bundle under
-   [packages/lab/bundles](/Users/tom/dev/aperture/packages/lab/bundles).
+   [packages/lab/bundles](https://github.com/tomismeta/aperture/tree/main/packages/lab/bundles).
 
 Recommended naming:
 

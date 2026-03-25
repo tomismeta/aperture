@@ -28,7 +28,10 @@ import { evaluateBurstDampeningContinuityRule } from "./continuity/burst-dampeni
 import { evaluateConflictingInterruptContinuityRule } from "./continuity/conflicting-interrupt-continuity-rule.js";
 import { evaluateContextPatienceContinuityRule } from "./continuity/context-patience-continuity-rule.js";
 import { evaluateDecisionStreamContinuityRule } from "./continuity/decision-stream-continuity-rule.js";
-import { evaluateDeferralEscalationContinuityRule } from "./continuity/deferral-escalation-continuity-rule.js";
+import {
+  evaluateDeferralEscalationContinuityRule,
+  hasResurfacingPressure,
+} from "./continuity/deferral-escalation-continuity-rule.js";
 import { evaluateMinimumDwellContinuityRule } from "./continuity/minimum-dwell-continuity-rule.js";
 import { evaluateSameEpisodeContinuityRule } from "./continuity/same-episode-continuity-rule.js";
 import { evaluateSameInteractionContinuityRule } from "./continuity/same-interaction-continuity-rule.js";
@@ -367,6 +370,16 @@ export class AttentionPlanner {
     }
 
     if (currentBlocking && !candidate.blocking) {
+      if (hasResurfacingPressure(evidence.continuitySignalSummary)) {
+        reasons.push("blocking work keeps resurfacing backlog queued so it stays visible until focus can return");
+        return {
+          decision: { kind: "queue", candidate },
+          currentPriority,
+          currentScore,
+          reasons,
+        };
+      }
+
       reasons.push("blocking work keeps non-blocking updates in the periphery");
       return {
         decision: this.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
@@ -402,6 +415,16 @@ export class AttentionPlanner {
     }
 
     if (this.shouldSuppressForBacklog(candidate, evidence.attentionView, candidate.timestamp)) {
+      if (hasResurfacingPressure(evidence.continuitySignalSummary)) {
+        reasons.push("existing urgent backlog keeps resurfacing work queued so it remains visible");
+        return {
+          decision: { kind: "queue", candidate },
+          currentPriority,
+          currentScore,
+          reasons,
+        };
+      }
+
       reasons.push(
         context.utility.components.deferralAffinity > 0
           ? "existing urgent backlog defers this work, but memory keeps it queued because it usually returns after deferral"

@@ -1,0 +1,118 @@
+{
+  "id": "golden:semantics:resurfacing-same-episode-stays-queued-under-blocker",
+  "title": "Resurfacing same-episode work stays queued under a blocker",
+  "description": "When unresolved same-episode work keeps returning while blocking work is active, Aperture should keep it visible in the queue instead of letting it disappear back to ambient.",
+  "doctrineTags": [
+    "continuity_semantics",
+    "ambient_doctrine",
+    "decision_stream_continuity",
+    "relation_semantics"
+  ],
+  "expectations": {
+    "finalActiveInteractionId": "interaction:blocker",
+    "queuedInteractionIds": [
+      "interaction:task:episode:b:status"
+    ],
+    "ambientInteractionIds": [],
+    "resultBucketCounts": {
+      "active": 1,
+      "queued": 1,
+      "ambient": 1
+    },
+    "decisionReadings": [
+      {
+        "stepLabel": "initial episode status",
+        "evaluationKind": "candidate",
+        "decisionKind": "ambient",
+        "resultBucket": "ambient"
+      },
+      {
+        "stepLabel": "resurfacing episode status",
+        "evaluationKind": "candidate",
+        "decisionKind": "queue",
+        "resultBucket": "queued"
+      }
+    ],
+    "traceExpectations": {
+      "mergedEpisodeUpdates": 1
+    }
+  },
+  "steps": [
+    {
+      "kind": "publish",
+      "label": "blocking approval",
+      "event": {
+        "id": "evt:blocker",
+        "taskId": "task:blocker",
+        "timestamp": "2026-03-25T18:20:00.000Z",
+        "type": "human.input.requested",
+        "interactionId": "interaction:blocker",
+        "title": "Approve deploy",
+        "summary": "A deploy is waiting for approval.",
+        "consequence": "high",
+        "request": { "kind": "approval" }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "initial episode status",
+      "event": {
+        "id": "evt:episode:first",
+        "type": "task.updated",
+        "taskId": "task:episode:a",
+        "timestamp": "2026-03-25T18:20:10.000Z",
+        "source": { "id": "session:1", "kind": "claude-code" },
+        "title": "Config sync running",
+        "summary": "config.ts",
+        "status": "running",
+        "progress": 25
+      }
+    },
+    {
+      "kind": "signal",
+      "label": "episode returned from ambient",
+      "signal": {
+        "kind": "returned",
+        "taskId": "task:episode:history",
+        "interactionId": "interaction:episode:history",
+        "timestamp": "2026-03-25T18:20:20.000Z",
+        "from": "ambient",
+        "metadata": {
+          "episode": {
+            "id": "episode:claude-code:status:config.ts:1"
+          }
+        }
+      }
+    },
+    {
+      "kind": "signal",
+      "label": "episode returned again",
+      "signal": {
+        "kind": "returned",
+        "taskId": "task:episode:history-2",
+        "interactionId": "interaction:episode:history-2",
+        "timestamp": "2026-03-25T18:20:21.000Z",
+        "from": "queued",
+        "metadata": {
+          "episode": {
+            "id": "episode:claude-code:status:config.ts:1"
+          }
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "resurfacing episode status",
+      "event": {
+        "id": "evt:episode:second",
+        "type": "task.updated",
+        "taskId": "task:episode:b",
+        "timestamp": "2026-03-25T18:20:30.000Z",
+        "source": { "id": "session:1", "kind": "claude-code" },
+        "title": "Config sync blocked",
+        "summary": "config.ts",
+        "status": "blocked"
+      }
+    }
+  ]
+}

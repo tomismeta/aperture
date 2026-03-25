@@ -67,9 +67,13 @@ function createFrame(overrides: Partial<Frame> = {}): Frame {
 
 test("same-episode status stays bundled with the active blocking episode", () => {
   const coordinator = new JudgmentCoordinator();
-  const decision = coordinator.coordinate(createFrame(), createCandidate());
+  const explanation = coordinator.explain(createFrame(), createCandidate());
 
-  assert.equal(decision.kind, "ambient");
+  assert.equal(explanation.decision.kind, "ambient");
+  assert.equal(
+    explanation.continuityEvaluations?.find((evaluation) => evaluation.rule === "same_episode")?.kind,
+    "override",
+  );
 });
 
 test("same episode can promote a new blocking step over a status frame", () => {
@@ -140,7 +144,7 @@ test("same episode can promote a superseding blocking step over active blocking 
 
 test("visible queued episode work batches new related interactions with no active task frame", () => {
   const coordinator = new JudgmentCoordinator();
-  const decision = coordinator.coordinate(null, createCandidate({
+  const explanation = coordinator.explain(null, createCandidate({
     episodeState: "batched",
   }), {
     attentionView: {
@@ -169,7 +173,37 @@ test("visible queued episode work batches new related interactions with no activ
     } satisfies AttentionView,
   });
 
-  assert.equal(decision.kind, "queue");
+  assert.equal(explanation.decision.kind, "queue");
+  assert.equal(
+    explanation.continuityEvaluations?.find((evaluation) => evaluation.rule === "visible_episode")?.kind,
+    "override",
+  );
+});
+
+test("resolved episode metadata does not keep same-episode continuity alive", () => {
+  const coordinator = new JudgmentCoordinator();
+  const explanation = coordinator.explain(
+    createFrame({
+      metadata: {
+        episode: {
+          id: "episode:shared",
+          key: "claude-code:interruptive:/workspace/config.ts",
+          state: "resolved",
+          size: 2,
+          evidenceScore: 4,
+          evidenceReasons: ["operator-facing work makes this episode immediately actionable"],
+          lastInteractionId: "interaction:current",
+          updatedAt: "2026-03-08T12:00:00.000Z",
+        },
+      },
+    }),
+    createCandidate(),
+  );
+
+  assert.equal(
+    explanation.continuityEvaluations?.find((evaluation) => evaluation.rule === "same_episode")?.kind,
+    "noop",
+  );
 });
 
 test("visible queued episode work stays bundled even when unrelated current work is active", () => {

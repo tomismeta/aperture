@@ -4,6 +4,7 @@ import test from "node:test";
 import type { ApertureTrace } from "../src/index.js";
 
 import { ApertureCore } from "../src/aperture-core.js";
+import { readFrameEpisodeId } from "../src/episode-tracker.js";
 
 test("global urgent backlog demotes lower-value queued status into ambient", () => {
   const core = new ApertureCore();
@@ -307,6 +308,55 @@ test("related episode updates merge into an existing queued frame instead of add
   assert.equal(core.getTaskView("task:episode:b").queued[0]?.interactionId, "interaction:episode:b");
 });
 
+test("responded episodes reopen with a fresh episode identity", () => {
+  const core = new ApertureCore();
+
+  core.publish({
+    id: "evt:approval:first",
+    taskId: "task:episode",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:episode:first",
+    source: { id: "session:1", kind: "claude-code" },
+    title: "Approve config change",
+    summary: "config.ts",
+    request: { kind: "approval" },
+  });
+
+  const firstFrame = core.getAttentionView().active;
+  assert.ok(firstFrame);
+  if (!firstFrame) {
+    return;
+  }
+
+  core.submit({
+    taskId: "task:episode",
+    interactionId: "interaction:episode:first",
+    response: { kind: "approved" },
+  });
+
+  core.publish({
+    id: "evt:approval:second",
+    taskId: "task:episode",
+    timestamp: "2026-03-08T12:01:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:episode:second",
+    source: { id: "session:1", kind: "claude-code" },
+    title: "Approve config fallback",
+    summary: "config.ts",
+    request: { kind: "approval" },
+  });
+
+  const reopenedFrame = core.getAttentionView().active;
+  assert.ok(reopenedFrame);
+  if (!reopenedFrame) {
+    return;
+  }
+
+  assert.notEqual(readFrameEpisodeId(reopenedFrame), readFrameEpisodeId(firstFrame));
+  assert.equal(reopenedFrame.metadata?.episode?.size, 1);
+});
+
 test("queue-worthy episode updates can promote an ambient episode frame into the queue", () => {
   const core = new ApertureCore();
 
@@ -349,6 +399,79 @@ test("queue-worthy episode updates can promote an ambient episode frame into the
   assert.equal(attentionView.queued.length, 1);
   assert.equal(attentionView.ambient.length, 0);
   assert.equal(attentionView.queued[0]?.interactionId, "interaction:task:episode:b:status");
+});
+
+test("completed episode tasks retire their episode identity before related work returns", () => {
+  const core = new ApertureCore();
+
+  core.publish({
+    id: "evt:active",
+    taskId: "task:active",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:active",
+    title: "Approve deploy",
+    summary: "A deploy needs approval.",
+    consequence: "high",
+    request: { kind: "approval" },
+  });
+
+  core.publish({
+    id: "evt:queued:first",
+    taskId: "task:episode:a",
+    timestamp: "2026-03-08T12:00:20.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:episode:a",
+    source: { id: "session:1", kind: "claude-code" },
+    title: "Choose config fix",
+    summary: "config.ts",
+    consequence: "medium",
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [{ id: "retry", label: "Retry" }],
+    },
+  });
+
+  const firstQueued = core.getAttentionView().queued[0];
+  assert.ok(firstQueued);
+  if (!firstQueued) {
+    return;
+  }
+
+  core.publish({
+    id: "evt:complete",
+    taskId: "task:episode:a",
+    timestamp: "2026-03-08T12:00:40.000Z",
+    type: "task.completed",
+    summary: "Handled.",
+  });
+
+  core.publish({
+    id: "evt:queued:second",
+    taskId: "task:episode:b",
+    timestamp: "2026-03-08T12:01:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:episode:b",
+    source: { id: "session:1", kind: "claude-code" },
+    title: "Choose config fallback",
+    summary: "config.ts",
+    consequence: "medium",
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [{ id: "fallback", label: "Fallback" }],
+    },
+  });
+
+  const reopenedQueued = core.getAttentionView().queued[0];
+  assert.ok(reopenedQueued);
+  if (!reopenedQueued) {
+    return;
+  }
+
+  assert.notEqual(readFrameEpisodeId(reopenedQueued), readFrameEpisodeId(firstQueued));
+  assert.equal(reopenedQueued.metadata?.episode?.size, 1);
 });
 
 test("completed tasks clear ambient-only task state", () => {

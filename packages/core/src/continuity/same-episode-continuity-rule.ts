@@ -1,4 +1,4 @@
-import { readFrameEpisodeId } from "../episode-tracker.js";
+import { readFrameEpisodeId, readFrameEpisodeState } from "../episode-tracker.js";
 import { isBlockingFrame, priorityForFrame } from "../frame-score.js";
 import { hasSemanticRelationKind } from "../semantic-relations.js";
 import { noopContinuityRule, overrideContinuityRule, type ContinuityRule } from "./continuity-rule.js";
@@ -11,7 +11,11 @@ export const evaluateSameEpisodeContinuityRule: ContinuityRule = (input) => {
   }
 
   const currentEpisodeId = readFrameEpisodeId(activeFrame);
-  if (!currentEpisodeId || currentEpisodeId !== candidate.episodeId) {
+  if (
+    !currentEpisodeId
+    || currentEpisodeId !== candidate.episodeId
+    || readFrameEpisodeState(activeFrame) === "resolved"
+  ) {
     return noopContinuityRule("same_episode");
   }
 

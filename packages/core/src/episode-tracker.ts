@@ -29,13 +29,15 @@ const DEFAULTS = JUDGMENT_DEFAULTS.episodeEvidence;
 
 export class EpisodeTracker {
   private readonly byKey = new Map<string, EpisodeRecord>();
+  private readonly byId = new Map<string, EpisodeRecord>();
   private readonly byInteractionId = new Map<string, string>();
+  private readonly nextSequenceByKey = new Map<string, number>();
 
   assign(candidate: AttentionCandidate): AttentionCandidate {
     const key = buildEpisodeKey(candidate);
     const existingId = this.byInteractionId.get(candidate.interactionId);
     const record =
-      (existingId ? this.findById(existingId) : undefined)
+      (existingId ? this.byId.get(existingId) : undefined)
       ?? this.byKey.get(key)
       ?? this.createRecord(key, candidate);
 
@@ -56,6 +58,7 @@ export class EpisodeTracker {
     record.state = nextEpisodeState(record.state, candidate, record, evidence.score);
 
     this.byKey.set(record.key, record);
+    this.byId.set(record.id, record);
     this.byInteractionId.set(candidate.interactionId, record.id);
 
     return {
@@ -75,13 +78,18 @@ export class EpisodeTracker {
       return;
     }
 
-    const record = this.findById(episodeId);
+    const record = this.byId.get(episodeId);
     if (!record) {
       return;
     }
 
-    record.state = "resolved";
-    this.byKey.set(record.key, record);
+    if (this.byKey.get(record.key)?.id === record.id) {
+      this.byKey.delete(record.key);
+    }
+    this.byId.delete(record.id);
+    for (const relatedInteractionId of record.interactions) {
+      this.byInteractionId.delete(relatedInteractionId);
+    }
   }
 
   readFrameEpisode(frame: AttentionFrame | null): EpisodeSummary | null {
@@ -111,8 +119,10 @@ export class EpisodeTracker {
   }
 
   private createRecord(key: string, candidate: AttentionCandidate): EpisodeRecord {
+    const nextSequence = (this.nextSequenceByKey.get(key) ?? 0) + 1;
+    this.nextSequenceByKey.set(key, nextSequence);
     return {
-      id: `episode:${key}`,
+      id: `episode:${key}:${nextSequence}`,
       key,
       state: candidate.blocking ? "actionable" : "emerging",
       size: 0,
@@ -129,16 +139,6 @@ export class EpisodeTracker {
       relationKinds: new Set((candidate.relationHints ?? []).map((hint) => hint.kind)),
     };
   }
-
-  private findById(id: string): EpisodeRecord | undefined {
-    for (const record of this.byKey.values()) {
-      if (record.id === id) {
-        return record;
-      }
-    }
-
-    return undefined;
-  }
 }
 
 export function buildEpisodeKey(candidate: AttentionCandidate): string {
@@ -150,6 +150,10 @@ export function buildEpisodeKey(candidate: AttentionCandidate): string {
 
 export function readFrameEpisodeId(frame: AttentionFrame | null): string | null {
   return frame ? readString(frame.metadata?.episode, "id") : null;
+}
+
+export function readFrameEpisodeState(frame: AttentionFrame | null): EpisodeState | null {
+  return frame ? readState(frame.metadata?.episode, "state") : null;
 }
 
 function episodeAnchor(candidate: AttentionCandidate): string {

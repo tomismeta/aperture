@@ -1,5 +1,5 @@
 import type { AttentionFrame } from "../frame.js";
-import { readFrameEpisodeId } from "../episode-tracker.js";
+import { readFrameEpisodeId, readFrameEpisodeState } from "../episode-tracker.js";
 import { noopContinuityRule, overrideContinuityRule, type ContinuityRule } from "./continuity-rule.js";
 
 export const evaluateVisibleEpisodeContinuityRule: ContinuityRule = (input) => {
@@ -18,7 +18,11 @@ export const evaluateVisibleEpisodeContinuityRule: ContinuityRule = (input) => {
     ...evidence.attentionView.ambient,
   ]
     .filter((frame): frame is AttentionFrame => frame !== null)
-    .filter((frame) => frame.interactionId !== candidate.interactionId && readFrameEpisodeId(frame) === candidate.episodeId);
+    .filter((frame) =>
+      frame.interactionId !== candidate.interactionId
+      && readFrameEpisodeId(frame) === candidate.episodeId
+      && readFrameEpisodeState(frame) !== "resolved"
+    );
 
   if (
     visibleRelatedFrames.length === 0

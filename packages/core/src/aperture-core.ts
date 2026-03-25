@@ -22,7 +22,7 @@ import {
   resolveAttentionEvidenceContext,
 } from "./attention-evidence.js";
 import { deriveAttentionState, type AttentionState } from "./attention-state.js";
-import { EpisodeTracker, readFrameEpisodeId } from "./episode-tracker.js";
+import { EpisodeTracker, readFrameEpisodeId, readFrameEpisodeState } from "./episode-tracker.js";
 import { EventEvaluator } from "./event-evaluator.js";
 import { FramePlanner } from "./frame-planner.js";
 import { JudgmentCoordinator } from "./judgment-coordinator.js";
@@ -587,6 +587,14 @@ export class ApertureCore {
     if (!hadAnyVisibleState) {
       return null;
     }
+
+    for (const frame of [existingTaskView.active, ...existingTaskView.queued, ...existingTaskView.ambient]) {
+      if (!frame) {
+        continue;
+      }
+      this.episodes.resolveInteraction(frame.interactionId);
+    }
+
     const taskView = this.taskViews.clear(taskId);
     this.notifyFrame(taskId, null);
     this.notifyTaskView(taskId, taskView);
@@ -684,12 +692,16 @@ export class ApertureCore {
     episodeId: string,
     attentionView: AttentionView,
   ): { frame: AttentionFrame; bucket: "queue" | "ambient" } | null {
-    const queued = attentionView.queued.find((frame) => readFrameEpisodeId(frame) === episodeId);
+    const queued = attentionView.queued.find((frame) =>
+      readFrameEpisodeId(frame) === episodeId && readFrameEpisodeState(frame) !== "resolved"
+    );
     if (queued) {
       return { frame: queued, bucket: "queue" };
     }
 
-    const ambient = attentionView.ambient.find((frame) => readFrameEpisodeId(frame) === episodeId);
+    const ambient = attentionView.ambient.find((frame) =>
+      readFrameEpisodeId(frame) === episodeId && readFrameEpisodeState(frame) !== "resolved"
+    );
     if (ambient) {
       return { frame: ambient, bucket: "ambient" };
     }

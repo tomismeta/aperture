@@ -68,7 +68,7 @@ test("trace evaluator counts merged episode updates across tasks", () => {
 });
 
 test("trace evaluator reports deferred episodes that later activate", () => {
-  const core = new ApertureCore();
+  const core = new ApertureCore({ operatorPresence: "absent" });
   const traces: ApertureTrace[] = [];
 
   core.onTrace((trace) => {
@@ -76,51 +76,46 @@ test("trace evaluator reports deferred episodes that later activate", () => {
   });
 
   core.publish({
-    id: "evt:active",
-    taskId: "task:episode",
-    timestamp: "2026-03-08T12:00:00.000Z",
-    type: "human.input.requested",
-    interactionId: "interaction:active",
-    title: "Approve deploy",
-    summary: "A deploy needs approval.",
-    consequence: "high",
-    request: { kind: "approval" },
-  });
-
-  core.publish({
     id: "evt:episode:first",
-    taskId: "task:episode",
+    taskId: "task:episode:a",
     timestamp: "2026-03-08T12:00:10.000Z",
-    type: "task.updated",
+    type: "human.input.requested",
     source: { id: "session:1", kind: "claude-code" },
-    title: "Config sync failed",
+    interactionId: "interaction:episode:a",
+    title: "Choose config fix",
     summary: "config.ts",
-    status: "failed",
+    consequence: "medium",
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [{ id: "retry", label: "Retry" }],
+    },
   });
 
-  core.publish({
-    id: "evt:clear",
-    taskId: "task:episode",
-    timestamp: "2026-03-08T12:00:20.000Z",
-    type: "task.completed",
-  });
+  core.setOperatorPresence("present");
 
   core.publish({
     id: "evt:episode:second",
-    taskId: "task:episode",
+    taskId: "task:episode:b",
     timestamp: "2026-03-08T12:00:30.000Z",
-    type: "task.updated",
+    type: "human.input.requested",
     source: { id: "session:1", kind: "claude-code" },
-    title: "Config sync failed again",
+    interactionId: "interaction:episode:b",
+    title: "Choose config fallback",
     summary: "config.ts",
-    status: "failed",
+    consequence: "medium",
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [{ id: "fallback", label: "Fallback" }],
+    },
   });
 
   const report = evaluateTraceSession(traces);
 
   assert.equal(report.deferredThenActivated, 1);
   assert.equal(report.queued, 1);
-  assert.equal(report.activated, 2);
+  assert.equal(report.activated, 1);
 });
 
 test("trace evaluator reports surfaced actionable episodes from accumulated evidence", () => {

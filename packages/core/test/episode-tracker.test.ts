@@ -110,6 +110,26 @@ test("episode tracker marks repeated non-blocking work as batched", () => {
   assert.equal(second.episodeSize, 2);
 });
 
+test("non-blocking updates can move an actionable episode into waiting", () => {
+  const store = new EpisodeTracker();
+  store.assign(createCandidate());
+
+  const waitingUpdate = store.assign(
+    createCandidate({
+      interactionId: "interaction:one",
+      blocking: false,
+      mode: "status",
+      title: "Config approval is still being processed",
+      responseSpec: { kind: "none" },
+      timestamp: "2026-03-08T12:01:00.000Z",
+    }),
+  );
+
+  assert.equal(waitingUpdate.episodeState, "waiting");
+  assert.equal(waitingUpdate.episodeSize, 1);
+  assert.equal(waitingUpdate.episodeEvidenceScore, 1);
+});
+
 test("high-signal recurring status work can make an episode actionable", () => {
   const store = new EpisodeTracker();
   store.assign(
@@ -202,4 +222,43 @@ test("relation targets group wording-drifted updates into the same episode", () 
 
   assert.equal(first.episodeId, second.episodeId);
   assert.ok(second.episodeKey?.includes("issue:cache:prod"));
+});
+
+test("resolved episodes reopen with a fresh identity and reset evidence", () => {
+  const store = new EpisodeTracker();
+  store.assign(
+    createCandidate({
+      blocking: false,
+      mode: "status",
+      responseSpec: { kind: "none" },
+    }),
+  );
+  const batched = store.assign(
+    createCandidate({
+      interactionId: "interaction:two",
+      blocking: false,
+      mode: "status",
+      title: "Config sync is still running",
+      responseSpec: { kind: "none" },
+      timestamp: "2026-03-08T12:01:00.000Z",
+    }),
+  );
+
+  store.resolveInteraction("interaction:two");
+
+  const reopened = store.assign(
+    createCandidate({
+      interactionId: "interaction:three",
+      blocking: false,
+      mode: "status",
+      title: "Config sync resumed",
+      responseSpec: { kind: "none" },
+      timestamp: "2026-03-08T12:02:00.000Z",
+    }),
+  );
+
+  assert.notEqual(reopened.episodeId, batched.episodeId);
+  assert.equal(reopened.episodeSize, 1);
+  assert.equal(reopened.episodeState, "emerging");
+  assert.equal(reopened.episodeEvidenceScore, 0);
 });

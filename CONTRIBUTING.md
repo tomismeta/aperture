@@ -39,8 +39,15 @@ pnpm install
 Run the main checks:
 
 ```bash
+pnpm boundary:check
 pnpm test
 pnpm typecheck
+```
+
+For a full release-shaped pass, run:
+
+```bash
+pnpm release:check
 ```
 
 Run the companion surface:
@@ -65,6 +72,7 @@ Good contributions:
 - thin ingress or egress adapters
 - real-world workload reports and scenario traces
 - clearer docs and examples
+- refactors that preserve the public CLI and SDK behavior while reducing hidden coupling
 
 Bad contributions:
 
@@ -72,3 +80,4 @@ Bad contributions:
 - broad UI framework work not tied to the engine
 - speculative anticipation layers without real signal grounding
 - unnecessary new public abstractions
+- new non-test imports from `packages/*/src` into `packages/core/src/*` instead of using a supported contract

@@ -2,6 +2,9 @@
 
 Replay, scorecard, benchmark, and calibration scaffolding for Aperture.
 
+This is the secondary research and evaluation surface, not the primary product
+surface.
+
 This package is the first implementation surface behind **Aperture Lab**.
 
 Its job is to run deterministic scenarios against
@@ -160,6 +163,18 @@ The intended split is:
 - good enough to start collecting golden scenarios
 - intentionally in-repo while the trace and corpus shapes mature
 - not yet a public benchmark repo
+
+## How To Read This Package
+
+Read this package as supporting infrastructure for the main engine and product
+docs, not as a second product.
+
+The current source-of-truth stack is:
+
+- [Docs Home](../../docs/README.md)
+- [Engine Status Pillars](../../docs/engine/engine-status-pillars.md)
+- [Core Engine Audit (2026-03)](../../docs/engine/core-engine-audit-2026-03.md)
+- [Roadmaps Index](../../docs/roadmap/README.md)
 
 For the broader lab architecture and naming ontology, see
 [Aperture Lab](../../docs/lab/aperture-lab.md).

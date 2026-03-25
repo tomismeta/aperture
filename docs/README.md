@@ -86,22 +86,13 @@ measures and improves Aperture's deterministic hot path.
 
 ## Roadmaps And Design Context
 
+- [Roadmaps Index](./roadmap/README.md)
 - [Engine Roadmap](./roadmap/engine-roadmap.md)
-- [Core Maturation Plan](./roadmap/core-maturation-plan.md)
-- [Semantic Contract Maturation Plan](./roadmap/semantic-contract-maturation-plan.md)
-- [Semantic Contract Decision](./roadmap/semantic-contract-decision.md)
 - [Technical Product Roadmap](./roadmap/technical-product-roadmap.md)
-- [Go-To-Market Roadmap](./roadmap/go-to-market-roadmap.md)
-- [Package Launch Plan](./roadmap/package-launch-plan.md)
-- [Package Splitting Decision](./roadmap/package-splitting-decision.md)
-- [Semantic Interpretation Research Sprint](./roadmap/semantic-interpretation-research.md)
-- [Human Attention Research](./roadmap/human-attention-research.md)
-- [Engine Architecture Evaluation](./roadmap/engine-architecture-evaluation.md)
-- [Agent Workforce Use Case](./roadmap/agent-workforce-use-case.md)
-- [Host Surface Expansion Note](./roadmap/host-surface-expansion-note.md)
-- [TUI Design](./roadmap/tui-design.md)
+- [Core Maturation Plan](./roadmap/core-maturation-plan.md)
 
-These docs are useful when you want to understand why the product is shaped this way or where it should go next.
+Use the roadmap index to separate current direction from supporting or
+historical notes.
 
 ## Archived
 

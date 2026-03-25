@@ -1,5 +1,9 @@
 # Aperture Package Launch Plan
 
+This is a historical launch-plan note. Aperture is already shipped, so read
+this as provenance for how the package split and launch sequence were shaped,
+not as the active source of truth.
+
 This document turns the go-to-market direction into a concrete packaging and
 launch plan.
 

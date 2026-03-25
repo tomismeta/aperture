@@ -1,5 +1,9 @@
 # Package Splitting Decision
 
+This is a historical package-boundary decision note. It is still useful for
+provenance, but the current package shape should be read through the roadmap
+index and the shipped package READMEs first.
+
 This document records the current package-splitting decisions for Aperture.
 
 The goal is to avoid accidental drift between:

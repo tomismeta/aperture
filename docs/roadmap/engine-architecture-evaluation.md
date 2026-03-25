@@ -1,5 +1,8 @@
 # Engine Architecture Evaluation
 
+This is an evaluation note, not the current engine status doc. Read it
+alongside the engine status pillars and core engine audit.
+
 ## Question
 
 Is Aperture's deterministic judgment engine still the right core architecture for the product?

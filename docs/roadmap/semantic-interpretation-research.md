@@ -1,5 +1,8 @@
 # Semantic Interpretation Research Sprint
 
+This is a research note. It remains useful for design context, but it should be
+read alongside the engine status pillars and the core engine audit.
+
 This document captures a focused research sprint on semantic interpretation,
 event relations, abstention, and attention management as they relate to
 Aperture Core.

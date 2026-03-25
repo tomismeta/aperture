@@ -1,5 +1,8 @@
 # TUI Design
 
+This is a design-direction note, not a product contract. Read it alongside the
+current product surface docs and the roadmap index.
+
 This document defines the design direction for Aperture's terminal surface.
 
 It is not a source-specific UI.

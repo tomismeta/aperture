@@ -1,6 +1,7 @@
 import type {
   ReplayDecisionExpectation,
   ReplayDecisionSnapshot,
+  ReplayExplanationExpectation,
   ReplayScenario,
   ReplayScenarioExpectations,
   ReplaySemanticExpectation,
@@ -193,6 +194,10 @@ function evaluateScenarioExpectations(
     assertions.push(...evaluateDecisionExpectation(decisionExpectation, run.decisions));
   }
 
+  if (expectations.explanationExpectation) {
+    assertions.push(...evaluateExplanationExpectation(expectations.explanationExpectation, scorecard));
+  }
+
   if (expectations.traceExpectations) {
     assertions.push(...evaluateTraceExpectation(expectations.traceExpectations, scorecard.trace));
   }
@@ -319,6 +324,36 @@ function evaluateDecisionExpectation(
   pushFieldAssertion(assertions, `${targetKey} semantic abstained`, expectation.semanticAbstained, target.semanticAbstained ?? false);
   pushFieldAssertion(assertions, `${targetKey} ambiguity reason`, expectation.ambiguityReason, target.ambiguity?.reason ?? null);
   pushFieldAssertion(assertions, `${targetKey} ambiguity resolution`, expectation.ambiguityResolution, target.ambiguity?.resolution ?? null);
+
+  return assertions;
+}
+
+function evaluateExplanationExpectation(
+  expectation: ReplayExplanationExpectation,
+  scorecard: ReplayScorecard,
+): JudgmentBenchAssertionResult[] {
+  const assertions: JudgmentBenchAssertionResult[] = [];
+  const explanation = scorecard.explanation;
+
+  if (expectation.whyNowIncludes !== undefined) {
+    assertions.push({
+      name: "explanation whyNow includes",
+      passed: typeof explanation.whyNow === "string" && explanation.whyNow.includes(expectation.whyNowIncludes),
+      expected: expectation.whyNowIncludes,
+      actual: explanation.whyNow ?? null,
+    });
+  }
+
+  if (expectation.continuityRationaleIncludes && expectation.continuityRationaleIncludes.length > 0) {
+    assertions.push({
+      name: "explanation continuity rationale includes",
+      passed: expectation.continuityRationaleIncludes.every((expectedSnippet) =>
+        explanation.continuityRationale.some((rationale) => rationale.includes(expectedSnippet))
+      ),
+      expected: expectation.continuityRationaleIncludes,
+      actual: explanation.continuityRationale,
+    });
+  }
 
   return assertions;
 }

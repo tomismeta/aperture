@@ -25,7 +25,12 @@
         "consequence": "high",
         "relationKindsInclude": ["same_issue", "supersedes"]
       }
-    ]
+    ],
+    "explanationExpectation": {
+      "continuityRationaleIncludes": [
+        "the active episode has advanced to a superseding step"
+      ]
+    }
   },
   "steps": [
     {

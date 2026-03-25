@@ -118,6 +118,7 @@ export type ReplayScenarioExpectations = {
   };
   semanticReadings?: ReplaySemanticExpectation[];
   decisionReadings?: ReplayDecisionExpectation[];
+  explanationExpectation?: ReplayExplanationExpectation;
   traceExpectations?: ReplayTraceExpectation;
 };
 
@@ -183,6 +184,11 @@ export type ReplayDecisionExpectation = {
   semanticAbstained?: boolean;
   ambiguityReason?: ReplayDecisionAmbiguity["reason"] | null;
   ambiguityResolution?: ReplayDecisionAmbiguity["resolution"] | null;
+};
+
+export type ReplayExplanationExpectation = {
+  whyNowIncludes?: string;
+  continuityRationaleIncludes?: string[];
 };
 
 export type ReplayTraceExpectation = {

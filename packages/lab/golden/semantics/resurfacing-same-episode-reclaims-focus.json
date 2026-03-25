@@ -1,0 +1,155 @@
+{
+  "id": "golden:semantics:resurfacing-same-episode-reclaims-focus",
+  "title": "Resurfacing same-episode work can reclaim focus",
+  "description": "When the same unresolved episode keeps returning from the periphery, a stronger follow-up on that episode should be able to reclaim active focus across task boundaries.",
+  "doctrineTags": [
+    "continuity_semantics",
+    "ambient_doctrine",
+    "decision_stream_continuity",
+    "relation_semantics"
+  ],
+  "expectations": {
+    "finalActiveInteractionId": "interaction:task:episode:b:status",
+    "queuedInteractionIds": [],
+    "ambientInteractionIds": [
+      "interaction:task:current:status"
+    ],
+    "resultBucketCounts": {
+      "active": 3,
+      "queued": 0,
+      "ambient": 1
+    },
+    "decisionReadings": [
+      {
+        "stepLabel": "initial episode status",
+        "evaluationKind": "candidate",
+        "decisionKind": "ambient",
+        "resultBucket": "ambient"
+      },
+      {
+        "stepLabel": "other blocker",
+        "evaluationKind": "candidate",
+        "decisionKind": "ambient",
+        "resultBucket": "active"
+      },
+      {
+        "stepLabel": "resurfacing episode status",
+        "evaluationKind": "candidate",
+        "decisionKind": "activate",
+        "resultBucket": "active"
+      }
+    ],
+    "explanationExpectation": {
+      "continuityRationaleIncludes": [
+        "repeated deferral or resurfacing makes this task more deserving of current focus"
+      ]
+    },
+    "traceExpectations": {
+      "deferredThenActivated": 1,
+      "suppressedThenActivated": 1,
+      "mergedEpisodeUpdates": 1
+    }
+  },
+  "steps": [
+    {
+      "kind": "publish",
+      "label": "approval anchor",
+      "event": {
+        "id": "evt:approval-anchor:resurfacing",
+        "type": "human.input.requested",
+        "taskId": "task:approval-anchor:resurfacing",
+        "interactionId": "interaction:approval-anchor:resurfacing",
+        "timestamp": "2026-03-25T17:00:00.000Z",
+        "title": "Approve deploy",
+        "summary": "A deploy is waiting for approval.",
+        "consequence": "high",
+        "request": { "kind": "approval" }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "initial episode status",
+      "event": {
+        "id": "evt:episode:resurfacing:first",
+        "type": "task.updated",
+        "taskId": "task:episode:a",
+        "timestamp": "2026-03-25T17:00:10.000Z",
+        "source": { "id": "session:1", "kind": "claude-code" },
+        "title": "Config sync running",
+        "summary": "config.ts",
+        "status": "running",
+        "progress": 25
+      }
+    },
+    {
+      "kind": "publish",
+      "label": "approval anchor cleared",
+      "event": {
+        "id": "evt:approval-anchor:resurfacing:clear",
+        "type": "task.completed",
+        "taskId": "task:approval-anchor:resurfacing",
+        "timestamp": "2026-03-25T17:00:20.000Z"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "other blocker",
+      "event": {
+        "id": "evt:other:blocker",
+        "type": "task.updated",
+        "taskId": "task:current",
+        "timestamp": "2026-03-25T17:00:30.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Other task blocked",
+        "summary": "other.ts",
+        "status": "blocked"
+      }
+    },
+    {
+      "kind": "signal",
+      "label": "episode returned from ambient",
+      "signal": {
+        "kind": "returned",
+        "taskId": "task:episode:history",
+        "interactionId": "interaction:episode:history",
+        "timestamp": "2026-03-25T17:00:35.000Z",
+        "from": "ambient",
+        "metadata": {
+          "episode": {
+            "id": "episode:claude-code:status:config.ts:1"
+          }
+        }
+      }
+    },
+    {
+      "kind": "signal",
+      "label": "episode returned again",
+      "signal": {
+        "kind": "returned",
+        "taskId": "task:episode:history-2",
+        "interactionId": "interaction:episode:history-2",
+        "timestamp": "2026-03-25T17:00:36.000Z",
+        "from": "queued",
+        "metadata": {
+          "episode": {
+            "id": "episode:claude-code:status:config.ts:1"
+          }
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "resurfacing episode status",
+      "event": {
+        "id": "evt:episode:resurfacing:second",
+        "type": "task.updated",
+        "taskId": "task:episode:b",
+        "timestamp": "2026-03-25T17:00:40.000Z",
+        "source": { "id": "session:1", "kind": "claude-code" },
+        "title": "Config sync blocked",
+        "summary": "config.ts",
+        "status": "blocked"
+      }
+    }
+  ]
+}

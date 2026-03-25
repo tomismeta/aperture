@@ -35,4 +35,22 @@ test("JudgmentBench runs across the golden scenarios and produces a summary", as
   assert.ok(result.scenarios.some((scenario) => scenario.scorecard.explanation.headline !== null));
   assert.ok(result.scenarios.some((scenario) => scenario.run.semantics.length > 0));
   assert.ok(result.scenarios.some((scenario) => scenario.run.decisions.some((decision) => decision.ambiguity !== null && decision.ambiguity !== undefined)));
+
+  const resurfacingScenario = result.scenarios.find(
+    (scenario) => scenario.scenario.id === "golden:semantics:resurfacing-same-episode-reclaims-focus",
+  );
+  assert.ok(resurfacingScenario);
+  assert.equal(
+    resurfacingScenario?.assertions.find((assertion) => assertion.name === "explanation continuity rationale includes")?.passed,
+    true,
+  );
+
+  const supersedingScenario = result.scenarios.find(
+    (scenario) => scenario.scenario.id === "golden:semantics:superseding-approval-replaces-active-step",
+  );
+  assert.ok(supersedingScenario);
+  assert.equal(
+    supersedingScenario?.assertions.find((assertion) => assertion.name === "explanation continuity rationale includes")?.passed,
+    true,
+  );
 });

@@ -12,6 +12,7 @@ import type {
   ReplayArtifactSource,
   ReplayDecisionExpectation,
   ReplayDecisionSnapshot,
+  ReplayExplanationExpectation,
   ReplayNormalizedEventSnapshot,
   ReplayObservationStep,
   ReplayScenario,
@@ -532,6 +533,7 @@ function validateReplayScenarioExpectations(value: unknown): ReplayScenarioExpec
     || (value.ambientInteractionIds !== undefined && !isStringArray(value.ambientInteractionIds))
     || (value.semanticReadings !== undefined && (!Array.isArray(value.semanticReadings) || !value.semanticReadings.every((entry) => validateReplaySemanticExpectation(entry) !== null)))
     || (value.decisionReadings !== undefined && (!Array.isArray(value.decisionReadings) || !value.decisionReadings.every((entry) => validateReplayDecisionExpectation(entry) !== null)))
+    || (value.explanationExpectation !== undefined && validateReplayExplanationExpectation(value.explanationExpectation) === null)
     || (value.traceExpectations !== undefined && validateReplayTraceExpectation(value.traceExpectations) === null)
   ) {
     return null;
@@ -597,6 +599,21 @@ function validateReplayDecisionExpectation(value: unknown): ReplayDecisionExpect
   }
 
   return value as ReplayDecisionExpectation;
+}
+
+function validateReplayExplanationExpectation(value: unknown): ReplayExplanationExpectation | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (
+    (value.whyNowIncludes !== undefined && typeof value.whyNowIncludes !== "string")
+    || (value.continuityRationaleIncludes !== undefined && !isStringArray(value.continuityRationaleIncludes))
+  ) {
+    return null;
+  }
+
+  return value as ReplayExplanationExpectation;
 }
 
 function validateReplayTraceExpectation(value: unknown): ReplayTraceExpectation | null {

@@ -65,6 +65,38 @@ The plugin is the **Codex-native shell** around:
 
 The actual attention model still lives underneath.
 
+## Surface Scope
+
+The plugin should be treated as a **Codex plugin**, not a **Codex TUI-only
+plugin**.
+
+That said, the earliest useful version will probably be **TUI-first** because:
+
+- command palette flows are easy to reach
+- setup and doctor flows fit terminal-native interaction well
+- the first operator loop is likely to be attachment and handoff, not a rich
+  embedded UI
+
+But the architecture should stay broader than the first surface.
+
+The right distinction is:
+
+- **V1 usability** may be strongest in Codex's current interactive terminal-like
+  flows
+- **plugin scope** should still assume future Codex surfaces like richer apps or
+  other install surfaces can use the same package
+
+So the plugin should not be designed as:
+
+- a terminal helper that later gets thrown away
+- a TUI-only artifact with no room for app or richer surface growth
+
+It should be designed as:
+
+- a Codex-native package
+- with TUI-first usability
+- and room to grow into broader Codex surfaces later
+
 ## Mockup 1: Plugin Card
 
 This is the install/discovery surface inside Codex.
@@ -245,6 +277,7 @@ than:
 - one local Aperture bridge path
 - a calm status panel
 - command-palette actions
+- TUI-first interaction patterns without making the package terminal-only
 
 ## What V1 Should Not Include
 

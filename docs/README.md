@@ -38,6 +38,7 @@ If you are new to the repo, that path gives the fastest accurate picture of the 
 - [Adapter Contract](./product/adapter-contract.md)
 - [TUI Surface](./product/tui.md)
 - [SDK Path](./product/sdk-path.md)
+- [Codex Plugin Mockup](./product/codex-plugin-mockup.md)
 
 These docs define the current Aperture product surface:
 

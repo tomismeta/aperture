@@ -1,4 +1,4 @@
-import { forecastAttentionPressure } from "../../core/src/attention-pressure.js";
+import { forecastAttentionPressure } from "../../core/src/internal-contract.js";
 import type { SignalSummary, AttentionView, Posture } from "./types.js";
 
 export function computePosture(

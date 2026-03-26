@@ -4,7 +4,7 @@ import { join } from "node:path";
 import {
   ApertureCore,
 } from "@tomismeta/aperture-core";
-import { ProfileStore, type MemoryProfile } from "../../core/src/profile-store.js";
+import { ProfileStore, type MemoryProfile } from "../../core/src/internal-contract.js";
 
 export type LearningMode = "on" | "off";
 

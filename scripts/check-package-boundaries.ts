@@ -4,11 +4,6 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packagesRoot = resolve(repoRoot, "packages");
-const allowedCoreSourceImports = new Set([
-  resolve(repoRoot, "packages/runtime/src/learning-persistence.ts"),
-  resolve(repoRoot, "packages/tui/src/posture.ts"),
-  resolve(repoRoot, "packages/tui/src/render.ts"),
-]);
 const ignoredDirNames = new Set(["dist", "public-dist", "node_modules"]);
 const coreSourceImportPattern = /["']((?:\.\.\/)+core\/src\/[^"']+)["']/g;
 
@@ -27,9 +22,6 @@ async function main(): Promise<void> {
       continue;
     }
     if (imports.every((importPath) => importPath.endsWith("/core/src/internal-contract.js"))) {
-      continue;
-    }
-    if (allowedCoreSourceImports.has(file)) {
       continue;
     }
 
@@ -54,7 +46,7 @@ async function main(): Promise<void> {
   }
 
   lines.push("");
-  lines.push("Promote real contracts to @tomismeta/aperture-core or keep the import in the explicit allowlist.");
+  lines.push("Promote real contracts to @tomismeta/aperture-core or route workspace-private needs through packages/core/src/internal-contract.ts.");
 
   process.stderr.write(`${lines.join("\n")}\n`);
   process.exitCode = 1;

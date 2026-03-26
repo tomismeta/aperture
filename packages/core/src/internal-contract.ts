@@ -1,3 +1,5 @@
+// Workspace-private seam for internal packages that need richer core contracts
+// without widening the public npm SDK surface.
 export type {
   AttentionField,
   AttentionResponseSpec,
@@ -5,3 +7,7 @@ export type {
 export type { AttentionSignalSummary } from "./signal-summary.js";
 export type { AttentionState } from "./attention-state.js";
 export type { ApertureTrace } from "./trace.js";
+export { forecastAttentionPressure } from "./attention-pressure.js";
+export { scoreAttentionFrame } from "./frame-score.js";
+export { ProfileStore } from "./profile-store.js";
+export type { MemoryProfile } from "./profile-store.js";

@@ -1,4 +1,4 @@
-import { scoreAttentionFrame } from "../../core/src/frame-score.js";
+import { scoreAttentionFrame } from "../../core/src/internal-contract.js";
 import type { Frame, InputDraft, QueueGroup, RenderOptions, Posture, AnimationState, ApertureTrace } from "./types.js";
 import { renderWhyOverlay } from "./render-why.js";
 import { displaySourceLabel } from "./source-label.js";

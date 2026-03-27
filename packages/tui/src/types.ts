@@ -95,6 +95,7 @@ export type Posture = "calm" | "elevated" | "busy";
 export type AnimationState = {
   postureFlash: { previous: Posture; ticksRemaining: number } | null;
   frameEntrance: { interactionId: string; ticksRemaining: number } | null;
+  queueMovement: Map<string, { direction: "up" | "down"; delta: number; ticksRemaining: number }>;
   /** Continuous tick counter for idle lens pulse */
   idleTick: number;
 };
@@ -115,6 +116,7 @@ export type TuiState = {
 };
 
 export type QueueGroup = {
+  key: string;
   frame: Frame;
   count: number;
 };

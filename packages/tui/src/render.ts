@@ -115,7 +115,7 @@ export function renderAttentionScreen(
       lines.push(styleMuted('    [○"]', color));
     } else {
       for (const [index, group] of groupQueuedFrames(queued).entries()) {
-        lines.push(...renderCompactFrame(group, index + 1, color));
+        lines.push(...renderCompactFrame(group, index + 1, color, options?.animation ?? null));
       }
     }
 
@@ -541,20 +541,29 @@ function renderProgressBar(progress: number, width: number, color: boolean): str
 
 // ── Queue ───────────────────────────────────────────────────────────
 
-function renderCompactFrame(group: QueueGroup, rank: number, color: boolean): string[] {
+function renderCompactFrame(
+  group: QueueGroup,
+  rank: number,
+  color: boolean,
+  animation: AnimationState | null,
+): string[] {
   const { frame, count } = group;
   const source = displaySourceLabel(frame.source);
-  const rankStr = `${String(rank).padStart(2, "0")}`;
   const modeStr = humanMode(frame.mode);
   const countSuffix = count > 1 ? ` ×${count}` : "";
-  const fixedWidth = 2 + rankStr.length + 2 + source.length + 2 + modeStr.length + countSuffix.length;
+  const movement = animation?.queueMovement.get(group.key) ?? null;
+  const movementText = movement ? styleQueueMovementCue(movement.direction, movement.delta, color) : null;
+  const leftPrefix = movementText
+    ? `  ${styleRank(rank, color)} ${movementText}`
+    : `  ${styleRank(rank, color)}`;
+  const fixedWidth = visibleLength(leftPrefix) + 1 + source.length + 1 + modeStr.length + countSuffix.length;
   const available = CONTENT_WIDTH - fixedWidth;
   const rawTitle = frame.title;
   const title = rawTitle.length > available && available > 3
     ? `${rawTitle.slice(0, available - 1)}…`
     : rawTitle;
   const displayTitle = count > 1 ? `${title}${countSuffix}` : title;
-  const left = `  ${styleRank(rank, color)} ${styleTitle(displayTitle, color)} ${styleSource(source, color)}`;
+  const left = `${leftPrefix} ${styleTitle(displayTitle, color)} ${styleSource(source, color)}`;
   const right = styleMuted(modeStr, color);
   return [`${alignLine(left, right, SCREEN_WIDTH)}`];
 }
@@ -571,7 +580,7 @@ export function groupQueuedFrames(frames: Frame[]): QueueGroup[] {
       continue;
     }
 
-    const group = { frame, count: 1 };
+    const group = { key, frame, count: 1 };
     groups.set(key, group);
     ordered.push(group);
   }
@@ -582,6 +591,17 @@ export function groupQueuedFrames(frames: Frame[]): QueueGroup[] {
 function queueGroupKey(frame: Frame): string {
   const source = frame.source?.label ?? frame.source?.id ?? "";
   return [frame.mode, frame.tone, frame.consequence, frame.title, frame.summary ?? "", source].join("::");
+}
+
+function styleQueueMovementCue(
+  direction: "up" | "down",
+  delta: number,
+  color: boolean,
+): string {
+  const label = `${direction === "up" ? "↑" : "↓"}${delta}`;
+  return direction === "up"
+    ? styleValue(label, color)
+    : styleDeepMuted(label, color);
 }
 
 export function countMatchingFrames(frame: Frame, queued: Frame[]): number {

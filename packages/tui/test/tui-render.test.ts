@@ -10,6 +10,8 @@ import type { AttentionState } from "../../core/src/attention-state.js";
 
 import { renderAttentionScreen } from "../src/index.js";
 import { ANSI } from "../src/ansi.js";
+import { createAnimationState } from "../src/animation.js";
+import { groupQueuedFrames } from "../src/render.js";
 
 function makeFrame(overrides: Partial<Frame> = {}): Frame {
   return {
@@ -77,6 +79,38 @@ test("renderAttentionScreen shows active, queued, and ambient summaries", () => 
 
   const expanded = renderAttentionScreen(attentionView, { title: "Aperture TUI", expanded: true });
   assert.match(expanded, /score 1211/);
+});
+
+test("renderAttentionScreen shows subtle queued rank movement cues", () => {
+  const queued = [
+    makeFrame({
+      id: "frame-2",
+      interactionId: "interaction-2",
+      title: "Re-run integration suite",
+      mode: "choice",
+    }),
+    makeFrame({
+      id: "frame-3",
+      interactionId: "interaction-3",
+      title: "Approve deployment",
+    }),
+  ];
+  const groups = groupQueuedFrames(queued);
+  const animation = createAnimationState();
+  animation.queueMovement.set(groups[0]!.key, { direction: "up", delta: 1, ticksRemaining: 2 });
+  animation.queueMovement.set(groups[1]!.key, { direction: "down", delta: 1, ticksRemaining: 2 });
+
+  const screen = renderAttentionScreen(
+    {
+      active: null,
+      queued,
+      ambient: [],
+    },
+    { title: "Aperture TUI", animation },
+  );
+
+  assert.match(screen, /01 ↑1 Re-run integration suite/);
+  assert.match(screen, /02 ↓1 Approve deployment/);
 });
 
 test("renderAttentionScreen shows connection status when the surface is empty", () => {

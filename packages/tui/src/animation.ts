@@ -1,11 +1,46 @@
 import type { AnimationState } from "./types.js";
 
+export const QUEUE_MOVEMENT_TICKS = 2;
+
 export function createAnimationState(): AnimationState {
   return {
     postureFlash: null,
     frameEntrance: null,
+    queueMovement: new Map(),
     idleTick: 0,
   };
+}
+
+export function reconcileQueueMovement(
+  animation: AnimationState,
+  previousOrder: string[],
+  nextOrder: string[],
+): void {
+  const previousSet = new Set(previousOrder);
+  const nextSet = new Set(nextOrder);
+  const sharedPreviousOrder = previousOrder.filter((key) => nextSet.has(key));
+  const sharedNextOrder = nextOrder.filter((key) => previousSet.has(key));
+  const previousRanks = new Map(sharedPreviousOrder.map((key, index) => [key, index + 1]));
+
+  for (const key of animation.queueMovement.keys()) {
+    if (!nextSet.has(key)) {
+      animation.queueMovement.delete(key);
+    }
+  }
+
+  for (const [index, key] of sharedNextOrder.entries()) {
+    const previousRank = previousRanks.get(key);
+    const nextRank = index + 1;
+    if (previousRank === undefined || previousRank === nextRank) {
+      continue;
+    }
+
+    animation.queueMovement.set(key, {
+      direction: previousRank > nextRank ? "up" : "down",
+      delta: Math.abs(previousRank - nextRank),
+      ticksRemaining: QUEUE_MOVEMENT_TICKS,
+    });
+  }
 }
 
 /**
@@ -29,6 +64,14 @@ export function tickAnimation(animation: AnimationState): boolean {
     animation.frameEntrance.ticksRemaining -= 1;
     if (animation.frameEntrance.ticksRemaining <= 0) {
       animation.frameEntrance = null;
+    }
+    changed = true;
+  }
+
+  for (const [key, cue] of animation.queueMovement) {
+    cue.ticksRemaining -= 1;
+    if (cue.ticksRemaining <= 0) {
+      animation.queueMovement.delete(key);
     }
     changed = true;
   }

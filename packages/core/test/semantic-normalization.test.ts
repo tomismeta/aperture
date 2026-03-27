@@ -289,6 +289,7 @@ test("read-oriented approvals mentioning production stay low consequence", () =>
 
   assert.equal(interpretation.toolFamily, "read");
   assert.equal(interpretation.consequence, "low");
+  assert.equal(interpretation.confidence, "medium");
 });
 
 test("choice requests do not infer tool family from question wording alone", () => {
@@ -365,6 +366,7 @@ test("choice requests still preserve explicit tool family from context", () => {
   });
 
   assert.equal(interpretation.toolFamily, "read");
+  assert.equal(interpretation.confidence, "low");
   assert.ok(interpretation.reasons.includes("tool family was supplied by the source or context"));
 });
 

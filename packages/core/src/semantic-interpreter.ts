@@ -148,7 +148,12 @@ function inferHumanInputSemantics(
     whyNow: semanticWhyNowForRequestKind(event.request.kind, consequence),
     factors: ["human.input.requested", event.request.kind],
     relationHints,
-    confidence: event.riskHint ? "high" : toolFamily ? "medium" : "low",
+    confidence:
+      event.riskHint
+        ? "high"
+        : event.request.kind === "approval" && toolFamily
+          ? "medium"
+          : "low",
     reasons: [
       event.riskHint
         ? "source provided an explicit risk hint"

@@ -711,6 +711,48 @@ test("tool policies do not match explicit question requests by title wording alo
   assert.ok(verdict.rationale.includes("blocking interactions require explicit operator attention"));
 });
 
+test("tool policies do not match explicit question requests even with explicit tool family", () => {
+  const gates = new AttentionPolicy({
+    judgmentConfig: {
+      version: 1,
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      policy: {
+        lowRiskRead: {
+          autoApprove: true,
+        },
+      },
+    },
+  });
+
+  const verdict = gates.evaluateGates(
+    createCandidate({
+      mode: "choice",
+      blocking: true,
+      priority: "normal",
+      consequence: "low",
+      toolFamily: "read",
+      title: "Should we read the config first?",
+      summary: "Choose the next step.",
+      activityClass: "question_request",
+      responseSpec: {
+        kind: "choice",
+        selectionMode: "single",
+        allowTextResponse: true,
+        options: [{ id: "yes", label: "Yes" }],
+        actions: [
+          { id: "submit", label: "Submit", kind: "submit", emphasis: "primary" },
+          { id: "dismiss", label: "Dismiss", kind: "dismiss", emphasis: "secondary" },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(verdict.autoApprove, false);
+  assert.equal(verdict.requiresOperatorResponse, true);
+  assert.equal(verdict.minimumPresentation, "active");
+  assert.ok(verdict.rationale.includes("blocking interactions require explicit operator attention"));
+});
+
 test("attention value does not infer tool-family memory for explicit question requests", () => {
   const utility = new AttentionValue({
     memoryProfile: {
@@ -749,6 +791,49 @@ test("attention value does not infer tool-family memory for explicit question re
   );
 
   assert.equal(utility.components.responseAffinity, 0);
+});
+
+test("attention value ignores explicit tool-family memory for explicit question requests", () => {
+  const utility = new AttentionValue({
+    memoryProfile: {
+      version: 1,
+      operatorId: "default",
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      sessionCount: 1,
+      toolFamilies: {
+        read: {
+          presentations: 10,
+          responses: 10,
+          dismissals: 0,
+          avgResponseLatencyMs: 1500,
+        },
+      },
+    },
+  }).scoreCandidate(
+    createCandidate({
+      mode: "choice",
+      blocking: true,
+      priority: "normal",
+      toolFamily: "read",
+      title: "Should we read the config first?",
+      summary: "Choose the next step.",
+      activityClass: "question_request",
+      responseSpec: {
+        kind: "choice",
+        selectionMode: "single",
+        allowTextResponse: true,
+        options: [{ id: "yes", label: "Yes" }],
+        actions: [
+          { id: "submit", label: "Submit", kind: "submit", emphasis: "primary" },
+          { id: "dismiss", label: "Dismiss", kind: "dismiss", emphasis: "secondary" },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(utility.components.responseAffinity, 0);
+  assert.equal(utility.components.contextCost, 0);
+  assert.equal(utility.components.deferralAffinity, 0);
 });
 
 test("tool-family user overrides do not match passive status updates by title alone", () => {

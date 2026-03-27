@@ -341,6 +341,33 @@ test("explicit question requests do not record inferred tool family from title t
   assert.equal(signals[0]?.metadata?.toolFamily, undefined);
 });
 
+test("explicit question requests do not record bounded tool family metadata", () => {
+  const core = new ApertureCore();
+
+  core.publish({
+    id: "evt:question:explicit-read",
+    taskId: "task:question:explicit-read",
+    timestamp: "2026-03-08T12:04:10.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:question:explicit-read",
+    toolFamily: "read",
+    activityClass: "question_request",
+    title: "Should we read the config first?",
+    summary: "Choose the next step.",
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      allowTextResponse: true,
+      options: [{ id: "yes", label: "Yes" }],
+    },
+  });
+
+  const signals = core.getSignals("task:question:explicit-read");
+  assert.equal(signals.length, 1);
+  assert.equal(signals[0]?.kind, "presented");
+  assert.equal(signals[0]?.metadata?.toolFamily, undefined);
+});
+
 test("signal summaries derive response and deferral metrics", () => {
   const core = new ApertureCore();
 

@@ -150,6 +150,9 @@ Additional narrowing rule:
   approval requests
 - question and form requests should prefer explicit source or context tool-family
   truth over wording-based inference
+- even when question or form requests carry explicit tool-family metadata, that
+  metadata should stay explanatory unless a later contract change deliberately
+  promotes it into bounded policy, value, or memory paths
 
 Why:
 

@@ -25,12 +25,12 @@ export function readBoundedToolFamily(input: BoundedToolFamilyInput): string | n
     return readExplicitToolFamily(input);
   }
 
-  if (input.activityClass !== undefined && input.activityClass !== "permission_request") {
-    return readExplicitToolFamily(input);
+  if (input.mode !== "approval") {
+    return null;
   }
 
-  if (input.mode !== "approval") {
-    return readExplicitToolFamily(input);
+  if (input.activityClass !== undefined && input.activityClass !== "permission_request") {
+    return null;
   }
 
   return inferToolFamily(input);

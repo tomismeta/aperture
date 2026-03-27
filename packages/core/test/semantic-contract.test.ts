@@ -251,6 +251,9 @@ test("tool family remains decision-bearing on approvals but explanatory on choic
     return;
   }
 
+  assert.equal(choiceRead.toolFamily, undefined);
+  assert.equal(choiceRead.semantic?.toolFamily, "read");
+
   const evaluatedBaseline = evaluation.evaluate(choiceBaseline);
   const evaluatedRead = evaluation.evaluate(choiceRead);
   assert.equal(evaluatedBaseline.kind, "candidate");
@@ -260,7 +263,7 @@ test("tool family remains decision-bearing on approvals but explanatory on choic
   }
 
   assert.deepEqual(candidateShape(evaluatedRead.candidate), candidateShape(evaluatedBaseline.candidate));
-  assert.equal(evaluatedRead.candidate.toolFamily, "read");
+  assert.equal(evaluatedRead.candidate.toolFamily, undefined);
 });
 
 test("bounded tool-family use does not apply to explicit question requests", () => {

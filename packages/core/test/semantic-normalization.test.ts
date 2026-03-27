@@ -368,6 +368,36 @@ test("choice requests still preserve explicit tool family from context", () => {
   assert.equal(interpretation.toolFamily, "read");
   assert.equal(interpretation.confidence, "low");
   assert.ok(interpretation.reasons.includes("tool family was supplied by the source or context"));
+
+  const normalized = normalizeSourceEvent({
+    id: "evt:question-explicit-tool-family",
+    type: "human.input.requested",
+    taskId: "task:question-explicit-tool-family",
+    interactionId: "interaction:question-explicit-tool-family",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Should we read the config first?",
+    summary: "Choose the next step.",
+    context: {
+      items: [
+        { id: "toolFamily", label: "Tool Family", value: "read" },
+      ],
+    },
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [
+        { id: "yes", label: "Yes" },
+        { id: "no", label: "No" },
+      ],
+    },
+  });
+
+  assert.equal(normalized.type, "human.input.requested");
+  if (normalized.type === "human.input.requested") {
+    assert.equal(normalized.toolFamily, undefined);
+    assert.equal(normalized.semantic?.toolFamily, "read");
+  }
 });
 
 test("equivalent source approvals normalize to equivalent semantics across sources", () => {

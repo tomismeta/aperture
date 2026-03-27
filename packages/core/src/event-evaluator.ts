@@ -101,12 +101,13 @@ export class EventEvaluator {
   private evaluateHumanInput(event: HumanInputRequestedEvent): AttentionCandidate {
     const actions = this.createActions(event);
     const responseSpec = this.createResponseSpec(event, actions);
+    const toolFamily = event.request.kind === "approval" ? event.toolFamily : undefined;
 
     return {
       taskId: event.taskId,
       interactionId: event.interactionId,
       ...(event.source !== undefined ? { source: event.source } : {}),
-      ...(event.toolFamily !== undefined ? { toolFamily: event.toolFamily } : {}),
+      ...(toolFamily !== undefined ? { toolFamily } : {}),
       ...(event.activityClass !== undefined ? { activityClass: event.activityClass } : {}),
       mode: event.request.kind,
       tone: event.tone ?? "focused",

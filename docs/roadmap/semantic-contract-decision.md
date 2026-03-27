@@ -159,6 +159,9 @@ Additional narrowing rule:
 - even when question or form requests carry explicit tool-family metadata, that
   metadata should stay explanatory unless a later contract change deliberately
   promotes it into bounded policy, value, or memory paths
+- question and form tool-family metadata should remain semantic-only today; it
+  should not be lifted into canonical human-input fields or candidate metadata
+  unless a later contract change promotes it deliberately
 
 Why:
 

@@ -80,6 +80,10 @@ function normalizeHumanInput(
     base: event.provenance,
     semantic,
   });
+  const toolFamily =
+    event.request.kind === "approval"
+      ? event.toolFamily ?? semantic.toolFamily
+      : undefined;
 
   return {
     id: event.id,
@@ -88,11 +92,7 @@ function normalizeHumanInput(
     interactionId: event.interactionId,
     timestamp: event.timestamp,
     ...(event.source !== undefined ? { source: event.source } : {}),
-    ...(event.toolFamily !== undefined
-      ? { toolFamily: event.toolFamily }
-      : semantic.toolFamily !== undefined
-        ? { toolFamily: semantic.toolFamily }
-        : {}),
+    ...(toolFamily !== undefined ? { toolFamily } : {}),
     ...(event.activityClass !== undefined
       ? { activityClass: event.activityClass }
       : semantic.activityClass !== undefined

@@ -309,6 +309,44 @@ test("question wording about a tool does not project a tool family without expli
   assert.equal(result.candidate.semanticConfidence, "low");
 });
 
+test("explicit question tool families stay semantic-only during evaluation", () => {
+  const result = evaluation.evaluate({
+    id: "evt:question:explicit-tool-family",
+    taskId: "task:question:explicit-tool-family",
+    timestamp: "2026-03-08T12:03:40.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:question:explicit-tool-family",
+    toolFamily: "read",
+    activityClass: "question_request",
+    title: "Should we read the config first?",
+    summary: "Choose the next step.",
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [{ id: "yes", label: "Yes" }],
+    },
+    semantic: {
+      intentFrame: "question_request",
+      activityClass: "question_request",
+      toolFamily: "read",
+      consequence: "medium",
+      factors: ["human.input.requested", "choice"],
+      relationHints: [],
+      confidence: "low",
+      reasons: ["tool family was supplied by the source or context"],
+    },
+  });
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.toolFamily, undefined);
+  assert.equal(result.candidate.activityClass, "question_request");
+  assert.equal(result.candidate.semanticConfidence, "low");
+});
+
 test("completed tasks clear current interaction state", () => {
   const result = evaluation.evaluate({
     id: "evt:complete",

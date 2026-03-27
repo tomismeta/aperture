@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { EventEvaluator } from "../src/event-evaluator.js";
+import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
 
 const evaluation = new EventEvaluator();
 
@@ -273,6 +274,39 @@ test("human-input explanation semantics do not change routing shape", () => {
   assert.equal(explained.candidate.responseSpec.kind, baseline.candidate.responseSpec.kind);
   assert.equal(explained.candidate.provenance?.whyNow, "This deploy is waiting on an explicit approval checkpoint.");
   assert.equal(explained.candidate.semanticConfidence, "low");
+});
+
+test("question wording about a tool does not project a tool family without explicit source truth", () => {
+  const normalized = normalizeSourceEvent({
+    id: "evt:question:read-wording",
+    taskId: "task:question:read-wording",
+    timestamp: "2026-03-08T12:03:50.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:question:read-wording",
+    title: "Should we read the config first?",
+    summary: "Choose the next step.",
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [{ id: "yes", label: "Yes" }],
+    },
+  });
+
+  assert.equal(normalized.type, "human.input.requested");
+  if (normalized.type !== "human.input.requested") {
+    return;
+  }
+
+  const result = evaluation.evaluate(normalized);
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.activityClass, "question_request");
+  assert.equal(result.candidate.toolFamily, undefined);
+  assert.equal(result.candidate.mode, "choice");
+  assert.equal(result.candidate.semanticConfidence, "low");
 });
 
 test("completed tasks clear current interaction state", () => {

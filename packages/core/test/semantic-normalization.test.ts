@@ -291,6 +291,83 @@ test("read-oriented approvals mentioning production stay low consequence", () =>
   assert.equal(interpretation.consequence, "low");
 });
 
+test("choice requests do not infer tool family from question wording alone", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:question-read-wording",
+    type: "human.input.requested",
+    taskId: "task:question-read-wording",
+    interactionId: "interaction:question-read-wording",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Should we read the config first?",
+    summary: "Choose the next step.",
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [
+        { id: "yes", label: "Yes" },
+        { id: "no", label: "No" },
+      ],
+    },
+  });
+
+  assert.equal(interpretation.toolFamily, undefined);
+  assert.equal(interpretation.confidence, "low");
+
+  const normalized = normalizeSourceEvent({
+    id: "evt:question-read-wording",
+    type: "human.input.requested",
+    taskId: "task:question-read-wording",
+    interactionId: "interaction:question-read-wording",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Should we read the config first?",
+    summary: "Choose the next step.",
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [
+        { id: "yes", label: "Yes" },
+        { id: "no", label: "No" },
+      ],
+    },
+  });
+
+  assert.equal(normalized.type, "human.input.requested");
+  if (normalized.type === "human.input.requested") {
+    assert.equal(normalized.toolFamily, undefined);
+  }
+});
+
+test("choice requests still preserve explicit tool family from context", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:question-explicit-tool-family",
+    type: "human.input.requested",
+    taskId: "task:question-explicit-tool-family",
+    interactionId: "interaction:question-explicit-tool-family",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Should we read the config first?",
+    summary: "Choose the next step.",
+    context: {
+      items: [
+        { id: "toolFamily", label: "Tool Family", value: "read" },
+      ],
+    },
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [
+        { id: "yes", label: "Yes" },
+        { id: "no", label: "No" },
+      ],
+    },
+  });
+
+  assert.equal(interpretation.toolFamily, "read");
+  assert.ok(interpretation.reasons.includes("tool family was supplied by the source or context"));
+});
+
 test("equivalent source approvals normalize to equivalent semantics across sources", () => {
   const sources = [source("claude-code"), source("codex"), source("opencode")];
 

@@ -80,8 +80,7 @@ function inferTaskUpdateSemantics(
   const impliedAsk = detectImpliedOperatorAsk(text);
   const relationHints = detectSemanticRelationHints(text);
   const taxonomyInput = buildTaxonomyInput(event.title, event.summary, event.toolFamily);
-  const toolFamily =
-    readExplicitSemanticToolFamily(taxonomyInput) ?? inferSemanticToolFamily(taxonomyInput) ?? undefined;
+  const { toolFamily } = resolveSemanticToolFamily(taxonomyInput, true);
 
   switch (event.status) {
     case "failed":
@@ -132,8 +131,10 @@ function inferHumanInputSemantics(
   event: Extract<SourceEvent, { type: "human.input.requested" }>,
 ): SemanticInterpretation {
   const taxonomyInput = buildTaxonomyInput(event.title, event.summary, event.toolFamily, event.context);
-  const toolFamily =
-    readExplicitSemanticToolFamily(taxonomyInput) ?? inferSemanticToolFamily(taxonomyInput) ?? undefined;
+  const { toolFamily, source: toolFamilySource } = resolveSemanticToolFamily(
+    taxonomyInput,
+    event.request.kind === "approval",
+  );
   const text = normalizeSemanticText(`${event.title} ${event.summary}`);
   const relationHints = detectSemanticRelationHints(text);
   const baseConsequence = event.riskHint ?? consequenceFromRequestKind(event.request.kind, toolFamily);
@@ -152,9 +153,44 @@ function inferHumanInputSemantics(
       event.riskHint
         ? "source provided an explicit risk hint"
         : "request kind establishes an explicit operator decision point",
-      ...(toolFamily ? ["tool family was inferred or supplied"] : []),
+      ...(toolFamilySource === "explicit"
+        ? ["tool family was supplied by the source or context"]
+        : toolFamilySource === "inferred"
+          ? ["tool family was inferred from approval wording"]
+          : []),
     ],
   };
+}
+
+function resolveSemanticToolFamily(
+  input: {
+    title: string;
+    summary?: string;
+    toolFamily?: string;
+    context?: {
+      items?: SemanticDetectionContextItem[];
+    };
+  },
+  allowTextInference: boolean,
+): {
+  toolFamily?: string;
+  source: "explicit" | "inferred" | "none";
+} {
+  const explicit = readExplicitSemanticToolFamily(input);
+  if (explicit) {
+    return { toolFamily: explicit, source: "explicit" };
+  }
+
+  if (!allowTextInference) {
+    return { source: "none" };
+  }
+
+  const inferred = inferSemanticToolFamily(input);
+  if (inferred) {
+    return { toolFamily: inferred, source: "inferred" };
+  }
+
+  return { source: "none" };
 }
 
 function applySemanticHints(

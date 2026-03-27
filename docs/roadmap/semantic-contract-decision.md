@@ -144,6 +144,21 @@ That means:
 
 This path is intentionally stronger because the event already represents an explicit operator decision point.
 
+Additional narrowing rule:
+
+- text-only tool-family inference should be treated as strongest on explicit
+  approval requests
+- question and form requests should prefer explicit source or context tool-family
+  truth over wording-based inference
+
+Why:
+
+- approval requests often name the concrete operation under review
+- question and form prompts more often mention tools hypothetically or as part of
+  planning language
+- that makes wording-only tool inference noisier and less trustworthy on
+  question/form paths
+
 ## Source Truth Precedence
 
 When explicit source truth exists, it wins over weaker inference.

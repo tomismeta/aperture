@@ -2,6 +2,7 @@ import type { SourceEvent } from "./source-event.js";
 import type {
   SemanticConfidence,
   SemanticConsequenceLevel,
+  SemanticFieldProvenance,
   SemanticInterpretation,
   SemanticInterpretationHints,
 } from "./semantic-types.js";
@@ -42,6 +43,12 @@ function inferSemanticInterpretation(event: SourceEvent): SemanticInterpretation
         relationHints: [],
         confidence: "high",
         reasons: semanticReasonsForLifecycle("task_started"),
+        provenance: {
+          intentFrame: "inferred",
+          activityClass: "inferred",
+          consequence: "inferred",
+          confidence: "inferred",
+        },
       };
     case "task.updated":
       return inferTaskUpdateSemantics(event);
@@ -56,6 +63,12 @@ function inferSemanticInterpretation(event: SourceEvent): SemanticInterpretation
         relationHints: [],
         confidence: "high",
         reasons: semanticReasonsForLifecycle("completion"),
+        provenance: {
+          intentFrame: "inferred",
+          activityClass: "inferred",
+          consequence: "inferred",
+          confidence: "inferred",
+        },
       };
     case "task.cancelled":
       return {
@@ -69,6 +82,13 @@ function inferSemanticInterpretation(event: SourceEvent): SemanticInterpretation
         relationHints: [],
         confidence: "high",
         reasons: semanticReasonsForTaskStatus("completed", { wasCancelled: true }),
+        provenance: {
+          intentFrame: "inferred",
+          activityClass: "inferred",
+          consequence: "inferred",
+          ...(event.reason ? { whyNow: "inferred" as const } : {}),
+          confidence: "inferred",
+        },
       };
   }
 }
@@ -80,7 +100,8 @@ function inferTaskUpdateSemantics(
   const impliedAsk = detectImpliedOperatorAsk(text);
   const relationHints = detectSemanticRelationHints(text);
   const taxonomyInput = buildTaxonomyInput(event.title, event.summary, event.toolFamily);
-  const { toolFamily } = resolveSemanticToolFamily(taxonomyInput, true);
+  const { toolFamily, source: toolFamilySource } = resolveSemanticToolFamily(taxonomyInput, true);
+  const relationProvenance = relationHints.length > 0 ? { relationHints: "inferred" as const } : {};
 
   switch (event.status) {
     case "failed":
@@ -94,6 +115,19 @@ function inferTaskUpdateSemantics(
         relationHints,
         confidence: impliedAsk ? "medium" : "high",
         reasons: semanticReasonsForTaskStatus("failed", { impliedAsk }),
+        provenance: {
+          intentFrame: "inferred",
+          activityClass: "inferred",
+          ...(toolFamilySource === "explicit"
+            ? { toolFamily: "source" as const }
+            : toolFamilySource === "inferred"
+              ? { toolFamily: "inferred" as const }
+              : {}),
+          consequence: "inferred",
+          whyNow: "inferred",
+          ...relationProvenance,
+          confidence: "inferred",
+        },
       };
     case "blocked":
       return {
@@ -106,6 +140,19 @@ function inferTaskUpdateSemantics(
         relationHints,
         confidence: impliedAsk ? "medium" : "high",
         reasons: semanticReasonsForTaskStatus("blocked", { impliedAsk }),
+        provenance: {
+          intentFrame: "inferred",
+          activityClass: "inferred",
+          ...(toolFamilySource === "explicit"
+            ? { toolFamily: "source" as const }
+            : toolFamilySource === "inferred"
+              ? { toolFamily: "inferred" as const }
+              : {}),
+          consequence: "inferred",
+          whyNow: "inferred",
+          ...relationProvenance,
+          confidence: "inferred",
+        },
       };
     case "running":
     case "waiting":
@@ -123,6 +170,19 @@ function inferTaskUpdateSemantics(
         relationHints,
         confidence: impliedAsk ? "low" : "high",
         reasons: semanticReasonsForTaskStatus(event.status, { impliedAsk }),
+        provenance: {
+          intentFrame: "inferred",
+          activityClass: "inferred",
+          ...(toolFamilySource === "explicit"
+            ? { toolFamily: "source" as const }
+            : toolFamilySource === "inferred"
+              ? { toolFamily: "inferred" as const }
+              : {}),
+          consequence: "inferred",
+          ...(impliedAsk ? { whyNow: "inferred" as const } : {}),
+          ...relationProvenance,
+          confidence: "inferred",
+        },
       };
   }
 }
@@ -139,6 +199,13 @@ function inferHumanInputSemantics(
   const relationHints = detectSemanticRelationHints(text);
   const baseConsequence = event.riskHint ?? consequenceFromRequestKind(event.request.kind, toolFamily);
   const consequence = inferConsequenceFromSemanticText(text, baseConsequence, toolFamily);
+  const relationProvenance = relationHints.length > 0 ? { relationHints: "inferred" as const } : {};
+  const toolFamilyProvenance =
+    toolFamilySource === "explicit"
+      ? { toolFamily: "source" as const }
+      : toolFamilySource === "inferred"
+        ? { toolFamily: "inferred" as const }
+        : {};
 
   return {
     intentFrame: semanticIntentFrameForRequestKind(event.request.kind),
@@ -164,6 +231,15 @@ function inferHumanInputSemantics(
           ? ["tool family was inferred from approval wording"]
           : []),
     ],
+    provenance: {
+      intentFrame: "inferred",
+      activityClass: "inferred",
+      ...toolFamilyProvenance,
+      consequence: event.riskHint ? "source" : "inferred",
+      whyNow: "inferred",
+      ...relationProvenance,
+      confidence: event.riskHint ? "source" : "inferred",
+    },
   };
 }
 
@@ -212,6 +288,25 @@ function applySemanticHints(
     factors: dedupeSemanticStrings([...(inferred.factors ?? []), ...(hints.factors ?? [])]),
     relationHints: [...(hints.relationHints ?? inferred.relationHints)],
     reasons: dedupeSemanticStrings([...(inferred.reasons ?? []), ...(hints.reasons ?? [])]),
+    provenance: {
+      ...(inferred.provenance ?? {}),
+      ...hintedSemanticProvenance(hints),
+    },
+  };
+}
+
+function hintedSemanticProvenance(
+  hints: SemanticInterpretationHints,
+): SemanticFieldProvenance {
+  return {
+    ...(hints.intentFrame !== undefined ? { intentFrame: "hint" as const } : {}),
+    ...(hints.activityClass !== undefined ? { activityClass: "hint" as const } : {}),
+    ...(hints.toolFamily !== undefined ? { toolFamily: "hint" as const } : {}),
+    ...(hints.consequence !== undefined ? { consequence: "hint" as const } : {}),
+    ...(hints.whyNow !== undefined ? { whyNow: "hint" as const } : {}),
+    ...(hints.relationHints !== undefined ? { relationHints: "hint" as const } : {}),
+    ...(hints.confidence !== undefined ? { confidence: "hint" as const } : {}),
+    ...(hints.abstained !== undefined ? { abstained: "hint" as const } : {}),
   };
 }
 

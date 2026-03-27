@@ -53,6 +53,7 @@ test("trace recorder captures explanatory-only tool family on question paths", (
   assert.equal(trace.semantic?.toolFamily, "read");
   assert.equal(trace.semantic?.confidence, "low");
   assert.ok(trace.semantic?.influence.includes("tool family stayed explanatory on the question/form path"));
+  assert.equal(trace.semantic?.provenance?.toolFamily, "source");
 });
 
 test("trace recorder explains that status remains authoritative on task updates", () => {
@@ -87,4 +88,43 @@ test("trace recorder explains that status remains authoritative on task updates"
     ),
   );
   assert.equal(trace.semantic?.intentFrame, "status_update");
+  assert.equal(trace.semantic?.provenance?.intentFrame, "inferred");
+});
+
+test("trace recorder preserves hint-driven semantic provenance", () => {
+  const core = new ApertureCore();
+  const traces: ApertureTrace[] = [];
+
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+
+  core.publishSourceEvent({
+    id: "src:hinted:approval",
+    type: "human.input.requested",
+    taskId: "task:hinted:approval",
+    interactionId: "interaction:hinted:approval",
+    timestamp: "2026-03-27T20:02:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Approve read",
+    summary: "Read a file in the repo.",
+    request: { kind: "approval" },
+    semanticHints: {
+      consequence: "high",
+      whyNow: "A policy escalation requires senior review.",
+      reasons: ["adapter provided a trusted escalation hint"],
+    },
+  });
+
+  const trace = latestCandidateTrace(traces);
+  assert.ok(trace);
+  assert.equal(trace?.evaluation.kind, "candidate");
+  if (!trace || trace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(trace.semantic?.consequence, "high");
+  assert.equal(trace.semantic?.whyNow, "A policy escalation requires senior review.");
+  assert.equal(trace.semantic?.provenance?.consequence, "hint");
+  assert.equal(trace.semantic?.provenance?.whyNow, "hint");
 });

@@ -992,6 +992,13 @@ test("renderAttentionScreen why mode shows semantic interpretation and influence
         "tool family stayed explanatory on the question/form path",
         "semantic low confidence stayed visible but did not downgrade blocking work",
       ],
+      provenance: {
+        intentFrame: "inferred" as const,
+        activityClass: "inferred" as const,
+        toolFamily: "source" as const,
+        consequence: "inferred" as const,
+        confidence: "inferred" as const,
+      },
     },
     episode: null,
     policy: {} as any,
@@ -1030,6 +1037,7 @@ test("renderAttentionScreen why mode shows semantic interpretation and influence
   assert.match(collapsed, /intent:\s+question_request/);
   assert.match(collapsed, /tool:\s+read/);
   assert.match(collapsed, /confidence:\s+low/);
+  assert.match(collapsed, /origin:\s+tool source/);
   assert.match(collapsed, /relations:\s+same_issue, repeats/);
   assert.match(collapsed, /influence:\s+tool family stayed explanatory on the question\/form path;/);
   assert.doesNotMatch(collapsed, /factors:\s+human\.input\.requested/);
@@ -1040,6 +1048,7 @@ test("renderAttentionScreen why mode shows semantic interpretation and influence
     whyExpanded: true,
     trace,
   });
+  assert.match(expanded, /origin:\s+intent inferred/);
   assert.match(expanded, /factors:\s+human\.input\.requested, choice/);
   assert.match(expanded, /basis:\s+tool family was supplied by the source or context/);
 });

@@ -134,6 +134,7 @@ function buildSemanticSummary(
     factors: semantic.factors,
     reasons: semantic.reasons,
     influence: buildSemanticInfluence(event, adjusted),
+    ...(semantic.provenance !== undefined ? { provenance: semantic.provenance } : {}),
   };
 }
 

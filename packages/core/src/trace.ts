@@ -19,6 +19,7 @@ import type {
   SemanticActivityClass,
   SemanticConfidence,
   SemanticConsequenceLevel,
+  SemanticFieldProvenance,
   SemanticIntentFrame,
   SemanticRelationHint,
 } from "./semantic-types.js";
@@ -35,6 +36,7 @@ export type TraceSemanticSummary = {
   factors: string[];
   reasons: string[];
   influence: string[];
+  provenance?: SemanticFieldProvenance;
 };
 
 export type ApertureTrace =

@@ -152,6 +152,13 @@ test("renderWhyOverlay shows semantic summary and influence notes", () => {
       factors: ["human.input.requested", "choice"],
       reasons: ["tool family was supplied by the source or context"],
       influence: ["tool family stayed explanatory on the question/form path"],
+      provenance: {
+        intentFrame: "inferred",
+        activityClass: "inferred",
+        toolFamily: "source",
+        consequence: "inferred",
+        confidence: "inferred",
+      },
     }),
     false,
     false,
@@ -163,6 +170,7 @@ test("renderWhyOverlay shows semantic summary and influence notes", () => {
   assert.match(output, /tool:\s+read/);
   assert.match(output, /consequence:\s+medium/);
   assert.match(output, /confidence:\s+low/);
+  assert.match(output, /origin:\s+tool source/);
   assert.match(output, /tool family stayed explanatory on the question\/form path/);
   assert.match(output, /basis:\s+tool family was supplied by the source or context/);
 });
@@ -179,6 +187,11 @@ test("renderWhyOverlay shows semantic why-now text when available", () => {
       influence: [
         "task status remained authoritative; semantic details stayed bounded to explanation, continuity, and ambiguity handling",
       ],
+      provenance: {
+        intentFrame: "inferred",
+        whyNow: "inferred",
+        confidence: "inferred",
+      },
     }),
     false,
     false,
@@ -187,4 +200,31 @@ test("renderWhyOverlay shows semantic why-now text when available", () => {
   assert.match(output, /why now:/);
   assert.match(output, /Status text implies the operator may need to respond\./);
   assert.match(output, /task status remained authoritative/);
+  assert.doesNotMatch(output, /origin:/);
+});
+
+test("renderWhyOverlay shows hint-driven semantic provenance", () => {
+  const output = renderWhyOverlay(
+    makeCandidateTrace({
+      intentFrame: "approval_request",
+      consequence: "high",
+      confidence: "low",
+      whyNow: "A policy escalation requires senior review.",
+      relationHints: [],
+      factors: ["human.input.requested", "approval"],
+      reasons: ["adapter provided a trusted escalation hint"],
+      influence: ["semantic consequence shaped the canonical human-input consequence"],
+      provenance: {
+        intentFrame: "inferred",
+        consequence: "hint",
+        whyNow: "hint",
+        confidence: "inferred",
+      },
+    }),
+    false,
+    false,
+  ).join("\n");
+
+  assert.match(output, /origin:\s+consequence hint · why now hint/);
+  assert.match(output, /A policy escalation requires senior review\./);
 });

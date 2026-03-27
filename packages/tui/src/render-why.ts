@@ -209,6 +209,11 @@ function renderSemanticSection(
     lines.push(...renderWrappedDetailLine("why now", semantic.whyNow, color));
   }
 
+  const provenance = renderSemanticProvenance(semantic, expanded);
+  if (provenance) {
+    lines.push(...renderWrappedDetailLine("origin", provenance, color));
+  }
+
   if (semantic.relationHints.length > 0) {
     const hints = semantic.relationHints
       .map((hint) => (hint.target ? `${hint.kind}:${hint.target}` : hint.kind))
@@ -232,6 +237,55 @@ function renderSemanticSection(
   }
 
   return lines;
+}
+
+function renderSemanticProvenance(
+  semantic: NonNullable<CandidateTrace["semantic"]>,
+  expanded: boolean,
+): string | null {
+  if (!semantic.provenance) {
+    return null;
+  }
+
+  const entries = Object.entries(semantic.provenance);
+  if (entries.length === 0) {
+    return null;
+  }
+
+  const effective = expanded
+    ? entries
+    : entries.filter(([, origin]) => origin !== "inferred");
+
+  if (effective.length === 0) {
+    return null;
+  }
+
+  return effective
+    .map(([field, origin]) => `${humanSemanticFieldName(field)} ${origin}`)
+    .join(" · ");
+}
+
+function humanSemanticFieldName(field: string): string {
+  switch (field) {
+    case "intentFrame":
+      return "intent";
+    case "activityClass":
+      return "activity";
+    case "toolFamily":
+      return "tool";
+    case "consequence":
+      return "consequence";
+    case "whyNow":
+      return "why now";
+    case "relationHints":
+      return "relations";
+    case "confidence":
+      return "confidence";
+    case "abstained":
+      return "abstention";
+    default:
+      return field;
+  }
 }
 
 /**

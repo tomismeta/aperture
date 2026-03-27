@@ -148,6 +148,8 @@ test("explicit semantic hints override inferred semantics", () => {
   assert.equal(interpretation.consequence, "high");
   assert.equal(interpretation.whyNow, "A policy escalation requires senior review.");
   assert.ok(interpretation.reasons.includes("adapter provided a trusted escalation hint"));
+  assert.equal(interpretation.provenance?.consequence, "hint");
+  assert.equal(interpretation.provenance?.whyNow, "hint");
 });
 
 test("normalizes task status updates with semantic enrichment instead of raw passthrough", () => {
@@ -368,6 +370,7 @@ test("choice requests still preserve explicit tool family from context", () => {
   assert.equal(interpretation.toolFamily, "read");
   assert.equal(interpretation.confidence, "low");
   assert.ok(interpretation.reasons.includes("tool family was supplied by the source or context"));
+  assert.equal(interpretation.provenance?.toolFamily, "source");
 
   const normalized = normalizeSourceEvent({
     id: "evt:question-explicit-tool-family",
@@ -397,6 +400,7 @@ test("choice requests still preserve explicit tool family from context", () => {
   if (normalized.type === "human.input.requested") {
     assert.equal(normalized.toolFamily, undefined);
     assert.equal(normalized.semantic?.toolFamily, "read");
+    assert.equal(normalized.semantic?.provenance?.toolFamily, "source");
   }
 });
 

@@ -22,6 +22,19 @@ export type SemanticConsequenceLevel = "low" | "medium" | "high";
 
 export type SemanticConfidence = "low" | "medium" | "high";
 
+export type SemanticProvenanceKind = "source" | "inferred" | "hint";
+
+export type SemanticFieldProvenance = Partial<{
+  intentFrame: SemanticProvenanceKind;
+  activityClass: SemanticProvenanceKind;
+  toolFamily: SemanticProvenanceKind;
+  consequence: SemanticProvenanceKind;
+  whyNow: SemanticProvenanceKind;
+  relationHints: SemanticProvenanceKind;
+  confidence: SemanticProvenanceKind;
+  abstained: SemanticProvenanceKind;
+}>;
+
 export type SemanticRelationHint = {
   kind: "same_issue" | "resolves" | "supersedes" | "repeats" | "escalates";
   target?: string;
@@ -37,6 +50,8 @@ export type SemanticRelationHint = {
  *   explanatory and benchmark-facing.
  * - `confidence` and `abstained` are semantic uncertainty signals, but they
  *   are not live score multipliers today.
+ * - `provenance` is explanation-only metadata that records whether key
+ *   semantic fields were source-provided, inferred, or hint-driven.
  * - On `task.updated`, `status` remains authoritative for routing even when
  *   the semantic read is richer.
  */
@@ -61,6 +76,8 @@ export type SemanticInterpretation = {
   reasons: string[];
   /** Explicit abstention signal reserved for future policy work. */
   abstained?: boolean;
+  /** Explanation-only provenance for discoverability and replay. */
+  provenance?: SemanticFieldProvenance;
 };
 
 export type SemanticInterpretationHints = Partial<

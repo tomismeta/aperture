@@ -992,6 +992,10 @@ test("renderAttentionScreen why mode shows semantic interpretation and influence
         "tool family stayed explanatory on the question/form path",
         "semantic low confidence stayed visible but did not downgrade blocking work",
       ],
+      impact: {
+        decisionBearing: ["consequence (canonical)", "relations (continuity)"],
+        explanatory: ["intent", "tool", "why now", "confidence"],
+      },
       provenance: {
         intentFrame: "inferred" as const,
         activityClass: "inferred" as const,
@@ -1038,6 +1042,8 @@ test("renderAttentionScreen why mode shows semantic interpretation and influence
   assert.match(collapsed, /tool:\s+read/);
   assert.match(collapsed, /confidence:\s+low/);
   assert.match(collapsed, /origin:\s+tool source/);
+  assert.match(collapsed, /used by:\s+consequence \(canonical\) · relations \(continuity\)/);
+  assert.match(collapsed, /explanatory:\s+intent · tool · why now · confidence/);
   assert.match(collapsed, /relations:\s+same_issue, repeats/);
   assert.match(collapsed, /influence:\s+tool family stayed explanatory on the question\/form path;/);
   assert.doesNotMatch(collapsed, /factors:\s+human\.input\.requested/);

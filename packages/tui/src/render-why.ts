@@ -214,6 +214,18 @@ function renderSemanticSection(
     lines.push(...renderWrappedDetailLine("origin", provenance, color));
   }
 
+  if (semantic.impact.decisionBearing.length > 0) {
+    lines.push(
+      ...renderWrappedDetailLine("used by", semantic.impact.decisionBearing.join(" · "), color),
+    );
+  }
+
+  if (semantic.impact.explanatory.length > 0) {
+    lines.push(
+      ...renderWrappedDetailLine("explanatory", semantic.impact.explanatory.join(" · "), color),
+    );
+  }
+
   if (semantic.relationHints.length > 0) {
     const hints = semantic.relationHints
       .map((hint) => (hint.target ? `${hint.kind}:${hint.target}` : hint.kind))

@@ -36,6 +36,10 @@ export type TraceSemanticSummary = {
   factors: string[];
   reasons: string[];
   influence: string[];
+  impact: {
+    decisionBearing: string[];
+    explanatory: string[];
+  };
   provenance?: SemanticFieldProvenance;
 };
 

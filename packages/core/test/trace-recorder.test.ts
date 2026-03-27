@@ -54,6 +54,10 @@ test("trace recorder captures explanatory-only tool family on question paths", (
   assert.equal(trace.semantic?.confidence, "low");
   assert.ok(trace.semantic?.influence.includes("tool family stayed explanatory on the question/form path"));
   assert.equal(trace.semantic?.provenance?.toolFamily, "source");
+  assert.deepEqual(trace.semantic?.impact, {
+    decisionBearing: ["consequence (canonical)"],
+    explanatory: ["intent", "tool", "why now", "confidence"],
+  });
 });
 
 test("trace recorder explains that status remains authoritative on task updates", () => {
@@ -89,6 +93,10 @@ test("trace recorder explains that status remains authoritative on task updates"
   );
   assert.equal(trace.semantic?.intentFrame, "status_update");
   assert.equal(trace.semantic?.provenance?.intentFrame, "inferred");
+  assert.deepEqual(trace.semantic?.impact, {
+    decisionBearing: ["confidence (ambiguity)"],
+    explanatory: ["intent", "consequence", "why now"],
+  });
 });
 
 test("trace recorder preserves hint-driven semantic provenance", () => {
@@ -127,4 +135,8 @@ test("trace recorder preserves hint-driven semantic provenance", () => {
   assert.equal(trace.semantic?.whyNow, "A policy escalation requires senior review.");
   assert.equal(trace.semantic?.provenance?.consequence, "hint");
   assert.equal(trace.semantic?.provenance?.whyNow, "hint");
+  assert.deepEqual(trace.semantic?.impact, {
+    decisionBearing: ["consequence (canonical)", "tool (approval path)"],
+    explanatory: ["intent", "why now", "confidence"],
+  });
 });

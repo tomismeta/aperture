@@ -134,6 +134,7 @@ function buildSemanticSummary(
     factors: semantic.factors,
     reasons: semantic.reasons,
     influence: buildSemanticInfluence(event, adjusted),
+    impact: buildSemanticImpact(event, adjusted),
     ...(semantic.provenance !== undefined ? { provenance: semantic.provenance } : {}),
   };
 }
@@ -210,6 +211,99 @@ function buildSemanticInfluence(
   influence.push("semantic interpretation was recorded for explanation only");
   return influence;
 }
+
+function buildSemanticImpact(
+  event: ApertureTrace["event"],
+  adjusted: AttentionCandidate,
+): TraceSemanticSummary["impact"] {
+  const semantic = event.semantic;
+  const decisionBearing = new Set<string>();
+  const explanatory = new Set<string>();
+
+  if (!semantic) {
+    return {
+      decisionBearing: [],
+      explanatory: [],
+    };
+  }
+
+  explanatory.add("intent");
+
+  if (semantic.toolFamily !== undefined) {
+    explanatory.add("tool");
+  }
+
+  if (semantic.consequence !== undefined) {
+    explanatory.add("consequence");
+  }
+
+  if (semantic.whyNow !== undefined) {
+    explanatory.add("why now");
+  }
+
+  if (semantic.relationHints.length > 0) {
+    explanatory.add("relations");
+  }
+
+  if (semantic.confidence !== undefined) {
+    explanatory.add("confidence");
+  }
+
+  if (semantic.abstained === true) {
+    explanatory.add("abstention");
+  }
+
+  switch (event.type) {
+    case "task.updated":
+      if (semantic.toolFamily !== undefined && event.toolFamily === semantic.toolFamily) {
+        promoteSemanticField(explanatory, decisionBearing, "tool", "tool (bounded)");
+      }
+      if (semantic.relationHints.length > 0) {
+        promoteSemanticField(explanatory, decisionBearing, "relations", "relations (continuity)");
+      }
+      break;
+    case "human.input.requested":
+      if (semantic.consequence !== undefined && event.consequence === semantic.consequence) {
+        promoteSemanticField(explanatory, decisionBearing, "consequence", "consequence (canonical)");
+      }
+      if (semantic.toolFamily !== undefined && event.request.kind === "approval") {
+        promoteSemanticField(explanatory, decisionBearing, "tool", "tool (approval path)");
+      }
+      if (semantic.relationHints.length > 0) {
+        promoteSemanticField(explanatory, decisionBearing, "relations", "relations (continuity)");
+      }
+      break;
+    default:
+      if (semantic.relationHints.length > 0) {
+        promoteSemanticField(explanatory, decisionBearing, "relations", "relations (continuity)");
+      }
+      break;
+  }
+
+  if (!adjusted.blocking && semantic.confidence === "low") {
+    promoteSemanticField(explanatory, decisionBearing, "confidence", "confidence (ambiguity)");
+  }
+
+  if (!adjusted.blocking && semantic.abstained === true) {
+    promoteSemanticField(explanatory, decisionBearing, "abstention", "abstention (ambiguity)");
+  }
+
+  return {
+    decisionBearing: [...decisionBearing],
+    explanatory: [...explanatory],
+  };
+}
+
+function promoteSemanticField(
+  explanatory: Set<string>,
+  decisionBearing: Set<string>,
+  fieldLabel: string,
+  decisionLabel: string,
+) {
+  explanatory.delete(fieldLabel);
+  decisionBearing.add(decisionLabel);
+}
+
 function findResultBucket(
   attentionView: AttentionView,
   taskId: string,

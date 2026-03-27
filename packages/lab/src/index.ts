@@ -16,6 +16,23 @@ export {
   runPerturbedJudgmentBench,
 } from "./perturbation.js";
 export { renderJudgmentBenchMarkdown } from "./report.js";
+export {
+  createScenarioFromSweSmithRow,
+  createSessionBundleFromSweSmithRow,
+  createReplayScenarioFromSweSmithTrajectory,
+  createSessionBundleFromSweSmithTrajectory,
+  defaultImportedTrajectoryBundlePath,
+  DEFAULT_PUBLIC_TRAJECTORY_BUNDLES_DIR,
+  DEFAULT_SWE_SMITH_SPLIT,
+  defaultSweSmithBundleSource,
+  extractSweSmithMessageText,
+  fetchSweSmithRows,
+  HUGGINGFACE_SWE_SMITH_DATASET,
+  importPublicTrajectoryBundles,
+  parseSweSmithMessages,
+  parseSweSmithRowsResponse,
+  SWE_SMITH_DATASET,
+} from "./public-trajectories.js";
 export { runReplayScenario } from "./runner.js";
 export { scoreReplayRun } from "./scorecard.js";
 export {
@@ -59,6 +76,14 @@ export type {
   ReplayTraceExpectation,
   ReplayViewSnapshot,
 } from "./scenario.js";
+export type {
+  ImportedTrajectoryBundle,
+  ImportPublicTrajectoryBundlesOptions,
+  PublicTrajectoryDataset,
+  SweSmithRow,
+  SweSmithTrajectoryRow,
+  SweSmithTrajectorySplit,
+} from "./public-trajectories.js";
 export type {
   ReplayRunResult,
   ReplayStepResult,

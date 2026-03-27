@@ -128,6 +128,18 @@ This will discover the most recent local Aperture runtime, fetch its session
 capture, convert that capture into a replay bundle, and write the bundle under
 [packages/lab/bundles](https://github.com/tomismeta/aperture/tree/main/packages/lab/bundles).
 
+To seed Lab with public benchmark trajectories, use:
+
+```bash
+pnpm trajectory:import --dataset swe-smith --limit 5
+```
+
+This imports public trajectories from
+[`SWE-bench/SWE-smith-trajectories`](https://huggingface.co/datasets/SWE-bench/SWE-smith-trajectories),
+maps them into `publishSource` replay steps, runs them through core, and writes
+the resulting local bundles under `.aperture/lab/imported`.
+These imports are local seed material for Lab, not committed benchmark truth.
+
 For cleaner real-session collection, use:
 
 ```bash
@@ -153,6 +165,7 @@ The intended split is:
 
 - [packages/lab/bundles](https://github.com/tomismeta/aperture/tree/main/packages/lab/bundles)
   - temporary local-first raw captures
+  - local imported public-seed bundles under `packages/lab/bundles/public`
 - [packages/lab/harvested](https://github.com/tomismeta/aperture/tree/main/packages/lab/harvested)
   - kept replay scenarios from real sessions, including "wild capture" probes
 - [packages/lab/golden](https://github.com/tomismeta/aperture/tree/main/packages/lab/golden)

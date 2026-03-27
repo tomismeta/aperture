@@ -136,6 +136,9 @@ Good candidates:
 - [GH Archive](https://www.gharchive.org/)
   - massive public GitHub event history
   - useful for workflow-pattern mining
+- [`SWE-bench/SWE-smith-trajectories`](https://huggingface.co/datasets/SWE-bench/SWE-smith-trajectories)
+  - benchmark-linked agent trajectories
+  - useful for seeding Lab bundles with public coding-agent traces
 - [GitHub event and review docs](https://docs.github.com/en/enterprise-server%403.17/actions/reference/workflows-and-actions/events-that-trigger-workflows)
   - useful for approval-like workflow semantics
 - [tau-bench](https://github.com/sierra-research/tau-bench)
@@ -220,6 +223,9 @@ Current status:
   durable replay scenarios under `packages/lab/harvested`
 - canonical host exports, such as Paperclip's ledger/replay shapes, can also be
   converted into replayable Lab scenarios and bundles
+- the repo now includes `pnpm trajectory:import --dataset swe-smith` for
+  converting public trajectory rows into local Lab bundles under
+  `.aperture/lab/imported`
 - broader host and adapter export paths still need to be layered on top
 
 The intended storage split is now:

@@ -33,6 +33,7 @@
     "session:record": "tsx scripts/session-record.ts",
     "serve": "tsx scripts/runtime-server.ts",
     "test": "tsx --test packages/*/test/*.test.ts",
+    "trajectory:import": "tsx scripts/trajectory-import.ts",
     "tui": "tsx scripts/aperture-tui.ts",
     "typecheck": "tsc -b --pretty"
   },

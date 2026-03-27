@@ -1,18 +1,10 @@
 import { emitKeypressEvents } from "node:readline";
 import { env, stdin as defaultInput, stdout as defaultOutput } from "node:process";
 
-import {
-  renderAttentionScreen,
-  shouldRenderPreflightScreen,
-  groupQueuedFrames,
-} from "./render.js";
+import { renderAttentionScreen, shouldRenderPreflightScreen } from "./render.js";
 import { renderWhyOverlay } from "./render-why.js";
 import { computePosture } from "./posture.js";
-import {
-  createAnimationState,
-  reconcileQueueMovement,
-  tickAnimation,
-} from "./animation.js";
+import { createAnimationState, tickAnimation } from "./animation.js";
 import { ANSI } from "./ansi.js";
 import {
   handleActiveKeypress,
@@ -131,7 +123,6 @@ export async function runAttentionTui(
   const applyAttentionView = (attentionView: typeof state.attentionView) => {
     const previousActiveId = state.attentionView.active?.interactionId ?? null;
     const previousView = state.attentionView;
-    const viewChanged = !sameAttentionView(previousView, attentionView);
     state.attentionView = attentionView;
     const active = attentionView.active;
 
@@ -146,13 +137,6 @@ export async function runAttentionTui(
 
     if (!reducedMotion && active && active.interactionId !== previousActiveId) {
       state.animation.frameEntrance = { interactionId: active.interactionId, ticksRemaining: 1 };
-    }
-    if (!reducedMotion && viewChanged) {
-      reconcileQueueMovement(
-        state.animation,
-        groupQueuedFrames(previousView.queued).map((group) => group.key),
-        groupQueuedFrames(attentionView.queued).map((group) => group.key),
-      );
     }
 
     if (!active) {
@@ -187,7 +171,7 @@ export async function runAttentionTui(
       if (!visibleIds.has(id)) state.traceCache.delete(id);
     }
 
-    return viewChanged;
+    return !sameAttentionView(previousView, attentionView);
   };
 
   const onResize = () => requestRender();

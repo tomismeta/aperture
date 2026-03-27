@@ -2,8 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  defaultImportedTrajectoryBundlePath,
   createScenarioFromSweSmithRow,
   createSessionBundleFromSweSmithRow,
+  extractSweSmithMessageText,
+  parseSweSmithMessages,
   parseSweSmithRowsResponse,
   runSessionBundle,
   type SweSmithRow,
@@ -128,6 +131,20 @@ test("SWE-smith rows parse from dataset-style rows payloads", () => {
   assert.equal(rows[0]?.traj_id, SAMPLE_ROW.traj_id);
 });
 
+test("SWE-smith message helpers preserve transcript text", () => {
+  const messages = parseSweSmithMessages(SAMPLE_ROW);
+
+  assert.equal(messages.length, 7);
+  assert.equal(
+    extractSweSmithMessageText(messages[1]!),
+    "We're currently solving the following issue within our repository. ISSUE:\nMoneyWidget crashes on invalid provider responses\nTraceback shows string indices must be integers.",
+  );
+  assert.equal(
+    extractSweSmithMessageText(messages[3]!),
+    "Traceback (most recent call last): TypeError: string indices must be integers",
+  );
+});
+
 test("SWE-smith rows map into replay scenarios with started, update, failure, and completion steps", () => {
   const scenario = createScenarioFromSweSmithRow(SAMPLE_ROW);
 
@@ -166,4 +183,11 @@ test("SWE-smith rows can become replayable session bundles", () => {
   assert.equal(replayed.views.at(-1)?.activeInteractionId, bundle.outcomes.finalActiveInteractionId);
   assert.equal(replayed.views.at(-1)?.queuedInteractionIds.length, bundle.outcomes.finalQueuedCount);
   assert.equal(replayed.views.at(-1)?.ambientInteractionIds.length, bundle.outcomes.finalAmbientCount);
+});
+
+test("SWE-smith imported bundle paths stay under the dataset and split tree", () => {
+  const bundle = createSessionBundleFromSweSmithRow(SAMPLE_ROW);
+  const filePath = defaultImportedTrajectoryBundlePath(bundle, "swe-smith", "tool", "/tmp/aperture-imports");
+
+  assert.match(filePath, /\/tmp\/aperture-imports\/swe-smith\/tool\/public-swe-smith-example-repo-123\.run-42\.json$/);
 });

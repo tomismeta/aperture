@@ -961,3 +961,85 @@ test("renderAttentionScreen why mode keeps threshold details on separate lines",
   assert.match(screen, /score:\s+1120[\s\S]*current:\s+1100[\s\S]*threshold:\s+1150/);
   assert.match(screen, /criterion[\s\S]*threshold:\s+1150[\s\S]*margin:\s+80[\s\S]*ambiguity:\s+threshold sits close to the currently active approval/);
 });
+
+test("renderAttentionScreen why mode shows semantic interpretation and influence", () => {
+  const attentionView: AttentionView = {
+    active: makeFrame(),
+    queued: [],
+    ambient: [],
+  };
+
+  const trace = {
+    timestamp: "2026-03-10T00:00:00.000Z",
+    event: { kind: "submitted", taskId: "task-1", interaction: {} },
+    evaluation: {
+      kind: "candidate" as const,
+      original: {} as any,
+      adjusted: { interactionId: "interaction-1" } as any,
+    },
+    heuristics: { scoreOffset: 0, rationale: [] },
+    semantic: {
+      intentFrame: "question_request" as const,
+      activityClass: "question_request" as const,
+      toolFamily: "read",
+      consequence: "medium" as const,
+      confidence: "low" as const,
+      whyNow: "A direct question is waiting for operator input.",
+      relationHints: [{ kind: "same_issue" as const }, { kind: "repeats" as const }],
+      factors: ["human.input.requested", "choice"],
+      reasons: ["tool family was supplied by the source or context"],
+      influence: [
+        "tool family stayed explanatory on the question/form path",
+        "semantic low confidence stayed visible but did not downgrade blocking work",
+      ],
+    },
+    episode: null,
+    policy: {} as any,
+    policyRules: {
+      gateEvaluations: [],
+      criterion: null,
+      criterionEvaluations: [],
+    },
+    utility: { candidate: {} as any, currentScore: null, currentPriority: null },
+    planner: { kind: "activate" as const, reasons: [], continuityEvaluations: [] },
+    coordination: {
+      kind: "activate" as const,
+      resultBucket: "active" as const,
+      candidateScore: 1200,
+      currentScore: null,
+      currentPriority: null,
+      criterion: null,
+      ambiguity: null,
+      reasons: ["blocking work requires operator response"],
+      continuityEvaluations: [],
+    },
+    taskSummary: {} as any,
+    globalSummary: {} as any,
+    taskAttentionState: "calm" as any,
+    globalAttentionState: "calm" as any,
+    pressureForecast: {} as any,
+    attentionBurden: {} as any,
+    current: null,
+    taskView: {} as any,
+    attentionView: { active: null, queued: [], ambient: [] },
+    result: null,
+  };
+
+  const collapsed = renderAttentionScreen(attentionView, { whyMode: true, trace });
+  assert.match(collapsed, /semantic/);
+  assert.match(collapsed, /intent:\s+question_request/);
+  assert.match(collapsed, /tool:\s+read/);
+  assert.match(collapsed, /confidence:\s+low/);
+  assert.match(collapsed, /relations:\s+same_issue, repeats/);
+  assert.match(collapsed, /influence:\s+tool family stayed explanatory on the question\/form path;/);
+  assert.doesNotMatch(collapsed, /factors:\s+human\.input\.requested/);
+  assert.doesNotMatch(collapsed, /reasons:\s+tool family was supplied/);
+
+  const expanded = renderAttentionScreen(attentionView, {
+    whyMode: true,
+    whyExpanded: true,
+    trace,
+  });
+  assert.match(expanded, /factors:\s+human\.input\.requested, choice/);
+  assert.match(expanded, /basis:\s+tool family was supplied by the source or context/);
+});

@@ -305,3 +305,45 @@ test("trace evaluator reports ambiguous ambient work that later activates", () =
   assert.equal(report.ambiguousQueuedThenActivated, 0);
   assert.equal(report.ambiguousAmbientThenActivated, 1);
 });
+
+test("candidate traces expose semantic summaries with routing influence", () => {
+  const core = new ApertureCore();
+  const traces: ApertureTrace[] = [];
+
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+
+  core.publishSourceEvent({
+    id: "src:semantic:choice",
+    type: "human.input.requested",
+    taskId: "task:semantic:choice",
+    interactionId: "interaction:semantic:choice",
+    timestamp: "2026-03-27T18:00:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Should we inspect the config first?",
+    summary: "Choose the next step.",
+    context: {
+      items: [{ id: "toolFamily", label: "Tool Family", value: "read" }],
+    },
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [{ id: "yes", label: "Yes" }],
+    },
+  });
+
+  const trace = traces.at(-1);
+  assert(trace);
+  assert.equal(trace.evaluation.kind, "candidate");
+  if (trace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(trace.semantic?.intentFrame, "question_request");
+  assert.equal(trace.semantic?.toolFamily, "read");
+  assert.equal(trace.semantic?.confidence, "low");
+  assert.ok(trace.semantic?.reasons.includes("tool family was supplied by the source or context"));
+  assert.ok(trace.semantic?.influence.includes("tool family stayed explanatory on the question/form path"));
+  assert.ok(trace.semantic?.influence.includes("semantic low confidence stayed visible but did not downgrade blocking work"));
+});

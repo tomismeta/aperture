@@ -111,6 +111,12 @@ function renderRuleLine(
 function renderCandidateTrace(trace: CandidateTrace, color: boolean, expanded: boolean): string[] {
   const lines: string[] = [];
 
+  if (trace.semantic) {
+    lines.push("");
+    lines.push(whySectionHeader("semantics", color));
+    lines.push(...renderSemanticSection(trace.semantic, color, expanded));
+  }
+
   // Decision section — always shown in full
   lines.push("");
   lines.push(whySectionHeader("decision", color));
@@ -177,6 +183,57 @@ function renderCandidateTrace(trace: CandidateTrace, color: boolean, expanded: b
   return lines;
 }
 
+function renderSemanticSection(
+  semantic: NonNullable<CandidateTrace["semantic"]>,
+  color: boolean,
+  expanded: boolean,
+): string[] {
+  const lines: string[] = [];
+  const identityParts = [
+    `intent: ${semantic.intentFrame}`,
+    ...(semantic.activityClass ? [`activity: ${semantic.activityClass}`] : []),
+    ...(semantic.toolFamily ? [`tool: ${semantic.toolFamily}`] : []),
+    ...(semantic.consequence ? [`consequence: ${semantic.consequence}`] : []),
+  ];
+  lines.push(`   ${styleMuted(identityParts.join("  ·  "), color)}`);
+
+  const uncertaintyParts = [
+    ...(semantic.confidence ? [`confidence: ${semantic.confidence}`] : []),
+    ...(semantic.abstained ? ["abstained: yes"] : []),
+  ];
+  if (uncertaintyParts.length > 0) {
+    lines.push(`   ${styleMuted(uncertaintyParts.join("  ·  "), color)}`);
+  }
+
+  if (semantic.whyNow) {
+    lines.push(...renderWrappedDetailLine("why now", semantic.whyNow, color));
+  }
+
+  if (semantic.relationHints.length > 0) {
+    const hints = semantic.relationHints
+      .map((hint) => (hint.target ? `${hint.kind}:${hint.target}` : hint.kind))
+      .join(", ");
+    lines.push(...renderWrappedDetailLine("relations", hints, color));
+  }
+
+  if (semantic.influence.length > 0) {
+    lines.push(...renderWrappedDetailLine("influence", semantic.influence.join("; "), color));
+  }
+
+  if (semantic.reasons.length > 0) {
+    const basis = expanded ? semantic.reasons.join("; ") : semantic.reasons[0] ?? "";
+    if (basis.length > 0) {
+      lines.push(...renderWrappedDetailLine("basis", basis, color));
+    }
+  }
+
+  if (semantic.factors.length > 0 && expanded) {
+    lines.push(...renderWrappedDetailLine("factors", semantic.factors.join(", "), color));
+  }
+
+  return lines;
+}
+
 /**
  * Render a section of rules with collapse/expand support.
  * In collapsed mode, only triggered rules are shown + a count of hidden ones.
@@ -212,6 +269,19 @@ function renderRuleSection(
     const pad = " ".repeat(indent);
     const countText = `+ ${hiddenCount} rule${hiddenCount === 1 ? "" : "s"} did not apply`;
     lines.push(styleMuted(`${pad}${countText}`, color));
+  }
+
+  return lines;
+}
+
+function renderWrappedDetailLine(label: string, value: string, color: boolean): string[] {
+  const prefix = `   ${label}: `;
+  const wrapped = wrapText(value, Math.max(20, CONTENT_WIDTH - prefix.length));
+  const lines = [`${styleMuted(prefix, color)}${styleMuted(wrapped[0] ?? "", color)}`];
+  const continuationPrefix = " ".repeat(prefix.length);
+
+  for (let i = 1; i < wrapped.length; i++) {
+    lines.push(`${continuationPrefix}${styleMuted(wrapped[i] ?? "", color)}`);
   }
 
   return lines;

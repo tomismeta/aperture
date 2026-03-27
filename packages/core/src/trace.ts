@@ -15,6 +15,27 @@ import type { PolicyGateRuleEvaluation } from "./policy/policy-gate-rule.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import type { AttentionValueBreakdown } from "./attention-value.js";
 import type { ContinuityRuleEvaluation } from "./continuity/continuity-rule.js";
+import type {
+  SemanticActivityClass,
+  SemanticConfidence,
+  SemanticConsequenceLevel,
+  SemanticIntentFrame,
+  SemanticRelationHint,
+} from "./semantic-types.js";
+
+export type TraceSemanticSummary = {
+  intentFrame: SemanticIntentFrame;
+  activityClass?: SemanticActivityClass;
+  toolFamily?: string;
+  consequence?: SemanticConsequenceLevel;
+  confidence?: SemanticConfidence;
+  abstained?: boolean;
+  whyNow?: string;
+  relationHints: SemanticRelationHint[];
+  factors: string[];
+  reasons: string[];
+  influence: string[];
+};
 
 export type ApertureTrace =
   | {
@@ -62,6 +83,7 @@ export type ApertureTrace =
         scoreOffset: number;
         rationale: string[];
       };
+      semantic?: TraceSemanticSummary;
       episode: EpisodeSummary | null;
       policy: AttentionPolicyVerdict;
       policyRules: {

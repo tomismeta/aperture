@@ -31,6 +31,8 @@ export type NormalizedReplayRun = {
     ambientInteractionIds: string[];
   };
   traces: NormalizedTrace[];
+  semantics: NormalizedSemantic[];
+  decisions: NormalizedDecision[];
   signals: NormalizedSignal[];
   responses: NormalizedResponse[];
 };
@@ -78,6 +80,40 @@ type NormalizedResponse = {
   responseKind: string;
 };
 
+type NormalizedSemantic = {
+  stepIndex: number;
+  stepLabel?: string;
+  intentFrame: string;
+  activityClass?: string;
+  toolFamily?: string;
+  consequence?: string;
+  whyNow?: string;
+  confidence: string;
+  abstained: boolean;
+  relationKinds: string[];
+  factors: string[];
+  reasons: string[];
+  provenance: Record<string, string>;
+};
+
+type NormalizedDecision = {
+  stepIndex: number;
+  stepLabel?: string;
+  evaluationKind: "candidate" | "clear" | "noop";
+  decisionKind?: string;
+  resultBucket?: string;
+  interactionId?: string;
+  semanticConfidence?: string;
+  semanticAbstained?: boolean;
+  semanticInfluence: string[];
+  semanticImpactDecisionBearing: string[];
+  semanticImpactExplanatory: string[];
+  ambiguity?: {
+    reason: string;
+    resolution: string;
+  } | null;
+};
+
 export async function runDeterminismAudit(
   scenarios?: ReplayScenario[],
 ): Promise<DeterminismAuditRun> {
@@ -122,6 +158,42 @@ export function normalizeReplayRun(run: ReplayRunResult): NormalizedReplayRun {
       ambientInteractionIds: finalView?.ambientInteractionIds ?? [],
     },
     traces: run.traces.map(normalizeTrace),
+    semantics: run.semantics.map((semantic) => ({
+      stepIndex: semantic.stepIndex,
+      ...(semantic.stepLabel ? { stepLabel: semantic.stepLabel } : {}),
+      intentFrame: semantic.interpretation.intentFrame,
+      ...(semantic.interpretation.activityClass ? { activityClass: semantic.interpretation.activityClass } : {}),
+      ...(semantic.interpretation.toolFamily ? { toolFamily: semantic.interpretation.toolFamily } : {}),
+      ...(semantic.interpretation.consequence ? { consequence: semantic.interpretation.consequence } : {}),
+      ...(semantic.interpretation.whyNow ? { whyNow: semantic.interpretation.whyNow } : {}),
+      confidence: semantic.interpretation.confidence,
+      abstained: semantic.interpretation.abstained === true,
+      relationKinds: semantic.interpretation.relationHints.map((hint) => hint.kind),
+      factors: semantic.interpretation.factors,
+      reasons: semantic.interpretation.reasons,
+      provenance: semantic.interpretation.provenance ?? {},
+    })),
+    decisions: run.decisions.map((decision) => ({
+      stepIndex: decision.stepIndex,
+      ...(decision.stepLabel ? { stepLabel: decision.stepLabel } : {}),
+      evaluationKind: decision.evaluationKind,
+      ...(decision.decisionKind ? { decisionKind: decision.decisionKind } : {}),
+      ...(decision.resultBucket ? { resultBucket: decision.resultBucket } : {}),
+      ...(decision.interactionId ? { interactionId: decision.interactionId } : {}),
+      ...(decision.semanticConfidence ? { semanticConfidence: decision.semanticConfidence } : {}),
+      ...(decision.semanticAbstained === true ? { semanticAbstained: true } : {}),
+      semanticInfluence: decision.semanticInfluence ?? [],
+      semanticImpactDecisionBearing: decision.semanticImpactDecisionBearing ?? [],
+      semanticImpactExplanatory: decision.semanticImpactExplanatory ?? [],
+      ...(decision.ambiguity
+        ? {
+            ambiguity: {
+              reason: decision.ambiguity.reason,
+              resolution: decision.ambiguity.resolution,
+            },
+          }
+        : {}),
+    })),
     signals: run.signals.map(normalizeSignal),
     responses: run.responses.map(normalizeResponse),
   };
@@ -137,6 +209,12 @@ function collectDriftAreas(
   }
   if (!sameValue(left.traces, right.traces)) {
     drift.push("traces");
+  }
+  if (!sameValue(left.semantics, right.semantics)) {
+    drift.push("semantics");
+  }
+  if (!sameValue(left.decisions, right.decisions)) {
+    drift.push("decisions");
   }
   if (!sameValue(left.signals, right.signals)) {
     drift.push("signals");

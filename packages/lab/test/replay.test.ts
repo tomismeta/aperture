@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { runReplayScenario, scoreReplayRun, type ReplayScenario } from "../src/index.js";
+import { normalizeReplayRun, runReplayScenario, scoreReplayRun, type ReplayScenario } from "../src/index.js";
 
 test("replay runner captures frames, traces, responses, and final view state", () => {
   const scenario: ReplayScenario = {
@@ -100,4 +100,44 @@ test("replay runner can exercise source-event normalization paths", () => {
   assert.equal(result.normalizedEvents[0]?.event.type, "human.input.requested");
   assert.equal(result.decisions[0]?.semanticConfidence, "low");
   assert.equal(result.views[0]?.activeInteractionId, "interaction:source:1");
+});
+
+test("normalized replay runs retain semantic and decision detail for determinism audits", () => {
+  const scenario: ReplayScenario = {
+    id: "replay:normalized-semantic-detail",
+    title: "Normalized replay semantic detail",
+    steps: [
+      {
+        kind: "publishSource",
+        label: "question with tool context",
+        event: {
+          id: "src:semantic:1",
+          taskId: "task:semantic",
+          interactionId: "interaction:semantic:1",
+          timestamp: "2026-03-27T21:00:00.000Z",
+          source: { id: "paperclip", label: "Paperclip" },
+          type: "human.input.requested",
+          title: "Should we read the config first?",
+          summary: "Choose the next step.",
+          context: {
+            items: [{ id: "toolFamily", label: "Tool Family", value: "read" }],
+          },
+          request: {
+            kind: "choice",
+            selectionMode: "single",
+            options: [{ id: "yes", label: "Yes" }],
+          },
+        },
+      },
+    ],
+  };
+
+  const normalized = normalizeReplayRun(runReplayScenario(scenario));
+
+  assert.equal(normalized.semantics.length, 1);
+  assert.equal(normalized.decisions.length, 1);
+  assert.equal(normalized.semantics[0]?.toolFamily, "read");
+  assert.equal(normalized.semantics[0]?.provenance.toolFamily, "source");
+  assert.deepEqual(normalized.decisions[0]?.semanticImpactDecisionBearing, ["consequence (canonical)"]);
+  assert.ok(normalized.decisions[0]?.semanticInfluence.includes("tool family stayed explanatory on the question/form path"));
 });

@@ -14,6 +14,7 @@ test("loads the first golden scenarios from disk", async () => {
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:abstained-waiting-status-stays-ambient"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:low-confidence-failure-recovers-to-active"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:abstained-blocked-work-recovers-to-active"));
+  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:question-tool-family-stays-explanatory"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:repeated-failure-same-issue"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:superseding-approval-replaces-active-step"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:adversarial:production-read-stays-low"));
@@ -51,6 +52,15 @@ test("JudgmentBench runs across the golden scenarios and produces a summary", as
   assert.ok(supersedingScenario);
   assert.equal(
     supersedingScenario?.assertions.find((assertion) => assertion.name === "explanation continuity rationale includes")?.passed,
+    true,
+  );
+
+  const questionToolScenario = result.scenarios.find(
+    (scenario) => scenario.scenario.id === "golden:semantics:question-tool-family-stays-explanatory",
+  );
+  assert.ok(questionToolScenario);
+  assert.equal(
+    questionToolScenario?.assertions.find((assertion) => assertion.name === "decision reading (question with explicit tool context) semantic impact explanatory includes")?.passed,
     true,
   );
 });

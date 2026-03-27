@@ -184,6 +184,13 @@ function buildDecisionSnapshot(
       ? { semanticConfidence: trace.evaluation.adjusted.semanticConfidence }
       : {}),
     ...(trace.evaluation.adjusted.semanticAbstained === true ? { semanticAbstained: true } : {}),
+    ...(trace.semantic?.influence !== undefined ? { semanticInfluence: trace.semantic.influence } : {}),
+    ...(trace.semantic?.impact.decisionBearing !== undefined
+      ? { semanticImpactDecisionBearing: trace.semantic.impact.decisionBearing }
+      : {}),
+    ...(trace.semantic?.impact.explanatory !== undefined
+      ? { semanticImpactExplanatory: trace.semantic.impact.explanatory }
+      : {}),
     ambiguity: trace.coordination.ambiguity,
   };
 }

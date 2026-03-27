@@ -21,6 +21,17 @@ type ReplayDecisionAmbiguity = {
   resolution: "queue" | "ambient";
 };
 
+export type ReplaySemanticProvenanceExpectation = Partial<{
+  intentFrame: "source" | "inferred" | "hint";
+  activityClass: "source" | "inferred" | "hint";
+  toolFamily: "source" | "inferred" | "hint";
+  consequence: "source" | "inferred" | "hint";
+  whyNow: "source" | "inferred" | "hint";
+  relationHints: "source" | "inferred" | "hint";
+  confidence: "source" | "inferred" | "hint";
+  abstained: "source" | "inferred" | "hint";
+}>;
+
 export type ReplayCaptureMetadata = {
   eventTransport?: string;
   semanticCapture?: string;
@@ -155,6 +166,9 @@ export type ReplayDecisionSnapshot = {
   interactionId?: string;
   semanticConfidence?: SemanticConfidence;
   semanticAbstained?: boolean;
+  semanticInfluence?: string[];
+  semanticImpactDecisionBearing?: string[];
+  semanticImpactExplanatory?: string[];
   ambiguity?: ReplayDecisionAmbiguity | null;
 };
 
@@ -172,6 +186,7 @@ export type ReplaySemanticExpectation = {
   whyNowIncludes?: string;
   reasonsInclude?: string[];
   factorsInclude?: string[];
+  provenanceIncludes?: ReplaySemanticProvenanceExpectation;
 };
 
 export type ReplayDecisionExpectation = {
@@ -182,6 +197,9 @@ export type ReplayDecisionExpectation = {
   resultBucket?: "active" | "queued" | "ambient" | "none";
   semanticConfidence?: SemanticConfidence;
   semanticAbstained?: boolean;
+  semanticInfluenceIncludes?: string[];
+  semanticImpactDecisionBearingIncludes?: string[];
+  semanticImpactExplanatoryIncludes?: string[];
   ambiguityReason?: ReplayDecisionAmbiguity["reason"] | null;
   ambiguityResolution?: ReplayDecisionAmbiguity["resolution"] | null;
 };

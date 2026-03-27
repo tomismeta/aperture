@@ -108,6 +108,17 @@ const SEMANTIC_ACTIVITY_CLASSES = new Set([
   "status_update",
 ]);
 const RELATION_KINDS = new Set(["same_issue", "resolves", "supersedes", "repeats", "escalates"]);
+const SEMANTIC_PROVENANCE_FIELDS = new Set([
+  "intentFrame",
+  "activityClass",
+  "toolFamily",
+  "consequence",
+  "whyNow",
+  "relationHints",
+  "confidence",
+  "abstained",
+]);
+const SEMANTIC_PROVENANCE_KINDS = new Set(["source", "inferred", "hint"]);
 
 export function isRecord(value: unknown): value is UnknownRecord {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -572,6 +583,7 @@ function validateReplaySemanticExpectation(value: unknown): ReplaySemanticExpect
     || (value.whyNowIncludes !== undefined && typeof value.whyNowIncludes !== "string")
     || (value.reasonsInclude !== undefined && !isStringArray(value.reasonsInclude))
     || (value.factorsInclude !== undefined && !isStringArray(value.factorsInclude))
+    || (value.provenanceIncludes !== undefined && !isReplaySemanticProvenanceExpectation(value.provenanceIncludes))
   ) {
     return null;
   }
@@ -592,6 +604,9 @@ function validateReplayDecisionExpectation(value: unknown): ReplayDecisionExpect
     || (value.resultBucket !== undefined && !RESULT_BUCKETS.has(String(value.resultBucket)))
     || (value.semanticConfidence !== undefined && !SEMANTIC_CONFIDENCE.has(String(value.semanticConfidence)))
     || (value.semanticAbstained !== undefined && typeof value.semanticAbstained !== "boolean")
+    || (value.semanticInfluenceIncludes !== undefined && !isStringArray(value.semanticInfluenceIncludes))
+    || (value.semanticImpactDecisionBearingIncludes !== undefined && !isStringArray(value.semanticImpactDecisionBearingIncludes))
+    || (value.semanticImpactExplanatoryIncludes !== undefined && !isStringArray(value.semanticImpactExplanatoryIncludes))
     || (value.ambiguityReason !== undefined && !(value.ambiguityReason === null || value.ambiguityReason === "low_signal" || value.ambiguityReason === "small_score_gap"))
     || (value.ambiguityResolution !== undefined && !(value.ambiguityResolution === null || value.ambiguityResolution === "queue" || value.ambiguityResolution === "ambient"))
   ) {
@@ -614,6 +629,18 @@ function validateReplayExplanationExpectation(value: unknown): ReplayExplanation
   }
 
   return value as ReplayExplanationExpectation;
+}
+
+function isReplaySemanticProvenanceExpectation(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return Object.entries(value).every(([field, origin]) =>
+    SEMANTIC_PROVENANCE_FIELDS.has(field)
+    && typeof origin === "string"
+    && SEMANTIC_PROVENANCE_KINDS.has(origin),
+  );
 }
 
 function validateReplayTraceExpectation(value: unknown): ReplayTraceExpectation | null {

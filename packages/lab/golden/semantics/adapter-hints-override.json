@@ -21,10 +21,38 @@
         "stepLabel": "hinted approval",
         "intentFrame": "approval_request",
         "activityClass": "permission_request",
+        "toolFamily": "read",
         "consequence": "high",
         "confidence": "medium",
         "whyNowIncludes": "policy escalation",
-        "reasonsInclude": ["adapter provided a trusted escalation hint"]
+        "reasonsInclude": ["adapter provided a trusted escalation hint"],
+        "provenanceIncludes": {
+          "toolFamily": "inferred",
+          "consequence": "hint",
+          "whyNow": "hint"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "hinted approval",
+        "evaluationKind": "candidate",
+        "decisionKind": "activate",
+        "resultBucket": "active",
+        "semanticConfidence": "medium",
+        "semanticInfluenceIncludes": [
+          "semantic consequence shaped the canonical human-input consequence",
+          "tool family remained decision-bearing on the approval path"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "consequence (canonical)",
+          "tool (approval path)"
+        ],
+        "semanticImpactExplanatoryIncludes": [
+          "intent",
+          "why now",
+          "confidence"
+        ]
       }
     ]
   },

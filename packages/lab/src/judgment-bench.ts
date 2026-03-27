@@ -279,6 +279,20 @@ function evaluateSemanticExpectation(
     });
   }
 
+  if (expectation.provenanceIncludes) {
+    for (const [field, expectedOrigin] of Object.entries(expectation.provenanceIncludes)) {
+      const actualOrigin = semantic.provenance?.[
+        field as keyof NonNullable<typeof semantic.provenance>
+      ] ?? null;
+      assertions.push({
+        name: `${targetKey} provenance ${field}`,
+        passed: actualOrigin === expectedOrigin,
+        expected: expectedOrigin,
+        actual: actualOrigin,
+      });
+    }
+  }
+
   return assertions;
 }
 
@@ -324,6 +338,39 @@ function evaluateDecisionExpectation(
   pushFieldAssertion(assertions, `${targetKey} semantic abstained`, expectation.semanticAbstained, target.semanticAbstained ?? false);
   pushFieldAssertion(assertions, `${targetKey} ambiguity reason`, expectation.ambiguityReason, target.ambiguity?.reason ?? null);
   pushFieldAssertion(assertions, `${targetKey} ambiguity resolution`, expectation.ambiguityResolution, target.ambiguity?.resolution ?? null);
+
+  if (expectation.semanticInfluenceIncludes && expectation.semanticInfluenceIncludes.length > 0) {
+    assertions.push({
+      name: `${targetKey} semantic influence includes`,
+      passed: expectation.semanticInfluenceIncludes.every((snippet) =>
+        (target.semanticInfluence ?? []).some((entry) => entry.includes(snippet))
+      ),
+      expected: expectation.semanticInfluenceIncludes,
+      actual: target.semanticInfluence ?? [],
+    });
+  }
+
+  if (expectation.semanticImpactDecisionBearingIncludes && expectation.semanticImpactDecisionBearingIncludes.length > 0) {
+    assertions.push({
+      name: `${targetKey} semantic impact decision-bearing includes`,
+      passed: expectation.semanticImpactDecisionBearingIncludes.every((value) =>
+        (target.semanticImpactDecisionBearing ?? []).includes(value)
+      ),
+      expected: expectation.semanticImpactDecisionBearingIncludes,
+      actual: target.semanticImpactDecisionBearing ?? [],
+    });
+  }
+
+  if (expectation.semanticImpactExplanatoryIncludes && expectation.semanticImpactExplanatoryIncludes.length > 0) {
+    assertions.push({
+      name: `${targetKey} semantic impact explanatory includes`,
+      passed: expectation.semanticImpactExplanatoryIncludes.every((value) =>
+        (target.semanticImpactExplanatory ?? []).includes(value)
+      ),
+      expected: expectation.semanticImpactExplanatoryIncludes,
+      actual: target.semanticImpactExplanatory ?? [],
+    });
+  }
 
   return assertions;
 }

@@ -26,7 +26,33 @@
         "consequence": "low",
         "confidence": "low",
         "whyNowIncludes": "implies the operator may need to respond",
-        "reasonsInclude": ["status wording suggests an implied operator request"]
+        "reasonsInclude": ["status wording suggests an implied operator request"],
+        "provenanceIncludes": {
+          "intentFrame": "inferred",
+          "activityClass": "inferred",
+          "consequence": "inferred",
+          "whyNow": "inferred",
+          "confidence": "inferred"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "implied ask status",
+        "evaluationKind": "candidate",
+        "decisionKind": "ambient",
+        "resultBucket": "ambient",
+        "semanticConfidence": "low",
+        "semanticInfluenceIncludes": [
+          "task status remained authoritative"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "confidence (ambiguity)"
+        ],
+        "semanticImpactExplanatoryIncludes": [
+          "consequence",
+          "why now"
+        ]
       }
     ]
   },

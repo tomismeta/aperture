@@ -17,6 +17,7 @@ These notes are still active and should be read as current direction:
 - [Engine Roadmap](./engine-roadmap.md)
 - [Technical Product Roadmap](./technical-product-roadmap.md)
 - [Core Maturation Plan](./core-maturation-plan.md)
+- [Decision Quality Execution Plan](./decision-quality-execution-plan.md)
 - [Semantic Contract Maturation Plan](./semantic-contract-maturation-plan.md)
 - [Semantic Contract Decision](./semantic-contract-decision.md)
 - [Host Surface Expansion Note](./host-surface-expansion-note.md)

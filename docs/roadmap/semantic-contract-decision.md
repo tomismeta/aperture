@@ -78,6 +78,12 @@ Current rule:
 - low-confidence or abstained non-blocking work may resolve to `queue` or `ambient` through the explicit ambiguity lane
 - do not let `confidence` or `abstained` silently override explicit status routing or blocking human-input handling
 
+The current influence matrix is locked in tests under:
+
+- `packages/core/test/semantic-contract.test.ts`
+- `packages/core/test/semantic-normalization.test.ts`
+- `packages/core/test/judgment-coordinator.test.ts`
+
 ### 4. Removed ambiguous fields
 
 These fields were removed from the core semantic shape in this tranche:

@@ -5,6 +5,8 @@ import type { SourceEvent } from "@tomismeta/aperture-core";
 import type { ReplayScenario } from "./scenario.js";
 import {
   createSessionBundleFromScenario,
+  defaultSessionBundlePath,
+  DEFAULT_SESSION_BUNDLES_DIR,
   runSessionBundle,
   type ReplaySessionBundle,
   type ReplaySessionBundleSource,
@@ -14,9 +16,9 @@ import {
 export const SWE_SMITH_DATASET = "SWE-bench/SWE-smith-trajectories" as const;
 export const HUGGINGFACE_SWE_SMITH_DATASET = SWE_SMITH_DATASET;
 export const DEFAULT_SWE_SMITH_SPLIT = "tool" as const;
-export const DEFAULT_PUBLIC_TRAJECTORY_BUNDLES_DIR = path.resolve(
-  process.cwd(),
-  ".aperture/lab/imported",
+export const DEFAULT_PUBLIC_TRAJECTORY_BUNDLES_DIR = path.join(
+  DEFAULT_SESSION_BUNDLES_DIR,
+  "public",
 );
 
 export type PublicTrajectoryDataset = "swe-smith";
@@ -379,7 +381,7 @@ export function defaultImportedTrajectoryBundlePath(
   split: SweSmithTrajectorySplit = DEFAULT_SWE_SMITH_SPLIT,
   rootDirectory: string = DEFAULT_PUBLIC_TRAJECTORY_BUNDLES_DIR,
 ): string {
-  return defaultSessionBundlePath(bundle, path.join(rootDirectory, dataset, split));
+  return path.join(rootDirectory, dataset, split, `${bundle.sessionId}.json`);
 }
 
 export async function importPublicTrajectoryBundles(

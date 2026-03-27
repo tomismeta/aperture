@@ -189,5 +189,5 @@ test("SWE-smith imported bundle paths stay under the dataset and split tree", ()
   const bundle = createSessionBundleFromSweSmithRow(SAMPLE_ROW);
   const filePath = defaultImportedTrajectoryBundlePath(bundle, "swe-smith", "tool", "/tmp/aperture-imports");
 
-  assert.match(filePath, /\/tmp\/aperture-imports\/swe-smith\/tool\/public:swe-smith:example-repo-123-run-42\.json$/);
+  assert.match(filePath, /\/tmp\/aperture-imports\/swe-smith\/tool\/public-swe-smith-example-repo-123-run-42\.json$/);
 });

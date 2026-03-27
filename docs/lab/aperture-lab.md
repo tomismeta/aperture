@@ -359,6 +359,9 @@ It should not be the first thing that defines the benchmark itself.
 The corpus and scorecard should be human-shaped and doctrine-shaped before
 being optimized automatically.
 
+For the concrete offline reviewer and disagreement-capture operating model, see
+[Offline AI Review Loop](./offline-ai-review-loop.md).
+
 ## First Build Order
 
 1. Add `@aperture/lab`

@@ -16,6 +16,40 @@ export {
   type CodexResponsePayload,
 } from "./mapping.js";
 export {
+  buildCodexHookCommand,
+  installCodexHooks,
+  readHookConfig,
+  removeCodexHooks,
+  resolveCodexConfigPath,
+  resolveCodexHooksPath,
+  withCodexHooksFeatureEnabled,
+  type CodexHookInstallResult,
+} from "./hook-config.js";
+export {
+  codexHookInteractionId,
+  codexHookSessionTaskId,
+  codexHookTurnTaskId,
+  mapCodexHookEvent,
+  mapCodexHookResponse,
+  parseCodexHookEvent,
+  type CodexHookBaseEvent,
+  type CodexHookEvent,
+  type CodexHookEventName,
+  type CodexHookMappingContext,
+  type CodexHookResponse,
+  type CodexPostToolUseHookEvent,
+  type CodexPreToolUseHookEvent,
+  type CodexSessionStartHookEvent,
+  type CodexStopHookEvent,
+  type CodexUserPromptSubmitHookEvent,
+} from "./hooks.js";
+export {
+  codexHookFallbackEvent,
+  createCodexHookServer,
+  type CodexHookServer,
+  type CodexHookServerOptions,
+} from "./hook-server.js";
+export {
   buildCodexRunInput,
   parseCodexRunArgs,
   type CodexRunOptions,

@@ -3,7 +3,7 @@
 This note explains the current Codex integration paths around the new
 `@aperture/codex` adapter:
 
-- why a normal `codex` terminal session does not automatically appear in Aperture
+- what the stock `codex` terminal can surface today and what still does not
 - what a terminal-supervised Codex workflow looks like today
 - what a macOS-native Codex + Aperture experience would look like
 - which path should come next
@@ -22,6 +22,8 @@ The repo now has a working Codex App Server adapter:
 - [packages/codex/src/bridge.ts](../../packages/codex/src/bridge.ts)
 - [packages/codex/src/mapping.ts](../../packages/codex/src/mapping.ts)
 - [scripts/codex-adapter.ts](../../scripts/codex-adapter.ts)
+- [packages/codex/src/hook-server.ts](../../packages/codex/src/hook-server.ts)
+- [scripts/codex-hook-adapter.ts](../../scripts/codex-hook-adapter.ts)
 
 What works today:
 
@@ -32,11 +34,14 @@ What works today:
 - a supervised Codex session runner exists with `pnpm codex:run`
 - the full local stack can be started with `pnpm aperture --codex`
 - a real approval round trip has been live-verified through the TUI
+- the stock Codex CLI can be hooked experimentally with `pnpm codex:connect`
+  plus `pnpm codex:hooks:start`
+- the current hook path can hold Bash `PreToolUse` approvals for real Aperture
+  supervision
 
 What does **not** exist yet:
 
-- a way for the stock interactive `codex` terminal UI to automatically route
-  through Aperture
+- a full stock-CLI event surface beyond the current experimental Bash hook path
 - a shared App Server path across Codex clients like macOS app, TUI, and IDEs
 - a stronger App Server interruption contract for human-relevant mid-turn hooks
 - a macOS-native Codex host that uses the adapter as its event and response
@@ -44,10 +49,11 @@ What does **not** exist yet:
 
 That is the key distinction:
 
-**we now have the adapter layer and a real terminal-supervised runner, but not
-yet a shared Codex client path across product surfaces.**
+**we now have the adapter layer, a real terminal-supervised runner, and an
+experimental stock-CLI hook seam, but not yet a shared Codex client path across
+product surfaces.**
 
-## Why The Stock Codex Terminal Does Not Show Up In Aperture
+## Why The Stock Codex Terminal Still Only Partly Shows Up In Aperture
 
 The normal `codex` terminal UI is its own product surface.
 
@@ -64,6 +70,14 @@ Codex App Server
 
 The stock `codex` terminal you launch directly is not yet being run through a
 host that forwards those events into Aperture in a way we control.
+
+The new hooks path improves this, but only partially. With hooks enabled,
+Aperture can currently supervise:
+
+- `PreToolUse` Bash approvals
+- coarse `SessionStart`, `PostToolUse`, and `Stop` lifecycle facts
+
+That is useful, but it is still much narrower than a full shared client seam.
 
 So the missing piece is not the adapter. The missing pieces are the **shared
 Codex client path** above the adapter and the **interruption semantics** that

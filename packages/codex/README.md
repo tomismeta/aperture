@@ -1,8 +1,8 @@
 # `@aperture/codex`
 
-The Codex App Server adapter for Aperture.
+The Codex adapter for Aperture.
 
-It connects the Codex App Server protocol to Aperture's attention engine
+It connects Codex-native integration seams into Aperture's attention engine
 without leaking Codex-specific transport or client details into
 `@tomismeta/aperture-core`.
 
@@ -11,6 +11,7 @@ without leaking Codex-specific transport or client details into
 `@aperture/codex`:
 
 - receives Codex App Server requests and notifications
+- receives experimental Codex hook events from the stock CLI
 - translates attention-significant Codex facts into `SourceEvent`
 - publishes those events into Aperture runtime and core
 - maps `AttentionResponse` back into Codex-native replies
@@ -71,7 +72,9 @@ The package currently includes:
 - a pluggable `CodexTransport` seam
 - a stdio transport implementation for `codex app-server`
 - a websocket transport implementation for shared or remote App Server sessions
-- mapping from Codex requests and notifications into `SourceEvent`
+- an experimental Codex hook server for stock CLI ingress
+- hook config installers for `hooks.json` plus the `codex_hooks` feature flag
+- mapping from Codex requests, notifications, and hook events into `SourceEvent`
 - mapping from `AttentionResponse` back into Codex-native replies
 - a runtime bridge for live Aperture integration
 
@@ -86,12 +89,15 @@ Current Aperture disposition by surface:
 | pnpm codex:run          | supported            | Real Codex App Server path through         |
 |                         |                      | Aperture's client                           |
 | pnpm codex:start        | supported            | Live adapter bridge into Aperture runtime  |
+| pnpm codex:hooks:start  | experimental         | Local hook server for stock Codex CLI      |
+| pnpm codex:connect      | experimental         | Installs hook config globally or per repo  |
 | pnpm aperture --codex   | supported            | Full local stack with TUI supervision      |
 | Codex App Server        | supported in design  | The protocol boundary this package targets |
 | shared external server  | experimental         | WebSocket-capable shared App Server route  |
 | Codex macOS app         | indirect only        | Not a direct Aperture event source today   |
 | Codex VS Code client    | indirect only        | Same App Server family, no shared seam yet |
-| stock Codex CLI/TUI     | not integrated       | Use the App Server client path instead     |
+| stock Codex CLI/TUI     | experimental         | Hook-based Bash approvals and lifecycle    |
+|                         |                      | ingress; still narrower than App Server    |
 +-------------------------+----------------------+--------------------------------------------+
 ```
 
@@ -123,6 +129,34 @@ pnpm aperture -- --codex --codex-transport websocket --codex-url ws://127.0.0.1:
 ```
 
 Environment variables still work as a fallback.
+
+## Experimental Hooks Path
+
+Codex now also exposes an experimental hooks surface for the stock CLI. Aperture
+supports that as a second ingress path without changing core or replacing App
+Server as the main Codex architecture.
+
+Install the hook config:
+
+```bash
+pnpm codex:connect --global
+```
+
+Start the hook adapter:
+
+```bash
+pnpm codex:hooks:start
+```
+
+Current hook posture:
+
+- App Server remains the primary Codex architecture
+- hooks are useful for stock CLI supervision
+- only `PreToolUse` is held for a real human decision today
+- `UserPromptSubmit` is now ingested as a low-obligation follow-up fact
+- `PreToolUse` and `PostToolUse` are currently Bash-only in Codex
+- once Aperture holds a `PreToolUse` approval, timeout or dismissal fails
+  closed with a deny hook response
 
 ## Verified Today
 
@@ -160,10 +194,11 @@ chooses to externalize, not the basic Aperture adapter path
   - real approval requests can be surfaced and answered end to end
 - `promising`
   - the App Server boundary, dual transport seam, and mapping model are sound
+  - the hook path gives us a real stock-CLI Bash approval seam
 - `not ready for the live path`
   - only a small set of request families are live-verified
   - most of the Codex stream is still status and deltas without actionable
-    hooks
+    hooks or requests
 
 Transport note:
 
@@ -189,6 +224,11 @@ Protocol note:
 - `Generated protocol staying the compatibility contract`
   - generated schema continuing to outrank prose examples when they differ
 
+- `A richer official hooks contract`
+  - hooks are still experimental
+  - `PreToolUse` and `PostToolUse` are Bash-only today
+  - native `"ask"` / `"allow"` still are not supported for `PreToolUse`
+
 ## Main Rule
 
 Adapters provide facts. Core provides judgment.
@@ -197,7 +237,8 @@ For Codex, that means:
 
 - `@aperture/codex` may understand Codex protocol, thread ids, turn ids,
   request ids, and custom input items
-- `@tomismeta/aperture-core` must remain unaware of Codex App Server details
+- `@tomismeta/aperture-core` must remain unaware of Codex App Server and hook
+  payload details
 
 ## What It Is Not
 

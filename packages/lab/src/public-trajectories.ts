@@ -379,7 +379,7 @@ export function defaultImportedTrajectoryBundlePath(
   split: SweSmithTrajectorySplit = DEFAULT_SWE_SMITH_SPLIT,
   rootDirectory: string = DEFAULT_PUBLIC_TRAJECTORY_BUNDLES_DIR,
 ): string {
-  return path.join(rootDirectory, dataset, split, `${bundle.sessionId}.json`);
+  return defaultSessionBundlePath(bundle, path.join(rootDirectory, dataset, split));
 }
 
 export async function importPublicTrajectoryBundles(

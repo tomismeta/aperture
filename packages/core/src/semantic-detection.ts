@@ -90,13 +90,17 @@ export function inferConsequenceFromSemanticText(
   fallback: AttentionConsequenceLevel,
   toolFamily?: string,
 ): AttentionConsequenceLevel {
+  if (isRoutineSuccessObservation(text)) {
+    return fallback;
+  }
+
   // Read/search work is treated as side-effect-free. Production wording alone
   // should not escalate those requests beyond the explicit source fallback.
   if (toolFamily === "read" || toolFamily === "search") {
     return fallback;
   }
 
-  if (containsAnySemanticPhrase(text, HIGH_RISK_PHRASES)) {
+  if (containsAnySemanticRiskPhrase(text, HIGH_RISK_PHRASES)) {
     return "high";
   }
 
@@ -107,8 +111,48 @@ export function inferConsequenceFromSemanticText(
   return fallback;
 }
 
+export function detectObservationalFailureStatus(
+  text: string,
+  toolFamily?: string,
+): boolean {
+  if (toolFamily !== "edit" && toolFamily !== "read") {
+    return false;
+  }
+
+  return containsAnySemanticPhrase(text, OBSERVATIONAL_READBACK_PHRASES);
+}
+
+export function detectExpectedDiagnosticFailure(
+  text: string,
+  toolFamily?: string,
+): boolean {
+  if (toolFamily !== "bash") {
+    return false;
+  }
+
+  return containsAnySemanticPhrase(text, EXPECTED_DIAGNOSTIC_FAILURE_PHRASES)
+    && !containsAnySemanticPhrase(text, TERMINAL_FAILURE_PHRASES);
+}
+
 export function containsAnySemanticPhrase(value: string, phrases: readonly string[]): boolean {
   return phrases.some((phrase) => value.includes(phrase));
+}
+
+function containsAnySemanticRiskPhrase(value: string, phrases: readonly string[]): boolean {
+  return phrases.some((phrase) => containsSemanticRiskPhrase(value, phrase));
+}
+
+function containsSemanticRiskPhrase(value: string, phrase: string): boolean {
+  const normalizedPhrase = normalizeSemanticText(phrase);
+  if (!normalizedPhrase) {
+    return false;
+  }
+
+  if (!normalizedPhrase.includes(" ")) {
+    return hasWord(value, normalizedPhrase);
+  }
+
+  return new RegExp(`(?:^|\\s)${escapeRegExp(normalizedPhrase)}(?:\\s|$)`).test(value);
 }
 
 function readMetadataToolFamily(metadata?: Record<string, unknown>): string | null {
@@ -197,6 +241,42 @@ const HIGH_RISK_PHRASES = [
   "kill process",
   "migrate",
 ] as const;
+
+const OBSERVATIONAL_READBACK_PHRASES = [
+  "result of running cat -n",
+  "result of running sed -n",
+  "result of running grep",
+  "result of running ls",
+  "result of running find",
+  "here s the result of running cat -n",
+  "here s the result of running sed -n",
+] as const;
+
+const ROUTINE_SUCCESS_PHRASES = [
+  "ran successfully and did not produce any output",
+  "command ran successfully and did not produce any output",
+  "completed successfully and did not produce any output",
+] as const;
+
+const EXPECTED_DIAGNOSTIC_FAILURE_PHRASES = [
+  "form is valid false",
+  "form without instance is valid false",
+  "form errors",
+  "errorlist",
+  "decompress result",
+] as const;
+
+const TERMINAL_FAILURE_PHRASES = [
+  "traceback",
+  "exception",
+  "permission denied",
+  "command not found",
+  "segmentation fault",
+] as const;
+
+function isRoutineSuccessObservation(text: string): boolean {
+  return containsAnySemanticPhrase(text, ROUTINE_SUCCESS_PHRASES);
+}
 
 const REPEAT_PHRASES = [
   "still",

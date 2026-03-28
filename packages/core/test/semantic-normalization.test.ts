@@ -175,6 +175,61 @@ test("normalizes task status updates with semantic enrichment instead of raw pas
   }
 });
 
+test("failed edit readback observations stay status updates semantically", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:edit-readback",
+    type: "task.updated",
+    taskId: "task:edit-readback",
+    timestamp,
+    source: source("custom-agent"),
+    title: "edit failure",
+    summary: "OBSERVATION: Here's the result of running `cat -n` on /testbed/djmoney/models/fields.py: 1 from decimal import Decimal",
+    status: "failed",
+    toolFamily: "edit",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "high");
+  assert.equal(interpretation.whyNow, undefined);
+});
+
+test("public trajectory diagnostic failures stay medium-consequence failures", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:public-diagnostic",
+    type: "task.updated",
+    taskId: "task:public-diagnostic",
+    timestamp,
+    source: { id: "swe-smith", kind: "public-trajectory" },
+    title: "bash failure",
+    summary: "OBSERVATION: Form is valid: False. Form errors: amount required. Decompress result: [None, 'USD']",
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.consequence, "medium");
+});
+
+test("public trajectory silent cleanup observations stay low-consequence status updates", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:public-cleanup",
+    type: "task.updated",
+    taskId: "task:public-cleanup",
+    timestamp,
+    source: { id: "swe-smith", kind: "public-trajectory" },
+    title: "bash observation",
+    summary: "Your command ran successfully and did not produce any output.",
+    status: "running",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "low");
+});
+
 test("task updates can infer implied operator asks from status text", () => {
   const normalized = normalizeSourceEvent({
     id: "evt:blocked",
@@ -292,6 +347,57 @@ test("read-oriented approvals mentioning production stay low consequence", () =>
   assert.equal(interpretation.toolFamily, "read");
   assert.equal(interpretation.consequence, "low");
   assert.equal(interpretation.confidence, "medium");
+});
+
+test("routine successful bash observations without output stay low consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:bash-success-no-output",
+    type: "task.updated",
+    taskId: "task:bash-success-no-output",
+    timestamp,
+    source: source("custom-agent"),
+    title: "bash observation",
+    summary: "Your command ran successfully and did not produce any output.",
+    status: "running",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.consequence, "low");
+});
+
+test("expected diagnostic bash failures stay medium consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:bash-diagnostic-failure",
+    type: "task.updated",
+    taskId: "task:bash-diagnostic-failure",
+    timestamp,
+    source: source("custom-agent"),
+    title: "bash failure",
+    summary: "OBSERVATION: Form is valid: False Form errors: <ul class=\"errorlist\"><li>This field is required.</li></ul> Decompress result: [None, 'USD']",
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.consequence, "medium");
+});
+
+test("produce wording does not trigger production risk escalation", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:produce-report",
+    type: "human.input.requested",
+    taskId: "task:produce-report",
+    interactionId: "interaction:produce-report",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Approve local report generation",
+    summary: "Run the script to produce a report file locally.",
+    request: { kind: "approval" },
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.consequence, "medium");
 });
 
 test("choice requests do not infer tool family from question wording alone", () => {

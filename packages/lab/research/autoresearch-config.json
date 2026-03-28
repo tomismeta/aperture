@@ -1,0 +1,75 @@
+{
+  "name": "aperture-lab-autoresearch",
+  "version": 1,
+  "objective": "Improve Aperture's semantic interpretation and importer mapping using offline disagreement reports without changing the hot path contract.",
+  "allowedEditPaths": [
+    "packages/lab/src/public-trajectories.ts",
+    "packages/core/src/semantic-detection.ts",
+    "packages/core/src/semantic-interpreter.ts",
+    "packages/core/src/semantic-language.ts",
+    "packages/lab/src/offline-review.ts"
+  ],
+  "forbiddenEditPaths": [
+    "packages/core/src/attention-planner.ts",
+    "packages/core/src/aperture-core.ts",
+    "packages/runtime",
+    "packages/aperture",
+    "packages/tui",
+    "packages/paperclip",
+    "docs/releases"
+  ],
+  "prepareCommands": [
+    "pnpm lab:review:batch --dataset swe-smith --split tool --limit 5 --reviewer-provider <provider> --json",
+    "pnpm trajectory:import --dataset swe-smith --split tool --limit 5",
+    "pnpm lab:review:prepare --bundle <bundle-path> --json",
+    "pnpm lab:review:run --artifact <artifact-path> --reviewer-command \"pnpm lab:review:reviewer --provider <provider>\" --json",
+    "pnpm lab:autoresearch:promote --report <report-path> --split train --json",
+    "pnpm lab:autoresearch:evaluate --json",
+    "pnpm lab:autoresearch:cycle --json",
+    "pnpm lab:autoresearch:optimize --provider <provider> --json"
+  ],
+  "reviewerCommandTemplates": {
+    "hermes": "pnpm lab:review:reviewer --provider hermes",
+    "openclaw": "pnpm lab:review:reviewer --provider openclaw",
+    "generic": "pnpm lab:review:reviewer --provider generic"
+  },
+  "optimizerCommandTemplates": {
+    "hermes": "pnpm lab:autoresearch:optimizer --provider hermes",
+    "openclaw": "pnpm lab:autoresearch:optimizer --provider openclaw",
+    "generic": "pnpm lab:autoresearch:optimizer --provider generic"
+  },
+  "evaluationCommands": [
+    "pnpm exec tsx --test packages/lab/test/autoresearch-calibration.test.ts packages/lab/test/offline-review.test.ts packages/lab/test/public-trajectories.test.ts",
+    "pnpm lab:autoresearch:evaluate --json",
+    "pnpm judgment:battle",
+    "pnpm release:check"
+  ],
+  "resultArtifacts": {
+    "calibrationDir": "packages/lab/calibration",
+    "reviewRequestsDir": "packages/lab/results/offline-review/requests",
+    "reviewPromptsDir": "packages/lab/results/offline-review/prompts",
+    "reviewRawDir": "packages/lab/results/offline-review/raw",
+    "reviewResponsesDir": "packages/lab/results/offline-review/responses",
+    "disagreementsDir": "packages/lab/results/offline-review/disagreements",
+    "recommendationsDir": "packages/lab/results/offline-review/recommendations",
+    "runsDir": "packages/lab/results/offline-review/runs",
+    "resultsLogPath": "packages/lab/results/offline-review/results.tsv",
+    "autoresearchEvaluationsDir": "packages/lab/results/autoresearch/evaluations",
+    "autoresearchBriefsDir": "packages/lab/results/autoresearch/briefs",
+    "autoresearchOptimizerDir": "packages/lab/results/autoresearch/optimizer",
+    "autoresearchOptimizerResultsLogPath": "packages/lab/results/autoresearch/optimizer/results.tsv",
+    "battleResultsDir": "packages/lab/results"
+  },
+  "successCriteria": [
+    "Corrected mismatch count goes down on the train corpus.",
+    "Invariant mismatch count stays at zero.",
+    "Held-out disagreement cases do not regress.",
+    "Judgment battle remains fully green.",
+    "Release check remains fully green."
+  ],
+  "nonGoals": [
+    "Do not add an LLM to the live judgment path.",
+    "Do not optimize continuity or planner behavior in this loop.",
+    "Do not auto-merge changes."
+  ]
+}

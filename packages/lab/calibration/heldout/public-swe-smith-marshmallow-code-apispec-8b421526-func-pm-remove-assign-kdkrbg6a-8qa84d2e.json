@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "promotedAt": "2026-03-28T15:32:02.079Z",
+  "split": "heldout",
+  "sessionId": "public:swe-smith:marshmallow-code__apispec-8b421526-func_pm_remove_assign__kdkrbg6a-8qa84d2e",
+  "title": "<uploaded_files>",
+  "bundlePath": "packages/lab/bundles/public/swe-smith/tool/public-swe-smith-marshmallow-code__apispec-8b421526-func_pm_remove_assign__kdkrbg6a-8qa84d2e.json",
+  "targets": [
+    "packages/core/src/semantic-detection.ts",
+    "packages/core/src/semantic-interpreter.ts",
+    "packages/core/src/semantic-language.ts"
+  ],
+  "source": {
+    "reportPath": "packages/lab/results/offline-review/disagreements/public-swe-smith-marshmallow-code__apispec-8b421526-func_pm_remove_assign__kdkrbg6a-8qa84d2e.json",
+    "reviewer": "openclaw",
+    "model": "openai-codex/gpt-5.4",
+    "disagreementCount": 1
+  },
+  "summary": {
+    "correctedCount": 1,
+    "invariantCount": 2,
+    "focusAreaCounts": {
+      "title": 0,
+      "summary": 0,
+      "status": 1,
+      "intentFrame": 0,
+      "toolFamily": 1,
+      "consequence": 1
+    }
+  },
+  "expectations": [
+    {
+      "stepIndex": 40,
+      "stepLabel": "tool:observation:41",
+      "focusArea": "consequence",
+      "mode": "corrected",
+      "expectedValue": "low",
+      "observedValueAtPromotion": "high",
+      "confidence": "high",
+      "rationale": "A silent successful cleanup confirmation is a low-salience terminal observation, not a high-consequence event. Aperture appears to over-rank a mundane success message.",
+      "supportingText": "Source says: \"bash observation — Your command ran successfully and did not produce any output.\" The preceding assistant step was \"Let me clean up the test files I created:\"."
+    },
+    {
+      "stepIndex": 40,
+      "stepLabel": "tool:observation:41",
+      "focusArea": "status",
+      "mode": "invariant",
+      "expectedValue": "running",
+      "observedValueAtPromotion": "running",
+      "confidence": "high",
+      "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
+    },
+    {
+      "stepIndex": 40,
+      "stepLabel": "tool:observation:41",
+      "focusArea": "toolFamily",
+      "mode": "invariant",
+      "expectedValue": "bash",
+      "observedValueAtPromotion": "bash",
+      "confidence": "high",
+      "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
+    }
+  ]
+}

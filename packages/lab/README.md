@@ -137,8 +137,147 @@ pnpm trajectory:import --dataset swe-smith --limit 5
 This imports public trajectories from
 [`SWE-bench/SWE-smith-trajectories`](https://huggingface.co/datasets/SWE-bench/SWE-smith-trajectories),
 maps them into `publishSource` replay steps, runs them through core, and writes
-the resulting local bundles under `.aperture/lab/imported`.
+the resulting local bundles under `packages/lab/bundles/public`.
 These imports are local seed material for Lab, not committed benchmark truth.
+
+To prepare one imported bundle for offline AI review, use:
+
+```bash
+pnpm lab:review:prepare --bundle packages/lab/bundles/public/swe-smith/tool/<bundle>.json --json
+```
+
+This writes a structured review artifact under `packages/lab/results/offline-review/requests`.
+
+To render a reviewer-model prompt from that artifact, use:
+
+```bash
+pnpm lab:review:prompt --artifact packages/lab/results/offline-review/requests/<bundle>.json --json
+```
+
+This writes a prompt under `packages/lab/results/offline-review/prompts`.
+
+For unattended runs, let the Lab runner execute the reviewer command directly:
+
+```bash
+pnpm lab:review:run --artifact packages/lab/results/offline-review/requests/<bundle>.json --reviewer-command "pnpm lab:review:reviewer --provider <provider>" --json
+```
+
+This writes:
+
+- a reviewer prompt under `packages/lab/results/offline-review/prompts`
+- the raw reviewer stdout under `packages/lab/results/offline-review/raw`
+- a completed review artifact under `packages/lab/results/offline-review/responses`
+- a disagreement report under `packages/lab/results/offline-review/disagreements`
+- a recommendation summary under `packages/lab/results/offline-review/recommendations`
+- a run summary under `packages/lab/results/offline-review/runs`
+- a TSV run log under `packages/lab/results/offline-review/results.tsv`
+
+If you already have a completed artifact and just want to recompute the
+disagreement report, use:
+
+```bash
+pnpm lab:review:compare --artifact packages/lab/results/offline-review/responses/<bundle>.json --json
+```
+
+The stable reviewer adapter is:
+
+```bash
+pnpm lab:review:reviewer --provider <provider>
+```
+
+It resolves the actual provider command from environment variables instead of
+hard-coding Hermes/OpenClaw invocation details into the main runner loop.
+For OpenClaw, the adapter can also invoke the local `openclaw` binary directly
+when it is available on `PATH`, so the VPS runner does not need a custom shell
+wrapper just to extract the reviewer payload. It uses a fresh OpenClaw session
+id per review by default so batch runs do not pile context into the shared
+`main` session.
+
+For a clean unattended batch on a remote box, use:
+
+```bash
+pnpm lab:review:batch --dataset swe-smith --split tool --limit 3 --reviewer-provider openclaw --json
+```
+
+This imports or selects bundles, prepares artifacts, runs the reviewer loop for
+each one, and writes an aggregate batch report under
+`packages/lab/results/offline-review/batches`.
+
+For the shortest default command on the box, use:
+
+```bash
+pnpm lab:review:openclaw
+```
+
+That currently expands to:
+
+- dataset: `swe-smith`
+- split: `tool`
+- limit: `2`
+- reviewer provider: `openclaw`
+
+To turn reviewer disagreements into a repeatable optimization surface, promote
+selected reports into the frozen calibration corpus:
+
+```bash
+pnpm lab:autoresearch:promote --report packages/lab/results/offline-review/disagreements/<bundle>.json --split train --json
+```
+
+This writes a calibration case under `packages/lab/calibration/<split>` with:
+
+- corrected expectations from promoted disagreements
+- limited same-step invariants so nearby classifications stay stable
+- suggested remediation targets
+
+To score the current semantic/importer layer against that frozen corpus, use:
+
+```bash
+pnpm lab:autoresearch:evaluate --json
+```
+
+To generate the runner-facing optimization brief for the VPS, use:
+
+```bash
+pnpm lab:autoresearch:cycle --json
+```
+
+This writes:
+
+- evaluation reports under `packages/lab/results/autoresearch/evaluations`
+- optimization briefs under `packages/lab/results/autoresearch/briefs`
+
+This is the quiet half of the autoresearch loop: reviewer batches discover new
+cases, but calibration reports are the repeatable score surface that bounded
+semantic-layer patches should optimize against.
+
+To let the VPS OpenClaw or Hermes worker make the bounded code changes itself,
+use:
+
+```bash
+pnpm lab:autoresearch:optimize --provider openclaw --json
+```
+
+This command:
+
+- requires a clean worktree before it starts
+- regenerates the frozen calibration report and optimization brief
+- renders the optimizer prompt
+- runs the configured optimizer provider
+- verifies that only the allowed edit surface changed
+- reruns the calibration evaluation plus judgment/release gates
+- writes optimizer artifacts under `packages/lab/results/autoresearch/optimizer`
+
+The stable optimizer adapter is:
+
+```bash
+pnpm lab:autoresearch:optimizer --provider <provider>
+```
+
+For the shortest default VPS command, use:
+
+```bash
+pnpm lab:autoresearch:openclaw
+```
 
 For cleaner real-session collection, use:
 

@@ -453,6 +453,23 @@ export async function loadSessionBundles(
   }
 }
 
+export async function loadSessionBundle(filePath: string): Promise<ReplaySessionBundle> {
+  const raw = await readFile(filePath, "utf8");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    throw new Error(`Failed to parse session bundle at ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  const bundle = validateSessionBundle(parsed);
+  if (!bundle) {
+    throw new Error(`Invalid session bundle at ${filePath}`);
+  }
+
+  return bundle;
+}
+
 export async function writeSessionBundle(
   filePath: string,
   bundle: ReplaySessionBundle,

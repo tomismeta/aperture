@@ -47,6 +47,7 @@ This should be treated as another Lab lane:
 - harvested local sessions
 - imported public trajectories
 - AI-reviewed disagreement artifacts
+- frozen promoted calibration cases
 
 ## Operating Principle
 
@@ -66,6 +67,19 @@ Do **not** use AI as:
 The deterministic engine remains the thing being measured and improved.
 
 ## The Loop
+
+There are two distinct loops:
+
+- **Discovery**
+  - uses live reviewer output on imported trajectories
+  - finds likely mistakes and candidate promotions
+- **Optimization**
+  - uses only the frozen promoted calibration corpus
+  - scores candidate code changes repeatably
+
+The reviewer is for discovery.
+
+The frozen corpus is for optimization.
 
 ### 1. Import
 
@@ -97,6 +111,33 @@ Run the imported bundle through the normal Lab replay path and capture:
 - signals
 - view snapshots
 - final outcomes
+
+The first operational command pair is:
+
+```bash
+pnpm lab:review:prepare --bundle packages/lab/bundles/public/swe-smith/tool/<bundle>.json --json
+pnpm lab:review:run --artifact packages/lab/results/offline-review/requests/<bundle>.json --reviewer-command "pnpm lab:review:reviewer --provider <provider>" --json
+```
+
+The first command prepares a structured review artifact with Aperture's current
+read. The second renders the reviewer-model prompt internally, executes the
+reviewer command, captures the raw reviewer stdout, writes the completed
+artifact, writes the disagreement report, and emits a recommendation summary
+plus a run summary that Hermes/OpenClaw can inspect automatically.
+
+The stable adapter command is:
+
+```bash
+pnpm lab:review:reviewer --provider <provider>
+```
+
+It resolves the provider-specific command from environment variables instead of
+forcing the main runner to know Hermes/OpenClaw-specific invocation details.
+For OpenClaw, the adapter can also call the local `openclaw` binary directly
+when it is available on `PATH`, which keeps the unattended VPS contract simpler.
+By default it uses a fresh OpenClaw session id per review so batch runs stay
+more isolated and repeatable, and it avoids the shared `main` agent session
+unless an explicit OpenClaw agent override is set.
 
 ### 3. AI Review
 
@@ -134,6 +175,12 @@ Produce a disagreement artifact that records:
 - disagreement type
 - promotion recommendation
 
+The unattended runner should also emit:
+
+- a recommendation summary grouped by likely remediation area
+- a run summary with stable artifact paths and counts
+- a flat TSV results log for repeated unattended runs
+
 ### 5. Promotion
 
 Promote only the best disagreements into curated Lab assets.
@@ -149,6 +196,24 @@ Promotion should remain selective.
 
 The Lab should not turn every imported case into permanent benchmark truth.
 
+The first operational promotion command is:
+
+```bash
+pnpm lab:autoresearch:promote --report packages/lab/results/offline-review/disagreements/<bundle>.json --split train --json
+```
+
+Promotion freezes:
+
+- corrected expectations from promoted disagreements
+- limited same-step invariants to keep nearby classifications stable
+- likely target files for remediation
+
+These cases live under:
+
+- `packages/lab/calibration/train`
+- `packages/lab/calibration/validation`
+- `packages/lab/calibration/heldout`
+
 ### 6. Improvement
 
 Use promoted disagreements to improve:
@@ -163,6 +228,32 @@ Later, use an `autoresearch`-style loop to search for bounded improvements in:
 - importer logic
 - semantic-layer logic
 - other explicitly approved Lab-only optimization surfaces
+
+The first quiet optimization commands are:
+
+```bash
+pnpm lab:autoresearch:evaluate --json
+pnpm lab:autoresearch:cycle --json
+```
+
+`evaluate` reruns the frozen corpus through current core and measures:
+
+- corrected mismatches remaining
+- invariant mismatches introduced
+- mismatch counts by focus area
+
+`cycle` writes both the evaluation report and a runner-facing optimization brief.
+
+The unattended optimization entrypoint is:
+
+```bash
+pnpm lab:autoresearch:optimize --provider openclaw --json
+```
+
+This should run on the VPS from a clean worktree. It regenerates the frozen
+calibration report, renders the optimizer prompt, runs the optimizer provider,
+checks the edit surface, reruns the calibration report and gates, and writes a
+machine-readable optimizer run artifact plus a flat TSV log.
 
 ### 7. Gate
 
@@ -225,7 +316,23 @@ Suggested fields:
 - `disagreementKind`
 - `recommendation`
 
-### 3. Curated disagreement fixture
+### 3. Recommendation summary
+
+Structured summary of the highest-signal disagreements from one run.
+
+Suggested fields:
+
+- `status`
+- `actionableCount`
+- `recommendationCounts`
+- `items[]`
+  - `focusArea`
+  - `targets`
+  - `owner`
+  - `summary`
+  - `examples`
+
+### 4. Curated disagreement fixture
 
 A promoted case with explicit assertions that should stay stable in Lab.
 

@@ -7,7 +7,9 @@ import type {
   SemanticInterpretationHints,
 } from "./semantic-types.js";
 import {
+  detectExpectedDiagnosticFailure,
   dedupeSemanticStrings,
+  detectObservationalFailureStatus,
   detectSemanticRelationHints,
   detectImpliedOperatorAsk,
   inferConsequenceFromSemanticText,
@@ -102,19 +104,59 @@ function inferTaskUpdateSemantics(
   const taxonomyInput = buildTaxonomyInput(event.title, event.summary, event.toolFamily);
   const { toolFamily, source: toolFamilySource } = resolveSemanticToolFamily(taxonomyInput, true);
   const relationProvenance = relationHints.length > 0 ? { relationHints: "inferred" as const } : {};
+  const observationalFailure = event.status === "failed"
+    && detectObservationalFailureStatus(text, toolFamily);
+  const expectedDiagnosticFailure = event.status === "failed"
+    && detectExpectedDiagnosticFailure(text, toolFamily);
 
   switch (event.status) {
     case "failed":
+      if (observationalFailure) {
+        return {
+          intentFrame: "status_update",
+          activityClass: "status_update",
+          ...(toolFamily ? { toolFamily } : {}),
+          consequence: inferConsequenceFromSemanticText(text, "high", toolFamily),
+          factors: ["task.updated", "failed", "observational_failure"],
+          relationHints,
+          confidence: "high",
+          reasons: [
+            "task status indicates failure but the update reads like observational output",
+          ],
+          provenance: {
+            intentFrame: "inferred",
+            activityClass: "inferred",
+            ...(toolFamilySource === "explicit"
+              ? { toolFamily: "source" as const }
+              : toolFamilySource === "inferred"
+                ? { toolFamily: "inferred" as const }
+                : {}),
+            consequence: "inferred",
+            ...relationProvenance,
+            confidence: "inferred",
+          },
+        };
+      }
+
       return {
         intentFrame: "failure",
         activityClass: "tool_failure",
         ...(toolFamily ? { toolFamily } : {}),
-        consequence: inferConsequenceFromSemanticText(text, "high", toolFamily),
+        consequence: inferConsequenceFromSemanticText(
+          text,
+          expectedDiagnosticFailure ? "medium" : "high",
+          toolFamily,
+        ),
         whyNow: semanticWhyNowForTaskStatus("failed") ?? "Work has failed and should be reviewed.",
         factors: ["task.updated", "failed"],
         relationHints,
         confidence: impliedAsk ? "medium" : "high",
-        reasons: semanticReasonsForTaskStatus("failed", { impliedAsk }),
+        reasons: expectedDiagnosticFailure
+          ? [
+              ...semanticReasonsForTaskStatus("failed", { impliedAsk }),
+              "failure content looks like expected diagnostic output from repro work",
+            ]
+          : semanticReasonsForTaskStatus("failed", { impliedAsk }),
         provenance: {
           intentFrame: "inferred",
           activityClass: "inferred",

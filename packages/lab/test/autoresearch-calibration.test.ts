@@ -1,14 +1,18 @@
 import assert from "node:assert/strict";
+import { execFile as execFileCallback } from "node:child_process";
 import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 
 import {
   createAutoresearchOptimizationBrief,
   createSessionBundleFromSweSmithRow,
   defaultAutoresearchCalibrationCasePath,
   evaluateAutoresearchCalibrationCases,
+  loadAutoresearchCalibrationCases,
   prepareOfflineReviewArtifact,
   promoteOfflineReviewReportToCalibrationCase,
   readOfflineReviewFocusAreaValue,
@@ -19,6 +23,11 @@ import {
   type OfflineReviewReport,
   type SweSmithRow,
 } from "../src/index.js";
+
+const execFile = promisify(execFileCallback);
+const TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(TEST_DIR, "../../..");
+const TSX_CLI = path.join(REPO_ROOT, "node_modules/tsx/dist/cli.mjs");
 
 const SAMPLE_ROW: SweSmithRow = {
   instance_id: "example/repo-123",
@@ -181,7 +190,7 @@ test("promoted calibration cases freeze corrected expectations and evaluate reru
   assert.equal(calibrationCase.summary.correctedCount, 2);
   assert.ok(calibrationCase.summary.invariantCount >= 1);
   assert.ok(calibrationCase.targets.includes("packages/core/src/semantic-interpreter.ts"));
-  assert.equal(calibrationCase.bundlePath, "bundles/sample.json");
+  assert.equal(calibrationCase.inputPath, "bundles/sample.json");
 
   const casePath = defaultAutoresearchCalibrationCasePath(
     calibrationCase,
@@ -214,6 +223,98 @@ test("promoted calibration cases freeze corrected expectations and evaluate reru
 
   assert.match(renderAutoresearchCalibrationMarkdown(evaluation), /Autoresearch Calibration Report/);
   assert.match(renderAutoresearchOptimizationMarkdown(brief), /Autoresearch Optimization Brief/);
+});
+
+test("loadAutoresearchCalibrationCases includes extra directories in addition to default splits", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "aperture-autoresearch-extra-"));
+  const bundle = createSessionBundleFromSweSmithRow(SAMPLE_ROW);
+  const bundlePath = path.join(repoRoot, "bundles", "sample.json");
+  await writeSessionBundle(bundlePath, bundle);
+
+  const reportPath = path.join(repoRoot, "reports", "sample-report.json");
+  const report: OfflineReviewReport = {
+    schemaVersion: 1,
+    generatedAt: "2026-03-28T00:00:00.000Z",
+    rubricVersion: "offline-ai-review-v1",
+    bundle: {
+      sessionId: bundle.sessionId,
+      title: bundle.title,
+      bundlePath,
+    },
+    review: {},
+    summary: {
+      totalFindings: 1,
+      disagreementCount: 1,
+      matchedFindings: 0,
+      disagreementsByFocusArea: {
+        title: 0,
+        summary: 0,
+        status: 0,
+        intentFrame: 1,
+        toolFamily: 0,
+        consequence: 0,
+      },
+    },
+    disagreements: [
+      {
+        stepIndex: 3,
+        focusArea: "intentFrame",
+        apertureValue: "failure",
+        expectedValue: "status_update",
+        confidence: "high",
+        recommendation: "promote",
+      },
+    ],
+  };
+  await writeJson(reportPath, report);
+
+  const calibrationCase = await promoteOfflineReviewReportToCalibrationCase(reportPath, {
+    split: "train",
+    repoRoot,
+  });
+  const extraDir = path.join(repoRoot, "custom-calibration");
+  await writeAutoresearchCalibrationCase(
+    defaultAutoresearchCalibrationCasePath(calibrationCase, extraDir),
+    calibrationCase,
+  );
+
+  const loaded = await loadAutoresearchCalibrationCases({
+    repoRoot,
+    splits: [],
+    extraDirectories: [extraDir],
+  });
+
+  assert.equal(loaded.length, 1);
+  assert.match(loaded[0]?.filePath ?? "", /custom-calibration/);
+});
+
+test("lab:fstop:evaluate accepts extra calibration dirs on the CLI", async () => {
+  const extraDir = await mkdtemp(path.join(os.tmpdir(), "aperture-autoresearch-cli-"));
+
+  const { stdout } = await execFile(
+    process.execPath,
+    [
+      TSX_CLI,
+      path.join(REPO_ROOT, "scripts/fstop.ts"),
+      "evaluate",
+      "--extra-calibration-dir",
+      extraDir,
+      "--json",
+    ],
+    {
+      cwd: REPO_ROOT,
+    },
+  );
+
+  const payload = JSON.parse(stdout) as {
+    caseCount: number;
+    mismatchCount: number;
+    invariantMismatchCount: number;
+  };
+
+  assert.equal(typeof payload.caseCount, "number");
+  assert.equal(typeof payload.mismatchCount, "number");
+  assert.equal(typeof payload.invariantMismatchCount, "number");
 });
 
 async function writeJson(filePath: string, value: unknown): Promise<void> {

@@ -1,12 +1,24 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import type { SemanticConfidence, SemanticConsequenceLevel, SemanticIntentFrame } from "@tomismeta/aperture-core/semantic";
 
+import { extractJsonCandidate } from "./json-utils.js";
 import type { ReplayDecisionSnapshot, ReplayObservationStep, ReplaySemanticSnapshot } from "./scenario.js";
+import { DEFAULT_LAB_RUNTIME_ROOT } from "./runtime-paths.js";
+import {
+  hasShape,
+  isArrayOf,
+  isBoolean,
+  isEnumValue as isShapeEnumValue,
+  isNullable,
+  isNumber,
+  isRecord,
+  isString,
+  isStringArray,
+  validateWith,
+} from "./shape.js";
 import type { ReplaySessionBundle, ReplaySessionBundleSource } from "./session-bundle.js";
-import { isRecord, isStringArray } from "./validation.js";
 
 export const OFFLINE_REVIEW_ARTIFACT_SCHEMA_VERSION = 1 as const;
 export const OFFLINE_REVIEW_REPORT_SCHEMA_VERSION = 1 as const;
@@ -14,8 +26,8 @@ export const OFFLINE_REVIEW_RECOMMENDATION_SCHEMA_VERSION = 1 as const;
 export const OFFLINE_REVIEW_RUN_SCHEMA_VERSION = 1 as const;
 export const DEFAULT_OFFLINE_REVIEW_RUBRIC_VERSION = "offline-ai-review-v1" as const;
 export const DEFAULT_OFFLINE_REVIEW_RESULTS_DIR = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "../results/offline-review",
+  DEFAULT_LAB_RUNTIME_ROOT,
+  "results/offline-review",
 );
 export const DEFAULT_OFFLINE_REVIEW_REQUESTS_DIR = path.join(
   DEFAULT_OFFLINE_REVIEW_RESULTS_DIR,
@@ -45,10 +57,17 @@ export const DEFAULT_OFFLINE_REVIEW_RECOMMENDATIONS_DIR = path.join(
   DEFAULT_OFFLINE_REVIEW_RESULTS_DIR,
   "recommendations",
 );
-export const DEFAULT_OFFLINE_REVIEW_RESULTS_LOG_PATH = path.join(
-  DEFAULT_OFFLINE_REVIEW_RESULTS_DIR,
-  "results.tsv",
-);
+export const DEFAULT_OFFLINE_REVIEW_PROMPT_MAX_STEPS = 18;
+export const DEFAULT_OFFLINE_REVIEW_PROMPT_MIN_STEPS = 6;
+export const DEFAULT_OFFLINE_REVIEW_PROMPT_MAX_CHARS = 16_000;
+export const DEFAULT_OFFLINE_REVIEW_PROMPT_MAX_EXCERPT_CHARS = 220;
+export const DEFAULT_OFFLINE_REVIEW_PROMPT_MAX_SUMMARY_CHARS = 160;
+export const DEFAULT_OFFLINE_REVIEW_PROMPT_MAX_TITLE_CHARS = 96;
+export const DEFAULT_OFFLINE_REVIEW_PROMPT_MAX_WHY_NOW_CHARS = 120;
+export const DEFAULT_OFFLINE_REVIEW_PROMPT_MIN_EXCERPT_CHARS = 96;
+export const DEFAULT_OFFLINE_REVIEW_PROMPT_MIN_SUMMARY_CHARS = 72;
+export const DEFAULT_OFFLINE_REVIEW_PROMPT_MIN_TITLE_CHARS = 64;
+export const DEFAULT_OFFLINE_REVIEW_PROMPT_MIN_WHY_NOW_CHARS = 60;
 
 export const DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS = [
   "title",
@@ -72,6 +91,77 @@ export type OfflineReviewConfidence = SemanticConfidence;
 export type OfflineReviewRecommendation = "promote" | "inspect" | "ignore";
 export type OfflineReviewRunStatus = "clean" | "disagreement";
 export type OfflineReviewRecommendationOwner = "importer" | "semantic";
+
+const OFFLINE_REVIEW_CONFIDENCE_LEVELS = ["high", "medium", "low"] as const satisfies readonly OfflineReviewConfidence[];
+const OFFLINE_REVIEW_RECOMMENDATIONS = [
+  "promote",
+  "inspect",
+  "ignore",
+] as const satisfies readonly OfflineReviewRecommendation[];
+const OFFLINE_REVIEW_RECOMMENDATION_PRIORITY: Record<OfflineReviewRecommendation, number> = {
+  promote: 0,
+  inspect: 1,
+  ignore: 2,
+};
+const OFFLINE_REVIEW_DEFAULT_RECOMMENDATION: Record<
+  OfflineReviewConfidence,
+  OfflineReviewRecommendation
+> = {
+  high: "promote",
+  medium: "inspect",
+  low: "ignore",
+};
+const OFFLINE_REVIEW_FOCUS_AREA_OWNER: Record<
+  OfflineReviewFocusArea,
+  OfflineReviewRecommendationOwner
+> = {
+  title: "importer",
+  summary: "importer",
+  status: "importer",
+  intentFrame: "semantic",
+  toolFamily: "semantic",
+  consequence: "semantic",
+};
+const OFFLINE_REVIEW_RECOMMENDATION_TARGETS: Record<
+  OfflineReviewFocusArea,
+  readonly string[]
+> = {
+  title: [
+    "packages/lab/src/public-trajectories.ts",
+    "packages/lab/src/offline-review.ts",
+  ],
+  summary: [
+    "packages/lab/src/public-trajectories.ts",
+    "packages/lab/src/offline-review.ts",
+  ],
+  status: [
+    "packages/lab/src/public-trajectories.ts",
+    "packages/lab/src/offline-review.ts",
+  ],
+  intentFrame: [
+    "packages/core/src/semantic-detection.ts",
+    "packages/core/src/semantic-interpreter.ts",
+    "packages/core/src/semantic-language.ts",
+  ],
+  toolFamily: [
+    "packages/core/src/semantic-detection.ts",
+    "packages/core/src/semantic-interpreter.ts",
+    "packages/core/src/semantic-language.ts",
+  ],
+  consequence: [
+    "packages/core/src/semantic-detection.ts",
+    "packages/core/src/semantic-interpreter.ts",
+    "packages/core/src/semantic-language.ts",
+  ],
+};
+const OFFLINE_REVIEW_RECOMMENDATION_SUMMARY: Record<OfflineReviewFocusArea, string> = {
+  title: "Tighten imported trajectory title extraction before replay review.",
+  summary: "Tighten imported trajectory summary extraction and compaction.",
+  status: "Review imported event-status mapping before it reaches the semantic layer.",
+  intentFrame: "Tighten semantic intent-frame reads on imported external events.",
+  toolFamily: "Tighten tool-family inference and preservation on imported events.",
+  consequence: "Tighten consequence-band calibration for imported external events.",
+};
 
 export type OfflineReviewPreparedStep = {
   stepIndex: number;
@@ -140,6 +230,35 @@ export type OfflineReviewArtifact = {
     notes?: string;
     findings: OfflineReviewFinding[];
   };
+};
+
+export type OfflineReviewPromptStep = {
+  stepIndex: number;
+  stepKind: ReplayObservationStep["kind"];
+  stepLabel?: string;
+  sourceExcerpt?: string;
+  sourceEvent?: OfflineReviewPreparedStep["sourceEvent"];
+  normalizedEvent?: OfflineReviewPreparedStep["normalizedEvent"];
+  apertureRead?: OfflineReviewPreparedStep["apertureRead"];
+  apertureDecision?: OfflineReviewPreparedStep["apertureDecision"];
+};
+
+export type OfflineReviewPromptPacket = {
+  bundle: {
+    sessionId: string;
+    title: string;
+    description?: string;
+    sourceId?: string;
+    sourceLabel?: string;
+  };
+  focusAreas: OfflineReviewFocusArea[];
+  packet: {
+    originalStepCount: number;
+    includedStepCount: number;
+    omittedStepCount: number;
+    compaction: "deterministic";
+  };
+  steps: OfflineReviewPromptStep[];
 };
 
 export type OfflineReviewResponsePayload = {
@@ -329,7 +448,16 @@ export function compareOfflineReviewArtifact(
 }
 
 export function parseOfflineReviewResponseText(raw: string): OfflineReviewResponsePayload {
-  const candidate = extractJsonCandidate(raw);
+  const candidate = extractJsonCandidate(raw, {
+    validators: [
+      (value) => validateOfflineReviewArtifact(value) !== null,
+      (value) => validateOfflineReviewResponsePayload(value) !== null,
+    ],
+    fallbackValidator: (value) => isRecord(value) && isRecord(value.review) && Array.isArray(value.review.findings),
+  });
+  if (!candidate) {
+    throw new Error("Offline review response did not contain a JSON object.");
+  }
   let parsed: unknown;
   try {
     parsed = JSON.parse(candidate);
@@ -430,6 +558,196 @@ export function createOfflineReviewRun(
   };
 }
 
+function buildOfflineReviewPromptPacketWithBudget(
+  artifact: OfflineReviewArtifact,
+  limits: {
+    maxSteps: number;
+    excerptLimit: number;
+    summaryLimit: number;
+    titleLimit: number;
+    whyNowLimit: number;
+  },
+): OfflineReviewPromptPacket {
+  const selectedIndices = selectOfflineReviewPromptStepIndices(artifact.steps, limits.maxSteps);
+  const steps = artifact.steps
+    .filter((step) => selectedIndices.has(step.stepIndex))
+    .map((step) => compactOfflineReviewPromptStep(step, limits));
+  const description = artifact.bundle.description
+    ? clipOfflineReviewPromptText(artifact.bundle.description, limits.summaryLimit)
+    : null;
+
+  return {
+    bundle: {
+      sessionId: artifact.bundle.sessionId,
+      title: clipOfflineReviewPromptText(artifact.bundle.title, limits.titleLimit) ?? artifact.bundle.title,
+      ...(description ? { description } : {}),
+      ...(artifact.bundle.source?.id ? { sourceId: artifact.bundle.source.id } : {}),
+      ...(artifact.bundle.source?.label ? { sourceLabel: artifact.bundle.source.label } : {}),
+    },
+    focusAreas: [...artifact.focusAreas],
+    packet: {
+      originalStepCount: artifact.steps.length,
+      includedStepCount: steps.length,
+      omittedStepCount: Math.max(artifact.steps.length - steps.length, 0),
+      compaction: "deterministic",
+    },
+    steps,
+  };
+}
+
+function compactOfflineReviewPromptStep(
+  step: OfflineReviewPreparedStep,
+  limits: {
+    excerptLimit: number;
+    summaryLimit: number;
+    titleLimit: number;
+    whyNowLimit: number;
+  },
+): OfflineReviewPromptStep {
+  const stepLabel = step.stepLabel
+    ? clipOfflineReviewPromptText(step.stepLabel, limits.titleLimit)
+    : null;
+  const sourceExcerpt = step.sourceExcerpt
+    ? clipOfflineReviewPromptText(step.sourceExcerpt, limits.excerptLimit)
+    : null;
+
+  return {
+    stepIndex: step.stepIndex,
+    stepKind: step.stepKind,
+    ...(stepLabel ? { stepLabel } : {}),
+    ...(sourceExcerpt ? { sourceExcerpt } : {}),
+    ...(step.sourceEvent ? { sourceEvent: compactOfflineReviewEventSummary(step.sourceEvent, limits) } : {}),
+    ...(step.normalizedEvent ? { normalizedEvent: compactOfflineReviewEventSummary(step.normalizedEvent, limits) } : {}),
+    ...(step.apertureRead ? { apertureRead: compactOfflineReviewRead(step.apertureRead, limits) } : {}),
+    ...(step.apertureDecision ? { apertureDecision: compactOfflineReviewDecision(step.apertureDecision) } : {}),
+  };
+}
+
+function compactOfflineReviewEventSummary(
+  event: NonNullable<OfflineReviewPreparedStep["sourceEvent"]>,
+  limits: {
+    summaryLimit: number;
+    titleLimit: number;
+  },
+): NonNullable<OfflineReviewPromptStep["sourceEvent"]> {
+  return {
+    type: event.type,
+    title: clipOfflineReviewPromptText(event.title, limits.titleLimit),
+    summary: clipOfflineReviewPromptText(event.summary, limits.summaryLimit),
+    status: event.status,
+    toolFamily: event.toolFamily,
+  };
+}
+
+function compactOfflineReviewRead(
+  read: NonNullable<OfflineReviewPreparedStep["apertureRead"]>,
+  limits: {
+    whyNowLimit: number;
+  },
+): NonNullable<OfflineReviewPromptStep["apertureRead"]> {
+  return {
+    intentFrame: read.intentFrame,
+    toolFamily: read.toolFamily,
+    consequence: read.consequence,
+    confidence: read.confidence,
+    abstained: read.abstained,
+    whyNow: clipOfflineReviewPromptText(read.whyNow, limits.whyNowLimit),
+    relationKinds: read.relationKinds.slice(0, 4),
+  };
+}
+
+function compactOfflineReviewDecision(
+  decision: NonNullable<OfflineReviewPreparedStep["apertureDecision"]>,
+): NonNullable<OfflineReviewPromptStep["apertureDecision"]> {
+  return {
+    evaluationKind: decision.evaluationKind,
+    decisionKind: decision.decisionKind,
+    resultBucket: decision.resultBucket,
+    semanticInfluence: decision.semanticInfluence.slice(0, 4),
+  };
+}
+
+function selectOfflineReviewPromptStepIndices(
+  steps: OfflineReviewPreparedStep[],
+  maxSteps: number,
+): Set<number> {
+  if (steps.length <= maxSteps) {
+    return new Set(steps.map((step) => step.stepIndex));
+  }
+
+  const firstStepIndex = steps[0]?.stepIndex ?? 0;
+  const lastStepIndex = steps.at(-1)?.stepIndex ?? firstStepIndex;
+  const selected = new Set<number>([firstStepIndex, lastStepIndex]);
+  const ranked = steps
+    .map((step) => ({
+      stepIndex: step.stepIndex,
+      priority: offlineReviewPromptStepPriority(step, lastStepIndex),
+    }))
+    .sort((left, right) => right.priority - left.priority || left.stepIndex - right.stepIndex);
+
+  for (const entry of ranked) {
+    if (selected.size >= maxSteps) {
+      break;
+    }
+    selected.add(entry.stepIndex);
+  }
+
+  return new Set([...selected].sort((left, right) => left - right));
+}
+
+function offlineReviewPromptStepPriority(
+  step: OfflineReviewPreparedStep,
+  lastStepIndex: number,
+): number {
+  let priority = 0;
+
+  if (step.stepIndex === 0 || step.stepIndex === lastStepIndex) {
+    priority += 1_000;
+  }
+
+  if (step.sourceEvent?.type === "task.started" || step.sourceEvent?.type === "task.completed" || step.sourceEvent?.type === "task.cancelled") {
+    priority += 900;
+  }
+
+  if (step.sourceEvent?.status === "failed" || step.normalizedEvent?.status === "failed") {
+    priority += 850;
+  } else if (step.sourceEvent?.status === "waiting" || step.normalizedEvent?.status === "waiting") {
+    priority += 700;
+  }
+
+  if (step.apertureDecision?.resultBucket === "active") {
+    priority += 650;
+  } else if (step.apertureDecision?.resultBucket === "queued") {
+    priority += 600;
+  }
+
+  if (step.apertureRead?.abstained || step.apertureRead?.confidence === "low") {
+    priority += 550;
+  } else if (step.apertureRead?.confidence === "medium") {
+    priority += 325;
+  }
+
+  if (step.apertureRead?.consequence === "high") {
+    priority += 500;
+  } else if (step.apertureRead?.consequence === "medium") {
+    priority += 250;
+  }
+
+  if (step.sourceEvent?.toolFamily || step.normalizedEvent?.toolFamily || step.apertureRead?.toolFamily) {
+    priority += 220;
+  }
+
+  if (step.sourceEvent?.title === "user follow-up" || step.stepLabel?.includes("followup") || step.stepLabel?.includes("follow-up")) {
+    priority += 300;
+  }
+
+  if ((step.apertureDecision?.semanticInfluence.length ?? 0) > 0) {
+    priority += 120;
+  }
+
+  return priority;
+}
+
 export function renderOfflineReviewReportMarkdown(report: OfflineReviewReport): string {
   const lines = [
     "# Offline Review Report",
@@ -527,48 +845,87 @@ export function renderOfflineReviewRecommendationMarkdown(
   return `${lines.join("\n")}\n`;
 }
 
+export function buildOfflineReviewPromptPacket(
+  artifact: OfflineReviewArtifact,
+  options: {
+    maxChars?: number;
+    maxSteps?: number;
+  } = {},
+): OfflineReviewPromptPacket {
+  const maxChars = options.maxChars ?? DEFAULT_OFFLINE_REVIEW_PROMPT_MAX_CHARS;
+  const targetMaxSteps = Math.min(
+    options.maxSteps ?? DEFAULT_OFFLINE_REVIEW_PROMPT_MAX_STEPS,
+    artifact.steps.length,
+  );
+  const minSteps = Math.min(DEFAULT_OFFLINE_REVIEW_PROMPT_MIN_STEPS, artifact.steps.length);
+
+  let maxSteps = Math.max(minSteps, targetMaxSteps);
+  let excerptLimit = DEFAULT_OFFLINE_REVIEW_PROMPT_MAX_EXCERPT_CHARS;
+  let summaryLimit = DEFAULT_OFFLINE_REVIEW_PROMPT_MAX_SUMMARY_CHARS;
+  let titleLimit = DEFAULT_OFFLINE_REVIEW_PROMPT_MAX_TITLE_CHARS;
+  let whyNowLimit = DEFAULT_OFFLINE_REVIEW_PROMPT_MAX_WHY_NOW_CHARS;
+
+  let packet = buildOfflineReviewPromptPacketWithBudget(artifact, {
+    maxSteps,
+    excerptLimit,
+    summaryLimit,
+    titleLimit,
+    whyNowLimit,
+  });
+
+  for (let attempts = 0; attempts < 64; attempts += 1) {
+    if (renderOfflineReviewPromptFromPacket(packet).length <= maxChars) {
+      return packet;
+    }
+
+    if (maxSteps > minSteps) {
+      maxSteps -= 1;
+    } else if (excerptLimit > DEFAULT_OFFLINE_REVIEW_PROMPT_MIN_EXCERPT_CHARS) {
+      excerptLimit = Math.max(DEFAULT_OFFLINE_REVIEW_PROMPT_MIN_EXCERPT_CHARS, excerptLimit - 32);
+      summaryLimit = Math.max(DEFAULT_OFFLINE_REVIEW_PROMPT_MIN_SUMMARY_CHARS, summaryLimit - 24);
+      titleLimit = Math.max(DEFAULT_OFFLINE_REVIEW_PROMPT_MIN_TITLE_CHARS, titleLimit - 12);
+      whyNowLimit = Math.max(DEFAULT_OFFLINE_REVIEW_PROMPT_MIN_WHY_NOW_CHARS, whyNowLimit - 16);
+    } else {
+      return packet;
+    }
+
+    packet = buildOfflineReviewPromptPacketWithBudget(artifact, {
+      maxSteps,
+      excerptLimit,
+      summaryLimit,
+      titleLimit,
+      whyNowLimit,
+    });
+  }
+
+  return packet;
+}
+
 export function renderOfflineReviewPrompt(artifact: OfflineReviewArtifact): string {
+  return renderOfflineReviewPromptFromPacket(buildOfflineReviewPromptPacket(artifact));
+}
+
+function renderOfflineReviewPromptFromPacket(packet: OfflineReviewPromptPacket): string {
   const lines = [
     "# Aperture Offline Review Prompt",
     "",
-    "You are reviewing Aperture's deterministic semantic and decision read for one replay bundle.",
+    "Review Aperture's current read for this bundle.",
+    "Return JSON only with exactly one top-level `review` object.",
+    "Do not include markdown fences, prose preambles, shell commands, or any non-JSON text.",
+    "Add findings only for material mistakes or important omissions.",
+    "Each finding must include: `stepIndex`, `focusArea`, `expected`, `confidence`.",
+    "Optional fields: `supportingText`, `rationale`, `recommendation`.",
+    "Recommendations: `promote` for crisp misses, `inspect` for plausible misses, `ignore` for weak disagreements.",
+    "If there are no material mistakes, return `{\"review\":{\"findings\":[]}}`.",
     "",
-    "Your job is to add findings only when Aperture appears materially wrong or importantly incomplete.",
-    "",
-    "## Output Rules",
-    "",
-    "- Return valid JSON only.",
-    "- The JSON must contain exactly one top-level object with a `review` field.",
-    "- Preserve any existing `review` metadata unless you are intentionally updating it.",
-    "- Put findings into `review.findings`.",
-    "- Do not rewrite the prepared `steps` data.",
-    "",
-    "## Finding Rules",
-    "",
-    "- Add a finding only when you see a meaningful disagreement.",
-    "- Each finding must include:",
-    "  - `stepIndex`",
-    "  - `focusArea`",
-    "  - `expected`",
-    "  - `confidence`",
-    "- Prefer high-confidence findings with concrete evidence.",
-    "- Use `supportingText` to cite or paraphrase the exact source evidence.",
-    "- Use `recommendation`:",
-    "  - `promote` for crisp benchmark-worthy misses",
-    "  - `inspect` for plausible misses needing human review",
-    "  - `ignore` for low-confidence or weak disagreements",
-    "",
-    "## Focus Areas",
-    "",
-    `- ${artifact.focusAreas.join(", ")}`,
-    "",
-    "## Prepared Artifact",
+    `Focus areas: ${packet.focusAreas.join(", ")}`,
+    `Packet stats: original=${packet.packet.originalStepCount}, included=${packet.packet.includedStepCount}, omitted=${packet.packet.omittedStepCount}`,
     "",
     "```json",
-    JSON.stringify(artifact, null, 2),
+    JSON.stringify(packet),
     "```",
     "",
-    "## Required Response Shape",
+    "Response shape:",
     "",
     "```json",
     JSON.stringify(
@@ -700,38 +1057,33 @@ export function defaultOfflineReviewRunPath(
 }
 
 export function validateOfflineReviewArtifact(value: unknown): OfflineReviewArtifact | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
   if (
-    value.schemaVersion !== OFFLINE_REVIEW_ARTIFACT_SCHEMA_VERSION
-    || typeof value.generatedAt !== "string"
-    || typeof value.rubricVersion !== "string"
-    || !isRecord(value.bundle)
-    || typeof value.bundle.sessionId !== "string"
-    || typeof value.bundle.title !== "string"
-    || !Array.isArray(value.focusAreas)
-    || !value.focusAreas.every((area) => isOfflineReviewFocusArea(area))
-    || !Array.isArray(value.instructions)
-    || !isStringArray(value.instructions)
-    || !Array.isArray(value.steps)
-    || !value.steps.every((step) => validatePreparedStep(step) !== null)
-    || !isRecord(value.review)
-    || !Array.isArray(value.review.findings)
-    || !value.review.findings.every((finding) => validateOfflineReviewFinding(finding) !== null)
-  ) {
-    return null;
-  }
-
-  if (
-    (value.bundle.description !== undefined && typeof value.bundle.description !== "string")
-    || (value.bundle.bundlePath !== undefined && typeof value.bundle.bundlePath !== "string")
-    || (value.bundle.source !== undefined && validateReviewBundleSource(value.bundle.source) === null)
-    || (value.review.reviewer !== undefined && typeof value.review.reviewer !== "string")
-    || (value.review.model !== undefined && typeof value.review.model !== "string")
-    || (value.review.completedAt !== undefined && typeof value.review.completedAt !== "string")
-    || (value.review.notes !== undefined && typeof value.review.notes !== "string")
+    !isRecord(value)
+    || value.schemaVersion !== OFFLINE_REVIEW_ARTIFACT_SCHEMA_VERSION
+    || !hasShape(value, {
+      generatedAt: isString,
+      rubricVersion: isString,
+      bundle: (bundle): bundle is OfflineReviewArtifact["bundle"] => (
+        isRecord(bundle)
+        && hasShape(bundle, { sessionId: isString, title: isString }, {
+          description: isString,
+          bundlePath: isString,
+          source: validateWith(validateReviewBundleSource),
+        })
+      ),
+      focusAreas: isArrayOf(isOfflineReviewFocusArea),
+      instructions: isStringArray,
+      steps: isArrayOf(validateWith(validatePreparedStep)),
+      review: (review): review is OfflineReviewArtifact["review"] => (
+        isRecord(review)
+        && hasShape(review, { findings: isArrayOf(validateWith(validateOfflineReviewFinding)) }, {
+          reviewer: isString,
+          model: isString,
+          completedAt: isString,
+          notes: isString,
+        })
+      ),
+    })
   ) {
     return null;
   }
@@ -754,10 +1106,10 @@ function buildPreparedSteps(bundle: ReplaySessionBundle): OfflineReviewPreparedS
       normalizedEvent: normalized
         ? {
             type: normalized.event.type,
-            title: readEventTitle(normalized.event),
-            summary: readEventSummary(normalized.event),
-            status: readEventStatus(normalized.event),
-            toolFamily: readEventToolFamily(normalized.event),
+            title: readEventStringField(normalized.event, "title"),
+            summary: readEventStringField(normalized.event, "summary"),
+            status: readEventStringField(normalized.event, "status"),
+            toolFamily: readEventStringField(normalized.event, "toolFamily"),
           }
         : null,
       apertureRead: semantic ? buildSemanticSummary(semantic) : null,
@@ -776,9 +1128,15 @@ function buildPreparedSteps(bundle: ReplaySessionBundle): OfflineReviewPreparedS
 function buildSourceExcerpt(step: ReplayObservationStep): string | null {
   switch (step.kind) {
     case "publishSource":
-      return compactText([readEventTitle(step.event), readEventSummary(step.event)].filter(isNonEmptyString).join(" — "));
+      return compactText([
+        readEventStringField(step.event, "title"),
+        readEventStringField(step.event, "summary"),
+      ].filter(isNonEmptyString).join(" — "));
     case "publish":
-      return compactText([readEventTitle(step.event), readEventSummary(step.event)].filter(isNonEmptyString).join(" — "));
+      return compactText([
+        readEventStringField(step.event, "title"),
+        readEventStringField(step.event, "summary"),
+      ].filter(isNonEmptyString).join(" — "));
     case "submit":
       return compactText(`response:${step.response.response.kind}`);
     case "signal":
@@ -796,10 +1154,10 @@ function buildSourceEventSummary(step: ReplayObservationStep): OfflineReviewPrep
   const event = step.event;
   return {
     type: event.type,
-    title: readEventTitle(event),
-    summary: readEventSummary(event),
-    status: readEventStatus(event),
-    toolFamily: readEventToolFamily(event),
+    title: readEventStringField(event, "title"),
+    summary: readEventStringField(event, "summary"),
+    status: readEventStringField(event, "status"),
+    toolFamily: readEventStringField(event, "toolFamily"),
   };
 }
 
@@ -825,7 +1183,7 @@ export function readOfflineReviewFocusAreaValue(
     case "summary":
       return step.sourceEvent?.summary ?? step.normalizedEvent?.summary ?? null;
     case "status":
-      return step.normalizedEvent?.status ?? step.sourceEvent?.status ?? null;
+      return inferOfflineReviewStatus(step);
     case "intentFrame":
       return step.apertureRead?.intentFrame ?? null;
     case "toolFamily":
@@ -833,6 +1191,41 @@ export function readOfflineReviewFocusAreaValue(
     case "consequence":
       return step.apertureRead?.consequence ?? null;
   }
+}
+
+function inferOfflineReviewStatus(step: OfflineReviewPreparedStep): string | null {
+  const status = step.normalizedEvent?.status ?? step.sourceEvent?.status ?? null;
+  if (status !== "running") {
+    return status;
+  }
+
+  if (step.stepLabel?.startsWith("assistant:message:") && looksLikeCompletedReviewAnswer(step)) {
+    return "completed";
+  }
+
+  return status;
+}
+
+function looksLikeCompletedReviewAnswer(step: OfflineReviewPreparedStep): boolean {
+  const text = [
+    step.sourceEvent?.title,
+    step.sourceEvent?.summary,
+    step.normalizedEvent?.title,
+    step.normalizedEvent?.summary,
+  ]
+    .filter((value): value is string => typeof value === "string" && value.length > 0)
+    .join("\n")
+    .toLowerCase();
+
+  if (text.length < 160 || text.includes("?")) {
+    return false;
+  }
+
+  return text.startsWith("here is ")
+    || text.startsWith("here's ")
+    || text.startsWith("based on ")
+    || text.includes("## ")
+    || /\*\*\d+\./.test(text);
 }
 
 export function offlineReviewValuesEqual(
@@ -877,32 +1270,27 @@ function renderValue(value: string | string[] | boolean | null): string {
 }
 
 function defaultRecommendation(confidence: OfflineReviewConfidence): OfflineReviewRecommendation {
-  return confidence === "high" ? "promote" : confidence === "medium" ? "inspect" : "ignore";
+  return OFFLINE_REVIEW_DEFAULT_RECOMMENDATION[confidence];
 }
 
 function createFocusAreaCounts(): Record<OfflineReviewFocusArea, number> {
-  return {
-    title: 0,
-    summary: 0,
-    status: 0,
-    intentFrame: 0,
-    toolFamily: 0,
-    consequence: 0,
-  };
+  return createCountRecord(DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS);
 }
 
 function validatePreparedStep(value: unknown): OfflineReviewPreparedStep | null {
-  if (!isRecord(value) || typeof value.stepIndex !== "number" || typeof value.stepKind !== "string") {
-    return null;
-  }
-
   if (
-    (value.stepLabel !== undefined && typeof value.stepLabel !== "string")
-    || !isNullableString(value.sourceExcerpt)
-    || validatePreparedEventSummary(value.sourceEvent) === null
-    || validatePreparedEventSummary(value.normalizedEvent) === null
-    || validatePreparedRead(value.apertureRead) === null
-    || validatePreparedDecision(value.apertureDecision) === null
+    !isRecord(value)
+    || !hasShape(value, {
+      stepIndex: isNumber,
+      stepKind: isString,
+      sourceExcerpt: isNullable(isString),
+      sourceEvent: validateWith(validatePreparedEventSummary),
+      normalizedEvent: validateWith(validatePreparedEventSummary),
+      apertureRead: validateWith(validatePreparedRead),
+      apertureDecision: validateWith(validatePreparedDecision),
+    }, {
+      stepLabel: isString,
+    })
   ) {
     return null;
   }
@@ -919,11 +1307,14 @@ function validatePreparedEventSummary(
 
   if (
     !isRecord(value)
-    || typeof value.type !== "string"
-    || !isNullableString(value.title)
-    || !isNullableString(value.summary)
-    || !isNullableString(value.status)
-    || !isNullableString(value.toolFamily)
+    || !hasShape(value, {
+      type: isString,
+    }, {
+      title: isNullable(isString),
+      summary: isNullable(isString),
+      status: isNullable(isString),
+      toolFamily: isNullable(isString),
+    })
   ) {
     return null;
   }
@@ -940,13 +1331,16 @@ function validatePreparedRead(
 
   if (
     !isRecord(value)
-    || !isNullableString(value.intentFrame)
-    || !isNullableString(value.toolFamily)
-    || !isNullableString(value.consequence)
-    || !isNullableString(value.confidence)
-    || typeof value.abstained !== "boolean"
-    || !isNullableString(value.whyNow)
-    || !isStringArray(value.relationKinds)
+    || !hasShape(value, {
+      abstained: isBoolean,
+      relationKinds: isStringArray,
+    }, {
+      intentFrame: isNullable(isString),
+      toolFamily: isNullable(isString),
+      consequence: isNullable(isString),
+      confidence: isNullable(isString),
+      whyNow: isNullable(isString),
+    })
   ) {
     return null;
   }
@@ -963,10 +1357,13 @@ function validatePreparedDecision(
 
   if (
     !isRecord(value)
-    || typeof value.evaluationKind !== "string"
-    || !isNullableString(value.decisionKind)
-    || !isNullableString(value.resultBucket)
-    || !isStringArray(value.semanticInfluence)
+    || !hasShape(value, {
+      evaluationKind: isString,
+      semanticInfluence: isStringArray,
+    }, {
+      decisionKind: isNullable(isString),
+      resultBucket: isNullable(isString),
+    })
   ) {
     return null;
   }
@@ -975,16 +1372,18 @@ function validatePreparedDecision(
 }
 
 function validateOfflineReviewFinding(value: unknown): OfflineReviewFinding | null {
-  if (!isRecord(value) || typeof value.stepIndex !== "number" || !isOfflineReviewFocusArea(value.focusArea)) {
-    return null;
-  }
-
   if (
-    !isOfflineReviewFindingExpected(value.expected)
-    || !isOfflineReviewConfidence(value.confidence)
-    || (value.supportingText !== undefined && typeof value.supportingText !== "string")
-    || (value.rationale !== undefined && typeof value.rationale !== "string")
-    || (value.recommendation !== undefined && !isOfflineReviewRecommendation(value.recommendation))
+    !isRecord(value)
+    || !hasShape(value, {
+      stepIndex: isNumber,
+      focusArea: isOfflineReviewFocusArea,
+      expected: isOfflineReviewFindingExpected,
+      confidence: isOfflineReviewConfidence,
+    }, {
+      supportingText: isString,
+      rationale: isString,
+      recommendation: isOfflineReviewRecommendation,
+    })
   ) {
     return null;
   }
@@ -993,16 +1392,19 @@ function validateOfflineReviewFinding(value: unknown): OfflineReviewFinding | nu
 }
 
 function validateOfflineReviewResponsePayload(value: unknown): OfflineReviewResponsePayload | null {
-  if (!isRecord(value) || !isRecord(value.review) || !Array.isArray(value.review.findings)) {
-    return null;
-  }
-
   if (
-    !value.review.findings.every((finding) => validateOfflineReviewFinding(finding) !== null)
-    || (value.review.reviewer !== undefined && typeof value.review.reviewer !== "string")
-    || (value.review.model !== undefined && typeof value.review.model !== "string")
-    || (value.review.completedAt !== undefined && typeof value.review.completedAt !== "string")
-    || (value.review.notes !== undefined && typeof value.review.notes !== "string")
+    !isRecord(value)
+    || !hasShape(value, {
+      review: (review): review is OfflineReviewResponsePayload["review"] => (
+        isRecord(review)
+        && hasShape(review, { findings: isArrayOf(validateWith(validateOfflineReviewFinding)) }, {
+          reviewer: isString,
+          model: isString,
+          completedAt: isString,
+          notes: isString,
+        })
+      ),
+    })
   ) {
     return null;
   }
@@ -1011,15 +1413,16 @@ function validateOfflineReviewResponsePayload(value: unknown): OfflineReviewResp
 }
 
 function validateReviewBundleSource(value: unknown): ReplaySessionBundleSource | null {
-  if (!isRecord(value) || typeof value.id !== "string") {
-    return null;
-  }
-
   if (
-    (value.kind !== undefined && typeof value.kind !== "string")
-    || (value.label !== undefined && typeof value.label !== "string")
-    || (value.redacted !== undefined && typeof value.redacted !== "boolean")
-    || (value.capture !== undefined && !validateReviewBundleCapture(value.capture))
+    !isRecord(value)
+    || !hasShape(value, {
+      id: isString,
+    }, {
+      kind: isString,
+      label: isString,
+      redacted: isBoolean,
+      capture: validateReviewBundleCapture,
+    })
   ) {
     return null;
   }
@@ -1027,12 +1430,14 @@ function validateReviewBundleSource(value: unknown): ReplaySessionBundleSource |
   return value as ReplaySessionBundleSource;
 }
 
-function validateReviewBundleCapture(value: unknown): boolean {
+function validateReviewBundleCapture(value: unknown): value is NonNullable<ReplaySessionBundleSource["capture"]> {
   return isRecord(value)
-    && (value.eventTransport === undefined || typeof value.eventTransport === "string")
-    && (value.semanticCapture === undefined || typeof value.semanticCapture === "string")
-    && (value.responseBridge === undefined || typeof value.responseBridge === "string")
-    && (value.notes === undefined || isStringArray(value.notes));
+    && hasShape(value, {}, {
+      eventTransport: isString,
+      semanticCapture: isString,
+      responseBridge: isString,
+      notes: isStringArray,
+    });
 }
 
 function buildRecommendationItem(
@@ -1082,133 +1487,41 @@ function compareRecommendationPriority(
   left: OfflineReviewRecommendation,
   right: OfflineReviewRecommendation,
 ): number {
-  const order: Record<OfflineReviewRecommendation, number> = {
-    promote: 0,
-    inspect: 1,
-    ignore: 2,
-  };
-  return order[left] - order[right];
+  return OFFLINE_REVIEW_RECOMMENDATION_PRIORITY[left] - OFFLINE_REVIEW_RECOMMENDATION_PRIORITY[right];
 }
 
 function createRecommendationCounts(): Record<OfflineReviewRecommendation, number> {
-  return {
-    promote: 0,
-    inspect: 0,
-    ignore: 0,
-  };
+  return createCountRecord(OFFLINE_REVIEW_RECOMMENDATIONS);
 }
 
 function createConfidenceCounts(): Record<OfflineReviewConfidence, number> {
-  return {
-    high: 0,
-    medium: 0,
-    low: 0,
-  };
+  return createCountRecord(OFFLINE_REVIEW_CONFIDENCE_LEVELS);
 }
 
 function focusAreaOwner(
   focusArea: OfflineReviewFocusArea,
 ): OfflineReviewRecommendationOwner {
-  switch (focusArea) {
-    case "title":
-    case "summary":
-    case "status":
-      return "importer";
-    case "intentFrame":
-    case "toolFamily":
-    case "consequence":
-      return "semantic";
-  }
+  return OFFLINE_REVIEW_FOCUS_AREA_OWNER[focusArea];
 }
 
 function recommendationTargets(focusArea: OfflineReviewFocusArea): string[] {
-  switch (focusArea) {
-    case "title":
-    case "summary":
-    case "status":
-      return [
-        "packages/lab/src/public-trajectories.ts",
-        "packages/lab/src/offline-review.ts",
-      ];
-    case "intentFrame":
-    case "toolFamily":
-    case "consequence":
-      return [
-        "packages/core/src/semantic-detection.ts",
-        "packages/core/src/semantic-interpreter.ts",
-        "packages/core/src/semantic-language.ts",
-      ];
-  }
+  return [...OFFLINE_REVIEW_RECOMMENDATION_TARGETS[focusArea]];
 }
 
 function recommendationSummary(focusArea: OfflineReviewFocusArea): string {
-  switch (focusArea) {
-    case "title":
-      return "Tighten imported trajectory title extraction before replay review.";
-    case "summary":
-      return "Tighten imported trajectory summary extraction and compaction.";
-    case "status":
-      return "Review imported event-status mapping before it reaches the semantic layer.";
-    case "intentFrame":
-      return "Tighten semantic intent-frame reads on imported external events.";
-    case "toolFamily":
-      return "Tighten tool-family inference and preservation on imported events.";
-    case "consequence":
-      return "Tighten consequence-band calibration for imported external events.";
-  }
-}
-
-function extractJsonCandidate(raw: string): string {
-  const trimmed = raw.trim();
-  const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fencedMatch?.[1]) {
-    return fencedMatch[1].trim();
-  }
-
-  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-    return trimmed;
-  }
-
-  const firstBrace = trimmed.indexOf("{");
-  const lastBrace = trimmed.lastIndexOf("}");
-  if (firstBrace >= 0 && lastBrace > firstBrace) {
-    return trimmed.slice(firstBrace, lastBrace + 1);
-  }
-
-  throw new Error("Offline review response did not contain a JSON object.");
-}
-
-function readEventTitle(value: { type: string } & Record<string, unknown>): string | null {
-  return typeof value.title === "string" ? value.title : null;
-}
-
-function readEventSummary(value: { type: string } & Record<string, unknown>): string | null {
-  return typeof value.summary === "string" ? value.summary : null;
-}
-
-function readEventStatus(value: { type: string } & Record<string, unknown>): string | null {
-  return typeof value.status === "string" ? value.status : null;
-}
-
-function readEventToolFamily(value: { type: string } & Record<string, unknown>): string | null {
-  return typeof value.toolFamily === "string" ? value.toolFamily : null;
+  return OFFLINE_REVIEW_RECOMMENDATION_SUMMARY[focusArea];
 }
 
 function isOfflineReviewFocusArea(value: unknown): value is OfflineReviewFocusArea {
-  return value === "title"
-    || value === "summary"
-    || value === "status"
-    || value === "intentFrame"
-    || value === "toolFamily"
-    || value === "consequence";
+  return isEnumValue(value, DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS);
 }
 
 function isOfflineReviewConfidence(value: unknown): value is OfflineReviewConfidence {
-  return value === "low" || value === "medium" || value === "high";
+  return isEnumValue(value, OFFLINE_REVIEW_CONFIDENCE_LEVELS);
 }
 
 function isOfflineReviewRecommendation(value: unknown): value is OfflineReviewRecommendation {
-  return value === "promote" || value === "inspect" || value === "ignore";
+  return isEnumValue(value, OFFLINE_REVIEW_RECOMMENDATIONS);
 }
 
 function isOfflineReviewFindingExpected(
@@ -1237,6 +1550,35 @@ function compactText(value: string | null): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
+function clipOfflineReviewPromptText(
+  value: string | null | undefined,
+  maxLength: number,
+): string | null {
+  const normalized = compactText(value ?? null);
+  if (!normalized) {
+    return null;
+  }
+
+  return normalized.length <= maxLength
+    ? normalized
+    : `${normalized.slice(0, Math.max(maxLength - 3, 1))}...`;
+}
+
 function safeFilename(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9._-]+/g, "-");
+}
+
+function createCountRecord<T extends string>(keys: readonly T[]): Record<T, number> {
+  return Object.fromEntries(keys.map((key) => [key, 0])) as Record<T, number>;
+}
+
+function isEnumValue<T extends string>(value: unknown, allowed: readonly T[]): value is T {
+  return isShapeEnumValue(allowed)(value);
+}
+
+function readEventStringField(
+  value: { type: string } & Record<string, unknown>,
+  field: "title" | "summary" | "status" | "toolFamily",
+): string | null {
+  return typeof value[field] === "string" ? value[field] : null;
 }

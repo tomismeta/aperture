@@ -9,11 +9,15 @@ import { fileURLToPath } from "node:url";
 
 import {
   applyOfflineReviewResponse,
+  buildOfflineReviewPromptPacket,
   buildOfflineReviewRecommendationReport,
   compareOfflineReviewArtifact,
   createOfflineReviewRun,
   createSessionBundleFromSweSmithRow,
+  DEFAULT_OFFLINE_REVIEW_PROMPT_MAX_CHARS,
+  DEFAULT_OFFLINE_REVIEW_PROMPT_MAX_STEPS,
   defaultOfflineReviewPromptPath,
+  readOfflineReviewFocusAreaValue,
   offlineReviewValuesEqual,
   parseOpenClawReviewerOutput,
   parseOfflineReviewResponseText,
@@ -164,6 +168,44 @@ test("offlineReviewValuesEqual normalizes annotated consequence labels", () => {
   assert.equal(offlineReviewValuesEqual("high", "low consequence; routine success output"), false);
 });
 
+test("readOfflineReviewFocusAreaValue upgrades substantive assistant answers to completed status", () => {
+  const bundle = createSessionBundleFromSweSmithRow(SAMPLE_ROW);
+  const artifact = prepareOfflineReviewArtifact(bundle);
+  const templateStep = artifact.steps[1]!;
+  const answerSummary = [
+    "## Root Cause",
+    "The provider returns a string payload where the widget expects a mapping, so indexing by key explodes during the validation pass.",
+    "",
+    "**1. Reproduction**",
+    "I reproduced the crash locally and confirmed the traceback is stable.",
+    "",
+    "**2. Fix**",
+    "Normalize the provider response into a dictionary-like structure before downstream validation.",
+  ].join("\n");
+  const step = {
+    ...templateStep,
+    stepLabel: "assistant:message:7",
+    sourceEvent: templateStep.sourceEvent
+      ? {
+          ...templateStep.sourceEvent,
+          status: "running",
+          title: "Here is the completed fix summary",
+          summary: answerSummary,
+        }
+      : null,
+    normalizedEvent: templateStep.normalizedEvent
+      ? {
+          ...templateStep.normalizedEvent,
+          status: "running",
+          title: "Here is the completed fix summary",
+          summary: answerSummary,
+        }
+      : null,
+  };
+
+  assert.equal(readOfflineReviewFocusAreaValue(step, "status"), "completed");
+});
+
 test("renderOfflineReviewPrompt packages the artifact for a reviewer model", () => {
   const bundle = createSessionBundleFromSweSmithRow(SAMPLE_ROW);
   const artifact = prepareOfflineReviewArtifact(bundle, {
@@ -174,9 +216,58 @@ test("renderOfflineReviewPrompt packages the artifact for a reviewer model", () 
   const promptPath = defaultOfflineReviewPromptPath(artifact, "/tmp/offline-review-prompts");
 
   assert.match(prompt, /Aperture Offline Review Prompt/);
-  assert.match(prompt, /Required Response Shape/);
+  assert.match(prompt, /Response shape/);
   assert.match(prompt, /public:swe-smith:example-repo-123-run-42/);
   assert.match(promptPath, /\/tmp\/offline-review-prompts\/public-swe-smith-example-repo-123-run-42\.md$/);
+});
+
+test("offline review prompt compacts large artifacts into a bounded review packet", () => {
+  const bundle = createSessionBundleFromSweSmithRow(SAMPLE_ROW);
+  const artifact = prepareOfflineReviewArtifact(bundle);
+  const expandedSteps = Array.from({ length: 80 }, (_, stepIndex) => {
+    const template = artifact.steps[stepIndex % artifact.steps.length]!;
+    return {
+      ...template,
+      stepIndex,
+      stepLabel: `step-${stepIndex}`,
+      sourceExcerpt: `Long excerpt ${stepIndex}: ${"x".repeat(400)}`,
+      sourceEvent: template.sourceEvent
+        ? {
+            ...template.sourceEvent,
+            title: `${template.sourceEvent.title ?? "step"} ${"y".repeat(160)}`,
+            summary: `${template.sourceEvent.summary ?? "summary"} ${"z".repeat(320)}`,
+          }
+        : null,
+      normalizedEvent: template.normalizedEvent
+        ? {
+            ...template.normalizedEvent,
+            title: `${template.normalizedEvent.title ?? "step"} ${"a".repeat(160)}`,
+            summary: `${template.normalizedEvent.summary ?? "summary"} ${"b".repeat(320)}`,
+          }
+        : null,
+      apertureRead: template.apertureRead
+        ? {
+            ...template.apertureRead,
+            whyNow: `${template.apertureRead.whyNow ?? "why"} ${"c".repeat(220)}`,
+          }
+        : null,
+    };
+  });
+  const oversizedArtifact = {
+    ...artifact,
+    steps: expandedSteps,
+  };
+
+  const packet = buildOfflineReviewPromptPacket(oversizedArtifact);
+  const prompt = renderOfflineReviewPrompt(oversizedArtifact);
+  const selectedIndices = packet.steps.map((step) => step.stepIndex);
+
+  assert.ok(prompt.length <= DEFAULT_OFFLINE_REVIEW_PROMPT_MAX_CHARS);
+  assert.ok(packet.steps.length <= DEFAULT_OFFLINE_REVIEW_PROMPT_MAX_STEPS);
+  assert.equal(packet.packet.originalStepCount, 80);
+  assert.ok(packet.packet.omittedStepCount > 0);
+  assert.ok(selectedIndices.includes(0));
+  assert.ok(selectedIndices.includes(79));
 });
 
 test("parseOfflineReviewResponseText accepts fenced reviewer JSON and applies it", () => {
@@ -213,6 +304,19 @@ test("parseOfflineReviewResponseText accepts fenced reviewer JSON and applies it
   assert.equal(completed.review.findings[0]?.focusArea, "consequence");
 });
 
+test("parseOfflineReviewResponseText extracts a review payload from noisy command output", () => {
+  const response = parseOfflineReviewResponseText(`
+> aperture@0.0.0 lab:fstop:reviewer /home/exedev/aperture
+> tsx scripts/offline-reviewer.ts --provider openclaw
+
+{"review":{"reviewer":"openclaw","model":"openai-codex/gpt-5.4","findings":[]}}
+  `);
+
+  assert.equal(response.review.reviewer, "openclaw");
+  assert.equal(response.review.model, "openai-codex/gpt-5.4");
+  assert.deepEqual(response.review.findings, []);
+});
+
 test("parseOpenClawReviewerOutput extracts the payload JSON from warning-prefixed stderr output", () => {
   const payload = parseOpenClawReviewerOutput(`
 [tools] tools.profile warning
@@ -246,6 +350,33 @@ test("parseOpenClawReviewerOutput prefers the final non-empty text payload", () 
   `);
 
   assert.equal(payload, "{\"review\":{\"reviewer\":\"openclaw\",\"model\":\"gpt-5.4\",\"findings\":[]}}");
+});
+
+test("parseOpenClawReviewerOutput prefers the final text payload across multiple envelopes", () => {
+  const payload = parseOpenClawReviewerOutput(`
+[tools] tools.profile warning
+{
+  "payloads": [
+    {
+      "text": "I’m checking the mismatch artifacts first.",
+      "mediaUrl": null
+    }
+  ]
+}
+{
+  "payloads": [
+    {
+      "text": "{\\"action\\":\\"no_patch\\",\\"summary\\":\\"No safe patch survived.\\",\\"reasons\\":[\\"The targeted rule widened regressions.\\"],\\"recommendedFiles\\":[\\"packages/core/src/semantic-interpreter.ts\\"],\\"changedFiles\\":[],\\"commandsRun\\":[\\"pnpm lab:fstop:evaluate\\"],\\"beforeMismatchCount\\":3,\\"afterMismatchCount\\":3,\\"judgmentBattle\\":\\"not_run\\",\\"releaseCheck\\":\\"not_run\\"}",
+      "mediaUrl": null
+    }
+  ]
+}
+  `);
+
+  assert.equal(
+    payload,
+    "{\"action\":\"no_patch\",\"summary\":\"No safe patch survived.\",\"reasons\":[\"The targeted rule widened regressions.\"],\"recommendedFiles\":[\"packages/core/src/semantic-interpreter.ts\"],\"changedFiles\":[],\"commandsRun\":[\"pnpm lab:fstop:evaluate\"],\"beforeMismatchCount\":3,\"afterMismatchCount\":3,\"judgmentBattle\":\"not_run\",\"releaseCheck\":\"not_run\"}",
+  );
 });
 
 test("runOpenClawReview parses reviewer text from OpenClaw stderr envelopes", async () => {
@@ -363,7 +494,7 @@ test("offline review run summaries capture artifact paths and actionable counts"
   assert.equal(run.artifacts.recommendationMarkdownPath, "/tmp/recommendation.md");
 });
 
-test("offline-review CLI can run a reviewer command and append the results log", async () => {
+test("offline-review CLI can run a reviewer command and emit JSON artifacts", async () => {
   const bundle = createSessionBundleFromSweSmithRow(SAMPLE_ROW);
   const artifact = prepareOfflineReviewArtifact(bundle, {
     bundlePath: "/tmp/example-bundle.json",
@@ -378,7 +509,6 @@ test("offline-review CLI can run a reviewer command and append the results log",
     const reportPath = path.join(tempDir, "report.json");
     const recommendationPath = path.join(tempDir, "recommendation.json");
     const runPath = path.join(tempDir, "run.json");
-    const resultsLogPath = path.join(tempDir, "results.tsv");
     const reviewerScriptPath = path.join(tempDir, "reviewer.js");
 
     await writeFile(artifactPath, `${JSON.stringify(artifact, null, 2)}\n`, "utf8");
@@ -412,8 +542,8 @@ test("offline-review CLI can run a reviewer command and append the results log",
       process.execPath,
       [
         TSX_CLI,
-        "scripts/offline-review.ts",
-        "run",
+        "scripts/fstop.ts",
+        "review-run",
         "--artifact",
         artifactPath,
         "--reviewer-command",
@@ -430,8 +560,6 @@ test("offline-review CLI can run a reviewer command and append the results log",
         recommendationPath,
         "--run-output",
         runPath,
-        "--results-log",
-        resultsLogPath,
         "--json",
       ],
       {
@@ -441,13 +569,13 @@ test("offline-review CLI can run a reviewer command and append the results log",
 
     const output = JSON.parse(stdout);
     const raw = await readFile(rawPath, "utf8");
-    const resultsLog = await readFile(resultsLogPath, "utf8");
+    const runSummary = JSON.parse(await readFile(runPath, "utf8"));
 
     assert.equal(output.status, "disagreement");
     assert.equal(output.rawResponsePath, rawPath);
     assert.match(raw, /cli-reviewer/);
-    assert.match(resultsLog, /generated_at\tsession_id\tstatus/);
-    assert.match(resultsLog, /public:swe-smith:example-repo-123-run-42/);
+    assert.equal(runSummary.bundle.sessionId, "public:swe-smith:example-repo-123-run-42");
+    assert.equal(runSummary.status, "disagreement");
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
@@ -479,7 +607,7 @@ test("offline-reviewer adapter resolves provider commands from env and forwards 
       shell,
       [
         "-lc",
-        `printf '%s' 'semantic review prompt' | ${quotedNode} ${quotedTsx} scripts/offline-reviewer.ts --provider hermes`,
+        `printf '%s' 'semantic review prompt' | ${quotedNode} ${quotedTsx} scripts/fstop.ts reviewer --provider hermes`,
       ],
       {
         cwd: REPO_ROOT,

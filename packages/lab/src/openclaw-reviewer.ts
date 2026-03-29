@@ -1,6 +1,8 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 
+import { extractJsonObjects } from "./json-utils.js";
+
 export type OpenClawReviewOptions = {
   agent?: string;
   bin?: string;
@@ -88,12 +90,7 @@ export async function runOpenClawReview(
 }
 
 export function parseOpenClawReviewerOutput(output: string): string {
-  const jsonText = extractFirstJsonObject(output);
-  const parsed = JSON.parse(jsonText) as OpenClawAgentEnvelope;
-  const text = (parsed.payloads ?? [])
-    .map((payload) => payload.text?.trim())
-    .filter((value): value is string => Boolean(value))
-    .at(-1);
+  const text = extractOpenClawPayloadTexts(output).at(-1);
   if (!text) {
     throw new Error("OpenClaw reviewer response did not include a text payload.");
   }
@@ -102,73 +99,26 @@ export function parseOpenClawReviewerOutput(output: string): string {
 }
 
 export function extractFirstJsonObject(text: string): string {
-  for (let start = 0; start < text.length; start += 1) {
-    if (text[start] !== "{") {
-      continue;
-    }
-
-    const end = findBalancedJsonEnd(text, start);
-    if (end < 0) {
-      continue;
-    }
-
-    const candidate = text.slice(start, end + 1);
-    try {
-      JSON.parse(candidate);
-      return candidate;
-    } catch {
-      continue;
-    }
-  }
-
-  throw new Error("Unable to locate a valid JSON object in the OpenClaw reviewer output.");
+  return extractJsonObjects(text)[0]
+    ?? failMissingJsonObject();
 }
 
-function findBalancedJsonEnd(text: string, start: number): number {
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-
-  for (let index = start; index < text.length; index += 1) {
-    const char = text[index];
-
-    if (inString) {
-      if (escaped) {
-        escaped = false;
-        continue;
+function extractOpenClawPayloadTexts(output: string): string[] {
+  return extractJsonObjects(output)
+    .flatMap((jsonText) => {
+      try {
+        const parsed = JSON.parse(jsonText) as OpenClawAgentEnvelope;
+        return (parsed.payloads ?? [])
+          .map((payload) => payload.text?.trim())
+          .filter((value): value is string => Boolean(value));
+      } catch {
+        return [];
       }
+    });
+}
 
-      if (char === "\\") {
-        escaped = true;
-        continue;
-      }
-
-      if (char === "\"") {
-        inString = false;
-      }
-
-      continue;
-    }
-
-    if (char === "\"") {
-      inString = true;
-      continue;
-    }
-
-    if (char === "{") {
-      depth += 1;
-      continue;
-    }
-
-    if (char === "}") {
-      depth -= 1;
-      if (depth === 0) {
-        return index;
-      }
-    }
-  }
-
-  return -1;
+function failMissingJsonObject(): never {
+  throw new Error("Unable to locate a valid JSON object in the OpenClaw reviewer output.");
 }
 
 function normalizeTimeoutSeconds(

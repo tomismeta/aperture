@@ -76,22 +76,44 @@ test("offline review batch report aggregates counts across entries", () => {
       },
       topRecommendations: [],
     },
+    {
+      sessionId: "three",
+      status: "error",
+      disagreementCount: 0,
+      actionableCount: 0,
+      error: "Reviewer returned malformed JSON.",
+      focusAreaCounts: {
+        title: 0,
+        summary: 0,
+        status: 0,
+        intentFrame: 0,
+        toolFamily: 0,
+        consequence: 0,
+      },
+      recommendationCounts: {
+        promote: 0,
+        inspect: 0,
+        ignore: 0,
+      },
+      topRecommendations: [],
+    },
   ];
 
   const report = createOfflineReviewBatchReport(entries, {
-    reviewerCommand: "pnpm lab:review:reviewer --provider openclaw",
+    reviewerCommand: "pnpm lab:fstop:reviewer --provider openclaw",
     reviewerProvider: "openclaw",
     dataset: "swe-smith",
     split: "tool",
-    limit: 2,
+    limit: 3,
     imported: true,
-    bundles: ["/tmp/one.json", "/tmp/two.json"],
+    bundles: ["/tmp/one.json", "/tmp/two.json", "/tmp/three.json"],
     generatedAt: "2026-03-28T00:00:00.000Z",
   });
 
-  assert.equal(report.summary.bundleCount, 2);
+  assert.equal(report.summary.bundleCount, 3);
   assert.equal(report.summary.statusCounts.disagreement, 1);
   assert.equal(report.summary.statusCounts.clean, 1);
+  assert.equal(report.summary.statusCounts.error, 1);
   assert.equal(report.summary.disagreementCount, 3);
   assert.equal(report.summary.actionableCount, 2);
   assert.equal(report.summary.focusAreaCounts.intentFrame, 2);
@@ -101,7 +123,7 @@ test("offline review batch report aggregates counts across entries", () => {
 
 test("offline review batch markdown renders a compact summary", () => {
   const markdown = renderOfflineReviewBatchMarkdown(createOfflineReviewBatchReport([], {
-    reviewerCommand: "pnpm lab:review:reviewer --provider openclaw",
+    reviewerCommand: "pnpm lab:fstop:reviewer --provider openclaw",
     reviewerProvider: "openclaw",
     imported: false,
     bundles: [],
@@ -110,6 +132,7 @@ test("offline review batch markdown renders a compact summary", () => {
 
   assert.match(markdown, /Offline Review Batch/);
   assert.match(markdown, /Reviewer: openclaw/);
+  assert.match(markdown, /- error: 0/);
 });
 
 test("summarizeRecommendationItems sorts by disagreement count", () => {

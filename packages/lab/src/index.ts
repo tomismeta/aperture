@@ -10,6 +10,38 @@ export {
 export { compareScenarioDeterminism, normalizeReplayRun, runDeterminismAudit } from "./determinism.js";
 export { runJudgmentBench } from "./judgment-bench.js";
 export {
+  defaultLabRuntimeRoot,
+  defaultLabRuntimeSubdirectory,
+  DEFAULT_LAB_RUNTIME_ROOT,
+} from "./runtime-paths.js";
+export {
+  DEFAULT_RAW_TRAJECTORY_BUNDLES_DIR,
+  importTrajectoryBundlesFromFile,
+  loadOpenAgentSessionsEventsFromJsonlFile,
+} from "./fstop-ingest.js";
+export {
+  AUTORESEARCH_SERVICE_STATUS_SCHEMA_VERSION,
+  writeAutoresearchServiceStatus,
+} from "./autoresearch-service.js";
+export {
+  runAutoresearchServiceCommand,
+  type AutoresearchServiceCommandOptions,
+  type AutoresearchServiceCommandResult,
+  type AutoresearchServiceProvider,
+} from "./autoresearch-service-command.js";
+export {
+  AUTORESEARCH_FINAL_REPORT_SCHEMA_VERSION,
+  defaultAutoresearchFinalReportMarkdownPath,
+  defaultAutoresearchFinalReportPath,
+  renderAutoresearchFinalReportMarkdown,
+  synthesizeAutoresearchFinalReport,
+  writeAutoresearchFinalReport,
+} from "./autoresearch-report.js";
+export {
+  resolveAutoresearchInputFile,
+  type AutoresearchResolvedInput,
+} from "./autoresearch-input.js";
+export {
   DEFAULT_PERTURBATION_PROFILES,
   generatePerturbedSemanticScenarios,
   loadPerturbedSemanticScenarios,
@@ -17,7 +49,21 @@ export {
 } from "./perturbation.js";
 export { renderJudgmentBenchMarkdown } from "./report.js";
 export {
+  executePromptCommand,
+  runFStopRolePrompt,
+  type FStopProvider,
+  type FStopRole,
+  type FStopRolePromptOptions,
+} from "./fstop-role.js";
+export {
+  readOfflineReviewResponseText,
+  runOfflineReviewArtifactReview,
+  type OfflineReviewArtifactRunOptions,
+  type OfflineReviewArtifactRunResult,
+} from "./offline-review-run.js";
+export {
   applyOfflineReviewResponse,
+  buildOfflineReviewPromptPacket,
   buildOfflineReviewRecommendationReport,
   compareOfflineReviewArtifact,
   defaultOfflineReviewArtifactPath,
@@ -31,11 +77,12 @@ export {
   DEFAULT_OFFLINE_REVIEW_DISAGREEMENTS_DIR,
   DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS,
   DEFAULT_OFFLINE_REVIEW_PROMPT_DIR,
+  DEFAULT_OFFLINE_REVIEW_PROMPT_MAX_CHARS,
+  DEFAULT_OFFLINE_REVIEW_PROMPT_MAX_STEPS,
   DEFAULT_OFFLINE_REVIEW_RAW_DIR,
   DEFAULT_OFFLINE_REVIEW_RECOMMENDATIONS_DIR,
   DEFAULT_OFFLINE_REVIEW_REQUESTS_DIR,
   DEFAULT_OFFLINE_REVIEW_RESULTS_DIR,
-  DEFAULT_OFFLINE_REVIEW_RESULTS_LOG_PATH,
   DEFAULT_OFFLINE_REVIEW_RESPONSES_DIR,
   DEFAULT_OFFLINE_REVIEW_RUBRIC_VERSION,
   DEFAULT_OFFLINE_REVIEW_RUNS_DIR,
@@ -53,6 +100,22 @@ export {
   writeOfflineReviewReport,
   writeOfflineReviewRun,
 } from "./offline-review.js";
+export {
+  appendAutoresearchCampaignSummary,
+  AUTORESEARCH_CAMPAIGN_SCHEMA_VERSION,
+  AUTORESEARCH_RUN_STATUS_SCHEMA_VERSION,
+  calculateAutoresearchCampaignPercent,
+  calculateAutoresearchWindowPercent,
+  calculateAutoresearchWindowPercentIncludingInflight,
+  writeAutoresearchCampaignStatus,
+  writeAutoresearchRunStatusSnapshot,
+} from "./autoresearch-campaign.js";
+export {
+  runAutoresearchCampaignCommand,
+  type AutoresearchCampaignCommandOptions,
+  type AutoresearchCampaignCommandResult,
+  type AutoresearchCampaignProvider,
+} from "./autoresearch-campaign-command.js";
 export {
   createAutoresearchOptimizationBrief,
   defaultAutoresearchBriefPath,
@@ -75,9 +138,35 @@ export {
   writeAutoresearchOptimizationBrief,
 } from "./autoresearch-calibration.js";
 export {
-  appendAutoresearchOptimizerResultsLog,
+  runAutoresearchOptimizeCommand,
+  type AutoresearchOptimizeCommandOptions,
+  type AutoresearchOptimizeCommandResult,
+} from "./autoresearch-optimize-command.js";
+export {
+  assignAutoresearchProposalSplits,
+  buildAutoresearchProposalCodeRecommendations,
+  buildAutoresearchProposalIntentStatements,
+  collectAutoresearchProposalSignals,
+  defaultAutoresearchProposalCalibrationDir,
+  defaultAutoresearchProposalDirectory,
+  defaultAutoresearchProposalMarkdownPath,
+  defaultAutoresearchProposalRunPath,
+  DEFAULT_AUTORESEARCH_PROPOSALS_DIR,
+  promoteAutoresearchProposalCandidates,
+  selectAutoresearchProposalPromotions,
+  renderAutoresearchProposalMarkdown,
+  writeAutoresearchProposalRun,
+} from "./autoresearch-proposal.js";
+export {
+  defaultAutoresearchProposalSplit,
+  runAutoresearchProposalCommand,
+  type AutoresearchProposalCommandOptions,
+  type AutoresearchProposalCommandResult,
+} from "./autoresearch-propose-command.js";
+export {
   assessAutoresearchEditSurface,
   AUTORESEARCH_OPTIMIZER_RUN_SCHEMA_VERSION,
+  buildAutoresearchEvaluationCommands,
   defaultAutoresearchOptimizerPatchPath,
   defaultAutoresearchOptimizerPromptPath,
   defaultAutoresearchOptimizerRawOutputPath,
@@ -86,8 +175,8 @@ export {
   DEFAULT_AUTORESEARCH_OPTIMIZER_PROMPTS_DIR,
   DEFAULT_AUTORESEARCH_OPTIMIZER_RAW_DIR,
   DEFAULT_AUTORESEARCH_OPTIMIZER_RESULTS_DIR,
-  DEFAULT_AUTORESEARCH_OPTIMIZER_RESULTS_LOG_PATH,
   DEFAULT_AUTORESEARCH_OPTIMIZER_RUNS_DIR,
+  parseAutoresearchOptimizerFeedback,
   renderAutoresearchOptimizationPrompt,
   renderAutoresearchOptimizerRunMarkdown,
   writeAutoresearchOptimizerPatch,
@@ -95,6 +184,37 @@ export {
   writeAutoresearchOptimizerRawOutput,
   writeAutoresearchOptimizerRun,
 } from "./autoresearch-optimizer.js";
+export {
+  DEFAULT_AUTORESEARCH_RUN_REVIEW_CONCURRENCY,
+  runAutoresearchRunnerCommand,
+  type AutoresearchRunCommandOptions,
+  type AutoresearchRunCommandResult,
+  type AutoresearchRunnerProvider,
+} from "./autoresearch-run-command.js";
+export {
+  AUTORESEARCH_RUNNER_RUN_SCHEMA_VERSION,
+  defaultAutoresearchRunnerRunPath,
+  DEFAULT_AUTORESEARCH_RUNNER_RESULTS_DIR,
+  DEFAULT_AUTORESEARCH_RUNNER_RUNS_DIR,
+  renderAutoresearchRunnerRunMarkdown,
+  writeAutoresearchRunnerRun,
+} from "./autoresearch-runner.js";
+export {
+  ensureCleanRepo,
+  ensureCleanWorktree,
+  ensureSymlink,
+  listWorkingTreeFiles,
+  parseGitStatusFiles,
+  prepareWorktreeWorkspace,
+  pruneWorktreeMetadata,
+  runGit,
+  spawnChecked,
+} from "./autoresearch-workspace.js";
+export {
+  runOfflineReviewBatchCommand,
+  type OfflineReviewBatchCommandOptions,
+  type OfflineReviewBatchCommandResult,
+} from "./offline-review-batch-command.js";
 export {
   createOfflineReviewBatchReport,
   defaultOfflineReviewBatchPath,
@@ -108,18 +228,59 @@ export type {
   OfflineReviewBatchReport,
 } from "./offline-review-batch.js";
 export {
+  createFStopSessionFromSessionBundle,
+  createReplayScenarioFromFStopSession,
+  createSessionBundleFromFStopSession,
+  DEFAULT_FSTOP_SESSION_BUNDLES_DIR,
+  DEFAULT_FSTOP_SESSION_FILES_DIR,
+  defaultFStopSessionFilePath,
+  FSTOP_SESSION_SCHEMA_VERSION,
+  importFStopSessionFileToBundle,
+  loadFStopSessionFile,
+  loadReplayBundleFromFStopInputFile,
+  validateFStopSession,
+  writeFStopSessionFile,
+} from "./fstop-session.js";
+export {
+  createReplayScenarioFromImportedSession,
+  createSessionBundleFromImportedSession,
+  IMPORTED_SESSION_SCHEMA_VERSION,
+} from "./imported-session.js";
+export {
+  createImportedSessionFromDataclawRow,
+  createImportedSessionFromOpenAgentSessionsRow,
+  createReplayScenarioFromDataclawRow,
+  createReplayScenarioFromOpenAgentSessionsRow,
   createScenarioFromSweSmithRow,
+  createImportedSessionFromSweSmithRow,
+  createImportedSessionFromSweSmithTrajectory,
+  createSessionBundleFromDataclawRow,
+  createSessionBundleFromOpenAgentSessionsRow,
   createSessionBundleFromSweSmithRow,
   createReplayScenarioFromSweSmithTrajectory,
   createSessionBundleFromSweSmithTrajectory,
+  DATACLAW_DATASET,
+  DEFAULT_DATACLAW_SPLIT,
+  DEFAULT_OPEN_AGENT_SESSIONS_RAW_DIR,
+  DEFAULT_OPEN_AGENT_SESSIONS_SPLIT,
   defaultImportedTrajectoryBundlePath,
+  defaultPublicTrajectorySplit,
+  defaultDataclawBundleSource,
+  defaultOpenAgentSessionsBundleSource,
   DEFAULT_PUBLIC_TRAJECTORY_BUNDLES_DIR,
   DEFAULT_SWE_SMITH_SPLIT,
   defaultSweSmithBundleSource,
   extractSweSmithMessageText,
+  fetchDataclawRows,
+  fetchOpenAgentSessionsRows,
   fetchSweSmithRows,
+  HUGGINGFACE_DATACLAW_DATASET,
   HUGGINGFACE_SWE_SMITH_DATASET,
   importPublicTrajectoryBundles,
+  OPEN_AGENT_SESSIONS_SITE_URL,
+  OPEN_AGENT_SESSIONS_URLS_URL,
+  parseDataclawRowsResponse,
+  parseOpenAgentSessionsJsonlText,
   parseSweSmithMessages,
   parseSweSmithRowsResponse,
   SWE_SMITH_DATASET,
@@ -159,6 +320,12 @@ export type {
   NormalizedReplayRun,
 } from "./determinism.js";
 export type {
+  AutoresearchCampaignStatus,
+  AutoresearchCampaignSummaryRow,
+  AutoresearchRunStatusPhase,
+  AutoresearchRunStatusSnapshot,
+} from "./autoresearch-campaign.js";
+export type {
   AutoresearchCalibrationCase,
   AutoresearchCalibrationCaseResult,
   AutoresearchCalibrationExpectation,
@@ -170,15 +337,33 @@ export type {
   AutoresearchOptimizationPriority,
 } from "./autoresearch-calibration.js";
 export type {
+  AutoresearchProposalCodeRecommendation,
+  AutoresearchProposalIntentStatement,
+  AutoresearchProposalPromotion,
+  AutoresearchProposalRun,
+  AutoresearchProposalRunStatus,
+  AutoresearchProposalSignal,
+} from "./autoresearch-proposal.js";
+export type {
   AutoresearchOptimizerRun,
+  AutoresearchOptimizerFeedback,
+  AutoresearchOptimizerGateStatus,
   AutoresearchOptimizerRunStatus,
 } from "./autoresearch-optimizer.js";
+export type {
+  AutoresearchRunnerFeedback,
+  AutoresearchRunnerFeedbackAttempt,
+  AutoresearchRunnerRun,
+  AutoresearchRunnerRunStatus,
+} from "./autoresearch-runner.js";
 export type {
   OfflineReviewArtifact,
   OfflineReviewConfidence,
   OfflineReviewDisagreement,
   OfflineReviewFinding,
   OfflineReviewFocusArea,
+  OfflineReviewPromptPacket,
+  OfflineReviewPromptStep,
   OfflineReviewPreparedStep,
   OfflineReviewRecommendation,
   OfflineReviewRecommendationItem,
@@ -205,9 +390,50 @@ export type {
   ReplayViewSnapshot,
 } from "./scenario.js";
 export type {
+  FStopSession,
+  FStopSessionEntry,
+  FStopSessionKind,
+  FStopSessionRawReference,
+  FStopSessionRole,
+  FStopSessionSignificance,
+  FStopSessionSource,
+} from "./fstop-session.js";
+export type {
+  ImportedSession,
+  ImportedSessionEntry,
+  ImportedSessionKind,
+  ImportedSessionRawReference,
+  ImportedSessionRole,
+  ImportedSessionSignificance,
+  ImportedSessionSource,
+} from "./imported-session.js";
+export type {
+  ImportTrajectoryBundlesFromFileOptions,
+} from "./fstop-ingest.js";
+export type {
+  AutoresearchFinalReport,
+} from "./autoresearch-report.js";
+export type {
+  AutoresearchServicePhase,
+  AutoresearchServiceStatus,
+} from "./autoresearch-service.js";
+export type {
+  DataclawMessage,
+  DataclawRow,
+  DataclawSplit,
+  DataclawStats,
+  DataclawToolUse,
   ImportedTrajectoryBundle,
   ImportPublicTrajectoryBundlesOptions,
+  OpenAgentSessionsContentBlock,
+  OpenAgentSessionsEvent,
+  OpenAgentSessionsMessage,
+  OpenAgentSessionsMetadata,
+  OpenAgentSessionsRow,
+  OpenAgentSessionsSplit,
   PublicTrajectoryDataset,
+  PublicTrajectoryRow,
+  PublicTrajectorySplit,
   SweSmithRow,
   SweSmithTrajectoryRow,
   SweSmithTrajectorySplit,

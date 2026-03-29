@@ -23,8 +23,16 @@ import type {
   ReplayTraceExpectation,
   ReplayViewSnapshot,
 } from "./scenario.js";
-
-type UnknownRecord = Record<string, unknown>;
+import {
+  hasShape,
+  isBoolean,
+  isNumber,
+  isNullable,
+  isRecord,
+  isString,
+  isStringArray,
+  validateWith,
+} from "./shape.js";
 
 const EVENT_TYPES = new Set<ApertureEvent["type"]>([
   "task.started",
@@ -120,49 +128,118 @@ const SEMANTIC_PROVENANCE_FIELDS = new Set([
 ]);
 const SEMANTIC_PROVENANCE_KINDS = new Set(["source", "inferred", "hint"]);
 
-export function isRecord(value: unknown): value is UnknownRecord {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
+export { isRecord, isStringArray } from "./shape.js";
+
+const isStringOrNull = isNullable(isString);
+const isStep = validateWith(validateReplayObservationStep);
+const isReplaySemanticExpectationGuard = validateWith(validateReplaySemanticExpectation);
+const isReplayDecisionExpectationGuard = validateWith(validateReplayDecisionExpectation);
+const isReplayExplanationExpectationGuard = validateWith(validateReplayExplanationExpectation);
+const isReplayTraceExpectationGuard = validateWith(validateReplayTraceExpectation);
+const isAttentionFrameGuard = validateWith(validateAttentionFrame);
+const isContextGuard = validateWith(validateContext);
+const isProvenanceGuard = validateWith(validateProvenance);
+const isSourceRefGuard = validateWith(validateSourceRef);
+const isHumanInputRequestGuard = validateWith(validateHumanInputRequest);
+const isSemanticInterpretationGuard = validateWith(validateSemanticInterpretation);
+const isActivityClass = (value: unknown): boolean => value === undefined || SEMANTIC_ACTIVITY_CLASSES.has(String(value));
+const isDecisionAmbiguity = (value: unknown): boolean => validateReplayDecisionAmbiguity(value);
+
+function validateBaseEvent(
+  value: Record<string, unknown>,
+  extras: {
+    semantic?: boolean;
+    semanticHints?: boolean;
+  } = {},
+): boolean {
+  return hasShape(
+    value,
+    {
+      type: isString,
+      id: isString,
+      taskId: isString,
+      timestamp: isString,
+    },
+    {
+      source: isSourceRefGuard,
+    },
+  )
+    && EVENT_TYPES.has(value.type as ApertureEvent["type"])
+    && (extras.semantic ? value.semantic === undefined || isSemanticInterpretationGuard(value.semantic) : true)
+    && (extras.semanticHints ? value.semanticHints === undefined || isRecord(value.semanticHints) : true);
 }
 
-export function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+function validateTaskUpdatedLike(value: Record<string, unknown>): boolean {
+  return hasShape(
+    value,
+    {
+      title: isString,
+      status: isString,
+    },
+    {
+      summary: isString,
+      toolFamily: isString,
+      progress: isNumber,
+    },
+  )
+    && TASK_STATUSES.has(value.status as string)
+    && isActivityClass(value.activityClass);
+}
+
+function validateHumanInputRequestedLike(
+  value: Record<string, unknown>,
+  extras: {
+    tone?: boolean;
+    consequence?: boolean;
+    riskHint?: boolean;
+  } = {},
+): boolean {
+  return hasShape(
+    value,
+    {
+      interactionId: isString,
+      title: isString,
+      summary: isString,
+      request: isHumanInputRequestGuard,
+    },
+    {
+      toolFamily: isString,
+      context: isContextGuard,
+      provenance: isProvenanceGuard,
+    },
+  )
+    && isActivityClass(value.activityClass)
+    && (!extras.tone || value.tone === undefined || TONES.has(String(value.tone)))
+    && (!extras.consequence || value.consequence === undefined || CONSEQUENCE_LEVELS.has(String(value.consequence)))
+    && (!extras.riskHint || value.riskHint === undefined || CONSEQUENCE_LEVELS.has(String(value.riskHint)));
+}
+
+function validateAttentionCollection(value: unknown): boolean {
+  return isRecord(value)
+    && Array.isArray(value.queued)
+    && Array.isArray(value.ambient)
+    && (value.active === null || isAttentionFrameGuard(value.active))
+    && value.queued.every(isAttentionFrameGuard)
+    && value.ambient.every(isAttentionFrameGuard);
 }
 
 export function validateReplayScenario(value: unknown): ReplayScenario | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
   if (
-    typeof value.id !== "string"
-    || typeof value.title !== "string"
+    !isRecord(value)
+    || !hasShape(value, {
+      id: isString,
+      title: isString,
+    }, {
+      description: isString,
+      doctrineTags: isStringArray,
+      source: validateWith(validateReplayArtifactSource),
+      provenance: validateWith(validateReplayScenarioProvenance),
+      expectations: validateWith(validateReplayScenarioExpectations),
+      core: isRecord,
+    })
     || !Array.isArray(value.steps)
-    || !value.steps.every((step) => validateReplayObservationStep(step) !== null)
+    || !value.steps.every(isStep)
   ) {
-    return null;
-  }
-
-  if (value.description !== undefined && typeof value.description !== "string") {
-    return null;
-  }
-
-  if (value.doctrineTags !== undefined && !isStringArray(value.doctrineTags)) {
-    return null;
-  }
-
-  if (value.source !== undefined && validateReplayArtifactSource(value.source) === null) {
-    return null;
-  }
-
-  if (value.provenance !== undefined && validateReplayScenarioProvenance(value.provenance) === null) {
-    return null;
-  }
-
-  if (value.expectations !== undefined && validateReplayScenarioExpectations(value.expectations) === null) {
-    return null;
-  }
-
-  if (value.core !== undefined && !isRecord(value.core)) {
     return null;
   }
 
@@ -170,11 +247,15 @@ export function validateReplayScenario(value: unknown): ReplayScenario | null {
 }
 
 export function validateReplayObservationStep(value: unknown): ReplayObservationStep | null {
-  if (!isRecord(value) || typeof value.kind !== "string" || !STEP_KINDS.has(value.kind as ReplayObservationStep["kind"])) {
-    return null;
-  }
-
-  if (value.label !== undefined && typeof value.label !== "string") {
+  if (
+    !isRecord(value)
+    || !hasShape(value, {
+      kind: isString,
+    }, {
+      label: isString,
+    })
+    || !STEP_KINDS.has(value.kind as ReplayObservationStep["kind"])
+  ) {
     return null;
   }
 
@@ -214,17 +295,16 @@ export function validateReplayObservationStep(value: unknown): ReplayObservation
 }
 
 export function validateReplayViewSnapshot(value: unknown): ReplayViewSnapshot | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
   if (
-    typeof value.stepIndex !== "number"
-    || typeof value.stepKind !== "string"
+    !isRecord(value)
+    || !hasShape(value, {
+      stepIndex: isNumber,
+      stepKind: isString,
+      activeInteractionId: isStringOrNull,
+      queuedInteractionIds: isStringArray,
+      ambientInteractionIds: isStringArray,
+    })
     || !STEP_KINDS.has(value.stepKind as ReplayObservationStep["kind"])
-    || !(value.activeInteractionId === null || typeof value.activeInteractionId === "string")
-    || !isStringArray(value.queuedInteractionIds)
-    || !isStringArray(value.ambientInteractionIds)
     || validateAttentionView(value.attentionView) === null
   ) {
     return null;
@@ -234,15 +314,16 @@ export function validateReplayViewSnapshot(value: unknown): ReplayViewSnapshot |
 }
 
 export function validateReplaySemanticSnapshot(value: unknown): ReplaySemanticSnapshot | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
   if (
-    typeof value.stepIndex !== "number"
-    || typeof value.stepKind !== "string"
+    !isRecord(value)
+    || !hasShape(value, {
+      stepIndex: isNumber,
+      stepKind: isString,
+      interpretation: isSemanticInterpretationGuard,
+    }, {
+      stepLabel: isString,
+    })
     || !STEP_KINDS.has(value.stepKind as ReplayObservationStep["kind"])
-    || (value.stepLabel !== undefined && typeof value.stepLabel !== "string")
     || validateSemanticInterpretation(value.interpretation) === null
   ) {
     return null;
@@ -269,22 +350,22 @@ export function validateReplayNormalizedEventSnapshot(value: unknown): ReplayNor
 }
 
 export function validateReplayDecisionSnapshot(value: unknown): ReplayDecisionSnapshot | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
   if (
-    typeof value.stepIndex !== "number"
-    || typeof value.stepKind !== "string"
+    !isRecord(value)
+    || !hasShape(value, {
+      stepIndex: isNumber,
+      stepKind: isString,
+    }, {
+      stepLabel: isString,
+      interactionId: isString,
+      semanticAbstained: isBoolean,
+    })
     || !STEP_KINDS.has(value.stepKind as ReplayObservationStep["kind"])
-    || (value.stepLabel !== undefined && typeof value.stepLabel !== "string")
     || !["candidate", "clear", "noop"].includes(String(value.evaluationKind))
     || (value.decisionKind !== undefined && !DECISION_KINDS.has(String(value.decisionKind)))
     || (value.resultBucket !== undefined && !RESULT_BUCKETS.has(String(value.resultBucket)))
-    || (value.interactionId !== undefined && typeof value.interactionId !== "string")
     || (value.semanticConfidence !== undefined && !SEMANTIC_CONFIDENCE.has(String(value.semanticConfidence)))
-    || (value.semanticAbstained !== undefined && typeof value.semanticAbstained !== "boolean")
-    || !validateReplayDecisionAmbiguity(value.ambiguity)
+    || !isDecisionAmbiguity(value.ambiguity)
   ) {
     return null;
   }
@@ -393,54 +474,29 @@ export function validateAttentionSignal(value: unknown): AttentionSignal | null 
 }
 
 export function validateApertureEvent(value: unknown): ApertureEvent | null {
-  if (!isRecord(value) || typeof value.type !== "string" || !EVENT_TYPES.has(value.type as ApertureEvent["type"])) {
-    return null;
-  }
-
-  if (
-    typeof value.id !== "string"
-    || typeof value.taskId !== "string"
-    || typeof value.timestamp !== "string"
-    || (value.source !== undefined && validateSourceRef(value.source) === null)
-    || (value.semantic !== undefined && validateSemanticInterpretation(value.semantic) === null)
-  ) {
+  if (!isRecord(value) || !validateBaseEvent(value, { semantic: true })) {
     return null;
   }
 
   switch (value.type) {
     case "task.started":
-      return typeof value.title === "string" && (value.summary === undefined || typeof value.summary === "string")
+      return hasShape(value, { title: isString }, { summary: isString })
         ? value as ApertureEvent
         : null;
     case "task.updated":
-      return typeof value.title === "string"
-        && (value.summary === undefined || typeof value.summary === "string")
-        && typeof value.status === "string"
-        && TASK_STATUSES.has(value.status)
-        && (value.toolFamily === undefined || typeof value.toolFamily === "string")
-        && (value.activityClass === undefined || SEMANTIC_ACTIVITY_CLASSES.has(String(value.activityClass)))
-        && (value.progress === undefined || typeof value.progress === "number")
+      return validateTaskUpdatedLike(value)
         ? value as ApertureEvent
         : null;
     case "human.input.requested":
-      return typeof value.interactionId === "string"
-        && typeof value.title === "string"
-        && typeof value.summary === "string"
-        && (value.toolFamily === undefined || typeof value.toolFamily === "string")
-        && (value.activityClass === undefined || SEMANTIC_ACTIVITY_CLASSES.has(String(value.activityClass)))
-        && (value.tone === undefined || TONES.has(String(value.tone)))
-        && (value.consequence === undefined || CONSEQUENCE_LEVELS.has(String(value.consequence)))
-        && validateHumanInputRequest(value.request) !== null
-        && (value.context === undefined || validateContext(value.context))
-        && (value.provenance === undefined || validateProvenance(value.provenance))
+      return validateHumanInputRequestedLike(value, { tone: true, consequence: true })
         ? value as ApertureEvent
         : null;
     case "task.completed":
-      return value.summary === undefined || typeof value.summary === "string"
+      return value.summary === undefined || isString(value.summary)
         ? value as ApertureEvent
         : null;
     case "task.cancelled":
-      return value.reason === undefined || typeof value.reason === "string"
+      return value.reason === undefined || isString(value.reason)
         ? value as ApertureEvent
         : null;
   }
@@ -449,53 +505,29 @@ export function validateApertureEvent(value: unknown): ApertureEvent | null {
 }
 
 export function validateSourceEvent(value: unknown): SourceEvent | null {
-  if (!isRecord(value) || typeof value.type !== "string" || !EVENT_TYPES.has(value.type as SourceEvent["type"])) {
-    return null;
-  }
-
-  if (
-    typeof value.id !== "string"
-    || typeof value.taskId !== "string"
-    || typeof value.timestamp !== "string"
-    || (value.source !== undefined && validateSourceRef(value.source) === null)
-    || (value.semanticHints !== undefined && !isRecord(value.semanticHints))
-  ) {
+  if (!isRecord(value) || !validateBaseEvent(value, { semanticHints: true })) {
     return null;
   }
 
   switch (value.type) {
     case "task.started":
-      return typeof value.title === "string" && (value.summary === undefined || typeof value.summary === "string")
+      return hasShape(value, { title: isString }, { summary: isString })
         ? value as SourceEvent
         : null;
     case "task.updated":
-      return typeof value.title === "string"
-        && (value.summary === undefined || typeof value.summary === "string")
-        && typeof value.status === "string"
-        && TASK_STATUSES.has(value.status)
-        && (value.toolFamily === undefined || typeof value.toolFamily === "string")
-        && (value.activityClass === undefined || SEMANTIC_ACTIVITY_CLASSES.has(String(value.activityClass)))
-        && (value.progress === undefined || typeof value.progress === "number")
+      return validateTaskUpdatedLike(value)
         ? value as SourceEvent
         : null;
     case "human.input.requested":
-      return typeof value.interactionId === "string"
-        && typeof value.title === "string"
-        && typeof value.summary === "string"
-        && (value.toolFamily === undefined || typeof value.toolFamily === "string")
-        && (value.activityClass === undefined || SEMANTIC_ACTIVITY_CLASSES.has(String(value.activityClass)))
-        && validateHumanInputRequest(value.request) !== null
-        && (value.context === undefined || validateContext(value.context))
-        && (value.provenance === undefined || validateProvenance(value.provenance))
-        && (value.riskHint === undefined || CONSEQUENCE_LEVELS.has(String(value.riskHint)))
+      return validateHumanInputRequestedLike(value, { riskHint: true })
         ? value as SourceEvent
         : null;
     case "task.completed":
-      return value.summary === undefined || typeof value.summary === "string"
+      return value.summary === undefined || isString(value.summary)
         ? value as SourceEvent
         : null;
     case "task.cancelled":
-      return value.reason === undefined || typeof value.reason === "string"
+      return value.reason === undefined || isString(value.reason)
         ? value as SourceEvent
         : null;
   }
@@ -534,18 +566,17 @@ export function validateSemanticInterpretation(value: unknown): SemanticInterpre
 }
 
 function validateReplayScenarioExpectations(value: unknown): ReplayScenarioExpectations | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
   if (
-    (value.finalActiveInteractionId !== undefined && !(value.finalActiveInteractionId === null || typeof value.finalActiveInteractionId === "string"))
-    || (value.queuedInteractionIds !== undefined && !isStringArray(value.queuedInteractionIds))
-    || (value.ambientInteractionIds !== undefined && !isStringArray(value.ambientInteractionIds))
-    || (value.semanticReadings !== undefined && (!Array.isArray(value.semanticReadings) || !value.semanticReadings.every((entry) => validateReplaySemanticExpectation(entry) !== null)))
-    || (value.decisionReadings !== undefined && (!Array.isArray(value.decisionReadings) || !value.decisionReadings.every((entry) => validateReplayDecisionExpectation(entry) !== null)))
-    || (value.explanationExpectation !== undefined && validateReplayExplanationExpectation(value.explanationExpectation) === null)
-    || (value.traceExpectations !== undefined && validateReplayTraceExpectation(value.traceExpectations) === null)
+    !isRecord(value)
+    || !hasShape(value, {}, {
+      finalActiveInteractionId: isStringOrNull,
+      queuedInteractionIds: isStringArray,
+      ambientInteractionIds: isStringArray,
+      explanationExpectation: isReplayExplanationExpectationGuard,
+      traceExpectations: isReplayTraceExpectationGuard,
+    })
+    || (value.semanticReadings !== undefined && (!Array.isArray(value.semanticReadings) || !value.semanticReadings.every(isReplaySemanticExpectationGuard)))
+    || (value.decisionReadings !== undefined && (!Array.isArray(value.decisionReadings) || !value.decisionReadings.every(isReplayDecisionExpectationGuard)))
   ) {
     return null;
   }
@@ -617,14 +648,10 @@ function validateReplayDecisionExpectation(value: unknown): ReplayDecisionExpect
 }
 
 function validateReplayExplanationExpectation(value: unknown): ReplayExplanationExpectation | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  if (
-    (value.whyNowIncludes !== undefined && typeof value.whyNowIncludes !== "string")
-    || (value.continuityRationaleIncludes !== undefined && !isStringArray(value.continuityRationaleIncludes))
-  ) {
+  if (!isRecord(value) || !hasShape(value, {}, {
+    whyNowIncludes: isString,
+    continuityRationaleIncludes: isStringArray,
+  })) {
     return null;
   }
 
@@ -674,25 +701,23 @@ function validateReplayTraceExpectation(value: unknown): ReplayTraceExpectation 
 }
 
 function validateReplayArtifactSource(value: unknown): ReplayArtifactSource | null {
-  if (!isRecord(value) || typeof value.id !== "string") {
-    return null;
-  }
-
-  if (
-    (value.kind !== undefined && typeof value.kind !== "string")
-    || (value.label !== undefined && typeof value.label !== "string")
-    || (value.redacted !== undefined && typeof value.redacted !== "boolean")
-  ) {
+  if (!isRecord(value) || !hasShape(value, { id: isString }, {
+    kind: isString,
+    label: isString,
+    redacted: isBoolean,
+  })) {
     return null;
   }
 
   if (value.capture !== undefined) {
     if (
       !isRecord(value.capture)
-      || (value.capture.eventTransport !== undefined && typeof value.capture.eventTransport !== "string")
-      || (value.capture.semanticCapture !== undefined && typeof value.capture.semanticCapture !== "string")
-      || (value.capture.responseBridge !== undefined && typeof value.capture.responseBridge !== "string")
-      || (value.capture.notes !== undefined && !isStringArray(value.capture.notes))
+      || !hasShape(value.capture, {}, {
+        eventTransport: isString,
+        semanticCapture: isString,
+        responseBridge: isString,
+        notes: isStringArray,
+      })
     ) {
       return null;
     }
@@ -702,15 +727,11 @@ function validateReplayArtifactSource(value: unknown): ReplayArtifactSource | nu
 }
 
 function validateReplayScenarioProvenance(value: unknown): ReplayScenarioProvenance | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  if (
-    (value.promotedAt !== undefined && typeof value.promotedAt !== "string")
-    || (value.promotedFromBundleSessionId !== undefined && typeof value.promotedFromBundleSessionId !== "string")
-    || (value.promotedFromPath !== undefined && typeof value.promotedFromPath !== "string")
-  ) {
+  if (!isRecord(value) || !hasShape(value, {}, {
+    promotedAt: isString,
+    promotedFromBundleSessionId: isString,
+    promotedFromPath: isString,
+  })) {
     return null;
   }
 
@@ -731,14 +752,10 @@ function validateReplayDecisionAmbiguity(value: unknown): boolean {
 }
 
 function validateSourceRef(value: unknown): unknown | null {
-  if (!isRecord(value) || typeof value.id !== "string") {
-    return null;
-  }
-
-  if (
-    (value.kind !== undefined && typeof value.kind !== "string")
-    || (value.label !== undefined && typeof value.label !== "string")
-  ) {
+  if (!isRecord(value) || !hasShape(value, { id: isString }, {
+    kind: isString,
+    label: isString,
+  })) {
     return null;
   }
 
@@ -778,26 +795,30 @@ function validateHumanInputRequest(value: unknown): unknown | null {
 }
 
 function validateContext(value: unknown): boolean {
-  return (
-    isRecord(value)
-    && (value.stage === undefined || typeof value.stage === "string")
-    && (value.progress === undefined || typeof value.progress === "number")
+  return isRecord(value)
+    && hasShape(value, {}, {
+      stage: isString,
+      progress: isNumber,
+    })
     && (
       value.items === undefined
       || (
         Array.isArray(value.items)
-        && value.items.every((item) => isRecord(item) && typeof item.id === "string" && typeof item.label === "string" && (item.value === undefined || typeof item.value === "string"))
+        && value.items.every((item) => isRecord(item) && hasShape(item, {
+          id: isString,
+          label: isString,
+        }, {
+          value: isString,
+        }))
       )
-    )
-  );
+    );
 }
 
 function validateProvenance(value: unknown): boolean {
-  return (
-    isRecord(value)
-    && (value.whyNow === undefined || typeof value.whyNow === "string")
-    && (value.factors === undefined || isStringArray(value.factors))
-  );
+  return isRecord(value) && hasShape(value, {}, {
+    whyNow: isString,
+    factors: isStringArray,
+  });
 }
 
 function validateAttentionFrame(value: unknown): unknown | null {
@@ -834,14 +855,7 @@ function validateAttentionFrame(value: unknown): unknown | null {
 }
 
 function validateAttentionView(value: unknown): AttentionView | null {
-  if (
-    !isRecord(value)
-    || !Array.isArray(value.queued)
-    || !Array.isArray(value.ambient)
-    || !(value.active === null || validateAttentionFrame(value.active) !== null)
-    || !value.queued.every((frame) => validateAttentionFrame(frame) !== null)
-    || !value.ambient.every((frame) => validateAttentionFrame(frame) !== null)
-  ) {
+  if (!validateAttentionCollection(value)) {
     return null;
   }
 
@@ -849,14 +863,7 @@ function validateAttentionView(value: unknown): AttentionView | null {
 }
 
 function validateTaskViewLike(value: unknown): unknown | null {
-  if (
-    !isRecord(value)
-    || !Array.isArray(value.queued)
-    || !Array.isArray(value.ambient)
-    || !(value.active === null || validateAttentionFrame(value.active) !== null)
-    || !value.queued.every((frame) => validateAttentionFrame(frame) !== null)
-    || !value.ambient.every((frame) => validateAttentionFrame(frame) !== null)
-  ) {
+  if (!validateAttentionCollection(value)) {
     return null;
   }
 

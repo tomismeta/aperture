@@ -194,6 +194,96 @@ test("failed edit readback observations stay status updates semantically", () =>
   assert.equal(interpretation.whyNow, undefined);
 });
 
+test("failed read source dumps stay status updates at high consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:read-content-observation",
+    type: "task.updated",
+    taskId: "task:read-content-observation",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary: "<path>/repo/src/kernel/process.c</path> <type>file</type> <content>1622: static struct process *create_process(void) 1623: { 1624: return 0; }",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "high");
+});
+
+test("failed read log dumps stay status updates at low consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:read-log-observation",
+    type: "task.updated",
+    taskId: "task:read-log-observation",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary: "<path>/tmp/tool-output/kernel.log</path> <type>file</type> <content>1190: [ 4.998830] amdgpu ring comp_1.2.1 uses VM inv eng 10 on hub 0",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "low");
+});
+
+test("failed read build metadata dumps stay status updates at low consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:read-build-metadata",
+    type: "task.updated",
+    taskId: "task:read-build-metadata",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary: "<path>/repo/Makefile</path> <type>file</type> <content>1: SPDX-License-Identifier: GPL-2.0 2: VERSION = 6 3: PATCHLEVEL = 16 4: SUBLEVEL = 0 5: EXTRAVERSION =</content>",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "low");
+});
+
+test("failed search result dumps stay low-consequence failures", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:search-result-dump",
+    type: "task.updated",
+    taskId: "task:search-result-dump",
+    timestamp,
+    source: source("custom-agent"),
+    title: "search failure",
+    summary: "OBSERVATION: Found 12 matches in 3 files. Showing first 10 results from /repo/src/app.ts and /repo/src/lib.ts",
+    status: "failed",
+    toolFamily: "search",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.consequence, "low");
+});
+
+test("plain failed reads without observational payload stay failures", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:plain-read-failure",
+    type: "task.updated",
+    taskId: "task:plain-read-failure",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary: "Failed to read /repo/src/config.ts because the file does not exist",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.consequence, "high");
+});
+
 test("public trajectory diagnostic failures stay medium-consequence failures", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:public-diagnostic",

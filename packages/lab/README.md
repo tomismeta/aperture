@@ -7,6 +7,27 @@ surface.
 
 This package is the first implementation surface behind **Aperture Lab**.
 
+The named discovery and calibration subsystem inside Aperture Lab is
+**F-Stop**.
+
+The canonical user-facing CLI surface for F-Stop is provider-neutral.
+
+Normal operator commands:
+
+- `pnpm lab:fstop:ingest ...`
+- `pnpm lab:fstop:run ...`
+- `pnpm lab:fstop:campaign ...`
+- `pnpm lab:fstop:service ...`
+
+Lower-level debugging commands:
+
+- `pnpm lab:fstop:runner --provider <provider>`
+- `pnpm lab:fstop:review ...`
+- `pnpm lab:fstop:reviewer --provider <provider>`
+- `pnpm lab:fstop:propose ...`
+- `pnpm lab:fstop:optimize --provider <provider>`
+- `pnpm lab:fstop:optimizer --provider <provider>`
+
 Its job is to run deterministic scenarios against
 [`@tomismeta/aperture-core`](https://www.npmjs.com/package/@tomismeta/aperture-core),
 capture traces and signals, and turn the result into doctrine-shaped
@@ -77,8 +98,7 @@ Today this package provides:
 - a session-bundle format plus load/write helpers for local harvested replay
 - a basic scorecard built on top of core trace evaluation and signal summaries
 - a first golden-scenario set for `JudgmentBench`
-- a benchmark runner that can write JSON results into
-  [packages/lab/results](https://github.com/tomismeta/aperture/tree/main/packages/lab/results)
+- a benchmark runner that can write JSON results into `.aperture/lab/results`
 
 The first semantic-robustness tranche now covers:
 
@@ -136,53 +156,85 @@ pnpm trajectory:import --dataset swe-smith --limit 5
 
 This imports public trajectories from
 [`SWE-bench/SWE-smith-trajectories`](https://huggingface.co/datasets/SWE-bench/SWE-smith-trajectories),
+first normalizes them into the Lab-owned canonical imported-session shape, then
 maps them into `publishSource` replay steps, runs them through core, and writes
-the resulting local bundles under `packages/lab/bundles/public`.
+the resulting local bundles under `.aperture/lab/bundles/public`.
 These imports are local seed material for Lab, not committed benchmark truth.
+
+The same canonical import path now supports richer external session corpora too:
+
+```bash
+pnpm trajectory:import --dataset dataclaw --split train --limit 5
+```
+
+That path imports `woctordho/dataclaw`, normalizes each session into the shared
+`ImportedSession` shape, then compiles deterministic replay bundles under
+`.aperture/lab/bundles/public/dataclaw`.
+
+To point F-Stop at a known raw export file directly, use:
+
+```bash
+pnpm lab:fstop:ingest --file /absolute/path/to/raw-export.jsonl --json
+```
+
+This writes replayable bundles under `.aperture/lab/bundles/raw` by default.
+The raw-file ingest path currently accepts supported SWE-smith rows, DataClaw
+rows, OpenAgentSessions rows, and OpenAgentSessions JSONL event logs.
+It also writes canonical F-Stop Session files under `.aperture/lab/sessions`
+so raw imports have one stable intermediate shape before replay.
+
+The standard input file for F-Stop is a canonical F-Stop Session JSON:
+
+- [docs/lab/fstop-session-format.md](/Users/tom/dev/aperture/docs/lab/fstop-session-format.md)
+
+That file can be handed directly to:
+
+```bash
+pnpm lab:fstop:run --provider <provider> --reviewer-provider <provider> --optimizer-provider <provider> --file /absolute/path/to/session.fstop-session.json --json
+```
 
 To prepare one imported bundle for offline AI review, use:
 
 ```bash
-pnpm lab:review:prepare --bundle packages/lab/bundles/public/swe-smith/tool/<bundle>.json --json
+pnpm lab:fstop:prepare --bundle .aperture/lab/bundles/public/swe-smith/tool/<bundle>.json --json
 ```
 
-This writes a structured review artifact under `packages/lab/results/offline-review/requests`.
+This writes a structured review artifact under `.aperture/lab/results/offline-review/requests`.
 
 To render a reviewer-model prompt from that artifact, use:
 
 ```bash
-pnpm lab:review:prompt --artifact packages/lab/results/offline-review/requests/<bundle>.json --json
+pnpm lab:fstop:prompt --artifact .aperture/lab/results/offline-review/requests/<bundle>.json --json
 ```
 
-This writes a prompt under `packages/lab/results/offline-review/prompts`.
+This writes a prompt under `.aperture/lab/results/offline-review/prompts`.
 
 For unattended runs, let the Lab runner execute the reviewer command directly:
 
 ```bash
-pnpm lab:review:run --artifact packages/lab/results/offline-review/requests/<bundle>.json --reviewer-command "pnpm lab:review:reviewer --provider <provider>" --json
+pnpm lab:fstop:review:run --artifact .aperture/lab/results/offline-review/requests/<bundle>.json --reviewer-command "pnpm lab:fstop:reviewer --provider <provider>" --json
 ```
 
 This writes:
 
-- a reviewer prompt under `packages/lab/results/offline-review/prompts`
-- the raw reviewer stdout under `packages/lab/results/offline-review/raw`
-- a completed review artifact under `packages/lab/results/offline-review/responses`
-- a disagreement report under `packages/lab/results/offline-review/disagreements`
-- a recommendation summary under `packages/lab/results/offline-review/recommendations`
-- a run summary under `packages/lab/results/offline-review/runs`
-- a TSV run log under `packages/lab/results/offline-review/results.tsv`
+- a reviewer prompt under `.aperture/lab/results/offline-review/prompts`
+- the raw reviewer stdout under `.aperture/lab/results/offline-review/raw`
+- a completed review artifact under `.aperture/lab/results/offline-review/responses`
+- a disagreement report under `.aperture/lab/results/offline-review/disagreements`
+- a recommendation summary under `.aperture/lab/results/offline-review/recommendations`
+- a run summary under `.aperture/lab/results/offline-review/runs`
 
 If you already have a completed artifact and just want to recompute the
 disagreement report, use:
 
 ```bash
-pnpm lab:review:compare --artifact packages/lab/results/offline-review/responses/<bundle>.json --json
+pnpm lab:fstop:compare --artifact .aperture/lab/results/offline-review/responses/<bundle>.json --json
 ```
 
 The stable reviewer adapter is:
 
 ```bash
-pnpm lab:review:reviewer --provider <provider>
+pnpm lab:fstop:reviewer --provider <provider>
 ```
 
 It resolves the actual provider command from environment variables instead of
@@ -196,31 +248,133 @@ id per review by default so batch runs do not pile context into the shared
 For a clean unattended batch on a remote box, use:
 
 ```bash
-pnpm lab:review:batch --dataset swe-smith --split tool --limit 3 --reviewer-provider openclaw --json
+pnpm lab:fstop:campaign --provider openclaw --dataset dataclaw --split train --reviewer-provider openclaw --optimizer-provider openclaw --json
+```
+
+This runs multiple F-Stop windows from a clean source checkout, creates an
+isolated git worktree per window with shared `node_modules`, and writes live
+monitoring artifacts under
+`.aperture/lab/campaigns/<campaign-id>`:
+
+- `campaign.log`
+- `status.json`
+- `summary.jsonl`
+- `current-run/`
+
+The easiest live watch commands are:
+
+```bash
+tail -f .aperture/lab/current-campaign/campaign.log
+cat .aperture/lab/current-campaign/status.json
+tail -f .aperture/lab/current-campaign/current-run/run.log
+```
+
+```bash
+pnpm lab:fstop:review --dataset swe-smith --split tool --limit 3 --reviewer-provider <provider> --json
 ```
 
 This imports or selects bundles, prepares artifacts, runs the reviewer loop for
 each one, and writes an aggregate batch report under
-`packages/lab/results/offline-review/batches`.
+`.aperture/lab/results/offline-review/batches`.
+
+For the highest-autonomy top-level run on the box, use:
+
+```bash
+pnpm lab:fstop:run --provider <provider> --reviewer-provider <provider> --optimizer-provider <provider> --json
+```
+
+This lets the provider-managed runner keep trying proposal slices until it
+finds a reviewable proposal patch or exhausts the configured slice budget.
+
+For a productized single-file unattended run, use:
+
+```bash
+pnpm lab:fstop:run --provider <provider> --reviewer-provider <provider> --optimizer-provider <provider> --file /absolute/path/to/bundle-or-batch.json --json
+```
+
+`--file` autodetects either:
+
+- a replayable session bundle JSON
+- a precomputed offline-review batch report JSON
+- a canonical F-Stop Session JSON
+- a supported raw export file, which is first ingested into local bundles
+
+Gists are not required for this productized path. They are just one possible
+publication format for public corpora like OpenAgentSessions; the unattended
+F-Stop runtime operates on local files and local runtime state.
+
+The preferred standard input is:
+
+- a canonical `*.fstop-session.json` file
+
+That file is the stable replay-oriented handoff shape for imported sessions.
+Raw exports should normalize into that first, then into replay bundles.
+
+In direct file mode, F-Stop runs one unattended proposal attempt, writes runtime
+artifacts under `.aperture/lab/results`, and emits:
+
+- proposal JSON and Markdown
+- intent statements summarizing what should change
+- code recommendations summarizing suggested files and optimizer rationale
+- an optional patch diff when the optimizer leaves one behind
+
+For a long-running supervised VPS process with restart and stall handling, use:
+
+```bash
+pnpm lab:fstop:service --provider <provider> --reviewer-provider <provider> --optimizer-provider <provider> --json
+```
+
+This wraps one-window campaign runs, restarts on failure or stalls, and keeps a
+stable service status under `.aperture/lab/service/status.json`.
 
 For the shortest default command on the box, use:
 
 ```bash
-pnpm lab:review:openclaw
+pnpm lab:fstop:openclaw
 ```
 
 That currently expands to:
 
-- dataset: `swe-smith`
-- split: `tool`
-- limit: `2`
+- provider: `openclaw`
 - reviewer provider: `openclaw`
+- optimizer provider: `openclaw`
+- uses the top-level `lab:fstop:run` entrypoint
+
+To let the box run all the way through a reviewable code proposal, use:
+
+```bash
+pnpm lab:fstop:propose --reviewer-provider <provider> --optimizer-provider <provider> --json
+```
+
+This command:
+
+- runs a discovery batch
+- keeps partial results if one reviewer reply is malformed
+- clusters repeated high-confidence disagreements
+- promotes those into an ignored candidate calibration corpus
+- runs the optimizer against the committed corpus plus the candidate corpus
+- writes a proposal artifact under `.aperture/lab/results/autoresearch/proposals`
+- writes an optional patch artifact if the optimizer actually improves the score
+
+Every campaign window also keeps a stable synthesized final report pointer:
+
+- `.aperture/lab/current-campaign/current-report.json`
+- `.aperture/lab/current-campaign/current-report.md`
+
+These point at a human- and machine-readable F-Stop report that summarizes:
+
+- run coverage and counts
+- major disagreements
+- intent statements
+- code recommendations
+- optimizer and gate outcomes
+- selected patch artifacts when present
 
 To turn reviewer disagreements into a repeatable optimization surface, promote
 selected reports into the frozen calibration corpus:
 
 ```bash
-pnpm lab:autoresearch:promote --report packages/lab/results/offline-review/disagreements/<bundle>.json --split train --json
+pnpm lab:fstop:promote --report .aperture/lab/results/offline-review/disagreements/<bundle>.json --split train --json
 ```
 
 This writes a calibration case under `packages/lab/calibration/<split>` with:
@@ -232,29 +386,39 @@ This writes a calibration case under `packages/lab/calibration/<split>` with:
 To score the current semantic/importer layer against that frozen corpus, use:
 
 ```bash
-pnpm lab:autoresearch:evaluate --json
+pnpm lab:fstop:evaluate --json
 ```
 
 To generate the runner-facing optimization brief for the VPS, use:
 
 ```bash
-pnpm lab:autoresearch:cycle --json
+pnpm lab:fstop:cycle --json
 ```
 
 This writes:
 
-- evaluation reports under `packages/lab/results/autoresearch/evaluations`
-- optimization briefs under `packages/lab/results/autoresearch/briefs`
+- evaluation reports under `.aperture/lab/results/autoresearch/evaluations`
+- optimization briefs under `.aperture/lab/results/autoresearch/briefs`
 
 This is the quiet half of the autoresearch loop: reviewer batches discover new
 cases, but calibration reports are the repeatable score surface that bounded
 semantic-layer patches should optimize against.
 
+To prune old runtime churn and keep the VPS footprint quiet, use:
+
+```bash
+pnpm lab:fstop:gc --json
+```
+
+This keeps recent campaigns and recent result artifacts while removing stale
+runtime output under `.aperture/lab`. It also prunes stale git worktree
+metadata so old campaign windows do not leave extra bookkeeping behind.
+
 To let the VPS OpenClaw or Hermes worker make the bounded code changes itself,
 use:
 
 ```bash
-pnpm lab:autoresearch:optimize --provider openclaw --json
+pnpm lab:fstop:optimize --provider <provider> --json
 ```
 
 This command:
@@ -265,18 +429,24 @@ This command:
 - runs the configured optimizer provider
 - verifies that only the allowed edit surface changed
 - reruns the calibration evaluation plus judgment/release gates
-- writes optimizer artifacts under `packages/lab/results/autoresearch/optimizer`
+- writes optimizer artifacts under `.aperture/lab/results/autoresearch/optimizer`
 
 The stable optimizer adapter is:
 
 ```bash
-pnpm lab:autoresearch:optimizer --provider <provider>
+pnpm lab:fstop:optimizer --provider <provider>
+```
+
+The stable runner adapter is:
+
+```bash
+pnpm lab:fstop:runner --provider <provider>
 ```
 
 For the shortest default VPS command, use:
 
 ```bash
-pnpm lab:autoresearch:openclaw
+pnpm lab:fstop:openclaw
 ```
 
 For cleaner real-session collection, use:
@@ -304,7 +474,7 @@ The intended split is:
 
 - [packages/lab/bundles](https://github.com/tomismeta/aperture/tree/main/packages/lab/bundles)
   - temporary local-first raw captures
-  - local imported public-seed bundles under `packages/lab/bundles/public`
+  - local imported public-seed bundles under `.aperture/lab/bundles/public`
 - [packages/lab/harvested](https://github.com/tomismeta/aperture/tree/main/packages/lab/harvested)
   - kept replay scenarios from real sessions, including "wild capture" probes
 - [packages/lab/golden](https://github.com/tomismeta/aperture/tree/main/packages/lab/golden)
@@ -330,6 +500,9 @@ The current source-of-truth stack is:
 
 For the broader lab architecture and naming ontology, see
 [Aperture Lab](../../docs/lab/aperture-lab.md).
+
+For the cleaner target shape of the F-Stop runtime, see
+[F-Stop V2 Architecture](../../docs/lab/fstop-architecture-v2.md).
 
 For the concrete harvesting and labeling plan behind JudgmentBench, see
 [JudgmentBench Data Strategy](../../docs/lab/judgmentbench-data-strategy.md).

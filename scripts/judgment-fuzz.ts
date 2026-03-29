@@ -1,9 +1,9 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { renderJudgmentBenchMarkdown, runPerturbedJudgmentBench } from "@aperture/lab";
+import { defaultLabRuntimeSubdirectory, renderJudgmentBenchMarkdown, runPerturbedJudgmentBench } from "@aperture/lab";
 
-const RESULTS_DIR = path.resolve(process.cwd(), "packages/lab/results");
+const RESULTS_DIR = defaultLabRuntimeSubdirectory("results");
 
 async function main(): Promise<void> {
   const result = await runPerturbedJudgmentBench();

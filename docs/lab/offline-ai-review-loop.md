@@ -5,6 +5,17 @@ deterministic path without putting AI in the hot path.
 
 It is a Lab operations note, not a product-surface note.
 
+The named discovery and proposal subsystem inside Aperture Lab is **F-Stop**.
+
+The canonical user-facing CLI surface for this loop is provider-neutral:
+
+- `pnpm lab:fstop:run ...`
+- `pnpm lab:fstop:review ...`
+- `pnpm lab:fstop:reviewer --provider <provider>`
+- `pnpm lab:fstop:propose ...`
+- `pnpm lab:fstop:optimize --provider <provider>`
+- `pnpm lab:fstop:optimizer --provider <provider>`
+
 ## Main Rule
 
 AI belongs in the **offline improvement loop**.
@@ -91,7 +102,7 @@ Current first source:
 
 Current landing path:
 
-- `packages/lab/bundles/public/...`
+- `.aperture/lab/bundles/public/...`
 
 The importer should preserve:
 
@@ -115,8 +126,8 @@ Run the imported bundle through the normal Lab replay path and capture:
 The first operational command pair is:
 
 ```bash
-pnpm lab:review:prepare --bundle packages/lab/bundles/public/swe-smith/tool/<bundle>.json --json
-pnpm lab:review:run --artifact packages/lab/results/offline-review/requests/<bundle>.json --reviewer-command "pnpm lab:review:reviewer --provider <provider>" --json
+pnpm lab:fstop:prepare --bundle .aperture/lab/bundles/public/swe-smith/tool/<bundle>.json --json
+pnpm lab:fstop:review:run --artifact .aperture/lab/results/offline-review/requests/<bundle>.json --reviewer-command "pnpm lab:fstop:reviewer --provider <provider>" --json
 ```
 
 The first command prepares a structured review artifact with Aperture's current
@@ -128,7 +139,7 @@ plus a run summary that Hermes/OpenClaw can inspect automatically.
 The stable adapter command is:
 
 ```bash
-pnpm lab:review:reviewer --provider <provider>
+pnpm lab:fstop:reviewer --provider <provider>
 ```
 
 It resolves the provider-specific command from environment variables instead of
@@ -180,6 +191,11 @@ The unattended runner should also emit:
 - a recommendation summary grouped by likely remediation area
 - a run summary with stable artifact paths and counts
 - a flat TSV results log for repeated unattended runs
+- eventually, a reviewable proposal artifact that bundles:
+  - repeated-signal selection
+  - candidate calibration promotions
+  - optimizer output
+  - optional patch diff
 
 ### 5. Promotion
 
@@ -199,7 +215,7 @@ The Lab should not turn every imported case into permanent benchmark truth.
 The first operational promotion command is:
 
 ```bash
-pnpm lab:autoresearch:promote --report packages/lab/results/offline-review/disagreements/<bundle>.json --split train --json
+pnpm lab:fstop:promote --report .aperture/lab/results/offline-review/disagreements/<bundle>.json --split train --json
 ```
 
 Promotion freezes:
@@ -213,6 +229,32 @@ These cases live under:
 - `packages/lab/calibration/train`
 - `packages/lab/calibration/validation`
 - `packages/lab/calibration/heldout`
+
+For unattended VPS operation, the higher-level entrypoint is:
+
+```bash
+pnpm lab:fstop:run --provider <provider> --reviewer-provider <provider> --optimizer-provider <provider> --json
+```
+
+That agent-managed run should:
+
+- let the provider runtime manage repeated proposal slices
+- stop when a proposal with a patch artifact is found
+- return one structured run artifact
+
+The underlying proposal loop remains:
+
+```bash
+pnpm lab:fstop:propose --reviewer-provider <provider> --optimizer-provider <provider> --json
+```
+
+That proposal loop should:
+
+- run discovery in batch
+- survive malformed reviewer output on individual bundles
+- promote only repeated high-confidence signals
+- optimize against the frozen corpus plus those candidate cases
+- hand back a proposal artifact for human review
 
 ### 6. Improvement
 
@@ -232,8 +274,8 @@ Later, use an `autoresearch`-style loop to search for bounded improvements in:
 The first quiet optimization commands are:
 
 ```bash
-pnpm lab:autoresearch:evaluate --json
-pnpm lab:autoresearch:cycle --json
+pnpm lab:fstop:evaluate --json
+pnpm lab:fstop:cycle --json
 ```
 
 `evaluate` reruns the frozen corpus through current core and measures:
@@ -247,7 +289,7 @@ pnpm lab:autoresearch:cycle --json
 The unattended optimization entrypoint is:
 
 ```bash
-pnpm lab:autoresearch:optimize --provider openclaw --json
+pnpm lab:fstop:optimize --provider <provider> --json
 ```
 
 This should run on the VPS from a clean worktree. It regenerates the frozen

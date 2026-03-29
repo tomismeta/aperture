@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  appendAutoresearchOptimizerResultsLog,
   assessAutoresearchEditSurface,
+  buildAutoresearchEvaluationCommands,
   defaultAutoresearchOptimizerPatchPath,
+  parseAutoresearchOptimizerFeedback,
   renderAutoresearchOptimizationPrompt,
   renderAutoresearchOptimizerRunMarkdown,
   type AutoresearchOptimizationBrief,
+  type AutoresearchOptimizerFeedback,
   type AutoresearchOptimizerRun,
 } from "../src/index.js";
 
@@ -15,7 +17,7 @@ test("renderAutoresearchOptimizationPrompt points the optimizer at the bounded s
   const brief: AutoresearchOptimizationBrief = {
     schemaVersion: 1,
     generatedAt: "2026-03-28T00:00:00.000Z",
-    reportPath: "packages/lab/results/autoresearch/evaluations/example.json",
+    reportPath: ".aperture/lab/results/autoresearch/evaluations/example.json",
     summary: {
       caseCount: 2,
       expectationCount: 32,
@@ -49,7 +51,7 @@ test("renderAutoresearchOptimizationPrompt points the optimizer at the bounded s
       "packages/core/src/semantic-detection.ts",
     ],
     evaluationCommands: [
-      "pnpm lab:autoresearch:evaluate",
+      "pnpm lab:fstop:evaluate",
       "pnpm judgment:battle",
     ],
     guidance: [
@@ -59,11 +61,27 @@ test("renderAutoresearchOptimizationPrompt points the optimizer at the bounded s
 
   const prompt = renderAutoresearchOptimizationPrompt(brief);
 
-  assert.match(prompt, /Aperture Autoresearch Optimization Task/);
+  assert.match(prompt, /Aperture Lab F-Stop Optimization Task/);
   assert.match(prompt, /skills\/aperture-lab-optimizer\/SKILL.md/);
   assert.match(prompt, /packages\/core\/src\/semantic-interpreter\.ts/);
   assert.match(prompt, /pnpm judgment:battle/);
   assert.match(prompt, /failure -> status_update/);
+  assert.match(prompt, /Return only one JSON object/);
+  assert.match(prompt, /"action": "patched" \| "no_patch"/);
+  assert.match(prompt, /Do not create commits or switch branches/);
+});
+
+test("buildAutoresearchEvaluationCommands preserves extra calibration dirs for optimizer reruns", () => {
+  const commands = buildAutoresearchEvaluationCommands([
+    "/tmp/autoresearch candidate/train",
+    "/tmp/quote's-test",
+  ]);
+
+  assert.deepEqual(commands, [
+    "pnpm lab:fstop:evaluate --extra-calibration-dir '/tmp/autoresearch candidate/train' --extra-calibration-dir '/tmp/quote'\"'\"'s-test'",
+    "pnpm judgment:battle",
+    "pnpm release:check",
+  ]);
 });
 
 test("assessAutoresearchEditSurface rejects files outside the allowed surface", () => {
@@ -86,12 +104,53 @@ test("assessAutoresearchEditSurface rejects files outside the allowed surface", 
   assert.deepEqual(result.disallowedFiles, ["packages/tui/src/render.ts"]);
 });
 
+test("parseAutoresearchOptimizerFeedback accepts fenced JSON optimizer output", () => {
+  const feedback = parseAutoresearchOptimizerFeedback(`
+I checked the prompt and ran the gates.
+
+\`\`\`json
+{
+  "action": "no_patch",
+  "summary": "No safe semantic change reduced mismatches.",
+  "reasons": ["The targeted rule also flipped heldout invariants."],
+  "recommendedFiles": ["packages/core/src/semantic-interpreter.ts"],
+  "changedFiles": [],
+  "commandsRun": ["pnpm lab:fstop:evaluate", "pnpm judgment:battle"],
+  "beforeMismatchCount": 5,
+  "afterMismatchCount": 5,
+  "judgmentBattle": "not_run",
+  "releaseCheck": "not_run"
+}
+\`\`\`
+`);
+
+  assert.deepEqual(feedback, {
+    action: "no_patch",
+    summary: "No safe semantic change reduced mismatches.",
+    reasons: ["The targeted rule also flipped heldout invariants."],
+    recommendedFiles: ["packages/core/src/semantic-interpreter.ts"],
+    changedFiles: [],
+    commandsRun: ["pnpm lab:fstop:evaluate", "pnpm judgment:battle"],
+    beforeMismatchCount: 5,
+    afterMismatchCount: 5,
+    judgmentBattle: "not_run",
+    releaseCheck: "not_run",
+  } satisfies AutoresearchOptimizerFeedback);
+});
+
+test("parseAutoresearchOptimizerFeedback rejects non-JSON summaries", () => {
+  assert.equal(
+    parseAutoresearchOptimizerFeedback("I found the active repo and loaded the optimizer instructions."),
+    null,
+  );
+});
+
 test("renderAutoresearchOptimizerRunMarkdown summarizes the optimization run clearly", () => {
   const run: AutoresearchOptimizerRun = {
     schemaVersion: 1,
     generatedAt: "2026-03-28T00:00:00.000Z",
     provider: "openclaw",
-    optimizerCommand: "pnpm lab:autoresearch:optimizer --provider openclaw",
+    optimizerCommand: "pnpm lab:fstop:optimizer --provider openclaw",
     summary: {
       beforeMismatchCount: 5,
       afterMismatchCount: 2,
@@ -100,12 +159,12 @@ test("renderAutoresearchOptimizerRunMarkdown summarizes the optimization run cle
       improved: true,
     },
     artifacts: {
-      briefPath: "packages/lab/results/autoresearch/briefs/example.json",
-      beforeReportPath: "packages/lab/results/autoresearch/evaluations/before.json",
-      afterReportPath: "packages/lab/results/autoresearch/evaluations/after.json",
-      promptPath: "packages/lab/results/autoresearch/optimizer/prompts/example.md",
-      rawOutputPath: "packages/lab/results/autoresearch/optimizer/raw/example.txt",
-      patchPath: "packages/lab/results/autoresearch/optimizer/patches/example.diff",
+      briefPath: ".aperture/lab/results/autoresearch/briefs/example.json",
+      beforeReportPath: ".aperture/lab/results/autoresearch/evaluations/before.json",
+      afterReportPath: ".aperture/lab/results/autoresearch/evaluations/after.json",
+      promptPath: ".aperture/lab/results/autoresearch/optimizer/prompts/example.md",
+      rawOutputPath: ".aperture/lab/results/autoresearch/optimizer/raw/example.txt",
+      patchPath: ".aperture/lab/results/autoresearch/optimizer/patches/example.diff",
     },
     changes: {
       changedFiles: ["packages/core/src/semantic-interpreter.ts"],
@@ -117,71 +176,38 @@ test("renderAutoresearchOptimizerRunMarkdown summarizes the optimization run cle
       releaseCheck: true,
     },
     status: "improved",
+    feedback: {
+      action: "patched",
+      summary: "Downgraded review-like observations from failure to status_update.",
+      reasons: ["Repeated imported review messages were overclassified as failure."],
+      recommendedFiles: ["packages/core/src/semantic-interpreter.ts"],
+      changedFiles: ["packages/core/src/semantic-interpreter.ts"],
+      commandsRun: [
+        "pnpm lab:fstop:evaluate --extra-calibration-dir /tmp/candidate",
+        "pnpm judgment:battle",
+        "pnpm release:check",
+      ],
+      beforeMismatchCount: 5,
+      afterMismatchCount: 2,
+      judgmentBattle: "pass",
+      releaseCheck: "pass",
+    },
     notes: ["Patched observational failure handling."],
   };
 
   const markdown = renderAutoresearchOptimizerRunMarkdown(run);
 
-  assert.match(markdown, /Autoresearch Optimizer Run/);
+  assert.match(markdown, /Aperture Lab F-Stop Optimizer Run/);
   assert.match(markdown, /Status: improved/);
   assert.match(markdown, /packages\/core\/src\/semantic-interpreter\.ts/);
   assert.match(markdown, /Patched observational failure handling\./);
   assert.match(markdown, /patches\/example\.diff/);
+  assert.match(markdown, /Optimizer Feedback/);
+  assert.match(markdown, /action: patched/);
+  assert.match(markdown, /Downgraded review-like observations/);
 });
 
 test("defaultAutoresearchOptimizerPatchPath writes patch artifacts under the optimizer patches dir", () => {
   const filePath = defaultAutoresearchOptimizerPatchPath("2026-03-28T00:00:00.000Z");
-  assert.match(filePath, /packages\/lab\/results\/autoresearch\/optimizer\/patches\/autoresearch-optimizer-patch-2026-03-28T00-00-00-000Z\.diff$/);
-});
-
-test("appendAutoresearchOptimizerResultsLog writes a header once and appends rows", async () => {
-  const { mkdtemp, readFile } = await import("node:fs/promises");
-  const os = await import("node:os");
-  const path = await import("node:path");
-
-  const directory = await mkdtemp(path.join(os.tmpdir(), "aperture-autoresearch-log-"));
-  const filePath = path.join(directory, "results.tsv");
-  const run: AutoresearchOptimizerRun = {
-    schemaVersion: 1,
-    generatedAt: "2026-03-28T00:00:00.000Z",
-    provider: "openclaw",
-    optimizerCommand: "pnpm lab:autoresearch:optimizer --provider openclaw",
-    summary: {
-      beforeMismatchCount: 5,
-      afterMismatchCount: 4,
-      beforeInvariantMismatchCount: 0,
-      afterInvariantMismatchCount: 0,
-      improved: true,
-    },
-    artifacts: {
-      briefPath: "brief.json",
-      beforeReportPath: "before.json",
-      afterReportPath: "after.json",
-    },
-    changes: {
-      changedFiles: ["packages/core/src/semantic-detection.ts"],
-      disallowedFiles: [],
-    },
-    gates: {
-      autoresearchEvaluate: true,
-      judgmentBattle: true,
-      releaseCheck: true,
-    },
-    status: "improved",
-    notes: [],
-  };
-
-  await appendAutoresearchOptimizerResultsLog(filePath, run, {
-    runPath: "optimizer-run.json",
-  });
-  await appendAutoresearchOptimizerResultsLog(filePath, run, {
-    runPath: "optimizer-run.json",
-  });
-
-  const contents = await readFile(filePath, "utf8");
-  const lines = contents.trim().split("\n");
-
-  assert.equal(lines.length, 3);
-  assert.match(lines[0] ?? "", /generated_at\tprovider\tstatus/);
-  assert.match(lines[1] ?? "", /openclaw\timproved/);
+  assert.match(filePath, /\.aperture\/lab\/results\/autoresearch\/optimizer\/patches\/autoresearch-optimizer-patch-2026-03-28T00-00-00-000Z\.diff$/);
 });

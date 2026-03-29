@@ -119,7 +119,36 @@ export function detectObservationalFailureStatus(
     return false;
   }
 
-  return containsAnySemanticPhrase(text, OBSERVATIONAL_READBACK_PHRASES);
+  return containsAnySemanticPhrase(text, OBSERVATIONAL_READBACK_PHRASES)
+    || looksLikeTaggedFileObservation(text)
+    || looksLikeReadObservationPayload(text);
+}
+
+export function detectRoutineObservationalFailureLowConsequence(
+  text: string,
+  toolFamily?: string,
+): boolean {
+  if (toolFamily === "search") {
+    return looksLikeSearchResultOutput(text);
+  }
+
+  if (toolFamily === "read") {
+    if (looksLikeSearchResultOutput(text)) {
+      return true;
+    }
+
+    if (!looksLikeTaggedFileObservation(text) && !looksLikeReadObservationPayload(text)) {
+      return false;
+    }
+
+    if (looksLikeSourceCodeObservation(text)) {
+      return false;
+    }
+
+    return looksLikeLogObservation(text) || looksLikeBuildMetadataObservation(text);
+  }
+
+  return false;
 }
 
 export function detectExpectedDiagnosticFailure(
@@ -153,6 +182,55 @@ function containsSemanticRiskPhrase(value: string, phrase: string): boolean {
   }
 
   return new RegExp(`(?:^|\\s)${escapeRegExp(normalizedPhrase)}(?:\\s|$)`).test(value);
+}
+
+function looksLikeReadObservationPayload(text: string): boolean {
+  if (!containsPathLikeToken(text)) {
+    return false;
+  }
+
+  return containsAnySemanticPhrase(text, OBSERVATIONAL_PAYLOAD_PHRASES)
+    || containsCodeLikeContent(text)
+    || containsLineNumberedCodeContent(text);
+}
+
+function looksLikeTaggedFileObservation(text: string): boolean {
+  return containsAnySemanticPhrase(text, TAGGED_FILE_OBSERVATION_PHRASES)
+    && containsPathLikeToken(text);
+}
+
+function looksLikeSearchResultOutput(text: string): boolean {
+  return SEARCH_RESULT_OUTPUT_PATTERN.test(text)
+    || (containsPathLikeToken(text) && /\bmatch(?:es)?\b/.test(text));
+}
+
+function containsPathLikeToken(text: string): boolean {
+  return PATH_LIKE_TOKEN_PATTERN.test(text);
+}
+
+function containsCodeLikeContent(text: string): boolean {
+  return CODE_CONTENT_PATTERN.test(text);
+}
+
+function containsLineNumberedCodeContent(text: string): boolean {
+  return LINE_NUMBERED_CODE_PATTERN.test(text);
+}
+
+function looksLikeSourceCodeObservation(text: string): boolean {
+  return SOURCE_CODE_PATH_PATTERN.test(text)
+    || SOURCE_CODE_FILENAME_PATTERN.test(text)
+    || SOURCE_CODE_CONTENT_PATTERN.test(text)
+    || LINE_NUMBERED_SOURCE_CODE_PATTERN.test(text);
+}
+
+function looksLikeLogObservation(text: string): boolean {
+  return LOG_OUTPUT_PATTERN.test(text)
+    || containsAnySemanticPhrase(text, LOG_LIKE_OBSERVATION_PHRASES);
+}
+
+function looksLikeBuildMetadataObservation(text: string): boolean {
+  return BUILD_METADATA_PATTERN.test(text)
+    || containsAnySemanticPhrase(text, BUILD_METADATA_PHRASES);
 }
 
 function readMetadataToolFamily(metadata?: Record<string, unknown>): string | null {
@@ -252,11 +330,49 @@ const OBSERVATIONAL_READBACK_PHRASES = [
   "here s the result of running sed -n",
 ] as const;
 
+const OBSERVATIONAL_PAYLOAD_PHRASES = [
+  "observation",
+  "contents of",
+  "showing first",
+  "showing top",
+  "found",
+] as const;
+
+const TAGGED_FILE_OBSERVATION_PHRASES = [
+  "path",
+  "type file",
+  "content",
+] as const;
+
 const ROUTINE_SUCCESS_PHRASES = [
   "ran successfully and did not produce any output",
   "command ran successfully and did not produce any output",
   "completed successfully and did not produce any output",
 ] as const;
+
+const LOG_LIKE_OBSERVATION_PHRASES = [
+  "tool-output",
+  "dmesg",
+] as const;
+
+const BUILD_METADATA_PHRASES = [
+  "makefile",
+  "spdx-license-identifier",
+  "patchlevel",
+  "sublevel",
+  "extraversion",
+] as const;
+
+const PATH_LIKE_TOKEN_PATTERN = /(?:^|\s)\/[a-z0-9._-]+(?:\/[a-z0-9._-]+)+(?:\s|$)/;
+const SEARCH_RESULT_OUTPUT_PATTERN = /\bfound\s+\d+\s+match(?:es)?\b|\bshowing\s+(?:first|top)\s+\d+\b|\bmatch(?:es)?\s+in\s+\d+\s+files?\b/;
+const CODE_CONTENT_PATTERN = /\b(import|from|export|class|def|function|const|let|var|return)\b/;
+const LINE_NUMBERED_CODE_PATTERN = /\b\d+\s+(?:import|from|export|class|def|function|const|let|var|return)\b/;
+const SOURCE_CODE_PATH_PATTERN = /\/[a-z0-9._/-]+\.(?:c|cc|cpp|cxx|h|hpp|ts|tsx|js|jsx|py|rb|go|rs|java|kt|swift)(?:\b|\/)/;
+const SOURCE_CODE_FILENAME_PATTERN = /\b[a-z0-9.-]+\.(?:c|cc|cpp|cxx|h|hpp|ts|tsx|js|jsx|py|rb|go|rs|java|kt|swift)\b/;
+const SOURCE_CODE_CONTENT_PATTERN = /\b(static|struct|enum|typedef|void|int|char|bool|return)\b/;
+const LINE_NUMBERED_SOURCE_CODE_PATTERN = /\b\d+\s+(?:static|struct|enum|typedef|void|int|char|bool|return)\b/;
+const LOG_OUTPUT_PATTERN = /\b\d+\s+\[\s*\d+\.\d+\]\s+[a-z0-9_.:-]+/;
+const BUILD_METADATA_PATTERN = /\b(?:version|patchlevel|sublevel|extraversion)\b/;
 
 const EXPECTED_DIAGNOSTIC_FAILURE_PHRASES = [
   "form is valid false",

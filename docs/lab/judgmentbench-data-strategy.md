@@ -136,6 +136,10 @@ Good candidates:
 - [GH Archive](https://www.gharchive.org/)
   - massive public GitHub event history
   - useful for workflow-pattern mining
+- [OpenAgentSessions](https://openagentsessions.org/)
+  - best next import target for Lab
+  - high-fidelity public agent sessions with tool-call and tool-result structure
+  - useful for semantic and offline-review pressure testing
 - [`SWE-bench/SWE-smith-trajectories`](https://huggingface.co/datasets/SWE-bench/SWE-smith-trajectories)
   - benchmark-linked agent trajectories
   - useful for seeding Lab bundles with public coding-agent traces
@@ -154,6 +158,10 @@ These are helpful for:
 - failure patterns
 - approval or review workflow shapes
 - stress cases
+
+The current priority order and importer shape for these sources is defined in:
+
+- [public-corpus-ingest-strategy.md](/Users/tom/dev/aperture/docs/lab/public-corpus-ingest-strategy.md)
 
 They are not the core JudgmentBench moat.
 

@@ -1,13 +1,13 @@
 ---
 name: aperture_lab_optimizer
-description: Apply bounded semantic-layer improvements for Aperture Lab's frozen autoresearch calibration corpus. Use when acting as the optimizer model inside the VPS autoresearch loop; edit only the allowed semantic/importer files, run the required gates, and leave a concise textual summary.
+description: Apply bounded semantic-layer improvements for Aperture Lab F-Stop's frozen calibration corpus. Use when acting as the optimizer model inside the VPS F-Stop loop; edit only the allowed semantic/importer files, run the required gates, and return a structured JSON outcome.
 metadata: {"openclaw":{"requires":{"bins":["pnpm","git"]},"os":["linux","darwin"]}}
 ---
 
-# Aperture Lab Optimizer
+# Aperture Lab F-Stop Optimizer
 
-Use this skill when you are the **optimizer model** inside Aperture's offline
-Lab autoresearch loop.
+Use this skill when you are the **optimizer model** inside Aperture Lab
+F-Stop.
 
 Your role is narrow:
 
@@ -15,13 +15,14 @@ Your role is narrow:
 - read the repo-local program/config it points to
 - edit only the allowed semantic/importer files
 - run the required gates
-- return a short textual summary
+- return a structured JSON outcome
 
 Do not:
 
 - edit planner or continuity files
 - add AI to the live runtime path
 - change product-shell or TUI behavior
+- create commits or switch branches
 - write release notes or bump packages
 
 ## Load First
@@ -55,20 +56,27 @@ That means:
 2. Edit only the allowed semantic/importer files.
 3. Run the required evaluation commands from the prompt.
 4. Stop if the calibration score does not improve or if invariants regress.
-5. Return a short summary of:
-   - changed files
-   - before/after mismatch counts
-   - whether the gates passed
+5. Return exactly one JSON object with:
+   - `action`: `patched` or `no_patch`
+   - `summary`
+   - `reasons`
+   - `recommendedFiles`
+   - `changedFiles`
+   - `commandsRun`
+   - `beforeMismatchCount`
+   - `afterMismatchCount`
+   - `judgmentBattle`
+   - `releaseCheck`
 
 ## Output Style
 
-Return plain text, not JSON.
+Return JSON only.
 
-Keep it concise and include:
+If no patch survives, still return a JSON object with:
 
-- changed files
-- key semantic fix you attempted
-- before/after mismatch counts if known
-- gate status
+- `action: "no_patch"`
+- a concrete blocker in `reasons`
+- likely target files in `recommendedFiles`
+- the commands you actually ran in `commandsRun`
 
-Do not include long prose or speculative roadmap commentary.
+Do not include prose before or after the JSON object.

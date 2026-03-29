@@ -12,7 +12,12 @@ import {
 import { parseRequiredJsonText, readJsonFile, tryReadJsonFile } from "./json-utils.js";
 import { type AutoresearchProposalRun } from "./autoresearch-proposal.js";
 import { type PublicTrajectoryDataset, type PublicTrajectorySplit } from "./public-trajectories.js";
-import { ensureCleanRepo, runGit } from "./autoresearch-workspace.js";
+import {
+  captureGitHeadSnapshot,
+  ensureCleanRepo,
+  restoreGitHeadSnapshot,
+  runGit,
+} from "./autoresearch-workspace.js";
 
 export type AutoresearchServiceProvider = AutoresearchCampaignProvider;
 
@@ -91,6 +96,7 @@ export async function runAutoresearchServiceCommand(
 
   const branch = await runGit(sourceRepo, ["rev-parse", "--abbrev-ref", "HEAD"]);
   const commit = await runGit(sourceRepo, ["rev-parse", "HEAD"]);
+  const sourceSnapshot = await captureGitHeadSnapshot(sourceRepo);
 
   let offset = options.offset;
   let completedWindows = 0;
@@ -176,6 +182,7 @@ export async function runAutoresearchServiceCommand(
       await logLine(logPath, `campaign_launch window=${windowIndex} offset=${offset} attempt=${attemptsForWindow}`);
 
       try {
+        await restoreGitHeadSnapshot(sourceSnapshot, sourceRepo);
         const payload = await executeCampaignWindow({
           sourceRepo,
           offset,
@@ -274,6 +281,14 @@ export async function runAutoresearchServiceCommand(
 
         break;
       } catch (error) {
+        await restoreGitHeadSnapshot(sourceSnapshot, sourceRepo).catch(async (restoreError) => {
+          await logLine(
+            logPath,
+            `source_repo_restore_error window=${windowIndex} offset=${offset} message=${sanitizeLogField(
+              restoreError instanceof Error ? restoreError.message : String(restoreError),
+            )}`,
+          );
+        });
         restartCount += 1;
         const message = error instanceof Error ? error.message : String(error);
         await logLine(
@@ -356,6 +371,15 @@ export async function runAutoresearchServiceCommand(
     }
 
   }
+
+  await restoreGitHeadSnapshot(sourceSnapshot, sourceRepo).catch(async (restoreError) => {
+    await logLine(
+      logPath,
+      `source_repo_restore_error window=final offset=${offset} message=${sanitizeLogField(
+        restoreError instanceof Error ? restoreError.message : String(restoreError),
+      )}`,
+    );
+  });
 
   const status: AutoresearchServiceCommandResult["status"] = selectedProposalPath
     ? "proposal_ready"

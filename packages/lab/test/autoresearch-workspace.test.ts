@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -52,6 +52,27 @@ test("restoreGitHeadSnapshot can recover a detached clean state after HEAD advan
   await assert.rejects(
     runGit(repoDir, ["symbolic-ref", "--quiet", "--short", "HEAD"]),
   );
+});
+
+test("restoreGitHeadSnapshot preserves ignored runtime directories while cleaning tracked changes", async () => {
+  const repoDir = await createTempGitRepo();
+  const filePath = path.join(repoDir, "example.txt");
+  await writeFile(path.join(repoDir, ".gitignore"), ".aperture\n", "utf8");
+  await writeFile(filePath, "base\n", "utf8");
+  await commitAll(repoDir, "base");
+
+  const snapshot = await captureGitHeadSnapshot(repoDir);
+  const runtimeFilePath = path.join(repoDir, ".aperture", "lab", "status.json");
+  await mkdir(path.dirname(runtimeFilePath), { recursive: true });
+  await writeFile(runtimeFilePath, "{\"ok\":true}\n", "utf8");
+  await writeFile(filePath, "changed\n", "utf8");
+
+  await restoreGitHeadSnapshot(snapshot, repoDir);
+
+  assert.deepEqual(await listWorkingTreeFiles(repoDir), []);
+  assert.equal(await readFile(filePath, "utf8"), "base\n");
+  assert.equal(await readFile(runtimeFilePath, "utf8"), "{\"ok\":true}\n");
+  assert.ok((await stat(runtimeFilePath)).isFile());
 });
 
 async function createTempGitRepo(): Promise<string> {

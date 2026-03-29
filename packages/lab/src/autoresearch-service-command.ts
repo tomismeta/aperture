@@ -411,10 +411,11 @@ async function executeCampaignWindow(options: {
   let stalled = false;
   let lastObservedProgressAt: string | undefined;
   const tsxCli = path.join(options.sourceRepo, "node_modules", "tsx", "dist", "cli.mjs");
-  const campaignScript = path.join(options.sourceRepo, "scripts", "autoresearch-campaign.ts");
+  const fstopCli = path.join(options.sourceRepo, "scripts", "fstop.ts");
   const child = spawn(process.execPath, [
     tsxCli,
-    campaignScript,
+    fstopCli,
+    "campaign",
     "--provider",
     options.options.provider,
     "--dataset",

@@ -480,7 +480,8 @@ async function executeCampaignRun(options: {
 
   const child = spawn(process.execPath, [
     path.join(options.repoDir, "node_modules", "tsx", "dist", "cli.mjs"),
-    path.join(options.repoDir, "scripts", "autoresearch-run.ts"),
+    path.join(options.repoDir, "scripts", "fstop.ts"),
+    "run",
     "--provider",
     options.options.provider,
     "--dataset",

@@ -110,6 +110,10 @@ export async function pruneWorktreeMetadata(sourceRepo: string): Promise<void> {
   });
 }
 
+export async function removeWorktreeWorkspace(sourceRepo: string, repoDir: string): Promise<void> {
+  await removeExistingWorktree(sourceRepo, repoDir);
+}
+
 async function removeExistingWorktree(sourceRepo: string, repoDir: string): Promise<void> {
   try {
     await spawnChecked("git", ["worktree", "remove", "--force", repoDir], {

@@ -12,11 +12,10 @@ import {
   calculateAutoresearchCampaignPercent,
   writeAutoresearchCampaignStatus,
 } from "./autoresearch-campaign.js";
+import { finalizeCampaignRunArtifacts } from "./autoresearch-campaign-artifacts.js";
 import {
   defaultAutoresearchFinalReportMarkdownPath,
-  renderAutoresearchFinalReportMarkdown,
   synthesizeAutoresearchFinalReport,
-  writeAutoresearchFinalReport,
 } from "./autoresearch-report.js";
 import { type AutoresearchProposalRun } from "./autoresearch-proposal.js";
 import { parseRequiredJsonText, readJsonFile, tryReadJsonFile } from "./json-utils.js";
@@ -304,25 +303,43 @@ export async function runAutoresearchCampaignCommand(
         runError = error instanceof Error ? error.message : String(error);
       }
 
-      const effectiveStatus = runPayload?.status ?? (runError ? "error" : "error");
-      if (runPayload?.runPath || runPayload?.selectedProposalPath) {
-        const report = await synthesizeAutoresearchFinalReport({
-          generatedAt: new Date().toISOString(),
-          ...(runPayload?.runPath ? { runnerRunPath: runPayload.runPath } : {}),
-          ...(runPayload?.selectedProposalPath ? { proposalPath: runPayload.selectedProposalPath } : {}),
-          repoRoot: repoDir,
+      let persistedArtifacts:
+        | Awaited<ReturnType<typeof finalizeCampaignRunArtifacts>>
+        | undefined;
+
+      try {
+        const report = runPayload?.runPath || runPayload?.selectedProposalPath
+          ? await synthesizeAutoresearchFinalReport({
+              generatedAt: new Date().toISOString(),
+              ...(runPayload?.runPath ? { runnerRunPath: runPayload.runPath } : {}),
+              ...(runPayload?.selectedProposalPath ? { proposalPath: runPayload.selectedProposalPath } : {}),
+              repoRoot: repoDir,
+            })
+          : undefined;
+
+        persistedArtifacts = await finalizeCampaignRunArtifacts({
+          sourceRepo: options.sourceRepo,
+          runRoot,
+          repoDir,
+          outputPath,
+          runStatusPath,
+          ...(runPayload ? { payload: runPayload } : {}),
+          ...(report ? { report, reportPath, reportMarkdownPath } : {}),
         });
-        await writeAutoresearchFinalReport(reportPath, report);
-        await writeFile(reportMarkdownPath, renderAutoresearchFinalReportMarkdown(report), "utf8");
-        latestRunReportPath = reportPath;
-        latestRunReportMarkdownPath = reportMarkdownPath;
+        latestRunReportPath = persistedArtifacts.reportPath;
+        latestRunReportMarkdownPath = persistedArtifacts.reportMarkdownPath;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        runError = runError ? `${runError}; ${message}` : message;
       }
-      if (runPayload?.selectedProposalPath) {
-        const candidateScore = await readProposalScore(runPayload.selectedProposalPath);
+
+      const effectiveStatus = runError ? "error" : (runPayload?.status ?? "error");
+      if (persistedArtifacts?.selectedProposalPath) {
+        const candidateScore = await readProposalScore(persistedArtifacts.selectedProposalPath);
         if (bestProposalScore === undefined || candidateScore >= bestProposalScore) {
           bestProposalScore = candidateScore;
-          finalSelectedProposalPath = runPayload.selectedProposalPath;
-          finalSelectedPatchPath = runPayload.selectedPatchPath ?? finalSelectedPatchPath;
+          finalSelectedProposalPath = persistedArtifacts.selectedProposalPath;
+          finalSelectedPatchPath = persistedArtifacts.selectedPatchPath ?? finalSelectedPatchPath;
           finalSelectedReportPath = latestRunReportPath ?? finalSelectedReportPath;
           finalSelectedReportMarkdownPath = latestRunReportMarkdownPath ?? finalSelectedReportMarkdownPath;
           finalStatus = "proposal_ready";
@@ -344,10 +361,12 @@ export async function runAutoresearchCampaignCommand(
         branch,
         commit,
         status: effectiveStatus,
-        ...(runPayload?.runPath ? { runPath: runPayload.runPath } : {}),
-        ...(runPayload?.runMarkdownPath ? { runMarkdownPath: runPayload.runMarkdownPath } : {}),
-        ...(runPayload?.selectedProposalPath ? { selectedProposalPath: runPayload.selectedProposalPath } : {}),
-        ...(runPayload?.selectedPatchPath ? { selectedPatchPath: runPayload.selectedPatchPath } : {}),
+        ...(persistedArtifacts?.runPath ? { runPath: persistedArtifacts.runPath } : {}),
+        ...(persistedArtifacts?.runMarkdownPath ? { runMarkdownPath: persistedArtifacts.runMarkdownPath } : {}),
+        ...(persistedArtifacts?.selectedProposalPath
+          ? { selectedProposalPath: persistedArtifacts.selectedProposalPath }
+          : {}),
+        ...(persistedArtifacts?.selectedPatchPath ? { selectedPatchPath: persistedArtifacts.selectedPatchPath } : {}),
       };
       await appendAutoresearchCampaignSummary(summaryPath, summaryRow);
 
@@ -381,10 +400,8 @@ export async function runAutoresearchCampaignCommand(
         ...(currentReportMarkdownPath ? { currentReportMarkdownPath } : {}),
         runIndex,
         runId,
-        runPath: repoDir,
+        runPath: runRoot,
         runLogPath,
-        runOutputPath: outputPath,
-        runStatusPath,
         ...(runStatus
           ? {
             currentRunProgress: {
@@ -423,8 +440,8 @@ export async function runAutoresearchCampaignCommand(
           repoDir,
           offset,
         );
-        if (runPayload.status && finalStatus !== "proposal_ready") {
-          finalStatus = runPayload.status;
+        if (finalStatus !== "proposal_ready") {
+          finalStatus = effectiveStatus;
         }
       } else {
         offset += options.limit;

@@ -46,6 +46,7 @@ export type AutoresearchOptimizeCommandOptions = {
   provider: FStopProvider;
   optimizerCommand?: string;
   extraCalibrationDirs: string[];
+  cwd?: string;
   outputPath?: string;
   promptPath?: string;
   rawOutputPath?: string;
@@ -86,7 +87,8 @@ export type AutoresearchOptimizeCommandResult = {
 export async function runAutoresearchOptimizeCommand(
   options: AutoresearchOptimizeCommandOptions,
 ): Promise<AutoresearchOptimizeCommandResult> {
-  await ensureCleanWorktree();
+  const repoDir = options.cwd ?? process.cwd();
+  await ensureCleanWorktree(repoDir);
 
   const generatedAt = new Date().toISOString();
   const optimizerCommand = options.optimizerCommand ?? `provider:${options.provider}`;
@@ -97,6 +99,7 @@ export async function runAutoresearchOptimizeCommand(
     "before",
     options.beforeOutputPath,
     options.extraCalibrationDirs,
+    repoDir,
   );
   const brief = createAutoresearchOptimizationBrief(before.report, {
     generatedAt,
@@ -163,7 +166,7 @@ export async function runAutoresearchOptimizeCommand(
   const prompt = renderAutoresearchOptimizationPrompt(brief);
   await writeAutoresearchOptimizerPrompt(promptPath, prompt);
 
-  const beforeHead = await readGitHead();
+  const beforeHead = await readGitHead(repoDir);
   let rawOutput = "";
   let executionError: string | undefined;
   try {
@@ -173,9 +176,11 @@ export async function runAutoresearchOptimizeCommand(
         prompt,
         "Optimizer command",
         "Optimizer command produced no stdout.",
+        repoDir,
       )
       : await runFStopRolePrompt("optimizer", prompt, {
         provider: options.provider,
+        cwd: repoDir,
       });
   } catch (error) {
     executionError = error instanceof Error ? error.message : String(error);
@@ -184,10 +189,10 @@ export async function runAutoresearchOptimizeCommand(
   await writeAutoresearchOptimizerRawOutput(rawOutputPath, rawOutput);
   const feedback = parseAutoresearchOptimizerFeedback(rawOutput);
 
-  const afterHead = await readGitHead();
-  const changedFiles = await listCombinedChangedFiles(beforeHead, afterHead);
+  const afterHead = await readGitHead(repoDir);
+  const changedFiles = await listCombinedChangedFiles(repoDir, beforeHead, afterHead);
   const surface = assessAutoresearchEditSurface(changedFiles, brief.allowedEditPaths);
-  const patch = surface.changedFiles.length > 0 ? await readGitDiff(beforeHead, afterHead) : "";
+  const patch = surface.changedFiles.length > 0 ? await readGitDiff(repoDir, beforeHead, afterHead) : "";
   if (patch.trim()) {
     await writeAutoresearchOptimizerPatch(patchOutputPath, patch);
   }
@@ -197,6 +202,7 @@ export async function runAutoresearchOptimizeCommand(
     "after",
     options.afterOutputPath,
     options.extraCalibrationDirs,
+    repoDir,
   );
 
   let judgmentBattle: boolean | undefined;
@@ -220,7 +226,7 @@ export async function runAutoresearchOptimizeCommand(
 
   if (!executionError && surface.disallowedFiles.length === 0 && surface.changedFiles.length > 0) {
     if (!options.skipJudgmentBattle) {
-      const gate = await runShellCommand("pnpm judgment:battle");
+      const gate = await runShellCommand("pnpm judgment:battle", repoDir);
       judgmentBattle = gate.ok;
       if (!gate.ok) {
         notes.push(`judgment:battle failed: ${gate.summary}`);
@@ -228,7 +234,7 @@ export async function runAutoresearchOptimizeCommand(
     }
 
     if (!options.skipReleaseCheck) {
-      const gate = await runShellCommand("pnpm release:check");
+      const gate = await runShellCommand("pnpm release:check", repoDir);
       releaseCheck = gate.ok;
       if (!gate.ok) {
         notes.push(`release:check failed: ${gate.summary}`);
@@ -311,12 +317,14 @@ async function createOptimizerEvaluationSnapshot(
   label: "before" | "after",
   explicitOutputPath?: string,
   extraCalibrationDirs: readonly string[] = [],
+  repoRoot: string = process.cwd(),
 ): Promise<{
   report: Awaited<ReturnType<typeof evaluateAutoresearchCalibrationCases>>;
   outputPath: string;
   markdownPath: string;
 }> {
   const cases = await loadAutoresearchCalibrationCases({
+    repoRoot,
     ...(extraCalibrationDirs.length > 0 ? { extraDirectories: extraCalibrationDirs } : {}),
   });
   const report = await evaluateAutoresearchCalibrationCases(cases, { generatedAt });
@@ -332,40 +340,40 @@ function defaultOptimizerEvaluationPath(generatedAt: string, label: "before" | "
   return base.replace("autoresearch-evaluation-", `autoresearch-evaluation-${label}-`);
 }
 
-async function readGitHead(): Promise<string> {
-  return await runGit(process.cwd(), ["rev-parse", "HEAD"]);
+async function readGitHead(repoDir: string): Promise<string> {
+  return await runGit(repoDir, ["rev-parse", "HEAD"]);
 }
 
-async function listCombinedChangedFiles(beforeHead: string, afterHead: string): Promise<string[]> {
-  const workingTreeFiles = await listWorkingTreeFiles(process.cwd());
+async function listCombinedChangedFiles(repoDir: string, beforeHead: string, afterHead: string): Promise<string[]> {
+  const workingTreeFiles = await listWorkingTreeFiles(repoDir);
   if (beforeHead === afterHead) {
     return workingTreeFiles;
   }
 
-  const committedFiles = await readGitDiffNameOnly(beforeHead, afterHead);
+  const committedFiles = await readGitDiffNameOnly(repoDir, beforeHead, afterHead);
   return [...new Set([...workingTreeFiles, ...committedFiles])].sort();
 }
 
-async function readGitDiff(beforeHead?: string, afterHead?: string): Promise<string> {
+async function readGitDiff(repoDir: string, beforeHead?: string, afterHead?: string): Promise<string> {
   const args = beforeHead && afterHead && beforeHead !== afterHead
     ? ["diff", "--binary", `${beforeHead}..${afterHead}`]
     : ["diff", "--binary"];
   const result = await spawnChecked("git", args, {
-    cwd: process.cwd(),
+    cwd: repoDir,
   });
   return result.stdout;
 }
 
-async function readGitDiffNameOnly(beforeHead: string, afterHead: string): Promise<string[]> {
-  const stdout = await runGit(process.cwd(), ["diff", "--name-only", `${beforeHead}..${afterHead}`]);
+async function readGitDiffNameOnly(repoDir: string, beforeHead: string, afterHead: string): Promise<string[]> {
+  const stdout = await runGit(repoDir, ["diff", "--name-only", `${beforeHead}..${afterHead}`]);
   return stdout.split("\n").map((entry) => entry.trim()).filter(Boolean);
 }
 
-async function runShellCommand(command: string): Promise<{ ok: boolean; summary: string }> {
+async function runShellCommand(command: string, repoDir: string): Promise<{ ok: boolean; summary: string }> {
   return await new Promise((resolve, reject) => {
     const child = spawn(command, {
       shell: true,
-      cwd: process.cwd(),
+      cwd: repoDir,
       env: process.env,
       stdio: ["ignore", "pipe", "pipe"],
     });

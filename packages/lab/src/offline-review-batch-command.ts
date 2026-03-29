@@ -170,6 +170,7 @@ async function runBatchReviews(
         const artifactPath = await prepareArtifact(bundlePath);
         const runResult = await runOfflineReviewArtifactReview({
           artifactPath,
+          cwd: process.cwd(),
           ...(options.reviewerProvider ? { reviewerProvider: options.reviewerProvider } : {}),
           ...(options.reviewerCommand ? { reviewerCommand: options.reviewerCommand } : {}),
         });

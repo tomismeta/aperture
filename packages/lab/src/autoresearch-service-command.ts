@@ -15,6 +15,7 @@ import { type PublicTrajectoryDataset, type PublicTrajectorySplit } from "./publ
 import {
   captureGitHeadSnapshot,
   ensureCleanRepo,
+  listWorkingTreeFiles,
   restoreGitHeadSnapshot,
   runGit,
 } from "./autoresearch-workspace.js";
@@ -189,6 +190,7 @@ export async function runAutoresearchServiceCommand(
           options,
           currentCampaignStatusPath,
           onStatus: async (campaignStatus) => {
+            await restoreLeakedSourceRepoChanges(sourceRepo, sourceSnapshot, logPath);
             lastProgressAt = campaignStatus.lastProgressAt;
             currentReportPath = campaignStatus.currentReportPath ?? currentReportPath;
             currentReportMarkdownPath = campaignStatus.currentReportMarkdownPath ?? currentReportMarkdownPath;
@@ -539,6 +541,23 @@ async function executeCampaignWindow(options: {
 
   const outputText = Buffer.concat(stdoutChunks).toString("utf8").trim();
   return parseRequiredJsonText<CampaignPayload>(outputText, "lab:fstop:campaign");
+}
+
+async function restoreLeakedSourceRepoChanges(
+  sourceRepo: string,
+  sourceSnapshot: Awaited<ReturnType<typeof captureGitHeadSnapshot>>,
+  logPath: string,
+): Promise<void> {
+  const leakedFiles = await listWorkingTreeFiles(sourceRepo);
+  if (leakedFiles.length === 0) {
+    return;
+  }
+
+  await restoreGitHeadSnapshot(sourceSnapshot, sourceRepo);
+  await logLine(
+    logPath,
+    `source_repo_leak_restored files=${sanitizeLogField(leakedFiles.join(","))}`,
+  );
 }
 
 async function readCampaignStatus(

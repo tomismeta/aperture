@@ -170,6 +170,7 @@ export async function runAutoresearchProposalCommand(
     const optimizeResult = await runAutoresearchOptimizeCommand({
       provider: options.optimizerProvider,
       ...(options.optimizerCommand ? { optimizerCommand: options.optimizerCommand } : {}),
+      cwd: process.cwd(),
       extraCalibrationDirs: [candidateCalibrationDir],
       skipJudgmentBattle: false,
       skipReleaseCheck: false,

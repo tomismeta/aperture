@@ -63,6 +63,7 @@ export type OfflineReviewArtifactRunResult = {
 export async function runOfflineReviewArtifactReview(
   options: OfflineReviewArtifactRunOptions,
 ): Promise<OfflineReviewArtifactRunResult> {
+  const workingDir = options.cwd ?? process.cwd();
   const artifact = await loadOfflineReviewArtifact(options.artifactPath);
   const promptPath = options.promptPath ?? defaultOfflineReviewPromptPath(artifact);
   const prompt = renderOfflineReviewPrompt(artifact);
@@ -72,7 +73,7 @@ export async function runOfflineReviewArtifactReview(
   const rawResponse = options.responseText ?? await runFStopRolePrompt("reviewer", prompt, {
     provider: options.reviewerProvider ?? "generic",
     ...(options.reviewerCommand ? { command: options.reviewerCommand } : {}),
-    ...(options.cwd ? { cwd: options.cwd } : {}),
+    cwd: workingDir,
     ...(options.env ? { env: options.env } : {}),
   });
   await writeText(rawResponsePath, rawResponse);
@@ -134,6 +135,7 @@ async function parseOrRepairReviewerResponse(
   rawResponse: string,
   options: OfflineReviewArtifactRunOptions,
 ): Promise<OfflineReviewResponsePayload> {
+  const workingDir = options.cwd ?? process.cwd();
   try {
     return parseOfflineReviewResponseText(rawResponse);
   } catch (error) {
@@ -148,7 +150,7 @@ async function parseOrRepairReviewerResponse(
       {
         provider: options.reviewerProvider ?? "generic",
         ...(options.reviewerCommand ? { command: options.reviewerCommand } : {}),
-        ...(options.cwd ? { cwd: options.cwd } : {}),
+        cwd: workingDir,
         ...(options.env ? { env: options.env } : {}),
       },
     );

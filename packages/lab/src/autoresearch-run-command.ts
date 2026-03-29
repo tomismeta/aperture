@@ -142,7 +142,7 @@ export async function runAutoresearchRunnerCommand(
     notes.push("Direct file or bundle mode executed a single unattended proposal attempt.");
   } else {
     let sliceIndex = 0;
-    while (remainingSlices.length > 0 && !findLastAttemptWithPatch(attempts)) {
+    while (remainingSlices.length > 0) {
       const slice = remainingSlices.shift();
       if (!slice) {
         break;
@@ -201,7 +201,7 @@ export async function runAutoresearchRunnerCommand(
     }
   }
 
-  const feedback = findLastAttemptWithPatch(attempts)
+  const feedback = findBestProposalAttempt(attempts)
     ? buildProposalReadyFeedback(attempts, commandsRun)
     : buildExhaustedFeedback(attempts, commandsRun);
   const changedFiles = await listWorkingTreeFilesInRepo(process.cwd());
@@ -312,7 +312,7 @@ function buildProposalReadyFeedback(
   attempts: readonly AutoresearchRunnerFeedbackAttempt[],
   commandsRun: readonly string[],
 ): AutoresearchRunnerFeedback {
-  const selectedAttempt = findLastAttemptWithPatch(attempts);
+  const selectedAttempt = findBestProposalAttempt(attempts);
   if (!selectedAttempt) {
     return buildExhaustedFeedback(attempts, commandsRun);
   }
@@ -445,16 +445,52 @@ async function buildSelectedProposalSnapshot(proposalPath: string): Promise<Sele
   };
 }
 
-function findLastAttemptWithPatch(
+function findBestProposalAttempt(
   attempts: readonly AutoresearchRunnerFeedbackAttempt[],
 ): AutoresearchRunnerFeedbackAttempt | undefined {
-  for (let index = attempts.length - 1; index >= 0; index -= 1) {
-    const attempt = attempts[index];
-    if (attempt?.optimizerPatchPath) {
-      return attempt;
+  let best: AutoresearchRunnerFeedbackAttempt | undefined;
+  for (const attempt of attempts) {
+    if (!isTrustedProposalAttempt(attempt)) {
+      continue;
+    }
+    if (!best || compareAttempts(attempt, best) > 0) {
+      best = attempt;
     }
   }
-  return undefined;
+  return best;
+}
+
+function isTrustedProposalAttempt(
+  attempt: AutoresearchRunnerFeedbackAttempt | undefined,
+): attempt is AutoresearchRunnerFeedbackAttempt {
+  return Boolean(
+    attempt
+      && attempt.status === "proposed"
+      && attempt.optimizerPatchPath
+      && attempt.proposalPath,
+  );
+}
+
+function compareAttempts(
+  left: AutoresearchRunnerFeedbackAttempt,
+  right: AutoresearchRunnerFeedbackAttempt,
+): number {
+  const score = (attempt: AutoresearchRunnerFeedbackAttempt): [number, number, number, number] => [
+    attempt.selectedSignalCount ?? 0,
+    attempt.promotedCaseCount ?? 0,
+    attempt.actionableCount ?? 0,
+    attempt.offset,
+  ];
+
+  const leftScore = score(left);
+  const rightScore = score(right);
+  for (let index = 0; index < leftScore.length; index += 1) {
+    const difference = leftScore[index]! - rightScore[index]!;
+    if (difference !== 0) {
+      return difference;
+    }
+  }
+  return 0;
 }
 
 async function listWorkingTreeFilesInRepo(repoRoot: string): Promise<string[]> {

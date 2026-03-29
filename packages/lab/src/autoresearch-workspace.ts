@@ -19,7 +19,7 @@ export async function ensureCleanWorktree(repoDir: string = process.cwd()): Prom
 }
 
 export async function listWorkingTreeFiles(repoDir: string = process.cwd()): Promise<string[]> {
-  const status = await runGit(repoDir, ["status", "--short"]);
+  const status = await runGitRaw(repoDir, ["status", "--short"]);
   return parseGitStatusFiles(status);
 }
 
@@ -30,7 +30,7 @@ export function parseGitStatusFiles(statusOutput: string): string[] {
       continue;
     }
 
-    const candidate = line.slice(3).trim();
+    const candidate = line.replace(/^[ MADRCU?!]{1,2}\s+/, "").trim();
     if (!candidate) {
       continue;
     }
@@ -45,13 +45,18 @@ export function parseGitStatusFiles(statusOutput: string): string[] {
 }
 
 export async function runGit(repoDir: string, args: string[]): Promise<string> {
+  const stdout = await runGitRaw(repoDir, args);
+  return stdout.trim();
+}
+
+export async function runGitRaw(repoDir: string, args: string[]): Promise<string> {
   const { stdout, stderr, code } = await runCommand("git", args, {
     cwd: repoDir,
   });
   if (code !== 0) {
     throw new Error(`git ${args.join(" ")} failed with exit code ${code}${stderr ? `: ${stderr}` : ""}`);
   }
-  return stdout.trim();
+  return stdout;
 }
 
 export async function spawnChecked(

@@ -18,6 +18,7 @@ import {
   synthesizeAutoresearchFinalReport,
   writeAutoresearchFinalReport,
 } from "./autoresearch-report.js";
+import { type AutoresearchProposalRun } from "./autoresearch-proposal.js";
 import { parseRequiredJsonText, readJsonFile, tryReadJsonFile } from "./json-utils.js";
 import {
   ensureCleanRepo,
@@ -124,9 +125,11 @@ export async function runAutoresearchCampaignCommand(
 
     let offset = options.offset;
     let completedWindows = 0;
-    let completed = false;
     let finalSelectedPatchPath: string | undefined;
     let finalSelectedProposalPath: string | undefined;
+    let finalSelectedReportPath: string | undefined;
+    let finalSelectedReportMarkdownPath: string | undefined;
+    let bestProposalScore: number | undefined;
     let finalStatus = "no_proposal";
     let lastProgressAt = generatedAt;
     let currentReportPath: string | undefined;
@@ -217,6 +220,8 @@ export async function runAutoresearchCampaignCommand(
       let runStatus: AutoresearchRunStatusSnapshot | undefined;
       let runError: string | undefined;
       let stallLoggedForProgressAt: string | undefined;
+      let latestRunReportPath: string | undefined;
+      let latestRunReportMarkdownPath: string | undefined;
 
       try {
         await prepareWorktreeWorkspace({
@@ -309,9 +314,22 @@ export async function runAutoresearchCampaignCommand(
         });
         await writeAutoresearchFinalReport(reportPath, report);
         await writeFile(reportMarkdownPath, renderAutoresearchFinalReportMarkdown(report), "utf8");
-        currentReportPath = reportPath;
-        currentReportMarkdownPath = reportMarkdownPath;
+        latestRunReportPath = reportPath;
+        latestRunReportMarkdownPath = reportMarkdownPath;
       }
+      if (runPayload?.selectedProposalPath) {
+        const candidateScore = await readProposalScore(runPayload.selectedProposalPath);
+        if (bestProposalScore === undefined || candidateScore >= bestProposalScore) {
+          bestProposalScore = candidateScore;
+          finalSelectedProposalPath = runPayload.selectedProposalPath;
+          finalSelectedPatchPath = runPayload.selectedPatchPath ?? finalSelectedPatchPath;
+          finalSelectedReportPath = latestRunReportPath ?? finalSelectedReportPath;
+          finalSelectedReportMarkdownPath = latestRunReportMarkdownPath ?? finalSelectedReportMarkdownPath;
+          finalStatus = "proposal_ready";
+        }
+      }
+      currentReportPath = finalSelectedReportPath ?? latestRunReportPath ?? currentReportPath;
+      currentReportMarkdownPath = finalSelectedReportMarkdownPath ?? latestRunReportMarkdownPath ?? currentReportMarkdownPath;
       if (currentReportPath) {
         await ensureSymlink(currentReportJsonLinkPath, currentReportPath);
       }
@@ -399,18 +417,12 @@ export async function runAutoresearchCampaignCommand(
 
       if (runPayload) {
         offset += await determineNextOffsetDelta(runPayload, options.limit, options.maxSlices, repoDir);
-        finalSelectedPatchPath = runPayload.selectedPatchPath ?? finalSelectedPatchPath;
-        finalSelectedProposalPath = runPayload.selectedProposalPath ?? finalSelectedProposalPath;
-        finalStatus = runPayload.status ?? finalStatus;
+        if (runPayload.status && finalStatus !== "proposal_ready") {
+          finalStatus = runPayload.status;
+        }
       } else {
         offset += options.limit;
         finalStatus = "error";
-      }
-
-      if (runPayload?.selectedPatchPath || runPayload?.status === "proposal_ready") {
-        completed = true;
-        await logLine(logPath, `campaign_stop reason=proposal_ready next_offset=${offset}`);
-        break;
       }
     }
 
@@ -437,15 +449,19 @@ export async function runAutoresearchCampaignCommand(
       stalled: false,
       ...(currentReportPath ? { currentReportPath } : {}),
       ...(currentReportMarkdownPath ? { currentReportMarkdownPath } : {}),
-      ...(finalSelectedProposalPath ? { note: `Selected proposal: ${finalSelectedProposalPath}` } : {}),
+      note: finalSelectedProposalPath
+        ? `Selected proposal: ${finalSelectedProposalPath}`
+        : finalStatus === "error"
+          ? "Campaign ended with an error."
+          : "Campaign completed without a selected proposal.",
     });
     await logLine(
       logPath,
-      `campaign_complete status=${completed ? "proposal_ready" : finalStatus} completed_windows=${completedWindows} next_offset=${offset}`,
+      `campaign_complete status=${finalSelectedProposalPath ? "proposal_ready" : finalStatus} completed_windows=${completedWindows} next_offset=${offset}`,
     );
 
     return {
-      status: completed ? "proposal_ready" : finalStatus,
+      status: finalSelectedProposalPath ? "proposal_ready" : finalStatus,
       campaignId,
       campaignRoot,
       logPath,
@@ -462,6 +478,15 @@ export async function runAutoresearchCampaignCommand(
   } finally {
     await releaseLock();
   }
+}
+
+async function readProposalScore(proposalPath: string): Promise<number> {
+  const proposal = await readJsonFile<AutoresearchProposalRun>(proposalPath);
+  const statusScore = proposal.status === "proposed" ? 1_000_000 : 0;
+  return statusScore
+    + proposal.summary.selectedSignalCount * 10_000
+    + proposal.summary.promotedCaseCount * 1_000
+    + proposal.summary.actionableCount;
 }
 
 async function executeCampaignRun(options: {

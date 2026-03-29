@@ -23,6 +23,38 @@ export async function listWorkingTreeFiles(repoDir: string = process.cwd()): Pro
   return parseGitStatusFiles(status);
 }
 
+export type GitHeadSnapshot = {
+  head: string;
+  branch?: string;
+};
+
+export async function captureGitHeadSnapshot(repoDir: string = process.cwd()): Promise<GitHeadSnapshot> {
+  const head = await runGit(repoDir, ["rev-parse", "HEAD"]);
+  const branch = await readCurrentBranch(repoDir);
+  return branch ? { head, branch } : { head };
+}
+
+export async function restoreGitHeadSnapshot(
+  snapshot: GitHeadSnapshot,
+  repoDir: string = process.cwd(),
+): Promise<void> {
+  const currentHead = await runGit(repoDir, ["rev-parse", "HEAD"]);
+
+  if (currentHead !== snapshot.head || snapshot.branch === undefined) {
+    await spawnChecked("git", ["switch", "--force", "--detach", snapshot.head], {
+      cwd: repoDir,
+    });
+  } else {
+    await spawnChecked("git", ["restore", "--source", snapshot.head, "--staged", "--worktree", "."], {
+      cwd: repoDir,
+    });
+  }
+
+  await spawnChecked("git", ["clean", "-fd"], {
+    cwd: repoDir,
+  });
+}
+
 export function parseGitStatusFiles(statusOutput: string): string[] {
   const files = new Set<string>();
   for (const line of statusOutput.split("\n")) {
@@ -154,6 +186,15 @@ async function pathExists(filePath: string): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+async function readCurrentBranch(repoDir: string): Promise<string | undefined> {
+  try {
+    const branch = await runGit(repoDir, ["symbolic-ref", "--quiet", "--short", "HEAD"]);
+    return branch || undefined;
+  } catch {
+    return undefined;
   }
 }
 

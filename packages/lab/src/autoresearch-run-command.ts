@@ -20,7 +20,12 @@ import {
 } from "./autoresearch-runner.js";
 import { readJsonFile } from "./json-utils.js";
 import { type PublicTrajectoryDataset, type PublicTrajectorySplit } from "./public-trajectories.js";
-import { ensureCleanWorktree, listWorkingTreeFiles } from "./autoresearch-workspace.js";
+import {
+  captureGitHeadSnapshot,
+  ensureCleanWorktree,
+  listWorkingTreeFiles,
+  restoreGitHeadSnapshot,
+} from "./autoresearch-workspace.js";
 
 export type AutoresearchRunnerProvider = "hermes" | "openclaw" | "generic";
 
@@ -270,42 +275,47 @@ async function executeProposalAttempt(
     bundlePaths?: string[];
   },
 ): Promise<AutoresearchRunnerFeedbackAttempt> {
-  const proposalResult = await runAutoresearchProposalCommand({
-    bundlePaths: "bundlePaths" in input ? (input.bundlePaths ?? []) : [],
-    dataset: options.dataset,
-    split: options.split,
-    reviewerProvider: options.reviewerProvider,
-    optimizerProvider: options.optimizerProvider,
-    reviewConcurrency: options.reviewConcurrency,
-    minSessionCount: options.minSessionCount,
-    maxReports: options.maxReports,
-    ...("offset" in input && "limit" in input
-      ? {
-        offset: input.offset,
-        limit: input.limit,
-      }
-      : {
-        ...(input.batchReportPath ? { batchReportPath: input.batchReportPath } : {}),
-      }),
-  });
-  const proposalPath = proposalResult.proposalPath;
-  const proposalRun = proposalResult.run;
+  const snapshot = await captureGitHeadSnapshot(process.cwd());
+  try {
+    const proposalResult = await runAutoresearchProposalCommand({
+      bundlePaths: "bundlePaths" in input ? (input.bundlePaths ?? []) : [],
+      dataset: options.dataset,
+      split: options.split,
+      reviewerProvider: options.reviewerProvider,
+      optimizerProvider: options.optimizerProvider,
+      reviewConcurrency: options.reviewConcurrency,
+      minSessionCount: options.minSessionCount,
+      maxReports: options.maxReports,
+      ...("offset" in input && "limit" in input
+        ? {
+          offset: input.offset,
+          limit: input.limit,
+        }
+        : {
+          ...(input.batchReportPath ? { batchReportPath: input.batchReportPath } : {}),
+        }),
+    });
+    const proposalPath = proposalResult.proposalPath;
+    const proposalRun = proposalResult.run;
 
-  return {
-    offset: "offset" in input ? input.offset : options.offset,
-    limit: "limit" in input ? input.limit : options.limit,
-    status: proposalRun.status,
-    actionableCount: proposalRun.summary.actionableCount,
-    selectedSignalCount: proposalRun.summary.selectedSignalCount,
-    promotedCaseCount: proposalRun.summary.promotedCaseCount,
-    ...(proposalRun.optimizer?.status ? { optimizerStatus: proposalRun.optimizer.status } : {}),
-    proposalPath,
-    batchReportPath: proposalRun.artifacts.batchReportPath,
-    ...(proposalRun.artifacts.optimizerRunPath ? { optimizerRunPath: proposalRun.artifacts.optimizerRunPath } : {}),
-    ...(proposalRun.artifacts.optimizerPatchPath
-      ? { optimizerPatchPath: proposalRun.artifacts.optimizerPatchPath }
-      : {}),
-  };
+    return {
+      offset: "offset" in input ? input.offset : options.offset,
+      limit: "limit" in input ? input.limit : options.limit,
+      status: proposalRun.status,
+      actionableCount: proposalRun.summary.actionableCount,
+      selectedSignalCount: proposalRun.summary.selectedSignalCount,
+      promotedCaseCount: proposalRun.summary.promotedCaseCount,
+      ...(proposalRun.optimizer?.status ? { optimizerStatus: proposalRun.optimizer.status } : {}),
+      proposalPath,
+      batchReportPath: proposalRun.artifacts.batchReportPath,
+      ...(proposalRun.artifacts.optimizerRunPath ? { optimizerRunPath: proposalRun.artifacts.optimizerRunPath } : {}),
+      ...(proposalRun.artifacts.optimizerPatchPath
+        ? { optimizerPatchPath: proposalRun.artifacts.optimizerPatchPath }
+        : {}),
+    };
+  } finally {
+    await restoreGitHeadSnapshot(snapshot, process.cwd());
+  }
 }
 
 function buildProposalReadyFeedback(

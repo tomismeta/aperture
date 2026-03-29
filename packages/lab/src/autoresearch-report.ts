@@ -96,6 +96,9 @@ export async function synthesizeAutoresearchFinalReport(options: {
   const proposal = proposalPath
     ? await loadJsonFile<AutoresearchProposalRun>(path.resolve(repoRoot, proposalPath))
     : undefined;
+  const attemptProposals = runnerRun
+    ? await loadAttemptProposals(runnerRun, repoRoot, proposalPath)
+    : [];
   const batchReport = proposal?.artifacts.batchReportPath
     ? await loadJsonFile<OfflineReviewBatchReport>(path.resolve(repoRoot, proposal.artifacts.batchReportPath))
     : undefined;
@@ -103,7 +106,12 @@ export async function synthesizeAutoresearchFinalReport(options: {
     ? await loadJsonFile<AutoresearchOptimizerRun>(path.resolve(repoRoot, proposal.artifacts.optimizerRunPath))
     : undefined;
 
-  const coverage = await summarizeBatchCoverage(batchReport, repoRoot);
+  const coverage = attemptProposals.length > 0
+    ? await summarizeProposalCoverage(attemptProposals, repoRoot)
+    : await summarizeBatchCoverage(batchReport, repoRoot);
+  const aggregateSummary = attemptProposals.length > 0
+    ? summarizeProposalRuns(attemptProposals)
+    : proposal?.summary;
   const notes = [
     ...(runnerRun?.notes ?? []),
     ...(proposal?.notes ?? []),
@@ -140,19 +148,19 @@ export async function synthesizeAutoresearchFinalReport(options: {
     }),
     source,
     runSummary: {
-      bundleCount: coverage.bundleCount ?? proposal?.summary.bundleCount ?? 0,
+      bundleCount: coverage.bundleCount ?? aggregateSummary?.bundleCount ?? 0,
       sessionCount: coverage.sessionCount,
       replayStepCount: coverage.replayStepCount,
       sourceEventStepCount: coverage.sourceEventStepCount,
       submitStepCount: coverage.submitStepCount,
-      ...(proposal
+      ...(aggregateSummary
         ? {
-            cleanCount: proposal.summary.cleanCount,
-            disagreementBundleCount: proposal.summary.disagreementBundleCount,
-            errorCount: proposal.summary.errorCount,
-            actionableCount: proposal.summary.actionableCount,
-            selectedSignalCount: proposal.summary.selectedSignalCount,
-            promotedCaseCount: proposal.summary.promotedCaseCount,
+            cleanCount: aggregateSummary.cleanCount,
+            disagreementBundleCount: aggregateSummary.disagreementBundleCount,
+            errorCount: aggregateSummary.errorCount,
+            actionableCount: aggregateSummary.actionableCount,
+            selectedSignalCount: aggregateSummary.selectedSignalCount,
+            promotedCaseCount: aggregateSummary.promotedCaseCount,
           }
         : {}),
     },
@@ -400,6 +408,129 @@ async function summarizeBatchCoverage(
     sourceEventStepCount,
     submitStepCount,
   };
+}
+
+async function loadAttemptProposals(
+  runnerRun: AutoresearchRunnerRun,
+  repoRoot: string,
+  selectedProposalPath?: string,
+): Promise<Array<{ path: string; run: AutoresearchProposalRun }>> {
+  const uniquePaths = new Set<string>();
+  if (selectedProposalPath) {
+    uniquePaths.add(path.resolve(repoRoot, selectedProposalPath));
+  }
+  for (const attempt of runnerRun.feedback?.attempts ?? []) {
+    if (attempt.proposalPath) {
+      uniquePaths.add(path.resolve(repoRoot, attempt.proposalPath));
+    }
+  }
+
+  const loaded: Array<{ path: string; run: AutoresearchProposalRun }> = [];
+  for (const proposalPath of uniquePaths) {
+    try {
+      loaded.push({
+        path: proposalPath,
+        run: await loadJsonFile<AutoresearchProposalRun>(proposalPath),
+      });
+    } catch {
+      continue;
+    }
+  }
+  return loaded;
+}
+
+async function summarizeProposalCoverage(
+  proposals: readonly { path: string; run: AutoresearchProposalRun }[],
+  repoRoot: string,
+): Promise<{
+  bundleCount?: number;
+  sessionCount: number;
+  replayStepCount: number;
+  sourceEventStepCount: number;
+  submitStepCount: number;
+}> {
+  let bundleCount = 0;
+  let replayStepCount = 0;
+  let sourceEventStepCount = 0;
+  let submitStepCount = 0;
+  const sessionIds = new Set<string>();
+  const seenBundlePaths = new Set<string>();
+
+  for (const proposal of proposals) {
+    if (!proposal.run.artifacts.batchReportPath) {
+      continue;
+    }
+
+    let batchReport: OfflineReviewBatchReport;
+    try {
+      batchReport = await loadJsonFile<OfflineReviewBatchReport>(
+        path.resolve(repoRoot, proposal.run.artifacts.batchReportPath),
+      );
+    } catch {
+      continue;
+    }
+
+    for (const bundlePath of batchReport.input.bundles) {
+      const absoluteBundlePath = path.resolve(repoRoot, bundlePath);
+      if (seenBundlePaths.has(absoluteBundlePath)) {
+        continue;
+      }
+      seenBundlePaths.add(absoluteBundlePath);
+      try {
+        const bundle = await loadSessionBundle(absoluteBundlePath);
+        bundleCount += 1;
+        sessionIds.add(bundle.sessionId);
+        replayStepCount += bundle.outcomes.totalSteps;
+        for (const step of bundle.steps) {
+          if (step.kind === "publishSource") {
+            sourceEventStepCount += 1;
+          }
+          if (step.kind === "submit") {
+            submitStepCount += 1;
+          }
+        }
+      } catch {
+        continue;
+      }
+    }
+  }
+
+  return {
+    bundleCount,
+    sessionCount: sessionIds.size,
+    replayStepCount,
+    sourceEventStepCount,
+    submitStepCount,
+  };
+}
+
+function summarizeProposalRuns(
+  proposals: readonly { path: string; run: AutoresearchProposalRun }[],
+): AutoresearchProposalRun["summary"] | undefined {
+  if (proposals.length === 0) {
+    return undefined;
+  }
+
+  return proposals.reduce<AutoresearchProposalRun["summary"]>(
+    (summary, proposal) => ({
+      bundleCount: summary.bundleCount + proposal.run.summary.bundleCount,
+      cleanCount: summary.cleanCount + proposal.run.summary.cleanCount,
+      disagreementBundleCount: summary.disagreementBundleCount + proposal.run.summary.disagreementBundleCount,
+      errorCount: summary.errorCount + proposal.run.summary.errorCount,
+      actionableCount: summary.actionableCount + proposal.run.summary.actionableCount,
+      selectedSignalCount: summary.selectedSignalCount + proposal.run.summary.selectedSignalCount,
+      promotedCaseCount: summary.promotedCaseCount + proposal.run.summary.promotedCaseCount,
+    }),
+    {
+      bundleCount: 0,
+      cleanCount: 0,
+      disagreementBundleCount: 0,
+      errorCount: 0,
+      actionableCount: 0,
+      selectedSignalCount: 0,
+      promotedCaseCount: 0,
+    },
+  );
 }
 
 function summarizeSignal(signal: AutoresearchProposalSignal): AutoresearchFinalReport["majorDisagreements"][number] {

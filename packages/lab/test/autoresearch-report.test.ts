@@ -287,6 +287,135 @@ test("synthesizeAutoresearchFinalReport combines proposal, optimizer, and bundle
   assert.match(markdown, /Lower consequence for routine observational failures/);
 });
 
+test("synthesizeAutoresearchFinalReport aggregates coverage from no-proposal attempts", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "aperture-autoresearch-report-no-proposal-"));
+  const bundlesDir = path.join(repoRoot, "bundles");
+  const reportsDir = path.join(repoRoot, "reports");
+  await mkdir(bundlesDir, { recursive: true });
+  await mkdir(reportsDir, { recursive: true });
+
+  const bundleA = createSessionBundleFromDataclawRow(SAMPLE_DATACLAW_ROW);
+  const bundleB = createSessionBundleFromDataclawRow({
+    ...SAMPLE_DATACLAW_ROW,
+    session_id: "223e4567-e89b-12d3-a456-426614174000",
+    start_time: "2026-03-28T01:00:00.000Z",
+  });
+  const bundlePathA = path.join(bundlesDir, "bundle-a.json");
+  const bundlePathB = path.join(bundlesDir, "bundle-b.json");
+  await writeSessionBundle(bundlePathA, bundleA);
+  await writeSessionBundle(bundlePathB, bundleB);
+
+  const batchPathA = path.join(reportsDir, "batch-a.json");
+  const batchPathB = path.join(reportsDir, "batch-b.json");
+  const proposalPathA = path.join(reportsDir, "proposal-a.json");
+  const proposalPathB = path.join(reportsDir, "proposal-b.json");
+  const runnerRunPath = path.join(reportsDir, "runner.json");
+
+  const batchA: OfflineReviewBatchReport = {
+    schemaVersion: 1,
+    generatedAt: "2026-03-29T00:10:00.000Z",
+    reviewer: { provider: "openclaw", command: "pnpm lab:fstop:reviewer --provider openclaw" },
+    input: { imported: true, bundles: [bundlePathA] },
+    summary: {
+      bundleCount: 1,
+      statusCounts: { clean: 1, disagreement: 0, error: 0 },
+      disagreementCount: 0,
+      actionableCount: 0,
+      focusAreaCounts: {
+        title: 0,
+        summary: 0,
+        status: 0,
+        intentFrame: 0,
+        toolFamily: 0,
+        consequence: 0,
+      },
+      recommendationCounts: { promote: 0, inspect: 0, ignore: 1 },
+    },
+    entries: [],
+  };
+  const batchB: OfflineReviewBatchReport = {
+    ...batchA,
+    input: { imported: true, bundles: [bundlePathB] },
+  };
+
+  const cleanProposal = (batchReportPath: string): AutoresearchProposalRun => ({
+    schemaVersion: 1,
+    generatedAt: "2026-03-29T00:11:00.000Z",
+    status: "clean",
+    summary: {
+      bundleCount: 1,
+      cleanCount: 1,
+      disagreementBundleCount: 0,
+      errorCount: 0,
+      actionableCount: 0,
+      selectedSignalCount: 0,
+      promotedCaseCount: 0,
+    },
+    artifacts: {
+      batchReportPath,
+    },
+    signals: [],
+    intentStatements: [],
+    codeRecommendations: [],
+    promotions: [],
+    notes: [],
+  });
+
+  const runnerRun: AutoresearchRunnerRun = {
+    schemaVersion: 1,
+    generatedAt: "2026-03-29T00:12:00.000Z",
+    provider: "openclaw",
+    runnerCommand: "deterministic sequential slice loop",
+    status: "no_proposal",
+    artifacts: {},
+    feedback: {
+      action: "no_proposal",
+      summary: "Exhausted the slice budget without finding a proposal patch artifact.",
+      reasons: ["2 attempt(s) ended with status=clean."],
+      commandsRun: [],
+      attempts: [
+        {
+          offset: 0,
+          limit: 12,
+          status: "clean",
+          actionableCount: 0,
+          selectedSignalCount: 0,
+          promotedCaseCount: 0,
+          proposalPath: proposalPathA,
+        },
+        {
+          offset: 12,
+          limit: 12,
+          status: "clean",
+          actionableCount: 0,
+          selectedSignalCount: 0,
+          promotedCaseCount: 0,
+          proposalPath: proposalPathB,
+        },
+      ],
+    },
+    notes: [],
+  };
+
+  await writeJson(batchPathA, batchA);
+  await writeJson(batchPathB, batchB);
+  await writeJson(proposalPathA, cleanProposal(batchPathA));
+  await writeJson(proposalPathB, cleanProposal(batchPathB));
+  await writeJson(runnerRunPath, runnerRun);
+
+  const report = await synthesizeAutoresearchFinalReport({
+    runnerRunPath,
+    repoRoot,
+  });
+
+  assert.equal(report.status, "no_proposal");
+  assert.equal(report.runSummary.bundleCount, 2);
+  assert.equal(report.runSummary.sessionCount, 2);
+  assert.ok(report.runSummary.replayStepCount > 0);
+  assert.equal(report.runSummary.cleanCount, 2);
+  assert.equal(report.attempts.length, 2);
+});
+
 async function writeJson(filePath: string, value: unknown): Promise<void> {
   await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }

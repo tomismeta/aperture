@@ -416,7 +416,13 @@ export async function runAutoresearchCampaignCommand(
       );
 
       if (runPayload) {
-        offset += await determineNextOffsetDelta(runPayload, options.limit, options.maxSlices, repoDir);
+        offset += await determineNextOffsetDelta(
+          runPayload,
+          options.limit,
+          options.maxSlices,
+          repoDir,
+          offset,
+        );
         if (runPayload.status && finalStatus !== "proposal_ready") {
           finalStatus = runPayload.status;
         }
@@ -586,6 +592,7 @@ async function determineNextOffsetDelta(
   limit: number,
   maxSlices: number,
   repoDir: string,
+  startOffset: number,
 ): Promise<number> {
   if (!payload.runPath) {
     return limit * maxSlices;
@@ -604,10 +611,11 @@ async function determineNextOffsetDelta(
     if (attempts.length === 0) {
       return limit * maxSlices;
     }
-    return attempts.reduce(
+    const maxEnd = attempts.reduce(
       (max, attempt) => Math.max(max, Number(attempt.offset) + Number(attempt.limit)),
       0,
     );
+    return Math.max(limit, maxEnd - startOffset);
   } catch {
     return limit * maxSlices;
   }

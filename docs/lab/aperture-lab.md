@@ -15,6 +15,10 @@ The first public benchmark identity inside the lab is:
 
 - `JudgmentBench`
 
+The discovery and recommendation runtime inside the lab is:
+
+- `F-Stop`
+
 ## Why This Exists
 
 Aperture's moat should not come only from adapters or surfaces.
@@ -113,7 +117,20 @@ It is the doctrine-shaped benchmark surface for:
 
 This is narrower than the lab itself.
 
-### 4. Autocalibration
+### 4. F-Stop
+
+`F-Stop` is the Aperture Lab subsystem for:
+
+- outside-trace discovery
+- offline review
+- disagreement clustering
+- calibration recommendation
+- bounded proposal generation
+
+It is the Lab runtime that can use OpenClaw, Hermes, or future compatible
+agent backends without making those backends the product name.
+
+### 5. Autocalibration
 
 `autocalibration` is a future lab capability, not the name of the whole system.
 

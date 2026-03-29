@@ -1,13 +1,13 @@
 ---
 name: aperture_lab_reviewer
-description: Review Aperture Lab offline review prompts and return JSON-only findings about title, summary, status, intentFrame, toolFamily, and consequence. Use when acting as the reviewer model inside the Aperture Lab autoresearch loop; do not edit code and do not return prose outside the required JSON.
+description: Review Aperture Lab F-Stop offline review prompts and return JSON-only findings about title, summary, status, intentFrame, toolFamily, and consequence. Use when acting as the reviewer model inside the Aperture Lab F-Stop loop; do not edit code and do not return prose outside the required JSON.
 metadata: {"openclaw":{"requires":{"bins":["pnpm"]},"os":["linux","darwin"]}}
 ---
 
 # Aperture Lab Reviewer
 
-Use this skill when you are the **reviewer model** inside Aperture's offline
-Lab loop.
+Use this skill when you are the **reviewer model** inside Aperture Lab
+F-Stop.
 
 Your job is narrow:
 

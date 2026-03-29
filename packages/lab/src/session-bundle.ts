@@ -28,8 +28,15 @@ import type {
 import { runReplayScenario, type ReplayRunResult } from "./runner.js";
 import { scoreReplayRun } from "./scorecard.js";
 import {
+  hasShape,
+  isBoolean,
+  isNumber,
   isRecord,
+  isString,
   isStringArray,
+  validateWith,
+} from "./shape.js";
+import {
   validateApertureTrace,
   validateAttentionResponse,
   validateAttentionSignal,
@@ -533,49 +540,49 @@ function safeBundleFilename(value: string): string {
 }
 
 export function validateSessionBundle(value: unknown): ReplaySessionBundle | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
   if (
-    value.schemaVersion !== SESSION_BUNDLE_SCHEMA_VERSION
-    || typeof value.sessionId !== "string"
-    || typeof value.title !== "string"
-    || typeof value.exportedAt !== "string"
-    || !Array.isArray(value.steps)
-    || !value.steps.every((step) => validateReplayObservationStep(step) !== null)
-    || !Array.isArray(value.normalizedEvents)
-    || !value.normalizedEvents.every((snapshot) => validateReplayNormalizedEventSnapshot(snapshot) !== null)
-    || !Array.isArray(value.traces)
-    || !value.traces.every((trace) => validateApertureTrace(trace) !== null)
-    || !Array.isArray(value.signals)
-    || !value.signals.every((signal) => validateAttentionSignal(signal) !== null)
-    || !Array.isArray(value.responses)
-    || !value.responses.every((response) => validateAttentionResponse(response) !== null)
-    || !Array.isArray(value.viewSnapshots)
-    || !value.viewSnapshots.every((snapshot) => validateReplayViewSnapshot(snapshot) !== null)
-    || !Array.isArray(value.semanticSnapshots)
-    || !value.semanticSnapshots.every((snapshot) => validateReplaySemanticSnapshot(snapshot) !== null)
-    || !Array.isArray(value.decisionSnapshots)
-    || !value.decisionSnapshots.every((snapshot) => validateReplayDecisionSnapshot(snapshot) !== null)
-    || !isSessionBundleOutcomes(value.outcomes)
+    !isRecord(value)
+    || value.schemaVersion !== SESSION_BUNDLE_SCHEMA_VERSION
+    || !hasShape(
+      value,
+      {
+        sessionId: isString,
+        title: isString,
+        exportedAt: isString,
+        steps: (steps: unknown): steps is ReplaySessionBundle["steps"] => (
+          Array.isArray(steps) && steps.every((step) => validateReplayObservationStep(step) !== null)
+        ),
+        normalizedEvents: (snapshots: unknown): snapshots is ReplaySessionBundle["normalizedEvents"] => (
+          Array.isArray(snapshots) && snapshots.every((snapshot) => validateReplayNormalizedEventSnapshot(snapshot) !== null)
+        ),
+        traces: (traces: unknown): traces is ReplaySessionBundle["traces"] => (
+          Array.isArray(traces) && traces.every((trace) => validateApertureTrace(trace) !== null)
+        ),
+        signals: (signals: unknown): signals is ReplaySessionBundle["signals"] => (
+          Array.isArray(signals) && signals.every((signal) => validateAttentionSignal(signal) !== null)
+        ),
+        responses: (responses: unknown): responses is ReplaySessionBundle["responses"] => (
+          Array.isArray(responses) && responses.every((response) => validateAttentionResponse(response) !== null)
+        ),
+        viewSnapshots: (snapshots: unknown): snapshots is ReplaySessionBundle["viewSnapshots"] => (
+          Array.isArray(snapshots) && snapshots.every((snapshot) => validateReplayViewSnapshot(snapshot) !== null)
+        ),
+        semanticSnapshots: (snapshots: unknown): snapshots is ReplaySessionBundle["semanticSnapshots"] => (
+          Array.isArray(snapshots) && snapshots.every((snapshot) => validateReplaySemanticSnapshot(snapshot) !== null)
+        ),
+        decisionSnapshots: (snapshots: unknown): snapshots is ReplaySessionBundle["decisionSnapshots"] => (
+          Array.isArray(snapshots) && snapshots.every((snapshot) => validateReplayDecisionSnapshot(snapshot) !== null)
+        ),
+        outcomes: isSessionBundleOutcomes,
+      },
+      {
+        description: isString,
+        doctrineTags: isStringArray,
+        source: validateWith(validateSessionBundleSource),
+        core: isRecord,
+      },
+    )
   ) {
-    return null;
-  }
-
-  if (value.description !== undefined && typeof value.description !== "string") {
-    return null;
-  }
-
-  if (value.doctrineTags !== undefined && !isStringArray(value.doctrineTags)) {
-    return null;
-  }
-
-  if (value.source !== undefined && validateSessionBundleSource(value.source) === null) {
-    return null;
-  }
-
-  if (value.core !== undefined && !isRecord(value.core)) {
     return null;
   }
 
@@ -600,28 +607,28 @@ function uniqueStrings(values: string[]): string[] {
 }
 
 function validateSessionBundleSource(value: unknown): ReplaySessionBundleSource | null {
-  if (!isRecord(value) || typeof value.id !== "string") {
-    return null;
-  }
-
   if (
-    (value.kind !== undefined && typeof value.kind !== "string")
-    || (value.label !== undefined && typeof value.label !== "string")
-    || (value.redacted !== undefined && typeof value.redacted !== "boolean")
+    !isRecord(value)
+    || !hasShape(
+      value,
+      { id: isString },
+      {
+        kind: isString,
+        label: isString,
+        redacted: isBoolean,
+        capture: (capture: unknown): capture is NonNullable<ReplaySessionBundleSource["capture"]> => (
+          isRecord(capture)
+          && hasShape(capture, {}, {
+            eventTransport: isString,
+            semanticCapture: isString,
+            responseBridge: isString,
+            notes: isStringArray,
+          })
+        ),
+      },
+    )
   ) {
     return null;
-  }
-
-  if (value.capture !== undefined) {
-    if (
-      !isRecord(value.capture)
-      || (value.capture.eventTransport !== undefined && typeof value.capture.eventTransport !== "string")
-      || (value.capture.semanticCapture !== undefined && typeof value.capture.semanticCapture !== "string")
-      || (value.capture.responseBridge !== undefined && typeof value.capture.responseBridge !== "string")
-      || (value.capture.notes !== undefined && !isStringArray(value.capture.notes))
-    ) {
-      return null;
-    }
   }
 
   return value as ReplaySessionBundleSource;
@@ -701,18 +708,17 @@ function emptyAttentionView(): AttentionView {
 }
 
 function isSessionBundleOutcomes(value: unknown): value is ReplaySessionBundle["outcomes"] {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  return (
-    typeof value.totalSteps === "number"
-    && typeof value.surfacedFrames === "number"
-    && (value.finalActiveInteractionId === null || typeof value.finalActiveInteractionId === "string")
-    && typeof value.finalQueuedCount === "number"
-    && typeof value.finalAmbientCount === "number"
-    && isStringArray(value.finalQueuedInteractionIds)
-    && isStringArray(value.finalAmbientInteractionIds)
+  return isRecord(value) && hasShape(
+    value,
+    {
+      totalSteps: isNumber,
+      surfacedFrames: isNumber,
+      finalActiveInteractionId: (interactionId: unknown): interactionId is string | null => interactionId === null || isString(interactionId),
+      finalQueuedCount: isNumber,
+      finalAmbientCount: isNumber,
+      finalQueuedInteractionIds: isStringArray,
+      finalAmbientInteractionIds: isStringArray,
+    },
   );
 }
 

@@ -1,15 +1,15 @@
-import { appendFile, mkdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import type { AutoresearchOptimizationBrief } from "./autoresearch-calibration.js";
+import { extractJsonCandidate } from "./json-utils.js";
+import { DEFAULT_LAB_RUNTIME_ROOT } from "./runtime-paths.js";
+import { isRecord } from "./shape.js";
 
 export const AUTORESEARCH_OPTIMIZER_RUN_SCHEMA_VERSION = 1 as const;
 
-const LAB_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-
 export const DEFAULT_AUTORESEARCH_OPTIMIZER_RESULTS_DIR = path.join(
-  LAB_DIR,
+  DEFAULT_LAB_RUNTIME_ROOT,
   "results",
   "autoresearch",
   "optimizer",
@@ -30,17 +30,27 @@ export const DEFAULT_AUTORESEARCH_OPTIMIZER_RUNS_DIR = path.join(
   DEFAULT_AUTORESEARCH_OPTIMIZER_RESULTS_DIR,
   "runs",
 );
-export const DEFAULT_AUTORESEARCH_OPTIMIZER_RESULTS_LOG_PATH = path.join(
-  DEFAULT_AUTORESEARCH_OPTIMIZER_RESULTS_DIR,
-  "results.tsv",
-);
-
 export type AutoresearchOptimizerRunStatus =
   | "clean"
   | "improved"
   | "no_change"
   | "regressed"
   | "invalid";
+
+export type AutoresearchOptimizerGateStatus = "pass" | "fail" | "not_run";
+
+export type AutoresearchOptimizerFeedback = {
+  action: "patched" | "no_patch";
+  summary: string;
+  reasons: string[];
+  recommendedFiles: string[];
+  changedFiles: string[];
+  commandsRun: string[];
+  beforeMismatchCount?: number;
+  afterMismatchCount?: number;
+  judgmentBattle?: AutoresearchOptimizerGateStatus;
+  releaseCheck?: AutoresearchOptimizerGateStatus;
+};
 
 export type AutoresearchOptimizerRun = {
   schemaVersion: typeof AUTORESEARCH_OPTIMIZER_RUN_SCHEMA_VERSION;
@@ -75,8 +85,28 @@ export type AutoresearchOptimizerRun = {
     releaseCheck?: boolean;
   };
   status: AutoresearchOptimizerRunStatus;
+  feedback?: AutoresearchOptimizerFeedback;
   notes: string[];
 };
+
+export function buildAutoresearchEvaluationCommands(
+  extraCalibrationDirs: readonly string[] = [],
+): string[] {
+  const evaluateCommand = [
+    "pnpm",
+    "lab:fstop:evaluate",
+    ...extraCalibrationDirs.flatMap((directory) => [
+      "--extra-calibration-dir",
+      shellQuote(directory),
+    ]),
+  ].join(" ");
+
+  return [
+    evaluateCommand,
+    "pnpm judgment:battle",
+    "pnpm release:check",
+  ];
+}
 
 export function renderAutoresearchOptimizationPrompt(
   brief: AutoresearchOptimizationBrief,
@@ -91,9 +121,9 @@ export function renderAutoresearchOptimizationPrompt(
   const skillPath = options.skillPath ?? "skills/aperture-lab-optimizer/SKILL.md";
 
   const lines: string[] = [
-    "# Aperture Autoresearch Optimization Task",
+    "# Aperture Lab F-Stop Optimization Task",
     "",
-    "You are the optimizer for Aperture's offline semantic calibration loop.",
+    "You are the optimizer for Aperture Lab F-Stop's offline semantic calibration loop.",
     "",
     "Read these first:",
     `- ${programPath}`,
@@ -132,16 +162,75 @@ export function renderAutoresearchOptimizationPrompt(
     "1. Make the smallest changes needed on the allowed edit surface.",
     "2. After editing, run these commands yourself:",
     ...brief.evaluationCommands.map((command) => `   - ${command}`),
-    "3. If the frozen calibration mismatch count does not improve, stop and explain why.",
-    "4. If invariant mismatches appear, treat that as a regression and do not widen the patch.",
+    "3. Do not create commits or switch branches; leave any surviving changes in the worktree for the harness to capture.",
+    "4. If the frozen calibration mismatch count does not improve, stop and explain why.",
+    "5. If invariant mismatches appear, treat that as a regression and do not widen the patch.",
     "",
     "Final response:",
-    "- summarize changed files",
-    "- summarize before/after mismatch counts",
-    "- mention whether judgment/release gates passed",
+    "Return only one JSON object. Do not wrap it in prose.",
+    "Use this schema:",
+    "```json",
+    "{",
+    '  "action": "patched" | "no_patch",',
+    '  "summary": "short summary of what you changed or why you did not patch",',
+    '  "reasons": ["short concrete reason"],',
+    '  "recommendedFiles": ["packages/core/src/semantic-interpreter.ts"],',
+    '  "changedFiles": ["packages/core/src/semantic-interpreter.ts"],',
+    '  "commandsRun": ["pnpm lab:fstop:evaluate ..."],',
+    '  "beforeMismatchCount": 5,',
+    '  "afterMismatchCount": 4,',
+    '  "judgmentBattle": "pass" | "fail" | "not_run",',
+    '  "releaseCheck": "pass" | "fail" | "not_run"',
+    "}",
+    "```",
+    'If no patch survives, set "action" to "no_patch", leave "changedFiles" empty, and explain the blocker in "reasons".',
   );
 
   return `${lines.join("\n")}\n`;
+}
+
+export function parseAutoresearchOptimizerFeedback(
+  text: string,
+): AutoresearchOptimizerFeedback | null {
+  const candidate = extractJsonCandidate(text);
+  if (!candidate) {
+    return null;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(candidate);
+  } catch {
+    return null;
+  }
+
+  if (!isRecord(parsed)) {
+    return null;
+  }
+
+  const action = parsed.action;
+  const summary = parsed.summary;
+  if ((action !== "patched" && action !== "no_patch") || typeof summary !== "string" || !summary.trim()) {
+    return null;
+  }
+
+  const beforeMismatchCount = readNumber(parsed.beforeMismatchCount);
+  const afterMismatchCount = readNumber(parsed.afterMismatchCount);
+  const judgmentBattle = readGateStatus(parsed.judgmentBattle);
+  const releaseCheck = readGateStatus(parsed.releaseCheck);
+
+  return {
+    action,
+    summary: summary.trim(),
+    reasons: readStringArray(parsed.reasons),
+    recommendedFiles: readStringArray(parsed.recommendedFiles),
+    changedFiles: readStringArray(parsed.changedFiles),
+    commandsRun: readStringArray(parsed.commandsRun),
+    ...(beforeMismatchCount !== undefined ? { beforeMismatchCount } : {}),
+    ...(afterMismatchCount !== undefined ? { afterMismatchCount } : {}),
+    ...(judgmentBattle !== undefined ? { judgmentBattle } : {}),
+    ...(releaseCheck !== undefined ? { releaseCheck } : {}),
+  };
 }
 
 export function defaultAutoresearchOptimizerPromptPath(
@@ -204,54 +293,11 @@ export async function writeAutoresearchOptimizerPatch(
   await writeFile(filePath, patch, "utf8");
 }
 
-export async function appendAutoresearchOptimizerResultsLog(
-  filePath: string,
-  run: AutoresearchOptimizerRun,
-  options: {
-    runPath?: string;
-  } = {},
-): Promise<void> {
-  await mkdir(path.dirname(filePath), { recursive: true });
-  const header = [
-    "generated_at",
-    "provider",
-    "status",
-    "before_mismatch_count",
-    "after_mismatch_count",
-    "before_invariant_mismatch_count",
-    "after_invariant_mismatch_count",
-    "changed_file_count",
-    "disallowed_file_count",
-    "autoresearch_evaluate",
-    "judgment_battle",
-    "release_check",
-    "run_path",
-  ].join("\t");
-  const row = [
-    run.generatedAt,
-    run.provider,
-    run.status,
-    String(run.summary.beforeMismatchCount),
-    String(run.summary.afterMismatchCount),
-    String(run.summary.beforeInvariantMismatchCount),
-    String(run.summary.afterInvariantMismatchCount),
-    String(run.changes.changedFiles.length),
-    String(run.changes.disallowedFiles.length),
-    formatOptionalBoolean(run.gates.autoresearchEvaluate),
-    formatOptionalBoolean(run.gates.judgmentBattle),
-    formatOptionalBoolean(run.gates.releaseCheck),
-    options.runPath ?? run.artifacts.rawOutputPath ?? run.artifacts.briefPath,
-  ].join("\t");
-
-  const exists = await fileExists(filePath);
-  await appendFile(filePath, `${exists ? "" : `${header}\n`}${row}\n`, "utf8");
-}
-
 export function renderAutoresearchOptimizerRunMarkdown(
   run: AutoresearchOptimizerRun,
 ): string {
   const lines: string[] = [
-    "# Autoresearch Optimizer Run",
+    "# Aperture Lab F-Stop Optimizer Run",
     "",
     `Generated: ${run.generatedAt}`,
     `Provider: ${run.provider}`,
@@ -312,6 +358,24 @@ export function renderAutoresearchOptimizerRunMarkdown(
     lines.push(`- patch: ${run.artifacts.patchPath}`);
   }
 
+  if (run.feedback) {
+    lines.push("", "## Optimizer Feedback", "");
+    lines.push(`- action: ${run.feedback.action}`);
+    lines.push(`- summary: ${run.feedback.summary}`);
+    if (run.feedback.reasons.length > 0) {
+      lines.push(...run.feedback.reasons.map((entry) => `- reason: ${entry}`));
+    }
+    if (run.feedback.recommendedFiles.length > 0) {
+      lines.push(`- recommended files: ${run.feedback.recommendedFiles.join(", ")}`);
+    }
+    if (run.feedback.changedFiles.length > 0) {
+      lines.push(`- reported changed files: ${run.feedback.changedFiles.join(", ")}`);
+    }
+    if (run.feedback.commandsRun.length > 0) {
+      lines.push(`- commands run: ${run.feedback.commandsRun.join(" | ")}`);
+    }
+  }
+
   if (run.notes.length > 0) {
     lines.push("", "## Notes", "");
     lines.push(...run.notes.map((entry) => `- ${entry}`));
@@ -345,6 +409,14 @@ function safeTimestamp(value: string): string {
   return value.replace(/[:.]/g, "-");
 }
 
+function shellQuote(value: string): string {
+  if (value.length === 0) {
+    return "''";
+  }
+
+  return `'${value.replace(/'/g, `'\"'\"'`)}'`;
+}
+
 function renderValue(value: string | string[] | boolean | null): string {
   if (Array.isArray(value)) {
     return value.length === 0 ? "[]" : value.join(", ");
@@ -355,19 +427,29 @@ function renderValue(value: string | string[] | boolean | null): string {
   return String(value);
 }
 
+function readStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((entry): entry is string => typeof entry === "string")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function readNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function readGateStatus(value: unknown): AutoresearchOptimizerGateStatus | undefined {
+  return value === "pass" || value === "fail" || value === "not_run" ? value : undefined;
+}
+
 function formatOptionalBoolean(value: boolean | undefined): string {
   if (value === undefined) {
     return "skipped";
   }
 
   return value ? "pass" : "fail";
-}
-
-async function fileExists(filePath: string): Promise<boolean> {
-  try {
-    await stat(filePath);
-    return true;
-  } catch {
-    return false;
-  }
 }

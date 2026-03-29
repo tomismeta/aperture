@@ -1,5 +1,5 @@
 {
-  "name": "aperture-lab-autoresearch",
+  "name": "aperture-lab-fstop",
   "version": 1,
   "objective": "Improve Aperture's semantic interpretation and importer mapping using offline disagreement reports without changing the hot path contract.",
   "allowedEditPaths": [
@@ -19,46 +19,60 @@
     "docs/releases"
   ],
   "prepareCommands": [
-    "pnpm lab:review:batch --dataset swe-smith --split tool --limit 5 --reviewer-provider <provider> --json",
-    "pnpm trajectory:import --dataset swe-smith --split tool --limit 5",
-    "pnpm lab:review:prepare --bundle <bundle-path> --json",
-    "pnpm lab:review:run --artifact <artifact-path> --reviewer-command \"pnpm lab:review:reviewer --provider <provider>\" --json",
-    "pnpm lab:autoresearch:promote --report <report-path> --split train --json",
-    "pnpm lab:autoresearch:evaluate --json",
-    "pnpm lab:autoresearch:cycle --json",
-    "pnpm lab:autoresearch:optimize --provider <provider> --json"
+    "pnpm lab:fstop:ingest --file <raw-export-path> --json",
+    "pnpm lab:fstop:campaign --provider <provider> --reviewer-provider <provider> --optimizer-provider <provider> --json",
+    "pnpm lab:fstop:service --provider <provider> --reviewer-provider <provider> --optimizer-provider <provider> --json",
+    "pnpm lab:fstop:run --provider <provider> --reviewer-provider <provider> --optimizer-provider <provider> --json",
+    "APERTURE_OPENCLAW_REVIEW_TIMEOUT=60 pnpm lab:fstop:review --dataset swe-smith --split tool --limit 3 --reviewer-provider <provider> --json",
+    "pnpm lab:fstop:propose --reviewer-provider <provider> --optimizer-provider <provider> --json",
+    "pnpm trajectory:import --dataset swe-smith --split tool --limit 3",
+    "pnpm lab:fstop:prepare --bundle <bundle-path> --json",
+    "pnpm lab:fstop:review:run --artifact <artifact-path> --reviewer-command \"pnpm lab:fstop:reviewer --provider <provider>\" --json",
+    "pnpm lab:fstop:promote --report <report-path> --split train --json",
+    "pnpm lab:fstop:evaluate --json",
+    "pnpm lab:fstop:cycle --json",
+    "pnpm lab:fstop:optimize --provider <provider> --json"
   ],
   "reviewerCommandTemplates": {
-    "hermes": "pnpm lab:review:reviewer --provider hermes",
-    "openclaw": "pnpm lab:review:reviewer --provider openclaw",
-    "generic": "pnpm lab:review:reviewer --provider generic"
+    "hermes": "pnpm lab:fstop:reviewer --provider hermes",
+    "openclaw": "pnpm lab:fstop:reviewer --provider openclaw",
+    "generic": "pnpm lab:fstop:reviewer --provider generic"
+  },
+  "runnerCommandTemplates": {
+    "hermes": "pnpm lab:fstop:runner --provider hermes",
+    "openclaw": "pnpm lab:fstop:runner --provider openclaw",
+    "generic": "pnpm lab:fstop:runner --provider generic"
   },
   "optimizerCommandTemplates": {
-    "hermes": "pnpm lab:autoresearch:optimizer --provider hermes",
-    "openclaw": "pnpm lab:autoresearch:optimizer --provider openclaw",
-    "generic": "pnpm lab:autoresearch:optimizer --provider generic"
+    "hermes": "pnpm lab:fstop:optimizer --provider hermes",
+    "openclaw": "pnpm lab:fstop:optimizer --provider openclaw",
+    "generic": "pnpm lab:fstop:optimizer --provider generic"
   },
   "evaluationCommands": [
     "pnpm exec tsx --test packages/lab/test/autoresearch-calibration.test.ts packages/lab/test/offline-review.test.ts packages/lab/test/public-trajectories.test.ts",
-    "pnpm lab:autoresearch:evaluate --json",
+    "pnpm lab:fstop:evaluate --json",
     "pnpm judgment:battle",
     "pnpm release:check"
   ],
   "resultArtifacts": {
+    "campaignStateDir": ".aperture/lab/campaigns",
+    "serviceStateDir": ".aperture/lab/service",
+    "rawBundlesDir": ".aperture/lab/bundles/raw",
     "calibrationDir": "packages/lab/calibration",
-    "reviewRequestsDir": "packages/lab/results/offline-review/requests",
-    "reviewPromptsDir": "packages/lab/results/offline-review/prompts",
-    "reviewRawDir": "packages/lab/results/offline-review/raw",
-    "reviewResponsesDir": "packages/lab/results/offline-review/responses",
-    "disagreementsDir": "packages/lab/results/offline-review/disagreements",
-    "recommendationsDir": "packages/lab/results/offline-review/recommendations",
-    "runsDir": "packages/lab/results/offline-review/runs",
-    "resultsLogPath": "packages/lab/results/offline-review/results.tsv",
-    "autoresearchEvaluationsDir": "packages/lab/results/autoresearch/evaluations",
-    "autoresearchBriefsDir": "packages/lab/results/autoresearch/briefs",
-    "autoresearchOptimizerDir": "packages/lab/results/autoresearch/optimizer",
-    "autoresearchOptimizerResultsLogPath": "packages/lab/results/autoresearch/optimizer/results.tsv",
-    "battleResultsDir": "packages/lab/results"
+    "reviewRequestsDir": ".aperture/lab/results/offline-review/requests",
+    "reviewPromptsDir": ".aperture/lab/results/offline-review/prompts",
+    "reviewRawDir": ".aperture/lab/results/offline-review/raw",
+    "reviewResponsesDir": ".aperture/lab/results/offline-review/responses",
+    "disagreementsDir": ".aperture/lab/results/offline-review/disagreements",
+    "recommendationsDir": ".aperture/lab/results/offline-review/recommendations",
+    "runsDir": ".aperture/lab/results/offline-review/runs",
+    "autoresearchEvaluationsDir": ".aperture/lab/results/autoresearch/evaluations",
+    "autoresearchBriefsDir": ".aperture/lab/results/autoresearch/briefs",
+    "autoresearchOptimizerDir": ".aperture/lab/results/autoresearch/optimizer",
+    "autoresearchProposalsDir": ".aperture/lab/results/autoresearch/proposals",
+    "currentReportJsonPath": ".aperture/lab/current-campaign/current-report.json",
+    "currentReportMarkdownPath": ".aperture/lab/current-campaign/current-report.md",
+    "battleResultsDir": ".aperture/lab/results"
   },
   "successCriteria": [
     "Corrected mismatch count goes down on the train corpus.",

@@ -15,13 +15,19 @@ import {
   type OfflineReviewRecommendation,
   type OfflineReviewReport,
 } from "./offline-review.js";
+import { loadReplayBundleFromFStopInputFile } from "./fstop-session.js";
 import {
   createSessionBundle,
-  loadSessionBundle,
   runSessionBundle,
-  type ReplaySessionBundle,
 } from "./session-bundle.js";
-import { isRecord } from "./validation.js";
+import { DEFAULT_LAB_RUNTIME_ROOT } from "./runtime-paths.js";
+import {
+  hasShape,
+  isArrayOf,
+  isNumber,
+  isRecord,
+  isString,
+} from "./shape.js";
 
 export const AUTORESEARCH_CALIBRATION_CASE_SCHEMA_VERSION = 1 as const;
 export const AUTORESEARCH_CALIBRATION_REPORT_SCHEMA_VERSION = 1 as const;
@@ -34,7 +40,7 @@ export const DEFAULT_AUTORESEARCH_ALLOWED_EDIT_PATHS = [
   "packages/lab/src/offline-review.ts",
 ] as const;
 export const DEFAULT_AUTORESEARCH_EVALUATION_COMMANDS = [
-  "pnpm lab:autoresearch:evaluate",
+  "pnpm lab:fstop:evaluate",
   "pnpm judgment:battle",
   "pnpm release:check",
 ] as const;
@@ -47,7 +53,11 @@ export const DEFAULT_AUTORESEARCH_CALIBRATION_SPLIT_DIRS = {
   validation: path.join(DEFAULT_AUTORESEARCH_CALIBRATION_DIR, "validation"),
   heldout: path.join(DEFAULT_AUTORESEARCH_CALIBRATION_DIR, "heldout"),
 } as const satisfies Record<AutoresearchCalibrationSplit, string>;
-export const DEFAULT_AUTORESEARCH_RESULTS_DIR = path.join(LAB_DIR, "results", "autoresearch");
+export const DEFAULT_AUTORESEARCH_RESULTS_DIR = path.join(
+  DEFAULT_LAB_RUNTIME_ROOT,
+  "results",
+  "autoresearch",
+);
 export const DEFAULT_AUTORESEARCH_EVALUATIONS_DIR = path.join(
   DEFAULT_AUTORESEARCH_RESULTS_DIR,
   "evaluations",
@@ -78,7 +88,8 @@ export type AutoresearchCalibrationCase = {
   split: AutoresearchCalibrationSplit;
   sessionId: string;
   title: string;
-  bundlePath: string;
+  inputPath: string;
+  bundlePath?: string;
   targets: string[];
   source: {
     reportPath: string;
@@ -200,9 +211,9 @@ export async function promoteOfflineReviewReportToCalibrationCase(
   const report = await loadOfflineReviewReport(reportPath);
   const repoRoot = options.repoRoot ?? process.cwd();
   const recommendation = buildOfflineReviewRecommendationReport(report);
-  const bundlePath = resolveRepoRelativeBundlePath(report.bundle.bundlePath, repoRoot);
-  const bundle = await loadSessionBundle(path.resolve(repoRoot, bundlePath));
-  const artifact = prepareOfflineReviewArtifact(bundle, { bundlePath });
+  const inputPath = resolveRepoRelativeCalibrationInputPath(report.bundle.bundlePath, repoRoot);
+  const bundle = await loadReplayBundleFromFStopInputFile(path.resolve(repoRoot, inputPath));
+  const artifact = prepareOfflineReviewArtifact(bundle, { bundlePath: inputPath });
   const allowedFocusAreas = options.focusAreas ? new Set(options.focusAreas) : null;
   const minimumConfidence = confidenceRank(options.minimumConfidence ?? "high");
   const recommendationAllowlist = new Set(options.recommendationAllowlist ?? ["promote"]);
@@ -290,7 +301,7 @@ export async function promoteOfflineReviewReportToCalibrationCase(
     split: options.split,
     sessionId: report.bundle.sessionId,
     title: report.bundle.title,
-    bundlePath,
+    inputPath,
     targets: [...recommendationTargets].sort(),
     source: {
       reportPath: resolveRepoRelativePath(reportPath, repoRoot),
@@ -326,21 +337,44 @@ export async function loadAutoresearchCalibrationCases(
   options: {
     repoRoot?: string;
     splits?: readonly AutoresearchCalibrationSplit[];
+    extraDirectories?: readonly string[];
   } = {},
 ): Promise<Array<{ filePath: string; calibrationCase: AutoresearchCalibrationCase }>> {
   const repoRoot = options.repoRoot ?? process.cwd();
   const splits = options.splits ?? ["train", "validation", "heldout"];
   const entries: Array<{ filePath: string; calibrationCase: AutoresearchCalibrationCase }> = [];
+  const seenFilePaths = new Set<string>();
 
   for (const split of splits) {
     const directory = DEFAULT_AUTORESEARCH_CALIBRATION_SPLIT_DIRS[split];
     const absoluteDirectory = path.resolve(repoRoot, directory);
     for (const filePath of await readJsonFilesRecursive(absoluteDirectory)) {
+      const relativePath = resolveRepoRelativePath(filePath, repoRoot);
+      if (seenFilePaths.has(relativePath)) {
+        continue;
+      }
       const calibrationCase = await loadAutoresearchCalibrationCase(filePath);
       entries.push({
-        filePath: resolveRepoRelativePath(filePath, repoRoot),
+        filePath: relativePath,
         calibrationCase,
       });
+      seenFilePaths.add(relativePath);
+    }
+  }
+
+  for (const directory of options.extraDirectories ?? []) {
+    const absoluteDirectory = path.resolve(repoRoot, directory);
+    for (const filePath of await readJsonFilesRecursive(absoluteDirectory)) {
+      const relativePath = resolveRepoRelativePath(filePath, repoRoot);
+      if (seenFilePaths.has(relativePath)) {
+        continue;
+      }
+      const calibrationCase = await loadAutoresearchCalibrationCase(filePath);
+      entries.push({
+        filePath: relativePath,
+        calibrationCase,
+      });
+      seenFilePaths.add(relativePath);
     }
   }
 
@@ -613,8 +647,12 @@ async function evaluateAutoresearchCalibrationCase(
     repoRoot: string;
   },
 ): Promise<AutoresearchCalibrationCaseResult> {
-  const bundlePath = path.resolve(options.repoRoot, calibrationCase.bundlePath);
-  const storedBundle = await loadSessionBundle(bundlePath);
+  const storedBundle = await loadReplayBundleFromFStopInputFile(
+    path.resolve(
+      options.repoRoot,
+      calibrationCase.inputPath ?? calibrationCase.bundlePath ?? "",
+    ),
+  );
   const rerun = runSessionBundle(storedBundle);
   const freshBundle = createSessionBundle(rerun, {
     sessionId: storedBundle.sessionId,
@@ -622,7 +660,7 @@ async function evaluateAutoresearchCalibrationCase(
     exportedAt: storedBundle.exportedAt,
   });
   const artifact = prepareOfflineReviewArtifact(freshBundle, {
-    bundlePath: calibrationCase.bundlePath,
+    bundlePath: calibrationCase.inputPath ?? calibrationCase.bundlePath,
   });
   const mismatches: AutoresearchCalibrationMismatch[] = [];
   let matchedCount = 0;
@@ -732,56 +770,77 @@ function validateAutoresearchCalibrationCase(value: unknown): AutoresearchCalibr
   if (
     !isRecord(value)
     || value.schemaVersion !== AUTORESEARCH_CALIBRATION_CASE_SCHEMA_VERSION
-    || typeof value.promotedAt !== "string"
-    || !isCalibrationSplit(value.split)
-    || typeof value.sessionId !== "string"
-    || typeof value.title !== "string"
-    || typeof value.bundlePath !== "string"
-    || !Array.isArray(value.targets)
-    || !value.targets.every((entry) => typeof entry === "string")
-    || !isRecord(value.source)
-    || typeof value.source.reportPath !== "string"
-    || typeof value.source.disagreementCount !== "number"
-    || !isRecord(value.summary)
-    || typeof value.summary.correctedCount !== "number"
-    || typeof value.summary.invariantCount !== "number"
-    || !isRecord(value.summary.focusAreaCounts)
-    || !Array.isArray(value.expectations)
   ) {
     return null;
   }
 
-  const focusAreaCounts = value.summary.focusAreaCounts;
-  if (!DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS.every((focusArea) => typeof focusAreaCounts[focusArea] === "number")) {
+  const inputPath = typeof value.inputPath === "string"
+    ? value.inputPath
+    : typeof value.bundlePath === "string"
+      ? value.bundlePath
+      : null;
+  if (
+    inputPath === null
+    || !hasShape(value, {
+      promotedAt: isString,
+      split: isCalibrationSplit,
+      sessionId: isString,
+      title: isString,
+      targets: isArrayOf(isString),
+      source: (source): source is NonNullable<AutoresearchCalibrationCase["source"]> => (
+        isRecord(source) && hasShape(source, {
+          reportPath: isString,
+          disagreementCount: isNumber,
+        })
+      ),
+      summary: (summary): summary is NonNullable<AutoresearchCalibrationCase["summary"]> => (
+        isRecord(summary) && hasShape(summary, {
+          correctedCount: isNumber,
+          invariantCount: isNumber,
+          focusAreaCounts: isRecord,
+        })
+      ),
+      expectations: isArrayOf((entry): entry is AutoresearchCalibrationExpectation => (
+        validateAutoresearchCalibrationExpectation(entry) !== null
+      )),
+    }, {
+      bundlePath: isString,
+      inputPath: isString,
+    })
+  ) {
     return null;
   }
 
-  const expectations: AutoresearchCalibrationExpectation[] = [];
-  for (const entry of value.expectations) {
-    const expectation = validateAutoresearchCalibrationExpectation(entry);
-    if (!expectation) {
-      return null;
-    }
-    expectations.push(expectation);
+  const promotedAt = value.promotedAt as string;
+  const split = value.split as AutoresearchCalibrationSplit;
+  const sessionId = value.sessionId as string;
+  const title = value.title as string;
+  const targets = value.targets as string[];
+  const source = value.source as Record<string, unknown>;
+  const summary = value.summary as Record<string, unknown>;
+  const expectations = value.expectations as AutoresearchCalibrationExpectation[];
+  const focusAreaCounts = summary.focusAreaCounts as Record<string, unknown>;
+  if (!DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS.every((focusArea) => typeof focusAreaCounts[focusArea] === "number")) {
+    return null;
   }
-
   return {
     schemaVersion: AUTORESEARCH_CALIBRATION_CASE_SCHEMA_VERSION,
-    promotedAt: value.promotedAt,
-    split: value.split,
-    sessionId: value.sessionId,
-    title: value.title,
-    bundlePath: value.bundlePath,
-    targets: [...value.targets],
+    promotedAt,
+    split,
+    sessionId,
+    title,
+    inputPath,
+    ...(typeof value.bundlePath === "string" ? { bundlePath: value.bundlePath } : {}),
+    targets: [...targets],
     source: {
-      reportPath: value.source.reportPath,
-      ...(typeof value.source.reviewer === "string" ? { reviewer: value.source.reviewer } : {}),
-      ...(typeof value.source.model === "string" ? { model: value.source.model } : {}),
-      disagreementCount: value.source.disagreementCount,
+      reportPath: source.reportPath as string,
+      ...(typeof source.reviewer === "string" ? { reviewer: source.reviewer } : {}),
+      ...(typeof source.model === "string" ? { model: source.model } : {}),
+      disagreementCount: source.disagreementCount as number,
     },
     summary: {
-      correctedCount: value.summary.correctedCount,
-      invariantCount: value.summary.invariantCount,
+      correctedCount: summary.correctedCount as number,
+      invariantCount: summary.invariantCount as number,
       focusAreaCounts: createFocusAreaCountsFromRecord(focusAreaCounts),
     },
     expectations,
@@ -819,55 +878,59 @@ function validateAutoresearchCalibrationExpectation(
 function validateOfflineReviewReport(value: unknown): OfflineReviewReport | null {
   if (
     !isRecord(value)
-    || typeof value.generatedAt !== "string"
-    || typeof value.rubricVersion !== "string"
-    || !isRecord(value.bundle)
-    || typeof value.bundle.sessionId !== "string"
-    || typeof value.bundle.title !== "string"
-    || !isRecord(value.review)
-    || !isRecord(value.summary)
-    || typeof value.summary.totalFindings !== "number"
-    || typeof value.summary.disagreementCount !== "number"
-    || typeof value.summary.matchedFindings !== "number"
-    || !isRecord(value.summary.disagreementsByFocusArea)
-    || !Array.isArray(value.disagreements)
+    || !hasShape(value, {
+      generatedAt: isString,
+      rubricVersion: isString,
+      bundle: (bundle): bundle is NonNullable<OfflineReviewReport["bundle"]> => (
+        isRecord(bundle) && hasShape(bundle, {
+          sessionId: isString,
+          title: isString,
+        })
+      ),
+      review: isRecord,
+      summary: (summary): summary is NonNullable<OfflineReviewReport["summary"]> => (
+        isRecord(summary) && hasShape(summary, {
+          totalFindings: isNumber,
+          disagreementCount: isNumber,
+          matchedFindings: isNumber,
+          disagreementsByFocusArea: isRecord,
+        })
+      ),
+      disagreements: isArrayOf((entry): entry is OfflineReviewDisagreement => validateOfflineReviewDisagreement(entry) !== null),
+    })
   ) {
     return null;
   }
 
-  const disagreements: OfflineReviewDisagreement[] = [];
-  for (const entry of value.disagreements) {
-    const disagreement = validateOfflineReviewDisagreement(entry);
-    if (!disagreement) {
-      return null;
-    }
-    disagreements.push(disagreement);
-  }
+  const bundle = value.bundle as Record<string, unknown>;
+  const review = value.review as Record<string, unknown>;
+  const summary = value.summary as Record<string, unknown>;
+  const disagreements = value.disagreements as OfflineReviewDisagreement[];
 
   return {
     schemaVersion: value.schemaVersion as OfflineReviewReport["schemaVersion"],
-    generatedAt: value.generatedAt,
-    rubricVersion: value.rubricVersion,
+    generatedAt: value.generatedAt as string,
+    rubricVersion: value.rubricVersion as string,
     bundle: {
-      sessionId: value.bundle.sessionId,
-      title: value.bundle.title,
-      ...(typeof value.bundle.description === "string" ? { description: value.bundle.description } : {}),
-      ...(typeof value.bundle.bundlePath === "string" ? { bundlePath: value.bundle.bundlePath } : {}),
-      ...(isRecord(value.bundle.source)
-        ? { source: value.bundle.source as NonNullable<OfflineReviewReport["bundle"]["source"]> }
+      sessionId: bundle.sessionId as string,
+      title: bundle.title as string,
+      ...(typeof bundle.description === "string" ? { description: bundle.description } : {}),
+      ...(typeof bundle.bundlePath === "string" ? { bundlePath: bundle.bundlePath } : {}),
+      ...(isRecord(bundle.source)
+        ? { source: bundle.source as NonNullable<OfflineReviewReport["bundle"]["source"]> }
         : {}),
     },
     review: {
-      ...(typeof value.review.reviewer === "string" ? { reviewer: value.review.reviewer } : {}),
-      ...(typeof value.review.model === "string" ? { model: value.review.model } : {}),
-      ...(typeof value.review.completedAt === "string" ? { completedAt: value.review.completedAt } : {}),
-      ...(typeof value.review.notes === "string" ? { notes: value.review.notes } : {}),
+      ...(typeof review.reviewer === "string" ? { reviewer: review.reviewer } : {}),
+      ...(typeof review.model === "string" ? { model: review.model } : {}),
+      ...(typeof review.completedAt === "string" ? { completedAt: review.completedAt } : {}),
+      ...(typeof review.notes === "string" ? { notes: review.notes } : {}),
     },
     summary: {
-      totalFindings: value.summary.totalFindings,
-      disagreementCount: value.summary.disagreementCount,
-      matchedFindings: value.summary.matchedFindings,
-      disagreementsByFocusArea: createFocusAreaCountsFromRecord(value.summary.disagreementsByFocusArea),
+      totalFindings: summary.totalFindings as number,
+      disagreementCount: summary.disagreementCount as number,
+      matchedFindings: summary.matchedFindings as number,
+      disagreementsByFocusArea: createFocusAreaCountsFromRecord(summary.disagreementsByFocusArea as Record<string, unknown>),
     },
     disagreements,
   };
@@ -906,14 +969,14 @@ function invariantFocusAreasForStep(
   return invariantCandidates.filter((focusArea) => !selectedFocusAreas.has(focusArea));
 }
 
-function resolveRepoRelativeBundlePath(
-  bundlePath: string | undefined,
+function resolveRepoRelativeCalibrationInputPath(
+  inputPath: string | undefined,
   repoRoot: string,
 ): string {
-  if (!bundlePath) {
+  if (!inputPath) {
     throw new Error("Offline review report is missing bundle.bundlePath.");
   }
-  return resolveRepoRelativePath(bundlePath, repoRoot);
+  return resolveRepoRelativePath(inputPath, repoRoot);
 }
 
 function resolveRepoRelativePath(filePath: string, repoRoot: string): string {

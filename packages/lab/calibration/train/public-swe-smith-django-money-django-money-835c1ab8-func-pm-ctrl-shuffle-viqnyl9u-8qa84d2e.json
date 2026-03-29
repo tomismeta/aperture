@@ -1,131 +1,67 @@
 {
   "schemaVersion": 1,
-  "promotedAt": "2026-03-28T15:32:01.566Z",
+  "promotedAt": "2026-03-28T16:48:47.022Z",
   "split": "train",
   "sessionId": "public:swe-smith:django-money__django-money-835c1ab8-func_pm_ctrl_shuffle__viqnyl9u-8qa84d2e",
   "title": "<uploaded_files>",
-  "bundlePath": "packages/lab/bundles/public/swe-smith/tool/public-swe-smith-django-money__django-money-835c1ab8-func_pm_ctrl_shuffle__viqnyl9u-8qa84d2e.json",
   "targets": [
     "packages/core/src/semantic-detection.ts",
     "packages/core/src/semantic-interpreter.ts",
-    "packages/core/src/semantic-language.ts"
+    "packages/core/src/semantic-language.ts",
+    "packages/lab/src/offline-review.ts",
+    "packages/lab/src/public-trajectories.ts"
   ],
   "source": {
     "reportPath": "packages/lab/results/offline-review/disagreements/public-swe-smith-django-money__django-money-835c1ab8-func_pm_ctrl_shuffle__viqnyl9u-8qa84d2e.json",
-    "reviewer": "openclaw",
+    "reviewer": "openclaw-reviewer",
     "model": "openai-codex/gpt-5.4",
-    "disagreementCount": 8
+    "disagreementCount": 3
   },
   "summary": {
-    "correctedCount": 8,
-    "invariantCount": 21,
+    "correctedCount": 3,
+    "invariantCount": 7,
     "focusAreaCounts": {
       "title": 0,
       "summary": 0,
-      "status": 8,
-      "intentFrame": 5,
-      "toolFamily": 8,
-      "consequence": 8
+      "status": 3,
+      "intentFrame": 1,
+      "toolFamily": 3,
+      "consequence": 3
     }
   },
   "expectations": [
     {
       "stepIndex": 10,
       "stepLabel": "tool:observation:11",
-      "focusArea": "intentFrame",
-      "mode": "corrected",
-      "expectedValue": "status_update",
-      "observedValueAtPromotion": "failure",
-      "confidence": "high",
-      "rationale": "This looks like a non-blocking observation mislabeled as failed by the tool wrapper, not an actual work failure that should activate review.",
-      "supportingText": "Source excerpt says: \"edit failure — OBSERVATION: Here's the result of running `cat -n` on /testbed/djmoney/models/fields.py...\" The content is a successful file readback, and the very next step continues exploring the class."
-    },
-    {
-      "stepIndex": 12,
-      "stepLabel": "tool:observation:13",
-      "focusArea": "intentFrame",
-      "mode": "corrected",
-      "expectedValue": "status_update",
-      "observedValueAtPromotion": "failure",
-      "confidence": "high",
-      "rationale": "Despite the failed status flag, the semantic content is successful code inspection, so classifying it as failure is materially misleading.",
-      "supportingText": "Source excerpt says: \"edit failure — OBSERVATION: Here's the result of running `cat -n` on /testbed/djmoney/models/fields.py: 100 return self ...\" and the agent immediately continues investigating."
-    },
-    {
-      "stepIndex": 16,
-      "stepLabel": "tool:observation:17",
-      "focusArea": "intentFrame",
-      "mode": "corrected",
-      "expectedValue": "status_update",
-      "observedValueAtPromotion": "failure",
-      "confidence": "high",
-      "rationale": "The event conveys retrieved code context rather than an operational failure; Aperture's failure read overstates the situation.",
-      "supportingText": "Source excerpt says: \"edit failure — OBSERVATION: Here's the result of running `cat -n` on /testbed/djmoney/models/fields.py: 168 class MoneyField(models.DecimalField): ...\""
-    },
-    {
-      "stepIndex": 18,
-      "stepLabel": "tool:observation:19",
-      "focusArea": "intentFrame",
-      "mode": "corrected",
-      "expectedValue": "status_update",
-      "observedValueAtPromotion": "failure",
-      "confidence": "high",
-      "rationale": "Again this is successful inspection output, not evidence that the task hit a meaningful failure condition.",
-      "supportingText": "Source excerpt says: \"edit failure — OBSERVATION: Here's the result of running `cat -n` on /testbed/djmoney/models/fields.py: 220 else: ...\""
-    },
-    {
-      "stepIndex": 20,
-      "stepLabel": "tool:observation:21",
-      "focusArea": "intentFrame",
-      "mode": "corrected",
-      "expectedValue": "status_update",
-      "observedValueAtPromotion": "failure",
-      "confidence": "high",
-      "rationale": "Aperture marks this as failure/high consequence, but the text shows routine source inspection used to continue the task.",
-      "supportingText": "Source excerpt says: \"edit failure — OBSERVATION: Here's the result of running `cat -n` on /testbed/djmoney/forms/fields.py...\""
-    },
-    {
-      "stepIndex": 24,
-      "stepLabel": "tool:observation:25",
-      "focusArea": "consequence",
-      "mode": "corrected",
-      "expectedValue": "medium",
-      "observedValueAtPromotion": "high",
-      "confidence": "high",
-      "rationale": "This is an expected reproduction of the reported bug, not a workflow failure requiring escalation. High-consequence failure framing is too strong.",
-      "supportingText": "Source excerpt says: \"bash failure — OBSERVATION: Form is valid: False ... Decompress result: [None, 'USD']\" immediately after \"Let's run the script to confirm the issue.\""
-    },
-    {
-      "stepIndex": 36,
-      "stepLabel": "tool:observation:37",
-      "focusArea": "consequence",
-      "mode": "corrected",
-      "expectedValue": "medium",
-      "observedValueAtPromotion": "high",
-      "confidence": "high",
-      "rationale": "The failed status reflects a test scenario containing an expected invalid form case, not an actual task derailment. High consequence is overstated.",
-      "supportingText": "Source excerpt says: \"bash failure — OBSERVATION: Form with instance is valid: True Form without instance is valid: False ...\" followed by the assistant saying \"This is expected behavior.\""
-    },
-    {
-      "stepIndex": 42,
-      "stepLabel": "tool:observation:43",
-      "focusArea": "consequence",
-      "mode": "corrected",
-      "expectedValue": "medium",
-      "observedValueAtPromotion": "high",
-      "confidence": "high",
-      "rationale": "Aperture's high-consequence failure interpretation misses that the run is validating expected required/non-required behavior.",
-      "supportingText": "Source excerpt says: \"bash failure — OBSERVATION: Form with instance is valid: True Form without instance is valid: False ... Form with non-require...\" This is still edge-case test output rather than evidence of broken progress."
-    },
-    {
-      "stepIndex": 10,
-      "stepLabel": "tool:observation:11",
       "focusArea": "status",
-      "mode": "invariant",
-      "expectedValue": "failed",
+      "mode": "corrected",
+      "expectedValue": "running",
       "observedValueAtPromotion": "failed",
       "confidence": "high",
-      "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
+      "rationale": "This looks like a successful observation mislabeled as a failure. Treating it as failed overstates the situation and triggers unnecessary activation.",
+      "supportingText": "The source summary is a normal file-read result: \"OBSERVATION: Here's the result of running `cat -n` on /testbed/djmoney/models/fields.py...\" despite the title being \"edit failure\"."
+    },
+    {
+      "stepIndex": 30,
+      "stepLabel": "tool:observation:31",
+      "focusArea": "status",
+      "mode": "corrected",
+      "expectedValue": "running",
+      "observedValueAtPromotion": "failed",
+      "confidence": "high",
+      "rationale": "Aperture appears to take the \"edit failure\" title/status at face value even when the body shows successful progress. This is a crisp status-classification miss.",
+      "supportingText": "The summary says: \"The file /testbed/reproduce_issue.py has been edited. Here's the result of running `cat -n` on a snippet...\" which indicates a successful edit plus preview, not a failed step."
+    },
+    {
+      "stepIndex": 44,
+      "stepLabel": "tool:observation:45",
+      "focusArea": "intentFrame",
+      "mode": "corrected",
+      "expectedValue": "status_update",
+      "observedValueAtPromotion": "failure",
+      "confidence": "high",
+      "rationale": "This is not evidence that the work itself failed; it is a review/submission prompt emitted after resolution. Labeling it as \"failure\" with high consequence is materially misleading.",
+      "supportingText": "The source excerpt is an instruction block: \"Thank you for your work on this issue. Please carefully follow the steps below to help review your changes...\""
     },
     {
       "stepIndex": 10,
@@ -142,24 +78,14 @@
       "stepLabel": "tool:observation:11",
       "focusArea": "consequence",
       "mode": "invariant",
-      "expectedValue": "high",
-      "observedValueAtPromotion": "high",
+      "expectedValue": "medium",
+      "observedValueAtPromotion": "medium",
       "confidence": "high",
       "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
     },
     {
-      "stepIndex": 12,
-      "stepLabel": "tool:observation:13",
-      "focusArea": "status",
-      "mode": "invariant",
-      "expectedValue": "failed",
-      "observedValueAtPromotion": "failed",
-      "confidence": "high",
-      "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
-    },
-    {
-      "stepIndex": 12,
-      "stepLabel": "tool:observation:13",
+      "stepIndex": 30,
+      "stepLabel": "tool:observation:31",
       "focusArea": "toolFamily",
       "mode": "invariant",
       "expectedValue": "edit",
@@ -168,118 +94,28 @@
       "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
     },
     {
-      "stepIndex": 12,
-      "stepLabel": "tool:observation:13",
+      "stepIndex": 30,
+      "stepLabel": "tool:observation:31",
       "focusArea": "consequence",
       "mode": "invariant",
-      "expectedValue": "high",
-      "observedValueAtPromotion": "high",
+      "expectedValue": "medium",
+      "observedValueAtPromotion": "medium",
       "confidence": "high",
       "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
     },
     {
-      "stepIndex": 16,
-      "stepLabel": "tool:observation:17",
+      "stepIndex": 44,
+      "stepLabel": "tool:observation:45",
       "focusArea": "status",
       "mode": "invariant",
-      "expectedValue": "failed",
-      "observedValueAtPromotion": "failed",
+      "expectedValue": "running",
+      "observedValueAtPromotion": "running",
       "confidence": "high",
       "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
     },
     {
-      "stepIndex": 16,
-      "stepLabel": "tool:observation:17",
-      "focusArea": "toolFamily",
-      "mode": "invariant",
-      "expectedValue": "edit",
-      "observedValueAtPromotion": "edit",
-      "confidence": "high",
-      "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
-    },
-    {
-      "stepIndex": 16,
-      "stepLabel": "tool:observation:17",
-      "focusArea": "consequence",
-      "mode": "invariant",
-      "expectedValue": "high",
-      "observedValueAtPromotion": "high",
-      "confidence": "high",
-      "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
-    },
-    {
-      "stepIndex": 18,
-      "stepLabel": "tool:observation:19",
-      "focusArea": "status",
-      "mode": "invariant",
-      "expectedValue": "failed",
-      "observedValueAtPromotion": "failed",
-      "confidence": "high",
-      "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
-    },
-    {
-      "stepIndex": 18,
-      "stepLabel": "tool:observation:19",
-      "focusArea": "toolFamily",
-      "mode": "invariant",
-      "expectedValue": "edit",
-      "observedValueAtPromotion": "edit",
-      "confidence": "high",
-      "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
-    },
-    {
-      "stepIndex": 18,
-      "stepLabel": "tool:observation:19",
-      "focusArea": "consequence",
-      "mode": "invariant",
-      "expectedValue": "high",
-      "observedValueAtPromotion": "high",
-      "confidence": "high",
-      "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
-    },
-    {
-      "stepIndex": 20,
-      "stepLabel": "tool:observation:21",
-      "focusArea": "status",
-      "mode": "invariant",
-      "expectedValue": "failed",
-      "observedValueAtPromotion": "failed",
-      "confidence": "high",
-      "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
-    },
-    {
-      "stepIndex": 20,
-      "stepLabel": "tool:observation:21",
-      "focusArea": "toolFamily",
-      "mode": "invariant",
-      "expectedValue": "edit",
-      "observedValueAtPromotion": "edit",
-      "confidence": "high",
-      "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
-    },
-    {
-      "stepIndex": 20,
-      "stepLabel": "tool:observation:21",
-      "focusArea": "consequence",
-      "mode": "invariant",
-      "expectedValue": "high",
-      "observedValueAtPromotion": "high",
-      "confidence": "high",
-      "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
-    },
-    {
-      "stepIndex": 24,
-      "stepLabel": "tool:observation:25",
-      "focusArea": "status",
-      "mode": "invariant",
-      "expectedValue": "failed",
-      "observedValueAtPromotion": "failed",
-      "confidence": "high",
-      "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
-    },
-    {
-      "stepIndex": 24,
-      "stepLabel": "tool:observation:25",
+      "stepIndex": 44,
+      "stepLabel": "tool:observation:45",
       "focusArea": "toolFamily",
       "mode": "invariant",
       "expectedValue": "bash",
@@ -288,44 +124,15 @@
       "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
     },
     {
-      "stepIndex": 36,
-      "stepLabel": "tool:observation:37",
-      "focusArea": "status",
+      "stepIndex": 44,
+      "stepLabel": "tool:observation:45",
+      "focusArea": "consequence",
       "mode": "invariant",
-      "expectedValue": "failed",
-      "observedValueAtPromotion": "failed",
-      "confidence": "high",
-      "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
-    },
-    {
-      "stepIndex": 36,
-      "stepLabel": "tool:observation:37",
-      "focusArea": "toolFamily",
-      "mode": "invariant",
-      "expectedValue": "bash",
-      "observedValueAtPromotion": "bash",
-      "confidence": "high",
-      "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
-    },
-    {
-      "stepIndex": 42,
-      "stepLabel": "tool:observation:43",
-      "focusArea": "status",
-      "mode": "invariant",
-      "expectedValue": "failed",
-      "observedValueAtPromotion": "failed",
-      "confidence": "high",
-      "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
-    },
-    {
-      "stepIndex": 42,
-      "stepLabel": "tool:observation:43",
-      "focusArea": "toolFamily",
-      "mode": "invariant",
-      "expectedValue": "bash",
-      "observedValueAtPromotion": "bash",
+      "expectedValue": "medium",
+      "observedValueAtPromotion": "medium",
       "confidence": "high",
       "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
     }
-  ]
+  ],
+  "inputPath": "packages/lab/sessions/public/swe-smith/tool/public-swe-smith-django-money__django-money-835c1ab8-func_pm_ctrl_shuffle__viqnyl9u-8qa84d2e.fstop-session.json"
 }

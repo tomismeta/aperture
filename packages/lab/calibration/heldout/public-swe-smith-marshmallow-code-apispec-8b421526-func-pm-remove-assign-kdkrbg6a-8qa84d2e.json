@@ -4,7 +4,6 @@
   "split": "heldout",
   "sessionId": "public:swe-smith:marshmallow-code__apispec-8b421526-func_pm_remove_assign__kdkrbg6a-8qa84d2e",
   "title": "<uploaded_files>",
-  "bundlePath": "packages/lab/bundles/public/swe-smith/tool/public-swe-smith-marshmallow-code__apispec-8b421526-func_pm_remove_assign__kdkrbg6a-8qa84d2e.json",
   "targets": [
     "packages/core/src/semantic-detection.ts",
     "packages/core/src/semantic-interpreter.ts",
@@ -60,5 +59,6 @@
       "confidence": "high",
       "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
     }
-  ]
+  ],
+  "inputPath": "packages/lab/sessions/public/swe-smith/tool/public-swe-smith-marshmallow-code__apispec-8b421526-func_pm_remove_assign__kdkrbg6a-8qa84d2e.fstop-session.json"
 }

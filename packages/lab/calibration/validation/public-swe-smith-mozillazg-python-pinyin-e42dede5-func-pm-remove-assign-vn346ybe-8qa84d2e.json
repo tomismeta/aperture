@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "promotedAt": "2026-03-28T16:48:47.026Z",
+  "split": "validation",
+  "sessionId": "public:swe-smith:mozillazg__python-pinyin-e42dede5-func_pm_remove_assign__vn346ybe-8qa84d2e",
+  "title": "<uploaded_files>",
+  "targets": [
+    "packages/core/src/semantic-detection.ts",
+    "packages/core/src/semantic-interpreter.ts",
+    "packages/core/src/semantic-language.ts",
+    "packages/lab/src/offline-review.ts",
+    "packages/lab/src/public-trajectories.ts"
+  ],
+  "source": {
+    "reportPath": "packages/lab/results/offline-review/disagreements/public-swe-smith-mozillazg__python-pinyin-e42dede5-func_pm_remove_assign__vn346ybe-8qa84d2e.json",
+    "reviewer": "openclaw-reviewer",
+    "model": "openai-codex/gpt-5.4",
+    "disagreementCount": 3
+  },
+  "summary": {
+    "correctedCount": 3,
+    "invariantCount": 4,
+    "focusAreaCounts": {
+      "title": 0,
+      "summary": 0,
+      "status": 2,
+      "intentFrame": 1,
+      "toolFamily": 2,
+      "consequence": 2
+    }
+  },
+  "expectations": [
+    {
+      "stepIndex": 40,
+      "stepLabel": "tool:observation:41",
+      "focusArea": "status",
+      "mode": "corrected",
+      "expectedValue": "running",
+      "observedValueAtPromotion": "failed",
+      "confidence": "high",
+      "rationale": "Despite the transport label \"edit failure\", the actual observation reports a successful file creation. This looks like a non-failing progress event rather than a real failed task state.",
+      "supportingText": "The source excerpt says: \"edit failure — OBSERVATION: File created successfully at: /testbed/reproduce_error.py\"."
+    },
+    {
+      "stepIndex": 40,
+      "stepLabel": "tool:observation:41",
+      "focusArea": "intentFrame",
+      "mode": "corrected",
+      "expectedValue": "status_update",
+      "observedValueAtPromotion": "failure",
+      "confidence": "high",
+      "rationale": "Aperture interpreted this as a failure and activated review, but the semantic content is successful progress on the task.",
+      "supportingText": "The only substantive content is \"File created successfully at: /testbed/reproduce_error.py\"."
+    },
+    {
+      "stepIndex": 48,
+      "stepLabel": "tool:observation:49",
+      "focusArea": "status",
+      "mode": "corrected",
+      "expectedValue": "running",
+      "observedValueAtPromotion": "failed",
+      "confidence": "high",
+      "rationale": "The observation explicitly reports a successful edit. Treating this as failed is materially misleading because the work advanced rather than broke.",
+      "supportingText": "The source excerpt says: \"edit failure — OBSERVATION: The file /testbed/reproduce_error.py has been edited.\""
+    },
+    {
+      "stepIndex": 40,
+      "stepLabel": "tool:observation:41",
+      "focusArea": "toolFamily",
+      "mode": "invariant",
+      "expectedValue": "edit",
+      "observedValueAtPromotion": "edit",
+      "confidence": "high",
+      "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
+    },
+    {
+      "stepIndex": 40,
+      "stepLabel": "tool:observation:41",
+      "focusArea": "consequence",
+      "mode": "invariant",
+      "expectedValue": "medium",
+      "observedValueAtPromotion": "medium",
+      "confidence": "high",
+      "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
+    },
+    {
+      "stepIndex": 48,
+      "stepLabel": "tool:observation:49",
+      "focusArea": "toolFamily",
+      "mode": "invariant",
+      "expectedValue": "edit",
+      "observedValueAtPromotion": "edit",
+      "confidence": "high",
+      "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
+    },
+    {
+      "stepIndex": 48,
+      "stepLabel": "tool:observation:49",
+      "focusArea": "consequence",
+      "mode": "invariant",
+      "expectedValue": "medium",
+      "observedValueAtPromotion": "medium",
+      "confidence": "high",
+      "rationale": "Preserve adjacent classification state while calibrating the promoted disagreement."
+    }
+  ],
+  "inputPath": "packages/lab/sessions/public/swe-smith/tool/public-swe-smith-mozillazg__python-pinyin-e42dede5-func_pm_remove_assign__vn346ybe-8qa84d2e.fstop-session.json"
+}

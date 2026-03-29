@@ -8,6 +8,7 @@ import type {
 } from "./semantic-types.js";
 import {
   detectExpectedDiagnosticFailure,
+  detectRoutineObservationalFailureLowConsequence,
   dedupeSemanticStrings,
   detectObservationalFailureStatus,
   detectSemanticRelationHints,
@@ -106,6 +107,8 @@ function inferTaskUpdateSemantics(
   const relationProvenance = relationHints.length > 0 ? { relationHints: "inferred" as const } : {};
   const observationalFailure = event.status === "failed"
     && detectObservationalFailureStatus(text, toolFamily);
+  const routineObservationalFailureLowConsequence = event.status === "failed"
+    && detectRoutineObservationalFailureLowConsequence(text, toolFamily);
   const expectedDiagnosticFailure = event.status === "failed"
     && detectExpectedDiagnosticFailure(text, toolFamily);
 
@@ -116,7 +119,11 @@ function inferTaskUpdateSemantics(
           intentFrame: "status_update",
           activityClass: "status_update",
           ...(toolFamily ? { toolFamily } : {}),
-          consequence: inferConsequenceFromSemanticText(text, "high", toolFamily),
+          consequence: inferConsequenceFromSemanticText(
+            text,
+            routineObservationalFailureLowConsequence ? "low" : "high",
+            toolFamily,
+          ),
           factors: ["task.updated", "failed", "observational_failure"],
           relationHints,
           confidence: "high",
@@ -144,7 +151,11 @@ function inferTaskUpdateSemantics(
         ...(toolFamily ? { toolFamily } : {}),
         consequence: inferConsequenceFromSemanticText(
           text,
-          expectedDiagnosticFailure ? "medium" : "high",
+          routineObservationalFailureLowConsequence
+            ? "low"
+            : expectedDiagnosticFailure
+              ? "medium"
+              : "high",
           toolFamily,
         ),
         whyNow: semanticWhyNowForTaskStatus("failed") ?? "Work has failed and should be reviewed.",

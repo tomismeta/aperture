@@ -17,18 +17,19 @@ export const DEFAULT_OFFLINE_REVIEW_BATCHES_DIR = path.join(
 
 export type OfflineReviewBatchEntry = {
   sessionId: string;
-  status: "clean" | "disagreement";
+  status: "clean" | "disagreement" | "error";
   disagreementCount: number;
   actionableCount: number;
   reviewer?: string;
   model?: string;
-  requestPath: string;
-  promptPath: string;
-  rawResponsePath: string;
-  responseArtifactPath: string;
-  reportPath: string;
-  recommendationPath: string;
-  runPath: string;
+  requestPath?: string;
+  promptPath?: string;
+  rawResponsePath?: string;
+  responseArtifactPath?: string;
+  reportPath?: string;
+  recommendationPath?: string;
+  runPath?: string;
+  error?: string;
   focusAreaCounts: Record<OfflineReviewFocusArea, number>;
   recommendationCounts: Record<OfflineReviewRecommendation, number>;
   topRecommendations: Array<{
@@ -57,7 +58,7 @@ export type OfflineReviewBatchReport = {
   };
   summary: {
     bundleCount: number;
-    statusCounts: Record<"clean" | "disagreement", number>;
+    statusCounts: Record<"clean" | "disagreement" | "error", number>;
     disagreementCount: number;
     actionableCount: number;
     focusAreaCounts: Record<OfflineReviewFocusArea, number>;
@@ -83,7 +84,8 @@ export function createOfflineReviewBatchReport(
   const statusCounts = {
     clean: 0,
     disagreement: 0,
-  } satisfies Record<"clean" | "disagreement", number>;
+    error: 0,
+  } satisfies Record<"clean" | "disagreement" | "error", number>;
   const focusAreaCounts = createFocusAreaCounts();
   const recommendationCounts = {
     promote: 0,
@@ -159,6 +161,7 @@ export function renderOfflineReviewBatchMarkdown(report: OfflineReviewBatchRepor
     "",
     `- clean: ${report.summary.statusCounts.clean}`,
     `- disagreement: ${report.summary.statusCounts.disagreement}`,
+    `- error: ${report.summary.statusCounts.error}`,
     `- promote: ${report.summary.recommendationCounts.promote}`,
     `- inspect: ${report.summary.recommendationCounts.inspect}`,
     `- ignore: ${report.summary.recommendationCounts.ignore}`,
@@ -179,7 +182,11 @@ export function renderOfflineReviewBatchMarkdown(report: OfflineReviewBatchRepor
     lines.push(`- status: ${entry.status}`);
     lines.push(`- disagreements: ${entry.disagreementCount}`);
     lines.push(`- actionable: ${entry.actionableCount}`);
-    lines.push(`- reviewer: ${entry.reviewer ?? "unknown"}${entry.model ? ` (${entry.model})` : ""}`);
+    if (entry.status === "error") {
+      lines.push(`- error: ${entry.error ?? "unknown error"}`);
+    } else {
+      lines.push(`- reviewer: ${entry.reviewer ?? "unknown"}${entry.model ? ` (${entry.model})` : ""}`);
+    }
     for (const recommendation of entry.topRecommendations.slice(0, 3)) {
       lines.push(
         `- ${recommendation.focusArea}: ${recommendation.disagreementCount} (${recommendation.recommendation})`,

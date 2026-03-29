@@ -16,6 +16,7 @@ import {
   type OfflineReviewRecommendationReport,
   type OfflineReviewReport,
 } from "../src/index.js";
+import { determineAutoresearchProposalDiscoveryStatus } from "../src/autoresearch-propose-command.js";
 
 test("collectAutoresearchProposalSignals clusters repeated promoted disagreements across sessions", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "aperture-autoresearch-proposal-"));
@@ -356,6 +357,45 @@ test("proposal intent and code recommendation builders summarize repeated signal
   assert.equal(recommendations.length, 1);
   assert.equal(recommendations[0]!.kind, "intent_only");
   assert.match(recommendations[0]!.summary, /No surviving patch artifact/);
+});
+
+test("determineAutoresearchProposalDiscoveryStatus treats all-error batches as errors", () => {
+  assert.equal(
+    determineAutoresearchProposalDiscoveryStatus({
+      bundleCount: 12,
+      disagreementCount: 0,
+      errorCount: 12,
+      signalCount: 0,
+    }),
+    "error",
+  );
+  assert.equal(
+    determineAutoresearchProposalDiscoveryStatus({
+      bundleCount: 12,
+      disagreementCount: 3,
+      errorCount: 0,
+      signalCount: 0,
+    }),
+    "no_signal",
+  );
+  assert.equal(
+    determineAutoresearchProposalDiscoveryStatus({
+      bundleCount: 12,
+      disagreementCount: 0,
+      errorCount: 0,
+      signalCount: 0,
+    }),
+    "clean",
+  );
+  assert.equal(
+    determineAutoresearchProposalDiscoveryStatus({
+      bundleCount: 12,
+      disagreementCount: 0,
+      errorCount: 0,
+      signalCount: 2,
+    }),
+    undefined,
+  );
 });
 
 async function writeJson(filePath: string, value: unknown): Promise<void> {

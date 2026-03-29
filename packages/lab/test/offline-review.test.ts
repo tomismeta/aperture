@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile as execFileCallback } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -403,6 +403,39 @@ test("runOpenClawReview parses reviewer text from OpenClaw stderr envelopes", as
     });
 
     assert.equal(output, "{\"review\":{\"reviewer\":\"openclaw\",\"model\":\"fake\",\"findings\":[]}}");
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("runOpenClawReview falls back to the HOME-local openclaw binary", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-openclaw-home-bin-"));
+
+  try {
+    const localBinDir = path.join(tempDir, ".local", "bin");
+    await mkdir(localBinDir, { recursive: true });
+    const fakeOpenClawPath = path.join(localBinDir, "openclaw");
+    await writeFile(
+      fakeOpenClawPath,
+      [
+        "#!/usr/bin/env node",
+        "process.stderr.write(JSON.stringify({ payloads: [{ text: JSON.stringify({ review: { reviewer: 'openclaw', model: 'home-local', findings: [] } }) }] }));",
+      ].join("\n"),
+      "utf8",
+    );
+    await execFile("chmod", ["+x", fakeOpenClawPath]);
+
+    const output = await runOpenClawReview("review this prompt", {
+      cwd: REPO_ROOT,
+      env: {
+        ...process.env,
+        HOME: tempDir,
+        PATH: process.env.PATH ?? "/bin:/usr/bin",
+      },
+      timeoutSeconds: 30,
+    });
+
+    assert.equal(output, "{\"review\":{\"reviewer\":\"openclaw\",\"model\":\"home-local\",\"findings\":[]}}");
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }

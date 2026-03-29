@@ -141,17 +141,31 @@ export async function runAutoresearchProposalCommand(
   let optimizerPatchPath: string | undefined;
   let status: AutoresearchProposalRun["status"];
   let optimizerRun: Awaited<ReturnType<typeof runAutoresearchOptimizeCommand>>["run"] | undefined;
+  const discoveryStatus = determineAutoresearchProposalDiscoveryStatus({
+    bundleCount,
+    disagreementCount,
+    errorCount,
+    signalCount: signals.length,
+  });
 
-  if (bundleCount === 0) {
+  if (discoveryStatus === "error") {
+    status = "error";
+    if (bundleCount === 0) {
+      notes.push("Discovery batch did not produce any bundles.");
+    } else {
+      notes.push(`Discovery batch failed for all ${errorCount} bundle(s).`);
+    }
+  } else if (discoveryStatus === "no_signal") {
+    status = "no_signal";
+    notes.push(
+      `No repeated high-confidence signals met the promotion threshold of ${options.minSessionCount} session(s).`,
+    );
+  } else if (discoveryStatus === "clean") {
+    status = "clean";
+    notes.push("Discovery batch was clean; no proposal was generated.");
+  } else if (bundleCount === 0) {
     status = "error";
     notes.push("Discovery batch did not produce any bundles.");
-  } else if (signals.length === 0) {
-    status = disagreementCount > 0 ? "no_signal" : "clean";
-    notes.push(
-      disagreementCount > 0
-        ? `No repeated high-confidence signals met the promotion threshold of ${options.minSessionCount} session(s).`
-        : "Discovery batch was clean; no proposal was generated.",
-    );
   } else {
     const optimizeResult = await runAutoresearchOptimizeCommand({
       provider: options.optimizerProvider,
@@ -227,6 +241,24 @@ export async function runAutoresearchProposalCommand(
     ...(optimizerPatchPath ? { optimizerPatchPath } : {}),
     run,
   };
+}
+
+export function determineAutoresearchProposalDiscoveryStatus(input: {
+  bundleCount: number;
+  disagreementCount: number;
+  errorCount: number;
+  signalCount: number;
+}): "error" | "clean" | "no_signal" | undefined {
+  if (input.bundleCount === 0) {
+    return "error";
+  }
+  if (input.signalCount > 0) {
+    return undefined;
+  }
+  if (input.errorCount >= input.bundleCount) {
+    return "error";
+  }
+  return input.disagreementCount > 0 ? "no_signal" : "clean";
 }
 
 export function defaultAutoresearchProposalSplit(

@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { access, constants as fsConstants } from "node:fs/promises";
+import path from "node:path";
 
 import { extractJsonObjects } from "./json-utils.js";
 
@@ -24,7 +26,11 @@ export async function runOpenClawReview(
   prompt: string,
   options: OpenClawReviewOptions = {},
 ): Promise<string> {
-  const bin = options.bin?.trim() || process.env.APERTURE_OPENCLAW_BIN?.trim() || "openclaw";
+  const env = options.env ?? process.env;
+  const bin = await resolveOpenClawBinary({
+    ...(options.bin ? { bin: options.bin } : {}),
+    env,
+  });
   const agent = options.agent?.trim() || process.env.APERTURE_OPENCLAW_AGENT?.trim();
   const sessionId = options.sessionId?.trim()
     || process.env.APERTURE_OPENCLAW_REVIEW_SESSION_ID?.trim()
@@ -57,7 +63,7 @@ export async function runOpenClawReview(
   return await new Promise<string>((resolve, reject) => {
     const child = spawn(bin, args, {
       cwd: options.cwd,
-      env: options.env ?? process.env,
+      env,
       stdio: ["ignore", "pipe", "pipe"],
     });
 
@@ -89,6 +95,27 @@ export async function runOpenClawReview(
   });
 }
 
+export async function resolveOpenClawBinary(
+  options: {
+    bin?: string;
+    env?: NodeJS.ProcessEnv;
+  } = {},
+): Promise<string> {
+  const env = options.env ?? process.env;
+  const configured = options.bin?.trim() || env.APERTURE_OPENCLAW_BIN?.trim();
+  if (configured) {
+    return configured;
+  }
+
+  for (const candidate of candidateOpenClawBinaryPaths(env)) {
+    if (await isExecutable(candidate)) {
+      return candidate;
+    }
+  }
+
+  return "openclaw";
+}
+
 export function parseOpenClawReviewerOutput(output: string): string {
   const text = extractOpenClawPayloadTexts(output).at(-1);
   if (!text) {
@@ -115,6 +142,29 @@ function extractOpenClawPayloadTexts(output: string): string[] {
         return [];
       }
     });
+}
+
+function candidateOpenClawBinaryPaths(env: NodeJS.ProcessEnv): string[] {
+  const home = env.HOME?.trim();
+  return [
+    ...(home
+      ? [
+        path.join(home, ".local", "bin", "openclaw"),
+        path.join(home, "node", "bin", "openclaw"),
+      ]
+      : []),
+    "/usr/local/bin/openclaw",
+    "/opt/homebrew/bin/openclaw",
+  ];
+}
+
+async function isExecutable(filePath: string): Promise<boolean> {
+  try {
+    await access(filePath, fsConstants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function failMissingJsonObject(): never {

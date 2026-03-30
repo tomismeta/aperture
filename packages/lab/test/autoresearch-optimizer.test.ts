@@ -69,6 +69,8 @@ test("renderAutoresearchOptimizationPrompt points the optimizer at the bounded s
   assert.match(prompt, /Return only one JSON object/);
   assert.match(prompt, /"action": "patched" \| "no_patch"/);
   assert.match(prompt, /Do not create commits or switch branches/);
+  assert.match(prompt, /Prefer structural fixes over single-title or exact-phrase special cases/);
+  assert.match(prompt, /Treat the harness evaluation commands as the source of truth/);
 });
 
 test("buildAutoresearchEvaluationCommands preserves extra calibration dirs for optimizer reruns", () => {
@@ -205,6 +207,43 @@ test("renderAutoresearchOptimizerRunMarkdown summarizes the optimization run cle
   assert.match(markdown, /Optimizer Feedback/);
   assert.match(markdown, /action: patched/);
   assert.match(markdown, /Downgraded review-like observations/);
+});
+
+test("renderAutoresearchOptimizerRunMarkdown preserves gate_blocked status", () => {
+  const run: AutoresearchOptimizerRun = {
+    schemaVersion: 1,
+    generatedAt: "2026-03-28T00:00:00.000Z",
+    provider: "openclaw",
+    optimizerCommand: "pnpm lab:fstop:optimizer --provider openclaw",
+    summary: {
+      beforeMismatchCount: 5,
+      afterMismatchCount: 2,
+      beforeInvariantMismatchCount: 0,
+      afterInvariantMismatchCount: 0,
+      improved: true,
+    },
+    artifacts: {
+      briefPath: ".aperture/lab/results/autoresearch/briefs/example.json",
+      beforeReportPath: ".aperture/lab/results/autoresearch/evaluations/before.json",
+      afterReportPath: ".aperture/lab/results/autoresearch/evaluations/after.json",
+    },
+    changes: {
+      changedFiles: ["packages/core/src/semantic-detection.ts"],
+      disallowedFiles: [],
+    },
+    gates: {
+      autoresearchEvaluate: true,
+      judgmentBattle: true,
+      releaseCheck: false,
+    },
+    status: "gate_blocked",
+    notes: ["release:check failed outside the allowed edit surface."],
+  };
+
+  const markdown = renderAutoresearchOptimizerRunMarkdown(run);
+
+  assert.match(markdown, /Status: gate_blocked/);
+  assert.match(markdown, /release check: fail/);
 });
 
 test("defaultAutoresearchOptimizerPatchPath writes patch artifacts under the optimizer patches dir", () => {

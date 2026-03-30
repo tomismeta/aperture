@@ -33,6 +33,7 @@ export const DEFAULT_AUTORESEARCH_OPTIMIZER_RUNS_DIR = path.join(
 export type AutoresearchOptimizerRunStatus =
   | "clean"
   | "improved"
+  | "gate_blocked"
   | "no_change"
   | "regressed"
   | "invalid";
@@ -160,11 +161,15 @@ export function renderAutoresearchOptimizationPrompt(
     "",
     "Instructions:",
     "1. Make the smallest changes needed on the allowed edit surface.",
-    "2. After editing, run these commands yourself:",
+    "2. Prefer structural fixes over single-title or exact-phrase special cases; only add literal phrases when multiple promoted examples clearly share the same stable pattern.",
+    "3. Treat the harness evaluation commands as the source of truth. Report only the mismatch counts you actually observed from those commands.",
+    "4. If a non-semantic gate fails after a locally improved patch, say that explicitly in your reasons instead of describing the patch itself as a regression.",
+    "5. Keep importer fixes separate from semantic fixes unless the promoted examples prove both layers are required.",
+    "6. After editing, run these commands yourself:",
     ...brief.evaluationCommands.map((command) => `   - ${command}`),
-    "3. Do not create commits or switch branches; leave any surviving changes in the worktree for the harness to capture.",
-    "4. If the frozen calibration mismatch count does not improve, stop and explain why.",
-    "5. If invariant mismatches appear, treat that as a regression and do not widen the patch.",
+    "7. Do not create commits or switch branches; leave any surviving changes in the worktree for the harness to capture.",
+    "8. If the frozen calibration mismatch count does not improve, stop and explain why.",
+    "9. If invariant mismatches appear, treat that as a regression and do not widen the patch.",
     "",
     "Final response:",
     "Return only one JSON object. Do not wrap it in prose.",

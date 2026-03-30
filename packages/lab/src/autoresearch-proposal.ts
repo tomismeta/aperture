@@ -517,21 +517,44 @@ export function buildAutoresearchProposalCodeRecommendations(options: {
 }): AutoresearchProposalCodeRecommendation[] {
   const recommendations: AutoresearchProposalCodeRecommendation[] = [];
   const optimizerFeedback = options.optimizerRun?.feedback;
+  const localBeforeMismatchCount = options.optimizerRun?.summary.beforeMismatchCount;
+  const localAfterMismatchCount = options.optimizerRun?.summary.afterMismatchCount;
 
   if (optimizerFeedback) {
+    const reasons = [...optimizerFeedback.reasons];
+    if (
+      localBeforeMismatchCount !== undefined
+      && localAfterMismatchCount !== undefined
+      && optimizerFeedback.beforeMismatchCount !== undefined
+      && optimizerFeedback.afterMismatchCount !== undefined
+      && (
+        optimizerFeedback.beforeMismatchCount !== localBeforeMismatchCount
+        || optimizerFeedback.afterMismatchCount !== localAfterMismatchCount
+      )
+    ) {
+      reasons.push(
+        `Harness evaluation measured mismatches ${localBeforeMismatchCount} -> ${localAfterMismatchCount}; optimizer self-report claimed ${optimizerFeedback.beforeMismatchCount} -> ${optimizerFeedback.afterMismatchCount}.`,
+      );
+    }
+    if (options.optimizerRun?.status === "gate_blocked") {
+      reasons.push(
+        "The patch improved the frozen calibration locally, but at least one downstream gate failed, so the candidate is blocked rather than accepted.",
+      );
+    }
+
     recommendations.push({
       kind: options.optimizerPatchPath ? "patch" : "intent_only",
       summary: optimizerFeedback.summary,
       recommendedFiles: optimizerFeedback.recommendedFiles,
-      reasons: optimizerFeedback.reasons,
+      reasons,
       targets: dedupeStrings(options.signals.flatMap((signal) => signal.targets)),
       ...(options.optimizerPatchPath ? { patchPath: options.optimizerPatchPath } : {}),
       ...(options.optimizerRun?.status ? { optimizerStatus: options.optimizerRun.status } : {}),
-      ...(optimizerFeedback.beforeMismatchCount !== undefined
-        ? { beforeMismatchCount: optimizerFeedback.beforeMismatchCount }
+      ...(localBeforeMismatchCount !== undefined
+        ? { beforeMismatchCount: localBeforeMismatchCount }
         : {}),
-      ...(optimizerFeedback.afterMismatchCount !== undefined
-        ? { afterMismatchCount: optimizerFeedback.afterMismatchCount }
+      ...(localAfterMismatchCount !== undefined
+        ? { afterMismatchCount: localAfterMismatchCount }
         : {}),
     });
   }

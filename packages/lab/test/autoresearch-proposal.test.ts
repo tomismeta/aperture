@@ -359,6 +359,80 @@ test("proposal intent and code recommendation builders summarize repeated signal
   assert.match(recommendations[0]!.summary, /No surviving patch artifact/);
 });
 
+test("proposal code recommendations prefer harness counts over optimizer self-reports", () => {
+  const signals: AutoresearchProposalSignal[] = [
+    {
+      signature: "intentFrame|semantic|\"failure\"|\"status_update\"",
+      focusArea: "intentFrame",
+      owner: "semantic",
+      apertureValue: "failure",
+      expectedValue: "status_update",
+      disagreementCount: 4,
+      sessionCount: 3,
+      sessions: ["a", "b", "c"],
+      reportPaths: ["/tmp/a.json"],
+      targets: ["packages/core/src/semantic-interpreter.ts"],
+      confidenceCounts: { high: 4, medium: 0, low: 0 },
+      examples: [],
+    },
+  ];
+
+  const recommendations = buildAutoresearchProposalCodeRecommendations({
+    signals,
+    optimizerPatchPath: "patch.diff",
+    optimizerRun: {
+      schemaVersion: 1,
+      generatedAt: "2026-03-28T00:00:00.000Z",
+      provider: "openclaw",
+      optimizerCommand: "provider:openclaw",
+      summary: {
+        beforeMismatchCount: 5,
+        afterMismatchCount: 3,
+        beforeInvariantMismatchCount: 0,
+        afterInvariantMismatchCount: 0,
+        improved: true,
+      },
+      artifacts: {
+        briefPath: "brief.json",
+        beforeReportPath: "before.json",
+        afterReportPath: "after.json",
+      },
+      changes: {
+        changedFiles: ["packages/core/src/semantic-interpreter.ts"],
+        disallowedFiles: [],
+      },
+      gates: {
+        autoresearchEvaluate: true,
+        judgmentBattle: true,
+        releaseCheck: false,
+      },
+      status: "gate_blocked",
+      feedback: {
+        action: "patched",
+        summary: "Narrowed observational failure handling.",
+        reasons: ["Patch improved the targeted cluster."],
+        recommendedFiles: ["packages/core/src/semantic-interpreter.ts"],
+        changedFiles: ["packages/core/src/semantic-interpreter.ts"],
+        commandsRun: ["pnpm lab:fstop:evaluate", "pnpm release:check"],
+        beforeMismatchCount: 5,
+        afterMismatchCount: 0,
+        judgmentBattle: "pass",
+        releaseCheck: "fail",
+      },
+      notes: [],
+    },
+  });
+
+  assert.equal(recommendations.length, 1);
+  assert.equal(recommendations[0]!.beforeMismatchCount, 5);
+  assert.equal(recommendations[0]!.afterMismatchCount, 3);
+  assert.equal(recommendations[0]!.optimizerStatus, "gate_blocked");
+  assert.match(
+    recommendations[0]!.reasons.join("\n"),
+    /Harness evaluation measured mismatches 5 -> 3; optimizer self-report claimed 5 -> 0/,
+  );
+});
+
 test("determineAutoresearchProposalDiscoveryStatus treats all-error batches as errors", () => {
   assert.equal(
     determineAutoresearchProposalDiscoveryStatus({

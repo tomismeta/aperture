@@ -419,10 +419,10 @@ function determineOptimizerStatus(input: {
   if (input.afterInvariantMismatchCount > input.beforeInvariantMismatchCount) {
     return "regressed";
   }
-  if (input.judgmentBattle === false || input.releaseCheck === false) {
-    return "regressed";
-  }
   if (input.afterMismatchCount < input.beforeMismatchCount) {
+    if (input.judgmentBattle === false || input.releaseCheck === false) {
+      return "gate_blocked";
+    }
     return "improved";
   }
   if (input.afterMismatchCount > input.beforeMismatchCount) {

@@ -49,13 +49,18 @@ That means:
 - reduce corrected mismatches
 - keep invariant mismatches at zero
 - prefer narrow edits over broad rewrites
+- prefer structural rules over one-off titles or phrase literals
+- treat the harness evaluation outputs as the source of truth
 
 ## Expected Workflow
 
 1. Read the optimization prompt and identify the top mismatch clusters.
 2. Edit only the allowed semantic/importer files.
 3. Run the required evaluation commands from the prompt.
-4. Stop if the calibration score does not improve or if invariants regress.
+4. Prefer structural generalizations over single-title or exact-phrase special cases unless multiple promoted examples clearly justify the phrase.
+5. Use the mismatch counts from the commands you actually ran; do not invent or round them.
+6. If the calibration improves but another gate fails, say that explicitly instead of calling the patch a semantic regression.
+7. Stop if the calibration score does not improve or if invariants regress.
 5. Return exactly one JSON object with:
    - `action`: `patched` or `no_patch`
    - `summary`

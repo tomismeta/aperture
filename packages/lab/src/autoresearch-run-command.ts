@@ -177,6 +177,10 @@ export async function runAutoresearchRunnerCommand(
         const attempt = await executeProposalAttempt(options, slice);
         attempts.push(attempt);
         logAttempt(`slice=${sliceIndex} offset=${slice.offset}`, attempt);
+        if (attempt.status === "exhausted") {
+          notes.push(`Slice offset ${slice.offset} reported no remaining bundles to review; stopping the remaining slice budget early.`);
+          break;
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         attempts.push({
@@ -357,17 +361,22 @@ function buildExhaustedFeedback(
     .map(([status, count]) => `${count} attempt(s) ended with status=${status}.`);
 
   const allErrors = attempts.length > 0 && attempts.every((attempt) => attempt.status === "error");
+  const allExhausted = attempts.length > 0 && attempts.every((attempt) => attempt.status === "exhausted");
   return {
-    action: allErrors ? "blocked" : "no_proposal",
+    action: allErrors ? "blocked" : (allExhausted ? "exhausted" : "no_proposal"),
     summary: allErrors
       ? "Every attempted slice failed before a proposal could be produced."
-      : "Exhausted the slice budget without finding a proposal patch artifact.",
+      : allExhausted
+        ? "The run exhausted the available bundles before a proposal could be produced."
+        : "Exhausted the slice budget without finding a proposal patch artifact.",
     reasons,
     commandsRun: [...commandsRun],
     attempts: [...attempts],
     recommendedNextStep: allErrors
       ? "Inspect the failed slice logs before re-running F-Stop."
-      : "Inspect the highest-signal no_change slices before expanding the slice budget.",
+      : allExhausted
+        ? "Treat this as corpus exhaustion or empty-input handling rather than a semantic regression."
+        : "Inspect the highest-signal no_change slices before expanding the slice budget.",
   };
 }
 
@@ -517,6 +526,8 @@ function determineStatus(
       return "no_proposal";
     case "blocked":
       return "blocked";
+    case "exhausted":
+      return "exhausted";
     default:
       return "invalid";
   }

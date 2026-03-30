@@ -69,12 +69,10 @@ export async function runOfflineReviewBatchCommand(
     imported,
   } = await resolveBundlePaths(options);
 
-  if (bundlePaths.length === 0) {
-    throw new Error("No bundles available to review.");
-  }
-
   const reviewerLabel = options.reviewerCommand ?? `provider:${options.reviewerProvider ?? "generic"}`;
-  const entries = await runBatchReviews(bundlePaths, options);
+  const entries = bundlePaths.length > 0
+    ? await runBatchReviews(bundlePaths, options)
+    : [];
 
   const report = createOfflineReviewBatchReport(entries, {
     reviewerCommand: reviewerLabel,

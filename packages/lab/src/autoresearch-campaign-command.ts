@@ -443,6 +443,13 @@ export async function runAutoresearchCampaignCommand(
         if (finalStatus !== "proposal_ready") {
           finalStatus = effectiveStatus;
         }
+        if (effectiveStatus === "exhausted") {
+          await logLine(
+            logPath,
+            `campaign_exhausted index=${runIndex} offset=${offset} run=${runId}`,
+          );
+          break;
+        }
       } else {
         offset += options.limit;
         finalStatus = "error";
@@ -476,6 +483,8 @@ export async function runAutoresearchCampaignCommand(
         ? `Selected proposal: ${finalSelectedProposalPath}`
         : finalStatus === "error"
           ? "Campaign ended with an error."
+          : finalStatus === "exhausted"
+            ? "Campaign exhausted the available bundles and ended cleanly."
           : "Campaign completed without a selected proposal.",
     });
     await logLine(

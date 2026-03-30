@@ -36,7 +36,7 @@ export type AutoresearchRunnerFeedbackAttempt = {
 };
 
 export type AutoresearchRunnerFeedback = {
-  action: "proposal_ready" | "no_proposal" | "blocked";
+  action: "proposal_ready" | "no_proposal" | "blocked" | "exhausted";
   summary: string;
   reasons: string[];
   commandsRun: string[];
@@ -48,7 +48,7 @@ export type AutoresearchRunnerFeedback = {
   recommendedNextStep?: string;
 };
 
-export type AutoresearchRunnerRunStatus = "proposal_ready" | "no_proposal" | "blocked" | "invalid";
+export type AutoresearchRunnerRunStatus = "proposal_ready" | "no_proposal" | "blocked" | "exhausted" | "invalid";
 
 export type AutoresearchRunnerRun = {
   schemaVersion: typeof AUTORESEARCH_RUNNER_RUN_SCHEMA_VERSION;

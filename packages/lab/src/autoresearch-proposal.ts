@@ -86,6 +86,7 @@ export type AutoresearchProposalPromotion = {
 
 export type AutoresearchProposalRunStatus =
   | "clean"
+  | "exhausted"
   | "no_signal"
   | "proposed"
   | "no_change"

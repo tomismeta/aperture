@@ -416,6 +416,47 @@ test("synthesizeAutoresearchFinalReport aggregates coverage from no-proposal att
   assert.equal(report.attempts.length, 2);
 });
 
+test("synthesizeAutoresearchFinalReport explains exhausted runs clearly", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "aperture-autoresearch-report-"));
+  const runnerRunPath = path.join(repoRoot, "runner.json");
+
+  const runnerRun: AutoresearchRunnerRun = {
+    schemaVersion: 1,
+    generatedAt: "2026-03-30T00:00:00.000Z",
+    provider: "openclaw",
+    runnerCommand: "deterministic sequential slice loop",
+    status: "exhausted",
+    artifacts: {},
+    feedback: {
+      action: "exhausted",
+      summary: "The run exhausted the available bundles before a proposal could be produced.",
+      reasons: ["1 attempt(s) ended with status=exhausted."],
+      commandsRun: [],
+      attempts: [
+        {
+          offset: 96,
+          limit: 6,
+          status: "exhausted",
+        },
+      ],
+      recommendedNextStep: "Treat this as corpus exhaustion or empty-input handling rather than a semantic regression.",
+    },
+    notes: ["Discovery batch did not produce any bundles."],
+  };
+
+  await writeJson(runnerRunPath, runnerRun);
+
+  const report = await synthesizeAutoresearchFinalReport({
+    runnerRunPath,
+    repoRoot,
+  });
+
+  assert.equal(report.status, "exhausted");
+  assert.match(report.recommendation, /exhausted the available reviewable bundles/i);
+  const markdown = renderAutoresearchFinalReportMarkdown(report);
+  assert.match(markdown, /Status: exhausted/);
+});
+
 async function writeJson(filePath: string, value: unknown): Promise<void> {
   await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }

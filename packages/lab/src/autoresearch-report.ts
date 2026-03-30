@@ -559,6 +559,9 @@ function buildRecommendation(input: {
   if (input.proposal?.status === "no_signal") {
     return "Discovery completed without enough repeated high-confidence signal to justify promotion or optimization. No code change is recommended from this run.";
   }
+  if (input.proposal?.status === "exhausted" || input.runnerRun?.status === "exhausted") {
+    return "The run exhausted the available reviewable bundles before a trustworthy proposal could be produced. Treat this as end-of-data or empty-input handling, not a semantic regression.";
+  }
   if (input.runnerRun?.status === "blocked") {
     return "The run was blocked before a trustworthy proposal could be produced. Review the notes and runner attempts before rerunning.";
   }

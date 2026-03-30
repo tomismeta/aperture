@@ -150,11 +150,10 @@ export async function runAutoresearchProposalCommand(
 
   if (discoveryStatus === "error") {
     status = "error";
-    if (bundleCount === 0) {
-      notes.push("Discovery batch did not produce any bundles.");
-    } else {
-      notes.push(`Discovery batch failed for all ${errorCount} bundle(s).`);
-    }
+    notes.push(`Discovery batch failed for all ${errorCount} bundle(s).`);
+  } else if (discoveryStatus === "exhausted") {
+    status = "exhausted";
+    notes.push("Discovery batch did not produce any bundles.");
   } else if (discoveryStatus === "no_signal") {
     status = "no_signal";
     notes.push(
@@ -163,9 +162,6 @@ export async function runAutoresearchProposalCommand(
   } else if (discoveryStatus === "clean") {
     status = "clean";
     notes.push("Discovery batch was clean; no proposal was generated.");
-  } else if (bundleCount === 0) {
-    status = "error";
-    notes.push("Discovery batch did not produce any bundles.");
   } else {
     const optimizeResult = await runAutoresearchOptimizeCommand({
       provider: options.optimizerProvider,
@@ -249,9 +245,9 @@ export function determineAutoresearchProposalDiscoveryStatus(input: {
   disagreementCount: number;
   errorCount: number;
   signalCount: number;
-}): "error" | "clean" | "no_signal" | undefined {
+}): "error" | "clean" | "no_signal" | "exhausted" | undefined {
   if (input.bundleCount === 0) {
-    return "error";
+    return "exhausted";
   }
   if (input.signalCount > 0) {
     return undefined;

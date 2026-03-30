@@ -161,113 +161,16 @@ export async function runAutoresearchServiceCommand(
       note: "Service booting.",
     });
 
+    let stopAfterWindow = false;
     for (let windowIndex = 0; windowIndex < options.windowCount; windowIndex += 1) {
-    let attemptsForWindow = 0;
+      let attemptsForWindow = 0;
 
-    while (true) {
-      attemptsForWindow += 1;
-      await writeServiceStatus(statusPath, {
-        serviceId,
-        generatedAt,
-        phase: attemptsForWindow === 1 ? "running" : "restarting",
-        dataset: options.dataset,
-        split: options.split,
-        sourceRepo,
-        branch,
-        commit,
-        currentOffset: offset,
-        limit: options.limit,
-        maxSlices: options.maxSlices,
-        windowCount: options.windowCount,
-        completedWindows,
-        reviewConcurrency: options.reviewConcurrency,
-        restartCount,
-        maxRestarts: options.maxRestarts,
-        campaignStallThresholdSeconds: options.campaignStallThresholdSeconds,
-        serviceStallThresholdSeconds: options.serviceStallThresholdSeconds,
-        ...(lastProgressAt ? { lastProgressAt } : {}),
-        ...(currentReportPath ? { currentReportPath } : {}),
-        ...(currentReportMarkdownPath ? { currentReportMarkdownPath } : {}),
-        ...(selectedProposalPath ? { selectedProposalPath } : {}),
-        ...(selectedPatchPath ? { selectedPatchPath } : {}),
-        note: attemptsForWindow === 1
-          ? `Launching campaign window ${windowIndex}.`
-          : `Restarting campaign window ${windowIndex} after failure.`,
-      });
-      await logLine(logPath, `campaign_launch window=${windowIndex} offset=${offset} attempt=${attemptsForWindow}`);
-
-      try {
-        await restoreGitHeadSnapshot(sourceSnapshot, sourceRepo);
-        const payload = await executeCampaignWindow({
-          sourceRepo,
-          offset,
-          options,
-          currentCampaignStatusPath,
-          onStatus: async (campaignStatus) => {
-            await restoreLeakedSourceRepoChanges(sourceRepo, sourceSnapshot, logPath);
-            lastProgressAt = campaignStatus.lastProgressAt;
-            currentReportPath = campaignStatus.currentReportPath ?? currentReportPath;
-            currentReportMarkdownPath = campaignStatus.currentReportMarkdownPath ?? currentReportMarkdownPath;
-            await writeServiceStatus(statusPath, {
-              serviceId,
-              generatedAt,
-              phase: "running",
-              dataset: options.dataset,
-              split: options.split,
-              sourceRepo,
-              branch,
-              commit,
-              currentOffset: offset,
-              limit: options.limit,
-              maxSlices: options.maxSlices,
-              windowCount: options.windowCount,
-              completedWindows,
-              reviewConcurrency: options.reviewConcurrency,
-              restartCount,
-              maxRestarts: options.maxRestarts,
-              campaignStallThresholdSeconds: options.campaignStallThresholdSeconds,
-              serviceStallThresholdSeconds: options.serviceStallThresholdSeconds,
-              currentCampaignId: campaignStatus.campaignId,
-              currentCampaignRoot: currentCampaignRootPath,
-              currentCampaignStatusPath,
-              ...(currentReportPath ? { currentReportPath } : {}),
-              ...(currentReportMarkdownPath ? { currentReportMarkdownPath } : {}),
-              lastProgressAt,
-              note: `Campaign window ${windowIndex} running.`,
-            });
-          },
-        });
-
-        if (payload.status === "error") {
-          throw new Error("Campaign returned error status.");
-        }
-
-        offset = payload.nextOffset ?? offset + options.limit * options.maxSlices;
-        if (payload.selectedProposalPath) {
-          const candidateScore = await readProposalScore(payload.selectedProposalPath);
-          if (bestProposalScore === undefined || candidateScore >= bestProposalScore) {
-            bestProposalScore = candidateScore;
-            selectedProposalPath = payload.selectedProposalPath;
-            selectedPatchPath = payload.selectedPatchPath ?? selectedPatchPath;
-            currentReportPath = payload.currentReportPath ?? currentReportPath;
-            currentReportMarkdownPath = payload.currentReportMarkdownPath ?? currentReportMarkdownPath;
-            finalStatus = "proposal_ready";
-          }
-        } else {
-          currentReportPath = payload.currentReportPath ?? currentReportPath;
-          currentReportMarkdownPath = payload.currentReportMarkdownPath ?? currentReportMarkdownPath;
-          if (finalStatus !== "proposal_ready") {
-            finalStatus = payload.status;
-          }
-        }
-        completedWindows += 1;
-
-        await logLine(logPath, `campaign_finish window=${windowIndex} status=${payload.status} next_offset=${offset}`);
-
+      while (true) {
+        attemptsForWindow += 1;
         await writeServiceStatus(statusPath, {
           serviceId,
           generatedAt,
-          phase: "running",
+          phase: attemptsForWindow === 1 ? "running" : "restarting",
           dataset: options.dataset,
           split: options.split,
           sourceRepo,
@@ -283,41 +186,190 @@ export async function runAutoresearchServiceCommand(
           maxRestarts: options.maxRestarts,
           campaignStallThresholdSeconds: options.campaignStallThresholdSeconds,
           serviceStallThresholdSeconds: options.serviceStallThresholdSeconds,
-          ...(payload.campaignId ? { currentCampaignId: payload.campaignId } : {}),
-          currentCampaignRoot: payload.campaignRoot ?? currentCampaignRootPath,
-          ...(payload.statusPath ? { currentCampaignStatusPath: payload.statusPath } : {}),
+          ...(lastProgressAt ? { lastProgressAt } : {}),
           ...(currentReportPath ? { currentReportPath } : {}),
           ...(currentReportMarkdownPath ? { currentReportMarkdownPath } : {}),
           ...(selectedProposalPath ? { selectedProposalPath } : {}),
           ...(selectedPatchPath ? { selectedPatchPath } : {}),
-          note: payload.selectedProposalPath
-            ? `Completed campaign window ${windowIndex} with a proposal candidate.`
-            : `Completed campaign window ${windowIndex}.`,
+          note: attemptsForWindow === 1
+            ? `Launching campaign window ${windowIndex}.`
+            : `Restarting campaign window ${windowIndex} after failure.`,
         });
+        await logLine(logPath, `campaign_launch window=${windowIndex} offset=${offset} attempt=${attemptsForWindow}`);
 
-        break;
-      } catch (error) {
-        await restoreGitHeadSnapshot(sourceSnapshot, sourceRepo).catch(async (restoreError) => {
-          await logLine(
-            logPath,
-            `source_repo_restore_error window=${windowIndex} offset=${offset} message=${sanitizeLogField(
-              restoreError instanceof Error ? restoreError.message : String(restoreError),
-            )}`,
-          );
-        });
-        restartCount += 1;
-        const message = error instanceof Error ? error.message : String(error);
-        await logLine(
-          logPath,
-          `campaign_error window=${windowIndex} offset=${offset} attempt=${attemptsForWindow} restart_count=${restartCount} message=${sanitizeLogField(message)}`,
-        );
+        try {
+          await restoreGitHeadSnapshot(sourceSnapshot, sourceRepo);
+          const payload = await executeCampaignWindow({
+            sourceRepo,
+            offset,
+            options,
+            currentCampaignStatusPath,
+            onStatus: async (campaignStatus) => {
+              await restoreLeakedSourceRepoChanges(sourceRepo, sourceSnapshot, logPath);
+              lastProgressAt = campaignStatus.lastProgressAt;
+              currentReportPath = campaignStatus.currentReportPath ?? currentReportPath;
+              currentReportMarkdownPath = campaignStatus.currentReportMarkdownPath ?? currentReportMarkdownPath;
+              await writeServiceStatus(statusPath, {
+                serviceId,
+                generatedAt,
+                phase: "running",
+                dataset: options.dataset,
+                split: options.split,
+                sourceRepo,
+                branch,
+                commit,
+                currentOffset: offset,
+                limit: options.limit,
+                maxSlices: options.maxSlices,
+                windowCount: options.windowCount,
+                completedWindows,
+                reviewConcurrency: options.reviewConcurrency,
+                restartCount,
+                maxRestarts: options.maxRestarts,
+                campaignStallThresholdSeconds: options.campaignStallThresholdSeconds,
+                serviceStallThresholdSeconds: options.serviceStallThresholdSeconds,
+                currentCampaignId: campaignStatus.campaignId,
+                currentCampaignRoot: currentCampaignRootPath,
+                currentCampaignStatusPath,
+                ...(currentReportPath ? { currentReportPath } : {}),
+                ...(currentReportMarkdownPath ? { currentReportMarkdownPath } : {}),
+                lastProgressAt,
+                note: `Campaign window ${windowIndex} running.`,
+              });
+            },
+          });
 
-        if (restartCount > options.maxRestarts) {
-          finalStatus = "error";
+          if (payload.status === "error") {
+            throw new Error("Campaign returned error status.");
+          }
+
+          offset = payload.nextOffset ?? offset + options.limit * options.maxSlices;
+          if (payload.selectedProposalPath) {
+            const candidateScore = await readProposalScore(payload.selectedProposalPath);
+            if (bestProposalScore === undefined || candidateScore >= bestProposalScore) {
+              bestProposalScore = candidateScore;
+              selectedProposalPath = payload.selectedProposalPath;
+              selectedPatchPath = payload.selectedPatchPath ?? selectedPatchPath;
+              currentReportPath = payload.currentReportPath ?? currentReportPath;
+              currentReportMarkdownPath = payload.currentReportMarkdownPath ?? currentReportMarkdownPath;
+              finalStatus = "proposal_ready";
+            }
+          } else {
+            currentReportPath = payload.currentReportPath ?? currentReportPath;
+            currentReportMarkdownPath = payload.currentReportMarkdownPath ?? currentReportMarkdownPath;
+            if (finalStatus !== "proposal_ready") {
+              finalStatus = payload.status;
+            }
+          }
+          completedWindows += 1;
+
+          await logLine(logPath, `campaign_finish window=${windowIndex} status=${payload.status} next_offset=${offset}`);
+
           await writeServiceStatus(statusPath, {
             serviceId,
             generatedAt,
-            phase: "error",
+            phase: "running",
+            dataset: options.dataset,
+            split: options.split,
+            sourceRepo,
+            branch,
+            commit,
+            currentOffset: offset,
+            limit: options.limit,
+            maxSlices: options.maxSlices,
+            windowCount: options.windowCount,
+            completedWindows,
+            reviewConcurrency: options.reviewConcurrency,
+            restartCount,
+            maxRestarts: options.maxRestarts,
+            campaignStallThresholdSeconds: options.campaignStallThresholdSeconds,
+            serviceStallThresholdSeconds: options.serviceStallThresholdSeconds,
+            ...(payload.campaignId ? { currentCampaignId: payload.campaignId } : {}),
+            currentCampaignRoot: payload.campaignRoot ?? currentCampaignRootPath,
+            ...(payload.statusPath ? { currentCampaignStatusPath: payload.statusPath } : {}),
+            ...(currentReportPath ? { currentReportPath } : {}),
+            ...(currentReportMarkdownPath ? { currentReportMarkdownPath } : {}),
+            ...(selectedProposalPath ? { selectedProposalPath } : {}),
+            ...(selectedPatchPath ? { selectedPatchPath } : {}),
+            note: payload.selectedProposalPath
+              ? `Completed campaign window ${windowIndex} with a proposal candidate.`
+              : payload.status === "exhausted"
+                ? `Completed campaign window ${windowIndex}; available bundles were exhausted.`
+                : `Completed campaign window ${windowIndex}.`,
+          });
+
+          if (payload.status === "exhausted" && !selectedProposalPath) {
+            finalStatus = "exhausted";
+            stopAfterWindow = true;
+            break;
+          }
+
+          break;
+        } catch (error) {
+          await restoreGitHeadSnapshot(sourceSnapshot, sourceRepo).catch(async (restoreError) => {
+            await logLine(
+              logPath,
+              `source_repo_restore_error window=${windowIndex} offset=${offset} message=${sanitizeLogField(
+                restoreError instanceof Error ? restoreError.message : String(restoreError),
+              )}`,
+            );
+          });
+          restartCount += 1;
+          const message = error instanceof Error ? error.message : String(error);
+          await logLine(
+            logPath,
+            `campaign_error window=${windowIndex} offset=${offset} attempt=${attemptsForWindow} restart_count=${restartCount} message=${sanitizeLogField(message)}`,
+          );
+
+          if (restartCount > options.maxRestarts) {
+            finalStatus = "error";
+            await writeServiceStatus(statusPath, {
+              serviceId,
+              generatedAt,
+              phase: "error",
+              dataset: options.dataset,
+              split: options.split,
+              sourceRepo,
+              branch,
+              commit,
+              currentOffset: offset,
+              limit: options.limit,
+              maxSlices: options.maxSlices,
+              windowCount: options.windowCount,
+              completedWindows,
+              reviewConcurrency: options.reviewConcurrency,
+              restartCount,
+              maxRestarts: options.maxRestarts,
+              campaignStallThresholdSeconds: options.campaignStallThresholdSeconds,
+              serviceStallThresholdSeconds: options.serviceStallThresholdSeconds,
+              ...(currentReportPath ? { currentReportPath } : {}),
+              ...(currentReportMarkdownPath ? { currentReportMarkdownPath } : {}),
+              ...(selectedProposalPath ? { selectedProposalPath } : {}),
+              ...(selectedPatchPath ? { selectedPatchPath } : {}),
+              note: `Restart limit exceeded: ${message}`,
+            });
+            return {
+              status: "error",
+              finalStatus,
+              serviceId,
+              serviceRoot,
+              statusPath,
+              logPath,
+              completedWindows,
+              windowCount: options.windowCount,
+              nextOffset: offset,
+              restartCount,
+              ...(currentReportPath ? { currentReportPath } : {}),
+              ...(currentReportMarkdownPath ? { currentReportMarkdownPath } : {}),
+              ...(selectedProposalPath ? { selectedProposalPath } : {}),
+              ...(selectedPatchPath ? { selectedPatchPath } : {}),
+            };
+          }
+
+          await writeServiceStatus(statusPath, {
+            serviceId,
+            generatedAt,
+            phase: "restarting",
             dataset: options.dataset,
             split: options.split,
             sourceRepo,
@@ -337,56 +389,15 @@ export async function runAutoresearchServiceCommand(
             ...(currentReportMarkdownPath ? { currentReportMarkdownPath } : {}),
             ...(selectedProposalPath ? { selectedProposalPath } : {}),
             ...(selectedPatchPath ? { selectedPatchPath } : {}),
-            note: `Restart limit exceeded: ${message}`,
+            note: `Restarting after failure: ${message}`,
           });
-          return {
-            status: "error",
-            finalStatus,
-            serviceId,
-            serviceRoot,
-            statusPath,
-            logPath,
-            completedWindows,
-            windowCount: options.windowCount,
-            nextOffset: offset,
-            restartCount,
-            ...(currentReportPath ? { currentReportPath } : {}),
-            ...(currentReportMarkdownPath ? { currentReportMarkdownPath } : {}),
-            ...(selectedProposalPath ? { selectedProposalPath } : {}),
-            ...(selectedPatchPath ? { selectedPatchPath } : {}),
-          };
+          await sleep(options.restartBackoffSeconds * 1000);
         }
-
-        await writeServiceStatus(statusPath, {
-          serviceId,
-          generatedAt,
-          phase: "restarting",
-          dataset: options.dataset,
-          split: options.split,
-          sourceRepo,
-          branch,
-          commit,
-          currentOffset: offset,
-          limit: options.limit,
-          maxSlices: options.maxSlices,
-          windowCount: options.windowCount,
-          completedWindows,
-          reviewConcurrency: options.reviewConcurrency,
-          restartCount,
-          maxRestarts: options.maxRestarts,
-          campaignStallThresholdSeconds: options.campaignStallThresholdSeconds,
-          serviceStallThresholdSeconds: options.serviceStallThresholdSeconds,
-          ...(currentReportPath ? { currentReportPath } : {}),
-          ...(currentReportMarkdownPath ? { currentReportMarkdownPath } : {}),
-          ...(selectedProposalPath ? { selectedProposalPath } : {}),
-          ...(selectedPatchPath ? { selectedPatchPath } : {}),
-          note: `Restarting after failure: ${message}`,
-        });
-        await sleep(options.restartBackoffSeconds * 1000);
+      }
+      if (stopAfterWindow) {
+        break;
       }
     }
-
-  }
 
     await restoreGitHeadSnapshot(sourceSnapshot, sourceRepo).catch(async (restoreError) => {
       await logLine(
@@ -425,6 +436,8 @@ export async function runAutoresearchServiceCommand(
       ...(selectedPatchPath ? { selectedPatchPath } : {}),
       note: selectedProposalPath
         ? "Completed all windows with a selected proposal candidate."
+        : finalStatus === "exhausted"
+          ? "Service exhausted the available bundles and ended cleanly."
         : "Service completed without proposal.",
     });
     await logLine(

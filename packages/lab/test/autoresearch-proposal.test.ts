@@ -223,6 +223,17 @@ test("assignAutoresearchProposalSplits reserves validation and heldout for the t
   assert.deepEqual(assignAutoresearchProposalSplits(4), ["train", "train", "validation", "heldout"]);
 });
 
+test("determineAutoresearchProposalDiscoveryStatus returns exhausted when no bundles are available", () => {
+  const status = determineAutoresearchProposalDiscoveryStatus({
+    bundleCount: 0,
+    disagreementCount: 0,
+    errorCount: 0,
+    signalCount: 0,
+  });
+
+  assert.equal(status, "exhausted");
+});
+
 test("selectAutoresearchProposalPromotions caps the promoted report count", () => {
   const promotions = selectAutoresearchProposalPromotions([
     {

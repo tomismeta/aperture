@@ -35,6 +35,27 @@ For the higher-level system shape, see
 - `patch`
   An actual code diff produced by the optimizer.
 
+## Nested Hierarchy
+
+The simplest nesting is:
+
+- `campaign`
+  contains one or more `windows`
+
+- `window`
+  contains multiple `slices`
+
+- `slice`
+  contains multiple `sessions`
+
+- `session`
+  contains many replay `steps`
+
+And separately:
+
+- `bundle`
+  is the replayable Lab file for one session
+
 ## Mental Model
 
 F-Stop does this:
@@ -55,10 +76,38 @@ F-Stop does this:
 - OpenClaw usually reviews at the **session/bundle level**, not one prompt per
   replay step
 
+### Example
+
+For a campaign configured like this:
+
+- `windowCount=3`
+- `maxSlices=8`
+- `limit=6`
+
+The campaign can review:
+
+- `3 windows`
+- `8 slices per window`
+- `6 sessions per slice`
+
+So the maximum reviewed session count is:
+
+- `3 * 8 * 6 = 144 sessions`
+
+One real run at that shape produced:
+
+- `144 sessions reviewed`
+- about `7,825 replay steps`
+- `144 reviewer prompts`
+- `12 optimizer prompts`
+- `156 OpenClaw prompts total`
+
 So:
 
 - `144 sessions reviewed` does **not** mean `144 messages`
 - and `7,825 replay steps` does **not** mean `7,825 OpenClaw prompts`
+- OpenClaw prompt count is usually much closer to `session` count than `step`
+  count
 
 ## Useful Translation
 

@@ -92,7 +92,6 @@ measures and improves Aperture's deterministic hot path.
 - [Decision Quality Execution Plan](./roadmap/decision-quality-execution-plan.md)
 - [Engine Roadmap](./roadmap/engine-roadmap.md)
 - [Technical Product Roadmap](./roadmap/technical-product-roadmap.md)
-- [Post-Sweep Release And Strategy](./roadmap/post-sweep-release-and-strategy.md)
 - [Core Maturation Plan](./roadmap/core-maturation-plan.md)
 
 Use the roadmap index to separate current direction from supporting or

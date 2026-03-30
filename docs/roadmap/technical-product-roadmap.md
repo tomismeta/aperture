@@ -39,6 +39,25 @@ The immediate technical priority is not breadth. It is confidence:
 - confidence in replayable deterministic behavior
 - confidence that the engine behaves correctly across more than the flagship TUI
 
+That confidence now includes the F-Stop pre-release loop:
+
+- unattended replay and review before package cuts
+- bounded offline optimizer attempts
+- one final report for release readiness
+
+The next release sequence should stay tight:
+
+1. finish the current pre-release sweep
+2. inspect only the highest-signal findings
+3. merge only bounded, structural core improvements
+4. cut the next `aperture-core` and `aperture` patch releases
+
+The release bar should be:
+
+- unattended sweeps ran reliably
+- no new trustworthy core regressions surfaced
+- any accepted semantic changes are structural, bounded, and well-tested
+
 ## The Three Tracks
 
 There are still three parallel technical tracks:
@@ -48,6 +67,60 @@ There are still three parallel technical tracks:
 3. engine maturity for embed and multi-surface use
 
 They should influence each other, but they do not have to move in lockstep.
+
+## Product Wedge
+
+The wedge is getting clearer.
+
+Aperture should not position itself as:
+
+- another coding agent
+- another agent runtime
+- another eval dashboard
+- another approval API
+
+It should position itself as:
+
+- the judgment and attention layer for agent work
+
+In plain language:
+
+- existing agents generate and execute
+- Aperture decides what deserves operator attention, when, and in what form
+
+The product promise should sound like:
+
+- connect your agents
+- get one calm place for approvals, blocked work, failures, and meaningful
+  follow-ups
+- trust that the judgment layer is deterministic, inspectable, and improving
+
+## Moat
+
+The moat is not model weights.
+
+The moat is the system:
+
+1. **Deterministic hot-path judgment**
+   - routing stays inside `aperture-core`
+   - no model call is required to decide whether work becomes active, queued,
+     or ambient
+
+2. **Cross-source normalization**
+   - multiple hosts collapse into one bounded event language
+   - this is what lets operator behavior compound across adapters
+
+3. **Replay and calibration**
+   - real sessions can be replayed through real Core code
+   - disagreements can be reviewed offline and turned into bounded fixes
+
+4. **Inspectable explanation**
+   - provenance and impact make the system auditable for both users and lab
+     iteration
+
+5. **Local-first operator memory**
+   - response patterns, tolerance, and calibration can compound over time
+     without moving intelligence into an opaque hosted control plane
 
 ## Adapter Maturity
 
@@ -96,6 +169,29 @@ What is not true yet:
 
 - no live transport path
 - no end-to-end product flow
+
+## Adapter Expansion Strategy
+
+We should expand adapters selectively, not broadly.
+
+The right next adapters are the ones that either:
+
+- create meaningful new behavioral pressure on the judgment layer
+- or sharpen the product wedge directly
+
+That means the near-term bias should be:
+
+1. keep Claude Code healthy
+2. keep OpenCode healthy
+3. strengthen Codex as the next meaningful third path
+4. evaluate Cursor later if we want stronger background-agent and cloud-agent
+   pressure
+
+What to avoid:
+
+- building an adapter zoo for its own sake
+- adding new adapters before the shared judgment loop is ready to benefit from
+  them
 
 ## SDK / Package Maturity
 
@@ -152,6 +248,15 @@ What is still next, not done:
 - broader replay/eval tooling
 - more mature host-level validation outside the shared TUI
 
+The highest-value core work is still not breadth.
+
+It is making the engine better at:
+
+- understanding operator behavior
+- adapting safely over time
+- anticipating when human attention will be needed
+- staying calm under ambiguity
+
 For the engine ordering, see:
 
 - [Engine Roadmap](./engine-roadmap.md)
@@ -162,25 +267,58 @@ For the engine ordering, see:
 
 Ordered by leverage:
 
-1. **Keep Claude Code healthy as the flagship path**
+1. **Finish the current F-Stop release loop**
+   - finish the active pre-release sweep
+   - inspect `swe-smith/xml` and `open-agent-sessions/approved`
+   - merge only defensible core findings
+   - cut the next `aperture-core` and `aperture` releases
+
+2. **Keep Claude Code healthy as the flagship path**
    - it should remain the easiest obvious success path
 
-2. **Keep OpenCode healthy as the second live path**
+3. **Keep OpenCode healthy as the second live path**
    - it pressure-tests the shared runtime and TUI with a source Aperture does not control
 
-3. **Build replay / evaluation as a first-class loop**
+4. **Build replay / evaluation as a first-class loop**
    - compare routing behavior
    - review disagreements
    - tune thresholds offline
 
-4. **Support the published package deliberately**
+5. **Support the published package deliberately**
    - keep examples healthy
    - keep npm/GitHub docs honest
    - harden based on real consumer friction
 
-5. **Prove one non-TUI host surface later**
+6. **Prove one non-TUI host surface later**
    - only after the evaluation loop is more mature
    - see [Host Surface Expansion Note](./host-surface-expansion-note.md)
+
+## What We Are Still Not Doing Enough
+
+The most interesting open strategic opportunities are:
+
+1. **Operator modeling as a first-class asset**
+   - explicit interrupt tolerance, batching preference, approval strictness,
+     and ambiguity tolerance
+
+2. **Anticipation before interruption**
+   - prepare the operator before the agent stalls
+   - wait for one more correlated signal when that reduces noise
+
+3. **Autonomy envelopes**
+   - go beyond simple allow/block
+   - define how far an agent can continue silently, when it should summarize,
+     and when it must stop now
+
+4. **Team-level attention policy**
+   - shared risk, escalation, and trust policy for multi-agent teams
+
+5. **Shadow mode and certification**
+   - evaluate agent/operator burden without taking control of the live runtime
+
+6. **Cross-agent continuity**
+   - preserve work meaning, episode grouping, and attention budgets across
+     multiple agent surfaces
 
 ## What To Avoid
 
@@ -188,9 +326,12 @@ Ordered by leverage:
 - widening the public SDK surface casually
 - moving tuning or learning into the hot path
 - letting host-specific convenience leak into core judgment semantics
+- becoming a generic eval platform
+- becoming a generic agent orchestrator
 
 The right bias now is:
 
 - keep the live paths trustworthy
 - keep the published package honest
 - deepen confidence before broadening scope
+- deepen the core before broadening the product story

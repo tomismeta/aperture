@@ -186,6 +186,7 @@ so raw imports have one stable intermediate shape before replay.
 The standard input file for F-Stop is a canonical F-Stop Session JSON:
 
 - [docs/lab/fstop-session-format.md](/Users/tom/dev/aperture/docs/lab/fstop-session-format.md)
+- [docs/lab/fstop-cheat-sheet.md](/Users/tom/dev/aperture/docs/lab/fstop-cheat-sheet.md)
 
 That file can be handed directly to:
 
@@ -503,6 +504,9 @@ For the broader lab architecture and naming ontology, see
 
 For the cleaner target shape of the F-Stop runtime, see
 [F-Stop V2 Architecture](../../docs/lab/fstop-architecture-v2.md).
+
+For a short glossary of the most common F-Stop terms, see
+[F-Stop Cheat Sheet](../../docs/lab/fstop-cheat-sheet.md).
 
 For the concrete harvesting and labeling plan behind JudgmentBench, see
 [JudgmentBench Data Strategy](../../docs/lab/judgmentbench-data-strategy.md).

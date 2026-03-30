@@ -1,4 +1,4 @@
-# F-Stop V2 Architecture
+# F-Stop Architecture
 
 This note defines the cleaner target architecture for F-Stop.
 

@@ -503,7 +503,7 @@ For the broader lab architecture and naming ontology, see
 [Aperture Lab](../../docs/lab/aperture-lab.md).
 
 For the cleaner target shape of the F-Stop runtime, see
-[F-Stop V2 Architecture](../../docs/lab/fstop-architecture-v2.md).
+[F-Stop Architecture](../../docs/lab/fstop-architecture.md).
 
 For a short glossary of the most common F-Stop terms, see
 [F-Stop Cheat Sheet](../../docs/lab/fstop-cheat-sheet.md).

@@ -2,6 +2,9 @@
 
 Small glossary for the terms that show up most often in the Lab runtime.
 
+For the higher-level system shape, see
+[F-Stop V2 Architecture](./fstop-architecture-v2.md).
+
 ## Core Terms
 
 - `session`

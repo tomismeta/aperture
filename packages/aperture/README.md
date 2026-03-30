@@ -145,6 +145,6 @@ npm uninstall -g @tomismeta/aperture
 
 - npm package: [`@tomismeta/aperture`](https://www.npmjs.com/package/@tomismeta/aperture)
 - SDK package: [`@tomismeta/aperture-core`](https://www.npmjs.com/package/@tomismeta/aperture-core)
-- Release notes: [Aperture v0.1.1](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-v0.1.1.md)
+- Release notes: [Aperture v0.1.2](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-v0.1.2.md)
 - GitHub repo: [tomismeta/aperture](https://github.com/tomismeta/aperture)
 - Architecture overview: [docs/product/architecture-overview.md](https://github.com/tomismeta/aperture/blob/main/docs/product/architecture-overview.md)

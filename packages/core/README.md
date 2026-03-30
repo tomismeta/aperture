@@ -114,7 +114,7 @@ the TUI, see [Architecture Overview](https://github.com/tomismeta/aperture/blob/
 If you want the replay, benchmark, and calibration direction for evaluating
 judgment changes, see [Aperture Lab](https://github.com/tomismeta/aperture/blob/main/docs/lab/aperture-lab.md).
 
-For the current shipped release summary, see [Aperture Core SDK v0.4.1](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-core-v0.4.1.md).
+For the current shipped release summary, see [Aperture Core SDK v0.4.2](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-core-v0.4.2.md).
 
 ## Install
 

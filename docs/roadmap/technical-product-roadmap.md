@@ -20,7 +20,7 @@ This document answers:
 Right now Aperture has:
 
 - a published core SDK:
-  - `@tomismeta/aperture-core@0.4.1`
+  - `@tomismeta/aperture-core@0.4.2`
 - two live adapter paths:
   - Claude Code
   - OpenCode

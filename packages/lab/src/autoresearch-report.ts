@@ -236,7 +236,7 @@ export function renderAutoresearchFinalReportMarkdown(
     "",
     "## Run Summary",
     "",
-    `- session files: ${report.runSummary.bundleCount}`,
+    `- bundles: ${report.runSummary.bundleCount}`,
     `- sessions: ${report.runSummary.sessionCount}`,
     `- replay steps: ${report.runSummary.replayStepCount}`,
     `- source-event steps: ${report.runSummary.sourceEventStepCount}`,
@@ -244,13 +244,13 @@ export function renderAutoresearchFinalReportMarkdown(
   ];
 
   if (report.runSummary.cleanCount !== undefined) {
-    lines.push(`- clean sessions: ${report.runSummary.cleanCount}`);
+    lines.push(`- clean bundles: ${report.runSummary.cleanCount}`);
   }
   if (report.runSummary.disagreementBundleCount !== undefined) {
-    lines.push(`- sessions with disagreements: ${report.runSummary.disagreementBundleCount}`);
+    lines.push(`- disagreement bundles: ${report.runSummary.disagreementBundleCount}`);
   }
   if (report.runSummary.errorCount !== undefined) {
-    lines.push(`- session review errors: ${report.runSummary.errorCount}`);
+    lines.push(`- error bundles: ${report.runSummary.errorCount}`);
   }
   if (report.runSummary.actionableCount !== undefined) {
     lines.push(`- actionable disagreements: ${report.runSummary.actionableCount}`);
@@ -303,13 +303,13 @@ export function renderAutoresearchFinalReportMarkdown(
     }
   }
 
-  lines.push("", "## Batches", "");
+  lines.push("", "## Attempts", "");
   if (report.attempts.length === 0) {
     lines.push("- (none)");
   } else {
     for (const attempt of report.attempts) {
       lines.push(
-        `- batch offset=${attempt.offset}, size=${attempt.limit}, status=${attempt.status}${attempt.actionableCount !== undefined ? `, actionable=${attempt.actionableCount}` : ""}${attempt.selectedSignalCount !== undefined ? `, signals=${attempt.selectedSignalCount}` : ""}${attempt.promotedCaseCount !== undefined ? `, promoted=${attempt.promotedCaseCount}` : ""}${attempt.optimizerStatus ? `, optimizer=${attempt.optimizerStatus}` : ""}`,
+        `- offset=${attempt.offset}, limit=${attempt.limit}, status=${attempt.status}${attempt.actionableCount !== undefined ? `, actionable=${attempt.actionableCount}` : ""}${attempt.selectedSignalCount !== undefined ? `, signals=${attempt.selectedSignalCount}` : ""}${attempt.promotedCaseCount !== undefined ? `, promoted=${attempt.promotedCaseCount}` : ""}${attempt.optimizerStatus ? `, optimizer=${attempt.optimizerStatus}` : ""}`,
       );
     }
   }

@@ -131,9 +131,9 @@ export function renderAutoresearchRunnerRunMarkdown(
       lines.push(...run.feedback.commandsRun.map((command) => `- ${command}`));
     }
     if (run.feedback.attempts.length > 0) {
-      lines.push("", "## Batches", "");
+      lines.push("", "## Attempts", "");
       for (const attempt of run.feedback.attempts) {
-        lines.push(`- batch offset ${attempt.offset}, size ${attempt.limit}: ${attempt.status}`);
+        lines.push(`- offset ${attempt.offset}, limit ${attempt.limit}: ${attempt.status}`);
         if (attempt.proposalPath) {
           lines.push(`  proposal: ${attempt.proposalPath}`);
         }

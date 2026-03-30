@@ -119,7 +119,7 @@ export async function runAutoresearchServiceCommand(
       `offset=${options.offset}`,
       `limit=${options.limit}`,
       `max_slices=${options.maxSlices}`,
-      `runs=${options.windowCount}`,
+      `windows=${options.windowCount}`,
       `max_restarts=${options.maxRestarts}`,
       `review_concurrency=${options.reviewConcurrency}`,
     ].join(" "),
@@ -177,8 +177,8 @@ export async function runAutoresearchServiceCommand(
         ...(selectedProposalPath ? { selectedProposalPath } : {}),
         ...(selectedPatchPath ? { selectedPatchPath } : {}),
         note: attemptsForWindow === 1
-          ? `Launching campaign run ${windowIndex}.`
-          : `Restarting campaign run ${windowIndex} after failure.`,
+          ? `Launching campaign window ${windowIndex}.`
+          : `Restarting campaign window ${windowIndex} after failure.`,
       });
       await logLine(logPath, `campaign_launch window=${windowIndex} offset=${offset} attempt=${attemptsForWindow}`);
 
@@ -219,7 +219,7 @@ export async function runAutoresearchServiceCommand(
               ...(currentReportPath ? { currentReportPath } : {}),
               ...(currentReportMarkdownPath ? { currentReportMarkdownPath } : {}),
               lastProgressAt,
-              note: `Campaign run ${windowIndex} running.`,
+              note: `Campaign window ${windowIndex} running.`,
             });
           },
         });
@@ -277,8 +277,8 @@ export async function runAutoresearchServiceCommand(
           ...(selectedProposalPath ? { selectedProposalPath } : {}),
           ...(selectedPatchPath ? { selectedPatchPath } : {}),
           note: payload.selectedProposalPath
-            ? `Completed campaign run ${windowIndex} with a proposal candidate.`
-            : `Completed campaign run ${windowIndex}.`,
+            ? `Completed campaign window ${windowIndex} with a proposal candidate.`
+            : `Completed campaign window ${windowIndex}.`,
         });
 
         break;
@@ -410,7 +410,7 @@ export async function runAutoresearchServiceCommand(
     ...(selectedProposalPath ? { selectedProposalPath } : {}),
     ...(selectedPatchPath ? { selectedPatchPath } : {}),
     note: selectedProposalPath
-      ? "Completed all runs with a selected proposal candidate."
+      ? "Completed all windows with a selected proposal candidate."
       : "Service completed without proposal.",
   });
   await logLine(

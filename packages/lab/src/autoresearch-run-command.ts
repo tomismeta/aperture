@@ -68,7 +68,7 @@ type Slice = {
 type SelectedProposalSnapshot = NonNullable<AutoresearchRunnerRun["selectedProposal"]>;
 
 const DEFAULT_AUTORESEARCH_REVIEW_CONCURRENCY = 2;
-const DETERMINISTIC_RUNNER_COMMAND = "deterministic sequential batch loop";
+const DETERMINISTIC_RUNNER_COMMAND = "deterministic sequential slice loop";
 
 export async function runAutoresearchRunnerCommand(
   options: AutoresearchRunCommandOptions & {
@@ -130,7 +130,7 @@ export async function runAutoresearchRunnerCommand(
         ? "canonical F-Stop session"
         : "raw export";
       notes.push(
-        `Prepared ${options.resolvedInput.ingest.bundleCount} session file(s) from ${sourceLabel} ${options.resolvedInput.ingest.sourcePath} into ${options.resolvedInput.ingest.outputDirectory}.`,
+        `Prepared ${options.resolvedInput.ingest.bundleCount} bundle(s) from ${sourceLabel} ${options.resolvedInput.ingest.sourcePath} into ${options.resolvedInput.ingest.outputDirectory}.`,
       );
     }
 
@@ -144,7 +144,7 @@ export async function runAutoresearchRunnerCommand(
       ...(directBundlePaths.length > 0 ? { bundlePaths: directBundlePaths } : {}),
     }));
     logAttempt("direct_attempt", attempt);
-    notes.push("Direct file or session-file mode executed a single unattended proposal attempt.");
+    notes.push("Direct file or bundle mode executed a single unattended proposal attempt.");
   } else {
     let sliceIndex = 0;
     while (remainingSlices.length > 0) {
@@ -161,7 +161,7 @@ export async function runAutoresearchRunnerCommand(
       };
       currentSliceStartedAt = new Date().toISOString();
       lastProgressAt = currentSliceStartedAt;
-      logProgress(`batch=${sliceIndex} offset=${slice.offset} size=${slice.limit} starting`);
+      logProgress(`slice=${sliceIndex} offset=${slice.offset} limit=${slice.limit} starting`);
       await writeStatusSnapshot(options.statusOutputPath, buildStatusSnapshot({
         generatedAt,
         options,
@@ -176,7 +176,7 @@ export async function runAutoresearchRunnerCommand(
       try {
         const attempt = await executeProposalAttempt(options, slice);
         attempts.push(attempt);
-        logAttempt(`batch=${sliceIndex} offset=${slice.offset}`, attempt);
+        logAttempt(`slice=${sliceIndex} offset=${slice.offset}`, attempt);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         attempts.push({
@@ -184,8 +184,8 @@ export async function runAutoresearchRunnerCommand(
           limit: slice.limit,
           status: "error",
         });
-        notes.push(`Batch offset ${slice.offset} failed: ${message}`);
-        logProgress(`batch=${sliceIndex} offset=${slice.offset} status=error error=${compactLogText(message)}`);
+        notes.push(`Slice offset ${slice.offset} failed: ${message}`);
+        logProgress(`slice=${sliceIndex} offset=${slice.offset} status=error error=${compactLogText(message)}`);
       } finally {
         currentSlice = undefined;
         currentSliceStartedAt = undefined;
@@ -360,14 +360,14 @@ function buildExhaustedFeedback(
   return {
     action: allErrors ? "blocked" : "no_proposal",
     summary: allErrors
-      ? "Every attempted batch failed before a proposal could be produced."
-      : "Exhausted the batch budget without finding a proposal patch artifact.",
+      ? "Every attempted slice failed before a proposal could be produced."
+      : "Exhausted the slice budget without finding a proposal patch artifact.",
     reasons,
     commandsRun: [...commandsRun],
     attempts: [...attempts],
     recommendedNextStep: allErrors
-      ? "Inspect the failed batch logs before re-running F-Stop."
-      : "Inspect the highest-signal no_change batches before expanding the batch budget.",
+      ? "Inspect the failed slice logs before re-running F-Stop."
+      : "Inspect the highest-signal no_change slices before expanding the slice budget.",
   };
 }
 

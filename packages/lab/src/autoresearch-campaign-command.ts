@@ -140,7 +140,7 @@ export async function runAutoresearchCampaignCommand(
       `split=${options.split}`,
       `branch=${branch}`,
       `commit=${commit}`,
-      `runs=${options.windowCount}`,
+      `windows=${options.windowCount}`,
       `limit=${options.limit}`,
       `maxSlices=${options.maxSlices}`,
       `review_concurrency=${options.reviewConcurrency}`,
@@ -210,7 +210,7 @@ export async function runAutoresearchCampaignCommand(
         runLogPath,
         runOutputPath: outputPath,
         runStatusPath,
-        note: "Run started.",
+        note: "Window started.",
         ...(currentReportPath ? { currentReportPath } : {}),
         ...(currentReportMarkdownPath ? { currentReportMarkdownPath } : {}),
       });

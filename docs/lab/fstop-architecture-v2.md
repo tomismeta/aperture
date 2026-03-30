@@ -10,6 +10,19 @@ The goal is simple:
 - unattended VPS operation
 - one human-readable report at the end
 
+## Preferred Vocabulary
+
+Use these operator-facing words:
+
+- `session`: one conversation or trace
+- `session file`: one canonical `*.fstop-session.json` input
+- `batch`: a group of sessions processed together
+- `run`: one unattended F-Stop execution
+- `campaign`: multiple runs done unattended
+
+Avoid older internal jargon like `bundle`, `slice`, and `window` in
+operator-facing explanations where a simpler word works.
+
 ## Product Shape
 
 F-Stop should present as a simple solution:

@@ -4,13 +4,13 @@ The canonical trace/session input file for F-Stop is a **F-Stop Session**
 JSON document.
 
 This is the standard landing shape for imported outside traces before they
-become replay bundles.
+become replayable session files for deterministic execution.
 
 The pipeline should be:
 
 1. raw export
 2. F-Stop Session JSON
-3. replay bundle
+3. replayable session file
 4. offline review / proposal / optimizer loop
 
 ## Why This Exists
@@ -158,7 +158,7 @@ for auditability and future importer improvements.
 If you have a new external trace format:
 
 - first normalize it into F-Stop Session JSON
-- then let F-Stop compile it into a replay bundle
+- then let F-Stop compile it into a replayable session file
 
 Do not add new raw-format logic directly to the replay or review layers unless
 that source truly cannot be normalized first.

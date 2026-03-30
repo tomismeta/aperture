@@ -19,6 +19,14 @@ Normal operator commands:
 - `pnpm lab:fstop:campaign ...`
 - `pnpm lab:fstop:service ...`
 
+Preferred operator vocabulary:
+
+- `session`: one conversation or trace
+- `session file`: one canonical input file
+- `batch`: a group of sessions reviewed together
+- `run`: one unattended F-Stop execution
+- `campaign`: multiple unattended runs
+
 Lower-level debugging commands:
 
 - `pnpm lab:fstop:runner --provider <provider>`
@@ -245,14 +253,14 @@ wrapper just to extract the reviewer payload. It uses a fresh OpenClaw session
 id per review by default so batch runs do not pile context into the shared
 `main` session.
 
-For a clean unattended batch on a remote box, use:
+For a clean unattended run on a remote box, use:
 
 ```bash
 pnpm lab:fstop:campaign --provider openclaw --dataset dataclaw --split train --reviewer-provider openclaw --optimizer-provider openclaw --json
 ```
 
-This runs multiple F-Stop windows from a clean source checkout, creates an
-isolated git worktree per window with shared `node_modules`, and writes live
+This runs multiple F-Stop runs from a clean source checkout, creates an
+isolated git worktree per run with shared `node_modules`, and writes live
 monitoring artifacts under
 `.aperture/lab/campaigns/<campaign-id>`:
 
@@ -273,8 +281,8 @@ tail -f .aperture/lab/current-campaign/current-run/run.log
 pnpm lab:fstop:review --dataset swe-smith --split tool --limit 3 --reviewer-provider <provider> --json
 ```
 
-This imports or selects bundles, prepares artifacts, runs the reviewer loop for
-each one, and writes an aggregate batch report under
+This imports or selects session files, prepares artifacts, runs the reviewer
+loop for each one, and writes an aggregate batch report under
 `.aperture/lab/results/offline-review/batches`.
 
 For the highest-autonomy top-level run on the box, use:
@@ -283,21 +291,21 @@ For the highest-autonomy top-level run on the box, use:
 pnpm lab:fstop:run --provider <provider> --reviewer-provider <provider> --optimizer-provider <provider> --json
 ```
 
-This lets the provider-managed runner keep trying proposal slices until it
-finds a reviewable proposal patch or exhausts the configured slice budget.
+This lets the provider-managed runner keep trying proposal batches until it
+finds a reviewable proposal patch or exhausts the configured batch budget.
 
 For a productized single-file unattended run, use:
 
 ```bash
-pnpm lab:fstop:run --provider <provider> --reviewer-provider <provider> --optimizer-provider <provider> --file /absolute/path/to/bundle-or-batch.json --json
+pnpm lab:fstop:run --provider <provider> --reviewer-provider <provider> --optimizer-provider <provider> --file /absolute/path/to/session-or-batch.json --json
 ```
 
 `--file` autodetects either:
 
-- a replayable session bundle JSON
+- a replayable session file JSON
 - a precomputed offline-review batch report JSON
 - a canonical F-Stop Session JSON
-- a supported raw export file, which is first ingested into local bundles
+- a supported raw export file, which is first ingested into local session files
 
 Gists are not required for this productized path. They are just one possible
 publication format for public corpora like OpenAgentSessions; the unattended
@@ -308,7 +316,7 @@ The preferred standard input is:
 - a canonical `*.fstop-session.json` file
 
 That file is the stable replay-oriented handoff shape for imported sessions.
-Raw exports should normalize into that first, then into replay bundles.
+Raw exports should normalize into that first, then into replayable session files.
 
 In direct file mode, F-Stop runs one unattended proposal attempt, writes runtime
 artifacts under `.aperture/lab/results`, and emits:
@@ -318,13 +326,13 @@ artifacts under `.aperture/lab/results`, and emits:
 - code recommendations summarizing suggested files and optimizer rationale
 - an optional patch diff when the optimizer leaves one behind
 
-For a long-running supervised VPS process with restart and stall handling, use:
+For a long-running unattended VPS process with restart and stall handling, use:
 
 ```bash
 pnpm lab:fstop:service --provider <provider> --reviewer-provider <provider> --optimizer-provider <provider> --json
 ```
 
-This wraps one-window campaign runs, restarts on failure or stalls, and keeps a
+This wraps one-run campaign executions, restarts on failure or stalls, and keeps a
 stable service status under `.aperture/lab/service/status.json`.
 
 For the shortest default command on the box, use:
@@ -356,7 +364,7 @@ This command:
 - writes a proposal artifact under `.aperture/lab/results/autoresearch/proposals`
 - writes an optional patch artifact if the optimizer actually improves the score
 
-Every campaign window also keeps a stable synthesized final report pointer:
+Every campaign run also keeps a stable synthesized final report pointer:
 
 - `.aperture/lab/current-campaign/current-report.json`
 - `.aperture/lab/current-campaign/current-report.md`

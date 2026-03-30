@@ -9,6 +9,7 @@ The most important current source-of-truth docs are:
 - [Core Engine Audit (2026-03)](../engine/core-engine-audit-2026-03.md)
 - [Engine Roadmap](./engine-roadmap.md)
 - [Technical Product Roadmap](./technical-product-roadmap.md)
+- [Post-Sweep Release And Strategy](./post-sweep-release-and-strategy.md)
 
 ## Current Roadmap Surface
 
@@ -16,6 +17,7 @@ These notes are still active and should be read as current direction:
 
 - [Engine Roadmap](./engine-roadmap.md)
 - [Technical Product Roadmap](./technical-product-roadmap.md)
+- [Post-Sweep Release And Strategy](./post-sweep-release-and-strategy.md)
 - [Core Maturation Plan](./core-maturation-plan.md)
 - [Decision Quality Execution Plan](./decision-quality-execution-plan.md)
 - [Semantic Contract Maturation Plan](./semantic-contract-maturation-plan.md)

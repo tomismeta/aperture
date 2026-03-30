@@ -43,6 +43,7 @@ Normal operator commands:
 
 - `pnpm lab:fstop:ingest`
 - `pnpm lab:fstop:run`
+- `pnpm lab:fstop:sweep`
 - `pnpm lab:fstop:campaign`
 - `pnpm lab:fstop:service`
 - `pnpm lab:fstop:gc`

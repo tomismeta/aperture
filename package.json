@@ -39,6 +39,8 @@
     "lab:fstop:campaign": "tsx scripts/fstop.ts campaign",
     "lab:fstop:campaign:openclaw": "tsx scripts/fstop.ts campaign --provider openclaw --reviewer-provider openclaw --optimizer-provider openclaw",
     "lab:fstop:gc": "tsx scripts/fstop.ts gc",
+    "lab:fstop:sweep": "tsx scripts/fstop.ts sweep",
+    "lab:fstop:sweep:pre-release:openclaw": "tsx scripts/fstop.ts sweep --preset pre-release --provider openclaw --reviewer-provider openclaw --optimizer-provider openclaw --limit 6 --max-slices 8 --window-count 3 --review-concurrency 4",
     "lab:fstop:service": "tsx scripts/fstop.ts service",
     "lab:fstop:service:openclaw": "tsx scripts/fstop.ts service --provider openclaw --reviewer-provider openclaw --optimizer-provider openclaw",
     "lab:fstop:run": "tsx scripts/fstop.ts run",

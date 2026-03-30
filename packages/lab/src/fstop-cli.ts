@@ -48,6 +48,7 @@ import {
   runAutoresearchCampaignCommand,
   runAutoresearchRunnerCommand,
   runAutoresearchServiceCommand,
+  runAutoresearchSweepCommand,
   prepareOfflineReviewArtifact,
   validateFStopSession,
   writeAutoresearchCalibrationCase,
@@ -62,6 +63,9 @@ import {
   type AutoresearchRunnerProvider,
   type AutoresearchServiceCommandOptions,
   type AutoresearchServiceProvider,
+  type AutoresearchSweepCommandOptions,
+  type AutoresearchSweepLane,
+  type AutoresearchSweepPreset,
   type ImportPublicTrajectoryBundlesOptions,
   type ImportTrajectoryBundlesFromFileOptions,
   type OfflineReviewConfidence,
@@ -189,6 +193,7 @@ type RoleOptions = {
 };
 
 type ServiceCliOptions = AutoresearchServiceCommandOptions & JsonOptions;
+type SweepCliOptions = AutoresearchSweepCommandOptions & JsonOptions;
 
 type CampaignCliOptions = AutoresearchCampaignCommandOptions & JsonOptions;
 
@@ -205,6 +210,9 @@ export async function runFStopCli(argv: string[]): Promise<void> {
       return;
     case "service":
       await runServiceCli(rest);
+      return;
+    case "sweep":
+      await runSweepCli(rest);
       return;
     case "ingest":
       await runIngestCli(rest);
@@ -287,6 +295,21 @@ async function runServiceCli(argv: string[]): Promise<void> {
     ...(result.currentReportPath ? [`Current report: ${result.currentReportPath}`] : []),
     ...(result.selectedPatchPath ? [`Patch: ${result.selectedPatchPath}`] : []),
   ]);
+}
+
+async function runSweepCli(argv: string[]): Promise<void> {
+  const options = parseSweepArgs(argv);
+  const result = await runAutoresearchSweepCommand(options);
+  emitResult(options.json, result, [
+    `F-Stop sweep status: ${result.status}.`,
+    `Sweep: ${result.sweepRoot}`,
+    `Status: ${result.statusPath}`,
+    `Log: ${result.logPath}`,
+    `Lanes completed: ${result.completedLanes}/${result.laneCount}`,
+  ]);
+  if (result.status === "error") {
+    process.exitCode = 1;
+  }
 }
 
 async function runIngestCli(argv: string[]): Promise<void> {
@@ -1003,6 +1026,128 @@ function parseServiceArgs(argv: string[]): ServiceCliOptions {
     ...(serviceId ? { serviceId } : {}),
     ...(serviceRoot ? { serviceRoot } : {}),
     sourceRepo,
+    json,
+  };
+}
+
+function parseSweepArgs(argv: string[]): SweepCliOptions {
+  let provider: AutoresearchServiceProvider = "generic";
+  let reviewerProvider: AutoresearchServiceProvider | undefined;
+  let optimizerProvider: AutoresearchServiceProvider | undefined;
+  let offset = 0;
+  let limit = 12;
+  let maxSlices = 10;
+  let windowCount = 8;
+  let reviewConcurrency = 2;
+  let minSessionCount = 2;
+  let maxReports = 4;
+  let maxRestarts = 3;
+  let restartBackoffSeconds = 15;
+  let campaignStallThresholdSeconds = 900;
+  let serviceStallThresholdSeconds = 1200;
+  let sweepId: string | undefined;
+  let sweepRoot: string | undefined;
+  let sourceRepo = process.cwd();
+  let preset: AutoresearchSweepPreset | undefined;
+  const lanes: AutoresearchSweepLane[] = [];
+  let json = false;
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    switch (arg) {
+      case "--provider":
+        provider = readProvider(argv[++index]);
+        break;
+      case "--reviewer-provider":
+        reviewerProvider = readProvider(argv[++index]);
+        break;
+      case "--optimizer-provider":
+        optimizerProvider = readProvider(argv[++index]);
+        break;
+      case "--preset":
+        preset = readSweepPreset(argv[++index]);
+        break;
+      case "--lane":
+        lanes.push(readSweepLane(argv[++index]));
+        break;
+      case "--offset":
+        offset = readInteger(argv[++index], "--offset");
+        break;
+      case "--limit":
+        limit = readPositiveInteger(argv[++index], "--limit");
+        break;
+      case "--max-slices":
+        maxSlices = readPositiveInteger(argv[++index], "--max-slices");
+        break;
+      case "--window-count":
+        windowCount = readPositiveInteger(argv[++index], "--window-count");
+        break;
+      case "--review-concurrency":
+        reviewConcurrency = readPositiveInteger(argv[++index], "--review-concurrency");
+        break;
+      case "--min-session-count":
+        minSessionCount = readPositiveInteger(argv[++index], "--min-session-count");
+        break;
+      case "--max-reports":
+        maxReports = readPositiveInteger(argv[++index], "--max-reports");
+        break;
+      case "--max-restarts":
+        maxRestarts = readInteger(argv[++index], "--max-restarts");
+        break;
+      case "--restart-backoff-seconds":
+        restartBackoffSeconds = readPositiveInteger(argv[++index], "--restart-backoff-seconds");
+        break;
+      case "--campaign-stall-threshold-seconds":
+        campaignStallThresholdSeconds = readPositiveInteger(argv[++index], "--campaign-stall-threshold-seconds");
+        break;
+      case "--service-stall-threshold-seconds":
+        serviceStallThresholdSeconds = readPositiveInteger(argv[++index], "--service-stall-threshold-seconds");
+        break;
+      case "--sweep-id":
+        sweepId = argv[++index];
+        break;
+      case "--sweep-root":
+        sweepRoot = path.resolve(argv[++index] ?? "");
+        break;
+      case "--source-repo":
+        sourceRepo = path.resolve(argv[++index] ?? "");
+        break;
+      case "--json":
+        json = true;
+        break;
+      case "--help":
+      case "-h":
+        printSweepUsage();
+        process.exit(0);
+      default:
+        throw new Error(`Unknown option: ${arg}`);
+    }
+  }
+
+  if (!preset && lanes.length === 0) {
+    throw new Error("F-Stop sweep requires --preset or at least one --lane <dataset>/<split>.");
+  }
+
+  return {
+    provider,
+    reviewerProvider: reviewerProvider ?? provider,
+    optimizerProvider: optimizerProvider ?? provider,
+    offset,
+    limit,
+    maxSlices,
+    windowCount,
+    reviewConcurrency,
+    minSessionCount,
+    maxReports,
+    maxRestarts,
+    restartBackoffSeconds,
+    campaignStallThresholdSeconds,
+    serviceStallThresholdSeconds,
+    ...(sweepId ? { sweepId } : {}),
+    ...(sweepRoot ? { sweepRoot } : {}),
+    sourceRepo,
+    ...(preset ? { preset } : {}),
+    ...(lanes.length > 0 ? { lanes } : {}),
     json,
   };
 }
@@ -1809,6 +1954,26 @@ function readPublicSplit(value: string | undefined): PublicTrajectorySplit {
   throw new Error("--split must be one of: tool, xml, ticks, train, approved");
 }
 
+function readSweepPreset(value: string | undefined): AutoresearchSweepPreset {
+  if (value === "pre-release") {
+    return value;
+  }
+  throw new Error("--preset must be: pre-release");
+}
+
+function readSweepLane(value: string | undefined): AutoresearchSweepLane {
+  const raw = (value ?? "").trim();
+  const separator = raw.includes("/") ? "/" : raw.includes(":") ? ":" : undefined;
+  if (!separator) {
+    throw new Error("--lane must look like <dataset>/<split>");
+  }
+  const [datasetRaw, splitRaw] = raw.split(separator);
+  return {
+    dataset: readDataset(datasetRaw),
+    split: readPublicSplit(splitRaw),
+  };
+}
+
 function readCalibrationSplit(value: string | undefined): AutoresearchCalibrationSplit {
   if (value === "train" || value === "validation" || value === "heldout") {
     return value;
@@ -1885,6 +2050,7 @@ function printTopLevelUsage(): void {
     "  run               Run a single unattended F-Stop window",
     "  campaign          Run repeated unattended F-Stop windows",
     "  service           Supervise campaign windows with restart/stall handling",
+    "  sweep             Run a repeatable multi-lane unattended sweep",
     "  ingest            Normalize a raw export or canonical session into replay bundles",
     "  gc                Prune old runtime campaigns and artifacts",
     "  optimize          Run one bounded optimizer attempt against calibration cases",
@@ -1980,6 +2146,36 @@ function printServiceUsage(): void {
     "  --service-stall-threshold-seconds <number>   Supervisor stall threshold (default: 1200)",
     "  --service-id <id>                      Override the generated service id",
     "  --service-root <path>                  Service status/log root (default: .aperture/lab/service)",
+    "  --source-repo <path>                   Clean repo to supervise (default: cwd)",
+    "  --json                                 Emit machine-readable JSON",
+  ].join("\n") + "\n");
+}
+
+function printSweepUsage(): void {
+  process.stdout.write([
+    "Usage: pnpm lab:fstop:sweep [options]",
+    "",
+    "Runs multiple F-Stop service lanes sequentially from one clean source checkout.",
+    "",
+    "Options:",
+    "  --provider <hermes|openclaw|generic>   Default provider shortcut for reviewer and optimizer (default: generic)",
+    "  --reviewer-provider <provider>         Reviewer provider used inside each lane",
+    "  --optimizer-provider <provider>        Optimizer provider used inside each lane",
+    "  --preset <pre-release>                 Built-in sweep lane preset",
+    "  --lane <dataset>/<split>               Add one lane explicitly (repeatable)",
+    "  --offset <number>                      Starting row offset for each lane (default: 0)",
+    "  --limit <number>                       Rows per slice (default: 12)",
+    "  --max-slices <number>                  Maximum slices per campaign window (default: 10)",
+    "  --window-count <number>                Maximum supervised campaign windows per lane (default: 8)",
+    "  --review-concurrency <number>          Parallel offline reviews per slice (default: 2)",
+    "  --min-session-count <number>           Proposal promotion threshold (default: 2)",
+    "  --max-reports <number>                 Max promoted reports per campaign window (default: 4)",
+    "  --max-restarts <number>                Restart budget before failing a lane (default: 3)",
+    "  --restart-backoff-seconds <number>     Delay before restarting after failure (default: 15)",
+    "  --campaign-stall-threshold-seconds <number>  Inner campaign stall threshold (default: 900)",
+    "  --service-stall-threshold-seconds <number>   Supervisor stall threshold (default: 1200)",
+    "  --sweep-id <id>                        Override the generated sweep id",
+    "  --sweep-root <path>                    Preserve sweep outputs here (default: .aperture/fstop-sweeps/<id>)",
     "  --source-repo <path>                   Clean repo to supervise (default: cwd)",
     "  --json                                 Emit machine-readable JSON",
   ].join("\n") + "\n");

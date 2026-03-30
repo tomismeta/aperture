@@ -30,6 +30,16 @@ export {
   type AutoresearchServiceProvider,
 } from "./autoresearch-service-command.js";
 export {
+  preserveAutoresearchSweepLaneArtifacts,
+  resolveAutoresearchSweepLanes,
+  runAutoresearchSweepCommand,
+  type AutoresearchSweepCommandOptions,
+  type AutoresearchSweepCommandResult,
+  type AutoresearchSweepLane,
+  type AutoresearchSweepLaneResult,
+  type AutoresearchSweepPreset,
+} from "./autoresearch-sweep-command.js";
+export {
   AUTORESEARCH_FINAL_REPORT_SCHEMA_VERSION,
   defaultAutoresearchFinalReportMarkdownPath,
   defaultAutoresearchFinalReportPath,

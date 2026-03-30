@@ -9,8 +9,6 @@ core semantic behavior inside the public Aperture product package.
   `0.4.2`
 - improves how the shipped product handles imported observational failures and
   reduces false escalation in real agent traces
-- benefits from the hardened F-Stop unattended pre-release loop that now runs
-  against unseen evaluation lanes before package cuts
 
 ## Why This Matters
 
@@ -44,12 +42,6 @@ pnpm typecheck
 pnpm --dir packages/aperture run smoke
 pnpm release:check
 ```
-
-The pre-release F-Stop sweep also completed before this cut, with:
-
-- `swe-smith/xml` completing as `no_proposal`
-- `open-agent-sessions/approved` exhausting cleanly instead of ending as a
-  misleading blocked lane
 
 ## Install
 

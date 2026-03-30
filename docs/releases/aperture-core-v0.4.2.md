@@ -56,12 +56,6 @@ pnpm typecheck
 pnpm release:check
 ```
 
-The surrounding F-Stop pre-release sweep also completed on fresh unseen lanes
-before this cut:
-
-- `swe-smith/xml`
-- `open-agent-sessions/approved`
-
 ## Install
 
 ```bash

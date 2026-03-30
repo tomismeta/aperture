@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 
 import { type AutoresearchCampaignStatus } from "./autoresearch-campaign.js";
 import { type AutoresearchCampaignProvider } from "./autoresearch-campaign-command.js";
+import { acquireAutoresearchProcessLock } from "./autoresearch-lock.js";
 import {
   AUTORESEARCH_SERVICE_STATUS_SCHEMA_VERSION,
   writeAutoresearchServiceStatus,
@@ -77,77 +78,90 @@ type CampaignPayload = {
   selectedPatchPath?: string;
 };
 
+const SERVICE_LOCK_FILE_NAME = "current-service.lock.json";
+
 export async function runAutoresearchServiceCommand(
   options: AutoresearchServiceCommandOptions,
 ): Promise<AutoresearchServiceCommandResult> {
   const sourceRepo = await realpath(options.sourceRepo);
-  await ensureCleanRepo(sourceRepo);
 
   const generatedAt = new Date().toISOString();
   const serviceId = options.serviceId ?? `fstop-service-${safeTimestamp(generatedAt)}`;
   const serviceRoot = options.serviceRoot
     ? path.resolve(options.serviceRoot)
     : path.join(sourceRepo, ".aperture", "lab", "service");
+  const serviceLockPath = path.join(path.dirname(serviceRoot), SERVICE_LOCK_FILE_NAME);
   const statusPath = path.join(serviceRoot, "status.json");
   const logPath = path.join(serviceRoot, "service.log");
   const currentCampaignStatusPath = path.join(sourceRepo, ".aperture", "lab", "current-campaign", "status.json");
   const currentCampaignRootPath = path.join(sourceRepo, ".aperture", "lab", "current-campaign");
 
   await mkdir(serviceRoot, { recursive: true });
-
-  const branch = await runGit(sourceRepo, ["rev-parse", "--abbrev-ref", "HEAD"]);
-  const commit = await runGit(sourceRepo, ["rev-parse", "HEAD"]);
-  const sourceSnapshot = await captureGitHeadSnapshot(sourceRepo);
-
-  let offset = options.offset;
-  let completedWindows = 0;
-  let restartCount = 0;
-  let finalStatus = "no_proposal";
-  let currentReportPath: string | undefined;
-  let currentReportMarkdownPath: string | undefined;
-  let selectedProposalPath: string | undefined;
-  let selectedPatchPath: string | undefined;
-  let bestProposalScore: number | undefined;
-  let lastProgressAt = generatedAt;
-
-  await logLine(
-    logPath,
-    [
-      "service_start",
-      `dataset=${options.dataset}`,
-      `split=${options.split}`,
-      `offset=${options.offset}`,
-      `limit=${options.limit}`,
-      `max_slices=${options.maxSlices}`,
-      `windows=${options.windowCount}`,
-      `max_restarts=${options.maxRestarts}`,
-      `review_concurrency=${options.reviewConcurrency}`,
-    ].join(" "),
-  );
-
-  await writeServiceStatus(statusPath, {
-    serviceId,
-    generatedAt,
-    phase: "starting",
-    dataset: options.dataset,
-    split: options.split,
+  const releaseLock = await acquireAutoresearchProcessLock(serviceLockPath, {
+    kind: "service",
+    id: serviceId,
+    root: serviceRoot,
+    pid: process.pid,
+    createdAt: generatedAt,
     sourceRepo,
-    branch,
-    commit,
-    currentOffset: offset,
-    limit: options.limit,
-    maxSlices: options.maxSlices,
-    windowCount: options.windowCount,
-    completedWindows,
-    reviewConcurrency: options.reviewConcurrency,
-    restartCount,
-    maxRestarts: options.maxRestarts,
-    campaignStallThresholdSeconds: options.campaignStallThresholdSeconds,
-    serviceStallThresholdSeconds: options.serviceStallThresholdSeconds,
-    note: "Service booting.",
   });
 
-  for (let windowIndex = 0; windowIndex < options.windowCount; windowIndex += 1) {
+  try {
+    await ensureCleanRepo(sourceRepo);
+
+    const branch = await runGit(sourceRepo, ["rev-parse", "--abbrev-ref", "HEAD"]);
+    const commit = await runGit(sourceRepo, ["rev-parse", "HEAD"]);
+    const sourceSnapshot = await captureGitHeadSnapshot(sourceRepo);
+
+    let offset = options.offset;
+    let completedWindows = 0;
+    let restartCount = 0;
+    let finalStatus = "no_proposal";
+    let currentReportPath: string | undefined;
+    let currentReportMarkdownPath: string | undefined;
+    let selectedProposalPath: string | undefined;
+    let selectedPatchPath: string | undefined;
+    let bestProposalScore: number | undefined;
+    let lastProgressAt = generatedAt;
+
+    await logLine(
+      logPath,
+      [
+        "service_start",
+        `dataset=${options.dataset}`,
+        `split=${options.split}`,
+        `offset=${options.offset}`,
+        `limit=${options.limit}`,
+        `max_slices=${options.maxSlices}`,
+        `windows=${options.windowCount}`,
+        `max_restarts=${options.maxRestarts}`,
+        `review_concurrency=${options.reviewConcurrency}`,
+      ].join(" "),
+    );
+
+    await writeServiceStatus(statusPath, {
+      serviceId,
+      generatedAt,
+      phase: "starting",
+      dataset: options.dataset,
+      split: options.split,
+      sourceRepo,
+      branch,
+      commit,
+      currentOffset: offset,
+      limit: options.limit,
+      maxSlices: options.maxSlices,
+      windowCount: options.windowCount,
+      completedWindows,
+      reviewConcurrency: options.reviewConcurrency,
+      restartCount,
+      maxRestarts: options.maxRestarts,
+      campaignStallThresholdSeconds: options.campaignStallThresholdSeconds,
+      serviceStallThresholdSeconds: options.serviceStallThresholdSeconds,
+      note: "Service booting.",
+    });
+
+    for (let windowIndex = 0; windowIndex < options.windowCount; windowIndex += 1) {
     let attemptsForWindow = 0;
 
     while (true) {
@@ -374,66 +388,69 @@ export async function runAutoresearchServiceCommand(
 
   }
 
-  await restoreGitHeadSnapshot(sourceSnapshot, sourceRepo).catch(async (restoreError) => {
+    await restoreGitHeadSnapshot(sourceSnapshot, sourceRepo).catch(async (restoreError) => {
+      await logLine(
+        logPath,
+        `source_repo_restore_error window=final offset=${offset} message=${sanitizeLogField(
+          restoreError instanceof Error ? restoreError.message : String(restoreError),
+        )}`,
+      );
+    });
+
+    const status: AutoresearchServiceCommandResult["status"] = selectedProposalPath
+      ? "proposal_ready"
+      : "completed";
+    await writeServiceStatus(statusPath, {
+      serviceId,
+      generatedAt,
+      phase: "completed",
+      dataset: options.dataset,
+      split: options.split,
+      sourceRepo,
+      branch,
+      commit,
+      currentOffset: offset,
+      limit: options.limit,
+      maxSlices: options.maxSlices,
+      windowCount: options.windowCount,
+      completedWindows,
+      reviewConcurrency: options.reviewConcurrency,
+      restartCount,
+      maxRestarts: options.maxRestarts,
+      campaignStallThresholdSeconds: options.campaignStallThresholdSeconds,
+      serviceStallThresholdSeconds: options.serviceStallThresholdSeconds,
+      ...(currentReportPath ? { currentReportPath } : {}),
+      ...(currentReportMarkdownPath ? { currentReportMarkdownPath } : {}),
+      ...(selectedProposalPath ? { selectedProposalPath } : {}),
+      ...(selectedPatchPath ? { selectedPatchPath } : {}),
+      note: selectedProposalPath
+        ? "Completed all windows with a selected proposal candidate."
+        : "Service completed without proposal.",
+    });
     await logLine(
       logPath,
-      `source_repo_restore_error window=final offset=${offset} message=${sanitizeLogField(
-        restoreError instanceof Error ? restoreError.message : String(restoreError),
-      )}`,
+      `service_complete status=${finalStatus} completed_windows=${completedWindows} next_offset=${offset} restarts=${restartCount}`,
     );
-  });
 
-  const status: AutoresearchServiceCommandResult["status"] = selectedProposalPath
-    ? "proposal_ready"
-    : "completed";
-  await writeServiceStatus(statusPath, {
-    serviceId,
-    generatedAt,
-    phase: "completed",
-    dataset: options.dataset,
-    split: options.split,
-    sourceRepo,
-    branch,
-    commit,
-    currentOffset: offset,
-    limit: options.limit,
-    maxSlices: options.maxSlices,
-    windowCount: options.windowCount,
-    completedWindows,
-    reviewConcurrency: options.reviewConcurrency,
-    restartCount,
-    maxRestarts: options.maxRestarts,
-    campaignStallThresholdSeconds: options.campaignStallThresholdSeconds,
-    serviceStallThresholdSeconds: options.serviceStallThresholdSeconds,
-    ...(currentReportPath ? { currentReportPath } : {}),
-    ...(currentReportMarkdownPath ? { currentReportMarkdownPath } : {}),
-    ...(selectedProposalPath ? { selectedProposalPath } : {}),
-    ...(selectedPatchPath ? { selectedPatchPath } : {}),
-    note: selectedProposalPath
-      ? "Completed all windows with a selected proposal candidate."
-      : "Service completed without proposal.",
-  });
-  await logLine(
-    logPath,
-    `service_complete status=${finalStatus} completed_windows=${completedWindows} next_offset=${offset} restarts=${restartCount}`,
-  );
-
-  return {
-    status,
-    finalStatus,
-    serviceId,
-    serviceRoot,
-    statusPath,
-    logPath,
-    completedWindows,
-    windowCount: options.windowCount,
-    nextOffset: offset,
-    restartCount,
-    ...(currentReportPath ? { currentReportPath } : {}),
-    ...(currentReportMarkdownPath ? { currentReportMarkdownPath } : {}),
-    ...(selectedProposalPath ? { selectedProposalPath } : {}),
-    ...(selectedPatchPath ? { selectedPatchPath } : {}),
-  };
+    return {
+      status,
+      finalStatus,
+      serviceId,
+      serviceRoot,
+      statusPath,
+      logPath,
+      completedWindows,
+      windowCount: options.windowCount,
+      nextOffset: offset,
+      restartCount,
+      ...(currentReportPath ? { currentReportPath } : {}),
+      ...(currentReportMarkdownPath ? { currentReportMarkdownPath } : {}),
+      ...(selectedProposalPath ? { selectedProposalPath } : {}),
+      ...(selectedPatchPath ? { selectedPatchPath } : {}),
+    };
+  } finally {
+    await releaseLock();
+  }
 }
 
 async function readProposalScore(proposalPath: string): Promise<number> {

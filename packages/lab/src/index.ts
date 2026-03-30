@@ -15,6 +15,12 @@ export {
   DEFAULT_LAB_RUNTIME_ROOT,
 } from "./runtime-paths.js";
 export {
+  acquireAutoresearchProcessLock,
+  isAutoresearchProcessAlive,
+  readAutoresearchProcessLock,
+  type AutoresearchProcessLock,
+} from "./autoresearch-lock.js";
+export {
   DEFAULT_RAW_TRAJECTORY_BUNDLES_DIR,
   importTrajectoryBundlesFromFile,
   loadOpenAgentSessionsEventsFromJsonlFile,

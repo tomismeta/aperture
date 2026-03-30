@@ -1,6 +1,7 @@
 import { access, copyFile, mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { acquireAutoresearchProcessLock } from "./autoresearch-lock.js";
 import {
   ensureCleanRepo,
 } from "./autoresearch-workspace.js";
@@ -84,6 +85,7 @@ type AutoresearchSweepStatus = {
 };
 
 const SWEEP_STATUS_SCHEMA_VERSION = 1;
+const SWEEP_LOCK_FILE_NAME = "current-sweep.lock.json";
 
 export function resolveAutoresearchSweepLanes(options: {
   preset?: AutoresearchSweepPreset;
@@ -114,35 +116,45 @@ export async function runAutoresearchSweepCommand(
     throw new Error("F-Stop sweep requires at least one lane. Use --preset or --lane.");
   }
 
-  await ensureCleanRepo(sourceRepo);
-
   const generatedAt = new Date().toISOString();
   const sweepId = options.sweepId ?? `fstop-sweep-${safeTimestamp(generatedAt)}`;
   const sweepRoot = options.sweepRoot
     ? path.resolve(options.sweepRoot)
     : path.join(sourceRepo, ".aperture", "fstop-sweeps", sweepId);
+  const sweepLockPath = path.join(path.dirname(sweepRoot), SWEEP_LOCK_FILE_NAME);
   const statusPath = path.join(sweepRoot, "status.json");
   const logPath = path.join(sweepRoot, "sweep.log");
   const runtimeRoot = path.join(sourceRepo, ".aperture", "lab");
 
   await mkdir(sweepRoot, { recursive: true });
-
-  const laneResults: AutoresearchSweepLaneResult[] = [];
-  let completedLanes = 0;
-  let currentLane: string | undefined;
-
-  await writeSweepStatus(statusPath, {
-    generatedAt,
-    sweepId,
-    phase: "running",
+  const releaseLock = await acquireAutoresearchProcessLock(sweepLockPath, {
+    kind: "sweep",
+    id: sweepId,
+    root: sweepRoot,
+    pid: process.pid,
+    createdAt: generatedAt,
     sourceRepo,
-    laneCount: lanes.length,
-    completedLanes,
-    lanes: laneResults,
-    note: "Sweep booting.",
   });
 
-  for (const [laneIndex, lane] of lanes.entries()) {
+  try {
+    await ensureCleanRepo(sourceRepo);
+
+    const laneResults: AutoresearchSweepLaneResult[] = [];
+    let completedLanes = 0;
+    let currentLane: string | undefined;
+
+    await writeSweepStatus(statusPath, {
+      generatedAt,
+      sweepId,
+      phase: "running",
+      sourceRepo,
+      laneCount: lanes.length,
+      completedLanes,
+      lanes: laneResults,
+      note: "Sweep booting.",
+    });
+
+    for (const [laneIndex, lane] of lanes.entries()) {
     const label = lane.label ?? defaultLaneLabel(laneIndex, lane);
     const laneRoot = path.join(sweepRoot, label);
     currentLane = label;
@@ -254,28 +266,31 @@ export async function runAutoresearchSweepCommand(
     await rm(runtimeRoot, { recursive: true, force: true });
   }
 
-  await writeSweepStatus(statusPath, {
-    generatedAt,
-    sweepId,
-    phase: "completed",
-    sourceRepo,
-    laneCount: lanes.length,
-    completedLanes,
-    lanes: laneResults,
-    note: "Sweep completed.",
-  });
-  await logLine(logPath, `sweep_finish lanes=${lanes.length}`);
+    await writeSweepStatus(statusPath, {
+      generatedAt,
+      sweepId,
+      phase: "completed",
+      sourceRepo,
+      laneCount: lanes.length,
+      completedLanes,
+      lanes: laneResults,
+      note: "Sweep completed.",
+    });
+    await logLine(logPath, `sweep_finish lanes=${lanes.length}`);
 
-  return {
-    status: "completed",
-    sweepId,
-    sweepRoot,
-    statusPath,
-    logPath,
-    laneCount: lanes.length,
-    completedLanes,
-    lanes: laneResults,
-  };
+    return {
+      status: "completed",
+      sweepId,
+      sweepRoot,
+      statusPath,
+      logPath,
+      laneCount: lanes.length,
+      completedLanes,
+      lanes: laneResults,
+    };
+  } finally {
+    await releaseLock();
+  }
 }
 
 export async function preserveAutoresearchSweepLaneArtifacts(options: {

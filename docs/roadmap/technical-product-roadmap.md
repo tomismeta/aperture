@@ -97,6 +97,193 @@ The product promise should sound like:
   follow-ups
 - trust that the judgment layer is deterministic, inspectable, and improving
 
+## Strategic North Star
+
+Aperture should be understood in two layers:
+
+1. the current product:
+   - a calm local-first attention surface for coding agents
+2. the larger strategic swing:
+   - the judgment switchboard between autonomous agents and humans
+
+The large swing is not just:
+
+- better notifications
+- better approval UX
+- another operator dashboard
+
+It is:
+
+- the API through which agents invoke human judgment
+- the routing layer that decides whether a human is needed at all
+- the switchboard that decides which human should be asked
+- the policy layer that decides what context may be shown and what decision
+  forms are allowed
+
+In the most ambitious version, Aperture becomes the infrastructure that lets
+autonomous systems ask humans for judgment safely, briefly, and at scale.
+
+## Public-First Judgment Network Thesis
+
+If Aperture takes the highest-risk, highest-upside path, it should not stop at
+local operator surfaces.
+
+It should become the first public product where:
+
+- agents escalate approvals, exceptions, and ambiguous choices into Aperture
+- Aperture decides whether a human is actually required
+- Aperture routes that request to a qualified human pool
+- the human responds with bounded structured judgment
+- the agent resumes with a typed result
+
+This is the "outsourced human judgment layer" version of Aperture.
+
+The public-first version is intentionally bolder than the safer enterprise-only
+story:
+
+- it tries to define the category early
+- it makes the product legible faster
+- it gives solo builders and small teams access to human judgment on demand
+- it creates the possibility of a real network moat, not just a product moat
+
+The danger is obvious:
+
+- low-quality humans produce low-quality judgment
+- the product can drift toward decontextualized gig work
+- privacy and accountability failures become existential
+
+So the public-first thesis only works if Aperture owns:
+
+- strict routing policy
+- strong qualification and trust scoring
+- minimum-necessary context packaging
+- decision traceability and audit
+- narrow, typed decision formats rather than freeform chaos
+
+The public-first network should be framed as:
+
+- trusted human judgment on demand
+
+not:
+
+- random humans for agent leftovers
+
+## Architecture For The Judgment Network
+
+The architecture should remain hybrid.
+
+The hot path should stay local or customer-controlled.
+The cloud should become the dispatch, identity, policy, and audit layer.
+
+```text
+agent host / adapter
+-> local or edge Aperture runtime
+-> deterministic Aperture core
+-> local decision:
+   - interrupt local operator
+   - queue
+   - ambient
+   - suppress
+   - escalate
+-> if escalate:
+   Aperture Dispatch Cloud
+   -> identity, availability, qualification, and policy
+   -> human inbox web / mobile / desktop
+   -> structured decision response
+-> response returned to runtime
+-> typed action returned to the agent
+-> capture, trace, replay, and calibration flow into Aperture Lab
+```
+
+That implies six durable product components:
+
+1. **Aperture Runtime**
+   - local or edge host
+   - owns adapter attachment and return path
+   - should preserve deterministic judgment locally
+
+2. **Aperture Core**
+   - deterministic judgment engine
+   - decides whether human attention is needed
+   - remains the authoritative hot path
+
+3. **Aperture Dispatch**
+   - cloud routing for human-required work
+   - chooses the right human or pool
+   - enforces policy, latency targets, and escalation rules
+
+4. **Aperture Inbox**
+   - the human response surface
+   - presents bounded decisions with minimum useful context
+   - should work on web, mobile, and desktop
+
+5. **Aperture Policy**
+   - defines who can answer what
+   - defines what data can leave the local environment
+   - defines when work stays local, team-internal, or network-routed
+
+6. **Aperture Lab**
+   - replay, review, calibration, and regression control
+   - improves not just judgment quality, but routing and context-packaging
+
+## Market Wedge For The Public Product
+
+The public-first wedge is not "all enterprises."
+
+The first sharp wedge is:
+
+- solo developers and small teams already using coding agents heavily
+- people who do not have a second operator available on demand
+- teams that already feel interruption cost but do not yet have internal
+  judgment routing infrastructure
+
+For them, Aperture can be:
+
+- the fastest way to get a second human judgment layer without hiring a whole
+  team
+
+That is much more legible than selling:
+
+- control planes
+- doctrine
+- semantic normalization
+
+Once that wedge is real, the same system can move up-market into:
+
+- team pools
+- enterprise internal judgment routing
+- vetted expert networks
+
+## Moat In The Judgment Network Version
+
+The moat broadens if Aperture becomes a judgment network.
+
+In that version, the moat is:
+
+1. **Deterministic judgment**
+   - local hot-path trust and replayability
+
+2. **Cross-agent normalization**
+   - one bounded escalation language across many hosts
+
+3. **Context packaging**
+   - the right human sees the minimum useful context, not the full transcript
+
+4. **Trust and qualification routing**
+   - who is good at which decision classes
+   - who is fast, careful, and reliable
+   - what should never leave a local or org boundary
+
+5. **Replay and calibration**
+   - Lab improves both local judgment and network routing quality
+
+6. **Network effects**
+   - over time, the system learns which humans, teams, and expert pools are
+     best for which judgment requests
+
+This is the path where Aperture stops being only a product moat and starts
+becoming a data-and-routing moat.
+
 ## Moat
 
 The moat is not model weights.
@@ -327,6 +514,18 @@ The most interesting open strategic opportunities are:
    - preserve work meaning, episode grouping, and attention budgets across
      multiple agent surfaces
 
+7. **Judgment-network primitives**
+   - human identity, qualification, reputation, availability, and SLA-aware
+     routing
+
+8. **Minimum-context packaging**
+   - make judgment requests smaller, safer, and more legible than raw agent
+     transcripts
+
+9. **Remote inbox surfaces**
+   - move from one local TUI toward a real decision surface that can be used
+     from anywhere
+
 ## What To Avoid
 
 - adding new adapters just to broaden the source list
@@ -335,6 +534,9 @@ The most interesting open strategic opportunities are:
 - letting host-specific convenience leak into core judgment semantics
 - becoming a generic eval platform
 - becoming a generic agent orchestrator
+- becoming an untrusted gig-work marketplace without policy, audit, or context
+  discipline
+- making the cloud version a hidden remote semantic service in the hot path
 
 The right bias now is:
 

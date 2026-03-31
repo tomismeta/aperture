@@ -18,6 +18,15 @@ The central conclusion is:
 - The published core SDK should remain available, but it should not be the main
   adoption path.
 
+The bolder adjacent conclusion is:
+
+- Aperture may eventually become a public judgment network where agents can
+  invoke trusted human judgment on demand.
+
+That is a larger, riskier market move than the local product thesis.
+It should be treated as the ambitious extension of the current wedge, not a
+reason to abandon product discipline.
+
 ## Executive Thesis
 
 Aperture's best market position is not:
@@ -178,6 +187,55 @@ It should not ask the user to understand:
 - event normalization
 - source adapters as separate packages
 - replay internals
+
+## Ambitious Public-First Extension
+
+If Aperture chooses the highest-risk, highest-upside market move, it should
+launch a public product where agents can route narrow judgment calls to humans
+outside the local operator.
+
+That product would be:
+
+- an outsourced human judgment layer for agent systems
+- a trusted public switchboard for approvals, exception handling, and ambiguous
+  choices
+- a structured inbox where humans answer bounded agent requests
+
+The public-first story is compelling because it makes the category obvious:
+
+- agents need humans
+- not for whole workflows
+- but for narrow high-leverage decisions
+
+That gives Aperture a more legible public thesis than:
+
+- "attention doctrine"
+- "agent control plane"
+- "routing research"
+
+The public-first version should still keep three rules:
+
+1. the hot-path judgment stays deterministic
+2. context is minimized and policy-bound
+3. the network is trusted and qualified, not open chaos
+
+## Public Wedge
+
+The aggressive public wedge is:
+
+- solo developers and small teams already using coding agents heavily
+- people who need a second human judgment layer but do not have one readily
+  available
+- early adopters willing to trade some novelty risk for faster throughput
+
+The product promise there becomes:
+
+- "Your agents can get human judgment on demand without stalling your whole
+  workflow."
+
+This is riskier than the enterprise-first story, but it creates a stronger
+chance to define the category before incumbents decide to package a weaker
+version themselves.
 
 ## Packaging Boundaries
 
@@ -356,6 +414,15 @@ Breadth before this point will dilute the wedge.
 4. **Too much abstraction too early**
    - Multi-agent and actor-aware workflows are promising, but should be added
      as bounded product seams, not as theoretical architecture work.
+
+5. **Dystopian marketplace drift**
+   - If Aperture launches public human routing without qualification, bounded
+     context, and accountability, the product can collapse into low-trust
+     piecework instead of trusted judgment infrastructure.
+
+6. **Trust failure before category creation**
+   - The public-first path only works if users believe the judgment network is
+     safe, reliable, and accountable on day one.
 
 ## Recommended Next Moves
 

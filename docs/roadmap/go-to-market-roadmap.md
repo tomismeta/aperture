@@ -18,20 +18,8 @@ The central conclusion is:
 - The published core SDK should remain available, but it should not be the main
   adoption path.
 
-The bolder adjacent conclusion is:
-
-- Aperture may become a distinct cloud offering where agents can invoke trusted
-  human judgment on demand.
-
-That is a larger, riskier market move than the local product thesis, but it
-should be treated as a new product line:
-
-- **Aperture Local**
-- **Aperture SDK**
-- **Aperture Cloud**
-
-The cloud line should build on the local product, but it should be named and
-planned as its own offering rather than described as a vague evolution.
+There is still a preserved cloud concept note in the roadmap folder, but it
+should be read as future optionality, not as the active go-to-market plan.
 
 ## Executive Thesis
 
@@ -194,59 +182,19 @@ It should not ask the user to understand:
 - source adapters as separate packages
 - replay internals
 
-## Aperture Cloud
+## Future Optionality
 
-If Aperture chooses the highest-risk, highest-upside market move, it should
-launch **Aperture Cloud** as a distinct product where agents can route narrow
-judgment calls to humans outside the local operator.
+If Local proves strong enough and real user demand emerges, Aperture may later
+explore a separate cloud product for team or remote human routing.
 
-Aperture Cloud would be:
+That is not the active go-to-market motion now.
 
-- an outsourced human judgment layer for agent systems
-- a trusted public switchboard for approvals, exception handling, and ambiguous
-  choices
-- a structured inbox where humans answer bounded agent requests
-- a calibrated network that scores and routes human responders over time
+For current GTM purposes, the important point is narrower:
 
-The Aperture Cloud story is compelling because it makes the category obvious:
-
-- agents need humans
-- not for whole workflows
-- but for narrow high-leverage decisions
-
-That gives Aperture a more legible public thesis than:
-
-- "attention doctrine"
-- "agent control plane"
-- "routing research"
-
-The cloud version should still keep three rules:
-
-1. the hot-path judgment stays deterministic
-2. context is minimized and policy-bound
-3. the network is trusted and qualified, not open chaos
-
-And it should add a fourth:
-
-4. responders are measured and calibrated by outcome quality, not just speed
-
-## Aperture Cloud Wedge
-
-The aggressive Aperture Cloud wedge is:
-
-- solo developers and small teams already using coding agents heavily
-- people who need a second human judgment layer but do not have one readily
-  available
-- early adopters willing to trade some novelty risk for faster throughput
-
-The product promise there becomes:
-
-- "Your agents can get human judgment on demand without stalling your whole
-  workflow."
-
-This is riskier than the enterprise-first story, but it creates a stronger
-chance to define the category before incumbents decide to package a weaker
-version themselves.
+- keep the local product story clean
+- keep the SDK credible
+- do not position Aperture around speculative cloud judgment routing
+- preserve the architectural option without making it the public wedge
 
 ## Packaging Boundaries
 
@@ -426,14 +374,13 @@ Breadth before this point will dilute the wedge.
    - Multi-agent and actor-aware workflows are promising, but should be added
      as bounded product seams, not as theoretical architecture work.
 
-5. **Dystopian marketplace drift**
-   - If Aperture launches public human routing without qualification, bounded
-     context, and accountability, the product can collapse into low-trust
-     piecework instead of trusted judgment infrastructure.
+5. **Optionality distraction**
+   - If speculative cloud or marketplace ideas start driving the story too
+     early, Aperture can lose the clarity of its actual current wedge.
 
-6. **Trust failure before category creation**
-   - The public-first path only works if users believe the judgment network is
-     safe, reliable, and accountable on day one.
+6. **Premature product branching**
+   - A separate cloud line should only be pursued after Local has stronger user
+     pull and a clearer reason to expand.
 
 ## Recommended Next Moves
 
@@ -441,4 +388,6 @@ Breadth before this point will dilute the wedge.
 2. keep `@tomismeta/aperture-core` as the advanced SDK path
 3. polish the flagship Claude Code workflow until it is obviously good
 4. make `--capture` and replay part of the default product story
-5. only then broaden to deeper multi-agent workflows and additional surfaces
+5. preserve cloud optionality in the architecture, but do not build or market
+   around it yet
+6. only then broaden to deeper multi-agent workflows and additional surfaces

@@ -99,16 +99,17 @@ The product promise should sound like:
 
 ## Strategic North Star
 
-Aperture should be understood as a three-surface product family:
+The active Aperture product family should be understood as:
 
 1. **Aperture Local**
    - a calm local-first attention surface for coding agents
 2. **Aperture SDK**
    - the embeddable deterministic judgment layer
-3. **Aperture Cloud**
-   - the human judgment network and routing layer for autonomous systems
 
-The large swing is not just:
+Those are the product lines we should actively harden, package, and learn from
+right now.
+
+The large swing is still not:
 
 - better notifications
 - better approval UX
@@ -116,228 +117,41 @@ The large swing is not just:
 
 It is:
 
-- the API through which agents invoke human judgment
-- the routing layer that decides whether a human is needed at all
-- the switchboard that decides which human should be asked
-- the policy layer that decides what context may be shown and what decision
-  forms are allowed
+- the judgment and attention layer for agent work
+- the deterministic system that decides what deserves operator focus
+- the product that makes agent activity calmer, more legible, and more
+  replayable
 
-In the most ambitious version, Aperture Cloud becomes the infrastructure that
-lets autonomous systems ask humans for judgment safely, briefly, and at scale.
+## Future Optionality
 
-## Aperture Cloud Thesis
+There is still a plausible future cloud line for Aperture, but it should be
+treated as optionality rather than active roadmap direction.
 
-Aperture Cloud should be framed as a distinct product, not a sidecar feature of
-the local surface.
+If it is ever revisited, the best version would keep the same discipline:
 
-It is the highest-risk, highest-upside product line in the company:
+- deterministic hot-path judgment stays local or customer-controlled
+- the cloud layer handles routing, policy, identity, and audit
+- the API reuses Aperture's existing bounded human-input and response contracts
 
-- agents escalate approvals, exceptions, and ambiguous choices into Aperture
-- Aperture decides whether a human is actually required
-- Aperture routes that request to a qualified human pool
-- the human responds with bounded structured judgment
-- the agent resumes with a typed result
+What we should preserve today is the option value, not the product motion.
 
-This is the "outsourced human judgment layer" version of Aperture, but it
-should be packaged explicitly as **Aperture Cloud**.
+That means continuing to protect:
 
-The public-first cloud version is intentionally bolder than the safer
-enterprise-only story:
+- clean `SourceEvent` and response contracts
+- bounded human-input request types
+- provenance, impact, and auditability
+- cloud-neutral runtime boundaries
+- replay and calibration infrastructure
 
-- it tries to define the category early
-- it makes the product legible faster
-- it gives solo builders and small teams access to human judgment on demand
-- it creates the possibility of a real network moat, not just a product moat
+What we should not do right now is let speculative cloud or marketplace ideas
+distort the current technical roadmap.
 
-The danger is obvious:
+The current technical job is still:
 
-- low-quality humans produce low-quality judgment
-- the product can drift toward decontextualized gig work
-- privacy and accountability failures become existential
-
-So the Aperture Cloud thesis only works if Aperture owns:
-
-- strict routing policy
-- strong qualification and trust scoring
-- minimum-necessary context packaging
-- decision traceability and audit
-- narrow, typed decision formats rather than freeform chaos
-- responder quality calibration over time
-
-That last point matters.
-
-Aperture Cloud should not just route to humans.
-It should learn:
-
-- who is fast
-- who is careful
-- who gives high-quality decisions in which domains
-- who should see more or less work over time
-
-The cloud offering should be framed as:
-
-- trusted human judgment on demand
-- a human judgment API for agents
-- a calibrated responder network
-
-not:
-
-- random humans for agent leftovers
-
-## Architecture For Aperture Cloud
-
-The architecture should remain hybrid.
-
-The hot path should stay local or customer-controlled.
-The cloud should become the dispatch, identity, policy, and audit layer.
-
-```text
-agent host / adapter
--> local or edge Aperture runtime
--> deterministic Aperture core
--> local decision:
-   - interrupt local operator
-   - queue
-   - ambient
-   - suppress
-   - escalate
--> if escalate:
-   Aperture Cloud Dispatch
-   -> identity, availability, qualification, and policy
-   -> human inbox web / mobile / desktop
-   -> responder scoring and calibration
-   -> structured decision response
--> response returned to runtime
--> typed action returned to the agent
--> capture, trace, replay, and calibration flow into Aperture Lab
-```
-
-That implies six durable product components:
-
-1. **Aperture Runtime**
-   - local or edge host
-   - owns adapter attachment and return path
-   - should preserve deterministic judgment locally
-
-2. **Aperture Core**
-   - deterministic judgment engine
-   - decides whether human attention is needed
-   - remains the authoritative hot path
-
-3. **Aperture Cloud Dispatch**
-   - cloud routing for human-required work
-   - chooses the right human or pool
-   - enforces policy, latency targets, and escalation rules
-
-4. **Aperture Inbox**
-   - the human response surface
-   - presents bounded decisions with minimum useful context
-   - should work on web, mobile, and desktop
-
-5. **Aperture Policy**
-   - defines who can answer what
-   - defines what data can leave the local environment
-   - defines when work stays local, team-internal, or network-routed
-
-6. **Responder Calibration**
-   - rates responder quality, speed, consistency, and reversal rates
-   - should inform routing and trust, not just vanity scoring
-
-7. **Aperture Lab**
-   - replay, review, calibration, and regression control
-   - improves not just judgment quality, but routing and context-packaging
-
-## Aperture Cloud API
-
-Philosophically, this should be treated as a human judgment API.
-
-Agents invoke Aperture Cloud when they need:
-
-- approval
-- structured choice
-- exception handling
-- ambiguity resolution
-- escalation to a more trusted human
-
-The API should be narrow and typed.
-
-Conceptually:
-
-- request:
-  - "a decision is needed"
-- routing:
-  - "who should answer?"
-- response:
-  - "here is the structured human judgment"
-
-That is a much stronger framing than:
-
-- inbox product
-- marketplace
-- approval bot
-
-## Market Wedge For Aperture Cloud
-
-The public-first wedge is not "all enterprises."
-
-The first sharp wedge is:
-
-- solo developers and small teams already using coding agents heavily
-- people who do not have a second operator available on demand
-- teams that already feel interruption cost but do not yet have internal
-  judgment routing infrastructure
-
-For them, Aperture Cloud can be:
-
-- the fastest way to get a second human judgment layer without hiring a whole
-  team
-
-That is much more legible than selling:
-
-- control planes
-- doctrine
-- semantic normalization
-
-Once that wedge is real, the same system can move up-market into:
-
-- team pools
-- enterprise internal judgment routing
-- vetted expert networks
-
-## Moat In The Aperture Cloud Version
-
-The moat broadens further if Aperture Cloud works.
-
-In that version, the moat is:
-
-1. **Deterministic judgment**
-   - local hot-path trust and replayability
-
-2. **Cross-agent normalization**
-   - one bounded escalation language across many hosts
-
-3. **Context packaging**
-   - the right human sees the minimum useful context, not the full transcript
-
-4. **Trust and qualification routing**
-   - who is good at which decision classes
-   - who is fast, careful, and reliable
-   - what should never leave a local or org boundary
-
-5. **Responder calibration**
-   - who is overturned often
-   - who gives high-signal decisions
-   - which humans should receive more or less traffic over time
-
-6. **Replay and calibration**
-   - Lab improves both local judgment and network routing quality
-
-7. **Network effects**
-   - over time, the system learns which humans, teams, and expert pools are
-     best for which judgment requests
-
-This is the path where Aperture stops being only a product moat and starts
-becoming a data-and-routing moat.
+- make Local obviously good
+- make the SDK stable and credible
+- make adapters reliable
+- make the replay and calibration loop compound
 
 ## Moat
 

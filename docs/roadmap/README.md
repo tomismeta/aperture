@@ -16,7 +16,6 @@ These notes are still active and should be read as current direction:
 
 - [Engine Roadmap](./engine-roadmap.md)
 - [Technical Product Roadmap](./technical-product-roadmap.md)
-- [Aperture Cloud](./aperture-cloud.md)
 - [Core Maturation Plan](./core-maturation-plan.md)
 - [Decision Quality Execution Plan](./decision-quality-execution-plan.md)
 - [Semantic Contract Maturation Plan](./semantic-contract-maturation-plan.md)
@@ -28,6 +27,7 @@ These notes are still active and should be read as current direction:
 These notes are still useful, but they are supporting context rather than the
 current source of truth:
 
+- [Aperture Cloud (Exploration Note)](./aperture-cloud.md)
 - [Package Launch Plan](./package-launch-plan.md)
 - [Package Splitting Decision](./package-splitting-decision.md)
 - [Go-To-Market Roadmap](./go-to-market-roadmap.md)

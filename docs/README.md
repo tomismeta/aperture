@@ -89,14 +89,15 @@ measures and improves Aperture's deterministic hot path.
 ## Roadmaps And Design Context
 
 - [Roadmaps Index](./roadmap/README.md)
-- [Aperture Cloud](./roadmap/aperture-cloud.md)
+- [Aperture Cloud (Exploration Note)](./roadmap/aperture-cloud.md)
 - [Decision Quality Execution Plan](./roadmap/decision-quality-execution-plan.md)
 - [Engine Roadmap](./roadmap/engine-roadmap.md)
 - [Technical Product Roadmap](./roadmap/technical-product-roadmap.md)
 - [Core Maturation Plan](./roadmap/core-maturation-plan.md)
 
 Use the roadmap index to separate current direction from supporting or
-historical notes.
+historical notes. The Aperture Cloud memo is preserved as future optionality,
+not the current product direction.
 
 ## Archived
 

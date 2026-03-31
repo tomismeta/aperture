@@ -89,6 +89,7 @@ measures and improves Aperture's deterministic hot path.
 ## Roadmaps And Design Context
 
 - [Roadmaps Index](./roadmap/README.md)
+- [Aperture Cloud](./roadmap/aperture-cloud.md)
 - [Decision Quality Execution Plan](./roadmap/decision-quality-execution-plan.md)
 - [Engine Roadmap](./roadmap/engine-roadmap.md)
 - [Technical Product Roadmap](./roadmap/technical-product-roadmap.md)

@@ -20,7 +20,7 @@ beside them:
 1. **Source Hosts**
    - Owned by: external tools
    - The tools where work originates.
-   - Today that means Claude Code and OpenCode. Future hosts should enter through the same adapter boundary.
+   - Today that means Claude Code and OpenCode, with Codex available as an experimental App Server and hooks path. Future hosts should enter through the same adapter boundary.
 
 2. **Source Adapters**
    - Owned by: adapter packages

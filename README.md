@@ -69,7 +69,7 @@ See [packages/core/README.md](./packages/core/README.md).
 With `@tomismeta/aperture`:
 
 - a local CLI/TUI product
-- one shared attention surface for Claude Code and OpenCode
+- one shared attention surface for Claude Code and OpenCode, plus experimental Codex support from source
 - `now`, `next`, and `ambient` lanes for human attention
 - approvals, follow-ups, failures, and blocked work in one place
 - doctor, debug, completion, and uninstall commands
@@ -115,7 +115,14 @@ If you only remember one thing, remember this:
 - lightweight awareness when OpenCode is blocked waiting for a human reply
 - fallback reply handling for follow-up text questions when supported by the server event stream
 
-Both can feed the same Aperture surface at once.
+### Codex (experimental)
+
+- App Server supervision through `pnpm codex:run` and `pnpm codex:start`
+- experimental hooks support for the stock Codex CLI
+- end-to-end approval routing proven for supported request families
+- broader interruption coverage still depends on what Codex App Server externalizes as requests
+
+Claude Code and OpenCode are the mainline live paths today. Codex is a real but still experimental third path.
 
 ## Common Product Commands
 

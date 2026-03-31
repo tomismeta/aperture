@@ -24,6 +24,8 @@ Right now Aperture has:
 - two live adapter paths:
   - Claude Code
   - OpenCode
+- one experimental third adapter path:
+  - Codex
 - one shared local runtime
 - one shared TUI
 - a recently completed hardening phase focused on:
@@ -158,17 +160,22 @@ What is still weaker than Claude:
 
 ### Codex
 
-Status: `boundary only`
+Status: `experimental live path`
 
 What is true today:
 
-- semantic mapping boundary exists
 - package boundary exists
+- live App Server transport exists
+- experimental stock-CLI hook ingress exists
+- `pnpm codex:run` and `pnpm codex:start` are real operator paths
+- end-to-end approval supervision is proven for supported request families
 
-What is not true yet:
+What is still weaker than Claude and OpenCode:
 
-- no live transport path
-- no end-to-end product flow
+- only a small set of request families are live-verified
+- many Codex events remain notifications rather than actionable requests
+- the bigger constraint is still what Codex App Server externalizes, not the basic Aperture adapter path
+- broader shared-surface Codex convergence remains structurally uncertain
 
 ## Adapter Expansion Strategy
 
@@ -183,7 +190,7 @@ That means the near-term bias should be:
 
 1. keep Claude Code healthy
 2. keep OpenCode healthy
-3. strengthen Codex as the next meaningful third path
+3. strengthen Codex by validating more real request families and interruption semantics
 4. evaluate Cursor later if we want stronger background-agent and cloud-agent
    pressure
 

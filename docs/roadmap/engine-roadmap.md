@@ -173,7 +173,7 @@ What is already true:
 - multi-source normalization already exists
 - Claude Code is the live end-to-end path
 - OpenCode is also a live end-to-end path through the server / terminal flow
-- Codex boundaries are prepared
+- Codex now has an experimental live adapter path through App Server and hooks
 - `@tomismeta/aperture-core` is published on npm
 
 What is still missing:

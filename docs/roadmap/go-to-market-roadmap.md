@@ -20,12 +20,18 @@ The central conclusion is:
 
 The bolder adjacent conclusion is:
 
-- Aperture may eventually become a public judgment network where agents can
-  invoke trusted human judgment on demand.
+- Aperture may become a distinct cloud offering where agents can invoke trusted
+  human judgment on demand.
 
-That is a larger, riskier market move than the local product thesis.
-It should be treated as the ambitious extension of the current wedge, not a
-reason to abandon product discipline.
+That is a larger, riskier market move than the local product thesis, but it
+should be treated as a new product line:
+
+- **Aperture Local**
+- **Aperture SDK**
+- **Aperture Cloud**
+
+The cloud line should build on the local product, but it should be named and
+planned as its own offering rather than described as a vague evolution.
 
 ## Executive Thesis
 
@@ -188,20 +194,21 @@ It should not ask the user to understand:
 - source adapters as separate packages
 - replay internals
 
-## Ambitious Public-First Extension
+## Aperture Cloud
 
 If Aperture chooses the highest-risk, highest-upside market move, it should
-launch a public product where agents can route narrow judgment calls to humans
-outside the local operator.
+launch **Aperture Cloud** as a distinct product where agents can route narrow
+judgment calls to humans outside the local operator.
 
-That product would be:
+Aperture Cloud would be:
 
 - an outsourced human judgment layer for agent systems
 - a trusted public switchboard for approvals, exception handling, and ambiguous
   choices
 - a structured inbox where humans answer bounded agent requests
+- a calibrated network that scores and routes human responders over time
 
-The public-first story is compelling because it makes the category obvious:
+The Aperture Cloud story is compelling because it makes the category obvious:
 
 - agents need humans
 - not for whole workflows
@@ -213,15 +220,19 @@ That gives Aperture a more legible public thesis than:
 - "agent control plane"
 - "routing research"
 
-The public-first version should still keep three rules:
+The cloud version should still keep three rules:
 
 1. the hot-path judgment stays deterministic
 2. context is minimized and policy-bound
 3. the network is trusted and qualified, not open chaos
 
-## Public Wedge
+And it should add a fourth:
 
-The aggressive public wedge is:
+4. responders are measured and calibrated by outcome quality, not just speed
+
+## Aperture Cloud Wedge
+
+The aggressive Aperture Cloud wedge is:
 
 - solo developers and small teams already using coding agents heavily
 - people who need a second human judgment layer but do not have one readily

@@ -25,7 +25,7 @@ The internal machinery can stay sophisticated, but the operator story should
 feel like:
 
 ```bash
-pnpm lab:fstop:run --file /absolute/path/to/input --provider openclaw --json
+pnpm lab:fstop:run --file /absolute/path/to/input --provider <provider> --json
 ```
 
 ## Design Rules
@@ -107,6 +107,10 @@ The harness still owns:
 - release checks
 - artifact persistence
 
+Even when a run ends `no_proposal`, the harness should retain the strongest
+non-winning proposal idea in a human-readable form so repeated semantic
+near-misses can compound across runs instead of disappearing into counters.
+
 ### 6. Campaign / Service
 
 Campaigns and services should use isolated git worktrees instead of repeated
@@ -154,6 +158,13 @@ Every unattended run should end with one synthesized report that includes:
 - patch summary, if any
 - gate results
 - final recommendation
+
+When the run does not produce a winning proposal, the operator should still be
+able to read:
+
+- the retained intent from that run
+- the retained attempts that almost produced a useful change
+- a compiled retained proposal brief across runs
 
 This report should be the default human entrypoint.
 

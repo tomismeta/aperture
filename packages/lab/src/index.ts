@@ -201,6 +201,19 @@ export {
   writeAutoresearchOptimizerRun,
 } from "./autoresearch-optimizer.js";
 export {
+  AUTORESEARCH_RETAINED_BACKLOG_SCHEMA_VERSION,
+  defaultAutoresearchRetainedBacklogMarkdownPath,
+  defaultAutoresearchRetainedBacklogPath,
+  DEFAULT_AUTORESEARCH_RETAINED_BACKLOG_DIR,
+  loadAutoresearchRetainedBacklog,
+  renderAutoresearchRetainedBacklogMarkdown,
+  updateAutoresearchRetainedBacklog,
+  writeAutoresearchRetainedBacklog,
+  type AutoresearchRetainedBacklog,
+  type AutoresearchRetainedBacklogEntry,
+  type AutoresearchRetainedBacklogOccurrence,
+} from "./autoresearch-backlog.js";
+export {
   DEFAULT_AUTORESEARCH_RUN_REVIEW_CONCURRENCY,
   runAutoresearchRunnerCommand,
   type AutoresearchRunCommandOptions,

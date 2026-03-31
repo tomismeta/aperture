@@ -5,6 +5,7 @@ import { DEFAULT_LAB_RUNTIME_ROOT } from "./runtime-paths.js";
 import type {
   AutoresearchProposalCodeRecommendation,
   AutoresearchProposalIntentStatement,
+  AutoresearchProposalSignal,
   AutoresearchProposalRunStatus,
 } from "./autoresearch-proposal.js";
 
@@ -21,6 +22,54 @@ export const DEFAULT_AUTORESEARCH_RUNNER_RUNS_DIR = path.join(
   "runs",
 );
 
+export type AutoresearchRunnerProposalSnapshot = {
+  status: AutoresearchProposalRunStatus;
+  summary: {
+    actionableCount: number;
+    selectedSignalCount: number;
+    promotedCaseCount: number;
+  };
+  signals: ReadonlyArray<{
+    signature: string;
+    focusArea: AutoresearchProposalSignal["focusArea"];
+    owner: AutoresearchProposalSignal["owner"];
+    apertureValue: AutoresearchProposalSignal["apertureValue"];
+    expectedValue: AutoresearchProposalSignal["expectedValue"];
+    sessionCount: number;
+    disagreementCount: number;
+    targets: readonly string[];
+    examples: readonly {
+      sessionId: string;
+      stepIndex: number;
+      stepLabel?: string;
+      confidence: AutoresearchProposalSignal["examples"][number]["confidence"];
+      rationale?: string;
+    }[];
+  }>;
+  optimizer?: {
+    status: string;
+    beforeMismatchCount: number;
+    afterMismatchCount: number;
+    beforeInvariantMismatchCount: number;
+    afterInvariantMismatchCount: number;
+    changedFiles: readonly string[];
+    disallowedFiles: readonly string[];
+    judgmentBattle?: boolean;
+    releaseCheck?: boolean;
+    patchPath?: string;
+  };
+  intentStatements: readonly AutoresearchProposalIntentStatement[];
+  codeRecommendations: readonly AutoresearchProposalCodeRecommendation[];
+};
+
+export type AutoresearchRunnerRetainedOutcome =
+  | "signal_only"
+  | "no_change_no_edits"
+  | "no_change_patch_attempted"
+  | "gate_blocked"
+  | "optimizer_clean"
+  | "patch_ready";
+
 export type AutoresearchRunnerFeedbackAttempt = {
   offset: number;
   limit: number;
@@ -33,6 +82,24 @@ export type AutoresearchRunnerFeedbackAttempt = {
   batchReportPath?: string;
   optimizerRunPath?: string;
   optimizerPatchPath?: string;
+  retainedOutcome?: AutoresearchRunnerRetainedOutcome;
+  proposal?: AutoresearchRunnerProposalSnapshot;
+};
+
+export type AutoresearchRunnerRetainedAttempt = {
+  offset: number;
+  limit: number;
+  status: string;
+  actionableCount?: number;
+  selectedSignalCount?: number;
+  promotedCaseCount?: number;
+  optimizerStatus?: string;
+  retainedOutcome: AutoresearchRunnerRetainedOutcome;
+  proposal?: string;
+  batch?: string;
+  optimizer?: string;
+  patch?: string;
+  snapshot: AutoresearchRunnerProposalSnapshot;
 };
 
 export type AutoresearchRunnerFeedback = {
@@ -61,17 +128,11 @@ export type AutoresearchRunnerRun = {
     selectedBatchReportPath?: string;
     selectedOptimizerRunPath?: string;
     selectedPatchPath?: string;
+    backlogPath?: string;
+    backlogMarkdownPath?: string;
   };
-  selectedProposal?: {
-    status: AutoresearchProposalRunStatus;
-    summary: {
-      actionableCount: number;
-      selectedSignalCount: number;
-      promotedCaseCount: number;
-    };
-    intentStatements: readonly AutoresearchProposalIntentStatement[];
-    codeRecommendations: readonly AutoresearchProposalCodeRecommendation[];
-  };
+  selectedProposal?: AutoresearchRunnerProposalSnapshot;
+  retainedAttempts?: readonly AutoresearchRunnerRetainedAttempt[];
   feedback?: AutoresearchRunnerFeedback;
   notes: string[];
 };
@@ -118,6 +179,12 @@ export function renderAutoresearchRunnerRunMarkdown(
   if (run.artifacts.selectedPatchPath) {
     lines.push(`- selected patch: ${run.artifacts.selectedPatchPath}`);
   }
+  if (run.artifacts.backlogPath) {
+    lines.push(`- retained backlog: ${run.artifacts.backlogPath}`);
+  }
+  if (run.artifacts.backlogMarkdownPath) {
+    lines.push(`- retained backlog markdown: ${run.artifacts.backlogMarkdownPath}`);
+  }
 
   if (run.feedback) {
     lines.push("", "## Feedback", "");
@@ -154,7 +221,8 @@ export function renderAutoresearchRunnerRunMarkdown(
   }
 
   if (run.selectedProposal) {
-    lines.push("", "## Selected Proposal", "");
+    const selectedHeading = run.status === "proposal_ready" ? "## Selected Proposal" : "## Retained Intent";
+    lines.push("", selectedHeading, "");
     lines.push(`- status: ${run.selectedProposal.status}`);
     lines.push(`- actionable disagreements: ${run.selectedProposal.summary.actionableCount}`);
     lines.push(`- selected signals: ${run.selectedProposal.summary.selectedSignalCount}`);
@@ -188,6 +256,41 @@ export function renderAutoresearchRunnerRunMarkdown(
     }
   }
 
+  if (run.retainedAttempts && run.retainedAttempts.length > 0) {
+    lines.push("", "## Retained Attempts", "");
+    for (const attempt of run.retainedAttempts) {
+      lines.push(
+        `- offset ${attempt.offset}, limit ${attempt.limit}: ${attempt.status} (${attempt.retainedOutcome})`,
+      );
+      if (attempt.actionableCount !== undefined) {
+        lines.push(`  actionable: ${attempt.actionableCount}`);
+      }
+      if (attempt.selectedSignalCount !== undefined) {
+        lines.push(`  signals: ${attempt.selectedSignalCount}`);
+      }
+      if (attempt.promotedCaseCount !== undefined) {
+        lines.push(`  promoted: ${attempt.promotedCaseCount}`);
+      }
+      const strongestSignal = attempt.snapshot.signals[0];
+      if (strongestSignal) {
+        lines.push(
+          `  strongest signal: ${strongestSignal.focusArea} (${strongestSignal.owner}) ${renderValue(strongestSignal.apertureValue)} -> ${renderValue(strongestSignal.expectedValue)} across ${strongestSignal.sessionCount} session(s)`,
+        );
+      }
+      if (attempt.snapshot.intentStatements[0]) {
+        lines.push(`  intent: ${attempt.snapshot.intentStatements[0].statement}`);
+      }
+      if (attempt.snapshot.optimizer) {
+        lines.push(
+          `  optimizer: ${attempt.snapshot.optimizer.status} mismatches ${attempt.snapshot.optimizer.beforeMismatchCount} -> ${attempt.snapshot.optimizer.afterMismatchCount}`,
+        );
+      }
+      if (attempt.patch) {
+        lines.push(`  patch: ${attempt.patch}`);
+      }
+    }
+  }
+
   if (run.notes.length > 0) {
     lines.push("", "## Notes", "");
     lines.push(...run.notes.map((entry) => `- ${entry}`));
@@ -198,4 +301,17 @@ export function renderAutoresearchRunnerRunMarkdown(
 
 function safeTimestamp(value: string): string {
   return value.replace(/[:.]/g, "-");
+}
+
+function renderValue(value: string | string[] | boolean | null): string {
+  if (Array.isArray(value)) {
+    return value.join(", ");
+  }
+  if (typeof value === "boolean") {
+    return value ? "true" : "false";
+  }
+  if (value === null) {
+    return "null";
+  }
+  return value;
 }

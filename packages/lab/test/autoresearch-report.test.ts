@@ -232,8 +232,21 @@ test("synthesizeAutoresearchFinalReport combines proposal, optimizer, and bundle
         selectedSignalCount: 1,
         promotedCaseCount: 1,
       },
+      signals: proposal.signals,
       intentStatements: proposal.intentStatements,
       codeRecommendations: proposal.codeRecommendations,
+      optimizer: {
+        status: "improved",
+        beforeMismatchCount: 2,
+        afterMismatchCount: 0,
+        beforeInvariantMismatchCount: 0,
+        afterInvariantMismatchCount: 0,
+        changedFiles: ["packages/core/src/semantic-interpreter.ts"],
+        disallowedFiles: [],
+        judgmentBattle: true,
+        releaseCheck: true,
+        patchPath: "patch.diff",
+      },
     },
     feedback: {
       action: "proposal_ready",
@@ -455,6 +468,249 @@ test("synthesizeAutoresearchFinalReport explains exhausted runs clearly", async 
   assert.match(report.recommendation, /exhausted the available reviewable bundles/i);
   const markdown = renderAutoresearchFinalReportMarkdown(report);
   assert.match(markdown, /Status: exhausted/);
+});
+
+test("synthesizeAutoresearchFinalReport retains best no-change intent when transient proposal files are gone", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "aperture-autoresearch-report-retained-"));
+  const runnerRunPath = path.join(repoRoot, "runner.json");
+
+  const runnerRun: AutoresearchRunnerRun = {
+    schemaVersion: 1,
+    generatedAt: "2026-03-30T00:00:00.000Z",
+    provider: "hermes",
+    runnerCommand: "deterministic sequential slice loop",
+    status: "no_proposal",
+    artifacts: {},
+    selectedProposal: {
+      status: "no_change",
+      summary: {
+        actionableCount: 16,
+        selectedSignalCount: 2,
+        promotedCaseCount: 3,
+      },
+      signals: [
+        {
+          signature: "consequence|semantic|high|low|semantic-interpreter",
+          focusArea: "consequence",
+          owner: "semantic",
+          apertureValue: "high",
+          expectedValue: "low",
+          disagreementCount: 4,
+          sessionCount: 3,
+          targets: ["packages/core/src/semantic-interpreter.ts"],
+          examples: [
+            {
+              sessionId: "session-a",
+              stepIndex: 11,
+              confidence: "high",
+              rationale: "Observational failure still returned enough evidence to stay low urgency.",
+            },
+          ],
+        },
+      ],
+      intentStatements: [
+        {
+          focusArea: "consequence",
+          owner: "semantic",
+          statement: "Reduce consequence inflation when read/search failures still preserve actionable evidence.",
+          apertureValue: "high",
+          expectedValue: "low",
+          sessionCount: 3,
+          disagreementCount: 4,
+          targets: ["packages/core/src/semantic-interpreter.ts"],
+        },
+      ],
+      codeRecommendations: [
+        {
+          kind: "intent_only",
+          summary: "Tighten observational failure semantics before they feed planner urgency.",
+          recommendedFiles: ["packages/core/src/semantic-interpreter.ts"],
+          reasons: ["Repeated promote signal, but optimizer could not reduce mismatch counts."],
+          targets: ["packages/core/src/semantic-interpreter.ts"],
+        },
+      ],
+      optimizer: {
+        status: "no_change",
+        beforeMismatchCount: 4,
+        afterMismatchCount: 4,
+        beforeInvariantMismatchCount: 0,
+        afterInvariantMismatchCount: 0,
+        changedFiles: ["packages/core/src/semantic-interpreter.ts"],
+        disallowedFiles: [],
+        patchPath: "patch.diff",
+      },
+    },
+    retainedAttempts: [
+      {
+        offset: 126,
+        limit: 6,
+        status: "no_change",
+        actionableCount: 16,
+        selectedSignalCount: 2,
+        promotedCaseCount: 3,
+        optimizerStatus: "no_change",
+        retainedOutcome: "no_change_patch_attempted",
+        patch: "patch.diff",
+        snapshot: {
+          status: "no_change",
+          summary: {
+            actionableCount: 16,
+            selectedSignalCount: 2,
+            promotedCaseCount: 3,
+          },
+          signals: [
+            {
+              signature: "consequence|semantic|high|low|semantic-interpreter",
+              focusArea: "consequence",
+              owner: "semantic",
+              apertureValue: "high",
+              expectedValue: "low",
+              sessionCount: 3,
+              disagreementCount: 4,
+              targets: ["packages/core/src/semantic-interpreter.ts"],
+              examples: [
+                {
+                  sessionId: "session-a",
+                  stepIndex: 11,
+                  confidence: "high",
+                  rationale: "Observational failure still returned enough evidence to stay low urgency.",
+                },
+              ],
+            },
+          ],
+          intentStatements: [
+            {
+              focusArea: "consequence",
+              owner: "semantic",
+              statement: "Reduce consequence inflation when read/search failures still preserve actionable evidence.",
+              apertureValue: "high",
+              expectedValue: "low",
+              sessionCount: 3,
+              disagreementCount: 4,
+              targets: ["packages/core/src/semantic-interpreter.ts"],
+            },
+          ],
+          codeRecommendations: [
+            {
+              kind: "intent_only",
+              summary: "Tighten observational failure semantics before they feed planner urgency.",
+              recommendedFiles: ["packages/core/src/semantic-interpreter.ts"],
+              reasons: ["Repeated promote signal, but optimizer could not reduce mismatch counts."],
+              targets: ["packages/core/src/semantic-interpreter.ts"],
+            },
+          ],
+          optimizer: {
+            status: "no_change",
+            beforeMismatchCount: 4,
+            afterMismatchCount: 4,
+            beforeInvariantMismatchCount: 0,
+            afterInvariantMismatchCount: 0,
+            changedFiles: ["packages/core/src/semantic-interpreter.ts"],
+            disallowedFiles: [],
+            patchPath: "patch.diff",
+          },
+        },
+      },
+    ],
+    feedback: {
+      action: "no_proposal",
+      summary: "Exhausted the slice budget without finding a proposal patch artifact.",
+      reasons: ["3 attempt(s) ended with status=no_change."],
+      commandsRun: [],
+      attempts: [
+        {
+          offset: 126,
+          limit: 6,
+          status: "no_change",
+          actionableCount: 16,
+          selectedSignalCount: 2,
+          promotedCaseCount: 3,
+          optimizerStatus: "no_change",
+          proposalPath: "/transient/proposal.json",
+          proposal: {
+            status: "no_change",
+            summary: {
+              actionableCount: 16,
+              selectedSignalCount: 2,
+              promotedCaseCount: 3,
+            },
+            signals: [
+              {
+                signature: "consequence|semantic|high|low|semantic-interpreter",
+                focusArea: "consequence",
+                owner: "semantic",
+                apertureValue: "high",
+                expectedValue: "low",
+                sessionCount: 3,
+                disagreementCount: 4,
+                targets: ["packages/core/src/semantic-interpreter.ts"],
+                examples: [
+                  {
+                    sessionId: "session-a",
+                    stepIndex: 11,
+                    confidence: "high",
+                    rationale: "Observational failure still returned enough evidence to stay low urgency.",
+                  },
+                ],
+              },
+            ],
+            intentStatements: [
+              {
+                focusArea: "consequence",
+                owner: "semantic",
+                statement: "Reduce consequence inflation when read/search failures still preserve actionable evidence.",
+                apertureValue: "high",
+                expectedValue: "low",
+                sessionCount: 3,
+                disagreementCount: 4,
+                targets: ["packages/core/src/semantic-interpreter.ts"],
+              },
+            ],
+            codeRecommendations: [
+              {
+                kind: "intent_only",
+                summary: "Tighten observational failure semantics before they feed planner urgency.",
+                recommendedFiles: ["packages/core/src/semantic-interpreter.ts"],
+                reasons: ["Repeated promote signal, but optimizer could not reduce mismatch counts."],
+                targets: ["packages/core/src/semantic-interpreter.ts"],
+              },
+            ],
+            optimizer: {
+              status: "no_change",
+              beforeMismatchCount: 4,
+              afterMismatchCount: 4,
+              beforeInvariantMismatchCount: 0,
+              afterInvariantMismatchCount: 0,
+              changedFiles: ["packages/core/src/semantic-interpreter.ts"],
+              disallowedFiles: [],
+              patchPath: "patch.diff",
+            },
+          },
+        },
+      ],
+      recommendedNextStep: "Inspect the highest-signal no_change slices before expanding the slice budget.",
+    },
+    notes: ["Retained the highest-signal non-winning slice intent for later review."],
+  };
+
+  await writeJson(runnerRunPath, runnerRun);
+
+  const report = await synthesizeAutoresearchFinalReport({
+    runnerRunPath,
+    repoRoot,
+  });
+
+  assert.equal(report.status, "no_proposal");
+  assert.equal(report.intentStatements.length, 1);
+  assert.equal(report.codeRecommendations.length, 1);
+  assert.equal(report.retainedAttempts.length, 1);
+  assert.match(report.recommendation, /repeated signal strong enough to promote/i);
+
+  const markdown = renderAutoresearchFinalReportMarkdown(report);
+  assert.match(markdown, /Reduce consequence inflation when read\/search failures still preserve actionable evidence/);
+  assert.match(markdown, /Tighten observational failure semantics before they feed planner urgency/);
+  assert.match(markdown, /Retained Attempts/);
+  assert.match(markdown, /no_change_patch_attempted/);
 });
 
 async function writeJson(filePath: string, value: unknown): Promise<void> {

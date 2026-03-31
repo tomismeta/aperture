@@ -1,30 +1,21 @@
 import { spawn } from "node:child_process";
 
-import { runOpenClawReview } from "./openclaw-reviewer.js";
+import { buildDefaultFStopHarnessCommand } from "./fstop-harness.js";
 
 export type FStopProvider = "generic" | "hermes" | "openclaw";
 export type FStopRole = "optimizer" | "reviewer";
 
 type RoleConfig = {
-  defaultTimeoutSeconds: number;
   genericCommandEnv: string;
   hermesCommandEnv: string;
   missingGenericCommandMessage: string;
-  openClawAgentEnv?: string;
   openClawCommandEnv: string;
-  openClawSessionEnv?: string;
-  openClawThinkingEnv: string;
-  openClawTimeoutEnv: string;
 };
 
-type RoleExecution =
-  | {
-    command: string;
-    kind: "command";
-  }
-  | {
-    kind: "openclaw";
-  };
+type RoleExecution = {
+  command: string;
+  kind: "command";
+};
 
 export type FStopRolePromptOptions = {
   command?: string;
@@ -38,11 +29,6 @@ const ROLE_CONFIGS: Record<FStopRole, RoleConfig> = {
     genericCommandEnv: "APERTURE_OPTIMIZER_COMMAND",
     hermesCommandEnv: "APERTURE_HERMES_OPTIMIZER_COMMAND",
     openClawCommandEnv: "APERTURE_OPENCLAW_OPTIMIZER_COMMAND",
-    openClawAgentEnv: "APERTURE_OPENCLAW_OPTIMIZER_AGENT",
-    openClawSessionEnv: "APERTURE_OPENCLAW_OPTIMIZER_SESSION_ID",
-    openClawThinkingEnv: "APERTURE_OPENCLAW_OPTIMIZER_THINKING",
-    openClawTimeoutEnv: "APERTURE_OPENCLAW_OPTIMIZER_TIMEOUT",
-    defaultTimeoutSeconds: 1800,
     missingGenericCommandMessage:
       "No optimizer command configured. Set APERTURE_OPTIMIZER_COMMAND, APERTURE_HERMES_OPTIMIZER_COMMAND, or APERTURE_OPENCLAW_OPTIMIZER_COMMAND, or pass --command.",
   },
@@ -50,11 +36,6 @@ const ROLE_CONFIGS: Record<FStopRole, RoleConfig> = {
     genericCommandEnv: "APERTURE_REVIEWER_COMMAND",
     hermesCommandEnv: "APERTURE_HERMES_REVIEWER_COMMAND",
     openClawCommandEnv: "APERTURE_OPENCLAW_REVIEWER_COMMAND",
-    openClawAgentEnv: "APERTURE_OPENCLAW_AGENT",
-    openClawSessionEnv: "APERTURE_OPENCLAW_REVIEW_SESSION_ID",
-    openClawThinkingEnv: "APERTURE_OPENCLAW_REVIEW_THINKING",
-    openClawTimeoutEnv: "APERTURE_OPENCLAW_REVIEW_TIMEOUT",
-    defaultTimeoutSeconds: 300,
     missingGenericCommandMessage:
       "No reviewer command configured. Set APERTURE_REVIEWER_COMMAND, APERTURE_HERMES_REVIEWER_COMMAND, or APERTURE_OPENCLAW_REVIEWER_COMMAND, or pass --command.",
   },
@@ -66,15 +47,7 @@ export async function runFStopRolePrompt(
   options: FStopRolePromptOptions,
 ): Promise<string> {
   const config = ROLE_CONFIGS[role];
-  const execution = resolveRoleExecution(config, options);
-
-  if (execution.kind === "openclaw") {
-    return await runOpenClawReview(prompt, {
-      ...(options.cwd ? { cwd: options.cwd } : {}),
-      ...(options.env ? { env: options.env } : {}),
-      ...buildOpenClawRoleOptions(config, options.env),
-    });
-  }
+  const execution = resolveRoleExecution(role, config, options);
 
   return await executePromptCommand(
     execution.command,
@@ -131,10 +104,12 @@ export async function executePromptCommand(
 }
 
 function resolveRoleExecution(
+  role: FStopRole,
   config: RoleConfig,
   options: FStopRolePromptOptions,
 ): RoleExecution {
   const env = options.env ?? process.env;
+  const repoCwd = options.cwd ?? process.cwd();
   if (options.command?.trim()) {
     return {
       kind: "command",
@@ -144,18 +119,16 @@ function resolveRoleExecution(
   if (options.provider === "hermes") {
     return {
       kind: "command",
-      command: readRequiredEnv(env, config.hermesCommandEnv),
+      command: env[config.hermesCommandEnv]?.trim()
+        || buildDefaultFStopHarnessCommand("hermes", role, repoCwd),
     };
   }
   if (options.provider === "openclaw") {
-    const command = env[config.openClawCommandEnv]?.trim();
-    if (command) {
-      return {
-        kind: "command",
-        command,
-      };
-    }
-    return { kind: "openclaw" };
+    return {
+      kind: "command",
+      command: env[config.openClawCommandEnv]?.trim()
+        || buildDefaultFStopHarnessCommand("openclaw", role, repoCwd),
+    };
   }
 
   const genericCommand = env[config.genericCommandEnv]?.trim()
@@ -168,38 +141,8 @@ function resolveRoleExecution(
   };
 }
 
-function buildOpenClawRoleOptions(
-  config: RoleConfig,
-  env: NodeJS.ProcessEnv = process.env,
-) {
-  const agent = config.openClawAgentEnv ? env[config.openClawAgentEnv]?.trim() : undefined;
-  const sessionId = config.openClawSessionEnv ? env[config.openClawSessionEnv]?.trim() : undefined;
-  return {
-    ...(agent ? { agent } : {}),
-    ...(sessionId ? { sessionId } : {}),
-    thinking: env[config.openClawThinkingEnv]?.trim() || "low",
-    timeoutSeconds: normalizeTimeout(env[config.openClawTimeoutEnv]) ?? config.defaultTimeoutSeconds,
-  };
-}
-
 function failMissingGenericCommand(config: RoleConfig): never {
   throw new Error(config.missingGenericCommandMessage);
-}
-
-function readRequiredEnv(env: NodeJS.ProcessEnv, name: string): string {
-  const value = env[name]?.trim();
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
-
-function normalizeTimeout(value: string | undefined): number | undefined {
-  const parsed = Number.parseInt(value ?? "", 10);
-  if (Number.isFinite(parsed) && parsed > 0) {
-    return parsed;
-  }
-  return undefined;
 }
 
 function capitalize(value: string): string {

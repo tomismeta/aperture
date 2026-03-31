@@ -9,7 +9,13 @@ import type {
   AutoresearchProposalRun,
   AutoresearchProposalSignal,
 } from "./autoresearch-proposal.js";
-import type { AutoresearchRunnerFeedbackAttempt, AutoresearchRunnerRun } from "./autoresearch-runner.js";
+import { projectAutoresearchProposalSnapshot } from "./autoresearch-proposal-snapshot.js";
+import type {
+  AutoresearchRunnerFeedbackAttempt,
+  AutoresearchRunnerProposalSnapshot,
+  AutoresearchRunnerRetainedAttempt,
+  AutoresearchRunnerRun,
+} from "./autoresearch-runner.js";
 import { DEFAULT_LAB_RUNTIME_ROOT } from "./runtime-paths.js";
 import { loadSessionBundle } from "./session-bundle.js";
 
@@ -65,6 +71,43 @@ export type AutoresearchFinalReport = {
     promotedCaseCount?: number;
     optimizerStatus?: string;
   }>;
+  retainedAttempts: Array<{
+    offset: number;
+    limit: number;
+    status: string;
+    retainedOutcome: string;
+    actionableCount?: number;
+    selectedSignalCount?: number;
+    promotedCaseCount?: number;
+    optimizerStatus?: string;
+    proposal?: string;
+    batch?: string;
+    optimizer?: string;
+    patch?: string;
+    strongestSignals: Array<{
+      focusArea: string;
+      owner: string;
+      apertureValue: string;
+      expectedValue: string;
+      sessionCount: number;
+      disagreementCount: number;
+      targets: string[];
+    }>;
+    intentStatements: readonly AutoresearchProposalIntentStatement[];
+    codeRecommendations: readonly AutoresearchProposalCodeRecommendation[];
+    optimizerSummary?: {
+      status: string;
+      beforeMismatchCount: number;
+      afterMismatchCount: number;
+      beforeInvariantMismatchCount: number;
+      afterInvariantMismatchCount: number;
+      changedFiles: readonly string[];
+      disallowedFiles: readonly string[];
+      judgmentBattle?: boolean;
+      releaseCheck?: boolean;
+      patchPath?: string;
+    };
+  }>;
   intentStatements: readonly AutoresearchProposalIntentStatement[];
   codeRecommendations: readonly AutoresearchProposalCodeRecommendation[];
   optimizer?: {
@@ -94,8 +137,12 @@ export async function synthesizeAutoresearchFinalReport(options: {
     : undefined;
   const proposalPath = options.proposalPath ?? runnerRun?.artifacts.selectedProposalPath;
   const proposal = proposalPath
-    ? await loadJsonFile<AutoresearchProposalRun>(path.resolve(repoRoot, proposalPath))
+    ? await tryLoadJsonFile<AutoresearchProposalRun>(path.resolve(repoRoot, proposalPath))
     : undefined;
+  const selectedProposal = resolveSelectedProposalSnapshot({
+    ...(runnerRun ? { runnerRun } : {}),
+    ...(proposal ? { proposal } : {}),
+  });
   const attemptProposals = runnerRun
     ? await loadAttemptProposals(runnerRun, repoRoot, proposalPath)
     : [];
@@ -105,6 +152,7 @@ export async function synthesizeAutoresearchFinalReport(options: {
   const optimizerRun = proposal?.artifacts.optimizerRunPath
     ? await loadJsonFile<AutoresearchOptimizerRun>(path.resolve(repoRoot, proposal.artifacts.optimizerRunPath))
     : undefined;
+  const retainedAttempts = summarizeRetainedAttempts(runnerRun?.retainedAttempts ?? []);
 
   const coverage = attemptProposals.length > 0
     ? await summarizeProposalCoverage(attemptProposals, repoRoot)
@@ -141,11 +189,12 @@ export async function synthesizeAutoresearchFinalReport(options: {
     schemaVersion: AUTORESEARCH_FINAL_REPORT_SCHEMA_VERSION,
     generatedAt: options.generatedAt ?? new Date().toISOString(),
     status: proposal?.status ?? runnerRun?.status ?? "unknown",
-    recommendation: buildRecommendation({
-      ...(runnerRun ? { runnerRun } : {}),
-      ...(proposal ? { proposal } : {}),
-      ...(optimizerRun ? { optimizerRun } : {}),
-    }),
+      recommendation: buildRecommendation({
+        ...(runnerRun ? { runnerRun } : {}),
+        ...(proposal ? { proposal } : {}),
+        ...(optimizerRun ? { optimizerRun } : {}),
+        ...(selectedProposal ? { selectedProposal } : {}),
+      }),
     source,
     runSummary: {
       bundleCount: coverage.bundleCount ?? aggregateSummary?.bundleCount ?? 0,
@@ -164,7 +213,7 @@ export async function synthesizeAutoresearchFinalReport(options: {
           }
         : {}),
     },
-    majorDisagreements: (proposal?.signals ?? [])
+    majorDisagreements: (proposal?.signals ?? selectedProposal?.signals ?? [])
       .slice(0, 5)
       .map((signal) => summarizeSignal(signal)),
     attempts: (runnerRun?.feedback?.attempts ?? []).map((attempt) => ({
@@ -176,25 +225,52 @@ export async function synthesizeAutoresearchFinalReport(options: {
       ...(attempt.promotedCaseCount !== undefined ? { promotedCaseCount: attempt.promotedCaseCount } : {}),
       ...(attempt.optimizerStatus ? { optimizerStatus: attempt.optimizerStatus } : {}),
     })),
-    intentStatements: proposal?.intentStatements ?? [],
-    codeRecommendations: proposal?.codeRecommendations ?? [],
-    ...(optimizerRun
+    retainedAttempts,
+    intentStatements: selectedProposal?.intentStatements ?? [],
+    codeRecommendations: selectedProposal?.codeRecommendations ?? [],
+    ...((optimizerRun || selectedProposal?.optimizer)
       ? {
           optimizer: {
-            status: optimizerRun.status,
-            beforeMismatchCount: optimizerRun.summary.beforeMismatchCount,
-            afterMismatchCount: optimizerRun.summary.afterMismatchCount,
-            beforeInvariantMismatchCount: optimizerRun.summary.beforeInvariantMismatchCount,
-            afterInvariantMismatchCount: optimizerRun.summary.afterInvariantMismatchCount,
-            autoresearchEvaluate: optimizerRun.gates.autoresearchEvaluate,
-            ...(optimizerRun.gates.judgmentBattle !== undefined
+            status: optimizerRun?.status ?? selectedProposal?.optimizer?.status ?? "unknown",
+            beforeMismatchCount:
+              optimizerRun?.summary.beforeMismatchCount
+              ?? selectedProposal?.optimizer?.beforeMismatchCount
+              ?? 0,
+            afterMismatchCount:
+              optimizerRun?.summary.afterMismatchCount
+              ?? selectedProposal?.optimizer?.afterMismatchCount
+              ?? 0,
+            beforeInvariantMismatchCount:
+              optimizerRun?.summary.beforeInvariantMismatchCount
+              ?? selectedProposal?.optimizer?.beforeInvariantMismatchCount
+              ?? 0,
+            afterInvariantMismatchCount:
+              optimizerRun?.summary.afterInvariantMismatchCount
+              ?? selectedProposal?.optimizer?.afterInvariantMismatchCount
+              ?? 0,
+            autoresearchEvaluate: optimizerRun?.gates.autoresearchEvaluate ?? true,
+            ...(optimizerRun?.gates.judgmentBattle !== undefined
               ? { judgmentBattle: optimizerRun.gates.judgmentBattle }
-              : {}),
-            ...(optimizerRun.gates.releaseCheck !== undefined
+              : selectedProposal?.optimizer?.judgmentBattle !== undefined
+                ? { judgmentBattle: selectedProposal.optimizer.judgmentBattle }
+                : {}),
+            ...(optimizerRun?.gates.releaseCheck !== undefined
               ? { releaseCheck: optimizerRun.gates.releaseCheck }
-              : {}),
-            changedFiles: optimizerRun.changes.changedFiles,
-            disallowedFiles: optimizerRun.changes.disallowedFiles,
+              : selectedProposal?.optimizer?.releaseCheck !== undefined
+                ? { releaseCheck: selectedProposal.optimizer.releaseCheck }
+                : {}),
+            changedFiles:
+              [
+                ...(optimizerRun?.changes.changedFiles
+                  ?? selectedProposal?.optimizer?.changedFiles
+                  ?? []),
+              ],
+            disallowedFiles:
+              [
+                ...(optimizerRun?.changes.disallowedFiles
+                  ?? selectedProposal?.optimizer?.disallowedFiles
+                  ?? []),
+              ],
           },
         }
       : {}),
@@ -311,6 +387,36 @@ export function renderAutoresearchFinalReportMarkdown(
       lines.push(
         `- offset=${attempt.offset}, limit=${attempt.limit}, status=${attempt.status}${attempt.actionableCount !== undefined ? `, actionable=${attempt.actionableCount}` : ""}${attempt.selectedSignalCount !== undefined ? `, signals=${attempt.selectedSignalCount}` : ""}${attempt.promotedCaseCount !== undefined ? `, promoted=${attempt.promotedCaseCount}` : ""}${attempt.optimizerStatus ? `, optimizer=${attempt.optimizerStatus}` : ""}`,
       );
+    }
+  }
+
+  lines.push("", "## Retained Attempts", "");
+  if (report.retainedAttempts.length === 0) {
+    lines.push("- (none)");
+  } else {
+    for (const attempt of report.retainedAttempts) {
+      lines.push(
+        `- offset=${attempt.offset}, limit=${attempt.limit}, status=${attempt.status}, retained=${attempt.retainedOutcome}${attempt.actionableCount !== undefined ? `, actionable=${attempt.actionableCount}` : ""}${attempt.selectedSignalCount !== undefined ? `, signals=${attempt.selectedSignalCount}` : ""}${attempt.promotedCaseCount !== undefined ? `, promoted=${attempt.promotedCaseCount}` : ""}${attempt.optimizerStatus ? `, optimizer=${attempt.optimizerStatus}` : ""}`,
+      );
+      for (const signal of attempt.strongestSignals) {
+        lines.push(
+          `  signal: ${signal.focusArea} (${signal.owner}) ${signal.apertureValue} -> ${signal.expectedValue} across ${signal.sessionCount} session(s)`,
+        );
+        if (signal.targets.length > 0) {
+          lines.push(`    targets: ${signal.targets.join(", ")}`);
+        }
+      }
+      for (const intent of attempt.intentStatements.slice(0, 2)) {
+        lines.push(`  intent: ${intent.statement}`);
+      }
+      for (const recommendation of attempt.codeRecommendations.slice(0, 2)) {
+        lines.push(`  recommendation: ${recommendation.summary}`);
+      }
+      if (attempt.optimizerSummary) {
+        lines.push(
+          `  optimizer summary: ${attempt.optimizerSummary.status} mismatches ${attempt.optimizerSummary.beforeMismatchCount} -> ${attempt.optimizerSummary.afterMismatchCount}`,
+        );
+      }
     }
   }
 
@@ -533,7 +639,10 @@ function summarizeProposalRuns(
   );
 }
 
-function summarizeSignal(signal: AutoresearchProposalSignal): AutoresearchFinalReport["majorDisagreements"][number] {
+function summarizeSignal(signal: Pick<
+  AutoresearchProposalSignal,
+  "focusArea" | "owner" | "apertureValue" | "expectedValue" | "sessionCount" | "disagreementCount" | "targets"
+>): AutoresearchFinalReport["majorDisagreements"][number] {
   return {
     focusArea: signal.focusArea,
     owner: signal.owner,
@@ -545,18 +654,71 @@ function summarizeSignal(signal: AutoresearchProposalSignal): AutoresearchFinalR
   };
 }
 
+function summarizeRetainedAttempts(
+  attempts: readonly AutoresearchRunnerRetainedAttempt[],
+): AutoresearchFinalReport["retainedAttempts"] {
+  return attempts.map((attempt) => ({
+    offset: attempt.offset,
+    limit: attempt.limit,
+    status: attempt.status,
+    retainedOutcome: attempt.retainedOutcome,
+    ...(attempt.actionableCount !== undefined ? { actionableCount: attempt.actionableCount } : {}),
+    ...(attempt.selectedSignalCount !== undefined ? { selectedSignalCount: attempt.selectedSignalCount } : {}),
+    ...(attempt.promotedCaseCount !== undefined ? { promotedCaseCount: attempt.promotedCaseCount } : {}),
+    ...(attempt.optimizerStatus ? { optimizerStatus: attempt.optimizerStatus } : {}),
+    ...(attempt.proposal ? { proposal: attempt.proposal } : {}),
+    ...(attempt.batch ? { batch: attempt.batch } : {}),
+    ...(attempt.optimizer ? { optimizer: attempt.optimizer } : {}),
+    ...(attempt.patch ? { patch: attempt.patch } : {}),
+    strongestSignals: attempt.snapshot.signals.slice(0, 3).map((signal) => ({
+      focusArea: signal.focusArea,
+      owner: signal.owner,
+      apertureValue: renderValue(signal.apertureValue),
+      expectedValue: renderValue(signal.expectedValue),
+      sessionCount: signal.sessionCount,
+      disagreementCount: signal.disagreementCount,
+      targets: [...signal.targets],
+    })),
+    intentStatements: attempt.snapshot.intentStatements,
+    codeRecommendations: attempt.snapshot.codeRecommendations,
+    ...(attempt.snapshot.optimizer
+      ? {
+          optimizerSummary: {
+            status: attempt.snapshot.optimizer.status,
+            beforeMismatchCount: attempt.snapshot.optimizer.beforeMismatchCount,
+            afterMismatchCount: attempt.snapshot.optimizer.afterMismatchCount,
+            beforeInvariantMismatchCount: attempt.snapshot.optimizer.beforeInvariantMismatchCount,
+            afterInvariantMismatchCount: attempt.snapshot.optimizer.afterInvariantMismatchCount,
+            changedFiles: [...attempt.snapshot.optimizer.changedFiles],
+            disallowedFiles: [...attempt.snapshot.optimizer.disallowedFiles],
+            ...(attempt.snapshot.optimizer.judgmentBattle !== undefined
+              ? { judgmentBattle: attempt.snapshot.optimizer.judgmentBattle }
+              : {}),
+            ...(attempt.snapshot.optimizer.releaseCheck !== undefined
+              ? { releaseCheck: attempt.snapshot.optimizer.releaseCheck }
+              : {}),
+            ...(attempt.snapshot.optimizer.patchPath
+              ? { patchPath: attempt.snapshot.optimizer.patchPath }
+              : {}),
+          },
+        }
+      : {}),
+  }));
+}
+
 function buildRecommendation(input: {
   runnerRun?: AutoresearchRunnerRun;
   proposal?: AutoresearchProposalRun;
   optimizerRun?: AutoresearchOptimizerRun;
+  selectedProposal?: AutoresearchRunnerProposalSnapshot;
 }): string {
   if (input.proposal?.artifacts.optimizerPatchPath || input.runnerRun?.artifacts.selectedPatchPath) {
     return "Review the proposed patch and intent statements. F-Stop found repeated signal and produced a bounded code recommendation with a surviving diff.";
   }
-  if (input.proposal?.status === "no_change") {
+  if ((input.proposal?.status ?? input.selectedProposal?.status) === "no_change") {
     return "Review the major disagreements and intent statements. F-Stop found repeated signal strong enough to promote, but no durable patch survived the optimizer and gate loop.";
   }
-  if (input.proposal?.status === "no_signal") {
+  if ((input.proposal?.status ?? input.selectedProposal?.status) === "no_signal") {
     return "Discovery completed without enough repeated high-confidence signal to justify promotion or optimization. No code change is recommended from this run.";
   }
   if (input.proposal?.status === "exhausted" || input.runnerRun?.status === "exhausted") {
@@ -573,6 +735,24 @@ function buildRecommendation(input: {
 
 async function loadJsonFile<T>(filePath: string): Promise<T> {
   return JSON.parse(await readFile(filePath, "utf8")) as T;
+}
+
+async function tryLoadJsonFile<T>(filePath: string): Promise<T | undefined> {
+  try {
+    return await loadJsonFile<T>(filePath);
+  } catch {
+    return undefined;
+  }
+}
+
+function resolveSelectedProposalSnapshot(input: {
+  runnerRun?: AutoresearchRunnerRun;
+  proposal?: AutoresearchProposalRun;
+}): AutoresearchRunnerProposalSnapshot | undefined {
+  if (input.proposal) {
+    return projectAutoresearchProposalSnapshot(input.proposal);
+  }
+  return input.runnerRun?.selectedProposal;
 }
 
 function renderValue(value: string | string[] | boolean | null): string {

@@ -126,6 +126,9 @@ export type AutoresearchProposalRun = {
     afterInvariantMismatchCount: number;
     changedFiles: string[];
     disallowedFiles: string[];
+    judgmentBattle?: boolean;
+    releaseCheck?: boolean;
+    patchPath?: string;
   };
   notes: string[];
 };

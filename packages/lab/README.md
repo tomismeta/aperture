@@ -241,10 +241,19 @@ pnpm lab:fstop:reviewer --provider <provider>
 
 It resolves the actual provider command from environment variables instead of
 hard-coding Hermes/OpenClaw invocation details into the main runner loop.
-For OpenClaw, the adapter can also invoke the local `openclaw` binary directly
-when it is available on `PATH`, so the VPS runner does not need a custom shell
-wrapper just to extract the reviewer payload. It uses a fresh OpenClaw session
-id per review by default so batch runs do not pile context into the shared
+Both Hermes and OpenClaw now use the same repo-native harness wrapper by
+default:
+
+- prompt arrives on `stdin`
+- provider-specific invocation runs underneath
+- normalized structured output returns on `stdout`
+
+Custom commands are still supported through
+`APERTURE_HERMES_REVIEWER_COMMAND`, `APERTURE_HERMES_OPTIMIZER_COMMAND`,
+`APERTURE_OPENCLAW_REVIEWER_COMMAND`, and
+`APERTURE_OPENCLAW_OPTIMIZER_COMMAND`, but they are now overrides rather than
+requirements. The built-in OpenClaw harness still uses a fresh session id per
+review by default so unattended batches do not pile context into a shared
 `main` session.
 
 For a clean unattended batch on a remote box, use:
@@ -320,6 +329,30 @@ artifacts under `.aperture/lab/results`, and emits:
 - code recommendations summarizing suggested files and optimizer rationale
 - an optional patch diff when the optimizer leaves one behind
 
+When a run ends `no_proposal`, F-Stop now still preserves the best retained
+near-miss instead of dropping it into counts only. The main human-facing files
+are:
+
+- runner review: `.aperture/lab/results/autoresearch/runner/runs/<run>.md`
+- retained proposal brief:
+  `.aperture/lab/results/autoresearch/backlog/autoresearch-retained-backlog.md`
+
+The runner Markdown keeps the best single-run retained intent under:
+
+- `Retained Intent`
+- `Intent Statements`
+- `Code Recommendations`
+- `Retained Attempts`
+
+The backlog Markdown compiles repeated retained proposals across runs into one
+plain-English review brief with:
+
+- observed pattern
+- proposed change
+- example evidence
+- latest optimizer result
+- artifact paths for follow-up
+
 For a long-running supervised VPS process with restart and stall handling, use:
 
 ```bash
@@ -329,17 +362,30 @@ pnpm lab:fstop:service --provider <provider> --reviewer-provider <provider> --op
 This wraps one-window campaign runs, restarts on failure or stalls, and keeps a
 stable service status under `.aperture/lab/service/status.json`.
 
-For the shortest default command on the box, use:
+For the shortest default commands on the box, use either:
 
 ```bash
 pnpm lab:fstop:openclaw
 ```
 
-That currently expands to:
+or:
+
+```bash
+pnpm lab:fstop:hermes
+```
+
+The OpenClaw shortcut expands to:
 
 - provider: `openclaw`
 - reviewer provider: `openclaw`
 - optimizer provider: `openclaw`
+- uses the top-level `lab:fstop:run` entrypoint
+
+The Hermes shortcut expands to:
+
+- provider: `hermes`
+- reviewer provider: `hermes`
+- optimizer provider: `hermes`
 - uses the top-level `lab:fstop:run` entrypoint
 
 To let the box run all the way through a reviewable code proposal, use:
@@ -445,10 +491,11 @@ The stable runner adapter is:
 pnpm lab:fstop:runner --provider <provider>
 ```
 
-For the shortest default VPS command, use:
+For the shortest default VPS commands, use:
 
 ```bash
 pnpm lab:fstop:openclaw
+pnpm lab:fstop:hermes
 ```
 
 For cleaner real-session collection, use:

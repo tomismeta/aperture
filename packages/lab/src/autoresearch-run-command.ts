@@ -10,15 +10,21 @@ import {
 import { type AutoresearchProposalRun } from "./autoresearch-proposal.js";
 import { runAutoresearchProposalCommand } from "./autoresearch-propose-command.js";
 import {
+  updateAutoresearchRetainedBacklog,
+} from "./autoresearch-backlog.js";
+import {
   AUTORESEARCH_RUNNER_RUN_SCHEMA_VERSION,
   defaultAutoresearchRunnerRunPath,
   renderAutoresearchRunnerRunMarkdown,
   writeAutoresearchRunnerRun,
   type AutoresearchRunnerFeedback,
   type AutoresearchRunnerFeedbackAttempt,
+  type AutoresearchRunnerProposalSnapshot,
+  type AutoresearchRunnerRetainedAttempt,
+  type AutoresearchRunnerRetainedOutcome,
   type AutoresearchRunnerRun,
 } from "./autoresearch-runner.js";
-import { readJsonFile } from "./json-utils.js";
+import { projectAutoresearchProposalSnapshot } from "./autoresearch-proposal-snapshot.js";
 import { type PublicTrajectoryDataset, type PublicTrajectorySplit } from "./public-trajectories.js";
 import {
   captureGitHeadSnapshot,
@@ -54,6 +60,8 @@ export type AutoresearchRunCommandResult = {
   runnerCommand: string;
   runPath: string;
   runMarkdownPath: string;
+  backlogPath: string;
+  backlogMarkdownPath: string;
   selectedProposalPath?: string;
   selectedBatchReportPath?: string;
   selectedOptimizerRunPath?: string;
@@ -65,7 +73,7 @@ type Slice = {
   limit: number;
 };
 
-type SelectedProposalSnapshot = NonNullable<AutoresearchRunnerRun["selectedProposal"]>;
+type SelectedProposalSnapshot = AutoresearchRunnerProposalSnapshot;
 
 const DEFAULT_AUTORESEARCH_REVIEW_CONCURRENCY = 2;
 const DETERMINISTIC_RUNNER_COMMAND = "deterministic sequential slice loop";
@@ -218,9 +226,11 @@ export async function runAutoresearchRunnerCommand(
     notes.push(`Worktree changed during the run: ${changedFiles.join(", ")}`);
   }
 
-  const selectedProposal = feedback.selectedProposalPath
-    ? await buildSelectedProposalSnapshot(feedback.selectedProposalPath)
-    : undefined;
+  const selectedProposal = findSelectedProposalSnapshot(attempts, feedback.selectedProposalPath);
+  const retainedAttempts = buildRetainedAttempts(attempts);
+  if (selectedProposal && !feedback.selectedProposalPath) {
+    notes.push("Retained the highest-signal non-winning slice intent for later review.");
+  }
   const run: AutoresearchRunnerRun = {
     schemaVersion: AUTORESEARCH_RUNNER_RUN_SCHEMA_VERSION,
     generatedAt,
@@ -234,9 +244,18 @@ export async function runAutoresearchRunnerCommand(
       ...(feedback.selectedPatchPath ? { selectedPatchPath: feedback.selectedPatchPath } : {}),
     },
     ...(selectedProposal ? { selectedProposal } : {}),
+    ...(retainedAttempts.length > 0 ? { retainedAttempts } : {}),
     feedback,
     notes,
   };
+
+  const retainedBacklog = await updateAutoresearchRetainedBacklog({
+    run,
+    runPath,
+    runMarkdownPath,
+  });
+  run.artifacts.backlogPath = retainedBacklog.backlogPath;
+  run.artifacts.backlogMarkdownPath = retainedBacklog.backlogMarkdownPath;
 
   await writeAutoresearchRunnerRun(runPath, run);
   await mkdir(path.dirname(runMarkdownPath), { recursive: true });
@@ -265,6 +284,8 @@ export async function runAutoresearchRunnerCommand(
     runnerCommand: DETERMINISTIC_RUNNER_COMMAND,
     runPath,
     runMarkdownPath,
+    backlogPath: retainedBacklog.backlogPath,
+    backlogMarkdownPath: retainedBacklog.backlogMarkdownPath,
     ...(run.artifacts.selectedProposalPath ? { selectedProposalPath: run.artifacts.selectedProposalPath } : {}),
     ...(run.artifacts.selectedBatchReportPath ? { selectedBatchReportPath: run.artifacts.selectedBatchReportPath } : {}),
     ...(run.artifacts.selectedOptimizerRunPath ? { selectedOptimizerRunPath: run.artifacts.selectedOptimizerRunPath } : {}),
@@ -301,6 +322,7 @@ async function executeProposalAttempt(
     });
     const proposalPath = proposalResult.proposalPath;
     const proposalRun = proposalResult.run;
+    const retainedOutcome = determineRetainedOutcome(proposalRun);
 
     return {
       offset: "offset" in input ? input.offset : options.offset,
@@ -315,6 +337,10 @@ async function executeProposalAttempt(
       ...(proposalRun.artifacts.optimizerRunPath ? { optimizerRunPath: proposalRun.artifacts.optimizerRunPath } : {}),
       ...(proposalRun.artifacts.optimizerPatchPath
         ? { optimizerPatchPath: proposalRun.artifacts.optimizerPatchPath }
+        : {}),
+      ...(retainedOutcome ? { retainedOutcome } : {}),
+      ...(shouldRetainProposalSnapshot(proposalRun)
+        ? { proposal: projectAutoresearchProposalSnapshot(proposalRun) }
         : {}),
     };
   } finally {
@@ -362,6 +388,12 @@ function buildExhaustedFeedback(
 
   const allErrors = attempts.length > 0 && attempts.every((attempt) => attempt.status === "error");
   const allExhausted = attempts.length > 0 && attempts.every((attempt) => attempt.status === "exhausted");
+  const retainedAttempt = findBestRetainedAttempt(attempts);
+  if (retainedAttempt) {
+    reasons.push(
+      `Highest-signal retained slice offset ${retainedAttempt.offset} ended status=${retainedAttempt.status} with ${retainedAttempt.selectedSignalCount ?? 0} signal(s) and ${retainedAttempt.promotedCaseCount ?? 0} promoted case(s).`,
+    );
+  }
   return {
     action: allErrors ? "blocked" : (allExhausted ? "exhausted" : "no_proposal"),
     summary: allErrors
@@ -450,20 +482,6 @@ function buildProposalArgs(
   ];
 }
 
-async function buildSelectedProposalSnapshot(proposalPath: string): Promise<SelectedProposalSnapshot> {
-  const proposal = await readJsonFile<AutoresearchProposalRun>(proposalPath);
-  return {
-    status: proposal.status,
-    summary: {
-      actionableCount: proposal.summary.actionableCount,
-      selectedSignalCount: proposal.summary.selectedSignalCount,
-      promotedCaseCount: proposal.summary.promotedCaseCount,
-    },
-    intentStatements: proposal.intentStatements,
-    codeRecommendations: proposal.codeRecommendations,
-  };
-}
-
 function findBestProposalAttempt(
   attempts: readonly AutoresearchRunnerFeedbackAttempt[],
 ): AutoresearchRunnerFeedbackAttempt | undefined {
@@ -510,6 +528,89 @@ function compareAttempts(
     }
   }
   return 0;
+}
+
+function shouldRetainProposalSnapshot(
+  proposalRun: AutoresearchProposalRun,
+): boolean {
+  return proposalRun.summary.selectedSignalCount > 0
+    || proposalRun.intentStatements.length > 0
+    || proposalRun.codeRecommendations.length > 0;
+}
+
+function findSelectedProposalSnapshot(
+  attempts: readonly AutoresearchRunnerFeedbackAttempt[],
+  selectedProposalPath: string | undefined,
+): SelectedProposalSnapshot | undefined {
+  if (selectedProposalPath) {
+    const selectedAttempt = attempts.find((attempt) => attempt.proposalPath === selectedProposalPath);
+    if (selectedAttempt?.proposal) {
+      return selectedAttempt.proposal;
+    }
+  }
+
+  return findBestRetainedAttempt(attempts)?.proposal;
+}
+
+function findBestRetainedAttempt(
+  attempts: readonly AutoresearchRunnerFeedbackAttempt[],
+): AutoresearchRunnerFeedbackAttempt | undefined {
+  let best: AutoresearchRunnerFeedbackAttempt | undefined;
+  for (const attempt of attempts) {
+    if (!attempt.proposal) {
+      continue;
+    }
+    if (!best || compareAttempts(attempt, best) > 0) {
+      best = attempt;
+    }
+  }
+  return best;
+}
+
+function buildRetainedAttempts(
+  attempts: readonly AutoresearchRunnerFeedbackAttempt[],
+  maxAttempts = 3,
+): readonly AutoresearchRunnerRetainedAttempt[] {
+  return attempts
+    .filter((attempt): attempt is AutoresearchRunnerFeedbackAttempt & { proposal: SelectedProposalSnapshot } => Boolean(attempt.proposal))
+    .sort((left, right) => compareAttempts(right, left))
+    .slice(0, maxAttempts)
+    .map((attempt) => ({
+      offset: attempt.offset,
+      limit: attempt.limit,
+      status: attempt.status,
+      ...(attempt.actionableCount !== undefined ? { actionableCount: attempt.actionableCount } : {}),
+      ...(attempt.selectedSignalCount !== undefined ? { selectedSignalCount: attempt.selectedSignalCount } : {}),
+      ...(attempt.promotedCaseCount !== undefined ? { promotedCaseCount: attempt.promotedCaseCount } : {}),
+      ...(attempt.optimizerStatus ? { optimizerStatus: attempt.optimizerStatus } : {}),
+      retainedOutcome: attempt.retainedOutcome ?? "signal_only",
+      ...(attempt.proposalPath ? { proposal: attempt.proposalPath } : {}),
+      ...(attempt.batchReportPath ? { batch: attempt.batchReportPath } : {}),
+      ...(attempt.optimizerRunPath ? { optimizer: attempt.optimizerRunPath } : {}),
+      ...(attempt.optimizerPatchPath ? { patch: attempt.optimizerPatchPath } : {}),
+      snapshot: attempt.proposal,
+    }));
+}
+
+function determineRetainedOutcome(
+  proposalRun: AutoresearchProposalRun,
+): AutoresearchRunnerRetainedOutcome | undefined {
+  if (!shouldRetainProposalSnapshot(proposalRun)) {
+    return undefined;
+  }
+  if (proposalRun.status === "proposed") {
+    return "patch_ready";
+  }
+  if (proposalRun.status === "optimizer_clean") {
+    return "optimizer_clean";
+  }
+  if (proposalRun.optimizer?.status === "gate_blocked") {
+    return "gate_blocked";
+  }
+  if (proposalRun.status === "no_change") {
+    return proposalRun.artifacts.optimizerPatchPath ? "no_change_patch_attempted" : "no_change_no_edits";
+  }
+  return "signal_only";
 }
 
 async function listWorkingTreeFilesInRepo(repoRoot: string): Promise<string[]> {

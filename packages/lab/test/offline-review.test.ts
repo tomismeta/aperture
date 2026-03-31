@@ -658,3 +658,90 @@ test("offline-reviewer adapter resolves provider commands from env and forwards 
     await rm(tempDir, { recursive: true, force: true });
   }
 });
+
+test("offline-reviewer adapter can use the built-in hermes harness", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-hermes-harness-"));
+
+  try {
+    const binDir = path.join(tempDir, "bin");
+    await mkdir(binDir, { recursive: true });
+    const fakeHermesPath = path.join(binDir, "hermes");
+    await writeFile(
+      fakeHermesPath,
+      [
+        "#!/usr/bin/env node",
+        "process.stdout.write('Session: fake\\n');",
+        "process.stdout.write(JSON.stringify({ review: { reviewer: 'builtin-hermes', model: 'fake', findings: [] } }));",
+      ].join("\n"),
+      "utf8",
+    );
+    await execFile("chmod", ["+x", fakeHermesPath]);
+
+    const shell = process.env.SHELL ?? "/bin/zsh";
+    const quotedNode = JSON.stringify(process.execPath);
+    const quotedTsx = JSON.stringify(TSX_CLI);
+    const { stdout } = await execFile(
+      shell,
+      [
+        "-lc",
+        `printf '%s' 'semantic review prompt' | ${quotedNode} ${quotedTsx} scripts/fstop.ts reviewer --provider hermes`,
+      ],
+      {
+        cwd: REPO_ROOT,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${process.env.PATH ?? ""}`,
+        },
+      },
+    );
+
+    const parsed = JSON.parse(stdout);
+    assert.equal(parsed.review.reviewer, "builtin-hermes");
+    assert.equal(parsed.review.model, "fake");
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("offline-reviewer adapter can use the built-in openclaw harness", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-openclaw-harness-"));
+
+  try {
+    const binDir = path.join(tempDir, "bin");
+    await mkdir(binDir, { recursive: true });
+    const fakeOpenClawPath = path.join(binDir, "openclaw");
+    await writeFile(
+      fakeOpenClawPath,
+      [
+        "#!/usr/bin/env node",
+        "process.stderr.write(JSON.stringify({ payloads: [{ text: JSON.stringify({ review: { reviewer: 'builtin-openclaw', model: 'fake', findings: [] } }) }] }));",
+      ].join("\n"),
+      "utf8",
+    );
+    await execFile("chmod", ["+x", fakeOpenClawPath]);
+
+    const shell = process.env.SHELL ?? "/bin/zsh";
+    const quotedNode = JSON.stringify(process.execPath);
+    const quotedTsx = JSON.stringify(TSX_CLI);
+    const { stdout } = await execFile(
+      shell,
+      [
+        "-lc",
+        `printf '%s' 'semantic review prompt' | ${quotedNode} ${quotedTsx} scripts/fstop.ts reviewer --provider openclaw`,
+      ],
+      {
+        cwd: REPO_ROOT,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${process.env.PATH ?? ""}`,
+        },
+      },
+    );
+
+    const parsed = JSON.parse(stdout);
+    assert.equal(parsed.review.reviewer, "builtin-openclaw");
+    assert.equal(parsed.review.model, "fake");
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});

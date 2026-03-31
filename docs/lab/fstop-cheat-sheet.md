@@ -63,7 +63,7 @@ F-Stop does this:
 1. load a session bundle
 2. replay it through real Aperture Core
 3. prepare a review artifact
-4. ask OpenClaw to review Aperture's read
+4. ask the reviewer backend to review Aperture's read
 5. compare the review against Aperture's recorded values
 6. collect repeated disagreements
 7. try a bounded patch if the signal is strong enough
@@ -73,8 +73,8 @@ F-Stop does this:
 - `sessions` are not the same thing as `messages`
 - one session can contain many messages, tool calls, tool results, and replay
   steps
-- OpenClaw usually reviews at the **session/bundle level**, not one prompt per
-  replay step
+- the reviewer backend usually works at the **session/bundle level**, not one
+  prompt per replay step
 
 ### Example
 
@@ -100,13 +100,13 @@ One real run at that shape produced:
 - about `7,825 replay steps`
 - `144 reviewer prompts`
 - `12 optimizer prompts`
-- `156 OpenClaw prompts total`
+- `156 backend prompts total`
 
 So:
 
 - `144 sessions reviewed` does **not** mean `144 messages`
-- and `7,825 replay steps` does **not** mean `7,825 OpenClaw prompts`
-- OpenClaw prompt count is usually much closer to `session` count than `step`
+- and `7,825 replay steps` does **not** mean `7,825 backend prompts`
+- backend prompt count is usually much closer to `session` count than `step`
   count
 
 ## Useful Translation
@@ -130,3 +130,33 @@ When reading live F-Stop output:
 
 - `proposal_ready`
   means "there is a reviewable proposal artifact, and possibly a patch"
+
+- `retained proposal`
+  means "the run still found a strong non-winning idea worth keeping for later
+  review"
+
+- `proposal brief`
+  means "the compiled human-readable Markdown view of retained proposals across
+  runs"
+
+## Human Review Files
+
+After a run, the easiest human entrypoints are:
+
+- runner review:
+  `.aperture/lab/results/autoresearch/runner/runs/<run>.md`
+- retained proposal brief:
+  `.aperture/lab/results/autoresearch/backlog/autoresearch-retained-backlog.md`
+
+The runner review is best for:
+
+- what this one run found
+- the best retained intent from this run
+- exact attempted slice/patch context
+
+The retained proposal brief is best for:
+
+- what keeps showing up across runs
+- plain-English proposed changes
+- example evidence and target files
+- optimizer outcomes for follow-up triage

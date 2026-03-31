@@ -199,6 +199,73 @@ type CampaignCliOptions = AutoresearchCampaignCommandOptions & JsonOptions;
 
 type RunCliOptions = AutoresearchRunCommandOptions & JsonOptions;
 
+type SharedProviderState<T extends Provider> = {
+  provider: T;
+  reviewerProvider?: T;
+  optimizerProvider?: T;
+};
+
+function createSharedProviderState<T extends Provider>(
+  provider: T,
+  options: {
+    initializeReviewer?: boolean;
+    initializeOptimizer?: boolean;
+  } = {},
+): SharedProviderState<T> {
+  return {
+    provider,
+    ...(options.initializeReviewer ? { reviewerProvider: provider } : {}),
+    ...(options.initializeOptimizer ? { optimizerProvider: provider } : {}),
+  };
+}
+
+function applySharedProviderArg<T extends Provider>(
+  state: SharedProviderState<T>,
+  arg: string | undefined,
+  value: string | undefined,
+  options: {
+    propagatePrimaryProvider: boolean;
+  },
+): boolean {
+  switch (arg) {
+    case "--provider": {
+      const provider = readProvider(value) as T;
+      state.provider = provider;
+      if (options.propagatePrimaryProvider) {
+        if (state.reviewerProvider === undefined || state.reviewerProvider === "generic") {
+          state.reviewerProvider = provider;
+        }
+        if (state.optimizerProvider === undefined || state.optimizerProvider === "generic") {
+          state.optimizerProvider = provider;
+        }
+      }
+      return true;
+    }
+    case "--reviewer-provider":
+      state.reviewerProvider = readProvider(value) as T;
+      return true;
+    case "--optimizer-provider":
+      state.optimizerProvider = readProvider(value) as T;
+      return true;
+    default:
+      return false;
+  }
+}
+
+function resolveSharedProviderState<T extends Provider>(
+  state: SharedProviderState<T>,
+): {
+  provider: T;
+  reviewerProvider: T;
+  optimizerProvider: T;
+} {
+  return {
+    provider: state.provider,
+    reviewerProvider: state.reviewerProvider ?? state.provider,
+    optimizerProvider: state.optimizerProvider ?? state.reviewerProvider ?? state.provider,
+  };
+}
+
 export async function runFStopCli(argv: string[]): Promise<void> {
   const [command, ...rest] = argv;
   switch (command) {
@@ -266,6 +333,7 @@ async function runRunCli(argv: string[]): Promise<void> {
   emitResult(options.json, result, [
     `Autoresearch agent run status: ${result.status}.`,
     `Run: ${result.runPath}`,
+    `Retained backlog: ${result.backlogPath}`,
     ...(result.selectedProposalPath ? [`Proposal: ${result.selectedProposalPath}`] : []),
     ...(result.selectedPatchPath ? [`Patch: ${result.selectedPatchPath}`] : []),
   ]);
@@ -694,7 +762,10 @@ async function runTrajectoryImportCli(argv: string[]): Promise<void> {
 }
 
 function parseRunArgs(argv: string[]): RunCliOptions {
-  let provider: AutoresearchRunnerProvider = "generic";
+  const providers = createSharedProviderState<AutoresearchRunnerProvider>("generic", {
+    initializeReviewer: true,
+    initializeOptimizer: true,
+  });
   let inputFile: string | undefined;
   let batchReportPath: string | undefined;
   const bundlePaths: string[] = [];
@@ -703,8 +774,6 @@ function parseRunArgs(argv: string[]): RunCliOptions {
   let offset = 0;
   let limit = 12;
   let maxSlices = 3;
-  let reviewerProvider: AutoresearchRunnerProvider = provider;
-  let optimizerProvider: AutoresearchRunnerProvider = provider;
   let reviewConcurrency = DEFAULT_AUTORESEARCH_RUN_REVIEW_CONCURRENCY;
   let minSessionCount = 2;
   let maxReports = 4;
@@ -714,16 +783,11 @@ function parseRunArgs(argv: string[]): RunCliOptions {
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
+    if (applySharedProviderArg(providers, arg, argv[index + 1], { propagatePrimaryProvider: true })) {
+      index += 1;
+      continue;
+    }
     switch (arg) {
-      case "--provider":
-        provider = readProvider(argv[++index]);
-        if (reviewerProvider === "generic") {
-          reviewerProvider = provider;
-        }
-        if (optimizerProvider === "generic") {
-          optimizerProvider = provider;
-        }
-        break;
       case "--file":
         inputFile = path.resolve(argv[++index] ?? "");
         break;
@@ -747,12 +811,6 @@ function parseRunArgs(argv: string[]): RunCliOptions {
         break;
       case "--max-slices":
         maxSlices = readInteger(argv[++index], "--max-slices");
-        break;
-      case "--reviewer-provider":
-        reviewerProvider = readProvider(argv[++index]);
-        break;
-      case "--optimizer-provider":
-        optimizerProvider = readProvider(argv[++index]);
         break;
       case "--review-concurrency":
         reviewConcurrency = readPositiveInteger(argv[++index], "--review-concurrency");
@@ -781,8 +839,10 @@ function parseRunArgs(argv: string[]): RunCliOptions {
     }
   }
 
+  const resolvedProviders = resolveSharedProviderState(providers);
+
   return {
-    provider,
+    provider: resolvedProviders.provider,
     ...(inputFile ? { inputFile } : {}),
     ...(batchReportPath ? { batchReportPath } : {}),
     bundlePaths,
@@ -791,8 +851,8 @@ function parseRunArgs(argv: string[]): RunCliOptions {
     offset,
     limit,
     maxSlices,
-    reviewerProvider,
-    optimizerProvider,
+    reviewerProvider: resolvedProviders.reviewerProvider,
+    optimizerProvider: resolvedProviders.optimizerProvider,
     reviewConcurrency,
     minSessionCount,
     maxReports,
@@ -803,15 +863,16 @@ function parseRunArgs(argv: string[]): RunCliOptions {
 }
 
 function parseCampaignArgs(argv: string[]): CampaignCliOptions {
-  let provider: AutoresearchCampaignProvider = "generic";
+  const providers = createSharedProviderState<AutoresearchCampaignProvider>("generic", {
+    initializeReviewer: true,
+    initializeOptimizer: true,
+  });
   let dataset: CampaignCliOptions["dataset"] = "swe-smith";
   let split: CampaignCliOptions["split"] | undefined;
   let offset = 0;
   let limit = 12;
   let maxSlices = 10;
   let windowCount = 8;
-  let reviewerProvider: AutoresearchCampaignProvider = provider;
-  let optimizerProvider: AutoresearchCampaignProvider = provider;
   let reviewConcurrency = 2;
   let minSessionCount = 2;
   let maxReports = 4;
@@ -823,16 +884,11 @@ function parseCampaignArgs(argv: string[]): CampaignCliOptions {
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
+    if (applySharedProviderArg(providers, arg, argv[index + 1], { propagatePrimaryProvider: true })) {
+      index += 1;
+      continue;
+    }
     switch (arg) {
-      case "--provider":
-        provider = readProvider(argv[++index]);
-        if (reviewerProvider === "generic") {
-          reviewerProvider = provider;
-        }
-        if (optimizerProvider === "generic") {
-          optimizerProvider = provider;
-        }
-        break;
       case "--dataset":
         dataset = readDataset(argv[++index]);
         break;
@@ -851,12 +907,6 @@ function parseCampaignArgs(argv: string[]): CampaignCliOptions {
       case "--windows":
       case "--window-count":
         windowCount = readPositiveInteger(argv[++index], "--window-count");
-        break;
-      case "--reviewer-provider":
-        reviewerProvider = readProvider(argv[++index]);
-        break;
-      case "--optimizer-provider":
-        optimizerProvider = readProvider(argv[++index]);
         break;
       case "--review-concurrency":
         reviewConcurrency = readPositiveInteger(argv[++index], "--review-concurrency");
@@ -891,16 +941,18 @@ function parseCampaignArgs(argv: string[]): CampaignCliOptions {
     }
   }
 
+  const resolvedProviders = resolveSharedProviderState(providers);
+
   return {
-    provider,
+    provider: resolvedProviders.provider,
     dataset,
     split: split ?? defaultPublicTrajectorySplit(dataset),
     offset,
     limit,
     maxSlices,
     windowCount,
-    reviewerProvider,
-    optimizerProvider,
+    reviewerProvider: resolvedProviders.reviewerProvider,
+    optimizerProvider: resolvedProviders.optimizerProvider,
     reviewConcurrency,
     minSessionCount,
     maxReports,
@@ -913,15 +965,13 @@ function parseCampaignArgs(argv: string[]): CampaignCliOptions {
 }
 
 function parseServiceArgs(argv: string[]): ServiceCliOptions {
-  let provider: AutoresearchServiceProvider = "generic";
+  const providers = createSharedProviderState<AutoresearchServiceProvider>("generic");
   let dataset: PublicTrajectoryDataset = "swe-smith";
   let split: PublicTrajectorySplit | undefined;
   let offset = 0;
   let limit = 12;
   let maxSlices = 10;
   let windowCount = 8;
-  let reviewerProvider: AutoresearchServiceProvider | undefined;
-  let optimizerProvider: AutoresearchServiceProvider | undefined;
   let reviewConcurrency = 2;
   let minSessionCount = 2;
   let maxReports = 4;
@@ -936,10 +986,11 @@ function parseServiceArgs(argv: string[]): ServiceCliOptions {
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
+    if (applySharedProviderArg(providers, arg, argv[index + 1], { propagatePrimaryProvider: false })) {
+      index += 1;
+      continue;
+    }
     switch (arg) {
-      case "--provider":
-        provider = readProvider(argv[++index]);
-        break;
       case "--dataset":
         dataset = readDataset(argv[++index]);
         break;
@@ -957,12 +1008,6 @@ function parseServiceArgs(argv: string[]): ServiceCliOptions {
         break;
       case "--window-count":
         windowCount = readPositiveInteger(argv[++index], "--window-count");
-        break;
-      case "--reviewer-provider":
-        reviewerProvider = readProvider(argv[++index]);
-        break;
-      case "--optimizer-provider":
-        optimizerProvider = readProvider(argv[++index]);
         break;
       case "--review-concurrency":
         reviewConcurrency = readPositiveInteger(argv[++index], "--review-concurrency");
@@ -1006,16 +1051,18 @@ function parseServiceArgs(argv: string[]): ServiceCliOptions {
     }
   }
 
+  const resolvedProviders = resolveSharedProviderState(providers);
+
   return {
-    provider,
+    provider: resolvedProviders.provider,
     dataset,
     split: split ?? defaultPublicTrajectorySplit(dataset),
     offset,
     limit,
     maxSlices,
     windowCount,
-    reviewerProvider: reviewerProvider ?? provider,
-    optimizerProvider: optimizerProvider ?? reviewerProvider ?? provider,
+    reviewerProvider: resolvedProviders.reviewerProvider,
+    optimizerProvider: resolvedProviders.optimizerProvider,
     reviewConcurrency,
     minSessionCount,
     maxReports,
@@ -1031,9 +1078,7 @@ function parseServiceArgs(argv: string[]): ServiceCliOptions {
 }
 
 function parseSweepArgs(argv: string[]): SweepCliOptions {
-  let provider: AutoresearchServiceProvider = "generic";
-  let reviewerProvider: AutoresearchServiceProvider | undefined;
-  let optimizerProvider: AutoresearchServiceProvider | undefined;
+  const providers = createSharedProviderState<AutoresearchServiceProvider>("generic");
   let offset = 0;
   let limit = 12;
   let maxSlices = 10;
@@ -1054,16 +1099,11 @@ function parseSweepArgs(argv: string[]): SweepCliOptions {
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
+    if (applySharedProviderArg(providers, arg, argv[index + 1], { propagatePrimaryProvider: false })) {
+      index += 1;
+      continue;
+    }
     switch (arg) {
-      case "--provider":
-        provider = readProvider(argv[++index]);
-        break;
-      case "--reviewer-provider":
-        reviewerProvider = readProvider(argv[++index]);
-        break;
-      case "--optimizer-provider":
-        optimizerProvider = readProvider(argv[++index]);
-        break;
       case "--preset":
         preset = readSweepPreset(argv[++index]);
         break;
@@ -1128,10 +1168,12 @@ function parseSweepArgs(argv: string[]): SweepCliOptions {
     throw new Error("F-Stop sweep requires --preset or at least one --lane <dataset>/<split>.");
   }
 
+  const resolvedProviders = resolveSharedProviderState(providers);
+
   return {
-    provider,
-    reviewerProvider: reviewerProvider ?? provider,
-    optimizerProvider: optimizerProvider ?? provider,
+    provider: resolvedProviders.provider,
+    reviewerProvider: resolvedProviders.reviewerProvider,
+    optimizerProvider: resolvedProviders.optimizerProvider,
     offset,
     limit,
     maxSlices,

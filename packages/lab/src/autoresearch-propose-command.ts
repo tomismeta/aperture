@@ -184,6 +184,15 @@ export async function runAutoresearchProposalCommand(
       afterInvariantMismatchCount: optimizeResult.afterInvariantMismatchCount,
       changedFiles: optimizeResult.changedFiles,
       disallowedFiles: optimizeResult.disallowedFiles,
+      ...(optimizeResult.gates.judgmentBattle !== undefined
+        ? { judgmentBattle: optimizeResult.gates.judgmentBattle }
+        : {}),
+      ...(optimizeResult.gates.releaseCheck !== undefined
+        ? { releaseCheck: optimizeResult.gates.releaseCheck }
+        : {}),
+      ...(optimizeResult.run.artifacts.patchPath
+        ? { patchPath: optimizeResult.run.artifacts.patchPath }
+        : {}),
     };
     status = mapOptimizerStatus(optimizeResult.status, optimizeResult.run.artifacts.patchPath);
     notes.push(...optimizeResult.notes);

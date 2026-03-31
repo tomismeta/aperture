@@ -144,11 +144,16 @@ pnpm lab:fstop:reviewer --provider <provider>
 
 It resolves the provider-specific command from environment variables instead of
 forcing the main runner to know Hermes/OpenClaw-specific invocation details.
-For OpenClaw, the adapter can also call the local `openclaw` binary directly
-when it is available on `PATH`, which keeps the unattended VPS contract simpler.
-By default it uses a fresh OpenClaw session id per review so batch runs stay
-more isolated and repeatable, and it avoids the shared `main` agent session
-unless an explicit OpenClaw agent override is set.
+Both Hermes and OpenClaw now share the same repo-native harness contract:
+
+- F-Stop writes the rendered prompt to `stdin`
+- the harness invokes the selected provider
+- the harness normalizes the provider output back to `stdout`
+
+Explicit environment-command overrides still work, but they are optional now.
+By default the built-in OpenClaw harness uses a fresh session id per review so
+batch runs stay more isolated and repeatable, and it avoids the shared `main`
+agent session unless an explicit OpenClaw agent override is set.
 
 ### 3. AI Review
 
@@ -196,6 +201,7 @@ The unattended runner should also emit:
   - candidate calibration promotions
   - optimizer output
   - optional patch diff
+  - retained non-winning proposal intent for later review
 
 ### 5. Promotion
 
@@ -253,6 +259,14 @@ That proposal loop should:
 - run discovery in batch
 - survive malformed reviewer output on individual bundles
 - promote only repeated high-confidence signals
+
+When no proposal clears deterministic gates, F-Stop should still preserve:
+
+- the strongest retained intent from the run
+- the matching code recommendation, if any
+- example sessions/steps/rationales
+- optimizer outcome summaries
+- a cross-run retained proposal brief for recurring near-misses
 - optimize against the frozen corpus plus those candidate cases
 - hand back a proposal artifact for human review
 

@@ -13,6 +13,7 @@ import {
   writeAutoresearchCampaignStatus,
 } from "./autoresearch-campaign.js";
 import { finalizeCampaignRunArtifacts } from "./autoresearch-campaign-artifacts.js";
+import { defaultAutoresearchRetainedBacklogPath } from "./autoresearch-backlog.js";
 import {
   defaultAutoresearchFinalReportMarkdownPath,
   synthesizeAutoresearchFinalReport,
@@ -566,7 +567,19 @@ async function executeCampaignRun(options: {
     "--json",
   ], {
     cwd: options.repoDir,
-    env: process.env,
+    env: {
+      ...process.env,
+      APERTURE_AUTORESEARCH_RETAINED_BACKLOG_PATH: defaultAutoresearchRetainedBacklogPath(
+        path.join(
+          options.options.sourceRepo,
+          ".aperture",
+          "lab",
+          "results",
+          "autoresearch",
+          "backlog",
+        ),
+      ),
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
 

@@ -90,6 +90,7 @@ test("finalizeCampaignRunArtifacts preserves minimal outputs and removes transie
         promotedCaseCount: 1,
       },
     ],
+    retainedAttempts: [],
     intentStatements: [],
     codeRecommendations: [
       {

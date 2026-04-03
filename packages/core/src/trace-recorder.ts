@@ -151,14 +151,14 @@ function buildSemanticInfluence(
   const influence: string[] = [];
 
   if (event.type === "task.updated") {
-    influence.push("task status remained authoritative; semantic details stayed bounded to explanation, continuity, and ambiguity handling");
+    influence.push("task status stayed authoritative; semantic details only affected context, continuity, and ambiguity handling");
 
     if (event.toolFamily === semantic.toolFamily && semantic.toolFamily !== undefined) {
-      influence.push("tool family enriched the canonical status event without changing status routing");
+      influence.push("tool family enriched canonical status facts without changing the route");
     }
 
     if (semantic.relationHints.length > 0) {
-      influence.push("relation hints were available to continuity handling");
+      influence.push("relation hints informed continuity handling");
     }
 
     if (semantic.abstained === true) {
@@ -172,19 +172,19 @@ function buildSemanticInfluence(
 
   if (event.type === "human.input.requested") {
     if (event.consequence === semantic.consequence && semantic.consequence !== undefined) {
-      influence.push("semantic consequence shaped the canonical human-input consequence");
+      influence.push("semantic consequence set the canonical human-input consequence");
     }
 
     if (semantic.toolFamily !== undefined) {
       if (event.request.kind === "approval") {
         influence.push("tool family remained decision-bearing on the approval path");
       } else {
-        influence.push("tool family stayed explanatory on the question/form path");
+        influence.push("tool family stayed context-only on the question/form path");
       }
     }
 
     if (semantic.relationHints.length > 0) {
-      influence.push("relation hints were available to continuity handling");
+      influence.push("relation hints informed continuity handling");
     }
 
     if (semantic.abstained === true) {
@@ -202,7 +202,7 @@ function buildSemanticInfluence(
     }
 
     if (influence.length === 0) {
-      influence.push("semantic interpretation mainly stayed explanatory beyond the explicit request");
+      influence.push("semantic interpretation mostly stayed context-only beyond the explicit request");
     }
 
     return influence;

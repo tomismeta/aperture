@@ -52,7 +52,7 @@ test("trace recorder captures explanatory-only tool family on question paths", (
 
   assert.equal(trace.semantic?.toolFamily, "read");
   assert.equal(trace.semantic?.confidence, "low");
-  assert.ok(trace.semantic?.influence.includes("tool family stayed explanatory on the question/form path"));
+  assert.ok(trace.semantic?.influence.includes("tool family stayed context-only on the question/form path"));
   assert.equal(trace.semantic?.provenance?.toolFamily, "source");
   assert.deepEqual(trace.semantic?.impact, {
     decisionBearing: ["consequence (canonical)"],
@@ -95,7 +95,7 @@ test("trace recorder captures explanatory-only tool family on form paths", () =>
 
   assert.equal(trace.semantic?.toolFamily, "read");
   assert.equal(trace.semantic?.confidence, "low");
-  assert.ok(trace.semantic?.influence.includes("tool family stayed explanatory on the question/form path"));
+  assert.ok(trace.semantic?.influence.includes("tool family stayed context-only on the question/form path"));
   assert.equal(trace.semantic?.provenance?.toolFamily, "source");
   assert.deepEqual(trace.semantic?.impact, {
     decisionBearing: ["consequence (canonical)"],
@@ -131,7 +131,7 @@ test("trace recorder explains that status remains authoritative on task updates"
 
   assert.ok(
     trace.semantic?.influence.includes(
-      "task status remained authoritative; semantic details stayed bounded to explanation, continuity, and ambiguity handling",
+      "task status stayed authoritative; semantic details only affected context, continuity, and ambiguity handling",
     ),
   );
   assert.equal(trace.semantic?.intentFrame, "status_update");

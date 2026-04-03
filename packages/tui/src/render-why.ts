@@ -216,13 +216,13 @@ function renderSemanticSection(
 
   if (semantic.impact.decisionBearing.length > 0) {
     lines.push(
-      ...renderWrappedDetailLine("used by", semantic.impact.decisionBearing.join(" · "), color),
+      ...renderWrappedDetailLine("affected route", semantic.impact.decisionBearing.join(" · "), color),
     );
   }
 
   if (semantic.impact.explanatory.length > 0) {
     lines.push(
-      ...renderWrappedDetailLine("explanatory", semantic.impact.explanatory.join(" · "), color),
+      ...renderWrappedDetailLine("context only", semantic.impact.explanatory.join(" · "), color),
     );
   }
 
@@ -234,7 +234,7 @@ function renderSemanticSection(
   }
 
   if (semantic.influence.length > 0) {
-    lines.push(...renderWrappedDetailLine("influence", semantic.influence.join("; "), color));
+    lines.push(...renderWrappedDetailLine("effect", semantic.influence.join("; "), color));
   }
 
   if (semantic.reasons.length > 0) {
@@ -273,7 +273,7 @@ function renderSemanticProvenance(
   }
 
   return effective
-    .map(([field, origin]) => `${humanSemanticFieldName(field)} ${origin}`)
+    .map(([field, origin]) => `${humanSemanticFieldName(field)} from ${origin}`)
     .join(" · ");
 }
 

@@ -989,7 +989,7 @@ test("renderAttentionScreen why mode shows semantic interpretation and influence
       factors: ["human.input.requested", "choice"],
       reasons: ["tool family was supplied by the source or context"],
       influence: [
-        "tool family stayed explanatory on the question/form path",
+        "tool family stayed context-only on the question/form path",
         "semantic low confidence stayed visible but did not downgrade blocking work",
       ],
       impact: {
@@ -1041,11 +1041,11 @@ test("renderAttentionScreen why mode shows semantic interpretation and influence
   assert.match(collapsed, /intent:\s+question_request/);
   assert.match(collapsed, /tool:\s+read/);
   assert.match(collapsed, /confidence:\s+low/);
-  assert.match(collapsed, /origin:\s+tool source/);
-  assert.match(collapsed, /used by:\s+consequence \(canonical\) · relations \(continuity\)/);
-  assert.match(collapsed, /explanatory:\s+intent · tool · why now · confidence/);
+  assert.match(collapsed, /origin:\s+tool from source/);
+  assert.match(collapsed, /affected route:\s+consequence \(canonical\) · relations \(continuity\)/);
+  assert.match(collapsed, /context only:\s+intent · tool · why now · confidence/);
   assert.match(collapsed, /relations:\s+same_issue, repeats/);
-  assert.match(collapsed, /influence:\s+tool family stayed explanatory on the question\/form path;/);
+  assert.match(collapsed, /effect:\s+tool family stayed context-only on the question\/form path;/);
   assert.doesNotMatch(collapsed, /factors:\s+human\.input\.requested/);
   assert.doesNotMatch(collapsed, /reasons:\s+tool family was supplied/);
 
@@ -1054,7 +1054,7 @@ test("renderAttentionScreen why mode shows semantic interpretation and influence
     whyExpanded: true,
     trace,
   });
-  assert.match(expanded, /origin:\s+intent inferred/);
+  assert.match(expanded, /origin:\s+intent from inferred/);
   assert.match(expanded, /factors:\s+human\.input\.requested, choice/);
   assert.match(expanded, /basis:\s+tool family was supplied by the source or context/);
 });

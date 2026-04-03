@@ -152,6 +152,77 @@ test("explicit semantic hints override inferred semantics", () => {
   assert.equal(interpretation.provenance?.whyNow, "hint");
 });
 
+test("task lifecycle semantics mark inferred provenance consistently", () => {
+  const started = interpretSourceEvent({
+    id: "evt:started",
+    type: "task.started",
+    taskId: "task:started",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Task started",
+  });
+  const completed = interpretSourceEvent({
+    id: "evt:completed",
+    type: "task.completed",
+    taskId: "task:completed",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Task completed",
+  });
+  const cancelled = interpretSourceEvent({
+    id: "evt:cancelled",
+    type: "task.cancelled",
+    taskId: "task:cancelled",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Task cancelled",
+    reason: "operator aborted the run",
+  });
+
+  assert.deepEqual(started.provenance, {
+    intentFrame: "inferred",
+    activityClass: "inferred",
+    consequence: "inferred",
+    confidence: "inferred",
+  });
+  assert.deepEqual(completed.provenance, {
+    intentFrame: "inferred",
+    activityClass: "inferred",
+    consequence: "inferred",
+    confidence: "inferred",
+  });
+  assert.deepEqual(cancelled.provenance, {
+    intentFrame: "inferred",
+    activityClass: "inferred",
+    consequence: "inferred",
+    whyNow: "inferred",
+    confidence: "inferred",
+  });
+});
+
+test("risk-hinted human input keeps source provenance on consequence and confidence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:risk-hinted",
+    type: "human.input.requested",
+    taskId: "task:risk-hinted",
+    interactionId: "interaction:risk-hinted",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Approve release deploy",
+    summary: "Ship build 42 to production.",
+    request: { kind: "approval" },
+    toolFamily: "deploy",
+    riskHint: "high",
+  });
+
+  assert.equal(interpretation.provenance?.intentFrame, "inferred");
+  assert.equal(interpretation.provenance?.activityClass, "inferred");
+  assert.equal(interpretation.provenance?.toolFamily, "source");
+  assert.equal(interpretation.provenance?.consequence, "source");
+  assert.equal(interpretation.provenance?.confidence, "source");
+  assert.equal(interpretation.provenance?.whyNow, "inferred");
+});
+
 test("normalizes task status updates with semantic enrichment instead of raw passthrough", () => {
   const event: SourceEvent = {
     id: "evt:failed",

@@ -347,6 +347,44 @@ test("explicit question tool families stay semantic-only during evaluation", () 
   assert.equal(result.candidate.semanticConfidence, "low");
 });
 
+test("explicit form tool families stay semantic-only during evaluation", () => {
+  const result = evaluation.evaluate({
+    id: "evt:form:explicit-tool-family",
+    taskId: "task:form:explicit-tool-family",
+    timestamp: "2026-03-08T12:03:50.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:form:explicit-tool-family",
+    toolFamily: "read",
+    activityClass: "question_request",
+    title: "Fill out the release form",
+    summary: "Provide the required deployment fields.",
+    request: {
+      kind: "form",
+      fields: [{ id: "reason", label: "Reason", input: { kind: "text" } }],
+    },
+    semantic: {
+      intentFrame: "question_request",
+      activityClass: "question_request",
+      toolFamily: "read",
+      consequence: "medium",
+      factors: ["human.input.requested", "form"],
+      relationHints: [],
+      confidence: "low",
+      reasons: ["tool family was supplied by the source or context"],
+    },
+  });
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.toolFamily, undefined);
+  assert.equal(result.candidate.activityClass, "question_request");
+  assert.equal(result.candidate.mode, "form");
+  assert.equal(result.candidate.semanticConfidence, "low");
+});
+
 test("completed tasks clear current interaction state", () => {
   const result = evaluation.evaluate({
     id: "evt:complete",

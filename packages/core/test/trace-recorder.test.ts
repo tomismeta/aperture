@@ -60,6 +60,49 @@ test("trace recorder captures explanatory-only tool family on question paths", (
   });
 });
 
+test("trace recorder captures explanatory-only tool family on form paths", () => {
+  const core = new ApertureCore();
+  const traces: ApertureTrace[] = [];
+
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+
+  core.publishSourceEvent({
+    id: "src:form:tool-family",
+    type: "human.input.requested",
+    taskId: "task:form:tool-family",
+    interactionId: "interaction:form:tool-family",
+    timestamp: "2026-03-27T20:00:30.000Z",
+    source: { id: "custom-agent" },
+    title: "Fill out the release form",
+    summary: "Provide the required deployment fields.",
+    context: {
+      items: [{ id: "toolFamily", label: "Tool Family", value: "read" }],
+    },
+    request: {
+      kind: "form",
+      fields: [{ id: "reason", label: "Reason", input: { kind: "text" } }],
+    },
+  });
+
+  const trace = latestCandidateTrace(traces);
+  assert.ok(trace);
+  assert.equal(trace?.evaluation.kind, "candidate");
+  if (!trace || trace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(trace.semantic?.toolFamily, "read");
+  assert.equal(trace.semantic?.confidence, "low");
+  assert.ok(trace.semantic?.influence.includes("tool family stayed explanatory on the question/form path"));
+  assert.equal(trace.semantic?.provenance?.toolFamily, "source");
+  assert.deepEqual(trace.semantic?.impact, {
+    decisionBearing: ["consequence (canonical)"],
+    explanatory: ["intent", "tool", "why now", "confidence"],
+  });
+});
+
 test("trace recorder explains that status remains authoritative on task updates", () => {
   const core = new ApertureCore();
   const traces: ApertureTrace[] = [];

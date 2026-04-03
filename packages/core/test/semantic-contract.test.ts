@@ -172,6 +172,45 @@ test("relation hints stay continuity-bearing without changing status routing sha
   assert.deepEqual(related.candidate.relationHints?.map((hint) => hint.kind), ["same_issue", "repeats"]);
 });
 
+test("semantic abstention stays ambiguity-bearing without changing task.updated routing shape", () => {
+  const baseline = evaluation.evaluate({
+    id: "evt:status-abstention:baseline",
+    taskId: "task:status-abstention",
+    timestamp,
+    type: "task.updated",
+    title: "Still waiting",
+    summary: "Work is still waiting on a dependency.",
+    status: "waiting",
+  });
+
+  const abstained = evaluation.evaluate({
+    id: "evt:status-abstention:abstained",
+    taskId: "task:status-abstention",
+    timestamp,
+    type: "task.updated",
+    title: "Still waiting",
+    summary: "Work is still waiting on a dependency.",
+    status: "waiting",
+    semantic: {
+      relationHints: [],
+      confidence: "high",
+      abstained: true,
+      reasons: ["semantic layer is intentionally abstaining until stronger evidence arrives"],
+      factors: ["task.updated", "waiting", "semantic abstention"],
+    },
+  });
+
+  assert.equal(baseline.kind, "candidate");
+  assert.equal(abstained.kind, "candidate");
+  if (baseline.kind !== "candidate" || abstained.kind !== "candidate") {
+    return;
+  }
+
+  assert.deepEqual(candidateShape(abstained.candidate), candidateShape(baseline.candidate));
+  assert.equal(abstained.candidate.semanticConfidence, "high");
+  assert.equal(abstained.candidate.semanticAbstained, true);
+});
+
 test("bounded tool-family use stays available for approval requests", () => {
   assert.equal(
     readBoundedToolFamily({

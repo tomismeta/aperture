@@ -73,7 +73,7 @@ test("abstained semantics keep non-blocking work peripheral", () => {
   const evaluation = evaluateSemanticUncertaintyCriterionRule({
     candidate: {
       ...baseCandidate,
-      semanticConfidence: "low",
+      semanticConfidence: "high",
       semanticAbstained: true,
     },
     policyVerdict: basePolicyVerdict,
@@ -88,6 +88,27 @@ test("abstained semantics keep non-blocking work peripheral", () => {
   assert.equal(evaluation.kind, "verdict");
   assert.equal(evaluation.verdict.peripheralResolution, "ambient");
   assert.equal(evaluation.verdict.ambiguity?.reason, "low_signal");
+});
+
+test("blocking work bypasses the abstention ambiguity path", () => {
+  const evaluation = evaluateSemanticUncertaintyCriterionRule({
+    candidate: {
+      ...baseCandidate,
+      blocking: true,
+      semanticConfidence: "high",
+      semanticAbstained: true,
+    },
+    policyVerdict: basePolicyVerdict,
+    evidence: createAttentionEvidenceContext(),
+    candidateScore: 4,
+    currentScore: null,
+    criterion: { activationThreshold: 4, promotionMargin: 1 },
+    sourceTrustAdjustment: 0,
+    peripheralResolution: "queue",
+  });
+
+  assert.equal(evaluation.kind, "noop");
+  assert.deepEqual(evaluation.rationale, []);
 });
 
 test("blocking work bypasses the semantic uncertainty rule", () => {

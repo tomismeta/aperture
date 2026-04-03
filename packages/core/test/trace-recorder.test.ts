@@ -142,6 +142,47 @@ test("trace recorder explains that status remains authoritative on task updates"
   });
 });
 
+test("trace recorder promotes abstention to ambiguity-bearing impact on non-blocking status work", () => {
+  const core = new ApertureCore();
+  const traces: ApertureTrace[] = [];
+
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:abstained",
+    type: "task.updated",
+    taskId: "task:status:abstained",
+    timestamp: "2026-03-27T20:01:30.000Z",
+    source: { id: "custom-agent" },
+    title: "Still waiting on dependency fetch",
+    summary: "Work is still waiting while the semantic layer abstains for now.",
+    status: "waiting",
+    semanticHints: {
+      abstained: true,
+    },
+  });
+
+  const trace = latestCandidateTrace(traces);
+  assert.ok(trace);
+  assert.equal(trace?.evaluation.kind, "candidate");
+  if (!trace || trace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(trace.semantic?.abstained, true);
+  assert.ok(
+    trace.semantic?.influence.includes(
+      "semantic abstention can keep non-blocking status work peripheral until clearer evidence arrives",
+    ),
+  );
+  assert.deepEqual(trace.semantic?.impact, {
+    decisionBearing: ["abstention (ambiguity)"],
+    explanatory: ["intent", "consequence", "confidence"],
+  });
+});
+
 test("trace recorder preserves hint-driven semantic provenance", () => {
   const core = new ApertureCore();
   const traces: ApertureTrace[] = [];

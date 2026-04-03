@@ -48,8 +48,9 @@ export type SemanticRelationHint = {
  *   `consequence` can influence canonical events or downstream judgment.
  * - `intentFrame`, `whyNow`, `factors`, and `reasons` are primarily
  *   explanatory and benchmark-facing.
- * - `confidence` and `abstained` are semantic uncertainty signals, but they
- *   are not live score multipliers today.
+ * - `confidence` and `abstained` are live semantic uncertainty signals for
+ *   ambiguity handling on non-blocking work; they do not rewrite canonical
+ *   routing facts or act as general score multipliers.
  * - `provenance` is explanation-only metadata that records whether key
  *   semantic fields were source-provided, inferred, or hint-driven.
  * - On `task.updated`, `status` remains authoritative for routing even when
@@ -70,11 +71,11 @@ export type SemanticInterpretation = {
   factors: string[];
   /** Continuity-bearing semantic relations. */
   relationHints: SemanticRelationHint[];
-  /** Semantic uncertainty signal reserved for future abstention-aware policy. */
+  /** Semantic uncertainty signal used by ambiguity handling on non-blocking work. */
   confidence: SemanticConfidence;
   /** Explanation-bearing reason strings for tests, diagnostics, and Lab. */
   reasons: string[];
-  /** Explicit abstention signal reserved for future policy work. */
+  /** Explicit abstention signal used by ambiguity handling on non-blocking work. */
   abstained?: boolean;
   /** Explanation-only provenance for discoverability and replay. */
   provenance?: SemanticFieldProvenance;

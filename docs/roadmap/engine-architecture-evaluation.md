@@ -222,9 +222,9 @@ Each adapter should have named end-to-end scenarios such as:
 
 - Claude `PostToolUse(Read)` completion -> ambient
 - Claude `Stop` plain completion -> ambient
-- Claude follow-up question -> blocked/active
+- Claude follow-up question -> blocked/now
 - OpenCode passive completion -> ambient
-- Codex approval request -> active approval
+- Codex approval request -> now-lane approval
 
 ### 5. Build replay and shadow evaluation into normal development
 

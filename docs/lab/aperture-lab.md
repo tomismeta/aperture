@@ -196,7 +196,7 @@ routing:
 - did recurring or resolving wording preserve the right relation to prior work?
 - did low-confidence non-blocking semantics queue instead of interrupting?
 - did abstained semantics stay peripheral instead of inventing certainty?
-- did ambiguous queued or ambient work later activate once the signal became explicit?
+- did ambiguous next or ambient work later surface in now once the signal became explicit?
 
 These are the metrics that best map to Aperture's doctrine:
 

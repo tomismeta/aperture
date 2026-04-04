@@ -100,7 +100,7 @@ The first strong use cases are:
 The moat deepens in four layers:
 
 1. **Deterministic judgment**
-   - Aperture can explain why an interaction became active, queued, or ambient.
+   - Aperture can explain why an interaction landed in now, next, or ambient.
 
 2. **Semantic normalization**
    - source-native mess becomes a bounded canonical event language.

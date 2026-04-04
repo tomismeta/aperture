@@ -50,14 +50,14 @@ export type JudgmentBenchRun = {
       totalSemanticReadings: number;
       totalDecisionReadings: number;
       totalAmbiguousDecisions: number;
-      totalAmbiguousQueued: number;
+      totalAmbiguousNext: number;
       totalAmbiguousAmbient: number;
-      totalAmbiguousQueuedThenActivated: number;
-      totalAmbiguousAmbientThenActivated: number;
+      totalAmbiguousNextThenNow: number;
+      totalAmbiguousAmbientThenNow: number;
       totalCandidates: number;
-      totalActiveBuckets: number;
-      totalQueuedBuckets: number;
-      totalAmbientBuckets: number;
+      totalNowLanes: number;
+      totalNextLanes: number;
+      totalAmbientLanes: number;
       totalResponses: number;
       totalPresentedSignals: number;
   };
@@ -106,14 +106,14 @@ export async function runJudgmentBench(
       totalAmbiguousDecisions: sum(
         results.map((result) => result.run.decisions.filter((decision) => decision.ambiguity !== null && decision.ambiguity !== undefined).length),
       ),
-      totalAmbiguousQueued: sum(results.map((result) => result.scorecard.trace?.ambiguousNext ?? 0)),
+      totalAmbiguousNext: sum(results.map((result) => result.scorecard.trace?.ambiguousNext ?? 0)),
       totalAmbiguousAmbient: sum(results.map((result) => result.scorecard.trace?.ambiguousAmbient ?? 0)),
-      totalAmbiguousQueuedThenActivated: sum(results.map((result) => result.scorecard.trace?.ambiguousNextThenActivated ?? 0)),
-      totalAmbiguousAmbientThenActivated: sum(results.map((result) => result.scorecard.trace?.ambiguousAmbientThenActivated ?? 0)),
+      totalAmbiguousNextThenNow: sum(results.map((result) => result.scorecard.trace?.ambiguousNextThenActivated ?? 0)),
+      totalAmbiguousAmbientThenNow: sum(results.map((result) => result.scorecard.trace?.ambiguousAmbientThenActivated ?? 0)),
       totalCandidates: sum(results.map((result) => result.scorecard.trace?.totalCandidates ?? 0)),
-      totalActiveBuckets: sum(results.map((result) => result.scorecard.buckets.now)),
-      totalQueuedBuckets: sum(results.map((result) => result.scorecard.buckets.next)),
-      totalAmbientBuckets: sum(results.map((result) => result.scorecard.buckets.ambient)),
+      totalNowLanes: sum(results.map((result) => result.scorecard.lanes.now)),
+      totalNextLanes: sum(results.map((result) => result.scorecard.lanes.next)),
+      totalAmbientLanes: sum(results.map((result) => result.scorecard.lanes.ambient)),
       totalResponses: sum(results.map((result) => result.run.responses.length)),
       totalPresentedSignals: sum(results.map((result) => result.scorecard.signals.presented)),
     },
@@ -162,27 +162,27 @@ function evaluateScenarioExpectations(
   if (expectations.resultLaneCounts?.now !== undefined) {
     assertions.push({
       name: "now result lanes",
-      passed: scorecard.buckets.now === expectations.resultLaneCounts.now,
+      passed: scorecard.lanes.now === expectations.resultLaneCounts.now,
       expected: expectations.resultLaneCounts.now,
-      actual: scorecard.buckets.now,
+      actual: scorecard.lanes.now,
     });
   }
 
   if (expectations.resultLaneCounts?.next !== undefined) {
     assertions.push({
       name: "next result lanes",
-      passed: scorecard.buckets.next === expectations.resultLaneCounts.next,
+      passed: scorecard.lanes.next === expectations.resultLaneCounts.next,
       expected: expectations.resultLaneCounts.next,
-      actual: scorecard.buckets.next,
+      actual: scorecard.lanes.next,
     });
   }
 
   if (expectations.resultLaneCounts?.ambient !== undefined) {
     assertions.push({
-      name: "ambient result buckets",
-      passed: scorecard.buckets.ambient === expectations.resultLaneCounts.ambient,
+      name: "ambient result lanes",
+      passed: scorecard.lanes.ambient === expectations.resultLaneCounts.ambient,
       expected: expectations.resultLaneCounts.ambient,
-      actual: scorecard.buckets.ambient,
+      actual: scorecard.lanes.ambient,
     });
   }
 
@@ -412,12 +412,12 @@ function evaluateTraceExpectation(
   const assertions: JudgmentBenchAssertionResult[] = [];
 
   pushFieldAssertion(assertions, "trace ambiguous decisions", expectation.ambiguousDecisions, trace.ambiguousDecisions);
-  pushFieldAssertion(assertions, "trace ambiguous queued", expectation.ambiguousNext, trace.ambiguousNext);
+  pushFieldAssertion(assertions, "trace ambiguous next", expectation.ambiguousNext, trace.ambiguousNext);
   pushFieldAssertion(assertions, "trace ambiguous ambient", expectation.ambiguousAmbient, trace.ambiguousAmbient);
   pushFieldAssertion(assertions, "trace ambiguous low confidence", expectation.ambiguousLowConfidence, trace.ambiguousLowConfidence);
   pushFieldAssertion(assertions, "trace ambiguous abstained", expectation.ambiguousAbstained, trace.ambiguousAbstained);
-  pushFieldAssertion(assertions, "trace ambiguous queued then activated", expectation.ambiguousNextThenActivated, trace.ambiguousNextThenActivated);
-  pushFieldAssertion(assertions, "trace ambiguous ambient then activated", expectation.ambiguousAmbientThenActivated, trace.ambiguousAmbientThenActivated);
+  pushFieldAssertion(assertions, "trace ambiguous next then now", expectation.ambiguousNextThenActivated, trace.ambiguousNextThenActivated);
+  pushFieldAssertion(assertions, "trace ambiguous ambient then now", expectation.ambiguousAmbientThenActivated, trace.ambiguousAmbientThenActivated);
   pushFieldAssertion(assertions, "trace actionable episodes", expectation.actionableEpisodes, trace.actionableEpisodes);
   pushFieldAssertion(assertions, "trace actionable surfaced", expectation.actionableSurfaced, trace.actionableSurfaced);
   pushFieldAssertion(assertions, "trace actionable activated", expectation.actionableActivated, trace.actionableActivated);

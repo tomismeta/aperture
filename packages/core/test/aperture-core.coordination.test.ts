@@ -819,7 +819,7 @@ test("completed tasks clear ambient-only task state", () => {
   assert.equal(core.getTaskView("task:ambient").ambient.length, 0);
 });
 
-test("same-interaction status updates can demote an active frame into ambient", () => {
+test("same-interaction status updates can demote a now frame into ambient", () => {
   const core = new ApertureCore();
   const traces: ApertureTrace[] = [];
 

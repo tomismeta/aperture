@@ -27,7 +27,7 @@ The broader intelligence comes from:
 
 - explicit response
 - implicit attention signals
-- relative behavior across multiple active frames
+- relative behavior across multiple now-lane frames
 - longitudinal interaction patterns over time
 
 That means Aperture should eventually understand human interaction as:

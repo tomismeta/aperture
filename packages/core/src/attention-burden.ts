@@ -88,7 +88,7 @@ export function deriveAttentionBurden(
     reasons.push("recent deferrals are accumulating");
   } else if (deferredCount >= defaults.deferredCount.elevated) {
     score += 1;
-    reasons.push("recent deferrals suggest active burden");
+    reasons.push("recent deferrals suggest growing burden");
   }
 
   if (interruptiveVisible >= defaults.interruptiveVisible.high) {

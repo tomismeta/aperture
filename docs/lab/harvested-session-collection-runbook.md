@@ -162,7 +162,7 @@ Examples:
 
 - did the engine bundle the updates into one episode instead of fragmenting?
 - did recurring evidence strengthen the right frame?
-- did it avoid spawning noisy duplicate queued items?
+- did it avoid spawning noisy duplicate next-lane items?
 
 **Best outcome**
 
@@ -176,7 +176,7 @@ Pressure-test `resolves` and `supersedes` behavior on real continuity.
 
 **Prompt shape**
 
-- start with one active or queue-worthy issue
+- start with one now-worthy or next-worthy issue
 - follow it with either:
   - a clear resolution
   - a newer step that supersedes the previous one
@@ -190,7 +190,7 @@ Examples:
 **What to observe**
 
 - did the engine clear or advance the episode correctly?
-- did the active/queued state move to the right new step?
+- did the now/next state move to the right new step?
 - did it avoid leaving stale frames visible too long?
 
 **Best outcome**

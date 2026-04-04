@@ -141,8 +141,8 @@ It was not enough to make ambiguity behavior correct in unit tests.
 What we learned:
 
 - ambiguity has to be visible in traces
-- Lab needs to assert recovery paths like `queue -> active` and
-  `ambient -> active`
+- Lab needs to assert recovery paths like `next -> now` and
+  `ambient -> now`
 - doctrine health is more meaningful when lifecycle behavior is visible, not
   just point-in-time routing
 

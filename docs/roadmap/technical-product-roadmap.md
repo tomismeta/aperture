@@ -161,7 +161,7 @@ The moat is the system:
 
 1. **Deterministic hot-path judgment**
    - routing stays inside `aperture-core`
-   - no model call is required to decide whether work becomes active, queued,
+   - no model call is required to decide whether work becomes now, next,
      or ambient
 
 2. **Cross-source normalization**

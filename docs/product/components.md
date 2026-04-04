@@ -141,8 +141,8 @@ These are part of Aperture itself.
 - Lives in [packages/core/src/frame.ts](../../packages/core/src/frame.ts)
 - Purpose: one cross-task view of what deserves attention now
 - Owns:
-  - current active frame
-  - queued frames
+  - current now frame
+  - next frames
   - ambient frames
 - Does not own:
   - rendering

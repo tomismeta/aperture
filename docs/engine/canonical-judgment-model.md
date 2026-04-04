@@ -191,7 +191,7 @@ clear shared handoff between:
       },
       "planning": {
         "route": "auto_approve | activate | queue | ambient | clear",
-        "resultLane": "active | queued | ambient | none",
+        "resultLane": "now | next | ambient | none",
         "ambiguity": "AttentionDecisionAmbiguity | null",
         "reasons": "string[]",
         "continuityEvaluations": "ContinuityRuleEvaluation[]"

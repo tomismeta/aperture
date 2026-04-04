@@ -1,7 +1,7 @@
 {
   "id": "golden:queue:vs-active",
-  "title": "Medium work queues behind stronger active approval",
-  "description": "A medium choice request should not steal focus from a stronger active approval.",
+  "title": "Medium work stays in next behind stronger work already in now",
+  "description": "A medium choice request should not steal focus from a stronger approval already in now.",
   "doctrineTags": [
     "queue_doctrine",
     "interruption_credibility",

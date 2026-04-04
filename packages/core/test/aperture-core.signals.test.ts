@@ -541,7 +541,7 @@ test("attention signal store retains a bounded history per task", () => {
   assert.equal(signals.at(-1)?.interactionId, "interaction:299");
 });
 
-test("promotion from queued work records sequence signals", () => {
+test("promotion from next-lane work records sequence signals", () => {
   const core = new ApertureCore();
   const seen: InteractionSignal[] = [];
 

@@ -1,7 +1,7 @@
 {
   "id": "golden:semantics:superseding-approval-replaces-active-step",
-  "title": "A superseding approval replaces the active step in the same episode",
-  "description": "When a new blocking step supersedes the current one, continuity should advance the active frame and retire the obsolete step instead of leaving it queued behind the replacement.",
+  "title": "A superseding approval replaces the current now step in the same episode",
+  "description": "When a new blocking step supersedes the current one, continuity should advance the now frame and retire the obsolete step instead of leaving it in next behind the replacement.",
   "doctrineTags": [
     "semantic_normalization",
     "semantic_robustness",
@@ -28,7 +28,7 @@
     ],
     "explanationExpectation": {
       "continuityRationaleIncludes": [
-        "the active episode has advanced to a superseding step"
+        "the current episode has advanced to a superseding step that belongs in now"
       ]
     }
   },

@@ -16,7 +16,7 @@ export const evaluateOperatorAbsenceCriterionRule: PolicyCriterionRule = (input)
       criterion,
       peripheralResolution,
       ambiguity: null,
-      rationale: ["operator absence keeps interruptive work peripheral until active attention returns"],
+      rationale: ["operator absence keeps interruptive work peripheral until foreground attention returns"],
     },
   );
 };

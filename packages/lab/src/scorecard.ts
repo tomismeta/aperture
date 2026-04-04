@@ -7,7 +7,7 @@ import type { AttentionFrame } from "@tomismeta/aperture-core";
 
 export type ReplayScorecard = {
   trace: TraceEvaluationReport;
-  buckets: {
+  lanes: {
     now: number;
     next: number;
     ambient: number;
@@ -52,7 +52,7 @@ export function scoreReplayRun(result: ReplayRunResult): ReplayScorecard {
 
   return {
     trace: evaluateTraceSession(result.traces),
-    buckets: countResultBuckets(result),
+    lanes: countResultLanes(result),
     explanation: buildExplanationSnapshot(result),
     signals: countSignals(result.signals),
     outcomes: {
@@ -136,8 +136,8 @@ function buildExplanationSnapshot(result: ReplayRunResult): ReplayExplanationSna
   };
 }
 
-function countResultBuckets(result: ReplayRunResult): ReplayScorecard["buckets"] {
-  const counts: ReplayScorecard["buckets"] = {
+function countResultLanes(result: ReplayRunResult): ReplayScorecard["lanes"] {
+  const counts: ReplayScorecard["lanes"] = {
     now: 0,
     next: 0,
     ambient: 0,

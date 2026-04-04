@@ -95,7 +95,7 @@ Today this package provides:
 - decision snapshots for publish steps, so the lab can test how ambiguity and
   semantic confidence affected routing
 - trace-level expectations, so scenarios can assert ambiguity lifecycles like
-  `queue -> active` and `ambient -> active`
+  `next -> now` and `ambient -> now`
 - a session-bundle format plus load/write helpers for local harvested replay
 - a basic scorecard built on top of core trace evaluation and signal summaries
 - a first golden-scenario set for `JudgmentBench`

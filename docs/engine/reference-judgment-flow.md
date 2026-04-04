@@ -144,7 +144,7 @@ It chooses among:
 
 This is where Aperture reasons over:
 
-- the current active frame
+- the current now frame
 - the visible queue
 - burst suppression
 - backlog suppression

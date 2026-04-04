@@ -293,7 +293,7 @@ These are the current product invariants that should stay pinned:
 
 - Claude read-tool completion stays ambient
   - [packages/claude-code/test/claude-code-server.test.ts](https://github.com/tomismeta/aperture/blob/main/packages/claude-code/test/claude-code-server.test.ts)
-- same-interaction status demotion leaves no lingering active frame
+- same-interaction status demotion leaves no lingering now frame
   - [packages/core/test/aperture-core.coordination.test.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/test/aperture-core.coordination.test.ts)
 - passive status does not record inferred tool family from incidental wording
   - [packages/core/test/aperture-core.signals.test.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/test/aperture-core.signals.test.ts)
@@ -380,7 +380,7 @@ These are the current product invariants that should stay pinned:
 
 - Claude read-tool completion stays ambient
   - [packages/claude-code/test/claude-code-server.test.ts](https://github.com/tomismeta/aperture/blob/main/packages/claude-code/test/claude-code-server.test.ts)
-- same-interaction status demotion leaves no lingering active frame
+- same-interaction status demotion leaves no lingering now frame
   - [packages/core/test/aperture-core.coordination.test.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/test/aperture-core.coordination.test.ts)
 - passive status does not record inferred tool family from incidental wording
   - [packages/core/test/aperture-core.signals.test.ts](https://github.com/tomismeta/aperture/blob/main/packages/core/test/aperture-core.signals.test.ts)

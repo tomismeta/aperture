@@ -76,7 +76,7 @@ These principles should drive the TUI more than visual taste.
 
 ### 1. Stable focal placement
 
-The active frame should always occupy the same privileged location.
+The now frame should always occupy the same privileged location.
 
 Why:
 
@@ -90,7 +90,7 @@ Implication:
 
 ### 2. Peripheral awareness without competition
 
-Queued and ambient work should remain visible, but should not compete equally with the active frame.
+Next and ambient work should remain visible, but should not compete equally with the now frame.
 
 Why:
 
@@ -99,7 +99,7 @@ Why:
 
 Implication:
 
-- queued work should be compact
+- next-lane work should be compact
 - ambient work should be even quieter
 - both should feel peripheral
 
@@ -167,7 +167,7 @@ Purpose:
 
 ### Focus pane
 
-Shows exactly one active frame.
+Shows exactly one now frame.
 
 Default visible:
 
@@ -192,7 +192,7 @@ Purpose:
 
 ### Queue rail
 
-Shows ranked queued items.
+Shows ranked next-lane items.
 
 Default visible:
 
@@ -238,7 +238,7 @@ Purpose:
 
 Use emphasis for:
 
-- the active frame
+- the now frame
 - primary action
 - critical tone
 
@@ -358,13 +358,13 @@ It should become:
 - a neutral operator substrate
 - with a distinct branded masthead
 - with just enough surface character to feel intentional
-- while the active frame carries the strongest authored treatment
+- while the now frame carries the strongest authored treatment
 
 In other words:
 
 - the shell is calm
 - the focal pane is expressive
-- queued and ambient work stay present but peripheral
+- next and ambient work stay present but peripheral
 
 This is the aesthetic target for the next pass.
 
@@ -376,10 +376,10 @@ That means:
 
 - a neutral shell with a cool purple/blue accent family
 - a compact aperture mark (`/·\` `\·/`) and wordmark, not a noisy logo block
-- rounded borders only where the active frame deserves extra presence
+- rounded borders only where the now frame deserves extra presence
 - one accent color (bright purple) for brand, keys, scores, and ranks
 - focused tone in blue, critical tone in bright purple, ambient in gray
-- progressively dimmer treatment from active to queued to ambient
+- progressively dimmer treatment from now to next to ambient
 - footer pinned to terminal bottom, masthead pinned to top
 
 The desired emotional effect is:
@@ -420,7 +420,7 @@ Potential later additions:
 
 - `space` expand rationale/context
 - `p` toggle provenance
-- `j/k` browse queued items in a richer rail
+- `j/k` browse next-lane items in a richer rail
 
 ## What the TUI Should Communicate
 

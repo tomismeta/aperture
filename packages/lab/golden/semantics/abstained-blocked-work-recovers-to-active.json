@@ -1,7 +1,7 @@
 {
   "id": "golden:semantics:abstained-blocked-work-recovers-to-active",
-  "title": "Abstained blocked work can recover from ambient to active",
-  "description": "When semantics abstain on blocked work, the first read should stay ambient. A later stronger failure on the same status stream should activate and be counted as an ambient ambiguity recovery.",
+  "title": "Abstained blocked work can recover from ambient to now",
+  "description": "When semantics abstain on blocked work, the first read should stay ambient. A later stronger failure on the same status stream should surface in now and be counted as an ambient ambiguity recovery.",
   "doctrineTags": [
     "semantic_normalization",
     "semantic_ambiguity",

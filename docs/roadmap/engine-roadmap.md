@@ -220,7 +220,7 @@ What is live now:
 
 - low-confidence or abstained non-blocking semantics can resolve through the explicit ambiguity lane into `queue` or `ambient`
 - traces and JudgmentBench can now observe ambiguity outcomes and recovery paths
-  like `queue -> active` and `ambient -> active`
+  like `next -> now` and `ambient -> now`
 
 What still remains:
 
@@ -239,7 +239,7 @@ This is not about event producer capabilities.
 It is about attention surface capabilities such as:
 
 - whether the surface supports ambient presentation
-- whether it can show multiple queued items
+- whether it can show multiple next-lane items
 - whether it can render richer response paths like forms or choice flows
 
 The planner should respect those constraints instead of planning for an idealized generic surface.

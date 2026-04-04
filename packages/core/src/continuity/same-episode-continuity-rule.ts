@@ -26,7 +26,7 @@ export const evaluateSameEpisodeContinuityRule: ContinuityRule = (input) => {
       { kind: "activate", candidate },
       priorityForFrame(activeFrame),
       context.currentScore,
-      ["the active episode has progressed into an interruptive step"],
+      ["the current episode has progressed into an interruptive step that belongs in now"],
     );
   }
 
@@ -36,7 +36,7 @@ export const evaluateSameEpisodeContinuityRule: ContinuityRule = (input) => {
       { kind: "activate", candidate },
       priorityForFrame(activeFrame),
       context.currentScore,
-      ["the active episode has advanced to a superseding step"],
+      ["the current episode has advanced to a superseding step that belongs in now"],
     );
   }
 
@@ -49,6 +49,6 @@ export const evaluateSameEpisodeContinuityRule: ContinuityRule = (input) => {
     helpers.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
     priorityForFrame(activeFrame),
     context.currentScore,
-    ["related work stays bundled with the active episode"],
+    ["related work stays bundled with the current episode already in now"],
   );
 };

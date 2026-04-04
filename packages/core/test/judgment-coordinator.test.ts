@@ -109,7 +109,7 @@ test("operator absence keeps blocking work queued instead of activating immediat
   assert.equal(explanation.criterion?.ambiguity, null);
   assert.ok(
     explanation.reasons.includes(
-      "operator absence keeps interruptive work peripheral until active attention returns",
+      "operator absence keeps interruptive work peripheral until foreground attention returns",
     ),
   );
 });
@@ -1439,7 +1439,7 @@ test("keeps resurfacing status queued while blocking work is active", () => {
   assert.equal(explanation.decision.kind, "queue");
   assert.match(
     explanation.reasons.join(" "),
-    /resurfacing backlog queued so it stays visible/i,
+    /resurfacing backlog in next so it stays visible/i,
   );
 });
 

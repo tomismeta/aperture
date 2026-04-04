@@ -28,9 +28,9 @@ test("JudgmentBench runs across the golden scenarios and produces a summary", as
   assert.ok(result.summary.totalSemanticReadings >= 17);
   assert.ok(result.summary.totalDecisionReadings >= 22);
   assert.ok(result.summary.totalAmbiguousDecisions >= 4);
-  assert.ok(result.summary.totalAmbiguousQueuedThenActivated >= 1);
-  assert.ok(result.summary.totalAmbiguousAmbientThenActivated >= 1);
-  assert.ok(result.summary.totalCandidates >= result.summary.totalActiveBuckets);
+  assert.ok(result.summary.totalAmbiguousNextThenNow >= 1);
+  assert.ok(result.summary.totalAmbiguousAmbientThenNow >= 1);
+  assert.ok(result.summary.totalCandidates >= result.summary.totalNowLanes);
   assert.equal(result.scenarios.length, result.summary.totalScenarios);
   assert.ok(result.scenarios.every((scenario) => scenario.scorecard.explanation.targetLane !== undefined));
   assert.ok(result.scenarios.some((scenario) => scenario.scorecard.explanation.headline !== null));

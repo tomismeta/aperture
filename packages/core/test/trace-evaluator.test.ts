@@ -174,7 +174,7 @@ test("trace evaluator reports surfaced actionable episodes from accumulated evid
   assert.equal(report.actionableSurfaced, 1);
 });
 
-test("trace evaluator reports ambiguous queued work that later activates", () => {
+test("trace evaluator reports ambiguous next-lane work that later surfaces in now", () => {
   const core = new ApertureCore();
   const traces: ApertureTrace[] = [];
 

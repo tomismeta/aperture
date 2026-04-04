@@ -1,7 +1,7 @@
 {
   "id": "golden:interrupt:approval",
   "title": "High-consequence approval interrupts immediately",
-  "description": "A blocking high-consequence approval should surface as the active frame.",
+  "description": "A blocking high-consequence approval should surface in now.",
   "doctrineTags": [
     "hard_gate_interrupt",
     "attention_worthiness",

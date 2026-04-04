@@ -18,13 +18,13 @@ export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
     `- Semantic readings: ${run.summary.totalSemanticReadings}`,
     `- Decision readings: ${run.summary.totalDecisionReadings}`,
     `- Ambiguous decisions: ${run.summary.totalAmbiguousDecisions}`,
-    `- Ambiguous next: ${run.summary.totalAmbiguousQueued}`,
+    `- Ambiguous next: ${run.summary.totalAmbiguousNext}`,
     `- Ambiguous ambient: ${run.summary.totalAmbiguousAmbient}`,
-    `- Ambiguous queued -> now: ${run.summary.totalAmbiguousQueuedThenActivated}`,
-    `- Ambiguous ambient -> now: ${run.summary.totalAmbiguousAmbientThenActivated}`,
-    `- Active buckets: ${run.summary.totalActiveBuckets}`,
-    `- Queued buckets: ${run.summary.totalQueuedBuckets}`,
-    `- Ambient buckets: ${run.summary.totalAmbientBuckets}`,
+    `- Ambiguous next -> now: ${run.summary.totalAmbiguousNextThenNow}`,
+    `- Ambiguous ambient -> now: ${run.summary.totalAmbiguousAmbientThenNow}`,
+    `- Now lanes: ${run.summary.totalNowLanes}`,
+    `- Next lanes: ${run.summary.totalNextLanes}`,
+    `- Ambient lanes: ${run.summary.totalAmbientLanes}`,
     "",
     "## Doctrine Health",
     "",
@@ -54,11 +54,11 @@ export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
     lines.push(`- Next: ${result.scorecard.outcomes.finalNextInteractionIds.join(", ") || "none"}`);
     lines.push(`- Ambient: ${result.scorecard.outcomes.finalAmbientInteractionIds.join(", ") || "none"}`);
     lines.push(
-      `- Buckets: active=${result.scorecard.buckets.now}, queued=${result.scorecard.buckets.next}, ambient=${result.scorecard.buckets.ambient}`,
+      `- Lanes: now=${result.scorecard.lanes.now}, next=${result.scorecard.lanes.next}, ambient=${result.scorecard.lanes.ambient}`,
     );
     if (result.scorecard.trace.ambiguousDecisions > 0) {
       lines.push(
-        `- Ambiguity trace: total=${result.scorecard.trace.ambiguousDecisions}, queued=${result.scorecard.trace.ambiguousNext}, ambient=${result.scorecard.trace.ambiguousAmbient}, queued->active=${result.scorecard.trace.ambiguousNextThenActivated}, ambient->active=${result.scorecard.trace.ambiguousAmbientThenActivated}`,
+        `- Ambiguity trace: total=${result.scorecard.trace.ambiguousDecisions}, next=${result.scorecard.trace.ambiguousNext}, ambient=${result.scorecard.trace.ambiguousAmbient}, next->now=${result.scorecard.trace.ambiguousNextThenActivated}, ambient->now=${result.scorecard.trace.ambiguousAmbientThenActivated}`,
       );
     }
     if (
@@ -68,7 +68,7 @@ export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
       || result.scorecard.trace.mergedEpisodeUpdates > 0
     ) {
       lines.push(
-        `- Resurfacing trace: actionable=${result.scorecard.trace.actionableEpisodes}, surfaced=${result.scorecard.trace.actionableSurfaced}, activated=${result.scorecard.trace.actionableActivated}, deferred->active=${result.scorecard.trace.deferredThenActivated}, suppressed->active=${result.scorecard.trace.suppressedThenActivated}, merged=${result.scorecard.trace.mergedEpisodeUpdates}`,
+        `- Resurfacing trace: actionable=${result.scorecard.trace.actionableEpisodes}, surfaced=${result.scorecard.trace.actionableSurfaced}, now=${result.scorecard.trace.actionableActivated}, deferred->now=${result.scorecard.trace.deferredThenActivated}, suppressed->now=${result.scorecard.trace.suppressedThenActivated}, merged=${result.scorecard.trace.mergedEpisodeUpdates}`,
       );
     }
     if (result.run.semantics.length > 0) {
@@ -86,7 +86,7 @@ export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
     if (result.run.decisions.length > 0) {
       for (const decision of result.run.decisions) {
         lines.push(
-          `- Decision (${decision.stepLabel ?? `step ${decision.stepIndex}`}): evaluation=${decision.evaluationKind}, decision=${decision.decisionKind ?? "none"}, bucket=${decision.resultLane ?? "none"}, semanticConfidence=${decision.semanticConfidence ?? "none"}, semanticAbstained=${decision.semanticAbstained === true ? "true" : "false"}`,
+          `- Decision (${decision.stepLabel ?? `step ${decision.stepIndex}`}): evaluation=${decision.evaluationKind}, decision=${decision.decisionKind ?? "none"}, lane=${decision.resultLane ?? "none"}, semanticConfidence=${decision.semanticConfidence ?? "none"}, semanticAbstained=${decision.semanticAbstained === true ? "true" : "false"}`,
         );
         if (decision.ambiguity) {
           lines.push(

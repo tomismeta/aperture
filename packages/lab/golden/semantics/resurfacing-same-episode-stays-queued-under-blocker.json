@@ -1,7 +1,7 @@
 {
   "id": "golden:semantics:resurfacing-same-episode-stays-queued-under-blocker",
-  "title": "Resurfacing same-episode work stays queued under a blocker",
-  "description": "When unresolved same-episode work keeps returning while blocking work is active, Aperture should keep it visible in the queue instead of letting it disappear back to ambient.",
+  "title": "Resurfacing same-episode work stays in next under a blocker",
+  "description": "When unresolved same-episode work keeps returning while blocking work is in now, Aperture should keep it visible in next instead of letting it disappear back to ambient.",
   "doctrineTags": [
     "continuity_semantics",
     "ambient_doctrine",

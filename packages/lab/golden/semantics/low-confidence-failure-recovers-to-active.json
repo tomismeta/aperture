@@ -1,7 +1,7 @@
 {
   "id": "golden:semantics:low-confidence-failure-recovers-to-active",
-  "title": "Low-confidence failure can recover from queue to active",
-  "description": "When an initially uncertain failure status stays queued, a later stronger reading on the same status stream should activate and be counted as an ambiguity recovery.",
+  "title": "Low-confidence failure can recover from next to now",
+  "description": "When an initially uncertain failure status stays in next, a later stronger reading on the same status stream should surface in now and be counted as an ambiguity recovery.",
   "doctrineTags": [
     "semantic_normalization",
     "semantic_ambiguity",

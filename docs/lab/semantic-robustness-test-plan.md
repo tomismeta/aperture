@@ -34,8 +34,8 @@ Each layer catches a different failure mode.
 
 - core tests catch local interpretation regressions
 - lab catches scenario-level doctrine drift and ambiguity/peripheral-routing drift
-- lab can now also catch ambiguity lifecycle drift, like `queue -> active` and
-  `ambient -> active` recoveries
+- lab can now also catch ambiguity lifecycle drift, like `next -> now` and
+  `ambient -> now` recoveries
 - manual testing catches product reality gaps that still feel wrong to a human
 
 If we only do one layer, we will miss important classes of failure:

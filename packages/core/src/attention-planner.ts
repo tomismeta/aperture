@@ -256,7 +256,7 @@ export class AttentionPlanner {
     if (!activeFrame) {
       if (actionableEpisode) {
         if (evidence.pressureForecast.overloadRisk === "high") {
-          reasons.push("the episode has become actionable, but predicted overload keeps it queued instead of interrupting");
+          reasons.push("the episode has become actionable, but predicted overload keeps it in next instead of surfacing it now");
           return {
             decision: { kind: "queue", candidate },
             currentPriority: null,
@@ -309,7 +309,7 @@ export class AttentionPlanner {
         };
       }
 
-      reasons.push("no current frame is active for this task");
+      reasons.push("nothing is in now for this task");
       return {
         decision: { kind: "activate", candidate },
         currentPriority: null,
@@ -326,8 +326,8 @@ export class AttentionPlanner {
       if (currentBlocking || evidence.pressureForecast.overloadRisk === "high") {
         reasons.push(
           currentBlocking
-            ? "the episode has become actionable, but current blocking work keeps it queued"
-            : "the episode has become actionable, but predicted overload keeps it queued",
+            ? "the episode has become actionable, but current blocking work keeps it in next"
+            : "the episode has become actionable, but predicted overload keeps it in next",
         );
         return {
           decision: { kind: "queue", candidate },
@@ -360,7 +360,7 @@ export class AttentionPlanner {
         };
       }
 
-      reasons.push("the episode has become actionable, so it stays queued even though policy still prevents interrupting");
+      reasons.push("the episode has become actionable, so it stays in next even though policy still prevents interrupting");
       return {
         decision: { kind: "queue", candidate },
         currentPriority,
@@ -371,7 +371,7 @@ export class AttentionPlanner {
 
     if (currentBlocking && !candidate.blocking) {
       if (hasResurfacingPressure(evidence.continuitySignalSummary)) {
-        reasons.push("blocking work keeps resurfacing backlog queued so it stays visible until focus can return");
+        reasons.push("blocking work keeps resurfacing backlog in next so it stays visible until focus can return");
         return {
           decision: { kind: "queue", candidate },
           currentPriority,
@@ -416,7 +416,7 @@ export class AttentionPlanner {
 
     if (this.shouldSuppressForBacklog(candidate, evidence.attentionView, candidate.timestamp)) {
       if (hasResurfacingPressure(evidence.continuitySignalSummary)) {
-        reasons.push("existing urgent backlog keeps resurfacing work queued so it remains visible");
+        reasons.push("existing urgent backlog keeps resurfacing work in next so it remains visible");
         return {
           decision: { kind: "queue", candidate },
           currentPriority,
@@ -427,8 +427,8 @@ export class AttentionPlanner {
 
       reasons.push(
         context.utility.components.deferralAffinity > 0
-          ? "existing urgent backlog defers this work, but memory keeps it queued because it usually returns after deferral"
-          : "existing urgent backlog keeps lower-value status work queued",
+          ? "existing urgent backlog defers this work, but memory keeps it in next because it usually returns after deferral"
+          : "existing urgent backlog keeps lower-value status work in next",
       );
       return {
         decision: this.suppressedDecision(

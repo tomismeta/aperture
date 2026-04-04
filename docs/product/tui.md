@@ -125,7 +125,7 @@ When typing:
 - `[enter]` advances or submits
 - `[esc]` cancels editing
 
-When there is no active frame, the idle lens pulse continues calmly even if
+When there is no now frame, the idle lens pulse continues calmly even if
 ambient work is still present. That makes the "nothing currently owns my
 attention" transition feel explicit instead of frozen.
 

@@ -178,6 +178,7 @@ export type ClaudeCodeMappingOptions = {
 
 type HumanInputFormRequest = Extract<HumanInputRequest, { kind: "form" }>;
 type HumanInputFormField = HumanInputFormRequest["fields"][number];
+type ContextItem = NonNullable<NonNullable<SourceHumanInputRequestedEvent["context"]>["items"]>[number];
 
 const DEFAULT_TOOLS: string[] | undefined = undefined;
 const HIGH_CONSEQUENCE_PATTERNS = [
@@ -468,13 +469,13 @@ function mapPreToolUse(
     readString(event.tool_input.description) ??
     `Claude Code requested approval before running ${event.tool_name}.`;
 
-  const contextItems: { id: string; label: string; value: string }[] = [];
+  const contextItems: ContextItem[] = [];
   if (command) {
-    contextItems.push({ id: "command", label: "Command", value: command });
+    contextItems.push(createContextItem("command", "Command", command));
   } else {
     contextItems.push(...toolInputContextItems(event));
   }
-  contextItems.push({ id: "cwd", label: "Working directory", value: event.cwd });
+  contextItems.push(createContextItem("cwd", "Working Directory", event.cwd));
 
   const consequence = classifyToolRisk(event, options);
 
@@ -512,10 +513,10 @@ function mapAskUserQuestion(
   const summary = firstQuestion?.header
     ? `Claude asked for input about ${firstQuestion.header}.`
     : `Claude asked ${questions.length === 1 ? "a question" : `${questions.length} questions`} before continuing.`;
-  const contextItems = [{ id: "cwd", label: "Working directory", value: event.cwd }];
+  const contextItems: ContextItem[] = [createContextItem("cwd", "Working Directory", event.cwd)];
 
   if (firstQuestion?.header) {
-    contextItems.unshift({ id: "header", label: "Header", value: firstQuestion.header });
+    contextItems.unshift(createContextItem("header", "Header", firstQuestion.header));
   }
 
   return {
@@ -552,22 +553,22 @@ function mapPermissionRequest(
       ? "Claude needs permission before asking the operator a question."
       : `Claude Code is asking for permission before running ${event.tool_name}.`);
 
-  const contextItems: { id: string; label: string; value: string }[] = [];
+  const contextItems: ContextItem[] = [];
   if (command) {
-    contextItems.push({ id: "command", label: "Command", value: command });
+    contextItems.push(createContextItem("command", "Command", command));
   } else {
     contextItems.push(...permissionInputContextItems(event));
   }
   if (firstQuestion?.header) {
-    contextItems.unshift({ id: "header", label: "Header", value: firstQuestion.header });
+    contextItems.unshift(createContextItem("header", "Header", firstQuestion.header));
   }
-  contextItems.push({ id: "cwd", label: "Working directory", value: event.cwd });
+  contextItems.push(createContextItem("cwd", "Working Directory", event.cwd));
   if (event.permission_suggestions?.length) {
-    contextItems.push({
-      id: "permission_suggestions",
-      label: "Claude suggestions",
-      value: `${event.permission_suggestions.length} native permission suggestion${event.permission_suggestions.length === 1 ? "" : "s"}`,
-    });
+    contextItems.push(createContextItem(
+      "nativeSuggestions",
+      "Native Suggestions",
+      `${event.permission_suggestions.length} native permission suggestion${event.permission_suggestions.length === 1 ? "" : "s"}`,
+    ));
   }
 
   const consequence = classifyPermissionRequestRisk(event, options);
@@ -638,15 +639,15 @@ function mapPostToolUse(event: ClaudeCodePostToolUseEvent): SourceTaskUpdatedEve
 
 function mapElicitation(event: ClaudeCodeElicitationEvent): SourceHumanInputRequestedEvent {
   const request = buildElicitationRequest(event);
-  const contextItems = [
-    { id: "mcp_server_name", label: "Server", value: event.mcp_server_name },
+  const contextItems: ContextItem[] = [
+    createContextItem("serverName", "Server", event.mcp_server_name),
   ];
 
   if (event.mode) {
-    contextItems.push({ id: "mode", label: "Mode", value: event.mode });
+    contextItems.push(createContextItem("mode", "Mode", event.mode));
   }
   if (event.url) {
-    contextItems.push({ id: "url", label: "URL", value: event.url });
+    contextItems.push(createContextItem("url", "URL", event.url));
   }
 
   const fieldId = singleTextFieldId(event.requested_schema);
@@ -1743,13 +1744,13 @@ function looksLikeFollowUpQuestion(value: string): boolean {
 
 function toolInputContextItems(
   event: ClaudeCodePreToolUseEvent,
-): { id: string; label: string; value: string }[] {
-  const items: { id: string; label: string; value: string }[] = [];
+): ContextItem[] {
+  const items: ContextItem[] = [];
   const input = event.tool_input;
 
   for (const [key, value] of Object.entries(input)) {
     if (typeof value === "string" && value.length > 0 && value.length < 500) {
-      items.push({ id: key, label: key, value });
+      items.push(createContextItem(key, contextLabel(key), value));
     }
   }
   return items;
@@ -1757,14 +1758,28 @@ function toolInputContextItems(
 
 function permissionInputContextItems(
   event: ClaudeCodePermissionRequestEvent,
-): { id: string; label: string; value: string }[] {
-  const items: { id: string; label: string; value: string }[] = [];
+): ContextItem[] {
+  const items: ContextItem[] = [];
   for (const [key, value] of Object.entries(event.tool_input)) {
     if (typeof value === "string" && value.length > 0 && value.length < 500) {
-      items.push({ id: key, label: key, value });
+      items.push(createContextItem(key, contextLabel(key), value));
     }
   }
   return items;
+}
+
+function createContextItem(id: string, label: string, value: string): ContextItem {
+  return { id, label, value };
+}
+
+function contextLabel(id: string): string {
+  return id
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .split(" ")
+    .filter((part) => part.length > 0)
+    .map((part) => part[0] ? part[0].toUpperCase() + part.slice(1) : part)
+    .join(" ");
 }
 
 function permissionRequestTitle(event: ClaudeCodePermissionRequestEvent, summary: string): string {

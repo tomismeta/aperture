@@ -275,7 +275,7 @@ function mapPreToolUse(
     context: {
       items: [
         { id: "command", label: "Command", value: event.tool_input.command },
-        { id: "cwd", label: "Working directory", value: event.cwd },
+        { id: "cwd", label: "Working Directory", value: event.cwd },
       ],
     },
   };

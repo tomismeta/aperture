@@ -24,14 +24,16 @@ export type AttentionFrame = {
   metadata?: Record<string, unknown>;
 };
 
+export type AttentionContextItem = {
+  id: string;
+  label: string;
+  value?: string;
+};
+
 export type AttentionContext = {
   stage?: string;
   progress?: number;
-  items?: Array<{
-    id: string;
-    label: string;
-    value?: string;
-  }>;
+  items?: AttentionContextItem[];
 };
 
 export type AttentionResponseSpec =

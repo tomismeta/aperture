@@ -70,6 +70,31 @@ test("uses compact detail labels for bash approvals", () => {
   }
 });
 
+test("formats source-native context labels into Aperture-style field labels", () => {
+  const event: ClaudeCodePreToolUseEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "PreToolUse",
+    tool_name: "Read",
+    tool_use_id: "tool-1",
+    tool_input: {
+      file_path: "/repo/src/index.ts",
+      start_line: "1",
+    },
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "human.input.requested");
+  if (mapped[0]?.type === "human.input.requested") {
+    assert.deepEqual(mapped[0].context?.items, [
+      { id: "file_path", label: "File Path", value: "/repo/src/index.ts" },
+      { id: "start_line", label: "Start Line", value: "1" },
+      { id: "cwd", label: "Working Directory", value: "/repo" },
+    ]);
+  }
+});
+
 test("marks destructive Bash commands as high consequence", () => {
   assert.equal(bashConsequence("rm -rf ./dist"), "high");
   assert.equal(bashConsequence("git push origin main"), "medium");
@@ -377,8 +402,8 @@ test("maps PermissionRequest hooks into approval events", () => {
     assert.equal(mapped[0].riskHint, "high");
     assert.equal(mapped[0].provenance?.whyNow, "Clear the build output before packaging.");
     assert.deepEqual(mapped[0].context?.items?.at(-1), {
-      id: "permission_suggestions",
-      label: "Claude suggestions",
+      id: "nativeSuggestions",
+      label: "Native Suggestions",
       value: "1 native permission suggestion",
     });
   }
@@ -471,6 +496,11 @@ test("maps elicitation enum schemas into choice requests", () => {
     assert.equal(mapped[0].summary, "Input requested by build-server.");
     assert.equal(mapped[0].toolFamily, "mcp");
     assert.equal(mapped[0].request.kind, "choice");
+    assert.deepEqual(mapped[0].context?.items?.at(0), {
+      id: "serverName",
+      label: "Server",
+      value: "build-server",
+    });
     if (mapped[0].request.kind === "choice") {
       assert.equal(mapped[0].request.selectionMode, "single");
       assert.deepEqual(

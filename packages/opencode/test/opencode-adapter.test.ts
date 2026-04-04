@@ -46,8 +46,8 @@ test("maps permission.asked to an approval request", () => {
   assert.equal(mapped[0].summary, "mkdir -p /tmp/aperture-opencode-smoke");
   assert.deepEqual(mapped[0].context?.items, [
     { id: "command", label: "Command", value: "mkdir -p /tmp/aperture-opencode-smoke" },
-    { id: "cwd", label: "Working directory", value: "/workspace/project" },
-    { id: "call", label: "Call ID", value: "call-1" },
+    { id: "cwd", label: "Working Directory", value: "/workspace/project" },
+    { id: "callId", label: "Call ID", value: "call-1" },
   ]);
 });
 
@@ -77,8 +77,8 @@ test("maps external directory approvals from the real OpenCode permission shape"
   assert.equal(mapped[0].summary, "/private/tmp/aperture-opencode-smoke/*");
   assert.deepEqual(mapped[0].context?.items, [
     { id: "path", label: "Path", value: "/private/tmp/aperture-opencode-smoke/*" },
-    { id: "cwd", label: "Working directory", value: "/workspace/project" },
-    { id: "call", label: "Call ID", value: "call-external-1" },
+    { id: "cwd", label: "Working Directory", value: "/workspace/project" },
+    { id: "callId", label: "Call ID", value: "call-external-1" },
   ]);
 });
 
@@ -128,8 +128,8 @@ test("maps follow-up text parts into a reply request", () => {
       riskHint: "medium",
       context: {
         items: [
-          { id: "session", label: "Session", value: "ses-follow-up" },
-          { id: "part", label: "Part", value: "part-text-1" },
+          { id: "sessionId", label: "Session ID", value: "ses-follow-up" },
+          { id: "partId", label: "Part ID", value: "part-text-1" },
         ],
       },
     },
@@ -188,9 +188,9 @@ test("maps question.asked with options to a choice request", () => {
     "Parent directory",
   ]);
   assert.deepEqual(mapped[0].context?.items, [
-    { id: "session", label: "Session", value: "ses-2" },
-    { id: "questions", label: "Questions", value: "1" },
-    { id: "call", label: "Call ID", value: "call-question-1" },
+    { id: "sessionId", label: "Session ID", value: "ses-2" },
+    { id: "questionCount", label: "Question Count", value: "1" },
+    { id: "callId", label: "Call ID", value: "call-question-1" },
   ]);
 });
 

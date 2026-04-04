@@ -33,6 +33,11 @@ test("maps command execution approvals into approval SourceEvents", () => {
     assert.equal(mapped.events[0].activityClass, "permission_request");
     assert.equal(mapped.events[0].toolFamily, "bash");
     assert.equal(mapped.events[0].taskId, "codex:thread:thread-1:turn:turn-1");
+    assert.deepEqual(mapped.events[0].context?.items, [
+      { id: "command", label: "Command", value: "pnpm test" },
+      { id: "cwd", label: "Working Directory", value: "/repo" },
+      { id: "reason", label: "Reason", value: "Run tests before continuing" },
+    ]);
   }
 });
 
@@ -55,6 +60,9 @@ test("maps file change approvals into write approval SourceEvents", () => {
   if (mapped?.events[0]?.type === "human.input.requested") {
     assert.equal(mapped.events[0].toolFamily, "write");
     assert.equal(mapped.events[0].activityClass, "permission_request");
+    assert.deepEqual(mapped.events[0].context?.items, [
+      { id: "rootPath", label: "Root Path", value: "/repo/src" },
+    ]);
   }
 });
 
@@ -80,6 +88,11 @@ test("maps top-level exec command approvals into approval SourceEvents", () => {
     assert.equal(mapped.events[0].toolFamily, "bash");
     assert.equal(mapped.events[0].activityClass, "permission_request");
     assert.equal(mapped.events[0].taskId, "codex:thread:thread-legacy");
+    assert.deepEqual(mapped.events[0].context?.items, [
+      { id: "command", label: "Command", value: "mkdir codex-smoke-test" },
+      { id: "cwd", label: "Working Directory", value: "/repo" },
+      { id: "reason", label: "Reason", value: "Create requested directory" },
+    ]);
   }
 });
 
@@ -104,6 +117,10 @@ test("maps top-level apply patch approvals into write approval SourceEvents", ()
   if (mapped?.events[0]?.type === "human.input.requested") {
     assert.equal(mapped.events[0].toolFamily, "write");
     assert.equal(mapped.events[0].activityClass, "permission_request");
+    assert.deepEqual(mapped.events[0].context?.items, [
+      { id: "rootPath", label: "Root Path", value: "/repo" },
+      { id: "files", label: "Files", value: "/repo/hello.txt" },
+    ]);
   }
 });
 

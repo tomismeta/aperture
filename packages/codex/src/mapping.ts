@@ -51,6 +51,8 @@ export type CodexResponsePayload =
       answers: Record<string, { answers: string[] }>;
     };
 
+type ContextItem = NonNullable<NonNullable<SourceHumanInputRequestedEvent["context"]>["items"]>[number];
+
 type ParsedInteractionId =
   | {
       kind: "commandApproval";
@@ -309,17 +311,17 @@ function mapCommandApprovalRequest(
     params.approvalId ?? undefined,
   );
   const contextItems = [
-    params.command ? { id: "command", label: "Command", value: params.command } : null,
-    params.cwd ? { id: "cwd", label: "Working directory", value: params.cwd } : null,
-    params.reason ? { id: "reason", label: "Reason", value: params.reason } : null,
+    contextItem("command", "Command", params.command),
+    contextItem("cwd", "Working Directory", params.cwd),
+    contextItem("reason", "Reason", params.reason),
     params.networkApprovalContext
       ? {
-          id: "networkApprovalContext",
-          label: "Network approval context",
+          id: "networkContext",
+          label: "Network Context",
           value: JSON.stringify(params.networkApprovalContext),
         }
       : null,
-  ].filter((item): item is { id: string; label: string; value: string } => item !== null);
+  ].filter((item): item is ContextItem => item !== null);
 
   const event: SourceHumanInputRequestedEvent = {
     id: codexEventId(requestId, "human.input.requested", params.itemId),
@@ -360,8 +362,8 @@ function mapFileChangeApprovalRequest(
     params.itemId,
   );
   const contextItems = [
-    params.grantRoot ? { id: "grantRoot", label: "Grant root", value: params.grantRoot } : null,
-  ].filter((item): item is { id: string; label: string; value: string } => item !== null);
+    contextItem("rootPath", "Root Path", params.grantRoot),
+  ].filter((item): item is ContextItem => item !== null);
 
   const event: SourceHumanInputRequestedEvent = {
     id: codexEventId(requestId, "human.input.requested", params.itemId),
@@ -536,9 +538,9 @@ function mapExecCommandApprovalRequest(
     },
     context: {
       items: [
-        { id: "command", label: "Command", value: params.command.join(" ") },
-        { id: "cwd", label: "Working directory", value: params.cwd },
-        ...(params.reason ? [{ id: "reason", label: "Reason", value: params.reason }] : []),
+        createContextItem("command", "Command", params.command.join(" ")),
+        createContextItem("cwd", "Working Directory", params.cwd),
+        ...(params.reason ? [createContextItem("reason", "Reason", params.reason)] : []),
       ],
     },
     ...(params.reason ? { provenance: { whyNow: params.reason } } : {}),
@@ -585,10 +587,10 @@ function mapApplyPatchApprovalRequest(
           context: {
             items: [
               ...(params.grantRoot
-                ? [{ id: "grantRoot", label: "Grant root", value: params.grantRoot }]
+                ? [createContextItem("rootPath", "Root Path", params.grantRoot)]
                 : []),
               ...(changedFiles.length > 0
-                ? [{ id: "files", label: "Files", value: changedFiles.join(", ") }]
+                ? [createContextItem("files", "Files", changedFiles.join(", "))]
                 : []),
             ],
           },
@@ -758,6 +760,14 @@ function mapCommandApprovalDecision(response: AttentionResponse): CodexCommandEx
 
 function mapFileChangeApprovalDecision(response: AttentionResponse): CodexFileChangeApprovalDecision {
   return mapApprovalDecision(response);
+}
+
+function contextItem(id: string, label: string, value: string | null | undefined): ContextItem | null {
+  return value ? { id, label, value } : null;
+}
+
+function createContextItem(id: string, label: string, value: string): ContextItem {
+  return { id, label, value };
 }
 
 function mapApprovalDecision(

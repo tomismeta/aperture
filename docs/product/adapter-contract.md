@@ -48,6 +48,7 @@ This is the current standard we should hold all adapters to.
 - one explicit host, transport, or bridge layer
 - one explicit return-path mapping back into the source
 - startup wiring kept outside core
+- shared Aperture contract fields and reusable context item ids should keep the same naming style across adapters instead of mirroring source-native casing
 
 ### 3. Safety
 

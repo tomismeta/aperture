@@ -62,6 +62,8 @@ export type OpencodeNativeResolution = {
   response: AttentionResponse;
 };
 
+type ContextItem = NonNullable<NonNullable<SourceHumanInputRequestedEvent["context"]>["items"]>[number];
+
 type ParsedInteractionId =
   | {
       kind: "permission";
@@ -347,10 +349,10 @@ function mapPermissionAsked(
     ?? "OpenCode paused and needs a human approval decision.";
 
   const contextItems = [
-    fieldItem(detailFieldId(tool), detailFieldLabel(tool), preferredContextValue(tool, patternText, summary)),
-    fieldItem("cwd", "Working directory", context.scope?.directory),
-    fieldItem("call", "Call ID", readString(event.properties.tool?.callID) ?? readString(event.properties.metadata?.callID)),
-  ].filter((item): item is { id: string; label: string; value: string } => item !== null);
+    contextItem(detailFieldId(tool), detailFieldLabel(tool), preferredContextValue(tool, patternText, summary)),
+    contextItem("cwd", "Working Directory", context.scope?.directory),
+    contextItem("callId", "Call ID", readString(event.properties.tool?.callID) ?? readString(event.properties.metadata?.callID)),
+  ].filter((item): item is ContextItem => item !== null);
 
   const result: SourceHumanInputRequestedEvent = {
     id: `opencode:${instanceKey}:event:permission.asked:${encodeURIComponent(requestId)}`,
@@ -406,10 +408,10 @@ function mapQuestionAsked(
 
   const request = promptsToRequest(prompts);
   const contextItems = [
-    fieldItem("session", "Session", sessionId),
-    fieldItem("questions", "Questions", String(prompts.length || 1)),
-    fieldItem("call", "Call ID", readString(event.properties.tool?.callID)),
-  ].filter((item): item is { id: string; label: string; value: string } => item !== null);
+    contextItem("sessionId", "Session ID", sessionId),
+    contextItem("questionCount", "Question Count", String(prompts.length || 1)),
+    contextItem("callId", "Call ID", readString(event.properties.tool?.callID)),
+  ].filter((item): item is ContextItem => item !== null);
 
   const result: SourceHumanInputRequestedEvent = {
     id: `opencode:${instanceKey}:event:question.asked:${encodeURIComponent(requestId)}`,
@@ -514,8 +516,8 @@ function mapMessagePartUpdated(event: OpencodeMessagePartUpdatedEvent, context: 
           riskHint: "medium",
           context: {
             items: [
-              { id: "session", label: "Session", value: sessionId },
-              { id: "part", label: "Part", value: partId },
+              { id: "sessionId", label: "Session ID", value: sessionId },
+              { id: "partId", label: "Part ID", value: partId },
             ],
           },
         },
@@ -835,7 +837,7 @@ function preferredContextValue(
   return summary;
 }
 
-function fieldItem(id: string, label: string, value: string | undefined | null) {
+function contextItem(id: string, label: string, value: string | undefined | null): ContextItem | null {
   return value ? { id, label, value } : null;
 }
 

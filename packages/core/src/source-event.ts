@@ -23,6 +23,12 @@ type SourceEventBase = {
   taskId: string;
   timestamp: string;
   source?: SourceRef;
+  /**
+   * Adapter-provided semantic hints.
+   *
+   * These are source-side inputs into interpretation, not canonical semantic
+   * output from Aperture Core.
+   */
   semanticHints?: SemanticInterpretationHints;
 };
 
@@ -52,6 +58,12 @@ export type SourceHumanInputRequestedEvent = SourceEventBase & {
   request: HumanInputRequest;
   context?: AttentionContext;
   provenance?: AttentionProvenance;
+  /**
+   * Source-side consequence hint.
+   *
+   * Adapters publish `riskHint`; normalized Aperture events carry canonical
+   * `consequence` once semantic interpretation has run.
+   */
   riskHint?: AttentionConsequenceLevel;
 };
 

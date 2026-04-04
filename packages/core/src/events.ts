@@ -1,3 +1,9 @@
+import type {
+  AttentionConsequenceLevel,
+  AttentionContext,
+  AttentionProvenance,
+  AttentionTone,
+} from "./frame.js";
 import type { SemanticInterpretation } from "./semantic-types.js";
 
 export type ApertureEvent =
@@ -57,18 +63,11 @@ export type HumanInputRequestedEvent = EventBase & {
   activityClass?: AttentionActivityClass;
   title: string;
   summary: string;
-  tone?: "ambient" | "focused" | "critical";
-  consequence?: "low" | "medium" | "high";
+  tone?: AttentionTone;
+  consequence?: AttentionConsequenceLevel;
   request: HumanInputRequest;
-  context?: {
-    stage?: string;
-    progress?: number;
-    items?: Array<{ id: string; label: string; value?: string }>;
-  };
-  provenance?: {
-    whyNow?: string;
-    factors?: string[];
-  };
+  context?: AttentionContext;
+  provenance?: AttentionProvenance;
 };
 
 export type HumanInputRequest =

@@ -89,7 +89,7 @@ export type RuntimeSessionCaptureLike = {
   runtimeId: string;
   kind: string;
   exportedAt: string;
-  steps: Array<
+  captureSteps: Array<
     | {
         sequence: number;
         recordedAt: string;
@@ -103,27 +103,27 @@ export type RuntimeSessionCaptureLike = {
         response: AttentionResponse;
       }
   >;
-  sourceEvents: SourceEvent[];
-  responses: AttentionResponse[];
+  publishedSourceEvents: SourceEvent[];
+  submittedResponses: AttentionResponse[];
   signals: AttentionSignal[];
   traces: ApertureTrace[];
-  viewSnapshots: Array<{
+  attentionViewSnapshots: Array<{
     sequence: number;
     recordedAt: string;
     attentionView: AttentionView;
   }>;
-  attentionView: AttentionView;
+  currentAttentionView: AttentionView;
 };
 
 export type RuntimeSessionCaptureCursor = {
   runtimeId: string;
   counts: {
-    steps: number;
-    sourceEvents: number;
-    responses: number;
+    captureSteps: number;
+    publishedSourceEvents: number;
+    submittedResponses: number;
     signals: number;
     traces: number;
-    viewSnapshots: number;
+    attentionViewSnapshots: number;
   };
   exportedAt: string;
 };
@@ -224,12 +224,12 @@ export function createRuntimeSessionCaptureCursor(
   return {
     runtimeId: capture.runtimeId,
     counts: {
-      steps: capture.steps.length,
-      sourceEvents: capture.sourceEvents.length,
-      responses: capture.responses.length,
+      captureSteps: capture.captureSteps.length,
+      publishedSourceEvents: capture.publishedSourceEvents.length,
+      submittedResponses: capture.submittedResponses.length,
       signals: capture.signals.length,
       traces: capture.traces.length,
-      viewSnapshots: capture.viewSnapshots.length,
+      attentionViewSnapshots: capture.attentionViewSnapshots.length,
     },
     exportedAt: capture.exportedAt,
   };
@@ -245,17 +245,17 @@ export function sliceRuntimeSessionCapture(
 
   assertCaptureSliceBounds(capture, cursor);
 
-  const viewSnapshots = capture.viewSnapshots.slice(cursor.counts.viewSnapshots);
+  const attentionViewSnapshots = capture.attentionViewSnapshots.slice(cursor.counts.attentionViewSnapshots);
 
   return {
     ...capture,
-    steps: capture.steps.slice(cursor.counts.steps),
-    sourceEvents: capture.sourceEvents.slice(cursor.counts.sourceEvents),
-    responses: capture.responses.slice(cursor.counts.responses),
+    captureSteps: capture.captureSteps.slice(cursor.counts.captureSteps),
+    publishedSourceEvents: capture.publishedSourceEvents.slice(cursor.counts.publishedSourceEvents),
+    submittedResponses: capture.submittedResponses.slice(cursor.counts.submittedResponses),
     signals: capture.signals.slice(cursor.counts.signals),
     traces: capture.traces.slice(cursor.counts.traces),
-    viewSnapshots,
-    attentionView: viewSnapshots.at(-1)?.attentionView ?? emptyAttentionView(),
+    attentionViewSnapshots,
+    currentAttentionView: attentionViewSnapshots.at(-1)?.attentionView ?? emptyAttentionView(),
   };
 }
 
@@ -276,7 +276,7 @@ export function createSessionBundleFromRuntimeCapture(
   const semanticSnapshots: ReplaySemanticSnapshot[] = [];
   const decisionSnapshots: ReplayDecisionSnapshot[] = [];
 
-  capture.steps.forEach((step, stepIndex) => {
+  capture.captureSteps.forEach((step, stepIndex) => {
     stepIndexBySequence.set(step.sequence, stepIndex);
 
     if (step.kind === "publishSource") {
@@ -326,20 +326,20 @@ export function createSessionBundleFromRuntimeCapture(
     normalizedEvents,
     traces: capture.traces,
     signals: capture.signals,
-    responses: capture.responses,
-    viewSnapshots: capture.viewSnapshots
-      .map((snapshot) => buildViewSnapshotFromRuntimeCapture(snapshot, stepIndexBySequence, capture.steps))
+    responses: capture.submittedResponses,
+    viewSnapshots: capture.attentionViewSnapshots
+      .map((snapshot) => buildViewSnapshotFromRuntimeCapture(snapshot, stepIndexBySequence, capture.captureSteps))
       .filter((snapshot): snapshot is ReplayViewSnapshot => snapshot !== null),
     semanticSnapshots,
     decisionSnapshots,
     outcomes: {
-      totalSteps: capture.steps.length,
+      totalSteps: capture.captureSteps.length,
       surfacedFrames: traceMatches.filter((trace) => trace.result !== null).length,
-      finalNowInteractionId: capture.attentionView.now?.interactionId ?? null,
-      finalNextCount: capture.attentionView.next.length,
-      finalAmbientCount: capture.attentionView.ambient.length,
-      finalNextInteractionIds: capture.attentionView.next.map((frame) => frame.interactionId),
-      finalAmbientInteractionIds: capture.attentionView.ambient.map((frame) => frame.interactionId),
+      finalNowInteractionId: capture.currentAttentionView.now?.interactionId ?? null,
+      finalNextCount: capture.currentAttentionView.next.length,
+      finalAmbientCount: capture.currentAttentionView.ambient.length,
+      finalNextInteractionIds: capture.currentAttentionView.next.map((frame) => frame.interactionId),
+      finalAmbientInteractionIds: capture.currentAttentionView.ambient.map((frame) => frame.interactionId),
     },
   };
 }
@@ -668,11 +668,11 @@ function buildDecisionSnapshotFromTrace(
 }
 
 function buildViewSnapshotFromRuntimeCapture(
-  snapshot: RuntimeSessionCaptureLike["viewSnapshots"][number],
+  snapshot: RuntimeSessionCaptureLike["attentionViewSnapshots"][number],
   stepIndexBySequence: Map<number, number>,
-  steps: RuntimeSessionCaptureLike["steps"],
+  captureSteps: RuntimeSessionCaptureLike["captureSteps"],
 ): ReplayViewSnapshot | null {
-  const precedingStep = [...steps]
+  const precedingStep = [...captureSteps]
     .reverse()
     .find((step) => step.sequence <= snapshot.sequence);
 
@@ -727,12 +727,12 @@ function assertCaptureSliceBounds(
   cursor: RuntimeSessionCaptureCursor,
 ): void {
   if (
-    cursor.counts.steps > capture.steps.length
-    || cursor.counts.sourceEvents > capture.sourceEvents.length
-    || cursor.counts.responses > capture.responses.length
+    cursor.counts.captureSteps > capture.captureSteps.length
+    || cursor.counts.publishedSourceEvents > capture.publishedSourceEvents.length
+    || cursor.counts.submittedResponses > capture.submittedResponses.length
     || cursor.counts.signals > capture.signals.length
     || cursor.counts.traces > capture.traces.length
-    || cursor.counts.viewSnapshots > capture.viewSnapshots.length
+    || cursor.counts.attentionViewSnapshots > capture.attentionViewSnapshots.length
   ) {
     throw new Error("Runtime capture cursor is newer than the provided capture.");
   }

@@ -181,11 +181,11 @@ test("runtime exports a local session capture with source events, responses, and
     assert.equal(capture.traces.some((trace) => trace.event.id === event.id), true);
     assert.equal(capture.signals.some((signal) => signal.taskId === event.taskId), true);
     assert.ok(capture.attentionViewSnapshots.length >= 1);
-    assert.deepEqual(capture.captureSteps, capture.steps);
-    assert.deepEqual(capture.publishedSourceEvents, capture.sourceEvents);
-    assert.deepEqual(capture.submittedResponses, capture.responses);
-    assert.deepEqual(capture.attentionViewSnapshots, capture.viewSnapshots);
-    assert.deepEqual(capture.currentAttentionView, capture.attentionView);
+    assert.equal("steps" in capture, false);
+    assert.equal("sourceEvents" in capture, false);
+    assert.equal("responses" in capture, false);
+    assert.equal("viewSnapshots" in capture, false);
+    assert.equal("attentionView" in capture, false);
   } finally {
     await runtime.close();
   }
@@ -215,6 +215,11 @@ test("runtime session endpoint exposes the same local capture shape over HTTP", 
     assert.equal(payload.captureSteps[0]?.kind, "publishSource");
     assert.equal(payload.publishedSourceEvents[0]?.taskId, "task-session-http");
     assert.equal(payload.traces.some((trace) => trace.event.taskId === "task-session-http"), true);
+    assert.equal("steps" in payload, false);
+    assert.equal("sourceEvents" in payload, false);
+    assert.equal("responses" in payload, false);
+    assert.equal("viewSnapshots" in payload, false);
+    assert.equal("attentionView" in payload, false);
   } finally {
     await runtime.close();
   }

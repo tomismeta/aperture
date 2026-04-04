@@ -537,7 +537,7 @@ test("session bundles can be created from runtime-style captures", () => {
     runtimeId: "runtime:test",
     kind: "aperture",
     exportedAt: "2026-03-21T19:01:00.000Z",
-    steps: [
+    captureSteps: [
       {
         sequence: 1,
         recordedAt: "2026-03-21T19:00:00.000Z",
@@ -557,7 +557,7 @@ test("session bundles can be created from runtime-style captures", () => {
         },
       },
     ],
-    sourceEvents: [
+    publishedSourceEvents: [
       {
         id: "src:runtime:bundle",
         type: "task.updated" as const,
@@ -572,7 +572,7 @@ test("session bundles can be created from runtime-style captures", () => {
         },
       },
     ],
-    responses: [],
+    submittedResponses: [],
     signals: [],
     traces: [
       {
@@ -866,7 +866,7 @@ test("session bundles can be created from runtime-style captures", () => {
         },
       },
     ],
-    viewSnapshots: [
+    attentionViewSnapshots: [
       {
         sequence: 2,
         recordedAt: "2026-03-21T19:00:00.200Z",
@@ -909,7 +909,7 @@ test("session bundles can be created from runtime-style captures", () => {
         },
       },
     ],
-    attentionView: {
+    currentAttentionView: {
       now: null,
       next: [
         {
@@ -973,7 +973,7 @@ test("runtime session captures can be sliced from a baseline cursor", () => {
     runtimeId: "runtime:test",
     kind: "aperture",
     exportedAt: "2026-03-21T20:00:00.000Z",
-    steps: [
+    captureSteps: [
       {
         sequence: 1,
         recordedAt: "2026-03-21T19:59:00.000Z",
@@ -989,7 +989,7 @@ test("runtime session captures can be sliced from a baseline cursor", () => {
         },
       },
     ],
-    sourceEvents: [
+    publishedSourceEvents: [
       {
         id: "src:baseline",
         type: "task.updated",
@@ -1000,10 +1000,10 @@ test("runtime session captures can be sliced from a baseline cursor", () => {
         status: "running",
       },
     ],
-    responses: [],
+    submittedResponses: [],
     signals: [],
     traces: [],
-    viewSnapshots: [
+    attentionViewSnapshots: [
       {
         sequence: 1,
         recordedAt: "2026-03-21T19:59:00.000Z",
@@ -1014,7 +1014,7 @@ test("runtime session captures can be sliced from a baseline cursor", () => {
         },
       },
     ],
-    attentionView: {
+    currentAttentionView: {
       now: null,
       next: [],
       ambient: [],
@@ -1025,8 +1025,8 @@ test("runtime session captures can be sliced from a baseline cursor", () => {
   const currentCapture: RuntimeSessionCaptureLike = {
     ...baselineCapture,
     exportedAt: "2026-03-21T20:05:00.000Z",
-    steps: [
-      ...baselineCapture.steps,
+    captureSteps: [
+      ...baselineCapture.captureSteps,
       {
         sequence: 2,
         recordedAt: "2026-03-21T20:04:00.000Z",
@@ -1056,8 +1056,8 @@ test("runtime session captures can be sliced from a baseline cursor", () => {
         },
       },
     ],
-    sourceEvents: [
-      ...baselineCapture.sourceEvents,
+    publishedSourceEvents: [
+      ...baselineCapture.publishedSourceEvents,
       {
         id: "src:current",
         type: "task.updated",
@@ -1072,15 +1072,15 @@ test("runtime session captures can be sliced from a baseline cursor", () => {
         },
       },
     ],
-    responses: [
+    submittedResponses: [
       {
         taskId: "task:current",
         interactionId: "interaction:task:current:status",
         response: { kind: "acknowledged" },
       },
     ],
-    viewSnapshots: [
-      ...baselineCapture.viewSnapshots,
+    attentionViewSnapshots: [
+      ...baselineCapture.attentionViewSnapshots,
       {
         sequence: 2,
         recordedAt: "2026-03-21T20:04:05.000Z",
@@ -1091,7 +1091,7 @@ test("runtime session captures can be sliced from a baseline cursor", () => {
         },
       },
     ],
-    attentionView: {
+    currentAttentionView: {
       now: { interactionId: "interaction:current" } as never,
       next: [],
       ambient: [],
@@ -1100,12 +1100,12 @@ test("runtime session captures can be sliced from a baseline cursor", () => {
 
   const sliced = sliceRuntimeSessionCapture(currentCapture, cursor);
 
-  assert.equal(sliced.steps.length, 2);
-  assert.equal(sliced.steps[0]?.kind, "publishSource");
-  assert.equal(sliced.steps[1]?.kind, "submit");
-  assert.equal(sliced.sourceEvents.length, 1);
-  assert.equal(sliced.sourceEvents[0]?.id, "src:current");
-  assert.equal(sliced.responses.length, 1);
-  assert.equal(sliced.viewSnapshots.length, 1);
-  assert.equal(sliced.attentionView.now?.interactionId, "interaction:current");
+  assert.equal(sliced.captureSteps.length, 2);
+  assert.equal(sliced.captureSteps[0]?.kind, "publishSource");
+  assert.equal(sliced.captureSteps[1]?.kind, "submit");
+  assert.equal(sliced.publishedSourceEvents.length, 1);
+  assert.equal(sliced.publishedSourceEvents[0]?.id, "src:current");
+  assert.equal(sliced.submittedResponses.length, 1);
+  assert.equal(sliced.attentionViewSnapshots.length, 1);
+  assert.equal(sliced.currentAttentionView.now?.interactionId, "interaction:current");
 });

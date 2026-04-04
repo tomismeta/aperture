@@ -73,22 +73,17 @@ export type ApertureRuntimeCaptureStep =
       response: AttentionResponse;
     };
 
-export type ApertureRuntimeSessionStep = ApertureRuntimeCaptureStep;
-
 export type ApertureRuntimeAttentionViewSnapshot = {
   sequence: number;
   recordedAt: string;
   attentionView: AttentionView;
 };
 
-export type ApertureRuntimeViewSnapshot = ApertureRuntimeAttentionViewSnapshot;
-
 export type ApertureRuntimeSessionCapture = {
   runtimeId: string;
   kind: string;
   startedAt: string;
   exportedAt: string;
-  /** Canonical runtime-owned capture fields. */
   captureSteps: ApertureRuntimeCaptureStep[];
   publishedSourceEvents: SourceEvent[];
   submittedResponses: AttentionResponse[];
@@ -96,12 +91,6 @@ export type ApertureRuntimeSessionCapture = {
   traces: ApertureTrace[];
   attentionViewSnapshots: ApertureRuntimeAttentionViewSnapshot[];
   currentAttentionView: AttentionView;
-  /** Compatibility aliases retained for current capture tooling. */
-  steps: ApertureRuntimeCaptureStep[];
-  sourceEvents: SourceEvent[];
-  responses: AttentionResponse[];
-  viewSnapshots: ApertureRuntimeAttentionViewSnapshot[];
-  attentionView: AttentionView;
   adapters: ApertureRuntimeAdapter[];
   metadata?: Record<string, string>;
   learningPersistence?: LearningPersistenceState;
@@ -600,29 +589,24 @@ export function createApertureRuntime(
   }
 
   function exportSessionCapture(): ApertureRuntimeSessionCapture {
-    const steps = [...captureSteps];
-    const sourceEvents = [...publishedSourceEvents];
-    const responses = [...submittedResponses];
-    const viewSnapshots = [...attentionViewSnapshots];
-    const attentionView = core.getAttentionView();
+    const runtimeCaptureSteps = [...captureSteps];
+    const runtimePublishedSourceEvents = [...publishedSourceEvents];
+    const runtimeSubmittedResponses = [...submittedResponses];
+    const runtimeAttentionViewSnapshots = [...attentionViewSnapshots];
+    const runtimeCurrentAttentionView = core.getAttentionView();
 
     return {
       runtimeId,
       kind,
       startedAt,
       exportedAt: new Date().toISOString(),
-      captureSteps: steps,
-      publishedSourceEvents: sourceEvents,
-      submittedResponses: responses,
+      captureSteps: runtimeCaptureSteps,
+      publishedSourceEvents: runtimePublishedSourceEvents,
+      submittedResponses: runtimeSubmittedResponses,
       signals: [...signalLog],
       traces: [...traceLog],
-      attentionViewSnapshots: viewSnapshots,
-      currentAttentionView: attentionView,
-      steps,
-      sourceEvents,
-      responses,
-      viewSnapshots,
-      attentionView,
+      attentionViewSnapshots: runtimeAttentionViewSnapshots,
+      currentAttentionView: runtimeCurrentAttentionView,
       adapters: snapshot().adapters,
       ...(options.metadata ? { metadata: options.metadata } : {}),
       ...(learningPersistence ? { learningPersistence } : {}),

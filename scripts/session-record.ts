@@ -34,15 +34,15 @@ async function main(): Promise<void> {
   const baseline = await fetchSessionCapture(runtimeUrl);
   const cursor = createRuntimeSessionCaptureCursor(baseline);
   const baselineFrameCount =
-    (baseline.attentionView.now ? 1 : 0)
-    + baseline.attentionView.next.length
-    + baseline.attentionView.ambient.length;
+    (baseline.currentAttentionView.now ? 1 : 0)
+    + baseline.currentAttentionView.next.length
+    + baseline.currentAttentionView.ambient.length;
 
   stdout.write(`Recording session from ${runtimeUrl}\n`);
-  stdout.write(`- baseline steps: ${cursor.counts.steps}\n`);
-  stdout.write(`- baseline source events: ${cursor.counts.sourceEvents}\n`);
-  stdout.write(`- baseline next: ${baseline.attentionView.next.length}\n`);
-  stdout.write(`- baseline ambient: ${baseline.attentionView.ambient.length}\n`);
+  stdout.write(`- baseline capture steps: ${cursor.counts.captureSteps}\n`);
+  stdout.write(`- baseline published source events: ${cursor.counts.publishedSourceEvents}\n`);
+  stdout.write(`- baseline next: ${baseline.currentAttentionView.next.length}\n`);
+  stdout.write(`- baseline ambient: ${baseline.currentAttentionView.ambient.length}\n`);
   if (baselineFrameCount > 0) {
     stdout.write(
       "Note: the runtime already has visible state. The recording will slice new logs only, but the final bundle may still reflect earlier frames.\n",
@@ -64,7 +64,7 @@ async function main(): Promise<void> {
   const capture = await fetchSessionCapture(runtimeUrl);
   const slicedCapture = sliceRuntimeSessionCapture(capture, cursor);
 
-  if (slicedCapture.steps.length === 0) {
+  if (slicedCapture.captureSteps.length === 0) {
     throw new Error("No new runtime activity was captured since recording started.");
   }
 

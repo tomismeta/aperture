@@ -26,15 +26,15 @@ export type CaptureOptions = {
 export async function beginCapture(runtimeUrl: string): Promise<RuntimeSessionCaptureCursor> {
   const baseline = await fetchSessionCapture(runtimeUrl);
   const cursor = createRuntimeSessionCaptureCursor(baseline);
-  const baselineNowCount = baseline.attentionView.now ? 1 : 0;
-  const baselineFrameCount = baselineNowCount + baseline.attentionView.next.length + baseline.attentionView.ambient.length;
+  const baselineNowCount = baseline.currentAttentionView.now ? 1 : 0;
+  const baselineFrameCount = baselineNowCount + baseline.currentAttentionView.next.length + baseline.currentAttentionView.ambient.length;
 
   stdout.write(`Capture enabled for this Aperture session (${runtimeUrl})\n`);
-  stdout.write(`- baseline steps: ${cursor.counts.steps}\n`);
-  stdout.write(`- baseline source events: ${cursor.counts.sourceEvents}\n`);
+  stdout.write(`- baseline capture steps: ${cursor.counts.captureSteps}\n`);
+  stdout.write(`- baseline published source events: ${cursor.counts.publishedSourceEvents}\n`);
   stdout.write(`- baseline now: ${baselineNowCount}\n`);
-  stdout.write(`- baseline next: ${baseline.attentionView.next.length}\n`);
-  stdout.write(`- baseline ambient: ${baseline.attentionView.ambient.length}\n`);
+  stdout.write(`- baseline next: ${baseline.currentAttentionView.next.length}\n`);
+  stdout.write(`- baseline ambient: ${baseline.currentAttentionView.ambient.length}\n`);
   if (baselineFrameCount > 0) {
     stdout.write(
       "Note: the runtime already has visible state. The capture will slice new logs only, but the final bundle may still reflect earlier frames.\n",
@@ -54,7 +54,7 @@ export async function exportCapturedSession(
   const exportedAt = new Date().toISOString();
   const doctrineTags = uniqueStrings(["harvested", "launcher", ...options.doctrineTags]);
 
-  if (slicedCapture.steps.length === 0) {
+  if (slicedCapture.captureSteps.length === 0) {
     stdout.write("No new runtime activity was captured during this Aperture session.\n");
     return;
   }

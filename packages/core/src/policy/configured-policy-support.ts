@@ -1,8 +1,8 @@
 import { readBoundedToolFamily } from "../interaction-taxonomy.js";
 import type { AttentionCandidate } from "../interaction-candidate.js";
 import type { JudgmentConfig } from "../judgment-config.js";
-import type { AttentionLane } from "../attention-policy.js";
 import type { AttentionActivityClass } from "../events.js";
+export { readAttentionLane } from "../attention-lane.js";
 
 export function matchPolicyRule(
   judgmentConfig: JudgmentConfig | undefined,
@@ -22,17 +22,6 @@ export function matchPolicyRule(
   }
 
   return undefined;
-}
-
-export function readAttentionLane(value: unknown): AttentionLane | undefined {
-  switch (value) {
-    case "ambient":
-    case "next":
-    case "now":
-      return value;
-    default:
-      return undefined;
-  }
 }
 
 export function inferConfiguredPolicyToolFamily(candidate: AttentionCandidate): string | null {

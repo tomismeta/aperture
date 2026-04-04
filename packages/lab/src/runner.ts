@@ -4,6 +4,7 @@ import {
   type AttentionResponse,
   type AttentionSignal,
 } from "@tomismeta/aperture-core";
+import { subscribeInternalTrace } from "../../core/src/internal-contract.js";
 import { normalizeSourceEvent } from "@tomismeta/aperture-core/semantic";
 import { isCandidateTrace, type ApertureTrace } from "../../core/src/trace-types.js";
 
@@ -45,8 +46,8 @@ export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
   const normalizedEvents: ReplayNormalizedEventSnapshot[] = [];
   const decisions: ReplayDecisionSnapshot[] = [];
 
-  core.onTrace((trace) => {
-    traces.push(trace as ApertureTrace);
+  subscribeInternalTrace(core, (trace) => {
+    traces.push(trace);
   });
   core.onSignal((signal) => {
     signals.push(signal);

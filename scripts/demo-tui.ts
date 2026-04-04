@@ -1,5 +1,5 @@
 import { ApertureCore, type SourceEvent, type AttentionView } from "../packages/core/src/index.ts";
-import type { ApertureTrace } from "../packages/core/src/trace.ts";
+import { subscribeInternalTrace, type ApertureTrace } from "../packages/core/src/internal-contract.ts";
 import type { ClaudeCodeHookEvent } from "../packages/claude-code/src/index.ts";
 import { mapClaudeCodeHookEvent } from "../packages/claude-code/src/index.ts";
 import type { OpencodeMappingContext, OpencodeSseMessage } from "../packages/opencode/src/index.ts";
@@ -31,9 +31,18 @@ async function main(): Promise<void> {
   const startedAtMs = options.recording ? RECORDING_START_MS : Date.now();
   const traceLines: string[] = [];
   const cleanup = scheduleDemo(core, startedAtMs, options.recording);
+  const surface = {
+    getAttentionView: () => core.getAttentionView(),
+    getSignalSummary: () => core.getSignalSummary(),
+    getAttentionState: () => core.getAttentionState(),
+    subscribeAttentionView: (listener: Parameters<typeof core.subscribeAttentionView>[0]) => core.subscribeAttentionView(listener),
+    onResponse: (listener: Parameters<typeof core.onResponse>[0]) => core.onResponse(listener),
+    submit: (response: Parameters<typeof core.submit>[0]) => core.submit(response),
+    onTrace: (listener: (trace: ApertureTrace) => void) => subscribeInternalTrace(core, listener),
+  };
 
   if (options.traceEnabled) {
-    core.onTrace((trace) => {
+    subscribeInternalTrace(core, (trace) => {
       traceLines.push(formatTrace(trace));
       if (traceLines.length > TRACE_LIMIT) {
         traceLines.shift();
@@ -42,7 +51,7 @@ async function main(): Promise<void> {
   }
 
   try {
-    await runAttentionTui(core, {
+    await runAttentionTui(surface, {
       title: "Aperture TUI Demo",
       reducedMotion: options.recording,
     });

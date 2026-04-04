@@ -319,6 +319,7 @@ test("maps failed message parts into explicit tool-failure awareness", () => {
   assert.equal(mapped[0].status, "failed");
   assert.deepEqual(mapped[0].semanticHints, {
     activityClass: "tool_failure",
+    confidence: "high",
   });
 });
 

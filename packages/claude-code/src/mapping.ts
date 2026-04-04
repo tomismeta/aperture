@@ -118,7 +118,7 @@ export type ClaudeCodeUserPromptSubmitEvent = ClaudeCodeHookBaseEvent & {
 
 export type ClaudeCodeStopEvent = ClaudeCodeHookBaseEvent & {
   hook_event_name: "Stop";
-  stop_hook_active?: boolean;
+  stop_hook_now?: boolean;
   stop_reason?: string;
   message?: string;
   last_assistant_message?: string;
@@ -747,7 +747,7 @@ function mapUserPromptSubmit(
 }
 
 function mapStop(event: ClaudeCodeStopEvent): SourceEvent[] {
-  if (event.stop_hook_active) {
+  if (event.stop_hook_now) {
     return [];
   }
 
@@ -1826,6 +1826,7 @@ function taskActivitySemanticHints(
 ): TaskUpdateSemanticHints {
   return {
     activityClass,
+    confidence: "high",
   };
 }
 

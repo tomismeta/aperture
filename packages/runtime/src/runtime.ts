@@ -16,6 +16,7 @@ import type {
   AttentionSignalSummary,
   AttentionState,
 } from "../../core/src/internal-contract.js";
+import { subscribeInternalTrace } from "../../core/src/internal-contract.js";
 
 import type { LearningPersistenceState } from "./learning-persistence.js";
 import {
@@ -210,9 +211,9 @@ export function createApertureRuntime(
     pushEvent({ type: "response", response });
     pushBounded(submittedResponses, response);
   });
-  const unsubscribeTrace = core.onTrace((trace) => {
-    pushEvent({ type: "trace", trace: trace as ApertureTrace });
-    pushBounded(traceLog, trace as ApertureTrace);
+  const unsubscribeTrace = subscribeInternalTrace(core, (trace) => {
+    pushEvent({ type: "trace", trace });
+    pushBounded(traceLog, trace);
   });
   const unsubscribeSignal = core.onSignal((signal) => {
     pushBounded(signalLog, signal);

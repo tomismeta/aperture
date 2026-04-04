@@ -333,7 +333,7 @@ function evaluateDecisionExpectation(
 
   pushFieldAssertion(assertions, `${targetKey} evaluation kind`, expectation.evaluationKind, target.evaluationKind);
   pushFieldAssertion(assertions, `${targetKey} decision kind`, expectation.decisionKind, target.decisionKind);
-  pushFieldAssertion(assertions, `${targetKey} result bucket`, expectation.resultLane, target.resultLane);
+  pushFieldAssertion(assertions, `${targetKey} result lane`, expectation.resultLane, target.resultLane);
   pushFieldAssertion(assertions, `${targetKey} semantic confidence`, expectation.semanticConfidence, target.semanticConfidence);
   pushFieldAssertion(assertions, `${targetKey} semantic abstained`, expectation.semanticAbstained, target.semanticAbstained ?? false);
   pushFieldAssertion(assertions, `${targetKey} ambiguity reason`, expectation.ambiguityReason, target.ambiguity?.reason ?? null);

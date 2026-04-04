@@ -874,6 +874,33 @@ test("publishes plain stop events as ambient completion awareness", async () => 
   }
 });
 
+test("does not publish stop events while Claude's native stop hook is active", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core);
+  const { url } = await server.listen();
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "Stop",
+        stop_hook_active: true,
+        stop_reason: "end_turn",
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {});
+    assert.equal(core.getAttentionView().now, null);
+    assert.equal(core.getAttentionView().ambient.length, 0);
+  } finally {
+    await server.close();
+  }
+});
+
 test("publishes PostToolUse completion updates as ambient awareness when enabled", async () => {
   const core = new ApertureCore();
   const server = createClaudeCodeHookServer(core, { includePostToolUse: true });

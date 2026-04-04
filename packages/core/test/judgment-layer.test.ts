@@ -385,7 +385,7 @@ test("attention policy applies user overrides for tool families", () => {
       overrides: {
         tools: {
           read: {
-            defaultPresentation: "ambient",
+            minimumLane: "ambient",
           },
         },
       },
@@ -425,7 +425,7 @@ test("attention policy prefers explicit tool family metadata over title heuristi
       overrides: {
         tools: {
           read: {
-            defaultPresentation: "ambient",
+            minimumLane: "ambient",
           },
         },
       },
@@ -845,7 +845,7 @@ test("tool-family user overrides do not match passive status updates by title al
       overrides: {
         tools: {
           read: {
-            defaultPresentation: "active",
+            minimumLane: "now",
           },
         },
       },
@@ -878,7 +878,7 @@ test("tool-family user overrides do not match passive status updates with explic
       overrides: {
         tools: {
           read: {
-            defaultPresentation: "active",
+            minimumLane: "now",
           },
         },
       },

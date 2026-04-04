@@ -21,8 +21,8 @@ export const evaluateConfiguredPolicyGateRule: PolicyGateRule = (input) => {
     && candidate.responseSpec.kind === "approval"
     && !requireContextExpansion;
 
-  const minimumLane = readAttentionLane(toolOverride?.defaultPresentation)
-    ?? policyRule?.minimumLane
+  const minimumLane = readAttentionLane(toolOverride?.minimumLane ?? toolOverride?.defaultPresentation)
+    ?? readAttentionLane(policyRule?.minimumLane)
     ?? (requireContextExpansion ? "now" : undefined);
   const mayInterrupt = policyRule?.mayInterrupt;
   const requiresOperatorResponse =

@@ -292,6 +292,7 @@ test("maps PostToolUse updates with explicit tool family", () => {
     assert.equal(mapped[0].title, "Read completed");
     assert.deepEqual(mapped[0].semanticHints, {
       activityClass: "tool_completion",
+      confidence: "high",
     });
   }
 });
@@ -766,6 +767,19 @@ test("maps plain stop events into ambient completion status", () => {
     assert.equal(mapped[0].status, "running");
     assert.equal(mapped[0].title, "Claude completed a turn");
   }
+});
+
+test("suppresses stop events while Claude's native stop hook is active", () => {
+  const event: ClaudeCodeStopEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "Stop",
+    stop_hook_now: true,
+    stop_reason: "end_turn",
+    last_assistant_message: "I summarized the results above.",
+  };
+
+  assert.deepEqual(mapClaudeCodeHookEvent(event), []);
 });
 
 test("maps stop events without assistant text into generic completion awareness", () => {

@@ -7,6 +7,11 @@ export type {
 export type { AttentionSignalSummary } from "./signal-summary.js";
 export type { AttentionState } from "./attention-state.js";
 export type { ApertureTrace } from "./trace-types.js";
+export {
+  subscribeInternalTrace,
+  type InternalTraceEmitter,
+  type InternalTraceListener,
+} from "./internal-trace.js";
 export { forecastAttentionPressure } from "./attention-pressure.js";
 export { scoreAttentionFrame } from "./frame-score.js";
 export { ProfileStore } from "./profile-store.js";

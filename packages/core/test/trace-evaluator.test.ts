@@ -1,16 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { ApertureTrace } from "../src/index.js";
-
 import { ApertureCore } from "../src/aperture-core.js";
+import { subscribeInternalTrace, type ApertureTrace } from "../src/internal-contract.js";
 import { evaluateTraceSession } from "../src/trace-evaluator.js";
 
 test("trace evaluator counts merged episode updates across tasks", () => {
   const core = new ApertureCore();
   const traces: ApertureTrace[] = [];
 
-  core.onTrace((trace) => {
+  subscribeInternalTrace(core, (trace) => {
     traces.push(trace);
   });
 
@@ -71,7 +70,7 @@ test("trace evaluator reports deferred episodes that later activate", () => {
   const core = new ApertureCore({ operatorPresence: "absent" });
   const traces: ApertureTrace[] = [];
 
-  core.onTrace((trace) => {
+  subscribeInternalTrace(core, (trace) => {
     traces.push(trace);
   });
 
@@ -122,7 +121,7 @@ test("trace evaluator reports surfaced actionable episodes from accumulated evid
   const core = new ApertureCore();
   const traces: ApertureTrace[] = [];
 
-  core.onTrace((trace) => {
+  subscribeInternalTrace(core, (trace) => {
     traces.push(trace);
   });
 
@@ -178,7 +177,7 @@ test("trace evaluator reports ambiguous next-lane work that later surfaces in no
   const core = new ApertureCore();
   const traces: ApertureTrace[] = [];
 
-  core.onTrace((trace) => {
+  subscribeInternalTrace(core, (trace) => {
     traces.push(trace);
   });
 
@@ -244,7 +243,7 @@ test("trace evaluator reports ambiguous ambient work that later activates", () =
   const core = new ApertureCore();
   const traces: ApertureTrace[] = [];
 
-  core.onTrace((trace) => {
+  subscribeInternalTrace(core, (trace) => {
     traces.push(trace);
   });
 
@@ -310,7 +309,7 @@ test("candidate traces expose semantic summaries with routing influence", () => 
   const core = new ApertureCore();
   const traces: ApertureTrace[] = [];
 
-  core.onTrace((trace) => {
+  subscribeInternalTrace(core, (trace) => {
     traces.push(trace);
   });
 

@@ -32,8 +32,8 @@
       "interaction:claude-code:session:7cb30446-cf9c-44b0-8401-02bbf1732180:status"
     ],
     "resultLaneCounts": {
-      "active": 0,
-      "queued": 0,
+      "now": 0,
+      "next": 0,
       "ambient": 1
     }
   },

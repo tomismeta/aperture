@@ -215,6 +215,11 @@ test("public SDK supports trace inspection through the trace subpath", () => {
   assert.equal(trace.semantic?.toolFamily, "read");
   assert.deepEqual(trace.semantic?.impact.decisionBearing, ["activity (canonical)", "consequence (canonical)"]);
   assert.equal(trace.coordination.kind, "activate");
+  assert.equal("policy" in trace, false);
+  assert.equal("taskView" in trace, false);
+  assert.equal("attentionView" in trace, false);
+  assert.equal("result" in trace, false);
+  assert.equal("adjusted" in trace.evaluation, false);
 });
 
 function captureTrace(trace: Parameters<sdk.AttentionTraceListener>[0]) {

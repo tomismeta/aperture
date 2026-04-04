@@ -1,5 +1,5 @@
 {
-  "id": "golden:queue:vs-active",
+  "id": "golden:next:vs-now",
   "title": "Medium work stays in next behind stronger work already in now",
   "description": "A medium choice request should not steal focus from a stronger approval already in now.",
   "doctrineTags": [
@@ -24,7 +24,7 @@
       "kind": "publish",
       "event": {
         "id": "evt:now:approval",
-        "taskId": "task:active",
+        "taskId": "task:now",
         "timestamp": "2026-03-19T12:00:00.000Z",
         "type": "human.input.requested",
         "interactionId": "interaction:now:approval",
@@ -40,7 +40,7 @@
       "kind": "publish",
       "event": {
         "id": "evt:next:choice",
-        "taskId": "task:queued",
+        "taskId": "task:next",
         "timestamp": "2026-03-19T12:00:05.000Z",
         "type": "human.input.requested",
         "interactionId": "interaction:next:choice",

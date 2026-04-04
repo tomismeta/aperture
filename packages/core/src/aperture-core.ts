@@ -45,6 +45,11 @@ import {
 import { TaskViewStore } from "./task-view-store.js";
 import type { ApertureTrace as PublicApertureTrace } from "./trace.js";
 import type { ApertureTrace as InternalApertureTrace } from "./trace-types.js";
+import {
+  APERTURE_INTERNAL_TRACE_SUBSCRIBE,
+  type InternalTraceListener,
+} from "./internal-trace.js";
+import { toPublicApertureTrace } from "./trace-projection.js";
 import { TraceRecorder } from "./trace-recorder.js";
 import { AttentionValue } from "./attention-value.js";
 
@@ -75,6 +80,7 @@ export class ApertureCore {
   private readonly responseListeners = new Set<AttentionResponseListener>();
   private readonly signalListeners = new Set<AttentionSignalListener>();
   private readonly traceListeners = new Set<AttentionTraceListener>();
+  private readonly internalTraceListeners = new Set<InternalTraceListener>();
   private readonly taskViews = new TaskViewStore();
   private readonly signals = new AttentionSignalStore();
   private readonly episodes = new EpisodeTracker();
@@ -415,6 +421,13 @@ export class ApertureCore {
     this.traceListeners.add(listener);
     return () => {
       this.traceListeners.delete(listener);
+    };
+  }
+
+  [APERTURE_INTERNAL_TRACE_SUBSCRIBE](listener: InternalTraceListener): () => void {
+    this.internalTraceListeners.add(listener);
+    return () => {
+      this.internalTraceListeners.delete(listener);
     };
   }
 
@@ -892,8 +905,13 @@ export class ApertureCore {
   }
 
   private notifyTrace(trace: InternalApertureTrace): void {
-    for (const listener of this.traceListeners) {
+    for (const listener of this.internalTraceListeners) {
       listener(trace);
+    }
+
+    const publicTrace = toPublicApertureTrace(trace);
+    for (const listener of this.traceListeners) {
+      listener(publicTrace);
     }
   }
 

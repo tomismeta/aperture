@@ -55,7 +55,7 @@ export type CodexUserPromptSubmitHookEvent = CodexHookBaseEvent & {
 export type CodexStopHookEvent = CodexHookBaseEvent & {
   hook_event_name: "Stop";
   turn_id: string;
-  stop_hook_active?: boolean;
+  stop_hook_now?: boolean;
   last_assistant_message?: string | null;
 };
 

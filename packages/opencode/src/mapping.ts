@@ -888,6 +888,7 @@ function taskActivitySemanticHints(
 ): TaskUpdateSemanticHints {
   return {
     activityClass,
+    confidence: "high",
   };
 }
 

@@ -9,6 +9,7 @@ import {
   readMarkdownFile,
   writeMarkdownFile,
 } from "./markdown-state.js";
+import { readAttentionLane } from "./attention-lane.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
 
 export type UserProfile = {
@@ -127,9 +128,16 @@ function parseUserProfile(content: string): UserProfile | null {
     }
 
     if (section === "Tool Overrides" && tool) {
+      const scalar = parseScalar(bullet.value);
+      const key = normalizeToolOverrideKey(camelKey(bullet.key));
       toolOverrides.set(tool, {
         ...(toolOverrides.get(tool) ?? {}),
-        [camelKey(bullet.key)]: parseScalar(bullet.value),
+        ...(key === "minimumLane"
+          ? (() => {
+              const lane = readAttentionLane(scalar);
+              return lane === undefined ? {} : { minimumLane: lane };
+            })()
+          : { [key]: scalar }),
       });
     }
   }
@@ -170,6 +178,16 @@ function parseUserProfile(content: string): UserProfile | null {
         }
       : {}),
   };
+}
+
+function normalizeToolOverrideKey(key: string): string {
+  switch (key) {
+    case "defaultPresentation":
+    case "minimumPresentation":
+      return "minimumLane";
+    default:
+      return key;
+  }
 }
 
 function parseMemoryProfile(content: string): MemoryProfile | null {

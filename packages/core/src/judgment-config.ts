@@ -7,6 +7,7 @@ import {
   parseScalar,
   readMarkdownFile,
 } from "./markdown-state.js";
+import { readAttentionLane } from "./attention-lane.js";
 import type { ContinuityRuleName } from "./continuity/continuity-rule.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
 
@@ -83,9 +84,16 @@ function parseJudgmentConfig(content: string): JudgmentConfig | null {
     }
 
     if (section === "Policy" && ruleName) {
+      const scalar = parseScalar(bullet.value);
+      const key = normalizeJudgmentRuleKey(camelKey(bullet.key));
       policy.set(ruleName, {
         ...(policy.get(ruleName) ?? {}),
-        [camelKey(bullet.key)]: parseScalar(bullet.value) as never,
+        ...(key === "minimumLane"
+          ? (() => {
+              const lane = readAttentionLane(scalar);
+              return lane === undefined ? {} : { minimumLane: lane };
+            })()
+          : { [key]: scalar as never }),
       });
       continue;
     }
@@ -130,6 +138,15 @@ function parseJudgmentConfig(content: string): JudgmentConfig | null {
       : {}),
     ...(plannerDefaults.size > 0 ? { plannerDefaults: Object.fromEntries(plannerDefaults.entries()) } : {}),
   };
+}
+
+function normalizeJudgmentRuleKey(key: string): string {
+  switch (key) {
+    case "minimumPresentation":
+      return "minimumLane";
+    default:
+      return key;
+  }
 }
 
 export function serializeJudgmentConfig(config: JudgmentConfig): string {

@@ -219,6 +219,66 @@ test("judgment config loader parses all judgment rule fields from markdown", asy
   });
 });
 
+test("judgment config loader normalizes legacy minimum presentation values", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-judgment-legacy-lane-"));
+  await writeFile(
+    join(root, "JUDGMENT.md"),
+    [
+      "# Judgment",
+      "",
+      "## Meta",
+      "- version: 1",
+      "- updated at: 2026-03-12T10:15:00.000Z",
+      "",
+      "## Policy",
+      "",
+      "### lowRiskRead",
+      "- minimum presentation: queue",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+
+  const loaded = await loadJudgmentConfig(root, {
+    version: 1,
+    updatedAt: "1970-01-01T00:00:00.000Z",
+  });
+
+  assert.equal(loaded.policy?.lowRiskRead?.minimumLane, "next");
+});
+
+test("profile store normalizes legacy minimum presentation values into minimumLane", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-user-profile-legacy-lane-"));
+  await writeFile(
+    join(root, "USER.md"),
+    [
+      "# User",
+      "",
+      "## Meta",
+      "- version: 1",
+      "- operator id: default",
+      "- updated at: 2026-03-12T10:15:00.000Z",
+      "",
+      "## Tool Overrides",
+      "",
+      "### bash",
+      "- minimum presentation: active",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+
+  const loaded = await new ProfileStore(root).loadUserProfile({
+    version: 1,
+    operatorId: "fallback",
+    updatedAt: "1970-01-01T00:00:00.000Z",
+  });
+
+  assert.deepEqual(loaded.overrides?.tools?.bash, {
+    minimumLane: "now",
+  });
+});
+
 test("judgment config loader deduplicates recognized disabled continuity rules and drops unknown names", async () => {
   const root = await mkdtemp(join(tmpdir(), "aperture-judgment-disabled-rules-"));
   await writeFile(

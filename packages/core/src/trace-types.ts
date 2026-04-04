@@ -15,33 +15,19 @@ import type { PolicyGateRuleEvaluation } from "./policy/policy-gate-rule.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import type { AttentionValueBreakdown } from "./attention-value.js";
 import type { ContinuityRuleEvaluation } from "./continuity/continuity-rule.js";
-import type {
-  SemanticActivityClass,
-  SemanticConfidence,
-  SemanticConsequenceLevel,
-  SemanticFieldProvenance,
-  SemanticIntentFrame,
-  SemanticRelationHint,
-} from "./semantic-types.js";
-
-export type TraceSemanticSummary = {
-  intentFrame: SemanticIntentFrame;
-  activityClass?: SemanticActivityClass;
-  toolFamily?: string;
-  consequence?: SemanticConsequenceLevel;
-  confidence?: SemanticConfidence;
-  abstained?: boolean;
-  whyNow?: string;
-  relationHints: SemanticRelationHint[];
-  factors: string[];
-  reasons: string[];
-  influence: string[];
-  impact: {
-    decisionBearing: string[];
-    explanatory: string[];
-  };
-  provenance?: SemanticFieldProvenance;
-};
+import type { TraceSemanticSummary } from "./trace-common.js";
+import { isCandidateTraceLike } from "./trace-common.js";
+export type {
+  TraceAttentionPriority,
+  TraceContinuityEvaluation,
+  TraceCriterionEvaluation,
+  TraceDecisionAmbiguity,
+  TraceDecisionKind,
+  TraceGateEvaluation,
+  TraceInterruptCriterionVerdict,
+  TraceResultLane,
+  TraceSemanticSummary,
+} from "./trace-common.js";
 
 export type ApertureTrace =
   | {
@@ -133,5 +119,5 @@ export type ApertureTrace =
 export type CandidateApertureTrace = Extract<ApertureTrace, { evaluation: { kind: "candidate" } }>;
 
 export function isCandidateTrace(trace: ApertureTrace): trace is CandidateApertureTrace {
-  return trace.evaluation.kind === "candidate";
+  return isCandidateTraceLike(trace);
 }

@@ -44,7 +44,7 @@ function makeFrame(overrides: Partial<Frame> = {}): Frame {
   };
 }
 
-test("renderAttentionScreen shows active, queued, and ambient summaries", () => {
+test("renderAttentionScreen shows now, next, and ambient summaries", () => {
   const attentionView: AttentionView = {
     now: makeFrame(),
     next: [makeFrame({ id: "frame-2", title: "Choose target", mode: "choice" })],
@@ -333,7 +333,7 @@ test("renderAttentionScreen shows numbered choice options in the now pane", () =
   assert.match(screen, /\[2\] production/);
 });
 
-test("renderAttentionScreen nests active input inside the event tree", () => {
+test("renderAttentionScreen nests now-lane input inside the event tree", () => {
   const attentionView: AttentionView = {
     now: makeFrame({
       mode: "form",
@@ -552,7 +552,7 @@ test("renderAttentionScreen preserves status text when stats are also shown", ()
   assert.match(screen, /Approved · focused on Approve Bash ls -la/);
 });
 
-test("renderAttentionScreen compacts repeated queued notifications", () => {
+test("renderAttentionScreen compacts repeated next-lane notifications", () => {
   const repeated = makeFrame({
     id: "frame-2",
     interactionId: "interaction-2",
@@ -597,7 +597,7 @@ test("renderAttentionScreen compacts repeated queued notifications", () => {
   assert.equal((screen.match(/Approve Read package\.json/g) ?? []).length, 2);
 });
 
-test("renderAttentionScreen shows duplicate active approvals as a pending count", () => {
+test("renderAttentionScreen shows duplicate now-lane approvals as a pending count", () => {
   const duplicate = makeFrame({
     id: "frame-2",
     interactionId: "interaction-2",
@@ -795,7 +795,7 @@ test("renderAttentionScreen why mode key hint", () => {
   assert.match(screen, /\[y\].*why/);
 });
 
-test("renderAttentionScreen why mode replaces queue and ambient", () => {
+test("renderAttentionScreen why mode replaces next and ambient", () => {
   const attentionView: AttentionView = {
     now: makeFrame(),
     next: [makeFrame({ id: "frame-2", title: "Queued item" })],

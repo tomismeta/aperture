@@ -375,7 +375,7 @@ test("runtime loads scaffolded judgment config and can reload it on demand", asy
         "",
         "### lowRiskRead",
         "- may interrupt: true",
-        "- minimum presentation: active",
+        "- minimum lane: now",
         "",
         "## Planner Defaults",
         "- batch status bursts: true",

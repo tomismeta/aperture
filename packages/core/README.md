@@ -492,7 +492,7 @@ If you use markdown-backed state, Aperture intentionally exposes only a small op
 - policy rule fields:
   - `auto approve`
   - `may interrupt`
-  - `minimum presentation`
+  - `minimum lane`
   - `require context expansion`
 - ambiguity defaults:
   - `non blocking activation threshold`

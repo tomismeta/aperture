@@ -12,11 +12,11 @@ test("loads the first golden scenarios from disk", async () => {
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:dangerous-approval-language"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:low-confidence-failed-status-queues"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:abstained-waiting-status-stays-ambient"));
-  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:low-confidence-failure-recovers-to-active"));
-  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:abstained-blocked-work-recovers-to-active"));
+  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:low-confidence-failure-recovers-to-now"));
+  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:abstained-blocked-work-recovers-to-now"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:question-tool-family-stays-explanatory"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:repeated-failure-same-issue"));
-  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:superseding-approval-replaces-active-step"));
+  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:superseding-approval-replaces-now-step"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:adversarial:production-read-stays-low"));
 });
 
@@ -47,7 +47,7 @@ test("JudgmentBench runs across the golden scenarios and produces a summary", as
   );
 
   const supersedingScenario = result.scenarios.find(
-    (scenario) => scenario.scenario.id === "golden:semantics:superseding-approval-replaces-active-step",
+    (scenario) => scenario.scenario.id === "golden:semantics:superseding-approval-replaces-now-step",
   );
   assert.ok(supersedingScenario);
   assert.equal(

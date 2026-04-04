@@ -6,7 +6,7 @@ import type {
   SourceEvent,
 } from "@tomismeta/aperture-core";
 import type { SemanticInterpretation } from "@tomismeta/aperture-core/semantic";
-import type { ApertureTrace } from "../../core/src/trace.js";
+import type { ApertureTrace } from "../../core/src/trace-types.js";
 
 import type {
   ReplayArtifactSource,

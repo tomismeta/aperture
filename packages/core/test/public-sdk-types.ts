@@ -15,6 +15,11 @@ import type {
   SourceEvent,
 } from "../src/index.js";
 import type {
+  ApertureTrace,
+  CandidateApertureTrace,
+  TraceSemanticSummary,
+} from "../src/trace.js";
+import type {
   SemanticConfidence,
   SemanticInterpretation,
   SemanticInterpretationHints,
@@ -35,6 +40,9 @@ void (0 as unknown as AttentionResponse);
 void (0 as unknown as AttentionSignal);
 void (0 as unknown as AttentionTaskView);
 void (0 as unknown as AttentionView);
+void (0 as unknown as ApertureTrace);
+void (0 as unknown as CandidateApertureTrace);
+void (0 as unknown as TraceSemanticSummary);
 void (0 as unknown as SemanticInterpretation);
 void (0 as unknown as SemanticInterpretationHints);
 void (0 as unknown as SemanticRelationHint);

@@ -48,6 +48,10 @@
     "./semantic": {
       "types": "./public-dist/semantic.d.ts",
       "default": "./public-dist/semantic.js"
+    },
+    "./trace": {
+      "types": "./public-dist/trace.d.ts",
+      "default": "./public-dist/trace.js"
     }
   },
   "scripts": {

@@ -7,7 +7,7 @@ import type { AttentionDecisionExplanation } from "./judgment-coordinator.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import type { AttentionPressure } from "./attention-pressure.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
-import type { ApertureTrace, TraceSemanticSummary } from "./trace.js";
+import type { ApertureTrace, TraceSemanticSummary } from "./trace-types.js";
 
 export type TraceSnapshot = {
   timestamp: string;

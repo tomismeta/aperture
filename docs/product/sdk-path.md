@@ -34,6 +34,7 @@ What is already true:
 
 - `ApertureCore` is exported and usable as a full engine surface
 - `SourceEvent` ingestion now includes a built-in deterministic semantic layer
+- trace/explanation now has a dedicated subpath for SDK consumers
 - the root public surface is intentionally minimal
 - external-consumer proof paths exist
 - `pnpm sdk:prove` verifies both external consumption and tarball shape
@@ -60,6 +61,41 @@ The right package surface should expose judgment constructs, not internal churn.
 
 ## Current Package Shapes
 
+### Root Package
+
+This is the main engine surface:
+
+- construct `ApertureCore`
+- publish `ApertureEvent` or `SourceEvent`
+- receive frames, views, responses, signals, and trace callbacks
+- submit `AttentionResponse`
+
+This surface should stay small and stable.
+
+### `@tomismeta/aperture-core/semantic`
+
+This subpath contains deterministic interpretation and normalization helpers.
+
+It exists for consumers who want to:
+
+- inspect the semantic read without running the full engine
+- normalize `SourceEvent` into canonical `ApertureEvent`
+- validate adapter output and semantic assumptions
+
+### `@tomismeta/aperture-core/trace`
+
+This subpath contains the public explainability contract.
+
+It exists for consumers who want to:
+
+- type `onTrace(...)` callbacks cleanly
+- inspect why a route happened
+- consume semantic provenance and impact in a stable way
+
+The trace subpath is intentionally narrower than the workspace's internal trace
+snapshot. It should expose explanation structure, not the full coordinator and
+store internals.
+
 ### Aperture Core SDK
 
 This is the main public SDK package.
@@ -68,6 +104,7 @@ It currently contains:
 
 - the full engine facade for consumers who want the whole attention model
 - core event, source-event, frame, response, signal, and semantic types
+- a dedicated trace subpath for explanation consumers
 - a deterministic semantic layer used internally by `publishSourceEvent(...)`
 
 It should not contain:
@@ -131,7 +168,8 @@ Current emphasized exports:
 - `AttentionView`
 - `AttentionResponse`
 - `AttentionSignal`
-- semantic interpretation types
+- semantic interpretation types via `/semantic`
+- trace explanation types via `/trace`
 - current core event/source/frame/response/signal types
 
 Still not recommended as primary public surface:

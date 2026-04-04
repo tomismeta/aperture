@@ -1,4 +1,4 @@
-import { isCandidateTrace, type ApertureTrace, type CandidateApertureTrace } from "./trace.js";
+import { isCandidateTrace, type ApertureTrace, type CandidateApertureTrace } from "./trace-types.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
 
 const ACTIONABLE_EPISODE_EVIDENCE_THRESHOLD = JUDGMENT_DEFAULTS.queuePlanner.actionableEpisodeEvidenceThreshold;

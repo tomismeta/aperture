@@ -43,7 +43,8 @@ import {
   type AttentionSurfaceCapabilities,
 } from "./surface-capabilities.js";
 import { TaskViewStore } from "./task-view-store.js";
-import type { ApertureTrace } from "./trace.js";
+import type { ApertureTrace as PublicApertureTrace } from "./trace.js";
+import type { ApertureTrace as InternalApertureTrace } from "./trace-types.js";
 import { TraceRecorder } from "./trace-recorder.js";
 import { AttentionValue } from "./attention-value.js";
 
@@ -52,7 +53,7 @@ export type AttentionTaskViewListener = (taskView: AttentionTaskView) => void;
 export type AttentionViewListener = (attentionView: AttentionView) => void;
 export type AttentionResponseListener = (response: AttentionResponse) => void;
 export type AttentionSignalListener = (signal: AttentionSignal) => void;
-export type AttentionTraceListener = (trace: ApertureTrace) => void;
+export type AttentionTraceListener = (trace: PublicApertureTrace) => void;
 
 export type ApertureCoreOptions = {
   userProfile?: UserProfile;
@@ -890,7 +891,7 @@ export class ApertureCore {
     }
   }
 
-  private notifyTrace(trace: ApertureTrace): void {
+  private notifyTrace(trace: InternalApertureTrace): void {
     for (const listener of this.traceListeners) {
       listener(trace);
     }

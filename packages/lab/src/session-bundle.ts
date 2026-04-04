@@ -12,7 +12,7 @@ import type {
   SourceEvent,
 } from "@tomismeta/aperture-core";
 import { normalizeSourceEvent } from "@tomismeta/aperture-core/semantic";
-import { isCandidateTrace, type ApertureTrace } from "../../core/src/trace.js";
+import { isCandidateTrace, type ApertureTrace } from "../../core/src/trace-types.js";
 
 import type {
   ReplayArtifactSource,

@@ -211,8 +211,8 @@ export function createApertureRuntime(
     pushBounded(responseLog, response);
   });
   const unsubscribeTrace = core.onTrace((trace) => {
-    pushEvent({ type: "trace", trace });
-    pushBounded(traceLog, trace);
+    pushEvent({ type: "trace", trace: trace as ApertureTrace });
+    pushBounded(traceLog, trace as ApertureTrace);
   });
   const unsubscribeSignal = core.onSignal((signal) => {
     pushBounded(signalLog, signal);

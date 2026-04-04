@@ -1,20 +1,4 @@
-import type { AttentionBurden } from "./attention-burden.js";
-import type { AttentionState } from "./attention-state.js";
-import type { EpisodeSummary } from "./episode-tracker.js";
 import type { ApertureEvent } from "./events.js";
-import type { AttentionFrame, AttentionTaskView, AttentionView } from "./frame.js";
-import type { AttentionCandidate, AttentionPriority } from "./interaction-candidate.js";
-import type { AttentionDecisionAmbiguity } from "./attention-ambiguity.js";
-import type {
-  AttentionInterruptCriterionVerdict,
-  AttentionPolicyVerdict,
-} from "./attention-policy.js";
-import type { AttentionPressure } from "./attention-pressure.js";
-import type { PolicyCriterionRuleEvaluation } from "./policy/policy-criterion-rule.js";
-import type { PolicyGateRuleEvaluation } from "./policy/policy-gate-rule.js";
-import type { AttentionSignalSummary } from "./signal-summary.js";
-import type { AttentionValueBreakdown } from "./attention-value.js";
-import type { ContinuityRuleEvaluation } from "./continuity/continuity-rule.js";
 import type {
   SemanticActivityClass,
   SemanticConfidence,
@@ -24,6 +8,56 @@ import type {
   SemanticRelationHint,
 } from "./semantic-types.js";
 
+export type TraceDecisionKind = "auto_approve" | "activate" | "queue" | "ambient" | "clear";
+
+export type TraceResultBucket = "active" | "queued" | "ambient" | "none";
+
+export type TraceAttentionPriority = "background" | "normal" | "high";
+
+export type TraceDecisionAmbiguity = {
+  kind: "interrupt";
+  reason: "low_signal" | "small_score_gap";
+  resolution: "queue" | "ambient";
+};
+
+export type TraceInterruptCriterion = {
+  activationThreshold: number;
+  promotionMargin: number;
+};
+
+export type TraceInterruptCriterionVerdict = {
+  criterion: TraceInterruptCriterion;
+  peripheralResolution: "queue" | "ambient" | null;
+  ambiguity: TraceDecisionAmbiguity | null;
+  rationale: string[];
+};
+
+export type TraceGateEvaluation = {
+  rule: string;
+  kind: "noop" | "verdict";
+  rationale: string[];
+};
+
+export type TraceCriterionEvaluation = {
+  rule: string;
+  kind: "noop" | "adjust" | "verdict";
+  rationale: string[];
+};
+
+export type TraceContinuityEvaluation = {
+  rule: string;
+  kind: "noop" | "override";
+  rationale: string[];
+};
+
+/**
+ * Stable semantic summary for SDK consumers.
+ *
+ * `intentFrame`, `activityClass`, `toolFamily`, `consequence`, `confidence`,
+ * `abstained`, `provenance`, and `impact` are suitable for programmatic use.
+ * `whyNow`, `factors`, `reasons`, and `influence` are explanatory text and
+ * may evolve as the product language gets clearer.
+ */
 export type TraceSemanticSummary = {
   intentFrame: SemanticIntentFrame;
   activityClass?: SemanticActivityClass;
@@ -43,6 +77,13 @@ export type TraceSemanticSummary = {
   provenance?: SemanticFieldProvenance;
 };
 
+/**
+ * Public explanation trace emitted by `ApertureCore.onTrace(...)`.
+ *
+ * The public trace surface is intentionally narrower than the workspace's
+ * internal trace snapshot. It is meant to explain what happened and why,
+ * without freezing the full coordinator and state-store internals.
+ */
 export type ApertureTrace =
   | {
       timestamp: string;
@@ -50,15 +91,6 @@ export type ApertureTrace =
       evaluation: {
         kind: "noop";
       };
-      taskSummary: AttentionSignalSummary;
-      globalSummary: AttentionSignalSummary;
-      taskAttentionState: AttentionState;
-      globalAttentionState: AttentionState;
-      pressureForecast: AttentionPressure;
-      attentionBurden: AttentionBurden;
-      current: AttentionFrame | null;
-      taskView: AttentionTaskView;
-      attentionView: AttentionView;
     }
   | {
       timestamp: string;
@@ -67,67 +99,29 @@ export type ApertureTrace =
         kind: "clear";
         taskId: string;
       };
-      taskSummary: AttentionSignalSummary;
-      globalSummary: AttentionSignalSummary;
-      taskAttentionState: AttentionState;
-      globalAttentionState: AttentionState;
-      pressureForecast: AttentionPressure;
-      attentionBurden: AttentionBurden;
-      current: AttentionFrame | null;
-      taskView: AttentionTaskView;
-      attentionView: AttentionView;
     }
   | {
       timestamp: string;
       event: ApertureEvent;
       evaluation: {
         kind: "candidate";
-        original: AttentionCandidate;
-        adjusted: AttentionCandidate;
-      };
-      heuristics: {
-        scoreOffset: number;
-        rationale: string[];
       };
       semantic?: TraceSemanticSummary;
-      episode: EpisodeSummary | null;
-      policy: AttentionPolicyVerdict;
       policyRules: {
-        gateEvaluations: PolicyGateRuleEvaluation[];
-        criterion: AttentionInterruptCriterionVerdict | null;
-        criterionEvaluations: PolicyCriterionRuleEvaluation[];
-      };
-      utility: {
-        candidate: AttentionValueBreakdown;
-        currentScore: number | null;
-        currentPriority: AttentionPriority | null;
-      };
-      planner: {
-        kind: "auto_approve" | "activate" | "queue" | "ambient" | "clear";
-        reasons: string[];
-        continuityEvaluations: ContinuityRuleEvaluation[];
+        gateEvaluations: TraceGateEvaluation[];
+        criterion: TraceInterruptCriterionVerdict | null;
+        criterionEvaluations: TraceCriterionEvaluation[];
       };
       coordination: {
-        kind: "auto_approve" | "activate" | "queue" | "ambient" | "clear";
-        resultBucket: "active" | "queued" | "ambient" | "none";
+        kind: TraceDecisionKind;
+        resultBucket: TraceResultBucket;
         candidateScore: number;
         currentScore: number | null;
-        currentPriority: AttentionPriority | null;
-        criterion: AttentionInterruptCriterionVerdict | null;
-        ambiguity: AttentionDecisionAmbiguity | null;
+        currentPriority: TraceAttentionPriority | null;
+        ambiguity: TraceDecisionAmbiguity | null;
         reasons: string[];
-        continuityEvaluations: ContinuityRuleEvaluation[];
+        continuityEvaluations: TraceContinuityEvaluation[];
       };
-      taskSummary: AttentionSignalSummary;
-      globalSummary: AttentionSignalSummary;
-      taskAttentionState: AttentionState;
-      globalAttentionState: AttentionState;
-      pressureForecast: AttentionPressure;
-      attentionBurden: AttentionBurden;
-      current: AttentionFrame | null;
-      taskView: AttentionTaskView;
-      attentionView: AttentionView;
-      result: AttentionFrame | null;
     };
 
 export type CandidateApertureTrace = Extract<ApertureTrace, { evaluation: { kind: "candidate" } }>;

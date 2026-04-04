@@ -6,7 +6,7 @@ export type {
 } from "./frame.js";
 export type { AttentionSignalSummary } from "./signal-summary.js";
 export type { AttentionState } from "./attention-state.js";
-export type { ApertureTrace } from "./trace.js";
+export type { ApertureTrace } from "./trace-types.js";
 export { forecastAttentionPressure } from "./attention-pressure.js";
 export { scoreAttentionFrame } from "./frame-score.js";
 export { ProfileStore } from "./profile-store.js";

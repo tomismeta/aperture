@@ -22,6 +22,10 @@ const examples: Example[] = [
     name: "core-semantic-entrypoint",
     entrypoint: join(repoRoot, "examples", "core-semantic-entrypoint", "index.ts"),
   },
+  {
+    name: "core-trace-entrypoint",
+    entrypoint: join(repoRoot, "examples", "core-trace-entrypoint", "index.ts"),
+  },
 ];
 
 type CorePackageJson = {
@@ -82,6 +86,7 @@ function assertTarballShape(entries: string[]): void {
   assert.equal(entries.includes("package/package.json"), true, "tarball should include package.json");
   assert.equal(entries.includes("package/public-dist/index.js"), true, "tarball should include built entrypoint");
   assert.equal(entries.includes("package/public-dist/semantic.js"), true, "tarball should include semantic entrypoint");
+  assert.equal(entries.includes("package/public-dist/trace.js"), true, "tarball should include trace entrypoint");
   assert.equal(entries.some((entry) => entry.startsWith("package/dist/")), false, "tarball should not include internal dist output");
   assert.equal(entries.some((entry) => entry.endsWith(".js.map")), false, "tarball should not include JavaScript source maps");
   assert.equal(entries.some((entry) => entry.endsWith(".d.ts.map")), false, "tarball should not include declaration maps");

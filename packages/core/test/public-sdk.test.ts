@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import * as sdk from "../src/index.js";
 import * as semanticSdk from "../src/semantic.js";
+import * as traceSdk from "../src/trace.js";
 
 test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.ok("ApertureCore" in sdk);
@@ -69,6 +70,7 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.equal("AttentionSignalSummary" in sdk, false);
   assert.equal("AttentionState" in sdk, false);
   assert.equal("ApertureTrace" in sdk, false);
+  assert.equal("isCandidateTrace" in sdk, false);
 
   assert.equal(typeof sdk.baseAttentionSurfaceCapabilities, "object");
   assert.equal(typeof sdk.mergeAttentionSurfaceCapabilities, "function");
@@ -163,3 +165,58 @@ test("advanced semantic helpers live behind the semantic subpath", () => {
   assert.equal(typeof semanticSdk.interpretSourceEvent, "function");
   assert.equal(typeof semanticSdk.normalizeSourceEvent, "function");
 });
+
+test("trace helpers live behind the trace subpath", () => {
+  assert.equal("ApertureTrace" in sdk, false);
+  assert.equal("isCandidateTrace" in sdk, false);
+
+  assert.equal(typeof traceSdk.isCandidateTrace, "function");
+});
+
+test("public SDK supports trace inspection through the trace subpath", () => {
+  const core = new sdk.ApertureCore();
+  const traces: Array<ReturnType<typeof captureTrace>> = [];
+
+  core.onTrace((trace) => {
+    traces.push(captureTrace(trace));
+  });
+
+  core.publishSourceEvent({
+    id: "src:trace-sdk",
+    type: "human.input.requested",
+    taskId: "task:trace-sdk",
+    interactionId: "interaction:trace-sdk",
+    timestamp: "2026-04-04T18:00:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Should we inspect the config first?",
+    summary: "Choose the next step.",
+    context: {
+      items: [{ id: "toolFamily", label: "Tool Family", value: "read" }],
+    },
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [{ id: "yes", label: "Yes" }],
+    },
+  });
+
+  const trace = traces.at(-1);
+  assert.ok(trace);
+  if (!trace) {
+    return;
+  }
+
+  assert.equal(trace.evaluation.kind, "candidate");
+  assert.equal(traceSdk.isCandidateTrace(trace), true);
+  if (!traceSdk.isCandidateTrace(trace)) {
+    return;
+  }
+
+  assert.equal(trace.semantic?.toolFamily, "read");
+  assert.deepEqual(trace.semantic?.impact.decisionBearing, ["consequence (canonical)"]);
+  assert.equal(trace.coordination.kind, "activate");
+});
+
+function captureTrace(trace: Parameters<sdk.AttentionTraceListener>[0]) {
+  return trace;
+}

@@ -5,7 +5,7 @@ import {
   type AttentionSignal,
 } from "@tomismeta/aperture-core";
 import { normalizeSourceEvent } from "@tomismeta/aperture-core/semantic";
-import { isCandidateTrace, type ApertureTrace } from "../../core/src/trace.js";
+import { isCandidateTrace, type ApertureTrace } from "../../core/src/trace-types.js";
 
 import type {
   ReplayObservationStep,
@@ -46,7 +46,7 @@ export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
   const decisions: ReplayDecisionSnapshot[] = [];
 
   core.onTrace((trace) => {
-    traces.push(trace);
+    traces.push(trace as ApertureTrace);
   });
   core.onSignal((signal) => {
     signals.push(signal);

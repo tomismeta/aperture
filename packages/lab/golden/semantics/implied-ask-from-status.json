@@ -44,7 +44,7 @@
         "resultLane": "ambient",
         "semanticConfidence": "low",
         "semanticInfluenceIncludes": [
-          "task status remained authoritative"
+          "task status stayed authoritative; semantic details only affected context, continuity, and ambiguity handling"
         ],
         "semanticImpactDecisionBearingIncludes": [
           "confidence (ambiguity)"

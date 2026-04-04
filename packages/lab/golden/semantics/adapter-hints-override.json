@@ -41,7 +41,7 @@
         "resultLane": "now",
         "semanticConfidence": "medium",
         "semanticInfluenceIncludes": [
-          "semantic consequence shaped the canonical human-input consequence",
+          "semantic consequence set the canonical human-input consequence",
           "tool family remained decision-bearing on the approval path"
         ],
         "semanticImpactDecisionBearingIncludes": [

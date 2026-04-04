@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { ApertureTrace } from "../src/index.js";
+import type { ApertureTrace as PublicApertureTrace } from "../src/index.js";
 
 import { ApertureCore } from "../src/aperture-core.js";
 import { readFrameEpisodeId } from "../src/episode-tracker.js";
+import {
+  subscribeInternalTrace,
+  type ApertureTrace as InternalApertureTrace,
+} from "../src/internal-contract.js";
 
 test("global urgent backlog demotes lower-value queued status into ambient", () => {
   const core = new ApertureCore();
@@ -73,7 +77,7 @@ test("absent operator keeps blocking requests queued in the shared view", () => 
 
 test("trace reasons explain why lower-priority work is queued", () => {
   const core = new ApertureCore();
-  const traces: ApertureTrace[] = [];
+  const traces: PublicApertureTrace[] = [];
 
   core.onTrace((trace) => {
     traces.push(trace);
@@ -123,9 +127,9 @@ test("trace reasons explain why lower-priority work is queued", () => {
 
 test("trace includes attention pressure for candidate decisions", () => {
   const core = new ApertureCore();
-  const traces: ApertureTrace[] = [];
+  const traces: InternalApertureTrace[] = [];
 
-  core.onTrace((trace) => {
+  subscribeInternalTrace(core, (trace) => {
     traces.push(trace);
   });
 
@@ -185,13 +189,13 @@ test("core timeSource keeps evidence freshness deterministic", () => {
   const staleCore = new ApertureCore({
     timeSource: () => Date.parse("2026-03-15T12:03:10.000Z"),
   });
-  const recentTraces: ApertureTrace[] = [];
-  const staleTraces: ApertureTrace[] = [];
+  const recentTraces: InternalApertureTrace[] = [];
+  const staleTraces: InternalApertureTrace[] = [];
 
-  recentCore.onTrace((trace) => {
+  subscribeInternalTrace(recentCore, (trace) => {
     recentTraces.push(trace);
   });
-  staleCore.onTrace((trace) => {
+  subscribeInternalTrace(staleCore, (trace) => {
     staleTraces.push(trace);
   });
 
@@ -821,7 +825,7 @@ test("completed tasks clear ambient-only task state", () => {
 
 test("same-interaction status updates can demote a now frame into ambient", () => {
   const core = new ApertureCore();
-  const traces: ApertureTrace[] = [];
+  const traces: PublicApertureTrace[] = [];
 
   core.onTrace((trace) => {
     traces.push(trace);
@@ -864,7 +868,7 @@ test("same-interaction status updates can demote a now frame into ambient", () =
 
 test("committed bucket matches queued routing under operator absence", () => {
   const core = new ApertureCore({ operatorPresence: "absent" });
-  const traces: ApertureTrace[] = [];
+  const traces: PublicApertureTrace[] = [];
 
   core.onTrace((trace) => {
     traces.push(trace);
@@ -894,7 +898,7 @@ test("committed bucket matches queued routing under operator absence", () => {
 
 test("committed bucket matches ambient routing for passive status", () => {
   const core = new ApertureCore();
-  const traces: ApertureTrace[] = [];
+  const traces: PublicApertureTrace[] = [];
 
   core.onTrace((trace) => {
     traces.push(trace);

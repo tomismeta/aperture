@@ -47,7 +47,7 @@
         "resultLane": "now",
         "semanticConfidence": "low",
         "semanticInfluenceIncludes": [
-          "tool family stayed explanatory on the question/form path"
+          "tool family stayed context-only on the question/form path"
         ],
         "semanticImpactDecisionBearingIncludes": [
           "consequence (canonical)"

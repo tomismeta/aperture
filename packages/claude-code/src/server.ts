@@ -516,6 +516,8 @@ async function readHookEvent(
     parsed.hook_event_name !== "UserPromptSubmit" &&
     parsed.hook_event_name !== "StopFailure" &&
     parsed.hook_event_name !== "TeammateIdle" &&
+    parsed.hook_event_name !== "ConfigChange" &&
+    parsed.hook_event_name !== "CwdChanged" &&
     parsed.hook_event_name !== "PreCompact" &&
     parsed.hook_event_name !== "PostCompact" &&
     parsed.hook_event_name !== "SessionEnd" &&
@@ -850,6 +852,42 @@ async function readHookEvent(
       ...(typeof parsed["transcript_path"] === "string" ? { transcript_path: parsed["transcript_path"] } : {}),
       teammate_name: parsed["teammate_name"],
       team_name: parsed["team_name"],
+    };
+  }
+
+  if (parsed.hook_event_name === "ConfigChange") {
+    if (
+      parsed["source"] !== "user_settings"
+      && parsed["source"] !== "project_settings"
+      && parsed["source"] !== "local_settings"
+      && parsed["source"] !== "policy_settings"
+      && parsed["source"] !== "skills"
+    ) {
+      throw new Error("ConfigChange hook request is missing required fields");
+    }
+
+    return {
+      session_id: parsed.session_id,
+      cwd: parsed.cwd,
+      hook_event_name: "ConfigChange",
+      ...(typeof parsed["transcript_path"] === "string" ? { transcript_path: parsed["transcript_path"] } : {}),
+      source: parsed["source"],
+      ...(typeof parsed["file_path"] === "string" ? { file_path: parsed["file_path"] } : {}),
+    };
+  }
+
+  if (parsed.hook_event_name === "CwdChanged") {
+    if (typeof parsed["old_cwd"] !== "string" || typeof parsed["new_cwd"] !== "string") {
+      throw new Error("CwdChanged hook request is missing required fields");
+    }
+
+    return {
+      session_id: parsed.session_id,
+      cwd: parsed.cwd,
+      hook_event_name: "CwdChanged",
+      ...(typeof parsed["transcript_path"] === "string" ? { transcript_path: parsed["transcript_path"] } : {}),
+      old_cwd: parsed["old_cwd"],
+      new_cwd: parsed["new_cwd"],
     };
   }
 

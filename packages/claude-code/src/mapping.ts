@@ -30,6 +30,8 @@ export type ClaudeCodeHookEvent =
   | ClaudeCodeUserPromptSubmitEvent
   | ClaudeCodeStopFailureEvent
   | ClaudeCodeTeammateIdleEvent
+  | ClaudeCodeConfigChangeEvent
+  | ClaudeCodeCwdChangedEvent
   | ClaudeCodePreCompactEvent
   | ClaudeCodePostCompactEvent
   | ClaudeCodeSessionEndEvent
@@ -53,6 +55,8 @@ export type ClaudeCodeHookEventName =
   | "UserPromptSubmit"
   | "StopFailure"
   | "TeammateIdle"
+  | "ConfigChange"
+  | "CwdChanged"
   | "PreCompact"
   | "PostCompact"
   | "SessionEnd"
@@ -229,6 +233,25 @@ export type ClaudeCodeTeammateIdleEvent = ClaudeCodeHookBaseEvent & {
   team_name: string;
 };
 
+export type ClaudeCodeConfigSource =
+  | "user_settings"
+  | "project_settings"
+  | "local_settings"
+  | "policy_settings"
+  | "skills";
+
+export type ClaudeCodeConfigChangeEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "ConfigChange";
+  source: ClaudeCodeConfigSource;
+  file_path?: string;
+};
+
+export type ClaudeCodeCwdChangedEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "CwdChanged";
+  old_cwd: string;
+  new_cwd: string;
+};
+
 export type ClaudeCodeCompactTrigger = "manual" | "auto";
 
 export type ClaudeCodePreCompactEvent = ClaudeCodeHookBaseEvent & {
@@ -380,6 +403,10 @@ export function mapClaudeCodeHookEvent(
       return [mapStopFailure(event)];
     case "TeammateIdle":
       return [mapTeammateIdle(event)];
+    case "ConfigChange":
+      return [mapConfigChange(event)];
+    case "CwdChanged":
+      return [mapCwdChanged(event)];
     case "PreCompact":
       return [mapPreCompact(event)];
     case "PostCompact":
@@ -1073,6 +1100,48 @@ function mapTeammateIdle(
     title: `${event.teammate_name} teammate is idle`,
     summary: teammateIdleSummary(event),
     status: "waiting",
+  };
+}
+
+function mapConfigChange(
+  event: ClaudeCodeConfigChangeEvent,
+): SourceTaskUpdatedEvent {
+  return {
+    id: claudeEventId(event, "task.updated"),
+    type: "task.updated",
+    taskId: claudeTaskId(event.session_id),
+    timestamp: new Date().toISOString(),
+    source: claudeSource(event),
+    activityClass: "session_status",
+    semanticHints: {
+      activityClass: "session_status",
+      whyNow: configChangeWhyNow(event.source),
+      confidence: "high",
+    },
+    title: configChangeTitle(event.source),
+    summary: configChangeSummary(event),
+    status: "running",
+  };
+}
+
+function mapCwdChanged(
+  event: ClaudeCodeCwdChangedEvent,
+): SourceTaskUpdatedEvent {
+  return {
+    id: claudeEventId(event, "task.updated"),
+    type: "task.updated",
+    taskId: claudeTaskId(event.session_id),
+    timestamp: new Date().toISOString(),
+    source: claudeSource(event),
+    activityClass: "session_status",
+    semanticHints: {
+      activityClass: "session_status",
+      whyNow: "Claude changed the working directory during the session.",
+      confidence: "high",
+    },
+    title: "Claude changed working directory",
+    summary: cwdChangedSummary(event),
+    status: "running",
   };
 }
 
@@ -1968,6 +2037,10 @@ function claudeEventToken(event: ClaudeCodeHookEvent): string {
     return event.file_path;
   }
 
+  if ("new_cwd" in event && typeof event.new_cwd === "string" && event.new_cwd.length > 0) {
+    return event.new_cwd;
+  }
+
   if ("agent_id" in event && typeof event.agent_id === "string" && event.agent_id.length > 0) {
     return event.agent_id;
   }
@@ -2336,6 +2409,63 @@ function stopFailureSummary(event: ClaudeCodeStopFailureEvent): string {
 
 function teammateIdleSummary(event: ClaudeCodeTeammateIdleEvent): string {
   return `${event.teammate_name} teammate in team ${event.team_name} is waiting for more work.`;
+}
+
+function configChangeTitle(source: ClaudeCodeConfigSource): string {
+  switch (source) {
+    case "user_settings":
+      return "Claude user settings changed";
+    case "project_settings":
+      return "Claude project settings changed";
+    case "local_settings":
+      return "Claude local settings changed";
+    case "policy_settings":
+      return "Claude managed policy changed";
+    case "skills":
+      return "Claude skills changed";
+  }
+}
+
+function configChangeWhyNow(source: ClaudeCodeConfigSource): string {
+  switch (source) {
+    case "user_settings":
+      return "Claude detected a change to user settings during the session.";
+    case "project_settings":
+      return "Claude detected a change to project settings during the session.";
+    case "local_settings":
+      return "Claude detected a change to local project settings during the session.";
+    case "policy_settings":
+      return "Claude detected a managed policy change during the session.";
+    case "skills":
+      return "Claude detected a skill change during the session.";
+  }
+}
+
+function configChangeSummary(event: ClaudeCodeConfigChangeEvent): string {
+  if (event.file_path) {
+    return `${configChangeLabel(event.source)} changed: ${basename(event.file_path)}.`;
+  }
+
+  return `${configChangeLabel(event.source)} changed.`;
+}
+
+function configChangeLabel(source: ClaudeCodeConfigSource): string {
+  switch (source) {
+    case "user_settings":
+      return "User settings";
+    case "project_settings":
+      return "Project settings";
+    case "local_settings":
+      return "Local settings";
+    case "policy_settings":
+      return "Managed policy";
+    case "skills":
+      return "Skills";
+  }
+}
+
+function cwdChangedSummary(event: ClaudeCodeCwdChangedEvent): string {
+  return `${event.old_cwd} -> ${event.new_cwd}`;
 }
 
 function preCompactTitle(trigger: ClaudeCodeCompactTrigger): string {

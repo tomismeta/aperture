@@ -14,6 +14,8 @@ import {
   type ClaudeCodePostCompactEvent,
   type ClaudeCodePostToolUseFailureEvent,
   type ClaudeCodePreCompactEvent,
+  type ClaudeCodeConfigChangeEvent,
+  type ClaudeCodeCwdChangedEvent,
   type ClaudeCodePermissionDeniedEvent,
   type ClaudeCodePermissionRequestEvent,
   type ClaudeCodePreToolUseEvent,
@@ -921,6 +923,56 @@ test("maps teammate idle hooks into waiting session status", () => {
     assert.equal(mapped[0].status, "waiting");
     assert.equal(mapped[0].title, "researcher teammate is idle");
     assert.equal(mapped[0].summary, "researcher teammate in team my-project is waiting for more work.");
+  }
+});
+
+test("maps config change hooks into running session status", () => {
+  const event: ClaudeCodeConfigChangeEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "ConfigChange",
+    source: "project_settings",
+    file_path: "/repo/.claude/settings.json",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.updated");
+  if (mapped[0]?.type === "task.updated") {
+    assert.equal(mapped[0].status, "running");
+    assert.equal(mapped[0].activityClass, "session_status");
+    assert.equal(mapped[0].title, "Claude project settings changed");
+    assert.equal(mapped[0].summary, "Project settings changed: settings.json.");
+    assert.deepEqual(mapped[0].semanticHints, {
+      activityClass: "session_status",
+      whyNow: "Claude detected a change to project settings during the session.",
+      confidence: "high",
+    });
+  }
+});
+
+test("maps cwd changed hooks into running session status", () => {
+  const event: ClaudeCodeCwdChangedEvent = {
+    session_id: "session-1",
+    cwd: "/repo/packages/core",
+    hook_event_name: "CwdChanged",
+    old_cwd: "/repo",
+    new_cwd: "/repo/packages/core",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.updated");
+  if (mapped[0]?.type === "task.updated") {
+    assert.equal(mapped[0].status, "running");
+    assert.equal(mapped[0].activityClass, "session_status");
+    assert.equal(mapped[0].title, "Claude changed working directory");
+    assert.equal(mapped[0].summary, "/repo -> /repo/packages/core");
+    assert.deepEqual(mapped[0].semanticHints, {
+      activityClass: "session_status",
+      whyNow: "Claude changed the working directory during the session.",
+      confidence: "high",
+    });
   }
 });
 

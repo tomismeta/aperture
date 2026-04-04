@@ -851,6 +851,64 @@ test("accepts InstructionsLoaded hooks and publishes session-status updates", as
   }
 });
 
+test("accepts ConfigChange hooks and publishes settings-change awareness", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core, { holdTimeoutMs: 250 });
+  const { url } = await server.listen();
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "ConfigChange",
+        source: "project_settings",
+        file_path: "/repo/.claude/settings.json",
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {});
+
+    const frame = await waitFor(() => core.getAttentionView().ambient[0]);
+    assert.ok(frame);
+    assert.equal(frame?.title, "Claude project settings changed");
+  } finally {
+    await server.close();
+  }
+});
+
+test("accepts CwdChanged hooks and publishes working-directory awareness", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core, { holdTimeoutMs: 250 });
+  const { url } = await server.listen();
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo/packages/core",
+        hook_event_name: "CwdChanged",
+        old_cwd: "/repo",
+        new_cwd: "/repo/packages/core",
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {});
+
+    const frame = await waitFor(() => core.getAttentionView().ambient[0]);
+    assert.ok(frame);
+    assert.equal(frame?.title, "Claude changed working directory");
+  } finally {
+    await server.close();
+  }
+});
+
 test("accepts StopFailure hooks and surfaces the failed turn", async () => {
   const core = new ApertureCore();
   const server = createClaudeCodeHookServer(core, { holdTimeoutMs: 250 });

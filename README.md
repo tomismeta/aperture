@@ -79,7 +79,7 @@ With `@tomismeta/aperture-core`:
 
 - the deterministic judgment engine inside Aperture
 - a small public SDK loop
-- the advanced `/semantic` entrypoint for adapter authors
+- the advanced `/semantic` and `/trace` entrypoints for adapter and explanation consumers
 
 ## The Loop
 

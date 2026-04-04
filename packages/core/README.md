@@ -172,7 +172,14 @@ the advanced semantic entrypoint:
 import { interpretSourceEvent, normalizeSourceEvent } from "@tomismeta/aperture-core/semantic";
 ```
 
-That subpath exists for advanced adapter authors. The root package remains the
+If you want to type `onTrace(...)` callbacks directly or inspect why a route
+happened through the public explanation contract, use the trace entrypoint:
+
+```ts
+import { isCandidateTrace, type ApertureTrace } from "@tomismeta/aperture-core/trace";
+```
+
+Those subpaths exist for advanced consumers. The root package remains the
 recommended SDK loop.
 
 ## Host Constraints, Operator Profile, And Operator Learning

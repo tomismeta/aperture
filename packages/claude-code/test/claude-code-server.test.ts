@@ -796,6 +796,61 @@ test("publishes stop events with follow-up questions as waiting status", async (
   }
 });
 
+test("accepts SessionStart hooks and publishes session lifecycle context", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core, { holdTimeoutMs: 250 });
+  const { url } = await server.listen();
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "SessionStart",
+        source: "startup",
+        model: "claude-sonnet-4-6",
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {});
+  } finally {
+    await server.close();
+  }
+});
+
+test("accepts StopFailure hooks and surfaces the failed turn", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core, { holdTimeoutMs: 250 });
+  const { url } = await server.listen();
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "StopFailure",
+        error: "rate_limit",
+        error_details: "429 Too Many Requests",
+        last_assistant_message: "API Error: Rate limit reached",
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {});
+
+    const frame = await waitFor(() => core.getAttentionView().now);
+    assert.ok(frame);
+    assert.equal(frame?.title, "Claude hit an API error");
+  } finally {
+    await server.close();
+  }
+});
+
 test("enriches stop events from transcript text when the hook omits the assistant message", async () => {
   const core = new ApertureCore();
   const scratchDir = await mkdtemp(join(tmpdir(), "aperture-claude-stop-"));

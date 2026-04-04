@@ -13,25 +13,41 @@ import type {
 import type { ClaudeCodeAskUserQuestionTranscriptPayload } from "./transcript.js";
 
 export type ClaudeCodeHookEvent =
+  | ClaudeCodeSessionStartEvent
   | ClaudeCodePreToolUseEvent
   | ClaudeCodePermissionRequestEvent
+  | ClaudeCodePermissionDeniedEvent
   | ClaudeCodePostToolUseFailureEvent
   | ClaudeCodePostToolUseEvent
   | ClaudeCodeElicitationEvent
   | ClaudeCodeElicitationResultEvent
   | ClaudeCodeNotificationEvent
+  | ClaudeCodeSubagentStartEvent
+  | ClaudeCodeSubagentStopEvent
+  | ClaudeCodeTaskCreatedEvent
+  | ClaudeCodeTaskCompletedEvent
   | ClaudeCodeUserPromptSubmitEvent
+  | ClaudeCodeStopFailureEvent
+  | ClaudeCodeSessionEndEvent
   | ClaudeCodeStopEvent;
 
 export type ClaudeCodeHookEventName =
+  | "SessionStart"
   | "PreToolUse"
   | "PermissionRequest"
+  | "PermissionDenied"
   | "PostToolUseFailure"
   | "PostToolUse"
   | "Elicitation"
   | "ElicitationResult"
   | "Notification"
+  | "SubagentStart"
+  | "SubagentStop"
+  | "TaskCreated"
+  | "TaskCompleted"
   | "UserPromptSubmit"
+  | "StopFailure"
+  | "SessionEnd"
   | "Stop";
 
 export type ClaudeCodeHookBaseEvent = {
@@ -40,6 +56,15 @@ export type ClaudeCodeHookBaseEvent = {
   hook_event_name: ClaudeCodeHookEventName;
   permission_mode?: string;
   transcript_path?: string;
+};
+
+export type ClaudeCodeSessionStartSource = "startup" | "resume" | "clear" | "compact";
+
+export type ClaudeCodeSessionStartEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "SessionStart";
+  source: ClaudeCodeSessionStartSource;
+  model: string;
+  agent_type?: string;
 };
 
 export type ClaudeCodePreToolUseEvent = ClaudeCodeHookBaseEvent & {
@@ -56,6 +81,12 @@ export type ClaudeCodePermissionRequestEvent = ClaudeCodeHookBaseEvent & {
   tool_input: Record<string, unknown>;
   permission_suggestions?: Array<Record<string, unknown>>;
   askUserQuestion?: ClaudeCodeAskUserQuestionTranscriptPayload;
+};
+
+export type ClaudeCodePermissionDeniedEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "PermissionDenied";
+  tool_name: string;
+  tool_input?: Record<string, unknown>;
 };
 
 export type ClaudeCodePostToolUseFailureEvent = ClaudeCodeHookBaseEvent & {
@@ -111,9 +142,71 @@ export type ClaudeCodeNotificationEvent = ClaudeCodeHookBaseEvent & {
   notification_type: ClaudeCodeNotificationType;
 };
 
+export type ClaudeCodeSubagentStartEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "SubagentStart";
+  agent_id: string;
+  agent_type: string;
+};
+
+export type ClaudeCodeSubagentStopEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "SubagentStop";
+  stop_hook_now?: boolean;
+  agent_id: string;
+  agent_type: string;
+  agent_transcript_path?: string;
+  last_assistant_message?: string;
+};
+
+export type ClaudeCodeTaskCreatedEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "TaskCreated";
+  task_id: string;
+  task_subject: string;
+  task_description?: string;
+  teammate_name?: string;
+  team_name?: string;
+};
+
+export type ClaudeCodeTaskCompletedEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "TaskCompleted";
+  task_id: string;
+  task_subject: string;
+  task_description?: string;
+  teammate_name?: string;
+  team_name?: string;
+};
+
 export type ClaudeCodeUserPromptSubmitEvent = ClaudeCodeHookBaseEvent & {
   hook_event_name: "UserPromptSubmit";
   prompt: string;
+};
+
+export type ClaudeCodeStopFailureError =
+  | "rate_limit"
+  | "authentication_failed"
+  | "billing_error"
+  | "invalid_request"
+  | "server_error"
+  | "max_output_tokens"
+  | "unknown";
+
+export type ClaudeCodeStopFailureEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "StopFailure";
+  error: ClaudeCodeStopFailureError;
+  error_details?: string;
+  last_assistant_message?: string;
+};
+
+export type ClaudeCodeSessionEndReason =
+  | "clear"
+  | "resume"
+  | "logout"
+  | "prompt_input_exit"
+  | "bypass_permissions_disabled"
+  | "other";
+
+export type ClaudeCodeSessionEndEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "SessionEnd";
+  reason: ClaudeCodeSessionEndReason;
 };
 
 export type ClaudeCodeStopEvent = ClaudeCodeHookBaseEvent & {
@@ -200,6 +293,8 @@ export function mapClaudeCodeHookEvent(
   const tools = options.tools ?? DEFAULT_TOOLS;
 
   switch (event.hook_event_name) {
+    case "SessionStart":
+      return [mapSessionStart(event)];
     case "PreToolUse":
       if (tools && !tools.includes(event.tool_name)) {
         return [];
@@ -210,6 +305,8 @@ export function mapClaudeCodeHookEvent(
       return [mapPreToolUse(event, options)];
     case "PermissionRequest":
       return !tools || tools.includes(event.tool_name) ? [mapPermissionRequest(event, options)] : [];
+    case "PermissionDenied":
+      return !tools || tools.includes(event.tool_name) ? [mapPermissionDenied(event)] : [];
     case "PostToolUseFailure":
       return [mapPostToolUseFailure(event)];
     case "PostToolUse":
@@ -220,8 +317,20 @@ export function mapClaudeCodeHookEvent(
       return [mapElicitationResult(event)];
     case "Notification":
       return mapNotification(event);
+    case "SubagentStart":
+      return [mapSubagentStart(event)];
+    case "SubagentStop":
+      return mapSubagentStop(event);
+    case "TaskCreated":
+      return [mapTaskCreated(event)];
+    case "TaskCompleted":
+      return [mapTaskCompleted(event)];
     case "UserPromptSubmit":
       return [mapUserPromptSubmit(event)];
+    case "StopFailure":
+      return [mapStopFailure(event)];
+    case "SessionEnd":
+      return [mapSessionEnd(event)];
     case "Stop":
       return mapStop(event);
   }
@@ -507,6 +616,23 @@ function mapPreToolUse(
   };
 }
 
+function mapSessionStart(event: ClaudeCodeSessionStartEvent): SourceEvent {
+  return {
+    id: claudeEventId(event, "task.started"),
+    type: "task.started",
+    taskId: claudeTaskId(event.session_id),
+    timestamp: new Date().toISOString(),
+    source: claudeSource(event),
+    semanticHints: {
+      activityClass: "session_status",
+      whyNow: sessionStartWhyNow(event.source),
+      confidence: "high",
+    },
+    title: sessionStartTitle(event.source),
+    summary: sessionStartSummary(event),
+  };
+}
+
 function mapAskUserQuestion(
   event: ClaudeCodePreToolUseEvent,
 ): SourceHumanInputRequestedEvent {
@@ -603,6 +729,30 @@ function mapPermissionRequest(
     provenance: {
       whyNow,
     },
+  };
+}
+
+function mapPermissionDenied(event: ClaudeCodePermissionDeniedEvent): SourceTaskUpdatedEvent {
+  const toolFamily = claudeToolFamily(event.tool_name);
+  const whyNow = "Claude Code auto mode denied a tool call and may need different guidance before it can continue.";
+
+  return {
+    id: claudeEventId(event, "task.updated"),
+    type: "task.updated",
+    taskId: claudeTaskId(event.session_id),
+    timestamp: new Date().toISOString(),
+    source: claudeSource(event),
+    ...(toolFamily !== undefined ? { toolFamily } : {}),
+    activityClass: "permission_request",
+    semanticHints: {
+      intentFrame: "approval_request",
+      activityClass: "permission_request",
+      whyNow,
+      confidence: "high",
+    },
+    title: permissionDeniedTitle(event),
+    summary: permissionDeniedSummary(event),
+    status: "blocked",
   };
 }
 
@@ -733,6 +883,68 @@ function mapNotification(event: ClaudeCodeNotificationEvent): SourceEvent[] {
   ];
 }
 
+function mapSubagentStart(event: ClaudeCodeSubagentStartEvent): SourceEvent {
+  return {
+    id: claudeEventId(event, "task.started"),
+    type: "task.started",
+    taskId: claudeSubagentTaskId(event.session_id, event.agent_id),
+    timestamp: new Date().toISOString(),
+    source: claudeSource(event),
+    semanticHints: {
+      activityClass: "session_status",
+      whyNow: `Claude started a ${event.agent_type} subagent.`,
+      confidence: "high",
+    },
+    title: `Claude started ${event.agent_type} subagent`,
+    summary: `${event.agent_type} subagent is now running.`,
+  };
+}
+
+function mapSubagentStop(event: ClaudeCodeSubagentStopEvent): SourceEvent[] {
+  if (event.stop_hook_now) {
+    return [];
+  }
+
+  return [
+    {
+      id: claudeEventId(event, "task.completed"),
+      type: "task.completed",
+      taskId: claudeSubagentTaskId(event.session_id, event.agent_id),
+      timestamp: new Date().toISOString(),
+      source: claudeSource(event),
+      summary: subagentStopSummary(event),
+    },
+  ];
+}
+
+function mapTaskCreated(event: ClaudeCodeTaskCreatedEvent): SourceEvent {
+  return {
+    id: claudeEventId(event, "task.started"),
+    type: "task.started",
+    taskId: claudeAgentTaskId(event.session_id, event.task_id),
+    timestamp: new Date().toISOString(),
+    source: claudeSource(event),
+    semanticHints: {
+      activityClass: "session_status",
+      whyNow: "Claude created a teammate task.",
+      confidence: "high",
+    },
+    title: event.task_subject,
+    summary: taskLifecycleSummary(event, "created"),
+  };
+}
+
+function mapTaskCompleted(event: ClaudeCodeTaskCompletedEvent): SourceTaskCompletedEvent {
+  return {
+    id: claudeEventId(event, "task.completed"),
+    type: "task.completed",
+    taskId: claudeAgentTaskId(event.session_id, event.task_id),
+    timestamp: new Date().toISOString(),
+    source: claudeSource(event),
+    summary: taskLifecycleSummary(event, "completed"),
+  };
+}
+
 function mapUserPromptSubmit(
   event: ClaudeCodeUserPromptSubmitEvent,
 ): SourceTaskCompletedEvent {
@@ -743,6 +955,38 @@ function mapUserPromptSubmit(
     timestamp: new Date().toISOString(),
     source: claudeSource(event),
     summary: "Operator replied in Claude Code.",
+  };
+}
+
+function mapStopFailure(
+  event: ClaudeCodeStopFailureEvent,
+): SourceTaskUpdatedEvent {
+  return {
+    id: claudeEventId(event, "task.updated"),
+    type: "task.updated",
+    taskId: claudeTaskId(event.session_id),
+    timestamp: new Date().toISOString(),
+    source: claudeSource(event),
+    activityClass: "session_status",
+    semanticHints: {
+      activityClass: "session_status",
+      whyNow: "Claude could not finish the turn because the API returned an error.",
+      confidence: "high",
+    },
+    title: "Claude hit an API error",
+    summary: stopFailureSummary(event),
+    status: "failed",
+  };
+}
+
+function mapSessionEnd(event: ClaudeCodeSessionEndEvent): SourceTaskCompletedEvent {
+  return {
+    id: claudeEventId(event, "task.completed"),
+    type: "task.completed",
+    taskId: claudeTaskId(event.session_id),
+    timestamp: new Date().toISOString(),
+    source: claudeSource(event),
+    summary: sessionEndSummary(event.reason),
   };
 }
 
@@ -878,6 +1122,14 @@ function claudeTaskId(sessionId: string): string {
   return `claude-code:session:${encodeURIComponent(sessionId)}`;
 }
 
+function claudeSubagentTaskId(sessionId: string, agentId: string): string {
+  return `claude-code:session:${encodeURIComponent(sessionId)}:subagent:${encodeURIComponent(agentId)}`;
+}
+
+function claudeAgentTaskId(sessionId: string, taskId: string): string {
+  return `claude-code:session:${encodeURIComponent(sessionId)}:task:${encodeURIComponent(taskId)}`;
+}
+
 function claudeInteractionId(sessionId: string, toolUseId: string): string {
   return `claude-code:tool:${encodeURIComponent(sessionId)}:${encodeURIComponent(toolUseId)}`;
 }
@@ -953,6 +1205,41 @@ function shortSessionLabel(sessionId: string): string {
   return sessionId.slice(0, 12);
 }
 
+function sessionStartTitle(source: ClaudeCodeSessionStartSource): string {
+  switch (source) {
+    case "startup":
+      return "Claude Code session started";
+    case "resume":
+      return "Claude Code session resumed";
+    case "clear":
+      return "Claude Code session cleared";
+    case "compact":
+      return "Claude Code session resumed after compaction";
+  }
+}
+
+function sessionStartWhyNow(source: ClaudeCodeSessionStartSource): string {
+  switch (source) {
+    case "startup":
+      return "Claude started a new session.";
+    case "resume":
+      return "Claude resumed an existing session.";
+    case "clear":
+      return "Claude cleared the current session and is ready to continue.";
+    case "compact":
+      return "Claude resumed after a compaction cycle.";
+  }
+}
+
+function sessionStartSummary(event: ClaudeCodeSessionStartEvent): string {
+  const details = [`model ${event.model}`];
+  if (event.agent_type) {
+    details.push(`agent ${event.agent_type}`);
+  }
+
+  return `${sessionStartTitle(event.source)} with ${details.join(", ")}.`;
+}
+
 function toolInputSummary(event: ClaudeCodePreToolUseEvent): string {
   const input = event.tool_input;
   // Try common field names across Claude Code tools
@@ -984,6 +1271,60 @@ function permissionRequestSummary(event: ClaudeCodePermissionRequestEvent): stri
   if (event.tool_name.toLowerCase() === "toolsearch") return "web search";
   if (url) return url;
   return event.tool_name;
+}
+
+function permissionDeniedTitle(event: ClaudeCodePermissionDeniedEvent): string {
+  const action = permissionActionLabel(event.tool_name);
+  const detail = permissionDeniedTitleDetail(event);
+  return detail
+    ? `Claude Code auto mode denied permission to ${action} ${detail}`
+    : `Claude Code auto mode denied permission to ${action}`;
+}
+
+function permissionDeniedSummary(event: ClaudeCodePermissionDeniedEvent): string {
+  const input = event.tool_input;
+  if (input) {
+    const summary =
+      readString(input.command)
+      ?? readString(input.file_path)
+      ?? readString(input.path)
+      ?? readSearchQuery(input)
+      ?? readString(input.url);
+    if (summary) {
+      return summary;
+    }
+  }
+
+  return `${event.tool_name} was denied by Claude Code auto mode.`;
+}
+
+function permissionDeniedTitleDetail(event: ClaudeCodePermissionDeniedEvent): string | null {
+  const input = event.tool_input;
+  if (!input) {
+    return null;
+  }
+
+  const toolName = event.tool_name.toLowerCase();
+  if (toolName === "bash") {
+    return "a shell command";
+  }
+
+  if (toolName === "search" || toolName === "grep" || toolName === "glob") {
+    const pattern = readString(input.pattern);
+    if (pattern) return pattern;
+  }
+
+  if (toolName === "websearch" || toolName === "toolsearch") {
+    const query = readSearchQuery(input);
+    if (query) return query;
+  }
+
+  const filePath = readString(input.file_path) ?? readString(input.path);
+  if (filePath) {
+    return basename(filePath);
+  }
+
+  return null;
 }
 
 function elicitationSummary(
@@ -1446,8 +1787,32 @@ function claudeEventToken(event: ClaudeCodeHookEvent): string {
     return permissionRequestToken(event.tool_name, event.tool_input);
   }
 
+  if ("tool_name" in event && event.hook_event_name === "PermissionDenied") {
+    return permissionRequestToken(event.tool_name, event.tool_input ?? {});
+  }
+
+  if ("agent_id" in event && typeof event.agent_id === "string" && event.agent_id.length > 0) {
+    return event.agent_id;
+  }
+
+  if ("task_id" in event && typeof event.task_id === "string" && event.task_id.length > 0) {
+    return event.task_id;
+  }
+
   if ("elicitation_id" in event) {
     return event.elicitation_id ?? ("message" in event ? event.message : "none");
+  }
+
+  if ("reason" in event && typeof event.reason === "string" && event.reason.length > 0) {
+    return event.reason;
+  }
+
+  if ("source" in event && typeof event.source === "string" && event.source.length > 0) {
+    return event.source;
+  }
+
+  if ("error" in event && typeof event.error === "string" && event.error.length > 0) {
+    return event.error;
   }
 
   return "none";
@@ -1747,6 +2112,68 @@ function stopSummary(event: ClaudeCodeStopEvent): string | undefined {
   }
 
   return undefined;
+}
+
+function subagentStopSummary(event: ClaudeCodeSubagentStopEvent): string {
+  const direct = readString(event.last_assistant_message);
+  if (direct) {
+    const firstLine = direct
+      .split("\n")
+      .map((line) => line.trim())
+      .find((line) => line.length > 0);
+    if (firstLine) {
+      return `${event.agent_type} subagent finished: ${firstLine}`;
+    }
+  }
+
+  return `${event.agent_type} subagent finished.`;
+}
+
+function stopFailureSummary(event: ClaudeCodeStopFailureEvent): string {
+  return (
+    readString(event.last_assistant_message)
+    ?? readString(event.error_details)
+    ?? `Claude Code API error: ${event.error}.`
+  );
+}
+
+function sessionEndSummary(reason: ClaudeCodeSessionEndReason): string {
+  switch (reason) {
+    case "clear":
+      return "Claude Code session ended after /clear.";
+    case "resume":
+      return "Claude Code session ended because another session was resumed.";
+    case "logout":
+      return "Claude Code session ended after logout.";
+    case "prompt_input_exit":
+      return "Claude Code session ended while prompt input was open.";
+    case "bypass_permissions_disabled":
+      return "Claude Code session ended after bypass permissions mode was disabled.";
+    case "other":
+      return "Claude Code session ended.";
+  }
+}
+
+function taskLifecycleSummary(
+  event: ClaudeCodeTaskCreatedEvent | ClaudeCodeTaskCompletedEvent,
+  action: "created" | "completed",
+): string {
+  const details: string[] = [];
+  if (event.task_description) {
+    details.push(event.task_description);
+  }
+  if (event.teammate_name) {
+    details.push(`${event.teammate_name} teammate`);
+  }
+  if (event.team_name) {
+    details.push(`team ${event.team_name}`);
+  }
+
+  if (details.length === 0) {
+    return `Task ${action}: ${event.task_subject}.`;
+  }
+
+  return `Task ${action}: ${event.task_subject}. ${details.join(" · ")}.`;
 }
 
 function looksLikeFollowUpQuestion(value: string): boolean {

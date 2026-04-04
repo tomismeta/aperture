@@ -9,8 +9,11 @@ import {
   mapClaudeCodeHookEvent,
   type ClaudeCodeElicitationEvent,
   type ClaudeCodeElicitationResultEvent,
+  type ClaudeCodeInstructionsLoadedEvent,
   type ClaudeCodeNotificationEvent,
+  type ClaudeCodePostCompactEvent,
   type ClaudeCodePostToolUseFailureEvent,
+  type ClaudeCodePreCompactEvent,
   type ClaudeCodePermissionDeniedEvent,
   type ClaudeCodePermissionRequestEvent,
   type ClaudeCodePreToolUseEvent,
@@ -22,6 +25,7 @@ import {
   type ClaudeCodeSubagentStopEvent,
   type ClaudeCodeTaskCompletedEvent,
   type ClaudeCodeTaskCreatedEvent,
+  type ClaudeCodeTeammateIdleEvent,
   type ClaudeCodeUserPromptSubmitEvent,
 } from "../src/index.js";
 
@@ -740,6 +744,32 @@ test("maps session start hooks into session lifecycle events", () => {
   }
 });
 
+test("maps instructions loaded hooks into session-status updates", () => {
+  const event: ClaudeCodeInstructionsLoadedEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "InstructionsLoaded",
+    file_path: "/repo/CLAUDE.md",
+    memory_type: "Project",
+    load_reason: "session_start",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.updated");
+  if (mapped[0]?.type === "task.updated") {
+    assert.equal(mapped[0].taskId, "claude-code:session:session-1");
+    assert.equal(mapped[0].title, "Claude loaded project instructions");
+    assert.equal(mapped[0].summary, "CLAUDE.md · reason session start");
+    assert.equal(mapped[0].status, "running");
+    assert.deepEqual(mapped[0].semanticHints, {
+      activityClass: "session_status",
+      whyNow: "Claude loaded instructions while starting the session.",
+      confidence: "high",
+    });
+  }
+});
+
 test("maps permission denied hooks into blocked status updates", () => {
   const event: ClaudeCodePermissionDeniedEvent = {
     session_id: "session-1",
@@ -872,6 +902,63 @@ test("maps stop failure hooks into failed session status", () => {
     assert.equal(mapped[0].activityClass, "session_status");
     assert.equal(mapped[0].title, "Claude hit an API error");
     assert.equal(mapped[0].summary, "API Error: Rate limit reached");
+  }
+});
+
+test("maps teammate idle hooks into waiting session status", () => {
+  const event: ClaudeCodeTeammateIdleEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "TeammateIdle",
+    teammate_name: "researcher",
+    team_name: "my-project",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.updated");
+  if (mapped[0]?.type === "task.updated") {
+    assert.equal(mapped[0].status, "waiting");
+    assert.equal(mapped[0].title, "researcher teammate is idle");
+    assert.equal(mapped[0].summary, "researcher teammate in team my-project is waiting for more work.");
+  }
+});
+
+test("maps pre-compact hooks into running session status", () => {
+  const event: ClaudeCodePreCompactEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "PreCompact",
+    trigger: "manual",
+    custom_instructions: "Keep the deployment notes.",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.updated");
+  if (mapped[0]?.type === "task.updated") {
+    assert.equal(mapped[0].title, "Claude is compacting the session");
+    assert.equal(mapped[0].summary, "Manual compaction instructions: Keep the deployment notes.");
+    assert.equal(mapped[0].status, "running");
+  }
+});
+
+test("maps post-compact hooks into running session status", () => {
+  const event: ClaudeCodePostCompactEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "PostCompact",
+    trigger: "auto",
+    compact_summary: "Reduced the conversation to the current migration plan.\nMore details...",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.updated");
+  if (mapped[0]?.type === "task.updated") {
+    assert.equal(mapped[0].title, "Claude auto-compacted the session");
+    assert.equal(mapped[0].summary, "Reduced the conversation to the current migration plan.");
+    assert.equal(mapped[0].status, "running");
   }
 });
 

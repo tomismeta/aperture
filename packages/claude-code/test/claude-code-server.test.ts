@@ -821,6 +821,36 @@ test("accepts SessionStart hooks and publishes session lifecycle context", async
   }
 });
 
+test("accepts InstructionsLoaded hooks and publishes session-status updates", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core, { holdTimeoutMs: 250 });
+  const { url } = await server.listen();
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "InstructionsLoaded",
+        file_path: "/repo/CLAUDE.md",
+        memory_type: "Project",
+        load_reason: "session_start",
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {});
+
+    const frame = await waitFor(() => core.getAttentionView().ambient[0]);
+    assert.ok(frame);
+    assert.equal(frame?.title, "Claude loaded project instructions");
+  } finally {
+    await server.close();
+  }
+});
+
 test("accepts StopFailure hooks and surfaces the failed turn", async () => {
   const core = new ApertureCore();
   const server = createClaudeCodeHookServer(core, { holdTimeoutMs: 250 });
@@ -846,6 +876,35 @@ test("accepts StopFailure hooks and surfaces the failed turn", async () => {
     const frame = await waitFor(() => core.getAttentionView().now);
     assert.ok(frame);
     assert.equal(frame?.title, "Claude hit an API error");
+  } finally {
+    await server.close();
+  }
+});
+
+test("accepts PostCompact hooks and publishes compacted-session awareness", async () => {
+  const core = new ApertureCore();
+  const server = createClaudeCodeHookServer(core, { holdTimeoutMs: 250 });
+  const { url } = await server.listen();
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "PostCompact",
+        trigger: "manual",
+        compact_summary: "Retained the deployment checklist and current blocker.",
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {});
+
+    const frame = await waitFor(() => core.getAttentionView().ambient[0]);
+    assert.ok(frame);
+    assert.equal(frame?.title, "Claude compacted the session");
   } finally {
     await server.close();
   }

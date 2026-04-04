@@ -500,6 +500,7 @@ async function readHookEvent(
 
   if (
     parsed.hook_event_name !== "SessionStart" &&
+    parsed.hook_event_name !== "InstructionsLoaded" &&
     parsed.hook_event_name !== "PreToolUse" &&
     parsed.hook_event_name !== "PermissionRequest" &&
     parsed.hook_event_name !== "PermissionDenied" &&
@@ -514,6 +515,9 @@ async function readHookEvent(
     parsed.hook_event_name !== "TaskCompleted" &&
     parsed.hook_event_name !== "UserPromptSubmit" &&
     parsed.hook_event_name !== "StopFailure" &&
+    parsed.hook_event_name !== "TeammateIdle" &&
+    parsed.hook_event_name !== "PreCompact" &&
+    parsed.hook_event_name !== "PostCompact" &&
     parsed.hook_event_name !== "SessionEnd" &&
     parsed.hook_event_name !== "Stop"
   ) {
@@ -556,6 +560,42 @@ async function readHookEvent(
       source: parsed["source"],
       model: parsed["model"],
       ...(typeof parsed["agent_type"] === "string" ? { agent_type: parsed["agent_type"] } : {}),
+    };
+  }
+
+  if (parsed.hook_event_name === "InstructionsLoaded") {
+    if (
+      typeof parsed["file_path"] !== "string"
+      || (parsed["memory_type"] !== "User"
+        && parsed["memory_type"] !== "Project"
+        && parsed["memory_type"] !== "Local"
+        && parsed["memory_type"] !== "Managed")
+      || (parsed["load_reason"] !== "session_start"
+        && parsed["load_reason"] !== "nested_traversal"
+        && parsed["load_reason"] !== "path_glob_match"
+        && parsed["load_reason"] !== "include"
+        && parsed["load_reason"] !== "compact")
+    ) {
+      throw new Error("InstructionsLoaded hook request is missing required fields");
+    }
+
+    return {
+      session_id: parsed.session_id,
+      cwd: parsed.cwd,
+      hook_event_name: "InstructionsLoaded",
+      ...(typeof parsed["transcript_path"] === "string" ? { transcript_path: parsed["transcript_path"] } : {}),
+      file_path: parsed["file_path"],
+      memory_type: parsed["memory_type"],
+      load_reason: parsed["load_reason"],
+      ...(Array.isArray(parsed["globs"])
+        ? { globs: parsed["globs"].filter((value): value is string => typeof value === "string" && value.length > 0) }
+        : {}),
+      ...(typeof parsed["trigger_file_path"] === "string"
+        ? { trigger_file_path: parsed["trigger_file_path"] }
+        : {}),
+      ...(typeof parsed["parent_file_path"] === "string"
+        ? { parent_file_path: parsed["parent_file_path"] }
+        : {}),
     };
   }
 
@@ -794,6 +834,58 @@ async function readHookEvent(
       ...(typeof parsed["last_assistant_message"] === "string"
         ? { last_assistant_message: parsed["last_assistant_message"] }
         : {}),
+    };
+  }
+
+  if (parsed.hook_event_name === "TeammateIdle") {
+    if (typeof parsed["teammate_name"] !== "string" || typeof parsed["team_name"] !== "string") {
+      throw new Error("TeammateIdle hook request is missing required fields");
+    }
+
+    return {
+      session_id: parsed.session_id,
+      cwd: parsed.cwd,
+      hook_event_name: "TeammateIdle",
+      ...(typeof parsed["permission_mode"] === "string" ? { permission_mode: parsed["permission_mode"] } : {}),
+      ...(typeof parsed["transcript_path"] === "string" ? { transcript_path: parsed["transcript_path"] } : {}),
+      teammate_name: parsed["teammate_name"],
+      team_name: parsed["team_name"],
+    };
+  }
+
+  if (parsed.hook_event_name === "PreCompact") {
+    if (
+      (parsed["trigger"] !== "manual" && parsed["trigger"] !== "auto")
+      || typeof parsed["custom_instructions"] !== "string"
+    ) {
+      throw new Error("PreCompact hook request is missing required fields");
+    }
+
+    return {
+      session_id: parsed.session_id,
+      cwd: parsed.cwd,
+      hook_event_name: "PreCompact",
+      ...(typeof parsed["transcript_path"] === "string" ? { transcript_path: parsed["transcript_path"] } : {}),
+      trigger: parsed["trigger"],
+      custom_instructions: parsed["custom_instructions"],
+    };
+  }
+
+  if (parsed.hook_event_name === "PostCompact") {
+    if (
+      (parsed["trigger"] !== "manual" && parsed["trigger"] !== "auto")
+      || typeof parsed["compact_summary"] !== "string"
+    ) {
+      throw new Error("PostCompact hook request is missing required fields");
+    }
+
+    return {
+      session_id: parsed.session_id,
+      cwd: parsed.cwd,
+      hook_event_name: "PostCompact",
+      ...(typeof parsed["transcript_path"] === "string" ? { transcript_path: parsed["transcript_path"] } : {}),
+      trigger: parsed["trigger"],
+      compact_summary: parsed["compact_summary"],
     };
   }
 

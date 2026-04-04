@@ -14,6 +14,7 @@ import type { ClaudeCodeAskUserQuestionTranscriptPayload } from "./transcript.js
 
 export type ClaudeCodeHookEvent =
   | ClaudeCodeSessionStartEvent
+  | ClaudeCodeInstructionsLoadedEvent
   | ClaudeCodePreToolUseEvent
   | ClaudeCodePermissionRequestEvent
   | ClaudeCodePermissionDeniedEvent
@@ -28,11 +29,15 @@ export type ClaudeCodeHookEvent =
   | ClaudeCodeTaskCompletedEvent
   | ClaudeCodeUserPromptSubmitEvent
   | ClaudeCodeStopFailureEvent
+  | ClaudeCodeTeammateIdleEvent
+  | ClaudeCodePreCompactEvent
+  | ClaudeCodePostCompactEvent
   | ClaudeCodeSessionEndEvent
   | ClaudeCodeStopEvent;
 
 export type ClaudeCodeHookEventName =
   | "SessionStart"
+  | "InstructionsLoaded"
   | "PreToolUse"
   | "PermissionRequest"
   | "PermissionDenied"
@@ -47,6 +52,9 @@ export type ClaudeCodeHookEventName =
   | "TaskCompleted"
   | "UserPromptSubmit"
   | "StopFailure"
+  | "TeammateIdle"
+  | "PreCompact"
+  | "PostCompact"
   | "SessionEnd"
   | "Stop";
 
@@ -65,6 +73,25 @@ export type ClaudeCodeSessionStartEvent = ClaudeCodeHookBaseEvent & {
   source: ClaudeCodeSessionStartSource;
   model: string;
   agent_type?: string;
+};
+
+export type ClaudeCodeInstructionsMemoryType = "User" | "Project" | "Local" | "Managed";
+
+export type ClaudeCodeInstructionsLoadReason =
+  | "session_start"
+  | "nested_traversal"
+  | "path_glob_match"
+  | "include"
+  | "compact";
+
+export type ClaudeCodeInstructionsLoadedEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "InstructionsLoaded";
+  file_path: string;
+  memory_type: ClaudeCodeInstructionsMemoryType;
+  load_reason: ClaudeCodeInstructionsLoadReason;
+  globs?: string[];
+  trigger_file_path?: string;
+  parent_file_path?: string;
 };
 
 export type ClaudeCodePreToolUseEvent = ClaudeCodeHookBaseEvent & {
@@ -196,6 +223,26 @@ export type ClaudeCodeStopFailureEvent = ClaudeCodeHookBaseEvent & {
   last_assistant_message?: string;
 };
 
+export type ClaudeCodeTeammateIdleEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "TeammateIdle";
+  teammate_name: string;
+  team_name: string;
+};
+
+export type ClaudeCodeCompactTrigger = "manual" | "auto";
+
+export type ClaudeCodePreCompactEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "PreCompact";
+  trigger: ClaudeCodeCompactTrigger;
+  custom_instructions: string;
+};
+
+export type ClaudeCodePostCompactEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "PostCompact";
+  trigger: ClaudeCodeCompactTrigger;
+  compact_summary: string;
+};
+
 export type ClaudeCodeSessionEndReason =
   | "clear"
   | "resume"
@@ -295,6 +342,8 @@ export function mapClaudeCodeHookEvent(
   switch (event.hook_event_name) {
     case "SessionStart":
       return [mapSessionStart(event)];
+    case "InstructionsLoaded":
+      return [mapInstructionsLoaded(event)];
     case "PreToolUse":
       if (tools && !tools.includes(event.tool_name)) {
         return [];
@@ -329,6 +378,12 @@ export function mapClaudeCodeHookEvent(
       return [mapUserPromptSubmit(event)];
     case "StopFailure":
       return [mapStopFailure(event)];
+    case "TeammateIdle":
+      return [mapTeammateIdle(event)];
+    case "PreCompact":
+      return [mapPreCompact(event)];
+    case "PostCompact":
+      return [mapPostCompact(event)];
     case "SessionEnd":
       return [mapSessionEnd(event)];
     case "Stop":
@@ -630,6 +685,27 @@ function mapSessionStart(event: ClaudeCodeSessionStartEvent): SourceEvent {
     },
     title: sessionStartTitle(event.source),
     summary: sessionStartSummary(event),
+  };
+}
+
+function mapInstructionsLoaded(
+  event: ClaudeCodeInstructionsLoadedEvent,
+): SourceTaskUpdatedEvent {
+  return {
+    id: claudeEventId(event, "task.updated"),
+    type: "task.updated",
+    taskId: claudeTaskId(event.session_id),
+    timestamp: new Date().toISOString(),
+    source: claudeSource(event),
+    activityClass: "session_status",
+    semanticHints: {
+      activityClass: "session_status",
+      whyNow: instructionsLoadedWhyNow(event),
+      confidence: "high",
+    },
+    title: instructionsLoadedTitle(event),
+    summary: instructionsLoadedSummary(event),
+    status: "running",
   };
 }
 
@@ -979,6 +1055,69 @@ function mapStopFailure(
   };
 }
 
+function mapTeammateIdle(
+  event: ClaudeCodeTeammateIdleEvent,
+): SourceTaskUpdatedEvent {
+  return {
+    id: claudeEventId(event, "task.updated"),
+    type: "task.updated",
+    taskId: claudeTaskId(event.session_id),
+    timestamp: new Date().toISOString(),
+    source: claudeSource(event),
+    activityClass: "session_status",
+    semanticHints: {
+      activityClass: "session_status",
+      whyNow: "A Claude teammate finished its turn and is about to go idle.",
+      confidence: "high",
+    },
+    title: `${event.teammate_name} teammate is idle`,
+    summary: teammateIdleSummary(event),
+    status: "waiting",
+  };
+}
+
+function mapPreCompact(
+  event: ClaudeCodePreCompactEvent,
+): SourceTaskUpdatedEvent {
+  return {
+    id: claudeEventId(event, "task.updated"),
+    type: "task.updated",
+    taskId: claudeTaskId(event.session_id),
+    timestamp: new Date().toISOString(),
+    source: claudeSource(event),
+    activityClass: "session_status",
+    semanticHints: {
+      activityClass: "session_status",
+      whyNow: preCompactWhyNow(event.trigger),
+      confidence: "high",
+    },
+    title: preCompactTitle(event.trigger),
+    summary: preCompactSummary(event),
+    status: "running",
+  };
+}
+
+function mapPostCompact(
+  event: ClaudeCodePostCompactEvent,
+): SourceTaskUpdatedEvent {
+  return {
+    id: claudeEventId(event, "task.updated"),
+    type: "task.updated",
+    taskId: claudeTaskId(event.session_id),
+    timestamp: new Date().toISOString(),
+    source: claudeSource(event),
+    activityClass: "session_status",
+    semanticHints: {
+      activityClass: "session_status",
+      whyNow: postCompactWhyNow(event.trigger),
+      confidence: "high",
+    },
+    title: postCompactTitle(event.trigger),
+    summary: postCompactSummary(event),
+    status: "running",
+  };
+}
+
 function mapSessionEnd(event: ClaudeCodeSessionEndEvent): SourceTaskCompletedEvent {
   return {
     id: claudeEventId(event, "task.completed"),
@@ -1238,6 +1377,40 @@ function sessionStartSummary(event: ClaudeCodeSessionStartEvent): string {
   }
 
   return `${sessionStartTitle(event.source)} with ${details.join(", ")}.`;
+}
+
+function instructionsLoadedTitle(event: ClaudeCodeInstructionsLoadedEvent): string {
+  return `Claude loaded ${event.memory_type.toLowerCase()} instructions`;
+}
+
+function instructionsLoadedWhyNow(event: ClaudeCodeInstructionsLoadedEvent): string {
+  switch (event.load_reason) {
+    case "session_start":
+      return "Claude loaded instructions while starting the session.";
+    case "nested_traversal":
+      return "Claude loaded nested instructions after traversing into a deeper directory.";
+    case "path_glob_match":
+      return "Claude loaded path-scoped instructions because a matching file came into scope.";
+    case "include":
+      return "Claude loaded included instructions from another rules file.";
+    case "compact":
+      return "Claude reloaded instructions after compaction.";
+  }
+}
+
+function instructionsLoadedSummary(event: ClaudeCodeInstructionsLoadedEvent): string {
+  const details = [basename(event.file_path), `reason ${event.load_reason.replace(/_/g, " ")}`];
+  if (event.trigger_file_path) {
+    details.push(`trigger ${basename(event.trigger_file_path)}`);
+  }
+  if (event.parent_file_path) {
+    details.push(`parent ${basename(event.parent_file_path)}`);
+  }
+  if (event.globs?.length) {
+    details.push(`globs ${event.globs.join(", ")}`);
+  }
+
+  return details.join(" · ");
 }
 
 function toolInputSummary(event: ClaudeCodePreToolUseEvent): string {
@@ -1791,6 +1964,10 @@ function claudeEventToken(event: ClaudeCodeHookEvent): string {
     return permissionRequestToken(event.tool_name, event.tool_input ?? {});
   }
 
+  if ("file_path" in event && typeof event.file_path === "string" && event.file_path.length > 0) {
+    return event.file_path;
+  }
+
   if ("agent_id" in event && typeof event.agent_id === "string" && event.agent_id.length > 0) {
     return event.agent_id;
   }
@@ -1813,6 +1990,26 @@ function claudeEventToken(event: ClaudeCodeHookEvent): string {
 
   if ("error" in event && typeof event.error === "string" && event.error.length > 0) {
     return event.error;
+  }
+
+  if ("teammate_name" in event && typeof event.teammate_name === "string" && event.teammate_name.length > 0) {
+    return [event.team_name, event.teammate_name].filter(Boolean).join(":");
+  }
+
+  if ("trigger" in event && typeof event.trigger === "string" && event.trigger.length > 0) {
+    const hash = createHash("sha1");
+    hash.update(event.trigger);
+    if ("compact_summary" in event && typeof event.compact_summary === "string" && event.compact_summary.length > 0) {
+      hash.update(":");
+      hash.update(event.compact_summary);
+      return `${event.trigger}:${hash.digest("hex").slice(0, 12)}`;
+    }
+    if ("custom_instructions" in event && typeof event.custom_instructions === "string") {
+      hash.update(":");
+      hash.update(event.custom_instructions);
+      return `${event.trigger}:${hash.digest("hex").slice(0, 12)}`;
+    }
+    return event.trigger;
   }
 
   return "none";
@@ -2135,6 +2332,64 @@ function stopFailureSummary(event: ClaudeCodeStopFailureEvent): string {
     ?? readString(event.error_details)
     ?? `Claude Code API error: ${event.error}.`
   );
+}
+
+function teammateIdleSummary(event: ClaudeCodeTeammateIdleEvent): string {
+  return `${event.teammate_name} teammate in team ${event.team_name} is waiting for more work.`;
+}
+
+function preCompactTitle(trigger: ClaudeCodeCompactTrigger): string {
+  return trigger === "manual"
+    ? "Claude is compacting the session"
+    : "Claude is auto-compacting the session";
+}
+
+function preCompactWhyNow(trigger: ClaudeCodeCompactTrigger): string {
+  return trigger === "manual"
+    ? "Claude is starting a manual compaction cycle."
+    : "Claude is compacting because the context window is full.";
+}
+
+function preCompactSummary(event: ClaudeCodePreCompactEvent): string {
+  const instructions = readString(event.custom_instructions);
+  if (!instructions) {
+    return event.trigger === "manual"
+      ? "Manual compaction started."
+      : "Automatic compaction started because the context window is full.";
+  }
+
+  const firstLine = instructions
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) => line.length > 0);
+  return firstLine ? `Manual compaction instructions: ${firstLine}` : "Manual compaction started.";
+}
+
+function postCompactTitle(trigger: ClaudeCodeCompactTrigger): string {
+  return trigger === "manual"
+    ? "Claude compacted the session"
+    : "Claude auto-compacted the session";
+}
+
+function postCompactWhyNow(trigger: ClaudeCodeCompactTrigger): string {
+  return trigger === "manual"
+    ? "Claude finished a manual compaction cycle."
+    : "Claude finished an automatic compaction cycle.";
+}
+
+function postCompactSummary(event: ClaudeCodePostCompactEvent): string {
+  const summary = readString(event.compact_summary);
+  if (!summary) {
+    return event.trigger === "manual"
+      ? "Manual compaction finished."
+      : "Automatic compaction finished.";
+  }
+
+  const firstLine = summary
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) => line.length > 0);
+  return firstLine ?? summary;
 }
 
 function sessionEndSummary(reason: ClaudeCodeSessionEndReason): string {

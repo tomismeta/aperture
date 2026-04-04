@@ -509,7 +509,6 @@ test("maps elicitation enum schemas into choice requests", () => {
   if (mapped[0]?.type === "human.input.requested") {
     assert.equal(mapped[0].title, event.message);
     assert.equal(mapped[0].summary, "Input requested by build-server.");
-    assert.equal(mapped[0].toolFamily, "mcp");
     assert.equal(mapped[0].request.kind, "choice");
     assert.deepEqual(mapped[0].semanticHints, {
       intentFrame: "question_request",

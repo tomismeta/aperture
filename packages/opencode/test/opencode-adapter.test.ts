@@ -113,7 +113,6 @@ test("maps follow-up text parts into a reply request", () => {
         kind: "opencode",
         label: "OpenCode",
       },
-      toolFamily: "opencode",
       activityClass: "follow_up",
       title: "OpenCode is waiting for your reply",
       summary: "Could you please provide the full path and name for the new directory?",

@@ -675,7 +675,6 @@ function mapElicitation(event: ClaudeCodeElicitationEvent): SourceHumanInputRequ
     ),
     timestamp: new Date().toISOString(),
     source: claudeSource(event),
-    toolFamily: "mcp",
     activityClass: "question_request",
     title: event.message,
     summary: elicitationSummary(event, request),

@@ -46,8 +46,8 @@ function makeFrame(overrides: Partial<Frame> = {}): Frame {
 
 test("renderAttentionScreen shows active, queued, and ambient summaries", () => {
   const attentionView: AttentionView = {
-    active: makeFrame(),
-    queued: [makeFrame({ id: "frame-2", title: "Choose target", mode: "choice" })],
+    now: makeFrame(),
+    next: [makeFrame({ id: "frame-2", title: "Choose target", mode: "choice" })],
     ambient: [
       makeFrame({
         id: "frame-3",
@@ -81,8 +81,8 @@ test("renderAttentionScreen shows active, queued, and ambient summaries", () => 
 
 test("renderAttentionScreen shows connection status when the surface is empty", () => {
   const attentionView: AttentionView = {
-    active: null,
-    queued: [],
+    now: null,
+    next: [],
     ambient: [],
   };
 
@@ -141,8 +141,8 @@ test("renderAttentionScreen shows connection status when the surface is empty", 
 
 test("renderAttentionScreen hides ready-only connections when there is no setup work left", () => {
   const attentionView: AttentionView = {
-    active: null,
-    queued: [],
+    now: null,
+    next: [],
     ambient: [],
   };
 
@@ -167,8 +167,8 @@ test("renderAttentionScreen hides ready-only connections when there is no setup 
 
 test("renderAttentionScreen keeps a show setup action after setup is skipped", () => {
   const attentionView: AttentionView = {
-    active: null,
-    queued: [],
+    now: null,
+    next: [],
     ambient: [],
   };
 
@@ -194,8 +194,8 @@ test("renderAttentionScreen keeps a show setup action after setup is skipped", (
 
 test("renderAttentionScreen hides show setup when queued work exists", () => {
   const attentionView: AttentionView = {
-    active: null,
-    queued: [
+    now: null,
+    next: [
       makeFrame({
         id: "frame-queued",
         title: "Review deployment plan",
@@ -226,8 +226,8 @@ test("renderAttentionScreen hides show setup when queued work exists", () => {
 
 test("renderAttentionScreen can force setup over ambient-only live view", () => {
   const attentionView: AttentionView = {
-    active: null,
-    queued: [],
+    now: null,
+    next: [],
     ambient: [
       makeFrame({
         id: "frame-ambient",
@@ -264,8 +264,8 @@ test("renderAttentionScreen can force setup over ambient-only live view", () => 
 
 test("renderAttentionScreen shows setup instead of a lone bridge-status ambient frame", () => {
   const attentionView: AttentionView = {
-    active: null,
-    queued: [],
+    now: null,
+    next: [],
     ambient: [
       makeFrame({
         id: "frame-bridge",
@@ -322,8 +322,8 @@ test("renderAttentionScreen shows numbered choice options in the now pane", () =
   });
 
   const attentionView: AttentionView = {
-    active: choiceFrame,
-    queued: [],
+    now: choiceFrame,
+    next: [],
     ambient: [],
   };
 
@@ -335,7 +335,7 @@ test("renderAttentionScreen shows numbered choice options in the now pane", () =
 
 test("renderAttentionScreen nests active input inside the event tree", () => {
   const attentionView: AttentionView = {
-    active: makeFrame({
+    now: makeFrame({
       mode: "form",
       title: "OpenCode is waiting for your reply",
       summary: "What's your favorite programming language and why?",
@@ -344,7 +344,7 @@ test("renderAttentionScreen nests active input inside the event tree", () => {
         fields: [{ id: "reply", label: "Reply", type: "textarea" }],
       },
     }),
-    queued: [],
+    next: [],
     ambient: [],
   };
 
@@ -366,7 +366,7 @@ test("renderAttentionScreen nests active input inside the event tree", () => {
 
 test("renderAttentionScreen expands full prompt text when expanded", () => {
   const attentionView: AttentionView = {
-    active: makeFrame({
+    now: makeFrame({
       mode: "form",
       title: "OpenCode is waiting for your reply",
       summary: "That's a compelling vision - personalization that adapts to each user while keeping the surface calm and predictable for operators.",
@@ -375,7 +375,7 @@ test("renderAttentionScreen expands full prompt text when expanded", () => {
         fields: [{ id: "reply", label: "Reply", type: "textarea" }],
       },
     }),
-    queued: [],
+    next: [],
     ambient: [],
   };
 
@@ -389,7 +389,7 @@ test("renderAttentionScreen expands full prompt text when expanded", () => {
 
 test("renderAttentionScreen accents input prompts and reply labels in brand blue", () => {
   const attentionView: AttentionView = {
-    active: makeFrame({
+    now: makeFrame({
       mode: "form",
       title: "OpenCode is waiting for your reply",
       summary: "What's your favorite programming language and why?",
@@ -398,7 +398,7 @@ test("renderAttentionScreen accents input prompts and reply labels in brand blue
         fields: [{ id: "reply", label: "Reply", type: "textarea" }],
       },
     }),
-    queued: [],
+    next: [],
     ambient: [],
   };
 
@@ -420,7 +420,7 @@ test("renderAttentionScreen accents input prompts and reply labels in brand blue
 
 test("renderAttentionScreen accents approval summaries in non-bold brand blue", () => {
   const attentionView: AttentionView = {
-    active: makeFrame({
+    now: makeFrame({
       mode: "approval",
       title: "Claude Code wants to run a shell command",
       summary: "ls /Users/tom/Desktop/aperture-test-suite",
@@ -432,7 +432,7 @@ test("renderAttentionScreen accents approval summaries in non-bold brand blue", 
         ],
       },
     }),
-    queued: [],
+    next: [],
     ambient: [],
   };
 
@@ -450,7 +450,7 @@ test("renderAttentionScreen accents approval summaries in non-bold brand blue", 
 
 test("renderAttentionScreen shows acknowledge controls for active status work", () => {
   const attentionView: AttentionView = {
-    active: makeFrame({
+    now: makeFrame({
       mode: "status",
       title: "Bash failed",
       summary: "The deploy command failed.",
@@ -463,7 +463,7 @@ test("renderAttentionScreen shows acknowledge controls for active status work", 
         ],
       },
     }),
-    queued: [],
+    next: [],
     ambient: [],
   };
 
@@ -478,8 +478,8 @@ function escapeRegExp(value: string): string {
 
 test("renderAttentionScreen hides rationale by default and shows when expanded", () => {
   const attentionView: AttentionView = {
-    active: makeFrame(),
-    queued: [],
+    now: makeFrame(),
+    next: [],
     ambient: [],
   };
 
@@ -495,8 +495,8 @@ test("renderAttentionScreen hides rationale by default and shows when expanded",
 
 test("renderAttentionScreen shows space key hint in controls", () => {
   const attentionView: AttentionView = {
-    active: makeFrame(),
-    queued: [],
+    now: makeFrame(),
+    next: [],
     ambient: [],
   };
 
@@ -506,10 +506,10 @@ test("renderAttentionScreen shows space key hint in controls", () => {
 
 test("renderAttentionScreen preserves status text when stats are also shown", () => {
   const attentionView: AttentionView = {
-    active: makeFrame({
+    now: makeFrame({
       title: "Approve Bash find /Users/tom/dev/ape…",
     }),
-    queued: [],
+    next: [],
     ambient: [],
   };
 
@@ -529,7 +529,7 @@ test("renderAttentionScreen preserves status text when stats are also shown", ()
       attentionShifted: 0,
     },
     deferred: {
-      queued: 0,
+      next: 0,
       suppressed: 0,
       manual: 0,
     },
@@ -565,7 +565,7 @@ test("renderAttentionScreen compacts repeated queued notifications", () => {
   });
 
   const attentionView: AttentionView = {
-    active: makeFrame({
+    now: makeFrame({
       title: "Approve Read package.json",
       source: {
         id: "claude-code:session-1",
@@ -573,7 +573,7 @@ test("renderAttentionScreen compacts repeated queued notifications", () => {
         label: "Claude Code tom #61cc80",
       },
     }),
-    queued: [
+    next: [
       repeated,
       { ...repeated, id: "frame-3", interactionId: "interaction-3" },
       makeFrame({
@@ -611,7 +611,7 @@ test("renderAttentionScreen shows duplicate active approvals as a pending count"
   });
 
   const attentionView: AttentionView = {
-    active: makeFrame({
+    now: makeFrame({
       title: "Approve Read components.md",
       summary: "/Users/tom/dev/aperture/docs/product/components.md",
       source: {
@@ -620,7 +620,7 @@ test("renderAttentionScreen shows duplicate active approvals as a pending count"
         label: "Claude Code tom #61cc80",
       },
     }),
-    queued: [duplicate],
+    next: [duplicate],
     ambient: [],
   };
 
@@ -631,8 +631,8 @@ test("renderAttentionScreen shows duplicate active approvals as a pending count"
 
 test("renderAttentionScreen single-line header with posture indicator", () => {
   const attentionView: AttentionView = {
-    active: makeFrame(),
-    queued: [],
+    now: makeFrame(),
+    next: [],
     ambient: [],
   };
 
@@ -646,8 +646,8 @@ test("renderAttentionScreen single-line header with posture indicator", () => {
 
 test("renderAttentionScreen borderless active frame with judgment line", () => {
   const attentionView: AttentionView = {
-    active: makeFrame({ mode: "approval", consequence: "high" }),
-    queued: [],
+    now: makeFrame({ mode: "approval", consequence: "high" }),
+    next: [],
     ambient: [],
   };
 
@@ -660,8 +660,8 @@ test("renderAttentionScreen borderless active frame with judgment line", () => {
 
   // Without metadata rationale, falls back to synthesized line
   const noMetaView: AttentionView = {
-    active: makeFrame({ mode: "approval", consequence: "high", metadata: {} }),
-    queued: [],
+    now: makeFrame({ mode: "approval", consequence: "high", metadata: {} }),
+    next: [],
     ambient: [],
   };
   const noMetaScreen = renderAttentionScreen(noMetaView);
@@ -670,7 +670,7 @@ test("renderAttentionScreen borderless active frame with judgment line", () => {
 
 test("renderAttentionScreen judgment line prioritizes trace coordination over heuristics", () => {
   const attentionView: AttentionView = {
-    active: makeFrame({
+    now: makeFrame({
       metadata: {
         attention: {
           score: 1211,
@@ -679,7 +679,7 @@ test("renderAttentionScreen judgment line prioritizes trace coordination over he
         },
       },
     }),
-    queued: [],
+    next: [],
     ambient: [],
   };
 
@@ -705,7 +705,7 @@ test("renderAttentionScreen judgment line prioritizes trace coordination over he
     planner: { kind: "activate" as const, reasons: [], continuityEvaluations: [] },
     coordination: {
       kind: "activate" as const,
-      resultBucket: "active" as const,
+      resultLane: "now" as const,
       candidateScore: 1211,
       currentScore: null,
       currentPriority: null,
@@ -722,7 +722,7 @@ test("renderAttentionScreen judgment line prioritizes trace coordination over he
     attentionBurden: {} as any,
     current: null,
     taskView: {} as any,
-    attentionView: { active: null, queued: [], ambient: [] },
+    attentionView: { now: null, next: [], ambient: [] },
     result: null,
   };
 
@@ -733,8 +733,8 @@ test("renderAttentionScreen judgment line prioritizes trace coordination over he
 
 test("renderAttentionScreen judgment line shows continuity overrides first", () => {
   const attentionView: AttentionView = {
-    active: makeFrame(),
-    queued: [],
+    now: makeFrame(),
+    next: [],
     ambient: [],
   };
 
@@ -754,7 +754,7 @@ test("renderAttentionScreen judgment line shows continuity overrides first", () 
     planner: { kind: "activate" as const, reasons: [], continuityEvaluations: [] },
     coordination: {
       kind: "activate" as const,
-      resultBucket: "active" as const,
+      resultLane: "now" as const,
       candidateScore: 1211,
       currentScore: null,
       currentPriority: null,
@@ -774,7 +774,7 @@ test("renderAttentionScreen judgment line shows continuity overrides first", () 
     attentionBurden: {} as any,
     current: null,
     taskView: {} as any,
-    attentionView: { active: null, queued: [], ambient: [] },
+    attentionView: { now: null, next: [], ambient: [] },
     result: null,
   };
 
@@ -786,8 +786,8 @@ test("renderAttentionScreen judgment line shows continuity overrides first", () 
 
 test("renderAttentionScreen why mode key hint", () => {
   const attentionView: AttentionView = {
-    active: makeFrame(),
-    queued: [],
+    now: makeFrame(),
+    next: [],
     ambient: [],
   };
 
@@ -797,8 +797,8 @@ test("renderAttentionScreen why mode key hint", () => {
 
 test("renderAttentionScreen why mode replaces queue and ambient", () => {
   const attentionView: AttentionView = {
-    active: makeFrame(),
-    queued: [makeFrame({ id: "frame-2", title: "Queued item" })],
+    now: makeFrame(),
+    next: [makeFrame({ id: "frame-2", title: "Queued item" })],
     ambient: [makeFrame({ id: "frame-3", title: "Ambient item", mode: "status", responseSpec: { kind: "none" } })],
   };
 
@@ -816,8 +816,8 @@ test("renderAttentionScreen why mode replaces queue and ambient", () => {
 
 test("renderAttentionScreen why mode collapsed hides noop rules and shows count", () => {
   const attentionView: AttentionView = {
-    active: makeFrame(),
-    queued: [],
+    now: makeFrame(),
+    next: [],
     ambient: [],
   };
 
@@ -846,7 +846,7 @@ test("renderAttentionScreen why mode collapsed hides noop rules and shows count"
     planner: { kind: "activate" as const, reasons: [], continuityEvaluations: [] },
     coordination: {
       kind: "activate" as const,
-      resultBucket: "active" as const,
+      resultLane: "now" as const,
       candidateScore: 1211,
       currentScore: null,
       currentPriority: null,
@@ -863,7 +863,7 @@ test("renderAttentionScreen why mode collapsed hides noop rules and shows count"
     attentionBurden: {} as any,
     current: null,
     taskView: {} as any,
-    attentionView: { active: null, queued: [], ambient: [] },
+    attentionView: { now: null, next: [], ambient: [] },
     result: null,
   };
 
@@ -886,8 +886,8 @@ test("renderAttentionScreen why mode collapsed hides noop rules and shows count"
 
 test("renderAttentionScreen why mode controls show expand/collapse hint", () => {
   const attentionView: AttentionView = {
-    active: makeFrame(),
-    queued: [],
+    now: makeFrame(),
+    next: [],
     ambient: [],
   };
 
@@ -901,8 +901,8 @@ test("renderAttentionScreen why mode controls show expand/collapse hint", () => 
 
 test("renderAttentionScreen why mode keeps threshold details on separate lines", () => {
   const attentionView: AttentionView = {
-    active: makeFrame(),
-    queued: [],
+    now: makeFrame(),
+    next: [],
     ambient: [],
   };
 
@@ -936,7 +936,7 @@ test("renderAttentionScreen why mode keeps threshold details on separate lines",
     planner: { kind: "queue" as const, reasons: [], continuityEvaluations: [] },
     coordination: {
       kind: "queue" as const,
-      resultBucket: "queued" as const,
+      resultLane: "next" as const,
       candidateScore: 1120,
       currentScore: 1100,
       currentPriority: null,
@@ -953,7 +953,7 @@ test("renderAttentionScreen why mode keeps threshold details on separate lines",
     attentionBurden: {} as any,
     current: null,
     taskView: {} as any,
-    attentionView: { active: null, queued: [], ambient: [] },
+    attentionView: { now: null, next: [], ambient: [] },
     result: null,
   };
 
@@ -964,8 +964,8 @@ test("renderAttentionScreen why mode keeps threshold details on separate lines",
 
 test("renderAttentionScreen why mode shows semantic interpretation and influence", () => {
   const attentionView: AttentionView = {
-    active: makeFrame(),
-    queued: [],
+    now: makeFrame(),
+    next: [],
     ambient: [],
   };
 
@@ -1015,7 +1015,7 @@ test("renderAttentionScreen why mode shows semantic interpretation and influence
     planner: { kind: "activate" as const, reasons: [], continuityEvaluations: [] },
     coordination: {
       kind: "activate" as const,
-      resultBucket: "active" as const,
+      resultLane: "now" as const,
       candidateScore: 1200,
       currentScore: null,
       currentPriority: null,
@@ -1032,7 +1032,7 @@ test("renderAttentionScreen why mode shows semantic interpretation and influence
     attentionBurden: {} as any,
     current: null,
     taskView: {} as any,
-    attentionView: { active: null, queued: [], ambient: [] },
+    attentionView: { now: null, next: [], ambient: [] },
     result: null,
   };
 

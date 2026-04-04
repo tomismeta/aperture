@@ -38,6 +38,9 @@ if (!trace || !isCandidateTrace(trace)) {
 
 assert.equal(trace.semantic?.toolFamily, "read");
 assert.equal(trace.coordination.kind, "activate");
-assert.deepEqual(trace.semantic?.impact.decisionBearing, ["consequence (canonical)"]);
+assert.deepEqual(trace.semantic?.impact.decisionBearing, [
+  "activity (canonical)",
+  "consequence (canonical)",
+]);
 
 console.log("trace entrypoint example passed");

@@ -35,7 +35,7 @@ export type PlannerDefaults = {
 export type JudgmentRule = {
   autoApprove?: boolean;
   mayInterrupt?: boolean;
-  minimumPresentation?: "ambient" | "queue" | "active";
+  minimumLane?: "ambient" | "next" | "now";
   requireContextExpansion?: boolean;
 };
 
@@ -151,8 +151,8 @@ export function serializeJudgmentConfig(config: JudgmentConfig): string {
       if (rule.mayInterrupt !== undefined) {
         lines.push(formatBullet("may interrupt", rule.mayInterrupt));
       }
-      if (rule.minimumPresentation !== undefined) {
-        lines.push(formatBullet("minimum presentation", rule.minimumPresentation));
+      if (rule.minimumLane !== undefined) {
+        lines.push(formatBullet("minimum lane", rule.minimumLane));
       }
       if (rule.requireContextExpansion !== undefined) {
         lines.push(formatBullet("require context expansion", rule.requireContextExpansion));

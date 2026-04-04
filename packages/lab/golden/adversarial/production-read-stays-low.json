@@ -9,12 +9,12 @@
     "adversarial_semantics"
   ],
   "expectations": {
-    "finalActiveInteractionId": "interaction:prod-read",
-    "queuedInteractionIds": [],
+    "finalNowInteractionId": "interaction:prod-read",
+    "nextInteractionIds": [],
     "ambientInteractionIds": [],
-    "resultBucketCounts": {
-      "active": 1,
-      "queued": 0,
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
       "ambient": 0
     },
     "semanticReadings": [

@@ -148,8 +148,8 @@ test("visible queued episode work batches new related interactions with no activ
     episodeState: "batched",
   }), {
     attentionView: {
-      active: null,
-      queued: [
+      now: null,
+      next: [
         createFrame({
           taskId: "task:other",
           interactionId: "interaction:queued",
@@ -207,7 +207,7 @@ test("repeated same-episode resurfacing can break visible bundling and compete f
     }),
     {
       attentionView: {
-        active: createFrame({
+        now: createFrame({
           id: "frame:other-active",
           taskId: "task:other-current",
           interactionId: "interaction:other-current",
@@ -226,7 +226,7 @@ test("repeated same-episode resurfacing can break visible bundling and compete f
             },
           },
         }),
-        queued: [
+        next: [
           createFrame({
             taskId: "task:episode:queued",
             interactionId: "interaction:queued",
@@ -264,7 +264,7 @@ test("repeated same-episode resurfacing can break visible bundling and compete f
           attentionShifted: 0,
         },
         deferred: {
-          queued: 0,
+          next: 0,
           suppressed: 0,
           manual: 0,
         },
@@ -346,8 +346,8 @@ test("stale visible episode metadata does not keep visible bundling alive", () =
     episodeState: "batched",
   }), {
     attentionView: {
-      active: null,
-      queued: [
+      now: null,
+      next: [
         createFrame({
           taskId: "task:other",
           interactionId: "interaction:queued",
@@ -403,7 +403,7 @@ test("visible queued episode work stays bundled even when unrelated current work
     }),
     {
       attentionView: {
-        active: createFrame({
+        now: createFrame({
           id: "frame:other-active",
           taskId: "task:other-current",
           interactionId: "interaction:other-current",
@@ -420,7 +420,7 @@ test("visible queued episode work stays bundled even when unrelated current work
               },
           },
         }),
-        queued: [
+        next: [
           createFrame({
             taskId: "task:batched",
             interactionId: "interaction:queued",

@@ -125,7 +125,7 @@ function handleFormKeypress(
   state: TuiState,
   key: { name?: string; sequence?: string; ctrl?: boolean },
 ): void {
-  const active = state.attentionView.active;
+  const active = state.attentionView.now;
   const draft = state.inputDraft;
   if (!active || !draft || draft.kind !== "form" || !active.responseSpec || active.responseSpec.kind !== "form") {
     state.inputDraft = null;
@@ -178,7 +178,7 @@ function handleTextKeypress(
   state: TuiState,
   key: { name?: string; sequence?: string; ctrl?: boolean },
 ): void {
-  const active = state.attentionView.active;
+  const active = state.attentionView.now;
   const draft = state.inputDraft;
   if (!active || !draft || draft.kind !== "text") {
     state.inputDraft = null;

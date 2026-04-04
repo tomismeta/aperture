@@ -383,7 +383,7 @@ Suggested output:
 type AttentionPolicyVerdict = {
   mayInterrupt: boolean;
   requiresOperatorResponse: boolean;
-  minimumPresentation: "ambient" | "queue" | "active";
+  minimumLane: "ambient" | "queue" | "active";
   rationale: string[];
 };
 ```
@@ -678,7 +678,7 @@ Rule:
 
 - Aperture should read `JUDGMENT.md` as configuration, not as memory
 - `JUDGMENT.md` should only expose accepted values that are consumed by live code
-- operator-response work should remain `active` unless Aperture has an explicit auto-resolution path such as `auto approve`
+- operator-response work should remain `now` unless Aperture has an explicit auto-resolution path such as `auto approve`
 
 ## Runtime Process Flow
 
@@ -778,7 +778,7 @@ type JudgmentTrace = {
   policy: {
     mayInterrupt: boolean;
     requiresOperatorResponse: boolean;
-    minimumPresentation: "ambient" | "queue" | "active";
+    minimumLane: "ambient" | "queue" | "active";
     rationale: string[];
   };
   utility: {

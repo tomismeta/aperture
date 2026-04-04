@@ -9,14 +9,14 @@
     "relation_semantics"
   ],
   "expectations": {
-    "finalActiveInteractionId": "interaction:blocker",
-    "queuedInteractionIds": [
+    "finalNowInteractionId": "interaction:blocker",
+    "nextInteractionIds": [
       "interaction:task:episode:b:status"
     ],
     "ambientInteractionIds": [],
-    "resultBucketCounts": {
-      "active": 1,
-      "queued": 1,
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 1,
       "ambient": 1
     },
     "decisionReadings": [
@@ -24,13 +24,13 @@
         "stepLabel": "initial episode status",
         "evaluationKind": "candidate",
         "decisionKind": "ambient",
-        "resultBucket": "ambient"
+        "resultLane": "ambient"
       },
       {
         "stepLabel": "resurfacing episode status",
         "evaluationKind": "candidate",
         "decisionKind": "queue",
-        "resultBucket": "queued"
+        "resultLane": "next"
       }
     ],
     "traceExpectations": {
@@ -92,7 +92,7 @@
         "taskId": "task:episode:history-2",
         "interactionId": "interaction:episode:history-2",
         "timestamp": "2026-03-25T18:20:21.000Z",
-        "from": "queued",
+        "from": "next",
         "metadata": {
           "episode": {
             "id": "episode:claude-code:status:config.ts:1"

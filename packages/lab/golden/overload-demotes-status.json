@@ -8,16 +8,16 @@
     "queue_pressure"
   ],
   "expectations": {
-    "finalActiveInteractionId": "interaction:approval:1",
-    "queuedInteractionIds": [
+    "finalNowInteractionId": "interaction:approval:1",
+    "nextInteractionIds": [
       "interaction:approval:2"
     ],
     "ambientInteractionIds": [
       "interaction:task:status:low:status"
     ],
-    "resultBucketCounts": {
-      "active": 1,
-      "queued": 1,
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 1,
       "ambient": 1
     }
   },

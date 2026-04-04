@@ -30,7 +30,7 @@ test("holds PreToolUse requests until Aperture responds", async () => {
       }),
     });
 
-    const frame = await waitFor(() => core.getAttentionView().active);
+    const frame = await waitFor(() => core.getAttentionView().now);
     assert.ok(frame);
     assert.equal(frame?.interactionId, "claude-code:tool:session-1:tool-1");
 
@@ -106,7 +106,7 @@ test("enriches AskUserQuestion hooks from transcript data and returns a best-eff
       }),
     });
 
-    const frame = await waitFor(() => core.getAttentionView().active);
+    const frame = await waitFor(() => core.getAttentionView().now);
     assert.ok(frame);
     assert.equal(
       frame?.title,
@@ -170,7 +170,7 @@ test("enriches AskUserQuestion PermissionRequest payloads before holding them", 
       }),
     });
 
-    const frame = await waitFor(() => core.getAttentionView().active);
+    const frame = await waitFor(() => core.getAttentionView().now);
     assert.ok(frame);
     assert.equal(frame?.title, "Claude Code wants permission to ask What's your preferred language for scripting tasks?");
 
@@ -234,7 +234,7 @@ test("returns allow immediately when policy auto-approves a held read request", 
         permissionDecision: "allow",
       },
     });
-    assert.equal(core.getAttentionView().active, null);
+    assert.equal(core.getAttentionView().now, null);
   } finally {
     await server.close();
   }
@@ -268,7 +268,7 @@ test("falls back to ask when a held PreToolUse request times out", async () => {
         permissionDecision: "ask",
       },
     });
-    assert.equal(core.getAttentionView().active, null);
+    assert.equal(core.getAttentionView().now, null);
   } finally {
     await server.close();
   }
@@ -314,14 +314,14 @@ test("handles concurrent held PreToolUse requests independently", async () => {
 
     const taskView = await waitFor(() => {
       const next = core.getTaskView("claude-code:session:session-1");
-      return next.active?.interactionId === "claude-code:tool:session-1:tool-1"
-        && next.queued.some((frame) => frame.interactionId === "claude-code:tool:session-1:tool-2")
+      return next.now?.interactionId === "claude-code:tool:session-1:tool-1"
+        && next.next.some((frame) => frame.interactionId === "claude-code:tool:session-1:tool-2")
         ? next
         : null;
     });
-    assert.equal(taskView.active?.interactionId, "claude-code:tool:session-1:tool-1");
+    assert.equal(taskView.now?.interactionId, "claude-code:tool:session-1:tool-1");
     assert.deepEqual(
-      taskView.queued.map((frame) => frame.interactionId),
+      taskView.next.map((frame) => frame.interactionId),
       ["claude-code:tool:session-1:tool-2"],
     );
 
@@ -383,7 +383,7 @@ test("publishes PostToolUseFailure events and acknowledges immediately", async (
 
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), {});
-    const frame = core.getAttentionView().active;
+    const frame = core.getAttentionView().now;
     assert.ok(frame);
     assert.equal(frame?.title, "Bash failed");
   } finally {
@@ -412,7 +412,7 @@ test("publishes idle notifications as waiting status", async () => {
 
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), {});
-    const frame = core.getAttentionView().active;
+    const frame = core.getAttentionView().now;
     assert.ok(frame);
     assert.equal(frame?.title, "Claude is waiting for input");
     assert.equal(frame?.source?.label, "Claude Code repo #session1");
@@ -454,7 +454,7 @@ test("holds elicitation requests until Aperture responds", async () => {
       }),
     });
 
-    const frame = await waitFor(() => core.getAttentionView().active);
+    const frame = await waitFor(() => core.getAttentionView().now);
     assert.ok(frame);
     assert.equal(frame?.title, "Should I run the full test suite before merging this branch?");
 
@@ -506,7 +506,7 @@ test("holds PermissionRequest requests until Aperture responds", async () => {
       }),
     });
 
-    const frame = await waitFor(() => core.getAttentionView().active);
+    const frame = await waitFor(() => core.getAttentionView().now);
     assert.ok(frame);
     assert.match(frame?.interactionId ?? "", /^claude-code:permission:session-1:[a-f0-9]{12}$/);
     assert.equal(frame?.title, "Claude Code wants permission to run a shell command");
@@ -558,7 +558,7 @@ test("holds Search PermissionRequest requests until Aperture responds", async ()
       }),
     });
 
-    const frame = await waitFor(() => core.getAttentionView().active);
+    const frame = await waitFor(() => core.getAttentionView().now);
     assert.ok(frame);
     assert.match(frame?.interactionId ?? "", /^claude-code:permission:session-1:[a-f0-9]{12}$/);
     assert.equal(frame?.title, "Claude Code wants permission to search code for agent|Agent|AGENT");
@@ -610,7 +610,7 @@ test("lets Claude handle permission requests natively when no surface policy is 
 
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), {});
-    assert.equal(core.getAttentionView().active, null);
+    assert.equal(core.getAttentionView().now, null);
   } finally {
     await server.close();
   }
@@ -642,7 +642,7 @@ test("times out held PermissionRequest requests back to Claude and clears the fr
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), {});
     await sleep(10);
-    assert.equal(core.getAttentionView().active, null);
+    assert.equal(core.getAttentionView().now, null);
   } finally {
     await server.close();
   }
@@ -681,7 +681,7 @@ test("lets Claude handle elicitation natively when no surface policy is active",
 
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), {});
-    assert.equal(core.getAttentionView().active, null);
+    assert.equal(core.getAttentionView().now, null);
   } finally {
     await server.close();
   }
@@ -722,7 +722,7 @@ test("times out held elicitation requests back to Claude and clears the frame", 
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), {});
     await sleep(10);
-    assert.equal(core.getAttentionView().active, null);
+    assert.equal(core.getAttentionView().now, null);
   } finally {
     await server.close();
   }
@@ -746,7 +746,7 @@ test("user prompt submit clears a waiting notification frame", async () => {
       }),
     });
 
-    const active = await waitFor(() => core.getAttentionView().active);
+    const active = await waitFor(() => core.getAttentionView().now);
     assert.ok(active);
 
     const response = await fetch(url, {
@@ -762,7 +762,7 @@ test("user prompt submit clears a waiting notification frame", async () => {
 
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), {});
-    assert.equal(core.getAttentionView().active, null);
+    assert.equal(core.getAttentionView().now, null);
   } finally {
     await server.close();
   }
@@ -788,7 +788,7 @@ test("publishes stop events with follow-up questions as waiting status", async (
 
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), {});
-    const frame = core.getAttentionView().active;
+    const frame = core.getAttentionView().now;
     assert.ok(frame);
     assert.equal(frame?.title, "Claude is waiting for follow-up");
   } finally {
@@ -835,7 +835,7 @@ test("enriches stop events from transcript text when the hook omits the assistan
 
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), {});
-    const frame = core.getAttentionView().active;
+    const frame = core.getAttentionView().now;
     assert.ok(frame);
     assert.equal(frame?.title, "Claude is waiting for follow-up");
     assert.equal(
@@ -867,7 +867,7 @@ test("publishes plain stop events as ambient completion awareness", async () => 
 
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), {});
-    assert.equal(core.getAttentionView().active, null);
+    assert.equal(core.getAttentionView().now, null);
     assert.equal(core.getAttentionView().ambient[0]?.title, "Claude completed a turn");
   } finally {
     await server.close();
@@ -900,7 +900,7 @@ test("publishes PostToolUse completion updates as ambient awareness when enabled
 
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), {});
-    assert.equal(core.getAttentionView().active, null);
+    assert.equal(core.getAttentionView().now, null);
     assert.equal(core.getAttentionView().ambient[0]?.title, "Read completed");
   } finally {
     await server.close();
@@ -927,7 +927,7 @@ test("PostToolUse completion can demote a prior waiting frame into ambient aware
     });
 
     assert.equal(waitingResponse.status, 200);
-    assert.equal(core.getAttentionView().active?.title, "Claude is waiting for input");
+    assert.equal(core.getAttentionView().now?.title, "Claude is waiting for input");
 
     const completionResponse = await fetch(url, {
       method: "POST",
@@ -949,7 +949,7 @@ test("PostToolUse completion can demote a prior waiting frame into ambient aware
 
     assert.equal(completionResponse.status, 200);
     assert.deepEqual(await completionResponse.json(), {});
-    assert.equal(core.getAttentionView().active, null);
+    assert.equal(core.getAttentionView().now, null);
     assert.equal(core.getAttentionView().ambient[0]?.title, "Read completed");
   } finally {
     await server.close();

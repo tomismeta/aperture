@@ -8,8 +8,8 @@ import type { AttentionFrame } from "@tomismeta/aperture-core";
 export type ReplayScorecard = {
   trace: TraceEvaluationReport;
   buckets: {
-    active: number;
-    queued: number;
+    now: number;
+    next: number;
     ambient: number;
   };
   explanation: ReplayExplanationSnapshot;
@@ -26,17 +26,17 @@ export type ReplayScorecard = {
   outcomes: {
     totalSteps: number;
     surfacedFrames: number;
-    finalActiveInteractionId: string | null;
-    finalQueuedCount: number;
+    finalNowInteractionId: string | null;
+    finalNextCount: number;
     finalAmbientCount: number;
-    finalQueuedInteractionIds: string[];
+    finalNextInteractionIds: string[];
     finalAmbientInteractionIds: string[];
   };
 };
 
 export type ReplayExplanationSnapshot = {
   targetInteractionId: string | null;
-  targetBucket: "active" | "queued" | "ambient" | "none";
+  targetLane: "now" | "next" | "ambient" | "none";
   headline: string | null;
   whyNow: string | null;
   coordinationReasons: string[];
@@ -58,10 +58,10 @@ export function scoreReplayRun(result: ReplayRunResult): ReplayScorecard {
     outcomes: {
       totalSteps: result.steps.length,
       surfacedFrames: result.steps.filter((step) => step.frame !== null).length,
-      finalActiveInteractionId: finalView?.active?.interactionId ?? null,
-      finalQueuedCount: finalView?.queued.length ?? 0,
+      finalNowInteractionId: finalView?.now?.interactionId ?? null,
+      finalNextCount: finalView?.next.length ?? 0,
       finalAmbientCount: finalView?.ambient.length ?? 0,
-      finalQueuedInteractionIds: finalView?.queued.map((frame) => frame.interactionId) ?? [],
+      finalNextInteractionIds: finalView?.next.map((frame) => frame.interactionId) ?? [],
       finalAmbientInteractionIds: finalView?.ambient.map((frame) => frame.interactionId) ?? [],
     },
   };
@@ -70,15 +70,15 @@ export function scoreReplayRun(result: ReplayRunResult): ReplayScorecard {
 function buildExplanationSnapshot(result: ReplayRunResult): ReplayExplanationSnapshot {
   const finalView = result.views.at(-1)?.attentionView;
   const target =
-    finalView?.active
-    ?? finalView?.queued[0]
+    finalView?.now
+    ?? finalView?.next[0]
     ?? finalView?.ambient[0]
     ?? null;
 
   if (!target) {
     return {
       targetInteractionId: null,
-      targetBucket: "none",
+      targetLane: "none",
       headline: null,
       whyNow: null,
       coordinationReasons: [],
@@ -90,11 +90,11 @@ function buildExplanationSnapshot(result: ReplayRunResult): ReplayExplanationSna
     };
   }
 
-  const targetBucket =
-    finalView?.active?.interactionId === target.interactionId
-      ? "active"
-      : finalView?.queued.some((frame) => frame.interactionId === target.interactionId)
-        ? "queued"
+  const targetLane =
+    finalView?.now?.interactionId === target.interactionId
+      ? "now"
+      : finalView?.next.some((frame) => frame.interactionId === target.interactionId)
+        ? "next"
         : "ambient";
 
   const trace = [...result.traces]
@@ -124,7 +124,7 @@ function buildExplanationSnapshot(result: ReplayRunResult): ReplayExplanationSna
 
   return {
     targetInteractionId: target.interactionId,
-    targetBucket,
+    targetLane,
     headline,
     whyNow: target.provenance?.whyNow ?? null,
     coordinationReasons: candidateTrace?.coordination.reasons ?? [],
@@ -138,8 +138,8 @@ function buildExplanationSnapshot(result: ReplayRunResult): ReplayExplanationSna
 
 function countResultBuckets(result: ReplayRunResult): ReplayScorecard["buckets"] {
   const counts: ReplayScorecard["buckets"] = {
-    active: 0,
-    queued: 0,
+    now: 0,
+    next: 0,
     ambient: 0,
   };
 
@@ -148,12 +148,12 @@ function countResultBuckets(result: ReplayRunResult): ReplayScorecard["buckets"]
       continue;
     }
 
-    switch (trace.coordination.resultBucket) {
-      case "active":
-        counts.active += 1;
+    switch (trace.coordination.resultLane) {
+      case "now":
+        counts.now += 1;
         break;
-      case "queued":
-        counts.queued += 1;
+      case "next":
+        counts.next += 1;
         break;
       case "ambient":
         counts.ambient += 1;

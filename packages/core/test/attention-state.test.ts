@@ -21,7 +21,7 @@ function createSummary(overrides: Partial<SignalSummary> = {}): SignalSummary {
       attentionShifted: 0,
     },
     deferred: {
-      queued: 0,
+      next: 0,
       suppressed: 0,
       manual: 0,
     },
@@ -49,7 +49,7 @@ test("overloaded requires enough observed activity", () => {
       attentionShifted: 0,
     },
     deferred: {
-      queued: 2,
+      next: 2,
       suppressed: 1,
       manual: 0,
     },
@@ -73,7 +73,7 @@ test("avoiding requires enough presented samples", () => {
       attentionShifted: 0,
     },
     deferred: {
-      queued: 0,
+      next: 0,
       suppressed: 2,
       manual: 0,
     },

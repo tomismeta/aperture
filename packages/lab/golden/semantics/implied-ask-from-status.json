@@ -8,14 +8,14 @@
     "ambient_doctrine"
   ],
   "expectations": {
-    "finalActiveInteractionId": null,
-    "queuedInteractionIds": [],
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
     "ambientInteractionIds": [
       "interaction:task:approval-wait:status"
     ],
-    "resultBucketCounts": {
-      "active": 0,
-      "queued": 0,
+    "resultLaneCounts": {
+      "now": 0,
+      "next": 0,
       "ambient": 1
     },
     "semanticReadings": [
@@ -41,7 +41,7 @@
         "stepLabel": "implied ask status",
         "evaluationKind": "candidate",
         "decisionKind": "ambient",
-        "resultBucket": "ambient",
+        "resultLane": "ambient",
         "semanticConfidence": "low",
         "semanticInfluenceIncludes": [
           "task status remained authoritative"

@@ -21,7 +21,7 @@ test("deriveAttentionBurden raises threshold offset under sustained decision loa
         attentionShifted: 0,
       },
       deferred: {
-        queued: 2,
+        next: 2,
         suppressed: 1,
         manual: 0,
       },
@@ -72,7 +72,7 @@ test("deriveAttentionBurden resets to light while the operator is absent", () =>
         attentionShifted: 0,
       },
       deferred: {
-        queued: 2,
+        next: 2,
         suppressed: 0,
         manual: 0,
       },
@@ -122,7 +122,7 @@ test("deriveAttentionBurden ignores stale summary pressure after a quiet period"
         attentionShifted: 0,
       },
       deferred: {
-        queued: 2,
+        next: 2,
         suppressed: 1,
         manual: 0,
       },

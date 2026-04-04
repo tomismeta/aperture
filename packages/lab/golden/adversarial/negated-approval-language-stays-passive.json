@@ -9,14 +9,14 @@
     "adversarial_semantics"
   ],
   "expectations": {
-    "finalActiveInteractionId": null,
-    "queuedInteractionIds": [],
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
     "ambientInteractionIds": [
       "interaction:task:no-approval-needed:status"
     ],
-    "resultBucketCounts": {
-      "active": 0,
-      "queued": 0,
+    "resultLaneCounts": {
+      "now": 0,
+      "next": 0,
       "ambient": 1
     },
     "semanticReadings": [

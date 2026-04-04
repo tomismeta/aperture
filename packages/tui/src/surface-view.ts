@@ -13,21 +13,21 @@ export function buildSurfaceAttentionView(
   const ambientStaleMs = options.ambientStaleMs ?? DEFAULT_AMBIENT_STALE_MS;
 
   return {
-    active: attentionView.active,
-    queued: attentionView.queued,
+    now: attentionView.now,
+    next: attentionView.next,
     ambient: attentionView.ambient.filter((frame) => !isStalePassiveAmbient(frame, nowMs, ambientStaleMs)),
   };
 }
 
 export function sameAttentionView(left: AttentionView, right: AttentionView): boolean {
-  return compareFrame(left.active, right.active)
-    && compareFrameLists(left.queued, right.queued)
+  return compareFrame(left.now, right.now)
+    && compareFrameLists(left.next, right.next)
     && compareFrameLists(left.ambient, right.ambient);
 }
 
 export function isAttentionViewEmpty(attentionView: AttentionView): boolean {
-  return !attentionView.active
-    && attentionView.queued.length === 0
+  return !attentionView.now
+    && attentionView.next.length === 0
     && attentionView.ambient.length === 0;
 }
 

@@ -393,9 +393,9 @@ Your UI or workflow layer reads `frame.responseSpec`, renders the available acti
 
 If you want the whole current surface after each event, call `core.getAttentionView()`. It returns:
 
-- `active`
+- `now`
   - the item that should hold focus now (`now` in user-facing language)
-- `queued`
+- `next`
   - items that still matter, but should wait (`next` in user-facing language)
 - `ambient`
   - low-urgency background items (`ambient` in user-facing language too)

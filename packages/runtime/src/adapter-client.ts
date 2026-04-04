@@ -37,7 +37,7 @@ export class ApertureRuntimeAdapterClient {
   private closed = false;
   private snapshotState: ApertureRuntimeSnapshot = {
     version: 0,
-    attentionView: { active: null, queued: [], ambient: [] },
+    attentionView: { now: null, next: [], ambient: [] },
     signalSummary: {
       recentSignals: 0,
       lifetimeSignals: 0,
@@ -54,7 +54,7 @@ export class ApertureRuntimeAdapterClient {
         attentionShifted: 0,
       },
       deferred: {
-        queued: 0,
+        next: 0,
         suppressed: 0,
         manual: 0,
       },

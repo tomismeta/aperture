@@ -422,8 +422,8 @@ test("SWE-smith rows can become replayable session bundles", () => {
   assert.equal(bundle.decisionSnapshots.length, 6);
   assert.equal(bundle.source?.id, "huggingface:swe-smith");
   assert.ok(bundle.source?.capture?.notes?.includes("split=tool"));
-  assert.equal(replayed.views.at(-1)?.activeInteractionId, bundle.outcomes.finalActiveInteractionId);
-  assert.equal(replayed.views.at(-1)?.queuedInteractionIds.length, bundle.outcomes.finalQueuedCount);
+  assert.equal(replayed.views.at(-1)?.nowInteractionId, bundle.outcomes.finalNowInteractionId);
+  assert.equal(replayed.views.at(-1)?.nextInteractionIds.length, bundle.outcomes.finalNextCount);
   assert.equal(replayed.views.at(-1)?.ambientInteractionIds.length, bundle.outcomes.finalAmbientCount);
 });
 
@@ -478,8 +478,8 @@ test("DataClaw rows can become replayable session bundles", () => {
 
   assert.equal(bundle.source?.id, "huggingface:dataclaw");
   assert.ok(bundle.source?.capture?.notes?.includes("project=demo-project"));
-  assert.equal(replayed.views.at(-1)?.activeInteractionId, bundle.outcomes.finalActiveInteractionId);
-  assert.equal(replayed.views.at(-1)?.queuedInteractionIds.length, bundle.outcomes.finalQueuedCount);
+  assert.equal(replayed.views.at(-1)?.nowInteractionId, bundle.outcomes.finalNowInteractionId);
+  assert.equal(replayed.views.at(-1)?.nextInteractionIds.length, bundle.outcomes.finalNextCount);
   assert.equal(replayed.views.at(-1)?.ambientInteractionIds.length, bundle.outcomes.finalAmbientCount);
 });
 
@@ -549,8 +549,8 @@ test("OpenAgentSessions rows can become replayable session bundles", () => {
 
   assert.equal(bundle.source?.id, "open-agent-sessions:approved");
   assert.ok(bundle.source?.capture?.notes?.includes("dataset=open-agent-sessions"));
-  assert.equal(replayed.views.at(-1)?.activeInteractionId, bundle.outcomes.finalActiveInteractionId);
-  assert.equal(replayed.views.at(-1)?.queuedInteractionIds.length, bundle.outcomes.finalQueuedCount);
+  assert.equal(replayed.views.at(-1)?.nowInteractionId, bundle.outcomes.finalNowInteractionId);
+  assert.equal(replayed.views.at(-1)?.nextInteractionIds.length, bundle.outcomes.finalNextCount);
   assert.equal(replayed.views.at(-1)?.ambientInteractionIds.length, bundle.outcomes.finalAmbientCount);
 });
 

@@ -268,7 +268,7 @@ Each semantic scenario should assert both:
   - `whyNowIncludes`
   - `reasonsInclude`
 - final routing:
-  - active / queued / ambient
+  - now / next / ambient
   - bucket counts
   - explanation headline when helpful
 

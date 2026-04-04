@@ -111,13 +111,13 @@ export type AttentionTiming = {
 };
 
 export type AttentionTaskView = {
-  active: AttentionFrame | null;
-  queued: AttentionFrame[];
+  now: AttentionFrame | null;
+  next: AttentionFrame[];
   ambient: AttentionFrame[];
 };
 
 export type AttentionView = {
-  active: AttentionFrame | null;
-  queued: AttentionFrame[];
+  now: AttentionFrame | null;
+  next: AttentionFrame[];
   ambient: AttentionFrame[];
 };

@@ -82,7 +82,7 @@ const TRACE_EVALUATION_KINDS = new Set<ApertureTrace["evaluation"]["kind"]>([
   "candidate",
 ]);
 
-const RESULT_BUCKETS = new Set(["active", "queued", "ambient", "none"]);
+const RESULT_BUCKETS = new Set(["now", "next", "ambient", "none"]);
 const DECISION_KINDS = new Set(["auto_approve", "activate", "queue", "ambient", "clear"]);
 const FRAME_MODES = new Set(["status", "approval", "choice", "form"]);
 const TONES = new Set(["ambient", "focused", "critical"]);
@@ -92,8 +92,8 @@ const REQUEST_KINDS = new Set(["approval", "choice", "form"]);
 const SELECTION_MODES = new Set(["single", "multiple"]);
 const FIELD_TYPES = new Set(["text", "textarea", "number", "select", "boolean"]);
 const SIGNAL_RESPONSE_KINDS = new Set(["acknowledged", "approved", "rejected", "option_selected", "text_submitted", "form_submitted"]);
-const DEFERRED_REASONS = new Set(["queued", "suppressed", "manual"]);
-const RETURNED_FROM = new Set(["queued", "ambient"]);
+const DEFERRED_REASONS = new Set(["next", "suppressed", "manual"]);
+const RETURNED_FROM = new Set(["next", "ambient"]);
 const SEMANTIC_CONFIDENCE = new Set(["low", "medium", "high"]);
 const SEMANTIC_FRAMES = new Set([
   "task_started",
@@ -216,10 +216,10 @@ function validateHumanInputRequestedLike(
 
 function validateAttentionCollection(value: unknown): boolean {
   return isRecord(value)
-    && Array.isArray(value.queued)
+    && Array.isArray(value.next)
     && Array.isArray(value.ambient)
-    && (value.active === null || isAttentionFrameGuard(value.active))
-    && value.queued.every(isAttentionFrameGuard)
+    && (value.now === null || isAttentionFrameGuard(value.now))
+    && value.next.every(isAttentionFrameGuard)
     && value.ambient.every(isAttentionFrameGuard);
 }
 
@@ -300,8 +300,8 @@ export function validateReplayViewSnapshot(value: unknown): ReplayViewSnapshot |
     || !hasShape(value, {
       stepIndex: isNumber,
       stepKind: isString,
-      activeInteractionId: isStringOrNull,
-      queuedInteractionIds: isStringArray,
+      nowInteractionId: isStringOrNull,
+      nextInteractionIds: isStringArray,
       ambientInteractionIds: isStringArray,
     })
     || !STEP_KINDS.has(value.stepKind as ReplayObservationStep["kind"])
@@ -363,7 +363,7 @@ export function validateReplayDecisionSnapshot(value: unknown): ReplayDecisionSn
     || !STEP_KINDS.has(value.stepKind as ReplayObservationStep["kind"])
     || !["candidate", "clear", "noop"].includes(String(value.evaluationKind))
     || (value.decisionKind !== undefined && !DECISION_KINDS.has(String(value.decisionKind)))
-    || (value.resultBucket !== undefined && !RESULT_BUCKETS.has(String(value.resultBucket)))
+    || (value.resultLane !== undefined && !RESULT_BUCKETS.has(String(value.resultLane)))
     || (value.semanticConfidence !== undefined && !SEMANTIC_CONFIDENCE.has(String(value.semanticConfidence)))
     || !isDecisionAmbiguity(value.ambiguity)
   ) {
@@ -395,7 +395,7 @@ export function validateApertureTrace(value: unknown): ApertureTrace | null {
       !isRecord(value.coordination)
       || typeof value.coordination.kind !== "string"
       || !DECISION_KINDS.has(value.coordination.kind)
-      || !RESULT_BUCKETS.has(String(value.coordination.resultBucket))
+      || !RESULT_BUCKETS.has(String(value.coordination.resultLane))
     ) {
       return null;
     }
@@ -569,8 +569,8 @@ function validateReplayScenarioExpectations(value: unknown): ReplayScenarioExpec
   if (
     !isRecord(value)
     || !hasShape(value, {}, {
-      finalActiveInteractionId: isStringOrNull,
-      queuedInteractionIds: isStringArray,
+      finalNowInteractionId: isStringOrNull,
+      nextInteractionIds: isStringArray,
       ambientInteractionIds: isStringArray,
       explanationExpectation: isReplayExplanationExpectationGuard,
       traceExpectations: isReplayTraceExpectationGuard,
@@ -581,12 +581,12 @@ function validateReplayScenarioExpectations(value: unknown): ReplayScenarioExpec
     return null;
   }
 
-  if (value.resultBucketCounts !== undefined) {
+  if (value.resultLaneCounts !== undefined) {
     if (
-      !isRecord(value.resultBucketCounts)
-      || (value.resultBucketCounts.active !== undefined && typeof value.resultBucketCounts.active !== "number")
-      || (value.resultBucketCounts.queued !== undefined && typeof value.resultBucketCounts.queued !== "number")
-      || (value.resultBucketCounts.ambient !== undefined && typeof value.resultBucketCounts.ambient !== "number")
+      !isRecord(value.resultLaneCounts)
+      || (value.resultLaneCounts.now !== undefined && typeof value.resultLaneCounts.now !== "number")
+      || (value.resultLaneCounts.next !== undefined && typeof value.resultLaneCounts.next !== "number")
+      || (value.resultLaneCounts.ambient !== undefined && typeof value.resultLaneCounts.ambient !== "number")
     ) {
       return null;
     }
@@ -632,7 +632,7 @@ function validateReplayDecisionExpectation(value: unknown): ReplayDecisionExpect
     || (value.stepLabel !== undefined && typeof value.stepLabel !== "string")
     || (value.evaluationKind !== undefined && !["candidate", "clear", "noop"].includes(String(value.evaluationKind)))
     || (value.decisionKind !== undefined && !DECISION_KINDS.has(String(value.decisionKind)))
-    || (value.resultBucket !== undefined && !RESULT_BUCKETS.has(String(value.resultBucket)))
+    || (value.resultLane !== undefined && !RESULT_BUCKETS.has(String(value.resultLane)))
     || (value.semanticConfidence !== undefined && !SEMANTIC_CONFIDENCE.has(String(value.semanticConfidence)))
     || (value.semanticAbstained !== undefined && typeof value.semanticAbstained !== "boolean")
     || (value.semanticInfluenceIncludes !== undefined && !isStringArray(value.semanticInfluenceIncludes))
@@ -677,11 +677,11 @@ function validateReplayTraceExpectation(value: unknown): ReplayTraceExpectation 
 
   const keys = [
     "ambiguousDecisions",
-    "ambiguousQueued",
+    "ambiguousNext",
     "ambiguousAmbient",
     "ambiguousLowConfidence",
     "ambiguousAbstained",
-    "ambiguousQueuedThenActivated",
+    "ambiguousNextThenActivated",
     "ambiguousAmbientThenActivated",
     "actionableEpisodes",
     "actionableSurfaced",

@@ -1,6 +1,6 @@
 import type { AttentionFrame, AttentionTaskView } from "./frame.js";
 
-type FrameBucket = "active" | "queued" | "ambient";
+type FrameLane = "next" | "ambient";
 
 export class TaskViewStore {
   private readonly taskViews = new Map<string, AttentionTaskView>();
@@ -8,31 +8,31 @@ export class TaskViewStore {
   get(taskId: string): AttentionTaskView {
     return (
       this.taskViews.get(taskId) ?? {
-        active: null,
-        queued: [],
+        now: null,
+        next: [],
         ambient: [],
       }
     );
   }
 
-  setActive(taskId: string, frame: AttentionFrame): AttentionTaskView {
+  setNow(taskId: string, frame: AttentionFrame): AttentionTaskView {
     const taskView = this.get(taskId);
-    const nextQueued = taskView.queued.filter((item) => item.interactionId !== frame.interactionId);
-    const previousActive =
-      taskView.active && taskView.active.interactionId !== frame.interactionId
-        ? taskView.active
+    const nextFrames = taskView.next.filter((item) => item.interactionId !== frame.interactionId);
+    const previousNow =
+      taskView.now && taskView.now.interactionId !== frame.interactionId
+        ? taskView.now
         : null;
     const next: AttentionTaskView = {
-      active: frame,
-      queued: previousActive ? [previousActive, ...nextQueued] : nextQueued,
+      now: frame,
+      next: previousNow ? [previousNow, ...nextFrames] : nextFrames,
       ambient: taskView.ambient.filter((item) => item.interactionId !== frame.interactionId),
     };
     this.taskViews.set(taskId, next);
     return next;
   }
 
-  enqueue(taskId: string, frame: AttentionFrame): AttentionTaskView {
-    return this.upsert(taskId, "queued", frame);
+  addNext(taskId: string, frame: AttentionFrame): AttentionTaskView {
+    return this.upsert(taskId, "next", frame);
   }
 
   addAmbient(taskId: string, frame: AttentionFrame): AttentionTaskView {
@@ -41,8 +41,8 @@ export class TaskViewStore {
 
   clear(taskId: string): AttentionTaskView {
     const next: AttentionTaskView = {
-      active: null,
-      queued: [],
+      now: null,
+      next: [],
       ambient: [],
     };
     this.taskViews.set(taskId, next);
@@ -52,8 +52,8 @@ export class TaskViewStore {
   discard(taskId: string, interactionId: string): AttentionTaskView {
     const taskView = this.get(taskId);
     const next: AttentionTaskView = {
-      active: taskView.active?.interactionId === interactionId ? null : taskView.active,
-      queued: taskView.queued.filter((frame) => frame.interactionId !== interactionId),
+      now: taskView.now?.interactionId === interactionId ? null : taskView.now,
+      next: taskView.next.filter((frame) => frame.interactionId !== interactionId),
       ambient: taskView.ambient.filter((frame) => frame.interactionId !== interactionId),
     };
     this.taskViews.set(taskId, next);
@@ -62,34 +62,34 @@ export class TaskViewStore {
 
   resolve(taskId: string, interactionId: string): AttentionTaskView {
     const taskView = this.get(taskId);
-    const remainingQueued = taskView.queued.filter((frame) => frame.interactionId !== interactionId);
+    const remainingNext = taskView.next.filter((frame) => frame.interactionId !== interactionId);
     const remainingAmbient = taskView.ambient.filter((frame) => frame.interactionId !== interactionId);
 
-    let nextActive = taskView.active;
-    if (nextActive?.interactionId === interactionId) {
-      nextActive = remainingQueued.shift() ?? null;
+    let nextNow = taskView.now;
+    if (nextNow?.interactionId === interactionId) {
+      nextNow = remainingNext.shift() ?? null;
     }
 
     const next: AttentionTaskView = {
-      active: nextActive,
-      queued: remainingQueued,
+      now: nextNow,
+      next: remainingNext,
       ambient: remainingAmbient,
     };
     this.taskViews.set(taskId, next);
     return next;
   }
 
-  private upsert(taskId: string, bucket: FrameBucket, frame: AttentionFrame): AttentionTaskView {
+  private upsert(taskId: string, lane: FrameLane, frame: AttentionFrame): AttentionTaskView {
     const taskView = this.get(taskId);
-    const dedupedQueued = taskView.queued.filter((item) => item.interactionId !== frame.interactionId);
+    const dedupedNext = taskView.next.filter((item) => item.interactionId !== frame.interactionId);
     const dedupedAmbient = taskView.ambient.filter((item) => item.interactionId !== frame.interactionId);
-    const demotingActive = taskView.active?.interactionId === frame.interactionId;
-    const nextActive = demotingActive ? dedupedQueued.shift() ?? null : taskView.active;
+    const demotingNow = taskView.now?.interactionId === frame.interactionId;
+    const nextNow = demotingNow ? dedupedNext.shift() ?? null : taskView.now;
 
     const next: AttentionTaskView = {
-      active: nextActive,
-      queued: bucket === "queued" ? [frame, ...dedupedQueued] : dedupedQueued,
-      ambient: bucket === "ambient" ? [frame, ...dedupedAmbient] : dedupedAmbient,
+      now: nextNow,
+      next: lane === "next" ? [frame, ...dedupedNext] : dedupedNext,
+      ambient: lane === "ambient" ? [frame, ...dedupedAmbient] : dedupedAmbient,
     };
 
     this.taskViews.set(taskId, next);

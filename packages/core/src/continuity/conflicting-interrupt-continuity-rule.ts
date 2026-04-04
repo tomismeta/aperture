@@ -80,10 +80,10 @@ function interruptClassForCandidate(
   },
   policyVerdict: {
     requiresOperatorResponse: boolean;
-    minimumPresentation: "ambient" | "queue" | "active";
+    minimumLane: "ambient" | "next" | "now";
   },
 ): number {
-  if (candidate.blocking || policyVerdict.requiresOperatorResponse || policyVerdict.minimumPresentation === "active") {
+  if (candidate.blocking || policyVerdict.requiresOperatorResponse || policyVerdict.minimumLane === "now") {
     return 3;
   }
 

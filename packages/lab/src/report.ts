@@ -18,10 +18,10 @@ export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
     `- Semantic readings: ${run.summary.totalSemanticReadings}`,
     `- Decision readings: ${run.summary.totalDecisionReadings}`,
     `- Ambiguous decisions: ${run.summary.totalAmbiguousDecisions}`,
-    `- Ambiguous queued: ${run.summary.totalAmbiguousQueued}`,
+    `- Ambiguous next: ${run.summary.totalAmbiguousQueued}`,
     `- Ambiguous ambient: ${run.summary.totalAmbiguousAmbient}`,
-    `- Ambiguous queued -> active: ${run.summary.totalAmbiguousQueuedThenActivated}`,
-    `- Ambiguous ambient -> active: ${run.summary.totalAmbiguousAmbientThenActivated}`,
+    `- Ambiguous queued -> now: ${run.summary.totalAmbiguousQueuedThenActivated}`,
+    `- Ambiguous ambient -> now: ${run.summary.totalAmbiguousAmbientThenActivated}`,
     `- Active buckets: ${run.summary.totalActiveBuckets}`,
     `- Queued buckets: ${run.summary.totalQueuedBuckets}`,
     `- Ambient buckets: ${run.summary.totalAmbientBuckets}`,
@@ -50,15 +50,15 @@ export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
     if (result.scenario.doctrineTags && result.scenario.doctrineTags.length > 0) {
       lines.push(`- Doctrines: ${result.scenario.doctrineTags.join(", ")}`);
     }
-    lines.push(`- Active: ${result.scorecard.outcomes.finalActiveInteractionId ?? "none"}`);
-    lines.push(`- Queued: ${result.scorecard.outcomes.finalQueuedInteractionIds.join(", ") || "none"}`);
+    lines.push(`- Now: ${result.scorecard.outcomes.finalNowInteractionId ?? "none"}`);
+    lines.push(`- Next: ${result.scorecard.outcomes.finalNextInteractionIds.join(", ") || "none"}`);
     lines.push(`- Ambient: ${result.scorecard.outcomes.finalAmbientInteractionIds.join(", ") || "none"}`);
     lines.push(
-      `- Buckets: active=${result.scorecard.buckets.active}, queued=${result.scorecard.buckets.queued}, ambient=${result.scorecard.buckets.ambient}`,
+      `- Buckets: active=${result.scorecard.buckets.now}, queued=${result.scorecard.buckets.next}, ambient=${result.scorecard.buckets.ambient}`,
     );
     if (result.scorecard.trace.ambiguousDecisions > 0) {
       lines.push(
-        `- Ambiguity trace: total=${result.scorecard.trace.ambiguousDecisions}, queued=${result.scorecard.trace.ambiguousQueued}, ambient=${result.scorecard.trace.ambiguousAmbient}, queued->active=${result.scorecard.trace.ambiguousQueuedThenActivated}, ambient->active=${result.scorecard.trace.ambiguousAmbientThenActivated}`,
+        `- Ambiguity trace: total=${result.scorecard.trace.ambiguousDecisions}, queued=${result.scorecard.trace.ambiguousNext}, ambient=${result.scorecard.trace.ambiguousAmbient}, queued->active=${result.scorecard.trace.ambiguousNextThenActivated}, ambient->active=${result.scorecard.trace.ambiguousAmbientThenActivated}`,
       );
     }
     if (
@@ -86,7 +86,7 @@ export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
     if (result.run.decisions.length > 0) {
       for (const decision of result.run.decisions) {
         lines.push(
-          `- Decision (${decision.stepLabel ?? `step ${decision.stepIndex}`}): evaluation=${decision.evaluationKind}, decision=${decision.decisionKind ?? "none"}, bucket=${decision.resultBucket ?? "none"}, semanticConfidence=${decision.semanticConfidence ?? "none"}, semanticAbstained=${decision.semanticAbstained === true ? "true" : "false"}`,
+          `- Decision (${decision.stepLabel ?? `step ${decision.stepIndex}`}): evaluation=${decision.evaluationKind}, decision=${decision.decisionKind ?? "none"}, bucket=${decision.resultLane ?? "none"}, semanticConfidence=${decision.semanticConfidence ?? "none"}, semanticAbstained=${decision.semanticAbstained === true ? "true" : "false"}`,
         );
         if (decision.ambiguity) {
           lines.push(
@@ -96,7 +96,7 @@ export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
       }
     }
     if (result.scorecard.explanation.targetInteractionId) {
-      lines.push(`- Why target: ${result.scorecard.explanation.targetInteractionId} (${result.scorecard.explanation.targetBucket})`);
+      lines.push(`- Why target: ${result.scorecard.explanation.targetInteractionId} (${result.scorecard.explanation.targetLane})`);
       if (result.scorecard.explanation.headline) {
         lines.push(`- Why headline: ${result.scorecard.explanation.headline}`);
       }

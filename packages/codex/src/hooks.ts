@@ -137,7 +137,7 @@ export function parseCodexHookEvent(value: unknown): CodexHookEvent {
         hook_event_name: "Stop",
         turn_id: readRequiredString(value.turn_id, "Stop.turn_id"),
         ...(typeof value.stop_hook_active === "boolean"
-          ? { stop_hook_active: value.stop_hook_active }
+          ? { stop_hook_now: value.stop_hook_active }
           : {}),
         ...(value.last_assistant_message === null || typeof value.last_assistant_message === "string"
           ? { last_assistant_message: value.last_assistant_message }

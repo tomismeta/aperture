@@ -66,8 +66,8 @@ export function validateImportedTrajectoryBundle(
   }
 
   if (
-    finalView.activeInteractionId !== bundle.outcomes.finalActiveInteractionId
-    || finalView.queuedInteractionIds.length !== bundle.outcomes.finalQueuedCount
+    finalView.nowInteractionId !== bundle.outcomes.finalNowInteractionId
+    || finalView.nextInteractionIds.length !== bundle.outcomes.finalNextCount
     || finalView.ambientInteractionIds.length !== bundle.outcomes.finalAmbientCount
   ) {
     throw new Error(`Imported trajectory bundle ${bundle.sessionId} failed roundtrip replay validation.`);

@@ -80,7 +80,7 @@ test("bootstraps pending permissions and routes runtime responses back to OpenCo
   try {
     await bridge.start();
 
-    const active = await waitFor(() => runtime.getCore().getAttentionView().active);
+    const active = await waitFor(() => runtime.getCore().getAttentionView().now);
     assert.ok(active);
     assert.equal(active?.responseSpec?.kind, "approval");
 
@@ -108,7 +108,7 @@ test("bootstraps pending permissions and routes runtime responses back to OpenCo
       })}\n\n`);
     }
 
-    const cleared = await waitFor(() => runtime.getCore().getAttentionView().active === null ? true : null);
+    const cleared = await waitFor(() => runtime.getCore().getAttentionView().now === null ? true : null);
     assert.equal(cleared, true);
   } finally {
     await bridge.close();
@@ -210,7 +210,7 @@ test("question requests with read wording stay interactive under lowRiskRead aut
       })}\n\n`);
     }
 
-    const active = await waitFor(() => runtime.getCore().getAttentionView().active, { timeoutMs: 1_000 });
+    const active = await waitFor(() => runtime.getCore().getAttentionView().now, { timeoutMs: 1_000 });
     assert.ok(active);
     assert.equal(active?.mode, "choice");
     assert.equal(active?.responseSpec?.kind, "choice");
@@ -337,7 +337,7 @@ test("follow-up text questions can be answered back into the OpenCode session", 
       })}\n\n`);
     }
 
-    const active = await waitFor(() => runtime.getCore().getAttentionView().active, { timeoutMs: 1_000 });
+    const active = await waitFor(() => runtime.getCore().getAttentionView().now, { timeoutMs: 1_000 });
     assert.ok(active);
     assert.equal(active?.responseSpec?.kind, "form");
     assert.equal(active?.title, "OpenCode is waiting for your reply");
@@ -453,7 +453,7 @@ test("reconnects when the OpenCode event stream closes unexpectedly", async () =
   try {
     await bridge.start();
 
-    const active = await waitFor(() => runtime.getCore().getAttentionView().active, { timeoutMs: 1_000 });
+    const active = await waitFor(() => runtime.getCore().getAttentionView().now, { timeoutMs: 1_000 });
     assert.ok(active);
     assert.equal(active?.responseSpec?.kind, "approval");
     assert.ok(eventConnections >= 2);
@@ -538,7 +538,7 @@ test("reconnects when the OpenCode event stream stops heartbeating", async () =>
   try {
     await bridge.start();
 
-    const active = await waitFor(() => runtime.getCore().getAttentionView().active, { timeoutMs: 1_000 });
+    const active = await waitFor(() => runtime.getCore().getAttentionView().now, { timeoutMs: 1_000 });
     assert.ok(active);
     assert.equal(active?.responseSpec?.kind, "approval");
     assert.ok(eventConnections >= 2);

@@ -77,10 +77,10 @@ export type ReplaySessionBundle = {
   outcomes: {
     totalSteps: number;
     surfacedFrames: number;
-    finalActiveInteractionId: string | null;
-    finalQueuedCount: number;
+    finalNowInteractionId: string | null;
+    finalNextCount: number;
     finalAmbientCount: number;
-    finalQueuedInteractionIds: string[];
+    finalNextInteractionIds: string[];
     finalAmbientInteractionIds: string[];
   };
 };
@@ -129,12 +129,12 @@ export type RuntimeSessionCaptureCursor = {
 };
 
 export type CanonicalAttentionSnapshotLike = {
-  active: { interactionId: string } | null;
-  queued: Array<{ interactionId: string }>;
+  now: { interactionId: string } | null;
+  next: Array<{ interactionId: string }>;
   ambient: Array<{ interactionId: string }>;
   counts: {
-    active: number;
-    queued: number;
+    now: number;
+    next: number;
     ambient: number;
   };
 };
@@ -335,10 +335,10 @@ export function createSessionBundleFromRuntimeCapture(
     outcomes: {
       totalSteps: capture.steps.length,
       surfacedFrames: traceMatches.filter((trace) => trace.result !== null).length,
-      finalActiveInteractionId: capture.attentionView.active?.interactionId ?? null,
-      finalQueuedCount: capture.attentionView.queued.length,
+      finalNowInteractionId: capture.attentionView.now?.interactionId ?? null,
+      finalNextCount: capture.attentionView.next.length,
       finalAmbientCount: capture.attentionView.ambient.length,
-      finalQueuedInteractionIds: capture.attentionView.queued.map((frame) => frame.interactionId),
+      finalNextInteractionIds: capture.attentionView.next.map((frame) => frame.interactionId),
       finalAmbientInteractionIds: capture.attentionView.ambient.map((frame) => frame.interactionId),
     },
   };
@@ -363,12 +363,12 @@ export function canonicalAttentionExportToScenario(
     ...(finalSnapshot
       ? {
           expectations: {
-            finalActiveInteractionId: finalSnapshot.active?.interactionId ?? null,
-            queuedInteractionIds: finalSnapshot.queued.map((frame) => frame.interactionId),
+            finalNowInteractionId: finalSnapshot.now?.interactionId ?? null,
+            nextInteractionIds: finalSnapshot.next.map((frame) => frame.interactionId),
             ambientInteractionIds: finalSnapshot.ambient.map((frame) => frame.interactionId),
-            resultBucketCounts: {
-              active: finalSnapshot.counts.active,
-              queued: finalSnapshot.counts.queued,
+            resultLaneCounts: {
+              now: finalSnapshot.counts.now,
+              next: finalSnapshot.counts.next,
               ambient: finalSnapshot.counts.ambient,
             },
           },
@@ -591,12 +591,12 @@ export function validateSessionBundle(value: unknown): ReplaySessionBundle | nul
 
 function expectationsFromBundle(bundle: ReplaySessionBundle): ReplayScenarioExpectations {
   return {
-    finalActiveInteractionId: bundle.outcomes.finalActiveInteractionId,
-    queuedInteractionIds: bundle.outcomes.finalQueuedInteractionIds,
+    finalNowInteractionId: bundle.outcomes.finalNowInteractionId,
+    nextInteractionIds: bundle.outcomes.finalNextInteractionIds,
     ambientInteractionIds: bundle.outcomes.finalAmbientInteractionIds,
-    resultBucketCounts: {
-      active: bundle.outcomes.finalActiveInteractionId ? 1 : 0,
-      queued: bundle.outcomes.finalQueuedCount,
+    resultLaneCounts: {
+      now: bundle.outcomes.finalNowInteractionId ? 1 : 0,
+      next: bundle.outcomes.finalNextCount,
       ambient: bundle.outcomes.finalAmbientCount,
     },
   };
@@ -657,7 +657,7 @@ function buildDecisionSnapshotFromTrace(
     stepKind,
     evaluationKind: "candidate",
     decisionKind: trace.coordination.kind,
-    resultBucket: trace.coordination.resultBucket,
+    resultLane: trace.coordination.resultLane,
     interactionId: trace.evaluation.adjusted.interactionId,
     ...(trace.evaluation.adjusted.semanticConfidence !== undefined
       ? { semanticConfidence: trace.evaluation.adjusted.semanticConfidence }
@@ -688,8 +688,8 @@ function buildViewSnapshotFromRuntimeCapture(
   return {
     stepIndex,
     stepKind: precedingStep.kind,
-    activeInteractionId: snapshot.attentionView.active?.interactionId ?? null,
-    queuedInteractionIds: snapshot.attentionView.queued.map((frame) => frame.interactionId),
+    nowInteractionId: snapshot.attentionView.now?.interactionId ?? null,
+    nextInteractionIds: snapshot.attentionView.next.map((frame) => frame.interactionId),
     ambientInteractionIds: snapshot.attentionView.ambient.map((frame) => frame.interactionId),
     attentionView: snapshot.attentionView,
   };
@@ -701,8 +701,8 @@ function isMissingDirectoryError(error: unknown): error is NodeJS.ErrnoException
 
 function emptyAttentionView(): AttentionView {
   return {
-    active: null,
-    queued: [],
+    now: null,
+    next: [],
     ambient: [],
   };
 }
@@ -713,10 +713,10 @@ function isSessionBundleOutcomes(value: unknown): value is ReplaySessionBundle["
     {
       totalSteps: isNumber,
       surfacedFrames: isNumber,
-      finalActiveInteractionId: (interactionId: unknown): interactionId is string | null => interactionId === null || isString(interactionId),
-      finalQueuedCount: isNumber,
+      finalNowInteractionId: (interactionId: unknown): interactionId is string | null => interactionId === null || isString(interactionId),
+      finalNextCount: isNumber,
       finalAmbientCount: isNumber,
-      finalQueuedInteractionIds: isStringArray,
+      finalNextInteractionIds: isStringArray,
       finalAmbientInteractionIds: isStringArray,
     },
   );

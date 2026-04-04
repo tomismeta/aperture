@@ -8,12 +8,12 @@
     "interruption_credibility"
   ],
   "expectations": {
-    "finalActiveInteractionId": "interaction:deploy:approval",
-    "queuedInteractionIds": [],
+    "finalNowInteractionId": "interaction:deploy:approval",
+    "nextInteractionIds": [],
     "ambientInteractionIds": [],
-    "resultBucketCounts": {
-      "active": 1,
-      "queued": 0,
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
       "ambient": 0
     }
   },

@@ -82,7 +82,7 @@ What still matters:
 
 Question:
 
-- can Aperture place work correctly across active, queued, and ambient states
+- can Aperture place work correctly across now, next, and ambient states
   without thrashing the operator?
 
 Current code anchors:

@@ -29,8 +29,8 @@ function createFrame(overrides: Partial<Frame> = {}): Frame {
 
 function createTaskView(overrides: Partial<TaskView> = {}): TaskView {
   return {
-    active: null,
-    queued: [],
+    now: null,
+    next: [],
     ambient: [],
     ...overrides,
   };
@@ -61,11 +61,11 @@ test("global attention prefers blocking work over non-blocking status", () => {
   });
 
   const attentionView = buildAttentionView([
-    createTaskView({ active: failed }),
-    createTaskView({ active: approval }),
+    createTaskView({ now: failed }),
+    createTaskView({ now: approval }),
   ]);
 
-  assert.equal(attentionView.active?.interactionId, "interaction:approval");
+  assert.equal(attentionView.now?.interactionId, "interaction:approval");
   assert.equal(attentionView.ambient[0]?.interactionId, "interaction:failed");
 });
 
@@ -98,11 +98,11 @@ test("global attention uses persisted attention offsets to order similar status 
   });
 
   const attentionView = buildAttentionView([
-    createTaskView({ active: quiet }),
-    createTaskView({ active: sticky }),
+    createTaskView({ now: quiet }),
+    createTaskView({ now: sticky }),
   ]);
 
-  assert.equal(attentionView.active?.interactionId, "interaction:sticky");
+  assert.equal(attentionView.now?.interactionId, "interaction:sticky");
   assert.equal(attentionView.ambient[0]?.interactionId, "interaction:quiet");
 });
 
@@ -119,9 +119,9 @@ test("global attention can leave low-value ambient work unfocused when it has be
     },
   });
 
-  const attentionView = buildAttentionView([createTaskView({ active: quiet })]);
+  const attentionView = buildAttentionView([createTaskView({ now: quiet })]);
 
-  assert.equal(attentionView.active, null);
+  assert.equal(attentionView.now, null);
   assert.equal(attentionView.ambient[0]?.interactionId, "interaction:quiet");
 });
 
@@ -132,9 +132,9 @@ test("global attention leaves score-zero ambient work unfocused", () => {
     title: "Completed successfully",
   });
 
-  const attentionView = buildAttentionView([createTaskView({ active: quiet })]);
+  const attentionView = buildAttentionView([createTaskView({ now: quiet })]);
 
-  assert.equal(attentionView.active, null);
+  assert.equal(attentionView.now, null);
   assert.equal(attentionView.ambient[0]?.interactionId, "interaction:zero");
 });
 
@@ -148,11 +148,11 @@ test("global overload keeps medium ambient status out of focus", () => {
   });
 
   const attentionView = buildAttentionView(
-    [createTaskView({ active: blocked })],
+    [createTaskView({ now: blocked })],
     { globalAttentionState: "overloaded" satisfies AttentionState },
   );
 
-  assert.equal(attentionView.active, null);
+  assert.equal(attentionView.now, null);
   assert.equal(attentionView.ambient[0]?.interactionId, "interaction:blocked");
 });
 
@@ -173,11 +173,11 @@ test("global overload still allows critical ambient status to take focus", () =>
   });
 
   const attentionView = buildAttentionView(
-    [createTaskView({ active: failed })],
+    [createTaskView({ now: failed })],
     { globalAttentionState: "overloaded" satisfies AttentionState },
   );
 
-  assert.equal(attentionView.active?.interactionId, "interaction:failed");
+  assert.equal(attentionView.now?.interactionId, "interaction:failed");
 });
 
 test("newer focused work outranks stale focused work when base scores match", () => {
@@ -205,11 +205,11 @@ test("newer focused work outranks stale focused work when base scores match", ()
   });
 
   const attentionView = buildAttentionView(
-    [createTaskView({ active: stale }), createTaskView({ active: fresh })],
+    [createTaskView({ now: stale }), createTaskView({ now: fresh })],
     { now: "2026-03-09T12:30:00.000Z" },
   );
 
-  assert.equal(attentionView.active?.interactionId, "interaction:fresh");
+  assert.equal(attentionView.now?.interactionId, "interaction:fresh");
   assert.equal(attentionView.ambient[0]?.interactionId, "interaction:stale");
 });
 
@@ -227,12 +227,12 @@ test("aging does not suppress recent critical work during overload", () => {
   });
 
   const attentionView = buildAttentionView(
-    [createTaskView({ active: failed })],
+    [createTaskView({ now: failed })],
     {
       globalAttentionState: "overloaded" satisfies AttentionState,
       now: "2026-03-09T12:30:00.000Z",
     },
   );
 
-  assert.equal(attentionView.active?.interactionId, "interaction:recent-failed");
+  assert.equal(attentionView.now?.interactionId, "interaction:recent-failed");
 });

@@ -1,7 +1,7 @@
 import { readBoundedToolFamily } from "../interaction-taxonomy.js";
 import type { AttentionCandidate } from "../interaction-candidate.js";
 import type { JudgmentConfig } from "../judgment-config.js";
-import type { AttentionPresentationFloor } from "../attention-policy.js";
+import type { AttentionLane } from "../attention-policy.js";
 import type { AttentionActivityClass } from "../events.js";
 
 export function matchPolicyRule(
@@ -24,11 +24,11 @@ export function matchPolicyRule(
   return undefined;
 }
 
-export function readAttentionPresentationFloor(value: unknown): AttentionPresentationFloor | undefined {
+export function readAttentionLane(value: unknown): AttentionLane | undefined {
   switch (value) {
     case "ambient":
-    case "queue":
-    case "active":
+    case "next":
+    case "now":
       return value;
     default:
       return undefined;

@@ -11,8 +11,8 @@ export const evaluateBlockingPolicyGateRule: PolicyGateRule = (input) => {
       autoApprove: false,
       mayInterrupt: true,
       requiresOperatorResponse: true,
-      minimumPresentation: "active",
-      minimumPresentationIsSticky: false,
+      minimumLane: "now",
+      minimumLaneIsSticky: false,
       rationale: ["blocking interactions require explicit operator attention"],
     },
   );

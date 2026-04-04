@@ -82,7 +82,7 @@ test("session bundles capture replay outputs and normalized source events", () =
   assert.equal(bundle.normalizedEvents[0]?.event.type, "human.input.requested");
   assert.equal(bundle.semanticSnapshots.length, 1);
   assert.equal(bundle.decisionSnapshots.length, 1);
-  assert.equal(bundle.outcomes.finalActiveInteractionId, "interaction:bundle:1");
+  assert.equal(bundle.outcomes.finalNowInteractionId, "interaction:bundle:1");
 });
 
 test("session bundles can replay back into the same final attention outcome", () => {
@@ -196,8 +196,8 @@ test("session bundles can promote into harvested scenarios with source provenanc
   assert.equal(promoted.source?.capture?.eventTransport, "hook+transcript");
   assert.equal(promoted.source?.capture?.responseBridge, "deny_plus_context");
   assert.equal(promoted.provenance?.promotedFromBundleSessionId, "session:bundle:promote");
-  assert.equal(promoted.expectations?.finalActiveInteractionId, "interaction:bundle:promote");
-  assert.equal(promoted.expectations?.resultBucketCounts?.active, 1);
+  assert.equal(promoted.expectations?.finalNowInteractionId, "interaction:bundle:promote");
+  assert.equal(promoted.expectations?.resultLaneCounts?.now, 1);
 });
 
 test("session bundles can be written to disk and loaded back", async () => {
@@ -239,7 +239,7 @@ test("session bundles can be written to disk and loaded back", async () => {
   assert.equal(raw.sessionId, bundle.sessionId);
   assert.equal(loaded.length, 1);
   assert.equal(loaded[0]?.sessionId, bundle.sessionId);
-  assert.equal(loaded[0]?.outcomes.finalActiveInteractionId, bundle.outcomes.finalActiveInteractionId);
+  assert.equal(loaded[0]?.outcomes.finalNowInteractionId, bundle.outcomes.finalNowInteractionId);
 });
 
 test("session bundles reject malformed schema-matching payloads on load", async () => {
@@ -277,10 +277,10 @@ test("session bundle validation requires the core structural fields", () => {
     outcomes: {
       totalSteps: 0,
       surfacedFrames: 0,
-      finalActiveInteractionId: null,
-      finalQueuedCount: 0,
+      finalNowInteractionId: null,
+      finalNextCount: 0,
       finalAmbientCount: 0,
-      finalQueuedInteractionIds: [],
+      finalNextInteractionIds: [],
       finalAmbientInteractionIds: [],
     },
   });
@@ -314,10 +314,10 @@ test("session bundle validation rejects malformed array contents", () => {
     outcomes: {
       totalSteps: 1,
       surfacedFrames: 0,
-      finalActiveInteractionId: null,
-      finalQueuedCount: 0,
+      finalNowInteractionId: null,
+      finalNextCount: 0,
       finalAmbientCount: 0,
-      finalQueuedInteractionIds: [],
+      finalNextInteractionIds: [],
       finalAmbientInteractionIds: [],
     },
   });
@@ -437,12 +437,12 @@ test("canonical attention exports convert into replay scenarios with final-state
       },
     ],
     reconciledSnapshot: {
-      active: null,
-      queued: [],
+      now: null,
+      next: [],
       ambient: [],
       counts: {
-        active: 0,
-        queued: 0,
+        now: 0,
+        next: 0,
         ambient: 0,
       },
     },
@@ -456,8 +456,8 @@ test("canonical attention exports convert into replay scenarios with final-state
   assert.equal(scenario.steps.length, 2);
   assert.equal(scenario.steps[0]?.kind, "publish");
   assert.equal(scenario.steps[1]?.kind, "submit");
-  assert.equal(scenario.expectations?.finalActiveInteractionId, null);
-  assert.equal(scenario.expectations?.resultBucketCounts?.active, 0);
+  assert.equal(scenario.expectations?.finalNowInteractionId, null);
+  assert.equal(scenario.expectations?.resultLaneCounts?.now, 0);
   assert.deepEqual(scenario.doctrineTags, ["paperclip", "replay-export"]);
 });
 
@@ -502,12 +502,12 @@ test("session bundles can be created from canonical attention exports", () => {
       },
     ],
     reconciledSnapshot: {
-      active: null,
-      queued: [],
+      now: null,
+      next: [],
       ambient: [],
       counts: {
-        active: 0,
-        queued: 0,
+        now: 0,
+        next: 0,
         ambient: 0,
       },
     },
@@ -528,8 +528,8 @@ test("session bundles can be created from canonical attention exports", () => {
   assert.equal(bundle.steps.length, 2);
   assert.equal(bundle.responses.length, 1);
   assert.equal(bundle.traces.some((trace) => trace.event.id === "evt:paperclip:approval"), true);
-  assert.equal(bundle.outcomes.finalActiveInteractionId, null);
-  assert.equal(bundle.outcomes.finalQueuedCount, 0);
+  assert.equal(bundle.outcomes.finalNowInteractionId, null);
+  assert.equal(bundle.outcomes.finalNextCount, 0);
 });
 
 test("session bundles can be created from runtime-style captures", () => {
@@ -670,8 +670,8 @@ test("session bundles can be created from runtime-style captures", () => {
           autoApprove: false,
           mayInterrupt: true,
           requiresOperatorResponse: false,
-          minimumPresentation: "queue" as const,
-          minimumPresentationIsSticky: false,
+          minimumLane: "next" as const,
+          minimumLaneIsSticky: false,
           rationale: ["urgent non-blocking work may compete for interruptive attention"],
         },
         policyRules: {
@@ -718,7 +718,7 @@ test("session bundles can be created from runtime-style captures", () => {
         },
         coordination: {
           kind: "queue" as const,
-          resultBucket: "queued" as const,
+          resultLane: "next" as const,
           candidateScore: 242,
           currentScore: null,
           currentPriority: null,
@@ -759,7 +759,7 @@ test("session bundles can be created from runtime-style captures", () => {
             attentionShifted: 0,
           },
           deferred: {
-            queued: 0,
+            next: 0,
             suppressed: 0,
             manual: 0,
           },
@@ -785,7 +785,7 @@ test("session bundles can be created from runtime-style captures", () => {
             attentionShifted: 0,
           },
           deferred: {
-            queued: 0,
+            next: 0,
             suppressed: 0,
             manual: 0,
           },
@@ -824,13 +824,13 @@ test("session bundles can be created from runtime-style captures", () => {
         },
         current: null,
         taskView: {
-          active: null,
-          queued: [],
+          now: null,
+          next: [],
           ambient: [],
         },
         attentionView: {
-          active: null,
-          queued: [],
+          now: null,
+          next: [],
           ambient: [],
         },
         result: {
@@ -871,8 +871,8 @@ test("session bundles can be created from runtime-style captures", () => {
         sequence: 2,
         recordedAt: "2026-03-21T19:00:00.200Z",
         attentionView: {
-          active: null,
-          queued: [
+          now: null,
+          next: [
             {
               id: "frame:interaction:task:runtime:bundle:status",
               taskId: "task:runtime:bundle",
@@ -910,8 +910,8 @@ test("session bundles can be created from runtime-style captures", () => {
       },
     ],
     attentionView: {
-      active: null,
-      queued: [
+      now: null,
+      next: [
         {
           id: "frame:interaction:task:runtime:bundle:status",
           taskId: "task:runtime:bundle",
@@ -965,7 +965,7 @@ test("session bundles can be created from runtime-style captures", () => {
   assert.equal(bundle.normalizedEvents.length, 1);
   assert.equal(bundle.semanticSnapshots[0]?.interpretation.intentFrame, "failure");
   assert.equal(bundle.decisionSnapshots[0]?.decisionKind, "queue");
-  assert.equal(bundle.outcomes.finalQueuedCount, 1);
+  assert.equal(bundle.outcomes.finalNextCount, 1);
 });
 
 test("runtime session captures can be sliced from a baseline cursor", () => {
@@ -1008,15 +1008,15 @@ test("runtime session captures can be sliced from a baseline cursor", () => {
         sequence: 1,
         recordedAt: "2026-03-21T19:59:00.000Z",
         attentionView: {
-          active: null,
-          queued: [],
+          now: null,
+          next: [],
           ambient: [{ interactionId: "interaction:baseline" } as never],
         },
       },
     ],
     attentionView: {
-      active: null,
-      queued: [],
+      now: null,
+      next: [],
       ambient: [],
     },
   };
@@ -1085,15 +1085,15 @@ test("runtime session captures can be sliced from a baseline cursor", () => {
         sequence: 2,
         recordedAt: "2026-03-21T20:04:05.000Z",
         attentionView: {
-          active: { interactionId: "interaction:current" } as never,
-          queued: [],
+          now: { interactionId: "interaction:current" } as never,
+          next: [],
           ambient: [],
         },
       },
     ],
     attentionView: {
-      active: { interactionId: "interaction:current" } as never,
-      queued: [],
+      now: { interactionId: "interaction:current" } as never,
+      next: [],
       ambient: [],
     },
   };
@@ -1107,5 +1107,5 @@ test("runtime session captures can be sliced from a baseline cursor", () => {
   assert.equal(sliced.sourceEvents[0]?.id, "src:current");
   assert.equal(sliced.responses.length, 1);
   assert.equal(sliced.viewSnapshots.length, 1);
-  assert.equal(sliced.attentionView.active?.interactionId, "interaction:current");
+  assert.equal(sliced.attentionView.now?.interactionId, "interaction:current");
 });

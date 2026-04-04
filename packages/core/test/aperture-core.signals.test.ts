@@ -287,7 +287,7 @@ test("queued and ambient decisions record deferred signals", () => {
   );
   assert.equal(signals[1]?.kind, "deferred");
   if (signals[1]?.kind === "deferred") {
-    assert.equal(signals[1].reason, "queued");
+    assert.equal(signals[1].reason, "next");
   }
   assert.equal(signals[2]?.kind, "deferred");
   if (signals[2]?.kind === "deferred") {
@@ -403,7 +403,7 @@ test("signal summaries derive response and deferral metrics", () => {
     taskId: "task:summary",
     interactionId: "interaction:3",
     timestamp: "2026-03-08T12:02:00.000Z",
-    reason: "queued",
+    reason: "next",
   });
 
   const summary = core.getSignalSummary("task:summary");
@@ -416,7 +416,7 @@ test("signal summaries derive response and deferral metrics", () => {
   assert.equal(summary.counts.deferred, 1);
   assert.equal(summary.counts.returned, 0);
   assert.equal(summary.counts.attentionShifted, 0);
-  assert.equal(summary.deferred.queued, 1);
+  assert.equal(summary.deferred.next, 1);
   assert.equal(summary.responseRate, 0.5);
   assert.equal(summary.dismissalRate, 0.5);
   assert.equal(summary.averageResponseLatencyMs, 3000);
@@ -620,7 +620,7 @@ test("cross-task merged episodes record returned when they resurface into focus"
   });
 
   core.publish({
-    id: "evt:queued:first",
+    id: "evt:next:first",
     taskId: "task:episode:a",
     timestamp: "2026-03-08T12:00:20.000Z",
     type: "human.input.requested",
@@ -637,7 +637,7 @@ test("cross-task merged episodes record returned when they resurface into focus"
   });
 
   core.publish({
-    id: "evt:queued:second",
+    id: "evt:next:second",
     taskId: "task:episode:b",
     timestamp: "2026-03-08T12:00:30.000Z",
     type: "human.input.requested",
@@ -670,7 +670,7 @@ test("cross-task merged episodes record returned when they resurface into focus"
   }
 
   assert.equal(returned.interactionId, "interaction:episode:b");
-  assert.equal(returned.from, "queued");
+  assert.equal(returned.from, "next");
   assert.equal(returned.metadata?.episode?.lastInteractionId, "interaction:episode:b");
 });
 
@@ -717,7 +717,7 @@ test("clearing one task can record returned work from another queued task", () =
     response: { kind: "approved" },
   });
 
-  assert.equal(core.getAttentionView().active?.interactionId, "interaction:secondary");
+  assert.equal(core.getAttentionView().now?.interactionId, "interaction:secondary");
 
   const summary = core.getSignalSummary("task:secondary");
   assert.equal(summary.counts.returned, 1);
@@ -742,7 +742,7 @@ test("core exposes global attention state across tasks", () => {
       taskId: `task:${index}`,
       interactionId: `interaction:${index}`,
       timestamp: `2026-03-08T12:00:${String(index).padStart(2, "0")}.000Z`,
-      reason: index % 2 === 0 ? "queued" : "suppressed",
+      reason: index % 2 === 0 ? "next" : "suppressed",
     });
   }
 

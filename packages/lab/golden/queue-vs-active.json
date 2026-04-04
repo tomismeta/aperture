@@ -8,14 +8,14 @@
     "attention_worthiness"
   ],
   "expectations": {
-    "finalActiveInteractionId": "interaction:active:approval",
-    "queuedInteractionIds": [
-      "interaction:queued:choice"
+    "finalNowInteractionId": "interaction:now:approval",
+    "nextInteractionIds": [
+      "interaction:next:choice"
     ],
     "ambientInteractionIds": [],
-    "resultBucketCounts": {
-      "active": 1,
-      "queued": 1,
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 1,
       "ambient": 0
     }
   },
@@ -23,11 +23,11 @@
     {
       "kind": "publish",
       "event": {
-        "id": "evt:active:approval",
+        "id": "evt:now:approval",
         "taskId": "task:active",
         "timestamp": "2026-03-19T12:00:00.000Z",
         "type": "human.input.requested",
-        "interactionId": "interaction:active:approval",
+        "interactionId": "interaction:now:approval",
         "title": "Approve deploy",
         "summary": "A deploy needs approval.",
         "consequence": "high",
@@ -39,11 +39,11 @@
     {
       "kind": "publish",
       "event": {
-        "id": "evt:queued:choice",
+        "id": "evt:next:choice",
         "taskId": "task:queued",
         "timestamp": "2026-03-19T12:00:05.000Z",
         "type": "human.input.requested",
-        "interactionId": "interaction:queued:choice",
+        "interactionId": "interaction:next:choice",
         "title": "Choose fallback",
         "summary": "A fallback needs a choice.",
         "consequence": "medium",

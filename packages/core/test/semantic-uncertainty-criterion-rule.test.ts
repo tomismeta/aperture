@@ -23,8 +23,8 @@ const basePolicyVerdict: AttentionPolicyVerdict = {
   autoApprove: false,
   mayInterrupt: true,
   requiresOperatorResponse: false,
-  minimumPresentation: "ambient",
-  minimumPresentationIsSticky: false,
+  minimumLane: "ambient",
+  minimumLaneIsSticky: false,
   rationale: [],
 };
 

@@ -27,7 +27,7 @@ test("computePosture cools to calm after a stale burst with no visible interrupt
         attentionShifted: 0,
       },
       deferred: {
-        queued: 2,
+        next: 2,
         suppressed: 2,
         manual: 0,
       },
@@ -39,8 +39,8 @@ test("computePosture cools to calm after a stale burst with no visible interrupt
     };
 
     const view: AttentionView = {
-      active: null,
-      queued: [],
+      now: null,
+      next: [],
       ambient: [],
     };
 

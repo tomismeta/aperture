@@ -44,7 +44,7 @@ export type AttentionDismissedSignal = AttentionSignalBase & {
 
 export type AttentionDeferredSignal = AttentionSignalBase & {
   kind: "deferred";
-  reason?: "queued" | "suppressed" | "manual";
+  reason?: "next" | "suppressed" | "manual";
 };
 
 export type AttentionContextExpandedSignal = AttentionSignalBase & {
@@ -64,7 +64,7 @@ export type AttentionTimedOutSignal = AttentionSignalBase & {
 
 export type AttentionReturnedSignal = AttentionSignalBase & {
   kind: "returned";
-  from: "queued" | "ambient";
+  from: "next" | "ambient";
 };
 
 export type AttentionAttentionShiftedSignal = AttentionSignalBase & {

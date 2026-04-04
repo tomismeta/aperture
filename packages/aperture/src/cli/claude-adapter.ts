@@ -112,8 +112,8 @@ export async function runClaudeAdapter(runtimeBaseUrl: string): Promise<void> {
 
 export function runtimeHasLiveClaudeActivity(snapshot: ApertureRuntimeSnapshot): boolean {
   const frames = [
-    ...(snapshot.attentionView.active ? [snapshot.attentionView.active] : []),
-    ...snapshot.attentionView.queued,
+    ...(snapshot.attentionView.now ? [snapshot.attentionView.now] : []),
+    ...snapshot.attentionView.next,
     ...snapshot.attentionView.ambient,
   ];
 

@@ -148,14 +148,14 @@ type AttentionResponse = {
 
 ```ts
 type AttentionTaskView = {
-  active: AttentionFrame | null;
-  queued: AttentionFrame[];
+  now: AttentionFrame | null;
+  next: AttentionFrame[];
   ambient: AttentionFrame[];
 };
 
 type AttentionView = {
-  active: AttentionFrame | null;
-  queued: AttentionFrame[];
+  now: AttentionFrame | null;
+  next: AttentionFrame[];
   ambient: AttentionFrame[];
 };
 ```

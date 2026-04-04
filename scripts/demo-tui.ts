@@ -316,10 +316,10 @@ function clearVisibleDemoTasks(core: ApertureCore, timestamp: string): void {
 function visibleTaskIds(attentionView: AttentionView): string[] {
   const taskIds = new Set<string>();
 
-  if (attentionView.active) {
-    taskIds.add(attentionView.active.taskId);
+  if (attentionView.now) {
+    taskIds.add(attentionView.now.taskId);
   }
-  for (const frame of attentionView.queued) {
+  for (const frame of attentionView.next) {
     taskIds.add(frame.taskId);
   }
   for (const frame of attentionView.ambient) {

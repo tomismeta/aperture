@@ -27,7 +27,7 @@ const frame = core.publish({
 
 assert.ok(frame);
 assert.equal(frame.mode, "approval");
-assert.equal(core.getAttentionView().active?.interactionId, "interaction:read:readme");
+assert.equal(core.getAttentionView().now?.interactionId, "interaction:read:readme");
 
 core.submit({
   taskId: "task:docs-review",
@@ -35,6 +35,6 @@ core.submit({
   response: { kind: "approved" },
 });
 
-assert.equal(core.getAttentionView().active, null);
+assert.equal(core.getAttentionView().now, null);
 
 console.log("full engine example passed");

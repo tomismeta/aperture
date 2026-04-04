@@ -27,12 +27,12 @@
     "promotedFromPath": "$WORKSPACE_ROOT/packages/lab/bundles/de26c272-db0b-4583-9c9b-065449a955f7.json"
   },
   "expectations": {
-    "finalActiveInteractionId": null,
-    "queuedInteractionIds": [],
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
     "ambientInteractionIds": [
       "interaction:claude-code:session:e9ec99f4-b8e2-469e-b47a-5764cac99501:status"
     ],
-    "resultBucketCounts": {
+    "resultLaneCounts": {
       "active": 0,
       "queued": 0,
       "ambient": 1

@@ -194,7 +194,7 @@ export type OfflineReviewPreparedStep = {
   apertureDecision: {
     evaluationKind: ReplayDecisionSnapshot["evaluationKind"];
     decisionKind: ReplayDecisionSnapshot["decisionKind"] | null;
-    resultBucket: ReplayDecisionSnapshot["resultBucket"] | null;
+    resultLane: ReplayDecisionSnapshot["resultLane"] | null;
     semanticInfluence: string[];
   } | null;
 };
@@ -662,7 +662,7 @@ function compactOfflineReviewDecision(
   return {
     evaluationKind: decision.evaluationKind,
     decisionKind: decision.decisionKind,
-    resultBucket: decision.resultBucket,
+    resultLane: decision.resultLane,
     semanticInfluence: decision.semanticInfluence.slice(0, 4),
   };
 }
@@ -715,9 +715,9 @@ function offlineReviewPromptStepPriority(
     priority += 700;
   }
 
-  if (step.apertureDecision?.resultBucket === "active") {
+  if (step.apertureDecision?.resultLane === "now") {
     priority += 650;
-  } else if (step.apertureDecision?.resultBucket === "queued") {
+  } else if (step.apertureDecision?.resultLane === "next") {
     priority += 600;
   }
 
@@ -1117,7 +1117,7 @@ function buildPreparedSteps(bundle: ReplaySessionBundle): OfflineReviewPreparedS
         ? {
             evaluationKind: decision.evaluationKind,
             decisionKind: decision.decisionKind ?? null,
-            resultBucket: decision.resultBucket ?? null,
+            resultLane: decision.resultLane ?? null,
             semanticInfluence: [...(decision.semanticInfluence ?? [])],
           }
         : null,
@@ -1362,7 +1362,7 @@ function validatePreparedDecision(
       semanticInfluence: isStringArray,
     }, {
       decisionKind: isNullable(isString),
-      resultBucket: isNullable(isString),
+      resultLane: isNullable(isString),
     })
   ) {
     return null;

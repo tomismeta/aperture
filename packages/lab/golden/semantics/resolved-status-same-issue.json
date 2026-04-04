@@ -9,14 +9,14 @@
     "ambient_doctrine"
   ],
   "expectations": {
-    "finalActiveInteractionId": null,
-    "queuedInteractionIds": [],
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
     "ambientInteractionIds": [
       "interaction:task:build-resolved:status"
     ],
-    "resultBucketCounts": {
-      "active": 0,
-      "queued": 0,
+    "resultLaneCounts": {
+      "now": 0,
+      "next": 0,
       "ambient": 1
     },
     "semanticReadings": [

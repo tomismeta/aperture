@@ -40,7 +40,7 @@ function createSummary(overrides: Partial<SignalSummary> = {}): SignalSummary {
       attentionShifted: 0,
     },
     deferred: {
-      queued: 0,
+      next: 0,
       suppressed: 0,
       manual: 0,
     },
@@ -71,7 +71,7 @@ test("suppresses status candidates that match repeated dismissal and suppression
       },
       dismissalRate: 0.75,
       deferred: {
-        queued: 0,
+        next: 0,
         suppressed: 3,
         manual: 0,
       },
@@ -107,7 +107,7 @@ test("keeps critical status work visible despite quieting heuristics", () => {
       },
       dismissalRate: 0.75,
       deferred: {
-        queued: 0,
+        next: 0,
         suppressed: 2,
         manual: 0,
       },
@@ -135,7 +135,7 @@ test("quiets low-value status work when recent behavior suggests overload", () =
         attentionShifted: 1,
       },
       deferred: {
-        queued: 2,
+        next: 2,
         suppressed: 1,
         manual: 0,
       },
@@ -179,7 +179,7 @@ test("quiets low-value status work when overall operator activity is overloaded"
         attentionShifted: 3,
       },
       deferred: {
-        queued: 2,
+        next: 2,
         suppressed: 2,
         manual: 0,
       },
@@ -344,7 +344,7 @@ test("boosts blocking work when similar interactions are deferred and later resu
       },
       responseRate: 0.5,
       deferred: {
-        queued: 2,
+        next: 2,
         suppressed: 1,
         manual: 0,
       },

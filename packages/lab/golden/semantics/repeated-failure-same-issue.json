@@ -9,12 +9,12 @@
     "interruption_credibility"
   ],
   "expectations": {
-    "finalActiveInteractionId": "interaction:task:build-repeat:status",
-    "queuedInteractionIds": [],
+    "finalNowInteractionId": "interaction:task:build-repeat:status",
+    "nextInteractionIds": [],
     "ambientInteractionIds": [],
-    "resultBucketCounts": {
-      "active": 1,
-      "queued": 0,
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
       "ambient": 0
     },
     "semanticReadings": [

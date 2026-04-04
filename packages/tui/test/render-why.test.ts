@@ -102,7 +102,7 @@ function makeCandidateTrace(
     planner: { kind: "activate", reasons: ["no current frame is active for this task"], continuityEvaluations: [] },
     coordination: {
       kind: "activate",
-      resultBucket: "active",
+      resultLane: "now",
       candidateScore: 100,
       currentScore: null,
       currentPriority: null,
@@ -113,7 +113,7 @@ function makeCandidateTrace(
     },
     taskSummary: {
       counts: { presented: 0, responded: 0, dismissed: 0, contextExpanded: 0 },
-      pending: { active: 0, queued: 0, ambient: 0 },
+      pending: { now: 0, next: 0, ambient: 0 },
       deferred: { total: 0, suppressions: 0, resumed: 0, suppressed: 0 },
       responseRate: 0,
       dismissalRate: 0,
@@ -122,7 +122,7 @@ function makeCandidateTrace(
     },
     globalSummary: {
       counts: { presented: 0, responded: 0, dismissed: 0, contextExpanded: 0 },
-      pending: { active: 0, queued: 0, ambient: 0 },
+      pending: { now: 0, next: 0, ambient: 0 },
       deferred: { total: 0, suppressions: 0, resumed: 0, suppressed: 0 },
       responseRate: 0,
       dismissalRate: 0,
@@ -135,7 +135,7 @@ function makeCandidateTrace(
     attentionBurden: { level: "low", score: 0, reasons: [] },
     current: null,
     taskView: { current: null, backlog: [] },
-    attentionView: { active: null, queued: [], ambient: [] },
+    attentionView: { now: null, next: [], ambient: [] },
     result: null,
   } as ApertureTrace;
 }

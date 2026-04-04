@@ -21,7 +21,7 @@ function createSummary(overrides: Partial<SignalSummary> = {}): SignalSummary {
       attentionShifted: 0,
     },
     deferred: {
-      queued: 0,
+      next: 0,
       suppressed: 0,
       manual: 0,
     },

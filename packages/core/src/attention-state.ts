@@ -9,7 +9,7 @@ export function deriveAttentionState(summary: AttentionSignalSummary): Attention
   if (
     enoughObservedForPressure &&
     summary.counts.deferred >= 3 &&
-    summary.deferred.queued + summary.deferred.suppressed >= 3
+    summary.deferred.next + summary.deferred.suppressed >= 3
   ) {
     return "overloaded";
   }

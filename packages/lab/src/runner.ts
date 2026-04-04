@@ -125,8 +125,8 @@ export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
     views.push({
       stepIndex,
       stepKind: step.kind,
-      activeInteractionId: attentionView.active?.interactionId ?? null,
-      queuedInteractionIds: attentionView.queued.map((queued) => queued.interactionId),
+      nowInteractionId: attentionView.now?.interactionId ?? null,
+      nextInteractionIds: attentionView.next.map((queued) => queued.interactionId),
       ambientInteractionIds: attentionView.ambient.map((ambient) => ambient.interactionId),
       attentionView,
     });
@@ -178,7 +178,7 @@ function buildDecisionSnapshot(
     ...(step.label ? { stepLabel: step.label } : {}),
     evaluationKind: "candidate",
     decisionKind: trace.coordination.kind,
-    resultBucket: trace.coordination.resultBucket,
+    resultLane: trace.coordination.resultLane,
     interactionId: trace.evaluation.adjusted.interactionId,
     ...(trace.evaluation.adjusted.semanticConfidence !== undefined
       ? { semanticConfidence: trace.evaluation.adjusted.semanticConfidence }

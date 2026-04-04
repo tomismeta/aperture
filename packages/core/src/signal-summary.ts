@@ -12,7 +12,7 @@ export type AttentionSignalCounts = {
 };
 
 export type AttentionDeferredSignalCounts = {
-  queued: number;
+  next: number;
   suppressed: number;
   manual: number;
 };

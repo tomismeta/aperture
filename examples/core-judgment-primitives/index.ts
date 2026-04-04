@@ -54,7 +54,7 @@ const explanation = coordinator.explain(null, {
   pressureForecast: forecastAttentionPressure(undefined, undefined),
 });
 
-assert.equal(explanation.policy.minimumPresentation, "active");
+assert.equal(explanation.policy.minimumLane, "now");
 assert.equal(explanation.decision.kind, "activate");
 assert.ok(explanation.utility.components.responseAffinity > 0);
 assert.match(

@@ -106,13 +106,13 @@ export async function runJudgmentBench(
       totalAmbiguousDecisions: sum(
         results.map((result) => result.run.decisions.filter((decision) => decision.ambiguity !== null && decision.ambiguity !== undefined).length),
       ),
-      totalAmbiguousQueued: sum(results.map((result) => result.scorecard.trace?.ambiguousQueued ?? 0)),
+      totalAmbiguousQueued: sum(results.map((result) => result.scorecard.trace?.ambiguousNext ?? 0)),
       totalAmbiguousAmbient: sum(results.map((result) => result.scorecard.trace?.ambiguousAmbient ?? 0)),
-      totalAmbiguousQueuedThenActivated: sum(results.map((result) => result.scorecard.trace?.ambiguousQueuedThenActivated ?? 0)),
+      totalAmbiguousQueuedThenActivated: sum(results.map((result) => result.scorecard.trace?.ambiguousNextThenActivated ?? 0)),
       totalAmbiguousAmbientThenActivated: sum(results.map((result) => result.scorecard.trace?.ambiguousAmbientThenActivated ?? 0)),
       totalCandidates: sum(results.map((result) => result.scorecard.trace?.totalCandidates ?? 0)),
-      totalActiveBuckets: sum(results.map((result) => result.scorecard.buckets.active)),
-      totalQueuedBuckets: sum(results.map((result) => result.scorecard.buckets.queued)),
+      totalActiveBuckets: sum(results.map((result) => result.scorecard.buckets.now)),
+      totalQueuedBuckets: sum(results.map((result) => result.scorecard.buckets.next)),
       totalAmbientBuckets: sum(results.map((result) => result.scorecard.buckets.ambient)),
       totalResponses: sum(results.map((result) => result.run.responses.length)),
       totalPresentedSignals: sum(results.map((result) => result.scorecard.signals.presented)),
@@ -132,21 +132,21 @@ function evaluateScenarioExpectations(
 
   const assertions: JudgmentBenchAssertionResult[] = [];
 
-  if ("finalActiveInteractionId" in expectations) {
+  if ("finalNowInteractionId" in expectations) {
     assertions.push({
-      name: "final active interaction",
-      passed: scorecard.outcomes.finalActiveInteractionId === expectations.finalActiveInteractionId,
-      expected: expectations.finalActiveInteractionId,
-      actual: scorecard.outcomes.finalActiveInteractionId,
+      name: "final now interaction",
+      passed: scorecard.outcomes.finalNowInteractionId === expectations.finalNowInteractionId,
+      expected: expectations.finalNowInteractionId,
+      actual: scorecard.outcomes.finalNowInteractionId,
     });
   }
 
-  if (expectations.queuedInteractionIds) {
+  if (expectations.nextInteractionIds) {
     assertions.push({
-      name: "queued interactions",
-      passed: sameStringSet(scorecard.outcomes.finalQueuedInteractionIds, expectations.queuedInteractionIds),
-      expected: expectations.queuedInteractionIds,
-      actual: scorecard.outcomes.finalQueuedInteractionIds,
+      name: "next interactions",
+      passed: sameStringSet(scorecard.outcomes.finalNextInteractionIds, expectations.nextInteractionIds),
+      expected: expectations.nextInteractionIds,
+      actual: scorecard.outcomes.finalNextInteractionIds,
     });
   }
 
@@ -159,29 +159,29 @@ function evaluateScenarioExpectations(
     });
   }
 
-  if (expectations.resultBucketCounts?.active !== undefined) {
+  if (expectations.resultLaneCounts?.now !== undefined) {
     assertions.push({
-      name: "active result buckets",
-      passed: scorecard.buckets.active === expectations.resultBucketCounts.active,
-      expected: expectations.resultBucketCounts.active,
-      actual: scorecard.buckets.active,
+      name: "now result lanes",
+      passed: scorecard.buckets.now === expectations.resultLaneCounts.now,
+      expected: expectations.resultLaneCounts.now,
+      actual: scorecard.buckets.now,
     });
   }
 
-  if (expectations.resultBucketCounts?.queued !== undefined) {
+  if (expectations.resultLaneCounts?.next !== undefined) {
     assertions.push({
-      name: "queued result buckets",
-      passed: scorecard.buckets.queued === expectations.resultBucketCounts.queued,
-      expected: expectations.resultBucketCounts.queued,
-      actual: scorecard.buckets.queued,
+      name: "next result lanes",
+      passed: scorecard.buckets.next === expectations.resultLaneCounts.next,
+      expected: expectations.resultLaneCounts.next,
+      actual: scorecard.buckets.next,
     });
   }
 
-  if (expectations.resultBucketCounts?.ambient !== undefined) {
+  if (expectations.resultLaneCounts?.ambient !== undefined) {
     assertions.push({
       name: "ambient result buckets",
-      passed: scorecard.buckets.ambient === expectations.resultBucketCounts.ambient,
-      expected: expectations.resultBucketCounts.ambient,
+      passed: scorecard.buckets.ambient === expectations.resultLaneCounts.ambient,
+      expected: expectations.resultLaneCounts.ambient,
       actual: scorecard.buckets.ambient,
     });
   }
@@ -333,7 +333,7 @@ function evaluateDecisionExpectation(
 
   pushFieldAssertion(assertions, `${targetKey} evaluation kind`, expectation.evaluationKind, target.evaluationKind);
   pushFieldAssertion(assertions, `${targetKey} decision kind`, expectation.decisionKind, target.decisionKind);
-  pushFieldAssertion(assertions, `${targetKey} result bucket`, expectation.resultBucket, target.resultBucket);
+  pushFieldAssertion(assertions, `${targetKey} result bucket`, expectation.resultLane, target.resultLane);
   pushFieldAssertion(assertions, `${targetKey} semantic confidence`, expectation.semanticConfidence, target.semanticConfidence);
   pushFieldAssertion(assertions, `${targetKey} semantic abstained`, expectation.semanticAbstained, target.semanticAbstained ?? false);
   pushFieldAssertion(assertions, `${targetKey} ambiguity reason`, expectation.ambiguityReason, target.ambiguity?.reason ?? null);
@@ -412,11 +412,11 @@ function evaluateTraceExpectation(
   const assertions: JudgmentBenchAssertionResult[] = [];
 
   pushFieldAssertion(assertions, "trace ambiguous decisions", expectation.ambiguousDecisions, trace.ambiguousDecisions);
-  pushFieldAssertion(assertions, "trace ambiguous queued", expectation.ambiguousQueued, trace.ambiguousQueued);
+  pushFieldAssertion(assertions, "trace ambiguous queued", expectation.ambiguousNext, trace.ambiguousNext);
   pushFieldAssertion(assertions, "trace ambiguous ambient", expectation.ambiguousAmbient, trace.ambiguousAmbient);
   pushFieldAssertion(assertions, "trace ambiguous low confidence", expectation.ambiguousLowConfidence, trace.ambiguousLowConfidence);
   pushFieldAssertion(assertions, "trace ambiguous abstained", expectation.ambiguousAbstained, trace.ambiguousAbstained);
-  pushFieldAssertion(assertions, "trace ambiguous queued then activated", expectation.ambiguousQueuedThenActivated, trace.ambiguousQueuedThenActivated);
+  pushFieldAssertion(assertions, "trace ambiguous queued then activated", expectation.ambiguousNextThenActivated, trace.ambiguousNextThenActivated);
   pushFieldAssertion(assertions, "trace ambiguous ambient then activated", expectation.ambiguousAmbientThenActivated, trace.ambiguousAmbientThenActivated);
   pushFieldAssertion(assertions, "trace actionable episodes", expectation.actionableEpisodes, trace.actionableEpisodes);
   pushFieldAssertion(assertions, "trace actionable surfaced", expectation.actionableSurfaced, trace.actionableSurfaced);

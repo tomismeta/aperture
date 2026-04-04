@@ -42,8 +42,8 @@ test("global urgent backlog demotes lower-value queued status into ambient", () 
 
   const attentionView = core.getAttentionView();
 
-  assert.equal(attentionView.active?.interactionId, "interaction:approval");
-  assert.equal(attentionView.queued.length, 0);
+  assert.equal(attentionView.now?.interactionId, "interaction:approval");
+  assert.equal(attentionView.next.length, 0);
   assert.deepEqual(
     attentionView.ambient.map((frame) => frame.title),
     ["Bash failed", "Additional background context"],
@@ -66,9 +66,9 @@ test("absent operator keeps blocking requests queued in the shared view", () => 
 
   const attentionView = core.getAttentionView();
 
-  assert.equal(attentionView.active, null);
-  assert.equal(attentionView.queued.length, 1);
-  assert.equal(attentionView.queued[0]?.interactionId, "interaction:approval");
+  assert.equal(attentionView.now, null);
+  assert.equal(attentionView.next.length, 1);
+  assert.equal(attentionView.next[0]?.interactionId, "interaction:approval");
 });
 
 test("trace reasons explain why lower-priority work is queued", () => {
@@ -114,7 +114,7 @@ test("trace reasons explain why lower-priority work is queued", () => {
   }
 
   assert.equal(candidateTrace.coordination.kind, "queue");
-  assert.equal(candidateTrace.coordination.resultBucket, "queued");
+  assert.equal(candidateTrace.coordination.resultLane, "next");
   assert.match(
     candidateTrace.coordination.reasons.join(" "),
     /current work still outranks the new candidate/,
@@ -261,7 +261,7 @@ test("related episode updates merge into an existing queued frame instead of add
   });
 
   core.publish({
-    id: "evt:queued:first",
+    id: "evt:next:first",
     taskId: "task:episode:a",
     timestamp: "2026-03-08T12:00:20.000Z",
     type: "human.input.requested",
@@ -277,14 +277,14 @@ test("related episode updates merge into an existing queued frame instead of add
     },
   });
 
-  const firstQueued = core.getAttentionView().queued[0];
+  const firstQueued = core.getAttentionView().next[0];
   assert.ok(firstQueued);
   if (!firstQueued) {
     return;
   }
 
   core.publish({
-    id: "evt:queued:second",
+    id: "evt:next:second",
     taskId: "task:episode:b",
     timestamp: "2026-03-08T12:00:30.000Z",
     type: "human.input.requested",
@@ -301,11 +301,11 @@ test("related episode updates merge into an existing queued frame instead of add
   });
 
   const attentionView = core.getAttentionView();
-  assert.equal(attentionView.queued.length, 1);
-  assert.equal(core.getTaskView("task:episode:a").queued.length, 0);
-  assert.equal(core.getTaskView("task:episode:b").queued.length, 1);
-  assert.equal(core.getTaskView("task:episode:b").queued[0]?.id, firstQueued.id);
-  assert.equal(core.getTaskView("task:episode:b").queued[0]?.interactionId, "interaction:episode:b");
+  assert.equal(attentionView.next.length, 1);
+  assert.equal(core.getTaskView("task:episode:a").next.length, 0);
+  assert.equal(core.getTaskView("task:episode:b").next.length, 1);
+  assert.equal(core.getTaskView("task:episode:b").next[0]?.id, firstQueued.id);
+  assert.equal(core.getTaskView("task:episode:b").next[0]?.interactionId, "interaction:episode:b");
 });
 
 test("responded episodes reopen with a fresh episode identity", () => {
@@ -323,7 +323,7 @@ test("responded episodes reopen with a fresh episode identity", () => {
     request: { kind: "approval" },
   });
 
-  const firstFrame = core.getAttentionView().active;
+  const firstFrame = core.getAttentionView().now;
   assert.ok(firstFrame);
   if (!firstFrame) {
     return;
@@ -347,7 +347,7 @@ test("responded episodes reopen with a fresh episode identity", () => {
     request: { kind: "approval" },
   });
 
-  const reopenedFrame = core.getAttentionView().active;
+  const reopenedFrame = core.getAttentionView().now;
   assert.ok(reopenedFrame);
   if (!reopenedFrame) {
     return;
@@ -379,7 +379,7 @@ test("superseding blocking episode steps retire the stale active step", () => {
     request: { kind: "approval" },
   });
 
-  const firstActive = core.getAttentionView().active;
+  const firstActive = core.getAttentionView().now;
   assert.ok(firstActive);
   if (!firstActive) {
     return;
@@ -408,11 +408,11 @@ test("superseding blocking episode steps retire the stale active step", () => {
   });
 
   const attentionView = core.getAttentionView();
-  assert.equal(attentionView.active?.interactionId, "interaction:episode:b");
-  assert.equal(core.getTaskView("task:episode:a").active, null);
-  assert.equal(core.getTaskView("task:episode:a").queued.length, 0);
-  assert.equal(core.getTaskView("task:episode:b").active?.interactionId, "interaction:episode:b");
-  assert.equal(readFrameEpisodeId(attentionView.active), readFrameEpisodeId(firstActive));
+  assert.equal(attentionView.now?.interactionId, "interaction:episode:b");
+  assert.equal(core.getTaskView("task:episode:a").now, null);
+  assert.equal(core.getTaskView("task:episode:a").next.length, 0);
+  assert.equal(core.getTaskView("task:episode:b").now?.interactionId, "interaction:episode:b");
+  assert.equal(readFrameEpisodeId(attentionView.now), readFrameEpisodeId(firstActive));
 });
 
 test("superseding blocking episode steps retire stale queued episode residue", () => {
@@ -457,8 +457,8 @@ test("superseding blocking episode steps retire stale queued episode residue", (
   });
 
   const before = core.getAttentionView();
-  assert.equal(before.active?.interactionId, "interaction:episode:a");
-  assert.ok(before.queued.some((frame) => frame.taskId === "task:episode:b"));
+  assert.equal(before.now?.interactionId, "interaction:episode:a");
+  assert.ok(before.next.some((frame) => frame.taskId === "task:episode:b"));
 
   core.publish({
     id: "evt:approval:second",
@@ -483,13 +483,13 @@ test("superseding blocking episode steps retire stale queued episode residue", (
   });
 
   const after = core.getAttentionView();
-  assert.equal(after.active?.interactionId, "interaction:episode:c");
-  assert.equal(after.queued.length, 0);
+  assert.equal(after.now?.interactionId, "interaction:episode:c");
+  assert.equal(after.next.length, 0);
   assert.equal(after.ambient.length, 0);
-  assert.equal(core.getTaskView("task:episode:a").active, null);
-  assert.equal(core.getTaskView("task:episode:b").active, null);
-  assert.equal(core.getTaskView("task:episode:b").queued.length, 0);
-  assert.equal(core.getTaskView("task:episode:c").active?.interactionId, "interaction:episode:c");
+  assert.equal(core.getTaskView("task:episode:a").now, null);
+  assert.equal(core.getTaskView("task:episode:b").now, null);
+  assert.equal(core.getTaskView("task:episode:b").next.length, 0);
+  assert.equal(core.getTaskView("task:episode:c").now?.interactionId, "interaction:episode:c");
 });
 
 test("repeated same-episode returns can promote queued episode work back into focus", () => {
@@ -566,7 +566,7 @@ test("repeated same-episode returns can promote queued episode work back into fo
     taskId: "task:episode:history-2",
     interactionId: "interaction:episode:history-2",
     timestamp: "2026-03-08T12:00:36.000Z",
-    from: "queued",
+    from: "next",
     metadata: {
       episode: {
         id: episodeId,
@@ -586,9 +586,9 @@ test("repeated same-episode returns can promote queued episode work back into fo
   });
 
   const attentionView = core.getAttentionView();
-  assert.equal(attentionView.active?.taskId, "task:episode:b");
+  assert.equal(attentionView.now?.taskId, "task:episode:b");
   assert.equal(core.getTaskView("task:episode:a").ambient.length, 0);
-  assert.equal(core.getTaskView("task:episode:b").active?.taskId, "task:episode:b");
+  assert.equal(core.getTaskView("task:episode:b").now?.taskId, "task:episode:b");
 });
 
 test("queue-worthy episode updates can promote an ambient episode frame into the queue", () => {
@@ -630,9 +630,9 @@ test("queue-worthy episode updates can promote an ambient episode frame into the
   });
 
   const attentionView = core.getAttentionView();
-  assert.equal(attentionView.queued.length, 1);
+  assert.equal(attentionView.next.length, 1);
   assert.equal(attentionView.ambient.length, 0);
-  assert.equal(attentionView.queued[0]?.interactionId, "interaction:task:episode:b:status");
+  assert.equal(attentionView.next[0]?.interactionId, "interaction:task:episode:b:status");
 });
 
 test("repeated same-episode returns stay queued while blocking work is active", () => {
@@ -692,7 +692,7 @@ test("repeated same-episode returns stay queued while blocking work is active", 
     taskId: "task:episode:history-2",
     interactionId: "interaction:episode:history-2",
     timestamp: "2026-03-08T12:00:21.000Z",
-    from: "queued",
+    from: "next",
     metadata: {
       episode: {
         id: episodeId,
@@ -712,9 +712,9 @@ test("repeated same-episode returns stay queued while blocking work is active", 
   });
 
   const attentionView = core.getAttentionView();
-  assert.equal(attentionView.active?.taskId, "task:blocker");
-  assert.equal(attentionView.queued.length, 1);
-  assert.equal(attentionView.queued[0]?.taskId, "task:episode:b");
+  assert.equal(attentionView.now?.taskId, "task:blocker");
+  assert.equal(attentionView.next.length, 1);
+  assert.equal(attentionView.next[0]?.taskId, "task:episode:b");
   assert.equal(attentionView.ambient.length, 0);
 });
 
@@ -734,7 +734,7 @@ test("completed episode tasks retire their episode identity before related work 
   });
 
   core.publish({
-    id: "evt:queued:first",
+    id: "evt:next:first",
     taskId: "task:episode:a",
     timestamp: "2026-03-08T12:00:20.000Z",
     type: "human.input.requested",
@@ -750,7 +750,7 @@ test("completed episode tasks retire their episode identity before related work 
     },
   });
 
-  const firstQueued = core.getAttentionView().queued[0];
+  const firstQueued = core.getAttentionView().next[0];
   assert.ok(firstQueued);
   if (!firstQueued) {
     return;
@@ -765,7 +765,7 @@ test("completed episode tasks retire their episode identity before related work 
   });
 
   core.publish({
-    id: "evt:queued:second",
+    id: "evt:next:second",
     taskId: "task:episode:b",
     timestamp: "2026-03-08T12:01:00.000Z",
     type: "human.input.requested",
@@ -781,7 +781,7 @@ test("completed episode tasks retire their episode identity before related work 
     },
   });
 
-  const reopenedQueued = core.getAttentionView().queued[0];
+  const reopenedQueued = core.getAttentionView().next[0];
   assert.ok(reopenedQueued);
   if (!reopenedQueued) {
     return;
@@ -805,7 +805,7 @@ test("completed tasks clear ambient-only task state", () => {
     status: "blocked",
   });
 
-  assert.ok(core.getAttentionView().active);
+  assert.ok(core.getAttentionView().now);
 
   core.publish({
     id: "evt:complete",
@@ -815,7 +815,7 @@ test("completed tasks clear ambient-only task state", () => {
     summary: "Handled.",
   });
 
-  assert.equal(core.getAttentionView().active, null);
+  assert.equal(core.getAttentionView().now, null);
   assert.equal(core.getTaskView("task:ambient").ambient.length, 0);
 });
 
@@ -837,7 +837,7 @@ test("same-interaction status updates can demote an active frame into ambient", 
     status: "blocked",
   });
 
-  assert.equal(core.getAttentionView().active?.title, "Claude is waiting for follow-up");
+  assert.equal(core.getAttentionView().now?.title, "Claude is waiting for follow-up");
 
   core.publish({
     id: "evt:running",
@@ -849,7 +849,7 @@ test("same-interaction status updates can demote an active frame into ambient", 
     status: "running",
   });
 
-  assert.equal(core.getAttentionView().active, null);
+  assert.equal(core.getAttentionView().now, null);
   assert.equal(core.getAttentionView().ambient[0]?.title, "Read completed");
 
   const candidateTrace = traces.findLast((trace) => trace.evaluation.kind === "candidate");
@@ -859,7 +859,7 @@ test("same-interaction status updates can demote an active frame into ambient", 
   }
 
   assert.equal(candidateTrace.coordination.kind, "ambient");
-  assert.equal(candidateTrace.coordination.resultBucket, "ambient");
+  assert.equal(candidateTrace.coordination.resultLane, "ambient");
 });
 
 test("committed bucket matches queued routing under operator absence", () => {
@@ -888,8 +888,8 @@ test("committed bucket matches queued routing under operator absence", () => {
   }
 
   assert.equal(candidateTrace.coordination.kind, "queue");
-  assert.equal(candidateTrace.coordination.resultBucket, "queued");
-  assert.equal(core.getAttentionView().queued[0]?.interactionId, "interaction:approval");
+  assert.equal(candidateTrace.coordination.resultLane, "next");
+  assert.equal(core.getAttentionView().next[0]?.interactionId, "interaction:approval");
 });
 
 test("committed bucket matches ambient routing for passive status", () => {
@@ -919,7 +919,7 @@ test("committed bucket matches ambient routing for passive status", () => {
   }
 
   assert.equal(candidateTrace.coordination.kind, "ambient");
-  assert.equal(candidateTrace.coordination.resultBucket, "ambient");
-  assert.equal(core.getAttentionView().active, null);
+  assert.equal(candidateTrace.coordination.resultLane, "ambient");
+  assert.equal(core.getAttentionView().now, null);
   assert.equal(core.getAttentionView().ambient[0]?.interactionId, "interaction:task:status:status");
 });

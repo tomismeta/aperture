@@ -8,14 +8,14 @@
     "ambient_doctrine"
   ],
   "expectations": {
-    "finalActiveInteractionId": "interaction:approval-anchor:ambient",
-    "queuedInteractionIds": [],
+    "finalNowInteractionId": "interaction:approval-anchor:ambient",
+    "nextInteractionIds": [],
     "ambientInteractionIds": [
       "interaction:task:abstained-blocked:status"
     ],
-    "resultBucketCounts": {
-      "active": 1,
-      "queued": 0,
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
       "ambient": 1
     },
     "semanticReadings": [
@@ -36,7 +36,7 @@
         "stepLabel": "abstained blocked status",
         "evaluationKind": "candidate",
         "decisionKind": "ambient",
-        "resultBucket": "ambient",
+        "resultLane": "ambient",
         "semanticConfidence": "high",
         "semanticAbstained": true,
         "ambiguityReason": "low_signal",

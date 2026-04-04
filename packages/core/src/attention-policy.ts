@@ -27,16 +27,16 @@ import type {
 } from "./policy/policy-gate-rule.js";
 import type { MemoryProfile, UserProfile } from "./profile-store.js";
 
-export type AttentionPresentationFloor = "ambient" | "queue" | "active";
+export type AttentionLane = "now" | "next" | "ambient";
 
 export type AttentionPolicyVerdict = {
   autoApprove: boolean;
   mayInterrupt: boolean;
   requiresOperatorResponse: boolean;
-  minimumPresentation: AttentionPresentationFloor;
+  minimumLane: AttentionLane;
   // Some policy rules establish a true floor (for example, configured ambient/queue
   // policy) rather than a soft starting posture. Criterion should preserve those.
-  minimumPresentationIsSticky: boolean;
+  minimumLaneIsSticky: boolean;
   rationale: string[];
 };
 
@@ -123,8 +123,8 @@ export class AttentionPolicy {
       autoApprove: false,
       mayInterrupt: true,
       requiresOperatorResponse: false,
-      minimumPresentation: "queue",
-      minimumPresentationIsSticky: false,
+      minimumLane: "next",
+      minimumLaneIsSticky: false,
       rationale: ["urgent non-blocking work may compete for interruptive attention"],
     };
 
@@ -220,7 +220,7 @@ export class AttentionPolicy {
   }
 
   private readPeripheralResolution(policyVerdict: AttentionPolicyVerdict): "queue" | "ambient" {
-    return policyVerdict.minimumPresentation === "ambient" ? "ambient" : "queue";
+    return policyVerdict.minimumLane === "ambient" ? "ambient" : "queue";
   }
 
   private readSourceTrustAdjustment(candidate: AttentionCandidate): number {

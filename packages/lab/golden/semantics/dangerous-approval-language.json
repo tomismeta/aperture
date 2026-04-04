@@ -9,12 +9,12 @@
     "attention_worthiness"
   ],
   "expectations": {
-    "finalActiveInteractionId": "interaction:dangerous:approval",
-    "queuedInteractionIds": [],
+    "finalNowInteractionId": "interaction:dangerous:approval",
+    "nextInteractionIds": [],
     "ambientInteractionIds": [],
-    "resultBucketCounts": {
-      "active": 1,
-      "queued": 0,
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
       "ambient": 0
     },
     "semanticReadings": [

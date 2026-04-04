@@ -14,8 +14,8 @@ export const evaluateVisibleEpisodeContinuityRule: ContinuityRule = (input) => {
   }
 
   const visibleRelatedFrames = [
-    evidence.attentionView.active,
-    ...evidence.attentionView.queued,
+    evidence.attentionView.now,
+    ...evidence.attentionView.next,
     ...evidence.attentionView.ambient,
   ]
     .filter((frame): frame is AttentionFrame => frame !== null)

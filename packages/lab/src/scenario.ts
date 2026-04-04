@@ -119,12 +119,12 @@ export type ReplayScenario = {
 };
 
 export type ReplayScenarioExpectations = {
-  finalActiveInteractionId?: string | null;
-  queuedInteractionIds?: string[];
+  finalNowInteractionId?: string | null;
+  nextInteractionIds?: string[];
   ambientInteractionIds?: string[];
-  resultBucketCounts?: {
-    active?: number;
-    queued?: number;
+  resultLaneCounts?: {
+    now?: number;
+    next?: number;
     ambient?: number;
   };
   semanticReadings?: ReplaySemanticExpectation[];
@@ -136,8 +136,8 @@ export type ReplayScenarioExpectations = {
 export type ReplayViewSnapshot = {
   stepIndex: number;
   stepKind: ReplayObservationStep["kind"];
-  activeInteractionId: string | null;
-  queuedInteractionIds: string[];
+  nowInteractionId: string | null;
+  nextInteractionIds: string[];
   ambientInteractionIds: string[];
   attentionView: AttentionView;
 };
@@ -162,7 +162,7 @@ export type ReplayDecisionSnapshot = {
   stepLabel?: string;
   evaluationKind: "candidate" | "clear" | "noop";
   decisionKind?: "auto_approve" | "activate" | "queue" | "ambient" | "clear";
-  resultBucket?: "active" | "queued" | "ambient" | "none";
+  resultLane?: "now" | "next" | "ambient" | "none";
   interactionId?: string;
   semanticConfidence?: SemanticConfidence;
   semanticAbstained?: boolean;
@@ -194,7 +194,7 @@ export type ReplayDecisionExpectation = {
   stepLabel?: string;
   evaluationKind?: "candidate" | "clear" | "noop";
   decisionKind?: "auto_approve" | "activate" | "queue" | "ambient" | "clear";
-  resultBucket?: "active" | "queued" | "ambient" | "none";
+  resultLane?: "now" | "next" | "ambient" | "none";
   semanticConfidence?: SemanticConfidence;
   semanticAbstained?: boolean;
   semanticInfluenceIncludes?: string[];
@@ -211,11 +211,11 @@ export type ReplayExplanationExpectation = {
 
 export type ReplayTraceExpectation = {
   ambiguousDecisions?: number;
-  ambiguousQueued?: number;
+  ambiguousNext?: number;
   ambiguousAmbient?: number;
   ambiguousLowConfidence?: number;
   ambiguousAbstained?: number;
-  ambiguousQueuedThenActivated?: number;
+  ambiguousNextThenActivated?: number;
   ambiguousAmbientThenActivated?: number;
   actionableEpisodes?: number;
   actionableSurfaced?: number;

@@ -236,7 +236,7 @@ test("tool-oriented configured policy does not preserve passive status routing e
         policy: {
           lowRiskRead: {
             mayInterrupt: false,
-            minimumPresentation: "ambient",
+            minimumLane: "ambient",
           },
         },
       },
@@ -271,7 +271,7 @@ test("tool-oriented configured policy does not preserve passive status routing e
   );
 
   assert.equal(explanation.decision.kind, "activate");
-  assert.equal(explanation.policy.minimumPresentation, "ambient");
+  assert.equal(explanation.policy.minimumLane, "ambient");
   assert.equal(explanation.criterion?.peripheralResolution ?? null, null);
   assert.equal(explanation.policyCriterionEvaluations[1]?.rule, "interrupt_eligibility");
 });
@@ -285,7 +285,7 @@ test("passive status ignores ambient-surface fallback when no sticky peripheral 
         policy: {
           lowRiskRead: {
             mayInterrupt: false,
-            minimumPresentation: "ambient",
+            minimumLane: "ambient",
           },
         },
       },
@@ -333,7 +333,7 @@ test("passive status ignores ambient-surface fallback when no sticky peripheral 
   );
 
   assert.equal(explanation.decision.kind, "activate");
-  assert.equal(explanation.policy.minimumPresentation, "ambient");
+  assert.equal(explanation.policy.minimumLane, "ambient");
   assert.equal(explanation.criterion?.peripheralResolution ?? null, null);
 });
 
@@ -1157,7 +1157,7 @@ test("keeps low-value status ambient when urgent backlog is already present", ()
     }),
     {
       attentionView: {
-        active: createFrame({
+        now: createFrame({
           taskId: "task:critical:1",
           interactionId: "interaction:critical:1",
           mode: "status",
@@ -1169,7 +1169,7 @@ test("keeps low-value status ambient when urgent backlog is already present", ()
             updatedAt: "2026-03-08T12:00:20.000Z",
           },
         }),
-        queued: [
+        next: [
           createFrame({
             taskId: "task:critical:2",
             interactionId: "interaction:critical:2",
@@ -1214,7 +1214,7 @@ test("keeps resurfacing low-value status queued when urgent backlog is already p
     }),
     {
       attentionView: {
-        active: createFrame({
+        now: createFrame({
           taskId: "task:critical:1",
           interactionId: "interaction:critical:1",
           mode: "status",
@@ -1226,7 +1226,7 @@ test("keeps resurfacing low-value status queued when urgent backlog is already p
             updatedAt: "2026-03-08T12:00:20.000Z",
           },
         }),
-        queued: [
+        next: [
           createFrame({
             taskId: "task:critical:2",
             interactionId: "interaction:critical:2",
@@ -1258,7 +1258,7 @@ test("keeps resurfacing low-value status queued when urgent backlog is already p
           attentionShifted: 0,
         },
         deferred: {
-          queued: 0,
+          next: 0,
           suppressed: 0,
           manual: 0,
         },
@@ -1311,7 +1311,7 @@ test("escalates repeatedly deferred status when scores are otherwise tied", () =
           attentionShifted: 0,
         },
         deferred: {
-          queued: 3,
+          next: 3,
           suppressed: 0,
           manual: 0,
         },
@@ -1364,7 +1364,7 @@ test("escalates repeatedly resurfaced status when scores are otherwise tied", ()
           attentionShifted: 0,
         },
         deferred: {
-          queued: 0,
+          next: 0,
           suppressed: 0,
           manual: 0,
         },
@@ -1423,7 +1423,7 @@ test("keeps resurfacing status queued while blocking work is active", () => {
           attentionShifted: 0,
         },
         deferred: {
-          queued: 1,
+          next: 1,
           suppressed: 0,
           manual: 0,
         },
@@ -1483,7 +1483,7 @@ test("escalates same-episode resurfacing pressure even when the current task has
           attentionShifted: 0,
         },
         deferred: {
-          queued: 0,
+          next: 0,
           suppressed: 0,
           manual: 0,
         },
@@ -1509,7 +1509,7 @@ test("escalates same-episode resurfacing pressure even when the current task has
           attentionShifted: 0,
         },
         deferred: {
-          queued: 0,
+          next: 0,
           suppressed: 0,
           manual: 0,
         },
@@ -1793,7 +1793,7 @@ test("keeps deferred-returning work queued during pressure instead of ambient", 
     }),
     {
       attentionView: {
-        active: createFrame({
+        now: createFrame({
           taskId: "task:critical:1",
           interactionId: "interaction:critical:1",
           mode: "status",
@@ -1805,7 +1805,7 @@ test("keeps deferred-returning work queued during pressure instead of ambient", 
             updatedAt: "2026-03-08T12:00:20.000Z",
           },
         }),
-        queued: [
+        next: [
           createFrame({
             taskId: "task:critical:2",
             interactionId: "interaction:critical:2",
@@ -1869,7 +1869,7 @@ test("keeps low consequence work queued during pressure when calibration says th
     }),
     {
       attentionView: {
-        active: createFrame({
+        now: createFrame({
           taskId: "task:critical:1",
           interactionId: "interaction:critical:1",
           mode: "status",
@@ -1881,7 +1881,7 @@ test("keeps low consequence work queued during pressure when calibration says th
             updatedAt: "2026-03-08T12:00:20.000Z",
           },
         }),
-        queued: [
+        next: [
           createFrame({
             taskId: "task:critical:2",
             interactionId: "interaction:critical:2",
@@ -1988,7 +1988,7 @@ test("configured non-interruptive queue policy keeps optional approvals queued w
         policy: {
           lowRiskRead: {
             mayInterrupt: false,
-            minimumPresentation: "queue",
+            minimumLane: "next",
           },
         },
       },
@@ -2018,7 +2018,7 @@ test("configured non-interruptive queue policy keeps optional approvals queued w
   );
 
   assert.equal(explanation.decision.kind, "queue");
-  assert.equal(explanation.policy.minimumPresentation, "queue");
+  assert.equal(explanation.policy.minimumLane, "next");
   assert.equal(explanation.criterion?.peripheralResolution, "queue");
   assert.equal(explanation.policyCriterionEvaluations[1]?.rule, "interrupt_eligibility");
 });

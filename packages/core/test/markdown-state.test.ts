@@ -110,7 +110,7 @@ test("profile store loads user preferences and tool overrides from markdown", as
       "",
       "### bash",
       "- may interrupt: true",
-      "- minimum presentation: active",
+      "- minimum lane: now",
       "- require context expansion: true",
       "- score boost: 12",
       "",
@@ -131,7 +131,7 @@ test("profile store loads user preferences and tool overrides from markdown", as
   assert.deepEqual(loaded.preferences?.neverAutoApprove, ["production_deploy"]);
   assert.deepEqual(loaded.overrides?.tools?.bash, {
     mayInterrupt: true,
-    minimumPresentation: "active",
+    minimumLane: "now",
     requireContextExpansion: true,
     scoreBoost: 12,
   });
@@ -199,7 +199,7 @@ test("judgment config loader parses all judgment rule fields from markdown", asy
       "### destructiveBash",
       "- auto approve: false",
       "- may interrupt: true",
-      "- minimum presentation: active",
+      "- minimum lane: now",
       "- require context expansion: true",
       "",
     ].join("\n"),
@@ -214,7 +214,7 @@ test("judgment config loader parses all judgment rule fields from markdown", asy
   assert.deepEqual(loaded.policy?.destructiveBash, {
     autoApprove: false,
     mayInterrupt: true,
-    minimumPresentation: "active",
+    minimumLane: "now",
     requireContextExpansion: true,
   });
 });
@@ -407,7 +407,7 @@ test("markdown-backed core can reload judgment rules without restarting", async 
     consequence: "low",
     request: { kind: "approval" },
   });
-  assert.equal(core.getTaskView("task:ambient").active, null);
+  assert.equal(core.getTaskView("task:ambient").now, null);
   assert.equal(core.getSignals("task:ambient")[0]?.kind, "responded");
 
   await writeFile(
@@ -432,7 +432,7 @@ test("markdown-backed core can reload judgment rules without restarting", async 
     consequence: "low",
     request: { kind: "approval" },
   });
-  assert.equal(core.getTaskView("task:active").active?.interactionId, "interaction:active");
+  assert.equal(core.getTaskView("task:active").now?.interactionId, "interaction:active");
 });
 
 test("memory snapshots deduplicate repeated terminal signals for one interaction", () => {

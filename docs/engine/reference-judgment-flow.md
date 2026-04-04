@@ -87,7 +87,7 @@ It decides:
 
 - `mayInterrupt`
 - `requiresOperatorResponse`
-- `minimumPresentation`
+- `minimumLane`
 
 This is the hard-guardrail layer.
 

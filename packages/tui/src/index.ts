@@ -53,14 +53,14 @@ export async function runAttentionTui(
   const initialPosture = reducedMotion && isAttentionViewEmpty(initialView)
     ? "calm"
     : computePosture(initialSummary, initialView);
-  const initialInputDraft = initialView.active ? createAutomaticInputDraft(initialView.active) : null;
+  const initialInputDraft = initialView.now ? createAutomaticInputDraft(initialView.now) : null;
 
   const state: TuiState = {
     attentionView: initialView,
     statusLine: initialInputDraft
-      ? editingStatusLabel(initialView.active)
-      : initialView.active
-      ? focusStatusLabel(initialView.active)
+      ? editingStatusLabel(initialView.now)
+      : initialView.now
+      ? focusStatusLabel(initialView.now)
       : "Waiting for activity",
     inputDraft: initialInputDraft,
     expanded: false,
@@ -81,8 +81,8 @@ export async function runAttentionTui(
     output.write(redrawScreen());
 
     if (state.whyMode) {
-      const activeTrace = state.attentionView.active
-        ? state.traceCache.get(state.attentionView.active.interactionId) ?? null
+      const activeTrace = state.attentionView.now
+        ? state.traceCache.get(state.attentionView.now.interactionId) ?? null
         : null;
 
       output.write(
@@ -121,10 +121,10 @@ export async function runAttentionTui(
   };
 
   const applyAttentionView = (attentionView: typeof state.attentionView) => {
-    const previousActiveId = state.attentionView.active?.interactionId ?? null;
+    const previousActiveId = state.attentionView.now?.interactionId ?? null;
     const previousView = state.attentionView;
     state.attentionView = attentionView;
-    const active = attentionView.active;
+    const active = attentionView.now;
 
     const newPosture = reducedMotion && isAttentionViewEmpty(attentionView)
       ? "calm"
@@ -142,7 +142,7 @@ export async function runAttentionTui(
     if (!active) {
       state.inputDraft = null;
       state.expanded = false;
-      if (attentionView.queued.length > 0) {
+      if (attentionView.next.length > 0) {
         state.showSetup = false;
       }
       state.whyMode = false;
@@ -165,7 +165,7 @@ export async function runAttentionTui(
 
     const visibleIds = new Set<string>();
     if (active) visibleIds.add(active.interactionId);
-    for (const f of attentionView.queued) visibleIds.add(f.interactionId);
+    for (const f of attentionView.next) visibleIds.add(f.interactionId);
     for (const f of attentionView.ambient) visibleIds.add(f.interactionId);
     for (const id of state.traceCache.keys()) {
       if (!visibleIds.has(id)) state.traceCache.delete(id);
@@ -182,7 +182,7 @@ export async function runAttentionTui(
     const latestView = buildSurfaceAttentionView(core.getAttentionView(), surfaceViewOptions);
     const viewChanged = applyAttentionView(latestView);
     const isEmpty = isAttentionViewEmpty(state.attentionView);
-    const hasNoActiveFrame = state.attentionView.active === null;
+    const hasNoActiveFrame = state.attentionView.now === null;
     const hadActiveAnimation = tickAnimation(state.animation);
     const showingPreflight = shouldRenderPreflightScreen(
       state.connectionStatus,
@@ -218,7 +218,7 @@ export async function runAttentionTui(
   // Subscribe to responses
   const unsubResponse = core.onResponse((response) => {
     state.inputDraft = null;
-    const nextActive = core.getAttentionView().active;
+    const nextActive = core.getAttentionView().now;
     state.statusLine = describeResponse(response, nextActive);
     requestRender();
   });
@@ -266,7 +266,7 @@ export async function runAttentionTui(
         return;
       }
 
-      const active = state.attentionView.active;
+      const active = state.attentionView.now;
 
       // Global keys (always available)
       if (key.name === "q") {
@@ -292,7 +292,7 @@ export async function runAttentionTui(
       }
 
       if (!active) {
-        const surfaceIsQuiet = state.attentionView.queued.length === 0;
+        const surfaceIsQuiet = state.attentionView.next.length === 0;
         if (!surfaceIsQuiet) {
           return;
         }

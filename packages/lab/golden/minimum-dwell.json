@@ -7,14 +7,14 @@
     "decision_stream_continuity"
   ],
   "expectations": {
-    "finalActiveInteractionId": "interaction:first",
-    "queuedInteractionIds": [
+    "finalNowInteractionId": "interaction:first",
+    "nextInteractionIds": [
       "interaction:challenger"
     ],
     "ambientInteractionIds": [],
-    "resultBucketCounts": {
-      "active": 1,
-      "queued": 1,
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 1,
       "ambient": 0
     }
   },

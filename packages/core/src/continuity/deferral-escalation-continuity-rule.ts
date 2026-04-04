@@ -5,7 +5,7 @@ import { noopContinuityRule, overrideContinuityRule, type ContinuityRule } from 
 
 export const evaluateDeferralEscalationContinuityRule: ContinuityRule = (input) => {
   const { candidate, context, evidence } = input;
-  const activeFrame = evidence.attentionView.active ?? evidence.currentFrame;
+  const activeFrame = evidence.attentionView.now ?? evidence.currentFrame;
   if (!activeFrame) {
     return noopContinuityRule("deferral_escalation");
   }

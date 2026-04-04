@@ -8,12 +8,12 @@
     "continuity_semantics"
   ],
   "expectations": {
-    "finalActiveInteractionId": "interaction:task:uncertain-failure-recovery:status",
-    "queuedInteractionIds": [],
+    "finalNowInteractionId": "interaction:task:uncertain-failure-recovery:status",
+    "nextInteractionIds": [],
     "ambientInteractionIds": [],
-    "resultBucketCounts": {
-      "active": 2,
-      "queued": 1,
+    "resultLaneCounts": {
+      "now": 2,
+      "next": 1,
       "ambient": 0
     },
     "semanticReadings": [
@@ -37,7 +37,7 @@
         "stepLabel": "uncertain failure status",
         "evaluationKind": "candidate",
         "decisionKind": "queue",
-        "resultBucket": "queued",
+        "resultLane": "next",
         "semanticConfidence": "low",
         "semanticAbstained": false,
         "ambiguityReason": "low_signal",
@@ -47,7 +47,7 @@
         "stepLabel": "recovered failure status",
         "evaluationKind": "candidate",
         "decisionKind": "activate",
-        "resultBucket": "active",
+        "resultLane": "now",
         "semanticConfidence": "high",
         "semanticAbstained": false,
         "ambiguityReason": null,
@@ -56,11 +56,11 @@
     ],
     "traceExpectations": {
       "ambiguousDecisions": 1,
-      "ambiguousQueued": 1,
+      "ambiguousNext": 1,
       "ambiguousAmbient": 0,
       "ambiguousLowConfidence": 1,
       "ambiguousAbstained": 0,
-      "ambiguousQueuedThenActivated": 1,
+      "ambiguousNextThenActivated": 1,
       "ambiguousAmbientThenActivated": 0,
       "deferredThenActivated": 1,
       "mergedEpisodeUpdates": 1

@@ -7,14 +7,14 @@
     "interruption_credibility"
   ],
   "expectations": {
-    "finalActiveInteractionId": null,
-    "queuedInteractionIds": [],
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
     "ambientInteractionIds": [
       "interaction:task:status:status"
     ],
-    "resultBucketCounts": {
-      "active": 0,
-      "queued": 0,
+    "resultLaneCounts": {
+      "now": 0,
+      "next": 0,
       "ambient": 1
     }
   },

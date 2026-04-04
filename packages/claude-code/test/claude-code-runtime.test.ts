@@ -30,7 +30,7 @@ test("returns ask immediately when no surface is attached", async () => {
         permissionDecision: "ask",
       },
     });
-    assert.equal(runtime.getCore().getAttentionView().active, null);
+    assert.equal(runtime.getCore().getAttentionView().now, null);
     assert.match(runtimeBinding.controlUrl, /\/runtime$/);
   } finally {
     await server.close();
@@ -62,7 +62,7 @@ test("holds approvals when a surface is attached", async () => {
       body: JSON.stringify(preToolUse("tool-2")),
     });
 
-    const frame = await waitFor(() => runtime.getCore().getAttentionView().active);
+    const frame = await waitFor(() => runtime.getCore().getAttentionView().now);
     assert.ok(frame);
     assert.equal(frame?.title, "Claude Code wants to run a shell command");
 

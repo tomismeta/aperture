@@ -8,14 +8,14 @@
     "queue_doctrine"
   ],
   "expectations": {
-    "finalActiveInteractionId": "interaction:approval-anchor",
-    "queuedInteractionIds": [
+    "finalNowInteractionId": "interaction:approval-anchor",
+    "nextInteractionIds": [
       "interaction:task:uncertain-failure:status"
     ],
     "ambientInteractionIds": [],
-    "resultBucketCounts": {
-      "active": 1,
-      "queued": 1,
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 1,
       "ambient": 0
     },
     "semanticReadings": [
@@ -33,7 +33,7 @@
         "stepLabel": "uncertain failure status",
         "evaluationKind": "candidate",
         "decisionKind": "queue",
-        "resultBucket": "queued",
+        "resultLane": "next",
         "semanticConfidence": "low",
         "semanticAbstained": false,
         "ambiguityReason": "low_signal",

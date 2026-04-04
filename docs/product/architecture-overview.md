@@ -310,7 +310,7 @@ priority, consequence, tone, trust, context cost, response affinity, memory"]
     PC["Policy criterion
 Rules that shape interrupt eligibility and threshold behavior"]
     PL["Planner and routing
-Chooses active, queued, ambient, keep, or clear"]
+Chooses now, next, ambient, keep, or clear"]
     CR["Continuity rules
 Protect focus, preserve episodes, avoid bursty switching, keep streams coherent"]
     JD["Judgment coordinator
@@ -338,9 +338,9 @@ Produces the final decision and explanation"]
     FP["Frame planning
 Turns the decision into a renderable frame"]
     TV["Task view store
-Maintains per-task active, queued, and ambient state"]
+Maintains per-task now, next, and ambient state"]
     AV["Attention view assembly
-Builds the global active, queued, and ambient surface"]
+Builds the global now, next, and ambient surface"]
     SG["Signal store
 Records presented, responded, dismissed, deferred, returned, shifted"]
     TR["Trace recorder
@@ -496,7 +496,7 @@ flowchart TD
   subgraph D["Decision and Commit"]
     D1["Judgment coordinator<br/>Assembles one explanation across all judgment lanes"]
     D2["Frame planning<br/>Turns the decision into a renderable frame"]
-    D3["Task view store<br/>Commits per-task active, queued, and ambient state"]
+    D3["Task view store<br/>Commits per-task now, next, and ambient state"]
     D4["Attention view<br/>Builds the global surfaced view"]
     D5["Trace recorder<br/>Records rule evaluations, score parts, route, and surfaced bucket"]
   end

@@ -23,7 +23,7 @@ function createSummary(overrides: Partial<SignalSummary> = {}): SignalSummary {
       ...(overrides.counts ?? {}),
     },
     deferred: {
-      queued: 0,
+      next: 0,
       suppressed: 0,
       manual: 0,
       ...(overrides.deferred ?? {}),
@@ -78,7 +78,7 @@ test("forecastAttentionPressure identifies rising overload before backlog spikes
         attentionShifted: 0,
       },
       deferred: {
-        queued: 1,
+        next: 1,
         suppressed: 1,
         manual: 0,
       },
@@ -86,8 +86,8 @@ test("forecastAttentionPressure identifies rising overload before backlog spikes
       averageResponseLatencyMs: 9_000,
     }),
     {
-      active: createFrame(),
-      queued: [],
+      now: createFrame(),
+      next: [],
       ambient: [],
     } satisfies AttentionView,
   );
@@ -113,7 +113,7 @@ test("forecastAttentionPressure identifies high overload risk when demand and la
         attentionShifted: 0,
       },
       deferred: {
-        queued: 2,
+        next: 2,
         suppressed: 2,
         manual: 0,
       },
@@ -121,8 +121,8 @@ test("forecastAttentionPressure identifies high overload risk when demand and la
       averageResponseLatencyMs: 18_000,
     }),
     {
-      active: createFrame(),
-      queued: [
+      now: createFrame(),
+      next: [
         createFrame({
           id: "frame:queued",
           taskId: "task:queued",
@@ -154,7 +154,7 @@ test("forecastAttentionPressure cools stale bursts when nothing interruptive is 
         attentionShifted: 0,
       },
       deferred: {
-        queued: 2,
+        next: 2,
         suppressed: 2,
         manual: 0,
       },
@@ -163,8 +163,8 @@ test("forecastAttentionPressure cools stale bursts when nothing interruptive is 
       lastSignalAt: "2026-03-15T12:00:00.000Z",
     }),
     {
-      active: null,
-      queued: [],
+      now: null,
+      next: [],
       ambient: [],
     } satisfies AttentionView,
     "2026-03-15T12:03:00.000Z",
@@ -193,7 +193,7 @@ test("forecastAttentionPressure preserves visible interruptive work even after a
         attentionShifted: 0,
       },
       deferred: {
-        queued: 2,
+        next: 2,
         suppressed: 2,
         manual: 0,
       },
@@ -202,8 +202,8 @@ test("forecastAttentionPressure preserves visible interruptive work even after a
       lastSignalAt: "2026-03-15T12:00:00.000Z",
     }),
     {
-      active: createFrame(),
-      queued: [],
+      now: createFrame(),
+      next: [],
       ambient: [],
     } satisfies AttentionView,
     "2026-03-15T12:03:00.000Z",

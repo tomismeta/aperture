@@ -160,16 +160,16 @@ export function isAttentionEvidenceContext(
 
 function emptyTaskView(): AttentionTaskView {
   return {
-    active: null,
-    queued: [],
+    now: null,
+    next: [],
     ambient: [],
   };
 }
 
 function emptyAttentionView(): AttentionView {
   return {
-    active: null,
-    queued: [],
+    now: null,
+    next: [],
     ambient: [],
   };
 }
@@ -191,7 +191,7 @@ export function emptyAttentionSignalSummary(): AttentionSignalSummary {
       attentionShifted: 0,
     },
     deferred: {
-      queued: 0,
+      next: 0,
       suppressed: 0,
       manual: 0,
     },

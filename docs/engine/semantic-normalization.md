@@ -110,7 +110,7 @@ In the current hardened design:
 - semantic normalization
 - attention state and trends
 - scoring and heuristics
-- active / queued / ambient decisions
+- now / next / ambient decisions
 - frame construction
 
 ## Public API

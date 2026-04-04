@@ -313,8 +313,8 @@ function hasInteraction(
   interactionId: string,
 ): boolean {
   return (
-    (attentionView.active?.taskId === taskId && attentionView.active.interactionId === interactionId) ||
-    attentionView.queued.some((frame) => frame.taskId === taskId && frame.interactionId === interactionId) ||
+    (attentionView.now?.taskId === taskId && attentionView.now.interactionId === interactionId) ||
+    attentionView.next.some((frame) => frame.taskId === taskId && frame.interactionId === interactionId) ||
     attentionView.ambient.some((frame) => frame.taskId === taskId && frame.interactionId === interactionId)
   );
 }

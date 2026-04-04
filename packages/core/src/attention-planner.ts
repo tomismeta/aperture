@@ -130,7 +130,7 @@ export class AttentionPlanner {
   ): Extract<AttentionPlanDecision, { kind: "queue" | "ambient" }> {
     const episodeIsAlreadyInterruptive =
       candidate.episodeId !== undefined
-      && [attentionView?.active, ...(attentionView?.queued ?? [])]
+      && [attentionView?.now, ...(attentionView?.next ?? [])]
         .filter((frame): frame is AttentionFrame => frame !== null)
         .some((frame) =>
           frame.interactionId !== candidate.interactionId
@@ -153,7 +153,7 @@ export class AttentionPlanner {
   ): Extract<AttentionPlanDecision, { kind: "queue" | "ambient" }> {
     if (
       (utility.components.deferralAffinity > 0 || utility.components.consequenceCalibration > 0)
-      && policyVerdict.minimumPresentation !== "active"
+      && policyVerdict.minimumLane !== "now"
     ) {
       return { kind: "queue", candidate };
     }
@@ -180,7 +180,7 @@ export class AttentionPlanner {
 
     const relatedEpisodeVisible =
       candidate.episodeId !== undefined
-      && [attentionView.active, ...attentionView.queued]
+      && [attentionView.now, ...attentionView.next]
         .filter((frame): frame is AttentionFrame => frame !== null)
         .some((frame) =>
           frame.interactionId !== candidate.interactionId
@@ -192,7 +192,7 @@ export class AttentionPlanner {
       return true;
     }
 
-    const urgentBacklog = [attentionView.active, ...attentionView.queued]
+    const urgentBacklog = [attentionView.now, ...attentionView.next]
       .filter((frame): frame is AttentionFrame => frame !== null)
       .filter((frame) => {
         if (frame.interactionId === candidate.interactionId) {
@@ -217,7 +217,7 @@ export class AttentionPlanner {
       return false;
     }
 
-    if (candidate.blocking || policyVerdict.requiresOperatorResponse || policyVerdict.minimumPresentation === "active") {
+    if (candidate.blocking || policyVerdict.requiresOperatorResponse || policyVerdict.minimumLane === "now") {
       return false;
     }
 
@@ -299,7 +299,7 @@ export class AttentionPlanner {
         };
       }
 
-      if (!context.policyVerdict.mayInterrupt && context.policyVerdict.minimumPresentation === "ambient") {
+      if (!context.policyVerdict.mayInterrupt && context.policyVerdict.minimumLane === "ambient") {
         reasons.push("policy keeps this interaction ambient until stronger context arrives");
         return {
           decision: this.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
@@ -547,7 +547,7 @@ export function selectPeripheralBucket(
   policyVerdict: AttentionPolicyVerdict,
   surfaceCapabilities: AttentionSurfaceCapabilities = baseAttentionSurfaceCapabilities,
 ): "queue" | "ambient" {
-  if (policyVerdict.minimumPresentation === "ambient" && canRemainAmbientOnSurface(candidate, surfaceCapabilities)) {
+  if (policyVerdict.minimumLane === "ambient" && canRemainAmbientOnSurface(candidate, surfaceCapabilities)) {
     return "ambient";
   }
 

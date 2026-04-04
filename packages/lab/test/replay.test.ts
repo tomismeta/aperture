@@ -52,7 +52,7 @@ test("replay runner captures frames, traces, responses, and final view state", (
   assert.equal(scorecard.signals.presented, 1);
   assert.equal(scorecard.signals.viewed, 1);
   assert.equal(scorecard.signals.responded, 1);
-  assert.equal(scorecard.outcomes.finalActiveInteractionId, null);
+  assert.equal(scorecard.outcomes.finalNowInteractionId, null);
 });
 
 test("replay runner can exercise source-event normalization paths", () => {
@@ -99,7 +99,7 @@ test("replay runner can exercise source-event normalization paths", () => {
   assert.equal(result.semantics[0]?.interpretation.intentFrame, "question_request");
   assert.equal(result.normalizedEvents[0]?.event.type, "human.input.requested");
   assert.equal(result.decisions[0]?.semanticConfidence, "low");
-  assert.equal(result.views[0]?.activeInteractionId, "interaction:source:1");
+  assert.equal(result.views[0]?.nowInteractionId, "interaction:source:1");
 });
 
 test("normalized replay runs retain semantic and decision detail for determinism audits", () => {
@@ -138,6 +138,9 @@ test("normalized replay runs retain semantic and decision detail for determinism
   assert.equal(normalized.decisions.length, 1);
   assert.equal(normalized.semantics[0]?.toolFamily, "read");
   assert.equal(normalized.semantics[0]?.provenance.toolFamily, "source");
-  assert.deepEqual(normalized.decisions[0]?.semanticImpactDecisionBearing, ["consequence (canonical)"]);
-  assert.ok(normalized.decisions[0]?.semanticInfluence.includes("tool family stayed explanatory on the question/form path"));
+  assert.deepEqual(normalized.decisions[0]?.semanticImpactDecisionBearing, [
+    "activity (canonical)",
+    "consequence (canonical)",
+  ]);
+  assert.ok(normalized.decisions[0]?.semanticInfluence.includes("tool family stayed context-only on the question/form path"));
 });

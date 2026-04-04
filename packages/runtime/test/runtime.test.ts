@@ -23,10 +23,10 @@ test("runtime adapter client publishes source events into the shared core", asyn
   try {
     await client.publishSourceEvent(blockedEvent("task-1"));
 
-    const active = await waitFor(() => runtime.getCore().getAttentionView().active);
+    const active = await waitFor(() => runtime.getCore().getAttentionView().now);
     assert.ok(active);
     assert.equal(active?.title, "Remote approval needed");
-    assert.equal(runtime.getCore().getAttentionView().queued.length, 0);
+    assert.equal(runtime.getCore().getAttentionView().next.length, 0);
   } finally {
     await client.close();
     await runtime.close();
@@ -114,7 +114,7 @@ test("runtime source event endpoint accepts batches directly", async () => {
 
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { published: 2 });
-    assert.equal(runtime.getCore().getAttentionView().active, null);
+    assert.equal(runtime.getCore().getAttentionView().now, null);
   } finally {
     await runtime.close();
   }
@@ -352,7 +352,7 @@ test("runtime loads scaffolded judgment config and can reload it on demand", asy
       }),
     });
 
-    const initialTaskView = await waitFor(() => runtime.getCore().getTaskView("task:read:1").active);
+    const initialTaskView = await waitFor(() => runtime.getCore().getTaskView("task:read:1").now);
     assert.equal(initialTaskView?.interactionId, "interaction:read:1");
     const initialSignals = runtime.getCore().getSignals("task:read:1");
     assert.equal(initialSignals.some((signal) => signal.kind === "responded"), false);
@@ -396,7 +396,7 @@ test("runtime loads scaffolded judgment config and can reload it on demand", asy
       }),
     });
 
-    const reloadedFrame = await waitFor(() => runtime.getCore().getTaskView("task:read:2").active);
+    const reloadedFrame = await waitFor(() => runtime.getCore().getTaskView("task:read:2").now);
     assert.equal(reloadedFrame?.interactionId, "interaction:read:2");
 
     const state = await fetch(`${controlUrl}/state`);

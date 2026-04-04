@@ -163,7 +163,7 @@ function countInterruptiveVisible(attentionView?: AttentionView): number {
     return 0;
   }
 
-  return [attentionView.active, ...attentionView.queued]
+  return [attentionView.now, ...attentionView.next]
     .filter((frame): frame is AttentionFrame => frame !== null)
     .filter(isInterruptive)
     .length;

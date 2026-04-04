@@ -670,7 +670,7 @@ async function readHookEvent(
       hook_event_name: "Stop",
       ...(typeof parsed["permission_mode"] === "string" ? { permission_mode: parsed["permission_mode"] } : {}),
       ...(typeof parsed["transcript_path"] === "string" ? { transcript_path: parsed["transcript_path"] } : {}),
-      ...(typeof parsed["stop_hook_active"] === "boolean" ? { stop_hook_active: parsed["stop_hook_active"] } : {}),
+      ...(typeof parsed["stop_hook_active"] === "boolean" ? { stop_hook_now: parsed["stop_hook_active"] } : {}),
       ...(typeof parsed["stop_reason"] === "string" ? { stop_reason: parsed["stop_reason"] } : {}),
       ...(typeof parsed["message"] === "string" ? { message: parsed["message"] } : {}),
       ...(typeof parsed["last_assistant_message"] === "string"
@@ -718,8 +718,8 @@ function hasInteraction(
   interactionId: string,
 ): boolean {
   return (
-    (attentionView.active?.taskId === taskId && attentionView.active.interactionId === interactionId) ||
-    attentionView.queued.some((frame) => frame.taskId === taskId && frame.interactionId === interactionId) ||
+    (attentionView.now?.taskId === taskId && attentionView.now.interactionId === interactionId) ||
+    attentionView.next.some((frame) => frame.taskId === taskId && frame.interactionId === interactionId) ||
     attentionView.ambient.some((frame) => frame.taskId === taskId && frame.interactionId === interactionId)
   );
 }

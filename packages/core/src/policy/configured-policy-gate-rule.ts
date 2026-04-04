@@ -1,7 +1,7 @@
 import {
   inferConfiguredPolicyToolFamily,
   matchPolicyRule,
-  readAttentionPresentationFloor,
+  readAttentionLane,
 } from "./configured-policy-support.js";
 import { noopPolicyGateRule, verdictPolicyGateRule, type PolicyGateRule } from "./policy-gate-rule.js";
 
@@ -21,20 +21,20 @@ export const evaluateConfiguredPolicyGateRule: PolicyGateRule = (input) => {
     && candidate.responseSpec.kind === "approval"
     && !requireContextExpansion;
 
-  const minimumPresentation = readAttentionPresentationFloor(toolOverride?.defaultPresentation)
-    ?? policyRule?.minimumPresentation
-    ?? (requireContextExpansion ? "active" : undefined);
+  const minimumLane = readAttentionLane(toolOverride?.defaultPresentation)
+    ?? policyRule?.minimumLane
+    ?? (requireContextExpansion ? "now" : undefined);
   const mayInterrupt = policyRule?.mayInterrupt;
   const requiresOperatorResponse =
     !autoApprove
     && (
       candidate.blocking
-      || minimumPresentation === "active"
+      || minimumLane === "now"
       || requireContextExpansion
     );
 
   if (
-    minimumPresentation === undefined
+    minimumLane === undefined
     && mayInterrupt === undefined
     && !toolOverride
     && !autoApprove
@@ -58,8 +58,8 @@ export const evaluateConfiguredPolicyGateRule: PolicyGateRule = (input) => {
         autoApprove: true,
         mayInterrupt: false,
         requiresOperatorResponse: false,
-        minimumPresentation: "ambient",
-        minimumPresentationIsSticky: true,
+        minimumLane: "ambient",
+        minimumLaneIsSticky: true,
         rationale,
       },
     );
@@ -73,8 +73,8 @@ export const evaluateConfiguredPolicyGateRule: PolicyGateRule = (input) => {
         autoApprove: false,
         mayInterrupt: true,
         requiresOperatorResponse: true,
-        minimumPresentation: "active",
-        minimumPresentationIsSticky: false,
+        minimumLane: "now",
+        minimumLaneIsSticky: false,
         rationale,
       },
     );
@@ -86,8 +86,8 @@ export const evaluateConfiguredPolicyGateRule: PolicyGateRule = (input) => {
       autoApprove: false,
       mayInterrupt: mayInterrupt ?? false,
       requiresOperatorResponse,
-      minimumPresentation: minimumPresentation ?? (candidate.blocking ? "active" : "queue"),
-      minimumPresentationIsSticky: minimumPresentation !== undefined || mayInterrupt === false,
+      minimumLane: minimumLane ?? (candidate.blocking ? "now" : "next"),
+      minimumLaneIsSticky: minimumLane !== undefined || mayInterrupt === false,
       rationale,
     },
   );

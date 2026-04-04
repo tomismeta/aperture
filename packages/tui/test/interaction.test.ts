@@ -46,7 +46,7 @@ function makeFrame(overrides: Partial<Frame> = {}): Frame {
 
 function makeState(overrides: Partial<TuiState> = {}): TuiState {
   return {
-    attentionView: { active: null, queued: [], ambient: [] },
+    attentionView: { now: null, next: [], ambient: [] },
     statusLine: "",
     inputDraft: null,
     expanded: false,
@@ -61,7 +61,7 @@ function makeState(overrides: Partial<TuiState> = {}): TuiState {
 
 function makeSurface(submitted: FrameResponse[] = []): AttentionSurface {
   return {
-    getAttentionView: () => ({ active: null, queued: [], ambient: [] }),
+    getAttentionView: () => ({ now: null, next: [], ambient: [] }),
     getSignalSummary: () => ({} as SignalSummary),
     getAttentionState: () => "calm" as AttentionState,
     subscribeAttentionView: () => () => {},
@@ -259,7 +259,7 @@ test("handleInputKeypress keeps reply validation language calm and direct", () =
     },
   });
   const state = makeState({
-    attentionView: { active, queued: [], ambient: [] },
+    attentionView: { now: active, next: [], ambient: [] },
     inputDraft: { kind: "text", interactionId: active.interactionId, buffer: "" },
   });
 

@@ -26,8 +26,8 @@ function makeFrame(overrides: Partial<Frame> = {}): Frame {
 
 test("buildSurfaceAttentionView drops stale passive ambient status frames", () => {
   const attentionView: AttentionView = {
-    active: null,
-    queued: [],
+    now: null,
+    next: [],
     ambient: [
       makeFrame(),
       makeFrame({
@@ -53,8 +53,8 @@ test("buildSurfaceAttentionView drops stale passive ambient status frames", () =
 
 test("buildSurfaceAttentionView keeps actionable ambient frames even when old", () => {
   const attentionView: AttentionView = {
-    active: null,
-    queued: [],
+    now: null,
+    next: [],
     ambient: [
       makeFrame({
         responseSpec: {

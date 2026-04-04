@@ -31,7 +31,7 @@ test("holds Codex PreToolUse hooks until Aperture responds", async () => {
       }),
     });
 
-    const frame = await waitFor(() => core.getAttentionView().active);
+    const frame = await waitFor(() => core.getAttentionView().now);
     assert.ok(frame);
     assert.equal(frame?.interactionId, "codex:hook:preToolUse:session-1:turn-1:tool-1");
 
@@ -89,7 +89,7 @@ test("fails closed when a held Codex PreToolUse hook times out", async () => {
         permissionDecisionReason: "Codex command approval timed out in Aperture.",
       },
     });
-    assert.equal(core.getAttentionView().active, null);
+    assert.equal(core.getAttentionView().now, null);
   } finally {
     await server.close();
   }

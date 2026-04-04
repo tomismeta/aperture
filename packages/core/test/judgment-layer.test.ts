@@ -63,8 +63,8 @@ test("attention policy keeps background work ambient by default", () => {
     autoApprove: false,
     mayInterrupt: false,
     requiresOperatorResponse: false,
-    minimumPresentation: "ambient",
-    minimumPresentationIsSticky: true,
+    minimumLane: "ambient",
+    minimumLaneIsSticky: true,
     rationale: ["background work should remain peripheral by default"],
   });
 });
@@ -72,7 +72,7 @@ test("attention policy keeps background work ambient by default", () => {
 test("evidence context guard rejects partial objects with undefined derived fields", () => {
   assert.equal(isAttentionEvidenceContext({
     currentFrame: null,
-    currentTaskView: { active: null, queued: [], ambient: [] },
+    currentTaskView: { now: null, next: [], ambient: [] },
     currentEpisode: null,
     attentionView: undefined,
     taskSignalSummary: undefined,
@@ -370,7 +370,7 @@ test("judgment coordinator explanations surface attention policy and attention v
     }),
   );
 
-  assert.equal(explanation.policy.minimumPresentation, "ambient");
+  assert.equal(explanation.policy.minimumLane, "ambient");
   assert.equal(explanation.utility.total, 111);
   assert.equal(explanation.decision.kind, "ambient");
   assert.match(explanation.reasons[0] ?? "", /blocking work keeps non-blocking updates in the periphery/);
@@ -410,7 +410,7 @@ test("attention policy applies user overrides for tool families", () => {
   );
 
   assert.equal(verdict.autoApprove, false);
-  assert.equal(verdict.minimumPresentation, "active");
+  assert.equal(verdict.minimumLane, "now");
   assert.equal(verdict.mayInterrupt, true);
   assert.ok(verdict.rationale.includes("user override applies for read interactions"));
   assert.ok(verdict.rationale.includes("operator-response work cannot remain passive without auto-resolution"));
@@ -450,7 +450,7 @@ test("attention policy prefers explicit tool family metadata over title heuristi
   );
 
   assert.equal(verdict.autoApprove, false);
-  assert.equal(verdict.minimumPresentation, "active");
+  assert.equal(verdict.minimumLane, "now");
   assert.equal(verdict.mayInterrupt, true);
   assert.ok(verdict.rationale.includes("user override applies for read interactions"));
   assert.ok(verdict.rationale.includes("operator-response work cannot remain passive without auto-resolution"));
@@ -558,7 +558,7 @@ test("configured lowRiskRead policy does not match incidental reading language",
     }),
   );
 
-  assert.equal(verdict.minimumPresentation, "active");
+  assert.equal(verdict.minimumLane, "now");
   assert.ok(verdict.rationale.includes("blocking interactions require explicit operator attention"));
 });
 
@@ -570,7 +570,7 @@ test("configured lowRiskRead policy does not match passive status updates", () =
       policy: {
         lowRiskRead: {
           mayInterrupt: false,
-          minimumPresentation: "queue",
+          minimumLane: "next",
         },
       },
     },
@@ -588,7 +588,7 @@ test("configured lowRiskRead policy does not match passive status updates", () =
     }),
   );
 
-  assert.equal(verdict.minimumPresentation, "ambient");
+  assert.equal(verdict.minimumLane, "ambient");
   assert.equal(verdict.mayInterrupt, false);
   assert.ok(verdict.rationale.includes("background work should remain peripheral by default"));
 });
@@ -601,7 +601,7 @@ test("configured lowRiskRead policy does not match passive status updates with e
       policy: {
         lowRiskRead: {
           mayInterrupt: false,
-          minimumPresentation: "queue",
+          minimumLane: "next",
         },
       },
     },
@@ -621,7 +621,7 @@ test("configured lowRiskRead policy does not match passive status updates with e
     }),
   );
 
-  assert.equal(verdict.minimumPresentation, "ambient");
+  assert.equal(verdict.minimumLane, "ambient");
   assert.equal(verdict.mayInterrupt, false);
   assert.ok(verdict.rationale.includes("background work should remain peripheral by default"));
 });
@@ -634,7 +634,7 @@ test("only permission-request status enters the tool policy path", () => {
       policy: {
         lowRiskRead: {
           mayInterrupt: false,
-          minimumPresentation: "queue",
+          minimumLane: "next",
         },
       },
     },
@@ -664,7 +664,7 @@ test("only permission-request status enters the tool policy path", () => {
       }),
     );
 
-    assert.equal(verdict.minimumPresentation, "ambient");
+    assert.equal(verdict.minimumLane, "ambient");
     assert.equal(verdict.mayInterrupt, false);
     assert.ok(verdict.rationale.includes("background work should remain peripheral by default"));
   }
@@ -707,7 +707,7 @@ test("tool policies do not match explicit question requests by title wording alo
 
   assert.equal(verdict.autoApprove, false);
   assert.equal(verdict.requiresOperatorResponse, true);
-  assert.equal(verdict.minimumPresentation, "active");
+  assert.equal(verdict.minimumLane, "now");
   assert.ok(verdict.rationale.includes("blocking interactions require explicit operator attention"));
 });
 
@@ -749,7 +749,7 @@ test("tool policies do not match explicit question requests even with explicit t
 
   assert.equal(verdict.autoApprove, false);
   assert.equal(verdict.requiresOperatorResponse, true);
-  assert.equal(verdict.minimumPresentation, "active");
+  assert.equal(verdict.minimumLane, "now");
   assert.ok(verdict.rationale.includes("blocking interactions require explicit operator attention"));
 });
 
@@ -864,7 +864,7 @@ test("tool-family user overrides do not match passive status updates by title al
     }),
   );
 
-  assert.equal(verdict.minimumPresentation, "ambient");
+  assert.equal(verdict.minimumLane, "ambient");
   assert.equal(verdict.mayInterrupt, false);
   assert.ok(verdict.rationale.includes("background work should remain peripheral by default"));
 });
@@ -899,7 +899,7 @@ test("tool-family user overrides do not match passive status updates with explic
     }),
   );
 
-  assert.equal(verdict.minimumPresentation, "ambient");
+  assert.equal(verdict.minimumLane, "ambient");
   assert.equal(verdict.mayInterrupt, false);
   assert.ok(verdict.rationale.includes("background work should remain peripheral by default"));
 });
@@ -912,7 +912,7 @@ test("configured judgment policy can require context expansion", () => {
       policy: {
         envWrite: {
           mayInterrupt: true,
-          minimumPresentation: "active",
+          minimumLane: "now",
           requireContextExpansion: true,
         },
       },
@@ -936,7 +936,7 @@ test("configured judgment policy can require context expansion", () => {
     }),
   );
 
-  assert.equal(verdict.minimumPresentation, "active");
+  assert.equal(verdict.minimumLane, "now");
   assert.equal(verdict.requiresOperatorResponse, true);
   assert.ok(verdict.rationale.includes("configured judgment policy applies to this interaction"));
 });
@@ -949,7 +949,7 @@ test("configured fileWrite policy keeps writes interruptive", () => {
       policy: {
         fileWrite: {
           mayInterrupt: true,
-          minimumPresentation: "active",
+          minimumLane: "now",
         },
       },
     },
@@ -974,7 +974,7 @@ test("configured fileWrite policy keeps writes interruptive", () => {
   );
 
   assert.equal(verdict.autoApprove, false);
-  assert.equal(verdict.minimumPresentation, "active");
+  assert.equal(verdict.minimumLane, "now");
   assert.equal(verdict.requiresOperatorResponse, true);
 });
 
@@ -1036,7 +1036,7 @@ test("markdown-backed core can auto-approve low-risk read approvals", async () =
   });
 
   const taskView = core.getTaskView("task:read");
-  assert.equal(taskView.active, null);
+  assert.equal(taskView.now, null);
   assert.equal(core.getSignals("task:read")[0]?.kind, "responded");
 });
 
@@ -1113,7 +1113,7 @@ test("planner defaults can disable pressure-based suppression", () => {
     }),
     {
       attentionView: {
-        active: createFrame({
+        now: createFrame({
           taskId: "task:critical:1",
           interactionId: "interaction:critical:1",
           mode: "status",
@@ -1125,7 +1125,7 @@ test("planner defaults can disable pressure-based suppression", () => {
             updatedAt: "2026-03-08T12:00:20.000Z",
           },
         }),
-        queued: [
+        next: [
           createFrame({
             taskId: "task:critical:2",
             interactionId: "interaction:critical:2",

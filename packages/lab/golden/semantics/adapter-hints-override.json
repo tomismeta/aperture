@@ -8,12 +8,12 @@
     "traceability"
   ],
   "expectations": {
-    "finalActiveInteractionId": "interaction:hinted:approval",
-    "queuedInteractionIds": [],
+    "finalNowInteractionId": "interaction:hinted:approval",
+    "nextInteractionIds": [],
     "ambientInteractionIds": [],
-    "resultBucketCounts": {
-      "active": 1,
-      "queued": 0,
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
       "ambient": 0
     },
     "semanticReadings": [
@@ -38,7 +38,7 @@
         "stepLabel": "hinted approval",
         "evaluationKind": "candidate",
         "decisionKind": "activate",
-        "resultBucket": "active",
+        "resultLane": "now",
         "semanticConfidence": "medium",
         "semanticInfluenceIncludes": [
           "semantic consequence shaped the canonical human-input consequence",

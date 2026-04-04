@@ -26,8 +26,8 @@ export type DeterminismScenarioResult = {
 
 export type NormalizedReplayRun = {
   finalView: {
-    activeInteractionId: string | null;
-    queuedInteractionIds: string[];
+    nowInteractionId: string | null;
+    nextInteractionIds: string[];
     ambientInteractionIds: string[];
   };
   traces: NormalizedTrace[];
@@ -52,7 +52,7 @@ type NormalizedTrace =
       evaluationKind: "candidate";
       interactionId: string;
       decisionKind: string;
-      resultBucket: string;
+      resultLane: string;
       reasons: string[];
       policyRationale: string[];
       criterionRationale: string[];
@@ -101,7 +101,7 @@ type NormalizedDecision = {
   stepLabel?: string;
   evaluationKind: "candidate" | "clear" | "noop";
   decisionKind?: string;
-  resultBucket?: string;
+  resultLane?: string;
   interactionId?: string;
   semanticConfidence?: string;
   semanticAbstained?: boolean;
@@ -153,8 +153,8 @@ export function normalizeReplayRun(run: ReplayRunResult): NormalizedReplayRun {
 
   return {
     finalView: {
-      activeInteractionId: finalView?.activeInteractionId ?? null,
-      queuedInteractionIds: finalView?.queuedInteractionIds ?? [],
+      nowInteractionId: finalView?.nowInteractionId ?? null,
+      nextInteractionIds: finalView?.nextInteractionIds ?? [],
       ambientInteractionIds: finalView?.ambientInteractionIds ?? [],
     },
     traces: run.traces.map(normalizeTrace),
@@ -178,7 +178,7 @@ export function normalizeReplayRun(run: ReplayRunResult): NormalizedReplayRun {
       ...(decision.stepLabel ? { stepLabel: decision.stepLabel } : {}),
       evaluationKind: decision.evaluationKind,
       ...(decision.decisionKind ? { decisionKind: decision.decisionKind } : {}),
-      ...(decision.resultBucket ? { resultBucket: decision.resultBucket } : {}),
+      ...(decision.resultLane ? { resultLane: decision.resultLane } : {}),
       ...(decision.interactionId ? { interactionId: decision.interactionId } : {}),
       ...(decision.semanticConfidence ? { semanticConfidence: decision.semanticConfidence } : {}),
       ...(decision.semanticAbstained === true ? { semanticAbstained: true } : {}),
@@ -249,7 +249,7 @@ function normalizeCandidateTrace(trace: CandidateTrace): NormalizedTrace {
     evaluationKind: "candidate",
     interactionId: trace.evaluation.adjusted.interactionId,
     decisionKind: trace.coordination.kind,
-    resultBucket: trace.coordination.resultBucket,
+    resultLane: trace.coordination.resultLane,
     reasons: trace.coordination.reasons,
     policyRationale: trace.policy.rationale,
     criterionRationale: trace.policyRules.criterion?.rationale ?? [],

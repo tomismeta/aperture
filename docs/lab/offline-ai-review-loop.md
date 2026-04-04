@@ -337,7 +337,7 @@ Start with the highest-signal and least-subjective dimensions.
 
 - stronger blocked-work vs question-request distinctions
 - approval-like semantics in imported trajectories
-- route quality such as `active` vs `queued` vs `ambient`
+- route quality such as `now` vs `next` vs `ambient`
 
 The later category is more subjective and should come after the semantic layer
 is stronger.

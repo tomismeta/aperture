@@ -8,12 +8,12 @@
     "traceability"
   ],
   "expectations": {
-    "finalActiveInteractionId": "interaction:question:tool-family",
-    "queuedInteractionIds": [],
+    "finalNowInteractionId": "interaction:question:tool-family",
+    "nextInteractionIds": [],
     "ambientInteractionIds": [],
-    "resultBucketCounts": {
-      "active": 1,
-      "queued": 0,
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
       "ambient": 0
     },
     "semanticReadings": [
@@ -44,7 +44,7 @@
         "stepLabel": "question with explicit tool context",
         "evaluationKind": "candidate",
         "decisionKind": "activate",
-        "resultBucket": "active",
+        "resultLane": "now",
         "semanticConfidence": "low",
         "semanticInfluenceIncludes": [
           "tool family stayed explanatory on the question/form path"

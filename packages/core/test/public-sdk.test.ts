@@ -98,7 +98,7 @@ test("public SDK supports the simple event in -> frame out -> response in loop",
   assert.ok(frame);
   assert.equal(frame?.title, "Approve production deploy");
   assert.equal(frame?.responseSpec?.kind, "approval");
-  assert.equal(core.getAttentionView().active?.interactionId, "interaction:simple-loop");
+  assert.equal(core.getAttentionView().now?.interactionId, "interaction:simple-loop");
 
   core.submit({
     taskId: "task:simple-loop",

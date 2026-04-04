@@ -16,8 +16,8 @@ export const evaluatePeripheralStatusPolicyGateRule: PolicyGateRule = (input) =>
       autoApprove: false,
       mayInterrupt: false,
       requiresOperatorResponse: false,
-      minimumPresentation: "ambient",
-      minimumPresentationIsSticky: false,
+      minimumLane: "ambient",
+      minimumLaneIsSticky: false,
       rationale: ["non-critical status work should start in the periphery"],
     },
   );

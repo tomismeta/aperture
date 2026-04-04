@@ -128,8 +128,8 @@ These are part of Aperture itself.
 - Lives in [packages/core/src/frame.ts](../../packages/core/src/frame.ts)
 - Purpose: local coordination state for one task
 - Owns:
-  - `active`
-  - `queued`
+  - `now`
+  - `next`
   - `ambient`
 - Does not own:
   - cross-task prioritization
@@ -195,7 +195,7 @@ These are part of the core implementation, but not the product surface to emphas
 
 - Classification: in-memory task-state store
 - Lives in [packages/core/src/task-view-store.ts](../../packages/core/src/task-view-store.ts)
-- Purpose: maintain per-task `active`, `queued`, and `ambient` state
+- Purpose: maintain per-task `now`, `next`, and `ambient` state
 
 #### `buildAttentionView`
 

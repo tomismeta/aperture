@@ -11,8 +11,8 @@ export const evaluateBackgroundPolicyGateRule: PolicyGateRule = (input) => {
       autoApprove: false,
       mayInterrupt: false,
       requiresOperatorResponse: false,
-      minimumPresentation: "ambient",
-      minimumPresentationIsSticky: true,
+      minimumLane: "ambient",
+      minimumLaneIsSticky: true,
       rationale: ["background work should remain peripheral by default"],
     },
   );

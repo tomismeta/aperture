@@ -10,7 +10,7 @@ import type {
 
 export type TraceDecisionKind = "auto_approve" | "activate" | "queue" | "ambient" | "clear";
 
-export type TraceResultBucket = "active" | "queued" | "ambient" | "none";
+export type TraceResultLane = "now" | "next" | "ambient" | "none";
 
 export type TraceAttentionPriority = "background" | "normal" | "high";
 
@@ -114,7 +114,7 @@ export type ApertureTrace =
       };
       coordination: {
         kind: TraceDecisionKind;
-        resultBucket: TraceResultBucket;
+        resultLane: TraceResultLane;
         candidateScore: number;
         currentScore: number | null;
         currentPriority: TraceAttentionPriority | null;

@@ -9,14 +9,14 @@ export type TraceEvaluationReport = {
   totalCandidates: number;
   autoApproved: number;
   activated: number;
-  queued: number;
+  next: number;
   ambient: number;
   ambiguousDecisions: number;
-  ambiguousQueued: number;
+  ambiguousNext: number;
   ambiguousAmbient: number;
   ambiguousLowConfidence: number;
   ambiguousAbstained: number;
-  ambiguousQueuedThenActivated: number;
+  ambiguousNextThenActivated: number;
   ambiguousAmbientThenActivated: number;
   actionableEpisodes: number;
   actionableSurfaced: number;
@@ -31,14 +31,14 @@ export function evaluateTraceSession(traces: ApertureTrace[]): TraceEvaluationRe
     totalCandidates: 0,
     autoApproved: 0,
     activated: 0,
-    queued: 0,
+    next: 0,
     ambient: 0,
     ambiguousDecisions: 0,
-    ambiguousQueued: 0,
+    ambiguousNext: 0,
     ambiguousAmbient: 0,
     ambiguousLowConfidence: 0,
     ambiguousAbstained: 0,
-    ambiguousQueuedThenActivated: 0,
+    ambiguousNextThenActivated: 0,
     ambiguousAmbientThenActivated: 0,
     actionableEpisodes: 0,
     actionableSurfaced: 0,
@@ -53,7 +53,7 @@ export function evaluateTraceSession(traces: ApertureTrace[]): TraceEvaluationRe
   const mergedFrameIdsByEpisode = new Map<string, Set<string>>();
   const activatedAfterDeferral = new Set<string>();
   const activatedAfterSuppression = new Set<string>();
-  const activatedAfterAmbiguousQueue = new Set<string>();
+  const activatedAfterAmbiguousNext = new Set<string>();
   const activatedAfterAmbiguousAmbient = new Set<string>();
 
   for (const trace of traces) {
@@ -68,7 +68,7 @@ export function evaluateTraceSession(traces: ApertureTrace[]): TraceEvaluationRe
     if (trace.coordination.ambiguity) {
       report.ambiguousDecisions += 1;
       if (trace.coordination.ambiguity.resolution === "queue") {
-        report.ambiguousQueued += 1;
+        report.ambiguousNext += 1;
       } else {
         report.ambiguousAmbient += 1;
       }
@@ -81,9 +81,9 @@ export function evaluateTraceSession(traces: ApertureTrace[]): TraceEvaluationRe
       pendingAmbiguityByKey.set(ambiguityKey, trace.coordination.ambiguity.resolution);
     } else if (trace.coordination.kind === "activate") {
       const pendingResolution = pendingAmbiguityByKey.get(ambiguityKey);
-      if (pendingResolution === "queue" && !activatedAfterAmbiguousQueue.has(ambiguityKey)) {
-        activatedAfterAmbiguousQueue.add(ambiguityKey);
-        report.ambiguousQueuedThenActivated += 1;
+      if (pendingResolution === "queue" && !activatedAfterAmbiguousNext.has(ambiguityKey)) {
+        activatedAfterAmbiguousNext.add(ambiguityKey);
+        report.ambiguousNextThenActivated += 1;
         pendingAmbiguityByKey.delete(ambiguityKey);
       } else if (pendingResolution === "ambient" && !activatedAfterAmbiguousAmbient.has(ambiguityKey)) {
         activatedAfterAmbiguousAmbient.add(ambiguityKey);
@@ -148,7 +148,7 @@ function incrementDecisionCount(report: TraceEvaluationReport, decision: Candida
       report.autoApproved += 1;
       break;
     case "queue":
-      report.queued += 1;
+      report.next += 1;
       break;
     case "ambient":
       report.ambient += 1;

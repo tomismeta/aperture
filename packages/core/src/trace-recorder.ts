@@ -80,7 +80,7 @@ export class TraceRecorder {
       },
       coordination: {
         kind: explanation.decision.kind,
-        resultBucket: findResultBucket(snapshot.attentionView, adjusted.taskId, adjusted.interactionId, explanation.decision.kind),
+        resultLane: findResultLane(snapshot.attentionView, adjusted.taskId, adjusted.interactionId, explanation.decision.kind),
         candidateScore: explanation.candidateScore,
         currentScore: explanation.currentScore,
         currentPriority: explanation.currentPriority,
@@ -322,26 +322,26 @@ function promoteSemanticField(
   decisionBearing.add(decisionLabel);
 }
 
-function findResultBucket(
+function findResultLane(
   attentionView: AttentionView,
   taskId: string,
   interactionId: string,
   decisionKind: AttentionDecisionExplanation["decision"]["kind"],
-): "active" | "queued" | "ambient" | "none" {
+): "now" | "next" | "ambient" | "none" {
   if (decisionKind === "auto_approve" || decisionKind === "clear") {
     return "none";
   }
 
   if (
-    attentionView.active
-    && attentionView.active.taskId === taskId
-    && attentionView.active.interactionId === interactionId
+    attentionView.now
+    && attentionView.now.taskId === taskId
+    && attentionView.now.interactionId === interactionId
   ) {
-    return "active";
+    return "now";
   }
 
-  if (attentionView.queued.some((frame) => frame.taskId === taskId && frame.interactionId === interactionId)) {
-    return "queued";
+  if (attentionView.next.some((frame) => frame.taskId === taskId && frame.interactionId === interactionId)) {
+    return "next";
   }
 
   if (attentionView.ambient.some((frame) => frame.taskId === taskId && frame.interactionId === interactionId)) {

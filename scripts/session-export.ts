@@ -59,8 +59,8 @@ async function main(): Promise<void> {
     stdout.write(`- session: ${bundle.sessionId}\n`);
     stdout.write(`- steps: ${bundle.steps.length}\n`);
     stdout.write(`- traces: ${bundle.traces.length}\n`);
-    stdout.write(`- active: ${bundle.outcomes.finalActiveInteractionId ?? "none"}\n`);
-    stdout.write(`- queued: ${bundle.outcomes.finalQueuedCount}\n`);
+    stdout.write(`- now: ${bundle.outcomes.finalNowInteractionId ?? "none"}\n`);
+    stdout.write(`- next: ${bundle.outcomes.finalNextCount}\n`);
     stdout.write(`- ambient: ${bundle.outcomes.finalAmbientCount}\n`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

@@ -43,7 +43,7 @@ export class ApertureRuntimeClient {
   private readonly traceListeners = new Set<TraceListener>();
   private snapshotState: ApertureRuntimeSnapshot = {
     version: 0,
-    attentionView: { active: null, queued: [], ambient: [] },
+    attentionView: { now: null, next: [], ambient: [] },
     signalSummary: {
       recentSignals: 0,
       lifetimeSignals: 0,
@@ -60,7 +60,7 @@ export class ApertureRuntimeClient {
         attentionShifted: 0,
       },
       deferred: {
-        queued: 0,
+        next: 0,
         suppressed: 0,
         manual: 0,
       },

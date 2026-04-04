@@ -133,5 +133,5 @@ test("canonical imported sessions can become replayable session bundles", () => 
   assert.equal(bundle.steps.length, 3);
   assert.equal(bundle.normalizedEvents.length, 3);
   assert.equal(bundle.semanticSnapshots.length, 3);
-  assert.equal(replayed.views.at(-1)?.activeInteractionId, bundle.outcomes.finalActiveInteractionId);
+  assert.equal(replayed.views.at(-1)?.nowInteractionId, bundle.outcomes.finalNowInteractionId);
 });

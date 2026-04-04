@@ -211,7 +211,7 @@ export function printDebugSnapshot(snapshot: DebugSnapshot, topic: DebugTopic, c
       sections.push(
         `  surfaces: ${snapshot.runtimeSnapshot.surfaceCount}`,
         `  adapters: ${snapshot.runtimeSnapshot.adapters.length}`,
-        `  attention: now ${snapshot.runtimeSnapshot.attentionView.active ? 1 : 0} · next ${snapshot.runtimeSnapshot.attentionView.queued.length} · ambient ${snapshot.runtimeSnapshot.attentionView.ambient.length}`,
+        `  attention: now ${snapshot.runtimeSnapshot.attentionView.now ? 1 : 0} · next ${snapshot.runtimeSnapshot.attentionView.next.length} · ambient ${snapshot.runtimeSnapshot.attentionView.ambient.length}`,
         `  recent signals: ${snapshot.runtimeSnapshot.signalSummary.recentSignals}`,
         `  lifetime signals: ${snapshot.runtimeSnapshot.signalSummary.lifetimeSignals}`,
         ...snapshot.runtimeSnapshot.adapters.map((adapter) => (

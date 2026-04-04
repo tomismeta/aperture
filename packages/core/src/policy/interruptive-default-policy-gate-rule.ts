@@ -6,8 +6,8 @@ export const evaluateInterruptiveDefaultPolicyGateRule: PolicyGateRule = () => v
     autoApprove: false,
     mayInterrupt: true,
     requiresOperatorResponse: false,
-    minimumPresentation: "queue",
-    minimumPresentationIsSticky: false,
+    minimumLane: "next",
+    minimumLaneIsSticky: false,
     rationale: ["urgent non-blocking work may compete for interruptive attention"],
   },
 );

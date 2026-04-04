@@ -179,7 +179,7 @@ For an OpenCode user, the value is:
 
 - one human attention surface across multiple OpenCode sessions
 - better prioritization than a flat stream of native prompts
-- active / queued / ambient treatment instead of binary interruption
+- now / next / ambient treatment instead of binary interruption
 - learned approval and response patterns over time
 - better pressure handling when many OpenCode sessions are active at once
 - a cleaner path toward episode-level grouping across related tool activity
@@ -207,7 +207,7 @@ Aperture should own:
 
 - semantic normalization of OpenCode events
 - attention judgment
-- active / queued / ambient presentation state
+- now / next / ambient presentation state
 - cross-session attention shaping
 - operator-facing prioritization and response routing
 
@@ -721,7 +721,7 @@ Add:
 Success means:
 
 - Aperture frames carry more surrounding context
-- active / queued / ambient feels more intelligent than mirroring prompts
+- now / next / ambient feels more intelligent than mirroring prompts
 
 ### Phase 3: Host Maturity
 

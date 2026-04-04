@@ -77,7 +77,7 @@ export function summarizeAttentionSignals(signals: AttentionSignal[]): Attention
     attentionShifted: 0,
   };
   const deferred = {
-    queued: 0,
+    next: 0,
     suppressed: 0,
     manual: 0,
   };

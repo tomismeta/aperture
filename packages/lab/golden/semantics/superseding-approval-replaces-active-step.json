@@ -9,12 +9,12 @@
     "decision_stream_continuity"
   ],
   "expectations": {
-    "finalActiveInteractionId": "interaction:deploy:rollback",
-    "queuedInteractionIds": [],
+    "finalNowInteractionId": "interaction:deploy:rollback",
+    "nextInteractionIds": [],
     "ambientInteractionIds": [],
-    "resultBucketCounts": {
-      "active": 2,
-      "queued": 0,
+    "resultLaneCounts": {
+      "now": 2,
+      "next": 0,
       "ambient": 0
     },
     "semanticReadings": [

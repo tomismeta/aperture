@@ -17,15 +17,15 @@ export function buildAttentionView(
   let ambient: AttentionFrame[] = [];
 
   for (const taskView of taskViews) {
-    if (taskView.active) {
-      if (isBackground(taskView.active)) {
-        ambient.push(taskView.active);
+    if (taskView.now) {
+      if (isBackground(taskView.now)) {
+        ambient.push(taskView.now);
       } else {
-        interruptive.push(taskView.active);
+        interruptive.push(taskView.now);
       }
     }
 
-    interruptive.push(...taskView.queued);
+    interruptive.push(...taskView.next);
     ambient.push(...taskView.ambient);
   }
 
@@ -50,45 +50,45 @@ export function buildAttentionView(
 
   if (options.operatorPresence === "absent") {
     return {
-      active: null,
-      queued: interruptive,
+      now: null,
+      next: interruptive,
       ambient,
     };
   }
 
   if (interruptive.length > 0) {
-    const [active, ...queued] = interruptive;
+    const [now, ...next] = interruptive;
     return {
-      active: active ?? null,
-      queued,
+      now: now ?? null,
+      next,
       ambient,
     };
   }
 
   if (ambient.length > 0) {
-    const [active, ...rest] = ambient;
+    const [now, ...rest] = ambient;
     if (
-      active &&
-      (scoreAttentionFrame(active, { now: referenceNow }) <= 0 ||
+      now &&
+      (scoreAttentionFrame(now, { now: referenceNow }) <= 0 ||
         (options.globalAttentionState === "overloaded"
-          && scoreAttentionFrame(active, { now: referenceNow }) < 200))
+          && scoreAttentionFrame(now, { now: referenceNow }) < 200))
     ) {
       return {
-        active: null,
-        queued: [],
+        now: null,
+        next: [],
         ambient,
       };
     }
     return {
-      active: active ?? null,
-      queued: [],
+      now: now ?? null,
+      next: [],
       ambient: rest,
     };
   }
 
   return {
-    active: null,
-    queued: [],
+    now: null,
+    next: [],
     ambient: [],
   };
 }

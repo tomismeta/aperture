@@ -358,7 +358,7 @@ export class ApertureCore {
   }
 
   getFrame(taskId: string): AttentionFrame | null {
-    return this.taskViews.get(taskId).active ?? null;
+    return this.taskViews.get(taskId).now ?? null;
   }
 
   subscribe(taskId: string, listener: AttentionFrameListener): () => void {
@@ -438,7 +438,7 @@ export class ApertureCore {
     this.episodes.resolveInteraction(response.interactionId);
 
     const taskView = this.taskViews.resolve(response.taskId, response.interactionId);
-    const newPrimary = taskView.active;
+    const newPrimary = taskView.now;
     const nextAttentionView = this.getAttentionView();
     this.recordAttentionTransition(previousAttentionView, nextAttentionView, timestamp);
     if (newPrimary) {
@@ -579,12 +579,12 @@ export class ApertureCore {
         retiredFrame.interactionId,
       );
       if (retiredFrame.taskId !== frame.taskId) {
-        this.notifyFrame(retiredFrame.taskId, retiredTaskView.active);
+        this.notifyFrame(retiredFrame.taskId, retiredTaskView.now);
         this.notifyTaskView(retiredFrame.taskId, retiredTaskView);
       }
     }
 
-    const taskView = this.taskViews.setActive(frame.taskId, frame);
+    const taskView = this.taskViews.setNow(frame.taskId, frame);
     const nextAttentionView = this.getAttentionView();
     this.recordAttentionTransition(previousAttentionView, nextAttentionView, frame.timing.updatedAt);
     this.recordSignal({
@@ -632,15 +632,15 @@ export class ApertureCore {
     const previousAttentionView = this.getAttentionView();
     const existingTaskView = this.taskViews.get(taskId);
     const hadAnyVisibleState =
-      existingTaskView.active !== null
-      || existingTaskView.queued.length > 0
+      existingTaskView.now !== null
+      || existingTaskView.next.length > 0
       || existingTaskView.ambient.length > 0;
 
     if (!hadAnyVisibleState) {
       return null;
     }
 
-    for (const frame of [existingTaskView.active, ...existingTaskView.queued, ...existingTaskView.ambient]) {
+    for (const frame of [existingTaskView.now, ...existingTaskView.next, ...existingTaskView.ambient]) {
       if (!frame) {
         continue;
       }
@@ -657,11 +657,11 @@ export class ApertureCore {
   }
 
   private queueFrame(taskId: string, frame: AttentionFrame): AttentionFrame {
-    const taskView = this.taskViews.enqueue(taskId, frame);
-    this.recordDeferredSignal(frame, "queued");
+    const taskView = this.taskViews.addNext(taskId, frame);
+    this.recordDeferredSignal(frame, "next");
     this.notifyTaskView(taskId, taskView);
     this.notifyAttentionView();
-    return taskView.active ?? frame;
+    return taskView.now ?? frame;
   }
 
   private addAmbientFrame(taskId: string, frame: AttentionFrame): AttentionFrame {
@@ -669,7 +669,7 @@ export class ApertureCore {
     this.recordDeferredSignal(frame, "suppressed");
     this.notifyTaskView(taskId, taskView);
     this.notifyAttentionView();
-    return taskView.active ?? frame;
+    return taskView.now ?? frame;
   }
 
   private materializePeripheralFrame(
@@ -696,9 +696,9 @@ export class ApertureCore {
 
     const nextTaskView =
       nextBucket === "queue"
-        ? this.taskViews.enqueue(merged.taskId, merged)
+        ? this.taskViews.addNext(merged.taskId, merged)
         : this.taskViews.addAmbient(merged.taskId, merged);
-    this.recordDeferredSignal(merged, nextBucket === "queue" ? "queued" : "suppressed", candidate);
+    this.recordDeferredSignal(merged, nextBucket === "queue" ? "next" : "suppressed", candidate);
     this.notifyTaskView(merged.taskId, nextTaskView);
     this.notifyAttentionView();
     return merged;
@@ -736,8 +736,8 @@ export class ApertureCore {
     }
 
     return [
-      attentionView.active,
-      ...attentionView.queued,
+      attentionView.now,
+      ...attentionView.next,
       ...attentionView.ambient,
     ].filter((frame): frame is AttentionFrame =>
       frame !== null
@@ -785,7 +785,7 @@ export class ApertureCore {
     episodeId: string,
     attentionView: AttentionView,
   ): { frame: AttentionFrame; bucket: "queue" | "ambient" } | null {
-    const queued = attentionView.queued.find((frame) =>
+    const queued = attentionView.next.find((frame) =>
       readFrameEpisodeId(frame) === episodeId && !isDormantEpisodeState(readFrameEpisodeState(frame))
     );
     if (queued) {
@@ -857,7 +857,7 @@ export class ApertureCore {
 
   private recordDeferredSignal(
     frame: AttentionFrame,
-    reason: "queued" | "suppressed",
+    reason: "next" | "suppressed",
     sourceFrame: Pick<AttentionFrame, "taskId" | "interactionId" | "source"> = frame,
   ): void {
     this.recordSignal({
@@ -961,8 +961,8 @@ export class ApertureCore {
     nextAttentionView: AttentionView,
     timestamp: string,
   ): void {
-    const previous = previousAttentionView.active;
-    const next = nextAttentionView.active;
+    const previous = previousAttentionView.now;
+    const next = nextAttentionView.now;
     if (!next) {
       return;
     }
@@ -1003,8 +1003,8 @@ export class ApertureCore {
   }
 
   private recordReturnSignal(previousAttentionView: AttentionView, next: AttentionFrame, timestamp: string): void {
-    const from = previousAttentionView.queued.some((frame) => sameFrame(frame, next))
-      ? "queued"
+    const from = previousAttentionView.next.some((frame) => sameFrame(frame, next))
+      ? "next"
       : previousAttentionView.ambient.some((frame) => sameFrame(frame, next))
         ? "ambient"
         : null;
@@ -1049,11 +1049,11 @@ export class ApertureCore {
 
   private findFrame(taskId: string, interactionId: string): AttentionFrame | null {
     const taskView = this.taskViews.get(taskId);
-    if (taskView.active?.interactionId === interactionId) {
-      return taskView.active;
+    if (taskView.now?.interactionId === interactionId) {
+      return taskView.now;
     }
 
-    const queued = taskView.queued.find((frame) => frame.interactionId === interactionId);
+    const queued = taskView.next.find((frame) => frame.interactionId === interactionId);
     if (queued) {
       return queued;
     }

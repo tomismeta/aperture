@@ -27,7 +27,7 @@ test("trace evaluator counts merged episode updates across tasks", () => {
   });
 
   core.publish({
-    id: "evt:queued:first",
+    id: "evt:next:first",
     taskId: "task:episode:a",
     timestamp: "2026-03-08T12:00:20.000Z",
     type: "human.input.requested",
@@ -44,7 +44,7 @@ test("trace evaluator counts merged episode updates across tasks", () => {
   });
 
   core.publish({
-    id: "evt:queued:second",
+    id: "evt:next:second",
     taskId: "task:episode:b",
     timestamp: "2026-03-08T12:00:30.000Z",
     type: "human.input.requested",
@@ -114,7 +114,7 @@ test("trace evaluator reports deferred episodes that later activate", () => {
   const report = evaluateTraceSession(traces);
 
   assert.equal(report.deferredThenActivated, 1);
-  assert.equal(report.queued, 1);
+  assert.equal(report.next, 1);
   assert.equal(report.activated, 1);
 });
 
@@ -232,11 +232,11 @@ test("trace evaluator reports ambiguous queued work that later activates", () =>
   const report = evaluateTraceSession(traces);
 
   assert.equal(report.ambiguousDecisions, 1);
-  assert.equal(report.ambiguousQueued, 1);
+  assert.equal(report.ambiguousNext, 1);
   assert.equal(report.ambiguousAmbient, 0);
   assert.equal(report.ambiguousLowConfidence, 1);
   assert.equal(report.ambiguousAbstained, 0);
-  assert.equal(report.ambiguousQueuedThenActivated, 1);
+  assert.equal(report.ambiguousNextThenActivated, 1);
   assert.equal(report.ambiguousAmbientThenActivated, 0);
 });
 
@@ -298,11 +298,11 @@ test("trace evaluator reports ambiguous ambient work that later activates", () =
   const report = evaluateTraceSession(traces);
 
   assert.equal(report.ambiguousDecisions, 1);
-  assert.equal(report.ambiguousQueued, 0);
+  assert.equal(report.ambiguousNext, 0);
   assert.equal(report.ambiguousAmbient, 1);
   assert.equal(report.ambiguousLowConfidence, 0);
   assert.equal(report.ambiguousAbstained, 1);
-  assert.equal(report.ambiguousQueuedThenActivated, 0);
+  assert.equal(report.ambiguousNextThenActivated, 0);
   assert.equal(report.ambiguousAmbientThenActivated, 1);
 });
 

@@ -18,7 +18,7 @@ export const evaluateInterruptEligibilityCriterionRule: PolicyCriterionRule = (i
     evidence,
   } = input;
 
-  if (!policyVerdict.mayInterrupt && policyVerdict.minimumPresentationIsSticky) {
+  if (!policyVerdict.mayInterrupt && policyVerdict.minimumLaneIsSticky) {
     return verdictPolicyCriterionRule(
       "interrupt_eligibility",
       preservedPeripheralCriterionVerdict(
@@ -33,7 +33,7 @@ export const evaluateInterruptEligibilityCriterionRule: PolicyCriterionRule = (i
     || candidate.episodeState === "actionable"
     || policyVerdict.autoApprove
     || policyVerdict.requiresOperatorResponse
-    || policyVerdict.minimumPresentation === "active"
+    || policyVerdict.minimumLane === "now"
   ) {
     return verdictPolicyCriterionRule(
       "interrupt_eligibility",

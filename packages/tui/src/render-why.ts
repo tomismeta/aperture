@@ -35,15 +35,8 @@ function humanDecisionKind(kind: string): string {
   return kind.replace(/_/g, " ");
 }
 
-function humanLane(bucket: CandidateTrace["coordination"]["resultBucket"]): string {
-  switch (bucket) {
-    case "active":
-      return "now";
-    case "queued":
-      return "next";
-    default:
-      return bucket;
-  }
+function humanLane(bucket: CandidateTrace["coordination"]["resultLane"]): string {
+  return bucket;
 }
 
 export function renderWhyOverlay(
@@ -83,7 +76,7 @@ function renderRuleLine(
   name: string,
   outcome: string,
   rationale: string | undefined,
-  active: boolean,
+  isActive: boolean,
   color: boolean,
   indent: number,
   nameWidth: number,
@@ -92,7 +85,7 @@ function renderRuleLine(
   const paddedName = name.padEnd(nameWidth);
   const arrow = "→";
 
-  if (!active) {
+  if (!isActive) {
     // Dim entire line — no rationale wrapping needed for inactive rules
     const line = `${pad}${paddedName} ${arrow} ${outcome}`;
     return [styleMuted(line, color)];
@@ -132,7 +125,7 @@ function renderCandidateTrace(trace: CandidateTrace, color: boolean, expanded: b
   lines.push("");
   lines.push(whySectionHeader("decision", color));
   const route = trace.coordination.kind;
-  const surfaced = trace.coordination.resultBucket;
+  const surfaced = trace.coordination.resultLane;
   const candidateScore = trace.coordination.candidateScore;
   const currentScore = trace.coordination.currentScore;
   const threshold = trace.policyRules.criterion?.criterion?.activationThreshold ?? "—";

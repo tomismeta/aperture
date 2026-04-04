@@ -24,8 +24,8 @@ export const evaluateNoActiveFrameCriterionRule: PolicyCriterionRule = (input) =
   if (
     candidate.episodeId !== undefined
     && [
-      evidence.attentionView.active,
-      ...evidence.attentionView.queued,
+      evidence.attentionView.now,
+      ...evidence.attentionView.next,
       ...evidence.attentionView.ambient,
     ]
       .filter((frame): frame is AttentionFrame => frame !== null)

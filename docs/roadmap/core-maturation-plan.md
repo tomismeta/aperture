@@ -69,7 +69,7 @@ Proposal:
 
 Examples:
 
-- uncertain interrupt -> `queued`
+- uncertain interrupt -> `next`
 - uncertain suppression -> `ambient`
 - uncertain human-decision path -> explicit review
 

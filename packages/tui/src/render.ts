@@ -40,8 +40,8 @@ export function renderAttentionScreen(
 ): string {
   const lines: string[] = [];
   const color = options?.color ?? false;
-  const active = attentionView.active;
-  const queued = attentionView.queued;
+  const active = attentionView.now;
+  const queued = attentionView.next;
   const ambient = attentionView.ambient;
   const posture = options?.posture ?? "calm";
   const activePendingCount = active ? countMatchingFrames(active, queued) : 0;
@@ -179,7 +179,7 @@ export function shouldRenderPreflightScreen(
     : false;
   const hasEntryActions = connectionStatus.entries.some((entry) => (entry.actions?.length ?? 0) > 0);
   const needsSetup = connectionStatus.entries.some((entry) => entry.state !== "ready" && entry.state !== "disabled");
-  const hasForegroundWork = attentionView.active !== null || attentionView.queued.length > 0;
+  const hasForegroundWork = attentionView.now !== null || attentionView.next.length > 0;
   if (showSetup && !hasForegroundWork) {
     return true;
   }
@@ -584,10 +584,10 @@ function queueGroupKey(frame: Frame): string {
   return [frame.mode, frame.tone, frame.consequence, frame.title, frame.summary ?? "", source].join("::");
 }
 
-export function countMatchingFrames(frame: Frame, queued: Frame[]): number {
+export function countMatchingFrames(frame: Frame, next: Frame[]): number {
   const key = queueGroupKey(frame);
   let count = 1;
-  for (const queuedFrame of queued) {
+  for (const queuedFrame of next) {
     if (queueGroupKey(queuedFrame) === key) {
       count += 1;
     }
@@ -620,7 +620,7 @@ function heavyRule(color: boolean): string {
 // ── Controls ────────────────────────────────────────────────────────
 
 function renderControls(
-  active: Frame | null,
+  now: Frame | null,
   quiet: boolean,
   inputDraft: InputDraft | null,
   whyMode: boolean,
@@ -628,7 +628,7 @@ function renderControls(
   color: boolean,
   connectionStatus?: AttentionConnectionSnapshot | null,
 ): string[] {
-  if (!active) {
+  if (!now) {
     const parts: string[] = [];
     if (quiet && connectionStatus?.actions) {
       for (const action of connectionStatus.actions) {
@@ -649,7 +649,7 @@ function renderControls(
   const label = (text: string) => styleMuted(text, color);
 
   // Response actions
-  switch (active.responseSpec?.kind) {
+  switch (now.responseSpec?.kind) {
     case "acknowledge":
       parts.push(`${styleKey("⏎", color)}${label("ack")}`);
       parts.push(`${styleKey("x", color)}${label("dismiss")}`);
@@ -661,7 +661,7 @@ function renderControls(
       break;
     case "choice":
       parts.push(`${styleKey("1-9", color)}${label("choose")}`);
-      if (active.responseSpec.allowTextResponse && !whyMode) {
+      if (now.responseSpec.allowTextResponse && !whyMode) {
         parts.push(`${styleKey("i", color)}${label("reply")}`);
       }
       parts.push(`${styleKey("x", color)}${label("dismiss")}`);

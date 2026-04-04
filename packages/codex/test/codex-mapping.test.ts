@@ -33,6 +33,12 @@ test("maps command execution approvals into approval SourceEvents", () => {
     assert.equal(mapped.events[0].activityClass, "permission_request");
     assert.equal(mapped.events[0].toolFamily, "bash");
     assert.equal(mapped.events[0].taskId, "codex:thread:thread-1:turn:turn-1");
+    assert.deepEqual(mapped.events[0].semanticHints, {
+      intentFrame: "approval_request",
+      activityClass: "permission_request",
+      whyNow: "Run tests before continuing",
+      confidence: "high",
+    });
     assert.deepEqual(mapped.events[0].context?.items, [
       { id: "command", label: "Command", value: "pnpm test" },
       { id: "cwd", label: "Working Directory", value: "/repo" },
@@ -60,6 +66,12 @@ test("maps file change approvals into write approval SourceEvents", () => {
   if (mapped?.events[0]?.type === "human.input.requested") {
     assert.equal(mapped.events[0].toolFamily, "write");
     assert.equal(mapped.events[0].activityClass, "permission_request");
+    assert.deepEqual(mapped.events[0].semanticHints, {
+      intentFrame: "approval_request",
+      activityClass: "permission_request",
+      whyNow: "Apply patch",
+      confidence: "high",
+    });
     assert.deepEqual(mapped.events[0].context?.items, [
       { id: "rootPath", label: "Root Path", value: "/repo/src" },
     ]);
@@ -88,6 +100,12 @@ test("maps top-level exec command approvals into approval SourceEvents", () => {
     assert.equal(mapped.events[0].toolFamily, "bash");
     assert.equal(mapped.events[0].activityClass, "permission_request");
     assert.equal(mapped.events[0].taskId, "codex:thread:thread-legacy");
+    assert.deepEqual(mapped.events[0].semanticHints, {
+      intentFrame: "approval_request",
+      activityClass: "permission_request",
+      whyNow: "Create requested directory",
+      confidence: "high",
+    });
     assert.deepEqual(mapped.events[0].context?.items, [
       { id: "command", label: "Command", value: "mkdir codex-smoke-test" },
       { id: "cwd", label: "Working Directory", value: "/repo" },
@@ -117,6 +135,12 @@ test("maps top-level apply patch approvals into write approval SourceEvents", ()
   if (mapped?.events[0]?.type === "human.input.requested") {
     assert.equal(mapped.events[0].toolFamily, "write");
     assert.equal(mapped.events[0].activityClass, "permission_request");
+    assert.deepEqual(mapped.events[0].semanticHints, {
+      intentFrame: "approval_request",
+      activityClass: "permission_request",
+      whyNow: "Apply generated patch",
+      confidence: "high",
+    });
     assert.deepEqual(mapped.events[0].context?.items, [
       { id: "rootPath", label: "Root Path", value: "/repo" },
       { id: "files", label: "Files", value: "/repo/hello.txt" },
@@ -147,6 +171,12 @@ test("maps permissions approvals into approval SourceEvents", () => {
   if (mapped?.events[0]?.type === "human.input.requested") {
     assert.equal(mapped.events[0].activityClass, "permission_request");
     assert.equal(mapped.events[0].title, "Approve Codex permissions");
+    assert.deepEqual(mapped.events[0].semanticHints, {
+      intentFrame: "approval_request",
+      activityClass: "permission_request",
+      whyNow: "Need network access",
+      confidence: "high",
+    });
   }
 });
 
@@ -179,6 +209,12 @@ test("maps single-question user input with options into a choice request", () =>
   assert.equal(mapped.events[0]?.type, "human.input.requested");
   if (mapped?.events[0]?.type === "human.input.requested") {
     assert.equal(mapped.events[0].request.kind, "choice");
+    assert.deepEqual(mapped.events[0].semanticHints, {
+      intentFrame: "question_request",
+      activityClass: "question_request",
+      whyNow: "Codex requested additional input before continuing.",
+      confidence: "high",
+    });
     if (mapped.events[0].request.kind === "choice") {
       assert.equal(mapped.events[0].request.allowTextResponse, true);
       assert.equal(mapped.events[0].request.options.length, 2);
@@ -220,6 +256,12 @@ test("maps multi-question user input into a form request", () => {
   assert.equal(mapped.events[0]?.type, "human.input.requested");
   if (mapped?.events[0]?.type === "human.input.requested") {
     assert.equal(mapped.events[0].request.kind, "form");
+    assert.deepEqual(mapped.events[0].semanticHints, {
+      intentFrame: "form_request",
+      activityClass: "question_request",
+      whyNow: "Codex requested additional input before continuing.",
+      confidence: "high",
+    });
     if (mapped.events[0].request.kind === "form") {
       assert.equal(mapped.events[0].request.fields.length, 2);
     }
@@ -360,6 +402,11 @@ test("maps turn notifications into coarse running/completed updates", () => {
   assert.equal(started[0]?.type, "task.updated");
   if (started[0]?.type === "task.updated") {
     assert.equal(started[0].status, "running");
+    assert.deepEqual(started[0].semanticHints, {
+      activityClass: "session_status",
+      whyNow: "Codex began working on the current turn.",
+      confidence: "high",
+    });
   }
 
   const completed = mapCodexNotification({
@@ -377,6 +424,11 @@ test("maps turn notifications into coarse running/completed updates", () => {
   assert.equal(completed[0]?.type, "task.updated");
   if (completed[0]?.type === "task.updated") {
     assert.equal(completed[0].status, "completed");
+    assert.deepEqual(completed[0].semanticHints, {
+      activityClass: "tool_completion",
+      whyNow: "Codex finished the current turn.",
+      confidence: "high",
+    });
   }
 });
 

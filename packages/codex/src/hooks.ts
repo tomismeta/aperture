@@ -1,4 +1,9 @@
-import type { AttentionResponse, SourceEvent, SourceHumanInputRequestedEvent } from "@tomismeta/aperture-core";
+import type {
+  AttentionResponse,
+  SourceEvent,
+  SourceHumanInputRequestedEvent,
+  SourceTaskUpdatedEvent,
+} from "@tomismeta/aperture-core";
 
 export type CodexHookEventName =
   | "SessionStart"
@@ -78,6 +83,9 @@ export type CodexHookResponse =
       decision: "block";
       reason: string;
     };
+
+type HumanInputSemanticHints = NonNullable<SourceHumanInputRequestedEvent["semanticHints"]>;
+type TaskUpdateSemanticHints = NonNullable<SourceTaskUpdatedEvent["semanticHints"]>;
 
 export function parseCodexHookEvent(value: unknown): CodexHookEvent {
   if (!isRecord(value)) {
@@ -272,6 +280,11 @@ function mapPreToolUse(
     request: {
       kind: "approval",
     },
+    semanticHints: explicitRequestSemanticHints(
+      "approval",
+      "permission_request",
+      "Codex requested approval before running a command.",
+    ),
     context: {
       items: [
         { id: "command", label: "Command", value: event.tool_input.command },
@@ -296,6 +309,10 @@ function mapPostToolUse(
     source: codexHookSource(event, context),
     toolFamily: "bash",
     activityClass: failed ? "tool_failure" : "tool_completion",
+    semanticHints: taskUpdateSemanticHints(
+      failed ? "tool_failure" : "tool_completion",
+      responseSummary ?? event.tool_input.command,
+    ),
     title: failed ? "Codex command failed" : "Codex command completed",
     summary: responseSummary ?? event.tool_input.command,
     status: failed ? "failed" : "running",
@@ -313,10 +330,51 @@ function mapUserPromptSubmit(
     timestamp: new Date().toISOString(),
     source: codexHookSource(event, context),
     activityClass: "follow_up",
+    semanticHints: taskUpdateSemanticHints(
+      "follow_up",
+      "Codex is continuing with the operator's latest prompt.",
+    ),
     title: "Codex prompt submitted",
     summary: summarizePrompt(event.prompt),
     status: "running",
   };
+}
+
+function explicitRequestSemanticHints(
+  kind: "approval" | "choice" | "form",
+  activityClass: SourceHumanInputRequestedEvent["activityClass"],
+  whyNow: string,
+): HumanInputSemanticHints {
+  return {
+    intentFrame: requestIntentFrame(kind),
+    ...(activityClass !== undefined ? { activityClass } : {}),
+    whyNow,
+    confidence: "high",
+  };
+}
+
+function taskUpdateSemanticHints(
+  activityClass: NonNullable<SourceTaskUpdatedEvent["activityClass"]>,
+  whyNow?: string,
+): TaskUpdateSemanticHints {
+  return {
+    activityClass,
+    ...(whyNow !== undefined ? { whyNow } : {}),
+    confidence: "high",
+  };
+}
+
+function requestIntentFrame(
+  kind: "approval" | "choice" | "form",
+): "approval_request" | "question_request" | "form_request" {
+  switch (kind) {
+    case "approval":
+      return "approval_request";
+    case "choice":
+      return "question_request";
+    case "form":
+      return "form_request";
+  }
 }
 
 function mapStop(

@@ -36,6 +36,12 @@ test("maps PreToolUse hook events into approval SourceEvents", () => {
     "codex:hook:preToolUse:session-1:turn-1:tool-1",
   );
   assert.equal(mapped[0]?.title, "Approve Codex command");
+  assert.deepEqual(mapped[0]?.semanticHints, {
+    intentFrame: "approval_request",
+    activityClass: "permission_request",
+    whyNow: "Codex requested approval before running a command.",
+    confidence: "high",
+  });
 });
 
 test("maps UserPromptSubmit hook events into follow-up SourceEvents", () => {
@@ -56,6 +62,11 @@ test("maps UserPromptSubmit hook events into follow-up SourceEvents", () => {
     timestamp: mapped[0]?.timestamp,
     source: mapped[0]?.source,
     activityClass: "follow_up",
+    semanticHints: {
+      activityClass: "follow_up",
+      whyNow: "Codex is continuing with the operator's latest prompt.",
+      confidence: "high",
+    },
     title: "Codex prompt submitted",
     summary: "Implement the feature and then explain the tradeoffs.",
     status: "running",

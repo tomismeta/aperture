@@ -44,6 +44,12 @@ test("maps permission.asked to an approval request", () => {
   assert.equal(mapped[0].taskId, `opencode:${createOpencodeInstanceKey(context)}:session:ses-1`);
   assert.equal(mapped[0].title, "OpenCode wants to create a new directory");
   assert.equal(mapped[0].summary, "mkdir -p /tmp/aperture-opencode-smoke");
+  assert.deepEqual(mapped[0].semanticHints, {
+    intentFrame: "approval_request",
+    activityClass: "permission_request",
+    whyNow: "OpenCode paused and needs a human approval decision.",
+    confidence: "high",
+  });
   assert.deepEqual(mapped[0].context?.items, [
     { id: "command", label: "Command", value: "mkdir -p /tmp/aperture-opencode-smoke" },
     { id: "cwd", label: "Working Directory", value: "/workspace/project" },
@@ -122,6 +128,12 @@ test("maps follow-up text parts into a reply request", () => {
           },
         ],
       },
+      semanticHints: {
+        intentFrame: "question_request",
+        activityClass: "follow_up",
+        whyNow: "OpenCode asked a follow-up question and needs a reply before continuing.",
+        confidence: "high",
+      },
       provenance: {
         whyNow: "OpenCode asked a follow-up question and needs a reply before continuing.",
       },
@@ -183,6 +195,12 @@ test("maps question.asked with options to a choice request", () => {
   assert.equal(mapped[0].activityClass, "question_request");
   assert.equal(mapped[0].title, "Directory");
   assert.equal(mapped[0].summary, "Where should I create the new directory?");
+  assert.deepEqual(mapped[0].semanticHints, {
+    intentFrame: "question_request",
+    activityClass: "question_request",
+    whyNow: "OpenCode paused and needs a human answer before continuing.",
+    confidence: "high",
+  });
   assert.deepEqual(mapped[0].request.options.map((option) => option.id), [
     "Current directory",
     "Parent directory",
@@ -271,6 +289,11 @@ test("maps session.status into explicit session-status awareness", () => {
   assert.equal(mapped[0].activityClass, "session_status");
   assert.equal(mapped[0].status, "running");
   assert.equal(mapped[0].summary, "OpenCode is still working.");
+  assert.deepEqual(mapped[0].semanticHints, {
+    activityClass: "session_status",
+    whyNow: "OpenCode is still working.",
+    confidence: "high",
+  });
 });
 
 test("maps failed message parts into explicit tool-failure awareness", () => {
@@ -295,6 +318,9 @@ test("maps failed message parts into explicit tool-failure awareness", () => {
 
   assert.equal(mapped[0].activityClass, "tool_failure");
   assert.equal(mapped[0].status, "failed");
+  assert.deepEqual(mapped[0].semanticHints, {
+    activityClass: "tool_failure",
+  });
 });
 
 test("maps OpenCode approvals back to permission reply calls", () => {

@@ -2,6 +2,7 @@ import type {
   AttentionResponse,
   SourceEvent,
   SourceHumanInputRequestedEvent,
+  SourceTaskUpdatedEvent,
 } from "@tomismeta/aperture-core";
 
 import type {
@@ -63,6 +64,8 @@ export type OpencodeNativeResolution = {
 };
 
 type ContextItem = NonNullable<NonNullable<SourceHumanInputRequestedEvent["context"]>["items"]>[number];
+type HumanInputSemanticHints = NonNullable<SourceHumanInputRequestedEvent["semanticHints"]>;
+type TaskUpdateSemanticHints = NonNullable<SourceTaskUpdatedEvent["semanticHints"]>;
 
 type ParsedInteractionId =
   | {
@@ -373,6 +376,7 @@ function mapPermissionAsked(
       kind: "approval",
       requireReason: false,
     },
+    semanticHints: explicitRequestSemanticHints("approval", "permission_request", whyNow),
     provenance: {
       whyNow,
     },
@@ -429,6 +433,7 @@ function mapQuestionAsked(
     title,
     summary,
     request,
+    semanticHints: explicitRequestSemanticHints(request.kind, "question_request", "OpenCode paused and needs a human answer before continuing."),
     provenance: {
       whyNow: "OpenCode paused and needs a human answer before continuing.",
     },
@@ -459,10 +464,11 @@ function mapSessionStatus(event: Extract<OpencodeSseMessage, { type: "session.st
       label: context.sourceLabel ?? "OpenCode",
     },
     activityClass: "session_status",
+    semanticHints: sessionStatusSemanticHints(reasonText(event)),
     title: `OpenCode session ${status}`,
     status,
   };
-  const reason = readString(event.properties.reason) ?? readStatusReason(event.properties.status);
+  const reason = reasonText(event);
   if (reason) {
     update.summary = reason;
   }
@@ -510,6 +516,9 @@ function mapMessagePartUpdated(event: OpencodeMessagePartUpdatedEvent, context: 
               },
             ],
           },
+          semanticHints: followUpRequestSemanticHints(
+            "OpenCode asked a follow-up question and needs a reply before continuing.",
+          ),
           provenance: {
             whyNow: "OpenCode asked a follow-up question and needs a reply before continuing.",
           },
@@ -542,6 +551,7 @@ function mapMessagePartUpdated(event: OpencodeMessagePartUpdatedEvent, context: 
           label: context.sourceLabel ?? "OpenCode",
         },
         activityClass: "tool_failure",
+        semanticHints: taskActivitySemanticHints("tool_failure"),
         title: "OpenCode tool step failed",
         summary: `${partType} reported ${state}.`,
         status: "failed",
@@ -616,6 +626,10 @@ function normalizeTaskStatus(status: string | undefined) {
     default:
       return null;
   }
+}
+
+function reasonText(event: Extract<OpencodeSseMessage, { type: "session.status" }>): string | undefined {
+  return readString(event.properties.reason) ?? readStatusReason(event.properties.status);
 }
 
 function readSessionStatus(value: unknown): string | undefined {
@@ -839,6 +853,57 @@ function preferredContextValue(
 
 function contextItem(id: string, label: string, value: string | undefined | null): ContextItem | null {
   return value ? { id, label, value } : null;
+}
+
+function explicitRequestSemanticHints(
+  kind: "approval" | "choice" | "form",
+  activityClass: SourceHumanInputRequestedEvent["activityClass"],
+  whyNow: string,
+): HumanInputSemanticHints {
+  return {
+    intentFrame: requestIntentFrame(kind),
+    ...(activityClass !== undefined ? { activityClass } : {}),
+    whyNow,
+    confidence: "high",
+  };
+}
+
+function followUpRequestSemanticHints(whyNow: string): HumanInputSemanticHints {
+  return {
+    intentFrame: "question_request",
+    activityClass: "follow_up",
+    whyNow,
+    confidence: "high",
+  };
+}
+
+function sessionStatusSemanticHints(whyNow: string | undefined): TaskUpdateSemanticHints {
+  return {
+    activityClass: "session_status",
+    ...(whyNow !== undefined ? { whyNow } : {}),
+    confidence: "high",
+  };
+}
+
+function taskActivitySemanticHints(
+  activityClass: NonNullable<SourceTaskUpdatedEvent["activityClass"]>,
+): TaskUpdateSemanticHints {
+  return {
+    activityClass,
+  };
+}
+
+function requestIntentFrame(
+  kind: "approval" | "choice" | "form",
+): "approval_request" | "question_request" | "form_request" {
+  switch (kind) {
+    case "approval":
+      return "approval_request";
+    case "choice":
+      return "question_request";
+    case "form":
+      return "form_request";
+  }
 }
 
 function followUpSessionPrompt(sessionId: string, text: string): OpencodeResponseAction {

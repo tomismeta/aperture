@@ -2,6 +2,7 @@ import type {
   AttentionResponse,
   SourceEvent,
   SourceHumanInputRequestedEvent,
+  SourceTaskUpdatedEvent,
 } from "@tomismeta/aperture-core";
 
 import type {
@@ -52,6 +53,8 @@ export type CodexResponsePayload =
     };
 
 type ContextItem = NonNullable<NonNullable<SourceHumanInputRequestedEvent["context"]>["items"]>[number];
+type HumanInputSemanticHints = NonNullable<SourceHumanInputRequestedEvent["semanticHints"]>;
+type TaskUpdateSemanticHints = NonNullable<SourceTaskUpdatedEvent["semanticHints"]>;
 
 type ParsedInteractionId =
   | {
@@ -337,6 +340,11 @@ function mapCommandApprovalRequest(
     request: {
       kind: "approval",
     },
+    semanticHints: explicitRequestSemanticHints(
+      "approval",
+      "permission_request",
+      params.reason ?? "Codex requested approval before running a command.",
+    ),
     ...(contextItems.length > 0 ? { context: { items: contextItems } } : {}),
     ...(params.reason ? { provenance: { whyNow: params.reason } } : {}),
   };
@@ -379,6 +387,11 @@ function mapFileChangeApprovalRequest(
     request: {
       kind: "approval",
     },
+    semanticHints: explicitRequestSemanticHints(
+      "approval",
+      "permission_request",
+      params.reason ?? "Codex requested approval before applying file changes.",
+    ),
     ...(contextItems.length > 0 ? { context: { items: contextItems } } : {}),
     ...(params.reason ? { provenance: { whyNow: params.reason } } : {}),
   };
@@ -408,6 +421,16 @@ function mapToolRequestUserInputRequest(
   const isSingleChoice = !!singleQuestion && Array.isArray(singleQuestion.options) && singleQuestion.options.length > 0;
 
   if (singleQuestion && isSingleChoice) {
+    const request: SourceHumanInputRequestedEvent["request"] = {
+      kind: "choice",
+      selectionMode: "single",
+      allowTextResponse: singleQuestion.isOther,
+      options: (singleQuestion.options ?? []).map((option) => ({
+        id: slugifyOption(option.label),
+        label: option.label,
+        ...(option.description ? { summary: option.description } : {}),
+      })),
+    };
     const event: SourceHumanInputRequestedEvent = {
       id: codexEventId(requestId, "human.input.requested", params.itemId),
       type: "human.input.requested",
@@ -418,16 +441,12 @@ function mapToolRequestUserInputRequest(
       activityClass: "question_request",
       title: singleQuestion.header || "Codex needs input",
       summary: singleQuestion.question,
-      request: {
-        kind: "choice",
-        selectionMode: "single",
-        allowTextResponse: singleQuestion.isOther,
-        options: (singleQuestion.options ?? []).map((option) => ({
-          id: slugifyOption(option.label),
-          label: option.label,
-          ...(option.description ? { summary: option.description } : {}),
-        })),
-      },
+      request,
+      semanticHints: explicitRequestSemanticHints(
+        "choice",
+        "question_request",
+        "Codex requested additional input before continuing.",
+      ),
     };
     return {
       interactionId,
@@ -435,6 +454,24 @@ function mapToolRequestUserInputRequest(
       events: [event],
     };
   }
+
+  const request: SourceHumanInputRequestedEvent["request"] = {
+    kind: "form",
+    fields: params.questions.map((question) => ({
+      id: question.id,
+      label: question.header || question.question,
+      type: question.options && question.options.length > 0 ? "select" : question.isSecret ? "textarea" : "text",
+      required: true,
+      ...(question.options && question.options.length > 0
+        ? {
+            options: question.options.map((option) => ({
+              value: option.label,
+              label: option.label,
+            })),
+          }
+        : {}),
+    })),
+  };
 
   const event: SourceHumanInputRequestedEvent = {
     id: codexEventId(requestId, "human.input.requested", params.itemId),
@@ -446,23 +483,12 @@ function mapToolRequestUserInputRequest(
     activityClass: "question_request",
     title: singleQuestion?.header || "Codex needs input",
     summary: singleQuestion?.question ?? "Codex requested additional information before continuing.",
-    request: {
-      kind: "form",
-      fields: params.questions.map((question) => ({
-        id: question.id,
-        label: question.header || question.question,
-        type: question.options && question.options.length > 0 ? "select" : question.isSecret ? "textarea" : "text",
-        required: true,
-        ...(question.options && question.options.length > 0
-          ? {
-              options: question.options.map((option) => ({
-                value: option.label,
-                label: option.label,
-              })),
-            }
-          : {}),
-      })),
-    },
+    request,
+    semanticHints: explicitRequestSemanticHints(
+      "form",
+      "question_request",
+      "Codex requested additional input before continuing.",
+    ),
   };
   return {
     interactionId,
@@ -498,6 +524,11 @@ function mapPermissionsApprovalRequest(
     request: {
       kind: "approval",
     },
+    semanticHints: explicitRequestSemanticHints(
+      "approval",
+      "permission_request",
+      params.reason ?? "Codex requested additional permissions before continuing.",
+    ),
     ...(params.reason ? { provenance: { whyNow: params.reason } } : {}),
   };
 
@@ -536,6 +567,11 @@ function mapExecCommandApprovalRequest(
     request: {
       kind: "approval",
     },
+    semanticHints: explicitRequestSemanticHints(
+      "approval",
+      "permission_request",
+      params.reason ?? "Codex requested approval before running a command.",
+    ),
     context: {
       items: [
         createContextItem("command", "Command", params.command.join(" ")),
@@ -582,6 +618,11 @@ function mapApplyPatchApprovalRequest(
     request: {
       kind: "approval",
     },
+    semanticHints: explicitRequestSemanticHints(
+      "approval",
+      "permission_request",
+      params.reason ?? "Codex requested approval before applying file changes.",
+    ),
     ...(changedFiles.length > 0 || params.grantRoot
       ? {
           context: {
@@ -632,6 +673,10 @@ function mapThreadStatusChanged(
     timestamp: new Date().toISOString(),
     source: codexSource(notification.threadId, context),
     activityClass: "session_status",
+    semanticHints: taskUpdateSemanticHints(
+      "session_status",
+      describeThreadStatus(notification.status),
+    ),
     title: "Codex thread status changed",
     summary: describeThreadStatus(notification.status),
     status: notification.status.type === "active" ? "running" : "waiting",
@@ -649,6 +694,10 @@ function mapTurnStarted(
     timestamp: new Date().toISOString(),
     source: codexSource(notification.threadId, context),
     activityClass: "session_status",
+    semanticHints: taskUpdateSemanticHints(
+      "session_status",
+      "Codex began working on the current turn.",
+    ),
     title: "Codex turn started",
     summary: "Codex began working on the current turn.",
     status: "running",
@@ -667,6 +716,12 @@ function mapTurnCompleted(
     timestamp: new Date().toISOString(),
     source: codexSource(notification.threadId, context),
     activityClass: failed ? "tool_failure" : "tool_completion",
+    semanticHints: taskUpdateSemanticHints(
+      failed ? "tool_failure" : "tool_completion",
+      failed
+        ? "Codex ended the turn with an error."
+        : "Codex finished the current turn.",
+    ),
     title: failed ? "Codex turn failed" : "Codex turn completed",
     summary: failed
       ? "Codex ended the turn with an error."
@@ -687,6 +742,10 @@ function mapItemStarted(
       timestamp: new Date().toISOString(),
       source: codexSource(notification.threadId, context),
       activityClass: "session_status",
+      semanticHints: taskUpdateSemanticHints(
+        "session_status",
+        notification.item.review || "Codex entered review mode.",
+      ),
       title: "Codex review started",
       ...withOptionalSummary(notification.item.review),
       status: "running",
@@ -710,6 +769,10 @@ function mapItemCompleted(
       source: codexSource(notification.threadId, context),
       toolFamily: "bash",
       activityClass: failed ? "tool_failure" : "tool_completion",
+      semanticHints: taskUpdateSemanticHints(
+        failed ? "tool_failure" : "tool_completion",
+        notification.item.command || undefined,
+      ),
       title: failed ? "Codex command failed" : declined ? "Codex command declined" : "Codex command completed",
       ...withOptionalSummary(notification.item.command),
       status: failed ? "failed" : "completed",
@@ -731,6 +794,10 @@ function mapItemCompleted(
       source: codexSource(notification.threadId, context),
       toolFamily: "write",
       activityClass: failed ? "tool_failure" : "tool_completion",
+      semanticHints: taskUpdateSemanticHints(
+        failed ? "tool_failure" : "tool_completion",
+        summary,
+      ),
       title: failed ? "Codex file changes failed" : declined ? "Codex file changes declined" : "Codex file changes completed",
       ...withOptionalSummary(summary),
       status: failed ? "failed" : "completed",
@@ -745,6 +812,10 @@ function mapItemCompleted(
       timestamp: new Date().toISOString(),
       source: codexSource(notification.threadId, context),
       activityClass: "tool_completion",
+      semanticHints: taskUpdateSemanticHints(
+        "tool_completion",
+        notification.item.review || "Codex review completed.",
+      ),
       title: "Codex review completed",
       ...withOptionalSummary(notification.item.review),
       status: "completed",
@@ -768,6 +839,43 @@ function contextItem(id: string, label: string, value: string | null | undefined
 
 function createContextItem(id: string, label: string, value: string): ContextItem {
   return { id, label, value };
+}
+
+function explicitRequestSemanticHints(
+  kind: "approval" | "choice" | "form",
+  activityClass: SourceHumanInputRequestedEvent["activityClass"],
+  whyNow: string,
+): HumanInputSemanticHints {
+  return {
+    intentFrame: requestIntentFrame(kind),
+    ...(activityClass !== undefined ? { activityClass } : {}),
+    whyNow,
+    confidence: "high",
+  };
+}
+
+function taskUpdateSemanticHints(
+  activityClass: NonNullable<SourceTaskUpdatedEvent["activityClass"]>,
+  whyNow?: string,
+): TaskUpdateSemanticHints {
+  return {
+    activityClass,
+    ...(whyNow !== undefined ? { whyNow } : {}),
+    confidence: "high",
+  };
+}
+
+function requestIntentFrame(
+  kind: "approval" | "choice" | "form",
+): "approval_request" | "question_request" | "form_request" {
+  switch (kind) {
+    case "approval":
+      return "approval_request";
+    case "choice":
+      return "question_request";
+    case "form":
+      return "form_request";
+  }
 }
 
 function mapApprovalDecision(

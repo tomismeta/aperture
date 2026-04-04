@@ -56,6 +56,12 @@ This is different from OpenCode because Claude's public integration seam is hook
 - `PostToolUseFailure` hook payloads
 - `PostToolUse` hook payloads for non-blocking completion awareness
 - `Notification` hook payloads for waiting/input handoff
+- `SessionStart` and `SessionEnd` lifecycle hook payloads
+- `InstructionsLoaded`, `ConfigChange`, and `CwdChanged` session-state hook payloads
+- `PermissionDenied` hook payloads for auto-mode denials
+- `SubagentStart` / `SubagentStop` lifecycle hook payloads
+- `TaskCreated` / `TaskCompleted` teammate task hook payloads
+- `StopFailure`, `TeammateIdle`, `PreCompact`, and `PostCompact` status hook payloads
 - `UserPromptSubmit` hook payloads to clear waiting state
 - `Stop` hook payloads for conversational follow-up handoff
 - local HTTP hook server
@@ -67,7 +73,8 @@ This is different from OpenCode because Claude's public integration seam is hook
 ## What it does not support yet
 
 - full transcript or session replay parsing as a general Claude integration surface
-- session or subagent lifecycle mapping
+- `WorktreeCreate` / `WorktreeRemove` replacement hooks
+- `FileChanged` watch hooks
 
 ## Current shape
 
@@ -255,6 +262,7 @@ If you prefer to wire it manually, the resulting config shape is:
 
 - The forwarder reads the Claude hook payload from stdin and POSTs it to the local Aperture server.
 - Claude's command-only hook events like `Elicitation` and `ElicitationResult` use the same command-hook forwarder path, so they still flow through the shared local adapter.
+- The default Aperture Claude install now includes the session/lifecycle/status hooks that improve continuity and session awareness, but it still intentionally excludes `WorktreeCreate`, `WorktreeRemove`, and `FileChanged`.
 - The shared Aperture runtime owns `ApertureCore`; the Claude hook server is one ingress into it, and the TUI is an optional client surface.
 - Claude Code and OpenCode share the same runtime and TUI; only their ingress and connection setup differ.
 - Live Aperture runtimes register themselves locally so the TUI can detect what is up before it connects.

@@ -9,11 +9,25 @@ import {
   mapClaudeCodeHookEvent,
   type ClaudeCodeElicitationEvent,
   type ClaudeCodeElicitationResultEvent,
+  type ClaudeCodeInstructionsLoadedEvent,
   type ClaudeCodeNotificationEvent,
+  type ClaudeCodePostCompactEvent,
   type ClaudeCodePostToolUseFailureEvent,
+  type ClaudeCodePreCompactEvent,
+  type ClaudeCodeConfigChangeEvent,
+  type ClaudeCodeCwdChangedEvent,
+  type ClaudeCodePermissionDeniedEvent,
   type ClaudeCodePermissionRequestEvent,
   type ClaudeCodePreToolUseEvent,
+  type ClaudeCodeSessionEndEvent,
+  type ClaudeCodeSessionStartEvent,
   type ClaudeCodeStopEvent,
+  type ClaudeCodeStopFailureEvent,
+  type ClaudeCodeSubagentStartEvent,
+  type ClaudeCodeSubagentStopEvent,
+  type ClaudeCodeTaskCompletedEvent,
+  type ClaudeCodeTaskCreatedEvent,
+  type ClaudeCodeTeammateIdleEvent,
   type ClaudeCodeUserPromptSubmitEvent,
 } from "../src/index.js";
 
@@ -704,6 +718,316 @@ test("maps user prompt submit into task completion to clear waiting state", () =
   assert.equal(mapped[0]?.type, "task.completed");
   if (mapped[0]?.type === "task.completed") {
     assert.equal(mapped[0].taskId, "claude-code:session:session-1");
+  }
+});
+
+test("maps session start hooks into session lifecycle events", () => {
+  const event: ClaudeCodeSessionStartEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "SessionStart",
+    source: "resume",
+    model: "claude-sonnet-4-6",
+    agent_type: "reviewer",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.started");
+  if (mapped[0]?.type === "task.started") {
+    assert.equal(mapped[0].taskId, "claude-code:session:session-1");
+    assert.equal(mapped[0].title, "Claude Code session resumed");
+    assert.match(mapped[0].summary ?? "", /claude-sonnet-4-6/);
+    assert.deepEqual(mapped[0].semanticHints, {
+      activityClass: "session_status",
+      whyNow: "Claude resumed an existing session.",
+      confidence: "high",
+    });
+  }
+});
+
+test("maps instructions loaded hooks into session-status updates", () => {
+  const event: ClaudeCodeInstructionsLoadedEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "InstructionsLoaded",
+    file_path: "/repo/CLAUDE.md",
+    memory_type: "Project",
+    load_reason: "session_start",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.updated");
+  if (mapped[0]?.type === "task.updated") {
+    assert.equal(mapped[0].taskId, "claude-code:session:session-1");
+    assert.equal(mapped[0].title, "Claude loaded project instructions");
+    assert.equal(mapped[0].summary, "CLAUDE.md · reason session start");
+    assert.equal(mapped[0].status, "running");
+    assert.deepEqual(mapped[0].semanticHints, {
+      activityClass: "session_status",
+      whyNow: "Claude loaded instructions while starting the session.",
+      confidence: "high",
+    });
+  }
+});
+
+test("maps permission denied hooks into blocked status updates", () => {
+  const event: ClaudeCodePermissionDeniedEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "PermissionDenied",
+    tool_name: "Bash",
+    tool_input: {
+      command: "git push origin main",
+    },
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.updated");
+  if (mapped[0]?.type === "task.updated") {
+    assert.equal(mapped[0].status, "blocked");
+    assert.equal(mapped[0].toolFamily, "bash");
+    assert.equal(mapped[0].activityClass, "permission_request");
+    assert.equal(mapped[0].title, "Claude Code auto mode denied permission to run a shell command");
+    assert.equal(mapped[0].summary, "git push origin main");
+  }
+});
+
+test("maps subagent start hooks into task lifecycle events", () => {
+  const event: ClaudeCodeSubagentStartEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "SubagentStart",
+    agent_id: "agent-123",
+    agent_type: "Explore",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.started");
+  if (mapped[0]?.type === "task.started") {
+    assert.equal(mapped[0].taskId, "claude-code:session:session-1:subagent:agent-123");
+    assert.equal(mapped[0].title, "Claude started Explore subagent");
+  }
+});
+
+test("maps subagent stop hooks into task completion events", () => {
+  const event: ClaudeCodeSubagentStopEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "SubagentStop",
+    agent_id: "agent-123",
+    agent_type: "Explore",
+    last_assistant_message: "Analysis complete. Found three issues.\n\nExtra details...",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.completed");
+  if (mapped[0]?.type === "task.completed") {
+    assert.equal(mapped[0].taskId, "claude-code:session:session-1:subagent:agent-123");
+    assert.equal(mapped[0].summary, "Explore subagent finished: Analysis complete. Found three issues.");
+  }
+});
+
+test("suppresses subagent stop events while a native subagent stop hook is active", () => {
+  const event: ClaudeCodeSubagentStopEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "SubagentStop",
+    stop_hook_now: true,
+    agent_id: "agent-123",
+    agent_type: "Explore",
+  };
+
+  assert.deepEqual(mapClaudeCodeHookEvent(event), []);
+});
+
+test("maps task created hooks into teammate task lifecycle events", () => {
+  const event: ClaudeCodeTaskCreatedEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "TaskCreated",
+    task_id: "task-001",
+    task_subject: "Implement user authentication",
+    task_description: "Add login and signup endpoints",
+    teammate_name: "implementer",
+    team_name: "my-project",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.started");
+  if (mapped[0]?.type === "task.started") {
+    assert.equal(mapped[0].taskId, "claude-code:session:session-1:task:task-001");
+    assert.equal(mapped[0].title, "Implement user authentication");
+    assert.match(mapped[0].summary ?? "", /Add login and signup endpoints/);
+  }
+});
+
+test("maps task completed hooks into teammate task completion events", () => {
+  const event: ClaudeCodeTaskCompletedEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "TaskCompleted",
+    task_id: "task-001",
+    task_subject: "Implement user authentication",
+    teammate_name: "implementer",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.completed");
+  if (mapped[0]?.type === "task.completed") {
+    assert.equal(mapped[0].taskId, "claude-code:session:session-1:task:task-001");
+    assert.match(mapped[0].summary ?? "", /Task completed: Implement user authentication/);
+  }
+});
+
+test("maps stop failure hooks into failed session status", () => {
+  const event: ClaudeCodeStopFailureEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "StopFailure",
+    error: "rate_limit",
+    error_details: "429 Too Many Requests",
+    last_assistant_message: "API Error: Rate limit reached",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.updated");
+  if (mapped[0]?.type === "task.updated") {
+    assert.equal(mapped[0].status, "failed");
+    assert.equal(mapped[0].activityClass, "session_status");
+    assert.equal(mapped[0].title, "Claude hit an API error");
+    assert.equal(mapped[0].summary, "API Error: Rate limit reached");
+  }
+});
+
+test("maps teammate idle hooks into waiting session status", () => {
+  const event: ClaudeCodeTeammateIdleEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "TeammateIdle",
+    teammate_name: "researcher",
+    team_name: "my-project",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.updated");
+  if (mapped[0]?.type === "task.updated") {
+    assert.equal(mapped[0].status, "waiting");
+    assert.equal(mapped[0].title, "researcher teammate is idle");
+    assert.equal(mapped[0].summary, "researcher teammate in team my-project is waiting for more work.");
+  }
+});
+
+test("maps config change hooks into running session status", () => {
+  const event: ClaudeCodeConfigChangeEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "ConfigChange",
+    source: "project_settings",
+    file_path: "/repo/.claude/settings.json",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.updated");
+  if (mapped[0]?.type === "task.updated") {
+    assert.equal(mapped[0].status, "running");
+    assert.equal(mapped[0].activityClass, "session_status");
+    assert.equal(mapped[0].title, "Claude project settings changed");
+    assert.equal(mapped[0].summary, "Project settings changed: settings.json.");
+    assert.deepEqual(mapped[0].semanticHints, {
+      activityClass: "session_status",
+      whyNow: "Claude detected a change to project settings during the session.",
+      confidence: "high",
+    });
+  }
+});
+
+test("maps cwd changed hooks into running session status", () => {
+  const event: ClaudeCodeCwdChangedEvent = {
+    session_id: "session-1",
+    cwd: "/repo/packages/core",
+    hook_event_name: "CwdChanged",
+    old_cwd: "/repo",
+    new_cwd: "/repo/packages/core",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.updated");
+  if (mapped[0]?.type === "task.updated") {
+    assert.equal(mapped[0].status, "running");
+    assert.equal(mapped[0].activityClass, "session_status");
+    assert.equal(mapped[0].title, "Claude changed working directory");
+    assert.equal(mapped[0].summary, "/repo -> /repo/packages/core");
+    assert.deepEqual(mapped[0].semanticHints, {
+      activityClass: "session_status",
+      whyNow: "Claude changed the working directory during the session.",
+      confidence: "high",
+    });
+  }
+});
+
+test("maps pre-compact hooks into running session status", () => {
+  const event: ClaudeCodePreCompactEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "PreCompact",
+    trigger: "manual",
+    custom_instructions: "Keep the deployment notes.",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.updated");
+  if (mapped[0]?.type === "task.updated") {
+    assert.equal(mapped[0].title, "Claude is compacting the session");
+    assert.equal(mapped[0].summary, "Manual compaction instructions: Keep the deployment notes.");
+    assert.equal(mapped[0].status, "running");
+  }
+});
+
+test("maps post-compact hooks into running session status", () => {
+  const event: ClaudeCodePostCompactEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "PostCompact",
+    trigger: "auto",
+    compact_summary: "Reduced the conversation to the current migration plan.\nMore details...",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.updated");
+  if (mapped[0]?.type === "task.updated") {
+    assert.equal(mapped[0].title, "Claude auto-compacted the session");
+    assert.equal(mapped[0].summary, "Reduced the conversation to the current migration plan.");
+    assert.equal(mapped[0].status, "running");
+  }
+});
+
+test("maps session end hooks into task completion events", () => {
+  const event: ClaudeCodeSessionEndEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "SessionEnd",
+    reason: "logout",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.completed");
+  if (mapped[0]?.type === "task.completed") {
+    assert.equal(mapped[0].taskId, "claude-code:session:session-1");
+    assert.equal(mapped[0].summary, "Claude Code session ended after logout.");
   }
 });
 

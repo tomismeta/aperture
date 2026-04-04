@@ -26,15 +26,14 @@ export type CaptureOptions = {
 export async function beginCapture(runtimeUrl: string): Promise<RuntimeSessionCaptureCursor> {
   const baseline = await fetchSessionCapture(runtimeUrl);
   const cursor = createRuntimeSessionCaptureCursor(baseline);
-  const baselineFrameCount =
-    (baseline.attentionView.active ? 1 : 0)
-    + baseline.attentionView.queued.length
-    + baseline.attentionView.ambient.length;
+  const baselineNowCount = baseline.attentionView.active ? 1 : 0;
+  const baselineFrameCount = baselineNowCount + baseline.attentionView.queued.length + baseline.attentionView.ambient.length;
 
   stdout.write(`Capture enabled for this Aperture session (${runtimeUrl})\n`);
   stdout.write(`- baseline steps: ${cursor.counts.steps}\n`);
   stdout.write(`- baseline source events: ${cursor.counts.sourceEvents}\n`);
-  stdout.write(`- baseline queued: ${baseline.attentionView.queued.length}\n`);
+  stdout.write(`- baseline now: ${baselineNowCount}\n`);
+  stdout.write(`- baseline next: ${baseline.attentionView.queued.length}\n`);
   stdout.write(`- baseline ambient: ${baseline.attentionView.ambient.length}\n`);
   if (baselineFrameCount > 0) {
     stdout.write(
@@ -87,8 +86,8 @@ export async function exportCapturedSession(
   stdout.write(`- session: ${bundle.sessionId}\n`);
   stdout.write(`- steps: ${bundle.steps.length}\n`);
   stdout.write(`- traces: ${bundle.traces.length}\n`);
-  stdout.write(`- active: ${bundle.outcomes.finalActiveInteractionId ?? "none"}\n`);
-  stdout.write(`- queued: ${bundle.outcomes.finalQueuedCount}\n`);
+  stdout.write(`- now: ${bundle.outcomes.finalActiveInteractionId ?? "none"}\n`);
+  stdout.write(`- next: ${bundle.outcomes.finalQueuedCount}\n`);
   stdout.write(`- ambient: ${bundle.outcomes.finalAmbientCount}\n`);
 }
 

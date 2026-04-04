@@ -35,6 +35,17 @@ function humanDecisionKind(kind: string): string {
   return kind.replace(/_/g, " ");
 }
 
+function humanLane(bucket: CandidateTrace["coordination"]["resultBucket"]): string {
+  switch (bucket) {
+    case "active":
+      return "now";
+    case "queued":
+      return "next";
+    default:
+      return bucket;
+  }
+}
+
 export function renderWhyOverlay(
   trace: ApertureTrace | null,
   color: boolean,
@@ -126,7 +137,7 @@ function renderCandidateTrace(trace: CandidateTrace, color: boolean, expanded: b
   const currentScore = trace.coordination.currentScore;
   const threshold = trace.policyRules.criterion?.criterion?.activationThreshold ?? "—";
   lines.push(
-    `   ${styleMuted("route:", color)} ${styleActiveGate(humanDecisionKind(route), color)}  ${styleMuted("·", color)}  ${styleMuted("surface:", color)} ${styleVerdict(surfaced, color)}  ${styleMuted("·", color)}  ${styleMuted("score:", color)} ${styleValue(String(candidateScore), color)}`,
+    `   ${styleMuted("route:", color)} ${styleActiveGate(humanDecisionKind(route), color)}  ${styleMuted("·", color)}  ${styleMuted("lane:", color)} ${styleVerdict(humanLane(surfaced), color)}  ${styleMuted("·", color)}  ${styleMuted("score:", color)} ${styleValue(String(candidateScore), color)}`,
   );
   lines.push(
     `   ${styleMuted("current:", color)} ${styleValue(String(currentScore ?? "—"), color)}  ${styleMuted("·", color)}  ${styleMuted("threshold:", color)} ${styleValue(String(threshold), color)}`,

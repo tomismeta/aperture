@@ -871,7 +871,7 @@ test("renderAttentionScreen why mode collapsed hides noop rules and shows count"
   const collapsed = renderAttentionScreen(attentionView, { whyMode: true, trace });
   assert.match(collapsed, /blocking work/);
   assert.match(collapsed, /set policy/);
-  assert.match(collapsed, /surface:\s+active/);
+  assert.match(collapsed, /lane:\s+now/);
   assert.match(collapsed, /\+ 3 rules did not apply/);
   assert.doesNotMatch(collapsed, /configured policy/);
 

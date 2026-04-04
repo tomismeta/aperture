@@ -1,6 +1,8 @@
 export {
   createApertureRuntime,
   type ApertureRuntimeAdapter,
+  type ApertureRuntimeAttentionViewSnapshot,
+  type ApertureRuntimeCaptureStep,
   type ApertureRuntime,
   type ApertureRuntimeEvent,
   type ApertureRuntimeOptions,

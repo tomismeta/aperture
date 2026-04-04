@@ -59,7 +59,7 @@ export type ApertureRuntimeSnapshot = {
   learningPersistence?: LearningPersistenceState;
 };
 
-export type ApertureRuntimeSessionStep =
+export type ApertureRuntimeCaptureStep =
   | {
       sequence: number;
       recordedAt: string;
@@ -73,23 +73,34 @@ export type ApertureRuntimeSessionStep =
       response: AttentionResponse;
     };
 
-export type ApertureRuntimeViewSnapshot = {
+export type ApertureRuntimeSessionStep = ApertureRuntimeCaptureStep;
+
+export type ApertureRuntimeAttentionViewSnapshot = {
   sequence: number;
   recordedAt: string;
   attentionView: AttentionView;
 };
+
+export type ApertureRuntimeViewSnapshot = ApertureRuntimeAttentionViewSnapshot;
 
 export type ApertureRuntimeSessionCapture = {
   runtimeId: string;
   kind: string;
   startedAt: string;
   exportedAt: string;
-  steps: ApertureRuntimeSessionStep[];
-  sourceEvents: SourceEvent[];
-  responses: AttentionResponse[];
+  /** Canonical runtime-owned capture fields. */
+  captureSteps: ApertureRuntimeCaptureStep[];
+  publishedSourceEvents: SourceEvent[];
+  submittedResponses: AttentionResponse[];
   signals: AttentionSignal[];
   traces: ApertureTrace[];
-  viewSnapshots: ApertureRuntimeViewSnapshot[];
+  attentionViewSnapshots: ApertureRuntimeAttentionViewSnapshot[];
+  currentAttentionView: AttentionView;
+  /** Compatibility aliases retained for current capture tooling. */
+  steps: ApertureRuntimeCaptureStep[];
+  sourceEvents: SourceEvent[];
+  responses: AttentionResponse[];
+  viewSnapshots: ApertureRuntimeAttentionViewSnapshot[];
   attentionView: AttentionView;
   adapters: ApertureRuntimeAdapter[];
   metadata?: Record<string, string>;
@@ -169,12 +180,12 @@ export function createApertureRuntime(
   const adapters = new Map<string, AdapterSession>();
   const surfaces = new Map<string, SurfaceSession>();
   const events: ApertureRuntimeEvent[] = [];
-  const sourceEvents: SourceEvent[] = [];
-  const responseLog: AttentionResponse[] = [];
+  const publishedSourceEvents: SourceEvent[] = [];
+  const submittedResponses: AttentionResponse[] = [];
   const signalLog: AttentionSignal[] = [];
   const traceLog: ApertureTrace[] = [];
-  const viewSnapshots: ApertureRuntimeViewSnapshot[] = [];
-  const sessionSteps: ApertureRuntimeSessionStep[] = [];
+  const attentionViewSnapshots: ApertureRuntimeAttentionViewSnapshot[] = [];
+  const captureSteps: ApertureRuntimeCaptureStep[] = [];
   let sequence = 0;
   let captureSequence = 0;
   let stateVersion = 0;
@@ -208,7 +219,7 @@ export function createApertureRuntime(
 
   const unsubscribeResponse = core.onResponse((response) => {
     pushEvent({ type: "response", response });
-    pushBounded(responseLog, response);
+    pushBounded(submittedResponses, response);
   });
   const unsubscribeTrace = core.onTrace((trace) => {
     pushEvent({ type: "trace", trace: trace as ApertureTrace });
@@ -223,7 +234,7 @@ export function createApertureRuntime(
       seededAttentionViewSubscription = true;
       return;
     }
-    pushBounded(viewSnapshots, {
+    pushBounded(attentionViewSnapshots, {
       sequence: nextCaptureSequence(),
       recordedAt: new Date().toISOString(),
       attentionView: core.getAttentionView(),
@@ -589,18 +600,29 @@ export function createApertureRuntime(
   }
 
   function exportSessionCapture(): ApertureRuntimeSessionCapture {
+    const steps = [...captureSteps];
+    const sourceEvents = [...publishedSourceEvents];
+    const responses = [...submittedResponses];
+    const viewSnapshots = [...attentionViewSnapshots];
+    const attentionView = core.getAttentionView();
+
     return {
       runtimeId,
       kind,
       startedAt,
       exportedAt: new Date().toISOString(),
-      steps: [...sessionSteps],
-      sourceEvents: [...sourceEvents],
-      responses: [...responseLog],
+      captureSteps: steps,
+      publishedSourceEvents: sourceEvents,
+      submittedResponses: responses,
       signals: [...signalLog],
       traces: [...traceLog],
-      viewSnapshots: [...viewSnapshots],
-      attentionView: core.getAttentionView(),
+      attentionViewSnapshots: viewSnapshots,
+      currentAttentionView: attentionView,
+      steps,
+      sourceEvents,
+      responses,
+      viewSnapshots,
+      attentionView,
       adapters: snapshot().adapters,
       ...(options.metadata ? { metadata: options.metadata } : {}),
       ...(learningPersistence ? { learningPersistence } : {}),
@@ -608,8 +630,8 @@ export function createApertureRuntime(
   }
 
   function recordPublishedSourceEvent(event: SourceEvent): void {
-    pushBounded(sourceEvents, event);
-    pushBounded(sessionSteps, {
+    pushBounded(publishedSourceEvents, event);
+    pushBounded(captureSteps, {
       sequence: nextCaptureSequence(),
       recordedAt: new Date().toISOString(),
       kind: "publishSource",
@@ -619,7 +641,7 @@ export function createApertureRuntime(
   }
 
   function recordSubmittedResponse(response: AttentionResponse): void {
-    pushBounded(sessionSteps, {
+    pushBounded(captureSteps, {
       sequence: nextCaptureSequence(),
       recordedAt: new Date().toISOString(),
       kind: "submit",

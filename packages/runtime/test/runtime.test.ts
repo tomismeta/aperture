@@ -173,14 +173,19 @@ test("runtime exports a local session capture with source events, responses, and
 
     const capture = runtime.exportSessionCapture();
 
-    assert.equal(capture.steps.length, 2);
-    assert.equal(capture.steps[0]?.kind, "publishSource");
-    assert.equal(capture.steps[1]?.kind, "submit");
-    assert.equal(capture.sourceEvents.length, 1);
-    assert.equal(capture.responses.some((response) => response.taskId === event.taskId), true);
+    assert.equal(capture.captureSteps.length, 2);
+    assert.equal(capture.captureSteps[0]?.kind, "publishSource");
+    assert.equal(capture.captureSteps[1]?.kind, "submit");
+    assert.equal(capture.publishedSourceEvents.length, 1);
+    assert.equal(capture.submittedResponses.some((response) => response.taskId === event.taskId), true);
     assert.equal(capture.traces.some((trace) => trace.event.id === event.id), true);
     assert.equal(capture.signals.some((signal) => signal.taskId === event.taskId), true);
-    assert.ok(capture.viewSnapshots.length >= 1);
+    assert.ok(capture.attentionViewSnapshots.length >= 1);
+    assert.deepEqual(capture.captureSteps, capture.steps);
+    assert.deepEqual(capture.publishedSourceEvents, capture.sourceEvents);
+    assert.deepEqual(capture.submittedResponses, capture.responses);
+    assert.deepEqual(capture.attentionViewSnapshots, capture.viewSnapshots);
+    assert.deepEqual(capture.currentAttentionView, capture.attentionView);
   } finally {
     await runtime.close();
   }
@@ -201,14 +206,14 @@ test("runtime session endpoint exposes the same local capture shape over HTTP", 
     assert.equal(response.status, 200);
     const payload = await response.json() as {
       runtimeId: string;
-      steps: Array<{ kind: string }>;
-      sourceEvents: Array<{ taskId: string }>;
+      captureSteps: Array<{ kind: string }>;
+      publishedSourceEvents: Array<{ taskId: string }>;
       traces: Array<{ event: { taskId: string } }>;
     };
 
     assert.equal(payload.runtimeId.length > 0, true);
-    assert.equal(payload.steps[0]?.kind, "publishSource");
-    assert.equal(payload.sourceEvents[0]?.taskId, "task-session-http");
+    assert.equal(payload.captureSteps[0]?.kind, "publishSource");
+    assert.equal(payload.publishedSourceEvents[0]?.taskId, "task-session-http");
     assert.equal(payload.traces.some((trace) => trace.event.taskId === "task-session-http"), true);
   } finally {
     await runtime.close();

@@ -100,6 +100,8 @@ Today this package provides:
 - a basic scorecard built on top of core trace evaluation and signal summaries
 - a first golden-scenario set for `JudgmentBench`
 - a benchmark runner that can write JSON results into `.aperture/lab/results`
+- a runtime artifact footprint that stays under `.aperture/lab` and can be
+  pruned with `pnpm clean:workspace`
 
 The first semantic-robustness tranche now covers:
 

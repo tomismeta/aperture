@@ -305,6 +305,42 @@ test("tool family remains decision-bearing on approvals but explanatory on choic
   assert.equal(evaluatedRead.candidate.toolFamily, undefined);
 });
 
+test("activity class is projected into canonical human input and candidate metadata", () => {
+  const normalized = normalizeSourceEvent({
+    id: "evt:choice-activity-class",
+    type: "human.input.requested",
+    taskId: "task:choice-activity-class",
+    interactionId: "interaction:choice-activity-class",
+    timestamp,
+    title: "Should we inspect the config first?",
+    summary: "Choose the next step.",
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [{ id: "yes", label: "Yes" }],
+    },
+  });
+
+  assert.equal(normalized.type, "human.input.requested");
+  if (normalized.type !== "human.input.requested") {
+    return;
+  }
+
+  assert.equal(normalized.activityClass, "question_request");
+  assert.equal(normalized.semantic?.activityClass, "question_request");
+  assert.equal(normalized.semantic?.provenance?.activityClass, "inferred");
+
+  const result = evaluation.evaluate(normalized);
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.activityClass, "question_request");
+  assert.equal(result.candidate.mode, "choice");
+  assert.equal(result.candidate.responseSpec.kind, "choice");
+});
+
 test("bounded tool-family use does not apply to explicit question requests", () => {
   assert.equal(
     readBoundedToolFamily({

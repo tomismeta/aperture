@@ -153,6 +153,10 @@ function buildSemanticInfluence(
   if (event.type === "task.updated") {
     influence.push("task status stayed authoritative; semantic details only affected context, continuity, and ambiguity handling");
 
+    if ("activityClass" in event && event.activityClass === semantic.activityClass && semantic.activityClass !== undefined) {
+      influence.push("activity class enriched canonical status facts");
+    }
+
     if (event.toolFamily === semantic.toolFamily && semantic.toolFamily !== undefined) {
       influence.push("tool family enriched canonical status facts without changing the route");
     }
@@ -171,6 +175,10 @@ function buildSemanticInfluence(
   }
 
   if (event.type === "human.input.requested") {
+    if ("activityClass" in event && event.activityClass === semantic.activityClass && semantic.activityClass !== undefined) {
+      influence.push("activity class was projected into the canonical request");
+    }
+
     if (event.consequence === semantic.consequence && semantic.consequence !== undefined) {
       influence.push("semantic consequence set the canonical human-input consequence");
     }
@@ -229,6 +237,10 @@ function buildSemanticImpact(
 
   explanatory.add("intent");
 
+  if (semantic.activityClass !== undefined) {
+    explanatory.add("activity");
+  }
+
   if (semantic.toolFamily !== undefined) {
     explanatory.add("tool");
   }
@@ -255,6 +267,9 @@ function buildSemanticImpact(
 
   switch (event.type) {
     case "task.updated":
+      if ("activityClass" in event && event.activityClass === semantic.activityClass && semantic.activityClass !== undefined) {
+        promoteSemanticField(explanatory, decisionBearing, "activity", "activity (canonical)");
+      }
       if (semantic.toolFamily !== undefined && event.toolFamily === semantic.toolFamily) {
         promoteSemanticField(explanatory, decisionBearing, "tool", "tool (bounded)");
       }
@@ -263,6 +278,9 @@ function buildSemanticImpact(
       }
       break;
     case "human.input.requested":
+      if ("activityClass" in event && event.activityClass === semantic.activityClass && semantic.activityClass !== undefined) {
+        promoteSemanticField(explanatory, decisionBearing, "activity", "activity (canonical)");
+      }
       if (semantic.consequence !== undefined && event.consequence === semantic.consequence) {
         promoteSemanticField(explanatory, decisionBearing, "consequence", "consequence (canonical)");
       }

@@ -55,7 +55,7 @@ test("trace recorder captures explanatory-only tool family on question paths", (
   assert.ok(trace.semantic?.influence.includes("tool family stayed context-only on the question/form path"));
   assert.equal(trace.semantic?.provenance?.toolFamily, "source");
   assert.deepEqual(trace.semantic?.impact, {
-    decisionBearing: ["consequence (canonical)"],
+    decisionBearing: ["activity (canonical)", "consequence (canonical)"],
     explanatory: ["intent", "tool", "why now", "confidence"],
   });
 });
@@ -98,7 +98,7 @@ test("trace recorder captures explanatory-only tool family on form paths", () =>
   assert.ok(trace.semantic?.influence.includes("tool family stayed context-only on the question/form path"));
   assert.equal(trace.semantic?.provenance?.toolFamily, "source");
   assert.deepEqual(trace.semantic?.impact, {
-    decisionBearing: ["consequence (canonical)"],
+    decisionBearing: ["activity (canonical)", "consequence (canonical)"],
     explanatory: ["intent", "tool", "why now", "confidence"],
   });
 });
@@ -137,7 +137,7 @@ test("trace recorder explains that status remains authoritative on task updates"
   assert.equal(trace.semantic?.intentFrame, "status_update");
   assert.equal(trace.semantic?.provenance?.intentFrame, "inferred");
   assert.deepEqual(trace.semantic?.impact, {
-    decisionBearing: ["confidence (ambiguity)"],
+    decisionBearing: ["activity (canonical)", "confidence (ambiguity)"],
     explanatory: ["intent", "consequence", "why now"],
   });
 });
@@ -178,7 +178,7 @@ test("trace recorder promotes abstention to ambiguity-bearing impact on non-bloc
     ),
   );
   assert.deepEqual(trace.semantic?.impact, {
-    decisionBearing: ["abstention (ambiguity)"],
+    decisionBearing: ["activity (canonical)", "abstention (ambiguity)"],
     explanatory: ["intent", "consequence", "confidence"],
   });
 });
@@ -220,7 +220,52 @@ test("trace recorder preserves hint-driven semantic provenance", () => {
   assert.equal(trace.semantic?.provenance?.consequence, "hint");
   assert.equal(trace.semantic?.provenance?.whyNow, "hint");
   assert.deepEqual(trace.semantic?.impact, {
-    decisionBearing: ["consequence (canonical)", "tool (approval path)"],
+    decisionBearing: ["activity (canonical)", "consequence (canonical)", "tool (approval path)"],
+    explanatory: ["intent", "why now", "confidence"],
+  });
+});
+
+test("trace recorder classifies canonical activity and continuity hints on human input", () => {
+  const core = new ApertureCore();
+  const traces: ApertureTrace[] = [];
+
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+
+  core.publishSourceEvent({
+    id: "src:choice:activity-and-relations",
+    type: "human.input.requested",
+    taskId: "task:choice:activity-and-relations",
+    interactionId: "interaction:choice:activity-and-relations",
+    timestamp: "2026-03-27T20:02:30.000Z",
+    source: { id: "custom-agent" },
+    title: "Should we inspect the config first?",
+    summary: "Choose the next step again.",
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [{ id: "yes", label: "Yes" }],
+    },
+    semanticHints: {
+      relationHints: [{ kind: "same_issue" }, { kind: "repeats" }],
+      reasons: ["adapter linked this request to the previous interaction"],
+    },
+  });
+
+  const trace = latestCandidateTrace(traces);
+  assert.ok(trace);
+  assert.equal(trace?.evaluation.kind, "candidate");
+  if (!trace || trace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(trace.semantic?.activityClass, "question_request");
+  assert.deepEqual(trace.semantic?.relationHints.map((hint) => hint.kind), ["same_issue", "repeats"]);
+  assert.ok(trace.semantic?.influence.includes("activity class was projected into the canonical request"));
+  assert.ok(trace.semantic?.influence.includes("relation hints informed continuity handling"));
+  assert.deepEqual(trace.semantic?.impact, {
+    decisionBearing: ["activity (canonical)", "consequence (canonical)", "relations (continuity)"],
     explanatory: ["intent", "why now", "confidence"],
   });
 });

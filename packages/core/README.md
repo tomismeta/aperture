@@ -418,8 +418,8 @@ Because Aperture keeps state across events and responses.
 
 That lets Aperture keep track of:
 
-- what is already active
-- what is queued
+- what is in now
+- what is in next
 - what the human has already answered
 - signals that should affect future judgment
 

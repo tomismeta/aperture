@@ -445,7 +445,7 @@ function mapToolRequestUserInputRequest(
       semanticHints: explicitRequestSemanticHints(
         "choice",
         "question_request",
-        "Codex requested additional input before continuing.",
+        questionRequestWhyNow("Codex"),
       ),
     };
     return {
@@ -487,7 +487,7 @@ function mapToolRequestUserInputRequest(
     semanticHints: explicitRequestSemanticHints(
       "form",
       "question_request",
-      "Codex requested additional input before continuing.",
+      questionRequestWhyNow("Codex"),
     ),
   };
   return {
@@ -894,6 +894,10 @@ function mapApprovalDecision(
     case "form_submitted":
       return "cancel";
   }
+}
+
+function questionRequestWhyNow(sourceLabel: string): string {
+  return `${sourceLabel} asked for input before continuing.`;
 }
 
 function mapReviewDecision(response: AttentionResponse): CodexReviewDecision {

@@ -432,9 +432,9 @@ function mapQuestionAsked(
     title,
     summary,
     request,
-    semanticHints: explicitRequestSemanticHints(request.kind, "question_request", "OpenCode paused and needs a human answer before continuing."),
+    semanticHints: explicitRequestSemanticHints(request.kind, "question_request", questionRequestWhyNow("OpenCode")),
     provenance: {
-      whyNow: "OpenCode paused and needs a human answer before continuing.",
+      whyNow: questionRequestWhyNow("OpenCode"),
     },
     riskHint: "medium",
   };
@@ -515,10 +515,10 @@ function mapMessagePartUpdated(event: OpencodeMessagePartUpdatedEvent, context: 
             ],
           },
           semanticHints: followUpRequestSemanticHints(
-            "OpenCode asked a follow-up question and needs a reply before continuing.",
+            followUpWhyNow("OpenCode"),
           ),
           provenance: {
-            whyNow: "OpenCode asked a follow-up question and needs a reply before continuing.",
+            whyNow: followUpWhyNow("OpenCode"),
           },
           riskHint: "medium",
           context: {
@@ -902,6 +902,14 @@ function requestIntentFrame(
     case "form":
       return "form_request";
   }
+}
+
+function questionRequestWhyNow(sourceLabel: string): string {
+  return `${sourceLabel} asked for input before continuing.`;
+}
+
+function followUpWhyNow(sourceLabel: string): string {
+  return `${sourceLabel} asked a follow-up question and is waiting for a reply.`;
 }
 
 function followUpSessionPrompt(sessionId: string, text: string): OpencodeResponseAction {

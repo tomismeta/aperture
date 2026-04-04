@@ -130,11 +130,11 @@ test("maps follow-up text parts into a reply request", () => {
       semanticHints: {
         intentFrame: "question_request",
         activityClass: "follow_up",
-        whyNow: "OpenCode asked a follow-up question and needs a reply before continuing.",
+        whyNow: "OpenCode asked a follow-up question and is waiting for a reply.",
         confidence: "high",
       },
       provenance: {
-        whyNow: "OpenCode asked a follow-up question and needs a reply before continuing.",
+        whyNow: "OpenCode asked a follow-up question and is waiting for a reply.",
       },
       riskHint: "medium",
       context: {
@@ -197,7 +197,7 @@ test("maps question.asked with options to a choice request", () => {
   assert.deepEqual(mapped[0].semanticHints, {
     intentFrame: "question_request",
     activityClass: "question_request",
-    whyNow: "OpenCode paused and needs a human answer before continuing.",
+    whyNow: "OpenCode asked for input before continuing.",
     confidence: "high",
   });
   assert.deepEqual(mapped[0].request.options.map((option) => option.id), [

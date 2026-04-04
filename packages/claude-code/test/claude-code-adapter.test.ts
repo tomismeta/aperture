@@ -369,7 +369,7 @@ test("maps transcript-enriched AskUserQuestion hooks into structured choice requ
     assert.deepEqual(mapped[0].semanticHints, {
       intentFrame: "question_request",
       activityClass: "question_request",
-      whyNow: "Claude asked the operator to answer a question before continuing.",
+      whyNow: "Claude asked for input before continuing.",
       confidence: "high",
     });
     if (mapped[0].request.kind === "choice") {
@@ -725,7 +725,7 @@ test("maps stop events with follow-up questions into waiting status", () => {
     assert.deepEqual(mapped[0].semanticHints, {
       intentFrame: "question_request",
       activityClass: "follow_up",
-      whyNow: "Claude ended the turn with a follow-up question and is waiting for operator input.",
+      whyNow: "Claude asked a follow-up question and is waiting for a reply.",
       confidence: "high",
     });
   }

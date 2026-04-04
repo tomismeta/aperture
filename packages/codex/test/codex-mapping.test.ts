@@ -212,7 +212,7 @@ test("maps single-question user input with options into a choice request", () =>
     assert.deepEqual(mapped.events[0].semanticHints, {
       intentFrame: "question_request",
       activityClass: "question_request",
-      whyNow: "Codex requested additional input before continuing.",
+      whyNow: "Codex asked for input before continuing.",
       confidence: "high",
     });
     if (mapped.events[0].request.kind === "choice") {
@@ -259,7 +259,7 @@ test("maps multi-question user input into a form request", () => {
     assert.deepEqual(mapped.events[0].semanticHints, {
       intentFrame: "form_request",
       activityClass: "question_request",
-      whyNow: "Codex requested additional input before continuing.",
+      whyNow: "Codex asked for input before continuing.",
       confidence: "high",
     });
     if (mapped.events[0].request.kind === "form") {

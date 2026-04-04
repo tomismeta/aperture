@@ -519,7 +519,7 @@ function mapAskUserQuestion(
     : `Claude asked ${questions.length === 1 ? "a question" : `${questions.length} questions`} before continuing.`;
   const contextItems: ContextItem[] = [createContextItem("cwd", "Working Directory", event.cwd)];
   const request = buildAskUserQuestionRequest(questions);
-  const whyNow = "Claude asked the operator to answer a question before continuing.";
+  const whyNow = questionRequestWhyNow("Claude");
 
   if (firstQuestion?.header) {
     contextItems.unshift(createContextItem("header", "Header", firstQuestion.header));
@@ -753,7 +753,7 @@ function mapStop(event: ClaudeCodeStopEvent): SourceEvent[] {
 
   const message = stopSummary(event);
   if (message && looksLikeFollowUpQuestion(message)) {
-    const whyNow = "Claude ended the turn with a follow-up question and is waiting for operator input.";
+    const whyNow = followUpWhyNow("Claude");
     return [
       {
         id: claudeEventId(event, "task.updated"),
@@ -1840,6 +1840,14 @@ function requestIntentFrame(
     case "form":
       return "form_request";
   }
+}
+
+function questionRequestWhyNow(sourceLabel: string): string {
+  return `${sourceLabel} asked for input before continuing.`;
+}
+
+function followUpWhyNow(sourceLabel: string): string {
+  return `${sourceLabel} asked a follow-up question and is waiting for a reply.`;
 }
 
 function permissionRequestTitle(event: ClaudeCodePermissionRequestEvent, summary: string): string {

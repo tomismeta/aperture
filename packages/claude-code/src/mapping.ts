@@ -179,6 +179,8 @@ export type ClaudeCodeMappingOptions = {
 type HumanInputFormRequest = Extract<HumanInputRequest, { kind: "form" }>;
 type HumanInputFormField = HumanInputFormRequest["fields"][number];
 type ContextItem = NonNullable<NonNullable<SourceHumanInputRequestedEvent["context"]>["items"]>[number];
+type HumanInputSemanticHints = NonNullable<SourceHumanInputRequestedEvent["semanticHints"]>;
+type TaskUpdateSemanticHints = NonNullable<SourceTaskUpdatedEvent["semanticHints"]>;
 
 const DEFAULT_TOOLS: string[] | undefined = undefined;
 const HIGH_CONSEQUENCE_PATTERNS = [
@@ -478,6 +480,9 @@ function mapPreToolUse(
   contextItems.push(createContextItem("cwd", "Working Directory", event.cwd));
 
   const consequence = classifyToolRisk(event, options);
+  const request: HumanInputRequest = {
+    kind: "approval",
+  };
 
   return {
     id: claudeEventId(event, "human.input.requested"),
@@ -490,10 +495,9 @@ function mapPreToolUse(
     activityClass: "permission_request",
     title: approvalTitle(event, summary),
     summary,
-    request: {
-      kind: "approval",
-    },
+    request,
     riskHint: consequence,
+    semanticHints: explicitRequestSemanticHints(request, "permission_request", whyNow),
     context: {
       items: contextItems,
     },
@@ -514,6 +518,8 @@ function mapAskUserQuestion(
     ? `Claude asked for input about ${firstQuestion.header}.`
     : `Claude asked ${questions.length === 1 ? "a question" : `${questions.length} questions`} before continuing.`;
   const contextItems: ContextItem[] = [createContextItem("cwd", "Working Directory", event.cwd)];
+  const request = buildAskUserQuestionRequest(questions);
+  const whyNow = "Claude asked the operator to answer a question before continuing.";
 
   if (firstQuestion?.header) {
     contextItems.unshift(createContextItem("header", "Header", firstQuestion.header));
@@ -529,12 +535,13 @@ function mapAskUserQuestion(
     activityClass: "question_request",
     title,
     summary,
-    request: buildAskUserQuestionRequest(questions),
+    request,
+    semanticHints: explicitRequestSemanticHints(request, "question_request", whyNow),
     context: {
       items: contextItems,
     },
     provenance: {
-      whyNow: "Claude asked the operator to answer a question before continuing.",
+      whyNow,
     },
   };
 }
@@ -572,6 +579,9 @@ function mapPermissionRequest(
   }
 
   const consequence = classifyPermissionRequestRisk(event, options);
+  const request: HumanInputRequest = {
+    kind: "approval",
+  };
 
   return {
     id: claudeEventId(event, "human.input.requested"),
@@ -584,10 +594,9 @@ function mapPermissionRequest(
     activityClass: "permission_request",
     title: permissionRequestTitle(event, summary),
     summary,
-    request: {
-      kind: "approval",
-    },
+    request,
     riskHint: consequence,
+    semanticHints: explicitRequestSemanticHints(request, "permission_request", whyNow),
     context: {
       items: contextItems,
     },
@@ -631,6 +640,7 @@ function mapPostToolUse(event: ClaudeCodePostToolUseEvent): SourceTaskUpdatedEve
     source: claudeSource(event),
     ...(toolFamily !== undefined ? { toolFamily } : {}),
     activityClass: "tool_completion",
+    semanticHints: taskActivitySemanticHints("tool_completion"),
     title: `${event.tool_name} completed`,
     summary,
     status: "running",
@@ -639,6 +649,7 @@ function mapPostToolUse(event: ClaudeCodePostToolUseEvent): SourceTaskUpdatedEve
 
 function mapElicitation(event: ClaudeCodeElicitationEvent): SourceHumanInputRequestedEvent {
   const request = buildElicitationRequest(event);
+  const whyNow = `Claude is waiting for input from ${event.mcp_server_name}.`;
   const contextItems: ContextItem[] = [
     createContextItem("serverName", "Server", event.mcp_server_name),
   ];
@@ -669,11 +680,12 @@ function mapElicitation(event: ClaudeCodeElicitationEvent): SourceHumanInputRequ
     title: event.message,
     summary: elicitationSummary(event, request),
     request,
+    semanticHints: explicitRequestSemanticHints(request, "question_request", whyNow),
     context: {
       items: contextItems,
     },
     provenance: {
-      whyNow: `Claude is waiting for input from ${event.mcp_server_name}.`,
+      whyNow,
     },
   };
 }
@@ -702,6 +714,9 @@ function mapNotification(event: ClaudeCodeNotificationEvent): SourceEvent[] {
   const title = event.notification_type === "elicitation_dialog"
     ? "Claude requested input"
     : "Claude is waiting for input";
+  const whyNow = event.notification_type === "elicitation_dialog"
+    ? "Claude surfaced an input dialog and is waiting for operator input."
+    : "Claude paused and is waiting for follow-up input before continuing.";
 
   return [
     {
@@ -711,6 +726,7 @@ function mapNotification(event: ClaudeCodeNotificationEvent): SourceEvent[] {
       timestamp: new Date().toISOString(),
       source: claudeSource(event),
       activityClass: "follow_up",
+      semanticHints: followUpTaskSemanticHints(whyNow),
       title,
       summary: event.title ? `${event.title}: ${event.message}` : event.message,
       status: "blocked",
@@ -738,6 +754,7 @@ function mapStop(event: ClaudeCodeStopEvent): SourceEvent[] {
 
   const message = stopSummary(event);
   if (message && looksLikeFollowUpQuestion(message)) {
+    const whyNow = "Claude ended the turn with a follow-up question and is waiting for operator input.";
     return [
       {
         id: claudeEventId(event, "task.updated"),
@@ -746,6 +763,7 @@ function mapStop(event: ClaudeCodeStopEvent): SourceEvent[] {
         timestamp: new Date().toISOString(),
         source: claudeSource(event),
         activityClass: "follow_up",
+        semanticHints: followUpTaskSemanticHints(whyNow),
         title: "Claude is waiting for follow-up",
         summary: message,
         status: "blocked",
@@ -1780,6 +1798,49 @@ function contextLabel(id: string): string {
     .filter((part) => part.length > 0)
     .map((part) => part[0] ? part[0].toUpperCase() + part.slice(1) : part)
     .join(" ");
+}
+
+function explicitRequestSemanticHints(
+  request: HumanInputRequest,
+  activityClass: SourceHumanInputRequestedEvent["activityClass"],
+  whyNow: string,
+): HumanInputSemanticHints {
+  return {
+    intentFrame: requestIntentFrame(request.kind),
+    ...(activityClass !== undefined ? { activityClass } : {}),
+    whyNow,
+    confidence: "high",
+  };
+}
+
+function followUpTaskSemanticHints(whyNow: string): TaskUpdateSemanticHints {
+  return {
+    intentFrame: "question_request",
+    activityClass: "follow_up",
+    whyNow,
+    confidence: "high",
+  };
+}
+
+function taskActivitySemanticHints(
+  activityClass: NonNullable<SourceTaskUpdatedEvent["activityClass"]>,
+): TaskUpdateSemanticHints {
+  return {
+    activityClass,
+  };
+}
+
+function requestIntentFrame(
+  kind: HumanInputRequest["kind"],
+): "approval_request" | "question_request" | "form_request" {
+  switch (kind) {
+    case "approval":
+      return "approval_request";
+    case "choice":
+      return "question_request";
+    case "form":
+      return "form_request";
+  }
 }
 
 function permissionRequestTitle(event: ClaudeCodePermissionRequestEvent, summary: string): string {

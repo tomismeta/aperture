@@ -42,6 +42,12 @@ test("maps PreToolUse Bash hooks into approval events", () => {
     assert.equal(mapped[0].title, "Claude Code wants to run a shell command");
     assert.equal(mapped[0].summary, "git push origin main");
     assert.equal(mapped[0].riskHint, "medium");
+    assert.deepEqual(mapped[0].semanticHints, {
+      intentFrame: "approval_request",
+      activityClass: "permission_request",
+      whyNow: "Network access required",
+      confidence: "high",
+    });
     assert.deepEqual(mapped[0].source, {
       id: "claude-code:session-1",
       kind: "claude-code",
@@ -284,6 +290,9 @@ test("maps PostToolUse updates with explicit tool family", () => {
     assert.equal(mapped[0].activityClass, "tool_completion");
     assert.equal(mapped[0].status, "running");
     assert.equal(mapped[0].title, "Read completed");
+    assert.deepEqual(mapped[0].semanticHints, {
+      activityClass: "tool_completion",
+    });
   }
 });
 
@@ -357,6 +366,12 @@ test("maps transcript-enriched AskUserQuestion hooks into structured choice requ
     assert.equal(mapped[0].activityClass, "question_request");
     assert.equal(mapped[0].title, "The on-call rotation has a gap next Thursday. Should I auto-assign or send a volunteer request?");
     assert.equal(mapped[0].request.kind, "choice");
+    assert.deepEqual(mapped[0].semanticHints, {
+      intentFrame: "question_request",
+      activityClass: "question_request",
+      whyNow: "Claude asked the operator to answer a question before continuing.",
+      confidence: "high",
+    });
     if (mapped[0].request.kind === "choice") {
       assert.deepEqual(
         mapped[0].request.options.map((option) => option.label),
@@ -496,6 +511,12 @@ test("maps elicitation enum schemas into choice requests", () => {
     assert.equal(mapped[0].summary, "Input requested by build-server.");
     assert.equal(mapped[0].toolFamily, "mcp");
     assert.equal(mapped[0].request.kind, "choice");
+    assert.deepEqual(mapped[0].semanticHints, {
+      intentFrame: "question_request",
+      activityClass: "question_request",
+      whyNow: "Claude is waiting for input from build-server.",
+      confidence: "high",
+    });
     assert.deepEqual(mapped[0].context?.items?.at(0), {
       id: "serverName",
       label: "Server",
@@ -702,6 +723,12 @@ test("maps stop events with follow-up questions into waiting status", () => {
     assert.equal(mapped[0].activityClass, "follow_up");
     assert.equal(mapped[0].status, "blocked");
     assert.equal(mapped[0].title, "Claude is waiting for follow-up");
+    assert.deepEqual(mapped[0].semanticHints, {
+      intentFrame: "question_request",
+      activityClass: "follow_up",
+      whyNow: "Claude ended the turn with a follow-up question and is waiting for operator input.",
+      confidence: "high",
+    });
   }
 });
 

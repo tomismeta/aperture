@@ -69,6 +69,7 @@ These docs explain the source-specific integration seams:
 - [Engine Status Pillars](./engine/engine-status-pillars.md)
 - [Architecture Principles](./engine/architecture-principles.md)
 - [Attention And Judgment Doctrine](./engine/attention-judgment-doctrine.md)
+- [Aperture Core Ontology](./engine/aperture-core-ontology.md)
 - [Core Engine Architecture](./engine/core-engine-architecture.md)
 - [Canonical Judgment Model](./engine/canonical-judgment-model.md)
 - [Reference Judgment Flow](./engine/reference-judgment-flow.md)

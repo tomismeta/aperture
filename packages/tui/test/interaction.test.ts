@@ -10,6 +10,7 @@ import type { AttentionState } from "../../core/src/attention-state.js";
 
 import {
   handleActiveKeypress,
+  handleInputKeypress,
   describeResponse,
   createAutomaticInputDraft,
   shouldReserveSpaceForExpand,
@@ -144,6 +145,25 @@ test("handleActiveKeypress selects choice by digit key", () => {
   assert.equal(submitted[0]!.response.kind, "option_selected");
 });
 
+test("handleActiveKeypress opens text replies with shared editing language", () => {
+  const submitted: FrameResponse[] = [];
+  const surface = makeSurface(submitted);
+  const state = makeState();
+  const frame = makeFrame({
+    title: "Explain why this deploy is safe",
+    responseSpec: {
+      kind: "choice",
+      allowTextResponse: true,
+      options: [{ id: "approve", label: "Approve" }],
+    },
+  });
+
+  handleActiveKeypress(surface, state, frame, { name: "i" });
+
+  assert.equal(state.inputDraft?.kind, "text");
+  assert.equal(state.statusLine, "Editing reply");
+});
+
 test("handleActiveKeypress does nothing for none responseSpec", () => {
   const submitted: FrameResponse[] = [];
   const surface = makeSurface(submitted);
@@ -226,6 +246,43 @@ test("describeResponse returns label for simple responses", () => {
   };
 
   assert.equal(describeResponse(response, null), "Approved");
+});
+
+test("handleInputKeypress keeps reply validation language calm and direct", () => {
+  const submitted: FrameResponse[] = [];
+  const surface = makeSurface(submitted);
+  const active = makeFrame({
+    responseSpec: {
+      kind: "choice",
+      allowTextResponse: true,
+      options: [{ id: "approve", label: "Approve" }],
+    },
+  });
+  const state = makeState({
+    attentionView: { active, queued: [], ambient: [] },
+    inputDraft: { kind: "text", interactionId: active.interactionId, buffer: "" },
+  });
+
+  handleInputKeypress(surface, state, { name: "return" });
+
+  assert.equal(state.statusLine, "Enter a reply before sending");
+  assert.equal(submitted.length, 0);
+});
+
+test("describeResponse uses concise sent language for freeform and form replies", () => {
+  const replyResponse: FrameResponse = {
+    taskId: "t1",
+    interactionId: "i1",
+    response: { kind: "text_submitted", text: "Ship it." },
+  };
+  const formResponse: FrameResponse = {
+    taskId: "t1",
+    interactionId: "i1",
+    response: { kind: "form_submitted", values: { reason: "Looks good" } },
+  };
+
+  assert.equal(describeResponse(replyResponse, null), "Sent reply");
+  assert.equal(describeResponse(formResponse, null), "Sent form");
 });
 
 test("describeResponse appends next active info when different", () => {

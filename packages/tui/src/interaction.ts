@@ -62,7 +62,7 @@ export function handleActiveKeypress(
         core.submit(dismissedResponse(frame));
       } else if (spec.allowTextResponse && key.name === "i") {
         state.inputDraft = createTextDraft(frame);
-        state.statusLine = "Typing reply";
+        state.statusLine = "Editing reply";
       } else {
         state.statusLine = spec.allowTextResponse
           ? "Press an option number or [i] to type a reply"
@@ -198,7 +198,7 @@ function handleTextKeypress(
 
   if (key.name === "return") {
     if (draft.buffer.trim() === "") {
-      state.statusLine = "Enter a reply before submitting";
+      state.statusLine = "Enter a reply before sending";
       return;
     }
     core.submit({
@@ -332,8 +332,8 @@ function responseLabel(response: FrameResponse): string {
     case "option_selected":
       return `Selected ${response.response.optionIds.join(", ")}`;
     case "text_submitted":
-      return "Submitted reply";
+      return "Sent reply";
     case "form_submitted":
-      return "Submitted form";
+      return "Sent form";
   }
 }

@@ -58,10 +58,10 @@ export async function runAttentionTui(
   const state: TuiState = {
     attentionView: initialView,
     statusLine: initialInputDraft
-      ? `Editing ${initialView.active?.responseSpec?.kind === "form" ? initialView.active.responseSpec.fields[0]?.label ?? initialView.active.title : initialView.active?.title ?? "reply"}`
+      ? editingStatusLabel(initialView.active)
       : initialView.active
-      ? `Focused on ${initialView.active.title} · ${displaySourceLabel(initialView.active.source)}`
-      : "Waiting for events",
+      ? focusStatusLabel(initialView.active)
+      : "Waiting for activity",
     inputDraft: initialInputDraft,
     expanded: false,
     showSetup: false,
@@ -147,20 +147,20 @@ export async function runAttentionTui(
       }
       state.whyMode = false;
       state.whyExpanded = false;
-      state.statusLine = "Nothing currently needs attention";
+      state.statusLine = "Nothing needs attention right now";
     } else if (active.interactionId !== previousActiveId) {
       state.showSetup = false;
       state.inputDraft = createAutomaticInputDraft(active);
       state.whyExpanded = false;
       state.statusLine = state.inputDraft
-        ? `Editing ${active.responseSpec?.kind === "form" ? active.responseSpec.fields[0]?.label ?? active.title : active.title}`
-        : `Focused on ${active.title} · ${displaySourceLabel(active.source)}`;
+        ? editingStatusLabel(active)
+        : focusStatusLabel(active);
     } else if (state.inputDraft && state.inputDraft.interactionId !== active.interactionId) {
       state.inputDraft = createAutomaticInputDraft(active);
       state.expanded = false;
       state.statusLine = state.inputDraft
-        ? `Editing ${active.responseSpec?.kind === "form" ? active.responseSpec.fields[0]?.label ?? active.title : active.title}`
-        : `Focused on ${active.title} · ${displaySourceLabel(active.source)}`;
+        ? editingStatusLabel(active)
+        : focusStatusLabel(active);
     }
 
     const visibleIds = new Set<string>();
@@ -438,6 +438,22 @@ function getIdleLensTarget(
     return { row: 5, col: 5 };
   }
   return null;
+}
+
+function editingStatusLabel(frame: Frame | null): string {
+  if (!frame) {
+    return "Editing reply";
+  }
+
+  if (frame.responseSpec?.kind === "form") {
+    return `Editing ${frame.responseSpec.fields[0]?.label ?? frame.title}`;
+  }
+
+  return `Editing ${frame.title}`;
+}
+
+function focusStatusLabel(frame: Frame): string {
+  return `Focused on ${frame.title} · ${displaySourceLabel(frame.source)}`;
 }
 
 function clearScreen(): string {

@@ -5,7 +5,10 @@ import type {
   AttentionView,
   SourceEvent,
 } from "@tomismeta/aperture-core";
-import type { SemanticInterpretation } from "@tomismeta/aperture-core/semantic";
+import type {
+  SemanticInterpretation,
+  SemanticOntologyDiagnostic,
+} from "@tomismeta/aperture-core/semantic";
 import type { ApertureTrace } from "../../core/src/trace-types.js";
 
 import type {
@@ -120,6 +123,18 @@ const SEMANTIC_ACTIVITY_CLASSES = new Set([
   "session_status",
   "status_update",
 ]);
+const SEMANTIC_ONTOLOGY_ASK = new Set(["approval", "choice", "form", "status", "none"]);
+const SEMANTIC_ONTOLOGY_ACTIVITY = new Set([
+  "decision_request",
+  "question",
+  "task_progress",
+  "task_completion",
+  "failure",
+  "background_work",
+]);
+const SEMANTIC_ONTOLOGY_BLOCKING = new Set(["blocking", "waiting", "non_blocking"]);
+const SEMANTIC_ONTOLOGY_EPISODE = new Set(["new", "same_issue", "resurfaced", "resolved", "unknown"]);
+const SEMANTIC_ONTOLOGY_SOURCE = new Set(["explicit", "hinted", "inferred"]);
 const RELATION_KINDS = new Set(["same_issue", "resolves", "supersedes", "repeats", "escalates"]);
 const SEMANTIC_PROVENANCE_FIELDS = new Set([
   "intentFrame",
@@ -338,10 +353,12 @@ export function validateReplaySemanticSnapshot(value: unknown): ReplaySemanticSn
       stepKind: isString,
       interpretation: isSemanticInterpretationGuard,
     }, {
+      ontology: isRecord,
       stepLabel: isString,
     })
     || !STEP_KINDS.has(value.stepKind as ReplayObservationStep["kind"])
     || validateSemanticInterpretation(value.interpretation) === null
+    || (value.ontology !== undefined && validateSemanticOntologyDiagnostic(value.ontology) === null)
   ) {
     return null;
   }
@@ -582,6 +599,47 @@ export function validateSemanticInterpretation(value: unknown): SemanticInterpre
   return value as SemanticInterpretation;
 }
 
+function validateSemanticOntologyDiagnostic(
+  value: unknown,
+): SemanticOntologyDiagnostic | null {
+  if (
+    !isRecord(value)
+    || typeof value.ask !== "string"
+    || !SEMANTIC_ONTOLOGY_ASK.has(value.ask)
+    || typeof value.activity !== "string"
+    || !SEMANTIC_ONTOLOGY_ACTIVITY.has(value.activity)
+    || typeof value.blocking !== "string"
+    || !SEMANTIC_ONTOLOGY_BLOCKING.has(value.blocking)
+    || typeof value.episode !== "string"
+    || !SEMANTIC_ONTOLOGY_EPISODE.has(value.episode)
+    || typeof value.confidence !== "string"
+    || !SEMANTIC_CONFIDENCE.has(value.confidence)
+    || typeof value.source !== "string"
+    || !SEMANTIC_ONTOLOGY_SOURCE.has(value.source)
+    || (value.consequence !== undefined && !CONSEQUENCE_LEVELS.has(String(value.consequence)))
+  ) {
+    return null;
+  }
+
+  return value as SemanticOntologyDiagnostic;
+}
+
+function isPartialSemanticOntologyDiagnostic(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    (value.ask === undefined || SEMANTIC_ONTOLOGY_ASK.has(String(value.ask)))
+    && (value.activity === undefined || SEMANTIC_ONTOLOGY_ACTIVITY.has(String(value.activity)))
+    && (value.consequence === undefined || CONSEQUENCE_LEVELS.has(String(value.consequence)))
+    && (value.blocking === undefined || SEMANTIC_ONTOLOGY_BLOCKING.has(String(value.blocking)))
+    && (value.episode === undefined || SEMANTIC_ONTOLOGY_EPISODE.has(String(value.episode)))
+    && (value.confidence === undefined || SEMANTIC_CONFIDENCE.has(String(value.confidence)))
+    && (value.source === undefined || SEMANTIC_ONTOLOGY_SOURCE.has(String(value.source)))
+  );
+}
+
 function validateReplayScenarioExpectations(value: unknown): ReplayScenarioExpectations | null {
   if (
     !isRecord(value)
@@ -632,6 +690,7 @@ function validateReplaySemanticExpectation(value: unknown): ReplaySemanticExpect
     || (value.reasonsInclude !== undefined && !isStringArray(value.reasonsInclude))
     || (value.factorsInclude !== undefined && !isStringArray(value.factorsInclude))
     || (value.provenanceIncludes !== undefined && !isReplaySemanticProvenanceExpectation(value.provenanceIncludes))
+    || (value.ontology !== undefined && !isPartialSemanticOntologyDiagnostic(value.ontology))
   ) {
     return null;
   }

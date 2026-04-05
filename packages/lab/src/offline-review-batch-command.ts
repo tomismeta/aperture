@@ -10,6 +10,7 @@ import {
   type OfflineReviewBatchEntry,
 } from "./offline-review-batch.js";
 import {
+  ALL_OFFLINE_REVIEW_FOCUS_AREAS,
   DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS,
   defaultOfflineReviewArtifactPath,
   loadOfflineReviewArtifact,
@@ -241,7 +242,7 @@ function summarizeFocusAreaCounts(
 
 function emptyFocusAreaCounts(): Record<OfflineReviewFocusArea, number> {
   return Object.fromEntries(
-    DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS.map((focusArea) => [focusArea, 0]),
+    ALL_OFFLINE_REVIEW_FOCUS_AREAS.map((focusArea) => [focusArea, 0]),
   ) as Record<OfflineReviewFocusArea, number>;
 }
 

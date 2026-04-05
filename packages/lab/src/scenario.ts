@@ -13,6 +13,7 @@ import type {
   SemanticIntentFrame,
   SemanticRelationHint,
   SemanticInterpretation,
+  SemanticOntologyDiagnostic,
 } from "@tomismeta/aperture-core/semantic";
 import type { ReplaySemanticCalibrationFamily } from "./semantic-calibration.js";
 
@@ -149,6 +150,7 @@ export type ReplaySemanticSnapshot = {
   stepKind: ReplayObservationStep["kind"];
   stepLabel?: string;
   interpretation: SemanticInterpretation;
+  ontology?: SemanticOntologyDiagnostic;
 };
 
 export type ReplayNormalizedEventSnapshot = {
@@ -189,6 +191,7 @@ export type ReplaySemanticExpectation = {
   reasonsInclude?: string[];
   factorsInclude?: string[];
   provenanceIncludes?: ReplaySemanticProvenanceExpectation;
+  ontology?: Partial<SemanticOntologyDiagnostic>;
 };
 
 export type ReplayDecisionExpectation = {

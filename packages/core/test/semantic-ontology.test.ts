@@ -72,6 +72,33 @@ test("same-issue repeats project to a resurfaced episode diagnostic", () => {
   assert.equal(diagnostic.source, "hinted");
 });
 
+test("request-like semantic hints can promote status-shaped events into request-shaped ontology reads", () => {
+  const diagnostic = readSemanticOntologyDiagnostic({
+    id: "evt:ontology:hinted-approval",
+    taskId: "task:ontology:hinted-approval",
+    type: "task.updated",
+    timestamp,
+    title: "Approval checkpoint reached",
+    summary: "A higher-level source marked this as an approval checkpoint.",
+    status: "waiting",
+    semanticHints: {
+      intentFrame: "approval_request",
+      activityClass: "permission_request",
+      confidence: "high",
+    },
+  });
+
+  assert.deepEqual(diagnostic, {
+    ask: "approval",
+    activity: "decision_request",
+    consequence: "low",
+    blocking: "waiting",
+    episode: "unknown",
+    confidence: "high",
+    source: "hinted",
+  });
+});
+
 test("resolving relation hints project to a resolved episode diagnostic", () => {
   const diagnostic = readSemanticOntologyDiagnostic({
     id: "evt:ontology:resolved",

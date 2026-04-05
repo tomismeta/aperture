@@ -122,21 +122,25 @@ test("prepareOfflineReviewArtifact distills bundle steps into review-ready snaps
   assert.match(artifact.steps[0]?.sourceExcerpt ?? "", /MoneyWidget crashes on invalid provider responses/);
   assert.equal(artifact.steps[1]?.apertureRead?.toolFamily, "bash");
   assert.equal(artifact.steps[2]?.apertureRead?.intentFrame, "failure");
+  assert.equal(artifact.steps[2]?.apertureRead?.ask, "status");
   assert.equal(artifact.steps[2]?.apertureRead?.blocking, "non_blocking");
   assert.equal(artifact.steps[2]?.apertureRead?.episode, "unknown");
   assert.equal(artifact.steps[2]?.apertureRead?.confidence, "high");
+  assert.equal(artifact.steps[2]?.apertureRead?.source, "explicit");
   assert.equal(validateOfflineReviewArtifact(artifact)?.schemaVersion, 1);
 });
 
-test("readOfflineReviewFocusAreaValue exposes ontology-backed blocking, episode, and confidence", () => {
+test("readOfflineReviewFocusAreaValue exposes ontology-backed ask, blocking, episode, confidence, and source", () => {
   const bundle = createSessionBundleFromSweSmithRow(SAMPLE_ROW);
   const artifact = prepareOfflineReviewArtifact(bundle);
   const failedStep = artifact.steps.find((step) => step.sourceEvent?.status === "failed");
 
   assert.ok(failedStep);
+  assert.equal(readOfflineReviewFocusAreaValue(failedStep!, "ask"), "status");
   assert.equal(readOfflineReviewFocusAreaValue(failedStep!, "blocking"), "non_blocking");
   assert.equal(readOfflineReviewFocusAreaValue(failedStep!, "episode"), "unknown");
   assert.equal(readOfflineReviewFocusAreaValue(failedStep!, "confidence"), "high");
+  assert.equal(readOfflineReviewFocusAreaValue(failedStep!, "source"), "explicit");
 });
 
 test("compareOfflineReviewArtifact reports only real disagreements", () => {

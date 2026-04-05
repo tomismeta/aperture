@@ -1349,7 +1349,7 @@ function parseReviewPrepareArgs(argv: string[]): ReviewPrepareOptions {
   let bundlePath: string | undefined;
   let outputPath: string | undefined;
   let rubricVersion: string | undefined;
-  let focusAreas = [...DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS];
+  let focusAreas: OfflineReviewFocusArea[] = [...DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS];
   let json = false;
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -2040,9 +2040,14 @@ function readFocusArea(value: string | undefined): OfflineReviewFocusArea {
     value === "title"
     || value === "summary"
     || value === "status"
+    || value === "ask"
     || value === "intentFrame"
     || value === "toolFamily"
     || value === "consequence"
+    || value === "blocking"
+    || value === "episode"
+    || value === "confidence"
+    || value === "source"
   ) {
     return value;
   }

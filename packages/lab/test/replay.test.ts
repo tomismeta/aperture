@@ -97,6 +97,10 @@ test("replay runner can exercise source-event normalization paths", () => {
   assert.equal(result.normalizedEvents.length, 1);
   assert.equal(result.decisions.length, 1);
   assert.equal(result.semantics[0]?.interpretation.intentFrame, "question_request");
+  assert.equal(result.semantics[0]?.ontology?.ask, "choice");
+  assert.equal(result.semantics[0]?.ontology?.activity, "question");
+  assert.equal(result.semantics[0]?.ontology?.blocking, "blocking");
+  assert.equal(result.semantics[0]?.ontology?.source, "inferred");
   assert.equal(result.normalizedEvents[0]?.event.type, "human.input.requested");
   assert.equal(result.decisions[0]?.semanticConfidence, "low");
   assert.equal(result.views[0]?.nowInteractionId, "interaction:source:1");
@@ -137,6 +141,8 @@ test("normalized replay runs retain semantic and decision detail for determinism
   assert.equal(normalized.semantics.length, 1);
   assert.equal(normalized.decisions.length, 1);
   assert.equal(normalized.semantics[0]?.toolFamily, "read");
+  assert.equal(normalized.semantics[0]?.ontology?.ask, "choice");
+  assert.equal(normalized.semantics[0]?.ontology?.source, "explicit");
   assert.equal(normalized.semantics[0]?.provenance.toolFamily, "source");
   assert.deepEqual(normalized.decisions[0]?.semanticImpactDecisionBearing, [
     "activity (canonical)",

@@ -54,7 +54,7 @@ export function readSemanticOntologyDiagnostic(
   interpretation = interpretSourceEvent(event),
 ): SemanticOntologyDiagnostic {
   return {
-    ask: readOntologyAsk(event),
+    ask: readOntologyAsk(event, interpretation),
     activity: readOntologyActivity(event, interpretation),
     ...(interpretation.consequence !== undefined
       ? { consequence: interpretation.consequence }
@@ -66,11 +66,29 @@ export function readSemanticOntologyDiagnostic(
   };
 }
 
-function readOntologyAsk(event: SourceEvent): SemanticOntologyAsk {
+function readOntologyAsk(
+  event: SourceEvent,
+  interpretation: SemanticInterpretation,
+): SemanticOntologyAsk {
   switch (event.type) {
     case "human.input.requested":
       return event.request.kind;
     case "task.updated":
+      if (
+        interpretation.intentFrame === "approval_request"
+        || interpretation.activityClass === "permission_request"
+      ) {
+        return "approval";
+      }
+      if (interpretation.intentFrame === "form_request") {
+        return "form";
+      }
+      if (
+        interpretation.intentFrame === "question_request"
+        || interpretation.activityClass === "question_request"
+      ) {
+        return "choice";
+      }
       return "status";
     default:
       return "none";
@@ -90,6 +108,19 @@ function readOntologyActivity(
     case "task.cancelled":
       return "task_completion";
     case "task.updated":
+      if (
+        interpretation.intentFrame === "approval_request"
+        || interpretation.activityClass === "permission_request"
+      ) {
+        return "decision_request";
+      }
+      if (
+        interpretation.intentFrame === "question_request"
+        || interpretation.intentFrame === "form_request"
+        || interpretation.activityClass === "question_request"
+      ) {
+        return "question";
+      }
       if (event.status === "failed" || interpretation.intentFrame === "failure") {
         return "failure";
       }

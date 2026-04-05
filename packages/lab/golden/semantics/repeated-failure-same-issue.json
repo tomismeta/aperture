@@ -26,6 +26,13 @@
         "intentFrame": "failure",
         "activityClass": "tool_failure",
         "consequence": "high",
+        "ontology": {
+          "ask": "status",
+          "activity": "failure",
+          "blocking": "non_blocking",
+          "episode": "resurfaced",
+          "source": "inferred"
+        },
         "relationKindsInclude": ["same_issue", "repeats"]
       }
     ]

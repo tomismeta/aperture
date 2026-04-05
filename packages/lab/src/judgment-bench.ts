@@ -243,6 +243,40 @@ function evaluateSemanticExpectation(
   pushFieldAssertion(assertions, `${targetKey} consequence`, expectation.consequence, semantic.consequence);
   pushFieldAssertion(assertions, `${targetKey} confidence`, expectation.confidence, semantic.confidence);
   pushFieldAssertion(assertions, `${targetKey} abstained`, expectation.abstained, semantic.abstained ?? false);
+  if (expectation.ontology) {
+    pushFieldAssertion(assertions, `${targetKey} ontology ask`, expectation.ontology.ask, target.ontology?.ask);
+    pushFieldAssertion(assertions, `${targetKey} ontology activity`, expectation.ontology.activity, target.ontology?.activity);
+    pushFieldAssertion(
+      assertions,
+      `${targetKey} ontology consequence`,
+      expectation.ontology.consequence,
+      target.ontology?.consequence,
+    );
+    pushFieldAssertion(
+      assertions,
+      `${targetKey} ontology blocking`,
+      expectation.ontology.blocking,
+      target.ontology?.blocking,
+    );
+    pushFieldAssertion(
+      assertions,
+      `${targetKey} ontology episode`,
+      expectation.ontology.episode,
+      target.ontology?.episode,
+    );
+    pushFieldAssertion(
+      assertions,
+      `${targetKey} ontology confidence`,
+      expectation.ontology.confidence,
+      target.ontology?.confidence,
+    );
+    pushFieldAssertion(
+      assertions,
+      `${targetKey} ontology source`,
+      expectation.ontology.source,
+      target.ontology?.source,
+    );
+  }
 
   if (expectation.whyNowIncludes !== undefined) {
     assertions.push({

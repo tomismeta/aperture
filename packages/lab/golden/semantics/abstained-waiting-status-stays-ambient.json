@@ -29,6 +29,13 @@
         "consequence": "medium",
         "confidence": "high",
         "abstained": true,
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "blocking": "blocking",
+          "episode": "unknown",
+          "source": "hinted"
+        },
         "relationKindsExact": [],
         "whyNowIncludes": "blocked",
         "reasonsInclude": ["task status explicitly indicates blocked work"]

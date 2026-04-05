@@ -6,8 +6,10 @@ import {
   type SemanticConfidence,
   type SemanticConsequenceLevel,
   type SemanticIntentFrame,
+  type SemanticOntologyAsk,
   type SemanticOntologyBlocking,
   type SemanticOntologyEpisode,
+  type SemanticOntologySource,
 } from "@tomismeta/aperture-core/semantic";
 
 import { extractJsonCandidate } from "./json-utils.js";
@@ -88,16 +90,24 @@ export const DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS = [
   "confidence",
 ] as const satisfies readonly OfflineReviewFocusArea[];
 
+export const ALL_OFFLINE_REVIEW_FOCUS_AREAS = [
+  ...DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS,
+  "ask",
+  "source",
+] as const satisfies readonly OfflineReviewFocusArea[];
+
 export type OfflineReviewFocusArea =
   | "title"
   | "summary"
   | "status"
+  | "ask"
   | "intentFrame"
   | "toolFamily"
   | "consequence"
   | "blocking"
   | "episode"
-  | "confidence";
+  | "confidence"
+  | "source";
 
 export type OfflineReviewConfidence = SemanticConfidence;
 
@@ -131,12 +141,14 @@ const OFFLINE_REVIEW_FOCUS_AREA_OWNER: Record<
   title: "importer",
   summary: "importer",
   status: "importer",
+  ask: "semantic",
   intentFrame: "semantic",
   toolFamily: "semantic",
   consequence: "semantic",
   blocking: "semantic",
   episode: "semantic",
   confidence: "semantic",
+  source: "semantic",
 };
 const OFFLINE_REVIEW_RECOMMENDATION_TARGETS: Record<
   OfflineReviewFocusArea,
@@ -153,6 +165,10 @@ const OFFLINE_REVIEW_RECOMMENDATION_TARGETS: Record<
   status: [
     "packages/lab/src/public-trajectories.ts",
     "packages/lab/src/offline-review.ts",
+  ],
+  ask: [
+    "packages/core/src/semantic-ontology.ts",
+    "packages/core/src/semantic-interpreter.ts",
   ],
   intentFrame: [
     "packages/core/src/semantic-detection.ts",
@@ -183,17 +199,23 @@ const OFFLINE_REVIEW_RECOMMENDATION_TARGETS: Record<
     "packages/core/src/semantic-interpreter.ts",
     "packages/core/src/semantic-ontology.ts",
   ],
+  source: [
+    "packages/core/src/semantic-interpreter.ts",
+    "packages/core/src/semantic-ontology.ts",
+  ],
 };
 const OFFLINE_REVIEW_RECOMMENDATION_SUMMARY: Record<OfflineReviewFocusArea, string> = {
   title: "Tighten imported trajectory title extraction before replay review.",
   summary: "Tighten imported trajectory summary extraction and compaction.",
   status: "Review imported event-status mapping before it reaches the semantic layer.",
+  ask: "Tighten the canonical ask read on imported external events.",
   intentFrame: "Tighten semantic intent-frame reads on imported external events.",
   toolFamily: "Tighten tool-family inference and preservation on imported events.",
   consequence: "Tighten consequence-band calibration for imported external events.",
   blocking: "Tighten blocking-vs-waiting-vs-non-blocking reads on imported external events.",
   episode: "Tighten same-issue, resurfacing, and resolution reads on imported external events.",
   confidence: "Tighten confidence calibration for imported external events.",
+  source: "Tighten explicit-vs-hinted-vs-inferred provenance reads on imported external events.",
 };
 
 export type OfflineReviewPreparedStep = {
@@ -216,12 +238,14 @@ export type OfflineReviewPreparedStep = {
     toolFamily: string | null;
   } | null;
   apertureRead: {
+    ask: SemanticOntologyAsk | null;
     intentFrame: SemanticIntentFrame | null;
     toolFamily: string | null;
     consequence: SemanticConsequenceLevel | null;
     blocking: SemanticOntologyBlocking | null;
     episode: SemanticOntologyEpisode | null;
     confidence: SemanticConfidence | null;
+    source: SemanticOntologySource | null;
     abstained: boolean;
     whyNow: string | null;
     relationKinds: string[];
@@ -681,12 +705,14 @@ function compactOfflineReviewRead(
   },
 ): NonNullable<OfflineReviewPromptStep["apertureRead"]> {
   return {
+    ask: read.ask,
     intentFrame: read.intentFrame,
     toolFamily: read.toolFamily,
     consequence: read.consequence,
     blocking: read.blocking,
     episode: read.episode,
     confidence: read.confidence,
+    source: read.source,
     abstained: read.abstained,
     whyNow: clipOfflineReviewPromptText(read.whyNow, limits.whyNowLimit),
     relationKinds: read.relationKinds.slice(0, 4),
@@ -1203,16 +1229,18 @@ function buildSemanticSummary(
   snapshot: ReplaySemanticSnapshot,
 ): NonNullable<OfflineReviewPreparedStep["apertureRead"]> {
   const ontology = step.kind === "publishSource"
-    ? readSemanticOntologyDiagnostic(step.event, snapshot.interpretation)
+    ? (snapshot.ontology ?? readSemanticOntologyDiagnostic(step.event, snapshot.interpretation))
     : null;
 
   return {
+    ask: ontology?.ask ?? null,
     intentFrame: snapshot.interpretation.intentFrame ?? null,
     toolFamily: snapshot.interpretation.toolFamily ?? null,
     consequence: snapshot.interpretation.consequence ?? null,
     blocking: ontology?.blocking ?? null,
     episode: ontology?.episode ?? null,
     confidence: snapshot.interpretation.confidence ?? null,
+    source: ontology?.source ?? null,
     abstained: snapshot.interpretation.abstained ?? false,
     whyNow: snapshot.interpretation.whyNow ?? null,
     relationKinds: snapshot.interpretation.relationHints.map((hint) => hint.kind),
@@ -1230,6 +1258,8 @@ export function readOfflineReviewFocusAreaValue(
       return step.sourceEvent?.summary ?? step.normalizedEvent?.summary ?? null;
     case "status":
       return inferOfflineReviewStatus(step);
+    case "ask":
+      return step.apertureRead?.ask ?? null;
     case "intentFrame":
       return step.apertureRead?.intentFrame ?? null;
     case "toolFamily":
@@ -1242,6 +1272,8 @@ export function readOfflineReviewFocusAreaValue(
       return step.apertureRead?.episode ?? null;
     case "confidence":
       return step.apertureRead?.confidence ?? null;
+    case "source":
+      return step.apertureRead?.source ?? null;
   }
 }
 
@@ -1326,7 +1358,7 @@ function defaultRecommendation(confidence: OfflineReviewConfidence): OfflineRevi
 }
 
 function createFocusAreaCounts(): Record<OfflineReviewFocusArea, number> {
-  return createCountRecord(DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS);
+  return createCountRecord(ALL_OFFLINE_REVIEW_FOCUS_AREAS);
 }
 
 function validatePreparedStep(value: unknown): OfflineReviewPreparedStep | null {
@@ -1387,12 +1419,14 @@ function validatePreparedRead(
       abstained: isBoolean,
       relationKinds: isStringArray,
     }, {
+      ask: isNullable(isString),
       intentFrame: isNullable(isString),
       toolFamily: isNullable(isString),
       consequence: isNullable(isString),
       blocking: isNullable(isString),
       episode: isNullable(isString),
       confidence: isNullable(isString),
+      source: isNullable(isString),
       whyNow: isNullable(isString),
     })
   ) {
@@ -1567,7 +1601,7 @@ function recommendationSummary(focusArea: OfflineReviewFocusArea): string {
 }
 
 function isOfflineReviewFocusArea(value: unknown): value is OfflineReviewFocusArea {
-  return isEnumValue(value, DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS);
+  return isEnumValue(value, ALL_OFFLINE_REVIEW_FOCUS_AREAS);
 }
 
 function isOfflineReviewConfidence(value: unknown): value is OfflineReviewConfidence {

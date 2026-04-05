@@ -94,6 +94,15 @@ type NormalizedSemantic = {
   factors: string[];
   reasons: string[];
   provenance: Record<string, string>;
+  ontology?: {
+    ask: string;
+    activity: string;
+    consequence?: string;
+    blocking: string;
+    episode: string;
+    confidence: string;
+    source: string;
+  };
 };
 
 type NormalizedDecision = {
@@ -172,6 +181,7 @@ export function normalizeReplayRun(run: ReplayRunResult): NormalizedReplayRun {
       factors: semantic.interpretation.factors,
       reasons: semantic.interpretation.reasons,
       provenance: semantic.interpretation.provenance ?? {},
+      ...(semantic.ontology ? { ontology: semantic.ontology } : {}),
     })),
     decisions: run.decisions.map((decision) => ({
       stepIndex: decision.stepIndex,

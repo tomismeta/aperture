@@ -70,4 +70,13 @@ test("JudgmentBench runs across the golden scenarios and produces a summary", as
   const episodeHealth = result.semanticHealth.find((family) => family.family === "episode_missed");
   assert.ok(episodeHealth);
   assert.ok((episodeHealth?.scenarios ?? 0) >= 1);
+
+  const repeatedFailureScenario = result.scenarios.find(
+    (scenario) => scenario.scenario.id === "golden:semantics:repeated-failure-same-issue",
+  );
+  assert.ok(repeatedFailureScenario);
+  assert.equal(
+    repeatedFailureScenario?.assertions.find((assertion) => assertion.name === "semantic reading (repeated failure) ontology episode")?.passed,
+    true,
+  );
 });

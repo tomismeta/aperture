@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  ALL_OFFLINE_REVIEW_FOCUS_AREAS,
   buildOfflineReviewRecommendationReport,
   compareOfflineReviewArtifact,
   DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS,
@@ -593,7 +594,7 @@ export function renderAutoresearchCalibrationMarkdown(
     "",
   ];
 
-  for (const focusArea of DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS) {
+  for (const focusArea of ALL_OFFLINE_REVIEW_FOCUS_AREAS) {
     lines.push(`- ${focusArea}: ${report.summary.mismatchFocusAreaCounts[focusArea]}`);
   }
 
@@ -1032,7 +1033,7 @@ function resolveRepoRelativePath(filePath: string, repoRoot: string): string {
 
 function createOfflineReviewFocusAreaCounts(): Record<OfflineReviewFocusArea, number> {
   return Object.fromEntries(
-    DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS.map((focusArea) => [focusArea, 0]),
+    ALL_OFFLINE_REVIEW_FOCUS_AREAS.map((focusArea) => [focusArea, 0]),
   ) as Record<OfflineReviewFocusArea, number>;
 }
 
@@ -1046,7 +1047,7 @@ function createFocusAreaCountsFromRecord(
   value: Record<string, unknown>,
 ): Record<OfflineReviewFocusArea, number> {
   const counts = createOfflineReviewFocusAreaCounts();
-  for (const focusArea of DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS) {
+  for (const focusArea of ALL_OFFLINE_REVIEW_FOCUS_AREAS) {
     counts[focusArea] = typeof value[focusArea] === "number" ? value[focusArea] : 0;
   }
   return counts;
@@ -1057,7 +1058,7 @@ function isCalibrationSplit(value: unknown): value is AutoresearchCalibrationSpl
 }
 
 function isOfflineReviewFocusArea(value: unknown): value is OfflineReviewFocusArea {
-  return typeof value === "string" && DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS.includes(value as OfflineReviewFocusArea);
+  return typeof value === "string" && ALL_OFFLINE_REVIEW_FOCUS_AREAS.includes(value as OfflineReviewFocusArea);
 }
 
 function isSemanticCalibrationFamily(
@@ -1121,6 +1122,22 @@ function deriveSemanticFamiliesForDifference(
   expectedValue: string | string[] | boolean | null,
 ): ReplaySemanticCalibrationFamily[] {
   switch (focusArea) {
+    case "ask": {
+      const current = readAskKind(apertureValue);
+      const expected = readAskKind(expectedValue);
+      if (current === null || expected === null) {
+        return [];
+      }
+      const currentAskLike = current !== "status" && current !== "none";
+      const expectedAskLike = expected !== "status" && expected !== "none";
+      if (currentAskLike && !expectedAskLike) {
+        return ["ask_overread"];
+      }
+      if (!currentAskLike && expectedAskLike) {
+        return ["ask_missed"];
+      }
+      return [];
+    }
     case "blocking":
       return ["blocking_missed"];
     case "episode":
@@ -1182,6 +1199,21 @@ function readConfidenceLevel(
   value: string | string[] | boolean | null,
 ): OfflineReviewConfidence | null {
   if (value === "high" || value === "medium" || value === "low") {
+    return value;
+  }
+  return null;
+}
+
+function readAskKind(
+  value: string | string[] | boolean | null,
+): "approval" | "choice" | "form" | "status" | "none" | null {
+  if (
+    value === "approval"
+    || value === "choice"
+    || value === "form"
+    || value === "status"
+    || value === "none"
+  ) {
     return value;
   }
   return null;

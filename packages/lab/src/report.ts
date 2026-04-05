@@ -92,6 +92,11 @@ export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
         lines.push(
           `- Semantic (${semantic.stepLabel ?? `step ${semantic.stepIndex}`}): ${semantic.interpretation.intentFrame}, consequence=${semantic.interpretation.consequence ?? "none"}, confidence=${semantic.interpretation.confidence}`,
         );
+        if (semantic.ontology) {
+          lines.push(
+            `- Semantic ontology (${semantic.stepLabel ?? `step ${semantic.stepIndex}`}): ask=${semantic.ontology.ask}, activity=${semantic.ontology.activity}, blocking=${semantic.ontology.blocking}, episode=${semantic.ontology.episode}, source=${semantic.ontology.source}`,
+          );
+        }
         if (semantic.interpretation.relationHints.length > 0) {
           lines.push(
             `- Semantic relations (${semantic.stepLabel ?? `step ${semantic.stepIndex}`}): ${semantic.interpretation.relationHints.map((hint) => hint.kind).join(", ")}`,

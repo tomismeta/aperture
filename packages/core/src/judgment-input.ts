@@ -28,6 +28,10 @@ export type AttentionJudgmentInput = {
     strength: SemanticEvidenceStrength;
     abstained: boolean;
   };
+  relationEvidence?: {
+    source: SemanticOntologySource;
+    strength: SemanticEvidenceStrength;
+  };
   blockedLikeStatus: boolean;
 };
 
@@ -57,6 +61,14 @@ export function buildAttentionJudgmentInput(
       ),
       abstained,
     },
+    ...(event.semantic.relationHints.length > 0
+      ? {
+          relationEvidence: {
+            source: readSemanticRelationEvidenceSource(event.semantic),
+            strength: deriveSemanticRelationEvidenceStrength(event.semantic, abstained),
+          },
+        }
+      : {}),
     blockedLikeStatus:
       event.type === "task.updated"
       && ontology.blocking === "blocking"
@@ -74,6 +86,18 @@ export function readCandidateSemanticEvidence(
   candidate: AttentionCandidate,
 ): CandidateSemanticEvidence | null {
   return candidate.judgmentInput.semanticEvidence ?? null;
+}
+
+export function readCandidateSemanticRelationEvidence(
+  candidate: AttentionCandidate,
+): AttentionJudgmentInput["relationEvidence"] | null {
+  return candidate.judgmentInput.relationEvidence ?? null;
+}
+
+export function readSemanticRelationEvidenceStrength(
+  candidate: AttentionCandidate,
+): SemanticEvidenceStrength | null {
+  return readCandidateSemanticRelationEvidence(candidate)?.strength ?? null;
 }
 
 export function readCandidateSemanticOntology(
@@ -159,5 +183,40 @@ function readSemanticEvidenceStrengthFromParts(
       return source === "inferred" ? "weak" : "qualified";
     case "high":
       return source === "inferred" ? "qualified" : "strong";
+  }
+}
+
+function readSemanticRelationEvidenceSource(
+  interpretation: NonNullable<ApertureEvent["semantic"]>,
+): SemanticOntologySource {
+  const provenance = interpretation.provenance?.relationHints;
+  switch (provenance) {
+    case "source":
+      return "explicit";
+    case "hint":
+      return "hinted";
+    case "inferred":
+      return "inferred";
+    default:
+      return "inferred";
+  }
+}
+
+function deriveSemanticRelationEvidenceStrength(
+  interpretation: NonNullable<ApertureEvent["semantic"]>,
+  abstained: boolean,
+): SemanticEvidenceStrength {
+  const source = readSemanticRelationEvidenceSource(interpretation);
+  switch (source) {
+    case "explicit":
+      return "strong";
+    case "hinted":
+      return abstained ? "weak" : "qualified";
+    case "inferred":
+      return readSemanticEvidenceStrengthFromParts(
+        interpretation.confidence,
+        "inferred",
+        abstained,
+      );
   }
 }

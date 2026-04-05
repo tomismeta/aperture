@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   buildAttentionJudgmentInput,
   hasBlockedLikeStatusSemantics,
+  readSemanticRelationEvidenceStrength,
   readSemanticEvidenceStrength,
   resolvePeripheralResolutionFloor,
 } from "../src/judgment-input.js";
@@ -75,6 +76,57 @@ test("judgment input gives explicit human-input semantics a strong evidence read
   assert.equal(input.blockedLikeStatus, false);
   assert.equal(input.semanticEvidence?.source, "explicit");
   assert.equal(input.semanticEvidence?.strength, "strong");
+  assert.equal(input.relationEvidence, undefined);
+});
+
+test("judgment input gives hinted relation semantics their own continuity strength", () => {
+  const input = buildAttentionJudgmentInput({
+    id: "evt:judgment-input:relation-hint",
+    taskId: "task:judgment-input:relation-hint",
+    interactionId: "interaction:judgment-input:relation-hint",
+    timestamp,
+    type: "human.input.requested",
+    title: "Approve rollback instead",
+    summary: "Use the rollback plan instead for the same deploy.",
+    request: { kind: "approval" },
+    semantic: {
+      intentFrame: "approval_request",
+      activityClass: "permission_request",
+      consequence: "high",
+      whyNow: "A high-risk action needs explicit operator approval.",
+      factors: ["human.input.requested", "approval"],
+      relationHints: [{ kind: "same_issue", target: "issue:deploy:prod" }, { kind: "supersedes", target: "issue:deploy:prod" }],
+      confidence: "low",
+      reasons: ["request kind establishes an explicit operator decision point"],
+      provenance: {
+        intentFrame: "inferred",
+        activityClass: "inferred",
+        consequence: "inferred",
+        whyNow: "inferred",
+        confidence: "inferred",
+        relationHints: "hint",
+      },
+    },
+  });
+
+  const candidate = {
+    taskId: "task:judgment-input:relation-hint",
+    interactionId: "interaction:judgment-input:relation-hint",
+    mode: "approval" as const,
+    tone: "critical" as const,
+    consequence: "high" as const,
+    title: "Approve rollback instead",
+    responseSpec: { kind: "approval" as const, actions: [] },
+    priority: "high" as const,
+    blocking: true,
+    timestamp,
+    judgmentInput: input,
+  };
+
+  assert.equal(input.semanticEvidence?.strength, "weak");
+  assert.equal(input.relationEvidence?.source, "hinted");
+  assert.equal(input.relationEvidence?.strength, "qualified");
+  assert.equal(readSemanticRelationEvidenceStrength(candidate), "qualified");
 });
 
 test("judgment-input helpers preserve the blocked-like status peripheral floor", () => {

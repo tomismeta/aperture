@@ -100,7 +100,7 @@ test("replay runner can exercise source-event normalization paths", () => {
   assert.equal(result.semantics[0]?.ontology?.ask, "choice");
   assert.equal(result.semantics[0]?.ontology?.activity, "question");
   assert.equal(result.semantics[0]?.ontology?.blocking, "blocking");
-  assert.equal(result.semantics[0]?.ontology?.source, "inferred");
+  assert.equal(result.semantics[0]?.ontology?.source, "explicit");
   assert.equal(result.normalizedEvents[0]?.event.type, "human.input.requested");
   assert.equal(result.decisions[0]?.semanticConfidence, "low");
   assert.equal(result.views[0]?.nowInteractionId, "interaction:source:1");

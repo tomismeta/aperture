@@ -31,7 +31,7 @@
           "activity": "failure",
           "blocking": "non_blocking",
           "episode": "resurfaced",
-          "source": "inferred"
+          "source": "explicit"
         },
         "relationKindsInclude": ["same_issue", "repeats"]
       }

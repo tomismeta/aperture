@@ -1,7 +1,7 @@
 {
   "id": "golden:semantics:blocked-wording-on-waiting-status",
-  "title": "Blocked wording on waiting status stays peripheral but reads as blocked work",
-  "description": "When waiting-status text clearly says work cannot continue, the semantic layer should read blocked work and ontology blocking without silently turning the status candidate into a hard interrupt.",
+  "title": "Blocked wording on waiting status becomes queue-worthy without changing status shape",
+  "description": "When waiting-status text clearly says work cannot continue, the semantic layer should read blocked work and make the status queue-worthy without silently turning it into a human-input interaction.",
   "doctrineTags": [
     "semantic_normalization",
     "semantic_robustness",
@@ -11,15 +11,13 @@
     "blocking_missed"
   ],
   "expectations": {
-    "finalNowInteractionId": null,
+    "finalNowInteractionId": "interaction:task:blocked-wording:status",
     "nextInteractionIds": [],
-    "ambientInteractionIds": [
-      "interaction:task:blocked-wording:status"
-    ],
+    "ambientInteractionIds": [],
     "resultLaneCounts": {
-      "now": 0,
+      "now": 1,
       "next": 0,
-      "ambient": 1
+      "ambient": 0
     },
     "semanticReadings": [
       {
@@ -45,18 +43,20 @@
       {
         "stepLabel": "blocked wording status",
         "evaluationKind": "candidate",
-        "decisionKind": "ambient",
-        "resultLane": "ambient",
+        "decisionKind": "queue",
+        "resultLane": "now",
         "semanticConfidence": "medium",
         "semanticInfluenceIncludes": [
-          "semantic blocking stayed diagnostic because status updates still route as non-blocking candidates"
+          "semantic blocking marked the waiting status as blocked-like for peripheral routing while status handling stayed non-blocking"
         ],
         "semanticImpactDecisionBearingIncludes": [
-          "activity (canonical)"
+          "activity (canonical)",
+          "blocking (peripheral routing)"
         ],
         "semanticImpactExplanatoryIncludes": [
           "consequence",
-          "why now"
+          "why now",
+          "confidence"
         ]
       }
     ]

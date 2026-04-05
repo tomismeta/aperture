@@ -1,7 +1,7 @@
 {
   "id": "golden:semantics:implied-ask-from-status",
-  "title": "Status text can imply an operator ask without becoming blocking work",
-  "description": "The semantic layer should recognize implied asks in status text while the routing layer still keeps plain waiting status peripheral.",
+  "title": "Passive approval wording stays a waiting status instead of becoming an implied ask",
+  "description": "Passive waiting text that mentions approval should stay a waiting status read instead of being promoted into an implied operator ask.",
   "doctrineTags": [
     "semantic_normalization",
     "semantic_robustness",
@@ -27,14 +27,19 @@
         "intentFrame": "status_update",
         "activityClass": "status_update",
         "consequence": "low",
-        "confidence": "low",
-        "whyNowIncludes": "implies the operator may need to respond",
-        "reasonsInclude": ["status wording suggests an implied operator request"],
+        "confidence": "high",
+        "reasonsInclude": ["task update carries a non-blocking lifecycle status"],
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "blocking": "waiting",
+          "episode": "unknown",
+          "source": "explicit"
+        },
         "provenanceIncludes": {
           "intentFrame": "inferred",
           "activityClass": "inferred",
           "consequence": "inferred",
-          "whyNow": "inferred",
           "confidence": "inferred"
         }
       }
@@ -45,16 +50,17 @@
         "evaluationKind": "candidate",
         "decisionKind": "ambient",
         "resultLane": "ambient",
-        "semanticConfidence": "low",
+        "semanticConfidence": "high",
         "semanticInfluenceIncludes": [
-          "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics"
+          "semantic waiting stayed diagnostic because status updates still route as non-blocking candidates"
         ],
         "semanticImpactDecisionBearingIncludes": [
-          "confidence (ambiguity)"
+          "activity (canonical)"
         ],
         "semanticImpactExplanatoryIncludes": [
+          "intent",
           "consequence",
-          "why now"
+          "confidence"
         ]
       }
     ]

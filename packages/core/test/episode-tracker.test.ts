@@ -50,6 +50,13 @@ function weakInferredSemanticEvidence() {
   };
 }
 
+function weakInferredRelationEvidence() {
+  return {
+    source: "inferred" as const,
+    strength: "weak" as const,
+  };
+}
+
 function strongHintedSemanticEvidence() {
   return {
     confidence: "high" as const,
@@ -233,6 +240,7 @@ test("weak inferred relation hints stay diagnostic until stronger evidence arriv
       judgmentInput: {
         blockedLikeStatus: false,
         semanticEvidence: weakInferredSemanticEvidence(),
+        relationEvidence: weakInferredRelationEvidence(),
       },
     }),
   );
@@ -249,6 +257,7 @@ test("weak inferred relation hints stay diagnostic until stronger evidence arriv
       judgmentInput: {
         blockedLikeStatus: false,
         semanticEvidence: weakInferredSemanticEvidence(),
+        relationEvidence: weakInferredRelationEvidence(),
       },
       timestamp: "2026-03-08T12:01:00.000Z",
     }),

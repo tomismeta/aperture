@@ -1,6 +1,6 @@
 import type { AttentionFrame } from "./frame.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
-import { readSemanticEvidenceStrength } from "./judgment-input.js";
+import { readSemanticRelationEvidenceStrength } from "./judgment-input.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
 import type { SemanticRelationHint } from "./semantic-types.js";
 import { readSemanticRelationTarget } from "./semantic-relations.js";
@@ -322,7 +322,7 @@ function normalizeEpisodePart(value: string): string {
 }
 
 function shouldPersistEpisodeRelationEvidence(candidate: AttentionCandidate): boolean {
-  const strength = readSemanticEvidenceStrength(candidate);
+  const strength = readSemanticRelationEvidenceStrength(candidate);
   return strength === null || strength !== "weak";
 }
 

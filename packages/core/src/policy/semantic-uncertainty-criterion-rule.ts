@@ -17,7 +17,9 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
     return noopPolicyCriterionRule("semantic_uncertainty");
   }
 
-  if (candidate.semanticAbstained === true) {
+  const semanticEvidence = candidate.judgmentInput.semanticEvidence;
+
+  if (semanticEvidence?.abstained === true) {
     return verdictPolicyCriterionRule(
       "semantic_uncertainty",
       ambiguousPeripheralCriterionVerdict(
@@ -33,7 +35,7 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
     );
   }
 
-  if (candidate.semanticConfidence === "low") {
+  if (semanticEvidence?.confidence === "low") {
     return verdictPolicyCriterionRule(
       "semantic_uncertainty",
       ambiguousPeripheralCriterionVerdict(
@@ -67,6 +69,6 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
 
   return noopPolicyCriterionRule(
     "semantic_uncertainty",
-    candidate.semanticConfidence !== undefined ? ["semantic evidence is strong enough to keep ordinary interrupt rules in play"] : [],
+    semanticEvidence !== undefined ? ["semantic evidence is strong enough to keep ordinary interrupt rules in play"] : [],
   );
 };

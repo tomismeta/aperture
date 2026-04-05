@@ -25,7 +25,11 @@ import type {
   ReplaySemanticSnapshot,
   ReplayViewSnapshot,
 } from "./scenario.js";
-import { runReplayScenario, type ReplayRunResult } from "./runner.js";
+import {
+  buildDecisionSemanticSnapshot,
+  runReplayScenario,
+  type ReplayRunResult,
+} from "./runner.js";
 import { scoreReplayRun } from "./scorecard.js";
 import {
   hasShape,
@@ -659,10 +663,7 @@ function buildDecisionSnapshotFromTrace(
     decisionKind: trace.coordination.kind,
     resultLane: trace.coordination.resultLane,
     interactionId: trace.evaluation.adjusted.interactionId,
-    ...(trace.evaluation.adjusted.semanticConfidence !== undefined
-      ? { semanticConfidence: trace.evaluation.adjusted.semanticConfidence }
-      : {}),
-    ...(trace.evaluation.adjusted.semanticAbstained === true ? { semanticAbstained: true } : {}),
+    ...buildDecisionSemanticSnapshot(trace),
     ambiguity: trace.coordination.ambiguity,
   };
 }

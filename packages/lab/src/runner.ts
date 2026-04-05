@@ -158,6 +158,29 @@ export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
   };
 }
 
+export function buildDecisionSemanticSnapshot(
+  trace: Extract<ApertureTrace, { evaluation: { kind: "candidate" } }>,
+): Pick<ReplayDecisionSnapshot, "semanticConfidence" | "semanticAbstained"> {
+  const adjusted = trace.evaluation.adjusted as {
+    judgmentInput?: {
+      semanticEvidence?: {
+        confidence?: ReplayDecisionSnapshot["semanticConfidence"];
+        abstained?: boolean;
+      };
+    };
+    semanticConfidence?: ReplayDecisionSnapshot["semanticConfidence"];
+    semanticAbstained?: boolean;
+  };
+  const semanticEvidence = adjusted.judgmentInput?.semanticEvidence;
+  const confidence = semanticEvidence?.confidence ?? adjusted.semanticConfidence ?? trace.semantic?.confidence;
+  const abstained = semanticEvidence?.abstained ?? adjusted.semanticAbstained ?? trace.semantic?.abstained;
+
+  return {
+    ...(confidence !== undefined ? { semanticConfidence: confidence } : {}),
+    ...(abstained === true ? { semanticAbstained: true } : {}),
+  };
+}
+
 function buildDecisionSnapshot(
   step: ReplayObservationStep,
   stepIndex: number,
@@ -185,10 +208,7 @@ function buildDecisionSnapshot(
     decisionKind: trace.coordination.kind,
     resultLane: trace.coordination.resultLane,
     interactionId: trace.evaluation.adjusted.interactionId,
-    ...(trace.evaluation.adjusted.semanticConfidence !== undefined
-      ? { semanticConfidence: trace.evaluation.adjusted.semanticConfidence }
-      : {}),
-    ...(trace.evaluation.adjusted.semanticAbstained === true ? { semanticAbstained: true } : {}),
+    ...buildDecisionSemanticSnapshot(trace),
     ...(trace.semantic?.influence !== undefined ? { semanticInfluence: trace.semantic.influence } : {}),
     ...(trace.semantic?.impact.decisionBearing !== undefined
       ? { semanticImpactDecisionBearing: trace.semantic.impact.decisionBearing }

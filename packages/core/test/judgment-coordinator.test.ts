@@ -39,7 +39,7 @@ function createFrame(overrides: Partial<Frame> = {}): Frame {
 }
 
 function createCandidate(overrides: Partial<InteractionCandidate> = {}): InteractionCandidate {
-  return {
+  const candidate = {
     taskId: "task:1",
     interactionId: "interaction:new",
     mode: "approval",
@@ -57,6 +57,13 @@ function createCandidate(overrides: Partial<InteractionCandidate> = {}): Interac
     blocking: true,
     timestamp: "2026-03-08T12:01:00.000Z",
     ...overrides,
+  };
+
+  return {
+    ...candidate,
+    judgmentInput: overrides.judgmentInput ?? {
+      blockedLikeStatus: false,
+    },
   };
 }
 
@@ -947,7 +954,15 @@ test("low-confidence non-blocking work stays queued through semantic ambiguity h
       priority: "high",
       blocking: false,
       responseSpec: { kind: "none" },
-      semanticConfidence: "low",
+      judgmentInput: {
+        blockedLikeStatus: false,
+        semanticEvidence: {
+          confidence: "low",
+          source: "inferred",
+          strength: "weak",
+          abstained: false,
+        },
+      },
       attentionScoreOffset: 160,
     }),
   );
@@ -985,15 +1000,23 @@ test("medium-confidence inferred work still stays peripheral when the semantic s
       priority: "normal",
       blocking: false,
       responseSpec: { kind: "none" },
-      semanticConfidence: "medium",
-      semanticOntology: {
-        ask: "status",
-        activity: "task_progress",
-        consequence: "medium",
-        blocking: "waiting",
-        episode: "unknown",
-        confidence: "medium",
-        source: "inferred",
+      judgmentInput: {
+        blockedLikeStatus: false,
+        ontology: {
+          ask: "status",
+          activity: "task_progress",
+          consequence: "medium",
+          blocking: "waiting",
+          episode: "unknown",
+          confidence: "medium",
+          source: "inferred",
+        },
+        semanticEvidence: {
+          confidence: "medium",
+          source: "inferred",
+          strength: "weak",
+          abstained: false,
+        },
       },
       attentionScoreOffset: 80,
     }),
@@ -1022,7 +1045,15 @@ test("semantic abstention keeps passive work ambient through the ambiguity lane"
       priority: "normal",
       blocking: false,
       responseSpec: { kind: "none" },
-      semanticAbstained: true,
+      judgmentInput: {
+        blockedLikeStatus: false,
+        semanticEvidence: {
+          confidence: "high",
+          source: "inferred",
+          strength: "weak",
+          abstained: true,
+        },
+      },
     }),
   );
 
@@ -1043,7 +1074,15 @@ test("explicit blocking work is not downgraded by low semantic confidence", () =
   const explanation = coordinator.explain(
     null,
     createCandidate({
-      semanticConfidence: "low",
+      judgmentInput: {
+        blockedLikeStatus: false,
+        semanticEvidence: {
+          confidence: "low",
+          source: "inferred",
+          strength: "weak",
+          abstained: false,
+        },
+      },
     }),
   );
 
@@ -1679,15 +1718,23 @@ test("explicit high-confidence semantic evidence can lower the interrupt bar sli
       priority: "normal",
       blocking: false,
       responseSpec: { kind: "none" },
-      semanticConfidence: "high",
-      semanticOntology: {
-        ask: "status",
-        activity: "task_progress",
-        consequence: "medium",
-        blocking: "waiting",
-        episode: "unknown",
-        confidence: "high",
-        source: "explicit",
+      judgmentInput: {
+        blockedLikeStatus: false,
+        ontology: {
+          ask: "status",
+          activity: "task_progress",
+          consequence: "medium",
+          blocking: "waiting",
+          episode: "unknown",
+          confidence: "high",
+          source: "explicit",
+        },
+        semanticEvidence: {
+          confidence: "high",
+          source: "explicit",
+          strength: "strong",
+          abstained: false,
+        },
       },
       attentionScoreOffset: 68,
     }),

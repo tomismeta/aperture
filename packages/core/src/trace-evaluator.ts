@@ -72,12 +72,10 @@ export function evaluateTraceSession(traces: ApertureTrace[]): TraceEvaluationRe
       } else {
         report.ambiguousAmbient += 1;
       }
-      if (trace.evaluation.adjusted.judgmentInput?.semanticEvidence?.confidence === "low"
-        || trace.evaluation.adjusted.semanticConfidence === "low") {
+      if (trace.evaluation.adjusted.judgmentInput.semanticEvidence?.confidence === "low") {
         report.ambiguousLowConfidence += 1;
       }
-      if (trace.evaluation.adjusted.judgmentInput?.semanticEvidence?.abstained === true
-        || trace.evaluation.adjusted.semanticAbstained === true) {
+      if (trace.evaluation.adjusted.judgmentInput.semanticEvidence?.abstained === true) {
         report.ambiguousAbstained += 1;
       }
       pendingAmbiguityByKey.set(ambiguityKey, trace.coordination.ambiguity.resolution);

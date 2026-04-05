@@ -38,7 +38,6 @@ test("judgment input compiles blocked-like waiting statuses into one internal se
     },
   });
 
-  assert.equal(input.routeAuthority, "status");
   assert.equal(input.blockedLikeStatus, true);
   assert.equal(input.ontology?.blocking, "blocking");
   assert.equal(input.semanticEvidence?.strength, "weak");
@@ -73,7 +72,6 @@ test("judgment input gives explicit human-input semantics a strong evidence read
     },
   });
 
-  assert.equal(input.routeAuthority, "request");
   assert.equal(input.blockedLikeStatus, false);
   assert.equal(input.semanticEvidence?.source, "explicit");
   assert.equal(input.semanticEvidence?.strength, "strong");

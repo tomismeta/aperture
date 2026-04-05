@@ -10,7 +10,6 @@ import type { SemanticConfidence } from "./semantic-types.js";
 export type SemanticEvidenceStrength = "weak" | "qualified" | "strong";
 
 export type AttentionJudgmentInput = {
-  routeAuthority: "status" | "request";
   ontology?: SemanticOntologyDiagnostic;
   semanticEvidence?: {
     confidence: SemanticConfidence;
@@ -24,10 +23,8 @@ export type AttentionJudgmentInput = {
 export function buildAttentionJudgmentInput(
   event: ApertureEvent,
 ): AttentionJudgmentInput {
-  const routeAuthority = event.type === "human.input.requested" ? "request" : "status";
   if (!event.semantic) {
     return {
-      routeAuthority,
       blockedLikeStatus: false,
     };
   }
@@ -36,7 +33,6 @@ export function buildAttentionJudgmentInput(
   const abstained = event.semantic.abstained === true;
 
   return {
-    routeAuthority,
     ontology,
     semanticEvidence: {
       confidence: ontology.confidence,
@@ -58,28 +54,14 @@ export function buildAttentionJudgmentInput(
 export function readSemanticEvidenceStrength(
   candidate: AttentionCandidate,
 ): SemanticEvidenceStrength | null {
-  const judgmentInput = candidate.judgmentInput;
-  if (judgmentInput?.semanticEvidence) {
-    return judgmentInput.semanticEvidence.strength;
-  }
-
-  const confidence = candidate.semanticConfidence ?? candidate.semanticOntology?.confidence;
-  if (confidence === undefined) {
-    return null;
-  }
-
-  return readSemanticEvidenceStrengthFromParts(
-    confidence,
-    candidate.semanticOntology?.source,
-    candidate.semanticAbstained === true,
-  );
+  return candidate.judgmentInput.semanticEvidence?.strength ?? null;
 }
 
 export function readSemanticSourceCriterionOffset(
   candidate: AttentionCandidate,
 ): number {
   const strength = readSemanticEvidenceStrength(candidate);
-  const source = candidate.judgmentInput?.semanticEvidence?.source ?? candidate.semanticOntology?.source;
+  const source = candidate.judgmentInput.semanticEvidence?.source;
 
   if (!strength || !source) {
     return 0;
@@ -104,11 +86,7 @@ export function readSemanticSourceCriterionOffset(
 }
 
 export function hasBlockedLikeStatusSemantics(candidate: AttentionCandidate): boolean {
-  if (candidate.judgmentInput) {
-    return candidate.judgmentInput.blockedLikeStatus;
-  }
-
-  return candidate.mode === "status" && candidate.semanticOntology?.blocking === "blocking" && !candidate.blocking;
+  return candidate.judgmentInput.blockedLikeStatus;
 }
 
 export function resolvePeripheralResolutionFloor(

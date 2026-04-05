@@ -123,15 +123,16 @@ function buildSemanticSummary(
     return undefined;
   }
 
-  const ontology = projectSemanticOntologyDiagnostic(event, semantic);
+  const ontology = adjusted.judgmentInput.ontology ?? projectSemanticOntologyDiagnostic(event, semantic);
+  const semanticEvidence = adjusted.judgmentInput.semanticEvidence;
 
   return {
     intentFrame: semantic.intentFrame,
     ...(semantic.activityClass !== undefined ? { activityClass: semantic.activityClass } : {}),
     ...(semantic.toolFamily !== undefined ? { toolFamily: semantic.toolFamily } : {}),
     ...(semantic.consequence !== undefined ? { consequence: semantic.consequence } : {}),
-    ...(semantic.confidence !== undefined ? { confidence: semantic.confidence } : {}),
-    ...(semantic.abstained === true ? { abstained: true } : {}),
+    ...(semanticEvidence?.confidence !== undefined ? { confidence: semanticEvidence.confidence } : {}),
+    ...(semanticEvidence?.abstained === true ? { abstained: true } : {}),
     ontology,
     ...(semantic.whyNow !== undefined ? { whyNow: semantic.whyNow } : {}),
     relationHints: semantic.relationHints,
@@ -152,7 +153,8 @@ function buildSemanticInfluence(
     return [];
   }
 
-  const ontology = projectSemanticOntologyDiagnostic(event, semantic);
+  const ontology = adjusted.judgmentInput.ontology ?? projectSemanticOntologyDiagnostic(event, semantic);
+  const semanticEvidence = adjusted.judgmentInput.semanticEvidence;
 
   const influence: string[] = [];
 
@@ -179,9 +181,9 @@ function buildSemanticInfluence(
       );
     }
 
-    if (semantic.abstained === true) {
+    if (semanticEvidence?.abstained === true) {
       influence.push("semantic abstention can keep non-blocking status work peripheral until clearer evidence arrives");
-    } else if (semantic.confidence === "low") {
+    } else if (semanticEvidence?.confidence === "low") {
       influence.push("low semantic confidence can keep non-blocking status work peripheral until the signal is clearer");
     }
 
@@ -209,13 +211,13 @@ function buildSemanticInfluence(
       influence.push("relation hints informed continuity handling");
     }
 
-    if (semantic.abstained === true) {
+    if (semanticEvidence?.abstained === true) {
       influence.push(
         adjusted.blocking
           ? "semantic abstention stayed visible but did not downgrade blocking work"
           : "semantic abstention constrained non-blocking routing",
       );
-    } else if (semantic.confidence === "low") {
+    } else if (semanticEvidence?.confidence === "low") {
       influence.push(
         adjusted.blocking
           ? "semantic low confidence stayed visible but did not downgrade blocking work"
@@ -241,6 +243,7 @@ function buildSemanticImpact(
   const semantic = event.semantic;
   const decisionBearing = new Set<string>();
   const explanatory = new Set<string>();
+  const semanticEvidence = adjusted.judgmentInput.semanticEvidence;
 
   if (!semantic) {
     return {
@@ -271,11 +274,11 @@ function buildSemanticImpact(
     explanatory.add("relations");
   }
 
-  if (semantic.confidence !== undefined) {
+  if (semanticEvidence?.confidence !== undefined) {
     explanatory.add("confidence");
   }
 
-  if (semantic.abstained === true) {
+  if (semanticEvidence?.abstained === true) {
     explanatory.add("abstention");
   }
 
@@ -290,7 +293,7 @@ function buildSemanticImpact(
       if (semantic.relationHints.length > 0) {
         promoteSemanticField(explanatory, decisionBearing, "relations", "relations (continuity)");
       }
-      if (adjusted.judgmentInput?.blockedLikeStatus) {
+      if (adjusted.judgmentInput.blockedLikeStatus) {
         promoteSemanticField(explanatory, decisionBearing, "intent", "blocking (peripheral routing)");
       }
       break;
@@ -315,11 +318,11 @@ function buildSemanticImpact(
       break;
   }
 
-  if (!adjusted.blocking && semantic.confidence === "low") {
+  if (!adjusted.blocking && semanticEvidence?.confidence === "low") {
     promoteSemanticField(explanatory, decisionBearing, "confidence", "confidence (ambiguity)");
   }
 
-  if (!adjusted.blocking && semantic.abstained === true) {
+  if (!adjusted.blocking && semanticEvidence?.abstained === true) {
     promoteSemanticField(explanatory, decisionBearing, "abstention", "abstention (ambiguity)");
   }
 

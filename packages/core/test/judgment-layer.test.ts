@@ -15,7 +15,7 @@ import { AttentionPlanner } from "../src/attention-planner.js";
 import { AttentionValue } from "../src/attention-value.js";
 
 function createCandidate(overrides: Partial<InteractionCandidate> = {}): InteractionCandidate {
-  return {
+  const candidate = {
     taskId: "task:test",
     interactionId: "interaction:test",
     mode: "status",
@@ -27,6 +27,13 @@ function createCandidate(overrides: Partial<InteractionCandidate> = {}): Interac
     blocking: false,
     timestamp: "2026-03-08T12:00:00.000Z",
     ...overrides,
+  };
+
+  return {
+    ...candidate,
+    judgmentInput: overrides.judgmentInput ?? {
+      blockedLikeStatus: false,
+    },
   };
 }
 

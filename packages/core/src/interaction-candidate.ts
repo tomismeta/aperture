@@ -7,8 +7,7 @@ import type {
 } from "./frame.js";
 import type { AttentionActivityClass, SourceRef } from "./events.js";
 import type { AttentionJudgmentInput } from "./judgment-input.js";
-import type { SemanticOntologyDiagnostic } from "./semantic-ontology.js";
-import type { SemanticConfidence, SemanticRelationHint } from "./semantic-types.js";
+import type { SemanticRelationHint } from "./semantic-types.js";
 
 export type AttentionPriority = "background" | "normal" | "high";
 
@@ -25,11 +24,8 @@ export type AttentionCandidate = {
   summary?: string;
   context?: AttentionContext;
   provenance?: AttentionProvenance;
-  judgmentInput?: AttentionJudgmentInput;
-  semanticOntology?: SemanticOntologyDiagnostic;
+  judgmentInput: AttentionJudgmentInput;
   relationHints?: SemanticRelationHint[];
-  semanticConfidence?: SemanticConfidence;
-  semanticAbstained?: boolean;
   responseSpec: AttentionResponseSpec;
   priority: AttentionPriority;
   blocking: boolean;

@@ -17,6 +17,9 @@ const baseCandidate: AttentionCandidate = {
   priority: "normal",
   blocking: false,
   timestamp: "2026-03-21T18:35:00.000Z",
+  judgmentInput: {
+    blockedLikeStatus: false,
+  },
 };
 
 const basePolicyVerdict: AttentionPolicyVerdict = {
@@ -32,7 +35,15 @@ test("medium-confidence semantics stay out of the uncertainty ambiguity path", (
   const evaluation = evaluateSemanticUncertaintyCriterionRule({
     candidate: {
       ...baseCandidate,
-      semanticConfidence: "medium",
+      judgmentInput: {
+        blockedLikeStatus: false,
+        semanticEvidence: {
+          confidence: "medium",
+          source: "hinted",
+          strength: "qualified",
+          abstained: false,
+        },
+      },
     },
     policyVerdict: basePolicyVerdict,
     evidence: createAttentionEvidenceContext(),
@@ -53,15 +64,23 @@ test("medium-confidence inferred semantics still stay peripheral when the source
   const evaluation = evaluateSemanticUncertaintyCriterionRule({
     candidate: {
       ...baseCandidate,
-      semanticConfidence: "medium",
-      semanticOntology: {
-        ask: "status",
-        activity: "task_progress",
-        consequence: "medium",
-        blocking: "waiting",
-        episode: "unknown",
-        confidence: "medium",
-        source: "inferred",
+      judgmentInput: {
+        blockedLikeStatus: false,
+        ontology: {
+          ask: "status",
+          activity: "task_progress",
+          consequence: "medium",
+          blocking: "waiting",
+          episode: "unknown",
+          confidence: "medium",
+          source: "inferred",
+        },
+        semanticEvidence: {
+          confidence: "medium",
+          source: "inferred",
+          strength: "weak",
+          abstained: false,
+        },
       },
     },
     policyVerdict: basePolicyVerdict,
@@ -85,7 +104,15 @@ test("low-confidence semantics keep non-blocking work peripheral", () => {
   const evaluation = evaluateSemanticUncertaintyCriterionRule({
     candidate: {
       ...baseCandidate,
-      semanticConfidence: "low",
+      judgmentInput: {
+        blockedLikeStatus: false,
+        semanticEvidence: {
+          confidence: "low",
+          source: "inferred",
+          strength: "weak",
+          abstained: false,
+        },
+      },
     },
     policyVerdict: basePolicyVerdict,
     evidence: createAttentionEvidenceContext(),
@@ -105,8 +132,15 @@ test("abstained semantics keep non-blocking work peripheral", () => {
   const evaluation = evaluateSemanticUncertaintyCriterionRule({
     candidate: {
       ...baseCandidate,
-      semanticConfidence: "high",
-      semanticAbstained: true,
+      judgmentInput: {
+        blockedLikeStatus: false,
+        semanticEvidence: {
+          confidence: "high",
+          source: "explicit",
+          strength: "weak",
+          abstained: true,
+        },
+      },
     },
     policyVerdict: basePolicyVerdict,
     evidence: createAttentionEvidenceContext(),
@@ -127,8 +161,15 @@ test("blocking work bypasses the abstention ambiguity path", () => {
     candidate: {
       ...baseCandidate,
       blocking: true,
-      semanticConfidence: "high",
-      semanticAbstained: true,
+      judgmentInput: {
+        blockedLikeStatus: false,
+        semanticEvidence: {
+          confidence: "high",
+          source: "explicit",
+          strength: "weak",
+          abstained: true,
+        },
+      },
     },
     policyVerdict: basePolicyVerdict,
     evidence: createAttentionEvidenceContext(),
@@ -148,7 +189,15 @@ test("blocking work bypasses the semantic uncertainty rule", () => {
     candidate: {
       ...baseCandidate,
       blocking: true,
-      semanticConfidence: "low",
+      judgmentInput: {
+        blockedLikeStatus: false,
+        semanticEvidence: {
+          confidence: "low",
+          source: "inferred",
+          strength: "weak",
+          abstained: false,
+        },
+      },
     },
     policyVerdict: basePolicyVerdict,
     evidence: createAttentionEvidenceContext(),

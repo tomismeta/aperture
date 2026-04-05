@@ -6,7 +6,7 @@ import { EpisodeTracker, readFrameEpisodeId } from "../src/episode-tracker.js";
 import { FramePlanner } from "../src/frame-planner.js";
 
 function createCandidate(overrides: Partial<InteractionCandidate> = {}): InteractionCandidate {
-  return {
+  const candidate = {
     taskId: "task:session",
     interactionId: "interaction:one",
     source: { id: "session:1", kind: "claude-code" },
@@ -31,6 +31,13 @@ function createCandidate(overrides: Partial<InteractionCandidate> = {}): Interac
     blocking: true,
     timestamp: "2026-03-08T12:00:00.000Z",
     ...overrides,
+  };
+
+  return {
+    ...candidate,
+    judgmentInput: overrides.judgmentInput ?? {
+      blockedLikeStatus: false,
+    },
   };
 }
 

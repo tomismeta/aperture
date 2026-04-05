@@ -116,7 +116,6 @@ export class EventEvaluator {
       title: event.title,
       summary: event.summary,
       ...(event.semantic?.relationHints?.length ? { relationHints: event.semantic.relationHints } : {}),
-      ...buildSemanticUncertainty(event.semantic),
       responseSpec,
       priority: this.priorityForHumanInput(event),
       blocking: true,
@@ -279,32 +278,10 @@ function buildStatusProvenance(event: TaskUpdatedEvent): { provenance: { whyNow?
   };
 }
 
-function buildSemanticUncertainty(
-  semantic: ApertureEvent["semantic"] | undefined,
-): Pick<AttentionCandidate, "semanticConfidence" | "semanticAbstained"> | {} {
-  if (!semantic) {
-    return {};
-  }
-
-  return {
-    semanticConfidence: semantic.confidence,
-    ...(semantic.abstained === true ? { semanticAbstained: true } : {}),
-  };
-}
-
 function buildJudgmentInputFields(
   event: ApertureEvent,
-): Pick<AttentionCandidate, "judgmentInput" | "semanticOntology" | "semanticConfidence" | "semanticAbstained"> {
-  const judgmentInput = buildAttentionJudgmentInput(event);
-
+): Pick<AttentionCandidate, "judgmentInput"> {
   return {
-    judgmentInput,
-    ...(judgmentInput.ontology !== undefined ? { semanticOntology: judgmentInput.ontology } : {}),
-    ...(judgmentInput.semanticEvidence !== undefined
-      ? {
-          semanticConfidence: judgmentInput.semanticEvidence.confidence,
-          ...(judgmentInput.semanticEvidence.abstained ? { semanticAbstained: true } : {}),
-        }
-      : buildSemanticUncertainty(event.semantic)),
+    judgmentInput: buildAttentionJudgmentInput(event),
   };
 }

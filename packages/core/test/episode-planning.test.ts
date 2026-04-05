@@ -7,7 +7,7 @@ import type { InteractionCandidate } from "../src/interaction-candidate.js";
 import { JudgmentCoordinator } from "../src/judgment-coordinator.js";
 
 function createCandidate(overrides: Partial<InteractionCandidate> = {}): InteractionCandidate {
-  return {
+  const candidate = {
     taskId: "task:session",
     interactionId: "interaction:new",
     mode: "status",
@@ -25,6 +25,13 @@ function createCandidate(overrides: Partial<InteractionCandidate> = {}): Interac
     episodeEvidenceScore: 0,
     episodeEvidenceReasons: [],
     ...overrides,
+  };
+
+  return {
+    ...candidate,
+    judgmentInput: overrides.judgmentInput ?? {
+      blockedLikeStatus: false,
+    },
   };
 }
 

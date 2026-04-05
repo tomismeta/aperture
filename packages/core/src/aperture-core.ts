@@ -31,7 +31,10 @@ import { AttentionSignalStore, summarizeAttentionSignals } from "./attention-sig
 import { loadJudgmentConfig, type JudgmentConfig } from "./judgment-config.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
 import { distillMemoryProfile, signalMetadataForCandidate, signalMetadataForFrame } from "./memory-aggregator.js";
-import { normalizeSourceEvent } from "./semantic-normalizer.js";
+import {
+  applySemanticDefaultsToApertureEvent,
+  normalizeSourceEvent,
+} from "./semantic-normalizer.js";
 import { hasSemanticRelationKind } from "./semantic-relations.js";
 import { AttentionPolicy } from "./attention-policy.js";
 import { selectPeripheralBucket } from "./attention-planner.js";
@@ -71,6 +74,10 @@ export type ApertureCoreOptions = {
   responseExpiryMs?: number;
   /** Optional wall-clock override for deterministic replay and testing. */
   timeSource?: () => number;
+};
+
+export type PublishOptions = {
+  applySemanticDefaults?: boolean;
 };
 
 export class ApertureCore {
@@ -207,17 +214,20 @@ export class ApertureCore {
 
   publishSourceEvent(event: SourceEvent): AttentionFrame | null {
     this.assertValidSourceEvent(event);
-    return this.publish(normalizeSourceEvent(event));
+    return this.publish(normalizeSourceEvent(event), { applySemanticDefaults: false });
   }
 
-  publish(event: ApertureEvent): AttentionFrame | null {
+  publish(event: ApertureEvent, options: PublishOptions = {}): AttentionFrame | null {
     // Live event flow:
     // `SourceEvent -> normalizeSourceEvent -> ApertureEvent -> EventEvaluator
     // -> AttentionCandidate -> AttentionJudgmentInput-aware judgment ->
     // AttentionFrame/AttentionView + trace`
     this.assertValidEvent(event);
-    const current = this.getFrame(event.taskId);
-    const evidence = this.assembleAttentionEvidenceContext(event.taskId, current);
+    const effectiveEvent = applySemanticDefaultsToApertureEvent(event, {
+      skipSemanticDefaults: options.applySemanticDefaults === false,
+    });
+    const current = this.getFrame(effectiveEvent.taskId);
+    const evidence = this.assembleAttentionEvidenceContext(effectiveEvent.taskId, current);
     const taskSummary = evidence.taskSignalSummary;
     const globalSummary = evidence.globalSignalSummary;
     const taskAttentionState = evidence.taskAttentionState;
@@ -225,13 +235,13 @@ export class ApertureCore {
     const preAttentionView = evidence.attentionView;
     const pressureForecast = evidence.pressureForecast;
     const attentionBurden = evidence.attentionBurden;
-    const evaluation = this.evaluation.evaluate(event);
+    const evaluation = this.evaluation.evaluate(effectiveEvent);
 
     switch (evaluation.kind) {
       case "noop": {
         this.notifyTrace(this.traceRecorder.recordNoop({
           timestamp: this.nowIso(),
-          event,
+          event: effectiveEvent,
           taskSummary,
           globalSummary,
           taskAttentionState,
@@ -245,11 +255,11 @@ export class ApertureCore {
         return null;
       }
       case "clear": {
-        const result = this.applyClear(event.taskId);
+        const result = this.applyClear(effectiveEvent.taskId);
         const postAttentionView = this.getAttentionView();
         this.notifyTrace(this.traceRecorder.recordClear({
           timestamp: this.nowIso(),
-          event,
+          event: effectiveEvent,
           taskSummary,
           globalSummary,
           taskAttentionState,
@@ -257,9 +267,9 @@ export class ApertureCore {
           pressureForecast,
           attentionBurden,
           current: evidence.currentFrame,
-          taskView: this.getTaskView(event.taskId),
+          taskView: this.getTaskView(effectiveEvent.taskId),
           attentionView: postAttentionView,
-        }, event.taskId));
+        }, effectiveEvent.taskId));
         return result;
       }
       case "candidate": {
@@ -268,9 +278,9 @@ export class ApertureCore {
           taskSummary,
           globalSummary,
         );
-        const explanation = this.explainCandidateDecision(event.taskId, candidate, evidence);
+        const explanation = this.explainCandidateDecision(effectiveEvent.taskId, candidate, evidence);
         const result = this.applyCandidateDecision(
-          event.taskId,
+          effectiveEvent.taskId,
           explanation,
           evidence,
           preAttentionView,
@@ -278,7 +288,7 @@ export class ApertureCore {
         const postAttentionView = this.getAttentionView();
         this.notifyTrace(this.traceRecorder.recordCandidate({
           timestamp: this.nowIso(),
-          event,
+          event: effectiveEvent,
           taskSummary,
           globalSummary,
           taskAttentionState,
@@ -286,7 +296,7 @@ export class ApertureCore {
           pressureForecast,
           attentionBurden,
           current: evidence.currentFrame,
-          taskView: this.getTaskView(event.taskId),
+          taskView: this.getTaskView(effectiveEvent.taskId),
           attentionView: postAttentionView,
         }, {
           original: evaluation.candidate,

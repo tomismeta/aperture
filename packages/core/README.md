@@ -328,6 +328,19 @@ if (frame) {
 }
 ```
 
+When you publish a direct `ApertureEvent`, Aperture now applies the same
+bounded semantic defaults it would have inferred from a `SourceEvent`
+normalization path. That means missing fields like `semantic`,
+`activityClass`, `consequence`, `tone`, and approval-oriented `toolFamily`
+can be filled in when they are safely derivable, while explicit event fields
+still win.
+
+If you need a fully manual direct-event path, opt out:
+
+```ts
+const frame = core.publish(event, { applySemanticDefaults: false });
+```
+
 You can also publish task lifecycle events like:
 
 - `task.started`

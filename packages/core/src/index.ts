@@ -1,6 +1,7 @@
 export { ApertureCore } from "./aperture-core.js";
 export type {
   ApertureCoreOptions,
+  PublishOptions,
   AttentionFrameListener,
   AttentionTaskViewListener,
   AttentionViewListener,

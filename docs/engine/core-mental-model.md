@@ -110,7 +110,7 @@ than routing directly on ontology objects.
 
 Actual current data path:
 
-`SourceEvent -> SemanticInterpretation -> ApertureEvent -> AttentionJudgmentInput -> AttentionCandidate -> policy/value/pressure/planning -> lane/trace`
+`SourceEvent/ApertureEvent -> finalized event (usually EnrichedApertureEvent) -> AttentionJudgmentInput -> AttentionCandidate -> policy/value/pressure/planning -> lane/trace`
 
 ### 4. Heuristics
 

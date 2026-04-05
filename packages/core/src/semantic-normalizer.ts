@@ -1,10 +1,15 @@
 import type { SourceEvent } from "./source-event.js";
-import type { ApertureEvent, HumanInputRequestedEvent } from "./events.js";
+import type {
+  ApertureEvent,
+  EnrichedApertureEvent,
+  EnrichedHumanInputRequestedEvent,
+  HumanInputRequestedEvent,
+} from "./events.js";
 import type { AttentionConsequenceLevel, AttentionTone } from "./frame.js";
 import { interpretSourceEvent } from "./semantic-interpreter.js";
 import { mergeSemanticProvenance } from "./semantic-provenance.js";
 
-export function normalizeSourceEvent(event: SourceEvent): ApertureEvent {
+export function normalizeSourceEvent(event: SourceEvent): EnrichedApertureEvent {
   const semantic = interpretSourceEvent(event);
 
   // Non-human-input source events stay intentionally bounded. Core enriches
@@ -82,7 +87,12 @@ export type ApertureEventSemanticDefaultsOptions = {
  * the semantic layer is present by default, while still preserving explicit
  * caller-owned canonical fields unless they are missing.
  */
-export function applySemanticDefaultsToApertureEvent(
+export function enrichApertureEvent(event: ApertureEvent): EnrichedApertureEvent;
+export function enrichApertureEvent(
+  event: ApertureEvent,
+  options: { skipSemanticDefaults: true },
+): ApertureEvent;
+export function enrichApertureEvent(
   event: ApertureEvent,
   options: ApertureEventSemanticDefaultsOptions = {},
 ): ApertureEvent {
@@ -120,7 +130,7 @@ export function applySemanticDefaultsToApertureEvent(
 function normalizeHumanInput(
   event: Extract<SourceEvent, { type: "human.input.requested" }>,
   semantic: ReturnType<typeof interpretSourceEvent>,
-): HumanInputRequestedEvent {
+): EnrichedHumanInputRequestedEvent {
   const consequence = semantic.consequence ?? event.riskHint ?? "medium";
   const tone = toneForRisk(consequence);
   const provenance = mergeSemanticProvenance({
@@ -169,7 +179,7 @@ function toneForRisk(risk: AttentionConsequenceLevel): AttentionTone {
 function applyHumanInputSemanticDefaults(
   event: Extract<ApertureEvent, { type: "human.input.requested" }>,
   semantic: ReturnType<typeof interpretSourceEvent>,
-): HumanInputRequestedEvent {
+): EnrichedHumanInputRequestedEvent {
   const consequence = event.consequence ?? semantic.consequence ?? "medium";
   const tone = event.tone ?? toneForRisk(consequence);
   const provenance = mergeSemanticProvenance({

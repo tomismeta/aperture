@@ -98,7 +98,7 @@ In practice, that means:
 
 The hot path inside core is:
 
-`event -> interpret and normalize -> compile judgment input -> judge -> surface -> respond`
+`event -> enrich -> compile judgment input -> judge -> surface -> respond`
 
 That maps to:
 
@@ -166,7 +166,7 @@ The engine can do much more internally, but you do not need to model the middle 
 
 For advanced consumers, the internal path is now:
 
-`SourceEvent -> SemanticInterpretation -> ApertureEvent -> AttentionJudgmentInput -> AttentionCandidate -> judgment -> AttentionFrame/AttentionView + trace`
+`SourceEvent/ApertureEvent -> finalized event (usually EnrichedApertureEvent) -> AttentionJudgmentInput -> AttentionCandidate -> judgment -> AttentionFrame/AttentionView + trace`
 
 If you want to invoke Aperture's semantic parsing directly before publishing a
 canonical `ApertureEvent`, or you want the richer semantic types directly, use
@@ -328,8 +328,8 @@ if (frame) {
 }
 ```
 
-When you publish a direct `ApertureEvent`, Aperture now applies the same
-bounded semantic defaults it would have inferred from a `SourceEvent`
+When you publish a direct `ApertureEvent`, Aperture now enriches it with the
+same bounded semantic defaults it would have inferred from a `SourceEvent`
 normalization path. That means missing fields like `semantic`,
 `activityClass`, `consequence`, `tone`, and approval-oriented `toolFamily`
 can be filled in when they are safely derivable, while explicit event fields

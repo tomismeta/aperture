@@ -9,6 +9,9 @@
     "decision_stream_continuity",
     "ambient_doctrine"
   ],
+  "semanticFamilies": [
+    "episode_missed"
+  ],
   "expectations": {
     "finalNowInteractionId": "interaction:task:cache-blocker:status",
     "nextInteractionIds": [],

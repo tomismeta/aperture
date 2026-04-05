@@ -8,6 +8,9 @@
     "relation_semantics",
     "decision_stream_continuity"
   ],
+  "semanticFamilies": [
+    "episode_missed"
+  ],
   "expectations": {
     "finalNowInteractionId": "interaction:deploy:rollback",
     "nextInteractionIds": [],

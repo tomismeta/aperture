@@ -7,6 +7,9 @@
     "semantic_robustness",
     "traceability"
   ],
+  "semanticFamilies": [
+    "ask_overread"
+  ],
   "expectations": {
     "finalNowInteractionId": "interaction:question:tool-family",
     "nextInteractionIds": [],

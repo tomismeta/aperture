@@ -8,6 +8,9 @@
     "hard_gate_interrupt",
     "attention_worthiness"
   ],
+  "semanticFamilies": [
+    "consequence_underread"
+  ],
   "expectations": {
     "finalNowInteractionId": "interaction:dangerous:approval",
     "nextInteractionIds": [],

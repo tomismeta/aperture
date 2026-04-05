@@ -406,6 +406,7 @@ export type {
 export type {
   ReplayArtifactSource,
   ReplayCaptureMetadata,
+  ReplaySemanticCalibrationFamily,
   ReplayDecisionExpectation,
   ReplayDecisionSnapshot,
   ReplayScenario,

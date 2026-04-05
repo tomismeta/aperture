@@ -10,6 +10,7 @@ import type { ApertureTrace } from "../../core/src/trace-types.js";
 
 import type {
   ReplayArtifactSource,
+  ReplaySemanticCalibrationFamily,
   ReplayDecisionExpectation,
   ReplayDecisionSnapshot,
   ReplayExplanationExpectation,
@@ -127,10 +128,24 @@ const SEMANTIC_PROVENANCE_FIELDS = new Set([
   "abstained",
 ]);
 const SEMANTIC_PROVENANCE_KINDS = new Set(["source", "inferred", "hint"]);
+const SEMANTIC_CALIBRATION_FAMILIES = new Set<ReplaySemanticCalibrationFamily>([
+  "ask_missed",
+  "ask_overread",
+  "consequence_overread",
+  "consequence_underread",
+  "blocking_missed",
+  "episode_missed",
+  "confidence_too_high",
+  "confidence_too_low",
+]);
 
 export { isRecord, isStringArray } from "./shape.js";
 
 const isStringOrNull = isNullable(isString);
+const isSemanticCalibrationFamilies = (
+  value: unknown,
+): value is ReplaySemanticCalibrationFamily[] =>
+  Array.isArray(value) && value.every((entry) => SEMANTIC_CALIBRATION_FAMILIES.has(String(entry) as ReplaySemanticCalibrationFamily));
 const isStep = validateWith(validateReplayObservationStep);
 const isReplaySemanticExpectationGuard = validateWith(validateReplaySemanticExpectation);
 const isReplayDecisionExpectationGuard = validateWith(validateReplayDecisionExpectation);
@@ -232,6 +247,7 @@ export function validateReplayScenario(value: unknown): ReplayScenario | null {
     }, {
       description: isString,
       doctrineTags: isStringArray,
+      semanticFamilies: isSemanticCalibrationFamilies,
       source: validateWith(validateReplayArtifactSource),
       provenance: validateWith(validateReplayScenarioProvenance),
       expectations: validateWith(validateReplayScenarioExpectations),

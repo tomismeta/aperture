@@ -8,6 +8,9 @@
     "decision_stream_continuity",
     "relation_semantics"
   ],
+  "semanticFamilies": [
+    "episode_missed"
+  ],
   "expectations": {
     "finalNowInteractionId": "interaction:task:episode:b:status",
     "nextInteractionIds": [],

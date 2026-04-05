@@ -7,6 +7,9 @@
     "semantic_robustness",
     "traceability"
   ],
+  "semanticFamilies": [
+    "consequence_underread"
+  ],
   "expectations": {
     "finalNowInteractionId": "interaction:hinted:approval",
     "nextInteractionIds": [],

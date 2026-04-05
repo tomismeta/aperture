@@ -7,6 +7,9 @@
     "semantic_ambiguity",
     "continuity_semantics"
   ],
+  "semanticFamilies": [
+    "confidence_too_low"
+  ],
   "expectations": {
     "finalNowInteractionId": "interaction:task:uncertain-failure-recovery:status",
     "nextInteractionIds": [],

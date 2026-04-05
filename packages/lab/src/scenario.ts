@@ -53,6 +53,16 @@ export type ReplayScenarioProvenance = {
   promotedFromPath?: string;
 };
 
+export type ReplaySemanticCalibrationFamily =
+  | "ask_missed"
+  | "ask_overread"
+  | "consequence_overread"
+  | "consequence_underread"
+  | "blocking_missed"
+  | "episode_missed"
+  | "confidence_too_high"
+  | "confidence_too_low";
+
 export type ReplayObservationStep =
   | {
       kind: "publish";
@@ -111,6 +121,7 @@ export type ReplayScenario = {
   title: string;
   description?: string;
   doctrineTags?: string[];
+  semanticFamilies?: ReplaySemanticCalibrationFamily[];
   source?: ReplayArtifactSource;
   provenance?: ReplayScenarioProvenance;
   expectations?: ReplayScenarioExpectations;

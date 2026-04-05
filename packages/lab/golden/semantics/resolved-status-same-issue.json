@@ -8,6 +8,9 @@
     "relation_semantics",
     "ambient_doctrine"
   ],
+  "semanticFamilies": [
+    "episode_missed"
+  ],
   "expectations": {
     "finalNowInteractionId": null,
     "nextInteractionIds": [],

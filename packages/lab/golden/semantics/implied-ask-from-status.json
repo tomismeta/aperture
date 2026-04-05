@@ -7,6 +7,9 @@
     "semantic_robustness",
     "ambient_doctrine"
   ],
+  "semanticFamilies": [
+    "ask_missed"
+  ],
   "expectations": {
     "finalNowInteractionId": null,
     "nextInteractionIds": [],

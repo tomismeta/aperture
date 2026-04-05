@@ -8,6 +8,10 @@
     "decision_stream_continuity",
     "relation_semantics"
   ],
+  "semanticFamilies": [
+    "episode_missed",
+    "blocking_missed"
+  ],
   "expectations": {
     "finalNowInteractionId": "interaction:blocker",
     "nextInteractionIds": [

@@ -7,6 +7,9 @@
     "semantic_ambiguity",
     "ambient_doctrine"
   ],
+  "semanticFamilies": [
+    "confidence_too_high"
+  ],
   "expectations": {
     "finalNowInteractionId": "interaction:approval-anchor:ambient",
     "nextInteractionIds": [],

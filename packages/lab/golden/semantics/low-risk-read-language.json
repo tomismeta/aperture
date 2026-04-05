@@ -7,6 +7,9 @@
     "semantic_robustness",
     "interruption_credibility"
   ],
+  "semanticFamilies": [
+    "consequence_overread"
+  ],
   "expectations": {
     "finalNowInteractionId": "interaction:read:approval",
     "nextInteractionIds": [],

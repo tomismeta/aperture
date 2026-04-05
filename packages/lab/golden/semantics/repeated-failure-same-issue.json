@@ -8,6 +8,9 @@
     "relation_semantics",
     "interruption_credibility"
   ],
+  "semanticFamilies": [
+    "episode_missed"
+  ],
   "expectations": {
     "finalNowInteractionId": "interaction:task:build-repeat:status",
     "nextInteractionIds": [],

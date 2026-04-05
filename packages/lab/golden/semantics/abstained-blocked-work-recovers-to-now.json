@@ -7,6 +7,10 @@
     "semantic_ambiguity",
     "continuity_semantics"
   ],
+  "semanticFamilies": [
+    "blocking_missed",
+    "confidence_too_low"
+  ],
   "expectations": {
     "finalNowInteractionId": "interaction:task:abstained-blocked-recovery:status",
     "nextInteractionIds": [],

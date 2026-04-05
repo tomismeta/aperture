@@ -342,6 +342,8 @@ test("candidate traces expose semantic summaries with routing influence", () => 
   assert.equal(trace.semantic?.intentFrame, "question_request");
   assert.equal(trace.semantic?.toolFamily, "read");
   assert.equal(trace.semantic?.confidence, "low");
+  assert.equal(trace.semantic?.ontology.ask, "choice");
+  assert.equal(trace.semantic?.ontology.blocking, "blocking");
   assert.ok(trace.semantic?.reasons.includes("tool family was supplied by the source or context"));
   assert.ok(trace.semantic?.influence.includes("tool family stayed context-only on the question/form path"));
   assert.ok(trace.semantic?.influence.includes("semantic low confidence stayed visible but did not downgrade blocking work"));

@@ -93,6 +93,15 @@ Think of ontology as the **compact summary layer**.
 Semantics is richer than the ontology.
 The ontology is the part we want to stay especially stable and reusable.
 
+Today, the ontology is most first-class in:
+
+- replay and calibration
+- F-Stop review
+- trace diagnostics
+
+Judgment still primarily consumes the richer semantic and candidate layers rather
+than routing directly on ontology objects.
+
 ### 4. Heuristics
 
 These are the rules and detectors that help Aperture infer semantics from messy input.
@@ -133,6 +142,10 @@ Judgment uses:
 - operator pressure and burden
 
 Think of judgment as the **attention-routing layer**.
+
+Today, some status paths still keep raw task status authoritative even when the
+semantic and ontology reads are richer. That is an intentional boundary in the
+current engine, not a documentation bug.
 
 ### 6. Trace
 

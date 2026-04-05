@@ -30,6 +30,7 @@ function makeCandidateTrace(
         ...(semantic.consequence !== undefined ? { consequence: semantic.consequence } : {}),
         confidence: semantic.confidence ?? "low",
         ...(semantic.abstained === true ? { abstained: true } : {}),
+        ontology: semantic.ontology,
         ...(semantic.whyNow !== undefined ? { whyNow: semantic.whyNow } : {}),
         relationHints: semantic.relationHints,
         factors: semantic.factors,
@@ -148,6 +149,15 @@ test("renderWhyOverlay shows semantic summary and influence notes", () => {
       toolFamily: "read",
       consequence: "medium",
       confidence: "low",
+      ontology: {
+        ask: "choice",
+        activity: "question",
+        consequence: "medium",
+        blocking: "blocking",
+        episode: "new",
+        confidence: "low",
+        source: "explicit",
+      },
       relationHints: [],
       factors: ["human.input.requested", "choice"],
       reasons: ["tool family was supplied by the source or context"],
@@ -174,6 +184,10 @@ test("renderWhyOverlay shows semantic summary and influence notes", () => {
   assert.match(output, /tool:\s+read/);
   assert.match(output, /consequence:\s+medium/);
   assert.match(output, /confidence:\s+low/);
+  assert.match(output, /ask:\s+choice/);
+  assert.match(output, /blocking:\s+blocking/);
+  assert.match(output, /episode:\s+new/);
+  assert.match(output, /source:\s+explicit/);
   assert.match(output, /origin:\s+tool from source/);
   assert.match(output, /affected route:\s+consequence \(canonical\)/);
   assert.match(output, /context only:\s+intent · tool · confidence/);
@@ -186,12 +200,20 @@ test("renderWhyOverlay shows semantic why-now text when available", () => {
     makeCandidateTrace({
       intentFrame: "status_update",
       confidence: "low",
+      ontology: {
+        ask: "status",
+        activity: "task_progress",
+        blocking: "waiting",
+        episode: "unknown",
+        confidence: "low",
+        source: "inferred",
+      },
       whyNow: "Status text implies the operator may need to respond.",
       relationHints: [],
       factors: ["task.updated", "waiting"],
       reasons: ["status wording suggests an implied operator request"],
       influence: [
-        "task status stayed authoritative; semantic details only affected context, continuity, and ambiguity handling",
+        "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics",
       ],
       impact: {
         decisionBearing: ["confidence (ambiguity)"],
@@ -209,6 +231,8 @@ test("renderWhyOverlay shows semantic why-now text when available", () => {
 
   assert.match(output, /why now:/);
   assert.match(output, /Status text implies the operator may need to respond\./);
+  assert.match(output, /ask:\s+status/);
+  assert.match(output, /blocking:\s+waiting/);
   assert.match(output, /affected route:\s+confidence \(ambiguity\)/);
   assert.match(output, /context only:\s+intent · why now/);
   assert.match(output, /task status stayed authoritative/);
@@ -221,6 +245,15 @@ test("renderWhyOverlay shows hint-driven semantic provenance", () => {
       intentFrame: "approval_request",
       consequence: "high",
       confidence: "low",
+      ontology: {
+        ask: "approval",
+        activity: "decision_request",
+        consequence: "high",
+        blocking: "blocking",
+        episode: "new",
+        confidence: "low",
+        source: "hinted",
+      },
       whyNow: "A policy escalation requires senior review.",
       relationHints: [],
       factors: ["human.input.requested", "approval"],

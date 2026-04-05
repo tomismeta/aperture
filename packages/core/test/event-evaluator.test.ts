@@ -138,6 +138,29 @@ test("diagnostic status semantics do not change task.updated routing", () => {
   assert.equal(diagnosticVariant.candidate.responseSpec.kind, baseline.candidate.responseSpec.kind);
 });
 
+test("semantic blocking on waiting statuses stays diagnostic in candidate routing", () => {
+  const result = evaluation.evaluate(normalizeSourceEvent({
+    id: "evt:status:blocking-diagnostic",
+    taskId: "task:status:blocking-diagnostic",
+    timestamp: "2026-03-08T12:02:35.000Z",
+    type: "task.updated",
+    title: "Cannot continue until credentials are provided",
+    summary: "Work is waiting but cannot proceed until the operator provides credentials.",
+    status: "waiting",
+  }));
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.blocking, false);
+  assert.equal(result.candidate.priority, "background");
+  assert.equal(result.candidate.tone, "ambient");
+  assert.equal(result.candidate.responseSpec.kind, "none");
+  assert.equal(result.candidate.provenance?.whyNow, "Work is blocked and may require operator attention.");
+});
+
 test("approval requests become blocking approval candidates", () => {
   const result = evaluation.evaluate({
     id: "evt:approval",

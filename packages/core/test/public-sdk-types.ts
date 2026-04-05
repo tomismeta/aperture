@@ -32,6 +32,7 @@ import type {
   SemanticConfidence,
   SemanticInterpretation,
   SemanticInterpretationHints,
+  SemanticOntologyDiagnostic,
   SemanticRelationHint,
 } from "../src/semantic.js";
 
@@ -63,5 +64,6 @@ void (0 as unknown as TraceResultLane);
 void (0 as unknown as TraceSemanticSummary);
 void (0 as unknown as SemanticInterpretation);
 void (0 as unknown as SemanticInterpretationHints);
+void (0 as unknown as SemanticOntologyDiagnostic);
 void (0 as unknown as SemanticRelationHint);
 void (0 as unknown as SemanticConfidence);

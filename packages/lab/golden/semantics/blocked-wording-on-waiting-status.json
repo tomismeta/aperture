@@ -1,0 +1,80 @@
+{
+  "id": "golden:semantics:blocked-wording-on-waiting-status",
+  "title": "Blocked wording on waiting status stays peripheral but reads as blocked work",
+  "description": "When waiting-status text clearly says work cannot continue, the semantic layer should read blocked work and ontology blocking without silently turning the status candidate into a hard interrupt.",
+  "doctrineTags": [
+    "semantic_normalization",
+    "semantic_robustness",
+    "ambient_doctrine"
+  ],
+  "semanticFamilies": [
+    "blocking_missed"
+  ],
+  "expectations": {
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [
+      "interaction:task:blocked-wording:status"
+    ],
+    "resultLaneCounts": {
+      "now": 0,
+      "next": 0,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "blocked wording status",
+        "intentFrame": "blocked_work",
+        "activityClass": "status_update",
+        "consequence": "low",
+        "confidence": "medium",
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "blocking": "blocking",
+          "episode": "unknown",
+          "source": "inferred"
+        },
+        "whyNowIncludes": "blocked",
+        "reasonsInclude": [
+          "status wording indicates work cannot continue yet"
+        ]
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "blocked wording status",
+        "evaluationKind": "candidate",
+        "decisionKind": "ambient",
+        "resultLane": "ambient",
+        "semanticConfidence": "medium",
+        "semanticInfluenceIncludes": [
+          "semantic blocking stayed diagnostic because status updates still route as non-blocking candidates"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "activity (canonical)"
+        ],
+        "semanticImpactExplanatoryIncludes": [
+          "consequence",
+          "why now"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "blocked wording status",
+      "event": {
+        "id": "evt:blocked-wording",
+        "type": "task.updated",
+        "taskId": "task:blocked-wording",
+        "timestamp": "2026-04-05T20:00:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Cannot continue until credentials are provided",
+        "summary": "Work is waiting but cannot proceed until the operator provides credentials.",
+        "status": "waiting"
+      }
+    }
+  ]
+}

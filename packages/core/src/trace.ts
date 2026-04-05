@@ -23,6 +23,14 @@ export type {
   TraceResultLane,
   TraceSemanticSummary,
 } from "./trace-common.js";
+export type {
+  SemanticOntologyDiagnostic,
+  SemanticOntologyActivity,
+  SemanticOntologyAsk,
+  SemanticOntologyBlocking,
+  SemanticOntologyEpisode,
+  SemanticOntologySource,
+} from "./semantic-ontology.js";
 
 /**
  * Public explanation trace emitted by `ApertureCore.onTrace(...)`.

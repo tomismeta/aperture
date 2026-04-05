@@ -17,6 +17,8 @@ export type SemanticDetectionInput = {
   metadata?: Record<string, unknown>;
 };
 
+export type SemanticBlockingSignal = "blocking" | "waiting";
+
 // Preserve path-like separators and hyphens so file paths, commands, and
 // hyphenated tool terms survive normalization as semantic anchors.
 export function normalizeSemanticText(value: string): string {
@@ -57,6 +59,22 @@ export function detectImpliedOperatorAsk(text: string): boolean {
   }
 
   return containsAnySemanticPhrase(text, IMPLIED_OPERATOR_ASKS);
+}
+
+export function detectSemanticBlockingSignal(text: string): SemanticBlockingSignal | null {
+  if (containsAnySemanticPhrase(text, IMPLIED_OPERATOR_NEGATIONS)) {
+    return null;
+  }
+
+  if (containsAnySemanticPhrase(text, EXPLICIT_BLOCKING_PHRASES)) {
+    return "blocking";
+  }
+
+  if (containsAnySemanticPhrase(text, EXPLICIT_WAITING_PHRASES)) {
+    return "waiting";
+  }
+
+  return null;
 }
 
 export function detectSemanticRelationHints(text: string): SemanticRelationHint[] {
@@ -303,6 +321,34 @@ const IMPLIED_OPERATOR_NEGATIONS = [
   "for awareness only",
   "for your awareness",
   "continuing automatically",
+] as const;
+
+const EXPLICIT_BLOCKING_PHRASES = [
+  "cannot continue",
+  "can't continue",
+  "cannot proceed",
+  "can't proceed",
+  "unable to continue",
+  "unable to proceed",
+  "blocked on",
+  "blocked until",
+  "stuck on",
+  "requires operator input before continuing",
+  "needs operator input before continuing",
+  "must be provided before continuing",
+] as const;
+
+const EXPLICIT_WAITING_PHRASES = [
+  "waiting for approval",
+  "approval required",
+  "awaiting approval",
+  "waiting on approval",
+  "pending approval",
+  "waiting for input",
+  "awaiting input",
+  "waiting on input",
+  "awaiting review",
+  "waiting for review",
 ] as const;
 
 const HIGH_RISK_PHRASES = [

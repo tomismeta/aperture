@@ -209,6 +209,14 @@ function renderSemanticSection(
     lines.push(`   ${styleMuted(uncertaintyParts.join("  ·  "), color)}`);
   }
 
+  const ontologyParts = [
+    `ask: ${semantic.ontology.ask}`,
+    `blocking: ${semantic.ontology.blocking}`,
+    `episode: ${semantic.ontology.episode}`,
+    `source: ${semantic.ontology.source}`,
+  ];
+  lines.push(`   ${styleMuted(ontologyParts.join("  ·  "), color)}`);
+
   if (semantic.whyNow) {
     lines.push(...renderWrappedDetailLine("why now", semantic.whyNow, color));
   }

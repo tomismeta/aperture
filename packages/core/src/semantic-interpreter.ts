@@ -8,6 +8,7 @@ import type {
 } from "./semantic-types.js";
 import {
   detectExpectedDiagnosticFailure,
+  detectSemanticBlockingSignal,
   detectRoutineObservationalFailureLowConsequence,
   dedupeSemanticStrings,
   detectObservationalFailureStatus,
@@ -104,6 +105,7 @@ function inferTaskUpdateSemantics(
 ): SemanticInterpretation {
   const text = normalizeSemanticText(`${event.title} ${event.summary ?? ""}`);
   const impliedAsk = detectImpliedOperatorAsk(text);
+  const blockingSignal = detectSemanticBlockingSignal(text);
   const relationHints = detectSemanticRelationHints(text);
   const taxonomyInput = buildTaxonomyInput(event.title, event.summary, event.toolFamily);
   const { toolFamily, source: toolFamilySource } = resolveSemanticToolFamily(taxonomyInput, true);
@@ -210,18 +212,35 @@ function inferTaskUpdateSemantics(
     case "waiting":
     case "completed":
       return {
-        intentFrame: "status_update",
+        intentFrame: blockingSignal === "blocking" ? "blocked_work" : "status_update",
         activityClass: "status_update",
         ...(toolFamily ? { toolFamily } : {}),
         consequence: inferConsequenceFromSemanticText(text, "low", toolFamily),
         ...(() => {
-          const whyNow = impliedAsk ? semanticWhyNowForTaskStatus(event.status, { impliedAsk }) : undefined;
+          const whyNow = blockingSignal === "blocking"
+            ? semanticWhyNowForTaskStatus("blocked")
+            : impliedAsk
+              ? semanticWhyNowForTaskStatus(event.status, { impliedAsk })
+              : undefined;
           return whyNow !== undefined ? { whyNow } : {};
         })(),
-        factors: ["task.updated", event.status],
+        factors: [
+          "task.updated",
+          event.status,
+          ...(blockingSignal === "blocking" ? ["semantic blocking signal"] : []),
+        ],
         relationHints,
-        confidence: impliedAsk ? "low" : "high",
-        reasons: semanticReasonsForTaskStatus(event.status, { impliedAsk }),
+        confidence: blockingSignal === "blocking"
+          ? "medium"
+          : impliedAsk
+            ? "low"
+            : "high",
+        reasons: blockingSignal === "blocking"
+          ? [
+              ...semanticReasonsForTaskStatus("blocked"),
+              "status wording indicates work cannot continue yet",
+            ]
+          : semanticReasonsForTaskStatus(event.status, { impliedAsk }),
         provenance: {
           ...inferredSemanticProvenance([
             "intentFrame",
@@ -230,7 +249,9 @@ function inferTaskUpdateSemantics(
             "confidence",
           ]),
           ...semanticToolFamilyProvenance(toolFamilySource),
-          ...(impliedAsk ? inferredSemanticProvenance(["whyNow"]) : {}),
+          ...((blockingSignal === "blocking" || impliedAsk)
+            ? inferredSemanticProvenance(["whyNow"])
+            : {}),
           ...relationProvenance,
         },
       };

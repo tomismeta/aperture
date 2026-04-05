@@ -52,6 +52,15 @@ test("trace recorder captures explanatory-only tool family on question paths", (
 
   assert.equal(trace.semantic?.toolFamily, "read");
   assert.equal(trace.semantic?.confidence, "low");
+  assert.deepEqual(trace.semantic?.ontology, {
+    ask: "choice",
+    activity: "question",
+    consequence: "medium",
+    blocking: "blocking",
+    episode: "new",
+    confidence: "low",
+    source: "explicit",
+  });
   assert.ok(trace.semantic?.influence.includes("tool family stayed context-only on the question/form path"));
   assert.equal(trace.semantic?.provenance?.toolFamily, "source");
   assert.deepEqual(trace.semantic?.impact, {
@@ -95,6 +104,15 @@ test("trace recorder captures explanatory-only tool family on form paths", () =>
 
   assert.equal(trace.semantic?.toolFamily, "read");
   assert.equal(trace.semantic?.confidence, "low");
+  assert.deepEqual(trace.semantic?.ontology, {
+    ask: "form",
+    activity: "question",
+    consequence: "medium",
+    blocking: "blocking",
+    episode: "new",
+    confidence: "low",
+    source: "explicit",
+  });
   assert.ok(trace.semantic?.influence.includes("tool family stayed context-only on the question/form path"));
   assert.equal(trace.semantic?.provenance?.toolFamily, "source");
   assert.deepEqual(trace.semantic?.impact, {
@@ -131,10 +149,19 @@ test("trace recorder explains that status remains authoritative on task updates"
 
   assert.ok(
     trace.semantic?.influence.includes(
-      "task status stayed authoritative; semantic details only affected context, continuity, and ambiguity handling",
+      "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics",
     ),
   );
   assert.equal(trace.semantic?.intentFrame, "status_update");
+  assert.deepEqual(trace.semantic?.ontology, {
+    ask: "status",
+    activity: "task_progress",
+    consequence: "low",
+    blocking: "waiting",
+    episode: "unknown",
+    confidence: "low",
+    source: "inferred",
+  });
   assert.equal(trace.semantic?.provenance?.intentFrame, "inferred");
   assert.deepEqual(trace.semantic?.impact, {
     decisionBearing: ["activity (canonical)", "confidence (ambiguity)"],
@@ -172,6 +199,15 @@ test("trace recorder promotes abstention to ambiguity-bearing impact on non-bloc
   }
 
   assert.equal(trace.semantic?.abstained, true);
+  assert.deepEqual(trace.semantic?.ontology, {
+    ask: "status",
+    activity: "task_progress",
+    consequence: "low",
+    blocking: "waiting",
+    episode: "unknown",
+    confidence: "high",
+    source: "hinted",
+  });
   assert.ok(
     trace.semantic?.influence.includes(
       "semantic abstention can keep non-blocking status work peripheral until clearer evidence arrives",
@@ -181,6 +217,41 @@ test("trace recorder promotes abstention to ambiguity-bearing impact on non-bloc
     decisionBearing: ["activity (canonical)", "abstention (ambiguity)"],
     explanatory: ["intent", "consequence", "confidence"],
   });
+});
+
+test("trace recorder exposes diagnostic blocking reads on waiting status updates", () => {
+  const core = new ApertureCore();
+  const traces: ApertureTrace[] = [];
+
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:blocking-read",
+    type: "task.updated",
+    taskId: "task:status:blocking-read",
+    timestamp: "2026-03-27T20:01:45.000Z",
+    source: { id: "custom-agent" },
+    title: "Cannot continue until credentials are provided",
+    summary: "Work is waiting but cannot proceed until the operator provides credentials.",
+    status: "waiting",
+  });
+
+  const trace = latestCandidateTrace(traces);
+  assert.ok(trace);
+  assert.equal(trace?.evaluation.kind, "candidate");
+  if (!trace || trace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(trace.semantic?.intentFrame, "blocked_work");
+  assert.equal(trace.semantic?.ontology.blocking, "blocking");
+  assert.ok(
+    trace.semantic?.influence.includes(
+      "semantic blocking stayed diagnostic because status updates still route as non-blocking candidates",
+    ),
+  );
 });
 
 test("trace recorder preserves hint-driven semantic provenance", () => {
@@ -216,6 +287,15 @@ test("trace recorder preserves hint-driven semantic provenance", () => {
   }
 
   assert.equal(trace.semantic?.consequence, "high");
+  assert.deepEqual(trace.semantic?.ontology, {
+    ask: "approval",
+    activity: "decision_request",
+    consequence: "high",
+    blocking: "blocking",
+    episode: "new",
+    confidence: "medium",
+    source: "hinted",
+  });
   assert.equal(trace.semantic?.whyNow, "A policy escalation requires senior review.");
   assert.equal(trace.semantic?.provenance?.consequence, "hint");
   assert.equal(trace.semantic?.provenance?.whyNow, "hint");

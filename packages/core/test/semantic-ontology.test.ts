@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { readSemanticOntologyDiagnostic } from "../src/semantic.js";
+import { projectSemanticOntologyDiagnostic, readSemanticOntologyDiagnostic } from "../src/semantic.js";
 
 const timestamp = "2026-04-05T18:00:00.000Z";
 
@@ -72,6 +72,28 @@ test("same-issue repeats project to a resurfaced episode diagnostic", () => {
   assert.equal(diagnostic.source, "hinted");
 });
 
+test("blocked wording can promote a waiting status into a blocking ontology read", () => {
+  const diagnostic = readSemanticOntologyDiagnostic({
+    id: "evt:ontology:blocked-wording",
+    taskId: "task:ontology:blocked-wording",
+    type: "task.updated",
+    timestamp,
+    title: "Cannot continue until credentials are provided",
+    summary: "Work is waiting but cannot proceed until the operator provides credentials.",
+    status: "waiting",
+  });
+
+  assert.deepEqual(diagnostic, {
+    ask: "status",
+    activity: "task_progress",
+    consequence: "low",
+    blocking: "blocking",
+    episode: "unknown",
+    confidence: "medium",
+    source: "inferred",
+  });
+});
+
 test("request-like semantic hints can promote status-shaped events into request-shaped ontology reads", () => {
   const diagnostic = readSemanticOntologyDiagnostic({
     id: "evt:ontology:hinted-approval",
@@ -117,4 +139,55 @@ test("resolving relation hints project to a resolved episode diagnostic", () => 
   assert.equal(diagnostic.activity, "task_completion");
   assert.equal(diagnostic.episode, "resolved");
   assert.equal(diagnostic.source, "hinted");
+});
+
+test("normalized events can project ontology diagnostics without re-interpreting source events", () => {
+  const diagnostic = projectSemanticOntologyDiagnostic(
+    {
+      id: "evt:ontology:normalized",
+      taskId: "task:ontology:normalized",
+      type: "task.updated",
+      timestamp,
+      title: "Waiting on credentials",
+      summary: "Credentials are still missing.",
+      status: "waiting",
+      semantic: {
+        intentFrame: "blocked_work",
+        activityClass: "status_update",
+        consequence: "medium",
+        whyNow: "Work is blocked and may require operator attention.",
+        factors: ["task.updated", "waiting", "semantic blocking signal"],
+        relationHints: [],
+        confidence: "medium",
+        reasons: ["status wording indicates work cannot continue yet"],
+        provenance: {
+          intentFrame: "inferred",
+          activityClass: "inferred",
+          consequence: "inferred",
+          whyNow: "inferred",
+          confidence: "inferred",
+        },
+      },
+    },
+    {
+      intentFrame: "blocked_work",
+      activityClass: "status_update",
+      consequence: "medium",
+      whyNow: "Work is blocked and may require operator attention.",
+      factors: ["task.updated", "waiting", "semantic blocking signal"],
+      relationHints: [],
+      confidence: "medium",
+      reasons: ["status wording indicates work cannot continue yet"],
+      provenance: {
+        intentFrame: "inferred",
+        activityClass: "inferred",
+        consequence: "inferred",
+        whyNow: "inferred",
+        confidence: "inferred",
+      },
+    },
+  );
+
+  assert.equal(diagnostic.blocking, "blocking");
+  assert.equal(diagnostic.source, "inferred");
 });

@@ -145,13 +145,15 @@ to be source fact.
 
 ## Routing Meaning
 
-These dimensions matter because they drive the actual judgment path.
+These dimensions matter because they are the stable supervision lens Aperture
+calibrates against.
 
 In simplified form:
 
-- `ask`, `activity`, and `consequence` shape whether something deserves
-  attention
-- `blocking` shapes whether it belongs in `now`, `next`, or `ambient`
+- `ask`, `activity`, and `consequence` can shape canonical events and traceable
+  judgment inputs
+- `blocking` is the clean cross-source supervision dimension, but status-event
+  routing still keeps explicit task status authoritative today
 - `episode` shapes continuity and resurfacing
 - `confidence` shapes ambiguity and abstention behavior
 - `source` shapes trust and traceability
@@ -159,6 +161,14 @@ In simplified form:
 That means semantic breadth should be measured by how well Aperture can read
 these dimensions across many sources, not by how many host-specific event kinds
 it recognizes.
+
+So, today, the ontology is best understood as:
+
+- calibration-first
+- trace-visible
+- judgment-adjacent
+
+rather than as a fully first-class coordinator input on every path.
 
 ## Provenance Rule
 

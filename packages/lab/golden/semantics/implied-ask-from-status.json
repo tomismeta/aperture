@@ -47,7 +47,7 @@
         "resultLane": "ambient",
         "semanticConfidence": "low",
         "semanticInfluenceIncludes": [
-          "task status stayed authoritative; semantic details only affected context, continuity, and ambiguity handling"
+          "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics"
         ],
         "semanticImpactDecisionBearingIncludes": [
           "confidence (ambiguity)"

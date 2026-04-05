@@ -500,6 +500,27 @@ test("task updates can infer implied operator asks from status text", () => {
   }
 });
 
+test("task updates can infer blocked-work semantics from waiting status text", () => {
+  const normalized = normalizeSourceEvent({
+    id: "evt:semantic-blocking",
+    type: "task.updated",
+    taskId: "task:semantic-blocking",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Cannot continue until credentials are provided",
+    summary: "Work is waiting but cannot proceed until the operator provides credentials.",
+    status: "waiting",
+  });
+
+  assert.equal(normalized.type, "task.updated");
+  if (normalized.type === "task.updated") {
+    assert.equal(normalized.semantic?.intentFrame, "blocked_work");
+    assert.equal(normalized.semantic?.whyNow, "Work is blocked and may require operator attention.");
+    assert.equal(normalized.semantic?.confidence, "medium");
+    assert.ok(normalized.semantic?.reasons.includes("status wording indicates work cannot continue yet"));
+  }
+});
+
 test("negated approval wording does not invent an implied operator ask", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:no-approval-needed",

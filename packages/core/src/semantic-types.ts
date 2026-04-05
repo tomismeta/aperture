@@ -53,8 +53,9 @@ export type SemanticRelationHint = {
  *   routing facts or act as general score multipliers.
  * - `provenance` is explanation-only metadata that records whether key
  *   semantic fields were source-provided, inferred, or hint-driven.
- * - On `task.updated`, `status` remains authoritative for routing even when
- *   the semantic read is richer.
+ * - On `task.updated`, `status` remains authoritative for candidate routing
+ *   even when the semantic read is richer; richer blocking-like reads are still
+ *   captured for trace, replay, and calibration.
  */
 export type SemanticInterpretation = {
   /** Canonical semantic frame for explanation, testing, and adapter inspection. */

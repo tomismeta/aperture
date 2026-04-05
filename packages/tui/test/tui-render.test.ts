@@ -984,6 +984,15 @@ test("renderAttentionScreen why mode shows semantic interpretation and influence
       toolFamily: "read",
       consequence: "medium" as const,
       confidence: "low" as const,
+      ontology: {
+        ask: "choice" as const,
+        activity: "question" as const,
+        consequence: "medium" as const,
+        blocking: "blocking" as const,
+        episode: "new" as const,
+        confidence: "low" as const,
+        source: "explicit" as const,
+      },
       whyNow: "A direct question is waiting for operator input.",
       relationHints: [{ kind: "same_issue" as const }, { kind: "repeats" as const }],
       factors: ["human.input.requested", "choice"],
@@ -1041,6 +1050,8 @@ test("renderAttentionScreen why mode shows semantic interpretation and influence
   assert.match(collapsed, /intent:\s+question_request/);
   assert.match(collapsed, /tool:\s+read/);
   assert.match(collapsed, /confidence:\s+low/);
+  assert.match(collapsed, /ask:\s+choice/);
+  assert.match(collapsed, /blocking:\s+blocking/);
   assert.match(collapsed, /origin:\s+tool from source/);
   assert.match(collapsed, /affected route:\s+consequence \(canonical\) · relations \(continuity\)/);
   assert.match(collapsed, /context only:\s+intent · tool · why now · confidence/);

@@ -1,3 +1,4 @@
+import type { ApertureEvent } from "./events.js";
 import type { SourceEvent } from "./source-event.js";
 import { interpretSourceEvent } from "./semantic-interpreter.js";
 import type {
@@ -49,9 +50,18 @@ export type SemanticOntologyDiagnostic = {
   source: SemanticOntologySource;
 };
 
+type SemanticOntologyEvent = SourceEvent | ApertureEvent;
+
 export function readSemanticOntologyDiagnostic(
   event: SourceEvent,
   interpretation = interpretSourceEvent(event),
+): SemanticOntologyDiagnostic {
+  return projectSemanticOntologyDiagnostic(event, interpretation);
+}
+
+export function projectSemanticOntologyDiagnostic(
+  event: SemanticOntologyEvent,
+  interpretation: SemanticInterpretation,
 ): SemanticOntologyDiagnostic {
   return {
     ask: readOntologyAsk(event, interpretation),
@@ -59,7 +69,7 @@ export function readSemanticOntologyDiagnostic(
     ...(interpretation.consequence !== undefined
       ? { consequence: interpretation.consequence }
       : {}),
-    blocking: readOntologyBlocking(event),
+    blocking: readOntologyBlocking(event, interpretation),
     episode: readOntologyEpisode(event, interpretation),
     confidence: interpretation.confidence,
     source: readOntologySource(interpretation),
@@ -67,7 +77,7 @@ export function readSemanticOntologyDiagnostic(
 }
 
 function readOntologyAsk(
-  event: SourceEvent,
+  event: SemanticOntologyEvent,
   interpretation: SemanticInterpretation,
 ): SemanticOntologyAsk {
   switch (event.type) {
@@ -96,7 +106,7 @@ function readOntologyAsk(
 }
 
 function readOntologyActivity(
-  event: SourceEvent,
+  event: SemanticOntologyEvent,
   interpretation: SemanticInterpretation,
 ): SemanticOntologyActivity {
   switch (event.type) {
@@ -133,15 +143,23 @@ function readOntologyActivity(
   }
 }
 
-function readOntologyBlocking(event: SourceEvent): SemanticOntologyBlocking {
+function readOntologyBlocking(
+  event: SemanticOntologyEvent,
+  interpretation: SemanticInterpretation,
+): SemanticOntologyBlocking {
   switch (event.type) {
     case "human.input.requested":
       return "blocking";
     case "task.updated":
-      if (event.status === "blocked") {
+      if (event.status === "blocked" || interpretation.intentFrame === "blocked_work") {
         return "blocking";
       }
-      if (event.status === "waiting") {
+      if (
+        event.status === "waiting"
+        || interpretation.intentFrame === "approval_request"
+        || interpretation.intentFrame === "question_request"
+        || interpretation.intentFrame === "form_request"
+      ) {
         return "waiting";
       }
       return "non_blocking";
@@ -151,7 +169,7 @@ function readOntologyBlocking(event: SourceEvent): SemanticOntologyBlocking {
 }
 
 function readOntologyEpisode(
-  event: SourceEvent,
+  event: SemanticOntologyEvent,
   interpretation: SemanticInterpretation,
 ): SemanticOntologyEpisode {
   const relationKinds = new Set(

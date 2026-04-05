@@ -6,6 +6,7 @@ import type { AttentionFrame, AttentionTaskView, AttentionView } from "./frame.j
 import type { AttentionDecisionExplanation } from "./judgment-coordinator.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import type { AttentionPressure } from "./attention-pressure.js";
+import { projectSemanticOntologyDiagnostic } from "./semantic-ontology.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import type { ApertureTrace, TraceSemanticSummary } from "./trace-types.js";
 
@@ -122,6 +123,8 @@ function buildSemanticSummary(
     return undefined;
   }
 
+  const ontology = projectSemanticOntologyDiagnostic(event, semantic);
+
   return {
     intentFrame: semantic.intentFrame,
     ...(semantic.activityClass !== undefined ? { activityClass: semantic.activityClass } : {}),
@@ -129,6 +132,7 @@ function buildSemanticSummary(
     ...(semantic.consequence !== undefined ? { consequence: semantic.consequence } : {}),
     ...(semantic.confidence !== undefined ? { confidence: semantic.confidence } : {}),
     ...(semantic.abstained === true ? { abstained: true } : {}),
+    ontology,
     ...(semantic.whyNow !== undefined ? { whyNow: semantic.whyNow } : {}),
     relationHints: semantic.relationHints,
     factors: semantic.factors,
@@ -148,10 +152,12 @@ function buildSemanticInfluence(
     return [];
   }
 
+  const ontology = projectSemanticOntologyDiagnostic(event, semantic);
+
   const influence: string[] = [];
 
   if (event.type === "task.updated") {
-    influence.push("task status stayed authoritative; semantic details only affected context, continuity, and ambiguity handling");
+    influence.push("task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics");
 
     if ("activityClass" in event && event.activityClass === semantic.activityClass && semantic.activityClass !== undefined) {
       influence.push("activity class enriched canonical status facts");
@@ -163,6 +169,14 @@ function buildSemanticInfluence(
 
     if (semantic.relationHints.length > 0) {
       influence.push("relation hints informed continuity handling");
+    }
+
+    if (ontology.blocking !== "non_blocking" && !adjusted.blocking) {
+      influence.push(
+        ontology.blocking === "blocking"
+          ? "semantic blocking stayed diagnostic because status updates still route as non-blocking candidates"
+          : "semantic waiting stayed diagnostic because status updates still route as non-blocking candidates",
+      );
     }
 
     if (semantic.abstained === true) {

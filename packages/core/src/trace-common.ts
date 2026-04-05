@@ -6,6 +6,7 @@ import type {
   SemanticIntentFrame,
   SemanticRelationHint,
 } from "./semantic-types.js";
+import type { SemanticOntologyDiagnostic } from "./semantic-ontology.js";
 
 export type TraceDecisionKind = "auto_approve" | "activate" | "queue" | "ambient" | "clear";
 
@@ -53,7 +54,8 @@ export type TraceContinuityEvaluation = {
  * Stable semantic summary for SDK consumers.
  *
  * `intentFrame`, `activityClass`, `toolFamily`, `consequence`, `confidence`,
- * `abstained`, `provenance`, and `impact` are suitable for programmatic use.
+ * `abstained`, `ontology`, `provenance`, and `impact` are suitable for
+ * programmatic use.
  * `whyNow`, `factors`, `reasons`, and `influence` are explanatory text and
  * may evolve as the product language gets clearer.
  */
@@ -64,6 +66,7 @@ export type TraceSemanticSummary = {
   consequence?: SemanticConsequenceLevel;
   confidence?: SemanticConfidence;
   abstained?: boolean;
+  ontology: SemanticOntologyDiagnostic;
   whyNow?: string;
   relationHints: SemanticRelationHint[];
   factors: string[];

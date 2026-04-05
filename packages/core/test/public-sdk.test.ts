@@ -213,6 +213,15 @@ test("public SDK supports trace inspection through the trace subpath", () => {
   }
 
   assert.equal(trace.semantic?.toolFamily, "read");
+  assert.deepEqual(trace.semantic?.ontology, {
+    ask: "choice",
+    activity: "question",
+    consequence: "medium",
+    blocking: "blocking",
+    episode: "new",
+    confidence: "low",
+    source: "explicit",
+  });
   assert.deepEqual(trace.semantic?.impact.decisionBearing, ["activity (canonical)", "consequence (canonical)"]);
   assert.equal(trace.coordination.kind, "activate");
   assert.equal("policy" in trace, false);

@@ -1,18 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { loadGoldenScenarios, type ReplaySemanticCalibrationFamily } from "../src/index.js";
-
-const EXPECTED_FAMILIES: ReplaySemanticCalibrationFamily[] = [
-  "ask_missed",
-  "ask_overread",
-  "consequence_overread",
-  "consequence_underread",
-  "blocking_missed",
-  "episode_missed",
-  "confidence_too_high",
-  "confidence_too_low",
-];
+import {
+  loadGoldenScenarios,
+  SEMANTIC_CALIBRATION_FAMILIES,
+  type ReplaySemanticCalibrationFamily,
+} from "../src/index.js";
 
 test("semantic golden scenarios declare calibration families", async () => {
   const scenarios = await loadGoldenScenarios();
@@ -33,6 +26,6 @@ test("semantic golden scenarios declare calibration families", async () => {
 
   assert.deepEqual(
     [...coveredFamilies].sort(),
-    [...EXPECTED_FAMILIES].sort(),
+    [...SEMANTIC_CALIBRATION_FAMILIES].sort(),
   );
 });

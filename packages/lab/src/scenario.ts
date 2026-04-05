@@ -14,6 +14,7 @@ import type {
   SemanticRelationHint,
   SemanticInterpretation,
 } from "@tomismeta/aperture-core/semantic";
+import type { ReplaySemanticCalibrationFamily } from "./semantic-calibration.js";
 
 type ReplayDecisionAmbiguity = {
   kind: "interrupt";
@@ -52,16 +53,6 @@ export type ReplayScenarioProvenance = {
   promotedFromBundleSessionId?: string;
   promotedFromPath?: string;
 };
-
-export type ReplaySemanticCalibrationFamily =
-  | "ask_missed"
-  | "ask_overread"
-  | "consequence_overread"
-  | "consequence_underread"
-  | "blocking_missed"
-  | "episode_missed"
-  | "confidence_too_high"
-  | "confidence_too_low";
 
 export type ReplayObservationStep =
   | {

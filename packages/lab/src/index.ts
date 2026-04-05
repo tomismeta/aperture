@@ -406,7 +406,6 @@ export type {
 export type {
   ReplayArtifactSource,
   ReplayCaptureMetadata,
-  ReplaySemanticCalibrationFamily,
   ReplayDecisionExpectation,
   ReplayDecisionSnapshot,
   ReplayScenario,
@@ -419,6 +418,13 @@ export type {
   ReplayTraceExpectation,
   ReplayViewSnapshot,
 } from "./scenario.js";
+export {
+  SEMANTIC_CALIBRATION_FAMILIES,
+  isReplaySemanticCalibrationFamily,
+} from "./semantic-calibration.js";
+export type {
+  ReplaySemanticCalibrationFamily,
+} from "./semantic-calibration.js";
 export type {
   FStopSession,
   FStopSessionEntry,

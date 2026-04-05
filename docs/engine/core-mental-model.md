@@ -101,6 +101,9 @@ Today, the ontology is most first-class in:
 - narrow blocked-like status routing for strong `blocking` reads
 - semantic evidence strength from `confidence + source`
 
+Core now compiles ontology and semantic evidence into a small internal judgment
+input before policy and planning run.
+
 Judgment still primarily consumes the richer semantic and candidate layers rather
 than routing directly on ontology objects.
 
@@ -138,6 +141,7 @@ Outputs:
 Judgment uses:
 
 - semantic meaning
+- compiled judgment input from ontology and semantic evidence
 - continuity and episode context
 - ambiguity and confidence
 - policy and doctrine

@@ -6,6 +6,7 @@ import type {
   AttentionResponseSpec,
 } from "./frame.js";
 import type { AttentionActivityClass, SourceRef } from "./events.js";
+import type { AttentionJudgmentInput } from "./judgment-input.js";
 import type { SemanticOntologyDiagnostic } from "./semantic-ontology.js";
 import type { SemanticConfidence, SemanticRelationHint } from "./semantic-types.js";
 
@@ -24,6 +25,7 @@ export type AttentionCandidate = {
   summary?: string;
   context?: AttentionContext;
   provenance?: AttentionProvenance;
+  judgmentInput?: AttentionJudgmentInput;
   semanticOntology?: SemanticOntologyDiagnostic;
   relationHints?: SemanticRelationHint[];
   semanticConfidence?: SemanticConfidence;

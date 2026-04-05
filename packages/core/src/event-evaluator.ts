@@ -11,7 +11,7 @@ import type {
   AttentionFormResponseSpec,
 } from "./frame.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
-import { projectSemanticOntologyDiagnostic } from "./semantic-ontology.js";
+import { buildAttentionJudgmentInput } from "./judgment-input.js";
 import { semanticWhyNowForTaskStatus } from "./semantic-language.js";
 import { mergeSemanticProvenance } from "./semantic-provenance.js";
 
@@ -39,8 +39,7 @@ export class EventEvaluator {
             blocking: false,
             timestamp: event.timestamp,
             ...(event.summary !== undefined ? { summary: event.summary } : {}),
-            ...buildSemanticOntology(event),
-            ...buildSemanticUncertainty(event.semantic),
+            ...buildJudgmentInputFields(event),
           },
         };
       case "task.updated":
@@ -87,9 +86,8 @@ export class EventEvaluator {
       blocking: false,
       timestamp: event.timestamp,
       ...(event.summary !== undefined ? { summary: event.summary } : {}),
-      ...buildSemanticOntology(event),
       ...(event.semantic?.relationHints?.length ? { relationHints: event.semantic.relationHints } : {}),
-      ...buildSemanticUncertainty(event.semantic),
+      ...buildJudgmentInputFields(event),
       ...(event.progress !== undefined
         ? {
             context: {
@@ -123,7 +121,7 @@ export class EventEvaluator {
       priority: this.priorityForHumanInput(event),
       blocking: true,
       timestamp: event.timestamp,
-      ...buildSemanticOntology(event),
+      ...buildJudgmentInputFields(event),
       ...(event.context !== undefined ? { context: event.context } : {}),
       ...(() => {
         const provenance = mergeSemanticProvenance({
@@ -294,14 +292,19 @@ function buildSemanticUncertainty(
   };
 }
 
-function buildSemanticOntology(
+function buildJudgmentInputFields(
   event: ApertureEvent,
-): Pick<AttentionCandidate, "semanticOntology"> | {} {
-  if (!event.semantic) {
-    return {};
-  }
+): Pick<AttentionCandidate, "judgmentInput" | "semanticOntology" | "semanticConfidence" | "semanticAbstained"> {
+  const judgmentInput = buildAttentionJudgmentInput(event);
 
   return {
-    semanticOntology: projectSemanticOntologyDiagnostic(event, event.semantic),
+    judgmentInput,
+    ...(judgmentInput.ontology !== undefined ? { semanticOntology: judgmentInput.ontology } : {}),
+    ...(judgmentInput.semanticEvidence !== undefined
+      ? {
+          semanticConfidence: judgmentInput.semanticEvidence.confidence,
+          ...(judgmentInput.semanticEvidence.abstained ? { semanticAbstained: true } : {}),
+        }
+      : buildSemanticUncertainty(event.semantic)),
   };
 }

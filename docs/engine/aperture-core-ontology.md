@@ -174,6 +174,10 @@ So, today, the ontology is best understood as:
 - trace-visible
 - judgment-adjacent
 
+Core also compiles it into a small internal judgment-input layer so policy and
+planning can consume one cleaner semantic/evidence seam instead of reaching into
+raw semantic fragments directly.
+
 rather than as a fully first-class coordinator input on every path.
 
 ## Provenance Rule

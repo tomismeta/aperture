@@ -19,7 +19,7 @@ import {
   type AttentionSurfaceCapabilities,
 } from "./surface-capabilities.js";
 import type { AttentionValueBreakdown } from "./attention-value.js";
-import { hasBlockedLikeStatusSemantics, resolvePeripheralResolutionFloor } from "./peripheral-routing.js";
+import { hasBlockedLikeStatusSemantics, resolvePeripheralResolutionFloor } from "./judgment-input.js";
 import {
   noopContinuityRule,
   type ContinuityRule,

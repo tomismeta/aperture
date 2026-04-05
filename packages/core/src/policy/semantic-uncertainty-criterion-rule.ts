@@ -1,4 +1,4 @@
-import { readSemanticEvidenceStrength } from "../semantic-evidence.js";
+import { readSemanticEvidenceStrength } from "../judgment-input.js";
 import {
   ambiguousPeripheralCriterionVerdict,
   noopPolicyCriterionRule,

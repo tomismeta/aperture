@@ -290,7 +290,7 @@ function buildSemanticImpact(
       if (semantic.relationHints.length > 0) {
         promoteSemanticField(explanatory, decisionBearing, "relations", "relations (continuity)");
       }
-      if (adjusted.semanticOntology?.blocking === "blocking" && !adjusted.blocking) {
+      if (adjusted.judgmentInput?.blockedLikeStatus) {
         promoteSemanticField(explanatory, decisionBearing, "intent", "blocking (peripheral routing)");
       }
       break;

@@ -1,4 +1,4 @@
-import { readSemanticSourceCriterionOffset } from "../semantic-evidence.js";
+import { readSemanticSourceCriterionOffset } from "../judgment-input.js";
 import {
   adjustCriterionRule,
   noopPolicyCriterionRule,

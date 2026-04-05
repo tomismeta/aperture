@@ -15,7 +15,7 @@ import { evaluatePeripheralStatusPolicyGateRule } from "./policy/peripheral-stat
 import { evaluateSemanticUncertaintyCriterionRule } from "./policy/semantic-uncertainty-criterion-rule.js";
 import { evaluateSmallScoreGapCriterionRule } from "./policy/small-score-gap-criterion-rule.js";
 import { evaluateSourceTrustCriterionRule } from "./policy/source-trust-criterion-rule.js";
-import { resolvePeripheralResolutionFloor } from "./peripheral-routing.js";
+import { resolvePeripheralResolutionFloor } from "./judgment-input.js";
 import type {
   PolicyCriterionRule,
   PolicyCriterionRuleEvaluation,

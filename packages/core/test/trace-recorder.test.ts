@@ -55,6 +55,14 @@ test("trace recorder captures explanatory-only tool family on question paths", (
     trace.eventTransition.changedFields.some((field) => field.path === "semantic.toolFamily" && field.after === "read"),
     true,
   );
+  assert.equal(
+    trace.candidateTransition.changedFields.some((field) => field.path === "episodeState" && field.after === "actionable"),
+    true,
+  );
+  assert.equal(
+    trace.frameTransition.changedFields.some((field) => field.path === "responseSpec.kind" && field.after === "choice"),
+    true,
+  );
   assert.equal(trace.semantic?.toolFamily, "read");
   assert.equal(trace.semantic?.confidence, "low");
   assert.deepEqual(trace.semantic?.ontology, {

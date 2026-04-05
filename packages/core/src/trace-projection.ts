@@ -32,6 +32,8 @@ export function toPublicApertureTrace(trace: InternalApertureTrace): PublicApert
     event: trace.event,
     eventTransition: trace.eventTransition,
     evaluation: { kind: "candidate" },
+    candidateTransition: trace.candidateTransition,
+    frameTransition: trace.frameTransition,
     ...(trace.semantic !== undefined ? { semantic: trace.semantic } : {}),
     policyRules: {
       gateEvaluations: trace.policyRules.gateEvaluations.map((evaluation) => ({

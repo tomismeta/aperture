@@ -57,6 +57,11 @@ The trace now preserves that transition explicitly:
 - finalized runtime event
 - field-level diff between them
 
+Candidate traces also preserve the next two transitions:
+
+- raw evaluated candidate -> adjusted candidate
+- previous frame state -> resulting frame state
+
 ### 2. Meaning -> Candidate
 
 [EventEvaluator](../../packages/core/src/event-evaluator.ts) turns the raw event into an `AttentionCandidate`.

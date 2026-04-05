@@ -21,17 +21,27 @@ export type TraceEventTransitionKind =
   | "direct_enriched"
   | "direct_passthrough";
 
-export type TraceEventFieldDiff = {
+export type TraceFieldDiff = {
   path: string;
   before: unknown;
   after: unknown;
 };
+
+export type TraceEventFieldDiff = TraceFieldDiff;
 
 export type TraceEventTransition = {
   kind: TraceEventTransitionKind;
   original: SourceEvent | ApertureEvent;
   finalized: ApertureEvent;
   changedFields: TraceEventFieldDiff[];
+};
+
+export type TraceCandidateTransition = {
+  changedFields: TraceFieldDiff[];
+};
+
+export type TraceFrameTransition = {
+  changedFields: TraceFieldDiff[];
 };
 
 export type TraceDecisionAmbiguity = {

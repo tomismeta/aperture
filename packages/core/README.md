@@ -189,9 +189,16 @@ The public trace now preserves both:
   - the finalized runtime event Aperture actually judged
 - `eventTransition`
   - the original input event, the finalized event, and a field-level diff
+- `candidateTransition`
+  - the field-level diff from raw evaluated candidate to adjusted candidate
+- `frameTransition`
+  - the field-level diff from previous visible frame state to the new result
 
-That makes it easy to inspect exactly what semantic defaulting or source
-normalization changed before judgment began.
+That makes it easy to inspect exactly what changed at each stage:
+
+- source normalization or semantic defaulting
+- heuristic and episode adjustment
+- frame materialization
 
 Those subpaths exist for advanced consumers. The root package remains the
 recommended SDK loop.

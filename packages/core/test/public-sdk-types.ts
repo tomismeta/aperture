@@ -18,13 +18,16 @@ import type {
   ApertureTrace,
   CandidateApertureTrace,
   TraceAttentionPriority,
+  TraceCandidateTransition,
   TraceContinuityEvaluation,
   TraceCriterionEvaluation,
   TraceDecisionAmbiguity,
   TraceDecisionKind,
+  TraceFieldDiff,
   TraceGateEvaluation,
   TraceInterruptCriterion,
   TraceInterruptCriterionVerdict,
+  TraceFrameTransition,
   TraceResultLane,
   TraceSemanticSummary,
 } from "../src/trace.js";
@@ -53,13 +56,16 @@ void (0 as unknown as AttentionView);
 void (0 as unknown as ApertureTrace);
 void (0 as unknown as CandidateApertureTrace);
 void (0 as unknown as TraceAttentionPriority);
+void (0 as unknown as TraceCandidateTransition);
 void (0 as unknown as TraceContinuityEvaluation);
 void (0 as unknown as TraceCriterionEvaluation);
 void (0 as unknown as TraceDecisionAmbiguity);
 void (0 as unknown as TraceDecisionKind);
+void (0 as unknown as TraceFieldDiff);
 void (0 as unknown as TraceGateEvaluation);
 void (0 as unknown as TraceInterruptCriterion);
 void (0 as unknown as TraceInterruptCriterionVerdict);
+void (0 as unknown as TraceFrameTransition);
 void (0 as unknown as TraceResultLane);
 void (0 as unknown as TraceSemanticSummary);
 void (0 as unknown as SemanticInterpretation);

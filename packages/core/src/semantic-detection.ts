@@ -397,8 +397,11 @@ function isRoutineSuccessObservation(text: string): boolean {
 const REPEAT_PHRASES = [
   "still",
   "again",
+  "back again",
   "continues",
   "continuing",
+  "returned",
+  "returning",
   "remains",
   "persisting",
   "retrying",

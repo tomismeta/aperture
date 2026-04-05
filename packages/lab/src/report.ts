@@ -43,12 +43,28 @@ export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
 
   lines.push("## Scenario Results", "");
 
+  lines.push("## Semantic Health", "");
+
+  if (run.semanticHealth.length === 0) {
+    lines.push("- No semantic calibration families recorded yet.", "");
+  } else {
+    for (const family of run.semanticHealth) {
+      lines.push(
+        `- ${family.family}: ${formatPercent(family.healthScore)} (${family.passedScenarios}/${family.scenarios} scenarios)`,
+      );
+    }
+    lines.push("");
+  }
+
   for (const result of run.scenarios) {
     lines.push(`### ${result.scenario.title}`);
     lines.push("");
     lines.push(`- Status: ${result.passed ? "pass" : "fail"}`);
     if (result.scenario.doctrineTags && result.scenario.doctrineTags.length > 0) {
       lines.push(`- Doctrines: ${result.scenario.doctrineTags.join(", ")}`);
+    }
+    if (result.scenario.semanticFamilies && result.scenario.semanticFamilies.length > 0) {
+      lines.push(`- Semantic families: ${result.scenario.semanticFamilies.join(", ")}`);
     }
     lines.push(`- Now: ${result.scorecard.outcomes.finalNowInteractionId ?? "none"}`);
     lines.push(`- Next: ${result.scorecard.outcomes.finalNextInteractionIds.join(", ") || "none"}`);

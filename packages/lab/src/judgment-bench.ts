@@ -8,6 +8,7 @@ import type {
   ReplaySemanticSnapshot,
   ReplayTraceExpectation,
 } from "./scenario.js";
+import type { ReplaySemanticCalibrationFamily } from "./semantic-calibration.js";
 import { runReplayScenario, type ReplayRunResult } from "./runner.js";
 import { scoreReplayRun, type ReplayScorecard } from "./scorecard.js";
 import { loadGoldenScenarios } from "./golden.js";
@@ -29,6 +30,14 @@ export type JudgmentBenchAssertionResult = {
 
 export type JudgmentBenchDoctrineHealth = {
   doctrine: string;
+  scenarios: number;
+  passedScenarios: number;
+  failedScenarios: number;
+  healthScore: number;
+};
+
+export type JudgmentBenchSemanticHealth = {
+  family: ReplaySemanticCalibrationFamily;
   scenarios: number;
   passedScenarios: number;
   failedScenarios: number;
@@ -62,6 +71,7 @@ export type JudgmentBenchRun = {
       totalPresentedSignals: number;
   };
   doctrineHealth: JudgmentBenchDoctrineHealth[];
+  semanticHealth: JudgmentBenchSemanticHealth[];
 };
 
 export async function runJudgmentBench(
@@ -118,6 +128,7 @@ export async function runJudgmentBench(
       totalPresentedSignals: sum(results.map((result) => result.scorecard.signals.presented)),
     },
     doctrineHealth: buildDoctrineHealth(results),
+    semanticHealth: buildSemanticHealth(results),
   };
 }
 
@@ -486,6 +497,36 @@ function buildDoctrineHealth(
       healthScore: entry.scenarios === 0 ? 1 : entry.passedScenarios / entry.scenarios,
     }))
     .sort((left, right) => left.doctrine.localeCompare(right.doctrine));
+}
+
+function buildSemanticHealth(
+  results: JudgmentBenchScenarioResult[],
+): JudgmentBenchSemanticHealth[] {
+  const totals = new Map<
+    ReplaySemanticCalibrationFamily,
+    { scenarios: number; passedScenarios: number }
+  >();
+
+  for (const result of results) {
+    for (const family of result.scenario.semanticFamilies ?? []) {
+      const entry = totals.get(family) ?? { scenarios: 0, passedScenarios: 0 };
+      entry.scenarios += 1;
+      if (result.passed) {
+        entry.passedScenarios += 1;
+      }
+      totals.set(family, entry);
+    }
+  }
+
+  return [...totals.entries()]
+    .map(([family, entry]) => ({
+      family,
+      scenarios: entry.scenarios,
+      passedScenarios: entry.passedScenarios,
+      failedScenarios: entry.scenarios - entry.passedScenarios,
+      healthScore: entry.scenarios === 0 ? 1 : entry.passedScenarios / entry.scenarios,
+    }))
+    .sort((left, right) => left.family.localeCompare(right.family));
 }
 
 function sameStringSet(left: string[], right: string[]): boolean {

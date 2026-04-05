@@ -10,8 +10,11 @@ test("JudgmentBench markdown report includes score and doctrine health", async (
   assert.match(markdown, /# JudgmentBench Summary/);
   assert.match(markdown, /Benchmark score: \*\*/);
   assert.match(markdown, /## Doctrine Health/);
+  assert.match(markdown, /## Semantic Health/);
   assert.match(markdown, /interruption_credibility/);
+  assert.match(markdown, /episode_missed/);
   assert.match(markdown, /Semantic readings:/);
+  assert.match(markdown, /Semantic families:/);
   assert.match(markdown, /Decision readings:/);
   assert.match(markdown, /Ambiguous decisions:/);
   assert.match(markdown, /Ambiguous next -> now:/);

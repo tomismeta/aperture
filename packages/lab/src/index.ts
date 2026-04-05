@@ -494,5 +494,6 @@ export type {
   JudgmentBenchDoctrineHealth,
   JudgmentBenchRun,
   JudgmentBenchScenarioResult,
+  JudgmentBenchSemanticHealth,
 } from "./judgment-bench.js";
 export type { ScenarioPerturbationProfile } from "./perturbation.js";

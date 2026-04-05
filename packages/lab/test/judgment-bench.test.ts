@@ -36,6 +36,9 @@ test("JudgmentBench runs across the golden scenarios and produces a summary", as
   assert.ok(result.scenarios.some((scenario) => scenario.scorecard.explanation.headline !== null));
   assert.ok(result.scenarios.some((scenario) => scenario.run.semantics.length > 0));
   assert.ok(result.scenarios.some((scenario) => scenario.run.decisions.some((decision) => decision.ambiguity !== null && decision.ambiguity !== undefined)));
+  assert.ok(result.semanticHealth.length >= 8);
+  assert.ok(result.semanticHealth.some((family) => family.family === "episode_missed"));
+  assert.ok(result.semanticHealth.some((family) => family.family === "blocking_missed"));
 
   const resurfacingScenario = result.scenarios.find(
     (scenario) => scenario.scenario.id === "golden:semantics:resurfacing-same-episode-reclaims-focus",
@@ -63,4 +66,8 @@ test("JudgmentBench runs across the golden scenarios and produces a summary", as
     questionToolScenario?.assertions.find((assertion) => assertion.name === "decision reading (question with explicit tool context) semantic impact explanatory includes")?.passed,
     true,
   );
+
+  const episodeHealth = result.semanticHealth.find((family) => family.family === "episode_missed");
+  assert.ok(episodeHealth);
+  assert.ok((episodeHealth?.scenarios ?? 0) >= 1);
 });

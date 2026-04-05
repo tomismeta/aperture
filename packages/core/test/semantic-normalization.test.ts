@@ -223,6 +223,24 @@ test("explicit semantic hints override inferred semantics", () => {
   assert.equal(interpretation.provenance?.whyNow, "hint");
 });
 
+test("semantic interpreter recognizes returned issue language as resurfacing the same issue", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:returned-issue",
+    type: "task.updated",
+    taskId: "task:returned-issue",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Deploy issue returned",
+    summary: "The production deploy issue has returned after recovery.",
+    status: "failed",
+  });
+
+  assert.deepEqual(
+    interpretation.relationHints.map((hint) => hint.kind),
+    ["same_issue", "repeats"],
+  );
+});
+
 test("task lifecycle semantics mark inferred provenance consistently", () => {
   const started = interpretSourceEvent({
     id: "evt:started",

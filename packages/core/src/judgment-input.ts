@@ -9,6 +9,17 @@ import type { SemanticConfidence } from "./semantic-types.js";
 
 export type SemanticEvidenceStrength = "weak" | "qualified" | "strong";
 
+/**
+ * Single semantic-to-judgment seam for routed events.
+ *
+ * Every `AttentionCandidate` carries `judgmentInput`. It is intentionally
+ * smaller than full semantics and gives policy, ambiguity handling, planning,
+ * and trace one compiled place to read:
+ *
+ * - ontology
+ * - semantic evidence strength from confidence + source
+ * - blocked-like status diagnostics
+ */
 export type AttentionJudgmentInput = {
   ontology?: SemanticOntologyDiagnostic;
   semanticEvidence?: {

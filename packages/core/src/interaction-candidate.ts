@@ -11,6 +11,19 @@ import type { SemanticRelationHint } from "./semantic-types.js";
 
 export type AttentionPriority = "background" | "normal" | "high";
 
+/**
+ * Attention claim handed into judgment.
+ *
+ * This is the first fully core-owned routing artifact. It combines:
+ *
+ * - canonical event facts
+ * - frame-facing interaction shape
+ * - compiled semantic judgment input
+ * - continuity metadata
+ *
+ * After this point, routing should build on candidate + evidence rather than
+ * reaching back into source-native shapes.
+ */
 export type AttentionCandidate = {
   taskId: string;
   interactionId: string;

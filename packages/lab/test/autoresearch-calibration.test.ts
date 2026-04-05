@@ -154,6 +154,9 @@ test("promoted calibration cases freeze corrected expectations and evaluate reru
         intentFrame: 1,
         toolFamily: 0,
         consequence: 1,
+        blocking: 0,
+        episode: 0,
+        confidence: 0,
       },
     },
     disagreements: [
@@ -190,6 +193,7 @@ test("promoted calibration cases freeze corrected expectations and evaluate reru
   assert.equal(calibrationCase.summary.correctedCount, 2);
   assert.ok(calibrationCase.summary.invariantCount >= 1);
   assert.ok(calibrationCase.targets.includes("packages/core/src/semantic-interpreter.ts"));
+  assert.deepEqual(calibrationCase.semanticFamilies, ["consequence_overread"]);
   assert.equal(calibrationCase.inputPath, "bundles/sample.json");
 
   const casePath = defaultAutoresearchCalibrationCasePath(
@@ -212,7 +216,9 @@ test("promoted calibration cases freeze corrected expectations and evaluate reru
   assert.equal(evaluation.summary.expectationCount, calibrationCase.expectations.length);
   assert.equal(evaluation.summary.correctedMismatchCount, 2);
   assert.equal(evaluation.summary.invariantMismatchCount, 0);
+  assert.equal(evaluation.summary.mismatchSemanticFamilyCounts.consequence_overread, 1);
   assert.equal(evaluation.results[0]?.mismatches.length, 2);
+  assert.deepEqual(evaluation.results[0]?.semanticFamilies, ["consequence_overread"]);
 
   const brief = createAutoresearchOptimizationBrief(evaluation, {
     generatedAt: "2026-03-28T00:00:00.000Z",
@@ -222,6 +228,7 @@ test("promoted calibration cases freeze corrected expectations and evaluate reru
   assert.ok(brief.priorities.some((entry) => entry.focusArea === "intentFrame"));
 
   assert.match(renderAutoresearchCalibrationMarkdown(evaluation), /Autoresearch Calibration Report/);
+  assert.match(renderAutoresearchCalibrationMarkdown(evaluation), /Semantic Families/);
   assert.match(renderAutoresearchOptimizationMarkdown(brief), /Autoresearch Optimization Brief/);
 });
 
@@ -253,6 +260,9 @@ test("loadAutoresearchCalibrationCases includes extra directories in addition to
         intentFrame: 1,
         toolFamily: 0,
         consequence: 0,
+        blocking: 0,
+        episode: 0,
+        confidence: 0,
       },
     },
     disagreements: [

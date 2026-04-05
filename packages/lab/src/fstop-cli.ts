@@ -659,11 +659,13 @@ async function runCalibrationCli(command: CalibrationCommand, argv: string[]): P
       correctedCount: calibrationCase.summary.correctedCount,
       invariantCount: calibrationCase.summary.invariantCount,
       targets: calibrationCase.targets,
+      semanticFamilies: calibrationCase.semanticFamilies,
     }, [
       `Promoted calibration case for ${calibrationCase.sessionId}.`,
       `Case: ${outputPath}`,
       `Corrected expectations: ${calibrationCase.summary.correctedCount}`,
       `Invariant expectations: ${calibrationCase.summary.invariantCount}`,
+      `Semantic families: ${calibrationCase.semanticFamilies.join(", ") || "(none)"}`,
     ]);
     return;
   }
@@ -688,11 +690,16 @@ async function runCalibrationCli(command: CalibrationCommand, argv: string[]): P
       mismatchCount: report.summary.mismatchCount,
       correctedMismatchCount: report.summary.correctedMismatchCount,
       invariantMismatchCount: report.summary.invariantMismatchCount,
+      mismatchSemanticFamilyCounts: report.summary.mismatchSemanticFamilyCounts,
     }, [
       `Autoresearch calibration evaluated ${report.summary.caseCount} case(s).`,
       `Report: ${outputPath}`,
       `Summary: ${markdownPath}`,
       `Mismatches: ${report.summary.mismatchCount}/${report.summary.expectationCount}`,
+      `Semantic families: ${Object.entries(report.summary.mismatchSemanticFamilyCounts)
+        .filter(([, count]) => count > 0)
+        .map(([family, count]) => `${family}=${count}`)
+        .join(", ") || "(none)"}`,
     ]);
     return;
   }
@@ -716,6 +723,7 @@ async function runCalibrationCli(command: CalibrationCommand, argv: string[]): P
     mismatchCount: report.summary.mismatchCount,
     correctedMismatchCount: report.summary.correctedMismatchCount,
     invariantMismatchCount: report.summary.invariantMismatchCount,
+    mismatchSemanticFamilyCounts: report.summary.mismatchSemanticFamilyCounts,
     priorities: brief.priorities.slice(0, 5).map((priority) => ({
       focusArea: priority.focusArea,
       mismatchCount: priority.mismatchCount,
@@ -729,6 +737,10 @@ async function runCalibrationCli(command: CalibrationCommand, argv: string[]): P
     `Brief: ${briefOutputPath}`,
     `Brief summary: ${briefMarkdownPath}`,
     `Mismatches: ${report.summary.mismatchCount}/${report.summary.expectationCount}`,
+    `Semantic families: ${Object.entries(report.summary.mismatchSemanticFamilyCounts)
+      .filter(([, count]) => count > 0)
+      .map(([family, count]) => `${family}=${count}`)
+      .join(", ") || "(none)"}`,
   ]);
 }
 

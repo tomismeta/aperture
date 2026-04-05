@@ -31,6 +31,9 @@ test("offline review batch report aggregates counts across entries", () => {
         intentFrame: 2,
         toolFamily: 0,
         consequence: 1,
+        blocking: 0,
+        episode: 0,
+        confidence: 0,
       },
       recommendationCounts: {
         promote: 2,
@@ -68,6 +71,9 @@ test("offline review batch report aggregates counts across entries", () => {
         intentFrame: 0,
         toolFamily: 0,
         consequence: 0,
+        blocking: 0,
+        episode: 0,
+        confidence: 0,
       },
       recommendationCounts: {
         promote: 0,
@@ -89,6 +95,9 @@ test("offline review batch report aggregates counts across entries", () => {
         intentFrame: 0,
         toolFamily: 0,
         consequence: 0,
+        blocking: 0,
+        episode: 0,
+        confidence: 0,
       },
       recommendationCounts: {
         promote: 0,

@@ -17,6 +17,10 @@ import {
 } from "./offline-review.js";
 import { loadReplayBundleFromFStopInputFile } from "./fstop-session.js";
 import {
+  SEMANTIC_CALIBRATION_FAMILIES,
+  type ReplaySemanticCalibrationFamily,
+} from "./semantic-calibration.js";
+import {
   createSessionBundle,
   runSessionBundle,
 } from "./session-bundle.js";
@@ -37,6 +41,7 @@ export const DEFAULT_AUTORESEARCH_ALLOWED_EDIT_PATHS = [
   "packages/core/src/semantic-detection.ts",
   "packages/core/src/semantic-interpreter.ts",
   "packages/core/src/semantic-language.ts",
+  "packages/core/src/semantic-ontology.ts",
   "packages/lab/src/offline-review.ts",
 ] as const;
 export const DEFAULT_AUTORESEARCH_EVALUATION_COMMANDS = [
@@ -91,6 +96,7 @@ export type AutoresearchCalibrationCase = {
   inputPath: string;
   bundlePath?: string;
   targets: string[];
+  semanticFamilies: ReplaySemanticCalibrationFamily[];
   source: {
     reportPath: string;
     reviewer?: string;
@@ -123,6 +129,7 @@ export type AutoresearchCalibrationCaseResult = {
   sessionId: string;
   title: string;
   targets: string[];
+  semanticFamilies: ReplaySemanticCalibrationFamily[];
   summary: {
     expectationCount: number;
     correctedCount: number;
@@ -149,6 +156,7 @@ export type AutoresearchCalibrationReport = {
     invariantMismatchCount: number;
     splitCounts: Record<AutoresearchCalibrationSplit, number>;
     mismatchFocusAreaCounts: Record<OfflineReviewFocusArea, number>;
+    mismatchSemanticFamilyCounts: Record<ReplaySemanticCalibrationFamily, number>;
   };
   results: AutoresearchCalibrationCaseResult[];
 };
@@ -295,6 +303,14 @@ export async function promoteOfflineReviewReportToCalibrationCase(
     }
   }
 
+  const semanticFamilies = collectSemanticFamilies(
+    selectedDisagreements.map((disagreement) => ({
+      focusArea: disagreement.focusArea,
+      apertureValue: disagreement.apertureValue,
+      expectedValue: disagreement.expectedValue,
+    })),
+  );
+
   return {
     schemaVersion: AUTORESEARCH_CALIBRATION_CASE_SCHEMA_VERSION,
     promotedAt: options.generatedAt ?? new Date().toISOString(),
@@ -303,6 +319,7 @@ export async function promoteOfflineReviewReportToCalibrationCase(
     title: report.bundle.title,
     inputPath,
     targets: [...recommendationTargets].sort(),
+    semanticFamilies,
     source: {
       reportPath: resolveRepoRelativePath(reportPath, repoRoot),
       ...(report.review.reviewer ? { reviewer: report.review.reviewer } : {}),
@@ -393,6 +410,7 @@ export async function evaluateAutoresearchCalibrationCases(
     heldout: 0,
   } satisfies Record<AutoresearchCalibrationSplit, number>;
   const mismatchFocusAreaCounts = createOfflineReviewFocusAreaCounts();
+  const mismatchSemanticFamilyCounts = createSemanticFamilyCounts();
   let expectationCount = 0;
   let matchedCount = 0;
   let mismatchCount = 0;
@@ -415,6 +433,13 @@ export async function evaluateAutoresearchCalibrationCases(
     invariantMismatchCount += result.summary.invariantMismatchCount;
     for (const mismatch of result.mismatches) {
       mismatchFocusAreaCounts[mismatch.focusArea] += 1;
+      for (const family of deriveSemanticFamiliesForDifference(
+        mismatch.focusArea,
+        mismatch.currentValue,
+        mismatch.expectedValue,
+      )) {
+        mismatchSemanticFamilyCounts[family] += 1;
+      }
     }
   }
 
@@ -432,6 +457,7 @@ export async function evaluateAutoresearchCalibrationCases(
       invariantMismatchCount,
       splitCounts,
       mismatchFocusAreaCounts,
+      mismatchSemanticFamilyCounts,
     },
     results,
   };
@@ -571,6 +597,12 @@ export function renderAutoresearchCalibrationMarkdown(
     lines.push(`- ${focusArea}: ${report.summary.mismatchFocusAreaCounts[focusArea]}`);
   }
 
+  lines.push("", "## Semantic Families", "");
+
+  for (const family of SEMANTIC_CALIBRATION_FAMILIES) {
+    lines.push(`- ${family}: ${report.summary.mismatchSemanticFamilyCounts[family]}`);
+  }
+
   lines.push("", "## Results", "");
 
   for (const result of report.results) {
@@ -578,6 +610,7 @@ export function renderAutoresearchCalibrationMarkdown(
     lines.push("");
     lines.push(`- split: ${result.split}`);
     lines.push(`- targets: ${result.targets.join(", ") || "(none)"}`);
+    lines.push(`- semantic families: ${result.semanticFamilies.join(", ") || "(none)"}`);
     lines.push(`- mismatches: ${result.summary.mismatchCount}/${result.summary.expectationCount}`);
     lines.push(`- corrected mismatches: ${result.summary.correctedMismatchCount}`);
     lines.push(`- invariant mismatches: ${result.summary.invariantMismatchCount}`);
@@ -719,6 +752,7 @@ async function evaluateAutoresearchCalibrationCase(
     sessionId: calibrationCase.sessionId,
     title: calibrationCase.title,
     targets: calibrationCase.targets,
+    semanticFamilies: calibrationCase.semanticFamilies,
     summary: {
       expectationCount: calibrationCase.expectations.length,
       correctedCount: calibrationCase.summary.correctedCount,
@@ -816,13 +850,13 @@ function validateAutoresearchCalibrationCase(value: unknown): AutoresearchCalibr
   const sessionId = value.sessionId as string;
   const title = value.title as string;
   const targets = value.targets as string[];
+  const semanticFamilies = Array.isArray(value.semanticFamilies)
+    ? value.semanticFamilies.filter(isSemanticCalibrationFamily)
+    : [];
   const source = value.source as Record<string, unknown>;
   const summary = value.summary as Record<string, unknown>;
   const expectations = value.expectations as AutoresearchCalibrationExpectation[];
   const focusAreaCounts = summary.focusAreaCounts as Record<string, unknown>;
-  if (!DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS.every((focusArea) => typeof focusAreaCounts[focusArea] === "number")) {
-    return null;
-  }
   return {
     schemaVersion: AUTORESEARCH_CALIBRATION_CASE_SCHEMA_VERSION,
     promotedAt,
@@ -832,6 +866,7 @@ function validateAutoresearchCalibrationCase(value: unknown): AutoresearchCalibr
     inputPath,
     ...(typeof value.bundlePath === "string" ? { bundlePath: value.bundlePath } : {}),
     targets: [...targets],
+    semanticFamilies,
     source: {
       reportPath: source.reportPath as string,
       ...(typeof source.reviewer === "string" ? { reviewer: source.reviewer } : {}),
@@ -965,7 +1000,14 @@ function validateOfflineReviewDisagreement(value: unknown): OfflineReviewDisagre
 function invariantFocusAreasForStep(
   selectedFocusAreas: Set<OfflineReviewFocusArea>,
 ): OfflineReviewFocusArea[] {
-  const invariantCandidates: OfflineReviewFocusArea[] = ["status", "toolFamily", "consequence"];
+  const invariantCandidates: OfflineReviewFocusArea[] = [
+    "status",
+    "toolFamily",
+    "consequence",
+    "blocking",
+    "episode",
+    "confidence",
+  ];
   return invariantCandidates.filter((focusArea) => !selectedFocusAreas.has(focusArea));
 }
 
@@ -989,14 +1031,15 @@ function resolveRepoRelativePath(filePath: string, repoRoot: string): string {
 }
 
 function createOfflineReviewFocusAreaCounts(): Record<OfflineReviewFocusArea, number> {
-  return {
-    title: 0,
-    summary: 0,
-    status: 0,
-    intentFrame: 0,
-    toolFamily: 0,
-    consequence: 0,
-  };
+  return Object.fromEntries(
+    DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS.map((focusArea) => [focusArea, 0]),
+  ) as Record<OfflineReviewFocusArea, number>;
+}
+
+function createSemanticFamilyCounts(): Record<ReplaySemanticCalibrationFamily, number> {
+  return Object.fromEntries(
+    SEMANTIC_CALIBRATION_FAMILIES.map((family) => [family, 0]),
+  ) as Record<ReplaySemanticCalibrationFamily, number>;
 }
 
 function createFocusAreaCountsFromRecord(
@@ -1015,6 +1058,13 @@ function isCalibrationSplit(value: unknown): value is AutoresearchCalibrationSpl
 
 function isOfflineReviewFocusArea(value: unknown): value is OfflineReviewFocusArea {
   return typeof value === "string" && DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS.includes(value as OfflineReviewFocusArea);
+}
+
+function isSemanticCalibrationFamily(
+  value: unknown,
+): value is ReplaySemanticCalibrationFamily {
+  return typeof value === "string"
+    && (SEMANTIC_CALIBRATION_FAMILIES as readonly string[]).includes(value);
 }
 
 function isOfflineReviewConfidence(value: unknown): value is OfflineReviewConfidence {
@@ -1041,6 +1091,141 @@ function confidenceRank(value: OfflineReviewConfidence): number {
     case "low":
       return 1;
   }
+}
+
+function collectSemanticFamilies(
+  entries: Array<{
+    focusArea: OfflineReviewFocusArea;
+    apertureValue: string | string[] | boolean | null;
+    expectedValue: string | string[] | boolean | null;
+  }>,
+): ReplaySemanticCalibrationFamily[] {
+  const families = new Set<ReplaySemanticCalibrationFamily>();
+
+  for (const entry of entries) {
+    for (const family of deriveSemanticFamiliesForDifference(
+      entry.focusArea,
+      entry.apertureValue,
+      entry.expectedValue,
+    )) {
+      families.add(family);
+    }
+  }
+
+  return [...families].sort();
+}
+
+function deriveSemanticFamiliesForDifference(
+  focusArea: OfflineReviewFocusArea,
+  apertureValue: string | string[] | boolean | null,
+  expectedValue: string | string[] | boolean | null,
+): ReplaySemanticCalibrationFamily[] {
+  switch (focusArea) {
+    case "blocking":
+      return ["blocking_missed"];
+    case "episode":
+      return ["episode_missed"];
+    case "confidence": {
+      const current = readConfidenceLevel(apertureValue);
+      const expected = readConfidenceLevel(expectedValue);
+      if (current === null || expected === null) {
+        return [];
+      }
+      const currentRank = confidenceRank(current);
+      const expectedRank = confidenceRank(expected);
+      if (currentRank > expectedRank) {
+        return ["confidence_too_high"];
+      }
+      if (currentRank < expectedRank) {
+        return ["confidence_too_low"];
+      }
+      return [];
+    }
+    case "consequence": {
+      const current = readConsequenceLevel(apertureValue);
+      const expected = readConsequenceLevel(expectedValue);
+      if (current === null || expected === null) {
+        return [];
+      }
+      const currentRank = consequenceRank(current);
+      const expectedRank = consequenceRank(expected);
+      if (currentRank > expectedRank) {
+        return ["consequence_overread"];
+      }
+      if (currentRank < expectedRank) {
+        return ["consequence_underread"];
+      }
+      return [];
+    }
+    case "intentFrame": {
+      const current = readIntentFrame(apertureValue);
+      const expected = readIntentFrame(expectedValue);
+      if (current === null || expected === null) {
+        return [];
+      }
+      const currentAskLike = isAskLikeIntentFrame(current);
+      const expectedAskLike = isAskLikeIntentFrame(expected);
+      if (currentAskLike && !expectedAskLike) {
+        return ["ask_overread"];
+      }
+      if (!currentAskLike && expectedAskLike) {
+        return ["ask_missed"];
+      }
+      return [];
+    }
+    default:
+      return [];
+  }
+}
+
+function readConfidenceLevel(
+  value: string | string[] | boolean | null,
+): OfflineReviewConfidence | null {
+  if (value === "high" || value === "medium" || value === "low") {
+    return value;
+  }
+  return null;
+}
+
+function readConsequenceLevel(
+  value: string | string[] | boolean | null,
+): "low" | "medium" | "high" | null {
+  if (value === "low" || value === "medium" || value === "high") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    const annotated = trimmed.match(/^(low|medium|high) consequence\s*;/);
+    if (annotated?.[1] === "low" || annotated?.[1] === "medium" || annotated?.[1] === "high") {
+      return annotated[1];
+    }
+  }
+
+  return null;
+}
+
+function consequenceRank(value: "low" | "medium" | "high"): number {
+  switch (value) {
+    case "low":
+      return 1;
+    case "medium":
+      return 2;
+    case "high":
+      return 3;
+  }
+}
+
+function readIntentFrame(
+  value: string | string[] | boolean | null,
+): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function isAskLikeIntentFrame(value: string): boolean {
+  return value === "approval_request"
+    || value === "question_request"
+    || value === "form_request";
 }
 
 async function readJsonFilesRecursive(directory: string): Promise<string[]> {

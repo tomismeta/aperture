@@ -1,7 +1,14 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import type { SemanticConfidence, SemanticConsequenceLevel, SemanticIntentFrame } from "@tomismeta/aperture-core/semantic";
+import {
+  readSemanticOntologyDiagnostic,
+  type SemanticConfidence,
+  type SemanticConsequenceLevel,
+  type SemanticIntentFrame,
+  type SemanticOntologyBlocking,
+  type SemanticOntologyEpisode,
+} from "@tomismeta/aperture-core/semantic";
 
 import { extractJsonCandidate } from "./json-utils.js";
 import type { ReplayDecisionSnapshot, ReplayObservationStep, ReplaySemanticSnapshot } from "./scenario.js";
@@ -76,6 +83,9 @@ export const DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS = [
   "intentFrame",
   "toolFamily",
   "consequence",
+  "blocking",
+  "episode",
+  "confidence",
 ] as const satisfies readonly OfflineReviewFocusArea[];
 
 export type OfflineReviewFocusArea =
@@ -84,7 +94,10 @@ export type OfflineReviewFocusArea =
   | "status"
   | "intentFrame"
   | "toolFamily"
-  | "consequence";
+  | "consequence"
+  | "blocking"
+  | "episode"
+  | "confidence";
 
 export type OfflineReviewConfidence = SemanticConfidence;
 
@@ -121,6 +134,9 @@ const OFFLINE_REVIEW_FOCUS_AREA_OWNER: Record<
   intentFrame: "semantic",
   toolFamily: "semantic",
   consequence: "semantic",
+  blocking: "semantic",
+  episode: "semantic",
+  confidence: "semantic",
 };
 const OFFLINE_REVIEW_RECOMMENDATION_TARGETS: Record<
   OfflineReviewFocusArea,
@@ -152,6 +168,20 @@ const OFFLINE_REVIEW_RECOMMENDATION_TARGETS: Record<
     "packages/core/src/semantic-detection.ts",
     "packages/core/src/semantic-interpreter.ts",
     "packages/core/src/semantic-language.ts",
+    "packages/core/src/semantic-ontology.ts",
+  ],
+  blocking: [
+    "packages/core/src/semantic-interpreter.ts",
+    "packages/core/src/semantic-ontology.ts",
+  ],
+  episode: [
+    "packages/core/src/semantic-detection.ts",
+    "packages/core/src/semantic-interpreter.ts",
+    "packages/core/src/semantic-ontology.ts",
+  ],
+  confidence: [
+    "packages/core/src/semantic-interpreter.ts",
+    "packages/core/src/semantic-ontology.ts",
   ],
 };
 const OFFLINE_REVIEW_RECOMMENDATION_SUMMARY: Record<OfflineReviewFocusArea, string> = {
@@ -161,6 +191,9 @@ const OFFLINE_REVIEW_RECOMMENDATION_SUMMARY: Record<OfflineReviewFocusArea, stri
   intentFrame: "Tighten semantic intent-frame reads on imported external events.",
   toolFamily: "Tighten tool-family inference and preservation on imported events.",
   consequence: "Tighten consequence-band calibration for imported external events.",
+  blocking: "Tighten blocking-vs-waiting-vs-non-blocking reads on imported external events.",
+  episode: "Tighten same-issue, resurfacing, and resolution reads on imported external events.",
+  confidence: "Tighten confidence calibration for imported external events.",
 };
 
 export type OfflineReviewPreparedStep = {
@@ -186,6 +219,8 @@ export type OfflineReviewPreparedStep = {
     intentFrame: SemanticIntentFrame | null;
     toolFamily: string | null;
     consequence: SemanticConsequenceLevel | null;
+    blocking: SemanticOntologyBlocking | null;
+    episode: SemanticOntologyEpisode | null;
     confidence: SemanticConfidence | null;
     abstained: boolean;
     whyNow: string | null;
@@ -649,6 +684,8 @@ function compactOfflineReviewRead(
     intentFrame: read.intentFrame,
     toolFamily: read.toolFamily,
     consequence: read.consequence,
+    blocking: read.blocking,
+    episode: read.episode,
     confidence: read.confidence,
     abstained: read.abstained,
     whyNow: clipOfflineReviewPromptText(read.whyNow, limits.whyNowLimit),
@@ -1112,7 +1149,7 @@ function buildPreparedSteps(bundle: ReplaySessionBundle): OfflineReviewPreparedS
             toolFamily: readEventStringField(normalized.event, "toolFamily"),
           }
         : null,
-      apertureRead: semantic ? buildSemanticSummary(semantic) : null,
+      apertureRead: semantic ? buildSemanticSummary(step, semantic) : null,
       apertureDecision: decision
         ? {
             evaluationKind: decision.evaluationKind,
@@ -1161,11 +1198,20 @@ function buildSourceEventSummary(step: ReplayObservationStep): OfflineReviewPrep
   };
 }
 
-function buildSemanticSummary(snapshot: ReplaySemanticSnapshot): NonNullable<OfflineReviewPreparedStep["apertureRead"]> {
+function buildSemanticSummary(
+  step: ReplayObservationStep,
+  snapshot: ReplaySemanticSnapshot,
+): NonNullable<OfflineReviewPreparedStep["apertureRead"]> {
+  const ontology = step.kind === "publishSource"
+    ? readSemanticOntologyDiagnostic(step.event, snapshot.interpretation)
+    : null;
+
   return {
     intentFrame: snapshot.interpretation.intentFrame ?? null,
     toolFamily: snapshot.interpretation.toolFamily ?? null,
     consequence: snapshot.interpretation.consequence ?? null,
+    blocking: ontology?.blocking ?? null,
+    episode: ontology?.episode ?? null,
     confidence: snapshot.interpretation.confidence ?? null,
     abstained: snapshot.interpretation.abstained ?? false,
     whyNow: snapshot.interpretation.whyNow ?? null,
@@ -1190,6 +1236,12 @@ export function readOfflineReviewFocusAreaValue(
       return step.apertureRead?.toolFamily ?? null;
     case "consequence":
       return step.apertureRead?.consequence ?? null;
+    case "blocking":
+      return step.apertureRead?.blocking ?? null;
+    case "episode":
+      return step.apertureRead?.episode ?? null;
+    case "confidence":
+      return step.apertureRead?.confidence ?? null;
   }
 }
 
@@ -1338,6 +1390,8 @@ function validatePreparedRead(
       intentFrame: isNullable(isString),
       toolFamily: isNullable(isString),
       consequence: isNullable(isString),
+      blocking: isNullable(isString),
+      episode: isNullable(isString),
       confidence: isNullable(isString),
       whyNow: isNullable(isString),
     })

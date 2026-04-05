@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import {
+  DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS,
   DEFAULT_OFFLINE_REVIEW_RECOMMENDATIONS_DIR,
   DEFAULT_OFFLINE_REVIEW_RESULTS_DIR,
   type OfflineReviewFocusArea,
@@ -221,12 +222,7 @@ export function summarizeRecommendationItems(
 }
 
 function createFocusAreaCounts(): Record<OfflineReviewFocusArea, number> {
-  return {
-    title: 0,
-    summary: 0,
-    status: 0,
-    intentFrame: 0,
-    toolFamily: 0,
-    consequence: 0,
-  };
+  return Object.fromEntries(
+    DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS.map((focusArea) => [focusArea, 0]),
+  ) as Record<OfflineReviewFocusArea, number>;
 }

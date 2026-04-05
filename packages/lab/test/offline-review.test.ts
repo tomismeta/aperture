@@ -122,7 +122,21 @@ test("prepareOfflineReviewArtifact distills bundle steps into review-ready snaps
   assert.match(artifact.steps[0]?.sourceExcerpt ?? "", /MoneyWidget crashes on invalid provider responses/);
   assert.equal(artifact.steps[1]?.apertureRead?.toolFamily, "bash");
   assert.equal(artifact.steps[2]?.apertureRead?.intentFrame, "failure");
+  assert.equal(artifact.steps[2]?.apertureRead?.blocking, "non_blocking");
+  assert.equal(artifact.steps[2]?.apertureRead?.episode, "unknown");
+  assert.equal(artifact.steps[2]?.apertureRead?.confidence, "high");
   assert.equal(validateOfflineReviewArtifact(artifact)?.schemaVersion, 1);
+});
+
+test("readOfflineReviewFocusAreaValue exposes ontology-backed blocking, episode, and confidence", () => {
+  const bundle = createSessionBundleFromSweSmithRow(SAMPLE_ROW);
+  const artifact = prepareOfflineReviewArtifact(bundle);
+  const failedStep = artifact.steps.find((step) => step.sourceEvent?.status === "failed");
+
+  assert.ok(failedStep);
+  assert.equal(readOfflineReviewFocusAreaValue(failedStep!, "blocking"), "non_blocking");
+  assert.equal(readOfflineReviewFocusAreaValue(failedStep!, "episode"), "unknown");
+  assert.equal(readOfflineReviewFocusAreaValue(failedStep!, "confidence"), "high");
 });
 
 test("compareOfflineReviewArtifact reports only real disagreements", () => {
@@ -475,6 +489,7 @@ test("recommendation reports cluster disagreements into bounded targets", () => 
     "packages/core/src/semantic-detection.ts",
     "packages/core/src/semantic-interpreter.ts",
     "packages/core/src/semantic-language.ts",
+    "packages/core/src/semantic-ontology.ts",
   ]);
   assert.match(markdown, /Offline Review Recommendations/);
   assert.match(markdown, /consequence/);

@@ -53,6 +53,9 @@ test("collectAutoresearchProposalSignals clusters repeated promoted disagreement
           intentFrame: 1,
           toolFamily: 0,
           consequence: 0,
+          blocking: 0,
+          episode: 0,
+          confidence: 0,
         },
       },
       disagreements: [
@@ -149,6 +152,9 @@ test("collectAutoresearchProposalSignals clusters repeated promoted disagreement
         intentFrame: 2,
         toolFamily: 0,
         consequence: 0,
+        blocking: 0,
+        episode: 0,
+        confidence: 0,
       },
       recommendationCounts: {
         promote: 2,
@@ -171,6 +177,9 @@ test("collectAutoresearchProposalSignals clusters repeated promoted disagreement
           intentFrame: 1,
           toolFamily: 0,
           consequence: 0,
+          blocking: 0,
+          episode: 0,
+          confidence: 0,
         },
         recommendationCounts: {
           promote: 1,
@@ -193,6 +202,9 @@ test("collectAutoresearchProposalSignals clusters repeated promoted disagreement
           intentFrame: 1,
           toolFamily: 0,
           consequence: 0,
+          blocking: 0,
+          episode: 0,
+          confidence: 0,
         },
         recommendationCounts: {
           promote: 1,

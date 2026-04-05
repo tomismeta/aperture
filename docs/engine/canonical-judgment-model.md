@@ -30,7 +30,9 @@ with sharp boundaries.
 {
   "pipeline": [
     "SourceEvent",
+    "SemanticInterpretation",
     "ApertureEvent",
+    "AttentionJudgmentInput",
     "AttentionCandidate",
     "AttentionEvidenceContext",
     "AttentionDecision",
@@ -49,9 +51,17 @@ with sharp boundaries.
     "role": "adapter-facing source fact model",
     "question": "What happened in the source system?"
   },
+  "SemanticInterpretation": {
+    "role": "core semantic meaning model",
+    "question": "What does Aperture infer this event means?"
+  },
   "ApertureEvent": {
     "role": "core semantic event model",
     "question": "What does Aperture believe this event means?"
+  },
+  "AttentionJudgmentInput": {
+    "role": "compiled semantic/evidence seam",
+    "question": "What compact semantic read should judgment consume?"
   },
   "AttentionCandidate": {
     "role": "attention claim model",
@@ -123,21 +133,25 @@ The core package has three meaningful input/output seams.
 
 ## The Right Number Of Schemas
 
-The current model effectively has six major schemas plus a feedback family:
+The current model effectively has eight major schemas plus a feedback family:
 
 1. `SourceEvent`
-2. `ApertureEvent`
-3. `AttentionCandidate`
-4. `AttentionEvidenceContext`
-5. `AttentionDecision`
-6. `AttentionFrame / AttentionView`
-7. `AttentionResponse + signals + summaries`
+2. `SemanticInterpretation`
+3. `ApertureEvent`
+4. `AttentionJudgmentInput`
+5. `AttentionCandidate`
+6. `AttentionEvidenceContext`
+7. `AttentionDecision`
+8. `AttentionFrame / AttentionView`
+9. `AttentionResponse + signals + summaries`
 
 That is the right order of magnitude for this engine.
 
 We should not collapse this to one schema. Doing so would blur:
 
 - source facts
+- semantic interpretation
+- compiled semantic evidence
 - semantic meaning
 - judgment state
 - surfaced state
@@ -152,9 +166,13 @@ The main recommendation is:
 - keep the staged model
 - make the judgment handoff more explicit
 
-Today, the engine already has an internal `AttentionDecision` type in
-`JudgmentCoordinator`. The missing piece is making the decision artifact the
-clear shared handoff between:
+Today, the engine already has:
+
+- an explicit semantic handoff in `AttentionJudgmentInput`
+- an internal `AttentionDecision` type in `JudgmentCoordinator`
+
+The remaining missing piece is making the decision artifact the clear shared
+handoff between:
 
 - judgment
 - trace
@@ -262,8 +280,13 @@ flattening the whole pipeline.
 
 - `SourceEvent`
   - `packages/core/src/source-event.ts`
+- `SemanticInterpretation`
+  - `packages/core/src/semantic-types.ts`
+  - `packages/core/src/semantic-interpreter.ts`
 - `ApertureEvent`
   - `packages/core/src/events.ts`
+- `AttentionJudgmentInput`
+  - `packages/core/src/judgment-input.ts`
 - `AttentionCandidate`
   - `packages/core/src/interaction-candidate.ts`
 - `AttentionEvidenceContext`

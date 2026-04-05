@@ -207,8 +207,8 @@ test("semantic abstention stays ambiguity-bearing without changing task.updated 
   }
 
   assert.deepEqual(candidateShape(abstained.candidate), candidateShape(baseline.candidate));
-  assert.equal(abstained.candidate.semanticConfidence, "high");
-  assert.equal(abstained.candidate.semanticAbstained, true);
+  assert.equal(abstained.candidate.judgmentInput.semanticEvidence?.confidence, "high");
+  assert.equal(abstained.candidate.judgmentInput.semanticEvidence?.abstained, true);
 });
 
 test("bounded tool-family use stays available for approval requests", () => {

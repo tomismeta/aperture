@@ -11,7 +11,18 @@ This document answers a narrower question:
 
 ## Engine Hierarchy
 
-The hot path now reads as:
+There is one important semantic handoff before the lane hierarchy starts:
+
+`SourceEvent/ApertureEvent -> semantics -> AttentionJudgmentInput -> AttentionCandidate`
+
+That seam mainly lives in:
+
+- `packages/core/src/semantic-interpreter.ts`
+- `packages/core/src/semantic-normalizer.ts`
+- `packages/core/src/judgment-input.ts`
+- `packages/core/src/event-evaluator.ts`
+
+After that handoff, the hot path reads as:
 
 1. `evidence`
 2. `policy gates`
@@ -24,6 +35,7 @@ The hot path now reads as:
 
 The key implementation anchors are:
 
+- `AttentionJudgmentInput` in `packages/core/src/judgment-input.ts`
 - `AttentionEvidenceContext` in `packages/core/src/attention-evidence.ts`
 - `AttentionPolicy.evaluateGates(...)` in `packages/core/src/attention-policy.ts`
 - `AttentionPolicy.evaluateInterruptCriterion(...)` in `packages/core/src/attention-policy.ts`
@@ -35,7 +47,7 @@ The key implementation anchors are:
 Each lane owns one kind of decision.
 
 - `evidence`
-  - assembles what the engine knows right now
+  - assembles what the engine knows right now around a candidate
   - examples: current frame, episode state, signal summaries, pressure forecast, surface capabilities
 - `policy gates`
   - decides whether a candidate is eligible for interruptive treatment at all

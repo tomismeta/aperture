@@ -12,7 +12,7 @@ Aperture does not just rank events.
 
 It runs a compact judgment loop:
 
-`event -> candidate -> policy -> value -> pressure -> planning -> attention frame -> human response -> signals -> memory -> next judgment`
+`event -> interpret/normalize -> compile judgment input -> candidate -> policy/value/pressure/planning -> attention frame -> human response -> signals -> memory -> next judgment`
 
 That loop is the product.
 
@@ -20,15 +20,16 @@ That loop is the product.
 
 These are the major engine questions, in order:
 
-1. **`EventEvaluator`** — what attention candidate does this event imply?
-2. **`AttentionAdjustments`** — what bounded in-session nudges should apply from recent signal patterns?
-3. **`EpisodeTracker`** — is this part of an existing decision episode?
-4. **`AttentionPolicy`** — what is allowed?
-5. **`AttentionValue`** — how valuable is human attention for this right now?
-6. **`AttentionPressure`** — how much cognitive load is already building?
-7. **`AttentionPlanner`** — where should this go: `activate`, `queue`, or `ambient`?
-8. **`JudgmentCoordinator`** — compose the judgment into one inspectable decision
-9. **`FramePlanner`** — materialize the chosen interaction into an `AttentionFrame`
+1. **semantic interpretation + normalization** — what does this source event mean canonically?
+2. **`EventEvaluator`** — what attention candidate does this event imply?
+3. **`AttentionAdjustments`** — what bounded in-session nudges should apply from recent signal patterns?
+4. **`EpisodeTracker`** — is this part of an existing decision episode?
+5. **`AttentionPolicy`** — what is allowed?
+6. **`AttentionValue`** — how valuable is human attention for this right now?
+7. **`AttentionPressure`** — how much cognitive load is already building?
+8. **`AttentionPlanner`** — where should this go: `activate`, `queue`, or `ambient`?
+9. **`JudgmentCoordinator`** — compose the judgment into one inspectable decision
+10. **`FramePlanner`** — materialize the chosen interaction into an `AttentionFrame`
 
 In practice, those modules live inside [ApertureCore](../../packages/core/src/aperture-core.ts).
 
@@ -36,7 +37,20 @@ In practice, those modules live inside [ApertureCore](../../packages/core/src/ap
 
 Imagine a new approval arrives from an agent.
 
-### 1. Event -> Candidate
+### 1. Event -> Meaning
+
+If the caller publishes a `SourceEvent`, core first interprets and normalizes it
+into an `ApertureEvent`.
+
+That path lives in:
+
+- [semantic-interpreter.ts](../../packages/core/src/semantic-interpreter.ts)
+- [semantic-normalizer.ts](../../packages/core/src/semantic-normalizer.ts)
+
+If the caller publishes an `ApertureEvent` directly, the engine starts after
+this step.
+
+### 2. Meaning -> Candidate
 
 [EventEvaluator](../../packages/core/src/event-evaluator.ts) turns the raw event into an `AttentionCandidate`.
 
@@ -49,9 +63,17 @@ That candidate includes things like:
 - `blocking`
 - `timestamp`
 
-This is where source facts become Aperture semantics.
+This is also where core compiles `AttentionJudgmentInput`, the small internal
+semantic/evidence seam built from ontology, semantic evidence strength, and
+blocked-like status diagnostics.
 
-### 2. Candidate -> Attention Adjustments
+Status-routing nuance:
+
+- `task.updated.status` remains authoritative for status routing
+- richer semantics can still affect continuity, ambiguity handling, peripheral
+  routing, and trace
+
+### 3. Candidate -> Attention Adjustments
 
 [AttentionAdjustments](../../packages/core/src/attention-adjustments.ts) looks at recent task and global summaries and applies bounded score offsets and rationale.
 
@@ -65,7 +87,7 @@ It does things like:
 
 These are in-session adjustments, not durable memory.
 
-### 3. Candidate -> Episode
+### 4. Candidate -> Episode
 
 [EpisodeTracker](../../packages/core/src/episode-tracker.ts) decides whether this interaction belongs to an existing episode.
 
@@ -77,7 +99,7 @@ Examples:
 - a read/edit/bash chain on the same file
 - a queued episode update that becomes actionable later
 
-### 4. Policy
+### 5. Policy
 
 [AttentionPolicy](../../packages/core/src/attention-policy.ts) answers:
 
@@ -91,7 +113,7 @@ It decides:
 
 This is the hard-guardrail layer.
 
-### 5. Value
+### 6. Value
 
 [AttentionValue](../../packages/core/src/attention-value.ts) answers:
 
@@ -112,7 +134,7 @@ It combines:
 
 This is the main learned scoring layer.
 
-### 6. Pressure
+### 7. Pressure
 
 [AttentionPressure](../../packages/core/src/attention-pressure.ts) answers:
 
@@ -128,7 +150,7 @@ It looks at:
 
 This is how Aperture starts anticipating overload instead of merely reacting to it.
 
-### 7. Planning
+### 8. Planning
 
 [AttentionPlanner](../../packages/core/src/attention-planner.ts) answers:
 
@@ -152,7 +174,7 @@ This is where Aperture reasons over:
 - actionable episodes
 - overload handling
 
-### 8. Coordination
+### 9. Coordination
 
 [JudgmentCoordinator](../../packages/core/src/judgment-coordinator.ts) is the top-level judgment combiner.
 
@@ -164,7 +186,7 @@ It produces one inspectable explanation containing:
 - planner reasons
 - current and candidate scores
 
-### 9. Materialization
+### 10. Materialization
 
 [FramePlanner](../../packages/core/src/frame-planner.ts) turns the chosen interaction into an `AttentionFrame`, and [TaskViewStore](../../packages/core/src/task-view-store.ts) updates task-local state.
 

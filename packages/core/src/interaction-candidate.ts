@@ -6,10 +6,24 @@ import type {
   AttentionResponseSpec,
 } from "./frame.js";
 import type { AttentionActivityClass, SourceRef } from "./events.js";
-import type { SemanticConfidence, SemanticRelationHint } from "./semantic-types.js";
+import type { AttentionJudgmentInput } from "./judgment-input.js";
+import type { SemanticRelationHint } from "./semantic-types.js";
 
 export type AttentionPriority = "background" | "normal" | "high";
 
+/**
+ * Attention claim handed into judgment.
+ *
+ * This is the first fully core-owned routing artifact. It combines:
+ *
+ * - canonical event facts
+ * - frame-facing interaction shape
+ * - compiled semantic judgment input
+ * - continuity metadata
+ *
+ * After this point, routing should build on candidate + evidence rather than
+ * reaching back into source-native shapes.
+ */
 export type AttentionCandidate = {
   taskId: string;
   interactionId: string;
@@ -23,9 +37,8 @@ export type AttentionCandidate = {
   summary?: string;
   context?: AttentionContext;
   provenance?: AttentionProvenance;
+  judgmentInput: AttentionJudgmentInput;
   relationHints?: SemanticRelationHint[];
-  semanticConfidence?: SemanticConfidence;
-  semanticAbstained?: boolean;
   responseSpec: AttentionResponseSpec;
   priority: AttentionPriority;
   blocking: boolean;

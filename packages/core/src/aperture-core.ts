@@ -25,7 +25,7 @@ import { deriveAttentionState, type AttentionState } from "./attention-state.js"
 import { EpisodeTracker, isDormantEpisodeState, readFrameEpisodeId, readFrameEpisodeState } from "./episode-tracker.js";
 import { EventEvaluator } from "./event-evaluator.js";
 import { FramePlanner } from "./frame-planner.js";
-import { JudgmentCoordinator } from "./judgment-coordinator.js";
+import { JudgmentCoordinator, type AttentionDecisionExplanation } from "./judgment-coordinator.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import { AttentionSignalStore, summarizeAttentionSignals } from "./attention-signal-store.js";
 import { loadJudgmentConfig, type JudgmentConfig } from "./judgment-config.js";
@@ -211,6 +211,10 @@ export class ApertureCore {
   }
 
   publish(event: ApertureEvent): AttentionFrame | null {
+    // Live event flow:
+    // `SourceEvent -> normalizeSourceEvent -> ApertureEvent -> EventEvaluator
+    // -> AttentionCandidate -> AttentionJudgmentInput-aware judgment ->
+    // AttentionFrame/AttentionView + trace`
     this.assertValidEvent(event);
     const current = this.getFrame(event.taskId);
     const evidence = this.assembleAttentionEvidenceContext(event.taskId, current);
@@ -259,86 +263,18 @@ export class ApertureCore {
         return result;
       }
       case "candidate": {
-        const candidate = this.episodes.assign(this.heuristics.apply(
+        const candidate = this.prepareCandidateForJudgment(
           evaluation.candidate,
           taskSummary,
           globalSummary,
-        ));
-        const candidateEvidence = this.augmentContinuitySignalSummary(event.taskId, candidate, evidence);
-        const explanation = this.coordinator.explain(evidence.currentFrame, candidate, candidateEvidence);
-        let result: AttentionFrame | null;
-        switch (explanation.decision.kind) {
-          case "auto_approve":
-            result = this.applyAutoResponse(
-              explanation.decision.candidate,
-              explanation.decision.response,
-            );
-            break;
-          case "clear":
-            result = this.applyClear(event.taskId);
-            break;
-          case "ambient":
-            result = this.materializePeripheralFrame(
-              explanation.decision.candidate,
-              "ambient",
-              preAttentionView,
-            );
-            break;
-          case "queue":
-            result = this.materializePeripheralFrame(
-              explanation.decision.candidate,
-              "queue",
-              preAttentionView,
-            );
-            break;
-          case "activate":
-            result =
-              this.shouldRetireSupersededEpisodeFrames(
-                explanation.decision.candidate,
-                preAttentionView,
-              )
-                ? this.commitFrame(
-                    this.applyResponseExpiry(
-                      this.planner.plan(explanation.decision.candidate, evidence.currentFrame),
-                    ),
-                    this.findSupersededEpisodeFrames(
-                      explanation.decision.candidate,
-                      preAttentionView,
-                    ),
-                  )
-                : (() => {
-                    const existingPeripheralFrame = explanation.decision.candidate.episodeId
-                      ? this.findPeripheralEpisodeFrame(explanation.decision.candidate.episodeId, preAttentionView)
-                      : null;
-
-                    if (
-                      existingPeripheralFrame
-                      && this.shouldPromotePeripheralEpisodeFrame(explanation)
-                    ) {
-                      return this.promotePeripheralEpisodeFrame(
-                        explanation.decision.candidate,
-                        existingPeripheralFrame.frame,
-                      );
-                    }
-
-                    return existingPeripheralFrame
-                      ? this.materializePeripheralFrame(
-                          explanation.decision.candidate,
-                          selectPeripheralBucket(
-                            explanation.decision.candidate,
-                            explanation.policy,
-                            evidence.surfaceCapabilities,
-                          ),
-                          preAttentionView,
-                        )
-                      : this.commitFrame(
-                          this.applyResponseExpiry(
-                            this.planner.plan(explanation.decision.candidate, evidence.currentFrame),
-                          ),
-                        );
-                  })();
-            break;
-        }
+        );
+        const explanation = this.explainCandidateDecision(event.taskId, candidate, evidence);
+        const result = this.applyCandidateDecision(
+          event.taskId,
+          explanation,
+          evidence,
+          preAttentionView,
+        );
         const postAttentionView = this.getAttentionView();
         this.notifyTrace(this.traceRecorder.recordCandidate({
           timestamp: this.nowIso(),
@@ -361,6 +297,119 @@ export class ApertureCore {
         return result;
       }
     }
+  }
+
+  private prepareCandidateForJudgment(
+    candidate: AttentionCandidate,
+    taskSummary: AttentionSignalSummary,
+    globalSummary: AttentionSignalSummary,
+  ): AttentionCandidate {
+    // Candidate preparation is one additive path:
+    // raw candidate -> in-session adjustments -> episode assignment.
+    return this.episodes.assign(this.heuristics.apply(
+      candidate,
+      taskSummary,
+      globalSummary,
+    ));
+  }
+
+  private explainCandidateDecision(
+    taskId: string,
+    candidate: AttentionCandidate,
+    evidence: AttentionEvidenceContext,
+  ): AttentionDecisionExplanation {
+    const candidateEvidence = this.augmentContinuitySignalSummary(taskId, candidate, evidence);
+    return this.coordinator.explain(evidence.currentFrame, candidate, candidateEvidence);
+  }
+
+  private applyCandidateDecision(
+    taskId: string,
+    explanation: AttentionDecisionExplanation,
+    evidence: AttentionEvidenceContext,
+    preAttentionView: AttentionView,
+  ): AttentionFrame | null {
+    switch (explanation.decision.kind) {
+      case "auto_approve":
+        return this.applyAutoResponse(
+          explanation.decision.candidate,
+          explanation.decision.response,
+        );
+      case "clear":
+        return this.applyClear(taskId);
+      case "ambient":
+        return this.materializePeripheralFrame(
+          explanation.decision.candidate,
+          "ambient",
+          preAttentionView,
+        );
+      case "queue":
+        return this.materializePeripheralFrame(
+          explanation.decision.candidate,
+          "queue",
+          preAttentionView,
+        );
+      case "activate":
+        return this.applyActivationDecision(explanation, evidence, preAttentionView);
+    }
+  }
+
+  private applyActivationDecision(
+    explanation: AttentionDecisionExplanation,
+    evidence: AttentionEvidenceContext,
+    preAttentionView: AttentionView,
+  ): AttentionFrame | null {
+    if (explanation.decision.kind !== "activate") {
+      return null;
+    }
+
+    const candidate = explanation.decision.candidate;
+
+    if (
+      this.shouldRetireSupersededEpisodeFrames(
+        candidate,
+        preAttentionView,
+      )
+    ) {
+      return this.commitFrame(
+        this.applyResponseExpiry(
+          this.planner.plan(candidate, evidence.currentFrame),
+        ),
+        this.findSupersededEpisodeFrames(
+          candidate,
+          preAttentionView,
+        ),
+      );
+    }
+
+    const existingPeripheralFrame = candidate.episodeId
+      ? this.findPeripheralEpisodeFrame(candidate.episodeId, preAttentionView)
+      : null;
+
+    if (
+      existingPeripheralFrame
+      && this.shouldPromotePeripheralEpisodeFrame(explanation)
+    ) {
+      return this.promotePeripheralEpisodeFrame(
+        candidate,
+        existingPeripheralFrame.frame,
+      );
+    }
+
+    return existingPeripheralFrame
+      ? this.materializePeripheralFrame(
+          candidate,
+          selectPeripheralBucket(
+            candidate,
+            explanation.policy,
+            evidence.surfaceCapabilities,
+          ),
+          preAttentionView,
+        )
+      : this.commitFrame(
+          this.applyResponseExpiry(
+            this.planner.plan(candidate, evidence.currentFrame),
+          ),
+        );
   }
 
   getFrame(taskId: string): AttentionFrame | null {

@@ -11,6 +11,7 @@ import type {
   AttentionFormResponseSpec,
 } from "./frame.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
+import { buildAttentionJudgmentInput } from "./judgment-input.js";
 import { semanticWhyNowForTaskStatus } from "./semantic-language.js";
 import { mergeSemanticProvenance } from "./semantic-provenance.js";
 
@@ -38,7 +39,7 @@ export class EventEvaluator {
             blocking: false,
             timestamp: event.timestamp,
             ...(event.summary !== undefined ? { summary: event.summary } : {}),
-            ...buildSemanticUncertainty(event.semantic),
+            ...buildJudgmentInputFields(event),
           },
         };
       case "task.updated":
@@ -86,7 +87,7 @@ export class EventEvaluator {
       timestamp: event.timestamp,
       ...(event.summary !== undefined ? { summary: event.summary } : {}),
       ...(event.semantic?.relationHints?.length ? { relationHints: event.semantic.relationHints } : {}),
-      ...buildSemanticUncertainty(event.semantic),
+      ...buildJudgmentInputFields(event),
       ...(event.progress !== undefined
         ? {
             context: {
@@ -115,11 +116,11 @@ export class EventEvaluator {
       title: event.title,
       summary: event.summary,
       ...(event.semantic?.relationHints?.length ? { relationHints: event.semantic.relationHints } : {}),
-      ...buildSemanticUncertainty(event.semantic),
       responseSpec,
       priority: this.priorityForHumanInput(event),
       blocking: true,
       timestamp: event.timestamp,
+      ...buildJudgmentInputFields(event),
       ...(event.context !== undefined ? { context: event.context } : {}),
       ...(() => {
         const provenance = mergeSemanticProvenance({
@@ -277,15 +278,13 @@ function buildStatusProvenance(event: TaskUpdatedEvent): { provenance: { whyNow?
   };
 }
 
-function buildSemanticUncertainty(
-  semantic: ApertureEvent["semantic"] | undefined,
-): Pick<AttentionCandidate, "semanticConfidence" | "semanticAbstained"> | {} {
-  if (!semantic) {
-    return {};
-  }
-
+function buildJudgmentInputFields(
+  event: ApertureEvent,
+): Pick<AttentionCandidate, "judgmentInput"> {
+  // All routed candidates receive the same compiled semantic/evidence seam,
+  // regardless of whether the event began as a source event or a direct
+  // canonical Aperture event.
   return {
-    semanticConfidence: semantic.confidence,
-    ...(semantic.abstained === true ? { semanticAbstained: true } : {}),
+    judgmentInput: buildAttentionJudgmentInput(event),
   };
 }

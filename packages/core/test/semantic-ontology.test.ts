@@ -29,7 +29,7 @@ test("approval requests project to a narrow ontology diagnostic", () => {
   });
 });
 
-test("waiting status stays a status-shaped, waiting ontology read", () => {
+test("passive waiting status stays a high-confidence status-shaped waiting ontology read", () => {
   const diagnostic = readSemanticOntologyDiagnostic({
     id: "evt:ontology:waiting",
     taskId: "task:ontology:waiting",
@@ -46,8 +46,8 @@ test("waiting status stays a status-shaped, waiting ontology read", () => {
     consequence: "low",
     blocking: "waiting",
     episode: "unknown",
-    confidence: "low",
-    source: "inferred",
+    confidence: "high",
+    source: "explicit",
   });
 });
 
@@ -118,6 +118,28 @@ test("request-like semantic hints can promote status-shaped events into request-
     episode: "unknown",
     confidence: "high",
     source: "hinted",
+  });
+});
+
+test("operator-directed status asks stay inferred in ontology even when the lifecycle fact is explicit", () => {
+  const diagnostic = readSemanticOntologyDiagnostic({
+    id: "evt:ontology:direct-ask-status",
+    taskId: "task:ontology:direct-ask-status",
+    type: "task.updated",
+    timestamp,
+    title: "Need your approval before continuing",
+    summary: "Can you approve the deploy so work can continue?",
+    status: "waiting",
+  });
+
+  assert.deepEqual(diagnostic, {
+    ask: "status",
+    activity: "task_progress",
+    consequence: "low",
+    blocking: "waiting",
+    episode: "unknown",
+    confidence: "low",
+    source: "inferred",
   });
 });
 

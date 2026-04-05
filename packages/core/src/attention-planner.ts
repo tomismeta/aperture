@@ -19,6 +19,7 @@ import {
   type AttentionSurfaceCapabilities,
 } from "./surface-capabilities.js";
 import type { AttentionValueBreakdown } from "./attention-value.js";
+import { hasBlockedLikeStatusSemantics, resolvePeripheralResolutionFloor } from "./judgment-input.js";
 import {
   noopContinuityRule,
   type ContinuityRule,
@@ -300,6 +301,16 @@ export class AttentionPlanner {
       }
 
       if (!context.policyVerdict.mayInterrupt && context.policyVerdict.minimumLane === "ambient") {
+        if (hasBlockedLikeStatusSemantics(candidate)) {
+          reasons.push("status routing stays non-blocking, but blocked-like semantics keep it visible in next");
+          return {
+            decision: { kind: "queue", candidate },
+            currentPriority: null,
+            currentScore: null,
+            reasons,
+          };
+        }
+
         reasons.push("policy keeps this interaction ambient until stronger context arrives");
         return {
           decision: this.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
@@ -547,7 +558,10 @@ export function selectPeripheralBucket(
   policyVerdict: AttentionPolicyVerdict,
   surfaceCapabilities: AttentionSurfaceCapabilities = baseAttentionSurfaceCapabilities,
 ): "queue" | "ambient" {
-  if (policyVerdict.minimumLane === "ambient" && canRemainAmbientOnSurface(candidate, surfaceCapabilities)) {
+  if (
+    resolvePeripheralResolutionFloor(candidate, policyVerdict.minimumLane === "ambient" ? "ambient" : "queue") === "ambient"
+    && canRemainAmbientOnSurface(candidate, surfaceCapabilities)
+  ) {
     return "ambient";
   }
 

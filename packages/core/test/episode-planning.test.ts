@@ -7,7 +7,7 @@ import type { InteractionCandidate } from "../src/interaction-candidate.js";
 import { JudgmentCoordinator } from "../src/judgment-coordinator.js";
 
 function createCandidate(overrides: Partial<InteractionCandidate> = {}): InteractionCandidate {
-  return {
+  const candidate = {
     taskId: "task:session",
     interactionId: "interaction:new",
     mode: "status",
@@ -25,6 +25,13 @@ function createCandidate(overrides: Partial<InteractionCandidate> = {}): Interac
     episodeEvidenceScore: 0,
     episodeEvidenceReasons: [],
     ...overrides,
+  };
+
+  return {
+    ...candidate,
+    judgmentInput: overrides.judgmentInput ?? {
+      blockedLikeStatus: false,
+    },
   };
 }
 
@@ -127,6 +134,15 @@ test("same episode can promote a superseding blocking step over active blocking 
       blocking: true,
       priority: "high",
       relationHints: [{ kind: "same_issue", target: "issue:deploy:prod" }, { kind: "supersedes" }],
+      judgmentInput: {
+        blockedLikeStatus: false,
+        semanticEvidence: {
+          confidence: "high",
+          source: "hinted",
+          strength: "strong",
+          abstained: false,
+        },
+      },
       responseSpec: {
         kind: "approval",
         actions: [
@@ -140,6 +156,65 @@ test("same episode can promote a superseding blocking step over active blocking 
   );
 
   assert.equal(decision.kind, "activate");
+});
+
+test("weak inferred supersedes hints do not force same-episode activation", () => {
+  const coordinator = new JudgmentCoordinator();
+  const explanation = coordinator.explain(
+    createFrame({
+      interactionId: "interaction:current-step",
+      title: "Approve deployment step",
+      metadata: {
+        episode: {
+          id: "episode:shared",
+          key: "claude-code:interruptive:issue:deploy:prod",
+          state: "actionable",
+          size: 2,
+          evidenceScore: 5,
+          evidenceReasons: ["operator-facing work makes this episode immediately actionable"],
+          lastInteractionId: "interaction:current-step",
+          updatedAt: "2026-03-08T12:00:00.000Z",
+        },
+      },
+    }),
+    createCandidate({
+      interactionId: "interaction:superseding-step",
+      title: "Approve rollback instead",
+      mode: "approval",
+      blocking: true,
+      priority: "high",
+      relationHints: [{ kind: "same_issue", target: "issue:deploy:prod" }, { kind: "supersedes" }],
+      judgmentInput: {
+        blockedLikeStatus: false,
+        semanticEvidence: {
+          confidence: "medium",
+          source: "inferred",
+          strength: "weak",
+          abstained: false,
+        },
+      },
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+      episodeState: "actionable",
+      episodeKey: "claude-code:interruptive:issue:deploy:prod",
+    }),
+  );
+
+  assert.notEqual(explanation.decision.kind, "activate");
+  assert.ok(
+    explanation.reasons.includes(
+      "related work stays bundled with the current episode already in now",
+    ),
+  );
+  assert.equal(
+    explanation.continuityEvaluations?.find((evaluation) => evaluation.rule === "same_episode")?.kind,
+    "override",
+  );
 });
 
 test("visible queued episode work batches new related interactions with no active task frame", () => {

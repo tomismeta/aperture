@@ -138,7 +138,7 @@ test("diagnostic status semantics do not change task.updated routing", () => {
   assert.equal(diagnosticVariant.candidate.responseSpec.kind, baseline.candidate.responseSpec.kind);
 });
 
-test("semantic blocking on waiting statuses stays diagnostic in candidate routing", () => {
+test("semantic blocking on waiting statuses stays status-shaped while recording blocked-like ontology", () => {
   const result = evaluation.evaluate(normalizeSourceEvent({
     id: "evt:status:blocking-diagnostic",
     taskId: "task:status:blocking-diagnostic",
@@ -158,6 +158,15 @@ test("semantic blocking on waiting statuses stays diagnostic in candidate routin
   assert.equal(result.candidate.priority, "background");
   assert.equal(result.candidate.tone, "ambient");
   assert.equal(result.candidate.responseSpec.kind, "none");
+  assert.deepEqual(result.candidate.judgmentInput.ontology, {
+    ask: "status",
+    activity: "task_progress",
+    consequence: "low",
+    blocking: "blocking",
+    episode: "unknown",
+    confidence: "medium",
+    source: "inferred",
+  });
   assert.equal(result.candidate.provenance?.whyNow, "Work is blocked and may require operator attention.");
 });
 
@@ -296,7 +305,7 @@ test("human-input explanation semantics do not change routing shape", () => {
   assert.equal(explained.candidate.blocking, baseline.candidate.blocking);
   assert.equal(explained.candidate.responseSpec.kind, baseline.candidate.responseSpec.kind);
   assert.equal(explained.candidate.provenance?.whyNow, "This deploy is waiting on an explicit approval checkpoint.");
-  assert.equal(explained.candidate.semanticConfidence, "low");
+  assert.equal(explained.candidate.judgmentInput.semanticEvidence?.confidence, "low");
 });
 
 test("question wording about a tool does not project a tool family without explicit source truth", () => {
@@ -329,7 +338,7 @@ test("question wording about a tool does not project a tool family without expli
   assert.equal(result.candidate.activityClass, "question_request");
   assert.equal(result.candidate.toolFamily, undefined);
   assert.equal(result.candidate.mode, "choice");
-  assert.equal(result.candidate.semanticConfidence, "low");
+  assert.equal(result.candidate.judgmentInput.semanticEvidence?.confidence, "low");
 });
 
 test("explicit question tool families stay semantic-only during evaluation", () => {
@@ -367,7 +376,7 @@ test("explicit question tool families stay semantic-only during evaluation", () 
 
   assert.equal(result.candidate.toolFamily, undefined);
   assert.equal(result.candidate.activityClass, "question_request");
-  assert.equal(result.candidate.semanticConfidence, "low");
+  assert.equal(result.candidate.judgmentInput.semanticEvidence?.confidence, "low");
 });
 
 test("explicit form tool families stay semantic-only during evaluation", () => {
@@ -405,7 +414,7 @@ test("explicit form tool families stay semantic-only during evaluation", () => {
   assert.equal(result.candidate.toolFamily, undefined);
   assert.equal(result.candidate.activityClass, "question_request");
   assert.equal(result.candidate.mode, "form");
-  assert.equal(result.candidate.semanticConfidence, "low");
+  assert.equal(result.candidate.judgmentInput.semanticEvidence?.confidence, "low");
 });
 
 test("completed tasks clear current interaction state", () => {

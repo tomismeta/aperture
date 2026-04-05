@@ -11,6 +11,13 @@ import type {
 } from "./frame.js";
 import type { SemanticInterpretationHints } from "./semantic-types.js";
 
+/**
+ * Adapter-facing input contract.
+ *
+ * `SourceEvent` is the thin factual seam where host-native payloads enter core.
+ * Adapters can preserve identity, bounded hints, and explicit source facts here,
+ * but canonical semantics are not final until `normalizeSourceEvent(...)` runs.
+ */
 export type SourceEvent =
   | SourceTaskStartedEvent
   | SourceTaskUpdatedEvent

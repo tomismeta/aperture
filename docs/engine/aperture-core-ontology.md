@@ -131,6 +131,8 @@ How confident is Aperture in the current semantic read?
 - `low`
 
 This is the simplest durable abstraction for abstention and ambiguity handling.
+In practice, Aperture reads `confidence` together with `source` to decide how
+strong the semantic evidence really is.
 
 ### 7. `source`
 
@@ -142,6 +144,8 @@ Where did the semantic read come from?
 
 This keeps provenance first-class and prevents inferred meaning from pretending
 to be source fact.
+`explicit` means the operative read came from the event shape or source-provided
+fields, not only from Aperture's own wording inference.
 
 ## Routing Meaning
 
@@ -152,11 +156,13 @@ In simplified form:
 
 - `ask`, `activity`, and `consequence` can shape canonical events and traceable
   judgment inputs
-- `blocking` is the clean cross-source supervision dimension, but status-event
-  routing still keeps explicit task status authoritative today
+- `blocking` is the clean cross-source supervision dimension; status-event
+  routing still keeps explicit task status authoritative, but clearly blocked
+  waiting statuses can now stay queue-worthy without becoming full blocking
+  interactions
 - `episode` shapes continuity and resurfacing
-- `confidence` shapes ambiguity and abstention behavior
-- `source` shapes trust and traceability
+- `confidence` and `source` combine into semantic evidence strength for
+  ambiguity and trust handling
 
 That means semantic breadth should be measured by how well Aperture can read
 these dimensions across many sources, not by how many host-specific event kinds
@@ -168,7 +174,16 @@ So, today, the ontology is best understood as:
 - trace-visible
 - judgment-adjacent
 
-rather than as a fully first-class coordinator input on every path.
+Core also compiles it into a small internal judgment-input layer so policy and
+planning can consume one cleaner semantic/evidence seam instead of reaching into
+raw semantic fragments directly.
+
+The current internal handoff is:
+
+`SemanticInterpretation -> SemanticOntologyDiagnostic -> AttentionJudgmentInput`
+
+That means ontology is already part of the live decision flow, but as a compact
+compiled seam rather than as the sole coordinator object on every path.
 
 ## Provenance Rule
 

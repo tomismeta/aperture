@@ -1,4 +1,10 @@
 import {
+  isCandidateSemanticAbstained,
+  readCandidateSemanticConfidence,
+  readCandidateSemanticEvidence,
+  readSemanticEvidenceStrength,
+} from "../judgment-input.js";
+import {
   ambiguousPeripheralCriterionVerdict,
   noopPolicyCriterionRule,
   verdictPolicyCriterionRule,
@@ -16,7 +22,7 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
     return noopPolicyCriterionRule("semantic_uncertainty");
   }
 
-  if (candidate.semanticAbstained === true) {
+  if (isCandidateSemanticAbstained(candidate)) {
     return verdictPolicyCriterionRule(
       "semantic_uncertainty",
       ambiguousPeripheralCriterionVerdict(
@@ -32,7 +38,7 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
     );
   }
 
-  if (candidate.semanticConfidence === "low") {
+  if (readCandidateSemanticConfidence(candidate) === "low") {
     return verdictPolicyCriterionRule(
       "semantic_uncertainty",
       ambiguousPeripheralCriterionVerdict(
@@ -48,8 +54,26 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
     );
   }
 
+  if (readSemanticEvidenceStrength(candidate) === "weak") {
+    return verdictPolicyCriterionRule(
+      "semantic_uncertainty",
+      ambiguousPeripheralCriterionVerdict(
+        criterion,
+        peripheralResolution,
+        {
+          kind: "interrupt",
+          reason: "low_signal",
+          resolution: peripheralResolution,
+        },
+        ["inferred semantic evidence stays peripheral until stronger source-backed context arrives"],
+      ),
+    );
+  }
+
   return noopPolicyCriterionRule(
     "semantic_uncertainty",
-    candidate.semanticConfidence !== undefined ? ["semantic confidence is strong enough to keep ordinary interrupt rules in play"] : [],
+    readCandidateSemanticEvidence(candidate) !== null
+      ? ["semantic evidence is strong enough to keep ordinary interrupt rules in play"]
+      : [],
   );
 };

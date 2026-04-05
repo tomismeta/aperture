@@ -6,6 +6,14 @@ import type {
 } from "./frame.js";
 import type { SemanticInterpretation } from "./semantic-types.js";
 
+/**
+ * Canonical core event contract.
+ *
+ * `ApertureEvent` is the normalized meaning layer that `EventEvaluator`
+ * consumes. It carries the richer semantic read that core inferred or accepted
+ * from source hints, while still preserving explicit routing authority where
+ * needed, especially on `task.updated` status paths.
+ */
 export type ApertureEvent =
   | TaskStartedEvent
   | TaskUpdatedEvent

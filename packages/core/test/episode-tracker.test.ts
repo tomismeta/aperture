@@ -6,7 +6,7 @@ import { EpisodeTracker, readFrameEpisodeId } from "../src/episode-tracker.js";
 import { FramePlanner } from "../src/frame-planner.js";
 
 function createCandidate(overrides: Partial<InteractionCandidate> = {}): InteractionCandidate {
-  return {
+  const candidate = {
     taskId: "task:session",
     interactionId: "interaction:one",
     source: { id: "session:1", kind: "claude-code" },
@@ -31,6 +31,31 @@ function createCandidate(overrides: Partial<InteractionCandidate> = {}): Interac
     blocking: true,
     timestamp: "2026-03-08T12:00:00.000Z",
     ...overrides,
+  };
+
+  return {
+    ...candidate,
+    judgmentInput: overrides.judgmentInput ?? {
+      blockedLikeStatus: false,
+    },
+  };
+}
+
+function weakInferredSemanticEvidence() {
+  return {
+    confidence: "medium" as const,
+    source: "inferred" as const,
+    strength: "weak" as const,
+    abstained: false,
+  };
+}
+
+function strongHintedSemanticEvidence() {
+  return {
+    confidence: "high" as const,
+    source: "hinted" as const,
+    strength: "strong" as const,
+    abstained: false,
   };
 }
 
@@ -166,6 +191,10 @@ test("relation hints increase episode evidence for recurring and escalating work
       consequence: "medium",
       responseSpec: { kind: "none" },
       relationHints: [{ kind: "same_issue" }, { kind: "repeats" }],
+      judgmentInput: {
+        blockedLikeStatus: false,
+        semanticEvidence: strongHintedSemanticEvidence(),
+      },
     }),
   );
 
@@ -178,6 +207,10 @@ test("relation hints increase episode evidence for recurring and escalating work
       title: "Config sync is worse again",
       responseSpec: { kind: "none" },
       relationHints: [{ kind: "same_issue" }, { kind: "repeats" }, { kind: "escalates" }],
+      judgmentInput: {
+        blockedLikeStatus: false,
+        semanticEvidence: strongHintedSemanticEvidence(),
+      },
       timestamp: "2026-03-08T12:01:00.000Z",
     }),
   );
@@ -186,6 +219,45 @@ test("relation hints increase episode evidence for recurring and escalating work
   assert.ok((second.episodeEvidenceScore ?? 0) >= 4);
   assert.ok(second.episodeEvidenceReasons?.includes("semantic relation hints indicate this issue is recurring"));
   assert.ok(second.episodeEvidenceReasons?.includes("semantic relation hints indicate this issue is escalating"));
+});
+
+test("weak inferred relation hints stay diagnostic until stronger evidence arrives", () => {
+  const store = new EpisodeTracker();
+  store.assign(
+    createCandidate({
+      blocking: false,
+      mode: "status",
+      consequence: "medium",
+      responseSpec: { kind: "none" },
+      relationHints: [{ kind: "same_issue" }, { kind: "repeats" }],
+      judgmentInput: {
+        blockedLikeStatus: false,
+        semanticEvidence: weakInferredSemanticEvidence(),
+      },
+    }),
+  );
+
+  const second = store.assign(
+    createCandidate({
+      interactionId: "interaction:two",
+      blocking: false,
+      mode: "status",
+      consequence: "medium",
+      title: "Config sync regressed again",
+      responseSpec: { kind: "none" },
+      relationHints: [{ kind: "same_issue" }, { kind: "repeats" }, { kind: "escalates" }],
+      judgmentInput: {
+        blockedLikeStatus: false,
+        semanticEvidence: weakInferredSemanticEvidence(),
+      },
+      timestamp: "2026-03-08T12:01:00.000Z",
+    }),
+  );
+
+  assert.equal(second.episodeState, "batched");
+  assert.equal(second.episodeEvidenceScore, 1);
+  assert.ok(!second.episodeEvidenceReasons?.includes("semantic relation hints indicate this issue is recurring"));
+  assert.ok(!second.episodeEvidenceReasons?.includes("semantic relation hints indicate this issue is escalating"));
 });
 
 test("relation targets group wording-drifted updates into the same episode", () => {

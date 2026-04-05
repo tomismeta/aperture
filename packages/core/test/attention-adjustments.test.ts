@@ -8,7 +8,7 @@ import type { SignalSummary } from "../src/signal-summary.js";
 const heuristics = new AttentionAdjustments();
 
 function createCandidate(overrides: Partial<InteractionCandidate> = {}): InteractionCandidate {
-  return {
+  const candidate = {
     taskId: "task:heuristics",
     interactionId: "interaction:heuristics",
     mode: "status",
@@ -20,6 +20,13 @@ function createCandidate(overrides: Partial<InteractionCandidate> = {}): Interac
     blocking: false,
     timestamp: "2026-03-08T12:00:00.000Z",
     ...overrides,
+  };
+
+  return {
+    ...candidate,
+    judgmentInput: overrides.judgmentInput ?? {
+      blockedLikeStatus: false,
+    },
   };
 }
 

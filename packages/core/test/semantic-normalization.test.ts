@@ -241,6 +241,24 @@ test("semantic interpreter recognizes returned issue language as resurfacing the
   );
 });
 
+test("semantic interpreter recognizes regressed issue language as resurfacing escalation", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:regressed-issue",
+    type: "task.updated",
+    taskId: "task:regressed-issue",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Deploy issue regressed after fix",
+    summary: "The production deploy issue came back and regressed after the earlier recovery.",
+    status: "failed",
+  });
+
+  assert.deepEqual(
+    interpretation.relationHints.map((hint) => hint.kind),
+    ["same_issue", "repeats", "escalates"],
+  );
+});
+
 test("task lifecycle semantics mark inferred provenance consistently", () => {
   const started = interpretSourceEvent({
     id: "evt:started",
@@ -480,7 +498,7 @@ test("public trajectory silent cleanup observations stay low-consequence status 
   assert.equal(interpretation.consequence, "low");
 });
 
-test("task updates can infer implied operator asks from status text", () => {
+test("passive waiting approval wording stays status-shaped without inventing an implied ask", () => {
   const normalized = normalizeSourceEvent({
     id: "evt:blocked",
     type: "task.updated",
@@ -494,9 +512,9 @@ test("task updates can infer implied operator asks from status text", () => {
 
   assert.equal(normalized.type, "task.updated");
   if (normalized.type === "task.updated") {
-    assert.equal(normalized.semantic?.whyNow, "Status text implies the operator may need to respond.");
-    assert.equal(normalized.semantic?.confidence, "low");
-    assert.ok(normalized.semantic?.reasons.includes("status wording suggests an implied operator request"));
+    assert.equal(normalized.semantic?.whyNow, undefined);
+    assert.equal(normalized.semantic?.confidence, "high");
+    assert.deepEqual(normalized.semantic?.reasons, ["task update carries a non-blocking lifecycle status"]);
   }
 });
 
@@ -518,6 +536,46 @@ test("task updates can infer blocked-work semantics from waiting status text", (
     assert.equal(normalized.semantic?.whyNow, "Work is blocked and may require operator attention.");
     assert.equal(normalized.semantic?.confidence, "medium");
     assert.ok(normalized.semantic?.reasons.includes("status wording indicates work cannot continue yet"));
+  }
+});
+
+test("task updates still infer implied operator asks from operator-directed status text", () => {
+  const normalized = normalizeSourceEvent({
+    id: "evt:direct-ask-status",
+    type: "task.updated",
+    taskId: "task:direct-ask-status",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Need your approval before continuing",
+    summary: "Can you approve the deploy so work can continue?",
+    status: "waiting",
+  });
+
+  assert.equal(normalized.type, "task.updated");
+  if (normalized.type === "task.updated") {
+    assert.equal(normalized.semantic?.whyNow, "Status text implies the operator may need to respond.");
+    assert.equal(normalized.semantic?.confidence, "low");
+    assert.ok(normalized.semantic?.reasons.includes("status wording suggests an implied operator request"));
+  }
+});
+
+test("passive review wording does not infer an operator ask from status text", () => {
+  const normalized = normalizeSourceEvent({
+    id: "evt:passive-review-status",
+    type: "task.updated",
+    taskId: "task:passive-review-status",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Logs attached for review",
+    summary: "Build logs are attached, please review when convenient.",
+    status: "running",
+  });
+
+  assert.equal(normalized.type, "task.updated");
+  if (normalized.type === "task.updated") {
+    assert.equal(normalized.semantic?.whyNow, undefined);
+    assert.equal(normalized.semantic?.confidence, "high");
+    assert.deepEqual(normalized.semantic?.reasons, ["task update carries a non-blocking lifecycle status"]);
   }
 });
 
@@ -569,6 +627,39 @@ test("task updates can infer relation hints from recurring and resolving languag
 
   assert.deepEqual(repeated.relationHints.map((hint) => hint.kind), ["same_issue", "repeats"]);
   assert.deepEqual(resolved.relationHints.map((hint) => hint.kind), ["same_issue", "resolves"]);
+});
+
+test("generic successful completion wording does not infer a resolved episode by itself", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:generic-success",
+    type: "task.updated",
+    taskId: "task:generic-success",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Read completed successfully",
+    summary: "Read completed successfully.",
+    status: "completed",
+  });
+
+  assert.deepEqual(interpretation.relationHints, []);
+});
+
+test("recovery wording with issue context still infers a resolved episode", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:recovered-issue",
+    type: "task.updated",
+    taskId: "task:recovered-issue",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Service recovered after outage",
+    summary: "The production outage recovered after rollback.",
+    status: "completed",
+  });
+
+  assert.deepEqual(
+    interpretation.relationHints.map((hint) => hint.kind),
+    ["same_issue", "resolves"],
+  );
 });
 
 test("repeat wording without an issue signal does not infer relation hints", () => {

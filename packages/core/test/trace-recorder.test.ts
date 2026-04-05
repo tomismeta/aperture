@@ -159,10 +159,51 @@ test("trace recorder explains that status remains authoritative on task updates"
     consequence: "low",
     blocking: "waiting",
     episode: "unknown",
+    confidence: "high",
+    source: "explicit",
+  });
+  assert.equal(trace.semantic?.provenance?.intentFrame, "inferred");
+  assert.deepEqual(trace.semantic?.impact, {
+    decisionBearing: ["activity (canonical)"],
+    explanatory: ["intent", "consequence", "confidence"],
+  });
+});
+
+test("trace recorder marks operator-directed status asks as inferred semantic evidence", () => {
+  const core = new ApertureCore();
+  const traces: ApertureTrace[] = [];
+
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:direct-ask",
+    type: "task.updated",
+    taskId: "task:status:direct-ask",
+    timestamp: "2026-03-27T20:01:15.000Z",
+    source: { id: "custom-agent" },
+    title: "Need your approval before continuing",
+    summary: "Can you approve the deploy so work can continue?",
+    status: "waiting",
+  });
+
+  const trace = latestCandidateTrace(traces);
+  assert.ok(trace);
+  assert.equal(trace?.evaluation.kind, "candidate");
+  if (!trace || trace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.deepEqual(trace.semantic?.ontology, {
+    ask: "status",
+    activity: "task_progress",
+    consequence: "low",
+    blocking: "waiting",
+    episode: "unknown",
     confidence: "low",
     source: "inferred",
   });
-  assert.equal(trace.semantic?.provenance?.intentFrame, "inferred");
   assert.deepEqual(trace.semantic?.impact, {
     decisionBearing: ["activity (canonical)", "confidence (ambiguity)"],
     explanatory: ["intent", "consequence", "why now"],
@@ -219,7 +260,7 @@ test("trace recorder promotes abstention to ambiguity-bearing impact on non-bloc
   });
 });
 
-test("trace recorder exposes diagnostic blocking reads on waiting status updates", () => {
+test("trace recorder exposes blocked-like waiting status queue decisions without changing status mode", () => {
   const core = new ApertureCore();
   const traces: ApertureTrace[] = [];
 
@@ -247,11 +288,14 @@ test("trace recorder exposes diagnostic blocking reads on waiting status updates
 
   assert.equal(trace.semantic?.intentFrame, "blocked_work");
   assert.equal(trace.semantic?.ontology.blocking, "blocking");
+  assert.equal(trace.coordination.kind, "queue");
+  assert.equal(trace.coordination.resultLane, "now");
   assert.ok(
     trace.semantic?.influence.includes(
-      "semantic blocking stayed diagnostic because status updates still route as non-blocking candidates",
+      "semantic blocking marked the waiting status as blocked-like for peripheral routing while status handling stayed non-blocking",
     ),
   );
+  assert.ok(trace.semantic?.impact.decisionBearing.includes("blocking (peripheral routing)"));
 });
 
 test("trace recorder preserves hint-driven semantic provenance", () => {

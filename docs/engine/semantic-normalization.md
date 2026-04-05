@@ -2,7 +2,7 @@
 
 Aperture now uses an explicit layered event model:
 
-`raw source payload -> SourceEvent -> ApertureEvent -> AttentionCandidate -> AttentionFrame -> AttentionResponse`
+`raw source payload -> SourceEvent -> SemanticInterpretation -> ApertureEvent -> AttentionJudgmentInput -> AttentionCandidate -> AttentionFrame -> AttentionResponse`
 
 The intent is simple:
 
@@ -63,6 +63,21 @@ This is where Aperture decides things like:
 - a high-risk approval becomes `critical` / `high`
 - a medium-risk approval becomes `focused` / `medium`
 
+### `AttentionJudgmentInput`
+
+Internal semantic-to-judgment seam owned by core.
+
+Lives in [packages/core/src/judgment-input.ts](../../packages/core/src/judgment-input.ts).
+
+This is where core compiles:
+
+- ontology projection
+- semantic evidence strength from `confidence + source`
+- blocked-like status diagnostics
+
+into one small object that policy, ambiguity handling, planning, and trace can
+all consume consistently.
+
 Current contract nuance:
 
 - `human.input.requested` semantics can project into canonical event consequence
@@ -70,6 +85,8 @@ Current contract nuance:
 - `task.updated` semantics enrich continuity, provenance, `toolFamily`, and
   `activityClass`
 - `task.updated.status` remains authoritative for status routing
+- operator-directed status asks can stay low-confidence and `source: inferred`
+  without pretending to be explicit request events
 
 This is also where the adapter/core boundary matters most:
 
@@ -81,6 +98,7 @@ This is also where the adapter/core boundary matters most:
 
 After normalization, the existing engine applies:
 
+- judgment-input compilation
 - evaluation
 - heuristics
 - coordination
@@ -108,6 +126,7 @@ In the current hardened design:
 ### Core owns
 
 - semantic normalization
+- judgment-input compilation
 - attention state and trends
 - scoring and heuristics
 - now / next / ambient decisions
@@ -122,3 +141,7 @@ Integrations that emit `SourceEvent`s should pass them into:
 - `core.publishSourceEvent(event)`
 
 This keeps direct-core usage available while making adapter semantics more consistent.
+
+For advanced readers, the actual current hot path is:
+
+`SourceEvent -> SemanticInterpretation -> ApertureEvent -> AttentionJudgmentInput -> AttentionCandidate -> judgment -> AttentionFrame/AttentionView + trace`

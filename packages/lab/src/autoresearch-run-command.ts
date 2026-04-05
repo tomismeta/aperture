@@ -3,6 +3,7 @@ import path from "node:path";
 
 import {
   type AutoresearchRunStatusSnapshot,
+  type AutoresearchGateName,
   calculateAutoresearchWindowPercent,
   calculateAutoresearchWindowPercentIncludingInflight,
   writeAutoresearchRunStatusSnapshot,
@@ -52,6 +53,9 @@ export type AutoresearchRunCommandOptions = {
   maxReports: number;
   outputPath?: string;
   statusOutputPath?: string;
+  gateTimeoutSeconds?: number;
+  skipJudgmentBattle?: boolean;
+  skipReleaseCheck?: boolean;
 };
 
 export type AutoresearchRunCommandResult = {
@@ -109,6 +113,7 @@ export async function runAutoresearchRunnerCommand(
   const commandsRun: string[] = [];
   const notes: string[] = [];
   let lastProgressAt = generatedAt;
+  let currentGate: AutoresearchGateName | undefined;
   let currentSlice:
     | {
       index: number;
@@ -129,6 +134,7 @@ export async function runAutoresearchRunnerCommand(
     currentSlice,
     lastProgressAt,
     currentSliceStartedAt,
+    currentGate,
     phase: "running",
   }));
 
@@ -142,10 +148,30 @@ export async function runAutoresearchRunnerCommand(
       );
     }
 
-    const attempt = await executeProposalAttempt(options, {
-      ...(directBatchReportPath ? { batchReportPath: directBatchReportPath } : {}),
-      ...(directBundlePaths.length > 0 ? { bundlePaths: directBundlePaths } : {}),
-    });
+    const attempt = await executeProposalAttempt(
+      options,
+      {
+        ...(directBatchReportPath ? { batchReportPath: directBatchReportPath } : {}),
+        ...(directBundlePaths.length > 0 ? { bundlePaths: directBundlePaths } : {}),
+      },
+      async (gate) => {
+        currentGate = gate;
+        lastProgressAt = new Date().toISOString();
+        logProgress(gate ? `direct_attempt gate=${gate}` : "direct_attempt gate=completed");
+        await writeStatusSnapshot(options.statusOutputPath, buildStatusSnapshot({
+          generatedAt,
+          options,
+          attempts,
+          remainingSlices,
+          currentSlice,
+          lastProgressAt,
+          currentSliceStartedAt,
+          currentGate,
+          phase: gate ? "gating" : "running",
+          ...(gate ? { note: `Gate in progress: ${gate}.` } : {}),
+        }));
+      },
+    );
     attempts.push(attempt);
     commandsRun.push(buildProposalCommand(options, {
       ...(directBatchReportPath ? { batchReportPath: directBatchReportPath } : {}),
@@ -178,11 +204,32 @@ export async function runAutoresearchRunnerCommand(
         currentSlice,
         lastProgressAt,
         currentSliceStartedAt,
+        currentGate,
         phase: "running",
       }));
 
       try {
-        const attempt = await executeProposalAttempt(options, slice);
+        const attempt = await executeProposalAttempt(options, slice, async (gate) => {
+          currentGate = gate;
+          lastProgressAt = new Date().toISOString();
+          logProgress([
+            `slice=${sliceIndex}`,
+            `offset=${slice.offset}`,
+            gate ? `gate=${gate}` : "gate=completed",
+          ].join(" "));
+          await writeStatusSnapshot(options.statusOutputPath, buildStatusSnapshot({
+            generatedAt,
+            options,
+            attempts,
+            remainingSlices,
+            currentSlice,
+            lastProgressAt,
+            currentSliceStartedAt,
+            currentGate,
+            phase: gate ? "gating" : "running",
+            ...(gate ? { note: `Gate in progress: ${gate}.` } : {}),
+          }));
+        });
         attempts.push(attempt);
         logAttempt(`slice=${sliceIndex} offset=${slice.offset}`, attempt);
         if (attempt.status === "exhausted") {
@@ -199,6 +246,7 @@ export async function runAutoresearchRunnerCommand(
         notes.push(`Slice offset ${slice.offset} failed: ${message}`);
         logProgress(`slice=${sliceIndex} offset=${slice.offset} status=error error=${compactLogText(message)}`);
       } finally {
+        currentGate = undefined;
         currentSlice = undefined;
         currentSliceStartedAt = undefined;
         lastProgressAt = new Date().toISOString();
@@ -210,6 +258,7 @@ export async function runAutoresearchRunnerCommand(
           currentSlice,
           lastProgressAt,
           currentSliceStartedAt,
+          currentGate,
           phase: "running",
         }));
       }
@@ -268,6 +317,7 @@ export async function runAutoresearchRunnerCommand(
     currentSlice: undefined,
     lastProgressAt: new Date().toISOString(),
     currentSliceStartedAt: undefined,
+    currentGate: undefined,
     phase: "completed",
     finalStatus: run.status,
     runPath,
@@ -299,6 +349,7 @@ async function executeProposalAttempt(
     batchReportPath?: string;
     bundlePaths?: string[];
   },
+  onGateChange?: (gate: AutoresearchGateName | undefined) => Promise<void>,
 ): Promise<AutoresearchRunnerFeedbackAttempt> {
   const snapshot = await captureGitHeadSnapshot(process.cwd());
   try {
@@ -311,6 +362,10 @@ async function executeProposalAttempt(
       reviewConcurrency: options.reviewConcurrency,
       minSessionCount: options.minSessionCount,
       maxReports: options.maxReports,
+      ...(options.gateTimeoutSeconds ? { gateTimeoutSeconds: options.gateTimeoutSeconds } : {}),
+      ...(options.skipJudgmentBattle !== undefined ? { skipJudgmentBattle: options.skipJudgmentBattle } : {}),
+      ...(options.skipReleaseCheck !== undefined ? { skipReleaseCheck: options.skipReleaseCheck } : {}),
+      ...(onGateChange ? { onGateChange } : {}),
       ...("offset" in input && "limit" in input
         ? {
           offset: input.offset,
@@ -479,6 +534,9 @@ function buildProposalArgs(
     String(options.minSessionCount),
     "--max-reports",
     String(options.maxReports),
+    ...(options.gateTimeoutSeconds ? ["--gate-timeout-seconds", String(options.gateTimeoutSeconds)] : []),
+    ...(options.skipJudgmentBattle ? ["--skip-judgment-battle"] : []),
+    ...(options.skipReleaseCheck ? ["--skip-release-check"] : []),
   ];
 }
 
@@ -648,6 +706,7 @@ function buildStatusSnapshot(options: {
     | undefined;
   lastProgressAt: string;
   currentSliceStartedAt: string | undefined;
+  currentGate: AutoresearchGateName | undefined;
   phase: AutoresearchRunStatusSnapshot["phase"];
   finalStatus?: string;
   selectedProposalPath?: string;
@@ -695,6 +754,7 @@ function buildStatusSnapshot(options: {
       hasInflightSlice,
     ),
     ...(options.currentSlice ? { currentSlice: options.currentSlice } : {}),
+    ...(options.currentGate ? { currentGate: options.currentGate } : {}),
     ...(options.currentSliceStartedAt ? { currentSliceStartedAt: options.currentSliceStartedAt } : {}),
     ...(activeSliceElapsedSeconds !== undefined ? { activeSliceElapsedSeconds } : {}),
     ...(options.finalStatus ? { finalStatus: options.finalStatus } : {}),

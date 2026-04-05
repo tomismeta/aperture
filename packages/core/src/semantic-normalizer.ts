@@ -11,68 +11,15 @@ import { mergeSemanticProvenance } from "./semantic-provenance.js";
 
 export function normalizeSourceEvent(event: SourceEvent): EnrichedApertureEvent {
   const semantic = interpretSourceEvent(event);
+  const defaultsOptions = event.type === "human.input.requested" && event.riskHint !== undefined
+    ? { riskHint: event.riskHint }
+    : undefined;
 
-  // Non-human-input source events stay intentionally bounded. Core enriches
-  // tool family, activity class, provenance, and relation semantics here, but
-  // task status remains the authoritative routing signal for status events.
-  switch (event.type) {
-    case "task.started":
-      return {
-        id: event.id,
-        type: event.type,
-        taskId: event.taskId,
-        timestamp: event.timestamp,
-        ...(event.source !== undefined ? { source: event.source } : {}),
-        semantic,
-        title: event.title,
-        ...(event.summary !== undefined ? { summary: event.summary } : {}),
-      };
-    case "task.updated":
-      return {
-        id: event.id,
-        type: event.type,
-        taskId: event.taskId,
-        timestamp: event.timestamp,
-        ...(event.source !== undefined ? { source: event.source } : {}),
-        ...(event.toolFamily !== undefined
-          ? { toolFamily: event.toolFamily }
-          : semantic.toolFamily !== undefined
-            ? { toolFamily: semantic.toolFamily }
-            : {}),
-        ...(event.activityClass !== undefined
-          ? { activityClass: event.activityClass }
-          : semantic.activityClass !== undefined
-            ? { activityClass: semantic.activityClass }
-            : {}),
-        semantic,
-        title: event.title,
-        ...(event.summary !== undefined ? { summary: event.summary } : {}),
-        status: event.status,
-        ...(event.progress !== undefined ? { progress: event.progress } : {}),
-      };
-    case "task.completed":
-      return {
-        id: event.id,
-        type: event.type,
-        taskId: event.taskId,
-        timestamp: event.timestamp,
-        ...(event.source !== undefined ? { source: event.source } : {}),
-        semantic,
-        ...(event.summary !== undefined ? { summary: event.summary } : {}),
-      };
-    case "task.cancelled":
-      return {
-        id: event.id,
-        type: event.type,
-        taskId: event.taskId,
-        timestamp: event.timestamp,
-        ...(event.source !== undefined ? { source: event.source } : {}),
-        semantic,
-        ...(event.reason !== undefined ? { reason: event.reason } : {}),
-      };
-    case "human.input.requested":
-      return normalizeHumanInput(event, semantic);
-  }
+  return applySemanticDefaults(
+    prepareApertureEventFromSourceEvent(event),
+    semantic,
+    defaultsOptions,
+  );
 }
 
 export type ApertureEventSemanticDefaultsOptions = {
@@ -102,6 +49,35 @@ export function enrichApertureEvent(
 
   const semantic = event.semantic ?? interpretSourceEvent(asSourceEvent(event));
 
+  return applySemanticDefaults(event, semantic);
+}
+
+function toneForRisk(risk: AttentionConsequenceLevel): AttentionTone {
+  switch (risk) {
+    case "high":
+      return "critical";
+    case "medium":
+    case "low":
+      return "focused";
+  }
+}
+
+type SemanticDefaultsOptions = {
+  riskHint?: AttentionConsequenceLevel;
+};
+
+function applySemanticDefaults(
+  event: ApertureEvent,
+  semantic: ReturnType<typeof interpretSourceEvent>,
+  options: SemanticDefaultsOptions = {},
+): EnrichedApertureEvent {
+  // Both ingress paths narrow onto this same bounded defaulting layer:
+  //
+  // SourceEvent -> canonical ApertureEvent -> applySemanticDefaults
+  // ApertureEvent -> applySemanticDefaults
+  //
+  // That keeps consequence, tone, tool-family, activity-class, and provenance
+  // rules defined in one place instead of drifting across source-vs-direct code.
   switch (event.type) {
     case "task.started":
       return {
@@ -123,77 +99,28 @@ export function enrichApertureEvent(
         semantic,
       };
     case "human.input.requested":
-      return applyHumanInputSemanticDefaults(event, semantic);
-  }
-}
-
-function normalizeHumanInput(
-  event: Extract<SourceEvent, { type: "human.input.requested" }>,
-  semantic: ReturnType<typeof interpretSourceEvent>,
-): EnrichedHumanInputRequestedEvent {
-  const consequence = semantic.consequence ?? event.riskHint ?? "medium";
-  const tone = toneForRisk(consequence);
-  const provenance = mergeSemanticProvenance({
-    base: event.provenance,
-    semantic,
-  });
-  const toolFamily =
-    event.request.kind === "approval"
-      ? event.toolFamily ?? semantic.toolFamily
-      : undefined;
-
-  return {
-    id: event.id,
-    type: event.type,
-    taskId: event.taskId,
-    interactionId: event.interactionId,
-    timestamp: event.timestamp,
-    ...(event.source !== undefined ? { source: event.source } : {}),
-    ...(toolFamily !== undefined ? { toolFamily } : {}),
-    ...(event.activityClass !== undefined
-      ? { activityClass: event.activityClass }
-      : semantic.activityClass !== undefined
-        ? { activityClass: semantic.activityClass }
-        : {}),
-    semantic,
-    title: event.title,
-    summary: event.summary,
-    tone,
-    consequence,
-    request: event.request,
-    ...(event.context !== undefined ? { context: event.context } : {}),
-    ...(provenance !== undefined ? { provenance } : {}),
-  };
-}
-
-function toneForRisk(risk: AttentionConsequenceLevel): AttentionTone {
-  switch (risk) {
-    case "high":
-      return "critical";
-    case "medium":
-    case "low":
-      return "focused";
+      return applyHumanInputSemanticDefaults(event, semantic, options);
   }
 }
 
 function applyHumanInputSemanticDefaults(
   event: Extract<ApertureEvent, { type: "human.input.requested" }>,
   semantic: ReturnType<typeof interpretSourceEvent>,
+  options: SemanticDefaultsOptions,
 ): EnrichedHumanInputRequestedEvent {
-  const consequence = event.consequence ?? semantic.consequence ?? "medium";
+  const { toolFamily: _rawToolFamily, ...eventWithoutToolFamily } = event;
+  const consequence = event.consequence ?? semantic.consequence ?? options.riskHint ?? "medium";
   const tone = event.tone ?? toneForRisk(consequence);
   const provenance = mergeSemanticProvenance({
     base: event.provenance,
     semantic,
   });
-  const toolFamily = event.toolFamily ?? (
-    event.request.kind === "approval"
-      ? semantic.toolFamily
-      : undefined
-  );
+  const toolFamily = event.request.kind === "approval"
+    ? event.toolFamily ?? semantic.toolFamily
+    : undefined;
 
   return {
-    ...event,
+    ...eventWithoutToolFamily,
     ...(toolFamily !== undefined ? { toolFamily } : {}),
     ...(event.activityClass === undefined && semantic.activityClass !== undefined
       ? { activityClass: semantic.activityClass }
@@ -203,6 +130,72 @@ function applyHumanInputSemanticDefaults(
     consequence,
     ...(provenance !== undefined ? { provenance } : {}),
   };
+}
+
+function prepareApertureEventFromSourceEvent(event: SourceEvent): ApertureEvent {
+  // Non-human-input source events stay intentionally bounded. Core enriches
+  // tool family, activity class, provenance, and relation semantics here, but
+  // task status remains the authoritative routing signal for status events.
+  switch (event.type) {
+    case "task.started":
+      return {
+        id: event.id,
+        type: event.type,
+        taskId: event.taskId,
+        timestamp: event.timestamp,
+        ...(event.source !== undefined ? { source: event.source } : {}),
+        title: event.title,
+        ...(event.summary !== undefined ? { summary: event.summary } : {}),
+      };
+    case "task.updated":
+      return {
+        id: event.id,
+        type: event.type,
+        taskId: event.taskId,
+        timestamp: event.timestamp,
+        ...(event.source !== undefined ? { source: event.source } : {}),
+        ...(event.toolFamily !== undefined ? { toolFamily: event.toolFamily } : {}),
+        ...(event.activityClass !== undefined ? { activityClass: event.activityClass } : {}),
+        title: event.title,
+        ...(event.summary !== undefined ? { summary: event.summary } : {}),
+        status: event.status,
+        ...(event.progress !== undefined ? { progress: event.progress } : {}),
+      };
+    case "task.completed":
+      return {
+        id: event.id,
+        type: event.type,
+        taskId: event.taskId,
+        timestamp: event.timestamp,
+        ...(event.source !== undefined ? { source: event.source } : {}),
+        ...(event.summary !== undefined ? { summary: event.summary } : {}),
+      };
+    case "task.cancelled":
+      return {
+        id: event.id,
+        type: event.type,
+        taskId: event.taskId,
+        timestamp: event.timestamp,
+        ...(event.source !== undefined ? { source: event.source } : {}),
+        ...(event.reason !== undefined ? { reason: event.reason } : {}),
+      };
+    case "human.input.requested":
+      return {
+        id: event.id,
+        type: event.type,
+        taskId: event.taskId,
+        interactionId: event.interactionId,
+        timestamp: event.timestamp,
+        ...(event.source !== undefined ? { source: event.source } : {}),
+        ...(event.toolFamily !== undefined ? { toolFamily: event.toolFamily } : {}),
+        ...(event.activityClass !== undefined ? { activityClass: event.activityClass } : {}),
+        title: event.title,
+        summary: event.summary,
+        request: event.request,
+        ...(event.context !== undefined ? { context: event.context } : {}),
+        ...(event.provenance !== undefined ? { provenance: event.provenance } : {}),
+      };
+  }
 }
 
 function asSourceEvent(event: ApertureEvent): SourceEvent {

@@ -18,6 +18,7 @@ import {
   defaultOfflineReviewArtifactPath,
   defaultOfflineReviewPromptPath,
   defaultOfflineReviewReportPath,
+  DEFAULT_AUTORESEARCH_GATE_TIMEOUT_SECONDS,
   DEFAULT_AUTORESEARCH_RUN_REVIEW_CONCURRENCY,
   DEFAULT_DATACLAW_SPLIT,
   DEFAULT_FSTOP_SESSION_BUNDLES_DIR,
@@ -791,6 +792,9 @@ function parseRunArgs(argv: string[]): RunCliOptions {
   let maxReports = 4;
   let outputPath: string | undefined;
   let statusOutputPath: string | undefined;
+  let gateTimeoutSeconds = DEFAULT_AUTORESEARCH_GATE_TIMEOUT_SECONDS;
+  let skipJudgmentBattle = false;
+  let skipReleaseCheck = false;
   let json = false;
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -839,6 +843,15 @@ function parseRunArgs(argv: string[]): RunCliOptions {
       case "--status-output":
         statusOutputPath = path.resolve(argv[++index] ?? "");
         break;
+      case "--gate-timeout-seconds":
+        gateTimeoutSeconds = readPositiveInteger(argv[++index], "--gate-timeout-seconds");
+        break;
+      case "--skip-judgment-battle":
+        skipJudgmentBattle = true;
+        break;
+      case "--skip-release-check":
+        skipReleaseCheck = true;
+        break;
       case "--json":
         json = true;
         break;
@@ -870,6 +883,9 @@ function parseRunArgs(argv: string[]): RunCliOptions {
     maxReports,
     ...(outputPath ? { outputPath } : {}),
     ...(statusOutputPath ? { statusOutputPath } : {}),
+    gateTimeoutSeconds,
+    skipJudgmentBattle,
+    skipReleaseCheck,
     json,
   };
 }
@@ -2149,6 +2165,9 @@ function printRunUsage(): void {
     "  --max-reports <number>                Max promoted reports per attempt (default: 4)",
     "  --output <path>                       Run JSON output path",
     "  --status-output <path>                Live run status JSON output path",
+    `  --gate-timeout-seconds <number>       Max seconds per post-patch gate command (default: ${DEFAULT_AUTORESEARCH_GATE_TIMEOUT_SECONDS})`,
+    "  --skip-judgment-battle                Skip pnpm judgment:battle during optimization",
+    "  --skip-release-check                  Skip pnpm release:check during optimization",
     "  --json                                Emit machine-readable JSON",
   ].join("\n") + "\n");
 }

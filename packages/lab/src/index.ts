@@ -120,6 +120,7 @@ export {
   appendAutoresearchCampaignSummary,
   AUTORESEARCH_CAMPAIGN_SCHEMA_VERSION,
   AUTORESEARCH_RUN_STATUS_SCHEMA_VERSION,
+  type AutoresearchGateName,
   calculateAutoresearchCampaignPercent,
   calculateAutoresearchWindowPercent,
   calculateAutoresearchWindowPercentIncludingInflight,
@@ -154,6 +155,7 @@ export {
   writeAutoresearchOptimizationBrief,
 } from "./autoresearch-calibration.js";
 export {
+  DEFAULT_AUTORESEARCH_GATE_TIMEOUT_SECONDS,
   runAutoresearchOptimizeCommand,
   type AutoresearchOptimizeCommandOptions,
   type AutoresearchOptimizeCommandResult,

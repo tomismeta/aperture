@@ -1,5 +1,9 @@
 import { isCandidateTrace, type ApertureTrace, type CandidateApertureTrace } from "./trace-types.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
+import {
+  isCandidateSemanticAbstained,
+  isCandidateSemanticLowConfidence,
+} from "./judgment-input.js";
 
 const ACTIONABLE_EPISODE_EVIDENCE_THRESHOLD = JUDGMENT_DEFAULTS.queuePlanner.actionableEpisodeEvidenceThreshold;
 
@@ -72,10 +76,10 @@ export function evaluateTraceSession(traces: ApertureTrace[]): TraceEvaluationRe
       } else {
         report.ambiguousAmbient += 1;
       }
-      if (trace.evaluation.adjusted.judgmentInput.semanticEvidence?.confidence === "low") {
+      if (isCandidateSemanticLowConfidence(trace.evaluation.adjusted)) {
         report.ambiguousLowConfidence += 1;
       }
-      if (trace.evaluation.adjusted.judgmentInput.semanticEvidence?.abstained === true) {
+      if (isCandidateSemanticAbstained(trace.evaluation.adjusted)) {
         report.ambiguousAbstained += 1;
       }
       pendingAmbiguityByKey.set(ambiguityKey, trace.coordination.ambiguity.resolution);

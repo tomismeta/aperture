@@ -6,7 +6,9 @@ import type { AttentionFrame, AttentionTaskView, AttentionView } from "./frame.j
 import type { AttentionDecisionExplanation } from "./judgment-coordinator.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import {
+  hasBlockedLikeStatusSemantics,
   isCandidateSemanticAbstained,
+  isCandidateSemanticLowConfidence,
   readCandidateSemanticConfidence,
   readCandidateSemanticEvidence,
   readCandidateSemanticOntology,
@@ -299,7 +301,7 @@ function buildSemanticImpact(
       if (semantic.relationHints.length > 0) {
         promoteSemanticField(explanatory, decisionBearing, "relations", "relations (continuity)");
       }
-      if (adjusted.judgmentInput.blockedLikeStatus) {
+      if (hasBlockedLikeStatusSemantics(adjusted)) {
         promoteSemanticField(explanatory, decisionBearing, "intent", "blocking (peripheral routing)");
       }
       break;
@@ -324,7 +326,7 @@ function buildSemanticImpact(
       break;
   }
 
-  if (!adjusted.blocking && readCandidateSemanticConfidence(adjusted) === "low") {
+  if (!adjusted.blocking && isCandidateSemanticLowConfidence(adjusted)) {
     promoteSemanticField(explanatory, decisionBearing, "confidence", "confidence (ambiguity)");
   }
 

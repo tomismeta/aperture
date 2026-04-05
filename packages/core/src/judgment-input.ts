@@ -83,6 +83,12 @@ export function isCandidateSemanticAbstained(
   return readCandidateSemanticEvidence(candidate)?.abstained === true;
 }
 
+export function isCandidateSemanticLowConfidence(
+  candidate: AttentionCandidate,
+): boolean {
+  return readCandidateSemanticConfidence(candidate) === "low";
+}
+
 export function readSemanticSourceCriterionOffset(
   candidate: AttentionCandidate,
 ): number {

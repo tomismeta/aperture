@@ -462,6 +462,24 @@ test("plain failed reads without observational payload stay failures", () => {
   assert.equal(interpretation.consequence, "high");
 });
 
+test("error-looking filenames alone do not turn failed reads into observational status updates", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:error-looking-filename",
+    type: "task.updated",
+    taskId: "task:error-looking-filename",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary: "Failed to read /repo/README_FAILED_TESTS.md because the file does not exist",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.consequence, "high");
+});
+
 test("public trajectory diagnostic failures stay medium-consequence failures", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:public-diagnostic",

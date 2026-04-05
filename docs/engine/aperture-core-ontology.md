@@ -178,7 +178,12 @@ Core also compiles it into a small internal judgment-input layer so policy and
 planning can consume one cleaner semantic/evidence seam instead of reaching into
 raw semantic fragments directly.
 
-rather than as a fully first-class coordinator input on every path.
+The current internal handoff is:
+
+`SemanticInterpretation -> SemanticOntologyDiagnostic -> AttentionJudgmentInput`
+
+That means ontology is already part of the live decision flow, but as a compact
+compiled seam rather than as the sole coordinator object on every path.
 
 ## Provenance Rule
 

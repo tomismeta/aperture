@@ -98,12 +98,12 @@ In practice, that means:
 
 The hot path inside core is:
 
-`event -> interpret and normalize -> judge -> surface -> respond`
+`event -> interpret and normalize -> compile judgment input -> judge -> surface -> respond`
 
 That maps to:
 
 - `ApertureEvent` or `SourceEvent`
-- shared event meaning plus context
+- shared event meaning plus a compiled semantic/evidence seam
 - policy, value, criterion, and continuity-aware judgment
 - surfaced state for now / next / ambient
 - `AttentionResponse` back into core
@@ -163,6 +163,10 @@ In practice, you usually build a small frame-handling component or service aroun
 This is the same pattern the Aperture TUI uses.
 
 The engine can do much more internally, but you do not need to model the middle to use the package successfully.
+
+For advanced consumers, the internal path is now:
+
+`SourceEvent -> SemanticInterpretation -> ApertureEvent -> AttentionJudgmentInput -> AttentionCandidate -> judgment -> AttentionFrame/AttentionView + trace`
 
 If you want to invoke Aperture's semantic parsing directly before publishing a
 canonical `ApertureEvent`, or you want the richer semantic types directly, use

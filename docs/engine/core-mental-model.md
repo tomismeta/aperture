@@ -20,10 +20,11 @@ graph TD
   A["Source event<br/>What happened?"] --> B["Semantics<br/>What does it mean?"]
   E["Heuristics<br/>How we infer meaning"] --> B
   B --> C["Ontology<br/>Small shared labels"]
-  B --> D["Judgment<br/>What deserves attention?"]
+  B --> D["Judgment input<br/>What semantic evidence should judgment trust?"]
   C --> D
-  D --> F["Lane<br/>now / next / ambient"]
-  D --> G["Trace<br/>Why did that happen?"]
+  D --> F["Judgment<br/>What deserves attention?"]
+  F --> G["Lane<br/>now / next / ambient"]
+  F --> H["Trace<br/>Why did that happen?"]
 ```
 
 ## The Short Version
@@ -107,6 +108,10 @@ input before policy and planning run.
 Judgment still primarily consumes the richer semantic and candidate layers rather
 than routing directly on ontology objects.
 
+Actual current data path:
+
+`SourceEvent -> SemanticInterpretation -> ApertureEvent -> AttentionJudgmentInput -> AttentionCandidate -> policy/value/pressure/planning -> lane/trace`
+
 ### 4. Heuristics
 
 These are the rules and detectors that help Aperture infer semantics from messy input.
@@ -118,7 +123,7 @@ Question:
 Examples:
 
 - phrase detection like `failed again`
-- implied-ask detection like `waiting for approval`
+- implied-ask detection like `need your approval`
 - consequence inference from risky wording
 - relation detection like `same issue` or `resolves`
 
@@ -183,31 +188,31 @@ Think of trace as the **why layer**.
 
 Event:
 
-> "Waiting for approval before deploy can continue."
+> "Need your approval before deploy can continue."
 
 Heuristics may detect:
 
-- approval wording
+- operator-directed approval wording
 - waiting language
 - deploy / risk language
 
 Semantics may read:
 
-- implied approval checkpoint
-- maybe low-confidence if it is only status text
+- status-shaped implied operator ask
+- low-confidence because it is wording-derived rather than source-explicit
 
 Ontology may summarize that as:
 
-- `ask: status` or `approval`
+- `ask: status`
 - `blocking: waiting`
-- `activity: task_progress` or `decision_request`
+- `activity: task_progress`
 - `source: inferred`
 
 Judgment may decide:
 
 - `next`
 - `ambient`
-- or `now` if the signal is explicit enough and consequential enough
+- or `now` later if stronger explicit evidence arrives
 
 Trace explains:
 

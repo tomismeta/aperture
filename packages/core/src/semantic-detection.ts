@@ -296,12 +296,6 @@ function escapeRegExp(value: string): string {
 const IMPLIED_OPERATOR_ASKS = [
   "need your input",
   "need your approval",
-  "waiting for approval",
-  "approval required",
-  "awaiting sign off",
-  "awaiting sign-off",
-  "sign off required",
-  "sign-off required",
   "need your sign off",
   "need your sign-off",
   "should i continue",

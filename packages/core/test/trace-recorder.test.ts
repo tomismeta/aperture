@@ -159,13 +159,13 @@ test("trace recorder explains that status remains authoritative on task updates"
     consequence: "low",
     blocking: "waiting",
     episode: "unknown",
-    confidence: "low",
+    confidence: "high",
     source: "explicit",
   });
   assert.equal(trace.semantic?.provenance?.intentFrame, "inferred");
   assert.deepEqual(trace.semantic?.impact, {
-    decisionBearing: ["activity (canonical)", "confidence (ambiguity)"],
-    explanatory: ["intent", "consequence", "why now"],
+    decisionBearing: ["activity (canonical)"],
+    explanatory: ["intent", "consequence", "confidence"],
   });
 });
 

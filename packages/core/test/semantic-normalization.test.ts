@@ -498,7 +498,7 @@ test("public trajectory silent cleanup observations stay low-consequence status 
   assert.equal(interpretation.consequence, "low");
 });
 
-test("task updates can infer implied operator asks from status text", () => {
+test("passive waiting approval wording stays status-shaped without inventing an implied ask", () => {
   const normalized = normalizeSourceEvent({
     id: "evt:blocked",
     type: "task.updated",
@@ -512,9 +512,9 @@ test("task updates can infer implied operator asks from status text", () => {
 
   assert.equal(normalized.type, "task.updated");
   if (normalized.type === "task.updated") {
-    assert.equal(normalized.semantic?.whyNow, "Status text implies the operator may need to respond.");
-    assert.equal(normalized.semantic?.confidence, "low");
-    assert.ok(normalized.semantic?.reasons.includes("status wording suggests an implied operator request"));
+    assert.equal(normalized.semantic?.whyNow, undefined);
+    assert.equal(normalized.semantic?.confidence, "high");
+    assert.deepEqual(normalized.semantic?.reasons, ["task update carries a non-blocking lifecycle status"]);
   }
 });
 
@@ -536,6 +536,26 @@ test("task updates can infer blocked-work semantics from waiting status text", (
     assert.equal(normalized.semantic?.whyNow, "Work is blocked and may require operator attention.");
     assert.equal(normalized.semantic?.confidence, "medium");
     assert.ok(normalized.semantic?.reasons.includes("status wording indicates work cannot continue yet"));
+  }
+});
+
+test("task updates still infer implied operator asks from operator-directed status text", () => {
+  const normalized = normalizeSourceEvent({
+    id: "evt:direct-ask-status",
+    type: "task.updated",
+    taskId: "task:direct-ask-status",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Need your approval before continuing",
+    summary: "Can you approve the deploy so work can continue?",
+    status: "waiting",
+  });
+
+  assert.equal(normalized.type, "task.updated");
+  if (normalized.type === "task.updated") {
+    assert.equal(normalized.semantic?.whyNow, "Status text implies the operator may need to respond.");
+    assert.equal(normalized.semantic?.confidence, "low");
+    assert.ok(normalized.semantic?.reasons.includes("status wording suggests an implied operator request"));
   }
 });
 

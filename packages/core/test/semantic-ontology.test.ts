@@ -29,7 +29,7 @@ test("approval requests project to a narrow ontology diagnostic", () => {
   });
 });
 
-test("waiting status stays a status-shaped, waiting ontology read", () => {
+test("passive waiting status stays a high-confidence status-shaped waiting ontology read", () => {
   const diagnostic = readSemanticOntologyDiagnostic({
     id: "evt:ontology:waiting",
     taskId: "task:ontology:waiting",
@@ -46,7 +46,7 @@ test("waiting status stays a status-shaped, waiting ontology read", () => {
     consequence: "low",
     blocking: "waiting",
     episode: "unknown",
-    confidence: "low",
+    confidence: "high",
     source: "explicit",
   });
 });

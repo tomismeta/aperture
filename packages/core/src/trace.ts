@@ -5,6 +5,9 @@ import type {
   TraceCriterionEvaluation,
   TraceDecisionAmbiguity,
   TraceDecisionKind,
+  TraceEventFieldDiff,
+  TraceEventTransition,
+  TraceEventTransitionKind,
   TraceGateEvaluation,
   TraceInterruptCriterionVerdict,
   TraceResultLane,
@@ -17,6 +20,9 @@ export type {
   TraceCriterionEvaluation,
   TraceDecisionAmbiguity,
   TraceDecisionKind,
+  TraceEventFieldDiff,
+  TraceEventTransition,
+  TraceEventTransitionKind,
   TraceGateEvaluation,
   TraceInterruptCriterion,
   TraceInterruptCriterionVerdict,
@@ -43,6 +49,7 @@ export type ApertureTrace =
   | {
       timestamp: string;
       event: ApertureEvent;
+      eventTransition: TraceEventTransition;
       evaluation: {
         kind: "noop";
       };
@@ -50,6 +57,7 @@ export type ApertureTrace =
   | {
       timestamp: string;
       event: ApertureEvent;
+      eventTransition: TraceEventTransition;
       evaluation: {
         kind: "clear";
         taskId: string;
@@ -58,6 +66,7 @@ export type ApertureTrace =
   | {
       timestamp: string;
       event: ApertureEvent;
+      eventTransition: TraceEventTransition;
       evaluation: {
         kind: "candidate";
       };

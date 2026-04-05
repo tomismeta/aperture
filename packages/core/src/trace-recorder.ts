@@ -16,11 +16,13 @@ import {
 import type { AttentionPressure } from "./attention-pressure.js";
 import { projectSemanticOntologyDiagnostic } from "./semantic-ontology.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
+import type { TraceEventTransition } from "./trace-common.js";
 import type { ApertureTrace, TraceSemanticSummary } from "./trace-types.js";
 
 export type TraceSnapshot = {
   timestamp: string;
   event: ApertureEvent;
+  eventTransition: TraceEventTransition;
   taskSummary: AttentionSignalSummary;
   globalSummary: AttentionSignalSummary;
   taskAttentionState: AttentionState;

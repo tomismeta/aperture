@@ -6,13 +6,33 @@ import type {
   SemanticIntentFrame,
   SemanticRelationHint,
 } from "./semantic-types.js";
+import type { ApertureEvent } from "./events.js";
 import type { SemanticOntologyDiagnostic } from "./semantic-ontology.js";
+import type { SourceEvent } from "./source-event.js";
 
 export type TraceDecisionKind = "auto_approve" | "activate" | "queue" | "ambient" | "clear";
 
 export type TraceResultLane = "now" | "next" | "ambient" | "none";
 
 export type TraceAttentionPriority = "background" | "normal" | "high";
+
+export type TraceEventTransitionKind =
+  | "source_normalized"
+  | "direct_enriched"
+  | "direct_passthrough";
+
+export type TraceEventFieldDiff = {
+  path: string;
+  before: unknown;
+  after: unknown;
+};
+
+export type TraceEventTransition = {
+  kind: TraceEventTransitionKind;
+  original: SourceEvent | ApertureEvent;
+  finalized: ApertureEvent;
+  changedFields: TraceEventFieldDiff[];
+};
 
 export type TraceDecisionAmbiguity = {
   kind: "interrupt";

@@ -183,6 +183,16 @@ happened through the public explanation contract, use the trace entrypoint:
 import { isCandidateTrace, type ApertureTrace } from "@tomismeta/aperture-core/trace";
 ```
 
+The public trace now preserves both:
+
+- `event`
+  - the finalized runtime event Aperture actually judged
+- `eventTransition`
+  - the original input event, the finalized event, and a field-level diff
+
+That makes it easy to inspect exactly what semantic defaulting or source
+normalization changed before judgment began.
+
 Those subpaths exist for advanced consumers. The root package remains the
 recommended SDK loop.
 

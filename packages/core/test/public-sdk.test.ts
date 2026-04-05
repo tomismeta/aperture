@@ -144,6 +144,18 @@ test("public SDK applies semantic defaults to direct ApertureEvent publishes by 
     return;
   }
 
+  assert.equal(trace.eventTransition.kind, "direct_enriched");
+  assert.equal(trace.eventTransition.original.semantic, undefined);
+  assert.equal(trace.eventTransition.finalized.semantic?.toolFamily, "read");
+  assert.equal(
+    trace.eventTransition.changedFields.some((field) => field.path === "semantic.toolFamily" && field.after === "read"),
+    true,
+  );
+  assert.equal(
+    trace.eventTransition.changedFields.some((field) => field.path === "consequence" && field.before === undefined && field.after === "low"),
+    true,
+  );
+
   assert.equal(trace.semantic?.toolFamily, "read");
   assert.deepEqual(trace.semantic?.ontology, {
     ask: "approval",
@@ -187,6 +199,8 @@ test("public SDK can opt out of semantic defaults for direct ApertureEvent publi
     return;
   }
 
+  assert.equal(trace.eventTransition.kind, "direct_passthrough");
+  assert.deepEqual(trace.eventTransition.changedFields, []);
   assert.equal(trace.semantic, undefined);
 });
 
@@ -287,6 +301,13 @@ test("public SDK supports trace inspection through the trace subpath", () => {
     return;
   }
 
+  assert.equal(trace.eventTransition.kind, "source_normalized");
+  assert.equal(trace.eventTransition.original.type, "human.input.requested");
+  assert.equal(trace.eventTransition.finalized.type, "human.input.requested");
+  assert.equal(
+    trace.eventTransition.changedFields.some((field) => field.path === "semantic.intentFrame" && field.after === "question_request"),
+    true,
+  );
   assert.equal(trace.semantic?.toolFamily, "read");
   assert.deepEqual(trace.semantic?.ontology, {
     ask: "choice",

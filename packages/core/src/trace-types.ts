@@ -15,7 +15,7 @@ import type { PolicyGateRuleEvaluation } from "./policy/policy-gate-rule.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import type { AttentionValueBreakdown } from "./attention-value.js";
 import type { ContinuityRuleEvaluation } from "./continuity/continuity-rule.js";
-import type { TraceSemanticSummary } from "./trace-common.js";
+import type { TraceEventTransition, TraceSemanticSummary } from "./trace-common.js";
 import { isCandidateTraceLike } from "./trace-common.js";
 export type {
   TraceAttentionPriority,
@@ -23,6 +23,9 @@ export type {
   TraceCriterionEvaluation,
   TraceDecisionAmbiguity,
   TraceDecisionKind,
+  TraceEventFieldDiff,
+  TraceEventTransition,
+  TraceEventTransitionKind,
   TraceGateEvaluation,
   TraceInterruptCriterionVerdict,
   TraceResultLane,
@@ -33,6 +36,7 @@ export type ApertureTrace =
   | {
       timestamp: string;
       event: ApertureEvent;
+      eventTransition: TraceEventTransition;
       evaluation: {
         kind: "noop";
       };
@@ -49,6 +53,7 @@ export type ApertureTrace =
   | {
       timestamp: string;
       event: ApertureEvent;
+      eventTransition: TraceEventTransition;
       evaluation: {
         kind: "clear";
         taskId: string;
@@ -66,6 +71,7 @@ export type ApertureTrace =
   | {
       timestamp: string;
       event: ApertureEvent;
+      eventTransition: TraceEventTransition;
       evaluation: {
         kind: "candidate";
         original: AttentionCandidate;

@@ -52,6 +52,7 @@ import {
   type InternalTraceListener,
 } from "./internal-trace.js";
 import { TraceRecorder } from "./trace-recorder.js";
+import { buildTraceEventTransition } from "./trace-event-transition.js";
 import { AttentionValue } from "./attention-value.js";
 import {
   ApertureCoreListeners,
@@ -90,9 +91,9 @@ export type PublishOptions = {
 };
 
 type PreparedPublishedEvent = {
-  originalEvent: ApertureEvent;
+  originalEvent: SourceEvent | ApertureEvent;
   finalizedEvent: ApertureEvent;
-  semanticDefaultsApplied: boolean;
+  transitionKind: "source_normalized" | "direct_enriched" | "direct_passthrough";
 };
 
 export class ApertureCore {
@@ -223,7 +224,11 @@ export class ApertureCore {
 
   publishSourceEvent(event: SourceEvent): AttentionFrame | null {
     this.assertValidSourceEvent(event);
-    return this.publishFinalizedEvent(normalizeSourceEvent(event));
+    return this.publishPreparedEvent({
+      originalEvent: event,
+      finalizedEvent: normalizeSourceEvent(event),
+      transitionKind: "source_normalized",
+    });
   }
 
   publish(event: ApertureEvent, options: PublishOptions = {}): AttentionFrame | null {
@@ -232,7 +237,7 @@ export class ApertureCore {
     // -> AttentionCandidate -> AttentionJudgmentInput-aware judgment ->
     // AttentionFrame/AttentionView + trace`
     this.assertValidEvent(event);
-    return this.publishFinalizedEvent(this.preparePublishedEvent(event, options).finalizedEvent);
+    return this.publishPreparedEvent(this.preparePublishedEvent(event, options));
   }
 
   private preparePublishedEvent(
@@ -245,11 +250,13 @@ export class ApertureCore {
       finalizedEvent: semanticDefaultsApplied
         ? enrichApertureEvent(event)
         : enrichApertureEvent(event, { skipSemanticDefaults: true }),
-      semanticDefaultsApplied,
+      transitionKind: semanticDefaultsApplied ? "direct_enriched" : "direct_passthrough",
     };
   }
 
-  private publishFinalizedEvent(finalizedEvent: ApertureEvent): AttentionFrame | null {
+  private publishPreparedEvent(preparedEvent: PreparedPublishedEvent): AttentionFrame | null {
+    const { finalizedEvent, originalEvent, transitionKind } = preparedEvent;
+    const eventTransition = buildTraceEventTransition(transitionKind, originalEvent, finalizedEvent);
     const current = this.getFrame(finalizedEvent.taskId);
     const evidence = this.assembleAttentionEvidenceContext(finalizedEvent.taskId, current);
     const taskSummary = evidence.taskSignalSummary;
@@ -266,6 +273,7 @@ export class ApertureCore {
         this.notifyTrace(this.traceRecorder.recordNoop({
           timestamp: this.nowIso(),
           event: finalizedEvent,
+          eventTransition,
           taskSummary,
           globalSummary,
           taskAttentionState,
@@ -284,6 +292,7 @@ export class ApertureCore {
         this.notifyTrace(this.traceRecorder.recordClear({
           timestamp: this.nowIso(),
           event: finalizedEvent,
+          eventTransition,
           taskSummary,
           globalSummary,
           taskAttentionState,
@@ -313,6 +322,7 @@ export class ApertureCore {
         this.notifyTrace(this.traceRecorder.recordCandidate({
           timestamp: this.nowIso(),
           event: finalizedEvent,
+          eventTransition,
           taskSummary,
           globalSummary,
           taskAttentionState,

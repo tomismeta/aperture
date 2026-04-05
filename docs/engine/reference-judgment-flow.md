@@ -51,6 +51,12 @@ If the caller publishes an `ApertureEvent` directly, core first finalizes it
 for runtime use. By default that finalized event is also enriched with bounded
 semantic defaults; callers can opt out and keep a more manual finalized shape.
 
+The trace now preserves that transition explicitly:
+
+- original input event
+- finalized runtime event
+- field-level diff between them
+
 ### 2. Meaning -> Candidate
 
 [EventEvaluator](../../packages/core/src/event-evaluator.ts) turns the raw event into an `AttentionCandidate`.

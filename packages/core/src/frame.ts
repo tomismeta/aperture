@@ -1,10 +1,11 @@
+import type { AttentionConsequenceLevel } from "./attention-contract-types.js";
 import type { SourceRef } from "./events.js";
 
 export type AttentionFrameMode = "status" | "approval" | "choice" | "form";
 
 export type AttentionTone = "ambient" | "focused" | "critical";
 
-export type AttentionConsequenceLevel = "low" | "medium" | "high";
+export type { AttentionConsequenceLevel } from "./attention-contract-types.js";
 
 export type AttentionFrame = {
   id: string;

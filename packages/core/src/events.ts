@@ -1,5 +1,8 @@
 import type {
+  AttentionActivityClass,
   AttentionConsequenceLevel,
+} from "./attention-contract-types.js";
+import type {
   AttentionContext,
   AttentionProvenance,
   AttentionTone,
@@ -23,14 +26,7 @@ export type ApertureEvent =
 
 export type TaskStatus = "running" | "blocked" | "waiting" | "completed" | "failed";
 
-export type AttentionActivityClass =
-  | "permission_request"
-  | "question_request"
-  | "follow_up"
-  | "tool_completion"
-  | "tool_failure"
-  | "session_status"
-  | "status_update";
+export type { AttentionActivityClass } from "./attention-contract-types.js";
 
 export type SourceRef = {
   id: string;

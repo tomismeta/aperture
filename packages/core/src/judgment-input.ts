@@ -2,12 +2,23 @@ import type { ApertureEvent } from "./events.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import {
   projectSemanticOntologyDiagnostic,
-  type SemanticOntologyDiagnostic,
-  type SemanticOntologySource,
 } from "./semantic-ontology.js";
 import type { SemanticConfidence } from "./semantic-types.js";
+import type {
+  AttentionJudgmentInput,
+  CandidateSemanticEvidence,
+  SemanticEvidenceStrength,
+} from "./judgment-input-types.js";
+import type {
+  SemanticOntologyDiagnostic,
+  SemanticOntologySource,
+} from "./semantic-ontology-types.js";
 
-export type SemanticEvidenceStrength = "weak" | "qualified" | "strong";
+export type {
+  AttentionJudgmentInput,
+  CandidateSemanticEvidence,
+  SemanticEvidenceStrength,
+} from "./judgment-input-types.js";
 
 /**
  * Single semantic-to-judgment seam for routed events.
@@ -16,30 +27,16 @@ export type SemanticEvidenceStrength = "weak" | "qualified" | "strong";
  * smaller than full semantics and gives policy, ambiguity handling, planning,
  * and trace one compiled place to read:
  *
+ * `SemanticInterpretation`
+ *   -> `SemanticOntologyDiagnostic`
+ *   -> `AttentionJudgmentInput`
+ *
  * - ontology
  * - semantic evidence strength from confidence + source
  * - blocked-like status diagnostics
  */
-export type AttentionJudgmentInput = {
-  ontology?: SemanticOntologyDiagnostic;
-  semanticEvidence?: {
-    confidence: SemanticConfidence;
-    source: SemanticOntologySource;
-    strength: SemanticEvidenceStrength;
-    abstained: boolean;
-  };
-  relationEvidence?: {
-    source: SemanticOntologySource;
-    strength: SemanticEvidenceStrength;
-  };
-  // This is a narrow status-routing diagnostic, not a generic proxy for
-  // blockingness. Human input is already blocking by contract; this flag exists
-  // only for task statuses that semantically read as blocked without becoming a
-  // full human-input interaction.
-  blockedLikeStatus: boolean;
-};
-
-export type CandidateSemanticEvidence = NonNullable<AttentionJudgmentInput["semanticEvidence"]>;
+// `AttentionJudgmentInput` is defined in `judgment-input-types.ts` so the seam
+// contract can be read without walking through the compilation logic here.
 
 export function buildAttentionJudgmentInput(
   event: ApertureEvent,

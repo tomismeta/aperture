@@ -1,3 +1,8 @@
+import type {
+  AttentionActivityClass,
+  AttentionConsequenceLevel,
+} from "./attention-contract-types.js";
+
 export type SemanticIntentFrame =
   | "task_started"
   | "status_update"
@@ -9,16 +14,9 @@ export type SemanticIntentFrame =
   | "completion"
   | "cancellation";
 
-export type SemanticActivityClass =
-  | "permission_request"
-  | "question_request"
-  | "follow_up"
-  | "tool_completion"
-  | "tool_failure"
-  | "session_status"
-  | "status_update";
+export type SemanticActivityClass = AttentionActivityClass;
 
-export type SemanticConsequenceLevel = "low" | "medium" | "high";
+export type SemanticConsequenceLevel = AttentionConsequenceLevel;
 
 export type SemanticConfidence = "low" | "medium" | "high";
 

@@ -38,6 +38,9 @@ export type AttentionCandidate = {
   context?: AttentionContext;
   provenance?: AttentionProvenance;
   judgmentInput: AttentionJudgmentInput;
+  // Detailed continuity hints for episode tracking, trace, and replay. Use the
+  // compiled `judgmentInput.relationEvidence` seam when judgment needs trust or
+  // strength, rather than treating these raw hints as equally reliable.
   relationHints?: SemanticRelationHint[];
   responseSpec: AttentionResponseSpec;
   priority: AttentionPriority;

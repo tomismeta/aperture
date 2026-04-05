@@ -26,6 +26,7 @@ import { resolveAutoresearchInputFile } from "./autoresearch-input.js";
 import { ensureCleanWorktree } from "./autoresearch-workspace.js";
 import { runOfflineReviewBatchCommand } from "./offline-review-batch-command.js";
 import { runAutoresearchOptimizeCommand } from "./autoresearch-optimize-command.js";
+import type { AutoresearchGateName } from "./autoresearch-campaign.js";
 
 export type AutoresearchProposalCommandOptions = {
   inputFile?: string;
@@ -43,6 +44,10 @@ export type AutoresearchProposalCommandOptions = {
   minSessionCount: number;
   maxReports: number;
   outputPath?: string;
+  gateTimeoutSeconds?: number;
+  onGateChange?: (gate: AutoresearchGateName | undefined) => Promise<void> | void;
+  skipJudgmentBattle?: boolean;
+  skipReleaseCheck?: boolean;
 };
 
 export type AutoresearchProposalCommandResult = {
@@ -168,8 +173,14 @@ export async function runAutoresearchProposalCommand(
       ...(options.optimizerCommand ? { optimizerCommand: options.optimizerCommand } : {}),
       cwd: process.cwd(),
       extraCalibrationDirs: [candidateCalibrationDir],
-      skipJudgmentBattle: false,
-      skipReleaseCheck: false,
+      ...(options.gateTimeoutSeconds ? { gateTimeoutSeconds: options.gateTimeoutSeconds } : {}),
+      ...(options.onGateChange ? { onGateChange: options.onGateChange } : {}),
+      ...(options.skipJudgmentBattle !== undefined
+        ? { skipJudgmentBattle: options.skipJudgmentBattle }
+        : {}),
+      ...(options.skipReleaseCheck !== undefined
+        ? { skipReleaseCheck: options.skipReleaseCheck }
+        : {}),
     });
 
     optimizerRun = optimizeResult.run;

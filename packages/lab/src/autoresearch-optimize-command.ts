@@ -30,6 +30,7 @@ import {
   writeAutoresearchOptimizerRun,
   type AutoresearchOptimizerRun,
 } from "./autoresearch-optimizer.js";
+import type { AutoresearchGateName } from "./autoresearch-campaign.js";
 import {
   executePromptCommand,
   runFStopRolePrompt,
@@ -54,8 +55,10 @@ export type AutoresearchOptimizeCommandOptions = {
   beforeOutputPath?: string;
   afterOutputPath?: string;
   briefOutputPath?: string;
-  skipJudgmentBattle: boolean;
-  skipReleaseCheck: boolean;
+  gateTimeoutSeconds?: number;
+  onGateChange?: (gate: AutoresearchGateName | undefined) => Promise<void> | void;
+  skipJudgmentBattle?: boolean;
+  skipReleaseCheck?: boolean;
 };
 
 export type AutoresearchOptimizeCommandResult = {
@@ -84,11 +87,16 @@ export type AutoresearchOptimizeCommandResult = {
   run: AutoresearchOptimizerRun;
 };
 
+export const DEFAULT_AUTORESEARCH_GATE_TIMEOUT_SECONDS = 15 * 60;
+
 export async function runAutoresearchOptimizeCommand(
   options: AutoresearchOptimizeCommandOptions,
 ): Promise<AutoresearchOptimizeCommandResult> {
   const repoDir = options.cwd ?? process.cwd();
   await ensureCleanWorktree(repoDir);
+  const gateTimeoutSeconds = normalizeGateTimeoutSeconds(options.gateTimeoutSeconds);
+  const skipJudgmentBattle = options.skipJudgmentBattle ?? false;
+  const skipReleaseCheck = options.skipReleaseCheck ?? false;
 
   const generatedAt = new Date().toISOString();
   const optimizerCommand = options.optimizerCommand ?? `provider:${options.provider}`;
@@ -225,19 +233,33 @@ export async function runAutoresearchOptimizeCommand(
   }
 
   if (!executionError && surface.disallowedFiles.length === 0 && surface.changedFiles.length > 0) {
-    if (!options.skipJudgmentBattle) {
-      const gate = await runShellCommand("pnpm judgment:battle", repoDir);
-      judgmentBattle = gate.ok;
-      if (!gate.ok) {
-        notes.push(`judgment:battle failed: ${gate.summary}`);
+    if (!skipJudgmentBattle) {
+      await notifyGateChange(options.onGateChange, "judgment:battle");
+      try {
+        const gate = await runShellCommand("pnpm judgment:battle", repoDir, {
+          timeoutSeconds: gateTimeoutSeconds,
+        });
+        judgmentBattle = gate.ok;
+        if (!gate.ok) {
+          notes.push(`judgment:battle failed: ${gate.summary}`);
+        }
+      } finally {
+        await notifyGateChange(options.onGateChange, undefined);
       }
     }
 
-    if (!options.skipReleaseCheck) {
-      const gate = await runShellCommand("pnpm release:check", repoDir);
-      releaseCheck = gate.ok;
-      if (!gate.ok) {
-        notes.push(`release:check failed: ${gate.summary}`);
+    if (!skipReleaseCheck) {
+      await notifyGateChange(options.onGateChange, "release:check");
+      try {
+        const gate = await runShellCommand("pnpm release:check", repoDir, {
+          timeoutSeconds: gateTimeoutSeconds,
+        });
+        releaseCheck = gate.ok;
+        if (!gate.ok) {
+          notes.push(`release:check failed: ${gate.summary}`);
+        }
+      } finally {
+        await notifyGateChange(options.onGateChange, undefined);
       }
     }
   }
@@ -369,34 +391,103 @@ async function readGitDiffNameOnly(repoDir: string, beforeHead: string, afterHea
   return stdout.split("\n").map((entry) => entry.trim()).filter(Boolean);
 }
 
-async function runShellCommand(command: string, repoDir: string): Promise<{ ok: boolean; summary: string }> {
+async function runShellCommand(
+  command: string,
+  repoDir: string,
+  options: {
+    timeoutSeconds?: number;
+  } = {},
+): Promise<{ ok: boolean; summary: string }> {
   return await new Promise((resolve, reject) => {
+    const detached = process.platform !== "win32";
     const child = spawn(command, {
       shell: true,
       cwd: repoDir,
       env: process.env,
       stdio: ["ignore", "pipe", "pipe"],
+      detached,
     });
 
     const stdoutChunks: Buffer[] = [];
     const stderrChunks: Buffer[] = [];
+    let timedOut = false;
+    let forceKillTimer: NodeJS.Timeout | undefined;
+    const timeoutSeconds = options.timeoutSeconds ?? DEFAULT_AUTORESEARCH_GATE_TIMEOUT_SECONDS;
+    const terminate = (signal: NodeJS.Signals): void => {
+      if (!child.pid) {
+        return;
+      }
+
+      try {
+        if (detached) {
+          process.kill(-child.pid, signal);
+        } else {
+          child.kill(signal);
+        }
+      } catch {
+        // Ignore missing-process races.
+      }
+    };
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      terminate("SIGTERM");
+      forceKillTimer = setTimeout(() => {
+        terminate("SIGKILL");
+      }, 5_000);
+      forceKillTimer.unref();
+    }, timeoutSeconds * 1000);
+    timeout.unref();
+
     child.stdout.on("data", (chunk) => {
       stdoutChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
     });
     child.stderr.on("data", (chunk) => {
       stderrChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
     });
-    child.on("error", (error) => reject(error));
+    child.on("error", (error) => {
+      clearTimeout(timeout);
+      if (forceKillTimer) {
+        clearTimeout(forceKillTimer);
+      }
+      reject(error);
+    });
     child.on("close", (code) => {
+      clearTimeout(timeout);
+      if (forceKillTimer) {
+        clearTimeout(forceKillTimer);
+      }
       const stdout = Buffer.concat(stdoutChunks).toString("utf8").trim();
       const stderr = Buffer.concat(stderrChunks).toString("utf8").trim();
-      const combined = [stdout, stderr].filter(Boolean).join("\n");
+      const combined = [
+        timedOut ? `Timed out after ${timeoutSeconds}s.` : undefined,
+        stdout,
+        stderr,
+      ].filter(Boolean).join("\n");
       resolve({
-        ok: code === 0,
+        ok: code === 0 && !timedOut,
         summary: combined || `exit code ${code ?? 1}`,
       });
     });
   });
+}
+
+async function notifyGateChange(
+  callback: AutoresearchOptimizeCommandOptions["onGateChange"],
+  gate: AutoresearchGateName | undefined,
+): Promise<void> {
+  if (!callback) {
+    return;
+  }
+
+  await callback(gate);
+}
+
+function normalizeGateTimeoutSeconds(
+  timeoutSeconds: number | undefined,
+): number {
+  return timeoutSeconds && timeoutSeconds > 0
+    ? timeoutSeconds
+    : DEFAULT_AUTORESEARCH_GATE_TIMEOUT_SECONDS;
 }
 
 function determineOptimizerStatus(input: {

@@ -50,10 +50,11 @@ export type SemanticDetectionInput = {
 
 export type SemanticBlockingSignal = "blocking" | "waiting";
 
-// Preserve path-like separators and hyphens so file paths, commands, and
-// hyphenated tool terms survive normalization as semantic anchors.
+// Preserve path-like separators, underscores, and hyphens so file paths,
+// command tokens, and constant-like log terms survive normalization as stable
+// anchors instead of being rewritten into natural-language phrases.
 export function normalizeSemanticText(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9/.-]+/g, " ").trim();
+  return value.toLowerCase().replace(/[^a-z0-9/._-]+/g, " ").trim();
 }
 
 export function dedupeSemanticStrings(values: string[]): string[] {
@@ -323,11 +324,11 @@ function hasPhrase(value: string, phrase: string): boolean {
     return false;
   }
 
-  return new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(normalizedPhrase)}(?:$|[^a-z0-9])`).test(value);
+  return new RegExp(`(?:^|[^a-z0-9_])${escapeRegExp(normalizedPhrase)}(?:$|[^a-z0-9_])`).test(value);
 }
 
 function hasWord(value: string, word: string): boolean {
-  return new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(word)}(?:$|[^a-z0-9])`).test(value);
+  return new RegExp(`(?:^|[^a-z0-9_])${escapeRegExp(word)}(?:$|[^a-z0-9_])`).test(value);
 }
 
 function escapeRegExp(value: string): string {

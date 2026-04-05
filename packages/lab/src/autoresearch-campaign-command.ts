@@ -290,6 +290,7 @@ export async function runAutoresearchCampaignCommand(
                 heartbeatAgeSeconds,
                 ...(snapshot.finalStatus ? { finalStatus: snapshot.finalStatus } : {}),
                 ...(snapshot.currentSlice ? { currentSlice: snapshot.currentSlice } : {}),
+                ...(snapshot.currentGate ? { currentGate: snapshot.currentGate } : {}),
                 ...(snapshot.currentSliceStartedAt
                   ? { currentSliceStartedAt: snapshot.currentSliceStartedAt }
                   : {}),
@@ -416,6 +417,7 @@ export async function runAutoresearchCampaignCommand(
               ...(heartbeatAgeSeconds !== undefined ? { heartbeatAgeSeconds } : {}),
               ...(runStatus.finalStatus ? { finalStatus: runStatus.finalStatus } : {}),
               ...(runStatus.currentSlice ? { currentSlice: runStatus.currentSlice } : {}),
+              ...(runStatus.currentGate ? { currentGate: runStatus.currentGate } : {}),
               ...(runStatus.currentSliceStartedAt
                 ? { currentSliceStartedAt: runStatus.currentSliceStartedAt }
                 : {}),

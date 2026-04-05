@@ -29,7 +29,9 @@ export type {
  *
  * `SemanticInterpretation`
  *   -> `SemanticOntologyDiagnostic`
+ *      loses raw reasons/why-now/factors and keeps the compact 7-dimension read
  *   -> `AttentionJudgmentInput`
+ *      narrows again to the routing-critical subset used by judgment
  *
  * - ontology
  * - semantic evidence strength from confidence + source

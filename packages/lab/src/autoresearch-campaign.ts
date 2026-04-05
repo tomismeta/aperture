@@ -3,7 +3,8 @@ import { appendFile, mkdir, writeFile } from "node:fs/promises";
 export const AUTORESEARCH_CAMPAIGN_SCHEMA_VERSION = 1 as const;
 export const AUTORESEARCH_RUN_STATUS_SCHEMA_VERSION = 1 as const;
 
-export type AutoresearchRunStatusPhase = "running" | "completed" | "error";
+export type AutoresearchGateName = "judgment:battle" | "release:check";
+export type AutoresearchRunStatusPhase = "running" | "gating" | "completed" | "error";
 
 export type AutoresearchRunStatusSnapshot = {
   schemaVersion: typeof AUTORESEARCH_RUN_STATUS_SCHEMA_VERSION;
@@ -30,6 +31,7 @@ export type AutoresearchRunStatusSnapshot = {
     offset: number;
     limit: number;
   };
+  currentGate?: AutoresearchGateName;
   currentSliceStartedAt?: string;
   activeSliceElapsedSeconds?: number;
   finalStatus?: string;
@@ -85,6 +87,7 @@ export type AutoresearchCampaignStatus = {
       offset: number;
       limit: number;
     };
+    currentGate?: AutoresearchGateName;
     currentSliceStartedAt?: string;
     activeSliceElapsedSeconds?: number;
   };

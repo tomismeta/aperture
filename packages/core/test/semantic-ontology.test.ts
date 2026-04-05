@@ -47,7 +47,7 @@ test("waiting status stays a status-shaped, waiting ontology read", () => {
     blocking: "waiting",
     episode: "unknown",
     confidence: "low",
-    source: "inferred",
+    source: "explicit",
   });
 });
 

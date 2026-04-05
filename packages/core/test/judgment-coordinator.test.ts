@@ -975,6 +975,43 @@ test("low-confidence non-blocking work stays queued through semantic ambiguity h
   );
 });
 
+test("medium-confidence inferred work still stays peripheral when the semantic source is weak", () => {
+  const explanation = coordinator.explain(
+    null,
+    createCandidate({
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      priority: "normal",
+      blocking: false,
+      responseSpec: { kind: "none" },
+      semanticConfidence: "medium",
+      semanticOntology: {
+        ask: "status",
+        activity: "task_progress",
+        consequence: "medium",
+        blocking: "waiting",
+        episode: "unknown",
+        confidence: "medium",
+        source: "inferred",
+      },
+      attentionScoreOffset: 80,
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "ambient");
+  assert.deepEqual(explanation.ambiguity, {
+    kind: "interrupt",
+    reason: "low_signal",
+    resolution: "ambient",
+  });
+  assert.ok(
+    explanation.reasons.includes(
+      "inferred semantic evidence stays peripheral until stronger source-backed context arrives",
+    ),
+  );
+});
+
 test("semantic abstention keeps passive work ambient through the ambiguity lane", () => {
   const explanation = coordinator.explain(
     null,
@@ -1629,6 +1666,39 @@ test("durable source trust can lower the interrupt bar when no frame is active",
       "no_active_frame",
     ],
   );
+  assert.equal(explanation.policyCriterionEvaluations[2]?.kind, "adjust");
+});
+
+test("explicit high-confidence semantic evidence can lower the interrupt bar slightly without overriding status policy", () => {
+  const explanation = coordinator.explain(
+    null,
+    createCandidate({
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      priority: "normal",
+      blocking: false,
+      responseSpec: { kind: "none" },
+      semanticConfidence: "high",
+      semanticOntology: {
+        ask: "status",
+        activity: "task_progress",
+        consequence: "medium",
+        blocking: "waiting",
+        episode: "unknown",
+        confidence: "high",
+        source: "explicit",
+      },
+      attentionScoreOffset: 68,
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "ambient");
+  assert.equal(explanation.criterion?.criterion.activationThreshold, 179);
+  assert.deepEqual(explanation.criterion?.rationale, [
+    "explicit semantic evidence lowers the interrupt bar slightly",
+  ]);
+  assert.equal(explanation.policyCriterionEvaluations[2]?.rule, "source_trust");
   assert.equal(explanation.policyCriterionEvaluations[2]?.kind, "adjust");
 });
 

@@ -131,6 +131,8 @@ How confident is Aperture in the current semantic read?
 - `low`
 
 This is the simplest durable abstraction for abstention and ambiguity handling.
+In practice, Aperture reads `confidence` together with `source` to decide how
+strong the semantic evidence really is.
 
 ### 7. `source`
 
@@ -142,6 +144,8 @@ Where did the semantic read come from?
 
 This keeps provenance first-class and prevents inferred meaning from pretending
 to be source fact.
+`explicit` means the operative read came from the event shape or source-provided
+fields, not only from Aperture's own wording inference.
 
 ## Routing Meaning
 
@@ -157,8 +161,8 @@ In simplified form:
   waiting statuses can now stay queue-worthy without becoming full blocking
   interactions
 - `episode` shapes continuity and resurfacing
-- `confidence` shapes ambiguity and abstention behavior
-- `source` shapes trust and traceability
+- `confidence` and `source` combine into semantic evidence strength for
+  ambiguity and trust handling
 
 That means semantic breadth should be measured by how well Aperture can read
 these dimensions across many sources, not by how many host-specific event kinds

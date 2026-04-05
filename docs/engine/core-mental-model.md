@@ -99,6 +99,7 @@ Today, the ontology is most first-class in:
 - F-Stop review
 - trace diagnostics
 - narrow blocked-like status routing for strong `blocking` reads
+- semantic evidence strength from `confidence + source`
 
 Judgment still primarily consumes the richer semantic and candidate layers rather
 than routing directly on ontology objects.

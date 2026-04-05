@@ -1,3 +1,4 @@
+import { readSemanticEvidenceStrength } from "../semantic-evidence.js";
 import {
   ambiguousPeripheralCriterionVerdict,
   noopPolicyCriterionRule,
@@ -48,8 +49,24 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
     );
   }
 
+  if (readSemanticEvidenceStrength(candidate) === "weak") {
+    return verdictPolicyCriterionRule(
+      "semantic_uncertainty",
+      ambiguousPeripheralCriterionVerdict(
+        criterion,
+        peripheralResolution,
+        {
+          kind: "interrupt",
+          reason: "low_signal",
+          resolution: peripheralResolution,
+        },
+        ["inferred semantic evidence stays peripheral until stronger source-backed context arrives"],
+      ),
+    );
+  }
+
   return noopPolicyCriterionRule(
     "semantic_uncertainty",
-    candidate.semanticConfidence !== undefined ? ["semantic confidence is strong enough to keep ordinary interrupt rules in play"] : [],
+    candidate.semanticConfidence !== undefined ? ["semantic evidence is strong enough to keep ordinary interrupt rules in play"] : [],
   );
 };

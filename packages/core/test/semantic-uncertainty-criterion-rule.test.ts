@@ -45,7 +45,39 @@ test("medium-confidence semantics stay out of the uncertainty ambiguity path", (
 
   assert.equal(evaluation.kind, "noop");
   assert.deepEqual(evaluation.rationale, [
-    "semantic confidence is strong enough to keep ordinary interrupt rules in play",
+    "semantic evidence is strong enough to keep ordinary interrupt rules in play",
+  ]);
+});
+
+test("medium-confidence inferred semantics still stay peripheral when the source read is weak", () => {
+  const evaluation = evaluateSemanticUncertaintyCriterionRule({
+    candidate: {
+      ...baseCandidate,
+      semanticConfidence: "medium",
+      semanticOntology: {
+        ask: "status",
+        activity: "task_progress",
+        consequence: "medium",
+        blocking: "waiting",
+        episode: "unknown",
+        confidence: "medium",
+        source: "inferred",
+      },
+    },
+    policyVerdict: basePolicyVerdict,
+    evidence: createAttentionEvidenceContext(),
+    candidateScore: 4,
+    currentScore: null,
+    criterion: { activationThreshold: 4, promotionMargin: 1 },
+    sourceTrustAdjustment: 0,
+    peripheralResolution: "queue",
+  });
+
+  assert.equal(evaluation.kind, "verdict");
+  assert.equal(evaluation.verdict.peripheralResolution, "queue");
+  assert.equal(evaluation.verdict.ambiguity?.reason, "low_signal");
+  assert.deepEqual(evaluation.rationale, [
+    "inferred semantic evidence stays peripheral until stronger source-backed context arrives",
   ]);
 });
 

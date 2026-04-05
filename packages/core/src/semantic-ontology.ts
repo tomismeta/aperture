@@ -69,10 +69,10 @@ export function projectSemanticOntologyDiagnostic(
     ...(interpretation.consequence !== undefined
       ? { consequence: interpretation.consequence }
       : {}),
-    blocking: readOntologyBlocking(event, interpretation),
-    episode: readOntologyEpisode(event, interpretation),
-    confidence: interpretation.confidence,
-    source: readOntologySource(interpretation),
+  blocking: readOntologyBlocking(event, interpretation),
+  episode: readOntologyEpisode(event, interpretation),
+  confidence: interpretation.confidence,
+  source: readOntologySource(event, interpretation),
   };
 }
 
@@ -209,12 +209,17 @@ function hasResurfacingRelation(
 }
 
 function readOntologySource(
+  event: SemanticOntologyEvent,
   interpretation: SemanticInterpretation,
 ): SemanticOntologySource {
   const provenanceKinds = Object.values(interpretation.provenance ?? {});
 
   if (provenanceKinds.includes("hint")) {
     return "hinted";
+  }
+
+  if (isExplicitEventShapedSemanticRead(event, interpretation)) {
+    return "explicit";
   }
 
   if (provenanceKinds.includes("source")) {
@@ -226,4 +231,30 @@ function readOntologySource(
   }
 
   return "explicit";
+}
+
+function isExplicitEventShapedSemanticRead(
+  event: SemanticOntologyEvent,
+  interpretation: SemanticInterpretation,
+): boolean {
+  switch (event.type) {
+    case "human.input.requested":
+      return true;
+    case "task.started":
+    case "task.completed":
+    case "task.cancelled":
+      return true;
+    case "task.updated":
+      switch (event.status) {
+        case "blocked":
+          return interpretation.intentFrame === "blocked_work";
+        case "failed":
+          return interpretation.intentFrame === "failure" || interpretation.intentFrame === "status_update";
+        case "completed":
+          return interpretation.intentFrame === "completion" || interpretation.intentFrame === "status_update";
+        case "running":
+        case "waiting":
+          return interpretation.intentFrame === "status_update";
+      }
+  }
 }

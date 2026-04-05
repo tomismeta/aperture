@@ -160,7 +160,7 @@ test("trace recorder explains that status remains authoritative on task updates"
     blocking: "waiting",
     episode: "unknown",
     confidence: "low",
-    source: "inferred",
+    source: "explicit",
   });
   assert.equal(trace.semantic?.provenance?.intentFrame, "inferred");
   assert.deepEqual(trace.semantic?.impact, {

@@ -69,10 +69,10 @@ export function projectSemanticOntologyDiagnostic(
     ...(interpretation.consequence !== undefined
       ? { consequence: interpretation.consequence }
       : {}),
-  blocking: readOntologyBlocking(event, interpretation),
-  episode: readOntologyEpisode(event, interpretation),
-  confidence: interpretation.confidence,
-  source: readOntologySource(event, interpretation),
+    blocking: readOntologyBlocking(event, interpretation),
+    episode: readOntologyEpisode(event, interpretation),
+    confidence: interpretation.confidence,
+    source: readOntologySource(event, interpretation),
   };
 }
 
@@ -83,6 +83,10 @@ function readOntologyAsk(
   switch (event.type) {
     case "human.input.requested":
       return event.request.kind;
+    case "task.started":
+    case "task.completed":
+    case "task.cancelled":
+      return "none";
     case "task.updated":
       if (
         interpretation.intentFrame === "approval_request"
@@ -101,7 +105,7 @@ function readOntologyAsk(
       }
       return "status";
     default:
-      return "none";
+      return unreachableSemanticOntologyEvent(event);
   }
 }
 
@@ -140,6 +144,8 @@ function readOntologyActivity(
       return "task_progress";
     case "task.started":
       return "background_work";
+    default:
+      return unreachableSemanticOntologyEvent(event);
   }
 }
 
@@ -150,6 +156,10 @@ function readOntologyBlocking(
   switch (event.type) {
     case "human.input.requested":
       return "blocking";
+    case "task.started":
+    case "task.completed":
+    case "task.cancelled":
+      return "non_blocking";
     case "task.updated":
       if (event.status === "blocked" || interpretation.intentFrame === "blocked_work") {
         return "blocking";
@@ -164,7 +174,7 @@ function readOntologyBlocking(
       }
       return "non_blocking";
     default:
-      return "non_blocking";
+      return unreachableSemanticOntologyEvent(event);
   }
 }
 
@@ -172,6 +182,8 @@ function readOntologyEpisode(
   event: SemanticOntologyEvent,
   interpretation: SemanticInterpretation,
 ): SemanticOntologyEpisode {
+  // The compact ontology keeps only the coarse continuity state. Relation
+  // targets remain in full semantic interpretation and traces.
   const relationKinds = new Set(
     interpretation.relationHints.map((hint) => hint.kind),
   );
@@ -264,6 +276,18 @@ function isExplicitEventShapedSemanticRead(
         case "running":
         case "waiting":
           return interpretation.intentFrame === "status_update";
+        default:
+          return unreachableTaskStatus(event.status);
       }
+    default:
+      return unreachableSemanticOntologyEvent(event);
   }
+}
+
+function unreachableSemanticOntologyEvent(event: never): never {
+  throw new Error(`Unhandled semantic ontology event: ${JSON.stringify(event)}`);
+}
+
+function unreachableTaskStatus(status: never): never {
+  throw new Error(`Unhandled task status in semantic ontology: ${status}`);
 }

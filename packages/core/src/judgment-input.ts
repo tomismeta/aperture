@@ -32,6 +32,10 @@ export type AttentionJudgmentInput = {
     source: SemanticOntologySource;
     strength: SemanticEvidenceStrength;
   };
+  // This is a narrow status-routing diagnostic, not a generic proxy for
+  // blockingness. Human input is already blocking by contract; this flag exists
+  // only for task statuses that semantically read as blocked without becoming a
+  // full human-input interaction.
   blockedLikeStatus: boolean;
 };
 

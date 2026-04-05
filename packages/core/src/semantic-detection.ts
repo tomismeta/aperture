@@ -183,14 +183,14 @@ export function detectExpectedDiagnosticFailure(
 }
 
 export function containsAnySemanticPhrase(value: string, phrases: readonly string[]): boolean {
-  return phrases.some((phrase) => value.includes(phrase));
+  return phrases.some((phrase) => containsSemanticPhrase(value, phrase));
 }
 
 function containsAnySemanticRiskPhrase(value: string, phrases: readonly string[]): boolean {
   return phrases.some((phrase) => containsSemanticRiskPhrase(value, phrase));
 }
 
-function containsSemanticRiskPhrase(value: string, phrase: string): boolean {
+function containsSemanticPhrase(value: string, phrase: string): boolean {
   const normalizedPhrase = normalizeSemanticText(phrase);
   if (!normalizedPhrase) {
     return false;
@@ -200,7 +200,11 @@ function containsSemanticRiskPhrase(value: string, phrase: string): boolean {
     return hasWord(value, normalizedPhrase);
   }
 
-  return new RegExp(`(?:^|\\s)${escapeRegExp(normalizedPhrase)}(?:\\s|$)`).test(value);
+  return hasPhrase(value, normalizedPhrase);
+}
+
+function containsSemanticRiskPhrase(value: string, phrase: string): boolean {
+  return containsSemanticPhrase(value, phrase);
 }
 
 function looksLikeReadObservationPayload(text: string): boolean {
@@ -283,11 +287,16 @@ function normalizeToolFamily(value: string | null | undefined): string | null {
 }
 
 function hasPhrase(value: string, phrase: string): boolean {
-  return value.includes(phrase);
+  const normalizedPhrase = normalizeSemanticText(phrase);
+  if (!normalizedPhrase) {
+    return false;
+  }
+
+  return new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(normalizedPhrase)}(?:$|[^a-z0-9])`).test(value);
 }
 
 function hasWord(value: string, word: string): boolean {
-  return new RegExp(`(?:^|\\s)${escapeRegExp(word)}(?:\\s|$)`).test(value);
+  return new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(word)}(?:$|[^a-z0-9])`).test(value);
 }
 
 function escapeRegExp(value: string): string {

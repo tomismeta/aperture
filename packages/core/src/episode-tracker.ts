@@ -1,5 +1,6 @@
 import type { AttentionFrame } from "./frame.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
+import { readSemanticEvidenceStrength } from "./judgment-input.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
 import type { SemanticRelationHint } from "./semantic-types.js";
 import { readSemanticRelationTarget } from "./semantic-relations.js";
@@ -120,6 +121,9 @@ export class EpisodeTracker {
   private createRecord(key: string, candidate: AttentionCandidate): EpisodeRecord {
     const nextSequence = (this.nextSequenceByKey.get(key) ?? 0) + 1;
     this.nextSequenceByKey.set(key, nextSequence);
+    const persistedRelationKinds = shouldPersistEpisodeRelationEvidence(candidate)
+      ? (candidate.relationHints ?? []).map((hint) => hint.kind)
+      : [];
     return {
       id: `episode:${key}:${nextSequence}`,
       key,
@@ -135,7 +139,7 @@ export class EpisodeTracker {
       modes: new Set([candidate.mode]),
       highSignals: candidate.consequence === "high" || candidate.tone === "critical" ? 1 : 0,
       blockingSignals: candidate.blocking ? 1 : 0,
-      relationKinds: new Set((candidate.relationHints ?? []).map((hint) => hint.kind)),
+      relationKinds: new Set(persistedRelationKinds),
     };
   }
 
@@ -269,9 +273,11 @@ function measureEpisodeEvidence(
     reasons.push("multiple related interactions have accumulated in this episode");
   }
 
-  for (const relationHint of candidate.relationHints ?? []) {
-    record.relationKinds.add(relationHint.kind);
-  }
+    if (shouldPersistEpisodeRelationEvidence(candidate)) {
+      for (const relationHint of candidate.relationHints ?? []) {
+        record.relationKinds.add(relationHint.kind);
+      }
+    }
 
   if (record.size >= 3) {
     score += DEFAULTS.persistentEpisodeBoost;
@@ -313,6 +319,11 @@ function normalizeEpisodePart(value: string): string {
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 120);
+}
+
+function shouldPersistEpisodeRelationEvidence(candidate: AttentionCandidate): boolean {
+  const strength = readSemanticEvidenceStrength(candidate);
+  return strength === null || strength !== "weak";
 }
 
 function readString(value: unknown, key: string): string | null {

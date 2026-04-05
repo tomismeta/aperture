@@ -98,7 +98,7 @@ In practice, that means:
 
 The hot path inside core is:
 
-`event -> interpret and normalize -> compile judgment input -> judge -> surface -> respond`
+`event -> enrich -> compile judgment input -> judge -> surface -> respond`
 
 That maps to:
 
@@ -166,7 +166,7 @@ The engine can do much more internally, but you do not need to model the middle 
 
 For advanced consumers, the internal path is now:
 
-`SourceEvent -> SemanticInterpretation -> ApertureEvent -> AttentionJudgmentInput -> AttentionCandidate -> judgment -> AttentionFrame/AttentionView + trace`
+`SourceEvent/ApertureEvent -> finalized event (usually EnrichedApertureEvent) -> AttentionJudgmentInput -> AttentionCandidate -> judgment -> AttentionFrame/AttentionView + trace`
 
 If you want to invoke Aperture's semantic parsing directly before publishing a
 canonical `ApertureEvent`, or you want the richer semantic types directly, use
@@ -182,6 +182,23 @@ happened through the public explanation contract, use the trace entrypoint:
 ```ts
 import { isCandidateTrace, type ApertureTrace } from "@tomismeta/aperture-core/trace";
 ```
+
+The public trace now preserves both:
+
+- `event`
+  - the finalized runtime event Aperture actually judged
+- `eventTransition`
+  - the original input event, the finalized event, and a field-level diff
+- `candidateTransition`
+  - the field-level diff from raw evaluated candidate to adjusted candidate
+- `frameTransition`
+  - the field-level diff from previous visible frame state to the new result
+
+That makes it easy to inspect exactly what changed at each stage:
+
+- source normalization or semantic defaulting
+- heuristic and episode adjustment
+- frame materialization
 
 Those subpaths exist for advanced consumers. The root package remains the
 recommended SDK loop.
@@ -326,6 +343,19 @@ if (frame) {
     response: { kind: "approved" },
   });
 }
+```
+
+When you publish a direct `ApertureEvent`, Aperture now enriches it with the
+same bounded semantic defaults it would have inferred from a `SourceEvent`
+normalization path. That means missing fields like `semantic`,
+`activityClass`, `consequence`, `tone`, and approval-oriented `toolFamily`
+can be filled in when they are safely derivable, while explicit event fields
+still win.
+
+If you need a fully manual direct-event path, opt out:
+
+```ts
+const frame = core.publish(event, { applySemanticDefaults: false });
 ```
 
 You can also publish task lifecycle events like:

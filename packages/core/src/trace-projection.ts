@@ -6,6 +6,7 @@ export function toPublicApertureTrace(trace: InternalApertureTrace): PublicApert
     return {
       timestamp: trace.timestamp,
       event: trace.event,
+      eventTransition: trace.eventTransition,
       evaluation: { kind: "noop" },
     };
   }
@@ -14,6 +15,7 @@ export function toPublicApertureTrace(trace: InternalApertureTrace): PublicApert
     return {
       timestamp: trace.timestamp,
       event: trace.event,
+      eventTransition: trace.eventTransition,
       evaluation: {
         kind: "clear",
         taskId: trace.evaluation.taskId,
@@ -28,7 +30,10 @@ export function toPublicApertureTrace(trace: InternalApertureTrace): PublicApert
   return {
     timestamp: trace.timestamp,
     event: trace.event,
+    eventTransition: trace.eventTransition,
     evaluation: { kind: "candidate" },
+    candidateTransition: trace.candidateTransition,
+    frameTransition: trace.frameTransition,
     ...(trace.semantic !== undefined ? { semantic: trace.semantic } : {}),
     policyRules: {
       gateEvaluations: trace.policyRules.gateEvaluations.map((evaluation) => ({

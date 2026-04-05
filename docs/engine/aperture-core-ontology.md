@@ -122,6 +122,10 @@ How does this relate to ongoing work?
 This lets Aperture reason across time instead of treating every event as
 isolated.
 
+The compact ontology intentionally keeps this coarse. Detailed relation targets
+remain in full semantic interpretation and traces, where they can help replay
+and diagnostics without widening the stable ontology dialect.
+
 ### 6. `confidence`
 
 How confident is Aperture in the current semantic read?
@@ -133,6 +137,19 @@ How confident is Aperture in the current semantic read?
 This is the simplest durable abstraction for abstention and ambiguity handling.
 In practice, Aperture reads `confidence` together with `source` to decide how
 strong the semantic evidence really is.
+
+The important rule is that raw `confidence` is local semantic certainty, not a
+complete trust score by itself:
+
+- `high` means the operative read is well-supported in its own context
+  - for example by event shape, lifecycle facts, or trusted source hints
+- `medium` means the read is meaningful but qualified
+  - often because wording implies something important without fully proving it
+- `low` means the read is tentative and should usually stay diagnostic unless
+  other signals agree
+
+Core then combines `confidence`, `source`, and abstention into semantic evidence
+strength inside `AttentionJudgmentInput`.
 
 ### 7. `source`
 

@@ -31,7 +31,10 @@ import { AttentionSignalStore, summarizeAttentionSignals } from "./attention-sig
 import { loadJudgmentConfig, type JudgmentConfig } from "./judgment-config.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
 import { distillMemoryProfile, signalMetadataForCandidate, signalMetadataForFrame } from "./memory-aggregator.js";
-import { normalizeSourceEvent } from "./semantic-normalizer.js";
+import {
+  enrichApertureEvent,
+  normalizeSourceEvent,
+} from "./semantic-normalizer.js";
 import { hasSemanticRelationKind } from "./semantic-relations.js";
 import { AttentionPolicy } from "./attention-policy.js";
 import { selectPeripheralBucket } from "./attention-planner.js";
@@ -43,22 +46,32 @@ import {
   type AttentionSurfaceCapabilities,
 } from "./surface-capabilities.js";
 import { TaskViewStore } from "./task-view-store.js";
-import type { ApertureTrace as PublicApertureTrace } from "./trace.js";
 import type { ApertureTrace as InternalApertureTrace } from "./trace-types.js";
 import {
   APERTURE_INTERNAL_TRACE_SUBSCRIBE,
   type InternalTraceListener,
 } from "./internal-trace.js";
-import { toPublicApertureTrace } from "./trace-projection.js";
 import { TraceRecorder } from "./trace-recorder.js";
+import { buildTraceEventTransition } from "./trace-event-transition.js";
 import { AttentionValue } from "./attention-value.js";
+import {
+  ApertureCoreListeners,
+  type AttentionFrameListener,
+  type AttentionTaskViewListener,
+  type AttentionViewListener,
+  type AttentionResponseListener,
+  type AttentionSignalListener,
+  type AttentionTraceListener,
+} from "./aperture-core-listeners.js";
 
-export type AttentionFrameListener = (frame: AttentionFrame | null) => void;
-export type AttentionTaskViewListener = (taskView: AttentionTaskView) => void;
-export type AttentionViewListener = (attentionView: AttentionView) => void;
-export type AttentionResponseListener = (response: AttentionResponse) => void;
-export type AttentionSignalListener = (signal: AttentionSignal) => void;
-export type AttentionTraceListener = (trace: PublicApertureTrace) => void;
+export type {
+  AttentionFrameListener,
+  AttentionTaskViewListener,
+  AttentionViewListener,
+  AttentionResponseListener,
+  AttentionSignalListener,
+  AttentionTraceListener,
+} from "./aperture-core-listeners.js";
 
 export type ApertureCoreOptions = {
   userProfile?: UserProfile;
@@ -73,14 +86,18 @@ export type ApertureCoreOptions = {
   timeSource?: () => number;
 };
 
+export type PublishOptions = {
+  applySemanticDefaults?: boolean;
+};
+
+type PreparedPublishedEvent = {
+  originalEvent: SourceEvent | ApertureEvent;
+  finalizedEvent: ApertureEvent;
+  transitionKind: "source_normalized" | "direct_enriched" | "direct_passthrough";
+};
+
 export class ApertureCore {
-  private readonly frameListeners = new Map<string, Set<AttentionFrameListener>>();
-  private readonly taskViewListeners = new Map<string, Set<AttentionTaskViewListener>>();
-  private readonly attentionViewListeners = new Set<AttentionViewListener>();
-  private readonly responseListeners = new Set<AttentionResponseListener>();
-  private readonly signalListeners = new Set<AttentionSignalListener>();
-  private readonly traceListeners = new Set<AttentionTraceListener>();
-  private readonly internalTraceListeners = new Set<InternalTraceListener>();
+  private readonly listeners = new ApertureCoreListeners();
   private readonly taskViews = new TaskViewStore();
   private readonly signals = new AttentionSignalStore();
   private readonly episodes = new EpisodeTracker();
@@ -207,17 +224,41 @@ export class ApertureCore {
 
   publishSourceEvent(event: SourceEvent): AttentionFrame | null {
     this.assertValidSourceEvent(event);
-    return this.publish(normalizeSourceEvent(event));
+    return this.publishPreparedEvent({
+      originalEvent: event,
+      finalizedEvent: normalizeSourceEvent(event),
+      transitionKind: "source_normalized",
+    });
   }
 
-  publish(event: ApertureEvent): AttentionFrame | null {
+  publish(event: ApertureEvent, options: PublishOptions = {}): AttentionFrame | null {
     // Live event flow:
-    // `SourceEvent -> normalizeSourceEvent -> ApertureEvent -> EventEvaluator
+    // `SourceEvent/ApertureEvent -> finalized event -> EventEvaluator
     // -> AttentionCandidate -> AttentionJudgmentInput-aware judgment ->
     // AttentionFrame/AttentionView + trace`
     this.assertValidEvent(event);
-    const current = this.getFrame(event.taskId);
-    const evidence = this.assembleAttentionEvidenceContext(event.taskId, current);
+    return this.publishPreparedEvent(this.preparePublishedEvent(event, options));
+  }
+
+  private preparePublishedEvent(
+    event: ApertureEvent,
+    options: PublishOptions,
+  ): PreparedPublishedEvent {
+    const semanticDefaultsApplied = options.applySemanticDefaults !== false;
+    return {
+      originalEvent: event,
+      finalizedEvent: semanticDefaultsApplied
+        ? enrichApertureEvent(event)
+        : enrichApertureEvent(event, { skipSemanticDefaults: true }),
+      transitionKind: semanticDefaultsApplied ? "direct_enriched" : "direct_passthrough",
+    };
+  }
+
+  private publishPreparedEvent(preparedEvent: PreparedPublishedEvent): AttentionFrame | null {
+    const { finalizedEvent, originalEvent, transitionKind } = preparedEvent;
+    const eventTransition = buildTraceEventTransition(transitionKind, originalEvent, finalizedEvent);
+    const current = this.getFrame(finalizedEvent.taskId);
+    const evidence = this.assembleAttentionEvidenceContext(finalizedEvent.taskId, current);
     const taskSummary = evidence.taskSignalSummary;
     const globalSummary = evidence.globalSignalSummary;
     const taskAttentionState = evidence.taskAttentionState;
@@ -225,13 +266,14 @@ export class ApertureCore {
     const preAttentionView = evidence.attentionView;
     const pressureForecast = evidence.pressureForecast;
     const attentionBurden = evidence.attentionBurden;
-    const evaluation = this.evaluation.evaluate(event);
+    const evaluation = this.evaluation.evaluate(finalizedEvent);
 
     switch (evaluation.kind) {
       case "noop": {
         this.notifyTrace(this.traceRecorder.recordNoop({
           timestamp: this.nowIso(),
-          event,
+          event: finalizedEvent,
+          eventTransition,
           taskSummary,
           globalSummary,
           taskAttentionState,
@@ -245,11 +287,12 @@ export class ApertureCore {
         return null;
       }
       case "clear": {
-        const result = this.applyClear(event.taskId);
+        const result = this.applyClear(finalizedEvent.taskId);
         const postAttentionView = this.getAttentionView();
         this.notifyTrace(this.traceRecorder.recordClear({
           timestamp: this.nowIso(),
-          event,
+          event: finalizedEvent,
+          eventTransition,
           taskSummary,
           globalSummary,
           taskAttentionState,
@@ -257,9 +300,9 @@ export class ApertureCore {
           pressureForecast,
           attentionBurden,
           current: evidence.currentFrame,
-          taskView: this.getTaskView(event.taskId),
+          taskView: this.getTaskView(finalizedEvent.taskId),
           attentionView: postAttentionView,
-        }, event.taskId));
+        }, finalizedEvent.taskId));
         return result;
       }
       case "candidate": {
@@ -268,9 +311,9 @@ export class ApertureCore {
           taskSummary,
           globalSummary,
         );
-        const explanation = this.explainCandidateDecision(event.taskId, candidate, evidence);
+        const explanation = this.explainCandidateDecision(finalizedEvent.taskId, candidate, evidence);
         const result = this.applyCandidateDecision(
-          event.taskId,
+          finalizedEvent.taskId,
           explanation,
           evidence,
           preAttentionView,
@@ -278,7 +321,8 @@ export class ApertureCore {
         const postAttentionView = this.getAttentionView();
         this.notifyTrace(this.traceRecorder.recordCandidate({
           timestamp: this.nowIso(),
-          event,
+          event: finalizedEvent,
+          eventTransition,
           taskSummary,
           globalSummary,
           taskAttentionState,
@@ -286,7 +330,7 @@ export class ApertureCore {
           pressureForecast,
           attentionBurden,
           current: evidence.currentFrame,
-          taskView: this.getTaskView(event.taskId),
+          taskView: this.getTaskView(finalizedEvent.taskId),
           attentionView: postAttentionView,
         }, {
           original: evaluation.candidate,
@@ -417,67 +461,31 @@ export class ApertureCore {
   }
 
   subscribe(taskId: string, listener: AttentionFrameListener): () => void {
-    const listeners = this.frameListeners.get(taskId) ?? new Set<AttentionFrameListener>();
-    listeners.add(listener);
-    this.frameListeners.set(taskId, listeners);
-    listener(this.getFrame(taskId));
-
-    return () => {
-      listeners.delete(listener);
-      if (listeners.size === 0) {
-        this.frameListeners.delete(taskId);
-      }
-    };
+    return this.listeners.subscribeFrame(taskId, listener, this.getFrame(taskId));
   }
 
   subscribeTaskView(taskId: string, listener: AttentionTaskViewListener): () => void {
-    const listeners = this.taskViewListeners.get(taskId) ?? new Set<AttentionTaskViewListener>();
-    listeners.add(listener);
-    this.taskViewListeners.set(taskId, listeners);
-    listener(this.getTaskView(taskId));
-
-    return () => {
-      listeners.delete(listener);
-      if (listeners.size === 0) {
-        this.taskViewListeners.delete(taskId);
-      }
-    };
+    return this.listeners.subscribeTaskView(taskId, listener, this.getTaskView(taskId));
   }
 
   subscribeAttentionView(listener: AttentionViewListener): () => void {
-    this.attentionViewListeners.add(listener);
-    listener(this.getAttentionView());
-    return () => {
-      this.attentionViewListeners.delete(listener);
-    };
+    return this.listeners.subscribeAttentionView(listener, this.getAttentionView());
   }
 
   onResponse(listener: AttentionResponseListener): () => void {
-    this.responseListeners.add(listener);
-    return () => {
-      this.responseListeners.delete(listener);
-    };
+    return this.listeners.onResponse(listener);
   }
 
   onSignal(listener: AttentionSignalListener): () => void {
-    this.signalListeners.add(listener);
-    return () => {
-      this.signalListeners.delete(listener);
-    };
+    return this.listeners.onSignal(listener);
   }
 
   onTrace(listener: AttentionTraceListener): () => void {
-    this.traceListeners.add(listener);
-    return () => {
-      this.traceListeners.delete(listener);
-    };
+    return this.listeners.onTrace(listener);
   }
 
   [APERTURE_INTERNAL_TRACE_SUBSCRIBE](listener: InternalTraceListener): () => void {
-    this.internalTraceListeners.add(listener);
-    return () => {
-      this.internalTraceListeners.delete(listener);
-    };
+    return this.listeners[APERTURE_INTERNAL_TRACE_SUBSCRIBE](listener);
   }
 
   submit(response: AttentionResponse): void {
@@ -510,10 +518,7 @@ export class ApertureCore {
     }
     this.notifyTaskView(response.taskId, taskView);
     this.notifyAttentionView();
-
-    for (const listener of this.responseListeners) {
-      listener(response);
-    }
+    this.listeners.emitResponse(response);
   }
 
   getTaskView(taskId: string): AttentionTaskView {
@@ -621,9 +626,7 @@ export class ApertureCore {
   recordSignal(signal: AttentionSignal): void {
     this.assertValidSignal(signal);
     this.signals.record(signal);
-    for (const listener of this.signalListeners) {
-      listener(signal);
-    }
+    this.listeners.emitSignal(signal);
   }
 
   private commitFrame(frame: AttentionFrame, retiredFrames: AttentionFrame[] = []): AttentionFrame {
@@ -935,33 +938,19 @@ export class ApertureCore {
   }
 
   private notifyFrame(taskId: string, frame: AttentionFrame | null): void {
-    for (const listener of this.frameListeners.get(taskId) ?? []) {
-      listener(frame);
-    }
+    this.listeners.emitFrame(taskId, frame);
   }
 
   private notifyTaskView(taskId: string, taskView: AttentionTaskView): void {
-    for (const listener of this.taskViewListeners.get(taskId) ?? []) {
-      listener(taskView);
-    }
+    this.listeners.emitTaskView(taskId, taskView);
   }
 
   private notifyAttentionView(): void {
-    const attentionView = this.getAttentionView();
-    for (const listener of this.attentionViewListeners) {
-      listener(attentionView);
-    }
+    this.listeners.emitAttentionView(this.getAttentionView());
   }
 
   private notifyTrace(trace: InternalApertureTrace): void {
-    for (const listener of this.internalTraceListeners) {
-      listener(trace);
-    }
-
-    const publicTrace = toPublicApertureTrace(trace);
-    for (const listener of this.traceListeners) {
-      listener(publicTrace);
-    }
+    this.listeners.emitTrace(trace);
   }
 
   private signalForResponse(frame: AttentionFrame, response: AttentionResponse, timestamp: string): AttentionSignal {
@@ -1006,9 +995,7 @@ export class ApertureCore {
       },
     });
     this.episodes.resolveInteraction(candidate.interactionId);
-    for (const listener of this.responseListeners) {
-      listener(response);
-    }
+    this.listeners.emitResponse(response);
     return null;
   }
 

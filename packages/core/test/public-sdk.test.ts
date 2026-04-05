@@ -115,6 +115,111 @@ test("public SDK supports the simple event in -> frame out -> response in loop",
   assert.equal(core.getSignals("task:simple-loop").at(-1)?.kind, "responded");
 });
 
+test("public SDK applies semantic defaults to direct ApertureEvent publishes by default", () => {
+  const core = new sdk.ApertureCore();
+  const traces: Array<ReturnType<typeof captureTrace>> = [];
+
+  core.onTrace((trace) => {
+    traces.push(captureTrace(trace));
+  });
+
+  const frame = core.publish({
+    id: "evt:direct-defaults",
+    taskId: "task:direct-defaults",
+    timestamp: "2026-04-05T21:10:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:direct-defaults",
+    title: "Approve file read",
+    summary: "Read src/index.ts before continuing.",
+    request: { kind: "approval" },
+  });
+
+  assert.ok(frame);
+  assert.equal(frame?.consequence, "low");
+  assert.equal(frame?.tone, "focused");
+
+  const trace = traces.at(-1);
+  assert.ok(trace);
+  if (!trace || !traceSdk.isCandidateTrace(trace)) {
+    return;
+  }
+
+  assert.equal(trace.eventTransition.kind, "direct_enriched");
+  assert.equal(trace.eventTransition.original.semantic, undefined);
+  assert.equal(trace.eventTransition.finalized.semantic?.toolFamily, "read");
+  assert.equal(
+    trace.eventTransition.changedFields.some((field) => field.path === "semantic.toolFamily" && field.after === "read"),
+    true,
+  );
+  assert.equal(
+    trace.eventTransition.changedFields.some((field) => field.path === "consequence" && field.before === undefined && field.after === "low"),
+    true,
+  );
+  assert.equal(
+    trace.candidateTransition.changedFields.some((field) => field.path === "episodeState" && field.after === "actionable"),
+    true,
+  );
+  assert.equal(
+    trace.frameTransition.changedFields.some((field) => field.path === "responseSpec.kind" && field.after === "approval"),
+    true,
+  );
+
+  assert.equal(trace.semantic?.toolFamily, "read");
+  assert.deepEqual(trace.semantic?.ontology, {
+    ask: "approval",
+    activity: "decision_request",
+    consequence: "low",
+    blocking: "blocking",
+    episode: "new",
+    confidence: "medium",
+    source: "explicit",
+  });
+});
+
+test("public SDK can opt out of semantic defaults for direct ApertureEvent publishes", () => {
+  const core = new sdk.ApertureCore();
+  const traces: Array<ReturnType<typeof captureTrace>> = [];
+
+  core.onTrace((trace) => {
+    traces.push(captureTrace(trace));
+  });
+
+  const frame = core.publish({
+    id: "evt:direct-defaults-opt-out",
+    taskId: "task:direct-defaults-opt-out",
+    timestamp: "2026-04-05T21:11:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:direct-defaults-opt-out",
+    title: "Approve file read",
+    summary: "Read src/index.ts before continuing.",
+    request: { kind: "approval" },
+  }, {
+    applySemanticDefaults: false,
+  });
+
+  assert.ok(frame);
+  assert.equal(frame?.consequence, "medium");
+  assert.equal(frame?.tone, "focused");
+
+  const trace = traces.at(-1);
+  assert.ok(trace);
+  if (!trace || !traceSdk.isCandidateTrace(trace)) {
+    return;
+  }
+
+  assert.equal(trace.eventTransition.kind, "direct_passthrough");
+  assert.deepEqual(trace.eventTransition.changedFields, []);
+  assert.equal(
+    trace.candidateTransition.changedFields.some((field) => field.path === "episodeState" && field.after === "actionable"),
+    true,
+  );
+  assert.equal(
+    trace.frameTransition.changedFields.some((field) => field.path === "consequence" && field.after === "medium"),
+    true,
+  );
+  assert.equal(trace.semantic, undefined);
+});
+
 test("public SDK exposes surface capability types through the root package", () => {
   const surfaceCapabilities: sdk.AttentionSurfaceCapabilities = {
     topology: {
@@ -212,6 +317,21 @@ test("public SDK supports trace inspection through the trace subpath", () => {
     return;
   }
 
+  assert.equal(trace.eventTransition.kind, "source_normalized");
+  assert.equal(trace.eventTransition.original.type, "human.input.requested");
+  assert.equal(trace.eventTransition.finalized.type, "human.input.requested");
+  assert.equal(
+    trace.eventTransition.changedFields.some((field) => field.path === "semantic.intentFrame" && field.after === "question_request"),
+    true,
+  );
+  assert.equal(
+    trace.candidateTransition.changedFields.some((field) => field.path === "episodeState" && field.after === "actionable"),
+    true,
+  );
+  assert.equal(
+    trace.frameTransition.changedFields.some((field) => field.path === "mode" && field.after === "choice"),
+    true,
+  );
   assert.equal(trace.semantic?.toolFamily, "read");
   assert.deepEqual(trace.semantic?.ontology, {
     ask: "choice",

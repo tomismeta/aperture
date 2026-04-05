@@ -2,12 +2,23 @@ import type { ApertureEvent } from "./events.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import {
   projectSemanticOntologyDiagnostic,
-  type SemanticOntologyDiagnostic,
-  type SemanticOntologySource,
 } from "./semantic-ontology.js";
 import type { SemanticConfidence } from "./semantic-types.js";
+import type {
+  AttentionJudgmentInput,
+  CandidateSemanticEvidence,
+  SemanticEvidenceStrength,
+} from "./judgment-input-types.js";
+import type {
+  SemanticOntologyDiagnostic,
+  SemanticOntologySource,
+} from "./semantic-ontology-types.js";
 
-export type SemanticEvidenceStrength = "weak" | "qualified" | "strong";
+export type {
+  AttentionJudgmentInput,
+  CandidateSemanticEvidence,
+  SemanticEvidenceStrength,
+} from "./judgment-input-types.js";
 
 /**
  * Single semantic-to-judgment seam for routed events.
@@ -16,22 +27,16 @@ export type SemanticEvidenceStrength = "weak" | "qualified" | "strong";
  * smaller than full semantics and gives policy, ambiguity handling, planning,
  * and trace one compiled place to read:
  *
+ * `SemanticInterpretation`
+ *   -> `SemanticOntologyDiagnostic`
+ *   -> `AttentionJudgmentInput`
+ *
  * - ontology
  * - semantic evidence strength from confidence + source
  * - blocked-like status diagnostics
  */
-export type AttentionJudgmentInput = {
-  ontology?: SemanticOntologyDiagnostic;
-  semanticEvidence?: {
-    confidence: SemanticConfidence;
-    source: SemanticOntologySource;
-    strength: SemanticEvidenceStrength;
-    abstained: boolean;
-  };
-  blockedLikeStatus: boolean;
-};
-
-export type CandidateSemanticEvidence = NonNullable<AttentionJudgmentInput["semanticEvidence"]>;
+// `AttentionJudgmentInput` is defined in `judgment-input-types.ts` so the seam
+// contract can be read without walking through the compilation logic here.
 
 export function buildAttentionJudgmentInput(
   event: ApertureEvent,
@@ -57,6 +62,14 @@ export function buildAttentionJudgmentInput(
       ),
       abstained,
     },
+    ...(event.semantic.relationHints.length > 0
+      ? {
+          relationEvidence: {
+            source: readSemanticRelationEvidenceSource(event.semantic),
+            strength: deriveSemanticRelationEvidenceStrength(event.semantic, abstained),
+          },
+        }
+      : {}),
     blockedLikeStatus:
       event.type === "task.updated"
       && ontology.blocking === "blocking"
@@ -74,6 +87,18 @@ export function readCandidateSemanticEvidence(
   candidate: AttentionCandidate,
 ): CandidateSemanticEvidence | null {
   return candidate.judgmentInput.semanticEvidence ?? null;
+}
+
+export function readCandidateSemanticRelationEvidence(
+  candidate: AttentionCandidate,
+): AttentionJudgmentInput["relationEvidence"] | null {
+  return candidate.judgmentInput.relationEvidence ?? null;
+}
+
+export function readSemanticRelationEvidenceStrength(
+  candidate: AttentionCandidate,
+): SemanticEvidenceStrength | null {
+  return readCandidateSemanticRelationEvidence(candidate)?.strength ?? null;
 }
 
 export function readCandidateSemanticOntology(
@@ -159,5 +184,40 @@ function readSemanticEvidenceStrengthFromParts(
       return source === "inferred" ? "weak" : "qualified";
     case "high":
       return source === "inferred" ? "qualified" : "strong";
+  }
+}
+
+function readSemanticRelationEvidenceSource(
+  interpretation: NonNullable<ApertureEvent["semantic"]>,
+): SemanticOntologySource {
+  const provenance = interpretation.provenance?.relationHints;
+  switch (provenance) {
+    case "source":
+      return "explicit";
+    case "hint":
+      return "hinted";
+    case "inferred":
+      return "inferred";
+    default:
+      return "inferred";
+  }
+}
+
+function deriveSemanticRelationEvidenceStrength(
+  interpretation: NonNullable<ApertureEvent["semantic"]>,
+  abstained: boolean,
+): SemanticEvidenceStrength {
+  const source = readSemanticRelationEvidenceSource(interpretation);
+  switch (source) {
+    case "explicit":
+      return "strong";
+    case "hinted":
+      return abstained ? "weak" : "qualified";
+    case "inferred":
+      return readSemanticEvidenceStrengthFromParts(
+        interpretation.confidence,
+        "inferred",
+        abstained,
+      );
   }
 }

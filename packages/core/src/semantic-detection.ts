@@ -1,4 +1,35 @@
 import type { AttentionConsequenceLevel } from "./frame.js";
+import {
+  BUILD_METADATA_PATTERN,
+  BUILD_METADATA_PHRASES,
+  CODE_CONTENT_PATTERN,
+  CONTEXTUAL_RESOLVE_PHRASES,
+  DIRECT_RESOLVE_PHRASES,
+  ESCALATE_PHRASES,
+  EXPECTED_DIAGNOSTIC_FAILURE_PHRASES,
+  EXPLICIT_BLOCKING_PHRASES,
+  EXPLICIT_WAITING_PHRASES,
+  HIGH_RISK_PHRASES,
+  IMPLIED_OPERATOR_ASKS,
+  IMPLIED_OPERATOR_NEGATIONS,
+  ISSUE_SIGNAL_PHRASES,
+  LINE_NUMBERED_CODE_PATTERN,
+  LINE_NUMBERED_SOURCE_CODE_PATTERN,
+  LOG_LIKE_OBSERVATION_PHRASES,
+  LOG_OUTPUT_PATTERN,
+  OBSERVATIONAL_PAYLOAD_PHRASES,
+  OBSERVATIONAL_READBACK_PHRASES,
+  PATH_LIKE_TOKEN_PATTERN,
+  REPEAT_PHRASES,
+  ROUTINE_SUCCESS_PHRASES,
+  SEARCH_RESULT_OUTPUT_PATTERN,
+  SOURCE_CODE_CONTENT_PATTERN,
+  SOURCE_CODE_FILENAME_PATTERN,
+  SOURCE_CODE_PATH_PATTERN,
+  SUPERSEDE_PHRASES,
+  TAGGED_FILE_OBSERVATION_PHRASES,
+  TERMINAL_FAILURE_PHRASES,
+} from "./semantic-patterns.js";
 import type { SemanticRelationHint } from "./semantic-types.js";
 
 export type SemanticDetectionContextItem = {
@@ -183,14 +214,14 @@ export function detectExpectedDiagnosticFailure(
 }
 
 export function containsAnySemanticPhrase(value: string, phrases: readonly string[]): boolean {
-  return phrases.some((phrase) => value.includes(phrase));
+  return phrases.some((phrase) => containsSemanticPhrase(value, phrase));
 }
 
 function containsAnySemanticRiskPhrase(value: string, phrases: readonly string[]): boolean {
   return phrases.some((phrase) => containsSemanticRiskPhrase(value, phrase));
 }
 
-function containsSemanticRiskPhrase(value: string, phrase: string): boolean {
+function containsSemanticPhrase(value: string, phrase: string): boolean {
   const normalizedPhrase = normalizeSemanticText(phrase);
   if (!normalizedPhrase) {
     return false;
@@ -200,7 +231,11 @@ function containsSemanticRiskPhrase(value: string, phrase: string): boolean {
     return hasWord(value, normalizedPhrase);
   }
 
-  return new RegExp(`(?:^|\\s)${escapeRegExp(normalizedPhrase)}(?:\\s|$)`).test(value);
+  return hasPhrase(value, normalizedPhrase);
+}
+
+function containsSemanticRiskPhrase(value: string, phrase: string): boolean {
+  return containsSemanticPhrase(value, phrase);
 }
 
 function looksLikeReadObservationPayload(text: string): boolean {
@@ -283,227 +318,25 @@ function normalizeToolFamily(value: string | null | undefined): string | null {
 }
 
 function hasPhrase(value: string, phrase: string): boolean {
-  return value.includes(phrase);
+  const normalizedPhrase = normalizeSemanticText(phrase);
+  if (!normalizedPhrase) {
+    return false;
+  }
+
+  return new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(normalizedPhrase)}(?:$|[^a-z0-9])`).test(value);
 }
 
 function hasWord(value: string, word: string): boolean {
-  return new RegExp(`(?:^|\\s)${escapeRegExp(word)}(?:\\s|$)`).test(value);
+  return new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(word)}(?:$|[^a-z0-9])`).test(value);
 }
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-const IMPLIED_OPERATOR_ASKS = [
-  "need your input",
-  "need your approval",
-  "need your review",
-  "need your sign off",
-  "need your sign-off",
-  "should i continue",
-  "can you approve",
-  "can you review",
-  "what should i do",
-] as const;
-
-const IMPLIED_OPERATOR_NEGATIONS = [
-  "no action needed",
-  "no approval needed",
-  "approval is not needed",
-  "approval not needed",
-  "sign off not needed",
-  "sign-off not needed",
-  "no input needed",
-  "for awareness only",
-  "for your awareness",
-  "continuing automatically",
-] as const;
-
-const EXPLICIT_BLOCKING_PHRASES = [
-  "cannot continue",
-  "can't continue",
-  "cannot proceed",
-  "can't proceed",
-  "unable to continue",
-  "unable to proceed",
-  "blocked on",
-  "blocked until",
-  "stuck on",
-  "requires operator input before continuing",
-  "needs operator input before continuing",
-  "must be provided before continuing",
-] as const;
-
-const EXPLICIT_WAITING_PHRASES = [
-  "waiting for approval",
-  "approval required",
-  "awaiting approval",
-  "waiting on approval",
-  "pending approval",
-  "waiting for input",
-  "awaiting input",
-  "waiting on input",
-  "awaiting review",
-  "waiting for review",
-] as const;
-
-const HIGH_RISK_PHRASES = [
-  "production",
-  "prod",
-  "force push",
-  "git push --force",
-  "rm -rf",
-  "drop table",
-  "delete database",
-  "delete prod",
-  "sudo",
-  "chmod 777",
-  "kill process",
-  "migrate",
-] as const;
-
-const OBSERVATIONAL_READBACK_PHRASES = [
-  "result of running cat -n",
-  "result of running sed -n",
-  "result of running grep",
-  "result of running ls",
-  "result of running find",
-  "here s the result of running cat -n",
-  "here s the result of running sed -n",
-] as const;
-
-const OBSERVATIONAL_PAYLOAD_PHRASES = [
-  "observation",
-  "contents of",
-  "showing first",
-  "showing top",
-  "found",
-] as const;
-
-const TAGGED_FILE_OBSERVATION_PHRASES = [
-  "path",
-  "type file",
-  "content",
-] as const;
-
-const ROUTINE_SUCCESS_PHRASES = [
-  "ran successfully and did not produce any output",
-  "command ran successfully and did not produce any output",
-  "completed successfully and did not produce any output",
-] as const;
-
-const LOG_LIKE_OBSERVATION_PHRASES = [
-  "tool-output",
-  "dmesg",
-] as const;
-
-const BUILD_METADATA_PHRASES = [
-  "makefile",
-  "spdx-license-identifier",
-  "patchlevel",
-  "sublevel",
-  "extraversion",
-] as const;
-
-const PATH_LIKE_TOKEN_PATTERN = /(?:^|\s)\/[a-z0-9._-]+(?:\/[a-z0-9._-]+)+(?:\s|$)/;
-const SEARCH_RESULT_OUTPUT_PATTERN = /\bfound\s+\d+\s+match(?:es)?\b|\bshowing\s+(?:first|top)\s+\d+\b|\bmatch(?:es)?\s+in\s+\d+\s+files?\b/;
-const CODE_CONTENT_PATTERN = /\b(import|from|export|class|def|function|const|let|var|return)\b/;
-const LINE_NUMBERED_CODE_PATTERN = /\b\d+\s+(?:import|from|export|class|def|function|const|let|var|return)\b/;
-const SOURCE_CODE_PATH_PATTERN = /\/[a-z0-9._/-]+\.(?:c|cc|cpp|cxx|h|hpp|ts|tsx|js|jsx|py|rb|go|rs|java|kt|swift)(?:\b|\/)/;
-const SOURCE_CODE_FILENAME_PATTERN = /\b[a-z0-9.-]+\.(?:c|cc|cpp|cxx|h|hpp|ts|tsx|js|jsx|py|rb|go|rs|java|kt|swift)\b/;
-const SOURCE_CODE_CONTENT_PATTERN = /\b(static|struct|enum|typedef|void|int|char|bool|return)\b/;
-const LINE_NUMBERED_SOURCE_CODE_PATTERN = /\b\d+\s+(?:static|struct|enum|typedef|void|int|char|bool|return)\b/;
-const LOG_OUTPUT_PATTERN = /\b\d+\s+\[\s*\d+\.\d+\]\s+[a-z0-9_.:-]+/;
-const BUILD_METADATA_PATTERN = /\b(?:version|patchlevel|sublevel|extraversion)\b/;
-
-const EXPECTED_DIAGNOSTIC_FAILURE_PHRASES = [
-  "form is valid false",
-  "form without instance is valid false",
-  "form errors",
-  "errorlist",
-  "decompress result",
-] as const;
-
-const TERMINAL_FAILURE_PHRASES = [
-  "traceback",
-  "exception",
-  "permission denied",
-  "command not found",
-  "segmentation fault",
-] as const;
-
 function isRoutineSuccessObservation(text: string): boolean {
   return containsAnySemanticPhrase(text, ROUTINE_SUCCESS_PHRASES);
 }
-
-const REPEAT_PHRASES = [
-  "still",
-  "again",
-  "back again",
-  "came back",
-  "continues",
-  "continuing",
-  "returned",
-  "returning",
-  "remains",
-  "persisting",
-  "retrying",
-  "recurred",
-] as const;
-
-const DIRECT_RESOLVE_PHRASES = [
-  "resolved",
-  "fixed",
-  "unblocked",
-  "no longer blocked",
-] as const;
-
-const CONTEXTUAL_RESOLVE_PHRASES = [
-  "recovered",
-  "completed successfully",
-  "succeeded after",
-] as const;
-
-const SUPERSEDE_PHRASES = [
-  "instead",
-  "superseded",
-  "supersedes",
-  "replaced by",
-  "use this plan instead",
-  "follow this plan instead",
-] as const;
-
-const ESCALATE_PHRASES = [
-  "worse",
-  "worsened",
-  "escalating",
-  "regressed",
-  "regression",
-  "spread",
-  "broader impact",
-  "degraded further",
-  "critical now",
-  "now failing",
-] as const;
-
-const ISSUE_SIGNAL_PHRASES = [
-  "fail",
-  "failed",
-  "failing",
-  "failure",
-  "error",
-  "broken",
-  "blocked",
-  "stalled",
-  "stall",
-  "incident",
-  "issue",
-  "outage",
-  "degraded",
-  "regression",
-  "retry",
-  "rollback",
-] as const;
 
 function dedupeRelationHints(hints: SemanticRelationHint[]): SemanticRelationHint[] {
   const seen = new Set<string>();

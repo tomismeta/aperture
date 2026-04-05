@@ -278,9 +278,7 @@ function buildStatusProvenance(event: TaskUpdatedEvent): { provenance: { whyNow?
   };
 }
 
-function buildJudgmentInputFields(
-  event: ApertureEvent,
-): Pick<AttentionCandidate, "judgmentInput"> {
+function buildJudgmentInputFields(event: ApertureEvent): Pick<AttentionCandidate, "judgmentInput"> {
   // All routed candidates receive the same compiled semantic/evidence seam,
   // regardless of whether the event began as a source event or a direct
   // canonical Aperture event.

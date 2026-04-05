@@ -1,10 +1,16 @@
 import type { ApertureEvent } from "./events.js";
 import type {
   TraceAttentionPriority,
+  TraceCandidateTransition,
   TraceContinuityEvaluation,
   TraceCriterionEvaluation,
   TraceDecisionAmbiguity,
   TraceDecisionKind,
+  TraceFieldDiff,
+  TraceEventFieldDiff,
+  TraceEventTransition,
+  TraceEventTransitionKind,
+  TraceFrameTransition,
   TraceGateEvaluation,
   TraceInterruptCriterionVerdict,
   TraceResultLane,
@@ -13,10 +19,16 @@ import type {
 import { isCandidateTraceLike } from "./trace-common.js";
 export type {
   TraceAttentionPriority,
+  TraceCandidateTransition,
   TraceContinuityEvaluation,
   TraceCriterionEvaluation,
   TraceDecisionAmbiguity,
   TraceDecisionKind,
+  TraceFieldDiff,
+  TraceEventFieldDiff,
+  TraceEventTransition,
+  TraceEventTransitionKind,
+  TraceFrameTransition,
   TraceGateEvaluation,
   TraceInterruptCriterion,
   TraceInterruptCriterionVerdict,
@@ -43,6 +55,7 @@ export type ApertureTrace =
   | {
       timestamp: string;
       event: ApertureEvent;
+      eventTransition: TraceEventTransition;
       evaluation: {
         kind: "noop";
       };
@@ -50,6 +63,7 @@ export type ApertureTrace =
   | {
       timestamp: string;
       event: ApertureEvent;
+      eventTransition: TraceEventTransition;
       evaluation: {
         kind: "clear";
         taskId: string;
@@ -58,9 +72,12 @@ export type ApertureTrace =
   | {
       timestamp: string;
       event: ApertureEvent;
+      eventTransition: TraceEventTransition;
       evaluation: {
         kind: "candidate";
       };
+      candidateTransition: TraceCandidateTransition;
+      frameTransition: TraceFrameTransition;
       semantic?: TraceSemanticSummary;
       policyRules: {
         gateEvaluations: TraceGateEvaluation[];

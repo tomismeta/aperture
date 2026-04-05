@@ -16,11 +16,18 @@ import {
 import type { AttentionPressure } from "./attention-pressure.js";
 import { projectSemanticOntologyDiagnostic } from "./semantic-ontology.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
+import type {
+  TraceCandidateTransition,
+  TraceEventTransition,
+  TraceFrameTransition,
+} from "./trace-common.js";
+import { diffTraceObjects } from "./trace-diff.js";
 import type { ApertureTrace, TraceSemanticSummary } from "./trace-types.js";
 
 export type TraceSnapshot = {
   timestamp: string;
   event: ApertureEvent;
+  eventTransition: TraceEventTransition;
   taskSummary: AttentionSignalSummary;
   globalSummary: AttentionSignalSummary;
   taskAttentionState: AttentionState;
@@ -65,6 +72,8 @@ export class TraceRecorder {
         original,
         adjusted,
       },
+      candidateTransition: buildCandidateTransition(original, adjusted),
+      frameTransition: buildFrameTransition(snapshot.current, result),
       heuristics: {
         scoreOffset: adjusted.attentionScoreOffset ?? 0,
         rationale: adjusted.attentionRationale ?? [],
@@ -103,6 +112,24 @@ export class TraceRecorder {
       result,
     };
   }
+}
+
+function buildCandidateTransition(
+  original: AttentionCandidate,
+  adjusted: AttentionCandidate,
+): TraceCandidateTransition {
+  return {
+    changedFields: diffTraceObjects(original, adjusted),
+  };
+}
+
+function buildFrameTransition(
+  previous: AttentionFrame | null,
+  result: AttentionFrame | null,
+): TraceFrameTransition {
+  return {
+    changedFields: diffTraceObjects(previous, result),
+  };
 }
 
 function buildEpisodeSummary(candidate: AttentionCandidate): EpisodeSummary | null {

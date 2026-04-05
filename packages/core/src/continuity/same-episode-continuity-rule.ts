@@ -1,6 +1,6 @@
 import { isDormantEpisodeState, readFrameEpisodeId, readFrameEpisodeState } from "../episode-tracker.js";
 import { isBlockingFrame, priorityForFrame } from "../frame-score.js";
-import { readSemanticEvidenceStrength } from "../judgment-input.js";
+import { readSemanticRelationEvidenceStrength } from "../judgment-input.js";
 import { hasSemanticRelationKind } from "../semantic-relations.js";
 import { hasResurfacingPressure } from "./deferral-escalation-continuity-rule.js";
 import { noopContinuityRule, overrideContinuityRule, type ContinuityRule } from "./continuity-rule.js";
@@ -34,7 +34,7 @@ export const evaluateSameEpisodeContinuityRule: ContinuityRule = (input) => {
   if (
     candidate.blocking
     && hasSemanticRelationKind(candidate.relationHints, "supersedes")
-    && readSemanticEvidenceStrength(candidate) !== "weak"
+    && readSemanticRelationEvidenceStrength(candidate) !== "weak"
   ) {
     return overrideContinuityRule(
       "same_episode",

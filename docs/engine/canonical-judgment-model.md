@@ -242,6 +242,9 @@ handoff between:
 
 ## Recommendation
 
+This section describes the recommended target state, not a claim that the
+engine has already fully reached it.
+
 Short version:
 
 ```json

@@ -13,7 +13,7 @@ This document answers a narrower question:
 
 There is one important semantic handoff before the lane hierarchy starts:
 
-`SourceEvent/ApertureEvent -> semantics -> AttentionJudgmentInput -> AttentionCandidate`
+`SourceEvent/ApertureEvent -> finalized event (usually EnrichedApertureEvent) -> AttentionJudgmentInput -> AttentionCandidate`
 
 That seam mainly lives in:
 

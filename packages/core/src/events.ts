@@ -1,5 +1,8 @@
 import type {
+  AttentionActivityClass,
   AttentionConsequenceLevel,
+} from "./attention-contract-types.js";
+import type {
   AttentionContext,
   AttentionProvenance,
   AttentionTone,
@@ -21,16 +24,24 @@ export type ApertureEvent =
   | TaskCompletedEvent
   | TaskCancelledEvent;
 
+/**
+ * Finalized internal event contract after normalization or bounded semantic
+ * defaulting.
+ *
+ * `EnrichedApertureEvent` keeps the public `ApertureEvent` flexible while
+ * giving the runtime a stricter post-normalization contract: semantic meaning
+ * is always present before evaluation and judgment.
+ */
+export type EnrichedApertureEvent =
+  | EnrichedTaskStartedEvent
+  | EnrichedTaskUpdatedEvent
+  | EnrichedHumanInputRequestedEvent
+  | EnrichedTaskCompletedEvent
+  | EnrichedTaskCancelledEvent;
+
 export type TaskStatus = "running" | "blocked" | "waiting" | "completed" | "failed";
 
-export type AttentionActivityClass =
-  | "permission_request"
-  | "question_request"
-  | "follow_up"
-  | "tool_completion"
-  | "tool_failure"
-  | "session_status"
-  | "status_update";
+export type { AttentionActivityClass } from "./attention-contract-types.js";
 
 export type SourceRef = {
   id: string;
@@ -46,11 +57,16 @@ type EventBase = {
   semantic?: SemanticInterpretation;
 };
 
+type WithRequiredSemantic<T extends EventBase> = Omit<T, "semantic"> & {
+  semantic: SemanticInterpretation;
+};
+
 export type TaskStartedEvent = EventBase & {
   type: "task.started";
   title: string;
   summary?: string;
 };
+export type EnrichedTaskStartedEvent = WithRequiredSemantic<TaskStartedEvent>;
 
 export type TaskUpdatedEvent = EventBase & {
   type: "task.updated";
@@ -61,6 +77,7 @@ export type TaskUpdatedEvent = EventBase & {
   status: TaskStatus;
   progress?: number;
 };
+export type EnrichedTaskUpdatedEvent = WithRequiredSemantic<TaskUpdatedEvent>;
 
 export type HumanInputRequestKind = "approval" | "choice" | "form";
 
@@ -77,6 +94,7 @@ export type HumanInputRequestedEvent = EventBase & {
   context?: AttentionContext;
   provenance?: AttentionProvenance;
 };
+export type EnrichedHumanInputRequestedEvent = WithRequiredSemantic<HumanInputRequestedEvent>;
 
 export type HumanInputRequest =
   | {
@@ -108,8 +126,10 @@ export type TaskCompletedEvent = EventBase & {
   type: "task.completed";
   summary?: string;
 };
+export type EnrichedTaskCompletedEvent = WithRequiredSemantic<TaskCompletedEvent>;
 
 export type TaskCancelledEvent = EventBase & {
   type: "task.cancelled";
   reason?: string;
 };
+export type EnrichedTaskCancelledEvent = WithRequiredSemantic<TaskCancelledEvent>;

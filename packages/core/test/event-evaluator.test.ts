@@ -170,6 +170,53 @@ test("semantic blocking on waiting statuses stays status-shaped while recording 
   assert.equal(result.candidate.provenance?.whyNow, "Work is blocked and may require operator attention.");
 });
 
+test("request-like semantic hints on running statuses stay status-shaped during evaluation", () => {
+  const result = evaluation.evaluate({
+    id: "evt:status:running-approval-hint",
+    taskId: "task:status:running-approval-hint",
+    timestamp: "2026-03-08T12:02:36.000Z",
+    type: "task.updated",
+    title: "Approval checkpoint reached",
+    summary: "A higher-level source marked this as an approval checkpoint.",
+    status: "running",
+    semantic: {
+      intentFrame: "approval_request",
+      activityClass: "permission_request",
+      consequence: "low",
+      whyNow: "A higher-level source marked this as an approval checkpoint.",
+      factors: ["task.updated", "running", "semantic approval checkpoint"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["source marked the status as an approval checkpoint"],
+      provenance: {
+        intentFrame: "hint",
+        activityClass: "hint",
+        consequence: "hint",
+        whyNow: "hint",
+        confidence: "hint",
+      },
+    },
+  });
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.mode, "status");
+  assert.equal(result.candidate.blocking, false);
+  assert.equal(result.candidate.responseSpec.kind, "none");
+  assert.deepEqual(result.candidate.judgmentInput.ontology, {
+    ask: "approval",
+    activity: "decision_request",
+    consequence: "low",
+    blocking: "waiting",
+    episode: "unknown",
+    confidence: "high",
+    source: "hinted",
+  });
+});
+
 test("approval requests become blocking approval candidates", () => {
   const result = evaluation.evaluate({
     id: "evt:approval",

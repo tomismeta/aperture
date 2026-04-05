@@ -12,7 +12,7 @@ Aperture does not just rank events.
 
 It runs a compact judgment loop:
 
-`event -> interpret/normalize -> compile judgment input -> candidate -> policy/value/pressure/planning -> attention frame -> human response -> signals -> memory -> next judgment`
+`event -> enrich -> compile judgment input -> candidate -> policy/value/pressure/planning -> attention frame -> human response -> signals -> memory -> next judgment`
 
 That loop is the product.
 
@@ -40,15 +40,27 @@ Imagine a new approval arrives from an agent.
 ### 1. Event -> Meaning
 
 If the caller publishes a `SourceEvent`, core first interprets and normalizes it
-into an `ApertureEvent`.
+into an `EnrichedApertureEvent`.
 
 That path lives in:
 
 - [semantic-interpreter.ts](../../packages/core/src/semantic-interpreter.ts)
 - [semantic-normalizer.ts](../../packages/core/src/semantic-normalizer.ts)
 
-If the caller publishes an `ApertureEvent` directly, the engine starts after
-this step.
+If the caller publishes an `ApertureEvent` directly, core first finalizes it
+for runtime use. By default that finalized event is also enriched with bounded
+semantic defaults; callers can opt out and keep a more manual finalized shape.
+
+The trace now preserves that transition explicitly:
+
+- original input event
+- finalized runtime event
+- field-level diff between them
+
+Candidate traces also preserve the next two transitions:
+
+- raw evaluated candidate -> adjusted candidate
+- previous frame state -> resulting frame state
 
 ### 2. Meaning -> Candidate
 

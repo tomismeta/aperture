@@ -2,7 +2,7 @@
 
 Aperture now uses an explicit layered event model:
 
-`raw source payload -> SourceEvent -> SemanticInterpretation -> ApertureEvent -> AttentionJudgmentInput -> AttentionCandidate -> AttentionFrame -> AttentionResponse`
+`raw source payload -> SourceEvent -> EnrichedApertureEvent -> AttentionJudgmentInput -> AttentionCandidate -> AttentionFrame -> AttentionResponse`
 
 The intent is simple:
 
@@ -144,4 +144,4 @@ This keeps direct-core usage available while making adapter semantics more consi
 
 For advanced readers, the actual current hot path is:
 
-`SourceEvent -> SemanticInterpretation -> ApertureEvent -> AttentionJudgmentInput -> AttentionCandidate -> judgment -> AttentionFrame/AttentionView + trace`
+`SourceEvent/ApertureEvent -> finalized event (usually EnrichedApertureEvent) -> AttentionJudgmentInput -> AttentionCandidate -> judgment -> AttentionFrame/AttentionView + trace`

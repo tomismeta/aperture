@@ -192,6 +192,10 @@ test("weak inferred supersedes hints do not force same-episode activation", () =
           strength: "weak",
           abstained: false,
         },
+        relationEvidence: {
+          source: "inferred",
+          strength: "weak",
+        },
       },
       responseSpec: {
         kind: "approval",

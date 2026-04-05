@@ -241,6 +241,24 @@ test("semantic interpreter recognizes returned issue language as resurfacing the
   );
 });
 
+test("semantic interpreter recognizes regressed issue language as resurfacing escalation", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:regressed-issue",
+    type: "task.updated",
+    taskId: "task:regressed-issue",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Deploy issue regressed after fix",
+    summary: "The production deploy issue came back and regressed after the earlier recovery.",
+    status: "failed",
+  });
+
+  assert.deepEqual(
+    interpretation.relationHints.map((hint) => hint.kind),
+    ["same_issue", "repeats", "escalates"],
+  );
+});
+
 test("task lifecycle semantics mark inferred provenance consistently", () => {
   const started = interpretSourceEvent({
     id: "evt:started",

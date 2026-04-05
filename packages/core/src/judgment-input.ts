@@ -20,6 +20,8 @@ export type AttentionJudgmentInput = {
   blockedLikeStatus: boolean;
 };
 
+export type CandidateSemanticEvidence = NonNullable<AttentionJudgmentInput["semanticEvidence"]>;
+
 export function buildAttentionJudgmentInput(
   event: ApertureEvent,
 ): AttentionJudgmentInput {
@@ -54,14 +56,38 @@ export function buildAttentionJudgmentInput(
 export function readSemanticEvidenceStrength(
   candidate: AttentionCandidate,
 ): SemanticEvidenceStrength | null {
-  return candidate.judgmentInput.semanticEvidence?.strength ?? null;
+  return readCandidateSemanticEvidence(candidate)?.strength ?? null;
+}
+
+export function readCandidateSemanticEvidence(
+  candidate: AttentionCandidate,
+): CandidateSemanticEvidence | null {
+  return candidate.judgmentInput.semanticEvidence ?? null;
+}
+
+export function readCandidateSemanticOntology(
+  candidate: AttentionCandidate,
+): SemanticOntologyDiagnostic | null {
+  return candidate.judgmentInput.ontology ?? null;
+}
+
+export function readCandidateSemanticConfidence(
+  candidate: AttentionCandidate,
+): SemanticConfidence | null {
+  return readCandidateSemanticEvidence(candidate)?.confidence ?? null;
+}
+
+export function isCandidateSemanticAbstained(
+  candidate: AttentionCandidate,
+): boolean {
+  return readCandidateSemanticEvidence(candidate)?.abstained === true;
 }
 
 export function readSemanticSourceCriterionOffset(
   candidate: AttentionCandidate,
 ): number {
   const strength = readSemanticEvidenceStrength(candidate);
-  const source = candidate.judgmentInput.semanticEvidence?.source;
+  const source = readCandidateSemanticEvidence(candidate)?.source;
 
   if (!strength || !source) {
     return 0;

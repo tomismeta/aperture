@@ -1,4 +1,9 @@
-import { readSemanticEvidenceStrength } from "../judgment-input.js";
+import {
+  isCandidateSemanticAbstained,
+  readCandidateSemanticConfidence,
+  readCandidateSemanticEvidence,
+  readSemanticEvidenceStrength,
+} from "../judgment-input.js";
 import {
   ambiguousPeripheralCriterionVerdict,
   noopPolicyCriterionRule,
@@ -17,9 +22,7 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
     return noopPolicyCriterionRule("semantic_uncertainty");
   }
 
-  const semanticEvidence = candidate.judgmentInput.semanticEvidence;
-
-  if (semanticEvidence?.abstained === true) {
+  if (isCandidateSemanticAbstained(candidate)) {
     return verdictPolicyCriterionRule(
       "semantic_uncertainty",
       ambiguousPeripheralCriterionVerdict(
@@ -35,7 +38,7 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
     );
   }
 
-  if (semanticEvidence?.confidence === "low") {
+  if (readCandidateSemanticConfidence(candidate) === "low") {
     return verdictPolicyCriterionRule(
       "semantic_uncertainty",
       ambiguousPeripheralCriterionVerdict(
@@ -69,6 +72,8 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
 
   return noopPolicyCriterionRule(
     "semantic_uncertainty",
-    semanticEvidence !== undefined ? ["semantic evidence is strong enough to keep ordinary interrupt rules in play"] : [],
+    readCandidateSemanticEvidence(candidate) !== null
+      ? ["semantic evidence is strong enough to keep ordinary interrupt rules in play"]
+      : [],
   );
 };

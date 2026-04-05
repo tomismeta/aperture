@@ -559,6 +559,26 @@ test("task updates still infer implied operator asks from operator-directed stat
   }
 });
 
+test("passive review wording does not infer an operator ask from status text", () => {
+  const normalized = normalizeSourceEvent({
+    id: "evt:passive-review-status",
+    type: "task.updated",
+    taskId: "task:passive-review-status",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Logs attached for review",
+    summary: "Build logs are attached, please review when convenient.",
+    status: "running",
+  });
+
+  assert.equal(normalized.type, "task.updated");
+  if (normalized.type === "task.updated") {
+    assert.equal(normalized.semantic?.whyNow, undefined);
+    assert.equal(normalized.semantic?.confidence, "high");
+    assert.deepEqual(normalized.semantic?.reasons, ["task update carries a non-blocking lifecycle status"]);
+  }
+});
+
 test("negated approval wording does not invent an implied operator ask", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:no-approval-needed",
@@ -607,6 +627,39 @@ test("task updates can infer relation hints from recurring and resolving languag
 
   assert.deepEqual(repeated.relationHints.map((hint) => hint.kind), ["same_issue", "repeats"]);
   assert.deepEqual(resolved.relationHints.map((hint) => hint.kind), ["same_issue", "resolves"]);
+});
+
+test("generic successful completion wording does not infer a resolved episode by itself", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:generic-success",
+    type: "task.updated",
+    taskId: "task:generic-success",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Read completed successfully",
+    summary: "Read completed successfully.",
+    status: "completed",
+  });
+
+  assert.deepEqual(interpretation.relationHints, []);
+});
+
+test("recovery wording with issue context still infers a resolved episode", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:recovered-issue",
+    type: "task.updated",
+    taskId: "task:recovered-issue",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Service recovered after outage",
+    summary: "The production outage recovered after rollback.",
+    status: "completed",
+  });
+
+  assert.deepEqual(
+    interpretation.relationHints.map((hint) => hint.kind),
+    ["same_issue", "resolves"],
+  );
 });
 
 test("repeat wording without an issue signal does not infer relation hints", () => {

@@ -121,6 +121,28 @@ test("request-like semantic hints can promote status-shaped events into request-
   });
 });
 
+test("operator-directed status asks stay inferred in ontology even when the lifecycle fact is explicit", () => {
+  const diagnostic = readSemanticOntologyDiagnostic({
+    id: "evt:ontology:direct-ask-status",
+    taskId: "task:ontology:direct-ask-status",
+    type: "task.updated",
+    timestamp,
+    title: "Need your approval before continuing",
+    summary: "Can you approve the deploy so work can continue?",
+    status: "waiting",
+  });
+
+  assert.deepEqual(diagnostic, {
+    ask: "status",
+    activity: "task_progress",
+    consequence: "low",
+    blocking: "waiting",
+    episode: "unknown",
+    confidence: "low",
+    source: "inferred",
+  });
+});
+
 test("resolving relation hints project to a resolved episode diagnostic", () => {
   const diagnostic = readSemanticOntologyDiagnostic({
     id: "evt:ontology:resolved",

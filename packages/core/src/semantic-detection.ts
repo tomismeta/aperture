@@ -80,15 +80,16 @@ export function detectSemanticBlockingSignal(text: string): SemanticBlockingSign
 export function detectSemanticRelationHints(text: string): SemanticRelationHint[] {
   const hints: SemanticRelationHint[] = [];
   const hasIssueSignal = containsAnySemanticPhrase(text, ISSUE_SIGNAL_PHRASES)
-    || containsAnySemanticPhrase(text, RESOLVE_PHRASES)
     || containsAnySemanticPhrase(text, SUPERSEDE_PHRASES)
     || containsAnySemanticPhrase(text, ESCALATE_PHRASES);
+  const hasDirectResolveSignal = containsAnySemanticPhrase(text, DIRECT_RESOLVE_PHRASES);
+  const hasContextualResolveSignal = containsAnySemanticPhrase(text, CONTEXTUAL_RESOLVE_PHRASES);
 
   if (containsAnySemanticPhrase(text, REPEAT_PHRASES) && hasIssueSignal) {
     hints.push({ kind: "same_issue" }, { kind: "repeats" });
   }
 
-  if (containsAnySemanticPhrase(text, RESOLVE_PHRASES) && hasIssueSignal) {
+  if (hasDirectResolveSignal || (hasContextualResolveSignal && hasIssueSignal)) {
     hints.push({ kind: "same_issue" }, { kind: "resolves" });
   }
 
@@ -296,12 +297,13 @@ function escapeRegExp(value: string): string {
 const IMPLIED_OPERATOR_ASKS = [
   "need your input",
   "need your approval",
+  "need your review",
   "need your sign off",
   "need your sign-off",
   "should i continue",
   "can you approve",
+  "can you review",
   "what should i do",
-  "please review",
 ] as const;
 
 const IMPLIED_OPERATOR_NEGATIONS = [
@@ -449,13 +451,16 @@ const REPEAT_PHRASES = [
   "recurred",
 ] as const;
 
-const RESOLVE_PHRASES = [
+const DIRECT_RESOLVE_PHRASES = [
   "resolved",
   "fixed",
   "unblocked",
+  "no longer blocked",
+] as const;
+
+const CONTEXTUAL_RESOLVE_PHRASES = [
   "recovered",
   "completed successfully",
-  "no longer blocked",
   "succeeded after",
 ] as const;
 

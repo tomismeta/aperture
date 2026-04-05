@@ -219,6 +219,15 @@ function readOntologySource(
   }
 
   if (isExplicitEventShapedSemanticRead(event, interpretation)) {
+    if (
+      event.type === "task.updated"
+      && interpretation.intentFrame === "status_update"
+      && interpretation.confidence === "low"
+      && interpretation.provenance?.confidence === "inferred"
+    ) {
+      return "inferred";
+    }
+
     return "explicit";
   }
 

@@ -152,8 +152,10 @@ In simplified form:
 
 - `ask`, `activity`, and `consequence` can shape canonical events and traceable
   judgment inputs
-- `blocking` is the clean cross-source supervision dimension, but status-event
-  routing still keeps explicit task status authoritative today
+- `blocking` is the clean cross-source supervision dimension; status-event
+  routing still keeps explicit task status authoritative, but clearly blocked
+  waiting statuses can now stay queue-worthy without becoming full blocking
+  interactions
 - `episode` shapes continuity and resurfacing
 - `confidence` shapes ambiguity and abstention behavior
 - `source` shapes trust and traceability

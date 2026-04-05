@@ -15,6 +15,7 @@ import { evaluatePeripheralStatusPolicyGateRule } from "./policy/peripheral-stat
 import { evaluateSemanticUncertaintyCriterionRule } from "./policy/semantic-uncertainty-criterion-rule.js";
 import { evaluateSmallScoreGapCriterionRule } from "./policy/small-score-gap-criterion-rule.js";
 import { evaluateSourceTrustCriterionRule } from "./policy/source-trust-criterion-rule.js";
+import { resolvePeripheralResolutionFloor } from "./peripheral-routing.js";
 import type {
   PolicyCriterionRule,
   PolicyCriterionRuleEvaluation,
@@ -161,7 +162,7 @@ export class AttentionPolicy {
     options: { ambiguityDefaults?: AmbiguityDefaults } = {},
   ): AttentionPolicyCriterionExplanation {
     let criterion = this.readInterruptCriterion(options.ambiguityDefaults);
-    const peripheralResolution = this.readPeripheralResolution(policyVerdict);
+    const peripheralResolution = this.readPeripheralResolution(candidate, policyVerdict);
     const sourceTrustAdjustment = this.readSourceTrustAdjustment(candidate);
     const criterionRationale: string[] = [];
     const evaluations: PolicyCriterionRuleEvaluation[] = [];
@@ -219,8 +220,14 @@ export class AttentionPolicy {
     };
   }
 
-  private readPeripheralResolution(policyVerdict: AttentionPolicyVerdict): "queue" | "ambient" {
-    return policyVerdict.minimumLane === "ambient" ? "ambient" : "queue";
+  private readPeripheralResolution(
+    candidate: AttentionCandidate,
+    policyVerdict: AttentionPolicyVerdict,
+  ): "queue" | "ambient" {
+    return resolvePeripheralResolutionFloor(
+      candidate,
+      policyVerdict.minimumLane === "ambient" ? "ambient" : "queue",
+    );
   }
 
   private readSourceTrustAdjustment(candidate: AttentionCandidate): number {

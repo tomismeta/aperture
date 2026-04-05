@@ -927,3 +927,35 @@ test("committed bucket matches ambient routing for passive status", () => {
   assert.equal(core.getAttentionView().now, null);
   assert.equal(core.getAttentionView().ambient[0]?.interactionId, "interaction:task:status:status");
 });
+
+test("blocked-like waiting statuses become queue-worthy without changing status routing", () => {
+  const core = new ApertureCore();
+  const traces: PublicApertureTrace[] = [];
+
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:blocking-next",
+    type: "task.updated",
+    taskId: "task:status:blocking-next",
+    timestamp: "2026-03-28T10:00:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Cannot continue until credentials are provided",
+    summary: "Work is waiting but cannot proceed until the operator provides credentials.",
+    status: "waiting",
+  });
+
+  const candidateTrace = traces.findLast((trace) => trace.evaluation.kind === "candidate");
+  assert.ok(candidateTrace);
+  if (!candidateTrace || candidateTrace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(candidateTrace.coordination.kind, "queue");
+  assert.equal(candidateTrace.coordination.resultLane, "now");
+  assert.equal(core.getAttentionView().now?.interactionId, "interaction:task:status:blocking-next:status");
+  assert.equal(core.getTaskView("task:status:blocking-next").next[0]?.interactionId, "interaction:task:status:blocking-next:status");
+  assert.equal(core.getAttentionView().ambient.length, 0);
+});

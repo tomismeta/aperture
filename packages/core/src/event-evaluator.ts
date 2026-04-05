@@ -11,6 +11,7 @@ import type {
   AttentionFormResponseSpec,
 } from "./frame.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
+import { projectSemanticOntologyDiagnostic } from "./semantic-ontology.js";
 import { semanticWhyNowForTaskStatus } from "./semantic-language.js";
 import { mergeSemanticProvenance } from "./semantic-provenance.js";
 
@@ -38,6 +39,7 @@ export class EventEvaluator {
             blocking: false,
             timestamp: event.timestamp,
             ...(event.summary !== undefined ? { summary: event.summary } : {}),
+            ...buildSemanticOntology(event),
             ...buildSemanticUncertainty(event.semantic),
           },
         };
@@ -85,6 +87,7 @@ export class EventEvaluator {
       blocking: false,
       timestamp: event.timestamp,
       ...(event.summary !== undefined ? { summary: event.summary } : {}),
+      ...buildSemanticOntology(event),
       ...(event.semantic?.relationHints?.length ? { relationHints: event.semantic.relationHints } : {}),
       ...buildSemanticUncertainty(event.semantic),
       ...(event.progress !== undefined
@@ -120,6 +123,7 @@ export class EventEvaluator {
       priority: this.priorityForHumanInput(event),
       blocking: true,
       timestamp: event.timestamp,
+      ...buildSemanticOntology(event),
       ...(event.context !== undefined ? { context: event.context } : {}),
       ...(() => {
         const provenance = mergeSemanticProvenance({
@@ -287,5 +291,17 @@ function buildSemanticUncertainty(
   return {
     semanticConfidence: semantic.confidence,
     ...(semantic.abstained === true ? { semanticAbstained: true } : {}),
+  };
+}
+
+function buildSemanticOntology(
+  event: ApertureEvent,
+): Pick<AttentionCandidate, "semanticOntology"> | {} {
+  if (!event.semantic) {
+    return {};
+  }
+
+  return {
+    semanticOntology: projectSemanticOntologyDiagnostic(event, event.semantic),
   };
 }

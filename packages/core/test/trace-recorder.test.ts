@@ -219,7 +219,7 @@ test("trace recorder promotes abstention to ambiguity-bearing impact on non-bloc
   });
 });
 
-test("trace recorder exposes diagnostic blocking reads on waiting status updates", () => {
+test("trace recorder exposes blocked-like waiting status queue decisions without changing status mode", () => {
   const core = new ApertureCore();
   const traces: ApertureTrace[] = [];
 
@@ -247,11 +247,14 @@ test("trace recorder exposes diagnostic blocking reads on waiting status updates
 
   assert.equal(trace.semantic?.intentFrame, "blocked_work");
   assert.equal(trace.semantic?.ontology.blocking, "blocking");
+  assert.equal(trace.coordination.kind, "queue");
+  assert.equal(trace.coordination.resultLane, "now");
   assert.ok(
     trace.semantic?.influence.includes(
-      "semantic blocking stayed diagnostic because status updates still route as non-blocking candidates",
+      "semantic blocking marked the waiting status as blocked-like for peripheral routing while status handling stayed non-blocking",
     ),
   );
+  assert.ok(trace.semantic?.impact.decisionBearing.includes("blocking (peripheral routing)"));
 });
 
 test("trace recorder preserves hint-driven semantic provenance", () => {

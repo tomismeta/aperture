@@ -1,5 +1,7 @@
 # Aperture Core Ontology
 
+For a simpler conceptual overview, see [Core Mental Model](./core-mental-model.md).
+
 This document defines the canonical supervision ontology for Aperture Core.
 
 It is intentionally small.

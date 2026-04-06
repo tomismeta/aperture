@@ -184,6 +184,38 @@ Think of trace as the **why layer**.
 - **Trace** = explanation of the action
 - **Core** = the whole system tying those layers together
 
+## The Top-Level Abilities
+
+Another clean way to think about Aperture Core is by its top-level abilities:
+
+- **ability to ingest**
+  - accept input
+  - validate it
+  - finalize it for runtime use
+- **ability to understand**
+  - infer semantics
+  - project ontology
+  - compile judgment input
+- **ability to judge**
+  - evaluate
+  - route
+  - coordinate
+- **ability to materialize**
+  - commit frames
+  - update views
+  - handle responses
+- **ability to learn**
+  - record signals
+  - summarize behavior
+  - checkpoint memory
+- **ability to explain**
+  - trace event transitions
+  - trace candidate/frame transitions
+  - expose why the decision happened
+
+That framing helps keep discussion centered on what the engine must remain able
+to do, even when support machinery moves around it.
+
 ## One Concrete Example
 
 Event:

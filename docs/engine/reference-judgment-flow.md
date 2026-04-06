@@ -12,9 +12,20 @@ Aperture does not just rank events.
 
 It runs a compact judgment loop:
 
-`event -> enrich -> compile judgment input -> candidate -> policy/value/pressure/planning -> attention frame -> human response -> signals -> memory -> next judgment`
+`event -> finalize -> evaluate -> candidate -> policy/value/pressure/planning -> attention frame -> human response -> signals -> memory -> next judgment`
 
 That loop is the product.
+
+Support abilities now sit around that loop, not inside it:
+
+- event preparation
+- runtime validation
+- runtime setup and markdown-backed state loading
+- publish-time trace snapshot assembly
+- signal object construction
+
+Those are important, but they are support machinery. The loop above is still
+the engine.
 
 ## The Attention Judgment Layer
 
@@ -31,7 +42,7 @@ These are the major engine questions, in order:
 9. **`JudgmentCoordinator`** — compose the judgment into one inspectable decision
 10. **`FramePlanner`** — materialize the chosen interaction into an `AttentionFrame`
 
-In practice, those modules live inside [ApertureCore](../../packages/core/src/aperture-core.ts).
+In practice, that loop is still orchestrated by [ApertureCore](../../packages/core/src/aperture-core.ts), while surrounding support abilities now live in small helper modules around it.
 
 ## One Decision, Step By Step
 

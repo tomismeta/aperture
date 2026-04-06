@@ -48,6 +48,45 @@ The key implementation anchors are:
 The cleanest way to preserve core integrity is to keep one authoritative
 judgment path while allowing support machinery to split out around it.
 
+### Current Ability Taxonomy
+
+At the highest level, Aperture Core currently has six top-level abilities:
+
+1. ability to ingest
+2. ability to understand
+3. ability to judge
+4. ability to materialize
+5. ability to learn
+6. ability to explain
+
+Those break down into lower-level abilities like this:
+
+- ability to ingest
+  - accept input
+  - validate it
+  - finalize it for runtime use
+- ability to understand
+  - infer semantics
+  - project ontology
+  - compile judgment input
+  - reason about continuity
+- ability to judge
+  - evaluate
+  - apply policy, value, pressure, and planning
+  - choose the resulting route
+- ability to materialize
+  - commit frames
+  - update views
+  - handle responses
+- ability to learn
+  - record signals
+  - summarize behavior
+  - checkpoint memory
+- ability to explain
+  - preserve event transitions
+  - preserve candidate/frame transitions
+  - expose semantic and judgment rationale
+
 ### Abilities Core Must Own
 
 These abilities define Aperture itself and should stay in the core runtime path:
@@ -68,6 +107,22 @@ These abilities define Aperture itself and should stay in the core runtime path:
 If any of these become fragmented across multiple paths, core integrity starts
 to erode.
 
+### Abilities Core Currently Owns Directly
+
+After the orchestration cleanup, the remaining core-owned abilities are
+deliberately the ones closest to the judgment heart:
+
+- ability to run the one authoritative publish loop
+- ability to assemble runtime evidence for judgment
+- ability to prepare candidates for judgment
+- ability to invoke evaluation, continuity, policy, value, and planning
+- ability to mutate authoritative frame, task, and global attention state
+- ability to handle response-driven state transitions
+- ability to record signals at the moments those state changes actually happen
+
+This is a healthy stopping point. What remains in the runtime orchestrator is
+mostly the real engine rather than surrounding support machinery.
+
 ### Abilities That Can Be Decoupled
 
 These can move into helpers or managers as long as they still feed the single
@@ -86,13 +141,31 @@ The rule is simple:
 - core should still read as one conductor
 - extracted modules should supply support machinery, not alternate judgment paths
 
-### Safe Next Extractions
+### Supporting Abilities Already Decoupled
 
-If we keep thinning the orchestrator, the safest next seams are:
+The current support seams are:
 
-1. event preparation
-2. trace lifecycle orchestration
-3. shared validation helpers
+- ability to prepare publish-time events
+- ability to validate runtime inputs
+- ability to register and notify listeners
+- ability to load, reload, and checkpoint markdown-backed runtime state
+- ability to normalize runtime setup and rebuild coordinator state
+- ability to assemble publish-time trace snapshots
+- ability to build runtime signal objects
+
+These are intentionally support-only seams. They should never become alternate
+judgment paths.
+
+### Current Extraction Guidance
+
+There are no large obvious extractions left without getting much closer to
+state mutation and continuity-sensitive runtime behavior.
+
+At this point, further splitting should be rare and justified by all of these:
+
+1. the ability is clearly support-only
+2. the extraction makes the publish path easier to read
+3. the extraction does not create a second place to reason about state or judgment
 
 The judgment pipeline itself should stay singular:
 

@@ -63,6 +63,13 @@ import {
 } from "./aperture-core-markdown-state.js";
 import { buildPublishTraceSnapshot } from "./aperture-core-publish-trace.js";
 import {
+  buildAttentionTransitionSignals,
+  buildAutoResponseSignal,
+  buildDeferredSignal,
+  buildObservationSignal,
+  buildResponseSignal,
+} from "./aperture-core-signals.js";
+import {
   buildApertureCoordinator,
   cloneSurfaceCapabilities,
   normalizeApertureCoreRuntimeSetup,
@@ -424,7 +431,7 @@ export class ApertureCore {
 
     const previousAttentionView = this.getAttentionView();
     const timestamp = this.nowIso();
-    this.recordSignal(this.signalForResponse(current, response, timestamp));
+    this.recordSignal(buildResponseSignal(current, response, timestamp));
     this.episodes.resolveInteraction(response.interactionId);
 
     const taskView = this.taskViews.resolve(response.taskId, response.interactionId);
@@ -506,7 +513,14 @@ export class ApertureCore {
 
   markViewed(taskId: string, interactionId: string, options: { surface?: string } = {}): void {
     const frame = this.findFrame(taskId, interactionId);
-    this.recordSignal(this.observationSignal("viewed", taskId, interactionId, frame, options));
+    this.recordSignal(buildObservationSignal(
+      "viewed",
+      taskId,
+      interactionId,
+      this.nowIso(),
+      frame,
+      options,
+    ));
   }
 
   markTimedOut(
@@ -515,10 +529,14 @@ export class ApertureCore {
     options: { surface?: string; timeoutMs?: number } = {},
   ): void {
     const frame = this.findFrame(taskId, interactionId);
-    this.recordSignal({
-      ...this.observationSignal("timed_out", taskId, interactionId, frame, options),
-      ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
-    });
+    this.recordSignal(buildObservationSignal(
+      "timed_out",
+      taskId,
+      interactionId,
+      this.nowIso(),
+      frame,
+      options,
+    ));
   }
 
   markContextExpanded(
@@ -527,10 +545,14 @@ export class ApertureCore {
     options: { surface?: string; section?: string } = {},
   ): void {
     const frame = this.findFrame(taskId, interactionId);
-    this.recordSignal({
-      ...this.observationSignal("context_expanded", taskId, interactionId, frame, options),
-      ...(options.section !== undefined ? { section: options.section } : {}),
-    });
+    this.recordSignal(buildObservationSignal(
+      "context_expanded",
+      taskId,
+      interactionId,
+      this.nowIso(),
+      frame,
+      options,
+    ));
   }
 
   markContextSkipped(
@@ -539,10 +561,14 @@ export class ApertureCore {
     options: { surface?: string; section?: string } = {},
   ): void {
     const frame = this.findFrame(taskId, interactionId);
-    this.recordSignal({
-      ...this.observationSignal("context_skipped", taskId, interactionId, frame, options),
-      ...(options.section !== undefined ? { section: options.section } : {}),
-    });
+    this.recordSignal(buildObservationSignal(
+      "context_skipped",
+      taskId,
+      interactionId,
+      this.nowIso(),
+      frame,
+      options,
+    ));
   }
 
   recordSignal(signal: AttentionSignal): void {
@@ -645,7 +671,7 @@ export class ApertureCore {
 
   private queueFrame(taskId: string, frame: AttentionFrame): AttentionFrame {
     const taskView = this.taskViews.addNext(taskId, frame);
-    this.recordDeferredSignal(frame, "next");
+    this.recordSignal(buildDeferredSignal(frame, "next"));
     this.notifyTaskView(taskId, taskView);
     this.notifyAttentionView();
     return taskView.now ?? frame;
@@ -653,7 +679,7 @@ export class ApertureCore {
 
   private addAmbientFrame(taskId: string, frame: AttentionFrame): AttentionFrame {
     const taskView = this.taskViews.addAmbient(taskId, frame);
-    this.recordDeferredSignal(frame, "suppressed");
+    this.recordSignal(buildDeferredSignal(frame, "suppressed"));
     this.notifyTaskView(taskId, taskView);
     this.notifyAttentionView();
     return taskView.now ?? frame;
@@ -685,7 +711,11 @@ export class ApertureCore {
       nextBucket === "queue"
         ? this.taskViews.addNext(merged.taskId, merged)
         : this.taskViews.addAmbient(merged.taskId, merged);
-    this.recordDeferredSignal(merged, nextBucket === "queue" ? "next" : "suppressed", candidate);
+    this.recordSignal(buildDeferredSignal(
+      merged,
+      nextBucket === "queue" ? "next" : "suppressed",
+      candidate,
+    ));
     this.notifyTaskView(merged.taskId, nextTaskView);
     this.notifyAttentionView();
     return merged;
@@ -842,23 +872,6 @@ export class ApertureCore {
     ) ?? false;
   }
 
-  private recordDeferredSignal(
-    frame: AttentionFrame,
-    reason: "next" | "suppressed",
-    sourceFrame: Pick<AttentionFrame, "taskId" | "interactionId" | "source"> = frame,
-  ): void {
-    this.recordSignal({
-      kind: "deferred",
-      taskId: sourceFrame.taskId,
-      interactionId: sourceFrame.interactionId,
-      timestamp: frame.timing.updatedAt,
-      frameId: frame.id,
-      ...(sourceFrame.source !== undefined ? { source: sourceFrame.source } : {}),
-      reason,
-      metadata: signalMetadataForFrame(frame),
-    });
-  }
-
   private notifyFrame(taskId: string, frame: AttentionFrame | null): void {
     this.listeners.emitFrame(taskId, frame);
   }
@@ -875,61 +888,12 @@ export class ApertureCore {
     this.listeners.emitTrace(trace);
   }
 
-  private signalForResponse(frame: AttentionFrame, response: AttentionResponse, timestamp: string): AttentionSignal {
-    const latencyMs = this.calculateLatency(frame, timestamp);
-    const base = {
-      taskId: frame.taskId,
-      interactionId: frame.interactionId,
-      timestamp,
-      frameId: frame.id,
-      ...(frame.source !== undefined ? { source: frame.source } : {}),
-      metadata: signalMetadataForFrame(frame),
-    };
-
-    if (response.response.kind === "dismissed") {
-      return {
-        kind: "dismissed",
-        ...base,
-        ...(latencyMs !== undefined ? { latencyMs } : {}),
-      };
-    }
-
-    return {
-      kind: "responded",
-      ...base,
-      responseKind: response.response.kind,
-      ...(latencyMs !== undefined ? { latencyMs } : {}),
-    };
-  }
-
   private applyAutoResponse(candidate: AttentionCandidate, response: AttentionResponse): null {
     const timestamp = this.nowIso();
-    this.recordSignal({
-      kind: "responded",
-      taskId: candidate.taskId,
-      interactionId: candidate.interactionId,
-      timestamp,
-      ...(candidate.source !== undefined ? { source: candidate.source } : {}),
-      responseKind: response.response.kind === "dismissed" ? "acknowledged" : response.response.kind,
-      metadata: {
-        ...signalMetadataForCandidate(candidate),
-        autoResolved: true,
-      },
-    });
+    this.recordSignal(buildAutoResponseSignal(candidate, response, timestamp));
     this.episodes.resolveInteraction(candidate.interactionId);
     this.listeners.emitResponse(response);
     return null;
-  }
-
-  private calculateLatency(frame: AttentionFrame, timestamp: string): number | undefined {
-    const startedAt = Date.parse(frame.timing.updatedAt);
-    const completedAt = Date.parse(timestamp);
-
-    if (Number.isNaN(startedAt) || Number.isNaN(completedAt)) {
-      return undefined;
-    }
-
-    return Math.max(0, completedAt - startedAt);
   }
 
   private recordAttentionTransition(
@@ -937,90 +901,13 @@ export class ApertureCore {
     nextAttentionView: AttentionView,
     timestamp: string,
   ): void {
-    const previous = previousAttentionView.now;
-    const next = nextAttentionView.now;
-    if (!next) {
-      return;
-    }
-
-    this.recordAttentionShift(previous, next, timestamp);
-    this.recordReturnSignal(previousAttentionView, next, timestamp);
-  }
-
-  private recordAttentionShift(previous: AttentionFrame | null, next: AttentionFrame, timestamp: string): void {
-    if (!previous || sameFrame(previous, next)) {
-      return;
-    }
-
-    const destinationSignal: AttentionSignal = {
-      kind: "attention_shifted",
-      taskId: next.taskId,
-      interactionId: next.interactionId,
+    for (const signal of buildAttentionTransitionSignals(
+      previousAttentionView,
+      nextAttentionView,
       timestamp,
-      frameId: next.id,
-      ...(next.source !== undefined ? { source: next.source } : {}),
-      fromInteractionId: previous.interactionId,
-      toInteractionId: next.interactionId,
-    };
-    this.recordSignal(destinationSignal);
-
-    if (previous.taskId !== next.taskId) {
-      this.recordSignal({
-        kind: "attention_shifted",
-        taskId: previous.taskId,
-        interactionId: previous.interactionId,
-        timestamp,
-        frameId: previous.id,
-        ...(previous.source !== undefined ? { source: previous.source } : {}),
-        fromInteractionId: previous.interactionId,
-        toInteractionId: next.interactionId,
-      });
+    )) {
+      this.recordSignal(signal);
     }
-  }
-
-  private recordReturnSignal(previousAttentionView: AttentionView, next: AttentionFrame, timestamp: string): void {
-    const from = previousAttentionView.next.some((frame) => sameFrame(frame, next))
-      ? "next"
-      : previousAttentionView.ambient.some((frame) => sameFrame(frame, next))
-        ? "ambient"
-        : null;
-
-    if (!from) {
-      return;
-    }
-
-    this.recordSignal({
-      kind: "returned",
-      taskId: next.taskId,
-      interactionId: next.interactionId,
-      timestamp,
-      frameId: next.id,
-      ...(next.source !== undefined ? { source: next.source } : {}),
-      from,
-      metadata: signalMetadataForFrame(next),
-    });
-  }
-
-  private observationSignal(
-    kind: "viewed" | "timed_out" | "context_expanded" | "context_skipped",
-    taskId: string,
-    interactionId: string,
-    frame: AttentionFrame | null,
-    options: { surface?: string },
-  ): Extract<
-    AttentionSignal,
-    { kind: "viewed" | "timed_out" | "context_expanded" | "context_skipped" }
-  > {
-    return {
-      kind,
-      taskId,
-      interactionId,
-      timestamp: this.nowIso(),
-      ...(frame?.id !== undefined ? { frameId: frame.id } : {}),
-      ...(frame?.source !== undefined ? { source: frame.source } : {}),
-      ...(frame ? { metadata: signalMetadataForFrame(frame) } : {}),
-      ...(options.surface !== undefined ? { surface: options.surface } : {}),
-    };
   }
 
   private findFrame(taskId: string, interactionId: string): AttentionFrame | null {

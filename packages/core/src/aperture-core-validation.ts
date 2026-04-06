@@ -28,6 +28,8 @@ export function assertValidEvent(event: ApertureEvent): void {
     case "task.completed":
     case "task.cancelled":
       break;
+    default:
+      return unreachableApertureEvent(event);
   }
 }
 
@@ -64,6 +66,8 @@ export function assertValidSourceEvent(event: SourceEvent): void {
         assertConsequenceLevel("event.riskHint", event.riskHint);
       }
       return;
+    default:
+      return unreachableSourceEvent(event);
   }
 }
 
@@ -156,4 +160,12 @@ function assertHumanInputRequest(
     default:
       throw new Error(`${label} must have a supported request kind`);
   }
+}
+
+function unreachableApertureEvent(event: never): never {
+  throw new Error(`Unhandled ApertureEvent in validation: ${JSON.stringify(event)}`);
+}
+
+function unreachableSourceEvent(event: never): never {
+  throw new Error(`Unhandled SourceEvent in validation: ${JSON.stringify(event)}`);
 }

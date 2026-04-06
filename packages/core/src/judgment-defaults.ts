@@ -6,6 +6,49 @@ export const JUDGMENT_DEFAULTS = {
     nonBlockingActivationThreshold: 180,
     promotionMargin: 20,
   },
+  attentionValue: {
+    memorySufficiency: {
+      toolFamilyPresentations: 3,
+      toolFamilyResponses: 3,
+      consequenceReviewedCount: 4,
+    },
+    responseAffinity: {
+      fastLatencyMs: 2_000,
+      mediumLatencyMs: 5_000,
+      fastBoost: 8,
+      mediumBoost: 4,
+    },
+    consequenceCalibration: {
+      highRejectionRate: 0.5,
+      mediumRejectionRate: 0.25,
+      adjustments: {
+        low: {
+          highRate: 8,
+          mediumRate: 4,
+        },
+        medium: {
+          highRate: 4,
+          mediumRate: 2,
+        },
+        high: {
+          highRate: -4,
+          mediumRate: -2,
+        },
+      },
+    },
+    contextCost: {
+      highRate: 0.6,
+      mediumRate: 0.3,
+      highPenalty: -6,
+      mediumPenalty: -3,
+    },
+    deferralAffinity: {
+      highRate: 0.6,
+      mediumRate: 0.3,
+      highBoost: 6,
+      mediumBoost: 3,
+    },
+  },
   queuePlanner: {
     minimumDwellMs: 30_000,
     streamContinuityMargin: 20,

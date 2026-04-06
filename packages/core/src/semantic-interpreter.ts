@@ -97,6 +97,8 @@ function inferSemanticInterpretation(event: SourceEvent): SemanticInterpretation
           ...(event.reason ? inferredSemanticProvenance(["whyNow"]) : {}),
         },
       };
+    default:
+      return unreachableSourceEvent(event);
   }
 }
 
@@ -255,6 +257,8 @@ function inferTaskUpdateSemantics(
           ...relationProvenance,
         },
       };
+    default:
+      return unreachableTaskStatus(event.status);
   }
 }
 
@@ -336,8 +340,10 @@ function semanticToolFamilyProvenance(
       return sourceSemanticProvenance(["toolFamily"]);
     case "inferred":
       return inferredSemanticProvenance(["toolFamily"]);
-    default:
+    case "none":
       return {};
+    default:
+      return unreachableToolFamilySource(source);
   }
 }
 
@@ -431,6 +437,8 @@ function consequenceFromRequestKind(
     case "choice":
     case "form":
       return "medium";
+    default:
+      return unreachableRequestKind(kind);
   }
 }
 
@@ -453,4 +461,20 @@ function buildTaxonomyInput(
     ...(toolFamily !== undefined ? { toolFamily } : {}),
     ...(context?.items !== undefined ? { context: { items: context.items } } : {}),
   };
+}
+
+function unreachableSourceEvent(event: never): never {
+  throw new Error(`Unhandled source event in semantic interpreter: ${JSON.stringify(event)}`);
+}
+
+function unreachableTaskStatus(status: never): never {
+  throw new Error(`Unhandled task status in semantic interpreter: ${status}`);
+}
+
+function unreachableRequestKind(kind: never): never {
+  throw new Error(`Unhandled human input request kind in semantic interpreter: ${kind}`);
+}
+
+function unreachableToolFamilySource(source: never): never {
+  throw new Error(`Unhandled tool family provenance source in semantic interpreter: ${source}`);
 }

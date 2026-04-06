@@ -177,6 +177,8 @@ export const ESCALATE_PHRASES = [
   "worse",
   "worsened",
   "escalating",
+  // Intentional overlap: a regression is both a continuing issue signal and an
+  // escalation signal, so it appears in both families.
   "regression",
   "regressed",
   "spread",

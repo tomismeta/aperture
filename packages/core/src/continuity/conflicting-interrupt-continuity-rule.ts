@@ -2,6 +2,13 @@ import { priorityForFrame } from "../frame-score.js";
 import { JUDGMENT_DEFAULTS } from "../judgment-defaults.js";
 import { noopContinuityRule, overrideContinuityRule, type ContinuityRule } from "./continuity-rule.js";
 
+const INTERRUPT_CLASS = {
+  STATUS_ONLY: 0,
+  NON_STATUS: 1,
+  CRITICAL_CONSEQUENCE: 2,
+  BLOCKING_OR_REQUIRED: 3,
+} as const;
+
 export const evaluateConflictingInterruptContinuityRule: ContinuityRule = (input) => {
   const activeFrame = input.evidence.currentFrame;
   const { candidate, context, evidence, helpers, routed, plannerDefaults } = input;
@@ -11,7 +18,10 @@ export const evaluateConflictingInterruptContinuityRule: ContinuityRule = (input
 
   const currentInterruptClass = interruptClassForFrame(activeFrame);
   const candidateInterruptClass = interruptClassForCandidate(candidate, context.policyVerdict);
-  if (currentInterruptClass === 0 || candidateInterruptClass === 0) {
+  if (
+    currentInterruptClass === INTERRUPT_CLASS.STATUS_ONLY
+    || candidateInterruptClass === INTERRUPT_CLASS.STATUS_ONLY
+  ) {
     return noopContinuityRule("conflicting_interrupt");
   }
 
@@ -56,18 +66,18 @@ function interruptClassForFrame(frame: {
   responseSpec?: { kind: string };
 }): number {
   if (frame.mode !== "status" && frame.responseSpec?.kind !== "none") {
-    return 3;
+    return INTERRUPT_CLASS.BLOCKING_OR_REQUIRED;
   }
 
   if (frame.tone === "critical" || frame.consequence === "high") {
-    return 2;
+    return INTERRUPT_CLASS.CRITICAL_CONSEQUENCE;
   }
 
   if (frame.mode !== "status") {
-    return 1;
+    return INTERRUPT_CLASS.NON_STATUS;
   }
 
-  return 0;
+  return INTERRUPT_CLASS.STATUS_ONLY;
 }
 
 function interruptClassForCandidate(
@@ -84,16 +94,16 @@ function interruptClassForCandidate(
   },
 ): number {
   if (candidate.blocking || policyVerdict.requiresOperatorResponse || policyVerdict.minimumLane === "now") {
-    return 3;
+    return INTERRUPT_CLASS.BLOCKING_OR_REQUIRED;
   }
 
   if (candidate.tone === "critical" || candidate.consequence === "high") {
-    return 2;
+    return INTERRUPT_CLASS.CRITICAL_CONSEQUENCE;
   }
 
   if (candidate.mode !== "status") {
-    return 1;
+    return INTERRUPT_CLASS.NON_STATUS;
   }
 
-  return 0;
+  return INTERRUPT_CLASS.STATUS_ONLY;
 }

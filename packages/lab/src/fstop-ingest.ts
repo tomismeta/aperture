@@ -5,14 +5,17 @@ import path from "node:path";
 import {
   createImportedSessionFromDataclawRow,
   createImportedSessionFromOpenAgentSessionsRow,
+  createImportedSessionFromPiRow,
   createImportedSessionFromSweSmithTrajectory,
   createSessionBundleFromDataclawRow,
   createSessionBundleFromOpenAgentSessionsRow,
+  createSessionBundleFromPiRow,
   createSessionBundleFromSweSmithTrajectory,
   defaultImportedTrajectoryBundlePath,
   defaultPublicTrajectorySplit,
   parseDataclawRowsResponse,
   parseOpenAgentSessionsJsonlText,
+  parsePiRow,
   parseSweSmithRowsResponse,
   type DataclawRow,
   type ImportedTrajectoryBundle,
@@ -20,6 +23,7 @@ import {
   type OpenAgentSessionsMetadata,
   type OpenAgentSessionsRow,
   type OpenAgentSessionsSplit,
+  type PiRow,
   type PublicTrajectoryDataset,
   type PublicTrajectorySplit,
   type SweSmithTrajectoryRow,
@@ -56,6 +60,12 @@ type RawTrajectoryRecord =
   | {
       dataset: "dataclaw";
       row: DataclawRow;
+      split: PublicTrajectorySplit;
+      recordId: string;
+    }
+  | {
+      dataset: "pi";
+      row: PiRow;
       split: PublicTrajectorySplit;
       recordId: string;
     }
@@ -151,9 +161,34 @@ async function parseRawJsonValue(
         recordId: row.traj_id,
       }));
     }
+    if (datasetHint === "pi" || (!datasetHint && looksLikeRowsResponseForDataset(value, "pi"))) {
+      return value.rows
+        .map((entry) => (isRecord(entry) && isRecord(entry.row) ? entry.row : undefined))
+        .filter((row): row is Record<string, unknown> => row !== undefined)
+        .map((row) => {
+          const parsed = parseSinglePiRow(row);
+          return {
+            dataset: "pi" as const,
+            row: parsed,
+            split: resolveSplit("pi", splitHint),
+            recordId: parsed.session_id,
+          };
+        });
+    }
   }
 
   if (Array.isArray(value)) {
+    if (datasetHint === "pi" || looksLikePiTraceLog(value)) {
+      return [
+        {
+          dataset: "pi",
+          row: buildPiRowFromEvents(value, filePath),
+          split: resolveSplit("pi", splitHint),
+          recordId: readPiRecordIdFromFile(value, filePath),
+        },
+      ];
+    }
+
     if (value.every((entry) => looksLikeOpenAgentSessionsEvent(entry))) {
       return [
         {
@@ -203,6 +238,17 @@ async function parseRawJsonLines(
       throw new Error(`Failed to parse JSONL at ${filePath}:${index + 1}: ${error instanceof Error ? error.message : String(error)}`);
     }
   });
+
+  if (datasetHint === "pi" || looksLikePiTraceLog(entries)) {
+    return [
+      {
+        dataset: "pi",
+        row: buildPiRowFromEvents(entries, filePath),
+        split: resolveSplit("pi", splitHint),
+        recordId: readPiRecordIdFromFile(entries, filePath),
+      },
+    ];
+  }
 
   if (entries.every((entry) => looksLikeOpenAgentSessionsEvent(entry))) {
     const events = entries as OpenAgentSessionsEvent[];
@@ -269,6 +315,16 @@ async function parseRawRecord(
     };
   }
 
+  if (datasetHint === "pi") {
+    const row = parseSinglePiRow(value);
+    return {
+      dataset: "pi",
+      row,
+      split: resolveSplit("pi", splitHint),
+      recordId: row.session_id,
+    };
+  }
+
   if (looksLikeDataclawRow(value)) {
     const row = parseSingleDataclawRow(value);
     return {
@@ -299,8 +355,18 @@ async function parseRawRecord(
     };
   }
 
+  if (looksLikePiRow(value)) {
+    const row = parseSinglePiRow(value);
+    return {
+      dataset: "pi",
+      row,
+      split: resolveSplit("pi", splitHint),
+      recordId: row.session_id,
+    };
+  }
+
   throw new Error(
-    `Unsupported raw trajectory ${label}: expected a SWE-smith row, DataClaw row, OpenAgentSessions row, or OpenAgentSessions JSONL event log.`,
+    `Unsupported raw trajectory ${label}: expected a SWE-smith row, DataClaw row, Pi row, OpenAgentSessions row, or a supported raw JSONL event log.`,
   );
 }
 
@@ -318,6 +384,13 @@ function createBundleFromRawRecord(
   if (record.dataset === "open-agent-sessions") {
     return createSessionBundleFromOpenAgentSessionsRow(record.row, {
       split: record.split as OpenAgentSessionsSplit,
+      ...(options.exportedAt ? { exportedAt: options.exportedAt } : {}),
+    });
+  }
+
+  if (record.dataset === "pi") {
+    return createSessionBundleFromPiRow(record.row, {
+      split: record.split as "train",
       ...(options.exportedAt ? { exportedAt: options.exportedAt } : {}),
     });
   }
@@ -341,6 +414,12 @@ function createSessionFromRawRecord(
   if (record.dataset === "open-agent-sessions") {
     return createImportedSessionFromOpenAgentSessionsRow(record.row, {
       split: record.split as OpenAgentSessionsSplit,
+    });
+  }
+
+  if (record.dataset === "pi") {
+    return createImportedSessionFromPiRow(record.row, {
+      split: record.split as "train",
     });
   }
 
@@ -386,6 +465,10 @@ function parseSingleSweSmithRow(value: Record<string, unknown>): SweSmithTraject
   })[0]!;
 }
 
+function parseSinglePiRow(value: Record<string, unknown>): PiRow {
+  return parsePiRow(value);
+}
+
 async function normalizeOpenAgentSessionsRow(
   value: Record<string, unknown>,
   filePath: string,
@@ -423,6 +506,26 @@ async function normalizeOpenAgentSessionsRow(
       ? { raw_mirror_dir: value.raw_mirror_dir }
       : { raw_mirror_dir: path.dirname(filePath) }),
   };
+}
+
+function buildPiRowFromEvents(
+  events: readonly unknown[],
+  filePath: string,
+): PiRow {
+  const sessionId = readPiRecordIdFromFile(events, filePath);
+  const sessionEvent = events.find((event) =>
+    isRecord(event) && event.type === "session" && typeof event.id === "string");
+  const harness = isRecord(sessionEvent) && typeof sessionEvent.provider === "string"
+    ? sessionEvent.provider
+    : "pi";
+
+  return parsePiRow({
+    harness,
+    session_id: sessionId,
+    file_name: path.basename(filePath),
+    ...(inferPiSourceDataset(filePath) ? { source_dataset: inferPiSourceDataset(filePath) } : {}),
+    traces: events,
+  });
 }
 
 async function buildOpenAgentSessionsRowFromEvents(
@@ -472,6 +575,18 @@ function readOpenAgentSessionsRecordIdFromFile(
   return sessionEvent?.id ?? `open-agent-sessions-${buildStableLocalRecordId(filePath)}`;
 }
 
+function readPiRecordIdFromFile(
+  events: readonly unknown[],
+  filePath: string,
+): string {
+  const sessionEvent = events.find((event) =>
+    isRecord(event) && event.type === "session" && typeof event.id === "string");
+  if (isRecord(sessionEvent) && typeof sessionEvent.id === "string") {
+    return sessionEvent.id;
+  }
+  return `pi-${buildStableLocalRecordId(filePath)}`;
+}
+
 function findFirstMessageId(events: readonly OpenAgentSessionsEvent[]): string | undefined {
   return events.find((event) => typeof event.id === "string")?.id;
 }
@@ -498,6 +613,9 @@ function looksLikeRowsResponseForDataset(
   if (dataset === "swe-smith") {
     return looksLikeSweSmithRow(row);
   }
+  if (dataset === "pi") {
+    return looksLikePiRow(row);
+  }
   return looksLikeOpenAgentSessionsRow(row);
 }
 
@@ -523,12 +641,105 @@ function looksLikeSweSmithRow(value: Record<string, unknown>): boolean {
   );
 }
 
+function looksLikePiRow(value: Record<string, unknown>): boolean {
+  return (
+    typeof value.harness === "string"
+    && typeof value.session_id === "string"
+    && typeof value.file_name === "string"
+    && Array.isArray(value.traces)
+  );
+}
+
 function looksLikeOpenAgentSessionsRow(value: Record<string, unknown>): boolean {
   return typeof value.session_id === "string" && Array.isArray(value.events);
 }
 
 function looksLikeOpenAgentSessionsEvent(value: unknown): value is OpenAgentSessionsEvent {
   return isRecord(value) && typeof value.type === "string";
+}
+
+function looksLikePiTraceEntry(value: unknown): boolean {
+  if (!isRecord(value) || typeof value.type !== "string") {
+    return false;
+  }
+
+  return (
+    typeof value.parentId === "string"
+    || value.parentId === null
+    || typeof value.version === "number"
+    || typeof value.cwd === "string"
+    || typeof value.provider === "string"
+    || typeof value.modelId === "string"
+    || typeof value.thinkingLevel === "string"
+    || value.type === "model_change"
+    || value.type === "thinking_level_change"
+    || value.type === "session_info"
+    || isRecord(value.message)
+  );
+}
+
+function looksLikePiTraceLog(entries: readonly unknown[]): boolean {
+  if (entries.length === 0 || !entries.every((entry) => looksLikePiTraceEntry(entry))) {
+    return false;
+  }
+
+  return entries.some((entry) => {
+    if (!isRecord(entry)) {
+      return false;
+    }
+
+    if (
+      typeof entry.parentId === "string"
+      || entry.parentId === null
+      || typeof entry.version === "number"
+      || typeof entry.cwd === "string"
+      || typeof entry.provider === "string"
+      || typeof entry.modelId === "string"
+      || typeof entry.thinkingLevel === "string"
+    ) {
+      return true;
+    }
+
+    if (
+      entry.type === "model_change"
+      || entry.type === "thinking_level_change"
+      || entry.type === "session_info"
+      || entry.type === "compaction"
+      || entry.type === "branch_summary"
+      || entry.type === "custom"
+      || entry.type === "custom_message"
+      || entry.type === "label"
+    ) {
+      return true;
+    }
+
+    const message = isRecord(entry.message) ? entry.message : undefined;
+    if (!message) {
+      return false;
+    }
+
+    return (
+      typeof message.api === "string"
+      || "details" in message
+      || typeof message.errorMessage === "string"
+      || typeof message.fullOutputPath === "string"
+      || typeof message.customType === "string"
+      || typeof message.summary === "string"
+      || typeof message.fromId === "string"
+      || typeof message.tokensBefore === "number"
+    );
+  });
+}
+
+function inferPiSourceDataset(filePath: string): string | undefined {
+  const normalized = filePath.toLowerCase();
+  if (normalized.includes("pi-mono")) {
+    return "badlogicgames/pi-mono";
+  }
+  if (normalized.includes("pi-sessions")) {
+    return "0xSero/pi-sessions";
+  }
+  return undefined;
 }
 
 function buildStableLocalRecordId(filePath: string): string {

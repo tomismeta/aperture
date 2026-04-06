@@ -182,7 +182,8 @@ pnpm lab:fstop:ingest --file /absolute/path/to/raw-export.jsonl --json
 
 This writes replayable bundles under `.aperture/lab/bundles/raw` by default.
 The raw-file ingest path currently accepts supported SWE-smith rows, DataClaw
-rows, OpenAgentSessions rows, and OpenAgentSessions JSONL event logs.
+rows, Pi-family rows/JSONL exports, OpenAgentSessions rows, and OpenAgentSessions JSONL event
+logs.
 It also writes canonical F-Stop Session files under `.aperture/lab/sessions`
 so raw imports have one stable intermediate shape before replay.
 
@@ -310,7 +311,8 @@ pnpm lab:fstop:run --provider <provider> --reviewer-provider <provider> --optimi
 - a replayable session bundle JSON
 - a precomputed offline-review batch report JSON
 - a canonical F-Stop Session JSON
-- a supported raw export file, which is first ingested into local bundles
+- a supported raw export file, including raw Pi row JSON/JSONL, which is first
+  ingested into local bundles
 
 Gists are not required for this productized path. They are just one possible
 publication format for public corpora like OpenAgentSessions; the unattended

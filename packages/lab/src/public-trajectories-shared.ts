@@ -7,6 +7,7 @@ import { isRecord as isShapeRecord } from "./shape.js";
 import {
   DEFAULT_DATACLAW_SPLIT,
   DEFAULT_OPEN_AGENT_SESSIONS_SPLIT,
+  DEFAULT_PI_SPLIT,
   DEFAULT_PUBLIC_TRAJECTORY_BUNDLES_DIR,
   DEFAULT_SWE_SMITH_SPLIT,
   type PublicTrajectoryDataset,
@@ -39,6 +40,9 @@ export function defaultPublicTrajectorySplit(
 ): PublicTrajectorySplit {
   if (dataset === "dataclaw") {
     return DEFAULT_DATACLAW_SPLIT;
+  }
+  if (dataset === "pi") {
+    return DEFAULT_PI_SPLIT;
   }
   if (dataset === "open-agent-sessions") {
     return DEFAULT_OPEN_AGENT_SESSIONS_SPLIT;

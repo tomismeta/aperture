@@ -10,6 +10,13 @@ export const DEFAULT_SWE_SMITH_SPLIT = "tool" as const;
 export const DATACLAW_DATASET = "woctordho/dataclaw" as const;
 export const HUGGINGFACE_DATACLAW_DATASET = DATACLAW_DATASET;
 export const DEFAULT_DATACLAW_SPLIT = "train" as const;
+export const PI_DATASET = "pi" as const;
+export const DEFAULT_PI_SPLIT = "train" as const;
+export const PI_MONO_DATASET = "badlogicgames/pi-mono" as const;
+export const HUGGINGFACE_PI_MONO_DATASET = PI_MONO_DATASET;
+export const PI_SESSIONS_DATASET = "0xSero/pi-sessions" as const;
+export const HUGGINGFACE_PI_SESSIONS_DATASET = PI_SESSIONS_DATASET;
+export const DEFAULT_PI_MONO_SPLIT = DEFAULT_PI_SPLIT;
 export const OPEN_AGENT_SESSIONS_SITE_URL = "https://openagentsessions.org/" as const;
 export const OPEN_AGENT_SESSIONS_URLS_URL = "https://openagentsessions.org/urls.txt" as const;
 export const DEFAULT_OPEN_AGENT_SESSIONS_SPLIT = "approved" as const;
@@ -23,13 +30,16 @@ export const DEFAULT_OPEN_AGENT_SESSIONS_RAW_DIR = path.resolve(
   "imported/open-agent-sessions/raw",
 );
 
-export type PublicTrajectoryDataset = "swe-smith" | "dataclaw" | "open-agent-sessions";
+export type PublicTrajectoryDataset = "swe-smith" | "dataclaw" | "pi" | "open-agent-sessions";
 export type SweSmithTrajectorySplit = "tool" | "xml" | "ticks";
 export type DataclawSplit = "train";
+export type PiSplit = "train";
+export type PiMonoSplit = PiSplit;
 export type OpenAgentSessionsSplit = "approved";
 export type PublicTrajectorySplit =
   | SweSmithTrajectorySplit
   | DataclawSplit
+  | PiSplit
   | OpenAgentSessionsSplit;
 
 export type SweSmithRow = {
@@ -79,6 +89,100 @@ export type DataclawRow = {
 };
 
 export type DataclawTrajectoryRow = DataclawRow;
+
+export type PiContentBlock = Partial<{
+  type: string;
+  text: string;
+  data: string;
+  mimeType: string;
+  thinking: string;
+  id: string;
+  name: string;
+  arguments: unknown;
+}>;
+
+export type PiMessage = Partial<{
+  role:
+    | "user"
+    | "assistant"
+    | "toolResult"
+    | "bashExecution"
+    | "custom"
+    | "branchSummary"
+    | "compactionSummary";
+  content: string | PiContentBlock[];
+  timestamp: number;
+  api: string;
+  provider: string;
+  model: string;
+  usage: unknown;
+  stopReason: string;
+  errorMessage: string;
+  toolCallId: string;
+  toolName: string;
+  details: unknown;
+  isError: boolean;
+  command: string;
+  output: string;
+  exitCode: number;
+  cancelled: boolean;
+  truncated: boolean;
+  fullOutputPath: string;
+  excludeFromContext: boolean;
+  customType: string;
+  display: boolean;
+  summary: string;
+  fromId: string;
+  tokensBefore: number;
+}>;
+
+export type PiTrace = Partial<{
+  type:
+    | "session"
+    | "message"
+    | "model_change"
+    | "thinking_level_change"
+    | "compaction"
+    | "branch_summary"
+    | "custom"
+    | "custom_message"
+    | "label"
+    | "session_info";
+  version: number;
+  id: string;
+  parentId: string | null;
+  timestamp: string;
+  cwd: string;
+  parentSession: string;
+  provider: string;
+  modelId: string;
+  thinkingLevel: string;
+  summary: string;
+  firstKeptEntryId: string;
+  fromId: string;
+  customType: string;
+  data: unknown;
+  content: string | PiContentBlock[];
+  display: boolean;
+  details: unknown;
+  targetId: string;
+  label: string;
+  name: string;
+  message: PiMessage;
+}>;
+
+export type PiRow = {
+  harness: string;
+  session_id: string;
+  traces: PiTrace[];
+  file_name: string;
+  source_dataset?: string;
+};
+
+export type PiMonoContentBlock = PiContentBlock;
+export type PiMonoMessage = PiMessage;
+export type PiMonoTrace = PiTrace;
+export type PiMonoRow = PiRow;
 
 export type OpenAgentSessionsContentBlock = Partial<{
   type: string;
@@ -157,6 +261,7 @@ export type OpenAgentSessionsRow = {
 export type PublicTrajectoryRow =
   | SweSmithTrajectoryRow
   | DataclawTrajectoryRow
+  | PiRow
   | OpenAgentSessionsRow;
 
 export type ImportedTrajectoryBundle = {

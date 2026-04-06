@@ -64,6 +64,18 @@ export {
   parseOpenAgentSessionsJsonlText,
 } from "./public-trajectories-open-agent-sessions.js";
 export {
+  createImportedSessionFromPiRow,
+  createImportedSessionFromPiMonoRow,
+  createReplayScenarioFromPiRow,
+  createReplayScenarioFromPiMonoRow,
+  createSessionBundleFromPiRow,
+  createSessionBundleFromPiMonoRow,
+  defaultPiBundleSource,
+  defaultPiMonoBundleSource,
+  parsePiRow,
+  parsePiMonoRow,
+} from "./public-trajectories-pi.js";
+export {
   createImportedSessionFromSweSmithRow,
   createImportedSessionFromSweSmithTrajectory,
   createReplayScenarioFromSweSmithTrajectory,
@@ -87,6 +99,8 @@ export async function importPublicTrajectoryBundles(
       return importSweSmithBundles(dataset, options);
     case "dataclaw":
       return importDataclawBundles(dataset, options);
+    case "pi":
+      throw new Error("Pi imports currently require a local raw file via importTrajectoryBundlesFromFile or --file.");
     case "open-agent-sessions":
       return importOpenAgentSessionsBundles(dataset, options);
     default:

@@ -15,8 +15,8 @@ The pipeline should be:
 
 ## Why This Exists
 
-Raw exports from DataClaw, OpenAgentSessions, SWE-smith, or future sources all
-have different shapes.
+Raw exports from DataClaw, OpenAgentSessions, SWE-smith, Pi-family traces, or future
+sources all have different shapes.
 
 F-Stop needs one stable, inspectable, versioned file format that:
 

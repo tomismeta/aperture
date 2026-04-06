@@ -1,6 +1,5 @@
 import type {
   ApertureEvent,
-  HumanInputRequest,
 } from "./events.js";
 import type { SourceEvent } from "./source-event.js";
 import type {
@@ -31,10 +30,6 @@ import { AttentionSignalStore, summarizeAttentionSignals } from "./attention-sig
 import { loadJudgmentConfig, type JudgmentConfig } from "./judgment-config.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
 import { distillMemoryProfile, signalMetadataForCandidate, signalMetadataForFrame } from "./memory-aggregator.js";
-import {
-  enrichApertureEvent,
-  normalizeSourceEvent,
-} from "./semantic-normalizer.js";
 import { hasSemanticRelationKind } from "./semantic-relations.js";
 import { AttentionPolicy } from "./attention-policy.js";
 import { selectPeripheralBucket } from "./attention-planner.js";
@@ -63,6 +58,20 @@ import {
   type AttentionSignalListener,
   type AttentionTraceListener,
 } from "./aperture-core-listeners.js";
+import {
+  preparePublishedEvent,
+  preparePublishedSourceEvent,
+} from "./aperture-core-event-preparation.js";
+import type {
+  PreparedPublishedEvent,
+  PublishOptions,
+} from "./aperture-core-event-preparation.js";
+import {
+  assertValidEvent,
+  assertValidFrameResponse,
+  assertValidSignal,
+  assertValidSourceEvent,
+} from "./aperture-core-validation.js";
 
 export type {
   AttentionFrameListener,
@@ -86,15 +95,7 @@ export type ApertureCoreOptions = {
   timeSource?: () => number;
 };
 
-export type PublishOptions = {
-  applySemanticDefaults?: boolean;
-};
-
-type PreparedPublishedEvent = {
-  originalEvent: SourceEvent | ApertureEvent;
-  finalizedEvent: ApertureEvent;
-  transitionKind: "source_normalized" | "direct_enriched" | "direct_passthrough";
-};
+export type { PublishOptions } from "./aperture-core-event-preparation.js";
 
 export class ApertureCore {
   private readonly listeners = new ApertureCoreListeners();
@@ -223,12 +224,8 @@ export class ApertureCore {
   }
 
   publishSourceEvent(event: SourceEvent): AttentionFrame | null {
-    this.assertValidSourceEvent(event);
-    return this.publishPreparedEvent({
-      originalEvent: event,
-      finalizedEvent: normalizeSourceEvent(event),
-      transitionKind: "source_normalized",
-    });
+    assertValidSourceEvent(event);
+    return this.publishPreparedEvent(preparePublishedSourceEvent(event));
   }
 
   publish(event: ApertureEvent, options: PublishOptions = {}): AttentionFrame | null {
@@ -236,22 +233,8 @@ export class ApertureCore {
     // `SourceEvent/ApertureEvent -> finalized event -> EventEvaluator
     // -> AttentionCandidate -> AttentionJudgmentInput-aware judgment ->
     // AttentionFrame/AttentionView + trace`
-    this.assertValidEvent(event);
-    return this.publishPreparedEvent(this.preparePublishedEvent(event, options));
-  }
-
-  private preparePublishedEvent(
-    event: ApertureEvent,
-    options: PublishOptions,
-  ): PreparedPublishedEvent {
-    const semanticDefaultsApplied = options.applySemanticDefaults !== false;
-    return {
-      originalEvent: event,
-      finalizedEvent: semanticDefaultsApplied
-        ? enrichApertureEvent(event)
-        : enrichApertureEvent(event, { skipSemanticDefaults: true }),
-      transitionKind: semanticDefaultsApplied ? "direct_enriched" : "direct_passthrough",
-    };
+    assertValidEvent(event);
+    return this.publishPreparedEvent(preparePublishedEvent(event, options));
   }
 
   private publishPreparedEvent(preparedEvent: PreparedPublishedEvent): AttentionFrame | null {
@@ -489,7 +472,7 @@ export class ApertureCore {
   }
 
   submit(response: AttentionResponse): void {
-    this.assertValidFrameResponse(response);
+    assertValidFrameResponse(response);
     const current = this.findFrameByInteractionId(response.taskId, response.interactionId);
     if (!current) {
       return;
@@ -624,7 +607,7 @@ export class ApertureCore {
   }
 
   recordSignal(signal: AttentionSignal): void {
-    this.assertValidSignal(signal);
+    assertValidSignal(signal);
     this.signals.record(signal);
     this.listeners.emitSignal(signal);
   }
@@ -1119,157 +1102,6 @@ export class ApertureCore {
     return new Date(this.timeSource()).toISOString();
   }
 
-  private assertValidEvent(event: ApertureEvent): void {
-    this.assertNonEmpty("event.id", event.id);
-    this.assertNonEmpty("event.taskId", event.taskId);
-    this.assertTimestamp("event.timestamp", event.timestamp);
-
-    if (event.source !== undefined) {
-      this.assertNonEmpty("event.source.id", event.source.id);
-    }
-
-    switch (event.type) {
-      case "task.started":
-      case "task.updated":
-        this.assertNonEmpty("event.title", event.title);
-        break;
-      case "human.input.requested":
-        this.assertNonEmpty("event.interactionId", event.interactionId);
-        this.assertNonEmpty("event.title", event.title);
-        this.assertNonEmpty("event.summary", event.summary);
-        break;
-      case "task.completed":
-      case "task.cancelled":
-        break;
-    }
-  }
-
-  private assertValidSourceEvent(event: SourceEvent): void {
-    this.assertNonEmpty("event.id", event.id);
-    this.assertNonEmpty("event.taskId", event.taskId);
-    this.assertTimestamp("event.timestamp", event.timestamp);
-
-    if (event.source) {
-      this.assertNonEmpty("event.source.id", event.source.id);
-    }
-
-    switch (event.type) {
-      case "task.started":
-        this.assertNonEmpty("event.title", event.title);
-        return;
-      case "task.updated":
-        this.assertNonEmpty("event.title", event.title);
-        this.assertTaskStatus("event.status", event.status);
-        return;
-      case "task.completed":
-        return;
-      case "task.cancelled":
-        if (event.reason !== undefined) {
-          this.assertNonEmpty("event.reason", event.reason);
-        }
-        return;
-      case "human.input.requested":
-        this.assertNonEmpty("event.interactionId", event.interactionId);
-        this.assertNonEmpty("event.title", event.title);
-        this.assertNonEmpty("event.summary", event.summary);
-        this.assertHumanInputRequest("event.request", event.request);
-        if (event.riskHint !== undefined) {
-          this.assertConsequenceLevel("event.riskHint", event.riskHint);
-        }
-        return;
-    }
-  }
-
-  private assertValidFrameResponse(response: AttentionResponse): void {
-    this.assertNonEmpty("response.taskId", response.taskId);
-    this.assertNonEmpty("response.interactionId", response.interactionId);
-
-    switch (response.response.kind) {
-      case "acknowledged":
-      case "approved":
-      case "rejected":
-      case "dismissed":
-        return;
-      case "option_selected":
-        if (response.response.optionIds.length === 0) {
-          throw new Error("response.optionIds must contain at least one option id");
-        }
-        return;
-      case "text_submitted":
-        this.assertNonEmpty("response.text", response.response.text);
-        return;
-      case "form_submitted":
-        if (
-          response.response.values === null ||
-          typeof response.response.values !== "object" ||
-          Array.isArray(response.response.values)
-        ) {
-          throw new Error("response.values must be an object");
-        }
-        return;
-    }
-  }
-
-  private assertValidSignal(signal: AttentionSignal): void {
-    this.assertNonEmpty("signal.taskId", signal.taskId);
-    this.assertNonEmpty("signal.interactionId", signal.interactionId);
-    this.assertTimestamp("signal.timestamp", signal.timestamp);
-
-    if (signal.source !== undefined) {
-      this.assertNonEmpty("signal.source.id", signal.source.id);
-    }
-  }
-
-  private assertNonEmpty(label: string, value: string): void {
-    if (typeof value !== "string" || value.trim().length === 0) {
-      throw new Error(`${label} must be a non-empty string`);
-    }
-  }
-
-  private assertTimestamp(label: string, value: string): void {
-    this.assertNonEmpty(label, value);
-    if (Number.isNaN(Date.parse(value))) {
-      throw new Error(`${label} must be a valid ISO timestamp`);
-    }
-  }
-
-  private assertTaskStatus(label: string, value: string): void {
-    if (!["running", "blocked", "waiting", "completed", "failed"].includes(value)) {
-      throw new Error(`${label} must be a valid task status`);
-    }
-  }
-
-  private assertConsequenceLevel(label: string, value: string): void {
-    if (!["low", "medium", "high"].includes(value)) {
-      throw new Error(`${label} must be a valid consequence level`);
-    }
-  }
-
-  private assertHumanInputRequest(
-    label: string,
-    value: HumanInputRequest,
-  ): void {
-    if (!value || typeof value !== "object" || !("kind" in value)) {
-      throw new Error(`${label} must be a valid human input request`);
-    }
-
-    switch (value.kind) {
-      case "approval":
-        return;
-      case "choice":
-        if (!Array.isArray(value.options) || value.options.length === 0) {
-          throw new Error(`${label}.options must contain at least one option`);
-        }
-        return;
-      case "form":
-        if (!Array.isArray(value.fields) || value.fields.length === 0) {
-          throw new Error(`${label}.fields must contain at least one field`);
-        }
-        return;
-      default:
-        throw new Error(`${label} must have a supported request kind`);
-    }
-  }
 }
 
 function readSignalEpisodeId(signal: AttentionSignal): string | null {

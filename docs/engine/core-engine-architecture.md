@@ -8,6 +8,7 @@ It is not a philosophy document. The governing philosophy lives in
 This document answers a narrower question:
 
 - where does new judgment behavior go?
+- which abilities core must own directly vs which can be cleanly decoupled?
 
 ## Engine Hierarchy
 
@@ -41,6 +42,61 @@ The key implementation anchors are:
 - `AttentionPolicy.evaluateInterruptCriterion(...)` in `packages/core/src/attention-policy.ts`
 - `AttentionPlanner.route(...)` in `packages/core/src/attention-planner.ts`
 - `AttentionPlanner.applyContinuity(...)` in `packages/core/src/attention-planner.ts`
+
+## Ability Boundaries
+
+The cleanest way to preserve core integrity is to keep one authoritative
+judgment path while allowing support machinery to split out around it.
+
+### Abilities Core Must Own
+
+These abilities define Aperture itself and should stay in the core runtime path:
+
+- ability to accept raw `SourceEvent` or `ApertureEvent` input
+- ability to validate event contracts before judgment
+- ability to finalize events into the canonical runtime form
+- ability to interpret semantics from source facts and bounded hints
+- ability to project semantics into the compact ontology
+- ability to compile ontology and semantic evidence into `AttentionJudgmentInput`
+- ability to evaluate an event into `noop`, `clear`, or `candidate`
+- ability to reason about continuity and episode identity
+- ability to apply policy, value, pressure, and planning
+- ability to materialize `AttentionFrame`, task view, and global attention view state
+- ability to accept human responses and turn them into signals
+- ability to update durable memory inputs from those signals
+
+If any of these become fragmented across multiple paths, core integrity starts
+to erode.
+
+### Abilities That Can Be Decoupled
+
+These can move into helpers or managers as long as they still feed the single
+core-owned path above:
+
+- ability to register and notify listeners
+- ability to prepare publish transitions and diff metadata around event ingress
+- ability to compute trace diffs and project internal trace into public trace
+- ability to load markdown-backed config and memory
+- ability to rebuild coordinator state from loaded config and memory
+- ability to persist distilled memory and runtime artifacts
+- ability to validate input shapes through shared validator helpers
+
+The rule is simple:
+
+- core should still read as one conductor
+- extracted modules should supply support machinery, not alternate judgment paths
+
+### Safe Next Extractions
+
+If we keep thinning the orchestrator, the safest next seams are:
+
+1. event preparation
+2. trace lifecycle orchestration
+3. shared validation helpers
+
+The judgment pipeline itself should stay singular:
+
+`raw/source event -> finalized event -> semantics -> ontology -> judgment input -> candidate -> judgment -> frame/trace`
 
 ## Lane Ownership
 

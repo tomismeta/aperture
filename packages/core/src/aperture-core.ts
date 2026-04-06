@@ -27,9 +27,10 @@ import { FramePlanner } from "./frame-planner.js";
 import { JudgmentCoordinator, type AttentionDecisionExplanation } from "./judgment-coordinator.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import { AttentionSignalStore, summarizeAttentionSignals } from "./attention-signal-store.js";
-import { loadJudgmentConfig, type JudgmentConfig } from "./judgment-config.js";
+import type { JudgmentConfig } from "./judgment-config.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
-import { distillMemoryProfile, signalMetadataForCandidate, signalMetadataForFrame } from "./memory-aggregator.js";
+import { signalMetadataForCandidate, signalMetadataForFrame } from "./memory-aggregator.js";
+import { distillMemoryProfile } from "./memory-aggregator.js";
 import { hasSemanticRelationKind } from "./semantic-relations.js";
 import { AttentionPolicy } from "./attention-policy.js";
 import { selectPeripheralBucket } from "./attention-planner.js";
@@ -62,6 +63,12 @@ import {
   preparePublishedEvent,
   preparePublishedSourceEvent,
 } from "./aperture-core-event-preparation.js";
+import {
+  checkpointMarkdownMemoryProfile,
+  loadMarkdownRuntimeState,
+  reloadMarkdownRuntimeState,
+} from "./aperture-core-markdown-state.js";
+import { buildPublishTraceSnapshot } from "./aperture-core-publish-trace.js";
 import type {
   PreparedPublishedEvent,
   PublishOptions,
@@ -162,35 +169,20 @@ export class ApertureCore {
   }
 
   static async fromMarkdown(rootDir: string): Promise<ApertureCore> {
-    const profileStore = new ProfileStore(rootDir);
-    const fallbackUser: UserProfile = {
-      version: MARKDOWN_SCHEMA_VERSION,
-      operatorId: "default",
-      updatedAt: new Date(0).toISOString(),
-    };
-    const fallbackMemory: MemoryProfile = {
-      version: MARKDOWN_SCHEMA_VERSION,
-      operatorId: "default",
-      updatedAt: new Date(0).toISOString(),
-      sessionCount: 0,
-    };
-    const fallbackJudgment: JudgmentConfig = {
-      version: MARKDOWN_SCHEMA_VERSION,
-      updatedAt: new Date(0).toISOString(),
-    };
-
-    const [userProfile, memoryProfile, judgmentConfig] = await Promise.all([
-      profileStore.loadUserProfile(fallbackUser),
-      profileStore.loadMemoryProfile(fallbackMemory),
-      loadJudgmentConfig(rootDir, fallbackJudgment),
-    ]);
+    const {
+      profileStore,
+      markdownRootDir,
+      userProfile,
+      memoryProfile,
+      judgmentConfig,
+    } = await loadMarkdownRuntimeState(rootDir);
 
     return new ApertureCore({
       userProfile,
       memoryProfile,
       judgmentConfig,
       profileStore,
-      markdownRootDir: rootDir,
+      markdownRootDir,
     });
   }
 
@@ -199,22 +191,13 @@ export class ApertureCore {
       return false;
     }
 
-    const fallbackUser: UserProfile = this.userProfile ?? {
-      version: MARKDOWN_SCHEMA_VERSION,
-      operatorId: "default",
-      updatedAt: new Date(0).toISOString(),
-    };
-    const fallbackMemory: MemoryProfile = this.baseMemoryProfile;
-    const fallbackJudgment: JudgmentConfig = this.judgmentConfig ?? {
-      version: MARKDOWN_SCHEMA_VERSION,
-      updatedAt: new Date(0).toISOString(),
-    };
-
-    const [userProfile, memoryProfile, judgmentConfig] = await Promise.all([
-      this.profileStore.loadUserProfile(fallbackUser),
-      this.profileStore.loadMemoryProfile(fallbackMemory),
-      loadJudgmentConfig(this.markdownRootDir, fallbackJudgment),
-    ]);
+    const { userProfile, memoryProfile, judgmentConfig } = await reloadMarkdownRuntimeState({
+      profileStore: this.profileStore,
+      markdownRootDir: this.markdownRootDir,
+      userProfile: this.userProfile,
+      memoryProfile: this.baseMemoryProfile,
+      judgmentConfig: this.judgmentConfig,
+    });
 
     this.userProfile = userProfile;
     this.baseMemoryProfile = memoryProfile;
@@ -253,39 +236,27 @@ export class ApertureCore {
 
     switch (evaluation.kind) {
       case "noop": {
-        this.notifyTrace(this.traceRecorder.recordNoop({
+        this.notifyTrace(this.traceRecorder.recordNoop(buildPublishTraceSnapshot({
           timestamp: this.nowIso(),
           event: finalizedEvent,
           eventTransition,
-          taskSummary,
-          globalSummary,
-          taskAttentionState,
-          globalAttentionState,
-          pressureForecast,
-          attentionBurden,
-          current: evidence.currentFrame,
+          evidence,
           taskView: evidence.currentTaskView,
           attentionView: preAttentionView,
-        }));
+        })));
         return null;
       }
       case "clear": {
         const result = this.applyClear(finalizedEvent.taskId);
         const postAttentionView = this.getAttentionView();
-        this.notifyTrace(this.traceRecorder.recordClear({
+        this.notifyTrace(this.traceRecorder.recordClear(buildPublishTraceSnapshot({
           timestamp: this.nowIso(),
           event: finalizedEvent,
           eventTransition,
-          taskSummary,
-          globalSummary,
-          taskAttentionState,
-          globalAttentionState,
-          pressureForecast,
-          attentionBurden,
-          current: evidence.currentFrame,
+          evidence,
           taskView: this.getTaskView(finalizedEvent.taskId),
           attentionView: postAttentionView,
-        }, finalizedEvent.taskId));
+        }), finalizedEvent.taskId));
         return result;
       }
       case "candidate": {
@@ -302,20 +273,14 @@ export class ApertureCore {
           preAttentionView,
         );
         const postAttentionView = this.getAttentionView();
-        this.notifyTrace(this.traceRecorder.recordCandidate({
+        this.notifyTrace(this.traceRecorder.recordCandidate(buildPublishTraceSnapshot({
           timestamp: this.nowIso(),
           event: finalizedEvent,
           eventTransition,
-          taskSummary,
-          globalSummary,
-          taskAttentionState,
-          globalAttentionState,
-          pressureForecast,
-          attentionBurden,
-          current: evidence.currentFrame,
+          evidence,
           taskView: this.getTaskView(finalizedEvent.taskId),
           attentionView: postAttentionView,
-        }, {
+        }), {
           original: evaluation.candidate,
           adjusted: candidate,
           explanation,
@@ -554,12 +519,16 @@ export class ApertureCore {
   }
 
   async checkpointMemory(now: string = this.nowIso()): Promise<MemoryProfile | null> {
-    if (!this.profileStore) {
+    const snapshot = await checkpointMarkdownMemoryProfile({
+      profileStore: this.profileStore,
+      memoryProfile: this.baseMemoryProfile,
+      signals: this.signals.list(),
+      now,
+    });
+    if (!snapshot) {
       return null;
     }
 
-    const snapshot = this.snapshotMemoryProfile(now);
-    await this.profileStore.saveMemoryProfile(snapshot);
     this.baseMemoryProfile = snapshot;
     this.coordinator = this.createCoordinator();
     return snapshot;

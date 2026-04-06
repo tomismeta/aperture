@@ -28,19 +28,13 @@ import { JudgmentCoordinator, type AttentionDecisionExplanation } from "./judgme
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import { AttentionSignalStore, summarizeAttentionSignals } from "./attention-signal-store.js";
 import type { JudgmentConfig } from "./judgment-config.js";
-import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
 import { signalMetadataForCandidate, signalMetadataForFrame } from "./memory-aggregator.js";
 import { distillMemoryProfile } from "./memory-aggregator.js";
 import { hasSemanticRelationKind } from "./semantic-relations.js";
-import { AttentionPolicy } from "./attention-policy.js";
 import { selectPeripheralBucket } from "./attention-planner.js";
 import { ProfileStore, type MemoryProfile, type UserProfile } from "./profile-store.js";
-import { AttentionPlanner } from "./attention-planner.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
-import {
-  baseAttentionSurfaceCapabilities,
-  type AttentionSurfaceCapabilities,
-} from "./surface-capabilities.js";
+import type { AttentionSurfaceCapabilities } from "./surface-capabilities.js";
 import { TaskViewStore } from "./task-view-store.js";
 import type { ApertureTrace as InternalApertureTrace } from "./trace-types.js";
 import {
@@ -49,7 +43,6 @@ import {
 } from "./internal-trace.js";
 import { TraceRecorder } from "./trace-recorder.js";
 import { buildTraceEventTransition } from "./trace-event-transition.js";
-import { AttentionValue } from "./attention-value.js";
 import {
   ApertureCoreListeners,
   type AttentionFrameListener,
@@ -69,6 +62,11 @@ import {
   reloadMarkdownRuntimeState,
 } from "./aperture-core-markdown-state.js";
 import { buildPublishTraceSnapshot } from "./aperture-core-publish-trace.js";
+import {
+  buildApertureCoordinator,
+  cloneSurfaceCapabilities,
+  normalizeApertureCoreRuntimeSetup,
+} from "./aperture-core-runtime-setup.js";
 import type {
   PreparedPublishedEvent,
   PublishOptions,
@@ -125,47 +123,17 @@ export class ApertureCore {
   private readonly timeSource: () => number;
 
   constructor(options: ApertureCoreOptions = {}) {
+    const runtime = normalizeApertureCoreRuntimeSetup(options);
     this.markdownRootDir = options.markdownRootDir;
     this.profileStore = options.profileStore;
-    this.userProfile = options.userProfile;
-    this.judgmentConfig = options.judgmentConfig;
-    this.surfaceCapabilities = options.surfaceCapabilities
-      ? {
-          topology: { ...options.surfaceCapabilities.topology },
-          responses: { ...options.surfaceCapabilities.responses },
-        }
-      : {
-          topology: { ...baseAttentionSurfaceCapabilities.topology },
-          responses: { ...baseAttentionSurfaceCapabilities.responses },
-        };
-    this.operatorPresence = options.operatorPresence ?? "present";
-    this.responseExpiryMs = options.responseExpiryMs;
-    this.timeSource = options.timeSource ?? Date.now;
-    this.baseMemoryProfile = options.memoryProfile ?? {
-      version: MARKDOWN_SCHEMA_VERSION,
-      operatorId: "default",
-      updatedAt: new Date(0).toISOString(),
-      sessionCount: 0,
-    };
-    this.coordinator = this.createCoordinator();
-  }
-
-  private createCoordinator(): JudgmentCoordinator {
-    return new JudgmentCoordinator(
-      new AttentionPolicy({
-        ...(this.userProfile !== undefined ? { userProfile: this.userProfile } : {}),
-        ...(this.judgmentConfig !== undefined ? { judgmentConfig: this.judgmentConfig } : {}),
-        memoryProfile: this.baseMemoryProfile,
-      }),
-      new AttentionValue({
-        memoryProfile: this.baseMemoryProfile,
-      }),
-      new AttentionPlanner({
-        ...(this.judgmentConfig?.plannerDefaults !== undefined
-          ? { plannerDefaults: this.judgmentConfig.plannerDefaults }
-          : {}),
-      }),
-    );
+    this.userProfile = runtime.userProfile;
+    this.judgmentConfig = runtime.judgmentConfig;
+    this.surfaceCapabilities = runtime.surfaceCapabilities;
+    this.operatorPresence = runtime.operatorPresence;
+    this.responseExpiryMs = runtime.responseExpiryMs;
+    this.timeSource = runtime.timeSource;
+    this.baseMemoryProfile = runtime.baseMemoryProfile;
+    this.coordinator = buildApertureCoordinator(runtime);
   }
 
   static async fromMarkdown(rootDir: string): Promise<ApertureCore> {
@@ -202,7 +170,11 @@ export class ApertureCore {
     this.userProfile = userProfile;
     this.baseMemoryProfile = memoryProfile;
     this.judgmentConfig = judgmentConfig;
-    this.coordinator = this.createCoordinator();
+    this.coordinator = buildApertureCoordinator({
+      userProfile: this.userProfile,
+      baseMemoryProfile: this.baseMemoryProfile,
+      judgmentConfig: this.judgmentConfig,
+    });
     return true;
   }
 
@@ -493,10 +465,7 @@ export class ApertureCore {
   }
 
   getSurfaceCapabilities(): AttentionSurfaceCapabilities {
-    return {
-      topology: { ...this.surfaceCapabilities.topology },
-      responses: { ...this.surfaceCapabilities.responses },
-    };
+    return cloneSurfaceCapabilities(this.surfaceCapabilities);
   }
 
   getOperatorPresence(): AttentionOperatorPresence {
@@ -508,10 +477,7 @@ export class ApertureCore {
   }
 
   setSurfaceCapabilities(capabilities: AttentionSurfaceCapabilities): void {
-    this.surfaceCapabilities = {
-      topology: { ...capabilities.topology },
-      responses: { ...capabilities.responses },
-    };
+    this.surfaceCapabilities = cloneSurfaceCapabilities(capabilities);
   }
 
   snapshotMemoryProfile(now: string = this.nowIso()): MemoryProfile {
@@ -530,7 +496,11 @@ export class ApertureCore {
     }
 
     this.baseMemoryProfile = snapshot;
-    this.coordinator = this.createCoordinator();
+    this.coordinator = buildApertureCoordinator({
+      userProfile: this.userProfile,
+      baseMemoryProfile: this.baseMemoryProfile,
+      judgmentConfig: this.judgmentConfig,
+    });
     return snapshot;
   }
 

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import {
@@ -11,6 +12,7 @@ import {
   resolveAutoresearchInputFile,
   type DataclawRow,
   type FStopSession,
+  type PiRow,
 } from "../src/index.js";
 
 const SAMPLE_DATACLAW_ROW: DataclawRow = {
@@ -51,6 +53,9 @@ const SAMPLE_DATACLAW_ROW: DataclawRow = {
   ],
 };
 
+const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
+const SAMPLE_PI_FIXTURE_PATH = path.join(TEST_DIRECTORY, "fixtures", "pi-mono-row.json");
+
 test("importTrajectoryBundlesFromFile imports a raw DataClaw row JSON file", async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "aperture-fstop-ingest-"));
   const sourcePath = path.join(directory, "dataclaw-row.json");
@@ -70,6 +75,122 @@ test("importTrajectoryBundlesFromFile imports a raw DataClaw row JSON file", asy
   const bundle = await loadSessionBundle(imported[0]!.filePath);
   assert.equal(bundle.sessionId, "public:dataclaw:123e4567-e89b-12d3-a456-426614174000");
   assert.ok(bundle.source?.capture?.notes?.includes(`input_file=${sourcePath}`));
+});
+
+test("importTrajectoryBundlesFromFile imports a raw Pi row JSON file", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "aperture-fstop-ingest-pi-"));
+  const sourcePath = path.join(directory, "pi-row.json");
+  const outputDirectory = path.join(directory, "bundles");
+  const samplePiRow = JSON.parse(await readFile(SAMPLE_PI_FIXTURE_PATH, "utf8")) as PiRow;
+  await writeFile(sourcePath, `${JSON.stringify(samplePiRow, null, 2)}\n`, "utf8");
+
+  const imported = await importTrajectoryBundlesFromFile({
+    filePath: sourcePath,
+    outputDirectory,
+  });
+
+  assert.equal(imported.length, 1);
+  assert.equal(imported[0]?.dataset, "pi");
+  assert.match(imported[0]?.filePath ?? "", /bundles\/pi\/train\/public-pi-/);
+  assert.match(imported[0]?.sessionFilePath ?? "", /sessions\/pi\/train\/public-pi-/);
+
+  const bundle = await loadSessionBundle(imported[0]!.filePath);
+  assert.equal(bundle.sessionId, "public:pi:pi-session-42");
+  assert.ok(bundle.source?.capture?.notes?.includes(`input_file=${sourcePath}`));
+  assert.ok(bundle.source?.capture?.notes?.includes("dataset=pi"));
+
+  const sessionText = await readFile(imported[0]!.sessionFilePath!, "utf8");
+  const session = JSON.parse(sessionText) as FStopSession;
+  assert.ok(session.entries.some((entry) => entry.entryId === "assistant-1"));
+  assert.ok(session.entries.some((entry) => entry.parentEntryId === "assistant-1" && entry.kind === "tool_call"));
+  assert.ok(session.source?.capture?.notes?.includes("path_mode=deepest-leaf"));
+  assert.ok(!session.entries.some((entry) => entry.text?.includes("Ignore that alternate branch.")));
+});
+
+test("resolveAutoresearchInputFile auto-ingests Pi JSONL raw exports", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "aperture-fstop-ingest-pi-jsonl-"));
+  const outputDirectory = path.join(directory, "bundles");
+  const jsonlPath = path.join(directory, "pi-session.jsonl");
+  const samplePiRow = JSON.parse(await readFile(SAMPLE_PI_FIXTURE_PATH, "utf8")) as PiRow;
+  const jsonlText = samplePiRow.traces.map((trace) => JSON.stringify(trace)).join("\n");
+  await writeFile(jsonlPath, `${jsonlText}\n`, "utf8");
+
+  const resolved = await resolveAutoresearchInputFile(jsonlPath, {
+    outputDirectory,
+  });
+
+  assert.equal(resolved.batchReportPath, undefined);
+  assert.equal(resolved.bundlePaths?.length, 1);
+  assert.equal(resolved.ingest?.bundleCount, 1);
+  assert.deepEqual(resolved.ingest?.datasets, ["pi"]);
+
+  const bundlePath = resolved.bundlePaths?.[0];
+  assert.ok(bundlePath);
+  assert.match(bundlePath!, /bundles\/pi\/train\/public-pi-/);
+
+  const bundleText = await readFile(bundlePath!, "utf8");
+  assert.match(bundleText, /public:pi:/i);
+});
+
+test("resolveAutoresearchInputFile treats Pi-family JSONL with session cwd as pi, not OpenAgentSessions", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "aperture-fstop-ingest-pi-sero-"));
+  const outputDirectory = path.join(directory, "bundles");
+  const jsonlPath = path.join(directory, "pi-family-session.jsonl");
+  const events = [
+    {
+      type: "session",
+      id: "pi-family-session",
+      timestamp: "2025-12-29T14:32:08.229Z",
+      cwd: "/Users/sero/projects/maze/vault-2",
+    },
+    {
+      type: "message",
+      timestamp: "2025-12-29T14:32:21.319Z",
+      message: {
+        role: "user",
+        content: [{ type: "text", text: "can you please complete @challenge-1/" }],
+        timestamp: 1767018741310,
+      },
+    },
+    {
+      type: "message",
+      timestamp: "2025-12-29T14:32:22.999Z",
+      message: {
+        role: "assistant",
+        content: [
+          { type: "text", text: "I'll inspect the directory first." },
+          { type: "toolCall", id: "call-1", name: "read", arguments: { file_path: "challenge-1/intro.txt" } },
+        ],
+        api: "openai-completions",
+        provider: "homelabai",
+        model: "glm-4.6",
+        usage: { totalTokens: 42 },
+        stopReason: "toolUse",
+        timestamp: 1767018741312,
+      },
+    },
+    {
+      type: "message",
+      timestamp: "2025-12-29T14:32:23.244Z",
+      message: {
+        role: "toolResult",
+        toolCallId: "call-1",
+        toolName: "read",
+        content: [{ type: "text", text: "print('hello from pi')" }],
+        isError: false,
+        timestamp: 1767018743243,
+      },
+    },
+  ];
+  await writeFile(jsonlPath, `${events.map((event) => JSON.stringify(event)).join("\n")}\n`, "utf8");
+
+  const resolved = await resolveAutoresearchInputFile(jsonlPath, {
+    outputDirectory,
+  });
+
+  assert.equal(resolved.ingest?.bundleCount, 1);
+  assert.deepEqual(resolved.ingest?.datasets, ["pi"]);
+  assert.match(resolved.bundlePaths?.[0] ?? "", /bundles\/pi\/train\/public-pi-/);
 });
 
 test("resolveAutoresearchInputFile auto-ingests OpenAgentSessions JSONL raw exports", async () => {

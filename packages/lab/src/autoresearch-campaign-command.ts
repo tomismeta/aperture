@@ -20,6 +20,7 @@ import {
 } from "./autoresearch-report.js";
 import { type AutoresearchProposalRun } from "./autoresearch-proposal.js";
 import { parseRequiredJsonText, readJsonFile, tryReadJsonFile } from "./json-utils.js";
+import type { PublicTrajectoryDataset, PublicTrajectorySplit } from "./public-trajectories.js";
 import {
   ensureCleanRepo,
   ensureSymlink,
@@ -31,8 +32,8 @@ export type AutoresearchCampaignProvider = "hermes" | "openclaw" | "generic";
 
 export type AutoresearchCampaignCommandOptions = {
   provider: AutoresearchCampaignProvider;
-  dataset: "swe-smith" | "dataclaw" | "open-agent-sessions";
-  split: "tool" | "xml" | "ticks" | "train" | "approved";
+  dataset: PublicTrajectoryDataset;
+  split: PublicTrajectorySplit;
   offset: number;
   limit: number;
   maxSlices: number;

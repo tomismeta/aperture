@@ -198,7 +198,10 @@ type SweepCliOptions = AutoresearchSweepCommandOptions & JsonOptions;
 
 type CampaignCliOptions = AutoresearchCampaignCommandOptions & JsonOptions;
 
-type RunCliOptions = AutoresearchRunCommandOptions & JsonOptions;
+type RunCliOptions = AutoresearchRunCommandOptions & JsonOptions & Partial<{
+  inputDatasetHint: PublicTrajectoryDataset;
+  inputSplitHint: PublicTrajectorySplit;
+}>;
 
 type SharedProviderState<T extends Provider> = {
   provider: T;
@@ -323,8 +326,8 @@ async function runRunCli(argv: string[]): Promise<void> {
   const options = parseRunArgs(argv);
   const resolvedInput = options.inputFile
     ? await resolveAutoresearchInputFile(options.inputFile, {
-      dataset: options.dataset,
-      split: options.split,
+      ...(options.inputDatasetHint ? { dataset: options.inputDatasetHint } : {}),
+      ...(options.inputSplitHint ? { split: options.inputSplitHint } : {}),
     })
     : undefined;
   const result = await runAutoresearchRunnerCommand({
@@ -782,7 +785,7 @@ function parseRunArgs(argv: string[]): RunCliOptions {
   let inputFile: string | undefined;
   let batchReportPath: string | undefined;
   const bundlePaths: string[] = [];
-  let dataset: PublicTrajectoryDataset = "swe-smith";
+  let dataset: PublicTrajectoryDataset | undefined;
   let split: PublicTrajectorySplit | undefined;
   let offset = 0;
   let limit = 12;
@@ -866,13 +869,18 @@ function parseRunArgs(argv: string[]): RunCliOptions {
 
   const resolvedProviders = resolveSharedProviderState(providers);
 
+  const resolvedDataset = dataset ?? "swe-smith";
+  const resolvedSplit = split ?? defaultPublicTrajectorySplit(resolvedDataset);
+
   return {
     provider: resolvedProviders.provider,
     ...(inputFile ? { inputFile } : {}),
     ...(batchReportPath ? { batchReportPath } : {}),
     bundlePaths,
-    dataset,
-    split: split ?? defaultPublicTrajectorySplit(dataset),
+    dataset: resolvedDataset,
+    split: resolvedSplit,
+    ...(dataset ? { inputDatasetHint: dataset } : {}),
+    ...(split ? { inputSplitHint: split } : {}),
     offset,
     limit,
     maxSlices,
@@ -2011,10 +2019,18 @@ function readProvider(value: string | undefined): Provider {
 }
 
 function readDataset(value: string | undefined): PublicTrajectoryDataset {
-  if (value === "swe-smith" || value === "dataclaw" || value === "open-agent-sessions") {
+  if (value === "swe-smith" || value === "dataclaw" || value === "pi" || value === "open-agent-sessions") {
     return value;
   }
-  throw new Error("--dataset must be: swe-smith, dataclaw, open-agent-sessions");
+  if (
+    value === "pi-mono"
+    || value === "pi-sessions"
+    || value === "badlogicgames/pi-mono"
+    || value === "0xSero/pi-sessions"
+  ) {
+    return "pi";
+  }
+  throw new Error("--dataset must be: swe-smith, dataclaw, pi, open-agent-sessions");
 }
 
 function readPublicSplit(value: string | undefined): PublicTrajectorySplit {
@@ -2153,7 +2169,7 @@ function printRunUsage(): void {
     "  --file <path>                         Autodetect a session bundle JSON, offline-review batch report JSON, canonical F-Stop session JSON, or supported raw export file",
     "  --batch-report <path>                 Reuse a precomputed offline-review batch report JSON",
     "  --bundle <path>                       Run a single unattended proposal attempt against an explicit bundle (repeatable)",
-    "  --dataset <swe-smith|dataclaw|open-agent-sessions>  Public dataset to import (default: swe-smith)",
+    "  --dataset <swe-smith|dataclaw|pi|open-agent-sessions>       Public dataset for slice mode, or an optional raw-file hint",
     "  --split <tool|xml|ticks|train|approved>             Dataset split (default: dataset-specific)",
     "  --offset <number>                     Starting row offset (default: 0)",
     "  --limit <number>                      Rows per proposal slice (default: 12)",
@@ -2267,7 +2283,7 @@ function printIngestUsage(): void {
     "",
     "Options:",
     "  --file <path>                        Raw export file to ingest",
-    "  --dataset <swe-smith|dataclaw|open-agent-sessions>  Optional dataset hint",
+    "  --dataset <swe-smith|dataclaw|pi|open-agent-sessions>       Optional dataset hint",
     "  --split <tool|xml|ticks|train|approved>             Optional split hint",
     "  --output-dir <path>                 Bundle destination root (default: .aperture/lab/bundles/raw)",
     "  --dry-run                           Parse and prepare without writing bundle files",

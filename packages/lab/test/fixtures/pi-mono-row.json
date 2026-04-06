@@ -1,0 +1,146 @@
+{
+  "harness": "pi",
+  "session_id": "pi-session-42",
+  "file_name": "2026-04-01-session.json",
+  "traces": [
+    {
+      "type": "session",
+      "timestamp": "2026-04-01T00:00:00.000Z",
+      "cwd": "/workspace"
+    },
+    {
+      "type": "session_info",
+      "id": "info-1",
+      "parentId": null,
+      "timestamp": "2026-04-01T00:00:00.500Z",
+      "name": "Refactor retry logic"
+    },
+    {
+      "type": "model_change",
+      "id": "model-1",
+      "parentId": "info-1",
+      "timestamp": "2026-04-01T00:00:01.000Z",
+      "provider": "openai",
+      "modelId": "gpt-5.4"
+    },
+    {
+      "type": "message",
+      "id": "user-1",
+      "parentId": "model-1",
+      "timestamp": "2026-04-01T00:00:02.000Z",
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Fix the retry logic and add a regression test."
+          }
+        ]
+      }
+    },
+    {
+      "type": "message",
+      "id": "assistant-1",
+      "parentId": "user-1",
+      "timestamp": "2026-04-01T00:00:03.000Z",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "I'll inspect the client and test files first."
+          },
+          {
+            "type": "toolCall",
+            "id": "tool-read-1",
+            "name": "Read",
+            "arguments": {
+              "path": "src/client.ts"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "message",
+      "id": "tool-result-1",
+      "parentId": "assistant-1",
+      "timestamp": "2026-04-01T00:00:04.000Z",
+      "message": {
+        "role": "toolResult",
+        "toolCallId": "tool-read-1",
+        "toolName": "Read",
+        "content": [
+          {
+            "type": "text",
+            "text": "src/client.ts\n1 export async function request() {\n2   return fetch('/api');\n3 }"
+          }
+        ]
+      }
+    },
+    {
+      "type": "message",
+      "id": "bash-1",
+      "parentId": "tool-result-1",
+      "timestamp": "2026-04-01T00:00:05.000Z",
+      "message": {
+        "role": "bashExecution",
+        "command": "pnpm test retry",
+        "output": "Error: expected 3 retries",
+        "exitCode": 1
+      }
+    },
+    {
+      "type": "message",
+      "id": "user-2",
+      "parentId": "bash-1",
+      "timestamp": "2026-04-01T00:00:06.000Z",
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Please make sure the test also covers cancellation."
+          }
+        ]
+      }
+    },
+    {
+      "type": "message",
+      "id": "assistant-2",
+      "parentId": "user-2",
+      "timestamp": "2026-04-01T00:00:07.000Z",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Added cancellation coverage and updated the retry handling."
+          }
+        ]
+      }
+    },
+    {
+      "type": "branch_summary",
+      "id": "branch-1",
+      "parentId": "assistant-1",
+      "timestamp": "2026-04-01T00:00:03.500Z",
+      "summary": "Explored an alternate approach before continuing on the main path."
+    },
+    {
+      "type": "message",
+      "id": "branch-user-1",
+      "parentId": "branch-1",
+      "timestamp": "2026-04-01T00:00:04.500Z",
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Ignore that alternate branch."
+          }
+        ]
+      }
+    }
+  ]
+}

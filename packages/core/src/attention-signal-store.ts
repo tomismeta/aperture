@@ -1,11 +1,11 @@
 import type { AttentionSignal } from "./interaction-signal.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 
-export class AttentionSignalStore {
-  private static readonly RECENT_SIGNAL_LIMIT = 32;
-  private static readonly RECENT_WINDOW_MS = 30 * 60 * 1000;
-  private static readonly MAX_RETAINED_SIGNALS = 256;
+const RECENT_SIGNAL_LIMIT = 32;
+const RECENT_WINDOW_MS = 30 * 60 * 1000;
+const MAX_RETAINED_SIGNALS = 256;
 
+export class AttentionSignalStore {
   private readonly byTaskId = new Map<string, AttentionSignal[]>();
 
   record(signal: AttentionSignal): void {
@@ -13,8 +13,8 @@ export class AttentionSignalStore {
     const next = [...current, signal];
     this.byTaskId.set(
       signal.taskId,
-      next.length > AttentionSignalStore.MAX_RETAINED_SIGNALS
-        ? next.slice(-AttentionSignalStore.MAX_RETAINED_SIGNALS)
+      next.length > MAX_RETAINED_SIGNALS
+        ? next.slice(-MAX_RETAINED_SIGNALS)
         : next,
     );
   }
@@ -34,7 +34,7 @@ export class AttentionSignalStore {
   }
 
   private recentSignals(signals: AttentionSignal[]): AttentionSignal[] {
-    const bounded = signals.slice(-AttentionSignalStore.RECENT_SIGNAL_LIMIT);
+    const bounded = signals.slice(-RECENT_SIGNAL_LIMIT);
     const latestTimestamp = bounded[bounded.length - 1]?.timestamp;
 
     if (latestTimestamp === undefined) {
@@ -52,15 +52,12 @@ export class AttentionSignalStore {
         return true;
       }
 
-      return latestMs - signalMs <= AttentionSignalStore.RECENT_WINDOW_MS;
+      return latestMs - signalMs <= RECENT_WINDOW_MS;
     });
 
     return recent.length > 0 ? recent : bounded;
   }
 }
-
-const RECENT_SIGNAL_LIMIT = 32;
-const RECENT_WINDOW_MS = 30 * 60 * 1000;
 
 export function summarizeAttentionSignals(signals: AttentionSignal[]): AttentionSignalSummary {
   const recentSignals = recentAttentionSignals(signals);

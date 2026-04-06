@@ -58,6 +58,8 @@ export class EventEvaluator {
           kind: "clear",
           taskId: event.taskId,
         };
+      default:
+        return unreachableApertureEvent(event);
     }
   }
 
@@ -155,6 +157,8 @@ export class EventEvaluator {
           { id: "submit", label: "Continue", kind: "submit", emphasis: "primary" },
           { id: "cancel", label: "Cancel", kind: "cancel", emphasis: "secondary" },
         ];
+      default:
+        return unreachableRequest(event.request);
     }
   }
 
@@ -190,6 +194,8 @@ export class EventEvaluator {
           fields: event.request.fields,
           actions,
         };
+      default:
+        return unreachableRequest(event.request);
     }
   }
 
@@ -214,6 +220,8 @@ export class EventEvaluator {
       case "waiting":
       case "completed":
         return { kind: "none" };
+      default:
+        return unreachableTaskStatus(status);
     }
   }
 
@@ -227,6 +235,8 @@ export class EventEvaluator {
       case "waiting":
       case "completed":
         return "background";
+      default:
+        return unreachableTaskStatus(status);
     }
   }
 
@@ -240,6 +250,8 @@ export class EventEvaluator {
       case "waiting":
       case "completed":
         return "ambient";
+      default:
+        return unreachableTaskStatus(status);
     }
   }
 
@@ -253,6 +265,8 @@ export class EventEvaluator {
       case "waiting":
       case "completed":
         return "low";
+      default:
+        return unreachableTaskStatus(status);
     }
   }
 }
@@ -285,4 +299,16 @@ function buildJudgmentInputFields(event: ApertureEvent): Pick<AttentionCandidate
   return {
     judgmentInput: buildAttentionJudgmentInput(event),
   };
+}
+
+function unreachableApertureEvent(event: never): never {
+  throw new Error(`Unhandled ApertureEvent in event evaluator: ${JSON.stringify(event)}`);
+}
+
+function unreachableRequest(request: never): never {
+  throw new Error(`Unhandled human input request in event evaluator: ${JSON.stringify(request)}`);
+}
+
+function unreachableTaskStatus(status: never): never {
+  throw new Error(`Unhandled task status in event evaluator: ${status}`);
 }

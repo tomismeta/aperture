@@ -59,6 +59,8 @@ function toneForRisk(risk: AttentionConsequenceLevel): AttentionTone {
     case "medium":
     case "low":
       return "focused";
+    default:
+      return unreachableConsequenceLevel(risk);
   }
 }
 
@@ -100,6 +102,8 @@ function applySemanticDefaults(
       };
     case "human.input.requested":
       return applyHumanInputSemanticDefaults(event, semantic, options);
+    default:
+      return unreachableApertureEvent(event);
   }
 }
 
@@ -195,6 +199,8 @@ function prepareApertureEventFromSourceEvent(event: SourceEvent): ApertureEvent 
         ...(event.context !== undefined ? { context: event.context } : {}),
         ...(event.provenance !== undefined ? { provenance: event.provenance } : {}),
       };
+    default:
+      return unreachableSourceEvent(event);
   }
 }
 
@@ -258,5 +264,19 @@ function asSourceEvent(event: ApertureEvent): SourceEvent {
         ...(event.context !== undefined ? { context: event.context } : {}),
         ...(event.consequence !== undefined ? { riskHint: event.consequence } : {}),
       };
+    default:
+      return unreachableApertureEvent(event);
   }
+}
+
+function unreachableApertureEvent(event: never): never {
+  throw new Error(`Unhandled ApertureEvent in semantic normalizer: ${JSON.stringify(event)}`);
+}
+
+function unreachableSourceEvent(event: never): never {
+  throw new Error(`Unhandled SourceEvent in semantic normalizer: ${JSON.stringify(event)}`);
+}
+
+function unreachableConsequenceLevel(level: never): never {
+  throw new Error(`Unhandled consequence level in semantic normalizer: ${level}`);
 }

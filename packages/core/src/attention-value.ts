@@ -2,6 +2,7 @@ import type { AttentionFrame } from "./frame.js";
 import { readFrameAttentionOffset, scoreCandidate, scoreAttentionFrame } from "./frame-score.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import { readBoundedToolFamily } from "./interaction-taxonomy.js";
+import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
 import type { MemoryProfile } from "./profile-store.js";
 
 export type AttentionValueBreakdown = {
@@ -35,6 +36,8 @@ type UtilityFrameOptions = {
 type AttentionValueOptions = {
   memoryProfile?: MemoryProfile;
 };
+
+const DEFAULTS = JUDGMENT_DEFAULTS.attentionValue;
 
 export class AttentionValue {
   private readonly memoryProfile: MemoryProfile | undefined;
@@ -127,16 +130,21 @@ export class AttentionValue {
     }
 
     const memory = this.memoryProfile?.toolFamilies?.[toolFamily];
-    if (!memory || memory.avgResponseLatencyMs === undefined || memory.presentations < 3 || memory.responses < 3) {
+    if (
+      !memory
+      || memory.avgResponseLatencyMs === undefined
+      || memory.presentations < DEFAULTS.memorySufficiency.toolFamilyPresentations
+      || memory.responses < DEFAULTS.memorySufficiency.toolFamilyResponses
+    ) {
       return 0;
     }
 
-    if (memory.avgResponseLatencyMs <= 2_000) {
-      return 8;
+    if (memory.avgResponseLatencyMs <= DEFAULTS.responseAffinity.fastLatencyMs) {
+      return DEFAULTS.responseAffinity.fastBoost;
     }
 
-    if (memory.avgResponseLatencyMs <= 5_000) {
-      return 4;
+    if (memory.avgResponseLatencyMs <= DEFAULTS.responseAffinity.mediumLatencyMs) {
+      return DEFAULTS.responseAffinity.mediumBoost;
     }
 
     return 0;
@@ -145,33 +153,36 @@ export class AttentionValue {
   private consequenceCalibrationAdjustment(candidate: AttentionCandidate): number {
     const profile = this.memoryProfile?.consequenceProfiles?.[candidate.consequence];
     const rejectionRate = profile?.rejectionRate;
-    if (rejectionRate === undefined || (profile?.reviewedCount ?? 0) < 4) {
+    if (
+      rejectionRate === undefined
+      || (profile?.reviewedCount ?? 0) < DEFAULTS.memorySufficiency.consequenceReviewedCount
+    ) {
       return 0;
     }
 
     switch (candidate.consequence) {
       case "low":
-        if (rejectionRate >= 0.5) {
-          return 8;
+        if (rejectionRate >= DEFAULTS.consequenceCalibration.highRejectionRate) {
+          return DEFAULTS.consequenceCalibration.adjustments.low.highRate;
         }
-        if (rejectionRate >= 0.25) {
-          return 4;
+        if (rejectionRate >= DEFAULTS.consequenceCalibration.mediumRejectionRate) {
+          return DEFAULTS.consequenceCalibration.adjustments.low.mediumRate;
         }
         return 0;
       case "medium":
-        if (rejectionRate >= 0.5) {
-          return 4;
+        if (rejectionRate >= DEFAULTS.consequenceCalibration.highRejectionRate) {
+          return DEFAULTS.consequenceCalibration.adjustments.medium.highRate;
         }
-        if (rejectionRate >= 0.25) {
-          return 2;
+        if (rejectionRate >= DEFAULTS.consequenceCalibration.mediumRejectionRate) {
+          return DEFAULTS.consequenceCalibration.adjustments.medium.mediumRate;
         }
         return 0;
       case "high":
-        if (rejectionRate >= 0.5) {
-          return -4;
+        if (rejectionRate >= DEFAULTS.consequenceCalibration.highRejectionRate) {
+          return DEFAULTS.consequenceCalibration.adjustments.high.highRate;
         }
-        if (rejectionRate >= 0.25) {
-          return -2;
+        if (rejectionRate >= DEFAULTS.consequenceCalibration.mediumRejectionRate) {
+          return DEFAULTS.consequenceCalibration.adjustments.high.mediumRate;
         }
         return 0;
     }
@@ -184,16 +195,20 @@ export class AttentionValue {
     }
 
     const rate = this.memoryProfile?.toolFamilies?.[toolFamily]?.contextExpansionRate;
-    if (rate === undefined || (this.memoryProfile?.toolFamilies?.[toolFamily]?.presentations ?? 0) < 3) {
+    if (
+      rate === undefined
+      || (this.memoryProfile?.toolFamilies?.[toolFamily]?.presentations ?? 0)
+        < DEFAULTS.memorySufficiency.toolFamilyPresentations
+    ) {
       return 0;
     }
 
-    if (rate >= 0.6) {
-      return -6;
+    if (rate >= DEFAULTS.contextCost.highRate) {
+      return DEFAULTS.contextCost.highPenalty;
     }
 
-    if (rate >= 0.3) {
-      return -3;
+    if (rate >= DEFAULTS.contextCost.mediumRate) {
+      return DEFAULTS.contextCost.mediumPenalty;
     }
 
     return 0;
@@ -206,16 +221,20 @@ export class AttentionValue {
     }
 
     const rate = this.memoryProfile?.toolFamilies?.[toolFamily]?.returnAfterDeferralRate;
-    if (rate === undefined || (this.memoryProfile?.toolFamilies?.[toolFamily]?.presentations ?? 0) < 3) {
+    if (
+      rate === undefined
+      || (this.memoryProfile?.toolFamilies?.[toolFamily]?.presentations ?? 0)
+        < DEFAULTS.memorySufficiency.toolFamilyPresentations
+    ) {
       return 0;
     }
 
-    if (rate >= 0.6) {
-      return 6;
+    if (rate >= DEFAULTS.deferralAffinity.highRate) {
+      return DEFAULTS.deferralAffinity.highBoost;
     }
 
-    if (rate >= 0.3) {
-      return 3;
+    if (rate >= DEFAULTS.deferralAffinity.mediumRate) {
+      return DEFAULTS.deferralAffinity.mediumBoost;
     }
 
     return 0;

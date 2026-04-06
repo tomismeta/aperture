@@ -1,6 +1,5 @@
 import type {
   ApertureEvent,
-  HumanInputRequest,
 } from "./events.js";
 import type { SourceEvent } from "./source-event.js";
 import type {
@@ -28,23 +27,14 @@ import { FramePlanner } from "./frame-planner.js";
 import { JudgmentCoordinator, type AttentionDecisionExplanation } from "./judgment-coordinator.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import { AttentionSignalStore, summarizeAttentionSignals } from "./attention-signal-store.js";
-import { loadJudgmentConfig, type JudgmentConfig } from "./judgment-config.js";
-import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
-import { distillMemoryProfile, signalMetadataForCandidate, signalMetadataForFrame } from "./memory-aggregator.js";
-import {
-  enrichApertureEvent,
-  normalizeSourceEvent,
-} from "./semantic-normalizer.js";
+import type { JudgmentConfig } from "./judgment-config.js";
+import { signalMetadataForCandidate, signalMetadataForFrame } from "./memory-aggregator.js";
+import { distillMemoryProfile } from "./memory-aggregator.js";
 import { hasSemanticRelationKind } from "./semantic-relations.js";
-import { AttentionPolicy } from "./attention-policy.js";
 import { selectPeripheralBucket } from "./attention-planner.js";
 import { ProfileStore, type MemoryProfile, type UserProfile } from "./profile-store.js";
-import { AttentionPlanner } from "./attention-planner.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
-import {
-  baseAttentionSurfaceCapabilities,
-  type AttentionSurfaceCapabilities,
-} from "./surface-capabilities.js";
+import type { AttentionSurfaceCapabilities } from "./surface-capabilities.js";
 import { TaskViewStore } from "./task-view-store.js";
 import type { ApertureTrace as InternalApertureTrace } from "./trace-types.js";
 import {
@@ -53,7 +43,6 @@ import {
 } from "./internal-trace.js";
 import { TraceRecorder } from "./trace-recorder.js";
 import { buildTraceEventTransition } from "./trace-event-transition.js";
-import { AttentionValue } from "./attention-value.js";
 import {
   ApertureCoreListeners,
   type AttentionFrameListener,
@@ -63,6 +52,38 @@ import {
   type AttentionSignalListener,
   type AttentionTraceListener,
 } from "./aperture-core-listeners.js";
+import {
+  preparePublishedEvent,
+  preparePublishedSourceEvent,
+} from "./aperture-core-event-preparation.js";
+import {
+  checkpointMarkdownMemoryProfile,
+  loadMarkdownRuntimeState,
+  reloadMarkdownRuntimeState,
+} from "./aperture-core-markdown-state.js";
+import { buildPublishTraceSnapshot } from "./aperture-core-publish-trace.js";
+import {
+  buildAttentionTransitionSignals,
+  buildAutoResponseSignal,
+  buildDeferredSignal,
+  buildObservationSignal,
+  buildResponseSignal,
+} from "./aperture-core-signals.js";
+import {
+  buildApertureCoordinator,
+  cloneSurfaceCapabilities,
+  normalizeApertureCoreRuntimeSetup,
+} from "./aperture-core-runtime-setup.js";
+import type {
+  PreparedPublishedEvent,
+  PublishOptions,
+} from "./aperture-core-event-preparation.js";
+import {
+  assertValidEvent,
+  assertValidFrameResponse,
+  assertValidSignal,
+  assertValidSourceEvent,
+} from "./aperture-core-validation.js";
 
 export type {
   AttentionFrameListener,
@@ -86,15 +107,7 @@ export type ApertureCoreOptions = {
   timeSource?: () => number;
 };
 
-export type PublishOptions = {
-  applySemanticDefaults?: boolean;
-};
-
-type PreparedPublishedEvent = {
-  originalEvent: SourceEvent | ApertureEvent;
-  finalizedEvent: ApertureEvent;
-  transitionKind: "source_normalized" | "direct_enriched" | "direct_passthrough";
-};
+export type { PublishOptions } from "./aperture-core-event-preparation.js";
 
 export class ApertureCore {
   private readonly listeners = new ApertureCoreListeners();
@@ -117,79 +130,34 @@ export class ApertureCore {
   private readonly timeSource: () => number;
 
   constructor(options: ApertureCoreOptions = {}) {
+    const runtime = normalizeApertureCoreRuntimeSetup(options);
     this.markdownRootDir = options.markdownRootDir;
     this.profileStore = options.profileStore;
-    this.userProfile = options.userProfile;
-    this.judgmentConfig = options.judgmentConfig;
-    this.surfaceCapabilities = options.surfaceCapabilities
-      ? {
-          topology: { ...options.surfaceCapabilities.topology },
-          responses: { ...options.surfaceCapabilities.responses },
-        }
-      : {
-          topology: { ...baseAttentionSurfaceCapabilities.topology },
-          responses: { ...baseAttentionSurfaceCapabilities.responses },
-        };
-    this.operatorPresence = options.operatorPresence ?? "present";
-    this.responseExpiryMs = options.responseExpiryMs;
-    this.timeSource = options.timeSource ?? Date.now;
-    this.baseMemoryProfile = options.memoryProfile ?? {
-      version: MARKDOWN_SCHEMA_VERSION,
-      operatorId: "default",
-      updatedAt: new Date(0).toISOString(),
-      sessionCount: 0,
-    };
-    this.coordinator = this.createCoordinator();
-  }
-
-  private createCoordinator(): JudgmentCoordinator {
-    return new JudgmentCoordinator(
-      new AttentionPolicy({
-        ...(this.userProfile !== undefined ? { userProfile: this.userProfile } : {}),
-        ...(this.judgmentConfig !== undefined ? { judgmentConfig: this.judgmentConfig } : {}),
-        memoryProfile: this.baseMemoryProfile,
-      }),
-      new AttentionValue({
-        memoryProfile: this.baseMemoryProfile,
-      }),
-      new AttentionPlanner({
-        ...(this.judgmentConfig?.plannerDefaults !== undefined
-          ? { plannerDefaults: this.judgmentConfig.plannerDefaults }
-          : {}),
-      }),
-    );
+    this.userProfile = runtime.userProfile;
+    this.judgmentConfig = runtime.judgmentConfig;
+    this.surfaceCapabilities = runtime.surfaceCapabilities;
+    this.operatorPresence = runtime.operatorPresence;
+    this.responseExpiryMs = runtime.responseExpiryMs;
+    this.timeSource = runtime.timeSource;
+    this.baseMemoryProfile = runtime.baseMemoryProfile;
+    this.coordinator = buildApertureCoordinator(runtime);
   }
 
   static async fromMarkdown(rootDir: string): Promise<ApertureCore> {
-    const profileStore = new ProfileStore(rootDir);
-    const fallbackUser: UserProfile = {
-      version: MARKDOWN_SCHEMA_VERSION,
-      operatorId: "default",
-      updatedAt: new Date(0).toISOString(),
-    };
-    const fallbackMemory: MemoryProfile = {
-      version: MARKDOWN_SCHEMA_VERSION,
-      operatorId: "default",
-      updatedAt: new Date(0).toISOString(),
-      sessionCount: 0,
-    };
-    const fallbackJudgment: JudgmentConfig = {
-      version: MARKDOWN_SCHEMA_VERSION,
-      updatedAt: new Date(0).toISOString(),
-    };
-
-    const [userProfile, memoryProfile, judgmentConfig] = await Promise.all([
-      profileStore.loadUserProfile(fallbackUser),
-      profileStore.loadMemoryProfile(fallbackMemory),
-      loadJudgmentConfig(rootDir, fallbackJudgment),
-    ]);
+    const {
+      profileStore,
+      markdownRootDir,
+      userProfile,
+      memoryProfile,
+      judgmentConfig,
+    } = await loadMarkdownRuntimeState(rootDir);
 
     return new ApertureCore({
       userProfile,
       memoryProfile,
       judgmentConfig,
       profileStore,
-      markdownRootDir: rootDir,
+      markdownRootDir,
     });
   }
 
@@ -198,37 +166,28 @@ export class ApertureCore {
       return false;
     }
 
-    const fallbackUser: UserProfile = this.userProfile ?? {
-      version: MARKDOWN_SCHEMA_VERSION,
-      operatorId: "default",
-      updatedAt: new Date(0).toISOString(),
-    };
-    const fallbackMemory: MemoryProfile = this.baseMemoryProfile;
-    const fallbackJudgment: JudgmentConfig = this.judgmentConfig ?? {
-      version: MARKDOWN_SCHEMA_VERSION,
-      updatedAt: new Date(0).toISOString(),
-    };
-
-    const [userProfile, memoryProfile, judgmentConfig] = await Promise.all([
-      this.profileStore.loadUserProfile(fallbackUser),
-      this.profileStore.loadMemoryProfile(fallbackMemory),
-      loadJudgmentConfig(this.markdownRootDir, fallbackJudgment),
-    ]);
+    const { userProfile, memoryProfile, judgmentConfig } = await reloadMarkdownRuntimeState({
+      profileStore: this.profileStore,
+      markdownRootDir: this.markdownRootDir,
+      userProfile: this.userProfile,
+      memoryProfile: this.baseMemoryProfile,
+      judgmentConfig: this.judgmentConfig,
+    });
 
     this.userProfile = userProfile;
     this.baseMemoryProfile = memoryProfile;
     this.judgmentConfig = judgmentConfig;
-    this.coordinator = this.createCoordinator();
+    this.coordinator = buildApertureCoordinator({
+      userProfile: this.userProfile,
+      baseMemoryProfile: this.baseMemoryProfile,
+      judgmentConfig: this.judgmentConfig,
+    });
     return true;
   }
 
   publishSourceEvent(event: SourceEvent): AttentionFrame | null {
-    this.assertValidSourceEvent(event);
-    return this.publishPreparedEvent({
-      originalEvent: event,
-      finalizedEvent: normalizeSourceEvent(event),
-      transitionKind: "source_normalized",
-    });
+    assertValidSourceEvent(event);
+    return this.publishPreparedEvent(preparePublishedSourceEvent(event));
   }
 
   publish(event: ApertureEvent, options: PublishOptions = {}): AttentionFrame | null {
@@ -236,22 +195,8 @@ export class ApertureCore {
     // `SourceEvent/ApertureEvent -> finalized event -> EventEvaluator
     // -> AttentionCandidate -> AttentionJudgmentInput-aware judgment ->
     // AttentionFrame/AttentionView + trace`
-    this.assertValidEvent(event);
-    return this.publishPreparedEvent(this.preparePublishedEvent(event, options));
-  }
-
-  private preparePublishedEvent(
-    event: ApertureEvent,
-    options: PublishOptions,
-  ): PreparedPublishedEvent {
-    const semanticDefaultsApplied = options.applySemanticDefaults !== false;
-    return {
-      originalEvent: event,
-      finalizedEvent: semanticDefaultsApplied
-        ? enrichApertureEvent(event)
-        : enrichApertureEvent(event, { skipSemanticDefaults: true }),
-      transitionKind: semanticDefaultsApplied ? "direct_enriched" : "direct_passthrough",
-    };
+    assertValidEvent(event);
+    return this.publishPreparedEvent(preparePublishedEvent(event, options));
   }
 
   private publishPreparedEvent(preparedEvent: PreparedPublishedEvent): AttentionFrame | null {
@@ -270,39 +215,27 @@ export class ApertureCore {
 
     switch (evaluation.kind) {
       case "noop": {
-        this.notifyTrace(this.traceRecorder.recordNoop({
+        this.notifyTrace(this.traceRecorder.recordNoop(buildPublishTraceSnapshot({
           timestamp: this.nowIso(),
           event: finalizedEvent,
           eventTransition,
-          taskSummary,
-          globalSummary,
-          taskAttentionState,
-          globalAttentionState,
-          pressureForecast,
-          attentionBurden,
-          current: evidence.currentFrame,
+          evidence,
           taskView: evidence.currentTaskView,
           attentionView: preAttentionView,
-        }));
+        })));
         return null;
       }
       case "clear": {
         const result = this.applyClear(finalizedEvent.taskId);
         const postAttentionView = this.getAttentionView();
-        this.notifyTrace(this.traceRecorder.recordClear({
+        this.notifyTrace(this.traceRecorder.recordClear(buildPublishTraceSnapshot({
           timestamp: this.nowIso(),
           event: finalizedEvent,
           eventTransition,
-          taskSummary,
-          globalSummary,
-          taskAttentionState,
-          globalAttentionState,
-          pressureForecast,
-          attentionBurden,
-          current: evidence.currentFrame,
+          evidence,
           taskView: this.getTaskView(finalizedEvent.taskId),
           attentionView: postAttentionView,
-        }, finalizedEvent.taskId));
+        }), finalizedEvent.taskId));
         return result;
       }
       case "candidate": {
@@ -319,20 +252,14 @@ export class ApertureCore {
           preAttentionView,
         );
         const postAttentionView = this.getAttentionView();
-        this.notifyTrace(this.traceRecorder.recordCandidate({
+        this.notifyTrace(this.traceRecorder.recordCandidate(buildPublishTraceSnapshot({
           timestamp: this.nowIso(),
           event: finalizedEvent,
           eventTransition,
-          taskSummary,
-          globalSummary,
-          taskAttentionState,
-          globalAttentionState,
-          pressureForecast,
-          attentionBurden,
-          current: evidence.currentFrame,
+          evidence,
           taskView: this.getTaskView(finalizedEvent.taskId),
           attentionView: postAttentionView,
-        }, {
+        }), {
           original: evaluation.candidate,
           adjusted: candidate,
           explanation,
@@ -489,7 +416,7 @@ export class ApertureCore {
   }
 
   submit(response: AttentionResponse): void {
-    this.assertValidFrameResponse(response);
+    assertValidFrameResponse(response);
     const current = this.findFrameByInteractionId(response.taskId, response.interactionId);
     if (!current) {
       return;
@@ -504,7 +431,7 @@ export class ApertureCore {
 
     const previousAttentionView = this.getAttentionView();
     const timestamp = this.nowIso();
-    this.recordSignal(this.signalForResponse(current, response, timestamp));
+    this.recordSignal(buildResponseSignal(current, response, timestamp));
     this.episodes.resolveInteraction(response.interactionId);
 
     const taskView = this.taskViews.resolve(response.taskId, response.interactionId);
@@ -545,10 +472,7 @@ export class ApertureCore {
   }
 
   getSurfaceCapabilities(): AttentionSurfaceCapabilities {
-    return {
-      topology: { ...this.surfaceCapabilities.topology },
-      responses: { ...this.surfaceCapabilities.responses },
-    };
+    return cloneSurfaceCapabilities(this.surfaceCapabilities);
   }
 
   getOperatorPresence(): AttentionOperatorPresence {
@@ -560,10 +484,7 @@ export class ApertureCore {
   }
 
   setSurfaceCapabilities(capabilities: AttentionSurfaceCapabilities): void {
-    this.surfaceCapabilities = {
-      topology: { ...capabilities.topology },
-      responses: { ...capabilities.responses },
-    };
+    this.surfaceCapabilities = cloneSurfaceCapabilities(capabilities);
   }
 
   snapshotMemoryProfile(now: string = this.nowIso()): MemoryProfile {
@@ -571,20 +492,35 @@ export class ApertureCore {
   }
 
   async checkpointMemory(now: string = this.nowIso()): Promise<MemoryProfile | null> {
-    if (!this.profileStore) {
+    const snapshot = await checkpointMarkdownMemoryProfile({
+      profileStore: this.profileStore,
+      memoryProfile: this.baseMemoryProfile,
+      signals: this.signals.list(),
+      now,
+    });
+    if (!snapshot) {
       return null;
     }
 
-    const snapshot = this.snapshotMemoryProfile(now);
-    await this.profileStore.saveMemoryProfile(snapshot);
     this.baseMemoryProfile = snapshot;
-    this.coordinator = this.createCoordinator();
+    this.coordinator = buildApertureCoordinator({
+      userProfile: this.userProfile,
+      baseMemoryProfile: this.baseMemoryProfile,
+      judgmentConfig: this.judgmentConfig,
+    });
     return snapshot;
   }
 
   markViewed(taskId: string, interactionId: string, options: { surface?: string } = {}): void {
     const frame = this.findFrame(taskId, interactionId);
-    this.recordSignal(this.observationSignal("viewed", taskId, interactionId, frame, options));
+    this.recordSignal(buildObservationSignal(
+      "viewed",
+      taskId,
+      interactionId,
+      this.nowIso(),
+      frame,
+      options,
+    ));
   }
 
   markTimedOut(
@@ -593,10 +529,14 @@ export class ApertureCore {
     options: { surface?: string; timeoutMs?: number } = {},
   ): void {
     const frame = this.findFrame(taskId, interactionId);
-    this.recordSignal({
-      ...this.observationSignal("timed_out", taskId, interactionId, frame, options),
-      ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
-    });
+    this.recordSignal(buildObservationSignal(
+      "timed_out",
+      taskId,
+      interactionId,
+      this.nowIso(),
+      frame,
+      options,
+    ));
   }
 
   markContextExpanded(
@@ -605,10 +545,14 @@ export class ApertureCore {
     options: { surface?: string; section?: string } = {},
   ): void {
     const frame = this.findFrame(taskId, interactionId);
-    this.recordSignal({
-      ...this.observationSignal("context_expanded", taskId, interactionId, frame, options),
-      ...(options.section !== undefined ? { section: options.section } : {}),
-    });
+    this.recordSignal(buildObservationSignal(
+      "context_expanded",
+      taskId,
+      interactionId,
+      this.nowIso(),
+      frame,
+      options,
+    ));
   }
 
   markContextSkipped(
@@ -617,14 +561,18 @@ export class ApertureCore {
     options: { surface?: string; section?: string } = {},
   ): void {
     const frame = this.findFrame(taskId, interactionId);
-    this.recordSignal({
-      ...this.observationSignal("context_skipped", taskId, interactionId, frame, options),
-      ...(options.section !== undefined ? { section: options.section } : {}),
-    });
+    this.recordSignal(buildObservationSignal(
+      "context_skipped",
+      taskId,
+      interactionId,
+      this.nowIso(),
+      frame,
+      options,
+    ));
   }
 
   recordSignal(signal: AttentionSignal): void {
-    this.assertValidSignal(signal);
+    assertValidSignal(signal);
     this.signals.record(signal);
     this.listeners.emitSignal(signal);
   }
@@ -723,7 +671,7 @@ export class ApertureCore {
 
   private queueFrame(taskId: string, frame: AttentionFrame): AttentionFrame {
     const taskView = this.taskViews.addNext(taskId, frame);
-    this.recordDeferredSignal(frame, "next");
+    this.recordSignal(buildDeferredSignal(frame, "next"));
     this.notifyTaskView(taskId, taskView);
     this.notifyAttentionView();
     return taskView.now ?? frame;
@@ -731,7 +679,7 @@ export class ApertureCore {
 
   private addAmbientFrame(taskId: string, frame: AttentionFrame): AttentionFrame {
     const taskView = this.taskViews.addAmbient(taskId, frame);
-    this.recordDeferredSignal(frame, "suppressed");
+    this.recordSignal(buildDeferredSignal(frame, "suppressed"));
     this.notifyTaskView(taskId, taskView);
     this.notifyAttentionView();
     return taskView.now ?? frame;
@@ -763,7 +711,11 @@ export class ApertureCore {
       nextBucket === "queue"
         ? this.taskViews.addNext(merged.taskId, merged)
         : this.taskViews.addAmbient(merged.taskId, merged);
-    this.recordDeferredSignal(merged, nextBucket === "queue" ? "next" : "suppressed", candidate);
+    this.recordSignal(buildDeferredSignal(
+      merged,
+      nextBucket === "queue" ? "next" : "suppressed",
+      candidate,
+    ));
     this.notifyTaskView(merged.taskId, nextTaskView);
     this.notifyAttentionView();
     return merged;
@@ -920,23 +872,6 @@ export class ApertureCore {
     ) ?? false;
   }
 
-  private recordDeferredSignal(
-    frame: AttentionFrame,
-    reason: "next" | "suppressed",
-    sourceFrame: Pick<AttentionFrame, "taskId" | "interactionId" | "source"> = frame,
-  ): void {
-    this.recordSignal({
-      kind: "deferred",
-      taskId: sourceFrame.taskId,
-      interactionId: sourceFrame.interactionId,
-      timestamp: frame.timing.updatedAt,
-      frameId: frame.id,
-      ...(sourceFrame.source !== undefined ? { source: sourceFrame.source } : {}),
-      reason,
-      metadata: signalMetadataForFrame(frame),
-    });
-  }
-
   private notifyFrame(taskId: string, frame: AttentionFrame | null): void {
     this.listeners.emitFrame(taskId, frame);
   }
@@ -953,61 +888,12 @@ export class ApertureCore {
     this.listeners.emitTrace(trace);
   }
 
-  private signalForResponse(frame: AttentionFrame, response: AttentionResponse, timestamp: string): AttentionSignal {
-    const latencyMs = this.calculateLatency(frame, timestamp);
-    const base = {
-      taskId: frame.taskId,
-      interactionId: frame.interactionId,
-      timestamp,
-      frameId: frame.id,
-      ...(frame.source !== undefined ? { source: frame.source } : {}),
-      metadata: signalMetadataForFrame(frame),
-    };
-
-    if (response.response.kind === "dismissed") {
-      return {
-        kind: "dismissed",
-        ...base,
-        ...(latencyMs !== undefined ? { latencyMs } : {}),
-      };
-    }
-
-    return {
-      kind: "responded",
-      ...base,
-      responseKind: response.response.kind,
-      ...(latencyMs !== undefined ? { latencyMs } : {}),
-    };
-  }
-
   private applyAutoResponse(candidate: AttentionCandidate, response: AttentionResponse): null {
     const timestamp = this.nowIso();
-    this.recordSignal({
-      kind: "responded",
-      taskId: candidate.taskId,
-      interactionId: candidate.interactionId,
-      timestamp,
-      ...(candidate.source !== undefined ? { source: candidate.source } : {}),
-      responseKind: response.response.kind === "dismissed" ? "acknowledged" : response.response.kind,
-      metadata: {
-        ...signalMetadataForCandidate(candidate),
-        autoResolved: true,
-      },
-    });
+    this.recordSignal(buildAutoResponseSignal(candidate, response, timestamp));
     this.episodes.resolveInteraction(candidate.interactionId);
     this.listeners.emitResponse(response);
     return null;
-  }
-
-  private calculateLatency(frame: AttentionFrame, timestamp: string): number | undefined {
-    const startedAt = Date.parse(frame.timing.updatedAt);
-    const completedAt = Date.parse(timestamp);
-
-    if (Number.isNaN(startedAt) || Number.isNaN(completedAt)) {
-      return undefined;
-    }
-
-    return Math.max(0, completedAt - startedAt);
   }
 
   private recordAttentionTransition(
@@ -1015,90 +901,13 @@ export class ApertureCore {
     nextAttentionView: AttentionView,
     timestamp: string,
   ): void {
-    const previous = previousAttentionView.now;
-    const next = nextAttentionView.now;
-    if (!next) {
-      return;
-    }
-
-    this.recordAttentionShift(previous, next, timestamp);
-    this.recordReturnSignal(previousAttentionView, next, timestamp);
-  }
-
-  private recordAttentionShift(previous: AttentionFrame | null, next: AttentionFrame, timestamp: string): void {
-    if (!previous || sameFrame(previous, next)) {
-      return;
-    }
-
-    const destinationSignal: AttentionSignal = {
-      kind: "attention_shifted",
-      taskId: next.taskId,
-      interactionId: next.interactionId,
+    for (const signal of buildAttentionTransitionSignals(
+      previousAttentionView,
+      nextAttentionView,
       timestamp,
-      frameId: next.id,
-      ...(next.source !== undefined ? { source: next.source } : {}),
-      fromInteractionId: previous.interactionId,
-      toInteractionId: next.interactionId,
-    };
-    this.recordSignal(destinationSignal);
-
-    if (previous.taskId !== next.taskId) {
-      this.recordSignal({
-        kind: "attention_shifted",
-        taskId: previous.taskId,
-        interactionId: previous.interactionId,
-        timestamp,
-        frameId: previous.id,
-        ...(previous.source !== undefined ? { source: previous.source } : {}),
-        fromInteractionId: previous.interactionId,
-        toInteractionId: next.interactionId,
-      });
+    )) {
+      this.recordSignal(signal);
     }
-  }
-
-  private recordReturnSignal(previousAttentionView: AttentionView, next: AttentionFrame, timestamp: string): void {
-    const from = previousAttentionView.next.some((frame) => sameFrame(frame, next))
-      ? "next"
-      : previousAttentionView.ambient.some((frame) => sameFrame(frame, next))
-        ? "ambient"
-        : null;
-
-    if (!from) {
-      return;
-    }
-
-    this.recordSignal({
-      kind: "returned",
-      taskId: next.taskId,
-      interactionId: next.interactionId,
-      timestamp,
-      frameId: next.id,
-      ...(next.source !== undefined ? { source: next.source } : {}),
-      from,
-      metadata: signalMetadataForFrame(next),
-    });
-  }
-
-  private observationSignal(
-    kind: "viewed" | "timed_out" | "context_expanded" | "context_skipped",
-    taskId: string,
-    interactionId: string,
-    frame: AttentionFrame | null,
-    options: { surface?: string },
-  ): Extract<
-    AttentionSignal,
-    { kind: "viewed" | "timed_out" | "context_expanded" | "context_skipped" }
-  > {
-    return {
-      kind,
-      taskId,
-      interactionId,
-      timestamp: this.nowIso(),
-      ...(frame?.id !== undefined ? { frameId: frame.id } : {}),
-      ...(frame?.source !== undefined ? { source: frame.source } : {}),
-      ...(frame ? { metadata: signalMetadataForFrame(frame) } : {}),
-      ...(options.surface !== undefined ? { surface: options.surface } : {}),
-    };
   }
 
   private findFrame(taskId: string, interactionId: string): AttentionFrame | null {
@@ -1119,157 +928,6 @@ export class ApertureCore {
     return new Date(this.timeSource()).toISOString();
   }
 
-  private assertValidEvent(event: ApertureEvent): void {
-    this.assertNonEmpty("event.id", event.id);
-    this.assertNonEmpty("event.taskId", event.taskId);
-    this.assertTimestamp("event.timestamp", event.timestamp);
-
-    if (event.source !== undefined) {
-      this.assertNonEmpty("event.source.id", event.source.id);
-    }
-
-    switch (event.type) {
-      case "task.started":
-      case "task.updated":
-        this.assertNonEmpty("event.title", event.title);
-        break;
-      case "human.input.requested":
-        this.assertNonEmpty("event.interactionId", event.interactionId);
-        this.assertNonEmpty("event.title", event.title);
-        this.assertNonEmpty("event.summary", event.summary);
-        break;
-      case "task.completed":
-      case "task.cancelled":
-        break;
-    }
-  }
-
-  private assertValidSourceEvent(event: SourceEvent): void {
-    this.assertNonEmpty("event.id", event.id);
-    this.assertNonEmpty("event.taskId", event.taskId);
-    this.assertTimestamp("event.timestamp", event.timestamp);
-
-    if (event.source) {
-      this.assertNonEmpty("event.source.id", event.source.id);
-    }
-
-    switch (event.type) {
-      case "task.started":
-        this.assertNonEmpty("event.title", event.title);
-        return;
-      case "task.updated":
-        this.assertNonEmpty("event.title", event.title);
-        this.assertTaskStatus("event.status", event.status);
-        return;
-      case "task.completed":
-        return;
-      case "task.cancelled":
-        if (event.reason !== undefined) {
-          this.assertNonEmpty("event.reason", event.reason);
-        }
-        return;
-      case "human.input.requested":
-        this.assertNonEmpty("event.interactionId", event.interactionId);
-        this.assertNonEmpty("event.title", event.title);
-        this.assertNonEmpty("event.summary", event.summary);
-        this.assertHumanInputRequest("event.request", event.request);
-        if (event.riskHint !== undefined) {
-          this.assertConsequenceLevel("event.riskHint", event.riskHint);
-        }
-        return;
-    }
-  }
-
-  private assertValidFrameResponse(response: AttentionResponse): void {
-    this.assertNonEmpty("response.taskId", response.taskId);
-    this.assertNonEmpty("response.interactionId", response.interactionId);
-
-    switch (response.response.kind) {
-      case "acknowledged":
-      case "approved":
-      case "rejected":
-      case "dismissed":
-        return;
-      case "option_selected":
-        if (response.response.optionIds.length === 0) {
-          throw new Error("response.optionIds must contain at least one option id");
-        }
-        return;
-      case "text_submitted":
-        this.assertNonEmpty("response.text", response.response.text);
-        return;
-      case "form_submitted":
-        if (
-          response.response.values === null ||
-          typeof response.response.values !== "object" ||
-          Array.isArray(response.response.values)
-        ) {
-          throw new Error("response.values must be an object");
-        }
-        return;
-    }
-  }
-
-  private assertValidSignal(signal: AttentionSignal): void {
-    this.assertNonEmpty("signal.taskId", signal.taskId);
-    this.assertNonEmpty("signal.interactionId", signal.interactionId);
-    this.assertTimestamp("signal.timestamp", signal.timestamp);
-
-    if (signal.source !== undefined) {
-      this.assertNonEmpty("signal.source.id", signal.source.id);
-    }
-  }
-
-  private assertNonEmpty(label: string, value: string): void {
-    if (typeof value !== "string" || value.trim().length === 0) {
-      throw new Error(`${label} must be a non-empty string`);
-    }
-  }
-
-  private assertTimestamp(label: string, value: string): void {
-    this.assertNonEmpty(label, value);
-    if (Number.isNaN(Date.parse(value))) {
-      throw new Error(`${label} must be a valid ISO timestamp`);
-    }
-  }
-
-  private assertTaskStatus(label: string, value: string): void {
-    if (!["running", "blocked", "waiting", "completed", "failed"].includes(value)) {
-      throw new Error(`${label} must be a valid task status`);
-    }
-  }
-
-  private assertConsequenceLevel(label: string, value: string): void {
-    if (!["low", "medium", "high"].includes(value)) {
-      throw new Error(`${label} must be a valid consequence level`);
-    }
-  }
-
-  private assertHumanInputRequest(
-    label: string,
-    value: HumanInputRequest,
-  ): void {
-    if (!value || typeof value !== "object" || !("kind" in value)) {
-      throw new Error(`${label} must be a valid human input request`);
-    }
-
-    switch (value.kind) {
-      case "approval":
-        return;
-      case "choice":
-        if (!Array.isArray(value.options) || value.options.length === 0) {
-          throw new Error(`${label}.options must contain at least one option`);
-        }
-        return;
-      case "form":
-        if (!Array.isArray(value.fields) || value.fields.length === 0) {
-          throw new Error(`${label}.fields must contain at least one field`);
-        }
-        return;
-      default:
-        throw new Error(`${label} must have a supported request kind`);
-    }
-  }
 }
 
 function readSignalEpisodeId(signal: AttentionSignal): string | null {

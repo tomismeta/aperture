@@ -1173,7 +1173,7 @@ function describeWorkEndpoint(): {
     response: {
       path: "/work/response/{interactionId}",
       bestFor:
-        "Poll here when a structured WorkEvent with kind=input.requested is waiting on a human answer.",
+        "Poll here when a structured WorkEvent with kind=input.requested is waiting on a human answer. responsePath values are relative to the same Aperture server root.",
       states: ["pending", "answered"],
     },
     next: [

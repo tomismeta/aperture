@@ -386,9 +386,6 @@ function normalizeWorkEvent(value: unknown): NormalizedWorkEvent {
   if (kind === "input.requested" && request === undefined) {
     throw new Error("input.requested requires request");
   }
-  if (kind === "work.updated" && work.status === undefined) {
-    throw new Error("work.updated requires work.status");
-  }
   if (kind === "work.updated" && (work.status === undefined || !isTaskUpdateStatus(work.status))) {
     throw new Error("work.updated requires work.status to be running, waiting, blocked, failed, or completed");
   }
@@ -880,7 +877,10 @@ function isTaskUpdateStatus(
 }
 
 function looksCompleted(text: string): boolean {
-  return /\b(completed?|finished?|done|succeeded?|successful|resolved?)\b/i.test(text);
+  if (/\b(not|still)\s+(yet\s+)?(completed?|finished?|done|resolved?)\b/i.test(text)) {
+    return false;
+  }
+  return /\b(completed?|finished?|succeeded?|successful|resolved?)\b/i.test(text);
 }
 
 function looksCancelled(text: string): boolean {

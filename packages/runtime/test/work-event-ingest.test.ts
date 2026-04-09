@@ -81,6 +81,13 @@ test("maps failed plain text work input into a failed task update", () => {
   assert.equal(event.status, "failed");
 });
 
+test("plain text completion inference does not overread negated completion wording", () => {
+  const event = mapWorkTextToSourceEvent("The deploy is not completed yet and is still running.");
+
+  assert.equal(event.type, "task.updated");
+  assert.equal(event.status, "running");
+});
+
 test("runtime work endpoint accepts neutral events directly", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
   const { baseUrl } = await runtime.listen();

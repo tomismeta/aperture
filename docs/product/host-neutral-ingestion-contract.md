@@ -514,7 +514,7 @@ This is how the proposed public contract maps to current internals.
 | `kind: "input.requested"` | `type: "human.input.requested"` |
 | `facts.capabilityFamily` | `toolFamily` |
 | `facts.activityCategory` | `activityClass` |
-| `hints.consequence` | `riskHint` |
+| `hints.consequence` | `riskHint` for `input.requested`; otherwise `semanticHints.consequence` |
 | `hints.capabilityFamily` | `toolFamily` when source-suggested rather than explicit |
 | `hints.activityCategory` | `activityClass` when source-suggested rather than explicit |
 | `hints.requestKind` | `semanticHints.intentFrame` or request-family mapping when source-suggested |

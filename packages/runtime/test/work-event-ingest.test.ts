@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { createApertureRuntime } from "../src/runtime.js";
 import { ApertureRuntimeAdapterClient } from "../src/adapter-client.js";
 import {
+  mapWorkTextToSourceEvent,
   mapWorkEventToSourceEvent,
   type WorkEvent,
 } from "../src/work-event-ingest.js";
@@ -68,6 +69,15 @@ test("maps neutral input.requested events into SourceEvent with approval semanti
   });
 });
 
+test("maps plain text work input into a standalone SourceEvent", () => {
+  const event = mapWorkTextToSourceEvent("Waiting for approval before continuing with the deploy.");
+
+  assert.equal(event.type, "task.updated");
+  assert.equal(event.status, "waiting");
+  assert.equal(event.summary, "Waiting for approval before continuing with the deploy.");
+  assert.equal(event.taskId.startsWith("work:"), true);
+});
+
 test("runtime work endpoint accepts neutral events directly", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
   const { baseUrl } = await runtime.listen();
@@ -101,12 +111,57 @@ test("runtime adapter client can publish neutral events", async () => {
   });
 
   try {
-    await client.publishWorkEvent(workApprovalEvent("task:client:approval"));
+    await client.publishWork(workApprovalEvent("task:client:approval"));
 
     const active = await waitFor(() => runtime.getCore().getAttentionView().now);
     assert.ok(active);
     assert.equal(active?.taskId, "task:client:approval");
     assert.equal(active?.mode, "approval");
+  } finally {
+    await client.close();
+    await runtime.close();
+  }
+});
+
+test("runtime work endpoint accepts plain text work input", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { baseUrl } = await runtime.listen();
+
+  try {
+    const response = await fetch(`${baseUrl}/work`, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: "Waiting for approval before continuing with the deploy.",
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { published: 1 });
+
+    const [event] = runtime.exportSessionCapture().publishedSourceEvents.slice(-1);
+    assert.ok(event);
+    assert.equal(event.type, "task.updated");
+    assert.equal(event.status, "waiting");
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("runtime adapter client can publish plain text work input", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { baseUrl } = await runtime.listen();
+  const client = await ApertureRuntimeAdapterClient.connect({
+    baseUrl,
+    kind: "custom-agent",
+    label: "Neutral ingress",
+  });
+
+  try {
+    await client.publishWork("Blocked on credentials before continuing.");
+
+    const [event] = runtime.exportSessionCapture().publishedSourceEvents.slice(-1);
+    assert.ok(event);
+    assert.equal(event.type, "task.updated");
+    assert.equal(event.status, "blocked");
   } finally {
     await client.close();
     await runtime.close();
@@ -200,7 +255,7 @@ test("runtime rejects malformed neutral work payloads", async () => {
 
     assert.equal(response.status, 400);
     const payload = await response.json() as { error: string };
-    assert.match(payload.error, /invalid work event payload/i);
+    assert.match(payload.error, /invalid work payload/i);
   } finally {
     await runtime.close();
   }
@@ -221,7 +276,7 @@ test("runtime rejects wrapped work payloads instead of supporting compatibility 
 
     assert.equal(wrappedResponse.status, 400);
     const wrappedPayload = await wrappedResponse.json() as { error: string };
-    assert.match(wrappedPayload.error, /invalid work event payload/i);
+    assert.match(wrappedPayload.error, /invalid work payload/i);
 
     const controlResponse = await fetch(`${controlUrl}/work`, {
       method: "POST",

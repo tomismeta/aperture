@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { createApertureRuntime } from "../src/runtime.js";
 import {
   mapWorkEventToSourceEvent,
-  normalizeWorkEventPayload,
+  normalizeWorkPayload,
   type WorkEvent,
 } from "../src/work-event-ingest.js";
 
@@ -43,10 +43,11 @@ test("canonical work-event examples normalize and map into SourceEvent", () => {
     assert.ok(expectation, `missing expectation for ${filename}`);
 
     const payload = readExample(filename);
-    const [eventPayload] = normalizeWorkEventPayload(payload);
-    assert.ok(eventPayload, `expected one normalized event for ${filename}`);
+    const eventPayload = normalizeWorkPayload(payload);
+    assert.equal(typeof eventPayload, "object", `expected structured work event for ${filename}`);
+    assert.equal(Array.isArray(eventPayload), false, `expected one normalized event for ${filename}`);
 
-    const event = mapWorkEventToSourceEvent(eventPayload);
+    const event = mapWorkEventToSourceEvent(eventPayload as WorkEvent);
     assert.equal(event.type, expectation.type, filename);
     if (expectation.title !== undefined) {
       assert.equal("title" in event ? event.title : undefined, expectation.title, filename);

@@ -32,7 +32,9 @@ into Aperture in a source-agnostic way.
 For external or industry-facing ingestion APIs, the better long-term contract
 is:
 
-- a neutral `WorkEvent`
+- `POST /work` with:
+  - a plain string for the simplest producer path
+  - a neutral `WorkEvent` when structured identity or request metadata matters
 
 that maps into internal `SourceEvent`.
 

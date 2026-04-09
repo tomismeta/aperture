@@ -35,7 +35,8 @@ The architectural implication is important:
 There are three important cross-host event layers:
 
 1. neutral external ingestion event
-   - preferably a single neutral `WorkEvent`
+   - simplest path: a plain string to `/work`
+   - structured path: a neutral `WorkEvent`
    - the contract external hosts or ingest APIs should publish when they want
      a broadly adoptable, non-Aperture-specific schema
 
@@ -52,7 +53,7 @@ There are three important cross-host event layers:
 
 The short version is:
 
-- external neutral ingestion event = what a host publishes for interoperability
+- external neutral ingestion event = plain text or `WorkEvent`
 - `SourceEvent` = what Aperture accepts as its thin internal ingress DTO
 - `ApertureEvent` is what Aperture canonically judges
 

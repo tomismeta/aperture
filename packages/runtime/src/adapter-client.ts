@@ -5,7 +5,7 @@ import type {
 } from "@tomismeta/aperture-core";
 
 import type { ApertureRuntimeEvent, ApertureRuntimeSnapshot } from "./runtime.js";
-import type { WorkEvent } from "./work-event-ingest.js";
+import type { WorkPayload } from "./work-event-ingest.js";
 
 export type ApertureRuntimeAdapterClientOptions = {
   baseUrl: string;
@@ -131,16 +131,11 @@ export class ApertureRuntimeAdapterClient {
     await this.refreshState();
   }
 
-  async publishWorkEvent(event: WorkEvent): Promise<void> {
-    await this.postBase("/work", event);
-    await this.refreshState();
-  }
-
-  async publishWorkEventBatch(events: WorkEvent[]): Promise<void> {
-    if (events.length === 0) {
+  async publishWork(work: WorkPayload): Promise<void> {
+    if (Array.isArray(work) && work.length === 0) {
       return;
     }
-    await this.postBase("/work", events);
+    await this.postBase("/work", work, typeof work === "string" ? "text/plain" : "application/json");
     await this.refreshState();
   }
 
@@ -240,13 +235,17 @@ export class ApertureRuntimeAdapterClient {
     return response.json() as Promise<T>;
   }
 
-  private async postBase<T = Record<string, never>>(path: string, body: unknown): Promise<T> {
+  private async postBase<T = Record<string, never>>(
+    path: string,
+    body: unknown,
+    contentType: string,
+  ): Promise<T> {
     const response = await fetch(`${this.baseUrl}${path}`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": contentType,
       },
-      body: JSON.stringify(body),
+      body: typeof body === "string" ? body : JSON.stringify(body),
     });
     if (!response.ok) {
       throw new Error(`Aperture runtime request failed: ${response.status} ${response.statusText}`);

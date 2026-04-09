@@ -24,8 +24,8 @@ import {
   writeLocalRuntimeRegistration,
 } from "./runtime-discovery.js";
 import {
-  mapWorkEventToSourceEvent,
-  normalizeWorkEventPayload,
+  mapWorkPayloadToSourceEvents,
+  normalizeWorkPayload,
 } from "./work-event-ingest.js";
 
 export type ApertureRuntimeOptions = {
@@ -346,9 +346,8 @@ export function createApertureRuntime(
         req.method === "POST"
         && path === "/work"
       ) {
-        const payload = await readJson(req, bodyLimitBytes);
-        const workEvents = normalizeWorkEventPayload(payload);
-        const events = workEvents.map((event) => mapWorkEventToSourceEvent(event));
+        const payload = await readWorkPayload(req, bodyLimitBytes);
+        const events = mapWorkPayloadToSourceEvents(normalizeWorkPayload(payload));
         for (const event of events) {
           core.publishSourceEvent(event);
           recordPublishedSourceEvent(event);
@@ -901,6 +900,46 @@ type PartialSurfaceCapabilities = {
 };
 
 async function readOptionalJson(req: IncomingMessage, bodyLimitBytes: number): Promise<unknown | null> {
+  const body = await readOptionalBody(req, bodyLimitBytes);
+  if (body === null) {
+    return null;
+  }
+  return JSON.parse(body);
+}
+
+async function readJson(req: IncomingMessage, bodyLimitBytes: number): Promise<unknown> {
+  const parsed = await readOptionalJson(req, bodyLimitBytes);
+  if (parsed === null) {
+    throw new Error("request body is empty");
+  }
+  return parsed;
+}
+
+async function readWorkPayload(req: IncomingMessage, bodyLimitBytes: number): Promise<unknown> {
+  const body = await readOptionalBody(req, bodyLimitBytes);
+  if (body === null) {
+    throw new Error("request body is empty");
+  }
+
+  const trimmed = body.trim();
+  if (trimmed.length === 0) {
+    throw new Error("request body is empty");
+  }
+
+  if (shouldParseWorkBodyAsJson(trimmed, req.headers["content-type"])) {
+    try {
+      return JSON.parse(trimmed);
+    } catch (error) {
+      if (looksLikeJsonValue(trimmed)) {
+        throw error instanceof Error ? error : new Error("Invalid work payload.");
+      }
+    }
+  }
+
+  return trimmed;
+}
+
+async function readOptionalBody(req: IncomingMessage, bodyLimitBytes: number): Promise<string | null> {
   const chunks: Buffer[] = [];
   let totalBytes = 0;
   for await (const chunk of req) {
@@ -914,15 +953,7 @@ async function readOptionalJson(req: IncomingMessage, bodyLimitBytes: number): P
   if (chunks.length === 0) {
     return null;
   }
-  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
-}
-
-async function readJson(req: IncomingMessage, bodyLimitBytes: number): Promise<unknown> {
-  const parsed = await readOptionalJson(req, bodyLimitBytes);
-  if (parsed === null) {
-    throw new Error("request body is empty");
-  }
-  return parsed;
+  return Buffer.concat(chunks).toString("utf8");
 }
 
 function writeJson(
@@ -939,4 +970,25 @@ function writeJson(
     Connection: "close",
   });
   res.end(JSON.stringify(body));
+}
+
+function shouldParseWorkBodyAsJson(
+  body: string,
+  contentTypeHeader: string | string[] | undefined,
+): boolean {
+  return looksLikeJsonContentType(contentTypeHeader) || looksLikeJsonValue(body);
+}
+
+function looksLikeJsonContentType(contentTypeHeader: string | string[] | undefined): boolean {
+  if (contentTypeHeader === undefined) {
+    return false;
+  }
+  const value = Array.isArray(contentTypeHeader)
+    ? contentTypeHeader.join(",")
+    : contentTypeHeader;
+  return value.toLowerCase().includes("json");
+}
+
+function looksLikeJsonValue(body: string): boolean {
+  return body.startsWith("{") || body.startsWith("[") || body.startsWith("\"");
 }

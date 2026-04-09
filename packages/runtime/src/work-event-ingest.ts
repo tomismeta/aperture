@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import type {
   AttentionActivityClass,
   AttentionConsequenceLevel,
@@ -86,6 +88,8 @@ export type WorkEvent = {
   run?: WorkEventRun;
 } & WorkEventBody;
 
+export type WorkPayload = string | WorkEvent | WorkEvent[];
+
 export type WorkEventRequest =
   | {
       kind: "approval";
@@ -159,21 +163,41 @@ const ACTIVITY_CATEGORY_ALIASES: Record<string, AttentionActivityClass> = {
   status: "status_update",
 };
 
-export function normalizeWorkEventPayload(payload: unknown): WorkEvent[] {
+export function normalizeWorkPayload(payload: unknown): WorkPayload {
+  if (typeof payload === "string") {
+    const text = normalizeWorkText(payload);
+    if (text.length === 0) {
+      throw new Error("Invalid work payload.");
+    }
+    return text;
+  }
+
   if (Array.isArray(payload)) {
     const events = payload.map((entry) => validateWorkEvent(entry) ? entry : null);
     if (events.some((event) => event === null)) {
-      throw new Error("Invalid work event batch payload.");
+      throw new Error("Invalid work payload.");
     }
     return events as WorkEvent[];
   }
 
   const event = validateWorkEvent(payload) ? payload : null;
   if (!event) {
-    throw new Error("Invalid work event payload.");
+    throw new Error("Invalid work payload.");
   }
 
-  return [event];
+  return event;
+}
+
+export function mapWorkPayloadToSourceEvents(payload: WorkPayload): SourceEvent[] {
+  if (typeof payload === "string") {
+    return [mapWorkTextToSourceEvent(payload)];
+  }
+
+  if (Array.isArray(payload)) {
+    return payload.map((event) => mapWorkEventToSourceEvent(event));
+  }
+
+  return [mapWorkEventToSourceEvent(payload)];
 }
 
 export function mapWorkEventToSourceEvent(event: WorkEvent): SourceEvent {
@@ -263,6 +287,47 @@ export function mapWorkEventToSourceEvent(event: WorkEvent): SourceEvent {
   }
 }
 
+export function mapWorkTextToSourceEvent(text: string): SourceEvent {
+  const normalized = normalizeWorkText(text);
+  if (normalized.length === 0) {
+    throw new Error("Work text must not be empty.");
+  }
+
+  const id = `work:${randomUUID()}`;
+  const taskId = id;
+  const timestamp = new Date().toISOString();
+
+  if (looksCompleted(normalized)) {
+    return {
+      id,
+      type: "task.completed",
+      taskId,
+      timestamp,
+      summary: normalized,
+    };
+  }
+
+  if (looksCancelled(normalized)) {
+    return {
+      id,
+      type: "task.cancelled",
+      taskId,
+      timestamp,
+      reason: normalized,
+    };
+  }
+
+  return {
+    id,
+    type: "task.updated",
+    taskId,
+    timestamp,
+    title: summarizeWorkText(normalized),
+    summary: normalized,
+    status: inferTextStatus(normalized),
+  };
+}
+
 function mapSourceRef(
   event: WorkEvent,
 ): Extract<SourceEvent, { type: "task.started" }>["source"] | undefined {
@@ -278,6 +343,31 @@ function mapSourceRef(
 
 function fallbackTitle(event: WorkEvent): string {
   return event.work.title ?? event.work.summary ?? event.work.id;
+}
+
+function normalizeWorkText(text: string): string {
+  return text.replace(/\r\n/g, "\n").trim();
+}
+
+function summarizeWorkText(text: string): string {
+  const collapsed = text.replace(/\s+/g, " ").trim();
+  const firstSentence = collapsed.match(/^(.{1,96}?)(?:[.!?\n]|$)/)?.[1] ?? collapsed;
+  if (firstSentence.length <= 96) {
+    return firstSentence;
+  }
+  return `${firstSentence.slice(0, 93).trimEnd()}...`;
+}
+
+function inferTextStatus(
+  text: string,
+): "running" | "waiting" | "blocked" {
+  if (looksBlocked(text)) {
+    return "blocked";
+  }
+  if (looksWaiting(text)) {
+    return "waiting";
+  }
+  return "running";
 }
 
 function mapRequest(request: WorkEventRequest): HumanInputRequest {
@@ -380,6 +470,22 @@ function isTaskUpdateStatus(
   value: WorkStatus,
 ): value is Exclude<WorkStatus, "cancelled"> {
   return TASK_UPDATE_STATUSES.has(value);
+}
+
+function looksCompleted(text: string): boolean {
+  return /\b(completed?|finished?|done|succeeded?|successful|resolved?)\b/i.test(text);
+}
+
+function looksCancelled(text: string): boolean {
+  return /\b(cancelled?|canceled|aborted?|stopped?)\b/i.test(text);
+}
+
+function looksBlocked(text: string): boolean {
+  return /\b(blocked?|stuck|cannot continue|can't continue|unable to continue)\b/i.test(text);
+}
+
+function looksWaiting(text: string): boolean {
+  return /\b(waiting|awaiting|pending|needs approval|approval needed|review needed|needs review)\b/i.test(text);
 }
 
 function isWorkEventKind(value: string): value is WorkEventKind {

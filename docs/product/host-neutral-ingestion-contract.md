@@ -25,15 +25,17 @@ It is "publish a neutral external contract that maps cleanly into
 
 ## The Core Recommendation
 
-Use one clean public event contract:
+Use one clean public path with progressive sophistication:
 
-- `WorkEvent`
+1. send a plain string to `/work`
+2. send a structured `WorkEvent` when you need stable ids or richer fields
+3. send a `WorkEvent[]` batch when you need throughput
 
 That gives us:
 
-- a readable producer-facing event shape
-- standard-friendly metadata fields at the top level
-- good portability across HTTP, event buses, and SDKs
+- the absolute simplest possible producer path
+- a readable structured contract when producers are ready for it
+- one endpoint instead of multiple ingress shapes
 - a direct mapping into Aperture's internal `SourceEvent`
 
 ## Standards To Reuse
@@ -155,9 +157,29 @@ For a public contract, choose names that are readable outside Aperture:
 
 The current internal names may remain as implementation details if needed.
 
-## Proposed External Shape
+## Simplest External Shape
 
-The recommended external shape is:
+The simplest external shape is just a string:
+
+```text
+"Waiting for approval before continuing with the deploy."
+```
+
+That is the lowest-friction producer path.
+
+The runtime treats it as:
+
+- one standalone work item
+- with a generated id
+- and best-effort status inference from the text
+
+This mode is intentionally lightweight.
+If producers need stable work identity, batching, structured requests, or
+portable metadata, they should move up to `WorkEvent`.
+
+## Structured External Shape
+
+The formal structured shape is:
 
 ```text
 WorkEvent
@@ -184,7 +206,7 @@ shows a few Aperture-local choices:
 That is fine internally.
 It is just not the cleanest public contract if the goal is broad adoption.
 
-## Proposed Event: `WorkEvent`
+## Structured Event: `WorkEvent`
 
 This is the host-neutral event Aperture should be able to consume.
 
@@ -507,10 +529,19 @@ The current shared runtime can ingest this contract directly over HTTP at:
 
 Accepted request shapes:
 
-- the raw `WorkEvent`
+- a raw plain-text string
+- a raw `WorkEvent`
 - a raw `WorkEvent[]` batch
 
-Example:
+Simplest example:
+
+```bash
+curl -X POST http://127.0.0.1:4546/work \
+  -H 'Content-Type: text/plain' \
+  --data 'Waiting for approval before continuing with the deploy.'
+```
+
+Structured example:
 
 ```bash
 curl -X POST http://127.0.0.1:4546/work \
@@ -553,7 +584,7 @@ curl -X POST http://127.0.0.1:4546/work \
 Runtime ingest is intentionally simple:
 
 - `POST /work`
-- body: `WorkEvent` or `WorkEvent[]`
+- body: `string`, `WorkEvent`, or `WorkEvent[]`
 
 ## Recommendation
 

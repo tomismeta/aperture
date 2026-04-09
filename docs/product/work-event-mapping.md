@@ -13,6 +13,16 @@ The boundary is:
 - `SourceEvent` is the internal Aperture ingress contract
 - this mapping is where external work facts become Aperture input
 
+The runtime also supports a simpler producer shape:
+
+- a plain string posted to `/work`
+
+That string path is intentionally best-effort and maps to one standalone
+`SourceEvent` with a generated id.
+
+This document focuses on the structured `WorkEvent` path, which is the stable
+formal contract.
+
 ## Mapping Principles
 
 - keep external ingestion factual
@@ -142,12 +152,18 @@ The shared runtime accepts this contract at:
 
 - `POST /work`
 
-That endpoint validates the event shape, maps it into `SourceEvent`, and
-then publishes it through the existing core path.
+That endpoint accepts:
+
+- plain text
+- one `WorkEvent`
+- or `WorkEvent[]`
+
+The runtime then maps the submission into `SourceEvent` and publishes it
+through the existing core path.
 
 The runtime path is:
 
-`WorkEvent -> SourceEvent -> ApertureEvent -> EnrichedApertureEvent -> judgment`
+`string | WorkEvent | WorkEvent[] -> SourceEvent -> ApertureEvent -> EnrichedApertureEvent -> judgment`
 
 ## Recommendation
 

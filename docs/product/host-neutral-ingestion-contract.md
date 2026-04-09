@@ -543,9 +543,9 @@ Current scope:
 
 - `/work` is the public ingress contract
 - plain text stays one-way and lowest-friction
-- structured `input.requested` events create a public reply loop
-- poll `GET /work/reply/{interactionId}` until the human answer is ready
-- `/runtime/*` remains internal runtime plumbing rather than the public reply path
+- structured `input.requested` events create a public response loop
+- poll `GET /work/response/{interactionId}` until the human answer is ready
+- `/runtime/*` remains internal runtime plumbing rather than the public response path
 
 Self-describing help:
 
@@ -624,12 +624,12 @@ The response is intentionally informative too:
 For structured `input.requested` submissions, each published item also includes:
 
 - `interactionId`
-- `replyPath`
+- `responsePath`
 
 Example follow-up:
 
 ```bash
-curl http://127.0.0.1:4546/work/reply/interaction%3Adeploy-42%3Aapproval
+curl http://127.0.0.1:4546/work/response/interaction%3Adeploy-42%3Aapproval
 ```
 
 That returns:

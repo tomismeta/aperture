@@ -139,7 +139,7 @@ export class ApertureRuntimeClient {
   }
 
   submit(response: AttentionResponse): void {
-    void this.post("/reply", response)
+    void this.post("/response", response)
       .then(() => this.refreshState())
       .catch(() => {});
   }

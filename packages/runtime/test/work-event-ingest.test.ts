@@ -94,7 +94,7 @@ test("runtime work endpoint accepts neutral events directly", async () => {
       ok: boolean;
       accepted: number;
       receivedAs: string;
-      published: Array<{ taskId: string; interactionId?: string; replyPath?: string }>;
+      published: Array<{ taskId: string; interactionId?: string; responsePath?: string }>;
     };
     assert.equal(payload.ok, true);
     assert.equal(payload.accepted, 1);
@@ -102,8 +102,8 @@ test("runtime work endpoint accepts neutral events directly", async () => {
     assert.equal(payload.published[0]?.taskId, "task:runtime:approval");
     assert.equal(payload.published[0]?.interactionId, "interaction:task:runtime:approval:approval");
     assert.equal(
-      payload.published[0]?.replyPath,
-      "/work/reply/interaction%3Atask%3Aruntime%3Aapproval%3Aapproval",
+      payload.published[0]?.responsePath,
+      "/work/response/interaction%3Atask%3Aruntime%3Aapproval%3Aapproval",
     );
 
     const active = await waitFor(() => runtime.getCore().getAttentionView().now);
@@ -130,8 +130,8 @@ test("runtime adapter client can publish neutral events", async () => {
     assert.equal(result.accepted, 1);
     assert.equal(result.receivedAs, "event");
     assert.equal(
-      result.published[0]?.replyPath,
-      "/work/reply/interaction%3Atask%3Aclient%3Aapproval%3Aapproval",
+      result.published[0]?.responsePath,
+      "/work/response/interaction%3Atask%3Aclient%3Aapproval%3Aapproval",
     );
 
     const active = await waitFor(() => runtime.getCore().getAttentionView().now);
@@ -202,7 +202,7 @@ test("runtime adapter client can publish plain text work input", async () => {
   }
 });
 
-test("work reply path stays pending until a response is submitted", async () => {
+test("work response path stays pending until a response is submitted", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
   const { baseUrl } = await runtime.listen();
   const interactionId = "interaction:task:reply-loop:approval";
@@ -216,7 +216,7 @@ test("work reply path stays pending until a response is submitted", async () => 
 
     assert.equal(publish.status, 200);
 
-    const pending = await fetch(`${baseUrl}/work/reply/${encodeURIComponent(interactionId)}`);
+    const pending = await fetch(`${baseUrl}/work/response/${encodeURIComponent(interactionId)}`);
     assert.equal(pending.status, 200);
     const pendingPayload = await pending.json() as {
       ok: boolean;
@@ -238,7 +238,7 @@ test("work reply path stays pending until a response is submitted", async () => 
     });
 
     const answered = await waitForAsync(async () => {
-      const response = await fetch(`${baseUrl}/work/reply/${encodeURIComponent(interactionId)}`);
+      const response = await fetch(`${baseUrl}/work/response/${encodeURIComponent(interactionId)}`);
       const payload = await response.json() as {
         state: string;
         response?: { kind: string; reason?: string };
@@ -256,7 +256,7 @@ test("work reply path stays pending until a response is submitted", async () => 
   }
 });
 
-test("runtime adapter client can poll work replies", async () => {
+test("runtime adapter client can poll work responses", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
   const { baseUrl } = await runtime.listen();
   const client = await ApertureRuntimeAdapterClient.connect({
@@ -270,7 +270,7 @@ test("runtime adapter client can poll work replies", async () => {
     const interactionId = receipt.published[0]?.interactionId;
     assert.equal(typeof interactionId, "string");
 
-    const pending = await client.getWorkReply(interactionId as string);
+    const pending = await client.getWorkResponse(interactionId as string);
     assert.equal(pending.state, "pending");
 
     runtime.getCore().submit({
@@ -280,7 +280,7 @@ test("runtime adapter client can poll work replies", async () => {
     });
 
     const answered = await waitForAsync(async () => {
-      const payload = await client.getWorkReply(interactionId as string);
+      const payload = await client.getWorkResponse(interactionId as string);
       return payload.state === "answered" ? payload : null;
     });
 
@@ -292,15 +292,15 @@ test("runtime adapter client can poll work replies", async () => {
   }
 });
 
-test("work reply path returns 404 when no public reply loop exists", async () => {
+test("work response path returns 404 when no public response loop exists", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
   const { baseUrl } = await runtime.listen();
 
   try {
-    const response = await fetch(`${baseUrl}/work/reply/${encodeURIComponent("interaction:missing")}`);
+    const response = await fetch(`${baseUrl}/work/response/${encodeURIComponent("interaction:missing")}`);
     assert.equal(response.status, 404);
     const payload = await response.json() as { error: string };
-    assert.match(payload.error, /no work reply found/i);
+    assert.match(payload.error, /no work response found/i);
   } finally {
     await runtime.close();
   }
@@ -457,7 +457,7 @@ test("work endpoint explains itself on GET", async () => {
       method: string;
       summary: string;
       send: Array<{ receivedAs: string; example: string }>;
-      reply: { path: string; states: string[] };
+      response: { path: string; states: string[] };
       next: Array<{ send: string }>;
     };
     assert.equal(payload.path, "/work");
@@ -465,8 +465,8 @@ test("work endpoint explains itself on GET", async () => {
     assert.match(payload.summary, /plain text/i);
     assert.deepEqual(payload.send.map((entry) => entry.receivedAs), ["text", "event", "batch"]);
     assert.equal(payload.send[0]?.example.includes("Waiting for approval"), true);
-    assert.equal(payload.reply.path, "/work/reply/{interactionId}");
-    assert.deepEqual(payload.reply.states, ["pending", "answered"]);
+    assert.equal(payload.response.path, "/work/response/{interactionId}");
+    assert.deepEqual(payload.response.states, ["pending", "answered"]);
     assert.equal(payload.next.some((step) => step.send === "WorkEvent"), true);
   } finally {
     await runtime.close();

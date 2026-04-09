@@ -12,8 +12,8 @@ export {
   type WorkReceiptItem,
   type WorkReceiptMode,
   type WorkReceiptNextStep,
-  type WorkReply,
-  type WorkReplyState,
+  type WorkResponse,
+  type WorkResponseState,
 } from "./runtime.js";
 export { ApertureRuntimeClient, type ApertureRuntimeClientOptions } from "./runtime-client.js";
 export { ApertureRuntimeAdapterClient, type ApertureRuntimeAdapterClientOptions } from "./adapter-client.js";

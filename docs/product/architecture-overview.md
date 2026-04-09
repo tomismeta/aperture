@@ -165,7 +165,7 @@ surfaces, adapters, debugging, and local runtime management:
 - `/runtime/session`
 - `/runtime/events`
 - `/runtime/events/source`
-- `/runtime/reply`
+- `/runtime/response`
 - `/runtime/adapters/*`
 - `/runtime/surfaces/*`
 - `/runtime/learning/*`
@@ -202,10 +202,10 @@ The surrounding layers are still important, but they play different roles:
 - **Offline Evaluation** improves the system without entering the hot path
 
 Plain-text ingress remains one-way by design.
-Structured `input.requested` work now gets a public reply loop under `/work`
-via `GET /work/reply/{interactionId}`.
+Structured `input.requested` work now gets a public response loop under `/work`
+via `GET /work/response/{interactionId}`.
 The internal `/runtime/*` control surface still exists for the Aperture product
-and in-repo adapters, but it is not the public reply contract.
+and in-repo adapters, but it is not the public response contract.
 
 The generalized ingress path underneath that summary is:
 

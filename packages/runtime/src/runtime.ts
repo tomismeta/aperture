@@ -378,6 +378,19 @@ export function createApertureRuntime(
         return;
       }
 
+      if (req.method === "POST" && path === `${controlPathPrefix}/engagement`) {
+        const payload = await readJson(req, bodyLimitBytes);
+        const engagement = validateOperatorEngagement(payload);
+        if (!engagement) {
+          throw new Error("Invalid operator engagement payload.");
+        }
+        core.engage(engagement.taskId, engagement.interactionId, {
+          ...(engagement.durationMs !== undefined ? { durationMs: engagement.durationMs } : {}),
+        });
+        writeJson(res, 200, { engaged: true });
+        return;
+      }
+
       if (req.method === "POST" && path === `${controlPathPrefix}/events/source`) {
         const payload = await readJson(req, bodyLimitBytes);
         const events = normalizeSourceEventPayload(payload);
@@ -839,6 +852,31 @@ function validateAttentionResponse(value: unknown): AttentionResponse | null {
   }
 
   return null;
+}
+
+function validateOperatorEngagement(
+  value: unknown,
+): { taskId: string; interactionId: string; durationMs?: number } | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (typeof value.taskId !== "string" || typeof value.interactionId !== "string") {
+    return null;
+  }
+
+  if (
+    value.durationMs !== undefined
+    && (typeof value.durationMs !== "number" || !Number.isFinite(value.durationMs) || value.durationMs <= 0)
+  ) {
+    return null;
+  }
+
+  return {
+    taskId: value.taskId,
+    interactionId: value.interactionId,
+    ...(value.durationMs !== undefined ? { durationMs: value.durationMs } : {}),
+  };
 }
 
 function validateSourceEvent(value: unknown): SourceEvent | null {

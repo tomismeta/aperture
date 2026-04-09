@@ -1,6 +1,7 @@
 import type { AttentionFrame, AttentionTaskView } from "./frame.js";
 
 type FrameLane = "next" | "ambient";
+const MAX_AMBIENT_FRAMES_PER_TASK = 12;
 
 export class TaskViewStore {
   private readonly taskViews = new Map<string, AttentionTaskView>();
@@ -27,8 +28,7 @@ export class TaskViewStore {
       next: previousNow ? [previousNow, ...nextFrames] : nextFrames,
       ambient: taskView.ambient.filter((item) => item.interactionId !== frame.interactionId),
     };
-    this.taskViews.set(taskId, next);
-    return next;
+    return this.persist(taskId, next);
   }
 
   addNext(taskId: string, frame: AttentionFrame): AttentionTaskView {
@@ -45,7 +45,7 @@ export class TaskViewStore {
       next: [],
       ambient: [],
     };
-    this.taskViews.set(taskId, next);
+    this.taskViews.delete(taskId);
     return next;
   }
 
@@ -56,8 +56,7 @@ export class TaskViewStore {
       next: taskView.next.filter((frame) => frame.interactionId !== interactionId),
       ambient: taskView.ambient.filter((frame) => frame.interactionId !== interactionId),
     };
-    this.taskViews.set(taskId, next);
-    return next;
+    return this.persist(taskId, next);
   }
 
   resolve(taskId: string, interactionId: string): AttentionTaskView {
@@ -75,8 +74,7 @@ export class TaskViewStore {
       next: remainingNext,
       ambient: remainingAmbient,
     };
-    this.taskViews.set(taskId, next);
-    return next;
+    return this.persist(taskId, next);
   }
 
   private upsert(taskId: string, lane: FrameLane, frame: AttentionFrame): AttentionTaskView {
@@ -89,14 +87,29 @@ export class TaskViewStore {
     const next: AttentionTaskView = {
       now: nextNow,
       next: lane === "next" ? [frame, ...dedupedNext] : dedupedNext,
-      ambient: lane === "ambient" ? [frame, ...dedupedAmbient] : dedupedAmbient,
+      ambient:
+        lane === "ambient"
+          ? [frame, ...dedupedAmbient].slice(0, MAX_AMBIENT_FRAMES_PER_TASK)
+          : dedupedAmbient,
     };
 
-    this.taskViews.set(taskId, next);
-    return next;
+    return this.persist(taskId, next);
   }
 
   values(): Iterable<AttentionTaskView> {
     return this.taskViews.values();
   }
+
+  private persist(taskId: string, taskView: AttentionTaskView): AttentionTaskView {
+    if (isEmptyTaskView(taskView)) {
+      this.taskViews.delete(taskId);
+    } else {
+      this.taskViews.set(taskId, taskView);
+    }
+    return taskView;
+  }
+}
+
+function isEmptyTaskView(taskView: AttentionTaskView): boolean {
+  return taskView.now === null && taskView.next.length === 0 && taskView.ambient.length === 0;
 }

@@ -35,6 +35,7 @@ export type AttentionSurface = {
   getAttentionState(): AttentionState;
   subscribeAttentionView(listener: (attentionView: AttentionView) => void): () => void;
   onResponse(listener: (response: FrameResponse) => void): () => void;
+  engage(taskId: string, interactionId: string, options?: { durationMs?: number }): void;
   submit(response: FrameResponse): void;
   onTrace?(listener: (trace: ApertureTrace) => void): () => void;
 };

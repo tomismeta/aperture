@@ -109,6 +109,12 @@ export type ApertureCoreOptions = {
 
 export type { PublishOptions } from "./aperture-core-event-preparation.js";
 
+type OperatorEngagement = {
+  taskId: string;
+  interactionId: string;
+  expiresAtMs: number;
+};
+
 export class ApertureCore {
   private readonly listeners = new ApertureCoreListeners();
   private readonly taskViews = new TaskViewStore();
@@ -128,6 +134,8 @@ export class ApertureCore {
   private operatorPresence: AttentionOperatorPresence;
   private readonly responseExpiryMs: number | undefined;
   private readonly timeSource: () => number;
+  private operatorEngagement: OperatorEngagement | null = null;
+  private operatorEngagementTimer: NodeJS.Timeout | null = null;
 
   constructor(options: ApertureCoreOptions = {}) {
     const runtime = normalizeApertureCoreRuntimeSetup(options);
@@ -431,6 +439,7 @@ export class ApertureCore {
 
     const previousAttentionView = this.getAttentionView();
     const timestamp = this.nowIso();
+    this.clearOperatorEngagement(response.taskId, response.interactionId);
     this.recordSignal(buildResponseSignal(current, response, timestamp));
     this.episodes.resolveInteraction(response.interactionId);
 
@@ -456,6 +465,7 @@ export class ApertureCore {
     return buildAttentionView(this.taskViews.values(), {
       globalAttentionState: this.getAttentionState(),
       operatorPresence: this.getOperatorPresence(),
+      focusedInteractionId: this.readOperatorEngagementInteractionId(),
     });
   }
 
@@ -481,6 +491,25 @@ export class ApertureCore {
 
   setOperatorPresence(presence: AttentionOperatorPresence): void {
     this.operatorPresence = presence;
+  }
+
+  engage(taskId: string, interactionId: string, options: { durationMs?: number } = {}): void {
+    if (!this.findFrameByInteractionId(taskId, interactionId)) {
+      return;
+    }
+
+    const previousAttentionView = this.getAttentionView();
+    const durationMs = normalizeOperatorEngagementDuration(options.durationMs);
+    this.operatorEngagement = {
+      taskId,
+      interactionId,
+      expiresAtMs: Date.now() + durationMs,
+    };
+    this.scheduleOperatorEngagementExpiry(durationMs, taskId, interactionId);
+    const nextAttentionView = this.getAttentionView();
+    if (!sameAttentionView(previousAttentionView, nextAttentionView)) {
+      this.notifyAttentionView();
+    }
   }
 
   setSurfaceCapabilities(capabilities: AttentionSurfaceCapabilities): void {
@@ -660,6 +689,7 @@ export class ApertureCore {
       this.episodes.resolveInteraction(frame.interactionId);
     }
 
+    this.clearOperatorEngagement(taskId);
     const taskView = this.taskViews.clear(taskId);
     const nextAttentionView = this.getAttentionView();
     this.recordAttentionTransition(previousAttentionView, nextAttentionView, this.nowIso());
@@ -884,6 +914,74 @@ export class ApertureCore {
     this.listeners.emitAttentionView(this.getAttentionView());
   }
 
+  private readOperatorEngagementInteractionId(): string | null {
+    const engagement = this.operatorEngagement;
+    if (!engagement) {
+      return null;
+    }
+
+    if (engagement.expiresAtMs <= Date.now()) {
+      this.clearOperatorEngagement();
+      return null;
+    }
+
+    if (!this.findFrameByInteractionId(engagement.taskId, engagement.interactionId)) {
+      this.clearOperatorEngagement();
+      return null;
+    }
+
+    return engagement.interactionId;
+  }
+
+  private scheduleOperatorEngagementExpiry(
+    durationMs: number,
+    taskId: string,
+    interactionId: string,
+  ): void {
+    this.clearOperatorEngagementTimer();
+    this.operatorEngagementTimer = setTimeout(() => {
+      if (
+        this.operatorEngagement?.taskId !== taskId
+        || this.operatorEngagement?.interactionId !== interactionId
+      ) {
+        return;
+      }
+
+      const previousAttentionView = this.getAttentionView();
+      this.clearOperatorEngagement();
+      const nextAttentionView = this.getAttentionView();
+      if (!sameAttentionView(previousAttentionView, nextAttentionView)) {
+        this.notifyAttentionView();
+      }
+    }, durationMs);
+    this.operatorEngagementTimer.unref?.();
+  }
+
+  private clearOperatorEngagement(taskId?: string, interactionId?: string): void {
+    const engagement = this.operatorEngagement;
+    if (!engagement) {
+      return;
+    }
+
+    if (taskId !== undefined && engagement.taskId !== taskId) {
+      return;
+    }
+
+    if (interactionId !== undefined && engagement.interactionId !== interactionId) {
+      return;
+    }
+
+    this.operatorEngagement = null;
+    this.clearOperatorEngagementTimer();
+  }
+
+  private clearOperatorEngagementTimer(): void {
+    if (this.operatorEngagementTimer) {
+      clearTimeout(this.operatorEngagementTimer);
+      this.operatorEngagementTimer = null;
+    }
+  }
+
   private notifyTrace(trace: InternalApertureTrace): void {
     this.listeners.emitTrace(trace);
   }
@@ -942,4 +1040,23 @@ function readSignalEpisodeId(signal: AttentionSignal): string | null {
 
 function sameFrame(left: AttentionFrame, right: AttentionFrame): boolean {
   return left.id === right.id || (left.taskId === right.taskId && left.interactionId === right.interactionId);
+}
+
+function normalizeOperatorEngagementDuration(durationMs: number | undefined): number {
+  if (durationMs === undefined) {
+    return 12_000;
+  }
+
+  return Math.max(25, Math.floor(durationMs));
+}
+
+function sameAttentionView(left: AttentionView, right: AttentionView): boolean {
+  return left.now?.interactionId === right.now?.interactionId
+    && sameInteractionOrder(left.next, right.next)
+    && sameInteractionOrder(left.ambient, right.ambient);
+}
+
+function sameInteractionOrder(left: AttentionFrame[], right: AttentionFrame[]): boolean {
+  return left.length === right.length
+    && left.every((frame, index) => frame.interactionId === right[index]?.interactionId);
 }

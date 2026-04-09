@@ -36,6 +36,9 @@ export type {
   AttentionConnectionState,
 } from "./types.js";
 
+const PASSIVE_ENGAGEMENT_HOLD_MS = 5_000;
+const ACTIVE_ENGAGEMENT_HOLD_MS = 15_000;
+
 export async function runAttentionTui(
   core: AttentionSurface,
   options?: AttentionTuiOptions,
@@ -149,6 +152,7 @@ export async function runAttentionTui(
       state.whyExpanded = false;
       state.statusLine = "Nothing needs attention right now";
     } else if (active.interactionId !== previousActiveId) {
+      core.engage(active.taskId, active.interactionId, { durationMs: PASSIVE_ENGAGEMENT_HOLD_MS });
       state.showSetup = false;
       state.inputDraft = createAutomaticInputDraft(active);
       state.whyExpanded = false;
@@ -275,6 +279,9 @@ export async function runAttentionTui(
       }
 
       if (key.name === "space") {
+        if (active) {
+          core.engage(active.taskId, active.interactionId, { durationMs: ACTIVE_ENGAGEMENT_HOLD_MS });
+        }
         if (state.whyMode) {
           state.whyExpanded = !state.whyExpanded;
         } else {
@@ -285,6 +292,9 @@ export async function runAttentionTui(
       }
 
       if (key.name === "y") {
+        if (active) {
+          core.engage(active.taskId, active.interactionId, { durationMs: ACTIVE_ENGAGEMENT_HOLD_MS });
+        }
         state.whyMode = !state.whyMode;
         if (!state.whyMode) state.whyExpanded = false;
         requestRender();

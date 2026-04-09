@@ -66,6 +66,7 @@ function makeSurface(submitted: FrameResponse[] = []): AttentionSurface {
     getAttentionState: () => "calm" as AttentionState,
     subscribeAttentionView: () => () => {},
     onResponse: () => () => {},
+    engage: () => {},
     submit: (response: FrameResponse) => submitted.push(response),
   };
 }

@@ -254,6 +254,11 @@ test("runtime exports a local session capture with source events, responses, and
     assert.equal(capture.traces.some((trace) => trace.event.id === event.id), true);
     assert.equal(capture.signals.some((signal) => signal.taskId === event.taskId), true);
     assert.ok(capture.attentionViewSnapshots.length >= 1);
+    assert.equal(capture.currentExplanation.targetInteractionId, `interaction:${event.taskId}:status`);
+    assert.equal(capture.currentExplanation.targetLane, "now");
+    assert.match(capture.currentExplanation.headline ?? "", /blocked|operator attention/i);
+    assert.equal(capture.currentExplanation.routingAuthority, "status");
+    assert.ok(capture.currentExplanation.continuityRationale.length >= 0);
     assert.equal("steps" in capture, false);
     assert.equal("sourceEvents" in capture, false);
     assert.equal("responses" in capture, false);
@@ -282,12 +287,22 @@ test("runtime session endpoint exposes the same local capture shape over HTTP", 
       captureSteps: Array<{ kind: string }>;
       publishedSourceEvents: Array<{ taskId: string }>;
       traces: Array<{ event: { taskId: string } }>;
+      currentExplanation: {
+        targetInteractionId: string | null;
+        targetLane: string;
+        headline: string | null;
+        routingAuthority: string | null;
+      };
     };
 
     assert.equal(payload.runtimeId.length > 0, true);
     assert.equal(payload.captureSteps[0]?.kind, "publishSource");
     assert.equal(payload.publishedSourceEvents[0]?.taskId, "task-session-http");
     assert.equal(payload.traces.some((trace) => trace.event.taskId === "task-session-http"), true);
+    assert.equal(payload.currentExplanation.targetInteractionId, "interaction:task-session-http:status");
+    assert.equal(payload.currentExplanation.targetLane, "now");
+    assert.match(payload.currentExplanation.headline ?? "", /blocked|operator attention/i);
+    assert.equal(payload.currentExplanation.routingAuthority, "status");
     assert.equal("steps" in payload, false);
     assert.equal("sourceEvents" in payload, false);
     assert.equal("responses" in payload, false);

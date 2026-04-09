@@ -89,6 +89,9 @@ export async function exportCapturedSession(
   stdout.write(`- now: ${bundle.outcomes.finalNowInteractionId ?? "none"}\n`);
   stdout.write(`- next: ${bundle.outcomes.finalNextCount}\n`);
   stdout.write(`- ambient: ${bundle.outcomes.finalAmbientCount}\n`);
+  if (capture.currentExplanation.headline) {
+    stdout.write(`- why: ${capture.currentExplanation.headline}\n`);
+  }
 }
 
 function defaultLauncherCaptureTitle(exportedAt: string): string {

@@ -116,6 +116,13 @@ judgment changes, see [Aperture Lab](https://github.com/tomismeta/aperture/blob/
 
 For the current shipped release summary, see [Aperture Core SDK v0.6.0](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-core-v0.6.0.md).
 
+Runnable repo examples live in:
+
+- [examples/core-full-engine/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-full-engine/index.ts)
+- [examples/core-judgment-primitives/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-judgment-primitives/index.ts)
+- [examples/core-semantic-entrypoint/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-semantic-entrypoint/index.ts)
+- [examples/core-trace-entrypoint/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-trace-entrypoint/index.ts)
+
 ## Install
 
 ```bash

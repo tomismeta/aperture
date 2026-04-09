@@ -37,6 +37,17 @@ understand the current product surface.
 Use this path if you want to embed Aperture's judgment engine in-process inside
 your own runtime, workflow, or UI.
 
+### Review A Capture
+
+1. [Examples](../examples/README.md)
+2. [Capture Review Quickstart](./lab/capture-review-quickstart.md)
+3. [Offline AI Review Loop](./lab/offline-ai-review-loop.md)
+4. [Aperture Lab](./lab/aperture-lab.md)
+
+Use this path if you want to inspect a real captured session, prepare an
+offline-review artifact, or feed a live runtime capture into the Lab review
+loop.
+
 ## Release Notes
 
 - [Aperture v0.3.0](./releases/aperture-v0.3.0.md)
@@ -101,6 +112,7 @@ These docs explain the deterministic judgment model, the engine boundary, and th
 ## Lab
 
 - [Aperture Lab](./lab/aperture-lab.md)
+- [Capture Review Quickstart](./lab/capture-review-quickstart.md)
 - [JudgmentBench Data Strategy](./lab/judgmentbench-data-strategy.md)
 - [Harvested Session Collection Runbook](./lab/harvested-session-collection-runbook.md)
 - [Offline AI Review Loop](./lab/offline-ai-review-loop.md)

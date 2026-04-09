@@ -155,6 +155,9 @@ By default the built-in OpenClaw harness uses a fresh session id per review so
 batch runs stay more isolated and repeatable, and it avoids the shared `main`
 agent session unless an explicit OpenClaw agent override is set.
 
+For the shortest path from a live Aperture runtime or captured bundle into this
+review loop, see [Capture Review Quickstart](./capture-review-quickstart.md).
+
 ### 3. AI Review
 
 Ask an offline reviewer model to evaluate the imported case against a rubric.

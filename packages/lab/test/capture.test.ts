@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
+import { mkdtemp, readFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import {
   createCaptureReviewArtifacts,
+  writeCaptureReviewArtifacts,
+  writeSessionBundleReviewArtifact,
   type RuntimeSessionCaptureLike,
 } from "../src/capture.js";
 
@@ -97,4 +102,156 @@ test("createCaptureReviewArtifacts builds a session bundle and offline review ar
   assert.equal(result.artifact.rubricVersion, "capture-review-v1");
   assert.equal(result.artifact.generatedAt, "2026-04-10T03:06:00.000Z");
   assert.equal(result.artifact.steps[0]?.sourceEvent?.status, "failed");
+});
+
+test("writeCaptureReviewArtifacts persists both bundle and artifact paths", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-capture-review-"));
+  const capture: RuntimeSessionCaptureLike = {
+    runtimeId: "runtime:live:test",
+    kind: "aperture",
+    exportedAt: "2026-04-10T03:05:00.000Z",
+    captureSteps: [
+      {
+        sequence: 1,
+        recordedAt: "2026-04-10T03:00:00.000Z",
+        kind: "publishSource",
+        event: {
+          id: "src:live:failed",
+          type: "task.updated",
+          taskId: "task:live:failed",
+          timestamp: "2026-04-10T03:00:00.000Z",
+          title: "Build failed",
+          summary: "The latest build failed and may need a retry.",
+          status: "failed",
+        },
+      },
+    ],
+    publishedSourceEvents: [
+      {
+        id: "src:live:failed",
+        type: "task.updated",
+        taskId: "task:live:failed",
+        timestamp: "2026-04-10T03:00:00.000Z",
+        title: "Build failed",
+        summary: "The latest build failed and may need a retry.",
+        status: "failed",
+      },
+    ],
+    submittedResponses: [],
+    signals: [],
+    traces: [],
+    attentionViewSnapshots: [],
+    currentAttentionView: {
+      now: null,
+      next: [],
+      ambient: [],
+    },
+    currentExplanation: {
+      targetInteractionId: null,
+      targetLane: "none",
+      headline: null,
+      whyNow: null,
+      routingAuthority: null,
+    },
+  };
+
+  const bundlePath = path.join(tempDir, "bundle.json");
+  const artifactPath = path.join(tempDir, "artifact.json");
+  const result = await writeCaptureReviewArtifacts(capture, {
+    sessionId: "session:write:capture",
+    title: "Writable capture",
+    bundlePath,
+    artifactPath,
+  });
+
+  const writtenBundle = JSON.parse(await readFile(bundlePath, "utf8")) as { sessionId: string };
+  const writtenArtifact = JSON.parse(await readFile(artifactPath, "utf8")) as {
+    bundle: { sessionId: string; bundlePath?: string };
+  };
+
+  assert.equal(result.bundlePath, bundlePath);
+  assert.equal(result.artifactPath, artifactPath);
+  assert.equal(writtenBundle.sessionId, "session:write:capture");
+  assert.equal(writtenArtifact.bundle.sessionId, "session:write:capture");
+  assert.equal(writtenArtifact.bundle.bundlePath, bundlePath);
+});
+
+test("writeSessionBundleReviewArtifact prepares an artifact from an existing bundle", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-bundle-review-"));
+  const bundlePath = path.join(tempDir, "bundle.json");
+  const artifactPath = path.join(tempDir, "artifact.json");
+  const capture: RuntimeSessionCaptureLike = {
+    runtimeId: "runtime:live:test",
+    kind: "aperture",
+    exportedAt: "2026-04-10T03:05:00.000Z",
+    captureSteps: [
+      {
+        sequence: 1,
+        recordedAt: "2026-04-10T03:00:00.000Z",
+        kind: "publishSource",
+        event: {
+          id: "src:live:waiting",
+          type: "task.updated",
+          taskId: "task:live:waiting",
+          timestamp: "2026-04-10T03:00:00.000Z",
+          title: "Waiting on approval",
+          summary: "Still waiting on a human decision.",
+          status: "waiting",
+        },
+      },
+    ],
+    publishedSourceEvents: [
+      {
+        id: "src:live:waiting",
+        type: "task.updated",
+        taskId: "task:live:waiting",
+        timestamp: "2026-04-10T03:00:00.000Z",
+        title: "Waiting on approval",
+        summary: "Still waiting on a human decision.",
+        status: "waiting",
+      },
+    ],
+    submittedResponses: [],
+    signals: [],
+    traces: [],
+    attentionViewSnapshots: [],
+    currentAttentionView: {
+      now: null,
+      next: [
+        { interactionId: "interaction:task:live:waiting:status" } as never,
+      ],
+      ambient: [],
+    },
+    currentExplanation: {
+      targetInteractionId: "interaction:task:live:waiting:status",
+      targetLane: "next",
+      headline: "Waiting work is queued behind current attention.",
+      whyNow: "Waiting work is queued behind current attention.",
+      routingAuthority: "status",
+    },
+  };
+
+  await writeCaptureReviewArtifacts(capture, {
+    sessionId: "session:bundle:review",
+    title: "Bundle review source",
+    bundlePath,
+  });
+
+  const result = await writeSessionBundleReviewArtifact(bundlePath, {
+    artifactPath,
+    focusAreas: ["status", "blocking", "confidence"],
+  });
+  const writtenArtifact = JSON.parse(await readFile(artifactPath, "utf8")) as {
+    bundle: { sessionId: string; explanation?: { headline?: string } };
+    focusAreas: string[];
+  };
+
+  assert.equal(result.bundle.sessionId, "session:bundle:review");
+  assert.equal(result.artifactPath, artifactPath);
+  assert.deepEqual(result.artifact.focusAreas, ["status", "blocking", "confidence"]);
+  assert.equal(writtenArtifact.bundle.sessionId, "session:bundle:review");
+  assert.equal(
+    writtenArtifact.bundle.explanation?.headline,
+    "Waiting work is queued behind current attention.",
+  );
 });

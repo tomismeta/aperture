@@ -346,20 +346,25 @@ export {
   createSessionBundle,
   createSessionBundleFromCanonicalAttentionExport,
   createSessionBundleFromScenario,
+  loadSessionBundle,
+  loadSessionBundles,
+  runSessionBundle,
+  sessionBundleToScenario,
+  writeSessionBundle,
+} from "./session-bundle.js";
+export {
+  createCaptureReviewArtifacts,
   createRuntimeSessionCaptureCursor,
   createSessionBundleFromRuntimeCapture,
   createTempSessionBundlePath,
   defaultSessionBundlePath,
   DEFAULT_SESSION_BUNDLES_DIR,
-  loadSessionBundle,
-  loadSessionBundles,
-  runSessionBundle,
-  sessionBundleToScenario,
   SESSION_BUNDLE_SCHEMA_VERSION,
   sliceRuntimeSessionCapture,
   validateSessionBundle,
-  writeSessionBundle,
-} from "./session-bundle.js";
+  writeCaptureReviewArtifacts,
+  writeSessionBundleReviewArtifact,
+} from "./capture.js";
 export { validateReplayScenario } from "./validation.js";
 
 export type {

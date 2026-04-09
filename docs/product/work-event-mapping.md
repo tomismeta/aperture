@@ -167,6 +167,7 @@ endpoint itself to explain:
 
 - the accepted modes
 - the intended use of each mode
+- example payloads
 - the next richer structured options available
 
 The runtime path is:

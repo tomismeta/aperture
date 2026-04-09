@@ -544,6 +544,7 @@ That returns a small JSON description of:
 
 - the accepted modes
 - when to use each one
+- example payloads
 - the next richer options available
 
 Simplest example:
@@ -601,10 +602,11 @@ Runtime ingest is intentionally simple:
 
 The response is intentionally informative too:
 
+- `ok`
 - `accepted`
-- `mode`
-- accepted item summaries
-- optional tips for richer structured usage
+- `receivedAs`
+- `published`
+- optional `next` steps for richer structured usage
 
 ## Recommendation
 

@@ -8,9 +8,10 @@ export {
   type ApertureRuntimeOptions,
   type ApertureRuntimeSessionCapture,
   type ApertureRuntimeSnapshot,
-  type WorkIngestAcceptedItem,
-  type WorkIngestMode,
-  type WorkIngestResponse,
+  type WorkReceipt,
+  type WorkReceiptItem,
+  type WorkReceiptMode,
+  type WorkReceiptNextStep,
 } from "./runtime.js";
 export { ApertureRuntimeClient, type ApertureRuntimeClientOptions } from "./runtime-client.js";
 export { ApertureRuntimeAdapterClient, type ApertureRuntimeAdapterClientOptions } from "./adapter-client.js";

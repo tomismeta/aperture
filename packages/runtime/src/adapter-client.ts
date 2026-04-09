@@ -7,7 +7,7 @@ import type {
 import type {
   ApertureRuntimeEvent,
   ApertureRuntimeSnapshot,
-  WorkIngestResponse,
+  WorkReceipt,
 } from "./runtime.js";
 import type { WorkPayload } from "./work-event-ingest.js";
 
@@ -135,8 +135,8 @@ export class ApertureRuntimeAdapterClient {
     await this.refreshState();
   }
 
-  async publishWork(work: WorkPayload): Promise<WorkIngestResponse> {
-    const result = await this.postBase<WorkIngestResponse>(
+  async publishWork(work: WorkPayload): Promise<WorkReceipt> {
+    const result = await this.postBase<WorkReceipt>(
       "/work",
       work,
       typeof work === "string" ? "text/plain" : "application/json",

@@ -126,9 +126,9 @@ export type ApertureRuntime = {
   publishSourceEventBatch(events: SourceEvent[]): void;
 };
 
-export type WorkIngestMode = "text" | "event" | "batch";
+export type WorkReceiptMode = "text" | "event" | "batch";
 
-export type WorkIngestAcceptedItem = {
+export type WorkReceiptItem = {
   taskId: string;
   type: SourceEvent["type"];
   title?: string;
@@ -137,12 +137,19 @@ export type WorkIngestAcceptedItem = {
   interactionId?: string;
 };
 
-export type WorkIngestResponse = {
+export type WorkReceiptNextStep = {
+  when: string;
+  send: "text" | "WorkEvent" | "WorkEvent[]";
+  why: string;
+};
+
+export type WorkReceipt = {
+  ok: true;
   accepted: number;
-  mode: WorkIngestMode;
+  receivedAs: WorkReceiptMode;
   message: string;
-  items: WorkIngestAcceptedItem[];
-  tips?: string[];
+  published: WorkReceiptItem[];
+  next?: WorkReceiptNextStep[];
 };
 
 type SurfaceSession = {
@@ -1021,44 +1028,65 @@ function looksLikeJsonValue(body: string): boolean {
 function describeWorkEndpoint(): {
   path: "/work";
   method: "POST";
-  message: string;
-  accepts: Array<{
-    mode: WorkIngestMode;
+  summary: string;
+  send: Array<{
+    receivedAs: WorkReceiptMode;
     contentType: string;
     body: string;
     bestFor: string;
+    example: string;
   }>;
-  tips: string[];
+  next: WorkReceiptNextStep[];
 } {
   return {
     path: "/work",
     method: "POST",
-    message:
+    summary:
       "Send plain text for the simplest ingress. Send structured WorkEvent JSON when you need stable work ids, richer metadata, or explicit human-input requests.",
-    accepts: [
+    send: [
       {
-        mode: "text",
+        receivedAs: "text",
         contentType: "text/plain",
         body: "string",
         bestFor: "Quick status or progress updates with minimal friction.",
+        example: "Waiting for approval before continuing with the deploy.",
       },
       {
-        mode: "event",
+        receivedAs: "event",
         contentType: "application/json",
         body: "WorkEvent",
         bestFor: "Stable work identity, structured requests, and portable metadata.",
+        example: '{"kind":"work.updated","work":{"id":"task:deploy-42","status":"waiting","summary":"Waiting for approval before continuing."}}',
       },
       {
-        mode: "batch",
+        receivedAs: "batch",
         contentType: "application/json",
         body: "WorkEvent[]",
         bestFor: "Publishing multiple structured work items in one request.",
+        example: '[{"kind":"work.updated","work":{"id":"task:one","status":"running"}},{"kind":"work.updated","work":{"id":"task:two","status":"waiting"}}]',
       },
     ],
-    tips: [
-      "Use plain text first if you only need to say what happened.",
-      "Move to WorkEvent when you need stable work.id across updates.",
-      "Use kind=input.requested with request.kind for approval, choice, or form interactions.",
+    next: [
+      {
+        when: "You only need to say what happened once.",
+        send: "text",
+        why: "This is the lowest-friction path.",
+      },
+      {
+        when: "You need stable identity across updates.",
+        send: "WorkEvent",
+        why: "Use work.id so later updates refer to the same work item.",
+      },
+      {
+        when: "You need explicit approval, choice, or form input.",
+        send: "WorkEvent",
+        why: "Use kind=input.requested with request.kind.",
+      },
+      {
+        when: "You want to publish multiple structured updates at once.",
+        send: "WorkEvent[]",
+        why: "Use a JSON array of WorkEvent objects.",
+      },
     ],
   };
 }
@@ -1066,19 +1094,20 @@ function describeWorkEndpoint(): {
 function describeAcceptedWork(
   payload: ReturnType<typeof normalizeWorkPayload>,
   events: SourceEvent[],
-): WorkIngestResponse {
-  const mode = describeWorkIngestMode(payload);
-  const tips = workIngestTips(mode);
+): WorkReceipt {
+  const mode = describeWorkReceiptMode(payload);
+  const next = workReceiptNext(mode);
   return {
+    ok: true,
     accepted: events.length,
-    mode,
+    receivedAs: mode,
     message: workAcceptedMessage(mode, events.length),
-    items: events.map((event) => describeAcceptedWorkItem(event)),
-    ...(tips !== undefined ? { tips } : {}),
+    published: events.map((event) => describeAcceptedWorkItem(event)),
+    ...(next !== undefined ? { next } : {}),
   };
 }
 
-function describeWorkIngestMode(payload: ReturnType<typeof normalizeWorkPayload>): WorkIngestMode {
+function describeWorkReceiptMode(payload: ReturnType<typeof normalizeWorkPayload>): WorkReceiptMode {
   if (typeof payload === "string") {
     return "text";
   }
@@ -1088,7 +1117,7 @@ function describeWorkIngestMode(payload: ReturnType<typeof normalizeWorkPayload>
   return "event";
 }
 
-function describeAcceptedWorkItem(event: SourceEvent): WorkIngestAcceptedItem {
+function describeAcceptedWorkItem(event: SourceEvent): WorkReceiptItem {
   return {
     taskId: event.taskId,
     type: event.type,
@@ -1099,36 +1128,64 @@ function describeAcceptedWorkItem(event: SourceEvent): WorkIngestAcceptedItem {
   };
 }
 
-function workAcceptedMessage(mode: WorkIngestMode, accepted: number): string {
+function workAcceptedMessage(mode: WorkReceiptMode, accepted: number): string {
   switch (mode) {
     case "text":
       return accepted === 1
-        ? "Accepted plain-text work input."
+        ? "Accepted plain-text work input and mapped it into one standalone work item."
         : `Accepted ${accepted} plain-text work items.`;
     case "event":
-      return "Accepted structured work event.";
+      return "Accepted structured WorkEvent.";
     case "batch":
-      return `Accepted ${accepted} structured work events.`;
+      return `Accepted ${accepted} structured WorkEvent objects.`;
   }
 }
 
-function workIngestTips(mode: WorkIngestMode): string[] | undefined {
+function workReceiptNext(mode: WorkReceiptMode): WorkReceiptNextStep[] | undefined {
   switch (mode) {
     case "text":
       return [
-        "Use a structured WorkEvent with work.id to preserve stable identity across updates.",
-        "Use kind=input.requested with request.kind when you need approval, choice, or form interactions.",
-        "Send an array of WorkEvent objects when you want batch publish behavior.",
+        {
+          when: "You need stable identity across later updates.",
+          send: "WorkEvent",
+          why: "Add work.id so future updates refer to the same work item.",
+        },
+        {
+          when: "You need approval, choice, or form interactions.",
+          send: "WorkEvent",
+          why: "Use kind=input.requested with request.kind.",
+        },
+        {
+          when: "You want batch publish behavior.",
+          send: "WorkEvent[]",
+          why: "Send an array of structured WorkEvent objects.",
+        },
       ];
     case "event":
       return [
-        "Use plain text when you only need the simplest one-off status ingress.",
-        "Send a WorkEvent[] batch when you want to publish multiple work items in one request.",
+        {
+          when: "You only need the simplest one-off status ingress.",
+          send: "text",
+          why: "Plain text is lower friction for one-off updates.",
+        },
+        {
+          when: "You want to publish multiple structured work items in one request.",
+          send: "WorkEvent[]",
+          why: "Send a JSON array of WorkEvent objects.",
+        },
       ];
     case "batch":
       return [
-        "Each batch entry should be a full WorkEvent object.",
-        "Use plain text or a single WorkEvent when you do not need batch behavior.",
+        {
+          when: "Each entry should be a full structured work item.",
+          send: "WorkEvent[]",
+          why: "Batch mode expects each array entry to be a complete WorkEvent object.",
+        },
+        {
+          when: "You do not need batch behavior.",
+          send: "text",
+          why: "Use plain text or a single WorkEvent for lower-friction ingress.",
+        },
       ];
   }
 }

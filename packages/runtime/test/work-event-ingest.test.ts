@@ -91,14 +91,16 @@ test("runtime work endpoint accepts neutral events directly", async () => {
 
     assert.equal(response.status, 200);
     const payload = await response.json() as {
+      ok: boolean;
       accepted: number;
-      mode: string;
-      items: Array<{ taskId: string; interactionId?: string }>;
+      receivedAs: string;
+      published: Array<{ taskId: string; interactionId?: string }>;
     };
+    assert.equal(payload.ok, true);
     assert.equal(payload.accepted, 1);
-    assert.equal(payload.mode, "event");
-    assert.equal(payload.items[0]?.taskId, "task:runtime:approval");
-    assert.equal(payload.items[0]?.interactionId, "interaction:task:runtime:approval:approval");
+    assert.equal(payload.receivedAs, "event");
+    assert.equal(payload.published[0]?.taskId, "task:runtime:approval");
+    assert.equal(payload.published[0]?.interactionId, "interaction:task:runtime:approval:approval");
 
     const active = await waitFor(() => runtime.getCore().getAttentionView().now);
     assert.ok(active);
@@ -120,8 +122,9 @@ test("runtime adapter client can publish neutral events", async () => {
 
   try {
     const result = await client.publishWork(workApprovalEvent("task:client:approval"));
+    assert.equal(result.ok, true);
     assert.equal(result.accepted, 1);
-    assert.equal(result.mode, "event");
+    assert.equal(result.receivedAs, "event");
 
     const active = await waitFor(() => runtime.getCore().getAttentionView().now);
     assert.ok(active);
@@ -146,13 +149,15 @@ test("runtime work endpoint accepts plain text work input", async () => {
 
     assert.equal(response.status, 200);
     const payload = await response.json() as {
+      ok: boolean;
       accepted: number;
-      mode: string;
-      tips?: string[];
+      receivedAs: string;
+      next?: Array<{ send: string }>;
     };
+    assert.equal(payload.ok, true);
     assert.equal(payload.accepted, 1);
-    assert.equal(payload.mode, "text");
-    assert.equal(Array.isArray(payload.tips), true);
+    assert.equal(payload.receivedAs, "text");
+    assert.equal(Array.isArray(payload.next), true);
 
     const [event] = runtime.exportSessionCapture().publishedSourceEvents.slice(-1);
     assert.ok(event);
@@ -174,9 +179,10 @@ test("runtime adapter client can publish plain text work input", async () => {
 
   try {
     const result = await client.publishWork("Blocked on credentials before continuing.");
+    assert.equal(result.ok, true);
     assert.equal(result.accepted, 1);
-    assert.equal(result.mode, "text");
-    assert.equal(result.tips?.some((tip) => tip.includes("structured WorkEvent")), true);
+    assert.equal(result.receivedAs, "text");
+    assert.equal(result.next?.some((step) => step.send === "WorkEvent"), true);
 
     const [event] = runtime.exportSessionCapture().publishedSourceEvents.slice(-1);
     assert.ok(event);
@@ -204,13 +210,15 @@ test("runtime work endpoint accepts raw event batches", async () => {
 
     assert.equal(response.status, 200);
     const payload = await response.json() as {
+      ok: boolean;
       accepted: number;
-      mode: string;
-      items: Array<{ taskId: string }>;
+      receivedAs: string;
+      published: Array<{ taskId: string }>;
     };
+    assert.equal(payload.ok, true);
     assert.equal(payload.accepted, 2);
-    assert.equal(payload.mode, "batch");
-    assert.equal(payload.items.length, 2);
+    assert.equal(payload.receivedAs, "batch");
+    assert.equal(payload.published.length, 2);
   } finally {
     await runtime.close();
   }
@@ -254,11 +262,13 @@ test("runtime accepts choice request options with summaries", async () => {
 
     assert.equal(response.status, 200);
     const payload = await response.json() as {
+      ok: boolean;
       accepted: number;
-      mode: string;
+      receivedAs: string;
     };
+    assert.equal(payload.ok, true);
     assert.equal(payload.accepted, 1);
-    assert.equal(payload.mode, "event");
+    assert.equal(payload.receivedAs, "event");
   } finally {
     await runtime.close();
   }
@@ -333,13 +343,16 @@ test("work endpoint explains itself on GET", async () => {
     const payload = await response.json() as {
       path: string;
       method: string;
-      accepts: Array<{ mode: string }>;
-      tips: string[];
+      summary: string;
+      send: Array<{ receivedAs: string; example: string }>;
+      next: Array<{ send: string }>;
     };
     assert.equal(payload.path, "/work");
     assert.equal(payload.method, "POST");
-    assert.deepEqual(payload.accepts.map((entry) => entry.mode), ["text", "event", "batch"]);
-    assert.equal(payload.tips.some((tip) => tip.includes("input.requested")), true);
+    assert.match(payload.summary, /plain text/i);
+    assert.deepEqual(payload.send.map((entry) => entry.receivedAs), ["text", "event", "batch"]);
+    assert.equal(payload.send[0]?.example.includes("Waiting for approval"), true);
+    assert.equal(payload.next.some((step) => step.send === "WorkEvent"), true);
   } finally {
     await runtime.close();
   }

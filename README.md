@@ -20,6 +20,22 @@ It keeps the agent work that needs you in one place, decides what should be
 `now`, what should wait until `next`, and what should stay `ambient`, and sends
 your answer back into the same loop.
 
+## Getting Started
+
+There are two clean ways to start:
+
+- **Use the product now**
+  - install `@tomismeta/aperture`
+  - run `aperture`
+  - connect Claude Code or OpenCode and use the TUI
+- **Build with the SDK**
+  - install `@tomismeta/aperture-core`
+  - embed `ApertureCore` in-process inside your own host, workflow, or UI
+
+If you need to send external work into a running Aperture product instance, the
+optional local HTTP ingress path is documented in
+[Host-Neutral Ingestion Contract](./docs/product/host-neutral-ingestion-contract.md).
+
 ## Install The Product
 
 Install the CLI/TUI product:
@@ -171,8 +187,8 @@ pnpm aperture
 
 - Product package: [`@tomismeta/aperture`](https://www.npmjs.com/package/@tomismeta/aperture)
 - SDK package: [`@tomismeta/aperture-core`](https://www.npmjs.com/package/@tomismeta/aperture-core)
-- Product release notes: [docs/releases/aperture-v0.2.1.md](./docs/releases/aperture-v0.2.1.md)
-- SDK release notes: [docs/releases/aperture-core-v0.5.0.md](./docs/releases/aperture-core-v0.5.0.md)
+- Product release notes: [docs/releases/aperture-v0.3.0.md](./docs/releases/aperture-v0.3.0.md)
+- SDK release notes: [docs/releases/aperture-core-v0.6.0.md](./docs/releases/aperture-core-v0.6.0.md)
 - Architecture overview: [docs/product/architecture-overview.md](./docs/product/architecture-overview.md)
 - Attention judgment doctrine: [docs/engine/attention-judgment-doctrine.md](./docs/engine/attention-judgment-doctrine.md)
 - Core SDK guide: [packages/core/README.md](./packages/core/README.md)

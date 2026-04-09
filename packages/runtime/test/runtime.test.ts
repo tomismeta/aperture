@@ -99,6 +99,79 @@ test("runtime increments snapshot version when source events change state", asyn
   }
 });
 
+test("runtime engagement route preserves current focus during active operator interaction", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { controlUrl } = await runtime.listen();
+
+  try {
+    const engaged: SourceEvent = {
+      id: "task-engaged:approval",
+      type: "human.input.requested",
+      taskId: "task-engaged",
+      interactionId: "interaction:engaged",
+      timestamp: "2026-03-08T12:00:00.000Z",
+      source: {
+        id: "claude-code:workspace",
+        kind: "claude-code",
+        label: "Claude Code aperture",
+      },
+      title: "Approve engaged deploy",
+      summary: "The current deploy is waiting for approval.",
+      request: { kind: "approval" },
+      riskHint: "low",
+    };
+    const challenger: SourceEvent = {
+      id: "task-challenger:approval",
+      type: "human.input.requested",
+      taskId: "task-challenger",
+      interactionId: "interaction:challenger",
+      timestamp: "2026-03-08T12:01:00.000Z",
+      source: {
+        id: "claude-code:workspace",
+        kind: "claude-code",
+        label: "Claude Code aperture",
+      },
+      title: "Approve fresher deploy",
+      summary: "A stronger follow-up deploy is waiting for approval.",
+      request: { kind: "approval" },
+      riskHint: "medium",
+    };
+
+    const publishEngaged = await fetch(`${controlUrl}/events/source`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event: engaged }),
+    });
+    assert.equal(publishEngaged.status, 200);
+
+    const engage = await fetch(`${controlUrl}/engagement`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        taskId: engaged.taskId,
+        interactionId: "interaction:engaged",
+        durationMs: 200,
+      }),
+    });
+    assert.equal(engage.status, 200);
+
+    const publishChallenger = await fetch(`${controlUrl}/events/source`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event: challenger }),
+    });
+    assert.equal(publishChallenger.status, 200);
+
+    assert.equal(runtime.getCore().getAttentionView().now?.interactionId, "interaction:engaged");
+
+    await sleep(260);
+
+    assert.equal(runtime.getCore().getAttentionView().now?.interactionId, "interaction:challenger");
+  } finally {
+    await runtime.close();
+  }
+});
+
 test("runtime source event endpoint accepts batches directly", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
   const { controlUrl } = await runtime.listen();

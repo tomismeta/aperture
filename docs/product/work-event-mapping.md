@@ -35,10 +35,16 @@ formal contract.
 
 | `WorkEvent` field | `SourceEvent` field | Notes |
 | --- | --- | --- |
-| `id` | `id` | Passed through unchanged. |
+| `specVersion` | n/a | Optional on ingress. Aperture defaults it to `1.0` when omitted. |
+| `id` | `id` | Passed through unchanged when present. Aperture generates one when omitted. |
+| `source` | `source.kind` | Optional on ingress. Aperture defaults it to `urn:aperture:work` when omitted. |
+| `type` | n/a | Optional interoperability field. Aperture routes on `kind` and derives `io.agent.<kind>.v1` when this is omitted. |
 | `time` | `timestamp` | If absent, runtime uses receive-time as the timestamp. |
 | `source` + `actor` | `source` | `source.id = actor.id ?? event.source`, `source.kind = event.source`, `source.label = actor.label` when present. |
 | `work.id` | `taskId` | Passed through unchanged. |
+
+`kind` is the routing field Aperture actually uses.
+`type` is for interoperability and external event metadata, not internal routing.
 
 ## Kind Mapping
 
@@ -58,7 +64,7 @@ formal contract.
 | `facts.activityCategory` | `activityClass` | Mapped only when the category matches a known alias. Unknown values are ignored. |
 | `hints.capabilityFamily` | `semanticHints.toolFamily` | Treated as a suggestion, not an explicit fact. |
 | `hints.activityCategory` | `semanticHints.activityClass` | Mapped only when the category matches a known alias. Unknown values are ignored. |
-| `hints.requestKind` | `semanticHints.intentFrame` | `approval -> approval_request`, `choice -> question_request`, `form -> form_request`. |
+| `hints.requestKind` | `semanticHints.intentFrame` | `approval -> approval_request`, `choice -> question_request`, `form -> form_request`. Useful even on `work.updated` when the host is signaling the likely next request family. |
 | `hints.consequence` | `riskHint` or `semanticHints.consequence` | For `input.requested`, it becomes `riskHint`. For other kinds, it becomes `semanticHints.consequence`. |
 
 This is the main reason the external contract stays useful:
@@ -100,6 +106,31 @@ For `input.requested` events:
 If neither progress nor context items are present, no internal `context` object
 is created.
 
+## Plain-Text Mapping
+
+Plain text is the lowest-friction path:
+
+- `POST /work` with a raw string
+
+The runtime maps it into one standalone `SourceEvent` with:
+
+- a generated `id`
+- the same generated id reused as `taskId`
+- best-effort status inference from the text
+
+Inference behavior:
+
+- looks like completion -> `task.completed`
+- looks like cancellation -> `task.cancelled`
+- looks like failure or timeout -> `task.updated` with `status: "failed"`
+- looks blocked -> `task.updated` with `status: "blocked"`
+- looks waiting on approval/review -> `task.updated` with `status: "waiting"`
+- anything else -> `task.updated` with `status: "running"`
+
+This path is intentionally best-effort.
+If a producer needs stable cross-update identity, explicit request types, or
+portable metadata, it should move up to structured `WorkEvent`.
+
 ## Supported Activity Category Aliases
 
 The current mapper recognizes these external `activityCategory` values:
@@ -124,11 +155,11 @@ These are the main host shapes the current contract is designed to fit.
 
 | Host shape | Example | Why it fits |
 | --- | --- | --- |
-| coding-agent status stream | [coding-agent-status-waiting.json](/Users/tom/dev/aperture/schemas/examples/work-event/coding-agent-status-waiting.json) | Represents a durable task moving through running/waiting/blocked state without inventing judgment. |
-| coding-agent approval gate | [coding-agent-approval-request.json](/Users/tom/dev/aperture/schemas/examples/work-event/coding-agent-approval-request.json) | Fits hosts like Claude Code or Codex when they need an explicit human approval. |
-| remote review or plan selection | [remote-review-choice-request.json](/Users/tom/dev/aperture/schemas/examples/work-event/remote-review-choice-request.json) | Fits remote agent surfaces that need the operator to choose between structured options. |
-| subagent or tool runner failure | [subagent-failure-update.json](/Users/tom/dev/aperture/schemas/examples/work-event/subagent-failure-update.json) | Fits delegated or child execution without forcing the host to publish raw logs. |
-| workflow or task runner completion | [workflow-completed.json](/Users/tom/dev/aperture/schemas/examples/work-event/workflow-completed.json) | Fits CI, deploy, or automation systems reporting durable work completion. |
+| coding-agent status stream | [coding-agent-status-waiting.json](../../schemas/examples/work-event/coding-agent-status-waiting.json) | Represents a durable task moving through running/waiting/blocked state without inventing judgment. |
+| coding-agent approval gate | [coding-agent-approval-request.json](../../schemas/examples/work-event/coding-agent-approval-request.json) | Fits hosts like Claude Code or Codex when they need an explicit human approval. |
+| remote review or plan selection | [remote-review-choice-request.json](../../schemas/examples/work-event/remote-review-choice-request.json) | Fits remote agent surfaces that need the operator to choose between structured options. |
+| subagent or tool runner failure | [subagent-failure-update.json](../../schemas/examples/work-event/subagent-failure-update.json) | Fits delegated or child execution without forcing the host to publish raw logs. |
+| workflow or task runner completion | [workflow-completed.json](../../schemas/examples/work-event/workflow-completed.json) | Fits CI, deploy, or automation systems reporting durable work completion. |
 
 These examples are intentionally scenario-based rather than vendor-branded.
 They should be reusable across hosts with similar shapes.
@@ -137,11 +168,11 @@ They should be reusable across hosts with similar shapes.
 
 The current example suite lives in:
 
-- `/Users/tom/dev/aperture/schemas/examples/work-event/coding-agent-status-waiting.json`
-- `/Users/tom/dev/aperture/schemas/examples/work-event/coding-agent-approval-request.json`
-- `/Users/tom/dev/aperture/schemas/examples/work-event/remote-review-choice-request.json`
-- `/Users/tom/dev/aperture/schemas/examples/work-event/subagent-failure-update.json`
-- `/Users/tom/dev/aperture/schemas/examples/work-event/workflow-completed.json`
+- [coding-agent-status-waiting.json](../../schemas/examples/work-event/coding-agent-status-waiting.json)
+- [coding-agent-approval-request.json](../../schemas/examples/work-event/coding-agent-approval-request.json)
+- [remote-review-choice-request.json](../../schemas/examples/work-event/remote-review-choice-request.json)
+- [subagent-failure-update.json](../../schemas/examples/work-event/subagent-failure-update.json)
+- [workflow-completed.json](../../schemas/examples/work-event/workflow-completed.json)
 
 The runtime test suite consumes these examples directly. That gives us a small
 contract corpus instead of relying only on prose.

@@ -7,7 +7,10 @@ type AttentionViewOptions = {
   globalAttentionState?: AttentionState;
   operatorPresence?: AttentionOperatorPresence;
   now?: string;
+  focusedInteractionId?: string | null;
 };
+
+const FOCUS_HOLD_PREEMPTION_SCORE_GAP = 250;
 
 export function buildAttentionView(
   taskViews: Iterable<AttentionTaskView>,
@@ -53,6 +56,23 @@ export function buildAttentionView(
       now: null,
       next: interruptive,
       ambient,
+    };
+  }
+
+  const heldFocus = resolveHeldFocus(
+    interruptive,
+    ambient,
+    options.focusedInteractionId ?? null,
+    referenceNow,
+  );
+  if (heldFocus) {
+    const isInterruptive = interruptive.some((frame) => frame.interactionId === heldFocus.interactionId);
+    return {
+      now: heldFocus,
+      next: isInterruptive
+        ? interruptive.filter((frame) => frame.interactionId !== heldFocus.interactionId)
+        : interruptive,
+      ambient: ambient.filter((frame) => frame.interactionId !== heldFocus.interactionId),
     };
   }
 
@@ -125,4 +145,47 @@ function latestTimestamp(frames: AttentionFrame[]): string {
   }
 
   return latest;
+}
+
+function resolveHeldFocus(
+  interruptive: AttentionFrame[],
+  ambient: AttentionFrame[],
+  focusedInteractionId: string | null,
+  now: string,
+): AttentionFrame | null {
+  if (!focusedInteractionId) {
+    return null;
+  }
+
+  const held =
+    interruptive.find((frame) => frame.interactionId === focusedInteractionId)
+    ?? ambient.find((frame) => frame.interactionId === focusedInteractionId)
+    ?? null;
+  if (!held) {
+    return null;
+  }
+
+  const contender = interruptive[0] ?? ambient[0] ?? null;
+  if (!contender || contender.interactionId === held.interactionId) {
+    return held;
+  }
+
+  return shouldYieldHeldFocus(held, contender, now) ? null : held;
+}
+
+function shouldYieldHeldFocus(
+  held: AttentionFrame,
+  contender: AttentionFrame,
+  now: string,
+): boolean {
+  if (contender.tone === "critical" && held.tone !== "critical") {
+    return true;
+  }
+
+  if (contender.mode !== "status" && contender.consequence === "high" && held.consequence !== "high") {
+    return true;
+  }
+
+  return scoreAttentionFrame(contender, { now }) - scoreAttentionFrame(held, { now })
+    >= FOCUS_HOLD_PREEMPTION_SCORE_GAP;
 }

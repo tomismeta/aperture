@@ -10,7 +10,7 @@ import type {
   WorkReceipt,
   WorkResponse,
 } from "./runtime.js";
-import type { WorkPayload } from "./work-event-ingest.js";
+import type { WorkInput } from "./work-event-ingest.js";
 
 export type ApertureRuntimeAdapterClientOptions = {
   baseUrl: string;
@@ -136,7 +136,7 @@ export class ApertureRuntimeAdapterClient {
     await this.refreshState();
   }
 
-  async publishWork(work: WorkPayload): Promise<WorkReceipt> {
+  async publishWork(work: WorkInput): Promise<WorkReceipt> {
     const result = await this.postBase<WorkReceipt>(
       "/work",
       work,

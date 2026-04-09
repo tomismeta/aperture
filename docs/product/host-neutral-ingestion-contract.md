@@ -190,6 +190,8 @@ That keeps the public contract neutral and readable while still allowing:
 - easy transport over HTTP, queues, or SDKs
 - clean mapping into Aperture's internal `SourceEvent` seam
 - lossless serialization into CloudEvents when needed
+- a very small first structured step, because Aperture can default the
+  transport-style metadata fields when producers omit them
 
 ## Why `SourceEvent` Should Stay Internal For Now
 
@@ -209,6 +211,27 @@ It is just not the cleanest public contract if the goal is broad adoption.
 ## Structured Event: `WorkEvent`
 
 This is the host-neutral event Aperture should be able to consume.
+At minimum, producers only need:
+
+```json
+{
+  "kind": "work.updated",
+  "work": {
+    "id": "task:deploy-42",
+    "status": "waiting",
+    "summary": "Waiting for approval before continuing."
+  }
+}
+```
+
+Aperture fills these metadata fields when they are omitted:
+
+- `specVersion = "1.0"`
+- generated `id`
+- `source = "urn:aperture:work"`
+- `type = "io.agent.<kind>.v1"`
+
+Richer producers can still send the fuller shape below.
 
 ```json
 {
@@ -318,14 +341,17 @@ This is the full recommended external event shape.
 
 ### Event Metadata
 
-Recommended required top-level fields:
+Required top-level fields:
+
+- `kind`
+- `work`
+
+Optional metadata fields that Aperture can default on ingress:
 
 - `specVersion`
 - `id`
 - `source`
 - `type`
-- `kind`
-- `work`
 
 Recommended optional metadata fields:
 
@@ -347,6 +373,9 @@ Recommended transport mapping:
   metadata and payload fields
   without losing information
 - the naming stays more readable for product and API consumers
+
+`kind` is the field Aperture uses for routing.
+`type` is for interoperability and external event metadata.
 
 ### `kind`
 
@@ -515,7 +544,7 @@ The public contract can stabilize before the internal TypeScript types move.
 
 The first machine-readable versions of this contract live in:
 
-- `/Users/tom/dev/aperture/schemas/work-event.schema.json`
+- [work-event.schema.json](../../schemas/work-event.schema.json)
 
 For the explicit field mapping and canonical example suite, see:
 
@@ -574,11 +603,6 @@ Structured example:
 curl -X POST http://127.0.0.1:4546/work \
   -H 'Content-Type: application/json' \
   -d '{
-    "specVersion": "1.0",
-    "id": "evt_approval_1",
-    "source": "urn:example:custom-agent",
-    "type": "io.agent.input.requested.v1",
-    "time": "2026-04-09T14:00:00Z",
     "kind": "input.requested",
     "work": {
       "id": "task:deploy-42",
@@ -625,6 +649,15 @@ For structured `input.requested` submissions, each published item also includes:
 
 - `interactionId`
 - `responsePath`
+
+Plain-text inference is intentionally best-effort:
+
+- completion-like text -> `task.completed`
+- cancellation-like text -> `task.cancelled`
+- failure-like text -> `task.updated` with `status: "failed"`
+- blocked-like text -> `task.updated` with `status: "blocked"`
+- waiting/review-like text -> `task.updated` with `status: "waiting"`
+- anything else -> `task.updated` with `status: "running"`
 
 Example follow-up:
 

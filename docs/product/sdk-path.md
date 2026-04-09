@@ -24,7 +24,7 @@ Today, the real judgment layer lives in the [Aperture core SDK package](../../pa
 
 Current version:
 
-- `@tomismeta/aperture-core@0.4.2`
+- `@tomismeta/aperture-core@0.6.0`
 
 If you want the opinionated local CLI/TUI product, use `@tomismeta/aperture`.
 If you want to embed the deterministic judgment loop in your own host or
@@ -44,6 +44,33 @@ What is still maturing:
 - ongoing support discipline for the published package
 - feedback from real external consumers
 - long-term boundary decisions around persistence helpers and any future advanced subpaths
+
+## In-Process SDK Versus Running Product
+
+There are two different ways to use Aperture, and they should stay easy to
+separate.
+
+### 1. In-process SDK
+
+Use `@tomismeta/aperture-core` when you want to:
+
+- construct `ApertureCore` directly
+- publish `ApertureEvent` or `SourceEvent`
+- render your own frames, views, and responses
+- keep Aperture inside your own host, workflow, or UI process
+
+This path does **not** require the Aperture product runtime.
+
+### 2. Running Aperture product
+
+Use `@tomismeta/aperture` when you want:
+
+- the local CLI/TUI product
+- the built-in runtime host
+- product-owned persistence and troubleshooting flows
+- optional local product ingress like `/work`
+
+That local ingress belongs to the product/runtime surface, not to the core SDK.
 
 ## Design Principles
 

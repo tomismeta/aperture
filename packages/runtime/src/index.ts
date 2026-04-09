@@ -39,7 +39,7 @@ export type {
   WorkEventContextItem,
   WorkEvent,
   WorkEventKind,
-  WorkPayload,
+  WorkInput,
   WorkEventRequest,
   WorkStatus,
 } from "./work-event-ingest.js";

@@ -1,6 +1,6 @@
 {
   "name": "@tomismeta/aperture-core",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "The deterministic judgment engine inside Aperture.",
   "author": "tomismeta <tomismeta@gmail.com>",
   "license": "MIT",

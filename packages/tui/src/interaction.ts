@@ -11,12 +11,15 @@ import type {
 } from "./types.js";
 import { displaySourceLabel } from "./source-label.js";
 
+const ACTIVE_ENGAGEMENT_HOLD_MS = 15_000;
+
 export function handleActiveKeypress(
   core: AttentionSurface,
   state: TuiState,
   frame: Frame,
   key: { name?: string; sequence?: string },
 ): void {
+  core.engage(frame.taskId, frame.interactionId, { durationMs: ACTIVE_ENGAGEMENT_HOLD_MS });
   const spec = frame.responseSpec;
   if (!spec || spec.kind === "none") {
     return;
@@ -132,6 +135,8 @@ function handleFormKeypress(
     return;
   }
 
+  core.engage(active.taskId, active.interactionId, { durationMs: ACTIVE_ENGAGEMENT_HOLD_MS });
+
   const field = active.responseSpec.fields[draft.fieldIndex];
   if (!field) {
     state.inputDraft = null;
@@ -184,6 +189,8 @@ function handleTextKeypress(
     state.inputDraft = null;
     return;
   }
+
+  core.engage(active.taskId, active.interactionId, { durationMs: ACTIVE_ENGAGEMENT_HOLD_MS });
 
   if (key.name === "escape") {
     state.inputDraft = null;

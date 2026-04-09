@@ -378,6 +378,19 @@ export function createApertureRuntime(
         return;
       }
 
+      if (req.method === "POST" && path === `${controlPathPrefix}/engagement`) {
+        const payload = await readJson(req, bodyLimitBytes);
+        const engagement = validateOperatorEngagement(payload);
+        if (!engagement) {
+          throw new Error("Invalid operator engagement payload.");
+        }
+        core.engage(engagement.taskId, engagement.interactionId, {
+          ...(engagement.durationMs !== undefined ? { durationMs: engagement.durationMs } : {}),
+        });
+        writeJson(res, 200, { engaged: true });
+        return;
+      }
+
       if (req.method === "POST" && path === `${controlPathPrefix}/events/source`) {
         const payload = await readJson(req, bodyLimitBytes);
         const events = normalizeSourceEventPayload(payload);
@@ -841,6 +854,31 @@ function validateAttentionResponse(value: unknown): AttentionResponse | null {
   return null;
 }
 
+function validateOperatorEngagement(
+  value: unknown,
+): { taskId: string; interactionId: string; durationMs?: number } | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (typeof value.taskId !== "string" || typeof value.interactionId !== "string") {
+    return null;
+  }
+
+  if (
+    value.durationMs !== undefined
+    && (typeof value.durationMs !== "number" || !Number.isFinite(value.durationMs) || value.durationMs <= 0)
+  ) {
+    return null;
+  }
+
+  return {
+    taskId: value.taskId,
+    interactionId: value.interactionId,
+    ...(value.durationMs !== undefined ? { durationMs: value.durationMs } : {}),
+  };
+}
+
 function validateSourceEvent(value: unknown): SourceEvent | null {
   if (!isRecord(value) || typeof value.type !== "string" || typeof value.id !== "string" || typeof value.taskId !== "string" || typeof value.timestamp !== "string") {
     return null;
@@ -1024,7 +1062,7 @@ async function readWorkPayload(req: IncomingMessage, bodyLimitBytes: number): Pr
       return JSON.parse(trimmed);
     } catch (error) {
       if (looksLikeJsonValue(trimmed)) {
-        throw new Error(invalidWorkPayloadMessage());
+        throw new Error(invalidWorkPayloadMessage("The request body looked like JSON, but it could not be parsed."));
       }
     }
   }
@@ -1108,7 +1146,7 @@ function describeWorkEndpoint(): {
     path: "/work",
     method: "POST",
     summary:
-      "Send plain text for the simplest ingress. Send structured WorkEvent JSON when you need stable work ids, richer metadata, or explicit human-input requests.",
+      "Send plain text for the simplest ingress. Send structured WorkEvent JSON when you need stable work ids, richer metadata, or explicit human-input requests. Aperture fills specVersion, id, source, and type when you omit them.",
     send: [
       {
         receivedAs: "text",
@@ -1121,7 +1159,7 @@ function describeWorkEndpoint(): {
         receivedAs: "event",
         contentType: "application/json",
         body: "WorkEvent",
-        bestFor: "Stable work identity, structured requests, and portable metadata.",
+        bestFor: "Stable work identity, structured requests, and portable metadata. kind and work are the only required top-level fields.",
         example: '{"kind":"work.updated","work":{"id":"task:deploy-42","status":"waiting","summary":"Waiting for approval before continuing."}}',
       },
       {
@@ -1269,8 +1307,10 @@ function workReceiptNext(mode: WorkReceiptMode): WorkReceiptNextStep[] | undefin
   }
 }
 
-function invalidWorkPayloadMessage(): string {
-  return "Invalid work payload. POST /work accepts plain text, one WorkEvent object, or an array of WorkEvent objects.";
+function invalidWorkPayloadMessage(detail?: string): string {
+  return detail
+    ? `${detail} POST /work accepts plain text, one WorkEvent object, or an array of WorkEvent objects.`
+    : "Invalid work payload. POST /work accepts plain text, one WorkEvent object, or an array of WorkEvent objects.";
 }
 
 function buildWorkResponsePath(interactionId: string): string {

@@ -144,6 +144,16 @@ export class ApertureRuntimeClient {
       .catch(() => {});
   }
 
+  engage(taskId: string, interactionId: string, options: { durationMs?: number } = {}): void {
+    void this.post("/engagement", {
+      taskId,
+      interactionId,
+      ...(options.durationMs !== undefined ? { durationMs: options.durationMs } : {}),
+    })
+      .then(() => this.refreshState())
+      .catch(() => {});
+  }
+
   exportSessionCapture(): Promise<ApertureRuntimeSessionCapture> {
     return this.get<ApertureRuntimeSessionCapture>("/session");
   }

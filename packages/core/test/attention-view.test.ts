@@ -236,3 +236,74 @@ test("aging does not suppress recent critical work during overload", () => {
 
   assert.equal(attentionView.now?.interactionId, "interaction:recent-failed");
 });
+
+test("focus hold preserves the engaged interaction across small interrupt churn", () => {
+  const engaged = createFrame({
+    taskId: "task:engaged",
+    interactionId: "interaction:engaged",
+    mode: "approval",
+    tone: "focused",
+    consequence: "medium",
+    title: "Approve deploy",
+    responseSpec: { kind: "approval", actions: [] },
+    timing: {
+      createdAt: "2026-03-09T12:00:00.000Z",
+      updatedAt: "2026-03-09T12:00:00.000Z",
+    },
+  });
+  const challenger = createFrame({
+    taskId: "task:challenger",
+    interactionId: "interaction:challenger",
+    mode: "approval",
+    tone: "focused",
+    consequence: "medium",
+    title: "Approve follow-up deploy",
+    responseSpec: { kind: "approval", actions: [] },
+    timing: {
+      createdAt: "2026-03-09T12:01:00.000Z",
+      updatedAt: "2026-03-09T12:01:00.000Z",
+    },
+  });
+
+  const attentionView = buildAttentionView(
+    [createTaskView({ now: engaged }), createTaskView({ now: challenger })],
+    {
+      focusedInteractionId: engaged.interactionId,
+      now: "2026-03-09T12:02:00.000Z",
+    },
+  );
+
+  assert.equal(attentionView.now?.interactionId, engaged.interactionId);
+  assert.equal(attentionView.next[0]?.interactionId, challenger.interactionId);
+});
+
+test("focus hold yields to clearly stronger critical interruptions", () => {
+  const engaged = createFrame({
+    taskId: "task:engaged",
+    interactionId: "interaction:engaged",
+    mode: "approval",
+    tone: "focused",
+    consequence: "medium",
+    title: "Approve deploy",
+    responseSpec: { kind: "approval", actions: [] },
+  });
+  const critical = createFrame({
+    taskId: "task:critical",
+    interactionId: "interaction:critical",
+    mode: "approval",
+    tone: "critical",
+    consequence: "high",
+    title: "Critical production rollback",
+    responseSpec: { kind: "approval", actions: [] },
+  });
+
+  const attentionView = buildAttentionView(
+    [createTaskView({ now: engaged }), createTaskView({ now: critical })],
+    {
+      focusedInteractionId: engaged.interactionId,
+      now: "2026-03-09T12:02:00.000Z",
+    },
+  );
+
+  assert.equal(attentionView.now?.interactionId, critical.interactionId);
+});

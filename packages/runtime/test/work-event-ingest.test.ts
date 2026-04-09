@@ -11,11 +11,6 @@ import {
 
 test("maps neutral work.updated events into SourceEvent with facts and hints", () => {
   const event = mapWorkEventToSourceEvent({
-    specVersion: "1.0",
-    id: "evt:deploy:status",
-    source: "urn:example:custom-agent",
-    type: "io.agent.work.updated.v1",
-    time: "2026-04-09T14:00:00Z",
     kind: "work.updated",
     work: {
       id: "task:deploy-42",
@@ -48,6 +43,7 @@ test("maps neutral work.updated events into SourceEvent with facts and hints", (
     activityClass: "permission_request",
     intentFrame: "approval_request",
   });
+  assert.equal(typeof event.id, "string");
 });
 
 test("maps neutral input.requested events into SourceEvent with approval semantics", () => {
@@ -76,6 +72,13 @@ test("maps plain text work input into a standalone SourceEvent", () => {
   assert.equal(event.status, "waiting");
   assert.equal(event.summary, "Waiting for approval before continuing with the deploy.");
   assert.equal(event.taskId.startsWith("work:"), true);
+});
+
+test("maps failed plain text work input into a failed task update", () => {
+  const event = mapWorkTextToSourceEvent("The deployment failed after the smoke test timed out.");
+
+  assert.equal(event.type, "task.updated");
+  assert.equal(event.status, "failed");
 });
 
 test("runtime work endpoint accepts neutral events directly", async () => {
@@ -110,6 +113,44 @@ test("runtime work endpoint accepts neutral events directly", async () => {
     assert.ok(active);
     assert.equal(active?.title, "Approve deploy");
     assert.equal(active?.mode, "approval");
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("runtime work endpoint accepts minimal structured work events and fills metadata defaults", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { baseUrl } = await runtime.listen();
+
+  try {
+    const response = await fetch(`${baseUrl}/work`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kind: "work.updated",
+        work: {
+          id: "task:minimal",
+          status: "waiting",
+          summary: "Waiting for a reviewer.",
+        },
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    const payload = await response.json() as {
+      ok: boolean;
+      accepted: number;
+      published: Array<{ taskId: string }>;
+    };
+    assert.equal(payload.ok, true);
+    assert.equal(payload.accepted, 1);
+    assert.equal(payload.published[0]?.taskId, "task:minimal");
+
+    const [event] = runtime.exportSessionCapture().publishedSourceEvents.slice(-1);
+    assert.ok(event);
+    assert.equal(event.type, "task.updated");
+    assert.equal(event.taskId, "task:minimal");
+    assert.equal(event.status, "waiting");
   } finally {
     await runtime.close();
   }
@@ -409,7 +450,7 @@ test("runtime rejects malformed neutral work payloads", async () => {
 
     assert.equal(response.status, 400);
     const payload = await response.json() as { error: string };
-    assert.match(payload.error, /plain text, one WorkEvent object, or an array of WorkEvent objects/i);
+    assert.match(payload.error, /work\.updated requires work\.status/i);
   } finally {
     await runtime.close();
   }

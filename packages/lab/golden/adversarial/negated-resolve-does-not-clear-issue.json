@@ -1,0 +1,37 @@
+{
+  "id": "golden:adversarial:negated-resolve-does-not-clear-issue",
+  "title": "Negated resolve wording does not clear an issue",
+  "description": "Failure updates that say an issue is not resolved should not invent resolve relation hints just because they contain resolve-like wording.",
+  "doctrineTags": [
+    "semantic_normalization",
+    "semantic_robustness",
+    "relation_semantics",
+    "adversarial_semantics"
+  ],
+  "expectations": {
+    "semanticReadings": [
+      {
+        "stepLabel": "negated resolve status",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "relationKindsExact": []
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "negated resolve status",
+      "event": {
+        "id": "evt:not-resolved",
+        "type": "task.updated",
+        "taskId": "task:not-resolved",
+        "timestamp": "2026-03-20T14:02:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Deploy issue not resolved",
+        "summary": "The production deploy issue is not resolved and did not recover after rollback.",
+        "status": "failed"
+      }
+    }
+  ]
+}

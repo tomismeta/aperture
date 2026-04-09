@@ -165,3 +165,30 @@ test("contextual resolve wording only resolves when issue context is present", (
   );
   assert.deepEqual(detectSemanticRelationHints(withoutIssueContext), []);
 });
+
+test("negated resolve wording does not infer resolved relation hints", () => {
+  const text = normalizeSemanticText(
+    "The deploy issue is not resolved and did not recover after the rollback.",
+  );
+
+  assert.deepEqual(detectSemanticRelationHints(text), []);
+});
+
+test("negated escalation wording does not infer escalating relation hints", () => {
+  const text = normalizeSemanticText(
+    "The deploy issue did not regress after the fix and shows no regression now.",
+  );
+
+  assert.deepEqual(detectSemanticRelationHints(text), []);
+});
+
+test("positive no-longer-blocked wording still infers a resolved relation", () => {
+  const text = normalizeSemanticText(
+    "The deploy issue is no longer blocked after the credentials landed.",
+  );
+
+  assert.deepEqual(
+    detectSemanticRelationHints(text).map((hint) => hint.kind),
+    ["same_issue", "resolves"],
+  );
+});

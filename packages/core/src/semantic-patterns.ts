@@ -151,11 +151,36 @@ export const REPEAT_PHRASES = [
   "recurred",
 ] as const;
 
+export const NEGATED_REPEAT_PHRASES = [
+  "did not repeat",
+  "didn t repeat",
+  "did not return",
+  "didn t return",
+  "did not recur",
+  "didn t recur",
+  "not repeated",
+  "not returning",
+  "not recurring",
+  "no repeat",
+] as const;
+
 export const DIRECT_RESOLVE_PHRASES = [
   "resolved",
   "fixed",
   "unblocked",
   "no longer blocked",
+] as const;
+
+export const NEGATED_RESOLVE_PHRASES = [
+  "not resolved",
+  "did not resolve",
+  "didn t resolve",
+  "not fixed",
+  "did not fix",
+  "didn t fix",
+  "not recovered",
+  "did not recover",
+  "didn t recover",
 ] as const;
 
 export const CONTEXTUAL_RESOLVE_PHRASES = [
@@ -186,6 +211,18 @@ export const ESCALATE_PHRASES = [
   "degraded further",
   "critical now",
   "now failing",
+] as const;
+
+export const NEGATED_ESCALATE_PHRASES = [
+  "did not regress",
+  "didn t regress",
+  "no regression",
+  "not worsening",
+  "did not worsen",
+  "didn t worsen",
+  "not escalating",
+  "did not escalate",
+  "didn t escalate",
 ] as const;
 
 export const ISSUE_SIGNAL_PHRASES = [

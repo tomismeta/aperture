@@ -24,7 +24,7 @@ Today, the real judgment layer lives in the [Aperture core SDK package](../../pa
 
 Current version:
 
-- `@tomismeta/aperture-core@0.5.0`
+- `@tomismeta/aperture-core@0.6.0`
 
 If you want the opinionated local CLI/TUI product, use `@tomismeta/aperture`.
 If you want to embed the deterministic judgment loop in your own host or

@@ -81,6 +81,10 @@ integrations. If you need to send external work into a running Aperture
 instance, see the host-neutral `/work` contract in
 [docs/product/host-neutral-ingestion-contract.md](https://github.com/tomismeta/aperture/blob/main/docs/product/host-neutral-ingestion-contract.md).
 
+If you are troubleshooting a real session from the repo, the quickest bridge
+from a captured bundle into offline review is documented in
+[docs/lab/capture-review-quickstart.md](https://github.com/tomismeta/aperture/blob/main/docs/lab/capture-review-quickstart.md).
+
 ## The Loop
 
 ```text

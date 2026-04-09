@@ -62,6 +62,7 @@
     "release:check": "pnpm typecheck && pnpm boundary:check && pnpm test && pnpm judgment:battle && pnpm sdk:prove && pnpm product:smoke",
     "sdk:prove": "tsx scripts/prove-core-sdk.ts",
     "session:export": "tsx scripts/session-export.ts",
+    "session:review": "tsx scripts/session-review.ts",
     "session:promote": "tsx scripts/session-promote.ts",
     "session:record": "tsx scripts/session-record.ts",
     "serve": "tsx scripts/runtime-server.ts",

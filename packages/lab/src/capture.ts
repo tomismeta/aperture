@@ -1,9 +1,11 @@
 import type { ApertureCoreOptions } from "@tomismeta/aperture-core";
 
 import {
+  defaultOfflineReviewArtifactPath,
   type OfflineReviewArtifact,
   type OfflineReviewFocusArea,
   prepareOfflineReviewArtifact,
+  writeOfflineReviewArtifact,
 } from "./offline-review.js";
 import {
   createSessionBundleFromRuntimeCapture,
@@ -11,6 +13,7 @@ import {
   createTempSessionBundlePath,
   defaultSessionBundlePath,
   DEFAULT_SESSION_BUNDLES_DIR,
+  loadSessionBundle,
   SESSION_BUNDLE_SCHEMA_VERSION,
   sliceRuntimeSessionCapture,
   validateSessionBundle,
@@ -40,6 +43,29 @@ export type CaptureReviewArtifacts = {
   artifact: OfflineReviewArtifact;
 };
 
+export type WriteCaptureReviewArtifactsOptions = CreateCaptureReviewArtifactsOptions & {
+  artifactPath?: string;
+};
+
+export type WrittenCaptureReviewArtifacts = CaptureReviewArtifacts & {
+  bundlePath: string;
+  artifactPath: string;
+};
+
+export type WriteSessionBundleReviewArtifactOptions = {
+  artifactPath?: string;
+  focusAreas?: readonly OfflineReviewFocusArea[];
+  rubricVersion?: string;
+  generatedAt?: string;
+};
+
+export type WrittenSessionBundleReviewArtifact = {
+  bundle: ReplaySessionBundle;
+  bundlePath: string;
+  artifact: OfflineReviewArtifact;
+  artifactPath: string;
+};
+
 export function createCaptureReviewArtifacts(
   capture: RuntimeSessionCaptureLike,
   options: CreateCaptureReviewArtifactsOptions = {},
@@ -63,6 +89,56 @@ export function createCaptureReviewArtifacts(
   return {
     bundle,
     artifact,
+  };
+}
+
+export async function writeCaptureReviewArtifacts(
+  capture: RuntimeSessionCaptureLike,
+  options: WriteCaptureReviewArtifactsOptions = {},
+): Promise<WrittenCaptureReviewArtifacts> {
+  const result = createCaptureReviewArtifacts(capture, options);
+  const bundlePath = options.bundlePath ?? defaultSessionBundlePath(result.bundle);
+  const artifact = result.artifact.bundle.bundlePath === bundlePath
+    ? result.artifact
+    : prepareOfflineReviewArtifact(result.bundle, {
+        bundlePath,
+        ...(options.focusAreas !== undefined ? { focusAreas: options.focusAreas } : {}),
+        ...(options.rubricVersion !== undefined ? { rubricVersion: options.rubricVersion } : {}),
+        ...(options.generatedAt !== undefined ? { generatedAt: options.generatedAt } : {}),
+      });
+  const artifactPath = options.artifactPath ?? defaultOfflineReviewArtifactPath(artifact);
+
+  await writeSessionBundle(bundlePath, result.bundle);
+  await writeOfflineReviewArtifact(artifactPath, artifact);
+
+  return {
+    bundle: result.bundle,
+    artifact,
+    bundlePath,
+    artifactPath,
+  };
+}
+
+export async function writeSessionBundleReviewArtifact(
+  bundlePath: string,
+  options: WriteSessionBundleReviewArtifactOptions = {},
+): Promise<WrittenSessionBundleReviewArtifact> {
+  const bundle = await loadSessionBundle(bundlePath);
+  const artifact = prepareOfflineReviewArtifact(bundle, {
+    bundlePath,
+    ...(options.focusAreas !== undefined ? { focusAreas: options.focusAreas } : {}),
+    ...(options.rubricVersion !== undefined ? { rubricVersion: options.rubricVersion } : {}),
+    ...(options.generatedAt !== undefined ? { generatedAt: options.generatedAt } : {}),
+  });
+  const artifactPath = options.artifactPath ?? defaultOfflineReviewArtifactPath(artifact);
+
+  await writeOfflineReviewArtifact(artifactPath, artifact);
+
+  return {
+    bundle,
+    bundlePath,
+    artifact,
+    artifactPath,
   };
 }
 

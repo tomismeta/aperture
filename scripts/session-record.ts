@@ -9,7 +9,7 @@ import {
   sliceRuntimeSessionCapture,
   writeSessionBundle,
 } from "../packages/lab/src/index.ts";
-import { discoverLocalRuntimes, type ApertureRuntimeSessionCapture } from "../packages/runtime/src/index.ts";
+import { fetchRuntimeSessionCapture, resolveSessionRuntimeUrl } from "./session-support.ts";
 
 type CliOptions = {
   runtimeUrl?: string;
@@ -30,8 +30,11 @@ type CliOptions = {
 
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
-  const runtimeUrl = await resolveRuntimeUrl(options.runtimeUrl);
-  const baseline = await fetchSessionCapture(runtimeUrl);
+  const runtimeUrl = await resolveSessionRuntimeUrl(options.runtimeUrl, {
+    emptyMessage: "No live Aperture runtime found. Start one with `pnpm serve` or `pnpm aperture`.",
+    multipleLabel: "session record",
+  });
+  const baseline = await fetchRuntimeSessionCapture(runtimeUrl);
   const cursor = createRuntimeSessionCaptureCursor(baseline);
   const baselineFrameCount =
     (baseline.currentAttentionView.now ? 1 : 0)
@@ -61,7 +64,7 @@ async function main(): Promise<void> {
     rl.close();
   }
 
-  const capture = await fetchSessionCapture(runtimeUrl);
+  const capture = await fetchRuntimeSessionCapture(runtimeUrl);
   const slicedCapture = sliceRuntimeSessionCapture(capture, cursor);
 
   if (slicedCapture.captureSteps.length === 0) {
@@ -215,33 +218,6 @@ function parseArgs(args: string[]): CliOptions {
   }
 
   return options;
-}
-
-async function resolveRuntimeUrl(explicit?: string): Promise<string> {
-  if (explicit) {
-    return explicit.replace(/\/+$/, "");
-  }
-
-  const envUrl = process.env.APERTURE_RUNTIME_URL;
-  if (envUrl) {
-    return envUrl.replace(/\/+$/, "");
-  }
-
-  const runtimes = await discoverLocalRuntimes({ kind: "aperture" });
-  if (runtimes.length === 0) {
-    throw new Error("No live Aperture runtime found. Start one with `pnpm serve` or `pnpm aperture`.");
-  }
-
-  return runtimes[0]?.controlUrl ?? "http://127.0.0.1:4546/runtime";
-}
-
-async function fetchSessionCapture(runtimeUrl: string): Promise<ApertureRuntimeSessionCapture> {
-  const response = await fetch(`${runtimeUrl}/session`);
-  if (!response.ok) {
-    throw new Error(`Failed to export runtime session capture from ${runtimeUrl} (${response.status})`);
-  }
-
-  return response.json() as Promise<ApertureRuntimeSessionCapture>;
 }
 
 function printHelp(): void {

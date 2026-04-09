@@ -22,7 +22,7 @@ your answer back into the same loop.
 
 ## Getting Started
 
-There are two clean ways to start:
+There are three clean ways to start:
 
 - **Use the product now**
   - install `@tomismeta/aperture`
@@ -31,6 +31,10 @@ There are two clean ways to start:
 - **Build with the SDK**
   - install `@tomismeta/aperture-core`
   - embed `ApertureCore` in-process inside your own host, workflow, or UI
+- **Review a captured session**
+  - use `aperture --capture` or `pnpm session:export`
+  - prepare an offline-review artifact with `pnpm session:review`
+  - inspect it through the Lab review loop
 
 If you need to send external work into a running Aperture product instance, the
 optional local HTTP ingress path is documented in
@@ -171,6 +175,9 @@ To launch the product from source:
 pnpm aperture
 ```
 
+Repo-level examples and capture-review quickstarts live in
+[examples/README.md](./examples/README.md).
+
 ## Package Boundaries
 
 - [`@tomismeta/aperture`](https://www.npmjs.com/package/@tomismeta/aperture)
@@ -193,3 +200,4 @@ pnpm aperture
 - Attention judgment doctrine: [docs/engine/attention-judgment-doctrine.md](./docs/engine/attention-judgment-doctrine.md)
 - Core SDK guide: [packages/core/README.md](./packages/core/README.md)
 - Product package guide: [packages/aperture/README.md](./packages/aperture/README.md)
+- Examples: [examples/README.md](./examples/README.md)

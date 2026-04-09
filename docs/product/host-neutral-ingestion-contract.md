@@ -528,11 +528,24 @@ The current shared runtime can ingest this contract directly over HTTP at:
 - `POST /work`
 - `GET /work`
 
+This is intentionally the producer-facing ingress path.
+The deeper `/runtime/*` control routes still exist for the Aperture product and
+local runtime operations, but they are internal plumbing rather than part of
+the external producer contract.
+
 Accepted request shapes:
 
 - a raw plain-text string
 - a raw `WorkEvent`
 - a raw `WorkEvent[]` batch
+
+Current scope:
+
+- `/work` is the public ingress contract
+- plain text stays one-way and lowest-friction
+- structured `input.requested` events create a public reply loop
+- poll `GET /work/responses/{interactionId}` until the human answer is ready
+- `/runtime/*` remains internal runtime plumbing rather than the public reply path
 
 Self-describing help:
 
@@ -607,6 +620,23 @@ The response is intentionally informative too:
 - `receivedAs`
 - `published`
 - optional `next` steps for richer structured usage
+
+For structured `input.requested` submissions, each published item also includes:
+
+- `interactionId`
+- `responsePath`
+
+Example follow-up:
+
+```bash
+curl http://127.0.0.1:4546/work/responses/interaction%3Adeploy-42%3Aapproval
+```
+
+That returns:
+
+- `state: "pending"` while Aperture is still waiting on a human answer
+- `state: "answered"` once the TUI or another Aperture surface has submitted the response
+- the final `response` object when available
 
 ## Recommendation
 

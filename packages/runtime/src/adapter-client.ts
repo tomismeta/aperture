@@ -8,6 +8,7 @@ import type {
   ApertureRuntimeEvent,
   ApertureRuntimeSnapshot,
   WorkReceipt,
+  WorkResponse,
 } from "./runtime.js";
 import type { WorkPayload } from "./work-event-ingest.js";
 
@@ -145,6 +146,10 @@ export class ApertureRuntimeAdapterClient {
     return result;
   }
 
+  async getWorkResponse(interactionId: string): Promise<WorkResponse> {
+    return this.getBase<WorkResponse>(`/work/responses/${encodeURIComponent(interactionId)}`);
+  }
+
   async submit(response: AttentionResponse): Promise<void> {
     await this.postControl("/responses", response);
     await this.refreshState();
@@ -253,6 +258,14 @@ export class ApertureRuntimeAdapterClient {
       },
       body: typeof body === "string" ? body : JSON.stringify(body),
     });
+    if (!response.ok) {
+      throw new Error(`Aperture runtime request failed: ${response.status} ${response.statusText}`);
+    }
+    return response.json() as Promise<T>;
+  }
+
+  private async getBase<T>(path: string): Promise<T> {
+    const response = await fetch(`${this.baseUrl}${path}`);
     if (!response.ok) {
       throw new Error(`Aperture runtime request failed: ${response.status} ${response.statusText}`);
     }

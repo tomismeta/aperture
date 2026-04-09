@@ -136,6 +136,52 @@ This is the practical implementation form of the main architectural rule:
 
 **Adapters provide facts. Core provides judgment.**
 
+## Runtime Route Taxonomy
+
+The shared runtime now has two different kinds of HTTP surface:
+
+### 1. Product-facing ingress
+
+This is the route we should actively stand behind for low-friction producer integrations:
+
+- `GET /work`
+- `POST /work`
+
+This is the clean host-neutral ingress surface for:
+
+- plain text work reports
+- structured `WorkEvent`
+- `WorkEvent[]` batch publish
+
+This is the route external producers should be guided toward first.
+
+### 2. Internal control surface
+
+These routes exist to run the Aperture product itself and to support in-repo
+surfaces, adapters, debugging, and local runtime management:
+
+- `/runtime/health`
+- `/runtime/state`
+- `/runtime/session`
+- `/runtime/events`
+- `/runtime/events/source`
+- `/runtime/responses`
+- `/runtime/adapters/*`
+- `/runtime/surfaces/*`
+- `/runtime/learning/*`
+
+These are useful and should stay, but they should be thought of as:
+
+- local runtime control routes
+- internal product/runtime plumbing
+- not part of the public Aperture product contract
+
+The simplification rule is:
+
+- keep `/work` small, friendly, and durable
+- keep `/runtime/*` internal and free to evolve with the product
+- do not ask external producers to build against `/runtime/*`
+
 ## Live Path Summary
 
 The live authoritative path is:
@@ -154,6 +200,12 @@ The surrounding layers are still important, but they play different roles:
 - **Operator and Client Surfaces** render and inspect the result
 - **Response Return Path** carries human action back to the source
 - **Offline Evaluation** improves the system without entering the hot path
+
+Plain-text ingress remains one-way by design.
+Structured `input.requested` work now gets a public reply loop under `/work`
+via `GET /work/responses/{interactionId}`.
+The internal `/runtime/*` control surface still exists for the Aperture product
+and in-repo adapters, but it is not the public reply contract.
 
 The generalized ingress path underneath that summary is:
 

@@ -135,6 +135,7 @@ export type WorkReceiptItem = {
   summary?: string;
   status?: string;
   interactionId?: string;
+  responsePath?: string;
 };
 
 export type WorkReceiptNextStep = {
@@ -150,6 +151,18 @@ export type WorkReceipt = {
   message: string;
   published: WorkReceiptItem[];
   next?: WorkReceiptNextStep[];
+};
+
+export type WorkResponseState = "pending" | "answered";
+
+export type WorkResponse = {
+  ok: true;
+  taskId: string;
+  interactionId: string;
+  state: WorkResponseState;
+  message: string;
+  response?: AttentionResponse["response"];
+  answeredAt?: string;
 };
 
 type SurfaceSession = {
@@ -200,6 +213,13 @@ export function createApertureRuntime(
   const startedAt = new Date().toISOString();
   const adapters = new Map<string, AdapterSession>();
   const surfaces = new Map<string, SurfaceSession>();
+  const workResponses = new Map<string, {
+    taskId: string;
+    interactionId: string;
+    state: WorkResponseState;
+    response?: AttentionResponse["response"];
+    answeredAt?: string;
+  }>();
   const events: ApertureRuntimeEvent[] = [];
   const publishedSourceEvents: SourceEvent[] = [];
   const submittedResponses: AttentionResponse[] = [];
@@ -239,6 +259,7 @@ export function createApertureRuntime(
   };
 
   const unsubscribeResponse = core.onResponse((response) => {
+    recordWorkResponse(response);
     pushEvent({ type: "response", response });
     pushBounded(submittedResponses, response);
   });
@@ -373,6 +394,20 @@ export function createApertureRuntime(
         return;
       }
 
+      const workResponseInteractionId = readWorkResponseInteractionId(path);
+      if (req.method === "GET" && workResponseInteractionId !== null) {
+        const workResponse = workResponses.get(workResponseInteractionId);
+        if (!workResponse) {
+          writeJson(res, 404, {
+            error:
+              "No work response found for that interactionId. A public reply loop is created when you POST a structured WorkEvent with kind=input.requested to /work.",
+          });
+          return;
+        }
+        writeJson(res, 200, describeWorkResponse(workResponse));
+        return;
+      }
+
       if (
         req.method === "POST"
         && path === "/work"
@@ -381,6 +416,7 @@ export function createApertureRuntime(
         const normalizedWork = normalizeWorkPayload(payload);
         const events = mapWorkPayloadToSourceEvents(normalizedWork);
         for (const event of events) {
+          registerPendingWorkResponse(event);
           core.publishSourceEvent(event);
           recordPublishedSourceEvent(event);
         }
@@ -678,6 +714,17 @@ export function createApertureRuntime(
     bumpStateVersion();
   }
 
+  function registerPendingWorkResponse(event: SourceEvent): void {
+    if (event.type !== "human.input.requested") {
+      return;
+    }
+    workResponses.set(event.interactionId, {
+      taskId: event.taskId,
+      interactionId: event.interactionId,
+      state: "pending",
+    });
+  }
+
   function recordSubmittedResponse(response: AttentionResponse): void {
     pushBounded(captureSteps, {
       sequence: nextCaptureSequence(),
@@ -686,6 +733,20 @@ export function createApertureRuntime(
       response,
     });
     bumpStateVersion();
+  }
+
+  function recordWorkResponse(response: AttentionResponse): void {
+    const current = workResponses.get(response.interactionId);
+    if (!current) {
+      return;
+    }
+    workResponses.set(response.interactionId, {
+      taskId: response.taskId,
+      interactionId: response.interactionId,
+      state: "answered",
+      response: response.response,
+      answeredAt: new Date().toISOString(),
+    });
   }
 
   function aggregateSurfaceCapabilities(): AttentionSurfaceCapabilities {
@@ -1036,6 +1097,11 @@ function describeWorkEndpoint(): {
     bestFor: string;
     example: string;
   }>;
+  responses: {
+    path: "/work/responses/{interactionId}";
+    bestFor: string;
+    states: WorkResponseState[];
+  };
   next: WorkReceiptNextStep[];
 } {
   return {
@@ -1066,6 +1132,12 @@ function describeWorkEndpoint(): {
         example: '[{"kind":"work.updated","work":{"id":"task:one","status":"running"}},{"kind":"work.updated","work":{"id":"task:two","status":"waiting"}}]',
       },
     ],
+    responses: {
+      path: "/work/responses/{interactionId}",
+      bestFor:
+        "Poll here when a structured WorkEvent with kind=input.requested is waiting on a human answer.",
+      states: ["pending", "answered"],
+    },
     next: [
       {
         when: "You only need to say what happened once.",
@@ -1101,7 +1173,7 @@ function describeAcceptedWork(
     ok: true,
     accepted: events.length,
     receivedAs: mode,
-    message: workAcceptedMessage(mode, events.length),
+    message: workAcceptedMessage(mode, events),
     published: events.map((event) => describeAcceptedWorkItem(event)),
     ...(next !== undefined ? { next } : {}),
   };
@@ -1125,19 +1197,26 @@ function describeAcceptedWorkItem(event: SourceEvent): WorkReceiptItem {
     ...("summary" in event && typeof event.summary === "string" ? { summary: event.summary } : {}),
     ...("status" in event ? { status: event.status } : {}),
     ...("interactionId" in event ? { interactionId: event.interactionId } : {}),
+    ...("interactionId" in event ? { responsePath: buildWorkResponsePath(event.interactionId) } : {}),
   };
 }
 
-function workAcceptedMessage(mode: WorkReceiptMode, accepted: number): string {
+function workAcceptedMessage(mode: WorkReceiptMode, events: SourceEvent[]): string {
+  const accepted = events.length;
+  const hasInteractiveReply = events.some((event) => event.type === "human.input.requested");
   switch (mode) {
     case "text":
       return accepted === 1
         ? "Accepted plain-text work input and mapped it into one standalone work item."
         : `Accepted ${accepted} plain-text work items.`;
     case "event":
-      return "Accepted structured WorkEvent.";
+      return hasInteractiveReply
+        ? "Accepted structured WorkEvent. Poll the returned responsePath for the human answer."
+        : "Accepted structured WorkEvent.";
     case "batch":
-      return `Accepted ${accepted} structured WorkEvent objects.`;
+      return hasInteractiveReply
+        ? `Accepted ${accepted} structured WorkEvent objects. Poll each returned responsePath for human answers.`
+        : `Accepted ${accepted} structured WorkEvent objects.`;
   }
 }
 
@@ -1192,4 +1271,44 @@ function workReceiptNext(mode: WorkReceiptMode): WorkReceiptNextStep[] | undefin
 
 function invalidWorkPayloadMessage(): string {
   return "Invalid work payload. POST /work accepts plain text, one WorkEvent object, or an array of WorkEvent objects.";
+}
+
+function buildWorkResponsePath(interactionId: string): string {
+  return `/work/responses/${encodeURIComponent(interactionId)}`;
+}
+
+function readWorkResponseInteractionId(path: string): string | null {
+  const prefix = "/work/responses/";
+  if (!path.startsWith(prefix)) {
+    return null;
+  }
+  const encoded = path.slice(prefix.length);
+  if (encoded === "" || encoded.includes("/")) {
+    return null;
+  }
+  try {
+    return decodeURIComponent(encoded);
+  } catch {
+    return null;
+  }
+}
+
+function describeWorkResponse(response: {
+  taskId: string;
+  interactionId: string;
+  state: WorkResponseState;
+  response?: AttentionResponse["response"];
+  answeredAt?: string;
+}): WorkResponse {
+  return {
+    ok: true,
+    taskId: response.taskId,
+    interactionId: response.interactionId,
+    state: response.state,
+    message: response.state === "answered"
+      ? "Human response recorded for this interaction."
+      : "Still waiting for a human response.",
+    ...(response.response !== undefined ? { response: response.response } : {}),
+    ...(response.answeredAt !== undefined ? { answeredAt: response.answeredAt } : {}),
+  };
 }

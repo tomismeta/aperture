@@ -94,13 +94,17 @@ test("runtime work endpoint accepts neutral events directly", async () => {
       ok: boolean;
       accepted: number;
       receivedAs: string;
-      published: Array<{ taskId: string; interactionId?: string }>;
+      published: Array<{ taskId: string; interactionId?: string; responsePath?: string }>;
     };
     assert.equal(payload.ok, true);
     assert.equal(payload.accepted, 1);
     assert.equal(payload.receivedAs, "event");
     assert.equal(payload.published[0]?.taskId, "task:runtime:approval");
     assert.equal(payload.published[0]?.interactionId, "interaction:task:runtime:approval:approval");
+    assert.equal(
+      payload.published[0]?.responsePath,
+      "/work/responses/interaction%3Atask%3Aruntime%3Aapproval%3Aapproval",
+    );
 
     const active = await waitFor(() => runtime.getCore().getAttentionView().now);
     assert.ok(active);
@@ -125,6 +129,10 @@ test("runtime adapter client can publish neutral events", async () => {
     assert.equal(result.ok, true);
     assert.equal(result.accepted, 1);
     assert.equal(result.receivedAs, "event");
+    assert.equal(
+      result.published[0]?.responsePath,
+      "/work/responses/interaction%3Atask%3Aclient%3Aapproval%3Aapproval",
+    );
 
     const active = await waitFor(() => runtime.getCore().getAttentionView().now);
     assert.ok(active);
@@ -190,6 +198,110 @@ test("runtime adapter client can publish plain text work input", async () => {
     assert.equal(event.status, "blocked");
   } finally {
     await client.close();
+    await runtime.close();
+  }
+});
+
+test("work response path stays pending until a response is submitted", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { baseUrl } = await runtime.listen();
+  const interactionId = "interaction:task:reply-loop:approval";
+
+  try {
+    const publish = await fetch(`${baseUrl}/work`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(workApprovalEvent("task:reply-loop")),
+    });
+
+    assert.equal(publish.status, 200);
+
+    const pending = await fetch(`${baseUrl}/work/responses/${encodeURIComponent(interactionId)}`);
+    assert.equal(pending.status, 200);
+    const pendingPayload = await pending.json() as {
+      ok: boolean;
+      taskId: string;
+      interactionId: string;
+      state: string;
+      message: string;
+    };
+    assert.equal(pendingPayload.ok, true);
+    assert.equal(pendingPayload.taskId, "task:reply-loop");
+    assert.equal(pendingPayload.interactionId, interactionId);
+    assert.equal(pendingPayload.state, "pending");
+    assert.match(pendingPayload.message, /waiting for a human response/i);
+
+    runtime.getCore().submit({
+      taskId: "task:reply-loop",
+      interactionId,
+      response: { kind: "approved", reason: "Looks good." },
+    });
+
+    const answered = await waitForAsync(async () => {
+      const response = await fetch(`${baseUrl}/work/responses/${encodeURIComponent(interactionId)}`);
+      const payload = await response.json() as {
+        state: string;
+        response?: { kind: string; reason?: string };
+        answeredAt?: string;
+      };
+      return payload.state === "answered" ? payload : null;
+    });
+
+    assert.equal(answered.state, "answered");
+    assert.equal(answered.response?.kind, "approved");
+    assert.equal(answered.response?.reason, "Looks good.");
+    assert.equal(typeof answered.answeredAt, "string");
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("runtime adapter client can poll work responses", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { baseUrl } = await runtime.listen();
+  const client = await ApertureRuntimeAdapterClient.connect({
+    baseUrl,
+    kind: "custom-agent",
+    label: "Neutral ingress",
+  });
+
+  try {
+    const receipt = await client.publishWork(workApprovalEvent("task:client:reply"));
+    const interactionId = receipt.published[0]?.interactionId;
+    assert.equal(typeof interactionId, "string");
+
+    const pending = await client.getWorkResponse(interactionId as string);
+    assert.equal(pending.state, "pending");
+
+    runtime.getCore().submit({
+      taskId: "task:client:reply",
+      interactionId: interactionId as string,
+      response: { kind: "approved" },
+    });
+
+    const answered = await waitForAsync(async () => {
+      const payload = await client.getWorkResponse(interactionId as string);
+      return payload.state === "answered" ? payload : null;
+    });
+
+    assert.equal(answered.state, "answered");
+    assert.equal(answered.response?.kind, "approved");
+  } finally {
+    await client.close();
+    await runtime.close();
+  }
+});
+
+test("work response path returns 404 when no public reply loop exists", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { baseUrl } = await runtime.listen();
+
+  try {
+    const response = await fetch(`${baseUrl}/work/responses/${encodeURIComponent("interaction:missing")}`);
+    assert.equal(response.status, 404);
+    const payload = await response.json() as { error: string };
+    assert.match(payload.error, /no work response found/i);
+  } finally {
     await runtime.close();
   }
 });
@@ -345,6 +457,7 @@ test("work endpoint explains itself on GET", async () => {
       method: string;
       summary: string;
       send: Array<{ receivedAs: string; example: string }>;
+      responses: { path: string; states: string[] };
       next: Array<{ send: string }>;
     };
     assert.equal(payload.path, "/work");
@@ -352,6 +465,8 @@ test("work endpoint explains itself on GET", async () => {
     assert.match(payload.summary, /plain text/i);
     assert.deepEqual(payload.send.map((entry) => entry.receivedAs), ["text", "event", "batch"]);
     assert.equal(payload.send[0]?.example.includes("Waiting for approval"), true);
+    assert.equal(payload.responses.path, "/work/responses/{interactionId}");
+    assert.deepEqual(payload.responses.states, ["pending", "answered"]);
     assert.equal(payload.next.some((step) => step.send === "WorkEvent"), true);
   } finally {
     await runtime.close();
@@ -417,4 +532,23 @@ async function waitFor<T>(
   }
 
   return read() as T;
+}
+
+async function waitForAsync<T>(
+  read: () => Promise<T | null>,
+  options: { timeoutMs?: number; intervalMs?: number } = {},
+): Promise<T> {
+  const timeoutMs = options.timeoutMs ?? 250;
+  const intervalMs = options.intervalMs ?? 10;
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt <= timeoutMs) {
+    const value = await read();
+    if (value !== null) {
+      return value;
+    }
+    await sleep(intervalMs);
+  }
+
+  return await read() as T;
 }

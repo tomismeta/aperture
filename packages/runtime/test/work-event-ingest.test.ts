@@ -90,7 +90,15 @@ test("runtime work endpoint accepts neutral events directly", async () => {
     });
 
     assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { published: 1 });
+    const payload = await response.json() as {
+      accepted: number;
+      mode: string;
+      items: Array<{ taskId: string; interactionId?: string }>;
+    };
+    assert.equal(payload.accepted, 1);
+    assert.equal(payload.mode, "event");
+    assert.equal(payload.items[0]?.taskId, "task:runtime:approval");
+    assert.equal(payload.items[0]?.interactionId, "interaction:task:runtime:approval:approval");
 
     const active = await waitFor(() => runtime.getCore().getAttentionView().now);
     assert.ok(active);
@@ -111,7 +119,9 @@ test("runtime adapter client can publish neutral events", async () => {
   });
 
   try {
-    await client.publishWork(workApprovalEvent("task:client:approval"));
+    const result = await client.publishWork(workApprovalEvent("task:client:approval"));
+    assert.equal(result.accepted, 1);
+    assert.equal(result.mode, "event");
 
     const active = await waitFor(() => runtime.getCore().getAttentionView().now);
     assert.ok(active);
@@ -135,7 +145,14 @@ test("runtime work endpoint accepts plain text work input", async () => {
     });
 
     assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { published: 1 });
+    const payload = await response.json() as {
+      accepted: number;
+      mode: string;
+      tips?: string[];
+    };
+    assert.equal(payload.accepted, 1);
+    assert.equal(payload.mode, "text");
+    assert.equal(Array.isArray(payload.tips), true);
 
     const [event] = runtime.exportSessionCapture().publishedSourceEvents.slice(-1);
     assert.ok(event);
@@ -156,7 +173,10 @@ test("runtime adapter client can publish plain text work input", async () => {
   });
 
   try {
-    await client.publishWork("Blocked on credentials before continuing.");
+    const result = await client.publishWork("Blocked on credentials before continuing.");
+    assert.equal(result.accepted, 1);
+    assert.equal(result.mode, "text");
+    assert.equal(result.tips?.some((tip) => tip.includes("structured WorkEvent")), true);
 
     const [event] = runtime.exportSessionCapture().publishedSourceEvents.slice(-1);
     assert.ok(event);
@@ -183,7 +203,14 @@ test("runtime work endpoint accepts raw event batches", async () => {
     });
 
     assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { published: 2 });
+    const payload = await response.json() as {
+      accepted: number;
+      mode: string;
+      items: Array<{ taskId: string }>;
+    };
+    assert.equal(payload.accepted, 2);
+    assert.equal(payload.mode, "batch");
+    assert.equal(payload.items.length, 2);
   } finally {
     await runtime.close();
   }
@@ -226,7 +253,12 @@ test("runtime accepts choice request options with summaries", async () => {
     });
 
     assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { published: 1 });
+    const payload = await response.json() as {
+      accepted: number;
+      mode: string;
+    };
+    assert.equal(payload.accepted, 1);
+    assert.equal(payload.mode, "event");
   } finally {
     await runtime.close();
   }
@@ -255,7 +287,7 @@ test("runtime rejects malformed neutral work payloads", async () => {
 
     assert.equal(response.status, 400);
     const payload = await response.json() as { error: string };
-    assert.match(payload.error, /invalid work payload/i);
+    assert.match(payload.error, /plain text, one WorkEvent object, or an array of WorkEvent objects/i);
   } finally {
     await runtime.close();
   }
@@ -276,7 +308,7 @@ test("runtime rejects wrapped work payloads instead of supporting compatibility 
 
     assert.equal(wrappedResponse.status, 400);
     const wrappedPayload = await wrappedResponse.json() as { error: string };
-    assert.match(wrappedPayload.error, /invalid work payload/i);
+    assert.match(wrappedPayload.error, /plain text, one WorkEvent object, or an array of WorkEvent objects/i);
 
     const controlResponse = await fetch(`${controlUrl}/work`, {
       method: "POST",
@@ -285,6 +317,29 @@ test("runtime rejects wrapped work payloads instead of supporting compatibility 
     });
 
     assert.equal(controlResponse.status, 404);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("work endpoint explains itself on GET", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { baseUrl } = await runtime.listen();
+
+  try {
+    const response = await fetch(`${baseUrl}/work`);
+    assert.equal(response.status, 200);
+
+    const payload = await response.json() as {
+      path: string;
+      method: string;
+      accepts: Array<{ mode: string }>;
+      tips: string[];
+    };
+    assert.equal(payload.path, "/work");
+    assert.equal(payload.method, "POST");
+    assert.deepEqual(payload.accepts.map((entry) => entry.mode), ["text", "event", "batch"]);
+    assert.equal(payload.tips.some((tip) => tip.includes("input.requested")), true);
   } finally {
     await runtime.close();
   }

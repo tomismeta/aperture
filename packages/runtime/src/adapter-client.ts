@@ -4,7 +4,11 @@ import type {
   SourceEvent,
 } from "@tomismeta/aperture-core";
 
-import type { ApertureRuntimeEvent, ApertureRuntimeSnapshot } from "./runtime.js";
+import type {
+  ApertureRuntimeEvent,
+  ApertureRuntimeSnapshot,
+  WorkIngestResponse,
+} from "./runtime.js";
 import type { WorkPayload } from "./work-event-ingest.js";
 
 export type ApertureRuntimeAdapterClientOptions = {
@@ -131,12 +135,14 @@ export class ApertureRuntimeAdapterClient {
     await this.refreshState();
   }
 
-  async publishWork(work: WorkPayload): Promise<void> {
-    if (Array.isArray(work) && work.length === 0) {
-      return;
-    }
-    await this.postBase("/work", work, typeof work === "string" ? "text/plain" : "application/json");
+  async publishWork(work: WorkPayload): Promise<WorkIngestResponse> {
+    const result = await this.postBase<WorkIngestResponse>(
+      "/work",
+      work,
+      typeof work === "string" ? "text/plain" : "application/json",
+    );
     await this.refreshState();
+    return result;
   }
 
   async submit(response: AttentionResponse): Promise<void> {

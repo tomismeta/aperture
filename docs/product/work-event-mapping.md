@@ -151,6 +151,7 @@ contract corpus instead of relying only on prose.
 The shared runtime accepts this contract at:
 
 - `POST /work`
+- `GET /work`
 
 That endpoint accepts:
 
@@ -160,6 +161,13 @@ That endpoint accepts:
 
 The runtime then maps the submission into `SourceEvent` and publishes it
 through the existing core path.
+
+`GET /work` returns a compact contract description for producers that want the
+endpoint itself to explain:
+
+- the accepted modes
+- the intended use of each mode
+- the next richer structured options available
 
 The runtime path is:
 

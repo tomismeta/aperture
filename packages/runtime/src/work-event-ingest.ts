@@ -167,7 +167,7 @@ export function normalizeWorkPayload(payload: unknown): WorkPayload {
   if (typeof payload === "string") {
     const text = normalizeWorkText(payload);
     if (text.length === 0) {
-      throw new Error("Invalid work payload.");
+      throw new Error("Invalid work payload. POST /work accepts plain text, one WorkEvent object, or an array of WorkEvent objects.");
     }
     return text;
   }
@@ -175,14 +175,14 @@ export function normalizeWorkPayload(payload: unknown): WorkPayload {
   if (Array.isArray(payload)) {
     const events = payload.map((entry) => validateWorkEvent(entry) ? entry : null);
     if (events.some((event) => event === null)) {
-      throw new Error("Invalid work payload.");
+      throw new Error("Invalid work payload. POST /work accepts plain text, one WorkEvent object, or an array of WorkEvent objects.");
     }
     return events as WorkEvent[];
   }
 
   const event = validateWorkEvent(payload) ? payload : null;
   if (!event) {
-    throw new Error("Invalid work payload.");
+    throw new Error("Invalid work payload. POST /work accepts plain text, one WorkEvent object, or an array of WorkEvent objects.");
   }
 
   return event;

@@ -526,12 +526,25 @@ For the explicit field mapping and canonical example suite, see:
 The current shared runtime can ingest this contract directly over HTTP at:
 
 - `POST /work`
+- `GET /work`
 
 Accepted request shapes:
 
 - a raw plain-text string
 - a raw `WorkEvent`
 - a raw `WorkEvent[]` batch
+
+Self-describing help:
+
+```bash
+curl http://127.0.0.1:4546/work
+```
+
+That returns a small JSON description of:
+
+- the accepted modes
+- when to use each one
+- the next richer options available
 
 Simplest example:
 
@@ -585,6 +598,13 @@ Runtime ingest is intentionally simple:
 
 - `POST /work`
 - body: `string`, `WorkEvent`, or `WorkEvent[]`
+
+The response is intentionally informative too:
+
+- `accepted`
+- `mode`
+- accepted item summaries
+- optional tips for richer structured usage
 
 ## Recommendation
 

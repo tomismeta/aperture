@@ -126,6 +126,25 @@ export type ApertureRuntime = {
   publishSourceEventBatch(events: SourceEvent[]): void;
 };
 
+export type WorkIngestMode = "text" | "event" | "batch";
+
+export type WorkIngestAcceptedItem = {
+  taskId: string;
+  type: SourceEvent["type"];
+  title?: string;
+  summary?: string;
+  status?: string;
+  interactionId?: string;
+};
+
+export type WorkIngestResponse = {
+  accepted: number;
+  mode: WorkIngestMode;
+  message: string;
+  items: WorkIngestAcceptedItem[];
+  tips?: string[];
+};
+
 type SurfaceSession = {
   id: string;
   lastSeenAt: number;
@@ -342,17 +361,23 @@ export function createApertureRuntime(
         return;
       }
 
+      if (req.method === "GET" && path === "/work") {
+        writeJson(res, 200, describeWorkEndpoint());
+        return;
+      }
+
       if (
         req.method === "POST"
         && path === "/work"
       ) {
         const payload = await readWorkPayload(req, bodyLimitBytes);
-        const events = mapWorkPayloadToSourceEvents(normalizeWorkPayload(payload));
+        const normalizedWork = normalizeWorkPayload(payload);
+        const events = mapWorkPayloadToSourceEvents(normalizedWork);
         for (const event of events) {
           core.publishSourceEvent(event);
           recordPublishedSourceEvent(event);
         }
-        writeJson(res, 200, { published: events.length });
+        writeJson(res, 200, describeAcceptedWork(normalizedWork, events));
         return;
       }
 
@@ -931,7 +956,7 @@ async function readWorkPayload(req: IncomingMessage, bodyLimitBytes: number): Pr
       return JSON.parse(trimmed);
     } catch (error) {
       if (looksLikeJsonValue(trimmed)) {
-        throw error instanceof Error ? error : new Error("Invalid work payload.");
+        throw new Error(invalidWorkPayloadMessage());
       }
     }
   }
@@ -991,4 +1016,123 @@ function looksLikeJsonContentType(contentTypeHeader: string | string[] | undefin
 
 function looksLikeJsonValue(body: string): boolean {
   return body.startsWith("{") || body.startsWith("[") || body.startsWith("\"");
+}
+
+function describeWorkEndpoint(): {
+  path: "/work";
+  method: "POST";
+  message: string;
+  accepts: Array<{
+    mode: WorkIngestMode;
+    contentType: string;
+    body: string;
+    bestFor: string;
+  }>;
+  tips: string[];
+} {
+  return {
+    path: "/work",
+    method: "POST",
+    message:
+      "Send plain text for the simplest ingress. Send structured WorkEvent JSON when you need stable work ids, richer metadata, or explicit human-input requests.",
+    accepts: [
+      {
+        mode: "text",
+        contentType: "text/plain",
+        body: "string",
+        bestFor: "Quick status or progress updates with minimal friction.",
+      },
+      {
+        mode: "event",
+        contentType: "application/json",
+        body: "WorkEvent",
+        bestFor: "Stable work identity, structured requests, and portable metadata.",
+      },
+      {
+        mode: "batch",
+        contentType: "application/json",
+        body: "WorkEvent[]",
+        bestFor: "Publishing multiple structured work items in one request.",
+      },
+    ],
+    tips: [
+      "Use plain text first if you only need to say what happened.",
+      "Move to WorkEvent when you need stable work.id across updates.",
+      "Use kind=input.requested with request.kind for approval, choice, or form interactions.",
+    ],
+  };
+}
+
+function describeAcceptedWork(
+  payload: ReturnType<typeof normalizeWorkPayload>,
+  events: SourceEvent[],
+): WorkIngestResponse {
+  const mode = describeWorkIngestMode(payload);
+  const tips = workIngestTips(mode);
+  return {
+    accepted: events.length,
+    mode,
+    message: workAcceptedMessage(mode, events.length),
+    items: events.map((event) => describeAcceptedWorkItem(event)),
+    ...(tips !== undefined ? { tips } : {}),
+  };
+}
+
+function describeWorkIngestMode(payload: ReturnType<typeof normalizeWorkPayload>): WorkIngestMode {
+  if (typeof payload === "string") {
+    return "text";
+  }
+  if (Array.isArray(payload)) {
+    return "batch";
+  }
+  return "event";
+}
+
+function describeAcceptedWorkItem(event: SourceEvent): WorkIngestAcceptedItem {
+  return {
+    taskId: event.taskId,
+    type: event.type,
+    ...("title" in event ? { title: event.title } : {}),
+    ...("summary" in event && typeof event.summary === "string" ? { summary: event.summary } : {}),
+    ...("status" in event ? { status: event.status } : {}),
+    ...("interactionId" in event ? { interactionId: event.interactionId } : {}),
+  };
+}
+
+function workAcceptedMessage(mode: WorkIngestMode, accepted: number): string {
+  switch (mode) {
+    case "text":
+      return accepted === 1
+        ? "Accepted plain-text work input."
+        : `Accepted ${accepted} plain-text work items.`;
+    case "event":
+      return "Accepted structured work event.";
+    case "batch":
+      return `Accepted ${accepted} structured work events.`;
+  }
+}
+
+function workIngestTips(mode: WorkIngestMode): string[] | undefined {
+  switch (mode) {
+    case "text":
+      return [
+        "Use a structured WorkEvent with work.id to preserve stable identity across updates.",
+        "Use kind=input.requested with request.kind when you need approval, choice, or form interactions.",
+        "Send an array of WorkEvent objects when you want batch publish behavior.",
+      ];
+    case "event":
+      return [
+        "Use plain text when you only need the simplest one-off status ingress.",
+        "Send a WorkEvent[] batch when you want to publish multiple work items in one request.",
+      ];
+    case "batch":
+      return [
+        "Each batch entry should be a full WorkEvent object.",
+        "Use plain text or a single WorkEvent when you do not need batch behavior.",
+      ];
+  }
+}
+
+function invalidWorkPayloadMessage(): string {
+  return "Invalid work payload. POST /work accepts plain text, one WorkEvent object, or an array of WorkEvent objects.";
 }

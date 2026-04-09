@@ -16,6 +16,7 @@ test("loads the first golden scenarios from disk", async () => {
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:abstained-blocked-like-waiting-stays-next"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:low-confidence-failure-recovers-to-now"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:abstained-blocked-work-recovers-to-now"));
+  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:abstained-inferred-resurfacing-context-anchor-stays-diagnostic"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:question-tool-family-stays-explanatory"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:repeated-failure-same-issue"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:inferred-resurfacing-context-anchor-stays-bundled"));
@@ -109,6 +110,12 @@ test("JudgmentBench runs across the golden scenarios and produces a summary", as
   );
   assert.ok(abstainedBlockedLikeScenario);
   assert.equal(abstainedBlockedLikeScenario?.assertions.every((assertion) => assertion.passed), true);
+
+  const abstainedResurfacingScenario = result.scenarios.find(
+    (scenario) => scenario.scenario.id === "golden:semantics:abstained-inferred-resurfacing-context-anchor-stays-diagnostic",
+  );
+  assert.ok(abstainedResurfacingScenario);
+  assert.equal(abstainedResurfacingScenario?.assertions.every((assertion) => assertion.passed), true);
 
   const negatedResolveScenario = result.scenarios.find(
     (scenario) => scenario.scenario.id === "golden:adversarial:negated-resolve-does-not-clear-issue",

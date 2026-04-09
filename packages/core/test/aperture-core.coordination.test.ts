@@ -631,6 +631,98 @@ test("status updates with shared issue context stay bundled into one episode", (
   assert.equal(candidateTrace.semantic?.impact.continuity?.includes("relations (continuity)"), true);
 });
 
+test("abstained inferred resurfacing stays bundled but keeps episode evidence diagnostic", () => {
+  const core = new ApertureCore();
+  const traces: PublicApertureTrace[] = [];
+  const internalTraces: InternalApertureTrace[] = [];
+  const context = {
+    items: [{ id: "issue", label: "Issue", value: "issue:deploy:prod" }],
+  };
+
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+  subscribeInternalTrace(core, (trace) => {
+    internalTraces.push(trace);
+  });
+
+  core.publish({
+    id: "evt:blocker",
+    taskId: "task:blocker",
+    timestamp: "2026-03-08T12:10:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:blocker",
+    title: "Approve deploy",
+    summary: "A deploy needs approval.",
+    consequence: "high",
+    request: { kind: "approval" },
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:issue:recovery:abstained",
+    type: "task.updated",
+    taskId: "task:issue:a",
+    timestamp: "2026-03-08T12:10:10.000Z",
+    source: { id: "custom-agent" },
+    title: "Deploy recovery status",
+    summary: "Recovery work for the production deploy issue is underway.",
+    status: "running",
+    context,
+  });
+
+  const initialFrame = core.getTaskView("task:issue:a").ambient[0];
+  const initialEpisodeId = readFrameEpisodeId(initialFrame);
+  assert.ok(initialEpisodeId);
+  if (!initialEpisodeId) {
+    return;
+  }
+
+  core.publishSourceEvent({
+    id: "src:status:issue:abstained-regressed",
+    type: "task.updated",
+    taskId: "task:issue:b",
+    timestamp: "2026-03-08T12:10:20.000Z",
+    source: { id: "custom-agent" },
+    title: "Deploy issue may have regressed again",
+    summary: "The production deploy issue may have come back while recovery is still in progress.",
+    status: "waiting",
+    context,
+    semanticHints: {
+      abstained: true,
+    },
+  });
+
+  const candidateTrace = traces.findLast((trace) => trace.event.id === "src:status:issue:abstained-regressed");
+  assert.ok(candidateTrace);
+  if (!candidateTrace || candidateTrace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  const ambientFrame = core.getAttentionView().ambient[0];
+  assert.ok(ambientFrame);
+  if (!ambientFrame) {
+    return;
+  }
+
+  assert.equal(core.getAttentionView().now?.interactionId, "interaction:blocker");
+  assert.equal(readFrameEpisodeId(ambientFrame), initialEpisodeId);
+  assert.equal(ambientFrame.metadata?.episode?.state, "batched");
+  assert.equal(ambientFrame.metadata?.episode?.evidenceScore, 1);
+  assert.deepEqual(
+    ambientFrame.metadata?.episode?.evidenceReasons,
+    ["multiple related interactions have accumulated in this episode"],
+  );
+  assert.equal(candidateTrace.semantic?.abstained, true);
+  const internalTrace = internalTraces.findLast((trace) => trace.event.id === "src:status:issue:abstained-regressed");
+  assert.equal(internalTrace?.evaluation.kind, "candidate");
+  if (!internalTrace || internalTrace.evaluation.kind !== "candidate") {
+    return;
+  }
+  assert.equal(internalTrace.evaluation.adjusted.judgmentInput.relationEvidence?.strength, "weak");
+  assert.equal(candidateTrace.coordination.kind, "ambient");
+  assert.equal(candidateTrace.coordination.resultLane, "ambient");
+});
+
 test("repeated same-episode returns can promote queued episode work back into focus", () => {
   const core = new ApertureCore();
 

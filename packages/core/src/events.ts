@@ -76,6 +76,7 @@ export type TaskUpdatedEvent = EventBase & {
   summary?: string;
   status: TaskStatus;
   progress?: number;
+  context?: AttentionContext;
 };
 export type EnrichedTaskUpdatedEvent = WithRequiredSemantic<TaskUpdatedEvent>;
 

@@ -97,11 +97,19 @@ For `input.requested`, title and summary resolve in this order:
 
 ## Context Mapping
 
-For `input.requested` events:
+For `work.updated` and `input.requested` events:
 
 - `work.progress` maps to `context.progress`
 - `context.items[]` maps to `context.items[]`
 - non-string context item values are stringified
+
+For `input.requested`, that context is used directly for the operator-facing
+frame.
+
+For `work.updated`, that context remains diagnostic and continuity-facing:
+
+- it helps preserve durable anchors like issue ids, file paths, and commands
+- it does not override status authority for routing
 
 If neither progress nor context items are present, no internal `context` object
 is created.

@@ -342,6 +342,10 @@ test("public SDK supports trace inspection through the trace subpath", () => {
     confidence: "low",
     source: "explicit",
   });
+  assert.equal(trace.semantic?.impact.routingAuthority, "request");
+  assert.deepEqual(trace.semantic?.impact.canonical, ["activity (canonical)", "consequence (canonical)"]);
+  assert.deepEqual(trace.semantic?.impact.continuity, []);
+  assert.deepEqual(trace.semantic?.impact.ambiguity, []);
   assert.deepEqual(trace.semantic?.impact.decisionBearing, ["activity (canonical)", "consequence (canonical)"]);
   assert.equal(trace.coordination.kind, "activate");
   assert.equal("policy" in trace, false);

@@ -139,3 +139,33 @@ test("semantic hints override inferred values while preserving merged rationale"
   assert.equal(interpretation.provenance?.intentFrame, "hint");
   assert.equal(interpretation.provenance?.consequence, "hint");
 });
+
+test("negated resolve wording does not invent resolved relation hints", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:not-resolved",
+    type: "task.updated",
+    taskId: "task:not-resolved",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Deploy issue not resolved",
+    summary: "The production deploy issue is not resolved and did not recover after rollback.",
+    status: "failed",
+  });
+
+  assert.deepEqual(interpretation.relationHints, []);
+});
+
+test("negated regression wording does not invent escalating relation hints", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:not-regressed",
+    type: "task.updated",
+    taskId: "task:not-regressed",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Deploy issue did not regress",
+    summary: "The production deploy issue did not regress after the fix and shows no regression now.",
+    status: "running",
+  });
+
+  assert.deepEqual(interpretation.relationHints, []);
+});

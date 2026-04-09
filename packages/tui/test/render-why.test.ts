@@ -163,8 +163,14 @@ test("renderWhyOverlay shows semantic summary and influence notes", () => {
       reasons: ["tool family was supplied by the source or context"],
       influence: ["tool family stayed context-only on the question/form path"],
       impact: {
+        routingAuthority: "request",
         decisionBearing: ["consequence (canonical)"],
         explanatory: ["intent", "tool", "confidence"],
+        canonical: ["consequence (canonical)"],
+        routing: [],
+        continuity: [],
+        ambiguity: [],
+        contextOnly: ["intent", "tool", "confidence"],
       },
       provenance: {
         intentFrame: "inferred",
@@ -188,8 +194,9 @@ test("renderWhyOverlay shows semantic summary and influence notes", () => {
   assert.match(output, /blocking:\s+blocking/);
   assert.match(output, /episode:\s+new/);
   assert.match(output, /source:\s+explicit/);
+  assert.match(output, /authority:\s+request/);
   assert.match(output, /origin:\s+tool from source/);
-  assert.match(output, /affected route:\s+consequence \(canonical\)/);
+  assert.match(output, /canonical:\s+consequence \(canonical\)/);
   assert.match(output, /context only:\s+intent · tool · confidence/);
   assert.match(output, /tool family stayed context-only on the question\/form path/);
   assert.match(output, /basis:\s+tool family was supplied by the source or context/);
@@ -216,8 +223,14 @@ test("renderWhyOverlay shows semantic why-now text when available", () => {
         "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics",
       ],
       impact: {
+        routingAuthority: "status",
         decisionBearing: ["confidence (ambiguity)"],
         explanatory: ["intent", "why now"],
+        canonical: [],
+        routing: [],
+        continuity: [],
+        ambiguity: ["confidence (ambiguity)"],
+        contextOnly: ["intent", "why now"],
       },
       provenance: {
         intentFrame: "inferred",
@@ -233,7 +246,8 @@ test("renderWhyOverlay shows semantic why-now text when available", () => {
   assert.match(output, /Status text implies the operator may need to respond\./);
   assert.match(output, /ask:\s+status/);
   assert.match(output, /blocking:\s+waiting/);
-  assert.match(output, /affected route:\s+confidence \(ambiguity\)/);
+  assert.match(output, /authority:\s+task status/);
+  assert.match(output, /ambiguity:\s+confidence \(ambiguity\)/);
   assert.match(output, /context only:\s+intent · why now/);
   assert.match(output, /task status stayed authoritative/);
   assert.doesNotMatch(output, /origin:/);
@@ -260,8 +274,14 @@ test("renderWhyOverlay shows hint-driven semantic provenance", () => {
       reasons: ["adapter provided a trusted escalation hint"],
       influence: ["semantic consequence set the canonical human-input consequence"],
       impact: {
+        routingAuthority: "request",
         decisionBearing: ["consequence (canonical)"],
         explanatory: ["intent", "why now", "confidence"],
+        canonical: ["consequence (canonical)"],
+        routing: [],
+        continuity: [],
+        ambiguity: [],
+        contextOnly: ["intent", "why now", "confidence"],
       },
       provenance: {
         intentFrame: "inferred",
@@ -275,7 +295,8 @@ test("renderWhyOverlay shows hint-driven semantic provenance", () => {
   ).join("\n");
 
   assert.match(output, /origin:\s+consequence from hint · why now from hint/);
-  assert.match(output, /affected route:\s+consequence \(canonical\)/);
+  assert.match(output, /authority:\s+request/);
+  assert.match(output, /canonical:\s+consequence \(canonical\)/);
   assert.match(output, /context only:\s+intent · why now · confidence/);
   assert.match(output, /A policy escalation requires senior review\./);
 });

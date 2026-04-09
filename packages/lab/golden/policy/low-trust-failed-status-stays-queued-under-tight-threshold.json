@@ -1,0 +1,68 @@
+{
+  "id": "golden:policy:low-trust-failed-status-stays-queued-under-tight-threshold",
+  "title": "Low-trust failed status stays in the queue decision path under a tight threshold",
+  "description": "With a deliberately tight non-blocking activation threshold, durable low source trust should keep borderline failed status work in the queued decision path instead of treating it as a clean interrupt.",
+  "doctrineTags": [
+    "source_trust",
+    "interruption_credibility",
+    "queue_doctrine"
+  ],
+  "core": {
+    "judgmentConfig": {
+      "ambiguityDefaults": {
+        "nonBlockingActivationThreshold": 240
+      }
+    },
+    "memoryProfile": {
+      "version": 1,
+      "operatorId": "default",
+      "updatedAt": "2026-03-12T10:15:00.000Z",
+      "sessionCount": 1,
+      "sourceTrust": {
+        "claude-code": {
+          "high": {
+            "confirmations": 1,
+            "disagreements": 4,
+            "trustAdjustment": -8
+          }
+        }
+      }
+    }
+  },
+  "expectations": {
+    "decisionReadings": [
+      {
+        "stepLabel": "low-trust failed status",
+        "decisionKind": "queue",
+        "semanticConfidence": "high",
+        "semanticImpactDecisionBearingIncludes": [
+          "activity (canonical)"
+        ],
+        "ambiguityReason": "low_signal",
+        "ambiguityResolution": "queue"
+      }
+    ],
+    "traceExpectations": {
+      "ambiguousDecisions": 1
+    }
+  },
+  "steps": [
+    {
+      "kind": "publish",
+      "label": "low-trust failed status",
+      "event": {
+        "id": "evt:failed:low-trust",
+        "taskId": "task:failure",
+        "timestamp": "2026-03-19T12:00:00.000Z",
+        "type": "task.updated",
+        "title": "Production deploy failed",
+        "summary": "The deploy failed and needs review.",
+        "status": "failed",
+        "source": {
+          "id": "session:1",
+          "kind": "claude-code"
+        }
+      }
+    }
+  ]
+}

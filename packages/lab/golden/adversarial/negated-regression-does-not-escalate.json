@@ -1,0 +1,37 @@
+{
+  "id": "golden:adversarial:negated-regression-does-not-escalate",
+  "title": "Negated regression wording does not escalate an issue",
+  "description": "Status updates that say an issue did not regress should not invent escalation relation hints from regression vocabulary alone.",
+  "doctrineTags": [
+    "semantic_normalization",
+    "semantic_robustness",
+    "relation_semantics",
+    "adversarial_semantics"
+  ],
+  "expectations": {
+    "semanticReadings": [
+      {
+        "stepLabel": "negated regression status",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "relationKindsExact": []
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "negated regression status",
+      "event": {
+        "id": "evt:not-regressed",
+        "type": "task.updated",
+        "taskId": "task:not-regressed",
+        "timestamp": "2026-03-20T14:03:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Deploy issue did not regress",
+        "summary": "The production deploy issue did not regress after the fix and shows no regression now.",
+        "status": "running"
+      }
+    }
+  ]
+}

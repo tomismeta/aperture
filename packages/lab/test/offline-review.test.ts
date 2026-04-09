@@ -130,6 +130,27 @@ test("prepareOfflineReviewArtifact distills bundle steps into review-ready snaps
   assert.equal(validateOfflineReviewArtifact(artifact)?.schemaVersion, 1);
 });
 
+test("offline review artifacts preserve bundle explanation summaries when available", () => {
+  const bundle = {
+    ...createSessionBundleFromSweSmithRow(SAMPLE_ROW),
+    explanation: {
+      targetInteractionId: "interaction:example/repo-123.run-42:status",
+      targetLane: "now" as const,
+      headline: "Work has failed and should be reviewed.",
+      whyNow: "Work has failed and should be reviewed.",
+      routingAuthority: "status" as const,
+    },
+  };
+
+  const artifact = prepareOfflineReviewArtifact(bundle);
+  const packet = buildOfflineReviewPromptPacket(artifact);
+
+  assert.equal(artifact.bundle.explanation?.headline, "Work has failed and should be reviewed.");
+  assert.equal(packet.bundle.explanationHeadline, "Work has failed and should be reviewed.");
+  assert.equal(packet.bundle.targetLane, "now");
+  assert.equal(packet.bundle.routingAuthority, "status");
+});
+
 test("readOfflineReviewFocusAreaValue exposes ontology-backed ask, blocking, episode, confidence, and source", () => {
   const bundle = createSessionBundleFromSweSmithRow(SAMPLE_ROW);
   const artifact = prepareOfflineReviewArtifact(bundle);

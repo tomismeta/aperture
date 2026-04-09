@@ -247,6 +247,7 @@ export function mapWorkEventToSourceEvent(event: WorkEvent): SourceEvent {
         throw new Error("work.updated requires a valid work.status.");
       }
       const activityClass = readActivityCategory(normalizedEvent.facts?.activityCategory);
+      const context = mapContext(normalizedEvent);
       return {
         id: normalizedEvent.id,
         type: "task.updated",
@@ -259,6 +260,7 @@ export function mapWorkEventToSourceEvent(event: WorkEvent): SourceEvent {
         ...(normalizedEvent.work.summary !== undefined ? { summary: normalizedEvent.work.summary } : {}),
         status,
         ...(normalizedEvent.work.progress !== undefined ? { progress: normalizedEvent.work.progress } : {}),
+        ...(context !== undefined ? { context } : {}),
         ...mapSharedSemanticHints(normalizedEvent),
       };
     }

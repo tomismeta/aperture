@@ -1,0 +1,129 @@
+{
+  "id": "golden:semantics:abstained-inferred-resurfacing-context-anchor-stays-diagnostic",
+  "title": "Abstained inferred resurfacing stays bundled but diagnostic",
+  "description": "When inferred resurfacing language is anchored by shared issue context but semantic interpretation abstains, Aperture should still bundle the episode while keeping recurrence evidence diagnostic instead of escalating it.",
+  "doctrineTags": [
+    "semantic_normalization",
+    "relation_semantics",
+    "decision_stream_continuity",
+    "ambient_doctrine"
+  ],
+  "semanticFamilies": [
+    "episode_missed"
+  ],
+  "expectations": {
+    "finalNowInteractionId": "interaction:blocker",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [
+      "interaction:task:issue:b:status"
+    ],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 2
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "abstained regressed issue status",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "consequence": "high",
+        "confidence": "high",
+        "abstained": true,
+        "relationKindsInclude": ["same_issue", "repeats", "escalates"],
+        "provenanceIncludes": {
+          "abstained": "hint",
+          "relationHints": "inferred"
+        },
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "blocking": "waiting",
+          "episode": "resurfaced",
+          "source": "hinted"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "abstained regressed issue status",
+        "evaluationKind": "candidate",
+        "decisionKind": "ambient",
+        "resultLane": "ambient",
+        "semanticConfidence": "high",
+        "semanticAbstained": true,
+        "semanticImpactDecisionBearingIncludes": [
+          "activity (canonical)",
+          "relations (continuity)",
+          "abstention (ambiguity)"
+        ],
+        "semanticImpactExplanatoryIncludes": [
+          "intent",
+          "consequence",
+          "confidence"
+        ]
+      }
+    ],
+    "traceExpectations": {
+      "mergedEpisodeUpdates": 1
+    }
+  },
+  "steps": [
+    {
+      "kind": "publish",
+      "label": "blocking approval",
+      "event": {
+        "id": "evt:blocker",
+        "taskId": "task:blocker",
+        "timestamp": "2026-04-09T22:40:00.000Z",
+        "type": "human.input.requested",
+        "interactionId": "interaction:blocker",
+        "title": "Approve deploy",
+        "summary": "A deploy is waiting for approval.",
+        "consequence": "high",
+        "request": { "kind": "approval" }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "initial recovery status",
+      "event": {
+        "id": "evt:issue:recovery:abstained",
+        "type": "task.updated",
+        "taskId": "task:issue:a",
+        "timestamp": "2026-04-09T22:40:10.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Deploy recovery status",
+        "summary": "Recovery work for the production deploy issue is underway.",
+        "status": "running",
+        "context": {
+          "items": [
+            { "id": "issue", "label": "Issue", "value": "issue:deploy:prod" }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "abstained regressed issue status",
+      "event": {
+        "id": "evt:issue:regressed:abstained",
+        "type": "task.updated",
+        "taskId": "task:issue:b",
+        "timestamp": "2026-04-09T22:40:20.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Deploy issue may have regressed again",
+        "summary": "The production deploy issue may have come back while recovery is still in progress.",
+        "status": "waiting",
+        "context": {
+          "items": [
+            { "id": "issue", "label": "Issue", "value": "issue:deploy:prod" }
+          ]
+        },
+        "semanticHints": {
+          "abstained": true
+        }
+      }
+    }
+  ]
+}

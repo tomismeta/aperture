@@ -1,0 +1,100 @@
+{
+  "id": "golden:semantics:low-confidence-blocked-like-waiting-stays-next",
+  "title": "Low-confidence blocked-like waiting stays in next under an active blocker",
+  "description": "When waiting-status text clearly says work cannot continue but the semantic confidence is low, the blocked-like routing floor should still keep the status queue-worthy instead of letting it fade into ambient.",
+  "doctrineTags": [
+    "semantic_normalization",
+    "semantic_ambiguity",
+    "queue_doctrine"
+  ],
+  "semanticFamilies": [
+    "confidence_too_low"
+  ],
+  "expectations": {
+    "finalNowInteractionId": "interaction:approval-anchor:blocked-like-low-confidence",
+    "nextInteractionIds": [
+      "interaction:task:blocked-like-low-confidence:status"
+    ],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 1,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "low-confidence blocked-like waiting",
+        "intentFrame": "blocked_work",
+        "activityClass": "status_update",
+        "consequence": "low",
+        "confidence": "low",
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "blocking": "blocking",
+          "episode": "unknown",
+          "source": "hinted"
+        },
+        "whyNowIncludes": "blocked",
+        "reasonsInclude": [
+          "status wording indicates work cannot continue yet"
+        ]
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "low-confidence blocked-like waiting",
+        "evaluationKind": "candidate",
+        "decisionKind": "queue",
+        "resultLane": "next",
+        "semanticConfidence": "low",
+        "semanticAbstained": false,
+        "ambiguityReason": null,
+        "ambiguityResolution": null,
+        "semanticImpactDecisionBearingIncludes": [
+          "activity (canonical)",
+          "blocking (peripheral routing)",
+          "confidence (ambiguity)"
+        ],
+        "semanticImpactExplanatoryIncludes": [
+          "consequence",
+          "why now"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publish",
+      "label": "approval anchor",
+      "event": {
+        "id": "evt:approval-anchor:blocked-like-low-confidence",
+        "type": "human.input.requested",
+        "taskId": "task:approval-anchor:blocked-like-low-confidence",
+        "interactionId": "interaction:approval-anchor:blocked-like-low-confidence",
+        "timestamp": "2026-04-09T20:00:00.000Z",
+        "title": "Approve deploy",
+        "summary": "A deploy is waiting for approval.",
+        "consequence": "high",
+        "request": { "kind": "approval" }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "low-confidence blocked-like waiting",
+      "event": {
+        "id": "evt:blocked-like-low-confidence",
+        "type": "task.updated",
+        "taskId": "task:blocked-like-low-confidence",
+        "timestamp": "2026-04-09T20:00:10.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Cannot continue until credentials are provided",
+        "summary": "Work is waiting but cannot proceed until the operator provides credentials.",
+        "status": "waiting",
+        "semanticHints": {
+          "confidence": "low"
+        }
+      }
+    }
+  ]
+}

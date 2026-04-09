@@ -37,6 +37,8 @@ export type {
   TraceGateEvaluation,
   TraceInterruptCriterionVerdict,
   TraceResultLane,
+  TraceSemanticImpact,
+  TraceSemanticRoutingAuthority,
   TraceSemanticSummary,
 } from "./trace-common.js";
 

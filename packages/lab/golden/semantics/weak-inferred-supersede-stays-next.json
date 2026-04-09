@@ -1,0 +1,106 @@
+{
+  "id": "golden:semantics:weak-inferred-supersede-stays-next",
+  "title": "Weak inferred superseding approval stays in next",
+  "description": "When superseding language is only inferred from wording, continuity should keep the new approval queued behind the current same-episode step instead of replacing now immediately.",
+  "doctrineTags": [
+    "semantic_normalization",
+    "relation_semantics",
+    "decision_stream_continuity"
+  ],
+  "semanticFamilies": [
+    "episode_missed"
+  ],
+  "expectations": {
+    "finalNowInteractionId": "interaction:deploy:plan",
+    "nextInteractionIds": [
+      "interaction:deploy:rollback"
+    ],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 1,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "weak inferred rollback approval",
+        "intentFrame": "approval_request",
+        "activityClass": "permission_request",
+        "consequence": "high",
+        "confidence": "low",
+        "relationKindsInclude": ["same_issue", "supersedes"]
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "weak inferred rollback approval",
+        "evaluationKind": "candidate",
+        "decisionKind": "queue",
+        "resultLane": "next",
+        "semanticConfidence": "low",
+        "semanticAbstained": false,
+        "semanticImpactDecisionBearingIncludes": [
+          "activity (canonical)",
+          "consequence (canonical)",
+          "relations (continuity)"
+        ],
+        "semanticImpactExplanatoryIncludes": [
+          "intent",
+          "why now",
+          "confidence"
+        ]
+      }
+    ],
+    "explanationExpectation": {
+      "continuityRationaleIncludes": [
+        "related work stays bundled with the current episode already in now"
+      ]
+    }
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "initial deploy approval",
+      "event": {
+        "id": "evt:deploy:plan:weak-supersede",
+        "type": "human.input.requested",
+        "taskId": "task:deploy",
+        "interactionId": "interaction:deploy:plan",
+        "timestamp": "2026-04-09T21:40:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Approve deploy plan",
+        "summary": "Approve the production deploy plan.",
+        "context": {
+          "items": [
+            { "id": "issue", "label": "Issue", "value": "issue:deploy:prod" }
+          ]
+        },
+        "request": {
+          "kind": "approval"
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "weak inferred rollback approval",
+      "event": {
+        "id": "evt:deploy:rollback:weak-supersede",
+        "type": "human.input.requested",
+        "taskId": "task:deploy",
+        "interactionId": "interaction:deploy:rollback",
+        "timestamp": "2026-04-09T21:40:10.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Approve rollback instead",
+        "summary": "Use this rollback plan instead for the same production deploy.",
+        "context": {
+          "items": [
+            { "id": "issue", "label": "Issue", "value": "issue:deploy:prod" }
+          ]
+        },
+        "request": {
+          "kind": "approval"
+        }
+      }
+    }
+  ]
+}

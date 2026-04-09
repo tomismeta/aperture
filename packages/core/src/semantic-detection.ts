@@ -17,6 +17,9 @@ import {
   LINE_NUMBERED_SOURCE_CODE_PATTERN,
   LOG_LIKE_OBSERVATION_PHRASES,
   LOG_OUTPUT_PATTERN,
+  NEGATED_ESCALATE_PHRASES,
+  NEGATED_REPEAT_PHRASES,
+  NEGATED_RESOLVE_PHRASES,
   OBSERVATIONAL_PAYLOAD_PHRASES,
   OBSERVATIONAL_READBACK_PHRASES,
   PATH_LIKE_TOKEN_PATTERN,
@@ -111,13 +114,19 @@ export function detectSemanticBlockingSignal(text: string): SemanticBlockingSign
 
 export function detectSemanticRelationHints(text: string): SemanticRelationHint[] {
   const hints: SemanticRelationHint[] = [];
+  const hasRepeatSignal = containsAnySemanticPhrase(text, REPEAT_PHRASES)
+    && !containsAnySemanticPhrase(text, NEGATED_REPEAT_PHRASES);
+  const hasDirectResolveSignal = containsAnySemanticPhrase(text, DIRECT_RESOLVE_PHRASES)
+    && !containsAnySemanticPhrase(text, NEGATED_RESOLVE_PHRASES);
+  const hasContextualResolveSignal = containsAnySemanticPhrase(text, CONTEXTUAL_RESOLVE_PHRASES)
+    && !containsAnySemanticPhrase(text, NEGATED_RESOLVE_PHRASES);
+  const hasEscalateSignal = containsAnySemanticPhrase(text, ESCALATE_PHRASES)
+    && !containsAnySemanticPhrase(text, NEGATED_ESCALATE_PHRASES);
   const hasIssueSignal = containsAnySemanticPhrase(text, ISSUE_SIGNAL_PHRASES)
     || containsAnySemanticPhrase(text, SUPERSEDE_PHRASES)
-    || containsAnySemanticPhrase(text, ESCALATE_PHRASES);
-  const hasDirectResolveSignal = containsAnySemanticPhrase(text, DIRECT_RESOLVE_PHRASES);
-  const hasContextualResolveSignal = containsAnySemanticPhrase(text, CONTEXTUAL_RESOLVE_PHRASES);
+    || hasEscalateSignal;
 
-  if (containsAnySemanticPhrase(text, REPEAT_PHRASES) && hasIssueSignal) {
+  if (hasRepeatSignal && hasIssueSignal) {
     hints.push({ kind: "same_issue" }, { kind: "repeats" });
   }
 
@@ -129,7 +138,7 @@ export function detectSemanticRelationHints(text: string): SemanticRelationHint[
     hints.push({ kind: "same_issue" }, { kind: "supersedes" });
   }
 
-  if (containsAnySemanticPhrase(text, ESCALATE_PHRASES)) {
+  if (hasEscalateSignal) {
     hints.push({ kind: "same_issue" }, { kind: "escalates" });
   }
 

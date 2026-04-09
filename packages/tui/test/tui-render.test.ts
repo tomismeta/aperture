@@ -1002,8 +1002,14 @@ test("renderAttentionScreen why mode shows semantic interpretation and influence
         "semantic low confidence stayed visible but did not downgrade blocking work",
       ],
       impact: {
+        routingAuthority: "request" as const,
         decisionBearing: ["consequence (canonical)", "relations (continuity)"],
         explanatory: ["intent", "tool", "why now", "confidence"],
+        canonical: ["consequence (canonical)"],
+        routing: [],
+        continuity: ["relations (continuity)"],
+        ambiguity: [],
+        contextOnly: ["intent", "tool", "why now", "confidence"],
       },
       provenance: {
         intentFrame: "inferred" as const,
@@ -1053,7 +1059,9 @@ test("renderAttentionScreen why mode shows semantic interpretation and influence
   assert.match(collapsed, /ask:\s+choice/);
   assert.match(collapsed, /blocking:\s+blocking/);
   assert.match(collapsed, /origin:\s+tool from source/);
-  assert.match(collapsed, /affected route:\s+consequence \(canonical\) · relations \(continuity\)/);
+  assert.match(collapsed, /authority:\s+request/);
+  assert.match(collapsed, /canonical:\s+consequence \(canonical\)/);
+  assert.match(collapsed, /continuity:\s+relations \(continuity\)/);
   assert.match(collapsed, /context only:\s+intent · tool · why now · confidence/);
   assert.match(collapsed, /relations:\s+same_issue, repeats/);
   assert.match(collapsed, /effect:\s+tool family stayed context-only on the question\/form path;/);

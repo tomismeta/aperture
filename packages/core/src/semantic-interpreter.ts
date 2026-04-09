@@ -109,7 +109,7 @@ function inferTaskUpdateSemantics(
   const impliedAsk = detectImpliedOperatorAsk(text);
   const blockingSignal = detectSemanticBlockingSignal(text);
   const relationHints = detectSemanticRelationHints(text);
-  const taxonomyInput = buildTaxonomyInput(event.title, event.summary, event.toolFamily);
+  const taxonomyInput = buildTaxonomyInput(event.title, event.summary, event.toolFamily, event.context);
   const { toolFamily, source: toolFamilySource } = resolveSemanticToolFamily(taxonomyInput, true);
   const relationProvenance = relationHints.length > 0
     ? inferredSemanticProvenance(["relationHints"])

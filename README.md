@@ -20,6 +20,22 @@ It keeps the agent work that needs you in one place, decides what should be
 `now`, what should wait until `next`, and what should stay `ambient`, and sends
 your answer back into the same loop.
 
+## Getting Started
+
+There are two clean ways to start:
+
+- **Use the product now**
+  - install `@tomismeta/aperture`
+  - run `aperture`
+  - connect Claude Code or OpenCode and use the TUI
+- **Build with the SDK**
+  - install `@tomismeta/aperture-core`
+  - embed `ApertureCore` in-process inside your own host, workflow, or UI
+
+If you need to send external work into a running Aperture product instance, the
+optional local HTTP ingress path is documented in
+[Host-Neutral Ingestion Contract](./docs/product/host-neutral-ingestion-contract.md).
+
 ## Install The Product
 
 Install the CLI/TUI product:

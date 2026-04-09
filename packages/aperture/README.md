@@ -21,6 +21,20 @@ It runs as a local CLI/TUI product. Start it with `aperture`, connect your
 agent surfaces, and keep approvals, follow-up questions, failures, and blocked
 work in one place.
 
+## Start Here
+
+Most people should start with `@tomismeta/aperture`.
+
+Use this package when you want:
+
+- the local CLI/TUI product
+- one shared attention surface for agent work
+- built-in Claude Code and OpenCode integration
+- one place to review approvals, follow-ups, failures, and blocked work
+
+If you want to embed Aperture's judgment engine inside your own host or
+workflow instead, use `@tomismeta/aperture-core`.
+
 ## Install
 
 ```bash
@@ -60,6 +74,13 @@ aperture
 - doctor, debug, completion, and uninstall commands
 - replayable capture bundles for troubleshooting real sessions
 
+## Optional Local Integration
+
+Running Aperture also exposes a local product ingress path for advanced
+integrations. If you need to send external work into a running Aperture
+instance, see the host-neutral `/work` contract in
+[docs/product/host-neutral-ingestion-contract.md](https://github.com/tomismeta/aperture/blob/main/docs/product/host-neutral-ingestion-contract.md).
+
 ## The Loop
 
 ```text
@@ -90,20 +111,6 @@ aperture help
 aperture help opencode
 aperture help uninstall
 ```
-
-## Start Here
-
-Most people should start with `@tomismeta/aperture`, not the SDK.
-
-Use this package if you want:
-
-- the local product
-- the TUI
-- Claude Code and OpenCode integration
-- one place for the agent work that needs you
-
-Use `@tomismeta/aperture-core` if you want to build your own runtime, adapter,
-or surface around Aperture's judgment engine.
 
 ## Product State
 
@@ -145,6 +152,6 @@ npm uninstall -g @tomismeta/aperture
 
 - npm package: [`@tomismeta/aperture`](https://www.npmjs.com/package/@tomismeta/aperture)
 - SDK package: [`@tomismeta/aperture-core`](https://www.npmjs.com/package/@tomismeta/aperture-core)
-- Release notes: [Aperture v0.2.0](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-v0.2.0.md)
+- Release notes: [Aperture v0.2.1](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-v0.2.1.md)
 - GitHub repo: [tomismeta/aperture](https://github.com/tomismeta/aperture)
 - Architecture overview: [docs/product/architecture-overview.md](https://github.com/tomismeta/aperture/blob/main/docs/product/architecture-overview.md)

@@ -5,23 +5,28 @@
   "description": "Neutral work event contract for host-agnostic agent and operator systems.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["specVersion", "id", "source", "type", "kind", "work"],
+  "required": ["kind", "work"],
   "properties": {
     "specVersion": {
       "type": "string",
-      "const": "1.0"
+      "const": "1.0",
+      "default": "1.0",
+      "description": "Optional on ingress. Aperture defaults this to 1.0 when omitted."
     },
     "id": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Optional on ingress. Aperture generates an event id when omitted."
     },
     "source": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Optional on ingress. Aperture defaults this to urn:aperture:work when omitted."
     },
     "type": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Optional interoperability field. Aperture routes on kind and derives io.agent.<kind>.v1 when this is omitted."
     },
     "time": {
       "type": "string",
@@ -53,7 +58,8 @@
         "work.completed",
         "work.cancelled",
         "input.requested"
-      ]
+      ],
+      "description": "The routing field Aperture uses to understand what happened."
     },
     "work": {
       "$ref": "#/$defs/work"

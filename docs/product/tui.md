@@ -166,11 +166,14 @@ It is a calm attention surface above the shared judgment engine.
 
 ## Demo
 
-Run the mixed-source TUI demo:
+Run the repo-level mixed-source TUI demo:
 
 ```bash
 pnpm demo:tui
 ```
+
+This demo stays repo-level on purpose. It is not part of the shipped
+`@tomismeta/aperture` product command surface.
 
 Regenerate the scripted demo recording used in the repo:
 

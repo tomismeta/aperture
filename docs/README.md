@@ -14,15 +14,28 @@ The docs are organized into seven groups:
 
 ## Start Here
 
+Choose the path that matches what you are trying to do.
+
+### Use The Product
+
 1. [README](../README.md)
 2. [Aperture v0.2.1](./releases/aperture-v0.2.1.md)
-3. [Aperture Core SDK v0.5.0](./releases/aperture-core-v0.5.0.md)
-4. [Architecture Overview](./product/architecture-overview.md)
-5. [Components](./product/components.md)
-6. [Adapter Contract](./product/adapter-contract.md)
-7. [TUI Surface](./product/tui.md)
+3. [Architecture Overview](./product/architecture-overview.md)
+4. [Components](./product/components.md)
+5. [TUI Surface](./product/tui.md)
 
-If you are new to the repo, that path gives the fastest accurate picture of the product.
+Use this path if you want the local Aperture CLI/TUI product or you want to
+understand the current product surface.
+
+### Build With The SDK
+
+1. [packages/core/README.md](../packages/core/README.md)
+2. [Aperture Core SDK v0.5.0](./releases/aperture-core-v0.5.0.md)
+3. [SDK Path](./product/sdk-path.md)
+4. [Core Mental Model](./engine/core-mental-model.md)
+
+Use this path if you want to embed Aperture's judgment engine in-process inside
+your own runtime, workflow, or UI.
 
 ## Release Notes
 

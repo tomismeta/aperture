@@ -150,7 +150,7 @@ test("runtime engagement route preserves current focus during active operator in
       body: JSON.stringify({
         taskId: engaged.taskId,
         interactionId: "interaction:engaged",
-        durationMs: 40,
+        durationMs: 200,
       }),
     });
     assert.equal(engage.status, 200);
@@ -164,7 +164,7 @@ test("runtime engagement route preserves current focus during active operator in
 
     assert.equal(runtime.getCore().getAttentionView().now?.interactionId, "interaction:engaged");
 
-    await sleep(80);
+    await sleep(260);
 
     assert.equal(runtime.getCore().getAttentionView().now?.interactionId, "interaction:challenger");
   } finally {

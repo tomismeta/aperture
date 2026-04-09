@@ -39,6 +39,8 @@ If you are new to the repo, that path gives the fastest accurate picture of the 
 - [Architecture Overview](./product/architecture-overview.md)
 - [Components](./product/components.md)
 - [Adapter Contract](./product/adapter-contract.md)
+- [Host-Neutral Ingestion Contract](./product/host-neutral-ingestion-contract.md)
+- [Work Event Mapping](./product/work-event-mapping.md)
 - [TUI Surface](./product/tui.md)
 - [SDK Path](./product/sdk-path.md)
 - [Codex Plugin Mockup](./product/codex-plugin-mockup.md)

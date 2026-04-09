@@ -1,0 +1,29 @@
+{
+  "specVersion": "1.0",
+  "id": "evt:agent:deploy:waiting",
+  "source": "urn:example:coding-agent",
+  "type": "io.agent.work.updated.v1",
+  "time": "2026-04-09T14:00:00Z",
+  "subject": "task:deploy-42",
+  "kind": "work.updated",
+  "work": {
+    "id": "task:deploy-42",
+    "title": "Deploy service",
+    "summary": "Waiting for approval before continuing.",
+    "status": "waiting",
+    "progress": 0.7
+  },
+  "actor": {
+    "id": "agent-1",
+    "kind": "agent",
+    "label": "Coding Agent"
+  },
+  "facts": {
+    "capabilityFamily": "deploy",
+    "activityCategory": "status_update"
+  },
+  "hints": {
+    "consequence": "high",
+    "requestKind": "approval"
+  }
+}

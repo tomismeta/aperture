@@ -1,8 +1,9 @@
 # Host Surface Expansion Note
 
-This note captures one near-term SDK opportunity that sits beyond the opinionated
-local TUI: hosts that are conversational, audio-friendly, chat-based, or
-otherwise not shaped like the default Aperture terminal surface.
+This note captures one near-term SDK opportunity that sits beyond the
+opinionated local TUI: hosts that are conversational, audio-friendly,
+chat-based, mobile, remote, or otherwise not shaped like the default Aperture
+terminal surface.
 
 Examples include:
 
@@ -10,18 +11,29 @@ Examples include:
 - a TTS/STT notification path for terminal agents
 - a chat or plugin host that binds to an existing agent session
 
-This is not a new product direction.
+This is not a different product direction from core Aperture.
 
-It is an SDK expansion note about how Aperture should behave when the host is
-not the default TUI.
+It is one expression of the broader direction that Aperture should operate as a
+host-neutral attention and control plane across many host and surface shapes.
 
 ## Why This Matters
 
 Aperture already has the right core loop for alternate hosts:
 
-- `ApertureEvent` or `SourceEvent` in
+- neutral ingestion event or `SourceEvent` in
 - `AttentionFrame` or `AttentionView` out
 - `AttentionResponse` back in
+
+For generalized host ingestion:
+
+- external hosts or APIs should ideally publish a neutral ingestion event
+- internal adapters should map into `SourceEvent`
+- then the core path is:
+  - raw host event -> neutral ingestion event -> `SourceEvent` -> canonical
+    core meaning -> judgment
+
+That is the seam that should let many future hosts integrate without each
+inventing a different core-facing protocol.
 
 That loop is small enough to embed in:
 

@@ -12,6 +12,52 @@ It should answer four questions clearly:
 The goal is not to capture every implementation detail.
 The goal is to keep the main system shape understandable and current.
 
+## Product Direction
+
+Aperture should be understood as a host-neutral attention and control plane for
+agent work.
+
+That means:
+
+- hosts and adapters own execution, transport, and source-native workflows
+- Aperture owns normalized ingestion, semantic interpretation, judgment,
+  review-routing, and state continuity across hosts and surfaces
+- the product gets stronger as more hosts become capable, not weaker
+
+The architectural implication is important:
+
+- Aperture should not compete head-on as another monolithic single-host runtime
+- Aperture should unify policy, review, routing, memory, and explanation across
+  many hosts that each have their own native runtime strengths
+
+## Event Contract Direction
+
+There are three important cross-host event layers:
+
+1. neutral external ingestion event
+   - preferably a single neutral `WorkEvent`
+   - the contract external hosts or ingest APIs should publish when they want
+     a broadly adoptable, non-Aperture-specific schema
+
+2. `SourceEvent`
+   - Aperture's internal host-neutral ingress DTO
+   - thin, factual, adapter-facing
+   - the contract in-repo adapters should publish into core
+
+3. `ApertureEvent`
+   - the canonical core event
+   - normalized meaning ready for core evaluation
+   - better suited for direct engine use when a caller already owns the
+     canonical event shape
+
+The short version is:
+
+- external neutral ingestion event = what a host publishes for interoperability
+- `SourceEvent` = what Aperture accepts as its thin internal ingress DTO
+- `ApertureEvent` is what Aperture canonically judges
+
+That split is how Aperture stays both host-neutral and semantically disciplined.
+
 ## The Main Layering
 
 Aperture is easiest to understand as nine connected layers, with one offline loop
@@ -107,6 +153,13 @@ The surrounding layers are still important, but they play different roles:
 - **Operator and Client Surfaces** render and inspect the result
 - **Response Return Path** carries human action back to the source
 - **Offline Evaluation** improves the system without entering the hot path
+
+The generalized ingress path underneath that summary is:
+
+`raw host event -> neutral ingestion event -> SourceEvent -> ApertureEvent -> EnrichedApertureEvent -> candidate -> judgment -> frame/trace/response`
+
+That is the main architectural answer to “how can Aperture stay host-neutral
+without becoming vague?”
 
 ## Architectural Rule
 

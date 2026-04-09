@@ -5,6 +5,7 @@ import type {
 } from "@tomismeta/aperture-core";
 
 import type { ApertureRuntimeEvent, ApertureRuntimeSnapshot } from "./runtime.js";
+import type { WorkEvent } from "./work-event-ingest.js";
 
 export type ApertureRuntimeAdapterClientOptions = {
   baseUrl: string;
@@ -23,6 +24,7 @@ const DEFAULT_POLL_INTERVAL_MS = 250;
 
 export class ApertureRuntimeAdapterClient {
   private readonly baseUrl: string;
+  private readonly controlUrl: string;
   private readonly kind: string;
   private readonly requestedId: string | undefined;
   private readonly label: string | undefined;
@@ -81,7 +83,9 @@ export class ApertureRuntimeAdapterClient {
   };
 
   private constructor(options: ApertureRuntimeAdapterClientOptions) {
-    this.baseUrl = options.baseUrl.replace(/\/+$/, "");
+    const runtimeUrls = normalizeRuntimeUrls(options.baseUrl);
+    this.baseUrl = runtimeUrls.baseUrl;
+    this.controlUrl = runtimeUrls.controlUrl;
     this.kind = options.kind;
     this.requestedId = options.id;
     this.label = options.label;
@@ -115,7 +119,7 @@ export class ApertureRuntimeAdapterClient {
   }
 
   async publishSourceEvent(event: SourceEvent): Promise<void> {
-    await this.post("/events/source", { event });
+    await this.postControl("/events/source", { event });
     await this.refreshState();
   }
 
@@ -123,12 +127,25 @@ export class ApertureRuntimeAdapterClient {
     if (events.length === 0) {
       return;
     }
-    await this.post("/events/source", { events });
+    await this.postControl("/events/source", { events });
+    await this.refreshState();
+  }
+
+  async publishWorkEvent(event: WorkEvent): Promise<void> {
+    await this.postBase("/work", event);
+    await this.refreshState();
+  }
+
+  async publishWorkEventBatch(events: WorkEvent[]): Promise<void> {
+    if (events.length === 0) {
+      return;
+    }
+    await this.postBase("/work", events);
     await this.refreshState();
   }
 
   async submit(response: AttentionResponse): Promise<void> {
-    await this.post("/responses", response);
+    await this.postControl("/responses", response);
     await this.refreshState();
   }
 
@@ -143,7 +160,7 @@ export class ApertureRuntimeAdapterClient {
       this.pollIntervalId = null;
     }
     if (this.adapterId) {
-      await fetch(`${this.baseUrl}/adapters/${encodeURIComponent(this.adapterId)}`, {
+      await fetch(`${this.controlUrl}/adapters/${encodeURIComponent(this.adapterId)}`, {
         method: "DELETE",
       }).catch(() => {});
       this.adapterId = null;
@@ -151,7 +168,7 @@ export class ApertureRuntimeAdapterClient {
   }
 
   private async initialize(): Promise<void> {
-    const attach = await this.post<{ adapterId: string; heartbeatIntervalMs: number }>(
+    const attach = await this.postControl<{ adapterId: string; heartbeatIntervalMs: number }>(
       "/adapters/register",
       {
         kind: this.kind,
@@ -170,7 +187,7 @@ export class ApertureRuntimeAdapterClient {
       if (!this.adapterId || this.closed) {
         return;
       }
-      void this.post(`/adapters/${encodeURIComponent(this.adapterId)}/heartbeat`, {}).catch(() => {});
+      void this.postControl(`/adapters/${encodeURIComponent(this.adapterId)}/heartbeat`, {}).catch(() => {});
     }, heartbeatMs);
     this.pollIntervalId = setInterval(() => {
       void this.poll().catch(() => {});
@@ -181,7 +198,7 @@ export class ApertureRuntimeAdapterClient {
     if (this.closed) {
       return;
     }
-    const payload = await this.get<{ events: ApertureRuntimeEvent[]; nextSequence: number; stateVersion: number }>(
+    const payload = await this.getControl<{ events: ApertureRuntimeEvent[]; nextSequence: number; stateVersion: number }>(
       `/events?since=${this.nextSequence}`,
     );
     this.nextSequence = payload.nextSequence;
@@ -198,18 +215,32 @@ export class ApertureRuntimeAdapterClient {
   }
 
   private async refreshState(): Promise<void> {
-    this.snapshotState = await this.get<ApertureRuntimeSnapshot>("/state");
+    this.snapshotState = await this.getControl<ApertureRuntimeSnapshot>("/state");
   }
 
-  private async get<T>(path: string): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`);
+  private async getControl<T>(path: string): Promise<T> {
+    const response = await fetch(`${this.controlUrl}${path}`);
     if (!response.ok) {
       throw new Error(`Aperture runtime request failed: ${response.status} ${response.statusText}`);
     }
     return response.json() as Promise<T>;
   }
 
-  private async post<T = Record<string, never>>(path: string, body: unknown): Promise<T> {
+  private async postControl<T = Record<string, never>>(path: string, body: unknown): Promise<T> {
+    const response = await fetch(`${this.controlUrl}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      throw new Error(`Aperture runtime request failed: ${response.status} ${response.statusText}`);
+    }
+    return response.json() as Promise<T>;
+  }
+
+  private async postBase<T = Record<string, never>>(path: string, body: unknown): Promise<T> {
     const response = await fetch(`${this.baseUrl}${path}`, {
       method: "POST",
       headers: {
@@ -222,4 +253,18 @@ export class ApertureRuntimeAdapterClient {
     }
     return response.json() as Promise<T>;
   }
+}
+
+function normalizeRuntimeUrls(input: string): { baseUrl: string; controlUrl: string } {
+  const normalized = input.replace(/\/+$/, "");
+  if (normalized.endsWith("/runtime")) {
+    return {
+      baseUrl: normalized.slice(0, -"/runtime".length),
+      controlUrl: normalized,
+    };
+  }
+  return {
+    baseUrl: normalized,
+    controlUrl: `${normalized}/runtime`,
+  };
 }

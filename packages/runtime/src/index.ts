@@ -29,3 +29,10 @@ export {
   type LearningMode,
   type LearningPersistenceState,
 } from "./learning-persistence.js";
+export type {
+  WorkEventContextItem,
+  WorkEvent,
+  WorkEventKind,
+  WorkEventRequest,
+  WorkStatus,
+} from "./work-event-ingest.js";

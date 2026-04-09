@@ -23,6 +23,10 @@ import {
   removeLocalRuntimeRegistration,
   writeLocalRuntimeRegistration,
 } from "./runtime-discovery.js";
+import {
+  mapWorkEventToSourceEvent,
+  normalizeWorkEventPayload,
+} from "./work-event-ingest.js";
 
 export type ApertureRuntimeOptions = {
   kind?: string;
@@ -108,6 +112,7 @@ export type ApertureRuntimeAdapter = {
 
 export type ApertureRuntime = {
   listen(): Promise<{
+    baseUrl: string;
     controlUrl: string;
     runtimeId: string;
     kind: string;
@@ -337,6 +342,21 @@ export function createApertureRuntime(
         return;
       }
 
+      if (
+        req.method === "POST"
+        && path === "/work"
+      ) {
+        const payload = await readJson(req, bodyLimitBytes);
+        const workEvents = normalizeWorkEventPayload(payload);
+        const events = workEvents.map((event) => mapWorkEventToSourceEvent(event));
+        for (const event of events) {
+          core.publishSourceEvent(event);
+          recordPublishedSourceEvent(event);
+        }
+        writeJson(res, 200, { published: events.length });
+        return;
+      }
+
       if (req.method === "POST" && path === `${controlPathPrefix}/adapters/register`) {
         const payload = (await readJson(req, bodyLimitBytes)) as {
           id?: string;
@@ -467,6 +487,7 @@ export function createApertureRuntime(
       }
 
       const binding = {
+        baseUrl: `http://${controlHost}:${address.port}`,
         controlUrl: `http://${controlHost}:${address.port}${controlPathPrefix}`,
       };
 
@@ -476,6 +497,7 @@ export function createApertureRuntime(
       }, REGISTRATION_HEARTBEAT_MS);
 
       return {
+        baseUrl: binding.baseUrl,
         controlUrl: binding.controlUrl,
         runtimeId,
         kind,

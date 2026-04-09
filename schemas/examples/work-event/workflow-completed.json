@@ -1,0 +1,23 @@
+{
+  "specVersion": "1.0",
+  "id": "evt:workflow:nightly:completed",
+  "source": "urn:example:workflow-runner",
+  "type": "io.agent.work.completed.v1",
+  "time": "2026-04-09T14:20:00Z",
+  "subject": "task:nightly-maintenance",
+  "kind": "work.completed",
+  "work": {
+    "id": "task:nightly-maintenance",
+    "title": "Nightly maintenance run",
+    "summary": "Maintenance tasks completed successfully."
+  },
+  "actor": {
+    "id": "scheduler",
+    "kind": "system",
+    "label": "Workflow Runner"
+  },
+  "facts": {
+    "capabilityFamily": "maintenance",
+    "activityCategory": "completion"
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "specVersion": "1.0",
+  "id": "evt:review:rollout:choice",
+  "source": "urn:example:cloud-review-agent",
+  "type": "io.agent.input.requested.v1",
+  "time": "2026-04-09T14:10:00Z",
+  "subject": "task:rollout-17",
+  "trace": {
+    "traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+  },
+  "run": {
+    "sessionId": "sess:rollout-17",
+    "runId": "run:rollout-17:plan"
+  },
+  "kind": "input.requested",
+  "work": {
+    "id": "task:rollout-17",
+    "title": "Choose rollout plan",
+    "summary": "The agent needs a rollout strategy before continuing.",
+    "progress": 0.45
+  },
+  "actor": {
+    "id": "review-agent-1",
+    "kind": "agent",
+    "label": "Remote Review Agent"
+  },
+  "interaction": {
+    "id": "interaction:rollout-17:plan"
+  },
+  "request": {
+    "kind": "choice",
+    "title": "Select rollout plan",
+    "summary": "Choose how the release should be rolled out.",
+    "selectionMode": "single",
+    "options": [
+      {
+        "id": "canary",
+        "label": "Canary",
+        "summary": "Release to a small slice of traffic first."
+      },
+      {
+        "id": "full",
+        "label": "Full rollout",
+        "summary": "Release to all traffic immediately."
+      }
+    ]
+  },
+  "facts": {
+    "capabilityFamily": "review",
+    "activityCategory": "question_request"
+  },
+  "context": {
+    "items": [
+      {
+        "id": "pr",
+        "label": "Pull request",
+        "value": "PR-241"
+      },
+      {
+        "id": "environment",
+        "label": "Environment",
+        "value": "production"
+      }
+    ]
+  }
+}

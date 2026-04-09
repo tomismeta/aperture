@@ -1,0 +1,118 @@
+{
+  "id": "golden:semantics:inferred-resurfacing-context-anchor-stays-bundled",
+  "title": "Inferred resurfacing stays bundled when context carries the issue anchor",
+  "description": "When status updates share an issue anchor through context, inferred resurfacing wording should merge into the same episode instead of drifting into a separate one.",
+  "doctrineTags": [
+    "semantic_normalization",
+    "relation_semantics",
+    "decision_stream_continuity",
+    "ambient_doctrine"
+  ],
+  "semanticFamilies": [
+    "episode_missed"
+  ],
+  "expectations": {
+    "finalNowInteractionId": "interaction:blocker",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [
+      "interaction:task:issue:b:status"
+    ],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 2
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "regressed issue status",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "consequence": "high",
+        "relationKindsInclude": ["same_issue", "repeats", "escalates"],
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "blocking": "waiting",
+          "episode": "resurfaced",
+          "source": "explicit"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "regressed issue status",
+        "evaluationKind": "candidate",
+        "decisionKind": "ambient",
+        "resultLane": "ambient",
+        "semanticConfidence": "high",
+        "semanticImpactDecisionBearingIncludes": [
+          "activity (canonical)",
+          "relations (continuity)"
+        ],
+        "semanticImpactExplanatoryIncludes": [
+          "intent",
+          "consequence",
+          "confidence"
+        ]
+      }
+    ],
+    "traceExpectations": {
+      "mergedEpisodeUpdates": 1
+    }
+  },
+  "steps": [
+    {
+      "kind": "publish",
+      "label": "blocking approval",
+      "event": {
+        "id": "evt:blocker",
+        "taskId": "task:blocker",
+        "timestamp": "2026-04-09T22:25:00.000Z",
+        "type": "human.input.requested",
+        "interactionId": "interaction:blocker",
+        "title": "Approve deploy",
+        "summary": "A deploy is waiting for approval.",
+        "consequence": "high",
+        "request": { "kind": "approval" }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "initial recovery status",
+      "event": {
+        "id": "evt:issue:recovery",
+        "type": "task.updated",
+        "taskId": "task:issue:a",
+        "timestamp": "2026-04-09T22:25:10.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Deploy recovery status",
+        "summary": "Recovery work for the production deploy issue is underway.",
+        "status": "running",
+        "context": {
+          "items": [
+            { "id": "issue", "label": "Issue", "value": "issue:deploy:prod" }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "regressed issue status",
+      "event": {
+        "id": "evt:issue:regressed",
+        "type": "task.updated",
+        "taskId": "task:issue:b",
+        "timestamp": "2026-04-09T22:25:20.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Deploy issue regressed again",
+        "summary": "The production deploy issue came back and regressed while recovery is still in progress.",
+        "status": "waiting",
+        "context": {
+          "items": [
+            { "id": "issue", "label": "Issue", "value": "issue:deploy:prod" }
+          ]
+        }
+      }
+    }
+  ]
+}

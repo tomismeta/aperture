@@ -53,6 +53,7 @@ export type SourceTaskUpdatedEvent = SourceEventBase & {
   summary?: string;
   status: TaskStatus;
   progress?: number;
+  context?: AttentionContext;
 };
 
 export type SourceHumanInputRequestedEvent = SourceEventBase & {

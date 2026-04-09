@@ -29,6 +29,11 @@ test("maps neutral work.updated events into SourceEvent with facts and hints", (
       activityCategory: "approval_request",
       requestKind: "approval",
     },
+    context: {
+      items: [
+        { id: "issue", label: "Issue", value: "issue:deploy:prod" },
+      ],
+    },
   });
 
   assert.equal(event.type, "task.updated");
@@ -37,6 +42,10 @@ test("maps neutral work.updated events into SourceEvent with facts and hints", (
   assert.equal(event.activityClass, "status_update");
   assert.equal(event.status, "waiting");
   assert.equal(event.progress, 0.7);
+  assert.deepEqual(event.context, {
+    progress: 0.7,
+    items: [{ id: "issue", label: "Issue", value: "issue:deploy:prod" }],
+  });
   assert.deepEqual(event.semanticHints, {
     consequence: "high",
     toolFamily: "release-ops",

@@ -556,6 +556,81 @@ test("weak inferred superseding episode wording stays queued behind the current 
   assert.equal(candidateTrace.semantic?.confidence, "low");
 });
 
+test("status updates with shared issue context stay bundled into one episode", () => {
+  const core = new ApertureCore();
+  const traces: PublicApertureTrace[] = [];
+  const context = {
+    items: [{ id: "issue", label: "Issue", value: "issue:deploy:prod" }],
+  };
+
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+
+  core.publish({
+    id: "evt:blocker",
+    taskId: "task:blocker",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:blocker",
+    title: "Approve deploy",
+    summary: "A deploy needs approval.",
+    consequence: "high",
+    request: { kind: "approval" },
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:issue:recovery",
+    type: "task.updated",
+    taskId: "task:issue:a",
+    timestamp: "2026-03-08T12:00:10.000Z",
+    source: { id: "custom-agent" },
+    title: "Deploy recovery status",
+    summary: "Recovery work for the production deploy issue is underway.",
+    status: "running",
+    context,
+  });
+
+  const initialFrame = core.getTaskView("task:issue:a").ambient[0];
+  const initialEpisodeId = readFrameEpisodeId(initialFrame);
+  assert.ok(initialEpisodeId);
+  if (!initialEpisodeId) {
+    return;
+  }
+
+  core.publishSourceEvent({
+    id: "src:status:issue:regressed",
+    type: "task.updated",
+    taskId: "task:issue:b",
+    timestamp: "2026-03-08T12:00:20.000Z",
+    source: { id: "custom-agent" },
+    title: "Deploy issue regressed again",
+    summary: "The production deploy issue came back and regressed while recovery is still in progress.",
+    status: "waiting",
+    context,
+  });
+
+  const candidateTrace = traces.findLast((trace) => trace.event.id === "src:status:issue:regressed");
+  assert.ok(candidateTrace);
+  if (!candidateTrace || candidateTrace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  const attentionView = core.getAttentionView();
+  assert.equal(attentionView.now?.interactionId, "interaction:blocker");
+  assert.deepEqual(attentionView.next, []);
+  assert.deepEqual(attentionView.ambient.map((frame) => frame.interactionId), ["interaction:task:issue:b:status"]);
+  assert.equal(readFrameEpisodeId(attentionView.ambient[0] ?? null), initialEpisodeId);
+  assert.equal(attentionView.ambient[0]?.metadata?.episode?.key, "custom-agent:status:issue:deploy:prod");
+  assert.deepEqual(
+    candidateTrace.semantic?.relationHints.map((hint) => hint.kind),
+    ["same_issue", "repeats", "escalates"],
+  );
+  assert.equal(candidateTrace.coordination.kind, "ambient");
+  assert.equal(candidateTrace.coordination.resultLane, "ambient");
+  assert.equal(candidateTrace.semantic?.impact.continuity?.includes("relations (continuity)"), true);
+});
+
 test("repeated same-episode returns can promote queued episode work back into focus", () => {
   const core = new ApertureCore();
 

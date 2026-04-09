@@ -164,6 +164,7 @@ function prepareApertureEventFromSourceEvent(event: SourceEvent): ApertureEvent 
         ...(event.summary !== undefined ? { summary: event.summary } : {}),
         status: event.status,
         ...(event.progress !== undefined ? { progress: event.progress } : {}),
+        ...(event.context !== undefined ? { context: event.context } : {}),
       };
     case "task.completed":
       return {
@@ -229,6 +230,7 @@ function asSourceEvent(event: ApertureEvent): SourceEvent {
         ...(event.summary !== undefined ? { summary: event.summary } : {}),
         status: event.status,
         ...(event.progress !== undefined ? { progress: event.progress } : {}),
+        ...(event.context !== undefined ? { context: event.context } : {}),
       };
     case "task.completed":
       return {

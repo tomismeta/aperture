@@ -33,6 +33,9 @@ test("task.updated blocked becomes a focused normal-priority status", () => {
     summary: "Waiting for operator input.",
     status: "blocked",
     progress: 45,
+    context: {
+      items: [{ id: "issue", label: "Issue", value: "issue:deploy:prod" }],
+    },
   });
 
   assert.equal(result.kind, "candidate");
@@ -41,6 +44,10 @@ test("task.updated blocked becomes a focused normal-priority status", () => {
   assert.equal(result.candidate.consequence, "medium");
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
   assert.equal(result.candidate.provenance?.whyNow, "Work is blocked and may require operator attention.");
+  assert.deepEqual(result.candidate.context, {
+    progress: 45,
+    items: [{ id: "issue", label: "Issue", value: "issue:deploy:prod" }],
+  });
 });
 
 test("task.updated failed becomes a critical high-priority status", () => {

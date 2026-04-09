@@ -90,13 +90,7 @@ export class EventEvaluator {
       ...(event.summary !== undefined ? { summary: event.summary } : {}),
       ...(event.semantic?.relationHints?.length ? { relationHints: event.semantic.relationHints } : {}),
       ...buildJudgmentInputFields(event),
-      ...(event.progress !== undefined
-        ? {
-            context: {
-              progress: event.progress,
-            },
-          }
-        : {}),
+      ...buildStatusContext(event),
       ...(buildStatusProvenance(event)),
     };
   }
@@ -269,6 +263,26 @@ export class EventEvaluator {
         return unreachableTaskStatus(status);
     }
   }
+}
+
+function buildStatusContext(
+  event: Extract<ApertureEvent, { type: "task.updated" }>,
+): Pick<AttentionCandidate, "context"> | Record<string, never> {
+  const context = event.context;
+  const items = context?.items;
+  const hasItems = items !== undefined && items.length > 0;
+
+  if (event.progress === undefined && context?.stage === undefined && !hasItems) {
+    return {};
+  }
+
+  return {
+    context: {
+      ...(context?.stage !== undefined ? { stage: context.stage } : {}),
+      ...(event.progress !== undefined ? { progress: event.progress } : {}),
+      ...(hasItems ? { items } : {}),
+    },
+  };
 }
 
 function buildStatusProvenance(event: TaskUpdatedEvent): { provenance: { whyNow?: string; factors?: string[] } } | {} {

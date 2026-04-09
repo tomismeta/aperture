@@ -1205,6 +1205,9 @@ test("publishSourceEvent matches publishing the equivalent normalized status eve
     summary: "Approval required before deploy can continue.",
     status: "waiting",
     progress: 80,
+    context: {
+      items: [{ id: "issue", label: "Issue", value: "issue:deploy:prod" }],
+    },
   };
   const normalizedEvent = normalizeSourceEvent(sourceEvent);
   const sourceCore = new ApertureCore();

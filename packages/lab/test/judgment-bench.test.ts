@@ -22,6 +22,7 @@ test("loads the first golden scenarios from disk", async () => {
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:inferred-resurfacing-context-anchor-stays-bundled"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:weak-inferred-supersede-stays-next"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:superseding-approval-replaces-now-step"));
+  assert.ok(scenarios.some((scenario) => scenario.id === "golden:policy:low-trust-failed-status-stays-queued-under-tight-threshold"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:adversarial:production-read-stays-low"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:adversarial:negated-resolve-does-not-clear-issue"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:adversarial:negated-regression-does-not-escalate"));
@@ -116,6 +117,12 @@ test("JudgmentBench runs across the golden scenarios and produces a summary", as
   );
   assert.ok(abstainedResurfacingScenario);
   assert.equal(abstainedResurfacingScenario?.assertions.every((assertion) => assertion.passed), true);
+
+  const lowTrustScenario = result.scenarios.find(
+    (scenario) => scenario.scenario.id === "golden:policy:low-trust-failed-status-stays-queued-under-tight-threshold",
+  );
+  assert.ok(lowTrustScenario);
+  assert.equal(lowTrustScenario?.assertions.every((assertion) => assertion.passed), true);
 
   const negatedResolveScenario = result.scenarios.find(
     (scenario) => scenario.scenario.id === "golden:adversarial:negated-resolve-does-not-clear-issue",

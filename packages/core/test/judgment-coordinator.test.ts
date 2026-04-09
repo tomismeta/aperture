@@ -1815,6 +1815,94 @@ test("low-trust sources need a clearer margin before they interrupt current work
   assert.equal(explanation.policyCriterionEvaluations.at(-1)?.kind, "verdict");
 });
 
+test("low-trust source can keep a borderline non-blocking challenger queued even when neutral sourcing would activate it", () => {
+  const memoryProfile = {
+    version: 1,
+    operatorId: "default",
+    updatedAt: "2026-03-12T10:15:00.000Z",
+    sessionCount: 1,
+    sourceTrust: {
+      "claude-code": {
+        high: {
+          confirmations: 1,
+          disagreements: 4,
+          trustAdjustment: -8,
+        },
+      },
+    },
+  } as const;
+
+  const trustAwareCoordinator = new JudgmentCoordinator(
+    new AttentionPolicy({ memoryProfile }),
+    new AttentionValue({ memoryProfile }),
+    new AttentionPlanner(),
+  );
+
+  const current = createFrame({
+    mode: "status",
+    tone: "critical",
+    consequence: "high",
+    responseSpec: { kind: "none" },
+  });
+  const challenger = createCandidate({
+    taskId: "task:2",
+    mode: "status",
+    tone: "critical",
+    consequence: "high",
+    priority: "high",
+    blocking: false,
+    responseSpec: { kind: "none" },
+    source: { id: "session:1", kind: "claude-code" },
+    attentionScoreOffset: 22,
+    judgmentInput: {
+      blockedLikeStatus: false,
+      ontology: {
+        ask: "status",
+        activity: "task_progress",
+        consequence: "high",
+        blocking: "non_blocking",
+        episode: "new",
+        confidence: "high",
+        source: "explicit",
+      },
+      semanticEvidence: {
+        confidence: "high",
+        source: "explicit",
+        strength: "strong",
+        abstained: false,
+      },
+    },
+  });
+
+  const neutralExplanation = coordinator.explain(current, challenger);
+  const trustAwareExplanation = trustAwareCoordinator.explain(current, challenger);
+
+  assert.equal(neutralExplanation.decision.kind, "activate");
+  assert.equal(neutralExplanation.candidateScore, 244);
+  assert.equal(neutralExplanation.currentScore, 222);
+  assert.equal(neutralExplanation.criterion?.criterion.promotionMargin, 19);
+  assert.equal(neutralExplanation.ambiguity, null);
+
+  assert.equal(trustAwareExplanation.decision.kind, "queue");
+  assert.equal(trustAwareExplanation.candidateScore, 236);
+  assert.equal(trustAwareExplanation.currentScore, 222);
+  assert.equal(trustAwareExplanation.criterion?.criterion.promotionMargin, 23);
+  assert.deepEqual(trustAwareExplanation.ambiguity, {
+    kind: "interrupt",
+    reason: "small_score_gap",
+    resolution: "queue",
+  });
+  assert.deepEqual(trustAwareExplanation.criterion?.rationale, [
+    "low-trust source signals need a clearer margin before interrupting",
+    "explicit semantic evidence lowers the interrupt bar slightly",
+    "small score gaps resolve to the periphery instead of stealing focus immediately",
+  ]);
+  assert.equal(trustAwareExplanation.policyCriterionEvaluations[2]?.rule, "source_trust");
+  assert.equal(trustAwareExplanation.policyCriterionEvaluations[2]?.kind, "adjust");
+  assert.equal(trustAwareExplanation.policyCriterionEvaluations.at(-1)?.rule, "small_score_gap");
+  assert.equal(trustAwareExplanation.policyCriterionEvaluations.at(-1)?.kind, "verdict");
+});
+
 test("sustained attention burden raises the interrupt bar for borderline work", () => {
   const explanation = coordinator.explain(
     null,

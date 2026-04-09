@@ -680,6 +680,27 @@ test("recovery wording with issue context still infers a resolved episode", () =
   );
 });
 
+test("human input can infer low-confidence superseding relation hints from wording", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:rollback-instead",
+    type: "human.input.requested",
+    taskId: "task:rollback-instead",
+    interactionId: "interaction:rollback-instead",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Approve rollback instead",
+    summary: "Use this rollback plan instead for the same production deploy.",
+    request: { kind: "approval" },
+  });
+
+  assert.deepEqual(
+    interpretation.relationHints.map((hint) => hint.kind),
+    ["same_issue", "supersedes"],
+  );
+  assert.equal(interpretation.confidence, "low");
+  assert.equal(interpretation.provenance?.relationHints, "inferred");
+});
+
 test("repeat wording without an issue signal does not infer relation hints", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:repeat-no-issue",

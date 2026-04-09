@@ -496,6 +496,66 @@ test("superseding blocking episode steps retire stale queued episode residue", (
   assert.equal(core.getTaskView("task:episode:c").now?.interactionId, "interaction:episode:c");
 });
 
+test("weak inferred superseding episode wording stays queued behind the current step", () => {
+  const core = new ApertureCore();
+  const traces: PublicApertureTrace[] = [];
+  const context = {
+    items: [{ id: "issue", label: "Issue", value: "issue:deploy:prod" }],
+  };
+
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+
+  core.publishSourceEvent({
+    id: "src:approval:episode-plan",
+    type: "human.input.requested",
+    taskId: "task:deploy",
+    interactionId: "interaction:deploy:plan",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Approve deploy plan",
+    summary: "Approve the production deploy plan.",
+    context,
+    request: { kind: "approval" },
+  });
+
+  core.publishSourceEvent({
+    id: "src:approval:episode-rollback",
+    type: "human.input.requested",
+    taskId: "task:deploy",
+    interactionId: "interaction:deploy:rollback",
+    timestamp: "2026-03-08T12:00:20.000Z",
+    source: { id: "custom-agent" },
+    title: "Approve rollback instead",
+    summary: "Use this rollback plan instead for the same production deploy.",
+    context,
+    request: { kind: "approval" },
+  });
+
+  const candidateTrace = traces.findLast((trace) => trace.event.id === "src:approval:episode-rollback");
+  assert.ok(candidateTrace);
+  if (!candidateTrace || candidateTrace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(core.getAttentionView().now?.interactionId, "interaction:deploy:plan");
+  assert.equal(core.getTaskView("task:deploy").next[0]?.interactionId, "interaction:deploy:rollback");
+  assert.equal(candidateTrace.coordination.kind, "queue");
+  assert.equal(candidateTrace.coordination.resultLane, "next");
+  assert.equal(
+    candidateTrace.coordination.continuityEvaluations?.find((evaluation) => evaluation.rule === "same_episode")?.kind,
+    "override",
+  );
+  assert.ok(
+    candidateTrace.coordination.reasons.includes(
+      "related work stays bundled with the current episode already in now",
+    ),
+  );
+  assert.deepEqual(candidateTrace.semantic?.relationHints.map((hint) => hint.kind), ["same_issue", "supersedes"]);
+  assert.equal(candidateTrace.semantic?.confidence, "low");
+});
+
 test("repeated same-episode returns can promote queued episode work back into focus", () => {
   const core = new ApertureCore();
 

@@ -18,6 +18,7 @@ test("loads the first golden scenarios from disk", async () => {
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:abstained-blocked-work-recovers-to-now"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:question-tool-family-stays-explanatory"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:repeated-failure-same-issue"));
+  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:weak-inferred-supersede-stays-next"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:superseding-approval-replaces-now-step"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:adversarial:production-read-stays-low"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:adversarial:negated-resolve-does-not-clear-issue"));
@@ -83,6 +84,12 @@ test("JudgmentBench runs across the golden scenarios and produces a summary", as
     repeatedFailureScenario?.assertions.find((assertion) => assertion.name === "semantic reading (repeated failure) ontology episode")?.passed,
     true,
   );
+
+  const weakInferredSupersedeScenario = result.scenarios.find(
+    (scenario) => scenario.scenario.id === "golden:semantics:weak-inferred-supersede-stays-next",
+  );
+  assert.ok(weakInferredSupersedeScenario);
+  assert.equal(weakInferredSupersedeScenario?.assertions.every((assertion) => assertion.passed), true);
 
   const lowConfidenceBlockedLikeScenario = result.scenarios.find(
     (scenario) => scenario.scenario.id === "golden:semantics:low-confidence-blocked-like-waiting-stays-next",

@@ -1035,6 +1035,88 @@ test("medium-confidence inferred work still stays peripheral when the semantic s
   );
 });
 
+test("medium-confidence inferred evidence can keep borderline status work queued when explicit evidence would activate it", () => {
+  const baseCandidate = {
+    mode: "status",
+    tone: "critical",
+    consequence: "high",
+    priority: "high",
+    blocking: false,
+    responseSpec: { kind: "none" as const },
+    attentionScoreOffset: 20,
+  };
+
+  const explicitExplanation = coordinator.explain(
+    null,
+    createCandidate({
+      ...baseCandidate,
+      judgmentInput: {
+        blockedLikeStatus: false,
+        ontology: {
+          ask: "status",
+          activity: "failure",
+          consequence: "high",
+          blocking: "non_blocking",
+          episode: "unknown",
+          confidence: "high",
+          source: "explicit",
+        },
+        semanticEvidence: {
+          confidence: "high",
+          source: "explicit",
+          strength: "strong",
+          abstained: false,
+        },
+      },
+    }),
+  );
+
+  const inferredExplanation = coordinator.explain(
+    null,
+    createCandidate({
+      ...baseCandidate,
+      judgmentInput: {
+        blockedLikeStatus: false,
+        ontology: {
+          ask: "status",
+          activity: "failure",
+          consequence: "high",
+          blocking: "non_blocking",
+          episode: "unknown",
+          confidence: "medium",
+          source: "inferred",
+        },
+        semanticEvidence: {
+          confidence: "medium",
+          source: "inferred",
+          strength: "weak",
+          abstained: false,
+        },
+      },
+    }),
+  );
+
+  assert.equal(explicitExplanation.decision.kind, "activate");
+  assert.equal(explicitExplanation.ambiguity, null);
+  assert.equal(explicitExplanation.criterion?.criterion.activationThreshold, 179);
+
+  assert.equal(inferredExplanation.decision.kind, "queue");
+  assert.deepEqual(inferredExplanation.ambiguity, {
+    kind: "interrupt",
+    reason: "low_signal",
+    resolution: "queue",
+  });
+  assert.equal(inferredExplanation.criterion?.criterion.activationThreshold, 182);
+  assert.deepEqual(inferredExplanation.criterion?.rationale, [
+    "inferred semantic evidence needs a clearer margin before interrupting",
+    "inferred semantic evidence stays peripheral until stronger source-backed context arrives",
+  ]);
+  assert.equal(inferredExplanation.policyCriterionEvaluations[2]?.rule, "source_trust");
+  assert.equal(inferredExplanation.policyCriterionEvaluations[2]?.kind, "adjust");
+  assert.equal(inferredExplanation.policyCriterionEvaluations[4]?.rule, "semantic_uncertainty");
+  assert.equal(inferredExplanation.policyCriterionEvaluations[4]?.kind, "verdict");
+});
+
 test("semantic abstention keeps passive work ambient through the ambiguity lane", () => {
   const explanation = coordinator.explain(
     null,

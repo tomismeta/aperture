@@ -77,8 +77,14 @@ test("trace recorder captures explanatory-only tool family on question paths", (
   assert.ok(trace.semantic?.influence.includes("tool family stayed context-only on the question/form path"));
   assert.equal(trace.semantic?.provenance?.toolFamily, "source");
   assert.deepEqual(trace.semantic?.impact, {
+    routingAuthority: "request",
     decisionBearing: ["activity (canonical)", "consequence (canonical)"],
     explanatory: ["intent", "tool", "why now", "confidence"],
+    canonical: ["activity (canonical)", "consequence (canonical)"],
+    routing: [],
+    continuity: [],
+    ambiguity: [],
+    contextOnly: ["intent", "tool", "why now", "confidence"],
   });
 });
 
@@ -129,8 +135,14 @@ test("trace recorder captures explanatory-only tool family on form paths", () =>
   assert.ok(trace.semantic?.influence.includes("tool family stayed context-only on the question/form path"));
   assert.equal(trace.semantic?.provenance?.toolFamily, "source");
   assert.deepEqual(trace.semantic?.impact, {
+    routingAuthority: "request",
     decisionBearing: ["activity (canonical)", "consequence (canonical)"],
     explanatory: ["intent", "tool", "why now", "confidence"],
+    canonical: ["activity (canonical)", "consequence (canonical)"],
+    routing: [],
+    continuity: [],
+    ambiguity: [],
+    contextOnly: ["intent", "tool", "why now", "confidence"],
   });
 });
 
@@ -177,8 +189,14 @@ test("trace recorder explains that status remains authoritative on task updates"
   });
   assert.equal(trace.semantic?.provenance?.intentFrame, "inferred");
   assert.deepEqual(trace.semantic?.impact, {
+    routingAuthority: "status",
     decisionBearing: ["activity (canonical)"],
     explanatory: ["intent", "consequence", "confidence"],
+    canonical: ["activity (canonical)"],
+    routing: [],
+    continuity: [],
+    ambiguity: [],
+    contextOnly: ["intent", "consequence", "confidence"],
   });
 });
 
@@ -218,8 +236,14 @@ test("trace recorder marks operator-directed status asks as inferred semantic ev
     source: "inferred",
   });
   assert.deepEqual(trace.semantic?.impact, {
+    routingAuthority: "status",
     decisionBearing: ["activity (canonical)", "confidence (ambiguity)"],
     explanatory: ["intent", "consequence", "why now"],
+    canonical: ["activity (canonical)"],
+    routing: [],
+    continuity: [],
+    ambiguity: ["confidence (ambiguity)"],
+    contextOnly: ["intent", "consequence", "why now"],
   });
 });
 
@@ -268,8 +292,14 @@ test("trace recorder promotes abstention to ambiguity-bearing impact on non-bloc
     ),
   );
   assert.deepEqual(trace.semantic?.impact, {
+    routingAuthority: "status",
     decisionBearing: ["activity (canonical)", "abstention (ambiguity)"],
     explanatory: ["intent", "consequence", "confidence"],
+    canonical: ["activity (canonical)"],
+    routing: [],
+    continuity: [],
+    ambiguity: ["abstention (ambiguity)"],
+    contextOnly: ["intent", "consequence", "confidence"],
   });
 });
 
@@ -308,6 +338,8 @@ test("trace recorder exposes blocked-like waiting status queue decisions without
       "semantic blocking marked the waiting status as blocked-like for peripheral routing while status handling stayed non-blocking",
     ),
   );
+  assert.equal(trace.semantic?.impact.routingAuthority, "status");
+  assert.deepEqual(trace.semantic?.impact.routing, ["blocking (peripheral routing)"]);
   assert.ok(trace.semantic?.impact.decisionBearing.includes("blocking (peripheral routing)"));
 });
 
@@ -357,8 +389,14 @@ test("trace recorder preserves hint-driven semantic provenance", () => {
   assert.equal(trace.semantic?.provenance?.consequence, "hint");
   assert.equal(trace.semantic?.provenance?.whyNow, "hint");
   assert.deepEqual(trace.semantic?.impact, {
+    routingAuthority: "request",
     decisionBearing: ["activity (canonical)", "consequence (canonical)", "tool (approval path)"],
     explanatory: ["intent", "why now", "confidence"],
+    canonical: ["activity (canonical)", "consequence (canonical)", "tool (approval path)"],
+    routing: [],
+    continuity: [],
+    ambiguity: [],
+    contextOnly: ["intent", "why now", "confidence"],
   });
 });
 
@@ -402,7 +440,13 @@ test("trace recorder classifies canonical activity and continuity hints on human
   assert.ok(trace.semantic?.influence.includes("activity class was projected into the canonical request"));
   assert.ok(trace.semantic?.influence.includes("relation hints informed continuity handling"));
   assert.deepEqual(trace.semantic?.impact, {
+    routingAuthority: "request",
     decisionBearing: ["activity (canonical)", "consequence (canonical)", "relations (continuity)"],
     explanatory: ["intent", "why now", "confidence"],
+    canonical: ["activity (canonical)", "consequence (canonical)"],
+    routing: [],
+    continuity: ["relations (continuity)"],
+    ambiguity: [],
+    contextOnly: ["intent", "why now", "confidence"],
   });
 });

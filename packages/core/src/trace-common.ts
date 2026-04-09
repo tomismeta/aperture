@@ -62,6 +62,26 @@ export type TraceInterruptCriterionVerdict = {
   rationale: string[];
 };
 
+export type TraceSemanticRoutingAuthority = "status" | "request" | "event";
+
+/**
+ * Stable semantic impact summary for SDK consumers.
+ *
+ * `routingAuthority`, `canonical`, `routing`, `continuity`, `ambiguity`, and
+ * `contextOnly` are the preferred fields for product surfaces and audits.
+ * `decisionBearing` and `explanatory` remain as coarse compatibility groupings.
+ */
+export type TraceSemanticImpact = {
+  routingAuthority: TraceSemanticRoutingAuthority;
+  decisionBearing: string[];
+  explanatory: string[];
+  canonical: string[];
+  routing: string[];
+  continuity: string[];
+  ambiguity: string[];
+  contextOnly: string[];
+};
+
 export type TraceGateEvaluation = {
   rule: string;
   kind: "noop" | "verdict";
@@ -102,10 +122,7 @@ export type TraceSemanticSummary = {
   factors: string[];
   reasons: string[];
   influence: string[];
-  impact: {
-    decisionBearing: string[];
-    explanatory: string[];
-  };
+  impact: TraceSemanticImpact;
   provenance?: SemanticFieldProvenance;
 };
 

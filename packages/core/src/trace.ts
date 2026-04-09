@@ -14,6 +14,8 @@ import type {
   TraceGateEvaluation,
   TraceInterruptCriterionVerdict,
   TraceResultLane,
+  TraceSemanticImpact,
+  TraceSemanticRoutingAuthority,
   TraceSemanticSummary,
 } from "./trace-common.js";
 import { isCandidateTraceLike } from "./trace-common.js";
@@ -33,6 +35,8 @@ export type {
   TraceInterruptCriterion,
   TraceInterruptCriterionVerdict,
   TraceResultLane,
+  TraceSemanticImpact,
+  TraceSemanticRoutingAuthority,
   TraceSemanticSummary,
 } from "./trace-common.js";
 export type {

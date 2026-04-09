@@ -276,105 +276,134 @@ function buildSemanticImpact(
   adjusted: AttentionCandidate,
 ): TraceSemanticSummary["impact"] {
   const semantic = event.semantic;
-  const decisionBearing = new Set<string>();
-  const explanatory = new Set<string>();
+  const canonical = new Set<string>();
+  const routing = new Set<string>();
+  const continuity = new Set<string>();
+  const ambiguity = new Set<string>();
+  const contextOnly = new Set<string>();
   const semanticEvidence = readCandidateSemanticEvidence(adjusted);
+  const routingAuthority = buildSemanticRoutingAuthority(event);
 
   if (!semantic) {
     return {
+      routingAuthority,
       decisionBearing: [],
       explanatory: [],
+      canonical: [],
+      routing: [],
+      continuity: [],
+      ambiguity: [],
+      contextOnly: [],
     };
   }
 
-  explanatory.add("intent");
+  contextOnly.add("intent");
 
   if (semantic.activityClass !== undefined) {
-    explanatory.add("activity");
+    contextOnly.add("activity");
   }
 
   if (semantic.toolFamily !== undefined) {
-    explanatory.add("tool");
+    contextOnly.add("tool");
   }
 
   if (semantic.consequence !== undefined) {
-    explanatory.add("consequence");
+    contextOnly.add("consequence");
   }
 
   if (semantic.whyNow !== undefined) {
-    explanatory.add("why now");
+    contextOnly.add("why now");
   }
 
   if (semantic.relationHints.length > 0) {
-    explanatory.add("relations");
+    contextOnly.add("relations");
   }
 
   if (semanticEvidence?.confidence !== undefined) {
-    explanatory.add("confidence");
+    contextOnly.add("confidence");
   }
 
   if (semanticEvidence?.abstained === true) {
-    explanatory.add("abstention");
+    contextOnly.add("abstention");
   }
 
   switch (event.type) {
     case "task.updated":
       if ("activityClass" in event && event.activityClass === semantic.activityClass && semantic.activityClass !== undefined) {
-        promoteSemanticField(explanatory, decisionBearing, "activity", "activity (canonical)");
+        promoteSemanticField(contextOnly, canonical, "activity", "activity (canonical)");
       }
       if (semantic.toolFamily !== undefined && event.toolFamily === semantic.toolFamily) {
-        promoteSemanticField(explanatory, decisionBearing, "tool", "tool (bounded)");
+        promoteSemanticField(contextOnly, canonical, "tool", "tool (bounded)");
       }
       if (semantic.relationHints.length > 0) {
-        promoteSemanticField(explanatory, decisionBearing, "relations", "relations (continuity)");
+        promoteSemanticField(contextOnly, continuity, "relations", "relations (continuity)");
       }
       if (hasBlockedLikeStatusSemantics(adjusted)) {
-        promoteSemanticField(explanatory, decisionBearing, "intent", "blocking (peripheral routing)");
+        promoteSemanticField(contextOnly, routing, "intent", "blocking (peripheral routing)");
       }
       break;
     case "human.input.requested":
       if ("activityClass" in event && event.activityClass === semantic.activityClass && semantic.activityClass !== undefined) {
-        promoteSemanticField(explanatory, decisionBearing, "activity", "activity (canonical)");
+        promoteSemanticField(contextOnly, canonical, "activity", "activity (canonical)");
       }
       if (semantic.consequence !== undefined && event.consequence === semantic.consequence) {
-        promoteSemanticField(explanatory, decisionBearing, "consequence", "consequence (canonical)");
+        promoteSemanticField(contextOnly, canonical, "consequence", "consequence (canonical)");
       }
       if (semantic.toolFamily !== undefined && event.request.kind === "approval") {
-        promoteSemanticField(explanatory, decisionBearing, "tool", "tool (approval path)");
+        promoteSemanticField(contextOnly, canonical, "tool", "tool (approval path)");
       }
       if (semantic.relationHints.length > 0) {
-        promoteSemanticField(explanatory, decisionBearing, "relations", "relations (continuity)");
+        promoteSemanticField(contextOnly, continuity, "relations", "relations (continuity)");
       }
       break;
     default:
       if (semantic.relationHints.length > 0) {
-        promoteSemanticField(explanatory, decisionBearing, "relations", "relations (continuity)");
+        promoteSemanticField(contextOnly, continuity, "relations", "relations (continuity)");
       }
       break;
   }
 
   if (!adjusted.blocking && isCandidateSemanticLowConfidence(adjusted)) {
-    promoteSemanticField(explanatory, decisionBearing, "confidence", "confidence (ambiguity)");
+    promoteSemanticField(contextOnly, ambiguity, "confidence", "confidence (ambiguity)");
   }
 
   if (!adjusted.blocking && isCandidateSemanticAbstained(adjusted)) {
-    promoteSemanticField(explanatory, decisionBearing, "abstention", "abstention (ambiguity)");
+    promoteSemanticField(contextOnly, ambiguity, "abstention", "abstention (ambiguity)");
   }
 
   return {
-    decisionBearing: [...decisionBearing],
-    explanatory: [...explanatory],
+    routingAuthority,
+    decisionBearing: [...canonical, ...routing, ...continuity, ...ambiguity],
+    explanatory: [...contextOnly],
+    canonical: [...canonical],
+    routing: [...routing],
+    continuity: [...continuity],
+    ambiguity: [...ambiguity],
+    contextOnly: [...contextOnly],
   };
 }
 
+function buildSemanticRoutingAuthority(
+  event: ApertureTrace["event"],
+): TraceSemanticSummary["impact"]["routingAuthority"] {
+  switch (event.type) {
+    case "task.updated":
+      return "status";
+    case "human.input.requested":
+      return "request";
+    default:
+      return "event";
+  }
+}
+
 function promoteSemanticField(
-  explanatory: Set<string>,
-  decisionBearing: Set<string>,
+  contextOnly: Set<string>,
+  impactBucket: Set<string>,
   fieldLabel: string,
   decisionLabel: string,
 ) {
-  explanatory.delete(fieldLabel);
-  decisionBearing.add(decisionLabel);
+  contextOnly.delete(fieldLabel);
+  impactBucket.add(decisionLabel);
 }
 
 function findResultLane(

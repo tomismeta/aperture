@@ -39,6 +39,17 @@ function humanLane(bucket: CandidateTrace["coordination"]["resultLane"]): string
   return bucket;
 }
 
+function humanRoutingAuthority(authority: NonNullable<CandidateTrace["semantic"]>["impact"]["routingAuthority"]): string {
+  switch (authority) {
+    case "status":
+      return "task status";
+    case "request":
+      return "request";
+    default:
+      return "event";
+  }
+}
+
 export function renderWhyOverlay(
   trace: ApertureTrace | null,
   color: boolean,
@@ -216,6 +227,7 @@ function renderSemanticSection(
     `source: ${semantic.ontology.source}`,
   ];
   lines.push(`   ${styleMuted(ontologyParts.join("  ·  "), color)}`);
+  lines.push(...renderWrappedDetailLine("authority", humanRoutingAuthority(semantic.impact.routingAuthority), color));
 
   if (semantic.whyNow) {
     lines.push(...renderWrappedDetailLine("why now", semantic.whyNow, color));
@@ -226,15 +238,33 @@ function renderSemanticSection(
     lines.push(...renderWrappedDetailLine("origin", provenance, color));
   }
 
-  if (semantic.impact.decisionBearing.length > 0) {
+  if (semantic.impact.canonical.length > 0) {
     lines.push(
-      ...renderWrappedDetailLine("affected route", semantic.impact.decisionBearing.join(" · "), color),
+      ...renderWrappedDetailLine("canonical", semantic.impact.canonical.join(" · "), color),
     );
   }
 
-  if (semantic.impact.explanatory.length > 0) {
+  if (semantic.impact.routing.length > 0) {
     lines.push(
-      ...renderWrappedDetailLine("context only", semantic.impact.explanatory.join(" · "), color),
+      ...renderWrappedDetailLine("routing cues", semantic.impact.routing.join(" · "), color),
+    );
+  }
+
+  if (semantic.impact.continuity.length > 0) {
+    lines.push(
+      ...renderWrappedDetailLine("continuity", semantic.impact.continuity.join(" · "), color),
+    );
+  }
+
+  if (semantic.impact.ambiguity.length > 0) {
+    lines.push(
+      ...renderWrappedDetailLine("ambiguity", semantic.impact.ambiguity.join(" · "), color),
+    );
+  }
+
+  if (semantic.impact.contextOnly.length > 0) {
+    lines.push(
+      ...renderWrappedDetailLine("context only", semantic.impact.contextOnly.join(" · "), color),
     );
   }
 

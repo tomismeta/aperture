@@ -118,15 +118,24 @@ It should not contain:
 
 ### `@aperture/runtime`
 
-This remains an optional host package.
+This remains an internal host package, not the primary SDK.
 
 Its job is:
 
 - own one `ApertureCore` instance
-- expose a local process/runtime API
+- expose the local product/runtime API used by the Aperture product
 - manage learning persistence for the default product path
+- provide the shared host surface used by adapters, the TUI, and product-local ingress like `/work`
 
 It should not become a requirement for SDK consumers.
+The main published SDK remains `@tomismeta/aperture-core`.
+
+The practical rule is:
+
+- if you are building on Aperture's judgment engine, depend on `@tomismeta/aperture-core`
+- if you are using Aperture the product, run `@tomismeta/aperture`
+- `@aperture/runtime` can stay independently managed inside the repo without becoming a separately supported npm integration surface yet
+- the public HTTP integration story should stay centered on `/work` and `/work/response/{interactionId}`, not on the internal `/runtime/*` control routes
 
 ## Two Integration Modes
 

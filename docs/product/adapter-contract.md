@@ -9,6 +9,65 @@ Its job is simple:
 - separate `live`, `experimental`, and `not yet proven` clearly
 - give us one place to check before changing adapter or TUI behavior
 
+## Adapter Role In The Product Direction
+
+Aperture's direction is to be a host-neutral control plane across agent hosts,
+not another host runtime competing feature-for-feature with each native tool.
+
+That means adapter discipline matters a lot:
+
+- adapters should make host-native work legible to Aperture
+- adapters should not drag host-native semantics directly into core
+- adapters should preserve explicit facts, identity, and return paths
+- core should remain the place where cross-host judgment becomes consistent
+
+## Generalized Ingestion Schema
+
+Inside the Aperture codebase, the generalized host-neutral ingress DTO is
+`SourceEvent`.
+
+That is the contract in-repo adapters should target when they want to feed work
+into Aperture in a source-agnostic way.
+
+For external or industry-facing ingestion APIs, the better long-term contract
+is:
+
+- `POST /work` with:
+  - a plain string for the simplest producer path
+  - a neutral `WorkEvent` when structured identity or request metadata matters
+
+that maps into internal `SourceEvent`.
+
+The event layers are:
+
+1. raw host event
+2. `SourceEvent`
+3. `ApertureEvent`
+4. `EnrichedApertureEvent`
+
+In practical terms:
+
+- raw host event = source-native payload
+- `SourceEvent` = factual host-neutral ingress inside Aperture
+- `ApertureEvent` = canonical core event
+- `EnrichedApertureEvent` = finalized runtime event ready for evaluation
+
+This distinction is important:
+
+- internal adapters should usually publish `SourceEvent`
+- external ingest APIs should accept the published neutral ingestion contract
+  and map it into `SourceEvent`
+- direct engine callers can publish `ApertureEvent` when they already own the
+  canonical shape
+- adapters should not skip straight to richer canonical meaning unless they are
+  intentionally acting as a trusted canonical producer
+
+For the broader industry-facing direction of that contract, including standards
+alignment and the proposed neutral event contract, see
+[Host-Neutral Ingestion Contract](./host-neutral-ingestion-contract.md).
+For the explicit field translation into Aperture's internal contracts, see
+[Work Event Mapping](./work-event-mapping.md).
+
 ## Shared Adapter Contract
 
 Every Aperture adapter should have the same high-level shape:
@@ -31,6 +90,12 @@ The important rule is:
 - core owns attention judgment
 - TUI stays source-agnostic
 
+The more precise version is:
+
+- adapters provide `SourceEvent`
+- core turns `SourceEvent` into canonical meaning
+- responses come back out as `AttentionResponse`
+
 ## Adapter Checklist
 
 This is the current standard we should hold all adapters to.
@@ -41,6 +106,8 @@ This is the current standard we should hold all adapters to.
 - no source-native types leak into `@tomismeta/aperture-core`
 - adapters publish `SourceEvent`
 - adapters consume `AttentionResponse`
+- adapters should treat `SourceEvent` as the generalized host-neutral ingress
+  schema, not invent one-off per-host core contracts
 
 ### 2. Structure
 

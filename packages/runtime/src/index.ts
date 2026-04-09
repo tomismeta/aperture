@@ -8,6 +8,12 @@ export {
   type ApertureRuntimeOptions,
   type ApertureRuntimeSessionCapture,
   type ApertureRuntimeSnapshot,
+  type WorkReceipt,
+  type WorkReceiptItem,
+  type WorkReceiptMode,
+  type WorkReceiptNextStep,
+  type WorkResponse,
+  type WorkResponseState,
 } from "./runtime.js";
 export { ApertureRuntimeClient, type ApertureRuntimeClientOptions } from "./runtime-client.js";
 export { ApertureRuntimeAdapterClient, type ApertureRuntimeAdapterClientOptions } from "./adapter-client.js";
@@ -29,3 +35,11 @@ export {
   type LearningMode,
   type LearningPersistenceState,
 } from "./learning-persistence.js";
+export type {
+  WorkEventContextItem,
+  WorkEvent,
+  WorkEventKind,
+  WorkPayload,
+  WorkEventRequest,
+  WorkStatus,
+} from "./work-event-ingest.js";

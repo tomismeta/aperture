@@ -1,0 +1,432 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:aperture:work-event:1.0",
+  "title": "WorkEvent",
+  "description": "Neutral work event contract for host-agnostic agent and operator systems.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["specVersion", "id", "source", "type", "kind", "work"],
+  "properties": {
+    "specVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "subject": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema": {
+      "type": "string",
+      "format": "uri-reference"
+    },
+    "contentType": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trace": {
+      "$ref": "#/$defs/trace"
+    },
+    "run": {
+      "$ref": "#/$defs/run"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "work.started",
+        "work.updated",
+        "work.completed",
+        "work.cancelled",
+        "input.requested"
+      ]
+    },
+    "work": {
+      "$ref": "#/$defs/work"
+    },
+    "actor": {
+      "$ref": "#/$defs/actor"
+    },
+    "interaction": {
+      "$ref": "#/$defs/interaction"
+    },
+    "request": {
+      "$ref": "#/$defs/request"
+    },
+    "facts": {
+      "$ref": "#/$defs/facts"
+    },
+    "hints": {
+      "$ref": "#/$defs/hints"
+    },
+    "context": {
+      "$ref": "#/$defs/context"
+    },
+    "extensions": {
+      "type": "object",
+      "description": "Vendor- or product-specific metadata that does not fit the neutral contract.",
+      "additionalProperties": true
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "input.requested"
+          }
+        },
+        "required": ["kind"]
+      },
+      "then": {
+        "required": ["interaction", "request"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "work.updated"
+          }
+        },
+        "required": ["kind"]
+      },
+      "then": {
+        "properties": {
+          "work": {
+            "required": ["id", "status"]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "traceparent": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tracestate": {
+          "type": "string"
+        }
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runId": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "work": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "running",
+            "waiting",
+            "blocked",
+            "failed",
+            "completed",
+            "cancelled"
+          ]
+        },
+        "progress": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["agent", "subagent", "host", "system", "human"]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "interaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "request": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {
+            "kind": {
+              "const": "approval"
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1
+            },
+            "summary": {
+              "type": "string"
+            },
+            "requireReason": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "selectionMode", "options"],
+          "properties": {
+            "kind": {
+              "const": "choice"
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1
+            },
+            "summary": {
+              "type": "string"
+            },
+            "selectionMode": {
+              "type": "string",
+              "enum": ["single", "multiple"]
+            },
+            "allowTextResponse": {
+              "type": "boolean"
+            },
+            "options": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/requestOption"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "fields"],
+          "properties": {
+            "kind": {
+              "const": "form"
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1
+            },
+            "summary": {
+              "type": "string"
+            },
+            "fields": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/requestField"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "requestOption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string"
+        }
+      }
+    },
+    "requestField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "type"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "enum": ["text", "textarea", "number", "boolean", "select"]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/requestFieldOption"
+          }
+        }
+      }
+    },
+    "requestFieldOption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "label"],
+      "properties": {
+        "value": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "facts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "capabilityFamily": {
+          "type": "string",
+          "minLength": 1
+        },
+        "activityCategory": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "hints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "consequence": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        },
+        "capabilityFamily": {
+          "type": "string",
+          "minLength": 1
+        },
+        "activityCategory": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requestKind": {
+          "type": "string",
+          "enum": ["approval", "choice", "form"]
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/contextItem"
+          }
+        }
+      }
+    },
+    "contextItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "value"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "boolean"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

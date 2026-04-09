@@ -160,7 +160,7 @@ test("runtime exports a local session capture with source events, responses, and
     });
     assert.equal(publish.status, 200);
 
-    const submit = await fetch(`${controlUrl}/responses`, {
+    const submit = await fetch(`${controlUrl}/response`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -303,7 +303,7 @@ test("runtime bootstraps learning persistence and checkpoints memory", async () 
 
     try {
       await client.publishSourceEvent(approvalEvent("task:learn"));
-      await fetch(`${controlUrl}/responses`, {
+      await fetch(`${controlUrl}/response`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

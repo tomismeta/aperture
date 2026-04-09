@@ -1,0 +1,34 @@
+{
+  "specVersion": "1.0",
+  "id": "evt:agent:deploy:approval",
+  "source": "urn:example:coding-agent",
+  "type": "io.agent.input.requested.v1",
+  "time": "2026-04-09T14:05:00Z",
+  "subject": "task:deploy-42",
+  "kind": "input.requested",
+  "work": {
+    "id": "task:deploy-42",
+    "title": "Deploy service",
+    "summary": "Production deploy is waiting for approval."
+  },
+  "actor": {
+    "id": "agent-1",
+    "kind": "agent",
+    "label": "Coding Agent"
+  },
+  "interaction": {
+    "id": "interaction:deploy-42:approval"
+  },
+  "request": {
+    "kind": "approval",
+    "title": "Approve production deploy",
+    "summary": "Approve the production deployment."
+  },
+  "facts": {
+    "capabilityFamily": "deploy",
+    "activityCategory": "permission_request"
+  },
+  "hints": {
+    "consequence": "high"
+  }
+}

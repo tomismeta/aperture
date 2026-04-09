@@ -1,0 +1,29 @@
+{
+  "specVersion": "1.0",
+  "id": "evt:subagent:test:failure",
+  "source": "urn:example:orchestrator",
+  "type": "io.agent.work.updated.v1",
+  "time": "2026-04-09T14:15:00Z",
+  "subject": "task:test-failure-7",
+  "kind": "work.updated",
+  "work": {
+    "id": "task:test-failure-7",
+    "title": "Stabilize integration tests",
+    "summary": "The database migration step failed in a delegated worker.",
+    "status": "failed",
+    "progress": 0.6,
+    "reason": "Migration command exited with code 1."
+  },
+  "actor": {
+    "id": "worker-7",
+    "kind": "subagent",
+    "label": "Migration Worker"
+  },
+  "facts": {
+    "capabilityFamily": "test",
+    "activityCategory": "tool_failure"
+  },
+  "hints": {
+    "consequence": "medium"
+  }
+}

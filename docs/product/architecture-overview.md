@@ -12,6 +12,53 @@ It should answer four questions clearly:
 The goal is not to capture every implementation detail.
 The goal is to keep the main system shape understandable and current.
 
+## Product Direction
+
+Aperture should be understood as a host-neutral attention and control plane for
+agent work.
+
+That means:
+
+- hosts and adapters own execution, transport, and source-native workflows
+- Aperture owns normalized ingestion, semantic interpretation, judgment,
+  review-routing, and state continuity across hosts and surfaces
+- the product gets stronger as more hosts become capable, not weaker
+
+The architectural implication is important:
+
+- Aperture should not compete head-on as another monolithic single-host runtime
+- Aperture should unify policy, review, routing, memory, and explanation across
+  many hosts that each have their own native runtime strengths
+
+## Event Contract Direction
+
+There are three important cross-host event layers:
+
+1. neutral external ingestion event
+   - simplest path: a plain string to `/work`
+   - structured path: a neutral `WorkEvent`
+   - the contract external hosts or ingest APIs should publish when they want
+     a broadly adoptable, non-Aperture-specific schema
+
+2. `SourceEvent`
+   - Aperture's internal host-neutral ingress DTO
+   - thin, factual, adapter-facing
+   - the contract in-repo adapters should publish into core
+
+3. `ApertureEvent`
+   - the canonical core event
+   - normalized meaning ready for core evaluation
+   - better suited for direct engine use when a caller already owns the
+     canonical event shape
+
+The short version is:
+
+- external neutral ingestion event = plain text or `WorkEvent`
+- `SourceEvent` = what Aperture accepts as its thin internal ingress DTO
+- `ApertureEvent` is what Aperture canonically judges
+
+That split is how Aperture stays both host-neutral and semantically disciplined.
+
 ## The Main Layering
 
 Aperture is easiest to understand as nine connected layers, with one offline loop
@@ -89,6 +136,52 @@ This is the practical implementation form of the main architectural rule:
 
 **Adapters provide facts. Core provides judgment.**
 
+## Runtime Route Taxonomy
+
+The shared runtime now has two different kinds of HTTP surface:
+
+### 1. Product-facing ingress
+
+This is the route we should actively stand behind for low-friction producer integrations:
+
+- `GET /work`
+- `POST /work`
+
+This is the clean host-neutral ingress surface for:
+
+- plain text work reports
+- structured `WorkEvent`
+- `WorkEvent[]` batch publish
+
+This is the route external producers should be guided toward first.
+
+### 2. Internal control surface
+
+These routes exist to run the Aperture product itself and to support in-repo
+surfaces, adapters, debugging, and local runtime management:
+
+- `/runtime/health`
+- `/runtime/state`
+- `/runtime/session`
+- `/runtime/events`
+- `/runtime/events/source`
+- `/runtime/response`
+- `/runtime/adapters/*`
+- `/runtime/surfaces/*`
+- `/runtime/learning/*`
+
+These are useful and should stay, but they should be thought of as:
+
+- local runtime control routes
+- internal product/runtime plumbing
+- not part of the public Aperture product contract
+
+The simplification rule is:
+
+- keep `/work` small, friendly, and durable
+- keep `/runtime/*` internal and free to evolve with the product
+- do not ask external producers to build against `/runtime/*`
+
 ## Live Path Summary
 
 The live authoritative path is:
@@ -107,6 +200,19 @@ The surrounding layers are still important, but they play different roles:
 - **Operator and Client Surfaces** render and inspect the result
 - **Response Return Path** carries human action back to the source
 - **Offline Evaluation** improves the system without entering the hot path
+
+Plain-text ingress remains one-way by design.
+Structured `input.requested` work now gets a public response loop under `/work`
+via `GET /work/response/{interactionId}`.
+The internal `/runtime/*` control surface still exists for the Aperture product
+and in-repo adapters, but it is not the public response contract.
+
+The generalized ingress path underneath that summary is:
+
+`raw host event -> neutral ingestion event -> SourceEvent -> ApertureEvent -> EnrichedApertureEvent -> candidate -> judgment -> frame/trace/response`
+
+That is the main architectural answer to “how can Aperture stay host-neutral
+without becoming vague?”
 
 ## Architectural Rule
 

@@ -34,6 +34,7 @@ import { scoreReplayRun } from "./scorecard.js";
 import {
   hasShape,
   isBoolean,
+  isNullable,
   isNumber,
   isRecord,
   isString,
@@ -61,6 +62,14 @@ export const DEFAULT_SESSION_BUNDLES_DIR = path.resolve(
 
 export type ReplaySessionBundleSource = ReplayArtifactSource;
 
+export type ReplaySessionBundleExplanation = {
+  targetInteractionId?: string;
+  targetLane?: "now" | "next" | "ambient" | "none";
+  headline?: string;
+  whyNow?: string | null;
+  routingAuthority?: "status" | "request" | "event" | null;
+};
+
 export type ReplaySessionBundle = {
   schemaVersion: typeof SESSION_BUNDLE_SCHEMA_VERSION;
   sessionId: string;
@@ -68,6 +77,7 @@ export type ReplaySessionBundle = {
   description?: string;
   doctrineTags?: string[];
   source?: ReplaySessionBundleSource;
+  explanation?: ReplaySessionBundleExplanation;
   exportedAt: string;
   core?: ApertureCoreOptions;
   steps: ReplayObservationStep[];
@@ -87,6 +97,14 @@ export type ReplaySessionBundle = {
     finalNextInteractionIds: string[];
     finalAmbientInteractionIds: string[];
   };
+};
+
+export type RuntimeSessionCaptureExplanationLike = {
+  targetInteractionId: string | null;
+  targetLane: "now" | "next" | "ambient" | "none";
+  headline: string | null;
+  whyNow: string | null;
+  routingAuthority: "status" | "request" | "event" | null;
 };
 
 export type RuntimeSessionCaptureLike = {
@@ -117,6 +135,7 @@ export type RuntimeSessionCaptureLike = {
     attentionView: AttentionView;
   }>;
   currentAttentionView: AttentionView;
+  currentExplanation?: RuntimeSessionCaptureExplanationLike;
 };
 
 export type RuntimeSessionCaptureCursor = {
@@ -260,6 +279,7 @@ export function sliceRuntimeSessionCapture(
     traces: capture.traces.slice(cursor.counts.traces),
     attentionViewSnapshots,
     currentAttentionView: attentionViewSnapshots.at(-1)?.attentionView ?? emptyAttentionView(),
+    ...(capture.currentExplanation !== undefined ? { currentExplanation: capture.currentExplanation } : {}),
   };
 }
 
@@ -279,6 +299,7 @@ export function createSessionBundleFromRuntimeCapture(
   const normalizedEvents: ReplayNormalizedEventSnapshot[] = [];
   const semanticSnapshots: ReplaySemanticSnapshot[] = [];
   const decisionSnapshots: ReplayDecisionSnapshot[] = [];
+  const explanation = bundleExplanationFromRuntimeCapture(capture);
 
   capture.captureSteps.forEach((step, stepIndex) => {
     stepIndexBySequence.set(step.sequence, stepIndex);
@@ -324,6 +345,7 @@ export function createSessionBundleFromRuntimeCapture(
     ...(options.description !== undefined ? { description: options.description } : {}),
     ...(options.doctrineTags !== undefined ? { doctrineTags: options.doctrineTags } : {}),
     ...(options.source !== undefined ? { source: options.source } : {}),
+    ...(explanation !== undefined ? { explanation } : {}),
     exportedAt: options.exportedAt ?? capture.exportedAt,
     ...(options.core !== undefined ? { core: options.core } : {}),
     steps: scenarioSteps,
@@ -583,6 +605,7 @@ export function validateSessionBundle(value: unknown): ReplaySessionBundle | nul
         description: isString,
         doctrineTags: isStringArray,
         source: validateWith(validateSessionBundleSource),
+        explanation: validateWith(validateSessionBundleExplanation),
         core: isRecord,
       },
     )
@@ -636,6 +659,64 @@ function validateSessionBundleSource(value: unknown): ReplaySessionBundleSource 
   }
 
   return value as ReplaySessionBundleSource;
+}
+
+function validateSessionBundleExplanation(value: unknown): ReplaySessionBundleExplanation | null {
+  if (
+    !isRecord(value)
+    || !hasShape(value, {}, {
+      targetInteractionId: isString,
+      targetLane: isString,
+      headline: isString,
+      whyNow: isNullable(isString),
+      routingAuthority: isNullable(isString),
+    })
+  ) {
+    return null;
+  }
+
+  if (
+    value.targetLane !== undefined
+    && !["now", "next", "ambient", "none"].includes(String(value.targetLane))
+  ) {
+    return null;
+  }
+
+  if (
+    value.routingAuthority !== undefined
+    && value.routingAuthority !== null
+    && !["status", "request", "event"].includes(String(value.routingAuthority))
+  ) {
+    return null;
+  }
+
+  return value as ReplaySessionBundleExplanation;
+}
+
+function bundleExplanationFromRuntimeCapture(
+  capture: RuntimeSessionCaptureLike,
+): ReplaySessionBundleExplanation | undefined {
+  const explanation = capture.currentExplanation;
+  if (!explanation) {
+    return undefined;
+  }
+
+  if (
+    explanation.targetInteractionId === null
+    && explanation.headline === null
+    && explanation.whyNow === null
+    && explanation.routingAuthority === null
+  ) {
+    return undefined;
+  }
+
+  return {
+    ...(explanation.targetInteractionId !== null ? { targetInteractionId: explanation.targetInteractionId } : {}),
+    ...(explanation.targetLane !== "none" ? { targetLane: explanation.targetLane } : {}),
+    ...(explanation.headline !== null ? { headline: explanation.headline } : {}),
+    ...(explanation.whyNow !== null ? { whyNow: explanation.whyNow } : {}),
+    ...(explanation.routingAuthority !== null ? { routingAuthority: explanation.routingAuthority } : {}),
+  };
 }
 
 function findNextTraceForEvent(

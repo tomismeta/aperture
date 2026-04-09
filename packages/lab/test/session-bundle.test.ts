@@ -946,6 +946,13 @@ test("session bundles can be created from runtime-style captures", () => {
       ],
       ambient: [],
     },
+    currentExplanation: {
+      targetInteractionId: "interaction:task:runtime:bundle:status",
+      targetLane: "next",
+      headline: "Work has failed and should be reviewed.",
+      whyNow: "Work has failed and should be reviewed.",
+      routingAuthority: "status",
+    },
   } as unknown as RuntimeSessionCaptureLike;
 
   const bundle = createSessionBundleFromRuntimeCapture(capture, {
@@ -966,6 +973,9 @@ test("session bundles can be created from runtime-style captures", () => {
   assert.equal(bundle.semanticSnapshots[0]?.interpretation.intentFrame, "failure");
   assert.equal(bundle.decisionSnapshots[0]?.decisionKind, "queue");
   assert.equal(bundle.outcomes.finalNextCount, 1);
+  assert.equal(bundle.explanation?.headline, "Work has failed and should be reviewed.");
+  assert.equal(bundle.explanation?.targetLane, "next");
+  assert.equal(bundle.explanation?.routingAuthority, "status");
 });
 
 test("runtime session captures can be sliced from a baseline cursor", () => {
@@ -1018,6 +1028,13 @@ test("runtime session captures can be sliced from a baseline cursor", () => {
       now: null,
       next: [],
       ambient: [],
+    },
+    currentExplanation: {
+      targetInteractionId: null,
+      targetLane: "none",
+      headline: null,
+      whyNow: null,
+      routingAuthority: null,
     },
   };
 
@@ -1096,6 +1113,13 @@ test("runtime session captures can be sliced from a baseline cursor", () => {
       next: [],
       ambient: [],
     },
+    currentExplanation: {
+      targetInteractionId: "interaction:current",
+      targetLane: "now",
+      headline: "Current failure needs review.",
+      whyNow: "Current failure needs review.",
+      routingAuthority: "status",
+    },
   };
 
   const sliced = sliceRuntimeSessionCapture(currentCapture, cursor);
@@ -1108,4 +1132,6 @@ test("runtime session captures can be sliced from a baseline cursor", () => {
   assert.equal(sliced.submittedResponses.length, 1);
   assert.equal(sliced.attentionViewSnapshots.length, 1);
   assert.equal(sliced.currentAttentionView.now?.interactionId, "interaction:current");
+  assert.equal(sliced.currentExplanation?.headline, "Current failure needs review.");
+  assert.equal(sliced.currentExplanation?.targetInteractionId, "interaction:current");
 });

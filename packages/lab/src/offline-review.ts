@@ -278,6 +278,7 @@ export type OfflineReviewArtifact = {
     description?: string;
     bundlePath?: string;
     source?: ReplaySessionBundleSource;
+    explanation?: ReplaySessionBundle["explanation"];
   };
   focusAreas: OfflineReviewFocusArea[];
   instructions: string[];
@@ -309,6 +310,10 @@ export type OfflineReviewPromptPacket = {
     description?: string;
     sourceId?: string;
     sourceLabel?: string;
+    explanationHeadline?: string;
+    explanationWhyNow?: string;
+    targetLane?: "now" | "next" | "ambient" | "none";
+    routingAuthority?: "status" | "request" | "event" | null;
   };
   focusAreas: OfflineReviewFocusArea[];
   packet: {
@@ -436,6 +441,7 @@ export function prepareOfflineReviewArtifact(
       ...(bundle.description !== undefined ? { description: bundle.description } : {}),
       ...(options.bundlePath !== undefined ? { bundlePath: options.bundlePath } : {}),
       ...(bundle.source !== undefined ? { source: bundle.source } : {}),
+      ...(bundle.explanation !== undefined ? { explanation: bundle.explanation } : {}),
     },
     focusAreas,
     instructions: [
@@ -634,6 +640,12 @@ function buildOfflineReviewPromptPacketWithBudget(
   const description = artifact.bundle.description
     ? clipOfflineReviewPromptText(artifact.bundle.description, limits.summaryLimit)
     : null;
+  const explanationHeadline = artifact.bundle.explanation?.headline
+    ? clipOfflineReviewPromptText(artifact.bundle.explanation.headline, limits.whyNowLimit)
+    : null;
+  const explanationWhyNow = artifact.bundle.explanation?.whyNow
+    ? clipOfflineReviewPromptText(artifact.bundle.explanation.whyNow, limits.whyNowLimit)
+    : null;
 
   return {
     bundle: {
@@ -642,6 +654,12 @@ function buildOfflineReviewPromptPacketWithBudget(
       ...(description ? { description } : {}),
       ...(artifact.bundle.source?.id ? { sourceId: artifact.bundle.source.id } : {}),
       ...(artifact.bundle.source?.label ? { sourceLabel: artifact.bundle.source.label } : {}),
+      ...(explanationHeadline ? { explanationHeadline } : {}),
+      ...(explanationWhyNow ? { explanationWhyNow } : {}),
+      ...(artifact.bundle.explanation?.targetLane ? { targetLane: artifact.bundle.explanation.targetLane } : {}),
+      ...(artifact.bundle.explanation?.routingAuthority !== undefined
+        ? { routingAuthority: artifact.bundle.explanation.routingAuthority }
+        : {}),
     },
     focusAreas: [...artifact.focusAreas],
     packet: {
@@ -1132,6 +1150,7 @@ export function validateOfflineReviewArtifact(value: unknown): OfflineReviewArti
           description: isString,
           bundlePath: isString,
           source: validateWith(validateReviewBundleSource),
+          explanation: validateWith(validateReviewBundleExplanation),
         })
       ),
       focusAreas: isArrayOf(isOfflineReviewFocusArea),
@@ -1152,6 +1171,40 @@ export function validateOfflineReviewArtifact(value: unknown): OfflineReviewArti
   }
 
   return value as OfflineReviewArtifact;
+}
+
+function validateReviewBundleExplanation(
+  value: unknown,
+): NonNullable<OfflineReviewArtifact["bundle"]["explanation"]> | null {
+  if (
+    !isRecord(value)
+    || !hasShape(value, {}, {
+      targetInteractionId: isString,
+      targetLane: isString,
+      headline: isString,
+      whyNow: isNullable(isString),
+      routingAuthority: isNullable(isString),
+    })
+  ) {
+    return null;
+  }
+
+  if (
+    value.targetLane !== undefined
+    && !["now", "next", "ambient", "none"].includes(String(value.targetLane))
+  ) {
+    return null;
+  }
+
+  if (
+    value.routingAuthority !== undefined
+    && value.routingAuthority !== null
+    && !["status", "request", "event"].includes(String(value.routingAuthority))
+  ) {
+    return null;
+  }
+
+  return value as NonNullable<OfflineReviewArtifact["bundle"]["explanation"]>;
 }
 
 function buildPreparedSteps(bundle: ReplaySessionBundle): OfflineReviewPreparedStep[] {

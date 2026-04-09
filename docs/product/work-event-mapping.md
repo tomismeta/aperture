@@ -152,7 +152,7 @@ The shared runtime accepts this contract at:
 
 - `POST /work`
 - `GET /work`
-- `GET /work/responses/{interactionId}`
+- `GET /work/reply/{interactionId}`
 
 That endpoint accepts:
 
@@ -174,8 +174,8 @@ endpoint itself to explain:
 For structured `input.requested` work:
 
 - the `POST /work` receipt includes `interactionId`
-- the receipt also includes `responsePath`
-- producers can poll `GET /work/responses/{interactionId}` until the human answer is ready
+- the receipt also includes `replyPath`
+- producers can poll `GET /work/reply/{interactionId}` until the human answer is ready
 
 The runtime path is:
 
@@ -183,7 +183,7 @@ The runtime path is:
 
 For round-trip operator input:
 
-`WorkEvent(kind=input.requested) -> SourceEvent(human.input.requested) -> frame -> human response -> GET /work/responses/{interactionId}`
+`WorkEvent(kind=input.requested) -> SourceEvent(human.input.requested) -> frame -> human response -> GET /work/reply/{interactionId}`
 
 ## Recommendation
 

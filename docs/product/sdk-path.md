@@ -135,7 +135,7 @@ The practical rule is:
 - if you are building on Aperture's judgment engine, depend on `@tomismeta/aperture-core`
 - if you are using Aperture the product, run `@tomismeta/aperture`
 - `@aperture/runtime` can stay independently managed inside the repo without becoming a separately supported npm integration surface yet
-- the public HTTP integration story should stay centered on `/work`, not on the internal `/runtime/*` control routes
+- the public HTTP integration story should stay centered on `/work` and `/work/reply/{interactionId}`, not on the internal `/runtime/*` control routes
 
 ## Two Integration Modes
 

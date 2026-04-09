@@ -8,7 +8,7 @@ import type {
   ApertureRuntimeEvent,
   ApertureRuntimeSnapshot,
   WorkReceipt,
-  WorkResponse,
+  WorkReply,
 } from "./runtime.js";
 import type { WorkPayload } from "./work-event-ingest.js";
 
@@ -146,12 +146,12 @@ export class ApertureRuntimeAdapterClient {
     return result;
   }
 
-  async getWorkResponse(interactionId: string): Promise<WorkResponse> {
-    return this.getBase<WorkResponse>(`/work/responses/${encodeURIComponent(interactionId)}`);
+  async getWorkReply(interactionId: string): Promise<WorkReply> {
+    return this.getBase<WorkReply>(`/work/reply/${encodeURIComponent(interactionId)}`);
   }
 
   async submit(response: AttentionResponse): Promise<void> {
-    await this.postControl("/responses", response);
+    await this.postControl("/reply", response);
     await this.refreshState();
   }
 

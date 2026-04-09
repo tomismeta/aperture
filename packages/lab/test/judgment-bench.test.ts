@@ -11,7 +11,9 @@ test("loads the first golden scenarios from disk", async () => {
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:ambient:status"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:dangerous-approval-language"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:low-confidence-failed-status-queues"));
+  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:low-confidence-blocked-like-waiting-stays-next"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:abstained-waiting-status-stays-ambient"));
+  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:abstained-blocked-like-waiting-stays-next"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:low-confidence-failure-recovers-to-now"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:abstained-blocked-work-recovers-to-now"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:question-tool-family-stays-explanatory"));
@@ -81,6 +83,18 @@ test("JudgmentBench runs across the golden scenarios and produces a summary", as
     repeatedFailureScenario?.assertions.find((assertion) => assertion.name === "semantic reading (repeated failure) ontology episode")?.passed,
     true,
   );
+
+  const lowConfidenceBlockedLikeScenario = result.scenarios.find(
+    (scenario) => scenario.scenario.id === "golden:semantics:low-confidence-blocked-like-waiting-stays-next",
+  );
+  assert.ok(lowConfidenceBlockedLikeScenario);
+  assert.equal(lowConfidenceBlockedLikeScenario?.assertions.every((assertion) => assertion.passed), true);
+
+  const abstainedBlockedLikeScenario = result.scenarios.find(
+    (scenario) => scenario.scenario.id === "golden:semantics:abstained-blocked-like-waiting-stays-next",
+  );
+  assert.ok(abstainedBlockedLikeScenario);
+  assert.equal(abstainedBlockedLikeScenario?.assertions.every((assertion) => assertion.passed), true);
 
   const negatedResolveScenario = result.scenarios.find(
     (scenario) => scenario.scenario.id === "golden:adversarial:negated-resolve-does-not-clear-issue",

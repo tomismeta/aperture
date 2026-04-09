@@ -959,3 +959,113 @@ test("blocked-like waiting statuses become queue-worthy without changing status 
   assert.equal(core.getTaskView("task:status:blocking-next").next[0]?.interactionId, "interaction:task:status:blocking-next:status");
   assert.equal(core.getAttentionView().ambient.length, 0);
 });
+
+test("low-confidence blocked-like waiting stays queued behind active now work", () => {
+  const core = new ApertureCore();
+  const traces: PublicApertureTrace[] = [];
+
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+
+  core.publish({
+    id: "evt:anchor:low-confidence-blocked-like",
+    type: "human.input.requested",
+    taskId: "task:anchor:low-confidence-blocked-like",
+    interactionId: "interaction:anchor:low-confidence-blocked-like",
+    timestamp: "2026-03-28T10:00:00.000Z",
+    title: "Approve deploy",
+    summary: "A deploy is waiting for approval.",
+    consequence: "high",
+    request: { kind: "approval" },
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:low-confidence-blocked-like",
+    type: "task.updated",
+    taskId: "task:status:low-confidence-blocked-like",
+    timestamp: "2026-03-28T10:00:10.000Z",
+    source: { id: "custom-agent" },
+    title: "Cannot continue until credentials are provided",
+    summary: "Work is waiting but cannot proceed until the operator provides credentials.",
+    status: "waiting",
+    semanticHints: {
+      confidence: "low",
+    },
+  });
+
+  const candidateTrace = traces.findLast((trace) => trace.event.id === "src:status:low-confidence-blocked-like");
+  assert.ok(candidateTrace);
+  if (!candidateTrace || candidateTrace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(candidateTrace.coordination.kind, "queue");
+  assert.equal(candidateTrace.coordination.resultLane, "next");
+  assert.equal(core.getAttentionView().now?.interactionId, "interaction:anchor:low-confidence-blocked-like");
+  assert.equal(
+    core.getTaskView("task:status:low-confidence-blocked-like").next[0]?.interactionId,
+    "interaction:task:status:low-confidence-blocked-like:status",
+  );
+  assert.deepEqual(candidateTrace.semantic?.impact.decisionBearing, [
+    "activity (canonical)",
+    "blocking (peripheral routing)",
+    "confidence (ambiguity)",
+  ]);
+  assert.equal(core.getAttentionView().ambient.length, 0);
+});
+
+test("abstained blocked-like waiting stays queued behind active now work", () => {
+  const core = new ApertureCore();
+  const traces: PublicApertureTrace[] = [];
+
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+
+  core.publish({
+    id: "evt:anchor:abstained-blocked-like",
+    type: "human.input.requested",
+    taskId: "task:anchor:abstained-blocked-like",
+    interactionId: "interaction:anchor:abstained-blocked-like",
+    timestamp: "2026-03-28T10:00:00.000Z",
+    title: "Approve deploy",
+    summary: "A deploy is waiting for approval.",
+    consequence: "high",
+    request: { kind: "approval" },
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:abstained-blocked-like",
+    type: "task.updated",
+    taskId: "task:status:abstained-blocked-like",
+    timestamp: "2026-03-28T10:00:10.000Z",
+    source: { id: "custom-agent" },
+    title: "Cannot continue until credentials are provided",
+    summary: "Work is waiting but cannot proceed until the operator provides credentials.",
+    status: "waiting",
+    semanticHints: {
+      abstained: true,
+    },
+  });
+
+  const candidateTrace = traces.findLast((trace) => trace.event.id === "src:status:abstained-blocked-like");
+  assert.ok(candidateTrace);
+  if (!candidateTrace || candidateTrace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(candidateTrace.coordination.kind, "queue");
+  assert.equal(candidateTrace.coordination.resultLane, "next");
+  assert.equal(core.getAttentionView().now?.interactionId, "interaction:anchor:abstained-blocked-like");
+  assert.equal(
+    core.getTaskView("task:status:abstained-blocked-like").next[0]?.interactionId,
+    "interaction:task:status:abstained-blocked-like:status",
+  );
+  assert.deepEqual(candidateTrace.semantic?.impact.decisionBearing, [
+    "activity (canonical)",
+    "blocking (peripheral routing)",
+    "abstention (ambiguity)",
+  ]);
+  assert.equal(core.getAttentionView().ambient.length, 0);
+});

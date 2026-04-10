@@ -1,10 +1,10 @@
-import { ApertureCore, type SourceEvent, type AttentionView } from "../packages/core/src/index.ts";
+import { ApertureCore, type SourceEvent, type AttentionView } from "@tomismeta/aperture-core";
+import type { ClaudeCodeHookEvent } from "@aperture/claude-code";
+import { mapClaudeCodeHookEvent } from "@aperture/claude-code";
+import type { OpencodeMappingContext, OpencodeSseMessage } from "@aperture/opencode";
+import { mapOpencodeEvent } from "@aperture/opencode";
+import { runAttentionTui } from "@aperture/tui";
 import { subscribeInternalTrace, type ApertureTrace } from "../packages/core/src/internal-contract.ts";
-import type { ClaudeCodeHookEvent } from "../packages/claude-code/src/index.ts";
-import { mapClaudeCodeHookEvent } from "../packages/claude-code/src/index.ts";
-import type { OpencodeMappingContext, OpencodeSseMessage } from "../packages/opencode/src/index.ts";
-import { mapOpencodeEvent } from "../packages/opencode/src/index.ts";
-import { runAttentionTui } from "../packages/tui/src/index.ts";
 
 type DemoOptions = {
   recording: boolean;

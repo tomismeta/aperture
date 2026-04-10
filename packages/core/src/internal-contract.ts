@@ -6,7 +6,21 @@ export type {
 } from "./frame.js";
 export type { AttentionSignalSummary } from "./signal-summary.js";
 export type { AttentionState } from "./attention-state.js";
-export type { ApertureTrace } from "./trace-types.js";
+export {
+  evaluateTraceSession,
+  type TraceEvaluationReport,
+} from "./trace-evaluator.js";
+export {
+  isCandidateTrace,
+} from "./trace-types.js";
+export type {
+  ApertureTrace,
+  CandidateApertureTrace,
+} from "./trace-types.js";
+export {
+  assertValidFrameResponse,
+  assertValidSourceEvent,
+} from "./aperture-core-validation.js";
 export {
   subscribeInternalTrace,
   type InternalTraceEmitter,

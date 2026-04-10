@@ -4,12 +4,15 @@ import {
   type AttentionResponse,
   type AttentionSignal,
 } from "@tomismeta/aperture-core";
-import { subscribeInternalTrace } from "../../core/src/internal-contract.js";
+import {
+  subscribeInternalTrace,
+  isCandidateTrace,
+  type ApertureTrace,
+} from "../../core/src/internal-contract.js";
 import {
   normalizeSourceEvent,
   readSemanticOntologyDiagnostic,
 } from "@tomismeta/aperture-core/semantic";
-import { isCandidateTrace, type ApertureTrace } from "../../core/src/trace-types.js";
 
 import type {
   ReplayObservationStep,

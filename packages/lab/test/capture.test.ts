@@ -11,10 +11,32 @@ import {
   type RuntimeSessionCaptureLike,
 } from "../src/capture.js";
 
+function explanationSnapshot(
+  value: Partial<NonNullable<RuntimeSessionCaptureLike["currentExplanation"]>>,
+): NonNullable<RuntimeSessionCaptureLike["currentExplanation"]> {
+  return {
+    targetInteractionId: null,
+    targetLane: "none",
+    headline: null,
+    whyNow: null,
+    routingAuthority: null,
+    semanticImpact: null,
+    semanticInfluence: [],
+    coordinationReasons: [],
+    plannerReasons: [],
+    policyRationale: [],
+    criterionRationale: [],
+    continuityRationale: [],
+    attentionRationale: [],
+    ...value,
+  };
+}
+
 test("createCaptureReviewArtifacts builds a session bundle and offline review artifact from a runtime capture", () => {
   const capture: RuntimeSessionCaptureLike = {
     runtimeId: "runtime:live:test",
     kind: "aperture",
+    startedAt: "2026-04-10T03:00:00.000Z",
     exportedAt: "2026-04-10T03:05:00.000Z",
     captureSteps: [
       {
@@ -64,13 +86,14 @@ test("createCaptureReviewArtifacts builds a session bundle and offline review ar
       next: [],
       ambient: [],
     },
-    currentExplanation: {
+    adapters: [],
+    currentExplanation: explanationSnapshot({
       targetInteractionId: "interaction:task:live:failed:status",
       targetLane: "now",
       headline: "Work has failed and should be reviewed.",
       whyNow: "Work has failed and should be reviewed.",
       routingAuthority: "status",
-    },
+    }),
   };
 
   const result = createCaptureReviewArtifacts(capture, {
@@ -109,6 +132,7 @@ test("writeCaptureReviewArtifacts persists both bundle and artifact paths", asyn
   const capture: RuntimeSessionCaptureLike = {
     runtimeId: "runtime:live:test",
     kind: "aperture",
+    startedAt: "2026-04-10T03:00:00.000Z",
     exportedAt: "2026-04-10T03:05:00.000Z",
     captureSteps: [
       {
@@ -146,13 +170,8 @@ test("writeCaptureReviewArtifacts persists both bundle and artifact paths", asyn
       next: [],
       ambient: [],
     },
-    currentExplanation: {
-      targetInteractionId: null,
-      targetLane: "none",
-      headline: null,
-      whyNow: null,
-      routingAuthority: null,
-    },
+    adapters: [],
+    currentExplanation: explanationSnapshot({}),
   };
 
   const bundlePath = path.join(tempDir, "bundle.json");
@@ -183,6 +202,7 @@ test("writeSessionBundleReviewArtifact prepares an artifact from an existing bun
   const capture: RuntimeSessionCaptureLike = {
     runtimeId: "runtime:live:test",
     kind: "aperture",
+    startedAt: "2026-04-10T03:00:00.000Z",
     exportedAt: "2026-04-10T03:05:00.000Z",
     captureSteps: [
       {
@@ -222,13 +242,14 @@ test("writeSessionBundleReviewArtifact prepares an artifact from an existing bun
       ],
       ambient: [],
     },
-    currentExplanation: {
+    adapters: [],
+    currentExplanation: explanationSnapshot({
       targetInteractionId: "interaction:task:live:waiting:status",
       targetLane: "next",
       headline: "Waiting work is queued behind current attention.",
       whyNow: "Waiting work is queued behind current attention.",
       routingAuthority: "status",
-    },
+    }),
   };
 
   await writeCaptureReviewArtifacts(capture, {

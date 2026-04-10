@@ -1,6 +1,10 @@
 import type { AttentionSignal } from "@tomismeta/aperture-core";
-import { isCandidateTrace, type ApertureTrace } from "../../core/src/trace-types.js";
-import { evaluateTraceSession, type TraceEvaluationReport } from "../../core/src/trace-evaluator.js";
+import {
+  evaluateTraceSession,
+  isCandidateTrace,
+  type ApertureTrace,
+  type TraceEvaluationReport,
+} from "../../core/src/internal-contract.js";
 
 import type { ReplayRunResult } from "./runner.js";
 import type { AttentionFrame } from "@tomismeta/aperture-core";

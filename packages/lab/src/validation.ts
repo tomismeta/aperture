@@ -9,7 +9,7 @@ import type {
   SemanticInterpretation,
   SemanticOntologyDiagnostic,
 } from "@tomismeta/aperture-core/semantic";
-import type { ApertureTrace } from "../../core/src/trace-types.js";
+import type { ApertureTrace } from "../../core/src/internal-contract.js";
 
 import type {
   ReplayArtifactSource,

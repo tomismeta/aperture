@@ -1,0 +1,184 @@
+import type {
+  ApertureCore,
+  AttentionFrame,
+  AttentionResponse,
+  AttentionSignal,
+  AttentionSurfaceCapabilities,
+  AttentionView,
+  SourceEvent,
+} from "@tomismeta/aperture-core";
+import type {
+  ApertureTrace,
+  AttentionSignalSummary,
+  AttentionState,
+} from "../../core/src/internal-contract.js";
+
+import type { LearningPersistenceState } from "./learning-persistence.js";
+
+export type ApertureRuntimeOptions = {
+  kind?: string;
+  controlHost?: string;
+  controlPathPrefix?: string;
+  controlPort?: number;
+  eventLogLimit?: number;
+  adapterTtlMs?: number;
+  surfaceTtlMs?: number;
+  metadata?: Record<string, string>;
+  core?: ApertureCore;
+  learningPersistence?: LearningPersistenceState;
+};
+
+export type ApertureRuntimeEvent =
+  | {
+      sequence: number;
+      type: "response";
+      response: AttentionResponse;
+    }
+  | {
+      sequence: number;
+      type: "trace";
+      trace: ApertureTrace;
+    };
+
+export type ApertureRuntimeSnapshot = {
+  version: number;
+  attentionView: AttentionView;
+  signalSummary: AttentionSignalSummary;
+  attentionState: AttentionState;
+  adapters: ApertureRuntimeAdapter[];
+  surfaceCount: number;
+  surfaceCapabilities: AttentionSurfaceCapabilities;
+  learningPersistence?: LearningPersistenceState;
+};
+
+export type ApertureRuntimeCaptureStep =
+  | {
+      sequence: number;
+      recordedAt: string;
+      kind: "publishSource";
+      event: SourceEvent;
+    }
+  | {
+      sequence: number;
+      recordedAt: string;
+      kind: "submit";
+      response: AttentionResponse;
+    };
+
+export type ApertureRuntimeAttentionViewSnapshot = {
+  sequence: number;
+  recordedAt: string;
+  attentionView: AttentionView;
+};
+
+export type ApertureRuntimeExplanationSnapshot = {
+  targetInteractionId: string | null;
+  targetLane: "now" | "next" | "ambient" | "none";
+  headline: string | null;
+  whyNow: string | null;
+  routingAuthority: "status" | "request" | "event" | null;
+  semanticImpact: {
+    canonical: string[];
+    routing: string[];
+    continuity: string[];
+    ambiguity: string[];
+    contextOnly: string[];
+  } | null;
+  semanticInfluence: string[];
+  coordinationReasons: string[];
+  plannerReasons: string[];
+  policyRationale: string[];
+  criterionRationale: string[];
+  continuityRationale: string[];
+  attentionRationale: string[];
+};
+
+export type ApertureRuntimeSessionCapture = {
+  runtimeId: string;
+  kind: string;
+  startedAt: string;
+  exportedAt: string;
+  captureSteps: ApertureRuntimeCaptureStep[];
+  publishedSourceEvents: SourceEvent[];
+  submittedResponses: AttentionResponse[];
+  signals: AttentionSignal[];
+  traces: ApertureTrace[];
+  attentionViewSnapshots: ApertureRuntimeAttentionViewSnapshot[];
+  currentAttentionView: AttentionView;
+  currentExplanation: ApertureRuntimeExplanationSnapshot;
+  adapters: ApertureRuntimeAdapter[];
+  metadata?: Record<string, string>;
+  learningPersistence?: LearningPersistenceState;
+};
+
+export type ApertureRuntimeAdapter = {
+  id: string;
+  kind: string;
+  label?: string;
+  metadata?: Record<string, string>;
+  lastSeenAt: string;
+  connectedAt: string;
+};
+
+export type ApertureRuntime = {
+  listen(): Promise<{
+    baseUrl: string;
+    controlUrl: string;
+    runtimeId: string;
+    kind: string;
+    surfaceTtlMs: number;
+  }>;
+  close(): Promise<void>;
+  getCore(): ApertureCore;
+  hasAttachedSurface(): boolean;
+  exportSessionCapture(): ApertureRuntimeSessionCapture;
+  publishSourceEvent(event: SourceEvent): void;
+  publishSourceEventBatch(events: SourceEvent[]): void;
+};
+
+export type WorkReceiptMode = "text" | "event" | "batch";
+
+export type WorkReceiptItem = {
+  taskId: string;
+  type: SourceEvent["type"];
+  title?: string;
+  summary?: string;
+  status?: string;
+  interactionId?: string;
+  responsePath?: string;
+};
+
+export type WorkReceiptNextStep = {
+  when: string;
+  send: "text" | "WorkEvent" | "WorkEvent[]";
+  why: string;
+};
+
+export type WorkReceipt = {
+  ok: true;
+  accepted: number;
+  receivedAs: WorkReceiptMode;
+  message: string;
+  published: WorkReceiptItem[];
+  next?: WorkReceiptNextStep[];
+};
+
+export type WorkResponseState = "pending" | "answered";
+
+export type WorkResponse = {
+  ok: true;
+  taskId: string;
+  interactionId: string;
+  state: WorkResponseState;
+  message: string;
+  response?: AttentionResponse["response"];
+  answeredAt?: string;
+};
+
+export type RuntimeWorkResponseRecord = {
+  taskId: string;
+  interactionId: string;
+  state: WorkResponseState;
+  response?: AttentionResponse["response"];
+  answeredAt?: string;
+};

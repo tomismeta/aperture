@@ -13,7 +13,14 @@ import type {
   ApertureRuntimeEvent,
   ApertureRuntimeSessionCapture,
   ApertureRuntimeSnapshot,
-} from "./runtime.js";
+} from "./runtime-contract.js";
+import {
+  createEmptyRuntimeSnapshot,
+  DEFAULT_RUNTIME_POLL_INTERVAL_MS,
+  getJson,
+  normalizeRuntimeUrls,
+  postJson,
+} from "./runtime-client-shared.js";
 
 export type ApertureRuntimeClientOptions = {
   baseUrl: string;
@@ -31,60 +38,15 @@ type AttentionViewListener = (attentionView: AttentionView) => void;
 type ResponseListener = (response: AttentionResponse) => void;
 type TraceListener = (trace: ApertureTrace) => void;
 
-const DEFAULT_POLL_INTERVAL_MS = 250;
-
 export class ApertureRuntimeClient {
-  private readonly baseUrl: string;
+  private readonly controlUrl: string;
   private readonly pollIntervalMs: number;
   private readonly label: string;
   private readonly surfaceCapabilities: PartialSurfaceCapabilities | undefined;
   private readonly attentionListeners = new Set<AttentionViewListener>();
   private readonly responseListeners = new Set<ResponseListener>();
   private readonly traceListeners = new Set<TraceListener>();
-  private snapshotState: ApertureRuntimeSnapshot = {
-    version: 0,
-    attentionView: { now: null, next: [], ambient: [] },
-    signalSummary: {
-      recentSignals: 0,
-      lifetimeSignals: 0,
-      counts: {
-        presented: 0,
-        viewed: 0,
-        responded: 0,
-        dismissed: 0,
-        deferred: 0,
-        contextExpanded: 0,
-        contextSkipped: 0,
-        timedOut: 0,
-        returned: 0,
-        attentionShifted: 0,
-      },
-      deferred: {
-        next: 0,
-        suppressed: 0,
-        manual: 0,
-      },
-      responseRate: 0,
-      dismissalRate: 0,
-      averageResponseLatencyMs: null,
-      averageDismissalLatencyMs: null,
-      lastSignalAt: null,
-    },
-    attentionState: "monitoring",
-    adapters: [],
-    surfaceCount: 0,
-    surfaceCapabilities: {
-      topology: {
-        supportsAmbient: true,
-      },
-      responses: {
-        supportsSingleChoice: true,
-        supportsMultipleChoice: false,
-        supportsForm: true,
-        supportsTextResponse: false,
-      },
-    },
-  };
+  private snapshotState: ApertureRuntimeSnapshot = createEmptyRuntimeSnapshot();
   private surfaceId: string | null = null;
   private heartbeatIntervalId: NodeJS.Timeout | null = null;
   private pollIntervalId: NodeJS.Timeout | null = null;
@@ -92,8 +54,9 @@ export class ApertureRuntimeClient {
   private closed = false;
 
   private constructor(options: ApertureRuntimeClientOptions) {
-    this.baseUrl = options.baseUrl.replace(/\/+$/, "");
-    this.pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
+    const runtimeUrls = normalizeRuntimeUrls(options.baseUrl);
+    this.controlUrl = runtimeUrls.controlUrl;
+    this.pollIntervalMs = options.pollIntervalMs ?? DEFAULT_RUNTIME_POLL_INTERVAL_MS;
     this.label = options.label ?? "tui";
     this.surfaceCapabilities = options.surfaceCapabilities;
   }
@@ -169,7 +132,7 @@ export class ApertureRuntimeClient {
       this.heartbeatIntervalId = null;
     }
     if (this.surfaceId) {
-      await fetch(`${this.baseUrl}/surfaces/${encodeURIComponent(this.surfaceId)}`, {
+      await fetch(`${this.controlUrl}/surfaces/${encodeURIComponent(this.surfaceId)}`, {
         method: "DELETE",
       }).catch(() => {});
       this.surfaceId = null;
@@ -233,24 +196,10 @@ export class ApertureRuntimeClient {
   }
 
   private async get<T>(path: string): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`);
-    if (!response.ok) {
-      throw new Error(`Aperture runtime request failed: ${response.status} ${response.statusText}`);
-    }
-    return response.json() as Promise<T>;
+    return getJson<T>(`${this.controlUrl}${path}`);
   }
 
   private async post<T = Record<string, never>>(path: string, body: unknown): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
-    if (!response.ok) {
-      throw new Error(`Aperture runtime request failed: ${response.status} ${response.statusText}`);
-    }
-    return response.json() as Promise<T>;
+    return postJson<T>(`${this.controlUrl}${path}`, body);
   }
 }

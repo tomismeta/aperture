@@ -12,7 +12,13 @@ import type {
   SourceEvent,
 } from "@tomismeta/aperture-core";
 import { normalizeSourceEvent } from "@tomismeta/aperture-core/semantic";
-import { isCandidateTrace, type ApertureTrace } from "../../core/src/trace-types.js";
+import { isCandidateTrace, type ApertureTrace } from "../../core/src/internal-contract.js";
+import type {
+  ApertureRuntimeAttentionViewSnapshot,
+  ApertureRuntimeCaptureStep,
+  ApertureRuntimeExplanationSnapshot,
+  ApertureRuntimeSessionCapture,
+} from "../../runtime/src/internal-contract.js";
 
 import type {
   ReplayArtifactSource,
@@ -99,44 +105,8 @@ export type ReplaySessionBundle = {
   };
 };
 
-export type RuntimeSessionCaptureExplanationLike = {
-  targetInteractionId: string | null;
-  targetLane: "now" | "next" | "ambient" | "none";
-  headline: string | null;
-  whyNow: string | null;
-  routingAuthority: "status" | "request" | "event" | null;
-};
-
-export type RuntimeSessionCaptureLike = {
-  runtimeId: string;
-  kind: string;
-  exportedAt: string;
-  captureSteps: Array<
-    | {
-        sequence: number;
-        recordedAt: string;
-        kind: "publishSource";
-        event: SourceEvent;
-      }
-    | {
-        sequence: number;
-        recordedAt: string;
-        kind: "submit";
-        response: AttentionResponse;
-      }
-  >;
-  publishedSourceEvents: SourceEvent[];
-  submittedResponses: AttentionResponse[];
-  signals: AttentionSignal[];
-  traces: ApertureTrace[];
-  attentionViewSnapshots: Array<{
-    sequence: number;
-    recordedAt: string;
-    attentionView: AttentionView;
-  }>;
-  currentAttentionView: AttentionView;
-  currentExplanation?: RuntimeSessionCaptureExplanationLike;
-};
+export type RuntimeSessionCaptureExplanationLike = ApertureRuntimeExplanationSnapshot;
+export type RuntimeSessionCaptureLike = ApertureRuntimeSessionCapture;
 
 export type RuntimeSessionCaptureCursor = {
   runtimeId: string;
@@ -750,9 +720,9 @@ function buildDecisionSnapshotFromTrace(
 }
 
 function buildViewSnapshotFromRuntimeCapture(
-  snapshot: RuntimeSessionCaptureLike["attentionViewSnapshots"][number],
+  snapshot: ApertureRuntimeAttentionViewSnapshot,
   stepIndexBySequence: Map<number, number>,
-  captureSteps: RuntimeSessionCaptureLike["captureSteps"],
+  captureSteps: ApertureRuntimeCaptureStep[],
 ): ReplayViewSnapshot | null {
   const precedingStep = [...captureSteps]
     .reverse()

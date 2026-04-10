@@ -1,6 +1,6 @@
-import { ApertureCore } from "../packages/core/src/index.ts";
+import { ApertureCore } from "@tomismeta/aperture-core";
+import { runAttentionTui } from "@aperture/tui";
 import { LauncherConnectionStore, makeConnectionEntry } from "../packages/aperture/src/connection-status.ts";
-import { runAttentionTui } from "../packages/tui/src/index.ts";
 
 type DemoOptions = {
   recording: boolean;

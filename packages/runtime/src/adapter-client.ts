@@ -9,8 +9,15 @@ import type {
   ApertureRuntimeSnapshot,
   WorkReceipt,
   WorkResponse,
-} from "./runtime.js";
+} from "./runtime-contract.js";
 import type { WorkInput } from "./work-event-ingest.js";
+import {
+  createEmptyRuntimeSnapshot,
+  DEFAULT_RUNTIME_POLL_INTERVAL_MS,
+  getJson,
+  normalizeRuntimeUrls,
+  postJson,
+} from "./runtime-client-shared.js";
 
 export type ApertureRuntimeAdapterClientOptions = {
   baseUrl: string;
@@ -25,8 +32,6 @@ export type ApertureRuntimeAdapterClientOptions = {
 type ResponseListener = (response: AttentionResponse) => void;
 
 const DEFAULT_HEARTBEAT_INTERVAL_MS = 5_000;
-const DEFAULT_POLL_INTERVAL_MS = 250;
-
 export class ApertureRuntimeAdapterClient {
   private readonly baseUrl: string;
   private readonly controlUrl: string;
@@ -42,50 +47,7 @@ export class ApertureRuntimeAdapterClient {
   private pollIntervalId: NodeJS.Timeout | null = null;
   private nextSequence = 0;
   private closed = false;
-  private snapshotState: ApertureRuntimeSnapshot = {
-    version: 0,
-    attentionView: { now: null, next: [], ambient: [] },
-    signalSummary: {
-      recentSignals: 0,
-      lifetimeSignals: 0,
-      counts: {
-        presented: 0,
-        viewed: 0,
-        responded: 0,
-        dismissed: 0,
-        deferred: 0,
-        contextExpanded: 0,
-        contextSkipped: 0,
-        timedOut: 0,
-        returned: 0,
-        attentionShifted: 0,
-      },
-      deferred: {
-        next: 0,
-        suppressed: 0,
-        manual: 0,
-      },
-      responseRate: 0,
-      dismissalRate: 0,
-      averageResponseLatencyMs: null,
-      averageDismissalLatencyMs: null,
-      lastSignalAt: null,
-    },
-    attentionState: "monitoring",
-    adapters: [],
-    surfaceCount: 0,
-    surfaceCapabilities: {
-      topology: {
-        supportsAmbient: true,
-      },
-      responses: {
-        supportsSingleChoice: true,
-        supportsMultipleChoice: false,
-        supportsForm: true,
-        supportsTextResponse: false,
-      },
-    },
-  };
+  private snapshotState: ApertureRuntimeSnapshot = createEmptyRuntimeSnapshot();
 
   private constructor(options: ApertureRuntimeAdapterClientOptions) {
     const runtimeUrls = normalizeRuntimeUrls(options.baseUrl);
@@ -96,7 +58,7 @@ export class ApertureRuntimeAdapterClient {
     this.label = options.label;
     this.requestedHeartbeatIntervalMs =
       options.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS;
-    this.pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
+    this.pollIntervalMs = options.pollIntervalMs ?? DEFAULT_RUNTIME_POLL_INTERVAL_MS;
     this.metadata = options.metadata;
   }
 
@@ -225,25 +187,11 @@ export class ApertureRuntimeAdapterClient {
   }
 
   private async getControl<T>(path: string): Promise<T> {
-    const response = await fetch(`${this.controlUrl}${path}`);
-    if (!response.ok) {
-      throw new Error(`Aperture runtime request failed: ${response.status} ${response.statusText}`);
-    }
-    return response.json() as Promise<T>;
+    return getJson<T>(`${this.controlUrl}${path}`);
   }
 
   private async postControl<T = Record<string, never>>(path: string, body: unknown): Promise<T> {
-    const response = await fetch(`${this.controlUrl}${path}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
-    if (!response.ok) {
-      throw new Error(`Aperture runtime request failed: ${response.status} ${response.statusText}`);
-    }
-    return response.json() as Promise<T>;
+    return postJson<T>(`${this.controlUrl}${path}`, body);
   }
 
   private async postBase<T = Record<string, never>>(
@@ -251,38 +199,10 @@ export class ApertureRuntimeAdapterClient {
     body: unknown,
     contentType: string,
   ): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": contentType,
-      },
-      body: typeof body === "string" ? body : JSON.stringify(body),
-    });
-    if (!response.ok) {
-      throw new Error(`Aperture runtime request failed: ${response.status} ${response.statusText}`);
-    }
-    return response.json() as Promise<T>;
+    return postJson<T>(`${this.baseUrl}${path}`, body, contentType);
   }
 
   private async getBase<T>(path: string): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`);
-    if (!response.ok) {
-      throw new Error(`Aperture runtime request failed: ${response.status} ${response.statusText}`);
-    }
-    return response.json() as Promise<T>;
+    return getJson<T>(`${this.baseUrl}${path}`);
   }
-}
-
-function normalizeRuntimeUrls(input: string): { baseUrl: string; controlUrl: string } {
-  const normalized = input.replace(/\/+$/, "");
-  if (normalized.endsWith("/runtime")) {
-    return {
-      baseUrl: normalized.slice(0, -"/runtime".length),
-      controlUrl: normalized,
-    };
-  }
-  return {
-    baseUrl: normalized,
-    controlUrl: `${normalized}/runtime`,
-  };
 }

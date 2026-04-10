@@ -5,6 +5,7 @@
   "packageManager": "pnpm@10.29.1",
   "scripts": {
     "aperture": "tsx packages/aperture/src/cli.ts",
+    "architecture:check": "tsx scripts/check-module-budgets.ts",
     "boundary:check": "tsx scripts/check-package-boundaries.ts",
     "build": "tsc -b",
     "codex:generate-protocol": "tsx scripts/update-codex-protocol.ts",
@@ -59,7 +60,7 @@
     "opencode:disconnect": "tsx scripts/opencode-disconnect.ts",
     "opencode:start": "tsx scripts/opencode-adapter.ts",
     "product:smoke": "pnpm --dir packages/aperture run smoke",
-    "release:check": "pnpm typecheck && pnpm boundary:check && pnpm test && pnpm judgment:battle && pnpm sdk:prove && pnpm product:smoke",
+    "release:check": "pnpm typecheck && pnpm boundary:check && pnpm architecture:check && pnpm test && pnpm judgment:battle && pnpm sdk:prove && pnpm product:smoke",
     "sdk:prove": "tsx scripts/prove-core-sdk.ts",
     "session:export": "tsx scripts/session-export.ts",
     "session:review": "tsx scripts/session-review.ts",

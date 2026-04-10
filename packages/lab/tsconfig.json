@@ -6,6 +6,7 @@
   },
   "include": ["src/**/*.ts", "test/**/*.test.ts"],
   "references": [
-    { "path": "../core" }
+    { "path": "../core" },
+    { "path": "../runtime" }
   ]
 }

@@ -44,6 +44,10 @@ import {
 import { TraceRecorder } from "./trace-recorder.js";
 import { buildTraceEventTransition } from "./trace-event-transition.js";
 import {
+  OperatorEngagementController,
+  sameAttentionView,
+} from "./aperture-core-engagement.js";
+import {
   ApertureCoreListeners,
   type AttentionFrameListener,
   type AttentionTaskViewListener,
@@ -109,12 +113,6 @@ export type ApertureCoreOptions = {
 
 export type { PublishOptions } from "./aperture-core-event-preparation.js";
 
-type OperatorEngagement = {
-  taskId: string;
-  interactionId: string;
-  expiresAtMs: number;
-};
-
 export class ApertureCore {
   private readonly listeners = new ApertureCoreListeners();
   private readonly taskViews = new TaskViewStore();
@@ -134,8 +132,7 @@ export class ApertureCore {
   private operatorPresence: AttentionOperatorPresence;
   private readonly responseExpiryMs: number | undefined;
   private readonly timeSource: () => number;
-  private operatorEngagement: OperatorEngagement | null = null;
-  private operatorEngagementTimer: NodeJS.Timeout | null = null;
+  private readonly operatorEngagement: OperatorEngagementController;
 
   constructor(options: ApertureCoreOptions = {}) {
     const runtime = normalizeApertureCoreRuntimeSetup(options);
@@ -147,6 +144,7 @@ export class ApertureCore {
     this.operatorPresence = runtime.operatorPresence;
     this.responseExpiryMs = runtime.responseExpiryMs;
     this.timeSource = runtime.timeSource;
+    this.operatorEngagement = new OperatorEngagementController(this.timeSource);
     this.baseMemoryProfile = runtime.baseMemoryProfile;
     this.coordinator = buildApertureCoordinator(runtime);
   }
@@ -499,13 +497,14 @@ export class ApertureCore {
     }
 
     const previousAttentionView = this.getAttentionView();
-    const durationMs = normalizeOperatorEngagementDuration(options.durationMs);
-    this.operatorEngagement = {
-      taskId,
-      interactionId,
-      expiresAtMs: Date.now() + durationMs,
-    };
-    this.scheduleOperatorEngagementExpiry(durationMs, taskId, interactionId);
+    this.operatorEngagement.engage(taskId, interactionId, options, () => {
+      const livePreviousAttentionView = this.getAttentionView();
+      this.clearOperatorEngagement(taskId, interactionId);
+      const nextAttentionView = this.getAttentionView();
+      if (!sameAttentionView(livePreviousAttentionView, nextAttentionView)) {
+        this.notifyAttentionView();
+      }
+    });
     const nextAttentionView = this.getAttentionView();
     if (!sameAttentionView(previousAttentionView, nextAttentionView)) {
       this.notifyAttentionView();
@@ -915,71 +914,13 @@ export class ApertureCore {
   }
 
   private readOperatorEngagementInteractionId(): string | null {
-    const engagement = this.operatorEngagement;
-    if (!engagement) {
-      return null;
-    }
-
-    if (engagement.expiresAtMs <= Date.now()) {
-      this.clearOperatorEngagement();
-      return null;
-    }
-
-    if (!this.findFrameByInteractionId(engagement.taskId, engagement.interactionId)) {
-      this.clearOperatorEngagement();
-      return null;
-    }
-
-    return engagement.interactionId;
-  }
-
-  private scheduleOperatorEngagementExpiry(
-    durationMs: number,
-    taskId: string,
-    interactionId: string,
-  ): void {
-    this.clearOperatorEngagementTimer();
-    this.operatorEngagementTimer = setTimeout(() => {
-      if (
-        this.operatorEngagement?.taskId !== taskId
-        || this.operatorEngagement?.interactionId !== interactionId
-      ) {
-        return;
-      }
-
-      const previousAttentionView = this.getAttentionView();
-      this.clearOperatorEngagement();
-      const nextAttentionView = this.getAttentionView();
-      if (!sameAttentionView(previousAttentionView, nextAttentionView)) {
-        this.notifyAttentionView();
-      }
-    }, durationMs);
-    this.operatorEngagementTimer.unref?.();
+    return this.operatorEngagement.readFocusedInteractionId((taskId, interactionId) =>
+      this.findFrameByInteractionId(taskId, interactionId) !== null
+    );
   }
 
   private clearOperatorEngagement(taskId?: string, interactionId?: string): void {
-    const engagement = this.operatorEngagement;
-    if (!engagement) {
-      return;
-    }
-
-    if (taskId !== undefined && engagement.taskId !== taskId) {
-      return;
-    }
-
-    if (interactionId !== undefined && engagement.interactionId !== interactionId) {
-      return;
-    }
-
-    this.operatorEngagement = null;
-    this.clearOperatorEngagementTimer();
-  }
-
-  private clearOperatorEngagementTimer(): void {
-    if (this.operatorEngagementTimer) {
-      clearTimeout(this.operatorEngagementTimer);
-      this.operatorEngagementTimer = null;
-    }
+    this.operatorEngagement.clear(taskId, interactionId);
   }
 
   private notifyTrace(trace: InternalApertureTrace): void {
@@ -1040,23 +981,4 @@ function readSignalEpisodeId(signal: AttentionSignal): string | null {
 
 function sameFrame(left: AttentionFrame, right: AttentionFrame): boolean {
   return left.id === right.id || (left.taskId === right.taskId && left.interactionId === right.interactionId);
-}
-
-function normalizeOperatorEngagementDuration(durationMs: number | undefined): number {
-  if (durationMs === undefined) {
-    return 12_000;
-  }
-
-  return Math.max(25, Math.floor(durationMs));
-}
-
-function sameAttentionView(left: AttentionView, right: AttentionView): boolean {
-  return left.now?.interactionId === right.now?.interactionId
-    && sameInteractionOrder(left.next, right.next)
-    && sameInteractionOrder(left.ambient, right.ambient);
-}
-
-function sameInteractionOrder(left: AttentionFrame[], right: AttentionFrame[]): boolean {
-  return left.length === right.length
-    && left.every((frame, index) => frame.interactionId === right[index]?.interactionId);
 }

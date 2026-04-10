@@ -27,6 +27,27 @@ import {
   writeSessionBundle,
 } from "../src/index.js";
 
+function explanationSnapshot(
+  value: Partial<NonNullable<RuntimeSessionCaptureLike["currentExplanation"]>>,
+): NonNullable<RuntimeSessionCaptureLike["currentExplanation"]> {
+  return {
+    targetInteractionId: null,
+    targetLane: "none",
+    headline: null,
+    whyNow: null,
+    routingAuthority: null,
+    semanticImpact: null,
+    semanticInfluence: [],
+    coordinationReasons: [],
+    plannerReasons: [],
+    policyRationale: [],
+    criterionRationale: [],
+    continuityRationale: [],
+    attentionRationale: [],
+    ...value,
+  };
+}
+
 test("session bundles capture replay outputs and normalized source events", () => {
   const scenario: ReplayScenario = {
     id: "bundle:source",
@@ -946,13 +967,13 @@ test("session bundles can be created from runtime-style captures", () => {
       ],
       ambient: [],
     },
-    currentExplanation: {
+    currentExplanation: explanationSnapshot({
       targetInteractionId: "interaction:task:runtime:bundle:status",
       targetLane: "next",
       headline: "Work has failed and should be reviewed.",
       whyNow: "Work has failed and should be reviewed.",
       routingAuthority: "status",
-    },
+    }),
   } as unknown as RuntimeSessionCaptureLike;
 
   const bundle = createSessionBundleFromRuntimeCapture(capture, {
@@ -982,6 +1003,7 @@ test("runtime session captures can be sliced from a baseline cursor", () => {
   const baselineCapture: RuntimeSessionCaptureLike = {
     runtimeId: "runtime:test",
     kind: "aperture",
+    startedAt: "2026-03-21T19:59:00.000Z",
     exportedAt: "2026-03-21T20:00:00.000Z",
     captureSteps: [
       {
@@ -1029,13 +1051,8 @@ test("runtime session captures can be sliced from a baseline cursor", () => {
       next: [],
       ambient: [],
     },
-    currentExplanation: {
-      targetInteractionId: null,
-      targetLane: "none",
-      headline: null,
-      whyNow: null,
-      routingAuthority: null,
-    },
+    adapters: [],
+    currentExplanation: explanationSnapshot({}),
   };
 
   const cursor = createRuntimeSessionCaptureCursor(baselineCapture);
@@ -1113,13 +1130,13 @@ test("runtime session captures can be sliced from a baseline cursor", () => {
       next: [],
       ambient: [],
     },
-    currentExplanation: {
+    currentExplanation: explanationSnapshot({
       targetInteractionId: "interaction:current",
       targetLane: "now",
       headline: "Current failure needs review.",
       whyNow: "Current failure needs review.",
       routingAuthority: "status",
-    },
+    }),
   };
 
   const sliced = sliceRuntimeSessionCapture(currentCapture, cursor);

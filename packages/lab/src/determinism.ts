@@ -1,5 +1,5 @@
 import type { AttentionResponse, AttentionSignal } from "@tomismeta/aperture-core";
-import type { ApertureTrace } from "../../core/src/trace-types.js";
+import type { ApertureTrace } from "../../core/src/internal-contract.js";
 
 import { loadGoldenScenarios } from "./golden.js";
 import { runReplayScenario } from "./runner.js";

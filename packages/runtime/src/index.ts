@@ -1,5 +1,4 @@
 export {
-  createApertureRuntime,
   type ApertureRuntimeAdapter,
   type ApertureRuntimeExplanationSnapshot,
   type ApertureRuntimeAttentionViewSnapshot,
@@ -15,7 +14,8 @@ export {
   type WorkReceiptNextStep,
   type WorkResponse,
   type WorkResponseState,
-} from "./runtime.js";
+} from "./runtime-contract.js";
+export { createApertureRuntime } from "./runtime.js";
 export { ApertureRuntimeClient, type ApertureRuntimeClientOptions } from "./runtime-client.js";
 export { ApertureRuntimeAdapterClient, type ApertureRuntimeAdapterClientOptions } from "./adapter-client.js";
 export {

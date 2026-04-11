@@ -10,6 +10,13 @@ import type {
   SemanticOntologySource,
 } from "@tomismeta/aperture-core/semantic";
 
+import {
+  DEFAULT_OFFLINE_REVIEW_RUBRIC_VERSION,
+  OFFLINE_REVIEW_ARTIFACT_SCHEMA_VERSION,
+  OFFLINE_REVIEW_REPORT_SCHEMA_VERSION,
+  OFFLINE_REVIEW_RECOMMENDATION_SCHEMA_VERSION,
+  OFFLINE_REVIEW_RUN_SCHEMA_VERSION,
+} from "./artifact-versions.js";
 import { extractJsonCandidate } from "./json-utils.js";
 import type { ReplayDecisionSnapshot, ReplayObservationStep } from "./scenario.js";
 import { DEFAULT_LAB_RUNTIME_ROOT } from "./runtime-paths.js";
@@ -50,12 +57,13 @@ export {
   renderOfflineReviewRecommendationMarkdown,
   renderOfflineReviewReportMarkdown,
 } from "./offline-review-render.js";
-
-export const OFFLINE_REVIEW_ARTIFACT_SCHEMA_VERSION = 1 as const;
-export const OFFLINE_REVIEW_REPORT_SCHEMA_VERSION = 1 as const;
-export const OFFLINE_REVIEW_RECOMMENDATION_SCHEMA_VERSION = 1 as const;
-export const OFFLINE_REVIEW_RUN_SCHEMA_VERSION = 1 as const;
-export const DEFAULT_OFFLINE_REVIEW_RUBRIC_VERSION = "offline-ai-review-v1" as const;
+export {
+  DEFAULT_OFFLINE_REVIEW_RUBRIC_VERSION,
+  OFFLINE_REVIEW_ARTIFACT_SCHEMA_VERSION,
+  OFFLINE_REVIEW_REPORT_SCHEMA_VERSION,
+  OFFLINE_REVIEW_RECOMMENDATION_SCHEMA_VERSION,
+  OFFLINE_REVIEW_RUN_SCHEMA_VERSION,
+} from "./artifact-versions.js";
 export const DEFAULT_OFFLINE_REVIEW_RESULTS_DIR = path.resolve(
   DEFAULT_LAB_RUNTIME_ROOT,
   "results/offline-review",
@@ -68,10 +76,7 @@ export const DEFAULT_OFFLINE_REVIEW_PROMPT_DIR = path.join(
   DEFAULT_OFFLINE_REVIEW_RESULTS_DIR,
   "prompts",
 );
-export const DEFAULT_OFFLINE_REVIEW_RAW_DIR = path.join(
-  DEFAULT_OFFLINE_REVIEW_RESULTS_DIR,
-  "raw",
-);
+export const DEFAULT_OFFLINE_REVIEW_RAW_DIR = path.join(DEFAULT_OFFLINE_REVIEW_RESULTS_DIR, "raw");
 export const DEFAULT_OFFLINE_REVIEW_RESPONSES_DIR = path.join(
   DEFAULT_OFFLINE_REVIEW_RESULTS_DIR,
   "responses",
@@ -137,7 +142,11 @@ export type OfflineReviewRecommendation = "promote" | "inspect" | "ignore";
 export type OfflineReviewRunStatus = "clean" | "disagreement";
 export type OfflineReviewRecommendationOwner = "importer" | "semantic";
 
-const OFFLINE_REVIEW_CONFIDENCE_LEVELS = ["high", "medium", "low"] as const satisfies readonly OfflineReviewConfidence[];
+const OFFLINE_REVIEW_CONFIDENCE_LEVELS = [
+  "high",
+  "medium",
+  "low",
+] as const satisfies readonly OfflineReviewConfidence[];
 const OFFLINE_REVIEW_RECOMMENDATIONS = [
   "promote",
   "inspect",
@@ -172,26 +181,11 @@ const OFFLINE_REVIEW_FOCUS_AREA_OWNER: Record<
   confidence: "semantic",
   source: "semantic",
 };
-const OFFLINE_REVIEW_RECOMMENDATION_TARGETS: Record<
-  OfflineReviewFocusArea,
-  readonly string[]
-> = {
-  title: [
-    "packages/lab/src/public-trajectories.ts",
-    "packages/lab/src/offline-review.ts",
-  ],
-  summary: [
-    "packages/lab/src/public-trajectories.ts",
-    "packages/lab/src/offline-review.ts",
-  ],
-  status: [
-    "packages/lab/src/public-trajectories.ts",
-    "packages/lab/src/offline-review.ts",
-  ],
-  ask: [
-    "packages/core/src/semantic-ontology.ts",
-    "packages/core/src/semantic-interpreter.ts",
-  ],
+const OFFLINE_REVIEW_RECOMMENDATION_TARGETS: Record<OfflineReviewFocusArea, readonly string[]> = {
+  title: ["packages/lab/src/public-trajectories.ts", "packages/lab/src/offline-review.ts"],
+  summary: ["packages/lab/src/public-trajectories.ts", "packages/lab/src/offline-review.ts"],
+  status: ["packages/lab/src/public-trajectories.ts", "packages/lab/src/offline-review.ts"],
+  ask: ["packages/core/src/semantic-ontology.ts", "packages/core/src/semantic-interpreter.ts"],
   intentFrame: [
     "packages/core/src/semantic-detection.ts",
     "packages/core/src/semantic-interpreter.ts",
@@ -208,10 +202,7 @@ const OFFLINE_REVIEW_RECOMMENDATION_TARGETS: Record<
     "packages/core/src/semantic-language.ts",
     "packages/core/src/semantic-ontology.ts",
   ],
-  blocking: [
-    "packages/core/src/semantic-interpreter.ts",
-    "packages/core/src/semantic-ontology.ts",
-  ],
+  blocking: ["packages/core/src/semantic-interpreter.ts", "packages/core/src/semantic-ontology.ts"],
   episode: [
     "packages/core/src/semantic-detection.ts",
     "packages/core/src/semantic-interpreter.ts",
@@ -221,10 +212,7 @@ const OFFLINE_REVIEW_RECOMMENDATION_TARGETS: Record<
     "packages/core/src/semantic-interpreter.ts",
     "packages/core/src/semantic-ontology.ts",
   ],
-  source: [
-    "packages/core/src/semantic-interpreter.ts",
-    "packages/core/src/semantic-ontology.ts",
-  ],
+  source: ["packages/core/src/semantic-interpreter.ts", "packages/core/src/semantic-ontology.ts"],
 };
 const OFFLINE_REVIEW_RECOMMENDATION_SUMMARY: Record<OfflineReviewFocusArea, string> = {
   title: "Tighten imported trajectory title extraction before replay review.",
@@ -485,7 +473,9 @@ export function compareOfflineReviewArtifact(
 ): OfflineReviewReport {
   const disagreements: OfflineReviewDisagreement[] = [];
   let matchedFindings = 0;
-  const disagreementsByFocusArea = createOfflineReviewFocusAreaCounts(ALL_OFFLINE_REVIEW_FOCUS_AREAS);
+  const disagreementsByFocusArea = createOfflineReviewFocusAreaCounts(
+    ALL_OFFLINE_REVIEW_FOCUS_AREAS,
+  );
 
   for (const finding of artifact.review.findings) {
     const step = artifact.steps.find((entry) => entry.stepIndex === finding.stepIndex);
@@ -508,10 +498,12 @@ export function compareOfflineReviewArtifact(
       confidence: finding.confidence,
       ...(finding.supportingText ? { supportingText: finding.supportingText } : {}),
       ...(finding.rationale ? { rationale: finding.rationale } : {}),
-      recommendation: finding.recommendation ?? defaultOfflineReviewRecommendation(
-        finding.confidence,
-        OFFLINE_REVIEW_DEFAULT_RECOMMENDATION,
-      ),
+      recommendation:
+        finding.recommendation ??
+        defaultOfflineReviewRecommendation(
+          finding.confidence,
+          OFFLINE_REVIEW_DEFAULT_RECOMMENDATION,
+        ),
     });
     disagreementsByFocusArea[finding.focusArea] += 1;
   }
@@ -540,19 +532,22 @@ export function compareOfflineReviewArtifact(
 export function parseOfflineReviewResponseText(raw: string): OfflineReviewResponsePayload {
   const candidate = extractJsonCandidate(raw, {
     validators: [
-      (value) => validateOfflineReviewArtifactShape(value, {
-        artifactSchemaVersion: OFFLINE_REVIEW_ARTIFACT_SCHEMA_VERSION,
-        allFocusAreas: ALL_OFFLINE_REVIEW_FOCUS_AREAS,
-        confidenceLevels: OFFLINE_REVIEW_CONFIDENCE_LEVELS,
-        recommendations: OFFLINE_REVIEW_RECOMMENDATIONS,
-      }) !== null,
-      (value) => validateOfflineReviewResponsePayloadShape(value, {
-        allFocusAreas: ALL_OFFLINE_REVIEW_FOCUS_AREAS,
-        confidenceLevels: OFFLINE_REVIEW_CONFIDENCE_LEVELS,
-        recommendations: OFFLINE_REVIEW_RECOMMENDATIONS,
-      }) !== null,
+      (value) =>
+        validateOfflineReviewArtifactShape(value, {
+          artifactSchemaVersion: OFFLINE_REVIEW_ARTIFACT_SCHEMA_VERSION,
+          allFocusAreas: ALL_OFFLINE_REVIEW_FOCUS_AREAS,
+          confidenceLevels: OFFLINE_REVIEW_CONFIDENCE_LEVELS,
+          recommendations: OFFLINE_REVIEW_RECOMMENDATIONS,
+        }) !== null,
+      (value) =>
+        validateOfflineReviewResponsePayloadShape(value, {
+          allFocusAreas: ALL_OFFLINE_REVIEW_FOCUS_AREAS,
+          confidenceLevels: OFFLINE_REVIEW_CONFIDENCE_LEVELS,
+          recommendations: OFFLINE_REVIEW_RECOMMENDATIONS,
+        }) !== null,
     ],
-    fallbackValidator: (value) => isRecord(value) && isRecord(value.review) && Array.isArray(value.review.findings),
+    fallbackValidator: (value) =>
+      isRecord(value) && isRecord(value.review) && Array.isArray(value.review.findings),
   });
   if (!candidate) {
     throw new Error("Offline review response did not contain a JSON object.");
@@ -611,20 +606,22 @@ export function buildOfflineReviewRecommendationReport(
   }
 
   const items = [...grouped.entries()]
-    .map(([focusArea, disagreements]) => buildRecommendationItemFromDisagreements(focusArea, disagreements, {
-      confidenceLevels: OFFLINE_REVIEW_CONFIDENCE_LEVELS,
-      ownerByFocusArea: OFFLINE_REVIEW_FOCUS_AREA_OWNER,
-      targetsByFocusArea: OFFLINE_REVIEW_RECOMMENDATION_TARGETS,
-      summaryByFocusArea: OFFLINE_REVIEW_RECOMMENDATION_SUMMARY,
-      priorityByRecommendation: OFFLINE_REVIEW_RECOMMENDATION_PRIORITY,
-    }))
-    .sort((left, right) => compareRecommendationItemsByPriority(
-      left,
-      right,
-      OFFLINE_REVIEW_RECOMMENDATION_PRIORITY,
-    ));
+    .map(([focusArea, disagreements]) =>
+      buildRecommendationItemFromDisagreements(focusArea, disagreements, {
+        confidenceLevels: OFFLINE_REVIEW_CONFIDENCE_LEVELS,
+        ownerByFocusArea: OFFLINE_REVIEW_FOCUS_AREA_OWNER,
+        targetsByFocusArea: OFFLINE_REVIEW_RECOMMENDATION_TARGETS,
+        summaryByFocusArea: OFFLINE_REVIEW_RECOMMENDATION_SUMMARY,
+        priorityByRecommendation: OFFLINE_REVIEW_RECOMMENDATION_PRIORITY,
+      }),
+    )
+    .sort((left, right) =>
+      compareRecommendationItemsByPriority(left, right, OFFLINE_REVIEW_RECOMMENDATION_PRIORITY),
+    );
 
-  const recommendationCounts = createOfflineReviewRecommendationCounts(OFFLINE_REVIEW_RECOMMENDATIONS);
+  const recommendationCounts = createOfflineReviewRecommendationCounts(
+    OFFLINE_REVIEW_RECOMMENDATIONS,
+  );
   let actionableCount = 0;
   for (const disagreement of report.disagreements) {
     recommendationCounts[disagreement.recommendation] += 1;

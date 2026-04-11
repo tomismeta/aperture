@@ -21,6 +21,7 @@ export {
   ApertureRuntimeAdapterClient,
   type ApertureRuntimeAdapterClientOptions,
 } from "./adapter-client.js";
+export { ApertureRuntimeRequestError } from "./runtime-client-shared.js";
 export {
   baseAttentionSurfaceCapabilities,
   mergeAttentionSurfaceCapabilities,

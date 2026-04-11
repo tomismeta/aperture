@@ -1,4 +1,5 @@
 import {
+  AUTORESEARCH_RUN_STATUS_SCHEMA_VERSION,
   type AutoresearchGateName,
   type AutoresearchRunStatusSnapshot,
   calculateAutoresearchWindowPercent,
@@ -44,10 +45,17 @@ export function buildProposalReadyFeedback(
     commandsRun: [...commandsRun],
     attempts: [...attempts],
     ...(selectedAttempt.proposalPath ? { selectedProposalPath: selectedAttempt.proposalPath } : {}),
-    ...(selectedAttempt.batchReportPath ? { selectedBatchReportPath: selectedAttempt.batchReportPath } : {}),
-    ...(selectedAttempt.optimizerRunPath ? { selectedOptimizerRunPath: selectedAttempt.optimizerRunPath } : {}),
-    ...(selectedAttempt.optimizerPatchPath ? { selectedPatchPath: selectedAttempt.optimizerPatchPath } : {}),
-    recommendedNextStep: "Review the selected patch artifact before bringing it back to the main branch.",
+    ...(selectedAttempt.batchReportPath
+      ? { selectedBatchReportPath: selectedAttempt.batchReportPath }
+      : {}),
+    ...(selectedAttempt.optimizerRunPath
+      ? { selectedOptimizerRunPath: selectedAttempt.optimizerRunPath }
+      : {}),
+    ...(selectedAttempt.optimizerPatchPath
+      ? { selectedPatchPath: selectedAttempt.optimizerPatchPath }
+      : {}),
+    recommendedNextStep:
+      "Review the selected patch artifact before bringing it back to the main branch.",
   };
 }
 
@@ -64,7 +72,8 @@ export function buildExhaustedFeedback(
     .map(([status, count]) => `${count} attempt(s) ended with status=${status}.`);
 
   const allErrors = attempts.length > 0 && attempts.every((attempt) => attempt.status === "error");
-  const allExhausted = attempts.length > 0 && attempts.every((attempt) => attempt.status === "exhausted");
+  const allExhausted =
+    attempts.length > 0 && attempts.every((attempt) => attempt.status === "exhausted");
   const retainedAttempt = findBestRetainedAttempt(attempts);
   if (retainedAttempt) {
     reasons.push(
@@ -72,7 +81,7 @@ export function buildExhaustedFeedback(
     );
   }
   return {
-    action: allErrors ? "blocked" : (allExhausted ? "exhausted" : "no_proposal"),
+    action: allErrors ? "blocked" : allExhausted ? "exhausted" : "no_proposal",
     summary: allErrors
       ? "Every attempted slice failed before a proposal could be produced."
       : allExhausted
@@ -98,51 +107,52 @@ export function createSlicePlan(offset: number, limit: number, maxSlices: number
 
 export function buildProposalCommand(
   options: AutoresearchRunCommandOptions,
-  input: Slice | {
-    batchReportPath?: string;
-    bundlePaths?: string[];
-  },
+  input:
+    | Slice
+    | {
+        batchReportPath?: string;
+        bundlePaths?: string[];
+      },
 ): string {
-  return [
-    "pnpm lab:fstop:propose",
-    ...buildProposalArgs(options, input),
-    "--json",
-  ].join(" ");
+  return ["pnpm lab:fstop:propose", ...buildProposalArgs(options, input), "--json"].join(" ");
 }
 
 export function buildProposalArgs(
   options: AutoresearchRunCommandOptions,
-  input: Slice | {
-    batchReportPath?: string;
-    bundlePaths?: string[];
-  },
+  input:
+    | Slice
+    | {
+        batchReportPath?: string;
+        bundlePaths?: string[];
+      },
 ): string[] {
-  const sourceArgs = "offset" in input && "limit" in input
-    ? [
-      "--dataset",
-      options.dataset,
-      "--split",
-      options.split,
-      "--offset",
-      String(input.offset),
-      "--limit",
-      String(input.limit),
-    ]
-    : [
-      ...(input.batchReportPath ? ["--batch-report", input.batchReportPath] : []),
-      ...(input.bundlePaths?.length
-        ? input.bundlePaths.flatMap((bundlePath) => ["--bundle", bundlePath])
-        : [
+  const sourceArgs =
+    "offset" in input && "limit" in input
+      ? [
           "--dataset",
           options.dataset,
           "--split",
           options.split,
           "--offset",
-          String(options.offset),
+          String(input.offset),
           "--limit",
-          String(options.limit),
-        ]),
-    ];
+          String(input.limit),
+        ]
+      : [
+          ...(input.batchReportPath ? ["--batch-report", input.batchReportPath] : []),
+          ...(input.bundlePaths?.length
+            ? input.bundlePaths.flatMap((bundlePath) => ["--bundle", bundlePath])
+            : [
+                "--dataset",
+                options.dataset,
+                "--split",
+                options.split,
+                "--offset",
+                String(options.offset),
+                "--limit",
+                String(options.limit),
+              ]),
+        ];
 
   return [
     ...sourceArgs,
@@ -156,7 +166,9 @@ export function buildProposalArgs(
     String(options.minSessionCount),
     "--max-reports",
     String(options.maxReports),
-    ...(options.gateTimeoutSeconds ? ["--gate-timeout-seconds", String(options.gateTimeoutSeconds)] : []),
+    ...(options.gateTimeoutSeconds
+      ? ["--gate-timeout-seconds", String(options.gateTimeoutSeconds)]
+      : []),
     ...(options.skipJudgmentBattle ? ["--skip-judgment-battle"] : []),
     ...(options.skipReleaseCheck ? ["--skip-release-check"] : []),
   ];
@@ -177,12 +189,12 @@ export function findBestProposalAttempt(
   return best;
 }
 
-export function shouldRetainProposalSnapshot(
-  proposalRun: AutoresearchProposalRun,
-): boolean {
-  return proposalRun.summary.selectedSignalCount > 0
-    || proposalRun.intentStatements.length > 0
-    || proposalRun.codeRecommendations.length > 0;
+export function shouldRetainProposalSnapshot(proposalRun: AutoresearchProposalRun): boolean {
+  return (
+    proposalRun.summary.selectedSignalCount > 0 ||
+    proposalRun.intentStatements.length > 0 ||
+    proposalRun.codeRecommendations.length > 0
+  );
 }
 
 export function findSelectedProposalSnapshot(
@@ -190,7 +202,9 @@ export function findSelectedProposalSnapshot(
   selectedProposalPath: string | undefined,
 ): SelectedProposalSnapshot | undefined {
   if (selectedProposalPath) {
-    const selectedAttempt = attempts.find((attempt) => attempt.proposalPath === selectedProposalPath);
+    const selectedAttempt = attempts.find(
+      (attempt) => attempt.proposalPath === selectedProposalPath,
+    );
     if (selectedAttempt?.proposal) {
       return selectedAttempt.proposal;
     }
@@ -204,16 +218,27 @@ export function buildRetainedAttempts(
   maxAttempts = 3,
 ): readonly AutoresearchRunnerRetainedAttempt[] {
   return attempts
-    .filter((attempt): attempt is AutoresearchRunnerFeedbackAttempt & { proposal: SelectedProposalSnapshot } => Boolean(attempt.proposal))
+    .filter(
+      (
+        attempt,
+      ): attempt is AutoresearchRunnerFeedbackAttempt & { proposal: SelectedProposalSnapshot } =>
+        Boolean(attempt.proposal),
+    )
     .sort((left, right) => compareAttempts(right, left))
     .slice(0, maxAttempts)
     .map((attempt) => ({
       offset: attempt.offset,
       limit: attempt.limit,
       status: attempt.status,
-      ...(attempt.actionableCount !== undefined ? { actionableCount: attempt.actionableCount } : {}),
-      ...(attempt.selectedSignalCount !== undefined ? { selectedSignalCount: attempt.selectedSignalCount } : {}),
-      ...(attempt.promotedCaseCount !== undefined ? { promotedCaseCount: attempt.promotedCaseCount } : {}),
+      ...(attempt.actionableCount !== undefined
+        ? { actionableCount: attempt.actionableCount }
+        : {}),
+      ...(attempt.selectedSignalCount !== undefined
+        ? { selectedSignalCount: attempt.selectedSignalCount }
+        : {}),
+      ...(attempt.promotedCaseCount !== undefined
+        ? { promotedCaseCount: attempt.promotedCaseCount }
+        : {}),
       ...(attempt.optimizerStatus ? { optimizerStatus: attempt.optimizerStatus } : {}),
       retainedOutcome: attempt.retainedOutcome ?? "signal_only",
       ...(attempt.proposalPath ? { proposal: attempt.proposalPath } : {}),
@@ -240,7 +265,9 @@ export function determineRetainedOutcome(
     return "gate_blocked";
   }
   if (proposalRun.status === "no_change") {
-    return proposalRun.artifacts.optimizerPatchPath ? "no_change_patch_attempted" : "no_change_no_edits";
+    return proposalRun.artifacts.optimizerPatchPath
+      ? "no_change_patch_attempted"
+      : "no_change_no_edits";
   }
   return "signal_only";
 }
@@ -269,10 +296,10 @@ export function buildStatusSnapshot(options: {
   remainingSlices: readonly Slice[];
   currentSlice:
     | {
-      index: number;
-      offset: number;
-      limit: number;
-    }
+        index: number;
+        offset: number;
+        limit: number;
+      }
     | undefined;
   lastProgressAt: string;
   currentSliceStartedAt: string | undefined;
@@ -290,14 +317,12 @@ export function buildStatusSnapshot(options: {
   const hasInflightSlice = Boolean(options.currentSlice);
   const activeSliceElapsedSeconds = options.currentSliceStartedAt
     ? Math.max(
-      0,
-      Math.round(
-        (Date.parse(updatedAt) - Date.parse(options.currentSliceStartedAt)) / 1000,
-      ),
-    )
+        0,
+        Math.round((Date.parse(updatedAt) - Date.parse(options.currentSliceStartedAt)) / 1000),
+      )
     : undefined;
   return {
-    schemaVersion: 1,
+    schemaVersion: AUTORESEARCH_RUN_STATUS_SCHEMA_VERSION,
     generatedAt: options.generatedAt,
     updatedAt,
     lastProgressAt: options.lastProgressAt,
@@ -314,10 +339,7 @@ export function buildStatusSnapshot(options: {
     attemptedSlices: completedSlices + (options.currentSlice ? 1 : 0),
     completedSlices,
     remainingSlices: options.remainingSlices.length,
-    windowPercent: calculateAutoresearchWindowPercent(
-      completedSlices,
-      options.options.maxSlices,
-    ),
+    windowPercent: calculateAutoresearchWindowPercent(completedSlices, options.options.maxSlices),
     windowPercentIncludingInflight: calculateAutoresearchWindowPercentIncludingInflight(
       completedSlices,
       options.options.maxSlices,
@@ -325,7 +347,9 @@ export function buildStatusSnapshot(options: {
     ),
     ...(options.currentSlice ? { currentSlice: options.currentSlice } : {}),
     ...(options.currentGate ? { currentGate: options.currentGate } : {}),
-    ...(options.currentSliceStartedAt ? { currentSliceStartedAt: options.currentSliceStartedAt } : {}),
+    ...(options.currentSliceStartedAt
+      ? { currentSliceStartedAt: options.currentSliceStartedAt }
+      : {}),
     ...(activeSliceElapsedSeconds !== undefined ? { activeSliceElapsedSeconds } : {}),
     ...(options.finalStatus ? { finalStatus: options.finalStatus } : {}),
     ...(options.selectedProposalPath ? { selectedProposalPath: options.selectedProposalPath } : {}),
@@ -337,16 +361,20 @@ export function buildStatusSnapshot(options: {
 }
 
 export function logAttempt(prefix: string, attempt: AutoresearchRunnerFeedbackAttempt): void {
-  logProgress([
-    prefix,
-    `status=${attempt.status}`,
-    ...(attempt.actionableCount !== undefined ? [`actionable=${attempt.actionableCount}`] : []),
-    ...(attempt.selectedSignalCount !== undefined ? [`signals=${attempt.selectedSignalCount}`] : []),
-    ...(attempt.promotedCaseCount !== undefined ? [`promoted=${attempt.promotedCaseCount}`] : []),
-    ...(attempt.optimizerStatus ? [`optimizer=${attempt.optimizerStatus}`] : []),
-    ...(attempt.proposalPath ? [`proposal=${attempt.proposalPath}`] : []),
-    ...(attempt.optimizerPatchPath ? [`patch=${attempt.optimizerPatchPath}`] : []),
-  ].join(" "));
+  logProgress(
+    [
+      prefix,
+      `status=${attempt.status}`,
+      ...(attempt.actionableCount !== undefined ? [`actionable=${attempt.actionableCount}`] : []),
+      ...(attempt.selectedSignalCount !== undefined
+        ? [`signals=${attempt.selectedSignalCount}`]
+        : []),
+      ...(attempt.promotedCaseCount !== undefined ? [`promoted=${attempt.promotedCaseCount}`] : []),
+      ...(attempt.optimizerStatus ? [`optimizer=${attempt.optimizerStatus}`] : []),
+      ...(attempt.proposalPath ? [`proposal=${attempt.proposalPath}`] : []),
+      ...(attempt.optimizerPatchPath ? [`patch=${attempt.optimizerPatchPath}`] : []),
+    ].join(" "),
+  );
 }
 
 export function logProgress(message: string): void {
@@ -361,10 +389,7 @@ function isTrustedProposalAttempt(
   attempt: AutoresearchRunnerFeedbackAttempt | undefined,
 ): attempt is AutoresearchRunnerFeedbackAttempt {
   return Boolean(
-    attempt
-      && attempt.status === "proposed"
-      && attempt.optimizerPatchPath
-      && attempt.proposalPath,
+    attempt && attempt.status === "proposed" && attempt.optimizerPatchPath && attempt.proposalPath,
   );
 }
 

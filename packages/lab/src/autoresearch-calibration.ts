@@ -12,12 +12,14 @@ import {
   type OfflineReviewRecommendation,
   type OfflineReviewReport,
 } from "./offline-review.js";
+import {
+  AUTORESEARCH_CALIBRATION_CASE_SCHEMA_VERSION,
+  AUTORESEARCH_CALIBRATION_REPORT_SCHEMA_VERSION,
+  AUTORESEARCH_OPTIMIZATION_BRIEF_SCHEMA_VERSION,
+} from "./artifact-versions.js";
 import { loadReplayBundleFromFStopInputFile } from "./fstop-session.js";
 import type { ReplaySemanticCalibrationFamily } from "./semantic-calibration.js";
-import {
-  createSessionBundle,
-  runSessionBundle,
-} from "./session-bundle.js";
+import { createSessionBundle, runSessionBundle } from "./session-bundle.js";
 import { DEFAULT_LAB_RUNTIME_ROOT } from "./runtime-paths.js";
 import {
   collectSemanticFamilies,
@@ -47,10 +49,11 @@ export {
   renderAutoresearchCalibrationMarkdown,
   renderAutoresearchOptimizationMarkdown,
 } from "./autoresearch-calibration-render.js";
-
-export const AUTORESEARCH_CALIBRATION_CASE_SCHEMA_VERSION = 1 as const;
-export const AUTORESEARCH_CALIBRATION_REPORT_SCHEMA_VERSION = 1 as const;
-export const AUTORESEARCH_OPTIMIZATION_BRIEF_SCHEMA_VERSION = 1 as const;
+export {
+  AUTORESEARCH_CALIBRATION_CASE_SCHEMA_VERSION,
+  AUTORESEARCH_CALIBRATION_REPORT_SCHEMA_VERSION,
+  AUTORESEARCH_OPTIMIZATION_BRIEF_SCHEMA_VERSION,
+} from "./artifact-versions.js";
 export const DEFAULT_AUTORESEARCH_ALLOWED_EDIT_PATHS = [
   "packages/lab/src/public-trajectories.ts",
   "packages/core/src/semantic-detection.ts",
@@ -241,11 +244,12 @@ export async function promoteOfflineReviewReportToCalibrationCase(
   const minimumConfidence = confidenceRank(options.minimumConfidence ?? "high");
   const recommendationAllowlist = new Set(options.recommendationAllowlist ?? ["promote"]);
 
-  const selectedDisagreements = report.disagreements.filter((entry) => (
-    recommendationAllowlist.has(entry.recommendation)
-    && confidenceRank(entry.confidence) >= minimumConfidence
-    && (allowedFocusAreas === null || allowedFocusAreas.has(entry.focusArea))
-  ));
+  const selectedDisagreements = report.disagreements.filter(
+    (entry) =>
+      recommendationAllowlist.has(entry.recommendation) &&
+      confidenceRank(entry.confidence) >= minimumConfidence &&
+      (allowedFocusAreas === null || allowedFocusAreas.has(entry.focusArea)),
+  );
 
   if (selectedDisagreements.length === 0) {
     throw new Error("No disagreements matched the promotion filters.");
@@ -253,22 +257,25 @@ export async function promoteOfflineReviewReportToCalibrationCase(
 
   const selectedFocusAreasByStep = new Map<number, Set<OfflineReviewFocusArea>>();
   for (const disagreement of selectedDisagreements) {
-    const list = selectedFocusAreasByStep.get(disagreement.stepIndex) ?? new Set<OfflineReviewFocusArea>();
+    const list =
+      selectedFocusAreasByStep.get(disagreement.stepIndex) ?? new Set<OfflineReviewFocusArea>();
     list.add(disagreement.focusArea);
     selectedFocusAreasByStep.set(disagreement.stepIndex, list);
   }
 
-  const expectations: AutoresearchCalibrationExpectation[] = selectedDisagreements.map((disagreement) => ({
-    stepIndex: disagreement.stepIndex,
-    ...(disagreement.stepLabel ? { stepLabel: disagreement.stepLabel } : {}),
-    focusArea: disagreement.focusArea,
-    mode: "corrected",
-    expectedValue: disagreement.expectedValue,
-    observedValueAtPromotion: disagreement.apertureValue,
-    confidence: disagreement.confidence,
-    ...(disagreement.rationale ? { rationale: disagreement.rationale } : {}),
-    ...(disagreement.supportingText ? { supportingText: disagreement.supportingText } : {}),
-  }));
+  const expectations: AutoresearchCalibrationExpectation[] = selectedDisagreements.map(
+    (disagreement) => ({
+      stepIndex: disagreement.stepIndex,
+      ...(disagreement.stepLabel ? { stepLabel: disagreement.stepLabel } : {}),
+      focusArea: disagreement.focusArea,
+      mode: "corrected",
+      expectedValue: disagreement.expectedValue,
+      observedValueAtPromotion: disagreement.apertureValue,
+      confidence: disagreement.confidence,
+      ...(disagreement.rationale ? { rationale: disagreement.rationale } : {}),
+      ...(disagreement.supportingText ? { supportingText: disagreement.supportingText } : {}),
+    }),
+  );
 
   if (options.includeStepInvariants ?? true) {
     for (const [stepIndex, selectedFocusAreas] of selectedFocusAreasByStep) {
@@ -291,7 +298,8 @@ export async function promoteOfflineReviewReportToCalibrationCase(
           expectedValue: observedValue,
           observedValueAtPromotion: observedValue,
           confidence: "high",
-          rationale: "Preserve adjacent classification state while calibrating the promoted disagreement.",
+          rationale:
+            "Preserve adjacent classification state while calibrating the promoted disagreement.",
         });
       }
     }
@@ -395,7 +403,9 @@ export async function loadAutoresearchCalibrationCases(
     }
   }
 
-  return entries.sort((left, right) => left.calibrationCase.sessionId.localeCompare(right.calibrationCase.sessionId));
+  return entries.sort((left, right) =>
+    left.calibrationCase.sessionId.localeCompare(right.calibrationCase.sessionId),
+  );
 }
 
 export async function evaluateAutoresearchCalibrationCases(
@@ -511,11 +521,12 @@ export function createAutoresearchOptimizationBrief(
     }
   }
 
-  const priorities = [...grouped.values()].sort((left, right) => (
-    right.correctedMismatchCount - left.correctedMismatchCount
-    || right.mismatchCount - left.mismatchCount
-    || left.focusArea.localeCompare(right.focusArea)
-  ));
+  const priorities = [...grouped.values()].sort(
+    (left, right) =>
+      right.correctedMismatchCount - left.correctedMismatchCount ||
+      right.mismatchCount - left.mismatchCount ||
+      left.focusArea.localeCompare(right.focusArea),
+  );
 
   return {
     schemaVersion: AUTORESEARCH_OPTIMIZATION_BRIEF_SCHEMA_VERSION,
@@ -530,7 +541,9 @@ export function createAutoresearchOptimizationBrief(
     },
     priorities,
     allowedEditPaths: [...(options.allowedEditPaths ?? DEFAULT_AUTORESEARCH_ALLOWED_EDIT_PATHS)],
-    evaluationCommands: [...(options.evaluationCommands ?? DEFAULT_AUTORESEARCH_EVALUATION_COMMANDS)],
+    evaluationCommands: [
+      ...(options.evaluationCommands ?? DEFAULT_AUTORESEARCH_EVALUATION_COMMANDS),
+    ],
     guidance: [
       "Reduce corrected mismatches first; treat invariant mismatches as regressions.",
       "Edit only the allowed semantic/importer files.",
@@ -548,10 +561,7 @@ async function evaluateAutoresearchCalibrationCase(
   },
 ): Promise<AutoresearchCalibrationCaseResult> {
   const storedBundle = await loadReplayBundleFromFStopInputFile(
-    path.resolve(
-      options.repoRoot,
-      calibrationCase.inputPath ?? calibrationCase.bundlePath ?? "",
-    ),
+    path.resolve(options.repoRoot, calibrationCase.inputPath ?? calibrationCase.bundlePath ?? ""),
   );
   const rerun = runSessionBundle(storedBundle);
   const freshBundle = createSessionBundle(rerun, {
@@ -633,13 +643,17 @@ async function evaluateAutoresearchCalibrationCase(
   };
 }
 
-async function loadAutoresearchCalibrationCase(filePath: string): Promise<AutoresearchCalibrationCase> {
+async function loadAutoresearchCalibrationCase(
+  filePath: string,
+): Promise<AutoresearchCalibrationCase> {
   const raw = await readFile(filePath, "utf8");
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    throw new Error(`Failed to parse calibration case at ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Failed to parse calibration case at ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 
   const calibrationCase = validateAutoresearchCalibrationCase(parsed, {
@@ -658,7 +672,9 @@ async function loadOfflineReviewReport(filePath: string): Promise<OfflineReviewR
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    throw new Error(`Failed to parse offline review report at ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Failed to parse offline review report at ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 
   const report = validateOfflineReviewReport(parsed);

@@ -13,6 +13,7 @@ import type {
   ApertureRuntimeSessionCapture,
 } from "@aperture/runtime/internal";
 
+import { SESSION_BUNDLE_SCHEMA_VERSION } from "./artifact-versions.js";
 import type {
   ReplayArtifactSource,
   ReplayDecisionSnapshot,
@@ -42,8 +43,7 @@ import {
   validateReplaySemanticSnapshot,
   validateReplayViewSnapshot,
 } from "./validation.js";
-
-export const SESSION_BUNDLE_SCHEMA_VERSION = 1 as const;
+export { SESSION_BUNDLE_SCHEMA_VERSION } from "./artifact-versions.js";
 
 export const DEFAULT_SESSION_BUNDLES_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -170,38 +170,43 @@ export function defaultSessionBundlePath(
 
 export function validateSessionBundle(value: unknown): ReplaySessionBundle | null {
   if (
-    !isRecord(value)
-    || value.schemaVersion !== SESSION_BUNDLE_SCHEMA_VERSION
-    || !hasShape(
+    !isRecord(value) ||
+    value.schemaVersion !== SESSION_BUNDLE_SCHEMA_VERSION ||
+    !hasShape(
       value,
       {
         sessionId: isString,
         title: isString,
         exportedAt: isString,
-        steps: (steps: unknown): steps is ReplaySessionBundle["steps"] => (
-          Array.isArray(steps) && steps.every((step) => validateReplayObservationStep(step) !== null)
-        ),
-        normalizedEvents: (snapshots: unknown): snapshots is ReplaySessionBundle["normalizedEvents"] => (
-          Array.isArray(snapshots) && snapshots.every((snapshot) => validateReplayNormalizedEventSnapshot(snapshot) !== null)
-        ),
-        traces: (traces: unknown): traces is ReplaySessionBundle["traces"] => (
-          Array.isArray(traces) && traces.every((trace) => validateApertureTrace(trace) !== null)
-        ),
-        signals: (signals: unknown): signals is ReplaySessionBundle["signals"] => (
-          Array.isArray(signals) && signals.every((signal) => validateAttentionSignal(signal) !== null)
-        ),
-        responses: (responses: unknown): responses is ReplaySessionBundle["responses"] => (
-          Array.isArray(responses) && responses.every((response) => validateAttentionResponse(response) !== null)
-        ),
-        viewSnapshots: (snapshots: unknown): snapshots is ReplaySessionBundle["viewSnapshots"] => (
-          Array.isArray(snapshots) && snapshots.every((snapshot) => validateReplayViewSnapshot(snapshot) !== null)
-        ),
-        semanticSnapshots: (snapshots: unknown): snapshots is ReplaySessionBundle["semanticSnapshots"] => (
-          Array.isArray(snapshots) && snapshots.every((snapshot) => validateReplaySemanticSnapshot(snapshot) !== null)
-        ),
-        decisionSnapshots: (snapshots: unknown): snapshots is ReplaySessionBundle["decisionSnapshots"] => (
-          Array.isArray(snapshots) && snapshots.every((snapshot) => validateReplayDecisionSnapshot(snapshot) !== null)
-        ),
+        steps: (steps: unknown): steps is ReplaySessionBundle["steps"] =>
+          Array.isArray(steps) &&
+          steps.every((step) => validateReplayObservationStep(step) !== null),
+        normalizedEvents: (
+          snapshots: unknown,
+        ): snapshots is ReplaySessionBundle["normalizedEvents"] =>
+          Array.isArray(snapshots) &&
+          snapshots.every((snapshot) => validateReplayNormalizedEventSnapshot(snapshot) !== null),
+        traces: (traces: unknown): traces is ReplaySessionBundle["traces"] =>
+          Array.isArray(traces) && traces.every((trace) => validateApertureTrace(trace) !== null),
+        signals: (signals: unknown): signals is ReplaySessionBundle["signals"] =>
+          Array.isArray(signals) &&
+          signals.every((signal) => validateAttentionSignal(signal) !== null),
+        responses: (responses: unknown): responses is ReplaySessionBundle["responses"] =>
+          Array.isArray(responses) &&
+          responses.every((response) => validateAttentionResponse(response) !== null),
+        viewSnapshots: (snapshots: unknown): snapshots is ReplaySessionBundle["viewSnapshots"] =>
+          Array.isArray(snapshots) &&
+          snapshots.every((snapshot) => validateReplayViewSnapshot(snapshot) !== null),
+        semanticSnapshots: (
+          snapshots: unknown,
+        ): snapshots is ReplaySessionBundle["semanticSnapshots"] =>
+          Array.isArray(snapshots) &&
+          snapshots.every((snapshot) => validateReplaySemanticSnapshot(snapshot) !== null),
+        decisionSnapshots: (
+          snapshots: unknown,
+        ): snapshots is ReplaySessionBundle["decisionSnapshots"] =>
+          Array.isArray(snapshots) &&
+          snapshots.every((snapshot) => validateReplayDecisionSnapshot(snapshot) !== null),
         outcomes: isSessionBundleOutcomes,
       },
       {
@@ -225,23 +230,26 @@ function safeBundleFilename(value: string): string {
 
 function validateSessionBundleSource(value: unknown): ReplaySessionBundleSource | null {
   if (
-    !isRecord(value)
-    || !hasShape(
+    !isRecord(value) ||
+    !hasShape(
       value,
       { id: isString },
       {
         kind: isString,
         label: isString,
         redacted: isBoolean,
-        capture: (capture: unknown): capture is NonNullable<ReplaySessionBundleSource["capture"]> => (
-          isRecord(capture)
-          && hasShape(capture, {}, {
-            eventTransport: isString,
-            semanticCapture: isString,
-            responseBridge: isString,
-            notes: isStringArray,
-          })
-        ),
+        capture: (capture: unknown): capture is NonNullable<ReplaySessionBundleSource["capture"]> =>
+          isRecord(capture) &&
+          hasShape(
+            capture,
+            {},
+            {
+              eventTransport: isString,
+              semanticCapture: isString,
+              responseBridge: isString,
+              notes: isStringArray,
+            },
+          ),
       },
     )
   ) {
@@ -253,29 +261,33 @@ function validateSessionBundleSource(value: unknown): ReplaySessionBundleSource 
 
 function validateSessionBundleExplanation(value: unknown): ReplaySessionBundleExplanation | null {
   if (
-    !isRecord(value)
-    || !hasShape(value, {}, {
-      targetInteractionId: isString,
-      targetLane: isString,
-      headline: isString,
-      whyNow: isNullable(isString),
-      routingAuthority: isNullable(isString),
-    })
+    !isRecord(value) ||
+    !hasShape(
+      value,
+      {},
+      {
+        targetInteractionId: isString,
+        targetLane: isString,
+        headline: isString,
+        whyNow: isNullable(isString),
+        routingAuthority: isNullable(isString),
+      },
+    )
   ) {
     return null;
   }
 
   if (
-    value.targetLane !== undefined
-    && !["now", "next", "ambient", "none"].includes(String(value.targetLane))
+    value.targetLane !== undefined &&
+    !["now", "next", "ambient", "none"].includes(String(value.targetLane))
   ) {
     return null;
   }
 
   if (
-    value.routingAuthority !== undefined
-    && value.routingAuthority !== null
-    && !["status", "request", "event"].includes(String(value.routingAuthority))
+    value.routingAuthority !== undefined &&
+    value.routingAuthority !== null &&
+    !["status", "request", "event"].includes(String(value.routingAuthority))
   ) {
     return null;
   }
@@ -284,16 +296,17 @@ function validateSessionBundleExplanation(value: unknown): ReplaySessionBundleEx
 }
 
 function isSessionBundleOutcomes(value: unknown): value is ReplaySessionBundle["outcomes"] {
-  return isRecord(value) && hasShape(
-    value,
-    {
+  return (
+    isRecord(value) &&
+    hasShape(value, {
       totalSteps: isNumber,
       surfacedFrames: isNumber,
-      finalNowInteractionId: (interactionId: unknown): interactionId is string | null => interactionId === null || isString(interactionId),
+      finalNowInteractionId: (interactionId: unknown): interactionId is string | null =>
+        interactionId === null || isString(interactionId),
       finalNextCount: isNumber,
       finalAmbientCount: isNumber,
       finalNextInteractionIds: isStringArray,
       finalAmbientInteractionIds: isStringArray,
-    },
+    })
   );
 }

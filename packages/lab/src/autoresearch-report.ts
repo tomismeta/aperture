@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import { AUTORESEARCH_FINAL_REPORT_SCHEMA_VERSION } from "./artifact-versions.js";
 import type { OfflineReviewBatchReport } from "./offline-review-batch.js";
 import type { AutoresearchOptimizerRun } from "./autoresearch-optimizer.js";
 import type {
@@ -14,14 +15,10 @@ import type {
   AutoresearchRunnerRetainedAttempt,
   AutoresearchRunnerRun,
 } from "./autoresearch-runner.js";
-import {
-  loadJsonFile,
-  tryLoadJsonFile,
-} from "./autoresearch-report-files.js";
+import { loadJsonFile, tryLoadJsonFile } from "./autoresearch-report-files.js";
 import { renderValue } from "./autoresearch-report-render.js";
 import { loadSessionBundle } from "./session-bundle.js";
-
-export const AUTORESEARCH_FINAL_REPORT_SCHEMA_VERSION = 1 as const;
+export { AUTORESEARCH_FINAL_REPORT_SCHEMA_VERSION } from "./artifact-versions.js";
 
 export type AutoresearchFinalReport = {
   schemaVersion: typeof AUTORESEARCH_FINAL_REPORT_SCHEMA_VERSION;
@@ -142,19 +139,23 @@ export async function synthesizeAutoresearchFinalReport(options: {
     ? await loadAttemptProposals(runnerRun, repoRoot, proposalPath)
     : [];
   const batchReport = proposal?.artifacts.batchReportPath
-    ? await loadJsonFile<OfflineReviewBatchReport>(path.resolve(repoRoot, proposal.artifacts.batchReportPath))
+    ? await loadJsonFile<OfflineReviewBatchReport>(
+        path.resolve(repoRoot, proposal.artifacts.batchReportPath),
+      )
     : undefined;
   const optimizerRun = proposal?.artifacts.optimizerRunPath
-    ? await loadJsonFile<AutoresearchOptimizerRun>(path.resolve(repoRoot, proposal.artifacts.optimizerRunPath))
+    ? await loadJsonFile<AutoresearchOptimizerRun>(
+        path.resolve(repoRoot, proposal.artifacts.optimizerRunPath),
+      )
     : undefined;
   const retainedAttempts = summarizeRetainedAttempts(runnerRun?.retainedAttempts ?? []);
 
-  const coverage = attemptProposals.length > 0
-    ? await summarizeProposalCoverage(attemptProposals, repoRoot)
-    : await summarizeBatchCoverage(batchReport, repoRoot);
-  const aggregateSummary = attemptProposals.length > 0
-    ? summarizeProposalRuns(attemptProposals)
-    : proposal?.summary;
+  const coverage =
+    attemptProposals.length > 0
+      ? await summarizeProposalCoverage(attemptProposals, repoRoot)
+      : await summarizeBatchCoverage(batchReport, repoRoot);
+  const aggregateSummary =
+    attemptProposals.length > 0 ? summarizeProposalRuns(attemptProposals) : proposal?.summary;
   const notes = [
     ...(runnerRun?.notes ?? []),
     ...(proposal?.notes ?? []),
@@ -184,12 +185,12 @@ export async function synthesizeAutoresearchFinalReport(options: {
     schemaVersion: AUTORESEARCH_FINAL_REPORT_SCHEMA_VERSION,
     generatedAt: options.generatedAt ?? new Date().toISOString(),
     status: proposal?.status ?? runnerRun?.status ?? "unknown",
-      recommendation: buildRecommendation({
-        ...(runnerRun ? { runnerRun } : {}),
-        ...(proposal ? { proposal } : {}),
-        ...(optimizerRun ? { optimizerRun } : {}),
-        ...(selectedProposal ? { selectedProposal } : {}),
-      }),
+    recommendation: buildRecommendation({
+      ...(runnerRun ? { runnerRun } : {}),
+      ...(proposal ? { proposal } : {}),
+      ...(optimizerRun ? { optimizerRun } : {}),
+      ...(selectedProposal ? { selectedProposal } : {}),
+    }),
     source,
     runSummary: {
       bundleCount: coverage.bundleCount ?? aggregateSummary?.bundleCount ?? 0,
@@ -215,34 +216,40 @@ export async function synthesizeAutoresearchFinalReport(options: {
       offset: attempt.offset,
       limit: attempt.limit,
       status: attempt.status,
-      ...(attempt.actionableCount !== undefined ? { actionableCount: attempt.actionableCount } : {}),
-      ...(attempt.selectedSignalCount !== undefined ? { selectedSignalCount: attempt.selectedSignalCount } : {}),
-      ...(attempt.promotedCaseCount !== undefined ? { promotedCaseCount: attempt.promotedCaseCount } : {}),
+      ...(attempt.actionableCount !== undefined
+        ? { actionableCount: attempt.actionableCount }
+        : {}),
+      ...(attempt.selectedSignalCount !== undefined
+        ? { selectedSignalCount: attempt.selectedSignalCount }
+        : {}),
+      ...(attempt.promotedCaseCount !== undefined
+        ? { promotedCaseCount: attempt.promotedCaseCount }
+        : {}),
       ...(attempt.optimizerStatus ? { optimizerStatus: attempt.optimizerStatus } : {}),
     })),
     retainedAttempts,
     intentStatements: selectedProposal?.intentStatements ?? [],
     codeRecommendations: selectedProposal?.codeRecommendations ?? [],
-    ...((optimizerRun || selectedProposal?.optimizer)
+    ...(optimizerRun || selectedProposal?.optimizer
       ? {
           optimizer: {
             status: optimizerRun?.status ?? selectedProposal?.optimizer?.status ?? "unknown",
             beforeMismatchCount:
-              optimizerRun?.summary.beforeMismatchCount
-              ?? selectedProposal?.optimizer?.beforeMismatchCount
-              ?? 0,
+              optimizerRun?.summary.beforeMismatchCount ??
+              selectedProposal?.optimizer?.beforeMismatchCount ??
+              0,
             afterMismatchCount:
-              optimizerRun?.summary.afterMismatchCount
-              ?? selectedProposal?.optimizer?.afterMismatchCount
-              ?? 0,
+              optimizerRun?.summary.afterMismatchCount ??
+              selectedProposal?.optimizer?.afterMismatchCount ??
+              0,
             beforeInvariantMismatchCount:
-              optimizerRun?.summary.beforeInvariantMismatchCount
-              ?? selectedProposal?.optimizer?.beforeInvariantMismatchCount
-              ?? 0,
+              optimizerRun?.summary.beforeInvariantMismatchCount ??
+              selectedProposal?.optimizer?.beforeInvariantMismatchCount ??
+              0,
             afterInvariantMismatchCount:
-              optimizerRun?.summary.afterInvariantMismatchCount
-              ?? selectedProposal?.optimizer?.afterInvariantMismatchCount
-              ?? 0,
+              optimizerRun?.summary.afterInvariantMismatchCount ??
+              selectedProposal?.optimizer?.afterInvariantMismatchCount ??
+              0,
             autoresearchEvaluate: optimizerRun?.gates.autoresearchEvaluate ?? true,
             ...(optimizerRun?.gates.judgmentBattle !== undefined
               ? { judgmentBattle: optimizerRun.gates.judgmentBattle }
@@ -254,18 +261,16 @@ export async function synthesizeAutoresearchFinalReport(options: {
               : selectedProposal?.optimizer?.releaseCheck !== undefined
                 ? { releaseCheck: selectedProposal.optimizer.releaseCheck }
                 : {}),
-            changedFiles:
-              [
-                ...(optimizerRun?.changes.changedFiles
-                  ?? selectedProposal?.optimizer?.changedFiles
-                  ?? []),
-              ],
-            disallowedFiles:
-              [
-                ...(optimizerRun?.changes.disallowedFiles
-                  ?? selectedProposal?.optimizer?.disallowedFiles
-                  ?? []),
-              ],
+            changedFiles: [
+              ...(optimizerRun?.changes.changedFiles ??
+                selectedProposal?.optimizer?.changedFiles ??
+                []),
+            ],
+            disallowedFiles: [
+              ...(optimizerRun?.changes.disallowedFiles ??
+                selectedProposal?.optimizer?.disallowedFiles ??
+                []),
+            ],
           },
         }
       : {}),
@@ -429,7 +434,8 @@ function summarizeProposalRuns(
     (summary, proposal) => ({
       bundleCount: summary.bundleCount + proposal.run.summary.bundleCount,
       cleanCount: summary.cleanCount + proposal.run.summary.cleanCount,
-      disagreementBundleCount: summary.disagreementBundleCount + proposal.run.summary.disagreementBundleCount,
+      disagreementBundleCount:
+        summary.disagreementBundleCount + proposal.run.summary.disagreementBundleCount,
       errorCount: summary.errorCount + proposal.run.summary.errorCount,
       actionableCount: summary.actionableCount + proposal.run.summary.actionableCount,
       selectedSignalCount: summary.selectedSignalCount + proposal.run.summary.selectedSignalCount,
@@ -447,10 +453,18 @@ function summarizeProposalRuns(
   );
 }
 
-function summarizeSignal(signal: Pick<
-  AutoresearchProposalSignal,
-  "focusArea" | "owner" | "apertureValue" | "expectedValue" | "sessionCount" | "disagreementCount" | "targets"
->): AutoresearchFinalReport["majorDisagreements"][number] {
+function summarizeSignal(
+  signal: Pick<
+    AutoresearchProposalSignal,
+    | "focusArea"
+    | "owner"
+    | "apertureValue"
+    | "expectedValue"
+    | "sessionCount"
+    | "disagreementCount"
+    | "targets"
+  >,
+): AutoresearchFinalReport["majorDisagreements"][number] {
   return {
     focusArea: signal.focusArea,
     owner: signal.owner,
@@ -471,8 +485,12 @@ function summarizeRetainedAttempts(
     status: attempt.status,
     retainedOutcome: attempt.retainedOutcome,
     ...(attempt.actionableCount !== undefined ? { actionableCount: attempt.actionableCount } : {}),
-    ...(attempt.selectedSignalCount !== undefined ? { selectedSignalCount: attempt.selectedSignalCount } : {}),
-    ...(attempt.promotedCaseCount !== undefined ? { promotedCaseCount: attempt.promotedCaseCount } : {}),
+    ...(attempt.selectedSignalCount !== undefined
+      ? { selectedSignalCount: attempt.selectedSignalCount }
+      : {}),
+    ...(attempt.promotedCaseCount !== undefined
+      ? { promotedCaseCount: attempt.promotedCaseCount }
+      : {}),
     ...(attempt.optimizerStatus ? { optimizerStatus: attempt.optimizerStatus } : {}),
     ...(attempt.proposal ? { proposal: attempt.proposal } : {}),
     ...(attempt.batch ? { batch: attempt.batch } : {}),
@@ -520,7 +538,10 @@ function buildRecommendation(input: {
   optimizerRun?: AutoresearchOptimizerRun;
   selectedProposal?: AutoresearchRunnerProposalSnapshot;
 }): string {
-  if (input.proposal?.artifacts.optimizerPatchPath || input.runnerRun?.artifacts.selectedPatchPath) {
+  if (
+    input.proposal?.artifacts.optimizerPatchPath ||
+    input.runnerRun?.artifacts.selectedPatchPath
+  ) {
     return "Review the proposed patch and intent statements. F-Stop found repeated signal and produced a bounded code recommendation with a surviving diff.";
   }
   if ((input.proposal?.status ?? input.selectedProposal?.status) === "no_change") {

@@ -1,3 +1,4 @@
+import { IMPORTED_SESSION_SCHEMA_VERSION } from "./artifact-versions.js";
 import {
   createReplayScenarioFromImportedSession,
   createSessionBundleFromImportedSession,
@@ -64,9 +65,13 @@ export function createImportedSessionFromPiMonoRow(
     kind: DEFAULT_SOURCE_KIND,
     label: `Pi ${row.harness}`,
   };
-  const sessionName = readPiMonoSessionName(pathSelection.path) ?? readPiMonoSessionNameFromTraces(row.traces);
+  const sessionName =
+    readPiMonoSessionName(pathSelection.path) ?? readPiMonoSessionNameFromTraces(row.traces);
   const firstPrompt = readPiMonoFirstPrompt(pathSelection.path) ?? "Imported Pi session";
-  const title = readIssueTitle(sessionName ?? firstPrompt) ?? sessionName ?? `Imported Pi session ${row.session_id}`;
+  const title =
+    readIssueTitle(sessionName ?? firstPrompt) ??
+    sessionName ??
+    `Imported Pi session ${row.session_id}`;
   const summary = toSingleLine(firstPrompt) ?? sessionName ?? `${row.file_name} (${row.harness})`;
   const importedAt = coerceImportedTimestamp(
     typeof header?.timestamp === "string" ? header.timestamp : undefined,
@@ -180,24 +185,22 @@ export function createImportedSessionFromPiMonoRow(
             lastToolFamily = toolFamily;
           }
           const toolCallSummary = summarizePiMonoToolCall(toolCall);
-          const entryId = assistantText || toolUseIndex > 0
-            ? `${trace.id}:tool:${toolUseIndex}`
-            : trace.id;
+          const entryId =
+            assistantText || toolUseIndex > 0 ? `${trace.id}:tool:${toolUseIndex}` : trace.id;
 
           entries.push({
             index: entries.length,
             timestamp,
             ...(entryId ? { entryId } : {}),
-            ...buildPiMonoParentReference(
-              assistantText ? assistantEntryId : undefined,
-              trace,
-            ),
+            ...buildPiMonoParentReference(assistantText ? assistantEntryId : undefined, trace),
             ...(toolCall.id ? { toolCallId: toolCall.id } : {}),
             role: "assistant",
             kind: "tool_call",
             significance: "attention",
             label: `assistant:tool:${traceIndex}:${toolUseIndex}`,
-            ...(toolCallSummary ? { text: toolCallSummary, excerpt: clipText(toolCallSummary, 240) } : {}),
+            ...(toolCallSummary
+              ? { text: toolCallSummary, excerpt: clipText(toolCallSummary, 240) }
+              : {}),
             ...(toolName ? { toolName } : {}),
             ...(toolFamily ? { toolFamily } : {}),
             rawRef: { ...rawRefBase, toolUseIndex },
@@ -238,7 +241,9 @@ export function createImportedSessionFromPiMonoRow(
           kind: "tool_result",
           significance: "attention",
           label: `tool:result:${traceIndex}`,
-          ...(toolResultText ? { text: toolResultText, excerpt: clipText(toolResultText, 240) } : {}),
+          ...(toolResultText
+            ? { text: toolResultText, excerpt: clipText(toolResultText, 240) }
+            : {}),
           ...(toolName ? { toolName } : {}),
           ...(toolFamily ? { toolFamily } : {}),
           rawRef: rawRefBase,
@@ -293,14 +298,16 @@ export function createImportedSessionFromPiMonoRow(
 
       const contextualSummary = summarizePiMonoMessageContext(message);
       if (contextualSummary) {
-        entries.push(createPiMonoBoundaryEntry({
-          entries,
-          timestamp,
-          trace,
-          rawRef: rawRefBase,
-          label: `context:${message.role ?? "message"}:${traceIndex}`,
-          text: contextualSummary,
-        }));
+        entries.push(
+          createPiMonoBoundaryEntry({
+            entries,
+            timestamp,
+            trace,
+            rawRef: rawRefBase,
+            label: `context:${message.role ?? "message"}:${traceIndex}`,
+            text: contextualSummary,
+          }),
+        );
       }
       continue;
     }
@@ -310,14 +317,16 @@ export function createImportedSessionFromPiMonoRow(
       continue;
     }
 
-    entries.push(createPiMonoBoundaryEntry({
-      entries,
-      timestamp,
-      trace,
-      rawRef: rawRefBase,
-      label: `${trace.type ?? "boundary"}:${traceIndex}`,
-      text: boundarySummary,
-    }));
+    entries.push(
+      createPiMonoBoundaryEntry({
+        entries,
+        timestamp,
+        trace,
+        rawRef: rawRefBase,
+        label: `${trace.type ?? "boundary"}:${traceIndex}`,
+        text: boundarySummary,
+      }),
+    );
   }
 
   if (!started) {
@@ -359,12 +368,13 @@ export function createImportedSessionFromPiMonoRow(
     ...(pathSelection.leafId ? [`leaf=${pathSelection.leafId}`] : []),
   ];
 
-  const sourceDataset = typeof row.source_dataset === "string" && row.source_dataset.trim().length > 0
-    ? row.source_dataset.trim()
-    : undefined;
+  const sourceDataset =
+    typeof row.source_dataset === "string" && row.source_dataset.trim().length > 0
+      ? row.source_dataset.trim()
+      : undefined;
 
   return {
-    schemaVersion: 1,
+    schemaVersion: IMPORTED_SESSION_SCHEMA_VERSION,
     sessionId: taskId,
     title,
     description: `Imported from Pi session traces (${split}, ${row.harness}) for session ${row.session_id}.`,
@@ -396,9 +406,7 @@ export function createReplayScenarioFromPiMonoRow(
   row: PiMonoRow,
   options: { split?: PiMonoSplit } = {},
 ): ReplayScenario {
-  return createReplayScenarioFromImportedSession(
-    createImportedSessionFromPiMonoRow(row, options),
-  );
+  return createReplayScenarioFromImportedSession(createImportedSessionFromPiMonoRow(row, options));
 }
 
 export function createSessionBundleFromPiMonoRow(

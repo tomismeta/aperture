@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { AUTORESEARCH_PROPOSAL_RUN_SCHEMA_VERSION } from "./artifact-versions.js";
 import {
   defaultAutoresearchCalibrationCasePath,
   promoteOfflineReviewReportToCalibrationCase,
@@ -18,8 +19,7 @@ import type {
 } from "./offline-review.js";
 import type { AutoresearchOptimizerRun } from "./autoresearch-optimizer.js";
 import { DEFAULT_LAB_RUNTIME_ROOT } from "./runtime-paths.js";
-
-export const AUTORESEARCH_PROPOSAL_RUN_SCHEMA_VERSION = 1 as const;
+export { AUTORESEARCH_PROPOSAL_RUN_SCHEMA_VERSION } from "./artifact-versions.js";
 
 export const DEFAULT_AUTORESEARCH_PROPOSALS_DIR = path.join(
   DEFAULT_LAB_RUNTIME_ROOT,
@@ -150,19 +150,24 @@ export async function collectAutoresearchProposalSignals(
   const repoRoot = options.repoRoot ?? process.cwd();
   const minimumConfidence = confidenceRank(options.minimumConfidence ?? "high");
   const minSessionCount = options.minSessionCount ?? 2;
-  const batchReport = await loadJsonFile<OfflineReviewBatchReport>(path.resolve(repoRoot, batchReportPath));
-  const grouped = new Map<string, {
-    focusArea: OfflineReviewFocusArea;
-    owner: OfflineReviewRecommendationOwner;
-    apertureValue: string | string[] | boolean | null;
-    expectedValue: string | string[] | boolean | null;
-    disagreementCount: number;
-    sessions: Set<string>;
-    reportPaths: Set<string>;
-    confidenceCounts: Record<OfflineReviewConfidence, number>;
-    examples: Array<AutoresearchProposalSignal["examples"][number]>;
-    targets: Set<string>;
-  }>();
+  const batchReport = await loadJsonFile<OfflineReviewBatchReport>(
+    path.resolve(repoRoot, batchReportPath),
+  );
+  const grouped = new Map<
+    string,
+    {
+      focusArea: OfflineReviewFocusArea;
+      owner: OfflineReviewRecommendationOwner;
+      apertureValue: string | string[] | boolean | null;
+      expectedValue: string | string[] | boolean | null;
+      disagreementCount: number;
+      sessions: Set<string>;
+      reportPaths: Set<string>;
+      confidenceCounts: Record<OfflineReviewConfidence, number>;
+      examples: Array<AutoresearchProposalSignal["examples"][number]>;
+      targets: Set<string>;
+    }
+  >();
 
   for (const entry of batchReport.entries) {
     if (entry.status !== "disagreement" || !entry.reportPath || !entry.recommendationPath) {
@@ -171,7 +176,9 @@ export async function collectAutoresearchProposalSignals(
 
     const [report, recommendation] = await Promise.all([
       loadJsonFile<OfflineReviewReport>(path.resolve(repoRoot, entry.reportPath)),
-      loadJsonFile<OfflineReviewRecommendationReport>(path.resolve(repoRoot, entry.recommendationPath)),
+      loadJsonFile<OfflineReviewRecommendationReport>(
+        path.resolve(repoRoot, entry.recommendationPath),
+      ),
     ]);
     const ownerByFocusArea = new Map(
       recommendation.items.map((item) => [item.focusArea, item.owner] as const),
@@ -186,7 +193,9 @@ export async function collectAutoresearchProposalSignals(
       }
 
       const owner = ownerByFocusArea.get(disagreement.focusArea) ?? "semantic";
-      const recommendationItem = recommendation.items.find((item) => item.focusArea === disagreement.focusArea);
+      const recommendationItem = recommendation.items.find(
+        (item) => item.focusArea === disagreement.focusArea,
+      );
       const signature = createSignalSignature(disagreement, owner);
       const signal = grouped.get(signature) ?? {
         focusArea: disagreement.focusArea,
@@ -237,16 +246,20 @@ export async function collectAutoresearchProposalSignals(
       targets: [...signal.targets].sort(),
       confidenceCounts: signal.confidenceCounts,
       examples: signal.examples
-        .sort((left, right) => left.sessionId.localeCompare(right.sessionId) || left.stepIndex - right.stepIndex)
+        .sort(
+          (left, right) =>
+            left.sessionId.localeCompare(right.sessionId) || left.stepIndex - right.stepIndex,
+        )
         .slice(0, 6),
     }))
     .filter((signal) => signal.sessionCount >= minSessionCount)
-    .sort((left, right) => (
-      right.sessionCount - left.sessionCount
-      || right.disagreementCount - left.disagreementCount
-      || left.focusArea.localeCompare(right.focusArea)
-      || left.signature.localeCompare(right.signature)
-    ));
+    .sort(
+      (left, right) =>
+        right.sessionCount - left.sessionCount ||
+        right.disagreementCount - left.disagreementCount ||
+        left.focusArea.localeCompare(right.focusArea) ||
+        left.signature.localeCompare(right.signature),
+    );
 }
 
 export function selectAutoresearchProposalPromotions(
@@ -261,9 +274,12 @@ export function selectAutoresearchProposalPromotions(
   for (const signal of signals) {
     for (const reportPath of signal.reportPaths) {
       const existing = selected.get(reportPath) ?? {
-        sessionId: signal.sessions.find((sessionId) => signal.examples.some((example) => example.sessionId === sessionId))
-          ?? signal.sessions[0]
-          ?? safeSegment(reportPath),
+        sessionId:
+          signal.sessions.find((sessionId) =>
+            signal.examples.some((example) => example.sessionId === sessionId),
+          ) ??
+          signal.sessions[0] ??
+          safeSegment(reportPath),
         reportPath,
         focusAreas: new Set<OfflineReviewFocusArea>(),
       };
@@ -278,7 +294,9 @@ export function selectAutoresearchProposalPromotions(
     }
   }
 
-  return [...selected.values()].sort((left, right) => left.sessionId.localeCompare(right.sessionId));
+  return [...selected.values()].sort((left, right) =>
+    left.sessionId.localeCompare(right.sessionId),
+  );
 }
 
 export async function promoteAutoresearchProposalCandidates(
@@ -298,14 +316,17 @@ export async function promoteAutoresearchProposalCandidates(
       continue;
     }
     const split = splits[index] ?? "train";
-    const calibrationCase = await promoteOfflineReviewReportToCalibrationCase(candidate.reportPath, {
-      split,
-      repoRoot,
-      focusAreas: [...candidate.focusAreas].sort(),
-      recommendationAllowlist: ["promote"],
-      minimumConfidence: "high",
-      includeStepInvariants: true,
-    });
+    const calibrationCase = await promoteOfflineReviewReportToCalibrationCase(
+      candidate.reportPath,
+      {
+        split,
+        repoRoot,
+        focusAreas: [...candidate.focusAreas].sort(),
+        recommendationAllowlist: ["promote"],
+        minimumConfidence: "high",
+        includeStepInvariants: true,
+      },
+    );
     const outputPath = defaultAutoresearchCalibrationCasePath(
       calibrationCase,
       path.join(options.candidateCalibrationDir, split),
@@ -326,9 +347,7 @@ export async function promoteAutoresearchProposalCandidates(
   return promotions;
 }
 
-export function assignAutoresearchProposalSplits(
-  count: number,
-): AutoresearchCalibrationSplit[] {
+export function assignAutoresearchProposalSplits(count: number): AutoresearchCalibrationSplit[] {
   if (count <= 0) {
     return [];
   }
@@ -342,11 +361,7 @@ export function assignAutoresearchProposalSplits(
     return ["train", "validation", "heldout"];
   }
 
-  return [
-    ...Array.from({ length: count - 2 }, () => "train" as const),
-    "validation",
-    "heldout",
-  ];
+  return [...Array.from({ length: count - 2 }, () => "train" as const), "validation", "heldout"];
 }
 
 export function defaultAutoresearchProposalDirectory(
@@ -382,9 +397,7 @@ export async function writeAutoresearchProposalRun(
   await writeFile(filePath, `${JSON.stringify(run, null, 2)}\n`, "utf8");
 }
 
-export function renderAutoresearchProposalMarkdown(
-  run: AutoresearchProposalRun,
-): string {
+export function renderAutoresearchProposalMarkdown(run: AutoresearchProposalRun): string {
   const lines = [
     "# Autoresearch Proposal",
     "",
@@ -477,7 +490,9 @@ export function renderAutoresearchProposalMarkdown(
   if (run.optimizer) {
     lines.push("", "## Optimizer", "");
     lines.push(`- status: ${run.optimizer.status}`);
-    lines.push(`- mismatches: ${run.optimizer.beforeMismatchCount} -> ${run.optimizer.afterMismatchCount}`);
+    lines.push(
+      `- mismatches: ${run.optimizer.beforeMismatchCount} -> ${run.optimizer.afterMismatchCount}`,
+    );
     lines.push(
       `- invariant mismatches: ${run.optimizer.beforeInvariantMismatchCount} -> ${run.optimizer.afterInvariantMismatchCount}`,
     );
@@ -527,14 +542,12 @@ export function buildAutoresearchProposalCodeRecommendations(options: {
   if (optimizerFeedback) {
     const reasons = [...optimizerFeedback.reasons];
     if (
-      localBeforeMismatchCount !== undefined
-      && localAfterMismatchCount !== undefined
-      && optimizerFeedback.beforeMismatchCount !== undefined
-      && optimizerFeedback.afterMismatchCount !== undefined
-      && (
-        optimizerFeedback.beforeMismatchCount !== localBeforeMismatchCount
-        || optimizerFeedback.afterMismatchCount !== localAfterMismatchCount
-      )
+      localBeforeMismatchCount !== undefined &&
+      localAfterMismatchCount !== undefined &&
+      optimizerFeedback.beforeMismatchCount !== undefined &&
+      optimizerFeedback.afterMismatchCount !== undefined &&
+      (optimizerFeedback.beforeMismatchCount !== localBeforeMismatchCount ||
+        optimizerFeedback.afterMismatchCount !== localAfterMismatchCount)
     ) {
       reasons.push(
         `Harness evaluation measured mismatches ${localBeforeMismatchCount} -> ${localAfterMismatchCount}; optimizer self-report claimed ${optimizerFeedback.beforeMismatchCount} -> ${optimizerFeedback.afterMismatchCount}.`,
@@ -566,7 +579,8 @@ export function buildAutoresearchProposalCodeRecommendations(options: {
   if (recommendations.length === 0 && options.signals.length > 0) {
     recommendations.push({
       kind: "intent_only",
-      summary: "No surviving patch artifact was produced; review the intent statements and target files for a manual generalization.",
+      summary:
+        "No surviving patch artifact was produced; review the intent statements and target files for a manual generalization.",
       recommendedFiles: dedupeStrings(options.signals.flatMap((signal) => signal.targets)),
       reasons: [
         "Repeated high-confidence signal was detected, but the optimizer did not leave a durable patch artifact.",

@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
 import type { AttentionResponse, AttentionView, SourceEvent } from "@tomismeta/aperture-core";
+import { HeldRequestCoordinator, type HeldRequestResolution } from "@aperture/runtime/internal";
 
 import {
   codexHookTurnTaskId,
@@ -33,13 +34,6 @@ export type CodexHookServer = {
   close(): Promise<void>;
 };
 
-type PendingDecision = {
-  taskId: string;
-  interactionId: string;
-  response: ServerResponse<IncomingMessage>;
-  timeout: NodeJS.Timeout;
-};
-
 type CodexHookEventHost = {
   publishSourceEvent(event: SourceEvent): unknown | Promise<unknown>;
   submit?(response: AttentionResponse): unknown | Promise<unknown>;
@@ -61,25 +55,12 @@ export function createCodexHookServer(
   const port = options.port ?? 0;
   const holdTimeoutMs = options.holdTimeoutMs ?? DEFAULT_HOLD_TIMEOUT_MS;
   const bodyLimitBytes = options.bodyLimitBytes ?? DEFAULT_BODY_LIMIT_BYTES;
-  const pending = new Map<string, PendingDecision>();
+  const pending = new HeldRequestCoordinator<CodexHookResponse>({
+    writeResolution: (response, resolution) => writeCodexResolution(response, resolution),
+  });
 
   const unsubscribe = hostClient.onResponse((response) => {
-    const key = pendingKey(response.taskId, response.interactionId);
-    const decision = pending.get(key);
-    if (!decision) {
-      return;
-    }
-
-    clearTimeout(decision.timeout);
-    pending.delete(key);
-
-    const mapped = mapCodexHookResponse(response);
-    if (!mapped) {
-      writeEmpty(decision.response, 204);
-      return;
-    }
-
-    writeJson(decision.response, 200, mapped);
+    pending.resolve(response);
   });
 
   const server = createServer(async (req, res) => {
@@ -135,11 +116,7 @@ export function createCodexHookServer(
     },
     async close() {
       unsubscribe();
-      for (const decision of pending.values()) {
-        clearTimeout(decision.timeout);
-        writeJson(decision.response, 200, denyBody("Codex hook server stopped before the approval completed."));
-      }
-      pending.clear();
+      pending.close();
       await new Promise<void>((resolve, reject) => {
         server.close((error) => {
           if (error) {
@@ -169,34 +146,36 @@ export function createCodexHookServer(
       return;
     }
 
-    const key = pendingKey(firstMappedEvent.taskId, firstMappedEvent.interactionId);
-    const timeout = setTimeout(() => {
-      clearTimeout(timeout);
-      pending.delete(key);
-      options.onPreToolUseFallback?.(event, "timed_out");
-      void hostClient.submit?.({
-        taskId: firstMappedEvent.taskId,
-        interactionId: firstMappedEvent.interactionId,
-        response: {
-          kind: "rejected",
-          reason: "Codex command approval timed out in Aperture.",
-        },
-      });
-      writeJson(res, 200, denyBody("Codex command approval timed out in Aperture."));
-    }, holdTimeoutMs);
-
-    pending.set(key, {
+    pending.hold({
       taskId: firstMappedEvent.taskId,
       interactionId: firstMappedEvent.interactionId,
       response: res,
-      timeout,
+      timeoutMs: holdTimeoutMs,
+      fallback: {
+        statusCode: 200,
+        body: denyBody("Codex command approval timed out in Aperture."),
+      },
+      mapResponse: (response) => {
+        const mappedResponse = mapCodexHookResponse(response);
+        return mappedResponse ? { statusCode: 200, body: mappedResponse } : { statusCode: 204 };
+      },
+      onTimeout: () => {
+        options.onPreToolUseFallback?.(event, "timed_out");
+        void hostClient.submit?.({
+          taskId: firstMappedEvent.taskId,
+          interactionId: firstMappedEvent.interactionId,
+          response: {
+            kind: "rejected",
+            reason: "Codex command approval timed out in Aperture.",
+          },
+        });
+      },
     });
 
     try {
       await hostClient.publishSourceEvent(firstMappedEvent);
     } catch (error) {
-      clearTimeout(timeout);
-      pending.delete(key);
+      pending.cancel(firstMappedEvent.taskId, firstMappedEvent.interactionId);
       throw error;
     }
 
@@ -204,9 +183,13 @@ export function createCodexHookServer(
       return;
     }
 
-    if (!hasInteraction(hostClient.getAttentionView(), firstMappedEvent.taskId, firstMappedEvent.interactionId)) {
-      clearTimeout(timeout);
-      pending.delete(key);
+    if (
+      !hasInteraction(
+        hostClient.getAttentionView(),
+        firstMappedEvent.taskId,
+        firstMappedEvent.interactionId,
+      )
+    ) {
       options.onPreToolUseFallback?.(event, "not_held");
       void hostClient.submit?.({
         taskId: firstMappedEvent.taskId,
@@ -216,7 +199,10 @@ export function createCodexHookServer(
           reason: "Aperture did not retain the Codex command approval.",
         },
       });
-      writeJson(res, 200, denyBody("Aperture did not retain the Codex command approval."));
+      pending.release(firstMappedEvent.taskId, firstMappedEvent.interactionId, {
+        statusCode: 200,
+        body: denyBody("Aperture did not retain the Codex command approval."),
+      });
     }
   }
 }
@@ -258,10 +244,6 @@ function denyBody(reason: string): CodexHookResponse {
       permissionDecisionReason: reason,
     },
   };
-}
-
-function pendingKey(taskId: string, interactionId: string): string {
-  return `${taskId}::${interactionId}`;
 }
 
 async function readHookBody(req: IncomingMessage, bodyLimitBytes: number): Promise<unknown> {
@@ -306,6 +288,17 @@ function writeEmpty(res: ServerResponse<IncomingMessage>, statusCode: number): v
   res.end();
 }
 
+function writeCodexResolution(
+  response: ServerResponse<IncomingMessage>,
+  resolution: HeldRequestResolution<CodexHookResponse>,
+): void {
+  if (resolution.body === undefined) {
+    writeEmpty(response, resolution.statusCode);
+    return;
+  }
+  writeJson(response, resolution.statusCode, resolution.body);
+}
+
 function hasInteraction(
   attentionView: AttentionView,
   taskId: string,
@@ -313,7 +306,11 @@ function hasInteraction(
 ): boolean {
   return (
     (attentionView.now?.taskId === taskId && attentionView.now.interactionId === interactionId) ||
-    attentionView.next.some((frame) => frame.taskId === taskId && frame.interactionId === interactionId) ||
-    attentionView.ambient.some((frame) => frame.taskId === taskId && frame.interactionId === interactionId)
+    attentionView.next.some(
+      (frame) => frame.taskId === taskId && frame.interactionId === interactionId,
+    ) ||
+    attentionView.ambient.some(
+      (frame) => frame.taskId === taskId && frame.interactionId === interactionId,
+    )
   );
 }

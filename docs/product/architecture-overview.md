@@ -136,6 +136,83 @@ This is the practical implementation form of the main architectural rule:
 
 **Adapters provide facts. Core provides judgment.**
 
+## Repo And Package Anatomy
+
+The repo should be read as one product with a few deliberately different
+responsibility zones, not as a flat collection of equal packages.
+
+The practical package anatomy is:
+
+- **`packages/core`**
+  - deterministic judgment engine
+  - semantic interpretation and normalization
+  - evidence context, routing, state commit, trace, and learned memory
+  - this is the product's decision-making substrate
+
+- **`packages/runtime`**
+  - local control plane and shared hosting layer
+  - bearer-authenticated HTTP surface, `/work` ingress, response polling,
+    adapter attachment, capture export, and runtime state
+  - this is where Aperture behaves like a local product, not just a library
+
+- **`packages/claude-code`, `packages/codex`, `packages/opencode`**
+  - source-specific translation packages
+  - host-native request parsing, event mapping, response mapping, and bridge
+    behavior
+  - these packages should stay translator-shaped rather than judgment-shaped
+
+- **`packages/tui`**
+  - operator-facing surface package
+  - rendering, interaction handling, posture, animation, and why-view
+    inspection
+  - this package should stay surface-shaped rather than runtime-shaped
+
+- **`packages/aperture`**
+  - the opinionated product shell
+  - CLI entrypoint, setup helpers, runtime boot, adapter wiring, and first-run
+    operational flow
+  - this is the main user-facing product package
+
+- **`packages/lab`**
+  - offline evaluation, replay, corpus ingest, calibration, and autoresearch
+  - this is the research and validation wing, not the live hot path
+
+- **`schemas`, `examples`, `docs`, and `scripts`**
+  - contract artifacts, examples, documentation, and repo fitness checks
+  - these support the product surface without becoming part of the runtime hot
+    path
+
+Another way to say the same thing is:
+
+- `core` decides
+- `runtime` hosts
+- adapters translate
+- `tui` shows
+- `aperture` packages the product path
+- `lab` evaluates and improves it
+
+That package split is healthy because each layer has a different reason to
+change:
+
+- `core` changes when judgment or semantics change
+- `runtime` changes when hosting or contract surfaces change
+- adapters change when a source host changes
+- `tui` changes when operator UX changes
+- `aperture` changes when product onboarding or command shape changes
+- `lab` changes when evaluation or improvement workflows change
+
+The desired repo-reading order is:
+
+1. `packages/aperture` for the installed product path
+2. `packages/runtime` for the shared live control plane
+3. `packages/core` for the deterministic engine
+4. adapter packages for source-specific translation
+5. `packages/tui` for operator presentation
+6. `packages/lab` for replay, review, and calibration
+
+This keeps the repo readable without pretending every package is equally
+important to every reader.
+
 ## Runtime Route Taxonomy
 
 The shared runtime now has two different kinds of HTTP surface:
@@ -678,6 +755,15 @@ It does **not** need to be updated for:
 
 - [Claude adapter](https://github.com/tomismeta/aperture/blob/main/packages/claude-code/src/index.ts)
 - [OpenCode mapping](https://github.com/tomismeta/aperture/blob/main/packages/opencode/src/mapping.ts)
+- [Codex bridge](https://github.com/tomismeta/aperture/blob/main/packages/codex/src/bridge.ts)
+
+### Product shell and runtime hosting
+
+- [aperture CLI](https://github.com/tomismeta/aperture/blob/main/packages/aperture/src/cli.ts)
+- [runtime.ts](https://github.com/tomismeta/aperture/blob/main/packages/runtime/src/runtime.ts)
+- [runtime-routes.ts](https://github.com/tomismeta/aperture/blob/main/packages/runtime/src/runtime-routes.ts)
+- [runtime-work.ts](https://github.com/tomismeta/aperture/blob/main/packages/runtime/src/runtime-work.ts)
+- [work-event-ingest.ts](https://github.com/tomismeta/aperture/blob/main/packages/runtime/src/work-event-ingest.ts)
 
 ### Core ingress
 
@@ -705,5 +791,12 @@ It does **not** need to be updated for:
 ### Operator surfaces
 
 - [render.ts](https://github.com/tomismeta/aperture/blob/main/packages/tui/src/render.ts)
+- [render-preflight.ts](https://github.com/tomismeta/aperture/blob/main/packages/tui/src/render-preflight.ts)
 - [render-why.ts](https://github.com/tomismeta/aperture/blob/main/packages/tui/src/render-why.ts)
 - [index.ts](https://github.com/tomismeta/aperture/blob/main/packages/tui/src/index.ts)
+
+### Offline evaluation
+
+- [packages/lab/src](https://github.com/tomismeta/aperture/tree/main/packages/lab/src)
+- [autoresearch-campaign-command.ts](https://github.com/tomismeta/aperture/blob/main/packages/lab/src/autoresearch-campaign-command.ts)
+- [offline-review.ts](https://github.com/tomismeta/aperture/blob/main/packages/lab/src/offline-review.ts)

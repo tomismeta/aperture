@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { AUTORESEARCH_RUNNER_RUN_SCHEMA_VERSION } from "./artifact-versions.js";
 import { DEFAULT_LAB_RUNTIME_ROOT } from "./runtime-paths.js";
 import type {
   AutoresearchProposalCodeRecommendation,
@@ -8,8 +9,7 @@ import type {
   AutoresearchProposalSignal,
   AutoresearchProposalRunStatus,
 } from "./autoresearch-proposal.js";
-
-export const AUTORESEARCH_RUNNER_RUN_SCHEMA_VERSION = 1 as const;
+export { AUTORESEARCH_RUNNER_RUN_SCHEMA_VERSION } from "./artifact-versions.js";
 
 export const DEFAULT_AUTORESEARCH_RUNNER_RESULTS_DIR = path.join(
   DEFAULT_LAB_RUNTIME_ROOT,
@@ -115,7 +115,12 @@ export type AutoresearchRunnerFeedback = {
   recommendedNextStep?: string;
 };
 
-export type AutoresearchRunnerRunStatus = "proposal_ready" | "no_proposal" | "blocked" | "exhausted" | "invalid";
+export type AutoresearchRunnerRunStatus =
+  | "proposal_ready"
+  | "no_proposal"
+  | "blocked"
+  | "exhausted"
+  | "invalid";
 
 export type AutoresearchRunnerRun = {
   schemaVersion: typeof AUTORESEARCH_RUNNER_RUN_SCHEMA_VERSION;
@@ -152,9 +157,7 @@ export async function writeAutoresearchRunnerRun(
   await writeFile(filePath, `${JSON.stringify(run, null, 2)}\n`, "utf8");
 }
 
-export function renderAutoresearchRunnerRunMarkdown(
-  run: AutoresearchRunnerRun,
-): string {
+export function renderAutoresearchRunnerRunMarkdown(run: AutoresearchRunnerRun): string {
   const lines: string[] = [
     "# Aperture Lab F-Stop Run",
     "",
@@ -221,7 +224,8 @@ export function renderAutoresearchRunnerRunMarkdown(
   }
 
   if (run.selectedProposal) {
-    const selectedHeading = run.status === "proposal_ready" ? "## Selected Proposal" : "## Retained Intent";
+    const selectedHeading =
+      run.status === "proposal_ready" ? "## Selected Proposal" : "## Retained Intent";
     lines.push("", selectedHeading, "");
     lines.push(`- status: ${run.selectedProposal.status}`);
     lines.push(`- actionable disagreements: ${run.selectedProposal.summary.actionableCount}`);

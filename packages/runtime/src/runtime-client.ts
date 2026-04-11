@@ -14,6 +14,7 @@ import type {
   ApertureRuntimeSessionCapture,
   ApertureRuntimeSnapshot,
 } from "./runtime-contract.js";
+import { RuntimeAttachmentSession } from "./runtime-client-session.js";
 import {
   createEmptyRuntimeSnapshot,
   DEFAULT_RUNTIME_POLL_INTERVAL_MS,
@@ -31,6 +32,8 @@ export type ApertureRuntimeClientOptions = {
   label?: string;
   surfaceCapabilities?: PartialSurfaceCapabilities;
 };
+
+export type ApertureRuntimeClientErrorListener = (error: Error) => void;
 
 type PartialSurfaceCapabilities = {
   topology?: Partial<AttentionSurfaceCapabilities["topology"]>;
@@ -50,13 +53,12 @@ export class ApertureRuntimeClient {
   private readonly attentionListeners = new Set<AttentionViewListener>();
   private readonly responseListeners = new Set<ResponseListener>();
   private readonly traceListeners = new Set<TraceListener>();
+  private readonly errorListeners = new Set<ApertureRuntimeClientErrorListener>();
   private snapshotState: ApertureRuntimeSnapshot = createEmptyRuntimeSnapshot();
   private surfaceId: string | null = null;
   private authToken = "";
-  private heartbeatIntervalId: NodeJS.Timeout | null = null;
-  private pollIntervalId: NodeJS.Timeout | null = null;
-  private nextSequence = 0;
-  private closed = false;
+  private session: RuntimeAttachmentSession | null = null;
+  private lastError: Error | null = null;
 
   private constructor(options: ApertureRuntimeClientOptions) {
     const runtimeUrls = normalizeRuntimeUrls(options.baseUrl);
@@ -85,6 +87,10 @@ export class ApertureRuntimeClient {
     return this.snapshotState.attentionState;
   }
 
+  getLastError(): Error | null {
+    return this.lastError;
+  }
+
   subscribeAttentionView(listener: AttentionViewListener): () => void {
     this.attentionListeners.add(listener);
     listener(this.snapshotState.attentionView);
@@ -107,20 +113,29 @@ export class ApertureRuntimeClient {
     };
   }
 
+  onError(listener: ApertureRuntimeClientErrorListener): () => void {
+    this.errorListeners.add(listener);
+    return () => {
+      this.errorListeners.delete(listener);
+    };
+  }
+
   submit(response: AttentionResponse): void {
-    void this.post("/response", response)
-      .then(() => this.refreshState())
-      .catch(() => {});
+    this.runInBackground(async () => {
+      await this.post("/response", response);
+      await this.refreshState();
+    });
   }
 
   engage(taskId: string, interactionId: string, options: { durationMs?: number } = {}): void {
-    void this.post("/engagement", {
-      taskId,
-      interactionId,
-      ...(options.durationMs !== undefined ? { durationMs: options.durationMs } : {}),
-    })
-      .then(() => this.refreshState())
-      .catch(() => {});
+    this.runInBackground(async () => {
+      await this.post("/engagement", {
+        taskId,
+        interactionId,
+        ...(options.durationMs !== undefined ? { durationMs: options.durationMs } : {}),
+      });
+      await this.refreshState();
+    });
   }
 
   exportSessionCapture(): Promise<ApertureRuntimeSessionCapture> {
@@ -128,78 +143,75 @@ export class ApertureRuntimeClient {
   }
 
   async close(): Promise<void> {
-    this.closed = true;
-    if (this.pollIntervalId) {
-      clearInterval(this.pollIntervalId);
-      this.pollIntervalId = null;
-    }
-    if (this.heartbeatIntervalId) {
-      clearInterval(this.heartbeatIntervalId);
-      this.heartbeatIntervalId = null;
-    }
-    if (this.surfaceId) {
-      await deleteJson(
-        `${this.controlUrl}/surfaces/${encodeURIComponent(this.surfaceId)}`,
-        this.authToken,
-      ).catch(() => {});
-      this.surfaceId = null;
-    }
+    await this.session?.close();
+    this.session = null;
+    this.surfaceId = null;
   }
 
   private async initialize(): Promise<void> {
     this.authToken = await resolveRuntimeAuthToken(this.controlUrl, this.explicitAuthToken);
-    const attach = await this.post<{ surfaceId: string; heartbeatIntervalMs: number }>(
-      "/surfaces/attach",
-      {
-        label: this.label,
-        ...(this.surfaceCapabilities ? { capabilities: this.surfaceCapabilities } : {}),
+    this.session = new RuntimeAttachmentSession({
+      pollIntervalMs: this.pollIntervalMs,
+      attach: async () => {
+        const attach = await this.post<{ surfaceId: string; heartbeatIntervalMs: number }>(
+          "/surfaces/attach",
+          {
+            label: this.label,
+            ...(this.surfaceCapabilities ? { capabilities: this.surfaceCapabilities } : {}),
+          },
+        );
+        this.surfaceId = attach.surfaceId;
+        await this.refreshState();
+        return {
+          attachedId: attach.surfaceId,
+          heartbeatIntervalMs: attach.heartbeatIntervalMs,
+        };
       },
-    );
-    this.surfaceId = attach.surfaceId;
-    await this.refreshState();
-    this.heartbeatIntervalId = setInterval(() => {
-      if (!this.surfaceId || this.closed) {
-        return;
-      }
-      void this.post(`/surfaces/${encodeURIComponent(this.surfaceId)}/heartbeat`, {}).catch(
-        () => {},
-      );
-    }, attach.heartbeatIntervalMs);
-    this.pollIntervalId = setInterval(() => {
-      void this.poll().catch(() => {});
-    }, this.pollIntervalMs);
-  }
-
-  private async poll(): Promise<void> {
-    if (this.closed) {
-      return;
-    }
-    const payload = await this.get<{
-      events: ApertureRuntimeEvent[];
-      nextSequence: number;
-      stateVersion: number;
-    }>(`/events?since=${this.nextSequence}`);
-    this.nextSequence = payload.nextSequence;
-    if (payload.stateVersion !== this.snapshotState.version) {
-      await this.refreshState();
-    }
-    for (const event of payload.events) {
-      if (event.type === "response") {
-        for (const listener of this.responseListeners) {
-          listener(event.response);
+      heartbeat: async (surfaceId) => {
+        await this.post(`/surfaces/${encodeURIComponent(surfaceId)}/heartbeat`, {});
+      },
+      detach: async (surfaceId) => {
+        try {
+          await deleteJson(
+            `${this.controlUrl}/surfaces/${encodeURIComponent(surfaceId)}`,
+            this.authToken,
+          );
+        } finally {
+          this.surfaceId = null;
         }
-      } else if (event.type === "trace") {
-        for (const listener of this.traceListeners) {
-          listener(event.trace);
+      },
+      poll: (since) =>
+        this.get<{
+          events: ApertureRuntimeEvent[];
+          nextSequence: number;
+          stateVersion: number;
+        }>(`/events?since=${since}`),
+      onPoll: async (payload) => {
+        if (payload.stateVersion !== this.snapshotState.version) {
+          await this.refreshState();
         }
-      }
-    }
+        for (const event of payload.events) {
+          if (event.type === "response") {
+            for (const listener of this.responseListeners) {
+              listener(event.response);
+            }
+            continue;
+          }
+          for (const listener of this.traceListeners) {
+            listener(event.trace);
+          }
+        }
+      },
+      onError: (error) => this.reportError(error),
+    });
+    await this.session.start();
   }
 
   private async refreshState(): Promise<void> {
     const snapshot = await this.get<ApertureRuntimeSnapshot>("/state");
     const versionChanged = snapshot.version !== this.snapshotState.version;
     this.snapshotState = snapshot;
+    this.lastError = null;
     if (versionChanged) {
       for (const listener of this.attentionListeners) {
         listener(snapshot.attentionView);
@@ -213,5 +225,17 @@ export class ApertureRuntimeClient {
 
   private async post<T = Record<string, never>>(path: string, body: unknown): Promise<T> {
     return postJson<T>(`${this.controlUrl}${path}`, body, this.authToken);
+  }
+
+  private runInBackground(task: () => Promise<void>): void {
+    void task().catch((error) => this.reportError(error));
+  }
+
+  private reportError(error: unknown): void {
+    const nextError = error instanceof Error ? error : new Error(String(error));
+    this.lastError = nextError;
+    for (const listener of this.errorListeners) {
+      listener(nextError);
+    }
   }
 }

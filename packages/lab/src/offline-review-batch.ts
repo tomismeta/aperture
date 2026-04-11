@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { OFFLINE_REVIEW_BATCH_REPORT_SCHEMA_VERSION } from "./artifact-versions.js";
 import {
   ALL_OFFLINE_REVIEW_FOCUS_AREAS,
   DEFAULT_OFFLINE_REVIEW_RESULTS_DIR,
@@ -8,8 +9,7 @@ import {
   type OfflineReviewRecommendation,
   type OfflineReviewRecommendationItem,
 } from "./offline-review.js";
-
-export const OFFLINE_REVIEW_BATCH_REPORT_SCHEMA_VERSION = 1 as const;
+export { OFFLINE_REVIEW_BATCH_REPORT_SCHEMA_VERSION } from "./artifact-versions.js";
 export const DEFAULT_OFFLINE_REVIEW_BATCHES_DIR = path.join(
   DEFAULT_OFFLINE_REVIEW_RESULTS_DIR,
   "batches",
@@ -104,7 +104,9 @@ export function createOfflineReviewBatchReport(
     for (const focusArea of Object.keys(entry.focusAreaCounts) as OfflineReviewFocusArea[]) {
       focusAreaCounts[focusArea] += entry.focusAreaCounts[focusArea];
     }
-    for (const recommendation of Object.keys(entry.recommendationCounts) as OfflineReviewRecommendation[]) {
+    for (const recommendation of Object.keys(
+      entry.recommendationCounts,
+    ) as OfflineReviewRecommendation[]) {
       recommendationCounts[recommendation] += entry.recommendationCounts[recommendation];
     }
   }
@@ -140,9 +142,8 @@ export function defaultOfflineReviewBatchPath(
   reportOrTimestamp: OfflineReviewBatchReport | string,
   outputDirectory = DEFAULT_OFFLINE_REVIEW_BATCHES_DIR,
 ): string {
-  const generatedAt = typeof reportOrTimestamp === "string"
-    ? reportOrTimestamp
-    : reportOrTimestamp.generatedAt;
+  const generatedAt =
+    typeof reportOrTimestamp === "string" ? reportOrTimestamp : reportOrTimestamp.generatedAt;
   const safeTimestamp = generatedAt.replace(/[:.]/g, "-");
   return path.join(outputDirectory, `offline-review-batch-${safeTimestamp}.json`);
 }
@@ -185,7 +186,9 @@ export function renderOfflineReviewBatchMarkdown(report: OfflineReviewBatchRepor
     if (entry.status === "error") {
       lines.push(`- error: ${entry.error ?? "unknown error"}`);
     } else {
-      lines.push(`- reviewer: ${entry.reviewer ?? "unknown"}${entry.model ? ` (${entry.model})` : ""}`);
+      lines.push(
+        `- reviewer: ${entry.reviewer ?? "unknown"}${entry.model ? ` (${entry.model})` : ""}`,
+      );
     }
     for (const recommendation of entry.topRecommendations.slice(0, 3)) {
       lines.push(

@@ -17,6 +17,13 @@ const boundaryRules = [
     guidance:
       "Promote public contracts to @aperture/runtime and route workspace-private needs through @aperture/runtime/internal.",
   },
+  {
+    label: "@tomismeta/aperture-core/internal from TUI",
+    importPattern: /["']@tomismeta\/aperture-core\/internal["']/g,
+    filePattern: /packages\/tui\/src\//,
+    guidance:
+      "Keep TUI surfaces on stable frame metadata instead of recomputing or reaching into core internals.",
+  },
 ] as const;
 
 async function main(): Promise<void> {
@@ -31,6 +38,9 @@ async function main(): Promise<void> {
 
     const content = await readFile(file, "utf8");
     for (const rule of boundaryRules) {
+      if (rule.filePattern && !rule.filePattern.test(file)) {
+        continue;
+      }
       const imports = [...content.matchAll(rule.importPattern)]
         .map((match) => match[1] ?? "")
         .filter(Boolean);
@@ -81,7 +91,10 @@ async function collectSourceFiles(directory: string): Promise<string[]> {
       continue;
     }
 
-    if (entry.isFile() && fullPath.endsWith(".ts")) {
+    if (
+      entry.isFile() &&
+      [".ts", ".tsx", ".mts", ".cts"].some((extension) => fullPath.endsWith(extension))
+    ) {
       files.push(fullPath);
     }
   }

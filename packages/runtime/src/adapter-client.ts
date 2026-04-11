@@ -6,6 +6,7 @@ import type {
   WorkReceipt,
   WorkResponse,
 } from "./runtime-contract.js";
+import { RuntimeAttachmentSession } from "./runtime-client-session.js";
 import type { WorkInput } from "./work-event-ingest.js";
 import {
   deleteJson,
@@ -29,9 +30,12 @@ export type ApertureRuntimeAdapterClientOptions = {
   metadata?: Record<string, string>;
 };
 
+export type ApertureRuntimeAdapterClientErrorListener = (error: Error) => void;
+
 type ResponseListener = (response: AttentionResponse) => void;
 
 const DEFAULT_HEARTBEAT_INTERVAL_MS = 5_000;
+
 export class ApertureRuntimeAdapterClient {
   private readonly baseUrl: string;
   private readonly controlUrl: string;
@@ -43,12 +47,11 @@ export class ApertureRuntimeAdapterClient {
   private readonly metadata: Record<string, string> | undefined;
   private readonly explicitAuthToken: string | undefined;
   private readonly responseListeners = new Set<ResponseListener>();
+  private readonly errorListeners = new Set<ApertureRuntimeAdapterClientErrorListener>();
   private adapterId: string | null = null;
   private authToken = "";
-  private heartbeatIntervalId: NodeJS.Timeout | null = null;
-  private pollIntervalId: NodeJS.Timeout | null = null;
-  private nextSequence = 0;
-  private closed = false;
+  private session: RuntimeAttachmentSession | null = null;
+  private lastError: Error | null = null;
   private snapshotState: ApertureRuntimeSnapshot = createEmptyRuntimeSnapshot();
 
   private constructor(options: ApertureRuntimeAdapterClientOptions) {
@@ -81,10 +84,21 @@ export class ApertureRuntimeAdapterClient {
     return this.snapshotState.surfaceCount;
   }
 
+  getLastError(): Error | null {
+    return this.lastError;
+  }
+
   onResponse(listener: ResponseListener): () => void {
     this.responseListeners.add(listener);
     return () => {
       this.responseListeners.delete(listener);
+    };
+  }
+
+  onError(listener: ApertureRuntimeAdapterClientErrorListener): () => void {
+    this.errorListeners.add(listener);
+    return () => {
+      this.errorListeners.delete(listener);
     };
   }
 
@@ -121,78 +135,75 @@ export class ApertureRuntimeAdapterClient {
   }
 
   async close(): Promise<void> {
-    this.closed = true;
-    if (this.heartbeatIntervalId) {
-      clearInterval(this.heartbeatIntervalId);
-      this.heartbeatIntervalId = null;
-    }
-    if (this.pollIntervalId) {
-      clearInterval(this.pollIntervalId);
-      this.pollIntervalId = null;
-    }
-    if (this.adapterId) {
-      await deleteJson(
-        `${this.controlUrl}/adapters/${encodeURIComponent(this.adapterId)}`,
-        this.authToken,
-      ).catch(() => {});
-      this.adapterId = null;
-    }
+    await this.session?.close();
+    this.session = null;
+    this.adapterId = null;
   }
 
   private async initialize(): Promise<void> {
     this.authToken = await resolveRuntimeAuthToken(this.controlUrl, this.explicitAuthToken);
-    const attach = await this.postControl<{ adapterId: string; heartbeatIntervalMs: number }>(
-      "/adapters/register",
-      {
-        kind: this.kind,
-        ...(this.requestedId ? { id: this.requestedId } : {}),
-        ...(this.label ? { label: this.label } : {}),
-        ...(this.metadata ? { metadata: this.metadata } : {}),
+    this.session = new RuntimeAttachmentSession({
+      pollIntervalMs: this.pollIntervalMs,
+      attach: async () => {
+        const attach = await this.postControl<{ adapterId: string; heartbeatIntervalMs: number }>(
+          "/adapters/register",
+          {
+            kind: this.kind,
+            ...(this.requestedId ? { id: this.requestedId } : {}),
+            ...(this.label ? { label: this.label } : {}),
+            ...(this.metadata ? { metadata: this.metadata } : {}),
+          },
+        );
+        this.adapterId = attach.adapterId;
+        await this.refreshState();
+        return {
+          attachedId: attach.adapterId,
+          heartbeatIntervalMs: Math.min(
+            attach.heartbeatIntervalMs,
+            Math.max(1_000, this.requestedHeartbeatIntervalMs),
+          ),
+        };
       },
-    );
-    this.adapterId = attach.adapterId;
-    await this.refreshState();
-    const heartbeatMs = Math.min(
-      attach.heartbeatIntervalMs,
-      Math.max(1_000, this.requestedHeartbeatIntervalMs),
-    );
-    this.heartbeatIntervalId = setInterval(() => {
-      if (!this.adapterId || this.closed) {
-        return;
-      }
-      void this.postControl(`/adapters/${encodeURIComponent(this.adapterId)}/heartbeat`, {}).catch(
-        () => {},
-      );
-    }, heartbeatMs);
-    this.pollIntervalId = setInterval(() => {
-      void this.poll().catch(() => {});
-    }, this.pollIntervalMs);
-  }
-
-  private async poll(): Promise<void> {
-    if (this.closed) {
-      return;
-    }
-    const payload = await this.getControl<{
-      events: ApertureRuntimeEvent[];
-      nextSequence: number;
-      stateVersion: number;
-    }>(`/events?since=${this.nextSequence}`);
-    this.nextSequence = payload.nextSequence;
-    if (payload.stateVersion !== this.snapshotState.version) {
-      await this.refreshState();
-    }
-    for (const event of payload.events) {
-      if (event.type === "response") {
-        for (const listener of this.responseListeners) {
-          listener(event.response);
+      heartbeat: async (adapterId) => {
+        await this.postControl(`/adapters/${encodeURIComponent(adapterId)}/heartbeat`, {});
+      },
+      detach: async (adapterId) => {
+        try {
+          await deleteJson(
+            `${this.controlUrl}/adapters/${encodeURIComponent(adapterId)}`,
+            this.authToken,
+          );
+        } finally {
+          this.adapterId = null;
         }
-      }
-    }
+      },
+      poll: (since) =>
+        this.getControl<{
+          events: ApertureRuntimeEvent[];
+          nextSequence: number;
+          stateVersion: number;
+        }>(`/events?since=${since}`),
+      onPoll: async (payload) => {
+        if (payload.stateVersion !== this.snapshotState.version) {
+          await this.refreshState();
+        }
+        for (const event of payload.events) {
+          if (event.type !== "response") {
+            continue;
+          }
+          for (const listener of this.responseListeners) {
+            listener(event.response);
+          }
+        }
+      },
+      onError: (error) => this.reportError(error),
+    });
+    await this.session.start();
   }
 
   private async refreshState(): Promise<void> {
     this.snapshotState = await this.getControl<ApertureRuntimeSnapshot>("/state");
+    this.lastError = null;
   }
 
   private async getControl<T>(path: string): Promise<T> {
@@ -213,5 +224,13 @@ export class ApertureRuntimeAdapterClient {
 
   private async getBase<T>(path: string): Promise<T> {
     return getJson<T>(`${this.baseUrl}${path}`, this.authToken);
+  }
+
+  private reportError(error: unknown): void {
+    const nextError = error instanceof Error ? error : new Error(String(error));
+    this.lastError = nextError;
+    for (const listener of this.errorListeners) {
+      listener(nextError);
+    }
   }
 }

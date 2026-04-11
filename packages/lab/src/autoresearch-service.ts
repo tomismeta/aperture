@@ -1,7 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-export const AUTORESEARCH_SERVICE_STATUS_SCHEMA_VERSION = 1 as const;
+import { AUTORESEARCH_SERVICE_STATUS_SCHEMA_VERSION } from "./artifact-versions.js";
+export { AUTORESEARCH_SERVICE_STATUS_SCHEMA_VERSION } from "./artifact-versions.js";
 
 export type AutoresearchServicePhase =
   | "starting"

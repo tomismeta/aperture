@@ -1,5 +1,6 @@
 import type { SourceEvent } from "@tomismeta/aperture-core";
 
+import { IMPORTED_SESSION_SCHEMA_VERSION } from "./artifact-versions.js";
 import {
   createReplayScenarioFromImportedSession,
   createSessionBundleFromImportedSession,
@@ -51,9 +52,11 @@ export function createImportedSessionFromOpenAgentSessionsRow(
   };
   const firstPrompt = readOpenAgentSessionsFirstPrompt(row.events);
   const metadataTopic = row.metadata?.session?.topic?.trim();
-  const title = readIssueTitle(firstPrompt || metadataTopic || "")
-    ?? clipText(metadataTopic ?? `Imported OpenAgentSessions session ${row.session_id}`, 96);
-  const summary = toSingleLine(firstPrompt) ?? metadataTopic ?? `OpenAgentSessions ${row.session_id}`;
+  const title =
+    readIssueTitle(firstPrompt || metadataTopic || "") ??
+    clipText(metadataTopic ?? `Imported OpenAgentSessions session ${row.session_id}`, 96);
+  const summary =
+    toSingleLine(firstPrompt) ?? metadataTopic ?? `OpenAgentSessions ${row.session_id}`;
   const entries: ImportedSessionEntry[] = [];
   let started = false;
   let lastToolFamily: string | undefined;
@@ -170,7 +173,9 @@ export function createImportedSessionFromOpenAgentSessionsRow(
           kind: "tool_call",
           significance: "attention",
           label: `assistant:tool:${eventIndex}:${toolUseIndex}`,
-          ...(toolCallSummary ? { text: toolCallSummary, excerpt: clipText(toolCallSummary, 240) } : {}),
+          ...(toolCallSummary
+            ? { text: toolCallSummary, excerpt: clipText(toolCallSummary, 240) }
+            : {}),
           ...(toolName ? { toolName } : {}),
           ...(toolFamily ? { toolFamily } : {}),
           rawRef: { ...rawRefBase, toolUseIndex },
@@ -191,17 +196,22 @@ export function createImportedSessionFromOpenAgentSessionsRow(
     }
 
     if (message.role === "toolResult" || message.role === "bashExecution") {
-      const toolName = message.role === "bashExecution"
-        ? "bash"
-        : typeof message.toolName === "string"
-          ? message.toolName.trim()
-          : "";
+      const toolName =
+        message.role === "bashExecution"
+          ? "bash"
+          : typeof message.toolName === "string"
+            ? message.toolName.trim()
+            : "";
       const toolFamily = normalizeToolFamily(toolName || lastToolFamily);
       if (toolFamily) {
         lastToolFamily = toolFamily;
       }
       const toolResultText = readOpenAgentSessionsToolResultText(message);
-      const toolResultStatus = inferOpenAgentSessionsToolResultStatus(message, toolResultText, toolFamily);
+      const toolResultStatus = inferOpenAgentSessionsToolResultStatus(
+        message,
+        toolResultText,
+        toolFamily,
+      );
       if (!toolResultText && toolResultStatus === "running") {
         continue;
       }
@@ -259,10 +269,12 @@ export function createImportedSessionFromOpenAgentSessionsRow(
     entry.index = index;
   }
 
-  const metadataTags = Array.isArray(row.metadata?.tags) ? row.metadata.tags.map((tag) => slug(tag)) : [];
+  const metadataTags = Array.isArray(row.metadata?.tags)
+    ? row.metadata.tags.map((tag) => slug(tag))
+    : [];
 
   return {
-    schemaVersion: 1,
+    schemaVersion: IMPORTED_SESSION_SCHEMA_VERSION,
     sessionId: taskId,
     title,
     description: `Imported from OpenAgentSessions (${split}) for session ${row.session_id}.`,
@@ -400,9 +412,7 @@ function readOpenAgentSessionsTextContent(
     .trim();
 }
 
-function readOpenAgentSessionsToolResultText(
-  message: OpenAgentSessionsMessage,
-): string {
+function readOpenAgentSessionsToolResultText(message: OpenAgentSessionsMessage): string {
   if (message.role === "bashExecution") {
     const command = typeof message.command === "string" ? message.command.trim() : "";
     const output = typeof message.output === "string" ? message.output.trim() : "";
@@ -422,8 +432,10 @@ function readOpenAgentSessionsToolCalls(
     return [];
   }
 
-  return blocks.filter((block): block is OpenAgentSessionsContentBlock & { name: string } =>
-    block.type === "toolCall" && typeof block.name === "string" && block.name.trim().length > 0);
+  return blocks.filter(
+    (block): block is OpenAgentSessionsContentBlock & { name: string } =>
+      block.type === "toolCall" && typeof block.name === "string" && block.name.trim().length > 0,
+  );
 }
 
 function inferOpenAgentSessionsToolResultStatus(
@@ -432,8 +444,8 @@ function inferOpenAgentSessionsToolResultStatus(
   toolFamily?: string,
 ): Extract<SourceEvent, { type: "task.updated" }>["status"] {
   if (
-    message.role === "bashExecution"
-    && (message.cancelled || (typeof message.exitCode === "number" && message.exitCode !== 0))
+    message.role === "bashExecution" &&
+    (message.cancelled || (typeof message.exitCode === "number" && message.exitCode !== 0))
   ) {
     return "failed";
   }

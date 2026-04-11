@@ -1,5 +1,6 @@
 import type { SourceEvent } from "@tomismeta/aperture-core";
 
+import { IMPORTED_SESSION_SCHEMA_VERSION } from "./artifact-versions.js";
 import {
   createReplayScenarioFromImportedSession,
   createSessionBundleFromImportedSession,
@@ -47,7 +48,8 @@ export function createImportedSessionFromDataclawRow(
     label: `DataClaw ${row.source}`,
   };
   const firstPrompt = readDataclawFirstPrompt(row.messages);
-  const title = readIssueTitle(firstPrompt) ?? `Imported DataClaw session ${clipText(row.project, 64)}`;
+  const title =
+    readIssueTitle(firstPrompt) ?? `Imported DataClaw session ${clipText(row.project, 64)}`;
   const summary = toSingleLine(firstPrompt) ?? `${row.project} (${row.model})`;
   const entries: ImportedSessionEntry[] = [];
 
@@ -58,8 +60,12 @@ export function createImportedSessionFromDataclawRow(
     const messageText = readDataclawMessageText(message);
     const localCommandNoise = messageText ? isDataclawLocalCommandNoise(messageText) : false;
     const compactionContext = messageText ? isDataclawCompactionContext(messageText) : false;
-    const actionableUserText = message.role === "user" && messageText && !localCommandNoise && !compactionContext;
-    const actionableAssistantText = message.role === "assistant" && messageText && !isDataclawNonActionableAssistantText(messageText);
+    const actionableUserText =
+      message.role === "user" && messageText && !localCommandNoise && !compactionContext;
+    const actionableAssistantText =
+      message.role === "assistant" &&
+      messageText &&
+      !isDataclawNonActionableAssistantText(messageText);
 
     if (message.role === "system") {
       entries.push({
@@ -107,7 +113,9 @@ export function createImportedSessionFromDataclawRow(
         role: "user",
         kind: "message",
         significance: actionableUserText ? "attention" : "context",
-        label: actionableUserText ? `user:followup:${messageIndex}` : `user:context:${messageIndex}`,
+        label: actionableUserText
+          ? `user:followup:${messageIndex}`
+          : `user:context:${messageIndex}`,
         text: messageText,
         excerpt: clipText(messageText, 240),
         rawRef: { messageIndex },
@@ -166,7 +174,11 @@ export function createImportedSessionFromDataclawRow(
       });
     }
 
-    if (message.role !== "assistant" || !Array.isArray(message.tool_uses) || message.tool_uses.length === 0) {
+    if (
+      message.role !== "assistant" ||
+      !Array.isArray(message.tool_uses) ||
+      message.tool_uses.length === 0
+    ) {
       continue;
     }
 
@@ -181,7 +193,9 @@ export function createImportedSessionFromDataclawRow(
         kind: "tool_call",
         significance: "attention",
         label: `assistant:tool:${messageIndex}:${toolUseIndex}`,
-        ...(toolCallSummary ? { text: toolCallSummary, excerpt: clipText(toolCallSummary, 240) } : {}),
+        ...(toolCallSummary
+          ? { text: toolCallSummary, excerpt: clipText(toolCallSummary, 240) }
+          : {}),
         ...(toolName ? { toolName } : {}),
         ...(toolFamily ? { toolFamily } : {}),
         rawRef: { messageIndex, toolUseIndex },
@@ -257,7 +271,7 @@ export function createImportedSessionFromDataclawRow(
   }
 
   return {
-    schemaVersion: 1,
+    schemaVersion: IMPORTED_SESSION_SCHEMA_VERSION,
     sessionId: taskId,
     title,
     description: `Imported from ${DATACLAW_DATASET} (${split}, ${row.source}, ${row.model}) for ${row.project}.`,
@@ -331,12 +345,12 @@ function readDataclawFirstPrompt(messages: DataclawMessage[]): string {
       return false;
     }
     const text = readDataclawMessageText(message);
-    return Boolean(text) && !isDataclawLocalCommandNoise(text) && !isDataclawCompactionContext(text);
+    return (
+      Boolean(text) && !isDataclawLocalCommandNoise(text) && !isDataclawCompactionContext(text)
+    );
   });
 
-  return firstUserMessage
-    ? readDataclawMessageText(firstUserMessage)
-    : "Imported DataClaw session";
+  return firstUserMessage ? readDataclawMessageText(firstUserMessage) : "Imported DataClaw session";
 }
 
 function readDataclawMessageText(message: DataclawMessage): string {
@@ -348,23 +362,22 @@ function inferDataclawToolResultStatus(
   text: string | null,
   toolFamily?: string,
 ): Extract<SourceEvent, { type: "task.updated" }>["status"] {
-  const normalizedStatus = typeof toolUse.status === "string"
-    ? toolUse.status.trim().toLowerCase()
-    : "";
+  const normalizedStatus =
+    typeof toolUse.status === "string" ? toolUse.status.trim().toLowerCase() : "";
 
   if (
-    normalizedStatus.includes("fail")
-    || normalizedStatus.includes("error")
-    || normalizedStatus.includes("cancel")
-    || normalizedStatus.includes("reject")
+    normalizedStatus.includes("fail") ||
+    normalizedStatus.includes("error") ||
+    normalizedStatus.includes("cancel") ||
+    normalizedStatus.includes("reject")
   ) {
     return "failed";
   }
 
   if (
-    normalizedStatus.includes("wait")
-    || normalizedStatus.includes("pending")
-    || normalizedStatus.includes("running")
+    normalizedStatus.includes("wait") ||
+    normalizedStatus.includes("pending") ||
+    normalizedStatus.includes("running")
   ) {
     return "waiting";
   }
@@ -381,9 +394,9 @@ function inferDataclawToolResultStatus(
 }
 
 function summarizeDataclawToolCall(toolUse: DataclawToolUse): string | null {
-  const fragments = [
-    stringifyStructuredValue(toolUse.input),
-  ].filter((value): value is string => Boolean(value));
+  const fragments = [stringifyStructuredValue(toolUse.input)].filter((value): value is string =>
+    Boolean(value),
+  );
 
   if (fragments.length === 0) {
     return toolUse.tool.trim();
@@ -407,25 +420,31 @@ function summarizeDataclawToolResult(toolUse: DataclawToolUse): string | null {
 
 function isDataclawLocalCommandNoise(text: string): boolean {
   const normalized = text.toLowerCase();
-  return normalized.includes("<local-command-caveat>")
-    || normalized.includes("<command-name>")
-    || normalized.includes("<command-message>")
-    || normalized.includes("<command-args>")
-    || normalized.includes("<local-command-stdout>")
-    || normalized.includes("<local-command-stderr>");
+  return (
+    normalized.includes("<local-command-caveat>") ||
+    normalized.includes("<command-name>") ||
+    normalized.includes("<command-message>") ||
+    normalized.includes("<command-args>") ||
+    normalized.includes("<local-command-stdout>") ||
+    normalized.includes("<local-command-stderr>")
+  );
 }
 
 function isDataclawCompactionContext(text: string): boolean {
   const normalized = text.toLowerCase();
-  return normalized.startsWith("this session is being continued from a previous conversation")
-    || normalized.startsWith("you've hit your limit")
-    || normalized === "no response requested.";
+  return (
+    normalized.startsWith("this session is being continued from a previous conversation") ||
+    normalized.startsWith("you've hit your limit") ||
+    normalized === "no response requested."
+  );
 }
 
 function isDataclawNonActionableAssistantText(text: string): boolean {
   const normalized = text.toLowerCase();
-  return normalized === "no response requested."
-    || normalized.startsWith("let me first check the previous conversation")
-    || normalized.startsWith("let me read the previous conversation")
-    || normalized.startsWith("let me first read the file");
+  return (
+    normalized === "no response requested." ||
+    normalized.startsWith("let me first check the previous conversation") ||
+    normalized.startsWith("let me read the previous conversation") ||
+    normalized.startsWith("let me first read the file")
+  );
 }

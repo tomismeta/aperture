@@ -4,6 +4,7 @@ import path from "node:path";
 import type { FStopProvider } from "./fstop-role.js";
 import { readJsonFile } from "./json-utils.js";
 import {
+  AUTORESEARCH_PROPOSAL_RUN_SCHEMA_VERSION,
   buildAutoresearchProposalCodeRecommendations,
   buildAutoresearchProposalIntentStatements,
   collectAutoresearchProposalSignals,
@@ -83,15 +84,12 @@ export async function runAutoresearchProposalCommand(
 
   const resolvedInput = options.inputFile
     ? await resolveAutoresearchInputFile(options.inputFile, {
-      dataset: options.dataset,
-      split: options.split,
-    })
+        dataset: options.dataset,
+        split: options.split,
+      })
     : undefined;
   const effectiveBatchReportPath = options.batchReportPath ?? resolvedInput?.batchReportPath;
-  const effectiveBundlePaths = [
-    ...options.bundlePaths,
-    ...(resolvedInput?.bundlePaths ?? []),
-  ];
+  const effectiveBundlePaths = [...options.bundlePaths, ...(resolvedInput?.bundlePaths ?? [])];
 
   const generatedAt = new Date().toISOString();
   const proposalPath = options.outputPath ?? defaultAutoresearchProposalRunPath(generatedAt);
@@ -101,15 +99,18 @@ export async function runAutoresearchProposalCommand(
   const batchArtifacts = effectiveBatchReportPath
     ? await resolvePrecomputedBatchArtifacts(effectiveBatchReportPath)
     : await runDiscoveryBatch({
-      ...options,
-      bundlePaths: effectiveBundlePaths,
-    });
+        ...options,
+        bundlePaths: effectiveBundlePaths,
+      });
   const batchReportPath = batchArtifacts.batchReportPath;
   const batchMarkdownPath = batchArtifacts.batchMarkdownPath;
   if (effectiveBatchReportPath) {
     notes.push(`Using precomputed discovery batch: ${batchReportPath}`);
   } else if (resolvedInput?.ingest) {
-    const sourceLabel = resolvedInput.ingest.sourceKind === "fstop-session" ? "canonical F-Stop session" : "raw export";
+    const sourceLabel =
+      resolvedInput.ingest.sourceKind === "fstop-session"
+        ? "canonical F-Stop session"
+        : "raw export";
     notes.push(
       `Prepared ${resolvedInput.ingest.bundleCount} bundle(s) from ${sourceLabel} ${resolvedInput.ingest.sourcePath} into ${resolvedInput.ingest.outputDirectory}.`,
     );
@@ -210,7 +211,7 @@ export async function runAutoresearchProposalCommand(
   }
 
   const run: AutoresearchProposalRun = {
-    schemaVersion: 1,
+    schemaVersion: AUTORESEARCH_PROPOSAL_RUN_SCHEMA_VERSION,
     generatedAt,
     status,
     summary: {
@@ -301,7 +302,9 @@ async function runDiscoveryBatch(options: AutoresearchProposalCommandOptions): P
 
   return {
     batchReportPath: batchResult.outputPath,
-    ...(batchResult.markdownOutputPath ? { batchMarkdownPath: batchResult.markdownOutputPath } : {}),
+    ...(batchResult.markdownOutputPath
+      ? { batchMarkdownPath: batchResult.markdownOutputPath }
+      : {}),
   };
 }
 
@@ -314,7 +317,9 @@ async function resolvePrecomputedBatchArtifacts(batchReportPath: string): Promis
 
   return {
     batchReportPath,
-    ...(await fileExists(batchMarkdownCandidate) ? { batchMarkdownPath: batchMarkdownCandidate } : {}),
+    ...((await fileExists(batchMarkdownCandidate))
+      ? { batchMarkdownPath: batchMarkdownCandidate }
+      : {}),
   };
 }
 

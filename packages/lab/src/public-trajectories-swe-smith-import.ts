@@ -1,3 +1,4 @@
+import { IMPORTED_SESSION_SCHEMA_VERSION } from "./artifact-versions.js";
 import {
   createReplayScenarioFromImportedSession,
   createSessionBundleFromImportedSession,
@@ -72,7 +73,8 @@ export function createImportedSessionFromSweSmithTrajectory(
     label: `SWE-smith ${row.model}`,
   };
   const issueText = readIssueText(messages);
-  const issueTitle = readIssueTitle(issueText) ?? `Imported SWE-smith trajectory ${row.instance_id}`;
+  const issueTitle =
+    readIssueTitle(issueText) ?? `Imported SWE-smith trajectory ${row.instance_id}`;
   const issueSummary = toSingleLine(issueText) ?? row.instance_id;
   const entries: ImportedSessionEntry[] = [];
   const promptIndex = messages.findIndex((message) => message.role === "user");
@@ -158,7 +160,9 @@ export function createImportedSessionFromSweSmithTrajectory(
         kind: toolFamily ? "tool_call" : "message",
         significance: assistantSummary ? "attention" : "context",
         label: `assistant:${message.message_type ?? "message"}:${messageIndex}`,
-        ...(assistantSummary ? { text: assistantSummary, excerpt: clipText(assistantSummary, 240) } : {}),
+        ...(assistantSummary
+          ? { text: assistantSummary, excerpt: clipText(assistantSummary, 240) }
+          : {}),
         ...(toolName ? { toolName } : {}),
         ...(toolFamily ? { toolFamily } : {}),
         rawRef: { messageIndex },
@@ -265,7 +269,7 @@ export function createImportedSessionFromSweSmithTrajectory(
   }
 
   return {
-    schemaVersion: 1,
+    schemaVersion: IMPORTED_SESSION_SCHEMA_VERSION,
     sessionId: taskId,
     title: issueTitle,
     description: `Imported from ${SWE_SMITH_DATASET} (${split}, ${row.model}) for ${row.instance_id}.`,
@@ -353,7 +357,8 @@ function readToolName(message: SweSmithMessage): string | undefined {
 }
 
 function buildCompletionSummary(row: SweSmithRow): string {
-  const patchSummary = row.patch.trim().length > 0 ? "Patch attached." : "No patch payload captured.";
+  const patchSummary =
+    row.patch.trim().length > 0 ? "Patch attached." : "No patch payload captured.";
   return row.resolved
     ? `Trajectory resolved the task. ${patchSummary}`
     : `Trajectory finished without a verified resolution. ${patchSummary}`;

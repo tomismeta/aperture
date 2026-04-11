@@ -1,7 +1,13 @@
 import { appendFile, mkdir, writeFile } from "node:fs/promises";
 
-export const AUTORESEARCH_CAMPAIGN_SCHEMA_VERSION = 1 as const;
-export const AUTORESEARCH_RUN_STATUS_SCHEMA_VERSION = 1 as const;
+import {
+  AUTORESEARCH_CAMPAIGN_SCHEMA_VERSION,
+  AUTORESEARCH_RUN_STATUS_SCHEMA_VERSION,
+} from "./artifact-versions.js";
+export {
+  AUTORESEARCH_CAMPAIGN_SCHEMA_VERSION,
+  AUTORESEARCH_RUN_STATUS_SCHEMA_VERSION,
+} from "./artifact-versions.js";
 
 export type AutoresearchGateName = "judgment:battle" | "release:check";
 export type AutoresearchRunStatusPhase = "running" | "gating" | "completed" | "error";

@@ -9,6 +9,41 @@ import { discoverLocalRuntimes } from "./runtime-discovery.js";
 
 export const DEFAULT_RUNTIME_POLL_INTERVAL_MS = 250;
 
+type RuntimeErrorEnvelope = {
+  error?:
+    | string
+    | {
+        code?: string;
+        message?: string;
+        hint?: string;
+      };
+};
+
+export class ApertureRuntimeRequestError extends Error {
+  readonly status: number;
+  readonly statusText: string;
+  readonly code: string | undefined;
+  readonly hint: string | undefined;
+  readonly body: unknown;
+
+  constructor(options: {
+    status: number;
+    statusText: string;
+    message: string;
+    code?: string;
+    hint?: string;
+    body?: unknown;
+  }) {
+    super(options.message);
+    this.name = "ApertureRuntimeRequestError";
+    this.status = options.status;
+    this.statusText = options.statusText;
+    this.code = options.code;
+    this.hint = options.hint;
+    this.body = options.body;
+  }
+}
+
 export function createEmptyRuntimeSnapshot(): ApertureRuntimeSnapshot {
   return {
     version: 0,
@@ -94,15 +129,9 @@ export async function resolveRuntimeAuthToken(
 }
 
 export async function getJson<T>(url: string, authToken: string): Promise<T> {
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${authToken}`,
-    },
+  return requestJson<T>(url, {
+    headers: buildHeaders(authToken),
   });
-  if (!response.ok) {
-    throw new Error(`Aperture runtime request failed: ${response.status} ${response.statusText}`);
-  }
-  return response.json() as Promise<T>;
 }
 
 export async function postJson<T = Record<string, never>>(
@@ -111,32 +140,100 @@ export async function postJson<T = Record<string, never>>(
   authToken: string,
   contentType = "application/json",
 ): Promise<T> {
-  const response = await fetch(url, {
+  return requestJson<T>(url, {
     method: "POST",
-    headers: {
-      "Content-Type": contentType,
-      Authorization: `Bearer ${authToken}`,
-    },
+    headers: buildHeaders(authToken, contentType),
     body: typeof body === "string" ? body : JSON.stringify(body),
   });
-  if (!response.ok) {
-    throw new Error(`Aperture runtime request failed: ${response.status} ${response.statusText}`);
-  }
-  return response.json() as Promise<T>;
 }
 
 export async function deleteJson<T = Record<string, never>>(
   url: string,
   authToken: string,
 ): Promise<T> {
-  const response = await fetch(url, {
+  return requestJson<T>(url, {
     method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${authToken}`,
-    },
+    headers: buildHeaders(authToken),
   });
+}
+
+function buildHeaders(authToken: string, contentType?: string): Record<string, string> {
+  return {
+    ...(contentType ? { "Content-Type": contentType } : {}),
+    Authorization: `Bearer ${authToken}`,
+  };
+}
+
+async function requestJson<T>(url: string, init: RequestInit): Promise<T> {
+  const response = await fetch(url, init);
+  const payload = await readResponsePayload(response);
   if (!response.ok) {
-    throw new Error(`Aperture runtime request failed: ${response.status} ${response.statusText}`);
+    throw buildRequestError(response, payload);
   }
-  return response.json() as Promise<T>;
+
+  if (payload.body === undefined) {
+    return undefined as T;
+  }
+
+  return payload.body as T;
+}
+
+function buildRequestError(
+  response: Response,
+  payload: { body: unknown; text: string },
+): ApertureRuntimeRequestError {
+  const envelope = readRuntimeErrorEnvelope(payload.body);
+  const detail = envelope
+    ? typeof envelope.error === "string"
+      ? { message: envelope.error }
+      : envelope.error
+    : undefined;
+  const message =
+    detail?.message ??
+    payload.text.trim() ??
+    `Aperture runtime request failed: ${response.status} ${response.statusText}`;
+  return new ApertureRuntimeRequestError({
+    status: response.status,
+    statusText: response.statusText,
+    message:
+      message.length > 0
+        ? message
+        : `Aperture runtime request failed: ${response.status} ${response.statusText}`,
+    ...(detail?.code ? { code: detail.code } : {}),
+    ...(detail?.hint ? { hint: detail.hint } : {}),
+    body: payload.body,
+  });
+}
+
+async function readResponsePayload(response: Response): Promise<{ body: unknown; text: string }> {
+  const text = await response.text();
+  if (text.trim().length === 0) {
+    return { body: undefined, text };
+  }
+
+  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+  if (
+    contentType.includes("application/json") ||
+    contentType.includes("+json") ||
+    text.trim().startsWith("{") ||
+    text.trim().startsWith("[")
+  ) {
+    try {
+      return {
+        body: JSON.parse(text),
+        text,
+      };
+    } catch {
+      // Fall through and return the raw text when a runtime bug serves invalid JSON.
+    }
+  }
+
+  return { body: text, text };
+}
+
+function readRuntimeErrorEnvelope(body: unknown): RuntimeErrorEnvelope | null {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return null;
+  }
+  return body as RuntimeErrorEnvelope;
 }

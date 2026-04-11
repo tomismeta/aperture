@@ -7,27 +7,18 @@ import type { AttentionSignal } from "./interaction-signal.js";
 import { buildAttentionView } from "./attention-view.js";
 import { AttentionAdjustments } from "./attention-adjustments.js";
 import type { AttentionEvidenceContext, AttentionOperatorPresence } from "./attention-evidence.js";
-import {
-  buildAttentionEvidenceInput,
-  resolveAttentionEvidenceContext,
-} from "./attention-evidence.js";
 import { deriveAttentionState, type AttentionState } from "./attention-state.js";
-import {
-  EpisodeTracker,
-  isDormantEpisodeState,
-  readFrameEpisodeId,
-  readFrameEpisodeState,
-} from "./episode-tracker.js";
+import { EpisodeTracker } from "./episode-tracker.js";
 import { EventEvaluator } from "./event-evaluator.js";
 import { FramePlanner } from "./frame-planner.js";
 import { JudgmentCoordinator, type AttentionDecisionExplanation } from "./judgment-coordinator.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
-import { AttentionSignalStore, summarizeAttentionSignals } from "./attention-signal-store.js";
+import { AttentionSignalStore } from "./attention-signal-store.js";
 import type { JudgmentConfig } from "./judgment-config.js";
-import { signalMetadataForFrame } from "./memory-aggregator.js";
 import { distillMemoryProfile } from "./memory-aggregator.js";
-import { hasSemanticRelationKind } from "./semantic-relations.js";
 import { selectPeripheralBucket } from "./attention-planner.js";
+import { ApertureCoreAttentionEvidence } from "./aperture-core-attention-evidence.js";
+import { ApertureCoreFrameLifecycle } from "./aperture-core-frame-lifecycle.js";
 import { ProfileStore, type MemoryProfile, type UserProfile } from "./profile-store.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import type { AttentionSurfaceCapabilities } from "./surface-capabilities.js";
@@ -56,13 +47,7 @@ import {
   reloadMarkdownRuntimeState,
 } from "./aperture-core-markdown-state.js";
 import { buildPublishTraceSnapshot } from "./aperture-core-publish-trace.js";
-import {
-  buildAttentionTransitionSignals,
-  buildAutoResponseSignal,
-  buildDeferredSignal,
-  buildObservationSignal,
-  buildResponseSignal,
-} from "./aperture-core-signals.js";
+import { buildObservationSignal } from "./aperture-core-signals.js";
 import {
   buildApertureCoordinator,
   cloneSurfaceCapabilities,
@@ -109,6 +94,8 @@ export class ApertureCore {
   private readonly traceRecorder = new TraceRecorder();
   private coordinator: JudgmentCoordinator;
   private readonly planner = new FramePlanner();
+  private readonly attentionEvidence: ApertureCoreAttentionEvidence;
+  private readonly frameLifecycle: ApertureCoreFrameLifecycle;
   private readonly profileStore: ProfileStore | undefined;
   private readonly markdownRootDir: string | undefined;
   private baseMemoryProfile: MemoryProfile;
@@ -138,6 +125,30 @@ export class ApertureCore {
     this.operatorEngagement = new OperatorEngagementController(runtime.timeSource);
     this.baseMemoryProfile = runtime.baseMemoryProfile;
     this.coordinator = buildApertureCoordinator(runtime);
+    this.attentionEvidence = new ApertureCoreAttentionEvidence({
+      signals: this.signals,
+      episodes: this.episodes,
+      clock: this.clock,
+      getTaskView: (taskId) => this.getTaskView(taskId),
+      getAttentionView: () => this.getAttentionView(),
+      getOperatorPresence: () => this.getOperatorPresence(),
+      getSurfaceCapabilities: () => this.getSurfaceCapabilities(),
+    });
+    this.frameLifecycle = new ApertureCoreFrameLifecycle({
+      taskViews: this.taskViews,
+      planner: this.planner,
+      episodes: this.episodes,
+      clock: this.clock,
+      responseExpiryMs: this.responseExpiryMs,
+      getAttentionView: () => this.getAttentionView(),
+      recordSignal: (signal) => this.recordSignal(signal),
+      clearOperatorEngagement: (taskId, interactionId) =>
+        this.operatorEngagement.clear(taskId, interactionId),
+      notifyFrame: (taskId, frame) => this.listeners.emitFrame(taskId, frame),
+      notifyTaskView: (taskId, taskView) => this.listeners.emitTaskView(taskId, taskView),
+      notifyAttentionView: () => this.listeners.emitAttentionView(this.getAttentionView()),
+      emitResponse: (response) => this.listeners.emitResponse(response),
+    });
   }
 
   static async fromMarkdown(rootDir: string): Promise<ApertureCore> {
@@ -192,7 +203,7 @@ export class ApertureCore {
       finalizedEvent,
     );
     const current = this.getFrame(finalizedEvent.taskId);
-    const evidence = this.assembleAttentionEvidenceContext(finalizedEvent.taskId, current);
+    const evidence = this.attentionEvidence.assemble(finalizedEvent.taskId, current);
     const taskSummary = evidence.taskSignalSummary;
     const globalSummary = evidence.globalSignalSummary;
     const preAttentionView = evidence.attentionView;
@@ -215,7 +226,7 @@ export class ApertureCore {
         return null;
       }
       case "clear": {
-        const result = this.applyClear(finalizedEvent.taskId);
+        const result = this.frameLifecycle.applyClear(finalizedEvent.taskId);
         const postAttentionView = this.getAttentionView();
         this.notifyTrace(
           this.traceRecorder.recordClear(
@@ -288,7 +299,11 @@ export class ApertureCore {
     candidate: AttentionCandidate,
     evidence: AttentionEvidenceContext,
   ): AttentionDecisionExplanation {
-    const candidateEvidence = this.augmentContinuitySignalSummary(taskId, candidate, evidence);
+    const candidateEvidence = this.attentionEvidence.augmentContinuitySignalSummary(
+      taskId,
+      candidate,
+      evidence,
+    );
     return this.coordinator.explain(evidence.currentFrame, candidate, candidateEvidence);
   }
 
@@ -300,20 +315,20 @@ export class ApertureCore {
   ): AttentionFrame | null {
     switch (explanation.decision.kind) {
       case "auto_approve":
-        return this.applyAutoResponse(
+        return this.frameLifecycle.applyAutoResponse(
           explanation.decision.candidate,
           explanation.decision.response,
         );
       case "clear":
-        return this.applyClear(taskId);
+        return this.frameLifecycle.applyClear(taskId);
       case "ambient":
-        return this.materializePeripheralFrame(
+        return this.frameLifecycle.materializePeripheralFrame(
           explanation.decision.candidate,
           "ambient",
           preAttentionView,
         );
       case "queue":
-        return this.materializePeripheralFrame(
+        return this.frameLifecycle.materializePeripheralFrame(
           explanation.decision.candidate,
           "queue",
           preAttentionView,
@@ -334,29 +349,39 @@ export class ApertureCore {
 
     const candidate = explanation.decision.candidate;
 
-    if (this.shouldRetireSupersededEpisodeFrames(candidate, preAttentionView)) {
-      return this.commitFrame(
-        this.applyResponseExpiry(this.planner.plan(candidate, evidence.currentFrame)),
-        this.findSupersededEpisodeFrames(candidate, preAttentionView),
+    if (this.frameLifecycle.shouldRetireSupersededEpisodeFrames(candidate, preAttentionView)) {
+      return this.frameLifecycle.commitFrame(
+        this.frameLifecycle.applyResponseExpiry(
+          this.planner.plan(candidate, evidence.currentFrame),
+        ),
+        this.frameLifecycle.findSupersededEpisodeFrames(candidate, preAttentionView),
       );
     }
 
     const existingPeripheralFrame = candidate.episodeId
-      ? this.findPeripheralEpisodeFrame(candidate.episodeId, preAttentionView)
+      ? this.frameLifecycle.findPeripheralEpisodeFrame(candidate.episodeId, preAttentionView)
       : null;
 
-    if (existingPeripheralFrame && this.shouldPromotePeripheralEpisodeFrame(explanation)) {
-      return this.promotePeripheralEpisodeFrame(candidate, existingPeripheralFrame.frame);
+    if (
+      existingPeripheralFrame &&
+      this.frameLifecycle.shouldPromotePeripheralEpisodeFrame(explanation)
+    ) {
+      return this.frameLifecycle.promotePeripheralEpisodeFrame(
+        candidate,
+        existingPeripheralFrame.frame,
+      );
     }
 
     return existingPeripheralFrame
-      ? this.materializePeripheralFrame(
+      ? this.frameLifecycle.materializePeripheralFrame(
           candidate,
           selectPeripheralBucket(candidate, explanation.policy, evidence.surfaceCapabilities),
           preAttentionView,
         )
-      : this.commitFrame(
-          this.applyResponseExpiry(this.planner.plan(candidate, evidence.currentFrame)),
+      : this.frameLifecycle.commitFrame(
+          this.frameLifecycle.applyResponseExpiry(
+            this.planner.plan(candidate, evidence.currentFrame),
+          ),
         );
   }
 
@@ -394,36 +419,7 @@ export class ApertureCore {
 
   submit(response: AttentionResponse): void {
     assertValidFrameResponse(response);
-    const current = this.findFrameByInteractionId(response.taskId, response.interactionId);
-    if (!current) {
-      return;
-    }
-
-    const expiredAt = this.readExpiredResponseTimestamp(current, this.nowIso());
-    if (expiredAt) {
-      throw new Error(
-        `response for interaction ${response.interactionId} expired at ${expiredAt} and must be revalidated before submission`,
-      );
-    }
-
-    const previousAttentionView = this.getAttentionView();
-    const timestamp = this.nowIso();
-    this.clearOperatorEngagement(response.taskId, response.interactionId);
-    this.recordSignal(buildResponseSignal(current, response, timestamp));
-    this.episodes.resolveInteraction(response.interactionId);
-
-    const taskView = this.taskViews.resolve(response.taskId, response.interactionId);
-    const newPrimary = taskView.now;
-    const nextAttentionView = this.getAttentionView();
-    this.recordAttentionTransition(previousAttentionView, nextAttentionView, timestamp);
-    if (newPrimary) {
-      this.notifyFrame(response.taskId, newPrimary);
-    } else {
-      this.notifyFrame(response.taskId, null);
-    }
-    this.notifyTaskView(response.taskId, taskView);
-    this.notifyAttentionView();
-    this.listeners.emitResponse(response);
+    this.frameLifecycle.submit(response);
   }
 
   getTaskView(taskId: string): AttentionTaskView {
@@ -463,14 +459,14 @@ export class ApertureCore {
   }
 
   engage(taskId: string, interactionId: string, options: { durationMs?: number } = {}): void {
-    if (!this.findFrameByInteractionId(taskId, interactionId)) {
+    if (!this.frameLifecycle.findFrameByInteractionId(taskId, interactionId)) {
       return;
     }
 
     const previousAttentionView = this.getAttentionView();
     this.operatorEngagement.engage(taskId, interactionId, options, () => {
       const livePreviousAttentionView = this.getAttentionView();
-      this.clearOperatorEngagement(taskId, interactionId);
+      this.operatorEngagement.clear(taskId, interactionId);
       const nextAttentionView = this.getAttentionView();
       if (!sameAttentionView(livePreviousAttentionView, nextAttentionView)) {
         this.notifyAttentionView();
@@ -511,7 +507,7 @@ export class ApertureCore {
   }
 
   markViewed(taskId: string, interactionId: string, options: { surface?: string } = {}): void {
-    const frame = this.findFrame(taskId, interactionId);
+    const frame = this.frameLifecycle.findFrame(taskId, interactionId);
     this.recordSignal(
       buildObservationSignal("viewed", taskId, interactionId, this.nowIso(), frame, options),
     );
@@ -522,7 +518,7 @@ export class ApertureCore {
     interactionId: string,
     options: { surface?: string; timeoutMs?: number } = {},
   ): void {
-    const frame = this.findFrame(taskId, interactionId);
+    const frame = this.frameLifecycle.findFrame(taskId, interactionId);
     this.recordSignal(
       buildObservationSignal("timed_out", taskId, interactionId, this.nowIso(), frame, options),
     );
@@ -533,7 +529,7 @@ export class ApertureCore {
     interactionId: string,
     options: { surface?: string; section?: string } = {},
   ): void {
-    const frame = this.findFrame(taskId, interactionId);
+    const frame = this.frameLifecycle.findFrame(taskId, interactionId);
     this.recordSignal(
       buildObservationSignal(
         "context_expanded",
@@ -551,7 +547,7 @@ export class ApertureCore {
     interactionId: string,
     options: { surface?: string; section?: string } = {},
   ): void {
-    const frame = this.findFrame(taskId, interactionId);
+    const frame = this.frameLifecycle.findFrame(taskId, interactionId);
     this.recordSignal(
       buildObservationSignal(
         "context_skipped",
@@ -570,325 +566,6 @@ export class ApertureCore {
     this.listeners.emitSignal(signal);
   }
 
-  private commitFrame(frame: AttentionFrame, retiredFrames: AttentionFrame[] = []): AttentionFrame {
-    const previousAttentionView = this.getAttentionView();
-    const retiredKeys = new Set<string>();
-    for (const retiredFrame of retiredFrames) {
-      const key = `${retiredFrame.taskId}::${retiredFrame.interactionId}`;
-      if (retiredKeys.has(key)) {
-        continue;
-      }
-      retiredKeys.add(key);
-
-      const retiredTaskView = this.taskViews.discard(
-        retiredFrame.taskId,
-        retiredFrame.interactionId,
-      );
-      if (retiredFrame.taskId !== frame.taskId) {
-        this.notifyFrame(retiredFrame.taskId, retiredTaskView.now);
-        this.notifyTaskView(retiredFrame.taskId, retiredTaskView);
-      }
-    }
-
-    const taskView = this.taskViews.setNow(frame.taskId, frame);
-    const nextAttentionView = this.getAttentionView();
-    this.recordAttentionTransition(
-      previousAttentionView,
-      nextAttentionView,
-      frame.timing.updatedAt,
-    );
-    this.recordSignal({
-      kind: "presented",
-      taskId: frame.taskId,
-      interactionId: frame.interactionId,
-      timestamp: frame.timing.updatedAt,
-      frameId: frame.id,
-      ...(frame.source !== undefined ? { source: frame.source } : {}),
-      metadata: signalMetadataForFrame(frame),
-    });
-    this.notifyFrame(frame.taskId, frame);
-    this.notifyTaskView(frame.taskId, taskView);
-    this.notifyAttentionView();
-    return frame;
-  }
-
-  private assembleAttentionEvidenceContext(
-    taskId: string,
-    currentFrame: AttentionFrame | null,
-  ): AttentionEvidenceContext {
-    const taskSignalSummary = this.signals.summarize(taskId);
-    const globalSignalSummary = this.signals.summarize();
-    const taskAttentionState = deriveAttentionState(taskSignalSummary);
-    const globalAttentionState = deriveAttentionState(globalSignalSummary);
-    const currentTaskView = this.getTaskView(taskId);
-    const attentionView = this.getAttentionView();
-    const operatorPresence = this.getOperatorPresence();
-    return resolveAttentionEvidenceContext(
-      currentFrame,
-      buildAttentionEvidenceInput({
-        currentFrame,
-        currentTaskView,
-        currentEpisode: this.episodes.readFrameEpisode(currentFrame),
-        attentionView,
-        taskSignalSummary,
-        continuitySignalSummary: taskSignalSummary,
-        globalSignalSummary,
-        taskAttentionState,
-        globalAttentionState,
-        surfaceCapabilities: this.getSurfaceCapabilities(),
-        operatorPresence,
-      }),
-      this.clock.nowMs(),
-    );
-  }
-
-  private applyClear(taskId: string): null {
-    const previousAttentionView = this.getAttentionView();
-    const existingTaskView = this.taskViews.get(taskId);
-    const hadAnyVisibleState =
-      existingTaskView.now !== null ||
-      existingTaskView.next.length > 0 ||
-      existingTaskView.ambient.length > 0;
-
-    if (!hadAnyVisibleState) {
-      return null;
-    }
-
-    for (const frame of [
-      existingTaskView.now,
-      ...existingTaskView.next,
-      ...existingTaskView.ambient,
-    ]) {
-      if (!frame) {
-        continue;
-      }
-      this.episodes.resolveInteraction(frame.interactionId);
-    }
-
-    this.clearOperatorEngagement(taskId);
-    const taskView = this.taskViews.clear(taskId);
-    const nextAttentionView = this.getAttentionView();
-    this.recordAttentionTransition(previousAttentionView, nextAttentionView, this.nowIso());
-    this.notifyFrame(taskId, null);
-    this.notifyTaskView(taskId, taskView);
-    this.notifyAttentionView();
-    return null;
-  }
-
-  private queueFrame(taskId: string, frame: AttentionFrame): AttentionFrame {
-    const taskView = this.taskViews.addNext(taskId, frame);
-    this.recordSignal(buildDeferredSignal(frame, "next"));
-    this.notifyTaskView(taskId, taskView);
-    this.notifyAttentionView();
-    return taskView.now ?? frame;
-  }
-
-  private addAmbientFrame(taskId: string, frame: AttentionFrame): AttentionFrame {
-    const taskView = this.taskViews.addAmbient(taskId, frame);
-    this.recordSignal(buildDeferredSignal(frame, "suppressed"));
-    this.notifyTaskView(taskId, taskView);
-    this.notifyAttentionView();
-    return taskView.now ?? frame;
-  }
-
-  private materializePeripheralFrame(
-    candidate: AttentionCandidate,
-    bucket: "queue" | "ambient",
-    attentionView: AttentionView,
-  ): AttentionFrame {
-    const existing = candidate.episodeId
-      ? this.findPeripheralEpisodeFrame(candidate.episodeId, attentionView)
-      : null;
-    if (!existing) {
-      const planned = this.applyResponseExpiry(this.planner.plan(candidate, null));
-      return bucket === "queue"
-        ? this.queueFrame(candidate.taskId, planned)
-        : this.addAmbientFrame(candidate.taskId, planned);
-    }
-
-    const nextBucket = existing.bucket === "queue" || bucket === "queue" ? "queue" : "ambient";
-    const planned = this.applyResponseExpiry(this.planner.plan(candidate, existing.frame));
-    const merged = {
-      ...planned,
-      id: existing.frame.id,
-    };
-    const previousTaskView = this.taskViews.discard(
-      existing.frame.taskId,
-      existing.frame.interactionId,
-    );
-    this.notifyTaskView(existing.frame.taskId, previousTaskView);
-
-    const nextTaskView =
-      nextBucket === "queue"
-        ? this.taskViews.addNext(merged.taskId, merged)
-        : this.taskViews.addAmbient(merged.taskId, merged);
-    this.recordSignal(
-      buildDeferredSignal(merged, nextBucket === "queue" ? "next" : "suppressed", candidate),
-    );
-    this.notifyTaskView(merged.taskId, nextTaskView);
-    this.notifyAttentionView();
-    return merged;
-  }
-
-  private promotePeripheralEpisodeFrame(
-    candidate: AttentionCandidate,
-    existingFrame: AttentionFrame,
-  ): AttentionFrame {
-    const planned = this.applyResponseExpiry(this.planner.plan(candidate, existingFrame));
-    const promoted = {
-      ...planned,
-      id: existingFrame.id,
-    };
-    return this.commitFrame(promoted, [existingFrame]);
-  }
-
-  private findFrameByInteractionId(taskId: string, interactionId: string): AttentionFrame | null {
-    return this.findFrame(taskId, interactionId);
-  }
-
-  private shouldRetireSupersededEpisodeFrames(
-    candidate: AttentionCandidate,
-    attentionView: AttentionView,
-  ): boolean {
-    return this.findSupersededEpisodeFrames(candidate, attentionView).length > 0;
-  }
-
-  private findSupersededEpisodeFrames(
-    candidate: AttentionCandidate,
-    attentionView: AttentionView,
-  ): AttentionFrame[] {
-    if (!candidate.episodeId || !hasSemanticRelationKind(candidate.relationHints, "supersedes")) {
-      return [];
-    }
-
-    return [attentionView.now, ...attentionView.next, ...attentionView.ambient].filter(
-      (frame): frame is AttentionFrame =>
-        frame !== null &&
-        frame.interactionId !== candidate.interactionId &&
-        readFrameEpisodeId(frame) === candidate.episodeId &&
-        !isDormantEpisodeState(readFrameEpisodeState(frame)),
-    );
-  }
-
-  private applyResponseExpiry(frame: AttentionFrame): AttentionFrame {
-    if (this.responseExpiryMs === undefined || frame.responseSpec?.kind === "none") {
-      return frame;
-    }
-
-    const expiresAt = this.clock.add(frame.timing.updatedAt, this.responseExpiryMs);
-    if (expiresAt === null) {
-      return frame;
-    }
-
-    return {
-      ...frame,
-      timing: {
-        ...frame.timing,
-        expiresAt,
-      },
-    };
-  }
-
-  private readExpiredResponseTimestamp(frame: AttentionFrame, now: string): string | null {
-    const expiresAt = frame.timing.expiresAt;
-    if (!expiresAt) {
-      return null;
-    }
-
-    const expiresAtMs = this.clock.parse(expiresAt);
-    const nowMs = this.clock.parse(now);
-    if (expiresAtMs === null || nowMs === null || nowMs <= expiresAtMs) {
-      return null;
-    }
-
-    return expiresAt;
-  }
-
-  private findPeripheralEpisodeFrame(
-    episodeId: string,
-    attentionView: AttentionView,
-  ): { frame: AttentionFrame; bucket: "queue" | "ambient" } | null {
-    const queued = attentionView.next.find(
-      (frame) =>
-        readFrameEpisodeId(frame) === episodeId &&
-        !isDormantEpisodeState(readFrameEpisodeState(frame)),
-    );
-    if (queued) {
-      return { frame: queued, bucket: "queue" };
-    }
-
-    const ambient = attentionView.ambient.find(
-      (frame) =>
-        readFrameEpisodeId(frame) === episodeId &&
-        !isDormantEpisodeState(readFrameEpisodeState(frame)),
-    );
-    if (ambient) {
-      return { frame: ambient, bucket: "ambient" };
-    }
-
-    return null;
-  }
-
-  private augmentContinuitySignalSummary(
-    taskId: string,
-    candidate: AttentionCandidate,
-    evidence: AttentionEvidenceContext,
-  ): AttentionEvidenceContext {
-    const continuitySignalSummary = this.resolveContinuitySignalSummary(
-      taskId,
-      candidate,
-      evidence.taskSignalSummary,
-    );
-    if (continuitySignalSummary === evidence.taskSignalSummary) {
-      return evidence;
-    }
-
-    return {
-      ...evidence,
-      continuitySignalSummary,
-    };
-  }
-
-  private resolveContinuitySignalSummary(
-    taskId: string,
-    candidate: AttentionCandidate,
-    taskSignalSummary: AttentionSignalSummary,
-  ): AttentionSignalSummary {
-    if (!candidate.episodeId) {
-      return taskSignalSummary;
-    }
-
-    const taskSignals = this.signals.list(taskId);
-    const relatedEpisodeSignals = this.signals
-      .list()
-      .filter(
-        (signal) => signal.taskId !== taskId && readSignalEpisodeId(signal) === candidate.episodeId,
-      );
-
-    if (relatedEpisodeSignals.length === 0) {
-      return taskSignalSummary;
-    }
-
-    return summarizeAttentionSignals(
-      [...taskSignals, ...relatedEpisodeSignals].sort((left, right) =>
-        left.timestamp.localeCompare(right.timestamp),
-      ),
-    );
-  }
-
-  private shouldPromotePeripheralEpisodeFrame(explanation: {
-    continuityEvaluations?: Array<{ rule: string; kind: string; decision?: { kind: string } }>;
-  }): boolean {
-    return (
-      explanation.continuityEvaluations?.some(
-        (evaluation) =>
-          evaluation.rule === "deferral_escalation" &&
-          evaluation.kind === "override" &&
-          evaluation.decision?.kind === "activate",
-      ) ?? false
-    );
-  }
-
   private notifyFrame(taskId: string, frame: AttentionFrame | null): void {
     this.listeners.emitFrame(taskId, frame);
   }
@@ -903,52 +580,13 @@ export class ApertureCore {
 
   private readOperatorEngagementInteractionId(): string | null {
     return this.operatorEngagement.readFocusedInteractionId(
-      (taskId, interactionId) => this.findFrameByInteractionId(taskId, interactionId) !== null,
+      (taskId, interactionId) =>
+        this.frameLifecycle.findFrameByInteractionId(taskId, interactionId) !== null,
     );
-  }
-
-  private clearOperatorEngagement(taskId?: string, interactionId?: string): void {
-    this.operatorEngagement.clear(taskId, interactionId);
   }
 
   private notifyTrace(trace: InternalApertureTrace): void {
     this.listeners.emitTrace(trace);
-  }
-
-  private applyAutoResponse(candidate: AttentionCandidate, response: AttentionResponse): null {
-    const timestamp = this.nowIso();
-    this.recordSignal(buildAutoResponseSignal(candidate, response, timestamp));
-    this.episodes.resolveInteraction(candidate.interactionId);
-    this.listeners.emitResponse(response);
-    return null;
-  }
-
-  private recordAttentionTransition(
-    previousAttentionView: AttentionView,
-    nextAttentionView: AttentionView,
-    timestamp: string,
-  ): void {
-    for (const signal of buildAttentionTransitionSignals(
-      previousAttentionView,
-      nextAttentionView,
-      timestamp,
-    )) {
-      this.recordSignal(signal);
-    }
-  }
-
-  private findFrame(taskId: string, interactionId: string): AttentionFrame | null {
-    const taskView = this.taskViews.get(taskId);
-    if (taskView.now?.interactionId === interactionId) {
-      return taskView.now;
-    }
-
-    const queued = taskView.next.find((frame) => frame.interactionId === interactionId);
-    if (queued) {
-      return queued;
-    }
-
-    return taskView.ambient.find((frame) => frame.interactionId === interactionId) ?? null;
   }
 
   private nowIso(): string {
@@ -976,14 +614,4 @@ export class ApertureCore {
     this.coordinator = nextCoordinator;
     return true;
   }
-}
-
-function readSignalEpisodeId(signal: AttentionSignal): string | null {
-  const episode = signal.metadata?.episode;
-  if (!episode || typeof episode !== "object" || Array.isArray(episode)) {
-    return null;
-  }
-
-  const id = (episode as Record<string, unknown>).id;
-  return typeof id === "string" && id.length > 0 ? id : null;
 }

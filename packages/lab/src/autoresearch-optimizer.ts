@@ -1,12 +1,12 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { AUTORESEARCH_OPTIMIZER_RUN_SCHEMA_VERSION } from "./artifact-versions.js";
 import type { AutoresearchOptimizationBrief } from "./autoresearch-calibration.js";
 import { extractJsonCandidate } from "./json-utils.js";
 import { DEFAULT_LAB_RUNTIME_ROOT } from "./runtime-paths.js";
 import { isRecord } from "./shape.js";
-
-export const AUTORESEARCH_OPTIMIZER_RUN_SCHEMA_VERSION = 1 as const;
+export { AUTORESEARCH_OPTIMIZER_RUN_SCHEMA_VERSION } from "./artifact-versions.js";
 
 export const DEFAULT_AUTORESEARCH_OPTIMIZER_RESULTS_DIR = path.join(
   DEFAULT_LAB_RUNTIME_ROOT,
@@ -102,11 +102,7 @@ export function buildAutoresearchEvaluationCommands(
     ]),
   ].join(" ");
 
-  return [
-    evaluateCommand,
-    "pnpm judgment:battle",
-    "pnpm release:check",
-  ];
+  return [evaluateCommand, "pnpm judgment:battle", "pnpm release:check"];
 }
 
 export function renderAutoresearchOptimizationPrompt(
@@ -215,7 +211,11 @@ export function parseAutoresearchOptimizerFeedback(
 
   const action = parsed.action;
   const summary = parsed.summary;
-  if ((action !== "patched" && action !== "no_patch") || typeof summary !== "string" || !summary.trim()) {
+  if (
+    (action !== "patched" && action !== "no_patch") ||
+    typeof summary !== "string" ||
+    !summary.trim()
+  ) {
     return null;
   }
 
@@ -298,9 +298,7 @@ export async function writeAutoresearchOptimizerPatch(
   await writeFile(filePath, patch, "utf8");
 }
 
-export function renderAutoresearchOptimizerRunMarkdown(
-  run: AutoresearchOptimizerRun,
-): string {
+export function renderAutoresearchOptimizerRunMarkdown(run: AutoresearchOptimizerRun): string {
   const lines: string[] = [
     "# Aperture Lab F-Stop Optimizer Run",
     "",
@@ -397,7 +395,9 @@ export function assessAutoresearchEditSurface(
   disallowedFiles: string[];
 } {
   const normalizedAllowed = allowedEditPaths.map((entry) => normalizePath(entry));
-  const normalizedChanged = [...new Set(changedFiles.map((entry) => normalizePath(entry)).filter(Boolean))];
+  const normalizedChanged = [
+    ...new Set(changedFiles.map((entry) => normalizePath(entry)).filter(Boolean)),
+  ];
   const disallowedFiles = normalizedChanged.filter((entry) => !normalizedAllowed.includes(entry));
 
   return {

@@ -42,10 +42,11 @@ export function createRuntimeRouteHandler(options: {
         throw new RuntimeHttpError(404, "not_found", "not found");
       }
 
-      const route = findRoute(options.routes, method, path);
-      if (!route) {
+      const matchedRoute = findRoute(options.routes, method, path);
+      if (!matchedRoute) {
         throw new RuntimeHttpError(404, "not_found", "not found");
       }
+      const { route, params } = matchedRoute;
 
       assertAllowedOrigin(req.headers.origin, { allowBrowserOrigin: false });
 
@@ -77,7 +78,7 @@ export function createRuntimeRouteHandler(options: {
         res,
         url,
         path,
-        params: route.match(path)?.params ?? {},
+        params,
       });
     } catch (error) {
       writeError(res, error);
@@ -110,13 +111,17 @@ function findRoute(
   routes: RuntimeRoute[],
   method: RuntimeRoute["method"],
   path: string,
-): RuntimeRoute | null {
+): { route: RuntimeRoute; params: Record<string, string> } | null {
   for (const route of routes) {
     if (route.method !== method) {
       continue;
     }
-    if (route.match(path)) {
-      return route;
+    const match = route.match(path);
+    if (match) {
+      return {
+        route,
+        params: match.params ?? {},
+      };
     }
   }
   return null;

@@ -1,12 +1,9 @@
 import type { SourceEvent } from "@tomismeta/aperture-core";
 
+import { IMPORTED_SESSION_SCHEMA_VERSION } from "./artifact-versions.js";
 import type { ReplayArtifactSource, ReplayScenario } from "./scenario.js";
-import {
-  createSessionBundleFromScenario,
-  type ReplaySessionBundle,
-} from "./session-bundle.js";
-
-export const IMPORTED_SESSION_SCHEMA_VERSION = 1 as const;
+import { createSessionBundleFromScenario, type ReplaySessionBundle } from "./session-bundle.js";
+export { IMPORTED_SESSION_SCHEMA_VERSION } from "./artifact-versions.js";
 
 export type ImportedSessionRole = "system" | "user" | "assistant" | "tool";
 export type ImportedSessionKind =
@@ -26,12 +23,13 @@ export type ImportedSessionRawReference = Partial<{
   id: string;
 }>;
 
-export type ImportedSessionSource = ReplayArtifactSource & Partial<{
-  upstreamUrl: string;
-  rawMirrorPath: string;
-  license: string;
-  contributor: string;
-}>;
+export type ImportedSessionSource = ReplayArtifactSource &
+  Partial<{
+    upstreamUrl: string;
+    rawMirrorPath: string;
+    license: string;
+    contributor: string;
+  }>;
 
 export type ImportedSessionEntry = {
   index: number;
@@ -63,11 +61,12 @@ export type ImportedSession = {
   entries: ImportedSessionEntry[];
 };
 
-export function createReplayScenarioFromImportedSession(
-  session: ImportedSession,
-): ReplayScenario {
+export function createReplayScenarioFromImportedSession(session: ImportedSession): ReplayScenario {
   const steps = session.entries
-    .filter((entry): entry is ImportedSessionEntry & { sourceEvent: SourceEvent } => entry.sourceEvent !== undefined)
+    .filter(
+      (entry): entry is ImportedSessionEntry & { sourceEvent: SourceEvent } =>
+        entry.sourceEvent !== undefined,
+    )
     .map((entry) => ({
       kind: "publishSource" as const,
       event: entry.sourceEvent,
@@ -75,7 +74,9 @@ export function createReplayScenarioFromImportedSession(
     }));
 
   if (steps.length === 0) {
-    throw new Error(`Imported session ${session.sessionId} did not produce any replayable source events.`);
+    throw new Error(
+      `Imported session ${session.sessionId} did not produce any replayable source events.`,
+    );
   }
 
   return {
@@ -98,7 +99,9 @@ export function createSessionBundleFromImportedSession(
   const scenario = createReplayScenarioFromImportedSession(session);
   return createSessionBundleFromScenario(scenario, {
     sessionId: session.sessionId,
-    ...((options.source ?? session.source) !== undefined ? { source: options.source ?? session.source } : {}),
+    ...((options.source ?? session.source) !== undefined
+      ? { source: options.source ?? session.source }
+      : {}),
     ...(options.exportedAt !== undefined ? { exportedAt: options.exportedAt } : {}),
   });
 }

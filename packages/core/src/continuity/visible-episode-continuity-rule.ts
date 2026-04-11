@@ -1,7 +1,15 @@
 import type { AttentionFrame } from "../frame.js";
-import { isDormantEpisodeState, readFrameEpisodeId, readFrameEpisodeState } from "../episode-tracker.js";
+import {
+  isDormantEpisodeState,
+  readFrameEpisodeId,
+  readFrameEpisodeState,
+} from "../episode-tracker.js";
 import { hasResurfacingPressure } from "./deferral-escalation-continuity-rule.js";
-import { noopContinuityRule, overrideContinuityRule, type ContinuityRule } from "./continuity-rule.js";
+import {
+  noopContinuityRule,
+  overrideContinuityRule,
+  type ContinuityRule,
+} from "./continuity-rule.js";
 
 export const evaluateVisibleEpisodeContinuityRule: ContinuityRule = (input) => {
   const { candidate, context, evidence, helpers } = input;
@@ -19,15 +27,20 @@ export const evaluateVisibleEpisodeContinuityRule: ContinuityRule = (input) => {
     ...evidence.attentionView.ambient,
   ]
     .filter((frame): frame is AttentionFrame => frame !== null)
-    .filter((frame) =>
-      frame.interactionId !== candidate.interactionId
-      && readFrameEpisodeId(frame) === candidate.episodeId
-      && !isDormantEpisodeState(readFrameEpisodeState(frame))
+    .filter(
+      (frame) =>
+        frame.interactionId !== candidate.interactionId &&
+        readFrameEpisodeId(frame) === candidate.episodeId &&
+        !isDormantEpisodeState(readFrameEpisodeState(frame)),
     );
 
   if (
-    visibleRelatedFrames.length === 0
-    || !(candidate.episodeState === "batched" || (candidate.episodeSize ?? 1) >= 2 || visibleRelatedFrames.length >= 2)
+    visibleRelatedFrames.length === 0 ||
+    !(
+      candidate.episodeState === "batched" ||
+      (candidate.episodeSize ?? 1) >= 2 ||
+      visibleRelatedFrames.length >= 2
+    )
   ) {
     return noopContinuityRule("visible_episode");
   }

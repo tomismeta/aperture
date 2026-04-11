@@ -1,7 +1,7 @@
 import { stderr } from "node:process";
 
 import { createCodexHookServer, codexHookFallbackEvent } from "../packages/codex/src/index.ts";
-import { ApertureRuntimeAdapterClient } from "../packages/runtime/src/index.ts";
+import { ApertureRuntimeAdapterClient } from "@aperture/runtime";
 import { createStderrLogger, resolveCodexRuntimeUrl } from "./codex-shared.ts";
 
 async function main(): Promise<void> {

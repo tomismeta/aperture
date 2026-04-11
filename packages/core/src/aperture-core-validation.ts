@@ -1,7 +1,4 @@
-import type {
-  ApertureEvent,
-  HumanInputRequest,
-} from "./events.js";
+import type { ApertureEvent, HumanInputRequest } from "./events.js";
 import type { SourceEvent } from "./source-event.js";
 import type { AttentionResponse } from "./frame-response.js";
 import type { AttentionSignal } from "./interaction-signal.js";
@@ -91,9 +88,9 @@ export function assertValidFrameResponse(response: AttentionResponse): void {
       return;
     case "form_submitted":
       if (
-        response.response.values === null
-        || typeof response.response.values !== "object"
-        || Array.isArray(response.response.values)
+        response.response.values === null ||
+        typeof response.response.values !== "object" ||
+        Array.isArray(response.response.values)
       ) {
         throw new Error("response.values must be an object");
       }
@@ -136,10 +133,7 @@ function assertConsequenceLevel(label: string, value: string): void {
   }
 }
 
-function assertHumanInputRequest(
-  label: string,
-  value: HumanInputRequest,
-): void {
+function assertHumanInputRequest(label: string, value: HumanInputRequest): void {
   if (!value || typeof value !== "object" || !("kind" in value)) {
     throw new Error(`${label} must be a valid human input request`);
   }

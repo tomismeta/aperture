@@ -10,7 +10,12 @@ export class AttentionAdjustments {
     globalSummary: AttentionSignalSummary = taskSummary,
   ): AttentionCandidate {
     const attentionScoreOffset = this.scoreOffset(candidate, taskSummary, globalSummary);
-    const attentionRationale = this.rationale(candidate, taskSummary, globalSummary, attentionScoreOffset);
+    const attentionRationale = this.rationale(
+      candidate,
+      taskSummary,
+      globalSummary,
+      attentionScoreOffset,
+    );
 
     return {
       ...candidate,
@@ -31,7 +36,8 @@ export class AttentionAdjustments {
     const globalTrends = deriveAttentionTrends(globalSummary);
 
     if (candidate.mode === "status") {
-      const isHighConsequenceStatus = candidate.consequence === "high" || candidate.tone === "critical";
+      const isHighConsequenceStatus =
+        candidate.consequence === "high" || candidate.tone === "critical";
 
       if (taskSummary.dismissalRate >= 0.5) {
         offset -= 15;
@@ -53,7 +59,11 @@ export class AttentionAdjustments {
         offset -= 10;
       }
 
-      if (!isHighConsequenceStatus && attentionState !== "overloaded" && globalAttentionState === "overloaded") {
+      if (
+        !isHighConsequenceStatus &&
+        attentionState !== "overloaded" &&
+        globalAttentionState === "overloaded"
+      ) {
         offset -= 5;
       }
 
@@ -66,7 +76,11 @@ export class AttentionAdjustments {
       offset += 10;
     }
 
-    if (candidate.blocking && taskSummary.responseRate >= 0.75 && taskSummary.averageResponseLatencyMs !== null) {
+    if (
+      candidate.blocking &&
+      taskSummary.responseRate >= 0.75 &&
+      taskSummary.averageResponseLatencyMs !== null
+    ) {
       if (taskSummary.averageResponseLatencyMs <= 10_000) {
         offset += 5;
       }
@@ -103,7 +117,10 @@ export class AttentionAdjustments {
       reasons.push("similar task updates have repeatedly remained ambient");
     }
 
-    if (candidate.mode === "status" && (candidate.consequence === "high" || candidate.tone === "critical")) {
+    if (
+      candidate.mode === "status" &&
+      (candidate.consequence === "high" || candidate.tone === "critical")
+    ) {
       reasons.push("high-consequence status should remain more visible");
     }
 

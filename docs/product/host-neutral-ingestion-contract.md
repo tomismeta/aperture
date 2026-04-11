@@ -171,7 +171,7 @@ The runtime treats it as:
 
 - one standalone work item
 - with a generated id
-- and best-effort status inference from the text
+- and a deterministic `task.updated` event with `status: "running"`
 
 This mode is intentionally lightweight.
 If producers need stable work identity, batching, structured requests, or
@@ -545,6 +545,14 @@ The public contract can stabilize before the internal TypeScript types move.
 The first machine-readable versions of this contract live in:
 
 - [work-event.schema.json](../../schemas/work-event.schema.json)
+- [work-event-batch.schema.json](../../schemas/work-event-batch.schema.json)
+
+They are generated from
+[`packages/runtime/src/work-contract.ts`](../../packages/runtime/src/work-contract.ts)
+with:
+
+- `pnpm contract:generate`
+- `pnpm contract:check`
 
 For the explicit field mapping and canonical example suite, see:
 
@@ -556,6 +564,8 @@ The current shared runtime can ingest this contract directly over HTTP at:
 
 - `POST /work`
 - `GET /work`
+- `POST /v1/work`
+- `GET /v1/work`
 
 This is intentionally the producer-facing ingress path.
 The deeper `/runtime/*` control routes still exist for the Aperture product and
@@ -571,15 +581,24 @@ Accepted request shapes:
 Current scope:
 
 - `/work` is the public ingress contract
-- plain text stays one-way and lowest-friction
+- `/v1/work` is the explicit compatibility alias for the current major version
+- every non-health route requires `Authorization: Bearer <runtime-token>`
+- plain text stays one-way, lowest-friction, and always maps to a running status update
 - structured `input.requested` events create a public response loop
 - poll `GET /work/response/{interactionId}` until the human answer is ready
+- `DELETE /work/response/{interactionId}` lets the producer cancel an obsolete pending request
 - `/runtime/*` remains internal runtime plumbing rather than the public response path
+
+If you start the local runtime directly with `aperture internal runtime`, it
+prints the local token path so raw HTTP producers can use the same bearer token
+the SDK clients discover automatically.
 
 Self-describing help:
 
 ```bash
-curl http://127.0.0.1:4546/work
+TOKEN="$(cat /path/to/runtime-token)"
+curl http://127.0.0.1:4546/work \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 That returns a small JSON description of:
@@ -588,20 +607,25 @@ That returns a small JSON description of:
 - when to use each one
 - example payloads
 - the next richer options available
+- response retention and cancellation behavior
 
 Simplest example:
 
 ```bash
+TOKEN="$(cat /path/to/runtime-token)"
 curl -X POST http://127.0.0.1:4546/work \
   -H 'Content-Type: text/plain' \
+  -H "Authorization: Bearer $TOKEN" \
   --data 'Waiting for approval before continuing with the deploy.'
 ```
 
 Structured example:
 
 ```bash
+TOKEN="$(cat /path/to/runtime-token)"
 curl -X POST http://127.0.0.1:4546/work \
   -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "kind": "input.requested",
     "work": {
@@ -636,40 +660,48 @@ Runtime ingest is intentionally simple:
 
 - `POST /work`
 - body: `string`, `WorkEvent`, or `WorkEvent[]`
+- `Content-Type: text/plain` is always treated as text
+- `Content-Type: application/json` is always treated as JSON
+- when content type is omitted, Aperture only sniffs JSON objects and arrays
 
 The response is intentionally informative too:
 
 - `ok`
+- `apiVersion`
 - `accepted`
 - `receivedAs`
 - `published`
+- optional `retention`
 - optional `next` steps for richer structured usage
 
 For structured `input.requested` submissions, each published item also includes:
 
 - `interactionId`
 - `responsePath`
+- `responseUrl` when the runtime knows its base URL
 
-Plain-text inference is intentionally best-effort:
+Plain-text ingress is intentionally conservative:
 
-- completion-like text -> `task.completed`
-- cancellation-like text -> `task.cancelled`
-- failure-like text -> `task.updated` with `status: "failed"`
-- blocked-like text -> `task.updated` with `status: "blocked"`
-- waiting/review-like text -> `task.updated` with `status: "waiting"`
-- anything else -> `task.updated` with `status: "running"`
+- plain text always becomes one standalone `task.updated`
+- the generated event always uses `status: "running"`
+- richer lifecycle state should be sent through structured `WorkEvent`
 
 Example follow-up:
 
 ```bash
-curl http://127.0.0.1:4546/work/response/interaction%3Adeploy-42%3Aapproval
+TOKEN="$(cat /path/to/runtime-token)"
+curl http://127.0.0.1:4546/work/response/interaction%3Adeploy-42%3Aapproval \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 That returns:
 
 - `state: "pending"` while Aperture is still waiting on a human answer
 - `state: "answered"` once the TUI or another Aperture surface has submitted the response
+- `state: "expired"` once the response window times out
+- `state: "cancelled"` if the producer retracts the pending request
 - the final `response` object when available
+- expiry and retention timestamps when relevant
 
 ## Recommendation
 

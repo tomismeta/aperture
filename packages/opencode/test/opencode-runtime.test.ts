@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import test from "node:test";
 
-import { createApertureRuntime } from "../../runtime/src/index.js";
+import { createApertureRuntime } from "@aperture/runtime";
 import { ApertureCore } from "@tomismeta/aperture-core";
 import { createOpencodeBridge } from "../src/index.js";
 

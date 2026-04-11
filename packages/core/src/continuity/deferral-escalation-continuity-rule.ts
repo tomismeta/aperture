@@ -1,7 +1,11 @@
 import { isBlockingFrame, priorityForFrame, scoreAttentionFrame } from "../frame-score.js";
 import type { AttentionSignalSummary } from "../signal-summary.js";
 import { JUDGMENT_DEFAULTS } from "../judgment-defaults.js";
-import { noopContinuityRule, overrideContinuityRule, type ContinuityRule } from "./continuity-rule.js";
+import {
+  noopContinuityRule,
+  overrideContinuityRule,
+  type ContinuityRule,
+} from "./continuity-rule.js";
 
 export const evaluateDeferralEscalationContinuityRule: ContinuityRule = (input) => {
   const { candidate, context, evidence } = input;
@@ -41,7 +45,7 @@ export const evaluateDeferralEscalationContinuityRule: ContinuityRule = (input) 
 
 export function hasResurfacingPressure(summary: AttentionSignalSummary): boolean {
   return (
-    summary.counts.deferred >= JUDGMENT_DEFAULTS.queuePlanner.deferredEscalationThreshold
-    || summary.counts.returned >= JUDGMENT_DEFAULTS.queuePlanner.returnedEscalationThreshold
+    summary.counts.deferred >= JUDGMENT_DEFAULTS.queuePlanner.deferredEscalationThreshold ||
+    summary.counts.returned >= JUDGMENT_DEFAULTS.queuePlanner.returnedEscalationThreshold
   );
 }

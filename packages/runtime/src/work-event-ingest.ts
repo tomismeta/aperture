@@ -2,165 +2,33 @@ import { randomUUID } from "node:crypto";
 
 import type {
   AttentionActivityClass,
-  AttentionConsequenceLevel,
   HumanInputRequest,
   SourceEvent,
 } from "@tomismeta/aperture-core";
 
-export type WorkEventKind =
-  | "work.started"
-  | "work.updated"
-  | "work.completed"
-  | "work.cancelled"
-  | "input.requested";
+import {
+  buildWorkEventType,
+  DEFAULT_WORK_EVENT_SOURCE,
+  validateWorkEventBatchShape,
+  validateWorkEventShape,
+  type NormalizedWorkEvent,
+  type WorkEvent,
+  type WorkEventContextItem,
+  type WorkEventRequest,
+  type WorkStatus,
+} from "./work-contract.js";
 
-export type WorkStatus =
-  | "running"
-  | "waiting"
-  | "blocked"
-  | "failed"
-  | "completed"
-  | "cancelled";
-
-type WorkEventTrace = {
-  traceparent?: string;
-  tracestate?: string;
-};
-
-type WorkEventRun = {
-  sessionId?: string;
-  runId?: string;
-};
-
-type WorkEventActor = {
-  id: string;
-  kind?: "agent" | "subagent" | "host" | "system" | "human";
-  label?: string;
-};
-
-type WorkEventFacts = {
-  capabilityFamily?: string;
-  activityCategory?: string;
-};
-
-type WorkEventHints = {
-  consequence?: AttentionConsequenceLevel;
-  capabilityFamily?: string;
-  activityCategory?: string;
-  requestKind?: "approval" | "choice" | "form";
-};
-
-type WorkEventContext = {
-  items?: WorkEventContextItem[];
-};
-
-type WorkEventBody = {
-  kind: WorkEventKind;
-  work: {
-    id: string;
-    title?: string;
-    summary?: string;
-    status?: WorkStatus;
-    progress?: number;
-    reason?: string;
-  };
-  actor?: WorkEventActor;
-  interaction?: {
-    id: string;
-  };
-  request?: WorkEventRequest;
-  facts?: WorkEventFacts;
-  hints?: WorkEventHints;
-  context?: WorkEventContext;
-  extensions?: Record<string, unknown>;
-};
-
-export type WorkEvent = {
-  specVersion?: "1.0";
-  id?: string;
-  source?: string;
-  type?: string;
-  time?: string;
-  subject?: string;
-  schema?: string;
-  contentType?: string;
-  trace?: WorkEventTrace;
-  run?: WorkEventRun;
-} & WorkEventBody;
-
-type NormalizedWorkEvent = {
-  specVersion: "1.0";
-  id: string;
-  source: string;
-  type: string;
-  time?: string;
-  subject?: string;
-  schema?: string;
-  contentType?: string;
-  trace?: WorkEventTrace;
-  run?: WorkEventRun;
-} & WorkEventBody;
+export type {
+  WorkEvent,
+  WorkEventContextItem,
+  WorkEventKind,
+  WorkEventRequest,
+  WorkStatus,
+} from "./work-contract.js";
 
 export type WorkInput = string | WorkEvent | WorkEvent[];
-
-export type WorkEventRequest =
-  | {
-      kind: "approval";
-      title?: string;
-      summary?: string;
-      requireReason?: boolean;
-    }
-  | {
-      kind: "choice";
-      title?: string;
-      summary?: string;
-      selectionMode: "single" | "multiple";
-      allowTextResponse?: boolean;
-      options: Array<{
-        id: string;
-        label: string;
-        summary?: string;
-      }>;
-    }
-  | {
-      kind: "form";
-      title?: string;
-      summary?: string;
-      fields: Array<{
-        id: string;
-        label: string;
-        type: "text" | "textarea" | "number" | "select" | "boolean";
-        required?: boolean;
-        options?: Array<{
-          value: string;
-          label: string;
-        }>;
-      }>;
-    };
-
-export type WorkEventContextItem = {
-  id: string;
-  label?: string;
-  value: string | number | boolean;
-};
-
-const TASK_UPDATE_STATUSES = new Set<WorkStatus>([
-  "running",
-  "waiting",
-  "blocked",
-  "failed",
-  "completed",
-]);
-
-const WORK_EVENT_KINDS = new Set<WorkEventKind>([
-  "work.started",
-  "work.updated",
-  "work.completed",
-  "work.cancelled",
-  "input.requested",
-]);
-
-const ACTOR_KINDS = new Set(["agent", "subagent", "host", "system", "human"]);
+export type NormalizedWorkInput = string | NormalizedWorkEvent | NormalizedWorkEvent[];
+type InputRequestedWorkEvent = Extract<NormalizedWorkEvent, { kind: "input.requested" }>;
 
 const ACTIVITY_CATEGORY_ALIASES: Record<string, AttentionActivityClass> = {
   permission_request: "permission_request",
@@ -176,15 +44,17 @@ const ACTIVITY_CATEGORY_ALIASES: Record<string, AttentionActivityClass> = {
   status: "status_update",
 };
 
-const WORK_EVENT_SPEC_VERSION = "1.0";
-const DEFAULT_WORK_EVENT_SOURCE = "urn:aperture:work";
+const WORK_INPUT_CONTROL_CHAR_PATTERN =
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u202A-\u202E\u2066-\u2069]/u;
+const FORBIDDEN_OBJECT_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
-export function normalizeWorkPayload(payload: unknown): WorkInput {
+export function normalizeWorkPayload(payload: unknown): NormalizedWorkInput {
   if (typeof payload === "string") {
     const text = normalizeWorkText(payload);
     if (text.length === 0) {
       throw new Error(workInputGuidance("Plain-text work input must not be empty."));
     }
+    assertSafeUnknown(payload, "$");
     return text;
   }
 
@@ -192,17 +62,29 @@ export function normalizeWorkPayload(payload: unknown): WorkInput {
     if (payload.length === 0) {
       throw new Error(workInputGuidance("WorkEvent[] must contain at least one item."));
     }
+    const errors = validateWorkEventBatchShape(payload);
+    if (errors.length > 0) {
+      throw new Error(
+        workInputGuidance(`Invalid WorkEvent[]: ${formatWorkEventError(errors[0])}.`),
+      );
+    }
     return payload.map((entry, index) => {
       try {
         return normalizeWorkEvent(entry);
       } catch (error) {
-        throw new Error(workInputGuidance(`Invalid WorkEvent at index ${index}: ${formatWorkEventError(error)}.`));
+        throw new Error(
+          workInputGuidance(`Invalid WorkEvent at index ${index}: ${formatWorkEventError(error)}.`),
+        );
       }
     });
   }
 
-  if (!isRecord(payload)) {
-    throw new Error(workInputGuidance("Work input must be plain text, one WorkEvent object, or a WorkEvent[] array."));
+  if (!isPlainRecord(payload)) {
+    throw new Error(
+      workInputGuidance(
+        "Work input must be plain text, one WorkEvent object, or an array of WorkEvent objects.",
+      ),
+    );
   }
 
   try {
@@ -212,7 +94,9 @@ export function normalizeWorkPayload(payload: unknown): WorkInput {
   }
 }
 
-export function mapWorkPayloadToSourceEvents(payload: WorkInput): SourceEvent[] {
+export function mapWorkPayloadToSourceEvents(
+  payload: WorkInput | NormalizedWorkInput,
+): SourceEvent[] {
   if (typeof payload === "string") {
     return [mapWorkTextToSourceEvent(payload)];
   }
@@ -238,14 +122,12 @@ export function mapWorkEventToSourceEvent(event: WorkEvent): SourceEvent {
         timestamp,
         ...(source !== undefined ? { source } : {}),
         title: fallbackTitle(normalizedEvent),
-        ...(normalizedEvent.work.summary !== undefined ? { summary: normalizedEvent.work.summary } : {}),
+        ...(normalizedEvent.work.summary !== undefined
+          ? { summary: normalizedEvent.work.summary }
+          : {}),
         ...mapSharedSemanticHints(normalizedEvent),
       };
     case "work.updated": {
-      const status = normalizedEvent.work.status;
-      if (!status || !isTaskUpdateStatus(status)) {
-        throw new Error("work.updated requires a valid work.status.");
-      }
       const activityClass = readActivityCategory(normalizedEvent.facts?.activityCategory);
       const context = mapContext(normalizedEvent);
       return {
@@ -254,12 +136,18 @@ export function mapWorkEventToSourceEvent(event: WorkEvent): SourceEvent {
         taskId: normalizedEvent.work.id,
         timestamp,
         ...(source !== undefined ? { source } : {}),
-        ...(normalizedEvent.facts?.capabilityFamily !== undefined ? { toolFamily: normalizedEvent.facts.capabilityFamily } : {}),
+        ...(normalizedEvent.facts?.capabilityFamily !== undefined
+          ? { toolFamily: normalizedEvent.facts.capabilityFamily }
+          : {}),
         ...(activityClass !== undefined ? { activityClass } : {}),
         title: fallbackTitle(normalizedEvent),
-        ...(normalizedEvent.work.summary !== undefined ? { summary: normalizedEvent.work.summary } : {}),
-        status,
-        ...(normalizedEvent.work.progress !== undefined ? { progress: normalizedEvent.work.progress } : {}),
+        ...(normalizedEvent.work.summary !== undefined
+          ? { summary: normalizedEvent.work.summary }
+          : {}),
+        status: normalizedEvent.work.status,
+        ...(normalizedEvent.work.progress !== undefined
+          ? { progress: normalizedEvent.work.progress }
+          : {}),
         ...(context !== undefined ? { context } : {}),
         ...mapSharedSemanticHints(normalizedEvent),
       };
@@ -271,7 +159,9 @@ export function mapWorkEventToSourceEvent(event: WorkEvent): SourceEvent {
         taskId: normalizedEvent.work.id,
         timestamp,
         ...(source !== undefined ? { source } : {}),
-        ...(normalizedEvent.work.summary !== undefined ? { summary: normalizedEvent.work.summary } : {}),
+        ...(normalizedEvent.work.summary !== undefined
+          ? { summary: normalizedEvent.work.summary }
+          : {}),
         ...mapSharedSemanticHints(normalizedEvent),
       };
     case "work.cancelled":
@@ -289,9 +179,6 @@ export function mapWorkEventToSourceEvent(event: WorkEvent): SourceEvent {
         ...mapSharedSemanticHints(normalizedEvent),
       };
     case "input.requested": {
-      if (!normalizedEvent.interaction?.id || !normalizedEvent.request) {
-        throw new Error("input.requested requires interaction.id and request.");
-      }
       const activityClass = readActivityCategory(normalizedEvent.facts?.activityCategory);
       const context = mapContext(normalizedEvent);
       return {
@@ -301,19 +188,23 @@ export function mapWorkEventToSourceEvent(event: WorkEvent): SourceEvent {
         interactionId: normalizedEvent.interaction.id,
         timestamp,
         ...(source !== undefined ? { source } : {}),
-        ...(normalizedEvent.facts?.capabilityFamily !== undefined ? { toolFamily: normalizedEvent.facts.capabilityFamily } : {}),
+        ...(normalizedEvent.facts?.capabilityFamily !== undefined
+          ? { toolFamily: normalizedEvent.facts.capabilityFamily }
+          : {}),
         ...(activityClass !== undefined ? { activityClass } : {}),
         title:
-          normalizedEvent.request.title
-          ?? normalizedEvent.work.title
-          ?? `Input requested for ${normalizedEvent.work.id}`,
+          normalizedEvent.request.title ??
+          normalizedEvent.work.title ??
+          `Input requested for ${normalizedEvent.work.id}`,
         summary:
-          normalizedEvent.request.summary
-          ?? normalizedEvent.work.summary
-          ?? `Input requested for ${normalizedEvent.work.id}.`,
+          normalizedEvent.request.summary ??
+          normalizedEvent.work.summary ??
+          `Input requested for ${normalizedEvent.work.id}.`,
         request: mapRequest(normalizedEvent.request),
         ...(context !== undefined ? { context } : {}),
-        ...(normalizedEvent.hints?.consequence !== undefined ? { riskHint: normalizedEvent.hints.consequence } : {}),
+        ...(normalizedEvent.hints?.consequence !== undefined
+          ? { riskHint: normalizedEvent.hints.consequence }
+          : {}),
         ...mapSharedSemanticHints(normalizedEvent, { omitConsequence: true }),
       };
     }
@@ -326,409 +217,101 @@ export function mapWorkTextToSourceEvent(text: string): SourceEvent {
     throw new Error("Work text must not be empty.");
   }
 
-  const id = `work:${randomUUID()}`;
-  const taskId = id;
-  const timestamp = new Date().toISOString();
-
-  if (looksCompleted(normalized)) {
-    return {
-      id,
-      type: "task.completed",
-      taskId,
-      timestamp,
-      summary: normalized,
-    };
-  }
-
-  if (looksCancelled(normalized)) {
-    return {
-      id,
-      type: "task.cancelled",
-      taskId,
-      timestamp,
-      reason: normalized,
-    };
-  }
+  assertSafeString(normalized, "text");
+  const taskId = `work:${randomUUID()}`;
 
   return {
-    id,
+    id: `evt:${randomUUID()}`,
     type: "task.updated",
     taskId,
-    timestamp,
+    timestamp: new Date().toISOString(),
     title: summarizeWorkText(normalized),
     summary: normalized,
-    status: inferTextStatus(normalized),
+    status: "running",
   };
 }
 
 function normalizeWorkEvent(value: unknown): NormalizedWorkEvent {
-  if (!isRecord(value)) {
+  if (!isPlainRecord(value)) {
     throw new Error("WorkEvent must be a JSON object");
   }
 
-  const kind = normalizeWorkEventKind(value.kind);
-  const work = normalizeWork(value.work);
-  const actor = value.actor === undefined ? undefined : normalizeActor(value.actor);
-  const interaction = value.interaction === undefined ? undefined : normalizeInteraction(value.interaction);
-  const request = value.request === undefined ? undefined : normalizeRequest(value.request);
-  const facts = value.facts === undefined ? undefined : normalizeFacts(value.facts);
-  const hints = value.hints === undefined ? undefined : normalizeHints(value.hints);
-  const context = value.context === undefined ? undefined : normalizeContext(value.context);
-  const extensions = value.extensions === undefined ? undefined : normalizeExtensions(value.extensions);
-  const trace = value.trace === undefined ? undefined : normalizeTrace(value.trace);
-  const run = value.run === undefined ? undefined : normalizeRun(value.run);
-  const time = normalizeOptionalLooseString(value.time, "time");
-  const subject = normalizeOptionalString(value.subject, "subject");
-  const schema = normalizeOptionalString(value.schema, "schema");
-  const contentType = normalizeOptionalString(value.contentType, "contentType");
+  assertSafeUnknown(value, "$");
 
-  if (kind === "input.requested" && interaction === undefined) {
-    throw new Error("input.requested requires interaction.id");
-  }
-  if (kind === "input.requested" && request === undefined) {
-    throw new Error("input.requested requires request");
-  }
-  if (kind === "work.updated" && (work.status === undefined || !isTaskUpdateStatus(work.status))) {
-    throw new Error("work.updated requires work.status to be running, waiting, blocked, failed, or completed");
+  const commonError = detectCommonWorkEventError(value);
+  if (commonError) {
+    throw new Error(commonError);
   }
 
-  return {
-    specVersion: normalizeSpecVersion(value.specVersion),
-    id: normalizeOptionalString(value.id, "id") ?? `evt:${randomUUID()}`,
-    source: normalizeOptionalString(value.source, "source") ?? DEFAULT_WORK_EVENT_SOURCE,
-    type: normalizeOptionalString(value.type, "type") ?? buildWorkEventType(kind),
-    ...(time !== undefined ? { time } : {}),
-    ...(subject !== undefined ? { subject } : {}),
-    ...(schema !== undefined ? { schema } : {}),
-    ...(contentType !== undefined ? { contentType } : {}),
-    ...(trace !== undefined ? { trace } : {}),
-    ...(run !== undefined ? { run } : {}),
-    kind,
-    work,
-    ...(actor !== undefined ? { actor } : {}),
-    ...(interaction !== undefined ? { interaction } : {}),
-    ...(request !== undefined ? { request } : {}),
-    ...(facts !== undefined ? { facts } : {}),
-    ...(hints !== undefined ? { hints } : {}),
-    ...(context !== undefined ? { context } : {}),
-    ...(extensions !== undefined ? { extensions } : {}),
+  const shapeErrors = validateWorkEventShape(value);
+  if (shapeErrors.length > 0) {
+    throw new Error(shapeErrors[0] ?? "invalid WorkEvent shape");
+  }
+
+  const event = value as WorkEvent;
+  const normalizedEvent: NormalizedWorkEvent = {
+    ...event,
+    specVersion: event.specVersion ?? "1.0",
+    id: event.id ?? `evt:${randomUUID()}`,
+    source: event.source ?? DEFAULT_WORK_EVENT_SOURCE,
+    type: event.type ?? buildWorkEventType(event.kind),
   };
+
+  assertUniqueStructuredIds(normalizedEvent);
+  assertNoNegativeZero(normalizedEvent.work.progress, "work.progress");
+  return normalizedEvent;
 }
 
-function normalizeSpecVersion(value: unknown): "1.0" {
-  if (value === undefined) {
-    return WORK_EVENT_SPEC_VERSION;
-  }
-  if (value !== WORK_EVENT_SPEC_VERSION) {
-    throw new Error("specVersion must be \"1.0\"");
-  }
-  return WORK_EVENT_SPEC_VERSION;
-}
-
-function normalizeWorkEventKind(value: unknown): WorkEventKind {
-  if (typeof value !== "string" || !isWorkEventKind(value)) {
-    throw new Error("kind must be one of work.started, work.updated, work.completed, work.cancelled, or input.requested");
-  }
-  return value;
-}
-
-function normalizeWork(value: unknown): WorkEvent["work"] {
-  if (!isRecord(value)) {
-    throw new Error("work must be an object");
-  }
-
-  const id = normalizeRequiredString(value.id, "work.id");
-  const title = normalizeOptionalString(value.title, "work.title");
-  const summary = normalizeOptionalLooseString(value.summary, "work.summary");
-  const status = normalizeOptionalWorkStatus(value.status);
-  const progress = normalizeOptionalProgress(value.progress);
-  const reason = normalizeOptionalLooseString(value.reason, "work.reason");
-
-  return {
-    id,
-    ...(title !== undefined ? { title } : {}),
-    ...(summary !== undefined ? { summary } : {}),
-    ...(status !== undefined ? { status } : {}),
-    ...(progress !== undefined ? { progress } : {}),
-    ...(reason !== undefined ? { reason } : {}),
-  };
-}
-
-function normalizeActor(value: unknown): NonNullable<WorkEvent["actor"]> {
-  if (!isRecord(value)) {
-    throw new Error("actor must be an object");
-  }
-
-  const kind = value.kind === undefined
-    ? undefined
-    : typeof value.kind === "string" && ACTOR_KINDS.has(value.kind)
-      ? value.kind as NonNullable<WorkEvent["actor"]>["kind"]
-      : fail("actor.kind must be one of agent, subagent, host, system, or human");
-
-  return {
-    id: normalizeRequiredString(value.id, "actor.id"),
-    ...withOptional("kind", kind),
-    ...withOptional("label", normalizeOptionalString(value.label, "actor.label")),
-  };
-}
-
-function normalizeInteraction(value: unknown): NonNullable<WorkEvent["interaction"]> {
-  if (!isRecord(value)) {
-    throw new Error("interaction must be an object");
-  }
-  return {
-    id: normalizeRequiredString(value.id, "interaction.id"),
-  };
-}
-
-function normalizeRequest(value: unknown): WorkEventRequest {
-  if (!isRecord(value) || typeof value.kind !== "string") {
-    throw new Error("request.kind must be approval, choice, or form");
-  }
-
-  switch (value.kind) {
-    case "approval":
-      {
-        const title = normalizeOptionalString(value.title, "request.title");
-        const summary = normalizeOptionalLooseString(value.summary, "request.summary");
-        const requireReason = value.requireReason === undefined
-          ? undefined
-          : typeof value.requireReason === "boolean"
-            ? value.requireReason
-            : fail("request.requireReason must be boolean");
-      return {
-        kind: "approval",
-        ...withOptional("title", title),
-        ...withOptional("summary", summary),
-        ...withOptional("requireReason", requireReason),
-      };
-      }
-    case "choice":
-      {
-        const title = normalizeOptionalString(value.title, "request.title");
-        const summary = normalizeOptionalLooseString(value.summary, "request.summary");
-        const allowTextResponse = value.allowTextResponse === undefined
-          ? undefined
-          : typeof value.allowTextResponse === "boolean"
-            ? value.allowTextResponse
-            : fail("request.allowTextResponse must be boolean");
-      return {
-        kind: "choice",
-        ...withOptional("title", title),
-        ...withOptional("summary", summary),
-        selectionMode:
-          value.selectionMode === "single" || value.selectionMode === "multiple"
-            ? value.selectionMode
-            : fail("request.selectionMode must be single or multiple"),
-        ...withOptional("allowTextResponse", allowTextResponse),
-        options: normalizeRequestOptions(value.options),
-      };
-      }
-    case "form":
-      {
-        const title = normalizeOptionalString(value.title, "request.title");
-        const summary = normalizeOptionalLooseString(value.summary, "request.summary");
-      return {
-        kind: "form",
-        ...withOptional("title", title),
-        ...withOptional("summary", summary),
-        fields: normalizeRequestFields(value.fields),
-      };
-      }
-    default:
-      throw new Error("request.kind must be approval, choice, or form");
-  }
-}
-
-function normalizeRequestOptions(value: unknown): NonNullable<Extract<WorkEventRequest, { kind: "choice" }>["options"]> {
-  if (!Array.isArray(value) || value.length === 0) {
-    throw new Error("request.options must be a non-empty array");
-  }
-  return value.map((option, index) => {
-    if (!isRecord(option)) {
-      throw new Error(`request.options[${index}] must be an object`);
-    }
-    return {
-      id: normalizeRequiredString(option.id, `request.options[${index}].id`),
-      label: normalizeRequiredString(option.label, `request.options[${index}].label`),
-      ...withOptional("summary", normalizeOptionalLooseString(option.summary, `request.options[${index}].summary`)),
-    };
-  });
-}
-
-function normalizeRequestFields(value: unknown): NonNullable<Extract<WorkEventRequest, { kind: "form" }>["fields"]> {
-  if (!Array.isArray(value) || value.length === 0) {
-    throw new Error("request.fields must be a non-empty array");
-  }
-  return value.map((field, index) => {
-    if (!isRecord(field)) {
-      throw new Error(`request.fields[${index}] must be an object`);
+function assertUniqueStructuredIds(event: NormalizedWorkEvent): void {
+  if (isInputRequestedWorkEvent(event)) {
+    if (event.request.kind === "choice") {
+      assertUniqueBy(event.request.options, (option) => option.id, "request.options", "id");
     }
 
-    const type = field.type;
-    if (
-      type !== "text"
-      && type !== "textarea"
-      && type !== "number"
-      && type !== "select"
-      && type !== "boolean"
-    ) {
-      throw new Error(`request.fields[${index}].type must be text, textarea, number, select, or boolean`);
-    }
-
-    return {
-      id: normalizeRequiredString(field.id, `request.fields[${index}].id`),
-      label: normalizeRequiredString(field.label, `request.fields[${index}].label`),
-      type,
-      ...withOptional(
-        "required",
-        field.required === undefined
-          ? undefined
-          : typeof field.required === "boolean"
-            ? field.required
-            : fail(`request.fields[${index}].required must be boolean`),
-      ),
-      ...withOptional("options", field.options !== undefined ? normalizeRequestFieldOptions(field.options, index) : undefined),
-    };
-  });
-}
-
-function normalizeRequestFieldOptions(
-  value: unknown,
-  fieldIndex: number,
-): Array<{ value: string; label: string }> {
-  if (!Array.isArray(value)) {
-    throw new Error(`request.fields[${fieldIndex}].options must be an array`);
-  }
-  return value.map((option, optionIndex) => {
-    if (!isRecord(option)) {
-      throw new Error(`request.fields[${fieldIndex}].options[${optionIndex}] must be an object`);
-    }
-    return {
-      value: normalizeRequiredString(option.value, `request.fields[${fieldIndex}].options[${optionIndex}].value`),
-      label: normalizeRequiredString(option.label, `request.fields[${fieldIndex}].options[${optionIndex}].label`),
-    };
-  });
-}
-
-function normalizeFacts(value: unknown): WorkEventFacts {
-  if (!isRecord(value)) {
-    throw new Error("facts must be an object");
-  }
-  return {
-    ...withOptional("capabilityFamily", normalizeOptionalString(value.capabilityFamily, "facts.capabilityFamily")),
-    ...withOptional("activityCategory", normalizeOptionalString(value.activityCategory, "facts.activityCategory")),
-  };
-}
-
-function normalizeHints(value: unknown): WorkEventHints {
-  if (!isRecord(value)) {
-    throw new Error("hints must be an object");
-  }
-
-  const consequence: AttentionConsequenceLevel | undefined = value.consequence === undefined
-    ? undefined
-    : value.consequence === "low" || value.consequence === "medium" || value.consequence === "high"
-      ? value.consequence
-      : fail("hints.consequence must be low, medium, or high");
-  const requestKind: WorkEventHints["requestKind"] = value.requestKind === undefined
-    ? undefined
-    : value.requestKind === "approval" || value.requestKind === "choice" || value.requestKind === "form"
-      ? value.requestKind
-      : fail("hints.requestKind must be approval, choice, or form");
-
-  return {
-    ...withOptional("consequence", consequence),
-    ...withOptional("capabilityFamily", normalizeOptionalString(value.capabilityFamily, "hints.capabilityFamily")),
-    ...withOptional("activityCategory", normalizeOptionalString(value.activityCategory, "hints.activityCategory")),
-    ...withOptional("requestKind", requestKind),
-  };
-}
-
-function normalizeContext(value: unknown): WorkEventContext {
-  if (!isRecord(value)) {
-    throw new Error("context must be an object");
-  }
-  if (value.items === undefined) {
-    return {};
-  }
-  if (!Array.isArray(value.items)) {
-    throw new Error("context.items must be an array");
-  }
-  return {
-    items: value.items.map((item, index) => {
-      if (!isRecord(item)) {
-        throw new Error(`context.items[${index}] must be an object`);
+    if (event.request.kind === "form") {
+      assertUniqueBy(event.request.fields, (field) => field.id, "request.fields", "id");
+      for (const [fieldIndex, field] of event.request.fields.entries()) {
+        if (field.options) {
+          assertUniqueBy(
+            field.options,
+            (option) => option.value,
+            `request.fields[${fieldIndex}].options`,
+            "value",
+          );
+        }
       }
-      const rawValue = item.value;
-      if (
-        typeof rawValue !== "string"
-        && typeof rawValue !== "number"
-        && typeof rawValue !== "boolean"
-      ) {
-        throw new Error(`context.items[${index}].value must be string, number, or boolean`);
-      }
-      return {
-        id: normalizeRequiredString(item.id, `context.items[${index}].id`),
-        ...withOptional("label", normalizeOptionalString(item.label, `context.items[${index}].label`)),
-        value: rawValue,
-      };
-    }),
-  };
+    }
+  }
+
+  if (event.context?.items) {
+    assertUniqueBy(event.context.items, (item) => item.id, "context.items", "id");
+  }
 }
 
-function normalizeExtensions(value: unknown): Record<string, unknown> {
-  if (!isRecord(value)) {
-    throw new Error("extensions must be an object");
+function assertUniqueBy<T>(
+  values: T[],
+  readKey: (value: T) => string,
+  collection: string,
+  field: string,
+): void {
+  const seen = new Set<string>();
+  for (const value of values) {
+    const key = readKey(value);
+    if (seen.has(key)) {
+      throw new Error(`${collection} contains duplicate ${field} "${key}"`);
+    }
+    seen.add(key);
   }
-  return value;
 }
 
-function normalizeTrace(value: unknown): WorkEventTrace {
-  if (!isRecord(value)) {
-    throw new Error("trace must be an object");
+function assertNoNegativeZero(value: number | undefined, field: string): void {
+  if (value !== undefined && Object.is(value, -0)) {
+    throw new Error(`${field} must not be -0`);
   }
-  return {
-    ...withOptional("traceparent", normalizeOptionalString(value.traceparent, "trace.traceparent")),
-    ...withOptional("tracestate", normalizeOptionalString(value.tracestate, "trace.tracestate")),
-  };
 }
 
-function normalizeRun(value: unknown): WorkEventRun {
-  if (!isRecord(value)) {
-    throw new Error("run must be an object");
-  }
-  return {
-    ...withOptional("sessionId", normalizeOptionalString(value.sessionId, "run.sessionId")),
-    ...withOptional("runId", normalizeOptionalString(value.runId, "run.runId")),
-  };
-}
-
-function normalizeOptionalWorkStatus(value: unknown): WorkStatus | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (
-    value === "running"
-    || value === "waiting"
-    || value === "blocked"
-    || value === "failed"
-    || value === "completed"
-    || value === "cancelled"
-  ) {
-    return value;
-  }
-  throw new Error("work.status must be running, waiting, blocked, failed, completed, or cancelled");
-}
-
-function normalizeOptionalProgress(value: unknown): number | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (typeof value !== "number" || Number.isNaN(value) || value < 0 || value > 1) {
-    throw new Error("work.progress must be a number between 0 and 1");
-  }
-  return value;
+function isInputRequestedWorkEvent(event: NormalizedWorkEvent): event is InputRequestedWorkEvent {
+  return event.kind === "input.requested";
 }
 
 function mapSourceRef(
@@ -752,6 +335,36 @@ function normalizeWorkText(text: string): string {
   return text.replace(/\r\n/g, "\n").trim();
 }
 
+function detectCommonWorkEventError(value: Record<string, unknown>): string | null {
+  if (value.kind === "work.updated") {
+    const work = value.work;
+    if (!isPlainRecord(work)) {
+      return "work.updated requires a work object";
+    }
+    if (typeof work.id !== "string" || work.id.trim() === "") {
+      return "work.updated requires work.id";
+    }
+    if (typeof work.status !== "string" || !isTaskUpdateStatus(work.status)) {
+      return "work.updated requires work.status to be running, waiting, blocked, failed, or completed";
+    }
+  }
+
+  if (value.kind === "input.requested") {
+    if (
+      !isPlainRecord(value.interaction) ||
+      typeof value.interaction.id !== "string" ||
+      value.interaction.id.trim() === ""
+    ) {
+      return "input.requested requires interaction.id";
+    }
+    if (!isPlainRecord(value.request) || typeof value.request.kind !== "string") {
+      return "input.requested requires request.kind";
+    }
+  }
+
+  return null;
+}
+
 function summarizeWorkText(text: string): string {
   const collapsed = text.replace(/\s+/g, " ").trim();
   const firstSentence = collapsed.match(/^(.{1,96}?)(?:[.!?\n]|$)/)?.[1] ?? collapsed;
@@ -759,21 +372,6 @@ function summarizeWorkText(text: string): string {
     return firstSentence;
   }
   return `${firstSentence.slice(0, 93).trimEnd()}...`;
-}
-
-function inferTextStatus(
-  text: string,
-): "running" | "waiting" | "blocked" | "failed" {
-  if (looksFailed(text)) {
-    return "failed";
-  }
-  if (looksBlocked(text)) {
-    return "blocked";
-  }
-  if (looksWaiting(text)) {
-    return "waiting";
-  }
-  return "running";
 }
 
 function mapRequest(request: WorkEventRequest): HumanInputRequest {
@@ -787,7 +385,9 @@ function mapRequest(request: WorkEventRequest): HumanInputRequest {
       return {
         kind: "choice",
         selectionMode: request.selectionMode,
-        ...(request.allowTextResponse !== undefined ? { allowTextResponse: request.allowTextResponse } : {}),
+        ...(request.allowTextResponse !== undefined
+          ? { allowTextResponse: request.allowTextResponse }
+          : {}),
         options: request.options.map((option) => ({
           id: option.id,
           label: option.label,
@@ -811,7 +411,7 @@ function mapRequest(request: WorkEventRequest): HumanInputRequest {
 function mapContext(
   event: NormalizedWorkEvent,
 ): Extract<SourceEvent, { type: "human.input.requested" }>["context"] | undefined {
-  const items = event.context?.items?.map((item) => ({
+  const items = event.context?.items?.map((item: WorkEventContextItem) => ({
     id: item.id,
     label: item.label ?? item.id,
     value: String(item.value),
@@ -873,67 +473,15 @@ function readActivityCategory(value: string | undefined): AttentionActivityClass
 }
 
 function isTaskUpdateStatus(
-  value: WorkStatus,
-): value is Exclude<WorkStatus, "cancelled"> {
-  return TASK_UPDATE_STATUSES.has(value);
-}
-
-function looksCompleted(text: string): boolean {
-  if (/\b(not|still)\s+(yet\s+)?(completed?|finished?|done|resolved?)\b/i.test(text)) {
-    return false;
-  }
-  return /\b(completed?|finished?|succeeded?|successful|resolved?)\b/i.test(text);
-}
-
-function looksCancelled(text: string): boolean {
-  return /\b(cancelled?|canceled|aborted?|stopped?)\b/i.test(text);
-}
-
-function looksBlocked(text: string): boolean {
-  return /\b(blocked?|stuck|cannot continue|can't continue|unable to continue)\b/i.test(text);
-}
-
-function looksFailed(text: string): boolean {
-  return /\b(failed?|failure|errored?|crashed?|timed out|timeout)\b/i.test(text);
-}
-
-function looksWaiting(text: string): boolean {
-  return /\b(waiting|awaiting|pending|needs approval|approval needed|review needed|needs review)\b/i.test(text);
-}
-
-function isWorkEventKind(value: string): value is WorkEventKind {
-  return WORK_EVENT_KINDS.has(value as WorkEventKind);
-}
-
-function normalizeRequiredString(value: unknown, field: string): string {
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new Error(`${field} must be a non-empty string`);
-  }
-  return value;
-}
-
-function normalizeOptionalString(value: unknown, field: string): string | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new Error(`${field} must be a non-empty string`);
-  }
-  return value;
-}
-
-function normalizeOptionalLooseString(value: unknown, field: string): string | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (typeof value !== "string") {
-    throw new Error(`${field} must be a string`);
-  }
-  return value;
-}
-
-function buildWorkEventType(kind: WorkEventKind): string {
-  return `io.agent.${kind}.v1`;
+  value: string,
+): value is Extract<WorkStatus, "running" | "waiting" | "blocked" | "failed" | "completed"> {
+  return (
+    value === "running" ||
+    value === "waiting" ||
+    value === "blocked" ||
+    value === "failed" ||
+    value === "completed"
+  );
 }
 
 function workInputGuidance(detail: string): string {
@@ -941,23 +489,50 @@ function workInputGuidance(detail: string): string {
 }
 
 function formatWorkEventError(error: unknown): string {
+  if (typeof error === "string" && error.trim().length > 0) {
+    return error.trim().replace(/[.]+$/g, "");
+  }
   if (error instanceof Error && error.message.trim().length > 0) {
     return error.message.trim().replace(/[.]+$/g, "");
   }
   return "invalid structured work input";
 }
 
-function fail(message: string): never {
-  throw new Error(message);
+function assertSafeUnknown(value: unknown, path: string): void {
+  if (typeof value === "string") {
+    assertSafeString(value, path);
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    for (const [index, entry] of value.entries()) {
+      assertSafeUnknown(entry, `${path}[${index}]`);
+    }
+    return;
+  }
+
+  if (!isPlainRecord(value)) {
+    return;
+  }
+
+  for (const [key, entry] of Object.entries(value)) {
+    if (FORBIDDEN_OBJECT_KEYS.has(key)) {
+      throw new Error(`${path}.${key} is not allowed`);
+    }
+    assertSafeUnknown(entry, `${path}.${key}`);
+  }
 }
 
-function withOptional<K extends string, V>(
-  key: K,
-  value: V | undefined,
-): Record<K, V> | Record<string, never> {
-  return value === undefined ? {} : { [key]: value } as Record<K, V>;
+function assertSafeString(value: string, path: string): void {
+  if (WORK_INPUT_CONTROL_CHAR_PATTERN.test(value)) {
+    throw new Error(`${path} contains unsupported control characters`);
+  }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }

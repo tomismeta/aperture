@@ -8,7 +8,7 @@ import {
   subscribeInternalTrace,
   isCandidateTrace,
   type ApertureTrace,
-} from "../../core/src/internal-contract.js";
+} from "@tomismeta/aperture-core/internal";
 import {
   normalizeSourceEvent,
   readSemanticOntologyDiagnostic,

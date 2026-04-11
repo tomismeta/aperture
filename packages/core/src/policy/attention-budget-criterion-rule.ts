@@ -1,4 +1,8 @@
-import { adjustCriterionRule, noopPolicyCriterionRule, type PolicyCriterionRule } from "./policy-criterion-rule.js";
+import {
+  adjustCriterionRule,
+  noopPolicyCriterionRule,
+  type PolicyCriterionRule,
+} from "./policy-criterion-rule.js";
 
 export const evaluateAttentionBudgetCriterionRule: PolicyCriterionRule = (input) => {
   const { evidence, criterion } = input;

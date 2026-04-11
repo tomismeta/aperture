@@ -14,7 +14,11 @@ export function deriveAttentionState(summary: AttentionSignalSummary): Attention
     return "overloaded";
   }
 
-  if (enoughPresentedForPattern && summary.dismissalRate >= 0.6 && summary.deferred.suppressed >= 2) {
+  if (
+    enoughPresentedForPattern &&
+    summary.dismissalRate >= 0.6 &&
+    summary.deferred.suppressed >= 2
+  ) {
     return "avoiding";
   }
 

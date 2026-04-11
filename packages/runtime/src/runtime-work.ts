@@ -1,7 +1,4 @@
-import type {
-  AttentionResponse,
-  SourceEvent,
-} from "@tomismeta/aperture-core";
+import type { SourceEvent } from "@tomismeta/aperture-core";
 
 import type {
   RuntimeWorkResponseRecord,
@@ -13,11 +10,18 @@ import type {
   WorkResponseState,
 } from "./runtime-contract.js";
 import type { WorkInput } from "./work-event-ingest.js";
+import { WORK_API_VERSION } from "./work-contract.js";
 
-export function describeWorkEndpoint(): {
+export function describeWorkEndpoint(retention: {
+  pendingTtlMs: number;
+  terminalRetentionMs: number;
+  capacity: number;
+}): {
+  apiVersion: string;
   path: "/work";
   method: "POST";
   summary: string;
+  auth: string;
   send: Array<{
     receivedAs: WorkReceiptMode;
     contentType: string;
@@ -27,16 +31,24 @@ export function describeWorkEndpoint(): {
   }>;
   response: {
     path: "/work/response/{interactionId}";
+    deletePath: "/work/response/{interactionId}";
     bestFor: string;
     states: WorkResponseState[];
+  };
+  retention: {
+    pendingTtlMs: number;
+    terminalRetentionMs: number;
+    capacity: number;
   };
   next: WorkReceiptNextStep[];
 } {
   return {
+    apiVersion: WORK_API_VERSION,
     path: "/work",
     method: "POST",
     summary:
       "Send plain text for the simplest ingress. Send structured WorkEvent JSON when you need stable work ids, richer metadata, or explicit human-input requests. Aperture fills specVersion, id, source, and type when you omit them.",
+    auth: "Use the local Aperture bearer token for every /work request. The token is created with the local runtime and is required on all non-health routes.",
     send: [
       {
         receivedAs: "text",
@@ -49,23 +61,28 @@ export function describeWorkEndpoint(): {
         receivedAs: "event",
         contentType: "application/json",
         body: "WorkEvent",
-        bestFor: "Stable work identity, structured requests, and portable metadata. kind and work are the only required top-level fields.",
-        example: '{"kind":"work.updated","work":{"id":"task:deploy-42","status":"waiting","summary":"Waiting for approval before continuing."}}',
+        bestFor:
+          "Stable work identity, structured requests, and portable metadata. kind and work are the only required top-level fields.",
+        example:
+          '{"kind":"work.updated","work":{"id":"task:deploy-42","status":"waiting","summary":"Waiting for approval before continuing."}}',
       },
       {
         receivedAs: "batch",
         contentType: "application/json",
         body: "WorkEvent[]",
         bestFor: "Publishing multiple structured work items in one request.",
-        example: '[{"kind":"work.updated","work":{"id":"task:one","status":"running"}},{"kind":"work.updated","work":{"id":"task:two","status":"waiting"}}]',
+        example:
+          '[{"kind":"work.updated","work":{"id":"task:one","status":"running"}},{"kind":"work.updated","work":{"id":"task:two","status":"waiting"}}]',
       },
     ],
     response: {
       path: "/work/response/{interactionId}",
+      deletePath: "/work/response/{interactionId}",
       bestFor:
-        "Poll here when a structured WorkEvent with kind=input.requested is waiting on a human answer. responsePath values are relative to the same Aperture server root.",
-      states: ["pending", "answered"],
+        "Poll here when a structured WorkEvent with kind=input.requested is waiting on a human answer. responsePath values are relative to the same Aperture server root and responseUrl values are absolute when Aperture can infer the current base URL.",
+      states: ["pending", "answered", "expired", "cancelled"],
     },
+    retention,
     next: [
       {
         when: "You only need to say what happened once.",
@@ -94,15 +111,25 @@ export function describeWorkEndpoint(): {
 export function describeAcceptedWork(
   payload: WorkInput,
   events: SourceEvent[],
+  options: {
+    baseUrl: string;
+    retention: {
+      pendingTtlMs: number;
+      terminalRetentionMs: number;
+      capacity: number;
+    };
+  },
 ): WorkReceipt {
   const mode = describeWorkReceiptMode(payload);
   const next = workReceiptNext(mode);
   return {
     ok: true,
+    apiVersion: WORK_API_VERSION,
     accepted: events.length,
     receivedAs: mode,
     message: workAcceptedMessage(mode, events),
-    published: events.map((event) => describeAcceptedWorkItem(event)),
+    published: events.map((event) => describeAcceptedWorkItem(event, options.baseUrl)),
+    retention: options.retention,
     ...(next !== undefined ? { next } : {}),
   };
 }
@@ -115,6 +142,10 @@ export function invalidWorkPayloadMessage(detail?: string): string {
 
 export function buildWorkResponsePath(interactionId: string): string {
   return `/work/response/${encodeURIComponent(interactionId)}`;
+}
+
+export function buildWorkResponseUrl(baseUrl: string, interactionId: string): string {
+  return `${baseUrl.replace(/\/+$/, "")}${buildWorkResponsePath(interactionId)}`;
 }
 
 export function readWorkResponseInteractionId(path: string): string | null {
@@ -136,14 +167,18 @@ export function readWorkResponseInteractionId(path: string): string | null {
 export function describeWorkResponse(response: RuntimeWorkResponseRecord): WorkResponse {
   return {
     ok: true,
+    apiVersion: WORK_API_VERSION,
     taskId: response.taskId,
     interactionId: response.interactionId,
     state: response.state,
-    message: response.state === "answered"
-      ? "Human response recorded for this interaction."
-      : "Still waiting for a human response.",
+    message: workResponseMessage(response),
     ...(response.response !== undefined ? { response: response.response } : {}),
     ...(response.answeredAt !== undefined ? { answeredAt: response.answeredAt } : {}),
+    ...(response.expiresAt !== undefined ? { expiresAt: response.expiresAt } : {}),
+    ...(response.cancelledAt !== undefined ? { cancelledAt: response.cancelledAt } : {}),
+    ...(response.retentionExpiresAt !== undefined
+      ? { retentionExpiresAt: response.retentionExpiresAt }
+      : {}),
   };
 }
 
@@ -157,7 +192,7 @@ function describeWorkReceiptMode(payload: WorkInput): WorkReceiptMode {
   return "event";
 }
 
-function describeAcceptedWorkItem(event: SourceEvent): WorkReceiptItem {
+function describeAcceptedWorkItem(event: SourceEvent, baseUrl: string): WorkReceiptItem {
   return {
     taskId: event.taskId,
     type: event.type,
@@ -165,7 +200,12 @@ function describeAcceptedWorkItem(event: SourceEvent): WorkReceiptItem {
     ...("summary" in event && typeof event.summary === "string" ? { summary: event.summary } : {}),
     ...("status" in event ? { status: event.status } : {}),
     ...("interactionId" in event ? { interactionId: event.interactionId } : {}),
-    ...("interactionId" in event ? { responsePath: buildWorkResponsePath(event.interactionId) } : {}),
+    ...("interactionId" in event
+      ? { responsePath: buildWorkResponsePath(event.interactionId) }
+      : {}),
+    ...("interactionId" in event
+      ? { responseUrl: buildWorkResponseUrl(baseUrl, event.interactionId) }
+      : {}),
   };
 }
 
@@ -234,5 +274,18 @@ function workReceiptNext(mode: WorkReceiptMode): WorkReceiptNextStep[] | undefin
           why: "Use plain text or a single WorkEvent for lower-friction ingress.",
         },
       ];
+  }
+}
+
+function workResponseMessage(response: RuntimeWorkResponseRecord): string {
+  switch (response.state) {
+    case "answered":
+      return "Human response recorded for this interaction.";
+    case "expired":
+      return "The response window expired before a human answer was recorded.";
+    case "cancelled":
+      return "The producer cancelled this interaction before a human answer was recorded.";
+    case "pending":
+      return "Still waiting for a human response.";
   }
 }

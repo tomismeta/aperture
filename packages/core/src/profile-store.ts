@@ -157,7 +157,9 @@ function parseUserProfile(content: string): UserProfile | null {
     ...(preferences.size > 0
       ? {
           preferences: {
-            ...(readList(preferences, "quiet hours").length > 0 ? { quietHours: readList(preferences, "quiet hours") } : {}),
+            ...(readList(preferences, "quiet hours").length > 0
+              ? { quietHours: readList(preferences, "quiet hours") }
+              : {}),
             ...(readList(preferences, "prefer batching for").length > 0
               ? { preferBatchingFor: readList(preferences, "prefer batching for") }
               : {}),
@@ -265,11 +267,11 @@ function parseMemoryProfile(content: string): MemoryProfile | null {
   const version = numberValue(first(meta, "version"));
   const sessionCount = numberValue(first(meta, "session count"));
   if (
-    !operatorId
-    || !updatedAt
-    || version === null
-    || version !== MARKDOWN_SCHEMA_VERSION
-    || sessionCount === null
+    !operatorId ||
+    !updatedAt ||
+    version === null ||
+    version !== MARKDOWN_SCHEMA_VERSION ||
+    sessionCount === null
   ) {
     return null;
   }

@@ -1,0 +1,8 @@
+node_modules
+dist
+public-dist
+.aperture
+.claude
+.codex
+pnpm-lock.yaml
+docs/assets

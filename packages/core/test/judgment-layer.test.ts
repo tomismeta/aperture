@@ -77,20 +77,23 @@ test("attention policy keeps background work ambient by default", () => {
 });
 
 test("evidence context guard rejects partial objects with undefined derived fields", () => {
-  assert.equal(isAttentionEvidenceContext({
-    currentFrame: null,
-    currentTaskView: { now: null, next: [], ambient: [] },
-    currentEpisode: null,
-    attentionView: undefined,
-    taskSignalSummary: undefined,
-    globalSignalSummary: undefined,
-    taskAttentionState: undefined,
-    globalAttentionState: undefined,
-    pressureForecast: undefined,
-    attentionBurden: undefined,
-    surfaceCapabilities: undefined,
-    operatorPresence: undefined,
-  }), false);
+  assert.equal(
+    isAttentionEvidenceContext({
+      currentFrame: null,
+      currentTaskView: { now: null, next: [], ambient: [] },
+      currentEpisode: null,
+      attentionView: undefined,
+      taskSignalSummary: undefined,
+      globalSignalSummary: undefined,
+      taskAttentionState: undefined,
+      globalAttentionState: undefined,
+      pressureForecast: undefined,
+      attentionBurden: undefined,
+      surfaceCapabilities: undefined,
+      operatorPresence: undefined,
+    }),
+    false,
+  );
 });
 
 test("attention value exposes componentized candidate scoring", () => {
@@ -173,7 +176,11 @@ test("attention value boosts low consequence work when that band is often reject
   );
 
   assert.equal(utility.components.consequenceCalibration, 8);
-  assert.ok(utility.rationale.includes("memory suggests this consequence band is often understated and deserves more attention"));
+  assert.ok(
+    utility.rationale.includes(
+      "memory suggests this consequence band is often understated and deserves more attention",
+    ),
+  );
 });
 
 test("attention value tempers high consequence work when that band is often rejected", () => {
@@ -207,7 +214,11 @@ test("attention value tempers high consequence work when that band is often reje
   );
 
   assert.equal(utility.components.consequenceCalibration, -4);
-  assert.ok(utility.rationale.includes("memory suggests this consequence band is often overstated and should be tempered"));
+  assert.ok(
+    utility.rationale.includes(
+      "memory suggests this consequence band is often overstated and should be tempered",
+    ),
+  );
 });
 
 test("attention value ignores low-sample tool family memory", () => {
@@ -287,7 +298,9 @@ test("attention value boosts quick-response tool families from memory", () => {
   );
 
   assert.equal(utility.components.responseAffinity, 8);
-  assert.ok(utility.rationale.includes("memory suggests this kind of interaction usually resolves quickly"));
+  assert.ok(
+    utility.rationale.includes("memory suggests this kind of interaction usually resolves quickly"),
+  );
 });
 
 test("attention value penalizes high context-cost tool families from memory", () => {
@@ -325,7 +338,11 @@ test("attention value penalizes high context-cost tool families from memory", ()
   );
 
   assert.equal(utility.components.contextCost, -6);
-  assert.ok(utility.rationale.includes("memory suggests this interaction usually needs extra context before action"));
+  assert.ok(
+    utility.rationale.includes(
+      "memory suggests this interaction usually needs extra context before action",
+    ),
+  );
 });
 
 test("attention value boosts tool families that commonly return after deferral", () => {
@@ -362,7 +379,11 @@ test("attention value boosts tool families that commonly return after deferral",
   );
 
   assert.equal(utility.components.deferralAffinity, 6);
-  assert.ok(utility.rationale.includes("memory suggests deferred interactions of this kind are usually resumed"));
+  assert.ok(
+    utility.rationale.includes(
+      "memory suggests deferred interactions of this kind are usually resumed",
+    ),
+  );
 });
 
 test("judgment coordinator explanations surface attention policy and attention value alongside planning", () => {
@@ -380,7 +401,10 @@ test("judgment coordinator explanations surface attention policy and attention v
   assert.equal(explanation.policy.minimumLane, "ambient");
   assert.equal(explanation.utility.total, 111);
   assert.equal(explanation.decision.kind, "ambient");
-  assert.match(explanation.reasons[0] ?? "", /blocking work keeps non-blocking updates in the periphery/);
+  assert.match(
+    explanation.reasons[0] ?? "",
+    /blocking work keeps non-blocking updates in the periphery/,
+  );
 });
 
 test("attention policy applies user overrides for tool families", () => {
@@ -420,7 +444,11 @@ test("attention policy applies user overrides for tool families", () => {
   assert.equal(verdict.minimumLane, "now");
   assert.equal(verdict.mayInterrupt, true);
   assert.ok(verdict.rationale.includes("user override applies for read interactions"));
-  assert.ok(verdict.rationale.includes("operator-response work cannot remain passive without auto-resolution"));
+  assert.ok(
+    verdict.rationale.includes(
+      "operator-response work cannot remain passive without auto-resolution",
+    ),
+  );
 });
 
 test("attention policy prefers explicit tool family metadata over title heuristics", () => {
@@ -460,7 +488,11 @@ test("attention policy prefers explicit tool family metadata over title heuristi
   assert.equal(verdict.minimumLane, "now");
   assert.equal(verdict.mayInterrupt, true);
   assert.ok(verdict.rationale.includes("user override applies for read interactions"));
-  assert.ok(verdict.rationale.includes("operator-response work cannot remain passive without auto-resolution"));
+  assert.ok(
+    verdict.rationale.includes(
+      "operator-response work cannot remain passive without auto-resolution",
+    ),
+  );
 });
 
 test("configured lowRiskRead policy can auto-approve bounded approvals", () => {
@@ -496,7 +528,9 @@ test("configured lowRiskRead policy can auto-approve bounded approvals", () => {
   assert.equal(verdict.autoApprove, true);
   assert.equal(verdict.requiresOperatorResponse, false);
   assert.equal(verdict.mayInterrupt, false);
-  assert.ok(verdict.rationale.includes("configured judgment policy auto-approves this bounded approval"));
+  assert.ok(
+    verdict.rationale.includes("configured judgment policy auto-approves this bounded approval"),
+  );
 });
 
 test("configured lowRiskWeb policy can auto-approve bounded web approvals", () => {
@@ -566,7 +600,9 @@ test("configured lowRiskRead policy does not match incidental reading language",
   );
 
   assert.equal(verdict.minimumLane, "now");
-  assert.ok(verdict.rationale.includes("blocking interactions require explicit operator attention"));
+  assert.ok(
+    verdict.rationale.includes("blocking interactions require explicit operator attention"),
+  );
 });
 
 test("configured lowRiskRead policy does not match passive status updates", () => {
@@ -715,7 +751,9 @@ test("tool policies do not match explicit question requests by title wording alo
   assert.equal(verdict.autoApprove, false);
   assert.equal(verdict.requiresOperatorResponse, true);
   assert.equal(verdict.minimumLane, "now");
-  assert.ok(verdict.rationale.includes("blocking interactions require explicit operator attention"));
+  assert.ok(
+    verdict.rationale.includes("blocking interactions require explicit operator attention"),
+  );
 });
 
 test("tool policies do not match explicit question requests even with explicit tool family", () => {
@@ -757,7 +795,9 @@ test("tool policies do not match explicit question requests even with explicit t
   assert.equal(verdict.autoApprove, false);
   assert.equal(verdict.requiresOperatorResponse, true);
   assert.equal(verdict.minimumLane, "now");
-  assert.ok(verdict.rationale.includes("blocking interactions require explicit operator attention"));
+  assert.ok(
+    verdict.rationale.includes("blocking interactions require explicit operator attention"),
+  );
 });
 
 test("attention value does not infer tool-family memory for explicit question requests", () => {

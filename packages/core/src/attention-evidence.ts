@@ -71,16 +71,26 @@ export function buildAttentionEvidenceInput(
     ...(input.currentTaskView !== undefined ? { currentTaskView: input.currentTaskView } : {}),
     ...(input.currentEpisode !== undefined ? { currentEpisode: input.currentEpisode } : {}),
     ...(input.attentionView !== undefined ? { attentionView: input.attentionView } : {}),
-    ...(input.taskSignalSummary !== undefined ? { taskSignalSummary: input.taskSignalSummary } : {}),
+    ...(input.taskSignalSummary !== undefined
+      ? { taskSignalSummary: input.taskSignalSummary }
+      : {}),
     ...(input.continuitySignalSummary !== undefined
       ? { continuitySignalSummary: input.continuitySignalSummary }
       : {}),
-    ...(input.globalSignalSummary !== undefined ? { globalSignalSummary: input.globalSignalSummary } : {}),
-    ...(input.taskAttentionState !== undefined ? { taskAttentionState: input.taskAttentionState } : {}),
-    ...(input.globalAttentionState !== undefined ? { globalAttentionState: input.globalAttentionState } : {}),
+    ...(input.globalSignalSummary !== undefined
+      ? { globalSignalSummary: input.globalSignalSummary }
+      : {}),
+    ...(input.taskAttentionState !== undefined
+      ? { taskAttentionState: input.taskAttentionState }
+      : {}),
+    ...(input.globalAttentionState !== undefined
+      ? { globalAttentionState: input.globalAttentionState }
+      : {}),
     ...(input.pressureForecast !== undefined ? { pressureForecast: input.pressureForecast } : {}),
     ...(input.attentionBurden !== undefined ? { attentionBurden: input.attentionBurden } : {}),
-    ...(input.surfaceCapabilities !== undefined ? { surfaceCapabilities: input.surfaceCapabilities } : {}),
+    ...(input.surfaceCapabilities !== undefined
+      ? { surfaceCapabilities: input.surfaceCapabilities }
+      : {}),
     ...(input.operatorPresence !== undefined ? { operatorPresence: input.operatorPresence } : {}),
   };
 }
@@ -103,8 +113,9 @@ export function resolveAttentionEvidenceContext(
   }
 
   const globalSignalSummary = evidenceInput.globalSignalSummary ?? emptyAttentionSignalSummary();
-  const pressureForecast = evidenceInput.pressureForecast
-    ?? forecastAttentionPressure(globalSignalSummary, evidenceInput.attentionView, referenceTimeMs);
+  const pressureForecast =
+    evidenceInput.pressureForecast ??
+    forecastAttentionPressure(globalSignalSummary, evidenceInput.attentionView, referenceTimeMs);
   const operatorPresence = evidenceInput.operatorPresence ?? "present";
 
   return createAttentionEvidenceContext({
@@ -113,8 +124,8 @@ export function resolveAttentionEvidenceContext(
     globalSignalSummary,
     pressureForecast,
     attentionBurden:
-      evidenceInput.attentionBurden
-      ?? deriveAttentionBurden(
+      evidenceInput.attentionBurden ??
+      deriveAttentionBurden(
         globalSignalSummary,
         pressureForecast,
         evidenceInput.globalAttentionState,
@@ -129,32 +140,32 @@ export function isAttentionEvidenceContext(
   input: AttentionEvidenceInput,
 ): input is AttentionEvidenceContext {
   return (
-    "currentFrame" in input
-    && "currentTaskView" in input
-    && "currentEpisode" in input
-    && "attentionView" in input
-    && "taskSignalSummary" in input
-    && "continuitySignalSummary" in input
-    && "globalSignalSummary" in input
-    && "taskAttentionState" in input
-    && "globalAttentionState" in input
-    && "pressureForecast" in input
-    && "attentionBurden" in input
-    && "surfaceCapabilities" in input
-    && "operatorPresence" in input
-    && input.currentFrame !== undefined
-    && input.currentTaskView !== undefined
-    && input.currentEpisode !== undefined
-    && input.attentionView !== undefined
-    && input.taskSignalSummary !== undefined
-    && input.continuitySignalSummary !== undefined
-    && input.globalSignalSummary !== undefined
-    && input.taskAttentionState !== undefined
-    && input.globalAttentionState !== undefined
-    && input.pressureForecast !== undefined
-    && input.attentionBurden !== undefined
-    && input.surfaceCapabilities !== undefined
-    && input.operatorPresence !== undefined
+    "currentFrame" in input &&
+    "currentTaskView" in input &&
+    "currentEpisode" in input &&
+    "attentionView" in input &&
+    "taskSignalSummary" in input &&
+    "continuitySignalSummary" in input &&
+    "globalSignalSummary" in input &&
+    "taskAttentionState" in input &&
+    "globalAttentionState" in input &&
+    "pressureForecast" in input &&
+    "attentionBurden" in input &&
+    "surfaceCapabilities" in input &&
+    "operatorPresence" in input &&
+    input.currentFrame !== undefined &&
+    input.currentTaskView !== undefined &&
+    input.currentEpisode !== undefined &&
+    input.attentionView !== undefined &&
+    input.taskSignalSummary !== undefined &&
+    input.continuitySignalSummary !== undefined &&
+    input.globalSignalSummary !== undefined &&
+    input.taskAttentionState !== undefined &&
+    input.globalAttentionState !== undefined &&
+    input.pressureForecast !== undefined &&
+    input.attentionBurden !== undefined &&
+    input.surfaceCapabilities !== undefined &&
+    input.operatorPresence !== undefined
   );
 }
 

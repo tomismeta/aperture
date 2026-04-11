@@ -119,8 +119,7 @@ function parseArgs(argv: string[]): Options {
         break;
       case "--help":
       case "-h":
-        printUsage();
-        process.exit(0);
+        return printUsageAndExit(printUsage);
       default:
         throw new Error(`Unknown option: ${arg}`);
     }
@@ -217,6 +216,11 @@ function emitResult(json: boolean, payload: Record<string, unknown>, lines: stri
     return;
   }
   process.stdout.write(`${lines.join("\n")}\n`);
+}
+
+function printUsageAndExit(renderUsage: () => void): never {
+  renderUsage();
+  process.exit(0);
 }
 
 main().catch((error) => {

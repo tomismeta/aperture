@@ -24,7 +24,10 @@ export type PolicyGateRuleEvaluation =
 
 export type PolicyGateRule = (input: PolicyGateRuleInput) => PolicyGateRuleEvaluation;
 
-export function noopPolicyGateRule(rule: string, rationale: string[] = []): PolicyGateRuleEvaluation {
+export function noopPolicyGateRule(
+  rule: string,
+  rationale: string[] = [],
+): PolicyGateRuleEvaluation {
   return {
     rule,
     kind: "noop",

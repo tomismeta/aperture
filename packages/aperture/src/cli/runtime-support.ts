@@ -9,6 +9,7 @@ import {
   type ApertureRuntimeSnapshot,
   type ApertureRuntimeSessionCapture,
 } from "@aperture/runtime";
+import { normalizeRuntimeUrls, resolveRuntimeAuthToken } from "@aperture/runtime/internal";
 import { runAttentionTui } from "@aperture/tui";
 
 import { apertureLearningWorkspaceRoot } from "../opencode-config.js";
@@ -25,9 +26,8 @@ export async function runRuntimeServer(args: string[]): Promise<void> {
   const controlHost = process.env.APERTURE_CONTROL_HOST ?? "127.0.0.1";
   const controlPort = readNumber(process.env.APERTURE_CONTROL_PORT) ?? 4546;
   const controlPathPrefix = process.env.APERTURE_CONTROL_PATH ?? "/runtime";
-  const learningBootstrap = learning === "on"
-    ? await bootstrapLearningPersistence(apertureLearningWorkspaceRoot())
-    : null;
+  const learningBootstrap =
+    learning === "on" ? await bootstrapLearningPersistence(apertureLearningWorkspaceRoot()) : null;
 
   const runtime = createApertureRuntime({
     kind: "aperture",
@@ -44,8 +44,11 @@ export async function runRuntimeServer(args: string[]): Promise<void> {
   const binding = await runtime.listen();
 
   stderr.write(`Aperture runtime listening at ${binding.controlUrl}\n`);
+  stderr.write(`Runtime auth token path: ${binding.tokenPath}\n`);
   stderr.write(`Learning persistence ${learning === "on" ? "enabled" : "disabled"}\n`);
-  stderr.write("Start adapters separately, for example: aperture internal claude-adapter or aperture internal opencode-adapter\n");
+  stderr.write(
+    "Start adapters separately, for example: aperture internal claude-adapter or aperture internal opencode-adapter\n",
+  );
   stderr.write("Open the TUI separately with: aperture internal tui\n");
 
   const close = async () => {
@@ -64,7 +67,10 @@ export async function runRuntimeServer(args: string[]): Promise<void> {
 }
 
 export async function runTui(): Promise<void> {
-  const baseUrl = await resolveRuntimeUrl("Aperture TUI", ["APERTURE_RUNTIME_URL", "APERTURE_CLAUDE_RUNTIME_URL"]);
+  const baseUrl = await resolveRuntimeUrl("Aperture TUI", [
+    "APERTURE_RUNTIME_URL",
+    "APERTURE_CLAUDE_RUNTIME_URL",
+  ]);
 
   const client = await ApertureRuntimeClient.connect({
     baseUrl,
@@ -90,19 +96,35 @@ export async function runTui(): Promise<void> {
   }
 }
 
-export async function fetchSessionCapture(runtimeUrl: string): Promise<ApertureRuntimeSessionCapture> {
-  const response = await fetch(`${runtimeUrl}/session`);
+export async function fetchSessionCapture(
+  runtimeUrl: string,
+): Promise<ApertureRuntimeSessionCapture> {
+  const { controlUrl } = normalizeRuntimeUrls(runtimeUrl);
+  const authToken = await resolveRuntimeAuthToken(controlUrl);
+  const response = await fetch(`${controlUrl}/session`, {
+    headers: {
+      Authorization: `Bearer ${authToken}`,
+    },
+  });
   if (!response.ok) {
-    throw new Error(`Failed to export runtime session capture from ${runtimeUrl} (${response.status})`);
+    throw new Error(
+      `Failed to export runtime session capture from ${controlUrl} (${response.status})`,
+    );
   }
 
   return response.json() as Promise<ApertureRuntimeSessionCapture>;
 }
 
 export async function fetchRuntimeSnapshot(runtimeUrl: string): Promise<ApertureRuntimeSnapshot> {
-  const response = await fetch(`${runtimeUrl}/state`);
+  const { controlUrl } = normalizeRuntimeUrls(runtimeUrl);
+  const authToken = await resolveRuntimeAuthToken(controlUrl);
+  const response = await fetch(`${controlUrl}/state`, {
+    headers: {
+      Authorization: `Bearer ${authToken}`,
+    },
+  });
   if (!response.ok) {
-    throw new Error(`Failed to fetch runtime state from ${runtimeUrl} (${response.status})`);
+    throw new Error(`Failed to fetch runtime state from ${controlUrl} (${response.status})`);
   }
 
   return response.json() as Promise<ApertureRuntimeSnapshot>;
@@ -135,7 +157,9 @@ export async function resolveRuntimeUrl(label: string, envVars: string[]): Promi
 
   const runtimes = await discoverLocalRuntimes({ kind: "aperture" });
   if (runtimes.length === 0) {
-    throw new Error(`No live Aperture runtime found. Start one with \`aperture\` or \`aperture internal runtime\` before launching ${label}.`);
+    throw new Error(
+      `No live Aperture runtime found. Start one with \`aperture\` or \`aperture internal runtime\` before launching ${label}.`,
+    );
   }
 
   if (runtimes.length > 1) {

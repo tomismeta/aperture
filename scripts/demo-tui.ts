@@ -4,7 +4,7 @@ import { mapClaudeCodeHookEvent } from "@aperture/claude-code";
 import type { OpencodeMappingContext, OpencodeSseMessage } from "@aperture/opencode";
 import { mapOpencodeEvent } from "@aperture/opencode";
 import { runAttentionTui } from "@aperture/tui";
-import { subscribeInternalTrace, type ApertureTrace } from "../packages/core/src/internal-contract.ts";
+import { subscribeInternalTrace, type ApertureTrace } from "@tomismeta/aperture-core/internal";
 
 type DemoOptions = {
   recording: boolean;

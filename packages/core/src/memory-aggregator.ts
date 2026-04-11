@@ -75,29 +75,35 @@ function toolFamilyMemory(
   signals: AttentionSignal[],
 ): NonNullable<MemoryProfile["toolFamilies"]> {
   const next = { ...(baseMemoryProfile.toolFamilies ?? {}) };
-  const session = new Map<string, {
-    presentations: number;
-    responses: number;
-    dismissals: number;
-    responseLatencyTotal: number;
-    responseLatencyCount: number;
-    dismissalLatencyTotal: number;
-    dismissalLatencyCount: number;
-    contextExpanded: number;
-    deferrals: number;
-    returns: number;
-  }>();
-  const interactions = new Map<string, {
-    toolFamily: string;
-    presented: boolean;
-    responded: boolean;
-    dismissed: boolean;
-    responseLatencyMs?: number;
-    dismissalLatencyMs?: number;
-    contextExpanded: boolean;
-    deferred: boolean;
-    returned: boolean;
-  }>();
+  const session = new Map<
+    string,
+    {
+      presentations: number;
+      responses: number;
+      dismissals: number;
+      responseLatencyTotal: number;
+      responseLatencyCount: number;
+      dismissalLatencyTotal: number;
+      dismissalLatencyCount: number;
+      contextExpanded: number;
+      deferrals: number;
+      returns: number;
+    }
+  >();
+  const interactions = new Map<
+    string,
+    {
+      toolFamily: string;
+      presented: boolean;
+      responded: boolean;
+      dismissed: boolean;
+      responseLatencyMs?: number;
+      dismissalLatencyMs?: number;
+      contextExpanded: boolean;
+      deferred: boolean;
+      returned: boolean;
+    }
+  >();
 
   for (const signal of signals) {
     const toolFamily = readSignalString(signal.metadata, "toolFamily");
@@ -200,15 +206,18 @@ function toolFamilyMemory(
     const presentations = previous.presentations + current.presentations;
     const responses = previous.responses + current.responses;
     const dismissals = previous.dismissals + current.dismissals;
-    const currentResponseAverage = current.responseLatencyCount > 0
-      ? current.responseLatencyTotal / current.responseLatencyCount
-      : undefined;
-    const currentDismissalAverage = current.dismissalLatencyCount > 0
-      ? current.dismissalLatencyTotal / current.dismissalLatencyCount
-      : undefined;
-    const previousContextExpanded = previous.contextExpansionRate !== undefined
-      ? previous.contextExpansionRate * previous.presentations
-      : 0;
+    const currentResponseAverage =
+      current.responseLatencyCount > 0
+        ? current.responseLatencyTotal / current.responseLatencyCount
+        : undefined;
+    const currentDismissalAverage =
+      current.dismissalLatencyCount > 0
+        ? current.dismissalLatencyTotal / current.dismissalLatencyCount
+        : undefined;
+    const previousContextExpanded =
+      previous.contextExpansionRate !== undefined
+        ? previous.contextExpansionRate * previous.presentations
+        : 0;
     const currentContextExpanded = current.contextExpanded;
     next[toolFamily] = {
       presentations,
@@ -240,7 +249,9 @@ function toolFamilyMemory(
           : {}),
       ...(presentations > 0
         ? {
-            contextExpansionRate: roundRate((previousContextExpanded + currentContextExpanded) / presentations),
+            contextExpansionRate: roundRate(
+              (previousContextExpanded + currentContextExpanded) / presentations,
+            ),
           }
         : previous.contextExpansionRate !== undefined
           ? { contextExpansionRate: previous.contextExpansionRate }
@@ -263,13 +274,16 @@ function sourceTrustMemory(
   signals: AttentionSignal[],
 ): NonNullable<MemoryProfile["sourceTrust"]> {
   const next = structuredClone(baseMemoryProfile.sourceTrust ?? {});
-  const interactions = new Map<string, {
-    source: string;
-    consequence: "low" | "medium" | "high";
-    responded: boolean;
-    rejected: boolean;
-    dismissed: boolean;
-  }>();
+  const interactions = new Map<
+    string,
+    {
+      source: string;
+      consequence: "low" | "medium" | "high";
+      responded: boolean;
+      rejected: boolean;
+      dismissed: boolean;
+    }
+  >();
 
   for (const signal of signals) {
     const source = readSignalString(signal.metadata, "sourceKey");
@@ -316,9 +330,12 @@ function sourceTrustMemory(
     }
 
     const total = current.confirmations + current.disagreements;
-    current.trustAdjustment = total > 0
-      ? Math.round((((current.confirmations - current.disagreements) / total) * 10) * Math.min(total / 5, 1))
-      : 0;
+    current.trustAdjustment =
+      total > 0
+        ? Math.round(
+            ((current.confirmations - current.disagreements) / total) * 10 * Math.min(total / 5, 1),
+          )
+        : 0;
 
     next[interaction.source] = {
       ...(next[interaction.source] ?? {}),
@@ -334,7 +351,10 @@ function consequenceMemory(
   signals: AttentionSignal[],
 ): NonNullable<MemoryProfile["consequenceProfiles"]> {
   const next = { ...(baseMemoryProfile.consequenceProfiles ?? {}) };
-  const interactions = new Map<string, { consequence: "low" | "medium" | "high"; rejected: boolean }>();
+  const interactions = new Map<
+    string,
+    { consequence: "low" | "medium" | "high"; rejected: boolean }
+  >();
 
   for (const signal of signals) {
     const consequence = readSignalString(signal.metadata, "consequence");
@@ -366,9 +386,13 @@ function consequenceMemory(
     const previous = next[consequence] ?? { rejectionRate: 0, reviewedCount: 0 };
     const reviewedCount = (previous.reviewedCount ?? 0) + current.reviewed;
     next[consequence] = {
-      rejectionRate: reviewedCount > 0
-        ? roundRate((((previous.reviewedCount ?? 0) * previous.rejectionRate) + current.rejected) / reviewedCount)
-        : 0,
+      rejectionRate:
+        reviewedCount > 0
+          ? roundRate(
+              ((previous.reviewedCount ?? 0) * previous.rejectionRate + current.rejected) /
+                reviewedCount,
+            )
+          : 0,
       reviewedCount,
     };
   }
@@ -376,7 +400,10 @@ function consequenceMemory(
   return next;
 }
 
-function readSignalString(metadata: Record<string, unknown> | undefined, key: string): string | null {
+function readSignalString(
+  metadata: Record<string, unknown> | undefined,
+  key: string,
+): string | null {
   const value = metadata?.[key];
   return typeof value === "string" && value.length > 0 ? value : null;
 }

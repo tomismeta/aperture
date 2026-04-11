@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  enrichApertureEvent,
-  normalizeSourceEvent,
-} from "../src/semantic-normalizer.js";
+import { enrichApertureEvent, normalizeSourceEvent } from "../src/semantic-normalizer.js";
 
 const timestamp = "2026-04-05T22:00:00.000Z";
 
@@ -35,10 +32,7 @@ test("source normalization and direct enrichment share human-input semantic defa
     consequence: "low" as const,
   };
 
-  assert.deepEqual(
-    enrichApertureEvent(directEvent),
-    normalizeSourceEvent(sourceEvent),
-  );
+  assert.deepEqual(enrichApertureEvent(directEvent), normalizeSourceEvent(sourceEvent));
 });
 
 test("source normalization and direct enrichment share task-update semantic defaults", () => {
@@ -64,8 +58,5 @@ test("source normalization and direct enrichment share task-update semantic defa
     status: sourceEvent.status,
   };
 
-  assert.deepEqual(
-    enrichApertureEvent(directEvent),
-    normalizeSourceEvent(sourceEvent),
-  );
+  assert.deepEqual(enrichApertureEvent(directEvent), normalizeSourceEvent(sourceEvent));
 });

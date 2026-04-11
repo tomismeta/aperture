@@ -7,7 +7,6 @@ import {
   mapCodexHookEvent,
   mapCodexHookResponse,
   parseCodexHookEvent,
-  type CodexHookEvent,
   type CodexHookMappingContext,
   type CodexHookResponse,
   type CodexPreToolUseHookEvent,

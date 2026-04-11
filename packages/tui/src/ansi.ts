@@ -1,4 +1,3 @@
-import type { AttentionFrame as Frame } from "@tomismeta/aperture-core";
 import type { Posture } from "./types.js";
 
 /**

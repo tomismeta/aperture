@@ -52,15 +52,21 @@ test("trace recorder captures explanatory-only tool family on question paths", (
 
   assert.equal(trace.eventTransition.kind, "source_normalized");
   assert.equal(
-    trace.eventTransition.changedFields.some((field) => field.path === "semantic.toolFamily" && field.after === "read"),
+    trace.eventTransition.changedFields.some(
+      (field) => field.path === "semantic.toolFamily" && field.after === "read",
+    ),
     true,
   );
   assert.equal(
-    trace.candidateTransition.changedFields.some((field) => field.path === "episodeState" && field.after === "actionable"),
+    trace.candidateTransition.changedFields.some(
+      (field) => field.path === "episodeState" && field.after === "actionable",
+    ),
     true,
   );
   assert.equal(
-    trace.frameTransition.changedFields.some((field) => field.path === "responseSpec.kind" && field.after === "choice"),
+    trace.frameTransition.changedFields.some(
+      (field) => field.path === "responseSpec.kind" && field.after === "choice",
+    ),
     true,
   );
   assert.equal(trace.semantic?.toolFamily, "read");
@@ -74,7 +80,9 @@ test("trace recorder captures explanatory-only tool family on question paths", (
     confidence: "low",
     source: "explicit",
   });
-  assert.ok(trace.semantic?.influence.includes("tool family stayed context-only on the question/form path"));
+  assert.ok(
+    trace.semantic?.influence.includes("tool family stayed context-only on the question/form path"),
+  );
   assert.equal(trace.semantic?.provenance?.toolFamily, "source");
   assert.deepEqual(trace.semantic?.impact, {
     routingAuthority: "request",
@@ -132,7 +140,9 @@ test("trace recorder captures explanatory-only tool family on form paths", () =>
     confidence: "low",
     source: "explicit",
   });
-  assert.ok(trace.semantic?.influence.includes("tool family stayed context-only on the question/form path"));
+  assert.ok(
+    trace.semantic?.influence.includes("tool family stayed context-only on the question/form path"),
+  );
   assert.equal(trace.semantic?.provenance?.toolFamily, "source");
   assert.deepEqual(trace.semantic?.impact, {
     routingAuthority: "request",
@@ -436,8 +446,13 @@ test("trace recorder classifies canonical activity and continuity hints on human
   }
 
   assert.equal(trace.semantic?.activityClass, "question_request");
-  assert.deepEqual(trace.semantic?.relationHints.map((hint) => hint.kind), ["same_issue", "repeats"]);
-  assert.ok(trace.semantic?.influence.includes("activity class was projected into the canonical request"));
+  assert.deepEqual(
+    trace.semantic?.relationHints.map((hint) => hint.kind),
+    ["same_issue", "repeats"],
+  );
+  assert.ok(
+    trace.semantic?.influence.includes("activity class was projected into the canonical request"),
+  );
   assert.ok(trace.semantic?.influence.includes("relation hints informed continuity handling"));
   assert.deepEqual(trace.semantic?.impact, {
     routingAuthority: "request",

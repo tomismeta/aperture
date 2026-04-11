@@ -1,4 +1,4 @@
-import type { AttentionFrame, AttentionView } from "./frame.js";
+import type { AttentionFrame } from "./frame.js";
 
 import type { AttentionDecisionAmbiguity } from "./attention-ambiguity.js";
 import type { AttentionBurden } from "./attention-burden.js";
@@ -21,8 +21,6 @@ import type { PolicyGateRuleEvaluation } from "./policy/policy-gate-rule.js";
 import type { AttentionPressure } from "./attention-pressure.js";
 import { AttentionPlanner } from "./attention-planner.js";
 import type { ContinuityRuleEvaluation } from "./continuity/continuity-rule.js";
-import type { AttentionSignalSummary } from "./signal-summary.js";
-import type { AttentionSurfaceCapabilities } from "./surface-capabilities.js";
 import { AttentionValue, type AttentionValueBreakdown } from "./attention-value.js";
 import type { AmbiguityDefaults } from "./judgment-config.js";
 
@@ -133,16 +131,11 @@ export class JudgmentCoordinator {
       evidence,
       utility.total,
       currentScore,
-      this.ambiguityDefaults !== undefined
-        ? { ambiguityDefaults: this.ambiguityDefaults }
-        : {},
+      this.ambiguityDefaults !== undefined ? { ambiguityDefaults: this.ambiguityDefaults } : {},
     );
     const criterion = criterionExplanation.verdict;
     if (criterion.peripheralResolution) {
-      const reasons = [
-        ...policy.rationale,
-        ...criterion.rationale,
-      ];
+      const reasons = [...policy.rationale, ...criterion.rationale];
       return {
         decision: {
           kind: criterion.peripheralResolution,

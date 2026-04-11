@@ -5,15 +5,14 @@ import {
   bootstrapLearningPersistence,
   createApertureRuntime,
   type LearningMode,
-} from "../packages/runtime/src/index.ts";
+} from "@aperture/runtime";
 
 async function main(): Promise<void> {
   const learning = readLearningMode(process.argv.slice(2));
   const controlHost = process.env.APERTURE_CONTROL_HOST ?? "127.0.0.1";
   const controlPort = readNumber(process.env.APERTURE_CONTROL_PORT) ?? 4546;
   const controlPathPrefix = process.env.APERTURE_CONTROL_PATH ?? "/runtime";
-  const learningBootstrap =
-    learning === "on" ? await bootstrapLearningPersistence(cwd()) : null;
+  const learningBootstrap = learning === "on" ? await bootstrapLearningPersistence(cwd()) : null;
 
   const runtime = createApertureRuntime({
     kind: "aperture",
@@ -31,7 +30,9 @@ async function main(): Promise<void> {
 
   stderr.write(`Aperture runtime listening at ${binding.controlUrl}\n`);
   stderr.write(`Learning persistence ${learning === "on" ? "enabled" : "disabled"}\n`);
-  stderr.write("Start adapters separately, for example: pnpm claude:start or pnpm opencode:start\n");
+  stderr.write(
+    "Start adapters separately, for example: pnpm claude:start or pnpm opencode:start\n",
+  );
   stderr.write("Open the TUI separately with: pnpm tui\n");
 
   const close = async () => {

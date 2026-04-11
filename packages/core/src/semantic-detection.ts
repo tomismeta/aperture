@@ -57,7 +57,10 @@ export type SemanticBlockingSignal = "blocking" | "waiting";
 // command tokens, and constant-like log terms survive normalization as stable
 // anchors instead of being rewritten into natural-language phrases.
 export function normalizeSemanticText(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9/._-]+/g, " ").trim();
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9/._-]+/g, " ")
+    .trim();
 }
 
 export function dedupeSemanticStrings(values: string[]): string[] {
@@ -66,9 +69,9 @@ export function dedupeSemanticStrings(values: string[]): string[] {
 
 export function readExplicitSemanticToolFamily(input: SemanticDetectionInput): string | null {
   return (
-    normalizeToolFamily(input.toolFamily)
-    ?? normalizeToolFamily(readMetadataToolFamily(input.metadata))
-    ?? normalizeToolFamily(readContextToolFamily(input.context))
+    normalizeToolFamily(input.toolFamily) ??
+    normalizeToolFamily(readMetadataToolFamily(input.metadata)) ??
+    normalizeToolFamily(readContextToolFamily(input.context))
   );
 }
 
@@ -79,7 +82,13 @@ export function inferSemanticToolFamily(input: SemanticDetectionInput): string |
   }
 
   const value = normalizeSemanticText(`${input.title} ${input.summary ?? ""}`);
-  if (hasPhrase(value, "wants to read") || hasPhrase(value, "wants to inspect") || hasWord(value, "read") || hasWord(value, "inspect")) return "read";
+  if (
+    hasPhrase(value, "wants to read") ||
+    hasPhrase(value, "wants to inspect") ||
+    hasWord(value, "read") ||
+    hasWord(value, "inspect")
+  )
+    return "read";
   if (hasPhrase(value, "wants to write") || hasWord(value, "write")) return "write";
   if (hasPhrase(value, "wants to edit") || hasWord(value, "edit")) return "edit";
   if (hasPhrase(value, "shell command") || hasPhrase(value, "wants to run")) return "bash";
@@ -114,17 +123,22 @@ export function detectSemanticBlockingSignal(text: string): SemanticBlockingSign
 
 export function detectSemanticRelationHints(text: string): SemanticRelationHint[] {
   const hints: SemanticRelationHint[] = [];
-  const hasRepeatSignal = containsAnySemanticPhrase(text, REPEAT_PHRASES)
-    && !containsAnySemanticPhrase(text, NEGATED_REPEAT_PHRASES);
-  const hasDirectResolveSignal = containsAnySemanticPhrase(text, DIRECT_RESOLVE_PHRASES)
-    && !containsAnySemanticPhrase(text, NEGATED_RESOLVE_PHRASES);
-  const hasContextualResolveSignal = containsAnySemanticPhrase(text, CONTEXTUAL_RESOLVE_PHRASES)
-    && !containsAnySemanticPhrase(text, NEGATED_RESOLVE_PHRASES);
-  const hasEscalateSignal = containsAnySemanticPhrase(text, ESCALATE_PHRASES)
-    && !containsAnySemanticPhrase(text, NEGATED_ESCALATE_PHRASES);
-  const hasIssueSignal = containsAnySemanticPhrase(text, ISSUE_SIGNAL_PHRASES)
-    || containsAnySemanticPhrase(text, SUPERSEDE_PHRASES)
-    || hasEscalateSignal;
+  const hasRepeatSignal =
+    containsAnySemanticPhrase(text, REPEAT_PHRASES) &&
+    !containsAnySemanticPhrase(text, NEGATED_REPEAT_PHRASES);
+  const hasDirectResolveSignal =
+    containsAnySemanticPhrase(text, DIRECT_RESOLVE_PHRASES) &&
+    !containsAnySemanticPhrase(text, NEGATED_RESOLVE_PHRASES);
+  const hasContextualResolveSignal =
+    containsAnySemanticPhrase(text, CONTEXTUAL_RESOLVE_PHRASES) &&
+    !containsAnySemanticPhrase(text, NEGATED_RESOLVE_PHRASES);
+  const hasEscalateSignal =
+    containsAnySemanticPhrase(text, ESCALATE_PHRASES) &&
+    !containsAnySemanticPhrase(text, NEGATED_ESCALATE_PHRASES);
+  const hasIssueSignal =
+    containsAnySemanticPhrase(text, ISSUE_SIGNAL_PHRASES) ||
+    containsAnySemanticPhrase(text, SUPERSEDE_PHRASES) ||
+    hasEscalateSignal;
 
   if (hasRepeatSignal && hasIssueSignal) {
     hints.push({ kind: "same_issue" }, { kind: "repeats" });
@@ -171,17 +185,16 @@ export function inferConsequenceFromSemanticText(
   return fallback;
 }
 
-export function detectObservationalFailureStatus(
-  text: string,
-  toolFamily?: string,
-): boolean {
+export function detectObservationalFailureStatus(text: string, toolFamily?: string): boolean {
   if (toolFamily !== "edit" && toolFamily !== "read") {
     return false;
   }
 
-  return containsAnySemanticPhrase(text, OBSERVATIONAL_READBACK_PHRASES)
-    || looksLikeTaggedFileObservation(text)
-    || looksLikeReadObservationPayload(text);
+  return (
+    containsAnySemanticPhrase(text, OBSERVATIONAL_READBACK_PHRASES) ||
+    looksLikeTaggedFileObservation(text) ||
+    looksLikeReadObservationPayload(text)
+  );
 }
 
 export function detectRoutineObservationalFailureLowConsequence(
@@ -211,16 +224,15 @@ export function detectRoutineObservationalFailureLowConsequence(
   return false;
 }
 
-export function detectExpectedDiagnosticFailure(
-  text: string,
-  toolFamily?: string,
-): boolean {
+export function detectExpectedDiagnosticFailure(text: string, toolFamily?: string): boolean {
   if (toolFamily !== "bash") {
     return false;
   }
 
-  return containsAnySemanticPhrase(text, EXPECTED_DIAGNOSTIC_FAILURE_PHRASES)
-    && !containsAnySemanticPhrase(text, TERMINAL_FAILURE_PHRASES);
+  return (
+    containsAnySemanticPhrase(text, EXPECTED_DIAGNOSTIC_FAILURE_PHRASES) &&
+    !containsAnySemanticPhrase(text, TERMINAL_FAILURE_PHRASES)
+  );
 }
 
 export function containsAnySemanticPhrase(value: string, phrases: readonly string[]): boolean {
@@ -253,19 +265,24 @@ function looksLikeReadObservationPayload(text: string): boolean {
     return false;
   }
 
-  return containsAnySemanticPhrase(text, OBSERVATIONAL_PAYLOAD_PHRASES)
-    || containsCodeLikeContent(text)
-    || containsLineNumberedCodeContent(text);
+  return (
+    containsAnySemanticPhrase(text, OBSERVATIONAL_PAYLOAD_PHRASES) ||
+    containsCodeLikeContent(text) ||
+    containsLineNumberedCodeContent(text)
+  );
 }
 
 function looksLikeTaggedFileObservation(text: string): boolean {
-  return containsAnySemanticPhrase(text, TAGGED_FILE_OBSERVATION_PHRASES)
-    && containsPathLikeToken(text);
+  return (
+    containsAnySemanticPhrase(text, TAGGED_FILE_OBSERVATION_PHRASES) && containsPathLikeToken(text)
+  );
 }
 
 function looksLikeSearchResultOutput(text: string): boolean {
-  return SEARCH_RESULT_OUTPUT_PATTERN.test(text)
-    || (containsPathLikeToken(text) && /\bmatch(?:es)?\b/.test(text));
+  return (
+    SEARCH_RESULT_OUTPUT_PATTERN.test(text) ||
+    (containsPathLikeToken(text) && /\bmatch(?:es)?\b/.test(text))
+  );
 }
 
 function containsPathLikeToken(text: string): boolean {
@@ -281,20 +298,24 @@ function containsLineNumberedCodeContent(text: string): boolean {
 }
 
 function looksLikeSourceCodeObservation(text: string): boolean {
-  return SOURCE_CODE_PATH_PATTERN.test(text)
-    || SOURCE_CODE_FILENAME_PATTERN.test(text)
-    || SOURCE_CODE_CONTENT_PATTERN.test(text)
-    || LINE_NUMBERED_SOURCE_CODE_PATTERN.test(text);
+  return (
+    SOURCE_CODE_PATH_PATTERN.test(text) ||
+    SOURCE_CODE_FILENAME_PATTERN.test(text) ||
+    SOURCE_CODE_CONTENT_PATTERN.test(text) ||
+    LINE_NUMBERED_SOURCE_CODE_PATTERN.test(text)
+  );
 }
 
 function looksLikeLogObservation(text: string): boolean {
-  return LOG_OUTPUT_PATTERN.test(text)
-    || containsAnySemanticPhrase(text, LOG_LIKE_OBSERVATION_PHRASES);
+  return (
+    LOG_OUTPUT_PATTERN.test(text) || containsAnySemanticPhrase(text, LOG_LIKE_OBSERVATION_PHRASES)
+  );
 }
 
 function looksLikeBuildMetadataObservation(text: string): boolean {
-  return BUILD_METADATA_PATTERN.test(text)
-    || containsAnySemanticPhrase(text, BUILD_METADATA_PHRASES);
+  return (
+    BUILD_METADATA_PATTERN.test(text) || containsAnySemanticPhrase(text, BUILD_METADATA_PHRASES)
+  );
 }
 
 function readMetadataToolFamily(metadata?: Record<string, unknown>): string | null {
@@ -333,7 +354,9 @@ function hasPhrase(value: string, phrase: string): boolean {
     return false;
   }
 
-  return new RegExp(`(?:^|[^a-z0-9_])${escapeRegExp(normalizedPhrase)}(?:$|[^a-z0-9_])`).test(value);
+  return new RegExp(`(?:^|[^a-z0-9_])${escapeRegExp(normalizedPhrase)}(?:$|[^a-z0-9_])`).test(
+    value,
+  );
 }
 
 function hasWord(value: string, word: string): boolean {

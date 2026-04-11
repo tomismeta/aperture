@@ -13,9 +13,7 @@ export type PublishTraceSnapshotInput = {
   attentionView: AttentionView;
 };
 
-export function buildPublishTraceSnapshot(
-  input: PublishTraceSnapshotInput,
-): TraceSnapshot {
+export function buildPublishTraceSnapshot(input: PublishTraceSnapshotInput): TraceSnapshot {
   const { timestamp, event, eventTransition, evidence, taskView, attentionView } = input;
 
   return {

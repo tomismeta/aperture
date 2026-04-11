@@ -163,7 +163,8 @@ test("negated regression wording does not invent escalating relation hints", () 
     timestamp,
     source: source("custom-agent"),
     title: "Deploy issue did not regress",
-    summary: "The production deploy issue did not regress after the fix and shows no regression now.",
+    summary:
+      "The production deploy issue did not regress after the fix and shows no regression now.",
     status: "running",
   });
 

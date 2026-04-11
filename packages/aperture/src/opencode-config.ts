@@ -1,6 +1,6 @@
 import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, resolve } from "node:path";
+import { dirname, resolve as pathResolve } from "node:path";
 import { stderr, stdin } from "node:process";
 
 export type OpencodeConnectionProfile = {
@@ -27,10 +27,10 @@ type OpencodeConnectionConfig = {
   profiles: OpencodeConnectionProfile[];
 };
 
-const APERTURE_HOME_DIR = resolve(homedir(), ".aperture");
-const GLOBAL_CONFIG_PATH = resolve(APERTURE_HOME_DIR, "opencode.json");
-const CAPTURES_DIR = resolve(APERTURE_HOME_DIR, "captures");
-const LEARNING_WORKSPACE_ROOT = resolve(APERTURE_HOME_DIR, "workspace");
+const APERTURE_HOME_DIR = pathResolve(homedir(), ".aperture");
+const GLOBAL_CONFIG_PATH = pathResolve(APERTURE_HOME_DIR, "opencode.json");
+const CAPTURES_DIR = pathResolve(APERTURE_HOME_DIR, "captures");
+const LEARNING_WORKSPACE_ROOT = pathResolve(APERTURE_HOME_DIR, "workspace");
 
 export function apertureHomeDir(): string {
   return APERTURE_HOME_DIR;

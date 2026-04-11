@@ -2,7 +2,6 @@ import type {
   Frame,
   FrameField,
   FrameResponse,
-  FrameResponseSpec,
   AttentionSurface,
   TuiState,
   FormDraft,

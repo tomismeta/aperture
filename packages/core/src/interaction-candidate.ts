@@ -1,5 +1,4 @@
 import type {
-  AttentionAction,
   AttentionContext,
   AttentionFrame,
   AttentionProvenance,

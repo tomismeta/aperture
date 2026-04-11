@@ -1,6 +1,5 @@
 import type {
   ApertureCore,
-  AttentionFrame,
   AttentionResponse,
   AttentionSignal,
   AttentionSurfaceCapabilities,
@@ -11,7 +10,7 @@ import type {
   ApertureTrace,
   AttentionSignalSummary,
   AttentionState,
-} from "../../core/src/internal-contract.js";
+} from "@tomismeta/aperture-core/internal";
 
 import type { LearningPersistenceState } from "./learning-persistence.js";
 
@@ -21,8 +20,12 @@ export type ApertureRuntimeOptions = {
   controlPathPrefix?: string;
   controlPort?: number;
   eventLogLimit?: number;
+  captureLogLimit?: number;
   adapterTtlMs?: number;
   surfaceTtlMs?: number;
+  workResponseMaxEntries?: number;
+  workResponsePendingTtlMs?: number;
+  workResponseRetentionMs?: number;
   metadata?: Record<string, string>;
   core?: ApertureCore;
   learningPersistence?: LearningPersistenceState;
@@ -127,6 +130,8 @@ export type ApertureRuntime = {
     runtimeId: string;
     kind: string;
     surfaceTtlMs: number;
+    authToken: string;
+    tokenPath: string;
   }>;
   close(): Promise<void>;
   getCore(): ApertureCore;
@@ -146,6 +151,7 @@ export type WorkReceiptItem = {
   status?: string;
   interactionId?: string;
   responsePath?: string;
+  responseUrl?: string;
 };
 
 export type WorkReceiptNextStep = {
@@ -156,29 +162,44 @@ export type WorkReceiptNextStep = {
 
 export type WorkReceipt = {
   ok: true;
+  apiVersion: string;
   accepted: number;
   receivedAs: WorkReceiptMode;
   message: string;
   published: WorkReceiptItem[];
+  retention?: {
+    pendingTtlMs: number;
+    terminalRetentionMs: number;
+    capacity: number;
+  };
   next?: WorkReceiptNextStep[];
 };
 
-export type WorkResponseState = "pending" | "answered";
+export type WorkResponseState = "pending" | "answered" | "expired" | "cancelled";
 
 export type WorkResponse = {
   ok: true;
+  apiVersion: string;
   taskId: string;
   interactionId: string;
   state: WorkResponseState;
   message: string;
   response?: AttentionResponse["response"];
   answeredAt?: string;
+  expiresAt?: string;
+  cancelledAt?: string;
+  retentionExpiresAt?: string;
 };
 
 export type RuntimeWorkResponseRecord = {
   taskId: string;
   interactionId: string;
   state: WorkResponseState;
+  createdAt: string;
+  updatedAt: string;
   response?: AttentionResponse["response"];
   answeredAt?: string;
+  expiresAt?: string;
+  cancelledAt?: string;
+  retentionExpiresAt?: string;
 };

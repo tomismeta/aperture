@@ -1,6 +1,10 @@
 import { priorityForFrame } from "../frame-score.js";
 import { JUDGMENT_DEFAULTS } from "../judgment-defaults.js";
-import { noopContinuityRule, overrideContinuityRule, type ContinuityRule } from "./continuity-rule.js";
+import {
+  noopContinuityRule,
+  overrideContinuityRule,
+  type ContinuityRule,
+} from "./continuity-rule.js";
 
 const INTERRUPT_CLASS = {
   STATUS_ONLY: 0,
@@ -19,8 +23,8 @@ export const evaluateConflictingInterruptContinuityRule: ContinuityRule = (input
   const currentInterruptClass = interruptClassForFrame(activeFrame);
   const candidateInterruptClass = interruptClassForCandidate(candidate, context.policyVerdict);
   if (
-    currentInterruptClass === INTERRUPT_CLASS.STATUS_ONLY
-    || candidateInterruptClass === INTERRUPT_CLASS.STATUS_ONLY
+    currentInterruptClass === INTERRUPT_CLASS.STATUS_ONLY ||
+    candidateInterruptClass === INTERRUPT_CLASS.STATUS_ONLY
   ) {
     return noopContinuityRule("conflicting_interrupt");
   }
@@ -40,8 +44,8 @@ export const evaluateConflictingInterruptContinuityRule: ContinuityRule = (input
   }
 
   const conflictingInterruptMargin =
-    plannerDefaults?.conflictingInterruptMargin
-    ?? JUDGMENT_DEFAULTS.queuePlanner.conflictingInterruptMargin;
+    plannerDefaults?.conflictingInterruptMargin ??
+    JUDGMENT_DEFAULTS.queuePlanner.conflictingInterruptMargin;
   if (conflictingInterruptMargin <= 0) {
     return noopContinuityRule("conflicting_interrupt");
   }
@@ -55,7 +59,9 @@ export const evaluateConflictingInterruptContinuityRule: ContinuityRule = (input
     helpers.peripheralDecision(candidate, context.policyVerdict, evidence.surfaceCapabilities),
     priorityForFrame(activeFrame),
     context.currentScore,
-    ["equally interruptive work needs a clear advantage before it can replace the current interrupt"],
+    [
+      "equally interruptive work needs a clear advantage before it can replace the current interrupt",
+    ],
   );
 };
 
@@ -93,7 +99,11 @@ function interruptClassForCandidate(
     minimumLane: "ambient" | "next" | "now";
   },
 ): number {
-  if (candidate.blocking || policyVerdict.requiresOperatorResponse || policyVerdict.minimumLane === "now") {
+  if (
+    candidate.blocking ||
+    policyVerdict.requiresOperatorResponse ||
+    policyVerdict.minimumLane === "now"
+  ) {
     return INTERRUPT_CLASS.BLOCKING_OR_REQUIRED;
   }
 

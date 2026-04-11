@@ -1,7 +1,7 @@
 import { stderr } from "node:process";
 
 import type { CodexAppServerClientOptions } from "../packages/codex/src/index.ts";
-import { discoverLocalRuntimes } from "../packages/runtime/src/index.ts";
+import { discoverLocalRuntimes } from "@aperture/runtime";
 
 export type ResolvedCodexAppServerOptions = {
   clientOptions: CodexAppServerClientOptions;

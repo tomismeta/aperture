@@ -57,8 +57,14 @@ test("task.updated keeps status routing authoritative even when semantic fields 
   assert.equal(result.candidate.tone, "ambient");
   assert.equal(result.candidate.consequence, "low");
   assert.equal(result.candidate.responseSpec.kind, "none");
-  assert.deepEqual(result.candidate.relationHints?.map((hint) => hint.kind), ["same_issue", "repeats"]);
-  assert.equal(result.candidate.provenance?.whyNow, "Semantic layer thinks this resembles an approval checkpoint.");
+  assert.deepEqual(
+    result.candidate.relationHints?.map((hint) => hint.kind),
+    ["same_issue", "repeats"],
+  );
+  assert.equal(
+    result.candidate.provenance?.whyNow,
+    "Semantic layer thinks this resembles an approval checkpoint.",
+  );
 });
 
 test("explanation-only semantic fields do not change task.updated routing", () => {
@@ -169,7 +175,10 @@ test("relation hints stay continuity-bearing without changing status routing sha
   }
 
   assert.deepEqual(candidateShape(related.candidate), candidateShape(baseline.candidate));
-  assert.deepEqual(related.candidate.relationHints?.map((hint) => hint.kind), ["same_issue", "repeats"]);
+  assert.deepEqual(
+    related.candidate.relationHints?.map((hint) => hint.kind),
+    ["same_issue", "repeats"],
+  );
 });
 
 test("semantic abstention stays ambiguity-bearing without changing task.updated routing shape", () => {
@@ -247,7 +256,10 @@ test("tool family remains decision-bearing on approvals but explanatory on choic
 
   assert.equal(approvalBaseline.type, "human.input.requested");
   assert.equal(approvalRead.type, "human.input.requested");
-  if (approvalBaseline.type !== "human.input.requested" || approvalRead.type !== "human.input.requested") {
+  if (
+    approvalBaseline.type !== "human.input.requested" ||
+    approvalRead.type !== "human.input.requested"
+  ) {
     return;
   }
 
@@ -286,7 +298,10 @@ test("tool family remains decision-bearing on approvals but explanatory on choic
 
   assert.equal(choiceBaseline.type, "human.input.requested");
   assert.equal(choiceRead.type, "human.input.requested");
-  if (choiceBaseline.type !== "human.input.requested" || choiceRead.type !== "human.input.requested") {
+  if (
+    choiceBaseline.type !== "human.input.requested" ||
+    choiceRead.type !== "human.input.requested"
+  ) {
     return;
   }
 
@@ -301,7 +316,10 @@ test("tool family remains decision-bearing on approvals but explanatory on choic
     return;
   }
 
-  assert.deepEqual(candidateShape(evaluatedRead.candidate), candidateShape(evaluatedBaseline.candidate));
+  assert.deepEqual(
+    candidateShape(evaluatedRead.candidate),
+    candidateShape(evaluatedBaseline.candidate),
+  );
   assert.equal(evaluatedRead.candidate.toolFamily, undefined);
 });
 

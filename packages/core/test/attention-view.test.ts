@@ -147,10 +147,9 @@ test("global overload keeps medium ambient status out of focus", () => {
     title: "Blocked follow-up",
   });
 
-  const attentionView = buildAttentionView(
-    [createTaskView({ now: blocked })],
-    { globalAttentionState: "overloaded" satisfies AttentionState },
-  );
+  const attentionView = buildAttentionView([createTaskView({ now: blocked })], {
+    globalAttentionState: "overloaded" satisfies AttentionState,
+  });
 
   assert.equal(attentionView.now, null);
   assert.equal(attentionView.ambient[0]?.interactionId, "interaction:blocked");
@@ -172,10 +171,9 @@ test("global overload still allows critical ambient status to take focus", () =>
     },
   });
 
-  const attentionView = buildAttentionView(
-    [createTaskView({ now: failed })],
-    { globalAttentionState: "overloaded" satisfies AttentionState },
-  );
+  const attentionView = buildAttentionView([createTaskView({ now: failed })], {
+    globalAttentionState: "overloaded" satisfies AttentionState,
+  });
 
   assert.equal(attentionView.now?.interactionId, "interaction:failed");
 });
@@ -226,13 +224,10 @@ test("aging does not suppress recent critical work during overload", () => {
     },
   });
 
-  const attentionView = buildAttentionView(
-    [createTaskView({ now: failed })],
-    {
-      globalAttentionState: "overloaded" satisfies AttentionState,
-      now: "2026-03-09T12:30:00.000Z",
-    },
-  );
+  const attentionView = buildAttentionView([createTaskView({ now: failed })], {
+    globalAttentionState: "overloaded" satisfies AttentionState,
+    now: "2026-03-09T12:30:00.000Z",
+  });
 
   assert.equal(attentionView.now?.interactionId, "interaction:recent-failed");
 });

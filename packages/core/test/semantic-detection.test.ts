@@ -29,17 +29,13 @@ test("risk phrase matching does not overread product-like words as prod risk", (
 });
 
 test("risk phrase matching still reads exact prod tokens as high consequence", () => {
-  const text = normalizeSemanticText(
-    "Approve the prod deploy before continuing.",
-  );
+  const text = normalizeSemanticText("Approve the prod deploy before continuing.");
 
   assert.equal(inferConsequenceFromSemanticText(text, "low"), "high");
 });
 
 test("blocking phrase detection survives normalization of apostrophes", () => {
-  const text = normalizeSemanticText(
-    "Work can't continue until credentials are provided.",
-  );
+  const text = normalizeSemanticText("Work can't continue until credentials are provided.");
 
   assert.equal(detectSemanticBlockingSignal(text), "blocking");
 });
@@ -61,9 +57,7 @@ test("blocking phrase detection does not overread constant-like log tokens", () 
 });
 
 test("semantic pattern families keep repeat and contextual resolve phrases distinct", () => {
-  const overlap = REPEAT_PHRASES.filter((phrase) =>
-    CONTEXTUAL_RESOLVE_PHRASES.includes(phrase),
-  );
+  const overlap = REPEAT_PHRASES.filter((phrase) => CONTEXTUAL_RESOLVE_PHRASES.includes(phrase));
 
   assert.deepEqual(overlap, []);
   assert.ok(HIGH_RISK_PHRASES.includes("prod"));
@@ -125,7 +119,10 @@ test("routine observational failure stays low consequence for log-like reads but
   );
 
   assert.equal(detectRoutineObservationalFailureLowConsequence(logObservation, "read"), true);
-  assert.equal(detectRoutineObservationalFailureLowConsequence(sourceCodeObservation, "read"), false);
+  assert.equal(
+    detectRoutineObservationalFailureLowConsequence(sourceCodeObservation, "read"),
+    false,
+  );
 });
 
 test("expected diagnostic failure detection excludes terminal-style failures", () => {
@@ -152,12 +149,8 @@ test("relation detection recognizes repeating escalations with issue language", 
 });
 
 test("contextual resolve wording only resolves when issue context is present", () => {
-  const withIssueContext = normalizeSemanticText(
-    "The production outage recovered after rollback.",
-  );
-  const withoutIssueContext = normalizeSemanticText(
-    "Completed successfully after cleanup.",
-  );
+  const withIssueContext = normalizeSemanticText("The production outage recovered after rollback.");
+  const withoutIssueContext = normalizeSemanticText("Completed successfully after cleanup.");
 
   assert.deepEqual(
     detectSemanticRelationHints(withIssueContext).map((hint) => hint.kind),

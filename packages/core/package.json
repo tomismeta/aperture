@@ -45,6 +45,10 @@
       "types": "./public-dist/index.d.ts",
       "default": "./public-dist/index.js"
     },
+    "./internal": {
+      "types": "./public-dist/internal.d.ts",
+      "default": "./public-dist/internal.js"
+    },
     "./semantic": {
       "types": "./public-dist/semantic.d.ts",
       "default": "./public-dist/semantic.js"

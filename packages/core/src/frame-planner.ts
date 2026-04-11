@@ -15,30 +15,28 @@ export class FramePlanner {
     };
     const currentEpisode = current?.metadata?.episode;
     const toolFamily =
-      candidate.toolFamily
-      ?? (typeof current?.metadata?.toolFamily === "string" ? current.metadata.toolFamily : undefined);
-    const nextEpisode =
-      candidate.episodeId
-        ? {
-            ...(currentEpisode && typeof currentEpisode === "object" ? currentEpisode : {}),
-            id: candidate.episodeId,
-            key: candidate.episodeKey,
-            state: candidate.episodeState,
-            size: candidate.episodeSize ?? 1,
-            evidenceScore: candidate.episodeEvidenceScore ?? 0,
-            evidenceReasons: candidate.episodeEvidenceReasons ?? [],
-            lastInteractionId: candidate.interactionId,
-            updatedAt: candidate.timestamp,
-          }
-        : currentEpisode;
+      candidate.toolFamily ??
+      (typeof current?.metadata?.toolFamily === "string" ? current.metadata.toolFamily : undefined);
+    const nextEpisode = candidate.episodeId
+      ? {
+          ...(currentEpisode && typeof currentEpisode === "object" ? currentEpisode : {}),
+          id: candidate.episodeId,
+          key: candidate.episodeKey,
+          state: candidate.episodeState,
+          size: candidate.episodeSize ?? 1,
+          evidenceScore: candidate.episodeEvidenceScore ?? 0,
+          evidenceReasons: candidate.episodeEvidenceReasons ?? [],
+          lastInteractionId: candidate.interactionId,
+          updatedAt: candidate.timestamp,
+        }
+      : currentEpisode;
     const currentSemantic = current?.metadata?.semantic;
-    const nextSemantic =
-      candidate.relationHints?.length
-        ? {
-            ...(currentSemantic && typeof currentSemantic === "object" ? currentSemantic : {}),
-            relationHints: candidate.relationHints,
-          }
-        : currentSemantic;
+    const nextSemantic = candidate.relationHints?.length
+      ? {
+          ...(currentSemantic && typeof currentSemantic === "object" ? currentSemantic : {}),
+          relationHints: candidate.relationHints,
+        }
+      : currentSemantic;
 
     return {
       id: isUpdate ? current.id : `frame:${candidate.interactionId}`,

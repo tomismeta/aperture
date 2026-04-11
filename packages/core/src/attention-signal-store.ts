@@ -1,21 +1,29 @@
 import type { AttentionSignal } from "./interaction-signal.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
+import { createCoreClock, type CoreClock } from "./time.js";
 
 const RECENT_SIGNAL_LIMIT = 32;
 const RECENT_WINDOW_MS = 30 * 60 * 1000;
 const MAX_RETAINED_SIGNALS = 256;
 
+type AttentionSignalStoreOptions = {
+  clock?: CoreClock;
+};
+
 export class AttentionSignalStore {
   private readonly byTaskId = new Map<string, AttentionSignal[]>();
+  private readonly clock: CoreClock;
+
+  constructor(options: AttentionSignalStoreOptions = {}) {
+    this.clock = options.clock ?? createCoreClock();
+  }
 
   record(signal: AttentionSignal): void {
     const current = this.byTaskId.get(signal.taskId) ?? [];
     const next = [...current, signal];
     this.byTaskId.set(
       signal.taskId,
-      next.length > MAX_RETAINED_SIGNALS
-        ? next.slice(-MAX_RETAINED_SIGNALS)
-        : next,
+      next.length > MAX_RETAINED_SIGNALS ? next.slice(-MAX_RETAINED_SIGNALS) : next,
     );
   }
 
@@ -30,37 +38,15 @@ export class AttentionSignalStore {
   }
 
   summarize(taskId?: string): AttentionSignalSummary {
-    return summarizeAttentionSignals(this.list(taskId));
-  }
-
-  private recentSignals(signals: AttentionSignal[]): AttentionSignal[] {
-    const bounded = signals.slice(-RECENT_SIGNAL_LIMIT);
-    const latestTimestamp = bounded[bounded.length - 1]?.timestamp;
-
-    if (latestTimestamp === undefined) {
-      return bounded;
-    }
-
-    const latestMs = Date.parse(latestTimestamp);
-    if (Number.isNaN(latestMs)) {
-      return bounded;
-    }
-
-    const recent = bounded.filter((signal) => {
-      const signalMs = Date.parse(signal.timestamp);
-      if (Number.isNaN(signalMs)) {
-        return true;
-      }
-
-      return latestMs - signalMs <= RECENT_WINDOW_MS;
-    });
-
-    return recent.length > 0 ? recent : bounded;
+    return summarizeAttentionSignals(this.list(taskId), this.clock);
   }
 }
 
-export function summarizeAttentionSignals(signals: AttentionSignal[]): AttentionSignalSummary {
-  const recentSignals = recentAttentionSignals(signals);
+export function summarizeAttentionSignals(
+  signals: AttentionSignal[],
+  clock: CoreClock = createCoreClock(),
+): AttentionSignalSummary {
+  const recentSignals = recentAttentionSignals(signals, clock);
   const counts = {
     presented: 0,
     viewed: 0,
@@ -141,11 +127,11 @@ export function summarizeAttentionSignals(signals: AttentionSignal[]): Attention
       responseLatencyCount > 0 ? Math.round(responseLatencyTotal / responseLatencyCount) : null,
     averageDismissalLatencyMs:
       dismissalLatencyCount > 0 ? Math.round(dismissalLatencyTotal / dismissalLatencyCount) : null,
-    lastSignalAt: signals.length > 0 ? signals[signals.length - 1]?.timestamp ?? null : null,
+    lastSignalAt: signals.length > 0 ? (signals[signals.length - 1]?.timestamp ?? null) : null,
   };
 }
 
-function recentAttentionSignals(signals: AttentionSignal[]): AttentionSignal[] {
+function recentAttentionSignals(signals: AttentionSignal[], clock: CoreClock): AttentionSignal[] {
   const bounded = signals.slice(-RECENT_SIGNAL_LIMIT);
   const latestTimestamp = bounded[bounded.length - 1]?.timestamp;
 
@@ -153,14 +139,14 @@ function recentAttentionSignals(signals: AttentionSignal[]): AttentionSignal[] {
     return bounded;
   }
 
-  const latestMs = Date.parse(latestTimestamp);
-  if (Number.isNaN(latestMs)) {
+  const latestMs = clock.parse(latestTimestamp);
+  if (latestMs === null) {
     return bounded;
   }
 
   const recent = bounded.filter((signal) => {
-    const signalMs = Date.parse(signal.timestamp);
-    if (Number.isNaN(signalMs)) {
+    const signalMs = clock.parse(signal.timestamp);
+    if (signalMs === null) {
       return true;
     }
 

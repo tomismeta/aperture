@@ -206,7 +206,6 @@ test("CodexAppServerWebSocket resolves requests and dispatches notifications and
 
 test("CodexAppServerWebSocket rejects pending requests on server errors and unexpected disconnects", async (t) => {
   const sockets = new Set<WebSocket>();
-  let connectedSocket: WebSocket | null = null;
   const exitErrors: Error[] = [];
 
   const server = new WebSocketServer({ port: 0 });
@@ -222,7 +221,6 @@ test("CodexAppServerWebSocket rejects pending requests on server errors and unex
   });
 
   server.on("connection", (socket) => {
-    connectedSocket = socket;
     sockets.add(socket);
     socket.on("close", () => {
       sockets.delete(socket);

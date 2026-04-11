@@ -146,14 +146,23 @@ This is the route we should actively stand behind for low-friction producer inte
 
 - `GET /work`
 - `POST /work`
+- `GET /v1/work`
+- `POST /v1/work`
+- `GET /work/response/{interactionId}`
+- `DELETE /work/response/{interactionId}`
 
 This is the clean host-neutral ingress surface for:
 
 - plain text work reports
 - structured `WorkEvent`
 - `WorkEvent[]` batch publish
+- polling or cancelling public human-input response state
 
 This is the route external producers should be guided toward first.
+
+Every non-health route on the local runtime requires the runtime bearer token.
+That keeps the public local ingress surface small without making it ambiently
+writable by unrelated local processes.
 
 ### 2. Internal control surface
 
@@ -203,7 +212,7 @@ The surrounding layers are still important, but they play different roles:
 
 Plain-text ingress remains one-way by design.
 Structured `input.requested` work now gets a public response loop under `/work`
-via `GET /work/response/{interactionId}`.
+via `GET /work/response/{interactionId}` and `DELETE /work/response/{interactionId}`.
 The internal `/runtime/*` control surface still exists for the Aperture product
 and in-repo adapters, but it is not the public response contract.
 

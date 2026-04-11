@@ -1,11 +1,8 @@
-import type {
-  AttentionResponse,
-  SourceEvent,
-} from "@tomismeta/aperture-core";
+import type { AttentionResponse, SourceEvent } from "@tomismeta/aperture-core";
 import {
   assertValidFrameResponse,
   assertValidSourceEvent,
-} from "../../core/src/internal-contract.js";
+} from "@tomismeta/aperture-core/internal";
 
 export function normalizeSourceEventPayload(payload: unknown): SourceEvent[] {
   if (isRecord(payload) && Array.isArray(payload.events)) {
@@ -75,8 +72,10 @@ export function validateOperatorEngagement(
   }
 
   if (
-    value.durationMs !== undefined
-    && (typeof value.durationMs !== "number" || !Number.isFinite(value.durationMs) || value.durationMs <= 0)
+    value.durationMs !== undefined &&
+    (typeof value.durationMs !== "number" ||
+      !Number.isFinite(value.durationMs) ||
+      value.durationMs <= 0)
   ) {
     return null;
   }

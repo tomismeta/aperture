@@ -11,7 +11,6 @@ import {
 } from "./offline-review-batch.js";
 import {
   ALL_OFFLINE_REVIEW_FOCUS_AREAS,
-  DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS,
   defaultOfflineReviewArtifactPath,
   loadOfflineReviewArtifact,
   prepareOfflineReviewArtifact,

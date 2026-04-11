@@ -78,10 +78,6 @@ export {
   type OfflineReviewArtifactRunResult,
 } from "./offline-review-run.js";
 export {
-  applyOfflineReviewResponse,
-  buildOfflineReviewPromptPacket,
-  buildOfflineReviewRecommendationReport,
-  compareOfflineReviewArtifact,
   defaultOfflineReviewArtifactPath,
   defaultOfflineReviewPromptPath,
   defaultOfflineReviewRawResponsePath,
@@ -89,6 +85,16 @@ export {
   defaultOfflineReviewReportPath,
   defaultOfflineReviewResponsePath,
   defaultOfflineReviewRunPath,
+  loadOfflineReviewArtifact,
+  writeOfflineReviewArtifact,
+  writeOfflineReviewRecommendationReport,
+  writeOfflineReviewReport,
+  writeOfflineReviewRun,
+} from "./offline-review-files.js";
+export {
+  applyOfflineReviewResponse,
+  buildOfflineReviewRecommendationReport,
+  compareOfflineReviewArtifact,
   createOfflineReviewRun,
   DEFAULT_OFFLINE_REVIEW_DISAGREEMENTS_DIR,
   DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS,
@@ -102,20 +108,18 @@ export {
   DEFAULT_OFFLINE_REVIEW_RESPONSES_DIR,
   DEFAULT_OFFLINE_REVIEW_RUBRIC_VERSION,
   DEFAULT_OFFLINE_REVIEW_RUNS_DIR,
-  loadOfflineReviewArtifact,
   parseOfflineReviewResponseText,
   readOfflineReviewFocusAreaValue,
   prepareOfflineReviewArtifact,
+  offlineReviewValuesEqual,
+  validateOfflineReviewArtifact,
+} from "./offline-review.js";
+export {
+  buildOfflineReviewPromptPacket,
   renderOfflineReviewPrompt,
   renderOfflineReviewRecommendationMarkdown,
   renderOfflineReviewReportMarkdown,
-  offlineReviewValuesEqual,
-  validateOfflineReviewArtifact,
-  writeOfflineReviewArtifact,
-  writeOfflineReviewRecommendationReport,
-  writeOfflineReviewReport,
-  writeOfflineReviewRun,
-} from "./offline-review.js";
+} from "./offline-review-render.js";
 export {
   appendAutoresearchCampaignSummary,
   AUTORESEARCH_CAMPAIGN_SCHEMA_VERSION,

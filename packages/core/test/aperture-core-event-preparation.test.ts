@@ -54,18 +54,21 @@ test("preparePublishedEvent enriches direct events by default", () => {
 });
 
 test("preparePublishedEvent can preserve a direct event without semantic defaults", () => {
-  const prepared = preparePublishedEvent({
-    id: "evt:passthrough",
-    type: "human.input.requested",
-    taskId: "task:passthrough",
-    interactionId: "interaction:passthrough",
-    timestamp: "2026-04-06T00:02:00.000Z",
-    title: "Approve file read",
-    summary: "Read src/index.ts before continuing.",
-    request: { kind: "approval" },
-  }, {
-    applySemanticDefaults: false,
-  });
+  const prepared = preparePublishedEvent(
+    {
+      id: "evt:passthrough",
+      type: "human.input.requested",
+      taskId: "task:passthrough",
+      interactionId: "interaction:passthrough",
+      timestamp: "2026-04-06T00:02:00.000Z",
+      title: "Approve file read",
+      summary: "Read src/index.ts before continuing.",
+      request: { kind: "approval" },
+    },
+    {
+      applySemanticDefaults: false,
+    },
+  );
 
   assert.equal(prepared.transitionKind, "direct_passthrough");
   assert.equal(prepared.finalizedEvent.type, "human.input.requested");

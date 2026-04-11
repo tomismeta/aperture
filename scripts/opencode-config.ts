@@ -1,6 +1,6 @@
 import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, resolve } from "node:path";
+import { dirname, resolve as pathResolve } from "node:path";
 import { stderr, stdin } from "node:process";
 
 export type OpencodeConnectionProfile = {
@@ -27,7 +27,7 @@ type OpencodeConnectionConfig = {
   profiles: OpencodeConnectionProfile[];
 };
 
-const GLOBAL_CONFIG_PATH = resolve(homedir(), ".aperture", "opencode.json");
+const GLOBAL_CONFIG_PATH = pathResolve(homedir(), ".aperture", "opencode.json");
 
 export async function listGlobalOpencodeProfiles(): Promise<OpencodeConnectionProfile[]> {
   const config = await readGlobalOpencodeConfig();

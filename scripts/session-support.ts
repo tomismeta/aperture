@@ -1,6 +1,6 @@
 import { stderr } from "node:process";
 
-import { discoverLocalRuntimes, type ApertureRuntimeSessionCapture } from "../packages/runtime/src/index.ts";
+import { discoverLocalRuntimes, type ApertureRuntimeSessionCapture } from "@aperture/runtime";
 
 export function normalizeRuntimeUrl(runtimeUrl: string): string {
   return runtimeUrl.replace(/\/+$/, "");

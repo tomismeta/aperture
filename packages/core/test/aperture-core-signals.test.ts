@@ -60,44 +60,48 @@ test("buildResponseSignal records dismissals distinctly with latency", () => {
 });
 
 test("buildAutoResponseSignal marks auto-resolved candidate responses", () => {
-  const signal = buildAutoResponseSignal({
-    taskId: "task:auto",
-    interactionId: "interaction:auto",
-    mode: "approval",
-    tone: "focused",
-    consequence: "high",
-    title: "Approve auto change",
-    judgmentInput: {
-      ontology: {
-        ask: "approval",
-        activity: "decision_request",
-        consequence: "high",
-        blocking: "blocking",
-        episode: "new",
-        confidence: "high",
-        source: "explicit",
+  const signal = buildAutoResponseSignal(
+    {
+      taskId: "task:auto",
+      interactionId: "interaction:auto",
+      mode: "approval",
+      tone: "focused",
+      consequence: "high",
+      title: "Approve auto change",
+      judgmentInput: {
+        ontology: {
+          ask: "approval",
+          activity: "decision_request",
+          consequence: "high",
+          blocking: "blocking",
+          episode: "new",
+          confidence: "high",
+          source: "explicit",
+        },
+        semanticEvidence: {
+          confidence: "high",
+          source: "explicit",
+          strength: "strong",
+          abstained: false,
+        },
+        blockedLikeStatus: false,
+        relationEvidence: null,
       },
-      semanticEvidence: {
-        confidence: "high",
-        source: "explicit",
-        strength: "strong",
-        abstained: false,
+      responseSpec: {
+        kind: "approval",
+        actions: [{ id: "approve", label: "Approve", kind: "approve", emphasis: "primary" }],
       },
-      blockedLikeStatus: false,
-      relationEvidence: null,
+      priority: "high",
+      blocking: true,
+      timestamp: "2026-04-06T15:00:00.000Z",
     },
-    responseSpec: {
-      kind: "approval",
-      actions: [{ id: "approve", label: "Approve", kind: "approve", emphasis: "primary" }],
+    {
+      taskId: "task:auto",
+      interactionId: "interaction:auto",
+      response: { kind: "dismissed" },
     },
-    priority: "high",
-    blocking: true,
-    timestamp: "2026-04-06T15:00:00.000Z",
-  }, {
-    taskId: "task:auto",
-    interactionId: "interaction:auto",
-    response: { kind: "dismissed" },
-  }, "2026-04-06T15:00:01.000Z");
+    "2026-04-06T15:00:01.000Z",
+  );
 
   assert.equal(signal.kind, "responded");
   if (signal.kind === "responded") {
@@ -141,11 +145,10 @@ test("buildAttentionTransitionSignals records cross-task shifts and returns", ()
     "2026-04-06T15:01:00.000Z",
   );
 
-  assert.deepEqual(signals.map((signal) => signal.kind), [
-    "attention_shifted",
-    "attention_shifted",
-    "returned",
-  ]);
+  assert.deepEqual(
+    signals.map((signal) => signal.kind),
+    ["attention_shifted", "attention_shifted", "returned"],
+  );
   assert.equal(signals[2]?.kind, "returned");
   if (signals[2]?.kind === "returned") {
     assert.equal(signals[2].from, "next");

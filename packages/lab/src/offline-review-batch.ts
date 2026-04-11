@@ -3,7 +3,6 @@ import path from "node:path";
 
 import {
   ALL_OFFLINE_REVIEW_FOCUS_AREAS,
-  DEFAULT_OFFLINE_REVIEW_RECOMMENDATIONS_DIR,
   DEFAULT_OFFLINE_REVIEW_RESULTS_DIR,
   type OfflineReviewFocusArea,
   type OfflineReviewRecommendation,

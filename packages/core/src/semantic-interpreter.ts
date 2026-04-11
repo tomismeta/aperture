@@ -1,6 +1,5 @@
 import type { SourceEvent } from "./source-event.js";
 import type {
-  SemanticConfidence,
   SemanticConsequenceLevel,
   SemanticFieldProvenance,
   SemanticInterpretation,
@@ -81,7 +80,11 @@ function inferSemanticInterpretation(event: SourceEvent): SemanticInterpretation
         activityClass: "status_update",
         consequence: "low",
         ...(event.reason
-          ? { whyNow: semanticWhyNowForTaskStatus("completed", { wasCancelled: true }) ?? "Work was cancelled and may need review." }
+          ? {
+              whyNow:
+                semanticWhyNowForTaskStatus("completed", { wasCancelled: true }) ??
+                "Work was cancelled and may need review.",
+            }
           : {}),
         factors: ["task.cancelled"],
         relationHints: [],
@@ -109,17 +112,21 @@ function inferTaskUpdateSemantics(
   const impliedAsk = detectImpliedOperatorAsk(text);
   const blockingSignal = detectSemanticBlockingSignal(text);
   const relationHints = detectSemanticRelationHints(text);
-  const taxonomyInput = buildTaxonomyInput(event.title, event.summary, event.toolFamily, event.context);
+  const taxonomyInput = buildTaxonomyInput(
+    event.title,
+    event.summary,
+    event.toolFamily,
+    event.context,
+  );
   const { toolFamily, source: toolFamilySource } = resolveSemanticToolFamily(taxonomyInput, true);
-  const relationProvenance = relationHints.length > 0
-    ? inferredSemanticProvenance(["relationHints"])
-    : {};
-  const observationalFailure = event.status === "failed"
-    && detectObservationalFailureStatus(text, toolFamily);
-  const routineObservationalFailureLowConsequence = event.status === "failed"
-    && detectRoutineObservationalFailureLowConsequence(text, toolFamily);
-  const expectedDiagnosticFailure = event.status === "failed"
-    && detectExpectedDiagnosticFailure(text, toolFamily);
+  const relationProvenance =
+    relationHints.length > 0 ? inferredSemanticProvenance(["relationHints"]) : {};
+  const observationalFailure =
+    event.status === "failed" && detectObservationalFailureStatus(text, toolFamily);
+  const routineObservationalFailureLowConsequence =
+    event.status === "failed" && detectRoutineObservationalFailureLowConsequence(text, toolFamily);
+  const expectedDiagnosticFailure =
+    event.status === "failed" && detectExpectedDiagnosticFailure(text, toolFamily);
 
   switch (event.status) {
     case "failed":
@@ -136,9 +143,7 @@ function inferTaskUpdateSemantics(
           factors: ["task.updated", "failed", "observational_failure"],
           relationHints,
           confidence: "high",
-          reasons: [
-            "task status indicates failure but the update reads like observational output",
-          ],
+          reasons: ["task status indicates failure but the update reads like observational output"],
           provenance: {
             ...inferredSemanticProvenance([
               "intentFrame",
@@ -193,7 +198,9 @@ function inferTaskUpdateSemantics(
         activityClass: "status_update",
         ...(toolFamily ? { toolFamily } : {}),
         consequence: inferConsequenceFromSemanticText(text, "medium", toolFamily),
-        whyNow: semanticWhyNowForTaskStatus("blocked") ?? "Work is blocked and may require operator attention.",
+        whyNow:
+          semanticWhyNowForTaskStatus("blocked") ??
+          "Work is blocked and may require operator attention.",
         factors: ["task.updated", "blocked"],
         relationHints,
         confidence: impliedAsk ? "medium" : "high",
@@ -219,11 +226,12 @@ function inferTaskUpdateSemantics(
         ...(toolFamily ? { toolFamily } : {}),
         consequence: inferConsequenceFromSemanticText(text, "low", toolFamily),
         ...(() => {
-          const whyNow = blockingSignal === "blocking"
-            ? semanticWhyNowForTaskStatus("blocked")
-            : impliedAsk
-              ? semanticWhyNowForTaskStatus(event.status, { impliedAsk })
-              : undefined;
+          const whyNow =
+            blockingSignal === "blocking"
+              ? semanticWhyNowForTaskStatus("blocked")
+              : impliedAsk
+                ? semanticWhyNowForTaskStatus(event.status, { impliedAsk })
+                : undefined;
           return whyNow !== undefined ? { whyNow } : {};
         })(),
         factors: [
@@ -232,17 +240,14 @@ function inferTaskUpdateSemantics(
           ...(blockingSignal === "blocking" ? ["semantic blocking signal"] : []),
         ],
         relationHints,
-        confidence: blockingSignal === "blocking"
-          ? "medium"
-          : impliedAsk
-            ? "low"
-            : "high",
-        reasons: blockingSignal === "blocking"
-          ? [
-              ...semanticReasonsForTaskStatus("blocked"),
-              "status wording indicates work cannot continue yet",
-            ]
-          : semanticReasonsForTaskStatus(event.status, { impliedAsk }),
+        confidence: blockingSignal === "blocking" ? "medium" : impliedAsk ? "low" : "high",
+        reasons:
+          blockingSignal === "blocking"
+            ? [
+                ...semanticReasonsForTaskStatus("blocked"),
+                "status wording indicates work cannot continue yet",
+              ]
+            : semanticReasonsForTaskStatus(event.status, { impliedAsk }),
         provenance: {
           ...inferredSemanticProvenance([
             "intentFrame",
@@ -251,7 +256,7 @@ function inferTaskUpdateSemantics(
             "confidence",
           ]),
           ...semanticToolFamilyProvenance(toolFamilySource),
-          ...((blockingSignal === "blocking" || impliedAsk)
+          ...(blockingSignal === "blocking" || impliedAsk
             ? inferredSemanticProvenance(["whyNow"])
             : {}),
           ...relationProvenance,
@@ -265,18 +270,23 @@ function inferTaskUpdateSemantics(
 function inferHumanInputSemantics(
   event: Extract<SourceEvent, { type: "human.input.requested" }>,
 ): SemanticInterpretation {
-  const taxonomyInput = buildTaxonomyInput(event.title, event.summary, event.toolFamily, event.context);
+  const taxonomyInput = buildTaxonomyInput(
+    event.title,
+    event.summary,
+    event.toolFamily,
+    event.context,
+  );
   const { toolFamily, source: toolFamilySource } = resolveSemanticToolFamily(
     taxonomyInput,
     event.request.kind === "approval",
   );
   const text = normalizeSemanticText(`${event.title} ${event.summary}`);
   const relationHints = detectSemanticRelationHints(text);
-  const baseConsequence = event.riskHint ?? consequenceFromRequestKind(event.request.kind, toolFamily);
+  const baseConsequence =
+    event.riskHint ?? consequenceFromRequestKind(event.request.kind, toolFamily);
   const consequence = inferConsequenceFromSemanticText(text, baseConsequence, toolFamily);
-  const relationProvenance = relationHints.length > 0
-    ? inferredSemanticProvenance(["relationHints"])
-    : {};
+  const relationProvenance =
+    relationHints.length > 0 ? inferredSemanticProvenance(["relationHints"]) : {};
 
   return {
     intentFrame: semanticIntentFrameForRequestKind(event.request.kind),
@@ -286,12 +296,11 @@ function inferHumanInputSemantics(
     whyNow: semanticWhyNowForRequestKind(event.request.kind, consequence),
     factors: ["human.input.requested", event.request.kind],
     relationHints,
-    confidence:
-      event.riskHint
-        ? "high"
-        : event.request.kind === "approval" && toolFamily
-          ? "medium"
-          : "low",
+    confidence: event.riskHint
+      ? "high"
+      : event.request.kind === "approval" && toolFamily
+        ? "medium"
+        : "low",
     reasons: [
       event.riskHint
         ? "source provided an explicit risk hint"
@@ -313,15 +322,11 @@ function inferHumanInputSemantics(
   };
 }
 
-function inferredSemanticProvenance(
-  fields: SemanticProvenanceField[],
-): SemanticFieldProvenance {
+function inferredSemanticProvenance(fields: SemanticProvenanceField[]): SemanticFieldProvenance {
   return semanticFieldProvenance(fields, "inferred");
 }
 
-function sourceSemanticProvenance(
-  fields: SemanticProvenanceField[],
-): SemanticFieldProvenance {
+function sourceSemanticProvenance(fields: SemanticProvenanceField[]): SemanticFieldProvenance {
   return semanticFieldProvenance(fields, "source");
 }
 
@@ -399,9 +404,7 @@ function applySemanticHints(
   };
 }
 
-function hintedSemanticProvenance(
-  hints: SemanticInterpretationHints,
-): SemanticFieldProvenance {
+function hintedSemanticProvenance(hints: SemanticInterpretationHints): SemanticFieldProvenance {
   return {
     ...(hints.intentFrame !== undefined ? { intentFrame: "hint" as const } : {}),
     ...(hints.activityClass !== undefined ? { activityClass: "hint" as const } : {}),

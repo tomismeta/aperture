@@ -9,7 +9,6 @@ import {
   runAutoresearchServiceCommand,
   type AutoresearchServiceCommandOptions,
   type AutoresearchServiceCommandResult,
-  type AutoresearchServiceProvider,
 } from "./autoresearch-service-command.js";
 import {
   type PublicTrajectoryDataset,
@@ -141,7 +140,6 @@ export async function runAutoresearchSweepCommand(
 
     const laneResults: AutoresearchSweepLaneResult[] = [];
     let completedLanes = 0;
-    let currentLane: string | undefined;
 
     await writeSweepStatus(statusPath, {
       generatedAt,
@@ -155,25 +153,27 @@ export async function runAutoresearchSweepCommand(
     });
 
     for (const [laneIndex, lane] of lanes.entries()) {
-    const label = lane.label ?? defaultLaneLabel(laneIndex, lane);
-    const laneRoot = path.join(sweepRoot, label);
-    currentLane = label;
-    await mkdir(laneRoot, { recursive: true });
+      const label = lane.label ?? defaultLaneLabel(laneIndex, lane);
+      const laneRoot = path.join(sweepRoot, label);
+      await mkdir(laneRoot, { recursive: true });
 
-    await logLine(logPath, `lane_start label=${label} dataset=${lane.dataset} split=${lane.split}`);
-    await writeSweepStatus(statusPath, {
-      generatedAt,
-      sweepId,
-      phase: "running",
-      sourceRepo,
-      laneCount: lanes.length,
-      completedLanes,
-      currentLane: label,
-      currentLaneIndex: laneIndex,
-      currentServiceStatusPath: path.join(runtimeRoot, "service", "status.json"),
-      lanes: laneResults,
-      note: `Running ${label}.`,
-    });
+      await logLine(
+        logPath,
+        `lane_start label=${label} dataset=${lane.dataset} split=${lane.split}`,
+      );
+      await writeSweepStatus(statusPath, {
+        generatedAt,
+        sweepId,
+        phase: "running",
+        sourceRepo,
+        laneCount: lanes.length,
+        completedLanes,
+        currentLane: label,
+        currentLaneIndex: laneIndex,
+        currentServiceStatusPath: path.join(runtimeRoot, "service", "status.json"),
+        lanes: laneResults,
+        note: `Running ${label}.`,
+      });
 
     await rm(runtimeRoot, { recursive: true, force: true });
     await ensureCleanRepo(sourceRepo);

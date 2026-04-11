@@ -104,13 +104,9 @@ test("queues ambiguous non-blocking work when the surface is empty", () => {
 });
 
 test("operator absence keeps blocking work queued instead of activating immediately", () => {
-  const explanation = coordinator.explain(
-    null,
-    createCandidate(),
-    {
-      operatorPresence: "absent",
-    },
-  );
+  const explanation = coordinator.explain(null, createCandidate(), {
+    operatorPresence: "absent",
+  });
 
   assert.equal(explanation.decision.kind, "queue");
   assert.equal(explanation.criterion?.ambiguity, null);
@@ -363,10 +359,7 @@ test("activates higher-consequence candidates at equal priority", () => {
 });
 
 test("keeps the current interrupt active when a competing interrupt is only equally urgent", () => {
-  const decision = coordinator.coordinate(
-    createFrame(),
-    createCandidate(),
-  );
+  const decision = coordinator.coordinate(createFrame(), createCandidate());
 
   assert.equal(decision.kind, "queue");
 });
@@ -663,12 +656,15 @@ test("disabling one continuity rule still allows others to fire", () => {
       rationale: ["operator disabled the minimum_dwell continuity rule"],
     },
   );
-  const streamContinuityEvaluation = explanation.continuityEvaluations?.find((evaluation) =>
-    evaluation.rule === "decision_stream_continuity"
+  const streamContinuityEvaluation = explanation.continuityEvaluations?.find(
+    (evaluation) => evaluation.rule === "decision_stream_continuity",
   );
   assert.equal(streamContinuityEvaluation?.kind, "override");
   assert.equal(streamContinuityEvaluation?.decision.kind, "ambient");
-  assert.match(streamContinuityEvaluation?.rationale?.[0] ?? "", /current decision stream stays active/);
+  assert.match(
+    streamContinuityEvaluation?.rationale?.[0] ?? "",
+    /current decision stream stays active/,
+  );
 });
 
 test("disabling multiple continuity rules bypasses both overrides together", () => {
@@ -941,7 +937,11 @@ test("explanation marks ambiguity when low-signal work stays peripheral", () => 
     reason: "low_signal",
     resolution: "queue",
   });
-  assert.ok(explanation.reasons.includes("uncertain interruptive work stays peripheral until its signal is stronger"));
+  assert.ok(
+    explanation.reasons.includes(
+      "uncertain interruptive work stays peripheral until its signal is stronger",
+    ),
+  );
 });
 
 test("low-confidence non-blocking work stays queued through semantic ambiguity handling", () => {
@@ -1172,10 +1172,7 @@ test("explicit blocking work is not downgraded by low semantic confidence", () =
   assert.equal(explanation.ambiguity, null);
   assert.deepEqual(
     explanation.policyCriterionEvaluations.map((evaluation) => evaluation.rule),
-    [
-      "operator_absence",
-      "interrupt_eligibility",
-    ],
+    ["operator_absence", "interrupt_eligibility"],
   );
 });
 
@@ -1217,11 +1214,13 @@ test("rapid same-interaction status refreshes stay peripheral instead of forcing
 
   assert.equal(explanation.decision.kind, "ambient");
   assert.equal(
-    explanation.continuityEvaluations?.find((evaluation) => evaluation.rule === "same_interaction")?.kind,
+    explanation.continuityEvaluations?.find((evaluation) => evaluation.rule === "same_interaction")
+      ?.kind,
     "override",
   );
   assert.equal(
-    explanation.continuityEvaluations?.find((evaluation) => evaluation.rule === "minimum_dwell")?.kind,
+    explanation.continuityEvaluations?.find((evaluation) => evaluation.rule === "minimum_dwell")
+      ?.kind,
     "override",
   );
   assert.match(
@@ -1595,10 +1594,7 @@ test("keeps resurfacing status queued while blocking work is active", () => {
   );
 
   assert.equal(explanation.decision.kind, "queue");
-  assert.match(
-    explanation.reasons.join(" "),
-    /resurfacing backlog in next so it stays visible/i,
-  );
+  assert.match(explanation.reasons.join(" "), /resurfacing backlog in next so it stays visible/i);
 });
 
 test("escalates same-episode resurfacing pressure even when the current task has no returns yet", () => {
@@ -1682,7 +1678,9 @@ test("escalates same-episode resurfacing pressure even when the current task has
 
   assert.equal(explanation.decision.kind, "activate");
   assert.equal(
-    explanation.continuityEvaluations.find((evaluation) => evaluation.rule === "deferral_escalation")?.kind,
+    explanation.continuityEvaluations.find(
+      (evaluation) => evaluation.rule === "deferral_escalation",
+    )?.kind,
     "override",
   );
 });

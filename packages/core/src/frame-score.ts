@@ -15,7 +15,10 @@ export function scoreCandidate(candidate: AttentionCandidate): number {
   );
 }
 
-export function scoreAttentionFrame(frame: AttentionFrame, options: FrameScoreOptions = {}): number {
+export function scoreAttentionFrame(
+  frame: AttentionFrame,
+  options: FrameScoreOptions = {},
+): number {
   return (
     priorityWeight(priorityForFrame(frame)) * 100 +
     consequenceWeight(frame.consequence) * 10 +

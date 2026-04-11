@@ -1,38 +1,52 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  ALL_OFFLINE_REVIEW_FOCUS_AREAS,
   buildOfflineReviewRecommendationReport,
-  compareOfflineReviewArtifact,
-  DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS,
   prepareOfflineReviewArtifact,
   readOfflineReviewFocusAreaValue,
   offlineReviewValuesEqual,
   type OfflineReviewConfidence,
-  type OfflineReviewDisagreement,
   type OfflineReviewFocusArea,
   type OfflineReviewRecommendation,
   type OfflineReviewReport,
 } from "./offline-review.js";
 import { loadReplayBundleFromFStopInputFile } from "./fstop-session.js";
-import {
-  SEMANTIC_CALIBRATION_FAMILIES,
-  type ReplaySemanticCalibrationFamily,
-} from "./semantic-calibration.js";
+import type { ReplaySemanticCalibrationFamily } from "./semantic-calibration.js";
 import {
   createSessionBundle,
   runSessionBundle,
 } from "./session-bundle.js";
 import { DEFAULT_LAB_RUNTIME_ROOT } from "./runtime-paths.js";
 import {
-  hasShape,
-  isArrayOf,
-  isNumber,
-  isRecord,
-  isString,
-} from "./shape.js";
+  collectSemanticFamilies,
+  confidenceRank,
+  createOfflineReviewFocusAreaCounts,
+  createSemanticFamilyCounts,
+  deriveSemanticFamiliesForDifference,
+  invariantFocusAreasForStep,
+  readJsonFilesRecursive,
+  resolveRepoRelativeCalibrationInputPath,
+  resolveRepoRelativePath,
+} from "./autoresearch-calibration-support.js";
+import {
+  validateAutoresearchCalibrationCase,
+  validateOfflineReviewReport,
+} from "./autoresearch-calibration-validation.js";
+
+export {
+  defaultAutoresearchBriefPath,
+  defaultAutoresearchCalibrationCasePath,
+  defaultAutoresearchEvaluationPath,
+  writeAutoresearchCalibrationCase,
+  writeAutoresearchCalibrationReport,
+  writeAutoresearchOptimizationBrief,
+} from "./autoresearch-calibration-files.js";
+export {
+  renderAutoresearchCalibrationMarkdown,
+  renderAutoresearchOptimizationMarkdown,
+} from "./autoresearch-calibration-render.js";
 
 export const AUTORESEARCH_CALIBRATION_CASE_SCHEMA_VERSION = 1 as const;
 export const AUTORESEARCH_CALIBRATION_REPORT_SCHEMA_VERSION = 1 as const;
@@ -336,21 +350,6 @@ export async function promoteOfflineReviewReportToCalibrationCase(
   };
 }
 
-export async function writeAutoresearchCalibrationCase(
-  filePath: string,
-  calibrationCase: AutoresearchCalibrationCase,
-): Promise<void> {
-  await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFile(filePath, `${JSON.stringify(calibrationCase, null, 2)}\n`, "utf8");
-}
-
-export function defaultAutoresearchCalibrationCasePath(
-  calibrationCase: AutoresearchCalibrationCase,
-  directory = DEFAULT_AUTORESEARCH_CALIBRATION_SPLIT_DIRS[calibrationCase.split],
-): string {
-  return path.join(directory, `${safeSegment(calibrationCase.sessionId)}.json`);
-}
-
 export async function loadAutoresearchCalibrationCases(
   options: {
     repoRoot?: string;
@@ -541,139 +540,6 @@ export function createAutoresearchOptimizationBrief(
   };
 }
 
-export async function writeAutoresearchCalibrationReport(
-  filePath: string,
-  report: AutoresearchCalibrationReport,
-): Promise<void> {
-  await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFile(filePath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-}
-
-export async function writeAutoresearchOptimizationBrief(
-  filePath: string,
-  brief: AutoresearchOptimizationBrief,
-): Promise<void> {
-  await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFile(filePath, `${JSON.stringify(brief, null, 2)}\n`, "utf8");
-}
-
-export function defaultAutoresearchEvaluationPath(
-  reportOrTimestamp: AutoresearchCalibrationReport | string,
-  directory = DEFAULT_AUTORESEARCH_EVALUATIONS_DIR,
-): string {
-  const generatedAt = typeof reportOrTimestamp === "string"
-    ? reportOrTimestamp
-    : reportOrTimestamp.generatedAt;
-  return path.join(directory, `autoresearch-evaluation-${safeTimestamp(generatedAt)}.json`);
-}
-
-export function defaultAutoresearchBriefPath(
-  briefOrTimestamp: AutoresearchOptimizationBrief | string,
-  directory = DEFAULT_AUTORESEARCH_BRIEFS_DIR,
-): string {
-  const generatedAt = typeof briefOrTimestamp === "string"
-    ? briefOrTimestamp
-    : briefOrTimestamp.generatedAt;
-  return path.join(directory, `autoresearch-brief-${safeTimestamp(generatedAt)}.json`);
-}
-
-export function renderAutoresearchCalibrationMarkdown(
-  report: AutoresearchCalibrationReport,
-): string {
-  const lines: string[] = [
-    "# Autoresearch Calibration Report",
-    "",
-    `Generated: ${report.generatedAt}`,
-    `Cases: ${report.summary.caseCount}`,
-    `Expectations: ${report.summary.expectationCount}`,
-    `Mismatches: ${report.summary.mismatchCount}`,
-    `Corrected mismatches: ${report.summary.correctedMismatchCount}`,
-    `Invariant mismatches: ${report.summary.invariantMismatchCount}`,
-    "",
-    "## Mismatch Focus Areas",
-    "",
-  ];
-
-  for (const focusArea of ALL_OFFLINE_REVIEW_FOCUS_AREAS) {
-    lines.push(`- ${focusArea}: ${report.summary.mismatchFocusAreaCounts[focusArea]}`);
-  }
-
-  lines.push("", "## Semantic Families", "");
-
-  for (const family of SEMANTIC_CALIBRATION_FAMILIES) {
-    lines.push(`- ${family}: ${report.summary.mismatchSemanticFamilyCounts[family]}`);
-  }
-
-  lines.push("", "## Results", "");
-
-  for (const result of report.results) {
-    lines.push(`### ${result.sessionId}`);
-    lines.push("");
-    lines.push(`- split: ${result.split}`);
-    lines.push(`- targets: ${result.targets.join(", ") || "(none)"}`);
-    lines.push(`- semantic families: ${result.semanticFamilies.join(", ") || "(none)"}`);
-    lines.push(`- mismatches: ${result.summary.mismatchCount}/${result.summary.expectationCount}`);
-    lines.push(`- corrected mismatches: ${result.summary.correctedMismatchCount}`);
-    lines.push(`- invariant mismatches: ${result.summary.invariantMismatchCount}`);
-    for (const mismatch of result.mismatches.slice(0, 5)) {
-      lines.push(
-        `- step ${mismatch.stepIndex}${mismatch.stepLabel ? ` (${mismatch.stepLabel})` : ""}: ${mismatch.focusArea} ${renderCalibrationValue(mismatch.currentValue)} -> ${renderCalibrationValue(mismatch.expectedValue)} (${mismatch.mode})`,
-      );
-    }
-    lines.push("");
-  }
-
-  return lines.join("\n");
-}
-
-export function renderAutoresearchOptimizationMarkdown(
-  brief: AutoresearchOptimizationBrief,
-): string {
-  const lines: string[] = [
-    "# Autoresearch Optimization Brief",
-    "",
-    `Generated: ${brief.generatedAt}`,
-    `Cases: ${brief.summary.caseCount}`,
-    `Expectations: ${brief.summary.expectationCount}`,
-    `Mismatches: ${brief.summary.mismatchCount}`,
-    `Corrected mismatches: ${brief.summary.correctedMismatchCount}`,
-    `Invariant mismatches: ${brief.summary.invariantMismatchCount}`,
-    "",
-    "## Guidance",
-    "",
-    ...brief.guidance.map((line) => `- ${line}`),
-    "",
-    "## Allowed Edit Paths",
-    "",
-    ...brief.allowedEditPaths.map((line) => `- ${line}`),
-    "",
-    "## Evaluation Commands",
-    "",
-    ...brief.evaluationCommands.map((line) => `- ${line}`),
-    "",
-    "## Priorities",
-    "",
-  ];
-
-  for (const priority of brief.priorities) {
-    lines.push(`### ${priority.focusArea}`);
-    lines.push("");
-    lines.push(`- mismatches: ${priority.mismatchCount}`);
-    lines.push(`- corrected mismatches: ${priority.correctedMismatchCount}`);
-    lines.push(`- invariant mismatches: ${priority.invariantMismatchCount}`);
-    lines.push(`- targets: ${priority.targets.join(", ") || "(none)"}`);
-    lines.push(`- sessions: ${priority.sessions.join(", ")}`);
-    for (const example of priority.examples) {
-      lines.push(
-        `- step ${example.stepIndex}${example.stepLabel ? ` (${example.stepLabel})` : ""}: ${renderCalibrationValue(example.currentValue)} -> ${renderCalibrationValue(example.expectedValue)} (${example.mode}, ${example.confidence})`,
-      );
-    }
-    lines.push("");
-  }
-
-  return lines.join("\n");
-}
-
 async function evaluateAutoresearchCalibrationCase(
   calibrationCase: AutoresearchCalibrationCase,
   options: {
@@ -776,7 +642,9 @@ async function loadAutoresearchCalibrationCase(filePath: string): Promise<Autore
     throw new Error(`Failed to parse calibration case at ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
   }
 
-  const calibrationCase = validateAutoresearchCalibrationCase(parsed);
+  const calibrationCase = validateAutoresearchCalibrationCase(parsed, {
+    schemaVersion: AUTORESEARCH_CALIBRATION_CASE_SCHEMA_VERSION,
+  });
   if (!calibrationCase) {
     throw new Error(`Invalid calibration case at ${filePath}`);
   }
@@ -799,511 +667,4 @@ async function loadOfflineReviewReport(filePath: string): Promise<OfflineReviewR
   }
 
   return report;
-}
-
-function validateAutoresearchCalibrationCase(value: unknown): AutoresearchCalibrationCase | null {
-  if (
-    !isRecord(value)
-    || value.schemaVersion !== AUTORESEARCH_CALIBRATION_CASE_SCHEMA_VERSION
-  ) {
-    return null;
-  }
-
-  const inputPath = typeof value.inputPath === "string"
-    ? value.inputPath
-    : typeof value.bundlePath === "string"
-      ? value.bundlePath
-      : null;
-  if (
-    inputPath === null
-    || !hasShape(value, {
-      promotedAt: isString,
-      split: isCalibrationSplit,
-      sessionId: isString,
-      title: isString,
-      targets: isArrayOf(isString),
-      source: (source): source is NonNullable<AutoresearchCalibrationCase["source"]> => (
-        isRecord(source) && hasShape(source, {
-          reportPath: isString,
-          disagreementCount: isNumber,
-        })
-      ),
-      summary: (summary): summary is NonNullable<AutoresearchCalibrationCase["summary"]> => (
-        isRecord(summary) && hasShape(summary, {
-          correctedCount: isNumber,
-          invariantCount: isNumber,
-          focusAreaCounts: isRecord,
-        })
-      ),
-      expectations: isArrayOf((entry): entry is AutoresearchCalibrationExpectation => (
-        validateAutoresearchCalibrationExpectation(entry) !== null
-      )),
-    }, {
-      bundlePath: isString,
-      inputPath: isString,
-    })
-  ) {
-    return null;
-  }
-
-  const promotedAt = value.promotedAt as string;
-  const split = value.split as AutoresearchCalibrationSplit;
-  const sessionId = value.sessionId as string;
-  const title = value.title as string;
-  const targets = value.targets as string[];
-  const semanticFamilies = Array.isArray(value.semanticFamilies)
-    ? value.semanticFamilies.filter(isSemanticCalibrationFamily)
-    : [];
-  const source = value.source as Record<string, unknown>;
-  const summary = value.summary as Record<string, unknown>;
-  const expectations = value.expectations as AutoresearchCalibrationExpectation[];
-  const focusAreaCounts = summary.focusAreaCounts as Record<string, unknown>;
-  return {
-    schemaVersion: AUTORESEARCH_CALIBRATION_CASE_SCHEMA_VERSION,
-    promotedAt,
-    split,
-    sessionId,
-    title,
-    inputPath,
-    ...(typeof value.bundlePath === "string" ? { bundlePath: value.bundlePath } : {}),
-    targets: [...targets],
-    semanticFamilies,
-    source: {
-      reportPath: source.reportPath as string,
-      ...(typeof source.reviewer === "string" ? { reviewer: source.reviewer } : {}),
-      ...(typeof source.model === "string" ? { model: source.model } : {}),
-      disagreementCount: source.disagreementCount as number,
-    },
-    summary: {
-      correctedCount: summary.correctedCount as number,
-      invariantCount: summary.invariantCount as number,
-      focusAreaCounts: createFocusAreaCountsFromRecord(focusAreaCounts),
-    },
-    expectations,
-  };
-}
-
-function validateAutoresearchCalibrationExpectation(
-  value: unknown,
-): AutoresearchCalibrationExpectation | null {
-  if (
-    !isRecord(value)
-    || typeof value.stepIndex !== "number"
-    || !isOfflineReviewFocusArea(value.focusArea)
-    || (value.mode !== "corrected" && value.mode !== "invariant")
-    || !isOfflineReviewValue(value.expectedValue)
-    || !isOfflineReviewValue(value.observedValueAtPromotion)
-    || !isOfflineReviewConfidence(value.confidence)
-  ) {
-    return null;
-  }
-
-  return {
-    stepIndex: value.stepIndex,
-    ...(typeof value.stepLabel === "string" ? { stepLabel: value.stepLabel } : {}),
-    focusArea: value.focusArea,
-    mode: value.mode,
-    expectedValue: value.expectedValue,
-    observedValueAtPromotion: value.observedValueAtPromotion,
-    confidence: value.confidence,
-    ...(typeof value.rationale === "string" ? { rationale: value.rationale } : {}),
-    ...(typeof value.supportingText === "string" ? { supportingText: value.supportingText } : {}),
-  };
-}
-
-function validateOfflineReviewReport(value: unknown): OfflineReviewReport | null {
-  if (
-    !isRecord(value)
-    || !hasShape(value, {
-      generatedAt: isString,
-      rubricVersion: isString,
-      bundle: (bundle): bundle is NonNullable<OfflineReviewReport["bundle"]> => (
-        isRecord(bundle) && hasShape(bundle, {
-          sessionId: isString,
-          title: isString,
-        })
-      ),
-      review: isRecord,
-      summary: (summary): summary is NonNullable<OfflineReviewReport["summary"]> => (
-        isRecord(summary) && hasShape(summary, {
-          totalFindings: isNumber,
-          disagreementCount: isNumber,
-          matchedFindings: isNumber,
-          disagreementsByFocusArea: isRecord,
-        })
-      ),
-      disagreements: isArrayOf((entry): entry is OfflineReviewDisagreement => validateOfflineReviewDisagreement(entry) !== null),
-    })
-  ) {
-    return null;
-  }
-
-  const bundle = value.bundle as Record<string, unknown>;
-  const review = value.review as Record<string, unknown>;
-  const summary = value.summary as Record<string, unknown>;
-  const disagreements = value.disagreements as OfflineReviewDisagreement[];
-
-  return {
-    schemaVersion: value.schemaVersion as OfflineReviewReport["schemaVersion"],
-    generatedAt: value.generatedAt as string,
-    rubricVersion: value.rubricVersion as string,
-    bundle: {
-      sessionId: bundle.sessionId as string,
-      title: bundle.title as string,
-      ...(typeof bundle.description === "string" ? { description: bundle.description } : {}),
-      ...(typeof bundle.bundlePath === "string" ? { bundlePath: bundle.bundlePath } : {}),
-      ...(isRecord(bundle.source)
-        ? { source: bundle.source as NonNullable<OfflineReviewReport["bundle"]["source"]> }
-        : {}),
-    },
-    review: {
-      ...(typeof review.reviewer === "string" ? { reviewer: review.reviewer } : {}),
-      ...(typeof review.model === "string" ? { model: review.model } : {}),
-      ...(typeof review.completedAt === "string" ? { completedAt: review.completedAt } : {}),
-      ...(typeof review.notes === "string" ? { notes: review.notes } : {}),
-    },
-    summary: {
-      totalFindings: summary.totalFindings as number,
-      disagreementCount: summary.disagreementCount as number,
-      matchedFindings: summary.matchedFindings as number,
-      disagreementsByFocusArea: createFocusAreaCountsFromRecord(summary.disagreementsByFocusArea as Record<string, unknown>),
-    },
-    disagreements,
-  };
-}
-
-function validateOfflineReviewDisagreement(value: unknown): OfflineReviewDisagreement | null {
-  if (
-    !isRecord(value)
-    || typeof value.stepIndex !== "number"
-    || !isOfflineReviewFocusArea(value.focusArea)
-    || !isOfflineReviewValue(value.apertureValue)
-    || !isOfflineReviewValue(value.expectedValue)
-    || !isOfflineReviewConfidence(value.confidence)
-    || !isOfflineReviewRecommendation(value.recommendation)
-  ) {
-    return null;
-  }
-
-  return {
-    stepIndex: value.stepIndex,
-    ...(typeof value.stepLabel === "string" ? { stepLabel: value.stepLabel } : {}),
-    focusArea: value.focusArea,
-    apertureValue: value.apertureValue,
-    expectedValue: value.expectedValue,
-    confidence: value.confidence,
-    ...(typeof value.supportingText === "string" ? { supportingText: value.supportingText } : {}),
-    ...(typeof value.rationale === "string" ? { rationale: value.rationale } : {}),
-    recommendation: value.recommendation,
-  };
-}
-
-function invariantFocusAreasForStep(
-  selectedFocusAreas: Set<OfflineReviewFocusArea>,
-): OfflineReviewFocusArea[] {
-  const invariantCandidates: OfflineReviewFocusArea[] = [
-    "status",
-    "toolFamily",
-    "consequence",
-    "blocking",
-    "episode",
-    "confidence",
-  ];
-  return invariantCandidates.filter((focusArea) => !selectedFocusAreas.has(focusArea));
-}
-
-function resolveRepoRelativeCalibrationInputPath(
-  inputPath: string | undefined,
-  repoRoot: string,
-): string {
-  if (!inputPath) {
-    throw new Error("Offline review report is missing bundle.bundlePath.");
-  }
-  return resolveRepoRelativePath(inputPath, repoRoot);
-}
-
-function resolveRepoRelativePath(filePath: string, repoRoot: string): string {
-  const absolute = path.resolve(filePath);
-  const relative = path.relative(repoRoot, absolute);
-  if (relative.startsWith("..")) {
-    throw new Error(`Path ${filePath} is outside repo root ${repoRoot}.`);
-  }
-  return relative;
-}
-
-function createOfflineReviewFocusAreaCounts(): Record<OfflineReviewFocusArea, number> {
-  return Object.fromEntries(
-    ALL_OFFLINE_REVIEW_FOCUS_AREAS.map((focusArea) => [focusArea, 0]),
-  ) as Record<OfflineReviewFocusArea, number>;
-}
-
-function createSemanticFamilyCounts(): Record<ReplaySemanticCalibrationFamily, number> {
-  return Object.fromEntries(
-    SEMANTIC_CALIBRATION_FAMILIES.map((family) => [family, 0]),
-  ) as Record<ReplaySemanticCalibrationFamily, number>;
-}
-
-function createFocusAreaCountsFromRecord(
-  value: Record<string, unknown>,
-): Record<OfflineReviewFocusArea, number> {
-  const counts = createOfflineReviewFocusAreaCounts();
-  for (const focusArea of ALL_OFFLINE_REVIEW_FOCUS_AREAS) {
-    counts[focusArea] = typeof value[focusArea] === "number" ? value[focusArea] : 0;
-  }
-  return counts;
-}
-
-function isCalibrationSplit(value: unknown): value is AutoresearchCalibrationSplit {
-  return value === "train" || value === "validation" || value === "heldout";
-}
-
-function isOfflineReviewFocusArea(value: unknown): value is OfflineReviewFocusArea {
-  return typeof value === "string" && ALL_OFFLINE_REVIEW_FOCUS_AREAS.includes(value as OfflineReviewFocusArea);
-}
-
-function isSemanticCalibrationFamily(
-  value: unknown,
-): value is ReplaySemanticCalibrationFamily {
-  return typeof value === "string"
-    && (SEMANTIC_CALIBRATION_FAMILIES as readonly string[]).includes(value);
-}
-
-function isOfflineReviewConfidence(value: unknown): value is OfflineReviewConfidence {
-  return value === "high" || value === "medium" || value === "low";
-}
-
-function isOfflineReviewRecommendation(value: unknown): value is OfflineReviewRecommendation {
-  return value === "promote" || value === "inspect" || value === "ignore";
-}
-
-function isOfflineReviewValue(value: unknown): value is string | string[] | boolean | null {
-  return value === null
-    || typeof value === "string"
-    || typeof value === "boolean"
-    || (Array.isArray(value) && value.every((entry) => typeof entry === "string"));
-}
-
-function confidenceRank(value: OfflineReviewConfidence): number {
-  switch (value) {
-    case "high":
-      return 3;
-    case "medium":
-      return 2;
-    case "low":
-      return 1;
-  }
-}
-
-function collectSemanticFamilies(
-  entries: Array<{
-    focusArea: OfflineReviewFocusArea;
-    apertureValue: string | string[] | boolean | null;
-    expectedValue: string | string[] | boolean | null;
-  }>,
-): ReplaySemanticCalibrationFamily[] {
-  const families = new Set<ReplaySemanticCalibrationFamily>();
-
-  for (const entry of entries) {
-    for (const family of deriveSemanticFamiliesForDifference(
-      entry.focusArea,
-      entry.apertureValue,
-      entry.expectedValue,
-    )) {
-      families.add(family);
-    }
-  }
-
-  return [...families].sort();
-}
-
-function deriveSemanticFamiliesForDifference(
-  focusArea: OfflineReviewFocusArea,
-  apertureValue: string | string[] | boolean | null,
-  expectedValue: string | string[] | boolean | null,
-): ReplaySemanticCalibrationFamily[] {
-  switch (focusArea) {
-    case "ask": {
-      const current = readAskKind(apertureValue);
-      const expected = readAskKind(expectedValue);
-      if (current === null || expected === null) {
-        return [];
-      }
-      const currentAskLike = current !== "status" && current !== "none";
-      const expectedAskLike = expected !== "status" && expected !== "none";
-      if (currentAskLike && !expectedAskLike) {
-        return ["ask_overread"];
-      }
-      if (!currentAskLike && expectedAskLike) {
-        return ["ask_missed"];
-      }
-      return [];
-    }
-    case "blocking":
-      return ["blocking_missed"];
-    case "episode":
-      return ["episode_missed"];
-    case "confidence": {
-      const current = readConfidenceLevel(apertureValue);
-      const expected = readConfidenceLevel(expectedValue);
-      if (current === null || expected === null) {
-        return [];
-      }
-      const currentRank = confidenceRank(current);
-      const expectedRank = confidenceRank(expected);
-      if (currentRank > expectedRank) {
-        return ["confidence_too_high"];
-      }
-      if (currentRank < expectedRank) {
-        return ["confidence_too_low"];
-      }
-      return [];
-    }
-    case "consequence": {
-      const current = readConsequenceLevel(apertureValue);
-      const expected = readConsequenceLevel(expectedValue);
-      if (current === null || expected === null) {
-        return [];
-      }
-      const currentRank = consequenceRank(current);
-      const expectedRank = consequenceRank(expected);
-      if (currentRank > expectedRank) {
-        return ["consequence_overread"];
-      }
-      if (currentRank < expectedRank) {
-        return ["consequence_underread"];
-      }
-      return [];
-    }
-    case "intentFrame": {
-      const current = readIntentFrame(apertureValue);
-      const expected = readIntentFrame(expectedValue);
-      if (current === null || expected === null) {
-        return [];
-      }
-      const currentAskLike = isAskLikeIntentFrame(current);
-      const expectedAskLike = isAskLikeIntentFrame(expected);
-      if (currentAskLike && !expectedAskLike) {
-        return ["ask_overread"];
-      }
-      if (!currentAskLike && expectedAskLike) {
-        return ["ask_missed"];
-      }
-      return [];
-    }
-    default:
-      return [];
-  }
-}
-
-function readConfidenceLevel(
-  value: string | string[] | boolean | null,
-): OfflineReviewConfidence | null {
-  if (value === "high" || value === "medium" || value === "low") {
-    return value;
-  }
-  return null;
-}
-
-function readAskKind(
-  value: string | string[] | boolean | null,
-): "approval" | "choice" | "form" | "status" | "none" | null {
-  if (
-    value === "approval"
-    || value === "choice"
-    || value === "form"
-    || value === "status"
-    || value === "none"
-  ) {
-    return value;
-  }
-  return null;
-}
-
-function readConsequenceLevel(
-  value: string | string[] | boolean | null,
-): "low" | "medium" | "high" | null {
-  if (value === "low" || value === "medium" || value === "high") {
-    return value;
-  }
-
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    const annotated = trimmed.match(/^(low|medium|high) consequence\s*;/);
-    if (annotated?.[1] === "low" || annotated?.[1] === "medium" || annotated?.[1] === "high") {
-      return annotated[1];
-    }
-  }
-
-  return null;
-}
-
-function consequenceRank(value: "low" | "medium" | "high"): number {
-  switch (value) {
-    case "low":
-      return 1;
-    case "medium":
-      return 2;
-    case "high":
-      return 3;
-  }
-}
-
-function readIntentFrame(
-  value: string | string[] | boolean | null,
-): string | null {
-  return typeof value === "string" ? value : null;
-}
-
-function isAskLikeIntentFrame(value: string): boolean {
-  return value === "approval_request"
-    || value === "question_request"
-    || value === "form_request";
-}
-
-async function readJsonFilesRecursive(directory: string): Promise<string[]> {
-  let entries;
-  try {
-    entries = await readdir(directory, { withFileTypes: true });
-  } catch (error) {
-    if (isMissingDirectoryError(error)) {
-      return [];
-    }
-    throw error;
-  }
-
-  const filePaths: string[] = [];
-  for (const entry of entries) {
-    const absolutePath = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      filePaths.push(...await readJsonFilesRecursive(absolutePath));
-      continue;
-    }
-    if (entry.isFile() && entry.name.endsWith(".json")) {
-      filePaths.push(absolutePath);
-    }
-  }
-
-  return filePaths.sort();
-}
-
-function safeSegment(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-}
-
-function safeTimestamp(value: string): string {
-  return value.replace(/[:.]/g, "-");
-}
-
-function renderCalibrationValue(value: string | string[] | boolean | null): string {
-  if (Array.isArray(value)) {
-    return value.length === 0 ? "[]" : value.join(", ");
-  }
-  if (value === null) {
-    return "null";
-  }
-  return String(value);
-}
-
-function isMissingDirectoryError(error: unknown): boolean {
-  return isRecord(error) && error.code === "ENOENT";
 }

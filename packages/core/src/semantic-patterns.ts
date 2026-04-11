@@ -84,11 +84,7 @@ export const OBSERVATIONAL_PAYLOAD_PHRASES = [
   "found",
 ] as const;
 
-export const TAGGED_FILE_OBSERVATION_PHRASES = [
-  "path",
-  "type file",
-  "content",
-] as const;
+export const TAGGED_FILE_OBSERVATION_PHRASES = ["path", "type file", "content"] as const;
 
 export const ROUTINE_SUCCESS_PHRASES = [
   "ran successfully and did not produce any output",
@@ -96,10 +92,7 @@ export const ROUTINE_SUCCESS_PHRASES = [
   "completed successfully and did not produce any output",
 ] as const;
 
-export const LOG_LIKE_OBSERVATION_PHRASES = [
-  "tool-output",
-  "dmesg",
-] as const;
+export const LOG_LIKE_OBSERVATION_PHRASES = ["tool-output", "dmesg"] as const;
 
 export const BUILD_METADATA_PHRASES = [
   "makefile",
@@ -110,13 +103,20 @@ export const BUILD_METADATA_PHRASES = [
 ] as const;
 
 export const PATH_LIKE_TOKEN_PATTERN = /(?:^|\s)\/[a-z0-9._-]+(?:\/[a-z0-9._-]+)+(?:\s|$)/;
-export const SEARCH_RESULT_OUTPUT_PATTERN = /\bfound\s+\d+\s+match(?:es)?\b|\bshowing\s+(?:first|top)\s+\d+\b|\bmatch(?:es)?\s+in\s+\d+\s+files?\b/;
-export const CODE_CONTENT_PATTERN = /\b(import|from|export|class|def|function|const|let|var|return)\b/;
-export const LINE_NUMBERED_CODE_PATTERN = /\b\d+\s+(?:import|from|export|class|def|function|const|let|var|return)\b/;
-export const SOURCE_CODE_PATH_PATTERN = /\/[a-z0-9._/-]+\.(?:c|cc|cpp|cxx|h|hpp|ts|tsx|js|jsx|py|rb|go|rs|java|kt|swift)(?:\b|\/)/;
-export const SOURCE_CODE_FILENAME_PATTERN = /\b[a-z0-9.-]+\.(?:c|cc|cpp|cxx|h|hpp|ts|tsx|js|jsx|py|rb|go|rs|java|kt|swift)\b/;
-export const SOURCE_CODE_CONTENT_PATTERN = /\b(static|struct|enum|typedef|void|int|char|bool|return)\b/;
-export const LINE_NUMBERED_SOURCE_CODE_PATTERN = /\b\d+\s+(?:static|struct|enum|typedef|void|int|char|bool|return)\b/;
+export const SEARCH_RESULT_OUTPUT_PATTERN =
+  /\bfound\s+\d+\s+match(?:es)?\b|\bshowing\s+(?:first|top)\s+\d+\b|\bmatch(?:es)?\s+in\s+\d+\s+files?\b/;
+export const CODE_CONTENT_PATTERN =
+  /\b(import|from|export|class|def|function|const|let|var|return)\b/;
+export const LINE_NUMBERED_CODE_PATTERN =
+  /\b\d+\s+(?:import|from|export|class|def|function|const|let|var|return)\b/;
+export const SOURCE_CODE_PATH_PATTERN =
+  /\/[a-z0-9._/-]+\.(?:c|cc|cpp|cxx|h|hpp|ts|tsx|js|jsx|py|rb|go|rs|java|kt|swift)(?:\b|\/)/;
+export const SOURCE_CODE_FILENAME_PATTERN =
+  /\b[a-z0-9.-]+\.(?:c|cc|cpp|cxx|h|hpp|ts|tsx|js|jsx|py|rb|go|rs|java|kt|swift)\b/;
+export const SOURCE_CODE_CONTENT_PATTERN =
+  /\b(static|struct|enum|typedef|void|int|char|bool|return)\b/;
+export const LINE_NUMBERED_SOURCE_CODE_PATTERN =
+  /\b\d+\s+(?:static|struct|enum|typedef|void|int|char|bool|return)\b/;
 export const LOG_OUTPUT_PATTERN = /\b\d+\s+\[\s*\d+\.\d+\]\s+[a-z0-9_.:-]+/;
 export const BUILD_METADATA_PATTERN = /\b(?:version|patchlevel|sublevel|extraversion)\b/;
 

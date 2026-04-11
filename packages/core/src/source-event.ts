@@ -1,14 +1,5 @@
-import type {
-  AttentionActivityClass,
-  HumanInputRequest,
-  SourceRef,
-  TaskStatus,
-} from "./events.js";
-import type {
-  AttentionConsequenceLevel,
-  AttentionContext,
-  AttentionProvenance,
-} from "./frame.js";
+import type { AttentionActivityClass, HumanInputRequest, SourceRef, TaskStatus } from "./events.js";
+import type { AttentionConsequenceLevel, AttentionContext, AttentionProvenance } from "./frame.js";
 import type { SemanticInterpretationHints } from "./semantic-types.js";
 
 /**

@@ -9,7 +9,7 @@ import { createClaudeCodeHookServer } from "../packages/claude-code/src/server.t
 import {
   ApertureRuntimeAdapterClient,
   discoverLocalRuntimes,
-} from "../packages/runtime/src/index.ts";
+} from "@aperture/runtime";
 
 async function main(): Promise<void> {
   const host = process.env.APERTURE_CLAUDE_HOST ?? "127.0.0.1";

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createApertureRuntime } from "../../runtime/src/index.js";
+import { createApertureRuntime } from "@aperture/runtime";
 
 import type { ClaudeCodePreToolUseEvent } from "../src/index.js";
 import { createClaudeCodeHookServer } from "../src/server.js";
@@ -40,7 +40,7 @@ test("returns ask immediately when no surface is attached", async () => {
 
 test("holds approvals when a surface is attached", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
-  const { controlUrl } = await runtime.listen();
+  const { controlUrl, authToken } = await runtime.listen();
   const server = createClaudeCodeHookServer(runtime.getCore(), {
     holdTimeoutMs: 250,
     port: 0,
@@ -51,7 +51,10 @@ test("holds approvals when a surface is attached", async () => {
   try {
     const attach = await fetch(`${controlUrl}/surfaces/attach`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authToken}`,
+      },
       body: JSON.stringify({ label: "test-surface" }),
     });
     assert.equal(attach.status, 200);
@@ -88,7 +91,7 @@ test("holds approvals when a surface is attached", async () => {
 
 test("publishes an ambient fallback note when a held approval times out", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
-  const { controlUrl } = await runtime.listen();
+  const { controlUrl, authToken } = await runtime.listen();
   const server = createClaudeCodeHookServer(runtime.getCore(), {
     holdTimeoutMs: 25,
     port: 0,
@@ -104,7 +107,10 @@ test("publishes an ambient fallback note when a held approval times out", async 
   try {
     const attach = await fetch(`${controlUrl}/surfaces/attach`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authToken}`,
+      },
       body: JSON.stringify({ label: "test-surface" }),
     });
     assert.equal(attach.status, 200);

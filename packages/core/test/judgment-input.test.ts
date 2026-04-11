@@ -95,7 +95,10 @@ test("judgment input gives hinted relation semantics their own continuity streng
       consequence: "high",
       whyNow: "A high-risk action needs explicit operator approval.",
       factors: ["human.input.requested", "approval"],
-      relationHints: [{ kind: "same_issue", target: "issue:deploy:prod" }, { kind: "supersedes", target: "issue:deploy:prod" }],
+      relationHints: [
+        { kind: "same_issue", target: "issue:deploy:prod" },
+        { kind: "supersedes", target: "issue:deploy:prod" },
+      ],
       confidence: "low",
       reasons: ["request kind establishes an explicit operator decision point"],
       provenance: {

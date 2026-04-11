@@ -6,16 +6,11 @@ import type {
   TraceCriterionEvaluation,
   TraceDecisionAmbiguity,
   TraceDecisionKind,
-  TraceFieldDiff,
-  TraceEventFieldDiff,
   TraceEventTransition,
-  TraceEventTransitionKind,
   TraceFrameTransition,
   TraceGateEvaluation,
   TraceInterruptCriterionVerdict,
   TraceResultLane,
-  TraceSemanticImpact,
-  TraceSemanticRoutingAuthority,
   TraceSemanticSummary,
 } from "./trace-common.js";
 import { isCandidateTraceLike } from "./trace-common.js";

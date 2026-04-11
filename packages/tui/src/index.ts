@@ -2,7 +2,6 @@ import { emitKeypressEvents } from "node:readline";
 import { env, stdin as defaultInput, stdout as defaultOutput } from "node:process";
 
 import { renderAttentionScreen, shouldRenderPreflightScreen } from "./render.js";
-import { renderWhyOverlay } from "./render-why.js";
 import { computePosture } from "./posture.js";
 import { createAnimationState, tickAnimation } from "./animation.js";
 import { ANSI } from "./ansi.js";
@@ -89,7 +88,7 @@ export async function runAttentionTui(
         : null;
 
       output.write(
-        renderAttentionScreenWithWhy(state, title, output, activeTrace, reducedMotion),
+        renderAttentionScreenWithWhy(state, title, output, activeTrace),
       );
     } else {
       const renderOptions = {
@@ -372,7 +371,6 @@ function renderAttentionScreenWithWhy(
   title: string,
   output: OutputLike,
   trace: ApertureTrace | null,
-  reducedMotion: boolean,
 ): string {
   const renderOptions = {
     title,

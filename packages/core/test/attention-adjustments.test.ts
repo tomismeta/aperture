@@ -122,7 +122,9 @@ test("keeps critical status work visible despite quieting heuristics", () => {
   );
 
   assert.equal(adjusted.attentionScoreOffset, -5);
-  assert.ok(adjusted.attentionRationale?.includes("high-consequence status should remain more visible"));
+  assert.ok(
+    adjusted.attentionRationale?.includes("high-consequence status should remain more visible"),
+  );
 });
 
 test("quiets low-value status work when recent behavior suggests overload", () => {
@@ -151,7 +153,11 @@ test("quiets low-value status work when recent behavior suggests overload", () =
   );
 
   assert.equal(adjusted.attentionScoreOffset, -25);
-  assert.ok(adjusted.attentionRationale?.includes("recent task activity suggests attention is already saturated"));
+  assert.ok(
+    adjusted.attentionRationale?.includes(
+      "recent task activity suggests attention is already saturated",
+    ),
+  );
 });
 
 test("quiets low-value status work when overall operator activity is overloaded", () => {
@@ -196,8 +202,16 @@ test("quiets low-value status work when overall operator activity is overloaded"
   );
 
   assert.equal(adjusted.attentionScoreOffset, -10);
-  assert.ok(adjusted.attentionRationale?.includes("overall operator activity suggests attention is already saturated"));
-  assert.ok(adjusted.attentionRationale?.includes("recent attention has already shifted repeatedly across work"));
+  assert.ok(
+    adjusted.attentionRationale?.includes(
+      "overall operator activity suggests attention is already saturated",
+    ),
+  );
+  assert.ok(
+    adjusted.attentionRationale?.includes(
+      "recent attention has already shifted repeatedly across work",
+    ),
+  );
 });
 
 test("boosts blocking interactions when history shows context-seeking and quick response", () => {
@@ -317,7 +331,11 @@ test("quiets low-value status work when attention is fragmented across tasks", (
   );
 
   assert.equal(adjusted.attentionScoreOffset, -5);
-  assert.ok(adjusted.attentionRationale?.includes("recent attention has already shifted repeatedly across work"));
+  assert.ok(
+    adjusted.attentionRationale?.includes(
+      "recent attention has already shifted repeatedly across work",
+    ),
+  );
 });
 
 test("boosts blocking work when similar interactions are deferred and later resumed", () => {
@@ -359,5 +377,9 @@ test("boosts blocking work when similar interactions are deferred and later resu
   );
 
   assert.equal(adjusted.attentionScoreOffset, 5);
-  assert.ok(adjusted.attentionRationale?.includes("similar interactions are often deferred and resumed later"));
+  assert.ok(
+    adjusted.attentionRationale?.includes(
+      "similar interactions are often deferred and resumed later",
+    ),
+  );
 });

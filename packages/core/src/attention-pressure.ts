@@ -29,15 +29,20 @@ export function forecastAttentionPressure(
   const defaults = JUDGMENT_DEFAULTS.pressureForecast;
   const lastSignalAgeMs = getLastSignalAgeMs(summary, now);
   const demandFresh = lastSignalAgeMs === null || lastSignalAgeMs <= defaults.freshness.demandMs;
-  const residualFresh = lastSignalAgeMs === null || lastSignalAgeMs <= defaults.freshness.residualMs;
+  const residualFresh =
+    lastSignalAgeMs === null || lastSignalAgeMs <= defaults.freshness.residualMs;
   const recentDemand = demandFresh
-    ? (summary?.counts.presented ?? 0) + (summary?.counts.deferred ?? 0) + (summary?.counts.returned ?? 0)
+    ? (summary?.counts.presented ?? 0) +
+      (summary?.counts.deferred ?? 0) +
+      (summary?.counts.returned ?? 0)
     : 0;
-  const averageResponseLatencyMs = residualFresh ? summary?.averageResponseLatencyMs ?? null : null;
-  const deferredCount = residualFresh ? summary?.counts.deferred ?? 0 : 0;
-  const suppressedCount = residualFresh ? summary?.deferred.suppressed ?? 0 : 0;
-  const responseRate = residualFresh ? summary?.responseRate ?? 0 : 0;
-  const presentedCount = residualFresh ? summary?.counts.presented ?? 0 : 0;
+  const averageResponseLatencyMs = residualFresh
+    ? (summary?.averageResponseLatencyMs ?? null)
+    : null;
+  const deferredCount = residualFresh ? (summary?.counts.deferred ?? 0) : 0;
+  const suppressedCount = residualFresh ? (summary?.deferred.suppressed ?? 0) : 0;
+  const responseRate = residualFresh ? (summary?.responseRate ?? 0) : 0;
+  const presentedCount = residualFresh ? (summary?.counts.presented ?? 0) : 0;
 
   if (interruptiveVisible >= defaults.visibleInterruptiveBoost.highCount) {
     score += 2;
@@ -55,31 +60,37 @@ export function forecastAttentionPressure(
     reasons.push("incoming demand is climbing");
   }
 
-  if (averageResponseLatencyMs !== null && averageResponseLatencyMs >= defaults.responseLatencyMs.high) {
+  if (
+    averageResponseLatencyMs !== null &&
+    averageResponseLatencyMs >= defaults.responseLatencyMs.high
+  ) {
     score += 2;
     reasons.push("recent response latency is slow");
-  } else if (averageResponseLatencyMs !== null && averageResponseLatencyMs >= defaults.responseLatencyMs.elevated) {
+  } else if (
+    averageResponseLatencyMs !== null &&
+    averageResponseLatencyMs >= defaults.responseLatencyMs.elevated
+  ) {
     score += 1;
     reasons.push("recent response latency is rising");
   }
 
   if (
-    suppressedCount >= defaults.deferredPressure.highSuppressedCount
-    || deferredCount >= defaults.deferredPressure.highDeferredCount
+    suppressedCount >= defaults.deferredPressure.highSuppressedCount ||
+    deferredCount >= defaults.deferredPressure.highDeferredCount
   ) {
     score += 2;
     reasons.push("recent deferrals suggest operator capacity is tightening");
   } else if (
-    suppressedCount >= defaults.deferredPressure.elevatedSuppressedCount
-    || deferredCount >= defaults.deferredPressure.elevatedDeferredCount
+    suppressedCount >= defaults.deferredPressure.elevatedSuppressedCount ||
+    deferredCount >= defaults.deferredPressure.elevatedDeferredCount
   ) {
     score += 1;
     reasons.push("recent deferrals suggest operator capacity is tightening");
   }
 
   if (
-    presentedCount >= defaults.slowClearance.presentedCount
-    && responseRate <= defaults.slowClearance.responseRate
+    presentedCount >= defaults.slowClearance.presentedCount &&
+    responseRate <= defaults.slowClearance.responseRate
   ) {
     score += 1;
     reasons.push("presented work is being cleared slowly");
@@ -165,8 +176,7 @@ function countInterruptiveVisible(attentionView?: AttentionView): number {
 
   return [attentionView.now, ...attentionView.next]
     .filter((frame): frame is AttentionFrame => frame !== null)
-    .filter(isInterruptive)
-    .length;
+    .filter(isInterruptive).length;
 }
 
 function isInterruptive(frame: AttentionFrame): boolean {

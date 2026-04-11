@@ -1,8 +1,6 @@
 import type { ApertureEvent } from "./events.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
-import {
-  projectSemanticOntologyDiagnostic,
-} from "./semantic-ontology.js";
+import { projectSemanticOntologyDiagnostic } from "./semantic-ontology.js";
 import type { SemanticConfidence } from "./semantic-types.js";
 import type {
   AttentionJudgmentInput,
@@ -40,9 +38,7 @@ export type {
 // `AttentionJudgmentInput` is defined in `judgment-input-types.ts` so the seam
 // contract can be read without walking through the compilation logic here.
 
-export function buildAttentionJudgmentInput(
-  event: ApertureEvent,
-): AttentionJudgmentInput {
+export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudgmentInput {
   if (!event.semantic) {
     return {
       blockedLikeStatus: false,
@@ -73,9 +69,9 @@ export function buildAttentionJudgmentInput(
         }
       : {}),
     blockedLikeStatus:
-      event.type === "task.updated"
-      && ontology.blocking === "blocking"
-      && event.status !== "blocked",
+      event.type === "task.updated" &&
+      ontology.blocking === "blocking" &&
+      event.status !== "blocked",
   };
 }
 
@@ -115,21 +111,15 @@ export function readCandidateSemanticConfidence(
   return readCandidateSemanticEvidence(candidate)?.confidence ?? null;
 }
 
-export function isCandidateSemanticAbstained(
-  candidate: AttentionCandidate,
-): boolean {
+export function isCandidateSemanticAbstained(candidate: AttentionCandidate): boolean {
   return readCandidateSemanticEvidence(candidate)?.abstained === true;
 }
 
-export function isCandidateSemanticLowConfidence(
-  candidate: AttentionCandidate,
-): boolean {
+export function isCandidateSemanticLowConfidence(candidate: AttentionCandidate): boolean {
   return readCandidateSemanticConfidence(candidate) === "low";
 }
 
-export function readSemanticSourceCriterionOffset(
-  candidate: AttentionCandidate,
-): number {
+export function readSemanticSourceCriterionOffset(candidate: AttentionCandidate): number {
   const strength = readSemanticEvidenceStrength(candidate);
   const source = readCandidateSemanticEvidence(candidate)?.source;
 

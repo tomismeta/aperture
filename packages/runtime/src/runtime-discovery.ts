@@ -6,6 +6,8 @@ export type ApertureLocalRuntimeRegistration = {
   id: string;
   kind: string;
   controlUrl: string;
+  baseUrl?: string;
+  tokenPath: string;
   pid: number;
   startedAt: string;
   updatedAt: string;
@@ -73,7 +75,9 @@ export async function discoverLocalRuntimes(
 
   const cutoff = Date.now() - maxStalenessMs;
   return registrations
-    .filter((registration): registration is ApertureLocalRuntimeRegistration => registration !== null)
+    .filter(
+      (registration): registration is ApertureLocalRuntimeRegistration => registration !== null,
+    )
     .filter((registration) => (options.kind ? registration.kind === options.kind : true))
     .filter((registration) => {
       const updatedAt = Date.parse(registration.updatedAt);

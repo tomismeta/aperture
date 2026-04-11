@@ -175,7 +175,7 @@ export async function runAutoresearchOptimizeCommand(
   await writeAutoresearchOptimizerPrompt(promptPath, prompt);
 
   const beforeHead = await readGitHead(repoDir);
-  let rawOutput = "";
+  let rawOutput: string;
   let executionError: string | undefined;
   try {
     rawOutput = options.optimizerCommand

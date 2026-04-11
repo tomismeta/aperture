@@ -45,7 +45,9 @@ export function parseHeading(line: string): { level: 1 | 2 | 3; text: string } |
   return { level: level as 1 | 2 | 3, text };
 }
 
-export function parseBullet(line: string): { key: string; value: string } | { text: string } | null {
+export function parseBullet(
+  line: string,
+): { key: string; value: string } | { text: string } | null {
   const trimmed = line.trim();
   if (!trimmed.startsWith("- ")) {
     return null;

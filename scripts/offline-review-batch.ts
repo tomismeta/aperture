@@ -82,8 +82,7 @@ function parseArgs(argv: string[]): Options {
         break;
       case "--help":
       case "-h":
-        printUsage();
-        process.exit(0);
+        return printUsageAndExit(printUsage);
       default:
         throw new Error(`Unknown option: ${arg}`);
     }
@@ -172,6 +171,11 @@ function printUsage(): void {
     "  --markdown-output <path>     Aggregate markdown report path",
     "  --json                       Emit machine-readable summary to stdout",
   ].join("\n"));
+}
+
+function printUsageAndExit(renderUsage: () => void): never {
+  renderUsage();
+  process.exit(0);
 }
 
 main().catch((error) => {

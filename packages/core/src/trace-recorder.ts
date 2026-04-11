@@ -98,7 +98,12 @@ export class TraceRecorder {
       },
       coordination: {
         kind: explanation.decision.kind,
-        resultLane: findResultLane(snapshot.attentionView, adjusted.taskId, adjusted.interactionId, explanation.decision.kind),
+        resultLane: findResultLane(
+          snapshot.attentionView,
+          adjusted.taskId,
+          adjusted.interactionId,
+          explanation.decision.kind,
+        ),
         candidateScore: explanation.candidateScore,
         currentScore: explanation.currentScore,
         currentPriority: explanation.currentPriority,
@@ -158,7 +163,8 @@ function buildSemanticSummary(
     return undefined;
   }
 
-  const ontology = readCandidateSemanticOntology(adjusted) ?? projectSemanticOntologyDiagnostic(event, semantic);
+  const ontology =
+    readCandidateSemanticOntology(adjusted) ?? projectSemanticOntologyDiagnostic(event, semantic);
   const semanticEvidence = readCandidateSemanticEvidence(adjusted);
 
   return {
@@ -166,7 +172,9 @@ function buildSemanticSummary(
     ...(semantic.activityClass !== undefined ? { activityClass: semantic.activityClass } : {}),
     ...(semantic.toolFamily !== undefined ? { toolFamily: semantic.toolFamily } : {}),
     ...(semantic.consequence !== undefined ? { consequence: semantic.consequence } : {}),
-    ...(semanticEvidence?.confidence !== undefined ? { confidence: semanticEvidence.confidence } : {}),
+    ...(semanticEvidence?.confidence !== undefined
+      ? { confidence: semanticEvidence.confidence }
+      : {}),
     ...(semanticEvidence?.abstained === true ? { abstained: true } : {}),
     ontology,
     ...(semantic.whyNow !== undefined ? { whyNow: semantic.whyNow } : {}),
@@ -188,15 +196,21 @@ function buildSemanticInfluence(
     return [];
   }
 
-  const ontology = readCandidateSemanticOntology(adjusted) ?? projectSemanticOntologyDiagnostic(event, semantic);
-  const semanticEvidence = readCandidateSemanticEvidence(adjusted);
+  const ontology =
+    readCandidateSemanticOntology(adjusted) ?? projectSemanticOntologyDiagnostic(event, semantic);
 
   const influence: string[] = [];
 
   if (event.type === "task.updated") {
-    influence.push("task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics");
+    influence.push(
+      "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics",
+    );
 
-    if ("activityClass" in event && event.activityClass === semantic.activityClass && semantic.activityClass !== undefined) {
+    if (
+      "activityClass" in event &&
+      event.activityClass === semantic.activityClass &&
+      semantic.activityClass !== undefined
+    ) {
       influence.push("activity class enriched canonical status facts");
     }
 
@@ -217,16 +231,24 @@ function buildSemanticInfluence(
     }
 
     if (isCandidateSemanticAbstained(adjusted)) {
-      influence.push("semantic abstention can keep non-blocking status work peripheral until clearer evidence arrives");
+      influence.push(
+        "semantic abstention can keep non-blocking status work peripheral until clearer evidence arrives",
+      );
     } else if (readCandidateSemanticConfidence(adjusted) === "low") {
-      influence.push("low semantic confidence can keep non-blocking status work peripheral until the signal is clearer");
+      influence.push(
+        "low semantic confidence can keep non-blocking status work peripheral until the signal is clearer",
+      );
     }
 
     return influence;
   }
 
   if (event.type === "human.input.requested") {
-    if ("activityClass" in event && event.activityClass === semantic.activityClass && semantic.activityClass !== undefined) {
+    if (
+      "activityClass" in event &&
+      event.activityClass === semantic.activityClass &&
+      semantic.activityClass !== undefined
+    ) {
       influence.push("activity class was projected into the canonical request");
     }
 
@@ -261,7 +283,9 @@ function buildSemanticInfluence(
     }
 
     if (influence.length === 0) {
-      influence.push("semantic interpretation mostly stayed context-only beyond the explicit request");
+      influence.push(
+        "semantic interpretation mostly stayed context-only beyond the explicit request",
+      );
     }
 
     return influence;
@@ -329,7 +353,11 @@ function buildSemanticImpact(
 
   switch (event.type) {
     case "task.updated":
-      if ("activityClass" in event && event.activityClass === semantic.activityClass && semantic.activityClass !== undefined) {
+      if (
+        "activityClass" in event &&
+        event.activityClass === semantic.activityClass &&
+        semantic.activityClass !== undefined
+      ) {
         promoteSemanticField(contextOnly, canonical, "activity", "activity (canonical)");
       }
       if (semantic.toolFamily !== undefined && event.toolFamily === semantic.toolFamily) {
@@ -343,7 +371,11 @@ function buildSemanticImpact(
       }
       break;
     case "human.input.requested":
-      if ("activityClass" in event && event.activityClass === semantic.activityClass && semantic.activityClass !== undefined) {
+      if (
+        "activityClass" in event &&
+        event.activityClass === semantic.activityClass &&
+        semantic.activityClass !== undefined
+      ) {
         promoteSemanticField(contextOnly, canonical, "activity", "activity (canonical)");
       }
       if (semantic.consequence !== undefined && event.consequence === semantic.consequence) {
@@ -417,18 +449,26 @@ function findResultLane(
   }
 
   if (
-    attentionView.now
-    && attentionView.now.taskId === taskId
-    && attentionView.now.interactionId === interactionId
+    attentionView.now &&
+    attentionView.now.taskId === taskId &&
+    attentionView.now.interactionId === interactionId
   ) {
     return "now";
   }
 
-  if (attentionView.next.some((frame) => frame.taskId === taskId && frame.interactionId === interactionId)) {
+  if (
+    attentionView.next.some(
+      (frame) => frame.taskId === taskId && frame.interactionId === interactionId,
+    )
+  ) {
     return "next";
   }
 
-  if (attentionView.ambient.some((frame) => frame.taskId === taskId && frame.interactionId === interactionId)) {
+  if (
+    attentionView.ambient.some(
+      (frame) => frame.taskId === taskId && frame.interactionId === interactionId,
+    )
+  ) {
     return "ambient";
   }
 

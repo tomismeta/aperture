@@ -148,19 +148,28 @@ test("public SDK applies semantic defaults to direct ApertureEvent publishes by 
   assert.equal(trace.eventTransition.original.semantic, undefined);
   assert.equal(trace.eventTransition.finalized.semantic?.toolFamily, "read");
   assert.equal(
-    trace.eventTransition.changedFields.some((field) => field.path === "semantic.toolFamily" && field.after === "read"),
+    trace.eventTransition.changedFields.some(
+      (field) => field.path === "semantic.toolFamily" && field.after === "read",
+    ),
     true,
   );
   assert.equal(
-    trace.eventTransition.changedFields.some((field) => field.path === "consequence" && field.before === undefined && field.after === "low"),
+    trace.eventTransition.changedFields.some(
+      (field) =>
+        field.path === "consequence" && field.before === undefined && field.after === "low",
+    ),
     true,
   );
   assert.equal(
-    trace.candidateTransition.changedFields.some((field) => field.path === "episodeState" && field.after === "actionable"),
+    trace.candidateTransition.changedFields.some(
+      (field) => field.path === "episodeState" && field.after === "actionable",
+    ),
     true,
   );
   assert.equal(
-    trace.frameTransition.changedFields.some((field) => field.path === "responseSpec.kind" && field.after === "approval"),
+    trace.frameTransition.changedFields.some(
+      (field) => field.path === "responseSpec.kind" && field.after === "approval",
+    ),
     true,
   );
 
@@ -184,18 +193,21 @@ test("public SDK can opt out of semantic defaults for direct ApertureEvent publi
     traces.push(captureTrace(trace));
   });
 
-  const frame = core.publish({
-    id: "evt:direct-defaults-opt-out",
-    taskId: "task:direct-defaults-opt-out",
-    timestamp: "2026-04-05T21:11:00.000Z",
-    type: "human.input.requested",
-    interactionId: "interaction:direct-defaults-opt-out",
-    title: "Approve file read",
-    summary: "Read src/index.ts before continuing.",
-    request: { kind: "approval" },
-  }, {
-    applySemanticDefaults: false,
-  });
+  const frame = core.publish(
+    {
+      id: "evt:direct-defaults-opt-out",
+      taskId: "task:direct-defaults-opt-out",
+      timestamp: "2026-04-05T21:11:00.000Z",
+      type: "human.input.requested",
+      interactionId: "interaction:direct-defaults-opt-out",
+      title: "Approve file read",
+      summary: "Read src/index.ts before continuing.",
+      request: { kind: "approval" },
+    },
+    {
+      applySemanticDefaults: false,
+    },
+  );
 
   assert.ok(frame);
   assert.equal(frame?.consequence, "medium");
@@ -210,11 +222,15 @@ test("public SDK can opt out of semantic defaults for direct ApertureEvent publi
   assert.equal(trace.eventTransition.kind, "direct_passthrough");
   assert.deepEqual(trace.eventTransition.changedFields, []);
   assert.equal(
-    trace.candidateTransition.changedFields.some((field) => field.path === "episodeState" && field.after === "actionable"),
+    trace.candidateTransition.changedFields.some(
+      (field) => field.path === "episodeState" && field.after === "actionable",
+    ),
     true,
   );
   assert.equal(
-    trace.frameTransition.changedFields.some((field) => field.path === "consequence" && field.after === "medium"),
+    trace.frameTransition.changedFields.some(
+      (field) => field.path === "consequence" && field.after === "medium",
+    ),
     true,
   );
   assert.equal(trace.semantic, undefined);
@@ -321,15 +337,21 @@ test("public SDK supports trace inspection through the trace subpath", () => {
   assert.equal(trace.eventTransition.original.type, "human.input.requested");
   assert.equal(trace.eventTransition.finalized.type, "human.input.requested");
   assert.equal(
-    trace.eventTransition.changedFields.some((field) => field.path === "semantic.intentFrame" && field.after === "question_request"),
+    trace.eventTransition.changedFields.some(
+      (field) => field.path === "semantic.intentFrame" && field.after === "question_request",
+    ),
     true,
   );
   assert.equal(
-    trace.candidateTransition.changedFields.some((field) => field.path === "episodeState" && field.after === "actionable"),
+    trace.candidateTransition.changedFields.some(
+      (field) => field.path === "episodeState" && field.after === "actionable",
+    ),
     true,
   );
   assert.equal(
-    trace.frameTransition.changedFields.some((field) => field.path === "mode" && field.after === "choice"),
+    trace.frameTransition.changedFields.some(
+      (field) => field.path === "mode" && field.after === "choice",
+    ),
     true,
   );
   assert.equal(trace.semantic?.toolFamily, "read");
@@ -343,10 +365,16 @@ test("public SDK supports trace inspection through the trace subpath", () => {
     source: "explicit",
   });
   assert.equal(trace.semantic?.impact.routingAuthority, "request");
-  assert.deepEqual(trace.semantic?.impact.canonical, ["activity (canonical)", "consequence (canonical)"]);
+  assert.deepEqual(trace.semantic?.impact.canonical, [
+    "activity (canonical)",
+    "consequence (canonical)",
+  ]);
   assert.deepEqual(trace.semantic?.impact.continuity, []);
   assert.deepEqual(trace.semantic?.impact.ambiguity, []);
-  assert.deepEqual(trace.semantic?.impact.decisionBearing, ["activity (canonical)", "consequence (canonical)"]);
+  assert.deepEqual(trace.semantic?.impact.decisionBearing, [
+    "activity (canonical)",
+    "consequence (canonical)",
+  ]);
   assert.equal(trace.coordination.kind, "activate");
   assert.equal("policy" in trace, false);
   assert.equal("taskView" in trace, false);

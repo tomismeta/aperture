@@ -1,95 +1,67 @@
 import { randomUUID } from "node:crypto";
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createServer } from "node:http";
 
-import {
-  ApertureCore,
-  type AttentionFrame,
-  type AttentionResponse,
-  type AttentionSignal,
-  type AttentionSurfaceCapabilities,
-  type AttentionView,
-  type SourceEvent,
-  baseAttentionSurfaceCapabilities,
-  mergeAttentionSurfaceCapabilities,
-} from "@tomismeta/aperture-core";
-import type {
-  ApertureTrace,
-  AttentionSignalSummary,
-  AttentionState,
-} from "../../core/src/internal-contract.js";
-import { subscribeInternalTrace } from "../../core/src/internal-contract.js";
+import { ApertureCore, type SourceEvent } from "@tomismeta/aperture-core";
+import { subscribeInternalTrace } from "@tomismeta/aperture-core/internal";
 
-import {
-  removeLocalRuntimeRegistration,
-  writeLocalRuntimeRegistration,
-} from "./runtime-discovery.js";
-import type {
-  ApertureRuntime,
-  ApertureRuntimeAdapter,
-  ApertureRuntimeAttentionViewSnapshot,
-  ApertureRuntimeCaptureStep,
-  ApertureRuntimeEvent,
-  ApertureRuntimeExplanationSnapshot,
-  ApertureRuntimeOptions,
-  ApertureRuntimeSessionCapture,
-  ApertureRuntimeSnapshot,
-  RuntimeWorkResponseRecord,
-  WorkReceipt,
-  WorkReceiptItem,
-  WorkReceiptMode,
-  WorkReceiptNextStep,
-  WorkResponse,
-  WorkResponseState,
-} from "./runtime-contract.js";
+import { initializeRuntimeAuth } from "./runtime-auth.js";
+import type { ApertureRuntime, ApertureRuntimeOptions } from "./runtime-contract.js";
 import {
   buildRuntimeExplanationSnapshot,
   selectExplanationAttentionView,
 } from "./runtime-explanation.js";
 import {
+  readJson,
+  readWorkPayload,
+  requestBaseUrl,
+  RuntimeHttpError,
+  writeJson,
+} from "./runtime-http.js";
+import { RuntimeRateLimiter } from "./runtime-rate-limit.js";
+import {
+  matchLiteral,
+  matchPattern,
+  createRuntimeRouteHandler,
+  type RuntimeRoute,
+} from "./runtime-router.js";
+import {
+  removeLocalRuntimeRegistration,
+  writeLocalRuntimeRegistration,
+} from "./runtime-discovery.js";
+import { RuntimeState } from "./runtime-state.js";
+import {
   describeAcceptedWork,
   describeWorkEndpoint,
   describeWorkResponse,
-  invalidWorkPayloadMessage,
-  readWorkResponseInteractionId,
 } from "./runtime-work.js";
 import {
   normalizeSourceEventPayload,
   validateAttentionResponse,
   validateOperatorEngagement,
 } from "./runtime-validation.js";
-import {
-  mapWorkPayloadToSourceEvents,
-  normalizeWorkPayload,
-} from "./work-event-ingest.js";
-
-type SurfaceSession = {
-  id: string;
-  lastSeenAt: number;
-  label?: string;
-  capabilities: AttentionSurfaceCapabilities;
-};
-
-type AdapterSession = {
-  id: string;
-  kind: string;
-  lastSeenAt: number;
-  connectedAt: string;
-  label?: string;
-  metadata?: Record<string, string>;
-};
+import { mapWorkPayloadToSourceEvents, normalizeWorkPayload } from "./work-event-ingest.js";
+import { WorkResponseStore } from "./work-response-store.js";
 
 const DEFAULT_KIND = "aperture";
 const DEFAULT_CONTROL_HOST = "127.0.0.1";
 const DEFAULT_CONTROL_PATH_PREFIX = "/runtime";
 const DEFAULT_EVENT_LOG_LIMIT = 128;
+const DEFAULT_CAPTURE_LOG_LIMIT = 2_048;
 const DEFAULT_ADAPTER_TTL_MS = 30_000;
 const DEFAULT_SURFACE_TTL_MS = 15_000;
-const DEFAULT_BODY_LIMIT_BYTES = 64 * 1024;
+const DEFAULT_WORK_RESPONSE_MAX_ENTRIES = 2_048;
+const DEFAULT_WORK_RESPONSE_PENDING_TTL_MS = 60 * 60 * 1_000;
+const DEFAULT_WORK_RESPONSE_RETENTION_MS = 60 * 60 * 1_000;
 const REGISTRATION_HEARTBEAT_MS = 5_000;
+const DEFAULT_RATE_LIMIT_WINDOW_MS = 60_000;
 
-export function createApertureRuntime(
-  options: ApertureRuntimeOptions = {},
-): ApertureRuntime {
+const BODY_LIMIT_BYTES = {
+  general: 16 * 1024,
+  work: 64 * 1024,
+  sourceEvents: 256 * 1024,
+} as const;
+
+export function createApertureRuntime(options: ApertureRuntimeOptions = {}): ApertureRuntime {
   const core = options.core ?? new ApertureCore();
   const kind = options.kind ?? DEFAULT_KIND;
   const controlHost = options.controlHost ?? DEFAULT_CONTROL_HOST;
@@ -98,357 +70,117 @@ export function createApertureRuntime(
     options.controlPathPrefix ?? DEFAULT_CONTROL_PATH_PREFIX,
   );
   const eventLogLimit = options.eventLogLimit ?? DEFAULT_EVENT_LOG_LIMIT;
+  const captureLogLimit = options.captureLogLimit ?? DEFAULT_CAPTURE_LOG_LIMIT;
   const adapterTtlMs = options.adapterTtlMs ?? DEFAULT_ADAPTER_TTL_MS;
   const surfaceTtlMs = options.surfaceTtlMs ?? DEFAULT_SURFACE_TTL_MS;
-  const bodyLimitBytes = DEFAULT_BODY_LIMIT_BYTES;
+  const workResponseMaxEntries =
+    options.workResponseMaxEntries ?? DEFAULT_WORK_RESPONSE_MAX_ENTRIES;
+  const workResponsePendingTtlMs =
+    options.workResponsePendingTtlMs ?? DEFAULT_WORK_RESPONSE_PENDING_TTL_MS;
+  const workResponseRetentionMs =
+    options.workResponseRetentionMs ?? DEFAULT_WORK_RESPONSE_RETENTION_MS;
   const runtimeId = randomUUID();
   const startedAt = new Date().toISOString();
-  const adapters = new Map<string, AdapterSession>();
-  const surfaces = new Map<string, SurfaceSession>();
-  const workResponses = new Map<string, {
-    taskId: string;
-    interactionId: string;
-    state: WorkResponseState;
-    response?: AttentionResponse["response"];
-    answeredAt?: string;
-  }>();
-  const events: ApertureRuntimeEvent[] = [];
-  const publishedSourceEvents: SourceEvent[] = [];
-  const submittedResponses: AttentionResponse[] = [];
-  const signalLog: AttentionSignal[] = [];
-  const traceLog: ApertureTrace[] = [];
-  const attentionViewSnapshots: ApertureRuntimeAttentionViewSnapshot[] = [];
-  const captureSteps: ApertureRuntimeCaptureStep[] = [];
-  let sequence = 0;
-  let captureSequence = 0;
-  let stateVersion = 0;
+  const rateLimiter = new RuntimeRateLimiter({
+    windowMs: DEFAULT_RATE_LIMIT_WINDOW_MS,
+    limits: {
+      mutating: 600,
+      work: 120,
+      source: 240,
+      control: 240,
+    },
+  });
+
+  let controlServer: ReturnType<typeof createServer> | null = null;
   let registrationInterval: NodeJS.Timeout | null = null;
+  let listeningPort: number | null = null;
+  let runtimeState: RuntimeState | null = null;
+  let runtimeAuth: Awaited<ReturnType<typeof initializeRuntimeAuth>> | null = null;
   let learningPersistence = options.learningPersistence;
   let seededAttentionViewSubscription = false;
 
-  const bumpStateVersion = () => {
-    stateVersion += 1;
-  };
-
-  const pushEvent = (event: { type: "response"; response: AttentionResponse } | { type: "trace"; trace: ApertureTrace }) => {
-    sequence += 1;
-    events.push({ sequence, ...event });
-    if (events.length > eventLogLimit) {
-      events.splice(0, events.length - eventLogLimit);
-    }
-  };
-
-  const pushBounded = <T>(entries: T[], entry: T) => {
-    entries.push(entry);
-    if (entries.length > eventLogLimit) {
-      entries.splice(0, entries.length - eventLogLimit);
-    }
-  };
-
-  const nextCaptureSequence = () => {
-    captureSequence += 1;
-    return captureSequence;
-  };
-
   const unsubscribeResponse = core.onResponse((response) => {
-    recordWorkResponse(response);
-    pushEvent({ type: "response", response });
-    pushBounded(submittedResponses, response);
+    runtimeState?.recordRuntimeResponse(response);
   });
   const unsubscribeTrace = subscribeInternalTrace(core, (trace) => {
-    pushEvent({ type: "trace", trace });
-    pushBounded(traceLog, trace);
+    runtimeState?.recordRuntimeTrace(trace);
   });
   const unsubscribeSignal = core.onSignal((signal) => {
-    pushBounded(signalLog, signal);
-    bumpStateVersion();
+    runtimeState?.recordSignal(signal);
   });
-  const unsubscribeAttentionView = core.subscribeAttentionView(() => {
+  const unsubscribeAttentionView = core.subscribeAttentionView((attentionView) => {
+    if (!runtimeState) {
+      return;
+    }
     if (!seededAttentionViewSubscription) {
       seededAttentionViewSubscription = true;
       return;
     }
-    pushBounded(attentionViewSnapshots, {
-      sequence: nextCaptureSequence(),
+    runtimeState.recordAttentionViewSnapshot({
       recordedAt: new Date().toISOString(),
-      attentionView: core.getAttentionView(),
+      attentionView,
     });
-    bumpStateVersion();
-  });
-
-  const controlServer = createServer(async (req, res) => {
-    try {
-      if (!req.method || !req.url) {
-        writeJson(res, 404, { error: "not found" });
-        return;
-      }
-
-      pruneSurfaces();
-      pruneAdapters();
-      const url = new URL(req.url, `http://${controlHost}`);
-      const path = url.pathname;
-
-      if (req.method === "GET" && path === `${controlPathPrefix}/health`) {
-        writeJson(res, 200, {
-          ok: true,
-          runtimeId,
-          kind,
-          adapterCount: adapters.size,
-          surfaceCount: surfaces.size,
-          metadata: options.metadata ?? {},
-        });
-        return;
-      }
-
-      if (req.method === "GET" && path === `${controlPathPrefix}/state`) {
-        writeJson(res, 200, snapshot());
-        return;
-      }
-
-      if (req.method === "POST" && path === `${controlPathPrefix}/learning/checkpoint`) {
-        const snapshot = await core.checkpointMemory();
-        if (!snapshot) {
-          writeJson(res, 200, { checkpointed: false });
-          return;
-        }
-        learningPersistence = {
-          ...(learningPersistence ?? { enabled: true }),
-          lastCheckpointAt: snapshot.updatedAt,
-        };
-        bumpStateVersion();
-        writeJson(res, 200, {
-          checkpointed: true,
-          updatedAt: snapshot.updatedAt,
-          sessionCount: snapshot.sessionCount,
-        });
-        return;
-      }
-
-      if (req.method === "POST" && path === `${controlPathPrefix}/learning/reload`) {
-        const reloaded = await core.reloadMarkdown();
-        if (!reloaded) {
-          writeJson(res, 200, { reloaded: false });
-          return;
-        }
-        const loadedAt = new Date().toISOString();
-        learningPersistence = {
-          ...(learningPersistence ?? { enabled: true }),
-          lastLoadedAt: loadedAt,
-        };
-        bumpStateVersion();
-        writeJson(res, 200, {
-          reloaded: true,
-          loadedAt,
-        });
-        return;
-      }
-
-      if (req.method === "GET" && path === `${controlPathPrefix}/events`) {
-        const since = Number(url.searchParams.get("since") ?? "0");
-        writeJson(res, 200, {
-          events: events.filter((event) => event.sequence > since),
-          nextSequence: sequence,
-          stateVersion,
-        });
-        return;
-      }
-
-      if (req.method === "GET" && path === `${controlPathPrefix}/session`) {
-        writeJson(res, 200, exportSessionCapture());
-        return;
-      }
-
-      if (req.method === "POST" && path === `${controlPathPrefix}/response`) {
-        const payload = await readJson(req, bodyLimitBytes);
-        const response = validateAttentionResponse(payload);
-        if (!response) {
-          throw new Error("Invalid attention response payload.");
-        }
-        recordSubmittedResponse(response);
-        core.submit(response);
-        writeJson(res, 200, {});
-        return;
-      }
-
-      if (req.method === "POST" && path === `${controlPathPrefix}/engagement`) {
-        const payload = await readJson(req, bodyLimitBytes);
-        const engagement = validateOperatorEngagement(payload);
-        if (!engagement) {
-          throw new Error("Invalid operator engagement payload.");
-        }
-        core.engage(engagement.taskId, engagement.interactionId, {
-          ...(engagement.durationMs !== undefined ? { durationMs: engagement.durationMs } : {}),
-        });
-        writeJson(res, 200, { engaged: true });
-        return;
-      }
-
-      if (req.method === "POST" && path === `${controlPathPrefix}/events/source`) {
-        const payload = await readJson(req, bodyLimitBytes);
-        const events = normalizeSourceEventPayload(payload);
-        for (const event of events) {
-          core.publishSourceEvent(event);
-          recordPublishedSourceEvent(event);
-        }
-        writeJson(res, 200, { published: events.length });
-        return;
-      }
-
-      if (req.method === "GET" && path === "/work") {
-        writeJson(res, 200, describeWorkEndpoint());
-        return;
-      }
-
-      const workResponseInteractionId = readWorkResponseInteractionId(path);
-      if (req.method === "GET" && workResponseInteractionId !== null) {
-        const workResponse = workResponses.get(workResponseInteractionId);
-        if (!workResponse) {
-          writeJson(res, 404, {
-            error:
-              "No work response found for that interactionId. A public response loop is created when you POST a structured WorkEvent with kind=input.requested to /work.",
-          });
-          return;
-        }
-        writeJson(res, 200, describeWorkResponse(workResponse));
-        return;
-      }
-
-      if (
-        req.method === "POST"
-        && path === "/work"
-      ) {
-        const payload = await readWorkPayload(req, bodyLimitBytes);
-        const normalizedWork = normalizeWorkPayload(payload);
-        const events = mapWorkPayloadToSourceEvents(normalizedWork);
-        for (const event of events) {
-          registerPendingWorkResponse(event);
-          core.publishSourceEvent(event);
-          recordPublishedSourceEvent(event);
-        }
-        writeJson(res, 200, describeAcceptedWork(normalizedWork, events));
-        return;
-      }
-
-      if (req.method === "POST" && path === `${controlPathPrefix}/adapters/register`) {
-        const payload = (await readJson(req, bodyLimitBytes)) as {
-          id?: string;
-          kind: string;
-          label?: string;
-          metadata?: Record<string, string>;
-        };
-        if (typeof payload.kind !== "string" || payload.kind.trim() === "") {
-          throw new Error("adapter registration requires a non-empty kind");
-        }
-        const adapterId = payload.id?.trim() || randomUUID();
-        const connectedAt = new Date().toISOString();
-        adapters.set(adapterId, {
-          id: adapterId,
-          kind: payload.kind,
-          lastSeenAt: Date.now(),
-          connectedAt,
-          ...(payload.label ? { label: payload.label } : {}),
-          ...(payload.metadata ? { metadata: payload.metadata } : {}),
-        });
-        bumpStateVersion();
-        writeJson(res, 200, {
-          adapterId,
-          heartbeatIntervalMs: Math.max(1_000, Math.floor(adapterTtlMs / 3)),
-          expiresAt: new Date(Date.now() + adapterTtlMs).toISOString(),
-        });
-        return;
-      }
-
-      const adapterHeartbeatMatch = path.match(
-        new RegExp(`^${escapeRegExp(controlPathPrefix)}/adapters/([^/]+)/heartbeat$`),
-      );
-      if (req.method === "POST" && adapterHeartbeatMatch?.[1]) {
-        const adapterId = decodeURIComponent(adapterHeartbeatMatch[1]);
-        const adapter = adapters.get(adapterId);
-        if (!adapter) {
-          writeJson(res, 404, { error: "unknown adapter" });
-          return;
-        }
-        adapter.lastSeenAt = Date.now();
-        writeJson(res, 200, {});
-        return;
-      }
-
-      const adapterDetachMatch = path.match(
-        new RegExp(`^${escapeRegExp(controlPathPrefix)}/adapters/([^/]+)$`),
-      );
-      if (req.method === "DELETE" && adapterDetachMatch?.[1]) {
-        const adapterId = decodeURIComponent(adapterDetachMatch[1]);
-        if (adapters.delete(adapterId)) {
-          bumpStateVersion();
-        }
-        writeJson(res, 200, {});
-        return;
-      }
-
-      if (req.method === "POST" && path === `${controlPathPrefix}/surfaces/attach`) {
-        const payload = (await readOptionalJson(req, bodyLimitBytes)) as {
-          label?: string;
-          capabilities?: PartialSurfaceCapabilities;
-        } | null;
-        const surfaceId = randomUUID();
-        surfaces.set(surfaceId, {
-          id: surfaceId,
-          lastSeenAt: Date.now(),
-          capabilities: normalizeSurfaceCapabilities(payload?.capabilities),
-          ...(payload?.label ? { label: payload.label } : {}),
-        });
-        core.setSurfaceCapabilities(aggregateSurfaceCapabilities());
-        bumpStateVersion();
-        writeJson(res, 200, {
-          surfaceId,
-          heartbeatIntervalMs: Math.max(1_000, Math.floor(surfaceTtlMs / 3)),
-          expiresAt: new Date(Date.now() + surfaceTtlMs).toISOString(),
-        });
-        return;
-      }
-
-      const heartbeatMatch = path.match(
-        new RegExp(`^${escapeRegExp(controlPathPrefix)}/surfaces/([^/]+)/heartbeat$`),
-      );
-      if (req.method === "POST" && heartbeatMatch?.[1]) {
-        const surfaceId = decodeURIComponent(heartbeatMatch[1]);
-        const surface = surfaces.get(surfaceId);
-        if (!surface) {
-          writeJson(res, 404, { error: "unknown surface" });
-          return;
-        }
-        surface.lastSeenAt = Date.now();
-        writeJson(res, 200, {});
-        return;
-      }
-
-      const detachMatch = path.match(
-        new RegExp(`^${escapeRegExp(controlPathPrefix)}/surfaces/([^/]+)$`),
-      );
-      if (req.method === "DELETE" && detachMatch?.[1]) {
-        const surfaceId = decodeURIComponent(detachMatch[1]);
-        if (surfaces.delete(surfaceId)) {
-          core.setSurfaceCapabilities(aggregateSurfaceCapabilities());
-          bumpStateVersion();
-        }
-        writeJson(res, 200, {});
-        return;
-      }
-
-      writeJson(res, 404, { error: "not found" });
-    } catch (error) {
-      writeJson(res, 400, {
-        error: error instanceof Error ? error.message : "invalid request",
-      });
-    }
   });
 
   return {
     async listen() {
+      if (controlServer) {
+        throw new Error("Aperture runtime is already listening");
+      }
+
+      const runtimeStateKey = controlPort === 0 ? `${kind}-${runtimeId}` : `${kind}-${controlPort}`;
+      runtimeAuth = await initializeRuntimeAuth(runtimeStateKey);
+      const tokenPath = runtimeAuth.tokenPath;
+      const workResponses = await WorkResponseStore.open({
+        stateDir: runtimeAuth.stateDir,
+        maxEntries: workResponseMaxEntries,
+        pendingTtlMs: workResponsePendingTtlMs,
+        retentionMs: workResponseRetentionMs,
+      });
+      runtimeState = new RuntimeState({
+        runtimeId,
+        kind,
+        startedAt,
+        eventLogLimit,
+        captureLogLimit,
+        adapterTtlMs,
+        surfaceTtlMs,
+        ...(options.metadata ? { metadata: options.metadata } : {}),
+        ...(learningPersistence ? { learningPersistence } : {}),
+        workResponses,
+      });
+
+      controlServer = createServer(async (req, res) => {
+        if (!runtimeState || !runtimeAuth) {
+          writeJson(res, 503, {
+            error: {
+              code: "runtime_unavailable",
+              message: "Aperture runtime is not ready yet.",
+            },
+          });
+          return;
+        }
+
+        if (!req.method || !req.url) {
+          writeJson(res, 404, {
+            error: {
+              code: "not_found",
+              message: "not found",
+            },
+          });
+          return;
+        }
+
+        const url = new URL(req.url, `http://${controlHost}`);
+        const path = url.pathname;
+        syncSurfaceCapabilities(runtimeState);
+        await routeHandler(runtimeState, runtimeAuth.token)(req, res, url, path);
+      });
+
       await new Promise<void>((resolve, reject) => {
-        controlServer.once("error", reject);
-        controlServer.listen(controlPort, controlHost, () => {
-          controlServer.off("error", reject);
+        controlServer!.once("error", reject);
+        controlServer!.listen(controlPort, controlHost, () => {
+          controlServer!.off("error", reject);
           resolve();
         });
       });
@@ -458,24 +190,27 @@ export function createApertureRuntime(
         throw new Error("Aperture runtime control server did not bind to a TCP address");
       }
 
+      listeningPort = address.port;
       const binding = {
         baseUrl: `http://${controlHost}:${address.port}`,
         controlUrl: `http://${controlHost}:${address.port}${controlPathPrefix}`,
+        authToken: runtimeAuth.token,
+        tokenPath: runtimeAuth.tokenPath,
       };
 
-      await registerRuntime(binding.controlUrl);
+      await registerRuntime(binding.controlUrl, binding.baseUrl, tokenPath);
       registrationInterval = setInterval(() => {
-        void registerRuntime(binding.controlUrl).catch(() => {});
+        void registerRuntime(binding.controlUrl, binding.baseUrl, tokenPath).catch(() => {});
       }, REGISTRATION_HEARTBEAT_MS);
 
       return {
-        baseUrl: binding.baseUrl,
-        controlUrl: binding.controlUrl,
+        ...binding,
         runtimeId,
         kind,
         surfaceTtlMs,
       };
     },
+
     async close() {
       const snapshot = await core.checkpointMemory();
       if (snapshot) {
@@ -483,25 +218,28 @@ export function createApertureRuntime(
           ...(learningPersistence ?? { enabled: true }),
           lastCheckpointAt: snapshot.updatedAt,
         };
-        bumpStateVersion();
+        runtimeState?.setLearningPersistence(learningPersistence);
       }
+
       unsubscribeResponse();
       unsubscribeTrace();
       unsubscribeSignal();
       unsubscribeAttentionView();
+
       if (registrationInterval) {
         clearInterval(registrationInterval);
         registrationInterval = null;
       }
+
       await removeLocalRuntimeRegistration(runtimeId).catch(() => {});
-      if ("closeIdleConnections" in controlServer && typeof controlServer.closeIdleConnections === "function") {
-        controlServer.closeIdleConnections();
+      await runtimeState?.flush();
+
+      if (!controlServer) {
+        return;
       }
-      if ("closeAllConnections" in controlServer && typeof controlServer.closeAllConnections === "function") {
-        controlServer.closeAllConnections();
-      }
+
       await new Promise<void>((resolve, reject) => {
-        controlServer.close((error) => {
+        controlServer!.close((error) => {
           if (error) {
             reject(error);
             return;
@@ -509,169 +247,491 @@ export function createApertureRuntime(
           resolve();
         });
       });
+      controlServer = null;
+      listeningPort = null;
     },
+
     getCore() {
       return core;
     },
+
     hasAttachedSurface() {
-      pruneSurfaces();
-      return surfaces.size > 0;
+      return (runtimeState?.surfaceCount ?? 0) > 0;
     },
+
     exportSessionCapture() {
-      return exportSessionCapture();
+      if (!runtimeState) {
+        throw new Error("Aperture runtime is not listening");
+      }
+      const capture = runtimeState.captureData();
+      const explanationAttentionView = selectExplanationAttentionView(
+        core.getAttentionView(),
+        capture.attentionViewSnapshots,
+      );
+      const explanation = buildRuntimeExplanationSnapshot(explanationAttentionView, capture.traces);
+      return runtimeState.exportSessionCapture(core, explanation);
     },
+
     publishSourceEvent(event) {
+      const recordedAt = new Date().toISOString();
+      runtimeState?.registerPendingWorkResponse(event, recordedAt);
       core.publishSourceEvent(event);
-      recordPublishedSourceEvent(event);
+      runtimeState?.recordPublishedSourceEvent(event, recordedAt);
     },
+
     publishSourceEventBatch(events) {
+      const recordedAt = new Date().toISOString();
       for (const event of events) {
+        runtimeState?.registerPendingWorkResponse(event, recordedAt);
         core.publishSourceEvent(event);
-        recordPublishedSourceEvent(event);
+        runtimeState?.recordPublishedSourceEvent(event, recordedAt);
       }
     },
   };
 
-  function pruneSurfaces(): void {
-    const cutoff = Date.now() - surfaceTtlMs;
-    let removed = false;
-    for (const [surfaceId, surface] of surfaces.entries()) {
-      if (surface.lastSeenAt < cutoff) {
-        surfaces.delete(surfaceId);
-        removed = true;
-      }
-    }
-    if (removed) {
-      core.setSurfaceCapabilities(aggregateSurfaceCapabilities());
-      bumpStateVersion();
-    }
-  }
+  function routeHandler(state: RuntimeState, authToken: string) {
+    const routes: RuntimeRoute[] = [
+      {
+        method: "GET",
+        match: matchLiteral(`${controlPathPrefix}/health`),
+        requiresAuth: false,
+        handler: async ({ res }) => {
+          writeJson(res, 200, {
+            ok: true,
+            runtimeId,
+            kind,
+            adapterCount: state.snapshot(core).adapters.length,
+            surfaceCount: state.surfaceCount,
+            authRequired: true,
+            metadata: options.metadata ?? {},
+          });
+        },
+      },
+      {
+        method: "GET",
+        match: matchLiteral(`${controlPathPrefix}/state`),
+        handler: async ({ res }) => {
+          writeJson(res, 200, state.snapshot(core));
+        },
+      },
+      {
+        method: "POST",
+        match: matchLiteral(`${controlPathPrefix}/learning/checkpoint`),
+        mutating: true,
+        rateLimitKey: "control",
+        handler: async ({ res }) => {
+          const snapshot = await core.checkpointMemory();
+          if (!snapshot) {
+            writeJson(res, 200, { checkpointed: false });
+            return;
+          }
+          learningPersistence = {
+            ...(learningPersistence ?? { enabled: true }),
+            lastCheckpointAt: snapshot.updatedAt,
+          };
+          state.setLearningPersistence(learningPersistence);
+          writeJson(res, 200, {
+            checkpointed: true,
+            updatedAt: snapshot.updatedAt,
+            sessionCount: snapshot.sessionCount,
+          });
+        },
+      },
+      {
+        method: "POST",
+        match: matchLiteral(`${controlPathPrefix}/learning/reload`),
+        mutating: true,
+        rateLimitKey: "control",
+        handler: async ({ res }) => {
+          const reloaded = await core.reloadMarkdown();
+          if (!reloaded) {
+            writeJson(res, 200, { reloaded: false });
+            return;
+          }
+          const loadedAt = new Date().toISOString();
+          learningPersistence = {
+            ...(learningPersistence ?? { enabled: true }),
+            lastLoadedAt: loadedAt,
+          };
+          state.setLearningPersistence(learningPersistence);
+          writeJson(res, 200, {
+            reloaded: true,
+            loadedAt,
+          });
+        },
+      },
+      {
+        method: "GET",
+        match: matchLiteral(`${controlPathPrefix}/events`),
+        handler: async ({ res, url }) => {
+          const since = Number(url.searchParams.get("since") ?? "0");
+          writeJson(res, 200, {
+            events: state.eventsSince(since),
+            nextSequence: state.nextSequence(),
+            stateVersion: state.version,
+          });
+        },
+      },
+      {
+        method: "GET",
+        match: matchLiteral(`${controlPathPrefix}/session`),
+        handler: async ({ res }) => {
+          const capture = state.captureData();
+          const explanationAttentionView = selectExplanationAttentionView(
+            core.getAttentionView(),
+            capture.attentionViewSnapshots,
+          );
+          const explanation = buildRuntimeExplanationSnapshot(
+            explanationAttentionView,
+            capture.traces,
+          );
+          writeJson(res, 200, state.exportSessionCapture(core, explanation));
+        },
+      },
+      {
+        method: "POST",
+        match: matchLiteral(`${controlPathPrefix}/response`),
+        mutating: true,
+        rateLimitKey: "control",
+        handler: async ({ req, res }) => {
+          const payload = await readJson(req, BODY_LIMIT_BYTES.general);
+          const response = validateAttentionResponse(payload);
+          if (!response) {
+            throw new RuntimeHttpError(
+              400,
+              "invalid_attention_response",
+              "Invalid attention response payload.",
+            );
+          }
+          state.recordSubmittedResponse(response, new Date().toISOString());
+          core.submit(response);
+          writeJson(res, 200, {});
+        },
+      },
+      {
+        method: "POST",
+        match: matchLiteral(`${controlPathPrefix}/engagement`),
+        mutating: true,
+        rateLimitKey: "control",
+        handler: async ({ req, res }) => {
+          const payload = await readJson(req, BODY_LIMIT_BYTES.general);
+          const engagement = validateOperatorEngagement(payload);
+          if (!engagement) {
+            throw new RuntimeHttpError(
+              400,
+              "invalid_engagement",
+              "Invalid operator engagement payload.",
+            );
+          }
+          core.engage(engagement.taskId, engagement.interactionId, {
+            ...(engagement.durationMs !== undefined ? { durationMs: engagement.durationMs } : {}),
+          });
+          writeJson(res, 200, { engaged: true });
+        },
+      },
+      {
+        method: "POST",
+        match: matchLiteral(`${controlPathPrefix}/events/source`),
+        mutating: true,
+        rateLimitKey: "source",
+        handler: async ({ req, res }) => {
+          const payload = await readJson(req, BODY_LIMIT_BYTES.sourceEvents);
+          let sourceEvents: SourceEvent[];
+          try {
+            sourceEvents = normalizeSourceEventPayload(payload);
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : "Invalid source event payload.";
+            throw new RuntimeHttpError(400, "invalid_source_event", message);
+          }
+          const recordedAt = new Date().toISOString();
+          for (const event of sourceEvents) {
+            state.registerPendingWorkResponse(event, recordedAt);
+            core.publishSourceEvent(event);
+            state.recordPublishedSourceEvent(event, recordedAt);
+          }
+          writeJson(res, 200, { published: sourceEvents.length });
+        },
+      },
+      {
+        method: "GET",
+        match: matchLiteral("/work"),
+        handler: async ({ res }) => {
+          if (listeningPort === null) {
+            throw new RuntimeHttpError(
+              503,
+              "runtime_unavailable",
+              "Aperture runtime is not ready yet.",
+            );
+          }
+          writeJson(res, 200, describeWorkEndpoint(state.retention));
+        },
+      },
+      {
+        method: "GET",
+        match: matchLiteral("/v1/work"),
+        handler: async ({ res }) => {
+          if (listeningPort === null) {
+            throw new RuntimeHttpError(
+              503,
+              "runtime_unavailable",
+              "Aperture runtime is not ready yet.",
+            );
+          }
+          writeJson(res, 200, describeWorkEndpoint(state.retention));
+        },
+      },
+      {
+        method: "GET",
+        match: matchPattern(/^\/(?:v1\/)?work\/response\/([^/]+)$/, ["interactionId"]),
+        handler: async ({ res, params }) => {
+          const interactionId = decodeParam(params.interactionId);
+          const workResponse = state.readWorkResponse(interactionId);
+          if (!workResponse) {
+            throw new RuntimeHttpError(
+              404,
+              "work_response_not_found",
+              "No retained work response was found for that interactionId.",
+              "The interaction may never have been registered, may have expired, or may have been evicted after its retention window.",
+            );
+          }
+          writeJson(res, 200, describeWorkResponse(workResponse));
+        },
+      },
+      {
+        method: "DELETE",
+        match: matchPattern(/^\/(?:v1\/)?work\/response\/([^/]+)$/, ["interactionId"]),
+        mutating: true,
+        rateLimitKey: "work",
+        handler: async ({ res, params }) => {
+          const interactionId = decodeParam(params.interactionId);
+          const workResponse = state.cancelWorkResponse(interactionId);
+          if (!workResponse) {
+            throw new RuntimeHttpError(
+              404,
+              "work_response_not_found",
+              "No retained work response was found for that interactionId.",
+            );
+          }
+          if (workResponse.state === "answered") {
+            throw new RuntimeHttpError(
+              409,
+              "work_response_answered",
+              "Answered work responses cannot be cancelled.",
+            );
+          }
+          writeJson(res, 200, describeWorkResponse(workResponse));
+        },
+      },
+      {
+        method: "POST",
+        match: matchLiteral("/work"),
+        mutating: true,
+        rateLimitKey: "work",
+        handler: async ({ req, res }) => {
+          const payload = await readWorkPayload(req, BODY_LIMIT_BYTES.work);
+          let normalizedWork;
+          try {
+            normalizedWork = normalizeWorkPayload(payload);
+          } catch (error) {
+            const detail = error instanceof Error ? error.message : String(error);
+            throw new RuntimeHttpError(400, "invalid_work_payload", detail);
+          }
+          const sourceEvents = mapWorkPayloadToSourceEvents(normalizedWork);
+          const recordedAt = new Date().toISOString();
+          for (const event of sourceEvents) {
+            state.registerPendingWorkResponse(event, recordedAt);
+            core.publishSourceEvent(event);
+            state.recordPublishedSourceEvent(event, recordedAt);
+          }
+          const baseUrl = requestBaseUrl(req, controlHost, listeningPort ?? (controlPort || 4546));
+          writeJson(
+            res,
+            200,
+            describeAcceptedWork(normalizedWork, sourceEvents, {
+              baseUrl,
+              retention: state.retention,
+            }),
+          );
+        },
+      },
+      {
+        method: "POST",
+        match: matchLiteral("/v1/work"),
+        mutating: true,
+        rateLimitKey: "work",
+        handler: async ({ req, res }) => {
+          const payload = await readWorkPayload(req, BODY_LIMIT_BYTES.work);
+          let normalizedWork;
+          try {
+            normalizedWork = normalizeWorkPayload(payload);
+          } catch (error) {
+            const detail = error instanceof Error ? error.message : String(error);
+            throw new RuntimeHttpError(400, "invalid_work_payload", detail);
+          }
+          const sourceEvents = mapWorkPayloadToSourceEvents(normalizedWork);
+          const recordedAt = new Date().toISOString();
+          for (const event of sourceEvents) {
+            state.registerPendingWorkResponse(event, recordedAt);
+            core.publishSourceEvent(event);
+            state.recordPublishedSourceEvent(event, recordedAt);
+          }
+          const baseUrl = requestBaseUrl(req, controlHost, listeningPort ?? (controlPort || 4546));
+          writeJson(
+            res,
+            200,
+            describeAcceptedWork(normalizedWork, sourceEvents, {
+              baseUrl,
+              retention: state.retention,
+            }),
+          );
+        },
+      },
+      {
+        method: "POST",
+        match: matchLiteral(`${controlPathPrefix}/adapters/register`),
+        mutating: true,
+        rateLimitKey: "control",
+        handler: async ({ req, res }) => {
+          const payload = (await readJson(req, BODY_LIMIT_BYTES.general)) as {
+            id?: string;
+            kind?: string;
+            label?: string;
+            metadata?: Record<string, string>;
+          };
+          if (typeof payload.kind !== "string" || payload.kind.trim() === "") {
+            throw new RuntimeHttpError(
+              400,
+              "invalid_adapter_registration",
+              "adapter registration requires a non-empty kind",
+            );
+          }
+          const adapterId = payload.id?.trim() || randomUUID();
+          const attached = state.registerAdapter({
+            id: adapterId,
+            kind: payload.kind,
+            ...(payload.label ? { label: payload.label } : {}),
+            ...(payload.metadata ? { metadata: payload.metadata } : {}),
+            connectedAt: new Date().toISOString(),
+          });
+          writeJson(res, 200, {
+            adapterId,
+            ...attached,
+          });
+        },
+      },
+      {
+        method: "POST",
+        match: matchPattern(
+          new RegExp(`^${escapeRegExp(controlPathPrefix)}/adapters/([^/]+)/heartbeat$`),
+          ["adapterId"],
+        ),
+        mutating: true,
+        rateLimitKey: "control",
+        handler: async ({ res, params }) => {
+          const adapterId = decodeParam(params.adapterId);
+          if (!state.heartbeatAdapter(adapterId)) {
+            throw new RuntimeHttpError(404, "unknown_adapter", "unknown adapter");
+          }
+          writeJson(res, 200, {});
+        },
+      },
+      {
+        method: "DELETE",
+        match: matchPattern(new RegExp(`^${escapeRegExp(controlPathPrefix)}/adapters/([^/]+)$`), [
+          "adapterId",
+        ]),
+        mutating: true,
+        rateLimitKey: "control",
+        handler: async ({ res, params }) => {
+          state.removeAdapter(decodeParam(params.adapterId));
+          writeJson(res, 200, {});
+        },
+      },
+      {
+        method: "POST",
+        match: matchLiteral(`${controlPathPrefix}/surfaces/attach`),
+        mutating: true,
+        rateLimitKey: "control",
+        handler: async ({ req, res }) => {
+          const payload = (await readJson(req, BODY_LIMIT_BYTES.general)) as {
+            label?: string;
+            capabilities?: {
+              topology?: { supportsAmbient?: boolean };
+              responses?: {
+                supportsSingleChoice?: boolean;
+                supportsMultipleChoice?: boolean;
+                supportsForm?: boolean;
+                supportsTextResponse?: boolean;
+              };
+            };
+          };
+          const surfaceId = randomUUID();
+          const attached = state.attachSurface({
+            id: surfaceId,
+            ...(payload?.label ? { label: payload.label } : {}),
+            capabilities: payload?.capabilities,
+          });
+          syncSurfaceCapabilities(state);
+          writeJson(res, 200, {
+            surfaceId,
+            ...attached,
+          });
+        },
+      },
+      {
+        method: "POST",
+        match: matchPattern(
+          new RegExp(`^${escapeRegExp(controlPathPrefix)}/surfaces/([^/]+)/heartbeat$`),
+          ["surfaceId"],
+        ),
+        mutating: true,
+        rateLimitKey: "control",
+        handler: async ({ res, params }) => {
+          const surfaceId = decodeParam(params.surfaceId);
+          if (!state.heartbeatSurface(surfaceId)) {
+            throw new RuntimeHttpError(404, "unknown_surface", "unknown surface");
+          }
+          writeJson(res, 200, {});
+        },
+      },
+      {
+        method: "DELETE",
+        match: matchPattern(new RegExp(`^${escapeRegExp(controlPathPrefix)}/surfaces/([^/]+)$`), [
+          "surfaceId",
+        ]),
+        mutating: true,
+        rateLimitKey: "control",
+        handler: async ({ res, params }) => {
+          state.removeSurface(decodeParam(params.surfaceId));
+          syncSurfaceCapabilities(state);
+          writeJson(res, 200, {});
+        },
+      },
+    ];
 
-  function pruneAdapters(): void {
-    const cutoff = Date.now() - adapterTtlMs;
-    let removed = false;
-    for (const [adapterId, adapter] of adapters.entries()) {
-      if (adapter.lastSeenAt < cutoff) {
-        adapters.delete(adapterId);
-        removed = true;
-      }
-    }
-    if (removed) {
-      bumpStateVersion();
-    }
-  }
-
-  function snapshot(): ApertureRuntimeSnapshot {
-    return {
-      version: stateVersion,
-      attentionView: core.getAttentionView(),
-      signalSummary: core.getSignalSummary(),
-      attentionState: core.getAttentionState(),
-      adapters: [...adapters.values()]
-        .sort((left, right) => right.lastSeenAt - left.lastSeenAt)
-        .map((adapter) => ({
-          id: adapter.id,
-          kind: adapter.kind,
-          ...(adapter.label ? { label: adapter.label } : {}),
-          ...(adapter.metadata ? { metadata: adapter.metadata } : {}),
-          lastSeenAt: new Date(adapter.lastSeenAt).toISOString(),
-          connectedAt: adapter.connectedAt,
-      })),
-      surfaceCount: surfaces.size,
-      surfaceCapabilities: aggregateSurfaceCapabilities(),
-      ...(learningPersistence ? { learningPersistence } : {}),
-    };
-  }
-
-  function exportSessionCapture(): ApertureRuntimeSessionCapture {
-    const runtimeCaptureSteps = [...captureSteps];
-    const runtimePublishedSourceEvents = [...publishedSourceEvents];
-    const runtimeSubmittedResponses = [...submittedResponses];
-    const runtimeAttentionViewSnapshots = [...attentionViewSnapshots];
-    const runtimeCurrentAttentionView = core.getAttentionView();
-    const runtimeExplanationAttentionView = selectExplanationAttentionView(
-      runtimeCurrentAttentionView,
-      runtimeAttentionViewSnapshots,
-    );
-    const runtimeCurrentExplanation = buildRuntimeExplanationSnapshot(
-      runtimeExplanationAttentionView,
-      traceLog,
-    );
-
-    return {
-      runtimeId,
-      kind,
-      startedAt,
-      exportedAt: new Date().toISOString(),
-      captureSteps: runtimeCaptureSteps,
-      publishedSourceEvents: runtimePublishedSourceEvents,
-      submittedResponses: runtimeSubmittedResponses,
-      signals: [...signalLog],
-      traces: [...traceLog],
-      attentionViewSnapshots: runtimeAttentionViewSnapshots,
-      currentAttentionView: runtimeCurrentAttentionView,
-      currentExplanation: runtimeCurrentExplanation,
-      adapters: snapshot().adapters,
-      ...(options.metadata ? { metadata: options.metadata } : {}),
-      ...(learningPersistence ? { learningPersistence } : {}),
-    };
-  }
-
-  function recordPublishedSourceEvent(event: SourceEvent): void {
-    pushBounded(publishedSourceEvents, event);
-    pushBounded(captureSteps, {
-      sequence: nextCaptureSequence(),
-      recordedAt: new Date().toISOString(),
-      kind: "publishSource",
-      event,
+    return createRuntimeRouteHandler({
+      routes,
+      authToken,
+      rateLimiter,
     });
-    bumpStateVersion();
   }
 
-  function registerPendingWorkResponse(event: SourceEvent): void {
-    if (event.type !== "human.input.requested") {
-      return;
-    }
-    workResponses.set(event.interactionId, {
-      taskId: event.taskId,
-      interactionId: event.interactionId,
-      state: "pending",
-    });
+  function syncSurfaceCapabilities(state: RuntimeState): void {
+    core.setSurfaceCapabilities(state.aggregateSurfaceCapabilities());
   }
 
-  function recordSubmittedResponse(response: AttentionResponse): void {
-    pushBounded(captureSteps, {
-      sequence: nextCaptureSequence(),
-      recordedAt: new Date().toISOString(),
-      kind: "submit",
-      response,
-    });
-    bumpStateVersion();
-  }
-
-  function recordWorkResponse(response: AttentionResponse): void {
-    const current = workResponses.get(response.interactionId);
-    if (!current) {
-      return;
-    }
-    workResponses.set(response.interactionId, {
-      taskId: response.taskId,
-      interactionId: response.interactionId,
-      state: "answered",
-      response: response.response,
-      answeredAt: new Date().toISOString(),
-    });
-  }
-
-  function aggregateSurfaceCapabilities(): AttentionSurfaceCapabilities {
-    return mergeAttentionSurfaceCapabilities([...surfaces.values()].map((surface) => surface.capabilities));
-  }
-
-  async function registerRuntime(controlUrl: string): Promise<void> {
+  async function registerRuntime(
+    controlUrl: string,
+    baseUrl: string,
+    tokenPath: string,
+  ): Promise<void> {
     await writeLocalRuntimeRegistration({
       id: runtimeId,
       kind,
       controlUrl,
+      baseUrl,
+      tokenPath,
       pid: process.pid,
       startedAt,
       updatedAt: new Date().toISOString(),
@@ -692,127 +752,13 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function normalizeSurfaceCapabilities(
-  capabilities: PartialSurfaceCapabilities | undefined,
-): AttentionSurfaceCapabilities {
-  return {
-    topology: {
-      supportsAmbient:
-        capabilities?.topology?.supportsAmbient
-        ?? baseAttentionSurfaceCapabilities.topology.supportsAmbient,
-    },
-    responses: {
-      supportsSingleChoice:
-        capabilities?.responses?.supportsSingleChoice
-        ?? baseAttentionSurfaceCapabilities.responses.supportsSingleChoice,
-      supportsMultipleChoice:
-        capabilities?.responses?.supportsMultipleChoice
-        ?? baseAttentionSurfaceCapabilities.responses.supportsMultipleChoice,
-      supportsForm:
-        capabilities?.responses?.supportsForm
-        ?? baseAttentionSurfaceCapabilities.responses.supportsForm,
-      supportsTextResponse:
-        capabilities?.responses?.supportsTextResponse
-        ?? baseAttentionSurfaceCapabilities.responses.supportsTextResponse,
-    },
-  };
-}
-
-type PartialSurfaceCapabilities = {
-  topology?: Partial<AttentionSurfaceCapabilities["topology"]>;
-  responses?: Partial<AttentionSurfaceCapabilities["responses"]>;
-};
-
-async function readOptionalJson(req: IncomingMessage, bodyLimitBytes: number): Promise<unknown | null> {
-  const body = await readOptionalBody(req, bodyLimitBytes);
-  if (body === null) {
-    return null;
+function decodeParam(value: string | undefined): string {
+  if (!value) {
+    throw new RuntimeHttpError(400, "invalid_route_parameter", "invalid route parameter");
   }
-  return JSON.parse(body);
-}
-
-async function readJson(req: IncomingMessage, bodyLimitBytes: number): Promise<unknown> {
-  const parsed = await readOptionalJson(req, bodyLimitBytes);
-  if (parsed === null) {
-    throw new Error("request body is empty");
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    throw new RuntimeHttpError(400, "invalid_route_parameter", "invalid route parameter");
   }
-  return parsed;
-}
-
-async function readWorkPayload(req: IncomingMessage, bodyLimitBytes: number): Promise<unknown> {
-  const body = await readOptionalBody(req, bodyLimitBytes);
-  if (body === null) {
-    throw new Error("request body is empty");
-  }
-
-  const trimmed = body.trim();
-  if (trimmed.length === 0) {
-    throw new Error("request body is empty");
-  }
-
-  if (shouldParseWorkBodyAsJson(trimmed, req.headers["content-type"])) {
-    try {
-      return JSON.parse(trimmed);
-    } catch (error) {
-      if (looksLikeJsonValue(trimmed)) {
-        throw new Error(invalidWorkPayloadMessage("The request body looked like JSON, but it could not be parsed."));
-      }
-    }
-  }
-
-  return trimmed;
-}
-
-async function readOptionalBody(req: IncomingMessage, bodyLimitBytes: number): Promise<string | null> {
-  const chunks: Buffer[] = [];
-  let totalBytes = 0;
-  for await (const chunk of req) {
-    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-    totalBytes += buffer.byteLength;
-    if (totalBytes > bodyLimitBytes) {
-      throw new Error(`request body exceeded ${bodyLimitBytes} bytes`);
-    }
-    chunks.push(buffer);
-  }
-  if (chunks.length === 0) {
-    return null;
-  }
-  return Buffer.concat(chunks).toString("utf8");
-}
-
-function writeJson(
-  res: ServerResponse<IncomingMessage>,
-  statusCode: number,
-  body: unknown,
-): void {
-  if (res.writableEnded) {
-    return;
-  }
-
-  res.writeHead(statusCode, {
-    "Content-Type": "application/json",
-    Connection: "close",
-  });
-  res.end(JSON.stringify(body));
-}
-
-function shouldParseWorkBodyAsJson(
-  body: string,
-  contentTypeHeader: string | string[] | undefined,
-): boolean {
-  return looksLikeJsonContentType(contentTypeHeader) || looksLikeJsonValue(body);
-}
-
-function looksLikeJsonContentType(contentTypeHeader: string | string[] | undefined): boolean {
-  if (contentTypeHeader === undefined) {
-    return false;
-  }
-  const value = Array.isArray(contentTypeHeader)
-    ? contentTypeHeader.join(",")
-    : contentTypeHeader;
-  return value.toLowerCase().includes("json");
-}
-
-function looksLikeJsonValue(body: string): boolean {
-  return body.startsWith("{") || body.startsWith("[") || body.startsWith("\"");
 }

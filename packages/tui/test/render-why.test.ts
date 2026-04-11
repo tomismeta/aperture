@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { ApertureTrace } from "../../core/src/internal-contract.js";
+import type { ApertureTrace } from "@tomismeta/aperture-core/internal";
 
 import { renderWhyOverlay } from "../src/render-why.js";
 

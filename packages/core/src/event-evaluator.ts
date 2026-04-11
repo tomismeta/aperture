@@ -1,8 +1,4 @@
-import type {
-  ApertureEvent,
-  HumanInputRequestedEvent,
-  TaskUpdatedEvent,
-} from "./events.js";
+import type { ApertureEvent, HumanInputRequestedEvent, TaskUpdatedEvent } from "./events.js";
 import type {
   AttentionAcknowledgeResponseSpec,
   AttentionAction,
@@ -88,10 +84,12 @@ export class EventEvaluator {
       blocking: false,
       timestamp: event.timestamp,
       ...(event.summary !== undefined ? { summary: event.summary } : {}),
-      ...(event.semantic?.relationHints?.length ? { relationHints: event.semantic.relationHints } : {}),
+      ...(event.semantic?.relationHints?.length
+        ? { relationHints: event.semantic.relationHints }
+        : {}),
       ...buildJudgmentInputFields(event),
       ...buildStatusContext(event),
-      ...(buildStatusProvenance(event)),
+      ...buildStatusProvenance(event),
     };
   }
 
@@ -111,7 +109,9 @@ export class EventEvaluator {
       consequence: event.consequence ?? "medium",
       title: event.title,
       summary: event.summary,
-      ...(event.semantic?.relationHints?.length ? { relationHints: event.semantic.relationHints } : {}),
+      ...(event.semantic?.relationHints?.length
+        ? { relationHints: event.semantic.relationHints }
+        : {}),
       responseSpec,
       priority: this.priorityForHumanInput(event),
       blocking: true,
@@ -128,9 +128,7 @@ export class EventEvaluator {
     };
   }
 
-  private priorityForHumanInput(
-    event: HumanInputRequestedEvent,
-  ): AttentionCandidate["priority"] {
+  private priorityForHumanInput(event: HumanInputRequestedEvent): AttentionCandidate["priority"] {
     if (event.request.kind === "approval" && event.consequence === "low") {
       return "normal";
     }
@@ -249,7 +247,9 @@ export class EventEvaluator {
     }
   }
 
-  private consequenceForStatus(status: TaskUpdatedEvent["status"]): AttentionCandidate["consequence"] {
+  private consequenceForStatus(
+    status: TaskUpdatedEvent["status"],
+  ): AttentionCandidate["consequence"] {
     switch (status) {
       case "blocked":
         return "medium";
@@ -285,7 +285,9 @@ function buildStatusContext(
   };
 }
 
-function buildStatusProvenance(event: TaskUpdatedEvent): { provenance: { whyNow?: string; factors?: string[] } } | {} {
+function buildStatusProvenance(
+  event: TaskUpdatedEvent,
+): { provenance: { whyNow?: string; factors?: string[] } } | {} {
   const provenance = mergeSemanticProvenance({
     semantic: event.semantic,
     fallbackWhyNow:

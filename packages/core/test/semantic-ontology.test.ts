@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { projectSemanticOntologyDiagnostic, readSemanticOntologyDiagnostic } from "../src/semantic.js";
+import {
+  projectSemanticOntologyDiagnostic,
+  readSemanticOntologyDiagnostic,
+} from "../src/semantic.js";
 
 const timestamp = "2026-04-05T18:00:00.000Z";
 

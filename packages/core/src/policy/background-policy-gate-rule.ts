@@ -1,19 +1,20 @@
-import { noopPolicyGateRule, verdictPolicyGateRule, type PolicyGateRule } from "./policy-gate-rule.js";
+import {
+  noopPolicyGateRule,
+  verdictPolicyGateRule,
+  type PolicyGateRule,
+} from "./policy-gate-rule.js";
 
 export const evaluateBackgroundPolicyGateRule: PolicyGateRule = (input) => {
   if (input.candidate.priority !== "background") {
     return noopPolicyGateRule("background");
   }
 
-  return verdictPolicyGateRule(
-    "background",
-    {
-      autoApprove: false,
-      mayInterrupt: false,
-      requiresOperatorResponse: false,
-      minimumLane: "ambient",
-      minimumLaneIsSticky: true,
-      rationale: ["background work should remain peripheral by default"],
-    },
-  );
+  return verdictPolicyGateRule("background", {
+    autoApprove: false,
+    mayInterrupt: false,
+    requiresOperatorResponse: false,
+    minimumLane: "ambient",
+    minimumLaneIsSticky: true,
+    rationale: ["background work should remain peripheral by default"],
+  });
 };

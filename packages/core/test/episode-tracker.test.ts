@@ -16,9 +16,7 @@ function createCandidate(overrides: Partial<InteractionCandidate> = {}): Interac
     title: "Read config.ts",
     summary: "config.ts",
     context: {
-      items: [
-        { id: "file_path", label: "file_path", value: "/workspace/config.ts" },
-      ],
+      items: [{ id: "file_path", label: "file_path", value: "/workspace/config.ts" }],
     },
     responseSpec: {
       kind: "approval",
@@ -87,8 +85,16 @@ test("episode tracker groups related interactions by source and anchor", () => {
   assert.equal(second.episodeState, "actionable");
   assert.equal(second.episodeSize, 2);
   assert.equal(second.episodeEvidenceScore, 6);
-  assert.ok(second.episodeEvidenceReasons?.includes("operator-facing work makes this episode immediately actionable"));
-  assert.ok(second.episodeEvidenceReasons?.includes("multiple related interactions have accumulated in this episode"));
+  assert.ok(
+    second.episodeEvidenceReasons?.includes(
+      "operator-facing work makes this episode immediately actionable",
+    ),
+  );
+  assert.ok(
+    second.episodeEvidenceReasons?.includes(
+      "multiple related interactions have accumulated in this episode",
+    ),
+  );
 });
 
 test("frame planner persists episode metadata onto frames", () => {
@@ -186,7 +192,11 @@ test("high-signal recurring status work can make an episode actionable", () => {
 
   assert.equal(second.episodeState, "actionable");
   assert.equal(second.episodeEvidenceScore, 4);
-  assert.ok(second.episodeEvidenceReasons?.includes("high-signal evidence is stacking up across the episode"));
+  assert.ok(
+    second.episodeEvidenceReasons?.includes(
+      "high-signal evidence is stacking up across the episode",
+    ),
+  );
 });
 
 test("relation hints increase episode evidence for recurring and escalating work", () => {
@@ -224,8 +234,16 @@ test("relation hints increase episode evidence for recurring and escalating work
 
   assert.equal(second.episodeState, "actionable");
   assert.ok((second.episodeEvidenceScore ?? 0) >= 4);
-  assert.ok(second.episodeEvidenceReasons?.includes("semantic relation hints indicate this issue is recurring"));
-  assert.ok(second.episodeEvidenceReasons?.includes("semantic relation hints indicate this issue is escalating"));
+  assert.ok(
+    second.episodeEvidenceReasons?.includes(
+      "semantic relation hints indicate this issue is recurring",
+    ),
+  );
+  assert.ok(
+    second.episodeEvidenceReasons?.includes(
+      "semantic relation hints indicate this issue is escalating",
+    ),
+  );
 });
 
 test("weak inferred relation hints stay diagnostic until stronger evidence arrives", () => {
@@ -265,8 +283,16 @@ test("weak inferred relation hints stay diagnostic until stronger evidence arriv
 
   assert.equal(second.episodeState, "batched");
   assert.equal(second.episodeEvidenceScore, 1);
-  assert.ok(!second.episodeEvidenceReasons?.includes("semantic relation hints indicate this issue is recurring"));
-  assert.ok(!second.episodeEvidenceReasons?.includes("semantic relation hints indicate this issue is escalating"));
+  assert.ok(
+    !second.episodeEvidenceReasons?.includes(
+      "semantic relation hints indicate this issue is recurring",
+    ),
+  );
+  assert.ok(
+    !second.episodeEvidenceReasons?.includes(
+      "semantic relation hints indicate this issue is escalating",
+    ),
+  );
 });
 
 test("relation targets group wording-drifted updates into the same episode", () => {

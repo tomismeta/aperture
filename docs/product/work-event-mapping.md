@@ -17,7 +17,7 @@ The runtime also supports a simpler producer shape:
 
 - a plain string posted to `/work`
 
-That string path is intentionally best-effort and maps to one standalone
+That string path is intentionally minimal and maps to one standalone
 `SourceEvent` with a generated id.
 
 This document focuses on the structured `WorkEvent` path, which is the stable
@@ -124,18 +124,10 @@ The runtime maps it into one standalone `SourceEvent` with:
 
 - a generated `id`
 - the same generated id reused as `taskId`
-- best-effort status inference from the text
+- a deterministic `task.updated` shape
+- `status: "running"`
 
-Inference behavior:
-
-- looks like completion -> `task.completed`
-- looks like cancellation -> `task.cancelled`
-- looks like failure or timeout -> `task.updated` with `status: "failed"`
-- looks blocked -> `task.updated` with `status: "blocked"`
-- looks waiting on approval/review -> `task.updated` with `status: "waiting"`
-- anything else -> `task.updated` with `status: "running"`
-
-This path is intentionally best-effort.
+This path is intentionally conservative.
 If a producer needs stable cross-update identity, explicit request types, or
 portable metadata, it should move up to structured `WorkEvent`.
 
@@ -191,13 +183,18 @@ The shared runtime accepts this contract at:
 
 - `POST /work`
 - `GET /work`
+- `POST /v1/work`
+- `GET /v1/work`
 - `GET /work/response/{interactionId}`
+- `DELETE /work/response/{interactionId}`
 
 That endpoint accepts:
 
 - plain text
 - one `WorkEvent`
 - or `WorkEvent[]`
+
+All non-health runtime routes require `Authorization: Bearer <runtime-token>`.
 
 The runtime then maps the submission into `SourceEvent` and publishes it
 through the existing core path.
@@ -214,7 +211,10 @@ For structured `input.requested` work:
 
 - the `POST /work` receipt includes `interactionId`
 - the receipt also includes `responsePath`
+- the receipt may also include `responseUrl`
 - producers can poll `GET /work/response/{interactionId}` until the human answer is ready
+- producers can `DELETE /work/response/{interactionId}` to cancel a stale pending request
+- response state moves through `pending`, `answered`, `expired`, or `cancelled`
 
 The runtime path is:
 

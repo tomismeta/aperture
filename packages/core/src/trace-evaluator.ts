@@ -1,11 +1,16 @@
-import { isCandidateTrace, type ApertureTrace, type CandidateApertureTrace } from "./trace-types.js";
+import {
+  isCandidateTrace,
+  type ApertureTrace,
+  type CandidateApertureTrace,
+} from "./trace-types.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
 import {
   isCandidateSemanticAbstained,
   isCandidateSemanticLowConfidence,
 } from "./judgment-input.js";
 
-const ACTIONABLE_EPISODE_EVIDENCE_THRESHOLD = JUDGMENT_DEFAULTS.queuePlanner.actionableEpisodeEvidenceThreshold;
+const ACTIONABLE_EPISODE_EVIDENCE_THRESHOLD =
+  JUDGMENT_DEFAULTS.queuePlanner.actionableEpisodeEvidenceThreshold;
 
 type CandidateDecision = CandidateApertureTrace["coordination"]["kind"];
 
@@ -68,7 +73,9 @@ export function evaluateTraceSession(traces: ApertureTrace[]): TraceEvaluationRe
     report.totalCandidates += 1;
     incrementDecisionCount(report, trace.coordination.kind);
 
-    const ambiguityKey = trace.episode?.id ?? `${trace.evaluation.adjusted.taskId}:${trace.evaluation.adjusted.interactionId}`;
+    const ambiguityKey =
+      trace.episode?.id ??
+      `${trace.evaluation.adjusted.taskId}:${trace.evaluation.adjusted.interactionId}`;
     if (trace.coordination.ambiguity) {
       report.ambiguousDecisions += 1;
       if (trace.coordination.ambiguity.resolution === "queue") {
@@ -89,7 +96,10 @@ export function evaluateTraceSession(traces: ApertureTrace[]): TraceEvaluationRe
         activatedAfterAmbiguousNext.add(ambiguityKey);
         report.ambiguousNextThenActivated += 1;
         pendingAmbiguityByKey.delete(ambiguityKey);
-      } else if (pendingResolution === "ambient" && !activatedAfterAmbiguousAmbient.has(ambiguityKey)) {
+      } else if (
+        pendingResolution === "ambient" &&
+        !activatedAfterAmbiguousAmbient.has(ambiguityKey)
+      ) {
         activatedAfterAmbiguousAmbient.add(ambiguityKey);
         report.ambiguousAmbientThenActivated += 1;
         pendingAmbiguityByKey.delete(ambiguityKey);
@@ -102,9 +112,9 @@ export function evaluateTraceSession(traces: ApertureTrace[]): TraceEvaluationRe
     }
 
     const actionableEpisode =
-      !trace.evaluation.adjusted.blocking
-      && episode.state === "actionable"
-      && episode.evidenceScore >= ACTIONABLE_EPISODE_EVIDENCE_THRESHOLD;
+      !trace.evaluation.adjusted.blocking &&
+      episode.state === "actionable" &&
+      episode.evidenceScore >= ACTIONABLE_EPISODE_EVIDENCE_THRESHOLD;
     if (actionableEpisode) {
       report.actionableEpisodes += 1;
       if (trace.result) {
@@ -116,7 +126,11 @@ export function evaluateTraceSession(traces: ApertureTrace[]): TraceEvaluationRe
     }
 
     const previousDecision = lastDecisionByEpisode.get(episode.id);
-    if (trace.coordination.kind === "activate" && previousDecision && previousDecision !== "activate") {
+    if (
+      trace.coordination.kind === "activate" &&
+      previousDecision &&
+      previousDecision !== "activate"
+    ) {
       if (!activatedAfterDeferral.has(episode.id)) {
         activatedAfterDeferral.add(episode.id);
         report.deferredThenActivated += 1;

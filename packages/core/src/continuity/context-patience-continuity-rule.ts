@@ -1,6 +1,10 @@
 import { isBlockingFrame, priorityForFrame } from "../frame-score.js";
 import { JUDGMENT_DEFAULTS } from "../judgment-defaults.js";
-import { noopContinuityRule, overrideContinuityRule, type ContinuityRule } from "./continuity-rule.js";
+import {
+  noopContinuityRule,
+  overrideContinuityRule,
+  type ContinuityRule,
+} from "./continuity-rule.js";
 
 export const evaluateContextPatienceContinuityRule: ContinuityRule = (input) => {
   const activeFrame = input.evidence.currentFrame;

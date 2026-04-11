@@ -4,6 +4,8 @@ import {
 } from "@tomismeta/aperture-core";
 
 import type { ApertureRuntimeSnapshot } from "./runtime-contract.js";
+import { readRuntimeAuthToken } from "./runtime-auth.js";
+import { discoverLocalRuntimes } from "./runtime-discovery.js";
 
 export const DEFAULT_RUNTIME_POLL_INTERVAL_MS = 250;
 
@@ -68,8 +70,35 @@ export function normalizeRuntimeUrls(input: string): { baseUrl: string; controlU
   };
 }
 
-export async function getJson<T>(url: string): Promise<T> {
-  const response = await fetch(url);
+export async function resolveRuntimeAuthToken(
+  input: string,
+  explicitToken?: string,
+): Promise<string> {
+  if (explicitToken) {
+    return explicitToken;
+  }
+
+  const urls = normalizeRuntimeUrls(input);
+  const runtimes = await discoverLocalRuntimes();
+  const runtime = runtimes.find(
+    (candidate) =>
+      candidate.controlUrl.replace(/\/+$/, "") === urls.controlUrl ||
+      candidate.baseUrl?.replace(/\/+$/, "") === urls.baseUrl,
+  );
+
+  if (!runtime?.tokenPath) {
+    throw new Error("No runtime auth token was found for the requested Aperture runtime.");
+  }
+
+  return readRuntimeAuthToken(runtime.tokenPath);
+}
+
+export async function getJson<T>(url: string, authToken: string): Promise<T> {
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${authToken}`,
+    },
+  });
   if (!response.ok) {
     throw new Error(`Aperture runtime request failed: ${response.status} ${response.statusText}`);
   }
@@ -79,14 +108,32 @@ export async function getJson<T>(url: string): Promise<T> {
 export async function postJson<T = Record<string, never>>(
   url: string,
   body: unknown,
+  authToken: string,
   contentType = "application/json",
 ): Promise<T> {
   const response = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": contentType,
+      Authorization: `Bearer ${authToken}`,
     },
     body: typeof body === "string" ? body : JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error(`Aperture runtime request failed: ${response.status} ${response.statusText}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+export async function deleteJson<T = Record<string, never>>(
+  url: string,
+  authToken: string,
+): Promise<T> {
+  const response = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${authToken}`,
+    },
   });
   if (!response.ok) {
     throw new Error(`Aperture runtime request failed: ${response.status} ${response.statusText}`);

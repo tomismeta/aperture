@@ -34,14 +34,16 @@ export function deriveAttentionBurden(
   const defaults = JUDGMENT_DEFAULTS.attentionBudget;
   const summaryFresh = isSummaryFresh(summary, now);
   const recentDecisions = summaryFresh
-    ? (summary?.counts.responded ?? 0)
-      + (summary?.counts.dismissed ?? 0)
-      + (summary?.counts.deferred ?? 0)
-      + (summary?.counts.contextExpanded ?? 0)
-      + (summary?.counts.contextSkipped ?? 0)
+    ? (summary?.counts.responded ?? 0) +
+      (summary?.counts.dismissed ?? 0) +
+      (summary?.counts.deferred ?? 0) +
+      (summary?.counts.contextExpanded ?? 0) +
+      (summary?.counts.contextSkipped ?? 0)
     : 0;
-  const deferredCount = summaryFresh ? summary?.counts.deferred ?? 0 : 0;
-  const averageResponseLatencyMs = summaryFresh ? summary?.averageResponseLatencyMs ?? null : null;
+  const deferredCount = summaryFresh ? (summary?.counts.deferred ?? 0) : 0;
+  const averageResponseLatencyMs = summaryFresh
+    ? (summary?.averageResponseLatencyMs ?? null)
+    : null;
   const interruptiveVisible = pressure?.metrics.interruptiveVisible ?? 0;
   const resolvedAttentionState = attentionState ?? "monitoring";
   const pressureLevel = pressure?.level ?? "steady";
@@ -72,12 +74,15 @@ export function deriveAttentionBurden(
     reasons.push("recent decision volume is climbing");
   }
 
-  if (averageResponseLatencyMs !== null && averageResponseLatencyMs >= defaults.responseLatencyMs.high) {
+  if (
+    averageResponseLatencyMs !== null &&
+    averageResponseLatencyMs >= defaults.responseLatencyMs.high
+  ) {
     score += 2;
     reasons.push("recent decision latency is slow");
   } else if (
-    averageResponseLatencyMs !== null
-    && averageResponseLatencyMs >= defaults.responseLatencyMs.elevated
+    averageResponseLatencyMs !== null &&
+    averageResponseLatencyMs >= defaults.responseLatencyMs.elevated
   ) {
     score += 1;
     reasons.push("recent decision latency is rising");

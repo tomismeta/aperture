@@ -9,7 +9,7 @@ import type {
   AttentionResponseSpec as FrameResponseSpec,
   AttentionSignalSummary as SignalSummary,
   AttentionState,
-} from "../../core/src/internal-contract.js";
+} from "@tomismeta/aperture-core/internal";
 
 export type {
   FrameField,

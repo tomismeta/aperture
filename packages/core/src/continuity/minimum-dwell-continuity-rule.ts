@@ -1,6 +1,10 @@
 import { JUDGMENT_DEFAULTS } from "../judgment-defaults.js";
 import { priorityForFrame } from "../frame-score.js";
-import { noopContinuityRule, overrideContinuityRule, type ContinuityRule } from "./continuity-rule.js";
+import {
+  noopContinuityRule,
+  overrideContinuityRule,
+  type ContinuityRule,
+} from "./continuity-rule.js";
 
 export const evaluateMinimumDwellContinuityRule: ContinuityRule = (input) => {
   const activeFrame = input.evidence.currentFrame;
@@ -13,7 +17,8 @@ export const evaluateMinimumDwellContinuityRule: ContinuityRule = (input) => {
     return noopContinuityRule("minimum_dwell");
   }
 
-  const minimumDwellMs = plannerDefaults?.minimumDwellMs ?? JUDGMENT_DEFAULTS.queuePlanner.minimumDwellMs;
+  const minimumDwellMs =
+    plannerDefaults?.minimumDwellMs ?? JUDGMENT_DEFAULTS.queuePlanner.minimumDwellMs;
   if (minimumDwellMs <= 0) {
     return noopContinuityRule("minimum_dwell");
   }

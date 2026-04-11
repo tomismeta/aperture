@@ -5,16 +5,9 @@ import {
   mapClaudeCodeHookEvent,
   type ClaudeCodePreToolUseEvent,
 } from "../../claude-code/src/index.js";
-import {
-  mapCodexServerRequest,
-  type CodexServerRequest,
-} from "../../codex/src/index.js";
+import { mapCodexServerRequest, type CodexServerRequest } from "../../codex/src/index.js";
 import { mapOpencodeEvent } from "../../opencode/src/index.js";
-import {
-  ApertureCore,
-  type SourceEvent,
-  type SourceRef,
-} from "../src/index.js";
+import { ApertureCore, type SourceEvent, type SourceRef } from "../src/index.js";
 import { normalizeSemanticText } from "../src/semantic-detection.js";
 import { interpretSourceEvent } from "../src/semantic-interpreter.js";
 import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
@@ -26,7 +19,10 @@ function source(id: string): SourceRef {
 }
 
 type SourceHumanInputRequestedEvent = Extract<SourceEvent, { type: "human.input.requested" }>;
-type NormalizedHumanInputRequestedEvent = Extract<ReturnType<typeof normalizeSourceEvent>, { type: "human.input.requested" }>;
+type NormalizedHumanInputRequestedEvent = Extract<
+  ReturnType<typeof normalizeSourceEvent>,
+  { type: "human.input.requested" }
+>;
 
 function singleHumanInputRequestedEvent(events: SourceEvent[]): SourceHumanInputRequestedEvent {
   assert.equal(events.length, 1);
@@ -52,15 +48,16 @@ function humanInputContractSnapshot(event: NormalizedHumanInputRequestedEvent) {
   const includeApprovalToolFamily = event.request.kind === "approval";
 
   return {
-    request: event.request.kind === "choice"
-      ? {
-          kind: event.request.kind,
-          selectionMode: event.request.selectionMode,
-          optionCount: event.request.options.length,
-        }
-      : {
-          kind: event.request.kind,
-        },
+    request:
+      event.request.kind === "choice"
+        ? {
+            kind: event.request.kind,
+            selectionMode: event.request.selectionMode,
+            optionCount: event.request.options.length,
+          }
+        : {
+            kind: event.request.kind,
+          },
     activityClass: event.activityClass,
     ...(includeApprovalToolFamily && event.toolFamily !== undefined
       ? { toolFamily: event.toolFamily }
@@ -361,7 +358,8 @@ test("failed edit readback observations stay status updates semantically", () =>
     timestamp,
     source: source("custom-agent"),
     title: "edit failure",
-    summary: "OBSERVATION: Here's the result of running `cat -n` on /testbed/djmoney/models/fields.py: 1 from decimal import Decimal",
+    summary:
+      "OBSERVATION: Here's the result of running `cat -n` on /testbed/djmoney/models/fields.py: 1 from decimal import Decimal",
     status: "failed",
     toolFamily: "edit",
   });
@@ -380,7 +378,8 @@ test("failed read source dumps stay status updates at high consequence", () => {
     timestamp,
     source: source("custom-agent"),
     title: "read failure",
-    summary: "<path>/repo/src/kernel/process.c</path> <type>file</type> <content>1622: static struct process *create_process(void) 1623: { 1624: return 0; }",
+    summary:
+      "<path>/repo/src/kernel/process.c</path> <type>file</type> <content>1622: static struct process *create_process(void) 1623: { 1624: return 0; }",
     status: "failed",
     toolFamily: "read",
   });
@@ -398,7 +397,8 @@ test("failed read log dumps stay status updates at low consequence", () => {
     timestamp,
     source: source("custom-agent"),
     title: "read failure",
-    summary: "<path>/tmp/tool-output/kernel.log</path> <type>file</type> <content>1190: [ 4.998830] amdgpu ring comp_1.2.1 uses VM inv eng 10 on hub 0",
+    summary:
+      "<path>/tmp/tool-output/kernel.log</path> <type>file</type> <content>1190: [ 4.998830] amdgpu ring comp_1.2.1 uses VM inv eng 10 on hub 0",
     status: "failed",
     toolFamily: "read",
   });
@@ -416,7 +416,8 @@ test("failed read build metadata dumps stay status updates at low consequence", 
     timestamp,
     source: source("custom-agent"),
     title: "read failure",
-    summary: "<path>/repo/Makefile</path> <type>file</type> <content>1: SPDX-License-Identifier: GPL-2.0 2: VERSION = 6 3: PATCHLEVEL = 16 4: SUBLEVEL = 0 5: EXTRAVERSION =</content>",
+    summary:
+      "<path>/repo/Makefile</path> <type>file</type> <content>1: SPDX-License-Identifier: GPL-2.0 2: VERSION = 6 3: PATCHLEVEL = 16 4: SUBLEVEL = 0 5: EXTRAVERSION =</content>",
     status: "failed",
     toolFamily: "read",
   });
@@ -434,7 +435,8 @@ test("failed search result dumps stay low-consequence failures", () => {
     timestamp,
     source: source("custom-agent"),
     title: "search failure",
-    summary: "OBSERVATION: Found 12 matches in 3 files. Showing first 10 results from /repo/src/app.ts and /repo/src/lib.ts",
+    summary:
+      "OBSERVATION: Found 12 matches in 3 files. Showing first 10 results from /repo/src/app.ts and /repo/src/lib.ts",
     status: "failed",
     toolFamily: "search",
   });
@@ -488,7 +490,8 @@ test("public trajectory diagnostic failures stay medium-consequence failures", (
     timestamp,
     source: { id: "swe-smith", kind: "public-trajectory" },
     title: "bash failure",
-    summary: "OBSERVATION: Form is valid: False. Form errors: amount required. Decompress result: [None, 'USD']",
+    summary:
+      "OBSERVATION: Form is valid: False. Form errors: amount required. Decompress result: [None, 'USD']",
     status: "failed",
     toolFamily: "bash",
   });
@@ -532,7 +535,9 @@ test("passive waiting approval wording stays status-shaped without inventing an 
   if (normalized.type === "task.updated") {
     assert.equal(normalized.semantic?.whyNow, undefined);
     assert.equal(normalized.semantic?.confidence, "high");
-    assert.deepEqual(normalized.semantic?.reasons, ["task update carries a non-blocking lifecycle status"]);
+    assert.deepEqual(normalized.semantic?.reasons, [
+      "task update carries a non-blocking lifecycle status",
+    ]);
   }
 });
 
@@ -551,9 +556,14 @@ test("task updates can infer blocked-work semantics from waiting status text", (
   assert.equal(normalized.type, "task.updated");
   if (normalized.type === "task.updated") {
     assert.equal(normalized.semantic?.intentFrame, "blocked_work");
-    assert.equal(normalized.semantic?.whyNow, "Work is blocked and may require operator attention.");
+    assert.equal(
+      normalized.semantic?.whyNow,
+      "Work is blocked and may require operator attention.",
+    );
     assert.equal(normalized.semantic?.confidence, "medium");
-    assert.ok(normalized.semantic?.reasons.includes("status wording indicates work cannot continue yet"));
+    assert.ok(
+      normalized.semantic?.reasons.includes("status wording indicates work cannot continue yet"),
+    );
   }
 });
 
@@ -571,9 +581,14 @@ test("task updates still infer implied operator asks from operator-directed stat
 
   assert.equal(normalized.type, "task.updated");
   if (normalized.type === "task.updated") {
-    assert.equal(normalized.semantic?.whyNow, "Status text implies the operator may need to respond.");
+    assert.equal(
+      normalized.semantic?.whyNow,
+      "Status text implies the operator may need to respond.",
+    );
     assert.equal(normalized.semantic?.confidence, "low");
-    assert.ok(normalized.semantic?.reasons.includes("status wording suggests an implied operator request"));
+    assert.ok(
+      normalized.semantic?.reasons.includes("status wording suggests an implied operator request"),
+    );
   }
 });
 
@@ -593,7 +608,9 @@ test("passive review wording does not infer an operator ask from status text", (
   if (normalized.type === "task.updated") {
     assert.equal(normalized.semantic?.whyNow, undefined);
     assert.equal(normalized.semantic?.confidence, "high");
-    assert.deepEqual(normalized.semantic?.reasons, ["task update carries a non-blocking lifecycle status"]);
+    assert.deepEqual(normalized.semantic?.reasons, [
+      "task update carries a non-blocking lifecycle status",
+    ]);
   }
 });
 
@@ -643,8 +660,14 @@ test("task updates can infer relation hints from recurring and resolving languag
     status: "completed",
   });
 
-  assert.deepEqual(repeated.relationHints.map((hint) => hint.kind), ["same_issue", "repeats"]);
-  assert.deepEqual(resolved.relationHints.map((hint) => hint.kind), ["same_issue", "resolves"]);
+  assert.deepEqual(
+    repeated.relationHints.map((hint) => hint.kind),
+    ["same_issue", "repeats"],
+  );
+  assert.deepEqual(
+    resolved.relationHints.map((hint) => hint.kind),
+    ["same_issue", "resolves"],
+  );
 });
 
 test("generic successful completion wording does not infer a resolved episode by itself", () => {
@@ -775,7 +798,8 @@ test("expected diagnostic bash failures stay medium consequence", () => {
     timestamp,
     source: source("custom-agent"),
     title: "bash failure",
-    summary: "OBSERVATION: Form is valid: False Form errors: <ul class=\"errorlist\"><li>This field is required.</li></ul> Decompress result: [None, 'USD']",
+    summary:
+      "OBSERVATION: Form is valid: False Form errors: <ul class=\"errorlist\"><li>This field is required.</li></ul> Decompress result: [None, 'USD']",
     status: "failed",
     toolFamily: "bash",
   });
@@ -860,9 +884,7 @@ test("choice requests still preserve explicit tool family from context", () => {
     title: "Should we read the config first?",
     summary: "Choose the next step.",
     context: {
-      items: [
-        { id: "toolFamily", label: "Tool Family", value: "read" },
-      ],
+      items: [{ id: "toolFamily", label: "Tool Family", value: "read" }],
     },
     request: {
       kind: "choice",
@@ -889,9 +911,7 @@ test("choice requests still preserve explicit tool family from context", () => {
     title: "Should we read the config first?",
     summary: "Choose the next step.",
     context: {
-      items: [
-        { id: "toolFamily", label: "Tool Family", value: "read" },
-      ],
+      items: [{ id: "toolFamily", label: "Tool Family", value: "read" }],
     },
     request: {
       kind: "choice",
@@ -952,25 +972,28 @@ test("equivalent adapter approvals normalize to the same canonical human-input c
     },
   };
 
-  const opencodeEvents = mapOpencodeEvent({
-    type: "permission.asked",
-    properties: {
-      id: "perm-semantic-parity",
-      sessionID: "ses-semantic-parity",
-      title: "Run tests",
-      message: "Run bash tool",
-      metadata: {
-        tool: "bash",
-        callID: "call-semantic-parity",
-        description: "Run tests before continuing",
-        patterns: [{ value: "pnpm test" }],
+  const opencodeEvents = mapOpencodeEvent(
+    {
+      type: "permission.asked",
+      properties: {
+        id: "perm-semantic-parity",
+        sessionID: "ses-semantic-parity",
+        title: "Run tests",
+        message: "Run bash tool",
+        metadata: {
+          tool: "bash",
+          callID: "call-semantic-parity",
+          description: "Run tests before continuing",
+          patterns: [{ value: "pnpm test" }],
+        },
+        createdAt: timestamp,
       },
-      createdAt: timestamp,
     },
-  }, {
-    baseUrl: "http://127.0.0.1:4096",
-    scope: { directory: "/repo" as const },
-  });
+    {
+      baseUrl: "http://127.0.0.1:4096",
+      scope: { directory: "/repo" as const },
+    },
+  );
 
   const codexRequest: CodexServerRequest = {
     id: "req-semantic-parity",
@@ -1028,26 +1051,6 @@ test("equivalent adapter choice requests normalize to the same canonical human-i
     tool_use_id: "tool-question-parity",
     tool_input: {},
     askUserQuestion: {
-      questions: [{
-        header: "Deploy target",
-        question: "Where should I deploy?",
-        options: [
-          { label: "staging", description: "Staging environment" },
-          { label: "production", description: "Production environment" },
-        ],
-        multiSelect: false,
-      }],
-    },
-  };
-
-  const opencodeEvents = mapOpencodeEvent({
-    type: "question.asked",
-    properties: {
-      id: "question-semantic-parity",
-      sessionID: "ses-question-parity",
-      tool: {
-        callID: "call-question-parity",
-      },
       questions: [
         {
           header: "Deploy target",
@@ -1056,14 +1059,39 @@ test("equivalent adapter choice requests normalize to the same canonical human-i
             { label: "staging", description: "Staging environment" },
             { label: "production", description: "Production environment" },
           ],
+          multiSelect: false,
         },
       ],
-      createdAt: timestamp,
     },
-  }, {
-    baseUrl: "http://127.0.0.1:4096",
-    scope: { directory: "/repo" as const },
-  });
+  };
+
+  const opencodeEvents = mapOpencodeEvent(
+    {
+      type: "question.asked",
+      properties: {
+        id: "question-semantic-parity",
+        sessionID: "ses-question-parity",
+        tool: {
+          callID: "call-question-parity",
+        },
+        questions: [
+          {
+            header: "Deploy target",
+            question: "Where should I deploy?",
+            options: [
+              { label: "staging", description: "Staging environment" },
+              { label: "production", description: "Production environment" },
+            ],
+          },
+        ],
+        createdAt: timestamp,
+      },
+    },
+    {
+      baseUrl: "http://127.0.0.1:4096",
+      scope: { directory: "/repo" as const },
+    },
+  );
 
   const codexRequest: CodexServerRequest = {
     id: "req-question-parity",
@@ -1216,7 +1244,10 @@ test("publishSourceEvent matches publishing the equivalent normalized status eve
   sourceCore.publishSourceEvent(sourceEvent);
   eventCore.publish(normalizedEvent);
 
-  assert.deepEqual(sourceCore.getTaskView(sourceEvent.taskId), eventCore.getTaskView(sourceEvent.taskId));
+  assert.deepEqual(
+    sourceCore.getTaskView(sourceEvent.taskId),
+    eventCore.getTaskView(sourceEvent.taskId),
+  );
   assert.deepEqual(sourceCore.getAttentionView(), eventCore.getAttentionView());
 });
 
@@ -1241,7 +1272,10 @@ test("publishSourceEvent matches publishing the equivalent low-confidence normal
   sourceCore.publishSourceEvent(sourceEvent);
   eventCore.publish(normalizedEvent);
 
-  assert.deepEqual(sourceCore.getTaskView(sourceEvent.taskId), eventCore.getTaskView(sourceEvent.taskId));
+  assert.deepEqual(
+    sourceCore.getTaskView(sourceEvent.taskId),
+    eventCore.getTaskView(sourceEvent.taskId),
+  );
   assert.deepEqual(sourceCore.getAttentionView(), eventCore.getAttentionView());
 });
 
@@ -1253,7 +1287,8 @@ test("publishSourceEvent matches publishing the equivalent abstained normalized 
     timestamp,
     source: source("custom-agent"),
     title: "Dependency fetch blocked",
-    summary: "Dependency fetch is blocked, but the semantic read abstains until clearer evidence arrives.",
+    summary:
+      "Dependency fetch is blocked, but the semantic read abstains until clearer evidence arrives.",
     status: "blocked",
     semanticHints: {
       abstained: true,
@@ -1266,6 +1301,9 @@ test("publishSourceEvent matches publishing the equivalent abstained normalized 
   sourceCore.publishSourceEvent(sourceEvent);
   eventCore.publish(normalizedEvent);
 
-  assert.deepEqual(sourceCore.getTaskView(sourceEvent.taskId), eventCore.getTaskView(sourceEvent.taskId));
+  assert.deepEqual(
+    sourceCore.getTaskView(sourceEvent.taskId),
+    eventCore.getTaskView(sourceEvent.taskId),
+  );
   assert.deepEqual(sourceCore.getAttentionView(), eventCore.getAttentionView());
 });

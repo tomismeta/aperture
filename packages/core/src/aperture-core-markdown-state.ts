@@ -3,6 +3,7 @@ import { loadJudgmentConfig, type JudgmentConfig } from "./judgment-config.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
 import { distillMemoryProfile } from "./memory-aggregator.js";
 import { ProfileStore, type MemoryProfile, type UserProfile } from "./profile-store.js";
+import { formatTimestamp } from "./time.js";
 
 export type LoadedMarkdownRuntimeState = {
   profileStore: ProfileStore;
@@ -51,10 +52,7 @@ export async function reloadMarkdownRuntimeState(
   const [userProfile, memoryProfile, judgmentConfig] = await Promise.all([
     options.profileStore.loadUserProfile(options.userProfile ?? defaultUserProfile()),
     options.profileStore.loadMemoryProfile(options.memoryProfile),
-    loadJudgmentConfig(
-      options.markdownRootDir,
-      options.judgmentConfig ?? defaultJudgmentConfig(),
-    ),
+    loadJudgmentConfig(options.markdownRootDir, options.judgmentConfig ?? defaultJudgmentConfig()),
   ]);
 
   return {
@@ -83,7 +81,7 @@ function defaultUserProfile(): UserProfile {
   return {
     version: MARKDOWN_SCHEMA_VERSION,
     operatorId: "default",
-    updatedAt: new Date(0).toISOString(),
+    updatedAt: formatTimestamp(0),
   };
 }
 
@@ -91,7 +89,7 @@ function defaultMemoryProfile(): MemoryProfile {
   return {
     version: MARKDOWN_SCHEMA_VERSION,
     operatorId: "default",
-    updatedAt: new Date(0).toISOString(),
+    updatedAt: formatTimestamp(0),
     sessionCount: 0,
   };
 }
@@ -99,6 +97,6 @@ function defaultMemoryProfile(): MemoryProfile {
 function defaultJudgmentConfig(): JudgmentConfig {
   return {
     version: MARKDOWN_SCHEMA_VERSION,
-    updatedAt: new Date(0).toISOString(),
+    updatedAt: formatTimestamp(0),
   };
 }

@@ -12,11 +12,7 @@ import {
 } from "./policy-criterion-rule.js";
 
 export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (input) => {
-  const {
-    candidate,
-    criterion,
-    peripheralResolution,
-  } = input;
+  const { candidate, criterion, peripheralResolution } = input;
 
   if (candidate.blocking) {
     return noopPolicyCriterionRule("semantic_uncertainty");
@@ -33,7 +29,9 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
           reason: "low_signal",
           resolution: peripheralResolution,
         },
-        ["semantic interpretation abstained, so non-blocking work stays peripheral until stronger explicit evidence arrives"],
+        [
+          "semantic interpretation abstained, so non-blocking work stays peripheral until stronger explicit evidence arrives",
+        ],
       ),
     );
   }
@@ -49,7 +47,9 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
           reason: "low_signal",
           resolution: peripheralResolution,
         },
-        ["low-confidence semantic interpretation keeps non-blocking work peripheral until the signal is clearer"],
+        [
+          "low-confidence semantic interpretation keeps non-blocking work peripheral until the signal is clearer",
+        ],
       ),
     );
   }
@@ -65,7 +65,9 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
           reason: "low_signal",
           resolution: peripheralResolution,
         },
-        ["inferred semantic evidence stays peripheral until stronger source-backed context arrives"],
+        [
+          "inferred semantic evidence stays peripheral until stronger source-backed context arrives",
+        ],
       ),
     );
   }

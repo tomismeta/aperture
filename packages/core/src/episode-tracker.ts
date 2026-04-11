@@ -4,6 +4,7 @@ import { readSemanticRelationEvidenceStrength } from "./judgment-input.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
 import type { SemanticRelationHint } from "./semantic-types.js";
 import { readSemanticRelationTarget } from "./semantic-relations.js";
+import { createCoreClock, type CoreClock } from "./time.js";
 
 export type EpisodeState = "emerging" | "actionable" | "batched" | "waiting" | "stale" | "resolved";
 
@@ -28,11 +29,20 @@ type EpisodeRecord = EpisodeSummary & {
 
 const DEFAULTS = JUDGMENT_DEFAULTS.episodeEvidence;
 
+type EpisodeTrackerOptions = {
+  clock?: CoreClock;
+};
+
 export class EpisodeTracker {
   private readonly byKey = new Map<string, EpisodeRecord>();
   private readonly byId = new Map<string, EpisodeRecord>();
   private readonly byInteractionId = new Map<string, string>();
   private readonly nextSequenceByKey = new Map<string, number>();
+  private readonly clock: CoreClock;
+
+  constructor(options: EpisodeTrackerOptions = {}) {
+    this.clock = options.clock ?? createCoreClock();
+  }
 
   assign(candidate: AttentionCandidate): AttentionCandidate {
     const key = buildEpisodeKey(candidate);
@@ -40,35 +50,20 @@ export class EpisodeTracker {
     const boundRecord = existingId ? this.byId.get(existingId) : undefined;
     const keyedRecord = boundRecord ? null : this.byKey.get(key);
     const record = boundRecord ?? this.resolveAssignableRecord(key, keyedRecord, candidate);
+    const nextRecord = this.evolveRecord(record, candidate);
 
-    record.interactions.add(candidate.interactionId);
-    record.lastInteractionId = candidate.interactionId;
-    record.updatedAt = candidate.timestamp;
-    record.size = record.interactions.size;
-    record.modes.add(candidate.mode);
-    if (candidate.blocking) {
-      record.blockingSignals += 1;
-    }
-    if (candidate.consequence === "high" || candidate.tone === "critical") {
-      record.highSignals += 1;
-    }
-    const evidence = measureEpisodeEvidence(record, candidate);
-    record.evidenceScore = evidence.score;
-    record.evidenceReasons = evidence.reasons;
-    record.state = nextEpisodeState(record.state, candidate, record, evidence.score);
-
-    this.byKey.set(record.key, record);
-    this.byId.set(record.id, record);
-    this.byInteractionId.set(candidate.interactionId, record.id);
+    this.byKey.set(nextRecord.key, nextRecord);
+    this.byId.set(nextRecord.id, nextRecord);
+    this.byInteractionId.set(candidate.interactionId, nextRecord.id);
 
     return {
       ...candidate,
-      episodeId: record.id,
-      episodeKey: record.key,
-      episodeState: record.state,
-      episodeSize: record.size,
-      episodeEvidenceScore: record.evidenceScore,
-      episodeEvidenceReasons: [...record.evidenceReasons],
+      episodeId: nextRecord.id,
+      episodeKey: nextRecord.key,
+      episodeState: nextRecord.state,
+      episodeSize: nextRecord.size,
+      episodeEvidenceScore: nextRecord.evidenceScore,
+      episodeEvidenceReasons: [...nextRecord.evidenceReasons],
     };
   }
 
@@ -153,7 +148,11 @@ export class EpisodeTracker {
     }
 
     if (this.shouldRollEpisode(current, candidate.timestamp)) {
-      current.state = "stale";
+      const staleRecord = {
+        ...current,
+        state: "stale" as const,
+      };
+      this.byId.set(staleRecord.id, staleRecord);
       return this.createRecord(key, candidate);
     }
 
@@ -165,13 +164,43 @@ export class EpisodeTracker {
       return true;
     }
 
-    const previousMs = Date.parse(record.updatedAt);
-    const nextMs = Date.parse(nextTimestamp);
-    if (Number.isNaN(previousMs) || Number.isNaN(nextMs)) {
+    const previousMs = this.clock.parse(record.updatedAt);
+    const nextMs = this.clock.parse(nextTimestamp);
+    if (previousMs === null || nextMs === null) {
       return false;
     }
 
     return nextMs - previousMs >= DEFAULTS.staleAfterMs;
+  }
+
+  private evolveRecord(record: EpisodeRecord, candidate: AttentionCandidate): EpisodeRecord {
+    const interactions = new Set(record.interactions);
+    interactions.add(candidate.interactionId);
+
+    const modes = new Set(record.modes);
+    modes.add(candidate.mode);
+
+    const relationKinds = mergeEpisodeRelationKinds(record.relationKinds, candidate);
+    const nextRecord: EpisodeRecord = {
+      ...record,
+      lastInteractionId: candidate.interactionId,
+      updatedAt: candidate.timestamp,
+      size: interactions.size,
+      interactions,
+      modes,
+      relationKinds,
+      blockingSignals: record.blockingSignals + (candidate.blocking ? 1 : 0),
+      highSignals:
+        record.highSignals +
+        (candidate.consequence === "high" || candidate.tone === "critical" ? 1 : 0),
+    };
+    const evidence = measureEpisodeEvidence(nextRecord, candidate);
+    return {
+      ...nextRecord,
+      evidenceScore: evidence.score,
+      evidenceReasons: evidence.reasons,
+      state: nextEpisodeState(record.state, candidate, nextRecord, evidence.score),
+    };
   }
 }
 
@@ -208,14 +237,14 @@ function episodeAnchor(candidate: AttentionCandidate): string {
     const id = item.id.toLowerCase();
     const label = item.label.toLowerCase();
     return (
-      id.includes("file")
-      || id === "path"
-      || id.includes("issue")
-      || id === "command"
-      || label.includes("file")
-      || label.includes("path")
-      || label.includes("issue")
-      || label.includes("command")
+      id.includes("file") ||
+      id === "path" ||
+      id.includes("issue") ||
+      id === "command" ||
+      label.includes("file") ||
+      label.includes("path") ||
+      label.includes("issue") ||
+      label.includes("command")
     );
   });
 
@@ -273,12 +302,6 @@ function measureEpisodeEvidence(
     reasons.push("multiple related interactions have accumulated in this episode");
   }
 
-    if (shouldPersistEpisodeRelationEvidence(candidate)) {
-      for (const relationHint of candidate.relationHints ?? []) {
-        record.relationKinds.add(relationHint.kind);
-      }
-    }
-
   if (record.size >= 3) {
     score += DEFAULTS.persistentEpisodeBoost;
     reasons.push("the same episode keeps recurring without resolution");
@@ -310,6 +333,20 @@ function measureEpisodeEvidence(
   }
 
   return { score, reasons };
+}
+
+function mergeEpisodeRelationKinds(
+  currentRelationKinds: Set<SemanticRelationHint["kind"]>,
+  candidate: AttentionCandidate,
+): Set<SemanticRelationHint["kind"]> {
+  const relationKinds = new Set(currentRelationKinds);
+  if (!shouldPersistEpisodeRelationEvidence(candidate)) {
+    return relationKinds;
+  }
+  for (const relationHint of candidate.relationHints ?? []) {
+    relationKinds.add(relationHint.kind);
+  }
+  return relationKinds;
 }
 
 function normalizeEpisodePart(value: string): string {
@@ -369,5 +406,7 @@ function readStringList(value: unknown, key: string): string[] {
     return [];
   }
 
-  return candidate.filter((entry): entry is string => typeof entry === "string" && entry.length > 0);
+  return candidate.filter(
+    (entry): entry is string => typeof entry === "string" && entry.length > 0,
+  );
 }

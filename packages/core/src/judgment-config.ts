@@ -136,7 +136,9 @@ function parseJudgmentConfig(content: string): JudgmentConfig | null {
     ...(ambiguityDefaults.size > 0
       ? { ambiguityDefaults: Object.fromEntries(ambiguityDefaults.entries()) }
       : {}),
-    ...(plannerDefaults.size > 0 ? { plannerDefaults: Object.fromEntries(plannerDefaults.entries()) } : {}),
+    ...(plannerDefaults.size > 0
+      ? { plannerDefaults: Object.fromEntries(plannerDefaults.entries()) }
+      : {}),
   };
 }
 
@@ -183,13 +185,20 @@ export function serializeJudgmentConfig(config: JudgmentConfig): string {
       lines.push(formatBullet("batch status bursts", config.plannerDefaults.batchStatusBursts));
     }
     if (config.plannerDefaults.deferLowValueDuringPressure !== undefined) {
-      lines.push(formatBullet("defer low value during pressure", config.plannerDefaults.deferLowValueDuringPressure));
+      lines.push(
+        formatBullet(
+          "defer low value during pressure",
+          config.plannerDefaults.deferLowValueDuringPressure,
+        ),
+      );
     }
     if (config.plannerDefaults.minimumDwellMs !== undefined) {
       lines.push(formatBullet("minimum dwell ms", config.plannerDefaults.minimumDwellMs));
     }
     if (config.plannerDefaults.streamContinuityMargin !== undefined) {
-      lines.push(formatBullet("stream continuity margin", config.plannerDefaults.streamContinuityMargin));
+      lines.push(
+        formatBullet("stream continuity margin", config.plannerDefaults.streamContinuityMargin),
+      );
     }
     if (config.plannerDefaults.conflictingInterruptMargin !== undefined) {
       lines.push(
@@ -200,8 +209,8 @@ export function serializeJudgmentConfig(config: JudgmentConfig): string {
       );
     }
     if (
-      config.plannerDefaults.disabledContinuityRules !== undefined
-      && config.plannerDefaults.disabledContinuityRules.length > 0
+      config.plannerDefaults.disabledContinuityRules !== undefined &&
+      config.plannerDefaults.disabledContinuityRules.length > 0
     ) {
       lines.push(
         formatBullet(

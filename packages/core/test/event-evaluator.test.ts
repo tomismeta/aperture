@@ -43,7 +43,10 @@ test("task.updated blocked becomes a focused normal-priority status", () => {
   assert.equal(result.candidate.tone, "focused");
   assert.equal(result.candidate.consequence, "medium");
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
-  assert.equal(result.candidate.provenance?.whyNow, "Work is blocked and may require operator attention.");
+  assert.equal(
+    result.candidate.provenance?.whyNow,
+    "Work is blocked and may require operator attention.",
+  );
   assert.deepEqual(result.candidate.context, {
     progress: 45,
     items: [{ id: "issue", label: "Issue", value: "issue:deploy:prod" }],
@@ -93,8 +96,14 @@ test("task.updated semantics enrich provenance without overriding status routing
   assert.equal(result.candidate.tone, "ambient");
   assert.equal(result.candidate.consequence, "low");
   assert.equal(result.candidate.responseSpec.kind, "none");
-  assert.equal(result.candidate.provenance?.whyNow, "Waiting for operator approval before continuing.");
-  assert.deepEqual(result.candidate.relationHints?.map((hint) => hint.kind), ["same_issue", "repeats"]);
+  assert.equal(
+    result.candidate.provenance?.whyNow,
+    "Waiting for operator approval before continuing.",
+  );
+  assert.deepEqual(
+    result.candidate.relationHints?.map((hint) => hint.kind),
+    ["same_issue", "repeats"],
+  );
 });
 
 test("diagnostic status semantics do not change task.updated routing", () => {
@@ -146,15 +155,17 @@ test("diagnostic status semantics do not change task.updated routing", () => {
 });
 
 test("semantic blocking on waiting statuses stays status-shaped while recording blocked-like ontology", () => {
-  const result = evaluation.evaluate(normalizeSourceEvent({
-    id: "evt:status:blocking-diagnostic",
-    taskId: "task:status:blocking-diagnostic",
-    timestamp: "2026-03-08T12:02:35.000Z",
-    type: "task.updated",
-    title: "Cannot continue until credentials are provided",
-    summary: "Work is waiting but cannot proceed until the operator provides credentials.",
-    status: "waiting",
-  }));
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:status:blocking-diagnostic",
+      taskId: "task:status:blocking-diagnostic",
+      timestamp: "2026-03-08T12:02:35.000Z",
+      type: "task.updated",
+      title: "Cannot continue until credentials are provided",
+      summary: "Work is waiting but cannot proceed until the operator provides credentials.",
+      status: "waiting",
+    }),
+  );
 
   assert.equal(result.kind, "candidate");
   if (result.kind !== "candidate") {
@@ -174,7 +185,10 @@ test("semantic blocking on waiting statuses stays status-shaped while recording 
     confidence: "medium",
     source: "inferred",
   });
-  assert.equal(result.candidate.provenance?.whyNow, "Work is blocked and may require operator attention.");
+  assert.equal(
+    result.candidate.provenance?.whyNow,
+    "Work is blocked and may require operator attention.",
+  );
 });
 
 test("request-like semantic hints on running statuses stay status-shaped during evaluation", () => {
@@ -358,7 +372,10 @@ test("human-input explanation semantics do not change routing shape", () => {
   assert.equal(explained.candidate.consequence, baseline.candidate.consequence);
   assert.equal(explained.candidate.blocking, baseline.candidate.blocking);
   assert.equal(explained.candidate.responseSpec.kind, baseline.candidate.responseSpec.kind);
-  assert.equal(explained.candidate.provenance?.whyNow, "This deploy is waiting on an explicit approval checkpoint.");
+  assert.equal(
+    explained.candidate.provenance?.whyNow,
+    "This deploy is waiting on an explicit approval checkpoint.",
+  );
   assert.equal(explained.candidate.judgmentInput.semanticEvidence?.confidence, "low");
 });
 

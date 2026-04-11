@@ -130,9 +130,9 @@ export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
       lines.push(`- Assertions: ${result.assertions.filter((assertion) => assertion.passed).length}/${result.assertions.length} passed`);
     }
     if (!result.passed) {
-      for (const assertion of result.assertions.filter((assertion) => !assertion.passed)) {
+      for (const failedAssertion of result.assertions.filter((assertion) => !assertion.passed)) {
         lines.push(
-          `  - Failed ${assertion.name}: expected ${formatValue(assertion.expected)}, got ${formatValue(assertion.actual)}`,
+          `  - Failed ${failedAssertion.name}: expected ${formatValue(failedAssertion.expected)}, got ${formatValue(failedAssertion.actual)}`,
         );
       }
     }

@@ -495,6 +495,72 @@ test("markdown-backed core can reload judgment rules without restarting", async 
   assert.equal(core.getTaskView("task:active").now?.interactionId, "interaction:active");
 });
 
+test("markdown-backed core coalesces concurrent reloads into one in-flight refresh", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-reload-coalesce-"));
+  await writeFile(
+    join(root, "JUDGMENT.md"),
+    serializeJudgmentConfig({
+      version: 1,
+      updatedAt: "2026-03-12T10:15:00.000Z",
+    }),
+    "utf8",
+  );
+
+  let userLoads = 0;
+  let memoryLoads = 0;
+  let releaseGate: (() => void) | null = null;
+  const gate = new Promise<void>((resolve) => {
+    releaseGate = resolve;
+  });
+
+  const profileStore = {
+    async loadUserProfile(fallback: Parameters<ProfileStore["loadUserProfile"]>[0]) {
+      userLoads += 1;
+      await gate;
+      return fallback;
+    },
+    async loadMemoryProfile(fallback: Parameters<ProfileStore["loadMemoryProfile"]>[0]) {
+      memoryLoads += 1;
+      await gate;
+      return fallback;
+    },
+    async saveMemoryProfile() {},
+  } as unknown as ProfileStore;
+
+  const core = new ApertureCore({
+    profileStore,
+    markdownRootDir: root,
+    userProfile: {
+      version: 1,
+      operatorId: "default",
+      updatedAt: "2026-03-12T10:15:00.000Z",
+    },
+    memoryProfile: {
+      version: 1,
+      operatorId: "default",
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      sessionCount: 0,
+    },
+    judgmentConfig: {
+      version: 1,
+      updatedAt: "2026-03-12T10:15:00.000Z",
+    },
+  });
+
+  const firstReload = core.reloadMarkdown();
+  const secondReload = core.reloadMarkdown();
+  await Promise.resolve();
+
+  assert.equal(userLoads, 1);
+  assert.equal(memoryLoads, 1);
+  releaseGate?.();
+
+  assert.equal(await firstReload, true);
+  assert.equal(await secondReload, true);
+  assert.equal(userLoads, 1);
+  assert.equal(memoryLoads, 1);
+});
+
 test("memory snapshots deduplicate repeated terminal signals for one interaction", () => {
   const core = new ApertureCore();
 

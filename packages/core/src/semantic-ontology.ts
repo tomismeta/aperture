@@ -1,10 +1,7 @@
 import type { ApertureEvent } from "./events.js";
 import type { SourceEvent } from "./source-event.js";
 import { interpretSourceEvent } from "./semantic-interpreter.js";
-import type {
-  SemanticInterpretation,
-  SemanticRelationHint,
-} from "./semantic-types.js";
+import type { SemanticInterpretation, SemanticRelationHint } from "./semantic-types.js";
 import type {
   SemanticOntologyActivity,
   SemanticOntologyAsk,
@@ -66,8 +63,8 @@ function readOntologyAsk(
       return "none";
     case "task.updated":
       if (
-        interpretation.intentFrame === "approval_request"
-        || interpretation.activityClass === "permission_request"
+        interpretation.intentFrame === "approval_request" ||
+        interpretation.activityClass === "permission_request"
       ) {
         return "approval";
       }
@@ -75,8 +72,8 @@ function readOntologyAsk(
         return "form";
       }
       if (
-        interpretation.intentFrame === "question_request"
-        || interpretation.activityClass === "question_request"
+        interpretation.intentFrame === "question_request" ||
+        interpretation.activityClass === "question_request"
       ) {
         return "choice";
       }
@@ -92,23 +89,21 @@ function readOntologyActivity(
 ): SemanticOntologyActivity {
   switch (event.type) {
     case "human.input.requested":
-      return event.request.kind === "approval"
-        ? "decision_request"
-        : "question";
+      return event.request.kind === "approval" ? "decision_request" : "question";
     case "task.completed":
     case "task.cancelled":
       return "task_completion";
     case "task.updated":
       if (
-        interpretation.intentFrame === "approval_request"
-        || interpretation.activityClass === "permission_request"
+        interpretation.intentFrame === "approval_request" ||
+        interpretation.activityClass === "permission_request"
       ) {
         return "decision_request";
       }
       if (
-        interpretation.intentFrame === "question_request"
-        || interpretation.intentFrame === "form_request"
-        || interpretation.activityClass === "question_request"
+        interpretation.intentFrame === "question_request" ||
+        interpretation.intentFrame === "form_request" ||
+        interpretation.activityClass === "question_request"
       ) {
         return "question";
       }
@@ -142,10 +137,10 @@ function readOntologyBlocking(
         return "blocking";
       }
       if (
-        event.status === "waiting"
-        || interpretation.intentFrame === "approval_request"
-        || interpretation.intentFrame === "question_request"
-        || interpretation.intentFrame === "form_request"
+        event.status === "waiting" ||
+        interpretation.intentFrame === "approval_request" ||
+        interpretation.intentFrame === "question_request" ||
+        interpretation.intentFrame === "form_request"
       ) {
         return "waiting";
       }
@@ -161,18 +156,13 @@ function readOntologyEpisode(
 ): SemanticOntologyEpisode {
   // The compact ontology keeps only the coarse continuity state. Relation
   // targets remain in full semantic interpretation and traces.
-  const relationKinds = new Set(
-    interpretation.relationHints.map((hint) => hint.kind),
-  );
+  const relationKinds = new Set(interpretation.relationHints.map((hint) => hint.kind));
 
   if (relationKinds.has("resolves")) {
     return "resolved";
   }
 
-  if (
-    relationKinds.has("same_issue")
-    && hasResurfacingRelation(interpretation.relationHints)
-  ) {
+  if (relationKinds.has("same_issue") && hasResurfacingRelation(interpretation.relationHints)) {
     return "resurfaced";
   }
 
@@ -187,13 +177,9 @@ function readOntologyEpisode(
   return "unknown";
 }
 
-function hasResurfacingRelation(
-  relationHints: SemanticRelationHint[],
-): boolean {
-  return relationHints.some((hint) =>
-    hint.kind === "repeats"
-    || hint.kind === "escalates"
-    || hint.kind === "supersedes"
+function hasResurfacingRelation(relationHints: SemanticRelationHint[]): boolean {
+  return relationHints.some(
+    (hint) => hint.kind === "repeats" || hint.kind === "escalates" || hint.kind === "supersedes",
   );
 }
 
@@ -209,10 +195,10 @@ function readOntologySource(
 
   if (isExplicitEventShapedSemanticRead(event, interpretation)) {
     if (
-      event.type === "task.updated"
-      && interpretation.intentFrame === "status_update"
-      && interpretation.confidence === "low"
-      && interpretation.provenance?.confidence === "inferred"
+      event.type === "task.updated" &&
+      interpretation.intentFrame === "status_update" &&
+      interpretation.confidence === "low" &&
+      interpretation.provenance?.confidence === "inferred"
     ) {
       return "inferred";
     }
@@ -247,9 +233,15 @@ function isExplicitEventShapedSemanticRead(
         case "blocked":
           return interpretation.intentFrame === "blocked_work";
         case "failed":
-          return interpretation.intentFrame === "failure" || interpretation.intentFrame === "status_update";
+          return (
+            interpretation.intentFrame === "failure" ||
+            interpretation.intentFrame === "status_update"
+          );
         case "completed":
-          return interpretation.intentFrame === "completion" || interpretation.intentFrame === "status_update";
+          return (
+            interpretation.intentFrame === "completion" ||
+            interpretation.intentFrame === "status_update"
+          );
         case "running":
         case "waiting":
           return interpretation.intentFrame === "status_update";

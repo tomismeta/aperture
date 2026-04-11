@@ -1,10 +1,6 @@
 import type { ApertureEvent } from "./events.js";
 import type { SourceEvent } from "./source-event.js";
-import type {
-  TraceEventFieldDiff,
-  TraceEventTransition,
-  TraceEventTransitionKind,
-} from "./trace-common.js";
+import type { TraceEventTransition, TraceEventTransitionKind } from "./trace-common.js";
 import { diffTraceObjects } from "./trace-diff.js";
 
 export function buildTraceEventTransition(

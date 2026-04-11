@@ -10,6 +10,7 @@ import {
   baseAttentionSurfaceCapabilities,
   type AttentionSurfaceCapabilities,
 } from "./surface-capabilities.js";
+import { formatTimestamp, type TimeSource } from "./time.js";
 
 export type ApertureCoreRuntimeSetupOptions = {
   userProfile?: UserProfile;
@@ -18,7 +19,7 @@ export type ApertureCoreRuntimeSetupOptions = {
   surfaceCapabilities?: AttentionSurfaceCapabilities;
   operatorPresence?: AttentionOperatorPresence;
   responseExpiryMs?: number;
-  timeSource?: () => number;
+  timeSource?: TimeSource;
 };
 
 export type ApertureCoreRuntimeSetupState = {
@@ -28,7 +29,7 @@ export type ApertureCoreRuntimeSetupState = {
   surfaceCapabilities: AttentionSurfaceCapabilities;
   operatorPresence: AttentionOperatorPresence;
   responseExpiryMs: number | undefined;
-  timeSource: () => number;
+  timeSource: TimeSource;
 };
 
 /**
@@ -86,7 +87,7 @@ function defaultMemoryProfile(): MemoryProfile {
   return {
     version: MARKDOWN_SCHEMA_VERSION,
     operatorId: "default",
-    updatedAt: new Date(0).toISOString(),
+    updatedAt: formatTimestamp(0),
     sessionCount: 0,
   };
 }

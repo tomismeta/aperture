@@ -244,8 +244,6 @@ export function renderAutoresearchRetainedBacklogMarkdown(
   for (const [index, entry] of backlog.entries.entries()) {
     const latestIntent = entry.latestIntentStatements[0];
     const latestRecommendation = entry.latestCodeRecommendations[0];
-    const latestOptimizer = entry.latestOptimizerSummary;
-    const example = entry.examples[0];
     const summaryLine = latestIntent?.statement
       ?? latestRecommendation?.summary
       ?? `${entry.focusArea} (${entry.owner}) ${entry.apertureValue} -> ${entry.expectedValue}`;

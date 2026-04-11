@@ -6,7 +6,12 @@ export function diffTraceObjects(before: unknown, after: unknown): TraceFieldDif
   return diffs;
 }
 
-function collectDiffs(path: string, before: unknown, after: unknown, diffs: TraceFieldDiff[]): void {
+function collectDiffs(
+  path: string,
+  before: unknown,
+  after: unknown,
+  diffs: TraceFieldDiff[],
+): void {
   if (Object.is(before, after)) {
     return;
   }

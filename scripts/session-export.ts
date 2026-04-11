@@ -178,8 +178,7 @@ function parseArgs(args: string[]): CliOptions {
         index += 1;
         continue;
       case "--help":
-        printHelp();
-        process.exit(0);
+        return printUsageAndExit(printHelp);
       default:
         throw new Error(`Unknown argument: ${arg}`);
     }
@@ -215,6 +214,11 @@ function printHelp(): void {
     ].join("\n"),
   );
   stdout.write("\n");
+}
+
+function printUsageAndExit(printUsage: () => void): never {
+  printUsage();
+  process.exit(0);
 }
 
 void main();

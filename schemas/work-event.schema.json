@@ -3,436 +3,942 @@
   "$id": "urn:aperture:work-event:1.0",
   "title": "WorkEvent",
   "description": "Neutral work event contract for host-agnostic agent and operator systems.",
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["kind", "work"],
-  "properties": {
-    "specVersion": {
-      "type": "string",
-      "const": "1.0",
-      "default": "1.0",
-      "description": "Optional on ingress. Aperture defaults this to 1.0 when omitted."
-    },
-    "id": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Optional on ingress. Aperture generates an event id when omitted."
-    },
-    "source": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Optional on ingress. Aperture defaults this to urn:aperture:work when omitted."
-    },
-    "type": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Optional interoperability field. Aperture routes on kind and derives io.agent.<kind>.v1 when this is omitted."
-    },
-    "time": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "subject": {
-      "type": "string",
-      "minLength": 1
-    },
-    "schema": {
-      "type": "string",
-      "format": "uri-reference"
-    },
-    "contentType": {
-      "type": "string",
-      "minLength": 1
-    },
-    "trace": {
-      "$ref": "#/$defs/trace"
-    },
-    "run": {
-      "$ref": "#/$defs/run"
-    },
-    "kind": {
-      "type": "string",
-      "enum": [
-        "work.started",
-        "work.updated",
-        "work.completed",
-        "work.cancelled",
-        "input.requested"
-      ],
-      "description": "The routing field Aperture uses to understand what happened."
-    },
-    "work": {
-      "$ref": "#/$defs/work"
-    },
-    "actor": {
-      "$ref": "#/$defs/actor"
-    },
-    "interaction": {
-      "$ref": "#/$defs/interaction"
-    },
-    "request": {
-      "$ref": "#/$defs/request"
-    },
-    "facts": {
-      "$ref": "#/$defs/facts"
-    },
-    "hints": {
-      "$ref": "#/$defs/hints"
-    },
-    "context": {
-      "$ref": "#/$defs/context"
-    },
-    "extensions": {
-      "type": "object",
-      "description": "Vendor- or product-specific metadata that does not fit the neutral contract.",
-      "additionalProperties": true
-    }
-  },
-  "allOf": [
+  "anyOf": [
     {
-      "if": {
-        "properties": {
-          "kind": {
-            "const": "input.requested"
-          }
-        },
-        "required": ["kind"]
-      },
-      "then": {
-        "required": ["interaction", "request"]
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "kind": {
-            "const": "work.updated"
-          }
-        },
-        "required": ["kind"]
-      },
-      "then": {
-        "properties": {
-          "work": {
-            "required": ["id", "status"]
-          }
-        }
-      }
-    }
-  ],
-  "$defs": {
-    "trace": {
-      "type": "object",
       "additionalProperties": false,
-      "properties": {
-        "traceparent": {
-          "type": "string",
-          "minLength": 1
-        },
-        "tracestate": {
-          "type": "string"
-        }
-      }
-    },
-    "run": {
       "type": "object",
-      "additionalProperties": false,
+      "required": ["kind", "work"],
       "properties": {
-        "sessionId": {
-          "type": "string",
-          "minLength": 1
-        },
-        "runId": {
-          "type": "string",
-          "minLength": 1
-        }
-      }
-    },
-    "work": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id"],
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "title": {
-          "type": "string",
-          "minLength": 1
-        },
-        "summary": {
+        "specVersion": {
+          "pattern": "^1\\.\\d+$",
+          "default": "1.0",
+          "description": "Optional on ingress. Aperture defaults this to 1.0 when omitted and accepts 1.x compatible clients.",
           "type": "string"
         },
-        "reason": {
-          "type": "string"
-        },
-        "status": {
-          "type": "string",
-          "enum": [
-            "running",
-            "waiting",
-            "blocked",
-            "failed",
-            "completed",
-            "cancelled"
-          ]
-        },
-        "progress": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1
-        }
-      }
-    },
-    "actor": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id"],
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "kind": {
-          "type": "string",
-          "enum": ["agent", "subagent", "host", "system", "human"]
-        },
-        "label": {
-          "type": "string",
-          "minLength": 1
-        }
-      }
-    },
-    "interaction": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id"],
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1
-        }
-      }
-    },
-    "request": {
-      "oneOf": [
-        {
-          "type": "object",
+        "id": { "minLength": 1, "maxLength": 256, "type": "string" },
+        "source": { "minLength": 1, "maxLength": 512, "type": "string" },
+        "type": { "minLength": 1, "maxLength": 256, "type": "string" },
+        "time": { "format": "date-time", "type": "string" },
+        "subject": { "minLength": 1, "maxLength": 256, "type": "string" },
+        "schema": { "maxLength": 1024, "type": "string" },
+        "contentType": { "minLength": 1, "maxLength": 128, "type": "string" },
+        "trace": {
           "additionalProperties": false,
-          "required": ["kind"],
+          "type": "object",
           "properties": {
-            "kind": {
-              "const": "approval"
-            },
-            "title": {
-              "type": "string",
-              "minLength": 1
-            },
-            "summary": {
+            "traceparent": {
+              "minLength": 1,
+              "maxLength": 512,
               "type": "string"
             },
-            "requireReason": {
-              "type": "boolean"
+            "tracestate": { "maxLength": 512, "type": "string" }
+          }
+        },
+        "run": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "sessionId": { "minLength": 1, "maxLength": 256, "type": "string" },
+            "runId": { "minLength": 1, "maxLength": 256, "type": "string" }
+          }
+        },
+        "kind": { "const": "work.started", "type": "string" },
+        "work": {
+          "additionalProperties": false,
+          "type": "object",
+          "required": ["id"],
+          "properties": {
+            "id": { "minLength": 1, "maxLength": 256, "type": "string" },
+            "title": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "summary": { "maxLength": 8192, "type": "string" },
+            "reason": { "maxLength": 4096, "type": "string" },
+            "progress": { "minimum": 0, "maximum": 1, "type": "number" },
+            "status": {
+              "anyOf": [
+                { "const": "running", "type": "string" },
+                { "const": "waiting", "type": "string" },
+                { "const": "blocked", "type": "string" },
+                { "const": "failed", "type": "string" },
+                { "const": "completed", "type": "string" },
+                { "const": "cancelled", "type": "string" }
+              ]
             }
           }
         },
-        {
-          "type": "object",
+        "actor": {
           "additionalProperties": false,
-          "required": ["kind", "selectionMode", "options"],
+          "type": "object",
+          "required": ["id"],
           "properties": {
+            "id": { "minLength": 1, "maxLength": 256, "type": "string" },
             "kind": {
-              "const": "choice"
+              "anyOf": [
+                { "const": "agent", "type": "string" },
+                { "const": "subagent", "type": "string" },
+                { "const": "host", "type": "string" },
+                { "const": "system", "type": "string" },
+                { "const": "human", "type": "string" }
+              ]
             },
-            "title": {
-              "type": "string",
-              "minLength": 1
-            },
-            "summary": {
+            "label": { "minLength": 1, "maxLength": 512, "type": "string" }
+          }
+        },
+        "facts": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "capabilityFamily": {
+              "minLength": 1,
+              "maxLength": 512,
               "type": "string"
             },
-            "selectionMode": {
-              "type": "string",
-              "enum": ["single", "multiple"]
+            "activityCategory": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            }
+          }
+        },
+        "hints": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "consequence": {
+              "anyOf": [
+                { "const": "low", "type": "string" },
+                { "const": "medium", "type": "string" },
+                { "const": "high", "type": "string" }
+              ]
             },
-            "allowTextResponse": {
-              "type": "boolean"
+            "capabilityFamily": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
             },
-            "options": {
-              "type": "array",
+            "activityCategory": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            },
+            "requestKind": {
+              "anyOf": [
+                { "const": "approval", "type": "string" },
+                { "const": "choice", "type": "string" },
+                { "const": "form", "type": "string" }
+              ]
+            }
+          }
+        },
+        "context": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "items": {
               "minItems": 1,
+              "maxItems": 64,
+              "type": "array",
               "items": {
-                "$ref": "#/$defs/requestOption"
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["id", "value"],
+                "properties": {
+                  "id": { "minLength": 1, "maxLength": 256, "type": "string" },
+                  "label": {
+                    "minLength": 1,
+                    "maxLength": 512,
+                    "type": "string"
+                  },
+                  "value": {
+                    "anyOf": [
+                      { "maxLength": 8192, "type": "string" },
+                      { "type": "number" },
+                      { "type": "boolean" }
+                    ]
+                  }
+                }
               }
             }
           }
         },
-        {
+        "extensions": {
           "type": "object",
+          "patternProperties": { "^(.*)$": {} }
+        }
+      }
+    },
+    {
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["kind", "work"],
+      "properties": {
+        "specVersion": {
+          "pattern": "^1\\.\\d+$",
+          "default": "1.0",
+          "description": "Optional on ingress. Aperture defaults this to 1.0 when omitted and accepts 1.x compatible clients.",
+          "type": "string"
+        },
+        "id": { "minLength": 1, "maxLength": 256, "type": "string" },
+        "source": { "minLength": 1, "maxLength": 512, "type": "string" },
+        "type": { "minLength": 1, "maxLength": 256, "type": "string" },
+        "time": { "format": "date-time", "type": "string" },
+        "subject": { "minLength": 1, "maxLength": 256, "type": "string" },
+        "schema": { "maxLength": 1024, "type": "string" },
+        "contentType": { "minLength": 1, "maxLength": 128, "type": "string" },
+        "trace": {
           "additionalProperties": false,
-          "required": ["kind", "fields"],
+          "type": "object",
           "properties": {
-            "kind": {
-              "const": "form"
-            },
-            "title": {
-              "type": "string",
-              "minLength": 1
-            },
-            "summary": {
+            "traceparent": {
+              "minLength": 1,
+              "maxLength": 512,
               "type": "string"
             },
-            "fields": {
-              "type": "array",
+            "tracestate": { "maxLength": 512, "type": "string" }
+          }
+        },
+        "run": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "sessionId": { "minLength": 1, "maxLength": 256, "type": "string" },
+            "runId": { "minLength": 1, "maxLength": 256, "type": "string" }
+          }
+        },
+        "kind": { "const": "work.updated", "type": "string" },
+        "work": {
+          "additionalProperties": false,
+          "type": "object",
+          "required": ["id", "status"],
+          "properties": {
+            "id": { "minLength": 1, "maxLength": 256, "type": "string" },
+            "title": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "summary": { "maxLength": 8192, "type": "string" },
+            "reason": { "maxLength": 4096, "type": "string" },
+            "progress": { "minimum": 0, "maximum": 1, "type": "number" },
+            "status": {
+              "anyOf": [
+                { "const": "running", "type": "string" },
+                { "const": "waiting", "type": "string" },
+                { "const": "blocked", "type": "string" },
+                { "const": "failed", "type": "string" },
+                { "const": "completed", "type": "string" }
+              ]
+            }
+          }
+        },
+        "actor": {
+          "additionalProperties": false,
+          "type": "object",
+          "required": ["id"],
+          "properties": {
+            "id": { "minLength": 1, "maxLength": 256, "type": "string" },
+            "kind": {
+              "anyOf": [
+                { "const": "agent", "type": "string" },
+                { "const": "subagent", "type": "string" },
+                { "const": "host", "type": "string" },
+                { "const": "system", "type": "string" },
+                { "const": "human", "type": "string" }
+              ]
+            },
+            "label": { "minLength": 1, "maxLength": 512, "type": "string" }
+          }
+        },
+        "facts": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "capabilityFamily": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            },
+            "activityCategory": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            }
+          }
+        },
+        "hints": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "consequence": {
+              "anyOf": [
+                { "const": "low", "type": "string" },
+                { "const": "medium", "type": "string" },
+                { "const": "high", "type": "string" }
+              ]
+            },
+            "capabilityFamily": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            },
+            "activityCategory": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            },
+            "requestKind": {
+              "anyOf": [
+                { "const": "approval", "type": "string" },
+                { "const": "choice", "type": "string" },
+                { "const": "form", "type": "string" }
+              ]
+            }
+          }
+        },
+        "context": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "items": {
               "minItems": 1,
+              "maxItems": 64,
+              "type": "array",
               "items": {
-                "$ref": "#/$defs/requestField"
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["id", "value"],
+                "properties": {
+                  "id": { "minLength": 1, "maxLength": 256, "type": "string" },
+                  "label": {
+                    "minLength": 1,
+                    "maxLength": 512,
+                    "type": "string"
+                  },
+                  "value": {
+                    "anyOf": [
+                      { "maxLength": 8192, "type": "string" },
+                      { "type": "number" },
+                      { "type": "boolean" }
+                    ]
+                  }
+                }
               }
             }
           }
+        },
+        "extensions": {
+          "type": "object",
+          "patternProperties": { "^(.*)$": {} }
         }
-      ]
+      }
     },
-    "requestOption": {
-      "type": "object",
+    {
       "additionalProperties": false,
-      "required": ["id", "label"],
+      "type": "object",
+      "required": ["kind", "work"],
       "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "label": {
-          "type": "string",
-          "minLength": 1
-        },
-        "summary": {
+        "specVersion": {
+          "pattern": "^1\\.\\d+$",
+          "default": "1.0",
+          "description": "Optional on ingress. Aperture defaults this to 1.0 when omitted and accepts 1.x compatible clients.",
           "type": "string"
-        }
-      }
-    },
-    "requestField": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "label", "type"],
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1
         },
-        "label": {
-          "type": "string",
-          "minLength": 1
-        },
-        "type": {
-          "type": "string",
-          "enum": ["text", "textarea", "number", "boolean", "select"]
-        },
-        "required": {
-          "type": "boolean"
-        },
-        "options": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/requestFieldOption"
-          }
-        }
-      }
-    },
-    "requestFieldOption": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["value", "label"],
-      "properties": {
-        "value": {
-          "type": "string",
-          "minLength": 1
-        },
-        "label": {
-          "type": "string",
-          "minLength": 1
-        }
-      }
-    },
-    "facts": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "capabilityFamily": {
-          "type": "string",
-          "minLength": 1
-        },
-        "activityCategory": {
-          "type": "string",
-          "minLength": 1
-        }
-      }
-    },
-    "hints": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "consequence": {
-          "type": "string",
-          "enum": ["low", "medium", "high"]
-        },
-        "capabilityFamily": {
-          "type": "string",
-          "minLength": 1
-        },
-        "activityCategory": {
-          "type": "string",
-          "minLength": 1
-        },
-        "requestKind": {
-          "type": "string",
-          "enum": ["approval", "choice", "form"]
-        }
-      }
-    },
-    "context": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/contextItem"
-          }
-        }
-      }
-    },
-    "contextItem": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "value"],
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "label": {
-          "type": "string",
-          "minLength": 1
-        },
-        "value": {
-          "oneOf": [
-            {
+        "id": { "minLength": 1, "maxLength": 256, "type": "string" },
+        "source": { "minLength": 1, "maxLength": 512, "type": "string" },
+        "type": { "minLength": 1, "maxLength": 256, "type": "string" },
+        "time": { "format": "date-time", "type": "string" },
+        "subject": { "minLength": 1, "maxLength": 256, "type": "string" },
+        "schema": { "maxLength": 1024, "type": "string" },
+        "contentType": { "minLength": 1, "maxLength": 128, "type": "string" },
+        "trace": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "traceparent": {
+              "minLength": 1,
+              "maxLength": 512,
               "type": "string"
             },
+            "tracestate": { "maxLength": 512, "type": "string" }
+          }
+        },
+        "run": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "sessionId": { "minLength": 1, "maxLength": 256, "type": "string" },
+            "runId": { "minLength": 1, "maxLength": 256, "type": "string" }
+          }
+        },
+        "kind": { "const": "work.completed", "type": "string" },
+        "work": {
+          "additionalProperties": false,
+          "type": "object",
+          "required": ["id"],
+          "properties": {
+            "id": { "minLength": 1, "maxLength": 256, "type": "string" },
+            "title": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "summary": { "maxLength": 8192, "type": "string" },
+            "reason": { "maxLength": 4096, "type": "string" },
+            "progress": { "minimum": 0, "maximum": 1, "type": "number" },
+            "status": {
+              "anyOf": [
+                { "const": "running", "type": "string" },
+                { "const": "waiting", "type": "string" },
+                { "const": "blocked", "type": "string" },
+                { "const": "failed", "type": "string" },
+                { "const": "completed", "type": "string" },
+                { "const": "cancelled", "type": "string" }
+              ]
+            }
+          }
+        },
+        "actor": {
+          "additionalProperties": false,
+          "type": "object",
+          "required": ["id"],
+          "properties": {
+            "id": { "minLength": 1, "maxLength": 256, "type": "string" },
+            "kind": {
+              "anyOf": [
+                { "const": "agent", "type": "string" },
+                { "const": "subagent", "type": "string" },
+                { "const": "host", "type": "string" },
+                { "const": "system", "type": "string" },
+                { "const": "human", "type": "string" }
+              ]
+            },
+            "label": { "minLength": 1, "maxLength": 512, "type": "string" }
+          }
+        },
+        "facts": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "capabilityFamily": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            },
+            "activityCategory": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            }
+          }
+        },
+        "hints": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "consequence": {
+              "anyOf": [
+                { "const": "low", "type": "string" },
+                { "const": "medium", "type": "string" },
+                { "const": "high", "type": "string" }
+              ]
+            },
+            "capabilityFamily": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            },
+            "activityCategory": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            },
+            "requestKind": {
+              "anyOf": [
+                { "const": "approval", "type": "string" },
+                { "const": "choice", "type": "string" },
+                { "const": "form", "type": "string" }
+              ]
+            }
+          }
+        },
+        "context": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "items": {
+              "minItems": 1,
+              "maxItems": 64,
+              "type": "array",
+              "items": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["id", "value"],
+                "properties": {
+                  "id": { "minLength": 1, "maxLength": 256, "type": "string" },
+                  "label": {
+                    "minLength": 1,
+                    "maxLength": 512,
+                    "type": "string"
+                  },
+                  "value": {
+                    "anyOf": [
+                      { "maxLength": 8192, "type": "string" },
+                      { "type": "number" },
+                      { "type": "boolean" }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "extensions": {
+          "type": "object",
+          "patternProperties": { "^(.*)$": {} }
+        }
+      }
+    },
+    {
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["kind", "work"],
+      "properties": {
+        "specVersion": {
+          "pattern": "^1\\.\\d+$",
+          "default": "1.0",
+          "description": "Optional on ingress. Aperture defaults this to 1.0 when omitted and accepts 1.x compatible clients.",
+          "type": "string"
+        },
+        "id": { "minLength": 1, "maxLength": 256, "type": "string" },
+        "source": { "minLength": 1, "maxLength": 512, "type": "string" },
+        "type": { "minLength": 1, "maxLength": 256, "type": "string" },
+        "time": { "format": "date-time", "type": "string" },
+        "subject": { "minLength": 1, "maxLength": 256, "type": "string" },
+        "schema": { "maxLength": 1024, "type": "string" },
+        "contentType": { "minLength": 1, "maxLength": 128, "type": "string" },
+        "trace": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "traceparent": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            },
+            "tracestate": { "maxLength": 512, "type": "string" }
+          }
+        },
+        "run": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "sessionId": { "minLength": 1, "maxLength": 256, "type": "string" },
+            "runId": { "minLength": 1, "maxLength": 256, "type": "string" }
+          }
+        },
+        "kind": { "const": "work.cancelled", "type": "string" },
+        "work": {
+          "additionalProperties": false,
+          "type": "object",
+          "required": ["id"],
+          "properties": {
+            "id": { "minLength": 1, "maxLength": 256, "type": "string" },
+            "title": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "summary": { "maxLength": 8192, "type": "string" },
+            "reason": { "maxLength": 4096, "type": "string" },
+            "progress": { "minimum": 0, "maximum": 1, "type": "number" },
+            "status": {
+              "anyOf": [
+                { "const": "running", "type": "string" },
+                { "const": "waiting", "type": "string" },
+                { "const": "blocked", "type": "string" },
+                { "const": "failed", "type": "string" },
+                { "const": "completed", "type": "string" },
+                { "const": "cancelled", "type": "string" }
+              ]
+            }
+          }
+        },
+        "actor": {
+          "additionalProperties": false,
+          "type": "object",
+          "required": ["id"],
+          "properties": {
+            "id": { "minLength": 1, "maxLength": 256, "type": "string" },
+            "kind": {
+              "anyOf": [
+                { "const": "agent", "type": "string" },
+                { "const": "subagent", "type": "string" },
+                { "const": "host", "type": "string" },
+                { "const": "system", "type": "string" },
+                { "const": "human", "type": "string" }
+              ]
+            },
+            "label": { "minLength": 1, "maxLength": 512, "type": "string" }
+          }
+        },
+        "facts": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "capabilityFamily": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            },
+            "activityCategory": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            }
+          }
+        },
+        "hints": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "consequence": {
+              "anyOf": [
+                { "const": "low", "type": "string" },
+                { "const": "medium", "type": "string" },
+                { "const": "high", "type": "string" }
+              ]
+            },
+            "capabilityFamily": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            },
+            "activityCategory": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            },
+            "requestKind": {
+              "anyOf": [
+                { "const": "approval", "type": "string" },
+                { "const": "choice", "type": "string" },
+                { "const": "form", "type": "string" }
+              ]
+            }
+          }
+        },
+        "context": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "items": {
+              "minItems": 1,
+              "maxItems": 64,
+              "type": "array",
+              "items": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["id", "value"],
+                "properties": {
+                  "id": { "minLength": 1, "maxLength": 256, "type": "string" },
+                  "label": {
+                    "minLength": 1,
+                    "maxLength": 512,
+                    "type": "string"
+                  },
+                  "value": {
+                    "anyOf": [
+                      { "maxLength": 8192, "type": "string" },
+                      { "type": "number" },
+                      { "type": "boolean" }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "extensions": {
+          "type": "object",
+          "patternProperties": { "^(.*)$": {} }
+        }
+      }
+    },
+    {
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["kind", "work", "interaction", "request"],
+      "properties": {
+        "specVersion": {
+          "pattern": "^1\\.\\d+$",
+          "default": "1.0",
+          "description": "Optional on ingress. Aperture defaults this to 1.0 when omitted and accepts 1.x compatible clients.",
+          "type": "string"
+        },
+        "id": { "minLength": 1, "maxLength": 256, "type": "string" },
+        "source": { "minLength": 1, "maxLength": 512, "type": "string" },
+        "type": { "minLength": 1, "maxLength": 256, "type": "string" },
+        "time": { "format": "date-time", "type": "string" },
+        "subject": { "minLength": 1, "maxLength": 256, "type": "string" },
+        "schema": { "maxLength": 1024, "type": "string" },
+        "contentType": { "minLength": 1, "maxLength": 128, "type": "string" },
+        "trace": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "traceparent": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            },
+            "tracestate": { "maxLength": 512, "type": "string" }
+          }
+        },
+        "run": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "sessionId": { "minLength": 1, "maxLength": 256, "type": "string" },
+            "runId": { "minLength": 1, "maxLength": 256, "type": "string" }
+          }
+        },
+        "kind": { "const": "input.requested", "type": "string" },
+        "work": {
+          "additionalProperties": false,
+          "type": "object",
+          "required": ["id"],
+          "properties": {
+            "id": { "minLength": 1, "maxLength": 256, "type": "string" },
+            "title": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "summary": { "maxLength": 8192, "type": "string" },
+            "reason": { "maxLength": 4096, "type": "string" },
+            "progress": { "minimum": 0, "maximum": 1, "type": "number" },
+            "status": {
+              "anyOf": [
+                { "const": "running", "type": "string" },
+                { "const": "waiting", "type": "string" },
+                { "const": "blocked", "type": "string" },
+                { "const": "failed", "type": "string" },
+                { "const": "completed", "type": "string" },
+                { "const": "cancelled", "type": "string" }
+              ]
+            }
+          }
+        },
+        "interaction": {
+          "additionalProperties": false,
+          "type": "object",
+          "required": ["id"],
+          "properties": {
+            "id": { "minLength": 1, "maxLength": 256, "type": "string" }
+          }
+        },
+        "request": {
+          "anyOf": [
             {
-              "type": "number"
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["kind"],
+              "properties": {
+                "kind": { "const": "approval", "type": "string" },
+                "title": { "minLength": 1, "maxLength": 512, "type": "string" },
+                "summary": { "maxLength": 8192, "type": "string" },
+                "requireReason": { "type": "boolean" }
+              }
             },
             {
-              "type": "integer"
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["kind", "selectionMode", "options"],
+              "properties": {
+                "kind": { "const": "choice", "type": "string" },
+                "title": { "minLength": 1, "maxLength": 512, "type": "string" },
+                "summary": { "maxLength": 8192, "type": "string" },
+                "selectionMode": {
+                  "anyOf": [
+                    { "const": "single", "type": "string" },
+                    { "const": "multiple", "type": "string" }
+                  ]
+                },
+                "allowTextResponse": { "type": "boolean" },
+                "options": {
+                  "minItems": 1,
+                  "maxItems": 64,
+                  "type": "array",
+                  "items": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": ["id", "label"],
+                    "properties": {
+                      "id": {
+                        "minLength": 1,
+                        "maxLength": 256,
+                        "type": "string"
+                      },
+                      "label": {
+                        "minLength": 1,
+                        "maxLength": 512,
+                        "type": "string"
+                      },
+                      "summary": { "maxLength": 8192, "type": "string" }
+                    }
+                  }
+                }
+              }
             },
             {
-              "type": "boolean"
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["kind", "fields"],
+              "properties": {
+                "kind": { "const": "form", "type": "string" },
+                "title": { "minLength": 1, "maxLength": 512, "type": "string" },
+                "summary": { "maxLength": 8192, "type": "string" },
+                "fields": {
+                  "minItems": 1,
+                  "maxItems": 64,
+                  "type": "array",
+                  "items": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": ["id", "label", "type"],
+                    "properties": {
+                      "id": {
+                        "minLength": 1,
+                        "maxLength": 256,
+                        "type": "string"
+                      },
+                      "label": {
+                        "minLength": 1,
+                        "maxLength": 512,
+                        "type": "string"
+                      },
+                      "type": {
+                        "anyOf": [
+                          { "const": "text", "type": "string" },
+                          { "const": "textarea", "type": "string" },
+                          { "const": "number", "type": "string" },
+                          { "const": "select", "type": "string" },
+                          { "const": "boolean", "type": "string" }
+                        ]
+                      },
+                      "required": { "type": "boolean" },
+                      "options": {
+                        "minItems": 1,
+                        "maxItems": 64,
+                        "type": "array",
+                        "items": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": ["value", "label"],
+                          "properties": {
+                            "value": {
+                              "minLength": 1,
+                              "maxLength": 256,
+                              "type": "string"
+                            },
+                            "label": {
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
             }
           ]
+        },
+        "actor": {
+          "additionalProperties": false,
+          "type": "object",
+          "required": ["id"],
+          "properties": {
+            "id": { "minLength": 1, "maxLength": 256, "type": "string" },
+            "kind": {
+              "anyOf": [
+                { "const": "agent", "type": "string" },
+                { "const": "subagent", "type": "string" },
+                { "const": "host", "type": "string" },
+                { "const": "system", "type": "string" },
+                { "const": "human", "type": "string" }
+              ]
+            },
+            "label": { "minLength": 1, "maxLength": 512, "type": "string" }
+          }
+        },
+        "facts": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "capabilityFamily": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            },
+            "activityCategory": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            }
+          }
+        },
+        "hints": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "consequence": {
+              "anyOf": [
+                { "const": "low", "type": "string" },
+                { "const": "medium", "type": "string" },
+                { "const": "high", "type": "string" }
+              ]
+            },
+            "capabilityFamily": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            },
+            "activityCategory": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            },
+            "requestKind": {
+              "anyOf": [
+                { "const": "approval", "type": "string" },
+                { "const": "choice", "type": "string" },
+                { "const": "form", "type": "string" }
+              ]
+            }
+          }
+        },
+        "context": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "items": {
+              "minItems": 1,
+              "maxItems": 64,
+              "type": "array",
+              "items": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["id", "value"],
+                "properties": {
+                  "id": { "minLength": 1, "maxLength": 256, "type": "string" },
+                  "label": {
+                    "minLength": 1,
+                    "maxLength": 512,
+                    "type": "string"
+                  },
+                  "value": {
+                    "anyOf": [
+                      { "maxLength": 8192, "type": "string" },
+                      { "type": "number" },
+                      { "type": "boolean" }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "extensions": {
+          "type": "object",
+          "patternProperties": { "^(.*)$": {} }
         }
       }
     }
-  }
+  ]
 }

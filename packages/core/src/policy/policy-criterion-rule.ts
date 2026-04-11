@@ -37,7 +37,9 @@ export type PolicyCriterionRuleEvaluation =
       rationale: string[];
     };
 
-export type PolicyCriterionRule = (input: PolicyCriterionRuleInput) => PolicyCriterionRuleEvaluation;
+export type PolicyCriterionRule = (
+  input: PolicyCriterionRuleInput,
+) => PolicyCriterionRuleEvaluation;
 
 export function noopPolicyCriterionRule(
   rule: string,

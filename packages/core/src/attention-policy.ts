@@ -168,16 +168,18 @@ export class AttentionPolicy {
     const evaluations: PolicyCriterionRuleEvaluation[] = [];
 
     for (const rule of POLICY_CRITERION_RULES) {
-      const evaluation = rule(this.buildPolicyCriterionInput(
-        candidate,
-        policyVerdict,
-        evidence,
-        candidateScore,
-        currentScore,
-        criterion,
-        sourceTrustAdjustment,
-        peripheralResolution,
-      ));
+      const evaluation = rule(
+        this.buildPolicyCriterionInput(
+          candidate,
+          policyVerdict,
+          evidence,
+          candidateScore,
+          currentScore,
+          criterion,
+          sourceTrustAdjustment,
+          peripheralResolution,
+        ),
+      );
       evaluations.push(evaluation);
       if (evaluation.kind === "adjust") {
         criterion = evaluation.criterion;
@@ -207,16 +209,18 @@ export class AttentionPolicy {
     };
   }
 
-  private readInterruptCriterion(ambiguityDefaults?: AmbiguityDefaults): AttentionInterruptCriterion {
+  private readInterruptCriterion(
+    ambiguityDefaults?: AmbiguityDefaults,
+  ): AttentionInterruptCriterion {
     return {
       activationThreshold:
-        ambiguityDefaults?.nonBlockingActivationThreshold
-        ?? this.judgmentConfig?.ambiguityDefaults?.nonBlockingActivationThreshold
-        ?? JUDGMENT_DEFAULTS.ambiguity.nonBlockingActivationThreshold,
+        ambiguityDefaults?.nonBlockingActivationThreshold ??
+        this.judgmentConfig?.ambiguityDefaults?.nonBlockingActivationThreshold ??
+        JUDGMENT_DEFAULTS.ambiguity.nonBlockingActivationThreshold,
       promotionMargin:
-        ambiguityDefaults?.promotionMargin
-        ?? this.judgmentConfig?.ambiguityDefaults?.promotionMargin
-        ?? JUDGMENT_DEFAULTS.ambiguity.promotionMargin,
+        ambiguityDefaults?.promotionMargin ??
+        this.judgmentConfig?.ambiguityDefaults?.promotionMargin ??
+        JUDGMENT_DEFAULTS.ambiguity.promotionMargin,
     };
   }
 
@@ -236,7 +240,9 @@ export class AttentionPolicy {
       return 0;
     }
 
-    return this.memoryProfile?.sourceTrust?.[sourceKey]?.[candidate.consequence]?.trustAdjustment ?? 0;
+    return (
+      this.memoryProfile?.sourceTrust?.[sourceKey]?.[candidate.consequence]?.trustAdjustment ?? 0
+    );
   }
 
   private buildPolicyGateInput(candidate: AttentionCandidate): PolicyGateRuleInput {

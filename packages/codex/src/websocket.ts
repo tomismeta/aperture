@@ -5,8 +5,6 @@ import type {
   CodexJsonRpcNotification,
   CodexJsonRpcRequest,
   CodexJsonRpcSuccess,
-  CodexRawServerNotification,
-  CodexRawServerRequest,
   JsonRpcId,
 } from "./protocol.js";
 import {

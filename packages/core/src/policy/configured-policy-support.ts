@@ -55,7 +55,10 @@ function policyTagsForCandidate(candidate: AttentionCandidate): string[] {
     tags.push("lowRiskWeb");
   }
 
-  if (value.includes(".env") && (toolFamily === "write" || toolFamily === "edit" || toolFamily === "bash")) {
+  if (
+    value.includes(".env") &&
+    (toolFamily === "write" || toolFamily === "edit" || toolFamily === "bash")
+  ) {
     tags.push("envWrite");
   }
 

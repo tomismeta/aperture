@@ -1,8 +1,5 @@
-import type {
-  AttentionFrame,
-  AttentionView,
-} from "@tomismeta/aperture-core";
-import type { ApertureTrace } from "../../core/src/internal-contract.js";
+import type { AttentionFrame, AttentionView } from "@tomismeta/aperture-core";
+import type { ApertureTrace } from "@tomismeta/aperture-core/internal";
 
 import type {
   ApertureRuntimeAttentionViewSnapshot,
@@ -42,24 +39,23 @@ export function buildRuntimeExplanationSnapshot(
         ? "next"
         : "ambient";
 
-  const candidateTrace = [...traces]
-    .reverse()
-    .find((trace): trace is CandidateRuntimeTrace => {
+  const candidateTrace =
+    [...traces].reverse().find((trace): trace is CandidateRuntimeTrace => {
       if (!isCandidateRuntimeTrace(trace)) {
         return false;
       }
 
       return (
-        trace.result?.interactionId === target.interactionId
-        || trace.current?.interactionId === target.interactionId
-        || trace.evaluation.adjusted.interactionId === target.interactionId
-        || trace.evaluation.original.interactionId === target.interactionId
+        trace.result?.interactionId === target.interactionId ||
+        trace.current?.interactionId === target.interactionId ||
+        trace.evaluation.adjusted.interactionId === target.interactionId ||
+        trace.evaluation.original.interactionId === target.interactionId
       );
     }) ?? null;
   const continuityRationale = candidateTrace
     ? candidateTrace.coordination.continuityEvaluations
-      .filter((evaluation) => evaluation.kind === "override")
-      .flatMap((evaluation) => evaluation.rationale)
+        .filter((evaluation) => evaluation.kind === "override")
+        .flatMap((evaluation) => evaluation.rationale)
     : [];
   const attentionRationale = readAttentionRationale(target);
   const semanticImpact = candidateTrace?.semantic?.impact
@@ -72,24 +68,29 @@ export function buildRuntimeExplanationSnapshot(
       }
     : null;
   const headline =
-    target.provenance?.whyNow
-    ?? continuityRationale[0]
-    ?? candidateTrace?.coordination.reasons[0]
-    ?? attentionRationale[0]
-    ?? synthesizeExplanationHeadline(target);
+    target.provenance?.whyNow ??
+    continuityRationale[0] ??
+    candidateTrace?.coordination.reasons[0] ??
+    attentionRationale[0] ??
+    synthesizeExplanationHeadline(target);
 
   return {
     targetInteractionId: target.interactionId,
     targetLane,
     headline,
     whyNow: target.provenance?.whyNow ?? candidateTrace?.semantic?.whyNow ?? null,
-    routingAuthority: candidateTrace?.semantic?.impact.routingAuthority ?? inferRoutingAuthority(target),
+    routingAuthority:
+      candidateTrace?.semantic?.impact.routingAuthority ?? inferRoutingAuthority(target),
     semanticImpact,
-    semanticInfluence: candidateTrace?.semantic?.influence ? [...candidateTrace.semantic.influence] : [],
+    semanticInfluence: candidateTrace?.semantic?.influence
+      ? [...candidateTrace.semantic.influence]
+      : [],
     coordinationReasons: candidateTrace ? [...candidateTrace.coordination.reasons] : [],
     plannerReasons: candidateTrace ? [...candidateTrace.planner.reasons] : [],
     policyRationale: candidateTrace ? [...candidateTrace.policy.rationale] : [],
-    criterionRationale: candidateTrace?.policyRules.criterion ? [...candidateTrace.policyRules.criterion.rationale] : [],
+    criterionRationale: candidateTrace?.policyRules.criterion
+      ? [...candidateTrace.policyRules.criterion.rationale]
+      : [],
     continuityRationale,
     attentionRationale,
   };
@@ -132,7 +133,9 @@ function readAttentionRationale(frame: AttentionFrame): string[] {
     return [];
   }
 
-  return rationale.filter((entry): entry is string => typeof entry === "string" && entry.length > 0);
+  return rationale.filter(
+    (entry): entry is string => typeof entry === "string" && entry.length > 0,
+  );
 }
 
 function synthesizeExplanationHeadline(frame: AttentionFrame): string | null {

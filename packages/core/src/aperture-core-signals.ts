@@ -2,10 +2,7 @@ import type { AttentionResponse } from "./frame-response.js";
 import type { AttentionFrame, AttentionView } from "./frame.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import type { AttentionSignal } from "./interaction-signal.js";
-import {
-  signalMetadataForCandidate,
-  signalMetadataForFrame,
-} from "./memory-aggregator.js";
+import { signalMetadataForCandidate, signalMetadataForFrame } from "./memory-aggregator.js";
 
 export function buildResponseSignal(
   frame: AttentionFrame,
@@ -49,9 +46,7 @@ export function buildAutoResponseSignal(
     interactionId: candidate.interactionId,
     timestamp,
     ...(candidate.source !== undefined ? { source: candidate.source } : {}),
-    responseKind: response.response.kind === "dismissed"
-      ? "acknowledged"
-      : response.response.kind,
+    responseKind: response.response.kind === "dismissed" ? "acknowledged" : response.response.kind,
     metadata: {
       ...signalMetadataForCandidate(candidate),
       autoResolved: true,
@@ -113,9 +108,15 @@ export function buildObservationSignal(
     ...(frame?.source !== undefined ? { source: frame.source } : {}),
     ...(frame ? { metadata: signalMetadataForFrame(frame) } : {}),
     ...(options.surface !== undefined ? { surface: options.surface } : {}),
-    ...(kind === "context_expanded" && options.section !== undefined ? { section: options.section } : {}),
-    ...(kind === "context_skipped" && options.section !== undefined ? { section: options.section } : {}),
-    ...(kind === "timed_out" && options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
+    ...(kind === "context_expanded" && options.section !== undefined
+      ? { section: options.section }
+      : {}),
+    ...(kind === "context_skipped" && options.section !== undefined
+      ? { section: options.section }
+      : {}),
+    ...(kind === "timed_out" && options.timeoutMs !== undefined
+      ? { timeoutMs: options.timeoutMs }
+      : {}),
   };
 }
 
@@ -173,16 +174,18 @@ function buildReturnSignals(
     return [];
   }
 
-  return [{
-    kind: "returned",
-    taskId: next.taskId,
-    interactionId: next.interactionId,
-    timestamp,
-    frameId: next.id,
-    ...(next.source !== undefined ? { source: next.source } : {}),
-    from,
-    metadata: signalMetadataForFrame(next),
-  }];
+  return [
+    {
+      kind: "returned",
+      taskId: next.taskId,
+      interactionId: next.interactionId,
+      timestamp,
+      frameId: next.id,
+      ...(next.source !== undefined ? { source: next.source } : {}),
+      from,
+      metadata: signalMetadataForFrame(next),
+    },
+  ];
 }
 
 function calculateLatency(frame: AttentionFrame, timestamp: string): number | undefined {
@@ -197,5 +200,8 @@ function calculateLatency(frame: AttentionFrame, timestamp: string): number | un
 }
 
 function sameFrame(left: AttentionFrame, right: AttentionFrame): boolean {
-  return left.id === right.id || (left.taskId === right.taskId && left.interactionId === right.interactionId);
+  return (
+    left.id === right.id ||
+    (left.taskId === right.taskId && left.interactionId === right.interactionId)
+  );
 }

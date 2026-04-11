@@ -1,5 +1,5 @@
 import type { AttentionFrame } from "./frame.js";
-import { readFrameAttentionOffset, scoreCandidate, scoreAttentionFrame } from "./frame-score.js";
+import { readFrameAttentionOffset, scoreAttentionFrame } from "./frame-score.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import { readBoundedToolFamily } from "./interaction-taxonomy.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
@@ -70,10 +70,14 @@ export class AttentionValue {
       rationale.push("durable source trust adjusts this interaction's utility");
     }
     if (consequenceCalibration > 0) {
-      rationale.push("memory suggests this consequence band is often understated and deserves more attention");
+      rationale.push(
+        "memory suggests this consequence band is often understated and deserves more attention",
+      );
     }
     if (consequenceCalibration < 0) {
-      rationale.push("memory suggests this consequence band is often overstated and should be tempered");
+      rationale.push(
+        "memory suggests this consequence band is often overstated and should be tempered",
+      );
     }
     if (responseAffinity > 0) {
       rationale.push("memory suggests this kind of interaction usually resolves quickly");
@@ -87,16 +91,16 @@ export class AttentionValue {
 
     return {
       total:
-        components.priority
-        + components.consequence
-        + components.tone
-        + components.blocking
-        + components.heuristics
-        + components.sourceTrust
-        + components.consequenceCalibration
-        + components.responseAffinity
-        + components.contextCost
-        + components.deferralAffinity,
+        components.priority +
+        components.consequence +
+        components.tone +
+        components.blocking +
+        components.heuristics +
+        components.sourceTrust +
+        components.consequenceCalibration +
+        components.responseAffinity +
+        components.contextCost +
+        components.deferralAffinity,
       components,
       rationale,
     };
@@ -120,7 +124,9 @@ export class AttentionValue {
       return 0;
     }
 
-    return this.memoryProfile?.sourceTrust?.[sourceKey]?.[candidate.consequence]?.trustAdjustment ?? 0;
+    return (
+      this.memoryProfile?.sourceTrust?.[sourceKey]?.[candidate.consequence]?.trustAdjustment ?? 0
+    );
   }
 
   private responseAffinityAdjustment(candidate: AttentionCandidate): number {
@@ -131,10 +137,10 @@ export class AttentionValue {
 
     const memory = this.memoryProfile?.toolFamilies?.[toolFamily];
     if (
-      !memory
-      || memory.avgResponseLatencyMs === undefined
-      || memory.presentations < DEFAULTS.memorySufficiency.toolFamilyPresentations
-      || memory.responses < DEFAULTS.memorySufficiency.toolFamilyResponses
+      !memory ||
+      memory.avgResponseLatencyMs === undefined ||
+      memory.presentations < DEFAULTS.memorySufficiency.toolFamilyPresentations ||
+      memory.responses < DEFAULTS.memorySufficiency.toolFamilyResponses
     ) {
       return 0;
     }
@@ -154,8 +160,8 @@ export class AttentionValue {
     const profile = this.memoryProfile?.consequenceProfiles?.[candidate.consequence];
     const rejectionRate = profile?.rejectionRate;
     if (
-      rejectionRate === undefined
-      || (profile?.reviewedCount ?? 0) < DEFAULTS.memorySufficiency.consequenceReviewedCount
+      rejectionRate === undefined ||
+      (profile?.reviewedCount ?? 0) < DEFAULTS.memorySufficiency.consequenceReviewedCount
     ) {
       return 0;
     }
@@ -196,9 +202,9 @@ export class AttentionValue {
 
     const rate = this.memoryProfile?.toolFamilies?.[toolFamily]?.contextExpansionRate;
     if (
-      rate === undefined
-      || (this.memoryProfile?.toolFamilies?.[toolFamily]?.presentations ?? 0)
-        < DEFAULTS.memorySufficiency.toolFamilyPresentations
+      rate === undefined ||
+      (this.memoryProfile?.toolFamilies?.[toolFamily]?.presentations ?? 0) <
+        DEFAULTS.memorySufficiency.toolFamilyPresentations
     ) {
       return 0;
     }
@@ -222,9 +228,9 @@ export class AttentionValue {
 
     const rate = this.memoryProfile?.toolFamilies?.[toolFamily]?.returnAfterDeferralRate;
     if (
-      rate === undefined
-      || (this.memoryProfile?.toolFamilies?.[toolFamily]?.presentations ?? 0)
-        < DEFAULTS.memorySufficiency.toolFamilyPresentations
+      rate === undefined ||
+      (this.memoryProfile?.toolFamilies?.[toolFamily]?.presentations ?? 0) <
+        DEFAULTS.memorySufficiency.toolFamilyPresentations
     ) {
       return 0;
     }

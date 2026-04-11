@@ -2,11 +2,7 @@ import type {
   AttentionActivityClass,
   AttentionConsequenceLevel,
 } from "./attention-contract-types.js";
-import type {
-  AttentionContext,
-  AttentionProvenance,
-  AttentionTone,
-} from "./frame.js";
+import type { AttentionContext, AttentionProvenance, AttentionTone } from "./frame.js";
 import type { SemanticInterpretation } from "./semantic-types.js";
 
 /**

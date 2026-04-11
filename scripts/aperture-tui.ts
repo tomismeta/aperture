@@ -4,7 +4,7 @@ import {
   baseAttentionSurfaceCapabilities,
   ApertureRuntimeClient,
   discoverLocalRuntimes,
-} from "../packages/runtime/src/index.ts";
+} from "@aperture/runtime";
 import { runAttentionTui } from "../packages/tui/src/index.ts";
 
 async function main(): Promise<void> {

@@ -1,16 +1,9 @@
-import type {
-  AttentionFrame,
-  AttentionTaskView,
-  AttentionView,
-} from "./frame.js";
+import type { AttentionFrame, AttentionTaskView, AttentionView } from "./frame.js";
 import type { AttentionResponse } from "./frame-response.js";
 import type { AttentionSignal } from "./interaction-signal.js";
 import type { ApertureTrace as PublicApertureTrace } from "./trace.js";
 import type { ApertureTrace as InternalApertureTrace } from "./trace-types.js";
-import {
-  APERTURE_INTERNAL_TRACE_SUBSCRIBE,
-  type InternalTraceListener,
-} from "./internal-trace.js";
+import { APERTURE_INTERNAL_TRACE_SUBSCRIBE, type InternalTraceListener } from "./internal-trace.js";
 import { toPublicApertureTrace } from "./trace-projection.js";
 
 export type AttentionFrameListener = (frame: AttentionFrame | null) => void;

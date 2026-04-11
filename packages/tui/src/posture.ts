@@ -1,4 +1,4 @@
-import { forecastAttentionPressure } from "../../core/src/internal-contract.js";
+import { forecastAttentionPressure } from "@tomismeta/aperture-core/internal";
 import type { SignalSummary, AttentionView, Posture } from "./types.js";
 
 export function computePosture(

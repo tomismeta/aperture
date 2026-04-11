@@ -3,7 +3,6 @@ import type {
   ApertureEvent,
   EnrichedApertureEvent,
   EnrichedHumanInputRequestedEvent,
-  HumanInputRequestedEvent,
 } from "./events.js";
 import type { AttentionConsequenceLevel, AttentionTone } from "./frame.js";
 import { interpretSourceEvent } from "./semantic-interpreter.js";
@@ -11,9 +10,10 @@ import { mergeSemanticProvenance } from "./semantic-provenance.js";
 
 export function normalizeSourceEvent(event: SourceEvent): EnrichedApertureEvent {
   const semantic = interpretSourceEvent(event);
-  const defaultsOptions = event.type === "human.input.requested" && event.riskHint !== undefined
-    ? { riskHint: event.riskHint }
-    : undefined;
+  const defaultsOptions =
+    event.type === "human.input.requested" && event.riskHint !== undefined
+      ? { riskHint: event.riskHint }
+      : undefined;
 
   return applySemanticDefaults(
     prepareApertureEventFromSourceEvent(event),
@@ -119,9 +119,8 @@ function applyHumanInputSemanticDefaults(
     base: event.provenance,
     semantic,
   });
-  const toolFamily = event.request.kind === "approval"
-    ? event.toolFamily ?? semantic.toolFamily
-    : undefined;
+  const toolFamily =
+    event.request.kind === "approval" ? (event.toolFamily ?? semantic.toolFamily) : undefined;
 
   return {
     ...eventWithoutToolFamily,

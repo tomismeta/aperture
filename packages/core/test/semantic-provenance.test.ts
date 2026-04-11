@@ -19,12 +19,7 @@ test("semantic provenance keeps base whyNow authoritative and dedupes factors", 
 
   assert.deepEqual(merged, {
     whyNow: "Adapter says the operator is blocking the release.",
-    factors: [
-      "adapter release gate",
-      "shared factor",
-      "semantic approval",
-      "extra factor",
-    ],
+    factors: ["adapter release gate", "shared factor", "semantic approval", "extra factor"],
   });
 });
 

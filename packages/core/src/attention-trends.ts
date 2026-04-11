@@ -21,7 +21,11 @@ export function deriveAttentionTrends(summary: AttentionSignalSummary): Attentio
     trends.push("fragmented_attention");
   }
 
-  if (summary.counts.viewed >= 1 && summary.counts.timedOut >= 1 && summary.counts.responded === 0) {
+  if (
+    summary.counts.viewed >= 1 &&
+    summary.counts.timedOut >= 1 &&
+    summary.counts.responded === 0
+  ) {
     trends.push("stalling");
   }
 

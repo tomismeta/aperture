@@ -10,35 +10,30 @@ import {
 } from "./policy-criterion-rule.js";
 
 export const evaluateInterruptEligibilityCriterionRule: PolicyCriterionRule = (input) => {
-  const {
-    candidate,
-    policyVerdict,
-    criterion,
-    peripheralResolution,
-    evidence,
-  } = input;
+  const { candidate, policyVerdict, criterion, peripheralResolution, evidence } = input;
 
   if (!policyVerdict.mayInterrupt && policyVerdict.minimumLaneIsSticky) {
     return verdictPolicyCriterionRule(
       "interrupt_eligibility",
       preservedPeripheralCriterionVerdict(
         criterion,
-        readPreservedPeripheralResolution(candidate, peripheralResolution, evidence.surfaceCapabilities),
+        readPreservedPeripheralResolution(
+          candidate,
+          peripheralResolution,
+          evidence.surfaceCapabilities,
+        ),
       ),
     );
   }
 
   if (
-    candidate.blocking
-    || candidate.episodeState === "actionable"
-    || policyVerdict.autoApprove
-    || policyVerdict.requiresOperatorResponse
-    || policyVerdict.minimumLane === "now"
+    candidate.blocking ||
+    candidate.episodeState === "actionable" ||
+    policyVerdict.autoApprove ||
+    policyVerdict.requiresOperatorResponse ||
+    policyVerdict.minimumLane === "now"
   ) {
-    return verdictPolicyCriterionRule(
-      "interrupt_eligibility",
-      clearCriterionVerdict(criterion),
-    );
+    return verdictPolicyCriterionRule("interrupt_eligibility", clearCriterionVerdict(criterion));
   }
 
   return noopPolicyCriterionRule("interrupt_eligibility");
@@ -59,12 +54,11 @@ function readPreservedPeripheralResolution(
     case "none":
       return "ambient";
     case "choice":
-      return (
-        (candidate.responseSpec.selectionMode === "multiple"
-          ? surfaceCapabilities.responses.supportsMultipleChoice
-          : surfaceCapabilities.responses.supportsSingleChoice)
-        && (!candidate.responseSpec.allowTextResponse || surfaceCapabilities.responses.supportsTextResponse)
-      )
+      return (candidate.responseSpec.selectionMode === "multiple"
+        ? surfaceCapabilities.responses.supportsMultipleChoice
+        : surfaceCapabilities.responses.supportsSingleChoice) &&
+        (!candidate.responseSpec.allowTextResponse ||
+          surfaceCapabilities.responses.supportsTextResponse)
         ? "ambient"
         : "queue";
     case "form":

@@ -18,8 +18,10 @@
     "baseUrl": ".",
     "paths": {
       "@tomismeta/aperture-core": ["packages/core/src/index.ts"],
+      "@tomismeta/aperture-core/internal": ["packages/core/src/internal.ts"],
       "@tomismeta/aperture-core/semantic": ["packages/core/src/semantic.ts"],
       "@aperture/runtime": ["packages/runtime/src/index.ts"],
+      "@aperture/runtime/internal": ["packages/runtime/src/internal.ts"],
       "@aperture/runtime/adapter": ["packages/runtime/src/adapter-client.ts"],
       "@aperture/runtime/client": ["packages/runtime/src/runtime-client.ts"],
       "@aperture/runtime/discovery": ["packages/runtime/src/runtime-discovery.ts"],

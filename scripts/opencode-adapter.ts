@@ -1,7 +1,7 @@
 import { stderr } from "node:process";
 
 import { createOpencodeBridge } from "../packages/opencode/src/index.ts";
-import { discoverLocalRuntimes } from "../packages/runtime/src/index.ts";
+import { discoverLocalRuntimes } from "@aperture/runtime";
 import {
   listEnabledGlobalOpencodeProfiles,
   resolveProfilePassword,

@@ -14,8 +14,6 @@ import { runAttentionTui } from "@aperture/tui";
 
 import {
   claudeBridgeUrl,
-  claudeElicitationFallbackEvent,
-  claudePermissionFallbackEvent,
   isClaudeBridgePortInUse,
   readyClaudeState,
   runClaudeAdapter,
@@ -58,8 +56,6 @@ import {
   runOpencodeAdapter,
   runtimeHasLiveOpencodeActivity,
   startLauncherOpencodeAdapter,
-  type LauncherOpencodeStartResult,
-  type OpencodeProfileProbeResult,
 } from "./cli/opencode-support.js";
 import {
   discoverRuntimeUrl,
@@ -278,11 +274,7 @@ async function runLauncher(args: string[]): Promise<void> {
         stopOpencodeSetupAction = action;
       },
     ).catch((error) => {
-      if (process.env.APERTURE_VERBOSE_BOOT !== "1") {
-        return;
-      }
-      const message = error instanceof Error ? error.message : String(error);
-      stderr.write(`Launcher startup warning: ${message}\n`);
+      reportLauncherStartupWarning(error);
     });
 
     skipSetupAction = async () => {
@@ -298,6 +290,14 @@ async function runLauncher(args: string[]): Promise<void> {
     const message = error instanceof Error ? error.message : String(error);
     stderr.write(`${message}\n`);
     await close(1);
+  }
+}
+
+function reportLauncherStartupWarning(error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error);
+  stderr.write(`Launcher startup warning: ${message}\n`);
+  if (process.env.APERTURE_VERBOSE_BOOT === "1" && error instanceof Error && error.stack) {
+    stderr.write(`${error.stack}\n`);
   }
 }
 

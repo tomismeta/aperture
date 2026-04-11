@@ -10,13 +10,12 @@ export const evaluateOperatorAbsenceCriterionRule: PolicyCriterionRule = (input)
     return noopPolicyCriterionRule("operator_absence");
   }
 
-  return verdictPolicyCriterionRule(
-    "operator_absence",
-    {
-      criterion,
-      peripheralResolution,
-      ambiguity: null,
-      rationale: ["operator absence keeps interruptive work peripheral until foreground attention returns"],
-    },
-  );
+  return verdictPolicyCriterionRule("operator_absence", {
+    criterion,
+    peripheralResolution,
+    ambiguity: null,
+    rationale: [
+      "operator absence keeps interruptive work peripheral until foreground attention returns",
+    ],
+  });
 };

@@ -1,8 +1,4 @@
-import type {
-  AttentionResponse,
-  AttentionView,
-  SourceEvent,
-} from "@tomismeta/aperture-core";
+import type { AttentionResponse, AttentionView, SourceEvent } from "@tomismeta/aperture-core";
 
 import type {
   ApertureRuntimeEvent,
@@ -12,16 +8,20 @@ import type {
 } from "./runtime-contract.js";
 import type { WorkInput } from "./work-event-ingest.js";
 import {
+  deleteJson,
   createEmptyRuntimeSnapshot,
   DEFAULT_RUNTIME_POLL_INTERVAL_MS,
   getJson,
   normalizeRuntimeUrls,
   postJson,
+  resolveRuntimeAuthToken,
 } from "./runtime-client-shared.js";
+import { buildWorkResponsePath } from "./runtime-work.js";
 
 export type ApertureRuntimeAdapterClientOptions = {
   baseUrl: string;
   kind: string;
+  authToken?: string;
   id?: string;
   label?: string;
   heartbeatIntervalMs?: number;
@@ -41,8 +41,10 @@ export class ApertureRuntimeAdapterClient {
   private readonly requestedHeartbeatIntervalMs: number;
   private readonly pollIntervalMs: number;
   private readonly metadata: Record<string, string> | undefined;
+  private readonly explicitAuthToken: string | undefined;
   private readonly responseListeners = new Set<ResponseListener>();
   private adapterId: string | null = null;
+  private authToken = "";
   private heartbeatIntervalId: NodeJS.Timeout | null = null;
   private pollIntervalId: NodeJS.Timeout | null = null;
   private nextSequence = 0;
@@ -60,6 +62,7 @@ export class ApertureRuntimeAdapterClient {
       options.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS;
     this.pollIntervalMs = options.pollIntervalMs ?? DEFAULT_RUNTIME_POLL_INTERVAL_MS;
     this.metadata = options.metadata;
+    this.explicitAuthToken = options.authToken;
   }
 
   static async connect(
@@ -109,7 +112,7 @@ export class ApertureRuntimeAdapterClient {
   }
 
   async getWorkResponse(interactionId: string): Promise<WorkResponse> {
-    return this.getBase<WorkResponse>(`/work/response/${encodeURIComponent(interactionId)}`);
+    return this.getBase<WorkResponse>(buildWorkResponsePath(interactionId));
   }
 
   async submit(response: AttentionResponse): Promise<void> {
@@ -128,14 +131,16 @@ export class ApertureRuntimeAdapterClient {
       this.pollIntervalId = null;
     }
     if (this.adapterId) {
-      await fetch(`${this.controlUrl}/adapters/${encodeURIComponent(this.adapterId)}`, {
-        method: "DELETE",
-      }).catch(() => {});
+      await deleteJson(
+        `${this.controlUrl}/adapters/${encodeURIComponent(this.adapterId)}`,
+        this.authToken,
+      ).catch(() => {});
       this.adapterId = null;
     }
   }
 
   private async initialize(): Promise<void> {
+    this.authToken = await resolveRuntimeAuthToken(this.controlUrl, this.explicitAuthToken);
     const attach = await this.postControl<{ adapterId: string; heartbeatIntervalMs: number }>(
       "/adapters/register",
       {
@@ -155,7 +160,9 @@ export class ApertureRuntimeAdapterClient {
       if (!this.adapterId || this.closed) {
         return;
       }
-      void this.postControl(`/adapters/${encodeURIComponent(this.adapterId)}/heartbeat`, {}).catch(() => {});
+      void this.postControl(`/adapters/${encodeURIComponent(this.adapterId)}/heartbeat`, {}).catch(
+        () => {},
+      );
     }, heartbeatMs);
     this.pollIntervalId = setInterval(() => {
       void this.poll().catch(() => {});
@@ -166,9 +173,11 @@ export class ApertureRuntimeAdapterClient {
     if (this.closed) {
       return;
     }
-    const payload = await this.getControl<{ events: ApertureRuntimeEvent[]; nextSequence: number; stateVersion: number }>(
-      `/events?since=${this.nextSequence}`,
-    );
+    const payload = await this.getControl<{
+      events: ApertureRuntimeEvent[];
+      nextSequence: number;
+      stateVersion: number;
+    }>(`/events?since=${this.nextSequence}`);
     this.nextSequence = payload.nextSequence;
     if (payload.stateVersion !== this.snapshotState.version) {
       await this.refreshState();
@@ -187,11 +196,11 @@ export class ApertureRuntimeAdapterClient {
   }
 
   private async getControl<T>(path: string): Promise<T> {
-    return getJson<T>(`${this.controlUrl}${path}`);
+    return getJson<T>(`${this.controlUrl}${path}`, this.authToken);
   }
 
   private async postControl<T = Record<string, never>>(path: string, body: unknown): Promise<T> {
-    return postJson<T>(`${this.controlUrl}${path}`, body);
+    return postJson<T>(`${this.controlUrl}${path}`, body, this.authToken);
   }
 
   private async postBase<T = Record<string, never>>(
@@ -199,10 +208,10 @@ export class ApertureRuntimeAdapterClient {
     body: unknown,
     contentType: string,
   ): Promise<T> {
-    return postJson<T>(`${this.baseUrl}${path}`, body, contentType);
+    return postJson<T>(`${this.baseUrl}${path}`, body, this.authToken, contentType);
   }
 
   private async getBase<T>(path: string): Promise<T> {
-    return getJson<T>(`${this.baseUrl}${path}`);
+    return getJson<T>(`${this.baseUrl}${path}`, this.authToken);
   }
 }

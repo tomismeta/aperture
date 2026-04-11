@@ -30,9 +30,7 @@ test("maps neutral work.updated events into SourceEvent with facts and hints", (
       requestKind: "approval",
     },
     context: {
-      items: [
-        { id: "issue", label: "Issue", value: "issue:deploy:prod" },
-      ],
+      items: [{ id: "issue", label: "Issue", value: "issue:deploy:prod" }],
     },
   });
 
@@ -74,46 +72,37 @@ test("maps neutral input.requested events into SourceEvent with approval semanti
   });
 });
 
-test("maps plain text work input into a standalone SourceEvent", () => {
-  const event = mapWorkTextToSourceEvent("Waiting for approval before continuing with the deploy.");
-
-  assert.equal(event.type, "task.updated");
-  assert.equal(event.status, "waiting");
-  assert.equal(event.summary, "Waiting for approval before continuing with the deploy.");
-  assert.equal(event.taskId.startsWith("work:"), true);
-});
-
-test("maps failed plain text work input into a failed task update", () => {
+test("maps plain text work input into a deterministic running SourceEvent", () => {
   const event = mapWorkTextToSourceEvent("The deployment failed after the smoke test timed out.");
 
   assert.equal(event.type, "task.updated");
-  assert.equal(event.status, "failed");
-});
-
-test("plain text completion inference does not overread negated completion wording", () => {
-  const event = mapWorkTextToSourceEvent("The deploy is not completed yet and is still running.");
-
-  assert.equal(event.type, "task.updated");
   assert.equal(event.status, "running");
+  assert.equal(event.summary, "The deployment failed after the smoke test timed out.");
+  assert.equal(event.taskId.startsWith("work:"), true);
 });
 
 test("runtime work endpoint accepts neutral events directly", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
-  const { baseUrl } = await runtime.listen();
+  const { baseUrl, authToken } = await runtime.listen();
 
   try {
-    const response = await fetch(`${baseUrl}/work`, {
+    const response = await authorizedFetch(baseUrl, authToken, "/work", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(workApprovalEvent("task:runtime:approval")),
     });
 
     assert.equal(response.status, 200);
-    const payload = await response.json() as {
+    const payload = (await response.json()) as {
       ok: boolean;
       accepted: number;
       receivedAs: string;
-      published: Array<{ taskId: string; interactionId?: string; responsePath?: string }>;
+      published: Array<{
+        taskId: string;
+        interactionId?: string;
+        responsePath?: string;
+        responseUrl?: string;
+      }>;
     };
     assert.equal(payload.ok, true);
     assert.equal(payload.accepted, 1);
@@ -124,6 +113,7 @@ test("runtime work endpoint accepts neutral events directly", async () => {
       payload.published[0]?.responsePath,
       "/work/response/interaction%3Atask%3Aruntime%3Aapproval%3Aapproval",
     );
+    assert.match(payload.published[0]?.responseUrl ?? "", /\/work\/response\//);
 
     const active = await waitFor(() => runtime.getCore().getAttentionView().now);
     assert.ok(active);
@@ -136,10 +126,10 @@ test("runtime work endpoint accepts neutral events directly", async () => {
 
 test("runtime work endpoint accepts minimal structured work events and fills metadata defaults", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
-  const { baseUrl } = await runtime.listen();
+  const { baseUrl, authToken } = await runtime.listen();
 
   try {
-    const response = await fetch(`${baseUrl}/work`, {
+    const response = await authorizedFetch(baseUrl, authToken, "/work", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -153,7 +143,7 @@ test("runtime work endpoint accepts minimal structured work events and fills met
     });
 
     assert.equal(response.status, 200);
-    const payload = await response.json() as {
+    const payload = (await response.json()) as {
       ok: boolean;
       accepted: number;
       published: Array<{ taskId: string }>;
@@ -201,19 +191,19 @@ test("runtime adapter client can publish neutral events", async () => {
   }
 });
 
-test("runtime work endpoint accepts plain text work input", async () => {
+test("runtime work endpoint accepts plain text work input as running work", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
-  const { baseUrl } = await runtime.listen();
+  const { baseUrl, authToken } = await runtime.listen();
 
   try {
-    const response = await fetch(`${baseUrl}/work`, {
+    const response = await authorizedFetch(baseUrl, authToken, "/work", {
       method: "POST",
       headers: { "Content-Type": "text/plain" },
       body: "Waiting for approval before continuing with the deploy.",
     });
 
     assert.equal(response.status, 200);
-    const payload = await response.json() as {
+    const payload = (await response.json()) as {
       ok: boolean;
       accepted: number;
       receivedAs: string;
@@ -227,7 +217,7 @@ test("runtime work endpoint accepts plain text work input", async () => {
     const [event] = runtime.exportSessionCapture().publishedSourceEvents.slice(-1);
     assert.ok(event);
     assert.equal(event.type, "task.updated");
-    assert.equal(event.status, "waiting");
+    assert.equal(event.status, "running");
   } finally {
     await runtime.close();
   }
@@ -247,12 +237,15 @@ test("runtime adapter client can publish plain text work input", async () => {
     assert.equal(result.ok, true);
     assert.equal(result.accepted, 1);
     assert.equal(result.receivedAs, "text");
-    assert.equal(result.next?.some((step) => step.send === "WorkEvent"), true);
+    assert.equal(
+      result.next?.some((step) => step.send === "WorkEvent"),
+      true,
+    );
 
     const [event] = runtime.exportSessionCapture().publishedSourceEvents.slice(-1);
     assert.ok(event);
     assert.equal(event.type, "task.updated");
-    assert.equal(event.status, "blocked");
+    assert.equal(event.status, "running");
   } finally {
     await client.close();
     await runtime.close();
@@ -261,11 +254,11 @@ test("runtime adapter client can publish plain text work input", async () => {
 
 test("work response path stays pending until a response is submitted", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
-  const { baseUrl } = await runtime.listen();
+  const { baseUrl, authToken } = await runtime.listen();
   const interactionId = "interaction:task:reply-loop:approval";
 
   try {
-    const publish = await fetch(`${baseUrl}/work`, {
+    const publish = await authorizedFetch(baseUrl, authToken, "/work", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(workApprovalEvent("task:reply-loop")),
@@ -273,9 +266,13 @@ test("work response path stays pending until a response is submitted", async () 
 
     assert.equal(publish.status, 200);
 
-    const pending = await fetch(`${baseUrl}/work/response/${encodeURIComponent(interactionId)}`);
+    const pending = await authorizedFetch(
+      baseUrl,
+      authToken,
+      `/work/response/${encodeURIComponent(interactionId)}`,
+    );
     assert.equal(pending.status, 200);
-    const pendingPayload = await pending.json() as {
+    const pendingPayload = (await pending.json()) as {
       ok: boolean;
       taskId: string;
       interactionId: string;
@@ -295,8 +292,12 @@ test("work response path stays pending until a response is submitted", async () 
     });
 
     const answered = await waitForAsync(async () => {
-      const response = await fetch(`${baseUrl}/work/response/${encodeURIComponent(interactionId)}`);
-      const payload = await response.json() as {
+      const response = await authorizedFetch(
+        baseUrl,
+        authToken,
+        `/work/response/${encodeURIComponent(interactionId)}`,
+      );
+      const payload = (await response.json()) as {
         state: string;
         response?: { kind: string; reason?: string };
         answeredAt?: string;
@@ -351,13 +352,17 @@ test("runtime adapter client can poll work responses", async () => {
 
 test("work response path returns 404 when no public response loop exists", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
-  const { baseUrl } = await runtime.listen();
+  const { baseUrl, authToken } = await runtime.listen();
 
   try {
-    const response = await fetch(`${baseUrl}/work/response/${encodeURIComponent("interaction:missing")}`);
+    const response = await authorizedFetch(
+      baseUrl,
+      authToken,
+      `/work/response/${encodeURIComponent("interaction:missing")}`,
+    );
     assert.equal(response.status, 404);
-    const payload = await response.json() as { error: string };
-    assert.match(payload.error, /no work response found/i);
+    const payload = (await response.json()) as { error: { message: string } };
+    assert.match(payload.error.message, /no retained work response/i);
   } finally {
     await runtime.close();
   }
@@ -365,10 +370,10 @@ test("work response path returns 404 when no public response loop exists", async
 
 test("runtime work endpoint accepts raw event batches", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
-  const { baseUrl } = await runtime.listen();
+  const { baseUrl, authToken } = await runtime.listen();
 
   try {
-    const response = await fetch(`${baseUrl}/work`, {
+    const response = await authorizedFetch(baseUrl, authToken, "/work", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify([
@@ -378,7 +383,7 @@ test("runtime work endpoint accepts raw event batches", async () => {
     });
 
     assert.equal(response.status, 200);
-    const payload = await response.json() as {
+    const payload = (await response.json()) as {
       ok: boolean;
       accepted: number;
       receivedAs: string;
@@ -395,10 +400,10 @@ test("runtime work endpoint accepts raw event batches", async () => {
 
 test("runtime accepts choice request options with summaries", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
-  const { baseUrl } = await runtime.listen();
+  const { baseUrl, authToken } = await runtime.listen();
 
   try {
-    const response = await fetch(`${baseUrl}/work`, {
+    const response = await authorizedFetch(baseUrl, authToken, "/work", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -430,7 +435,7 @@ test("runtime accepts choice request options with summaries", async () => {
     });
 
     assert.equal(response.status, 200);
-    const payload = await response.json() as {
+    const payload = (await response.json()) as {
       ok: boolean;
       accepted: number;
       receivedAs: string;
@@ -445,10 +450,10 @@ test("runtime accepts choice request options with summaries", async () => {
 
 test("runtime rejects malformed neutral work payloads", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
-  const { baseUrl } = await runtime.listen();
+  const { baseUrl, authToken } = await runtime.listen();
 
   try {
-    const response = await fetch(`${baseUrl}/work`, {
+    const response = await authorizedFetch(baseUrl, authToken, "/work", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -465,8 +470,8 @@ test("runtime rejects malformed neutral work payloads", async () => {
     });
 
     assert.equal(response.status, 400);
-    const payload = await response.json() as { error: string };
-    assert.match(payload.error, /work\.updated requires work\.status/i);
+    const payload = (await response.json()) as { error: { message: string } };
+    assert.match(payload.error.message, /work\.updated/i);
   } finally {
     await runtime.close();
   }
@@ -474,10 +479,10 @@ test("runtime rejects malformed neutral work payloads", async () => {
 
 test("runtime rejects wrapped work payloads instead of supporting compatibility shells", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
-  const { baseUrl, controlUrl } = await runtime.listen();
+  const { baseUrl, controlUrl, authToken } = await runtime.listen();
 
   try {
-    const wrappedResponse = await fetch(`${baseUrl}/work`, {
+    const wrappedResponse = await authorizedFetch(baseUrl, authToken, "/work", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -486,15 +491,17 @@ test("runtime rejects wrapped work payloads instead of supporting compatibility 
     });
 
     assert.equal(wrappedResponse.status, 400);
-    const wrappedPayload = await wrappedResponse.json() as { error: string };
-    assert.match(wrappedPayload.error, /plain text, one WorkEvent object, or an array of WorkEvent objects/i);
+    const wrappedPayload = (await wrappedResponse.json()) as { error: { message: string } };
+    assert.match(
+      wrappedPayload.error.message,
+      /plain text, one WorkEvent object, or an array of WorkEvent objects/i,
+    );
 
     const controlResponse = await fetch(`${controlUrl}/work`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(workApprovalEvent("task:control-surface")),
     });
-
     assert.equal(controlResponse.status, 404);
   } finally {
     await runtime.close();
@@ -503,28 +510,196 @@ test("runtime rejects wrapped work payloads instead of supporting compatibility 
 
 test("work endpoint explains itself on GET", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
-  const { baseUrl } = await runtime.listen();
+  const { baseUrl, authToken } = await runtime.listen();
 
   try {
-    const response = await fetch(`${baseUrl}/work`);
+    const response = await authorizedFetch(baseUrl, authToken, "/work");
     assert.equal(response.status, 200);
 
-    const payload = await response.json() as {
+    const payload = (await response.json()) as {
+      apiVersion: string;
       path: string;
       method: string;
+      auth: string;
       summary: string;
       send: Array<{ receivedAs: string; example: string }>;
       response: { path: string; states: string[] };
       next: Array<{ send: string }>;
     };
+    assert.equal(payload.apiVersion, "1.0");
     assert.equal(payload.path, "/work");
     assert.equal(payload.method, "POST");
+    assert.match(payload.auth, /bearer token/i);
     assert.match(payload.summary, /plain text/i);
-    assert.deepEqual(payload.send.map((entry) => entry.receivedAs), ["text", "event", "batch"]);
+    assert.deepEqual(
+      payload.send.map((entry) => entry.receivedAs),
+      ["text", "event", "batch"],
+    );
     assert.equal(payload.send[0]?.example.includes("Waiting for approval"), true);
     assert.equal(payload.response.path, "/work/response/{interactionId}");
-    assert.deepEqual(payload.response.states, ["pending", "answered"]);
-    assert.equal(payload.next.some((step) => step.send === "WorkEvent"), true);
+    assert.deepEqual(payload.response.states, ["pending", "answered", "expired", "cancelled"]);
+    assert.equal(
+      payload.next.some((step) => step.send === "WorkEvent"),
+      true,
+    );
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("work endpoint requires bearer auth and rejects browser origins", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { baseUrl, authToken } = await runtime.listen();
+
+  try {
+    const unauthorized = await fetch(`${baseUrl}/work`);
+    assert.equal(unauthorized.status, 401);
+
+    const forbidden = await fetch(`${baseUrl}/work`, {
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        Origin: "https://evil.example",
+      },
+    });
+    assert.equal(forbidden.status, 403);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("work endpoint honors explicit text/plain without JSON sniffing", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { baseUrl, authToken } = await runtime.listen();
+
+  try {
+    const bracketed = await authorizedFetch(baseUrl, authToken, "/work", {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: "[update] build succeeded",
+    });
+    assert.equal(bracketed.status, 200);
+
+    const quoted = await authorizedFetch(baseUrl, authToken, "/work", {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: '"Waiting for approval before continuing"',
+    });
+    assert.equal(quoted.status, 200);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("work endpoint accepts compatible 1.x spec versions and rejects 2.x", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { baseUrl, authToken } = await runtime.listen();
+
+  try {
+    const accepted = await authorizedFetch(baseUrl, authToken, "/v1/work", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...workApprovalEvent("task:version:accepted"),
+        specVersion: "1.1",
+      }),
+    });
+    assert.equal(accepted.status, 200);
+
+    const rejected = await authorizedFetch(baseUrl, authToken, "/v1/work", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...workApprovalEvent("task:version:rejected"),
+        specVersion: "2.0",
+      }),
+    });
+    assert.equal(rejected.status, 400);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("work response can be cancelled and later expire when unanswered", async () => {
+  const runtime = createApertureRuntime({
+    controlPort: 0,
+    workResponsePendingTtlMs: 20,
+    workResponseRetentionMs: 200,
+  });
+  const { baseUrl, authToken } = await runtime.listen();
+  const cancelledInteractionId = "interaction:task:cancelled:approval";
+  const expiredInteractionId = "interaction:task:expired:approval";
+
+  try {
+    await authorizedFetch(baseUrl, authToken, "/work", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(workApprovalEvent("task:cancelled")),
+    });
+
+    const cancelled = await authorizedFetch(
+      baseUrl,
+      authToken,
+      `/work/response/${encodeURIComponent(cancelledInteractionId)}`,
+      {
+        method: "DELETE",
+      },
+    );
+    assert.equal(cancelled.status, 200);
+    const cancelledPayload = (await cancelled.json()) as { state: string; cancelledAt?: string };
+    assert.equal(cancelledPayload.state, "cancelled");
+    assert.equal(typeof cancelledPayload.cancelledAt, "string");
+
+    await authorizedFetch(baseUrl, authToken, "/work", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(workApprovalEvent("task:expired")),
+    });
+
+    const expired = await waitForAsync(
+      async () => {
+        const response = await authorizedFetch(
+          baseUrl,
+          authToken,
+          `/work/response/${encodeURIComponent(expiredInteractionId)}`,
+        );
+        const payload = (await response.json()) as { state: string; expiresAt?: string };
+        return payload.state === "expired" ? payload : null;
+      },
+      { timeoutMs: 500 },
+    );
+
+    assert.equal(expired.state, "expired");
+    assert.equal(typeof expired.expiresAt, "string");
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("work endpoint rejects forbidden keys and control characters", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { baseUrl, authToken } = await runtime.listen();
+
+  try {
+    const forbiddenKey = await authorizedFetch(baseUrl, authToken, "/work", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: '{"kind":"work.updated","work":{"id":"task:poisoned","status":"running"},"__proto__":{"polluted":true}}',
+    });
+    assert.equal(forbiddenKey.status, 400);
+
+    const controlChars = await authorizedFetch(baseUrl, authToken, "/work", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kind: "work.updated",
+        work: {
+          id: "task:control-char",
+          status: "running",
+          summary: "bad\u202Etext",
+        },
+      }),
+    });
+    assert.equal(controlChars.status, 400);
   } finally {
     await runtime.close();
   }
@@ -607,5 +782,19 @@ async function waitForAsync<T>(
     await sleep(intervalMs);
   }
 
-  return await read() as T;
+  return (await read()) as T;
+}
+
+function authorizedFetch(
+  baseUrl: string,
+  authToken: string,
+  path: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  const headers = new Headers(init.headers);
+  headers.set("Authorization", `Bearer ${authToken}`);
+  return fetch(`${baseUrl}${path}`, {
+    ...init,
+    headers,
+  });
 }

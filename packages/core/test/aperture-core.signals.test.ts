@@ -85,9 +85,13 @@ test("publish emits a trace for candidate decisions", () => {
     seenKind = trace.evaluation.kind;
     if (trace.evaluation.kind === "candidate") {
       seenDecision = trace.coordination.kind;
-      seenContinuityRules = trace.coordination.continuityEvaluations.map((evaluation) => evaluation.rule);
+      seenContinuityRules = trace.coordination.continuityEvaluations.map(
+        (evaluation) => evaluation.rule,
+      );
       seenPolicyGateRules = trace.policyRules.gateEvaluations.map((evaluation) => evaluation.rule);
-      seenPolicyCriterionRules = trace.policyRules.criterionEvaluations.map((evaluation) => evaluation.rule);
+      seenPolicyCriterionRules = trace.policyRules.criterionEvaluations.map(
+        (evaluation) => evaluation.rule,
+      );
     }
   });
 
@@ -663,7 +667,9 @@ test("cross-task merged episodes record returned when they resurface into focus"
   const summary = core.getSignalSummary("task:episode:b");
   assert.equal(summary.counts.returned, 1);
 
-  const returned = seen.find((signal) => signal.kind === "returned" && signal.taskId === "task:episode:b");
+  const returned = seen.find(
+    (signal) => signal.kind === "returned" && signal.taskId === "task:episode:b",
+  );
   assert.ok(returned);
   if (!returned || returned.kind !== "returned") {
     return;
@@ -723,11 +729,11 @@ test("clearing one task can record returned work from another queued task", () =
   assert.equal(summary.counts.returned, 1);
   assert.equal(summary.counts.attentionShifted, 1);
 
-  const returned = seen.find((signal) =>
-    signal.kind === "returned" && signal.taskId === "task:secondary"
+  const returned = seen.find(
+    (signal) => signal.kind === "returned" && signal.taskId === "task:secondary",
   );
-  const shifted = seen.find((signal) =>
-    signal.kind === "attention_shifted" && signal.taskId === "task:secondary"
+  const shifted = seen.find(
+    (signal) => signal.kind === "attention_shifted" && signal.taskId === "task:secondary",
   );
   assert.equal(returned?.frameId, "frame:interaction:secondary");
   assert.equal(shifted?.frameId, "frame:interaction:secondary");

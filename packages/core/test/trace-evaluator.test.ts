@@ -266,7 +266,8 @@ test("trace evaluator reports ambiguous ambient work that later activates", () =
     timestamp: "2026-03-21T18:01:10.000Z",
     source: { id: "custom-agent" },
     title: "Dependency fetch blocked",
-    summary: "Dependency fetch is blocked, but the semantic read abstains until clearer evidence arrives.",
+    summary:
+      "Dependency fetch is blocked, but the semantic read abstains until clearer evidence arrives.",
     status: "blocked",
     semanticHints: {
       abstained: true,
@@ -346,9 +347,18 @@ test("candidate traces expose semantic summaries with routing influence", () => 
   assert.equal(trace.semantic?.ontology.blocking, "blocking");
   assert.ok(trace.semantic?.reasons.includes("tool family was supplied by the source or context"));
   assert.equal(trace.semantic?.impact.routingAuthority, "request");
-  assert.deepEqual(trace.semantic?.impact.canonical, ["activity (canonical)", "consequence (canonical)"]);
+  assert.deepEqual(trace.semantic?.impact.canonical, [
+    "activity (canonical)",
+    "consequence (canonical)",
+  ]);
   assert.deepEqual(trace.semantic?.impact.ambiguity, []);
   assert.deepEqual(trace.semantic?.impact.contextOnly, ["intent", "tool", "why now", "confidence"]);
-  assert.ok(trace.semantic?.influence.includes("tool family stayed context-only on the question/form path"));
-  assert.ok(trace.semantic?.influence.includes("semantic low confidence stayed visible but did not downgrade blocking work"));
+  assert.ok(
+    trace.semantic?.influence.includes("tool family stayed context-only on the question/form path"),
+  );
+  assert.ok(
+    trace.semantic?.influence.includes(
+      "semantic low confidence stayed visible but did not downgrade blocking work",
+    ),
+  );
 });

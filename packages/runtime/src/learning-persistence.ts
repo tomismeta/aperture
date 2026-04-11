@@ -1,10 +1,8 @@
 import { mkdir, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import {
-  ApertureCore,
-} from "@tomismeta/aperture-core";
-import { ProfileStore, type MemoryProfile } from "../../core/src/internal-contract.js";
+import { ApertureCore } from "@tomismeta/aperture-core";
+import { ProfileStore, type MemoryProfile } from "@tomismeta/aperture-core/internal";
 
 export type LearningMode = "on" | "off";
 
@@ -20,9 +18,7 @@ export type LearningPersistenceState = {
 // Keep this in sync with the persisted profile schema expected by core.
 const PERSISTED_PROFILE_SCHEMA_VERSION = 1;
 
-export async function bootstrapLearningPersistence(
-  cwd: string,
-): Promise<{
+export async function bootstrapLearningPersistence(cwd: string): Promise<{
   core: ApertureCore;
   state: LearningPersistenceState;
 }> {

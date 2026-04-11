@@ -163,6 +163,7 @@ The practical rule is:
 - if you are using Aperture the product, run `@tomismeta/aperture`
 - `@aperture/runtime` can stay independently managed inside the repo without becoming a separately supported npm integration surface yet
 - the public HTTP integration story should stay centered on `/work` and `/work/response/{interactionId}`, not on the internal `/runtime/*` control routes
+- repo-internal clients may use `@aperture/runtime/internal` for sanctioned private seams like runtime discovery or auth-token lookup, instead of reaching into sibling package source files
 
 ## Two Integration Modes
 

@@ -7,7 +7,7 @@ import type {
   ApertureTrace,
   AttentionSignalSummary,
   AttentionState,
-} from "../../core/src/internal-contract.js";
+} from "@tomismeta/aperture-core/internal";
 
 import type {
   ApertureRuntimeEvent,
@@ -17,13 +17,16 @@ import type {
 import {
   createEmptyRuntimeSnapshot,
   DEFAULT_RUNTIME_POLL_INTERVAL_MS,
+  deleteJson,
   getJson,
   normalizeRuntimeUrls,
   postJson,
+  resolveRuntimeAuthToken,
 } from "./runtime-client-shared.js";
 
 export type ApertureRuntimeClientOptions = {
   baseUrl: string;
+  authToken?: string;
   pollIntervalMs?: number;
   label?: string;
   surfaceCapabilities?: PartialSurfaceCapabilities;
@@ -43,11 +46,13 @@ export class ApertureRuntimeClient {
   private readonly pollIntervalMs: number;
   private readonly label: string;
   private readonly surfaceCapabilities: PartialSurfaceCapabilities | undefined;
+  private readonly explicitAuthToken: string | undefined;
   private readonly attentionListeners = new Set<AttentionViewListener>();
   private readonly responseListeners = new Set<ResponseListener>();
   private readonly traceListeners = new Set<TraceListener>();
   private snapshotState: ApertureRuntimeSnapshot = createEmptyRuntimeSnapshot();
   private surfaceId: string | null = null;
+  private authToken = "";
   private heartbeatIntervalId: NodeJS.Timeout | null = null;
   private pollIntervalId: NodeJS.Timeout | null = null;
   private nextSequence = 0;
@@ -59,6 +64,7 @@ export class ApertureRuntimeClient {
     this.pollIntervalMs = options.pollIntervalMs ?? DEFAULT_RUNTIME_POLL_INTERVAL_MS;
     this.label = options.label ?? "tui";
     this.surfaceCapabilities = options.surfaceCapabilities;
+    this.explicitAuthToken = options.authToken;
   }
 
   static async connect(options: ApertureRuntimeClientOptions): Promise<ApertureRuntimeClient> {
@@ -132,14 +138,16 @@ export class ApertureRuntimeClient {
       this.heartbeatIntervalId = null;
     }
     if (this.surfaceId) {
-      await fetch(`${this.controlUrl}/surfaces/${encodeURIComponent(this.surfaceId)}`, {
-        method: "DELETE",
-      }).catch(() => {});
+      await deleteJson(
+        `${this.controlUrl}/surfaces/${encodeURIComponent(this.surfaceId)}`,
+        this.authToken,
+      ).catch(() => {});
       this.surfaceId = null;
     }
   }
 
   private async initialize(): Promise<void> {
+    this.authToken = await resolveRuntimeAuthToken(this.controlUrl, this.explicitAuthToken);
     const attach = await this.post<{ surfaceId: string; heartbeatIntervalMs: number }>(
       "/surfaces/attach",
       {
@@ -153,7 +161,9 @@ export class ApertureRuntimeClient {
       if (!this.surfaceId || this.closed) {
         return;
       }
-      void this.post(`/surfaces/${encodeURIComponent(this.surfaceId)}/heartbeat`, {}).catch(() => {});
+      void this.post(`/surfaces/${encodeURIComponent(this.surfaceId)}/heartbeat`, {}).catch(
+        () => {},
+      );
     }, attach.heartbeatIntervalMs);
     this.pollIntervalId = setInterval(() => {
       void this.poll().catch(() => {});
@@ -164,9 +174,11 @@ export class ApertureRuntimeClient {
     if (this.closed) {
       return;
     }
-    const payload = await this.get<{ events: ApertureRuntimeEvent[]; nextSequence: number; stateVersion: number }>(
-      `/events?since=${this.nextSequence}`,
-    );
+    const payload = await this.get<{
+      events: ApertureRuntimeEvent[];
+      nextSequence: number;
+      stateVersion: number;
+    }>(`/events?since=${this.nextSequence}`);
     this.nextSequence = payload.nextSequence;
     if (payload.stateVersion !== this.snapshotState.version) {
       await this.refreshState();
@@ -196,10 +208,10 @@ export class ApertureRuntimeClient {
   }
 
   private async get<T>(path: string): Promise<T> {
-    return getJson<T>(`${this.controlUrl}${path}`);
+    return getJson<T>(`${this.controlUrl}${path}`, this.authToken);
   }
 
   private async post<T = Record<string, never>>(path: string, body: unknown): Promise<T> {
-    return postJson<T>(`${this.controlUrl}${path}`, body);
+    return postJson<T>(`${this.controlUrl}${path}`, body, this.authToken);
   }
 }

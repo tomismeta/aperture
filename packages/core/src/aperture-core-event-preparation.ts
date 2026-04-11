@@ -1,9 +1,6 @@
 import type { ApertureEvent } from "./events.js";
 import type { SourceEvent } from "./source-event.js";
-import {
-  enrichApertureEvent,
-  normalizeSourceEvent,
-} from "./semantic-normalizer.js";
+import { enrichApertureEvent, normalizeSourceEvent } from "./semantic-normalizer.js";
 
 export type PublishOptions = {
   applySemanticDefaults?: boolean;
@@ -15,9 +12,7 @@ export type PreparedPublishedEvent = {
   transitionKind: "source_normalized" | "direct_enriched" | "direct_passthrough";
 };
 
-export function preparePublishedSourceEvent(
-  event: SourceEvent,
-): PreparedPublishedEvent {
+export function preparePublishedSourceEvent(event: SourceEvent): PreparedPublishedEvent {
   return {
     originalEvent: event,
     finalizedEvent: normalizeSourceEvent(event),

@@ -3,42 +3,34 @@ import {
   matchPolicyRule,
   readAttentionLane,
 } from "./configured-policy-support.js";
-import { noopPolicyGateRule, verdictPolicyGateRule, type PolicyGateRule } from "./policy-gate-rule.js";
+import {
+  noopPolicyGateRule,
+  verdictPolicyGateRule,
+  type PolicyGateRule,
+} from "./policy-gate-rule.js";
 
 export const evaluateConfiguredPolicyGateRule: PolicyGateRule = (input) => {
   const { candidate, judgmentConfig, userProfile } = input;
   const toolFamily = inferConfiguredPolicyToolFamily(candidate);
-  const toolOverride = toolFamily
-    ? userProfile?.overrides?.tools?.[toolFamily]
-    : undefined;
+  const toolOverride = toolFamily ? userProfile?.overrides?.tools?.[toolFamily] : undefined;
   const policyRule = matchPolicyRule(judgmentConfig, candidate);
   const requireContextExpansion =
-    toolOverride?.requireContextExpansion === true
-    || policyRule?.requireContextExpansion === true;
+    toolOverride?.requireContextExpansion === true || policyRule?.requireContextExpansion === true;
   const autoApprove =
-    policyRule?.autoApprove === true
-    && candidate.mode === "approval"
-    && candidate.responseSpec.kind === "approval"
-    && !requireContextExpansion;
+    policyRule?.autoApprove === true &&
+    candidate.mode === "approval" &&
+    candidate.responseSpec.kind === "approval" &&
+    !requireContextExpansion;
 
-  const minimumLane = readAttentionLane(toolOverride?.minimumLane ?? toolOverride?.defaultPresentation)
-    ?? readAttentionLane(policyRule?.minimumLane)
-    ?? (requireContextExpansion ? "now" : undefined);
+  const minimumLane =
+    readAttentionLane(toolOverride?.minimumLane ?? toolOverride?.defaultPresentation) ??
+    readAttentionLane(policyRule?.minimumLane) ??
+    (requireContextExpansion ? "now" : undefined);
   const mayInterrupt = policyRule?.mayInterrupt;
   const requiresOperatorResponse =
-    !autoApprove
-    && (
-      candidate.blocking
-      || minimumLane === "now"
-      || requireContextExpansion
-    );
+    !autoApprove && (candidate.blocking || minimumLane === "now" || requireContextExpansion);
 
-  if (
-    minimumLane === undefined
-    && mayInterrupt === undefined
-    && !toolOverride
-    && !autoApprove
-  ) {
+  if (minimumLane === undefined && mayInterrupt === undefined && !toolOverride && !autoApprove) {
     return noopPolicyGateRule("configured_policy");
   }
 
@@ -52,43 +44,34 @@ export const evaluateConfiguredPolicyGateRule: PolicyGateRule = (input) => {
 
   if (autoApprove) {
     rationale.push("configured judgment policy auto-approves this bounded approval");
-    return verdictPolicyGateRule(
-      "configured_policy",
-      {
-        autoApprove: true,
-        mayInterrupt: false,
-        requiresOperatorResponse: false,
-        minimumLane: "ambient",
-        minimumLaneIsSticky: true,
-        rationale,
-      },
-    );
+    return verdictPolicyGateRule("configured_policy", {
+      autoApprove: true,
+      mayInterrupt: false,
+      requiresOperatorResponse: false,
+      minimumLane: "ambient",
+      minimumLaneIsSticky: true,
+      rationale,
+    });
   }
 
   if (requiresOperatorResponse) {
     rationale.push("operator-response work cannot remain passive without auto-resolution");
-    return verdictPolicyGateRule(
-      "configured_policy",
-      {
-        autoApprove: false,
-        mayInterrupt: true,
-        requiresOperatorResponse: true,
-        minimumLane: "now",
-        minimumLaneIsSticky: false,
-        rationale,
-      },
-    );
+    return verdictPolicyGateRule("configured_policy", {
+      autoApprove: false,
+      mayInterrupt: true,
+      requiresOperatorResponse: true,
+      minimumLane: "now",
+      minimumLaneIsSticky: false,
+      rationale,
+    });
   }
 
-  return verdictPolicyGateRule(
-    "configured_policy",
-    {
-      autoApprove: false,
-      mayInterrupt: mayInterrupt ?? false,
-      requiresOperatorResponse,
-      minimumLane: minimumLane ?? (candidate.blocking ? "now" : "next"),
-      minimumLaneIsSticky: minimumLane !== undefined || mayInterrupt === false,
-      rationale,
-    },
-  );
+  return verdictPolicyGateRule("configured_policy", {
+    autoApprove: false,
+    mayInterrupt: mayInterrupt ?? false,
+    requiresOperatorResponse,
+    minimumLane: minimumLane ?? (candidate.blocking ? "now" : "next"),
+    minimumLaneIsSticky: minimumLane !== undefined || mayInterrupt === false,
+    rationale,
+  });
 };

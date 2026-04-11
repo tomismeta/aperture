@@ -45,7 +45,11 @@ test("canonical work-event examples normalize and map into SourceEvent", () => {
     const payload = readExample(filename);
     const eventPayload = normalizeWorkPayload(payload);
     assert.equal(typeof eventPayload, "object", `expected structured work event for ${filename}`);
-    assert.equal(Array.isArray(eventPayload), false, `expected one normalized event for ${filename}`);
+    assert.equal(
+      Array.isArray(eventPayload),
+      false,
+      `expected one normalized event for ${filename}`,
+    );
 
     const event = mapWorkEventToSourceEvent(eventPayload as WorkEvent);
     assert.equal(event.type, expectation.type, filename);
@@ -60,13 +64,16 @@ test("canonical work-event examples normalize and map into SourceEvent", () => {
 
 test("canonical work-event examples are accepted by the primary runtime endpoint", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
-  const { baseUrl } = await runtime.listen();
+  const { baseUrl, authToken } = await runtime.listen();
 
   try {
     for (const filename of exampleFiles()) {
       const response = await fetch(`${baseUrl}/work`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
         body: JSON.stringify(readExample(filename)),
       });
       assert.equal(response.status, 200, `${filename} via /work`);

@@ -5,6 +5,7 @@ import type {
   AttentionFrame as Frame,
   AttentionView,
 } from "@tomismeta/aperture-core";
+import type { CandidateApertureTrace } from "@tomismeta/aperture-core/internal";
 import type { AttentionSignalSummary as SignalSummary } from "../../core/src/signal-summary.js";
 import type { AttentionState } from "../../core/src/attention-state.js";
 
@@ -41,6 +42,110 @@ function makeFrame(overrides: Partial<Frame> = {}): Frame {
       },
     },
     ...overrides,
+  };
+}
+
+type CandidateTraceOverrides = {
+  evaluation?: {
+    original?: Partial<CandidateApertureTrace["evaluation"]["original"]>;
+    adjusted?: Partial<CandidateApertureTrace["evaluation"]["adjusted"]>;
+  };
+  semantic?: CandidateApertureTrace["semantic"];
+  policyRules?: Partial<CandidateApertureTrace["policyRules"]>;
+  utility?: Partial<CandidateApertureTrace["utility"]>;
+  planner?: Partial<CandidateApertureTrace["planner"]>;
+  coordination?: Partial<CandidateApertureTrace["coordination"]>;
+};
+
+function cast<T>(value: unknown = {}): T {
+  return value as T;
+}
+
+function makeCandidateTrace(overrides: CandidateTraceOverrides = {}): CandidateApertureTrace {
+  const base: CandidateApertureTrace = {
+    timestamp: "2026-03-10T00:00:00.000Z",
+    event: cast<CandidateApertureTrace["event"]>({
+      kind: "submitted",
+      taskId: "task-1",
+      interaction: {},
+    }),
+    eventTransition: cast<CandidateApertureTrace["eventTransition"]>(),
+    candidateTransition: cast<CandidateApertureTrace["candidateTransition"]>(),
+    frameTransition: cast<CandidateApertureTrace["frameTransition"]>(),
+    evaluation: {
+      kind: "candidate",
+      original: cast<CandidateApertureTrace["evaluation"]["original"]>({}),
+      adjusted: cast<CandidateApertureTrace["evaluation"]["adjusted"]>({
+        interactionId: "interaction-1",
+      }),
+    },
+    heuristics: { scoreOffset: 0, rationale: [] },
+    episode: null,
+    policy: cast<CandidateApertureTrace["policy"]>(),
+    policyRules: {
+      gateEvaluations: [],
+      criterion: null,
+      criterionEvaluations: [],
+    },
+    utility: {
+      candidate: cast<CandidateApertureTrace["utility"]["candidate"]>(),
+      currentScore: null,
+      currentPriority: null,
+    },
+    planner: { kind: "activate", reasons: [], continuityEvaluations: [] },
+    coordination: {
+      kind: "activate",
+      resultLane: "now",
+      candidateScore: 1211,
+      currentScore: null,
+      currentPriority: null,
+      criterion: null,
+      ambiguity: null,
+      reasons: ["blocking work requires operator response"],
+      continuityEvaluations: [],
+    },
+    taskSummary: cast<CandidateApertureTrace["taskSummary"]>(),
+    globalSummary: cast<CandidateApertureTrace["globalSummary"]>(),
+    taskAttentionState: "calm",
+    globalAttentionState: "calm",
+    pressureForecast: cast<CandidateApertureTrace["pressureForecast"]>(),
+    attentionBurden: cast<CandidateApertureTrace["attentionBurden"]>(),
+    current: null,
+    taskView: cast<CandidateApertureTrace["taskView"]>({ now: null, next: [], ambient: [] }),
+    attentionView: { now: null, next: [], ambient: [] },
+    result: null,
+  };
+
+  return {
+    ...base,
+    ...(overrides.semantic !== undefined ? { semantic: overrides.semantic } : {}),
+    evaluation: {
+      ...base.evaluation,
+      original: cast<CandidateApertureTrace["evaluation"]["original"]>({
+        ...base.evaluation.original,
+        ...overrides.evaluation?.original,
+      }),
+      adjusted: cast<CandidateApertureTrace["evaluation"]["adjusted"]>({
+        ...base.evaluation.adjusted,
+        ...overrides.evaluation?.adjusted,
+      }),
+    },
+    policyRules: {
+      ...base.policyRules,
+      ...overrides.policyRules,
+    },
+    utility: {
+      ...base.utility,
+      ...overrides.utility,
+    },
+    planner: {
+      ...base.planner,
+      ...overrides.planner,
+    },
+    coordination: {
+      ...base.coordination,
+      ...overrides.coordination,
+    },
   };
 }
 
@@ -689,42 +794,7 @@ test("renderAttentionScreen judgment line prioritizes trace coordination over he
 
   // With a candidate trace that has coordination reasons:
   // the coordination reason should take priority over heuristic rationale
-  const traceWithReasons = {
-    timestamp: "2026-03-10T00:00:00.000Z",
-    event: { kind: "submitted", taskId: "task-1", interaction: {} },
-    evaluation: {
-      kind: "candidate" as const,
-      original: {} as any,
-      adjusted: { interactionId: "interaction-1" } as any,
-    },
-    heuristics: { scoreOffset: 0, rationale: [] },
-    episode: null,
-    policy: {} as any,
-    policyRules: { gateEvaluations: [], criterion: null, criterionEvaluations: [] },
-    utility: { candidate: {} as any, currentScore: null, currentPriority: null },
-    planner: { kind: "activate" as const, reasons: [], continuityEvaluations: [] },
-    coordination: {
-      kind: "activate" as const,
-      resultLane: "now" as const,
-      candidateScore: 1211,
-      currentScore: null,
-      currentPriority: null,
-      criterion: null,
-      ambiguity: null,
-      reasons: ["blocking work requires operator response"],
-      continuityEvaluations: [],
-    },
-    taskSummary: {} as any,
-    globalSummary: {} as any,
-    taskAttentionState: "calm" as any,
-    globalAttentionState: "calm" as any,
-    pressureForecast: {} as any,
-    attentionBurden: {} as any,
-    current: null,
-    taskView: {} as any,
-    attentionView: { now: null, next: [], ambient: [] },
-    result: null,
-  };
+  const traceWithReasons = makeCandidateTrace();
 
   const withTraceScreen = renderAttentionScreen(attentionView, { trace: traceWithReasons });
   assert.match(withTraceScreen, /blocking work requires operator response/);
@@ -738,45 +808,15 @@ test("renderAttentionScreen judgment line shows continuity overrides first", () 
     ambient: [],
   };
 
-  const traceWithOverride = {
-    timestamp: "2026-03-10T00:00:00.000Z",
-    event: { kind: "submitted", taskId: "task-1", interaction: {} },
-    evaluation: {
-      kind: "candidate" as const,
-      original: {} as any,
-      adjusted: { interactionId: "interaction-1" } as any,
-    },
-    heuristics: { scoreOffset: 0, rationale: [] },
-    episode: null,
-    policy: {} as any,
-    policyRules: { gateEvaluations: [], criterion: null, criterionEvaluations: [] },
-    utility: { candidate: {} as any, currentScore: null, currentPriority: null },
-    planner: { kind: "activate" as const, reasons: [], continuityEvaluations: [] },
+  const traceWithOverride = makeCandidateTrace({
     coordination: {
-      kind: "activate" as const,
-      resultLane: "now" as const,
-      candidateScore: 1211,
-      currentScore: null,
-      currentPriority: null,
-      criterion: null,
-      ambiguity: null,
       reasons: ["coordination reason"],
       continuityEvaluations: [
         { rule: "conflicting_interrupt", kind: "override", rationale: ["suppressed due to active approval"] },
         { rule: "burst_dampening", kind: "noop", rationale: [] },
       ],
     },
-    taskSummary: {} as any,
-    globalSummary: {} as any,
-    taskAttentionState: "calm" as any,
-    globalAttentionState: "calm" as any,
-    pressureForecast: {} as any,
-    attentionBurden: {} as any,
-    current: null,
-    taskView: {} as any,
-    attentionView: { now: null, next: [], ambient: [] },
-    result: null,
-  };
+  });
 
   const screen = renderAttentionScreen(attentionView, { trace: traceWithOverride });
   // Continuity override should take priority over coordination reasons
@@ -821,17 +861,7 @@ test("renderAttentionScreen why mode collapsed hides noop rules and shows count"
     ambient: [],
   };
 
-  const trace = {
-    timestamp: "2026-03-10T00:00:00.000Z",
-    event: { kind: "submitted", taskId: "task-1", interaction: {} },
-    evaluation: {
-      kind: "candidate" as const,
-      original: {} as any,
-      adjusted: { interactionId: "interaction-1" } as any,
-    },
-    heuristics: { scoreOffset: 0, rationale: [] },
-    episode: null,
-    policy: {} as any,
+  const trace = makeCandidateTrace({
     policyRules: {
       gateEvaluations: [
         { rule: "configured_policy", kind: "noop", rationale: [] },
@@ -842,30 +872,7 @@ test("renderAttentionScreen why mode collapsed hides noop rules and shows count"
       criterion: null,
       criterionEvaluations: [],
     },
-    utility: { candidate: {} as any, currentScore: null, currentPriority: null },
-    planner: { kind: "activate" as const, reasons: [], continuityEvaluations: [] },
-    coordination: {
-      kind: "activate" as const,
-      resultLane: "now" as const,
-      candidateScore: 1211,
-      currentScore: null,
-      currentPriority: null,
-      criterion: null,
-      ambiguity: null,
-      reasons: ["blocking work requires operator response"],
-      continuityEvaluations: [],
-    },
-    taskSummary: {} as any,
-    globalSummary: {} as any,
-    taskAttentionState: "calm" as any,
-    globalAttentionState: "calm" as any,
-    pressureForecast: {} as any,
-    attentionBurden: {} as any,
-    current: null,
-    taskView: {} as any,
-    attentionView: { now: null, next: [], ambient: [] },
-    result: null,
-  };
+  });
 
   // Collapsed (default) — only verdict rules shown, noops hidden with count
   const collapsed = renderAttentionScreen(attentionView, { whyMode: true, trace });
@@ -906,17 +913,7 @@ test("renderAttentionScreen why mode keeps threshold details on separate lines",
     ambient: [],
   };
 
-  const trace = {
-    timestamp: "2026-03-10T00:00:00.000Z",
-    event: { kind: "submitted", taskId: "task-1", interaction: {} },
-    evaluation: {
-      kind: "candidate" as const,
-      original: {} as any,
-      adjusted: { interactionId: "interaction-1" } as any,
-    },
-    heuristics: { scoreOffset: 0, rationale: [] },
-    episode: null,
-    policy: {} as any,
+  const trace = makeCandidateTrace({
     policyRules: {
       gateEvaluations: [],
       criterion: {
@@ -932,30 +929,16 @@ test("renderAttentionScreen why mode keeps threshold details on separate lines",
         { rule: "continuity_headroom", kind: "adjust", rationale: ["keeps headroom for active work"] },
       ],
     },
-    utility: { candidate: {} as any, currentScore: 1100, currentPriority: null },
-    planner: { kind: "queue" as const, reasons: [], continuityEvaluations: [] },
+    utility: { currentScore: 1100 },
+    planner: { kind: "queue" },
     coordination: {
-      kind: "queue" as const,
-      resultLane: "next" as const,
+      kind: "queue",
+      resultLane: "next",
       candidateScore: 1120,
       currentScore: 1100,
-      currentPriority: null,
-      criterion: null,
-      ambiguity: null,
       reasons: ["continuity keeps the existing item active"],
-      continuityEvaluations: [],
     },
-    taskSummary: {} as any,
-    globalSummary: {} as any,
-    taskAttentionState: "calm" as any,
-    globalAttentionState: "calm" as any,
-    pressureForecast: {} as any,
-    attentionBurden: {} as any,
-    current: null,
-    taskView: {} as any,
-    attentionView: { now: null, next: [], ambient: [] },
-    result: null,
-  };
+  });
 
   const screen = renderAttentionScreen(attentionView, { whyMode: true, trace });
   assert.match(screen, /score:\s+1120[\s\S]*current:\s+1100[\s\S]*threshold:\s+1150/);
@@ -969,32 +952,24 @@ test("renderAttentionScreen why mode shows semantic interpretation and influence
     ambient: [],
   };
 
-  const trace = {
-    timestamp: "2026-03-10T00:00:00.000Z",
-    event: { kind: "submitted", taskId: "task-1", interaction: {} },
-    evaluation: {
-      kind: "candidate" as const,
-      original: {} as any,
-      adjusted: { interactionId: "interaction-1" } as any,
-    },
-    heuristics: { scoreOffset: 0, rationale: [] },
+  const trace = makeCandidateTrace({
     semantic: {
-      intentFrame: "question_request" as const,
-      activityClass: "question_request" as const,
+      intentFrame: "question_request",
+      activityClass: "question_request",
       toolFamily: "read",
-      consequence: "medium" as const,
-      confidence: "low" as const,
+      consequence: "medium",
+      confidence: "low",
       ontology: {
-        ask: "choice" as const,
-        activity: "question" as const,
-        consequence: "medium" as const,
-        blocking: "blocking" as const,
-        episode: "new" as const,
-        confidence: "low" as const,
-        source: "explicit" as const,
+        ask: "choice",
+        activity: "question",
+        consequence: "medium",
+        blocking: "blocking",
+        episode: "new",
+        confidence: "low",
+        source: "explicit",
       },
       whyNow: "A direct question is waiting for operator input.",
-      relationHints: [{ kind: "same_issue" as const }, { kind: "repeats" as const }],
+      relationHints: [{ kind: "same_issue" }, { kind: "repeats" }],
       factors: ["human.input.requested", "choice"],
       reasons: ["tool family was supplied by the source or context"],
       influence: [
@@ -1002,7 +977,7 @@ test("renderAttentionScreen why mode shows semantic interpretation and influence
         "semantic low confidence stayed visible but did not downgrade blocking work",
       ],
       impact: {
-        routingAuthority: "request" as const,
+        routingAuthority: "request",
         decisionBearing: ["consequence (canonical)", "relations (continuity)"],
         explanatory: ["intent", "tool", "why now", "confidence"],
         canonical: ["consequence (canonical)"],
@@ -1012,44 +987,17 @@ test("renderAttentionScreen why mode shows semantic interpretation and influence
         contextOnly: ["intent", "tool", "why now", "confidence"],
       },
       provenance: {
-        intentFrame: "inferred" as const,
-        activityClass: "inferred" as const,
-        toolFamily: "source" as const,
-        consequence: "inferred" as const,
-        confidence: "inferred" as const,
+        intentFrame: "inferred",
+        activityClass: "inferred",
+        toolFamily: "source",
+        consequence: "inferred",
+        confidence: "inferred",
       },
     },
-    episode: null,
-    policy: {} as any,
-    policyRules: {
-      gateEvaluations: [],
-      criterion: null,
-      criterionEvaluations: [],
-    },
-    utility: { candidate: {} as any, currentScore: null, currentPriority: null },
-    planner: { kind: "activate" as const, reasons: [], continuityEvaluations: [] },
     coordination: {
-      kind: "activate" as const,
-      resultLane: "now" as const,
       candidateScore: 1200,
-      currentScore: null,
-      currentPriority: null,
-      criterion: null,
-      ambiguity: null,
-      reasons: ["blocking work requires operator response"],
-      continuityEvaluations: [],
     },
-    taskSummary: {} as any,
-    globalSummary: {} as any,
-    taskAttentionState: "calm" as any,
-    globalAttentionState: "calm" as any,
-    pressureForecast: {} as any,
-    attentionBurden: {} as any,
-    current: null,
-    taskView: {} as any,
-    attentionView: { now: null, next: [], ambient: [] },
-    result: null,
-  };
+  });
 
   const collapsed = renderAttentionScreen(attentionView, { whyMode: true, trace });
   assert.match(collapsed, /semantic/);

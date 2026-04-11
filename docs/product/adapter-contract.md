@@ -35,6 +35,8 @@ is:
 - `POST /work` with:
   - a plain string for the simplest producer path
   - a neutral `WorkEvent` when structured identity or request metadata matters
+- authenticated with the same local runtime bearer token that Aperture clients
+  discover from runtime registration state
 
 that maps into internal `SourceEvent`.
 

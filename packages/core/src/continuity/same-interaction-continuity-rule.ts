@@ -1,4 +1,8 @@
-import { noopContinuityRule, overrideContinuityRule, type ContinuityRule } from "./continuity-rule.js";
+import {
+  noopContinuityRule,
+  overrideContinuityRule,
+  type ContinuityRule,
+} from "./continuity-rule.js";
 
 export const evaluateSameInteractionContinuityRule: ContinuityRule = (input) => {
   const activeFrame = input.evidence.currentFrame;

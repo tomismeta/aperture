@@ -1,7 +1,11 @@
 import { readExplicitToolFamily, sourceKey } from "../interaction-taxonomy.js";
 import { priorityForFrame } from "../frame-score.js";
 import { JUDGMENT_DEFAULTS } from "../judgment-defaults.js";
-import { noopContinuityRule, overrideContinuityRule, type ContinuityRule } from "./continuity-rule.js";
+import {
+  noopContinuityRule,
+  overrideContinuityRule,
+  type ContinuityRule,
+} from "./continuity-rule.js";
 
 export const evaluateDecisionStreamContinuityRule: ContinuityRule = (input) => {
   const activeFrame = input.evidence.currentFrame;
@@ -23,8 +27,8 @@ export const evaluateDecisionStreamContinuityRule: ContinuityRule = (input) => {
   }
 
   const streamContinuityMargin =
-    plannerDefaults?.streamContinuityMargin
-    ?? JUDGMENT_DEFAULTS.queuePlanner.streamContinuityMargin;
+    plannerDefaults?.streamContinuityMargin ??
+    JUDGMENT_DEFAULTS.queuePlanner.streamContinuityMargin;
   if (streamContinuityMargin <= 0) {
     return noopContinuityRule("decision_stream_continuity");
   }
@@ -71,11 +75,7 @@ function isSameDecisionStream(
 ): boolean {
   const activeSourceKey = sourceKey(activeFrame.source);
   const candidateSourceKey = sourceKey(candidate.source);
-  if (
-    activeSourceKey
-    && candidateSourceKey
-    && activeSourceKey !== candidateSourceKey
-  ) {
+  if (activeSourceKey && candidateSourceKey && activeSourceKey !== candidateSourceKey) {
     return false;
   }
 
@@ -85,11 +85,7 @@ function isSameDecisionStream(
 
   const activeToolFamily = readExplicitToolFamily(activeFrame);
   const candidateToolFamily = readExplicitToolFamily(candidate);
-  if (
-    activeToolFamily
-    && candidateToolFamily
-    && activeToolFamily !== candidateToolFamily
-  ) {
+  if (activeToolFamily && candidateToolFamily && activeToolFamily !== candidateToolFamily) {
     return false;
   }
 

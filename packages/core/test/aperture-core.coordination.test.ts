@@ -240,7 +240,12 @@ test("core timeSource keeps evidence freshness deterministic", () => {
 
   assert.ok(recentTrace);
   assert.ok(staleTrace);
-  if (!recentTrace || recentTrace.evaluation.kind !== "candidate" || !staleTrace || staleTrace.evaluation.kind !== "candidate") {
+  if (
+    !recentTrace ||
+    recentTrace.evaluation.kind !== "candidate" ||
+    !staleTrace ||
+    staleTrace.evaluation.kind !== "candidate"
+  ) {
     return;
   }
 
@@ -400,10 +405,7 @@ test("superseding blocking episode steps retire the stale active step", () => {
     summary: "prod deploy",
     semantic: {
       intentFrame: "approval_request",
-      relationHints: [
-        { kind: "same_issue", target: "issue:deploy:prod" },
-        { kind: "supersedes" },
-      ],
+      relationHints: [{ kind: "same_issue", target: "issue:deploy:prod" }, { kind: "supersedes" }],
       confidence: "high",
       factors: [],
       reasons: [],
@@ -475,10 +477,7 @@ test("superseding blocking episode steps retire stale queued episode residue", (
     summary: "prod deploy",
     semantic: {
       intentFrame: "approval_request",
-      relationHints: [
-        { kind: "same_issue", target: "issue:deploy:prod" },
-        { kind: "supersedes" },
-      ],
+      relationHints: [{ kind: "same_issue", target: "issue:deploy:prod" }, { kind: "supersedes" }],
       confidence: "high",
       factors: [],
       reasons: [],
@@ -533,18 +532,25 @@ test("weak inferred superseding episode wording stays queued behind the current 
     request: { kind: "approval" },
   });
 
-  const candidateTrace = traces.findLast((trace) => trace.event.id === "src:approval:episode-rollback");
+  const candidateTrace = traces.findLast(
+    (trace) => trace.event.id === "src:approval:episode-rollback",
+  );
   assert.ok(candidateTrace);
   if (!candidateTrace || candidateTrace.evaluation.kind !== "candidate") {
     return;
   }
 
   assert.equal(core.getAttentionView().now?.interactionId, "interaction:deploy:plan");
-  assert.equal(core.getTaskView("task:deploy").next[0]?.interactionId, "interaction:deploy:rollback");
+  assert.equal(
+    core.getTaskView("task:deploy").next[0]?.interactionId,
+    "interaction:deploy:rollback",
+  );
   assert.equal(candidateTrace.coordination.kind, "queue");
   assert.equal(candidateTrace.coordination.resultLane, "next");
   assert.equal(
-    candidateTrace.coordination.continuityEvaluations?.find((evaluation) => evaluation.rule === "same_episode")?.kind,
+    candidateTrace.coordination.continuityEvaluations?.find(
+      (evaluation) => evaluation.rule === "same_episode",
+    )?.kind,
     "override",
   );
   assert.ok(
@@ -552,7 +558,10 @@ test("weak inferred superseding episode wording stays queued behind the current 
       "related work stays bundled with the current episode already in now",
     ),
   );
-  assert.deepEqual(candidateTrace.semantic?.relationHints.map((hint) => hint.kind), ["same_issue", "supersedes"]);
+  assert.deepEqual(
+    candidateTrace.semantic?.relationHints.map((hint) => hint.kind),
+    ["same_issue", "supersedes"],
+  );
   assert.equal(candidateTrace.semantic?.confidence, "low");
 });
 
@@ -605,12 +614,15 @@ test("status updates with shared issue context stay bundled into one episode", (
     timestamp: "2026-03-08T12:00:20.000Z",
     source: { id: "custom-agent" },
     title: "Deploy issue regressed again",
-    summary: "The production deploy issue came back and regressed while recovery is still in progress.",
+    summary:
+      "The production deploy issue came back and regressed while recovery is still in progress.",
     status: "waiting",
     context,
   });
 
-  const candidateTrace = traces.findLast((trace) => trace.event.id === "src:status:issue:regressed");
+  const candidateTrace = traces.findLast(
+    (trace) => trace.event.id === "src:status:issue:regressed",
+  );
   assert.ok(candidateTrace);
   if (!candidateTrace || candidateTrace.evaluation.kind !== "candidate") {
     return;
@@ -619,16 +631,25 @@ test("status updates with shared issue context stay bundled into one episode", (
   const attentionView = core.getAttentionView();
   assert.equal(attentionView.now?.interactionId, "interaction:blocker");
   assert.deepEqual(attentionView.next, []);
-  assert.deepEqual(attentionView.ambient.map((frame) => frame.interactionId), ["interaction:task:issue:b:status"]);
+  assert.deepEqual(
+    attentionView.ambient.map((frame) => frame.interactionId),
+    ["interaction:task:issue:b:status"],
+  );
   assert.equal(readFrameEpisodeId(attentionView.ambient[0] ?? null), initialEpisodeId);
-  assert.equal(attentionView.ambient[0]?.metadata?.episode?.key, "custom-agent:status:issue:deploy:prod");
+  assert.equal(
+    attentionView.ambient[0]?.metadata?.episode?.key,
+    "custom-agent:status:issue:deploy:prod",
+  );
   assert.deepEqual(
     candidateTrace.semantic?.relationHints.map((hint) => hint.kind),
     ["same_issue", "repeats", "escalates"],
   );
   assert.equal(candidateTrace.coordination.kind, "ambient");
   assert.equal(candidateTrace.coordination.resultLane, "ambient");
-  assert.equal(candidateTrace.semantic?.impact.continuity?.includes("relations (continuity)"), true);
+  assert.equal(
+    candidateTrace.semantic?.impact.continuity?.includes("relations (continuity)"),
+    true,
+  );
 });
 
 test("abstained inferred resurfacing stays bundled but keeps episode evidence diagnostic", () => {
@@ -692,7 +713,9 @@ test("abstained inferred resurfacing stays bundled but keeps episode evidence di
     },
   });
 
-  const candidateTrace = traces.findLast((trace) => trace.event.id === "src:status:issue:abstained-regressed");
+  const candidateTrace = traces.findLast(
+    (trace) => trace.event.id === "src:status:issue:abstained-regressed",
+  );
   assert.ok(candidateTrace);
   if (!candidateTrace || candidateTrace.evaluation.kind !== "candidate") {
     return;
@@ -708,12 +731,13 @@ test("abstained inferred resurfacing stays bundled but keeps episode evidence di
   assert.equal(readFrameEpisodeId(ambientFrame), initialEpisodeId);
   assert.equal(ambientFrame.metadata?.episode?.state, "batched");
   assert.equal(ambientFrame.metadata?.episode?.evidenceScore, 1);
-  assert.deepEqual(
-    ambientFrame.metadata?.episode?.evidenceReasons,
-    ["multiple related interactions have accumulated in this episode"],
-  );
+  assert.deepEqual(ambientFrame.metadata?.episode?.evidenceReasons, [
+    "multiple related interactions have accumulated in this episode",
+  ]);
   assert.equal(candidateTrace.semantic?.abstained, true);
-  const internalTrace = internalTraces.findLast((trace) => trace.event.id === "src:status:issue:abstained-regressed");
+  const internalTrace = internalTraces.findLast(
+    (trace) => trace.event.id === "src:status:issue:abstained-regressed",
+  );
   assert.equal(internalTrace?.evaluation.kind, "candidate");
   if (!internalTrace || internalTrace.evaluation.kind !== "candidate") {
     return;
@@ -1182,8 +1206,14 @@ test("blocked-like waiting statuses become queue-worthy without changing status 
 
   assert.equal(candidateTrace.coordination.kind, "queue");
   assert.equal(candidateTrace.coordination.resultLane, "now");
-  assert.equal(core.getAttentionView().now?.interactionId, "interaction:task:status:blocking-next:status");
-  assert.equal(core.getTaskView("task:status:blocking-next").next[0]?.interactionId, "interaction:task:status:blocking-next:status");
+  assert.equal(
+    core.getAttentionView().now?.interactionId,
+    "interaction:task:status:blocking-next:status",
+  );
+  assert.equal(
+    core.getTaskView("task:status:blocking-next").next[0]?.interactionId,
+    "interaction:task:status:blocking-next:status",
+  );
   assert.equal(core.getAttentionView().ambient.length, 0);
 });
 
@@ -1221,7 +1251,9 @@ test("low-confidence blocked-like waiting stays queued behind active now work", 
     },
   });
 
-  const candidateTrace = traces.findLast((trace) => trace.event.id === "src:status:low-confidence-blocked-like");
+  const candidateTrace = traces.findLast(
+    (trace) => trace.event.id === "src:status:low-confidence-blocked-like",
+  );
   assert.ok(candidateTrace);
   if (!candidateTrace || candidateTrace.evaluation.kind !== "candidate") {
     return;
@@ -1229,7 +1261,10 @@ test("low-confidence blocked-like waiting stays queued behind active now work", 
 
   assert.equal(candidateTrace.coordination.kind, "queue");
   assert.equal(candidateTrace.coordination.resultLane, "next");
-  assert.equal(core.getAttentionView().now?.interactionId, "interaction:anchor:low-confidence-blocked-like");
+  assert.equal(
+    core.getAttentionView().now?.interactionId,
+    "interaction:anchor:low-confidence-blocked-like",
+  );
   assert.equal(
     core.getTaskView("task:status:low-confidence-blocked-like").next[0]?.interactionId,
     "interaction:task:status:low-confidence-blocked-like:status",
@@ -1276,7 +1311,9 @@ test("abstained blocked-like waiting stays queued behind active now work", () =>
     },
   });
 
-  const candidateTrace = traces.findLast((trace) => trace.event.id === "src:status:abstained-blocked-like");
+  const candidateTrace = traces.findLast(
+    (trace) => trace.event.id === "src:status:abstained-blocked-like",
+  );
   assert.ok(candidateTrace);
   if (!candidateTrace || candidateTrace.evaluation.kind !== "candidate") {
     return;
@@ -1284,7 +1321,10 @@ test("abstained blocked-like waiting stays queued behind active now work", () =>
 
   assert.equal(candidateTrace.coordination.kind, "queue");
   assert.equal(candidateTrace.coordination.resultLane, "next");
-  assert.equal(core.getAttentionView().now?.interactionId, "interaction:anchor:abstained-blocked-like");
+  assert.equal(
+    core.getAttentionView().now?.interactionId,
+    "interaction:anchor:abstained-blocked-like",
+  );
   assert.equal(
     core.getTaskView("task:status:abstained-blocked-like").next[0]?.interactionId,
     "interaction:task:status:abstained-blocked-like:status",

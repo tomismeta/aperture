@@ -59,7 +59,9 @@ export function semanticWhyNowForTaskStatus(
     case "running":
     case "waiting":
     case "completed":
-      return options?.impliedAsk ? "Status text implies the operator may need to respond." : undefined;
+      return options?.impliedAsk
+        ? "Status text implies the operator may need to respond."
+        : undefined;
   }
 }
 
@@ -85,9 +87,7 @@ export function semanticReasonsForTaskStatus(
   }
 }
 
-export function semanticReasonsForLifecycle(
-  type: "task_started" | "completion",
-): string[] {
+export function semanticReasonsForLifecycle(type: "task_started" | "completion"): string[] {
   switch (type) {
     case "task_started":
       return ["task start is an explicit lifecycle fact"];

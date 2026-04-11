@@ -1,21 +1,29 @@
 import { JUDGMENT_DEFAULTS } from "../judgment-defaults.js";
 import { priorityForFrame } from "../frame-score.js";
-import { noopContinuityRule, overrideContinuityRule, type ContinuityRule } from "./continuity-rule.js";
+import {
+  noopContinuityRule,
+  overrideContinuityRule,
+  type ContinuityRule,
+} from "./continuity-rule.js";
 
 export const evaluateBurstDampeningContinuityRule: ContinuityRule = (input) => {
   const activeFrame = input.evidence.currentFrame;
   const { candidate, context, evidence, helpers, plannerDefaults, routed } = input;
-  if (!activeFrame || routed.decision.kind !== "activate" || plannerDefaults?.batchStatusBursts === false) {
+  if (
+    !activeFrame ||
+    routed.decision.kind !== "activate" ||
+    plannerDefaults?.batchStatusBursts === false
+  ) {
     return noopContinuityRule("burst_dampening");
   }
 
   if (
-    activeFrame.taskId !== candidate.taskId
-    || activeFrame.mode !== "status"
-    || candidate.mode !== "status"
-    || candidate.blocking
-    || candidate.consequence === "high"
-    || candidate.tone === "critical"
+    activeFrame.taskId !== candidate.taskId ||
+    activeFrame.mode !== "status" ||
+    candidate.mode !== "status" ||
+    candidate.blocking ||
+    candidate.consequence === "high" ||
+    candidate.tone === "critical"
   ) {
     return noopContinuityRule("burst_dampening");
   }

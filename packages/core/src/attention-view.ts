@@ -66,7 +66,9 @@ export function buildAttentionView(
     referenceNow,
   );
   if (heldFocus) {
-    const isInterruptive = interruptive.some((frame) => frame.interactionId === heldFocus.interactionId);
+    const isInterruptive = interruptive.some(
+      (frame) => frame.interactionId === heldFocus.interactionId,
+    );
     return {
       now: heldFocus,
       next: isInterruptive
@@ -90,8 +92,8 @@ export function buildAttentionView(
     if (
       now &&
       (scoreAttentionFrame(now, { now: referenceNow }) <= 0 ||
-        (options.globalAttentionState === "overloaded"
-          && scoreAttentionFrame(now, { now: referenceNow }) < 200))
+        (options.globalAttentionState === "overloaded" &&
+          scoreAttentionFrame(now, { now: referenceNow }) < 200))
     ) {
       return {
         now: null,
@@ -158,9 +160,9 @@ function resolveHeldFocus(
   }
 
   const held =
-    interruptive.find((frame) => frame.interactionId === focusedInteractionId)
-    ?? ambient.find((frame) => frame.interactionId === focusedInteractionId)
-    ?? null;
+    interruptive.find((frame) => frame.interactionId === focusedInteractionId) ??
+    ambient.find((frame) => frame.interactionId === focusedInteractionId) ??
+    null;
   if (!held) {
     return null;
   }
@@ -182,10 +184,16 @@ function shouldYieldHeldFocus(
     return true;
   }
 
-  if (contender.mode !== "status" && contender.consequence === "high" && held.consequence !== "high") {
+  if (
+    contender.mode !== "status" &&
+    contender.consequence === "high" &&
+    held.consequence !== "high"
+  ) {
     return true;
   }
 
-  return scoreAttentionFrame(contender, { now }) - scoreAttentionFrame(held, { now })
-    >= FOCUS_HOLD_PREEMPTION_SCORE_GAP;
+  return (
+    scoreAttentionFrame(contender, { now }) - scoreAttentionFrame(held, { now }) >=
+    FOCUS_HOLD_PREEMPTION_SCORE_GAP
+  );
 }

@@ -79,10 +79,7 @@ export class OperatorEngagementController {
   ): void {
     this.clearTimer();
     this.timer = setTimeout(() => {
-      if (
-        this.engagement?.taskId !== taskId
-        || this.engagement?.interactionId !== interactionId
-      ) {
+      if (this.engagement?.taskId !== taskId || this.engagement?.interactionId !== interactionId) {
         return;
       }
 
@@ -105,9 +102,11 @@ export class OperatorEngagementController {
 }
 
 export function sameAttentionView(left: AttentionView, right: AttentionView): boolean {
-  return left.now?.interactionId === right.now?.interactionId
-    && sameInteractionOrder(left.next, right.next)
-    && sameInteractionOrder(left.ambient, right.ambient);
+  return (
+    left.now?.interactionId === right.now?.interactionId &&
+    sameInteractionOrder(left.next, right.next) &&
+    sameInteractionOrder(left.ambient, right.ambient)
+  );
 }
 
 function normalizeOperatorEngagementDuration(durationMs: number | undefined): number {
@@ -119,6 +118,8 @@ function normalizeOperatorEngagementDuration(durationMs: number | undefined): nu
 }
 
 function sameInteractionOrder(left: AttentionFrame[], right: AttentionFrame[]): boolean {
-  return left.length === right.length
-    && left.every((frame, index) => frame.interactionId === right[index]?.interactionId);
+  return (
+    left.length === right.length &&
+    left.every((frame, index) => frame.interactionId === right[index]?.interactionId)
+  );
 }

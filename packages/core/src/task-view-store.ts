@@ -20,9 +20,7 @@ export class TaskViewStore {
     const taskView = this.get(taskId);
     const nextFrames = taskView.next.filter((item) => item.interactionId !== frame.interactionId);
     const previousNow =
-      taskView.now && taskView.now.interactionId !== frame.interactionId
-        ? taskView.now
-        : null;
+      taskView.now && taskView.now.interactionId !== frame.interactionId ? taskView.now : null;
     const next: AttentionTaskView = {
       now: frame,
       next: previousNow ? [previousNow, ...nextFrames] : nextFrames,
@@ -62,7 +60,9 @@ export class TaskViewStore {
   resolve(taskId: string, interactionId: string): AttentionTaskView {
     const taskView = this.get(taskId);
     const remainingNext = taskView.next.filter((frame) => frame.interactionId !== interactionId);
-    const remainingAmbient = taskView.ambient.filter((frame) => frame.interactionId !== interactionId);
+    const remainingAmbient = taskView.ambient.filter(
+      (frame) => frame.interactionId !== interactionId,
+    );
 
     let nextNow = taskView.now;
     if (nextNow?.interactionId === interactionId) {
@@ -80,9 +80,11 @@ export class TaskViewStore {
   private upsert(taskId: string, lane: FrameLane, frame: AttentionFrame): AttentionTaskView {
     const taskView = this.get(taskId);
     const dedupedNext = taskView.next.filter((item) => item.interactionId !== frame.interactionId);
-    const dedupedAmbient = taskView.ambient.filter((item) => item.interactionId !== frame.interactionId);
+    const dedupedAmbient = taskView.ambient.filter(
+      (item) => item.interactionId !== frame.interactionId,
+    );
     const demotingNow = taskView.now?.interactionId === frame.interactionId;
-    const nextNow = demotingNow ? dedupedNext.shift() ?? null : taskView.now;
+    const nextNow = demotingNow ? (dedupedNext.shift() ?? null) : taskView.now;
 
     const next: AttentionTaskView = {
       now: nextNow,

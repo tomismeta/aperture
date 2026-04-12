@@ -107,12 +107,26 @@ test("runtime health exposes capture, work-response, and core health details", a
       health: {
         capture: { publishedSourceEvents: number };
         workResponses: { counts: { pending: number } };
+        telemetry: {
+          totalRequests: number;
+          activeRequests: number;
+          failedRequests: number;
+          routes: Array<{ name: string; requests: number; successfulResponses: number }>;
+        };
         core: { stores: { taskViews: { taskCount: number } }; listeners: { totalActive: number } };
       };
     };
 
     assert.equal(payload.health.capture.publishedSourceEvents, 1);
     assert.equal(payload.health.workResponses.counts.pending, 1);
+    assert.equal(payload.health.telemetry.totalRequests, 2);
+    assert.equal(payload.health.telemetry.activeRequests, 1);
+    assert.equal(payload.health.telemetry.failedRequests, 0);
+    const workRoute = payload.health.telemetry.routes.find(
+      (route) => route.name === "work.publish",
+    );
+    assert.equal(workRoute?.requests, 1);
+    assert.equal(workRoute?.successfulResponses, 1);
     assert.equal(payload.health.core.stores.taskViews.taskCount, 1);
     assert.equal(payload.health.core.listeners.totalActive >= 1, true);
   } finally {
@@ -623,6 +637,92 @@ test("runtime control routes require bearer auth while health stays open", async
 
     const authorized = await authorizedRuntimeFetch(controlUrl, authToken, "/state");
     assert.equal(authorized.status, 200);
+
+    const after = await fetch(`${controlUrl}/health`);
+    assert.equal(after.status, 200);
+    const payload = (await after.json()) as {
+      health: {
+        telemetry: {
+          totalRequests: number;
+          unauthorizedRequests: number;
+          routes: Array<{
+            name: string;
+            method: string;
+            unauthorizedResponses: number;
+            successfulResponses: number;
+          }>;
+        };
+      };
+    };
+    assert.equal(payload.health.telemetry.totalRequests, 4);
+    assert.equal(payload.health.telemetry.unauthorizedRequests, 1);
+    const stateRoute = payload.health.telemetry.routes.find(
+      (route) => route.name === "runtime.state" && route.method === "GET",
+    );
+    assert.equal(stateRoute?.unauthorizedResponses, 1);
+    assert.equal(stateRoute?.successfulResponses, 1);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("runtime telemetry retains recent route failures with route-level detail", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { baseUrl, controlUrl, authToken } = await runtime.listen();
+
+  try {
+    const publish = await fetch(`${baseUrl}/work`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({
+        kind: "work.updated",
+        work: {
+          id: "task:telemetry",
+        },
+      }),
+    });
+    assert.equal(publish.status, 400);
+
+    const health = await fetch(`${controlUrl}/health`);
+    assert.equal(health.status, 200);
+    const payload = (await health.json()) as {
+      health: {
+        telemetry: {
+          totalRequests: number;
+          activeRequests: number;
+          failedRequests: number;
+          lastErrorCode: string | null;
+          routes: Array<{
+            name: string;
+            failedResponses: number;
+            lastErrorCode: string | null;
+          }>;
+          recentErrors: Array<{
+            route: string;
+            code: string;
+            statusCode: number;
+            message: string;
+          }>;
+        };
+      };
+    };
+
+    assert.equal(payload.health.telemetry.totalRequests, 2);
+    assert.equal(payload.health.telemetry.activeRequests, 1);
+    assert.equal(payload.health.telemetry.failedRequests, 1);
+    assert.equal(payload.health.telemetry.lastErrorCode, "invalid_work_payload");
+    assert.equal(payload.health.telemetry.recentErrors[0]?.route, "work.publish");
+    assert.equal(payload.health.telemetry.recentErrors[0]?.code, "invalid_work_payload");
+    assert.equal(payload.health.telemetry.recentErrors[0]?.statusCode, 400);
+    assert.match(payload.health.telemetry.recentErrors[0]?.message ?? "", /work\.status/i);
+    const workRoute = payload.health.telemetry.routes.find(
+      (route) => route.name === "work.publish",
+    );
+    assert.equal(workRoute?.failedResponses, 1);
+    assert.equal(workRoute?.lastErrorCode, "invalid_work_payload");
   } finally {
     await runtime.close();
   }

@@ -21,6 +21,7 @@ import type {
 } from "./runtime-contract.js";
 import { RuntimeCaptureStore } from "./runtime-capture-store.js";
 import type { LearningPersistenceState } from "./learning-persistence.js";
+import { RuntimeTelemetry } from "./runtime-telemetry.js";
 import { WorkResponseStore } from "./work-response-store.js";
 
 type AdapterSession = {
@@ -55,6 +56,7 @@ type RuntimeStateOptions = {
   metadata?: Record<string, string>;
   learningPersistence?: LearningPersistenceState;
   workResponses: WorkResponseStore;
+  telemetry: RuntimeTelemetry;
 };
 
 export class RuntimeState {
@@ -68,6 +70,7 @@ export class RuntimeState {
   private readonly surfaces = new Map<string, SurfaceSession>();
   private readonly capture: RuntimeCaptureStore;
   private readonly workResponses: WorkResponseStore;
+  private readonly telemetry: RuntimeTelemetry;
   private stateVersion = 0;
   private learningPersistence: LearningPersistenceState | undefined;
 
@@ -84,6 +87,7 @@ export class RuntimeState {
       captureLogLimit: options.captureLogLimit,
     });
     this.workResponses = options.workResponses;
+    this.telemetry = options.telemetry;
   }
 
   get version(): number {
@@ -286,6 +290,7 @@ export class RuntimeState {
       },
       capture: this.capture.stats(),
       workResponses: this.workResponses.stats(),
+      telemetry: this.telemetry.snapshot(),
       core: readInternalCoreHealthSnapshot(core),
     };
   }

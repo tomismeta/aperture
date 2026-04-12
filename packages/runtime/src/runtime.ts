@@ -19,6 +19,7 @@ import {
   writeLocalRuntimeRegistration,
 } from "./runtime-discovery.js";
 import { RuntimeState } from "./runtime-state.js";
+import { RuntimeTelemetry } from "./runtime-telemetry.js";
 import { WorkResponseStore } from "./work-response-store.js";
 
 const DEFAULT_KIND = "aperture";
@@ -69,6 +70,7 @@ export function createApertureRuntime(options: ApertureRuntimeOptions = {}): Ape
       control: 240,
     },
   });
+  const telemetry = new RuntimeTelemetry();
 
   let controlServer: ReturnType<typeof createServer> | null = null;
   let registrationInterval: NodeJS.Timeout | null = null;
@@ -127,6 +129,7 @@ export function createApertureRuntime(options: ApertureRuntimeOptions = {}): Ape
         ...(options.metadata ? { metadata: options.metadata } : {}),
         ...(learningPersistence ? { learningPersistence } : {}),
         workResponses,
+        telemetry,
       });
 
       const routeHandler = createRuntimeRouteHandler({
@@ -152,6 +155,7 @@ export function createApertureRuntime(options: ApertureRuntimeOptions = {}): Ape
         }),
         authToken: runtimeAuth.token,
         rateLimiter,
+        telemetry,
       });
 
       controlServer = createServer(async (req, res) => {

@@ -76,6 +76,7 @@ const WORK_RESPONSE_ROUTE = /^\/(?:v1\/)?work\/response\/([^/]+)$/;
 export function buildRuntimeRoutes(options: BuildRuntimeRoutesOptions): RuntimeRoute[] {
   return [
     {
+      name: "runtime.health",
       method: "GET",
       match: matchLiteral(`${options.controlPathPrefix}/health`),
       requiresAuth: false,
@@ -94,6 +95,7 @@ export function buildRuntimeRoutes(options: BuildRuntimeRoutesOptions): RuntimeR
       },
     },
     {
+      name: "runtime.state",
       method: "GET",
       match: matchLiteral(`${options.controlPathPrefix}/state`),
       handler: async ({ res }) => {
@@ -101,6 +103,7 @@ export function buildRuntimeRoutes(options: BuildRuntimeRoutesOptions): RuntimeR
       },
     },
     {
+      name: "runtime.learning.checkpoint",
       method: "POST",
       match: matchLiteral(`${options.controlPathPrefix}/learning/checkpoint`),
       mutating: true,
@@ -124,6 +127,7 @@ export function buildRuntimeRoutes(options: BuildRuntimeRoutesOptions): RuntimeR
       },
     },
     {
+      name: "runtime.learning.reload",
       method: "POST",
       match: matchLiteral(`${options.controlPathPrefix}/learning/reload`),
       mutating: true,
@@ -147,6 +151,7 @@ export function buildRuntimeRoutes(options: BuildRuntimeRoutesOptions): RuntimeR
       },
     },
     {
+      name: "runtime.events.feed",
       method: "GET",
       match: matchLiteral(`${options.controlPathPrefix}/events`),
       handler: async ({ res, url }) => {
@@ -159,6 +164,7 @@ export function buildRuntimeRoutes(options: BuildRuntimeRoutesOptions): RuntimeR
       },
     },
     {
+      name: "runtime.session",
       method: "GET",
       match: matchLiteral(`${options.controlPathPrefix}/session`),
       handler: async ({ res }) => {
@@ -166,6 +172,7 @@ export function buildRuntimeRoutes(options: BuildRuntimeRoutesOptions): RuntimeR
       },
     },
     {
+      name: "runtime.response.submit",
       method: "POST",
       match: matchLiteral(`${options.controlPathPrefix}/response`),
       mutating: true,
@@ -201,6 +208,7 @@ export function buildRuntimeRoutes(options: BuildRuntimeRoutesOptions): RuntimeR
       },
     },
     {
+      name: "runtime.engagement",
       method: "POST",
       match: matchLiteral(`${options.controlPathPrefix}/engagement`),
       mutating: true,
@@ -222,6 +230,7 @@ export function buildRuntimeRoutes(options: BuildRuntimeRoutesOptions): RuntimeR
       },
     },
     {
+      name: "runtime.events.source.publish",
       method: "POST",
       match: matchLiteral(`${options.controlPathPrefix}/events/source`),
       mutating: true,
@@ -241,6 +250,7 @@ export function buildRuntimeRoutes(options: BuildRuntimeRoutesOptions): RuntimeR
     },
     ...createWorkRoutes(options),
     {
+      name: "runtime.adapters.register",
       method: "POST",
       match: matchLiteral(`${options.controlPathPrefix}/adapters/register`),
       mutating: true,
@@ -274,6 +284,7 @@ export function buildRuntimeRoutes(options: BuildRuntimeRoutesOptions): RuntimeR
       },
     },
     {
+      name: "runtime.adapters.heartbeat",
       method: "POST",
       match: matchPattern(
         new RegExp(`^${escapeRegExp(options.controlPathPrefix)}/adapters/([^/]+)/heartbeat$`),
@@ -290,6 +301,7 @@ export function buildRuntimeRoutes(options: BuildRuntimeRoutesOptions): RuntimeR
       },
     },
     {
+      name: "runtime.adapters.delete",
       method: "DELETE",
       match: matchPattern(
         new RegExp(`^${escapeRegExp(options.controlPathPrefix)}/adapters/([^/]+)$`),
@@ -303,6 +315,7 @@ export function buildRuntimeRoutes(options: BuildRuntimeRoutesOptions): RuntimeR
       },
     },
     {
+      name: "runtime.surfaces.attach",
       method: "POST",
       match: matchLiteral(`${options.controlPathPrefix}/surfaces/attach`),
       mutating: true,
@@ -334,6 +347,7 @@ export function buildRuntimeRoutes(options: BuildRuntimeRoutesOptions): RuntimeR
       },
     },
     {
+      name: "runtime.surfaces.heartbeat",
       method: "POST",
       match: matchPattern(
         new RegExp(`^${escapeRegExp(options.controlPathPrefix)}/surfaces/([^/]+)/heartbeat$`),
@@ -350,6 +364,7 @@ export function buildRuntimeRoutes(options: BuildRuntimeRoutesOptions): RuntimeR
       },
     },
     {
+      name: "runtime.surfaces.delete",
       method: "DELETE",
       match: matchPattern(
         new RegExp(`^${escapeRegExp(options.controlPathPrefix)}/surfaces/([^/]+)$`),
@@ -369,6 +384,7 @@ export function buildRuntimeRoutes(options: BuildRuntimeRoutesOptions): RuntimeR
 function createWorkRoutes(options: BuildRuntimeRoutesOptions): RuntimeRoute[] {
   return [
     ...WORK_ROUTE_PATHS.map((path) => ({
+      name: "work.describe",
       method: "GET" as const,
       match: matchLiteral(path),
       handler: async (context: RuntimeRouteContext) => {
@@ -378,6 +394,7 @@ function createWorkRoutes(options: BuildRuntimeRoutesOptions): RuntimeRoute[] {
       },
     })),
     {
+      name: "work.response.read",
       method: "GET",
       match: matchPattern(WORK_RESPONSE_ROUTE, ["interactionId"]),
       handler: async ({ res, params }) => {
@@ -395,6 +412,7 @@ function createWorkRoutes(options: BuildRuntimeRoutesOptions): RuntimeRoute[] {
       },
     },
     {
+      name: "work.response.cancel",
       method: "DELETE",
       match: matchPattern(WORK_RESPONSE_ROUTE, ["interactionId"]),
       mutating: true,
@@ -420,6 +438,7 @@ function createWorkRoutes(options: BuildRuntimeRoutesOptions): RuntimeRoute[] {
       },
     },
     ...WORK_ROUTE_PATHS.map((path) => ({
+      name: "work.publish",
       method: "POST" as const,
       match: matchLiteral(path),
       mutating: true,

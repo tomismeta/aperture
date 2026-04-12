@@ -82,6 +82,49 @@ export type ApertureRuntimeWorkResponseHealthSnapshot = {
   lastPersistenceErrorAt: string | null;
 };
 
+export type ApertureRuntimeTelemetryRouteHealthSnapshot = {
+  name: string;
+  method: "GET" | "POST" | "DELETE" | "UNKNOWN";
+  requests: number;
+  successfulResponses: number;
+  failedResponses: number;
+  unauthorizedResponses: number;
+  rateLimitedResponses: number;
+  rejectedOriginResponses: number;
+  averageDurationMs: number | null;
+  maxDurationMs: number | null;
+  lastStatusCode: number | null;
+  lastRequestAt: string | null;
+  lastCompletedAt: string | null;
+  lastErrorAt: string | null;
+  lastErrorCode: string | null;
+};
+
+export type ApertureRuntimeTelemetryErrorHealthSnapshot = {
+  at: string;
+  route: string;
+  method: "GET" | "POST" | "DELETE" | "UNKNOWN";
+  statusCode: number;
+  code: string;
+  message: string;
+};
+
+export type ApertureRuntimeTelemetryHealthSnapshot = {
+  totalRequests: number;
+  activeRequests: number;
+  completedRequests: number;
+  failedRequests: number;
+  unauthorizedRequests: number;
+  rateLimitedRequests: number;
+  rejectedOriginRequests: number;
+  lastRequestAt: string | null;
+  lastCompletedAt: string | null;
+  lastErrorAt: string | null;
+  lastErrorCode: string | null;
+  routes: ApertureRuntimeTelemetryRouteHealthSnapshot[];
+  recentErrors: ApertureRuntimeTelemetryErrorHealthSnapshot[];
+};
+
 export type ApertureRuntimeHealthSnapshot = {
   startedAt: string;
   adapters: {
@@ -94,6 +137,7 @@ export type ApertureRuntimeHealthSnapshot = {
   };
   capture: ApertureRuntimeCaptureHealthSnapshot;
   workResponses: ApertureRuntimeWorkResponseHealthSnapshot;
+  telemetry: ApertureRuntimeTelemetryHealthSnapshot;
   core: ApertureCoreHealthSnapshot;
 };
 

@@ -13,6 +13,13 @@ export class RuntimeHttpError extends Error {
   }
 }
 
+export type RuntimeErrorDescription = {
+  statusCode: number;
+  code: string;
+  message: string;
+  hint?: string;
+};
+
 export async function readOptionalBody(
   req: IncomingMessage,
   bodyLimitBytes: number,
@@ -128,23 +135,31 @@ export function writeJson(
 }
 
 export function writeError(res: ServerResponse<IncomingMessage>, error: unknown): void {
-  if (error instanceof RuntimeHttpError) {
-    writeJson(res, error.statusCode, {
-      error: {
-        code: error.code,
-        message: error.message,
-        ...(error.hint !== undefined ? { hint: error.hint } : {}),
-      },
-    });
-    return;
-  }
-
-  writeJson(res, 500, {
+  const described = describeRuntimeError(error);
+  writeJson(res, described.statusCode, {
     error: {
-      code: "internal_error",
-      message: error instanceof Error ? error.message : "internal error",
+      code: described.code,
+      message: described.message,
+      ...(described.hint !== undefined ? { hint: described.hint } : {}),
     },
   });
+}
+
+export function describeRuntimeError(error: unknown): RuntimeErrorDescription {
+  if (error instanceof RuntimeHttpError) {
+    return {
+      statusCode: error.statusCode,
+      code: error.code,
+      message: error.message,
+      ...(error.hint !== undefined ? { hint: error.hint } : {}),
+    };
+  }
+
+  return {
+    statusCode: 500,
+    code: "internal_error",
+    message: error instanceof Error ? error.message : "internal error",
+  };
 }
 
 export function requestBaseUrl(

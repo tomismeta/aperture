@@ -1,8 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { assertAllowedOrigin, isAuthorizedRequest } from "./runtime-auth.js";
-import { RuntimeHttpError, writeError } from "./runtime-http.js";
+import { describeRuntimeError, RuntimeHttpError, writeError } from "./runtime-http.js";
 import { RuntimeRateLimiter } from "./runtime-rate-limit.js";
+import { RuntimeTelemetry } from "./runtime-telemetry.js";
 
 export type RuntimeRouteMatch = {
   params?: Record<string, string>;
@@ -17,6 +18,7 @@ export type RuntimeRouteContext = {
 };
 
 export type RuntimeRoute = {
+  name: string;
   method: "GET" | "POST" | "DELETE";
   match: (path: string) => RuntimeRouteMatch | null;
   requiresAuth?: boolean;
@@ -29,6 +31,7 @@ export function createRuntimeRouteHandler(options: {
   routes: RuntimeRoute[];
   authToken: string;
   rateLimiter: RuntimeRateLimiter;
+  telemetry: RuntimeTelemetry;
 }) {
   return async (
     req: IncomingMessage,
@@ -36,17 +39,23 @@ export function createRuntimeRouteHandler(options: {
     url: URL,
     path: string,
   ): Promise<void> => {
+    const method = req.method;
+    const telemetryMethod =
+      method === "GET" || method === "POST" || method === "DELETE" ? method : "UNKNOWN";
+    let telemetryRequest: ReturnType<RuntimeTelemetry["begin"]> | null = null;
     try {
-      const method = req.method;
       if (method !== "GET" && method !== "POST" && method !== "DELETE") {
+        telemetryRequest = options.telemetry.begin("runtime.unmatched", telemetryMethod);
         throw new RuntimeHttpError(404, "not_found", "not found");
       }
 
       const matchedRoute = findRoute(options.routes, method, path);
       if (!matchedRoute) {
+        telemetryRequest = options.telemetry.begin("runtime.unmatched", method);
         throw new RuntimeHttpError(404, "not_found", "not found");
       }
       const { route, params } = matchedRoute;
+      telemetryRequest = options.telemetry.begin(route.name, route.method);
 
       assertAllowedOrigin(req.headers.origin, { allowBrowserOrigin: false });
 
@@ -80,7 +89,10 @@ export function createRuntimeRouteHandler(options: {
         path,
         params,
       });
+      telemetryRequest.finish({ statusCode: res.statusCode });
     } catch (error) {
+      const described = describeRuntimeError(error);
+      telemetryRequest?.finish(described);
       writeError(res, error);
     }
   };

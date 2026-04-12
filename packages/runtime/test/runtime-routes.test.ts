@@ -9,6 +9,7 @@ import { APERTURE_INTERNAL_READ_HEALTH } from "@tomismeta/aperture-core/internal
 import { buildRuntimeRoutes, type BuildRuntimeRoutesOptions } from "../src/runtime-routes.js";
 import { RuntimeState } from "../src/runtime-state.js";
 import type { RuntimeRoute } from "../src/runtime-router.js";
+import { RuntimeTelemetry } from "../src/runtime-telemetry.js";
 import { WorkResponseStore } from "../src/work-response-store.js";
 
 test("runtime route table preserves auth and rate-limit policy invariants", async () => {
@@ -28,6 +29,11 @@ test("runtime route table preserves auth and rate-limit policy invariants", asyn
   for (const route of routes.filter((candidate) => candidate.mutating)) {
     assert.equal(typeof route.rateLimitKey, "string");
     assert.notEqual(route.rateLimitKey?.trim(), "");
+  }
+
+  for (const route of routes) {
+    assert.equal(typeof route.name, "string");
+    assert.notEqual(route.name.trim(), "");
   }
 });
 
@@ -80,6 +86,7 @@ async function buildRoutesForTest(): Promise<RuntimeRoute[]> {
     adapterTtlMs: 60_000,
     surfaceTtlMs: 60_000,
     workResponses,
+    telemetry: new RuntimeTelemetry(),
   });
   const core = {
     checkpointMemory: async () => null,

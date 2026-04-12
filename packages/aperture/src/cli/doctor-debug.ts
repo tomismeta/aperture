@@ -208,12 +208,24 @@ export function printDebugSnapshot(snapshot: DebugSnapshot, topic: DebugTopic, c
     );
 
     if (snapshot.runtimeSnapshot) {
+      const topRoute = snapshot.runtimeSnapshot.health.telemetry.routes[0];
       sections.push(
         `  surfaces: ${snapshot.runtimeSnapshot.surfaceCount}`,
         `  adapters: ${snapshot.runtimeSnapshot.adapters.length}`,
         `  attention: now ${snapshot.runtimeSnapshot.attentionView.now ? 1 : 0} · next ${snapshot.runtimeSnapshot.attentionView.next.length} · ambient ${snapshot.runtimeSnapshot.attentionView.ambient.length}`,
         `  recent signals: ${snapshot.runtimeSnapshot.signalSummary.recentSignals}`,
         `  lifetime signals: ${snapshot.runtimeSnapshot.signalSummary.lifetimeSignals}`,
+        `  requests: ${snapshot.runtimeSnapshot.health.telemetry.totalRequests} total · ${snapshot.runtimeSnapshot.health.telemetry.failedRequests} failed · ${snapshot.runtimeSnapshot.health.telemetry.activeRequests} active`,
+        ...(topRoute
+          ? [
+              `  top route: ${topRoute.name} ${topRoute.method} · ${topRoute.requests} req · avg ${topRoute.averageDurationMs ?? 0} ms`,
+            ]
+          : []),
+        ...(snapshot.runtimeSnapshot.health.telemetry.lastErrorCode
+          ? [
+              `  last route error: ${snapshot.runtimeSnapshot.health.telemetry.lastErrorCode} at ${snapshot.runtimeSnapshot.health.telemetry.lastErrorAt}`,
+            ]
+          : []),
         ...snapshot.runtimeSnapshot.adapters.map((adapter) => (
           `  - ${adapter.kind}${adapter.label ? ` (${adapter.label})` : ""} · last seen ${adapter.lastSeenAt}`
         )),

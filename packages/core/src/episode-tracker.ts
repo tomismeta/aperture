@@ -28,9 +28,24 @@ type EpisodeRecord = EpisodeSummary & {
 };
 
 const DEFAULTS = JUDGMENT_DEFAULTS.episodeEvidence;
+const DEFAULT_DORMANT_EPISODE_RETENTION_MS = 24 * 60 * 60_000;
+const DEFAULT_MAX_DORMANT_EPISODES = 1_024;
+
+export type EpisodeTrackerStats = {
+  activeRecords: number;
+  dormantRecords: number;
+  retainedRecords: number;
+  boundInteractions: number;
+  dormantRetentionMs: number;
+  maxDormantRecords: number;
+  prunedRecords: number;
+  latestEpisodeAt: string | null;
+};
 
 type EpisodeTrackerOptions = {
   clock?: CoreClock;
+  dormantRetentionMs?: number;
+  maxDormantEpisodes?: number;
 };
 
 export class EpisodeTracker {
@@ -39,12 +54,25 @@ export class EpisodeTracker {
   private readonly byInteractionId = new Map<string, string>();
   private readonly nextSequenceByKey = new Map<string, number>();
   private readonly clock: CoreClock;
+  private readonly dormantRetentionMs: number;
+  private readonly maxDormantEpisodes: number;
+  private latestObservedAtMs: number | null = null;
+  private prunedRecords = 0;
 
   constructor(options: EpisodeTrackerOptions = {}) {
     this.clock = options.clock ?? createCoreClock();
+    this.dormantRetentionMs = options.dormantRetentionMs ?? DEFAULT_DORMANT_EPISODE_RETENTION_MS;
+    this.maxDormantEpisodes = options.maxDormantEpisodes ?? DEFAULT_MAX_DORMANT_EPISODES;
   }
 
   assign(candidate: AttentionCandidate): AttentionCandidate {
+    const candidateMs = this.clock.parse(candidate.timestamp);
+    if (
+      candidateMs !== null &&
+      (this.latestObservedAtMs === null || candidateMs > this.latestObservedAtMs)
+    ) {
+      this.latestObservedAtMs = candidateMs;
+    }
     const key = buildEpisodeKey(candidate);
     const existingId = this.byInteractionId.get(candidate.interactionId);
     const boundRecord = existingId ? this.byId.get(existingId) : undefined;
@@ -55,6 +83,7 @@ export class EpisodeTracker {
     this.byKey.set(nextRecord.key, nextRecord);
     this.byId.set(nextRecord.id, nextRecord);
     this.byInteractionId.set(candidate.interactionId, nextRecord.id);
+    this.pruneDormantRecords();
 
     return {
       ...candidate,
@@ -111,6 +140,34 @@ export class EpisodeTracker {
     }
 
     return { id, key, state, size, evidenceScore, evidenceReasons, lastInteractionId, updatedAt };
+  }
+
+  stats(): EpisodeTrackerStats {
+    let activeRecords = 0;
+    let dormantRecords = 0;
+    let latestEpisodeAt: string | null = null;
+
+    for (const record of this.byId.values()) {
+      if (this.isActiveRecord(record)) {
+        activeRecords += 1;
+      } else {
+        dormantRecords += 1;
+      }
+      if (latestEpisodeAt === null || record.updatedAt > latestEpisodeAt) {
+        latestEpisodeAt = record.updatedAt;
+      }
+    }
+
+    return {
+      activeRecords,
+      dormantRecords,
+      retainedRecords: this.byId.size,
+      boundInteractions: this.byInteractionId.size,
+      dormantRetentionMs: this.dormantRetentionMs,
+      maxDormantRecords: this.maxDormantEpisodes,
+      prunedRecords: this.prunedRecords,
+      latestEpisodeAt,
+    };
   }
 
   private createRecord(key: string, candidate: AttentionCandidate): EpisodeRecord {
@@ -201,6 +258,52 @@ export class EpisodeTracker {
       evidenceReasons: evidence.reasons,
       state: nextEpisodeState(record.state, candidate, nextRecord, evidence.score),
     };
+  }
+
+  private pruneDormantRecords(): void {
+    const dormantRecords = [...this.byId.values()].filter((record) => !this.isActiveRecord(record));
+
+    if (this.latestObservedAtMs !== null) {
+      for (const record of dormantRecords) {
+        const updatedAtMs = this.clock.parse(record.updatedAt);
+        if (updatedAtMs === null) {
+          continue;
+        }
+        if (this.latestObservedAtMs - updatedAtMs > this.dormantRetentionMs) {
+          this.deleteRecord(record);
+        }
+      }
+    }
+
+    const remainingDormant = [...this.byId.values()]
+      .filter((record) => !this.isActiveRecord(record))
+      .sort((left, right) => left.updatedAt.localeCompare(right.updatedAt));
+
+    if (remainingDormant.length <= this.maxDormantEpisodes) {
+      return;
+    }
+
+    const overflow = remainingDormant.length - this.maxDormantEpisodes;
+    for (const record of remainingDormant.slice(0, overflow)) {
+      this.deleteRecord(record);
+    }
+  }
+
+  private isActiveRecord(record: EpisodeRecord): boolean {
+    return this.byKey.get(record.key)?.id === record.id && !isDormantEpisodeState(record.state);
+  }
+
+  private deleteRecord(record: EpisodeRecord): void {
+    if (this.byKey.get(record.key)?.id === record.id) {
+      this.byKey.delete(record.key);
+    }
+    this.byId.delete(record.id);
+    for (const interactionId of record.interactions) {
+      if (this.byInteractionId.get(interactionId) === record.id) {
+        this.byInteractionId.delete(interactionId);
+      }
+    }
+    this.prunedRecords += 1;
   }
 }
 

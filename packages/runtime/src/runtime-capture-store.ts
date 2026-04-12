@@ -3,6 +3,7 @@ import type { ApertureTrace } from "@tomismeta/aperture-core/internal";
 
 import type {
   ApertureRuntimeAttentionViewSnapshot,
+  ApertureRuntimeCaptureHealthSnapshot,
   ApertureRuntimeCaptureStep,
   ApertureRuntimeEvent,
 } from "./runtime-contract.js";
@@ -106,6 +107,22 @@ export class RuntimeCaptureStore {
 
   currentSequence(): number {
     return this.sequence;
+  }
+
+  stats(): ApertureRuntimeCaptureHealthSnapshot {
+    return {
+      currentSequence: this.sequence,
+      currentCaptureSequence: this.captureSequence,
+      eventFeedCount: this.events.length,
+      captureSteps: this.captureSteps.length,
+      publishedSourceEvents: this.publishedSourceEvents.length,
+      submittedResponses: this.submittedResponses.length,
+      signals: this.signals.length,
+      traces: this.traces.length,
+      attentionViewSnapshots: this.attentionViewSnapshots.length,
+      eventFeedLimit: this.eventFeedLimit,
+      captureLogLimit: this.captureLogLimit,
+    };
   }
 
   exportCaptureData(): {

@@ -13,7 +13,7 @@ import { EventEvaluator } from "./event-evaluator.js";
 import { FramePlanner } from "./frame-planner.js";
 import { JudgmentCoordinator, type AttentionDecisionExplanation } from "./judgment-coordinator.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
-import { AttentionSignalStore } from "./attention-signal-store.js";
+import { AttentionSignalStore, type AttentionSignalStoreStats } from "./attention-signal-store.js";
 import type { JudgmentConfig } from "./judgment-config.js";
 import { distillMemoryProfile } from "./memory-aggregator.js";
 import { selectPeripheralBucket } from "./attention-planner.js";
@@ -30,6 +30,7 @@ import { buildTraceEventTransition } from "./trace-event-transition.js";
 import { OperatorEngagementController, sameAttentionView } from "./aperture-core-engagement.js";
 import {
   ApertureCoreListeners,
+  type ApertureCoreListenerHealthSnapshot,
   type AttentionFrameListener,
   type AttentionTaskViewListener,
   type AttentionViewListener,
@@ -60,7 +61,10 @@ import {
   assertValidSignal,
   assertValidSourceEvent,
 } from "./aperture-core-validation.js";
+import { APERTURE_INTERNAL_READ_HEALTH } from "./internal-health.js";
 import { createCoreClock, type CoreClock } from "./time.js";
+import type { EpisodeTrackerStats } from "./episode-tracker.js";
+import type { TaskViewStoreStats } from "./task-view-store.js";
 
 export type {
   AttentionFrameListener,
@@ -85,6 +89,19 @@ export type ApertureCoreOptions = {
 };
 
 export type { PublishOptions } from "./aperture-core-event-preparation.js";
+
+export type ApertureCoreHealthSnapshot = {
+  attentionState: AttentionState;
+  operatorPresence: AttentionOperatorPresence;
+  responseExpiryMs: number | null;
+  surfaceCapabilities: AttentionSurfaceCapabilities;
+  listeners: ApertureCoreListenerHealthSnapshot;
+  stores: {
+    taskViews: TaskViewStoreStats;
+    signals: AttentionSignalStoreStats;
+    episodes: EpisodeTrackerStats;
+  };
+};
 
 export class ApertureCore {
   private readonly listeners = new ApertureCoreListeners();
@@ -444,6 +461,21 @@ export class ApertureCore {
 
   getAttentionState(taskId?: string): AttentionState {
     return deriveAttentionState(this.signals.summarize(taskId));
+  }
+
+  [APERTURE_INTERNAL_READ_HEALTH](): ApertureCoreHealthSnapshot {
+    return {
+      attentionState: this.getAttentionState(),
+      operatorPresence: this.getOperatorPresence(),
+      responseExpiryMs: this.responseExpiryMs ?? null,
+      surfaceCapabilities: this.getSurfaceCapabilities(),
+      listeners: this.listeners.getHealthSnapshot(),
+      stores: {
+        taskViews: this.taskViews.stats(),
+        signals: this.signals.stats(),
+        episodes: this.episodes.stats(),
+      },
+    };
   }
 
   getSurfaceCapabilities(): AttentionSurfaceCapabilities {

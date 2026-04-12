@@ -1,4 +1,5 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { randomBytes } from "node:crypto";
+import { mkdir, open, readFile, rename, unlink } from "node:fs/promises";
 import { dirname } from "node:path";
 
 export async function readMarkdownFile<T>(
@@ -8,17 +9,46 @@ export async function readMarkdownFile<T>(
 ): Promise<T> {
   try {
     const content = await readFile(path, "utf8");
-    return parse(content) ?? fallback;
-  } catch {
+    const parsed = parse(content);
+    if (parsed === null) {
+      warnMarkdownPersistenceIssue(
+        path,
+        "Failed to parse markdown state. Falling back to the in-memory default.",
+      );
+      return fallback;
+    }
+    return parsed;
+  } catch (error) {
+    if (isMissingFile(error)) {
+      return fallback;
+    }
+    warnMarkdownPersistenceIssue(
+      path,
+      "Failed to read markdown state. Falling back to the in-memory default.",
+      error,
+    );
     return fallback;
   }
 }
 
 export async function writeMarkdownFile(path: string, content: string): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
-  const tempPath = `${path}.tmp`;
-  await writeFile(tempPath, content, "utf8");
-  await rename(tempPath, path);
+  const tempPath = `${path}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
+  const handle = await open(tempPath, "w", 0o600);
+  let closed = false;
+  try {
+    await handle.writeFile(content, "utf8");
+    await handle.sync();
+    await handle.close();
+    closed = true;
+    await rename(tempPath, path);
+  } catch (error) {
+    if (!closed) {
+      await handle.close().catch(() => {});
+    }
+    await unlink(tempPath).catch(() => {});
+    throw error;
+  }
 }
 
 export function parseHeading(line: string): { level: 1 | 2 | 3; text: string } | null {
@@ -83,4 +113,14 @@ export function formatBullet(key: string, value: string | number | boolean): str
 
 export function formatTextBullet(value: string): string {
   return `- ${value}`;
+}
+
+function isMissingFile(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+}
+
+function warnMarkdownPersistenceIssue(path: string, message: string, error?: unknown): void {
+  const detail =
+    error === undefined ? "" : ` ${error instanceof Error ? error.message : String(error)}`;
+  console.warn(`[aperture] ${message} (${path})${detail}`);
 }

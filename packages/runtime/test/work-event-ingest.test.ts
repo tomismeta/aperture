@@ -590,6 +590,51 @@ test("work endpoint honors explicit text/plain without JSON sniffing", async () 
   }
 });
 
+test("work endpoint rejects malformed declared JSON with a structured parse error", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { baseUrl, authToken } = await runtime.listen();
+
+  try {
+    const response = await authorizedFetch(baseUrl, authToken, "/work", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: '{"kind":"work.updated"',
+    });
+
+    assert.equal(response.status, 400);
+    const payload = (await response.json()) as {
+      error: { code: string; message: string; hint?: string };
+    };
+    assert.equal(payload.error.code, "invalid_work_json");
+    assert.match(payload.error.message, /declared json/i);
+    assert.match(payload.error.hint ?? "", /text\/plain/i);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("work endpoint rejects oversized payloads with the shared body limit error", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { baseUrl, authToken } = await runtime.listen();
+
+  try {
+    const response = await authorizedFetch(baseUrl, authToken, "/work", {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: "x".repeat(70_000),
+    });
+
+    assert.equal(response.status, 413);
+    const payload = (await response.json()) as {
+      error: { code: string; message: string };
+    };
+    assert.equal(payload.error.code, "body_too_large");
+    assert.match(payload.error.message, /request body exceeded/i);
+  } finally {
+    await runtime.close();
+  }
+});
+
 test("work endpoint accepts compatible 1.x spec versions and rejects 2.x", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
   const { baseUrl, authToken } = await runtime.listen();

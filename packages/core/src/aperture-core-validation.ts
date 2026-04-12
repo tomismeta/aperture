@@ -2,6 +2,7 @@ import type { ApertureEvent, HumanInputRequest } from "./events.js";
 import type { SourceEvent } from "./source-event.js";
 import type { AttentionResponse } from "./frame-response.js";
 import type { AttentionSignal } from "./interaction-signal.js";
+import { ApertureCoreValidationError } from "./aperture-core-error.js";
 
 export function assertValidEvent(event: ApertureEvent): void {
   assertNonEmpty("event.id", event.id);
@@ -80,7 +81,10 @@ export function assertValidFrameResponse(response: AttentionResponse): void {
       return;
     case "option_selected":
       if (response.response.optionIds.length === 0) {
-        throw new Error("response.optionIds must contain at least one option id");
+        throw new ApertureCoreValidationError(
+          "response.optionIds must contain at least one option id",
+          { field: "response.optionIds" },
+        );
       }
       return;
     case "text_submitted":
@@ -92,7 +96,9 @@ export function assertValidFrameResponse(response: AttentionResponse): void {
         typeof response.response.values !== "object" ||
         Array.isArray(response.response.values)
       ) {
-        throw new Error("response.values must be an object");
+        throw new ApertureCoreValidationError("response.values must be an object", {
+          field: "response.values",
+        });
       }
       return;
   }
@@ -110,32 +116,42 @@ export function assertValidSignal(signal: AttentionSignal): void {
 
 function assertNonEmpty(label: string, value: string): void {
   if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error(`${label} must be a non-empty string`);
+    throw new ApertureCoreValidationError(`${label} must be a non-empty string`, {
+      field: label,
+    });
   }
 }
 
 function assertTimestamp(label: string, value: string): void {
   assertNonEmpty(label, value);
   if (Number.isNaN(Date.parse(value))) {
-    throw new Error(`${label} must be a valid ISO timestamp`);
+    throw new ApertureCoreValidationError(`${label} must be a valid ISO timestamp`, {
+      field: label,
+    });
   }
 }
 
 function assertTaskStatus(label: string, value: string): void {
   if (!["running", "blocked", "waiting", "completed", "failed"].includes(value)) {
-    throw new Error(`${label} must be a valid task status`);
+    throw new ApertureCoreValidationError(`${label} must be a valid task status`, {
+      field: label,
+    });
   }
 }
 
 function assertConsequenceLevel(label: string, value: string): void {
   if (!["low", "medium", "high"].includes(value)) {
-    throw new Error(`${label} must be a valid consequence level`);
+    throw new ApertureCoreValidationError(`${label} must be a valid consequence level`, {
+      field: label,
+    });
   }
 }
 
 function assertHumanInputRequest(label: string, value: HumanInputRequest): void {
   if (!value || typeof value !== "object" || !("kind" in value)) {
-    throw new Error(`${label} must be a valid human input request`);
+    throw new ApertureCoreValidationError(`${label} must be a valid human input request`, {
+      field: label,
+    });
   }
 
   switch (value.kind) {
@@ -143,23 +159,35 @@ function assertHumanInputRequest(label: string, value: HumanInputRequest): void 
       return;
     case "choice":
       if (!Array.isArray(value.options) || value.options.length === 0) {
-        throw new Error(`${label}.options must contain at least one option`);
+        throw new ApertureCoreValidationError(`${label}.options must contain at least one option`, {
+          field: `${label}.options`,
+        });
       }
       return;
     case "form":
       if (!Array.isArray(value.fields) || value.fields.length === 0) {
-        throw new Error(`${label}.fields must contain at least one field`);
+        throw new ApertureCoreValidationError(`${label}.fields must contain at least one field`, {
+          field: `${label}.fields`,
+        });
       }
       return;
     default:
-      throw new Error(`${label} must have a supported request kind`);
+      throw new ApertureCoreValidationError(`${label} must have a supported request kind`, {
+        field: label,
+      });
   }
 }
 
 function unreachableApertureEvent(event: never): never {
-  throw new Error(`Unhandled ApertureEvent in validation: ${JSON.stringify(event)}`);
+  throw new ApertureCoreValidationError(
+    `Unhandled ApertureEvent in validation: ${JSON.stringify(event)}`,
+    { field: "event.type", code: "unsupported_event_variant" },
+  );
 }
 
 function unreachableSourceEvent(event: never): never {
-  throw new Error(`Unhandled SourceEvent in validation: ${JSON.stringify(event)}`);
+  throw new ApertureCoreValidationError(
+    `Unhandled SourceEvent in validation: ${JSON.stringify(event)}`,
+    { field: "event.type", code: "unsupported_event_variant" },
+  );
 }

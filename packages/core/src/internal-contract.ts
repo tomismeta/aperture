@@ -3,10 +3,24 @@
 export type { AttentionField, AttentionResponseSpec } from "./frame.js";
 export type { AttentionSignalSummary } from "./signal-summary.js";
 export type { AttentionState } from "./attention-state.js";
+export type { ApertureCoreHealthSnapshot } from "./aperture-core.js";
 export { evaluateTraceSession, type TraceEvaluationReport } from "./trace-evaluator.js";
 export { isCandidateTrace } from "./trace-types.js";
 export type { ApertureTrace, CandidateApertureTrace } from "./trace-types.js";
 export { assertValidFrameResponse, assertValidSourceEvent } from "./aperture-core-validation.js";
+export {
+  ApertureCoreError,
+  ApertureCoreResponseExpiredError,
+  ApertureCoreValidationError,
+  isApertureCoreError,
+  isApertureCoreResponseExpiredError,
+  isApertureCoreValidationError,
+} from "./aperture-core-error.js";
+export {
+  APERTURE_INTERNAL_READ_HEALTH,
+  readInternalCoreHealthSnapshot,
+  type InternalHealthEmitter,
+} from "./internal-health.js";
 export {
   subscribeInternalTrace,
   type InternalTraceEmitter,

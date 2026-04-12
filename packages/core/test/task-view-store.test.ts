@@ -43,3 +43,19 @@ test("task view store prunes empty task entries", () => {
   assert.equal(cleared.ambient.length, 0);
   assert.equal(Array.from(store.values()).length, 0);
 });
+
+test("task view store reports lane counts for health snapshots", () => {
+  const store = new TaskViewStore();
+
+  store.setNow("task:now", createFrame(1));
+  store.addNext("task:now", createFrame(2));
+  store.addAmbient("task:ambient", createFrame(3));
+
+  assert.deepEqual(store.stats(), {
+    taskCount: 2,
+    nowCount: 1,
+    nextCount: 1,
+    ambientCount: 1,
+    totalFrames: 3,
+  });
+});

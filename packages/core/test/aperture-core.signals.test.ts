@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import type { InteractionSignal } from "../src/index.js";
 
 import { ApertureCore } from "../src/aperture-core.js";
+import { readInternalCoreHealthSnapshot } from "../src/internal.js";
 
 test("submit records a responded interaction signal", () => {
   const core = new ApertureCore();
@@ -753,4 +754,58 @@ test("core exposes global attention state across tasks", () => {
   }
 
   assert.equal(core.getAttentionState(), "overloaded");
+});
+
+test("listener failures are isolated and unhealthy signal listeners detach automatically", () => {
+  const core = new ApertureCore();
+  const delivered: string[] = [];
+
+  core.onSignal(() => {
+    throw new Error("listener blew up");
+  });
+  core.onSignal((signal) => {
+    delivered.push(signal.interactionId);
+  });
+
+  for (let index = 0; index < 3; index += 1) {
+    assert.doesNotThrow(() => {
+      core.recordSignal({
+        kind: "presented",
+        taskId: "task:listener-health",
+        interactionId: `interaction:${index}`,
+        timestamp: `2026-03-08T12:00:0${index}.000Z`,
+      });
+    });
+  }
+
+  assert.deepEqual(delivered, ["interaction:0", "interaction:1", "interaction:2"]);
+  const health = readInternalCoreHealthSnapshot(core);
+  assert.equal(health.listeners.signal.active, 1);
+  assert.equal(health.listeners.signal.failures, 3);
+  assert.equal(health.listeners.signal.detached, 1);
+  assert.equal(health.listeners.totalActive >= 1, true);
+});
+
+test("core health prunes stale signal tasks from long-running sessions", () => {
+  const core = new ApertureCore();
+
+  core.recordSignal({
+    kind: "presented",
+    taskId: "task:old-signal",
+    interactionId: "interaction:old-signal",
+    timestamp: "2026-03-08T00:00:00.000Z",
+  });
+  core.recordSignal({
+    kind: "presented",
+    taskId: "task:fresh-signal",
+    interactionId: "interaction:fresh-signal",
+    timestamp: "2026-03-10T00:00:00.000Z",
+  });
+
+  assert.equal(core.getSignals("task:old-signal").length, 0);
+  const health = readInternalCoreHealthSnapshot(core);
+  assert.equal(health.stores.signals.taskCount, 1);
+  assert.equal(health.stores.signals.signalCount, 1);
+  assert.equal(health.stores.signals.prunedTasks >= 1, true);
+  assert.equal(health.stores.signals.latestSignalAt, "2026-03-10T00:00:00.000Z");
 });

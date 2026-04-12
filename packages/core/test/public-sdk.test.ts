@@ -7,6 +7,7 @@ import * as traceSdk from "../src/trace.js";
 
 test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.ok("ApertureCore" in sdk);
+  assert.equal("getHealthSnapshot" in sdk.ApertureCore.prototype, false);
 
   assert.equal("AttentionAdjustments" in sdk, false);
   assert.equal("AttentionSignalStore" in sdk, false);
@@ -65,6 +66,12 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.equal("scoreAttentionFrame" in sdk, false);
   assert.equal("APERTURE_STATE_SCHEMA_VERSION" in sdk, false);
   assert.equal("MARKDOWN_SCHEMA_VERSION" in sdk, false);
+  assert.equal("ApertureCoreError" in sdk, false);
+  assert.equal("ApertureCoreValidationError" in sdk, false);
+  assert.equal("ApertureCoreResponseExpiredError" in sdk, false);
+  assert.equal("isApertureCoreError" in sdk, false);
+  assert.equal("isApertureCoreValidationError" in sdk, false);
+  assert.equal("isApertureCoreResponseExpiredError" in sdk, false);
   assert.equal("AttentionField" in sdk, false);
   assert.equal("AttentionResponseSpec" in sdk, false);
   assert.equal("AttentionSignalSummary" in sdk, false);

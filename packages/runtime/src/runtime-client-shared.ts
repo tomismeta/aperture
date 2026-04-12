@@ -88,6 +88,101 @@ export function createEmptyRuntimeSnapshot(): ApertureRuntimeSnapshot {
         supportsTextResponse: baseAttentionSurfaceCapabilities.responses.supportsTextResponse,
       },
     } satisfies AttentionSurfaceCapabilities,
+    health: {
+      startedAt: new Date(0).toISOString(),
+      adapters: {
+        count: 0,
+        ttlMs: 0,
+      },
+      surfaces: {
+        count: 0,
+        ttlMs: 0,
+      },
+      capture: {
+        currentSequence: 0,
+        currentCaptureSequence: 0,
+        eventFeedCount: 0,
+        captureSteps: 0,
+        publishedSourceEvents: 0,
+        submittedResponses: 0,
+        signals: 0,
+        traces: 0,
+        attentionViewSnapshots: 0,
+        eventFeedLimit: 0,
+        captureLogLimit: 0,
+      },
+      workResponses: {
+        total: 0,
+        counts: {
+          pending: 0,
+          answered: 0,
+          expired: 0,
+          cancelled: 0,
+        },
+        capacity: 0,
+        pendingTtlMs: 0,
+        retentionMs: 0,
+        persistenceOk: true,
+        lastPersistedAt: null,
+        lastPersistenceError: null,
+        lastPersistenceErrorAt: null,
+      },
+      core: {
+        attentionState: "monitoring",
+        operatorPresence: "present",
+        responseExpiryMs: null,
+        surfaceCapabilities: {
+          topology: {
+            supportsAmbient: baseAttentionSurfaceCapabilities.topology.supportsAmbient,
+          },
+          responses: {
+            supportsSingleChoice: baseAttentionSurfaceCapabilities.responses.supportsSingleChoice,
+            supportsMultipleChoice:
+              baseAttentionSurfaceCapabilities.responses.supportsMultipleChoice,
+            supportsForm: baseAttentionSurfaceCapabilities.responses.supportsForm,
+            supportsTextResponse: baseAttentionSurfaceCapabilities.responses.supportsTextResponse,
+          },
+        },
+        listeners: {
+          totalActive: 0,
+          frame: emptyListenerHealth(),
+          taskView: emptyListenerHealth(),
+          attentionView: emptyListenerHealth(),
+          response: emptyListenerHealth(),
+          signal: emptyListenerHealth(),
+          trace: emptyListenerHealth(),
+          internalTrace: emptyListenerHealth(),
+        },
+        stores: {
+          taskViews: {
+            taskCount: 0,
+            nowCount: 0,
+            nextCount: 0,
+            ambientCount: 0,
+            totalFrames: 0,
+          },
+          signals: {
+            taskCount: 0,
+            signalCount: 0,
+            oldestSignalAt: null,
+            latestSignalAt: null,
+            taskRetentionMs: 0,
+            maxTrackedTasks: 0,
+            prunedTasks: 0,
+          },
+          episodes: {
+            activeRecords: 0,
+            dormantRecords: 0,
+            retainedRecords: 0,
+            boundInteractions: 0,
+            dormantRetentionMs: 0,
+            maxDormantRecords: 0,
+            prunedRecords: 0,
+            latestEpisodeAt: null,
+          },
+        },
+      },
+    },
   };
 }
 
@@ -161,6 +256,19 @@ function buildHeaders(authToken: string, contentType?: string): Record<string, s
   return {
     ...(contentType ? { "Content-Type": contentType } : {}),
     Authorization: `Bearer ${authToken}`,
+  };
+}
+
+function emptyListenerHealth() {
+  return {
+    active: 0,
+    emissions: 0,
+    failures: 0,
+    detached: 0,
+    slowDeliveries: 0,
+    maxDeliveryMs: 0,
+    lastErrorAt: null,
+    lastErrorMessage: null,
   };
 }
 

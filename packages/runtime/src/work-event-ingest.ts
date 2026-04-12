@@ -17,6 +17,11 @@ import {
   type WorkEventRequest,
   type WorkStatus,
 } from "./work-contract.js";
+import { assertSafeUnknown, isPlainRecord } from "./work-event-safety.js";
+import {
+  mapWorkTextToSourceEvent as mapWorkTextToSourceEventFromText,
+  normalizeWorkText,
+} from "./work-event-text.js";
 
 export type {
   WorkEvent,
@@ -43,10 +48,6 @@ const ACTIVITY_CATEGORY_ALIASES: Record<string, AttentionActivityClass> = {
   status_update: "status_update",
   status: "status_update",
 };
-
-const WORK_INPUT_CONTROL_CHAR_PATTERN =
-  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u202A-\u202E\u2066-\u2069]/u;
-const FORBIDDEN_OBJECT_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
 export function normalizeWorkPayload(payload: unknown): NormalizedWorkInput {
   if (typeof payload === "string") {
@@ -98,7 +99,7 @@ export function mapWorkPayloadToSourceEvents(
   payload: WorkInput | NormalizedWorkInput,
 ): SourceEvent[] {
   if (typeof payload === "string") {
-    return [mapWorkTextToSourceEvent(payload)];
+    return [mapWorkTextToSourceEventFromText(payload)];
   }
 
   if (Array.isArray(payload)) {
@@ -212,23 +213,7 @@ export function mapWorkEventToSourceEvent(event: WorkEvent): SourceEvent {
 }
 
 export function mapWorkTextToSourceEvent(text: string): SourceEvent {
-  const normalized = normalizeWorkText(text);
-  if (normalized.length === 0) {
-    throw new Error("Work text must not be empty.");
-  }
-
-  assertSafeString(normalized, "text");
-  const taskId = `work:${randomUUID()}`;
-
-  return {
-    id: `evt:${randomUUID()}`,
-    type: "task.updated",
-    taskId,
-    timestamp: new Date().toISOString(),
-    title: summarizeWorkText(normalized),
-    summary: normalized,
-    status: "running",
-  };
+  return mapWorkTextToSourceEventFromText(text);
 }
 
 function normalizeWorkEvent(value: unknown): NormalizedWorkEvent {
@@ -331,10 +316,6 @@ function fallbackTitle(event: NormalizedWorkEvent): string {
   return event.work.title ?? event.work.summary ?? event.work.id;
 }
 
-function normalizeWorkText(text: string): string {
-  return text.replace(/\r\n/g, "\n").trim();
-}
-
 function detectCommonWorkEventError(value: Record<string, unknown>): string | null {
   if (value.kind === "work.updated") {
     const work = value.work;
@@ -363,15 +344,6 @@ function detectCommonWorkEventError(value: Record<string, unknown>): string | nu
   }
 
   return null;
-}
-
-function summarizeWorkText(text: string): string {
-  const collapsed = text.replace(/\s+/g, " ").trim();
-  const firstSentence = collapsed.match(/^(.{1,96}?)(?:[.!?\n]|$)/)?.[1] ?? collapsed;
-  if (firstSentence.length <= 96) {
-    return firstSentence;
-  }
-  return `${firstSentence.slice(0, 93).trimEnd()}...`;
 }
 
 function mapRequest(request: WorkEventRequest): HumanInputRequest {
@@ -496,43 +468,4 @@ function formatWorkEventError(error: unknown): string {
     return error.message.trim().replace(/[.]+$/g, "");
   }
   return "invalid structured work input";
-}
-
-function assertSafeUnknown(value: unknown, path: string): void {
-  if (typeof value === "string") {
-    assertSafeString(value, path);
-    return;
-  }
-
-  if (Array.isArray(value)) {
-    for (const [index, entry] of value.entries()) {
-      assertSafeUnknown(entry, `${path}[${index}]`);
-    }
-    return;
-  }
-
-  if (!isPlainRecord(value)) {
-    return;
-  }
-
-  for (const [key, entry] of Object.entries(value)) {
-    if (FORBIDDEN_OBJECT_KEYS.has(key)) {
-      throw new Error(`${path}.${key} is not allowed`);
-    }
-    assertSafeUnknown(entry, `${path}.${key}`);
-  }
-}
-
-function assertSafeString(value: string, path: string): void {
-  if (WORK_INPUT_CONTROL_CHAR_PATTERN.test(value)) {
-    throw new Error(`${path} contains unsupported control characters`);
-  }
-}
-
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
 }

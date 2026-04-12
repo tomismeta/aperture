@@ -406,3 +406,34 @@ test("long-quiet episodes reopen with a fresh identity and reset evidence", () =
   assert.equal(reopened.episodeState, "emerging");
   assert.equal(reopened.episodeEvidenceScore, 0);
 });
+
+test("episode tracker prunes dormant records after long idle gaps", () => {
+  const store = new EpisodeTracker();
+
+  store.assign(createCandidate());
+  store.assign(
+    createCandidate({
+      interactionId: "interaction:stale-successor",
+      timestamp: "2026-03-08T12:16:00.000Z",
+    }),
+  );
+  store.assign(
+    createCandidate({
+      taskId: "task:other",
+      interactionId: "interaction:fresh",
+      timestamp: "2026-03-10T12:16:00.000Z",
+      context: {
+        items: [{ id: "file_path", label: "file_path", value: "/workspace/other.ts" }],
+      },
+      summary: "other.ts",
+      title: "Read other.ts",
+    }),
+  );
+
+  const stats = store.stats();
+  assert.equal(stats.activeRecords, 2);
+  assert.equal(stats.dormantRecords, 0);
+  assert.equal(stats.boundInteractions, 2);
+  assert.equal(stats.prunedRecords >= 1, true);
+  assert.equal(stats.latestEpisodeAt, "2026-03-10T12:16:00.000Z");
+});

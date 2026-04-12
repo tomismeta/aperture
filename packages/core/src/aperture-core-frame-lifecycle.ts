@@ -13,6 +13,7 @@ import { hasSemanticRelationKind } from "./semantic-relations.js";
 import { TaskViewStore } from "./task-view-store.js";
 import type { CoreClock } from "./time.js";
 import { FramePlanner } from "./frame-planner.js";
+import { ApertureCoreResponseExpiredError } from "./aperture-core-error.js";
 import {
   buildAttentionTransitionSignals,
   buildAutoResponseSignal,
@@ -196,9 +197,11 @@ export class ApertureCoreFrameLifecycle {
 
     const expiredAt = this.readExpiredResponseTimestamp(current, this.runtime.clock.nowIso());
     if (expiredAt) {
-      throw new Error(
-        `response for interaction ${response.interactionId} expired at ${expiredAt} and must be revalidated before submission`,
-      );
+      throw new ApertureCoreResponseExpiredError({
+        taskId: response.taskId,
+        interactionId: response.interactionId,
+        expiredAt,
+      });
     }
 
     const previousAttentionView = this.runtime.getAttentionView();

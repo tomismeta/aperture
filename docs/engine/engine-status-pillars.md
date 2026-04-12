@@ -20,6 +20,30 @@ For communication, Aperture should have a smaller frame that answers:
 - what is still maturing?
 - what should come next?
 
+## Current Rollup (2026-04)
+
+As of 2026-04-11, Aperture reads like a strong early-stage infrastructure
+codebase rather than a fragile prototype.
+
+The strongest parts are:
+
+- product thesis and timing
+- package boundaries and runtime contract discipline
+- testing and release-gate seriousness
+
+The main gaps are now more operational than conceptual:
+
+- listener isolation and delivery safety
+- long-run retention and lifecycle pruning
+- richer runtime observability
+- durability semantics for state that must outlive a local session
+
+The practical summary is:
+
+- **overall: B+**
+- **not rewrite territory**
+- **closest path to A- is boring hardening, not strategy change**
+
 ## The Six Pillars
 
 ### 1. Structured Semantics

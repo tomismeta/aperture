@@ -7,12 +7,14 @@ import {
   type AttentionView,
   type SourceEvent,
 } from "@tomismeta/aperture-core";
-import type { ApertureTrace } from "@tomismeta/aperture-core/internal";
+import type { ApertureTrace, InternalHealthEmitter } from "@tomismeta/aperture-core/internal";
+import { readInternalCoreHealthSnapshot } from "@tomismeta/aperture-core/internal";
 
 import type {
   ApertureRuntimeAdapter,
   ApertureRuntimeAttentionViewSnapshot,
   ApertureRuntimeExplanationSnapshot,
+  ApertureRuntimeHealthSnapshot,
   ApertureRuntimeSessionCapture,
   ApertureRuntimeSnapshot,
   RuntimeWorkResponseRecord,
@@ -247,11 +249,13 @@ export class RuntimeState {
     return this.capture.currentSequence();
   }
 
-  snapshot(core: {
-    getAttentionView(): AttentionView;
-    getSignalSummary(): ApertureRuntimeSnapshot["signalSummary"];
-    getAttentionState(): ApertureRuntimeSnapshot["attentionState"];
-  }): ApertureRuntimeSnapshot {
+  snapshot(
+    core: {
+      getAttentionView(): AttentionView;
+      getSignalSummary(): ApertureRuntimeSnapshot["signalSummary"];
+      getAttentionState(): ApertureRuntimeSnapshot["attentionState"];
+    } & InternalHealthEmitter,
+  ): ApertureRuntimeSnapshot {
     this.pruneAdapters();
     this.pruneSurfaces();
     return {
@@ -262,7 +266,27 @@ export class RuntimeState {
       adapters: this.listAdapters(),
       surfaceCount: this.surfaces.size,
       surfaceCapabilities: this.aggregateSurfaceCapabilities(),
+      health: this.health(core),
       ...(this.learningPersistence ? { learningPersistence: this.learningPersistence } : {}),
+    };
+  }
+
+  health(core: InternalHealthEmitter): ApertureRuntimeHealthSnapshot {
+    this.pruneAdapters();
+    this.pruneSurfaces();
+    return {
+      startedAt: this.startedAt,
+      adapters: {
+        count: this.adapters.size,
+        ttlMs: this.adapterTtlMs,
+      },
+      surfaces: {
+        count: this.surfaces.size,
+        ttlMs: this.surfaceTtlMs,
+      },
+      capture: this.capture.stats(),
+      workResponses: this.workResponses.stats(),
+      core: readInternalCoreHealthSnapshot(core),
     };
   }
 

@@ -3,6 +3,14 @@ import type { AttentionFrame, AttentionTaskView } from "./frame.js";
 type FrameLane = "next" | "ambient";
 const MAX_AMBIENT_FRAMES_PER_TASK = 12;
 
+export type TaskViewStoreStats = {
+  taskCount: number;
+  nowCount: number;
+  nextCount: number;
+  ambientCount: number;
+  totalFrames: number;
+};
+
 export class TaskViewStore {
   private readonly taskViews = new Map<string, AttentionTaskView>();
 
@@ -100,6 +108,28 @@ export class TaskViewStore {
 
   values(): Iterable<AttentionTaskView> {
     return this.taskViews.values();
+  }
+
+  stats(): TaskViewStoreStats {
+    let nowCount = 0;
+    let nextCount = 0;
+    let ambientCount = 0;
+
+    for (const taskView of this.taskViews.values()) {
+      if (taskView.now) {
+        nowCount += 1;
+      }
+      nextCount += taskView.next.length;
+      ambientCount += taskView.ambient.length;
+    }
+
+    return {
+      taskCount: this.taskViews.size,
+      nowCount,
+      nextCount,
+      ambientCount,
+      totalFrames: nowCount + nextCount + ambientCount,
+    };
   }
 
   private persist(taskId: string, taskView: AttentionTaskView): AttentionTaskView {

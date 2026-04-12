@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import fc from "fast-check";
 
+import { createApertureRuntime } from "../src/runtime.js";
 import {
   mapWorkPayloadToSourceEvents,
   mapWorkTextToSourceEvent,
@@ -97,6 +98,67 @@ const workEventArbitrary: fc.Arbitrary<WorkEvent> = fc.oneof(
   inputRequestedArbitrary,
 );
 
+const invalidStatusArbitrary = fc
+  .string({ minLength: 1, maxLength: 12 })
+  .filter(
+    (value) =>
+      !["running", "waiting", "blocked", "failed", "completed", "cancelled"].includes(value),
+  );
+
+const invalidWorkPayloadArbitrary = fc.oneof(
+  idArbitrary.map((value) => ({
+    kind: "work.updated",
+    work: {
+      id: `task:${value}`,
+    },
+  })),
+  fc
+    .record({
+      taskId: idArbitrary,
+      status: invalidStatusArbitrary,
+    })
+    .map(({ taskId, status }) => ({
+      kind: "work.updated",
+      work: {
+        id: `task:${taskId}`,
+        status,
+      },
+    })),
+  idArbitrary.map((value) => ({
+    kind: "work.updated",
+    work: {
+      id: `task:${value}`,
+      status: "running",
+      summary: "x".repeat(8_193),
+    },
+  })),
+  idArbitrary.map((value) => ({
+    kind: "input.requested",
+    work: {
+      id: `task:${value}`,
+    },
+    interaction: {
+      id: `interaction:${value}`,
+    },
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [
+        { id: "option:dup", label: "Alpha" },
+        { id: "option:dup", label: "Beta" },
+      ],
+    },
+  })),
+  idArbitrary.map((value) => ({
+    kind: "work.updated",
+    work: {
+      id: `task:${value}`,
+      status: "running",
+      extra: true,
+    },
+  })),
+);
+
 test("valid structured WorkEvent samples normalize and map without losing task identity", async () => {
   await fc.assert(
     fc.asyncProperty(workEventArbitrary, async (event) => {
@@ -184,6 +246,38 @@ test("structured work rejects duplicate ids inside request and context collectio
       }),
     /duplicate id/i,
   );
+});
+
+test("invalid structured work payloads return structured invalid_work_payload errors", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { baseUrl, authToken } = await runtime.listen();
+
+  try {
+    await fc.assert(
+      fc.asyncProperty(invalidWorkPayloadArbitrary, async (payload) => {
+        assert.throws(() => normalizeWorkPayload(payload), /.+/);
+
+        const response = await fetch(`${baseUrl}/work`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(payload),
+        });
+
+        assert.equal(response.status, 400);
+        const body = (await response.json()) as {
+          error: { code: string; message: string; hint?: string };
+        };
+        assert.equal(body.error.code, "invalid_work_payload");
+        assert.match(body.error.message, /\S/);
+      }),
+      { numRuns: 40 },
+    );
+  } finally {
+    await runtime.close();
+  }
 });
 
 function omitUndefined<T extends Record<string, unknown>>(value: T): T {

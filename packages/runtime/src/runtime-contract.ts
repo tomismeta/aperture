@@ -7,6 +7,7 @@ import type {
   SourceEvent,
 } from "@tomismeta/aperture-core";
 import type {
+  ApertureCoreHealthSnapshot,
   ApertureTrace,
   AttentionSignalSummary,
   AttentionState,
@@ -51,7 +52,49 @@ export type ApertureRuntimeSnapshot = {
   adapters: ApertureRuntimeAdapter[];
   surfaceCount: number;
   surfaceCapabilities: AttentionSurfaceCapabilities;
+  health: ApertureRuntimeHealthSnapshot;
   learningPersistence?: LearningPersistenceState;
+};
+
+export type ApertureRuntimeCaptureHealthSnapshot = {
+  currentSequence: number;
+  currentCaptureSequence: number;
+  eventFeedCount: number;
+  captureSteps: number;
+  publishedSourceEvents: number;
+  submittedResponses: number;
+  signals: number;
+  traces: number;
+  attentionViewSnapshots: number;
+  eventFeedLimit: number;
+  captureLogLimit: number;
+};
+
+export type ApertureRuntimeWorkResponseHealthSnapshot = {
+  total: number;
+  counts: Record<WorkResponseState, number>;
+  capacity: number;
+  pendingTtlMs: number;
+  retentionMs: number;
+  persistenceOk: boolean;
+  lastPersistedAt: string | null;
+  lastPersistenceError: string | null;
+  lastPersistenceErrorAt: string | null;
+};
+
+export type ApertureRuntimeHealthSnapshot = {
+  startedAt: string;
+  adapters: {
+    count: number;
+    ttlMs: number;
+  };
+  surfaces: {
+    count: number;
+    ttlMs: number;
+  };
+  capture: ApertureRuntimeCaptureHealthSnapshot;
+  workResponses: ApertureRuntimeWorkResponseHealthSnapshot;
+  core: ApertureCoreHealthSnapshot;
 };
 
 export type ApertureRuntimeCaptureStep =

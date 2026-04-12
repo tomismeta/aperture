@@ -4,7 +4,7 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { SourceEvent } from "@tomismeta/aperture-core";
+import { ApertureCore, type SourceEvent } from "@tomismeta/aperture-core";
 
 import { bootstrapLearningPersistence } from "../src/learning-persistence.js";
 import { createApertureRuntime } from "../src/runtime.js";
@@ -48,8 +48,16 @@ test("runtime tracks registered adapters in the snapshot", async () => {
   try {
     const health = await fetch(`${controlUrl}/health`);
     assert.equal(health.status, 200);
-    const healthJson = (await health.json()) as { adapterCount: number };
+    const healthJson = (await health.json()) as {
+      adapterCount: number;
+      health: {
+        adapters: { count: number };
+        core: { stores: { taskViews: { taskCount: number } } };
+      };
+    };
     assert.equal(healthJson.adapterCount, 1);
+    assert.equal(healthJson.health.adapters.count, 1);
+    assert.equal(healthJson.health.core.stores.taskViews.taskCount, 0);
 
     const state = await authorizedRuntimeFetch(controlUrl, authToken, "/state");
     assert.equal(state.status, 200);
@@ -59,8 +67,55 @@ test("runtime tracks registered adapters in the snapshot", async () => {
     assert.equal(snapshot.adapters[0]?.kind, "custom-agent");
     assert.equal(snapshot.adapters[0]?.label, "Mac mini");
     assert.equal(snapshot.adapters[0]?.metadata?.location, "lan");
+    assert.equal(snapshot.health.adapters.count, 1);
+    assert.equal(snapshot.health.capture.eventFeedCount, 0);
   } finally {
     await client.close();
+    await runtime.close();
+  }
+});
+
+test("runtime health exposes capture, work-response, and core health details", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { baseUrl, controlUrl, authToken } = await runtime.listen();
+
+  try {
+    const publish = await fetch(`${baseUrl}/work`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({
+        kind: "input.requested",
+        interaction: { id: "interaction:health" },
+        work: {
+          id: "task:health",
+          title: "Approve health check",
+          summary: "A health check approval is pending.",
+        },
+        request: {
+          kind: "approval",
+        },
+      }),
+    });
+    assert.equal(publish.status, 200);
+
+    const health = await fetch(`${controlUrl}/health`);
+    assert.equal(health.status, 200);
+    const payload = (await health.json()) as {
+      health: {
+        capture: { publishedSourceEvents: number };
+        workResponses: { counts: { pending: number } };
+        core: { stores: { taskViews: { taskCount: number } }; listeners: { totalActive: number } };
+      };
+    };
+
+    assert.equal(payload.health.capture.publishedSourceEvents, 1);
+    assert.equal(payload.health.workResponses.counts.pending, 1);
+    assert.equal(payload.health.core.stores.taskViews.taskCount, 1);
+    assert.equal(payload.health.core.listeners.totalActive >= 1, true);
+  } finally {
     await runtime.close();
   }
 });
@@ -568,6 +623,57 @@ test("runtime control routes require bearer auth while health stays open", async
 
     const authorized = await authorizedRuntimeFetch(controlUrl, authToken, "/state");
     assert.equal(authorized.status, 200);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("runtime returns a typed conflict when an approval response has expired", async () => {
+  let nowMs = Date.parse("2026-03-08T12:00:00.000Z");
+  const core = new ApertureCore({
+    responseExpiryMs: 1_000,
+    timeSource: () => nowMs,
+  });
+  const runtime = createApertureRuntime({ controlPort: 0, core });
+  const { controlUrl, authToken } = await runtime.listen();
+
+  try {
+    const publish = await authorizedRuntimeFetch(controlUrl, authToken, "/events/source", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event: {
+          id: "evt:expired-response",
+          type: "human.input.requested",
+          taskId: "task:expired-response",
+          interactionId: "interaction:expired-response",
+          timestamp: "2026-03-08T12:00:00.000Z",
+          title: "Approve expired deploy",
+          summary: "This approval should expire.",
+          request: { kind: "approval" },
+        } satisfies SourceEvent,
+      }),
+    });
+    assert.equal(publish.status, 200);
+
+    nowMs = Date.parse("2026-03-08T12:00:02.000Z");
+
+    const response = await authorizedRuntimeFetch(controlUrl, authToken, "/response", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        taskId: "task:expired-response",
+        interactionId: "interaction:expired-response",
+        response: { kind: "approved" },
+      }),
+    });
+    assert.equal(response.status, 409);
+    const payload = (await response.json()) as {
+      error: { code: string; message: string; hint?: string };
+    };
+    assert.equal(payload.error.code, "response_expired");
+    assert.match(payload.error.message, /must be revalidated/i);
+    assert.match(payload.error.hint ?? "", /refresh the pending frame/i);
   } finally {
     await runtime.close();
   }

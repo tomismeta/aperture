@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 
-import type { ApertureCore, SourceEvent } from "@tomismeta/aperture-core";
+import { type ApertureCore, type SourceEvent } from "@tomismeta/aperture-core";
+import {
+  isApertureCoreResponseExpiredError,
+  isApertureCoreValidationError,
+  type InternalHealthEmitter,
+} from "@tomismeta/aperture-core/internal";
 
 import type { LearningPersistenceState } from "./learning-persistence.js";
 import {
@@ -44,7 +49,8 @@ type RuntimeRouteCore = Pick<
   | "getAttentionView"
   | "getSignalSummary"
   | "getAttentionState"
->;
+> &
+  InternalHealthEmitter;
 
 export type BuildRuntimeRoutesOptions = {
   runtimeId: string;
@@ -74,14 +80,16 @@ export function buildRuntimeRoutes(options: BuildRuntimeRoutesOptions): RuntimeR
       match: matchLiteral(`${options.controlPathPrefix}/health`),
       requiresAuth: false,
       handler: async ({ res }) => {
+        const snapshot = options.state.snapshot(options.core);
         writeJson(res, 200, {
           ok: true,
           runtimeId: options.runtimeId,
           kind: options.kind,
-          adapterCount: options.state.snapshot(options.core).adapters.length,
-          surfaceCount: options.state.surfaceCount,
+          adapterCount: snapshot.adapters.length,
+          surfaceCount: snapshot.surfaceCount,
           authRequired: true,
           metadata: options.metadata ?? {},
+          health: snapshot.health,
         });
       },
     },
@@ -172,8 +180,23 @@ export function buildRuntimeRoutes(options: BuildRuntimeRoutesOptions): RuntimeR
             "Invalid attention response payload.",
           );
         }
+        try {
+          options.core.submit(response);
+        } catch (error) {
+          if (isApertureCoreResponseExpiredError(error)) {
+            throw new RuntimeHttpError(
+              409,
+              error.code,
+              error.message,
+              "Refresh the pending frame or republish the interaction before submitting a response.",
+            );
+          }
+          if (isApertureCoreValidationError(error)) {
+            throw new RuntimeHttpError(400, error.code, error.message);
+          }
+          throw error;
+        }
         options.state.recordSubmittedResponse(response, new Date().toISOString());
-        options.core.submit(response);
         writeJson(res, 200, {});
       },
     },

@@ -4,7 +4,11 @@ import { randomBytes } from "node:crypto";
 
 import type { AttentionResponse } from "@tomismeta/aperture-core";
 
-import type { RuntimeWorkResponseRecord, WorkResponseState } from "./runtime-contract.js";
+import type {
+  ApertureRuntimeWorkResponseHealthSnapshot,
+  RuntimeWorkResponseRecord,
+  WorkResponseState,
+} from "./runtime-contract.js";
 
 type WorkResponseStoreOptions = {
   stateDir: string;
@@ -30,6 +34,8 @@ export class WorkResponseStore {
   private readonly records = new Map<string, RuntimeWorkResponseRecord>();
   private persistChain: Promise<void> = Promise.resolve();
   private persistError: Error | null = null;
+  private lastPersistedAt: string | null = null;
+  private lastPersistenceErrorAt: string | null = null;
 
   private constructor(options: WorkResponseStoreOptions) {
     this.filePath = resolve(options.stateDir, "work-responses.json");
@@ -141,6 +147,32 @@ export class WorkResponseStore {
     );
   }
 
+  stats(): ApertureRuntimeWorkResponseHealthSnapshot {
+    this.prune();
+    const counts: Record<WorkResponseState, number> = {
+      pending: 0,
+      answered: 0,
+      expired: 0,
+      cancelled: 0,
+    };
+
+    for (const record of this.records.values()) {
+      counts[record.state] += 1;
+    }
+
+    return {
+      total: this.records.size,
+      counts,
+      capacity: this.maxEntries,
+      pendingTtlMs: this.pendingTtlMs,
+      retentionMs: this.retentionMs,
+      persistenceOk: this.persistError === null,
+      lastPersistedAt: this.lastPersistedAt,
+      lastPersistenceError: this.persistError?.message ?? null,
+      lastPersistenceErrorAt: this.lastPersistenceErrorAt,
+    };
+  }
+
   prune(nowIso = this.nowIso()): void {
     const nowMs = Date.parse(nowIso);
 
@@ -237,8 +269,11 @@ export class WorkResponseStore {
       try {
         await writeJsonFileAtomically(this.filePath, payload);
         this.persistError = null;
+        this.lastPersistedAt = this.nowIso();
+        this.lastPersistenceErrorAt = null;
       } catch (error) {
         this.persistError = toError(error);
+        this.lastPersistenceErrorAt = this.nowIso();
         warnStorePersistenceIssue(
           this.filePath,
           "Failed to persist work-response state.",

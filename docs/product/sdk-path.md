@@ -24,7 +24,7 @@ Today, the real judgment layer lives in the [Aperture core SDK package](../../pa
 
 Current version:
 
-- `@tomismeta/aperture-core@0.6.0`
+- `@tomismeta/aperture-core@0.7.0`
 
 If you want the opinionated local CLI/TUI product, use `@tomismeta/aperture`.
 If you want to embed the deterministic judgment loop in your own host or
@@ -35,6 +35,7 @@ What is already true:
 - `ApertureCore` is exported and usable as a full engine surface
 - `SourceEvent` ingestion now includes a built-in deterministic semantic layer
 - trace/explanation now has a dedicated subpath for SDK consumers
+- the only advanced public subpaths are `@tomismeta/aperture-core/semantic` and `@tomismeta/aperture-core/trace`
 - the root public surface is intentionally minimal
 - external-consumer proof paths exist
 - `pnpm sdk:prove` verifies both external consumption and tarball shape

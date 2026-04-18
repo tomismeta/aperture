@@ -18,7 +18,7 @@ test("operator engagement holds focus briefly before yielding back to normal ord
     request: { kind: "approval" },
   });
 
-  core.engage("task:engaged", "interaction:engaged", { durationMs: 40 });
+  core.engage("task:engaged", "interaction:engaged", { durationMs: 150 });
 
   core.publish({
     id: "evt:challenger",
@@ -34,7 +34,7 @@ test("operator engagement holds focus briefly before yielding back to normal ord
 
   assert.equal(core.getAttentionView().now?.interactionId, "interaction:engaged");
 
-  await sleep(80);
+  await sleep(220);
 
   assert.equal(core.getAttentionView().now?.interactionId, "interaction:challenger");
 });

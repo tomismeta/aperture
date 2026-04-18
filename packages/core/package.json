@@ -1,6 +1,6 @@
 {
   "name": "@tomismeta/aperture-core",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "The deterministic judgment engine inside Aperture.",
   "author": "tomismeta <tomismeta@gmail.com>",
   "license": "MIT",
@@ -44,10 +44,6 @@
     ".": {
       "types": "./public-dist/index.d.ts",
       "default": "./public-dist/index.js"
-    },
-    "./internal": {
-      "types": "./public-dist/internal.d.ts",
-      "default": "./public-dist/internal.js"
     },
     "./semantic": {
       "types": "./public-dist/semantic.d.ts",

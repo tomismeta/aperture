@@ -1,4 +1,5 @@
 import type { OpencodeDirectoryScope, OpencodeMessageRole } from "./types.js";
+import { opencodeSourceLabel } from "./mapping-source-label.js";
 
 export type OpencodeMappingContext = {
   baseUrl: string;
@@ -66,6 +67,16 @@ export function createOpencodeInstanceKey(
   const base = new URL(context.baseUrl);
   const scope = context.scope?.directory?.trim() ?? "";
   return encodeURIComponent(`${base.origin}${base.pathname.replace(/\/+$/, "")}|${scope}`);
+}
+
+export function opencodeSource(
+  context: Pick<OpencodeMappingContext, "baseUrl" | "scope" | "sourceLabel">,
+) {
+  return {
+    id: `opencode:${createOpencodeInstanceKey(context)}`,
+    kind: "opencode" as const,
+    label: opencodeSourceLabel(context),
+  };
 }
 
 export function opencodeTaskId(

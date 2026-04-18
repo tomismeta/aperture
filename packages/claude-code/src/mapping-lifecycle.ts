@@ -112,7 +112,7 @@ export function mapSubagentStart(event: ClaudeCodeSubagentStartEvent): SourceEve
     source: claudeSource(event),
     semanticHints: sessionStatusSemanticHints(`Claude started a ${event.agent_type} subagent.`),
     title: `Claude started ${event.agent_type} subagent`,
-    summary: `${event.agent_type} subagent is now running.`,
+    summary: subagentStartSummary(event),
   };
 }
 
@@ -403,11 +403,20 @@ function subagentStopSummary(event: ClaudeCodeSubagentStopEvent): string {
       .map((line) => line.trim())
       .find((line) => line.length > 0);
     if (firstLine) {
-      return `${event.agent_type} subagent finished: ${firstLine}`;
+      return `${event.agent_type} subagent ${event.agent_id} finished: ${firstLine}`;
     }
   }
 
-  return `${event.agent_type} subagent finished.`;
+  const transcriptName = event.agent_transcript_path
+    ? basename(event.agent_transcript_path)
+    : null;
+  return transcriptName
+    ? `${event.agent_type} subagent ${event.agent_id} finished. Transcript: ${transcriptName}.`
+    : `${event.agent_type} subagent ${event.agent_id} finished.`;
+}
+
+function subagentStartSummary(event: ClaudeCodeSubagentStartEvent): string {
+  return `${event.agent_type} subagent ${event.agent_id} is now running.`;
 }
 
 function stopFailureSummary(event: ClaudeCodeStopFailureEvent): string {

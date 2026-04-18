@@ -23,6 +23,8 @@ Today, Aperture supports:
 
 - OpenCode permission approvals through the server / terminal path
 - structured `question.asked` prompts through the server / terminal path
+- single-question multi-select prompts through the shared Aperture TUI
+- typed custom answers for OpenCode prompts that allow freeform replies
 - lightweight blocked-awareness when OpenCode is waiting for a human follow-up reply
 - one shared Aperture runtime and one shared TUI across Claude Code and OpenCode
 - local Aperture-side connection profiles via:
@@ -62,7 +64,7 @@ opencode attach http://127.0.0.1:4096
 Current limitations:
 
 - the native OpenCode macOS desktop app does not yet reliably surface all human gates through the same server-visible event path Aperture consumes
-- generic freeform text entry in the Aperture TUI is not implemented yet, so OpenCode questions that implicitly allow custom typed answers are only partially represented today
+- OpenCode-native multi-question layouts still normalize into Aperture's shared form model rather than preserving every host-specific presentation affordance
 
 ## Goal
 
@@ -111,6 +113,10 @@ The bridge should accept normal connection options such as:
 - port
 - optional auth credentials
 - optional project directory scoping
+
+When an OpenCode profile does not provide an explicit label, the adapter now
+derives a calmer default source label from the scoped workspace so mixed-source
+review stays readable in the shared TUI.
 
 This is not a second OpenCode runtime.
 
@@ -464,6 +470,7 @@ The important thing is preserving:
 - options
 - order
 - whether custom input is allowed
+- whether one question expects one answer or many
 
 ### `permission.replied`
 

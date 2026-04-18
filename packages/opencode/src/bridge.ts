@@ -7,6 +7,7 @@ import {
   mapOpencodeEvent,
   mapOpencodeNativeResolution,
   mapOpencodeResponse,
+  opencodeSource,
   parseOpencodeInteractionId,
   type OpencodeMappingContext,
 } from "./mapping.js";
@@ -326,11 +327,7 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
       type: "task.updated",
       taskId: taskId ?? `opencode:${createOpencodeInstanceKey(mappingContext)}:session:bridge`,
       timestamp: new Date().toISOString(),
-      source: {
-        id: `opencode:${createOpencodeInstanceKey(mappingContext)}`,
-        kind: "opencode",
-        label: mappingContext.sourceLabel ?? "OpenCode",
-      },
+      source: opencodeSource(mappingContext),
       title,
       summary: error instanceof Error ? error.message : String(error),
       status: "waiting",
@@ -350,11 +347,7 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
       type: "task.updated",
       taskId: `opencode:${instanceKey}:session:bridge`,
       timestamp: new Date().toISOString(),
-      source: {
-        id: `opencode:${instanceKey}`,
-        kind: "opencode",
-        label: mappingContext.sourceLabel ?? "OpenCode",
-      },
+      source: opencodeSource(mappingContext),
       title: "OpenCode event stream recovered",
       summary,
       status: "completed",

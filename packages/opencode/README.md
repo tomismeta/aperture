@@ -67,6 +67,8 @@ The package currently includes:
 - a bridge that connects the live OpenCode server path to Aperture runtime
 - bootstrap of pending permissions and questions from the server
 - reconnect and heartbeat handling for the live event stream
+- scoped source labels when no explicit OpenCode profile label is configured
+- multi-select question support through the shared Aperture TUI
 
 ## Current Assessment
 
@@ -74,6 +76,8 @@ The package currently includes:
   - this is a supported source adapter path
 - `strong`
   - the bridge, reconnect path, and pending-work bootstrap are all part of the current documented shape
+- `reference`
+  - choice, multi-select, form, and typed custom-answer prompts all flow through the same shared Aperture response loop
 - `bounded`
   - the clean path is still OpenCode server plus terminal, not native desktop parity
 

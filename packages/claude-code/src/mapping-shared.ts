@@ -221,6 +221,15 @@ export function createContextItem(id: string, label: string, value: string): Con
   return { id, label, value };
 }
 
+export function claudeRuntimeContextItems(
+  event: Pick<ClaudeCodeHookBaseEvent, "permission_mode" | "transcript_path">,
+): ContextItem[] {
+  return [
+    claudePermissionModeContextItem(event.permission_mode),
+    claudeTranscriptContextItem(event.transcript_path),
+  ].filter((item): item is ContextItem => item !== null);
+}
+
 export function toolInputContextItems(input: Record<string, unknown>): ContextItem[] {
   return stringInputContextItems(input);
 }
@@ -279,6 +288,18 @@ export function readSearchQuery(input: Record<string, unknown>): string | undefi
 
 export function readString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function claudePermissionModeContextItem(permissionMode: string | undefined): ContextItem | null {
+  return permissionMode
+    ? createContextItem("permissionMode", "Permission Mode", permissionMode)
+    : null;
+}
+
+function claudeTranscriptContextItem(transcriptPath: string | undefined): ContextItem | null {
+  return transcriptPath
+    ? createContextItem("transcriptPath", "Transcript Path", transcriptPath)
+    : null;
 }
 
 function classifyToolNameRisk(toolName: string, hasSensitivePath: boolean): ConsequenceLevel {

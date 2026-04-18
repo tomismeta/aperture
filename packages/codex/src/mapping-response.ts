@@ -5,11 +5,14 @@ import type {
   CodexCommandExecutionApprovalDecision,
   CodexExecCommandApprovalResponse,
   CodexFileChangeApprovalDecision,
+  CodexMcpServerElicitationRequestParams,
+  CodexMcpServerElicitationRequestResponse,
   CodexPermissionsRequestApprovalParams,
   CodexPermissionsRequestApprovalResponse,
   CodexReviewDecision,
   CodexToolRequestUserInputParams,
 } from "./protocol.js";
+import { mapCodexElicitationAcceptedContent } from "./mapping-human-input.js";
 
 export type CodexResponsePayload =
   | {
@@ -18,6 +21,7 @@ export type CodexResponsePayload =
   | CodexExecCommandApprovalResponse
   | CodexApplyPatchApprovalResponse
   | CodexPermissionsRequestApprovalResponse
+  | CodexMcpServerElicitationRequestResponse
   | {
       answers: Record<string, { answers: string[] }>;
     };
@@ -44,6 +48,15 @@ export type ParsedInteractionId =
       threadId: string;
       turnId: string;
       itemId: string;
+    }
+  | {
+      kind: "mcpElicitation";
+      requestId: string;
+      threadId: string;
+      turnId: string | null;
+      serverName: string;
+      mode: "form" | "url";
+      elicitationId?: string;
     }
   | {
       kind: "execCommandApproval";
@@ -109,6 +122,19 @@ export function parseCodexInteractionId(interactionId: string): ParsedInteractio
         threadId: decodeURIComponent(threadId),
         turnId: decodeURIComponent(firstSegment),
         itemId: decodeURIComponent(secondSegment),
+      };
+    case "mcpElicitation":
+      if (!firstSegment || !secondSegment || !thirdSegment) {
+        return null;
+      }
+      return {
+        kind,
+        requestId: decodeURIComponent(requestId),
+        threadId: decodeURIComponent(threadId),
+        turnId: decodeURIComponent(firstSegment) === "_" ? null : decodeURIComponent(firstSegment),
+        serverName: decodeURIComponent(secondSegment),
+        mode: decodeURIComponent(thirdSegment) === "url" ? "url" : "form",
+        ...(parts[7] ? { elicitationId: decodeURIComponent(parts[7]!) } : {}),
       };
     case "execCommandApproval":
       if (!firstSegment) {
@@ -221,6 +247,41 @@ export function mapPermissionsApprovalResponse(
         permissions: {},
         scope: "turn",
       };
+  }
+}
+
+export function mapMcpServerElicitationResponse(
+  response: AttentionResponse,
+  params: CodexMcpServerElicitationRequestParams,
+): CodexMcpServerElicitationRequestResponse {
+  if (params.mode === "url") {
+    switch (response.response.kind) {
+      case "approved":
+        return { action: "accept", content: null, _meta: null };
+      case "rejected":
+        return { action: "decline", content: null, _meta: null };
+      case "dismissed":
+      case "acknowledged":
+      case "option_selected":
+      case "text_submitted":
+      case "form_submitted":
+        return { action: "cancel", content: null, _meta: null };
+    }
+  }
+
+  switch (response.response.kind) {
+    case "option_selected":
+    case "text_submitted":
+    case "form_submitted": {
+      const content = mapCodexElicitationAcceptedContent(response, params);
+      return { action: "accept", content, _meta: null };
+    }
+    case "rejected":
+      return { action: "decline", content: null, _meta: null };
+    case "approved":
+    case "dismissed":
+    case "acknowledged":
+      return { action: "cancel", content: null, _meta: null };
   }
 }
 

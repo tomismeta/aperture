@@ -304,6 +304,8 @@ function renderActiveFrame(
 
   // Context items — behind [space] expand to keep the default view tight
   const contextItems = frame.context?.items ?? [];
+  const selectedChoiceOptionIds =
+    inputDraft?.kind === "choice" ? new Set(inputDraft.optionIds) : null;
   if (expanded && contextItems.length > 0) {
     for (const item of contextItems.slice(0, 4)) {
       const val = sanitizeContextValue(String(item.value ?? "n/a"));
@@ -316,8 +318,15 @@ function renderActiveFrame(
   // Choice options
   if (frame.responseSpec?.kind === "choice") {
     for (const [index, option] of frame.responseSpec.options.entries()) {
+      const multiSelectMarker =
+        frame.responseSpec.selectionMode === "multiple"
+          ? `${styleMuted(selectedChoiceOptionIds?.has(option.id) ? "[x]" : "[ ]", color)} `
+          : "";
       lines.push(
-        ...renderPrefixedBlock(`${tree}${styleKey(String(index + 1), color)} `, option.label),
+        ...renderPrefixedBlock(
+          `${tree}${styleKey(String(index + 1), color)} ${multiSelectMarker}`,
+          option.label,
+        ),
       );
     }
     if (frame.responseSpec.allowTextResponse) {
@@ -545,6 +554,11 @@ function renderControls(
   }
 
   if (inputDraft) {
+    if (inputDraft.kind === "choice") {
+      return [
+        `${styleMuted("controls", color)} ${styleKey("1-9", color)} toggle  ${styleKey("⏎", color)} submit  ${styleKey("esc", color)} clear  ${styleKey("x", color)} dismiss  ${styleKey("q", color)} quit`,
+      ];
+    }
     return [
       `${styleMuted("controls", color)} ${styleKey("type", color)} edit  ${styleKey("enter", color)} next/submit  ${styleKey("esc", color)} cancel  ${styleKey("q", color)} quit`,
     ];

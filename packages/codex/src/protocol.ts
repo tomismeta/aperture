@@ -21,6 +21,9 @@ import type { FileChangeApprovalDecision as GeneratedFileChangeApprovalDecision 
 import type { FileChangeRequestApprovalParams as GeneratedFileChangeRequestApprovalParams } from "./generated/app-server/v2/FileChangeRequestApprovalParams.js";
 import type { ItemCompletedNotification as GeneratedItemCompletedNotification } from "./generated/app-server/v2/ItemCompletedNotification.js";
 import type { ItemStartedNotification as GeneratedItemStartedNotification } from "./generated/app-server/v2/ItemStartedNotification.js";
+import type { McpElicitationPrimitiveSchema as GeneratedMcpElicitationPrimitiveSchema } from "./generated/app-server/v2/McpElicitationPrimitiveSchema.js";
+import type { McpServerElicitationRequestParams as GeneratedMcpServerElicitationRequestParams } from "./generated/app-server/v2/McpServerElicitationRequestParams.js";
+import type { McpServerElicitationRequestResponse as GeneratedMcpServerElicitationRequestResponse } from "./generated/app-server/v2/McpServerElicitationRequestResponse.js";
 import type { ReviewDelivery as GeneratedReviewDelivery } from "./generated/app-server/v2/ReviewDelivery.js";
 import type { ReviewStartParams as GeneratedReviewStartParams } from "./generated/app-server/v2/ReviewStartParams.js";
 import type { ReviewStartResponse as GeneratedReviewStartResponse } from "./generated/app-server/v2/ReviewStartResponse.js";
@@ -110,11 +113,13 @@ export type CodexFileChangeApprovalDecision = GeneratedFileChangeApprovalDecisio
 
 export type CodexToolRequestUserInputOption = GeneratedToolRequestUserInputOption;
 export type CodexToolRequestUserInputQuestion = GeneratedToolRequestUserInputQuestion;
+export type CodexMcpElicitationPrimitiveSchema = GeneratedMcpElicitationPrimitiveSchema;
 
 export type CodexCommandExecutionRequestApprovalParams =
   GeneratedCommandExecutionRequestApprovalParams;
 export type CodexFileChangeRequestApprovalParams = GeneratedFileChangeRequestApprovalParams;
 export type CodexToolRequestUserInputParams = GeneratedToolRequestUserInputParams;
+export type CodexMcpServerElicitationRequestParams = GeneratedMcpServerElicitationRequestParams;
 export type CodexPermissionsRequestApprovalParams = GeneratedPermissionsRequestApprovalParams;
 export type CodexExecCommandApprovalParams = GeneratedExecCommandApprovalParams;
 export type CodexApplyPatchApprovalParams = GeneratedApplyPatchApprovalParams;
@@ -122,6 +127,8 @@ export type CodexReviewDecision = GeneratedReviewDecision;
 export type CodexExecCommandApprovalResponse = GeneratedExecCommandApprovalResponse;
 export type CodexApplyPatchApprovalResponse = GeneratedApplyPatchApprovalResponse;
 export type CodexPermissionsRequestApprovalResponse = GeneratedPermissionsRequestApprovalResponse;
+export type CodexMcpServerElicitationRequestResponse =
+  GeneratedMcpServerElicitationRequestResponse;
 
 export type CodexRawServerRequest = {
   method: string;

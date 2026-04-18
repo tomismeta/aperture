@@ -268,6 +268,89 @@ test("maps multi-question user input into a form request", () => {
   }
 });
 
+test("maps MCP multi-select elicitation into a multiple-choice request", () => {
+  const request: CodexServerRequest = {
+    id: "req-mcp-multi",
+    method: "mcpServer/elicitation/request",
+    params: {
+      threadId: "thread-7",
+      turnId: "turn-4",
+      serverName: "github",
+      mode: "form",
+      _meta: null,
+      message: "Select labels to apply",
+      requestedSchema: {
+        type: "object",
+        properties: {
+          labels: {
+            type: "array",
+            title: "Labels",
+            items: {
+              type: "string",
+              enum: ["bug", "docs"],
+            },
+          },
+        },
+        required: ["labels"],
+      },
+    },
+  };
+
+  const mapped = mapCodexServerRequest(request);
+  assert.ok(mapped);
+  assert.equal(mapped.events[0]?.type, "human.input.requested");
+  if (mapped?.events[0]?.type === "human.input.requested") {
+    assert.equal(mapped.events[0].activityClass, "question_request");
+    assert.equal(mapped.events[0].request.kind, "choice");
+    assert.equal(mapped.events[0].taskId, "codex:thread:thread-7:turn:turn-4");
+    if (mapped.events[0].request.kind === "choice") {
+      assert.equal(mapped.events[0].request.selectionMode, "multiple");
+      assert.deepEqual(mapped.events[0].request.options, [
+        { id: "labels=bug", label: "bug" },
+        { id: "labels=docs", label: "docs" },
+      ]);
+    }
+  }
+});
+
+test("maps MCP url elicitation into an approval request", () => {
+  const request: CodexServerRequest = {
+    id: "req-mcp-url",
+    method: "mcpServer/elicitation/request",
+    params: {
+      threadId: "thread-8",
+      turnId: null,
+      serverName: "github",
+      mode: "url",
+      _meta: {
+        codex_approval_kind: "mcp_tool_call",
+        persist: ["session", "always"],
+      },
+      message: "Authorize GitHub",
+      url: "https://github.com/login/device",
+      elicitationId: "eli-1",
+    },
+  };
+
+  const mapped = mapCodexServerRequest(request);
+  assert.ok(mapped);
+  assert.equal(mapped.events[0]?.type, "human.input.requested");
+  if (mapped?.events[0]?.type === "human.input.requested") {
+    assert.equal(mapped.events[0].activityClass, "permission_request");
+    assert.equal(mapped.events[0].taskId, "codex:thread:thread-8");
+    assert.equal(mapped.events[0].request.kind, "approval");
+    assert.equal(mapped.events[0].summary, "Open https://github.com/login/device to continue.");
+    assert.deepEqual(mapped.events[0].context?.items, [
+      { id: "serverName", label: "Server", value: "github" },
+      { id: "mode", label: "Mode", value: "url" },
+      { id: "url", label: "URL", value: "https://github.com/login/device" },
+      { id: "elicitationId", label: "Elicitation", value: "eli-1" },
+      { id: "approvalKind", label: "Approval Kind", value: "mcp_tool_call" },
+      { id: "persist", label: "Available Scope", value: "session, always" },
+    ]);
+  }
+});
+
 test("maps approval responses back to codex decisions", () => {
   const request: CodexServerRequest = {
     id: 17,
@@ -386,6 +469,106 @@ test("maps user-input form responses back to answer payloads", () => {
   });
 });
 
+test("maps MCP elicitation choice responses back to structured content", () => {
+  const request: CodexServerRequest = {
+    id: "req-mcp-choice",
+    method: "mcpServer/elicitation/request",
+    params: {
+      threadId: "thread-9",
+      turnId: "turn-5",
+      serverName: "github",
+      mode: "form",
+      _meta: null,
+      message: "Select an environment",
+      requestedSchema: {
+        type: "object",
+        properties: {
+          environment: {
+            type: "string",
+            title: "Environment",
+            oneOf: [
+              { const: "staging", title: "Staging" },
+              { const: "prod", title: "Production" },
+            ],
+          },
+        },
+        required: ["environment"],
+      },
+    },
+  };
+  const response: AttentionResponse = {
+    taskId: "codex:thread:thread-9:turn:turn-5",
+    interactionId: "codex:mcpElicitation:req-mcp-choice:thread-9:turn-5:github:form",
+    response: { kind: "option_selected", optionIds: ["environment=prod"] },
+  };
+
+  assert.deepEqual(mapCodexResponse(response, request), {
+    action: "accept",
+    content: {
+      environment: "prod",
+    },
+    _meta: null,
+  });
+});
+
+test("maps MCP elicitation form responses with multi-select fields back to structured content", () => {
+  const request: CodexServerRequest = {
+    id: "req-mcp-form",
+    method: "mcpServer/elicitation/request",
+    params: {
+      threadId: "thread-10",
+      turnId: "turn-6",
+      serverName: "linear",
+      mode: "form",
+      _meta: null,
+      message: "Configure review",
+      requestedSchema: {
+        type: "object",
+        properties: {
+          environment: {
+            type: "string",
+            title: "Environment",
+            enum: ["staging", "prod"],
+            enumNames: ["Staging", "Production"],
+          },
+          reviewers: {
+            type: "array",
+            title: "Reviewers",
+            items: {
+              anyOf: [
+                { const: "alice", title: "Alice" },
+                { const: "bob", title: "Bob" },
+              ],
+            },
+          },
+        },
+        required: ["environment"],
+      },
+    },
+  };
+  const response: AttentionResponse = {
+    taskId: "codex:thread:thread-10:turn:turn-6",
+    interactionId: "codex:mcpElicitation:req-mcp-form:thread-10:turn-6:linear:form",
+    response: {
+      kind: "form_submitted",
+      values: {
+        environment: "prod",
+        "reviewers:option:0": true,
+        "reviewers:option:1": false,
+      },
+    },
+  };
+
+  assert.deepEqual(mapCodexResponse(response, request), {
+    action: "accept",
+    content: {
+      environment: "prod",
+      reviewers: ["alice"],
+    },
+    _meta: null,
+  });
+});
+
 test("maps turn notifications into coarse running/completed updates", () => {
   const started = mapCodexNotification({
     method: "turn/started",
@@ -462,6 +645,19 @@ test("parses codex interaction ids", () => {
       requestId: "req-patch",
       threadId: "thread-legacy",
       itemId: "patch-call-1",
+    },
+  );
+
+  assert.deepEqual(
+    parseCodexInteractionId("codex:mcpElicitation:req-mcp:thread-11:_:github:url:eli-123"),
+    {
+      kind: "mcpElicitation",
+      requestId: "req-mcp",
+      threadId: "thread-11",
+      turnId: null,
+      serverName: "github",
+      mode: "url",
+      elicitationId: "eli-123",
     },
   );
 });

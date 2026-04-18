@@ -194,8 +194,8 @@ Repo-level examples and capture-review quickstarts live in
 
 - Product package: [`@tomismeta/aperture`](https://www.npmjs.com/package/@tomismeta/aperture)
 - SDK package: [`@tomismeta/aperture-core`](https://www.npmjs.com/package/@tomismeta/aperture-core)
-- Product release notes: [docs/releases/aperture-v0.3.0.md](./docs/releases/aperture-v0.3.0.md)
-- SDK release notes: [docs/releases/aperture-core-v0.6.0.md](./docs/releases/aperture-core-v0.6.0.md)
+- Product release notes: [docs/releases/aperture-v0.4.0.md](./docs/releases/aperture-v0.4.0.md)
+- SDK release notes: [docs/releases/aperture-core-v0.7.0.md](./docs/releases/aperture-core-v0.7.0.md)
 - Architecture overview: [docs/product/architecture-overview.md](./docs/product/architecture-overview.md)
 - Attention judgment doctrine: [docs/engine/attention-judgment-doctrine.md](./docs/engine/attention-judgment-doctrine.md)
 - Core SDK guide: [packages/core/README.md](./packages/core/README.md)

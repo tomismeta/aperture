@@ -111,7 +111,7 @@ test("maps follow-up text parts into a reply request", () => {
       source: {
         id: `opencode:${createOpencodeInstanceKey(context)}`,
         kind: "opencode",
-        label: "OpenCode",
+        label: "OpenCode project",
       },
       activityClass: "follow_up",
       title: "OpenCode is waiting for your reply",
@@ -145,6 +145,20 @@ test("maps follow-up text parts into a reply request", () => {
       },
     },
   ]);
+});
+
+test("derives a clearer OpenCode source label from the scoped workspace", () => {
+  const mapped = mapOpencodeEvent({
+    type: "permission.asked",
+    properties: {
+      id: "perm-scope-1",
+      sessionID: "ses-scope-1",
+      permission: "external_directory",
+      patterns: ["/workspace/project/docs/*"],
+    },
+  }, context);
+
+  assert.equal(mapped[0]?.source?.label, "OpenCode project");
 });
 
 test("does not map user-authored text questions into a reply request", () => {
@@ -211,6 +225,39 @@ test("maps question.asked with options to a choice request", () => {
   ]);
 });
 
+test("maps multi-select OpenCode questions to multiple-choice requests without implicit freeform replies", () => {
+  const mapped = mapOpencodeEvent({
+    type: "question.asked",
+    properties: {
+      id: "question-multi-1",
+      sessionID: "ses-multi-1",
+      questions: [
+        {
+          header: "Review areas",
+          question: "Which areas should I inspect first?",
+          multiSelect: true,
+          options: [
+            { label: "tests", value: "tests-value" },
+            { label: "docs", value: "docs-value" },
+          ],
+        },
+      ],
+    },
+  }, context);
+
+  assert.equal(mapped[0]?.type, "human.input.requested");
+  if (mapped[0]?.type !== "human.input.requested" || mapped[0].request.kind !== "choice") {
+    return;
+  }
+
+  assert.equal(mapped[0].request.selectionMode, "multiple");
+  assert.equal(mapped[0].request.allowTextResponse, undefined);
+  assert.deepEqual(mapped[0].request.options, [
+    { id: "tests", label: "tests" },
+    { id: "docs", label: "docs" },
+  ]);
+});
+
 test("maps question.asked custom choice affordance to generic text response", () => {
   const mapped = mapOpencodeEvent({
     type: "question.asked",
@@ -240,7 +287,7 @@ test("maps question.asked custom choice affordance to generic text response", ()
   assert.equal(mapped[0].request.allowTextResponse, true);
 });
 
-test("maps single-question choice prompts to include freeform reply affordance", () => {
+test("does not imply freeform reply affordance for ordinary single-question choices", () => {
   const mapped = mapOpencodeEvent({
     type: "question.asked",
     properties: {
@@ -265,7 +312,59 @@ test("maps single-question choice prompts to include freeform reply affordance",
   }
 
   assert.equal(mapped[0].activityClass, "question_request");
-  assert.equal(mapped[0].request.allowTextResponse, true);
+  assert.equal(mapped[0].request.allowTextResponse, undefined);
+});
+
+test("maps multi-question prompts into forms that preserve headers and question text", () => {
+  const mapped = mapOpencodeEvent({
+    type: "question.asked",
+    properties: {
+      id: "question-form-2",
+      sessionID: "ses-form-2",
+      questions: [
+        {
+          id: "target",
+          header: "Deploy target",
+          question: "Where should I deploy this change?",
+          options: [
+            { label: "staging" },
+            { label: "production" },
+          ],
+        },
+        {
+          id: "reason",
+          header: "Notes",
+          prompt: "Anything the operator should know?",
+        },
+      ],
+    },
+  }, context);
+
+  assert.equal(mapped[0]?.type, "human.input.requested");
+  if (mapped[0]?.type !== "human.input.requested" || mapped[0].request.kind !== "form") {
+    return;
+  }
+
+  assert.deepEqual(mapped[0].request.fields, [
+    {
+      id: "target",
+      label: "Deploy target",
+      type: "select",
+      required: true,
+      helpText: "Where should I deploy this change?",
+      options: [
+        { value: "staging", label: "staging" },
+        { value: "production", label: "production" },
+      ],
+    },
+    {
+      id: "reason",
+      label: "Notes",
+      type: "textarea",
+      required: true,
+      helpText: "Anything the operator should know?",
+    },
+  ]);
 });
 
 test("maps session.status into explicit session-status awareness", () => {

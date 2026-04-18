@@ -12,6 +12,7 @@ export {
 export {
   createOpencodeInstanceKey,
   opencodeInteractionId,
+  opencodeSource,
   opencodeTaskId,
   parseOpencodeInteractionId,
   type OpencodeMappingContext,

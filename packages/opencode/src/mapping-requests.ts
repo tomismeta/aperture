@@ -9,6 +9,7 @@ import type {
 import {
   createOpencodeInstanceKey,
   opencodeInteractionId,
+  opencodeSource,
   opencodeTaskId,
   readString,
   type OpencodeMappingContext,
@@ -64,11 +65,7 @@ export function mapPermissionAsked(
     taskId: opencodeTaskId(instanceKey, sessionId, requestId),
     interactionId: opencodeInteractionId(instanceKey, "permission", requestId),
     timestamp: event.properties.createdAt ?? new Date().toISOString(),
-    source: {
-      id: `opencode:${instanceKey}`,
-      kind: "opencode",
-      label: context.sourceLabel ?? "OpenCode",
-    },
+    source: opencodeSource(context),
     toolFamily: opencodeToolFamily(tool),
     activityClass: "permission_request",
     title,
@@ -124,11 +121,7 @@ export function mapQuestionAsked(
     taskId: opencodeTaskId(instanceKey, sessionId, requestId),
     interactionId: opencodeInteractionId(instanceKey, "question", requestId),
     timestamp: event.properties.createdAt ?? new Date().toISOString(),
-    source: {
-      id: `opencode:${instanceKey}`,
-      kind: "opencode",
-      label: context.sourceLabel ?? "OpenCode",
-    },
+    source: opencodeSource(context),
     activityClass: "question_request",
     title,
     summary,
@@ -149,10 +142,7 @@ function promptsToRequest(prompts: OpencodeQuestionPrompt[]) {
   if (prompts.length === 1 && prompts[0]?.options?.length) {
     const prompt = prompts[0];
     const options = prompt.options ?? [];
-    const allowTextResponse =
-      prompt.custom === true ||
-      prompt.allowCustomInput === true ||
-      (prompt.multiple !== true && prompt.multiSelect !== true);
+    const allowTextResponse = prompt.custom === true || prompt.allowCustomInput === true;
     return {
       kind: "choice" as const,
       selectionMode:
@@ -163,8 +153,8 @@ function promptsToRequest(prompts: OpencodeQuestionPrompt[]) {
           }
         : {}),
       options: options.map((option, index) => ({
-        id: option.value ?? option.label ?? `option-${index}`,
-        label: option.label,
+        id: option.label ?? option.value ?? `option-${index}`,
+        label: option.label ?? option.value ?? `Option ${index + 1}`,
         ...(option.description ? { summary: option.description } : {}),
       })),
     };
@@ -174,23 +164,40 @@ function promptsToRequest(prompts: OpencodeQuestionPrompt[]) {
     kind: "form" as const,
     fields: prompts.map((prompt, index) => ({
       id: prompt.id ?? `field-${index}`,
-      label:
-        prompt.question ??
-        prompt.label ??
-        prompt.header ??
-        prompt.prompt ??
-        `Field ${index + 1}`,
+      label: primaryPromptLabel(prompt, index),
       type: prompt.options?.length ? ("select" as const) : ("textarea" as const),
+      required: true,
+      ...(secondaryPromptText(prompt, index)
+        ? {
+            helpText: secondaryPromptText(prompt, index),
+          }
+        : {}),
       ...(prompt.options?.length
         ? {
-            options: prompt.options.map((option) => ({
-              value: option.value ?? option.label,
-              label: option.label,
+            options: prompt.options.map((option, optionIndex) => ({
+              value: option.label ?? option.value ?? `option-${optionIndex}`,
+              label: option.label ?? option.value ?? `Option ${optionIndex + 1}`,
             })),
           }
         : {}),
     })),
   };
+}
+
+function primaryPromptLabel(prompt: OpencodeQuestionPrompt, index: number): string {
+  return (
+    prompt.header ??
+    prompt.label ??
+    prompt.question ??
+    prompt.prompt ??
+    `Field ${index + 1}`
+  );
+}
+
+function secondaryPromptText(prompt: OpencodeQuestionPrompt, index: number): string | undefined {
+  const primary = primaryPromptLabel(prompt, index);
+  return [prompt.question, prompt.prompt, prompt.label, prompt.header]
+    .find((candidate) => typeof candidate === "string" && candidate.trim() !== "" && candidate !== primary);
 }
 
 function patternSummary(patterns: OpencodeToolCallPattern[] | undefined): string | undefined {

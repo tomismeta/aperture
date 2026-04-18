@@ -20,7 +20,9 @@ This document answers:
 Right now Aperture has:
 
 - a published core SDK:
-  - `@tomismeta/aperture-core@0.4.2`
+  - `@tomismeta/aperture-core@0.7.0`
+- a published local product package:
+  - `@tomismeta/aperture@0.4.0`
 - two live adapter paths:
   - Claude Code
   - OpenCode
@@ -51,8 +53,8 @@ The next release sequence should stay tight:
 
 1. finish the current pre-release sweep
 2. inspect only the highest-signal findings
-3. merge only bounded, structural core improvements
-4. cut the next `aperture-core` and `aperture` patch releases
+3. merge only bounded, structural release work
+4. cut the next product release, and cut `aperture-core` only when the shipped SDK boundary or behavior meaningfully moves
 
 The release bar should be:
 
@@ -184,7 +186,7 @@ The moat is the system:
 
 ### Claude Code
 
-Status: `live, close to hardened`
+Status: `live, hardened flagship path`
 
 What is true today:
 
@@ -192,13 +194,15 @@ What is true today:
 - approval / hold / timeout behavior
 - follow-up and passive-status handling
 - explicit semantics for high-value passive and interactive paths
+- auto-mode denial awareness plus permission-mode and transcript context on approval frames
+- subagent lifecycle identity is legible in the shared surface
 - strong regression coverage
 
 This remains the flagship live path.
 
 ### OpenCode
 
-Status: `live`
+Status: `live, reliable reference adapter`
 
 What is true today:
 
@@ -206,6 +210,9 @@ What is true today:
 - Aperture-side connection profile setup
 - permissions, structured questions, blocked awareness, and session-status paths
 - shared runtime + shared TUI alongside Claude Code
+- reconnect, heartbeat, and pending-work bootstrap are part of the documented path
+- typed custom-answer prompts flow through the same shared response loop
+- default source labels stay readable even when a profile label is missing
 - explicit semantics threaded through the high-value paths
 
 What is still weaker than Claude:
@@ -216,7 +223,7 @@ What is still weaker than Claude:
 
 ### Codex
 
-Status: `experimental live path`
+Status: `experimental live path, App Server first`
 
 What is true today:
 
@@ -225,6 +232,7 @@ What is true today:
 - experimental stock-CLI hook ingress exists
 - `pnpm codex:run` and `pnpm codex:start` are real operator paths
 - end-to-end approval supervision is proven for supported request families
+- the release posture stays App Server first, with hooks treated as a fallback seam rather than the main story
 
 What is still weaker than Claude and OpenCode:
 
@@ -247,7 +255,8 @@ That means the near-term bias should be:
 1. keep Claude Code healthy
 2. keep OpenCode healthy
 3. strengthen Codex by validating more real request families and interruption semantics
-4. evaluate Cursor later if we want stronger background-agent and cloud-agent
+4. evaluate a bounded GitHub Copilot SDK adapter spike without changing core
+5. evaluate Cursor later if we want stronger background-agent and cloud-agent
    pressure
 
 What to avoid:
@@ -255,6 +264,60 @@ What to avoid:
 - building an adapter zoo for its own sake
 - adding new adapters before the shared judgment loop is ready to benefit from
   them
+
+## GitHub Copilot SDK Plan
+
+Status: `candidate spike, not active product path`
+
+The GitHub opportunity is real, but it should be framed precisely.
+
+The promising seam is:
+
+- Copilot SDK sessions and hooks
+
+The wrong seam is:
+
+- trying to wrap GitHub's native cloud-agent web and mobile product surface as
+  if Aperture were the primary host
+
+Why this is worth a bounded spike:
+
+- GitHub is clearly investing in agent workflows across CLI, cloud agent, and
+  SDK
+- the Copilot SDK is the cleanest programmable seam
+- it could pressure-test Aperture against a major hosted agent runtime without
+  requiring host-specific logic in core
+
+Why this should stay bounded:
+
+- GitHub already owns a lot of its native review, session-log, mobile, and
+  policy surface
+- a GitHub adapter only matters if Aperture still adds neutral judgment value
+  across that host runtime
+
+The rule for this work is strict:
+
+- no changes to `@tomismeta/aperture-core` should be required to start the
+  Copilot adapter
+- no GitHub-native DTOs, SDK types, or session concepts should leak into core
+- if the adapter cannot fit `SourceEvent` in and `AttentionResponse` out, the
+  spike should stop there
+
+The spike sequence should be:
+
+1. prove one local SDK session can emit enough structured events to drive
+   Aperture
+2. map the high-value interrupt points into existing Aperture request kinds
+3. prove one response loop back into the SDK
+4. document what remains host-native and should stay out of core
+5. decide whether the seam is strong enough to continue
+
+Success looks like:
+
+- one small dedicated adapter package
+- no core API changes
+- no shared TUI redesign
+- one or two real GitHub-native interrupt loops proven end to end
 
 ## SDK / Package Maturity
 

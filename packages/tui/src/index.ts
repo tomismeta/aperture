@@ -453,6 +453,10 @@ function editingStatusLabel(frame: Frame | null): string {
     return "Editing reply";
   }
 
+  if (frame.responseSpec?.kind === "choice" && frame.responseSpec.selectionMode === "multiple") {
+    return `Selecting options for ${frame.title}`;
+  }
+
   if (frame.responseSpec?.kind === "form") {
     return `Editing ${frame.responseSpec.fields[0]?.label ?? frame.title}`;
   }

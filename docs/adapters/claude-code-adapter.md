@@ -18,6 +18,7 @@ Today, Aperture supports:
 
 - Claude Code tool approval requests
 - Claude Code permission-request dialogs
+- permission-mode and transcript context on approval and auto-mode denial frames
 - Claude Code structured elicitation requests
 - transcript-enriched `AskUserQuestion` prompts rendered as real Aperture choice or form requests
 - best-effort `AskUserQuestion` round-tripping by injecting the Aperture answer back into Claude as hook context
@@ -59,7 +60,7 @@ This is different from OpenCode because Claude's public integration seam is hook
 - `SessionStart` and `SessionEnd` lifecycle hook payloads
 - `InstructionsLoaded`, `ConfigChange`, and `CwdChanged` session-state hook payloads
 - `PermissionDenied` hook payloads for auto-mode denials
-- `SubagentStart` / `SubagentStop` lifecycle hook payloads
+- `SubagentStart` / `SubagentStop` lifecycle hook payloads with stable agent identity in summaries
 - `TaskCreated` / `TaskCompleted` teammate task hook payloads
 - `StopFailure`, `TeammateIdle`, `PreCompact`, and `PostCompact` status hook payloads
 - `UserPromptSubmit` hook payloads to clear waiting state

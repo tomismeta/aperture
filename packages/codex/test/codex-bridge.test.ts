@@ -132,6 +132,133 @@ test("bridge publishes mapped codex requests into runtime and routes responses b
   await bridge.close();
 });
 
+test("bridge routes Codex MCP elicitation responses back with structured content", async () => {
+  const published: SourceEvent[][] = [];
+  const sentResponses: Array<{ id: JsonRpcId; result: unknown }> = [];
+  const responseListeners = new Set<(response: AttentionResponse) => void>();
+  let requestListener: ((request: CodexServerRequest) => void) | null = null;
+
+  const fakeClient: CodexBridgeClient = {
+    async start() {
+      return { userAgent: "codex-test", platformFamily: "unix", platformOs: "macos" };
+    },
+    onServerRequest(listener: (request: CodexServerRequest) => void) {
+      requestListener = listener;
+      return () => {
+        requestListener = null;
+      };
+    },
+    onNotification() {
+      return () => {};
+    },
+    onExit() {
+      return () => {};
+    },
+    onStderr() {
+      return () => {};
+    },
+    respond(id: JsonRpcId, result: unknown) {
+      sentResponses.push({ id, result });
+    },
+    respondError() {},
+    async threadStart() {
+      throw new Error("not implemented");
+    },
+    async threadResume() {
+      throw new Error("not implemented");
+    },
+    async turnStart() {
+      throw new Error("not implemented");
+    },
+    async turnSteer() {
+      throw new Error("not implemented");
+    },
+    async turnInterrupt() {
+      throw new Error("not implemented");
+    },
+    async reviewStart() {
+      throw new Error("not implemented");
+    },
+    async close() {},
+  };
+
+  const fakeRuntimeClient: CodexRuntimeClient = {
+    onResponse(listener: (response: AttentionResponse) => void) {
+      responseListeners.add(listener);
+      return () => {
+        responseListeners.delete(listener);
+      };
+    },
+    async publishSourceEventBatch(events: SourceEvent[]) {
+      published.push(events);
+    },
+    async close() {},
+  };
+
+  const bridge = createCodexBridge({
+    runtimeBaseUrl: "http://127.0.0.1:4546/runtime",
+    client: fakeClient,
+    runtimeClientFactory: async () => fakeRuntimeClient,
+    logger: {
+      info() {},
+      warn() {},
+      error() {},
+    },
+  });
+  await bridge.start();
+
+  if (!requestListener) {
+    assert.fail("expected codex bridge to register a server request listener");
+  }
+  const currentRequestListener: (request: CodexServerRequest) => void = requestListener;
+  currentRequestListener({
+    id: "mcp-1",
+    method: "mcpServer/elicitation/request",
+    params: {
+      threadId: "thread-mcp",
+      turnId: "turn-mcp",
+      serverName: "github",
+      mode: "form",
+      _meta: null,
+      message: "Select deployment target",
+      requestedSchema: {
+        type: "object",
+        properties: {
+          environment: {
+            type: "string",
+            enum: ["staging", "prod"],
+          },
+        },
+        required: ["environment"],
+      },
+    },
+  });
+
+  assert.equal(published[0]?.[0]?.type, "human.input.requested");
+
+  const response: AttentionResponse = {
+    taskId: "codex:thread:thread-mcp:turn:turn-mcp",
+    interactionId: "codex:mcpElicitation:mcp-1:thread-mcp:turn-mcp:github:form",
+    response: { kind: "option_selected", optionIds: ["environment=prod"] },
+  };
+  for (const listener of responseListeners) {
+    listener(response);
+  }
+
+  assert.deepEqual(sentResponses[0], {
+    id: "mcp-1",
+    result: {
+      action: "accept",
+      content: {
+        environment: "prod",
+      },
+      _meta: null,
+    },
+  });
+
+  await bridge.close();
+});
+
 test("bridge rejects unsupported server requests explicitly", async () => {
   const errors: Array<{ id: JsonRpcId | null; error: { code: number; message: string } }> = [];
   let requestListener: ((request: { method: string; id: JsonRpcId; params?: unknown }) => void) | null = null;

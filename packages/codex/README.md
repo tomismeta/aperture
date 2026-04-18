@@ -14,7 +14,7 @@ without leaking Codex-specific transport or client details into
 - receives experimental Codex hook events from the stock CLI
 - translates attention-significant Codex facts into `SourceEvent`
 - publishes those events into Aperture runtime and core
-- maps `AttentionResponse` back into Codex-native replies
+- maps `AttentionResponse` back into Codex-native approval, user-input, and MCP elicitation replies
 
 ## Napkin
 
@@ -100,6 +100,10 @@ Current Aperture disposition by surface:
 |                         |                      | ingress; still narrower than App Server    |
 +-------------------------+----------------------+--------------------------------------------+
 ```
+
+Recent Codex host features strengthen the App Server direction, but they do
+not change Aperture's direct ingress contract yet. For this release line,
+App Server stays first and hooks stay clearly experimental.
 
 ## Transport Selection
 
@@ -194,6 +198,7 @@ chooses to externalize, not the basic Aperture adapter path
   - real approval requests can be surfaced and answered end to end
 - `promising`
   - the App Server boundary, dual transport seam, and mapping model are sound
+  - tool-driven user input and MCP elicitation requests now map into Aperture's shared choice/form/approval flows
   - the hook path gives us a real stock-CLI Bash approval seam
 - `not ready for the live path`
   - only a small set of request families are live-verified

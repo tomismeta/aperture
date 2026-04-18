@@ -34,6 +34,7 @@ import {
   classifyPermissionRequestRisk,
   classifyToolRisk,
   createContextItem,
+  claudeRuntimeContextItems,
   elicitationToken,
   explicitRequestSemanticHints,
   nowIso,
@@ -64,6 +65,7 @@ export function mapPreToolUse(
     ? [createContextItem("command", "Command", command)]
     : toolInputContextItems(event.tool_input);
   contextItems.push(createContextItem("cwd", "Working Directory", event.cwd));
+  contextItems.push(...claudeRuntimeContextItems(event));
 
   const consequence = classifyToolRisk(event, options);
   const request: HumanInputRequest = {
@@ -110,6 +112,7 @@ export function mapAskUserQuestion(
   if (firstQuestion?.header) {
     contextItems.unshift(createContextItem("header", "Header", firstQuestion.header));
   }
+  contextItems.push(...claudeRuntimeContextItems(event));
 
   return {
     id: claudeEventId(event, "human.input.requested"),
@@ -164,6 +167,7 @@ export function mapPermissionRequest(
       ),
     );
   }
+  contextItems.push(...claudeRuntimeContextItems(event));
 
   const consequence = classifyPermissionRequestRisk(event, options);
   const request: HumanInputRequest = {
@@ -203,8 +207,9 @@ export function mapPermissionDenied(
   const toolFamily = claudeToolFamily(event.tool_name);
   const whyNow =
     "Claude Code auto mode denied a tool call and may need different guidance before it can continue.";
+  const contextItems = claudeRuntimeContextItems(event);
 
-  return {
+  const update: SourceTaskUpdatedEvent = {
     id: claudeEventId(event, "task.updated"),
     type: "task.updated",
     taskId: claudeTaskId(event.session_id),
@@ -222,6 +227,10 @@ export function mapPermissionDenied(
     summary: permissionDeniedSummary(event.tool_name, event.tool_input),
     status: "blocked",
   };
+  if (contextItems.length > 0) {
+    update.context = { items: contextItems };
+  }
+  return update;
 }
 
 export function mapPostToolUseFailure(

@@ -1,4 +1,5 @@
 import type {
+  ChoiceDraft,
   Frame,
   FrameField,
   FrameResponse,
@@ -48,6 +49,28 @@ export function handleActiveKeypress(
       break;
     }
     case "choice": {
+      if (spec.selectionMode === "multiple") {
+        if (key.name === "x") {
+          core.submit(dismissedResponse(frame));
+          break;
+        }
+        const draft = createChoiceDraft(frame);
+        state.inputDraft = draft;
+        if (key.name === "return") {
+          state.statusLine = "Select at least one option before sending";
+          break;
+        }
+        if (key.name === "escape") {
+          state.statusLine = "Selection cleared";
+          break;
+        }
+        handleChoiceToggle(frame, draft, key, state);
+        if (!state.statusLine) {
+          state.statusLine = "Use option numbers to toggle selections, then press [enter]";
+        }
+        break;
+      }
+
       const index = parseDigit(key.sequence);
       if (index !== null) {
         const option = spec.options[index];
@@ -95,17 +118,23 @@ export function handleInputKeypress(
     handleTextKeypress(core, state, key);
     return;
   }
+  if (state.inputDraft?.kind === "choice") {
+    handleChoiceKeypress(core, state, key);
+    return;
+  }
 
   handleFormKeypress(core, state, key);
 }
 
-export function createAutomaticInputDraft(frame: Frame): TextDraft | FormDraft | null {
+export function createAutomaticInputDraft(frame: Frame): InputDraft | null {
   const spec = frame.responseSpec;
   if (!spec) {
     return null;
   }
 
   switch (spec.kind) {
+    case "choice":
+      return spec.selectionMode === "multiple" ? createChoiceDraft(frame) : null;
     case "form":
       return createFormDraft(frame);
     default:
@@ -115,11 +144,66 @@ export function createAutomaticInputDraft(frame: Frame): TextDraft | FormDraft |
 
 export function shouldReserveSpaceForExpand(inputDraft: InputDraft): boolean {
   switch (inputDraft.kind) {
+    case "choice":
+      return true;
     case "text":
       return inputDraft.buffer.length === 0;
     case "form":
       return inputDraft.buffer.length === 0;
   }
+}
+
+function handleChoiceKeypress(
+  core: AttentionSurface,
+  state: TuiState,
+  key: { name?: string; sequence?: string; ctrl?: boolean },
+): void {
+  const active = state.attentionView.now;
+  const draft = state.inputDraft;
+  if (!active || !draft || draft.kind !== "choice" || !active.responseSpec || active.responseSpec.kind !== "choice") {
+    state.inputDraft = null;
+    return;
+  }
+
+  core.engage(active.taskId, active.interactionId, { durationMs: ACTIVE_ENGAGEMENT_HOLD_MS });
+
+  if (key.name === "x") {
+    core.submit(dismissedResponse(active));
+    state.inputDraft = null;
+    return;
+  }
+
+  if (key.name === "escape") {
+    draft.optionIds = [];
+    state.statusLine = "Selection cleared";
+    return;
+  }
+
+  if (key.name === "return") {
+    if (draft.optionIds.length === 0) {
+      state.statusLine = "Select at least one option before sending";
+      return;
+    }
+
+    const selected = active.responseSpec.options
+      .filter((option) => draft.optionIds.includes(option.id))
+      .map((option) => option.id);
+    core.submit({
+      taskId: active.taskId,
+      interactionId: active.interactionId,
+      response: { kind: "option_selected", optionIds: selected },
+    });
+    state.inputDraft = null;
+    return;
+  }
+
+  const index = parseDigit(key.sequence);
+  if (index !== null) {
+    handleChoiceToggle(active, draft, key, state);
+    return;
+  }
+
+  state.statusLine = "Use option numbers to toggle selections, then press [enter]";
 }
 
 function handleFormKeypress(
@@ -297,6 +381,45 @@ function createTextDraft(frame: Frame): TextDraft {
   };
 }
 
+function createChoiceDraft(frame: Frame): ChoiceDraft {
+  return {
+    kind: "choice",
+    interactionId: frame.interactionId,
+    optionIds: [],
+  };
+}
+
+function handleChoiceToggle(
+  frame: Frame,
+  draft: ChoiceDraft,
+  key: { sequence?: string },
+  state: TuiState,
+): void {
+  const spec = frame.responseSpec;
+  if (!spec || spec.kind !== "choice") {
+    state.statusLine = "";
+    return;
+  }
+
+  const index = parseDigit(key.sequence);
+  if (index === null) {
+    state.statusLine = "";
+    return;
+  }
+
+  const option = spec.options[index];
+  if (!option) {
+    state.statusLine = "That choice is out of range";
+    return;
+  }
+
+  const selected = draft.optionIds.includes(option.id);
+  draft.optionIds = selected
+    ? draft.optionIds.filter((id) => id !== option.id)
+    : [...draft.optionIds, option.id];
+  state.statusLine = selected ? `Removed ${option.label}` : `Selected ${option.label}`;
+}
+
 function fieldSeed(field: FrameField | undefined, values: Record<string, unknown>): string {
   if (!field) {
     return "";
@@ -336,7 +459,9 @@ function responseLabel(response: FrameResponse): string {
     case "dismissed":
       return "Dismissed";
     case "option_selected":
-      return `Selected ${response.response.optionIds.join(", ")}`;
+      return response.response.optionIds.length === 1
+        ? `Selected ${response.response.optionIds[0]}`
+        : `Selected ${response.response.optionIds.length} options`;
     case "text_submitted":
       return "Sent reply";
     case "form_submitted":

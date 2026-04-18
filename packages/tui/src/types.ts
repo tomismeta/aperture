@@ -89,7 +89,13 @@ export type TextDraft = {
   buffer: string;
 };
 
-export type InputDraft = FormDraft | TextDraft;
+export type ChoiceDraft = {
+  kind: "choice";
+  interactionId: string;
+  optionIds: string[];
+};
+
+export type InputDraft = FormDraft | TextDraft | ChoiceDraft;
 
 export type Posture = "calm" | "elevated" | "busy";
 

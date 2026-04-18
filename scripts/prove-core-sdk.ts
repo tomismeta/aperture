@@ -31,6 +31,7 @@ const examples: Example[] = [
 type CorePackageJson = {
   name: string;
   version: string;
+  exports?: Record<string, unknown>;
 };
 
 function run(command: string, args: string[], cwd: string): void {
@@ -87,6 +88,8 @@ function assertTarballShape(entries: string[]): void {
   assert.equal(entries.includes("package/public-dist/index.js"), true, "tarball should include built entrypoint");
   assert.equal(entries.includes("package/public-dist/semantic.js"), true, "tarball should include semantic entrypoint");
   assert.equal(entries.includes("package/public-dist/trace.js"), true, "tarball should include trace entrypoint");
+  assert.equal(entries.includes("package/public-dist/internal.js"), false, "tarball should not include internal entrypoint");
+  assert.equal(entries.includes("package/public-dist/internal.d.ts"), false, "tarball should not include internal declarations");
   assert.equal(entries.some((entry) => entry.startsWith("package/dist/")), false, "tarball should not include internal dist output");
   assert.equal(entries.some((entry) => entry.endsWith(".js.map")), false, "tarball should not include JavaScript source maps");
   assert.equal(entries.some((entry) => entry.endsWith(".d.ts.map")), false, "tarball should not include declaration maps");
@@ -105,6 +108,11 @@ async function main(): Promise<void> {
   const packageJson = JSON.parse(
     await readFile(join(coreDir, "package.json"), "utf8"),
   ) as CorePackageJson;
+  assert.equal(
+    Boolean(packageJson.exports && "./internal" in packageJson.exports),
+    false,
+    "@tomismeta/aperture-core should not publish an ./internal subpath",
+  );
 
   const tempRoot = await mkdtemp(join(tmpdir(), "aperture-sdk-proving-"));
   const packDir = join(tempRoot, "pack");

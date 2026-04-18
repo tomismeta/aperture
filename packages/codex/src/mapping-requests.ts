@@ -5,14 +5,32 @@ import type {
   CodexCommandExecutionRequestApprovalParams,
   CodexExecCommandApprovalParams,
   CodexFileChangeRequestApprovalParams,
+  CodexMcpServerElicitationRequestParams,
   CodexPermissionsRequestApprovalParams,
   CodexRawServerRequest,
   CodexToolRequestUserInputParams,
   JsonRpcId,
 } from "./protocol.js";
 import {
+  buildCodexElicitationRequest,
+  codexElicitationSummary,
+} from "./mapping-human-input.js";
+import {
+  codexMcpApprovalKind,
+  codexMcpPersistOptions,
+  isApplyPatchApprovalParams,
+  isCommandExecutionApprovalParams,
+  isExecCommandApprovalParams,
+  isFileChangeApprovalParams,
+  isMcpServerElicitationRequestParams,
+  isPermissionsRequestApprovalParams,
+  isToolRequestUserInputParams,
+} from "./mapping-request-guards.js";
+import {
   codexEventId,
+  codexMcpElicitationInteractionId,
   codexInteractionId,
+  codexTaskId,
   codexSource,
   codexThreadTaskId,
   codexTurnTaskId,
@@ -20,7 +38,6 @@ import {
   createContextItem,
   describeAdditionalPermissions,
   explicitRequestSemanticHints,
-  isRecord,
   questionRequestWhyNow,
   slugifyOption,
   type CodexMappedRequest,
@@ -44,6 +61,10 @@ export function mapCodexServerRequest(
     case "item/tool/requestUserInput":
       return isToolRequestUserInputParams(request.params)
         ? mapToolRequestUserInputRequest(request.id, request.params, context)
+        : null;
+    case "mcpServer/elicitation/request":
+      return isMcpServerElicitationRequestParams(request.params)
+        ? mapMcpServerElicitationRequest(request.id, request.params, context)
         : null;
     case "item/permissions/requestApproval":
       return isPermissionsRequestApprovalParams(request.params)
@@ -312,6 +333,83 @@ function mapPermissionsApprovalRequest(
   };
 }
 
+function mapMcpServerElicitationRequest(
+  requestId: JsonRpcId,
+  params: CodexMcpServerElicitationRequestParams,
+  context: CodexMappingContext,
+): CodexMappedRequest {
+  const taskId = codexTaskId(params.threadId, params.turnId);
+  const interactionId = codexMcpElicitationInteractionId(
+    requestId,
+    params.threadId,
+    params.turnId,
+    params.serverName,
+    params.mode,
+    params.mode === "url" ? params.elicitationId : undefined,
+  );
+  const request = buildCodexElicitationRequest(params);
+  const activityClass =
+    params.mode === "url" || codexMcpApprovalKind(params._meta)
+      ? "permission_request"
+      : "question_request";
+  const whyNow =
+    activityClass === "permission_request"
+      ? `Codex is waiting for MCP approval from ${params.serverName}.`
+      : `Codex is waiting for input from MCP server ${params.serverName}.`;
+  const contextItems = [
+    createContextItem("serverName", "Server", params.serverName),
+    createContextItem("mode", "Mode", params.mode),
+    ...(params.mode === "url" ? [createContextItem("url", "URL", params.url)] : []),
+    ...(params.mode === "url"
+      ? [createContextItem("elicitationId", "Elicitation", params.elicitationId)]
+      : []),
+    ...(codexMcpApprovalKind(params._meta)
+      ? [
+          createContextItem(
+            "approvalKind",
+            "Approval Kind",
+            codexMcpApprovalKind(params._meta)!,
+          ),
+        ]
+      : []),
+    ...(codexMcpPersistOptions(params._meta).length > 0
+      ? [
+          createContextItem(
+            "persist",
+            "Available Scope",
+            codexMcpPersistOptions(params._meta).join(", "),
+          ),
+        ]
+      : []),
+  ];
+
+  const event: SourceHumanInputRequestedEvent = {
+    id: codexEventId(requestId, "human.input.requested", params.serverName),
+    type: "human.input.requested",
+    taskId,
+    interactionId,
+    timestamp: new Date().toISOString(),
+    source: codexSource(params.threadId, context),
+    activityClass,
+    title: params.message,
+    summary: codexElicitationSummary(params, request),
+    request,
+    semanticHints: explicitRequestSemanticHints(request.kind, activityClass, whyNow),
+    context: {
+      items: contextItems,
+    },
+    provenance: {
+      whyNow,
+    },
+  };
+
+  return {
+    interactionId,
+    taskId,
+    events: [event],
+  };
+}
+
 function mapExecCommandApprovalRequest(
   requestId: JsonRpcId,
   params: CodexExecCommandApprovalParams,
@@ -418,73 +516,4 @@ function mapApplyPatchApprovalRequest(
     taskId,
     events: [event],
   };
-}
-
-function isCommandExecutionApprovalParams(
-  params: unknown,
-): params is CodexCommandExecutionRequestApprovalParams {
-  return (
-    isRecord(params)
-    && typeof params.threadId === "string"
-    && typeof params.turnId === "string"
-    && typeof params.itemId === "string"
-  );
-}
-
-function isFileChangeApprovalParams(
-  params: unknown,
-): params is CodexFileChangeRequestApprovalParams {
-  return (
-    isRecord(params)
-    && typeof params.threadId === "string"
-    && typeof params.turnId === "string"
-    && typeof params.itemId === "string"
-  );
-}
-
-function isToolRequestUserInputParams(
-  params: unknown,
-): params is CodexToolRequestUserInputParams {
-  return (
-    isRecord(params)
-    && typeof params.threadId === "string"
-    && typeof params.turnId === "string"
-    && typeof params.itemId === "string"
-    && Array.isArray(params.questions)
-  );
-}
-
-function isPermissionsRequestApprovalParams(
-  params: unknown,
-): params is CodexPermissionsRequestApprovalParams {
-  return (
-    isRecord(params)
-    && typeof params.threadId === "string"
-    && typeof params.turnId === "string"
-    && typeof params.itemId === "string"
-    && isRecord(params.permissions)
-  );
-}
-
-function isExecCommandApprovalParams(
-  params: unknown,
-): params is CodexExecCommandApprovalParams {
-  return (
-    isRecord(params)
-    && typeof params.conversationId === "string"
-    && typeof params.callId === "string"
-    && Array.isArray(params.command)
-    && typeof params.cwd === "string"
-  );
-}
-
-function isApplyPatchApprovalParams(
-  params: unknown,
-): params is CodexApplyPatchApprovalParams {
-  return (
-    isRecord(params)
-    && typeof params.conversationId === "string"
-    && typeof params.callId === "string"
-    && isRecord(params.fileChanges)
-  );
 }

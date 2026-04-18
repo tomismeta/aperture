@@ -70,6 +70,36 @@ test("maps PreToolUse Bash hooks into approval events", () => {
   }
 });
 
+test("surfaces Claude permission mode and transcript path in approval context", () => {
+  const event: ClaudeCodePermissionRequestEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "PermissionRequest",
+    permission_mode: "auto",
+    transcript_path: "/repo/.claude/transcripts/session-1.jsonl",
+    tool_name: "Bash",
+    tool_input: {
+      command: "git push origin main",
+    },
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped[0]?.type, "human.input.requested");
+  if (mapped[0]?.type !== "human.input.requested") {
+    return;
+  }
+
+  assert.deepEqual(mapped[0].context?.items?.slice(-3), [
+    { id: "cwd", label: "Working Directory", value: "/repo" },
+    { id: "permissionMode", label: "Permission Mode", value: "auto" },
+    {
+      id: "transcriptPath",
+      label: "Transcript Path",
+      value: "/repo/.claude/transcripts/session-1.jsonl",
+    },
+  ]);
+});
+
 test("uses compact detail labels for bash approvals", () => {
   const event: ClaudeCodePreToolUseEvent = {
     session_id: "session-1",
@@ -777,6 +807,8 @@ test("maps permission denied hooks into blocked status updates", () => {
     session_id: "session-1",
     cwd: "/repo",
     hook_event_name: "PermissionDenied",
+    permission_mode: "auto",
+    transcript_path: "/repo/.claude/transcripts/session-1.jsonl",
     tool_name: "Bash",
     tool_input: {
       command: "git push origin main",
@@ -792,6 +824,14 @@ test("maps permission denied hooks into blocked status updates", () => {
     assert.equal(mapped[0].activityClass, "permission_request");
     assert.equal(mapped[0].title, "Claude Code auto mode denied permission to run a shell command");
     assert.equal(mapped[0].summary, "git push origin main");
+    assert.deepEqual(mapped[0].context?.items, [
+      { id: "permissionMode", label: "Permission Mode", value: "auto" },
+      {
+        id: "transcriptPath",
+        label: "Transcript Path",
+        value: "/repo/.claude/transcripts/session-1.jsonl",
+      },
+    ]);
   }
 });
 
@@ -810,6 +850,7 @@ test("maps subagent start hooks into task lifecycle events", () => {
   if (mapped[0]?.type === "task.started") {
     assert.equal(mapped[0].taskId, "claude-code:session:session-1:subagent:agent-123");
     assert.equal(mapped[0].title, "Claude started Explore subagent");
+    assert.equal(mapped[0].summary, "Explore subagent agent-123 is now running.");
   }
 });
 
@@ -828,8 +869,30 @@ test("maps subagent stop hooks into task completion events", () => {
   assert.equal(mapped[0]?.type, "task.completed");
   if (mapped[0]?.type === "task.completed") {
     assert.equal(mapped[0].taskId, "claude-code:session:session-1:subagent:agent-123");
-    assert.equal(mapped[0].summary, "Explore subagent finished: Analysis complete. Found three issues.");
+    assert.equal(mapped[0].summary, "Explore subagent agent-123 finished: Analysis complete. Found three issues.");
   }
+});
+
+test("maps subagent stop hooks with transcript fallback into task completion events", () => {
+  const event: ClaudeCodeSubagentStopEvent = {
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "SubagentStop",
+    agent_id: "agent-456",
+    agent_type: "Review",
+    agent_transcript_path: "/repo/.claude/transcripts/review-agent-456.jsonl",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped[0]?.type, "task.completed");
+  if (mapped[0]?.type !== "task.completed") {
+    return;
+  }
+
+  assert.equal(
+    mapped[0].summary,
+    "Review subagent agent-456 finished. Transcript: review-agent-456.jsonl.",
+  );
 });
 
 test("suppresses subagent stop events while a native subagent stop hook is active", () => {

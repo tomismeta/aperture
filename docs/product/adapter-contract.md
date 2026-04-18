@@ -98,6 +98,40 @@ The more precise version is:
 - core turns `SourceEvent` into canonical meaning
 - responses come back out as `AttentionResponse`
 
+## Preferred Scaffold Selection
+
+New adapters should start from the closest existing adapter shape instead of
+inventing a new package structure.
+
+Use this rule:
+
+1. if the source seam is a local hook or callback server, start from the
+   Claude Code shape
+2. if the source seam is a hosted SDK session or client API with one main
+   bridge path, start from the OpenCode shape
+3. if the source seam is a protocol-heavy transport with pluggable transports
+   or generated wire contracts, start from the Codex shape
+
+In practice:
+
+- Claude Code is the hook-server scaffold
+- OpenCode is the default client-plus-bridge scaffold
+- Codex is the transport-and-protocol scaffold
+
+The purity rule is:
+
+- start from the smallest scaffold that honestly fits the host seam
+- do not copy transport, protocol, or bridge layers the host does not need
+- only graduate to the heavier scaffold if real host complexity forces it
+
+For a GitHub Copilot SDK adapter, the default assumption should be:
+
+- start from the OpenCode scaffold
+- keep the same `client -> bridge -> mapping -> runtime -> core -> response`
+  flow
+- add Codex-style transport or protocol layering only if the Copilot SDK seam
+  turns out to need it
+
 ## Adapter Checklist
 
 This is the current standard we should hold all adapters to.
@@ -146,6 +180,42 @@ This is the current standard we should hold all adapters to.
 | `@aperture/claude-code` | live | Claude hook payloads via local hook server | mapping + hook server | Claude hook response payload | held approval timeout, explicit fallback-to-ask | repo-tested, product-supported |
 | `@aperture/opencode` | live | OpenCode server APIs and event stream | mapping + client + bridge | permission/question reply APIs | reconnect, heartbeat timeout, bootstrap of pending work | repo-tested, product-supported |
 | `@aperture/codex` | experimental | Codex App Server | transport + client + mapping + bridge | App Server server-request responses | reconnect, request timeout, request cleanup, controlled shutdown | repo-tested, partially live-verified |
+
+## Next Candidate: GitHub Copilot SDK
+
+If Aperture explores a GitHub-side adapter, the right seam is the Copilot SDK,
+not the GitHub.com cloud-agent UI.
+
+That means:
+
+- treat Copilot SDK hooks and session callbacks as the source-native seam
+- keep any GitHub-specific transport, hook, or session types inside a dedicated
+  adapter package
+- map GitHub-native session facts into `SourceEvent`
+- map `AttentionResponse` back into Copilot SDK-native responses or controls
+
+The key architectural rule is strict:
+
+- a Copilot adapter must fit the existing `SourceEvent -> core ->
+  AttentionResponse` contract
+- it must not require new GitHub-specific types or concepts inside
+  `@tomismeta/aperture-core`
+- it must not change the shared TUI model just to mirror GitHub's native cloud
+  UI
+
+The right first move is a bounded adapter spike, not a productized GitHub host
+surface.
+
+That spike should answer only:
+
+1. what real interrupt points the Copilot SDK exposes cleanly
+2. whether those interrupts map cleanly into existing Aperture request kinds
+3. whether response routing can stay inside existing `AttentionResponse`
+   semantics
+4. whether the hosted GitHub control plane still leaves enough neutral control
+   value for Aperture to add
+
+If those answers are weak, we should stop without changing core.
 
 ## Current Read
 

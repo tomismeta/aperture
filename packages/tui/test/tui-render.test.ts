@@ -244,6 +244,25 @@ test("renderAttentionScreen shows connection status when the surface is empty", 
   assert.doesNotMatch(screen, /controls.*check setup/);
 });
 
+test("renderAttentionScreen falls back to source kind labels when frames omit labels", () => {
+  const attentionView: AttentionView = {
+    now: makeFrame({
+      title: "Open question",
+      source: {
+        id: "opencode:http%3A%2F%2F127.0.0.1%3A4096",
+        kind: "opencode",
+      },
+    }),
+    next: [],
+    ambient: [],
+  };
+
+  const screen = renderAttentionScreen(attentionView, { title: "Aperture" });
+
+  assert.match(screen, /OpenCode/);
+  assert.doesNotMatch(screen, /opencode:http/);
+});
+
 test("renderAttentionScreen hides ready-only connections when there is no setup work left", () => {
   const attentionView: AttentionView = {
     now: null,
@@ -436,6 +455,39 @@ test("renderAttentionScreen shows numbered choice options in the now pane", () =
 
   assert.match(screen, /\[1\] staging/);
   assert.match(screen, /\[2\] production/);
+});
+
+test("renderAttentionScreen shows multi-select markers for active choice drafts", () => {
+  const attentionView: AttentionView = {
+    now: makeFrame({
+      mode: "choice",
+      title: "Pick review areas",
+      responseSpec: {
+        kind: "choice",
+        selectionMode: "multiple",
+        options: [
+          { id: "tests", label: "tests" },
+          { id: "docs", label: "docs" },
+        ],
+        actions: [{ id: "submit", label: "Submit", kind: "submit", emphasis: "primary" }],
+      },
+    }),
+    next: [],
+    ambient: [],
+  };
+
+  const screen = renderAttentionScreen(attentionView, {
+    title: "Aperture",
+    inputDraft: {
+      kind: "choice",
+      interactionId: "interaction-1",
+      optionIds: ["docs"],
+    },
+  });
+
+  assert.match(screen, /\[1\] \[\s\] tests/);
+  assert.match(screen, /\[2\] \[x\] docs/);
+  assert.match(screen, /Selected .*docs/);
 });
 
 test("renderAttentionScreen nests now-lane input inside the event tree", () => {

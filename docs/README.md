@@ -19,7 +19,7 @@ Choose the path that matches what you are trying to do.
 ### Use The Product
 
 1. [README](../README.md)
-2. [Aperture v0.3.0](./releases/aperture-v0.3.0.md)
+2. [Aperture v0.4.0](./releases/aperture-v0.4.0.md)
 3. [Architecture Overview](./product/architecture-overview.md)
 4. [Components](./product/components.md)
 5. [TUI Surface](./product/tui.md)
@@ -30,7 +30,7 @@ understand the current product surface.
 ### Build With The SDK
 
 1. [packages/core/README.md](../packages/core/README.md)
-2. [Aperture Core SDK v0.6.0](./releases/aperture-core-v0.6.0.md)
+2. [Aperture Core SDK v0.7.0](./releases/aperture-core-v0.7.0.md)
 3. [SDK Path](./product/sdk-path.md)
 4. [Core Mental Model](./engine/core-mental-model.md)
 
@@ -50,11 +50,13 @@ loop.
 
 ## Release Notes
 
+- [Aperture v0.4.0](./releases/aperture-v0.4.0.md)
 - [Aperture v0.3.0](./releases/aperture-v0.3.0.md)
 - [Aperture v0.2.1](./releases/aperture-v0.2.1.md)
 - [Aperture v0.2.0](./releases/aperture-v0.2.0.md)
 - [Aperture v0.1.2](./releases/aperture-v0.1.2.md)
 - [Aperture v0.1.0](./releases/aperture-v0.1.0.md)
+- [Aperture Core SDK v0.7.0](./releases/aperture-core-v0.7.0.md)
 - [Aperture Core SDK v0.6.0](./releases/aperture-core-v0.6.0.md)
 - [Aperture Core SDK v0.5.0](./releases/aperture-core-v0.5.0.md)
 - [Aperture Core SDK v0.4.2](./releases/aperture-core-v0.4.2.md)

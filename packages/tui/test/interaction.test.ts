@@ -145,6 +145,32 @@ test("handleActiveKeypress selects choice by digit key", () => {
   assert.equal(submitted[0]!.response.kind, "option_selected");
 });
 
+test("handleActiveKeypress opens a multi-select draft instead of submitting immediately", () => {
+  const submitted: FrameResponse[] = [];
+  const surface = makeSurface(submitted);
+  const state = makeState();
+  const frame = makeFrame({
+    responseSpec: {
+      kind: "choice",
+      selectionMode: "multiple",
+      options: [
+        { id: "tests", label: "tests" },
+        { id: "docs", label: "docs" },
+      ],
+      actions: [{ id: "submit", label: "Submit", kind: "submit", emphasis: "primary" }],
+    },
+  });
+
+  handleActiveKeypress(surface, state, frame, { sequence: "2" });
+
+  assert.equal(submitted.length, 0);
+  assert.deepEqual(state.inputDraft, {
+    kind: "choice",
+    interactionId: "interaction-1",
+    optionIds: ["docs"],
+  });
+});
+
 test("handleActiveKeypress opens text replies with shared editing language", () => {
   const submitted: FrameResponse[] = [];
   const surface = makeSurface(submitted);
@@ -196,6 +222,28 @@ test("createAutomaticInputDraft auto-opens form responses", () => {
   });
 });
 
+test("createAutomaticInputDraft auto-opens multiple-choice responses", () => {
+  const frame = makeFrame({
+    responseSpec: {
+      kind: "choice",
+      selectionMode: "multiple",
+      options: [
+        { id: "tests", label: "tests" },
+        { id: "docs", label: "docs" },
+      ],
+      actions: [{ id: "submit", label: "Submit", kind: "submit", emphasis: "primary" }],
+    },
+  });
+
+  const draft = createAutomaticInputDraft(frame);
+
+  assert.deepEqual(draft, {
+    kind: "choice",
+    interactionId: "interaction-1",
+    optionIds: [],
+  });
+});
+
 test("createAutomaticInputDraft does not auto-open approvals", () => {
   const frame = makeFrame();
 
@@ -205,6 +253,12 @@ test("createAutomaticInputDraft does not auto-open approvals", () => {
 });
 
 test("shouldReserveSpaceForExpand keeps space global for empty drafts", () => {
+  assert.equal(shouldReserveSpaceForExpand({
+    kind: "choice",
+    interactionId: "interaction-1",
+    optionIds: [],
+  }), true);
+
   assert.equal(shouldReserveSpaceForExpand({
     kind: "form",
     interactionId: "interaction-1",
@@ -221,6 +275,12 @@ test("shouldReserveSpaceForExpand keeps space global for empty drafts", () => {
 });
 
 test("shouldReserveSpaceForExpand releases space after typing starts", () => {
+  assert.equal(shouldReserveSpaceForExpand({
+    kind: "choice",
+    interactionId: "interaction-1",
+    optionIds: ["docs"],
+  }), true);
+
   assert.equal(shouldReserveSpaceForExpand({
     kind: "form",
     interactionId: "interaction-1",
@@ -267,6 +327,41 @@ test("handleInputKeypress keeps reply validation language calm and direct", () =
 
   assert.equal(state.statusLine, "Enter a reply before sending");
   assert.equal(submitted.length, 0);
+});
+
+test("handleInputKeypress toggles and submits multiple-choice selections", () => {
+  const submitted: FrameResponse[] = [];
+  const surface = makeSurface(submitted);
+  const active = makeFrame({
+    responseSpec: {
+      kind: "choice",
+      selectionMode: "multiple",
+      options: [
+        { id: "tests", label: "tests" },
+        { id: "docs", label: "docs" },
+        { id: "runtime", label: "runtime" },
+      ],
+      actions: [{ id: "submit", label: "Submit", kind: "submit", emphasis: "primary" }],
+    },
+  });
+  const state = makeState({
+    attentionView: { now: active, next: [], ambient: [] },
+    inputDraft: { kind: "choice", interactionId: active.interactionId, optionIds: [] },
+  });
+
+  handleInputKeypress(surface, state, { sequence: "3" });
+  handleInputKeypress(surface, state, { sequence: "1" });
+  handleInputKeypress(surface, state, { name: "return" });
+
+  assert.equal(submitted.length, 1);
+  assert.deepEqual(submitted[0], {
+    taskId: "task-1",
+    interactionId: "interaction-1",
+    response: {
+      kind: "option_selected",
+      optionIds: ["tests", "runtime"],
+    },
+  });
 });
 
 test("describeResponse uses concise sent language for freeform and form replies", () => {

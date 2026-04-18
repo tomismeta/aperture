@@ -119,6 +119,10 @@ export function codexTurnTaskId(threadId: string, turnId: string): string {
   return `codex:thread:${encodeURIComponent(threadId)}:turn:${encodeURIComponent(turnId)}`;
 }
 
+export function codexTaskId(threadId: string, turnId?: string | null): string {
+  return turnId ? codexTurnTaskId(threadId, turnId) : codexThreadTaskId(threadId);
+}
+
 export function codexInteractionId(
   kind:
     | "commandApproval"
@@ -140,6 +144,26 @@ export function codexInteractionId(
     encodeURIComponent(threadId),
     encodeURIComponent(turnId),
     encodeURIComponent(itemId),
+    ...(extra ? [encodeURIComponent(extra)] : []),
+  ].join(":");
+}
+
+export function codexMcpElicitationInteractionId(
+  requestId: JsonRpcId,
+  threadId: string,
+  turnId: string | null,
+  serverName: string,
+  mode: "form" | "url",
+  extra?: string,
+): string {
+  return [
+    "codex",
+    "mcpElicitation",
+    encodeURIComponent(String(requestId)),
+    encodeURIComponent(threadId),
+    encodeURIComponent(turnId ?? "_"),
+    encodeURIComponent(serverName),
+    encodeURIComponent(mode),
     ...(extra ? [encodeURIComponent(extra)] : []),
   ].join(":");
 }

@@ -54,3 +54,26 @@ test("describeResponse includes compact source context for the next focused item
     "Approved · focused on Approve Read package.json · Claude Code",
   );
 });
+
+test("describeResponse falls back to host-kind labels when a frame has no source label", () => {
+  const response: FrameResponse = {
+    taskId: "task-1",
+    interactionId: "interaction-1",
+    response: { kind: "approved" },
+  };
+
+  const nextActive = makeFrame({
+    id: "frame-2",
+    interactionId: "interaction-2",
+    title: "Answer deployment target",
+    source: {
+      id: "opencode:http%3A%2F%2F127.0.0.1%3A4096",
+      kind: "opencode",
+    },
+  });
+
+  assert.equal(
+    describeResponse(response, nextActive),
+    "Approved · focused on Answer deployment target · OpenCode",
+  );
+});

@@ -3,6 +3,7 @@ import type { AttentionResponse } from "@tomismeta/aperture-core";
 import type {
   CodexCommandExecutionRequestApprovalParams,
   CodexFileChangeRequestApprovalParams,
+  CodexMcpServerElicitationRequestParams,
   CodexPermissionsRequestApprovalParams,
   CodexRawServerRequest,
   CodexToolRequestUserInputParams,
@@ -12,6 +13,7 @@ import { mapCodexNotification as mapCodexNotificationImpl } from "./mapping-noti
 import {
   mapCommandApprovalDecision,
   mapFileChangeApprovalDecision,
+  mapMcpServerElicitationResponse,
   mapPermissionsApprovalResponse,
   mapReviewDecision,
   mapToolRequestAnswers,
@@ -50,6 +52,11 @@ export function mapCodexResponse(
       return {
         answers: mapToolRequestAnswers(response, request.params),
       };
+    case "mcpServer/elicitation/request":
+      if (!isMcpServerElicitationRequestParams(request.params)) {
+        return null;
+      }
+      return mapMcpServerElicitationResponse(response, request.params);
     case "item/permissions/requestApproval":
       if (!isPermissionsRequestApprovalParams(request.params)) {
         return null;
@@ -111,6 +118,18 @@ function isPermissionsRequestApprovalParams(
     && typeof params.turnId === "string"
     && typeof params.itemId === "string"
     && isRecord(params.permissions)
+  );
+}
+
+function isMcpServerElicitationRequestParams(
+  params: unknown,
+): params is CodexMcpServerElicitationRequestParams {
+  return (
+    isRecord(params)
+    && typeof params.threadId === "string"
+    && (typeof params.turnId === "string" || params.turnId === null)
+    && typeof params.serverName === "string"
+    && (params.mode === "form" || params.mode === "url")
   );
 }
 

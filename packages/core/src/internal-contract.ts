@@ -1,5 +1,7 @@
 // Workspace-private seam for internal packages that need richer core contracts
-// without widening the public npm SDK surface.
+// without widening the published npm SDK surface. The repo resolves this file
+// through tsconfig path aliases; it is intentionally not exported by the
+// published @tomismeta/aperture-core package.
 export type { AttentionField, AttentionResponseSpec } from "./frame.js";
 export type { AttentionSignalSummary } from "./signal-summary.js";
 export type { AttentionState } from "./attention-state.js";

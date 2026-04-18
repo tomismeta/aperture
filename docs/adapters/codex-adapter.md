@@ -88,6 +88,10 @@ The important rule is:
 - if a surface only proves that OpenAI itself is using App Server internally,
   it is useful validation but not yet a direct Aperture integration seam
 
+Recent Codex host packaging and multi-surface moves reinforce that direction.
+They validate the App Server family as the right seam, but they do not widen
+the direct Aperture ingress contract on their own.
+
 ## Verified Behavior
 
 What is now proven end to end:
@@ -270,10 +274,11 @@ Where the integration stands today:
   - the transport seam is correct
   - the adapter boundary is clean
   - coarse lifecycle and approval supervision are behaving as designed
+  - tool-driven user input and MCP server elicitations now map into shared Aperture choice, form, and approval flows
   - the hooks path gives us a real stock-CLI seam without touching core
 - `not ready for the live path`
   - only a limited set of request families are live-verified
-  - conversational user-input flows are still weak or absent
+  - richer conversational user-input flows are only partly live-verified so far
   - most of the stream is still status and deltas without actionable hooks
 
 So the current posture should be:
@@ -339,6 +344,7 @@ The implementation is intentionally narrow:
 - command approvals
 - file-change approvals
 - tool-driven user input
+- MCP server elicitations
 - coarse thread, turn, and review lifecycle updates
 
 It does not yet attempt to cover the full App Server schema or expose a broad

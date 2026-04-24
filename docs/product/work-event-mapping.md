@@ -73,6 +73,25 @@ This is the main reason the external contract stays useful:
 - hints can stay soft
 - Aperture still owns final semantic interpretation
 
+## Automation, Execution, Governance, And Usage
+
+These optional objects are preserved as factual metadata rather than translated
+into new routing rules.
+
+| External field | Internal field | Behavior |
+| --- | --- | --- |
+| `automation` | `SourceEvent.metadata.automation` | Preserved for audit, background-work review, and capture/export. |
+| `execution` | `SourceEvent.metadata.execution` | Preserved so review surfaces can inspect where and how the work ran. |
+| `governance` | `SourceEvent.metadata.governance` | Preserved for policy and approval lineage without forcing new core semantics. |
+| `usage` | `SourceEvent.metadata.usage` | Preserved for model-routing, token, and cost visibility. |
+
+For surfaced `task.started`, `task.updated`, and `input.requested` frames, this
+metadata is also carried into `AttentionFrame.metadata`.
+
+For `task.completed` and `task.cancelled`, the current runtime preserves the
+metadata in published source events and traces, but those events clear work
+rather than producing a new visible frame.
+
 ## Request Mapping
 
 `input.requested` maps structured requests into Aperture's existing human-input
@@ -158,8 +177,9 @@ These are the main host shapes the current contract is designed to fit.
 | coding-agent status stream | [coding-agent-status-waiting.json](../../schemas/examples/work-event/coding-agent-status-waiting.json) | Represents a durable task moving through running/waiting/blocked state without inventing judgment. |
 | coding-agent approval gate | [coding-agent-approval-request.json](../../schemas/examples/work-event/coding-agent-approval-request.json) | Fits hosts like Claude Code or Codex when they need an explicit human approval. |
 | remote review or plan selection | [remote-review-choice-request.json](../../schemas/examples/work-event/remote-review-choice-request.json) | Fits remote agent surfaces that need the operator to choose between structured options. |
+| scheduled background run awaiting approval | [scheduled-background-maintenance.json](../../schemas/examples/work-event/scheduled-background-maintenance.json) | Fits always-on or scheduled agents that need portable automation, execution, governance, and usage metadata without becoming a host-specific workflow format. |
 | subagent or tool runner failure | [subagent-failure-update.json](../../schemas/examples/work-event/subagent-failure-update.json) | Fits delegated or child execution without forcing the host to publish raw logs. |
-| workflow or task runner completion | [workflow-completed.json](../../schemas/examples/work-event/workflow-completed.json) | Fits CI, deploy, or automation systems reporting durable work completion. |
+| workflow or task runner completion | [workflow-completed.json](../../schemas/examples/work-event/workflow-completed.json) | Fits CI, deploy, or automation systems reporting durable work completion with optional scheduling, execution, and usage metadata. |
 
 These examples are intentionally scenario-based rather than vendor-branded.
 They should be reusable across hosts with similar shapes.
@@ -171,6 +191,7 @@ The current example suite lives in:
 - [coding-agent-status-waiting.json](../../schemas/examples/work-event/coding-agent-status-waiting.json)
 - [coding-agent-approval-request.json](../../schemas/examples/work-event/coding-agent-approval-request.json)
 - [remote-review-choice-request.json](../../schemas/examples/work-event/remote-review-choice-request.json)
+- [scheduled-background-maintenance.json](../../schemas/examples/work-event/scheduled-background-maintenance.json)
 - [subagent-failure-update.json](../../schemas/examples/work-event/subagent-failure-update.json)
 - [workflow-completed.json](../../schemas/examples/work-event/workflow-completed.json)
 

@@ -128,6 +128,7 @@ async function buildRoutesForTest(): Promise<RuntimeRoute[]> {
         targetInteractionId: null,
         targetLane: "none",
         headline: null,
+        targetMetadata: null,
         whyNow: null,
         routingAuthority: null,
         semanticImpact: null,

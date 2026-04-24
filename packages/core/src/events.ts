@@ -50,6 +50,7 @@ type EventBase = {
   taskId: string;
   timestamp: string;
   source?: SourceRef;
+  metadata?: Record<string, unknown>;
   semantic?: SemanticInterpretation;
 };
 

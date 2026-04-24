@@ -24,6 +24,17 @@
     "kind": "agent",
     "label": "Remote Review Agent"
   },
+  "execution": {
+    "surface": "mobile",
+    "placement": "cloud",
+    "runner": "github-hosted-linux",
+    "environment": "production"
+  },
+  "governance": {
+    "policyId": "policy:production-rollout",
+    "approvalState": "pending",
+    "approvalId": "approval:rollout-17:plan"
+  },
   "interaction": {
     "id": "interaction:rollout-17:plan"
   },

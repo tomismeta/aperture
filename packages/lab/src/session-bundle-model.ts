@@ -34,6 +34,10 @@ import {
   validateWith,
 } from "./shape.js";
 import {
+  type WorkflowTargetMetadata,
+  validateWorkflowTargetMetadata,
+} from "./workflow-metadata.js";
+import {
   validateApertureTrace,
   validateAttentionResponse,
   validateAttentionSignal,
@@ -56,6 +60,7 @@ export type ReplaySessionBundleExplanation = {
   targetInteractionId?: string;
   targetLane?: "now" | "next" | "ambient" | "none";
   headline?: string;
+  targetMetadata?: WorkflowTargetMetadata;
   whyNow?: string | null;
   routingAuthority?: "status" | "request" | "event" | null;
 };
@@ -269,6 +274,7 @@ function validateSessionBundleExplanation(value: unknown): ReplaySessionBundleEx
         targetInteractionId: isString,
         targetLane: isString,
         headline: isString,
+        targetMetadata: validateWith(validateWorkflowTargetMetadata),
         whyNow: isNullable(isString),
         routingAuthority: isNullable(isString),
       },

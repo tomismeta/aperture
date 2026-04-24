@@ -1,15 +1,17 @@
 {
   "specVersion": "1.0",
-  "id": "evt:workflow:nightly:completed",
+  "id": "evt:workflow:nightly:waiting",
   "source": "urn:example:workflow-runner",
-  "type": "io.agent.work.completed.v1",
-  "time": "2026-04-09T14:20:00Z",
+  "type": "io.agent.work.updated.v1",
+  "time": "2026-04-23T03:00:00Z",
   "subject": "task:nightly-maintenance",
-  "kind": "work.completed",
+  "kind": "work.updated",
   "work": {
     "id": "task:nightly-maintenance",
     "title": "Nightly maintenance run",
-    "summary": "Maintenance tasks completed successfully."
+    "summary": "Scheduled maintenance is waiting for an operator approval before production changes begin.",
+    "status": "waiting",
+    "progress": 0.2
   },
   "actor": {
     "id": "scheduler",
@@ -28,16 +30,25 @@
     "runner": "github-actions-large",
     "environment": "production"
   },
+  "governance": {
+    "policyId": "policy:prod-maintenance",
+    "approvalState": "pending",
+    "approvalId": "approval:nightly-maintenance"
+  },
   "usage": {
     "model": "gpt-5.4",
     "modelRouting": "host-auto",
-    "inputTokens": 1420,
-    "cachedInputTokens": 900,
-    "outputTokens": 280,
-    "costUsd": 0.16
+    "inputTokens": 1200,
+    "cachedInputTokens": 800,
+    "outputTokens": 320,
+    "costUsd": 0.14
   },
   "facts": {
     "capabilityFamily": "maintenance",
-    "activityCategory": "completion"
+    "activityCategory": "status_update"
+  },
+  "hints": {
+    "consequence": "high",
+    "requestKind": "approval"
   }
 }

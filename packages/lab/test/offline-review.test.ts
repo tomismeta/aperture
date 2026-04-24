@@ -23,6 +23,7 @@ import {
   parseOfflineReviewResponseText,
   prepareOfflineReviewArtifact,
   renderOfflineReviewPrompt,
+  renderOfflineReviewReportMarkdown,
   renderOfflineReviewRecommendationMarkdown,
   runOpenClawReview,
   validateOfflineReviewArtifact,
@@ -137,6 +138,28 @@ test("offline review artifacts preserve bundle explanation summaries when availa
       targetInteractionId: "interaction:example/repo-123.run-42:status",
       targetLane: "now" as const,
       headline: "Work has failed and should be reviewed.",
+      targetMetadata: {
+        automation: {
+          runMode: "scheduled",
+          recurrence: "recurring",
+          scheduleId: "schedule:nightly-maintenance",
+        },
+        execution: {
+          surface: "slack",
+          placement: "cloud",
+          runner: "github-actions-large",
+        },
+        governance: {
+          approvalState: "pending",
+          policyId: "policy:prod-change",
+        },
+        usage: {
+          model: "gpt-5.4",
+          inputTokens: 1200,
+          outputTokens: 320,
+          costUsd: 0.14,
+        },
+      },
       whyNow: "Work has failed and should be reviewed.",
       routingAuthority: "status" as const,
     },
@@ -147,8 +170,53 @@ test("offline review artifacts preserve bundle explanation summaries when availa
 
   assert.equal(artifact.bundle.explanation?.headline, "Work has failed and should be reviewed.");
   assert.equal(packet.bundle.explanationHeadline, "Work has failed and should be reviewed.");
+  assert.equal(packet.bundle.targetMetadataSummary?.automation, "scheduled · recurring · schedule schedule:nightly-maintenance");
+  assert.equal(packet.bundle.targetMetadataSummary?.execution, "slack · cloud · github-actions-large");
+  assert.equal(packet.bundle.targetMetadataSummary?.governance, "pending · policy policy:prod-change");
+  assert.equal(packet.bundle.targetMetadataSummary?.usage, "gpt-5.4 · 1,200 in · 320 out · $0.14");
   assert.equal(packet.bundle.targetLane, "now");
   assert.equal(packet.bundle.routingAuthority, "status");
+});
+
+test("offline review markdown renders target context summaries when available", () => {
+  const bundle = {
+    ...createSessionBundleFromSweSmithRow(SAMPLE_ROW),
+    explanation: {
+      targetInteractionId: "interaction:example/repo-123.run-42:status",
+      targetLane: "now" as const,
+      headline: "Work has failed and should be reviewed.",
+      targetMetadata: {
+        execution: {
+          surface: "terminal",
+          runner: "claude-code",
+        },
+        governance: {
+          approvalState: "pending",
+          approvalId: "approval:run-42",
+        },
+      },
+      whyNow: "Work has failed and should be reviewed.",
+      routingAuthority: "status" as const,
+    },
+  };
+  const artifact = prepareOfflineReviewArtifact(bundle);
+  artifact.review.findings.push({
+    stepIndex: 2,
+    focusArea: "consequence",
+    expected: "medium",
+    confidence: "medium",
+    recommendation: "inspect",
+  });
+
+  const report = compareOfflineReviewArtifact(artifact, {
+    generatedAt: "2026-03-27T00:00:00.000Z",
+  });
+  const markdown = renderOfflineReviewReportMarkdown(report);
+
+  assert.match(markdown, /## Target Context/);
+  assert.match(markdown, /Interaction: interaction:example\/repo-123\.run-42:status/);
+  assert.match(markdown, /Execution: terminal · claude-code/);
+  assert.match(markdown, /Governance: pending · approval approval:run-42/);
 });
 
 test("readOfflineReviewFocusAreaValue exposes ontology-backed ask, blocking, episode, confidence, and source", () => {
@@ -518,6 +586,7 @@ test("recommendation reports cluster disagreements into bounded targets", () => 
   ]);
   assert.match(markdown, /Offline Review Recommendations/);
   assert.match(markdown, /consequence/);
+  assert.doesNotMatch(markdown, /## Target Context/);
 });
 
 test("offline review run summaries capture artifact paths and actionable counts", () => {

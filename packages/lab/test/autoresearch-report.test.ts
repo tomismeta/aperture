@@ -99,6 +99,21 @@ test("synthesizeAutoresearchFinalReport combines proposal, optimizer, and bundle
         source: 0,
       },
       recommendationCounts: { promote: 2, inspect: 0, ignore: 0 },
+      workflow: {
+        automationModes: ["scheduled"],
+        surfaces: ["terminal"],
+        runners: ["claude-code"],
+        placements: ["cloud"],
+        environments: [],
+        approvalStates: ["pending"],
+        models: ["claude-sonnet-4"],
+        usageTotals: {
+          inputTokens: 900,
+          cachedInputTokens: 0,
+          outputTokens: 140,
+          costUsd: 0.09,
+        },
+      },
     },
     entries: [],
   };
@@ -295,12 +310,16 @@ test("synthesizeAutoresearchFinalReport combines proposal, optimizer, and bundle
   assert.equal(report.runSummary.bundleCount, 1);
   assert.equal(report.runSummary.sessionCount, 1);
   assert.ok(report.runSummary.replayStepCount > 0);
+  assert.deepEqual(report.runSummary.workflow?.runners, ["claude-code"]);
+  assert.equal(report.runSummary.workflow?.usageTotals.outputTokens, 140);
   assert.equal(report.majorDisagreements.length, 1);
   assert.match(report.recommendation, /Review the proposed patch/i);
 
   const markdown = renderAutoresearchFinalReportMarkdown(report);
   assert.match(markdown, /Aperture Lab F-Stop Report/);
   assert.match(markdown, /replay steps:/);
+  assert.match(markdown, /workflow: automation=scheduled; surfaces=terminal; runners=claude-code; placements=cloud; approval states=pending; models=claude-sonnet-4/);
+  assert.match(markdown, /workflow usage: input=900, output=140, cost=\$0.09/);
   assert.match(markdown, /Major Disagreements/);
   assert.match(markdown, /Lower consequence for routine observational failures/);
 });

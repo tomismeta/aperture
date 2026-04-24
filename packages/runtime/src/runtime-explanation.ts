@@ -4,6 +4,7 @@ import type { ApertureTrace } from "@tomismeta/aperture-core/internal";
 import type {
   ApertureRuntimeAttentionViewSnapshot,
   ApertureRuntimeExplanationSnapshot,
+  ApertureRuntimeTargetMetadata,
 } from "./runtime-contract.js";
 
 type CandidateRuntimeTrace = Extract<ApertureTrace, { result: AttentionFrame | null }>;
@@ -19,6 +20,7 @@ export function buildRuntimeExplanationSnapshot(
       targetInteractionId: null,
       targetLane: "none",
       headline: null,
+      targetMetadata: null,
       whyNow: null,
       routingAuthority: null,
       semanticImpact: null,
@@ -78,6 +80,7 @@ export function buildRuntimeExplanationSnapshot(
     targetInteractionId: target.interactionId,
     targetLane,
     headline,
+    targetMetadata: readTargetMetadata(target),
     whyNow: target.provenance?.whyNow ?? candidateTrace?.semantic?.whyNow ?? null,
     routingAuthority:
       candidateTrace?.semantic?.impact.routingAuthority ?? inferRoutingAuthority(target),
@@ -120,6 +123,45 @@ function isCandidateRuntimeTrace(trace: ApertureTrace): trace is CandidateRuntim
 
 function findPrimaryAttentionFrame(attentionView: AttentionView): AttentionFrame | null {
   return attentionView.now ?? attentionView.next[0] ?? attentionView.ambient[0] ?? null;
+}
+
+function readTargetMetadata(frame: AttentionFrame): ApertureRuntimeTargetMetadata | null {
+  const metadata = frame.metadata;
+  if (!metadata || typeof metadata !== "object") {
+    return null;
+  }
+
+  const targetMetadata: ApertureRuntimeTargetMetadata = {};
+  const automation = readMetadataObject(metadata, "automation");
+  const execution = readMetadataObject(metadata, "execution");
+  const governance = readMetadataObject(metadata, "governance");
+  const usage = readMetadataObject(metadata, "usage");
+
+  if (automation) {
+    targetMetadata.automation = automation;
+  }
+  if (execution) {
+    targetMetadata.execution = execution;
+  }
+  if (governance) {
+    targetMetadata.governance = governance;
+  }
+  if (usage) {
+    targetMetadata.usage = usage;
+  }
+
+  return Object.keys(targetMetadata).length > 0 ? targetMetadata : null;
+}
+
+function readMetadataObject(
+  metadata: NonNullable<AttentionFrame["metadata"]>,
+  key: keyof ApertureRuntimeTargetMetadata,
+): Record<string, unknown> | null {
+  const value = metadata[key];
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
 }
 
 function readAttentionRationale(frame: AttentionFrame): string[] {

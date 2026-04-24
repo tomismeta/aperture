@@ -22,6 +22,14 @@ type SourceEventBase = {
   timestamp: string;
   source?: SourceRef;
   /**
+   * Adapter-preserved metadata for audit, provenance, and review surfaces.
+   *
+   * Core does not route on this metadata directly. It is carried through so
+   * runtimes and operators can inspect external execution and governance facts
+   * without forcing them into the canonical semantic vocabulary.
+   */
+  metadata?: Record<string, unknown>;
+  /**
    * Adapter-provided semantic hints.
    *
    * These are source-side inputs into interpretation, not canonical semantic

@@ -59,6 +59,69 @@ export const WorkEventRunSchema = Type.Object(
   },
 );
 
+export const WorkEventAutomationSchema = Type.Object(
+  {
+    runMode: Type.Optional(
+      Type.Union([
+        Type.Literal("interactive"),
+        Type.Literal("background"),
+        Type.Literal("scheduled"),
+      ]),
+    ),
+    trigger: Type.Optional(NonEmptyString(WORK_MAX_LABEL_LENGTH)),
+    recurrence: Type.Optional(Type.Union([Type.Literal("once"), Type.Literal("recurring")])),
+    scheduleId: Type.Optional(NonEmptyString(WORK_MAX_ID_LENGTH)),
+  },
+  {
+    additionalProperties: false,
+  },
+);
+
+export const WorkEventExecutionSchema = Type.Object(
+  {
+    surface: Type.Optional(NonEmptyString(WORK_MAX_LABEL_LENGTH)),
+    placement: Type.Optional(NonEmptyString(WORK_MAX_LABEL_LENGTH)),
+    runner: Type.Optional(NonEmptyString(WORK_MAX_LABEL_LENGTH)),
+    environment: Type.Optional(NonEmptyString(WORK_MAX_LABEL_LENGTH)),
+  },
+  {
+    additionalProperties: false,
+  },
+);
+
+export const WorkEventGovernanceSchema = Type.Object(
+  {
+    policyId: Type.Optional(NonEmptyString(WORK_MAX_ID_LENGTH)),
+    approvalState: Type.Optional(
+      Type.Union([
+        Type.Literal("not_required"),
+        Type.Literal("pending"),
+        Type.Literal("approved"),
+        Type.Literal("rejected"),
+      ]),
+    ),
+    approvalId: Type.Optional(NonEmptyString(WORK_MAX_ID_LENGTH)),
+    decisionId: Type.Optional(NonEmptyString(WORK_MAX_ID_LENGTH)),
+  },
+  {
+    additionalProperties: false,
+  },
+);
+
+export const WorkEventUsageSchema = Type.Object(
+  {
+    model: Type.Optional(NonEmptyString(WORK_MAX_LABEL_LENGTH)),
+    modelRouting: Type.Optional(NonEmptyString(WORK_MAX_LABEL_LENGTH)),
+    inputTokens: Type.Optional(Type.Integer({ minimum: 0 })),
+    cachedInputTokens: Type.Optional(Type.Integer({ minimum: 0 })),
+    outputTokens: Type.Optional(Type.Integer({ minimum: 0 })),
+    costUsd: Type.Optional(Type.Number({ minimum: 0 })),
+  },
+  {
+    additionalProperties: false,
+  },
+);
+
 export const WorkEventActorSchema = Type.Object(
   {
     id: NonEmptyString(WORK_MAX_ID_LENGTH),
@@ -201,11 +264,19 @@ export const WorkEventSharedSchema = (
   workEventFactsSchema = WorkEventFactsSchema,
   workEventHintsSchema = WorkEventHintsSchema,
   workEventContextSchema = WorkEventContextSchema,
+  workEventAutomationSchema = WorkEventAutomationSchema,
+  workEventExecutionSchema = WorkEventExecutionSchema,
+  workEventGovernanceSchema = WorkEventGovernanceSchema,
+  workEventUsageSchema = WorkEventUsageSchema,
 ) =>
   ({
     actor: Type.Optional(workEventActorSchema),
     facts: Type.Optional(workEventFactsSchema),
     hints: Type.Optional(workEventHintsSchema),
     context: Type.Optional(workEventContextSchema),
+    automation: Type.Optional(workEventAutomationSchema),
+    execution: Type.Optional(workEventExecutionSchema),
+    governance: Type.Optional(workEventGovernanceSchema),
+    usage: Type.Optional(workEventUsageSchema),
     extensions: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
   }) as const;

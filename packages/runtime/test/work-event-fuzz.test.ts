@@ -20,6 +20,48 @@ const safeTextArbitrary = fc.string({ minLength: 1, maxLength: 80 }).filter((val
 });
 
 const idArbitrary = fc.stringMatching(/[a-z0-9:-]{3,24}/);
+const tokenCountArbitrary = fc.integer({ min: 0, max: 500_000 });
+
+const automationArbitrary = fc
+  .record({
+    runMode: fc.constantFrom("interactive", "background", "scheduled"),
+    trigger: fc.option(safeTextArbitrary, { nil: undefined }),
+    recurrence: fc.option(fc.constantFrom("once", "recurring"), { nil: undefined }),
+    scheduleId: fc.option(idArbitrary.map((value) => `schedule:${value}`), { nil: undefined }),
+  })
+  .map((value) => omitUndefined(value));
+
+const executionArbitrary = fc
+  .record({
+    surface: fc.option(safeTextArbitrary, { nil: undefined }),
+    placement: fc.option(safeTextArbitrary, { nil: undefined }),
+    runner: fc.option(safeTextArbitrary, { nil: undefined }),
+    environment: fc.option(safeTextArbitrary, { nil: undefined }),
+  })
+  .map((value) => omitUndefined(value));
+
+const governanceArbitrary = fc
+  .record({
+    policyId: fc.option(idArbitrary.map((value) => `policy:${value}`), { nil: undefined }),
+    approvalState: fc.option(
+      fc.constantFrom("not_required", "pending", "approved", "rejected"),
+      { nil: undefined },
+    ),
+    approvalId: fc.option(idArbitrary.map((value) => `approval:${value}`), { nil: undefined }),
+    decisionId: fc.option(idArbitrary.map((value) => `decision:${value}`), { nil: undefined }),
+  })
+  .map((value) => omitUndefined(value));
+
+const usageArbitrary = fc
+  .record({
+    model: fc.option(safeTextArbitrary, { nil: undefined }),
+    modelRouting: fc.option(safeTextArbitrary, { nil: undefined }),
+    inputTokens: fc.option(tokenCountArbitrary, { nil: undefined }),
+    cachedInputTokens: fc.option(tokenCountArbitrary, { nil: undefined }),
+    outputTokens: fc.option(tokenCountArbitrary, { nil: undefined }),
+    costUsd: fc.option(fc.double({ min: 0, max: 100, noNaN: true }), { nil: undefined }),
+  })
+  .map((value) => omitUndefined(value));
 
 const workUpdatedArbitrary: fc.Arbitrary<WorkEvent> = fc
   .record({
@@ -32,6 +74,10 @@ const workUpdatedArbitrary: fc.Arbitrary<WorkEvent> = fc
       summary: fc.option(safeTextArbitrary, { nil: undefined }),
       progress: fc.option(fc.double({ min: 0, max: 1, noNaN: true }), { nil: undefined }),
     }),
+    automation: fc.option(automationArbitrary, { nil: undefined }),
+    execution: fc.option(executionArbitrary, { nil: undefined }),
+    governance: fc.option(governanceArbitrary, { nil: undefined }),
+    usage: fc.option(usageArbitrary, { nil: undefined }),
   })
   .map(
     (event) =>
@@ -80,6 +126,10 @@ const inputRequestedArbitrary: fc.Arbitrary<WorkEvent> = fc
       title: fc.option(safeTextArbitrary, { nil: undefined }),
       summary: fc.option(safeTextArbitrary, { nil: undefined }),
     }),
+    automation: fc.option(automationArbitrary, { nil: undefined }),
+    execution: fc.option(executionArbitrary, { nil: undefined }),
+    governance: fc.option(governanceArbitrary, { nil: undefined }),
+    usage: fc.option(usageArbitrary, { nil: undefined }),
     interaction: fc.record({
       id: idArbitrary.map((value) => `interaction:${value}`),
     }),

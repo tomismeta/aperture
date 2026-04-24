@@ -147,6 +147,7 @@ function prepareApertureEventFromSourceEvent(event: SourceEvent): ApertureEvent 
         taskId: event.taskId,
         timestamp: event.timestamp,
         ...(event.source !== undefined ? { source: event.source } : {}),
+        ...(event.metadata !== undefined ? { metadata: event.metadata } : {}),
         title: event.title,
         ...(event.summary !== undefined ? { summary: event.summary } : {}),
       };
@@ -157,6 +158,7 @@ function prepareApertureEventFromSourceEvent(event: SourceEvent): ApertureEvent 
         taskId: event.taskId,
         timestamp: event.timestamp,
         ...(event.source !== undefined ? { source: event.source } : {}),
+        ...(event.metadata !== undefined ? { metadata: event.metadata } : {}),
         ...(event.toolFamily !== undefined ? { toolFamily: event.toolFamily } : {}),
         ...(event.activityClass !== undefined ? { activityClass: event.activityClass } : {}),
         title: event.title,
@@ -172,6 +174,7 @@ function prepareApertureEventFromSourceEvent(event: SourceEvent): ApertureEvent 
         taskId: event.taskId,
         timestamp: event.timestamp,
         ...(event.source !== undefined ? { source: event.source } : {}),
+        ...(event.metadata !== undefined ? { metadata: event.metadata } : {}),
         ...(event.summary !== undefined ? { summary: event.summary } : {}),
       };
     case "task.cancelled":
@@ -181,6 +184,7 @@ function prepareApertureEventFromSourceEvent(event: SourceEvent): ApertureEvent 
         taskId: event.taskId,
         timestamp: event.timestamp,
         ...(event.source !== undefined ? { source: event.source } : {}),
+        ...(event.metadata !== undefined ? { metadata: event.metadata } : {}),
         ...(event.reason !== undefined ? { reason: event.reason } : {}),
       };
     case "human.input.requested":
@@ -191,6 +195,7 @@ function prepareApertureEventFromSourceEvent(event: SourceEvent): ApertureEvent 
         interactionId: event.interactionId,
         timestamp: event.timestamp,
         ...(event.source !== undefined ? { source: event.source } : {}),
+        ...(event.metadata !== undefined ? { metadata: event.metadata } : {}),
         ...(event.toolFamily !== undefined ? { toolFamily: event.toolFamily } : {}),
         ...(event.activityClass !== undefined ? { activityClass: event.activityClass } : {}),
         title: event.title,
@@ -213,6 +218,7 @@ function asSourceEvent(event: ApertureEvent): SourceEvent {
         taskId: event.taskId,
         timestamp: event.timestamp,
         ...(event.source !== undefined ? { source: event.source } : {}),
+        ...(event.metadata !== undefined ? { metadata: event.metadata } : {}),
         title: event.title,
         ...(event.summary !== undefined ? { summary: event.summary } : {}),
       };
@@ -223,6 +229,7 @@ function asSourceEvent(event: ApertureEvent): SourceEvent {
         taskId: event.taskId,
         timestamp: event.timestamp,
         ...(event.source !== undefined ? { source: event.source } : {}),
+        ...(event.metadata !== undefined ? { metadata: event.metadata } : {}),
         ...(event.toolFamily !== undefined ? { toolFamily: event.toolFamily } : {}),
         ...(event.activityClass !== undefined ? { activityClass: event.activityClass } : {}),
         title: event.title,
@@ -238,6 +245,7 @@ function asSourceEvent(event: ApertureEvent): SourceEvent {
         taskId: event.taskId,
         timestamp: event.timestamp,
         ...(event.source !== undefined ? { source: event.source } : {}),
+        ...(event.metadata !== undefined ? { metadata: event.metadata } : {}),
         ...(event.summary !== undefined ? { summary: event.summary } : {}),
       };
     case "task.cancelled":
@@ -247,6 +255,7 @@ function asSourceEvent(event: ApertureEvent): SourceEvent {
         taskId: event.taskId,
         timestamp: event.timestamp,
         ...(event.source !== undefined ? { source: event.source } : {}),
+        ...(event.metadata !== undefined ? { metadata: event.metadata } : {}),
         ...(event.reason !== undefined ? { reason: event.reason } : {}),
       };
     case "human.input.requested":
@@ -257,6 +266,7 @@ function asSourceEvent(event: ApertureEvent): SourceEvent {
         interactionId: event.interactionId,
         timestamp: event.timestamp,
         ...(event.source !== undefined ? { source: event.source } : {}),
+        ...(event.metadata !== undefined ? { metadata: event.metadata } : {}),
         ...(event.toolFamily !== undefined ? { toolFamily: event.toolFamily } : {}),
         ...(event.activityClass !== undefined ? { activityClass: event.activityClass } : {}),
         title: event.title,

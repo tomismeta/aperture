@@ -36,6 +36,7 @@ import {
   validateOfflineReviewArtifact as validateOfflineReviewArtifactShape,
   validateOfflineReviewResponsePayload as validateOfflineReviewResponsePayloadShape,
 } from "./offline-review-validation.js";
+import type { WorkflowTargetMetadataSummary } from "./workflow-metadata.js";
 
 export {
   defaultOfflineReviewArtifactPath,
@@ -322,6 +323,7 @@ export type OfflineReviewPromptPacket = {
     sourceLabel?: string;
     explanationHeadline?: string;
     explanationWhyNow?: string;
+    targetMetadataSummary?: WorkflowTargetMetadataSummary;
     targetLane?: "now" | "next" | "ambient" | "none";
     routingAuthority?: "status" | "request" | "event" | null;
   };

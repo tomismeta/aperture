@@ -346,6 +346,7 @@ function renderActiveFrame(
 
   // Expanded debug details
   if (expanded) {
+    lines.push(...renderWorkflowMetadata(frame, tree, color));
     const score = readScore(frame);
     const attention = readAttention(frame);
     if (score !== null) {
@@ -357,6 +358,36 @@ function renderActiveFrame(
     if (attention.rationale.length > 0) {
       lines.push(`${tree}${styleMuted(`why ${attention.rationale.join("; ")}`, color)}`);
     }
+  }
+
+  return lines;
+}
+
+function renderWorkflowMetadata(frame: Frame, prefix: string, color: boolean): string[] {
+  const lines: string[] = [];
+  const automation = readMetadataObject(frame, "automation");
+  const execution = readMetadataObject(frame, "execution");
+  const governance = readMetadataObject(frame, "governance");
+  const usage = readMetadataObject(frame, "usage");
+
+  const automationLine = formatAutomationMetadata(automation);
+  if (automationLine) {
+    lines.push(`${prefix}${styleMuted(`automation ${automationLine}`, color)}`);
+  }
+
+  const executionLine = formatExecutionMetadata(execution);
+  if (executionLine) {
+    lines.push(`${prefix}${styleMuted(`execution ${executionLine}`, color)}`);
+  }
+
+  const governanceLine = formatGovernanceMetadata(governance);
+  if (governanceLine) {
+    lines.push(`${prefix}${styleMuted(`governance ${governanceLine}`, color)}`);
+  }
+
+  const usageLine = formatUsageMetadata(usage);
+  if (usageLine) {
+    lines.push(`${prefix}${styleMuted(`usage ${usageLine}`, color)}`);
   }
 
   return lines;
@@ -667,6 +698,92 @@ function readAttention(frame: Frame): { scoreOffset: number; rationale: string[]
       : [];
 
   return { scoreOffset, rationale };
+}
+
+function readMetadataObject(
+  frame: Frame,
+  key: "automation" | "execution" | "governance" | "usage",
+): Record<string, unknown> | null {
+  const metadata = frame.metadata;
+  if (!metadata || typeof metadata !== "object") {
+    return null;
+  }
+  const value = metadata[key];
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function formatAutomationMetadata(value: Record<string, unknown> | null): string | null {
+  if (!value) {
+    return null;
+  }
+  const parts = [
+    readMetadataString(value, "runMode"),
+    readMetadataString(value, "trigger"),
+    readMetadataString(value, "recurrence"),
+    prefixedMetadataValue("schedule", readMetadataString(value, "scheduleId")),
+  ].filter((part): part is string => Boolean(part));
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+function formatExecutionMetadata(value: Record<string, unknown> | null): string | null {
+  if (!value) {
+    return null;
+  }
+  const parts = [
+    readMetadataString(value, "surface"),
+    readMetadataString(value, "placement"),
+    readMetadataString(value, "runner"),
+    readMetadataString(value, "environment"),
+  ].filter((part): part is string => Boolean(part));
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+function formatGovernanceMetadata(value: Record<string, unknown> | null): string | null {
+  if (!value) {
+    return null;
+  }
+  const parts = [
+    readMetadataString(value, "approvalState"),
+    prefixedMetadataValue("policy", readMetadataString(value, "policyId")),
+    prefixedMetadataValue("approval", readMetadataString(value, "approvalId")),
+    prefixedMetadataValue("decision", readMetadataString(value, "decisionId")),
+  ].filter((part): part is string => Boolean(part));
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+function formatUsageMetadata(value: Record<string, unknown> | null): string | null {
+  if (!value) {
+    return null;
+  }
+  const parts = [
+    readMetadataString(value, "model"),
+    readMetadataString(value, "modelRouting"),
+    formatTokenCount("in", value.inputTokens),
+    formatTokenCount("cache", value.cachedInputTokens),
+    formatTokenCount("out", value.outputTokens),
+    formatUsd(value.costUsd),
+  ].filter((part): part is string => Boolean(part));
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+function readMetadataString(value: Record<string, unknown>, key: string): string | null {
+  const candidate = value[key];
+  return typeof candidate === "string" && candidate.trim() !== "" ? candidate.trim() : null;
+}
+
+function prefixedMetadataValue(prefix: string, value: string | null): string | null {
+  return value ? `${prefix} ${value}` : null;
+}
+
+function formatTokenCount(label: string, value: unknown): string | null {
+  return typeof value === "number" && Number.isFinite(value) ? `${value} ${label}` : null;
+}
+
+function formatUsd(value: unknown): string | null {
+  return typeof value === "number" && Number.isFinite(value) ? `$${value.toFixed(2)}` : null;
 }
 
 export function humanMode(mode: Frame["mode"]): string {

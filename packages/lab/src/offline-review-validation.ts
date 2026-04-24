@@ -20,6 +20,7 @@ import type {
   OfflineReviewRecommendation,
   OfflineReviewResponsePayload,
 } from "./offline-review.js";
+import { validateWorkflowTargetMetadata } from "./workflow-metadata.js";
 
 export function validateOfflineReviewArtifact(
   value: unknown,
@@ -108,6 +109,7 @@ function validateReviewBundleExplanation(
       targetInteractionId: isString,
       targetLane: isString,
       headline: isString,
+      targetMetadata: validateWith(validateWorkflowTargetMetadata),
       whyNow: isNullable(isString),
       routingAuthority: isNullable(isString),
     })

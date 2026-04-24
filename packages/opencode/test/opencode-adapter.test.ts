@@ -50,6 +50,14 @@ test("maps permission.asked to an approval request", () => {
     whyNow: "OpenCode paused and needs a human approval decision.",
     confidence: "high",
   });
+  assert.deepEqual(mapped[0].metadata, {
+    execution: {
+      runner: "opencode",
+    },
+    governance: {
+      approvalState: "pending",
+    },
+  });
   assert.deepEqual(mapped[0].context?.items, [
     { id: "command", label: "Command", value: "mkdir -p /tmp/aperture-opencode-smoke" },
     { id: "cwd", label: "Working Directory", value: "/workspace/project" },
@@ -112,6 +120,11 @@ test("maps follow-up text parts into a reply request", () => {
         id: `opencode:${createOpencodeInstanceKey(context)}`,
         kind: "opencode",
         label: "OpenCode project",
+      },
+      metadata: {
+        execution: {
+          runner: "opencode",
+        },
       },
       activityClass: "follow_up",
       title: "OpenCode is waiting for your reply",

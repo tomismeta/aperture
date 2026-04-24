@@ -18,6 +18,7 @@ import {
   type OfflineReviewRecommendationReport,
   type OfflineReviewReport,
 } from "./offline-review.js";
+import { summarizeWorkflowTargetMetadata } from "./workflow-metadata.js";
 
 export function renderOfflineReviewReportMarkdown(report: OfflineReviewReport): string {
   const lines = [
@@ -33,9 +34,11 @@ export function renderOfflineReviewReportMarkdown(report: OfflineReviewReport): 
     `- Disagreements: ${report.summary.disagreementCount}`,
     `- Matched findings: ${report.summary.matchedFindings}`,
     "",
-    "## Focus Areas",
-    "",
   ];
+
+  appendTargetContextLines(lines, report.bundle.explanation);
+
+  lines.push("## Focus Areas", "");
 
   for (const focusArea of DEFAULT_OFFLINE_REVIEW_FOCUS_AREAS) {
     lines.push(`- ${focusArea}: ${report.summary.disagreementsByFocusArea[focusArea] ?? 0}`);
@@ -86,9 +89,11 @@ export function renderOfflineReviewRecommendationMarkdown(
     `- Inspect: ${report.summary.recommendationCounts.inspect}`,
     `- Ignore: ${report.summary.recommendationCounts.ignore}`,
     "",
-    "## Recommendations",
-    "",
   ];
+
+  appendTargetContextLines(lines, report.bundle.explanation);
+
+  lines.push("## Recommendations", "");
 
   if (report.items.length === 0) {
     lines.push("- none", "");
@@ -114,6 +119,69 @@ export function renderOfflineReviewRecommendationMarkdown(
 
   lines.push("");
   return `${lines.join("\n")}\n`;
+}
+
+function appendTargetContextLines(
+  lines: string[],
+  explanation: OfflineReviewReport["bundle"]["explanation"] | undefined,
+): void {
+  if (!explanation) {
+    return;
+  }
+
+  const targetMetadataSummary = summarizeWorkflowTargetMetadata(explanation.targetMetadata);
+  const hasContext = Boolean(
+    explanation.targetInteractionId
+    || explanation.targetLane
+    || explanation.headline
+    || explanation.whyNow
+    || explanation.routingAuthority !== undefined
+    || targetMetadataSummary,
+  );
+
+  if (!hasContext) {
+    return;
+  }
+
+  lines.push("## Target Context", "");
+
+  if (explanation.targetInteractionId) {
+    lines.push(`- Interaction: ${explanation.targetInteractionId}`);
+  }
+
+  if (explanation.targetLane) {
+    lines.push(`- Lane: ${explanation.targetLane}`);
+  }
+
+  if (explanation.routingAuthority !== undefined) {
+    lines.push(`- Routing Authority: ${explanation.routingAuthority ?? "none"}`);
+  }
+
+  if (explanation.headline) {
+    lines.push(`- Headline: ${explanation.headline}`);
+  }
+
+  if (explanation.whyNow) {
+    lines.push(`- Why Now: ${explanation.whyNow}`);
+  }
+
+  if (targetMetadataSummary?.automation) {
+    lines.push(`- Automation: ${targetMetadataSummary.automation}`);
+  }
+
+  if (targetMetadataSummary?.execution) {
+    lines.push(`- Execution: ${targetMetadataSummary.execution}`);
+  }
+
+  if (targetMetadataSummary?.governance) {
+    lines.push(`- Governance: ${targetMetadataSummary.governance}`);
+  }
+
+  if (targetMetadataSummary?.usage) {
+    lines.push(`- Usage: ${targetMetadataSummary.usage}`);
+  }
+
+  lines.push("");
 }
 
 export function buildOfflineReviewPromptPacket(
@@ -252,6 +320,9 @@ function buildOfflineReviewPromptPacketWithBudget(
   const explanationWhyNow = artifact.bundle.explanation?.whyNow
     ? clipOfflineReviewPromptText(artifact.bundle.explanation.whyNow, limits.whyNowLimit)
     : null;
+  const targetMetadataSummary = summarizeWorkflowTargetMetadata(
+    artifact.bundle.explanation?.targetMetadata,
+  );
 
   return {
     bundle: {
@@ -262,6 +333,7 @@ function buildOfflineReviewPromptPacketWithBudget(
       ...(artifact.bundle.source?.label ? { sourceLabel: artifact.bundle.source.label } : {}),
       ...(explanationHeadline ? { explanationHeadline } : {}),
       ...(explanationWhyNow ? { explanationWhyNow } : {}),
+      ...(targetMetadataSummary ? { targetMetadataSummary } : {}),
       ...(artifact.bundle.explanation?.targetLane ? { targetLane: artifact.bundle.explanation.targetLane } : {}),
       ...(artifact.bundle.explanation?.routingAuthority !== undefined
         ? { routingAuthority: artifact.bundle.explanation.routingAuthority }

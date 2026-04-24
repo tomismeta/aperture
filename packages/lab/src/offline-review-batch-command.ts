@@ -20,6 +20,11 @@ import {
   writeOfflineReviewArtifact,
 } from "./offline-review.js";
 import { runOfflineReviewArtifactReview } from "./offline-review-run.js";
+import {
+  hasWorkflowTargetMetadataRollup,
+  rollupWorkflowTargetMetadata,
+  validateWorkflowTargetMetadata,
+} from "./workflow-metadata.js";
 import type { FStopProvider } from "./fstop-role.js";
 import {
   defaultPublicTrajectorySplit,
@@ -191,6 +196,7 @@ async function buildBatchEntry(
     await readFile(runResult.recommendationPath, "utf8"),
   ) as OfflineReviewRecommendationReport;
   const artifact = await loadOfflineReviewArtifact(runResult.responseArtifactPath);
+  const workflow = buildBatchEntryWorkflow(artifact);
 
   return {
     sessionId: runResult.bundleSessionId,
@@ -208,6 +214,7 @@ async function buildBatchEntry(
     runPath: runResult.runPath,
     focusAreaCounts: summarizeFocusAreaCounts(recommendation.items),
     recommendationCounts: recommendation.summary.recommendationCounts,
+    ...(workflow ? { workflow } : {}),
     topRecommendations: summarizeRecommendationItems(recommendation.items),
   };
 }
@@ -243,6 +250,15 @@ function emptyFocusAreaCounts(): Record<OfflineReviewFocusArea, number> {
   return Object.fromEntries(
     ALL_OFFLINE_REVIEW_FOCUS_AREAS.map((focusArea) => [focusArea, 0]),
   ) as Record<OfflineReviewFocusArea, number>;
+}
+
+function buildBatchEntryWorkflow(
+  artifact: Awaited<ReturnType<typeof loadOfflineReviewArtifact>>,
+) {
+  const workflow = rollupWorkflowTargetMetadata([
+    validateWorkflowTargetMetadata(artifact.bundle.explanation?.targetMetadata),
+  ]);
+  return hasWorkflowTargetMetadataRollup(workflow) ? workflow : undefined;
 }
 
 async function writeText(outputPath: string, contents: string): Promise<void> {

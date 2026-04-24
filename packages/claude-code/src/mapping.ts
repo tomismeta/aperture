@@ -372,61 +372,103 @@ export function mapClaudeCodeHookEvent(
   options: ClaudeCodeMappingOptions = {},
 ): SourceEvent[] {
   const tools = options.tools ?? DEFAULT_TOOLS;
+  const mapped = (() => {
+    switch (event.hook_event_name) {
+      case "SessionStart":
+        return [mapSessionStart(event)];
+      case "InstructionsLoaded":
+        return [mapInstructionsLoaded(event)];
+      case "PreToolUse":
+        if (tools && !tools.includes(event.tool_name)) {
+          return [];
+        }
+        if (event.tool_name === "AskUserQuestion" && event.askUserQuestion?.questions.length) {
+          return [mapAskUserQuestion(event)];
+        }
+        return [mapPreToolUse(event, options)];
+      case "PermissionRequest":
+        return !tools || tools.includes(event.tool_name)
+          ? [mapPermissionRequest(event, options)]
+          : [];
+      case "PermissionDenied":
+        return !tools || tools.includes(event.tool_name) ? [mapPermissionDenied(event)] : [];
+      case "PostToolUseFailure":
+        return [mapPostToolUseFailure(event)];
+      case "PostToolUse":
+        return options.includePostToolUse ? [mapPostToolUse(event)] : [];
+      case "Elicitation":
+        return [mapElicitation(event)];
+      case "ElicitationResult":
+        return [mapElicitationResult(event)];
+      case "Notification":
+        return mapNotification(event);
+      case "SubagentStart":
+        return [mapSubagentStart(event)];
+      case "SubagentStop":
+        return mapSubagentStop(event);
+      case "TaskCreated":
+        return [mapTaskCreated(event)];
+      case "TaskCompleted":
+        return [mapTaskCompleted(event)];
+      case "UserPromptSubmit":
+        return [mapUserPromptSubmit(event)];
+      case "StopFailure":
+        return [mapStopFailure(event)];
+      case "TeammateIdle":
+        return [mapTeammateIdle(event)];
+      case "ConfigChange":
+        return [mapConfigChange(event)];
+      case "CwdChanged":
+        return [mapCwdChanged(event)];
+      case "PreCompact":
+        return [mapPreCompact(event)];
+      case "PostCompact":
+        return [mapPostCompact(event)];
+      case "SessionEnd":
+        return [mapSessionEnd(event)];
+      case "Stop":
+        return mapStop(event);
+    }
+  })();
 
-  switch (event.hook_event_name) {
-    case "SessionStart":
-      return [mapSessionStart(event)];
-    case "InstructionsLoaded":
-      return [mapInstructionsLoaded(event)];
-    case "PreToolUse":
-      if (tools && !tools.includes(event.tool_name)) {
-        return [];
-      }
-      if (event.tool_name === "AskUserQuestion" && event.askUserQuestion?.questions.length) {
-        return [mapAskUserQuestion(event)];
-      }
-      return [mapPreToolUse(event, options)];
-    case "PermissionRequest":
-      return !tools || tools.includes(event.tool_name)
-        ? [mapPermissionRequest(event, options)]
-        : [];
-    case "PermissionDenied":
-      return !tools || tools.includes(event.tool_name) ? [mapPermissionDenied(event)] : [];
-    case "PostToolUseFailure":
-      return [mapPostToolUseFailure(event)];
-    case "PostToolUse":
-      return options.includePostToolUse ? [mapPostToolUse(event)] : [];
-    case "Elicitation":
-      return [mapElicitation(event)];
-    case "ElicitationResult":
-      return [mapElicitationResult(event)];
-    case "Notification":
-      return mapNotification(event);
-    case "SubagentStart":
-      return [mapSubagentStart(event)];
-    case "SubagentStop":
-      return mapSubagentStop(event);
-    case "TaskCreated":
-      return [mapTaskCreated(event)];
-    case "TaskCompleted":
-      return [mapTaskCompleted(event)];
-    case "UserPromptSubmit":
-      return [mapUserPromptSubmit(event)];
-    case "StopFailure":
-      return [mapStopFailure(event)];
-    case "TeammateIdle":
-      return [mapTeammateIdle(event)];
-    case "ConfigChange":
-      return [mapConfigChange(event)];
-    case "CwdChanged":
-      return [mapCwdChanged(event)];
-    case "PreCompact":
-      return [mapPreCompact(event)];
-    case "PostCompact":
-      return [mapPostCompact(event)];
-    case "SessionEnd":
-      return [mapSessionEnd(event)];
-    case "Stop":
-      return mapStop(event);
+  return mapped.map((sourceEvent) => enrichClaudeEvent(sourceEvent, event));
+}
+
+function enrichClaudeEvent(sourceEvent: SourceEvent, event: ClaudeCodeHookEvent): SourceEvent {
+  const metadata = claudeEventMetadata(sourceEvent, event);
+  if (!metadata) {
+    return sourceEvent;
   }
+  return {
+    ...sourceEvent,
+    metadata: {
+      ...(sourceEvent.metadata ?? {}),
+      ...metadata,
+    },
+  };
+}
+
+function claudeEventMetadata(
+  sourceEvent: SourceEvent,
+  event: ClaudeCodeHookEvent,
+): SourceEvent["metadata"] | undefined {
+  const execution: Record<string, unknown> = {
+    surface: "terminal",
+    runner: "claude-code",
+  };
+  const metadata: Record<string, unknown> = {
+    execution,
+  };
+
+  if (event.hook_event_name === "SessionStart") {
+    metadata.usage = { model: event.model };
+  }
+
+  if (sourceEvent.type === "human.input.requested" && sourceEvent.request.kind === "approval") {
+    metadata.governance = { approvalState: "pending" };
+  } else if (event.hook_event_name === "PermissionDenied") {
+    metadata.governance = { approvalState: "rejected" };
+  }
+
+  return metadata;
 }

@@ -42,6 +42,21 @@ test("offline review batch report aggregates counts across entries", () => {
         inspect: 1,
         ignore: 0,
       },
+      workflow: {
+        automationModes: ["scheduled"],
+        surfaces: ["terminal"],
+        runners: ["claude-code"],
+        placements: ["cloud"],
+        environments: [],
+        approvalStates: ["pending"],
+        models: ["gpt-5.4"],
+        usageTotals: {
+          inputTokens: 1200,
+          cachedInputTokens: 0,
+          outputTokens: 320,
+          costUsd: 0.14,
+        },
+      },
       topRecommendations: [
         {
           focusArea: "intentFrame",
@@ -134,6 +149,9 @@ test("offline review batch report aggregates counts across entries", () => {
   assert.equal(report.summary.focusAreaCounts.intentFrame, 2);
   assert.equal(report.summary.focusAreaCounts.consequence, 1);
   assert.equal(report.summary.recommendationCounts.promote, 2);
+  assert.deepEqual(report.summary.workflow?.runners, ["claude-code"]);
+  assert.deepEqual(report.summary.workflow?.models, ["gpt-5.4"]);
+  assert.equal(report.summary.workflow?.usageTotals.inputTokens, 1200);
 });
 
 test("offline review batch markdown renders a compact summary", () => {
@@ -148,6 +166,63 @@ test("offline review batch markdown renders a compact summary", () => {
   assert.match(markdown, /Offline Review Batch/);
   assert.match(markdown, /Reviewer: openclaw/);
   assert.match(markdown, /- error: 0/);
+});
+
+test("offline review batch markdown renders workflow summaries when available", () => {
+  const markdown = renderOfflineReviewBatchMarkdown(createOfflineReviewBatchReport([
+    {
+      sessionId: "workflow-session",
+      status: "clean",
+      disagreementCount: 0,
+      actionableCount: 0,
+      reviewer: "openclaw",
+      model: "gpt-5.4",
+      focusAreaCounts: {
+        title: 0,
+        summary: 0,
+        status: 0,
+        ask: 0,
+        intentFrame: 0,
+        toolFamily: 0,
+        consequence: 0,
+        blocking: 0,
+        episode: 0,
+        confidence: 0,
+        source: 0,
+      },
+      recommendationCounts: {
+        promote: 0,
+        inspect: 0,
+        ignore: 0,
+      },
+      workflow: {
+        automationModes: [],
+        surfaces: ["terminal"],
+        runners: ["codex"],
+        placements: [],
+        environments: [],
+        approvalStates: ["pending"],
+        models: ["gpt-5.4"],
+        usageTotals: {
+          inputTokens: 800,
+          cachedInputTokens: 100,
+          outputTokens: 120,
+          costUsd: 0.08,
+        },
+      },
+      topRecommendations: [],
+    },
+  ], {
+    reviewerCommand: "pnpm lab:fstop:reviewer --provider openclaw",
+    reviewerProvider: "openclaw",
+    imported: false,
+    bundles: [],
+    generatedAt: "2026-03-28T00:00:00.000Z",
+  }));
+
+  assert.match(markdown, /- Workflow: surfaces=terminal; runners=codex; approval states=pending; models=gpt-5.4/);
+  assert.match(markdown, /- Workflow usage: input=800, cache=100, output=120, cost=\$0.08/);
+  assert.match(markdown, /- workflow: surfaces=terminal; runners=codex; approval states=pending; models=gpt-5.4/);
 });
 
 test("summarizeRecommendationItems sorts by disagreement count", () => {

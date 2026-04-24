@@ -193,6 +193,21 @@ That keeps the public contract neutral and readable while still allowing:
 - a very small first structured step, because Aperture can default the
   transport-style metadata fields when producers omit them
 
+Beyond the minimum, `WorkEvent` can also carry four optional metadata families
+that matter more as hosts move toward background, governed, and cost-aware
+agent work:
+
+- `automation`
+  - run mode, trigger, recurrence, and schedule identity
+- `execution`
+  - surface, placement, runner, and environment
+- `governance`
+  - policy and approval lineage
+- `usage`
+  - model, model-routing, token, and cost metadata
+
+These stay optional so the first structured event remains small and readable.
+
 ## Why `SourceEvent` Should Stay Internal For Now
 
 `SourceEvent` is already a good internal host-neutral DTO.
@@ -238,7 +253,7 @@ Richer producers can still send the fuller shape below.
   "specVersion": "1.0",
   "id": "evt_01JQY7VJ0Y2P2G4R2CJ6Q8J9Y5",
   "source": "urn:github:copilot-cloud-agent",
-  "type": "io.agent.work.updated.v1",
+  "type": "io.agent.input.requested.v1",
   "time": "2026-04-07T14:20:00Z",
   "subject": "task:deploy-42",
   "contentType": "application/json",
@@ -246,18 +261,41 @@ Richer producers can still send the fuller shape below.
   "trace": {
     "traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
   },
-  "kind": "work.updated",
+  "kind": "input.requested",
   "work": {
     "id": "task:deploy-42",
     "title": "Deploy service",
-    "summary": "Waiting for approval before continuing.",
-    "status": "waiting",
-    "progress": 0.7
+    "summary": "Waiting for approval before continuing."
   },
   "actor": {
     "id": "codex",
     "kind": "agent",
     "label": "Codex"
+  },
+  "automation": {
+    "runMode": "scheduled",
+    "trigger": "schedule",
+    "recurrence": "recurring",
+    "scheduleId": "schedule:nightly-maintenance"
+  },
+  "execution": {
+    "surface": "slack",
+    "placement": "cloud",
+    "runner": "github-actions-large",
+    "environment": "production"
+  },
+  "governance": {
+    "policyId": "policy:production-rollout",
+    "approvalState": "pending",
+    "approvalId": "approval:deploy-42"
+  },
+  "usage": {
+    "model": "gpt-5.4",
+    "modelRouting": "host-auto",
+    "inputTokens": 1200,
+    "cachedInputTokens": 800,
+    "outputTokens": 320,
+    "costUsd": 0.14
   },
   "interaction": {
     "id": "interaction:approval:1"
@@ -270,7 +308,7 @@ Richer producers can still send the fuller shape below.
   },
   "facts": {
     "capabilityFamily": "deploy",
-    "activityCategory": "status_update"
+    "activityCategory": "permission_request"
   },
   "hints": {
     "consequence": "high"
@@ -292,7 +330,7 @@ This is the full recommended external event shape.
   "specVersion": "1.0",
   "id": "evt_01JQY7VJ0Y2P2G4R2CJ6Q8J9Y5",
   "source": "urn:github:copilot-cloud-agent",
-  "type": "io.agent.work.updated.v1",
+  "type": "io.agent.input.requested.v1",
   "time": "2026-04-07T14:20:00Z",
   "subject": "task:deploy-42",
   "contentType": "application/json",
@@ -300,18 +338,41 @@ This is the full recommended external event shape.
   "trace": {
     "traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
   },
-  "kind": "work.updated",
+  "kind": "input.requested",
   "work": {
     "id": "task:deploy-42",
     "title": "Deploy service",
-    "summary": "Waiting for approval before continuing.",
-    "status": "waiting",
-    "progress": 0.7
+    "summary": "Waiting for approval before continuing."
   },
   "actor": {
     "id": "codex",
     "kind": "agent",
     "label": "Codex"
+  },
+  "automation": {
+    "runMode": "scheduled",
+    "trigger": "schedule",
+    "recurrence": "recurring",
+    "scheduleId": "schedule:nightly-maintenance"
+  },
+  "execution": {
+    "surface": "slack",
+    "placement": "cloud",
+    "runner": "github-actions-large",
+    "environment": "production"
+  },
+  "governance": {
+    "policyId": "policy:production-rollout",
+    "approvalState": "pending",
+    "approvalId": "approval:deploy-42"
+  },
+  "usage": {
+    "model": "gpt-5.4",
+    "modelRouting": "host-auto",
+    "inputTokens": 1200,
+    "cachedInputTokens": 800,
+    "outputTokens": 320,
+    "costUsd": 0.14
   },
   "interaction": {
     "id": "interaction:approval:1"
@@ -324,7 +385,7 @@ This is the full recommended external event shape.
   },
   "facts": {
     "capabilityFamily": "deploy",
-    "activityCategory": "status_update"
+    "activityCategory": "permission_request"
   },
   "hints": {
     "consequence": "high"
@@ -366,6 +427,27 @@ Recommended nested metadata fields:
 - `trace.tracestate`
 - `run.sessionId`
 - `run.runId`
+
+Recommended optional workflow metadata fields:
+
+- `automation.runMode`
+- `automation.trigger`
+- `automation.recurrence`
+- `automation.scheduleId`
+- `execution.surface`
+- `execution.placement`
+- `execution.runner`
+- `execution.environment`
+- `governance.policyId`
+- `governance.approvalState`
+- `governance.approvalId`
+- `governance.decisionId`
+- `usage.model`
+- `usage.modelRouting`
+- `usage.inputTokens`
+- `usage.cachedInputTokens`
+- `usage.outputTokens`
+- `usage.costUsd`
 
 Recommended transport mapping:
 

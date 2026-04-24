@@ -18,6 +18,7 @@ function explanationSnapshot(
     targetInteractionId: null,
     targetLane: "none",
     headline: null,
+    targetMetadata: null,
     whyNow: null,
     routingAuthority: null,
     semanticImpact: null,
@@ -91,6 +92,16 @@ test("createCaptureReviewArtifacts builds a session bundle and offline review ar
       targetInteractionId: "interaction:task:live:failed:status",
       targetLane: "now",
       headline: "Work has failed and should be reviewed.",
+      targetMetadata: {
+        execution: {
+          surface: "terminal",
+          runner: "claude-code",
+        },
+        governance: {
+          approvalState: "pending",
+          policyId: "policy:deploy",
+        },
+      },
       whyNow: "Work has failed and should be reviewed.",
       routingAuthority: "status",
     }),
@@ -116,11 +127,13 @@ test("createCaptureReviewArtifacts builds a session bundle and offline review ar
   assert.deepEqual(result.bundle.doctrineTags, ["captured", "debug"]);
   assert.equal(result.bundle.explanation?.headline, "Work has failed and should be reviewed.");
   assert.equal(result.bundle.explanation?.targetLane, "now");
+  assert.equal(result.bundle.explanation?.targetMetadata?.execution?.runner, "claude-code");
   assert.equal(result.bundle.outcomes.finalNowInteractionId, "interaction:task:live:failed:status");
 
   assert.equal(result.artifact.bundle.sessionId, "session:live:failed");
   assert.equal(result.artifact.bundle.bundlePath, "/tmp/live-failure-bundle.json");
   assert.equal(result.artifact.bundle.explanation?.routingAuthority, "status");
+  assert.equal(result.artifact.bundle.explanation?.targetMetadata?.governance?.policyId, "policy:deploy");
   assert.deepEqual(result.artifact.focusAreas, ["title", "status", "consequence"]);
   assert.equal(result.artifact.rubricVersion, "capture-review-v1");
   assert.equal(result.artifact.generatedAt, "2026-04-10T03:06:00.000Z");

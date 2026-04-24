@@ -161,10 +161,18 @@ export type ApertureRuntimeAttentionViewSnapshot = {
   attentionView: AttentionView;
 };
 
+export type ApertureRuntimeTargetMetadata = {
+  automation?: Record<string, unknown>;
+  execution?: Record<string, unknown>;
+  governance?: Record<string, unknown>;
+  usage?: Record<string, unknown>;
+};
+
 export type ApertureRuntimeExplanationSnapshot = {
   targetInteractionId: string | null;
   targetLane: "now" | "next" | "ambient" | "none";
   headline: string | null;
+  targetMetadata: ApertureRuntimeTargetMetadata | null;
   whyNow: string | null;
   routingAuthority: "status" | "request" | "event" | null;
   semanticImpact: {

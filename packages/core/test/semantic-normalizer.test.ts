@@ -60,3 +60,28 @@ test("source normalization and direct enrichment share task-update semantic defa
 
   assert.deepEqual(enrichApertureEvent(directEvent), normalizeSourceEvent(sourceEvent));
 });
+
+test("source normalization preserves adapter metadata for downstream review surfaces", () => {
+  const sourceEvent = {
+    id: "evt:source-background",
+    type: "task.updated" as const,
+    taskId: "task:background",
+    timestamp,
+    title: "Nightly maintenance",
+    summary: "Waiting for approval before continuing.",
+    status: "waiting" as const,
+    metadata: {
+      automation: {
+        runMode: "scheduled",
+        trigger: "schedule",
+      },
+      governance: {
+        policyId: "policy:nightly-maintenance",
+        approvalState: "pending",
+      },
+    },
+  };
+
+  const normalized = normalizeSourceEvent(sourceEvent);
+  assert.deepEqual(normalized.metadata, sourceEvent.metadata);
+});

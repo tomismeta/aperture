@@ -18,6 +18,7 @@ import type {
 import { loadJsonFile, tryLoadJsonFile } from "./autoresearch-report-files.js";
 import { renderValue } from "./autoresearch-report-render.js";
 import { loadSessionBundle } from "./session-bundle.js";
+import type { WorkflowTargetMetadataRollup } from "./workflow-metadata.js";
 export { AUTORESEARCH_FINAL_REPORT_SCHEMA_VERSION } from "./artifact-versions.js";
 
 export type AutoresearchFinalReport = {
@@ -38,6 +39,7 @@ export type AutoresearchFinalReport = {
     replayStepCount: number;
     sourceEventStepCount: number;
     submitStepCount: number;
+    workflow?: WorkflowTargetMetadataRollup;
     cleanCount?: number;
     disagreementBundleCount?: number;
     errorCount?: number;
@@ -198,6 +200,7 @@ export async function synthesizeAutoresearchFinalReport(options: {
       replayStepCount: coverage.replayStepCount,
       sourceEventStepCount: coverage.sourceEventStepCount,
       submitStepCount: coverage.submitStepCount,
+      ...(batchReport?.summary.workflow ? { workflow: batchReport.summary.workflow } : {}),
       ...(aggregateSummary
         ? {
             cleanCount: aggregateSummary.cleanCount,

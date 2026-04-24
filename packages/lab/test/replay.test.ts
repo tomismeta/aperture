@@ -20,6 +20,21 @@ test("replay runner captures frames, traces, responses, and final view state", (
           summary: "A deploy needs approval.",
           consequence: "high",
           request: { kind: "approval" },
+          metadata: {
+            execution: {
+              surface: "terminal",
+              runner: "codex",
+            },
+            governance: {
+              approvalState: "pending",
+            },
+            usage: {
+              model: "gpt-5.4",
+              inputTokens: 1200,
+              outputTokens: 320,
+              costUsd: 0.14,
+            },
+          },
         },
       },
       {
@@ -53,6 +68,14 @@ test("replay runner captures frames, traces, responses, and final view state", (
   assert.equal(scorecard.signals.viewed, 1);
   assert.equal(scorecard.signals.responded, 1);
   assert.equal(scorecard.outcomes.finalNowInteractionId, null);
+  assert.equal(scorecard.workflow.present, true);
+  assert.deepEqual(scorecard.workflow.surfaces, ["terminal"]);
+  assert.deepEqual(scorecard.workflow.runners, ["codex"]);
+  assert.deepEqual(scorecard.workflow.approvalStates, ["pending"]);
+  assert.deepEqual(scorecard.workflow.models, ["gpt-5.4"]);
+  assert.equal(scorecard.workflow.usageTotals.inputTokens, 1200);
+  assert.equal(scorecard.workflow.usageTotals.outputTokens, 320);
+  assert.equal(scorecard.workflow.usageTotals.costUsd, 0.14);
 });
 
 test("replay runner can exercise source-event normalization paths", () => {

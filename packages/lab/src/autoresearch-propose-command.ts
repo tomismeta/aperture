@@ -74,6 +74,7 @@ type BatchSummary = {
     };
     disagreementCount: number;
     actionableCount: number;
+    workflow?: AutoresearchProposalRun["summary"]["workflow"];
   };
 };
 
@@ -222,6 +223,7 @@ export async function runAutoresearchProposalCommand(
       actionableCount,
       selectedSignalCount: signals.length,
       promotedCaseCount: promotions.length,
+      ...(batchReport.summary.workflow ? { workflow: batchReport.summary.workflow } : {}),
     },
     artifacts: {
       batchReportPath,

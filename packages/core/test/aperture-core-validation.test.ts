@@ -36,6 +36,19 @@ test("assertValidSourceEvent rejects unsupported consequence hints", () => {
   }, /event\.riskHint must be a valid consequence level/);
 });
 
+test("assertValidSourceEvent rejects non-object metadata", () => {
+  assert.throws(() => {
+    assertValidSourceEvent({
+      id: "evt:invalid-metadata",
+      type: "task.started",
+      taskId: "task:invalid-metadata",
+      timestamp: "2026-04-06T00:05:00.000Z",
+      title: "Started work",
+      metadata: [] as never,
+    });
+  }, /event\.metadata must be an object/);
+});
+
 test("assertValidFrameResponse rejects empty option selections", () => {
   assert.throws(() => {
     assertValidFrameResponse({

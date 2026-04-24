@@ -34,6 +34,7 @@ function explanationSnapshot(
     targetInteractionId: null,
     targetLane: "none",
     headline: null,
+    targetMetadata: null,
     whyNow: null,
     routingAuthority: null,
     semanticImpact: null,
@@ -971,6 +972,21 @@ test("session bundles can be created from runtime-style captures", () => {
       targetInteractionId: "interaction:task:runtime:bundle:status",
       targetLane: "next",
       headline: "Work has failed and should be reviewed.",
+      targetMetadata: {
+        execution: {
+          surface: "terminal",
+          runner: "codex",
+        },
+        governance: {
+          approvalState: "pending",
+          approvalId: "approval:deploy-17",
+        },
+        usage: {
+          model: "gpt-5.4",
+          inputTokens: 840,
+          outputTokens: 112,
+        },
+      },
       whyNow: "Work has failed and should be reviewed.",
       routingAuthority: "status",
     }),
@@ -996,7 +1012,10 @@ test("session bundles can be created from runtime-style captures", () => {
   assert.equal(bundle.outcomes.finalNextCount, 1);
   assert.equal(bundle.explanation?.headline, "Work has failed and should be reviewed.");
   assert.equal(bundle.explanation?.targetLane, "next");
+  assert.equal(bundle.explanation?.targetMetadata?.execution?.runner, "codex");
+  assert.equal(bundle.explanation?.targetMetadata?.governance?.approvalId, "approval:deploy-17");
   assert.equal(bundle.explanation?.routingAuthority, "status");
+  assert.equal(validateSessionBundle(bundle)?.explanation?.targetMetadata?.usage?.model, "gpt-5.4");
 });
 
 test("runtime session captures can be sliced from a baseline cursor", () => {

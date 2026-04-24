@@ -150,18 +150,22 @@ export function mapCodexHookEvent(
   event: CodexHookEvent,
   context: CodexHookMappingContext = {},
 ): SourceEvent[] {
-  switch (event.hook_event_name) {
-    case "SessionStart":
-      return [mapSessionStart(event, context)];
-    case "PreToolUse":
-      return [mapPreToolUse(event, context)];
-    case "PostToolUse":
-      return [mapPostToolUse(event, context)];
-    case "UserPromptSubmit":
-      return [mapUserPromptSubmit(event, context)];
-    case "Stop":
-      return [mapStop(event, context)];
-  }
+  const mapped = (() => {
+    switch (event.hook_event_name) {
+      case "SessionStart":
+        return [mapSessionStart(event, context)];
+      case "PreToolUse":
+        return [mapPreToolUse(event, context)];
+      case "PostToolUse":
+        return [mapPostToolUse(event, context)];
+      case "UserPromptSubmit":
+        return [mapUserPromptSubmit(event, context)];
+      case "Stop":
+        return [mapStop(event, context)];
+    }
+  })();
+
+  return mapped.map((sourceEvent) => enrichCodexHookEvent(sourceEvent, event));
 }
 
 export function mapCodexHookResponse(
@@ -230,6 +234,42 @@ function parseCodexHookInteractionId(interactionId: string): ParsedCodexHookInte
     turnId: decodeURIComponent(parts[4]),
     toolUseId: decodeURIComponent(parts[5]),
   };
+}
+
+function enrichCodexHookEvent(sourceEvent: SourceEvent, event: CodexHookEvent): SourceEvent {
+  const metadata = codexHookEventMetadata(sourceEvent, event);
+  if (!metadata) {
+    return sourceEvent;
+  }
+  return {
+    ...sourceEvent,
+    metadata: {
+      ...(sourceEvent.metadata ?? {}),
+      ...metadata,
+    },
+  };
+}
+
+function codexHookEventMetadata(
+  sourceEvent: SourceEvent,
+  event: CodexHookEvent,
+): SourceEvent["metadata"] | undefined {
+  const metadata: Record<string, unknown> = {
+    execution: {
+      surface: "terminal",
+      runner: "codex",
+    },
+  };
+
+  if (typeof event.model === "string" && event.model.trim() !== "") {
+    metadata.usage = { model: event.model };
+  }
+
+  if (sourceEvent.type === "human.input.requested" && sourceEvent.request.kind === "approval") {
+    metadata.governance = { approvalState: "pending" };
+  }
+
+  return metadata;
 }
 
 function mapSessionStart(

@@ -1,4 +1,5 @@
 import type { AttentionSignal } from "@tomismeta/aperture-core";
+import type { AttentionFrame } from "@tomismeta/aperture-core";
 import {
   evaluateTraceSession,
   isCandidateTrace,
@@ -6,7 +7,12 @@ import {
 } from "@tomismeta/aperture-core/internal";
 
 import type { ReplayRunResult } from "./runner.js";
-import type { AttentionFrame } from "@tomismeta/aperture-core";
+import {
+  type WorkflowTargetMetadataRollup,
+  hasWorkflowTargetMetadataRollup,
+  rollupWorkflowTargetMetadata,
+  validateWorkflowTargetMetadata,
+} from "./workflow-metadata.js";
 
 export type ReplayScorecard = {
   trace: TraceEvaluationReport;
@@ -16,6 +22,7 @@ export type ReplayScorecard = {
     ambient: number;
   };
   explanation: ReplayExplanationSnapshot;
+  workflow: ReplayWorkflowFootprint;
   signals: {
     presented: number;
     responded: number;
@@ -35,6 +42,10 @@ export type ReplayScorecard = {
     finalNextInteractionIds: string[];
     finalAmbientInteractionIds: string[];
   };
+};
+
+export type ReplayWorkflowFootprint = WorkflowTargetMetadataRollup & {
+  present: boolean;
 };
 
 export type ReplayExplanationSnapshot = {
@@ -57,6 +68,7 @@ export function scoreReplayRun(result: ReplayRunResult): ReplayScorecard {
     trace: evaluateTraceSession(result.traces),
     lanes: countResultLanes(result),
     explanation: buildExplanationSnapshot(result),
+    workflow: buildWorkflowFootprint(result),
     signals: countSignals(result.signals),
     outcomes: {
       totalSteps: result.steps.length,
@@ -67,6 +79,25 @@ export function scoreReplayRun(result: ReplayRunResult): ReplayScorecard {
       finalNextInteractionIds: finalView?.next.map((frame) => frame.interactionId) ?? [],
       finalAmbientInteractionIds: finalView?.ambient.map((frame) => frame.interactionId) ?? [],
     },
+  };
+}
+
+function buildWorkflowFootprint(result: ReplayRunResult): ReplayWorkflowFootprint {
+  const framesById = new Map<string, AttentionFrame>();
+
+  for (const step of result.steps) {
+    if (step.frame) {
+      framesById.set(step.frame.id, step.frame);
+    }
+  }
+
+  const rollup = rollupWorkflowTargetMetadata(
+    [...framesById.values()].map((frame) => validateWorkflowTargetMetadata(frame.metadata)),
+  );
+
+  return {
+    ...rollup,
+    present: hasWorkflowTargetMetadataRollup(rollup),
   };
 }
 

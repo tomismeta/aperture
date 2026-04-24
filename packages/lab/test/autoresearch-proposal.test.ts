@@ -291,6 +291,21 @@ test("renderAutoresearchProposalMarkdown summarizes proposal outcomes", () => {
       actionableCount: 23,
       selectedSignalCount: 2,
       promotedCaseCount: 3,
+      workflow: {
+        automationModes: ["scheduled"],
+        surfaces: ["terminal"],
+        runners: ["claude-code"],
+        placements: ["cloud"],
+        environments: [],
+        approvalStates: ["pending"],
+        models: ["claude-sonnet-4"],
+        usageTotals: {
+          inputTokens: 1400,
+          cachedInputTokens: 200,
+          outputTokens: 280,
+          costUsd: 0.12,
+        },
+      },
     },
     artifacts: {
       batchReportPath: "batch.json",
@@ -353,6 +368,8 @@ test("renderAutoresearchProposalMarkdown summarizes proposal outcomes", () => {
 
   assert.match(markdown, /Autoresearch Proposal/);
   assert.match(markdown, /Status: proposed/);
+  assert.match(markdown, /workflow: automation=scheduled; surfaces=terminal; runners=claude-code; placements=cloud; approval states=pending; models=claude-sonnet-4/);
+  assert.match(markdown, /workflow usage: input=1,400, cache=200, output=280, cost=\$0.12/);
   assert.match(markdown, /consequence \(semantic\): high -> medium/);
   assert.match(markdown, /Intent Statements/);
   assert.match(markdown, /Code Recommendations/);

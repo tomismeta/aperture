@@ -33,6 +33,12 @@ you send the human's answer back.
 This package is the judgment engine only. Runtime hosting, source adapters, and
 the TUI live elsewhere in the repo.
 
+If you need the local `/work` HTTP ingress for sending external work into a
+running Aperture product instance, that belongs to
+[`@tomismeta/aperture`](https://www.npmjs.com/package/@tomismeta/aperture), not
+this SDK. The product-side contract is documented in
+[Host-Neutral Ingestion Contract](https://github.com/tomismeta/aperture/blob/main/docs/product/host-neutral-ingestion-contract.md).
+
 ## Napkin Drawing
 
 ```text

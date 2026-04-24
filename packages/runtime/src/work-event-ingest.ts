@@ -113,6 +113,7 @@ export function mapWorkEventToSourceEvent(event: WorkEvent): SourceEvent {
   const normalizedEvent = normalizeWorkEvent(event);
   const timestamp = normalizedEvent.time ?? new Date().toISOString();
   const source = mapSourceRef(normalizedEvent);
+  const metadata = mapMetadata(normalizedEvent);
 
   switch (normalizedEvent.kind) {
     case "work.started":
@@ -122,6 +123,7 @@ export function mapWorkEventToSourceEvent(event: WorkEvent): SourceEvent {
         taskId: normalizedEvent.work.id,
         timestamp,
         ...(source !== undefined ? { source } : {}),
+        ...(metadata !== undefined ? { metadata } : {}),
         title: fallbackTitle(normalizedEvent),
         ...(normalizedEvent.work.summary !== undefined
           ? { summary: normalizedEvent.work.summary }
@@ -137,6 +139,7 @@ export function mapWorkEventToSourceEvent(event: WorkEvent): SourceEvent {
         taskId: normalizedEvent.work.id,
         timestamp,
         ...(source !== undefined ? { source } : {}),
+        ...(metadata !== undefined ? { metadata } : {}),
         ...(normalizedEvent.facts?.capabilityFamily !== undefined
           ? { toolFamily: normalizedEvent.facts.capabilityFamily }
           : {}),
@@ -160,6 +163,7 @@ export function mapWorkEventToSourceEvent(event: WorkEvent): SourceEvent {
         taskId: normalizedEvent.work.id,
         timestamp,
         ...(source !== undefined ? { source } : {}),
+        ...(metadata !== undefined ? { metadata } : {}),
         ...(normalizedEvent.work.summary !== undefined
           ? { summary: normalizedEvent.work.summary }
           : {}),
@@ -172,6 +176,7 @@ export function mapWorkEventToSourceEvent(event: WorkEvent): SourceEvent {
         taskId: normalizedEvent.work.id,
         timestamp,
         ...(source !== undefined ? { source } : {}),
+        ...(metadata !== undefined ? { metadata } : {}),
         ...(normalizedEvent.work.reason !== undefined
           ? { reason: normalizedEvent.work.reason }
           : normalizedEvent.work.summary !== undefined
@@ -189,6 +194,7 @@ export function mapWorkEventToSourceEvent(event: WorkEvent): SourceEvent {
         interactionId: normalizedEvent.interaction.id,
         timestamp,
         ...(source !== undefined ? { source } : {}),
+        ...(metadata !== undefined ? { metadata } : {}),
         ...(normalizedEvent.facts?.capabilityFamily !== undefined
           ? { toolFamily: normalizedEvent.facts.capabilityFamily }
           : {}),
@@ -397,6 +403,25 @@ function mapContext(
     ...(event.work.progress !== undefined ? { progress: event.work.progress } : {}),
     ...(items && items.length > 0 ? { items } : {}),
   };
+}
+
+function mapMetadata(event: NormalizedWorkEvent): SourceEvent["metadata"] | undefined {
+  const metadata: NonNullable<SourceEvent["metadata"]> = {};
+
+  if (event.automation !== undefined) {
+    metadata.automation = event.automation;
+  }
+  if (event.execution !== undefined) {
+    metadata.execution = event.execution;
+  }
+  if (event.governance !== undefined) {
+    metadata.governance = event.governance;
+  }
+  if (event.usage !== undefined) {
+    metadata.usage = event.usage;
+  }
+
+  return Object.keys(metadata).length === 0 ? undefined : metadata;
 }
 
 function mapSharedSemanticHints(

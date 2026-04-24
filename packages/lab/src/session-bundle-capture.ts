@@ -29,6 +29,7 @@ import {
   SESSION_BUNDLE_SCHEMA_VERSION,
 } from "./session-bundle-model.js";
 import { createSessionBundleFromScenario } from "./session-bundle-scenarios.js";
+import { validateWorkflowTargetMetadata } from "./workflow-metadata.js";
 
 export function createRuntimeSessionCaptureCursor(
   capture: RuntimeSessionCaptureLike,
@@ -228,16 +229,22 @@ function bundleExplanationFromRuntimeCapture(
   if (
     explanation.targetInteractionId === null
     && explanation.headline === null
+    && explanation.targetMetadata === null
     && explanation.whyNow === null
     && explanation.routingAuthority === null
   ) {
     return undefined;
   }
 
+  const targetMetadata = explanation.targetMetadata === null
+    ? null
+    : validateWorkflowTargetMetadata(explanation.targetMetadata);
+
   return {
     ...(explanation.targetInteractionId !== null ? { targetInteractionId: explanation.targetInteractionId } : {}),
     ...(explanation.targetLane !== "none" ? { targetLane: explanation.targetLane } : {}),
     ...(explanation.headline !== null ? { headline: explanation.headline } : {}),
+    ...(targetMetadata ? { targetMetadata } : {}),
     ...(explanation.whyNow !== null ? { whyNow: explanation.whyNow } : {}),
     ...(explanation.routingAuthority !== null ? { routingAuthority: explanation.routingAuthority } : {}),
   };

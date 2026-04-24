@@ -19,6 +19,7 @@ import type {
 } from "./offline-review.js";
 import type { AutoresearchOptimizerRun } from "./autoresearch-optimizer.js";
 import { DEFAULT_LAB_RUNTIME_ROOT } from "./runtime-paths.js";
+import type { WorkflowTargetMetadataRollup } from "./workflow-metadata.js";
 export { AUTORESEARCH_PROPOSAL_RUN_SCHEMA_VERSION } from "./artifact-versions.js";
 
 export const DEFAULT_AUTORESEARCH_PROPOSALS_DIR = path.join(
@@ -105,6 +106,7 @@ export type AutoresearchProposalRun = {
     actionableCount: number;
     selectedSignalCount: number;
     promotedCaseCount: number;
+    workflow?: WorkflowTargetMetadataRollup;
   };
   artifacts: {
     batchReportPath: string;
@@ -414,10 +416,35 @@ export function renderAutoresearchProposalMarkdown(run: AutoresearchProposalRun)
     `- selected signals: ${run.summary.selectedSignalCount}`,
     `- promoted cases: ${run.summary.promotedCaseCount}`,
     "",
-    "## Artifacts",
-    "",
-    `- batch report: ${run.artifacts.batchReportPath}`,
   ];
+
+  if (run.summary.workflow) {
+    const workflow = run.summary.workflow;
+    const contextParts = [
+      formatWorkflowField("automation", workflow.automationModes),
+      formatWorkflowField("surfaces", workflow.surfaces),
+      formatWorkflowField("runners", workflow.runners),
+      formatWorkflowField("placements", workflow.placements),
+      formatWorkflowField("environments", workflow.environments),
+      formatWorkflowField("approval states", workflow.approvalStates),
+      formatWorkflowField("models", workflow.models),
+    ].filter((part): part is string => part !== null);
+    if (contextParts.length > 0) {
+      lines.push(`- workflow: ${contextParts.join("; ")}`);
+    }
+
+    const usageParts = [
+      workflow.usageTotals.inputTokens > 0 ? `input=${formatCount(workflow.usageTotals.inputTokens)}` : null,
+      workflow.usageTotals.cachedInputTokens > 0 ? `cache=${formatCount(workflow.usageTotals.cachedInputTokens)}` : null,
+      workflow.usageTotals.outputTokens > 0 ? `output=${formatCount(workflow.usageTotals.outputTokens)}` : null,
+      workflow.usageTotals.costUsd > 0 ? `cost=${formatUsd(workflow.usageTotals.costUsd)}` : null,
+    ].filter((part): part is string => part !== null);
+    if (usageParts.length > 0) {
+      lines.push(`- workflow usage: ${usageParts.join(", ")}`);
+    }
+  }
+
+  lines.push("", "## Artifacts", "", `- batch report: ${run.artifacts.batchReportPath}`);
 
   if (run.artifacts.batchMarkdownPath) {
     lines.push(`- batch summary: ${run.artifacts.batchMarkdownPath}`);
@@ -650,4 +677,16 @@ function safeSegment(value: string): string {
 
 function dedupeStrings(values: readonly string[]): string[] {
   return [...new Set(values)].sort();
+}
+
+function formatWorkflowField(label: string, values: string[]): string | null {
+  return values.length > 0 ? `${label}=${values.join(", ")}` : null;
+}
+
+function formatCount(value: number): string {
+  return value.toLocaleString("en-US");
+}
+
+function formatUsd(value: number): string {
+  return `$${value.toFixed(2)}`;
 }

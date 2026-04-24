@@ -55,6 +55,7 @@ export class FramePlanner {
       },
       metadata: {
         ...(current?.metadata ?? {}),
+        ...(candidate.metadata ?? {}),
         attention: nextAttention,
         ...(toolFamily !== undefined ? { toolFamily } : {}),
         ...(nextSemantic ? { semantic: nextSemantic } : {}),

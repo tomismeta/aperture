@@ -23,38 +23,70 @@ export function mapOpencodeEvent(
   event: OpencodeSseMessage,
   context: OpencodeMappingContext,
 ): SourceEvent[] {
-  switch (event.type) {
-    case "permission.asked":
-      return [
-        mapPermissionAsked(
-          event as Extract<OpencodeSseMessage, { type: "permission.asked" }>,
+  const mapped = (() => {
+    switch (event.type) {
+      case "permission.asked":
+        return [
+          mapPermissionAsked(
+            event as Extract<OpencodeSseMessage, { type: "permission.asked" }>,
+            context,
+          ),
+        ];
+      case "question.asked":
+        return [
+          mapQuestionAsked(
+            event as Extract<OpencodeSseMessage, { type: "question.asked" }>,
+            context,
+          ),
+        ];
+      case "session.status":
+        return mapSessionStatus(
+          event as Extract<OpencodeSseMessage, { type: "session.status" }>,
           context,
-        ),
-      ];
-    case "question.asked":
-      return [
-        mapQuestionAsked(
-          event as Extract<OpencodeSseMessage, { type: "question.asked" }>,
+        );
+      case "message.part.updated":
+        return mapMessagePartUpdated(
+          event as Extract<OpencodeSseMessage, { type: "message.part.updated" }>,
           context,
-        ),
-      ];
-    case "session.status":
-      return mapSessionStatus(
-        event as Extract<OpencodeSseMessage, { type: "session.status" }>,
-        context,
-      );
-    case "message.part.updated":
-      return mapMessagePartUpdated(
-        event as Extract<OpencodeSseMessage, { type: "message.part.updated" }>,
-        context,
-      );
-    case "permission.replied":
-    case "question.replied":
-    case "question.rejected":
-    case "server.connected":
-    case "server.heartbeat":
-      return [];
-    default:
-      return [];
+        );
+      case "permission.replied":
+      case "question.replied":
+      case "question.rejected":
+      case "server.connected":
+      case "server.heartbeat":
+        return [];
+      default:
+        return [];
+    }
+  })();
+
+  return mapped.map(enrichOpencodeEvent);
+}
+
+function enrichOpencodeEvent(sourceEvent: SourceEvent): SourceEvent {
+  const metadata = opencodeEventMetadata(sourceEvent);
+  if (!metadata) {
+    return sourceEvent;
   }
+  return {
+    ...sourceEvent,
+    metadata: {
+      ...(sourceEvent.metadata ?? {}),
+      ...metadata,
+    },
+  };
+}
+
+function opencodeEventMetadata(sourceEvent: SourceEvent): SourceEvent["metadata"] | undefined {
+  const metadata: Record<string, unknown> = {
+    execution: {
+      runner: "opencode",
+    },
+  };
+
+  if (sourceEvent.type === "human.input.requested" && sourceEvent.request.kind === "approval") {
+    metadata.governance = { approvalState: "pending" };
+  }
+
+  return metadata;
 }

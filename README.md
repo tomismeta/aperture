@@ -197,6 +197,7 @@ Repo-level examples and capture-review quickstarts live in
 - Product release notes: [docs/releases/aperture-v0.4.0.md](./docs/releases/aperture-v0.4.0.md)
 - SDK release notes: [docs/releases/aperture-core-v0.7.0.md](./docs/releases/aperture-core-v0.7.0.md)
 - Architecture overview: [docs/product/architecture-overview.md](./docs/product/architecture-overview.md)
+- Host-neutral ingestion contract: [docs/product/host-neutral-ingestion-contract.md](./docs/product/host-neutral-ingestion-contract.md)
 - Attention judgment doctrine: [docs/engine/attention-judgment-doctrine.md](./docs/engine/attention-judgment-doctrine.md)
 - Core SDK guide: [packages/core/README.md](./packages/core/README.md)
 - Product package guide: [packages/aperture/README.md](./packages/aperture/README.md)

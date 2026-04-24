@@ -544,6 +544,60 @@ test("renderAttentionScreen expands full prompt text when expanded", () => {
   assert.match(expanded, /while keeping the surface calm and predictable for operators\./);
 });
 
+test("renderAttentionScreen keeps workflow metadata behind detail expand", () => {
+  const attentionView: AttentionView = {
+    now: makeFrame({
+      summary: "Scheduled maintenance is waiting for approval.",
+      metadata: {
+        attention: {
+          score: 1211,
+          scoreOffset: 5,
+          rationale: ["blocking work remains sticky"],
+        },
+        automation: {
+          runMode: "scheduled",
+          trigger: "schedule",
+          recurrence: "recurring",
+          scheduleId: "schedule:nightly-maintenance",
+        },
+        execution: {
+          surface: "slack",
+          placement: "cloud",
+          runner: "github-actions-large",
+          environment: "production",
+        },
+        governance: {
+          approvalState: "pending",
+          policyId: "policy:prod-maintenance",
+          approvalId: "approval:nightly-maintenance",
+        },
+        usage: {
+          model: "gpt-5.4",
+          modelRouting: "host-auto",
+          inputTokens: 1200,
+          cachedInputTokens: 800,
+          outputTokens: 320,
+          costUsd: 0.14,
+        },
+      },
+    }),
+    next: [],
+    ambient: [],
+  };
+
+  const collapsed = renderAttentionScreen(attentionView, { title: "Aperture" });
+  assert.doesNotMatch(collapsed, /automation scheduled/);
+  assert.doesNotMatch(collapsed, /execution slack/);
+  assert.doesNotMatch(collapsed, /governance pending/);
+  assert.doesNotMatch(collapsed, /usage gpt-5\.4/);
+
+  const expanded = renderAttentionScreen(attentionView, { title: "Aperture", expanded: true });
+  assert.match(expanded, /automation scheduled · schedule · recurring · schedule schedule:nightly-maintenance/);
+  assert.match(expanded, /execution slack · cloud · github-actions-large · production/);
+  assert.match(expanded, /governance pending · policy policy:prod-maintenance · approval approval:nightly-maintenance/);
+  assert.match(expanded, /usage gpt-5\.4 · host-auto · 1200 in · 800 cache · 320 out · \$0\.14/);
+});
+
 test("renderAttentionScreen accents input prompts and reply labels in brand blue", () => {
   const attentionView: AttentionView = {
     now: makeFrame({

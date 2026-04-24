@@ -72,6 +72,38 @@ test("maps neutral input.requested events into SourceEvent with approval semanti
   });
 });
 
+test("maps background-work and governance metadata into SourceEvent metadata", () => {
+  const event = mapWorkEventToSourceEvent(scheduledBackgroundEvent("task:nightly-maintenance"));
+
+  assert.deepEqual(event.metadata, {
+    automation: {
+      runMode: "scheduled",
+      trigger: "schedule",
+      recurrence: "recurring",
+      scheduleId: "schedule:nightly-maintenance",
+    },
+    execution: {
+      surface: "slack",
+      placement: "cloud",
+      runner: "github-actions-large",
+      environment: "production",
+    },
+    governance: {
+      policyId: "policy:prod-maintenance",
+      approvalState: "pending",
+      approvalId: "approval:nightly-maintenance",
+    },
+    usage: {
+      model: "gpt-5.4",
+      modelRouting: "host-auto",
+      inputTokens: 1200,
+      cachedInputTokens: 800,
+      outputTokens: 320,
+      costUsd: 0.14,
+    },
+  });
+});
+
 test("maps plain text work input into a deterministic running SourceEvent", () => {
   const event = mapWorkTextToSourceEvent("The deployment failed after the smoke test timed out.");
 
@@ -187,6 +219,71 @@ test("runtime adapter client can publish neutral events", async () => {
     assert.equal(active?.mode, "approval");
   } finally {
     await client.close();
+    await runtime.close();
+  }
+});
+
+test("runtime preserves background-work metadata on surfaced frames", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { baseUrl, authToken } = await runtime.listen();
+  const taskId = "task:runtime:nightly-maintenance";
+
+  try {
+    const response = await authorizedFetch(baseUrl, authToken, "/work", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(scheduledBackgroundEvent(taskId)),
+    });
+
+    assert.equal(response.status, 200);
+
+    const ambient = await waitFor(() => {
+      const taskView = runtime.getCore().getTaskView(taskId);
+      return taskView.ambient[0] ?? null;
+    });
+
+    assert.ok(ambient);
+    assert.equal(ambient.taskId, taskId);
+    assert.deepEqual(ambient.metadata?.automation, {
+      runMode: "scheduled",
+      trigger: "schedule",
+      recurrence: "recurring",
+      scheduleId: "schedule:nightly-maintenance",
+    });
+    assert.deepEqual(ambient.metadata?.execution, {
+      surface: "slack",
+      placement: "cloud",
+      runner: "github-actions-large",
+      environment: "production",
+    });
+    assert.deepEqual(ambient.metadata?.governance, {
+      policyId: "policy:prod-maintenance",
+      approvalState: "pending",
+      approvalId: "approval:nightly-maintenance",
+    });
+    assert.deepEqual(ambient.metadata?.usage, {
+      model: "gpt-5.4",
+      modelRouting: "host-auto",
+      inputTokens: 1200,
+      cachedInputTokens: 800,
+      outputTokens: 320,
+      costUsd: 0.14,
+    });
+
+    const [published] = runtime.exportSessionCapture().publishedSourceEvents.slice(-1);
+    assert.ok(published);
+    assert.deepEqual(published.metadata?.automation, ambient.metadata?.automation);
+    assert.deepEqual(published.metadata?.execution, ambient.metadata?.execution);
+    assert.deepEqual(published.metadata?.governance, ambient.metadata?.governance);
+    assert.deepEqual(published.metadata?.usage, ambient.metadata?.usage);
+
+    assert.deepEqual(runtime.exportSessionCapture().currentExplanation.targetMetadata, {
+      automation: ambient.metadata?.automation,
+      execution: ambient.metadata?.execution,
+      governance: ambient.metadata?.governance,
+      usage: ambient.metadata?.usage,
+    });
+  } finally {
     await runtime.close();
   }
 });
@@ -782,6 +879,44 @@ function workApprovalEvent(taskId: string): WorkEvent {
     },
     hints: {
       consequence: "high",
+    },
+  };
+}
+
+function scheduledBackgroundEvent(taskId: string): WorkEvent {
+  return {
+    kind: "work.updated",
+    work: {
+      id: taskId,
+      title: "Nightly maintenance run",
+      summary: "Background maintenance is waiting for a production approval gate.",
+      status: "waiting",
+      progress: 0.65,
+    },
+    automation: {
+      runMode: "scheduled",
+      trigger: "schedule",
+      recurrence: "recurring",
+      scheduleId: "schedule:nightly-maintenance",
+    },
+    execution: {
+      surface: "slack",
+      placement: "cloud",
+      runner: "github-actions-large",
+      environment: "production",
+    },
+    governance: {
+      policyId: "policy:prod-maintenance",
+      approvalState: "pending",
+      approvalId: "approval:nightly-maintenance",
+    },
+    usage: {
+      model: "gpt-5.4",
+      modelRouting: "host-auto",
+      inputTokens: 1200,
+      cachedInputTokens: 800,
+      outputTokens: 320,
+      costUsd: 0.14,
     },
   };
 }

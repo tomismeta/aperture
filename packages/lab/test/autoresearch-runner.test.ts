@@ -67,6 +67,21 @@ test("renderAutoresearchRunnerRunMarkdown retains intent for no-proposal runs", 
         actionableCount: 14,
         selectedSignalCount: 2,
         promotedCaseCount: 3,
+        workflow: {
+          automationModes: ["scheduled"],
+          surfaces: ["terminal"],
+          runners: ["claude-code"],
+          placements: ["cloud"],
+          environments: [],
+          approvalStates: ["pending"],
+          models: ["claude-sonnet-4"],
+          usageTotals: {
+            inputTokens: 1100,
+            cachedInputTokens: 100,
+            outputTokens: 210,
+            costUsd: 0.11,
+          },
+        },
       },
       signals: [
         {
@@ -136,6 +151,21 @@ test("renderAutoresearchRunnerRunMarkdown retains intent for no-proposal runs", 
             actionableCount: 14,
             selectedSignalCount: 2,
             promotedCaseCount: 3,
+            workflow: {
+              automationModes: ["scheduled"],
+              surfaces: ["terminal"],
+              runners: ["claude-code"],
+              placements: ["cloud"],
+              environments: [],
+              approvalStates: ["pending"],
+              models: ["claude-sonnet-4"],
+              usageTotals: {
+                inputTokens: 1100,
+                cachedInputTokens: 100,
+                outputTokens: 210,
+                costUsd: 0.11,
+              },
+            },
           },
           signals: [
             {
@@ -210,6 +240,21 @@ test("renderAutoresearchRunnerRunMarkdown retains intent for no-proposal runs", 
               actionableCount: 14,
               selectedSignalCount: 2,
               promotedCaseCount: 3,
+              workflow: {
+                automationModes: ["scheduled"],
+                surfaces: ["terminal"],
+                runners: ["claude-code"],
+                placements: ["cloud"],
+                environments: [],
+                approvalStates: ["pending"],
+                models: ["claude-sonnet-4"],
+                usageTotals: {
+                  inputTokens: 1100,
+                  cachedInputTokens: 100,
+                  outputTokens: 210,
+                  costUsd: 0.11,
+                },
+              },
             },
             signals: [
               {
@@ -272,6 +317,8 @@ test("renderAutoresearchRunnerRunMarkdown retains intent for no-proposal runs", 
   const markdown = renderAutoresearchRunnerRunMarkdown(run);
 
   assert.match(markdown, /Status: no_proposal/);
+  assert.match(markdown, /workflow: automation=scheduled; surfaces=terminal; runners=claude-code; placements=cloud; approval states=pending; models=claude-sonnet-4/);
+  assert.match(markdown, /workflow usage: input=1,100, cache=100, output=210, cost=\$0.11/);
   assert.match(markdown, /Retained Intent/);
   assert.match(markdown, /Retained Attempts/);
   assert.match(markdown, /Lower consequence when observational tool failures still preserve strong evidence/);

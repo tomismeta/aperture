@@ -27,6 +27,7 @@ export type AttentionCandidate = {
   taskId: string;
   interactionId: string;
   source?: SourceRef;
+  metadata?: Record<string, unknown>;
   toolFamily?: string;
   activityClass?: AttentionActivityClass;
   mode: AttentionFrame["mode"];

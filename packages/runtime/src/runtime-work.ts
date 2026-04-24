@@ -47,7 +47,7 @@ export function describeWorkEndpoint(retention: {
     path: "/work",
     method: "POST",
     summary:
-      "Send plain text for the simplest ingress. Send structured WorkEvent JSON when you need stable work ids, richer metadata, or explicit human-input requests. Aperture fills specVersion, id, source, and type when you omit them.",
+      "Send plain text for the simplest ingress. Send structured WorkEvent JSON when you need stable work ids, richer metadata, background-work or governance fields, or explicit human-input requests. Aperture fills specVersion, id, source, and type when you omit them.",
     auth: "Use the local Aperture bearer token for every /work request. The token is created with the local runtime and is required on all non-health routes.",
     send: [
       {
@@ -62,7 +62,7 @@ export function describeWorkEndpoint(retention: {
         contentType: "application/json",
         body: "WorkEvent",
         bestFor:
-          "Stable work identity, structured requests, and portable metadata. kind and work are the only required top-level fields.",
+          "Stable work identity, structured requests, and portable automation, execution, governance, or usage metadata. kind and work are the only required top-level fields.",
         example:
           '{"kind":"work.updated","work":{"id":"task:deploy-42","status":"waiting","summary":"Waiting for approval before continuing."}}',
       },

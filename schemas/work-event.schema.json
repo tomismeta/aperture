@@ -160,6 +160,78 @@
             }
           }
         },
+        "automation": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "runMode": {
+              "anyOf": [
+                { "const": "interactive", "type": "string" },
+                { "const": "background", "type": "string" },
+                { "const": "scheduled", "type": "string" }
+              ]
+            },
+            "trigger": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "recurrence": {
+              "anyOf": [
+                { "const": "once", "type": "string" },
+                { "const": "recurring", "type": "string" }
+              ]
+            },
+            "scheduleId": { "minLength": 1, "maxLength": 256, "type": "string" }
+          }
+        },
+        "execution": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "surface": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "placement": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "runner": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "environment": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            }
+          }
+        },
+        "governance": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "policyId": { "minLength": 1, "maxLength": 256, "type": "string" },
+            "approvalState": {
+              "anyOf": [
+                { "const": "not_required", "type": "string" },
+                { "const": "pending", "type": "string" },
+                { "const": "approved", "type": "string" },
+                { "const": "rejected", "type": "string" }
+              ]
+            },
+            "approvalId": {
+              "minLength": 1,
+              "maxLength": 256,
+              "type": "string"
+            },
+            "decisionId": { "minLength": 1, "maxLength": 256, "type": "string" }
+          }
+        },
+        "usage": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "model": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "modelRouting": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            },
+            "inputTokens": { "minimum": 0, "type": "integer" },
+            "cachedInputTokens": { "minimum": 0, "type": "integer" },
+            "outputTokens": { "minimum": 0, "type": "integer" },
+            "costUsd": { "minimum": 0, "type": "number" }
+          }
+        },
         "extensions": {
           "type": "object",
           "patternProperties": { "^(.*)$": {} }
@@ -319,6 +391,78 @@
                 }
               }
             }
+          }
+        },
+        "automation": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "runMode": {
+              "anyOf": [
+                { "const": "interactive", "type": "string" },
+                { "const": "background", "type": "string" },
+                { "const": "scheduled", "type": "string" }
+              ]
+            },
+            "trigger": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "recurrence": {
+              "anyOf": [
+                { "const": "once", "type": "string" },
+                { "const": "recurring", "type": "string" }
+              ]
+            },
+            "scheduleId": { "minLength": 1, "maxLength": 256, "type": "string" }
+          }
+        },
+        "execution": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "surface": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "placement": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "runner": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "environment": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            }
+          }
+        },
+        "governance": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "policyId": { "minLength": 1, "maxLength": 256, "type": "string" },
+            "approvalState": {
+              "anyOf": [
+                { "const": "not_required", "type": "string" },
+                { "const": "pending", "type": "string" },
+                { "const": "approved", "type": "string" },
+                { "const": "rejected", "type": "string" }
+              ]
+            },
+            "approvalId": {
+              "minLength": 1,
+              "maxLength": 256,
+              "type": "string"
+            },
+            "decisionId": { "minLength": 1, "maxLength": 256, "type": "string" }
+          }
+        },
+        "usage": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "model": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "modelRouting": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            },
+            "inputTokens": { "minimum": 0, "type": "integer" },
+            "cachedInputTokens": { "minimum": 0, "type": "integer" },
+            "outputTokens": { "minimum": 0, "type": "integer" },
+            "costUsd": { "minimum": 0, "type": "number" }
           }
         },
         "extensions": {
@@ -483,6 +627,78 @@
             }
           }
         },
+        "automation": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "runMode": {
+              "anyOf": [
+                { "const": "interactive", "type": "string" },
+                { "const": "background", "type": "string" },
+                { "const": "scheduled", "type": "string" }
+              ]
+            },
+            "trigger": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "recurrence": {
+              "anyOf": [
+                { "const": "once", "type": "string" },
+                { "const": "recurring", "type": "string" }
+              ]
+            },
+            "scheduleId": { "minLength": 1, "maxLength": 256, "type": "string" }
+          }
+        },
+        "execution": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "surface": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "placement": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "runner": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "environment": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            }
+          }
+        },
+        "governance": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "policyId": { "minLength": 1, "maxLength": 256, "type": "string" },
+            "approvalState": {
+              "anyOf": [
+                { "const": "not_required", "type": "string" },
+                { "const": "pending", "type": "string" },
+                { "const": "approved", "type": "string" },
+                { "const": "rejected", "type": "string" }
+              ]
+            },
+            "approvalId": {
+              "minLength": 1,
+              "maxLength": 256,
+              "type": "string"
+            },
+            "decisionId": { "minLength": 1, "maxLength": 256, "type": "string" }
+          }
+        },
+        "usage": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "model": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "modelRouting": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            },
+            "inputTokens": { "minimum": 0, "type": "integer" },
+            "cachedInputTokens": { "minimum": 0, "type": "integer" },
+            "outputTokens": { "minimum": 0, "type": "integer" },
+            "costUsd": { "minimum": 0, "type": "number" }
+          }
+        },
         "extensions": {
           "type": "object",
           "patternProperties": { "^(.*)$": {} }
@@ -643,6 +859,78 @@
                 }
               }
             }
+          }
+        },
+        "automation": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "runMode": {
+              "anyOf": [
+                { "const": "interactive", "type": "string" },
+                { "const": "background", "type": "string" },
+                { "const": "scheduled", "type": "string" }
+              ]
+            },
+            "trigger": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "recurrence": {
+              "anyOf": [
+                { "const": "once", "type": "string" },
+                { "const": "recurring", "type": "string" }
+              ]
+            },
+            "scheduleId": { "minLength": 1, "maxLength": 256, "type": "string" }
+          }
+        },
+        "execution": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "surface": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "placement": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "runner": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "environment": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            }
+          }
+        },
+        "governance": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "policyId": { "minLength": 1, "maxLength": 256, "type": "string" },
+            "approvalState": {
+              "anyOf": [
+                { "const": "not_required", "type": "string" },
+                { "const": "pending", "type": "string" },
+                { "const": "approved", "type": "string" },
+                { "const": "rejected", "type": "string" }
+              ]
+            },
+            "approvalId": {
+              "minLength": 1,
+              "maxLength": 256,
+              "type": "string"
+            },
+            "decisionId": { "minLength": 1, "maxLength": 256, "type": "string" }
+          }
+        },
+        "usage": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "model": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "modelRouting": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            },
+            "inputTokens": { "minimum": 0, "type": "integer" },
+            "cachedInputTokens": { "minimum": 0, "type": "integer" },
+            "outputTokens": { "minimum": 0, "type": "integer" },
+            "costUsd": { "minimum": 0, "type": "number" }
           }
         },
         "extensions": {
@@ -932,6 +1220,78 @@
                 }
               }
             }
+          }
+        },
+        "automation": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "runMode": {
+              "anyOf": [
+                { "const": "interactive", "type": "string" },
+                { "const": "background", "type": "string" },
+                { "const": "scheduled", "type": "string" }
+              ]
+            },
+            "trigger": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "recurrence": {
+              "anyOf": [
+                { "const": "once", "type": "string" },
+                { "const": "recurring", "type": "string" }
+              ]
+            },
+            "scheduleId": { "minLength": 1, "maxLength": 256, "type": "string" }
+          }
+        },
+        "execution": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "surface": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "placement": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "runner": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "environment": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            }
+          }
+        },
+        "governance": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "policyId": { "minLength": 1, "maxLength": 256, "type": "string" },
+            "approvalState": {
+              "anyOf": [
+                { "const": "not_required", "type": "string" },
+                { "const": "pending", "type": "string" },
+                { "const": "approved", "type": "string" },
+                { "const": "rejected", "type": "string" }
+              ]
+            },
+            "approvalId": {
+              "minLength": 1,
+              "maxLength": 256,
+              "type": "string"
+            },
+            "decisionId": { "minLength": 1, "maxLength": 256, "type": "string" }
+          }
+        },
+        "usage": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "model": { "minLength": 1, "maxLength": 512, "type": "string" },
+            "modelRouting": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            },
+            "inputTokens": { "minimum": 0, "type": "integer" },
+            "cachedInputTokens": { "minimum": 0, "type": "integer" },
+            "outputTokens": { "minimum": 0, "type": "integer" },
+            "costUsd": { "minimum": 0, "type": "number" }
           }
         },
         "extensions": {

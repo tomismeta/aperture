@@ -42,6 +42,37 @@ test("maps PreToolUse hook events into approval SourceEvents", () => {
     whyNow: "Codex requested approval before running a command.",
     confidence: "high",
   });
+  assert.deepEqual(mapped[0]?.metadata, {
+    execution: {
+      surface: "terminal",
+      runner: "codex",
+    },
+    governance: {
+      approvalState: "pending",
+    },
+  });
+});
+
+test("maps SessionStart hook events with execution and model metadata", () => {
+  const event = parseCodexHookEvent({
+    session_id: "session-model-1",
+    cwd: "/repo",
+    hook_event_name: "SessionStart",
+    source: "startup",
+    model: "gpt-5.4",
+  });
+
+  const mapped = mapCodexHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.deepEqual(mapped[0]?.metadata, {
+    execution: {
+      surface: "terminal",
+      runner: "codex",
+    },
+    usage: {
+      model: "gpt-5.4",
+    },
+  });
 });
 
 test("maps UserPromptSubmit hook events into follow-up SourceEvents", () => {
@@ -61,6 +92,12 @@ test("maps UserPromptSubmit hook events into follow-up SourceEvents", () => {
     taskId: "codex:hook:session:session-1:turn:turn-9",
     timestamp: mapped[0]?.timestamp,
     source: mapped[0]?.source,
+    metadata: {
+      execution: {
+        surface: "terminal",
+        runner: "codex",
+      },
+    },
     activityClass: "follow_up",
     semanticHints: {
       activityClass: "follow_up",

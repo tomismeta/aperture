@@ -10,6 +10,7 @@ export function projectAutoresearchProposalSnapshot(
       actionableCount: proposalRun.summary.actionableCount,
       selectedSignalCount: proposalRun.summary.selectedSignalCount,
       promotedCaseCount: proposalRun.summary.promotedCaseCount,
+      ...(proposalRun.summary.workflow ? { workflow: proposalRun.summary.workflow } : {}),
     },
     signals: proposalRun.signals.slice(0, 5).map((signal) => ({
       signature: signal.signature,

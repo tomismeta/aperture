@@ -33,6 +33,14 @@ test("maps command execution approvals into approval SourceEvents", () => {
     assert.equal(mapped.events[0].activityClass, "permission_request");
     assert.equal(mapped.events[0].toolFamily, "bash");
     assert.equal(mapped.events[0].taskId, "codex:thread:thread-1:turn:turn-1");
+    assert.deepEqual(mapped.events[0].metadata, {
+      execution: {
+        runner: "codex",
+      },
+      governance: {
+        approvalState: "pending",
+      },
+    });
     assert.deepEqual(mapped.events[0].semanticHints, {
       intentFrame: "approval_request",
       activityClass: "permission_request",
@@ -45,6 +53,40 @@ test("maps command execution approvals into approval SourceEvents", () => {
       { id: "reason", label: "Reason", value: "Run tests before continuing" },
     ]);
   }
+});
+
+test("maps thread start notifications with host execution metadata", () => {
+  const mapped = mapCodexNotification({
+    method: "thread/started",
+    params: {
+      thread: {
+        id: "thread-surface-1",
+        preview: "Review the deploy plan",
+        ephemeral: false,
+        modelProvider: "openai",
+        createdAt: 1,
+        updatedAt: 1,
+        status: { type: "active", activeFlags: [] },
+        path: null,
+        cwd: "/repo",
+        cliVersion: "1.0.0",
+        source: "cli",
+        agentNickname: null,
+        agentRole: null,
+        gitInfo: null,
+        name: "Deploy plan",
+        turns: [],
+      },
+    },
+  });
+
+  assert.equal(mapped[0]?.type, "task.started");
+  assert.deepEqual(mapped[0]?.metadata, {
+    execution: {
+      runner: "codex",
+      surface: "terminal",
+    },
+  });
 });
 
 test("maps file change approvals into write approval SourceEvents", () => {

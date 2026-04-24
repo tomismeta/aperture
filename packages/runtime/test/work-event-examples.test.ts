@@ -14,7 +14,10 @@ import {
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const EXAMPLE_DIR = resolve(REPO_ROOT, "schemas/examples/work-event");
 
-const EXAMPLE_EXPECTATIONS: Record<string, { type: string; title?: string; summary?: string }> = {
+const EXAMPLE_EXPECTATIONS: Record<
+  string,
+  { type: string; title?: string; summary?: string; metadataKeys?: string[] }
+> = {
   "coding-agent-status-waiting.json": {
     type: "task.updated",
     title: "Deploy service",
@@ -26,6 +29,12 @@ const EXAMPLE_EXPECTATIONS: Record<string, { type: string; title?: string; summa
   "remote-review-choice-request.json": {
     type: "human.input.requested",
     title: "Select rollout plan",
+    metadataKeys: ["execution", "governance"],
+  },
+  "scheduled-background-maintenance.json": {
+    type: "task.updated",
+    title: "Nightly maintenance run",
+    metadataKeys: ["automation", "execution", "governance", "usage"],
   },
   "subagent-failure-update.json": {
     type: "task.updated",
@@ -34,6 +43,7 @@ const EXAMPLE_EXPECTATIONS: Record<string, { type: string; title?: string; summa
   "workflow-completed.json": {
     type: "task.completed",
     summary: "Maintenance tasks completed successfully.",
+    metadataKeys: ["automation", "execution", "usage"],
   },
 };
 
@@ -58,6 +68,14 @@ test("canonical work-event examples normalize and map into SourceEvent", () => {
     }
     if (expectation.summary !== undefined) {
       assert.equal("summary" in event ? event.summary : undefined, expectation.summary, filename);
+    }
+    if (expectation.metadataKeys !== undefined) {
+      assert.ok(event.metadata, `${filename} metadata`);
+      assert.deepEqual(
+        Object.keys(event.metadata ?? {}).sort(),
+        expectation.metadataKeys.slice().sort(),
+        filename,
+      );
     }
   }
 });

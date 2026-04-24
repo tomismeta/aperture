@@ -12,6 +12,9 @@ export function assertValidEvent(event: ApertureEvent): void {
   if (event.source !== undefined) {
     assertNonEmpty("event.source.id", event.source.id);
   }
+  if (event.metadata !== undefined) {
+    assertObject("event.metadata", event.metadata);
+  }
 
   switch (event.type) {
     case "task.started":
@@ -38,6 +41,9 @@ export function assertValidSourceEvent(event: SourceEvent): void {
 
   if (event.source) {
     assertNonEmpty("event.source.id", event.source.id);
+  }
+  if (event.metadata !== undefined) {
+    assertObject("event.metadata", event.metadata);
   }
 
   switch (event.type) {
@@ -117,6 +123,14 @@ export function assertValidSignal(signal: AttentionSignal): void {
 function assertNonEmpty(label: string, value: string): void {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new ApertureCoreValidationError(`${label} must be a non-empty string`, {
+      field: label,
+    });
+  }
+}
+
+function assertObject(label: string, value: unknown): void {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new ApertureCoreValidationError(`${label} must be an object`, {
       field: label,
     });
   }

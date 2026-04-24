@@ -67,7 +67,39 @@ test("maps PreToolUse Bash hooks into approval events", () => {
       kind: "claude-code",
       label: "Claude Code repo #session1",
     });
+    assert.deepEqual(mapped[0].metadata, {
+      execution: {
+        surface: "terminal",
+        runner: "claude-code",
+      },
+      governance: {
+        approvalState: "pending",
+      },
+    });
   }
+});
+
+test("adds execution and usage metadata to Claude session start events", () => {
+  const event: ClaudeCodeSessionStartEvent = {
+    session_id: "session-model-1",
+    cwd: "/repo",
+    hook_event_name: "SessionStart",
+    source: "startup",
+    model: "claude-sonnet-4.5",
+  };
+
+  const mapped = mapClaudeCodeHookEvent(event);
+  assert.equal(mapped.length, 1);
+  assert.equal(mapped[0]?.type, "task.started");
+  assert.deepEqual(mapped[0]?.metadata, {
+    execution: {
+      surface: "terminal",
+      runner: "claude-code",
+    },
+    usage: {
+      model: "claude-sonnet-4.5",
+    },
+  });
 });
 
 test("surfaces Claude permission mode and transcript path in approval context", () => {

@@ -1,9 +1,10 @@
-import type { AttentionResponse } from "@tomismeta/aperture-core";
+import type { AttentionResponse, SourceEvent } from "@tomismeta/aperture-core";
 
 import type {
   CodexCommandExecutionRequestApprovalParams,
   CodexFileChangeRequestApprovalParams,
   CodexMcpServerElicitationRequestParams,
+  CodexRawServerNotification,
   CodexPermissionsRequestApprovalParams,
   CodexRawServerRequest,
   CodexToolRequestUserInputParams,
@@ -23,8 +24,28 @@ import {
 export { parseCodexInteractionId, type CodexResponsePayload } from "./mapping-response.js";
 export type { CodexMappedRequest, CodexMappingContext } from "./mapping-shared.js";
 
-export const mapCodexServerRequest = mapCodexServerRequestImpl;
-export const mapCodexNotification = mapCodexNotificationImpl;
+export function mapCodexServerRequest(
+  request: CodexRawServerRequest,
+  context = {},
+) {
+  const mapped = mapCodexServerRequestImpl(request, context);
+  if (!mapped) {
+    return null;
+  }
+  return {
+    ...mapped,
+    events: mapped.events.map((event) => enrichCodexEvent(event, request)),
+  };
+}
+
+export function mapCodexNotification(
+  notification: CodexRawServerNotification,
+  context = {},
+) {
+  return mapCodexNotificationImpl(notification, context).map((event) =>
+    enrichCodexEvent(event, notification),
+  );
+}
 
 export function mapCodexResponse(
   response: AttentionResponse,
@@ -135,4 +156,61 @@ function isMcpServerElicitationRequestParams(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function enrichCodexEvent(
+  sourceEvent: SourceEvent,
+  origin: CodexRawServerRequest | CodexRawServerNotification,
+): SourceEvent {
+  const metadata = codexEventMetadata(sourceEvent, origin);
+  if (!metadata) {
+    return sourceEvent;
+  }
+  return {
+    ...sourceEvent,
+    metadata: {
+      ...(sourceEvent.metadata ?? {}),
+      ...metadata,
+    },
+  };
+}
+
+function codexEventMetadata(
+  sourceEvent: SourceEvent,
+  origin: CodexRawServerRequest | CodexRawServerNotification,
+): SourceEvent["metadata"] | undefined {
+  const surface = readCodexSurface(origin);
+  const metadata: Record<string, unknown> = {
+    execution: {
+      runner: "codex",
+      ...(surface ? { surface } : {}),
+    },
+  };
+
+  if (sourceEvent.type === "human.input.requested" && sourceEvent.request.kind === "approval") {
+    metadata.governance = { approvalState: "pending" };
+  }
+
+  return metadata;
+}
+
+function readCodexSurface(origin: CodexRawServerRequest | CodexRawServerNotification): string | undefined {
+  if (origin.method !== "thread/started" || !isRecord(origin.params) || !isRecord(origin.params.thread)) {
+    return undefined;
+  }
+
+  const source = origin.params.thread.source;
+  if (source === "cli" || source === "exec") {
+    return "terminal";
+  }
+  if (source === "vscode") {
+    return "editor";
+  }
+  if (source === "appServer") {
+    return "api";
+  }
+  if (isRecord(source) && "subAgent" in source) {
+    return "subagent";
+  }
+  return undefined;
 }

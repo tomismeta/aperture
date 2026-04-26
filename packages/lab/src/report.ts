@@ -1,4 +1,8 @@
 import type { JudgmentBenchRun } from "./judgment-bench.js";
+import {
+  formatWorkflowTargetMetadataRollupSummary,
+  formatWorkflowTargetMetadataRollupUsage,
+} from "./workflow-metadata.js";
 
 export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
   const scorePercent = formatPercent(run.summary.benchmarkScore);
@@ -127,35 +131,14 @@ export function renderJudgmentBenchMarkdown(run: JudgmentBenchRun): string {
       }
     }
     if (result.scorecard.workflow.present) {
-      const executionParts = [
-        formatWorkflowField("automation", result.scorecard.workflow.automationModes),
-        formatWorkflowField("surfaces", result.scorecard.workflow.surfaces),
-        formatWorkflowField("runners", result.scorecard.workflow.runners),
-        formatWorkflowField("placements", result.scorecard.workflow.placements),
-        formatWorkflowField("environments", result.scorecard.workflow.environments),
-        formatWorkflowField("approval states", result.scorecard.workflow.approvalStates),
-        formatWorkflowField("models", result.scorecard.workflow.models),
-      ].filter((part): part is string => part !== null);
-      if (executionParts.length > 0) {
-        lines.push(`- Workflow execution: ${executionParts.join("; ")}`);
+      const executionSummary = formatWorkflowTargetMetadataRollupSummary(result.scorecard.workflow);
+      if (executionSummary) {
+        lines.push(`- Workflow execution: ${executionSummary}`);
       }
 
-      const usageParts = [
-        result.scorecard.workflow.usageTotals.inputTokens > 0
-          ? `input=${formatCount(result.scorecard.workflow.usageTotals.inputTokens)}`
-          : null,
-        result.scorecard.workflow.usageTotals.cachedInputTokens > 0
-          ? `cache=${formatCount(result.scorecard.workflow.usageTotals.cachedInputTokens)}`
-          : null,
-        result.scorecard.workflow.usageTotals.outputTokens > 0
-          ? `output=${formatCount(result.scorecard.workflow.usageTotals.outputTokens)}`
-          : null,
-        result.scorecard.workflow.usageTotals.costUsd > 0
-          ? `cost=${formatUsd(result.scorecard.workflow.usageTotals.costUsd)}`
-          : null,
-      ].filter((part): part is string => part !== null);
-      if (usageParts.length > 0) {
-        lines.push(`- Workflow usage: ${usageParts.join(", ")}`);
+      const usageSummary = formatWorkflowTargetMetadataRollupUsage(result.scorecard.workflow);
+      if (usageSummary) {
+        lines.push(`- Workflow usage: ${usageSummary}`);
       }
     }
     if (result.assertions.length > 0) {
@@ -180,18 +163,6 @@ function formatPercent(value: number): string {
 
 function formatValue(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value);
-}
-
-function formatWorkflowField(label: string, values: string[]): string | null {
-  return values.length > 0 ? `${label}=${values.join(", ")}` : null;
-}
-
-function formatCount(value: number): string {
-  return value.toLocaleString("en-US");
-}
-
-function formatUsd(value: number): string {
-  return `$${value.toFixed(2)}`;
 }
 
 function firstNonEmptyReasonGroup(run: JudgmentBenchRun["scenarios"][number]["scorecard"]["explanation"]): string[] {

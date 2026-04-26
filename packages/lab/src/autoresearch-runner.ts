@@ -9,7 +9,11 @@ import type {
   AutoresearchProposalSignal,
   AutoresearchProposalRunStatus,
 } from "./autoresearch-proposal.js";
-import type { WorkflowTargetMetadataRollup } from "./workflow-metadata.js";
+import {
+  formatWorkflowTargetMetadataRollupSummary,
+  formatWorkflowTargetMetadataRollupUsage,
+  type WorkflowTargetMetadataRollup,
+} from "./workflow-metadata.js";
 export { AUTORESEARCH_RUNNER_RUN_SCHEMA_VERSION } from "./artifact-versions.js";
 
 export const DEFAULT_AUTORESEARCH_RUNNER_RESULTS_DIR = path.join(
@@ -234,28 +238,18 @@ export function renderAutoresearchRunnerRunMarkdown(run: AutoresearchRunnerRun):
     lines.push(`- selected signals: ${run.selectedProposal.summary.selectedSignalCount}`);
     lines.push(`- promoted cases: ${run.selectedProposal.summary.promotedCaseCount}`);
     if (run.selectedProposal.summary.workflow) {
-      const workflow = run.selectedProposal.summary.workflow;
-      const contextParts = [
-        formatWorkflowField("automation", workflow.automationModes),
-        formatWorkflowField("surfaces", workflow.surfaces),
-        formatWorkflowField("runners", workflow.runners),
-        formatWorkflowField("placements", workflow.placements),
-        formatWorkflowField("environments", workflow.environments),
-        formatWorkflowField("approval states", workflow.approvalStates),
-        formatWorkflowField("models", workflow.models),
-      ].filter((part): part is string => part !== null);
-      if (contextParts.length > 0) {
-        lines.push(`- workflow: ${contextParts.join("; ")}`);
+      const workflowSummary = formatWorkflowTargetMetadataRollupSummary(
+        run.selectedProposal.summary.workflow,
+      );
+      if (workflowSummary) {
+        lines.push(`- workflow: ${workflowSummary}`);
       }
 
-      const usageParts = [
-        workflow.usageTotals.inputTokens > 0 ? `input=${formatCount(workflow.usageTotals.inputTokens)}` : null,
-        workflow.usageTotals.cachedInputTokens > 0 ? `cache=${formatCount(workflow.usageTotals.cachedInputTokens)}` : null,
-        workflow.usageTotals.outputTokens > 0 ? `output=${formatCount(workflow.usageTotals.outputTokens)}` : null,
-        workflow.usageTotals.costUsd > 0 ? `cost=${formatUsd(workflow.usageTotals.costUsd)}` : null,
-      ].filter((part): part is string => part !== null);
-      if (usageParts.length > 0) {
-        lines.push(`- workflow usage: ${usageParts.join(", ")}`);
+      const workflowUsage = formatWorkflowTargetMetadataRollupUsage(
+        run.selectedProposal.summary.workflow,
+      );
+      if (workflowUsage) {
+        lines.push(`- workflow usage: ${workflowUsage}`);
       }
     }
 
@@ -345,16 +339,4 @@ function renderValue(value: string | string[] | boolean | null): string {
     return "null";
   }
   return value;
-}
-
-function formatWorkflowField(label: string, values: string[]): string | null {
-  return values.length > 0 ? `${label}=${values.join(", ")}` : null;
-}
-
-function formatCount(value: number): string {
-  return value.toLocaleString("en-US");
-}
-
-function formatUsd(value: number): string {
-  return `$${value.toFixed(2)}`;
 }

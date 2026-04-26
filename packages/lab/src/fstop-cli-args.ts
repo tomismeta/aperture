@@ -21,6 +21,7 @@ export {
   parseGcArgs,
   parseOptimizeArgs,
   parseRoleArgs,
+  parseWorkflowSummaryArgs,
 } from "./fstop-cli-args-ops.js";
 export {
   parseCalibrationArgs,
@@ -71,6 +72,12 @@ export type Role = "optimizer" | "reviewer";
 export type RoleOptions = {
   command?: string;
   provider: Provider;
+};
+
+export type WorkflowSummaryCliOptions = JsonOptions & {
+  bundlePaths: string[];
+  bundleDirectories: string[];
+  outputPath?: string;
 };
 
 export type ServiceCliOptions = AutoresearchServiceCommandOptions & JsonOptions;

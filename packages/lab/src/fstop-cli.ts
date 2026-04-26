@@ -15,6 +15,7 @@ import {
   runCalibrationCli,
   runReviewCli,
 } from "./fstop-cli-review.js";
+import { runWorkflowSummaryCli } from "./fstop-cli-summary.js";
 import { printTopLevelUsage } from "./fstop-cli-usage.js";
 
 export async function runFStopCli(argv: string[]): Promise<void> {
@@ -34,6 +35,9 @@ export async function runFStopCli(argv: string[]): Promise<void> {
       return;
     case "ingest":
       await runIngestCli(rest);
+      return;
+    case "workflow-summary":
+      await runWorkflowSummaryCli(rest);
       return;
     case "optimize":
       await runOptimizeCli(rest);

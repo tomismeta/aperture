@@ -5,6 +5,7 @@ import {
   printGcUsage,
   printOptimizeUsage,
   printRoleUsage,
+  printWorkflowSummaryUsage,
 } from "./fstop-cli-usage.js";
 import {
   printUsageAndExit,
@@ -16,6 +17,7 @@ import type {
   OptimizeCliOptions,
   Provider,
   RoleOptions,
+  WorkflowSummaryCliOptions,
 } from "./fstop-cli-args.js";
 
 export function parseOptimizeArgs(argv: string[]): OptimizeCliOptions {
@@ -171,5 +173,46 @@ export function parseRoleArgs(argv: string[]): RoleOptions {
   return {
     provider,
     ...(command ? { command } : {}),
+  };
+}
+
+export function parseWorkflowSummaryArgs(argv: string[]): WorkflowSummaryCliOptions {
+  const bundlePaths: string[] = [];
+  const bundleDirectories: string[] = [];
+  let outputPath: string | undefined;
+  let json = false;
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    switch (arg) {
+      case "--bundle":
+        bundlePaths.push(path.resolve(argv[++index] ?? ""));
+        break;
+      case "--bundle-dir":
+        bundleDirectories.push(path.resolve(argv[++index] ?? ""));
+        break;
+      case "--output":
+        outputPath = path.resolve(argv[++index] ?? "");
+        break;
+      case "--json":
+        json = true;
+        break;
+      case "--help":
+      case "-h":
+        return printUsageAndExit(printWorkflowSummaryUsage);
+      default:
+        throw new Error(`Unknown option: ${arg}`);
+    }
+  }
+
+  if (bundlePaths.length === 0 && bundleDirectories.length === 0) {
+    throw new Error("Provide at least one --bundle or --bundle-dir");
+  }
+
+  return {
+    bundlePaths,
+    bundleDirectories,
+    ...(outputPath ? { outputPath } : {}),
+    json,
   };
 }

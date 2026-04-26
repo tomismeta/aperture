@@ -10,8 +10,11 @@ import {
   type OfflineReviewRecommendationItem,
 } from "./offline-review.js";
 import {
+  formatWorkflowTargetMetadataRollupSummary,
+  formatWorkflowTargetMetadataRollupUsage,
   type WorkflowTargetMetadataRollup,
   hasWorkflowTargetMetadataRollup,
+  mergeWorkflowTargetMetadataRollups,
 } from "./workflow-metadata.js";
 export { OFFLINE_REVIEW_BATCH_REPORT_SCHEMA_VERSION } from "./artifact-versions.js";
 export const DEFAULT_OFFLINE_REVIEW_BATCHES_DIR = path.join(
@@ -98,7 +101,7 @@ export function createOfflineReviewBatchReport(
     inspect: 0,
     ignore: 0,
   } satisfies Record<OfflineReviewRecommendation, number>;
-  const workflow = mergeWorkflowRollups(entries.map((entry) => entry.workflow));
+  const workflow = mergeWorkflowTargetMetadataRollups(entries.map((entry) => entry.workflow));
 
   let disagreementCount = 0;
   let actionableCount = 0;
@@ -240,68 +243,6 @@ function createFocusAreaCounts(): Record<OfflineReviewFocusArea, number> {
   ) as Record<OfflineReviewFocusArea, number>;
 }
 
-function mergeWorkflowRollups(
-  values: Iterable<WorkflowTargetMetadataRollup | undefined>,
-): WorkflowTargetMetadataRollup {
-  const automationModes = new Set<string>();
-  const surfaces = new Set<string>();
-  const runners = new Set<string>();
-  const placements = new Set<string>();
-  const environments = new Set<string>();
-  const approvalStates = new Set<string>();
-  const models = new Set<string>();
-  const usageTotals = {
-    inputTokens: 0,
-    cachedInputTokens: 0,
-    outputTokens: 0,
-    costUsd: 0,
-  };
-
-  for (const value of values) {
-    if (!value) {
-      continue;
-    }
-
-    for (const entry of value.automationModes) {
-      automationModes.add(entry);
-    }
-    for (const entry of value.surfaces) {
-      surfaces.add(entry);
-    }
-    for (const entry of value.runners) {
-      runners.add(entry);
-    }
-    for (const entry of value.placements) {
-      placements.add(entry);
-    }
-    for (const entry of value.environments) {
-      environments.add(entry);
-    }
-    for (const entry of value.approvalStates) {
-      approvalStates.add(entry);
-    }
-    for (const entry of value.models) {
-      models.add(entry);
-    }
-
-    usageTotals.inputTokens += value.usageTotals.inputTokens;
-    usageTotals.cachedInputTokens += value.usageTotals.cachedInputTokens;
-    usageTotals.outputTokens += value.usageTotals.outputTokens;
-    usageTotals.costUsd += value.usageTotals.costUsd;
-  }
-
-  return {
-    automationModes: [...automationModes].sort(),
-    surfaces: [...surfaces].sort(),
-    runners: [...runners].sort(),
-    placements: [...placements].sort(),
-    environments: [...environments].sort(),
-    approvalStates: [...approvalStates].sort(),
-    models: [...models].sort(),
-    usageTotals,
-  };
-}
-
 function appendWorkflowRollupLines(
   lines: string[],
   workflow: WorkflowTargetMetadataRollup | undefined,
@@ -311,38 +252,13 @@ function appendWorkflowRollupLines(
     return;
   }
 
-  const contextParts = [
-    formatWorkflowField("automation", workflow.automationModes),
-    formatWorkflowField("surfaces", workflow.surfaces),
-    formatWorkflowField("runners", workflow.runners),
-    formatWorkflowField("placements", workflow.placements),
-    formatWorkflowField("environments", workflow.environments),
-    formatWorkflowField("approval states", workflow.approvalStates),
-    formatWorkflowField("models", workflow.models),
-  ].filter((part): part is string => part !== null);
-  if (contextParts.length > 0) {
-    lines.push(`- ${label}: ${contextParts.join("; ")}`);
+  const workflowSummary = formatWorkflowTargetMetadataRollupSummary(workflow);
+  if (workflowSummary) {
+    lines.push(`- ${label}: ${workflowSummary}`);
   }
 
-  const usageParts = [
-    workflow.usageTotals.inputTokens > 0 ? `input=${formatCount(workflow.usageTotals.inputTokens)}` : null,
-    workflow.usageTotals.cachedInputTokens > 0 ? `cache=${formatCount(workflow.usageTotals.cachedInputTokens)}` : null,
-    workflow.usageTotals.outputTokens > 0 ? `output=${formatCount(workflow.usageTotals.outputTokens)}` : null,
-    workflow.usageTotals.costUsd > 0 ? `cost=${formatUsd(workflow.usageTotals.costUsd)}` : null,
-  ].filter((part): part is string => part !== null);
-  if (usageParts.length > 0) {
-    lines.push(`- ${label} usage: ${usageParts.join(", ")}`);
+  const workflowUsage = formatWorkflowTargetMetadataRollupUsage(workflow);
+  if (workflowUsage) {
+    lines.push(`- ${label} usage: ${workflowUsage}`);
   }
-}
-
-function formatWorkflowField(label: string, values: string[]): string | null {
-  return values.length > 0 ? `${label}=${values.join(", ")}` : null;
-}
-
-function formatCount(value: number): string {
-  return value.toLocaleString("en-US");
-}
-
-function formatUsd(value: number): string {
-  return `$${value.toFixed(2)}`;
 }

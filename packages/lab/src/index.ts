@@ -65,6 +65,10 @@ export {
 } from "./perturbation.js";
 export { renderJudgmentBenchMarkdown } from "./report.js";
 export {
+  createWorkflowSummaryReport,
+  renderWorkflowSummaryMarkdown,
+} from "./workflow-summary.js";
+export {
   executePromptCommand,
   runFStopRolePrompt,
   type FStopProvider,
@@ -262,6 +266,12 @@ export type {
   OfflineReviewBatchEntry,
   OfflineReviewBatchReport,
 } from "./offline-review-batch.js";
+export type {
+  WorkflowSummaryReport,
+  WorkflowSummaryRequestCounts,
+  WorkflowSummarySession,
+  WorkflowSummaryStatusCounts,
+} from "./workflow-summary.js";
 export {
   createFStopSessionFromSessionBundle,
   createReplayScenarioFromFStopSession,

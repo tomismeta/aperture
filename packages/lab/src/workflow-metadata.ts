@@ -105,6 +105,30 @@ export function summarizeWorkflowTargetMetadata(
 export function rollupWorkflowTargetMetadata(
   values: Iterable<WorkflowTargetMetadata | null | undefined>,
 ): WorkflowTargetMetadataRollup {
+  return mergeWorkflowTargetMetadataRollups(
+    [...values]
+      .filter((value): value is WorkflowTargetMetadata => value !== null && value !== undefined)
+      .map((value) => ({
+        automationModes: collectStringValues(value.automation, "runMode"),
+        surfaces: collectStringValues(value.execution, "surface"),
+        runners: collectStringValues(value.execution, "runner"),
+        placements: collectStringValues(value.execution, "placement"),
+        environments: collectStringValues(value.execution, "environment"),
+        approvalStates: collectStringValues(value.governance, "approvalState"),
+        models: collectStringValues(value.usage, "model"),
+        usageTotals: {
+          inputTokens: readNumber(value.usage ?? {}, "inputTokens") ?? 0,
+          cachedInputTokens: readNumber(value.usage ?? {}, "cachedInputTokens") ?? 0,
+          outputTokens: readNumber(value.usage ?? {}, "outputTokens") ?? 0,
+          costUsd: readNumber(value.usage ?? {}, "costUsd") ?? 0,
+        },
+      })),
+  );
+}
+
+export function mergeWorkflowTargetMetadataRollups(
+  values: Iterable<WorkflowTargetMetadataRollup | null | undefined>,
+): WorkflowTargetMetadataRollup {
   const automationModes = new Set<string>();
   const surfaces = new Set<string>();
   const runners = new Set<string>();
@@ -124,28 +148,31 @@ export function rollupWorkflowTargetMetadata(
       continue;
     }
 
-    if (isRecord(value.automation)) {
-      pushString(automationModes, value.automation.runMode);
+    for (const entry of value.automationModes) {
+      automationModes.add(entry);
     }
-
-    if (isRecord(value.execution)) {
-      pushString(surfaces, value.execution.surface);
-      pushString(runners, value.execution.runner);
-      pushString(placements, value.execution.placement);
-      pushString(environments, value.execution.environment);
+    for (const entry of value.surfaces) {
+      surfaces.add(entry);
     }
-
-    if (isRecord(value.governance)) {
-      pushString(approvalStates, value.governance.approvalState);
+    for (const entry of value.runners) {
+      runners.add(entry);
     }
-
-    if (isRecord(value.usage)) {
-      pushString(models, value.usage.model);
-      usageTotals.inputTokens += readNumber(value.usage, "inputTokens") ?? 0;
-      usageTotals.cachedInputTokens += readNumber(value.usage, "cachedInputTokens") ?? 0;
-      usageTotals.outputTokens += readNumber(value.usage, "outputTokens") ?? 0;
-      usageTotals.costUsd += readNumber(value.usage, "costUsd") ?? 0;
+    for (const entry of value.placements) {
+      placements.add(entry);
     }
+    for (const entry of value.environments) {
+      environments.add(entry);
+    }
+    for (const entry of value.approvalStates) {
+      approvalStates.add(entry);
+    }
+    for (const entry of value.models) {
+      models.add(entry);
+    }
+    usageTotals.inputTokens += value.usageTotals.inputTokens;
+    usageTotals.cachedInputTokens += value.usageTotals.cachedInputTokens;
+    usageTotals.outputTokens += value.usageTotals.outputTokens;
+    usageTotals.costUsd += value.usageTotals.costUsd;
   }
 
   return {
@@ -158,6 +185,45 @@ export function rollupWorkflowTargetMetadata(
     models: [...models].sort(),
     usageTotals,
   };
+}
+
+export function formatWorkflowTargetMetadataRollupSummary(
+  value: WorkflowTargetMetadataRollup | null | undefined,
+): string | undefined {
+  if (!value || !hasWorkflowTargetMetadataRollup(value)) {
+    return undefined;
+  }
+
+  const parts = [
+    formatWorkflowField("automation", value.automationModes),
+    formatWorkflowField("surfaces", value.surfaces),
+    formatWorkflowField("runners", value.runners),
+    formatWorkflowField("placements", value.placements),
+    formatWorkflowField("environments", value.environments),
+    formatWorkflowField("approval states", value.approvalStates),
+    formatWorkflowField("models", value.models),
+  ].filter((part): part is string => part !== null);
+
+  return parts.length > 0 ? parts.join("; ") : undefined;
+}
+
+export function formatWorkflowTargetMetadataRollupUsage(
+  value: WorkflowTargetMetadataRollup | null | undefined,
+): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const parts = [
+    value.usageTotals.inputTokens > 0 ? `input=${formatCount(value.usageTotals.inputTokens)}` : null,
+    value.usageTotals.cachedInputTokens > 0
+      ? `cache=${formatCount(value.usageTotals.cachedInputTokens)}`
+      : null,
+    value.usageTotals.outputTokens > 0 ? `output=${formatCount(value.usageTotals.outputTokens)}` : null,
+    value.usageTotals.costUsd > 0 ? `cost=${formatUsd(value.usageTotals.costUsd)}` : null,
+  ].filter((part): part is string => part !== null);
+
+  return parts.length > 0 ? parts.join(", ") : undefined;
 }
 
 export function hasWorkflowTargetMetadataRollup(
@@ -193,6 +259,17 @@ function hasWorkflowTargetMetadata(value: Record<string, unknown>): boolean {
     value.governance,
     value.usage,
   ].some((entry) => isRecord(entry) && Object.keys(entry).length > 0);
+}
+
+function collectStringValues(
+  value: unknown,
+  key: string,
+): string[] {
+  if (!isRecord(value)) {
+    return [];
+  }
+  const entry = readString(value, key);
+  return entry ? [entry] : [];
 }
 
 function summarizeAutomation(value: unknown): string | undefined {
@@ -252,6 +329,14 @@ function summarizeUsage(value: unknown): string | undefined {
 function joinSummaryParts(parts: Array<string | undefined>): string | undefined {
   const filtered = parts.filter((part): part is string => typeof part === "string" && part.length > 0);
   return filtered.length > 0 ? filtered.join(" · ") : undefined;
+}
+
+function formatWorkflowField(label: string, values: string[]): string | null {
+  return values.length > 0 ? `${label}=${values.join(", ")}` : null;
+}
+
+function formatCount(value: number): string {
+  return value.toLocaleString("en-US");
 }
 
 function pushString(target: Set<string>, value: unknown): void {

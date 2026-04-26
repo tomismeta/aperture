@@ -16,6 +16,7 @@ export function printTopLevelUsage(): void {
     "  service           Supervise campaign windows with restart/stall handling",
     "  sweep             Run a repeatable multi-lane unattended sweep",
     "  ingest            Normalize a raw export or canonical session into replay bundles",
+    "  workflow-summary  Summarize workflow, approvals, runners, and usage from session bundles",
     "  gc                Prune old runtime campaigns and artifacts",
     "  optimize          Run one bounded optimizer attempt against calibration cases",
     "  prepare           Prepare an offline-review artifact from a replay bundle",
@@ -178,6 +179,21 @@ export function printGcUsage(): void {
     "  --keep-artifacts <n>      Number of files or proposal/report dirs to keep per artifact bucket (default: 50)",
     "  --dry-run                 Show what would be pruned without deleting",
     "  --json                    Emit machine-readable JSON",
+  ].join("\n") + "\n");
+}
+
+export function printWorkflowSummaryUsage(): void {
+  process.stdout.write([
+    "Usage: pnpm tsx scripts/fstop.ts workflow-summary (--bundle <path> | --bundle-dir <path>) [options]",
+    "",
+    "Builds a compact operator-facing summary from replay session bundles.",
+    "",
+    "Options:",
+    "  --bundle <path>       Session bundle JSON file to summarize (repeatable)",
+    "  --bundle-dir <path>   Directory of session bundles to summarize recursively (repeatable)",
+    "  --output <path>       Write markdown summary to this path",
+    "  --json                Emit the summary report as machine-readable JSON",
+    "  --help, -h            Show this message",
   ].join("\n") + "\n");
 }
 

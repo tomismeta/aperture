@@ -129,7 +129,6 @@ export function renderAttentionScreen(
   );
 
   if (options?.whyMode) {
-    // Why mode: replace queue + ambient with judgment trace overlay
     lines.push(...renderWhyOverlay(options.trace ?? null, color, options.whyExpanded ?? false));
   } else {
     lines.push("");
@@ -194,8 +193,6 @@ export function renderAttentionScreen(
   return lines.join("\n");
 }
 
-// ── Header ──────────────────────────────────────────────────────────
-
 function renderHeader(
   activeCount: number,
   queuedCount: number,
@@ -224,8 +221,6 @@ function summarizeCount(label: string, count: number, color: boolean): string {
   return count > 0 ? styleStrong(text, color) : styleMuted(text, color);
 }
 
-// ── Active Frame ────────────────────────────────────────────────────
-
 function renderActiveFrame(
   frame: Frame | null,
   color: boolean,
@@ -236,9 +231,8 @@ function renderActiveFrame(
   inputDraft?: InputDraft | null,
 ): string[] {
   if (!frame) {
-    // Pulsing lens — alternates between brand blue and dim on idle tick
     const tick = animation?.idleTick ?? 0;
-    const bright = tick < 2; // 2 ticks bright, 2 ticks dim = slow pulse
+    const bright = tick < 2;
     const lensGlyph = '[◉"]';
     const lens = color
       ? bright
@@ -257,7 +251,6 @@ function renderActiveFrame(
     animation.frameEntrance.ticksRemaining > 0;
   const marker = entranceFlash ? styleStrong("⏺", color) : styleMuted("⏺", color);
 
-  // Title line — give it full width, source on the right
   const rawTitle = frame.title;
   const sourceRight = styleSource(source, color);
   const markerWidth = 3; // " ⏺ "
@@ -271,7 +264,6 @@ function renderActiveFrame(
     SCREEN_WIDTH,
   );
 
-  // Tree connector for child lines
   const tree = styleMuted("  ⎿ ", color);
   const meta = [
     humanMode(frame.mode),
@@ -293,7 +285,6 @@ function renderActiveFrame(
     }
   }
 
-  // Progress bar (always visible if present)
   if (
     frame.context?.progress !== undefined &&
     frame.context.progress >= 0 &&
@@ -302,7 +293,6 @@ function renderActiveFrame(
     lines.push(`${tree}${renderProgressBar(frame.context.progress, 30, color)}`);
   }
 
-  // Context items — behind [space] expand to keep the default view tight
   const contextItems = frame.context?.items ?? [];
   const selectedChoiceOptionIds =
     inputDraft?.kind === "choice" ? new Set(inputDraft.optionIds) : null;
@@ -315,7 +305,6 @@ function renderActiveFrame(
     }
   }
 
-  // Choice options
   if (frame.responseSpec?.kind === "choice") {
     for (const [index, option] of frame.responseSpec.options.entries()) {
       const multiSelectMarker =
@@ -334,7 +323,6 @@ function renderActiveFrame(
     }
   }
 
-  // Judgment line — prioritize coordinator trace over frame metadata heuristics
   const judgmentLine = extractJudgmentLine(frame, trace);
   if (judgmentLine) {
     lines.push(`${tree}${styleItalicMuted(judgmentLine, color)}`);
@@ -344,7 +332,6 @@ function renderActiveFrame(
     lines.push(...renderInputDraft(frame, inputDraft, color, { prefix: tree }));
   }
 
-  // Expanded debug details
   if (expanded) {
     lines.push(...renderWorkflowMetadata(frame, tree, color));
     const score = readScore(frame);
@@ -403,46 +390,26 @@ function styleFrameSummary(frame: Frame, summaryText: string, color: boolean): s
   return styleMuted(summaryText, color);
 }
 
-/**
- * Extract a judgment line explaining why this frame is in front of the operator.
- *
- * Priority cascade:
- * 1. Adapter-supplied provenance.whyNow (adapter knows domain context)
- * 2. Coordinator trace: continuity overrides (the real routing decision)
- * 3. Coordinator trace: coordination.reasons (final routing explanation)
- * 4. Frame metadata heuristic rationale (candidate scoring, not routing)
- * 5. Synthesized fallback from frame properties
- */
 function extractJudgmentLine(frame: Frame, trace: ApertureTrace | null): string | null {
-  // 1. Adapter-supplied explanation
   if (frame.provenance?.whyNow) {
     return frame.provenance.whyNow;
   }
 
-  // 2–3. Coordinator trace data (only available on candidate traces)
-  // TypeScript can't narrow the ApertureTrace union through nested discriminants,
-  // so we extract the candidate-specific fields after the kind check.
   if (trace && trace.evaluation.kind === "candidate") {
     const candidateTrace = trace as Extract<ApertureTrace, { evaluation: { kind: "candidate" } }>;
 
-    // 2. Continuity overrides — these are the most important: they explain
-    // when the engine *changed* its mind about routing (e.g. conflicting_interrupt
-    // suppressed an activation, or burst_dampening deferred it)
     const overrides = candidateTrace.coordination.continuityEvaluations.filter(
       (e: { kind: string; rationale: string[] }) => e.kind === "override" && e.rationale.length > 0,
     );
     if (overrides.length > 0) {
-      // Show the first override's rationale — it's the most significant routing factor
       return `${overrides[0]!.rule}: ${overrides[0]!.rationale[0]}`;
     }
 
-    // 3. Coordination reasons — the coordinator's final routing explanation
     if (candidateTrace.coordination.reasons.length > 0) {
       return candidateTrace.coordination.reasons[0]!;
     }
   }
 
-  // 4. Frame metadata heuristic rationale (candidate scoring context)
   const attention = frame.metadata?.attention;
   if (
     attention &&
@@ -456,7 +423,6 @@ function extractJudgmentLine(frame: Frame, trace: ApertureTrace | null): string 
     }
   }
 
-  // 5. Synthesize from frame properties
   switch (frame.mode) {
     case "approval":
       return frame.consequence === "high"
@@ -467,7 +433,7 @@ function extractJudgmentLine(frame: Frame, trace: ApertureTrace | null): string 
     case "form":
       return "Input needed to continue";
     case "status":
-      return null; // Status frames don't need judgment lines
+      return null;
   }
 }
 
@@ -479,8 +445,6 @@ function renderProgressBar(progress: number, width: number, color: boolean): str
   const text = `[${bar}] ${pct}`;
   return color ? `${ANSI.dim}${text}${ANSI.reset}` : text;
 }
-
-// ── Queue ───────────────────────────────────────────────────────────
 
 function renderCompactFrame(group: QueueGroup, rank: number, color: boolean): string[] {
   const { frame, count } = group;
@@ -540,16 +504,12 @@ export function countMatchingFrames(frame: Frame, next: Frame[]): number {
   return count;
 }
 
-// ── Ambient ─────────────────────────────────────────────────────────
-
 function renderAmbientFrame(frame: Frame, color: boolean): string[] {
   const source = displaySourceLabel(frame.source);
   return [
     `  ${styleMuted("~", color)} ${styleDeepMuted(frame.title, color)} ${styleMuted("·", color)} ${styleDeepMuted(source, color)}`,
   ];
 }
-
-// ── Section Headers ─────────────────────────────────────────────────
 
 function sectionHeader(label: string, color: boolean, _tone: Frame["tone"]): string {
   const dashes = "──";
@@ -561,8 +521,6 @@ function heavyRule(color: boolean): string {
   const line = "━".repeat(SCREEN_WIDTH);
   return color ? `${ANSI.dim}${line}${ANSI.reset}` : line;
 }
-
-// ── Controls ────────────────────────────────────────────────────────
 
 function renderControls(
   now: Frame | null,
@@ -598,7 +556,6 @@ function renderControls(
   const parts: string[] = [];
   const label = (text: string) => styleMuted(text, color);
 
-  // Response actions
   switch (now.responseSpec?.kind) {
     case "acknowledge":
       parts.push(`${styleKey("⏎", color)}${label("ack")}`);
@@ -622,7 +579,6 @@ function renderControls(
       break;
   }
 
-  // View controls — ⎵ does double duty: detail on main, expand on why
   if (whyMode) {
     parts.push(`${styleKey("⎵", color)}${label(whyExpanded ? "collapse" : "expand")}`);
     parts.push(`${styleKey("y", color)}${label("close")}`);
@@ -634,8 +590,6 @@ function renderControls(
 
   return [parts.join("  ")];
 }
-
-// ── Stats ───────────────────────────────────────────────────────────
 
 function renderStatsLine(
   stats: { summary: SignalSummary; state: AttentionState } | null,
@@ -666,8 +620,6 @@ function renderStatsLine(
 
   return `${statsText} ${styleMuted("·", color)} ${stateColored}`;
 }
-
-// ── Helpers ─────────────────────────────────────────────────────────
 
 function readScore(frame: Frame): number | null {
   const attention = frame.metadata?.attention;
@@ -827,16 +779,14 @@ export function humanConsequence(consequence: Frame["consequence"]): string {
   }
 }
 
-/** Collapse newlines and trim context item values to a single line. */
 function sanitizeContextValue(value: unknown): string {
   const raw = value === undefined || value === null ? "n/a" : String(value);
   return raw.replace(/[\n\r]+/g, " ").trim();
 }
 
-/** Truncate a styled string by its visible (plain) content to fit width. */
 function truncateToWidth(styled: string, plain: string, maxWidth: number): string {
-  if (plain.length + 7 <= maxWidth) return styled; // "status " prefix = 7 chars
-  const available = maxWidth - 7 - 1; // leave room for …
+  if (plain.length + 7 <= maxWidth) return styled;
+  const available = maxWidth - 8;
   if (available <= 0) return "";
   const truncatedPlain = plain.slice(0, available) + "…";
   return `${ANSI.dim}status${ANSI.reset} ${truncatedPlain}`;

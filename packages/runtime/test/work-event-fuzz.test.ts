@@ -27,7 +27,10 @@ const automationArbitrary = fc
     runMode: fc.constantFrom("interactive", "background", "scheduled"),
     trigger: fc.option(safeTextArbitrary, { nil: undefined }),
     recurrence: fc.option(fc.constantFrom("once", "recurring"), { nil: undefined }),
-    scheduleId: fc.option(idArbitrary.map((value) => `schedule:${value}`), { nil: undefined }),
+    scheduleId: fc.option(
+      idArbitrary.map((value) => `schedule:${value}`),
+      { nil: undefined },
+    ),
   })
   .map((value) => omitUndefined(value));
 
@@ -42,13 +45,21 @@ const executionArbitrary = fc
 
 const governanceArbitrary = fc
   .record({
-    policyId: fc.option(idArbitrary.map((value) => `policy:${value}`), { nil: undefined }),
-    approvalState: fc.option(
-      fc.constantFrom("not_required", "pending", "approved", "rejected"),
+    policyId: fc.option(
+      idArbitrary.map((value) => `policy:${value}`),
       { nil: undefined },
     ),
-    approvalId: fc.option(idArbitrary.map((value) => `approval:${value}`), { nil: undefined }),
-    decisionId: fc.option(idArbitrary.map((value) => `decision:${value}`), { nil: undefined }),
+    approvalState: fc.option(fc.constantFrom("not_required", "pending", "approved", "rejected"), {
+      nil: undefined,
+    }),
+    approvalId: fc.option(
+      idArbitrary.map((value) => `approval:${value}`),
+      { nil: undefined },
+    ),
+    decisionId: fc.option(
+      idArbitrary.map((value) => `decision:${value}`),
+      { nil: undefined },
+    ),
   })
   .map((value) => omitUndefined(value));
 

@@ -339,12 +339,6 @@ function formatCount(value: number): string {
   return value.toLocaleString("en-US");
 }
 
-function pushString(target: Set<string>, value: unknown): void {
-  if (typeof value === "string" && value.length > 0) {
-    target.add(value);
-  }
-}
-
 function prefixedValue(prefix: string, value: string | undefined): string | undefined {
   return value ? `${prefix} ${value}` : undefined;
 }

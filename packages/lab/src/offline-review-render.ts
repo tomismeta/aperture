@@ -130,58 +130,28 @@ function appendTargetContextLines(
   }
 
   const targetMetadataSummary = summarizeWorkflowTargetMetadata(explanation.targetMetadata);
-  const hasContext = Boolean(
-    explanation.targetInteractionId
-    || explanation.targetLane
-    || explanation.headline
-    || explanation.whyNow
-    || explanation.routingAuthority !== undefined
-    || targetMetadataSummary,
-  );
+  const contextLines = [
+    formatContextLine("Interaction", explanation.targetInteractionId),
+    formatContextLine("Lane", explanation.targetLane),
+    formatContextLine(
+      "Routing Authority",
+      explanation.routingAuthority !== undefined
+        ? (explanation.routingAuthority ?? "none")
+        : undefined,
+    ),
+    formatContextLine("Headline", explanation.headline),
+    formatContextLine("Why Now", explanation.whyNow),
+    formatContextLine("Automation", targetMetadataSummary?.automation),
+    formatContextLine("Execution", targetMetadataSummary?.execution),
+    formatContextLine("Governance", targetMetadataSummary?.governance),
+    formatContextLine("Usage", targetMetadataSummary?.usage),
+  ].filter((line): line is string => line !== null);
 
-  if (!hasContext) {
+  if (contextLines.length === 0) {
     return;
   }
 
-  lines.push("## Target Context", "");
-
-  if (explanation.targetInteractionId) {
-    lines.push(`- Interaction: ${explanation.targetInteractionId}`);
-  }
-
-  if (explanation.targetLane) {
-    lines.push(`- Lane: ${explanation.targetLane}`);
-  }
-
-  if (explanation.routingAuthority !== undefined) {
-    lines.push(`- Routing Authority: ${explanation.routingAuthority ?? "none"}`);
-  }
-
-  if (explanation.headline) {
-    lines.push(`- Headline: ${explanation.headline}`);
-  }
-
-  if (explanation.whyNow) {
-    lines.push(`- Why Now: ${explanation.whyNow}`);
-  }
-
-  if (targetMetadataSummary?.automation) {
-    lines.push(`- Automation: ${targetMetadataSummary.automation}`);
-  }
-
-  if (targetMetadataSummary?.execution) {
-    lines.push(`- Execution: ${targetMetadataSummary.execution}`);
-  }
-
-  if (targetMetadataSummary?.governance) {
-    lines.push(`- Governance: ${targetMetadataSummary.governance}`);
-  }
-
-  if (targetMetadataSummary?.usage) {
-    lines.push(`- Usage: ${targetMetadataSummary.usage}`);
-  }
-
-  lines.push("");
+  lines.push("## Target Context", "", ...contextLines, "");
 }
 
 export function buildOfflineReviewPromptPacket(
@@ -458,70 +428,49 @@ function offlineReviewPromptStepPriority(
   step: OfflineReviewPreparedStep,
   lastStepIndex: number,
 ): number {
-  let priority = 0;
+  const sourceType = step.sourceEvent?.type;
+  const statusPriority =
+    step.sourceEvent?.status === "failed" || step.normalizedEvent?.status === "failed"
+      ? 850
+      : step.sourceEvent?.status === "waiting" || step.normalizedEvent?.status === "waiting"
+        ? 700
+        : 0;
+  const lanePriority = step.apertureDecision?.resultLane === "now"
+    ? 650
+    : step.apertureDecision?.resultLane === "next"
+      ? 600
+      : 0;
+  const confidencePriority = step.apertureRead?.abstained || step.apertureRead?.confidence === "low"
+    ? 550
+    : step.apertureRead?.confidence === "medium"
+      ? 325
+      : 0;
+  const consequencePriority = step.apertureRead?.consequence === "high"
+    ? 500
+    : step.apertureRead?.consequence === "medium"
+      ? 250
+      : 0;
 
-  if (step.stepIndex === 0 || step.stepIndex === lastStepIndex) {
-    priority += 1_000;
-  }
-
-  if (step.sourceEvent?.type === "task.started" || step.sourceEvent?.type === "task.completed" || step.sourceEvent?.type === "task.cancelled") {
-    priority += 900;
-  }
-
-  if (step.sourceEvent?.status === "failed" || step.normalizedEvent?.status === "failed") {
-    priority += 850;
-  } else if (step.sourceEvent?.status === "waiting" || step.normalizedEvent?.status === "waiting") {
-    priority += 700;
-  }
-
-  if (step.apertureDecision?.resultLane === "now") {
-    priority += 650;
-  } else if (step.apertureDecision?.resultLane === "next") {
-    priority += 600;
-  }
-
-  if (step.apertureRead?.abstained || step.apertureRead?.confidence === "low") {
-    priority += 550;
-  } else if (step.apertureRead?.confidence === "medium") {
-    priority += 325;
-  }
-
-  if (step.apertureRead?.consequence === "high") {
-    priority += 500;
-  } else if (step.apertureRead?.consequence === "medium") {
-    priority += 250;
-  }
-
-  if (step.sourceEvent?.toolFamily || step.normalizedEvent?.toolFamily || step.apertureRead?.toolFamily) {
-    priority += 220;
-  }
-
-  if (step.sourceEvent?.title === "user follow-up" || step.stepLabel?.includes("followup") || step.stepLabel?.includes("follow-up")) {
-    priority += 300;
-  }
-
-  if ((step.apertureDecision?.semanticInfluence.length ?? 0) > 0) {
-    priority += 120;
-  }
-
-  return priority;
+  return [
+    step.stepIndex === 0 || step.stepIndex === lastStepIndex ? 1_000 : 0,
+    sourceType === "task.started" || sourceType === "task.completed" || sourceType === "task.cancelled" ? 900 : 0,
+    statusPriority,
+    lanePriority,
+    confidencePriority,
+    consequencePriority,
+    step.sourceEvent?.toolFamily || step.normalizedEvent?.toolFamily || step.apertureRead?.toolFamily ? 220 : 0,
+    step.sourceEvent?.title === "user follow-up" || step.stepLabel?.includes("followup") || step.stepLabel?.includes("follow-up") ? 300 : 0,
+    (step.apertureDecision?.semanticInfluence.length ?? 0) > 0 ? 120 : 0,
+  ].reduce((total, value) => total + value, 0);
 }
 
 function renderValue(value: string | string[] | boolean | null): string {
-  if (Array.isArray(value)) {
-    return value.length === 0 ? "[]" : value.join(", ");
-  }
-  if (value === null) {
-    return "null";
-  }
-  return String(value);
+  if (Array.isArray(value)) return value.length === 0 ? "[]" : value.join(", ");
+  return value === null ? "null" : String(value);
 }
 
 function compactText(value: string | null): string | null {
-  if (!value) {
-    return null;
-  }
-
+  if (!value) return null;
   const normalized = value.replace(/\s+/g, " ").trim();
   return normalized.length > 0 ? normalized : null;
 }
@@ -531,11 +480,11 @@ function clipOfflineReviewPromptText(
   maxLength: number,
 ): string | null {
   const normalized = compactText(value ?? null);
-  if (!normalized) {
-    return null;
-  }
-
-  return normalized.length <= maxLength
+  return !normalized || normalized.length <= maxLength
     ? normalized
     : `${normalized.slice(0, Math.max(maxLength - 3, 1))}...`;
+}
+
+function formatContextLine(label: string, value: string | null | undefined): string | null {
+  return value ? `- ${label}: ${value}` : null;
 }

@@ -1,0 +1,42 @@
+{
+  "name": "@aperture/pi",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./extension": {
+      "types": "./dist/src/extension.d.ts",
+      "default": "./dist/src/extension.js"
+    }
+  },
+  "keywords": [
+    "pi-package"
+  ],
+  "pi": {
+    "extensions": [
+      "./dist/src/extension.js"
+    ]
+  },
+  "dependencies": {
+    "@aperture/runtime": "workspace:*",
+    "@tomismeta/aperture-core": "workspace:*"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*"
+  },
+  "peerDependenciesMeta": {
+    "@mariozechner/pi-coding-agent": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "tsx --test test/*.test.ts"
+  }
+}

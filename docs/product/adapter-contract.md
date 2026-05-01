@@ -117,6 +117,7 @@ In practice:
 - Claude Code is the hook-server scaffold
 - OpenCode is the default client-plus-bridge scaffold
 - Codex is the transport-and-protocol scaffold
+- Pi is the native extension scaffold
 
 The purity rule is:
 
@@ -180,8 +181,9 @@ This is the current standard we should hold all adapters to.
 | `@aperture/claude-code` | live | Claude hook payloads via local hook server | mapping + hook server | Claude hook response payload | held approval timeout, explicit fallback-to-ask | repo-tested, product-supported |
 | `@aperture/opencode` | live | OpenCode server APIs and event stream | mapping + client + bridge | permission/question reply APIs | reconnect, heartbeat timeout, bootstrap of pending work | repo-tested, product-supported |
 | `@aperture/codex` | experimental | Codex App Server | transport + client + mapping + bridge | App Server server-request responses | reconnect, request timeout, request cleanup, controlled shutdown | repo-tested, partially live-verified |
+| `@aperture/pi` | experimental | Pi extension events | mapping + extension bridge | `tool_call` block/allow result | optional hold policy, response timeout | repo-tested, source-only |
 
-## Next Candidate: GitHub Copilot SDK
+## Deferred Candidate: GitHub Copilot SDK
 
 If Aperture explores a GitHub-side adapter, the right seam is the Copilot SDK,
 not the GitHub.com cloud-agent UI.

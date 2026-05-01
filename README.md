@@ -142,7 +142,13 @@ If you only remember one thing, remember this:
 - end-to-end approval routing proven for supported request families
 - broader interruption coverage still depends on what Codex App Server externalizes as requests
 
-Claude Code and OpenCode are the mainline live paths today. Codex is a real but still experimental third path.
+### Pi (experimental, source-only)
+
+- Pi extension-event mapping into Aperture `SourceEvent`
+- optional tool-call hold policy through the Aperture response loop
+- intentionally not wired into the published product launcher yet
+
+Claude Code and OpenCode are the mainline live paths today. Codex and Pi are real but still experimental paths from source.
 
 ## Common Product Commands
 

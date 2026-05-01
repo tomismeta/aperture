@@ -86,6 +86,7 @@ These docs define the current Aperture product surface:
 - [Claude Code Adapter](./adapters/claude-code-adapter.md)
 - [OpenCode Adapter](./adapters/opencode-adapter.md)
 - [Codex Adapter](./adapters/codex-adapter.md)
+- [Pi Adapter](./adapters/pi-adapter.md)
 - [Codex Surfaces](./adapters/codex-surfaces.md)
 
 These docs explain the source-specific integration seams:
@@ -93,6 +94,7 @@ These docs explain the source-specific integration seams:
 - Claude Code as a live hook-based path
 - OpenCode as a live server-and-terminal path
 - Codex as an experimental App Server path
+- Pi as an experimental extension-based path
 
 ## Engine And SDK Reference
 

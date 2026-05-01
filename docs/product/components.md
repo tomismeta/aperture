@@ -231,6 +231,7 @@ Current practical split:
   - `@aperture/opencode`
 - experimental adapter:
   - `@aperture/codex`
+  - `@aperture/pi`
 
 For the current cross-adapter architecture standard and verification matrix, see
 [Adapter Contract](./adapter-contract.md).
@@ -302,6 +303,24 @@ Skip adapters when:
   - attention judgment
   - signal storage
   - Codex thread orchestration policy above the native App Server contract
+
+#### `@aperture/pi`
+
+- Classification: source adapter
+- Status: experimental, source-only
+- Lives in:
+  - [packages/pi/src/index.ts](../../packages/pi/src/index.ts)
+  - [packages/pi/src/mapping.ts](../../packages/pi/src/mapping.ts)
+  - [packages/pi/src/extension.ts](../../packages/pi/src/extension.ts)
+- Purpose: translate Pi extension events into `SourceEvent` and optionally route Aperture responses back into Pi tool-call block/allow decisions
+- Owns:
+  - Pi extension-event mapping
+  - Pi tool-call response policy
+  - Pi package/extension seam
+- Does not own:
+  - attention judgment
+  - signal storage
+  - Pi runtime execution
 
 ### Attention Surface
 

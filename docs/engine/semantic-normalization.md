@@ -22,6 +22,7 @@ Examples:
 - Claude Code hook JSON
 - OpenCode server events
 - Codex request objects
+- Pi extension events
 
 These never enter `@tomismeta/aperture-core` directly.
 

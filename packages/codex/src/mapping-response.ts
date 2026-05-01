@@ -308,7 +308,6 @@ function grantAdditionalPermissions(
   return {
     ...(permissions.network ? { network: permissions.network } : {}),
     ...(permissions.fileSystem ? { fileSystem: permissions.fileSystem } : {}),
-    ...(permissions.macos ? { macos: permissions.macos } : {}),
   };
 }
 

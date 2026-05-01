@@ -1,6 +1,7 @@
 import type { IncomingMessage } from "node:http";
 
 import type { ClaudeCodeHookEvent } from "./mapping.js";
+import { parseLatestHookEvent } from "./server-hook-event-latest.js";
 
 export async function readHookEvent(
   req: IncomingMessage,
@@ -37,12 +38,14 @@ export async function readHookEvent(
 
   if (
     parsed.hook_event_name !== "SessionStart" &&
+    parsed.hook_event_name !== "Setup" &&
     parsed.hook_event_name !== "InstructionsLoaded" &&
     parsed.hook_event_name !== "PreToolUse" &&
     parsed.hook_event_name !== "PermissionRequest" &&
     parsed.hook_event_name !== "PermissionDenied" &&
     parsed.hook_event_name !== "PostToolUse" &&
     parsed.hook_event_name !== "PostToolUseFailure" &&
+    parsed.hook_event_name !== "PostToolBatch" &&
     parsed.hook_event_name !== "Elicitation" &&
     parsed.hook_event_name !== "ElicitationResult" &&
     parsed.hook_event_name !== "Notification" &&
@@ -51,10 +54,14 @@ export async function readHookEvent(
     parsed.hook_event_name !== "TaskCreated" &&
     parsed.hook_event_name !== "TaskCompleted" &&
     parsed.hook_event_name !== "UserPromptSubmit" &&
+    parsed.hook_event_name !== "UserPromptExpansion" &&
     parsed.hook_event_name !== "StopFailure" &&
     parsed.hook_event_name !== "TeammateIdle" &&
     parsed.hook_event_name !== "ConfigChange" &&
     parsed.hook_event_name !== "CwdChanged" &&
+    parsed.hook_event_name !== "FileChanged" &&
+    parsed.hook_event_name !== "WorktreeCreate" &&
+    parsed.hook_event_name !== "WorktreeRemove" &&
     parsed.hook_event_name !== "PreCompact" &&
     parsed.hook_event_name !== "PostCompact" &&
     parsed.hook_event_name !== "SessionEnd" &&
@@ -143,6 +150,11 @@ export async function readHookEvent(
         ? { parent_file_path: parsed["parent_file_path"] }
         : {}),
     };
+  }
+
+  const latestHookEvent = parseLatestHookEvent(parsed);
+  if (latestHookEvent) {
+    return latestHookEvent;
   }
 
   if (parsed.hook_event_name === "PreToolUse") {

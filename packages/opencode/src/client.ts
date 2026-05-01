@@ -3,6 +3,7 @@ import type {
   OpencodeListPermissionsResponse,
   OpencodeListQuestionsResponse,
   OpencodePermissionReplyInput,
+  OpencodePermissionRespondInput,
   OpencodeQuestionRejectInput,
   OpencodeQuestionReplyInput,
   OpencodeSessionPromptInput,
@@ -40,6 +41,17 @@ export class OpencodeClient {
 
   async replyToPermission(requestId: string, input: OpencodePermissionReplyInput): Promise<unknown> {
     return this.post(`/permission/${encodeURIComponent(requestId)}/reply`, input);
+  }
+
+  async respondToSessionPermission(
+    sessionId: string,
+    requestId: string,
+    input: OpencodePermissionRespondInput,
+  ): Promise<unknown> {
+    return this.post(
+      `/session/${encodeURIComponent(sessionId)}/permissions/${encodeURIComponent(requestId)}`,
+      input,
+    );
   }
 
   async replyToQuestion(requestId: string, input: OpencodeQuestionReplyInput): Promise<unknown> {
@@ -188,8 +200,25 @@ function parseSseEvent(raw: string): OpencodeSseMessage | null {
   }
 
   try {
-    return JSON.parse(dataLines.join("\n")) as OpencodeSseMessage;
+    return normalizeSseMessage(JSON.parse(dataLines.join("\n")));
   } catch {
     return null;
   }
+}
+
+function normalizeSseMessage(value: unknown): OpencodeSseMessage | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  if (typeof record.type === "string" && "properties" in record) {
+    return record as OpencodeSseMessage;
+  }
+  if (record.payload && typeof record.payload === "object") {
+    const payload = record.payload as Record<string, unknown>;
+    if (typeof payload.type === "string" && "properties" in payload) {
+      return payload as OpencodeSseMessage;
+    }
+  }
+  return null;
 }

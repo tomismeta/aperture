@@ -31,6 +31,14 @@ import {
   mapTeammateIdle,
   mapUserPromptSubmit,
 } from "./mapping-lifecycle.js";
+import {
+  mapFileChanged,
+  mapPostToolBatch,
+  mapSetup,
+  mapUserPromptExpansion,
+  mapWorktreeCreate,
+  mapWorktreeRemove,
+} from "./mapping-latest-hooks.js";
 import type { ClaudeCodeAskUserQuestionTranscriptPayload } from "./transcript.js";
 export {
   mapClaudeCodeAskUserQuestionResponse,
@@ -40,12 +48,14 @@ export { bashConsequence, classifyToolRisk } from "./mapping-shared.js";
 
 export type ClaudeCodeHookEvent =
   | ClaudeCodeSessionStartEvent
+  | ClaudeCodeSetupEvent
   | ClaudeCodeInstructionsLoadedEvent
   | ClaudeCodePreToolUseEvent
   | ClaudeCodePermissionRequestEvent
   | ClaudeCodePermissionDeniedEvent
   | ClaudeCodePostToolUseFailureEvent
   | ClaudeCodePostToolUseEvent
+  | ClaudeCodePostToolBatchEvent
   | ClaudeCodeElicitationEvent
   | ClaudeCodeElicitationResultEvent
   | ClaudeCodeNotificationEvent
@@ -54,10 +64,14 @@ export type ClaudeCodeHookEvent =
   | ClaudeCodeTaskCreatedEvent
   | ClaudeCodeTaskCompletedEvent
   | ClaudeCodeUserPromptSubmitEvent
+  | ClaudeCodeUserPromptExpansionEvent
   | ClaudeCodeStopFailureEvent
   | ClaudeCodeTeammateIdleEvent
   | ClaudeCodeConfigChangeEvent
   | ClaudeCodeCwdChangedEvent
+  | ClaudeCodeFileChangedEvent
+  | ClaudeCodeWorktreeCreateEvent
+  | ClaudeCodeWorktreeRemoveEvent
   | ClaudeCodePreCompactEvent
   | ClaudeCodePostCompactEvent
   | ClaudeCodeSessionEndEvent
@@ -65,12 +79,14 @@ export type ClaudeCodeHookEvent =
 
 export type ClaudeCodeHookEventName =
   | "SessionStart"
+  | "Setup"
   | "InstructionsLoaded"
   | "PreToolUse"
   | "PermissionRequest"
   | "PermissionDenied"
   | "PostToolUseFailure"
   | "PostToolUse"
+  | "PostToolBatch"
   | "Elicitation"
   | "ElicitationResult"
   | "Notification"
@@ -79,10 +95,14 @@ export type ClaudeCodeHookEventName =
   | "TaskCreated"
   | "TaskCompleted"
   | "UserPromptSubmit"
+  | "UserPromptExpansion"
   | "StopFailure"
   | "TeammateIdle"
   | "ConfigChange"
   | "CwdChanged"
+  | "FileChanged"
+  | "WorktreeCreate"
+  | "WorktreeRemove"
   | "PreCompact"
   | "PostCompact"
   | "SessionEnd"
@@ -103,6 +123,11 @@ export type ClaudeCodeSessionStartEvent = ClaudeCodeHookBaseEvent & {
   source: ClaudeCodeSessionStartSource;
   model: string;
   agent_type?: string;
+};
+
+export type ClaudeCodeSetupEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "Setup";
+  source: string;
 };
 
 export type ClaudeCodeInstructionsMemoryType = "User" | "Project" | "Local" | "Managed";
@@ -161,6 +186,16 @@ export type ClaudeCodePostToolUseEvent = ClaudeCodeHookBaseEvent & {
   tool_input?: Record<string, unknown>;
   tool_response?: Record<string, unknown>;
   askUserQuestion?: ClaudeCodeAskUserQuestionTranscriptPayload;
+};
+
+export type ClaudeCodePostToolBatchEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "PostToolBatch";
+  tool_calls: Array<{
+    tool_name: string;
+    tool_use_id?: string;
+    tool_input?: Record<string, unknown>;
+    tool_response?: unknown;
+  }>;
 };
 
 export type ClaudeCodeElicitationMode = "form" | "url";
@@ -237,6 +272,13 @@ export type ClaudeCodeUserPromptSubmitEvent = ClaudeCodeHookBaseEvent & {
   prompt: string;
 };
 
+export type ClaudeCodeUserPromptExpansionEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "UserPromptExpansion";
+  command_name: string;
+  prompt?: string;
+  expanded_prompt?: string;
+};
+
 export type ClaudeCodeStopFailureError =
   | "rate_limit"
   | "authentication_failed"
@@ -276,6 +318,23 @@ export type ClaudeCodeCwdChangedEvent = ClaudeCodeHookBaseEvent & {
   hook_event_name: "CwdChanged";
   old_cwd: string;
   new_cwd: string;
+};
+
+export type ClaudeCodeFileChangedEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "FileChanged";
+  file_path: string;
+  event: string;
+};
+
+export type ClaudeCodeWorktreeCreateEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "WorktreeCreate";
+  name: string;
+};
+
+export type ClaudeCodeWorktreeRemoveEvent = ClaudeCodeHookBaseEvent & {
+  hook_event_name: "WorktreeRemove";
+  worktree_path: string;
+  name?: string;
 };
 
 export type ClaudeCodeCompactTrigger = "manual" | "auto";
@@ -376,6 +435,8 @@ export function mapClaudeCodeHookEvent(
     switch (event.hook_event_name) {
       case "SessionStart":
         return [mapSessionStart(event)];
+      case "Setup":
+        return [mapSetup(event)];
       case "InstructionsLoaded":
         return [mapInstructionsLoaded(event)];
       case "PreToolUse":
@@ -396,6 +457,8 @@ export function mapClaudeCodeHookEvent(
         return [mapPostToolUseFailure(event)];
       case "PostToolUse":
         return options.includePostToolUse ? [mapPostToolUse(event)] : [];
+      case "PostToolBatch":
+        return [mapPostToolBatch(event)];
       case "Elicitation":
         return [mapElicitation(event)];
       case "ElicitationResult":
@@ -412,6 +475,8 @@ export function mapClaudeCodeHookEvent(
         return [mapTaskCompleted(event)];
       case "UserPromptSubmit":
         return [mapUserPromptSubmit(event)];
+      case "UserPromptExpansion":
+        return [mapUserPromptExpansion(event)];
       case "StopFailure":
         return [mapStopFailure(event)];
       case "TeammateIdle":
@@ -420,6 +485,12 @@ export function mapClaudeCodeHookEvent(
         return [mapConfigChange(event)];
       case "CwdChanged":
         return [mapCwdChanged(event)];
+      case "FileChanged":
+        return [mapFileChanged(event)];
+      case "WorktreeCreate":
+        return [mapWorktreeCreate(event)];
+      case "WorktreeRemove":
+        return [mapWorktreeRemove(event)];
       case "PreCompact":
         return [mapPreCompact(event)];
       case "PostCompact":

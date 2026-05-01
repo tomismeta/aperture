@@ -9,9 +9,11 @@ import {
   mapClaudeCodeHookEvent,
   type ClaudeCodeElicitationEvent,
   type ClaudeCodeElicitationResultEvent,
+  type ClaudeCodeFileChangedEvent,
   type ClaudeCodeInstructionsLoadedEvent,
   type ClaudeCodeNotificationEvent,
   type ClaudeCodePostCompactEvent,
+  type ClaudeCodePostToolBatchEvent,
   type ClaudeCodePostToolUseFailureEvent,
   type ClaudeCodePreCompactEvent,
   type ClaudeCodeConfigChangeEvent,
@@ -28,7 +30,10 @@ import {
   type ClaudeCodeTaskCompletedEvent,
   type ClaudeCodeTaskCreatedEvent,
   type ClaudeCodeTeammateIdleEvent,
+  type ClaudeCodeUserPromptExpansionEvent,
   type ClaudeCodeUserPromptSubmitEvent,
+  type ClaudeCodeWorktreeCreateEvent,
+  type ClaudeCodeWorktreeRemoveEvent,
 } from "../src/index.js";
 
 test("maps PreToolUse Bash hooks into approval events", () => {
@@ -100,6 +105,72 @@ test("adds execution and usage metadata to Claude session start events", () => {
       model: "claude-sonnet-4.5",
     },
   });
+});
+
+test("maps latest Claude Code prompt, batch, file, and worktree hooks", () => {
+  const expansion: ClaudeCodeUserPromptExpansionEvent = {
+    session_id: "session-latest-1",
+    cwd: "/repo",
+    hook_event_name: "UserPromptExpansion",
+    command_name: "release",
+    expanded_prompt: "Prepare the release checklist",
+  };
+
+  const expanded = mapClaudeCodeHookEvent(expansion);
+  assert.equal(expanded[0]?.type, "task.updated");
+  if (expanded[0]?.type === "task.updated") {
+    assert.equal(expanded[0].title, "Claude prompt expanded");
+    assert.equal(expanded[0].status, "running");
+  }
+
+  const batch: ClaudeCodePostToolBatchEvent = {
+    session_id: "session-latest-1",
+    cwd: "/repo",
+    hook_event_name: "PostToolBatch",
+    tool_calls: [
+      { tool_name: "Read", tool_use_id: "tool-1" },
+      { tool_name: "Bash", tool_use_id: "tool-2" },
+    ],
+  };
+
+  const batchMapped = mapClaudeCodeHookEvent(batch);
+  assert.equal(batchMapped[0]?.type, "task.updated");
+  if (batchMapped[0]?.type === "task.updated") {
+    assert.equal(batchMapped[0].activityClass, "tool_completion");
+    assert.equal(batchMapped[0].title, "Claude tool batch completed");
+    assert.equal(batchMapped[0].summary, "Claude completed a batch of 2 tool call(s): Read, Bash.");
+  }
+
+  const fileChanged: ClaudeCodeFileChangedEvent = {
+    session_id: "session-latest-1",
+    cwd: "/repo",
+    hook_event_name: "FileChanged",
+    file_path: "/repo/.envrc",
+    event: "change",
+  };
+
+  const fileMapped = mapClaudeCodeHookEvent(fileChanged);
+  assert.equal(fileMapped[0]?.type, "task.updated");
+  if (fileMapped[0]?.type === "task.updated") {
+    assert.equal(fileMapped[0].title, "Claude watched file changed");
+    assert.equal(fileMapped[0].summary, ".envrc changed.");
+  }
+
+  const create: ClaudeCodeWorktreeCreateEvent = {
+    session_id: "session-latest-1",
+    cwd: "/repo",
+    hook_event_name: "WorktreeCreate",
+    name: "feature-auth",
+  };
+  assert.equal(mapClaudeCodeHookEvent(create)[0]?.type, "task.started");
+
+  const remove: ClaudeCodeWorktreeRemoveEvent = {
+    session_id: "session-latest-1",
+    cwd: "/repo",
+    hook_event_name: "WorktreeRemove",
+    worktree_path: "/repo/.claude/worktrees/feature-auth",
+  };
+  assert.equal(mapClaudeCodeHookEvent(remove)[0]?.type, "task.completed");
 });
 
 test("surfaces Claude permission mode and transcript path in approval context", () => {

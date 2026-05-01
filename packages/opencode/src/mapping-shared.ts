@@ -12,6 +12,7 @@ export type OpencodeResponseAction =
   | {
       kind: "permission.reply";
       requestId: string;
+      sessionId?: string;
       body: {
         reply: "once" | "reject";
         message?: string;
@@ -86,6 +87,11 @@ export function opencodeTaskId(
 ): string {
   const anchor = sessionId?.trim() || fallbackId?.trim() || "unknown";
   return `opencode:${instanceKey}:session:${encodeURIComponent(anchor)}`;
+}
+
+export function parseOpencodeTaskSessionId(taskId: string): string | null {
+  const match = taskId.match(/^opencode:[^:]+:session:(.+)$/);
+  return match?.[1] ? decodeURIComponent(match[1]) : null;
 }
 
 export function opencodeInteractionId(

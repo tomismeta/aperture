@@ -8,12 +8,31 @@ type HookDefinition = { type: string; command?: string } & Record<string, unknow
 type HookEntry = { matcher?: string; hooks: HookDefinition[] } & Record<string, unknown>;
 
 const HOOK_EVENT_NAMES = [
+  "SessionStart",
+  "InstructionsLoaded",
+  "UserPromptExpansion",
   "PreToolUse",
+  "PermissionRequest",
+  "PermissionDenied",
   "PostToolUse",
   "PostToolUseFailure",
+  "PostToolBatch",
+  "Elicitation",
+  "ElicitationResult",
   "Notification",
+  "SubagentStart",
+  "SubagentStop",
+  "TaskCreated",
+  "TaskCompleted",
   "UserPromptSubmit",
   "Stop",
+  "StopFailure",
+  "TeammateIdle",
+  "ConfigChange",
+  "CwdChanged",
+  "PreCompact",
+  "PostCompact",
+  "SessionEnd",
 ];
 
 async function main(): Promise<void> {

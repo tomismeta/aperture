@@ -24,6 +24,9 @@ import type { ItemStartedNotification as GeneratedItemStartedNotification } from
 import type { McpElicitationPrimitiveSchema as GeneratedMcpElicitationPrimitiveSchema } from "./generated/app-server/v2/McpElicitationPrimitiveSchema.js";
 import type { McpServerElicitationRequestParams as GeneratedMcpServerElicitationRequestParams } from "./generated/app-server/v2/McpServerElicitationRequestParams.js";
 import type { McpServerElicitationRequestResponse as GeneratedMcpServerElicitationRequestResponse } from "./generated/app-server/v2/McpServerElicitationRequestResponse.js";
+import type { McpServerStatusUpdatedNotification as GeneratedMcpServerStatusUpdatedNotification } from "./generated/app-server/v2/McpServerStatusUpdatedNotification.js";
+import type { ModelVerificationNotification as GeneratedModelVerificationNotification } from "./generated/app-server/v2/ModelVerificationNotification.js";
+import type { RemoteControlStatusChangedNotification as GeneratedRemoteControlStatusChangedNotification } from "./generated/app-server/v2/RemoteControlStatusChangedNotification.js";
 import type { ReviewDelivery as GeneratedReviewDelivery } from "./generated/app-server/v2/ReviewDelivery.js";
 import type { ReviewStartParams as GeneratedReviewStartParams } from "./generated/app-server/v2/ReviewStartParams.js";
 import type { ReviewStartResponse as GeneratedReviewStartResponse } from "./generated/app-server/v2/ReviewStartResponse.js";
@@ -34,12 +37,17 @@ import type { PermissionsRequestApprovalParams as GeneratedPermissionsRequestApp
 import type { PermissionsRequestApprovalResponse as GeneratedPermissionsRequestApprovalResponse } from "./generated/app-server/v2/PermissionsRequestApprovalResponse.js";
 import type { ServerRequestResolvedNotification as GeneratedServerRequestResolvedNotification } from "./generated/app-server/v2/ServerRequestResolvedNotification.js";
 import type { Thread as GeneratedThread } from "./generated/app-server/v2/Thread.js";
+import type { ThreadGoalClearedNotification as GeneratedThreadGoalClearedNotification } from "./generated/app-server/v2/ThreadGoalClearedNotification.js";
+import type { ThreadGoalUpdatedNotification as GeneratedThreadGoalUpdatedNotification } from "./generated/app-server/v2/ThreadGoalUpdatedNotification.js";
 import type { ThreadItem as GeneratedThreadItem } from "./generated/app-server/v2/ThreadItem.js";
 import type { ThreadResumeParams as GeneratedThreadResumeParams } from "./generated/app-server/v2/ThreadResumeParams.js";
 import type { ThreadResumeResponse as GeneratedThreadResumeResponse } from "./generated/app-server/v2/ThreadResumeResponse.js";
 import type { ThreadStartedNotification as GeneratedThreadStartedNotification } from "./generated/app-server/v2/ThreadStartedNotification.js";
 import type { ThreadStartResponse as GeneratedThreadStartResponse } from "./generated/app-server/v2/ThreadStartResponse.js";
 import type { ThreadStatusChangedNotification as GeneratedThreadStatusChangedNotification } from "./generated/app-server/v2/ThreadStatusChangedNotification.js";
+import type { AccountRateLimitsUpdatedNotification as GeneratedAccountRateLimitsUpdatedNotification } from "./generated/app-server/v2/AccountRateLimitsUpdatedNotification.js";
+import type { FileChangePatchUpdatedNotification as GeneratedFileChangePatchUpdatedNotification } from "./generated/app-server/v2/FileChangePatchUpdatedNotification.js";
+import type { GuardianWarningNotification as GeneratedGuardianWarningNotification } from "./generated/app-server/v2/GuardianWarningNotification.js";
 import type { ToolRequestUserInputParams as GeneratedToolRequestUserInputParams } from "./generated/app-server/v2/ToolRequestUserInputParams.js";
 import type { ToolRequestUserInputQuestion as GeneratedToolRequestUserInputQuestion } from "./generated/app-server/v2/ToolRequestUserInputQuestion.js";
 import type { ToolRequestUserInputOption as GeneratedToolRequestUserInputOption } from "./generated/app-server/v2/ToolRequestUserInputOption.js";
@@ -50,6 +58,7 @@ import type { TurnStartResponse as GeneratedTurnStartResponse } from "./generate
 import type { TurnStartedNotification as GeneratedTurnStartedNotification } from "./generated/app-server/v2/TurnStartedNotification.js";
 import type { TurnSteerResponse as GeneratedTurnSteerResponse } from "./generated/app-server/v2/TurnSteerResponse.js";
 import type { UserInput as GeneratedUserInput } from "./generated/app-server/v2/UserInput.js";
+import type { WarningNotification as GeneratedWarningNotification } from "./generated/app-server/v2/WarningNotification.js";
 
 export type JsonRpcId = GeneratedRequestId;
 
@@ -140,13 +149,26 @@ export type CodexServerRequest = GeneratedServerRequest;
 
 export type CodexThreadStartedNotification = GeneratedThreadStartedNotification;
 export type CodexThreadStatusChangedNotification = GeneratedThreadStatusChangedNotification;
+export type CodexThreadGoalUpdatedNotification = GeneratedThreadGoalUpdatedNotification;
+export type CodexThreadGoalClearedNotification = GeneratedThreadGoalClearedNotification;
 export type CodexTurnStartedNotification = GeneratedTurnStartedNotification;
 export type CodexTurnCompletedNotification = GeneratedTurnCompletedNotification;
 export type CodexThreadItem = GeneratedThreadItem;
 export type CodexItemStartedNotification = GeneratedItemStartedNotification;
 export type CodexItemCompletedNotification = GeneratedItemCompletedNotification;
+export type CodexFileChangePatchUpdatedNotification =
+  GeneratedFileChangePatchUpdatedNotification;
 export type CodexServerRequestResolvedNotification =
   GeneratedServerRequestResolvedNotification;
+export type CodexMcpServerStatusUpdatedNotification =
+  GeneratedMcpServerStatusUpdatedNotification;
+export type CodexAccountRateLimitsUpdatedNotification =
+  GeneratedAccountRateLimitsUpdatedNotification;
+export type CodexRemoteControlStatusChangedNotification =
+  GeneratedRemoteControlStatusChangedNotification;
+export type CodexModelVerificationNotification = GeneratedModelVerificationNotification;
+export type CodexWarningNotification = GeneratedWarningNotification;
+export type CodexGuardianWarningNotification = GeneratedGuardianWarningNotification;
 
 export type CodexRawServerNotification = {
   method: string;

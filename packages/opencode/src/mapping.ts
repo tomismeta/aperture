@@ -1,7 +1,27 @@
 import type { SourceEvent } from "@tomismeta/aperture-core";
 
 import type { OpencodeSseMessage } from "./types.js";
-import { mapMessagePartUpdated, mapSessionStatus } from "./mapping-lifecycle.js";
+import {
+  mapMessagePartUpdated,
+  mapSessionStatus,
+} from "./mapping-lifecycle.js";
+import {
+  mapCommandExecuted,
+  mapMcpBrowserOpenFailed,
+  mapMcpToolsChanged,
+  mapWorkspaceFailed,
+  mapWorkspaceReady,
+  mapWorkspaceStatus,
+  mapWorktreeFailed,
+  mapWorktreeReady,
+} from "./mapping-platform.js";
+import {
+  mapSessionCompacted,
+  mapSessionDiff,
+  mapSessionError,
+  mapSessionIdle,
+  mapTodoUpdated,
+} from "./mapping-session-events.js";
 import { mapPermissionAsked, mapQuestionAsked } from "./mapping-requests.js";
 import type { OpencodeMappingContext } from "./mapping-shared.js";
 export {
@@ -44,9 +64,74 @@ export function mapOpencodeEvent(
           event as Extract<OpencodeSseMessage, { type: "session.status" }>,
           context,
         );
+      case "session.idle":
+        return mapSessionIdle(
+          event as Extract<OpencodeSseMessage, { type: "session.idle" }>,
+          context,
+        );
+      case "session.compacted":
+        return mapSessionCompacted(
+          event as Extract<OpencodeSseMessage, { type: "session.compacted" }>,
+          context,
+        );
+      case "session.error":
+        return mapSessionError(
+          event as Extract<OpencodeSseMessage, { type: "session.error" }>,
+          context,
+        );
+      case "session.diff":
+        return mapSessionDiff(
+          event as Extract<OpencodeSseMessage, { type: "session.diff" }>,
+          context,
+        );
+      case "todo.updated":
+        return mapTodoUpdated(
+          event as Extract<OpencodeSseMessage, { type: "todo.updated" }>,
+          context,
+        );
       case "message.part.updated":
         return mapMessagePartUpdated(
           event as Extract<OpencodeSseMessage, { type: "message.part.updated" }>,
+          context,
+        );
+      case "mcp.tools.changed":
+        return mapMcpToolsChanged(
+          event as Extract<OpencodeSseMessage, { type: "mcp.tools.changed" }>,
+          context,
+        );
+      case "mcp.browser.open.failed":
+        return mapMcpBrowserOpenFailed(
+          event as Extract<OpencodeSseMessage, { type: "mcp.browser.open.failed" }>,
+          context,
+        );
+      case "command.executed":
+        return mapCommandExecuted(
+          event as Extract<OpencodeSseMessage, { type: "command.executed" }>,
+          context,
+        );
+      case "workspace.status":
+        return mapWorkspaceStatus(
+          event as Extract<OpencodeSseMessage, { type: "workspace.status" }>,
+          context,
+        );
+      case "workspace.ready":
+        return mapWorkspaceReady(
+          event as Extract<OpencodeSseMessage, { type: "workspace.ready" }>,
+          context,
+        );
+      case "workspace.failed":
+        return mapWorkspaceFailed(
+          event as Extract<OpencodeSseMessage, { type: "workspace.failed" }>,
+          context,
+        );
+      case "worktree.ready":
+        return mapWorktreeReady(
+          event as Extract<OpencodeSseMessage, { type: "worktree.ready" }>,
+          context,
+        );
+      case "worktree.failed":
+        return mapWorktreeFailed(
+          event as Extract<OpencodeSseMessage, { type: "worktree.failed" }>,
           context,
         );
       case "permission.replied":

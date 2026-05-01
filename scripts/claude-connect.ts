@@ -9,15 +9,31 @@ type HookDefinition = { type: string; command?: string } & Record<string, unknow
 type HookEntry = { matcher?: string; hooks: HookDefinition[] } & Record<string, unknown>;
 
 const DEFAULT_HOOK_SPECS: HookSpec[] = [
+  { eventName: "SessionStart" },
+  { eventName: "InstructionsLoaded" },
+  { eventName: "UserPromptExpansion" },
   { eventName: "PreToolUse", matcher: "*" },
   { eventName: "PermissionRequest", matcher: "*" },
+  { eventName: "PermissionDenied", matcher: "*" },
   { eventName: "PostToolUse", matcher: "*" },
   { eventName: "PostToolUseFailure", matcher: "*" },
+  { eventName: "PostToolBatch" },
   { eventName: "Elicitation" },
   { eventName: "ElicitationResult" },
   { eventName: "Notification" },
+  { eventName: "SubagentStart" },
+  { eventName: "SubagentStop" },
+  { eventName: "TaskCreated" },
+  { eventName: "TaskCompleted" },
   { eventName: "UserPromptSubmit" },
   { eventName: "Stop" },
+  { eventName: "StopFailure" },
+  { eventName: "TeammateIdle" },
+  { eventName: "ConfigChange" },
+  { eventName: "CwdChanged" },
+  { eventName: "PreCompact" },
+  { eventName: "PostCompact" },
+  { eventName: "SessionEnd" },
 ];
 
 async function main(): Promise<void> {

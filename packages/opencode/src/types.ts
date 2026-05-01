@@ -37,6 +37,10 @@ export type OpencodePermissionAnswer = {
 
 export type OpencodePermissionReplyInput = OpencodePermissionAnswer;
 
+export type OpencodePermissionRespondInput = {
+  response: OpencodePermissionDecision;
+};
+
 export type OpencodeQuestionReplyInput = {
   answers: string[][];
 };
@@ -222,6 +226,67 @@ export type OpencodeSessionStatusEvent = OpencodeSseEvent<
   }
 >;
 
+export type OpencodeSessionIdleEvent = OpencodeSseEvent<
+  "session.idle",
+  {
+    sessionID?: string;
+    [key: string]: unknown;
+  }
+>;
+
+export type OpencodeSessionCompactedEvent = OpencodeSseEvent<
+  "session.compacted",
+  {
+    sessionID?: string;
+    [key: string]: unknown;
+  }
+>;
+
+export type OpencodeSessionErrorEvent = OpencodeSseEvent<
+  "session.error",
+  {
+    sessionID?: string;
+    error?: {
+      name?: string;
+      data?: {
+        message?: string;
+        [key: string]: unknown;
+      };
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
+  }
+>;
+
+export type OpencodeSessionDiffEvent = OpencodeSseEvent<
+  "session.diff",
+  {
+    sessionID?: string;
+    diff?: Array<{
+      file?: string;
+      status?: string;
+      additions?: number;
+      deletions?: number;
+      [key: string]: unknown;
+    }>;
+    [key: string]: unknown;
+  }
+>;
+
+export type OpencodeTodoUpdatedEvent = OpencodeSseEvent<
+  "todo.updated",
+  {
+    sessionID?: string;
+    todos?: Array<{
+      content?: string;
+      status?: string;
+      priority?: string;
+      [key: string]: unknown;
+    }>;
+    [key: string]: unknown;
+  }
+>;
+
 export type OpencodeMessagePartUpdatedEvent = OpencodeSseEvent<
   "message.part.updated",
   {
@@ -229,6 +294,76 @@ export type OpencodeMessagePartUpdatedEvent = OpencodeSseEvent<
     messageID?: string;
     partID?: string;
     part?: Record<string, unknown>;
+    [key: string]: unknown;
+  }
+>;
+
+export type OpencodeMcpToolsChangedEvent = OpencodeSseEvent<
+  "mcp.tools.changed",
+  {
+    server?: string;
+    [key: string]: unknown;
+  }
+>;
+
+export type OpencodeMcpBrowserOpenFailedEvent = OpencodeSseEvent<
+  "mcp.browser.open.failed",
+  {
+    mcpName?: string;
+    url?: string;
+    [key: string]: unknown;
+  }
+>;
+
+export type OpencodeCommandExecutedEvent = OpencodeSseEvent<
+  "command.executed",
+  {
+    name?: string;
+    sessionID?: string;
+    arguments?: string;
+    messageID?: string;
+    [key: string]: unknown;
+  }
+>;
+
+export type OpencodeWorkspaceStatusEvent = OpencodeSseEvent<
+  "workspace.status",
+  {
+    workspaceID?: string;
+    status?: "connected" | "connecting" | "disconnected" | "error" | string;
+    [key: string]: unknown;
+  }
+>;
+
+export type OpencodeWorkspaceReadyEvent = OpencodeSseEvent<
+  "workspace.ready",
+  {
+    name?: string;
+    [key: string]: unknown;
+  }
+>;
+
+export type OpencodeWorkspaceFailedEvent = OpencodeSseEvent<
+  "workspace.failed",
+  {
+    message?: string;
+    [key: string]: unknown;
+  }
+>;
+
+export type OpencodeWorktreeReadyEvent = OpencodeSseEvent<
+  "worktree.ready",
+  {
+    name?: string;
+    branch?: string;
+    [key: string]: unknown;
+  }
+>;
+
+export type OpencodeWorktreeFailedEvent = OpencodeSseEvent<
+  "worktree.failed",
+  {
+    message?: string;
     [key: string]: unknown;
   }
 >;
@@ -252,8 +387,21 @@ export type OpencodeSupportedEvent =
   | OpencodeQuestionRepliedEvent
   | OpencodeQuestionRejectedEvent
   | OpencodeSessionStatusEvent
+  | OpencodeSessionIdleEvent
+  | OpencodeSessionCompactedEvent
+  | OpencodeSessionErrorEvent
+  | OpencodeSessionDiffEvent
+  | OpencodeTodoUpdatedEvent
   | OpencodeMessageUpdatedEvent
-  | OpencodeMessagePartUpdatedEvent;
+  | OpencodeMessagePartUpdatedEvent
+  | OpencodeMcpToolsChangedEvent
+  | OpencodeMcpBrowserOpenFailedEvent
+  | OpencodeCommandExecutedEvent
+  | OpencodeWorkspaceStatusEvent
+  | OpencodeWorkspaceReadyEvent
+  | OpencodeWorkspaceFailedEvent
+  | OpencodeWorktreeReadyEvent
+  | OpencodeWorktreeFailedEvent;
 
 export type OpencodeEventType = OpencodeSupportedEvent["type"];
 

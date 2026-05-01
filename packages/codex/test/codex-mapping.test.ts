@@ -22,7 +22,6 @@ test("maps command execution approvals into approval SourceEvents", () => {
       command: "pnpm test",
       cwd: "/repo",
       reason: "Run tests before continuing",
-      availableDecisions: ["accept", "decline", "cancel"],
     },
   };
 
@@ -61,6 +60,7 @@ test("maps thread start notifications with host execution metadata", () => {
     params: {
       thread: {
         id: "thread-surface-1",
+        forkedFromId: null,
         preview: "Review the deploy plan",
         ephemeral: false,
         modelProvider: "openai",
@@ -87,6 +87,109 @@ test("maps thread start notifications with host execution metadata", () => {
       surface: "terminal",
     },
   });
+});
+
+test("maps latest Codex goal, patch, and warning notifications", () => {
+  const goal = mapCodexNotification({
+    method: "thread/goal/updated",
+    params: {
+      threadId: "thread-goal",
+      turnId: "turn-goal",
+      goal: {
+        threadId: "thread-goal",
+        objective: "Finish the release checklist",
+        status: "budgetLimited",
+        tokenBudget: 10_000,
+        tokensUsed: 10_000,
+        timeUsedSeconds: 120,
+        createdAt: 1,
+        updatedAt: 2,
+      },
+    },
+  });
+
+  assert.equal(goal[0]?.type, "task.updated");
+  if (goal[0]?.type === "task.updated") {
+    assert.equal(goal[0].status, "waiting");
+    assert.equal(goal[0].title, "Codex goal reached budget");
+    assert.equal(goal[0].activityClass, "status_update");
+    assert.equal(goal[0].taskId, "codex:thread:thread-goal:turn:turn-goal");
+  }
+
+  const patch = mapCodexNotification({
+    method: "item/fileChange/patchUpdated",
+    params: {
+      threadId: "thread-goal",
+      turnId: "turn-goal",
+      itemId: "item:file",
+      changes: [{ path: "src/app.ts", kind: { type: "update", move_path: null }, diff: "@@ ..." }],
+    },
+  });
+
+  assert.equal(patch[0]?.type, "task.updated");
+  if (patch[0]?.type === "task.updated") {
+    assert.equal(patch[0].status, "running");
+    assert.equal(patch[0].toolFamily, "write");
+    assert.equal(patch[0].title, "Codex patch updated");
+  }
+
+  const warning = mapCodexNotification({
+    method: "guardianWarning",
+    params: {
+      threadId: "thread-goal",
+      message: "Auto-review flagged a risky shell command.",
+    },
+  });
+
+  assert.equal(warning[0]?.type, "task.updated");
+  if (warning[0]?.type === "task.updated") {
+    assert.equal(warning[0].status, "blocked");
+    assert.equal(warning[0].title, "Codex guardian warning");
+    assert.deepEqual(warning[0].semanticHints, {
+      activityClass: "status_update",
+      whyNow: "Auto-review flagged a risky shell command.",
+      confidence: "high",
+      consequence: "high",
+    });
+  }
+});
+
+test("maps Codex account and runtime status notifications without thread context", () => {
+  const rateLimit = mapCodexNotification({
+    method: "account/rateLimits/updated",
+    params: {
+      rateLimits: {
+        limitId: "codex-monthly",
+        limitName: "Monthly Codex",
+        primary: null,
+        secondary: null,
+        credits: null,
+        planType: null,
+        rateLimitReachedType: "rate_limit_reached",
+      },
+    },
+  });
+
+  assert.equal(rateLimit[0]?.type, "task.updated");
+  if (rateLimit[0]?.type === "task.updated") {
+    assert.equal(rateLimit[0].status, "blocked");
+    assert.equal(rateLimit[0].taskId, "codex:account:rate-limits");
+  }
+
+  const mcp = mapCodexNotification({
+    method: "mcpServer/startupStatus/updated",
+    params: {
+      name: "github",
+      status: "failed",
+      error: "OAuth token expired",
+    },
+  });
+
+  assert.equal(mcp[0]?.type, "task.updated");
+  if (mcp[0]?.type === "task.updated") {
+    assert.equal(mcp[0].status, "failed");
+    assert.equal(mcp[0].title, "Codex MCP server failed");
+  }
 });
 
 test("maps file change approvals into write approval SourceEvents", () => {
@@ -198,11 +301,11 @@ test("maps permissions approvals into approval SourceEvents", () => {
       threadId: "thread-1",
       turnId: "turn-9",
       itemId: "item:perm:1",
+      cwd: "/repo",
       reason: "Need network access",
       permissions: {
         network: { enabled: true },
         fileSystem: null,
-        macos: null,
       },
     },
   };
@@ -449,11 +552,11 @@ test("maps permissions approval responses back to granted permissions", () => {
       threadId: "thread-1",
       turnId: "turn-9",
       itemId: "item:perm:1",
+      cwd: "/repo",
       reason: "Need network access",
       permissions: {
         network: { enabled: true },
         fileSystem: null,
-        macos: null,
       },
     },
   };

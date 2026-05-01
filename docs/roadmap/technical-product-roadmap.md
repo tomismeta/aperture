@@ -22,7 +22,7 @@ Right now Aperture has:
 - a published core SDK:
   - `@tomismeta/aperture-core@0.7.0`
 - a published local product package:
-  - `@tomismeta/aperture@0.4.0`
+  - `@tomismeta/aperture@0.4.1`
 - two live adapter paths:
   - Claude Code
   - OpenCode

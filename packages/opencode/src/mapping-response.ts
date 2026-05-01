@@ -6,6 +6,7 @@ import {
   opencodeInteractionId,
   opencodeTaskId,
   parseOpencodeInteractionId,
+  parseOpencodeTaskSessionId,
   readString,
   type OpencodeMappingContext,
   type OpencodeResponseAction,
@@ -104,12 +105,18 @@ export function mapOpencodeResponse(
         return {
           kind: "permission.reply",
           requestId: parsed.requestId,
+          ...(parseOpencodeTaskSessionId(response.taskId)
+            ? { sessionId: parseOpencodeTaskSessionId(response.taskId)! }
+            : {}),
           body: { reply: "once" },
         };
       case "rejected":
         return {
           kind: "permission.reply",
           requestId: parsed.requestId,
+          ...(parseOpencodeTaskSessionId(response.taskId)
+            ? { sessionId: parseOpencodeTaskSessionId(response.taskId)! }
+            : {}),
           body: {
             reply: "reject",
             message: response.response.reason ?? "Rejected in Aperture.",
@@ -120,6 +127,9 @@ export function mapOpencodeResponse(
         return {
           kind: "permission.reply",
           requestId: parsed.requestId,
+          ...(parseOpencodeTaskSessionId(response.taskId)
+            ? { sessionId: parseOpencodeTaskSessionId(response.taskId)! }
+            : {}),
           body: {
             reply: "reject",
             message: "Dismissed in Aperture.",

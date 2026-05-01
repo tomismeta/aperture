@@ -4,7 +4,10 @@ import type {
   SourceTaskUpdatedEvent,
 } from "@tomismeta/aperture-core";
 
-import type { OpencodeMessagePartUpdatedEvent, OpencodeSseMessage } from "./types.js";
+import type {
+  OpencodeMessagePartUpdatedEvent,
+  OpencodeSseMessage,
+} from "./types.js";
 import {
   createOpencodeInstanceKey,
   normalizeTaskStatus,
@@ -150,9 +153,11 @@ function sessionStatusSemanticHints(whyNow: string | undefined): TaskUpdateSeman
 
 function taskActivitySemanticHints(
   activityClass: NonNullable<SourceTaskUpdatedEvent["activityClass"]>,
+  whyNow?: string,
 ): TaskUpdateSemanticHints {
   return {
     activityClass,
+    ...(whyNow !== undefined ? { whyNow } : {}),
     confidence: "high",
   };
 }

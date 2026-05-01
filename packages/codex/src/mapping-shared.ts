@@ -200,9 +200,6 @@ export function describeAdditionalPermissions(
   if (permissions.fileSystem?.write?.length) {
     parts.push(`write access to ${permissions.fileSystem.write.join(", ")}`);
   }
-  if (permissions.macos) {
-    parts.push("macOS permissions");
-  }
   return parts.length > 0
     ? `Codex requested ${parts.join(" and ")}.`
     : "Codex requested additional permissions before continuing.";

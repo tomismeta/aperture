@@ -4,17 +4,11 @@ import type {
   CodexItemCompletedNotification,
   CodexItemStartedNotification,
   CodexRawServerNotification,
-  CodexThreadStartedNotification,
-  CodexThreadStatusChangedNotification,
-  CodexTurnCompletedNotification,
-  CodexTurnStartedNotification,
 } from "./protocol.js";
 import {
   codexItemEventId,
   codexSource,
-  codexThreadTaskId,
   codexTurnTaskId,
-  describeThreadStatus,
   isCommandExecutionItem,
   isEnteredReviewModeItem,
   isExitedReviewModeItem,
@@ -24,6 +18,36 @@ import {
   withOptionalSummary,
   type CodexMappingContext,
 } from "./mapping-shared.js";
+import {
+  isAccountRateLimitsUpdatedNotification,
+  isFileChangePatchUpdatedNotification,
+  isGuardianWarningNotification,
+  isMcpServerStatusUpdatedNotification,
+  isModelVerificationNotification,
+  isRemoteControlStatusChangedNotification,
+  isWarningNotification,
+  mapAccountRateLimitsUpdated,
+  mapFileChangePatchUpdated,
+  mapGuardianWarning,
+  mapMcpServerStatusUpdated,
+  mapModelVerification,
+  mapRemoteControlStatusChanged,
+  mapWarning,
+} from "./mapping-notifications-ops.js";
+import {
+  isThreadGoalClearedNotification,
+  isThreadGoalUpdatedNotification,
+  isThreadStartedNotification,
+  isThreadStatusChangedNotification,
+  isTurnCompletedNotification,
+  isTurnStartedNotification,
+  mapThreadGoalCleared,
+  mapThreadGoalUpdated,
+  mapThreadStarted,
+  mapThreadStatusChanged,
+  mapTurnCompleted,
+  mapTurnStarted,
+} from "./mapping-notifications-thread.js";
 
 export function mapCodexNotification(
   notification: CodexRawServerNotification,
@@ -37,6 +61,14 @@ export function mapCodexNotification(
     case "thread/status/changed":
       return isThreadStatusChangedNotification(notification.params)
         ? [mapThreadStatusChanged(notification.params, context)]
+        : [];
+    case "thread/goal/updated":
+      return isThreadGoalUpdatedNotification(notification.params)
+        ? [mapThreadGoalUpdated(notification.params, context)]
+        : [];
+    case "thread/goal/cleared":
+      return isThreadGoalClearedNotification(notification.params)
+        ? [mapThreadGoalCleared(notification.params, context)]
         : [];
     case "turn/started":
       return isTurnStartedNotification(notification.params)
@@ -54,88 +86,37 @@ export function mapCodexNotification(
       return isItemCompletedNotification(notification.params)
         ? mapItemCompleted(notification.params, context)
         : [];
+    case "item/fileChange/patchUpdated":
+      return isFileChangePatchUpdatedNotification(notification.params)
+        ? [mapFileChangePatchUpdated(notification.params, context)]
+        : [];
+    case "mcpServer/startupStatus/updated":
+      return isMcpServerStatusUpdatedNotification(notification.params)
+        ? [mapMcpServerStatusUpdated(notification.params)]
+        : [];
+    case "account/rateLimits/updated":
+      return isAccountRateLimitsUpdatedNotification(notification.params)
+        ? mapAccountRateLimitsUpdated(notification.params)
+        : [];
+    case "remoteControl/status/changed":
+      return isRemoteControlStatusChangedNotification(notification.params)
+        ? [mapRemoteControlStatusChanged(notification.params)]
+        : [];
+    case "model/verification":
+      return isModelVerificationNotification(notification.params)
+        ? [mapModelVerification(notification.params, context)]
+        : [];
+    case "warning":
+      return isWarningNotification(notification.params)
+        ? [mapWarning(notification.params, context)]
+        : [];
+    case "guardianWarning":
+      return isGuardianWarningNotification(notification.params)
+        ? [mapGuardianWarning(notification.params, context)]
+        : [];
     default:
       return [];
   }
-}
-
-function mapThreadStarted(
-  notification: CodexThreadStartedNotification,
-  context: CodexMappingContext,
-): SourceEvent {
-  return {
-    id: `codex:${encodeURIComponent(notification.thread.id)}:task.started`,
-    type: "task.started",
-    taskId: codexThreadTaskId(notification.thread.id),
-    timestamp: new Date().toISOString(),
-    source: codexSource(notification.thread.id, context),
-    title: notification.thread.name ?? "Codex thread started",
-    ...withOptionalSummary(notification.thread.preview || undefined),
-  };
-}
-
-function mapThreadStatusChanged(
-  notification: CodexThreadStatusChangedNotification,
-  context: CodexMappingContext,
-): SourceEvent {
-  return {
-    id: `codex:${encodeURIComponent(notification.threadId)}:task.updated:thread-status`,
-    type: "task.updated",
-    taskId: codexThreadTaskId(notification.threadId),
-    timestamp: new Date().toISOString(),
-    source: codexSource(notification.threadId, context),
-    activityClass: "session_status",
-    semanticHints: taskUpdateSemanticHints(
-      "session_status",
-      describeThreadStatus(notification.status),
-    ),
-    title: "Codex thread status changed",
-    summary: describeThreadStatus(notification.status),
-    status: notification.status.type === "active" ? "running" : "waiting",
-  };
-}
-
-function mapTurnStarted(
-  notification: CodexTurnStartedNotification,
-  context: CodexMappingContext,
-): SourceEvent {
-  return {
-    id: `codex:${encodeURIComponent(notification.threadId)}:${encodeURIComponent(notification.turn.id)}:task.updated:turn-started`,
-    type: "task.updated",
-    taskId: codexTurnTaskId(notification.threadId, notification.turn.id),
-    timestamp: new Date().toISOString(),
-    source: codexSource(notification.threadId, context),
-    activityClass: "session_status",
-    semanticHints: taskUpdateSemanticHints(
-      "session_status",
-      "Codex began working on the current turn.",
-    ),
-    title: "Codex turn started",
-    summary: "Codex began working on the current turn.",
-    status: "running",
-  };
-}
-
-function mapTurnCompleted(
-  notification: CodexTurnCompletedNotification,
-  context: CodexMappingContext,
-): SourceEvent {
-  const failed = notification.turn.status === "failed";
-  return {
-    id: `codex:${encodeURIComponent(notification.threadId)}:${encodeURIComponent(notification.turn.id)}:task.updated:turn-completed`,
-    type: "task.updated",
-    taskId: codexTurnTaskId(notification.threadId, notification.turn.id),
-    timestamp: new Date().toISOString(),
-    source: codexSource(notification.threadId, context),
-    activityClass: failed ? "tool_failure" : "tool_completion",
-    semanticHints: taskUpdateSemanticHints(
-      failed ? "tool_failure" : "tool_completion",
-      failed ? "Codex ended the turn with an error." : "Codex finished the current turn.",
-    ),
-    title: failed ? "Codex turn failed" : "Codex turn completed",
-    summary: failed ? "Codex ended the turn with an error." : "Codex finished the current turn.",
-    status: failed ? "failed" : "completed",
-  };
 }
 
 function mapItemStarted(
@@ -247,47 +228,6 @@ function mapItemCompleted(
   }
 
   return [];
-}
-
-function isThreadStartedNotification(params: unknown): params is CodexThreadStartedNotification {
-  return (
-    isRecord(params)
-    && isRecord(params.thread)
-    && typeof params.thread.id === "string"
-    && typeof params.thread.preview === "string"
-  );
-}
-
-function isThreadStatusChangedNotification(
-  params: unknown,
-): params is CodexThreadStatusChangedNotification {
-  return (
-    isRecord(params)
-    && typeof params.threadId === "string"
-    && isRecord(params.status)
-    && typeof params.status.type === "string"
-  );
-}
-
-function isTurnStartedNotification(params: unknown): params is CodexTurnStartedNotification {
-  return isTurnNotification(params);
-}
-
-function isTurnCompletedNotification(params: unknown): params is CodexTurnCompletedNotification {
-  return isTurnNotification(params);
-}
-
-function isTurnNotification(
-  params: unknown,
-): params is CodexTurnStartedNotification | CodexTurnCompletedNotification {
-  return (
-    isRecord(params)
-    && typeof params.threadId === "string"
-    && isRecord(params.turn)
-    && typeof params.turn.id === "string"
-    && typeof params.turn.status === "string"
-    && Array.isArray(params.turn.items)
-  );
 }
 
 function isItemStartedNotification(params: unknown): params is CodexItemStartedNotification {

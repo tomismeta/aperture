@@ -35,7 +35,7 @@ test("bootstraps pending permissions and routes runtime responses back to OpenCo
       return;
     }
 
-    if (req.method === "POST" && url.pathname === "/permission/perm-1/reply") {
+    if (req.method === "POST" && url.pathname === "/session/ses-1/permissions/perm-1") {
       requests.push({ method: req.method, path: url.pathname, body: await readJson(req) });
       res.setHeader("Content-Type", "application/json");
       res.end(JSON.stringify({ ok: true }));
@@ -93,8 +93,8 @@ test("bootstraps pending permissions and routes runtime responses back to OpenCo
     await waitFor(() => requests[0] ?? null);
     assert.deepEqual(requests[0], {
       method: "POST",
-      path: "/permission/perm-1/reply",
-      body: { reply: "once" },
+      path: "/session/ses-1/permissions/perm-1",
+      body: { response: "once" },
     });
 
     for (const client of sseClients) {
@@ -192,20 +192,23 @@ test("question requests with read wording stay interactive under lowRiskRead aut
 
     for (const client of sseClients) {
       client.write(`data: ${JSON.stringify({
-        type: "question.asked",
-        properties: {
-          id: "question-read-1",
-          sessionID: "ses-question-1",
-          questions: [
-            {
-              header: "Read first?",
-              question: "Should I read the config before continuing?",
-              options: [
-                { label: "Yes", description: "Read config first" },
-                { label: "No", description: "Skip the read step" },
-              ],
-            },
-          ],
+        directory: "/workspace/project",
+        payload: {
+          type: "question.asked",
+          properties: {
+            id: "question-read-1",
+            sessionID: "ses-question-1",
+            questions: [
+              {
+                header: "Read first?",
+                question: "Should I read the config before continuing?",
+                options: [
+                  { label: "Yes", description: "Read config first" },
+                  { label: "No", description: "Skip the read step" },
+                ],
+              },
+            ],
+          },
         },
       })}\n\n`);
     }

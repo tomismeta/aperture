@@ -407,6 +407,105 @@ test("maps session.status into explicit session-status awareness", () => {
   });
 });
 
+test("maps latest OpenCode session, diff, and workspace events", () => {
+  const sessionError = mapOpencodeEvent({
+    type: "session.error",
+    properties: {
+      sessionID: "ses-err",
+      error: {
+        name: "ContextOverflowError",
+        data: {
+          message: "Context window overflowed.",
+        },
+      },
+    },
+  }, context);
+
+  assert.equal(sessionError[0]?.type, "task.updated");
+  if (sessionError[0]?.type === "task.updated") {
+    assert.equal(sessionError[0].status, "failed");
+    assert.equal(sessionError[0].activityClass, "tool_failure");
+    assert.equal(sessionError[0].summary, "Context window overflowed.");
+  }
+
+  const diff = mapOpencodeEvent({
+    type: "session.diff",
+    properties: {
+      sessionID: "ses-diff",
+      diff: [
+        { file: "src/app.ts", status: "modified", additions: 4, deletions: 1 },
+      ],
+    },
+  }, context);
+
+  assert.equal(diff[0]?.type, "task.updated");
+  if (diff[0]?.type === "task.updated") {
+    assert.equal(diff[0].status, "running");
+    assert.equal(diff[0].toolFamily, "write");
+    assert.equal(diff[0].summary, "1 file diff(s) are available.");
+  }
+
+  const workspaceFailed = mapOpencodeEvent({
+    type: "workspace.failed",
+    properties: {
+      message: "Unable to restore workspace snapshot.",
+    },
+  }, context);
+
+  assert.equal(workspaceFailed[0]?.type, "task.updated");
+  if (workspaceFailed[0]?.type === "task.updated") {
+    assert.equal(workspaceFailed[0].status, "failed");
+    assert.equal(workspaceFailed[0].title, "OpenCode workspace failed");
+  }
+});
+
+test("maps latest OpenCode todo, MCP, and worktree events", () => {
+  const todos = mapOpencodeEvent({
+    type: "todo.updated",
+    properties: {
+      sessionID: "ses-todo",
+      todos: [
+        { content: "Run tests", status: "in_progress", priority: "high" },
+        { content: "Update docs", status: "pending", priority: "medium" },
+      ],
+    },
+  }, context);
+
+  assert.equal(todos[0]?.type, "task.updated");
+  if (todos[0]?.type === "task.updated") {
+    assert.equal(todos[0].status, "running");
+    assert.equal(todos[0].title, "OpenCode todo list updated");
+  }
+
+  const mcp = mapOpencodeEvent({
+    type: "mcp.browser.open.failed",
+    properties: {
+      mcpName: "github",
+      url: "https://github.com/login/device",
+    },
+  }, context);
+
+  assert.equal(mcp[0]?.type, "task.updated");
+  if (mcp[0]?.type === "task.updated") {
+    assert.equal(mcp[0].status, "failed");
+    assert.equal(mcp[0].activityClass, "tool_failure");
+  }
+
+  const worktree = mapOpencodeEvent({
+    type: "worktree.ready",
+    properties: {
+      name: "feature-worktree",
+      branch: "feature/opencode",
+    },
+  }, context);
+
+  assert.equal(worktree[0]?.type, "task.updated");
+  if (worktree[0]?.type === "task.updated") {
+    assert.equal(worktree[0].status, "completed");
+    assert.equal(worktree[0].title, "OpenCode worktree ready");
+  }
+});
+
 test("maps failed message parts into explicit tool-failure awareness", () => {
   const mapped = mapOpencodeEvent({
     type: "message.part.updated",
@@ -445,6 +544,7 @@ test("maps OpenCode approvals back to permission reply calls", () => {
   assert.deepEqual(mapOpencodeResponse(response), {
     kind: "permission.reply",
     requestId: "perm-1",
+    sessionId: "ses-1",
     body: { reply: "once" },
   });
 });
@@ -459,6 +559,7 @@ test("maps non-decisive permission responses conservatively to reject", () => {
   assert.deepEqual(mapOpencodeResponse(response), {
     kind: "permission.reply",
     requestId: "perm-1",
+    sessionId: "ses-1",
     body: {
       reply: "reject",
       message: "Dismissed in Aperture.",
@@ -476,6 +577,7 @@ test("maps rejected OpenCode permissions with a friendly default message", () =>
   assert.deepEqual(mapOpencodeResponse(response), {
     kind: "permission.reply",
     requestId: "perm-1",
+    sessionId: "ses-1",
     body: {
       reply: "reject",
       message: "Rejected in Aperture.",

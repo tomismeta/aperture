@@ -37,7 +37,7 @@ export type OpencodeBridgeClient = Pick<
   | "rejectQuestion"
   | "promptSession"
   | "streamEvents"
->;
+> & Partial<Pick<OpencodeClient, "respondToSessionPermission">>;
 
 export type OpencodeRuntimeClient = Pick<
   ApertureRuntimeAdapterClient,
@@ -281,6 +281,12 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
 
     switch (action.kind) {
       case "permission.reply":
+        if (action.sessionId && client.respondToSessionPermission) {
+          await client.respondToSessionPermission(action.sessionId, action.requestId, {
+            response: action.body.reply,
+          });
+          return;
+        }
         await client.replyToPermission(action.requestId, action.body);
         return;
       case "question.reply":

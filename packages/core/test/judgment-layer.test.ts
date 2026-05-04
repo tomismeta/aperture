@@ -532,6 +532,54 @@ test("configured lowRiskRead policy can auto-approve bounded approvals", () => {
   );
 });
 
+test("hands-on control mode keeps configured auto-approval visible", () => {
+  const gates = new AttentionPolicy({
+    apertureProfile: {
+      version: 1,
+      operatorId: "default",
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      preferences: {
+        controlMode: "hands-on",
+      },
+    },
+    policyConfig: {
+      version: 1,
+      updatedAt: "2026-03-12T10:15:00.000Z",
+      policy: {
+        lowRiskRead: {
+          autoApprove: true,
+        },
+      },
+    },
+  });
+
+  const verdict = gates.evaluateGates(
+    createCandidate({
+      mode: "approval",
+      blocking: true,
+      consequence: "low",
+      title: "Claude Code wants to read config.ts",
+      summary: "config.ts",
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(verdict.autoApprove, false);
+  assert.equal(verdict.requiresOperatorResponse, true);
+  assert.equal(verdict.minimumLane, "now");
+  assert.ok(
+    verdict.rationale.includes(
+      "hands-on control mode keeps configured auto-approval in the attention surface",
+    ),
+  );
+});
+
 test("configured lowRiskWeb policy can auto-approve bounded web approvals", () => {
   const gates = new AttentionPolicy({
     policyConfig: {

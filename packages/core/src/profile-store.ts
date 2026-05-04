@@ -12,12 +12,14 @@ import {
 import { readAttentionLane } from "./attention-lane.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
 
+export type ApertureControlMode = "hands-on" | "standard" | "focus";
+
 export type ApertureProfile = {
   version: number;
   operatorId: string;
   updatedAt: string;
   preferences?: {
-    controlMode?: "hands-on" | "standard" | "focus";
+    controlMode?: ApertureControlMode;
     quietHours?: string[];
     preferBatchingFor?: string[];
     alwaysExpandContextFor?: string[];
@@ -387,7 +389,7 @@ function numberValue(value: string | null): number | null {
   return value !== null && /^-?\d+(?:\.\d+)?$/.test(value) ? Number(value) : null;
 }
 
-function readControlMode(value: string | null): "hands-on" | "standard" | "focus" | null {
+function readControlMode(value: string | null): ApertureControlMode | null {
   switch (value) {
     case "hands-on":
     case "standard":

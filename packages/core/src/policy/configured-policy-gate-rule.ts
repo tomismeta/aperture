@@ -11,20 +11,24 @@ import {
 
 export const evaluateConfiguredPolicyGateRule: PolicyGateRule = (input) => {
   const { candidate, policyConfig, apertureProfile } = input;
+  const controlMode = apertureProfile?.preferences?.controlMode ?? "standard";
   const toolFamily = inferConfiguredPolicyToolFamily(candidate);
   const toolOverride = toolFamily ? apertureProfile?.overrides?.tools?.[toolFamily] : undefined;
   const policyRule = matchPolicyRule(policyConfig, candidate);
   const requireContextExpansion =
     toolOverride?.requireContextExpansion === true || policyRule?.requireContextExpansion === true;
-  const autoApprove =
+  const configuredAutoApprove =
     policyRule?.autoApprove === true &&
     candidate.mode === "approval" &&
     candidate.responseSpec.kind === "approval" &&
     !requireContextExpansion;
+  const autoApproveBlockedByControlMode = configuredAutoApprove && controlMode === "hands-on";
+  const autoApprove = configuredAutoApprove && !autoApproveBlockedByControlMode;
 
   const minimumLane =
     readAttentionLane(toolOverride?.minimumLane ?? toolOverride?.defaultPresentation) ??
     readAttentionLane(policyRule?.minimumLane) ??
+    (autoApproveBlockedByControlMode ? "now" : undefined) ??
     (requireContextExpansion ? "now" : undefined);
   const mayInterrupt = policyRule?.mayInterrupt;
   const requiresOperatorResponse =
@@ -40,6 +44,9 @@ export const evaluateConfiguredPolicyGateRule: PolicyGateRule = (input) => {
   }
   if (policyRule) {
     rationale.push("configured judgment policy applies to this interaction");
+  }
+  if (autoApproveBlockedByControlMode) {
+    rationale.push("hands-on control mode keeps configured auto-approval in the attention surface");
   }
 
   if (autoApprove) {

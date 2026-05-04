@@ -91,6 +91,11 @@ function defaultPreferenceSections(): string[] {
     "Accepted fields:",
     "- control mode: hands-on | standard | focus",
     "",
+    "Control mode changes Aperture's default posture:",
+    "- hands-on: ask sooner and keep configured auto-approval visible",
+    "- standard: balanced deterministic routing",
+    "- focus: ask later for non-blocking work so the current task stays quiet",
+    "",
     "- control mode: standard",
   ];
 }

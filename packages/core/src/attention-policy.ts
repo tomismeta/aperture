@@ -26,7 +26,7 @@ import type {
   PolicyGateRuleEvaluation,
   PolicyGateRuleInput,
 } from "./policy/policy-gate-rule.js";
-import type { MemoryProfile, ApertureProfile } from "./profile-store.js";
+import type { ApertureControlMode, MemoryProfile, ApertureProfile } from "./profile-store.js";
 
 export type AttentionLane = "now" | "next" | "ambient";
 
@@ -69,6 +69,11 @@ type AttentionPolicyOptions = {
   memoryProfile?: MemoryProfile;
 };
 
+type ResolvedInterruptCriterion = {
+  criterion: AttentionInterruptCriterion;
+  rationale: string[];
+};
+
 const POLICY_GATE_RULES: readonly PolicyGateRule[] = [
   evaluateConfiguredPolicyGateRule,
   evaluateBlockingPolicyGateRule,
@@ -94,11 +99,13 @@ export class AttentionPolicy {
   private readonly policyConfig: PolicyConfig | undefined;
   private readonly apertureProfile: ApertureProfile | undefined;
   private readonly memoryProfile: MemoryProfile | undefined;
+  private readonly controlMode: ApertureControlMode;
 
   constructor(options: AttentionPolicyOptions = {}) {
     this.policyConfig = options.policyConfig;
     this.apertureProfile = options.apertureProfile;
     this.memoryProfile = options.memoryProfile;
+    this.controlMode = options.apertureProfile?.preferences?.controlMode ?? "standard";
   }
 
   evaluateGates(candidate: AttentionCandidate): AttentionPolicyVerdict {
@@ -161,10 +168,11 @@ export class AttentionPolicy {
     currentScore: number | null,
     options: { ambiguityDefaults?: AmbiguityDefaults } = {},
   ): AttentionPolicyCriterionExplanation {
-    let criterion = this.readInterruptCriterion(options.ambiguityDefaults);
+    const resolvedCriterion = this.readInterruptCriterion(options.ambiguityDefaults);
+    let criterion = resolvedCriterion.criterion;
     const peripheralResolution = this.readPeripheralResolution(candidate, policyVerdict);
     const sourceTrustAdjustment = this.readSourceTrustAdjustment(candidate);
-    const criterionRationale: string[] = [];
+    const criterionRationale: string[] = [...resolvedCriterion.rationale];
     const evaluations: PolicyCriterionRuleEvaluation[] = [];
 
     for (const rule of POLICY_CRITERION_RULES) {
@@ -211,8 +219,8 @@ export class AttentionPolicy {
 
   private readInterruptCriterion(
     ambiguityDefaults?: AmbiguityDefaults,
-  ): AttentionInterruptCriterion {
-    return {
+  ): ResolvedInterruptCriterion {
+    const criterion = {
       activationThreshold:
         ambiguityDefaults?.nonBlockingActivationThreshold ??
         this.policyConfig?.ambiguityDefaults?.nonBlockingActivationThreshold ??
@@ -222,6 +230,8 @@ export class AttentionPolicy {
         this.policyConfig?.ambiguityDefaults?.promotionMargin ??
         JUDGMENT_DEFAULTS.ambiguity.promotionMargin,
     };
+
+    return applyControlModeToCriterion(criterion, this.controlMode);
   }
 
   private readPeripheralResolution(
@@ -273,5 +283,34 @@ export class AttentionPolicy {
       sourceTrustAdjustment,
       peripheralResolution,
     };
+  }
+}
+
+function applyControlModeToCriterion(
+  criterion: AttentionInterruptCriterion,
+  controlMode: ApertureControlMode,
+): ResolvedInterruptCriterion {
+  switch (controlMode) {
+    case "hands-on":
+      return {
+        criterion: {
+          activationThreshold: Math.max(0, criterion.activationThreshold - 40),
+          promotionMargin: Math.max(0, criterion.promotionMargin - 10),
+        },
+        rationale: ["hands-on control mode lowers the interrupt bar for non-blocking work"],
+      };
+    case "focus":
+      return {
+        criterion: {
+          activationThreshold: criterion.activationThreshold + 40,
+          promotionMargin: criterion.promotionMargin + 10,
+        },
+        rationale: ["focus control mode raises the interrupt bar for non-blocking work"],
+      };
+    case "standard":
+      return {
+        criterion,
+        rationale: [],
+      };
   }
 }

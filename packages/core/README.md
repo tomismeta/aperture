@@ -544,6 +544,9 @@ If you use markdown-backed state, Aperture keeps the local model intentionally s
 
 - preferences:
   - `control mode`
+    - `hands-on`: ask sooner and keep configured auto-approval visible
+    - `standard`: keep the default balanced routing posture
+    - `focus`: ask later for non-blocking work
 - policy rule fields:
   - `auto approve`
   - `may interrupt`

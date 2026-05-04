@@ -1788,6 +1788,75 @@ test("durable source trust can lower the interrupt bar when no frame is active",
   assert.equal(explanation.policyCriterionEvaluations[2]?.kind, "adjust");
 });
 
+test("hands-on control mode lowers the interrupt bar for non-blocking work", () => {
+  const handsOnCoordinator = new JudgmentCoordinator(
+    new AttentionPolicy({
+      apertureProfile: {
+        version: 1,
+        operatorId: "default",
+        updatedAt: "2026-03-12T10:15:00.000Z",
+        preferences: {
+          controlMode: "hands-on",
+        },
+      },
+    }),
+    new AttentionValue(),
+    new AttentionPlanner(),
+  );
+
+  const explanation = handsOnCoordinator.explain(
+    null,
+    createCandidate({
+      blocking: false,
+      priority: "normal",
+      consequence: "medium",
+      tone: "focused",
+      attentionScoreOffset: 40,
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "activate");
+  assert.equal(explanation.criterion?.criterion.activationThreshold, 140);
+  assert.deepEqual(explanation.criterion?.rationale, [
+    "hands-on control mode lowers the interrupt bar for non-blocking work",
+  ]);
+});
+
+test("focus control mode raises the interrupt bar for non-blocking work", () => {
+  const focusCoordinator = new JudgmentCoordinator(
+    new AttentionPolicy({
+      apertureProfile: {
+        version: 1,
+        operatorId: "default",
+        updatedAt: "2026-03-12T10:15:00.000Z",
+        preferences: {
+          controlMode: "focus",
+        },
+      },
+    }),
+    new AttentionValue(),
+    new AttentionPlanner(),
+  );
+
+  const explanation = focusCoordinator.explain(
+    null,
+    createCandidate({
+      blocking: false,
+      priority: "normal",
+      consequence: "medium",
+      tone: "focused",
+      attentionScoreOffset: 105,
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "queue");
+  assert.equal(explanation.criterion?.criterion.activationThreshold, 220);
+  assert.deepEqual(explanation.criterion?.rationale, [
+    "focus control mode raises the interrupt bar for non-blocking work",
+    "uncertain interruptive work stays peripheral until its signal is stronger",
+  ]);
+});
+
 test("explicit high-confidence semantic evidence can lower the interrupt bar slightly without overriding status policy", () => {
   const explanation = coordinator.explain(
     null,

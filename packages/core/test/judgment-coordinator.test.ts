@@ -233,7 +233,7 @@ test("surface capability fallback still keeps lower-ranked work queued when ambi
 test("tool-oriented configured policy does not preserve passive status routing even with explicit tool metadata", () => {
   const configuredCoordinator = new JudgmentCoordinator(
     new AttentionPolicy({
-      judgmentConfig: {
+      policyConfig: {
         version: 1,
         updatedAt: "2026-03-12T10:15:00.000Z",
         policy: {
@@ -282,7 +282,7 @@ test("tool-oriented configured policy does not preserve passive status routing e
 test("passive status ignores ambient-surface fallback when no sticky peripheral rule applies", () => {
   const configuredCoordinator = new JudgmentCoordinator(
     new AttentionPolicy({
-      judgmentConfig: {
+      policyConfig: {
         version: 1,
         updatedAt: "2026-03-12T10:15:00.000Z",
         policy: {
@@ -2219,7 +2219,7 @@ test("preemptively suppresses low-value status when pressure is rising", () => {
 test("configured bounded approvals can auto-approve through the coordinator", () => {
   const autoApproveCoordinator = new JudgmentCoordinator(
     new AttentionPolicy({
-      judgmentConfig: {
+      policyConfig: {
         version: 1,
         updatedAt: "2026-03-12T10:15:00.000Z",
         policy: {
@@ -2267,7 +2267,7 @@ test("configured bounded approvals can auto-approve through the coordinator", ()
 test("configured non-interruptive queue policy keeps optional approvals queued when the surface is empty", () => {
   const configuredCoordinator = new JudgmentCoordinator(
     new AttentionPolicy({
-      judgmentConfig: {
+      policyConfig: {
         version: 1,
         updatedAt: "2026-03-12T10:15:00.000Z",
         policy: {

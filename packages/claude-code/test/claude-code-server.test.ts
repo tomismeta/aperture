@@ -198,7 +198,7 @@ test("enriches AskUserQuestion PermissionRequest payloads before holding them", 
 
 test("returns allow immediately when policy auto-approves a held read request", async () => {
   const core = new ApertureCore({
-    judgmentConfig: {
+    policyConfig: {
       version: 1,
       updatedAt: "2026-03-13T12:00:00.000Z",
       policy: {

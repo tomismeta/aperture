@@ -1,6 +1,6 @@
 import type { AttentionEvidenceContext } from "../attention-evidence.js";
 import type { AttentionCandidate, AttentionPriority } from "../interaction-candidate.js";
-import type { PlannerDefaults } from "../judgment-config.js";
+import type { PlannerDefaults } from "../policy-config.js";
 import type {
   AttentionPlanDecision,
   AttentionPlanningContext,

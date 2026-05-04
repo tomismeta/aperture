@@ -13,13 +13,13 @@ Use it when the question is:
 
 ## Grades
 
-| Area | Grade | Notes |
-| --- | --- | --- |
-| deterministic engine architecture | A- | coherent lanes, strong seams, replayable hot path |
-| adapter-vs-core boundary discipline | A- | mostly strong, with occasional adapter mapping gaps like Claude `Search` |
-| doctrine quality | B+ | good philosophy, but too many items are mixed together |
-| roadmap freshness | B- | some docs drift behind the shipped product and current positioning |
-| moat clarity | A- | strongest around deterministic judgment, human-shaped memory, and cross-source attention routing |
+| Area                                | Grade | Notes                                                                                            |
+| ----------------------------------- | ----- | ------------------------------------------------------------------------------------------------ |
+| deterministic engine architecture   | A-    | coherent lanes, strong seams, replayable hot path                                                |
+| adapter-vs-core boundary discipline | A-    | mostly strong, with occasional adapter mapping gaps like Claude `Search`                         |
+| doctrine quality                    | B+    | good philosophy, but too many items are mixed together                                           |
+| roadmap freshness                   | B-    | some docs drift behind the shipped product and current positioning                               |
+| moat clarity                        | A-    | strongest around deterministic judgment, human-shaped memory, and cross-source attention routing |
 
 ## What Is Strong
 
@@ -155,11 +155,11 @@ Ordered by leverage:
    - continue making uncertainty conservative and inspectable
 4. **surface capability modeling**
    - especially for non-TUI and conversational hosts
-5. **operator learning clarity**
+5. **Aperture memory clarity**
    - separate:
      - host constraints
-     - explicit profile
-     - learned operator behavior
+     - explicit `APERTURE.md` preferences
+     - learned `MEMORY.md` behavior
 6. **host-native background signal**
    - make native autonomous decisions visible as ambient awareness without turning them into interruptions
 
@@ -173,5 +173,5 @@ Instead:
 
 - reduce doctrinal sprawl
 - keep boundaries crisp
-- deepen ambiguity, surface capability modeling, and operator learning in that order
+- deepen ambiguity, surface capability modeling, and Aperture memory in that order
 - keep validating the moat against real host behavior rather than abstract theory

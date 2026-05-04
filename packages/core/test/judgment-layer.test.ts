@@ -6,7 +6,6 @@ import { join } from "node:path";
 
 import { ApertureCore } from "../src/aperture-core.js";
 import { isAttentionEvidenceContext } from "../src/attention-evidence.js";
-import { serializeJudgmentConfig } from "../src/judgment-config.js";
 import type { Frame } from "../src/frame.js";
 import type { InteractionCandidate } from "../src/interaction-candidate.js";
 import { JudgmentCoordinator } from "../src/judgment-coordinator.js";
@@ -409,7 +408,7 @@ test("judgment coordinator explanations surface attention policy and attention v
 
 test("attention policy applies user overrides for tool families", () => {
   const gates = new AttentionPolicy({
-    userProfile: {
+    apertureProfile: {
       version: 1,
       operatorId: "default",
       updatedAt: "2026-03-12T10:15:00.000Z",
@@ -453,7 +452,7 @@ test("attention policy applies user overrides for tool families", () => {
 
 test("attention policy prefers explicit tool family metadata over title heuristics", () => {
   const gates = new AttentionPolicy({
-    userProfile: {
+    apertureProfile: {
       version: 1,
       operatorId: "default",
       updatedAt: "2026-03-12T10:15:00.000Z",
@@ -497,7 +496,7 @@ test("attention policy prefers explicit tool family metadata over title heuristi
 
 test("configured lowRiskRead policy can auto-approve bounded approvals", () => {
   const gates = new AttentionPolicy({
-    judgmentConfig: {
+    policyConfig: {
       version: 1,
       updatedAt: "2026-03-12T10:15:00.000Z",
       policy: {
@@ -535,7 +534,7 @@ test("configured lowRiskRead policy can auto-approve bounded approvals", () => {
 
 test("configured lowRiskWeb policy can auto-approve bounded web approvals", () => {
   const gates = new AttentionPolicy({
-    judgmentConfig: {
+    policyConfig: {
       version: 1,
       updatedAt: "2026-03-12T10:15:00.000Z",
       policy: {
@@ -571,7 +570,7 @@ test("configured lowRiskWeb policy can auto-approve bounded web approvals", () =
 
 test("configured lowRiskRead policy does not match incidental reading language", () => {
   const gates = new AttentionPolicy({
-    judgmentConfig: {
+    policyConfig: {
       version: 1,
       updatedAt: "2026-03-12T10:15:00.000Z",
       policy: {
@@ -607,7 +606,7 @@ test("configured lowRiskRead policy does not match incidental reading language",
 
 test("configured lowRiskRead policy does not match passive status updates", () => {
   const gates = new AttentionPolicy({
-    judgmentConfig: {
+    policyConfig: {
       version: 1,
       updatedAt: "2026-03-12T10:15:00.000Z",
       policy: {
@@ -638,7 +637,7 @@ test("configured lowRiskRead policy does not match passive status updates", () =
 
 test("configured lowRiskRead policy does not match passive status updates with explicit tool metadata", () => {
   const gates = new AttentionPolicy({
-    judgmentConfig: {
+    policyConfig: {
       version: 1,
       updatedAt: "2026-03-12T10:15:00.000Z",
       policy: {
@@ -671,7 +670,7 @@ test("configured lowRiskRead policy does not match passive status updates with e
 
 test("only permission-request status enters the tool policy path", () => {
   const gates = new AttentionPolicy({
-    judgmentConfig: {
+    policyConfig: {
       version: 1,
       updatedAt: "2026-03-12T10:15:00.000Z",
       policy: {
@@ -715,7 +714,7 @@ test("only permission-request status enters the tool policy path", () => {
 
 test("tool policies do not match explicit question requests by title wording alone", () => {
   const gates = new AttentionPolicy({
-    judgmentConfig: {
+    policyConfig: {
       version: 1,
       updatedAt: "2026-03-12T10:15:00.000Z",
       policy: {
@@ -758,7 +757,7 @@ test("tool policies do not match explicit question requests by title wording alo
 
 test("tool policies do not match explicit question requests even with explicit tool family", () => {
   const gates = new AttentionPolicy({
-    judgmentConfig: {
+    policyConfig: {
       version: 1,
       updatedAt: "2026-03-12T10:15:00.000Z",
       policy: {
@@ -885,7 +884,7 @@ test("attention value ignores explicit tool-family memory for explicit question 
 
 test("tool-family user overrides do not match passive status updates by title alone", () => {
   const gates = new AttentionPolicy({
-    userProfile: {
+    apertureProfile: {
       version: 1,
       operatorId: "default",
       updatedAt: "2026-03-12T10:15:00.000Z",
@@ -918,7 +917,7 @@ test("tool-family user overrides do not match passive status updates by title al
 
 test("tool-family user overrides do not match passive status updates with explicit tool metadata", () => {
   const gates = new AttentionPolicy({
-    userProfile: {
+    apertureProfile: {
       version: 1,
       operatorId: "default",
       updatedAt: "2026-03-12T10:15:00.000Z",
@@ -953,7 +952,7 @@ test("tool-family user overrides do not match passive status updates with explic
 
 test("configured judgment policy can require context expansion", () => {
   const gates = new AttentionPolicy({
-    judgmentConfig: {
+    policyConfig: {
       version: 1,
       updatedAt: "2026-03-12T10:15:00.000Z",
       policy: {
@@ -990,7 +989,7 @@ test("configured judgment policy can require context expansion", () => {
 
 test("configured fileWrite policy keeps writes interruptive", () => {
   const gates = new AttentionPolicy({
-    judgmentConfig: {
+    policyConfig: {
       version: 1,
       updatedAt: "2026-03-12T10:15:00.000Z",
       policy: {
@@ -1028,14 +1027,19 @@ test("configured fileWrite policy keeps writes interruptive", () => {
 test("markdown-backed core can auto-approve low-risk read approvals", async () => {
   const root = await mkdtemp(join(tmpdir(), "aperture-core-markdown-"));
   await writeFile(
-    join(root, "USER.md"),
+    join(root, "APERTURE.md"),
     [
-      "# User",
+      "# Aperture",
       "",
       "## Meta",
       "- version: 1",
-      "- operator id: default",
+      "- profile id: default",
       "- updated at: 2026-03-12T10:15:00.000Z",
+      "",
+      "## Policy",
+      "",
+      "### lowRiskRead",
+      "- auto approve: true",
       "",
     ].join("\n"),
     "utf8",
@@ -1047,24 +1051,11 @@ test("markdown-backed core can auto-approve low-risk read approvals", async () =
       "",
       "## Meta",
       "- version: 1",
-      "- operator id: default",
+      "- profile id: default",
       "- updated at: 2026-03-12T10:15:00.000Z",
       "- session count: 1",
       "",
     ].join("\n"),
-    "utf8",
-  );
-  await writeFile(
-    join(root, "JUDGMENT.md"),
-    serializeJudgmentConfig({
-      version: 1,
-      updatedAt: "2026-03-12T10:15:00.000Z",
-      policy: {
-        lowRiskRead: {
-          autoApprove: true,
-        },
-      },
-    }),
     "utf8",
   );
 

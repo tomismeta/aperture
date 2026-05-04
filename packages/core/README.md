@@ -241,28 +241,27 @@ import {
   type AttentionSurfaceCapabilities,
 } from "@tomismeta/aperture-core";
 
-const surfaceCapabilities: AttentionSurfaceCapabilities =
-  mergeAttentionSurfaceCapabilities([
-    baseAttentionSurfaceCapabilities,
-    {
-      topology: {
-        supportsAmbient: false,
-      },
-      responses: {
-        supportsSingleChoice: true,
-        supportsMultipleChoice: false,
-        supportsForm: false,
-        supportsTextResponse: true,
-      },
+const surfaceCapabilities: AttentionSurfaceCapabilities = mergeAttentionSurfaceCapabilities([
+  baseAttentionSurfaceCapabilities,
+  {
+    topology: {
+      supportsAmbient: false,
     },
-  ]);
+    responses: {
+      supportsSingleChoice: true,
+      supportsMultipleChoice: false,
+      supportsForm: false,
+      supportsTextResponse: true,
+    },
+  },
+]);
 
 const core = new ApertureCore({
   surfaceCapabilities,
 });
 ```
 
-### Operator profile
+### Aperture preferences
 
 This is explicit human-owned configuration.
 
@@ -272,10 +271,10 @@ Examples:
 - batching preferences
 - tool-specific overrides
 
-That lives in the operator profile and should reflect what the human wants, not
+That lives in `APERTURE.md` and should reflect what the human wants, not
 what a particular host happens to support.
 
-### Operator learning
+### Aperture memory
 
 This is learned behavior derived from repeated signals over time.
 
@@ -534,8 +533,17 @@ The main options are:
 - `core.reloadMarkdown()`
   - reloads markdown-backed state
 
-If you use markdown-backed state, Aperture intentionally exposes only a small operator-facing judgment surface today:
+If you use markdown-backed state, Aperture keeps the local model intentionally small:
 
+- `APERTURE.md`
+  - who is supervising the agents, how they prefer to work, and what Aperture may do without asking
+- `MEMORY.md`
+  - what Aperture has learned from prior sessions
+
+`APERTURE.md` intentionally exposes only a small human-facing control surface today:
+
+- preferences:
+  - `control mode`
 - policy rule fields:
   - `auto approve`
   - `may interrupt`
@@ -556,12 +564,10 @@ That boundary is deliberate. Aperture exposes the knobs that are useful to tune 
 
 If you use the markdown-backed path, Aperture may read:
 
+- `APERTURE.md`
+  - human-edited preferences, policy, and planner defaults
 - `MEMORY.md`
   - learned behavior across sessions
-- `JUDGMENT.md`
-  - human-edited judgment and planner defaults
-- `USER.md`
-  - optional user preferences and overrides
 
 You do not need to create or monitor these files unless you explicitly want persistence or human-editable local config.
 

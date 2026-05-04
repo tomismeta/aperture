@@ -1,14 +1,14 @@
 import { readBoundedToolFamily } from "../interaction-taxonomy.js";
 import type { AttentionCandidate } from "../interaction-candidate.js";
-import type { JudgmentConfig } from "../judgment-config.js";
+import type { PolicyConfig } from "../policy-config.js";
 import type { AttentionActivityClass } from "../events.js";
 export { readAttentionLane } from "../attention-lane.js";
 
 export function matchPolicyRule(
-  judgmentConfig: JudgmentConfig | undefined,
+  policyConfig: PolicyConfig | undefined,
   candidate: AttentionCandidate,
 ) {
-  const policy = judgmentConfig?.policy;
+  const policy = policyConfig?.policy;
   if (!policy) {
     return undefined;
   }

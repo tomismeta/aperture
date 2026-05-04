@@ -1,11 +1,11 @@
 import type { AttentionOperatorPresence } from "./attention-evidence.js";
 import { JudgmentCoordinator } from "./judgment-coordinator.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
-import type { JudgmentConfig } from "./judgment-config.js";
+import type { PolicyConfig } from "./policy-config.js";
 import { AttentionPolicy } from "./attention-policy.js";
 import { AttentionPlanner } from "./attention-planner.js";
 import { AttentionValue } from "./attention-value.js";
-import type { MemoryProfile, UserProfile } from "./profile-store.js";
+import type { MemoryProfile, ApertureProfile } from "./profile-store.js";
 import {
   baseAttentionSurfaceCapabilities,
   type AttentionSurfaceCapabilities,
@@ -13,9 +13,9 @@ import {
 import { formatTimestamp, type TimeSource } from "./time.js";
 
 export type ApertureCoreRuntimeSetupOptions = {
-  userProfile?: UserProfile;
+  apertureProfile?: ApertureProfile;
   memoryProfile?: MemoryProfile;
-  judgmentConfig?: JudgmentConfig;
+  policyConfig?: PolicyConfig;
   surfaceCapabilities?: AttentionSurfaceCapabilities;
   operatorPresence?: AttentionOperatorPresence;
   responseExpiryMs?: number;
@@ -23,9 +23,9 @@ export type ApertureCoreRuntimeSetupOptions = {
 };
 
 export type ApertureCoreRuntimeSetupState = {
-  userProfile: UserProfile | undefined;
+  apertureProfile: ApertureProfile | undefined;
   baseMemoryProfile: MemoryProfile;
-  judgmentConfig: JudgmentConfig | undefined;
+  policyConfig: PolicyConfig | undefined;
   surfaceCapabilities: AttentionSurfaceCapabilities;
   operatorPresence: AttentionOperatorPresence;
   responseExpiryMs: number | undefined;
@@ -40,9 +40,9 @@ export function normalizeApertureCoreRuntimeSetup(
   options: ApertureCoreRuntimeSetupOptions = {},
 ): ApertureCoreRuntimeSetupState {
   return {
-    userProfile: options.userProfile,
+    apertureProfile: options.apertureProfile,
     baseMemoryProfile: options.memoryProfile ?? defaultMemoryProfile(),
-    judgmentConfig: options.judgmentConfig,
+    policyConfig: options.policyConfig,
     surfaceCapabilities: cloneSurfaceCapabilities(options.surfaceCapabilities),
     operatorPresence: options.operatorPresence ?? "present",
     responseExpiryMs: options.responseExpiryMs,
@@ -53,21 +53,21 @@ export function normalizeApertureCoreRuntimeSetup(
 export function buildApertureCoordinator(
   state: Pick<
     ApertureCoreRuntimeSetupState,
-    "userProfile" | "baseMemoryProfile" | "judgmentConfig"
+    "apertureProfile" | "baseMemoryProfile" | "policyConfig"
   >,
 ): JudgmentCoordinator {
   return new JudgmentCoordinator(
     new AttentionPolicy({
-      ...(state.userProfile !== undefined ? { userProfile: state.userProfile } : {}),
-      ...(state.judgmentConfig !== undefined ? { judgmentConfig: state.judgmentConfig } : {}),
+      ...(state.apertureProfile !== undefined ? { apertureProfile: state.apertureProfile } : {}),
+      ...(state.policyConfig !== undefined ? { policyConfig: state.policyConfig } : {}),
       memoryProfile: state.baseMemoryProfile,
     }),
     new AttentionValue({
       memoryProfile: state.baseMemoryProfile,
     }),
     new AttentionPlanner({
-      ...(state.judgmentConfig?.plannerDefaults !== undefined
-        ? { plannerDefaults: state.judgmentConfig.plannerDefaults }
+      ...(state.policyConfig?.plannerDefaults !== undefined
+        ? { plannerDefaults: state.policyConfig.plannerDefaults }
         : {}),
     }),
   );

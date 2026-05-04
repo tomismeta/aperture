@@ -14,12 +14,12 @@ import { FramePlanner } from "./frame-planner.js";
 import { JudgmentCoordinator, type AttentionDecisionExplanation } from "./judgment-coordinator.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import { AttentionSignalStore, type AttentionSignalStoreStats } from "./attention-signal-store.js";
-import type { JudgmentConfig } from "./judgment-config.js";
+import type { PolicyConfig } from "./policy-config.js";
 import { distillMemoryProfile } from "./memory-aggregator.js";
 import { selectPeripheralBucket } from "./attention-planner.js";
 import { ApertureCoreAttentionEvidence } from "./aperture-core-attention-evidence.js";
 import { ApertureCoreFrameLifecycle } from "./aperture-core-frame-lifecycle.js";
-import { ProfileStore, type MemoryProfile, type UserProfile } from "./profile-store.js";
+import { ProfileStore, type MemoryProfile, type ApertureProfile } from "./profile-store.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import type { AttentionSurfaceCapabilities } from "./surface-capabilities.js";
 import { TaskViewStore } from "./task-view-store.js";
@@ -76,9 +76,9 @@ export type {
 } from "./aperture-core-listeners.js";
 
 export type ApertureCoreOptions = {
-  userProfile?: UserProfile;
+  apertureProfile?: ApertureProfile;
   memoryProfile?: MemoryProfile;
-  judgmentConfig?: JudgmentConfig;
+  policyConfig?: PolicyConfig;
   profileStore?: ProfileStore;
   markdownRootDir?: string;
   surfaceCapabilities?: AttentionSurfaceCapabilities;
@@ -116,8 +116,8 @@ export class ApertureCore {
   private readonly profileStore: ProfileStore | undefined;
   private readonly markdownRootDir: string | undefined;
   private baseMemoryProfile: MemoryProfile;
-  private userProfile: UserProfile | undefined;
-  private judgmentConfig: JudgmentConfig | undefined;
+  private apertureProfile: ApertureProfile | undefined;
+  private policyConfig: PolicyConfig | undefined;
   private surfaceCapabilities: AttentionSurfaceCapabilities;
   private operatorPresence: AttentionOperatorPresence;
   private readonly responseExpiryMs: number | undefined;
@@ -131,8 +131,8 @@ export class ApertureCore {
     const runtime = normalizeApertureCoreRuntimeSetup(options);
     this.markdownRootDir = options.markdownRootDir;
     this.profileStore = options.profileStore;
-    this.userProfile = runtime.userProfile;
-    this.judgmentConfig = runtime.judgmentConfig;
+    this.apertureProfile = runtime.apertureProfile;
+    this.policyConfig = runtime.policyConfig;
     this.surfaceCapabilities = runtime.surfaceCapabilities;
     this.operatorPresence = runtime.operatorPresence;
     this.responseExpiryMs = runtime.responseExpiryMs;
@@ -169,13 +169,13 @@ export class ApertureCore {
   }
 
   static async fromMarkdown(rootDir: string): Promise<ApertureCore> {
-    const { profileStore, markdownRootDir, userProfile, memoryProfile, judgmentConfig } =
+    const { profileStore, markdownRootDir, apertureProfile, memoryProfile, policyConfig } =
       await loadMarkdownRuntimeState(rootDir);
 
     return new ApertureCore({
-      userProfile,
+      apertureProfile,
       memoryProfile,
-      judgmentConfig,
+      policyConfig,
       profileStore,
       markdownRootDir,
     });
@@ -531,9 +531,9 @@ export class ApertureCore {
 
     this.baseMemoryProfile = snapshot;
     this.coordinator = buildApertureCoordinator({
-      userProfile: this.userProfile,
+      apertureProfile: this.apertureProfile,
       baseMemoryProfile: this.baseMemoryProfile,
-      judgmentConfig: this.judgmentConfig,
+      policyConfig: this.policyConfig,
     });
     return snapshot;
   }
@@ -626,23 +626,23 @@ export class ApertureCore {
   }
 
   private async performMarkdownReload(): Promise<boolean> {
-    const { userProfile, memoryProfile, judgmentConfig } = await reloadMarkdownRuntimeState({
+    const { apertureProfile, memoryProfile, policyConfig } = await reloadMarkdownRuntimeState({
       profileStore: this.profileStore!,
       markdownRootDir: this.markdownRootDir!,
-      userProfile: this.userProfile,
+      apertureProfile: this.apertureProfile,
       memoryProfile: this.baseMemoryProfile,
-      judgmentConfig: this.judgmentConfig,
+      policyConfig: this.policyConfig,
     });
 
     const nextCoordinator = buildApertureCoordinator({
-      userProfile,
+      apertureProfile,
       baseMemoryProfile: memoryProfile,
-      judgmentConfig,
+      policyConfig,
     });
 
-    this.userProfile = userProfile;
+    this.apertureProfile = apertureProfile;
     this.baseMemoryProfile = memoryProfile;
-    this.judgmentConfig = judgmentConfig;
+    this.policyConfig = policyConfig;
     this.coordinator = nextCoordinator;
     return true;
   }

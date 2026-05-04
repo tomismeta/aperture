@@ -22,7 +22,7 @@ import type { AttentionPressure } from "./attention-pressure.js";
 import { AttentionPlanner } from "./attention-planner.js";
 import type { ContinuityRuleEvaluation } from "./continuity/continuity-rule.js";
 import { AttentionValue, type AttentionValueBreakdown } from "./attention-value.js";
-import type { AmbiguityDefaults } from "./judgment-config.js";
+import type { AmbiguityDefaults } from "./policy-config.js";
 
 export type AttentionDecision =
   | { kind: "auto_approve"; candidate: AttentionCandidate; response: AttentionResponse }

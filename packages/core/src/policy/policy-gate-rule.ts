@@ -1,12 +1,12 @@
 import type { AttentionCandidate } from "../interaction-candidate.js";
-import type { JudgmentConfig } from "../judgment-config.js";
-import type { UserProfile } from "../profile-store.js";
+import type { PolicyConfig } from "../policy-config.js";
+import type { ApertureProfile } from "../profile-store.js";
 import type { AttentionPolicyVerdict } from "../attention-policy.js";
 
 export type PolicyGateRuleInput = {
   candidate: AttentionCandidate;
-  judgmentConfig?: JudgmentConfig;
-  userProfile?: UserProfile;
+  policyConfig?: PolicyConfig;
+  apertureProfile?: ApertureProfile;
 };
 
 export type PolicyGateRuleEvaluation =

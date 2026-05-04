@@ -26,7 +26,7 @@ Under the hood, those improvements come from a cleaner SDK surface and a more mo
   - policy gate evaluations are traced
   - policy criterion evaluations are traced
   - advanced judgment surfaces are cleaner and more intentional
-- clarified operator control through `JUDGMENT.md`:
+- clarified operator control through `APERTURE.md`:
   - policy rule fields
   - ambiguity defaults
   - planner defaults
@@ -50,7 +50,7 @@ Under the hood, those improvements come from a cleaner SDK surface and a more mo
 
 ## Operator-facing config surface
 
-`JUDGMENT.md` now cleanly supports:
+`APERTURE.md` now cleanly supports:
 
 - policy rule fields:
   - `auto approve`

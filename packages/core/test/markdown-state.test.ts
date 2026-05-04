@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { ApertureCore } from "../src/aperture-core.js";
-import { loadJudgmentConfig, serializeJudgmentConfig } from "../src/judgment-config.js";
+import { loadPolicyConfig } from "../src/policy-config.js";
 import { parseBullet, parseHeading } from "../src/markdown-state.js";
 import { ProfileStore } from "../src/profile-store.js";
 
@@ -14,6 +14,23 @@ test("markdown helpers parse headings and key-value bullets", () => {
   assert.deepEqual(parseBullet("- session count: 3"), { key: "session count", value: "3" });
   assert.deepEqual(parseBullet("- durable lesson"), { text: "durable lesson" });
 });
+
+function apertureMarkdown(
+  sections: readonly string[],
+  options: { version?: number; operatorId?: string; updatedAt?: string } = {},
+): string {
+  return [
+    "# Aperture",
+    "",
+    "## Meta",
+    `- version: ${options.version ?? 1}`,
+    `- profile id: ${options.operatorId ?? "default"}`,
+    `- updated at: ${options.updatedAt ?? "2026-03-12T10:15:00.000Z"}`,
+    "",
+    ...sections,
+    "",
+  ].join("\n");
+}
 
 test("profile store saves and loads memory without extra dependencies", async () => {
   const root = await mkdtemp(join(tmpdir(), "aperture-profile-store-"));
@@ -67,7 +84,7 @@ test("profile store falls back when memory markdown uses an unsupported version"
       "",
       "## Meta",
       "- version: 2",
-      "- operator id: migrated",
+      "- profile id: migrated",
       "- updated at: 2026-03-12T10:15:00.000Z",
       "- session count: 5",
       "",
@@ -86,19 +103,13 @@ test("profile store falls back when memory markdown uses an unsupported version"
   assert.equal(loaded.sessionCount, 0);
 });
 
-test("profile store loads user preferences and tool overrides from markdown", async () => {
+test("profile store loads Aperture preferences and tool overrides from markdown", async () => {
   const root = await mkdtemp(join(tmpdir(), "aperture-user-profile-"));
   await writeFile(
-    join(root, "USER.md"),
-    [
-      "# User",
-      "",
-      "## Meta",
-      "- version: 1",
-      "- operator id: default",
-      "- updated at: 2026-03-12T10:15:00.000Z",
-      "",
+    join(root, "APERTURE.md"),
+    apertureMarkdown([
       "## Preferences",
+      "- control mode: focus",
       "- quiet hours: 22:00-06:00",
       "- quiet hours: weekend",
       "- prefer batching for: status",
@@ -113,18 +124,18 @@ test("profile store loads user preferences and tool overrides from markdown", as
       "- minimum lane: now",
       "- require context expansion: true",
       "- score boost: 12",
-      "",
-    ].join("\n"),
+    ]),
     "utf8",
   );
 
-  const loaded = await new ProfileStore(root).loadUserProfile({
+  const loaded = await new ProfileStore(root).loadApertureProfile({
     version: 1,
     operatorId: "fallback",
     updatedAt: "1970-01-01T00:00:00.000Z",
   });
 
   assert.equal(loaded.operatorId, "default");
+  assert.equal(loaded.preferences?.controlMode, "focus");
   assert.deepEqual(loaded.preferences?.quietHours, ["22:00-06:00", "weekend"]);
   assert.deepEqual(loaded.preferences?.preferBatchingFor, ["status", "background"]);
   assert.deepEqual(loaded.preferences?.alwaysExpandContextFor, ["destructive_bash"]);
@@ -137,34 +148,32 @@ test("profile store loads user preferences and tool overrides from markdown", as
   });
 });
 
-test("judgment config loader reads pure markdown judgment files", async () => {
-  const root = await mkdtemp(join(tmpdir(), "aperture-judgment-config-"));
-  const path = join(root, "JUDGMENT.md");
-  const content = serializeJudgmentConfig({
-    version: 1,
-    updatedAt: "2026-03-12T10:15:00.000Z",
-    ambiguityDefaults: {
-      nonBlockingActivationThreshold: 190,
-      promotionMargin: 24,
-    },
-    plannerDefaults: {
-      batchStatusBursts: false,
-      deferLowValueDuringPressure: false,
-      minimumDwellMs: 25_000,
-      streamContinuityMargin: 18,
-      conflictingInterruptMargin: 14,
-      disabledContinuityRules: ["minimum_dwell", "decision_stream_continuity"],
-    },
-    policy: {
-      lowRiskRead: {
-        autoApprove: true,
-      },
-    },
-  });
+test("policy config loader reads policy sections from APERTURE.md", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-policy-config-"));
+  await writeFile(
+    join(root, "APERTURE.md"),
+    apertureMarkdown([
+      "## Policy",
+      "",
+      "### lowRiskRead",
+      "- auto approve: true",
+      "",
+      "## Planner Defaults",
+      "- batch status bursts: false",
+      "- defer low value during pressure: false",
+      "- minimum dwell ms: 25000",
+      "- stream continuity margin: 18",
+      "- conflicting interrupt margin: 14",
+      "- disabled continuity rules: minimum_dwell, decision_stream_continuity",
+      "",
+      "## Ambiguity Defaults",
+      "- non blocking activation threshold: 190",
+      "- promotion margin: 24",
+    ]),
+    "utf8",
+  );
 
-  await writeFile(path, content, "utf8");
-
-  const loaded = await loadJudgmentConfig(root, {
+  const loaded = await loadPolicyConfig(root, {
     version: 1,
     updatedAt: "1970-01-01T00:00:00.000Z",
   });
@@ -183,17 +192,11 @@ test("judgment config loader reads pure markdown judgment files", async () => {
   ]);
 });
 
-test("judgment config loader parses all judgment rule fields from markdown", async () => {
-  const root = await mkdtemp(join(tmpdir(), "aperture-judgment-policy-fields-"));
+test("policy config loader parses all policy rule fields from markdown", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-policy-policy-fields-"));
   await writeFile(
-    join(root, "JUDGMENT.md"),
-    [
-      "# Judgment",
-      "",
-      "## Meta",
-      "- version: 1",
-      "- updated at: 2026-03-12T10:15:00.000Z",
-      "",
+    join(root, "APERTURE.md"),
+    apertureMarkdown([
       "## Policy",
       "",
       "### destructiveBash",
@@ -201,12 +204,11 @@ test("judgment config loader parses all judgment rule fields from markdown", asy
       "- may interrupt: true",
       "- minimum lane: now",
       "- require context expansion: true",
-      "",
-    ].join("\n"),
+    ]),
     "utf8",
   );
 
-  const loaded = await loadJudgmentConfig(root, {
+  const loaded = await loadPolicyConfig(root, {
     version: 1,
     updatedAt: "1970-01-01T00:00:00.000Z",
   });
@@ -219,27 +221,15 @@ test("judgment config loader parses all judgment rule fields from markdown", asy
   });
 });
 
-test("judgment config loader normalizes legacy minimum presentation values", async () => {
-  const root = await mkdtemp(join(tmpdir(), "aperture-judgment-legacy-lane-"));
+test("policy config loader normalizes legacy minimum presentation values", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-policy-legacy-lane-"));
   await writeFile(
-    join(root, "JUDGMENT.md"),
-    [
-      "# Judgment",
-      "",
-      "## Meta",
-      "- version: 1",
-      "- updated at: 2026-03-12T10:15:00.000Z",
-      "",
-      "## Policy",
-      "",
-      "### lowRiskRead",
-      "- minimum presentation: queue",
-      "",
-    ].join("\n"),
+    join(root, "APERTURE.md"),
+    apertureMarkdown(["## Policy", "", "### lowRiskRead", "- minimum presentation: queue"]),
     "utf8",
   );
 
-  const loaded = await loadJudgmentConfig(root, {
+  const loaded = await loadPolicyConfig(root, {
     version: 1,
     updatedAt: "1970-01-01T00:00:00.000Z",
   });
@@ -250,25 +240,12 @@ test("judgment config loader normalizes legacy minimum presentation values", asy
 test("profile store normalizes legacy minimum presentation values into minimumLane", async () => {
   const root = await mkdtemp(join(tmpdir(), "aperture-user-profile-legacy-lane-"));
   await writeFile(
-    join(root, "USER.md"),
-    [
-      "# User",
-      "",
-      "## Meta",
-      "- version: 1",
-      "- operator id: default",
-      "- updated at: 2026-03-12T10:15:00.000Z",
-      "",
-      "## Tool Overrides",
-      "",
-      "### bash",
-      "- minimum presentation: active",
-      "",
-    ].join("\n"),
+    join(root, "APERTURE.md"),
+    apertureMarkdown(["## Tool Overrides", "", "### bash", "- minimum presentation: active"]),
     "utf8",
   );
 
-  const loaded = await new ProfileStore(root).loadUserProfile({
+  const loaded = await new ProfileStore(root).loadApertureProfile({
     version: 1,
     operatorId: "fallback",
     updatedAt: "1970-01-01T00:00:00.000Z",
@@ -279,25 +256,18 @@ test("profile store normalizes legacy minimum presentation values into minimumLa
   });
 });
 
-test("judgment config loader deduplicates recognized disabled continuity rules and drops unknown names", async () => {
-  const root = await mkdtemp(join(tmpdir(), "aperture-judgment-disabled-rules-"));
+test("policy config loader deduplicates recognized disabled continuity rules and drops unknown names", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-policy-disabled-rules-"));
   await writeFile(
-    join(root, "JUDGMENT.md"),
-    [
-      "# Judgment",
-      "",
-      "## Meta",
-      "- version: 1",
-      "- updated at: 2026-03-12T10:15:00.000Z",
-      "",
+    join(root, "APERTURE.md"),
+    apertureMarkdown([
       "## Planner Defaults",
       "- disabled continuity rules: minimum_dwell, typo_rule, minimum_dwell, decision_stream_continuity",
-      "",
-    ].join("\n"),
+    ]),
     "utf8",
   );
 
-  const loaded = await loadJudgmentConfig(root, {
+  const loaded = await loadPolicyConfig(root, {
     version: 1,
     updatedAt: "1970-01-01T00:00:00.000Z",
   });
@@ -308,27 +278,15 @@ test("judgment config loader deduplicates recognized disabled continuity rules a
   ]);
 });
 
-test("judgment config loader falls back when markdown uses an unsupported version", async () => {
-  const root = await mkdtemp(join(tmpdir(), "aperture-judgment-version-"));
+test("policy config loader falls back when markdown uses an unsupported version", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-policy-version-"));
   await writeFile(
-    join(root, "JUDGMENT.md"),
-    [
-      "# Judgment",
-      "",
-      "## Meta",
-      "- version: 2",
-      "- updated at: 2026-03-12T10:15:00.000Z",
-      "",
-      "## Policy",
-      "",
-      "### lowRiskRead",
-      "- auto approve: true",
-      "",
-    ].join("\n"),
+    join(root, "APERTURE.md"),
+    apertureMarkdown(["## Policy", "", "### lowRiskRead", "- auto approve: true"], { version: 2 }),
     "utf8",
   );
 
-  const loaded = await loadJudgmentConfig(root, {
+  const loaded = await loadPolicyConfig(root, {
     version: 1,
     updatedAt: "1970-01-01T00:00:00.000Z",
   });
@@ -340,19 +298,7 @@ test("judgment config loader falls back when markdown uses an unsupported versio
 
 test("markdown-backed core checkpoints distilled memory back to MEMORY.md", async () => {
   const root = await mkdtemp(join(tmpdir(), "aperture-checkpoint-memory-"));
-  await writeFile(
-    join(root, "USER.md"),
-    [
-      "# User",
-      "",
-      "## Meta",
-      "- version: 1",
-      "- operator id: default",
-      "- updated at: 2026-03-12T10:15:00.000Z",
-      "",
-    ].join("\n"),
-    "utf8",
-  );
+  await writeFile(join(root, "APERTURE.md"), apertureMarkdown([]), "utf8");
   await writeFile(
     join(root, "MEMORY.md"),
     [
@@ -360,22 +306,13 @@ test("markdown-backed core checkpoints distilled memory back to MEMORY.md", asyn
       "",
       "## Meta",
       "- version: 1",
-      "- operator id: default",
+      "- profile id: default",
       "- updated at: 2026-03-12T10:15:00.000Z",
       "- session count: 1",
       "",
     ].join("\n"),
     "utf8",
   );
-  await writeFile(
-    join(root, "JUDGMENT.md"),
-    serializeJudgmentConfig({
-      version: 1,
-      updatedAt: "2026-03-12T10:15:00.000Z",
-    }),
-    "utf8",
-  );
-
   const core = await ApertureCore.fromMarkdown(root);
   core.publish({
     id: "event:1",
@@ -410,19 +347,11 @@ test("markdown-backed core checkpoints distilled memory back to MEMORY.md", asyn
   assert.equal(persisted.toolFamilies?.read?.responses, 1);
 });
 
-test("markdown-backed core can reload judgment rules without restarting", async () => {
+test("markdown-backed core can reload policy rules without restarting", async () => {
   const root = await mkdtemp(join(tmpdir(), "aperture-reload-markdown-"));
   await writeFile(
-    join(root, "USER.md"),
-    [
-      "# User",
-      "",
-      "## Meta",
-      "- version: 1",
-      "- operator id: default",
-      "- updated at: 2026-03-12T10:15:00.000Z",
-      "",
-    ].join("\n"),
+    join(root, "APERTURE.md"),
+    apertureMarkdown(["## Policy", "", "### lowRiskRead", "- auto approve: true"]),
     "utf8",
   );
   await writeFile(
@@ -432,27 +361,14 @@ test("markdown-backed core can reload judgment rules without restarting", async 
       "",
       "## Meta",
       "- version: 1",
-      "- operator id: default",
+      "- profile id: default",
       "- updated at: 2026-03-12T10:15:00.000Z",
       "- session count: 0",
       "",
     ].join("\n"),
     "utf8",
   );
-  const judgmentPath = join(root, "JUDGMENT.md");
-  await writeFile(
-    judgmentPath,
-    serializeJudgmentConfig({
-      version: 1,
-      updatedAt: "2026-03-12T10:15:00.000Z",
-      policy: {
-        lowRiskRead: {
-          autoApprove: true,
-        },
-      },
-    }),
-    "utf8",
-  );
+  const aperturePath = join(root, "APERTURE.md");
 
   const core = await ApertureCore.fromMarkdown(root);
   core.publish({
@@ -471,11 +387,8 @@ test("markdown-backed core can reload judgment rules without restarting", async 
   assert.equal(core.getSignals("task:ambient")[0]?.kind, "responded");
 
   await writeFile(
-    judgmentPath,
-    serializeJudgmentConfig({
-      version: 1,
-      updatedAt: "2026-03-12T10:20:00.000Z",
-    }),
+    aperturePath,
+    apertureMarkdown([], { updatedAt: "2026-03-12T10:20:00.000Z" }),
     "utf8",
   );
   assert.equal(await core.reloadMarkdown(), true);
@@ -497,14 +410,7 @@ test("markdown-backed core can reload judgment rules without restarting", async 
 
 test("markdown-backed core coalesces concurrent reloads into one in-flight refresh", async () => {
   const root = await mkdtemp(join(tmpdir(), "aperture-reload-coalesce-"));
-  await writeFile(
-    join(root, "JUDGMENT.md"),
-    serializeJudgmentConfig({
-      version: 1,
-      updatedAt: "2026-03-12T10:15:00.000Z",
-    }),
-    "utf8",
-  );
+  await writeFile(join(root, "APERTURE.md"), apertureMarkdown([]), "utf8");
 
   let userLoads = 0;
   let memoryLoads = 0;
@@ -514,7 +420,7 @@ test("markdown-backed core coalesces concurrent reloads into one in-flight refre
   });
 
   const profileStore = {
-    async loadUserProfile(fallback: Parameters<ProfileStore["loadUserProfile"]>[0]) {
+    async loadApertureProfile(fallback: Parameters<ProfileStore["loadApertureProfile"]>[0]) {
       userLoads += 1;
       await gate;
       return fallback;
@@ -530,7 +436,7 @@ test("markdown-backed core coalesces concurrent reloads into one in-flight refre
   const core = new ApertureCore({
     profileStore,
     markdownRootDir: root,
-    userProfile: {
+    apertureProfile: {
       version: 1,
       operatorId: "default",
       updatedAt: "2026-03-12T10:15:00.000Z",
@@ -541,7 +447,7 @@ test("markdown-backed core coalesces concurrent reloads into one in-flight refre
       updatedAt: "2026-03-12T10:15:00.000Z",
       sessionCount: 0,
     },
-    judgmentConfig: {
+    policyConfig: {
       version: 1,
       updatedAt: "2026-03-12T10:15:00.000Z",
     },

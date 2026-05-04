@@ -247,14 +247,14 @@ That is why host constraints belong in the SDK contract.
 
 This should stay separate from:
 
-- explicit operator profile
-- learned operator behavior
+- explicit `APERTURE.md` preferences
+- learned `MEMORY.md` behavior
 
 Those are different concepts:
 
 - host constraints describe what the surface can do
-- operator profile describes what the human explicitly wants
-- operator learning describes what Aperture infers from repeated signals
+- `APERTURE.md` describes what the human explicitly wants
+- `MEMORY.md` describes what Aperture infers from repeated signals
 
 If those concepts blur together, the engine can learn the wrong lesson. For
 example, a constrained host may suppress ambient work even when the operator

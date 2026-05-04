@@ -162,7 +162,7 @@ Why this comes third:
 
 Likely code areas:
 
-- `packages/core/src/judgment-config.ts`
+- `packages/core/src/policy-config.ts`
 - `packages/core/src/judgment-defaults.ts`
 - `packages/core/src/attention-planner.ts`
 

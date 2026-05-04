@@ -2,7 +2,7 @@ import type { AttentionDecisionAmbiguity } from "./attention-ambiguity.js";
 import type { AttentionEvidenceContext } from "./attention-evidence.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
-import type { AmbiguityDefaults, JudgmentConfig } from "./judgment-config.js";
+import type { AmbiguityDefaults, PolicyConfig } from "./policy-config.js";
 import { evaluateBackgroundPolicyGateRule } from "./policy/background-policy-gate-rule.js";
 import { evaluateBlockingPolicyGateRule } from "./policy/blocking-policy-gate-rule.js";
 import { evaluateConfiguredPolicyGateRule } from "./policy/configured-policy-gate-rule.js";
@@ -26,7 +26,7 @@ import type {
   PolicyGateRuleEvaluation,
   PolicyGateRuleInput,
 } from "./policy/policy-gate-rule.js";
-import type { MemoryProfile, UserProfile } from "./profile-store.js";
+import type { MemoryProfile, ApertureProfile } from "./profile-store.js";
 
 export type AttentionLane = "now" | "next" | "ambient";
 
@@ -64,8 +64,8 @@ export type AttentionPolicyCriterionExplanation = {
 };
 
 type AttentionPolicyOptions = {
-  judgmentConfig?: JudgmentConfig;
-  userProfile?: UserProfile;
+  policyConfig?: PolicyConfig;
+  apertureProfile?: ApertureProfile;
   memoryProfile?: MemoryProfile;
 };
 
@@ -91,13 +91,13 @@ const POLICY_CRITERION_RULES: readonly PolicyCriterionRule[] = [
 ];
 
 export class AttentionPolicy {
-  private readonly judgmentConfig: JudgmentConfig | undefined;
-  private readonly userProfile: UserProfile | undefined;
+  private readonly policyConfig: PolicyConfig | undefined;
+  private readonly apertureProfile: ApertureProfile | undefined;
   private readonly memoryProfile: MemoryProfile | undefined;
 
   constructor(options: AttentionPolicyOptions = {}) {
-    this.judgmentConfig = options.judgmentConfig;
-    this.userProfile = options.userProfile;
+    this.policyConfig = options.policyConfig;
+    this.apertureProfile = options.apertureProfile;
     this.memoryProfile = options.memoryProfile;
   }
 
@@ -215,11 +215,11 @@ export class AttentionPolicy {
     return {
       activationThreshold:
         ambiguityDefaults?.nonBlockingActivationThreshold ??
-        this.judgmentConfig?.ambiguityDefaults?.nonBlockingActivationThreshold ??
+        this.policyConfig?.ambiguityDefaults?.nonBlockingActivationThreshold ??
         JUDGMENT_DEFAULTS.ambiguity.nonBlockingActivationThreshold,
       promotionMargin:
         ambiguityDefaults?.promotionMargin ??
-        this.judgmentConfig?.ambiguityDefaults?.promotionMargin ??
+        this.policyConfig?.ambiguityDefaults?.promotionMargin ??
         JUDGMENT_DEFAULTS.ambiguity.promotionMargin,
     };
   }
@@ -248,8 +248,8 @@ export class AttentionPolicy {
   private buildPolicyGateInput(candidate: AttentionCandidate): PolicyGateRuleInput {
     return {
       candidate,
-      ...(this.judgmentConfig !== undefined ? { judgmentConfig: this.judgmentConfig } : {}),
-      ...(this.userProfile !== undefined ? { userProfile: this.userProfile } : {}),
+      ...(this.policyConfig !== undefined ? { policyConfig: this.policyConfig } : {}),
+      ...(this.apertureProfile !== undefined ? { apertureProfile: this.apertureProfile } : {}),
     };
   }
 

@@ -123,7 +123,7 @@ test("question requests with read wording stay interactive under lowRiskRead aut
   const runtime = createApertureRuntime({
     controlPort: 0,
     core: new ApertureCore({
-      judgmentConfig: {
+      policyConfig: {
         version: 1,
         updatedAt: "2026-03-16T12:00:00.000Z",
         policy: {

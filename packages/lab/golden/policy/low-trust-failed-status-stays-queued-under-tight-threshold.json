@@ -2,13 +2,9 @@
   "id": "golden:policy:low-trust-failed-status-stays-queued-under-tight-threshold",
   "title": "Low-trust failed status stays in the queue decision path under a tight threshold",
   "description": "With a deliberately tight non-blocking activation threshold, durable low source trust should keep borderline failed status work in the queued decision path instead of treating it as a clean interrupt.",
-  "doctrineTags": [
-    "source_trust",
-    "interruption_credibility",
-    "queue_doctrine"
-  ],
+  "doctrineTags": ["source_trust", "interruption_credibility", "queue_doctrine"],
   "core": {
-    "judgmentConfig": {
+    "policyConfig": {
       "ambiguityDefaults": {
         "nonBlockingActivationThreshold": 240
       }
@@ -35,9 +31,7 @@
         "stepLabel": "low-trust failed status",
         "decisionKind": "queue",
         "semanticConfidence": "high",
-        "semanticImpactDecisionBearingIncludes": [
-          "activity (canonical)"
-        ],
+        "semanticImpactDecisionBearingIncludes": ["activity (canonical)"],
         "ambiguityReason": "low_signal",
         "ambiguityResolution": "queue"
       }

@@ -85,7 +85,7 @@ Current code anchors:
 
 - `packages/core/src/attention-policy.ts`
 - `packages/core/src/policy/`
-- `packages/core/src/judgment-config.ts`
+- `packages/core/src/policy-config.ts`
 
 Status:
 
@@ -159,7 +159,7 @@ What still matters:
 
 - richer capability modeling for non-TUI hosts
 - cleaner degradation policy
-- better separation between host constraints and learned operator behavior
+- better separation between host constraints and learned `MEMORY.md` behavior
 
 ### 5. Learning And Memory
 
@@ -192,8 +192,8 @@ What still matters:
 - better migration/versioning for persisted state
 - a cleaner split between:
   - host constraints
-  - explicit operator profile
-  - learned operator behavior
+  - explicit `APERTURE.md` preferences
+  - learned `MEMORY.md` behavior
 
 ### 6. Traceability And Replay
 

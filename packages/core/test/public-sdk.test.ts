@@ -15,7 +15,7 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.equal("EventEvaluator" in sdk, false);
   assert.equal("buildMemoryProfile" in sdk, false);
   assert.equal("scoreFrame" in sdk, false);
-  assert.equal("serializeJudgmentConfig" in sdk, false);
+  assert.equal("serializePolicyConfig" in sdk, false);
   assert.equal("AdapterEvent" in sdk, false);
   assert.equal("MinimumPresentation" in sdk, false);
   assert.equal("JudgmentDecision" in sdk, false);

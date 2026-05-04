@@ -464,13 +464,16 @@ test("runtime bootstraps learning persistence and checkpoints memory", async () 
 
   try {
     const memoryRaw = await readFile(join(root, ".aperture", "MEMORY.md"), "utf8");
-    const judgmentRaw = await readFile(join(root, ".aperture", "JUDGMENT.md"), "utf8");
+    const apertureRaw = await readFile(join(root, ".aperture", "APERTURE.md"), "utf8");
     assert.match(memoryRaw, /^# Memory/m);
-    assert.match(judgmentRaw, /^# Judgment/m);
-    assert.match(judgmentRaw, /Accepted rule names today:/);
-    assert.match(judgmentRaw, /auto approve: true \| false/);
-    assert.match(judgmentRaw, /lowRiskWeb/);
-    assert.match(judgmentRaw, /fileWrite/);
+    assert.match(apertureRaw, /^# Aperture/m);
+    assert.match(apertureRaw, /Human-owned configuration for Aperture/);
+    assert.match(apertureRaw, /profile id: default/);
+    assert.match(apertureRaw, /control mode: hands-on \| standard \| focus/);
+    assert.match(apertureRaw, /Accepted rule names today:/);
+    assert.match(apertureRaw, /auto approve: true \| false/);
+    assert.match(apertureRaw, /lowRiskWeb/);
+    assert.match(apertureRaw, /fileWrite/);
 
     const client = await ApertureRuntimeAdapterClient.connect({
       baseUrl: controlUrl,
@@ -511,8 +514,8 @@ test("runtime bootstraps learning persistence and checkpoints memory", async () 
       assert.equal(snapshot.learningPersistence?.rootDir, join(root, ".aperture"));
       assert.equal(snapshot.learningPersistence?.memoryPath, join(root, ".aperture", "MEMORY.md"));
       assert.equal(
-        snapshot.learningPersistence?.judgmentPath,
-        join(root, ".aperture", "JUDGMENT.md"),
+        snapshot.learningPersistence?.aperturePath,
+        join(root, ".aperture", "APERTURE.md"),
       );
       assert.ok(snapshot.learningPersistence?.lastCheckpointAt);
     } finally {
@@ -523,8 +526,8 @@ test("runtime bootstraps learning persistence and checkpoints memory", async () 
   }
 });
 
-test("runtime loads scaffolded judgment config and can reload it on demand", async () => {
-  const root = await mkdtemp(join(tmpdir(), "aperture-runtime-judgment-"));
+test("runtime loads scaffolded Aperture config and can reload it on demand", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-runtime-policy-"));
   const learning = await bootstrapLearningPersistence(root);
   const runtime = createApertureRuntime({
     controlPort: 0,
@@ -551,12 +554,13 @@ test("runtime loads scaffolded judgment config and can reload it on demand", asy
     );
 
     await writeFile(
-      join(root, ".aperture", "JUDGMENT.md"),
+      join(root, ".aperture", "APERTURE.md"),
       [
-        "# Judgment",
+        "# Aperture",
         "",
         "## Meta",
         "- version: 1",
+        "- profile id: default",
         "- updated at: 2026-03-13T12:00:00.000Z",
         "",
         "## Policy",

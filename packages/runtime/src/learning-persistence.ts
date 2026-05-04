@@ -10,7 +10,7 @@ export type LearningPersistenceState = {
   enabled: boolean;
   rootDir?: string;
   memoryPath?: string;
-  judgmentPath?: string;
+  aperturePath?: string;
   lastLoadedAt?: string;
   lastCheckpointAt?: string | null;
 };
@@ -24,7 +24,7 @@ export async function bootstrapLearningPersistence(cwd: string): Promise<{
 }> {
   const rootDir = join(cwd, ".aperture");
   const memoryPath = join(rootDir, "MEMORY.md");
-  const judgmentPath = join(rootDir, "JUDGMENT.md");
+  const aperturePath = join(rootDir, "APERTURE.md");
   const profileStore = new ProfileStore(rootDir);
   const now = new Date().toISOString();
 
@@ -42,9 +42,9 @@ export async function bootstrapLearningPersistence(cwd: string): Promise<{
     await profileStore.saveMemoryProfile(fallback);
   }
 
-  const judgmentExists = await fileExists(judgmentPath);
-  if (!judgmentExists) {
-    await writeFile(judgmentPath, defaultJudgmentTemplate(now), "utf8");
+  const apertureExists = await fileExists(aperturePath);
+  if (!apertureExists) {
+    await writeFile(aperturePath, buildApertureTemplate(now), "utf8");
   }
 
   return {
@@ -53,26 +53,50 @@ export async function bootstrapLearningPersistence(cwd: string): Promise<{
       enabled: true,
       rootDir,
       memoryPath,
-      judgmentPath,
+      aperturePath,
       lastLoadedAt: now,
       lastCheckpointAt: null,
     },
   };
 }
 
-function defaultJudgmentTemplate(updatedAt: string): string {
+function buildApertureTemplate(now: string): string {
   return [
-    "# Judgment",
+    "# Aperture",
     "",
-    "Human-owned attention policy for Aperture.",
+    "Human-owned configuration for Aperture.",
     "",
-    "Only use the accepted values described below. Aperture reads this file at startup",
-    "and can reload it later, but it will not rewrite your policy choices.",
+    "Aperture reads this file at startup and can reload it later, but it will",
+    "not rewrite your choices. Keep learned behavior in MEMORY.md.",
     "",
     "## Meta",
     `- version: ${PERSISTED_PROFILE_SCHEMA_VERSION}`,
-    `- updated at: ${updatedAt}`,
+    "- profile id: default",
+    `- updated at: ${now}`,
     "",
+    ...defaultPreferenceSections(),
+    "",
+    ...defaultPolicySections(),
+    "",
+  ].join("\n");
+}
+
+function defaultPreferenceSections(): string[] {
+  return [
+    "## Preferences",
+    "",
+    "Friendly controls should stay scarce. Prefer Control Mode before adding",
+    "one-off toggles.",
+    "",
+    "Accepted fields:",
+    "- control mode: hands-on | standard | focus",
+    "",
+    "- control mode: standard",
+  ];
+}
+
+function defaultPolicySections(): string[] {
+  return [
     "## Policy",
     "",
     "Policy rules map named interaction categories to deterministic handling.",
@@ -127,8 +151,7 @@ function defaultJudgmentTemplate(updatedAt: string): string {
     "",
     "- batch status bursts: true",
     "- defer low value during pressure: true",
-    "",
-  ].join("\n");
+  ];
 }
 
 async function fileExists(path: string): Promise<boolean> {

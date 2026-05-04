@@ -89,7 +89,7 @@ Aperture can already improve from use:
 
 - interaction signals and derived summaries
 - durable learning persistence through `.aperture/MEMORY.md`
-- local judgment control through scaffolded `.aperture/JUDGMENT.md`
+- local human-owned control through scaffolded `.aperture/APERTURE.md`
 - bounded deterministic auto-approval for explicitly configured safe categories
 - consequence calibration from human disagreement
 - human-specific response, context, and deferral patterns feeding back into judgment
@@ -101,8 +101,8 @@ What is still missing:
 - explicit migration paths for persisted schema changes
 - a cleaner split between:
   - host constraints
-  - explicit operator profile
-  - learned operator behavior
+  - explicit `APERTURE.md` preferences and policy
+  - learned `MEMORY.md` behavior
 
 ### 3. Orchestrate
 
@@ -442,9 +442,8 @@ Current constructs:
 - `AttentionSignalStore`
 - `ProfileStore`
 - `MemoryAggregator`
-- `USER.md`
+- `APERTURE.md`
 - `MEMORY.md`
-- `JUDGMENT.md`
 
 ### 3. Reasoning and Episodes
 

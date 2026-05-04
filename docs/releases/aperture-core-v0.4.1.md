@@ -11,8 +11,8 @@ while tightening the SDK contract around host-aware integrations.
   root SDK package
 - clarifies the difference between:
   - host constraints
-  - explicit operator profile
-  - learned operator behavior
+  - explicit `APERTURE.md` preferences
+  - learned `MEMORY.md` behavior
 - tightens npm-facing SDK wording so the package reads more clearly as the
   deterministic judgment engine inside Aperture
 - keeps the root SDK loop small and stable:

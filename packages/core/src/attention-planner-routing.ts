@@ -8,7 +8,7 @@ import {
 import { isBlockingFrame, priorityForFrame } from "./frame-score.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
-import type { PlannerDefaults } from "./judgment-config.js";
+import type { PlannerDefaults } from "./policy-config.js";
 import type { AttentionPolicyVerdict } from "./attention-policy.js";
 import type { AttentionPressure } from "./attention-pressure.js";
 import {

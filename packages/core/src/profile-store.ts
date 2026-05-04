@@ -12,11 +12,12 @@ import {
 import { readAttentionLane } from "./attention-lane.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
 
-export type UserProfile = {
+export type ApertureProfile = {
   version: number;
   operatorId: string;
   updatedAt: string;
   preferences?: {
+    controlMode?: "hands-on" | "standard" | "focus";
     quietHours?: string[];
     preferBatchingFor?: string[];
     alwaysExpandContextFor?: string[];
@@ -66,8 +67,8 @@ export class ProfileStore {
     this.rootDir = rootDir;
   }
 
-  loadUserProfile(fallback: UserProfile): Promise<UserProfile> {
-    return readMarkdownFile(this.userPath(), fallback, parseUserProfile);
+  loadApertureProfile(fallback: ApertureProfile): Promise<ApertureProfile> {
+    return readMarkdownFile(this.aperturePath(), fallback, parseApertureProfile);
   }
 
   loadMemoryProfile(fallback: MemoryProfile): Promise<MemoryProfile> {
@@ -78,8 +79,8 @@ export class ProfileStore {
     return writeMarkdownFile(this.memoryPath(), serializeMemoryProfile(profile));
   }
 
-  private userPath(): string {
-    return join(this.rootDir, "USER.md");
+  private aperturePath(): string {
+    return join(this.rootDir, "APERTURE.md");
   }
 
   private memoryPath(): string {
@@ -87,7 +88,7 @@ export class ProfileStore {
   }
 }
 
-function parseUserProfile(content: string): UserProfile | null {
+function parseApertureProfile(content: string): ApertureProfile | null {
   // TODO: Add explicit migrations if the markdown schema needs a breaking
   // change. For now we keep the format additive and fall back to defaults when
   // required metadata is missing.
@@ -142,13 +143,15 @@ function parseUserProfile(content: string): UserProfile | null {
     }
   }
 
-  const operatorId = first(meta, "operator id");
+  const operatorId = first(meta, "profile id");
   const updatedAt = first(meta, "updated at");
   const version = numberValue(first(meta, "version"));
 
   if (!operatorId || !updatedAt || version === null || version !== MARKDOWN_SCHEMA_VERSION) {
     return null;
   }
+
+  const controlMode = readControlMode(first(preferences, "control mode"));
 
   return {
     version,
@@ -157,6 +160,7 @@ function parseUserProfile(content: string): UserProfile | null {
     ...(preferences.size > 0
       ? {
           preferences: {
+            ...(controlMode !== null ? { controlMode } : {}),
             ...(readList(preferences, "quiet hours").length > 0
               ? { quietHours: readList(preferences, "quiet hours") }
               : {}),
@@ -262,7 +266,7 @@ function parseMemoryProfile(content: string): MemoryProfile | null {
     }
   }
 
-  const operatorId = first(meta, "operator id");
+  const operatorId = first(meta, "profile id");
   const updatedAt = first(meta, "updated at");
   const version = numberValue(first(meta, "version"));
   const sessionCount = numberValue(first(meta, "session count"));
@@ -296,7 +300,7 @@ function serializeMemoryProfile(profile: MemoryProfile): string {
     "",
     "## Meta",
     formatBullet("version", profile.version),
-    formatBullet("operator id", profile.operatorId),
+    formatBullet("profile id", profile.operatorId),
     formatBullet("updated at", profile.updatedAt),
     formatBullet("session count", profile.sessionCount),
   ];
@@ -381,6 +385,17 @@ function readList(target: Map<string, string[]>, key: string): string[] {
 
 function numberValue(value: string | null): number | null {
   return value !== null && /^-?\d+(?:\.\d+)?$/.test(value) ? Number(value) : null;
+}
+
+function readControlMode(value: string | null): "hands-on" | "standard" | "focus" | null {
+  switch (value) {
+    case "hands-on":
+    case "standard":
+    case "focus":
+      return value;
+    default:
+      return null;
+  }
 }
 
 function camelKey(value: string): string {

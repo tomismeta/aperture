@@ -10,10 +10,10 @@ import {
 } from "./policy-gate-rule.js";
 
 export const evaluateConfiguredPolicyGateRule: PolicyGateRule = (input) => {
-  const { candidate, judgmentConfig, userProfile } = input;
+  const { candidate, policyConfig, apertureProfile } = input;
   const toolFamily = inferConfiguredPolicyToolFamily(candidate);
-  const toolOverride = toolFamily ? userProfile?.overrides?.tools?.[toolFamily] : undefined;
-  const policyRule = matchPolicyRule(judgmentConfig, candidate);
+  const toolOverride = toolFamily ? apertureProfile?.overrides?.tools?.[toolFamily] : undefined;
+  const policyRule = matchPolicyRule(policyConfig, candidate);
   const requireContextExpansion =
     toolOverride?.requireContextExpansion === true || policyRule?.requireContextExpansion === true;
   const autoApprove =

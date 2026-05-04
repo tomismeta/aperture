@@ -140,9 +140,9 @@ Yes, plain Markdown files are good enough for the next stage, with one important
 
 The minimal durable storage surface should be exactly:
 
-- `USER.md`
+- `APERTURE.md`
 - `MEMORY.md`
-- `JUDGMENT.md`
+- `APERTURE.md`
 
 Nothing else should be introduced until there is a concrete need.
 
@@ -173,11 +173,11 @@ These file names should be treated as stable archetypes, not as vague prompt fil
 
 The meaning should be:
 
-- `USER.md`: explicit operator preferences and overrides
+- `APERTURE.md`: explicit operator preferences and overrides
 - `MEMORY.md`: learned durable summaries and calibration state
-- `JUDGMENT.md`: explicit attention policy and guardrails
+- `APERTURE.md`: explicit attention policy and guardrails
 
-`JUDGMENT.md` is the only noun Aperture needs beyond the borrowed vocabulary. It earns its place because hard attention policy does not fit cleanly inside either user preferences or learned memory.
+`APERTURE.md` is the only noun Aperture needs beyond the borrowed vocabulary. It earns its place because hard attention policy does not fit cleanly inside either user preferences or learned memory.
 
 ### Where Files Should Live
 
@@ -187,9 +187,9 @@ Suggested layout:
 
 ```text
 .aperture/
-  USER.md
+  APERTURE.md
   MEMORY.md
-  JUDGMENT.md
+  APERTURE.md
 ```
 
 If Aperture already has a better runtime directory convention, use that instead, but keep this same shape.
@@ -208,26 +208,31 @@ The v1 house style should be:
 
 This keeps the files fully human-readable and editable without any YAML or JSON layer embedded inside them.
 
-Example `USER.md`:
+Example `APERTURE.md`:
 
 ```md
 # User
 
 ## Meta
+
 - version: 1
-- operator id: default
+- profile id: default
 - updated at: 2026-03-12T10:15:00.000Z
 
 ## Preferences
+
 - prefer batching for: status
 - always expand context for: destructive_bash
 - never auto approve: env_write
 
 ## Tool Overrides
+
 ### read
+
 - default presentation: ambient
 
 ### bash
+
 - require context expansion: true
 
 Explicit operator preferences and hard overrides.
@@ -239,13 +244,16 @@ Example `MEMORY.md`:
 # Memory
 
 ## Meta
+
 - version: 1
-- operator id: default
+- profile id: default
 - updated at: 2026-03-12T10:15:00.000Z
 - session count: 4
 
 ## Tool Families
+
 ### read
+
 - presentations: 28
 - responses: 27
 - dismissals: 0
@@ -253,6 +261,7 @@ Example `MEMORY.md`:
 - context expansion rate: 0.04
 
 ### bash
+
 - presentations: 11
 - responses: 7
 - dismissals: 1
@@ -260,62 +269,77 @@ Example `MEMORY.md`:
 - context expansion rate: 0.63
 
 ## Source Trust
+
 ### claude-code / low
+
 - confirmations: 41
 - disagreements: 6
 - trust adjustment: -0.15
 
 ### claude-code / medium
+
 - confirmations: 17
 - disagreements: 4
 - trust adjustment: -0.08
 
 ## Consequence Profiles
+
 ### low
+
 - rejection rate: 0.03
 
 ### medium
+
 - rejection rate: 0.19
 
 ### high
+
 - rejection rate: 0.44
 
 Durable learned summaries and trust calibration.
 ```
 
-Example `JUDGMENT.md`:
+Example `APERTURE.md`:
 
 ```md
 # Judgment
 
 ## Meta
+
 - version: 1
 - updated at: 2026-03-12T10:15:00.000Z
 
 ## Policy
+
 ### lowRiskRead
+
 - may interrupt: true
 - minimum presentation: active
 
 ### lowRiskWeb
+
 - may interrupt: true
 - minimum presentation: active
 
 ### fileWrite
+
 - may interrupt: true
 - minimum presentation: active
 
 ### destructiveBash
+
 - may interrupt: true
 - minimum presentation: active
 - require context expansion: true
 
 ### envWrite
+
 - may interrupt: true
 - minimum presentation: active
 - require context expansion: true
 
 ## Planner Defaults
+
 - batch status bursts: true
 - defer low value during pressure: true
 
@@ -352,7 +376,7 @@ Do not extend it into a durable store.
 
 New responsibility:
 
-- load explicit preferences from `USER.md`
+- load explicit preferences from `APERTURE.md`
 - load and save learned durable summaries from `MEMORY.md`
 - update summary aggregates from recent signals
 
@@ -392,8 +416,8 @@ Policy should not use learned weights.
 
 Persistence:
 
-- load explicit policy and guardrails from `JUDGMENT.md`
-- allow user-specific overrides from `USER.md`
+- load explicit policy and guardrails from `APERTURE.md`
+- allow user-specific overrides from `APERTURE.md`
 
 ### `AttentionValue`
 
@@ -487,13 +511,7 @@ Do not use an LLM for episode identity in the initial implementation.
 Suggested state:
 
 ```ts
-type EpisodeState =
-  | "emerging"
-  | "actionable"
-  | "batched"
-  | "waiting"
-  | "stale"
-  | "resolved";
+type EpisodeState = "emerging" | "actionable" | "batched" | "waiting" | "stale" | "resolved";
 ```
 
 ### Episode Benefits
@@ -565,7 +583,7 @@ That is enough for adaptation without pretending to be a learning platform.
 
 The three-file design only works if each file has a clear owner and clear read/write rules.
 
-### `USER.md`
+### `APERTURE.md`
 
 Truth type:
 
@@ -599,7 +617,7 @@ Forbidden contents:
 
 Rule:
 
-- Aperture may read `USER.md` at startup and refresh on change, but should not silently rewrite it.
+- Aperture may read `APERTURE.md` at startup and refresh on change, but should not silently rewrite it.
 
 ### `MEMORY.md`
 
@@ -641,7 +659,7 @@ Rule:
 - writes should be periodic, summarized, and atomic
 - memory is inferred state, so machine writes are expected
 
-### `JUDGMENT.md`
+### `APERTURE.md`
 
 Truth type:
 
@@ -672,12 +690,12 @@ Forbidden contents:
 
 - learned behavior summaries
 - raw statistics
-- operator identity/preferences that belong in `USER.md`
+- profile identity/preferences that belong in `APERTURE.md`
 
 Rule:
 
-- Aperture should read `JUDGMENT.md` as configuration, not as memory
-- `JUDGMENT.md` should only expose accepted values that are consumed by live code
+- Aperture should read `APERTURE.md` as configuration, not as memory
+- `APERTURE.md` should only expose accepted values that are consumed by live code
 - operator-response work should remain `now` unless Aperture has an explicit auto-resolution path such as `auto approve`
 
 ## Runtime Process Flow
@@ -686,9 +704,9 @@ The core runtime should remain simple and composable.
 
 ### Startup Flow
 
-1. `ProfileStore` loads `USER.md`.
+1. `ProfileStore` loads `APERTURE.md`.
 2. `ProfileStore` loads `MEMORY.md`.
-3. `AttentionPolicy` loads `JUDGMENT.md`.
+3. `AttentionPolicy` loads `APERTURE.md`.
 4. `ApertureCore` initializes in-memory signal and episode trackers.
 
 ### Publish Flow
@@ -698,8 +716,8 @@ The core runtime should remain simple and composable.
 3. `EpisodeTracker` assigns the candidate to an episode.
 4. `AttentionPolicy` evaluates hard constraints using:
    - candidate data
-   - `USER.md` overrides
-   - `JUDGMENT.md` policy
+   - `APERTURE.md` overrides
+   - `APERTURE.md` policy
 5. `ConsequenceCalibration` provides trust adjustments using `MEMORY.md`.
 6. `AttentionValue` computes value using:
    - candidate data
@@ -727,14 +745,14 @@ The core runtime should remain simple and composable.
 2. merge into durable memory model
 3. atomically rewrite `MEMORY.md`
 
-No checkpoint should write to `USER.md` or `JUDGMENT.md`.
+No checkpoint should write to `APERTURE.md` or `APERTURE.md`.
 
 ## Composability Rules
 
 To keep the architecture tight:
 
-- `AttentionPolicy` may read `USER.md` and `JUDGMENT.md`, but not `MEMORY.md`
-- `AttentionValue` may read `MEMORY.md`, but must not read `JUDGMENT.md` directly
+- `AttentionPolicy` may read `APERTURE.md` and `APERTURE.md`, but not `MEMORY.md`
+- `AttentionValue` may read `MEMORY.md`, but must not read `APERTURE.md` directly
 - `AttentionPlanner` may consume policy verdicts and utility outputs, but must not parse files itself
 - `ProfileStore` owns persistence for learned memory
 - `ConsequenceCalibration` contributes data to `MEMORY.md`, but does not own file I/O

@@ -1,64 +1,64 @@
 import type { AttentionSignal } from "./interaction-signal.js";
-import { loadJudgmentConfig, type JudgmentConfig } from "./judgment-config.js";
+import { loadPolicyConfig, type PolicyConfig } from "./policy-config.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
 import { distillMemoryProfile } from "./memory-aggregator.js";
-import { ProfileStore, type MemoryProfile, type UserProfile } from "./profile-store.js";
+import { ProfileStore, type MemoryProfile, type ApertureProfile } from "./profile-store.js";
 import { formatTimestamp } from "./time.js";
 
 export type LoadedMarkdownRuntimeState = {
   profileStore: ProfileStore;
   markdownRootDir: string;
-  userProfile: UserProfile;
+  apertureProfile: ApertureProfile;
   memoryProfile: MemoryProfile;
-  judgmentConfig: JudgmentConfig;
+  policyConfig: PolicyConfig;
 };
 
 export type ReloadMarkdownRuntimeOptions = {
   profileStore: ProfileStore;
   markdownRootDir: string;
-  userProfile: UserProfile | undefined;
+  apertureProfile: ApertureProfile | undefined;
   memoryProfile: MemoryProfile;
-  judgmentConfig: JudgmentConfig | undefined;
+  policyConfig: PolicyConfig | undefined;
 };
 
 export type ReloadedMarkdownRuntimeState = {
-  userProfile: UserProfile;
+  apertureProfile: ApertureProfile;
   memoryProfile: MemoryProfile;
-  judgmentConfig: JudgmentConfig;
+  policyConfig: PolicyConfig;
 };
 
 export async function loadMarkdownRuntimeState(
   rootDir: string,
 ): Promise<LoadedMarkdownRuntimeState> {
   const profileStore = new ProfileStore(rootDir);
-  const [userProfile, memoryProfile, judgmentConfig] = await Promise.all([
-    profileStore.loadUserProfile(defaultUserProfile()),
+  const [apertureProfile, memoryProfile, policyConfig] = await Promise.all([
+    profileStore.loadApertureProfile(defaultApertureProfile()),
     profileStore.loadMemoryProfile(defaultMemoryProfile()),
-    loadJudgmentConfig(rootDir, defaultJudgmentConfig()),
+    loadPolicyConfig(rootDir, defaultPolicyConfig()),
   ]);
 
   return {
     profileStore,
     markdownRootDir: rootDir,
-    userProfile,
+    apertureProfile,
     memoryProfile,
-    judgmentConfig,
+    policyConfig,
   };
 }
 
 export async function reloadMarkdownRuntimeState(
   options: ReloadMarkdownRuntimeOptions,
 ): Promise<ReloadedMarkdownRuntimeState> {
-  const [userProfile, memoryProfile, judgmentConfig] = await Promise.all([
-    options.profileStore.loadUserProfile(options.userProfile ?? defaultUserProfile()),
+  const [apertureProfile, memoryProfile, policyConfig] = await Promise.all([
+    options.profileStore.loadApertureProfile(options.apertureProfile ?? defaultApertureProfile()),
     options.profileStore.loadMemoryProfile(options.memoryProfile),
-    loadJudgmentConfig(options.markdownRootDir, options.judgmentConfig ?? defaultJudgmentConfig()),
+    loadPolicyConfig(options.markdownRootDir, options.policyConfig ?? defaultPolicyConfig()),
   ]);
 
   return {
-    userProfile,
+    apertureProfile,
     memoryProfile,
-    judgmentConfig,
+    policyConfig,
   };
 }
 
@@ -77,7 +77,7 @@ export async function checkpointMarkdownMemoryProfile(options: {
   return snapshot;
 }
 
-function defaultUserProfile(): UserProfile {
+function defaultApertureProfile(): ApertureProfile {
   return {
     version: MARKDOWN_SCHEMA_VERSION,
     operatorId: "default",
@@ -94,7 +94,7 @@ function defaultMemoryProfile(): MemoryProfile {
   };
 }
 
-function defaultJudgmentConfig(): JudgmentConfig {
+function defaultPolicyConfig(): PolicyConfig {
   return {
     version: MARKDOWN_SCHEMA_VERSION,
     updatedAt: formatTimestamp(0),

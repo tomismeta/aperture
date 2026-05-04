@@ -11,10 +11,10 @@ import { readAttentionLane } from "./attention-lane.js";
 import type { ContinuityRuleName } from "./continuity/continuity-rule.js";
 import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
 
-export type JudgmentConfig = {
+export type PolicyConfig = {
   version: number;
   updatedAt: string;
-  policy?: Record<string, JudgmentRule>;
+  policy?: Record<string, PolicyRule>;
   ambiguityDefaults?: AmbiguityDefaults;
   plannerDefaults?: PlannerDefaults;
 };
@@ -33,26 +33,26 @@ export type PlannerDefaults = {
   disabledContinuityRules?: ContinuityRuleName[];
 };
 
-export type JudgmentRule = {
+export type PolicyRule = {
   autoApprove?: boolean;
   mayInterrupt?: boolean;
   minimumLane?: "ambient" | "next" | "now";
   requireContextExpansion?: boolean;
 };
 
-export async function loadJudgmentConfig(
+export async function loadPolicyConfig(
   rootDir: string,
-  fallback: JudgmentConfig,
-): Promise<JudgmentConfig> {
-  return readMarkdownFile(join(rootDir, "JUDGMENT.md"), fallback, parseJudgmentConfig);
+  fallback: PolicyConfig,
+): Promise<PolicyConfig> {
+  return readMarkdownFile(join(rootDir, "APERTURE.md"), fallback, parsePolicyConfig);
 }
 
-function parseJudgmentConfig(content: string): JudgmentConfig | null {
+function parsePolicyConfig(content: string): PolicyConfig | null {
   // TODO: Add explicit migrations if the markdown schema needs a breaking
   // change. For now we keep the format additive and fall back to defaults when
   // required metadata is missing.
   const meta = new Map<string, string>();
-  const policy = new Map<string, JudgmentRule>();
+  const policy = new Map<string, PolicyRule>();
   const ambiguityDefaults = new Map<string, number>();
   const plannerDefaults = new Map<string, boolean | number | ContinuityRuleName[]>();
   let section: string | null = null;
@@ -85,7 +85,7 @@ function parseJudgmentConfig(content: string): JudgmentConfig | null {
 
     if (section === "Policy" && ruleName) {
       const scalar = parseScalar(bullet.value);
-      const key = normalizeJudgmentRuleKey(camelKey(bullet.key));
+      const key = normalizePolicyRuleKey(camelKey(bullet.key));
       policy.set(ruleName, {
         ...(policy.get(ruleName) ?? {}),
         ...(key === "minimumLane"
@@ -142,7 +142,7 @@ function parseJudgmentConfig(content: string): JudgmentConfig | null {
   };
 }
 
-function normalizeJudgmentRuleKey(key: string): string {
+function normalizePolicyRuleKey(key: string): string {
   switch (key) {
     case "minimumPresentation":
       return "minimumLane";
@@ -151,9 +151,9 @@ function normalizeJudgmentRuleKey(key: string): string {
   }
 }
 
-export function serializeJudgmentConfig(config: JudgmentConfig): string {
+export function serializePolicyConfig(config: PolicyConfig): string {
   const lines: string[] = [
-    "# Judgment",
+    "# Policy",
     "",
     "## Meta",
     formatBullet("version", config.version),

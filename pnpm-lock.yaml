@@ -1,7 +1,7 @@
 lockfileVersion: '9.0'
 
 settings:
-  autoInstallPeers: true
+  autoInstallPeers: false
   excludeLinksFromLockfile: false
 
 importers:
@@ -83,6 +83,15 @@ importers:
         version: link:../core
 
   packages/opencode:
+    dependencies:
+      '@aperture/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      '@tomismeta/aperture-core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/pi:
     dependencies:
       '@aperture/runtime':
         specifier: workspace:*

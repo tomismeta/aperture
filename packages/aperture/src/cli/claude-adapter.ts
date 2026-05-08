@@ -120,7 +120,10 @@ export function runtimeHasLiveClaudeActivity(snapshot: ApertureRuntimeSnapshot):
   return frames.some((frame) => frame.source?.kind === "claude-code");
 }
 
-export function readyClaudeState(changedHooks: boolean, attachedExisting: boolean): {
+export function readyClaudeState(
+  changedHooks: boolean,
+  attachedExisting: boolean,
+): {
   state: "ready" | "action";
   detail: string;
   hint?: string;
@@ -271,7 +274,10 @@ export function claudePermissionFallbackEvent(
 }
 
 function claudeSource(
-  event: Pick<ClaudeCodePreToolUseEvent | ClaudeCodePermissionRequestEvent | ClaudeCodeElicitationEvent, "session_id" | "cwd">,
+  event: Pick<
+    ClaudeCodePreToolUseEvent | ClaudeCodePermissionRequestEvent | ClaudeCodeElicitationEvent,
+    "session_id" | "cwd"
+  >,
 ) {
   const workspace = event.cwd.split("/").filter(Boolean).at(-1) ?? "";
   const session = shortSessionLabel(event.session_id);

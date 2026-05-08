@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type {
-  AttentionFrame as Frame,
-  AttentionView,
-} from "@tomismeta/aperture-core";
+import type { AttentionFrame as Frame, AttentionView } from "@tomismeta/aperture-core";
 import type { CandidateApertureTrace } from "@tomismeta/aperture-core/internal";
 import type { AttentionSignalSummary as SignalSummary } from "../../core/src/signal-summary.js";
 import type { AttentionState } from "../../core/src/attention-state.js";
@@ -202,9 +199,7 @@ test("renderAttentionScreen shows connection status when the surface is empty", 
           state: "action",
           detail: "Claude bridge is ready. Claude Code still needs to reload the updated hooks.",
           hint: "Restart Claude Code and run /hooks once to finish setup.",
-          actions: [
-            { id: "refresh-claude", key: "c", label: "finish Claude setup" },
-          ],
+          actions: [{ id: "refresh-claude", key: "c", label: "finish Claude setup" }],
         },
         {
           id: "opencode",
@@ -212,9 +207,7 @@ test("renderAttentionScreen shows connection status when the surface is empty", 
           state: "action",
           detail: "Waiting for OpenCode at http://127.0.0.1:4096.",
           hint: "Run: opencode serve --port 4096, then opencode attach http://127.0.0.1:4096.",
-          actions: [
-            { id: "retry-opencode", key: "r", label: "retry OpenCode" },
-          ],
+          actions: [{ id: "retry-opencode", key: "r", label: "retry OpenCode" }],
         },
       ],
       actions: [
@@ -394,7 +387,8 @@ test("renderAttentionScreen shows setup instead of a lone bridge-status ambient 
       makeFrame({
         id: "frame-bridge",
         taskId: "opencode:http%3A%2F%2F127.0.0.1%3A4096%7C:session:bridge",
-        interactionId: "interaction:opencode:http%3A%2F%2F127.0.0.1%3A4096%7C:session:bridge:status",
+        interactionId:
+          "interaction:opencode:http%3A%2F%2F127.0.0.1%3A4096%7C:session:bridge:status",
         mode: "status",
         tone: "ambient",
         title: "OpenCode event stream disconnected",
@@ -526,7 +520,8 @@ test("renderAttentionScreen expands full prompt text when expanded", () => {
     now: makeFrame({
       mode: "form",
       title: "OpenCode is waiting for your reply",
-      summary: "That's a compelling vision - personalization that adapts to each user while keeping the surface calm and predictable for operators.",
+      summary:
+        "That's a compelling vision - personalization that adapts to each user while keeping the surface calm and predictable for operators.",
       responseSpec: {
         kind: "form",
         fields: [{ id: "reply", label: "Reply", type: "textarea" }],
@@ -592,9 +587,15 @@ test("renderAttentionScreen keeps workflow metadata behind detail expand", () =>
   assert.doesNotMatch(collapsed, /usage gpt-5\.4/);
 
   const expanded = renderAttentionScreen(attentionView, { title: "Aperture", expanded: true });
-  assert.match(expanded, /automation scheduled · schedule · recurring · schedule schedule:nightly-maintenance/);
+  assert.match(
+    expanded,
+    /automation scheduled · schedule · recurring · schedule schedule:nightly-maintenance/,
+  );
   assert.match(expanded, /execution slack · cloud · github-actions-large · production/);
-  assert.match(expanded, /governance pending · policy policy:prod-maintenance · approval approval:nightly-maintenance/);
+  assert.match(
+    expanded,
+    /governance pending · policy policy:prod-maintenance · approval approval:nightly-maintenance/,
+  );
   assert.match(expanded, /usage gpt-5\.4 · host-auto · 1200 in · 800 cache · 320 out · \$0\.14/);
 });
 
@@ -625,7 +626,12 @@ test("renderAttentionScreen accents input prompts and reply labels in brand blue
     },
   });
 
-  assert.match(screen, new RegExp(`${escapeRegExp(ANSI.bold)}${escapeRegExp(ANSI.brand)}What's your favorite programming language and why\\?`));
+  assert.match(
+    screen,
+    new RegExp(
+      `${escapeRegExp(ANSI.bold)}${escapeRegExp(ANSI.brand)}What's your favorite programming language and why\\?`,
+    ),
+  );
   assert.match(screen, new RegExp(`${escapeRegExp(ANSI.bold)}${escapeRegExp(ANSI.brand)}Reply`));
 });
 
@@ -652,10 +658,15 @@ test("renderAttentionScreen accents approval summaries in non-bold brand blue", 
     color: true,
   });
 
-  assert.match(screen, new RegExp(`${escapeRegExp(ANSI.brand)}ls /Users/tom/Desktop/aperture-test-suite`));
+  assert.match(
+    screen,
+    new RegExp(`${escapeRegExp(ANSI.brand)}ls /Users/tom/Desktop/aperture-test-suite`),
+  );
   assert.doesNotMatch(
     screen,
-    new RegExp(`${escapeRegExp(ANSI.bold)}${escapeRegExp(ANSI.brand)}ls /Users/tom/Desktop/aperture-test-suite`),
+    new RegExp(
+      `${escapeRegExp(ANSI.bold)}${escapeRegExp(ANSI.brand)}ls /Users/tom/Desktop/aperture-test-suite`,
+    ),
   );
 });
 
@@ -918,7 +929,11 @@ test("renderAttentionScreen judgment line shows continuity overrides first", () 
     coordination: {
       reasons: ["coordination reason"],
       continuityEvaluations: [
-        { rule: "conflicting_interrupt", kind: "override", rationale: ["suppressed due to active approval"] },
+        {
+          rule: "conflicting_interrupt",
+          kind: "override",
+          rationale: ["suppressed due to active approval"],
+        },
         { rule: "burst_dampening", kind: "noop", rationale: [] },
       ],
     },
@@ -945,7 +960,14 @@ test("renderAttentionScreen why mode replaces next and ambient", () => {
   const attentionView: AttentionView = {
     now: makeFrame(),
     next: [makeFrame({ id: "frame-2", title: "Queued item" })],
-    ambient: [makeFrame({ id: "frame-3", title: "Ambient item", mode: "status", responseSpec: { kind: "none" } })],
+    ambient: [
+      makeFrame({
+        id: "frame-3",
+        title: "Ambient item",
+        mode: "status",
+        responseSpec: { kind: "none" },
+      }),
+    ],
   };
 
   const normalScreen = renderAttentionScreen(attentionView);
@@ -989,7 +1011,11 @@ test("renderAttentionScreen why mode collapsed hides noop rules and shows count"
   assert.doesNotMatch(collapsed, /configured policy/);
 
   // Expanded — all rules shown, no count line
-  const expanded = renderAttentionScreen(attentionView, { whyMode: true, whyExpanded: true, trace });
+  const expanded = renderAttentionScreen(attentionView, {
+    whyMode: true,
+    whyExpanded: true,
+    trace,
+  });
   assert.match(expanded, /configured policy/);
   assert.match(expanded, /blocking work/);
   assert.match(expanded, /background task/);
@@ -1032,7 +1058,11 @@ test("renderAttentionScreen why mode keeps threshold details on separate lines",
         },
       },
       criterionEvaluations: [
-        { rule: "continuity_headroom", kind: "adjust", rationale: ["keeps headroom for active work"] },
+        {
+          rule: "continuity_headroom",
+          kind: "adjust",
+          rationale: ["keeps headroom for active work"],
+        },
       ],
     },
     utility: { currentScore: 1100 },
@@ -1048,7 +1078,52 @@ test("renderAttentionScreen why mode keeps threshold details on separate lines",
 
   const screen = renderAttentionScreen(attentionView, { whyMode: true, trace });
   assert.match(screen, /score:\s+1120[\s\S]*current:\s+1100[\s\S]*threshold:\s+1150/);
-  assert.match(screen, /criterion[\s\S]*threshold:\s+1150[\s\S]*margin:\s+80[\s\S]*ambiguity:\s+threshold sits close to the currently active approval/);
+  assert.match(
+    screen,
+    /criterion[\s\S]*threshold:\s+1150[\s\S]*margin:\s+80[\s\S]*ambiguity:\s+threshold sits close to the currently active approval/,
+  );
+});
+
+test("renderAttentionScreen why mode shows control mode as preference influence", () => {
+  const attentionView: AttentionView = {
+    now: makeFrame(),
+    next: [],
+    ambient: [],
+  };
+
+  const trace = makeCandidateTrace({
+    policyRules: {
+      gateEvaluations: [
+        {
+          rule: "configured_policy",
+          kind: "verdict",
+          rationale: [
+            "configured judgment policy applies to this interaction",
+            "hands-on control mode keeps configured auto-approval in the attention surface",
+          ],
+        },
+      ],
+      criterion: {
+        criterion: {
+          activationThreshold: 140,
+          promotionMargin: 10,
+        },
+        ambiguity: null,
+        rationale: ["hands-on control mode lowers the interrupt bar for non-blocking work"],
+      },
+      criterionEvaluations: [],
+    },
+  });
+
+  const screen = renderAttentionScreen(attentionView, { whyMode: true, trace });
+
+  assert.match(screen, /preferences/);
+  assert.match(screen, /control mode/);
+  assert.match(
+    screen,
+    /hands-on control mode keeps configured[\s\S]*auto-approval in the attention surface/,
+  );
+  assert.match(screen, /hands-on control mode lowers the interrupt bar/);
 });
 
 test("renderAttentionScreen why mode shows semantic interpretation and influence", () => {

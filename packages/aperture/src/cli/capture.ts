@@ -27,7 +27,10 @@ export async function beginCapture(runtimeUrl: string): Promise<RuntimeSessionCa
   const baseline = await fetchSessionCapture(runtimeUrl);
   const cursor = createRuntimeSessionCaptureCursor(baseline);
   const baselineNowCount = baseline.currentAttentionView.now ? 1 : 0;
-  const baselineFrameCount = baselineNowCount + baseline.currentAttentionView.next.length + baseline.currentAttentionView.ambient.length;
+  const baselineFrameCount =
+    baselineNowCount +
+    baseline.currentAttentionView.next.length +
+    baseline.currentAttentionView.ambient.length;
 
   stdout.write(`Capture enabled for this Aperture session (${runtimeUrl})\n`);
   stdout.write(`- baseline capture steps: ${cursor.counts.captureSteps}\n`);

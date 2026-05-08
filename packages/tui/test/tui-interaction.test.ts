@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { AttentionFrame as Frame, AttentionResponse as FrameResponse } from "@tomismeta/aperture-core";
+import type {
+  AttentionFrame as Frame,
+  AttentionResponse as FrameResponse,
+} from "@tomismeta/aperture-core";
 
 import { describeResponse } from "../src/interaction.js";
 

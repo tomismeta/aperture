@@ -160,7 +160,13 @@ function handleChoiceKeypress(
 ): void {
   const active = state.attentionView.now;
   const draft = state.inputDraft;
-  if (!active || !draft || draft.kind !== "choice" || !active.responseSpec || active.responseSpec.kind !== "choice") {
+  if (
+    !active ||
+    !draft ||
+    draft.kind !== "choice" ||
+    !active.responseSpec ||
+    active.responseSpec.kind !== "choice"
+  ) {
     state.inputDraft = null;
     return;
   }
@@ -213,7 +219,13 @@ function handleFormKeypress(
 ): void {
   const active = state.attentionView.now;
   const draft = state.inputDraft;
-  if (!active || !draft || draft.kind !== "form" || !active.responseSpec || active.responseSpec.kind !== "form") {
+  if (
+    !active ||
+    !draft ||
+    draft.kind !== "form" ||
+    !active.responseSpec ||
+    active.responseSpec.kind !== "form"
+  ) {
     state.inputDraft = null;
     return;
   }

@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type {
-  AttentionFrame as Frame,
-} from "@tomismeta/aperture-core";
+import type { AttentionFrame as Frame } from "@tomismeta/aperture-core";
 import type { AttentionSignalSummary as SignalSummary } from "../../core/src/signal-summary.js";
 import type { AttentionState } from "../../core/src/attention-state.js";
 
@@ -61,7 +59,7 @@ function makeState(overrides: Partial<TuiState> = {}): TuiState {
 function makeSurface(submitted: FrameResponse[] = []): AttentionSurface {
   return {
     getAttentionView: () => ({ now: null, next: [], ambient: [] }),
-    getSignalSummary: () => ({} as SignalSummary),
+    getSignalSummary: () => ({}) as SignalSummary,
     getAttentionState: () => "calm" as AttentionState,
     subscribeAttentionView: () => () => {},
     onResponse: () => () => {},
@@ -115,7 +113,9 @@ test("handleActiveKeypress submits acknowledged on 'return' for acknowledge fram
   const frame = makeFrame({
     responseSpec: {
       kind: "acknowledge",
-      actions: [{ id: "acknowledge", label: "Acknowledge", kind: "acknowledge", emphasis: "primary" }],
+      actions: [
+        { id: "acknowledge", label: "Acknowledge", kind: "acknowledge", emphasis: "primary" },
+      ],
     },
   });
 
@@ -205,9 +205,7 @@ test("createAutomaticInputDraft auto-opens form responses", () => {
   const frame = makeFrame({
     responseSpec: {
       kind: "form",
-      fields: [
-        { id: "reply", label: "Reply", type: "textarea" },
-      ],
+      fields: [{ id: "reply", label: "Reply", type: "textarea" }],
     },
   });
 
@@ -253,47 +251,65 @@ test("createAutomaticInputDraft does not auto-open approvals", () => {
 });
 
 test("shouldReserveSpaceForExpand keeps space global for empty drafts", () => {
-  assert.equal(shouldReserveSpaceForExpand({
-    kind: "choice",
-    interactionId: "interaction-1",
-    optionIds: [],
-  }), true);
+  assert.equal(
+    shouldReserveSpaceForExpand({
+      kind: "choice",
+      interactionId: "interaction-1",
+      optionIds: [],
+    }),
+    true,
+  );
 
-  assert.equal(shouldReserveSpaceForExpand({
-    kind: "form",
-    interactionId: "interaction-1",
-    fieldIndex: 0,
-    values: {},
-    buffer: "",
-  }), true);
+  assert.equal(
+    shouldReserveSpaceForExpand({
+      kind: "form",
+      interactionId: "interaction-1",
+      fieldIndex: 0,
+      values: {},
+      buffer: "",
+    }),
+    true,
+  );
 
-  assert.equal(shouldReserveSpaceForExpand({
-    kind: "text",
-    interactionId: "interaction-1",
-    buffer: "",
-  }), true);
+  assert.equal(
+    shouldReserveSpaceForExpand({
+      kind: "text",
+      interactionId: "interaction-1",
+      buffer: "",
+    }),
+    true,
+  );
 });
 
 test("shouldReserveSpaceForExpand releases space after typing starts", () => {
-  assert.equal(shouldReserveSpaceForExpand({
-    kind: "choice",
-    interactionId: "interaction-1",
-    optionIds: ["docs"],
-  }), true);
+  assert.equal(
+    shouldReserveSpaceForExpand({
+      kind: "choice",
+      interactionId: "interaction-1",
+      optionIds: ["docs"],
+    }),
+    true,
+  );
 
-  assert.equal(shouldReserveSpaceForExpand({
-    kind: "form",
-    interactionId: "interaction-1",
-    fieldIndex: 0,
-    values: {},
-    buffer: "hello",
-  }), false);
+  assert.equal(
+    shouldReserveSpaceForExpand({
+      kind: "form",
+      interactionId: "interaction-1",
+      fieldIndex: 0,
+      values: {},
+      buffer: "hello",
+    }),
+    false,
+  );
 
-  assert.equal(shouldReserveSpaceForExpand({
-    kind: "text",
-    interactionId: "interaction-1",
-    buffer: "hello",
-  }), false);
+  assert.equal(
+    shouldReserveSpaceForExpand({
+      kind: "text",
+      interactionId: "interaction-1",
+      buffer: "hello",
+    }),
+    false,
+  );
 });
 
 // ── describeResponse ──────────────────────────────────────────────

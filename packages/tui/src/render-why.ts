@@ -1,5 +1,14 @@
 import type { ApertureTrace } from "./types.js";
-import { ANSI, SCREEN_WIDTH, CONTENT_WIDTH, styleMuted, styleActiveGate, styleVerdict, styleValue, wrapText } from "./ansi.js";
+import {
+  ANSI,
+  SCREEN_WIDTH,
+  CONTENT_WIDTH,
+  styleMuted,
+  styleActiveGate,
+  styleVerdict,
+  styleValue,
+  wrapText,
+} from "./ansi.js";
 
 type CandidateTrace = Extract<ApertureTrace, { evaluation: { kind: "candidate" } }>;
 
@@ -16,9 +25,12 @@ function gateOutcome(kind: string): string {
 
 function criterionOutcome(kind: string): string {
   switch (kind) {
-    case "verdict": return "resolved route";
-    case "adjust": return "adjusted threshold";
-    default: return "did not apply";
+    case "verdict":
+      return "resolved route";
+    case "adjust":
+      return "adjusted threshold";
+    default:
+      return "did not apply";
   }
 }
 
@@ -39,7 +51,9 @@ function humanLane(bucket: CandidateTrace["coordination"]["resultLane"]): string
   return bucket;
 }
 
-function humanRoutingAuthority(authority: NonNullable<CandidateTrace["semantic"]>["impact"]["routingAuthority"]): string {
+function humanRoutingAuthority(
+  authority: NonNullable<CandidateTrace["semantic"]>["impact"]["routingAuthority"],
+): string {
   switch (authority) {
     case "status":
       return "task status";
@@ -150,15 +164,27 @@ function renderCandidateTrace(trace: CandidateTrace, color: boolean, expanded: b
     lines.push(`   ${styleMuted(trace.coordination.reasons.join("; "), color)}`);
   }
 
+  const preferenceRationale = readPreferenceRationale(trace);
+  if (preferenceRationale.length > 0) {
+    lines.push("");
+    lines.push(whySectionHeader("preferences", color));
+    lines.push(...renderWrappedDetailLine("control mode", preferenceRationale.join("; "), color));
+  }
+
   // Policy gates section
   lines.push("");
   lines.push(whySectionHeader("policy", color));
-  lines.push(...renderRuleSection(
-    trace.policyRules.gateEvaluations,
-    (gate) => gate.kind === "verdict",
-    (gate) => gateOutcome(gate.kind),
-    expanded, color, 3, 20,
-  ));
+  lines.push(
+    ...renderRuleSection(
+      trace.policyRules.gateEvaluations,
+      (gate) => gate.kind === "verdict",
+      (gate) => gateOutcome(gate.kind),
+      expanded,
+      color,
+      3,
+      20,
+    ),
+  );
 
   // Criterion section
   if (trace.policyRules.criterion) {
@@ -171,31 +197,47 @@ function renderCandidateTrace(trace: CandidateTrace, color: boolean, expanded: b
     lines.push(
       `   ${styleMuted("threshold:", color)} ${styleValue(thresholdVal, color)}  ${styleMuted("·", color)}  ${styleMuted("margin:", color)} ${styleValue(marginVal, color)}`,
     );
-    lines.push(
-      `   ${styleMuted("ambiguity:", color)} ${styleMuted(ambiguityVal, color)}`,
-    );
+    lines.push(`   ${styleMuted("ambiguity:", color)} ${styleMuted(ambiguityVal, color)}`);
 
-    lines.push(...renderRuleSection(
-      trace.policyRules.criterionEvaluations,
-      (rule) => rule.kind === "adjust" || rule.kind === "verdict",
-      (rule) => criterionOutcome(rule.kind),
-      expanded, color, 3, 20,
-    ));
+    lines.push(
+      ...renderRuleSection(
+        trace.policyRules.criterionEvaluations,
+        (rule) => rule.kind === "adjust" || rule.kind === "verdict",
+        (rule) => criterionOutcome(rule.kind),
+        expanded,
+        color,
+        3,
+        20,
+      ),
+    );
   }
 
   // Continuity section
   if (trace.coordination.continuityEvaluations.length > 0) {
     lines.push("");
     lines.push(whySectionHeader("continuity", color));
-    lines.push(...renderRuleSection(
-      trace.coordination.continuityEvaluations,
-      (rule) => rule.kind === "override",
-      (rule) => continuityOutcome(rule.kind),
-      expanded, color, 3, 24,
-    ));
+    lines.push(
+      ...renderRuleSection(
+        trace.coordination.continuityEvaluations,
+        (rule) => rule.kind === "override",
+        (rule) => continuityOutcome(rule.kind),
+        expanded,
+        color,
+        3,
+        24,
+      ),
+    );
   }
 
   return lines;
+}
+
+function readPreferenceRationale(trace: CandidateTrace): string[] {
+  return uniqueStrings([
+    ...(Array.isArray(trace.policy.rationale) ? trace.policy.rationale : []),
+    ...(trace.policyRules.criterion?.rationale ?? []),
+    ...trace.policyRules.gateEvaluations.flatMap((evaluation) => evaluation.rationale),
+  ]).filter((rationale) => rationale.includes("control mode"));
 }
 
 function renderSemanticSection(
@@ -227,7 +269,13 @@ function renderSemanticSection(
     `source: ${semantic.ontology.source}`,
   ];
   lines.push(`   ${styleMuted(ontologyParts.join("  ·  "), color)}`);
-  lines.push(...renderWrappedDetailLine("authority", humanRoutingAuthority(semantic.impact.routingAuthority), color));
+  lines.push(
+    ...renderWrappedDetailLine(
+      "authority",
+      humanRoutingAuthority(semantic.impact.routingAuthority),
+      color,
+    ),
+  );
 
   if (semantic.whyNow) {
     lines.push(...renderWrappedDetailLine("why now", semantic.whyNow, color));
@@ -280,7 +328,7 @@ function renderSemanticSection(
   }
 
   if (semantic.reasons.length > 0) {
-    const basis = expanded ? semantic.reasons.join("; ") : semantic.reasons[0] ?? "";
+    const basis = expanded ? semantic.reasons.join("; ") : (semantic.reasons[0] ?? "");
     if (basis.length > 0) {
       lines.push(...renderWrappedDetailLine("basis", basis, color));
     }
@@ -306,9 +354,7 @@ function renderSemanticProvenance(
     return null;
   }
 
-  const effective = expanded
-    ? entries
-    : entries.filter(([, origin]) => origin !== "inferred");
+  const effective = expanded ? entries : entries.filter(([, origin]) => origin !== "inferred");
 
   if (effective.length === 0) {
     return null;
@@ -340,6 +386,10 @@ function humanSemanticFieldName(field: string): string {
     default:
       return field;
   }
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values.filter((value) => value.length > 0))];
 }
 
 /**
@@ -398,7 +448,5 @@ function renderWrappedDetailLine(label: string, value: string, color: boolean): 
 function whySectionHeader(label: string, color: boolean): string {
   const prefix = ` ┄ ${label} `;
   const fill = "┄".repeat(Math.max(0, SCREEN_WIDTH - prefix.length));
-  return color
-    ? `${ANSI.dim}${prefix}${fill}${ANSI.reset}`
-    : `${prefix}${fill}`;
+  return color ? `${ANSI.dim}${prefix}${fill}${ANSI.reset}` : `${prefix}${fill}`;
 }

@@ -100,7 +100,11 @@ function makeCandidateTrace(
       currentScore: null,
       currentPriority: null,
     },
-    planner: { kind: "activate", reasons: ["no current frame is active for this task"], continuityEvaluations: [] },
+    planner: {
+      kind: "activate",
+      reasons: ["no current frame is active for this task"],
+      continuityEvaluations: [],
+    },
     coordination: {
       kind: "activate",
       resultLane: "now",

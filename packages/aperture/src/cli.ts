@@ -9,6 +9,7 @@ import {
   installClaudeHooks,
   removeClaudeHooks,
 } from "./cli/claude-hooks.js";
+import { runConfigCommand } from "./cli/config.js";
 import { collectDebugSnapshot, printDebugSnapshot, runDoctor } from "./cli/doctor-debug.js";
 import {
   printClaudeHelp,
@@ -54,6 +55,9 @@ async function main(): Promise<void> {
       return;
     case "debug":
       await runDebugCommand(args.slice(1));
+      return;
+    case "config":
+      await runConfigCommand(args.slice(1));
       return;
     case "internal":
       await runInternalCommand(args.slice(1));

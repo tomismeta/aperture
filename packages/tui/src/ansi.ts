@@ -197,9 +197,10 @@ export function alignFooterStats(left: string, right: string, width: number): st
     return right;
   }
 
-  const fittedLeft = visibleLength(left) > availableLeft
-    ? truncateVisible(left, Math.max(1, availableLeft - 1))
-    : left;
+  const fittedLeft =
+    visibleLength(left) > availableLeft
+      ? truncateVisible(left, Math.max(1, availableLeft - 1))
+      : left;
   const gap = Math.max(1, width - visibleLength(fittedLeft) - rightWidth);
   return `${fittedLeft}${" ".repeat(gap)}${right}`;
 }
@@ -259,10 +260,18 @@ export function formatSigned(value: number): string {
 }
 
 export function renderLabeledBlock(label: string, value: string, color: boolean): string[] {
-  return renderPrefixedBlock(`${styleMuted(`${label} `, color)}`, value, `${" ".repeat(label.length)} `);
+  return renderPrefixedBlock(
+    `${styleMuted(`${label} `, color)}`,
+    value,
+    `${" ".repeat(label.length)} `,
+  );
 }
 
-export function renderPrefixedBlock(prefix: string, value: string, continuationPrefix = "    "): string[] {
+export function renderPrefixedBlock(
+  prefix: string,
+  value: string,
+  continuationPrefix = "    ",
+): string[] {
   const prefixWidth = visibleLength(prefix);
   const wrapped = wrapText(value, CONTENT_WIDTH - prefixWidth);
   return wrapped.map((line, index) => `${index === 0 ? prefix : continuationPrefix}${line}`);

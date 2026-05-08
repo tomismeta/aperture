@@ -31,4 +31,6 @@ export {
 export { forecastAttentionPressure } from "./attention-pressure.js";
 export { scoreAttentionFrame } from "./frame-score.js";
 export { ProfileStore } from "./profile-store.js";
-export type { MemoryProfile } from "./profile-store.js";
+export { loadPolicyConfig } from "./policy-config.js";
+export type { ApertureProfile, MemoryProfile } from "./profile-store.js";
+export type { PolicyConfig } from "./policy-config.js";

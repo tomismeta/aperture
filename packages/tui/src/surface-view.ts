@@ -15,20 +15,24 @@ export function buildSurfaceAttentionView(
   return {
     now: attentionView.now,
     next: attentionView.next,
-    ambient: attentionView.ambient.filter((frame) => !isStalePassiveAmbient(frame, nowMs, ambientStaleMs)),
+    ambient: attentionView.ambient.filter(
+      (frame) => !isStalePassiveAmbient(frame, nowMs, ambientStaleMs),
+    ),
   };
 }
 
 export function sameAttentionView(left: AttentionView, right: AttentionView): boolean {
-  return compareFrame(left.now, right.now)
-    && compareFrameLists(left.next, right.next)
-    && compareFrameLists(left.ambient, right.ambient);
+  return (
+    compareFrame(left.now, right.now) &&
+    compareFrameLists(left.next, right.next) &&
+    compareFrameLists(left.ambient, right.ambient)
+  );
 }
 
 export function isAttentionViewEmpty(attentionView: AttentionView): boolean {
-  return !attentionView.now
-    && attentionView.next.length === 0
-    && attentionView.ambient.length === 0;
+  return (
+    !attentionView.now && attentionView.next.length === 0 && attentionView.ambient.length === 0
+  );
 }
 
 function compareFrame(left: Frame | null, right: Frame | null): boolean {
@@ -40,7 +44,9 @@ function compareFrame(left: Frame | null, right: Frame | null): boolean {
     return left === right;
   }
 
-  return left.interactionId === right.interactionId && left.timing.updatedAt === right.timing.updatedAt;
+  return (
+    left.interactionId === right.interactionId && left.timing.updatedAt === right.timing.updatedAt
+  );
 }
 
 function compareFrameLists(left: Frame[], right: Frame[]): boolean {

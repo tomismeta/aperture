@@ -178,7 +178,11 @@ function mergeHooks(settings: JsonObject, hookSpecs: HookSpec[], command: string
   const hooks = normalizeHooks(next.hooks);
 
   for (const hookSpec of hookSpecs) {
-    hooks[hookSpec.eventName] = ensureCommandHook(hooks[hookSpec.eventName], command, hookSpec.matcher);
+    hooks[hookSpec.eventName] = ensureCommandHook(
+      hooks[hookSpec.eventName],
+      command,
+      hookSpec.matcher,
+    );
   }
 
   next.hooks = hooks;
@@ -245,15 +249,16 @@ function ensureCommandHook(existing: unknown, command: string, matcher?: string)
     }
   }
 
-  const matchedEntry = entries.find((entry) => sameMatcher(entry.matcher, matcher) && Array.isArray(entry.hooks));
+  const matchedEntry = entries.find(
+    (entry) => sameMatcher(entry.matcher, matcher) && Array.isArray(entry.hooks),
+  );
   if (matchedEntry) {
     matchedEntry.hooks.push(hook);
     return entries;
   }
 
-  const nextEntry: HookEntry = matcher !== undefined
-    ? { matcher, hooks: [hook] }
-    : { hooks: [hook] };
+  const nextEntry: HookEntry =
+    matcher !== undefined ? { matcher, hooks: [hook] } : { hooks: [hook] };
   entries.push(nextEntry);
 
   return entries;
@@ -282,8 +287,10 @@ function cloneHook(hook: unknown): HookDefinition {
 }
 
 function hasCommand(entry: HookEntry, command: string): boolean {
-  return Array.isArray(entry.hooks)
-    && entry.hooks.some((hook) => hook.type === "command" && hook.command === command);
+  return (
+    Array.isArray(entry.hooks) &&
+    entry.hooks.some((hook) => hook.type === "command" && hook.command === command)
+  );
 }
 
 function sameMatcher(left: unknown, right: unknown): boolean {
@@ -313,12 +320,14 @@ function isAnyApertureHook(hook: HookDefinition): boolean {
     return false;
   }
 
-  return hook.command.includes("hook claude-forward")
-    || hook.command.includes("/scripts/claude-hook-forward.mjs")
-    || hook.command.includes("/scripts/claude-forward.mjs")
-    || hook.command.includes("/scripts/claude-forward.ts")
-    || hook.command.includes("http://127.0.0.1:4545/hook")
-    || hook.command.includes("http://localhost:4545/hook");
+  return (
+    hook.command.includes("hook claude-forward") ||
+    hook.command.includes("/scripts/claude-hook-forward.mjs") ||
+    hook.command.includes("/scripts/claude-forward.mjs") ||
+    hook.command.includes("/scripts/claude-forward.ts") ||
+    hook.command.includes("http://127.0.0.1:4545/hook") ||
+    hook.command.includes("http://localhost:4545/hook")
+  );
 }
 
 function shellQuote(value: string): string {

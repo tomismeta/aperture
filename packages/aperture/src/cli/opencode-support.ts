@@ -30,7 +30,9 @@ export async function runOpencodeAdapter(runtimeBaseUrl: string): Promise<void> 
   const profiles = await listEnabledGlobalOpencodeProfiles();
 
   if (profiles.length === 0) {
-    stderr.write("No enabled OpenCode connection profiles found. Configure one before starting Aperture.\n");
+    stderr.write(
+      "No enabled OpenCode connection profiles found. Configure one before starting Aperture.\n",
+    );
     return;
   }
 
@@ -44,7 +46,9 @@ export async function runOpencodeAdapter(runtimeBaseUrl: string): Promise<void> 
     }
     const bridge = createOpencodeBridge({
       runtimeBaseUrl,
-      runtimeLabel: profile.label ? `OpenCode adapter (${profile.label})` : `OpenCode adapter (${profile.id})`,
+      runtimeLabel: profile.label
+        ? `OpenCode adapter (${profile.label})`
+        : `OpenCode adapter (${profile.id})`,
       runtimeMetadata: {
         profileId: profile.id,
       },
@@ -64,10 +68,14 @@ export async function runOpencodeAdapter(runtimeBaseUrl: string): Promise<void> 
     });
     await bridge.start();
     bridges.push(bridge);
-    stderr.write(`Connected OpenCode profile "${profile.id}" to runtime ${runtimeBaseUrl} via ${profile.baseUrl}\n`);
+    stderr.write(
+      `Connected OpenCode profile "${profile.id}" to runtime ${runtimeBaseUrl} via ${profile.baseUrl}\n`,
+    );
   }
 
-  stderr.write(`Aperture OpenCode adapter ready (${bridges.length} profile${bridges.length === 1 ? "" : "s"})\n`);
+  stderr.write(
+    `Aperture OpenCode adapter ready (${bridges.length} profile${bridges.length === 1 ? "" : "s"})\n`,
+  );
   stderr.write("Run the TUI separately with: aperture internal tui\n");
 
   const close = async () => {
@@ -87,7 +95,9 @@ export async function runOpencodeAdapter(runtimeBaseUrl: string): Promise<void> 
   process.on("SIGTERM", onSignal);
 }
 
-export async function startLauncherOpencodeAdapter(runtimeBaseUrl: string): Promise<LauncherOpencodeStartResult> {
+export async function startLauncherOpencodeAdapter(
+  runtimeBaseUrl: string,
+): Promise<LauncherOpencodeStartResult> {
   const profiles = await listEnabledGlobalOpencodeProfiles();
   if (profiles.length === 0) {
     return {
@@ -126,7 +136,9 @@ export async function startLauncherOpencodeAdapter(runtimeBaseUrl: string): Prom
 
       const bridge = createOpencodeBridge({
         runtimeBaseUrl,
-        runtimeLabel: profile.label ? `OpenCode adapter (${profile.label})` : `OpenCode adapter (${profile.id})`,
+        runtimeLabel: profile.label
+          ? `OpenCode adapter (${profile.label})`
+          : `OpenCode adapter (${profile.id})`,
         runtimeMetadata: {
           profileId: profile.id,
         },
@@ -146,9 +158,10 @@ export async function startLauncherOpencodeAdapter(runtimeBaseUrl: string): Prom
   }
 
   if (bridges.length > 0) {
-    const detail = unavailable.length > 0
-      ? `Connected ${bridges.length} OpenCode profile${bridges.length === 1 ? "" : "s"} · ${unavailable.length} unavailable`
-      : `Connected ${bridges.length} OpenCode profile${bridges.length === 1 ? "" : "s"}`;
+    const detail =
+      unavailable.length > 0
+        ? `Connected ${bridges.length} OpenCode profile${bridges.length === 1 ? "" : "s"} · ${unavailable.length} unavailable`
+        : `Connected ${bridges.length} OpenCode profile${bridges.length === 1 ? "" : "s"}`;
     return {
       kind: "started",
       detail,
@@ -257,7 +270,10 @@ export function opencodeAttachHint(profiles: OpencodeConnectionProfile[]): strin
   return "Run: opencode attach <url> for one of the configured OpenCode servers.";
 }
 
-export function opencodeReadyDetail(profiles: OpencodeConnectionProfile[], reachable: number): string {
+export function opencodeReadyDetail(
+  profiles: OpencodeConnectionProfile[],
+  reachable: number,
+): string {
   const targets = [...new Set(profiles.map((profile) => profile.baseUrl))];
   if (targets.length === 1 && targets[0]) {
     return `Connected OpenCode at ${targets[0]} (${reachable} profile${reachable === 1 ? "" : "s"}).`;

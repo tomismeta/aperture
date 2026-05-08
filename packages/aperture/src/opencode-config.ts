@@ -176,7 +176,8 @@ async function readGlobalOpencodeConfig(): Promise<OpencodeConnectionConfig> {
     const parsed = JSON.parse(raw) as Partial<OpencodeConnectionConfig>;
     return {
       version: 1,
-      updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : new Date(0).toISOString(),
+      updatedAt:
+        typeof parsed.updatedAt === "string" ? parsed.updatedAt : new Date(0).toISOString(),
       profiles: Array.isArray(parsed.profiles) ? parsed.profiles.filter(isProfile) : [],
     };
   } catch (error) {

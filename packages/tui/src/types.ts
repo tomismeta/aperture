@@ -48,7 +48,9 @@ export type AttentionTuiOptions = {
   reducedMotion?: boolean;
   ambientStaleMs?: number;
   getConnectionStatus?: () => AttentionConnectionSnapshot | null;
-  subscribeConnectionStatus?: (listener: (status: AttentionConnectionSnapshot | null) => void) => () => void;
+  subscribeConnectionStatus?: (
+    listener: (status: AttentionConnectionSnapshot | null) => void,
+  ) => () => void;
   runConnectionAction?: (actionId: string) => void | Promise<void>;
 };
 

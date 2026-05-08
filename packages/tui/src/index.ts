@@ -13,7 +13,11 @@ import {
   shouldReserveSpaceForExpand,
 } from "./interaction.js";
 import { displaySourceLabel } from "./source-label.js";
-import { buildSurfaceAttentionView, isAttentionViewEmpty, sameAttentionView } from "./surface-view.js";
+import {
+  buildSurfaceAttentionView,
+  isAttentionViewEmpty,
+  sameAttentionView,
+} from "./surface-view.js";
 
 import type {
   AttentionSurface,
@@ -52,9 +56,10 @@ export async function runAttentionTui(
 
   const initialView = buildSurfaceAttentionView(core.getAttentionView(), surfaceViewOptions);
   const initialSummary = core.getSignalSummary();
-  const initialPosture = reducedMotion && isAttentionViewEmpty(initialView)
-    ? "calm"
-    : computePosture(initialSummary, initialView);
+  const initialPosture =
+    reducedMotion && isAttentionViewEmpty(initialView)
+      ? "calm"
+      : computePosture(initialSummary, initialView);
   const initialInputDraft = initialView.now ? createAutomaticInputDraft(initialView.now) : null;
 
   const state: TuiState = {
@@ -62,8 +67,8 @@ export async function runAttentionTui(
     statusLine: initialInputDraft
       ? editingStatusLabel(initialView.now)
       : initialView.now
-      ? focusStatusLabel(initialView.now)
-      : "Waiting for activity",
+        ? focusStatusLabel(initialView.now)
+        : "Waiting for activity",
     inputDraft: initialInputDraft,
     expanded: false,
     showSetup: false,
@@ -84,12 +89,10 @@ export async function runAttentionTui(
 
     if (state.whyMode) {
       const activeTrace = state.attentionView.now
-        ? state.traceCache.get(state.attentionView.now.interactionId) ?? null
+        ? (state.traceCache.get(state.attentionView.now.interactionId) ?? null)
         : null;
 
-      output.write(
-        renderAttentionScreenWithWhy(state, title, output, activeTrace),
-      );
+      output.write(renderAttentionScreenWithWhy(state, title, output, activeTrace));
     } else {
       const renderOptions = {
         title,
@@ -107,9 +110,7 @@ export async function runAttentionTui(
         animation: state.animation,
         connectionStatus: state.connectionStatus,
       };
-      output.write(
-        renderAttentionScreen(state.attentionView, renderOptions),
-      );
+      output.write(renderAttentionScreen(state.attentionView, renderOptions));
     }
   };
 
@@ -119,7 +120,7 @@ export async function runAttentionTui(
     setImmediate(() => {
       renderScheduled = false;
       render();
-      });
+    });
   };
 
   const applyAttentionView = (attentionView: typeof state.attentionView) => {
@@ -128,9 +129,10 @@ export async function runAttentionTui(
     state.attentionView = attentionView;
     const active = attentionView.now;
 
-    const newPosture = reducedMotion && isAttentionViewEmpty(attentionView)
-      ? "calm"
-      : computePosture(core.getSignalSummary(), attentionView);
+    const newPosture =
+      reducedMotion && isAttentionViewEmpty(attentionView)
+        ? "calm"
+        : computePosture(core.getSignalSummary(), attentionView);
     if (!reducedMotion && newPosture !== state.posture) {
       state.previousPosture = state.posture;
       state.animation.postureFlash = { previous: state.posture, ticksRemaining: 2 };
@@ -155,15 +157,11 @@ export async function runAttentionTui(
       state.showSetup = false;
       state.inputDraft = createAutomaticInputDraft(active);
       state.whyExpanded = false;
-      state.statusLine = state.inputDraft
-        ? editingStatusLabel(active)
-        : focusStatusLabel(active);
+      state.statusLine = state.inputDraft ? editingStatusLabel(active) : focusStatusLabel(active);
     } else if (state.inputDraft && state.inputDraft.interactionId !== active.interactionId) {
       state.inputDraft = createAutomaticInputDraft(active);
       state.expanded = false;
-      state.statusLine = state.inputDraft
-        ? editingStatusLabel(active)
-        : focusStatusLabel(active);
+      state.statusLine = state.inputDraft ? editingStatusLabel(active) : focusStatusLabel(active);
     }
 
     const visibleIds = new Set<string>();
@@ -193,8 +191,8 @@ export async function runAttentionTui(
       state.showSetup,
     );
     const idleLensTarget = getIdleLensTarget(showingPreflight, hasNoActiveFrame, isEmpty);
-    const shouldPulseIdleLens = idleLensTarget !== null
-      && (state.animation.idleTick === 0 || state.animation.idleTick === 2);
+    const shouldPulseIdleLens =
+      idleLensTarget !== null && (state.animation.idleTick === 0 || state.animation.idleTick === 2);
 
     if (reducedMotion) {
       if (hadActiveAnimation || viewChanged) {
@@ -243,15 +241,18 @@ export async function runAttentionTui(
 
   const unsubConnectionStatus = options?.subscribeConnectionStatus
     ? options.subscribeConnectionStatus((connectionStatus) => {
-      state.connectionStatus = connectionStatus;
-      requestRender();
-    })
+        state.connectionStatus = connectionStatus;
+        requestRender();
+      })
     : null;
 
   render();
 
   return new Promise<void>((resolve) => {
-    const onKeypress = (_chunk: string, key: { ctrl?: boolean; name?: string; sequence?: string }) => {
+    const onKeypress = (
+      _chunk: string,
+      key: { ctrl?: boolean; name?: string; sequence?: string },
+    ) => {
       if (key.ctrl && key.name === "c") {
         close();
         return;
@@ -279,7 +280,9 @@ export async function runAttentionTui(
 
       if (key.name === "space") {
         if (active) {
-          core.engage(active.taskId, active.interactionId, { durationMs: ACTIVE_ENGAGEMENT_HOLD_MS });
+          core.engage(active.taskId, active.interactionId, {
+            durationMs: ACTIVE_ENGAGEMENT_HOLD_MS,
+          });
         }
         if (state.whyMode) {
           state.whyExpanded = !state.whyExpanded;
@@ -292,7 +295,9 @@ export async function runAttentionTui(
 
       if (key.name === "y") {
         if (active) {
-          core.engage(active.taskId, active.interactionId, { durationMs: ACTIVE_ENGAGEMENT_HOLD_MS });
+          core.engage(active.taskId, active.interactionId, {
+            durationMs: ACTIVE_ENGAGEMENT_HOLD_MS,
+          });
         }
         state.whyMode = !state.whyMode;
         if (!state.whyMode) state.whyExpanded = false;
@@ -305,7 +310,9 @@ export async function runAttentionTui(
         if (!surfaceIsQuiet) {
           return;
         }
-        const action = state.connectionStatus?.actions?.find((candidate) => candidate.key === key.sequence);
+        const action = state.connectionStatus?.actions?.find(
+          (candidate) => candidate.key === key.sequence,
+        );
         if (action && options?.runConnectionAction) {
           if (action.id === "show-setup") {
             state.showSetup = !state.showSetup;
@@ -420,7 +427,9 @@ function writeIdleLensPulse(
   if (!target) {
     return;
   }
-  output.write(`\u001B[s\u001B[${target.row};${target.col}H${renderIdleLensGlyph(color, idleTick)}\u001B[u`);
+  output.write(
+    `\u001B[s\u001B[${target.row};${target.col}H${renderIdleLensGlyph(color, idleTick)}\u001B[u`,
+  );
 }
 
 function renderIdleLensGlyph(color: boolean, idleTick: number): string {
@@ -429,9 +438,7 @@ function renderIdleLensGlyph(color: boolean, idleTick: number): string {
   if (!color) {
     return lensGlyph;
   }
-  return bright
-    ? `${ANSI.brand}${lensGlyph}${ANSI.reset}`
-    : `${ANSI.dim}${lensGlyph}${ANSI.reset}`;
+  return bright ? `${ANSI.brand}${lensGlyph}${ANSI.reset}` : `${ANSI.dim}${lensGlyph}${ANSI.reset}`;
 }
 
 function getIdleLensTarget(

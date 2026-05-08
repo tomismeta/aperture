@@ -19,10 +19,7 @@ import {
   readSettings,
   resolveClaudeSettingsPath,
 } from "./claude-hooks.js";
-import {
-  type OpencodeProfileProbeResult,
-  probeOpencodeProfiles,
-} from "./opencode-support.js";
+import { type OpencodeProfileProbeResult, probeOpencodeProfiles } from "./opencode-support.js";
 import { formatBytes, pathExists } from "./shared.js";
 import { fetchRuntimeSnapshot } from "./runtime-support.js";
 
@@ -90,7 +87,11 @@ export async function runDoctor(command: string): Promise<void> {
   ];
 
   if (claudeHookCount === 0) {
-    lines.push("", "Suggested next steps", "  1. Run `aperture` to install Claude hooks and boot the product.");
+    lines.push(
+      "",
+      "Suggested next steps",
+      "  1. Run `aperture` to install Claude hooks and boot the product.",
+    );
   } else if (enabledProfiles.length === 0) {
     lines.push(
       "",
@@ -109,13 +110,14 @@ export async function collectDebugSnapshot(): Promise<DebugSnapshot> {
   const learningRoot = resolve(apertureLearningWorkspaceRoot(), ".aperture");
   const globalClaudeSettingsPath = resolveClaudeSettingsPath(true);
   const localClaudeSettingsPath = resolveClaudeSettingsPath(false, process.cwd());
-  const [globalClaudeSettings, localClaudeSettings, allProfiles, runtimes, recentCaptureArtifacts] = await Promise.all([
-    readSettings(globalClaudeSettingsPath),
-    readSettings(localClaudeSettingsPath),
-    listGlobalOpencodeProfiles(),
-    discoverLocalRuntimes({ kind: "aperture" }),
-    listRecentCaptureArtifacts(captureDir),
-  ]);
+  const [globalClaudeSettings, localClaudeSettings, allProfiles, runtimes, recentCaptureArtifacts] =
+    await Promise.all([
+      readSettings(globalClaudeSettingsPath),
+      readSettings(localClaudeSettingsPath),
+      listGlobalOpencodeProfiles(),
+      discoverLocalRuntimes({ kind: "aperture" }),
+      listRecentCaptureArtifacts(captureDir),
+    ]);
   const enabledProfiles = allProfiles.filter((profile) => profile.enabled);
   const opencodeStatus = await probeOpencodeProfiles(enabledProfiles);
   const primaryRuntimeUrl = runtimes[0]?.controlUrl?.replace(/\/+$/, "") ?? null;
@@ -149,7 +151,11 @@ export async function collectDebugSnapshot(): Promise<DebugSnapshot> {
   };
 }
 
-export function printDebugSnapshot(snapshot: DebugSnapshot, topic: DebugTopic, command: string): void {
+export function printDebugSnapshot(
+  snapshot: DebugSnapshot,
+  topic: DebugTopic,
+  command: string,
+): void {
   const sections: string[] = [
     "Aperture Debug",
     "Support details for runtime, integrations, and local product state.",
@@ -192,9 +198,10 @@ export function printDebugSnapshot(snapshot: DebugSnapshot, topic: DebugTopic, c
       `  profiles: ${snapshot.enabledProfiles.length}/${snapshot.allProfiles.length} enabled`,
       `  status: ${snapshot.opencodeStatus.detail}`,
       ...(snapshot.opencodeStatus.hint ? [`  hint: ${snapshot.opencodeStatus.hint}`] : []),
-      ...snapshot.allProfiles.map((profile) => (
-        `  - ${profile.id}${profile.enabled ? " [enabled]" : " [disabled]"} -> ${profile.baseUrl}${profile.label ? ` (${profile.label})` : ""}`
-      )),
+      ...snapshot.allProfiles.map(
+        (profile) =>
+          `  - ${profile.id}${profile.enabled ? " [enabled]" : " [disabled]"} -> ${profile.baseUrl}${profile.label ? ` (${profile.label})` : ""}`,
+      ),
       "",
     );
   }
@@ -226,9 +233,10 @@ export function printDebugSnapshot(snapshot: DebugSnapshot, topic: DebugTopic, c
               `  last route error: ${snapshot.runtimeSnapshot.health.telemetry.lastErrorCode} at ${snapshot.runtimeSnapshot.health.telemetry.lastErrorAt}`,
             ]
           : []),
-        ...snapshot.runtimeSnapshot.adapters.map((adapter) => (
-          `  - ${adapter.kind}${adapter.label ? ` (${adapter.label})` : ""} · last seen ${adapter.lastSeenAt}`
-        )),
+        ...snapshot.runtimeSnapshot.adapters.map(
+          (adapter) =>
+            `  - ${adapter.kind}${adapter.label ? ` (${adapter.label})` : ""} · last seen ${adapter.lastSeenAt}`,
+        ),
       );
     } else if (snapshot.runtimeSnapshotError) {
       sections.push(`  snapshot error: ${snapshot.runtimeSnapshotError}`);
@@ -245,9 +253,10 @@ export function printDebugSnapshot(snapshot: DebugSnapshot, topic: DebugTopic, c
         ? ["  recent files: none"]
         : [
             "  recent files:",
-            ...snapshot.recentCaptureArtifacts.map((artifact) => (
-              `  - ${artifact.name} · ${formatBytes(artifact.sizeBytes)} · ${artifact.modifiedAt}`
-            )),
+            ...snapshot.recentCaptureArtifacts.map(
+              (artifact) =>
+                `  - ${artifact.name} · ${formatBytes(artifact.sizeBytes)} · ${artifact.modifiedAt}`,
+            ),
           ]),
       "",
     );
@@ -257,7 +266,7 @@ export function printDebugSnapshot(snapshot: DebugSnapshot, topic: DebugTopic, c
 }
 
 async function listRecentCaptureArtifacts(directory: string): Promise<DebugCaptureArtifact[]> {
-  if (!await pathExists(directory)) {
+  if (!(await pathExists(directory))) {
     return [];
   }
 

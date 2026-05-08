@@ -5,10 +5,7 @@ import { stdout } from "node:process";
 import { discoverLocalRuntimes } from "@aperture/runtime";
 
 import { apertureHomeDir } from "../opencode-config.js";
-import {
-  removeClaudeHooks,
-  resolveClaudeSettingsPath,
-} from "./claude-hooks.js";
+import { removeClaudeHooks, resolveClaudeSettingsPath } from "./claude-hooks.js";
 import { readRequiredValue, pathExists } from "./shared.js";
 
 type UninstallOptions = {
@@ -34,7 +31,7 @@ export async function runUninstall(
   const settingsPath = resolveClaudeSettingsPath(true);
   const projectRoots = [...parsed.projectRoots];
   const cwdSettingsPath = resolveClaudeSettingsPath(false, process.cwd());
-  if (projectRoots.length === 0 && await pathExists(cwdSettingsPath)) {
+  if (projectRoots.length === 0 && (await pathExists(cwdSettingsPath))) {
     projectRoots.push(process.cwd());
   }
   const planLines = [
@@ -91,7 +88,9 @@ export async function runUninstall(
 
   stdout.write("Aperture cleanup complete.\n");
   if (stoppedRuntimes.length > 0) {
-    stdout.write(`Stopped ${stoppedRuntimes.length} live runtime${stoppedRuntimes.length === 1 ? "" : "s"}.\n`);
+    stdout.write(
+      `Stopped ${stoppedRuntimes.length} live runtime${stoppedRuntimes.length === 1 ? "" : "s"}.\n`,
+    );
   }
   if (removedSettings.length > 0) {
     stdout.write("Removed Claude hook entries from:\n");

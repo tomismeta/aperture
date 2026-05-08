@@ -17,6 +17,9 @@ export function printRequestedHelp(args: string[]): void {
     case "doctor":
       printDoctorHelp();
       return;
+    case "config":
+      printConfigHelp();
+      return;
     case "debug":
       printDebugHelp();
       return;
@@ -80,6 +83,8 @@ export function printRootHelp(): void {
       "      Launch Aperture and export a replayable capture on exit.",
       "  aperture doctor",
       "      Check runtime, Claude hooks, OpenCode profiles, and product state.",
+      "  aperture config",
+      "      Inspect APERTURE.md preferences, policy, diagnostics, and suggestions.",
       "  aperture debug",
       "      Print support details for runtime, hooks, OpenCode, and captures.",
       "  aperture --version",
@@ -90,6 +95,7 @@ export function printRootHelp(): void {
       "Commands:",
       "  help [topic]          Show help for Aperture or a specific topic",
       "  doctor                Print runtime, Claude, OpenCode, and state health",
+      "  config                Inspect APERTURE.md and learned policy suggestions",
       "  debug [topic]         Print support details for troubleshooting",
       "  completion <shell>    Print a shell completion script",
       "  uninstall [--yes]     Remove Aperture-owned state and Claude hooks",
@@ -110,6 +116,7 @@ export function printRootHelp(): void {
       "Help topics:",
       "  aperture help launch",
       "  aperture help doctor",
+      "  aperture help config",
       "  aperture help debug",
       "  aperture help completion",
       "  aperture help uninstall",
@@ -173,6 +180,28 @@ export function printDoctorHelp(): void {
       "  - the installed Claude hook command shape",
       "  - OpenCode profile and reachability status",
       "  - live Aperture runtimes on this machine",
+    ].join("\n"),
+  );
+  stdout.write("\n");
+}
+
+export function printConfigHelp(): void {
+  stdout.write(
+    [
+      "Aperture Config",
+      "Inspect APERTURE.md preferences, policy rules, and learned suggestions.",
+      "",
+      "Usage:",
+      "  aperture config",
+      "  aperture config --root ~/.aperture/workspace/.aperture",
+      "",
+      "Config reports:",
+      "  - active APERTURE.md and MEMORY.md paths",
+      "  - parsed control mode and policy rules",
+      "  - ignored or invalid markdown lines",
+      "  - suggested APERTURE.md snippets based on learned behavior",
+      "",
+      "This command is read-only. Aperture never rewrites APERTURE.md for you.",
     ].join("\n"),
   );
   stdout.write("\n");
@@ -309,8 +338,8 @@ _aperture_completion() {
   prev="\${COMP_WORDS[COMP_CWORD-1]}"
   command="\${COMP_WORDS[1]}"
 
-  local root_commands="help doctor debug completion uninstall claude opencode internal version"
-  local help_topics="launch doctor debug completion uninstall claude opencode internal"
+  local root_commands="help doctor config debug completion uninstall claude opencode internal version"
+  local help_topics="launch doctor config debug completion uninstall claude opencode internal"
   local claude_commands="connect disconnect"
   local debug_topics="runtime claude opencode state capture all"
   local completion_shells="bash zsh fish"
@@ -359,6 +388,7 @@ local -a root_commands help_topics claude_commands debug_topics completion_shell
 root_commands=(
   'help:show help for Aperture or a topic'
   'doctor:print runtime, Claude, OpenCode, and state health'
+  'config:inspect APERTURE.md and learned policy suggestions'
   'debug:print support details for troubleshooting'
   'completion:print a shell completion script'
   'uninstall:remove Aperture-owned state and Claude hooks'
@@ -367,7 +397,7 @@ root_commands=(
   'internal:advanced runtime, TUI, adapter, and hook plumbing'
   'version:print the installed Aperture version'
 )
-help_topics=(launch doctor debug completion uninstall claude opencode internal)
+help_topics=(launch doctor config debug completion uninstall claude opencode internal)
 claude_commands=(connect disconnect)
 debug_topics=(runtime claude opencode state capture all)
 completion_shells=(bash zsh fish)
@@ -415,6 +445,7 @@ function buildFishCompletionScript(): string {
 
 complete -c aperture -n '__fish_use_subcommand' -a 'help' -d 'Show help for Aperture or a topic'
 complete -c aperture -n '__fish_use_subcommand' -a 'doctor' -d 'Print runtime, Claude, OpenCode, and state health'
+complete -c aperture -n '__fish_use_subcommand' -a 'config' -d 'Inspect APERTURE.md and learned policy suggestions'
 complete -c aperture -n '__fish_use_subcommand' -a 'debug' -d 'Print support details for troubleshooting'
 complete -c aperture -n '__fish_use_subcommand' -a 'completion' -d 'Print a shell completion script'
 complete -c aperture -n '__fish_use_subcommand' -a 'uninstall' -d 'Remove Aperture-owned state and Claude hooks'
@@ -423,7 +454,7 @@ complete -c aperture -n '__fish_use_subcommand' -a 'opencode' -d 'Show the OpenC
 complete -c aperture -n '__fish_use_subcommand' -a 'internal' -d 'Advanced runtime, TUI, adapter, and hook plumbing'
 complete -c aperture -n '__fish_use_subcommand' -a 'version' -d 'Print the installed Aperture version'
 
-complete -c aperture -n '__fish_seen_subcommand_from help' -a 'launch doctor debug completion uninstall claude opencode internal'
+complete -c aperture -n '__fish_seen_subcommand_from help' -a 'launch doctor config debug completion uninstall claude opencode internal'
 complete -c aperture -n '__fish_seen_subcommand_from claude' -a 'connect disconnect'
 complete -c aperture -n '__fish_seen_subcommand_from debug' -a 'runtime claude opencode state capture all'
 complete -c aperture -n '__fish_seen_subcommand_from completion' -a 'bash zsh fish'

@@ -41,8 +41,12 @@ export class LauncherConnectionStore {
     }
 
     return summary
-      ? (actions.length > 0 ? { summary, entries, actions } : { summary, entries })
-      : (actions.length > 0 ? { entries, actions } : { entries });
+      ? actions.length > 0
+        ? { summary, entries, actions }
+        : { summary, entries }
+      : actions.length > 0
+        ? { entries, actions }
+        : { entries };
   }
 
   subscribe(listener: ConnectionListener): () => void {
@@ -128,7 +132,11 @@ function buildGlobalActions(
 ): AttentionConnectionAction[] {
   const actions: AttentionConnectionAction[] = [];
 
-  if (entries.some((entry) => entry.state === "starting" || entry.state === "action" || entry.state === "error")) {
+  if (
+    entries.some(
+      (entry) => entry.state === "starting" || entry.state === "action" || entry.state === "error",
+    )
+  ) {
     actions.push({ id: "skip-setup", key: "s", label: "skip for now" });
   }
 
@@ -175,18 +183,15 @@ export function makeConnectionEntry(
   detail: string,
   hint?: string,
 ): AttentionConnectionEntry {
-  return hint
-    ? { id, label, state, detail, hint }
-    : { id, label, state, detail };
+  return hint ? { id, label, state, detail, hint } : { id, label, state, detail };
 }
 
-function sameConnectionEntry(
-  a: AttentionConnectionEntry,
-  b: AttentionConnectionEntry,
-): boolean {
-  return a.id === b.id
-    && a.label === b.label
-    && a.state === b.state
-    && a.detail === b.detail
-    && a.hint === b.hint;
+function sameConnectionEntry(a: AttentionConnectionEntry, b: AttentionConnectionEntry): boolean {
+  return (
+    a.id === b.id &&
+    a.label === b.label &&
+    a.state === b.state &&
+    a.detail === b.detail &&
+    a.hint === b.hint
+  );
 }

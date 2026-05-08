@@ -18,17 +18,24 @@ export function renderInputDraft(
   return renderFormDraft(frame, inputDraft, color, prefix);
 }
 
-function renderFormDraft(frame: Frame, formDraft: FormDraft, color: boolean, prefix: string): string[] {
+function renderFormDraft(
+  frame: Frame,
+  formDraft: FormDraft,
+  color: boolean,
+  prefix: string,
+): string[] {
   const spec = frame.responseSpec;
   if (!spec || spec.kind !== "form") {
     return [];
   }
 
   return spec.fields.flatMap((field, index) => {
-    const marker = index === formDraft.fieldIndex ? styleStrong("›", color) : styleMuted("·", color);
-    const value = index === formDraft.fieldIndex
-      ? formDraft.buffer
-      : stringifyFieldValue(formDraft.values[field.id]);
+    const marker =
+      index === formDraft.fieldIndex ? styleStrong("›", color) : styleMuted("·", color);
+    const value =
+      index === formDraft.fieldIndex
+        ? formDraft.buffer
+        : stringifyFieldValue(formDraft.values[field.id]);
     return renderPrefixedBlock(
       `${prefix}${marker} ${stylePrompt(field.label, color)} ${styleMuted("·", color)} `,
       value || styleMuted("(empty)", color),
@@ -64,8 +71,7 @@ function renderChoiceDraft(
   const selectedLabels = spec.options
     .filter((option) => choiceDraft.optionIds.includes(option.id))
     .map((option) => option.label);
-  const value =
-    selectedLabels.length > 0 ? selectedLabels.join(", ") : styleMuted("(none)", color);
+  const value = selectedLabels.length > 0 ? selectedLabels.join(", ") : styleMuted("(none)", color);
   return renderPrefixedBlock(
     `${prefix}${styleStrong("›", color)} ${stylePrompt("Selected", color)} ${styleMuted("·", color)} `,
     value,

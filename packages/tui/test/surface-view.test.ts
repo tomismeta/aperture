@@ -59,9 +59,7 @@ test("buildSurfaceAttentionView keeps actionable ambient frames even when old", 
       makeFrame({
         responseSpec: {
           kind: "acknowledge",
-          actions: [
-            { id: "ack", label: "Acknowledge", kind: "acknowledge", emphasis: "primary" },
-          ],
+          actions: [{ id: "ack", label: "Acknowledge", kind: "acknowledge", emphasis: "primary" }],
         },
       }),
     ],

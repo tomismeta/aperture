@@ -92,7 +92,7 @@ With `@tomismeta/aperture`:
 - one shared attention surface for Claude Code and OpenCode, plus experimental Codex support from source
 - `now`, `next`, and `ambient` lanes for human attention
 - approvals, follow-ups, failures, and blocked work in one place
-- doctor, debug, completion, and uninstall commands
+- doctor, config, debug, completion, and uninstall commands
 - replayable capture bundles for troubleshooting real sessions
 
 With `@tomismeta/aperture-core`:
@@ -156,6 +156,7 @@ Claude Code and OpenCode are the mainline live paths today. Codex and Pi are rea
 aperture
 aperture --capture
 aperture doctor
+aperture config
 aperture debug
 aperture completion zsh
 aperture --version

@@ -260,6 +260,12 @@ If those concepts blur together, the engine can learn the wrong lesson. For
 example, a constrained host may suppress ambient work even when the operator
 would prefer to see ambient items on a richer surface.
 
+The product CLI keeps that boundary visible with `aperture config`: it reads the
+active preferences and memory, reports ignored or invalid markdown, and suggests
+copy-paste policy snippets. It intentionally does not apply suggestions
+automatically; explicit preference changes should stay human-owned until
+dogfooding proves that a confirm-before-apply helper is worth the extra surface.
+
 ## Package Boundary Rules
 
 To keep the SDK clean:

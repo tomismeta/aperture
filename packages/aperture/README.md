@@ -71,7 +71,7 @@ aperture
 - one shared attention surface for Claude Code and OpenCode
 - `now`, `next`, and `ambient` lanes for human attention
 - approvals, follow-ups, failures, and blocked work in one place
-- doctor, debug, completion, and uninstall commands
+- doctor, config, debug, completion, and uninstall commands
 - replayable capture bundles for troubleshooting real sessions
 
 ## Optional Local Integration
@@ -108,6 +108,7 @@ If you only remember one thing, remember this:
 aperture
 aperture --capture
 aperture doctor
+aperture config
 aperture debug
 aperture completion zsh
 aperture --version
@@ -130,6 +131,10 @@ That includes:
 - launcher captures
 - runtime discovery state
 - learning state for the opinionated local runtime
+
+Use `aperture config` to inspect the active `APERTURE.md`, learned
+`MEMORY.md`, diagnostics, and suggested policy snippets. Suggestions are
+read-only and human-applied; Aperture does not rewrite your preferences for you.
 
 ## Clean Uninstall
 

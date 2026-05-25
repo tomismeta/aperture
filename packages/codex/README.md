@@ -27,8 +27,8 @@ without leaking Codex-specific transport or client details into
 
 JSON-RPC over        requests / notices     SourceEvent in        AttentionResponse     approval answer,
 stdio by default     -> SourceEvent         AttentionView out     -> Codex payload       user input answer,
-websocket optional   thread / turn local    no Codex types        request correlation    request resolved
-today
+websocket / unix     thread / turn local    no Codex types        request correlation    request resolved
+optional
 ```
 
 More explicitly:
@@ -73,7 +73,7 @@ The package currently includes:
 - a stdio transport implementation for `codex app-server`
 - a websocket transport implementation for shared or remote App Server sessions
 - an experimental Codex hook server for stock CLI ingress
-- hook config installers for `hooks.json` plus the `codex_hooks` feature flag
+- hook config installers for `hooks.json` plus the `[features].hooks` feature flag
 - mapping from Codex requests, notifications, and hook events into `SourceEvent`
 - mapping from `AttentionResponse` back into Codex-native replies
 - a runtime bridge for live Aperture integration
@@ -89,15 +89,17 @@ Current Aperture disposition by surface:
 | pnpm codex:run          | supported            | Real Codex App Server path through         |
 |                         |                      | Aperture's client                           |
 | pnpm codex:start        | supported            | Live adapter bridge into Aperture runtime  |
-| pnpm codex:hooks:start  | experimental         | Local hook server for stock Codex CLI      |
+| pnpm codex:hooks:start  | experimental         | Source hook server for stock Codex CLI     |
 | pnpm codex:connect      | experimental         | Installs hook config globally or per repo  |
-| pnpm aperture --codex   | supported            | Full local stack with TUI supervision      |
+| pnpm aperture --codex   | opt-in experimental  | Product/source hook bridge plus TUI        |
+|                         |                      | supervision                                |
 | Codex App Server        | supported in design  | The protocol boundary this package targets |
-| shared external server  | experimental         | WebSocket-capable shared App Server route  |
+| shared external server  | experimental         | WebSocket / Unix socket App Server route   |
 | Codex macOS app         | indirect only        | Not a direct Aperture event source today   |
 | Codex VS Code client    | indirect only        | Same App Server family, no shared seam yet |
-| stock Codex CLI/TUI     | experimental         | Hook-based Bash approvals and lifecycle    |
-|                         |                      | ingress; still narrower than App Server    |
+| stock Codex CLI/TUI     | experimental         | Hook-based approvals, permission requests, |
+|                         |                      | and lifecycle ingress; still narrower than |
+|                         |                      | App Server                                 |
 +-------------------------+----------------------+--------------------------------------------+
 ```
 
@@ -113,11 +115,12 @@ App Server stays first and hooks stay clearly experimental.
 pnpm codex:start
 ```
 
-You can also point the adapter at a shared or remote App Server over
-WebSocket:
+You can also point the adapter at a shared or remote App Server over WebSocket
+or a local Unix socket:
 
 ```bash
 pnpm codex:start -- --transport websocket --url ws://127.0.0.1:8765
+pnpm codex:start -- --transport unix --url /path/to/codex-app-server.sock
 ```
 
 The same explicit transport flags work for `pnpm codex:run`:
@@ -126,13 +129,15 @@ The same explicit transport flags work for `pnpm codex:run`:
 pnpm codex:run -- --transport websocket --url ws://127.0.0.1:8765 --cwd /path/to/repo "Review the current branch and summarize the risks."
 ```
 
-And the top-level stack can forward them too:
+The top-level product/source stack can start the opt-in hook bridge too:
 
 ```bash
-pnpm aperture -- --codex --codex-transport websocket --codex-url ws://127.0.0.1:8765
+pnpm aperture --codex
 ```
 
-Environment variables still work as a fallback.
+That product hook path is separate from the source-only App Server transport
+experiments. Environment variables still work as a fallback for the source
+adapter path.
 
 ## Experimental Hooks Path
 
@@ -156,11 +161,12 @@ Current hook posture:
 
 - App Server remains the primary Codex architecture
 - hooks are useful for stock CLI supervision
-- only `PreToolUse` is held for a real human decision today
+- `PreToolUse` and `PermissionRequest` are held for real human decisions today
+- `PreToolUse` covers Bash, `apply_patch`, and MCP-style tool names
 - `UserPromptSubmit` is now ingested as a low-obligation follow-up fact
-- `PreToolUse` and `PostToolUse` are currently Bash-only in Codex
-- once Aperture holds a `PreToolUse` approval, timeout or dismissal fails
-  closed with a deny hook response
+- compaction, subagent, and stop events are ingested as lifecycle facts
+- once Aperture holds a hook approval, timeout or dismissal fails closed with a
+  deny hook response
 
 ## Verified Today
 
@@ -231,8 +237,8 @@ Protocol note:
 
 - `A richer official hooks contract`
   - hooks are still experimental
-  - `PreToolUse` and `PostToolUse` are Bash-only today
-  - native `"ask"` / `"allow"` still are not supported for `PreToolUse`
+  - hook event coverage and response shapes can still change upstream
+  - the hook path is intentionally narrower than the App Server path
 
 ## Main Rule
 

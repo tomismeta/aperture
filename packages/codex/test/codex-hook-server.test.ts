@@ -95,6 +95,57 @@ test("fails closed when a held Codex PreToolUse hook times out", async () => {
   }
 });
 
+test("holds Codex PermissionRequest hooks until Aperture responds", async () => {
+  const core = new ApertureCore();
+  const server = createCodexHookServer(core, {
+    holdTimeoutMs: 250,
+    permissionRequestPolicy: () => "hold",
+  });
+  const { url } = await server.listen();
+  let responsePromise: Promise<Response> | undefined;
+
+  try {
+    responsePromise = fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: "session-1",
+        cwd: "/repo",
+        hook_event_name: "PermissionRequest",
+        turn_id: "turn-1",
+        tool_name: "mcp__github__create_issue",
+        tool_input: {
+          description: "Create a tracking issue",
+        },
+      }),
+    });
+
+    const frame = await waitFor(() => core.getAttentionView().now);
+    assert.ok(frame);
+    assert.match(frame?.interactionId ?? "", /^codex:hook:permissionRequest:/);
+
+    core.submit({
+      taskId: "codex:hook:session:session-1:turn:turn-1",
+      interactionId: frame.interactionId,
+      response: { kind: "approved" },
+    });
+
+    const response = await responsePromise;
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      hookSpecificOutput: {
+        hookEventName: "PermissionRequest",
+        decision: {
+          behavior: "allow",
+        },
+      },
+    });
+  } finally {
+    await server.close();
+    await settle(responsePromise);
+  }
+});
+
 async function waitFor<T>(
   read: () => T | null | undefined,
   timeoutMs = 2_000,

@@ -89,7 +89,7 @@ See [packages/core/README.md](./packages/core/README.md).
 With `@tomismeta/aperture`:
 
 - a local CLI/TUI product
-- one shared attention surface for Claude Code and OpenCode, plus experimental Codex support from source
+- one shared attention surface for Claude Code and OpenCode, plus opt-in experimental Codex support
 - `now`, `next`, and `ambient` lanes for human attention
 - approvals, follow-ups, failures, and blocked work in one place
 - doctor, config, debug, completion, and uninstall commands
@@ -137,8 +137,11 @@ If you only remember one thing, remember this:
 
 ### Codex (experimental)
 
+- product opt-in through `aperture codex connect --global` and `aperture --codex`
 - App Server supervision through `pnpm codex:run` and `pnpm codex:start`
-- experimental hooks support for the stock Codex CLI
+- stdio, websocket, and Unix-socket App Server transport paths from source
+- stock Codex CLI hooks for approvals, permission requests, and lifecycle
+  awareness
 - end-to-end approval routing proven for supported request families
 - broader interruption coverage still depends on what Codex App Server externalizes as requests
 
@@ -148,7 +151,7 @@ If you only remember one thing, remember this:
 - optional tool-call hold policy through the Aperture response loop
 - intentionally not wired into the published product launcher yet
 
-Claude Code and OpenCode are the mainline live paths today. Codex and Pi are real but still experimental paths from source.
+Claude Code and OpenCode are the mainline live paths today. Codex is included as an opt-in experimental product path; Pi remains source-only.
 
 ## Common Product Commands
 
@@ -162,6 +165,7 @@ aperture completion zsh
 aperture --version
 aperture help
 aperture help opencode
+aperture help codex
 aperture help uninstall
 ```
 

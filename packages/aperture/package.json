@@ -20,6 +20,7 @@
     "human-in-the-loop",
     "attention-management",
     "claude-code",
+    "codex",
     "opencode",
     "tui",
     "cli"

@@ -28,7 +28,19 @@ async function main(): Promise<void> {
       ? { sourceLabel: process.env.APERTURE_CODEX_SOURCE_LABEL }
       : {}),
     preToolUsePolicy: () => (adapterClient.getSurfaceCount() > 0 ? "hold" : "allow"),
+    permissionRequestPolicy: () => (adapterClient.getSurfaceCount() > 0 ? "hold" : "allow"),
     onPreToolUseFallback: (event, reason) => {
+      publishFallback(event, reason);
+    },
+    onPermissionRequestFallback: (event, reason) => {
+      publishFallback(event, reason);
+    },
+  });
+
+  function publishFallback(
+    event: Parameters<typeof codexHookFallbackEvent>[0],
+    reason: Parameters<typeof codexHookFallbackEvent>[1],
+  ): void {
       void adapterClient.publishSourceEvent(
         codexHookFallbackEvent(
           event,
@@ -41,8 +53,8 @@ async function main(): Promise<void> {
         const message = error instanceof Error ? error.message : String(error);
         logger.warn(`Unable to publish Codex hook fallback event: ${message}`);
       });
-    },
-  });
+  }
+
   const binding = await hookServer.listen();
 
   stderr.write(`Aperture Codex hook adapter listening at ${binding.url}\n`);

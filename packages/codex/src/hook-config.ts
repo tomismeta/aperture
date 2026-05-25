@@ -16,9 +16,14 @@ type HookEntry = { matcher?: string; hooks: HookDefinition[] } & Record<string, 
 
 const DEFAULT_HOOK_SPECS: HookSpec[] = [
   { eventName: "SessionStart", matcher: "startup|resume", statusMessage: "Connecting Aperture" },
-  { eventName: "PreToolUse", matcher: "Bash", statusMessage: "Waiting for Aperture approval" },
-  { eventName: "PostToolUse", matcher: "Bash" },
+  { eventName: "PreToolUse", matcher: "*", statusMessage: "Waiting for Aperture approval" },
+  { eventName: "PermissionRequest", matcher: "*", statusMessage: "Waiting for Aperture approval" },
+  { eventName: "PostToolUse", matcher: "*" },
   { eventName: "UserPromptSubmit" },
+  { eventName: "PreCompact" },
+  { eventName: "PostCompact" },
+  { eventName: "SubagentStart" },
+  { eventName: "SubagentStop" },
   { eventName: "Stop" },
 ];
 
@@ -119,7 +124,7 @@ export function buildCodexHookCommand(cliEntryPath: string, cliRepoRoot: string)
 export function withCodexHooksFeatureEnabled(raw: string): string {
   const normalized = raw.replace(/\r\n/g, "\n");
   if (normalized.length === 0) {
-    return "[features]\ncodex_hooks = true\n";
+    return "[features]\nhooks = true\n";
   }
   const lines = normalized.split("\n");
   const output: string[] = [];
@@ -130,9 +135,9 @@ export function withCodexHooksFeatureEnabled(raw: string): string {
   const flushMissingFlag = () => {
     if (inFeatures && !wroteFlag) {
       if (output.length > 0 && output[output.length - 1] === "") {
-        output.splice(output.length - 1, 0, "codex_hooks = true");
+        output.splice(output.length - 1, 0, "hooks = true");
       } else {
-        output.push("codex_hooks = true");
+        output.push("hooks = true");
       }
       wroteFlag = true;
     }
@@ -148,8 +153,8 @@ export function withCodexHooksFeatureEnabled(raw: string): string {
       continue;
     }
 
-    if (inFeatures && /^\s*codex_hooks\s*=/.test(line)) {
-      output.push("codex_hooks = true");
+    if (inFeatures && /^\s*hooks\s*=/.test(line)) {
+      output.push("hooks = true");
       wroteFlag = true;
       continue;
     }
@@ -164,7 +169,7 @@ export function withCodexHooksFeatureEnabled(raw: string): string {
       output.push("");
     }
     output.push("[features]");
-    output.push("codex_hooks = true");
+    output.push("hooks = true");
     wroteFlag = true;
   }
 

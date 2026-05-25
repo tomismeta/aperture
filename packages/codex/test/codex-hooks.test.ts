@@ -53,6 +53,46 @@ test("maps PreToolUse hook events into approval SourceEvents", () => {
   });
 });
 
+test("maps apply_patch and PermissionRequest hook events into approval SourceEvents", () => {
+  const patchEvent = parseCodexHookEvent({
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "PreToolUse",
+    turn_id: "turn-2",
+    tool_name: "apply_patch",
+    tool_use_id: "tool-patch-1",
+    tool_input: {
+      patch: "*** Begin Patch\n*** Update File: package.json\n*** End Patch",
+    },
+  });
+
+  const patchMapped = mapCodexHookEvent(patchEvent);
+  assert.equal(patchMapped[0]?.type, "human.input.requested");
+  assert.equal(patchMapped[0]?.toolFamily, "write");
+  assert.equal(patchMapped[0]?.title, "Approve Codex patch");
+
+  const permissionEvent = parseCodexHookEvent({
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "PermissionRequest",
+    turn_id: "turn-2",
+    tool_name: "mcp__github__create_issue",
+    tool_input: {
+      description: "Create a tracking issue",
+    },
+  });
+
+  const permissionMapped = mapCodexHookEvent(permissionEvent);
+  assert.equal(permissionMapped[0]?.type, "human.input.requested");
+  assert.equal(permissionMapped[0]?.toolFamily, "mcp");
+  assert.equal(permissionMapped[0]?.title, "Approve Codex MCP tool");
+  assert.equal(permissionMapped[0]?.summary, "Create a tracking issue");
+  assert.match(
+    permissionMapped[0]?.interactionId ?? "",
+    /^codex:hook:permissionRequest:session-1:turn-2:mcp__github__create_issue:/,
+  );
+});
+
 test("maps SessionStart hook events with execution and model metadata", () => {
   const event = parseCodexHookEvent({
     session_id: "session-model-1",
@@ -110,6 +150,32 @@ test("maps UserPromptSubmit hook events into follow-up SourceEvents", () => {
   });
 });
 
+test("maps compact and subagent hook events into task updates", () => {
+  const compactEvent = parseCodexHookEvent({
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "PreCompact",
+    turn_id: "turn-3",
+    trigger: "auto",
+  });
+  const compactMapped = mapCodexHookEvent(compactEvent);
+  assert.equal(compactMapped[0]?.type, "task.updated");
+  assert.equal(compactMapped[0]?.title, "Codex compacting context");
+
+  const subagentEvent = parseCodexHookEvent({
+    session_id: "session-1",
+    cwd: "/repo",
+    hook_event_name: "SubagentStart",
+    turn_id: "turn-3",
+    agent_id: "agent-1",
+    agent_type: "review",
+  });
+  const subagentMapped = mapCodexHookEvent(subagentEvent);
+  assert.equal(subagentMapped[0]?.type, "task.started");
+  assert.equal(subagentMapped[0]?.taskId, "codex:hook:session:session-1:turn:turn-3:subagent:agent-1");
+  assert.equal(subagentMapped[0]?.summary, "review");
+});
+
 test("maps held Codex hook responses back into deny-or-allow outputs", () => {
   assert.equal(
     mapCodexHookResponse({
@@ -134,6 +200,39 @@ test("maps held Codex hook responses back into deny-or-allow outputs", () => {
       },
     },
   );
+
+  assert.deepEqual(
+    mapCodexHookResponse({
+      taskId: "codex:hook:session:session-1:turn:turn-1",
+      interactionId: "codex:hook:permissionRequest:session-1:turn-1:Bash:abc123",
+      response: { kind: "approved" },
+    }),
+    {
+      hookSpecificOutput: {
+        hookEventName: "PermissionRequest",
+        decision: {
+          behavior: "allow",
+        },
+      },
+    },
+  );
+
+  assert.deepEqual(
+    mapCodexHookResponse({
+      taskId: "codex:hook:session:session-1:turn:turn-1",
+      interactionId: "codex:hook:permissionRequest:session-1:turn-1:Bash:abc123",
+      response: { kind: "rejected", reason: "No network." },
+    }),
+    {
+      hookSpecificOutput: {
+        hookEventName: "PermissionRequest",
+        decision: {
+          behavior: "deny",
+          message: "No network.",
+        },
+      },
+    },
+  );
 });
 
 test("installs and removes Codex hooks locally", async () => {
@@ -154,13 +253,21 @@ test("installs and removes Codex hooks locally", async () => {
       hooks?: Record<string, unknown>;
     };
     assert.ok(hooksJson.hooks?.PreToolUse);
+    assert.ok(hooksJson.hooks?.PermissionRequest);
+    assert.ok(hooksJson.hooks?.PostToolUse);
     assert.ok(hooksJson.hooks?.SessionStart);
     assert.ok(hooksJson.hooks?.UserPromptSubmit);
+    assert.ok(hooksJson.hooks?.PreCompact);
+    assert.ok(hooksJson.hooks?.PostCompact);
+    assert.ok(hooksJson.hooks?.SubagentStart);
+    assert.ok(hooksJson.hooks?.SubagentStop);
     assert.ok(hooksJson.hooks?.Stop);
+    assert.equal((hooksJson.hooks?.PreToolUse as Array<{ matcher?: string }>)[0]?.matcher, "*");
+    assert.equal((hooksJson.hooks?.PermissionRequest as Array<{ matcher?: string }>)[0]?.matcher, "*");
 
     const configToml = await readFile(join(scratch, ".codex", "config.toml"), "utf8");
     assert.match(configToml, /\[features\]/);
-    assert.match(configToml, /codex_hooks = true/);
+    assert.match(configToml, /hooks = true/);
 
     const removeResult = await removeCodexHooks({
       global: false,
@@ -178,11 +285,21 @@ test("installs and removes Codex hooks locally", async () => {
 test("enables the Codex hooks feature flag in config.toml", () => {
   assert.equal(
     withCodexHooksFeatureEnabled(""),
-    "[features]\ncodex_hooks = true\n",
+    "[features]\nhooks = true\n",
   );
 
   assert.equal(
     withCodexHooksFeatureEnabled("[features]\nother = false\n"),
-    "[features]\nother = false\ncodex_hooks = true\n",
+    "[features]\nother = false\nhooks = true\n",
+  );
+
+  assert.equal(
+    withCodexHooksFeatureEnabled("[features]\nhooks = false\n"),
+    "[features]\nhooks = true\n",
+  );
+
+  assert.equal(
+    withCodexHooksFeatureEnabled("[features]\ncodex_hooks = true\n"),
+    "[features]\ncodex_hooks = true\nhooks = true\n",
   );
 });

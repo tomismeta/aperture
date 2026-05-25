@@ -4,10 +4,15 @@
 import type { AbsolutePathBuf } from "../AbsolutePathBuf.js";
 import type { GitInfo } from "./GitInfo.js";
 import type { SessionSource } from "./SessionSource.js";
+import type { ThreadSource } from "./ThreadSource.js";
 import type { ThreadStatus } from "./ThreadStatus.js";
 import type { Turn } from "./Turn.js";
 
 export type Thread = { id: string,
+/**
+ * Session id shared by threads that belong to the same session tree.
+ */
+sessionId: string,
 /**
  * Source thread id when this thread was created by forking another thread.
  */
@@ -52,6 +57,10 @@ cliVersion: string,
  * Origin of the thread (CLI, VSCode, codex exec, codex app-server, etc.).
  */
 source: SessionSource,
+/**
+ * Optional analytics source classification for this thread.
+ */
+threadSource: ThreadSource | null,
 /**
  * Optional random unique nickname assigned to an AgentControl-spawned sub-agent.
  */

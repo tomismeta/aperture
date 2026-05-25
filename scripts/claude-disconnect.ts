@@ -30,6 +30,8 @@ const HOOK_EVENT_NAMES = [
   "TeammateIdle",
   "ConfigChange",
   "CwdChanged",
+  "WorktreeCreate",
+  "WorktreeRemove",
   "PreCompact",
   "PostCompact",
   "SessionEnd",

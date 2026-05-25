@@ -27,6 +27,7 @@ export {
 } from "./hook-config.js";
 export {
   codexHookInteractionId,
+  codexHookPermissionInteractionId,
   codexHookSessionTaskId,
   codexHookTurnTaskId,
   mapCodexHookEvent,
@@ -37,18 +38,25 @@ export {
   type CodexHookEventName,
   type CodexHookMappingContext,
   type CodexHookResponse,
+  type CodexCompactHookEvent,
+  type CodexPermissionRequestHookEvent,
   type CodexPostToolUseHookEvent,
   type CodexPreToolUseHookEvent,
   type CodexSessionStartHookEvent,
   type CodexStopHookEvent,
+  type CodexSubagentStartHookEvent,
+  type CodexSubagentStopHookEvent,
   type CodexUserPromptSubmitHookEvent,
 } from "./hooks.js";
 export {
-  codexHookFallbackEvent,
   createCodexHookServer,
   type CodexHookServer,
   type CodexHookServerOptions,
 } from "./hook-server.js";
+export {
+  codexHookFallbackEvent,
+  type CodexHeldHookEvent,
+} from "./hook-server-support.js";
 export {
   buildCodexRunInput,
   parseCodexRunArgs,

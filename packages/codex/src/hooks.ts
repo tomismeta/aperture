@@ -8,7 +8,12 @@ import type {
 export type CodexHookEventName =
   | "SessionStart"
   | "PreToolUse"
+  | "PermissionRequest"
   | "PostToolUse"
+  | "PreCompact"
+  | "PostCompact"
+  | "SubagentStart"
+  | "SubagentStop"
   | "UserPromptSubmit"
   | "Stop";
 
@@ -18,6 +23,7 @@ export type CodexHookBaseEvent = {
   hook_event_name: CodexHookEventName;
   transcript_path?: string | null;
   model?: string;
+  permission_mode?: string;
 };
 
 export type CodexSessionStartHookEvent = CodexHookBaseEvent & {
@@ -30,9 +36,14 @@ export type CodexPreToolUseHookEvent = CodexHookBaseEvent & {
   turn_id: string;
   tool_name: string;
   tool_use_id: string;
-  tool_input: {
-    command: string;
-  };
+  tool_input: unknown;
+};
+
+export type CodexPermissionRequestHookEvent = CodexHookBaseEvent & {
+  hook_event_name: "PermissionRequest";
+  turn_id: string;
+  tool_name: string;
+  tool_input: unknown;
 };
 
 export type CodexPostToolUseHookEvent = CodexHookBaseEvent & {
@@ -40,10 +51,32 @@ export type CodexPostToolUseHookEvent = CodexHookBaseEvent & {
   turn_id: string;
   tool_name: string;
   tool_use_id: string;
-  tool_input: {
-    command: string;
-  };
+  tool_input: unknown;
   tool_response?: unknown;
+};
+
+export type CodexCompactHookEvent = CodexHookBaseEvent & {
+  hook_event_name: "PreCompact" | "PostCompact";
+  turn_id: string;
+  trigger: "manual" | "auto" | string;
+};
+
+export type CodexSubagentStartHookEvent = CodexHookBaseEvent & {
+  hook_event_name: "SubagentStart";
+  turn_id: string;
+  agent_id: string;
+  agent_type: string;
+  agent_transcript_path?: string | null;
+};
+
+export type CodexSubagentStopHookEvent = CodexHookBaseEvent & {
+  hook_event_name: "SubagentStop";
+  turn_id: string;
+  agent_id: string;
+  agent_type: string;
+  agent_transcript_path?: string | null;
+  stop_hook_active?: boolean;
+  last_assistant_message?: string | null;
 };
 
 export type CodexUserPromptSubmitHookEvent = CodexHookBaseEvent & {
@@ -62,7 +95,11 @@ export type CodexStopHookEvent = CodexHookBaseEvent & {
 export type CodexHookEvent =
   | CodexSessionStartHookEvent
   | CodexPreToolUseHookEvent
+  | CodexPermissionRequestHookEvent
   | CodexPostToolUseHookEvent
+  | CodexCompactHookEvent
+  | CodexSubagentStartHookEvent
+  | CodexSubagentStopHookEvent
   | CodexUserPromptSubmitHookEvent
   | CodexStopHookEvent;
 
@@ -76,6 +113,16 @@ export type CodexHookResponse =
         hookEventName: "PreToolUse";
         permissionDecision: "deny";
         permissionDecisionReason?: string;
+      };
+      systemMessage?: string;
+    }
+  | {
+      hookSpecificOutput: {
+        hookEventName: "PermissionRequest";
+        decision: {
+          behavior: "allow" | "deny";
+          message?: string;
+        };
       };
       systemMessage?: string;
     }
@@ -114,6 +161,14 @@ export function parseCodexHookEvent(value: unknown): CodexHookEvent {
         tool_use_id: readRequiredString(value.tool_use_id, "PreToolUse.tool_use_id"),
         tool_input: parseToolInput(value.tool_input, "PreToolUse.tool_input"),
       };
+    case "PermissionRequest":
+      return {
+        ...shared,
+        hook_event_name: "PermissionRequest",
+        turn_id: readRequiredString(value.turn_id, "PermissionRequest.turn_id"),
+        tool_name: readRequiredString(value.tool_name, "PermissionRequest.tool_name"),
+        tool_input: parseToolInput(value.tool_input, "PermissionRequest.tool_input"),
+      };
     case "PostToolUse":
       return {
         ...shared,
@@ -123,6 +178,42 @@ export function parseCodexHookEvent(value: unknown): CodexHookEvent {
         tool_use_id: readRequiredString(value.tool_use_id, "PostToolUse.tool_use_id"),
         tool_input: parseToolInput(value.tool_input, "PostToolUse.tool_input"),
         ...(value.tool_response !== undefined ? { tool_response: value.tool_response } : {}),
+      };
+    case "PreCompact":
+    case "PostCompact":
+      return {
+        ...shared,
+        hook_event_name: hookEventName,
+        turn_id: readRequiredString(value.turn_id, `${hookEventName}.turn_id`),
+        trigger: readRequiredString(value.trigger, `${hookEventName}.trigger`),
+      };
+    case "SubagentStart":
+      return {
+        ...shared,
+        hook_event_name: "SubagentStart",
+        turn_id: readRequiredString(value.turn_id, "SubagentStart.turn_id"),
+        agent_id: readRequiredString(value.agent_id, "SubagentStart.agent_id"),
+        agent_type: readRequiredString(value.agent_type, "SubagentStart.agent_type"),
+        ...(value.agent_transcript_path === null || typeof value.agent_transcript_path === "string"
+          ? { agent_transcript_path: value.agent_transcript_path }
+          : {}),
+      };
+    case "SubagentStop":
+      return {
+        ...shared,
+        hook_event_name: "SubagentStop",
+        turn_id: readRequiredString(value.turn_id, "SubagentStop.turn_id"),
+        agent_id: readRequiredString(value.agent_id, "SubagentStop.agent_id"),
+        agent_type: readRequiredString(value.agent_type, "SubagentStop.agent_type"),
+        ...(value.agent_transcript_path === null || typeof value.agent_transcript_path === "string"
+          ? { agent_transcript_path: value.agent_transcript_path }
+          : {}),
+        ...(typeof value.stop_hook_active === "boolean"
+          ? { stop_hook_active: value.stop_hook_active }
+          : {}),
+        ...(value.last_assistant_message === null || typeof value.last_assistant_message === "string"
+          ? { last_assistant_message: value.last_assistant_message }
+          : {}),
       };
     case "UserPromptSubmit":
       return {
@@ -156,8 +247,17 @@ export function mapCodexHookEvent(
         return [mapSessionStart(event, context)];
       case "PreToolUse":
         return [mapPreToolUse(event, context)];
+      case "PermissionRequest":
+        return [mapPermissionRequest(event, context)];
       case "PostToolUse":
         return [mapPostToolUse(event, context)];
+      case "PreCompact":
+      case "PostCompact":
+        return [mapCompact(event, context)];
+      case "SubagentStart":
+        return [mapSubagentStart(event, context)];
+      case "SubagentStop":
+        return [mapSubagentStop(event, context)];
       case "UserPromptSubmit":
         return [mapUserPromptSubmit(event, context)];
       case "Stop":
@@ -172,23 +272,29 @@ export function mapCodexHookResponse(
   response: AttentionResponse,
 ): CodexHookResponse | null {
   const parsed = parseCodexHookInteractionId(response.interactionId);
-  if (!parsed || parsed.kind !== "preToolUse") {
+  if (!parsed) {
     return null;
   }
 
   switch (response.response.kind) {
     case "approved":
-      return null;
+      return parsed.kind === "permissionRequest" ? permissionDecision("allow") : null;
     case "rejected":
-      return denyResponse(response.response.reason ?? "Rejected in Aperture.");
+      return denyResponse(parsed.kind, response.response.reason ?? "Rejected in Aperture.");
     case "dismissed":
-      return denyResponse("Dismissed in Aperture.");
+      return denyResponse(parsed.kind, "Dismissed in Aperture.");
     case "acknowledged":
-      return denyResponse("Aperture requires an explicit approval before Codex can continue.");
+      return denyResponse(
+        parsed.kind,
+        "Aperture requires an explicit approval before Codex can continue.",
+      );
     case "option_selected":
     case "text_submitted":
     case "form_submitted":
-      return denyResponse("Codex expected an approval decision, but Aperture received a different response.");
+      return denyResponse(
+        parsed.kind,
+        "Codex expected an approval decision, but Aperture received a different response.",
+      );
   }
 }
 
@@ -211,29 +317,57 @@ export function codexHookInteractionId(event: CodexPreToolUseHookEvent): string 
   ].join(":");
 }
 
+export function codexHookPermissionInteractionId(event: CodexPermissionRequestHookEvent): string {
+  return [
+    "codex",
+    "hook",
+    "permissionRequest",
+    encodeURIComponent(event.session_id),
+    encodeURIComponent(event.turn_id),
+    encodeURIComponent(event.tool_name),
+    stableToken(event.tool_input),
+  ].join(":");
+}
+
 type ParsedCodexHookInteractionId = {
-  kind: "preToolUse";
+  kind: "preToolUse" | "permissionRequest";
   sessionId: string;
   turnId: string;
-  toolUseId: string;
+  toolUseId?: string;
+  toolName?: string;
 };
 
 function parseCodexHookInteractionId(interactionId: string): ParsedCodexHookInteractionId | null {
   const parts = interactionId.split(":");
-  if (parts.length !== 6 || parts[0] !== "codex" || parts[1] !== "hook") {
+  if (parts[0] !== "codex" || parts[1] !== "hook") {
     return null;
   }
 
-  if (parts[2] !== "preToolUse" || !parts[3] || !parts[4] || !parts[5]) {
-    return null;
+  if (parts.length === 6 && parts[2] === "preToolUse" && parts[3] && parts[4] && parts[5]) {
+    return {
+      kind: "preToolUse",
+      sessionId: decodeURIComponent(parts[3]),
+      turnId: decodeURIComponent(parts[4]),
+      toolUseId: decodeURIComponent(parts[5]),
+    };
   }
 
-  return {
-    kind: "preToolUse",
-    sessionId: decodeURIComponent(parts[3]),
-    turnId: decodeURIComponent(parts[4]),
-    toolUseId: decodeURIComponent(parts[5]),
-  };
+  if (
+    parts.length === 7
+    && parts[2] === "permissionRequest"
+    && parts[3]
+    && parts[4]
+    && parts[5]
+  ) {
+    return {
+      kind: "permissionRequest",
+      sessionId: decodeURIComponent(parts[3]),
+      turnId: decodeURIComponent(parts[4]),
+      toolName: decodeURIComponent(parts[5]),
+    };
+  }
+
+  return null;
 }
 
 function enrichCodexHookEvent(sourceEvent: SourceEvent, event: CodexHookEvent): SourceEvent {
@@ -306,6 +440,7 @@ function mapPreToolUse(
   event: CodexPreToolUseHookEvent,
   context: CodexHookMappingContext,
 ): SourceHumanInputRequestedEvent {
+  const summary = summarizeToolInput(event.tool_name, event.tool_input);
   return {
     id: `codex:hook:${encodeURIComponent(event.session_id)}:preToolUse:${encodeURIComponent(event.tool_use_id)}`,
     type: "human.input.requested",
@@ -313,10 +448,10 @@ function mapPreToolUse(
     interactionId: codexHookInteractionId(event),
     timestamp: new Date().toISOString(),
     source: codexHookSource(event, context),
-    toolFamily: "bash",
+    toolFamily: codexToolFamily(event.tool_name),
     activityClass: "permission_request",
-    title: "Approve Codex command",
-    summary: event.tool_input.command,
+    title: codexApprovalTitle(event.tool_name),
+    summary,
     request: {
       kind: "approval",
     },
@@ -327,7 +462,42 @@ function mapPreToolUse(
     ),
     context: {
       items: [
-        { id: "command", label: "Command", value: event.tool_input.command },
+        { id: "tool", label: "Tool", value: event.tool_name },
+        { id: "input", label: "Input", value: summary },
+        { id: "cwd", label: "Working Directory", value: event.cwd },
+      ],
+    },
+  };
+}
+
+function mapPermissionRequest(
+  event: CodexPermissionRequestHookEvent,
+  context: CodexHookMappingContext,
+): SourceHumanInputRequestedEvent {
+  const summary = summarizeToolInput(event.tool_name, event.tool_input);
+  return {
+    id: `codex:hook:${encodeURIComponent(event.session_id)}:permissionRequest:${stableToken(event.tool_input)}`,
+    type: "human.input.requested",
+    taskId: codexHookTurnTaskId(event.session_id, event.turn_id),
+    interactionId: codexHookPermissionInteractionId(event),
+    timestamp: new Date().toISOString(),
+    source: codexHookSource(event, context),
+    toolFamily: codexToolFamily(event.tool_name),
+    activityClass: "permission_request",
+    title: codexApprovalTitle(event.tool_name),
+    summary,
+    request: {
+      kind: "approval",
+    },
+    semanticHints: explicitRequestSemanticHints(
+      "approval",
+      "permission_request",
+      "Codex requested permission before continuing.",
+    ),
+    context: {
+      items: [
+        { id: "tool", label: "Tool", value: event.tool_name },
+        { id: "input", label: "Input", value: summary },
         { id: "cwd", label: "Working Directory", value: event.cwd },
       ],
     },
@@ -341,21 +511,80 @@ function mapPostToolUse(
   const exitCode = extractExitCode(event.tool_response);
   const failed = exitCode !== null && exitCode !== 0;
   const responseSummary = summarizeToolResponse(event.tool_response);
+  const inputSummary = summarizeToolInput(event.tool_name, event.tool_input);
   return {
     id: `codex:hook:${encodeURIComponent(event.session_id)}:postToolUse:${encodeURIComponent(event.tool_use_id)}`,
     type: "task.updated",
     taskId: codexHookTurnTaskId(event.session_id, event.turn_id),
     timestamp: new Date().toISOString(),
     source: codexHookSource(event, context),
-    toolFamily: "bash",
+    toolFamily: codexToolFamily(event.tool_name),
     activityClass: failed ? "tool_failure" : "tool_completion",
     semanticHints: taskUpdateSemanticHints(
       failed ? "tool_failure" : "tool_completion",
-      responseSummary ?? event.tool_input.command,
+      responseSummary ?? inputSummary,
     ),
-    title: failed ? "Codex command failed" : "Codex command completed",
-    summary: responseSummary ?? event.tool_input.command,
+    title: failed ? `${codexToolLabel(event.tool_name)} failed` : `${codexToolLabel(event.tool_name)} completed`,
+    summary: responseSummary ?? inputSummary,
     status: failed ? "failed" : "running",
+  };
+}
+
+function mapCompact(event: CodexCompactHookEvent, context: CodexHookMappingContext): SourceEvent {
+  const before = event.hook_event_name === "PreCompact";
+  const summary = before
+    ? `Codex is compacting context (${event.trigger}).`
+    : `Codex compacted context (${event.trigger}).`;
+  return {
+    id: `codex:hook:${encodeURIComponent(event.session_id)}:${event.hook_event_name}:${encodeURIComponent(event.turn_id)}`,
+    type: "task.updated",
+    taskId: codexHookTurnTaskId(event.session_id, event.turn_id),
+    timestamp: new Date().toISOString(),
+    source: codexHookSource(event, context),
+    activityClass: "session_status",
+    semanticHints: taskUpdateSemanticHints("session_status", summary),
+    title: before ? "Codex compacting context" : "Codex compacted context",
+    summary,
+    status: "running",
+  };
+}
+
+function mapSubagentStart(
+  event: CodexSubagentStartHookEvent,
+  context: CodexHookMappingContext,
+): SourceEvent {
+  return {
+    id: `codex:hook:${encodeURIComponent(event.session_id)}:subagentStart:${encodeURIComponent(event.agent_id)}`,
+    type: "task.started",
+    taskId: codexHookSubagentTaskId(event),
+    timestamp: new Date().toISOString(),
+    source: codexHookSource(event, context),
+    title: "Codex subagent started",
+    summary: event.agent_type,
+    metadata: {
+      codex: {
+        subagent: subagentMetadata(event),
+      },
+    },
+  };
+}
+
+function mapSubagentStop(
+  event: CodexSubagentStopHookEvent,
+  context: CodexHookMappingContext,
+): SourceEvent {
+  return {
+    id: `codex:hook:${encodeURIComponent(event.session_id)}:subagentStop:${encodeURIComponent(event.agent_id)}`,
+    type: "task.completed",
+    taskId: codexHookSubagentTaskId(event),
+    timestamp: new Date().toISOString(),
+    source: codexHookSource(event, context),
+    summary: summarizeAssistantMessage(event.last_assistant_message) ?? event.agent_type,
+    metadata: {
+      codex: {
+        subagent: subagentMetadata(event),
+      },
+    },
   };
 }
 
@@ -533,25 +762,48 @@ function parseHookSharedFields(value: Record<string, unknown>): Omit<CodexHookBa
       ? { transcript_path: value.transcript_path }
       : {}),
     ...(typeof value.model === "string" ? { model: value.model } : {}),
+    ...(typeof value.permission_mode === "string" ? { permission_mode: value.permission_mode } : {}),
   };
 }
 
-function parseToolInput(value: unknown, label: string): { command: string } {
-  if (!isRecord(value)) {
-    throw new Error(`${label} must be an object`);
+function parseToolInput(value: unknown, label: string): unknown {
+  if (value === undefined) {
+    throw new Error(`${label} is required`);
   }
-
-  return {
-    command: readRequiredString(value.command, `${label}.command`),
-  };
+  return value;
 }
 
-function denyResponse(reason: string): CodexHookResponse {
+function denyResponse(
+  kind: ParsedCodexHookInteractionId["kind"],
+  reason: string,
+): CodexHookResponse {
+  if (kind === "permissionRequest") {
+    return permissionDecision("deny", reason);
+  }
+  return preToolUseDenyResponse(reason);
+}
+
+function preToolUseDenyResponse(reason: string): CodexHookResponse {
   return {
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
       permissionDecision: "deny",
       permissionDecisionReason: reason,
+    },
+  };
+}
+
+function permissionDecision(
+  behavior: "allow" | "deny",
+  message?: string,
+): CodexHookResponse {
+  return {
+    hookSpecificOutput: {
+      hookEventName: "PermissionRequest",
+      decision: {
+        behavior,
+        ...(message ? { message } : {}),
+      },
     },
   };
 }
@@ -570,9 +822,100 @@ function readOptionalString(value: unknown): string | undefined {
 function isCodexHookEventName(value: string): value is CodexHookEventName {
   return value === "SessionStart"
     || value === "PreToolUse"
+    || value === "PermissionRequest"
     || value === "PostToolUse"
+    || value === "PreCompact"
+    || value === "PostCompact"
+    || value === "SubagentStart"
+    || value === "SubagentStop"
     || value === "UserPromptSubmit"
     || value === "Stop";
+}
+
+function codexHookSubagentTaskId(
+  event: Pick<CodexSubagentStartHookEvent, "session_id" | "turn_id" | "agent_id">,
+): string {
+  return `${codexHookTurnTaskId(event.session_id, event.turn_id)}:subagent:${encodeURIComponent(event.agent_id)}`;
+}
+
+function subagentMetadata(
+  event: CodexSubagentStartHookEvent | CodexSubagentStopHookEvent,
+): Record<string, string> {
+  return {
+    id: event.agent_id,
+    type: event.agent_type,
+    ...(event.agent_transcript_path ? { transcriptPath: event.agent_transcript_path } : {}),
+  };
+}
+
+function codexApprovalTitle(toolName: string): string {
+  return `Approve ${codexToolLabel(toolName)}`;
+}
+
+function codexToolLabel(toolName: string): string {
+  if (toolName === "Bash") {
+    return "Codex command";
+  }
+  if (toolName === "apply_patch") {
+    return "Codex patch";
+  }
+  if (toolName.startsWith("mcp__")) {
+    return "Codex MCP tool";
+  }
+  return `Codex ${toolName}`;
+}
+
+function codexToolFamily(toolName: string): string {
+  if (toolName === "Bash" || toolName === "PowerShell") {
+    return "bash";
+  }
+  if (toolName === "apply_patch" || toolName === "Edit" || toolName === "Write") {
+    return "write";
+  }
+  if (toolName.startsWith("mcp__")) {
+    return "mcp";
+  }
+  return toolName.toLowerCase();
+}
+
+function summarizeToolInput(toolName: string, input: unknown): string {
+  if (isRecord(input)) {
+    const description = readOptionalString(input.description);
+    if (description) {
+      return summarizePrompt(description);
+    }
+    const command = readOptionalString(input.command);
+    if (command) {
+      return summarizePrompt(command);
+    }
+  }
+
+  if (typeof input === "string") {
+    return summarizePrompt(input);
+  }
+
+  return summarizePrompt(`${toolName} ${stableStringify(input)}`);
+}
+
+function stableToken(value: unknown): string {
+  let hash = 0;
+  const input = stableStringify(value);
+  for (let index = 0; index < input.length; index += 1) {
+    hash = Math.imul(31, hash) + input.charCodeAt(index) | 0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value) ?? "";
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(",")}]`;
+  }
+  const entries = Object.entries(value as Record<string, unknown>)
+    .sort(([left], [right]) => left.localeCompare(right));
+  return `{${entries.map(([key, entryValue]) => `${JSON.stringify(key)}:${stableStringify(entryValue)}`).join(",")}}`;
 }
 
 function tryParseJson(value: string): unknown | null {

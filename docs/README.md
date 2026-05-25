@@ -94,7 +94,7 @@ These docs explain the source-specific integration seams:
 
 - Claude Code as a live hook-based path
 - OpenCode as a live server-and-terminal path
-- Codex as an experimental App Server path
+- Codex as experimental App Server and hook paths
 - Pi as an experimental extension-based path
 
 ## Engine And SDK Reference

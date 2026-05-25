@@ -47,7 +47,7 @@ export async function runRuntimeServer(args: string[]): Promise<void> {
   stderr.write(`Runtime auth token path: ${binding.tokenPath}\n`);
   stderr.write(`Learning persistence ${learning === "on" ? "enabled" : "disabled"}\n`);
   stderr.write(
-    "Start adapters separately, for example: aperture internal claude-adapter or aperture internal opencode-adapter\n",
+    "Start adapters separately, for example: aperture internal claude-adapter, aperture internal codex-hook-adapter, or aperture internal opencode-adapter\n",
   );
   stderr.write("Open the TUI separately with: aperture internal tui\n");
 

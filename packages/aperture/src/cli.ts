@@ -1,18 +1,17 @@
 import { dirname, resolve } from "node:path";
-import { stderr, stdout } from "node:process";
+import { stderr } from "node:process";
 import { fileURLToPath } from "node:url";
 import packageMetadata from "../package.json" with { type: "json" };
 
 import { runClaudeAdapter, runClaudeForward } from "./cli/claude-adapter.js";
-import {
-  buildClaudeHookCommand,
-  installClaudeHooks,
-  removeClaudeHooks,
-} from "./cli/claude-hooks.js";
+import { runClaudeCommand } from "./cli/claude-command.js";
+import { runCodexForward, runCodexHookAdapter } from "./cli/codex-adapter.js";
+import { runCodexCommand } from "./cli/codex-command.js";
+import { buildClaudeHookCommand } from "./cli/claude-hooks.js";
+import { buildCodexHookCommand } from "./cli/codex-hooks.js";
 import { runConfigCommand } from "./cli/config.js";
 import { collectDebugSnapshot, printDebugSnapshot, runDoctor } from "./cli/doctor-debug.js";
 import {
-  printClaudeHelp,
   printDebugHelp,
   printInternalHelp,
   printOpencodeHelp,
@@ -66,7 +65,16 @@ async function main(): Promise<void> {
       printVersion(packageMetadata.version);
       return;
     case "claude":
-      await runClaudeCommand(args.slice(1));
+      await runClaudeCommand(args.slice(1), {
+        entryPath: CLI_ENTRY_PATH,
+        repoRoot: CLI_REPO_ROOT,
+      });
+      return;
+    case "codex":
+      await runCodexCommand(args.slice(1), {
+        entryPath: CLI_ENTRY_PATH,
+        repoRoot: CLI_REPO_ROOT,
+      });
       return;
     case "opencode":
       await runOpencodeCommand(args.slice(1));
@@ -77,6 +85,7 @@ async function main(): Promise<void> {
     case "uninstall":
       await runUninstall(args.slice(1), {
         command: buildClaudeHookCommand(CLI_ENTRY_PATH, CLI_REPO_ROOT),
+        codexCommand: buildCodexHookCommand(CLI_ENTRY_PATH, CLI_REPO_ROOT),
         printHelp: printUninstallHelp,
       });
       return;
@@ -98,6 +107,9 @@ async function runHookCommand(args: string[]): Promise<void> {
   switch (command) {
     case "claude-forward":
       await runClaudeForward();
+      return;
+    case "codex-forward":
+      await runCodexForward();
       return;
     default:
       throw new Error(`Unknown Aperture hook command: ${command ?? "(missing)"}`);
@@ -137,6 +149,14 @@ async function runInternalCommand(args: string[]): Promise<void> {
         ]),
       );
       return;
+    case "codex-hook-adapter":
+      await runCodexHookAdapter(
+        await resolveRuntimeUrl("Codex hook adapter", [
+          "APERTURE_RUNTIME_URL",
+          "APERTURE_CODEX_RUNTIME_URL",
+        ]),
+      );
+      return;
     default:
       throw new Error(`Unknown Aperture internal command: ${command}`);
   }
@@ -168,25 +188,6 @@ async function runDebugCommand(args: string[]): Promise<void> {
   }
 }
 
-async function runClaudeCommand(args: string[]): Promise<void> {
-  const command = args[0];
-  if (!command || command === "--help" || command === "-h") {
-    printClaudeHelp();
-    return;
-  }
-
-  switch (command) {
-    case "connect":
-      await runClaudeConnect(args.slice(1));
-      return;
-    case "disconnect":
-      await runClaudeDisconnect(args.slice(1));
-      return;
-    default:
-      throw new Error(`Unknown Aperture Claude command: ${command ?? "(missing)"}`);
-  }
-}
-
 async function runOpencodeCommand(args: string[]): Promise<void> {
   const command = args[0];
   if (!command || command === "--help" || command === "-h") {
@@ -198,49 +199,6 @@ async function runOpencodeCommand(args: string[]): Promise<void> {
     default:
       throw new Error(`Unknown Aperture OpenCode command: ${command ?? "(missing)"}`);
   }
-}
-
-async function runClaudeConnect(args: string[]): Promise<void> {
-  const global = args.includes("--global") || args.includes("-g");
-  const targetArg = args.find((arg) => !arg.startsWith("--"));
-
-  if (!global && !targetArg) {
-    stderr.write("Usage: aperture claude connect /path/to/project\n");
-    stderr.write("   or: aperture claude connect --global\n");
-    process.exit(1);
-  }
-
-  await installClaudeHooks({
-    global,
-    command: buildClaudeHookCommand(CLI_ENTRY_PATH, CLI_REPO_ROOT),
-    ...(targetArg ? { targetRoot: resolve(targetArg) } : {}),
-  });
-}
-
-async function runClaudeDisconnect(args: string[]): Promise<void> {
-  const global = args.includes("--global") || args.includes("-g");
-  const targetArg = args.find((arg) => !arg.startsWith("--"));
-
-  if (!global && !targetArg) {
-    stderr.write("Usage: aperture claude disconnect /path/to/project\n");
-    stderr.write("   or: aperture claude disconnect --global\n");
-    process.exit(1);
-  }
-
-  const result = await removeClaudeHooks({
-    global,
-    command: buildClaudeHookCommand(CLI_ENTRY_PATH, CLI_REPO_ROOT),
-    ...(targetArg ? { targetRoot: resolve(targetArg) } : {}),
-  });
-
-  if (!result.changed) {
-    stdout.write(`No Aperture Claude hooks found in ${result.settingsPath}\n`);
-    return;
-  }
-
-  stdout.write(`Updated ${result.settingsPath}\n`);
-  stdout.write("Removed Aperture Claude hook entries.\n");
-  stdout.write(`Restart Claude Code${global ? "" : " in the target project"}.\n`);
 }
 
 void main().catch((error) => {

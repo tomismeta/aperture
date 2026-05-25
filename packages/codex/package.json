@@ -13,13 +13,13 @@
   },
   "dependencies": {
     "@aperture/runtime": "workspace:*",
-    "@tomismeta/aperture-core": "workspace:*",
-    "ws": "^8.19.0"
+    "@tomismeta/aperture-core": "workspace:*"
   },
   "scripts": {
     "build": "tsc -b"
   },
   "devDependencies": {
-    "@types/ws": "^8.18.1"
+    "@types/ws": "^8.18.1",
+    "ws": "^8.21.0"
   }
 }

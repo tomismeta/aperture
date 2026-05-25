@@ -34,10 +34,10 @@ export type CodexAppServerClientOptions = {
   clientInfo?: CodexClientInfo;
   transport?: CodexTransport;
   transportFactory?: () => CodexTransport;
-  transportKind?: "stdio" | "websocket";
+  transportKind?: "stdio" | "websocket" | "unix";
   // Used only when the client falls back to the built-in stdio transport.
   stdio?: CodexAppServerStdioOptions;
-  // Used only when the client falls back to the built-in websocket transport.
+  // Used only when the client falls back to the built-in websocket or Unix socket transport.
   websocket?: CodexAppServerWebSocketOptions;
 };
 
@@ -175,9 +175,9 @@ export class CodexAppServerClient {
 
 function createBuiltInTransport(options: CodexAppServerClientOptions): CodexTransport {
   const transportKind = options.transportKind ?? (options.websocket ? "websocket" : "stdio");
-  if (transportKind === "websocket") {
+  if (transportKind === "websocket" || transportKind === "unix") {
     if (!options.websocket) {
-      throw new Error("Codex websocket transport requires websocket options");
+      throw new Error(`Codex ${transportKind} transport requires websocket options`);
     }
     return new CodexAppServerWebSocket(options.websocket);
   }

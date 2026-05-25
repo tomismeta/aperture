@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
+import { mkdtemp, rm } from "node:fs/promises";
+import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import WebSocket, { WebSocketServer } from "ws";
@@ -133,6 +137,67 @@ test("CodexAppServerClient can run against the built-in websocket transport", as
   assert.equal(clientServerRequests[0]?.method, "demo/request");
 
   await client.close();
+});
+
+test("CodexAppServerWebSocket can connect through a Unix socket path", async (t) => {
+  const sockets = new Set<WebSocket>();
+  const socketDir = await mkdtemp(join(tmpdir(), "aperture-codex-ws-"));
+  const socketPath = join(socketDir, "codex.sock");
+  const httpServer = createServer();
+  const server = new WebSocketServer({ server: httpServer });
+
+  await new Promise<void>((resolve, reject) => {
+    httpServer.once("error", reject);
+    httpServer.listen(socketPath, () => {
+      httpServer.off("error", reject);
+      resolve();
+    });
+  });
+
+  t.after(async () => {
+    for (const socket of sockets) {
+      socket.close();
+    }
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
+    await new Promise<void>((resolve) => {
+      httpServer.close(() => resolve());
+    });
+    await rm(socketDir, { recursive: true, force: true });
+  });
+
+  server.on("connection", (socket) => {
+    sockets.add(socket);
+    socket.on("close", () => {
+      sockets.delete(socket);
+    });
+    socket.on("message", (raw) => {
+      const payload = JSON.parse(raw.toString("utf8")) as { id?: string | number; method?: string };
+      if (payload.method === "demo/request") {
+        socket.send(JSON.stringify({
+          id: payload.id,
+          result: { ok: true },
+        }));
+      }
+    });
+  });
+
+  const transport = new CodexAppServerWebSocket({
+    url: "ws://localhost/",
+    socketPath,
+  });
+
+  await transport.start();
+  const result = await transport.request<{ ok: boolean }>({
+    id: 1,
+    method: "demo/request",
+    params: {},
+  });
+
+  assert.equal(result.ok, true);
+
+  await transport.close();
 });
 
 test("CodexAppServerWebSocket resolves requests and dispatches notifications and server requests", async (t) => {

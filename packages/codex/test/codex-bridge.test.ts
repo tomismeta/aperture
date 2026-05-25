@@ -103,6 +103,7 @@ test("bridge publishes mapped codex requests into runtime and routes responses b
       itemId: "item:cmd:1",
       command: "pnpm test",
       cwd: "/repo",
+      startedAtMs: 123,
     },
   });
 
@@ -552,6 +553,7 @@ test("bridge times out pending codex requests and responds with an error", async
       itemId: "item:timeout:1",
       command: "pnpm test",
       cwd: "/repo",
+      startedAtMs: 123,
     },
   });
 

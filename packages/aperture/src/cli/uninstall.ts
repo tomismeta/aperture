@@ -6,6 +6,7 @@ import { discoverLocalRuntimes } from "@aperture/runtime";
 
 import { apertureHomeDir } from "../opencode-config.js";
 import { removeClaudeHooks, resolveClaudeSettingsPath } from "./claude-hooks.js";
+import { removeCodexHooks, resolveCodexHooksPath } from "./codex-hooks.js";
 import { readRequiredValue, pathExists } from "./shared.js";
 
 type UninstallOptions = {
@@ -18,6 +19,7 @@ export async function runUninstall(
   args: string[],
   options: {
     command: string;
+    codexCommand: string;
     printHelp(): void;
   },
 ): Promise<void> {
@@ -38,8 +40,10 @@ export async function runUninstall(
     "Aperture uninstall will remove:",
     `  - product state under ${dataDir}`,
     `  - Aperture Claude hook entries from ${settingsPath}`,
+    `  - Aperture Codex hook entries from ${resolveCodexHooksPath(true)}`,
     ...projectRoots.flatMap((projectRoot) => [
       `  - Aperture Claude hook entries from ${resolveClaudeSettingsPath(false, projectRoot)}`,
+      `  - Aperture Codex hook entries from ${resolveCodexHooksPath(false, projectRoot)}`,
       `  - project state under ${resolve(projectRoot, ".aperture")}`,
     ]),
   ];
@@ -70,6 +74,13 @@ export async function runUninstall(
   if (globalResult.changed) {
     removedSettings.push(globalResult.settingsPath);
   }
+  const globalCodexResult = await removeCodexHooks({
+    global: true,
+    command: options.codexCommand,
+  });
+  if (globalCodexResult.changed) {
+    removedSettings.push(globalCodexResult.hooksPath);
+  }
 
   for (const projectRoot of projectRoots) {
     const result = await removeClaudeHooks({
@@ -79,6 +90,14 @@ export async function runUninstall(
     });
     if (result.changed) {
       removedSettings.push(result.settingsPath);
+    }
+    const codexResult = await removeCodexHooks({
+      global: false,
+      targetRoot: projectRoot,
+      command: options.codexCommand,
+    });
+    if (codexResult.changed) {
+      removedSettings.push(codexResult.hooksPath);
     }
 
     await rm(resolve(projectRoot, ".aperture"), { recursive: true, force: true });
@@ -93,7 +112,7 @@ export async function runUninstall(
     );
   }
   if (removedSettings.length > 0) {
-    stdout.write("Removed Claude hook entries from:\n");
+    stdout.write("Removed hook entries from:\n");
     for (const settings of removedSettings) {
       stdout.write(`- ${settings}\n`);
     }

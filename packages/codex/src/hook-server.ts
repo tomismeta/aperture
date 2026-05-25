@@ -4,14 +4,20 @@ import type { AttentionResponse, AttentionView, SourceEvent } from "@tomismeta/a
 import { HeldRequestCoordinator, type HeldRequestResolution } from "@aperture/runtime/internal";
 
 import {
-  codexHookTurnTaskId,
   mapCodexHookEvent,
   mapCodexHookResponse,
   parseCodexHookEvent,
   type CodexHookMappingContext,
   type CodexHookResponse,
+  type CodexPermissionRequestHookEvent,
   type CodexPreToolUseHookEvent,
 } from "./hooks.js";
+import {
+  codexHookDenyBody,
+  type CodexHeldApprovalFallback,
+  type CodexHeldApprovalPolicy,
+  type CodexHeldHookEvent,
+} from "./hook-server-support.js";
 
 export type CodexHookServerOptions = CodexHookMappingContext & {
   host?: string;
@@ -23,8 +29,16 @@ export type CodexHookServerOptions = CodexHookMappingContext & {
     event: CodexPreToolUseHookEvent,
     mappedEvent: Extract<SourceEvent, { type: "human.input.requested" }>,
   ) => "hold" | "allow";
+  permissionRequestPolicy?: (
+    event: CodexPermissionRequestHookEvent,
+    mappedEvent: Extract<SourceEvent, { type: "human.input.requested" }>,
+  ) => "hold" | "allow";
   onPreToolUseFallback?: (
     event: CodexPreToolUseHookEvent,
+    reason: "timed_out" | "not_held",
+  ) => void;
+  onPermissionRequestFallback?: (
+    event: CodexPermissionRequestHookEvent,
     reason: "timed_out" | "not_held",
   ) => void;
 };
@@ -78,7 +92,26 @@ export function createCodexHookServer(
 
       const event = parseCodexHookEvent(await readHookBody(req, bodyLimitBytes));
       if (event.hook_event_name === "PreToolUse") {
-        await handlePreToolUse(event, res);
+        await handleHeldApproval(
+          event,
+          res,
+          options.preToolUsePolicy,
+          options.onPreToolUseFallback,
+          "Codex command approval timed out in Aperture.",
+          "Aperture did not retain the Codex command approval.",
+        );
+        return;
+      }
+
+      if (event.hook_event_name === "PermissionRequest") {
+        await handleHeldApproval(
+          event,
+          res,
+          options.permissionRequestPolicy,
+          options.onPermissionRequestFallback,
+          "Codex permission request timed out in Aperture.",
+          "Aperture did not retain the Codex permission request.",
+        );
         return;
       }
 
@@ -129,9 +162,13 @@ export function createCodexHookServer(
     },
   };
 
-  async function handlePreToolUse(
-    event: CodexPreToolUseHookEvent,
+  async function handleHeldApproval<TEvent extends CodexHeldHookEvent>(
+    event: TEvent,
     res: ServerResponse<IncomingMessage>,
+    policy: CodexHeldApprovalPolicy<TEvent> | undefined,
+    onFallback: CodexHeldApprovalFallback<TEvent> | undefined,
+    timeoutReason: string,
+    notHeldReason: string,
   ): Promise<void> {
     const mapped = mapCodexHookEvent(event, options);
     const firstMappedEvent = mapped[0];
@@ -140,9 +177,18 @@ export function createCodexHookServer(
       return;
     }
 
-    const policy = options.preToolUsePolicy?.(event, firstMappedEvent) ?? "allow";
-    if (policy === "allow") {
-      writeEmpty(res, 204);
+    const decision = policy?.(event, firstMappedEvent) ?? "allow";
+    if (decision === "allow") {
+      const body = mapCodexHookResponse({
+        taskId: firstMappedEvent.taskId,
+        interactionId: firstMappedEvent.interactionId,
+        response: { kind: "approved" },
+      });
+      if (body) {
+        writeJson(res, 200, body);
+      } else {
+        writeEmpty(res, 204);
+      }
       return;
     }
 
@@ -153,20 +199,20 @@ export function createCodexHookServer(
       timeoutMs: holdTimeoutMs,
       fallback: {
         statusCode: 200,
-        body: denyBody("Codex command approval timed out in Aperture."),
+        body: codexHookDenyBody(event, timeoutReason),
       },
       mapResponse: (response) => {
         const mappedResponse = mapCodexHookResponse(response);
         return mappedResponse ? { statusCode: 200, body: mappedResponse } : { statusCode: 204 };
       },
       onTimeout: () => {
-        options.onPreToolUseFallback?.(event, "timed_out");
+        onFallback?.(event, "timed_out");
         void hostClient.submit?.({
           taskId: firstMappedEvent.taskId,
           interactionId: firstMappedEvent.interactionId,
           response: {
             kind: "rejected",
-            reason: "Codex command approval timed out in Aperture.",
+            reason: timeoutReason,
           },
         });
       },
@@ -190,60 +236,21 @@ export function createCodexHookServer(
         firstMappedEvent.interactionId,
       )
     ) {
-      options.onPreToolUseFallback?.(event, "not_held");
+      onFallback?.(event, "not_held");
       void hostClient.submit?.({
         taskId: firstMappedEvent.taskId,
         interactionId: firstMappedEvent.interactionId,
         response: {
           kind: "rejected",
-          reason: "Aperture did not retain the Codex command approval.",
+          reason: notHeldReason,
         },
       });
       pending.release(firstMappedEvent.taskId, firstMappedEvent.interactionId, {
         statusCode: 200,
-        body: denyBody("Aperture did not retain the Codex command approval."),
+        body: codexHookDenyBody(event, notHeldReason),
       });
     }
   }
-}
-
-export function codexHookFallbackEvent(
-  event: CodexPreToolUseHookEvent,
-  reason: "timed_out" | "not_held",
-  context: CodexHookMappingContext = {},
-): SourceEvent {
-  return {
-    id: `codex:hook:${encodeURIComponent(event.session_id)}:preToolUse:${encodeURIComponent(event.tool_use_id)}:fallback:${reason}`,
-    type: "task.updated",
-    taskId: codexHookTurnTaskId(event.session_id, event.turn_id),
-    timestamp: new Date().toISOString(),
-    source: {
-      id: `codex:hook:${event.session_id}`,
-      kind: "codex",
-      ...(context.sourceLabel ? { label: context.sourceLabel } : {}),
-    },
-    toolFamily: "bash",
-    activityClass: "permission_request",
-    title:
-      reason === "timed_out"
-        ? "Codex command approval timed out"
-        : "Codex command approval auto-denied",
-    summary:
-      reason === "timed_out"
-        ? "Aperture did not receive a response in time and denied the command."
-        : "Aperture did not retain the approval frame and denied the command to fail closed.",
-    status: "blocked",
-  };
-}
-
-function denyBody(reason: string): CodexHookResponse {
-  return {
-    hookSpecificOutput: {
-      hookEventName: "PreToolUse",
-      permissionDecision: "deny",
-      permissionDecisionReason: reason,
-    },
-  };
 }
 
 async function readHookBody(req: IncomingMessage, bodyLimitBytes: number): Promise<unknown> {

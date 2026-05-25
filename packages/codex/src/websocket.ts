@@ -26,6 +26,7 @@ export type CodexAppServerWebSocketOptions = {
   headers?: Record<string, string>;
   origin?: string;
   protocols?: string | string[];
+  socketPath?: string;
   handshakeTimeoutMs?: number;
 };
 
@@ -39,6 +40,7 @@ export class CodexAppServerWebSocket implements CodexTransport {
   private readonly headers: Record<string, string> | undefined;
   private readonly origin: string | undefined;
   private readonly protocols: string | string[] | undefined;
+  private readonly socketPath: string | undefined;
   private readonly handshakeTimeoutMs: number | undefined;
   private socket: WebSocket | null = null;
   private readonly pending = new Map<JsonRpcId, PendingRequest>();
@@ -53,6 +55,7 @@ export class CodexAppServerWebSocket implements CodexTransport {
     this.headers = options.headers;
     this.origin = options.origin;
     this.protocols = options.protocols;
+    this.socketPath = options.socketPath;
     this.handshakeTimeoutMs = options.handshakeTimeoutMs;
   }
 
@@ -62,9 +65,10 @@ export class CodexAppServerWebSocket implements CodexTransport {
     }
 
     this.closed = false;
+    const url = this.socketPath ? unixSocketWebSocketUrl(this.url, this.socketPath) : this.url;
     const socket = this.protocols
-      ? new WebSocket(this.url, this.protocols, this.createSocketOptions())
-      : new WebSocket(this.url, this.createSocketOptions());
+      ? new WebSocket(url, this.protocols, this.createSocketOptions())
+      : new WebSocket(url, this.createSocketOptions());
     this.socket = socket;
 
     await new Promise<void>((resolve, reject) => {
@@ -296,4 +300,16 @@ export class CodexAppServerWebSocket implements CodexTransport {
     }
     return data.toString("utf8");
   }
+}
+
+function unixSocketWebSocketUrl(url: string, socketPath: string): string {
+  const requestPath = (() => {
+    try {
+      const parsed = new URL(url);
+      return `${parsed.pathname}${parsed.search}` || "/";
+    } catch {
+      return "/";
+    }
+  })();
+  return `ws+unix://${socketPath}:${requestPath.startsWith("/") ? requestPath : `/${requestPath}`}`;
 }

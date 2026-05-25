@@ -22,6 +22,7 @@ test("maps command execution approvals into approval SourceEvents", () => {
       command: "pnpm test",
       cwd: "/repo",
       reason: "Run tests before continuing",
+      startedAtMs: 123,
     },
   };
 
@@ -202,6 +203,7 @@ test("maps file change approvals into write approval SourceEvents", () => {
       itemId: "item:file:1",
       reason: "Apply patch",
       grantRoot: "/repo/src",
+      startedAtMs: 123,
     },
   };
 
@@ -303,6 +305,7 @@ test("maps permissions approvals into approval SourceEvents", () => {
       itemId: "item:perm:1",
       cwd: "/repo",
       reason: "Need network access",
+      startedAtMs: 123,
       permissions: {
         network: { enabled: true },
         fileSystem: null,
@@ -506,6 +509,7 @@ test("maps approval responses back to codex decisions", () => {
       itemId: "item:cmd:1",
       command: "pnpm test",
       cwd: "/repo",
+      startedAtMs: 123,
     },
   };
   const response: AttentionResponse = {
@@ -554,6 +558,7 @@ test("maps permissions approval responses back to granted permissions", () => {
       itemId: "item:perm:1",
       cwd: "/repo",
       reason: "Need network access",
+      startedAtMs: 123,
       permissions: {
         network: { enabled: true },
         fileSystem: null,

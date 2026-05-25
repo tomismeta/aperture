@@ -40,3 +40,21 @@ test("LauncherConnectionStore keeps show setup after skip suppresses pending ent
 
   assert.deepEqual(snapshot.actions, [{ id: "show-setup", key: "s", label: "show setup" }]);
 });
+
+test("LauncherConnectionStore exposes a Codex setup action only for Codex entries", () => {
+  const store = new LauncherConnectionStore([
+    makeConnectionEntry(
+      "codex",
+      "Codex",
+      "action",
+      "Codex hook bridge is ready. Codex still needs to reload the updated hooks.",
+    ),
+  ]);
+
+  const snapshot = store.getSnapshot();
+
+  assert.deepEqual(snapshot.actions, [
+    { id: "skip-setup", key: "s", label: "skip for now" },
+    { id: "refresh-codex", key: "x", label: "finish Codex setup" },
+  ]);
+});

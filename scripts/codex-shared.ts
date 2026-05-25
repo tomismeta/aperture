@@ -6,7 +6,7 @@ import { discoverLocalRuntimes } from "@aperture/runtime";
 export type ResolvedCodexAppServerOptions = {
   clientOptions: CodexAppServerClientOptions;
   runtimeMetadata: Record<string, string>;
-  transportLabel: "stdio" | "websocket";
+  transportLabel: "stdio" | "websocket" | "unix";
 };
 
 export type CodexTransportCliOptions = {
@@ -85,9 +85,36 @@ export function resolveCodexAppServerOptions(options: {
     };
   }
 
+  if (requestedTransport === "unix" || requestedTransport === "unix-socket") {
+    const rawSocketPath = options.url
+      ?? process.env.APERTURE_CODEX_UNIX_SOCKET
+      ?? process.env.APERTURE_CODEX_URL;
+    if (!rawSocketPath) {
+      throw new Error(
+        "Codex Unix socket transport requires a socket path. Pass --url or set APERTURE_CODEX_UNIX_SOCKET.",
+      );
+    }
+    const socketPath = rawSocketPath.startsWith("unix://")
+      ? rawSocketPath.slice("unix://".length)
+      : rawSocketPath;
+    return {
+      clientOptions: {
+        transportKind: "unix",
+        websocket: {
+          url: "ws://localhost/",
+          socketPath,
+        },
+      },
+      runtimeMetadata: {
+        transport: "app-server-unix",
+      },
+      transportLabel: "unix",
+    };
+  }
+
   if (requestedTransport !== "stdio") {
     throw new Error(
-      `Unsupported Codex App Server transport "${requestedTransport}". Use "stdio" or "websocket".`,
+      `Unsupported Codex App Server transport "${requestedTransport}". Use "stdio", "websocket", or "unix".`,
     );
   }
 

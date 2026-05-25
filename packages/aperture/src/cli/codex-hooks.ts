@@ -9,6 +9,8 @@ import {
   type CodexHookInstallResult,
 } from "@aperture/codex/hook-config";
 
+import { codexHookForwardUrl } from "./codex-hook-url.js";
+
 export {
   readHookConfig,
   removeCodexHooks,
@@ -41,17 +43,33 @@ export async function installCodexProductHooks(options: {
   stdout.write("Next steps:\n");
   stdout.write("1. Start Aperture with Codex hooks enabled: aperture --codex\n");
   stdout.write(`2. Restart Codex${options.global ? "" : " in the target project"}.\n`);
-  stdout.write("3. Run /hooks in Codex if available to confirm the hooks loaded.\n");
+  stdout.write("3. Run /hooks in Codex if available to review and trust the hooks.\n");
 
   return result;
 }
 
 export function buildCodexHookCommand(cliEntryPath: string, cliRepoRoot: string): string {
   if (cliEntryPath.endsWith(".ts")) {
-    return `pnpm --dir ${shellQuote(cliRepoRoot)} exec tsx ${shellQuote(cliEntryPath)} internal hook codex-forward`;
+    return [
+      "pnpm",
+      "--dir",
+      shellQuote(cliRepoRoot),
+      "exec",
+      "tsx",
+      shellQuote(cliEntryPath),
+      "internal hook codex-forward",
+      "--url",
+      shellQuote(codexHookForwardUrl()),
+    ].join(" ");
   }
 
-  return `${shellQuote(process.execPath)} ${shellQuote(cliEntryPath)} internal hook codex-forward`;
+  return [
+    shellQuote(process.execPath),
+    shellQuote(cliEntryPath),
+    "internal hook codex-forward",
+    "--url",
+    shellQuote(codexHookForwardUrl()),
+  ].join(" ");
 }
 
 function shellQuote(value: string): string {

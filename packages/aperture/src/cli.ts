@@ -109,7 +109,7 @@ async function runHookCommand(args: string[]): Promise<void> {
       await runClaudeForward();
       return;
     case "codex-forward":
-      await runCodexForward();
+      await runCodexForward(args.slice(1));
       return;
     default:
       throw new Error(`Unknown Aperture hook command: ${command ?? "(missing)"}`);

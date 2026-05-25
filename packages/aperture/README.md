@@ -75,6 +75,14 @@ aperture codex connect --global
 aperture --codex
 ```
 
+Codex hook entries capture the active hook bridge URL when they are
+installed. If you customize `APERTURE_CODEX_HOOK_HOST`,
+`APERTURE_CODEX_HOOK_PORT`, `APERTURE_CODEX_HOOK_PATH`, or
+`APERTURE_CODEX_HOOK_URL`, run `aperture codex connect` with the same
+environment and restart Codex so it reloads the updated command. Codex
+requires user hook trust, so review and trust the entries in `/hooks` before
+expecting them to run.
+
 ## What You Get
 
 - a local CLI/TUI product, not just an SDK

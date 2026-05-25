@@ -33,7 +33,7 @@ async function main(): Promise<void> {
   }
 
   stdout.write(`Updated ${result.hooksPath}\n`);
-  stdout.write(`Ensured codex_hooks feature flag in ${result.configPath}\n`);
+  stdout.write(`Ensured Codex hooks feature flag in ${result.configPath}\n`);
   stdout.write(`Hook command: ${result.command}\n`);
   stdout.write("\n");
   stdout.write("Next steps:\n");

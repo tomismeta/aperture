@@ -32,6 +32,9 @@ export function printRequestedHelp(args: string[]): void {
     case "claude":
       printClaudeHelp();
       return;
+    case "codex":
+      printCodexHelp();
+      return;
     case "opencode":
       printOpencodeHelp();
       return;
@@ -90,7 +93,7 @@ export function printRootHelp(): void {
       "  aperture --version",
       "      Print the installed Aperture version.",
       "  aperture uninstall --yes",
-      "      Remove Aperture state and Claude hook entries before uninstalling the package.",
+      "      Remove Aperture state and installed agent hook entries before uninstalling the package.",
       "",
       "Commands:",
       "  help [topic]          Show help for Aperture or a specific topic",
@@ -98,8 +101,9 @@ export function printRootHelp(): void {
       "  config                Inspect APERTURE.md and learned policy suggestions",
       "  debug [topic]         Print support details for troubleshooting",
       "  completion <shell>    Print a shell completion script",
-      "  uninstall [--yes]     Remove Aperture-owned state and Claude hooks",
+      "  uninstall [--yes]     Remove Aperture-owned state and hook entries",
       "  claude                Manage Claude Code setup",
+      "  codex                 Manage experimental Codex setup",
       "  opencode              Show the OpenCode setup flow Aperture expects",
       "  internal              Advanced runtime, TUI, adapter, and hook plumbing",
       "  version               Print the installed Aperture version",
@@ -108,6 +112,7 @@ export function printRootHelp(): void {
       "  --learning <on|off>   Start a new runtime with learning on or off",
       "  --no-claude           Skip starting the Claude Code adapter",
       "  --no-opencode         Skip starting the OpenCode adapter",
+      "  --codex               Opt in to the experimental Codex hook bridge",
       "  --capture             Export a troubleshooting capture when Aperture exits",
       "  --capture-out <path>  Write the captured bundle to an explicit path",
       "  --help, -h            Show this help text",
@@ -121,6 +126,7 @@ export function printRootHelp(): void {
       "  aperture help completion",
       "  aperture help uninstall",
       "  aperture help claude",
+      "  aperture help codex",
       "  aperture help opencode",
       "  aperture help internal",
     ].join("\n"),
@@ -143,12 +149,14 @@ export function printLauncherHelp(): void {
       "  - ensures Claude Code hooks are configured globally",
       "  - ensures an OpenCode profile exists",
       "  - starts Claude Code and OpenCode integrations when available",
+      "  - starts the Codex hook bridge only when --codex is passed",
       "  - opens the shared Aperture TUI",
       "",
       "Options:",
       "  --learning <on|off>         Start a new runtime with learning on or off",
       "  --no-claude                 Skip starting the Claude Code adapter",
       "  --no-opencode               Skip starting the OpenCode adapter",
+      "  --codex                     Opt in to the experimental Codex hook bridge",
       "  --capture                   Export a troubleshooting capture when Aperture exits",
       "  --capture-out <path>        Write the captured bundle to an explicit path",
       "  --help, -h                  Show this help text",
@@ -157,6 +165,7 @@ export function printLauncherHelp(): void {
       "  aperture",
       "  aperture --capture",
       "  aperture --no-opencode",
+      "  aperture --codex",
       "",
       "Advanced:",
       "  aperture help internal",
@@ -255,7 +264,7 @@ export function printUninstallHelp(): void {
   stdout.write(
     [
       "Aperture Uninstall",
-      "Remove Aperture-owned local state and Claude hook entries before uninstalling the package.",
+      "Remove Aperture-owned local state and hook entries before uninstalling the package.",
       "",
       "Usage:",
       "  aperture uninstall --yes [--project /path/to/project]",
@@ -263,7 +272,9 @@ export function printUninstallHelp(): void {
       "What it removes:",
       "  - ~/.aperture",
       "  - Aperture Claude hook entries from ~/.claude/settings.json",
+      "  - Aperture Codex hook entries from ~/.codex/hooks.json",
       "  - Aperture Claude hook entries from any --project targets you pass",
+      "  - Aperture Codex hook entries from any --project targets you pass",
       "  - .aperture under any --project targets you pass",
       "",
       "Examples:",
@@ -298,6 +309,30 @@ export function printClaudeHelp(): void {
   stdout.write("\n");
 }
 
+export function printCodexHelp(): void {
+  stdout.write(
+    [
+      "Aperture Codex",
+      "Configure experimental Codex hooks so Aperture can surface approvals.",
+      "",
+      "Usage:",
+      "  aperture codex connect --global",
+      "  aperture codex connect /path/to/project",
+      "  aperture codex disconnect --global",
+      "  aperture codex disconnect /path/to/project",
+      "",
+      "Commands:",
+      "  connect      Install Aperture Codex hook entries and enable [features].hooks",
+      "  disconnect   Remove Aperture Codex hook entries",
+      "",
+      "Launch:",
+      "  aperture --codex",
+      "      Start Aperture with the Codex hook bridge. Codex is opt-in and experimental.",
+    ].join("\n"),
+  );
+  stdout.write("\n");
+}
+
 export function printOpencodeHelp(): void {
   stdout.write(
     [
@@ -323,8 +358,10 @@ export function printInternalHelp(): void {
       "  aperture internal runtime [--learning on|off]",
       "  aperture internal tui",
       "  aperture internal claude-adapter",
+      "  aperture internal codex-hook-adapter",
       "  aperture internal opencode-adapter",
       "  aperture internal hook claude-forward",
+      "  aperture internal hook codex-forward",
     ].join("\n"),
   );
   stdout.write("\n");
@@ -338,13 +375,14 @@ _aperture_completion() {
   prev="\${COMP_WORDS[COMP_CWORD-1]}"
   command="\${COMP_WORDS[1]}"
 
-  local root_commands="help doctor config debug completion uninstall claude opencode internal version"
-  local help_topics="launch doctor config debug completion uninstall claude opencode internal"
+  local root_commands="help doctor config debug completion uninstall claude codex opencode internal version"
+  local help_topics="launch doctor config debug completion uninstall claude codex opencode internal"
   local claude_commands="connect disconnect"
+  local codex_commands="connect disconnect"
   local debug_topics="runtime claude opencode state capture all"
   local completion_shells="bash zsh fish"
-  local internal_commands="runtime tui claude-adapter opencode-adapter hook"
-  local root_flags="--help -h --version -v --learning --no-claude --no-opencode --capture --capture-out"
+  local internal_commands="runtime tui claude-adapter codex-hook-adapter opencode-adapter hook"
+  local root_flags="--help -h --version -v --learning --no-claude --no-opencode --codex --capture --capture-out"
 
   case "$command" in
     help)
@@ -353,6 +391,10 @@ _aperture_completion() {
       ;;
     claude)
       COMPREPLY=( $(compgen -W "$claude_commands" -- "$cur") )
+      return
+      ;;
+    codex)
+      COMPREPLY=( $(compgen -W "$codex_commands" -- "$cur") )
       return
       ;;
     debug)
@@ -384,24 +426,26 @@ complete -F _aperture_completion aperture
 function buildZshCompletionScript(): string {
   return `#compdef aperture
 
-local -a root_commands help_topics claude_commands debug_topics completion_shells internal_commands
+local -a root_commands help_topics claude_commands codex_commands debug_topics completion_shells internal_commands
 root_commands=(
   'help:show help for Aperture or a topic'
   'doctor:print runtime, Claude, OpenCode, and state health'
   'config:inspect APERTURE.md and learned policy suggestions'
   'debug:print support details for troubleshooting'
   'completion:print a shell completion script'
-  'uninstall:remove Aperture-owned state and Claude hooks'
+  'uninstall:remove Aperture-owned state and hook entries'
   'claude:manage Claude Code setup'
+  'codex:manage experimental Codex setup'
   'opencode:show the OpenCode setup flow Aperture expects'
   'internal:advanced runtime, TUI, adapter, and hook plumbing'
   'version:print the installed Aperture version'
 )
-help_topics=(launch doctor config debug completion uninstall claude opencode internal)
+help_topics=(launch doctor config debug completion uninstall claude codex opencode internal)
 claude_commands=(connect disconnect)
+codex_commands=(connect disconnect)
 debug_topics=(runtime claude opencode state capture all)
 completion_shells=(bash zsh fish)
-internal_commands=(runtime tui claude-adapter opencode-adapter hook)
+internal_commands=(runtime tui claude-adapter codex-hook-adapter opencode-adapter hook)
 
 if (( CURRENT == 2 )); then
   _describe 'command' root_commands
@@ -414,6 +458,9 @@ case "$words[2]" in
     ;;
   claude)
     _describe 'Claude command' claude_commands
+    ;;
+  codex)
+    _describe 'Codex command' codex_commands
     ;;
   debug)
     _describe 'debug topic' debug_topics
@@ -433,6 +480,7 @@ case "$words[2]" in
       '--learning[Start a new runtime with learning on or off]:mode:(on off)' \
       '--no-claude[Skip starting the Claude Code adapter]' \
       '--no-opencode[Skip starting the OpenCode adapter]' \
+      '--codex[Opt in to the experimental Codex hook bridge]' \
       '--capture[Export a troubleshooting capture when Aperture exits]' \
       '--capture-out[Write the captured bundle to an explicit path]:path:_files'
     ;;
@@ -448,23 +496,26 @@ complete -c aperture -n '__fish_use_subcommand' -a 'doctor' -d 'Print runtime, C
 complete -c aperture -n '__fish_use_subcommand' -a 'config' -d 'Inspect APERTURE.md and learned policy suggestions'
 complete -c aperture -n '__fish_use_subcommand' -a 'debug' -d 'Print support details for troubleshooting'
 complete -c aperture -n '__fish_use_subcommand' -a 'completion' -d 'Print a shell completion script'
-complete -c aperture -n '__fish_use_subcommand' -a 'uninstall' -d 'Remove Aperture-owned state and Claude hooks'
+complete -c aperture -n '__fish_use_subcommand' -a 'uninstall' -d 'Remove Aperture-owned state and hook entries'
 complete -c aperture -n '__fish_use_subcommand' -a 'claude' -d 'Manage Claude Code setup'
+complete -c aperture -n '__fish_use_subcommand' -a 'codex' -d 'Manage experimental Codex setup'
 complete -c aperture -n '__fish_use_subcommand' -a 'opencode' -d 'Show the OpenCode setup flow Aperture expects'
 complete -c aperture -n '__fish_use_subcommand' -a 'internal' -d 'Advanced runtime, TUI, adapter, and hook plumbing'
 complete -c aperture -n '__fish_use_subcommand' -a 'version' -d 'Print the installed Aperture version'
 
-complete -c aperture -n '__fish_seen_subcommand_from help' -a 'launch doctor config debug completion uninstall claude opencode internal'
+complete -c aperture -n '__fish_seen_subcommand_from help' -a 'launch doctor config debug completion uninstall claude codex opencode internal'
 complete -c aperture -n '__fish_seen_subcommand_from claude' -a 'connect disconnect'
+complete -c aperture -n '__fish_seen_subcommand_from codex' -a 'connect disconnect'
 complete -c aperture -n '__fish_seen_subcommand_from debug' -a 'runtime claude opencode state capture all'
 complete -c aperture -n '__fish_seen_subcommand_from completion' -a 'bash zsh fish'
-complete -c aperture -n '__fish_seen_subcommand_from internal' -a 'runtime tui claude-adapter opencode-adapter hook'
+complete -c aperture -n '__fish_seen_subcommand_from internal' -a 'runtime tui claude-adapter codex-hook-adapter opencode-adapter hook'
 
 complete -c aperture -l help -s h -d 'Show this help text'
 complete -c aperture -l version -s v -d 'Print the installed Aperture version'
 complete -c aperture -l learning -d 'Start a new runtime with learning on or off'
 complete -c aperture -l no-claude -d 'Skip starting the Claude Code adapter'
 complete -c aperture -l no-opencode -d 'Skip starting the OpenCode adapter'
+complete -c aperture -l codex -d 'Opt in to the experimental Codex hook bridge'
 complete -c aperture -l capture -d 'Export a troubleshooting capture when Aperture exits'
 complete -c aperture -l capture-out -r -d 'Write the captured bundle to an explicit path'
 `;

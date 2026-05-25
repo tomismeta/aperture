@@ -31,6 +31,8 @@ const DEFAULT_HOOK_SPECS: HookSpec[] = [
   { eventName: "TeammateIdle" },
   { eventName: "ConfigChange" },
   { eventName: "CwdChanged" },
+  { eventName: "WorktreeCreate" },
+  { eventName: "WorktreeRemove" },
   { eventName: "PreCompact" },
   { eventName: "PostCompact" },
   { eventName: "SessionEnd" },

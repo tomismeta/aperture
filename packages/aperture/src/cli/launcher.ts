@@ -10,19 +10,18 @@ import {
 import { runAttentionTui } from "@aperture/tui";
 
 import {
-  claudeBridgeUrl,
-  isClaudeBridgePortInUse,
-  readyClaudeState,
-  runtimeHasLiveClaudeActivity,
-  startLauncherClaudeAdapter,
-} from "./claude-adapter.js";
-import {
   buildClaudeHookCommand,
   installClaudeHooks,
   type ClaudeHookInstallResult,
 } from "./claude-hooks.js";
+import {
+  buildCodexHookCommand,
+  installCodexProductHooks,
+  type CodexHookInstallResult,
+} from "./codex-hooks.js";
 import { beginCapture, exportCapturedSession, type CaptureOptions } from "./capture.js";
 import { printLauncherHelp } from "./help.js";
+import { startClaudeConnection, startCodexConnection } from "./launcher-connections.js";
 import {
   describeProfileTargets,
   opencodeAttachHint,
@@ -51,6 +50,7 @@ type LauncherOptions = {
   learningMode: "on" | "off";
   enableClaude: boolean;
   enableOpencode: boolean;
+  enableCodex: boolean;
   capture: CaptureOptions | null;
 };
 
@@ -70,7 +70,7 @@ export async function runLauncher(args: string[], context: LauncherContext): Pro
   let shuttingDown = false;
   let runtimeBaseUrl: string | null = null;
   let captureCursor: Awaited<ReturnType<typeof beginCapture>> | null = null;
-  const connectionStore = new LauncherConnectionStore([
+  const connectionEntries = [
     options.enableClaude
       ? makeConnectionEntry(
           "claude",
@@ -92,10 +92,15 @@ export async function runLauncher(args: string[], context: LauncherContext): Pro
           "disabled",
           "Disabled for this Aperture session.",
         ),
-  ]);
+    ...(options.enableCodex
+      ? [makeConnectionEntry("codex", "Codex", "starting", "Preparing Codex hooks.")]
+      : []),
+  ];
+  const connectionStore = new LauncherConnectionStore(connectionEntries);
   let retryOpencodeAction: (() => Promise<void>) | null = null;
   let stopOpencodeSetupAction: (() => Promise<void>) | null = null;
   let refreshClaudeAction: (() => Promise<void>) | null = null;
+  let refreshCodexAction: (() => Promise<void>) | null = null;
   let skipSetupAction: (() => Promise<void>) | null = null;
 
   const registerCleanup = (cleanup: () => Promise<void>) => {
@@ -156,6 +161,12 @@ export async function runLauncher(args: string[], context: LauncherContext): Pro
         }
         await refreshClaudeAction();
         return;
+      case "refresh-codex":
+        if (!refreshCodexAction) {
+          throw new Error("Codex setup is still booting.");
+        }
+        await refreshCodexAction();
+        return;
       case "skip-setup":
         if (!skipSetupAction) {
           throw new Error("Setup controls are still booting.");
@@ -192,6 +203,9 @@ export async function runLauncher(args: string[], context: LauncherContext): Pro
       connectionStore,
       (action) => {
         refreshClaudeAction = action;
+      },
+      (action) => {
+        refreshCodexAction = action;
       },
       (action) => {
         retryOpencodeAction = action;
@@ -233,6 +247,7 @@ function parseLauncherArgs(args: string[]): LauncherOptions {
     learningMode: "on",
     enableClaude: true,
     enableOpencode: true,
+    enableCodex: false,
     capture: null,
   };
 
@@ -254,6 +269,9 @@ function parseLauncherArgs(args: string[]): LauncherOptions {
         continue;
       case "--no-opencode":
         options.enableOpencode = false;
+        continue;
+      case "--codex":
+        options.enableCodex = true;
         continue;
       case "--capture":
         ensureCaptureOptions(options);
@@ -319,13 +337,18 @@ async function startLauncherBackgroundServices(
   registerCleanup: (cleanup: () => Promise<void>) => void,
   connections: LauncherConnectionStore,
   setRefreshClaudeAction: (action: () => Promise<void>) => void,
+  setRefreshCodexAction: (action: () => Promise<void>) => void,
   setRetryOpencodeAction: (action: () => Promise<void>) => void,
   setStopOpencodeSetupAction: (action: () => Promise<void>) => void,
 ): Promise<void> {
   const hookCommand = buildClaudeHookCommand(context.entryPath, context.repoRoot);
+  const codexHookCommand = buildCodexHookCommand(context.entryPath, context.repoRoot);
   const claudeSetup = options.enableClaude
     ? installClaudeHooks({ global: true, quiet: true, command: hookCommand })
     : Promise.resolve<ClaudeHookInstallResult | null>(null);
+  const codexSetup = options.enableCodex
+    ? installCodexProductHooks({ global: true, quiet: true, command: codexHookCommand })
+    : Promise.resolve<CodexHookInstallResult | null>(null);
   const opencodeSetup = options.enableOpencode
     ? ensureDefaultOpencodeProfile({ quiet: true }).then(async () =>
         listEnabledGlobalOpencodeProfiles(),
@@ -333,9 +356,10 @@ async function startLauncherBackgroundServices(
     : Promise.resolve<OpencodeConnectionProfile[]>([]);
   const runtimeSnapshotPromise = fetchRuntimeSnapshot(runtimeBaseUrl);
 
-  const [runtimeSnapshot, claudeInstall, opencodeProfiles] = await Promise.all([
+  const [runtimeSnapshot, claudeInstall, codexInstall, opencodeProfiles] = await Promise.all([
     runtimeSnapshotPromise,
     claudeSetup,
+    codexSetup,
     opencodeSetup,
   ]);
 
@@ -368,6 +392,35 @@ async function startLauncherBackgroundServices(
     );
   }
 
+  if (options.enableCodex) {
+    setRefreshCodexAction(async () => {
+      connections.update("codex", {
+        state: "starting",
+        detail: "Refreshing Codex hook setup.",
+      });
+      const nextInstall = await installCodexProductHooks({
+        global: true,
+        quiet: true,
+        command: codexHookCommand,
+      });
+      const nextSnapshot = await fetchRuntimeSnapshot(runtimeBaseUrl);
+      await startCodexConnection(
+        runtimeBaseUrl,
+        nextSnapshot,
+        nextInstall,
+        registerCleanup,
+        connections,
+      );
+    });
+    await startCodexConnection(
+      runtimeBaseUrl,
+      runtimeSnapshot,
+      codexInstall,
+      registerCleanup,
+      connections,
+    );
+  }
+
   if (options.enableOpencode) {
     const opencode = await startOpencodeConnection(
       runtimeBaseUrl,
@@ -378,64 +431,6 @@ async function startLauncherBackgroundServices(
     );
     setRetryOpencodeAction(opencode.retry);
     setStopOpencodeSetupAction(opencode.stop);
-  }
-}
-
-async function startClaudeConnection(
-  runtimeBaseUrl: string,
-  runtimeSnapshot: ApertureRuntimeSnapshot,
-  install: ClaudeHookInstallResult | null,
-  registerCleanup: (cleanup: () => Promise<void>) => void,
-  connections: LauncherConnectionStore,
-): Promise<void> {
-  if (runtimeHasAdapter(runtimeSnapshot, "claude-code")) {
-    connections.update("claude", readyClaudeState(install?.changed ?? false, true));
-    return;
-  }
-
-  connections.update("claude", {
-    state: "starting",
-    detail: install?.changed
-      ? "Claude bridge is starting. Restart Claude Code after it comes up."
-      : "Starting the Claude Code bridge.",
-    ...(install?.changed
-      ? { hint: "Restart Claude Code and run /hooks once to load the updated hooks." }
-      : {}),
-  });
-
-  try {
-    const adapter = await startLauncherClaudeAdapter(runtimeBaseUrl);
-    registerCleanup(() => adapter.close());
-    connections.update("claude", readyClaudeState(install?.changed ?? false, false));
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (isClaudeBridgePortInUse(message)) {
-      const endpoint = claudeBridgeUrl();
-      const latestSnapshot = await fetchRuntimeSnapshot(runtimeBaseUrl);
-      if (
-        runtimeHasAdapter(latestSnapshot, "claude-code") ||
-        runtimeHasLiveClaudeActivity(latestSnapshot)
-      ) {
-        connections.update("claude", {
-          ...readyClaudeState(install?.changed ?? false, true),
-          detail: install?.changed
-            ? "Using an existing Claude bridge. Claude Code still needs to reload the updated hooks."
-            : `Using an existing Claude bridge at ${endpoint}.`,
-        });
-        return;
-      }
-      connections.update("claude", {
-        state: "action",
-        detail: `Another Claude bridge is already listening at ${endpoint}.`,
-        hint: "If Claude is already working, keep using that bridge. Otherwise stop the other process and retry, or launch with --no-claude.",
-      });
-      return;
-    }
-    connections.update("claude", {
-      state: "error",
-      detail: `Claude bridge failed to start: ${message}`,
-      hint: "Run `aperture internal claude-adapter` directly to inspect the failure.",
-    });
   }
 }
 

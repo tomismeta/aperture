@@ -48,12 +48,12 @@ test("installClaudeHooks installs the expanded Claude hook set", async () => {
       "TaskCreated",
       "TeammateIdle",
       "UserPromptSubmit",
+      "WorktreeCreate",
+      "WorktreeRemove",
     ]);
 
-    assert.equal(countApertureHookEntries(settings), 23);
+    assert.equal(countApertureHookEntries(settings), 25);
     assert.equal("FileChanged" in hooks, false);
-    assert.equal("WorktreeCreate" in hooks, false);
-    assert.equal("WorktreeRemove" in hooks, false);
   } finally {
     await rm(targetRoot, { recursive: true, force: true });
   }

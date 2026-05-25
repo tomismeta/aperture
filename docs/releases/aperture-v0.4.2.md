@@ -1,11 +1,12 @@
 # Aperture v0.4.2
 
-`@tomismeta/aperture@0.4.2` is a product trust and preference-inspection patch
-release.
+`@tomismeta/aperture@0.4.2` is a product trust, preference-inspection, and
+experimental Codex opt-in patch release.
 
 It keeps the `0.4.x` runtime shape, `/work` ingress contract, bundled
-`@tomismeta/aperture-core@0.7.0` judgment engine, and adapter behavior intact
-while making Aperture's local preference state easier to inspect and trust.
+`@tomismeta/aperture-core@0.7.0` judgment engine, and dependency-free product
+package posture intact while making Aperture's local preference state easier to
+inspect and trust.
 
 ## Highlights
 
@@ -16,6 +17,8 @@ while making Aperture's local preference state easier to inspect and trust.
   easier to understand during live review
 - keeps suggested policy learning human-owned: Aperture prints copy-paste
   snippets, but does not rewrite `APERTURE.md`
+- adds an experimental, explicit Codex hook path to the packaged product while
+  keeping the Codex App Server bridge source-only
 - expands product/TUI formatting coverage so future changes stay consistent
 - keeps the new config and why-mode surfaces under module-budget checks
 
@@ -36,7 +39,9 @@ This release does **not** change:
 
 - the public `@tomismeta/aperture-core` SDK surface
 - the host-neutral `/work` contract
-- adapter protocol behavior
+- the normal launch path: Codex remains inactive unless the user opts in
+- the dependency-free product package stance
+- the source-only Codex App Server bridge stance
 - the product stance that explicit preferences remain human-owned
 
 ## Validation

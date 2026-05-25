@@ -62,7 +62,9 @@ This is different from OpenCode because Claude's public integration seam is hook
 - `PermissionDenied` hook payloads for auto-mode denials
 - `SubagentStart` / `SubagentStop` lifecycle hook payloads with stable agent identity in summaries
 - `TaskCreated` / `TaskCompleted` teammate task hook payloads
+- `WorktreeCreate` / `WorktreeRemove` lifecycle hook payloads
 - `StopFailure`, `TeammateIdle`, `PreCompact`, and `PostCompact` status hook payloads
+- `FileChanged` hook parsing and mapping for manually configured watch paths
 - `UserPromptSubmit` hook payloads to clear waiting state
 - `Stop` hook payloads for conversational follow-up handoff
 - local HTTP hook server
@@ -74,8 +76,10 @@ This is different from OpenCode because Claude's public integration seam is hook
 ## What it does not support yet
 
 - full transcript or session replay parsing as a general Claude integration surface
-- `WorktreeCreate` / `WorktreeRemove` replacement hooks
-- `FileChanged` watch hooks
+- default broad `FileChanged` watches; these need explicit paths/matchers so
+  Aperture does not accidentally turn ordinary repository churn into noise
+- Claude plugin packaging as the main distribution path; the current path is
+  still direct hook installation via `pnpm claude:connect`
 
 ## Current shape
 
@@ -263,7 +267,7 @@ If you prefer to wire it manually, the resulting config shape is:
 
 - The forwarder reads the Claude hook payload from stdin and POSTs it to the local Aperture server.
 - Claude's command-only hook events like `Elicitation` and `ElicitationResult` use the same command-hook forwarder path, so they still flow through the shared local adapter.
-- The default Aperture Claude install now includes the session/lifecycle/status hooks that improve continuity and session awareness, but it still intentionally excludes `WorktreeCreate`, `WorktreeRemove`, and `FileChanged`.
+- The default Aperture Claude install now includes the session/lifecycle/status hooks that improve continuity and session awareness, including worktree lifecycle hooks, but it still intentionally excludes `FileChanged`.
 - The shared Aperture runtime owns `ApertureCore`; the Claude hook server is one ingress into it, and the TUI is an optional client surface.
 - Claude Code and OpenCode share the same runtime and TUI; only their ingress and connection setup differ.
 - Live Aperture runtimes register themselves locally so the TUI can detect what is up before it connects.
@@ -277,3 +281,17 @@ If you prefer to wire it manually, the resulting config shape is:
 - `pnpm claude:disconnect --global` removes only Aperture's Claude hook commands and leaves unrelated Claude hooks alone.
 - `Read`, `Grep`, `Glob`, `LS`, and web tools map to low risk; writes default to medium and escalate to high for sensitive paths.
 - Bash commands still use pattern-based risk classification for destructive commands.
+
+## Claude Plugin Packaging
+
+Claude plugins are a good candidate for packaging the hook setup, docs, and
+default install experience. Aperture should treat that as a distribution layer,
+not a rewrite of the adapter: the mapping, runtime, and TUI contracts should
+remain exactly where they are.
+
+Near-term posture:
+
+- keep `pnpm claude:connect` as the reliable source checkout path
+- document plugin packaging as the next distribution improvement
+- avoid moving adapter logic into a Claude plugin until the hook payload and
+  response contract require it

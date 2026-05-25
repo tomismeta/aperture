@@ -15,7 +15,7 @@
 </div>
 
 `@tomismeta/aperture` is the live attention surface for humans working with
-agents like Claude Code and OpenCode.
+agents like Claude Code, OpenCode, and opt-in experimental Codex sessions.
 
 It runs as a local CLI/TUI product. Start it with `aperture`, connect your
 agent surfaces, and keep approvals, follow-up questions, failures, and blocked
@@ -30,6 +30,7 @@ Use this package when you want:
 - the local CLI/TUI product
 - one shared attention surface for agent work
 - built-in Claude Code and OpenCode integration
+- opt-in experimental Codex hooks from the local product CLI
 - one place to review approvals, follow-ups, failures, and blocked work
 
 If you want to embed Aperture's judgment engine inside your own host or
@@ -65,10 +66,19 @@ Then launch Aperture:
 aperture
 ```
 
+Codex support is experimental and opt-in. A normal `aperture` launch does
+not install Codex hooks or start the Codex hook bridge; use both commands
+below when you want Codex live in Aperture:
+
+```bash
+aperture codex connect --global
+aperture --codex
+```
+
 ## What You Get
 
 - a local CLI/TUI product, not just an SDK
-- one shared attention surface for Claude Code and OpenCode
+- one shared attention surface for Claude Code and OpenCode, plus opt-in Codex hooks
 - `now`, `next`, and `ambient` lanes for human attention
 - approvals, follow-ups, failures, and blocked work in one place
 - doctor, config, debug, completion, and uninstall commands
@@ -114,6 +124,7 @@ aperture completion zsh
 aperture --version
 aperture help
 aperture help opencode
+aperture help codex
 aperture help uninstall
 ```
 
@@ -139,13 +150,13 @@ read-only and human-applied; Aperture does not rewrite your preferences for you.
 ## Clean Uninstall
 
 Before uninstalling the npm package, remove Aperture-owned local state and
-Claude hook entries:
+installed hook entries:
 
 ```bash
 aperture uninstall --yes
 ```
 
-If you also installed project-local Claude hooks, remove those too:
+If you also installed project-local hooks, remove those too:
 
 ```bash
 aperture uninstall --yes --project /path/to/project

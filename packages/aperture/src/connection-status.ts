@@ -171,6 +171,8 @@ function buildEntryActions(entry: AttentionConnectionEntry): AttentionConnection
       return [{ id: "refresh-claude", key: "c", label: "finish Claude setup" }];
     case "opencode":
       return [{ id: "retry-opencode", key: "r", label: "retry OpenCode" }];
+    case "codex":
+      return [{ id: "refresh-codex", key: "x", label: "finish Codex setup" }];
     default:
       return [];
   }

@@ -4,7 +4,6 @@
 import type { Personality } from "../Personality.js";
 import type { ReasoningEffort } from "../ReasoningEffort.js";
 import type { ReasoningSummary } from "../ReasoningSummary.js";
-import type { ServiceTier } from "../ServiceTier.js";
 import type { JsonValue } from "../serde_json/JsonValue.js";
 import type { ApprovalsReviewer } from "./ApprovalsReviewer.js";
 import type { AskForApproval } from "./AskForApproval.js";
@@ -30,7 +29,7 @@ sandboxPolicy?: SandboxPolicy | null, /**
 model?: string | null, /**
  * Override the service tier for this turn and subsequent turns.
  */
-serviceTier?: ServiceTier | null | null, /**
+serviceTier?: string | null | null, /**
  * Override the reasoning effort for this turn and subsequent turns.
  */
 effort?: ReasoningEffort | null, /**

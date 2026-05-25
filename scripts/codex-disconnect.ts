@@ -33,7 +33,7 @@ async function main(): Promise<void> {
 
   stdout.write(`Updated ${result.hooksPath}\n`);
   stdout.write("Removed Aperture Codex hook entries.\n");
-  stdout.write("Note: the codex_hooks feature flag was left in config.toml intentionally.\n");
+  stdout.write("Note: the Codex hooks feature flag was left in config.toml intentionally.\n");
 }
 
 void main().catch((error) => {

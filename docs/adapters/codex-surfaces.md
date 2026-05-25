@@ -16,14 +16,18 @@ The goal is to keep Aperture's boundaries clean:
 
 ## Current State
 
-The repo now has a working Codex App Server adapter:
+The repo now has a working source-only Codex App Server adapter:
 
 - [packages/codex/src/client.ts](../../packages/codex/src/client.ts)
 - [packages/codex/src/bridge.ts](../../packages/codex/src/bridge.ts)
 - [packages/codex/src/mapping.ts](../../packages/codex/src/mapping.ts)
 - [scripts/codex-adapter.ts](../../scripts/codex-adapter.ts)
+
+It also has an opt-in hook bridge for stock Codex CLI supervision:
+
 - [packages/codex/src/hook-server.ts](../../packages/codex/src/hook-server.ts)
 - [scripts/codex-hook-adapter.ts](../../scripts/codex-hook-adapter.ts)
+- [packages/aperture/src/cli/codex-adapter.ts](../../packages/aperture/src/cli/codex-adapter.ts)
 
 What works today:
 
@@ -32,16 +36,18 @@ What works today:
 - Aperture responses can map back into Codex server-request responses
 - the adapter can be started with `pnpm codex:start`
 - a supervised Codex session runner exists with `pnpm codex:run`
-- the full local stack can be started with `pnpm aperture --codex`
+- the source-checkout local hook stack can be started with `pnpm aperture --codex`
+- the packaged product can opt into Codex hooks with `aperture codex connect`
+  plus `aperture --codex`
 - a real approval round trip has been live-verified through the TUI
-- the stock Codex CLI can be hooked experimentally with `pnpm codex:connect`
+- the stock Codex CLI can be hooked from source with `pnpm codex:connect`
   plus `pnpm codex:hooks:start`
-- the current hook path can hold Bash `PreToolUse` approvals for real Aperture
-  supervision
+- the current hook path can hold `PreToolUse` and `PermissionRequest`
+  approvals for real Aperture supervision
 
 What does **not** exist yet:
 
-- a full stock-CLI event surface beyond the current experimental Bash hook path
+- a full stock-CLI event surface beyond the current local hooks path
 - a shared App Server path across Codex clients like macOS app, TUI, and IDEs
 - a stronger App Server interruption contract for human-relevant mid-turn hooks
 - a macOS-native Codex host that uses the adapter as its event and response
@@ -49,9 +55,9 @@ What does **not** exist yet:
 
 That is the key distinction:
 
-**we now have the adapter layer, a real terminal-supervised runner, and an
-experimental stock-CLI hook seam, but not yet a shared Codex client path across
-product surfaces.**
+**we now have the adapter layer, a real terminal-supervised runner, and a
+stock-CLI hook seam, but not yet a shared Codex client path across product
+surfaces.**
 
 ## Why The Stock Codex Terminal Still Only Partly Shows Up In Aperture
 
@@ -74,8 +80,10 @@ host that forwards those events into Aperture in a way we control.
 The new hooks path improves this, but only partially. With hooks enabled,
 Aperture can currently supervise:
 
-- `PreToolUse` Bash approvals
-- coarse `SessionStart`, `PostToolUse`, and `Stop` lifecycle facts
+- `PreToolUse` approvals across Bash, `apply_patch`, and MCP-style tools
+- `PermissionRequest` approvals
+- coarse `SessionStart`, `PostToolUse`, compaction, subagent, and `Stop`
+  lifecycle facts
 
 That is useful, but it is still much narrower than a full shared client seam.
 
@@ -89,7 +97,8 @@ Transport is no longer the main unknown on the Aperture side:
 
 - `stdio` is the default and best-supported Codex path today
 - `websocket` is now available for shared or remote App Server setups
-- the adapter can accommodate both without changing Aperture core
+- `unix` is available for local socket App Server setups
+- the adapter can accommodate these without changing Aperture core
 
 The remaining uncertainty is above the transport seam:
 

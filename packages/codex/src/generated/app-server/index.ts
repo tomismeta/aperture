@@ -64,7 +64,6 @@ export type { ResponseItem } from "./ResponseItem.js";
 export type { ReviewDecision } from "./ReviewDecision.js";
 export type { ServerNotification } from "./ServerNotification.js";
 export type { ServerRequest } from "./ServerRequest.js";
-export type { ServiceTier } from "./ServiceTier.js";
 export type { SessionSource } from "./SessionSource.js";
 export type { Settings } from "./Settings.js";
 export type { SubAgentSource } from "./SubAgentSource.js";

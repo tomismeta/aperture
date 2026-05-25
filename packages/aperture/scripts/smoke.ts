@@ -64,6 +64,8 @@ async function main(): Promise<void> {
     const isolatedEnv = { HOME: homeDir };
     const globalSettingsPath = path.join(homeDir, ".claude", "settings.json");
     const localSettingsPath = path.join(projectDir, ".claude", "settings.local.json");
+    const globalCodexHooksPath = path.join(homeDir, ".codex", "hooks.json");
+    const localCodexHooksPath = path.join(projectDir, ".codex", "hooks.json");
     const captureDir = path.join(homeDir, ".aperture", "captures");
     const productStateDir = path.join(homeDir, ".aperture");
     const projectStateDir = path.join(projectDir, ".aperture");
@@ -81,9 +83,12 @@ async function main(): Promise<void> {
     assert.match(help, /Aperture/);
     assert.match(help, /debug \[topic\]/);
     assert.match(help, /completion <shell>/);
+    assert.match(help, /codex/);
 
     run(binPath, ["claude", "connect", "--global"], installDir, isolatedEnv);
     run(binPath, ["claude", "connect", projectDir], installDir, isolatedEnv);
+    run(binPath, ["codex", "connect", "--global"], installDir, isolatedEnv);
+    run(binPath, ["codex", "connect", projectDir], installDir, isolatedEnv);
     await mkdir(captureDir, { recursive: true });
     await writeFile(path.join(captureDir, "smoke-bundle.json"), "{\n  \"ok\": true\n}\n", "utf8");
     await mkdir(projectStateDir, { recursive: true });
@@ -93,6 +98,10 @@ async function main(): Promise<void> {
     assert.match(globalSettings, /internal hook claude-forward/);
     const localSettings = await readFile(localSettingsPath, "utf8");
     assert.match(localSettings, /internal hook claude-forward/);
+    const globalCodexHooks = await readFile(globalCodexHooksPath, "utf8");
+    assert.match(globalCodexHooks, /internal hook codex-forward/);
+    const localCodexHooks = await readFile(localCodexHooksPath, "utf8");
+    assert.match(localCodexHooks, /internal hook codex-forward/);
 
     const doctor = run(binPath, ["doctor"], installDir, isolatedEnv);
     assert.match(doctor, /Aperture Doctor/);
@@ -118,11 +127,18 @@ async function main(): Promise<void> {
     assert.equal(await pathExists(projectStateDir), false, "expected uninstall to remove project .aperture");
     assert.equal(await pathExists(globalSettingsPath), false, "expected uninstall to remove global Claude hook file");
     assert.equal(await pathExists(localSettingsPath), false, "expected uninstall to remove local Claude hook file");
+    assert.equal(await pathExists(globalCodexHooksPath), false, "expected uninstall to remove global Codex hook file");
+    assert.equal(await pathExists(localCodexHooksPath), false, "expected uninstall to remove local Codex hook file");
 
     const installedPackage = JSON.parse(
       await readFile(path.join(installDir, "node_modules", "@tomismeta", "aperture", "package.json"), "utf8"),
-    ) as { bin?: Record<string, string>; main?: string };
+    ) as { bin?: Record<string, string>; dependencies?: Record<string, string>; main?: string };
     assert.ok(installedPackage.bin?.aperture, "expected installed package to expose the aperture bin");
+    assert.deepEqual(
+      installedPackage.dependencies ?? {},
+      {},
+      "product package should not declare runtime dependencies",
+    );
     assert.equal(installedPackage.main, undefined, "product package should not expose a library main");
   } finally {
     await rm(tempRoot, { recursive: true, force: true });

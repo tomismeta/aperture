@@ -4,10 +4,12 @@ import { createCodexHookServer } from "@aperture/codex/hook-server";
 import { codexHookFallbackEvent } from "@aperture/codex/hook-server-support";
 import { ApertureRuntimeAdapterClient, type ApertureRuntimeSnapshot } from "@aperture/runtime";
 
+import { codexHookBridgeUrl, codexHookForwardUrl } from "./codex-hook-url.js";
 import { readNumber } from "./shared.js";
 
-export async function runCodexForward(): Promise<void> {
+export async function runCodexForward(args: string[] = []): Promise<void> {
   const chunks: Buffer[] = [];
+  const targetOverride = parseForwardUrl(args);
 
   stdin.on("data", (chunk: Buffer | string) => {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
@@ -15,7 +17,7 @@ export async function runCodexForward(): Promise<void> {
 
   stdin.on("end", async () => {
     const body = Buffer.concat(chunks).toString("utf8");
-    const target = process.env.APERTURE_CODEX_HOOK_URL ?? codexHookBridgeUrl();
+    const target = targetOverride ?? codexHookForwardUrl();
 
     try {
       const response = await fetch(target, {
@@ -135,7 +137,7 @@ export function readyCodexState(
       detail: attachedExisting
         ? `Using an existing Codex hook bridge at ${endpoint}, but Codex still needs to reload the updated hooks.`
         : `Codex hook bridge is ready at ${endpoint}. Codex still needs to reload the updated hooks.`,
-      hint: "Restart Codex and run /hooks if available to finish setup.",
+      hint: "Restart Codex and run /hooks if available to review and trust the hooks.",
     };
   }
 
@@ -159,13 +161,6 @@ export function runtimeHasLiveCodexActivity(snapshot: ApertureRuntimeSnapshot): 
 
 export function isCodexHookPortInUse(message: string): boolean {
   return message.includes("EADDRINUSE");
-}
-
-export function codexHookBridgeUrl(): string {
-  const host = process.env.APERTURE_CODEX_HOOK_HOST ?? "127.0.0.1";
-  const port = readNumber(process.env.APERTURE_CODEX_HOOK_PORT) ?? 4547;
-  const hookPath = process.env.APERTURE_CODEX_HOOK_PATH ?? "/hook";
-  return `http://${host}:${port}${hookPath}`;
 }
 
 function createCodexHookAdapterClient(runtimeBaseUrl: string) {
@@ -199,4 +194,27 @@ function publishCodexFallback(
       const message = error instanceof Error ? error.message : String(error);
       stderr.write(`Unable to publish Codex hook fallback event: ${message}\n`);
     });
+}
+
+function parseForwardUrl(args: string[]): string | undefined {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--url") {
+      const value = args[index + 1];
+      if (!value) {
+        throw new Error("Usage: aperture internal hook codex-forward [--url URL]");
+      }
+      return value;
+    }
+
+    if (arg?.startsWith("--url=")) {
+      const value = arg.slice("--url=".length);
+      if (!value) {
+        throw new Error("Usage: aperture internal hook codex-forward [--url URL]");
+      }
+      return value;
+    }
+  }
+
+  return undefined;
 }

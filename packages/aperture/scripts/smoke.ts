@@ -38,6 +38,20 @@ async function pathExists(targetPath: string): Promise<boolean> {
   }
 }
 
+function readCodexHookCommands(rawHooksJson: string): string[] {
+  const config = JSON.parse(rawHooksJson) as {
+    hooks?: Record<string, Array<{ hooks?: Array<{ command?: unknown }> }>>;
+  };
+
+  return Object.values(config.hooks ?? {}).flatMap((entries) =>
+    entries.flatMap((entry) =>
+      (entry.hooks ?? [])
+        .map((hook) => hook.command)
+        .filter((command): command is string => typeof command === "string"),
+    ),
+  );
+}
+
 async function main(): Promise<void> {
   const tempRoot = await mkdtemp(path.join(tmpdir(), "aperture-product-smoke-"));
   const packDir = path.join(tempRoot, "pack");
@@ -99,9 +113,13 @@ async function main(): Promise<void> {
     const localSettings = await readFile(localSettingsPath, "utf8");
     assert.match(localSettings, /internal hook claude-forward/);
     const globalCodexHooks = await readFile(globalCodexHooksPath, "utf8");
-    assert.match(globalCodexHooks, /internal hook codex-forward/);
+    const globalCodexCommands = readCodexHookCommands(globalCodexHooks);
+    assert.ok(globalCodexCommands.some((command) => command.includes("internal hook codex-forward")));
+    assert.ok(globalCodexCommands.every((command) => command.includes('--url "http://127.0.0.1:4547/hook"')));
     const localCodexHooks = await readFile(localCodexHooksPath, "utf8");
-    assert.match(localCodexHooks, /internal hook codex-forward/);
+    const localCodexCommands = readCodexHookCommands(localCodexHooks);
+    assert.ok(localCodexCommands.some((command) => command.includes("internal hook codex-forward")));
+    assert.ok(localCodexCommands.every((command) => command.includes('--url "http://127.0.0.1:4547/hook"')));
 
     const doctor = run(binPath, ["doctor"], installDir, isolatedEnv);
     assert.match(doctor, /Aperture Doctor/);

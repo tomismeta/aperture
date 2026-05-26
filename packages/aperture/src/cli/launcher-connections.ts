@@ -10,12 +10,12 @@ import {
 } from "./claude-adapter.js";
 import type { ClaudeHookInstallResult } from "./claude-hooks.js";
 import {
-  codexHookBridgeUrl,
   isCodexHookPortInUse,
   readyCodexState,
   runtimeHasLiveCodexActivity,
   startLauncherCodexHookAdapter,
 } from "./codex-adapter.js";
+import { codexHookBridgeUrl } from "./codex-hook-url.js";
 import type { CodexHookInstallResult } from "./codex-hooks.js";
 import { fetchRuntimeSnapshot, runtimeHasAdapter } from "./runtime-support.js";
 
@@ -95,7 +95,7 @@ export async function startCodexConnection(
       ? "Codex hook bridge is starting. Restart Codex after it comes up."
       : "Starting the Codex hook bridge.",
     ...(install?.changed
-      ? { hint: "Restart Codex and run /hooks if available to load the updated hooks." }
+      ? { hint: "Restart Codex and run /hooks if available to review and trust the hooks." }
       : {}),
   });
 

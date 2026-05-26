@@ -1,7 +1,7 @@
 # Aperture v0.4.2
 
-`@tomismeta/aperture@0.4.2` is a product trust, preference-inspection, and
-experimental Codex opt-in patch release.
+`@tomismeta/aperture@0.4.2` is a product trust, preference-inspection,
+experimental Codex opt-in, and Codex hook reliability patch release.
 
 It keeps the `0.4.x` runtime shape, `/work` ingress contract, bundled
 `@tomismeta/aperture-core@0.7.0` judgment engine, and dependency-free product
@@ -19,6 +19,11 @@ inspect and trust.
   snippets, but does not rewrite `APERTURE.md`
 - adds an experimental, explicit Codex hook path to the packaged product while
   keeping the Codex App Server bridge source-only
+- installs Codex hook commands with an explicit Aperture bridge URL, so live
+  Codex sessions do not depend on Codex inheriting Aperture's hook-port
+  environment
+- documents the Codex `/hooks` review-and-trust step required before Codex
+  runs user hook entries
 - expands product/TUI formatting coverage so future changes stay consistent
 - keeps the new config and why-mode surfaces under module-budget checks
 
@@ -32,6 +37,8 @@ In practice that means:
 - ignored or invalid preference lines are easier to spot
 - learned suggestions are visible without becoming automatic hidden mutation
 - why-mode explains when control mode changed the attention decision
+- opt-in Codex hooks can be tested from the packaged product without hidden
+  dependency or environment coupling
 
 ## What Did Not Change
 
@@ -55,6 +62,10 @@ pnpm release:check
 That includes typecheck, lint, formatting, dependency audit, contract/schema
 checks, boundary and architecture checks, the full test suite, judgment battle,
 SDK proof, and product smoke.
+
+The final Codex hook path was also live-smoked from an installed product
+tarball with `@openai/codex@0.133.0`, a non-default hook port, trusted Codex
+hooks, and no Aperture hook environment variables in the Codex process.
 
 ## Install
 

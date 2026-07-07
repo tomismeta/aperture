@@ -103,6 +103,24 @@ test("profile store falls back when memory markdown uses an unsupported version"
   assert.equal(loaded.sessionCount, 0);
 });
 
+test("profile store falls back when Aperture markdown uses an unsupported version", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-profile-version-"));
+  await writeFile(
+    join(root, "APERTURE.md"),
+    apertureMarkdown(["## Preferences", "- control mode: focus"], { version: 2 }),
+    "utf8",
+  );
+
+  const loaded = await new ProfileStore(root).loadApertureProfile({
+    version: 1,
+    operatorId: "fallback",
+    updatedAt: "1970-01-01T00:00:00.000Z",
+  });
+
+  assert.equal(loaded.operatorId, "fallback");
+  assert.equal(loaded.preferences, undefined);
+});
+
 test("profile store loads Aperture preferences and tool overrides from markdown", async () => {
   const root = await mkdtemp(join(tmpdir(), "aperture-user-profile-"));
   await writeFile(

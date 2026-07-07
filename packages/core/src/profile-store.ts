@@ -91,9 +91,6 @@ export class ProfileStore {
 }
 
 function parseApertureProfile(content: string): ApertureProfile | null {
-  // TODO: Add explicit migrations if the markdown schema needs a breaking
-  // change. For now we keep the format additive and fall back to defaults when
-  // required metadata is missing.
   const meta = new Map<string, string[]>();
   const preferences = new Map<string, string[]>();
   const toolOverrides = new Map<string, Record<string, string | boolean | number>>();
@@ -147,9 +144,9 @@ function parseApertureProfile(content: string): ApertureProfile | null {
 
   const operatorId = first(meta, "profile id");
   const updatedAt = first(meta, "updated at");
-  const version = numberValue(first(meta, "version"));
+  const version = readCurrentMarkdownSchemaVersion(first(meta, "version"));
 
-  if (!operatorId || !updatedAt || version === null || version !== MARKDOWN_SCHEMA_VERSION) {
+  if (!operatorId || !updatedAt || version === null) {
     return null;
   }
 
@@ -199,9 +196,6 @@ function normalizeToolOverrideKey(key: string): string {
 }
 
 function parseMemoryProfile(content: string): MemoryProfile | null {
-  // TODO: Add explicit migrations if the markdown schema needs a breaking
-  // change. For now we keep the format additive and fall back to defaults when
-  // required metadata is missing.
   const meta = new Map<string, string[]>();
   const toolFamilies = new Map<string, ToolFamilyMemory>();
   const sourceTrust = new Map<string, Record<string, SourceTrustMemory>>();
@@ -270,15 +264,9 @@ function parseMemoryProfile(content: string): MemoryProfile | null {
 
   const operatorId = first(meta, "profile id");
   const updatedAt = first(meta, "updated at");
-  const version = numberValue(first(meta, "version"));
+  const version = readCurrentMarkdownSchemaVersion(first(meta, "version"));
   const sessionCount = numberValue(first(meta, "session count"));
-  if (
-    !operatorId ||
-    !updatedAt ||
-    version === null ||
-    version !== MARKDOWN_SCHEMA_VERSION ||
-    sessionCount === null
-  ) {
+  if (!operatorId || !updatedAt || version === null || sessionCount === null) {
     return null;
   }
 
@@ -387,6 +375,11 @@ function readList(target: Map<string, string[]>, key: string): string[] {
 
 function numberValue(value: string | null): number | null {
   return value !== null && /^-?\d+(?:\.\d+)?$/.test(value) ? Number(value) : null;
+}
+
+function readCurrentMarkdownSchemaVersion(value: string | null): number | null {
+  const version = numberValue(value);
+  return version === MARKDOWN_SCHEMA_VERSION ? version : null;
 }
 
 function readControlMode(value: string | null): ApertureControlMode | null {

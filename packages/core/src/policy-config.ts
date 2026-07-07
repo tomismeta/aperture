@@ -48,9 +48,6 @@ export async function loadPolicyConfig(
 }
 
 function parsePolicyConfig(content: string): PolicyConfig | null {
-  // TODO: Add explicit migrations if the markdown schema needs a breaking
-  // change. For now we keep the format additive and fall back to defaults when
-  // required metadata is missing.
   const meta = new Map<string, string>();
   const policy = new Map<string, PolicyRule>();
   const ambiguityDefaults = new Map<string, number>();
@@ -123,9 +120,9 @@ function parsePolicyConfig(content: string): PolicyConfig | null {
     }
   }
 
-  const version = readNumber(meta.get("version"));
+  const version = readCurrentMarkdownSchemaVersion(meta.get("version"));
   const updatedAt = meta.get("updated at");
-  if (version === null || version !== MARKDOWN_SCHEMA_VERSION || !updatedAt) {
+  if (version === null || !updatedAt) {
     return null;
   }
 
@@ -242,6 +239,11 @@ export function serializePolicyConfig(config: PolicyConfig): string {
 
 function readNumber(value: string | undefined): number | null {
   return value !== undefined && /^-?\d+(?:\.\d+)?$/.test(value) ? Number(value) : null;
+}
+
+function readCurrentMarkdownSchemaVersion(value: string | undefined): number | null {
+  const version = readNumber(value);
+  return version === MARKDOWN_SCHEMA_VERSION ? version : null;
 }
 
 function camelKey(value: string): string {

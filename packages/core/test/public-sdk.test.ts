@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 
 import * as sdk from "../src/index.js";
 import * as semanticSdk from "../src/semantic.js";
@@ -81,6 +82,20 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
 
   assert.equal(typeof sdk.baseAttentionSurfaceCapabilities, "object");
   assert.equal(typeof sdk.mergeAttentionSurfaceCapabilities, "function");
+});
+
+test("@tomismeta/aperture-core package manifest publishes only supported subpaths", async () => {
+  const packageJson = JSON.parse(
+    await readFile(new URL("../package.json", import.meta.url), "utf8"),
+  ) as {
+    exports?: Record<string, unknown>;
+    files?: string[];
+  };
+  const exportMap = packageJson.exports ?? {};
+
+  assert.deepEqual(Object.keys(exportMap).sort(), [".", "./semantic", "./trace"]);
+  assert.equal("./internal" in exportMap, false);
+  assert.deepEqual(packageJson.files, ["public-dist", "README.md", "LICENSE"]);
 });
 
 test("public SDK supports the simple event in -> frame out -> response in loop", () => {

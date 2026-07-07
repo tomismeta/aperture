@@ -34,13 +34,19 @@ type CorePackageJson = {
   exports?: Record<string, unknown>;
 };
 
-function run(command: string, args: string[], cwd: string): void {
+function run(
+  command: string,
+  args: string[],
+  cwd: string,
+  options: { ignoreScripts?: boolean } = {},
+): void {
+  const ignoreScripts = options.ignoreScripts ?? true;
   execFileSync(command, args, {
     cwd,
     stdio: "inherit",
     env: {
       ...process.env,
-      npm_config_ignore_scripts: "true",
+      npm_config_ignore_scripts: ignoreScripts ? "true" : "false",
     },
   });
 }
@@ -144,8 +150,13 @@ async function main(): Promise<void> {
         }, null, 2)}\n`,
         "utf8",
       );
+      await writeFile(
+        join(exampleDir, "pnpm-workspace.yaml"),
+        "packages:\n  - .\nallowBuilds:\n  esbuild: true\nautoInstallPeers: false\n",
+        "utf8",
+      );
 
-      run("pnpm", ["install", "--prefer-offline"], exampleDir);
+      run("pnpm", ["install", "--prefer-offline"], exampleDir, { ignoreScripts: false });
       run("pnpm", ["exec", "tsx", "index.ts"], exampleDir);
     }
   } finally {

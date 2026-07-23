@@ -64,7 +64,10 @@ test("same-issue repeats project to a resurfaced episode diagnostic", () => {
     summary: "The same deploy failure has resurfaced after another retry.",
     status: "failed",
     semanticHints: {
-      relationHints: [{ kind: "same_issue" }, { kind: "repeats" }],
+      relationHints: [
+        { kind: "same_issue", target: "task:ontology:previous-deploy-failure" },
+        { kind: "repeats", target: "task:ontology:previous-deploy-failure" },
+      ],
       confidence: "high",
     },
   });
@@ -73,6 +76,25 @@ test("same-issue repeats project to a resurfaced episode diagnostic", () => {
   assert.equal(diagnostic.blocking, "non_blocking");
   assert.equal(diagnostic.episode, "resurfaced");
   assert.equal(diagnostic.source, "hinted");
+});
+
+test("duplicate relation hints do not demote source-shaped ontology reads to hinted", () => {
+  const diagnostic = readSemanticOntologyDiagnostic({
+    id: "evt:ontology:duplicate-relation-hints",
+    taskId: "task:ontology:duplicate-relation-hints",
+    type: "task.updated",
+    timestamp,
+    title: "Deploy failed again",
+    summary: "The same deploy failure came back after another retry.",
+    status: "failed",
+    semanticHints: {
+      relationHints: [{ kind: "same_issue" }, { kind: "repeats" }],
+    },
+  });
+
+  assert.equal(diagnostic.activity, "failure");
+  assert.equal(diagnostic.episode, "resurfaced");
+  assert.equal(diagnostic.source, "explicit");
 });
 
 test("blocked wording can promote a waiting status into a blocking ontology read", () => {
@@ -124,6 +146,25 @@ test("request-like semantic hints can promote status-shaped events into request-
   });
 });
 
+test("decorative whyNow hints do not demote explicit status-shaped ontology reads", () => {
+  const diagnostic = readSemanticOntologyDiagnostic({
+    id: "evt:ontology:decorative-why-now",
+    taskId: "task:ontology:decorative-why-now",
+    type: "task.updated",
+    timestamp,
+    title: "Deploy failed",
+    summary: "The deployment command failed during verification.",
+    status: "failed",
+    semanticHints: {
+      whyNow: "Adapter supplied a friendlier explanation.",
+    },
+  });
+
+  assert.equal(diagnostic.activity, "failure");
+  assert.equal(diagnostic.confidence, "high");
+  assert.equal(diagnostic.source, "explicit");
+});
+
 test("operator-directed status asks stay inferred in ontology even when the lifecycle fact is explicit", () => {
   const diagnostic = readSemanticOntologyDiagnostic({
     id: "evt:ontology:direct-ask-status",
@@ -156,7 +197,7 @@ test("resolving relation hints project to a resolved episode diagnostic", () => 
     summary: "The previous deploy issue is now resolved.",
     status: "completed",
     semanticHints: {
-      relationHints: [{ kind: "resolves" }],
+      relationHints: [{ kind: "resolves", target: "task:ontology:previous-deploy-failure" }],
       confidence: "high",
     },
   });

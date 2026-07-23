@@ -135,7 +135,6 @@ function followUpRequestSemanticHints(whyNow: string): HumanInputSemanticHints {
     intentFrame: "question_request",
     activityClass: "follow_up",
     whyNow,
-    confidence: "high",
   };
 }
 
@@ -147,7 +146,6 @@ function sessionStatusSemanticHints(whyNow: string | undefined): TaskUpdateSeman
   return {
     activityClass: "session_status",
     ...(whyNow !== undefined ? { whyNow } : {}),
-    confidence: "high",
   };
 }
 
@@ -158,7 +156,6 @@ function taskActivitySemanticHints(
   return {
     activityClass,
     ...(whyNow !== undefined ? { whyNow } : {}),
-    confidence: "high",
   };
 }
 

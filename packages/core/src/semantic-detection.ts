@@ -82,19 +82,36 @@ export function inferSemanticToolFamily(input: SemanticDetectionInput): string |
   }
 
   const value = normalizeSemanticText(`${input.title} ${input.summary ?? ""}`);
+  const candidates: Array<{ toolFamily: string; risk: number; order: number }> = [];
+
   if (
     hasPhrase(value, "wants to read") ||
     hasPhrase(value, "wants to inspect") ||
     hasWord(value, "read") ||
     hasWord(value, "inspect")
-  )
-    return "read";
-  if (hasPhrase(value, "wants to write") || hasWord(value, "write")) return "write";
-  if (hasPhrase(value, "wants to edit") || hasWord(value, "edit")) return "edit";
-  if (hasPhrase(value, "shell command") || hasPhrase(value, "wants to run")) return "bash";
-  if (hasPhrase(value, "search the web")) return "web";
-  if (hasPhrase(value, "search files") || hasPhrase(value, "search file contents")) return "search";
-  return null;
+  ) {
+    candidates.push({ toolFamily: "read", risk: 1, order: 0 });
+  }
+  if (hasPhrase(value, "search files") || hasPhrase(value, "search file contents")) {
+    candidates.push({ toolFamily: "search", risk: 1, order: 1 });
+  }
+  if (hasPhrase(value, "search the web")) {
+    candidates.push({ toolFamily: "web", risk: 2, order: 2 });
+  }
+  if (hasPhrase(value, "wants to write") || hasWord(value, "write")) {
+    candidates.push({ toolFamily: "write", risk: 3, order: 3 });
+  }
+  if (hasPhrase(value, "wants to edit") || hasWord(value, "edit")) {
+    candidates.push({ toolFamily: "edit", risk: 3, order: 4 });
+  }
+  if (hasPhrase(value, "shell command") || hasPhrase(value, "wants to run")) {
+    candidates.push({ toolFamily: "bash", risk: 3, order: 5 });
+  }
+
+  return (
+    candidates.sort((left, right) => right.risk - left.risk || left.order - right.order)[0]
+      ?.toolFamily ?? null
+  );
 }
 
 export function detectImpliedOperatorAsk(text: string): boolean {

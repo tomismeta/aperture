@@ -221,7 +221,6 @@ export function mapPermissionDenied(
       intentFrame: "approval_request",
       activityClass: "permission_request",
       whyNow,
-      confidence: "high",
     },
     title: permissionDeniedTitle(event.tool_name, event.tool_input),
     summary: permissionDeniedSummary(event.tool_name, event.tool_input),

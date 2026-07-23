@@ -322,7 +322,6 @@ function sessionStatusSemanticHints(
   return {
     activityClass: "session_status",
     whyNow,
-    confidence: "high",
   };
 }
 

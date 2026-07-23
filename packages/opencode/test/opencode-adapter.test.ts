@@ -48,7 +48,6 @@ test("maps permission.asked to an approval request", () => {
     intentFrame: "approval_request",
     activityClass: "permission_request",
     whyNow: "OpenCode paused and needs a human approval decision.",
-    confidence: "high",
   });
   assert.deepEqual(mapped[0].metadata, {
     execution: {
@@ -144,7 +143,6 @@ test("maps follow-up text parts into a reply request", () => {
         intentFrame: "question_request",
         activityClass: "follow_up",
         whyNow: "OpenCode asked a follow-up question and is waiting for a reply.",
-        confidence: "high",
       },
       provenance: {
         whyNow: "OpenCode asked a follow-up question and is waiting for a reply.",
@@ -225,7 +223,6 @@ test("maps question.asked with options to a choice request", () => {
     intentFrame: "question_request",
     activityClass: "question_request",
     whyNow: "OpenCode asked for input before continuing.",
-    confidence: "high",
   });
   assert.deepEqual(mapped[0].request.options.map((option) => option.id), [
     "Current directory",
@@ -403,7 +400,6 @@ test("maps session.status into explicit session-status awareness", () => {
   assert.deepEqual(mapped[0].semanticHints, {
     activityClass: "session_status",
     whyNow: "OpenCode is still working.",
-    confidence: "high",
   });
 });
 
@@ -530,7 +526,6 @@ test("maps failed message parts into explicit tool-failure awareness", () => {
   assert.equal(mapped[0].status, "failed");
   assert.deepEqual(mapped[0].semanticHints, {
     activityClass: "tool_failure",
-    confidence: "high",
   });
 });
 

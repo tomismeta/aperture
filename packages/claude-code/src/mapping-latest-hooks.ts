@@ -50,7 +50,6 @@ export function mapPostToolBatch(event: ClaudeCodePostToolBatchEvent): SourceTas
     semanticHints: {
       activityClass: "tool_completion",
       whyNow: summary,
-      confidence: "high",
     },
     title: "Claude tool batch completed",
     summary,
@@ -146,7 +145,6 @@ function sessionStatusSemanticHints(
   return {
     activityClass: "session_status",
     whyNow,
-    confidence: "high",
   };
 }
 

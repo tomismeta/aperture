@@ -189,7 +189,7 @@ function readOntologySource(
 ): SemanticOntologySource {
   const provenanceKinds = Object.values(interpretation.provenance ?? {});
 
-  if (provenanceKinds.includes("hint")) {
+  if (hasOntologyAuthorityHint(interpretation)) {
     return "hinted";
   }
 
@@ -215,6 +215,28 @@ function readOntologySource(
   }
 
   return "explicit";
+}
+
+function hasOntologyAuthorityHint(interpretation: SemanticInterpretation): boolean {
+  const provenance = interpretation.provenance ?? {};
+
+  return (
+    provenance.intentFrame === "hint" ||
+    provenance.toolFamily === "hint" ||
+    provenance.consequence === "hint" ||
+    provenance.relationHints === "hint" ||
+    provenance.abstained === "hint" ||
+    provenance.confidence === "hint" ||
+    isRequestActivityHint(interpretation)
+  );
+}
+
+function isRequestActivityHint(interpretation: SemanticInterpretation): boolean {
+  return (
+    interpretation.provenance?.activityClass === "hint" &&
+    (interpretation.activityClass === "permission_request" ||
+      interpretation.activityClass === "question_request")
+  );
 }
 
 function isExplicitEventShapedSemanticRead(

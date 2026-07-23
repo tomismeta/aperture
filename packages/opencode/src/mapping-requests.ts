@@ -392,7 +392,6 @@ function explicitRequestSemanticHints(
     intentFrame: requestIntentFrame(kind),
     ...(activityClass !== undefined ? { activityClass } : {}),
     whyNow,
-    confidence: "high",
   };
 }
 

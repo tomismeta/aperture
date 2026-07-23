@@ -386,6 +386,15 @@ function evaluateSemanticExpectation(
     });
   }
 
+  if (expectation.relationHintsExact !== undefined) {
+    assertions.push({
+      name: `${targetKey} relation hints exact`,
+      passed: sameRelationHints(semantic.relationHints, expectation.relationHintsExact),
+      expected: expectation.relationHintsExact,
+      actual: semantic.relationHints,
+    });
+  }
+
   if (expectation.provenanceIncludes) {
     for (const [field, expectedOrigin] of Object.entries(expectation.provenanceIncludes)) {
       const actualOrigin =
@@ -838,6 +847,19 @@ function sameStringSet(left: string[], right: string[]): boolean {
   const sortedLeft = [...left].sort();
   const sortedRight = [...right].sort();
   return sortedLeft.every((value, index) => value === sortedRight[index]);
+}
+
+function sameRelationHints(
+  left: ReplaySemanticSnapshot["interpretation"]["relationHints"],
+  right: NonNullable<ReplaySemanticExpectation["relationHintsExact"]>,
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((entry, index) => {
+      const expected = right[index];
+      return expected?.kind === entry.kind && expected.target === entry.target;
+    })
+  );
 }
 
 function sum(values: number[]): number {

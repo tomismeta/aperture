@@ -6,6 +6,8 @@ import {
   KERNEL_PROFILE_SCENARIO_IDS,
   loadGoldenScenarios,
   runJudgmentBench,
+  validateReplayScenario,
+  type ReplayScenario,
 } from "../src/index.js";
 
 test("loads the first golden scenarios from disk", async () => {
@@ -289,4 +291,74 @@ test("JudgmentBench runs across the golden scenarios and produces a summary", as
     )?.passed,
     true,
   );
+});
+
+test("semantic relation hint exact expectations are order-sensitive", async () => {
+  const scenario: ReplayScenario = {
+    id: "test:relation-hints-exact-order",
+    title: "Relation hints exact order",
+    expectations: {
+      semanticReadings: [
+        {
+          stepLabel: "targeted rollback",
+          relationHintsExact: [
+            { kind: "supersedes", target: "issue:test:relation-hints" },
+            { kind: "same_issue", target: "issue:test:relation-hints" },
+          ],
+        },
+      ],
+    },
+    steps: [
+      {
+        kind: "publishSource",
+        label: "targeted rollback",
+        event: {
+          id: "evt:test:relation-hints",
+          type: "human.input.requested",
+          taskId: "task:test:relation-hints",
+          interactionId: "interaction:test:relation-hints",
+          timestamp: "2026-03-10T12:00:00.000Z",
+          source: { id: "custom-agent" },
+          title: "Approve rollback instead",
+          summary: "Use this rollback plan instead for the same production deploy.",
+          request: { kind: "approval" },
+          semanticHints: {
+            relationHints: [
+              { kind: "same_issue", target: "issue:test:relation-hints" },
+              { kind: "supersedes", target: "issue:test:relation-hints" },
+            ],
+          },
+        },
+      },
+    ],
+  };
+
+  const result = await runJudgmentBench([scenario]);
+  const assertion = result.scenarios[0]?.assertions.find(
+    (entry) => entry.name === "semantic reading (targeted rollback) relation hints exact",
+  );
+
+  assert.equal(assertion?.passed, false);
+  assert.deepEqual(assertion?.actual, [
+    { kind: "same_issue", target: "issue:test:relation-hints" },
+    { kind: "supersedes", target: "issue:test:relation-hints" },
+  ]);
+});
+
+test("replay validation rejects malformed exact relation hints", () => {
+  const invalidScenario = {
+    id: "test:invalid-relation-hints-exact",
+    title: "Invalid relation hints exact",
+    expectations: {
+      semanticReadings: [
+        {
+          stepLabel: "invalid relation hints",
+          relationHintsExact: [{ kind: "same_issue", target: 42 }],
+        },
+      ],
+    },
+    steps: [],
+  };
+
+  assert.equal(validateReplayScenario(invalidScenario), null);
 });

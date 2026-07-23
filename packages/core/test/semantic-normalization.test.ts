@@ -724,6 +724,58 @@ test("human input can infer low-confidence superseding relation hints from wordi
   assert.equal(interpretation.provenance?.relationHints, "inferred");
 });
 
+test("targeted semantic hints refine targetless inferred relation hints", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:rollback-targeted",
+    type: "human.input.requested",
+    taskId: "task:rollback-targeted",
+    interactionId: "interaction:rollback-targeted",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Approve rollback instead",
+    summary: "Use this rollback plan instead for the same production deploy.",
+    request: { kind: "approval" },
+    semanticHints: {
+      relationHints: [
+        { kind: "same_issue", target: "issue:deploy:prod" },
+        { kind: "supersedes", target: "issue:deploy:prod" },
+      ],
+    },
+  });
+
+  assert.deepEqual(interpretation.relationHints, [
+    { kind: "same_issue", target: "issue:deploy:prod" },
+    { kind: "supersedes", target: "issue:deploy:prod" },
+  ]);
+  assert.equal(interpretation.provenance?.relationHints, "hint");
+});
+
+test("duplicate source relation hints collapse without dropping conflicting targets", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:duplicate-relation-hints",
+    type: "human.input.requested",
+    taskId: "task:duplicate-relation-hints",
+    interactionId: "interaction:duplicate-relation-hints",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Approve deploy follow-up",
+    summary: "Review related deploy work.",
+    request: { kind: "approval" },
+    semanticHints: {
+      relationHints: [
+        { kind: "same_issue", target: "issue:deploy:primary" },
+        { kind: "same_issue", target: "issue:deploy:primary" },
+        { kind: "same_issue", target: "issue:deploy:secondary" },
+      ],
+    },
+  });
+
+  assert.deepEqual(interpretation.relationHints, [
+    { kind: "same_issue", target: "issue:deploy:primary" },
+    { kind: "same_issue", target: "issue:deploy:secondary" },
+  ]);
+});
+
 test("repeat wording without an issue signal does not infer relation hints", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:repeat-no-issue",

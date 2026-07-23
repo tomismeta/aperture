@@ -1,0 +1,95 @@
+{
+  "id": "golden:kernel-corpus:duplicate-relation-hints-collapse-to-targeted-evidence",
+  "title": "Duplicate relation hints collapse to targeted evidence",
+  "description": "Inferred targetless relation hints and duplicate targeted source hints should normalize to one targeted relation set.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "relation_hint_canonicalization",
+    "semantic_authority"
+  ],
+  "semanticFamilies": ["episode_missed"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:corpus:duplicate-relations:rollback",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "duplicate targeted rollback approval",
+        "intentFrame": "approval_request",
+        "activityClass": "permission_request",
+        "toolFamily": "filesystem",
+        "consequence": "high",
+        "confidence": "high",
+        "relationHintsExact": [
+          { "kind": "same_issue", "target": "issue:corpus:duplicate-relations" },
+          { "kind": "supersedes", "target": "issue:corpus:duplicate-relations" }
+        ],
+        "provenanceIncludes": {
+          "relationHints": "hint"
+        },
+        "ontology": {
+          "ask": "approval",
+          "activity": "decision_request",
+          "consequence": "high",
+          "blocking": "blocking",
+          "episode": "resurfaced",
+          "source": "hinted"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "duplicate targeted rollback approval",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "decisionRecordCurrentFrameId": null,
+        "decisionRecordCurrentEpisodeId": null,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:activate",
+          "lane:now",
+          "evidence:current_frame:absent",
+          "evidence:current_episode:absent"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "duplicate targeted rollback approval",
+      "event": {
+        "id": "evt:corpus:duplicate-relations:rollback",
+        "type": "human.input.requested",
+        "taskId": "task:corpus:duplicate-relations",
+        "interactionId": "interaction:corpus:duplicate-relations:rollback",
+        "timestamp": "2026-04-16T14:11:00.000Z",
+        "source": { "id": "custom-agent" },
+        "toolFamily": "filesystem",
+        "title": "Approve rollback instead",
+        "summary": "Use this rollback plan instead for the same production deploy.",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "high",
+        "semanticHints": {
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:corpus:duplicate-relations" },
+            { "kind": "same_issue", "target": "issue:corpus:duplicate-relations" },
+            { "kind": "supersedes", "target": "issue:corpus:duplicate-relations" },
+            { "kind": "supersedes", "target": "issue:corpus:duplicate-relations" }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -499,6 +499,23 @@ function mergeSemanticRelationHints(
     if (seen.has(key)) {
       continue;
     }
+
+    const targetlessIndex = result.findIndex(
+      (entry) => entry.kind === hint.kind && entry.target === undefined,
+    );
+    if (hint.target !== undefined && targetlessIndex >= 0) {
+      seen.delete(semanticRelationHintKey(result[targetlessIndex]!));
+      result[targetlessIndex] = hint;
+      seen.add(key);
+      continue;
+    }
+    if (
+      hint.target === undefined &&
+      result.some((entry) => entry.kind === hint.kind && entry.target !== undefined)
+    ) {
+      continue;
+    }
+
     seen.add(key);
     result.push(hint);
   }

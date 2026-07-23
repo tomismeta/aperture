@@ -213,7 +213,9 @@ export function buildDecisionRecordSnapshot(
     return {};
   }
 
-  const projection = buildKernelDecisionRecordProjection(record);
+  const projection = buildKernelDecisionRecordProjection(record, {
+    realizedLane: trace.coordination.resultLane,
+  });
 
   return {
     ...(projection !== null
@@ -224,7 +226,7 @@ export function buildDecisionRecordSnapshot(
         }
       : {}),
     decisionRecordRoute: projection?.route ?? record.planning.route,
-    plannedLane: projection?.lane ?? record.planning.plannedLane,
+    plannedLane: projection?.plannedLane ?? record.planning.plannedLane,
     decisionRecordCurrentFrameId:
       projection?.evidence.currentFrameId ?? record.evidenceSnapshot.currentFrameId,
     decisionRecordCurrentEpisodeId:

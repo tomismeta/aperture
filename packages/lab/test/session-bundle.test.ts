@@ -4,7 +4,10 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { KERNEL_DECISION_RECORD_PROJECTION_VERSION } from "../src/artifact-versions.js";
+import {
+  KERNEL_DECISION_RECORD_PROJECTION_V1_VERSION,
+  KERNEL_DECISION_RECORD_PROJECTION_VERSION,
+} from "../src/artifact-versions.js";
 import {
   canonicalAttentionExportToScenario,
   createScenarioFromSessionBundle,
@@ -330,6 +333,67 @@ test("session bundle validation requires the core structural fields", () => {
   assert.equal(invalid, null);
 });
 
+test("session bundle validation accepts legacy v1 decision snapshots", () => {
+  const legacySnapshot: ReplayDecisionSnapshot = {
+    stepIndex: 0,
+    stepKind: "publish",
+    evaluationKind: "candidate",
+    decisionKind: "queue",
+    decisionRecordProjectionVersion: KERNEL_DECISION_RECORD_PROJECTION_V1_VERSION,
+    decisionRecordRoute: "queue",
+    plannedLane: "next",
+    decisionRecordCurrentFrameId: null,
+    decisionRecordCurrentEpisodeId: null,
+    decisionRecordOperatorPresence: "present",
+    decisionRecordCandidateScore: 1,
+    decisionRecordValueComponents: { priority: 1 },
+    decisionRecordReasons: ["current work still outranks the new candidate"],
+    decisionRecordReasonCodes: [
+      "route:queue",
+      "lane:next",
+      "evidence:operator_presence:present",
+      "evidence:current_frame:absent",
+      "evidence:current_episode:absent",
+      "policy:minimum_lane:next",
+      "pressure:level:steady",
+      "pressure:overload:low",
+    ],
+  };
+  const projection = buildKernelDecisionRecordProjectionFromSnapshot(legacySnapshot);
+
+  assert.ok(projection);
+  assert.ok(
+    validateSessionBundle({
+      schemaVersion: 1,
+      sessionId: "session:legacy-v1",
+      title: "Legacy v1 bundle",
+      exportedAt: "2026-03-21T18:35:00.000Z",
+      steps: [],
+      normalizedEvents: [],
+      traces: [],
+      signals: [],
+      responses: [],
+      viewSnapshots: [],
+      semanticSnapshots: [],
+      decisionSnapshots: [
+        {
+          ...legacySnapshot,
+          decisionRecordFingerprint: fingerprintKernelDecisionRecordProjection(projection),
+        },
+      ],
+      outcomes: {
+        totalSteps: 0,
+        surfacedFrames: 0,
+        finalNowInteractionId: null,
+        finalNextCount: 0,
+        finalAmbientCount: 0,
+        finalNextInteractionIds: [],
+        finalAmbientInteractionIds: [],
+      },
+    }),
+  );
+});
+
 test("session bundle validation rejects malformed array contents", () => {
   const invalid = validateSessionBundle({
     schemaVersion: 1,
@@ -498,7 +562,7 @@ test("session bundle validation rejects malformed decision reason codes", () => 
   assert.equal(invalidSnapshotReasonCode, null);
 });
 
-test("decision snapshot validation enforces v1 projection coherence", () => {
+test("decision snapshot validation enforces v2 projection coherence", () => {
   const validSnapshot: ReplayDecisionSnapshot = {
     stepIndex: 0,
     stepKind: "publish",
@@ -507,6 +571,7 @@ test("decision snapshot validation enforces v1 projection coherence", () => {
     decisionRecordProjectionVersion: KERNEL_DECISION_RECORD_PROJECTION_VERSION,
     decisionRecordRoute: "queue",
     plannedLane: "next",
+    resultLane: "next",
     decisionRecordCurrentFrameId: null,
     decisionRecordCurrentEpisodeId: null,
     decisionRecordOperatorPresence: "present",
@@ -553,9 +618,24 @@ test("decision snapshot validation enforces v1 projection coherence", () => {
   assert.equal(
     validateReplayDecisionSnapshot({
       ...validSnapshot,
-      decisionRecordProjectionVersion: 2,
+      resultLane: "now",
+      decisionRecordFingerprint: validFingerprint,
     }),
     null,
+  );
+  assert.equal(
+    validateReplayDecisionSnapshot({
+      ...validSnapshot,
+      decisionRecordProjectionVersion: 99,
+    }),
+    null,
+  );
+  assert.ok(
+    validateReplayDecisionSnapshot({
+      ...validSnapshot,
+      decisionRecordProjectionVersion: KERNEL_DECISION_RECORD_PROJECTION_V1_VERSION,
+      resultLane: undefined,
+    }),
   );
   assert.equal(validateReplayDecisionSnapshot(missingReasonCodes), null);
   assert.equal(
@@ -602,6 +682,7 @@ test("decision snapshot validation enforces v1 projection coherence", () => {
     null,
   );
   assert.equal(validateReplayDecisionSnapshot({ ...validSnapshot, plannedLane: "ambient" }), null);
+  assert.equal(validateReplayDecisionSnapshot({ ...validSnapshot, resultLane: undefined }), null);
   assert.equal(
     validateReplayDecisionSnapshot({
       ...validSnapshot,

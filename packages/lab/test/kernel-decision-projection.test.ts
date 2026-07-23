@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { KERNEL_DECISION_RECORD_PROJECTION_VERSION } from "../src/artifact-versions.js";
+import {
+  KERNEL_DECISION_RECORD_PROJECTION_V1_VERSION,
+  KERNEL_DECISION_RECORD_PROJECTION_VERSION,
+} from "../src/artifact-versions.js";
 import { validateReplayDecisionSnapshot } from "../src/validation-replay-decision.js";
 
 const VALID_REASON_CODES = [
@@ -23,6 +26,7 @@ const VALID_SNAPSHOT = {
   decisionRecordProjectionVersion: KERNEL_DECISION_RECORD_PROJECTION_VERSION,
   decisionRecordRoute: "queue",
   plannedLane: "next",
+  resultLane: "next",
   decisionRecordCurrentFrameId: null,
   decisionRecordCurrentEpisodeId: null,
   decisionRecordOperatorPresence: "present",
@@ -61,4 +65,15 @@ test("kernel decision projection rejects non-finite value components", () => {
       null,
     );
   }
+});
+
+test("kernel decision projection keeps v1 readable and requires v2 realized lane", () => {
+  assert.ok(
+    validateReplayDecisionSnapshot({
+      ...VALID_SNAPSHOT,
+      decisionRecordProjectionVersion: KERNEL_DECISION_RECORD_PROJECTION_V1_VERSION,
+      resultLane: undefined,
+    }),
+  );
+  assert.equal(validateReplayDecisionSnapshot({ ...VALID_SNAPSHOT, resultLane: undefined }), null);
 });

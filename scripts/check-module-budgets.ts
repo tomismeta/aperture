@@ -119,6 +119,7 @@ const budgets = [
   { file: "packages/lab/src/kernel-corpus-profile.ts", maxLines: 100 },
   { file: "packages/lab/src/kernel-corpus-quality.ts", maxLines: 175 },
   { file: "packages/lab/src/kernel-decision-contract.ts", maxLines: 175 },
+  { file: "packages/lab/src/kernel-decision-contract-support.ts", maxLines: 250 },
   { file: "packages/lab/src/kernel-decision-projection.ts", maxLines: 225 },
   { file: "packages/lab/src/kernel-profile.ts", maxLines: 75 },
   { file: "packages/lab/src/replay-trace.ts", maxLines: 75 },

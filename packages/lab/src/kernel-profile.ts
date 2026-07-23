@@ -1,7 +1,7 @@
 import { KERNEL_DECISION_RECORD_PROJECTION_VERSION } from "./artifact-versions.js";
 
-export const KERNEL_PROFILE_ID = "aperture.kernel.profile.v1" as const;
-export const KERNEL_PROFILE_VERSION = 1 as const;
+export const KERNEL_PROFILE_ID = "aperture.kernel.profile.v2" as const;
+export const KERNEL_PROFILE_VERSION = 2 as const;
 export const KERNEL_REASON_CODE_GRAMMAR_VERSION = 1 as const;
 export const KERNEL_CANONICALIZATION_VERSION = 1 as const;
 

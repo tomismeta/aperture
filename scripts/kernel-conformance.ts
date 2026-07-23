@@ -7,7 +7,7 @@ import {
   serializeKernelCanonicalJson,
 } from "../packages/lab/src/index.js";
 
-const DEFAULT_REPORT_PATH = "packages/lab/conformance/kernel-v1.json";
+const DEFAULT_REPORT_PATH = "packages/lab/conformance/kernel-v2.json";
 
 async function main(): Promise<void> {
   const reportPath = path.resolve(DEFAULT_REPORT_PATH);

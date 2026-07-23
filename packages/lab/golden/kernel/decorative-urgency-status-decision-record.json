@@ -39,7 +39,7 @@
       {
         "stepLabel": "decorative urgency status",
         "evaluationKind": "candidate",
-        "decisionRecordProjectionVersion": 1,
+        "decisionRecordProjectionVersion": 2,
         "decisionKind": "ambient",
         "decisionRecordRoute": "ambient",
         "plannedLane": "ambient",

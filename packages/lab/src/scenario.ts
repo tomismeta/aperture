@@ -15,7 +15,7 @@ import type {
   SemanticInterpretation,
   AttentionOntologyDiagnostic,
 } from "@tomismeta/aperture-core/semantic";
-import type { KERNEL_DECISION_RECORD_PROJECTION_VERSION } from "./artifact-versions.js";
+import type { KernelDecisionRecordProjectionVersion } from "./artifact-versions.js";
 import type { ReplaySemanticCalibrationFamily } from "./semantic-calibration.js";
 
 export type ReplayDecisionPlannedLane = "now" | "next" | "ambient" | "none";
@@ -184,7 +184,7 @@ export type ReplayDecisionSnapshot = {
   stepKind: ReplayObservationStep["kind"];
   stepLabel?: string;
   evaluationKind: "candidate" | "clear" | "noop";
-  decisionRecordProjectionVersion?: typeof KERNEL_DECISION_RECORD_PROJECTION_VERSION;
+  decisionRecordProjectionVersion?: KernelDecisionRecordProjectionVersion;
   decisionKind?: ReplayDecisionRoute;
   decisionRecordRoute?: ReplayDecisionRoute;
   plannedLane?: ReplayDecisionPlannedLane;
@@ -228,7 +228,7 @@ export type ReplayDecisionExpectation = {
   stepIndex?: number;
   stepLabel?: string;
   evaluationKind?: "candidate" | "clear" | "noop";
-  decisionRecordProjectionVersion?: typeof KERNEL_DECISION_RECORD_PROJECTION_VERSION;
+  decisionRecordProjectionVersion?: KernelDecisionRecordProjectionVersion;
   decisionKind?: ReplayDecisionRoute;
   decisionRecordRoute?: ReplayDecisionRoute;
   plannedLane?: ReplayDecisionPlannedLane;

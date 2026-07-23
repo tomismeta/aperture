@@ -44,9 +44,12 @@ export {
   fingerprintKernelDecisionRecordProjection,
   isKernelDecisionRecordFingerprint,
   KERNEL_DECISION_RECORD_PROJECTION_SCHEMA,
+  KERNEL_DECISION_RECORD_PROJECTION_V1_SCHEMA,
   serializeKernelDecisionRecordProjection,
   type KernelDecisionRecordFingerprint,
+  type KernelDecisionRecordProjection,
   type KernelDecisionRecordProjectionV1,
+  type KernelDecisionRecordProjectionV2,
 } from "./kernel-decision-contract.js";
 export {
   KERNEL_CANONICALIZATION_VERSION,

@@ -69,19 +69,23 @@ and may change as language improves; fixtures should prefer reason codes for
 route, lane, policy, evidence, pressure, ambiguity, and continuity guarantees.
 
 The Lab conformance projection is versioned separately from the internal record.
-Projection version `1` covers the flattened record fields captured in replay
-decision snapshots: route, planned lane, evidence identity, operator presence,
-candidate score, value components, prose reasons, reason codes, and a stable
-`sha256:` fingerprint. Additive structurally valid policy, criterion, and
-continuity rule codes remain compatible within version `1`; field removal,
-renaming, or semantic reinterpretation requires a new projection version. The
-determinism audit normalizes these projection fields so kernel drift is visible
-even when the final attention view does not change.
+Projection version `2` covers the flattened decision fields captured in replay
+decision snapshots: route, planned lane, realized lane, evidence identity,
+operator presence, candidate score, value components, prose reasons, reason
+codes, and a stable `sha256:` fingerprint. Additive structurally valid policy,
+criterion, and continuity rule codes remain compatible within version `2`; field
+removal, renaming, or semantic reinterpretation requires a new projection
+version. The determinism audit normalizes these projection fields so kernel
+drift is visible even when the final attention view does not change.
+Projection version `1` snapshots remain readable inside session bundle schema
+`1` artifacts, but current conformance writers emit version `2`.
+Replay decision snapshots still carry the legacy `resultLane` source field; the
+version `2` projection exposes that placement as `realizedLane`.
 
 The fingerprint hashes the decision-bearing projection only: schema version,
-route, lane, evidence, candidate score, value components, and reason codes. It
-intentionally excludes prose reasons so explanation wording can improve without
-pretending the kernel changed.
+route, planned lane, realized lane, evidence, candidate score, value components,
+and reason codes. It intentionally excludes prose reasons so explanation wording
+can improve without pretending the kernel changed.
 
 Lab canonicalization uses a kernel-local JSON writer:
 
@@ -111,7 +115,9 @@ compatibility fixtures live under `packages/lab/golden/kernel/` and assert
 compact, deterministic projections of the internal record rather than copying
 every nested trace field. The exact compatibility suite is declared in
 `packages/lab/src/kernel-profile.ts` and materialized as
-`packages/lab/conformance/kernel-v1.json`.
+`packages/lab/conformance/kernel-v2.json`. The historical version `1` report is
+kept beside it for comparison, but new kernel conformance updates target
+version `2`.
 
 The extended messy-event corpus lives beside it under
 `packages/lab/golden/kernel-corpus/`. That corpus is not the compatibility
@@ -119,7 +125,7 @@ profile. It is a growing pressure-test suite for source authority, relation
 targets, status noise, episode resolution, operator absence, and other messy
 event-stream behavior. Its profile is declared in
 `packages/lab/src/kernel-corpus-profile.ts` and materialized as
-`packages/lab/conformance/kernel-corpus-v1.json`. The corpus gate fails closed
+`packages/lab/conformance/kernel-corpus-v2.json`. The corpus gate fails closed
 when a case lacks final-lane assertions, a step-labeled semantic ontology
 checkpoint, a decision projection checkpoint, dimension assignment, or
 repeated-run determinism.
@@ -130,8 +136,8 @@ Each conformance case should assert:
 - semantic interpretation
 - ontology diagnostic
 - judgment input projection when it is decision-bearing
-- decision record route, planned lane, evidence identity, presence, and value
-  score
+- decision record route, planned lane, realized lane, evidence identity,
+  presence, and value score
 - prose reasons only when the wording itself is part of the case
 - value components as an open numeric map; fixtures should assert only the
   components that are semantically important for that case

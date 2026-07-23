@@ -39,7 +39,7 @@
       {
         "stepLabel": "uncertain failure status",
         "evaluationKind": "candidate",
-        "decisionRecordProjectionVersion": 1,
+        "decisionRecordProjectionVersion": 2,
         "decisionKind": "queue",
         "decisionRecordRoute": "queue",
         "plannedLane": "next",

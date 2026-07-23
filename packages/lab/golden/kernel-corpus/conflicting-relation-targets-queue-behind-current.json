@@ -39,7 +39,7 @@
       {
         "stepLabel": "different target approval",
         "evaluationKind": "candidate",
-        "decisionRecordProjectionVersion": 1,
+        "decisionRecordProjectionVersion": 2,
         "decisionKind": "activate",
         "decisionRecordRoute": "activate",
         "plannedLane": "now",

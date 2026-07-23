@@ -22,6 +22,8 @@ test("kernel profile declares a stable exact scenario set", async () => {
 });
 
 test("kernel profile versions agree with the projection contract", () => {
+  assert.equal(KERNEL_PROFILE.id, "aperture.kernel.profile.v2");
+  assert.equal(KERNEL_PROFILE.version, 2);
   assert.equal(
     KERNEL_PROFILE.decisionRecordProjectionVersion,
     KERNEL_DECISION_RECORD_PROJECTION_VERSION,

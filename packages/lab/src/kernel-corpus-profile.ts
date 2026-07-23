@@ -4,8 +4,8 @@ import {
   KERNEL_REASON_CODE_GRAMMAR_VERSION,
 } from "./kernel-profile.js";
 
-export const KERNEL_CORPUS_PROFILE_ID = "aperture.kernel.messy_event_corpus.v1" as const;
-export const KERNEL_CORPUS_PROFILE_VERSION = 1 as const;
+export const KERNEL_CORPUS_PROFILE_ID = "aperture.kernel.messy_event_corpus.v2" as const;
+export const KERNEL_CORPUS_PROFILE_VERSION = 2 as const;
 
 export const KERNEL_CORPUS_SCENARIO_IDS = [
   "golden:kernel-corpus:alarmist-read-approval-stays-low-risk",

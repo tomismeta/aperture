@@ -6,7 +6,7 @@ import {
   digestKernelCanonicalJson,
   fingerprintKernelDecisionRecordProjection,
   serializeKernelCanonicalJson,
-  type KernelDecisionRecordProjectionV1,
+  type KernelDecisionRecordProjectionV2,
 } from "../src/index.js";
 
 test("kernel canonical JSON ignores object insertion order", () => {
@@ -41,11 +41,12 @@ test("kernel canonical JSON has a stable digest vector", () => {
 });
 
 test("kernel projection fingerprint excludes prose reasons", () => {
-  const projection: KernelDecisionRecordProjectionV1 = {
-    schema: "aperture.kernel.decision_record_projection.v1",
-    version: 1,
+  const projection: KernelDecisionRecordProjectionV2 = {
+    schema: "aperture.kernel.decision_record_projection.v2",
+    version: 2,
     route: "queue",
-    lane: "next",
+    plannedLane: "next",
+    realizedLane: "next",
     evidence: {
       operatorPresence: "present",
       currentFrameId: null,
@@ -76,5 +77,40 @@ test("kernel projection fingerprint excludes prose reasons", () => {
   assert.equal(
     fingerprintKernelDecisionRecordProjection(projection),
     fingerprintKernelDecisionRecordProjection(reworded),
+  );
+});
+
+test("kernel projection fingerprint includes realized lane", () => {
+  const projection: KernelDecisionRecordProjectionV2 = {
+    schema: "aperture.kernel.decision_record_projection.v2",
+    version: 2,
+    route: "queue",
+    plannedLane: "next",
+    realizedLane: "next",
+    evidence: {
+      operatorPresence: "present",
+      currentFrameId: null,
+      currentEpisodeId: null,
+    },
+    value: {
+      candidateScore: 10,
+      components: { priority: 10 },
+    },
+    reasons: ["current frame keeps the candidate queued"],
+    reasonCodes: [
+      "route:queue",
+      "lane:next",
+      "policy:minimum_lane:next",
+      "pressure:level:steady",
+      "pressure:overload:low",
+      "evidence:operator_presence:present",
+      "evidence:current_frame:absent",
+      "evidence:current_episode:absent",
+    ],
+  };
+
+  assert.notEqual(
+    fingerprintKernelDecisionRecordProjection(projection),
+    fingerprintKernelDecisionRecordProjection({ ...projection, realizedLane: "now" }),
   );
 });

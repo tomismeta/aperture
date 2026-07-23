@@ -22,12 +22,14 @@ test("kernel corpus profile declares a stable exact scenario set", async () => {
 
   assert.equal(new Set(KERNEL_CORPUS_SCENARIO_IDS).size, KERNEL_CORPUS_SCENARIO_IDS.length);
   assert.deepEqual(actualCorpusIds, [...KERNEL_CORPUS_SCENARIO_IDS]);
+  assert.equal(KERNEL_CORPUS_PROFILE.id, "aperture.kernel.messy_event_corpus.v2");
+  assert.equal(KERNEL_CORPUS_PROFILE.version, 2);
   assert.equal(KERNEL_CORPUS_PROFILE.coverageDimensions, KERNEL_CORPUS_COVERAGE_DIMENSIONS);
 });
 
-test("kernel corpus conformance report matches the committed v1 artifact", async () => {
+test("kernel corpus conformance report matches the committed v2 artifact", async () => {
   const report = await buildKernelCorpusConformanceReport();
-  const committed = await readFile("packages/lab/conformance/kernel-corpus-v1.json", "utf8");
+  const committed = await readFile("packages/lab/conformance/kernel-corpus-v2.json", "utf8");
 
   assert.equal(report.passed, true);
   assert.deepEqual(report.coverage.missingScenarioIds, []);

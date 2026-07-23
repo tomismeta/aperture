@@ -27,7 +27,7 @@
       {
         "stepLabel": "configured low-risk read",
         "evaluationKind": "candidate",
-        "decisionRecordProjectionVersion": 1,
+        "decisionRecordProjectionVersion": 2,
         "decisionKind": "auto_approve",
         "decisionRecordRoute": "auto_approve",
         "plannedLane": "none",

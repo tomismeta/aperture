@@ -1,6 +1,5 @@
-import { KERNEL_DECISION_RECORD_PROJECTION_VERSION } from "./artifact-versions.js";
-import { DECISION_KINDS } from "./validation-support.js";
-
+import { KERNEL_DECISION_RECORD_PROJECTION_V1_VERSION, KERNEL_DECISION_RECORD_PROJECTION_VERSION, type KernelDecisionRecordProjectionVersion } from "./artifact-versions.js";
+import { DECISION_KINDS, RESULT_BUCKETS } from "./validation-support.js";
 const DECISION_PLANNED_LANES = new Set(["now", "next", "ambient", "none"]);
 const POLICY_MINIMUM_LANES = new Set(["now", "next", "ambient"]);
 const POLICY_GATE_EVALUATION_KINDS = new Set(["noop", "verdict"]);
@@ -12,13 +11,13 @@ const PRESSURE_OVERLOAD_RISKS = new Set(["low", "rising", "high"]);
 const OPERATOR_PRESENCE = new Set(["present", "absent"]);
 const EVIDENCE_PRESENCE = new Set(["present", "absent"]);
 const SIMPLE_RULE_NAME = /^[a-z][a-z0-9_]*$/;
-
 type KernelDecisionProjectionCandidate = {
   evaluationKind?: unknown;
   decisionKind?: unknown;
   decisionRecordProjectionVersion?: unknown;
   decisionRecordRoute?: unknown;
   plannedLane?: unknown;
+  resultLane?: unknown;
   decisionRecordCurrentFrameId?: unknown;
   decisionRecordCurrentEpisodeId?: unknown;
   decisionRecordOperatorPresence?: unknown;
@@ -28,10 +27,8 @@ type KernelDecisionProjectionCandidate = {
   decisionRecordReasonCodes?: unknown;
 };
 
-export function isKernelDecisionRecordProjectionVersion(
-  value: unknown,
-): value is typeof KERNEL_DECISION_RECORD_PROJECTION_VERSION {
-  return value === KERNEL_DECISION_RECORD_PROJECTION_VERSION;
+export function isKernelDecisionRecordProjectionVersion(value: unknown): value is KernelDecisionRecordProjectionVersion {
+  return value === KERNEL_DECISION_RECORD_PROJECTION_V1_VERSION || value === KERNEL_DECISION_RECORD_PROJECTION_VERSION;
 }
 
 export function isKernelDecisionReasonCode(value: unknown): value is string {
@@ -87,6 +84,7 @@ export function validateKernelDecisionRecordProjection(
   const lane = value.plannedLane;
   const operatorPresence = value.decisionRecordOperatorPresence;
   const reasonCodes = value.decisionRecordReasonCodes;
+  const version = value.decisionRecordProjectionVersion;
 
   if (
     value.evaluationKind !== "candidate" ||
@@ -95,6 +93,9 @@ export function validateKernelDecisionRecordProjection(
     route !== value.decisionKind ||
     typeof lane !== "string" ||
     plannedLaneForDecisionRoute(route) !== lane ||
+    (value.resultLane !== undefined &&
+      (typeof value.resultLane !== "string" || !RESULT_BUCKETS.has(value.resultLane))) ||
+    (version === KERNEL_DECISION_RECORD_PROJECTION_VERSION && value.resultLane === undefined) ||
     !hasOwn(value, "decisionRecordCurrentFrameId") ||
     !isStringOrNull(value.decisionRecordCurrentFrameId) ||
     !hasOwn(value, "decisionRecordCurrentEpisodeId") ||

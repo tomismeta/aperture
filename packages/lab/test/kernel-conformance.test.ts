@@ -9,9 +9,9 @@ import {
   serializeKernelCanonicalJson,
 } from "../src/index.js";
 
-test("kernel conformance report matches the committed v1 artifact", async () => {
+test("kernel conformance report matches the committed v2 artifact", async () => {
   const report = await buildKernelConformanceReport();
-  const committed = await readFile("packages/lab/conformance/kernel-v1.json", "utf8");
+  const committed = await readFile("packages/lab/conformance/kernel-v2.json", "utf8");
 
   assert.equal(report.passed, true);
   assert.deepEqual(report.coverage.missingScenarioIds, []);

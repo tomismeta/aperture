@@ -3,7 +3,7 @@
 Aperture Core should mature into a small embeddable kernel for deterministic
 attention judgment over messy semantic event streams.
 
-This is the "SQLite posture" for Aperture: compact, boring, portable,
+This is the portability posture for Aperture: compact, boring, portable,
 replayable, inspectable, and trusted.
 
 ## Category

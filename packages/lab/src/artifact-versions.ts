@@ -1,5 +1,6 @@
 export const IMPORTED_SESSION_SCHEMA_VERSION = 1 as const;
 export const SESSION_BUNDLE_SCHEMA_VERSION = 1 as const;
+export const KERNEL_DECISION_RECORD_PROJECTION_VERSION = 1 as const;
 
 export const OFFLINE_REVIEW_ARTIFACT_SCHEMA_VERSION = 1 as const;
 export const OFFLINE_REVIEW_REPORT_SCHEMA_VERSION = 1 as const;

@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import { KERNEL_DECISION_RECORD_PROJECTION_VERSION } from "../src/artifact-versions.js";
 import {
   canonicalAttentionExportToScenario,
   createScenarioFromSessionBundle,
@@ -20,12 +21,17 @@ import {
   runSessionBundle,
   sliceRuntimeSessionCapture,
   validateSessionBundle,
+  buildKernelDecisionRecordProjectionFromSnapshot,
+  fingerprintKernelDecisionRecordProjection,
+  isKernelDecisionRecordFingerprint,
   type CanonicalAttentionExportLike,
+  type ReplayDecisionSnapshot,
   type ReplayScenario,
   type RuntimeSessionCaptureLike,
   writeReplayScenario,
   writeSessionBundle,
 } from "../src/index.js";
+import { validateReplayDecisionSnapshot } from "../src/validation-replay-decision.js";
 
 function explanationSnapshot(
   value: Partial<NonNullable<RuntimeSessionCaptureLike["currentExplanation"]>>,
@@ -104,6 +110,13 @@ test("session bundles capture replay outputs and normalized source events", () =
   assert.equal(bundle.normalizedEvents[0]?.event.type, "human.input.requested");
   assert.equal(bundle.semanticSnapshots.length, 1);
   assert.equal(bundle.decisionSnapshots.length, 1);
+  assert.equal(
+    bundle.decisionSnapshots[0]?.decisionRecordProjectionVersion,
+    KERNEL_DECISION_RECORD_PROJECTION_VERSION,
+  );
+  assert.ok(
+    isKernelDecisionRecordFingerprint(bundle.decisionSnapshots[0]?.decisionRecordFingerprint),
+  );
   assert.equal(bundle.outcomes.finalNowInteractionId, "interaction:bundle:1");
 });
 
@@ -152,10 +165,7 @@ test("session bundles can replay back into the same final attention outcome", ()
   });
   const replayed = runSessionBundle(bundle);
 
-  assert.deepEqual(
-    replayed.views.at(-1)?.attentionView,
-    result.views.at(-1)?.attentionView,
-  );
+  assert.deepEqual(replayed.views.at(-1)?.attentionView, result.views.at(-1)?.attentionView);
   assert.deepEqual(replayed.decisions, result.decisions);
 });
 
@@ -268,18 +278,19 @@ test("session bundles reject malformed schema-matching payloads on load", async 
   const directory = await mkdtemp(path.join(os.tmpdir(), "aperture-bundles-invalid-"));
   const filePath = path.join(directory, "invalid.json");
 
-  await writeFile(filePath, `${JSON.stringify({
-    schemaVersion: 1,
-    sessionId: "session:invalid",
-    title: "Invalid bundle",
-    exportedAt: "2026-03-21T18:35:00.000Z",
-    steps: [],
-  })}\n`, "utf8");
-
-  await assert.rejects(
-    loadSessionBundles(directory),
-    /Invalid session bundle/,
+  await writeFile(
+    filePath,
+    `${JSON.stringify({
+      schemaVersion: 1,
+      sessionId: "session:invalid",
+      title: "Invalid bundle",
+      exportedAt: "2026-03-21T18:35:00.000Z",
+      steps: [],
+    })}\n`,
+    "utf8",
   );
+
+  await assert.rejects(loadSessionBundles(directory), /Invalid session bundle/);
 });
 
 test("session bundle validation requires the core structural fields", () => {
@@ -347,6 +358,259 @@ test("session bundle validation rejects malformed array contents", () => {
   assert.equal(invalid, null);
 });
 
+test("session bundle validation rejects malformed present decision records", () => {
+  const emptyView = { now: null, next: [], ambient: [] };
+  const invalid = validateSessionBundle({
+    schemaVersion: 1,
+    sessionId: "session:invalid-decision-record",
+    title: "Invalid decision record",
+    exportedAt: "2026-03-21T18:35:00.000Z",
+    steps: [],
+    normalizedEvents: [],
+    traces: [
+      {
+        timestamp: "2026-03-21T18:35:00.000Z",
+        event: {
+          id: "evt:invalid-decision-record",
+          type: "task.updated",
+          taskId: "task:invalid-decision-record",
+          timestamp: "2026-03-21T18:35:00.000Z",
+          title: "Build failed",
+          status: "failed",
+        },
+        evaluation: { kind: "candidate" },
+        coordination: { kind: "queue", resultLane: "next" },
+        attentionView: emptyView,
+        taskView: emptyView,
+        decisionRecord: "invalid",
+      },
+    ],
+    signals: [],
+    responses: [],
+    viewSnapshots: [],
+    semanticSnapshots: [],
+    decisionSnapshots: [],
+    outcomes: {
+      totalSteps: 0,
+      surfacedFrames: 0,
+      finalNowInteractionId: null,
+      finalNextCount: 0,
+      finalAmbientCount: 0,
+      finalNextInteractionIds: [],
+      finalAmbientInteractionIds: [],
+    },
+  });
+
+  assert.equal(invalid, null);
+});
+
+test("session bundle validation rejects malformed decision reason codes", () => {
+  const emptyView = { now: null, next: [], ambient: [] };
+  const invalidTraceReasonCode = validateSessionBundle({
+    schemaVersion: 1,
+    sessionId: "session:invalid-trace-reason-code",
+    title: "Invalid trace reason code",
+    exportedAt: "2026-03-21T18:35:00.000Z",
+    steps: [],
+    normalizedEvents: [],
+    traces: [
+      {
+        timestamp: "2026-03-21T18:35:00.000Z",
+        event: {
+          id: "evt:invalid-trace-reason-code",
+          type: "task.updated",
+          taskId: "task:invalid-trace-reason-code",
+          timestamp: "2026-03-21T18:35:00.000Z",
+          title: "Build failed",
+          status: "failed",
+        },
+        evaluation: { kind: "candidate" },
+        coordination: { kind: "queue", resultLane: "next" },
+        attentionView: emptyView,
+        taskView: emptyView,
+        decisionRecord: {
+          planning: {
+            route: "queue",
+            plannedLane: "next",
+            reasons: [],
+            reasonCodes: ["route:not-a-real-route"],
+          },
+          evidenceSnapshot: {
+            operatorPresence: "present",
+            currentFrameId: null,
+            currentEpisodeId: null,
+          },
+          value: {
+            candidateScore: 1,
+            breakdown: { components: { priority: 1 } },
+          },
+        },
+      },
+    ],
+    signals: [],
+    responses: [],
+    viewSnapshots: [],
+    semanticSnapshots: [],
+    decisionSnapshots: [],
+    outcomes: {
+      totalSteps: 0,
+      surfacedFrames: 0,
+      finalNowInteractionId: null,
+      finalNextCount: 0,
+      finalAmbientCount: 0,
+      finalNextInteractionIds: [],
+      finalAmbientInteractionIds: [],
+    },
+  });
+  const invalidSnapshotReasonCode = validateSessionBundle({
+    schemaVersion: 1,
+    sessionId: "session:invalid-snapshot-reason-code",
+    title: "Invalid snapshot reason code",
+    exportedAt: "2026-03-21T18:35:00.000Z",
+    steps: [],
+    normalizedEvents: [],
+    traces: [],
+    signals: [],
+    responses: [],
+    viewSnapshots: [],
+    semanticSnapshots: [],
+    decisionSnapshots: [
+      {
+        stepIndex: 0,
+        stepKind: "publish",
+        evaluationKind: "candidate",
+        decisionRecordProjectionVersion: KERNEL_DECISION_RECORD_PROJECTION_VERSION,
+        decisionRecordReasonCodes: ["not-even-close"],
+      },
+    ],
+    outcomes: {
+      totalSteps: 0,
+      surfacedFrames: 0,
+      finalNowInteractionId: null,
+      finalNextCount: 0,
+      finalAmbientCount: 0,
+      finalNextInteractionIds: [],
+      finalAmbientInteractionIds: [],
+    },
+  });
+
+  assert.equal(invalidTraceReasonCode, null);
+  assert.equal(invalidSnapshotReasonCode, null);
+});
+
+test("decision snapshot validation enforces v1 projection coherence", () => {
+  const validSnapshot: ReplayDecisionSnapshot = {
+    stepIndex: 0,
+    stepKind: "publish",
+    evaluationKind: "candidate",
+    decisionKind: "queue",
+    decisionRecordProjectionVersion: KERNEL_DECISION_RECORD_PROJECTION_VERSION,
+    decisionRecordRoute: "queue",
+    plannedLane: "next",
+    decisionRecordCurrentFrameId: null,
+    decisionRecordCurrentEpisodeId: null,
+    decisionRecordOperatorPresence: "present",
+    decisionRecordCandidateScore: 1,
+    decisionRecordValueComponents: { priority: 1 },
+    decisionRecordReasons: ["current work still outranks the new candidate"],
+    decisionRecordReasonCodes: [
+      "route:queue",
+      "lane:next",
+      "evidence:operator_presence:present",
+      "evidence:current_frame:absent",
+      "evidence:current_episode:absent",
+      "policy:minimum_lane:next",
+      "pressure:level:steady",
+      "pressure:overload:low",
+      "policy_gate:blocking:verdict",
+    ],
+  };
+  const missingReasonCodes = { ...validSnapshot } as Record<string, unknown>;
+  const validReasonCodes = validSnapshot.decisionRecordReasonCodes;
+  const projection = buildKernelDecisionRecordProjectionFromSnapshot(validSnapshot);
+
+  assert.ok(validReasonCodes);
+  assert.ok(projection);
+  const validFingerprint = fingerprintKernelDecisionRecordProjection(projection);
+
+  delete missingReasonCodes.decisionRecordReasonCodes;
+
+  assert.ok(validateReplayDecisionSnapshot(validSnapshot));
+  assert.ok(
+    validateReplayDecisionSnapshot({
+      ...validSnapshot,
+      decisionRecordFingerprint: validFingerprint,
+    }),
+  );
+  assert.equal(
+    validateReplayDecisionSnapshot({
+      ...validSnapshot,
+      decisionRecordFingerprint:
+        "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    }),
+    null,
+  );
+  assert.equal(
+    validateReplayDecisionSnapshot({
+      ...validSnapshot,
+      decisionRecordProjectionVersion: 2,
+    }),
+    null,
+  );
+  assert.equal(validateReplayDecisionSnapshot(missingReasonCodes), null);
+  assert.equal(
+    validateReplayDecisionSnapshot({
+      ...validSnapshot,
+      decisionRecordReasonCodes: [...validReasonCodes, validReasonCodes[0]],
+    }),
+    null,
+  );
+  assert.equal(
+    validateReplayDecisionSnapshot({
+      ...validSnapshot,
+      decisionRecordReasonCodes: [...validReasonCodes, "route:activate"],
+    }),
+    null,
+  );
+  assert.equal(
+    validateReplayDecisionSnapshot({
+      ...validSnapshot,
+      decisionRecordReasonCodes: [...validReasonCodes, "lane:now"],
+    }),
+    null,
+  );
+  assert.equal(
+    validateReplayDecisionSnapshot({
+      ...validSnapshot,
+      decisionRecordReasonCodes: [...validReasonCodes, "evidence:current_frame:present"],
+    }),
+    null,
+  );
+  assert.equal(
+    validateReplayDecisionSnapshot({
+      ...validSnapshot,
+      decisionRecordReasonCodes: [
+        ...validReasonCodes.filter((reasonCode) => !reasonCode.startsWith("pressure:level:")),
+        "pressure:level:elevated",
+        "pressure:level:high",
+      ],
+    }),
+    null,
+  );
+  assert.equal(
+    validateReplayDecisionSnapshot({ ...validSnapshot, decisionRecordRoute: "activate" }),
+    null,
+  );
+  assert.equal(validateReplayDecisionSnapshot({ ...validSnapshot, plannedLane: "ambient" }), null);
+  assert.equal(
+    validateReplayDecisionSnapshot({
+      ...validSnapshot,
+      decisionRecordCurrentFrameId: "frame:present",
+    }),
+    null,
+  );
+});
+
 test("session bundles load recursively from nested directories", async () => {
   const scenario: ReplayScenario = {
     id: "bundle:nested",
@@ -406,16 +670,17 @@ test("replay scenarios reject malformed files during load", async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "aperture-scenarios-invalid-"));
   const filePath = path.join(directory, "invalid.json");
 
-  await writeFile(filePath, `${JSON.stringify({
-    id: "scenario:invalid",
-    title: "Invalid scenario",
-    steps: [null],
-  })}\n`, "utf8");
-
-  await assert.rejects(
-    loadReplayScenarios(directory),
-    /Invalid replay scenario/,
+  await writeFile(
+    filePath,
+    `${JSON.stringify({
+      id: "scenario:invalid",
+      title: "Invalid scenario",
+      steps: [null],
+    })}\n`,
+    "utf8",
   );
+
+  await assert.rejects(loadReplayScenarios(directory), /Invalid replay scenario/);
 });
 
 test("canonical attention exports convert into replay scenarios with final-state expectations", () => {
@@ -549,7 +814,10 @@ test("session bundles can be created from canonical attention exports", () => {
   assert.equal(bundle.sessionId, "session:paperclip:export");
   assert.equal(bundle.steps.length, 2);
   assert.equal(bundle.responses.length, 1);
-  assert.equal(bundle.traces.some((trace) => trace.event.id === "evt:paperclip:approval"), true);
+  assert.equal(
+    bundle.traces.some((trace) => trace.event.id === "evt:paperclip:approval"),
+    true,
+  );
   assert.equal(bundle.outcomes.finalNowInteractionId, null);
   assert.equal(bundle.outcomes.finalNextCount, 0);
 });
@@ -709,7 +977,9 @@ test("session bundles can be created from runtime-style captures", () => {
               reason: "low_signal" as const,
               resolution: "queue" as const,
             },
-            rationale: ["low-confidence semantic interpretation keeps non-blocking work peripheral until the signal is clearer"],
+            rationale: [
+              "low-confidence semantic interpretation keeps non-blocking work peripheral until the signal is clearer",
+            ],
           },
           criterionEvaluations: [],
         },
@@ -755,14 +1025,18 @@ test("session bundles can be created from runtime-style captures", () => {
               reason: "low_signal" as const,
               resolution: "queue" as const,
             },
-            rationale: ["low-confidence semantic interpretation keeps non-blocking work peripheral until the signal is clearer"],
+            rationale: [
+              "low-confidence semantic interpretation keeps non-blocking work peripheral until the signal is clearer",
+            ],
           },
           ambiguity: {
             kind: "interrupt" as const,
             reason: "low_signal" as const,
             resolution: "queue" as const,
           },
-          reasons: ["low-confidence semantic interpretation keeps non-blocking work peripheral until the signal is clearer"],
+          reasons: [
+            "low-confidence semantic interpretation keeps non-blocking work peripheral until the signal is clearer",
+          ],
           continuityEvaluations: [],
         },
         taskSummary: {
@@ -1009,6 +1283,8 @@ test("session bundles can be created from runtime-style captures", () => {
   assert.equal(bundle.normalizedEvents.length, 1);
   assert.equal(bundle.semanticSnapshots[0]?.interpretation.intentFrame, "failure");
   assert.equal(bundle.decisionSnapshots[0]?.decisionKind, "queue");
+  assert.equal(bundle.decisionSnapshots[0]?.decisionRecordRoute, undefined);
+  assert.equal("decisionRecord" in (bundle.traces[0] ?? {}), false);
   assert.equal(bundle.outcomes.finalNextCount, 1);
   assert.equal(bundle.explanation?.headline, "Work has failed and should be reviewed.");
   assert.equal(bundle.explanation?.targetLane, "next");

@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { ReplayScenario } from "./scenario.js";
+import { compareKernelCanonicalKey } from "./kernel-canonical-json.js";
 import { validateReplayScenario } from "./validation.js";
 
 export const DEFAULT_GOLDEN_SCENARIOS_DIR = path.resolve(
@@ -19,14 +20,14 @@ export async function loadGoldenScenarios(
   directory: string = DEFAULT_GOLDEN_SCENARIOS_DIR,
 ): Promise<ReplayScenario[]> {
   const scenarios = await loadReplayScenarios(directory);
-  return scenarios.sort((left, right) => left.id.localeCompare(right.id));
+  return scenarios.sort((left, right) => compareKernelCanonicalKey(left.id, right.id));
 }
 
 export async function loadHarvestedScenarios(
   directory: string = DEFAULT_HARVESTED_SCENARIOS_DIR,
 ): Promise<ReplayScenario[]> {
   const scenarios = await loadReplayScenarios(directory);
-  return scenarios.sort((left, right) => left.id.localeCompare(right.id));
+  return scenarios.sort((left, right) => compareKernelCanonicalKey(left.id, right.id));
 }
 
 export async function loadReplayScenarios(directory: string): Promise<ReplayScenario[]> {
@@ -56,7 +57,7 @@ async function readScenarioDirectory(directory: string): Promise<ReplayScenario[
     const absolutePath = path.join(directory, entry.name);
 
     if (entry.isDirectory()) {
-      scenarios.push(...await readScenarioDirectory(absolutePath));
+      scenarios.push(...(await readScenarioDirectory(absolutePath)));
       continue;
     }
 
@@ -69,7 +70,9 @@ async function readScenarioDirectory(directory: string): Promise<ReplayScenario[
     try {
       parsed = JSON.parse(raw);
     } catch (error) {
-      throw new Error(`Failed to parse replay scenario at ${absolutePath}: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to parse replay scenario at ${absolutePath}: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
 
     const scenario = validateReplayScenario(parsed);

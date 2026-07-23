@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizeReplayRun, runReplayScenario, scoreReplayRun, type ReplayScenario } from "../src/index.js";
+import { KERNEL_DECISION_RECORD_PROJECTION_VERSION } from "../src/artifact-versions.js";
+import {
+  normalizeReplayRun,
+  runReplayScenario,
+  scoreReplayRun,
+  type ReplayScenario,
+  isKernelDecisionRecordFingerprint,
+} from "../src/index.js";
 
 test("replay runner captures frames, traces, responses, and final view state", () => {
   const scenario: ReplayScenario = {
@@ -171,5 +178,20 @@ test("normalized replay runs retain semantic and decision detail for determinism
     "activity (canonical)",
     "consequence (canonical)",
   ]);
-  assert.ok(normalized.decisions[0]?.semanticInfluence.includes("tool family stayed context-only on the question/form path"));
+  assert.equal(
+    normalized.decisions[0]?.decisionRecordProjectionVersion,
+    KERNEL_DECISION_RECORD_PROJECTION_VERSION,
+  );
+  assert.equal(normalized.decisions[0]?.decisionRecordRoute, "activate");
+  assert.equal(normalized.decisions[0]?.plannedLane, "now");
+  assert.equal(normalized.decisions[0]?.decisionRecordOperatorPresence, "present");
+  assert.equal(normalized.decisions[0]?.decisionRecordCandidateScore, 1211);
+  assert.equal(normalized.decisions[0]?.decisionRecordValueComponents.blocking, 1000);
+  assert.ok(normalized.decisions[0]?.decisionRecordReasonCodes.includes("route:activate"));
+  assert.ok(isKernelDecisionRecordFingerprint(normalized.decisions[0]?.decisionRecordFingerprint));
+  assert.ok(
+    normalized.decisions[0]?.semanticInfluence.includes(
+      "tool family stayed context-only on the question/form path",
+    ),
+  );
 });

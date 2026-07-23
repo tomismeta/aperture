@@ -1,0 +1,179 @@
+# Deterministic Attention Kernel
+
+Aperture Core should mature into a small embeddable kernel for deterministic
+attention judgment over messy semantic event streams.
+
+This is the portability posture for Aperture: compact, boring, portable,
+replayable, inspectable, and trusted.
+
+## Category
+
+Aperture is not a generic semantic engine, workflow runner, agent framework, or
+alerting system.
+
+The kernel category is:
+
+```text
+messy source events
+-> canonical source facts
+-> bounded semantic interpretation
+-> compact ontology
+-> judgment input
+-> deterministic attention decision
+-> explainable trace
+```
+
+The primitive answers one question:
+
+**What deserves human attention, in what form, and why?**
+
+## Kernel Invariants
+
+The kernel should preserve these invariants:
+
+- same input, context, clock, and config produce the same decision
+- source facts outrank inference
+- semantic hints can refine authority but cannot impersonate source truth
+- confidence can demote uncertain reads but should not inflate weak inference
+- policy consumes compact judgment input, not raw source prose
+- hard policy stays separate from soft value
+- continuity is explicit and replayable
+- every candidate decision has stable reason codes and provenance
+- no hidden model calls run in the judgment path
+- core stays dependency-light
+
+## Stable Artifacts
+
+The kernel should stabilize these artifacts before widening public API surface:
+
+1. `SourceEvent`
+2. `SemanticInterpretation`
+3. `AttentionOntologyDiagnostic`
+4. `AttentionJudgmentInput`
+5. `AttentionCandidate`
+6. `AttentionDecisionRecord`
+7. `ApertureTrace`
+
+`AttentionOntologyDiagnostic` is the compact kernel vocabulary. The older
+`SemanticOntologyDiagnostic` name remains a compatibility alias, but new kernel
+work should prefer the attention-named contract.
+
+`AttentionDecisionRecord` is the first-class judgment artifact. It binds the
+decision, candidate, evidence snapshot, policy evaluations, value calculation,
+planning route, ambiguity, continuity evaluations, and reasons into one
+replayable object.
+
+Its `planning.reasonCodes` are stable machine-readable tags for conformance and
+offline analysis. The prose `planning.reasons` remain human-facing explanation
+and may change as language improves; fixtures should prefer reason codes for
+route, lane, policy, evidence, pressure, ambiguity, and continuity guarantees.
+
+The Lab conformance projection is versioned separately from the internal record.
+Projection version `1` covers the flattened record fields captured in replay
+decision snapshots: route, planned lane, evidence identity, operator presence,
+candidate score, value components, prose reasons, reason codes, and a stable
+`sha256:` fingerprint. Additive structurally valid policy, criterion, and
+continuity rule codes remain compatible within version `1`; field removal,
+renaming, or semantic reinterpretation requires a new projection version. The
+determinism audit normalizes these projection fields so kernel drift is visible
+even when the final attention view does not change.
+
+The fingerprint hashes the decision-bearing projection only: schema version,
+route, lane, evidence, candidate score, value components, and reason codes. It
+intentionally excludes prose reasons so explanation wording can improve without
+pretending the kernel changed.
+
+Lab canonicalization uses a kernel-local JSON writer:
+
+- object keys sort by code-unit order, not locale
+- array order remains meaningful
+- `undefined`, sparse arrays, `NaN`, and infinities are rejected
+- digests are SHA-256 over UTF-8 canonical JSON bytes
+
+## What Stays Out
+
+The kernel should not absorb:
+
+- source adapters
+- runtime HTTP hosting
+- TUI presentation rules
+- product-specific persistence
+- host-specific approval UI behavior
+- model-provider routing
+- semantic embedding dependencies
+
+Those can integrate around the kernel. They should not become the kernel.
+
+## Conformance Path
+
+The Lab golden replay path is the conformance harness. Kernel fixtures should
+live under `packages/lab/golden/kernel/` and assert compact, deterministic
+projections of the internal record rather than copying every nested trace field.
+The exact compatibility suite is declared in `packages/lab/src/kernel-profile.ts`
+and materialized as `packages/lab/conformance/kernel-v1.json`.
+
+Each conformance case should assert:
+
+- input event and context
+- semantic interpretation
+- ontology diagnostic
+- judgment input projection when it is decision-bearing
+- decision record route, planned lane, evidence identity, presence, and value
+  score
+- prose reasons only when the wording itself is part of the case
+- value components as an open numeric map; fixtures should assert only the
+  components that are semantically important for that case
+- stable decision reason codes from the record projection
+- the canonical decision fingerprint generated from the projection
+
+The current kernel fixture matrix covers:
+
+- `activate` with no current frame and operator present
+- `queue` under operator absence
+- `queue` behind a stronger same-task current frame
+- `ambient` for passive status noise
+- `auto_approve` for configured bounded low-risk reads
+- decorative urgency language that remains ambient under source-fact authority
+- low-confidence failure ambiguity that stays visible in next
+- continuity override activation for resurfacing same-episode work
+
+The suite should include adversarial examples:
+
+- decorative urgency language
+- duplicate semantic hints
+- stale approvals
+- repeated failures
+- low-confidence failed statuses
+- conflicting relation hints
+- passive status noise
+- safe read approvals
+- high-consequence writes
+
+## Public API Posture
+
+Decision as of 2026-07-23: do not publish a dedicated kernel API yet.
+
+The public `semantic` subpath can expose the attention-named ontology entry
+points because those are additive aliases over the existing semantic contract.
+The canonical judgment artifact, `AttentionDecisionRecord`, remains internal and
+is available through internal traces and Lab conformance fixtures only. Public
+traces intentionally expose prose coordination reasons, not record reason codes,
+until the kernel API is deliberately opened.
+
+The right order remains:
+
+1. stabilize the internal artifact
+2. lock it with fixtures
+3. publish doctrine and compatibility expectations
+4. expose a tiny kernel subpath only after replay behavior is stable
+
+The target shape is intentionally small:
+
+```ts
+interpret(event) -> SemanticInterpretation
+projectOntology(semantic) -> AttentionOntologyDiagnostic
+decide(candidate, context) -> AttentionDecisionRecord
+explain(record) -> ApertureTrace
+```
+
+That shape should remain aspirational until conformance coverage earns it.

@@ -7,7 +7,6 @@ import type {
   ApertureCoreOptions,
   ApertureEvent,
 } from "@tomismeta/aperture-core";
-import type { ApertureTrace } from "@tomismeta/aperture-core/internal";
 import type {
   ApertureRuntimeExplanationSnapshot,
   ApertureRuntimeSessionCapture,
@@ -47,6 +46,7 @@ import {
   validateReplaySemanticSnapshot,
   validateReplayViewSnapshot,
 } from "./validation.js";
+import type { ReplayApertureTrace } from "./replay-trace.js";
 export { SESSION_BUNDLE_SCHEMA_VERSION } from "./artifact-versions.js";
 
 export const DEFAULT_SESSION_BUNDLES_DIR = path.resolve(
@@ -77,7 +77,7 @@ export type ReplaySessionBundle = {
   core?: ApertureCoreOptions;
   steps: ReplayObservationStep[];
   normalizedEvents: ReplayNormalizedEventSnapshot[];
-  traces: ApertureTrace[];
+  traces: ReplayApertureTrace[];
   signals: AttentionSignal[];
   responses: AttentionResponse[];
   viewSnapshots: ReplayViewSnapshot[];
@@ -95,7 +95,9 @@ export type ReplaySessionBundle = {
 };
 
 export type RuntimeSessionCaptureExplanationLike = ApertureRuntimeExplanationSnapshot;
-export type RuntimeSessionCaptureLike = ApertureRuntimeSessionCapture;
+export type RuntimeSessionCaptureLike = Omit<ApertureRuntimeSessionCapture, "traces"> & {
+  traces: ReplayApertureTrace[];
+};
 
 export type RuntimeSessionCaptureCursor = {
   runtimeId: string;

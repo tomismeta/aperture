@@ -6,6 +6,10 @@ export type { AttentionField, AttentionResponseSpec } from "./frame.js";
 export type { AttentionSignalSummary } from "./signal-summary.js";
 export type { AttentionState } from "./attention-state.js";
 export type { ApertureCoreHealthSnapshot } from "./aperture-core.js";
+export type {
+  AttentionDecisionPlannedLane,
+  AttentionDecisionRecord,
+} from "./judgment-coordinator.js";
 export { evaluateTraceSession, type TraceEvaluationReport } from "./trace-evaluator.js";
 export { isCandidateTrace } from "./trace-types.js";
 export type { ApertureTrace, CandidateApertureTrace } from "./trace-types.js";

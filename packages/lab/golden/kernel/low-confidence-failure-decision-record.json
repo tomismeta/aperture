@@ -1,0 +1,112 @@
+{
+  "id": "golden:kernel:low-confidence-failure-decision-record",
+  "title": "Decision record queues low-confidence failure ambiguity",
+  "description": "A low-confidence failed status can be important, but semantic uncertainty should keep the candidate in next while recording the ambiguity rule that prevented an interrupt.",
+  "doctrineTags": [
+    "kernel_conformance",
+    "deterministic_judgment",
+    "semantic_ambiguity",
+    "queue_route"
+  ],
+  "semanticFamilies": ["confidence_too_high"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:approval-anchor",
+    "nextInteractionIds": ["interaction:task:uncertain-failure:status"],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 1,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "uncertain failure status",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "consequence": "high",
+        "confidence": "low",
+        "ontology": {
+          "ask": "status",
+          "activity": "failure",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "source": "hinted"
+        },
+        "whyNowIncludes": "failed and should be reviewed"
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "uncertain failure status",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 1,
+        "decisionKind": "queue",
+        "decisionRecordRoute": "queue",
+        "plannedLane": "next",
+        "resultLane": "next",
+        "semanticConfidence": "low",
+        "semanticAbstained": false,
+        "ambiguityReason": "low_signal",
+        "ambiguityResolution": "queue",
+        "decisionRecordCurrentFrameId": null,
+        "decisionRecordCurrentEpisodeId": null,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordCandidateScore": 242,
+        "decisionRecordValueComponentsInclude": {
+          "priority": 200,
+          "consequence": 20,
+          "blocking": 0
+        },
+        "decisionRecordReasonCodesInclude": [
+          "route:queue",
+          "lane:next",
+          "policy:minimum_lane:next",
+          "pressure:level:steady",
+          "pressure:overload:low",
+          "criterion:peripheral_resolution:queue",
+          "criterion:ambiguity:low_signal",
+          "policy_gate:interruptive_default:verdict",
+          "policy_criterion:semantic_uncertainty:verdict",
+          "evidence:operator_presence:present",
+          "evidence:current_frame:absent",
+          "evidence:current_episode:absent"
+        ],
+        "semanticImpactDecisionBearingIncludes": ["activity (canonical)", "confidence (ambiguity)"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publish",
+      "label": "approval anchor",
+      "event": {
+        "id": "evt:approval-anchor",
+        "type": "human.input.requested",
+        "taskId": "task:approval-anchor",
+        "interactionId": "interaction:approval-anchor",
+        "timestamp": "2026-03-21T17:39:00.000Z",
+        "title": "Approve deploy",
+        "summary": "A deploy is waiting for approval.",
+        "consequence": "high",
+        "request": { "kind": "approval" }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "uncertain failure status",
+      "event": {
+        "id": "evt:uncertain-failure",
+        "type": "task.updated",
+        "taskId": "task:uncertain-failure",
+        "timestamp": "2026-03-21T17:40:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Build failed",
+        "summary": "The latest build failed and may need a retry.",
+        "status": "failed",
+        "semanticHints": {
+          "confidence": "low"
+        }
+      }
+    }
+  ]
+}

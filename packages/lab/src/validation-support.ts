@@ -1,14 +1,7 @@
 import type { AttentionView } from "@tomismeta/aperture-core";
 import type { SemanticOntologyDiagnostic } from "@tomismeta/aperture-core/semantic";
 
-import {
-  hasShape,
-  isNumber,
-  isNullable,
-  isRecord,
-  isString,
-  isStringArray,
-} from "./shape.js";
+import { hasShape, isNumber, isNullable, isRecord, isString, isStringArray } from "./shape.js";
 
 export const EVENT_TYPES = new Set<string>([
   "task.started",
@@ -52,11 +45,7 @@ export const RESPONSE_KINDS = new Set<string>([
   "dismissed",
 ]);
 
-export const TRACE_EVALUATION_KINDS = new Set<string>([
-  "noop",
-  "clear",
-  "candidate",
-]);
+export const TRACE_EVALUATION_KINDS = new Set<string>(["noop", "clear", "candidate"]);
 
 export const RESULT_BUCKETS = new Set(["now", "next", "ambient", "none"]);
 export const DECISION_KINDS = new Set(["auto_approve", "activate", "queue", "ambient", "clear"]);
@@ -108,9 +97,21 @@ export const SEMANTIC_ONTOLOGY_ACTIVITY = new Set([
   "background_work",
 ]);
 export const SEMANTIC_ONTOLOGY_BLOCKING = new Set(["blocking", "waiting", "non_blocking"]);
-export const SEMANTIC_ONTOLOGY_EPISODE = new Set(["new", "same_issue", "resurfaced", "resolved", "unknown"]);
+export const SEMANTIC_ONTOLOGY_EPISODE = new Set([
+  "new",
+  "same_issue",
+  "resurfaced",
+  "resolved",
+  "unknown",
+]);
 export const SEMANTIC_ONTOLOGY_SOURCE = new Set(["explicit", "hinted", "inferred"]);
-export const RELATION_KINDS = new Set(["same_issue", "resolves", "supersedes", "repeats", "escalates"]);
+export const RELATION_KINDS = new Set([
+  "same_issue",
+  "resolves",
+  "supersedes",
+  "repeats",
+  "escalates",
+]);
 export const SEMANTIC_PROVENANCE_FIELDS = new Set([
   "intentFrame",
   "activityClass",
@@ -129,20 +130,20 @@ export function validateSemanticOntologyDiagnostic(
   value: unknown,
 ): SemanticOntologyDiagnostic | null {
   if (
-    !isRecord(value)
-    || typeof value.ask !== "string"
-    || !SEMANTIC_ONTOLOGY_ASK.has(value.ask)
-    || typeof value.activity !== "string"
-    || !SEMANTIC_ONTOLOGY_ACTIVITY.has(value.activity)
-    || typeof value.blocking !== "string"
-    || !SEMANTIC_ONTOLOGY_BLOCKING.has(value.blocking)
-    || typeof value.episode !== "string"
-    || !SEMANTIC_ONTOLOGY_EPISODE.has(value.episode)
-    || typeof value.confidence !== "string"
-    || !SEMANTIC_CONFIDENCE.has(value.confidence)
-    || typeof value.source !== "string"
-    || !SEMANTIC_ONTOLOGY_SOURCE.has(value.source)
-    || (value.consequence !== undefined && !CONSEQUENCE_LEVELS.has(String(value.consequence)))
+    !isRecord(value) ||
+    typeof value.ask !== "string" ||
+    !SEMANTIC_ONTOLOGY_ASK.has(value.ask) ||
+    typeof value.activity !== "string" ||
+    !SEMANTIC_ONTOLOGY_ACTIVITY.has(value.activity) ||
+    typeof value.blocking !== "string" ||
+    !SEMANTIC_ONTOLOGY_BLOCKING.has(value.blocking) ||
+    typeof value.episode !== "string" ||
+    !SEMANTIC_ONTOLOGY_EPISODE.has(value.episode) ||
+    typeof value.confidence !== "string" ||
+    !SEMANTIC_CONFIDENCE.has(value.confidence) ||
+    typeof value.source !== "string" ||
+    !SEMANTIC_ONTOLOGY_SOURCE.has(value.source) ||
+    (value.consequence !== undefined && !CONSEQUENCE_LEVELS.has(String(value.consequence)))
   ) {
     return null;
   }
@@ -156,21 +157,18 @@ export function isPartialSemanticOntologyDiagnostic(value: unknown): boolean {
   }
 
   return (
-    (value.ask === undefined || SEMANTIC_ONTOLOGY_ASK.has(String(value.ask)))
-    && (value.activity === undefined || SEMANTIC_ONTOLOGY_ACTIVITY.has(String(value.activity)))
-    && (value.consequence === undefined || CONSEQUENCE_LEVELS.has(String(value.consequence)))
-    && (value.blocking === undefined || SEMANTIC_ONTOLOGY_BLOCKING.has(String(value.blocking)))
-    && (value.episode === undefined || SEMANTIC_ONTOLOGY_EPISODE.has(String(value.episode)))
-    && (value.confidence === undefined || SEMANTIC_CONFIDENCE.has(String(value.confidence)))
-    && (value.source === undefined || SEMANTIC_ONTOLOGY_SOURCE.has(String(value.source)))
+    (value.ask === undefined || SEMANTIC_ONTOLOGY_ASK.has(String(value.ask))) &&
+    (value.activity === undefined || SEMANTIC_ONTOLOGY_ACTIVITY.has(String(value.activity))) &&
+    (value.consequence === undefined || CONSEQUENCE_LEVELS.has(String(value.consequence))) &&
+    (value.blocking === undefined || SEMANTIC_ONTOLOGY_BLOCKING.has(String(value.blocking))) &&
+    (value.episode === undefined || SEMANTIC_ONTOLOGY_EPISODE.has(String(value.episode))) &&
+    (value.confidence === undefined || SEMANTIC_CONFIDENCE.has(String(value.confidence))) &&
+    (value.source === undefined || SEMANTIC_ONTOLOGY_SOURCE.has(String(value.source)))
   );
 }
 
 export function validateSourceRef(value: unknown): unknown | null {
-  if (
-    !isRecord(value)
-    || !hasShape(value, { id: isString }, { kind: isString, label: isString })
-  ) {
+  if (!isRecord(value) || !hasShape(value, { id: isString }, { kind: isString, label: isString })) {
     return null;
   }
 
@@ -184,59 +182,59 @@ export function validateHumanInputRequest(value: unknown): unknown | null {
 
   switch (value.kind) {
     case "approval":
-      return value.requireReason === undefined || typeof value.requireReason === "boolean" ? value : null;
+      return value.requireReason === undefined || typeof value.requireReason === "boolean"
+        ? value
+        : null;
     case "choice":
-      return typeof value.selectionMode === "string"
-        && SELECTION_MODES.has(value.selectionMode)
-        && (value.allowTextResponse === undefined || typeof value.allowTextResponse === "boolean")
-        && Array.isArray(value.options)
-        && value.options.every((option) =>
-          isRecord(option)
-          && typeof option.id === "string"
-          && typeof option.label === "string"
-          && (option.summary === undefined || typeof option.summary === "string")
+      return typeof value.selectionMode === "string" &&
+        SELECTION_MODES.has(value.selectionMode) &&
+        (value.allowTextResponse === undefined || typeof value.allowTextResponse === "boolean") &&
+        Array.isArray(value.options) &&
+        value.options.every(
+          (option) =>
+            isRecord(option) &&
+            typeof option.id === "string" &&
+            typeof option.label === "string" &&
+            (option.summary === undefined || typeof option.summary === "string"),
         )
         ? value
         : null;
     case "form":
-      return Array.isArray(value.fields)
-        && value.fields.every((field) => (
-          isRecord(field)
-          && typeof field.id === "string"
-          && typeof field.label === "string"
-          && typeof field.type === "string"
-          && FIELD_TYPES.has(field.type)
-          && (field.required === undefined || typeof field.required === "boolean")
-          && (
-            field.options === undefined
-            || (
-              Array.isArray(field.options)
-              && field.options.every((option) =>
-                isRecord(option)
-                && typeof option.value === "string"
-                && typeof option.label === "string"
-              )
-            )
-          )
-        ))
+      return Array.isArray(value.fields) &&
+        value.fields.every(
+          (field) =>
+            isRecord(field) &&
+            typeof field.id === "string" &&
+            typeof field.label === "string" &&
+            typeof field.type === "string" &&
+            FIELD_TYPES.has(field.type) &&
+            (field.required === undefined || typeof field.required === "boolean") &&
+            (field.options === undefined ||
+              (Array.isArray(field.options) &&
+                field.options.every(
+                  (option) =>
+                    isRecord(option) &&
+                    typeof option.value === "string" &&
+                    typeof option.label === "string",
+                ))),
+        )
         ? value
         : null;
   }
 }
 
 export function validateContext(value: unknown): boolean {
-  return isRecord(value)
-    && hasShape(value, {}, { stage: isString, progress: isNumber })
-    && (
-      value.items === undefined
-      || (
-        Array.isArray(value.items)
-        && value.items.every((item) =>
-          isRecord(item)
-          && hasShape(item, { id: isString, label: isString }, { value: isString })
-        )
-      )
-    );
+  return (
+    isRecord(value) &&
+    hasShape(value, {}, { stage: isString, progress: isNumber }) &&
+    (value.items === undefined ||
+      (Array.isArray(value.items) &&
+        value.items.every(
+          (item) =>
+            isRecord(item) &&
+            hasShape(item, { id: isString, label: isString }, { value: isString }),
+        )))
+  );
 }
 
 export function validateProvenance(value: unknown): boolean {
@@ -245,30 +243,30 @@ export function validateProvenance(value: unknown): boolean {
 
 export function validateAttentionFrame(value: unknown): unknown | null {
   if (
-    !isRecord(value)
-    || typeof value.id !== "string"
-    || typeof value.taskId !== "string"
-    || typeof value.interactionId !== "string"
-    || typeof value.version !== "number"
-    || typeof value.mode !== "string"
-    || !FRAME_MODES.has(value.mode)
-    || typeof value.tone !== "string"
-    || !TONES.has(value.tone)
-    || typeof value.consequence !== "string"
-    || !CONSEQUENCE_LEVELS.has(value.consequence)
-    || typeof value.title !== "string"
-    || !isRecord(value.timing)
-    || typeof value.timing.createdAt !== "string"
-    || typeof value.timing.updatedAt !== "string"
+    !isRecord(value) ||
+    typeof value.id !== "string" ||
+    typeof value.taskId !== "string" ||
+    typeof value.interactionId !== "string" ||
+    typeof value.version !== "number" ||
+    typeof value.mode !== "string" ||
+    !FRAME_MODES.has(value.mode) ||
+    typeof value.tone !== "string" ||
+    !TONES.has(value.tone) ||
+    typeof value.consequence !== "string" ||
+    !CONSEQUENCE_LEVELS.has(value.consequence) ||
+    typeof value.title !== "string" ||
+    !isRecord(value.timing) ||
+    typeof value.timing.createdAt !== "string" ||
+    typeof value.timing.updatedAt !== "string"
   ) {
     return null;
   }
 
   if (
-    (value.summary !== undefined && typeof value.summary !== "string")
-    || (value.source !== undefined && validateSourceRef(value.source) === null)
-    || (value.context !== undefined && !validateContext(value.context))
-    || (value.provenance !== undefined && !validateProvenance(value.provenance))
+    (value.summary !== undefined && typeof value.summary !== "string") ||
+    (value.source !== undefined && validateSourceRef(value.source) === null) ||
+    (value.context !== undefined && !validateContext(value.context)) ||
+    (value.provenance !== undefined && !validateProvenance(value.provenance))
   ) {
     return null;
   }
@@ -277,12 +275,14 @@ export function validateAttentionFrame(value: unknown): unknown | null {
 }
 
 function validateAttentionCollection(value: unknown): boolean {
-  return isRecord(value)
-    && Array.isArray(value.next)
-    && Array.isArray(value.ambient)
-    && (value.now === null || validateAttentionFrame(value.now) !== null)
-    && value.next.every((entry) => validateAttentionFrame(entry) !== null)
-    && value.ambient.every((entry) => validateAttentionFrame(entry) !== null);
+  return (
+    isRecord(value) &&
+    Array.isArray(value.next) &&
+    Array.isArray(value.ambient) &&
+    (value.now === null || validateAttentionFrame(value.now) !== null) &&
+    value.next.every((entry) => validateAttentionFrame(entry) !== null) &&
+    value.ambient.every((entry) => validateAttentionFrame(entry) !== null)
+  );
 }
 
 export function validateAttentionView(value: unknown): AttentionView | null {

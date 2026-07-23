@@ -1,0 +1,91 @@
+{
+  "id": "golden:kernel:current-frame-queue-decision-record",
+  "title": "Decision record preserves current-frame competition evidence",
+  "description": "A lower-value same-task approval stays in next behind stronger active work, and the fixture locks current-frame evidence, current-episode presence, route, value, and reason codes.",
+  "doctrineTags": ["kernel_conformance", "deterministic_judgment", "current_frame_evidence"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:kernel:first",
+    "nextInteractionIds": ["interaction:kernel:second"],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 1,
+      "ambient": 0
+    },
+    "decisionReadings": [
+      {
+        "stepLabel": "primary approval",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 1,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "decisionRecordCurrentFrameId": null,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:activate", "lane:now"]
+      },
+      {
+        "stepLabel": "secondary approval",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 1,
+        "decisionKind": "queue",
+        "decisionRecordRoute": "queue",
+        "plannedLane": "next",
+        "resultLane": "next",
+        "decisionRecordCurrentFrameId": "frame:interaction:kernel:first",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordCandidateScore": 1211,
+        "decisionRecordValueComponentsInclude": {
+          "priority": 200,
+          "consequence": 10,
+          "blocking": 1000
+        },
+        "decisionRecordReasonsInclude": ["current work still outranks the new candidate"],
+        "decisionRecordReasonCodesInclude": [
+          "route:queue",
+          "lane:next",
+          "evidence:current_frame:present",
+          "evidence:current_episode:present",
+          "policy_gate:blocking:verdict"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publish",
+      "label": "primary approval",
+      "event": {
+        "id": "evt:kernel:first",
+        "taskId": "task:kernel-current",
+        "timestamp": "2026-04-15T20:03:00.000Z",
+        "type": "human.input.requested",
+        "interactionId": "interaction:kernel:first",
+        "title": "Approve primary restart",
+        "summary": "A primary restart is waiting.",
+        "consequence": "high",
+        "request": {
+          "kind": "approval"
+        }
+      }
+    },
+    {
+      "kind": "publish",
+      "label": "secondary approval",
+      "event": {
+        "id": "evt:kernel:second",
+        "taskId": "task:kernel-current",
+        "timestamp": "2026-04-15T20:03:05.000Z",
+        "type": "human.input.requested",
+        "interactionId": "interaction:kernel:second",
+        "title": "Approve secondary restart",
+        "summary": "A secondary restart is waiting.",
+        "consequence": "medium",
+        "request": {
+          "kind": "approval"
+        }
+      }
+    }
+  ]
+}

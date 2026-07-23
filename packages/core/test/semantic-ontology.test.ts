@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  projectAttentionOntologyDiagnostic,
   projectSemanticOntologyDiagnostic,
+  readAttentionOntologyDiagnostic,
   readSemanticOntologyDiagnostic,
 } from "../src/semantic.js";
 
@@ -30,6 +32,56 @@ test("approval requests project to a narrow ontology diagnostic", () => {
     confidence: "high",
     source: "explicit",
   });
+});
+
+test("attention ontology entrypoints preserve semantic ontology compatibility", () => {
+  const event = {
+    id: "evt:ontology:attention-alias",
+    taskId: "task:ontology:attention-alias",
+    type: "task.updated" as const,
+    timestamp,
+    title: "Deploy failed",
+    summary: "The deployment command failed during verification.",
+    status: "failed" as const,
+  };
+  const attention = readAttentionOntologyDiagnostic(event);
+  const semantic = readSemanticOntologyDiagnostic(event);
+
+  assert.deepEqual(attention, semantic);
+  assert.deepEqual(
+    projectAttentionOntologyDiagnostic(event, {
+      intentFrame: "failure",
+      activityClass: "tool_failure",
+      consequence: "medium",
+      whyNow: "The task failed.",
+      factors: ["task.updated", "failed"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["status is failed"],
+      provenance: {
+        intentFrame: "source",
+        activityClass: "source",
+        consequence: "source",
+        confidence: "source",
+      },
+    }),
+    projectSemanticOntologyDiagnostic(event, {
+      intentFrame: "failure",
+      activityClass: "tool_failure",
+      consequence: "medium",
+      whyNow: "The task failed.",
+      factors: ["task.updated", "failed"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["status is failed"],
+      provenance: {
+        intentFrame: "source",
+        activityClass: "source",
+        consequence: "source",
+        confidence: "source",
+      },
+    }),
+  );
 });
 
 test("passive waiting status stays a high-confidence status-shaped waiting ontology read", () => {
@@ -204,6 +256,31 @@ test("resolving relation hints project to a resolved episode diagnostic", () => 
 
   assert.equal(diagnostic.activity, "task_completion");
   assert.equal(diagnostic.episode, "resolved");
+  assert.equal(diagnostic.source, "hinted");
+});
+
+test("attention ontology preserves explicit lifecycle activity while relation hints shape episode", () => {
+  const diagnostic = readAttentionOntologyDiagnostic({
+    id: "evt:ontology:completed-with-noisy-relations",
+    taskId: "task:ontology:completed-with-noisy-relations",
+    type: "task.updated",
+    timestamp,
+    title: "Deploy completed after retry",
+    summary: "The deployment completed, though adapter context relates it to a prior failure.",
+    status: "completed",
+    semanticHints: {
+      relationHints: [
+        { kind: "same_issue", target: "task:ontology:previous-deploy-failure" },
+        { kind: "repeats", target: "task:ontology:previous-deploy-failure" },
+      ],
+      confidence: "high",
+    },
+  });
+
+  assert.equal(diagnostic.ask, "status");
+  assert.equal(diagnostic.activity, "task_completion");
+  assert.equal(diagnostic.blocking, "non_blocking");
+  assert.equal(diagnostic.episode, "resurfaced");
   assert.equal(diagnostic.source, "hinted");
 });
 

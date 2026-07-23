@@ -14,6 +14,10 @@ import {
   readSemanticOntologyDiagnostic,
 } from "@tomismeta/aperture-core/semantic";
 
+import {
+  buildKernelDecisionRecordProjection,
+  fingerprintKernelDecisionRecordProjection,
+} from "./kernel-decision-contract.js";
 import type {
   ReplayObservationStep,
   ReplayDecisionSnapshot,
@@ -22,6 +26,7 @@ import type {
   ReplaySemanticSnapshot,
   ReplayViewSnapshot,
 } from "./scenario.js";
+import type { ReplayCandidateTrace } from "./replay-trace.js";
 
 export type ReplayStepResult = {
   stepIndex: number;
@@ -70,12 +75,13 @@ export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
       case "publish":
         frame = core.publish(step.event);
         break;
-      case "publishSource":
-        {
-          const normalized = normalizeSourceEvent(step.event);
-          if (!normalized.semantic) {
-            throw new Error("Normalized source events must preserve semantic interpretation for replay capture.");
-          }
+      case "publishSource": {
+        const normalized = normalizeSourceEvent(step.event);
+        if (!normalized.semantic) {
+          throw new Error(
+            "Normalized source events must preserve semantic interpretation for replay capture.",
+          );
+        }
         semantics.push({
           stepIndex,
           stepKind: step.kind,
@@ -83,15 +89,15 @@ export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
           interpretation: normalized.semantic,
           ontology: readSemanticOntologyDiagnostic(step.event, normalized.semantic),
         });
-          normalizedEvents.push({
-            stepIndex,
-            stepKind: step.kind,
-            ...(step.label ? { stepLabel: step.label } : {}),
-            event: normalized,
-          });
-          frame = core.publish(normalized);
+        normalizedEvents.push({
+          stepIndex,
+          stepKind: step.kind,
+          ...(step.label ? { stepLabel: step.label } : {}),
+          event: normalized,
+        });
+        frame = core.publish(normalized);
         break;
-        }
+      }
       case "submit":
         core.submit(step.response);
         break;
@@ -162,7 +168,7 @@ export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
 }
 
 export function buildDecisionSemanticSnapshot(
-  trace: Extract<ApertureTrace, { evaluation: { kind: "candidate" } }>,
+  trace: ReplayCandidateTrace,
 ): Pick<ReplayDecisionSnapshot, "semanticConfidence" | "semanticAbstained"> {
   const adjusted = trace.evaluation.adjusted as {
     judgmentInput?: {
@@ -175,12 +181,60 @@ export function buildDecisionSemanticSnapshot(
     semanticAbstained?: boolean;
   };
   const semanticEvidence = adjusted.judgmentInput?.semanticEvidence;
-  const confidence = semanticEvidence?.confidence ?? adjusted.semanticConfidence ?? trace.semantic?.confidence;
-  const abstained = semanticEvidence?.abstained ?? adjusted.semanticAbstained ?? trace.semantic?.abstained;
+  const confidence =
+    semanticEvidence?.confidence ?? adjusted.semanticConfidence ?? trace.semantic?.confidence;
+  const abstained =
+    semanticEvidence?.abstained ?? adjusted.semanticAbstained ?? trace.semantic?.abstained;
 
   return {
     ...(confidence !== undefined ? { semanticConfidence: confidence } : {}),
     ...(abstained === true ? { semanticAbstained: true } : {}),
+  };
+}
+
+export function buildDecisionRecordSnapshot(
+  trace: ReplayCandidateTrace,
+): Pick<
+  ReplayDecisionSnapshot,
+  | "decisionRecordProjectionVersion"
+  | "decisionRecordRoute"
+  | "plannedLane"
+  | "decisionRecordCurrentFrameId"
+  | "decisionRecordCurrentEpisodeId"
+  | "decisionRecordOperatorPresence"
+  | "decisionRecordCandidateScore"
+  | "decisionRecordValueComponents"
+  | "decisionRecordReasons"
+  | "decisionRecordReasonCodes"
+  | "decisionRecordFingerprint"
+> {
+  const record = trace.decisionRecord;
+  if (!record) {
+    return {};
+  }
+
+  const projection = buildKernelDecisionRecordProjection(record);
+
+  return {
+    ...(projection !== null
+      ? {
+          decisionRecordProjectionVersion: projection.version,
+          decisionRecordReasonCodes: projection.reasonCodes,
+          decisionRecordFingerprint: fingerprintKernelDecisionRecordProjection(projection),
+        }
+      : {}),
+    decisionRecordRoute: projection?.route ?? record.planning.route,
+    plannedLane: projection?.lane ?? record.planning.plannedLane,
+    decisionRecordCurrentFrameId:
+      projection?.evidence.currentFrameId ?? record.evidenceSnapshot.currentFrameId,
+    decisionRecordCurrentEpisodeId:
+      projection?.evidence.currentEpisodeId ?? record.evidenceSnapshot.currentEpisodeId,
+    decisionRecordOperatorPresence:
+      projection?.evidence.operatorPresence ?? record.evidenceSnapshot.operatorPresence,
+    decisionRecordCandidateScore: projection?.value.candidateScore ?? record.value.candidateScore,
+    decisionRecordValueComponents:
+      projection?.value.components ?? record.value.breakdown.components,
+    decisionRecordReasons: projection?.reasons ?? record.planning.reasons,
   };
 }
 
@@ -212,7 +266,10 @@ function buildDecisionSnapshot(
     resultLane: trace.coordination.resultLane,
     interactionId: trace.evaluation.adjusted.interactionId,
     ...buildDecisionSemanticSnapshot(trace),
-    ...(trace.semantic?.influence !== undefined ? { semanticInfluence: trace.semantic.influence } : {}),
+    ...buildDecisionRecordSnapshot(trace),
+    ...(trace.semantic?.influence !== undefined
+      ? { semanticInfluence: trace.semantic.influence }
+      : {}),
     ...(trace.semantic?.impact.decisionBearing !== undefined
       ? { semanticImpactDecisionBearing: trace.semantic.impact.decisionBearing }
       : {}),

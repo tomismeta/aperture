@@ -35,6 +35,12 @@ export type {
   TraceSemanticSummary,
 } from "./trace-common.js";
 export type {
+  AttentionOntologyDiagnostic,
+  AttentionOntologyActivity,
+  AttentionOntologyAsk,
+  AttentionOntologyAuthority,
+  AttentionOntologyBlocking,
+  AttentionOntologyEpisode,
   SemanticOntologyDiagnostic,
   SemanticOntologyActivity,
   SemanticOntologyAsk,

@@ -6,3 +6,4 @@ public-dist
 .codex
 pnpm-lock.yaml
 docs/assets
+packages/lab/conformance

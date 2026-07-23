@@ -1,21 +1,21 @@
 import type { SemanticConfidence } from "./semantic-types.js";
 import type {
-  SemanticOntologyDiagnostic,
-  SemanticOntologySource,
+  AttentionOntologyAuthority,
+  AttentionOntologyDiagnostic,
 } from "./semantic-ontology-types.js";
 
 export type SemanticEvidenceStrength = "weak" | "qualified" | "strong";
 
 export type AttentionJudgmentInput = {
-  ontology?: SemanticOntologyDiagnostic;
+  ontology?: AttentionOntologyDiagnostic;
   semanticEvidence?: {
     confidence: SemanticConfidence;
-    source: SemanticOntologySource;
+    source: AttentionOntologyAuthority;
     strength: SemanticEvidenceStrength;
     abstained: boolean;
   };
   relationEvidence?: {
-    source: SemanticOntologySource;
+    source: AttentionOntologyAuthority;
     strength: SemanticEvidenceStrength;
   };
   // Narrow status-routing diagnostic, not a generic proxy for blockingness.

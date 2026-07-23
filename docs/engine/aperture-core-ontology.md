@@ -2,7 +2,7 @@
 
 For a simpler conceptual overview, see [Core Mental Model](./core-mental-model.md).
 
-This document defines the canonical supervision ontology for Aperture Core.
+This document defines the canonical attention ontology for Aperture Core.
 
 It is intentionally small.
 
@@ -63,6 +63,10 @@ host-shaped concepts.
 ## Canonical Dimensions
 
 The current Aperture Core ontology should stay centered on seven dimensions.
+
+The kernel type is `AttentionOntologyDiagnostic`. The older
+`SemanticOntologyDiagnostic` name remains a compatibility alias for the semantic
+entrypoint, but new kernel work should use the attention-named contract.
 
 ### 1. `ask`
 
@@ -159,10 +163,17 @@ Where did the semantic read come from?
 - `hinted`
 - `inferred`
 
-This keeps provenance first-class and prevents inferred meaning from pretending
-to be source fact.
+This is the ontology's authority dimension. It keeps provenance first-class and
+prevents inferred meaning from pretending to be source fact.
 `explicit` means the operative read came from the event shape or source-provided
 fields, not only from Aperture's own wording inference.
+
+`source` is intentionally coarse at this stage. It describes the highest-impact
+authority involved in the compact diagnostic, not per-field provenance. For
+mixed reads, such as an explicit lifecycle status with hinted relation
+continuity, detailed field authority stays in `SemanticInterpretation.provenance`
+and traces while the compact ontology may report `hinted` to preserve the
+weaker/adapter-influenced aspect of the overall read.
 
 ## Routing Meaning
 
@@ -197,7 +208,7 @@ raw semantic fragments directly.
 
 The current internal handoff is:
 
-`SemanticInterpretation -> SemanticOntologyDiagnostic -> AttentionJudgmentInput`
+`SemanticInterpretation -> AttentionOntologyDiagnostic -> AttentionJudgmentInput`
 
 That means ontology is already part of the live decision flow, but as a compact
 compiled seam rather than as the sole coordinator object on every path.

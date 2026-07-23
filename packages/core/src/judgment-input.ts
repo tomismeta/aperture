@@ -1,6 +1,6 @@
 import type { ApertureEvent } from "./events.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
-import { projectSemanticOntologyDiagnostic } from "./semantic-ontology.js";
+import { projectAttentionOntologyDiagnostic } from "./semantic-ontology.js";
 import type { SemanticConfidence } from "./semantic-types.js";
 import type {
   AttentionJudgmentInput,
@@ -8,8 +8,8 @@ import type {
   SemanticEvidenceStrength,
 } from "./judgment-input-types.js";
 import type {
-  SemanticOntologyDiagnostic,
-  SemanticOntologySource,
+  AttentionOntologyAuthority,
+  AttentionOntologyDiagnostic,
 } from "./semantic-ontology-types.js";
 
 export type {
@@ -26,7 +26,7 @@ export type {
  * and trace one compiled place to read:
  *
  * `SemanticInterpretation`
- *   -> `SemanticOntologyDiagnostic`
+ *   -> `AttentionOntologyDiagnostic`
  *      loses raw reasons/why-now/factors and keeps the compact 7-dimension read
  *   -> `AttentionJudgmentInput`
  *      narrows again to the routing-critical subset used by judgment
@@ -45,7 +45,7 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
     };
   }
 
-  const ontology = projectSemanticOntologyDiagnostic(event, event.semantic);
+  const ontology = projectAttentionOntologyDiagnostic(event, event.semantic);
   const abstained = event.semantic.abstained === true;
 
   return {
@@ -99,10 +99,16 @@ export function readSemanticRelationEvidenceStrength(
   return readCandidateSemanticRelationEvidence(candidate)?.strength ?? null;
 }
 
+export function readCandidateAttentionOntology(
+  candidate: AttentionCandidate,
+): AttentionOntologyDiagnostic | null {
+  return candidate.judgmentInput.ontology ?? null;
+}
+
 export function readCandidateSemanticOntology(
   candidate: AttentionCandidate,
-): SemanticOntologyDiagnostic | null {
-  return candidate.judgmentInput.ontology ?? null;
+): AttentionOntologyDiagnostic | null {
+  return readCandidateAttentionOntology(candidate);
 }
 
 export function readCandidateSemanticConfidence(
@@ -162,7 +168,7 @@ export function resolvePeripheralResolutionFloor(
 
 function readSemanticEvidenceStrengthFromParts(
   confidence: SemanticConfidence,
-  source: SemanticOntologySource | undefined,
+  source: AttentionOntologyAuthority | undefined,
   abstained: boolean,
 ): SemanticEvidenceStrength {
   if (abstained) {
@@ -181,7 +187,7 @@ function readSemanticEvidenceStrengthFromParts(
 
 function readSemanticRelationEvidenceSource(
   interpretation: NonNullable<ApertureEvent["semantic"]>,
-): SemanticOntologySource {
+): AttentionOntologyAuthority {
   const provenance = interpretation.provenance?.relationHints;
   switch (provenance) {
     case "source":

@@ -9,12 +9,12 @@ import {
   hasBlockedLikeStatusSemantics,
   isCandidateSemanticAbstained,
   isCandidateSemanticLowConfidence,
+  readCandidateAttentionOntology,
   readCandidateSemanticConfidence,
   readCandidateSemanticEvidence,
-  readCandidateSemanticOntology,
 } from "./judgment-input.js";
 import type { AttentionPressure } from "./attention-pressure.js";
-import { projectSemanticOntologyDiagnostic } from "./semantic-ontology.js";
+import { projectAttentionOntologyDiagnostic } from "./semantic-ontology.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import type {
   TraceCandidateTransition,
@@ -64,6 +64,7 @@ export class TraceRecorder {
   recordCandidate(snapshot: TraceSnapshot, input: CandidateTraceInput): ApertureTrace {
     const { original, adjusted, explanation, result } = input;
     const semantic = buildSemanticSummary(snapshot.event, adjusted);
+    const decisionRecord = explanation.record;
 
     return {
       ...snapshot,
@@ -80,40 +81,43 @@ export class TraceRecorder {
       },
       ...(semantic !== undefined ? { semantic } : {}),
       episode: buildEpisodeSummary(adjusted),
-      policy: explanation.policy,
+      decisionRecord,
+      policy: decisionRecord.policy.verdict,
       policyRules: {
-        gateEvaluations: explanation.policyGateEvaluations,
-        criterion: explanation.criterion,
-        criterionEvaluations: explanation.policyCriterionEvaluations,
+        gateEvaluations: decisionRecord.policy.gateEvaluations,
+        criterion: decisionRecord.policy.criterion,
+        criterionEvaluations: decisionRecord.policy.criterionEvaluations,
       },
       utility: {
-        candidate: explanation.utility,
-        currentScore: explanation.currentScore,
-        currentPriority: explanation.currentPriority,
+        candidate: decisionRecord.value.breakdown,
+        currentScore: decisionRecord.value.currentScore,
+        currentPriority: decisionRecord.value.currentPriority,
       },
       planner: {
-        kind: explanation.decision.kind,
-        reasons: explanation.reasons,
-        continuityEvaluations: explanation.continuityEvaluations,
+        kind: decisionRecord.planning.route,
+        reasons: decisionRecord.planning.reasons,
+        reasonCodes: decisionRecord.planning.reasonCodes,
+        continuityEvaluations: decisionRecord.planning.continuityEvaluations,
       },
       coordination: {
-        kind: explanation.decision.kind,
+        kind: decisionRecord.planning.route,
         resultLane: findResultLane(
           snapshot.attentionView,
           adjusted.taskId,
           adjusted.interactionId,
-          explanation.decision.kind,
+          decisionRecord.planning.route,
         ),
-        candidateScore: explanation.candidateScore,
-        currentScore: explanation.currentScore,
-        currentPriority: explanation.currentPriority,
-        criterion: explanation.criterion,
-        ambiguity: explanation.ambiguity,
-        reasons: explanation.reasons,
-        continuityEvaluations: explanation.continuityEvaluations,
+        candidateScore: decisionRecord.value.candidateScore,
+        currentScore: decisionRecord.value.currentScore,
+        currentPriority: decisionRecord.value.currentPriority,
+        criterion: decisionRecord.policy.criterion,
+        ambiguity: decisionRecord.planning.ambiguity,
+        reasons: decisionRecord.planning.reasons,
+        reasonCodes: decisionRecord.planning.reasonCodes,
+        continuityEvaluations: decisionRecord.planning.continuityEvaluations,
       },
-      pressureForecast: explanation.pressureForecast,
-      attentionBurden: explanation.attentionBurden,
+      pressureForecast: decisionRecord.evidenceSnapshot.pressureForecast,
+      attentionBurden: decisionRecord.evidenceSnapshot.attentionBurden,
       result,
     };
   }
@@ -164,7 +168,7 @@ function buildSemanticSummary(
   }
 
   const ontology =
-    readCandidateSemanticOntology(adjusted) ?? projectSemanticOntologyDiagnostic(event, semantic);
+    readCandidateAttentionOntology(adjusted) ?? projectAttentionOntologyDiagnostic(event, semantic);
   const semanticEvidence = readCandidateSemanticEvidence(adjusted);
 
   return {
@@ -197,7 +201,7 @@ function buildSemanticInfluence(
   }
 
   const ontology =
-    readCandidateSemanticOntology(adjusted) ?? projectSemanticOntologyDiagnostic(event, semantic);
+    readCandidateAttentionOntology(adjusted) ?? projectAttentionOntologyDiagnostic(event, semantic);
 
   const influence: string[] = [];
 

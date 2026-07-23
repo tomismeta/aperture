@@ -2,6 +2,7 @@ import type { AttentionResponse, AttentionSignal } from "@tomismeta/aperture-cor
 import type { ApertureTrace } from "@tomismeta/aperture-core/internal";
 
 import { loadGoldenScenarios } from "./golden.js";
+import { compareKernelCanonicalKey } from "./kernel-canonical-json.js";
 import { runReplayScenario } from "./runner.js";
 import type { ReplayRunResult } from "./runner.js";
 import type { ReplayScenario } from "./scenario.js";
@@ -74,11 +75,7 @@ type NormalizedSignal = {
   surface?: string;
 };
 
-type NormalizedResponse = {
-  taskId: string;
-  interactionId: string;
-  responseKind: string;
-};
+type NormalizedResponse = { taskId: string; interactionId: string; responseKind: string };
 
 type NormalizedSemantic = {
   stepIndex: number;
@@ -110,23 +107,31 @@ type NormalizedDecision = {
   stepLabel?: string;
   evaluationKind: "candidate" | "clear" | "noop";
   decisionKind?: string;
+  decisionRecordProjectionVersion?: number;
+  decisionRecordRoute?: string;
+  plannedLane?: string;
   resultLane?: string;
   interactionId?: string;
+  decisionRecordCurrentFrameId?: string | null;
+  decisionRecordCurrentEpisodeId?: string | null;
+  decisionRecordOperatorPresence?: string;
+  decisionRecordCandidateScore?: number;
+  decisionRecordValueComponents: Record<string, number>;
+  decisionRecordReasons: string[];
+  decisionRecordReasonCodes: string[];
+  decisionRecordFingerprint?: string;
   semanticConfidence?: string;
   semanticAbstained?: boolean;
   semanticInfluence: string[];
   semanticImpactDecisionBearing: string[];
   semanticImpactExplanatory: string[];
-  ambiguity?: {
-    reason: string;
-    resolution: string;
-  } | null;
+  ambiguity?: { reason: string; resolution: string } | null;
 };
 
 export async function runDeterminismAudit(
   scenarios?: ReplayScenario[],
 ): Promise<DeterminismAuditRun> {
-  const loadedScenarios = scenarios ?? await loadGoldenScenarios();
+  const loadedScenarios = scenarios ?? (await loadGoldenScenarios());
   const results = loadedScenarios.map((scenario) => compareScenarioDeterminism(scenario));
   const stableScenarios = results.filter((result) => result.stable).length;
 
@@ -141,9 +146,7 @@ export async function runDeterminismAudit(
   };
 }
 
-export function compareScenarioDeterminism(
-  scenario: ReplayScenario,
-): DeterminismScenarioResult {
+export function compareScenarioDeterminism(scenario: ReplayScenario): DeterminismScenarioResult {
   const left = normalizeReplayRun(runReplayScenario(scenario));
   const right = normalizeReplayRun(runReplayScenario(scenario));
   const driftAreas = collectDriftAreas(left, right);
@@ -171,9 +174,15 @@ export function normalizeReplayRun(run: ReplayRunResult): NormalizedReplayRun {
       stepIndex: semantic.stepIndex,
       ...(semantic.stepLabel ? { stepLabel: semantic.stepLabel } : {}),
       intentFrame: semantic.interpretation.intentFrame,
-      ...(semantic.interpretation.activityClass ? { activityClass: semantic.interpretation.activityClass } : {}),
-      ...(semantic.interpretation.toolFamily ? { toolFamily: semantic.interpretation.toolFamily } : {}),
-      ...(semantic.interpretation.consequence ? { consequence: semantic.interpretation.consequence } : {}),
+      ...(semantic.interpretation.activityClass
+        ? { activityClass: semantic.interpretation.activityClass }
+        : {}),
+      ...(semantic.interpretation.toolFamily
+        ? { toolFamily: semantic.interpretation.toolFamily }
+        : {}),
+      ...(semantic.interpretation.consequence
+        ? { consequence: semantic.interpretation.consequence }
+        : {}),
       ...(semantic.interpretation.whyNow ? { whyNow: semantic.interpretation.whyNow } : {}),
       confidence: semantic.interpretation.confidence,
       abstained: semantic.interpretation.abstained === true,
@@ -188,8 +197,35 @@ export function normalizeReplayRun(run: ReplayRunResult): NormalizedReplayRun {
       ...(decision.stepLabel ? { stepLabel: decision.stepLabel } : {}),
       evaluationKind: decision.evaluationKind,
       ...(decision.decisionKind ? { decisionKind: decision.decisionKind } : {}),
+      ...(decision.decisionRecordProjectionVersion !== undefined
+        ? { decisionRecordProjectionVersion: decision.decisionRecordProjectionVersion }
+        : {}),
+      ...(decision.decisionRecordRoute
+        ? { decisionRecordRoute: decision.decisionRecordRoute }
+        : {}),
+      ...(decision.plannedLane ? { plannedLane: decision.plannedLane } : {}),
       ...(decision.resultLane ? { resultLane: decision.resultLane } : {}),
       ...(decision.interactionId ? { interactionId: decision.interactionId } : {}),
+      ...(decision.decisionRecordCurrentFrameId !== undefined
+        ? { decisionRecordCurrentFrameId: decision.decisionRecordCurrentFrameId }
+        : {}),
+      ...(decision.decisionRecordCurrentEpisodeId !== undefined
+        ? { decisionRecordCurrentEpisodeId: decision.decisionRecordCurrentEpisodeId }
+        : {}),
+      ...(decision.decisionRecordOperatorPresence
+        ? { decisionRecordOperatorPresence: decision.decisionRecordOperatorPresence }
+        : {}),
+      ...(decision.decisionRecordCandidateScore !== undefined
+        ? { decisionRecordCandidateScore: decision.decisionRecordCandidateScore }
+        : {}),
+      decisionRecordValueComponents: normalizeNumberMap(
+        decision.decisionRecordValueComponents ?? {},
+      ),
+      decisionRecordReasons: decision.decisionRecordReasons ?? [],
+      decisionRecordReasonCodes: decision.decisionRecordReasonCodes ?? [],
+      ...(decision.decisionRecordFingerprint
+        ? { decisionRecordFingerprint: decision.decisionRecordFingerprint }
+        : {}),
       ...(decision.semanticConfidence ? { semanticConfidence: decision.semanticConfidence } : {}),
       ...(decision.semanticAbstained === true ? { semanticAbstained: true } : {}),
       semanticInfluence: decision.semanticInfluence ?? [],
@@ -209,10 +245,7 @@ export function normalizeReplayRun(run: ReplayRunResult): NormalizedReplayRun {
   };
 }
 
-function collectDriftAreas(
-  left: NormalizedReplayRun,
-  right: NormalizedReplayRun,
-): string[] {
+function collectDriftAreas(left: NormalizedReplayRun, right: NormalizedReplayRun): string[] {
   const drift: string[] = [];
   if (!sameValue(left.finalView, right.finalView)) {
     drift.push("finalView");
@@ -278,7 +311,9 @@ function normalizeSignal(signal: AttentionSignal): NormalizedSignal {
     taskId: signal.taskId,
     interactionId: signal.interactionId,
     ...("reason" in signal && signal.reason !== undefined ? { reason: signal.reason } : {}),
-    ...("responseKind" in signal && signal.responseKind !== undefined ? { responseKind: signal.responseKind } : {}),
+    ...("responseKind" in signal && signal.responseKind !== undefined
+      ? { responseKind: signal.responseKind }
+      : {}),
     ...("from" in signal && signal.from !== undefined ? { from: signal.from } : {}),
     ...("fromInteractionId" in signal && signal.fromInteractionId !== undefined
       ? { fromInteractionId: signal.fromInteractionId }
@@ -296,6 +331,14 @@ function normalizeResponse(response: AttentionResponse): NormalizedResponse {
     interactionId: response.interactionId,
     responseKind: response.response.kind,
   };
+}
+
+function normalizeNumberMap(value: Record<string, number | undefined>): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter((entry): entry is [string, number] => typeof entry[1] === "number")
+      .sort(([left], [right]) => compareKernelCanonicalKey(left, right)),
+  );
 }
 
 function sameValue(left: unknown, right: unknown): boolean {

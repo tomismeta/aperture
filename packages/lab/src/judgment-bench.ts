@@ -49,35 +49,33 @@ export type JudgmentBenchRun = {
   generatedAt: string;
   scenarios: JudgmentBenchScenarioResult[];
   summary: {
-      totalScenarios: number;
-      passedScenarios: number;
-      failedScenarios: number;
-      totalAssertions: number;
-      passedAssertions: number;
-      failedAssertions: number;
-      benchmarkScore: number;
-      totalSemanticReadings: number;
-      totalDecisionReadings: number;
-      totalAmbiguousDecisions: number;
-      totalAmbiguousNext: number;
-      totalAmbiguousAmbient: number;
-      totalAmbiguousNextThenNow: number;
-      totalAmbiguousAmbientThenNow: number;
-      totalCandidates: number;
-      totalNowLanes: number;
-      totalNextLanes: number;
-      totalAmbientLanes: number;
-      totalResponses: number;
-      totalPresentedSignals: number;
+    totalScenarios: number;
+    passedScenarios: number;
+    failedScenarios: number;
+    totalAssertions: number;
+    passedAssertions: number;
+    failedAssertions: number;
+    benchmarkScore: number;
+    totalSemanticReadings: number;
+    totalDecisionReadings: number;
+    totalAmbiguousDecisions: number;
+    totalAmbiguousNext: number;
+    totalAmbiguousAmbient: number;
+    totalAmbiguousNextThenNow: number;
+    totalAmbiguousAmbientThenNow: number;
+    totalCandidates: number;
+    totalNowLanes: number;
+    totalNextLanes: number;
+    totalAmbientLanes: number;
+    totalResponses: number;
+    totalPresentedSignals: number;
   };
   doctrineHealth: JudgmentBenchDoctrineHealth[];
   semanticHealth: JudgmentBenchSemanticHealth[];
 };
 
-export async function runJudgmentBench(
-  scenarios?: ReplayScenario[],
-): Promise<JudgmentBenchRun> {
-  const loadedScenarios = scenarios ?? await loadGoldenScenarios();
+export async function runJudgmentBench(scenarios?: ReplayScenario[]): Promise<JudgmentBenchRun> {
+  const loadedScenarios = scenarios ?? (await loadGoldenScenarios());
   const results = loadedScenarios.map((scenario) => {
     const run = runReplayScenario(scenario);
     const scorecard = scoreReplayRun(run);
@@ -114,12 +112,23 @@ export async function runJudgmentBench(
       totalSemanticReadings: sum(results.map((result) => result.run.semantics.length)),
       totalDecisionReadings: sum(results.map((result) => result.run.decisions.length)),
       totalAmbiguousDecisions: sum(
-        results.map((result) => result.run.decisions.filter((decision) => decision.ambiguity !== null && decision.ambiguity !== undefined).length),
+        results.map(
+          (result) =>
+            result.run.decisions.filter(
+              (decision) => decision.ambiguity !== null && decision.ambiguity !== undefined,
+            ).length,
+        ),
       ),
       totalAmbiguousNext: sum(results.map((result) => result.scorecard.trace?.ambiguousNext ?? 0)),
-      totalAmbiguousAmbient: sum(results.map((result) => result.scorecard.trace?.ambiguousAmbient ?? 0)),
-      totalAmbiguousNextThenNow: sum(results.map((result) => result.scorecard.trace?.ambiguousNextThenActivated ?? 0)),
-      totalAmbiguousAmbientThenNow: sum(results.map((result) => result.scorecard.trace?.ambiguousAmbientThenActivated ?? 0)),
+      totalAmbiguousAmbient: sum(
+        results.map((result) => result.scorecard.trace?.ambiguousAmbient ?? 0),
+      ),
+      totalAmbiguousNextThenNow: sum(
+        results.map((result) => result.scorecard.trace?.ambiguousNextThenActivated ?? 0),
+      ),
+      totalAmbiguousAmbientThenNow: sum(
+        results.map((result) => result.scorecard.trace?.ambiguousAmbientThenActivated ?? 0),
+      ),
       totalCandidates: sum(results.map((result) => result.scorecard.trace?.totalCandidates ?? 0)),
       totalNowLanes: sum(results.map((result) => result.scorecard.lanes.now)),
       totalNextLanes: sum(results.map((result) => result.scorecard.lanes.next)),
@@ -155,7 +164,10 @@ function evaluateScenarioExpectations(
   if (expectations.nextInteractionIds) {
     assertions.push({
       name: "next interactions",
-      passed: sameStringSet(scorecard.outcomes.finalNextInteractionIds, expectations.nextInteractionIds),
+      passed: sameStringSet(
+        scorecard.outcomes.finalNextInteractionIds,
+        expectations.nextInteractionIds,
+      ),
       expected: expectations.nextInteractionIds,
       actual: scorecard.outcomes.finalNextInteractionIds,
     });
@@ -164,7 +176,10 @@ function evaluateScenarioExpectations(
   if (expectations.ambientInteractionIds) {
     assertions.push({
       name: "ambient interactions",
-      passed: sameStringSet(scorecard.outcomes.finalAmbientInteractionIds, expectations.ambientInteractionIds),
+      passed: sameStringSet(
+        scorecard.outcomes.finalAmbientInteractionIds,
+        expectations.ambientInteractionIds,
+      ),
       expected: expectations.ambientInteractionIds,
       actual: scorecard.outcomes.finalAmbientInteractionIds,
     });
@@ -206,7 +221,9 @@ function evaluateScenarioExpectations(
   }
 
   if (expectations.explanationExpectation) {
-    assertions.push(...evaluateExplanationExpectation(expectations.explanationExpectation, scorecard));
+    assertions.push(
+      ...evaluateExplanationExpectation(expectations.explanationExpectation, scorecard),
+    );
   }
 
   if (expectations.traceExpectations) {
@@ -226,26 +243,68 @@ function evaluateSemanticExpectation(
     : `semantic reading (step ${expectation.stepIndex ?? "?"})`;
 
   if (!target) {
-    return [{
-      name: `${targetKey} present`,
-      passed: false,
-      expected: expectation.stepLabel ?? expectation.stepIndex ?? "matching semantic snapshot",
-      actual: null,
-    }];
+    return [
+      {
+        name: `${targetKey} present`,
+        passed: false,
+        expected: expectation.stepLabel ?? expectation.stepIndex ?? "matching semantic snapshot",
+        actual: null,
+      },
+    ];
   }
 
   const assertions: JudgmentBenchAssertionResult[] = [];
   const semantic = target.interpretation;
 
-  pushFieldAssertion(assertions, `${targetKey} intent frame`, expectation.intentFrame, semantic.intentFrame);
-  pushFieldAssertion(assertions, `${targetKey} activity class`, expectation.activityClass, semantic.activityClass);
-  pushFieldAssertion(assertions, `${targetKey} tool family`, expectation.toolFamily, semantic.toolFamily ?? null);
-  pushFieldAssertion(assertions, `${targetKey} consequence`, expectation.consequence, semantic.consequence);
-  pushFieldAssertion(assertions, `${targetKey} confidence`, expectation.confidence, semantic.confidence);
-  pushFieldAssertion(assertions, `${targetKey} abstained`, expectation.abstained, semantic.abstained ?? false);
+  pushFieldAssertion(
+    assertions,
+    `${targetKey} intent frame`,
+    expectation.intentFrame,
+    semantic.intentFrame,
+  );
+  pushFieldAssertion(
+    assertions,
+    `${targetKey} activity class`,
+    expectation.activityClass,
+    semantic.activityClass,
+  );
+  pushFieldAssertion(
+    assertions,
+    `${targetKey} tool family`,
+    expectation.toolFamily,
+    semantic.toolFamily ?? null,
+  );
+  pushFieldAssertion(
+    assertions,
+    `${targetKey} consequence`,
+    expectation.consequence,
+    semantic.consequence,
+  );
+  pushFieldAssertion(
+    assertions,
+    `${targetKey} confidence`,
+    expectation.confidence,
+    semantic.confidence,
+  );
+  pushFieldAssertion(
+    assertions,
+    `${targetKey} abstained`,
+    expectation.abstained,
+    semantic.abstained ?? false,
+  );
   if (expectation.ontology) {
-    pushFieldAssertion(assertions, `${targetKey} ontology ask`, expectation.ontology.ask, target.ontology?.ask);
-    pushFieldAssertion(assertions, `${targetKey} ontology activity`, expectation.ontology.activity, target.ontology?.activity);
+    pushFieldAssertion(
+      assertions,
+      `${targetKey} ontology ask`,
+      expectation.ontology.ask,
+      target.ontology?.ask,
+    );
+    pushFieldAssertion(
+      assertions,
+      `${targetKey} ontology activity`,
+      expectation.ontology.activity,
+      target.ontology?.activity,
+    );
     pushFieldAssertion(
       assertions,
       `${targetKey} ontology consequence`,
@@ -281,7 +340,8 @@ function evaluateSemanticExpectation(
   if (expectation.whyNowIncludes !== undefined) {
     assertions.push({
       name: `${targetKey} whyNow includes`,
-      passed: typeof semantic.whyNow === "string" && semantic.whyNow.includes(expectation.whyNowIncludes),
+      passed:
+        typeof semantic.whyNow === "string" && semantic.whyNow.includes(expectation.whyNowIncludes),
       expected: expectation.whyNowIncludes,
       actual: semantic.whyNow ?? null,
     });
@@ -308,7 +368,9 @@ function evaluateSemanticExpectation(
   if (expectation.relationKindsInclude && expectation.relationKindsInclude.length > 0) {
     assertions.push({
       name: `${targetKey} relation kinds include`,
-      passed: expectation.relationKindsInclude.every((kind) => semantic.relationHints.some((hint) => hint.kind === kind)),
+      passed: expectation.relationKindsInclude.every((kind) =>
+        semantic.relationHints.some((hint) => hint.kind === kind),
+      ),
       expected: expectation.relationKindsInclude,
       actual: semantic.relationHints.map((hint) => hint.kind),
     });
@@ -326,9 +388,8 @@ function evaluateSemanticExpectation(
 
   if (expectation.provenanceIncludes) {
     for (const [field, expectedOrigin] of Object.entries(expectation.provenanceIncludes)) {
-      const actualOrigin = semantic.provenance?.[
-        field as keyof NonNullable<typeof semantic.provenance>
-      ] ?? null;
+      const actualOrigin =
+        semantic.provenance?.[field as keyof NonNullable<typeof semantic.provenance>] ?? null;
       assertions.push({
         name: `${targetKey} provenance ${field}`,
         passed: actualOrigin === expectedOrigin,
@@ -366,51 +427,187 @@ function evaluateDecisionExpectation(
     : `decision reading (step ${expectation.stepIndex ?? "?"})`;
 
   if (!target) {
-    return [{
-      name: `${targetKey} present`,
-      passed: false,
-      expected: expectation.stepLabel ?? expectation.stepIndex ?? "matching decision snapshot",
-      actual: null,
-    }];
+    return [
+      {
+        name: `${targetKey} present`,
+        passed: false,
+        expected: expectation.stepLabel ?? expectation.stepIndex ?? "matching decision snapshot",
+        actual: null,
+      },
+    ];
   }
 
   const assertions: JudgmentBenchAssertionResult[] = [];
 
-  pushFieldAssertion(assertions, `${targetKey} evaluation kind`, expectation.evaluationKind, target.evaluationKind);
-  pushFieldAssertion(assertions, `${targetKey} decision kind`, expectation.decisionKind, target.decisionKind);
-  pushFieldAssertion(assertions, `${targetKey} result lane`, expectation.resultLane, target.resultLane);
-  pushFieldAssertion(assertions, `${targetKey} semantic confidence`, expectation.semanticConfidence, target.semanticConfidence);
-  pushFieldAssertion(assertions, `${targetKey} semantic abstained`, expectation.semanticAbstained, target.semanticAbstained ?? false);
-  pushFieldAssertion(assertions, `${targetKey} ambiguity reason`, expectation.ambiguityReason, target.ambiguity?.reason ?? null);
-  pushFieldAssertion(assertions, `${targetKey} ambiguity resolution`, expectation.ambiguityResolution, target.ambiguity?.resolution ?? null);
+  pushFieldAssertion(
+    assertions,
+    `${targetKey} evaluation kind`,
+    expectation.evaluationKind,
+    target.evaluationKind,
+  );
+  pushFieldAssertion(
+    assertions,
+    `${targetKey} decision kind`,
+    expectation.decisionKind,
+    target.decisionKind,
+  );
+  pushFieldAssertion(
+    assertions,
+    `${targetKey} decision record projection version`,
+    expectation.decisionRecordProjectionVersion,
+    target.decisionRecordProjectionVersion,
+  );
+  pushFieldAssertion(
+    assertions,
+    `${targetKey} decision record route`,
+    expectation.decisionRecordRoute,
+    target.decisionRecordRoute,
+  );
+  pushFieldAssertion(
+    assertions,
+    `${targetKey} planned lane`,
+    expectation.plannedLane,
+    target.plannedLane,
+  );
+  pushFieldAssertion(
+    assertions,
+    `${targetKey} result lane`,
+    expectation.resultLane,
+    target.resultLane,
+  );
+  pushFieldAssertion(
+    assertions,
+    `${targetKey} semantic confidence`,
+    expectation.semanticConfidence,
+    target.semanticConfidence,
+  );
+  pushFieldAssertion(
+    assertions,
+    `${targetKey} semantic abstained`,
+    expectation.semanticAbstained,
+    target.semanticAbstained ?? false,
+  );
+  pushFieldAssertion(
+    assertions,
+    `${targetKey} ambiguity reason`,
+    expectation.ambiguityReason,
+    target.ambiguity?.reason ?? null,
+  );
+  pushFieldAssertion(
+    assertions,
+    `${targetKey} ambiguity resolution`,
+    expectation.ambiguityResolution,
+    target.ambiguity?.resolution ?? null,
+  );
+  pushFieldAssertion(
+    assertions,
+    `${targetKey} decision record current frame`,
+    expectation.decisionRecordCurrentFrameId,
+    target.decisionRecordCurrentFrameId,
+  );
+  pushFieldAssertion(
+    assertions,
+    `${targetKey} decision record current episode`,
+    expectation.decisionRecordCurrentEpisodeId,
+    target.decisionRecordCurrentEpisodeId,
+  );
+  pushFieldAssertion(
+    assertions,
+    `${targetKey} decision record operator presence`,
+    expectation.decisionRecordOperatorPresence,
+    target.decisionRecordOperatorPresence,
+  );
+  pushFieldAssertion(
+    assertions,
+    `${targetKey} decision record candidate score`,
+    expectation.decisionRecordCandidateScore,
+    target.decisionRecordCandidateScore,
+  );
+
+  if (target.decisionRecordRoute !== undefined && target.decisionKind !== undefined) {
+    assertions.push({
+      name: `${targetKey} decision record route matches decision kind`,
+      passed: target.decisionRecordRoute === target.decisionKind,
+      expected: target.decisionKind,
+      actual: target.decisionRecordRoute,
+    });
+  }
+
+  if (expectation.decisionRecordValueComponentsInclude !== undefined) {
+    assertions.push({
+      name: `${targetKey} decision record value components include`,
+      passed: Object.entries(expectation.decisionRecordValueComponentsInclude).every(
+        ([component, expectedValue]) =>
+          target.decisionRecordValueComponents?.[
+            component as keyof NonNullable<ReplayDecisionSnapshot["decisionRecordValueComponents"]>
+          ] === expectedValue,
+      ),
+      expected: expectation.decisionRecordValueComponentsInclude,
+      actual: target.decisionRecordValueComponents ?? null,
+    });
+  }
+
+  if (
+    expectation.decisionRecordReasonsInclude &&
+    expectation.decisionRecordReasonsInclude.length > 0
+  ) {
+    assertions.push({
+      name: `${targetKey} decision record reasons include`,
+      passed: expectation.decisionRecordReasonsInclude.every((snippet) =>
+        (target.decisionRecordReasons ?? []).some((entry) => entry.includes(snippet)),
+      ),
+      expected: expectation.decisionRecordReasonsInclude,
+      actual: target.decisionRecordReasons ?? [],
+    });
+  }
+
+  if (
+    expectation.decisionRecordReasonCodesInclude &&
+    expectation.decisionRecordReasonCodesInclude.length > 0
+  ) {
+    assertions.push({
+      name: `${targetKey} decision record reason codes include`,
+      passed: expectation.decisionRecordReasonCodesInclude.every((code) =>
+        (target.decisionRecordReasonCodes ?? []).includes(code),
+      ),
+      expected: expectation.decisionRecordReasonCodesInclude,
+      actual: target.decisionRecordReasonCodes ?? [],
+    });
+  }
 
   if (expectation.semanticInfluenceIncludes && expectation.semanticInfluenceIncludes.length > 0) {
     assertions.push({
       name: `${targetKey} semantic influence includes`,
       passed: expectation.semanticInfluenceIncludes.every((snippet) =>
-        (target.semanticInfluence ?? []).some((entry) => entry.includes(snippet))
+        (target.semanticInfluence ?? []).some((entry) => entry.includes(snippet)),
       ),
       expected: expectation.semanticInfluenceIncludes,
       actual: target.semanticInfluence ?? [],
     });
   }
 
-  if (expectation.semanticImpactDecisionBearingIncludes && expectation.semanticImpactDecisionBearingIncludes.length > 0) {
+  if (
+    expectation.semanticImpactDecisionBearingIncludes &&
+    expectation.semanticImpactDecisionBearingIncludes.length > 0
+  ) {
     assertions.push({
       name: `${targetKey} semantic impact decision-bearing includes`,
       passed: expectation.semanticImpactDecisionBearingIncludes.every((value) =>
-        (target.semanticImpactDecisionBearing ?? []).includes(value)
+        (target.semanticImpactDecisionBearing ?? []).includes(value),
       ),
       expected: expectation.semanticImpactDecisionBearingIncludes,
       actual: target.semanticImpactDecisionBearing ?? [],
     });
   }
 
-  if (expectation.semanticImpactExplanatoryIncludes && expectation.semanticImpactExplanatoryIncludes.length > 0) {
+  if (
+    expectation.semanticImpactExplanatoryIncludes &&
+    expectation.semanticImpactExplanatoryIncludes.length > 0
+  ) {
     assertions.push({
       name: `${targetKey} semantic impact explanatory includes`,
       passed: expectation.semanticImpactExplanatoryIncludes.every((value) =>
-        (target.semanticImpactExplanatory ?? []).includes(value)
+        (target.semanticImpactExplanatory ?? []).includes(value),
       ),
       expected: expectation.semanticImpactExplanatoryIncludes,
       actual: target.semanticImpactExplanatory ?? [],
@@ -430,17 +627,22 @@ function evaluateExplanationExpectation(
   if (expectation.whyNowIncludes !== undefined) {
     assertions.push({
       name: "explanation whyNow includes",
-      passed: typeof explanation.whyNow === "string" && explanation.whyNow.includes(expectation.whyNowIncludes),
+      passed:
+        typeof explanation.whyNow === "string" &&
+        explanation.whyNow.includes(expectation.whyNowIncludes),
       expected: expectation.whyNowIncludes,
       actual: explanation.whyNow ?? null,
     });
   }
 
-  if (expectation.continuityRationaleIncludes && expectation.continuityRationaleIncludes.length > 0) {
+  if (
+    expectation.continuityRationaleIncludes &&
+    expectation.continuityRationaleIncludes.length > 0
+  ) {
     assertions.push({
       name: "explanation continuity rationale includes",
       passed: expectation.continuityRationaleIncludes.every((expectedSnippet) =>
-        explanation.continuityRationale.some((rationale) => rationale.includes(expectedSnippet))
+        explanation.continuityRationale.some((rationale) => rationale.includes(expectedSnippet)),
       ),
       expected: expectation.continuityRationaleIncludes,
       actual: explanation.continuityRationale,
@@ -456,19 +658,84 @@ function evaluateTraceExpectation(
 ): JudgmentBenchAssertionResult[] {
   const assertions: JudgmentBenchAssertionResult[] = [];
 
-  pushFieldAssertion(assertions, "trace ambiguous decisions", expectation.ambiguousDecisions, trace.ambiguousDecisions);
-  pushFieldAssertion(assertions, "trace ambiguous next", expectation.ambiguousNext, trace.ambiguousNext);
-  pushFieldAssertion(assertions, "trace ambiguous ambient", expectation.ambiguousAmbient, trace.ambiguousAmbient);
-  pushFieldAssertion(assertions, "trace ambiguous low confidence", expectation.ambiguousLowConfidence, trace.ambiguousLowConfidence);
-  pushFieldAssertion(assertions, "trace ambiguous abstained", expectation.ambiguousAbstained, trace.ambiguousAbstained);
-  pushFieldAssertion(assertions, "trace ambiguous next then now", expectation.ambiguousNextThenActivated, trace.ambiguousNextThenActivated);
-  pushFieldAssertion(assertions, "trace ambiguous ambient then now", expectation.ambiguousAmbientThenActivated, trace.ambiguousAmbientThenActivated);
-  pushFieldAssertion(assertions, "trace actionable episodes", expectation.actionableEpisodes, trace.actionableEpisodes);
-  pushFieldAssertion(assertions, "trace actionable surfaced", expectation.actionableSurfaced, trace.actionableSurfaced);
-  pushFieldAssertion(assertions, "trace actionable activated", expectation.actionableActivated, trace.actionableActivated);
-  pushFieldAssertion(assertions, "trace deferred then activated", expectation.deferredThenActivated, trace.deferredThenActivated);
-  pushFieldAssertion(assertions, "trace suppressed then activated", expectation.suppressedThenActivated, trace.suppressedThenActivated);
-  pushFieldAssertion(assertions, "trace merged episode updates", expectation.mergedEpisodeUpdates, trace.mergedEpisodeUpdates);
+  pushFieldAssertion(
+    assertions,
+    "trace ambiguous decisions",
+    expectation.ambiguousDecisions,
+    trace.ambiguousDecisions,
+  );
+  pushFieldAssertion(
+    assertions,
+    "trace ambiguous next",
+    expectation.ambiguousNext,
+    trace.ambiguousNext,
+  );
+  pushFieldAssertion(
+    assertions,
+    "trace ambiguous ambient",
+    expectation.ambiguousAmbient,
+    trace.ambiguousAmbient,
+  );
+  pushFieldAssertion(
+    assertions,
+    "trace ambiguous low confidence",
+    expectation.ambiguousLowConfidence,
+    trace.ambiguousLowConfidence,
+  );
+  pushFieldAssertion(
+    assertions,
+    "trace ambiguous abstained",
+    expectation.ambiguousAbstained,
+    trace.ambiguousAbstained,
+  );
+  pushFieldAssertion(
+    assertions,
+    "trace ambiguous next then now",
+    expectation.ambiguousNextThenActivated,
+    trace.ambiguousNextThenActivated,
+  );
+  pushFieldAssertion(
+    assertions,
+    "trace ambiguous ambient then now",
+    expectation.ambiguousAmbientThenActivated,
+    trace.ambiguousAmbientThenActivated,
+  );
+  pushFieldAssertion(
+    assertions,
+    "trace actionable episodes",
+    expectation.actionableEpisodes,
+    trace.actionableEpisodes,
+  );
+  pushFieldAssertion(
+    assertions,
+    "trace actionable surfaced",
+    expectation.actionableSurfaced,
+    trace.actionableSurfaced,
+  );
+  pushFieldAssertion(
+    assertions,
+    "trace actionable activated",
+    expectation.actionableActivated,
+    trace.actionableActivated,
+  );
+  pushFieldAssertion(
+    assertions,
+    "trace deferred then activated",
+    expectation.deferredThenActivated,
+    trace.deferredThenActivated,
+  );
+  pushFieldAssertion(
+    assertions,
+    "trace suppressed then activated",
+    expectation.suppressedThenActivated,
+    trace.suppressedThenActivated,
+  );
+  pushFieldAssertion(
+    assertions,
+    "trace merged episode updates",
+    expectation.mergedEpisodeUpdates,
+    trace.mergedEpisodeUpdates,
+  );
 
   return assertions;
 }

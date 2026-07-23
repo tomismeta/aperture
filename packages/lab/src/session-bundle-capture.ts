@@ -1,9 +1,5 @@
-import type {
-  AttentionView,
-  ApertureCoreOptions,
-} from "@tomismeta/aperture-core";
+import type { AttentionView, ApertureCoreOptions } from "@tomismeta/aperture-core";
 import { normalizeSourceEvent } from "@tomismeta/aperture-core/semantic";
-import { isCandidateTrace, type ApertureTrace } from "@tomismeta/aperture-core/internal";
 import type {
   ApertureRuntimeAttentionViewSnapshot,
   ApertureRuntimeCaptureStep,
@@ -17,7 +13,8 @@ import type {
   ReplaySemanticSnapshot,
   ReplayViewSnapshot,
 } from "./scenario.js";
-import { buildDecisionSemanticSnapshot } from "./runner.js";
+import { isReplayCandidateTrace, type ReplayCandidateTrace } from "./replay-trace.js";
+import { buildDecisionRecordSnapshot, buildDecisionSemanticSnapshot } from "./runner.js";
 import {
   type CanonicalAttentionExportLike,
   type CreateScenarioOptions,
@@ -58,7 +55,9 @@ export function sliceRuntimeSessionCapture(
 
   assertCaptureSliceBounds(capture, cursor);
 
-  const attentionViewSnapshots = capture.attentionViewSnapshots.slice(cursor.counts.attentionViewSnapshots);
+  const attentionViewSnapshots = capture.attentionViewSnapshots.slice(
+    cursor.counts.attentionViewSnapshots,
+  );
 
   return {
     ...capture,
@@ -69,7 +68,9 @@ export function sliceRuntimeSessionCapture(
     traces: capture.traces.slice(cursor.counts.traces),
     attentionViewSnapshots,
     currentAttentionView: attentionViewSnapshots.at(-1)?.attentionView ?? emptyAttentionView(),
-    ...(capture.currentExplanation !== undefined ? { currentExplanation: capture.currentExplanation } : {}),
+    ...(capture.currentExplanation !== undefined
+      ? { currentExplanation: capture.currentExplanation }
+      : {}),
   };
 }
 
@@ -82,7 +83,7 @@ export function createSessionBundleFromRuntimeCapture(
     core?: ApertureCoreOptions;
   } = {},
 ): ReplaySessionBundle {
-  const traceMatches = capture.traces.filter(isCandidateTrace);
+  const traceMatches = capture.traces.filter(isReplayCandidateTrace);
   const usedTraceIndexes = new Set<number>();
   const stepIndexBySequence = new Map<number, number>();
   const scenarioSteps: ReplayObservationStep[] = [];
@@ -90,6 +91,7 @@ export function createSessionBundleFromRuntimeCapture(
   const semanticSnapshots: ReplaySemanticSnapshot[] = [];
   const decisionSnapshots: ReplayDecisionSnapshot[] = [];
   const explanation = bundleExplanationFromRuntimeCapture(capture);
+  const finalView = capture.currentAttentionView;
 
   capture.captureSteps.forEach((step, stepIndex) => {
     stepIndexBySequence.set(step.sequence, stepIndex);
@@ -97,7 +99,9 @@ export function createSessionBundleFromRuntimeCapture(
     if (step.kind === "publishSource") {
       const normalized = normalizeSourceEvent(step.event);
       if (!normalized.semantic) {
-        throw new Error("Normalized source events must preserve semantic interpretation for session bundles.");
+        throw new Error(
+          "Normalized source events must preserve semantic interpretation for session bundles.",
+        );
       }
 
       scenarioSteps.push({
@@ -117,7 +121,9 @@ export function createSessionBundleFromRuntimeCapture(
 
       const matchedTrace = findNextTraceForEvent(normalized.id, traceMatches, usedTraceIndexes);
       if (matchedTrace) {
-        decisionSnapshots.push(buildDecisionSnapshotFromTrace(stepIndex, "publishSource", matchedTrace));
+        decisionSnapshots.push(
+          buildDecisionSnapshotFromTrace(stepIndex, "publishSource", matchedTrace),
+        );
       }
       return;
     }
@@ -144,18 +150,20 @@ export function createSessionBundleFromRuntimeCapture(
     signals: capture.signals,
     responses: capture.submittedResponses,
     viewSnapshots: capture.attentionViewSnapshots
-      .map((snapshot) => buildViewSnapshotFromRuntimeCapture(snapshot, stepIndexBySequence, capture.captureSteps))
+      .map((snapshot) =>
+        buildViewSnapshotFromRuntimeCapture(snapshot, stepIndexBySequence, capture.captureSteps),
+      )
       .filter((snapshot): snapshot is ReplayViewSnapshot => snapshot !== null),
     semanticSnapshots,
     decisionSnapshots,
     outcomes: {
       totalSteps: capture.captureSteps.length,
       surfacedFrames: traceMatches.filter((trace) => trace.result !== null).length,
-      finalNowInteractionId: capture.currentAttentionView.now?.interactionId ?? null,
-      finalNextCount: capture.currentAttentionView.next.length,
-      finalAmbientCount: capture.currentAttentionView.ambient.length,
-      finalNextInteractionIds: capture.currentAttentionView.next.map((frame) => frame.interactionId),
-      finalAmbientInteractionIds: capture.currentAttentionView.ambient.map((frame) => frame.interactionId),
+      finalNowInteractionId: finalView.now?.interactionId ?? null,
+      finalNextCount: finalView.next.length,
+      finalAmbientCount: finalView.ambient.length,
+      finalNextInteractionIds: finalView.next.map((frame) => frame.interactionId),
+      finalAmbientInteractionIds: finalView.ambient.map((frame) => frame.interactionId),
     },
   };
 }
@@ -190,7 +198,7 @@ export function canonicalAttentionExportToScenario(
           },
         }
       : {}),
-    steps: exportArtifact.ledger.map((entry) => (
+    steps: exportArtifact.ledger.map((entry) =>
       entry.kind === "event"
         ? {
             kind: "publish" as const,
@@ -201,8 +209,8 @@ export function canonicalAttentionExportToScenario(
             kind: "submit" as const,
             response: entry.apertureResponse,
             label: `${entry.source.eventType} @ ${entry.occurredAt}`,
-          }
-    )),
+          },
+    ),
   };
 }
 
@@ -227,35 +235,42 @@ function bundleExplanationFromRuntimeCapture(
   }
 
   if (
-    explanation.targetInteractionId === null
-    && explanation.headline === null
-    && explanation.targetMetadata === null
-    && explanation.whyNow === null
-    && explanation.routingAuthority === null
+    explanation.targetInteractionId === null &&
+    explanation.headline === null &&
+    explanation.targetMetadata === null &&
+    explanation.whyNow === null &&
+    explanation.routingAuthority === null
   ) {
     return undefined;
   }
 
-  const targetMetadata = explanation.targetMetadata === null
-    ? null
-    : validateWorkflowTargetMetadata(explanation.targetMetadata);
+  const targetMetadata =
+    explanation.targetMetadata === null
+      ? null
+      : validateWorkflowTargetMetadata(explanation.targetMetadata);
 
   return {
-    ...(explanation.targetInteractionId !== null ? { targetInteractionId: explanation.targetInteractionId } : {}),
+    ...(explanation.targetInteractionId !== null
+      ? { targetInteractionId: explanation.targetInteractionId }
+      : {}),
     ...(explanation.targetLane !== "none" ? { targetLane: explanation.targetLane } : {}),
     ...(explanation.headline !== null ? { headline: explanation.headline } : {}),
     ...(targetMetadata ? { targetMetadata } : {}),
     ...(explanation.whyNow !== null ? { whyNow: explanation.whyNow } : {}),
-    ...(explanation.routingAuthority !== null ? { routingAuthority: explanation.routingAuthority } : {}),
+    ...(explanation.routingAuthority !== null
+      ? { routingAuthority: explanation.routingAuthority }
+      : {}),
   };
 }
 
 function findNextTraceForEvent(
   eventId: string,
-  traces: Array<Extract<ApertureTrace, { evaluation: { kind: "candidate" } }>>,
+  traces: ReplayCandidateTrace[],
   usedIndexes: Set<number>,
-): Extract<ApertureTrace, { evaluation: { kind: "candidate" } }> | null {
-  const index = traces.findIndex((trace, traceIndex) => !usedIndexes.has(traceIndex) && trace.event.id === eventId);
+): ReplayCandidateTrace | null {
+  const index = traces.findIndex(
+    (trace, traceIndex) => !usedIndexes.has(traceIndex) && trace.event.id === eventId,
+  );
   if (index === -1) {
     return null;
   }
@@ -266,7 +281,7 @@ function findNextTraceForEvent(
 function buildDecisionSnapshotFromTrace(
   stepIndex: number,
   stepKind: Extract<ReplayObservationStep["kind"], "publishSource">,
-  trace: Extract<ApertureTrace, { evaluation: { kind: "candidate" } }>,
+  trace: ReplayCandidateTrace,
 ): ReplayDecisionSnapshot {
   return {
     stepIndex,
@@ -276,6 +291,7 @@ function buildDecisionSnapshotFromTrace(
     resultLane: trace.coordination.resultLane,
     interactionId: trace.evaluation.adjusted.interactionId,
     ...buildDecisionSemanticSnapshot(trace),
+    ...buildDecisionRecordSnapshot(trace),
     ambiguity: trace.coordination.ambiguity,
   };
 }
@@ -313,12 +329,12 @@ function assertCaptureSliceBounds(
   cursor: RuntimeSessionCaptureCursor,
 ): void {
   if (
-    cursor.counts.captureSteps > capture.captureSteps.length
-    || cursor.counts.publishedSourceEvents > capture.publishedSourceEvents.length
-    || cursor.counts.submittedResponses > capture.submittedResponses.length
-    || cursor.counts.signals > capture.signals.length
-    || cursor.counts.traces > capture.traces.length
-    || cursor.counts.attentionViewSnapshots > capture.attentionViewSnapshots.length
+    cursor.counts.captureSteps > capture.captureSteps.length ||
+    cursor.counts.publishedSourceEvents > capture.publishedSourceEvents.length ||
+    cursor.counts.submittedResponses > capture.submittedResponses.length ||
+    cursor.counts.signals > capture.signals.length ||
+    cursor.counts.traces > capture.traces.length ||
+    cursor.counts.attentionViewSnapshots > capture.attentionViewSnapshots.length
   ) {
     throw new Error("Runtime capture cursor is newer than the provided capture.");
   }

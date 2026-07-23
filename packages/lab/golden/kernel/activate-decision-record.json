@@ -1,0 +1,62 @@
+{
+  "id": "golden:kernel:activate-decision-record",
+  "title": "Decision record preserves an immediate activation",
+  "description": "A high-consequence approval with the operator present enters now, and the kernel fixture locks the planned lane, evidence absence, value score, and stable reason-code projection.",
+  "doctrineTags": ["kernel_conformance", "deterministic_judgment", "activate_route"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:kernel:activate",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 0
+    },
+    "decisionReadings": [
+      {
+        "stepLabel": "operator-present approval",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 1,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "decisionRecordCurrentFrameId": null,
+        "decisionRecordCurrentEpisodeId": null,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordCandidateScore": 1222,
+        "decisionRecordValueComponentsInclude": {
+          "priority": 200,
+          "consequence": 20,
+          "blocking": 1000
+        },
+        "decisionRecordReasonCodesInclude": [
+          "route:activate",
+          "lane:now",
+          "policy_gate:blocking:verdict",
+          "policy_criterion:interrupt_eligibility:verdict",
+          "evidence:current_frame:absent"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publish",
+      "label": "operator-present approval",
+      "event": {
+        "id": "evt:kernel:activate",
+        "taskId": "task:kernel:activate",
+        "timestamp": "2026-04-15T20:00:00.000Z",
+        "type": "human.input.requested",
+        "interactionId": "interaction:kernel:activate",
+        "title": "Approve production deploy",
+        "summary": "A production deploy needs approval.",
+        "consequence": "high",
+        "request": {
+          "kind": "approval"
+        }
+      }
+    }
+  ]
+}

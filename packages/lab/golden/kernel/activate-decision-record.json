@@ -16,6 +16,7 @@
       {
         "stepLabel": "operator-present approval",
         "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 1,
         "decisionKind": "activate",
         "decisionRecordRoute": "activate",
         "plannedLane": "now",

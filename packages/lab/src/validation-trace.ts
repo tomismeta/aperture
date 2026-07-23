@@ -1,5 +1,6 @@
 import type { ReplayApertureTrace } from "./replay-trace.js";
 import { isRecord, isStringArray } from "./shape.js";
+import { isKernelDecisionReasonCodeArray } from "./kernel-decision-projection.js";
 import { validateApertureEvent } from "./validation-events.js";
 import {
   DECISION_KINDS,
@@ -61,7 +62,7 @@ function validateReplayDecisionRecord(value: unknown): boolean {
     DECISION_KINDS.has(String(planning.route)) &&
     TRACE_PLANNED_LANES.has(String(planning.plannedLane)) &&
     isStringArray(planning.reasons) &&
-    (planning.reasonCodes === undefined || isStringArray(planning.reasonCodes)) &&
+    (planning.reasonCodes === undefined || isKernelDecisionReasonCodeArray(planning.reasonCodes)) &&
     isRecord(evidenceSnapshot) &&
     TRACE_OPERATOR_PRESENCE.has(String(evidenceSnapshot.operatorPresence)) &&
     isStringOrNull(evidenceSnapshot.currentFrameId) &&

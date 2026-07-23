@@ -38,6 +38,7 @@
       {
         "stepLabel": "operator-absent approval",
         "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 1,
         "decisionKind": "queue",
         "decisionRecordRoute": "queue",
         "plannedLane": "next",

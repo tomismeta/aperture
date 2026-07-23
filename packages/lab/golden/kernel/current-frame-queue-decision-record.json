@@ -16,6 +16,7 @@
       {
         "stepLabel": "primary approval",
         "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 1,
         "decisionKind": "activate",
         "decisionRecordRoute": "activate",
         "plannedLane": "now",
@@ -27,6 +28,7 @@
       {
         "stepLabel": "secondary approval",
         "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 1,
         "decisionKind": "queue",
         "decisionRecordRoute": "queue",
         "plannedLane": "next",

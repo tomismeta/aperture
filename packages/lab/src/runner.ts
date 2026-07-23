@@ -14,6 +14,7 @@ import {
   readSemanticOntologyDiagnostic,
 } from "@tomismeta/aperture-core/semantic";
 
+import { KERNEL_DECISION_RECORD_PROJECTION_VERSION } from "./artifact-versions.js";
 import type {
   ReplayObservationStep,
   ReplayDecisionSnapshot,
@@ -192,6 +193,7 @@ export function buildDecisionRecordSnapshot(
   trace: ReplayCandidateTrace,
 ): Pick<
   ReplayDecisionSnapshot,
+  | "decisionRecordProjectionVersion"
   | "decisionRecordRoute"
   | "plannedLane"
   | "decisionRecordCurrentFrameId"
@@ -207,7 +209,15 @@ export function buildDecisionRecordSnapshot(
     return {};
   }
 
+  const reasonCodes = record.planning.reasonCodes;
+
   return {
+    ...(reasonCodes !== undefined
+      ? {
+          decisionRecordProjectionVersion: KERNEL_DECISION_RECORD_PROJECTION_VERSION,
+          decisionRecordReasonCodes: reasonCodes,
+        }
+      : {}),
     decisionRecordRoute: record.planning.route,
     plannedLane: record.planning.plannedLane,
     decisionRecordCurrentFrameId: record.evidenceSnapshot.currentFrameId,
@@ -216,9 +226,6 @@ export function buildDecisionRecordSnapshot(
     decisionRecordCandidateScore: record.value.candidateScore,
     decisionRecordValueComponents: record.value.breakdown.components,
     decisionRecordReasons: record.planning.reasons,
-    ...(record.planning.reasonCodes !== undefined
-      ? { decisionRecordReasonCodes: record.planning.reasonCodes }
-      : {}),
   };
 }
 

@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import { KERNEL_DECISION_RECORD_PROJECTION_VERSION } from "../src/artifact-versions.js";
 import {
   canonicalAttentionExportToScenario,
   createScenarioFromSessionBundle,
@@ -26,6 +27,7 @@ import {
   writeReplayScenario,
   writeSessionBundle,
 } from "../src/index.js";
+import { validateReplayDecisionSnapshot } from "../src/validation-replay-decision.js";
 
 function explanationSnapshot(
   value: Partial<NonNullable<RuntimeSessionCaptureLike["currentExplanation"]>>,
@@ -104,6 +106,10 @@ test("session bundles capture replay outputs and normalized source events", () =
   assert.equal(bundle.normalizedEvents[0]?.event.type, "human.input.requested");
   assert.equal(bundle.semanticSnapshots.length, 1);
   assert.equal(bundle.decisionSnapshots.length, 1);
+  assert.equal(
+    bundle.decisionSnapshots[0]?.decisionRecordProjectionVersion,
+    KERNEL_DECISION_RECORD_PROJECTION_VERSION,
+  );
   assert.equal(bundle.outcomes.finalNowInteractionId, "interaction:bundle:1");
 });
 
@@ -389,6 +395,201 @@ test("session bundle validation rejects malformed present decision records", () 
   });
 
   assert.equal(invalid, null);
+});
+
+test("session bundle validation rejects malformed decision reason codes", () => {
+  const emptyView = { now: null, next: [], ambient: [] };
+  const invalidTraceReasonCode = validateSessionBundle({
+    schemaVersion: 1,
+    sessionId: "session:invalid-trace-reason-code",
+    title: "Invalid trace reason code",
+    exportedAt: "2026-03-21T18:35:00.000Z",
+    steps: [],
+    normalizedEvents: [],
+    traces: [
+      {
+        timestamp: "2026-03-21T18:35:00.000Z",
+        event: {
+          id: "evt:invalid-trace-reason-code",
+          type: "task.updated",
+          taskId: "task:invalid-trace-reason-code",
+          timestamp: "2026-03-21T18:35:00.000Z",
+          title: "Build failed",
+          status: "failed",
+        },
+        evaluation: { kind: "candidate" },
+        coordination: { kind: "queue", resultLane: "next" },
+        attentionView: emptyView,
+        taskView: emptyView,
+        decisionRecord: {
+          planning: {
+            route: "queue",
+            plannedLane: "next",
+            reasons: [],
+            reasonCodes: ["route:not-a-real-route"],
+          },
+          evidenceSnapshot: {
+            operatorPresence: "present",
+            currentFrameId: null,
+            currentEpisodeId: null,
+          },
+          value: {
+            candidateScore: 1,
+            breakdown: { components: { priority: 1 } },
+          },
+        },
+      },
+    ],
+    signals: [],
+    responses: [],
+    viewSnapshots: [],
+    semanticSnapshots: [],
+    decisionSnapshots: [],
+    outcomes: {
+      totalSteps: 0,
+      surfacedFrames: 0,
+      finalNowInteractionId: null,
+      finalNextCount: 0,
+      finalAmbientCount: 0,
+      finalNextInteractionIds: [],
+      finalAmbientInteractionIds: [],
+    },
+  });
+  const invalidSnapshotReasonCode = validateSessionBundle({
+    schemaVersion: 1,
+    sessionId: "session:invalid-snapshot-reason-code",
+    title: "Invalid snapshot reason code",
+    exportedAt: "2026-03-21T18:35:00.000Z",
+    steps: [],
+    normalizedEvents: [],
+    traces: [],
+    signals: [],
+    responses: [],
+    viewSnapshots: [],
+    semanticSnapshots: [],
+    decisionSnapshots: [
+      {
+        stepIndex: 0,
+        stepKind: "publish",
+        evaluationKind: "candidate",
+        decisionRecordProjectionVersion: KERNEL_DECISION_RECORD_PROJECTION_VERSION,
+        decisionRecordReasonCodes: ["not-even-close"],
+      },
+    ],
+    outcomes: {
+      totalSteps: 0,
+      surfacedFrames: 0,
+      finalNowInteractionId: null,
+      finalNextCount: 0,
+      finalAmbientCount: 0,
+      finalNextInteractionIds: [],
+      finalAmbientInteractionIds: [],
+    },
+  });
+
+  assert.equal(invalidTraceReasonCode, null);
+  assert.equal(invalidSnapshotReasonCode, null);
+});
+
+test("decision snapshot validation enforces v1 projection coherence", () => {
+  const validSnapshot = {
+    stepIndex: 0,
+    stepKind: "publish",
+    evaluationKind: "candidate",
+    decisionKind: "queue",
+    decisionRecordProjectionVersion: KERNEL_DECISION_RECORD_PROJECTION_VERSION,
+    decisionRecordRoute: "queue",
+    plannedLane: "next",
+    decisionRecordCurrentFrameId: null,
+    decisionRecordCurrentEpisodeId: null,
+    decisionRecordOperatorPresence: "present",
+    decisionRecordCandidateScore: 1,
+    decisionRecordValueComponents: { priority: 1 },
+    decisionRecordReasons: ["current work still outranks the new candidate"],
+    decisionRecordReasonCodes: [
+      "route:queue",
+      "lane:next",
+      "evidence:operator_presence:present",
+      "evidence:current_frame:absent",
+      "evidence:current_episode:absent",
+      "policy:minimum_lane:next",
+      "pressure:level:steady",
+      "pressure:overload:low",
+      "policy_gate:blocking:verdict",
+    ],
+  };
+  const missingReasonCodes = { ...validSnapshot } as Record<string, unknown>;
+
+  delete missingReasonCodes.decisionRecordReasonCodes;
+
+  assert.ok(validateReplayDecisionSnapshot(validSnapshot));
+  assert.equal(
+    validateReplayDecisionSnapshot({
+      ...validSnapshot,
+      decisionRecordProjectionVersion: 2,
+    }),
+    null,
+  );
+  assert.equal(validateReplayDecisionSnapshot(missingReasonCodes), null);
+  assert.equal(
+    validateReplayDecisionSnapshot({
+      ...validSnapshot,
+      decisionRecordReasonCodes: [
+        ...validSnapshot.decisionRecordReasonCodes,
+        validSnapshot.decisionRecordReasonCodes[0],
+      ],
+    }),
+    null,
+  );
+  assert.equal(
+    validateReplayDecisionSnapshot({
+      ...validSnapshot,
+      decisionRecordReasonCodes: [...validSnapshot.decisionRecordReasonCodes, "route:activate"],
+    }),
+    null,
+  );
+  assert.equal(
+    validateReplayDecisionSnapshot({
+      ...validSnapshot,
+      decisionRecordReasonCodes: [...validSnapshot.decisionRecordReasonCodes, "lane:now"],
+    }),
+    null,
+  );
+  assert.equal(
+    validateReplayDecisionSnapshot({
+      ...validSnapshot,
+      decisionRecordReasonCodes: [
+        ...validSnapshot.decisionRecordReasonCodes,
+        "evidence:current_frame:present",
+      ],
+    }),
+    null,
+  );
+  assert.equal(
+    validateReplayDecisionSnapshot({
+      ...validSnapshot,
+      decisionRecordReasonCodes: [
+        ...validSnapshot.decisionRecordReasonCodes.filter(
+          (reasonCode) => !reasonCode.startsWith("pressure:level:"),
+        ),
+        "pressure:level:elevated",
+        "pressure:level:high",
+      ],
+    }),
+    null,
+  );
+  assert.equal(
+    validateReplayDecisionSnapshot({ ...validSnapshot, decisionRecordRoute: "activate" }),
+    null,
+  );
+  assert.equal(validateReplayDecisionSnapshot({ ...validSnapshot, plannedLane: "ambient" }), null);
+  assert.equal(
+    validateReplayDecisionSnapshot({
+      ...validSnapshot,
+      decisionRecordCurrentFrameId: "frame:present",
+    }),
+    null,
+  );
 });
 
 test("session bundles load recursively from nested directories", async () => {

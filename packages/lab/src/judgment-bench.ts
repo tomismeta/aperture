@@ -453,6 +453,12 @@ function evaluateDecisionExpectation(
   );
   pushFieldAssertion(
     assertions,
+    `${targetKey} decision record projection version`,
+    expectation.decisionRecordProjectionVersion,
+    target.decisionRecordProjectionVersion,
+  );
+  pushFieldAssertion(
+    assertions,
     `${targetKey} decision record route`,
     expectation.decisionRecordRoute,
     target.decisionRecordRoute,

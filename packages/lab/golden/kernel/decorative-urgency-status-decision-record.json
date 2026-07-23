@@ -1,0 +1,85 @@
+{
+  "id": "golden:kernel:decorative-urgency-status-decision-record",
+  "title": "Decision record keeps decorative urgency ambient",
+  "description": "Urgent-looking status wording can raise semantic consequence diagnostics, but canonical running-status facts should still keep non-actionable work ambient with a zero-value candidate.",
+  "doctrineTags": [
+    "kernel_conformance",
+    "deterministic_judgment",
+    "adversarial_semantics",
+    "ambient_route"
+  ],
+  "expectations": {
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
+    "ambientInteractionIds": ["interaction:task:kernel:decorative-urgency:status"],
+    "resultLaneCounts": {
+      "now": 0,
+      "next": 0,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "decorative urgency status",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "consequence": "high",
+        "confidence": "high",
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "high",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "source": "explicit"
+        },
+        "reasonsInclude": ["task update carries a non-blocking lifecycle status"]
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "decorative urgency status",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 1,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "semanticConfidence": "high",
+        "decisionRecordCurrentFrameId": null,
+        "decisionRecordCurrentEpisodeId": null,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordCandidateScore": 0,
+        "decisionRecordValueComponentsInclude": {
+          "priority": 0,
+          "consequence": 0,
+          "tone": 0,
+          "blocking": 0,
+          "heuristics": 0
+        },
+        "decisionRecordReasonCodesInclude": [
+          "route:ambient",
+          "lane:ambient",
+          "policy_gate:background:verdict",
+          "criterion:peripheral_resolution:ambient"
+        ],
+        "semanticImpactDecisionBearingIncludes": ["activity (canonical)"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "decorative urgency status",
+      "event": {
+        "id": "evt:kernel:decorative-urgency",
+        "type": "task.updated",
+        "taskId": "task:kernel:decorative-urgency",
+        "timestamp": "2026-04-15T20:04:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "URGENT: production deploy is all green",
+        "summary": "No action is required; monitoring continues automatically.",
+        "status": "running"
+      }
+    }
+  ]
+}

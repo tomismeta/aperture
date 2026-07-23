@@ -89,6 +89,21 @@ test("loads the first golden scenarios from disk", async () => {
   );
   assert.ok(
     scenarios.some(
+      (scenario) => scenario.id === "golden:kernel:decorative-urgency-status-decision-record",
+    ),
+  );
+  assert.ok(
+    scenarios.some(
+      (scenario) => scenario.id === "golden:kernel:low-confidence-failure-decision-record",
+    ),
+  );
+  assert.ok(
+    scenarios.some(
+      (scenario) => scenario.id === "golden:kernel:resurfacing-continuity-decision-record",
+    ),
+  );
+  assert.ok(
+    scenarios.some(
       (scenario) =>
         scenario.id === "golden:policy:low-trust-failed-status-stays-queued-under-tight-threshold",
     ),
@@ -253,7 +268,7 @@ test("JudgmentBench runs across the golden scenarios and produces a summary", as
   const kernelScenarios = result.scenarios.filter((scenario) =>
     scenario.scenario.id.startsWith("golden:kernel:"),
   );
-  assert.ok(kernelScenarios.length >= 5);
+  assert.ok(kernelScenarios.length >= 8);
   assert.equal(
     kernelScenarios.every((scenario) => scenario.assertions.every((assertion) => assertion.passed)),
     true,

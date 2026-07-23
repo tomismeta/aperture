@@ -111,6 +111,8 @@ const budgets = [
   { file: "packages/lab/src/scenario.ts", maxLines: 300 },
   { file: "packages/lab/src/runner.ts", maxLines: 300 },
   { file: "packages/lab/src/judgment-bench.ts", maxLines: 875 },
+  { file: "packages/lab/src/determinism.ts", maxLines: 350 },
+  { file: "packages/lab/src/kernel-decision-projection.ts", maxLines: 225 },
   { file: "packages/lab/src/replay-trace.ts", maxLines: 75 },
   { file: "packages/lab/src/validation.ts", maxLines: 75 },
   { file: "packages/lab/src/validation-events.ts", maxLines: 350 },

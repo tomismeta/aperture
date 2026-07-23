@@ -5,6 +5,11 @@ import type {
 } from "./scenario.js";
 import { hasShape, isBoolean, isNumber, isRecord, isString, isStringArray } from "./shape.js";
 import {
+  isKernelDecisionReasonCodeArray,
+  isKernelDecisionRecordProjectionVersion,
+  validateKernelDecisionRecordProjection,
+} from "./kernel-decision-projection.js";
+import {
   DECISION_KINDS,
   RESULT_BUCKETS,
   SEMANTIC_CONFIDENCE,
@@ -28,12 +33,13 @@ export function validateReplayDecisionSnapshot(value: unknown): ReplayDecisionSn
         stepLabel: isString,
         interactionId: isString,
         semanticAbstained: isBoolean,
+        decisionRecordProjectionVersion: isKernelDecisionRecordProjectionVersion,
         decisionRecordCurrentFrameId: isStringOrNull,
         decisionRecordCurrentEpisodeId: isStringOrNull,
         decisionRecordCandidateScore: isNumber,
         decisionRecordValueComponents: isReplayDecisionValueComponents,
         decisionRecordReasons: isStringArray,
-        decisionRecordReasonCodes: isStringArray,
+        decisionRecordReasonCodes: isKernelDecisionReasonCodeArray,
       },
     ) ||
     !STEP_KINDS.has(value.stepKind as ReplayObservationStep["kind"]) ||
@@ -47,7 +53,9 @@ export function validateReplayDecisionSnapshot(value: unknown): ReplayDecisionSn
       !SEMANTIC_CONFIDENCE.has(String(value.semanticConfidence))) ||
     (value.decisionRecordOperatorPresence !== undefined &&
       !OPERATOR_PRESENCE.has(String(value.decisionRecordOperatorPresence))) ||
-    !validateReplayDecisionAmbiguity(value.ambiguity)
+    !validateReplayDecisionAmbiguity(value.ambiguity) ||
+    (value.decisionRecordProjectionVersion !== undefined &&
+      !validateKernelDecisionRecordProjection(value))
   ) {
     return null;
   }
@@ -67,6 +75,8 @@ export function validateReplayDecisionExpectation(
     (value.stepLabel !== undefined && typeof value.stepLabel !== "string") ||
     (value.evaluationKind !== undefined &&
       !["candidate", "clear", "noop"].includes(String(value.evaluationKind))) ||
+    (value.decisionRecordProjectionVersion !== undefined &&
+      !isKernelDecisionRecordProjectionVersion(value.decisionRecordProjectionVersion)) ||
     (value.decisionKind !== undefined && !DECISION_KINDS.has(String(value.decisionKind))) ||
     (value.decisionRecordRoute !== undefined &&
       !DECISION_KINDS.has(String(value.decisionRecordRoute))) ||
@@ -106,7 +116,7 @@ export function validateReplayDecisionExpectation(
     (value.decisionRecordReasonsInclude !== undefined &&
       !isStringArray(value.decisionRecordReasonsInclude)) ||
     (value.decisionRecordReasonCodesInclude !== undefined &&
-      !isStringArray(value.decisionRecordReasonCodesInclude))
+      !isKernelDecisionReasonCodeArray(value.decisionRecordReasonCodesInclude))
   ) {
     return null;
   }

@@ -68,6 +68,16 @@ offline analysis. The prose `planning.reasons` remain human-facing explanation
 and may change as language improves; fixtures should prefer reason codes for
 route, lane, policy, evidence, pressure, ambiguity, and continuity guarantees.
 
+The Lab conformance projection is versioned separately from the internal record.
+Projection version `1` covers the flattened record fields captured in replay
+decision snapshots: route, planned lane, evidence identity, operator presence,
+candidate score, value components, prose reasons, and reason codes. Additive
+structurally valid policy, criterion, and continuity rule codes remain
+compatible within version `1`; field removal, renaming, or semantic
+reinterpretation requires a new projection version. The determinism audit
+normalizes these projection fields so kernel drift is visible even when the
+final attention view does not change.
+
 ## What Stays Out
 
 The kernel should not absorb:
@@ -108,6 +118,9 @@ The current kernel fixture matrix covers:
 - `queue` behind a stronger same-task current frame
 - `ambient` for passive status noise
 - `auto_approve` for configured bounded low-risk reads
+- decorative urgency language that remains ambient under source-fact authority
+- low-confidence failure ambiguity that stays visible in next
+- continuity override activation for resurfacing same-episode work
 
 The suite should include adversarial examples:
 
@@ -115,7 +128,7 @@ The suite should include adversarial examples:
 - duplicate semantic hints
 - stale approvals
 - repeated failures
-- low-confidence blocked-like statuses
+- low-confidence failed statuses
 - conflicting relation hints
 - passive status noise
 - safe read approvals

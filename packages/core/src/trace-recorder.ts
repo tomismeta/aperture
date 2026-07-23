@@ -107,7 +107,7 @@ export class TraceRecorder {
           adjusted.interactionId,
           decisionRecord.planning.route,
         ),
-        candidateScore: decisionRecord.value.candidateScore,
+        candidateScore: decisionRecord.value.claimScore,
         currentScore: decisionRecord.value.currentScore,
         currentPriority: decisionRecord.value.currentPriority,
         criterion: decisionRecord.policy.criterion,
@@ -448,7 +448,7 @@ function findResultLane(
   interactionId: string,
   decisionKind: AttentionDecisionExplanation["decision"]["kind"],
 ): "now" | "next" | "ambient" | "none" {
-  if (decisionKind === "auto_approve" || decisionKind === "clear") {
+  if (decisionKind === "auto_approve") {
     return "none";
   }
 

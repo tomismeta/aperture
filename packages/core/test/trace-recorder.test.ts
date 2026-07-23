@@ -364,7 +364,7 @@ test("trace recorder exposes blocked-like waiting status queue decisions without
   assert.ok(trace.decisionRecord.planning.reasonCodes.includes("route:queue"));
   assert.ok(trace.decisionRecord.planning.reasonCodes.includes("lane:next"));
   assert.ok(trace.decisionRecord.planning.reasonCodes.includes("evidence:current_frame:absent"));
-  assert.equal(trace.decisionRecord.value.candidateScore, trace.coordination.candidateScore);
+  assert.equal(trace.decisionRecord.value.claimScore, trace.coordination.candidateScore);
   assert.equal(trace.decisionRecord.value.currentScore, trace.coordination.currentScore);
   assert.equal(trace.decisionRecord.policy.criterion, trace.coordination.criterion);
   assert.equal(trace.decisionRecord.evidenceSnapshot.currentFrameId, null);

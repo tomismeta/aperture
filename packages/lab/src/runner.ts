@@ -17,6 +17,8 @@ import {
 import {
   buildKernelDecisionRecordProjection,
   fingerprintKernelDecisionRecordProjection,
+  readKernelDecisionRecordComponents,
+  readKernelDecisionRecordScore,
 } from "./kernel-decision-contract.js";
 import type {
   ReplayObservationStep,
@@ -216,6 +218,14 @@ export function buildDecisionRecordSnapshot(
   const projection = buildKernelDecisionRecordProjection(record, {
     realizedLane: trace.coordination.resultLane,
   });
+  const valueComponents =
+    projection?.value.components ??
+    readKernelDecisionRecordComponents(record.value.breakdown.components);
+  const decisionRecordCandidateScore =
+    projection?.value.candidateScore ?? readKernelDecisionRecordScore(record);
+  if (decisionRecordCandidateScore === null || valueComponents === null) {
+    return {};
+  }
 
   return {
     ...(projection !== null
@@ -233,9 +243,8 @@ export function buildDecisionRecordSnapshot(
       projection?.evidence.currentEpisodeId ?? record.evidenceSnapshot.currentEpisodeId,
     decisionRecordOperatorPresence:
       projection?.evidence.operatorPresence ?? record.evidenceSnapshot.operatorPresence,
-    decisionRecordCandidateScore: projection?.value.candidateScore ?? record.value.candidateScore,
-    decisionRecordValueComponents:
-      projection?.value.components ?? record.value.breakdown.components,
+    decisionRecordCandidateScore,
+    decisionRecordValueComponents: valueComponents,
     decisionRecordReasons: projection?.reasons ?? record.planning.reasons,
   };
 }

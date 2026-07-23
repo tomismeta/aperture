@@ -56,6 +56,7 @@ export type AttentionPlanningContext = {
   pressureForecast: AttentionPressure;
   candidateScore: number;
   currentScore: number | null;
+  referenceTimestamp?: string;
   surfaceCapabilities?: AttentionSurfaceCapabilities;
 } & AttentionEvidenceInput;
 
@@ -87,9 +88,10 @@ export class AttentionPlanner {
     candidate: AttentionCandidate,
     context: AttentionPlanningContext,
   ): AttentionPlanningExplanation {
-    const evidence = this.resolveEvidenceContext(current, context, candidate.timestamp);
+    const referenceTimestamp = context.referenceTimestamp ?? candidate.timestamp;
+    const evidence = this.resolveEvidenceContext(current, context, referenceTimestamp);
     const routing = routeCandidate(candidate, context, evidence, this.plannerDefaults);
-    return this.applyContinuity(candidate, context, evidence, routing);
+    return this.applyContinuity(candidate, context, evidence, routing, referenceTimestamp);
   }
 
   clear(): AttentionPlanDecision {
@@ -109,6 +111,7 @@ export class AttentionPlanner {
     context: AttentionPlanningContext,
     evidence: AttentionEvidenceContext,
     routed: AttentionPlanningExplanation,
+    referenceTimestamp: string,
   ): AttentionPlanningExplanation {
     const disabledContinuityRules = new Set(this.plannerDefaults?.disabledContinuityRules ?? []);
     const continuityEvaluations = CONTINUITY_RULES.map((rule) => {
@@ -117,6 +120,7 @@ export class AttentionPlanner {
         context,
         evidence,
         routed,
+        referenceTimestamp,
         plannerDefaults: this.plannerDefaults,
         helpers: {
           peripheralDecision,

@@ -275,7 +275,7 @@ function routeAgainstActiveFrame(
     shouldSuppressForBacklog(
       candidate,
       evidence.attentionView,
-      candidate.timestamp,
+      context.referenceTimestamp ?? candidate.timestamp,
       plannerDefaults,
     )
   ) {

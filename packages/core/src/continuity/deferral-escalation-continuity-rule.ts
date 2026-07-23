@@ -17,7 +17,7 @@ export const evaluateDeferralEscalationContinuityRule: ContinuityRule = (input) 
   const currentScore =
     activeFrame === evidence.currentFrame
       ? context.currentScore
-      : scoreAttentionFrame(activeFrame, { now: candidate.timestamp });
+      : scoreAttentionFrame(activeFrame, { now: input.referenceTimestamp });
   if (currentScore === null) {
     return noopContinuityRule("deferral_escalation");
   }

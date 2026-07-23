@@ -24,7 +24,7 @@ Today, the real judgment layer lives in the [Aperture core SDK package](../../pa
 
 Current version:
 
-- `@tomismeta/aperture-core@0.7.0`
+- `@tomismeta/aperture-core@0.8.0`
 
 If you want the opinionated local CLI/TUI product, use `@tomismeta/aperture`.
 If you want to embed the deterministic judgment loop in your own host or
@@ -34,8 +34,9 @@ What is already true:
 
 - `ApertureCore` is exported and usable as a full engine surface
 - `SourceEvent` ingestion now includes a built-in deterministic semantic layer
+- a pure evaluator subpath exposes one-claim deterministic judgment records
 - trace/explanation now has a dedicated subpath for SDK consumers
-- the only advanced public subpaths are `@tomismeta/aperture-core/semantic` and `@tomismeta/aperture-core/trace`
+- the only advanced public subpaths are `@tomismeta/aperture-core/semantic`, `@tomismeta/aperture-core/evaluator`, and `@tomismeta/aperture-core/trace`
 - the root public surface is intentionally minimal
 - external-consumer proof paths exist
 - `pnpm sdk:prove` verifies both external consumption and tarball shape
@@ -110,6 +111,22 @@ It exists for consumers who want to:
 - normalize `SourceEvent` into canonical `ApertureEvent`
 - validate adapter output and semantic assumptions
 
+### `@tomismeta/aperture-core/evaluator`
+
+This subpath contains the pure deterministic judgment primitive.
+
+It exists for consumers who want to:
+
+- evaluate one `AttentionClaim` against explicit context, config, and clock input
+- receive a versioned `AttentionDecisionRecord`
+- preserve the claim timestamp while reading `record.evaluatedAt` for the evaluation clock
+- pass current attention state through `context.current`
+- inspect planned route, planned lane, evidence, policy, value, ambiguity, continuity, and reason codes
+
+It does not apply events, mutate state, accept responses, replay sessions,
+persist data, or report realized placement. Use `ApertureCore` for those
+stateful engine behaviors.
+
 ### `@tomismeta/aperture-core/trace`
 
 This subpath contains the public explainability contract.
@@ -132,6 +149,7 @@ It currently contains:
 
 - the full engine facade for consumers who want the whole attention model
 - core event, source-event, frame, response, signal, and semantic types
+- a dedicated evaluator subpath for pure claim-to-record judgment
 - a dedicated trace subpath for explanation consumers
 - a deterministic semantic layer used internally by `publishSourceEvent(...)`
 

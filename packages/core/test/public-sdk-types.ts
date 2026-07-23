@@ -39,6 +39,24 @@ import type {
   SemanticOntologyDiagnostic,
   SemanticRelationHint,
 } from "../src/semantic.js";
+import type {
+  AttentionClaimAction,
+  AttentionClaim,
+  AttentionClaimContext,
+  AttentionClaimEpisode,
+  AttentionClaimResponseSpec,
+  AttentionClaimJudgment,
+  AttentionClaimMode,
+  AttentionClaimPriority,
+  AttentionDecisionRecordContinuityEvaluation,
+  AttentionDecisionRecord,
+  AttentionDecisionRoute,
+  AttentionEvaluationContext,
+  AttentionEvaluationConfig,
+  AttentionEvaluationFrame,
+  AttentionEvaluationInput,
+  AttentionOperatorPresence,
+} from "../src/evaluator.js";
 
 void (0 as unknown as ApertureCoreOptions);
 void (0 as unknown as AttentionFrameListener);
@@ -75,3 +93,19 @@ void (0 as unknown as AttentionOntologyDiagnostic);
 void (0 as unknown as SemanticOntologyDiagnostic);
 void (0 as unknown as SemanticRelationHint);
 void (0 as unknown as SemanticConfidence);
+void (0 as unknown as AttentionClaim);
+void (0 as unknown as AttentionClaimAction);
+void (0 as unknown as AttentionClaimContext);
+void (0 as unknown as AttentionClaimEpisode);
+void (0 as unknown as AttentionClaimResponseSpec);
+void (0 as unknown as AttentionClaimJudgment);
+void (0 as unknown as AttentionClaimMode);
+void (0 as unknown as AttentionClaimPriority);
+void (0 as unknown as AttentionDecisionRecordContinuityEvaluation);
+void (0 as unknown as AttentionDecisionRecord);
+void (0 as unknown as AttentionDecisionRoute);
+void (0 as unknown as AttentionEvaluationContext);
+void (0 as unknown as AttentionEvaluationConfig);
+void (0 as unknown as AttentionEvaluationFrame);
+void (0 as unknown as AttentionEvaluationInput);
+void (0 as unknown as AttentionOperatorPresence);

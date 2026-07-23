@@ -4,7 +4,7 @@ import type { EpisodeSummary } from "./episode-tracker.js";
 import type { ApertureEvent } from "./events.js";
 import type { AttentionFrame, AttentionTaskView, AttentionView } from "./frame.js";
 import type { AttentionCandidate, AttentionPriority } from "./interaction-candidate.js";
-import type { AttentionDecisionRecord } from "./judgment-coordinator.js";
+import type { AttentionDecisionRecord } from "./attention-decision-record.js";
 import type { AttentionDecisionAmbiguity } from "./attention-ambiguity.js";
 import type {
   AttentionInterruptCriterionVerdict,
@@ -15,7 +15,6 @@ import type { PolicyCriterionRuleEvaluation } from "./policy/policy-criterion-ru
 import type { PolicyGateRuleEvaluation } from "./policy/policy-gate-rule.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import type { AttentionValueBreakdown } from "./attention-value.js";
-import type { ContinuityRuleEvaluation } from "./continuity/continuity-rule.js";
 import type {
   TraceCandidateTransition,
   TraceEventTransition,
@@ -112,7 +111,7 @@ export type ApertureTrace =
         kind: "auto_approve" | "activate" | "queue" | "ambient" | "clear";
         reasons: string[];
         reasonCodes: AttentionDecisionRecord["planning"]["reasonCodes"];
-        continuityEvaluations: ContinuityRuleEvaluation[];
+        continuityEvaluations: AttentionDecisionRecord["planning"]["continuityEvaluations"];
       };
       coordination: {
         kind: "auto_approve" | "activate" | "queue" | "ambient" | "clear";
@@ -124,7 +123,7 @@ export type ApertureTrace =
         ambiguity: AttentionDecisionAmbiguity | null;
         reasons: string[];
         reasonCodes: AttentionDecisionRecord["planning"]["reasonCodes"];
-        continuityEvaluations: ContinuityRuleEvaluation[];
+        continuityEvaluations: AttentionDecisionRecord["planning"]["continuityEvaluations"];
       };
       taskSummary: AttentionSignalSummary;
       globalSummary: AttentionSignalSummary;

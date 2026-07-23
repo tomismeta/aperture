@@ -468,6 +468,78 @@ test("session bundle validation rejects malformed present decision records", () 
   assert.equal(invalid, null);
 });
 
+test("session bundle validation rejects malformed claimScore without legacy fallback", () => {
+  const emptyView = { now: null, next: [], ambient: [] };
+  const invalid = validateSessionBundle({
+    schemaVersion: 1,
+    sessionId: "session:invalid-claim-score",
+    title: "Invalid claim score",
+    exportedAt: "2026-03-21T18:35:00.000Z",
+    steps: [],
+    normalizedEvents: [],
+    traces: [
+      {
+        timestamp: "2026-03-21T18:35:00.000Z",
+        event: {
+          id: "evt:invalid-claim-score",
+          type: "task.updated",
+          taskId: "task:invalid-claim-score",
+          timestamp: "2026-03-21T18:35:00.000Z",
+          title: "Build failed",
+          status: "failed",
+        },
+        evaluation: { kind: "candidate" },
+        coordination: { kind: "queue", resultLane: "next" },
+        attentionView: emptyView,
+        taskView: emptyView,
+        decisionRecord: {
+          planning: {
+            route: "queue",
+            plannedLane: "next",
+            reasons: [],
+            reasonCodes: [
+              "route:queue",
+              "lane:next",
+              "policy:minimum_lane:next",
+              "pressure:level:steady",
+              "pressure:overload:low",
+              "evidence:operator_presence:present",
+              "evidence:current_frame:absent",
+              "evidence:current_episode:absent",
+            ],
+          },
+          evidenceSnapshot: {
+            operatorPresence: "present",
+            currentFrameId: null,
+            currentEpisodeId: null,
+          },
+          value: {
+            claimScore: "bad",
+            candidateScore: 1,
+            breakdown: { components: { priority: 1 } },
+          },
+        },
+      },
+    ],
+    signals: [],
+    responses: [],
+    viewSnapshots: [],
+    semanticSnapshots: [],
+    decisionSnapshots: [],
+    outcomes: {
+      totalSteps: 0,
+      surfacedFrames: 0,
+      finalNowInteractionId: null,
+      finalNextCount: 0,
+      finalAmbientCount: 0,
+      finalNextInteractionIds: [],
+      finalAmbientInteractionIds: [],
+    },
+  });
+
+  assert.equal(invalid, null);
+});
+
 test("session bundle validation rejects malformed decision reason codes", () => {
   const emptyView = { now: null, next: [], ambient: [] };
   const invalidTraceReasonCode = validateSessionBundle({

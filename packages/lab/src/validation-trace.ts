@@ -68,8 +68,20 @@ function validateReplayDecisionRecord(value: unknown): boolean {
     isStringOrNull(evidenceSnapshot.currentFrameId) &&
     isStringOrNull(evidenceSnapshot.currentEpisodeId) &&
     isRecord(decisionValue) &&
-    typeof decisionValue.candidateScore === "number" &&
+    hasValidDecisionRecordScore(decisionValue) &&
     isRecord(components) &&
-    Object.values(components).every((component) => typeof component === "number")
+    Object.values(components).every(isFiniteNumber)
   );
+}
+
+function hasValidDecisionRecordScore(value: Record<string, unknown>): boolean {
+  if (Object.prototype.hasOwnProperty.call(value, "claimScore")) {
+    return isFiniteNumber(value.claimScore);
+  }
+
+  return isFiniteNumber(value.candidateScore);
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
 }

@@ -7,6 +7,11 @@ import {
   digestKernelCanonicalJson,
   serializeKernelCanonicalJson,
 } from "./kernel-canonical-json.js";
+import {
+  readKernelDecisionRecordComponents,
+  readKernelDecisionRecordScore,
+  sortKernelDecisionRecordComponents,
+} from "./kernel-decision-value.js";
 import type { ReplayDecisionRecordTraceProjection } from "./replay-trace.js";
 import type {
   ReplayDecisionOperatorPresence,
@@ -59,7 +64,12 @@ export function buildKernelDecisionRecordProjection(
   record: ReplayDecisionRecordTraceProjection,
   options: { realizedLane: KernelDecisionRealizedLane },
 ): KernelDecisionRecordProjectionV2 | null {
+  const claimScore = readKernelDecisionRecordScore(record);
   if (record.planning.reasonCodes === undefined) {
+    return null;
+  }
+  const components = readKernelDecisionRecordComponents(record.value.breakdown.components);
+  if (claimScore === null || components === null) {
     return null;
   }
 
@@ -75,8 +85,8 @@ export function buildKernelDecisionRecordProjection(
       currentEpisodeId: record.evidenceSnapshot.currentEpisodeId,
     },
     value: {
-      candidateScore: record.value.candidateScore,
-      components: sortNumberMap(record.value.breakdown.components),
+      candidateScore: claimScore,
+      components,
     },
     reasons: record.planning.reasons,
     reasonCodes: record.planning.reasonCodes,
@@ -93,10 +103,16 @@ export function buildKernelDecisionRecordProjectionFromSnapshot(
     snapshot.decisionRecordCurrentFrameId === undefined ||
     snapshot.decisionRecordCurrentEpisodeId === undefined ||
     snapshot.decisionRecordCandidateScore === undefined ||
+    !Number.isFinite(snapshot.decisionRecordCandidateScore) ||
     snapshot.decisionRecordValueComponents === undefined ||
     snapshot.decisionRecordReasons === undefined ||
     snapshot.decisionRecordReasonCodes === undefined
   ) {
+    return null;
+  }
+
+  const components = readKernelDecisionRecordComponents(snapshot.decisionRecordValueComponents);
+  if (components === null) {
     return null;
   }
 
@@ -113,7 +129,7 @@ export function buildKernelDecisionRecordProjectionFromSnapshot(
       },
       value: {
         candidateScore: snapshot.decisionRecordCandidateScore,
-        components: sortNumberMap(snapshot.decisionRecordValueComponents),
+        components,
       },
       reasons: snapshot.decisionRecordReasons,
       reasonCodes: snapshot.decisionRecordReasonCodes,
@@ -140,7 +156,7 @@ export function buildKernelDecisionRecordProjectionFromSnapshot(
     },
     value: {
       candidateScore: snapshot.decisionRecordCandidateScore,
-      components: sortNumberMap(snapshot.decisionRecordValueComponents),
+      components,
     },
     reasons: snapshot.decisionRecordReasons,
     reasonCodes: snapshot.decisionRecordReasonCodes,
@@ -168,7 +184,7 @@ export function canonicalizeKernelDecisionRecordProjection(
       evidence: { ...projection.evidence },
       value: {
         candidateScore: projection.value.candidateScore,
-        components: sortNumberMap(projection.value.components),
+        components: sortKernelDecisionRecordComponents(projection.value.components),
       },
       reasons: [...projection.reasons],
       reasonCodes: [...projection.reasonCodes].sort(compareKernelCanonicalKey),
@@ -184,7 +200,7 @@ export function canonicalizeKernelDecisionRecordProjection(
     evidence: { ...projection.evidence },
     value: {
       candidateScore: projection.value.candidateScore,
-      components: sortNumberMap(projection.value.components),
+      components: sortKernelDecisionRecordComponents(projection.value.components),
     },
     reasons: [...projection.reasons],
     reasonCodes: [...projection.reasonCodes].sort(compareKernelCanonicalKey),
@@ -220,12 +236,4 @@ export function isKernelDecisionRecordFingerprint(
   value: unknown,
 ): value is KernelDecisionRecordFingerprint {
   return typeof value === "string" && /^sha256:[a-f0-9]{64}$/.test(value);
-}
-
-function sortNumberMap(value: Record<string, number | undefined>): Record<string, number> {
-  return Object.fromEntries(
-    Object.entries(value)
-      .filter((entry): entry is [string, number] => typeof entry[1] === "number")
-      .sort(([left], [right]) => compareKernelCanonicalKey(left, right)),
-  );
 }

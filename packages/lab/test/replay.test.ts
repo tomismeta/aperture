@@ -9,6 +9,19 @@ import {
   type ReplayScenario,
   isKernelDecisionRecordFingerprint,
 } from "../src/index.js";
+import type { ReplayCandidateTrace } from "../src/replay-trace.js";
+import { buildDecisionRecordSnapshot } from "../src/runner.js";
+
+const VALID_REASON_CODES = [
+  "route:queue",
+  "lane:next",
+  "policy:minimum_lane:next",
+  "pressure:level:steady",
+  "pressure:overload:low",
+  "evidence:operator_presence:present",
+  "evidence:current_frame:absent",
+  "evidence:current_episode:absent",
+];
 
 test("replay runner captures frames, traces, responses, and final view state", () => {
   const scenario: ReplayScenario = {
@@ -195,3 +208,64 @@ test("normalized replay runs retain semantic and decision detail for determinism
     ),
   );
 });
+
+test("replay decision snapshots apply strict claimScore precedence", () => {
+  const legacy = buildDecisionRecordSnapshot(
+    createDecisionRecordTrace({
+      candidateScore: 1,
+      breakdown: { components: { priority: 1 } },
+    }),
+  );
+  const current = buildDecisionRecordSnapshot(
+    createDecisionRecordTrace({
+      claimScore: 2,
+      candidateScore: 1,
+      breakdown: { components: { priority: 2 } },
+    }),
+  );
+  const malformedCurrent = buildDecisionRecordSnapshot(
+    createDecisionRecordTrace({
+      claimScore: "bad",
+      candidateScore: 1,
+      breakdown: { components: { priority: 1 } },
+    } as never),
+  );
+  const malformedComponents = buildDecisionRecordSnapshot(
+    createDecisionRecordTrace({
+      claimScore: 1,
+      breakdown: {
+        components: {
+          priority: 1,
+          contextCost: Number.NaN,
+        },
+      },
+    }),
+  );
+
+  assert.equal(legacy.decisionRecordCandidateScore, 1);
+  assert.equal(current.decisionRecordCandidateScore, 2);
+  assert.deepEqual(malformedCurrent, {});
+  assert.deepEqual(malformedComponents, {});
+});
+
+function createDecisionRecordTrace(
+  value: NonNullable<ReplayCandidateTrace["decisionRecord"]>["value"],
+): ReplayCandidateTrace {
+  return {
+    coordination: { resultLane: "next" },
+    decisionRecord: {
+      planning: {
+        route: "queue",
+        plannedLane: "next",
+        reasons: [],
+        reasonCodes: VALID_REASON_CODES,
+      },
+      evidenceSnapshot: {
+        operatorPresence: "present",
+        currentFrameId: null,
+        currentEpisodeId: null,
+      },
+      value,
+    },
+  } as unknown as ReplayCandidateTrace;
+}

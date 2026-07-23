@@ -7,6 +7,15 @@ import type {
   AttentionPolicyVerdict,
 } from "../attention-policy.js";
 
+export type PolicyCriterionRuleName =
+  | "operator_absence"
+  | "interrupt_eligibility"
+  | "source_trust"
+  | "attention_budget"
+  | "semantic_uncertainty"
+  | "no_active_frame"
+  | "small_score_gap";
+
 export type PolicyCriterionRuleInput = {
   candidate: AttentionCandidate;
   policyVerdict: AttentionPolicyVerdict;
@@ -20,18 +29,18 @@ export type PolicyCriterionRuleInput = {
 
 export type PolicyCriterionRuleEvaluation =
   | {
-      rule: string;
+      rule: PolicyCriterionRuleName;
       kind: "noop";
       rationale: string[];
     }
   | {
-      rule: string;
+      rule: PolicyCriterionRuleName;
       kind: "adjust";
       criterion: AttentionInterruptCriterion;
       rationale: string[];
     }
   | {
-      rule: string;
+      rule: PolicyCriterionRuleName;
       kind: "verdict";
       verdict: AttentionInterruptCriterionVerdict;
       rationale: string[];
@@ -42,7 +51,7 @@ export type PolicyCriterionRule = (
 ) => PolicyCriterionRuleEvaluation;
 
 export function noopPolicyCriterionRule(
-  rule: string,
+  rule: PolicyCriterionRuleName,
   rationale: string[] = [],
 ): PolicyCriterionRuleEvaluation {
   return {
@@ -53,7 +62,7 @@ export function noopPolicyCriterionRule(
 }
 
 export function verdictPolicyCriterionRule(
-  rule: string,
+  rule: PolicyCriterionRuleName,
   verdict: AttentionInterruptCriterionVerdict,
   rationale: string[] = verdict.rationale,
 ): PolicyCriterionRuleEvaluation {
@@ -66,7 +75,7 @@ export function verdictPolicyCriterionRule(
 }
 
 export function adjustCriterionRule(
-  rule: string,
+  rule: PolicyCriterionRuleName,
   criterion: AttentionInterruptCriterion,
   rationale: string[],
 ): PolicyCriterionRuleEvaluation {

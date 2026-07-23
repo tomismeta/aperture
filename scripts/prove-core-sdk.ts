@@ -19,6 +19,10 @@ const examples: Example[] = [
     entrypoint: join(repoRoot, "examples", "core-full-engine", "index.ts"),
   },
   {
+    name: "core-attention-evaluator",
+    entrypoint: join(repoRoot, "examples", "core-attention-evaluator", "index.ts"),
+  },
+  {
     name: "core-semantic-entrypoint",
     entrypoint: join(repoRoot, "examples", "core-semantic-entrypoint", "index.ts"),
   },
@@ -67,14 +71,8 @@ function listTarballEntries(tarballPath: string): string[] {
 }
 
 function assertTarballShape(entries: string[]): void {
-  const disallowedPrefixes = [
-    "package/src/",
-    "package/test/",
-  ];
-  const disallowedEntries = [
-    "package/tsconfig.json",
-    "package/tsconfig.tsbuildinfo",
-  ];
+  const disallowedPrefixes = ["package/src/", "package/test/"];
+  const disallowedEntries = ["package/tsconfig.json", "package/tsconfig.tsbuildinfo"];
 
   for (const prefix of disallowedPrefixes) {
     assert.equal(
@@ -90,24 +88,106 @@ function assertTarballShape(entries: string[]): void {
 
   assert.equal(entries.includes("package/README.md"), true, "tarball should include README.md");
   assert.equal(entries.includes("package/LICENSE"), true, "tarball should include LICENSE");
-  assert.equal(entries.includes("package/package.json"), true, "tarball should include package.json");
-  assert.equal(entries.includes("package/public-dist/index.js"), true, "tarball should include built entrypoint");
-  assert.equal(entries.includes("package/public-dist/semantic.js"), true, "tarball should include semantic entrypoint");
-  assert.equal(entries.includes("package/public-dist/trace.js"), true, "tarball should include trace entrypoint");
-  assert.equal(entries.includes("package/public-dist/internal.js"), false, "tarball should not include internal entrypoint");
-  assert.equal(entries.includes("package/public-dist/internal.d.ts"), false, "tarball should not include internal declarations");
-  assert.equal(entries.some((entry) => entry.startsWith("package/dist/")), false, "tarball should not include internal dist output");
-  assert.equal(entries.some((entry) => entry.endsWith(".js.map")), false, "tarball should not include JavaScript source maps");
-  assert.equal(entries.some((entry) => entry.endsWith(".d.ts.map")), false, "tarball should not include declaration maps");
-  assert.equal(entries.some((entry) => entry.includes("attention-heuristics")), false, "tarball should not include stale renamed artifacts");
-  assert.equal(entries.some((entry) => entry.includes("episode-store")), false, "tarball should not include stale renamed artifacts");
-  assert.equal(entries.some((entry) => entry.includes("evaluation-engine")), false, "tarball should not include stale renamed artifacts");
-  assert.equal(entries.some((entry) => entry.includes("interaction-coordinator")), false, "tarball should not include stale renamed artifacts");
-  assert.equal(entries.some((entry) => entry.includes("interaction-signal-store")), false, "tarball should not include stale renamed artifacts");
-  assert.equal(entries.some((entry) => entry.includes("policy-gates")), false, "tarball should not include stale renamed artifacts");
-  assert.equal(entries.some((entry) => entry.includes("pressure-forecast")), false, "tarball should not include stale renamed artifacts");
-  assert.equal(entries.some((entry) => entry.includes("queue-planner")), false, "tarball should not include stale renamed artifacts");
-  assert.equal(entries.some((entry) => entry.includes("utility-score")), false, "tarball should not include stale renamed artifacts");
+  assert.equal(
+    entries.includes("package/package.json"),
+    true,
+    "tarball should include package.json",
+  );
+  assert.equal(
+    entries.includes("package/public-dist/index.js"),
+    true,
+    "tarball should include built entrypoint",
+  );
+  assert.equal(
+    entries.includes("package/public-dist/evaluator.js"),
+    true,
+    "tarball should include evaluator entrypoint",
+  );
+  assert.equal(
+    entries.includes("package/public-dist/evaluator.d.ts"),
+    true,
+    "tarball should include evaluator declarations",
+  );
+  assert.equal(
+    entries.includes("package/public-dist/semantic.js"),
+    true,
+    "tarball should include semantic entrypoint",
+  );
+  assert.equal(
+    entries.includes("package/public-dist/trace.js"),
+    true,
+    "tarball should include trace entrypoint",
+  );
+  assert.equal(
+    entries.includes("package/public-dist/internal.js"),
+    false,
+    "tarball should not include internal entrypoint",
+  );
+  assert.equal(
+    entries.includes("package/public-dist/internal.d.ts"),
+    false,
+    "tarball should not include internal declarations",
+  );
+  assert.equal(
+    entries.some((entry) => entry.startsWith("package/dist/")),
+    false,
+    "tarball should not include internal dist output",
+  );
+  assert.equal(
+    entries.some((entry) => entry.endsWith(".js.map")),
+    false,
+    "tarball should not include JavaScript source maps",
+  );
+  assert.equal(
+    entries.some((entry) => entry.endsWith(".d.ts.map")),
+    false,
+    "tarball should not include declaration maps",
+  );
+  assert.equal(
+    entries.some((entry) => entry.includes("attention-heuristics")),
+    false,
+    "tarball should not include stale renamed artifacts",
+  );
+  assert.equal(
+    entries.some((entry) => entry.includes("episode-store")),
+    false,
+    "tarball should not include stale renamed artifacts",
+  );
+  assert.equal(
+    entries.some((entry) => entry.includes("evaluation-engine")),
+    false,
+    "tarball should not include stale renamed artifacts",
+  );
+  assert.equal(
+    entries.some((entry) => entry.includes("interaction-coordinator")),
+    false,
+    "tarball should not include stale renamed artifacts",
+  );
+  assert.equal(
+    entries.some((entry) => entry.includes("interaction-signal-store")),
+    false,
+    "tarball should not include stale renamed artifacts",
+  );
+  assert.equal(
+    entries.some((entry) => entry.includes("policy-gates")),
+    false,
+    "tarball should not include stale renamed artifacts",
+  );
+  assert.equal(
+    entries.some((entry) => entry.includes("pressure-forecast")),
+    false,
+    "tarball should not include stale renamed artifacts",
+  );
+  assert.equal(
+    entries.some((entry) => entry.includes("queue-planner")),
+    false,
+    "tarball should not include stale renamed artifacts",
+  );
+  assert.equal(
+    entries.some((entry) => entry.includes("utility-score")),
+    false,
+    "tarball should not include stale renamed artifacts",
+  );
 }
 
 async function main(): Promise<void> {
@@ -137,17 +217,23 @@ async function main(): Promise<void> {
       await cp(example.entrypoint, join(exampleDir, "index.ts"));
       await writeFile(
         join(exampleDir, "package.json"),
-        `${JSON.stringify({
-          name: example.name,
-          private: true,
-          type: "module",
-          dependencies: {
-            "@tomismeta/aperture-core": `file:${tarballPath}`,
+        `${JSON.stringify(
+          {
+            name: example.name,
+            private: true,
+            type: "module",
+            dependencies: {
+              "@tomismeta/aperture-core": `file:${tarballPath}`,
+            },
+            devDependencies: {
+              "@types/node": "^24.1.0",
+              typescript: "^5.9.2",
+              tsx: "^4.20.5",
+            },
           },
-          devDependencies: {
-            tsx: "^4.20.5",
-          },
-        }, null, 2)}\n`,
+          null,
+          2,
+        )}\n`,
         "utf8",
       );
       await writeFile(
@@ -155,8 +241,29 @@ async function main(): Promise<void> {
         "packages:\n  - .\nallowBuilds:\n  esbuild: true\nautoInstallPeers: false\n",
         "utf8",
       );
+      await writeFile(
+        join(exampleDir, "tsconfig.json"),
+        `${JSON.stringify(
+          {
+            compilerOptions: {
+              target: "ES2022",
+              module: "NodeNext",
+              moduleResolution: "NodeNext",
+              strict: true,
+              noEmit: true,
+              skipLibCheck: false,
+              types: ["node"],
+            },
+            include: ["index.ts"],
+          },
+          null,
+          2,
+        )}\n`,
+        "utf8",
+      );
 
       run("pnpm", ["install", "--prefer-offline"], exampleDir, { ignoreScripts: false });
+      run("pnpm", ["exec", "tsc", "--noEmit"], exampleDir);
       run("pnpm", ["exec", "tsx", "index.ts"], exampleDir);
     }
   } finally {
@@ -165,5 +272,5 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  assert.fail(error instanceof Error ? error.stack ?? error.message : String(error));
+  assert.fail(error instanceof Error ? (error.stack ?? error.message) : String(error));
 });

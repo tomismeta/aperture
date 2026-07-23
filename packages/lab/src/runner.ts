@@ -22,6 +22,7 @@ import type {
   ReplaySemanticSnapshot,
   ReplayViewSnapshot,
 } from "./scenario.js";
+import type { ReplayCandidateTrace } from "./replay-trace.js";
 
 export type ReplayStepResult = {
   stepIndex: number;
@@ -70,12 +71,13 @@ export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
       case "publish":
         frame = core.publish(step.event);
         break;
-      case "publishSource":
-        {
-          const normalized = normalizeSourceEvent(step.event);
-          if (!normalized.semantic) {
-            throw new Error("Normalized source events must preserve semantic interpretation for replay capture.");
-          }
+      case "publishSource": {
+        const normalized = normalizeSourceEvent(step.event);
+        if (!normalized.semantic) {
+          throw new Error(
+            "Normalized source events must preserve semantic interpretation for replay capture.",
+          );
+        }
         semantics.push({
           stepIndex,
           stepKind: step.kind,
@@ -83,15 +85,15 @@ export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
           interpretation: normalized.semantic,
           ontology: readSemanticOntologyDiagnostic(step.event, normalized.semantic),
         });
-          normalizedEvents.push({
-            stepIndex,
-            stepKind: step.kind,
-            ...(step.label ? { stepLabel: step.label } : {}),
-            event: normalized,
-          });
-          frame = core.publish(normalized);
+        normalizedEvents.push({
+          stepIndex,
+          stepKind: step.kind,
+          ...(step.label ? { stepLabel: step.label } : {}),
+          event: normalized,
+        });
+        frame = core.publish(normalized);
         break;
-        }
+      }
       case "submit":
         core.submit(step.response);
         break;
@@ -162,7 +164,7 @@ export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
 }
 
 export function buildDecisionSemanticSnapshot(
-  trace: Extract<ApertureTrace, { evaluation: { kind: "candidate" } }>,
+  trace: ReplayCandidateTrace,
 ): Pick<ReplayDecisionSnapshot, "semanticConfidence" | "semanticAbstained"> {
   const adjusted = trace.evaluation.adjusted as {
     judgmentInput?: {
@@ -175,12 +177,48 @@ export function buildDecisionSemanticSnapshot(
     semanticAbstained?: boolean;
   };
   const semanticEvidence = adjusted.judgmentInput?.semanticEvidence;
-  const confidence = semanticEvidence?.confidence ?? adjusted.semanticConfidence ?? trace.semantic?.confidence;
-  const abstained = semanticEvidence?.abstained ?? adjusted.semanticAbstained ?? trace.semantic?.abstained;
+  const confidence =
+    semanticEvidence?.confidence ?? adjusted.semanticConfidence ?? trace.semantic?.confidence;
+  const abstained =
+    semanticEvidence?.abstained ?? adjusted.semanticAbstained ?? trace.semantic?.abstained;
 
   return {
     ...(confidence !== undefined ? { semanticConfidence: confidence } : {}),
     ...(abstained === true ? { semanticAbstained: true } : {}),
+  };
+}
+
+export function buildDecisionRecordSnapshot(
+  trace: ReplayCandidateTrace,
+): Pick<
+  ReplayDecisionSnapshot,
+  | "decisionRecordRoute"
+  | "plannedLane"
+  | "decisionRecordCurrentFrameId"
+  | "decisionRecordCurrentEpisodeId"
+  | "decisionRecordOperatorPresence"
+  | "decisionRecordCandidateScore"
+  | "decisionRecordValueComponents"
+  | "decisionRecordReasons"
+  | "decisionRecordReasonCodes"
+> {
+  const record = trace.decisionRecord;
+  if (!record) {
+    return {};
+  }
+
+  return {
+    decisionRecordRoute: record.planning.route,
+    plannedLane: record.planning.plannedLane,
+    decisionRecordCurrentFrameId: record.evidenceSnapshot.currentFrameId,
+    decisionRecordCurrentEpisodeId: record.evidenceSnapshot.currentEpisodeId,
+    decisionRecordOperatorPresence: record.evidenceSnapshot.operatorPresence,
+    decisionRecordCandidateScore: record.value.candidateScore,
+    decisionRecordValueComponents: record.value.breakdown.components,
+    decisionRecordReasons: record.planning.reasons,
+    ...(record.planning.reasonCodes !== undefined
+      ? { decisionRecordReasonCodes: record.planning.reasonCodes }
+      : {}),
   };
 }
 
@@ -212,7 +250,10 @@ function buildDecisionSnapshot(
     resultLane: trace.coordination.resultLane,
     interactionId: trace.evaluation.adjusted.interactionId,
     ...buildDecisionSemanticSnapshot(trace),
-    ...(trace.semantic?.influence !== undefined ? { semanticInfluence: trace.semantic.influence } : {}),
+    ...buildDecisionRecordSnapshot(trace),
+    ...(trace.semantic?.influence !== undefined
+      ? { semanticInfluence: trace.semantic.influence }
+      : {}),
     ...(trace.semantic?.impact.decisionBearing !== undefined
       ? { semanticImpactDecisionBearing: trace.semantic.impact.decisionBearing }
       : {}),

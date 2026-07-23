@@ -398,6 +398,8 @@ test("public SDK supports trace inspection through the trace subpath", () => {
     "consequence (canonical)",
   ]);
   assert.equal(trace.coordination.kind, "activate");
+  assert.equal("decisionRecord" in trace, false);
+  assert.equal("reasonCodes" in trace.coordination, false);
   assert.equal("policy" in trace, false);
   assert.equal("taskView" in trace, false);
   assert.equal("attentionView" in trace, false);

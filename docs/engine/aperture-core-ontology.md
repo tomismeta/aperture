@@ -168,6 +168,13 @@ prevents inferred meaning from pretending to be source fact.
 `explicit` means the operative read came from the event shape or source-provided
 fields, not only from Aperture's own wording inference.
 
+`source` is intentionally coarse at this stage. It describes the highest-impact
+authority involved in the compact diagnostic, not per-field provenance. For
+mixed reads, such as an explicit lifecycle status with hinted relation
+continuity, detailed field authority stays in `SemanticInterpretation.provenance`
+and traces while the compact ontology may report `hinted` to preserve the
+weaker/adapter-influenced aspect of the overall read.
+
 ## Routing Meaning
 
 These dimensions matter because they are the stable supervision lens Aperture

@@ -152,10 +152,7 @@ test("session bundles can replay back into the same final attention outcome", ()
   });
   const replayed = runSessionBundle(bundle);
 
-  assert.deepEqual(
-    replayed.views.at(-1)?.attentionView,
-    result.views.at(-1)?.attentionView,
-  );
+  assert.deepEqual(replayed.views.at(-1)?.attentionView, result.views.at(-1)?.attentionView);
   assert.deepEqual(replayed.decisions, result.decisions);
 });
 
@@ -268,18 +265,19 @@ test("session bundles reject malformed schema-matching payloads on load", async 
   const directory = await mkdtemp(path.join(os.tmpdir(), "aperture-bundles-invalid-"));
   const filePath = path.join(directory, "invalid.json");
 
-  await writeFile(filePath, `${JSON.stringify({
-    schemaVersion: 1,
-    sessionId: "session:invalid",
-    title: "Invalid bundle",
-    exportedAt: "2026-03-21T18:35:00.000Z",
-    steps: [],
-  })}\n`, "utf8");
-
-  await assert.rejects(
-    loadSessionBundles(directory),
-    /Invalid session bundle/,
+  await writeFile(
+    filePath,
+    `${JSON.stringify({
+      schemaVersion: 1,
+      sessionId: "session:invalid",
+      title: "Invalid bundle",
+      exportedAt: "2026-03-21T18:35:00.000Z",
+      steps: [],
+    })}\n`,
+    "utf8",
   );
+
+  await assert.rejects(loadSessionBundles(directory), /Invalid session bundle/);
 });
 
 test("session bundle validation requires the core structural fields", () => {
@@ -335,6 +333,52 @@ test("session bundle validation rejects malformed array contents", () => {
     decisionSnapshots: [],
     outcomes: {
       totalSteps: 1,
+      surfacedFrames: 0,
+      finalNowInteractionId: null,
+      finalNextCount: 0,
+      finalAmbientCount: 0,
+      finalNextInteractionIds: [],
+      finalAmbientInteractionIds: [],
+    },
+  });
+
+  assert.equal(invalid, null);
+});
+
+test("session bundle validation rejects malformed present decision records", () => {
+  const emptyView = { now: null, next: [], ambient: [] };
+  const invalid = validateSessionBundle({
+    schemaVersion: 1,
+    sessionId: "session:invalid-decision-record",
+    title: "Invalid decision record",
+    exportedAt: "2026-03-21T18:35:00.000Z",
+    steps: [],
+    normalizedEvents: [],
+    traces: [
+      {
+        timestamp: "2026-03-21T18:35:00.000Z",
+        event: {
+          id: "evt:invalid-decision-record",
+          type: "task.updated",
+          taskId: "task:invalid-decision-record",
+          timestamp: "2026-03-21T18:35:00.000Z",
+          title: "Build failed",
+          status: "failed",
+        },
+        evaluation: { kind: "candidate" },
+        coordination: { kind: "queue", resultLane: "next" },
+        attentionView: emptyView,
+        taskView: emptyView,
+        decisionRecord: "invalid",
+      },
+    ],
+    signals: [],
+    responses: [],
+    viewSnapshots: [],
+    semanticSnapshots: [],
+    decisionSnapshots: [],
+    outcomes: {
+      totalSteps: 0,
       surfacedFrames: 0,
       finalNowInteractionId: null,
       finalNextCount: 0,
@@ -406,16 +450,17 @@ test("replay scenarios reject malformed files during load", async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "aperture-scenarios-invalid-"));
   const filePath = path.join(directory, "invalid.json");
 
-  await writeFile(filePath, `${JSON.stringify({
-    id: "scenario:invalid",
-    title: "Invalid scenario",
-    steps: [null],
-  })}\n`, "utf8");
-
-  await assert.rejects(
-    loadReplayScenarios(directory),
-    /Invalid replay scenario/,
+  await writeFile(
+    filePath,
+    `${JSON.stringify({
+      id: "scenario:invalid",
+      title: "Invalid scenario",
+      steps: [null],
+    })}\n`,
+    "utf8",
   );
+
+  await assert.rejects(loadReplayScenarios(directory), /Invalid replay scenario/);
 });
 
 test("canonical attention exports convert into replay scenarios with final-state expectations", () => {
@@ -549,7 +594,10 @@ test("session bundles can be created from canonical attention exports", () => {
   assert.equal(bundle.sessionId, "session:paperclip:export");
   assert.equal(bundle.steps.length, 2);
   assert.equal(bundle.responses.length, 1);
-  assert.equal(bundle.traces.some((trace) => trace.event.id === "evt:paperclip:approval"), true);
+  assert.equal(
+    bundle.traces.some((trace) => trace.event.id === "evt:paperclip:approval"),
+    true,
+  );
   assert.equal(bundle.outcomes.finalNowInteractionId, null);
   assert.equal(bundle.outcomes.finalNextCount, 0);
 });
@@ -709,7 +757,9 @@ test("session bundles can be created from runtime-style captures", () => {
               reason: "low_signal" as const,
               resolution: "queue" as const,
             },
-            rationale: ["low-confidence semantic interpretation keeps non-blocking work peripheral until the signal is clearer"],
+            rationale: [
+              "low-confidence semantic interpretation keeps non-blocking work peripheral until the signal is clearer",
+            ],
           },
           criterionEvaluations: [],
         },
@@ -755,14 +805,18 @@ test("session bundles can be created from runtime-style captures", () => {
               reason: "low_signal" as const,
               resolution: "queue" as const,
             },
-            rationale: ["low-confidence semantic interpretation keeps non-blocking work peripheral until the signal is clearer"],
+            rationale: [
+              "low-confidence semantic interpretation keeps non-blocking work peripheral until the signal is clearer",
+            ],
           },
           ambiguity: {
             kind: "interrupt" as const,
             reason: "low_signal" as const,
             resolution: "queue" as const,
           },
-          reasons: ["low-confidence semantic interpretation keeps non-blocking work peripheral until the signal is clearer"],
+          reasons: [
+            "low-confidence semantic interpretation keeps non-blocking work peripheral until the signal is clearer",
+          ],
           continuityEvaluations: [],
         },
         taskSummary: {
@@ -1009,6 +1063,8 @@ test("session bundles can be created from runtime-style captures", () => {
   assert.equal(bundle.normalizedEvents.length, 1);
   assert.equal(bundle.semanticSnapshots[0]?.interpretation.intentFrame, "failure");
   assert.equal(bundle.decisionSnapshots[0]?.decisionKind, "queue");
+  assert.equal(bundle.decisionSnapshots[0]?.decisionRecordRoute, undefined);
+  assert.equal("decisionRecord" in (bundle.traces[0] ?? {}), false);
   assert.equal(bundle.outcomes.finalNextCount, 1);
   assert.equal(bundle.explanation?.headline, "Work has failed and should be reviewed.");
   assert.equal(bundle.explanation?.targetLane, "next");

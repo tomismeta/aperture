@@ -4,8 +4,23 @@ import test from "node:test";
 import type { ApertureTrace } from "../src/index.js";
 
 import { ApertureCore } from "../src/aperture-core.js";
+import {
+  subscribeInternalTrace,
+  type ApertureTrace as InternalApertureTrace,
+} from "../src/internal-contract.js";
 
 function latestCandidateTrace(traces: ApertureTrace[]) {
+  for (let index = traces.length - 1; index >= 0; index -= 1) {
+    const trace = traces[index];
+    if (trace?.evaluation.kind === "candidate") {
+      return trace;
+    }
+  }
+
+  return null;
+}
+
+function latestInternalCandidateTrace(traces: InternalApertureTrace[]) {
   for (let index = traces.length - 1; index >= 0; index -= 1) {
     const trace = traces[index];
     if (trace?.evaluation.kind === "candidate") {
@@ -315,9 +330,9 @@ test("trace recorder promotes abstention to ambiguity-bearing impact on non-bloc
 
 test("trace recorder exposes blocked-like waiting status queue decisions without changing status mode", () => {
   const core = new ApertureCore();
-  const traces: ApertureTrace[] = [];
+  const traces: InternalApertureTrace[] = [];
 
-  core.onTrace((trace) => {
+  subscribeInternalTrace(core, (trace) => {
     traces.push(trace);
   });
 
@@ -332,7 +347,7 @@ test("trace recorder exposes blocked-like waiting status queue decisions without
     status: "waiting",
   });
 
-  const trace = latestCandidateTrace(traces);
+  const trace = latestInternalCandidateTrace(traces);
   assert.ok(trace);
   assert.equal(trace?.evaluation.kind, "candidate");
   if (!trace || trace.evaluation.kind !== "candidate") {
@@ -343,6 +358,16 @@ test("trace recorder exposes blocked-like waiting status queue decisions without
   assert.equal(trace.semantic?.ontology.blocking, "blocking");
   assert.equal(trace.coordination.kind, "queue");
   assert.equal(trace.coordination.resultLane, "now");
+  assert.equal(trace.decisionRecord.planning.route, "queue");
+  assert.equal(trace.decisionRecord.planning.plannedLane, "next");
+  assert.deepEqual(trace.decisionRecord.planning.reasonCodes, trace.coordination.reasonCodes);
+  assert.ok(trace.decisionRecord.planning.reasonCodes.includes("route:queue"));
+  assert.ok(trace.decisionRecord.planning.reasonCodes.includes("lane:next"));
+  assert.ok(trace.decisionRecord.planning.reasonCodes.includes("evidence:current_frame:absent"));
+  assert.equal(trace.decisionRecord.value.candidateScore, trace.coordination.candidateScore);
+  assert.equal(trace.decisionRecord.value.currentScore, trace.coordination.currentScore);
+  assert.equal(trace.decisionRecord.policy.criterion, trace.coordination.criterion);
+  assert.equal(trace.decisionRecord.evidenceSnapshot.currentFrameId, null);
   assert.ok(
     trace.semantic?.influence.includes(
       "semantic blocking marked the waiting status as blocked-like for peripheral routing while status handling stayed non-blocking",

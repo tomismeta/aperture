@@ -38,7 +38,7 @@ The kernel should preserve these invariants:
 - policy consumes compact judgment input, not raw source prose
 - hard policy stays separate from soft value
 - continuity is explicit and replayable
-- every surfaced decision has reason codes and provenance
+- every candidate decision has stable reason codes and provenance
 - no hidden model calls run in the judgment path
 - core stays dependency-light
 
@@ -63,6 +63,11 @@ decision, candidate, evidence snapshot, policy evaluations, value calculation,
 planning route, ambiguity, continuity evaluations, and reasons into one
 replayable object.
 
+Its `planning.reasonCodes` are stable machine-readable tags for conformance and
+offline analysis. The prose `planning.reasons` remain human-facing explanation
+and may change as language improves; fixtures should prefer reason codes for
+route, lane, policy, evidence, pressure, ambiguity, and continuity guarantees.
+
 ## What Stays Out
 
 The kernel should not absorb:
@@ -79,16 +84,30 @@ Those can integrate around the kernel. They should not become the kernel.
 
 ## Conformance Path
 
-The next maturity layer is a public conformance suite.
+The Lab golden replay path is the conformance harness. Kernel fixtures should
+live under `packages/lab/golden/kernel/` and assert compact, deterministic
+projections of the internal record rather than copying every nested trace field.
 
 Each conformance case should assert:
 
 - input event and context
 - semantic interpretation
 - ontology diagnostic
-- judgment input
-- decision record
-- trace reason codes
+- judgment input projection when it is decision-bearing
+- decision record route, planned lane, evidence identity, presence, and value
+  score
+- prose reasons only when the wording itself is part of the case
+- value components as an open numeric map; fixtures should assert only the
+  components that are semantically important for that case
+- stable decision reason codes from the record projection
+
+The current kernel fixture matrix covers:
+
+- `activate` with no current frame and operator present
+- `queue` under operator absence
+- `queue` behind a stronger same-task current frame
+- `ambient` for passive status noise
+- `auto_approve` for configured bounded low-risk reads
 
 The suite should include adversarial examples:
 
@@ -104,9 +123,16 @@ The suite should include adversarial examples:
 
 ## Public API Posture
 
-Do not publish a new kernel API just because the internal artifact exists.
+Decision as of 2026-07-23: do not publish a dedicated kernel API yet.
 
-The right order is:
+The public `semantic` subpath can expose the attention-named ontology entry
+points because those are additive aliases over the existing semantic contract.
+The canonical judgment artifact, `AttentionDecisionRecord`, remains internal and
+is available through internal traces and Lab conformance fixtures only. Public
+traces intentionally expose prose coordination reasons, not record reason codes,
+until the kernel API is deliberately opened.
+
+The right order remains:
 
 1. stabilize the internal artifact
 2. lock it with fixtures

@@ -1,0 +1,57 @@
+{
+  "id": "golden:kernel:ambient-decision-record",
+  "title": "Decision record preserves ambient status routing",
+  "description": "A passive running status remains ambient, and the fixture locks the peripheral policy route and stable reason-code projection.",
+  "doctrineTags": ["kernel_conformance", "deterministic_judgment", "ambient_route"],
+  "expectations": {
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
+    "ambientInteractionIds": ["interaction:task:kernel:ambient:status"],
+    "resultLaneCounts": {
+      "now": 0,
+      "next": 0,
+      "ambient": 1
+    },
+    "decisionReadings": [
+      {
+        "stepLabel": "passive status",
+        "evaluationKind": "candidate",
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "decisionRecordCurrentFrameId": null,
+        "decisionRecordCurrentEpisodeId": null,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordCandidateScore": 0,
+        "decisionRecordValueComponentsInclude": {
+          "priority": 0,
+          "blocking": 0,
+          "heuristics": 0
+        },
+        "decisionRecordReasonCodesInclude": [
+          "route:ambient",
+          "lane:ambient",
+          "policy:peripheral_only",
+          "criterion:peripheral_resolution:ambient",
+          "policy_gate:background:verdict"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publish",
+      "label": "passive status",
+      "event": {
+        "id": "evt:kernel:ambient",
+        "taskId": "task:kernel:ambient",
+        "timestamp": "2026-04-15T20:01:00.000Z",
+        "type": "task.updated",
+        "title": "Session running",
+        "summary": "The session is still running.",
+        "status": "running"
+      }
+    }
+  ]
+}

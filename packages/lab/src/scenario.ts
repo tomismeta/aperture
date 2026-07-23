@@ -13,9 +13,27 @@ import type {
   SemanticIntentFrame,
   SemanticRelationHint,
   SemanticInterpretation,
-  SemanticOntologyDiagnostic,
+  AttentionOntologyDiagnostic,
 } from "@tomismeta/aperture-core/semantic";
 import type { ReplaySemanticCalibrationFamily } from "./semantic-calibration.js";
+
+export type ReplayDecisionPlannedLane = "now" | "next" | "ambient" | "none";
+export type ReplayDecisionOperatorPresence = "present" | "absent";
+export type ReplayDecisionRoute = "auto_approve" | "activate" | "queue" | "ambient" | "clear";
+export type ReplayDecisionValueComponents = {
+  [component: string]: number | undefined;
+} & Partial<{
+  priority: number;
+  consequence: number;
+  tone: number;
+  blocking: number;
+  heuristics: number;
+  sourceTrust: number;
+  consequenceCalibration: number;
+  responseAffinity: number;
+  contextCost: number;
+  deferralAffinity: number;
+}>;
 
 type ReplayDecisionAmbiguity = {
   kind: "interrupt";
@@ -150,7 +168,7 @@ export type ReplaySemanticSnapshot = {
   stepKind: ReplayObservationStep["kind"];
   stepLabel?: string;
   interpretation: SemanticInterpretation;
-  ontology?: SemanticOntologyDiagnostic;
+  ontology?: AttentionOntologyDiagnostic;
 };
 
 export type ReplayNormalizedEventSnapshot = {
@@ -165,7 +183,9 @@ export type ReplayDecisionSnapshot = {
   stepKind: ReplayObservationStep["kind"];
   stepLabel?: string;
   evaluationKind: "candidate" | "clear" | "noop";
-  decisionKind?: "auto_approve" | "activate" | "queue" | "ambient" | "clear";
+  decisionKind?: ReplayDecisionRoute;
+  decisionRecordRoute?: ReplayDecisionRoute;
+  plannedLane?: ReplayDecisionPlannedLane;
   resultLane?: "now" | "next" | "ambient" | "none";
   interactionId?: string;
   semanticConfidence?: SemanticConfidence;
@@ -174,6 +194,13 @@ export type ReplayDecisionSnapshot = {
   semanticImpactDecisionBearing?: string[];
   semanticImpactExplanatory?: string[];
   ambiguity?: ReplayDecisionAmbiguity | null;
+  decisionRecordCurrentFrameId?: string | null;
+  decisionRecordCurrentEpisodeId?: string | null;
+  decisionRecordOperatorPresence?: ReplayDecisionOperatorPresence;
+  decisionRecordCandidateScore?: number;
+  decisionRecordValueComponents?: ReplayDecisionValueComponents;
+  decisionRecordReasons?: string[];
+  decisionRecordReasonCodes?: string[];
 };
 
 export type ReplaySemanticExpectation = {
@@ -191,14 +218,16 @@ export type ReplaySemanticExpectation = {
   reasonsInclude?: string[];
   factorsInclude?: string[];
   provenanceIncludes?: ReplaySemanticProvenanceExpectation;
-  ontology?: Partial<SemanticOntologyDiagnostic>;
+  ontology?: Partial<AttentionOntologyDiagnostic>;
 };
 
 export type ReplayDecisionExpectation = {
   stepIndex?: number;
   stepLabel?: string;
   evaluationKind?: "candidate" | "clear" | "noop";
-  decisionKind?: "auto_approve" | "activate" | "queue" | "ambient" | "clear";
+  decisionKind?: ReplayDecisionRoute;
+  decisionRecordRoute?: ReplayDecisionRoute;
+  plannedLane?: ReplayDecisionPlannedLane;
   resultLane?: "now" | "next" | "ambient" | "none";
   semanticConfidence?: SemanticConfidence;
   semanticAbstained?: boolean;
@@ -207,6 +236,13 @@ export type ReplayDecisionExpectation = {
   semanticImpactExplanatoryIncludes?: string[];
   ambiguityReason?: ReplayDecisionAmbiguity["reason"] | null;
   ambiguityResolution?: ReplayDecisionAmbiguity["resolution"] | null;
+  decisionRecordCurrentFrameId?: string | null;
+  decisionRecordCurrentEpisodeId?: string | null;
+  decisionRecordOperatorPresence?: ReplayDecisionOperatorPresence;
+  decisionRecordCandidateScore?: number;
+  decisionRecordValueComponentsInclude?: ReplayDecisionValueComponents;
+  decisionRecordReasonsInclude?: string[];
+  decisionRecordReasonCodesInclude?: string[];
 };
 
 export type ReplayExplanationExpectation = {

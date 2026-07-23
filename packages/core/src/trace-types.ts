@@ -4,6 +4,7 @@ import type { EpisodeSummary } from "./episode-tracker.js";
 import type { ApertureEvent } from "./events.js";
 import type { AttentionFrame, AttentionTaskView, AttentionView } from "./frame.js";
 import type { AttentionCandidate, AttentionPriority } from "./interaction-candidate.js";
+import type { AttentionDecisionRecord } from "./judgment-coordinator.js";
 import type { AttentionDecisionAmbiguity } from "./attention-ambiguity.js";
 import type {
   AttentionInterruptCriterionVerdict,
@@ -95,6 +96,7 @@ export type ApertureTrace =
       };
       semantic?: TraceSemanticSummary;
       episode: EpisodeSummary | null;
+      decisionRecord: AttentionDecisionRecord;
       policy: AttentionPolicyVerdict;
       policyRules: {
         gateEvaluations: PolicyGateRuleEvaluation[];
@@ -109,6 +111,7 @@ export type ApertureTrace =
       planner: {
         kind: "auto_approve" | "activate" | "queue" | "ambient" | "clear";
         reasons: string[];
+        reasonCodes: AttentionDecisionRecord["planning"]["reasonCodes"];
         continuityEvaluations: ContinuityRuleEvaluation[];
       };
       coordination: {
@@ -120,6 +123,7 @@ export type ApertureTrace =
         criterion: AttentionInterruptCriterionVerdict | null;
         ambiguity: AttentionDecisionAmbiguity | null;
         reasons: string[];
+        reasonCodes: AttentionDecisionRecord["planning"]["reasonCodes"];
         continuityEvaluations: ContinuityRuleEvaluation[];
       };
       taskSummary: AttentionSignalSummary;

@@ -259,6 +259,31 @@ test("resolving relation hints project to a resolved episode diagnostic", () => 
   assert.equal(diagnostic.source, "hinted");
 });
 
+test("attention ontology preserves explicit lifecycle activity while relation hints shape episode", () => {
+  const diagnostic = readAttentionOntologyDiagnostic({
+    id: "evt:ontology:completed-with-noisy-relations",
+    taskId: "task:ontology:completed-with-noisy-relations",
+    type: "task.updated",
+    timestamp,
+    title: "Deploy completed after retry",
+    summary: "The deployment completed, though adapter context relates it to a prior failure.",
+    status: "completed",
+    semanticHints: {
+      relationHints: [
+        { kind: "same_issue", target: "task:ontology:previous-deploy-failure" },
+        { kind: "repeats", target: "task:ontology:previous-deploy-failure" },
+      ],
+      confidence: "high",
+    },
+  });
+
+  assert.equal(diagnostic.ask, "status");
+  assert.equal(diagnostic.activity, "task_completion");
+  assert.equal(diagnostic.blocking, "non_blocking");
+  assert.equal(diagnostic.episode, "resurfaced");
+  assert.equal(diagnostic.source, "hinted");
+});
+
 test("normalized events can project ontology diagnostics without re-interpreting source events", () => {
   const diagnostic = projectSemanticOntologyDiagnostic(
     {

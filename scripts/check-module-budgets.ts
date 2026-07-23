@@ -108,9 +108,15 @@ const budgets = [
   { file: "packages/lab/src/session-bundle-scenarios.ts", maxLines: 150 },
   { file: "packages/lab/src/session-bundle-files.ts", maxLines: 125 },
   { file: "packages/lab/src/session-bundle-capture.ts", maxLines: 350 },
+  { file: "packages/lab/src/scenario.ts", maxLines: 300 },
+  { file: "packages/lab/src/runner.ts", maxLines: 300 },
+  { file: "packages/lab/src/judgment-bench.ts", maxLines: 875 },
+  { file: "packages/lab/src/replay-trace.ts", maxLines: 75 },
   { file: "packages/lab/src/validation.ts", maxLines: 75 },
   { file: "packages/lab/src/validation-events.ts", maxLines: 350 },
   { file: "packages/lab/src/validation-replay.ts", maxLines: 450 },
+  { file: "packages/lab/src/validation-replay-decision.ts", maxLines: 175 },
+  { file: "packages/lab/src/validation-trace.ts", maxLines: 100 },
   { file: "packages/lab/src/validation-support.ts", maxLines: 350 },
 ] as const;
 

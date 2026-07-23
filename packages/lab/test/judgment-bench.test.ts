@@ -9,23 +9,103 @@ test("loads the first golden scenarios from disk", async () => {
   assert.ok(scenarios.length >= 20);
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:interrupt:approval"));
   assert.ok(scenarios.some((scenario) => scenario.id === "golden:ambient:status"));
-  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:dangerous-approval-language"));
-  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:low-confidence-failed-status-queues"));
-  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:low-confidence-blocked-like-waiting-stays-next"));
-  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:abstained-waiting-status-stays-ambient"));
-  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:abstained-blocked-like-waiting-stays-next"));
-  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:low-confidence-failure-recovers-to-now"));
-  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:abstained-blocked-work-recovers-to-now"));
-  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:abstained-inferred-resurfacing-context-anchor-stays-diagnostic"));
-  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:question-tool-family-stays-explanatory"));
-  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:repeated-failure-same-issue"));
-  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:inferred-resurfacing-context-anchor-stays-bundled"));
-  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:weak-inferred-supersede-stays-next"));
-  assert.ok(scenarios.some((scenario) => scenario.id === "golden:semantics:superseding-approval-replaces-now-step"));
-  assert.ok(scenarios.some((scenario) => scenario.id === "golden:policy:low-trust-failed-status-stays-queued-under-tight-threshold"));
-  assert.ok(scenarios.some((scenario) => scenario.id === "golden:adversarial:production-read-stays-low"));
-  assert.ok(scenarios.some((scenario) => scenario.id === "golden:adversarial:negated-resolve-does-not-clear-issue"));
-  assert.ok(scenarios.some((scenario) => scenario.id === "golden:adversarial:negated-regression-does-not-escalate"));
+  assert.ok(
+    scenarios.some((scenario) => scenario.id === "golden:semantics:dangerous-approval-language"),
+  );
+  assert.ok(
+    scenarios.some(
+      (scenario) => scenario.id === "golden:semantics:low-confidence-failed-status-queues",
+    ),
+  );
+  assert.ok(
+    scenarios.some(
+      (scenario) =>
+        scenario.id === "golden:semantics:low-confidence-blocked-like-waiting-stays-next",
+    ),
+  );
+  assert.ok(
+    scenarios.some(
+      (scenario) => scenario.id === "golden:semantics:abstained-waiting-status-stays-ambient",
+    ),
+  );
+  assert.ok(
+    scenarios.some(
+      (scenario) => scenario.id === "golden:semantics:abstained-blocked-like-waiting-stays-next",
+    ),
+  );
+  assert.ok(
+    scenarios.some(
+      (scenario) => scenario.id === "golden:semantics:low-confidence-failure-recovers-to-now",
+    ),
+  );
+  assert.ok(
+    scenarios.some(
+      (scenario) => scenario.id === "golden:semantics:abstained-blocked-work-recovers-to-now",
+    ),
+  );
+  assert.ok(
+    scenarios.some(
+      (scenario) =>
+        scenario.id ===
+        "golden:semantics:abstained-inferred-resurfacing-context-anchor-stays-diagnostic",
+    ),
+  );
+  assert.ok(
+    scenarios.some(
+      (scenario) => scenario.id === "golden:semantics:question-tool-family-stays-explanatory",
+    ),
+  );
+  assert.ok(
+    scenarios.some((scenario) => scenario.id === "golden:semantics:repeated-failure-same-issue"),
+  );
+  assert.ok(
+    scenarios.some(
+      (scenario) =>
+        scenario.id === "golden:semantics:inferred-resurfacing-context-anchor-stays-bundled",
+    ),
+  );
+  assert.ok(
+    scenarios.some(
+      (scenario) => scenario.id === "golden:semantics:weak-inferred-supersede-stays-next",
+    ),
+  );
+  assert.ok(
+    scenarios.some(
+      (scenario) => scenario.id === "golden:semantics:superseding-approval-replaces-now-step",
+    ),
+  );
+  assert.ok(
+    scenarios.some((scenario) => scenario.id === "golden:kernel:attention-decision-record"),
+  );
+  assert.ok(scenarios.some((scenario) => scenario.id === "golden:kernel:activate-decision-record"));
+  assert.ok(scenarios.some((scenario) => scenario.id === "golden:kernel:ambient-decision-record"));
+  assert.ok(
+    scenarios.some((scenario) => scenario.id === "golden:kernel:auto-approve-decision-record"),
+  );
+  assert.ok(
+    scenarios.some(
+      (scenario) => scenario.id === "golden:kernel:current-frame-queue-decision-record",
+    ),
+  );
+  assert.ok(
+    scenarios.some(
+      (scenario) =>
+        scenario.id === "golden:policy:low-trust-failed-status-stays-queued-under-tight-threshold",
+    ),
+  );
+  assert.ok(
+    scenarios.some((scenario) => scenario.id === "golden:adversarial:production-read-stays-low"),
+  );
+  assert.ok(
+    scenarios.some(
+      (scenario) => scenario.id === "golden:adversarial:negated-resolve-does-not-clear-issue",
+    ),
+  );
+  assert.ok(
+    scenarios.some(
+      (scenario) => scenario.id === "golden:adversarial:negated-regression-does-not-escalate",
+    ),
+  );
 });
 
 test("JudgmentBench runs across the golden scenarios and produces a summary", async () => {
@@ -40,38 +120,57 @@ test("JudgmentBench runs across the golden scenarios and produces a summary", as
   assert.ok(result.summary.totalAmbiguousAmbientThenNow >= 1);
   assert.ok(result.summary.totalCandidates >= result.summary.totalNowLanes);
   assert.equal(result.scenarios.length, result.summary.totalScenarios);
-  assert.ok(result.scenarios.every((scenario) => scenario.scorecard.explanation.targetLane !== undefined));
+  assert.ok(
+    result.scenarios.every((scenario) => scenario.scorecard.explanation.targetLane !== undefined),
+  );
   assert.ok(result.scenarios.some((scenario) => scenario.scorecard.explanation.headline !== null));
   assert.ok(result.scenarios.some((scenario) => scenario.run.semantics.length > 0));
-  assert.ok(result.scenarios.some((scenario) => scenario.run.decisions.some((decision) => decision.ambiguity !== null && decision.ambiguity !== undefined)));
+  assert.ok(
+    result.scenarios.some((scenario) =>
+      scenario.run.decisions.some(
+        (decision) => decision.ambiguity !== null && decision.ambiguity !== undefined,
+      ),
+    ),
+  );
   assert.ok(result.semanticHealth.length >= 8);
   assert.ok(result.semanticHealth.some((family) => family.family === "episode_missed"));
   assert.ok(result.semanticHealth.some((family) => family.family === "blocking_missed"));
 
   const resurfacingScenario = result.scenarios.find(
-    (scenario) => scenario.scenario.id === "golden:semantics:resurfacing-same-episode-reclaims-focus",
+    (scenario) =>
+      scenario.scenario.id === "golden:semantics:resurfacing-same-episode-reclaims-focus",
   );
   assert.ok(resurfacingScenario);
   assert.equal(
-    resurfacingScenario?.assertions.find((assertion) => assertion.name === "explanation continuity rationale includes")?.passed,
+    resurfacingScenario?.assertions.find(
+      (assertion) => assertion.name === "explanation continuity rationale includes",
+    )?.passed,
     true,
   );
 
   const supersedingScenario = result.scenarios.find(
-    (scenario) => scenario.scenario.id === "golden:semantics:superseding-approval-replaces-now-step",
+    (scenario) =>
+      scenario.scenario.id === "golden:semantics:superseding-approval-replaces-now-step",
   );
   assert.ok(supersedingScenario);
   assert.equal(
-    supersedingScenario?.assertions.find((assertion) => assertion.name === "explanation continuity rationale includes")?.passed,
+    supersedingScenario?.assertions.find(
+      (assertion) => assertion.name === "explanation continuity rationale includes",
+    )?.passed,
     true,
   );
 
   const questionToolScenario = result.scenarios.find(
-    (scenario) => scenario.scenario.id === "golden:semantics:question-tool-family-stays-explanatory",
+    (scenario) =>
+      scenario.scenario.id === "golden:semantics:question-tool-family-stays-explanatory",
   );
   assert.ok(questionToolScenario);
   assert.equal(
-    questionToolScenario?.assertions.find((assertion) => assertion.name === "decision reading (question with explicit tool context) semantic impact explanatory includes")?.passed,
+    questionToolScenario?.assertions.find(
+      (assertion) =>
+        assertion.name ===
+        "decision reading (question with explicit tool context) semantic impact explanatory includes",
+    )?.passed,
     true,
   );
 
@@ -84,61 +183,105 @@ test("JudgmentBench runs across the golden scenarios and produces a summary", as
   );
   assert.ok(repeatedFailureScenario);
   assert.equal(
-    repeatedFailureScenario?.assertions.find((assertion) => assertion.name === "semantic reading (repeated failure) ontology episode")?.passed,
+    repeatedFailureScenario?.assertions.find(
+      (assertion) => assertion.name === "semantic reading (repeated failure) ontology episode",
+    )?.passed,
     true,
   );
 
   const inferredResurfacingScenario = result.scenarios.find(
-    (scenario) => scenario.scenario.id === "golden:semantics:inferred-resurfacing-context-anchor-stays-bundled",
+    (scenario) =>
+      scenario.scenario.id === "golden:semantics:inferred-resurfacing-context-anchor-stays-bundled",
   );
   assert.ok(inferredResurfacingScenario);
-  assert.equal(inferredResurfacingScenario?.assertions.every((assertion) => assertion.passed), true);
+  assert.equal(
+    inferredResurfacingScenario?.assertions.every((assertion) => assertion.passed),
+    true,
+  );
 
   const weakInferredSupersedeScenario = result.scenarios.find(
     (scenario) => scenario.scenario.id === "golden:semantics:weak-inferred-supersede-stays-next",
   );
   assert.ok(weakInferredSupersedeScenario);
-  assert.equal(weakInferredSupersedeScenario?.assertions.every((assertion) => assertion.passed), true);
+  assert.equal(
+    weakInferredSupersedeScenario?.assertions.every((assertion) => assertion.passed),
+    true,
+  );
 
   const lowConfidenceBlockedLikeScenario = result.scenarios.find(
-    (scenario) => scenario.scenario.id === "golden:semantics:low-confidence-blocked-like-waiting-stays-next",
+    (scenario) =>
+      scenario.scenario.id === "golden:semantics:low-confidence-blocked-like-waiting-stays-next",
   );
   assert.ok(lowConfidenceBlockedLikeScenario);
-  assert.equal(lowConfidenceBlockedLikeScenario?.assertions.every((assertion) => assertion.passed), true);
+  assert.equal(
+    lowConfidenceBlockedLikeScenario?.assertions.every((assertion) => assertion.passed),
+    true,
+  );
 
   const abstainedBlockedLikeScenario = result.scenarios.find(
-    (scenario) => scenario.scenario.id === "golden:semantics:abstained-blocked-like-waiting-stays-next",
+    (scenario) =>
+      scenario.scenario.id === "golden:semantics:abstained-blocked-like-waiting-stays-next",
   );
   assert.ok(abstainedBlockedLikeScenario);
-  assert.equal(abstainedBlockedLikeScenario?.assertions.every((assertion) => assertion.passed), true);
+  assert.equal(
+    abstainedBlockedLikeScenario?.assertions.every((assertion) => assertion.passed),
+    true,
+  );
 
   const abstainedResurfacingScenario = result.scenarios.find(
-    (scenario) => scenario.scenario.id === "golden:semantics:abstained-inferred-resurfacing-context-anchor-stays-diagnostic",
+    (scenario) =>
+      scenario.scenario.id ===
+      "golden:semantics:abstained-inferred-resurfacing-context-anchor-stays-diagnostic",
   );
   assert.ok(abstainedResurfacingScenario);
-  assert.equal(abstainedResurfacingScenario?.assertions.every((assertion) => assertion.passed), true);
+  assert.equal(
+    abstainedResurfacingScenario?.assertions.every((assertion) => assertion.passed),
+    true,
+  );
 
   const lowTrustScenario = result.scenarios.find(
-    (scenario) => scenario.scenario.id === "golden:policy:low-trust-failed-status-stays-queued-under-tight-threshold",
+    (scenario) =>
+      scenario.scenario.id ===
+      "golden:policy:low-trust-failed-status-stays-queued-under-tight-threshold",
   );
   assert.ok(lowTrustScenario);
-  assert.equal(lowTrustScenario?.assertions.every((assertion) => assertion.passed), true);
+  assert.equal(
+    lowTrustScenario?.assertions.every((assertion) => assertion.passed),
+    true,
+  );
+
+  const kernelScenarios = result.scenarios.filter((scenario) =>
+    scenario.scenario.id.startsWith("golden:kernel:"),
+  );
+  assert.ok(kernelScenarios.length >= 5);
+  assert.equal(
+    kernelScenarios.every((scenario) => scenario.assertions.every((assertion) => assertion.passed)),
+    true,
+  );
 
   const negatedResolveScenario = result.scenarios.find(
-    (scenario) => scenario.scenario.id === "golden:adversarial:negated-resolve-does-not-clear-issue",
+    (scenario) =>
+      scenario.scenario.id === "golden:adversarial:negated-resolve-does-not-clear-issue",
   );
   assert.ok(negatedResolveScenario);
   assert.equal(
-    negatedResolveScenario?.assertions.find((assertion) => assertion.name === "semantic reading (negated resolve status) relation kinds exact")?.passed,
+    negatedResolveScenario?.assertions.find(
+      (assertion) =>
+        assertion.name === "semantic reading (negated resolve status) relation kinds exact",
+    )?.passed,
     true,
   );
 
   const negatedRegressionScenario = result.scenarios.find(
-    (scenario) => scenario.scenario.id === "golden:adversarial:negated-regression-does-not-escalate",
+    (scenario) =>
+      scenario.scenario.id === "golden:adversarial:negated-regression-does-not-escalate",
   );
   assert.ok(negatedRegressionScenario);
   assert.equal(
-    negatedRegressionScenario?.assertions.find((assertion) => assertion.name === "semantic reading (negated regression status) relation kinds exact")?.passed,
+    negatedRegressionScenario?.assertions.find(
+      (assertion) =>
+        assertion.name === "semantic reading (negated regression status) relation kinds exact",
+    )?.passed,
     true,
   );
 });

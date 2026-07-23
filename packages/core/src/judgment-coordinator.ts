@@ -13,6 +13,7 @@ import {
 } from "./attention-evidence.js";
 import {
   AttentionPolicy,
+  type AttentionLane,
   type AttentionInterruptCriterionVerdict,
   type AttentionPolicyVerdict,
 } from "./attention-policy.js";
@@ -32,6 +33,27 @@ export type AttentionDecision =
   | { kind: "clear" };
 
 export type AttentionDecisionPlannedLane = "now" | "next" | "ambient" | "none";
+
+export type AttentionDecisionReasonCode =
+  | `route:${AttentionDecision["kind"]}`
+  | `lane:${AttentionDecisionPlannedLane}`
+  | `policy:minimum_lane:${AttentionLane}`
+  | `policy_gate:${string}:${PolicyGateRuleEvaluation["kind"]}`
+  | `policy_criterion:${string}:${PolicyCriterionRuleEvaluation["kind"]}`
+  | `criterion:peripheral_resolution:${NonNullable<AttentionInterruptCriterionVerdict["peripheralResolution"]>}`
+  | `criterion:ambiguity:${NonNullable<AttentionDecisionAmbiguity["reason"]>}`
+  | `continuity:${ContinuityRuleEvaluation["rule"]}:override`
+  | `pressure:level:${AttentionPressure["level"]}`
+  | `pressure:overload:${AttentionPressure["overloadRisk"]}`
+  | `evidence:operator_presence:${AttentionEvidenceContext["operatorPresence"]}`
+  | "evidence:current_frame:present"
+  | "evidence:current_frame:absent"
+  | "evidence:current_episode:present"
+  | "evidence:current_episode:absent"
+  | "policy:auto_approve"
+  | "policy:may_interrupt"
+  | "policy:peripheral_only"
+  | "policy:requires_operator_response";
 
 export type AttentionDecisionRecord = {
   decision: AttentionDecision;
@@ -60,6 +82,7 @@ export type AttentionDecisionRecord = {
     plannedLane: AttentionDecisionPlannedLane;
     ambiguity: AttentionDecisionAmbiguity | null;
     reasons: string[];
+    reasonCodes: AttentionDecisionReasonCode[];
     continuityEvaluations: ContinuityRuleEvaluation[];
   };
 };
@@ -78,6 +101,7 @@ export type AttentionDecisionExplanation = {
   currentPriority: AttentionPriority | null;
   ambiguity: AttentionDecisionAmbiguity | null;
   reasons: string[];
+  reasonCodes: AttentionDecisionReasonCode[];
   continuityEvaluations: ContinuityRuleEvaluation[];
   record: AttentionDecisionRecord;
 };
@@ -278,6 +302,7 @@ function buildAttentionDecisionExplanation(
     currentPriority: input.currentPriority,
     ambiguity: input.ambiguity,
     reasons: input.reasons,
+    reasonCodes: record.planning.reasonCodes,
     continuityEvaluations: input.continuityEvaluations,
     record,
   };
@@ -286,6 +311,9 @@ function buildAttentionDecisionExplanation(
 function buildAttentionDecisionRecord(
   input: AttentionDecisionExplanationInput,
 ): AttentionDecisionRecord {
+  const plannedLane = plannedLaneForDecision(input.decision);
+  const reasonCodes = buildAttentionDecisionReasonCodes(input, plannedLane);
+
   return {
     decision: input.decision,
     candidate: input.candidate,
@@ -310,12 +338,69 @@ function buildAttentionDecisionRecord(
     },
     planning: {
       route: input.decision.kind,
-      plannedLane: plannedLaneForDecision(input.decision),
+      plannedLane,
       ambiguity: input.ambiguity,
       reasons: [...input.reasons],
+      reasonCodes,
       continuityEvaluations: [...input.continuityEvaluations],
     },
   };
+}
+
+function buildAttentionDecisionReasonCodes(
+  input: AttentionDecisionExplanationInput,
+  plannedLane: AttentionDecisionPlannedLane,
+): AttentionDecisionReasonCode[] {
+  const codes = new Set<AttentionDecisionReasonCode>();
+
+  codes.add(`route:${input.decision.kind}`);
+  codes.add(`lane:${plannedLane}`);
+  codes.add(`policy:minimum_lane:${input.policy.minimumLane}`);
+  codes.add(`pressure:level:${input.evidence.pressureForecast.level}`);
+  codes.add(`pressure:overload:${input.evidence.pressureForecast.overloadRisk}`);
+  codes.add(`evidence:operator_presence:${input.evidence.operatorPresence}`);
+  codes.add(
+    input.evidence.currentFrame
+      ? "evidence:current_frame:present"
+      : "evidence:current_frame:absent",
+  );
+  codes.add(
+    input.evidence.currentEpisode
+      ? "evidence:current_episode:present"
+      : "evidence:current_episode:absent",
+  );
+
+  if (input.policy.autoApprove) {
+    codes.add("policy:auto_approve");
+  }
+  if (input.policy.mayInterrupt) {
+    codes.add("policy:may_interrupt");
+  } else {
+    codes.add("policy:peripheral_only");
+  }
+  if (input.policy.requiresOperatorResponse) {
+    codes.add("policy:requires_operator_response");
+  }
+  if (input.criterion?.peripheralResolution) {
+    codes.add(`criterion:peripheral_resolution:${input.criterion.peripheralResolution}`);
+  }
+  if (input.ambiguity) {
+    codes.add(`criterion:ambiguity:${input.ambiguity.reason}`);
+  }
+
+  for (const evaluation of input.policyGateEvaluations) {
+    codes.add(`policy_gate:${evaluation.rule}:${evaluation.kind}`);
+  }
+  for (const evaluation of input.policyCriterionEvaluations) {
+    codes.add(`policy_criterion:${evaluation.rule}:${evaluation.kind}`);
+  }
+  for (const evaluation of input.continuityEvaluations) {
+    if (evaluation.kind === "override") {
+      codes.add(`continuity:${evaluation.rule}:override`);
+    }
+  }
+
+  return [...codes];
 }
 
 function plannedLaneForDecision(decision: AttentionDecision): AttentionDecisionPlannedLane {

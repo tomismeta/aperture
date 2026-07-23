@@ -1,0 +1,73 @@
+{
+  "id": "golden:kernel:auto-approve-decision-record",
+  "title": "Decision record preserves configured auto-approval",
+  "description": "A configured low-risk read approval resolves without entering the attention surface, while the decision record keeps the policy route, no-lane plan, value score, and reason codes.",
+  "doctrineTags": ["kernel_conformance", "deterministic_judgment", "auto_approve_route"],
+  "core": {
+    "policyConfig": {
+      "version": 1,
+      "updatedAt": "2026-04-15T20:02:00.000Z",
+      "policy": {
+        "lowRiskRead": {
+          "autoApprove": true
+        }
+      }
+    }
+  },
+  "expectations": {
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 0,
+      "next": 0,
+      "ambient": 0
+    },
+    "decisionReadings": [
+      {
+        "stepLabel": "configured low-risk read",
+        "evaluationKind": "candidate",
+        "decisionKind": "auto_approve",
+        "decisionRecordRoute": "auto_approve",
+        "plannedLane": "none",
+        "resultLane": "none",
+        "decisionRecordCurrentFrameId": null,
+        "decisionRecordCurrentEpisodeId": null,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordCandidateScore": 1101,
+        "decisionRecordValueComponentsInclude": {
+          "priority": 100,
+          "consequence": 0,
+          "blocking": 1000
+        },
+        "decisionRecordReasonCodesInclude": [
+          "route:auto_approve",
+          "lane:none",
+          "policy:auto_approve",
+          "policy_gate:configured_policy:verdict",
+          "evidence:current_frame:absent"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publish",
+      "label": "configured low-risk read",
+      "event": {
+        "id": "evt:kernel:auto-read",
+        "taskId": "task:kernel:auto-read",
+        "timestamp": "2026-04-15T20:02:00.000Z",
+        "type": "human.input.requested",
+        "interactionId": "interaction:kernel:auto-read",
+        "title": "Approve reading config",
+        "summary": "Read package.json.",
+        "consequence": "low",
+        "toolFamily": "read",
+        "request": {
+          "kind": "approval"
+        }
+      }
+    }
+  ]
+}

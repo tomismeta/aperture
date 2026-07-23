@@ -1,0 +1,95 @@
+{
+  "id": "golden:kernel:attention-decision-record",
+  "title": "Decision record preserves judgment evidence for an absent-operator approval",
+  "description": "A high-risk approval remains a blocking decision point, but operator absence keeps it queued. The fixture locks the compact ontology, planned lane, evidence identity, presence state, value score, and reason projection from the canonical decision record.",
+  "doctrineTags": ["kernel_conformance", "deterministic_judgment", "operator_presence"],
+  "semanticFamilies": ["blocking_missed"],
+  "core": {
+    "operatorPresence": "absent"
+  },
+  "expectations": {
+    "finalNowInteractionId": null,
+    "nextInteractionIds": ["interaction:kernel:approval"],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 0,
+      "next": 1,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "operator-absent approval",
+        "intentFrame": "approval_request",
+        "activityClass": "permission_request",
+        "consequence": "high",
+        "confidence": "high",
+        "ontology": {
+          "ask": "approval",
+          "activity": "decision_request",
+          "consequence": "high",
+          "blocking": "blocking",
+          "episode": "new",
+          "source": "explicit"
+        },
+        "reasonsInclude": ["source provided an explicit risk hint"]
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "operator-absent approval",
+        "evaluationKind": "candidate",
+        "decisionKind": "queue",
+        "decisionRecordRoute": "queue",
+        "plannedLane": "next",
+        "resultLane": "next",
+        "semanticConfidence": "high",
+        "decisionRecordCurrentFrameId": null,
+        "decisionRecordCurrentEpisodeId": null,
+        "decisionRecordOperatorPresence": "absent",
+        "decisionRecordCandidateScore": 1222,
+        "decisionRecordValueComponentsInclude": {
+          "priority": 200,
+          "consequence": 20,
+          "tone": 2,
+          "blocking": 1000,
+          "heuristics": 0
+        },
+        "decisionRecordReasonsInclude": [
+          "operator absence keeps interruptive work peripheral until foreground attention returns"
+        ],
+        "decisionRecordReasonCodesInclude": [
+          "route:queue",
+          "lane:next",
+          "evidence:operator_presence:absent",
+          "criterion:peripheral_resolution:queue",
+          "policy_criterion:operator_absence:verdict"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "activity (canonical)",
+          "tool (approval path)",
+          "consequence (canonical)"
+        ],
+        "semanticImpactExplanatoryIncludes": ["intent", "why now", "confidence"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "operator-absent approval",
+      "event": {
+        "id": "evt:kernel:approval",
+        "type": "human.input.requested",
+        "taskId": "task:kernel:approval",
+        "interactionId": "interaction:kernel:approval",
+        "timestamp": "2026-04-15T20:00:00.000Z",
+        "source": { "id": "custom-agent" },
+        "toolFamily": "filesystem",
+        "title": "Approve production configuration write",
+        "summary": "A filesystem write will update production configuration.",
+        "request": { "kind": "approval" },
+        "riskHint": "high"
+      }
+    }
+  ]
+}

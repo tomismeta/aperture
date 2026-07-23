@@ -106,11 +106,23 @@ Those can integrate around the kernel. They should not become the kernel.
 
 ## Conformance Path
 
-The Lab golden replay path is the conformance harness. Kernel fixtures should
-live under `packages/lab/golden/kernel/` and assert compact, deterministic
-projections of the internal record rather than copying every nested trace field.
-The exact compatibility suite is declared in `packages/lab/src/kernel-profile.ts`
-and materialized as `packages/lab/conformance/kernel-v1.json`.
+The Lab golden replay path is the conformance harness. The required kernel
+compatibility fixtures live under `packages/lab/golden/kernel/` and assert
+compact, deterministic projections of the internal record rather than copying
+every nested trace field. The exact compatibility suite is declared in
+`packages/lab/src/kernel-profile.ts` and materialized as
+`packages/lab/conformance/kernel-v1.json`.
+
+The extended messy-event corpus lives beside it under
+`packages/lab/golden/kernel-corpus/`. That corpus is not the compatibility
+profile. It is a growing pressure-test suite for source authority, relation
+targets, status noise, episode resolution, operator absence, and other messy
+event-stream behavior. Its profile is declared in
+`packages/lab/src/kernel-corpus-profile.ts` and materialized as
+`packages/lab/conformance/kernel-corpus-v1.json`. The corpus gate fails closed
+when a case lacks final-lane assertions, a step-labeled semantic ontology
+checkpoint, a decision projection checkpoint, dimension assignment, or
+repeated-run determinism.
 
 Each conformance case should assert:
 
@@ -137,7 +149,17 @@ The current kernel fixture matrix covers:
 - low-confidence failure ambiguity that stays visible in next
 - continuity override activation for resurfacing same-episode work
 
-The suite should include adversarial examples:
+The current messy corpus covers:
+
+- alarmist read-only approval language that stays low consequence
+- high source risk that survives a low-confidence semantic hint
+- conflicting relation targets that preserve final queueing behind current work
+- metadata-heavy status noise that remains ambient
+- same-issue resolution after an active failure
+- waiting status with blocking wording under operator absence
+- interleaved background noise between same-episode superseding approvals
+
+The corpus should continue adding adversarial examples:
 
 - decorative urgency language
 - duplicate semantic hints

@@ -1,0 +1,136 @@
+{
+  "id": "golden:kernel-corpus:interleaved-supersede-with-background-noise",
+  "title": "Interleaved background noise does not block a superseding step",
+  "description": "An unrelated status update between two same-episode approvals should remain ambient while the superseding approval advances the active frame.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "interleaved_lifecycle",
+    "decision_stream_continuity",
+    "status_noise"
+  ],
+  "semanticFamilies": ["episode_missed"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:corpus:rollout:rollback",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": ["interaction:task:corpus:scanner:status"],
+    "resultLaneCounts": {
+      "now": 2,
+      "next": 0,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "superseding rollback",
+        "intentFrame": "approval_request",
+        "activityClass": "permission_request",
+        "toolFamily": "filesystem",
+        "consequence": "high",
+        "confidence": "high",
+        "relationKindsInclude": ["same_issue", "supersedes"],
+        "ontology": {
+          "ask": "approval",
+          "activity": "decision_request",
+          "consequence": "high",
+          "blocking": "blocking",
+          "episode": "resurfaced",
+          "source": "hinted"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "superseding rollback",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 1,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "decisionRecordCurrentFrameId": "frame:interaction:corpus:rollout:deploy",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:activate",
+          "lane:now",
+          "evidence:current_frame:present",
+          "evidence:current_episode:present",
+          "continuity:same_episode:override"
+        ]
+      }
+    ],
+    "explanationExpectation": {
+      "continuityRationaleIncludes": [
+        "the current episode has advanced to a superseding step that belongs in now"
+      ]
+    }
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "initial rollout approval",
+      "event": {
+        "id": "evt:corpus:rollout:deploy",
+        "type": "human.input.requested",
+        "taskId": "task:corpus:rollout",
+        "interactionId": "interaction:corpus:rollout:deploy",
+        "timestamp": "2026-04-16T14:06:00.000Z",
+        "source": { "id": "custom-agent" },
+        "toolFamily": "filesystem",
+        "title": "Approve production rollout",
+        "summary": "Write the production rollout manifest.",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "high",
+        "semanticHints": {
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:corpus:rollout" }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "background scanner noise",
+      "event": {
+        "id": "evt:corpus:scanner",
+        "type": "task.updated",
+        "taskId": "task:corpus:scanner",
+        "timestamp": "2026-04-16T14:06:10.000Z",
+        "source": { "id": "custom-agent" },
+        "metadata": {
+          "transport": "webhook",
+          "batch": 44,
+          "externalPriority": "urgent"
+        },
+        "title": "Scanner still running",
+        "summary": "The background scanner is still processing files.",
+        "status": "running"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "superseding rollback",
+      "event": {
+        "id": "evt:corpus:rollout:rollback",
+        "type": "human.input.requested",
+        "taskId": "task:corpus:rollout",
+        "interactionId": "interaction:corpus:rollout:rollback",
+        "timestamp": "2026-04-16T14:06:20.000Z",
+        "source": { "id": "custom-agent" },
+        "toolFamily": "filesystem",
+        "title": "Approve rollback instead",
+        "summary": "Use this rollback manifest instead for the same production rollout.",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "high",
+        "semanticHints": {
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:corpus:rollout" },
+            { "kind": "supersedes", "target": "issue:corpus:rollout" }
+          ]
+        }
+      }
+    }
+  ]
+}

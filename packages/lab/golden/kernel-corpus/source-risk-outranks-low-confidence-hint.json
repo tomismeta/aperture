@@ -1,0 +1,91 @@
+{
+  "id": "golden:kernel-corpus:source-risk-outranks-low-confidence-hint",
+  "title": "Source risk outranks a low-confidence semantic hint",
+  "description": "A source-declared high-risk approval should remain high consequence even when a semantic hint lowers confidence.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "source_fact_authority",
+    "semantic_uncertainty"
+  ],
+  "semanticFamilies": ["consequence_underread"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:corpus:source-risk",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "source risk with weak hint",
+        "intentFrame": "approval_request",
+        "activityClass": "permission_request",
+        "toolFamily": "filesystem",
+        "consequence": "high",
+        "confidence": "low",
+        "ontology": {
+          "ask": "approval",
+          "activity": "decision_request",
+          "consequence": "high",
+          "blocking": "blocking",
+          "episode": "new",
+          "source": "hinted"
+        },
+        "provenanceIncludes": {
+          "consequence": "source",
+          "confidence": "hint"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "source risk with weak hint",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 1,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "semanticConfidence": "low",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:activate",
+          "lane:now",
+          "evidence:operator_presence:present"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "activity (canonical)",
+          "tool (approval path)",
+          "consequence (canonical)"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "source risk with weak hint",
+      "event": {
+        "id": "evt:corpus:source-risk",
+        "type": "human.input.requested",
+        "taskId": "task:corpus:source-risk",
+        "interactionId": "interaction:corpus:source-risk",
+        "timestamp": "2026-04-16T14:04:00.000Z",
+        "source": { "id": "custom-agent" },
+        "toolFamily": "filesystem",
+        "title": "Approve production config write",
+        "summary": "Write a new production routing configuration.",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "high",
+        "semanticHints": {
+          "confidence": "low",
+          "reasons": ["adapter confidence was low because source text was truncated"]
+        }
+      }
+    }
+  ]
+}

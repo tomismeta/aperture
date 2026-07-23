@@ -57,5 +57,5 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run kernel conformance
-        run: pnpm kernel:conformance
+      - name: Run kernel gates
+        run: pnpm kernel:conformance && pnpm kernel:corpus

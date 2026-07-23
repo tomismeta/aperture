@@ -1,0 +1,110 @@
+{
+  "id": "golden:kernel-corpus:conflicting-relation-targets-queue-behind-current",
+  "title": "Conflicting relation targets queue behind the current frame",
+  "description": "A later approval with the same relation kind but a different target should not impersonate the current episode and replace the active decision.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "relation_target_conflict",
+    "decision_stream_continuity"
+  ],
+  "semanticFamilies": ["episode_missed"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:corpus:deploy:primary",
+    "nextInteractionIds": ["interaction:corpus:deploy:other"],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 1,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "different target approval",
+        "intentFrame": "approval_request",
+        "activityClass": "permission_request",
+        "consequence": "high",
+        "confidence": "high",
+        "relationKindsInclude": ["same_issue"],
+        "ontology": {
+          "ask": "approval",
+          "activity": "decision_request",
+          "consequence": "high",
+          "blocking": "blocking",
+          "episode": "same_issue",
+          "source": "hinted"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "different target approval",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 1,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "next",
+        "decisionRecordCurrentFrameId": null,
+        "decisionRecordCurrentEpisodeId": null,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:activate",
+          "lane:now",
+          "evidence:current_frame:absent",
+          "evidence:current_episode:absent"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "primary deploy approval",
+      "event": {
+        "id": "evt:corpus:deploy:primary",
+        "type": "human.input.requested",
+        "taskId": "task:corpus:deploy:primary",
+        "interactionId": "interaction:corpus:deploy:primary",
+        "timestamp": "2026-04-16T14:01:00.000Z",
+        "source": { "id": "custom-agent" },
+        "toolFamily": "filesystem",
+        "title": "Approve production deploy",
+        "summary": "Write the primary deploy manifest.",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "high",
+        "semanticHints": {
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:deploy:primary" }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "different target approval",
+      "event": {
+        "id": "evt:corpus:deploy:other",
+        "type": "human.input.requested",
+        "taskId": "task:corpus:deploy:other",
+        "interactionId": "interaction:corpus:deploy:other",
+        "timestamp": "2026-04-16T14:01:20.000Z",
+        "source": { "id": "custom-agent" },
+        "toolFamily": "filesystem",
+        "title": "Approve production deploy follow-up",
+        "summary": "Write the separate deploy manifest for another service.",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "high",
+        "semanticHints": {
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:deploy:secondary" },
+            { "kind": "same_issue", "target": "issue:deploy:secondary" }
+          ]
+        }
+      }
+    }
+  ]
+}

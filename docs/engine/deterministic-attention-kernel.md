@@ -168,12 +168,12 @@ The current messy corpus covers:
 - same-issue resolution after an active failure
 - waiting status with blocking wording under operator absence
 - interleaved background noise between same-episode superseding approvals
+- superseding approval that replaces an active step and clears an obsolete queued approval
 
 The corpus should continue adding adversarial examples:
 
 - decorative urgency language
 - duplicate semantic hints
-- stale approvals
 - repeated failures
 - low-confidence failed statuses
 - conflicting relation hints

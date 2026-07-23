@@ -15,6 +15,7 @@ export const KERNEL_CORPUS_SCENARIO_IDS = [
   "golden:kernel-corpus:repeated-status-delivery-stays-one-ambient-frame",
   "golden:kernel-corpus:resolution-after-active-failure-clears-focus",
   "golden:kernel-corpus:source-risk-outranks-low-confidence-hint",
+  "golden:kernel-corpus:superseding-approval-clears-obsolete-queued-step",
   "golden:kernel-corpus:waiting-wording-blocked-under-absence",
 ] as const;
 
@@ -41,6 +42,10 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
   {
     id: "interleaved_lifecycle",
     scenarioIds: ["golden:kernel-corpus:interleaved-supersede-with-background-noise"],
+  },
+  {
+    id: "superseded_queue_cleanup",
+    scenarioIds: ["golden:kernel-corpus:superseding-approval-clears-obsolete-queued-step"],
   },
   {
     id: "episode_resolution",

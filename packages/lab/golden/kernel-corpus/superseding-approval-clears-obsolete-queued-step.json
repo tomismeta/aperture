@@ -1,0 +1,177 @@
+{
+  "id": "golden:kernel-corpus:superseding-approval-clears-obsolete-queued-step",
+  "title": "Superseding approval clears obsolete queued step",
+  "description": "A newer same-episode approval with explicit superseding evidence should replace the active step and remove an older queued approval for the same issue.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "superseded_queue_cleanup",
+    "decision_stream_continuity"
+  ],
+  "semanticFamilies": ["episode_missed"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:corpus:superseded-approval:rollback",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 2,
+      "next": 1,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "queued canary approval",
+        "intentFrame": "approval_request",
+        "activityClass": "permission_request",
+        "toolFamily": "filesystem",
+        "consequence": "high",
+        "confidence": "high",
+        "relationKindsInclude": ["same_issue"],
+        "ontology": {
+          "ask": "approval",
+          "activity": "decision_request",
+          "consequence": "high",
+          "blocking": "blocking",
+          "episode": "same_issue",
+          "source": "hinted"
+        }
+      },
+      {
+        "stepLabel": "superseding rollback approval",
+        "intentFrame": "approval_request",
+        "activityClass": "permission_request",
+        "toolFamily": "filesystem",
+        "consequence": "high",
+        "confidence": "high",
+        "relationKindsInclude": ["same_issue", "supersedes"],
+        "ontology": {
+          "ask": "approval",
+          "activity": "decision_request",
+          "consequence": "high",
+          "blocking": "blocking",
+          "episode": "resurfaced",
+          "source": "hinted"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "queued canary approval",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "queue",
+        "decisionRecordRoute": "queue",
+        "plannedLane": "next",
+        "resultLane": "next",
+        "decisionRecordCurrentFrameId": "frame:interaction:corpus:superseded-approval:deploy",
+        "decisionRecordCurrentEpisodeId": "episode:custom-agent:interruptive:issue:corpus:superseded-approval:1",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:queue",
+          "lane:next",
+          "evidence:current_frame:present",
+          "evidence:current_episode:present",
+          "continuity:same_episode:override"
+        ]
+      },
+      {
+        "stepLabel": "superseding rollback approval",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "decisionRecordCurrentFrameId": "frame:interaction:corpus:superseded-approval:deploy",
+        "decisionRecordCurrentEpisodeId": "episode:custom-agent:interruptive:issue:corpus:superseded-approval:1",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:activate",
+          "lane:now",
+          "evidence:current_frame:present",
+          "evidence:current_episode:present",
+          "continuity:same_episode:override"
+        ]
+      }
+    ],
+    "explanationExpectation": {
+      "continuityRationaleIncludes": [
+        "the current episode has advanced to a superseding step that belongs in now"
+      ]
+    }
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "initial deploy approval",
+      "event": {
+        "id": "evt:corpus:superseded-approval:deploy",
+        "type": "human.input.requested",
+        "taskId": "task:corpus:superseded-approval",
+        "interactionId": "interaction:corpus:superseded-approval:deploy",
+        "timestamp": "2026-04-16T14:09:00.000Z",
+        "source": { "id": "custom-agent" },
+        "toolFamily": "filesystem",
+        "title": "Approve production deploy",
+        "summary": "Write the production deploy manifest.",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "high",
+        "semanticHints": {
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:corpus:superseded-approval" }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "queued canary approval",
+      "event": {
+        "id": "evt:corpus:superseded-approval:canary",
+        "type": "human.input.requested",
+        "taskId": "task:corpus:superseded-approval",
+        "interactionId": "interaction:corpus:superseded-approval:canary",
+        "timestamp": "2026-04-16T14:09:10.000Z",
+        "source": { "id": "custom-agent" },
+        "toolFamily": "filesystem",
+        "title": "Approve canary deploy",
+        "summary": "Review the canary manifest for the same production deploy issue.",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "high",
+        "semanticHints": {
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:corpus:superseded-approval" }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "superseding rollback approval",
+      "event": {
+        "id": "evt:corpus:superseded-approval:rollback",
+        "type": "human.input.requested",
+        "taskId": "task:corpus:superseded-approval",
+        "interactionId": "interaction:corpus:superseded-approval:rollback",
+        "timestamp": "2026-04-16T14:09:20.000Z",
+        "source": { "id": "custom-agent" },
+        "toolFamily": "filesystem",
+        "title": "Approve rollback instead",
+        "summary": "Use this rollback manifest instead for the same production deploy issue.",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "high",
+        "semanticHints": {
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:corpus:superseded-approval" },
+            { "kind": "supersedes", "target": "issue:corpus:superseded-approval" }
+          ]
+        }
+      }
+    }
+  ]
+}

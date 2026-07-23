@@ -9,21 +9,26 @@ import type {
 import type { AttentionPressure } from "./attention-pressure.js";
 import type { AttentionValueBreakdown } from "./attention-value.js";
 import type { ContinuityRuleEvaluation, ContinuityRuleName } from "./continuity/continuity-rule.js";
-import {
-  buildAttentionClaim,
-  type AttentionClaim,
-  type AttentionClaimPriority,
-} from "./attention-claim.js";
+import type { AttentionClaim, AttentionClaimPriority } from "./attention-claim.js";
+import { ATTENTION_DECISION_RECORD_SCHEMA_VERSION } from "./attention-decision-record-schema.js";
 import type { AttentionResponse } from "./frame-response.js";
 import type {
   AttentionCandidate,
   AttentionPriority as InternalAttentionPriority,
 } from "./interaction-candidate.js";
-import { cloneRecordValue } from "./attention-record-json.js";
 import type { PolicyCriterionRuleEvaluation } from "./policy/policy-criterion-rule.js";
 import type { PolicyGateRuleEvaluation } from "./policy/policy-gate-rule.js";
 
-export const ATTENTION_DECISION_RECORD_SCHEMA_VERSION = 1 as const;
+export { ATTENTION_DECISION_RECORD_SCHEMA_VERSION } from "./attention-decision-record-schema.js";
+export {
+  buildAttentionDecisionExplanation,
+  buildAttentionDecisionRecord,
+} from "./attention-decision-record-builder.js";
+export {
+  buildAttentionDecisionReasonCodes,
+  plannedLaneForCandidateDecision,
+  plannedLaneForDecision,
+} from "./attention-decision-record-projection.js";
 
 export type AttentionOperatorPresence = "present" | "absent";
 
@@ -153,215 +158,3 @@ export type AttentionDecisionExplanationInput = {
   reasons: string[];
   continuityEvaluations: ContinuityRuleEvaluation[];
 };
-
-export function buildAttentionDecisionExplanation(
-  input: AttentionDecisionExplanationInput,
-): AttentionDecisionExplanation {
-  const record = buildAttentionDecisionRecord(input);
-
-  return {
-    decision: input.decision,
-    evaluatedAt: input.evaluatedAt,
-    policy: input.policy,
-    policyGateEvaluations: input.policyGateEvaluations,
-    utility: input.utility,
-    criterion: input.criterion,
-    policyCriterionEvaluations: input.policyCriterionEvaluations,
-    pressureForecast: input.evidence.pressureForecast,
-    attentionBurden: input.evidence.attentionBurden,
-    candidateScore: input.candidateScore,
-    currentScore: input.currentScore,
-    currentPriority: input.currentPriority,
-    ambiguity: input.ambiguity,
-    reasons: input.reasons,
-    reasonCodes: record.planning.reasonCodes,
-    continuityEvaluations: input.continuityEvaluations,
-    record,
-  };
-}
-
-export function buildAttentionDecisionRecord(
-  input: AttentionDecisionExplanationInput,
-): AttentionDecisionRecord {
-  const plannedLane = plannedLaneForCandidateDecision(input.decision);
-  const reasonCodes = buildAttentionDecisionReasonCodes(input, plannedLane);
-
-  return {
-    schemaVersion: ATTENTION_DECISION_RECORD_SCHEMA_VERSION,
-    evaluatedAt: input.evaluatedAt,
-    decision: cloneRecordValue(buildRecordDecision(input.decision), "decision"),
-    claim: cloneRecordValue(input.recordClaim ?? buildAttentionClaim(input.candidate), "claim"),
-    evidenceSnapshot: cloneRecordValue(
-      {
-        pressureForecast: input.evidence.pressureForecast,
-        attentionBurden: input.evidence.attentionBurden,
-        operatorPresence: input.evidence.operatorPresence,
-        currentFrameId: input.evidence.currentFrame?.id ?? null,
-        currentEpisodeId: input.evidence.currentEpisode?.id ?? null,
-      },
-      "evidenceSnapshot",
-    ),
-    policy: cloneRecordValue(
-      {
-        verdict: input.policy,
-        gateEvaluations: input.policyGateEvaluations,
-        criterion: input.criterion,
-        criterionEvaluations: input.policyCriterionEvaluations,
-      },
-      "policy",
-    ),
-    value: cloneRecordValue(
-      {
-        breakdown: input.utility,
-        claimScore: input.candidateScore,
-        currentScore: input.currentScore,
-        currentPriority: input.currentPriority,
-      },
-      "value",
-    ),
-    planning: cloneRecordValue(
-      {
-        route: input.decision.kind,
-        plannedLane,
-        ambiguity: input.ambiguity,
-        reasons: input.reasons,
-        reasonCodes,
-        continuityEvaluations: projectContinuityEvaluations(input.continuityEvaluations),
-      },
-      "planning",
-    ),
-  };
-}
-
-export function buildAttentionDecisionReasonCodes(
-  input: AttentionDecisionExplanationInput,
-  plannedLane: AttentionDecisionPlannedLane,
-): AttentionDecisionReasonCode[] {
-  const codes = new Set<AttentionDecisionReasonCode>();
-
-  codes.add(`route:${input.decision.kind}`);
-  codes.add(`lane:${plannedLane}`);
-  codes.add(`policy:minimum_lane:${input.policy.minimumLane}`);
-  codes.add(`pressure:level:${input.evidence.pressureForecast.level}`);
-  codes.add(`pressure:overload:${input.evidence.pressureForecast.overloadRisk}`);
-  codes.add(`evidence:operator_presence:${input.evidence.operatorPresence}`);
-  codes.add(
-    input.evidence.currentFrame
-      ? "evidence:current_frame:present"
-      : "evidence:current_frame:absent",
-  );
-  codes.add(
-    input.evidence.currentEpisode
-      ? "evidence:current_episode:present"
-      : "evidence:current_episode:absent",
-  );
-
-  if (input.policy.autoApprove) {
-    codes.add("policy:auto_approve");
-  }
-  if (input.policy.mayInterrupt) {
-    codes.add("policy:may_interrupt");
-  } else {
-    codes.add("policy:peripheral_only");
-  }
-  if (input.policy.requiresOperatorResponse) {
-    codes.add("policy:requires_operator_response");
-  }
-  if (input.criterion?.peripheralResolution) {
-    codes.add(`criterion:peripheral_resolution:${input.criterion.peripheralResolution}`);
-  }
-  if (input.ambiguity) {
-    codes.add(`criterion:ambiguity:${input.ambiguity.reason}`);
-  }
-
-  for (const evaluation of input.policyGateEvaluations) {
-    codes.add(`policy_gate:${evaluation.rule}:${evaluation.kind}`);
-  }
-  for (const evaluation of input.policyCriterionEvaluations) {
-    codes.add(`policy_criterion:${evaluation.rule}:${evaluation.kind}`);
-  }
-  for (const evaluation of input.continuityEvaluations) {
-    if (evaluation.kind === "override") {
-      codes.add(`continuity:${evaluation.rule}:override`);
-    }
-  }
-
-  return [...codes].sort();
-}
-
-export function plannedLaneForDecision(decision: AttentionDecision): AttentionDecisionPlannedLane {
-  switch (decision.kind) {
-    case "activate":
-      return "now";
-    case "queue":
-      return "next";
-    case "ambient":
-      return "ambient";
-    case "auto_approve":
-    case "clear":
-      return "none";
-    default:
-      return unreachableAttentionDecision(decision);
-  }
-}
-
-export function plannedLaneForCandidateDecision(
-  decision: AttentionCandidateDecision,
-): AttentionDecisionPlannedLane {
-  return plannedLaneForDecision(decision);
-}
-
-function buildRecordDecision(
-  decision: AttentionCandidateDecision,
-): AttentionDecisionRecordDecision {
-  switch (decision.kind) {
-    case "auto_approve":
-      return {
-        kind: "auto_approve",
-        response: decision.response,
-      };
-    case "activate":
-      return { kind: "activate" };
-    case "queue":
-      return { kind: "queue" };
-    case "ambient":
-      return { kind: "ambient" };
-    default:
-      return unreachableAttentionDecision(decision);
-  }
-}
-
-function projectContinuityEvaluations(
-  evaluations: ContinuityRuleEvaluation[],
-): AttentionDecisionRecordContinuityEvaluation[] {
-  return evaluations.map((evaluation) => {
-    if (evaluation.kind === "noop") {
-      return {
-        rule: evaluation.rule,
-        kind: "noop",
-        rationale: evaluation.rationale,
-      };
-    }
-
-    return {
-      rule: evaluation.rule,
-      kind: "override",
-      decision: { kind: assertContinuityDecisionRoute(evaluation.decision.kind) },
-      currentPriority: evaluation.currentPriority,
-      currentScore: evaluation.currentScore,
-      rationale: evaluation.rationale,
-    };
-  });
-}
-
-function assertContinuityDecisionRoute(route: AttentionDecision["kind"]): AttentionDecisionRoute {
-  if (route === "clear") {
-    throw new Error("Attention decision record continuity cannot project a clear transition.");
-  }
-
-  return route;
-}
-
-function unreachableAttentionDecision(decision: never): never {
-  throw new Error(`Unhandled attention decision in decision record: ${JSON.stringify(decision)}`);
-}

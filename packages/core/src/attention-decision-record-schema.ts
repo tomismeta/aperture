@@ -1,0 +1,1 @@
+export const ATTENTION_DECISION_RECORD_SCHEMA_VERSION = 1 as const;

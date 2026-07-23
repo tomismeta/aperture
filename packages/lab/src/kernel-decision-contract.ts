@@ -8,6 +8,10 @@ export {
   KERNEL_DECISION_RECORD_PROJECTION_V1_SCHEMA,
   serializeKernelDecisionRecordProjection,
 } from "./kernel-decision-contract-support.js";
+export {
+  readKernelDecisionRecordComponents,
+  readKernelDecisionRecordScore,
+} from "./kernel-decision-value.js";
 export type {
   KernelDecisionRecordFingerprint,
   KernelDecisionRecordProjection,

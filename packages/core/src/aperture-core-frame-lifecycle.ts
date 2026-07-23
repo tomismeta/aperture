@@ -1,9 +1,4 @@
-import {
-  EpisodeTracker,
-  isDormantEpisodeState,
-  readFrameEpisodeId,
-  readFrameEpisodeState,
-} from "./episode-tracker.js";
+import { EpisodeTracker, findVisibleEpisodeFrames } from "./episode-tracker.js";
 import type { AttentionFrame, AttentionTaskView, AttentionView } from "./frame.js";
 import type { AttentionResponse } from "./frame-response.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
@@ -181,12 +176,14 @@ export class ApertureCoreFrameLifecycle {
     candidate: AttentionCandidate,
     existingFrame: AttentionFrame,
   ): AttentionFrame {
-    const planned = this.applyResponseExpiry(this.runtime.planner.plan(candidate, existingFrame));
-    const promoted = {
-      ...planned,
-      id: existingFrame.id,
-    };
-    return this.commitFrame(promoted, [existingFrame]);
+    return this.replaceVisibleEpisodeFrame(candidate, existingFrame);
+  }
+
+  refreshVisibleEpisodeFrame(
+    candidate: AttentionCandidate,
+    existingFrame: AttentionFrame,
+  ): AttentionFrame {
+    return this.replaceVisibleEpisodeFrame(candidate, existingFrame);
   }
 
   submit(response: AttentionResponse): void {
@@ -246,13 +243,9 @@ export class ApertureCoreFrameLifecycle {
       return [];
     }
 
-    return [attentionView.now, ...attentionView.next, ...attentionView.ambient].filter(
-      (frame): frame is AttentionFrame =>
-        frame !== null &&
-        frame.interactionId !== candidate.interactionId &&
-        readFrameEpisodeId(frame) === candidate.episodeId &&
-        !isDormantEpisodeState(readFrameEpisodeState(frame)),
-    );
+    return findVisibleEpisodeFrames(attentionView, candidate.episodeId, {
+      excludedInteractionId: candidate.interactionId,
+    });
   }
 
   applyResponseExpiry(frame: AttentionFrame): AttentionFrame {
@@ -293,25 +286,21 @@ export class ApertureCoreFrameLifecycle {
     episodeId: string,
     attentionView: AttentionView,
   ): { frame: AttentionFrame; bucket: "queue" | "ambient" } | null {
-    const queued = attentionView.next.find(
-      (frame) =>
-        readFrameEpisodeId(frame) === episodeId &&
-        !isDormantEpisodeState(readFrameEpisodeState(frame)),
-    );
+    const queued = findVisibleEpisodeFrames(attentionView, episodeId, { lanes: ["next"] })[0];
     if (queued) {
       return { frame: queued, bucket: "queue" };
     }
 
-    const ambient = attentionView.ambient.find(
-      (frame) =>
-        readFrameEpisodeId(frame) === episodeId &&
-        !isDormantEpisodeState(readFrameEpisodeState(frame)),
-    );
+    const ambient = findVisibleEpisodeFrames(attentionView, episodeId, { lanes: ["ambient"] })[0];
     if (ambient) {
       return { frame: ambient, bucket: "ambient" };
     }
 
     return null;
+  }
+
+  findNowEpisodeFrame(episodeId: string, attentionView: AttentionView): AttentionFrame | null {
+    return findVisibleEpisodeFrames(attentionView, episodeId, { lanes: ["now"] })[0] ?? null;
   }
 
   shouldPromotePeripheralEpisodeFrame(explanation: {
@@ -353,5 +342,13 @@ export class ApertureCoreFrameLifecycle {
     )) {
       this.runtime.recordSignal(signal);
     }
+  }
+
+  private replaceVisibleEpisodeFrame(
+    candidate: AttentionCandidate,
+    existingFrame: AttentionFrame,
+  ): AttentionFrame {
+    const planned = this.applyResponseExpiry(this.runtime.planner.plan(candidate, existingFrame));
+    return this.commitFrame({ ...planned, id: existingFrame.id }, [existingFrame]);
   }
 }

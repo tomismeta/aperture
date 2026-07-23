@@ -13,6 +13,8 @@ export const KERNEL_CORPUS_SCENARIO_IDS = [
   "golden:kernel-corpus:duplicate-relation-hints-collapse-to-targeted-evidence",
   "golden:kernel-corpus:interleaved-supersede-with-background-noise",
   "golden:kernel-corpus:metadata-heavy-status-noise-stays-ambient",
+  "golden:kernel-corpus:repeated-failure-refreshes-current-episode",
+  "golden:kernel-corpus:repeated-low-confidence-failures-stay-queued",
   "golden:kernel-corpus:repeated-status-delivery-stays-one-ambient-frame",
   "golden:kernel-corpus:resolution-after-active-failure-clears-focus",
   "golden:kernel-corpus:source-risk-outranks-low-confidence-hint",
@@ -49,6 +51,14 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
   {
     id: "interleaved_lifecycle",
     scenarioIds: ["golden:kernel-corpus:interleaved-supersede-with-background-noise"],
+  },
+  {
+    id: "low_confidence_failure_pressure",
+    scenarioIds: ["golden:kernel-corpus:repeated-low-confidence-failures-stay-queued"],
+  },
+  {
+    id: "repeated_failure_lifecycle",
+    scenarioIds: ["golden:kernel-corpus:repeated-failure-refreshes-current-episode"],
   },
   {
     id: "superseded_queue_cleanup",

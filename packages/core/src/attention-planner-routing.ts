@@ -1,10 +1,6 @@
 import type { AttentionFrame, AttentionView } from "./frame.js";
 
-import {
-  isDormantEpisodeState,
-  readFrameEpisodeId,
-  readFrameEpisodeState,
-} from "./episode-tracker.js";
+import { findVisibleEpisodeFrames, isCandidateInActionableEpisode } from "./episode-tracker.js";
 import { isBlockingFrame, priorityForFrame } from "./frame-score.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
@@ -416,7 +412,7 @@ function shouldPreemptForPressure(
 function isActionableEpisode(candidate: AttentionCandidate): boolean {
   return (
     !candidate.blocking &&
-    candidate.episodeState === "actionable" &&
+    isCandidateInActionableEpisode(candidate) &&
     (candidate.episodeEvidenceScore ?? 0) >= DEFAULTS.actionableEpisodeEvidenceThreshold
   );
 }
@@ -427,13 +423,9 @@ function hasVisibleInterruptiveEpisode(
 ): boolean {
   return (
     candidate.episodeId !== undefined &&
-    [attentionView?.now, ...(attentionView?.next ?? [])]
-      .filter((frame): frame is AttentionFrame => frame !== null)
-      .some(
-        (frame) =>
-          frame.interactionId !== candidate.interactionId &&
-          readFrameEpisodeId(frame) === candidate.episodeId &&
-          !isDormantEpisodeState(readFrameEpisodeState(frame)),
-      )
+    findVisibleEpisodeFrames(attentionView, candidate.episodeId, {
+      lanes: ["now", "next"],
+      excludedInteractionId: candidate.interactionId,
+    }).length > 0
   );
 }

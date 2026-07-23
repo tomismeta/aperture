@@ -1,8 +1,4 @@
-import {
-  isDormantEpisodeState,
-  readFrameEpisodeId,
-  readFrameEpisodeState,
-} from "../episode-tracker.js";
+import { isLiveEpisodeFrame } from "../episode-tracker.js";
 import { isBlockingFrame, priorityForFrame } from "../frame-score.js";
 import { readSemanticRelationEvidenceStrength } from "../judgment-input.js";
 import { hasSemanticRelationKind } from "../semantic-relations.js";
@@ -20,12 +16,7 @@ export const evaluateSameEpisodeContinuityRule: ContinuityRule = (input) => {
     return noopContinuityRule("same_episode");
   }
 
-  const currentEpisodeId = readFrameEpisodeId(activeFrame);
-  if (
-    !currentEpisodeId ||
-    currentEpisodeId !== candidate.episodeId ||
-    isDormantEpisodeState(readFrameEpisodeState(activeFrame))
-  ) {
+  if (!isLiveEpisodeFrame(activeFrame, candidate.episodeId)) {
     return noopContinuityRule("same_episode");
   }
 

@@ -120,7 +120,7 @@ export function evaluateTraceSession(traces: ApertureTrace[]): TraceEvaluationRe
       if (trace.result) {
         report.actionableSurfaced += 1;
       }
-      if (trace.coordination.kind === "activate") {
+      if (trace.coordination.resultLane === "now") {
         report.actionableActivated += 1;
       }
     }

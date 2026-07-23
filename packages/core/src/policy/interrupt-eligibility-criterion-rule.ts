@@ -1,5 +1,8 @@
 import type { AttentionCandidate } from "../interaction-candidate.js";
 import type { AttentionSurfaceCapabilities } from "../surface-capabilities.js";
+import { findVisibleEpisodeFrames, isCandidateInActionableEpisode } from "../episode-tracker.js";
+import type { AttentionView } from "../frame.js";
+import { hasCandidateSemanticUncertainty } from "../judgment-input.js";
 
 import {
   clearCriterionVerdict,
@@ -28,7 +31,9 @@ export const evaluateInterruptEligibilityCriterionRule: PolicyCriterionRule = (i
 
   if (
     candidate.blocking ||
-    candidate.episodeState === "actionable" ||
+    (isCandidateInActionableEpisode(candidate) &&
+      !hasCandidateSemanticUncertainty(candidate) &&
+      !hasVisibleRelatedEpisode(candidate, evidence.attentionView)) ||
     policyVerdict.autoApprove ||
     policyVerdict.requiresOperatorResponse ||
     policyVerdict.minimumLane === "now"
@@ -38,6 +43,18 @@ export const evaluateInterruptEligibilityCriterionRule: PolicyCriterionRule = (i
 
   return noopPolicyCriterionRule("interrupt_eligibility");
 };
+
+function hasVisibleRelatedEpisode(
+  candidate: AttentionCandidate,
+  attentionView: AttentionView,
+): boolean {
+  return (
+    candidate.episodeId !== undefined &&
+    findVisibleEpisodeFrames(attentionView, candidate.episodeId, {
+      excludedInteractionId: candidate.interactionId,
+    }).length > 0
+  );
+}
 
 function readPreservedPeripheralResolution(
   candidate: AttentionCandidate,

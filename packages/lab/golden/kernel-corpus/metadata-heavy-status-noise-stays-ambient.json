@@ -1,0 +1,77 @@
+{
+  "id": "golden:kernel-corpus:metadata-heavy-status-noise-stays-ambient",
+  "title": "Metadata-heavy status noise stays ambient",
+  "description": "Operational metadata and emphatic status prose should remain inspectable context without becoming a blocking attention surface.",
+  "doctrineTags": ["kernel_corpus", "status_noise", "ambient_doctrine"],
+  "semanticFamilies": ["consequence_overread"],
+  "expectations": {
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
+    "ambientInteractionIds": ["interaction:task:corpus:heartbeat:status"],
+    "resultLaneCounts": {
+      "now": 0,
+      "next": 0,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "noisy heartbeat",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "consequence": "low",
+        "confidence": "high",
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "low",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "source": "explicit"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "noisy heartbeat",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 1,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:ambient",
+          "lane:ambient",
+          "policy:minimum_lane:ambient"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "noisy heartbeat",
+      "event": {
+        "id": "evt:corpus:heartbeat",
+        "type": "task.updated",
+        "taskId": "task:corpus:heartbeat",
+        "timestamp": "2026-04-16T14:02:00.000Z",
+        "source": { "id": "custom-agent" },
+        "metadata": {
+          "attempt": 17,
+          "region": "us-east-2",
+          "shard": "worker-43",
+          "rawStatus": {
+            "emoji": "!!!",
+            "externalSeverity": "red",
+            "transportRetries": [1, 1, 2, 3, 5]
+          }
+        },
+        "title": "CRITICAL heartbeat still running",
+        "summary": "The monitor is alive and continuing periodic checks; no operator action is required.",
+        "status": "running"
+      }
+    }
+  ]
+}

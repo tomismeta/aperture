@@ -1,0 +1,78 @@
+{
+  "id": "golden:kernel-corpus:waiting-wording-blocked-under-absence",
+  "title": "Blocked waiting wording queues under operator absence",
+  "description": "A waiting status with blocking wording should stay visible, but operator absence keeps it out of the now lane.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "operator_absence",
+    "semantic_uncertainty"
+  ],
+  "semanticFamilies": ["blocking_missed"],
+  "core": {
+    "operatorPresence": "absent"
+  },
+  "expectations": {
+    "finalNowInteractionId": null,
+    "nextInteractionIds": ["interaction:task:corpus:waiting:blocker:status"],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 0,
+      "next": 1,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "waiting blocker",
+        "intentFrame": "blocked_work",
+        "activityClass": "status_update",
+        "consequence": "high",
+        "confidence": "medium",
+        "whyNowIncludes": "blocked",
+        "factorsInclude": ["semantic blocking signal"],
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "high",
+          "blocking": "blocking",
+          "episode": "unknown",
+          "source": "inferred"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "waiting blocker",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 1,
+        "decisionKind": "queue",
+        "decisionRecordRoute": "queue",
+        "plannedLane": "next",
+        "resultLane": "next",
+        "semanticConfidence": "medium",
+        "decisionRecordOperatorPresence": "absent",
+        "decisionRecordReasonCodesInclude": [
+          "route:queue",
+          "lane:next",
+          "evidence:operator_presence:absent",
+          "policy_criterion:operator_absence:verdict"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "waiting blocker",
+      "event": {
+        "id": "evt:corpus:waiting:blocker",
+        "type": "task.updated",
+        "taskId": "task:corpus:waiting:blocker",
+        "timestamp": "2026-04-16T14:05:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Waiting on missing credential",
+        "summary": "Work cannot continue until the operator provides the production token.",
+        "status": "waiting"
+      }
+    }
+  ]
+}

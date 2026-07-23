@@ -25,6 +25,19 @@ export {
   type KernelConformanceScenarioResult,
 } from "./kernel-conformance.js";
 export {
+  buildKernelCorpusConformanceReport,
+  type KernelCorpusConformanceReport,
+  type KernelCorpusDeterminismReport,
+  type KernelCorpusDimensionCoverage,
+} from "./kernel-corpus-conformance.js";
+export {
+  KERNEL_CORPUS_COVERAGE_DIMENSIONS,
+  KERNEL_CORPUS_PROFILE,
+  KERNEL_CORPUS_PROFILE_ID,
+  KERNEL_CORPUS_PROFILE_VERSION,
+  KERNEL_CORPUS_SCENARIO_IDS,
+} from "./kernel-corpus-profile.js";
+export {
   buildKernelDecisionRecordProjection,
   buildKernelDecisionRecordProjectionFromSnapshot,
   canonicalizeKernelDecisionRecordProjection,

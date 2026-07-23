@@ -1,0 +1,99 @@
+{
+  "id": "golden:kernel-corpus:resolution-after-active-failure-clears-focus",
+  "title": "Resolution after an active failure clears focus",
+  "description": "A resolved same-issue status should retire the active failure episode instead of creating a new interrupt.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "episode_resolution",
+    "decision_stream_continuity"
+  ],
+  "semanticFamilies": ["episode_missed"],
+  "expectations": {
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
+    "ambientInteractionIds": ["interaction:task:corpus:build:status"],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "resolved build issue",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "consequence": "low",
+        "confidence": "high",
+        "relationKindsInclude": ["same_issue", "resolves"],
+        "ontology": {
+          "ask": "status",
+          "activity": "task_completion",
+          "consequence": "low",
+          "blocking": "non_blocking",
+          "episode": "resolved",
+          "source": "hinted"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "resolved build issue",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 1,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "decisionRecordCurrentEpisodeId": "episode:custom-agent:status:issue:corpus:build:1",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:ambient",
+          "lane:ambient",
+          "evidence:current_episode:present"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "active build failure",
+      "event": {
+        "id": "evt:corpus:build:failed",
+        "type": "task.updated",
+        "taskId": "task:corpus:build",
+        "timestamp": "2026-04-16T14:03:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Build failed again",
+        "summary": "The same deploy build is still failing before release.",
+        "status": "failed",
+        "semanticHints": {
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:corpus:build" },
+            { "kind": "repeats", "target": "issue:corpus:build" }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "resolved build issue",
+      "event": {
+        "id": "evt:corpus:build:resolved",
+        "type": "task.updated",
+        "taskId": "task:corpus:build",
+        "timestamp": "2026-04-16T14:03:30.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Build issue resolved",
+        "summary": "The same deploy build is fixed and no longer blocked.",
+        "status": "completed",
+        "semanticHints": {
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:corpus:build" },
+            { "kind": "resolves", "target": "issue:corpus:build" }
+          ]
+        }
+      }
+    }
+  ]
+}

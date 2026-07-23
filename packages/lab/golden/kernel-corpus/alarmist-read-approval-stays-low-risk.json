@@ -1,0 +1,78 @@
+{
+  "id": "golden:kernel-corpus:alarmist-read-approval-stays-low-risk",
+  "title": "Alarmist read approval stays low risk",
+  "description": "Alarmist wording around a read-only approval should not inflate consequence or policy value beyond the source-shaped read path.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "source_fact_authority",
+    "consequence_overread"
+  ],
+  "semanticFamilies": ["consequence_overread"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:corpus:read:approval",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "alarmist read approval",
+        "intentFrame": "approval_request",
+        "activityClass": "permission_request",
+        "toolFamily": "read",
+        "consequence": "low",
+        "confidence": "medium",
+        "ontology": {
+          "ask": "approval",
+          "activity": "decision_request",
+          "consequence": "low",
+          "blocking": "blocking",
+          "episode": "new",
+          "source": "explicit"
+        },
+        "reasonsInclude": ["tool family was supplied by the source or context"]
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "alarmist read approval",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 1,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "semanticConfidence": "medium",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:activate",
+          "lane:now",
+          "evidence:operator_presence:present"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "alarmist read approval",
+      "event": {
+        "id": "evt:corpus:read:approval",
+        "type": "human.input.requested",
+        "taskId": "task:corpus:read:approval",
+        "interactionId": "interaction:corpus:read:approval",
+        "timestamp": "2026-04-16T14:00:00.000Z",
+        "source": { "id": "custom-agent" },
+        "toolFamily": "read",
+        "title": "URGENT approve repo inspection",
+        "summary": "Read package metadata and logs only; no writes will be performed.",
+        "request": {
+          "kind": "approval"
+        }
+      }
+    }
+  ]
+}

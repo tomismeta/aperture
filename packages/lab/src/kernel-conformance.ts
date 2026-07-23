@@ -1,249 +1,30 @@
-import { KERNEL_DECISION_RECORD_PROJECTION_VERSION } from "./artifact-versions.js";
-import { compareKernelCanonicalKey, digestKernelCanonicalJson } from "./kernel-canonical-json.js";
-import {
-  buildKernelDecisionRecordProjectionFromSnapshot,
-  fingerprintKernelDecisionRecordProjection,
-} from "./kernel-decision-contract.js";
-import { KERNEL_PROFILE, KERNEL_PROFILE_SCENARIO_IDS } from "./kernel-profile.js";
 import { loadGoldenScenarios } from "./golden.js";
-import { runJudgmentBench, type JudgmentBenchScenarioResult } from "./judgment-bench.js";
-import type { ReplayRunResult } from "./runner.js";
-import type { ReplayDecisionSnapshot, ReplayScenario } from "./scenario.js";
-import { validateReplayDecisionSnapshot } from "./validation-replay-decision.js";
+import { KERNEL_PROFILE } from "./kernel-profile.js";
+import {
+  assertKernelConformanceReportPassed,
+  buildKernelConformanceReportForProfile,
+  KERNEL_CONFORMANCE_REPORT_SCHEMA_VERSION,
+  type KernelConformanceReportForProfile,
+  type KernelConformanceScenarioResult,
+} from "./kernel-conformance-support.js";
+import type { ReplayScenario } from "./scenario.js";
 
-export const KERNEL_CONFORMANCE_REPORT_SCHEMA_VERSION = 1 as const;
 const KERNEL_SCENARIO_PREFIX = "golden:kernel:";
 
-export type KernelConformanceReport = {
-  schemaVersion: typeof KERNEL_CONFORMANCE_REPORT_SCHEMA_VERSION;
-  profile: typeof KERNEL_PROFILE;
-  scenarioIds: string[];
-  coverage: {
-    missingScenarioIds: string[];
-    unexpectedScenarioIds: string[];
-    duplicateScenarioIds: string[];
-  };
-  scenarios: KernelConformanceScenarioResult[];
-  suiteDigest: string;
-  passed: boolean;
-  failures: string[];
+export {
+  assertKernelConformanceReportPassed,
+  KERNEL_CONFORMANCE_REPORT_SCHEMA_VERSION,
+  type KernelConformanceScenarioResult,
 };
 
-export type KernelConformanceScenarioResult = {
-  id: string;
-  inputDigest: string;
-  outputDigest: string;
-  decisionFingerprints: string[];
-  assertions: {
-    total: number;
-    passed: number;
-    failed: number;
-    failures: Array<{ name: string; expected: unknown; actual: unknown }>;
-  };
-  projectionValidationFailures: string[];
-};
+export type KernelConformanceReport = KernelConformanceReportForProfile<typeof KERNEL_PROFILE>;
 
 export async function buildKernelConformanceReport(
   scenarios?: ReplayScenario[],
 ): Promise<KernelConformanceReport> {
-  const loadedScenarios = scenarios ?? (await loadGoldenScenarios());
-  const coverage = assessKernelProfileCoverage(loadedScenarios);
-  const byId = new Map(loadedScenarios.map((scenario) => [scenario.id, scenario]));
-  const profileScenarios = KERNEL_PROFILE_SCENARIO_IDS.flatMap((id) => {
-    const scenario = byId.get(id);
-    return scenario ? [scenario] : [];
-  });
-  const bench = await runJudgmentBench(profileScenarios);
-  const results = bench.scenarios.map(buildScenarioResult);
-  const failures = [
-    ...coverage.missingScenarioIds.map((id) => `missing_scenario:${id}`),
-    ...coverage.unexpectedScenarioIds.map((id) => `unexpected_scenario:${id}`),
-    ...coverage.duplicateScenarioIds.map((id) => `duplicate_scenario:${id}`),
-    ...results.flatMap((result) =>
-      result.assertions.failures.map((failure) => `assertion_failed:${result.id}:${failure.name}`),
-    ),
-    ...results.flatMap((result) =>
-      result.projectionValidationFailures.map((failure) => `${result.id}:${failure}`),
-    ),
-  ];
-  const suiteDigest = digestKernelCanonicalJson({
-    profile: KERNEL_PROFILE,
-    scenarios: results.map((result) => ({
-      id: result.id,
-      inputDigest: result.inputDigest,
-      outputDigest: result.outputDigest,
-      decisionFingerprints: result.decisionFingerprints,
-    })),
-  });
-
-  return {
-    schemaVersion: KERNEL_CONFORMANCE_REPORT_SCHEMA_VERSION,
-    profile: KERNEL_PROFILE,
-    scenarioIds: [...KERNEL_PROFILE_SCENARIO_IDS],
-    coverage,
-    scenarios: results,
-    suiteDigest,
-    passed: failures.length === 0,
-    failures,
-  };
-}
-
-export function assertKernelConformanceReportPassed(report: KernelConformanceReport): void {
-  if (report.passed) {
-    return;
-  }
-
-  throw new Error(`Kernel conformance failed: ${report.failures.join(", ") || "unknown failure"}`);
-}
-
-function assessKernelProfileCoverage(
-  scenarios: ReplayScenario[],
-): KernelConformanceReport["coverage"] {
-  const profileIds = new Set<string>(KERNEL_PROFILE_SCENARIO_IDS);
-  const kernelIds = scenarios
-    .map((scenario) => scenario.id)
-    .filter((id) => id.startsWith(KERNEL_SCENARIO_PREFIX));
-
-  return {
-    missingScenarioIds: KERNEL_PROFILE_SCENARIO_IDS.filter((id) => !kernelIds.includes(id)),
-    unexpectedScenarioIds: kernelIds.filter((id) => !profileIds.has(id)),
-    duplicateScenarioIds: collectDuplicateIds(kernelIds),
-  };
-}
-
-function buildScenarioResult(result: JudgmentBenchScenarioResult): KernelConformanceScenarioResult {
-  const failedAssertions = result.assertions.filter((assertion) => !assertion.passed);
-  const projectionValidationFailures = collectProjectionValidationFailures(result.run);
-  const decisionFingerprints = result.run.decisions.flatMap((decision) =>
-    decision.decisionRecordFingerprint ? [decision.decisionRecordFingerprint] : [],
+  return buildKernelConformanceReportForProfile(
+    KERNEL_PROFILE,
+    KERNEL_SCENARIO_PREFIX,
+    scenarios ?? (await loadGoldenScenarios()),
   );
-
-  return {
-    id: result.scenario.id,
-    inputDigest: digestKernelCanonicalJson(buildScenarioInput(result.scenario)),
-    outputDigest: digestKernelCanonicalJson(buildScenarioOutput(result.run)),
-    decisionFingerprints,
-    assertions: {
-      total: result.assertions.length,
-      passed: result.assertions.length - failedAssertions.length,
-      failed: failedAssertions.length,
-      failures: failedAssertions.map((assertion) => ({
-        name: assertion.name,
-        expected: assertion.expected,
-        actual: assertion.actual,
-      })),
-    },
-    projectionValidationFailures,
-  };
-}
-
-function buildScenarioInput(scenario: ReplayScenario): unknown {
-  return {
-    id: scenario.id,
-    core: scenario.core ?? null,
-    expectations: scenario.expectations ?? null,
-    steps: scenario.steps,
-  };
-}
-
-function buildScenarioOutput(run: ReplayRunResult): unknown {
-  const finalView = run.views.at(-1);
-
-  return {
-    finalView: {
-      nowInteractionId: finalView?.nowInteractionId ?? null,
-      nextInteractionIds: finalView?.nextInteractionIds ?? [],
-      ambientInteractionIds: finalView?.ambientInteractionIds ?? [],
-    },
-    semantics: run.semantics.map((semantic) => ({
-      stepIndex: semantic.stepIndex,
-      stepLabel: semantic.stepLabel ?? null,
-      intentFrame: semantic.interpretation.intentFrame,
-      activityClass: semantic.interpretation.activityClass ?? null,
-      toolFamily: semantic.interpretation.toolFamily ?? null,
-      consequence: semantic.interpretation.consequence ?? null,
-      confidence: semantic.interpretation.confidence,
-      abstained: semantic.interpretation.abstained === true,
-      relationHints: semantic.interpretation.relationHints
-        .map(normalizeRelationHint)
-        .sort(
-          (left, right) =>
-            compareKernelCanonicalKey(left.kind, right.kind) ||
-            compareKernelCanonicalKey(left.target ?? "", right.target ?? ""),
-        ),
-      ontology: semantic.ontology ?? null,
-    })),
-    decisions: run.decisions.map(buildDecisionOutput),
-  };
-}
-
-function normalizeRelationHint(hint: { kind: string; target?: string }): {
-  kind: string;
-  target: string | null;
-} {
-  return {
-    kind: hint.kind,
-    target: hint.target ?? null,
-  };
-}
-
-function buildDecisionOutput(decision: ReplayDecisionSnapshot): unknown {
-  const projection = buildKernelDecisionRecordProjectionFromSnapshot(decision);
-
-  return {
-    stepIndex: decision.stepIndex,
-    stepLabel: decision.stepLabel ?? null,
-    evaluationKind: decision.evaluationKind,
-    decisionKind: decision.decisionKind ?? null,
-    resultLane: decision.resultLane ?? null,
-    interactionId: decision.interactionId ?? null,
-    semanticConfidence: decision.semanticConfidence ?? null,
-    semanticAbstained: decision.semanticAbstained === true,
-    ambiguity: decision.ambiguity ?? null,
-    projection:
-      projection === null
-        ? null
-        : {
-            schema: projection.schema,
-            version: projection.version,
-            route: projection.route,
-            lane: projection.lane,
-            evidence: projection.evidence,
-            value: projection.value,
-            reasonCodes: projection.reasonCodes,
-          },
-    fingerprint: projection === null ? null : fingerprintKernelDecisionRecordProjection(projection),
-  };
-}
-
-function collectProjectionValidationFailures(run: ReplayRunResult): string[] {
-  return run.decisions.flatMap((decision, index) => {
-    if (decision.evaluationKind !== "candidate") {
-      return [];
-    }
-
-    const failures: string[] = [];
-    if (decision.decisionRecordProjectionVersion !== KERNEL_DECISION_RECORD_PROJECTION_VERSION) {
-      failures.push(`decisions[${index}].missing_projection_version`);
-    }
-    if (validateReplayDecisionSnapshot(decision) === null) {
-      failures.push(`decisions[${index}].invalid_projection_snapshot`);
-    }
-    if (!decision.decisionRecordFingerprint) {
-      failures.push(`decisions[${index}].missing_fingerprint`);
-    }
-    return failures;
-  });
-}
-
-function collectDuplicateIds(ids: string[]): string[] {
-  const seen = new Set<string>();
-  const duplicates = new Set<string>();
-  for (const id of ids) {
-    if (seen.has(id)) {
-      duplicates.add(id);
-    }
-    seen.add(id);
-  }
-  return [...duplicates].sort(compareKernelCanonicalKey);
 }

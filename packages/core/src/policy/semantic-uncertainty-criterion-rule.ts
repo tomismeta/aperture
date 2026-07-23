@@ -4,6 +4,8 @@ import {
   readCandidateSemanticEvidence,
   readSemanticEvidenceStrength,
 } from "../judgment-input.js";
+import type { AttentionView } from "../frame.js";
+import { findVisibleEpisodeFrames } from "../episode-tracker.js";
 import {
   ambiguousPeripheralCriterionVerdict,
   noopPolicyCriterionRule,
@@ -12,7 +14,12 @@ import {
 } from "./policy-criterion-rule.js";
 
 export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (input) => {
-  const { candidate, criterion, peripheralResolution } = input;
+  const { candidate, criterion, evidence, peripheralResolution } = input;
+  const resolution = resolveSemanticUncertaintyPeripheralResolution(
+    candidate,
+    evidence.attentionView,
+    peripheralResolution,
+  );
 
   if (candidate.blocking) {
     return noopPolicyCriterionRule("semantic_uncertainty");
@@ -23,11 +30,11 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
       "semantic_uncertainty",
       ambiguousPeripheralCriterionVerdict(
         criterion,
-        peripheralResolution,
+        resolution,
         {
           kind: "interrupt",
           reason: "low_signal",
-          resolution: peripheralResolution,
+          resolution,
         },
         [
           "semantic interpretation abstained, so non-blocking work stays peripheral until stronger explicit evidence arrives",
@@ -41,11 +48,11 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
       "semantic_uncertainty",
       ambiguousPeripheralCriterionVerdict(
         criterion,
-        peripheralResolution,
+        resolution,
         {
           kind: "interrupt",
           reason: "low_signal",
-          resolution: peripheralResolution,
+          resolution,
         },
         [
           "low-confidence semantic interpretation keeps non-blocking work peripheral until the signal is clearer",
@@ -59,11 +66,11 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
       "semantic_uncertainty",
       ambiguousPeripheralCriterionVerdict(
         criterion,
-        peripheralResolution,
+        resolution,
         {
           kind: "interrupt",
           reason: "low_signal",
-          resolution: peripheralResolution,
+          resolution,
         },
         [
           "inferred semantic evidence stays peripheral until stronger source-backed context arrives",
@@ -79,3 +86,33 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
       : [],
   );
 };
+
+function resolveSemanticUncertaintyPeripheralResolution(
+  candidate: Parameters<PolicyCriterionRule>[0]["candidate"],
+  attentionView: AttentionView,
+  fallback: "queue" | "ambient",
+): "queue" | "ambient" {
+  if (
+    fallback === "queue" &&
+    candidate.mode === "status" &&
+    candidate.episodeId !== undefined &&
+    hasVisibleNowEpisodeFrame(candidate.episodeId, candidate.interactionId, attentionView)
+  ) {
+    return "ambient";
+  }
+
+  return fallback;
+}
+
+function hasVisibleNowEpisodeFrame(
+  episodeId: string,
+  interactionId: string,
+  attentionView: AttentionView,
+): boolean {
+  return (
+    findVisibleEpisodeFrames(attentionView, episodeId, {
+      lanes: ["now"],
+      excludedInteractionId: interactionId,
+    }).length > 0
+  );
+}

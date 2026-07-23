@@ -125,6 +125,14 @@ export function isCandidateSemanticLowConfidence(candidate: AttentionCandidate):
   return readCandidateSemanticConfidence(candidate) === "low";
 }
 
+export function hasCandidateSemanticUncertainty(candidate: AttentionCandidate): boolean {
+  return (
+    isCandidateSemanticAbstained(candidate) ||
+    isCandidateSemanticLowConfidence(candidate) ||
+    readSemanticEvidenceStrength(candidate) === "weak"
+  );
+}
+
 export function readSemanticSourceCriterionOffset(candidate: AttentionCandidate): number {
   const strength = readSemanticEvidenceStrength(candidate);
   const source = readCandidateSemanticEvidence(candidate)?.source;

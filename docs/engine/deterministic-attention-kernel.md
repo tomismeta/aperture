@@ -164,7 +164,9 @@ The current messy corpus covers:
 - high source risk that survives a low-confidence semantic hint
 - conflicting relation targets that preserve final queueing behind current work
 - duplicate relation hints that canonicalize to targeted source evidence
+- low-confidence repeated failures that stay queued behind ambiguity pressure
 - metadata-heavy status noise that remains ambient
+- repeated same-issue failures that refresh the current episode without duplicate focus pressure
 - repeated passive statuses that remain one ambient frame
 - same-issue resolution after an active failure
 - waiting status with blocking wording under operator absence
@@ -174,8 +176,6 @@ The current messy corpus covers:
 The corpus should continue adding adversarial examples:
 
 - decorative urgency language
-- repeated failures
-- low-confidence failed statuses
 - conflicting relation hints
 - passive status noise
 - safe read approvals

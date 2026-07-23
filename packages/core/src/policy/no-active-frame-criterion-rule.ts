@@ -1,9 +1,4 @@
-import type { AttentionFrame } from "../frame.js";
-import {
-  isDormantEpisodeState,
-  readFrameEpisodeId,
-  readFrameEpisodeState,
-} from "../episode-tracker.js";
+import { findVisibleEpisodeFrames, isCandidateInActionableEpisode } from "../episode-tracker.js";
 
 import {
   ambiguousPeripheralCriterionVerdict,
@@ -19,16 +14,15 @@ export const evaluateNoActiveFrameCriterionRule: PolicyCriterionRule = (input) =
     return noopPolicyCriterionRule("no_active_frame");
   }
 
+  if (isCandidateInActionableEpisode(candidate)) {
+    return noopPolicyCriterionRule("no_active_frame");
+  }
+
   if (
     candidate.episodeId !== undefined &&
-    [evidence.attentionView.now, ...evidence.attentionView.next, ...evidence.attentionView.ambient]
-      .filter((frame): frame is AttentionFrame => frame !== null)
-      .some(
-        (frame) =>
-          frame.interactionId !== candidate.interactionId &&
-          readFrameEpisodeId(frame) === candidate.episodeId &&
-          !isDormantEpisodeState(readFrameEpisodeState(frame)),
-      )
+    findVisibleEpisodeFrames(evidence.attentionView, candidate.episodeId, {
+      excludedInteractionId: candidate.interactionId,
+    }).length > 0
   ) {
     return noopPolicyCriterionRule("no_active_frame");
   }

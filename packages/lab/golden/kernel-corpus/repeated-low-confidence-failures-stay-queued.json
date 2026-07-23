@@ -1,0 +1,210 @@
+{
+  "id": "golden:kernel-corpus:repeated-low-confidence-failures-stay-queued",
+  "title": "Repeated low-confidence failures stay queued",
+  "description": "Repeated failed statuses with the same issue target should accumulate episode evidence without bypassing the low-confidence ambiguity gate.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "failure_ambiguity",
+    "semantic_uncertainty",
+    "decision_stream_continuity"
+  ],
+  "semanticFamilies": ["confidence_too_high"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:corpus:failure-anchor",
+    "nextInteractionIds": ["interaction:task:corpus:uncertain-failure:retry:status"],
+    "ambientInteractionIds": ["interaction:task:corpus:failure-noise:status"],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 2,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "first uncertain failure",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "consequence": "high",
+        "confidence": "low",
+        "relationHintsExact": [
+          { "kind": "same_issue", "target": "issue:corpus:uncertain-failure" }
+        ],
+        "whyNowIncludes": "failed and should be reviewed",
+        "provenanceIncludes": {
+          "confidence": "hint",
+          "relationHints": "hint"
+        },
+        "ontology": {
+          "ask": "status",
+          "activity": "failure",
+          "consequence": "high",
+          "blocking": "non_blocking",
+          "episode": "same_issue",
+          "source": "hinted"
+        }
+      },
+      {
+        "stepLabel": "second uncertain failure",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "consequence": "high",
+        "confidence": "low",
+        "relationHintsExact": [
+          { "kind": "same_issue", "target": "issue:corpus:uncertain-failure" },
+          { "kind": "repeats", "target": "issue:corpus:uncertain-failure" }
+        ],
+        "provenanceIncludes": {
+          "confidence": "hint",
+          "relationHints": "hint"
+        },
+        "ontology": {
+          "ask": "status",
+          "activity": "failure",
+          "consequence": "high",
+          "blocking": "non_blocking",
+          "episode": "resurfaced",
+          "source": "hinted"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "first uncertain failure",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "queue",
+        "decisionRecordRoute": "queue",
+        "plannedLane": "next",
+        "resultLane": "next",
+        "semanticConfidence": "low",
+        "ambiguityReason": "low_signal",
+        "ambiguityResolution": "queue",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:queue",
+          "lane:next",
+          "criterion:ambiguity:low_signal",
+          "policy_criterion:semantic_uncertainty:verdict"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "activity (canonical)",
+          "relations (continuity)",
+          "confidence (ambiguity)"
+        ]
+      },
+      {
+        "stepLabel": "second uncertain failure",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "queue",
+        "decisionRecordRoute": "queue",
+        "plannedLane": "next",
+        "resultLane": "next",
+        "semanticConfidence": "low",
+        "ambiguityReason": "low_signal",
+        "ambiguityResolution": "queue",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:queue",
+          "lane:next",
+          "criterion:ambiguity:low_signal",
+          "policy_criterion:semantic_uncertainty:verdict",
+          "policy_criterion:interrupt_eligibility:noop"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "activity (canonical)",
+          "relations (continuity)",
+          "confidence (ambiguity)"
+        ]
+      }
+    ],
+    "traceExpectations": {
+      "ambiguousDecisions": 2,
+      "ambiguousNext": 2,
+      "ambiguousAmbient": 0,
+      "ambiguousLowConfidence": 2,
+      "ambiguousNextThenActivated": 0,
+      "ambiguousAmbientThenActivated": 0,
+      "actionableEpisodes": 1,
+      "actionableActivated": 0,
+      "deferredThenActivated": 0,
+      "mergedEpisodeUpdates": 1
+    }
+  },
+  "steps": [
+    {
+      "kind": "publish",
+      "label": "approval anchor",
+      "event": {
+        "id": "evt:corpus:failure-anchor",
+        "type": "human.input.requested",
+        "taskId": "task:corpus:failure-anchor",
+        "interactionId": "interaction:corpus:failure-anchor",
+        "timestamp": "2026-04-17T12:00:00.000Z",
+        "title": "Approve rollout",
+        "summary": "Rollout waits for approval.",
+        "consequence": "high",
+        "request": { "kind": "approval" }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "first uncertain failure",
+      "event": {
+        "id": "evt:corpus:uncertain-failure:first",
+        "type": "task.updated",
+        "taskId": "task:corpus:uncertain-failure:first",
+        "timestamp": "2026-04-17T12:00:10.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Build maybe failed",
+        "summary": "The latest build failed and may need retry.",
+        "status": "failed",
+        "semanticHints": {
+          "confidence": "low",
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:corpus:uncertain-failure" }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "background delivery",
+      "event": {
+        "id": "evt:corpus:failure-noise",
+        "type": "task.updated",
+        "taskId": "task:corpus:failure-noise",
+        "timestamp": "2026-04-17T12:00:15.000Z",
+        "source": { "id": "custom-agent" },
+        "metadata": {
+          "deliveryAttempt": 2,
+          "externalPriority": "urgent",
+          "transport": "webhook"
+        },
+        "title": "URGENT index refreshed",
+        "summary": "Background index refresh completed without operator action.",
+        "status": "completed"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "second uncertain failure",
+      "event": {
+        "id": "evt:corpus:uncertain-failure:again",
+        "type": "task.updated",
+        "taskId": "task:corpus:uncertain-failure:retry",
+        "timestamp": "2026-04-17T12:00:20.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Build maybe failed again",
+        "summary": "The same build may have failed again and may need retry.",
+        "status": "failed",
+        "semanticHints": {
+          "confidence": "low",
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:corpus:uncertain-failure" },
+            { "kind": "repeats", "target": "issue:corpus:uncertain-failure" }
+          ]
+        }
+      }
+    }
+  ]
+}

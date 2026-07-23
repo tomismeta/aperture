@@ -652,6 +652,366 @@ test("status updates with shared issue context stay bundled into one episode", (
   );
 });
 
+test("repeated critical status with source relation target refreshes visible episode", () => {
+  const core = new ApertureCore();
+  const traces: PublicApertureTrace[] = [];
+  const internalTraces: InternalApertureTrace[] = [];
+
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+  subscribeInternalTrace(core, (trace) => {
+    internalTraces.push(trace);
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:targeted-failure:first",
+    type: "task.updated",
+    taskId: "task:targeted-failure:first",
+    timestamp: "2026-03-08T12:05:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build failed",
+    summary: "Production build failed before release.",
+    status: "failed",
+    semanticHints: {
+      relationHints: [{ kind: "same_issue", target: "issue:targeted-failure" }],
+    },
+  });
+
+  const initialFrame = core.getAttentionView().now;
+  const initialEpisodeId = readFrameEpisodeId(initialFrame);
+  assert.ok(initialFrame);
+  assert.ok(initialEpisodeId);
+  if (!initialFrame || !initialEpisodeId) {
+    return;
+  }
+
+  core.publishSourceEvent({
+    id: "src:status:targeted-failure:again",
+    type: "task.updated",
+    taskId: "task:targeted-failure:retry",
+    timestamp: "2026-03-08T12:05:20.000Z",
+    source: { id: "custom-agent" },
+    title: "Build failed again",
+    summary: "The same production build is still failing after retry.",
+    status: "failed",
+    semanticHints: {
+      relationHints: [
+        { kind: "same_issue", target: "issue:targeted-failure" },
+        { kind: "repeats", target: "issue:targeted-failure" },
+      ],
+    },
+  });
+
+  const attentionView = core.getAttentionView();
+  assert.equal(attentionView.now?.interactionId, "interaction:task:targeted-failure:retry:status");
+  assert.deepEqual(attentionView.next, []);
+  assert.deepEqual(attentionView.ambient, []);
+  assert.equal(attentionView.now?.id, initialFrame.id);
+  assert.equal(readFrameEpisodeId(attentionView.now), initialEpisodeId);
+
+  const repeatedTrace = traces.findLast(
+    (trace) => trace.event.id === "src:status:targeted-failure:again",
+  );
+  assert.ok(repeatedTrace);
+  if (!repeatedTrace || repeatedTrace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(repeatedTrace.coordination.kind, "queue");
+  assert.equal(repeatedTrace.coordination.resultLane, "now");
+  const internalTrace = internalTraces.findLast(
+    (trace) => trace.event.id === "src:status:targeted-failure:again",
+  );
+  assert.equal(internalTrace?.evaluation.kind, "candidate");
+  if (!internalTrace || internalTrace.evaluation.kind !== "candidate") {
+    return;
+  }
+  assert.equal(
+    internalTrace.decisionRecord?.planning.reasonCodes.includes(
+      "continuity:visible_episode:override",
+    ),
+    true,
+  );
+});
+
+test("repeated low-confidence failures stay queued behind ambiguity gate", () => {
+  const core = new ApertureCore();
+  const traces: PublicApertureTrace[] = [];
+  const internalTraces: InternalApertureTrace[] = [];
+
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+  subscribeInternalTrace(core, (trace) => {
+    internalTraces.push(trace);
+  });
+
+  core.publish({
+    id: "evt:low-confidence-anchor",
+    taskId: "task:low-confidence-anchor",
+    interactionId: "interaction:low-confidence-anchor",
+    timestamp: "2026-03-08T12:06:00.000Z",
+    type: "human.input.requested",
+    title: "Approve rollout",
+    summary: "A rollout is waiting for approval.",
+    consequence: "high",
+    request: { kind: "approval" },
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:low-confidence:first",
+    type: "task.updated",
+    taskId: "task:low-confidence:first",
+    timestamp: "2026-03-08T12:06:10.000Z",
+    source: { id: "custom-agent" },
+    title: "Build maybe failed",
+    summary: "The latest build failed and may need retry.",
+    status: "failed",
+    semanticHints: {
+      confidence: "low",
+      relationHints: [{ kind: "same_issue", target: "issue:low-confidence-failure" }],
+    },
+  });
+
+  const firstQueuedFrame = core.getAttentionView().next[0];
+  const firstEpisodeId = readFrameEpisodeId(firstQueuedFrame ?? null);
+  assert.ok(firstQueuedFrame);
+  assert.ok(firstEpisodeId);
+  if (!firstQueuedFrame || !firstEpisodeId) {
+    return;
+  }
+
+  core.publishSourceEvent({
+    id: "src:status:low-confidence:noise",
+    type: "task.updated",
+    taskId: "task:low-confidence:noise",
+    timestamp: "2026-03-08T12:06:15.000Z",
+    source: { id: "custom-agent" },
+    title: "Index refreshed",
+    summary: "Background index refresh completed without operator action.",
+    status: "completed",
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:low-confidence:again",
+    type: "task.updated",
+    taskId: "task:low-confidence:retry",
+    timestamp: "2026-03-08T12:06:20.000Z",
+    source: { id: "custom-agent" },
+    title: "Build maybe failed again",
+    summary: "The same build may have failed again and may need retry.",
+    status: "failed",
+    semanticHints: {
+      confidence: "low",
+      relationHints: [
+        { kind: "same_issue", target: "issue:low-confidence-failure" },
+        { kind: "repeats", target: "issue:low-confidence-failure" },
+      ],
+    },
+  });
+
+  const attentionView = core.getAttentionView();
+  assert.equal(attentionView.now?.interactionId, "interaction:low-confidence-anchor");
+  assert.deepEqual(
+    attentionView.next.map((frame) => frame.interactionId),
+    ["interaction:task:low-confidence:retry:status"],
+  );
+  assert.deepEqual(
+    attentionView.ambient.map((frame) => frame.interactionId),
+    ["interaction:task:low-confidence:noise:status"],
+  );
+  assert.equal(attentionView.next[0]?.id, firstQueuedFrame.id);
+  assert.equal(readFrameEpisodeId(attentionView.next[0] ?? null), firstEpisodeId);
+
+  const repeatedTrace = traces.findLast(
+    (trace) => trace.event.id === "src:status:low-confidence:again",
+  );
+  assert.ok(repeatedTrace);
+  if (!repeatedTrace || repeatedTrace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(repeatedTrace.coordination.kind, "queue");
+  assert.equal(repeatedTrace.coordination.resultLane, "next");
+  assert.equal(repeatedTrace.coordination.ambiguity?.reason, "low_signal");
+  assert.equal(repeatedTrace.coordination.ambiguity?.resolution, "queue");
+  const internalTrace = internalTraces.findLast(
+    (trace) => trace.event.id === "src:status:low-confidence:again",
+  );
+  assert.equal(internalTrace?.evaluation.kind, "candidate");
+  if (!internalTrace || internalTrace.evaluation.kind !== "candidate") {
+    return;
+  }
+  assert.equal(
+    internalTrace.decisionRecord?.planning.reasonCodes.includes(
+      "policy_criterion:semantic_uncertainty:verdict",
+    ),
+    true,
+  );
+  assert.equal(
+    internalTrace.decisionRecord?.planning.reasonCodes.includes("criterion:ambiguity:low_signal"),
+    true,
+  );
+});
+
+test("high-confidence recurrence can promote a queued uncertain failure", () => {
+  const core = new ApertureCore();
+  const traces: PublicApertureTrace[] = [];
+
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+
+  core.publish({
+    id: "evt:recovery-anchor",
+    taskId: "task:recovery-anchor",
+    interactionId: "interaction:recovery-anchor",
+    timestamp: "2026-03-08T12:07:00.000Z",
+    type: "human.input.requested",
+    title: "Approve rollout",
+    summary: "A rollout is waiting for approval.",
+    consequence: "high",
+    request: { kind: "approval" },
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:recovery:first",
+    type: "task.updated",
+    taskId: "task:recovery:first",
+    timestamp: "2026-03-08T12:07:10.000Z",
+    source: { id: "custom-agent" },
+    title: "Build maybe failed",
+    summary: "The latest build failed and may need retry.",
+    status: "failed",
+    semanticHints: {
+      confidence: "low",
+      relationHints: [{ kind: "same_issue", target: "issue:recovery-failure" }],
+    },
+  });
+
+  const firstQueuedFrame = core.getAttentionView().next[0];
+  const firstEpisodeId = readFrameEpisodeId(firstQueuedFrame ?? null);
+  assert.ok(firstQueuedFrame);
+  assert.ok(firstEpisodeId);
+  if (!firstQueuedFrame || !firstEpisodeId) {
+    return;
+  }
+
+  core.publish({
+    id: "evt:recovery-anchor:clear",
+    taskId: "task:recovery-anchor",
+    timestamp: "2026-03-08T12:07:20.000Z",
+    type: "task.completed",
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:recovery:again",
+    type: "task.updated",
+    taskId: "task:recovery:retry",
+    timestamp: "2026-03-08T12:07:30.000Z",
+    source: { id: "custom-agent" },
+    title: "Build failed again",
+    summary: "The same build failed again and should be reviewed.",
+    status: "failed",
+    semanticHints: {
+      confidence: "high",
+      relationHints: [
+        { kind: "same_issue", target: "issue:recovery-failure" },
+        { kind: "repeats", target: "issue:recovery-failure" },
+      ],
+    },
+  });
+
+  const attentionView = core.getAttentionView();
+  assert.equal(attentionView.now?.interactionId, "interaction:task:recovery:retry:status");
+  assert.deepEqual(attentionView.next, []);
+  assert.equal(attentionView.now?.id, firstQueuedFrame.id);
+  assert.equal(readFrameEpisodeId(attentionView.now), firstEpisodeId);
+
+  const repeatedTrace = traces.findLast((trace) => trace.event.id === "src:status:recovery:again");
+  assert.ok(repeatedTrace);
+  if (!repeatedTrace || repeatedTrace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(repeatedTrace.coordination.resultLane, "now");
+  assert.equal(repeatedTrace.coordination.ambiguity, null);
+});
+
+test("low-confidence recurrence cannot refresh an active failure", () => {
+  const core = new ApertureCore();
+  const traces: PublicApertureTrace[] = [];
+
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:active-failure:first",
+    type: "task.updated",
+    taskId: "task:active-failure:first",
+    timestamp: "2026-03-08T12:08:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build failed",
+    summary: "Production build failed before release.",
+    status: "failed",
+    semanticHints: {
+      relationHints: [{ kind: "same_issue", target: "issue:active-failure" }],
+    },
+  });
+
+  const initialFrame = core.getAttentionView().now;
+  const initialEpisodeId = readFrameEpisodeId(initialFrame);
+  assert.ok(initialFrame);
+  assert.ok(initialEpisodeId);
+  if (!initialFrame || !initialEpisodeId) {
+    return;
+  }
+
+  core.publishSourceEvent({
+    id: "src:status:active-failure:uncertain",
+    type: "task.updated",
+    taskId: "task:active-failure:retry",
+    timestamp: "2026-03-08T12:08:20.000Z",
+    source: { id: "custom-agent" },
+    title: "Build maybe failed again",
+    summary: "The same build may have failed again and may need retry.",
+    status: "failed",
+    semanticHints: {
+      confidence: "low",
+      relationHints: [
+        { kind: "same_issue", target: "issue:active-failure" },
+        { kind: "repeats", target: "issue:active-failure" },
+      ],
+    },
+  });
+
+  const attentionView = core.getAttentionView();
+  assert.equal(attentionView.now?.interactionId, "interaction:task:active-failure:first:status");
+  assert.deepEqual(
+    attentionView.ambient.map((frame) => frame.interactionId),
+    ["interaction:task:active-failure:retry:status"],
+  );
+  assert.equal(attentionView.now?.id, initialFrame.id);
+  assert.notEqual(attentionView.ambient[0]?.id, initialFrame.id);
+  assert.equal(readFrameEpisodeId(attentionView.now), initialEpisodeId);
+  assert.equal(readFrameEpisodeId(attentionView.ambient[0] ?? null), initialEpisodeId);
+
+  const repeatedTrace = traces.findLast(
+    (trace) => trace.event.id === "src:status:active-failure:uncertain",
+  );
+  assert.ok(repeatedTrace);
+  if (!repeatedTrace || repeatedTrace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(repeatedTrace.coordination.kind, "ambient");
+  assert.equal(repeatedTrace.coordination.resultLane, "ambient");
+  assert.equal(repeatedTrace.coordination.ambiguity?.reason, "low_signal");
+  assert.equal(repeatedTrace.coordination.ambiguity?.resolution, "ambient");
+});
+
 test("abstained inferred resurfacing stays bundled but keeps episode evidence diagnostic", () => {
   const core = new ApertureCore();
   const traces: PublicApertureTrace[] = [];

@@ -1,9 +1,4 @@
-import type { AttentionFrame } from "../frame.js";
-import {
-  isDormantEpisodeState,
-  readFrameEpisodeId,
-  readFrameEpisodeState,
-} from "../episode-tracker.js";
+import { findVisibleEpisodeFrames, isLiveEpisodeFrame } from "../episode-tracker.js";
 import { hasResurfacingPressure } from "./deferral-escalation-continuity-rule.js";
 import {
   noopContinuityRule,
@@ -17,22 +12,30 @@ export const evaluateVisibleEpisodeContinuityRule: ContinuityRule = (input) => {
     return noopContinuityRule("visible_episode");
   }
 
-  if (candidate.blocking || candidate.consequence === "high" || candidate.tone === "critical") {
+  if (
+    candidate.blocking ||
+    (candidate.mode !== "status" &&
+      (candidate.tone === "critical" || candidate.consequence === "high"))
+  ) {
     return noopContinuityRule("visible_episode");
   }
 
-  const visibleRelatedFrames = [
-    evidence.attentionView.now,
-    ...evidence.attentionView.next,
-    ...evidence.attentionView.ambient,
-  ]
-    .filter((frame): frame is AttentionFrame => frame !== null)
-    .filter(
-      (frame) =>
-        frame.interactionId !== candidate.interactionId &&
-        readFrameEpisodeId(frame) === candidate.episodeId &&
-        !isDormantEpisodeState(readFrameEpisodeState(frame)),
-    );
+  const visibleRelatedFrames = findVisibleEpisodeFrames(
+    evidence.attentionView,
+    candidate.episodeId,
+    { excludedInteractionId: candidate.interactionId },
+  );
+  const hasRelatedNowFrame =
+    evidence.attentionView.now !== null &&
+    isLiveEpisodeFrame(evidence.attentionView.now, candidate.episodeId, candidate.interactionId);
+
+  if (
+    candidate.mode === "status" &&
+    (candidate.tone === "critical" || candidate.consequence === "high") &&
+    !hasRelatedNowFrame
+  ) {
+    return noopContinuityRule("visible_episode");
+  }
 
   if (
     visibleRelatedFrames.length === 0 ||

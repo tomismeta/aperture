@@ -2,7 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import type { InteractionCandidate } from "../src/interaction-candidate.js";
-import { EpisodeTracker, readFrameEpisodeId } from "../src/episode-tracker.js";
+import type { AttentionFrame, AttentionView } from "../src/frame.js";
+import {
+  EpisodeTracker,
+  findVisibleEpisodeFrames,
+  readFrameEpisodeId,
+} from "../src/episode-tracker.js";
 import { FramePlanner } from "../src/frame-planner.js";
 
 function createCandidate(overrides: Partial<InteractionCandidate> = {}): InteractionCandidate {
@@ -64,6 +69,24 @@ function strongHintedSemanticEvidence() {
   };
 }
 
+function createEpisodeFrame(
+  overrides: Partial<InteractionCandidate> = {},
+  state: NonNullable<InteractionCandidate["episodeState"]> = "actionable",
+): AttentionFrame {
+  return new FramePlanner().plan(
+    createCandidate({
+      episodeId: "episode:test",
+      episodeKey: "claude-code:interruptive:/workspace/config.ts",
+      episodeState: state,
+      episodeSize: 2,
+      episodeEvidenceScore: 5,
+      episodeEvidenceReasons: ["multiple related interactions have accumulated in this episode"],
+      ...overrides,
+    }),
+    null,
+  );
+}
+
 test("episode tracker groups related interactions by source and anchor", () => {
   const store = new EpisodeTracker();
   const first = store.assign(createCandidate());
@@ -122,6 +145,49 @@ test("frame planner persists episode metadata onto frames", () => {
     lastInteractionId: "interaction:one",
     updatedAt: "2026-03-08T12:00:00.000Z",
   });
+});
+
+test("visible episode lookup filters by lane", () => {
+  const attentionView: AttentionView = {
+    now: createEpisodeFrame({ interactionId: "interaction:now" }),
+    next: [createEpisodeFrame({ interactionId: "interaction:next" })],
+    ambient: [createEpisodeFrame({ interactionId: "interaction:ambient" })],
+  };
+
+  assert.deepEqual(
+    findVisibleEpisodeFrames(attentionView, "episode:test", { lanes: ["now", "ambient"] }).map(
+      (frame) => frame.interactionId,
+    ),
+    ["interaction:now", "interaction:ambient"],
+  );
+});
+
+test("visible episode lookup excludes the current interaction", () => {
+  const attentionView: AttentionView = {
+    now: createEpisodeFrame({ interactionId: "interaction:current" }),
+    next: [createEpisodeFrame({ interactionId: "interaction:other" })],
+    ambient: [],
+  };
+
+  assert.deepEqual(
+    findVisibleEpisodeFrames(attentionView, "episode:test", {
+      excludedInteractionId: "interaction:current",
+    }).map((frame) => frame.interactionId),
+    ["interaction:other"],
+  );
+});
+
+test("visible episode lookup ignores dormant episode frames", () => {
+  const attentionView: AttentionView = {
+    now: createEpisodeFrame({ interactionId: "interaction:stale" }, "stale"),
+    next: [createEpisodeFrame({ interactionId: "interaction:resolved" }, "resolved")],
+    ambient: [createEpisodeFrame({ interactionId: "interaction:live" })],
+  };
+
+  assert.deepEqual(
+    findVisibleEpisodeFrames(attentionView, "episode:test").map((frame) => frame.interactionId),
+    ["interaction:live"],
+  );
 });
 
 test("episode tracker marks repeated non-blocking work as batched", () => {

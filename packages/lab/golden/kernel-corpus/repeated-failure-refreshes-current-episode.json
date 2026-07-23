@@ -1,0 +1,161 @@
+{
+  "id": "golden:kernel-corpus:repeated-failure-refreshes-current-episode",
+  "title": "Repeated failure refreshes the current episode",
+  "description": "A second same-issue failure from a distinct interaction should refresh the already visible failure frame through continuity rather than creating duplicate focus pressure.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "repeated_failure",
+    "episode_lifecycle",
+    "decision_stream_continuity"
+  ],
+  "semanticFamilies": ["episode_missed"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:task:corpus:repeat-failure:retry:status",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 2,
+      "next": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "first failure",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "consequence": "high",
+        "confidence": "high",
+        "relationHintsExact": [
+          { "kind": "same_issue", "target": "issue:corpus:repeat-failure" }
+        ],
+        "provenanceIncludes": {
+          "relationHints": "hint"
+        },
+        "ontology": {
+          "ask": "status",
+          "activity": "failure",
+          "consequence": "high",
+          "blocking": "non_blocking",
+          "episode": "same_issue",
+          "source": "hinted"
+        }
+      },
+      {
+        "stepLabel": "repeated failure",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "consequence": "high",
+        "confidence": "high",
+        "relationHintsExact": [
+          { "kind": "same_issue", "target": "issue:corpus:repeat-failure" },
+          { "kind": "repeats", "target": "issue:corpus:repeat-failure" }
+        ],
+        "provenanceIncludes": {
+          "relationHints": "hint"
+        },
+        "ontology": {
+          "ask": "status",
+          "activity": "failure",
+          "consequence": "high",
+          "blocking": "non_blocking",
+          "episode": "resurfaced",
+          "source": "hinted"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "first failure",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "semanticConfidence": "high",
+        "decisionRecordCurrentFrameId": null,
+        "decisionRecordCurrentEpisodeId": null,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:activate",
+          "lane:now",
+          "policy_criterion:no_active_frame:verdict",
+          "evidence:current_frame:absent",
+          "evidence:current_episode:absent"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "activity (canonical)",
+          "relations (continuity)"
+        ]
+      },
+      {
+        "stepLabel": "repeated failure",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "queue",
+        "decisionRecordRoute": "queue",
+        "plannedLane": "next",
+        "resultLane": "now",
+        "semanticConfidence": "high",
+        "decisionRecordCurrentFrameId": null,
+        "decisionRecordCurrentEpisodeId": null,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:queue",
+          "lane:next",
+          "continuity:visible_episode:override",
+          "evidence:current_frame:absent",
+          "evidence:current_episode:absent"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "activity (canonical)",
+          "relations (continuity)"
+        ]
+      }
+    ],
+    "traceExpectations": {
+      "mergedEpisodeUpdates": 1
+    }
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "first failure",
+      "event": {
+        "id": "evt:corpus:repeat-failure:first",
+        "type": "task.updated",
+        "taskId": "task:corpus:repeat-failure:first",
+        "timestamp": "2026-04-17T13:00:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Build failed",
+        "summary": "Production build failed before release.",
+        "status": "failed",
+        "semanticHints": {
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:corpus:repeat-failure" }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "repeated failure",
+      "event": {
+        "id": "evt:corpus:repeat-failure:again",
+        "type": "task.updated",
+        "taskId": "task:corpus:repeat-failure:retry",
+        "timestamp": "2026-04-17T13:00:20.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Build failed again",
+        "summary": "The same production build is still failing after retry.",
+        "status": "failed",
+        "semanticHints": {
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:corpus:repeat-failure" },
+            { "kind": "repeats", "target": "issue:corpus:repeat-failure" }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -331,20 +331,34 @@ export class ApertureCore {
           explanation.decision.response,
         );
       case "ambient":
-        return this.frameLifecycle.materializePeripheralFrame(
-          explanation.decision.candidate,
-          "ambient",
-          preAttentionView,
-        );
+        return this.applyPeripheralDecision(explanation, "ambient", preAttentionView);
       case "queue":
-        return this.frameLifecycle.materializePeripheralFrame(
-          explanation.decision.candidate,
-          "queue",
-          preAttentionView,
-        );
+        return this.applyPeripheralDecision(explanation, "queue", preAttentionView);
       case "activate":
         return this.applyActivationDecision(explanation, evidence, preAttentionView);
     }
+  }
+
+  private applyPeripheralDecision(
+    explanation: AttentionDecisionExplanation,
+    bucket: "queue" | "ambient",
+    preAttentionView: AttentionView,
+  ): AttentionFrame {
+    const candidate = explanation.decision.candidate;
+    const existingNowFrame = candidate.episodeId
+      ? this.frameLifecycle.findNowEpisodeFrame(candidate.episodeId, preAttentionView)
+      : null;
+    if (
+      bucket === "queue" &&
+      existingNowFrame &&
+      explanation.ambiguity === null &&
+      hasVisibleStatusEpisodeRefreshOverride(explanation) &&
+      shouldRefreshVisibleStatusEpisodeFrame(candidate, existingNowFrame)
+    ) {
+      return this.frameLifecycle.refreshVisibleEpisodeFrame(candidate, existingNowFrame);
+    }
+
+    return this.frameLifecycle.materializePeripheralFrame(candidate, bucket, preAttentionView);
   }
 
   private applyActivationDecision(
@@ -638,4 +652,33 @@ export class ApertureCore {
     this.coordinator = nextCoordinator;
     return true;
   }
+}
+
+function shouldRefreshVisibleStatusEpisodeFrame(
+  candidate: AttentionCandidate,
+  existingFrame: AttentionFrame,
+): boolean {
+  return (
+    candidate.mode === "status" &&
+    existingFrame.mode === "status" &&
+    isRefreshableStatusResponse(candidate.responseSpec.kind) &&
+    isRefreshableStatusResponse(existingFrame.responseSpec?.kind)
+  );
+}
+
+function isRefreshableStatusResponse(kind: string | undefined): boolean {
+  return kind === "none" || kind === "acknowledge";
+}
+
+function hasVisibleStatusEpisodeRefreshOverride(
+  explanation: AttentionDecisionExplanation,
+): boolean {
+  const winningOverride = explanation.continuityEvaluations.find(
+    (evaluation) => evaluation.kind === "override",
+  );
+  return (
+    winningOverride !== undefined &&
+    (winningOverride.rule === "visible_episode" || winningOverride.rule === "same_episode") &&
+    winningOverride.decision.kind === "queue"
+  );
 }

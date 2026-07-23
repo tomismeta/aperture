@@ -1,4 +1,4 @@
-import type { AttentionFrame } from "./frame.js";
+import type { AttentionFrame, AttentionView } from "./frame.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import { readSemanticRelationEvidenceStrength } from "./judgment-input.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
@@ -7,6 +7,7 @@ import { readSemanticRelationTarget } from "./semantic-relations.js";
 import { createCoreClock, type CoreClock } from "./time.js";
 
 export type EpisodeState = "emerging" | "actionable" | "batched" | "waiting" | "stale" | "resolved";
+export type EpisodeVisibilityLane = "now" | "next" | "ambient";
 
 export type EpisodeSummary = {
   id: string;
@@ -324,6 +325,49 @@ export function readFrameEpisodeState(frame: AttentionFrame | null): EpisodeStat
 
 export function isDormantEpisodeState(state: EpisodeState | null): boolean {
   return state === "stale" || state === "resolved";
+}
+
+export function isCandidateInActionableEpisode(candidate: AttentionCandidate): boolean {
+  return candidate.episodeState === "actionable";
+}
+
+export function isLiveEpisodeFrame(
+  frame: AttentionFrame | null | undefined,
+  episodeId: string,
+  excludedInteractionId?: string,
+): frame is AttentionFrame {
+  return (
+    frame !== null &&
+    frame !== undefined &&
+    frame.interactionId !== excludedInteractionId &&
+    readFrameEpisodeId(frame) === episodeId &&
+    !isDormantEpisodeState(readFrameEpisodeState(frame))
+  );
+}
+
+export function findVisibleEpisodeFrames(
+  attentionView: AttentionView | undefined,
+  episodeId: string,
+  options: {
+    lanes?: readonly EpisodeVisibilityLane[];
+    excludedInteractionId?: string;
+  } = {},
+): AttentionFrame[] {
+  const lanes = options.lanes ?? ["now", "next", "ambient"];
+  const frames: Array<AttentionFrame | null | undefined> = [];
+  if (lanes.includes("now")) {
+    frames.push(attentionView?.now);
+  }
+  if (lanes.includes("next")) {
+    frames.push(...(attentionView?.next ?? []));
+  }
+  if (lanes.includes("ambient")) {
+    frames.push(...(attentionView?.ambient ?? []));
+  }
+
+  return frames.filter((frame): frame is AttentionFrame =>
+    isLiveEpisodeFrame(frame, episodeId, options.excludedInteractionId),
+  );
 }
 
 function episodeAnchor(candidate: AttentionCandidate): string {

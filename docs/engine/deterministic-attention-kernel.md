@@ -6,6 +6,8 @@ attention judgment over messy semantic event streams.
 This is the portability posture for Aperture: compact, boring, portable,
 replayable, inspectable, and trusted.
 
+For term boundaries, see [Attention Kernel Lexicon](./attention-kernel-lexicon.md).
+
 ## Category
 
 Aperture is not a generic semantic engine, workflow runner, agent framework, or
@@ -44,7 +46,8 @@ The kernel should preserve these invariants:
 
 ## Stable Artifacts
 
-The kernel should stabilize these artifacts before widening public API surface:
+The kernel stabilizes these artifacts through internal conformance and narrow
+public subpaths:
 
 1. `SourceEvent`
 2. `SemanticInterpretation`
@@ -59,7 +62,7 @@ The kernel should stabilize these artifacts before widening public API surface:
 work should prefer the attention-named contract.
 
 `AttentionDecisionRecord` is the first-class judgment artifact. It binds the
-decision, candidate, evidence snapshot, policy evaluations, value calculation,
+decision, claim, evaluation clock, evidence snapshot, policy evaluations, value calculation,
 planning route, ambiguity, continuity evaluations, and reasons into one
 replayable object.
 
@@ -161,6 +164,7 @@ The current messy corpus covers:
 - high source risk that survives a low-confidence semantic hint
 - conflicting relation targets that preserve final queueing behind current work
 - metadata-heavy status noise that remains ambient
+- repeated passive statuses that remain one ambient frame
 - same-issue resolution after an active failure
 - waiting status with blocking wording under operator absence
 - interleaved background noise between same-episode superseding approvals
@@ -179,29 +183,35 @@ The corpus should continue adding adversarial examples:
 
 ## Public API Posture
 
-Decision as of 2026-07-23: do not publish a dedicated kernel API yet.
+Decision as of 2026-07-23: publish a pure evaluator subpath, not a stateful
+kernel API.
 
-The public `semantic` subpath can expose the attention-named ontology entry
-points because those are additive aliases over the existing semantic contract.
-The canonical judgment artifact, `AttentionDecisionRecord`, remains internal and
-is available through internal traces and Lab conformance fixtures only. Public
-traces intentionally expose prose coordination reasons, not record reason codes,
-until the kernel API is deliberately opened.
+The public `semantic` subpath exposes the attention-named ontology entry points
+as additive aliases over the existing semantic contract. The public `evaluator`
+subpath exposes `evaluateAttention(...)`, which evaluates one `AttentionClaim`
+against explicit context, config, and clock input and returns a versioned
+`AttentionDecisionRecord`.
 
-The right order remains:
+The evaluator is deliberately narrower than Core:
 
-1. stabilize the internal artifact
-2. lock it with fixtures
-3. publish doctrine and compatibility expectations
-4. expose a tiny kernel subpath only after replay behavior is stable
+- no event ingestion
+- no state mutation
+- no response application
+- no replay-session API
+- no persistence
+- no realized lane
 
-The target shape is intentionally small:
+`ApertureCore` remains the public stateful engine for
+`event -> frame/view -> response` workflows. Lab replay and conformance remain
+the compatibility harness for messy event streams and realized-lane behavior.
+
+The architecture shape is intentionally small:
 
 ```ts
 interpret(event) -> SemanticInterpretation
 projectOntology(semantic) -> AttentionOntologyDiagnostic
-decide(candidate, context) -> AttentionDecisionRecord
-explain(record) -> ApertureTrace
+evaluateAttention({ claim, context, config, now }) -> AttentionDecisionRecord
 ```
 
-That shape should remain aspirational until conformance coverage earns it.
+Only the evaluator step is public today. Public trace explanation is emitted by
+the stateful `ApertureCore` loop; there is no public `explain(record)` API.

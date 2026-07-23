@@ -207,7 +207,7 @@ The primitive direction is captured in
       },
       "value": {
         "breakdown": "AttentionValueBreakdown",
-        "candidateScore": "number",
+        "claimScore": "number",
         "currentScore": "number | null",
         "currentPriority": "AttentionPriority | null"
       },
@@ -261,12 +261,8 @@ Short version:
     "AttentionFrame / AttentionView",
     "AttentionResponse + signals"
   ],
-  "strengthen": [
-    "AttentionDecision as the explicit judgment handoff"
-  ],
-  "do_not_do": [
-    "collapse the system to one schema"
-  ]
+  "strengthen": ["AttentionDecision as the explicit judgment handoff"],
+  "do_not_do": ["collapse the system to one schema"]
 }
 ```
 

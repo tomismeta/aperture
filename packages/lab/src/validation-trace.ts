@@ -68,7 +68,8 @@ function validateReplayDecisionRecord(value: unknown): boolean {
     isStringOrNull(evidenceSnapshot.currentFrameId) &&
     isStringOrNull(evidenceSnapshot.currentEpisodeId) &&
     isRecord(decisionValue) &&
-    typeof decisionValue.candidateScore === "number" &&
+    (typeof decisionValue.claimScore === "number" ||
+      typeof decisionValue.candidateScore === "number") &&
     isRecord(components) &&
     Object.values(components).every((component) => typeof component === "number")
   );

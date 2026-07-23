@@ -271,12 +271,7 @@ export class ApertureCore {
           candidate,
           evidence,
         );
-        const result = this.applyCandidateDecision(
-          finalizedEvent.taskId,
-          explanation,
-          evidence,
-          preAttentionView,
-        );
+        const result = this.applyCandidateDecision(explanation, evidence, preAttentionView);
         const postAttentionView = this.getAttentionView();
         this.notifyTrace(
           this.traceRecorder.recordCandidate(
@@ -325,7 +320,6 @@ export class ApertureCore {
   }
 
   private applyCandidateDecision(
-    taskId: string,
     explanation: AttentionDecisionExplanation,
     evidence: AttentionEvidenceContext,
     preAttentionView: AttentionView,
@@ -336,8 +330,6 @@ export class ApertureCore {
           explanation.decision.candidate,
           explanation.decision.response,
         );
-      case "clear":
-        return this.frameLifecycle.applyClear(taskId);
       case "ambient":
         return this.frameLifecycle.materializePeripheralFrame(
           explanation.decision.candidate,

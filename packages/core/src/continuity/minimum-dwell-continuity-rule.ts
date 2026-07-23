@@ -24,16 +24,16 @@ export const evaluateMinimumDwellContinuityRule: ContinuityRule = (input) => {
   }
 
   const activeTimestamp = Date.parse(activeFrame.timing.updatedAt);
-  const candidateTimestamp = Date.parse(candidate.timestamp);
-  if (Number.isNaN(activeTimestamp) || Number.isNaN(candidateTimestamp)) {
+  const referenceTimestamp = Date.parse(input.referenceTimestamp);
+  if (Number.isNaN(activeTimestamp) || Number.isNaN(referenceTimestamp)) {
     return noopContinuityRule("minimum_dwell");
   }
 
-  if (candidateTimestamp - activeTimestamp >= minimumDwellMs) {
+  if (referenceTimestamp - activeTimestamp >= minimumDwellMs) {
     return noopContinuityRule("minimum_dwell");
   }
 
-  const remainingMs = minimumDwellMs - (candidateTimestamp - activeTimestamp);
+  const remainingMs = minimumDwellMs - (referenceTimestamp - activeTimestamp);
 
   return overrideContinuityRule(
     "minimum_dwell",

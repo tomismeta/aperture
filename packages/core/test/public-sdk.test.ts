@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 import * as sdk from "../src/index.js";
+import * as evaluatorSdk from "../src/evaluator.js";
 import * as semanticSdk from "../src/semantic.js";
 import * as traceSdk from "../src/trace.js";
 
@@ -79,6 +80,12 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.equal("AttentionState" in sdk, false);
   assert.equal("ApertureTrace" in sdk, false);
   assert.equal("isCandidateTrace" in sdk, false);
+  assert.equal("createAttentionKernel" in sdk, false);
+  assert.equal("replayAttentionKernel" in sdk, false);
+  assert.equal("createJudgmentKernel" in sdk, false);
+  assert.equal("createEventKernel" in sdk, false);
+  assert.equal("evaluateAttention" in sdk, false);
+  assert.equal("AttentionEvaluator" in sdk, false);
 
   assert.equal(typeof sdk.baseAttentionSurfaceCapabilities, "object");
   assert.equal(typeof sdk.mergeAttentionSurfaceCapabilities, "function");
@@ -93,7 +100,7 @@ test("@tomismeta/aperture-core package manifest publishes only supported subpath
   };
   const exportMap = packageJson.exports ?? {};
 
-  assert.deepEqual(Object.keys(exportMap).sort(), [".", "./semantic", "./trace"]);
+  assert.deepEqual(Object.keys(exportMap).sort(), [".", "./evaluator", "./semantic", "./trace"]);
   assert.equal("./internal" in exportMap, false);
   assert.deepEqual(packageJson.files, ["public-dist", "README.md", "LICENSE"]);
 });
@@ -314,6 +321,15 @@ test("trace helpers live behind the trace subpath", () => {
   assert.equal("isCandidateTrace" in sdk, false);
 
   assert.equal(typeof traceSdk.isCandidateTrace, "function");
+});
+
+test("attention evaluator lives behind the evaluator subpath", () => {
+  assert.equal("evaluateAttention" in sdk, false);
+  assert.equal("AttentionDecisionRecord" in sdk, false);
+
+  assert.equal(typeof evaluatorSdk.evaluateAttention, "function");
+  assert.equal(evaluatorSdk.ATTENTION_DECISION_RECORD_SCHEMA_VERSION, 1);
+  assert.equal("AttentionEvaluator" in evaluatorSdk, false);
 });
 
 test("public SDK supports trace inspection through the trace subpath", () => {

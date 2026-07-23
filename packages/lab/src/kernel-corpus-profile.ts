@@ -12,6 +12,7 @@ export const KERNEL_CORPUS_SCENARIO_IDS = [
   "golden:kernel-corpus:conflicting-relation-targets-queue-behind-current",
   "golden:kernel-corpus:interleaved-supersede-with-background-noise",
   "golden:kernel-corpus:metadata-heavy-status-noise-stays-ambient",
+  "golden:kernel-corpus:repeated-status-delivery-stays-one-ambient-frame",
   "golden:kernel-corpus:resolution-after-active-failure-clears-focus",
   "golden:kernel-corpus:source-risk-outranks-low-confidence-hint",
   "golden:kernel-corpus:waiting-wording-blocked-under-absence",
@@ -34,6 +35,7 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
     scenarioIds: [
       "golden:kernel-corpus:metadata-heavy-status-noise-stays-ambient",
       "golden:kernel-corpus:interleaved-supersede-with-background-noise",
+      "golden:kernel-corpus:repeated-status-delivery-stays-one-ambient-frame",
     ],
   },
   {

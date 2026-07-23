@@ -59,7 +59,11 @@ export function buildKernelDecisionRecordProjection(
   record: ReplayDecisionRecordTraceProjection,
   options: { realizedLane: KernelDecisionRealizedLane },
 ): KernelDecisionRecordProjectionV2 | null {
+  const claimScore = readReplayDecisionRecordScore(record);
   if (record.planning.reasonCodes === undefined) {
+    return null;
+  }
+  if (claimScore === null) {
     return null;
   }
 
@@ -75,12 +79,16 @@ export function buildKernelDecisionRecordProjection(
       currentEpisodeId: record.evidenceSnapshot.currentEpisodeId,
     },
     value: {
-      candidateScore: record.value.candidateScore,
+      candidateScore: claimScore,
       components: sortNumberMap(record.value.breakdown.components),
     },
     reasons: record.planning.reasons,
     reasonCodes: record.planning.reasonCodes,
   });
+}
+
+function readReplayDecisionRecordScore(record: ReplayDecisionRecordTraceProjection): number | null {
+  return record.value.claimScore ?? record.value.candidateScore ?? null;
 }
 
 export function buildKernelDecisionRecordProjectionFromSnapshot(

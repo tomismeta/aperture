@@ -120,11 +120,12 @@ the TUI, see [Architecture Overview](https://github.com/tomismeta/aperture/blob/
 If you want the replay, benchmark, and calibration direction for evaluating
 judgment changes, see [Aperture Lab](https://github.com/tomismeta/aperture/blob/main/docs/lab/aperture-lab.md).
 
-For the current shipped release summary, see [Aperture Core SDK v0.7.0](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-core-v0.7.0.md).
+For the current shipped release summary, see [Aperture Core SDK v0.8.0](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-core-v0.8.0.md).
 
 Runnable repo examples live in:
 
 - [examples/core-full-engine/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-full-engine/index.ts)
+- [examples/core-attention-evaluator/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-attention-evaluator/index.ts)
 - [examples/core-judgment-primitives/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-judgment-primitives/index.ts)
 - [examples/core-semantic-entrypoint/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-semantic-entrypoint/index.ts)
 - [examples/core-trace-entrypoint/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-trace-entrypoint/index.ts)
@@ -176,6 +177,32 @@ In practice, you usually build a small frame-handling component or service aroun
 This is the same pattern the Aperture TUI uses.
 
 The engine can do much more internally, but you do not need to model the middle to use the package successfully.
+
+If you want the deterministic judgment primitive without Core's stateful event
+loop, use the evaluator subpath:
+
+```ts
+import { evaluateAttention } from "@tomismeta/aperture-core/evaluator";
+
+const record = evaluateAttention({
+  claim,
+  context: {
+    current,
+  },
+  now: "2026-03-13T18:00:00.000Z",
+});
+
+console.log(record.evaluatedAt);
+console.log(record.planning.route);
+console.log(record.planning.plannedLane);
+```
+
+`evaluateAttention(...)` is pure and stateless. It evaluates one attention claim
+against explicit context, config, and clock input, then returns a versioned
+`AttentionDecisionRecord`. The claim timestamp remains the source occurrence
+time; `record.evaluatedAt` records the evaluation clock. It does not apply
+events, mutate state, accept human responses, replay sessions, or report a
+realized lane. Use `ApertureCore` when you need those stateful engine behaviors.
 
 For advanced consumers, the internal path is now:
 

@@ -25,6 +25,7 @@ export type ContinuityRuleInput = {
   context: AttentionPlanningContext;
   evidence: AttentionEvidenceContext;
   routed: AttentionPlanningExplanation;
+  referenceTimestamp: string;
   plannerDefaults: PlannerDefaults | undefined;
   helpers: {
     peripheralDecision: (

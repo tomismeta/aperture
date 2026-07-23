@@ -134,14 +134,30 @@ test("judgment explanations include a canonical decision record", () => {
     },
   });
 
-  assert.equal(explanation.record.decision, explanation.decision);
-  assert.equal(explanation.record.candidate, candidate);
+  assert.equal(explanation.record.schemaVersion, 1);
+  assert.equal(explanation.record.evaluatedAt, candidate.timestamp);
+  assert.deepEqual(explanation.record.decision, { kind: explanation.decision.kind });
+  assert.deepEqual(explanation.record.claim, {
+    taskId: candidate.taskId,
+    interactionId: candidate.interactionId,
+    mode: candidate.mode,
+    tone: candidate.tone,
+    consequence: candidate.consequence,
+    title: candidate.title,
+    responseSpec: candidate.responseSpec,
+    judgment: {
+      blockedLikeStatus: false,
+    },
+    priority: candidate.priority,
+    blocking: candidate.blocking,
+    timestamp: candidate.timestamp,
+  });
   assert.equal(explanation.record.evidenceSnapshot.currentFrameId, current.id);
   assert.equal(explanation.record.evidenceSnapshot.currentEpisodeId, "episode:active");
   assert.equal(explanation.record.evidenceSnapshot.operatorPresence, "absent");
-  assert.equal(explanation.record.policy.verdict, explanation.policy);
-  assert.equal(explanation.record.value.breakdown, explanation.utility);
-  assert.equal(explanation.record.value.candidateScore, explanation.candidateScore);
+  assert.deepEqual(explanation.record.policy.verdict, explanation.policy);
+  assert.deepEqual(explanation.record.value.breakdown, explanation.utility);
+  assert.equal(explanation.record.value.claimScore, explanation.candidateScore);
   assert.equal(explanation.record.planning.route, explanation.decision.kind);
   assert.equal(explanation.record.planning.plannedLane, "next");
 });

@@ -216,6 +216,11 @@ export function buildDecisionRecordSnapshot(
   const projection = buildKernelDecisionRecordProjection(record, {
     realizedLane: trace.coordination.resultLane,
   });
+  const decisionRecordCandidateScore =
+    projection?.value.candidateScore ?? record.value.claimScore ?? record.value.candidateScore;
+  if (decisionRecordCandidateScore === undefined) {
+    return {};
+  }
 
   return {
     ...(projection !== null
@@ -233,7 +238,7 @@ export function buildDecisionRecordSnapshot(
       projection?.evidence.currentEpisodeId ?? record.evidenceSnapshot.currentEpisodeId,
     decisionRecordOperatorPresence:
       projection?.evidence.operatorPresence ?? record.evidenceSnapshot.operatorPresence,
-    decisionRecordCandidateScore: projection?.value.candidateScore ?? record.value.candidateScore,
+    decisionRecordCandidateScore,
     decisionRecordValueComponents:
       projection?.value.components ?? record.value.breakdown.components,
     decisionRecordReasons: projection?.reasons ?? record.planning.reasons,

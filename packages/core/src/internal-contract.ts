@@ -9,7 +9,7 @@ export type { ApertureCoreHealthSnapshot } from "./aperture-core.js";
 export type {
   AttentionDecisionPlannedLane,
   AttentionDecisionRecord,
-} from "./judgment-coordinator.js";
+} from "./attention-decision-record.js";
 export { evaluateTraceSession, type TraceEvaluationReport } from "./trace-evaluator.js";
 export { isCandidateTrace } from "./trace-types.js";
 export type { ApertureTrace, CandidateApertureTrace } from "./trace-types.js";

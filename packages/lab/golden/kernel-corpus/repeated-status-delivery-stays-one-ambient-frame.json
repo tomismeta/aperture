@@ -1,0 +1,94 @@
+{
+  "id": "golden:kernel-corpus:repeated-status-delivery-stays-one-ambient-frame",
+  "title": "Repeated status delivery stays one ambient frame",
+  "description": "Repeated delivery of equivalent passive running statuses should remain deterministic context and should not create repeated focus pressure.",
+  "doctrineTags": ["kernel_corpus", "status_noise", "repeated_status"],
+  "semanticFamilies": ["consequence_overread"],
+  "expectations": {
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
+    "ambientInteractionIds": ["interaction:task:corpus:repeated-status:status"],
+    "resultLaneCounts": {
+      "now": 0,
+      "next": 0,
+      "ambient": 2
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "repeated passive status",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "consequence": "low",
+        "confidence": "high",
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "low",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "source": "explicit"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "repeated passive status",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "decisionRecordCurrentFrameId": null,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:ambient",
+          "lane:ambient",
+          "policy:minimum_lane:ambient",
+          "evidence:current_frame:absent"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "first passive status",
+      "event": {
+        "id": "evt:corpus:repeated-status:first",
+        "type": "task.updated",
+        "taskId": "task:corpus:repeated-status",
+        "timestamp": "2026-04-16T14:09:00.000Z",
+        "source": { "id": "custom-agent" },
+        "metadata": {
+          "deliveryAttempt": 1,
+          "externalPriority": "urgent",
+          "transport": "webhook"
+        },
+        "title": "URGENT monitor still running",
+        "summary": "The monitor is still running normally and no operator action is required.",
+        "status": "running"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "repeated passive status",
+      "event": {
+        "id": "evt:corpus:repeated-status:repeat",
+        "type": "task.updated",
+        "taskId": "task:corpus:repeated-status",
+        "timestamp": "2026-04-16T14:09:01.000Z",
+        "source": { "id": "custom-agent" },
+        "metadata": {
+          "deliveryAttempt": 2,
+          "externalPriority": "urgent",
+          "transport": "webhook",
+          "repeatedStatus": true
+        },
+        "title": "URGENT monitor still running",
+        "summary": "The monitor is still running normally and no operator action is required.",
+        "status": "running"
+      }
+    }
+  ]
+}

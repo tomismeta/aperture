@@ -21,7 +21,8 @@ export type ReplayDecisionRecordTraceProjection = {
     currentEpisodeId: string | null;
   };
   value: {
-    candidateScore: number;
+    claimScore?: number;
+    candidateScore?: number;
     breakdown: {
       components: ReplayDecisionValueComponents;
     };

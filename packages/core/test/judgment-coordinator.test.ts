@@ -117,6 +117,35 @@ test("operator absence keeps blocking work queued instead of activating immediat
   );
 });
 
+test("judgment explanations include a canonical decision record", () => {
+  const current = createFrame();
+  const candidate = createCandidate();
+  const explanation = coordinator.explain(current, candidate, {
+    operatorPresence: "absent",
+    currentEpisode: {
+      id: "episode:active",
+      key: "episode:active",
+      state: "waiting",
+      size: 1,
+      evidenceScore: 3,
+      evidenceReasons: ["same approval is still active"],
+      lastInteractionId: current.interactionId,
+      updatedAt: current.timing.updatedAt,
+    },
+  });
+
+  assert.equal(explanation.record.decision, explanation.decision);
+  assert.equal(explanation.record.candidate, candidate);
+  assert.equal(explanation.record.evidenceSnapshot.currentFrameId, current.id);
+  assert.equal(explanation.record.evidenceSnapshot.currentEpisodeId, "episode:active");
+  assert.equal(explanation.record.evidenceSnapshot.operatorPresence, "absent");
+  assert.equal(explanation.record.policy.verdict, explanation.policy);
+  assert.equal(explanation.record.value.breakdown, explanation.utility);
+  assert.equal(explanation.record.value.candidateScore, explanation.candidateScore);
+  assert.equal(explanation.record.planning.route, explanation.decision.kind);
+  assert.equal(explanation.record.planning.plannedLane, "next");
+});
+
 test("keeps background work ambient while a blocking frame is waiting", () => {
   const decision = coordinator.coordinate(
     createFrame(),

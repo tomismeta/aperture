@@ -170,14 +170,18 @@ Today, the engine already has:
 
 - an explicit semantic handoff in `AttentionJudgmentInput`
 - an internal `AttentionDecision` type in `JudgmentCoordinator`
+- an internal `AttentionDecisionRecord` carried by `AttentionDecisionExplanation`
 
-The remaining missing piece is making the decision artifact the clear shared
-handoff between:
+The remaining maturation work is making the decision artifact the clear shared
+handoff across:
 
 - judgment
 - trace
 - commit/application
 - future replay/evaluation
+
+The primitive direction is captured in
+[Deterministic Attention Kernel](./deterministic-attention-kernel.md).
 
 ## Recommended Decision Handoff
 
@@ -198,7 +202,7 @@ handoff between:
       "policy": {
         "verdict": "AttentionPolicyVerdict",
         "gateEvaluations": "PolicyGateRuleEvaluation[]",
-        "criterionVerdict": "AttentionInterruptCriterionVerdict | null",
+        "criterion": "AttentionInterruptCriterionVerdict | null",
         "criterionEvaluations": "PolicyCriterionRuleEvaluation[]"
       },
       "value": {
@@ -209,7 +213,7 @@ handoff between:
       },
       "planning": {
         "route": "auto_approve | activate | queue | ambient | clear",
-        "resultLane": "now | next | ambient | none",
+        "plannedLane": "now | next | ambient | none",
         "ambiguity": "AttentionDecisionAmbiguity | null",
         "reasons": "string[]",
         "continuityEvaluations": "ContinuityRuleEvaluation[]"
@@ -225,8 +229,8 @@ handoff between:
 {
   "gaps": [
     {
-      "name": "decision is not yet the single canonical handoff object",
-      "effect": "trace, explanation, and commit are still parallel representations"
+      "name": "decision record is internal but not yet the single trace and commit handoff",
+      "effect": "the canonical artifact now exists, but trace projection and frame commit still carry some parallel representation"
     },
     {
       "name": "commit is implicit",

@@ -31,6 +31,39 @@ export type AttentionDecision =
   | { kind: "ambient"; candidate: AttentionCandidate }
   | { kind: "clear" };
 
+export type AttentionDecisionPlannedLane = "now" | "next" | "ambient" | "none";
+
+export type AttentionDecisionRecord = {
+  decision: AttentionDecision;
+  candidate: AttentionCandidate;
+  evidenceSnapshot: {
+    pressureForecast: AttentionPressure;
+    attentionBurden: AttentionBurden;
+    operatorPresence: AttentionEvidenceContext["operatorPresence"];
+    currentFrameId: string | null;
+    currentEpisodeId: string | null;
+  };
+  policy: {
+    verdict: AttentionPolicyVerdict;
+    gateEvaluations: PolicyGateRuleEvaluation[];
+    criterion: AttentionInterruptCriterionVerdict | null;
+    criterionEvaluations: PolicyCriterionRuleEvaluation[];
+  };
+  value: {
+    breakdown: AttentionValueBreakdown;
+    candidateScore: number;
+    currentScore: number | null;
+    currentPriority: AttentionPriority | null;
+  };
+  planning: {
+    route: AttentionDecision["kind"];
+    plannedLane: AttentionDecisionPlannedLane;
+    ambiguity: AttentionDecisionAmbiguity | null;
+    reasons: string[];
+    continuityEvaluations: ContinuityRuleEvaluation[];
+  };
+};
+
 export type AttentionDecisionExplanation = {
   decision: AttentionDecision;
   policy: AttentionPolicyVerdict;
@@ -46,6 +79,7 @@ export type AttentionDecisionExplanation = {
   ambiguity: AttentionDecisionAmbiguity | null;
   reasons: string[];
   continuityEvaluations: ContinuityRuleEvaluation[];
+  record: AttentionDecisionRecord;
 };
 
 export type AttentionDecisionContext = AttentionEvidenceContext | AttentionEvidenceInput;
@@ -99,30 +133,31 @@ export class JudgmentCoordinator {
         ...policy.rationale,
         "bounded approval work is auto-resolved instead of entering the attention surface",
       ];
-      return {
-        decision: {
-          kind: "auto_approve",
-          candidate,
-          response: {
-            taskId: candidate.taskId,
-            interactionId: candidate.interactionId,
-            response: { kind: "approved" },
-          },
+      const decision: AttentionDecision = {
+        kind: "auto_approve",
+        candidate,
+        response: {
+          taskId: candidate.taskId,
+          interactionId: candidate.interactionId,
+          response: { kind: "approved" },
         },
+      };
+      return buildAttentionDecisionExplanation({
+        decision,
+        candidate,
+        evidence,
         policy,
         policyGateEvaluations: gateExplanation.evaluations,
         utility,
         criterion: null,
         policyCriterionEvaluations: [],
-        pressureForecast,
-        attentionBurden: evidence.attentionBurden,
         candidateScore: utility.total,
         currentScore,
         currentPriority: null,
         ambiguity: null,
         reasons,
         continuityEvaluations: [],
-      };
+      });
     }
 
     const criterionExplanation = this.policyGates.explainInterruptCriterion(
@@ -136,25 +171,26 @@ export class JudgmentCoordinator {
     const criterion = criterionExplanation.verdict;
     if (criterion.peripheralResolution) {
       const reasons = [...policy.rationale, ...criterion.rationale];
-      return {
-        decision: {
-          kind: criterion.peripheralResolution,
-          candidate,
-        },
+      const decision: AttentionDecision = {
+        kind: criterion.peripheralResolution,
+        candidate,
+      };
+      return buildAttentionDecisionExplanation({
+        decision,
+        candidate,
+        evidence,
         policy,
         policyGateEvaluations: gateExplanation.evaluations,
         utility,
         criterion,
         policyCriterionEvaluations: criterionExplanation.evaluations,
-        pressureForecast,
-        attentionBurden: evidence.attentionBurden,
         candidateScore: utility.total,
         currentScore,
         currentPriority: evidence.currentFrame ? priorityForFrame(evidence.currentFrame) : null,
         ambiguity: criterion.ambiguity,
         reasons,
         continuityEvaluations: [],
-      };
+      });
     }
 
     const planning = this.queuePlanner.explain(evidence.currentFrame, candidate, {
@@ -166,22 +202,22 @@ export class JudgmentCoordinator {
       currentScore,
     });
 
-    return {
+    return buildAttentionDecisionExplanation({
       decision: planning.decision,
+      candidate,
+      evidence,
       policy,
       policyGateEvaluations: gateExplanation.evaluations,
       utility,
       criterion,
       policyCriterionEvaluations: criterionExplanation.evaluations,
-      pressureForecast,
-      attentionBurden: evidence.attentionBurden,
       candidateScore: utility.total,
       currentScore: planning.currentScore,
       currentPriority: planning.currentPriority,
       ambiguity: null,
       reasons: planning.reasons,
       continuityEvaluations: planning.continuityEvaluations ?? [],
-    };
+    });
   }
 
   clear(): AttentionDecision {
@@ -204,4 +240,100 @@ export class JudgmentCoordinator {
 function parseReferenceTime(value: string): number {
   const timestamp = Date.parse(value);
   return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+type AttentionDecisionExplanationInput = {
+  decision: AttentionDecision;
+  candidate: AttentionCandidate;
+  evidence: AttentionEvidenceContext;
+  policy: AttentionPolicyVerdict;
+  policyGateEvaluations: PolicyGateRuleEvaluation[];
+  utility: AttentionValueBreakdown;
+  criterion: AttentionInterruptCriterionVerdict | null;
+  policyCriterionEvaluations: PolicyCriterionRuleEvaluation[];
+  candidateScore: number;
+  currentScore: number | null;
+  currentPriority: AttentionPriority | null;
+  ambiguity: AttentionDecisionAmbiguity | null;
+  reasons: string[];
+  continuityEvaluations: ContinuityRuleEvaluation[];
+};
+
+function buildAttentionDecisionExplanation(
+  input: AttentionDecisionExplanationInput,
+): AttentionDecisionExplanation {
+  const record = buildAttentionDecisionRecord(input);
+
+  return {
+    decision: input.decision,
+    policy: input.policy,
+    policyGateEvaluations: input.policyGateEvaluations,
+    utility: input.utility,
+    criterion: input.criterion,
+    policyCriterionEvaluations: input.policyCriterionEvaluations,
+    pressureForecast: input.evidence.pressureForecast,
+    attentionBurden: input.evidence.attentionBurden,
+    candidateScore: input.candidateScore,
+    currentScore: input.currentScore,
+    currentPriority: input.currentPriority,
+    ambiguity: input.ambiguity,
+    reasons: input.reasons,
+    continuityEvaluations: input.continuityEvaluations,
+    record,
+  };
+}
+
+function buildAttentionDecisionRecord(
+  input: AttentionDecisionExplanationInput,
+): AttentionDecisionRecord {
+  return {
+    decision: input.decision,
+    candidate: input.candidate,
+    evidenceSnapshot: {
+      pressureForecast: input.evidence.pressureForecast,
+      attentionBurden: input.evidence.attentionBurden,
+      operatorPresence: input.evidence.operatorPresence,
+      currentFrameId: input.evidence.currentFrame?.id ?? null,
+      currentEpisodeId: input.evidence.currentEpisode?.id ?? null,
+    },
+    policy: {
+      verdict: input.policy,
+      gateEvaluations: [...input.policyGateEvaluations],
+      criterion: input.criterion,
+      criterionEvaluations: [...input.policyCriterionEvaluations],
+    },
+    value: {
+      breakdown: input.utility,
+      candidateScore: input.candidateScore,
+      currentScore: input.currentScore,
+      currentPriority: input.currentPriority,
+    },
+    planning: {
+      route: input.decision.kind,
+      plannedLane: plannedLaneForDecision(input.decision),
+      ambiguity: input.ambiguity,
+      reasons: [...input.reasons],
+      continuityEvaluations: [...input.continuityEvaluations],
+    },
+  };
+}
+
+function plannedLaneForDecision(decision: AttentionDecision): AttentionDecisionPlannedLane {
+  switch (decision.kind) {
+    case "activate":
+      return "now";
+    case "queue":
+      return "next";
+    case "ambient":
+      return "ambient";
+    case "auto_approve":
+    case "clear":
+      return "none";
+    default:
+      return unreachableAttentionDecision(decision);
+  }
+}
+
+function unreachableAttentionDecision(decision: never): never {
+  throw new Error(`Unhandled attention decision in decision record: ${JSON.stringify(decision)}`);
 }

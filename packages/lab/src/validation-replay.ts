@@ -27,6 +27,7 @@ import {
 } from "./shape.js";
 import {
   CONSEQUENCE_LEVELS,
+  RELATION_KINDS,
   SEMANTIC_ACTIVITY_CLASSES,
   SEMANTIC_CONFIDENCE,
   SEMANTIC_FRAMES,
@@ -266,6 +267,8 @@ function validateReplaySemanticExpectation(value: unknown): ReplaySemanticExpect
     (value.abstained !== undefined && typeof value.abstained !== "boolean") ||
     (value.relationKindsInclude !== undefined && !isStringArray(value.relationKindsInclude)) ||
     (value.relationKindsExact !== undefined && !isStringArray(value.relationKindsExact)) ||
+    (value.relationHintsExact !== undefined &&
+      !isSemanticRelationHintArray(value.relationHintsExact)) ||
     (value.whyNowIncludes !== undefined && typeof value.whyNowIncludes !== "string") ||
     (value.reasonsInclude !== undefined && !isStringArray(value.reasonsInclude)) ||
     (value.factorsInclude !== undefined && !isStringArray(value.factorsInclude)) ||
@@ -277,6 +280,18 @@ function validateReplaySemanticExpectation(value: unknown): ReplaySemanticExpect
   }
 
   return value as ReplaySemanticExpectation;
+}
+
+function isSemanticRelationHintArray(value: unknown): boolean {
+  return Array.isArray(value) && value.every(isSemanticRelationHint);
+}
+
+function isSemanticRelationHint(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    RELATION_KINDS.has(String(value.kind)) &&
+    (value.target === undefined || typeof value.target === "string")
+  );
 }
 
 function validateReplayExplanationExpectation(value: unknown): ReplayExplanationExpectation | null {

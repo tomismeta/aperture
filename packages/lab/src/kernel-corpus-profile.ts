@@ -10,6 +10,7 @@ export const KERNEL_CORPUS_PROFILE_VERSION = 2 as const;
 export const KERNEL_CORPUS_SCENARIO_IDS = [
   "golden:kernel-corpus:alarmist-read-approval-stays-low-risk",
   "golden:kernel-corpus:conflicting-relation-targets-queue-behind-current",
+  "golden:kernel-corpus:duplicate-relation-hints-collapse-to-targeted-evidence",
   "golden:kernel-corpus:interleaved-supersede-with-background-noise",
   "golden:kernel-corpus:metadata-heavy-status-noise-stays-ambient",
   "golden:kernel-corpus:repeated-status-delivery-stays-one-ambient-frame",
@@ -30,6 +31,12 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
   {
     id: "relation_target_conflict",
     scenarioIds: ["golden:kernel-corpus:conflicting-relation-targets-queue-behind-current"],
+  },
+  {
+    id: "relation_hint_canonicalization",
+    scenarioIds: [
+      "golden:kernel-corpus:duplicate-relation-hints-collapse-to-targeted-evidence",
+    ],
   },
   {
     id: "status_noise",

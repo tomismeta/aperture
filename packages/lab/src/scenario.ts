@@ -217,6 +217,7 @@ export type ReplaySemanticExpectation = {
   abstained?: boolean;
   relationKindsInclude?: SemanticRelationHint["kind"][];
   relationKindsExact?: SemanticRelationHint["kind"][];
+  relationHintsExact?: SemanticRelationHint[];
   whyNowIncludes?: string;
   reasonsInclude?: string[];
   factorsInclude?: string[];

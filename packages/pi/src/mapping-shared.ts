@@ -160,7 +160,6 @@ export function toolApprovalSemanticHints(toolName: string): HumanInputSemanticH
     intentFrame: "approval_request",
     activityClass: "permission_request",
     whyNow: `Pi paused before running ${toolName}.`,
-    confidence: "high",
   };
 }
 
@@ -171,7 +170,6 @@ export function taskActivitySemanticHints(
   return {
     activityClass,
     ...(whyNow ? { whyNow } : {}),
-    confidence: "high",
   };
 }
 

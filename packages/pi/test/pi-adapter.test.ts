@@ -123,7 +123,6 @@ test("maps Pi tool execution failures into failed task updates", () => {
       status: "failed",
       semanticHints: {
         activityClass: "tool_failure",
-        confidence: "high",
       },
     },
   ]);

@@ -191,7 +191,6 @@ function taskActivitySemanticHints(
   return {
     activityClass,
     ...(whyNow !== undefined ? { whyNow } : {}),
-    confidence: "high",
   };
 }
 

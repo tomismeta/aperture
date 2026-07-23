@@ -65,7 +65,6 @@ test("maps PreToolUse Bash hooks into approval events", () => {
       intentFrame: "approval_request",
       activityClass: "permission_request",
       whyNow: "Network access required",
-      confidence: "high",
     });
     assert.deepEqual(mapped[0].source, {
       id: "claude-code:session-1",
@@ -439,7 +438,6 @@ test("maps PostToolUse updates with explicit tool family", () => {
     assert.equal(mapped[0].title, "Read completed");
     assert.deepEqual(mapped[0].semanticHints, {
       activityClass: "tool_completion",
-      confidence: "high",
     });
   }
 });
@@ -518,7 +516,6 @@ test("maps transcript-enriched AskUserQuestion hooks into structured choice requ
       intentFrame: "question_request",
       activityClass: "question_request",
       whyNow: "Claude asked for input before continuing.",
-      confidence: "high",
     });
     if (mapped[0].request.kind === "choice") {
       assert.deepEqual(
@@ -662,7 +659,6 @@ test("maps elicitation enum schemas into choice requests", () => {
       intentFrame: "question_request",
       activityClass: "question_request",
       whyNow: "Claude is waiting for input from build-server.",
-      confidence: "high",
     });
     assert.deepEqual(mapped[0].context?.items?.at(0), {
       id: "serverName",
@@ -874,7 +870,6 @@ test("maps session start hooks into session lifecycle events", () => {
     assert.deepEqual(mapped[0].semanticHints, {
       activityClass: "session_status",
       whyNow: "Claude resumed an existing session.",
-      confidence: "high",
     });
   }
 });
@@ -900,7 +895,6 @@ test("maps instructions loaded hooks into session-status updates", () => {
     assert.deepEqual(mapped[0].semanticHints, {
       activityClass: "session_status",
       whyNow: "Claude loaded instructions while starting the session.",
-      confidence: "high",
     });
   }
 });
@@ -1112,7 +1106,6 @@ test("maps config change hooks into running session status", () => {
     assert.deepEqual(mapped[0].semanticHints, {
       activityClass: "session_status",
       whyNow: "Claude detected a change to project settings during the session.",
-      confidence: "high",
     });
   }
 });
@@ -1137,7 +1130,6 @@ test("maps cwd changed hooks into running session status", () => {
     assert.deepEqual(mapped[0].semanticHints, {
       activityClass: "session_status",
       whyNow: "Claude changed the working directory during the session.",
-      confidence: "high",
     });
   }
 });
@@ -1217,7 +1209,6 @@ test("maps stop events with follow-up questions into waiting status", () => {
       intentFrame: "question_request",
       activityClass: "follow_up",
       whyNow: "Claude asked a follow-up question and is waiting for a reply.",
-      confidence: "high",
     });
   }
 });

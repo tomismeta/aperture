@@ -1,9 +1,11 @@
 import type { SourceEvent } from "./source-event.js";
 import type {
   SemanticConsequenceLevel,
+  SemanticConfidence,
   SemanticFieldProvenance,
   SemanticInterpretation,
   SemanticInterpretationHints,
+  SemanticRelationHint,
 } from "./semantic-types.js";
 import {
   detectExpectedDiagnosticFailure,
@@ -287,6 +289,12 @@ function inferHumanInputSemantics(
   const consequence = inferConsequenceFromSemanticText(text, baseConsequence, toolFamily);
   const relationProvenance =
     relationHints.length > 0 ? inferredSemanticProvenance(["relationHints"]) : {};
+  const hasSourceBackedConfidence = event.riskHint === "high";
+  const confidence = hasSourceBackedConfidence
+    ? "high"
+    : event.request.kind === "approval" && toolFamily
+      ? "medium"
+      : "low";
 
   return {
     intentFrame: semanticIntentFrameForRequestKind(event.request.kind),
@@ -296,11 +304,7 @@ function inferHumanInputSemantics(
     whyNow: semanticWhyNowForRequestKind(event.request.kind, consequence),
     factors: ["human.input.requested", event.request.kind],
     relationHints,
-    confidence: event.riskHint
-      ? "high"
-      : event.request.kind === "approval" && toolFamily
-        ? "medium"
-        : "low",
+    confidence,
     reasons: [
       event.riskHint
         ? "source provided an explicit risk hint"
@@ -315,7 +319,12 @@ function inferHumanInputSemantics(
       ...inferredSemanticProvenance(["intentFrame", "activityClass", "whyNow"]),
       ...semanticToolFamilyProvenance(toolFamilySource),
       ...(event.riskHint
-        ? sourceSemanticProvenance(["consequence", "confidence"])
+        ? {
+            ...sourceSemanticProvenance(["consequence"]),
+            ...(hasSourceBackedConfidence
+              ? sourceSemanticProvenance(["confidence"])
+              : inferredSemanticProvenance(["confidence"])),
+          }
         : inferredSemanticProvenance(["consequence", "confidence"])),
       ...relationProvenance,
     },
@@ -391,40 +400,140 @@ function applySemanticHints(
     return inferred;
   }
 
+  const overridden = pickDefined(hints);
+  const confidence = mergeSemanticConfidence(inferred.confidence, hints.confidence);
+  const relationHints = mergeSemanticRelationHints(inferred.relationHints, hints.relationHints);
+
   return {
     ...inferred,
-    ...pickDefined(hints),
+    ...overridden,
+    confidence,
     factors: dedupeSemanticStrings([...(inferred.factors ?? []), ...(hints.factors ?? [])]),
-    relationHints: [...(hints.relationHints ?? inferred.relationHints)],
+    relationHints,
     reasons: dedupeSemanticStrings([...(inferred.reasons ?? []), ...(hints.reasons ?? [])]),
     provenance: {
       ...(inferred.provenance ?? {}),
-      ...hintedSemanticProvenance(hints),
+      ...hintedSemanticProvenance(
+        inferred,
+        {
+          ...overridden,
+          confidence,
+          relationHints,
+        },
+        hints,
+      ),
     },
   };
 }
 
-function hintedSemanticProvenance(hints: SemanticInterpretationHints): SemanticFieldProvenance {
+function hintedSemanticProvenance(
+  inferred: SemanticInterpretation,
+  merged: Partial<SemanticInterpretation>,
+  hints: SemanticInterpretationHints,
+): SemanticFieldProvenance {
   return {
-    ...(hints.intentFrame !== undefined ? { intentFrame: "hint" as const } : {}),
-    ...(hints.activityClass !== undefined ? { activityClass: "hint" as const } : {}),
-    ...(hints.toolFamily !== undefined ? { toolFamily: "hint" as const } : {}),
-    ...(hints.consequence !== undefined ? { consequence: "hint" as const } : {}),
-    ...(hints.whyNow !== undefined ? { whyNow: "hint" as const } : {}),
-    ...(hints.relationHints !== undefined ? { relationHints: "hint" as const } : {}),
-    ...(hints.confidence !== undefined ? { confidence: "hint" as const } : {}),
-    ...(hints.abstained !== undefined ? { abstained: "hint" as const } : {}),
+    ...hintedFieldProvenance("intentFrame", inferred, merged),
+    ...hintedFieldProvenance("activityClass", inferred, merged),
+    ...hintedFieldProvenance("toolFamily", inferred, merged),
+    ...hintedFieldProvenance("consequence", inferred, merged),
+    ...hintedFieldProvenance("whyNow", inferred, merged),
+    ...hintedRelationProvenance(inferred.relationHints, hints.relationHints),
+    ...hintedFieldProvenance("confidence", inferred, merged),
+    ...hintedFieldProvenance("abstained", inferred, merged),
   };
 }
 
 function pickDefined<T extends object>(value: T): Partial<T> {
   const next: Partial<T> = {};
   for (const [key, entry] of Object.entries(value) as Array<[keyof T, T[keyof T]]>) {
-    if (entry !== undefined && key !== "factors" && key !== "relationHints" && key !== "reasons") {
+    if (
+      entry !== undefined &&
+      key !== "confidence" &&
+      key !== "factors" &&
+      key !== "relationHints" &&
+      key !== "reasons"
+    ) {
       next[key] = entry;
     }
   }
   return next;
+}
+
+function mergeSemanticConfidence(
+  inferred: SemanticConfidence,
+  hinted: SemanticConfidence | undefined,
+): SemanticConfidence {
+  if (!hinted) {
+    return inferred;
+  }
+
+  return semanticConfidenceWeight(hinted) < semanticConfidenceWeight(inferred) ? hinted : inferred;
+}
+
+function semanticConfidenceWeight(confidence: SemanticConfidence): number {
+  switch (confidence) {
+    case "low":
+      return 1;
+    case "medium":
+      return 2;
+    case "high":
+      return 3;
+    default:
+      return unreachableSemanticConfidence(confidence);
+  }
+}
+
+function mergeSemanticRelationHints(
+  inferred: SemanticRelationHint[],
+  hinted: SemanticRelationHint[] | undefined,
+): SemanticRelationHint[] {
+  if (!hinted || hinted.length === 0) {
+    return inferred;
+  }
+
+  const seen = new Set<string>();
+  const result: SemanticRelationHint[] = [];
+
+  for (const hint of [...inferred, ...hinted]) {
+    const key = semanticRelationHintKey(hint);
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    result.push(hint);
+  }
+
+  return result;
+}
+
+function hintedFieldProvenance<Field extends keyof SemanticFieldProvenance>(
+  field: Field,
+  inferred: SemanticInterpretation,
+  merged: Partial<SemanticInterpretation>,
+): SemanticFieldProvenance {
+  if (!(field in merged) || merged[field] === inferred[field]) {
+    return {};
+  }
+
+  return { [field]: "hint" } as SemanticFieldProvenance;
+}
+
+function hintedRelationProvenance(
+  inferred: SemanticRelationHint[],
+  hints: SemanticRelationHint[] | undefined,
+): SemanticFieldProvenance {
+  if (!hints || hints.length === 0) {
+    return {};
+  }
+
+  const inferredKeys = new Set(inferred.map(semanticRelationHintKey));
+  const hasNewRelationHint = hints.some((hint) => !inferredKeys.has(semanticRelationHintKey(hint)));
+
+  return hasNewRelationHint ? { relationHints: "hint" } : {};
+}
+
+function semanticRelationHintKey(hint: SemanticRelationHint): string {
+  return `${hint.kind}:${hint.target ?? ""}`;
 }
 
 function consequenceFromRequestKind(
@@ -480,4 +589,8 @@ function unreachableRequestKind(kind: never): never {
 
 function unreachableToolFamilySource(source: never): never {
   throw new Error(`Unhandled tool family provenance source in semantic interpreter: ${source}`);
+}
+
+function unreachableSemanticConfidence(confidence: never): never {
+  throw new Error(`Unhandled semantic confidence in semantic interpreter: ${confidence}`);
 }

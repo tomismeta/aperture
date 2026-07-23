@@ -98,6 +98,24 @@ test("tool family inference can read task wording without an explicit tool famil
   );
 });
 
+test("tool family inference prefers the highest-risk family over incidental read wording", () => {
+  assert.equal(
+    inferSemanticToolFamily({
+      title: "Agent wants to read the config and run a shell command",
+      summary: "Inspect the settings, then execute the validation command.",
+    }),
+    "bash",
+  );
+
+  assert.equal(
+    inferSemanticToolFamily({
+      title: "Agent wants to read and write files",
+      summary: "Inspect the existing source before writing the patch.",
+    }),
+    "write",
+  );
+});
+
 test("observational failure detection recognizes readback payloads but not filenames alone", () => {
   const readback = normalizeSemanticText(
     "Observation: contents of /workspace/app.log showing top 20 lines",

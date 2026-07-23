@@ -114,6 +114,33 @@ test("choice requests keep explicit context tool family without pretending the a
   assert.equal(interpretation.provenance?.toolFamily, "source");
 });
 
+test("medium risk hints on choice requests do not inflate confidence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:choice-risk-hint",
+    type: "human.input.requested",
+    taskId: "task:choice-risk-hint",
+    interactionId: "interaction:choice-risk-hint",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Choose deploy target",
+    summary: "Pick the environment to deploy.",
+    request: {
+      kind: "choice",
+      selectionMode: "single",
+      options: [
+        { id: "staging", label: "Staging" },
+        { id: "production", label: "Production" },
+      ],
+    },
+    riskHint: "medium",
+  });
+
+  assert.equal(interpretation.consequence, "medium");
+  assert.equal(interpretation.confidence, "low");
+  assert.equal(interpretation.provenance?.consequence, "source");
+  assert.equal(interpretation.provenance?.confidence, "inferred");
+});
+
 test("semantic hints override inferred values while preserving merged rationale", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:hints-override",
@@ -138,6 +165,112 @@ test("semantic hints override inferred values while preserving merged rationale"
   assert.ok(interpretation.factors.includes("trusted adapter escalation"));
   assert.equal(interpretation.provenance?.intentFrame, "hint");
   assert.equal(interpretation.provenance?.consequence, "hint");
+});
+
+test("semantic hints cannot inflate inferred confidence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:confidence-inflation",
+    type: "task.updated",
+    taskId: "task:confidence-inflation",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Need your approval before continuing",
+    summary: "Can you approve the deploy so work can continue?",
+    status: "waiting",
+    semanticHints: {
+      whyNow: "Adapter supplied a friendlier explanation.",
+      confidence: "high",
+    },
+  });
+
+  assert.equal(interpretation.confidence, "low");
+  assert.equal(interpretation.provenance?.confidence, "inferred");
+  assert.equal(interpretation.provenance?.whyNow, "hint");
+});
+
+test("semantic hints can demote confidence when the source is uncertain", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:confidence-demotion",
+    type: "task.updated",
+    taskId: "task:confidence-demotion",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Deploy failed",
+    summary: "The deployment command failed during verification.",
+    status: "failed",
+    semanticHints: {
+      confidence: "low",
+    },
+  });
+
+  assert.equal(interpretation.confidence, "low");
+  assert.equal(interpretation.provenance?.confidence, "hint");
+});
+
+test("empty relation hints do not erase inferred relations", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:empty-relation-hints",
+    type: "task.updated",
+    taskId: "task:empty-relation-hints",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Deploy failed again",
+    summary: "The same deploy failure came back after another retry.",
+    status: "failed",
+    semanticHints: {
+      relationHints: [],
+    },
+  });
+
+  assert.deepEqual(
+    interpretation.relationHints.map((hint) => hint.kind),
+    ["same_issue", "repeats"],
+  );
+  assert.equal(interpretation.provenance?.relationHints, "inferred");
+});
+
+test("relation hints merge with inferred relations", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:merged-relation-hints",
+    type: "task.updated",
+    taskId: "task:merged-relation-hints",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Deploy failed again",
+    summary: "The same deploy failure came back after another retry.",
+    status: "failed",
+    semanticHints: {
+      relationHints: [{ kind: "supersedes" }],
+    },
+  });
+
+  assert.deepEqual(
+    interpretation.relationHints.map((hint) => hint.kind),
+    ["same_issue", "repeats", "supersedes"],
+  );
+  assert.equal(interpretation.provenance?.relationHints, "hint");
+});
+
+test("duplicate relation hints do not upgrade inferred relation provenance", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:duplicate-relation-hints",
+    type: "task.updated",
+    taskId: "task:duplicate-relation-hints",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Deploy failed again",
+    summary: "The same deploy failure came back after another retry.",
+    status: "failed",
+    semanticHints: {
+      relationHints: [{ kind: "same_issue" }, { kind: "repeats" }],
+    },
+  });
+
+  assert.deepEqual(
+    interpretation.relationHints.map((hint) => hint.kind),
+    ["same_issue", "repeats"],
+  );
+  assert.equal(interpretation.provenance?.relationHints, "inferred");
 });
 
 test("negated resolve wording does not invent resolved relation hints", () => {

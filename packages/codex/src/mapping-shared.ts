@@ -48,7 +48,6 @@ export function explicitRequestSemanticHints(
     intentFrame: requestIntentFrame(kind),
     ...(activityClass !== undefined ? { activityClass } : {}),
     whyNow,
-    confidence: "high",
   };
 }
 
@@ -59,7 +58,6 @@ export function taskUpdateSemanticHints(
   return {
     activityClass,
     ...(whyNow !== undefined ? { whyNow } : {}),
-    confidence: "high",
   };
 }
 

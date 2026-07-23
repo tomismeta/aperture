@@ -45,7 +45,6 @@ test("maps command execution approvals into approval SourceEvents", () => {
       intentFrame: "approval_request",
       activityClass: "permission_request",
       whyNow: "Run tests before continuing",
-      confidence: "high",
     });
     assert.deepEqual(mapped.events[0].context?.items, [
       { id: "command", label: "Command", value: "pnpm test" },
@@ -149,7 +148,6 @@ test("maps latest Codex goal, patch, and warning notifications", () => {
     assert.deepEqual(warning[0].semanticHints, {
       activityClass: "status_update",
       whyNow: "Auto-review flagged a risky shell command.",
-      confidence: "high",
       consequence: "high",
     });
   }
@@ -217,7 +215,6 @@ test("maps file change approvals into write approval SourceEvents", () => {
       intentFrame: "approval_request",
       activityClass: "permission_request",
       whyNow: "Apply patch",
-      confidence: "high",
     });
     assert.deepEqual(mapped.events[0].context?.items, [
       { id: "rootPath", label: "Root Path", value: "/repo/src" },
@@ -251,7 +248,6 @@ test("maps top-level exec command approvals into approval SourceEvents", () => {
       intentFrame: "approval_request",
       activityClass: "permission_request",
       whyNow: "Create requested directory",
-      confidence: "high",
     });
     assert.deepEqual(mapped.events[0].context?.items, [
       { id: "command", label: "Command", value: "mkdir codex-smoke-test" },
@@ -286,7 +282,6 @@ test("maps top-level apply patch approvals into write approval SourceEvents", ()
       intentFrame: "approval_request",
       activityClass: "permission_request",
       whyNow: "Apply generated patch",
-      confidence: "high",
     });
     assert.deepEqual(mapped.events[0].context?.items, [
       { id: "rootPath", label: "Root Path", value: "/repo" },
@@ -323,7 +318,6 @@ test("maps permissions approvals into approval SourceEvents", () => {
       intentFrame: "approval_request",
       activityClass: "permission_request",
       whyNow: "Need network access",
-      confidence: "high",
     });
   }
 });
@@ -361,7 +355,6 @@ test("maps single-question user input with options into a choice request", () =>
       intentFrame: "question_request",
       activityClass: "question_request",
       whyNow: "Codex asked for input before continuing.",
-      confidence: "high",
     });
     if (mapped.events[0].request.kind === "choice") {
       assert.equal(mapped.events[0].request.allowTextResponse, true);
@@ -408,7 +401,6 @@ test("maps multi-question user input into a form request", () => {
       intentFrame: "form_request",
       activityClass: "question_request",
       whyNow: "Codex asked for input before continuing.",
-      confidence: "high",
     });
     if (mapped.events[0].request.kind === "form") {
       assert.equal(mapped.events[0].request.fields.length, 2);
@@ -738,7 +730,6 @@ test("maps turn notifications into coarse running/completed updates", () => {
     assert.deepEqual(started[0].semanticHints, {
       activityClass: "session_status",
       whyNow: "Codex began working on the current turn.",
-      confidence: "high",
     });
   }
 
@@ -760,7 +751,6 @@ test("maps turn notifications into coarse running/completed updates", () => {
     assert.deepEqual(completed[0].semanticHints, {
       activityClass: "tool_completion",
       whyNow: "Codex finished the current turn.",
-      confidence: "high",
     });
   }
 });

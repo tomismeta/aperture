@@ -40,7 +40,6 @@ test("maps PreToolUse hook events into approval SourceEvents", () => {
     intentFrame: "approval_request",
     activityClass: "permission_request",
     whyNow: "Codex requested approval before running a command.",
-    confidence: "high",
   });
   assert.deepEqual(mapped[0]?.metadata, {
     execution: {
@@ -142,7 +141,6 @@ test("maps UserPromptSubmit hook events into follow-up SourceEvents", () => {
     semanticHints: {
       activityClass: "follow_up",
       whyNow: "Codex is continuing with the operator's latest prompt.",
-      confidence: "high",
     },
     title: "Codex prompt submitted",
     summary: "Implement the feature and then explain the tradeoffs.",

@@ -247,7 +247,6 @@ export function explicitRequestSemanticHints(
     intentFrame: requestIntentFrame(request.kind),
     ...(activityClass !== undefined ? { activityClass } : {}),
     whyNow,
-    confidence: "high",
   };
 }
 
@@ -256,7 +255,6 @@ export function followUpTaskSemanticHints(whyNow: string): TaskUpdateSemanticHin
     intentFrame: "question_request",
     activityClass: "follow_up",
     whyNow,
-    confidence: "high",
   };
 }
 
@@ -265,7 +263,6 @@ export function taskActivitySemanticHints(
 ): TaskUpdateSemanticHints {
   return {
     activityClass,
-    confidence: "high",
   };
 }
 

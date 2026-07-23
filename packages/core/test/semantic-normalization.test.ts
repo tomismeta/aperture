@@ -1030,13 +1030,13 @@ test("equivalent adapter approvals normalize to the same canonical human-input c
       intentFrame: "approval_request",
       activityClass: "permission_request",
       toolFamily: "bash",
-      confidence: "high",
+      confidence: "medium",
       abstained: undefined,
       provenance: {
-        intentFrame: "hint",
-        activityClass: "hint",
+        intentFrame: "inferred",
+        activityClass: "inferred",
         toolFamily: "source",
-        confidence: "hint",
+        confidence: "inferred",
       },
     },
   });
@@ -1139,12 +1139,12 @@ test("equivalent adapter choice requests normalize to the same canonical human-i
     semantic: {
       intentFrame: "question_request",
       activityClass: "question_request",
-      confidence: "high",
+      confidence: "low",
       abstained: undefined,
       provenance: {
-        intentFrame: "hint",
-        activityClass: "hint",
-        confidence: "hint",
+        intentFrame: "inferred",
+        activityClass: "inferred",
+        confidence: "inferred",
       },
     },
   });

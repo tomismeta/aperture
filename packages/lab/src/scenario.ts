@@ -203,6 +203,7 @@ export type ReplayDecisionSnapshot = {
   decisionRecordValueComponents?: ReplayDecisionValueComponents;
   decisionRecordReasons?: string[];
   decisionRecordReasonCodes?: string[];
+  decisionRecordFingerprint?: string;
 };
 
 export type ReplaySemanticExpectation = {

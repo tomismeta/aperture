@@ -7,7 +7,43 @@ export {
   loadReplayScenarios,
   writeReplayScenario,
 } from "./golden.js";
-export { compareScenarioDeterminism, normalizeReplayRun, runDeterminismAudit } from "./determinism.js";
+export {
+  compareScenarioDeterminism,
+  normalizeReplayRun,
+  runDeterminismAudit,
+} from "./determinism.js";
+export {
+  compareKernelCanonicalKey,
+  digestKernelCanonicalJson,
+  serializeKernelCanonicalJson,
+} from "./kernel-canonical-json.js";
+export {
+  assertKernelConformanceReportPassed,
+  buildKernelConformanceReport,
+  KERNEL_CONFORMANCE_REPORT_SCHEMA_VERSION,
+  type KernelConformanceReport,
+  type KernelConformanceScenarioResult,
+} from "./kernel-conformance.js";
+export {
+  buildKernelDecisionRecordProjection,
+  buildKernelDecisionRecordProjectionFromSnapshot,
+  canonicalizeKernelDecisionRecordProjection,
+  fingerprintKernelDecisionRecordProjection,
+  isKernelDecisionRecordFingerprint,
+  KERNEL_DECISION_RECORD_PROJECTION_SCHEMA,
+  serializeKernelDecisionRecordProjection,
+  type KernelDecisionRecordFingerprint,
+  type KernelDecisionRecordProjectionV1,
+} from "./kernel-decision-contract.js";
+export {
+  KERNEL_CANONICALIZATION_VERSION,
+  KERNEL_PROFILE,
+  KERNEL_PROFILE_ID,
+  KERNEL_PROFILE_SCENARIO_IDS,
+  KERNEL_PROFILE_VERSION,
+  KERNEL_REASON_CODE_GRAMMAR_VERSION,
+  KERNEL_REQUIRED_SINGLETON_REASON_CODE_FAMILIES,
+} from "./kernel-profile.js";
 export { runJudgmentBench } from "./judgment-bench.js";
 export {
   defaultLabRuntimeRoot,
@@ -64,10 +100,7 @@ export {
   runPerturbedJudgmentBench,
 } from "./perturbation.js";
 export { renderJudgmentBenchMarkdown } from "./report.js";
-export {
-  createWorkflowSummaryReport,
-  renderWorkflowSummaryMarkdown,
-} from "./workflow-summary.js";
+export { createWorkflowSummaryReport, renderWorkflowSummaryMarkdown } from "./workflow-summary.js";
 export {
   executePromptCommand,
   runFStopRolePrompt,
@@ -262,10 +295,7 @@ export {
   summarizeRecommendationItems,
   writeOfflineReviewBatchReport,
 } from "./offline-review-batch.js";
-export type {
-  OfflineReviewBatchEntry,
-  OfflineReviewBatchReport,
-} from "./offline-review-batch.js";
+export type { OfflineReviewBatchEntry, OfflineReviewBatchReport } from "./offline-review-batch.js";
 export type {
   WorkflowSummaryReport,
   WorkflowSummaryRequestCounts,
@@ -460,9 +490,7 @@ export {
   SEMANTIC_CALIBRATION_FAMILIES,
   isReplaySemanticCalibrationFamily,
 } from "./semantic-calibration.js";
-export type {
-  ReplaySemanticCalibrationFamily,
-} from "./semantic-calibration.js";
+export type { ReplaySemanticCalibrationFamily } from "./semantic-calibration.js";
 export type {
   FStopSession,
   FStopSessionEntry,
@@ -481,12 +509,8 @@ export type {
   ImportedSessionSignificance,
   ImportedSessionSource,
 } from "./imported-session.js";
-export type {
-  ImportTrajectoryBundlesFromFileOptions,
-} from "./fstop-ingest.js";
-export type {
-  AutoresearchFinalReport,
-} from "./autoresearch-report.js";
+export type { ImportTrajectoryBundlesFromFileOptions } from "./fstop-ingest.js";
+export type { AutoresearchFinalReport } from "./autoresearch-report.js";
 export type {
   AutoresearchServicePhase,
   AutoresearchServiceStatus,
@@ -522,10 +546,7 @@ export type {
   SweSmithTrajectoryRow,
   SweSmithTrajectorySplit,
 } from "./public-trajectories.js";
-export type {
-  ReplayRunResult,
-  ReplayStepResult,
-} from "./runner.js";
+export type { ReplayRunResult, ReplayStepResult } from "./runner.js";
 export type { ReplayExplanationSnapshot, ReplayScorecard } from "./scorecard.js";
 export type {
   CanonicalAttentionExportLike,

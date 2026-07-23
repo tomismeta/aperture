@@ -42,22 +42,22 @@ export function isKernelDecisionReasonCode(value: unknown): value is string {
   const parts = value.split(":");
   switch (parts[0]) {
     case "route":
-      return parts.length === 2 && DECISION_KINDS.has(part(parts, 1));
+      return parts.length === 2 && DECISION_KINDS.has(parts[1] ?? "");
     case "lane":
-      return parts.length === 2 && DECISION_PLANNED_LANES.has(part(parts, 1));
+      return parts.length === 2 && DECISION_PLANNED_LANES.has(parts[1] ?? "");
     case "policy":
       return isPolicyDecisionReasonCode(parts);
     case "policy_gate":
       return (
         parts.length === 3 &&
         SIMPLE_RULE_NAME.test(parts[1] ?? "") &&
-        POLICY_GATE_EVALUATION_KINDS.has(part(parts, 2))
+        POLICY_GATE_EVALUATION_KINDS.has(parts[2] ?? "")
       );
     case "policy_criterion":
       return (
         parts.length === 3 &&
         SIMPLE_RULE_NAME.test(parts[1] ?? "") &&
-        POLICY_CRITERION_EVALUATION_KINDS.has(part(parts, 2))
+        POLICY_CRITERION_EVALUATION_KINDS.has(parts[2] ?? "")
       );
     case "criterion":
       return isCriterionDecisionReasonCode(parts);
@@ -101,7 +101,7 @@ export function validateKernelDecisionRecordProjection(
     !isStringOrNull(value.decisionRecordCurrentEpisodeId) ||
     typeof operatorPresence !== "string" ||
     !OPERATOR_PRESENCE.has(operatorPresence) ||
-    typeof value.decisionRecordCandidateScore !== "number" ||
+    !isFiniteNumber(value.decisionRecordCandidateScore) ||
     !isNumberMap(value.decisionRecordValueComponents) ||
     !isStringArray(value.decisionRecordReasons) ||
     !isKernelDecisionReasonCodeArray(reasonCodes) ||
@@ -141,7 +141,7 @@ function isPolicyDecisionReasonCode(parts: string[]): boolean {
         parts[1] === "may_interrupt" ||
         parts[1] === "peripheral_only" ||
         parts[1] === "requires_operator_response")) ||
-    (parts.length === 3 && parts[1] === "minimum_lane" && POLICY_MINIMUM_LANES.has(part(parts, 2)))
+    (parts.length === 3 && parts[1] === "minimum_lane" && POLICY_MINIMUM_LANES.has(parts[2] ?? ""))
   );
 }
 
@@ -149,15 +149,15 @@ function isCriterionDecisionReasonCode(parts: string[]): boolean {
   return (
     (parts.length === 3 &&
       parts[1] === "peripheral_resolution" &&
-      PERIPHERAL_RESOLUTIONS.has(part(parts, 2))) ||
-    (parts.length === 3 && parts[1] === "ambiguity" && AMBIGUITY_REASONS.has(part(parts, 2)))
+      PERIPHERAL_RESOLUTIONS.has(parts[2] ?? "")) ||
+    (parts.length === 3 && parts[1] === "ambiguity" && AMBIGUITY_REASONS.has(parts[2] ?? ""))
   );
 }
 
 function isPressureDecisionReasonCode(parts: string[]): boolean {
   return (
-    (parts.length === 3 && parts[1] === "level" && PRESSURE_LEVELS.has(part(parts, 2))) ||
-    (parts.length === 3 && parts[1] === "overload" && PRESSURE_OVERLOAD_RISKS.has(part(parts, 2)))
+    (parts.length === 3 && parts[1] === "level" && PRESSURE_LEVELS.has(parts[2] ?? "")) ||
+    (parts.length === 3 && parts[1] === "overload" && PRESSURE_OVERLOAD_RISKS.has(parts[2] ?? ""))
   );
 }
 
@@ -165,14 +165,10 @@ function isEvidenceDecisionReasonCode(parts: string[]): boolean {
   return (
     (parts.length === 3 &&
       parts[1] === "operator_presence" &&
-      OPERATOR_PRESENCE.has(part(parts, 2))) ||
-    (parts.length === 3 && parts[1] === "current_frame" && EVIDENCE_PRESENCE.has(part(parts, 2))) ||
-    (parts.length === 3 && parts[1] === "current_episode" && EVIDENCE_PRESENCE.has(part(parts, 2)))
+      OPERATOR_PRESENCE.has(parts[2] ?? "")) ||
+    (parts.length === 3 && parts[1] === "current_frame" && EVIDENCE_PRESENCE.has(parts[2] ?? "")) ||
+    (parts.length === 3 && parts[1] === "current_episode" && EVIDENCE_PRESENCE.has(parts[2] ?? ""))
   );
-}
-
-function part(parts: string[], index: number): string {
-  return parts[index] ?? "";
 }
 
 function plannedLaneForDecisionRoute(route: string): string | null {
@@ -213,11 +209,15 @@ function isStringOrNull(value: unknown): value is string | null {
   return value === null || typeof value === "string";
 }
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
 function isNumberMap(value: unknown): value is Record<string, number> {
   return (
     typeof value === "object" &&
     value !== null &&
     !Array.isArray(value) &&
-    Object.values(value).every((entry) => typeof entry === "number")
+    Object.values(value).every(isFiniteNumber)
   );
 }

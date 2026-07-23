@@ -21,7 +21,11 @@ import {
   runSessionBundle,
   sliceRuntimeSessionCapture,
   validateSessionBundle,
+  buildKernelDecisionRecordProjectionFromSnapshot,
+  fingerprintKernelDecisionRecordProjection,
+  isKernelDecisionRecordFingerprint,
   type CanonicalAttentionExportLike,
+  type ReplayDecisionSnapshot,
   type ReplayScenario,
   type RuntimeSessionCaptureLike,
   writeReplayScenario,
@@ -109,6 +113,9 @@ test("session bundles capture replay outputs and normalized source events", () =
   assert.equal(
     bundle.decisionSnapshots[0]?.decisionRecordProjectionVersion,
     KERNEL_DECISION_RECORD_PROJECTION_VERSION,
+  );
+  assert.ok(
+    isKernelDecisionRecordFingerprint(bundle.decisionSnapshots[0]?.decisionRecordFingerprint),
   );
   assert.equal(bundle.outcomes.finalNowInteractionId, "interaction:bundle:1");
 });
@@ -492,7 +499,7 @@ test("session bundle validation rejects malformed decision reason codes", () => 
 });
 
 test("decision snapshot validation enforces v1 projection coherence", () => {
-  const validSnapshot = {
+  const validSnapshot: ReplayDecisionSnapshot = {
     stepIndex: 0,
     stepKind: "publish",
     evaluationKind: "candidate",
@@ -519,10 +526,30 @@ test("decision snapshot validation enforces v1 projection coherence", () => {
     ],
   };
   const missingReasonCodes = { ...validSnapshot } as Record<string, unknown>;
+  const validReasonCodes = validSnapshot.decisionRecordReasonCodes;
+  const projection = buildKernelDecisionRecordProjectionFromSnapshot(validSnapshot);
+
+  assert.ok(validReasonCodes);
+  assert.ok(projection);
+  const validFingerprint = fingerprintKernelDecisionRecordProjection(projection);
 
   delete missingReasonCodes.decisionRecordReasonCodes;
 
   assert.ok(validateReplayDecisionSnapshot(validSnapshot));
+  assert.ok(
+    validateReplayDecisionSnapshot({
+      ...validSnapshot,
+      decisionRecordFingerprint: validFingerprint,
+    }),
+  );
+  assert.equal(
+    validateReplayDecisionSnapshot({
+      ...validSnapshot,
+      decisionRecordFingerprint:
+        "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    }),
+    null,
+  );
   assert.equal(
     validateReplayDecisionSnapshot({
       ...validSnapshot,
@@ -534,34 +561,28 @@ test("decision snapshot validation enforces v1 projection coherence", () => {
   assert.equal(
     validateReplayDecisionSnapshot({
       ...validSnapshot,
-      decisionRecordReasonCodes: [
-        ...validSnapshot.decisionRecordReasonCodes,
-        validSnapshot.decisionRecordReasonCodes[0],
-      ],
+      decisionRecordReasonCodes: [...validReasonCodes, validReasonCodes[0]],
     }),
     null,
   );
   assert.equal(
     validateReplayDecisionSnapshot({
       ...validSnapshot,
-      decisionRecordReasonCodes: [...validSnapshot.decisionRecordReasonCodes, "route:activate"],
+      decisionRecordReasonCodes: [...validReasonCodes, "route:activate"],
     }),
     null,
   );
   assert.equal(
     validateReplayDecisionSnapshot({
       ...validSnapshot,
-      decisionRecordReasonCodes: [...validSnapshot.decisionRecordReasonCodes, "lane:now"],
+      decisionRecordReasonCodes: [...validReasonCodes, "lane:now"],
     }),
     null,
   );
   assert.equal(
     validateReplayDecisionSnapshot({
       ...validSnapshot,
-      decisionRecordReasonCodes: [
-        ...validSnapshot.decisionRecordReasonCodes,
-        "evidence:current_frame:present",
-      ],
+      decisionRecordReasonCodes: [...validReasonCodes, "evidence:current_frame:present"],
     }),
     null,
   );
@@ -569,9 +590,7 @@ test("decision snapshot validation enforces v1 projection coherence", () => {
     validateReplayDecisionSnapshot({
       ...validSnapshot,
       decisionRecordReasonCodes: [
-        ...validSnapshot.decisionRecordReasonCodes.filter(
-          (reasonCode) => !reasonCode.startsWith("pressure:level:"),
-        ),
+        ...validReasonCodes.filter((reasonCode) => !reasonCode.startsWith("pressure:level:")),
         "pressure:level:elevated",
         "pressure:level:high",
       ],

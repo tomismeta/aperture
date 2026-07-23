@@ -3,6 +3,11 @@ import type {
   ReplayDecisionSnapshot,
   ReplayObservationStep,
 } from "./scenario.js";
+import {
+  buildKernelDecisionRecordProjectionFromSnapshot,
+  fingerprintKernelDecisionRecordProjection,
+  isKernelDecisionRecordFingerprint,
+} from "./kernel-decision-contract.js";
 import { hasShape, isBoolean, isNumber, isRecord, isString, isStringArray } from "./shape.js";
 import {
   isKernelDecisionReasonCodeArray,
@@ -40,6 +45,7 @@ export function validateReplayDecisionSnapshot(value: unknown): ReplayDecisionSn
         decisionRecordValueComponents: isReplayDecisionValueComponents,
         decisionRecordReasons: isStringArray,
         decisionRecordReasonCodes: isKernelDecisionReasonCodeArray,
+        decisionRecordFingerprint: isKernelDecisionRecordFingerprint,
       },
     ) ||
     !STEP_KINDS.has(value.stepKind as ReplayObservationStep["kind"]) ||
@@ -55,7 +61,8 @@ export function validateReplayDecisionSnapshot(value: unknown): ReplayDecisionSn
       !OPERATOR_PRESENCE.has(String(value.decisionRecordOperatorPresence))) ||
     !validateReplayDecisionAmbiguity(value.ambiguity) ||
     (value.decisionRecordProjectionVersion !== undefined &&
-      !validateKernelDecisionRecordProjection(value))
+      !validateKernelDecisionRecordProjection(value)) ||
+    !validateDecisionRecordFingerprint(value as ReplayDecisionSnapshot)
   ) {
     return null;
   }
@@ -124,6 +131,23 @@ export function validateReplayDecisionExpectation(
   return value as ReplayDecisionExpectation;
 }
 
+function validateDecisionRecordFingerprint(value: ReplayDecisionSnapshot): boolean {
+  if (value.decisionRecordFingerprint === undefined) {
+    return true;
+  }
+
+  if (value.decisionRecordProjectionVersion === undefined) {
+    return false;
+  }
+
+  const projection = buildKernelDecisionRecordProjectionFromSnapshot(value);
+
+  return (
+    projection !== null &&
+    value.decisionRecordFingerprint === fingerprintKernelDecisionRecordProjection(projection)
+  );
+}
+
 function isReplayDecisionValueComponents(
   value: unknown,
 ): value is NonNullable<ReplayDecisionSnapshot["decisionRecordValueComponents"]> {
@@ -131,7 +155,9 @@ function isReplayDecisionValueComponents(
     return false;
   }
 
-  return Object.entries(value).every(([, componentValue]) => typeof componentValue === "number");
+  return Object.entries(value).every(
+    ([, componentValue]) => typeof componentValue === "number" && Number.isFinite(componentValue),
+  );
 }
 
 function validateReplayDecisionAmbiguity(value: unknown): boolean {

@@ -71,12 +71,24 @@ route, lane, policy, evidence, pressure, ambiguity, and continuity guarantees.
 The Lab conformance projection is versioned separately from the internal record.
 Projection version `1` covers the flattened record fields captured in replay
 decision snapshots: route, planned lane, evidence identity, operator presence,
-candidate score, value components, prose reasons, and reason codes. Additive
-structurally valid policy, criterion, and continuity rule codes remain
-compatible within version `1`; field removal, renaming, or semantic
-reinterpretation requires a new projection version. The determinism audit
-normalizes these projection fields so kernel drift is visible even when the
-final attention view does not change.
+candidate score, value components, prose reasons, reason codes, and a stable
+`sha256:` fingerprint. Additive structurally valid policy, criterion, and
+continuity rule codes remain compatible within version `1`; field removal,
+renaming, or semantic reinterpretation requires a new projection version. The
+determinism audit normalizes these projection fields so kernel drift is visible
+even when the final attention view does not change.
+
+The fingerprint hashes the decision-bearing projection only: schema version,
+route, lane, evidence, candidate score, value components, and reason codes. It
+intentionally excludes prose reasons so explanation wording can improve without
+pretending the kernel changed.
+
+Lab canonicalization uses a kernel-local JSON writer:
+
+- object keys sort by code-unit order, not locale
+- array order remains meaningful
+- `undefined`, sparse arrays, `NaN`, and infinities are rejected
+- digests are SHA-256 over UTF-8 canonical JSON bytes
 
 ## What Stays Out
 
@@ -97,6 +109,8 @@ Those can integrate around the kernel. They should not become the kernel.
 The Lab golden replay path is the conformance harness. Kernel fixtures should
 live under `packages/lab/golden/kernel/` and assert compact, deterministic
 projections of the internal record rather than copying every nested trace field.
+The exact compatibility suite is declared in `packages/lab/src/kernel-profile.ts`
+and materialized as `packages/lab/conformance/kernel-v1.json`.
 
 Each conformance case should assert:
 
@@ -110,6 +124,7 @@ Each conformance case should assert:
 - value components as an open numeric map; fixtures should assert only the
   components that are semantically important for that case
 - stable decision reason codes from the record projection
+- the canonical decision fingerprint generated from the projection
 
 The current kernel fixture matrix covers:
 

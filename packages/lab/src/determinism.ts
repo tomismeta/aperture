@@ -2,6 +2,7 @@ import type { AttentionResponse, AttentionSignal } from "@tomismeta/aperture-cor
 import type { ApertureTrace } from "@tomismeta/aperture-core/internal";
 
 import { loadGoldenScenarios } from "./golden.js";
+import { compareKernelCanonicalKey } from "./kernel-canonical-json.js";
 import { runReplayScenario } from "./runner.js";
 import type { ReplayRunResult } from "./runner.js";
 import type { ReplayScenario } from "./scenario.js";
@@ -74,11 +75,7 @@ type NormalizedSignal = {
   surface?: string;
 };
 
-type NormalizedResponse = {
-  taskId: string;
-  interactionId: string;
-  responseKind: string;
-};
+type NormalizedResponse = { taskId: string; interactionId: string; responseKind: string };
 
 type NormalizedSemantic = {
   stepIndex: number;
@@ -122,15 +119,13 @@ type NormalizedDecision = {
   decisionRecordValueComponents: Record<string, number>;
   decisionRecordReasons: string[];
   decisionRecordReasonCodes: string[];
+  decisionRecordFingerprint?: string;
   semanticConfidence?: string;
   semanticAbstained?: boolean;
   semanticInfluence: string[];
   semanticImpactDecisionBearing: string[];
   semanticImpactExplanatory: string[];
-  ambiguity?: {
-    reason: string;
-    resolution: string;
-  } | null;
+  ambiguity?: { reason: string; resolution: string } | null;
 };
 
 export async function runDeterminismAudit(
@@ -228,6 +223,9 @@ export function normalizeReplayRun(run: ReplayRunResult): NormalizedReplayRun {
       ),
       decisionRecordReasons: decision.decisionRecordReasons ?? [],
       decisionRecordReasonCodes: decision.decisionRecordReasonCodes ?? [],
+      ...(decision.decisionRecordFingerprint
+        ? { decisionRecordFingerprint: decision.decisionRecordFingerprint }
+        : {}),
       ...(decision.semanticConfidence ? { semanticConfidence: decision.semanticConfidence } : {}),
       ...(decision.semanticAbstained === true ? { semanticAbstained: true } : {}),
       semanticInfluence: decision.semanticInfluence ?? [],
@@ -339,7 +337,7 @@ function normalizeNumberMap(value: Record<string, number | undefined>): Record<s
   return Object.fromEntries(
     Object.entries(value)
       .filter((entry): entry is [string, number] => typeof entry[1] === "number")
-      .sort(([left], [right]) => left.localeCompare(right)),
+      .sort(([left], [right]) => compareKernelCanonicalKey(left, right)),
   );
 }
 

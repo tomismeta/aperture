@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { loadGoldenScenarios, runJudgmentBench } from "../src/index.js";
+import {
+  compareKernelCanonicalKey,
+  KERNEL_PROFILE_SCENARIO_IDS,
+  loadGoldenScenarios,
+  runJudgmentBench,
+} from "../src/index.js";
 
 test("loads the first golden scenarios from disk", async () => {
   const scenarios = await loadGoldenScenarios();
@@ -77,30 +82,12 @@ test("loads the first golden scenarios from disk", async () => {
   assert.ok(
     scenarios.some((scenario) => scenario.id === "golden:kernel:attention-decision-record"),
   );
-  assert.ok(scenarios.some((scenario) => scenario.id === "golden:kernel:activate-decision-record"));
-  assert.ok(scenarios.some((scenario) => scenario.id === "golden:kernel:ambient-decision-record"));
-  assert.ok(
-    scenarios.some((scenario) => scenario.id === "golden:kernel:auto-approve-decision-record"),
-  );
-  assert.ok(
-    scenarios.some(
-      (scenario) => scenario.id === "golden:kernel:current-frame-queue-decision-record",
-    ),
-  );
-  assert.ok(
-    scenarios.some(
-      (scenario) => scenario.id === "golden:kernel:decorative-urgency-status-decision-record",
-    ),
-  );
-  assert.ok(
-    scenarios.some(
-      (scenario) => scenario.id === "golden:kernel:low-confidence-failure-decision-record",
-    ),
-  );
-  assert.ok(
-    scenarios.some(
-      (scenario) => scenario.id === "golden:kernel:resurfacing-continuity-decision-record",
-    ),
+  assert.deepEqual(
+    scenarios
+      .map((scenario) => scenario.id)
+      .filter((id) => id.startsWith("golden:kernel:"))
+      .sort(compareKernelCanonicalKey),
+    [...KERNEL_PROFILE_SCENARIO_IDS],
   );
   assert.ok(
     scenarios.some(
@@ -268,7 +255,10 @@ test("JudgmentBench runs across the golden scenarios and produces a summary", as
   const kernelScenarios = result.scenarios.filter((scenario) =>
     scenario.scenario.id.startsWith("golden:kernel:"),
   );
-  assert.ok(kernelScenarios.length >= 8);
+  assert.deepEqual(
+    kernelScenarios.map((scenario) => scenario.scenario.id).sort(compareKernelCanonicalKey),
+    [...KERNEL_PROFILE_SCENARIO_IDS],
+  );
   assert.equal(
     kernelScenarios.every((scenario) => scenario.assertions.every((assertion) => assertion.passed)),
     true,

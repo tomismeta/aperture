@@ -14,7 +14,10 @@ import {
   readSemanticOntologyDiagnostic,
 } from "@tomismeta/aperture-core/semantic";
 
-import { KERNEL_DECISION_RECORD_PROJECTION_VERSION } from "./artifact-versions.js";
+import {
+  buildKernelDecisionRecordProjection,
+  fingerprintKernelDecisionRecordProjection,
+} from "./kernel-decision-contract.js";
 import type {
   ReplayObservationStep,
   ReplayDecisionSnapshot,
@@ -203,29 +206,35 @@ export function buildDecisionRecordSnapshot(
   | "decisionRecordValueComponents"
   | "decisionRecordReasons"
   | "decisionRecordReasonCodes"
+  | "decisionRecordFingerprint"
 > {
   const record = trace.decisionRecord;
   if (!record) {
     return {};
   }
 
-  const reasonCodes = record.planning.reasonCodes;
+  const projection = buildKernelDecisionRecordProjection(record);
 
   return {
-    ...(reasonCodes !== undefined
+    ...(projection !== null
       ? {
-          decisionRecordProjectionVersion: KERNEL_DECISION_RECORD_PROJECTION_VERSION,
-          decisionRecordReasonCodes: reasonCodes,
+          decisionRecordProjectionVersion: projection.version,
+          decisionRecordReasonCodes: projection.reasonCodes,
+          decisionRecordFingerprint: fingerprintKernelDecisionRecordProjection(projection),
         }
       : {}),
-    decisionRecordRoute: record.planning.route,
-    plannedLane: record.planning.plannedLane,
-    decisionRecordCurrentFrameId: record.evidenceSnapshot.currentFrameId,
-    decisionRecordCurrentEpisodeId: record.evidenceSnapshot.currentEpisodeId,
-    decisionRecordOperatorPresence: record.evidenceSnapshot.operatorPresence,
-    decisionRecordCandidateScore: record.value.candidateScore,
-    decisionRecordValueComponents: record.value.breakdown.components,
-    decisionRecordReasons: record.planning.reasons,
+    decisionRecordRoute: projection?.route ?? record.planning.route,
+    plannedLane: projection?.lane ?? record.planning.plannedLane,
+    decisionRecordCurrentFrameId:
+      projection?.evidence.currentFrameId ?? record.evidenceSnapshot.currentFrameId,
+    decisionRecordCurrentEpisodeId:
+      projection?.evidence.currentEpisodeId ?? record.evidenceSnapshot.currentEpisodeId,
+    decisionRecordOperatorPresence:
+      projection?.evidence.operatorPresence ?? record.evidenceSnapshot.operatorPresence,
+    decisionRecordCandidateScore: projection?.value.candidateScore ?? record.value.candidateScore,
+    decisionRecordValueComponents:
+      projection?.value.components ?? record.value.breakdown.components,
+    decisionRecordReasons: projection?.reasons ?? record.planning.reasons,
   };
 }
 

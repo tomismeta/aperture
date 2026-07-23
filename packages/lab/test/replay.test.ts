@@ -7,6 +7,7 @@ import {
   runReplayScenario,
   scoreReplayRun,
   type ReplayScenario,
+  isKernelDecisionRecordFingerprint,
 } from "../src/index.js";
 
 test("replay runner captures frames, traces, responses, and final view state", () => {
@@ -187,6 +188,7 @@ test("normalized replay runs retain semantic and decision detail for determinism
   assert.equal(normalized.decisions[0]?.decisionRecordCandidateScore, 1211);
   assert.equal(normalized.decisions[0]?.decisionRecordValueComponents.blocking, 1000);
   assert.ok(normalized.decisions[0]?.decisionRecordReasonCodes.includes("route:activate"));
+  assert.ok(isKernelDecisionRecordFingerprint(normalized.decisions[0]?.decisionRecordFingerprint));
   assert.ok(
     normalized.decisions[0]?.semanticInfluence.includes(
       "tool family stayed context-only on the question/form path",

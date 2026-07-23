@@ -3,15 +3,22 @@ import type { SourceEvent } from "./source-event.js";
 import { interpretSourceEvent } from "./semantic-interpreter.js";
 import type { SemanticInterpretation, SemanticRelationHint } from "./semantic-types.js";
 import type {
-  SemanticOntologyActivity,
-  SemanticOntologyAsk,
-  SemanticOntologyBlocking,
+  AttentionOntologyActivity,
+  AttentionOntologyAsk,
+  AttentionOntologyAuthority,
+  AttentionOntologyBlocking,
+  AttentionOntologyDiagnostic,
+  AttentionOntologyEpisode,
   SemanticOntologyDiagnostic,
-  SemanticOntologyEpisode,
-  SemanticOntologySource,
 } from "./semantic-ontology-types.js";
 
 export type {
+  AttentionOntologyActivity,
+  AttentionOntologyAsk,
+  AttentionOntologyAuthority,
+  AttentionOntologyBlocking,
+  AttentionOntologyDiagnostic,
+  AttentionOntologyEpisode,
   SemanticOntologyActivity,
   SemanticOntologyAsk,
   SemanticOntologyBlocking,
@@ -22,21 +29,28 @@ export type {
 
 type SemanticOntologyEvent = SourceEvent | ApertureEvent;
 
+export function readAttentionOntologyDiagnostic(
+  event: SourceEvent,
+  interpretation = interpretSourceEvent(event),
+): AttentionOntologyDiagnostic {
+  return projectAttentionOntologyDiagnostic(event, interpretation);
+}
+
 export function readSemanticOntologyDiagnostic(
   event: SourceEvent,
   interpretation = interpretSourceEvent(event),
 ): SemanticOntologyDiagnostic {
-  return projectSemanticOntologyDiagnostic(event, interpretation);
+  return readAttentionOntologyDiagnostic(event, interpretation);
 }
 
 // The ontology contract itself lives in `semantic-ontology-types.ts`. This
 // module is just the lossy projection from richer semantic interpretation into
 // the compact routing vocabulary.
 
-export function projectSemanticOntologyDiagnostic(
+export function projectAttentionOntologyDiagnostic(
   event: SemanticOntologyEvent,
   interpretation: SemanticInterpretation,
-): SemanticOntologyDiagnostic {
+): AttentionOntologyDiagnostic {
   return {
     ask: readOntologyAsk(event, interpretation),
     activity: readOntologyActivity(event, interpretation),
@@ -50,10 +64,17 @@ export function projectSemanticOntologyDiagnostic(
   };
 }
 
+export function projectSemanticOntologyDiagnostic(
+  event: SemanticOntologyEvent,
+  interpretation: SemanticInterpretation,
+): SemanticOntologyDiagnostic {
+  return projectAttentionOntologyDiagnostic(event, interpretation);
+}
+
 function readOntologyAsk(
   event: SemanticOntologyEvent,
   interpretation: SemanticInterpretation,
-): SemanticOntologyAsk {
+): AttentionOntologyAsk {
   switch (event.type) {
     case "human.input.requested":
       return event.request.kind;
@@ -86,7 +107,7 @@ function readOntologyAsk(
 function readOntologyActivity(
   event: SemanticOntologyEvent,
   interpretation: SemanticInterpretation,
-): SemanticOntologyActivity {
+): AttentionOntologyActivity {
   switch (event.type) {
     case "human.input.requested":
       return event.request.kind === "approval" ? "decision_request" : "question";
@@ -124,7 +145,7 @@ function readOntologyActivity(
 function readOntologyBlocking(
   event: SemanticOntologyEvent,
   interpretation: SemanticInterpretation,
-): SemanticOntologyBlocking {
+): AttentionOntologyBlocking {
   switch (event.type) {
     case "human.input.requested":
       return "blocking";
@@ -153,7 +174,7 @@ function readOntologyBlocking(
 function readOntologyEpisode(
   event: SemanticOntologyEvent,
   interpretation: SemanticInterpretation,
-): SemanticOntologyEpisode {
+): AttentionOntologyEpisode {
   // The compact ontology keeps only the coarse continuity state. Relation
   // targets remain in full semantic interpretation and traces.
   const relationKinds = new Set(interpretation.relationHints.map((hint) => hint.kind));
@@ -186,7 +207,7 @@ function hasResurfacingRelation(relationHints: SemanticRelationHint[]): boolean 
 function readOntologySource(
   event: SemanticOntologyEvent,
   interpretation: SemanticInterpretation,
-): SemanticOntologySource {
+): AttentionOntologyAuthority {
   const provenanceKinds = Object.values(interpretation.provenance ?? {});
 
   if (hasOntologyAuthorityHint(interpretation)) {

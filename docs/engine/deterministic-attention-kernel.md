@@ -48,11 +48,15 @@ The kernel should stabilize these artifacts before widening public API surface:
 
 1. `SourceEvent`
 2. `SemanticInterpretation`
-3. `SemanticOntologyDiagnostic`
+3. `AttentionOntologyDiagnostic`
 4. `AttentionJudgmentInput`
 5. `AttentionCandidate`
 6. `AttentionDecisionRecord`
 7. `ApertureTrace`
+
+`AttentionOntologyDiagnostic` is the compact kernel vocabulary. The older
+`SemanticOntologyDiagnostic` name remains a compatibility alias, but new kernel
+work should prefer the attention-named contract.
 
 `AttentionDecisionRecord` is the first-class judgment artifact. It binds the
 decision, candidate, evidence snapshot, policy evaluations, value calculation,
@@ -113,7 +117,7 @@ The target shape is intentionally small:
 
 ```ts
 interpret(event) -> SemanticInterpretation
-projectOntology(semantic) -> SemanticOntologyDiagnostic
+projectOntology(semantic) -> AttentionOntologyDiagnostic
 decide(candidate, context) -> AttentionDecisionRecord
 explain(record) -> ApertureTrace
 ```

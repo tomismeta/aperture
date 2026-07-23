@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  projectAttentionOntologyDiagnostic,
   projectSemanticOntologyDiagnostic,
+  readAttentionOntologyDiagnostic,
   readSemanticOntologyDiagnostic,
 } from "../src/semantic.js";
 
@@ -30,6 +32,56 @@ test("approval requests project to a narrow ontology diagnostic", () => {
     confidence: "high",
     source: "explicit",
   });
+});
+
+test("attention ontology entrypoints preserve semantic ontology compatibility", () => {
+  const event = {
+    id: "evt:ontology:attention-alias",
+    taskId: "task:ontology:attention-alias",
+    type: "task.updated" as const,
+    timestamp,
+    title: "Deploy failed",
+    summary: "The deployment command failed during verification.",
+    status: "failed" as const,
+  };
+  const attention = readAttentionOntologyDiagnostic(event);
+  const semantic = readSemanticOntologyDiagnostic(event);
+
+  assert.deepEqual(attention, semantic);
+  assert.deepEqual(
+    projectAttentionOntologyDiagnostic(event, {
+      intentFrame: "failure",
+      activityClass: "tool_failure",
+      consequence: "medium",
+      whyNow: "The task failed.",
+      factors: ["task.updated", "failed"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["status is failed"],
+      provenance: {
+        intentFrame: "source",
+        activityClass: "source",
+        consequence: "source",
+        confidence: "source",
+      },
+    }),
+    projectSemanticOntologyDiagnostic(event, {
+      intentFrame: "failure",
+      activityClass: "tool_failure",
+      consequence: "medium",
+      whyNow: "The task failed.",
+      factors: ["task.updated", "failed"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["status is failed"],
+      provenance: {
+        intentFrame: "source",
+        activityClass: "source",
+        consequence: "source",
+        confidence: "source",
+      },
+    }),
+  );
 });
 
 test("passive waiting status stays a high-confidence status-shaped waiting ontology read", () => {

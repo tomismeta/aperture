@@ -9,12 +9,12 @@ import {
   hasBlockedLikeStatusSemantics,
   isCandidateSemanticAbstained,
   isCandidateSemanticLowConfidence,
+  readCandidateAttentionOntology,
   readCandidateSemanticConfidence,
   readCandidateSemanticEvidence,
-  readCandidateSemanticOntology,
 } from "./judgment-input.js";
 import type { AttentionPressure } from "./attention-pressure.js";
-import { projectSemanticOntologyDiagnostic } from "./semantic-ontology.js";
+import { projectAttentionOntologyDiagnostic } from "./semantic-ontology.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import type {
   TraceCandidateTransition,
@@ -164,7 +164,7 @@ function buildSemanticSummary(
   }
 
   const ontology =
-    readCandidateSemanticOntology(adjusted) ?? projectSemanticOntologyDiagnostic(event, semantic);
+    readCandidateAttentionOntology(adjusted) ?? projectAttentionOntologyDiagnostic(event, semantic);
   const semanticEvidence = readCandidateSemanticEvidence(adjusted);
 
   return {
@@ -197,7 +197,7 @@ function buildSemanticInfluence(
   }
 
   const ontology =
-    readCandidateSemanticOntology(adjusted) ?? projectSemanticOntologyDiagnostic(event, semantic);
+    readCandidateAttentionOntology(adjusted) ?? projectAttentionOntologyDiagnostic(event, semantic);
 
   const influence: string[] = [];
 

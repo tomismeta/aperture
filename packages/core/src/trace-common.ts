@@ -7,7 +7,7 @@ import type {
   SemanticRelationHint,
 } from "./semantic-types.js";
 import type { ApertureEvent } from "./events.js";
-import type { SemanticOntologyDiagnostic } from "./semantic-ontology.js";
+import type { AttentionOntologyDiagnostic } from "./semantic-ontology.js";
 import type { SourceEvent } from "./source-event.js";
 
 export type TraceDecisionKind = "auto_approve" | "activate" | "queue" | "ambient" | "clear";
@@ -116,7 +116,7 @@ export type TraceSemanticSummary = {
   consequence?: SemanticConsequenceLevel;
   confidence?: SemanticConfidence;
   abstained?: boolean;
-  ontology: SemanticOntologyDiagnostic;
+  ontology: AttentionOntologyDiagnostic;
   whyNow?: string;
   relationHints: SemanticRelationHint[];
   factors: string[];

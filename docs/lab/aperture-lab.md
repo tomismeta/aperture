@@ -32,6 +32,9 @@ That means Aperture needs:
 - a deterministic runner
 - a scorecard that reflects doctrine, not vanity metrics
 - a path to harvest real attention-significant episodes from live hosts
+- a replay audit loop that checks harvested bundles for repeatability, capture
+  fidelity, semantic drift, decision drift, and pressure before separating
+  `candidate`, `inspect`, and `observe` sessions
 
 ## Main Rule
 

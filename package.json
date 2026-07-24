@@ -76,6 +76,7 @@
     "schema:validate": "tsx scripts/validate-work-schema.ts",
     "sdk:prove": "tsx scripts/prove-core-sdk.ts",
     "session:export": "tsx scripts/session-export.ts",
+    "session:audit": "tsx scripts/session-audit.ts",
     "session:review": "tsx scripts/session-review.ts",
     "session:promote": "tsx scripts/session-promote.ts",
     "session:record": "tsx scripts/session-record.ts",

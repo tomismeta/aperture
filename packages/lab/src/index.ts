@@ -425,6 +425,11 @@ export {
   writeCaptureReviewArtifacts,
   writeSessionBundleReviewArtifact,
 } from "./capture.js";
+export {
+  auditSessionBundleReplay,
+  auditSessionBundleReplays,
+  SESSION_REPLAY_AUDIT_SCHEMA_VERSION,
+} from "./session-replay-audit.js";
 export { validateReplayScenario } from "./validation.js";
 
 export type {
@@ -574,6 +579,26 @@ export type {
   RuntimeSessionCaptureLike,
   ReplaySessionBundleSource,
 } from "./session-bundle.js";
+export type {
+  SessionReplayAudit,
+  SessionReplayAuditCoverage,
+  SessionReplayAuditInput,
+  SessionReplayAuditReport,
+  SessionReplayAuditStatus,
+  SessionReplayComparisonStatus,
+  SessionReplayDecisionComparable,
+  SessionReplayDecisionComparison,
+  SessionReplayDecisionDriftField,
+  SessionReplayDuplicateGroup,
+  SessionReplayFidelityAudit,
+  SessionReplayFinalView,
+  SessionReplayOntologyComparable,
+  SessionReplayPressureAudit,
+  SessionReplayRepeatabilityAudit,
+  SessionReplayReviewRecommendation,
+  SessionReplaySemanticComparable,
+  SessionReplaySemanticComparison,
+} from "./session-replay-audit.js";
 export type {
   JudgmentBenchAssertionResult,
   JudgmentBenchDoctrineHealth,

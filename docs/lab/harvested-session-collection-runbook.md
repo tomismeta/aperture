@@ -40,6 +40,33 @@ pnpm session:record --title "approval escalation" --tag harvested --tag approval
 4. Press Enter in the recorder terminal to export the bundle.
 5. Review the resulting bundle under
    [packages/lab/bundles](https://github.com/tomismeta/aperture/tree/main/packages/lab/bundles).
+6. Audit the harvested bundle before deciding what needs inspection,
+   observation, or human-reviewed promotion:
+
+```bash
+pnpm session:audit --bundle <bundle-path>
+```
+
+For a whole collection:
+
+```bash
+pnpm session:audit --dir packages/lab/bundles
+```
+
+The audit command replays each bundle through `ApertureCore`, checks replay A/B
+repeatability, compares stored capture snapshots against fresh deterministic
+replay, and classifies the bundle as:
+
+- `candidate` when stable replay carries useful semantic, uncertainty,
+  recovery, or continuity pressure for human review
+- `inspect` when repeatability, semantic, decision, or final-view drift appears
+- `observe` when the bundle is stable but not yet teaching a strong doctrine
+  lesson
+
+The intended loop is `pnpm session:audit` -> `pnpm session:review` ->
+`pnpm session:promote`. A `candidate` audit result means “review this,” not
+“promote this.” Pressure alone does not promote a bundle; reviewed expectations
+are the durable corpus boundary.
 
 Recommended naming:
 
@@ -222,6 +249,17 @@ Promote a harvested session into a first-class Lab asset if:
 - the bundle is short enough to understand
 - the underlying doctrine lesson is clear
 - the case is better than an authored synthetic version
+- `pnpm session:audit` marks it `candidate`, or a human review explains why an
+  `inspect` bundle captures an important drift
+
+Do not treat Lab audit as model training or automatic tuning. The first loop is
+corpus-driven calibration pressure:
+
+- harvest real logs
+- replay deterministically
+- detect drift and pressure
+- promote the smallest useful cases into fixtures
+- change the deterministic kernel only through reviewed code and tests
 
 ## Exit Criteria For The First Collection Pass
 

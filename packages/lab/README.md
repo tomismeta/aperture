@@ -14,6 +14,10 @@ The canonical user-facing CLI surface for F-Stop is provider-neutral.
 
 Normal operator commands:
 
+- `pnpm session:record ...`
+- `pnpm session:audit ...`
+- `pnpm session:review ...`
+- `pnpm session:promote ...`
 - `pnpm lab:fstop:ingest ...`
 - `pnpm lab:fstop:run ...`
 - `pnpm lab:fstop:sweep ...`
@@ -97,6 +101,9 @@ Today this package provides:
 - trace-level expectations, so scenarios can assert ambiguity lifecycles like
   `next -> now` and `ambient -> now`
 - a session-bundle format plus load/write helpers for local harvested replay
+- a session replay audit command that checks replay repeatability, capture
+  fidelity, semantic drift, decision drift, and corpus pressure before marking
+  bundles as `candidate`, `inspect`, or `observe`
 - a basic scorecard built on top of core trace evaluation and signal summaries
 - a first golden-scenario set for `JudgmentBench`
 - a benchmark runner that can write JSON results into `.aperture/lab/results`

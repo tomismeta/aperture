@@ -20,6 +20,9 @@ export const DEFAULT_PI_MONO_SPLIT = DEFAULT_PI_SPLIT;
 export const OPEN_AGENT_SESSIONS_SITE_URL = "https://openagentsessions.org/" as const;
 export const OPEN_AGENT_SESSIONS_URLS_URL = "https://openagentsessions.org/urls.txt" as const;
 export const DEFAULT_OPEN_AGENT_SESSIONS_SPLIT = "approved" as const;
+export const TRACE_COMMONS_AGENT_TRACES_DATASET = "trace-commons/agent-traces" as const;
+export const HUGGINGFACE_TRACE_COMMONS_AGENT_TRACES_DATASET = TRACE_COMMONS_AGENT_TRACES_DATASET;
+export const DEFAULT_TRACE_COMMONS_SPLIT = "train" as const;
 export const DEFAULT_PUBLIC_TRAJECTORY_BUNDLES_DIR = path.join(
   DEFAULT_LAB_RUNTIME_ROOT,
   "bundles",
@@ -30,17 +33,24 @@ export const DEFAULT_OPEN_AGENT_SESSIONS_RAW_DIR = path.resolve(
   "imported/open-agent-sessions/raw",
 );
 
-export type PublicTrajectoryDataset = "swe-smith" | "dataclaw" | "pi" | "open-agent-sessions";
+export type PublicTrajectoryDataset =
+  | "swe-smith"
+  | "dataclaw"
+  | "pi"
+  | "open-agent-sessions"
+  | "trace-commons";
 export type SweSmithTrajectorySplit = "tool" | "xml" | "ticks";
 export type DataclawSplit = "train";
 export type PiSplit = "train";
 export type PiMonoSplit = PiSplit;
 export type OpenAgentSessionsSplit = "approved";
+export type TraceCommonsSplit = "train";
 export type PublicTrajectorySplit =
   | SweSmithTrajectorySplit
   | DataclawSplit
   | PiSplit
-  | OpenAgentSessionsSplit;
+  | OpenAgentSessionsSplit
+  | TraceCommonsSplit;
 
 export type SweSmithRow = {
   messages: string;
@@ -258,11 +268,83 @@ export type OpenAgentSessionsRow = {
   raw_mirror_dir?: string;
 };
 
+export type TraceCommonsContentBlock = Partial<{
+  type: string;
+  text: string;
+  content: string;
+  input: unknown;
+  arguments: unknown;
+  output: unknown;
+  result: unknown;
+  error: unknown;
+  id: string;
+  name: string;
+}>;
+
+export type TraceCommonsToolCall = Partial<{
+  id: string;
+  type: string;
+  name: string;
+  tool: string;
+  toolName: string;
+  input: unknown;
+  arguments: unknown;
+  function: Partial<{
+    name: string;
+    arguments: unknown;
+  }>;
+}>;
+
+export type TraceCommonsMessage = Partial<{
+  role: string;
+  content: string | TraceCommonsContentBlock[];
+  timestamp: string;
+  created_at: string;
+  sent_at: string;
+  id: string;
+  name: string;
+  toolName: string;
+  tool_call_id: string;
+  toolCallId: string;
+  tool_calls: TraceCommonsToolCall[];
+  isError: boolean;
+  status: string;
+  output: unknown;
+  result: unknown;
+  error: unknown;
+}>;
+
+export type TraceCommonsToolDefinition = Partial<{
+  type: string;
+  name: string;
+  function: Partial<{
+    name: string;
+    description: string;
+  }>;
+}>;
+
+export type TraceCommonsTraceEvent = Record<string, unknown>;
+
+export type TraceCommonsRow = {
+  harness: string;
+  session_id: string;
+  prompt: string;
+  messages: TraceCommonsMessage[];
+  tools: TraceCommonsToolDefinition[];
+  metadata?: unknown;
+  sent_at: string;
+  num_user_messages?: number;
+  num_tool_calls?: number;
+  trace: TraceCommonsTraceEvent[];
+  file_path?: string;
+};
+
 export type PublicTrajectoryRow =
   | SweSmithTrajectoryRow
   | DataclawTrajectoryRow
   | PiRow
-  | OpenAgentSessionsRow;
+  | OpenAgentSessionsRow
+  | TraceCommonsRow;
 
 export type ImportedTrajectoryBundle = {
   dataset: PublicTrajectoryDataset;

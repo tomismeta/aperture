@@ -112,10 +112,15 @@ function emitResult(json: boolean, payload: Record<string, unknown>, lines: stri
 }
 
 function readDataset(value: string | undefined): PublicTrajectoryDataset {
-  if (value === "swe-smith" || value === "dataclaw" || value === "open-agent-sessions") {
+  if (
+    value === "swe-smith" ||
+    value === "dataclaw" ||
+    value === "open-agent-sessions" ||
+    value === "trace-commons"
+  ) {
     return value;
   }
-  throw new Error("--dataset must be 'swe-smith', 'dataclaw', or 'open-agent-sessions'");
+  throw new Error("--dataset must be 'swe-smith', 'dataclaw', 'open-agent-sessions', or 'trace-commons'");
 }
 
 function readSplit(value: string | undefined): PublicTrajectorySplit {
@@ -156,7 +161,7 @@ function printUsage(): void {
     "",
     "Inputs:",
     "  --bundle <path>              Review an existing session bundle (repeatable)",
-    "  --dataset <swe-smith|dataclaw|open-agent-sessions>  Import public bundles instead of passing --bundle",
+    "  --dataset <swe-smith|dataclaw|open-agent-sessions|trace-commons>  Import public bundles instead of passing --bundle",
     "  --split <tool|xml|ticks|train|approved>  Dataset split when importing (default: dataset-specific)",
     "  --offset <n>                 Dataset row offset when importing",
     "  --limit <n>                  Number of bundles to import/review",

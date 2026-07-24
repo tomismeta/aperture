@@ -6,23 +6,29 @@ import {
   createImportedSessionFromOpenAgentSessionsRow,
   createReplayScenarioFromDataclawRow,
   createReplayScenarioFromOpenAgentSessionsRow,
+  createReplayScenarioFromTraceCommonsRow,
   createSessionBundleFromDataclawRow,
   createSessionBundleFromOpenAgentSessionsRow,
+  createSessionBundleFromTraceCommonsRow,
   createImportedSessionFromSweSmithTrajectory,
+  createImportedSessionFromTraceCommonsRow,
   defaultImportedTrajectoryBundlePath,
   createScenarioFromSweSmithRow,
   createSessionBundleFromSweSmithRow,
   extractSweSmithMessageText,
   fetchOpenAgentSessionsRows,
+  fetchTraceCommonsRows,
   OPEN_AGENT_SESSIONS_SITE_URL,
   OPEN_AGENT_SESSIONS_URLS_URL,
   parseDataclawRowsResponse,
   parseSweSmithMessages,
   parseSweSmithRowsResponse,
+  parseTraceCommonsRowsResponse,
   runSessionBundle,
   type DataclawRow,
   type OpenAgentSessionsRow,
   type SweSmithRow,
+  type TraceCommonsRow,
 } from "../src/index.js";
 
 const SAMPLE_ROW: SweSmithRow = {
@@ -332,6 +338,106 @@ const SAMPLE_OPEN_AGENT_SESSIONS_ROW: OpenAgentSessionsRow = {
   ],
 };
 
+const SAMPLE_TRACE_COMMONS_ROW: TraceCommonsRow = {
+  harness: "claude_code",
+  session_id: "07b57159-218e-4330-a64e-0ec4b4355056",
+  prompt: "Add retry logic to the client and explain the fix.",
+  sent_at: "2026-06-12T00:40:34.865Z",
+  num_user_messages: 2,
+  num_tool_calls: 2,
+  file_path: "sessions/claude_code/session.jsonl",
+  metadata: {
+    source_file: "sessions_claude_code_07b57159-218e-4330-a64e-0ec4b4355056.jsonl",
+  },
+  tools: [
+    {
+      type: "function",
+      function: {
+        name: "Bash",
+        description: "Run a shell command.",
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "Edit",
+        description: "Edit a file.",
+      },
+    },
+  ],
+  trace: [
+    {
+      type: "queue-operation",
+      operation: "enqueue",
+      timestamp: "2026-06-12T00:40:34.790Z",
+    },
+  ],
+  messages: [
+    {
+      role: "user",
+      content: "Add retry logic to src/client.ts and explain the fix.",
+      timestamp: "2026-06-12T00:40:34.865Z",
+      id: "user-1",
+    },
+    {
+      role: "assistant",
+      content: "I'll inspect the client implementation first.",
+      timestamp: "2026-06-12T00:40:36.000Z",
+      id: "assistant-1",
+      tool_calls: [
+        {
+          id: "call-bash-1",
+          type: "function",
+          function: {
+            name: "Bash",
+            arguments: "{\"command\":\"sed -n '1,120p' src/client.ts\"}",
+          },
+        },
+      ],
+    },
+    {
+      role: "tool",
+      name: "Bash",
+      tool_call_id: "call-bash-1",
+      content: "export async function request() {\n  return fetch('/api');\n}",
+      timestamp: "2026-06-12T00:40:37.000Z",
+    },
+    {
+      role: "assistant",
+      content: [
+        {
+          type: "text",
+          text: "I found the unguarded request path. Next I'll patch it.",
+        },
+        {
+          type: "toolCall",
+          id: "call-edit-1",
+          name: "Edit",
+          arguments: {
+            path: "src/client.ts",
+            description: "Add bounded retry logic.",
+          },
+        },
+      ],
+      timestamp: "2026-06-12T00:41:00.000Z",
+      id: "assistant-2",
+    },
+    {
+      role: "tool",
+      name: "Edit",
+      tool_call_id: "call-edit-1",
+      content: "Patch applied successfully.",
+      timestamp: "2026-06-12T00:41:02.000Z",
+    },
+    {
+      role: "user",
+      content: "Can you also add a regression test?",
+      timestamp: "2026-06-12T00:41:30.000Z",
+      id: "user-2",
+    },
+  ],
+};
+
 test("SWE-smith rows parse from dataset-style rows payloads", () => {
   const rows = parseSweSmithRowsResponse({
     rows: [
@@ -353,6 +459,143 @@ test("DataClaw rows parse from dataset-style rows payloads", () => {
   assert.equal(rows.length, 1);
   assert.equal(rows[0]?.session_id, SAMPLE_DATACLAW_ROW.session_id);
   assert.equal(rows[0]?.messages[3]?.tool_uses?.[0]?.tool, "Read");
+});
+
+test("Trace Commons rows parse from dataset-style rows payloads", () => {
+  const rows = parseTraceCommonsRowsResponse({
+    rows: [
+      { row: SAMPLE_TRACE_COMMONS_ROW },
+    ],
+  });
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]?.session_id, SAMPLE_TRACE_COMMONS_ROW.session_id);
+  assert.equal(rows[0]?.messages[1]?.tool_calls?.[0]?.function?.name, "Bash");
+});
+
+test("Trace Commons rows parse live-shaped null identity rows with deterministic fallbacks", () => {
+  const rows = parseTraceCommonsRowsResponse({
+    rows: [
+      { row: SAMPLE_TRACE_COMMONS_ROW },
+      {
+        row_idx: 28,
+        row: {
+          harness: null,
+          session_id: null,
+          prompt: null,
+          sent_at: null,
+          metadata: {
+            source_file: "sessions_cursor_debaa898-grafana-loki-monitoring.jsonl",
+            session_id: "sessions_cursor_debaa898-grafana-loki-monitoring",
+            trace_type: "hermes",
+          },
+          file_path: "/var/folders/tmp/tc-sessions/sessions_cursor_debaa898-grafana-loki-monitoring.jsonl",
+          messages: [
+            { role: "assistant", content: "" },
+          ],
+          tools: [],
+          trace: [
+            {
+              role: "user",
+              message: {
+                content: [
+                  {
+                    type: "text",
+                    text: "Which Loki logs show document API usage by route?",
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+      {
+        row_idx: 29,
+        row: {
+          harness: null,
+          session_id: null,
+          prompt: null,
+          sent_at: null,
+          metadata: {
+            source_file: "sessions_opencode_ses_129b55f7effeSKRtimLg9wxpXa.json",
+            trace_type: "structured",
+          },
+          file_path: "/var/folders/tmp/tc-sessions/sessions_opencode_ses_129b55f7effeSKRtimLg9wxpXa.json",
+          messages: [],
+          tools: [],
+          trace: [
+            {
+              info: {
+                id: "ses_129b55f7effeSKRtimLg9wxpXa",
+                model: {
+                  providerID: "opencode",
+                },
+                time: {
+                  created: 1781711675521,
+                },
+              },
+              messages: [
+                {
+                  info: {
+                    role: "user",
+                    id: "msg-user",
+                    time: {
+                      created: 1781711675583,
+                    },
+                  },
+                  parts: [
+                    {
+                      type: "text",
+                      text: "Look up whether kernel-level anticheat is lazy or necessary.",
+                    },
+                  ],
+                },
+                {
+                  info: {
+                    role: "assistant",
+                    id: "msg-assistant",
+                    time: {
+                      created: 1781711675673,
+                    },
+                  },
+                  parts: [
+                    {
+                      type: "text",
+                      text: "I'll search current sources and compare claims.",
+                    },
+                    {
+                      type: "tool",
+                      tool: "websearch",
+                      callID: "call-search",
+                      state: {
+                        status: "completed",
+                        input: {
+                          query: "kernel level anticheat necessary security",
+                        },
+                        output: "Search results with multiple sources.",
+                      },
+                      time: {
+                        end: 1781711681428,
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ],
+  });
+
+  assert.equal(rows.length, 3);
+  assert.equal(rows[1]?.harness, "cursor");
+  assert.equal(rows[1]?.session_id, "sessions_cursor_debaa898-grafana-loki-monitoring");
+  assert.equal(rows[1]?.messages[0]?.role, "user");
+  assert.match(rows[1]?.prompt ?? "", /Loki logs/);
+  assert.equal(rows[2]?.harness, "opencode");
+  assert.equal(rows[2]?.session_id, "ses_129b55f7effeSKRtimLg9wxpXa");
+  assert.equal(rows[2]?.messages.some((message) => message.role === "tool"), true);
 });
 
 test("SWE-smith message helpers preserve transcript text", () => {
@@ -561,6 +804,110 @@ test("OpenAgentSessions imported bundle paths stay under the dataset and split t
   assert.match(
     filePath,
     /\/tmp\/aperture-imports\/open-agent-sessions\/approved\/public-open-agent-sessions-934689fd-f66b-44aa-a945-28b47d1a6cb9\.json$/,
+  );
+});
+
+test("Trace Commons rows first map into canonical imported sessions", () => {
+  const session = createImportedSessionFromTraceCommonsRow(SAMPLE_TRACE_COMMONS_ROW);
+  const finalEvent = session.entries.at(-1)?.sourceEvent;
+
+  assert.equal(session.sessionId, "public:trace-commons:claude_code:07b57159-218e-4330-a64e-0ec4b4355056");
+  assert.equal(session.source?.id, "huggingface:trace-commons-agent-traces");
+  assert.equal(session.source?.redacted, true);
+  assert.equal(session.entries[0]?.kind, "boundary");
+  assert.equal(session.entries[1]?.sourceEvent?.type, "task.started");
+  assert.equal(session.entries[3]?.kind, "tool_call");
+  assert.equal(session.entries[3]?.toolFamily, "bash");
+  assert.equal(session.entries[4]?.kind, "tool_result");
+  assert.equal(session.entries[4]?.toolFamily, "bash");
+  assert.equal(finalEvent?.type, "task.updated");
+  assert.equal(finalEvent?.type === "task.updated" ? finalEvent.title : undefined, "user follow-up");
+});
+
+test("Trace Commons rows map into replay scenarios with user, assistant, tool, and follow-up steps", () => {
+  const scenario = createReplayScenarioFromTraceCommonsRow(SAMPLE_TRACE_COMMONS_ROW);
+  const finalStep = scenario.steps.at(-1);
+
+  assert.equal(scenario.steps.length, 8);
+  assert.equal(scenario.steps[0]?.kind, "publishSource");
+  assert.equal(scenario.steps[0]?.event.type, "task.started");
+  assert.equal(scenario.steps[2]?.kind, "publishSource");
+  assert.equal(scenario.steps[2]?.event.type, "task.updated");
+  assert.equal(scenario.steps[2]?.event.toolFamily, "bash");
+  assert.equal(scenario.steps[5]?.kind, "publishSource");
+  assert.equal(scenario.steps[5]?.event.type, "task.updated");
+  assert.equal(scenario.steps[5]?.event.toolFamily, "edit");
+  assert.equal(
+    finalStep?.kind === "publishSource" && finalStep.event.type === "task.updated"
+      ? finalStep.event.title
+      : undefined,
+    "user follow-up",
+  );
+});
+
+test("Trace Commons rows can become replayable session bundles", () => {
+  const bundle = createSessionBundleFromTraceCommonsRow(SAMPLE_TRACE_COMMONS_ROW);
+  const replayed = runSessionBundle(bundle);
+
+  assert.equal(bundle.source?.id, "huggingface:trace-commons-agent-traces");
+  assert.ok(bundle.source?.capture?.notes?.includes("dataset=trace-commons/agent-traces"));
+  assert.ok(bundle.source?.capture?.notes?.includes("harness=claude_code"));
+  assert.ok(bundle.source?.capture?.notes?.includes("source_identity=sessions_claude_code_07b57159-218e-4330-a64e-0ec4b4355056.jsonl"));
+  assert.ok(bundle.source?.capture?.notes?.includes("privacy=public_anonymized_best_effort_review_required"));
+  assert.ok(bundle.source?.capture?.notes?.includes("license_scope=dataset_compilation_cc_by_4.0_embedded_content_may_differ"));
+  assert.ok(bundle.source?.capture?.notes?.some((note) => note.startsWith("row_digest_sha256=")));
+  assert.equal(replayed.views.at(-1)?.nowInteractionId, bundle.outcomes.finalNowInteractionId);
+  assert.equal(replayed.views.at(-1)?.nextInteractionIds.length, bundle.outcomes.finalNextCount);
+  assert.equal(replayed.views.at(-1)?.ambientInteractionIds.length, bundle.outcomes.finalAmbientCount);
+});
+
+test("Trace Commons imported bundle paths stay under the dataset and split tree", () => {
+  const bundle = createSessionBundleFromTraceCommonsRow(SAMPLE_TRACE_COMMONS_ROW);
+  const filePath = defaultImportedTrajectoryBundlePath(bundle, "trace-commons", "train", "/tmp/aperture-imports");
+
+  assert.match(
+    filePath,
+    /\/tmp\/aperture-imports\/trace-commons\/train\/public-trace-commons-claude_code-07b57159-218e-4330-a64e-0ec4b4355056\.json$/,
+  );
+});
+
+test("Trace Commons replay timestamps stay monotonic when messages omit timestamps", () => {
+  const row: TraceCommonsRow = {
+    ...SAMPLE_TRACE_COMMONS_ROW,
+    session_id: "trace-no-message-timestamps",
+    messages: SAMPLE_TRACE_COMMONS_ROW.messages.map(({ timestamp: _timestamp, ...message }) => message),
+  };
+  const scenario = createReplayScenarioFromTraceCommonsRow(row);
+  const timestamps = scenario.steps.map((step) =>
+    step.kind === "publishSource" ? step.event.timestamp : "");
+  const uniqueTimestamps = new Set(timestamps);
+
+  assert.equal(timestamps.length, uniqueTimestamps.size);
+  assert.equal(timestamps[0], "2026-06-12T00:40:35.865Z");
+  assert.equal(timestamps[1], "2026-06-12T00:40:36.865Z");
+});
+
+test("Trace Commons bundle identity is harness-qualified", () => {
+  const firstBundle = createSessionBundleFromTraceCommonsRow({
+    ...SAMPLE_TRACE_COMMONS_ROW,
+    harness: "codex",
+    session_id: "shared-session-id",
+  });
+  const secondBundle = createSessionBundleFromTraceCommonsRow({
+    ...SAMPLE_TRACE_COMMONS_ROW,
+    harness: "opencode",
+    session_id: "shared-session-id",
+  });
+
+  assert.notEqual(firstBundle.sessionId, secondBundle.sessionId);
+  assert.equal(firstBundle.sessionId, "public:trace-commons:codex:shared-session-id");
+  assert.equal(secondBundle.sessionId, "public:trace-commons:opencode:shared-session-id");
+});
+
+test("Trace Commons fetch rejects limits beyond the Hugging Face rows cap", async () => {
+  await assert.rejects(
+    () => fetchTraceCommonsRows({ limit: 101 }),
+    /Trace Commons import limit must be <= 100/,
   );
 });
 

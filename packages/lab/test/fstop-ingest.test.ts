@@ -13,6 +13,7 @@ import {
   type DataclawRow,
   type FStopSession,
   type PiRow,
+  type TraceCommonsRow,
 } from "../src/index.js";
 
 const SAMPLE_DATACLAW_ROW: DataclawRow = {
@@ -53,6 +54,59 @@ const SAMPLE_DATACLAW_ROW: DataclawRow = {
   ],
 };
 
+const SAMPLE_TRACE_COMMONS_ROW: TraceCommonsRow = {
+  harness: "codex",
+  session_id: "3918c264-8ef4-4d0f-9606-9b49ab97984f",
+  prompt: "Inspect the failing test and fix the parser.",
+  sent_at: "2026-06-14T12:00:00.000Z",
+  num_user_messages: 1,
+  num_tool_calls: 1,
+  tools: [
+    {
+      type: "function",
+      function: {
+        name: "shell",
+      },
+    },
+  ],
+  trace: [
+    {
+      type: "queue-operation",
+      operation: "enqueue",
+      timestamp: "2026-06-14T12:00:00.000Z",
+    },
+  ],
+  messages: [
+    {
+      role: "user",
+      content: "Inspect the failing test and fix the parser.",
+      timestamp: "2026-06-14T12:00:00.000Z",
+    },
+    {
+      role: "assistant",
+      content: "I'll run the focused parser test first.",
+      timestamp: "2026-06-14T12:00:05.000Z",
+      tool_calls: [
+        {
+          id: "call-shell-1",
+          type: "function",
+          function: {
+            name: "shell",
+            arguments: "{\"command\":\"pnpm test parser\"}",
+          },
+        },
+      ],
+    },
+    {
+      role: "tool",
+      name: "shell",
+      tool_call_id: "call-shell-1",
+      content: "AssertionError: expected parser result to include tool calls",
+      timestamp: "2026-06-14T12:00:10.000Z",
+    },
+  ],
+};
+
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const SAMPLE_PI_FIXTURE_PATH = path.join(TEST_DIRECTORY, "fixtures", "pi-mono-row.json");
 
@@ -74,6 +128,33 @@ test("importTrajectoryBundlesFromFile imports a raw DataClaw row JSON file", asy
 
   const bundle = await loadSessionBundle(imported[0]!.filePath);
   assert.equal(bundle.sessionId, "public:dataclaw:123e4567-e89b-12d3-a456-426614174000");
+  assert.ok(bundle.source?.capture?.notes?.includes(`input_file=${sourcePath}`));
+});
+
+test("importTrajectoryBundlesFromFile imports a Trace Commons rows payload", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "aperture-fstop-ingest-trace-commons-"));
+  const sourcePath = path.join(directory, "trace-commons-rows.json");
+  const outputDirectory = path.join(directory, "bundles");
+  await writeFile(
+    sourcePath,
+    `${JSON.stringify({ rows: [{ row: SAMPLE_TRACE_COMMONS_ROW }] }, null, 2)}\n`,
+    "utf8",
+  );
+
+  const imported = await importTrajectoryBundlesFromFile({
+    filePath: sourcePath,
+    outputDirectory,
+    dataset: "trace-commons",
+  });
+
+  assert.equal(imported.length, 1);
+  assert.equal(imported[0]?.dataset, "trace-commons");
+  assert.match(imported[0]?.filePath ?? "", /bundles\/trace-commons\/train\/public-trace-commons-/);
+  assert.match(imported[0]?.sessionFilePath ?? "", /sessions\/trace-commons\/train\/public-trace-commons-/);
+
+  const bundle = await loadSessionBundle(imported[0]!.filePath);
+  assert.equal(bundle.sessionId, "public:trace-commons:codex:3918c264-8ef4-4d0f-9606-9b49ab97984f");
+  assert.ok(bundle.source?.capture?.notes?.includes("dataset=trace-commons/agent-traces"));
   assert.ok(bundle.source?.capture?.notes?.includes(`input_file=${sourcePath}`));
 });
 

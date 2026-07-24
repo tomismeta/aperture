@@ -99,6 +99,7 @@ Import public trajectories into local Lab bundles.
 Current first source:
 
 - `SWE-bench/SWE-smith-trajectories`
+- `trace-commons/agent-traces`
 
 Current landing path:
 

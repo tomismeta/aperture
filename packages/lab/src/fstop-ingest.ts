@@ -5,15 +5,18 @@ import {
   createImportedSessionFromOpenAgentSessionsRow,
   createImportedSessionFromPiRow,
   createImportedSessionFromSweSmithTrajectory,
+  createImportedSessionFromTraceCommonsRow,
   createSessionBundleFromDataclawRow,
   createSessionBundleFromOpenAgentSessionsRow,
   createSessionBundleFromPiRow,
   createSessionBundleFromSweSmithTrajectory,
+  createSessionBundleFromTraceCommonsRow,
   defaultImportedTrajectoryBundlePath,
   type ImportedTrajectoryBundle,
   type OpenAgentSessionsSplit,
   type PublicTrajectoryDataset,
   type PublicTrajectorySplit,
+  type TraceCommonsSplit,
 } from "./public-trajectories.js";
 import {
   DEFAULT_FSTOP_SESSION_FILES_DIR,
@@ -108,6 +111,13 @@ function createBundleFromRawRecord(
     });
   }
 
+  if (record.dataset === "trace-commons") {
+    return createSessionBundleFromTraceCommonsRow(record.row, {
+      split: record.split as TraceCommonsSplit,
+      ...(options.exportedAt ? { exportedAt: options.exportedAt } : {}),
+    });
+  }
+
   return createSessionBundleFromSweSmithTrajectory(record.row, {
     split: record.split as "tool" | "xml" | "ticks",
     ...(options.exportedAt ? { exportedAt: options.exportedAt } : {}),
@@ -133,6 +143,12 @@ function createSessionFromRawRecord(
   if (record.dataset === "pi") {
     return createImportedSessionFromPiRow(record.row, {
       split: record.split as "train",
+    });
+  }
+
+  if (record.dataset === "trace-commons") {
+    return createImportedSessionFromTraceCommonsRow(record.row, {
+      split: record.split as TraceCommonsSplit,
     });
   }
 

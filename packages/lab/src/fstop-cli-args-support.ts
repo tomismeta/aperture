@@ -90,7 +90,8 @@ export function readDataset(value: string | undefined): PublicTrajectoryDataset 
     value === "swe-smith" ||
     value === "dataclaw" ||
     value === "pi" ||
-    value === "open-agent-sessions"
+    value === "open-agent-sessions" ||
+    value === "trace-commons"
   ) {
     return value;
   }
@@ -102,7 +103,7 @@ export function readDataset(value: string | undefined): PublicTrajectoryDataset 
   ) {
     return "pi";
   }
-  throw new Error("--dataset must be: swe-smith, dataclaw, pi, open-agent-sessions");
+  throw new Error("--dataset must be: swe-smith, dataclaw, pi, open-agent-sessions, trace-commons");
 }
 
 export function readPublicSplit(value: string | undefined): PublicTrajectorySplit {

@@ -175,11 +175,21 @@ The same canonical import path now supports richer external session corpora too:
 
 ```bash
 pnpm trajectory:import --dataset dataclaw --split train --limit 5
+pnpm trajectory:import --dataset trace-commons --split train --limit 5 --dry-run
 ```
 
 That path imports `woctordho/dataclaw`, normalizes each session into the shared
 `ImportedSession` shape, then compiles deterministic replay bundles under
 `.aperture/lab/bundles/public/dataclaw`.
+The `trace-commons` path imports
+[`trace-commons/agent-traces`](https://huggingface.co/datasets/trace-commons/agent-traces)
+through the same Lab-only path, preserving harness, message, tool-call, and
+trace-count provenance while keeping raw trace bulk out of replay steps.
+Trace Commons is useful real-world agent-session pressure data, but its own
+dataset card warns that anonymization is best effort; treat imported bundles as
+review candidates, not automatically safe calibration truth.
+The Hugging Face rows API caps one request at 100 rows, so page larger runs with
+`--offset` and `--limit` rather than asking for one large pull.
 
 To point F-Stop at a known raw export file directly, use:
 
@@ -189,8 +199,8 @@ pnpm lab:fstop:ingest --file /absolute/path/to/raw-export.jsonl --json
 
 This writes replayable bundles under `.aperture/lab/bundles/raw` by default.
 The raw-file ingest path currently accepts supported SWE-smith rows, DataClaw
-rows, Pi-family rows/JSONL exports, OpenAgentSessions rows, and OpenAgentSessions JSONL event
-logs.
+rows, Pi-family rows/JSONL exports, OpenAgentSessions rows, OpenAgentSessions
+JSONL event logs, and Trace Commons rows or rows payloads.
 It also writes canonical F-Stop Session files under `.aperture/lab/sessions`
 so raw imports have one stable intermediate shape before replay.
 

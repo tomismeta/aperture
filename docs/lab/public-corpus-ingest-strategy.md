@@ -23,15 +23,34 @@ The goal is to:
 
 The first public corpus to bring in should be:
 
-1. `woctordho/dataclaw`
-2. `OpenAgentSessions`
-3. `peteromallet/dataclaw-peteromallet`
-4. `di-zhang-fdu/ShareDataClaw`
+1. `trace-commons/agent-traces`
+2. `woctordho/dataclaw`
+3. `OpenAgentSessions`
+4. `peteromallet/dataclaw-peteromallet`
+5. `di-zhang-fdu/ShareDataClaw`
 
-## Why DataClaw Comes First
+## Why Trace Commons Comes First Now
+
+`trace-commons/agent-traces` is the strongest near-term Lab pressure corpus
+because it is agent-native rather than benchmark-transcript-only.
+
+It gives us:
+
+- real coding-agent sessions
+- harness labels across current agent tools
+- user prompts, assistant messages, tool calls, and command output
+- raw trace counts and source-file provenance
+- enough messiness to stress semantic interpretation and attention judgment
+
+It should be imported as review material only. The dataset is public and
+anonymized, but its own publication notes treat anonymization as best effort.
+That means Trace Commons bundles should remain `redacted: true`, locally
+inspectable, and promotion-gated.
+
+## Why DataClaw Still Matters
 
 Now that Lab has a canonical `ImportedSession` layer, `woctordho/dataclaw`
-is the best next import target because it gives us much more volume while
+remains a strong backbone corpus because it gives us much more volume while
 still preserving the structure F-Stop actually needs.
 
 It gives us:
@@ -127,6 +146,18 @@ Recommended landing path:
 
 These bundles should be deterministic imports, not copies of the raw session.
 
+Recommended landing path for Trace Commons:
+
+- `.aperture/lab/bundles/public/trace-commons/train`
+
+Trace Commons imports should preserve message/tool-call boundaries and compact
+trace metadata, but they should not turn every opaque raw trace event into a
+replay step.
+Because the Hugging Face rows API caps one request at 100 rows, larger Trace
+Commons runs should page with explicit offsets. Lab bundles should also record
+the canonical source identity, a row digest, privacy posture, and license scope
+instead of preserving temporary conversion paths.
+
 The importer should:
 
 - preserve source provenance
@@ -198,6 +229,9 @@ fixtures.
 The importer should map OpenAgentSessions into the same replay and review shape
 Lab already uses for public trajectory imports.
 
+Trace Commons follows the same conversion model, with source-specific parsing
+for Hugging Face rows from `trace-commons/agent-traces`.
+
 Recommended conversion model:
 
 1. Parse the JSONL into a typed session timeline.
@@ -240,7 +274,8 @@ The first goal is to pressure-test:
 
 ## Why This Helps The Semantic Layer
 
-OpenAgentSessions is especially good for semantic work because it preserves:
+Trace Commons and OpenAgentSessions are especially good for semantic work
+because they preserve:
 
 - the user ask
 - the assistant response
@@ -283,23 +318,27 @@ That keeps the comparison centered on:
 
 ## Recommended Next Build
 
-The first implementation slice should be:
+The current implementation slice should be:
 
-1. add `dataclaw` as a public trajectory dataset id
-2. fetch rows from `woctordho/dataclaw`
+1. add `trace-commons` as a public trajectory dataset id
+2. fetch rows from `trace-commons/agent-traces`
 3. normalize each session into the canonical `ImportedSession` shape
-4. write deterministic bundles under `packages/lab/bundles/public/dataclaw`
+4. write deterministic bundles under `.aperture/lab/bundles/public/trace-commons/train`
 5. run those bundles through `pnpm lab:fstop:review`
 6. promote only repeated high-confidence disagreements
 
-## After DataClaw
+## After Trace Commons
 
 The next corpus priorities should be:
 
+### `woctordho/dataclaw`
+
+Still valuable as a higher-volume backbone corpus with structured tool uses and
+outputs.
+
 ### `OpenAgentSessions`
 
-Second priority because it is still the highest-fidelity raw publication model,
-and it is especially good for:
+High-fidelity raw publication model, especially good for:
 
 - importer hardening
 - fixture-quality replay cases

@@ -19,6 +19,11 @@ import {
   readSweSmithSplit,
 } from "./public-trajectories-swe-smith.js";
 import {
+  createSessionBundleFromTraceCommonsRow,
+  fetchTraceCommonsRows,
+  readTraceCommonsSplit,
+} from "./public-trajectories-trace-commons.js";
+import {
   DEFAULT_PUBLIC_TRAJECTORY_BUNDLES_DIR,
   type ImportPublicTrajectoryBundlesOptions,
   type ImportedTrajectoryBundle,
@@ -71,6 +76,14 @@ export {
   parseSweSmithMessages,
   parseSweSmithRowsResponse,
 } from "./public-trajectories-swe-smith.js";
+export {
+  createImportedSessionFromTraceCommonsRow,
+  createReplayScenarioFromTraceCommonsRow,
+  createSessionBundleFromTraceCommonsRow,
+  defaultTraceCommonsBundleSource,
+  fetchTraceCommonsRows,
+  parseTraceCommonsRowsResponse,
+} from "./public-trajectories-trace-commons.js";
 
 export async function importPublicTrajectoryBundles(
   options: ImportPublicTrajectoryBundlesOptions = {},
@@ -86,6 +99,8 @@ export async function importPublicTrajectoryBundles(
       throw new Error("Pi imports currently require a local raw file via importTrajectoryBundlesFromFile or --file.");
     case "open-agent-sessions":
       return importOpenAgentSessionsBundles(dataset, options);
+    case "trace-commons":
+      return importTraceCommonsBundles(dataset, options);
     default:
       return assertUnsupportedDataset(dataset);
   }
@@ -180,6 +195,43 @@ async function importOpenAgentSessionsBundles(
 
   for (const row of rows) {
     const bundle = createSessionBundleFromOpenAgentSessionsRow(row, {
+      split,
+      ...(options.exportedAt !== undefined ? { exportedAt: options.exportedAt } : {}),
+    });
+    const filePath = defaultImportedTrajectoryBundlePath(
+      bundle,
+      dataset,
+      split,
+      options.outputDirectory ?? DEFAULT_PUBLIC_TRAJECTORY_BUNDLES_DIR,
+    );
+
+    if (!options.dryRun) {
+      await writeSessionBundle(filePath, bundle);
+    }
+
+    imported.push({
+      dataset,
+      split,
+      row,
+      recordId: row.session_id,
+      bundle,
+      filePath,
+    });
+  }
+
+  return imported;
+}
+
+async function importTraceCommonsBundles(
+  dataset: Extract<PublicTrajectoryDataset, "trace-commons">,
+  options: ImportPublicTrajectoryBundlesOptions,
+): Promise<ImportedTrajectoryBundle[]> {
+  const split = readTraceCommonsSplit(options.split ?? defaultPublicTrajectorySplit(dataset));
+  const rows = await fetchTraceCommonsRows({ ...options, split });
+  const imported: ImportedTrajectoryBundle[] = [];
+
+  for (const row of rows) {
+    const bundle = createSessionBundleFromTraceCommonsRow(row, {
       split,
       ...(options.exportedAt !== undefined ? { exportedAt: options.exportedAt } : {}),
     });

@@ -155,7 +155,7 @@ function printUsage(): void {
     "Options:",
     "  --file <path>                        Autodetect a session bundle JSON, precomputed batch report JSON, or supported raw export file",
     "  --bundle <path>                      Review an explicit session bundle (repeatable)",
-    "  --dataset <swe-smith|dataclaw|open-agent-sessions>  Public dataset to import (default: swe-smith)",
+    "  --dataset <swe-smith|dataclaw|open-agent-sessions|trace-commons>  Public dataset to import (default: swe-smith)",
     "  --split <tool|xml|ticks|train|approved>             Dataset split to import (default: dataset-specific)",
     "  --offset <number>                    Row offset in the dataset",
     "  --limit <number>                     Number of rows to import",
@@ -180,10 +180,15 @@ function readProvider(value: string | undefined): Provider {
 }
 
 function readDataset(value: string | undefined): PublicTrajectoryDataset {
-  if (value === "swe-smith" || value === "dataclaw" || value === "open-agent-sessions") {
+  if (
+    value === "swe-smith" ||
+    value === "dataclaw" ||
+    value === "open-agent-sessions" ||
+    value === "trace-commons"
+  ) {
     return value;
   }
-  throw new Error("--dataset must be: swe-smith, dataclaw, open-agent-sessions");
+  throw new Error("--dataset must be: swe-smith, dataclaw, open-agent-sessions, trace-commons");
 }
 
 function readSplit(value: string | undefined): PublicTrajectorySplit {

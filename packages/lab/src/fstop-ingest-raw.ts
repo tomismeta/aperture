@@ -8,6 +8,7 @@ import {
   parseOpenAgentSessionsJsonlText,
   parsePiRow,
   parseSweSmithRowsResponse,
+  parseTraceCommonsRowsResponse,
   type DataclawRow,
   type OpenAgentSessionsEvent,
   type OpenAgentSessionsMetadata,
@@ -16,35 +17,24 @@ import {
   type PublicTrajectoryDataset,
   type PublicTrajectorySplit,
   type SweSmithTrajectoryRow,
+  type TraceCommonsRow,
 } from "./public-trajectories.js";
 import { isRecord } from "./shape.js";
 import type { ImportTrajectoryBundlesFromFileOptions } from "./fstop-ingest.js";
 
+type RawTrajectoryRecordFor<D extends PublicTrajectoryDataset, R> = {
+  dataset: D;
+  row: R;
+  split: PublicTrajectorySplit;
+  recordId: string;
+};
+
 export type RawTrajectoryRecord =
-  | {
-      dataset: "swe-smith";
-      row: SweSmithTrajectoryRow;
-      split: PublicTrajectorySplit;
-      recordId: string;
-    }
-  | {
-      dataset: "dataclaw";
-      row: DataclawRow;
-      split: PublicTrajectorySplit;
-      recordId: string;
-    }
-  | {
-      dataset: "pi";
-      row: PiRow;
-      split: PublicTrajectorySplit;
-      recordId: string;
-    }
-  | {
-      dataset: "open-agent-sessions";
-      row: OpenAgentSessionsRow;
-      split: PublicTrajectorySplit;
-      recordId: string;
-    };
+  | RawTrajectoryRecordFor<"swe-smith", SweSmithTrajectoryRow>
+  | RawTrajectoryRecordFor<"dataclaw", DataclawRow>
+  | RawTrajectoryRecordFor<"pi", PiRow>
+  | RawTrajectoryRecordFor<"open-agent-sessions", OpenAgentSessionsRow>
+  | RawTrajectoryRecordFor<"trace-commons", TraceCommonsRow>;
 
 export async function loadRawTrajectoryRecords(
   filePath: string,
@@ -101,6 +91,9 @@ async function parseRawJsonValue(
             recordId: parsed.session_id,
           };
         });
+    }
+    if (datasetHint === "trace-commons" || (!datasetHint && looksLikeRowsResponseForDataset(value, "trace-commons"))) {
+      return parseTraceCommonsRowsResponse(value).map((row) => createTraceCommonsRecord(row, splitHint));
     }
   }
 
@@ -252,6 +245,10 @@ async function parseRawRecord(
     };
   }
 
+  if (datasetHint === "trace-commons") {
+    return createTraceCommonsRecord(parseSingleTraceCommonsRow(value), splitHint);
+  }
+
   if (looksLikeDataclawRow(value)) {
     const row = parseSingleDataclawRow(value);
     return {
@@ -292,8 +289,12 @@ async function parseRawRecord(
     };
   }
 
+  if (looksLikeTraceCommonsRow(value)) {
+    return createTraceCommonsRecord(parseSingleTraceCommonsRow(value), splitHint);
+  }
+
   throw new Error(
-    `Unsupported raw trajectory ${label}: expected a SWE-smith row, DataClaw row, Pi row, OpenAgentSessions row, or a supported raw JSONL event log.`,
+    `Unsupported raw trajectory ${label}: expected a SWE-smith row, DataClaw row, Pi row, OpenAgentSessions row, Trace Commons row, or a supported raw JSONL event log.`,
   );
 }
 
@@ -311,6 +312,22 @@ function parseSingleSweSmithRow(value: Record<string, unknown>): SweSmithTraject
 
 function parseSinglePiRow(value: Record<string, unknown>): PiRow {
   return parsePiRow(value);
+}
+
+function parseSingleTraceCommonsRow(value: Record<string, unknown>): TraceCommonsRow {
+  return parseTraceCommonsRowsResponse({ rows: [{ row: value }] })[0]!;
+}
+
+function createTraceCommonsRecord(
+  row: TraceCommonsRow,
+  splitHint: PublicTrajectorySplit | undefined,
+): Extract<RawTrajectoryRecord, { dataset: "trace-commons" }> {
+  return {
+    dataset: "trace-commons",
+    row,
+    split: resolveSplit("trace-commons", splitHint),
+    recordId: row.session_id,
+  };
 }
 
 async function normalizeOpenAgentSessionsRow(
@@ -460,6 +477,9 @@ function looksLikeRowsResponseForDataset(
   if (dataset === "pi") {
     return looksLikePiRow(row);
   }
+  if (dataset === "trace-commons") {
+    return looksLikeTraceCommonsRow(row);
+  }
   return looksLikeOpenAgentSessionsRow(row);
 }
 
@@ -491,6 +511,16 @@ function looksLikePiRow(value: Record<string, unknown>): boolean {
     && typeof value.session_id === "string"
     && typeof value.file_name === "string"
     && Array.isArray(value.traces)
+  );
+}
+
+function looksLikeTraceCommonsRow(value: Record<string, unknown>): boolean {
+  return (
+    typeof value.harness === "string"
+    && typeof value.session_id === "string"
+    && Array.isArray(value.messages)
+    && Array.isArray(value.tools)
+    && Array.isArray(value.trace)
   );
 }
 

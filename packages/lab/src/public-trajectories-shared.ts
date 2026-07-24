@@ -10,6 +10,7 @@ import {
   DEFAULT_PI_SPLIT,
   DEFAULT_PUBLIC_TRAJECTORY_BUNDLES_DIR,
   DEFAULT_SWE_SMITH_SPLIT,
+  DEFAULT_TRACE_COMMONS_SPLIT,
   type PublicTrajectoryDataset,
   type PublicTrajectorySplit,
 } from "./public-trajectories-types.js";
@@ -46,6 +47,9 @@ export function defaultPublicTrajectorySplit(
   }
   if (dataset === "open-agent-sessions") {
     return DEFAULT_OPEN_AGENT_SESSIONS_SPLIT;
+  }
+  if (dataset === "trace-commons") {
+    return DEFAULT_TRACE_COMMONS_SPLIT;
   }
   return DEFAULT_SWE_SMITH_SPLIT;
 }

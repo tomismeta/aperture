@@ -162,7 +162,7 @@ For bounded VPS or lab-VM corpus runs, use the corpus runner instead of a
 manual offset loop:
 
 ```bash
-pnpm lab:corpus:run --dataset trace-commons --split train --max-rows 500 --page-size 50 --runtime-root /srv/aperture-lab --run-id trace-commons-smoke
+pnpm lab:corpus:run --dataset trace-commons --split train --max-rows 100 --page-size 5 --runtime-root /srv/aperture-lab --run-id trace-commons-smoke
 ```
 
 The runner writes deterministic bundles through the existing public trajectory
@@ -172,6 +172,10 @@ ledger root: it preserves dataset, split, offsets, limits, progress, ledger
 paths, source privacy posture, license scope, and aggregate integrity digests.
 The companion `records.jsonl` ledger preserves per-row bundle paths and row
 digests. The run artifact does not preserve raw public trace rows.
+The immutable run plan also records the exact decompressed response-byte cap.
+The default is 64 MiB; reduce `--page-size` first when a page exceeds it, or use
+`--max-response-bytes` up to the 128 MiB safety ceiling for a single unusually
+large row.
 
 The normalized bundles are still review artifacts, not public-safe fixtures by
 default. They can retain prompts, assistant messages, tool names, and

@@ -5,6 +5,7 @@ import {
 } from "./public-trajectories-types.js";
 import { TRACE_COMMONS_ROWS_PAGE_LIMIT } from "./public-corpus-trace-commons-source.js";
 import {
+  MAX_PUBLIC_CORPUS_RESPONSE_BYTES,
   type PublicCorpusDataset,
   type PublicCorpusExistingPolicy,
   type PublicCorpusRunPlan,
@@ -17,6 +18,7 @@ export function createPublicCorpusRunPlan(input: {
   maxRows: number;
   pageSize: number;
   requestTimeoutSeconds: number;
+  maxResponseBytes: number;
   maxRetries: number;
   existing: PublicCorpusExistingPolicy;
   dryRun: boolean;
@@ -41,6 +43,15 @@ export function createPublicCorpusRunPlan(input: {
   if (!Number.isSafeInteger(input.requestTimeoutSeconds) || input.requestTimeoutSeconds <= 0) {
     throw new Error("--request-timeout-seconds must be a positive integer");
   }
+  if (
+    !Number.isSafeInteger(input.maxResponseBytes) ||
+    input.maxResponseBytes <= 0 ||
+    input.maxResponseBytes > MAX_PUBLIC_CORPUS_RESPONSE_BYTES
+  ) {
+    throw new Error(
+      `--max-response-bytes must be between 1 and ${MAX_PUBLIC_CORPUS_RESPONSE_BYTES}`,
+    );
+  }
   if (!Number.isSafeInteger(input.maxRetries) || input.maxRetries < 0) {
     throw new Error("--max-retries must be a non-negative safe integer");
   }
@@ -52,6 +63,7 @@ export function createPublicCorpusRunPlan(input: {
     maxRows: input.maxRows,
     pageSize: input.pageSize,
     requestTimeoutSeconds: input.requestTimeoutSeconds,
+    maxResponseBytes: input.maxResponseBytes,
     maxRetries: input.maxRetries,
     existing: input.existing,
     mirrorRaw: false,

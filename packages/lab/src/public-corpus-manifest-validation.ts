@@ -7,6 +7,7 @@ import {
   TRACE_COMMONS_AGENT_TRACES_DATASET,
 } from "./public-trajectories-types.js";
 import {
+  MAX_PUBLIC_CORPUS_RESPONSE_BYTES,
   TRACE_COMMONS_DATASET_URL,
   type PublicCorpusRunManifest,
   type PublicCorpusRunPlan,
@@ -73,6 +74,8 @@ function isPublicCorpusRunPlan(value: unknown): value is PublicCorpusRunPlan {
     isPositiveInteger(plan.pageSize) &&
     plan.pageSize <= 100 &&
     isPositiveInteger(plan.requestTimeoutSeconds) &&
+    isPositiveInteger(plan.maxResponseBytes) &&
+    plan.maxResponseBytes <= MAX_PUBLIC_CORPUS_RESPONSE_BYTES &&
     isNonNegativeInteger(plan.maxRetries) &&
     (plan.existing === "verify" || plan.existing === "error" || plan.existing === "skip") &&
     plan.mirrorRaw === false &&

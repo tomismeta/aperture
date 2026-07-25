@@ -40,6 +40,9 @@ async function readResponseTextWithLimit(
         chunks.push(value);
       }
     }
+  } catch (error) {
+    await reader.cancel().catch(() => undefined);
+    throw error;
   } finally {
     signal.removeEventListener("abort", cancelReader);
     reader.releaseLock();

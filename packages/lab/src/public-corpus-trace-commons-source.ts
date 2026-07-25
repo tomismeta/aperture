@@ -20,6 +20,7 @@ export type TraceCommonsPageRequest = {
   offset: number;
   limit: number;
   timeoutMs: number;
+  maxBytes: number;
   maxRetries: number;
   fetch?: PublicCorpusFetchLike;
   sleep?: PublicCorpusSleep;
@@ -47,6 +48,7 @@ export async function fetchTraceCommonsPage(
     `${HUGGING_FACE_DATASETS_SERVER}/rows?${query.toString()}`,
     {
       timeoutMs: request.timeoutMs,
+      maxBytes: request.maxBytes,
       maxRetries: request.maxRetries,
       ...(request.fetch ? { fetch: request.fetch } : {}),
       ...(request.sleep ? { sleep: request.sleep } : {}),

@@ -25,6 +25,8 @@ export const DEFAULT_PUBLIC_CORPUS_PAGE_SIZE = 25 as const;
 export const DEFAULT_PUBLIC_CORPUS_MAX_ROWS = 100 as const;
 export const DEFAULT_PUBLIC_CORPUS_TIMEOUT_SECONDS = 30 as const;
 export const DEFAULT_PUBLIC_CORPUS_MAX_RETRIES = 2 as const;
+export const DEFAULT_PUBLIC_CORPUS_MAX_RESPONSE_BYTES = 67_108_864 as const;
+export const MAX_PUBLIC_CORPUS_RESPONSE_BYTES = 134_217_728 as const;
 
 export type PublicCorpusDataset = "trace-commons";
 export type PublicCorpusExistingPolicy = "verify" | "error" | "skip";
@@ -43,6 +45,7 @@ export type PublicCorpusRunPlan = {
   maxRows: number;
   pageSize: number;
   requestTimeoutSeconds: number;
+  maxResponseBytes: number;
   maxRetries: number;
   existing: PublicCorpusExistingPolicy;
   mirrorRaw: false;
@@ -236,6 +239,7 @@ export function renderPublicCorpusRunMarkdown(manifest: PublicCorpusRunManifest)
     `- Upstream: ${manifest.source.upstream}`,
     `- Upstream URL: ${manifest.source.upstreamUrl}`,
     `- Reproducibility: ${manifest.source.reproducibility}`,
+    `- Response byte budget: ${manifest.plan.maxResponseBytes}`,
     `- Privacy: ${manifest.privacy.classification}; ${manifest.privacy.redactionPosture}`,
     `- License scope: ${manifest.privacy.licenseScope}`,
     "",

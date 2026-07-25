@@ -189,13 +189,17 @@ trace-count provenance while keeping raw trace bulk out of replay steps.
 Trace Commons is useful real-world agent-session pressure data, but its own
 dataset card warns that anonymization is best effort; treat imported bundles as
 review candidates, not automatically safe calibration truth.
-The Hugging Face rows API caps one request at 100 rows, so page larger runs with
-`--offset` and `--limit` rather than asking for one large pull.
+The Hugging Face rows API caps one request at 100 rows, and Trace Commons rows
+are bulky. Page larger runs with `--offset`, `--max-rows`, and `--page-size`
+rather than asking for one large pull. The corpus runner records its exact
+decompressed response byte budget in the manifest. Prefer reducing
+`--page-size` when a page exceeds the 64 MiB default; for an unusually large
+row, `--max-response-bytes` can raise the cap to at most 134217728 bytes.
 
 For VPS/lab-VM corpus harvesting, prefer the bounded corpus runner:
 
 ```bash
-pnpm lab:corpus:run --dataset trace-commons --split train --max-rows 500 --page-size 50 --runtime-root /srv/aperture-lab --run-id trace-commons-smoke
+pnpm lab:corpus:run --dataset trace-commons --split train --max-rows 100 --page-size 5 --runtime-root /srv/aperture-lab --run-id trace-commons-smoke
 ```
 
 This pages public trajectories through the same canonical import path, writes

@@ -5,6 +5,8 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  DEFAULT_PUBLIC_CORPUS_MAX_RESPONSE_BYTES,
+  MAX_PUBLIC_CORPUS_RESPONSE_BYTES,
   fetchJsonWithPolicy,
   isPublicCorpusRunManifest,
   renderPublicCorpusRunMarkdown,
@@ -14,6 +16,7 @@ import {
   type TraceCommonsPageRequest,
   type TraceCommonsRow,
 } from "../src/index.js";
+import { PUBLIC_CORPUS_RUN_SCHEMA_VERSION } from "../src/artifact-versions.js";
 import { parseCorpusRunArgs } from "../src/fstop-cli-args-corpus.js";
 import { runCorpusRunCli } from "../src/fstop-cli-corpus.js";
 import { digestJsonValue } from "../src/public-corpus-manifest.js";
@@ -52,6 +55,10 @@ test("runPublicCorpusImport writes manifest and record ledger without raw rows",
     calls.map((call) => call.limit),
     [2, 2],
   );
+  assert.deepEqual(
+    calls.map((call) => call.maxBytes),
+    [DEFAULT_PUBLIC_CORPUS_MAX_RESPONSE_BYTES, DEFAULT_PUBLIC_CORPUS_MAX_RESPONSE_BYTES],
+  );
   assert.ok(result.manifestPath);
   assert.ok(result.markdownPath);
   assert.ok(result.recordsPath);
@@ -59,7 +66,8 @@ test("runPublicCorpusImport writes manifest and record ledger without raw rows",
 
   const manifestText = await readFile(result.manifestPath!, "utf8");
   const manifest = JSON.parse(manifestText) as PublicCorpusRunManifest;
-  assert.equal(manifest.schemaVersion, 1);
+  assert.equal(manifest.schemaVersion, PUBLIC_CORPUS_RUN_SCHEMA_VERSION);
+  assert.equal(manifest.plan.maxResponseBytes, DEFAULT_PUBLIC_CORPUS_MAX_RESPONSE_BYTES);
   assert.equal(manifest.artifacts.bundleRoot, path.join(runtimeRoot, "bundles", "public"));
   assert.match(manifest.integrity.recordsDigest ?? "", /^sha256:[a-f0-9]{64}$/);
   assert.match(manifest.integrity.bundleSetDigest ?? "", /^sha256:[a-f0-9]{64}$/);
@@ -511,6 +519,11 @@ test("runPublicCorpusImport rejects same-offset non-identical ledger entries", a
 test("runPublicCorpusImport rejects invalid exported plan options", async () => {
   await assert.rejects(() => runPublicCorpusImport({ offset: -1 }), /offset/);
   await assert.rejects(() => runPublicCorpusImport({ maxRows: 1.5 }), /max-rows/);
+  await assert.rejects(() => runPublicCorpusImport({ maxResponseBytes: 0 }), /max-response-bytes/);
+  await assert.rejects(
+    () => runPublicCorpusImport({ maxResponseBytes: MAX_PUBLIC_CORPUS_RESPONSE_BYTES + 1 }),
+    /max-response-bytes/,
+  );
   await assert.rejects(() => runPublicCorpusImport({ maxRetries: -1 }), /max-retries/);
   await assert.rejects(
     () => runPublicCorpusImport({ offset: Number.MAX_SAFE_INTEGER, maxRows: 1 }),
@@ -541,6 +554,12 @@ test("manifest validation rejects unsafe integers and impossible cursor advance"
   unsafePlan.plan.maxRows = Number.MAX_SAFE_INTEGER + 1;
   assert.equal(isPublicCorpusRunManifest(unsafePlan), false);
 
+  const unsafeResponseBytes = JSON.parse(
+    JSON.stringify(result.manifest),
+  ) as PublicCorpusRunManifest;
+  unsafeResponseBytes.plan.maxResponseBytes = MAX_PUBLIC_CORPUS_RESPONSE_BYTES + 1;
+  assert.equal(isPublicCorpusRunManifest(unsafeResponseBytes), false);
+
   const unsafeUpperBound = JSON.parse(JSON.stringify(result.manifest)) as PublicCorpusRunManifest;
   unsafeUpperBound.plan.startOffset = Number.MAX_SAFE_INTEGER;
   unsafeUpperBound.plan.maxRows = 1;
@@ -568,6 +587,7 @@ test("runPublicCorpusImport plan mode performs no network or writes", async () =
       plan: true,
       maxRows: 10,
       pageSize: 5,
+      maxResponseBytes: 12_345_678,
       runtimeRoot: "/srv/aperture-lab",
       exportedAt: "2026-03-28T00:00:00.000Z",
     },
@@ -580,6 +600,7 @@ test("runPublicCorpusImport plan mode performs no network or writes", async () =
 
   assert.equal(result.manifest.status, "planned");
   assert.equal(result.manifest.progress.rowsFetched, 0);
+  assert.equal(result.manifest.plan.maxResponseBytes, 12_345_678);
   assert.equal(result.manifest.runtime.runtimeRoot, "/srv/aperture-lab");
   assert.equal(result.manifestPath, undefined);
   assert.equal(result.bundlePaths.length, 0);
@@ -590,6 +611,11 @@ test("parseCorpusRunArgs allows resume plus json without runner overrides", () =
   assert.equal(options.resumeManifestPath, "/tmp/manifest.json");
   assert.equal(options.json, true);
   assert.equal(options.split, undefined);
+});
+
+test("parseCorpusRunArgs accepts explicit response byte budget", () => {
+  const options = parseCorpusRunArgs(["--max-response-bytes", "12345678"]);
+  assert.equal(options.maxResponseBytes, 12_345_678);
 });
 
 test("runCorpusRun CLI resume options can be passed to the runner", async () => {
@@ -663,15 +689,28 @@ test("fetchJsonWithPolicy retries retryable responses", async () => {
 });
 
 test("fetchJsonWithPolicy bounds response bodies", async () => {
+  let cancelled = false;
   await assert.rejects(
     fetchJsonWithPolicy("https://example.test/rows", {
       timeoutMs: 1000,
       maxRetries: 0,
       maxBytes: 4,
-      fetch: async () => new Response(JSON.stringify({ too: "large" }), { status: 200 }),
+      fetch: async () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode(JSON.stringify({ too: "large" })));
+            },
+            cancel() {
+              cancelled = true;
+            },
+          }),
+          { status: 200 },
+        ),
     }),
     /exceeded 4 bytes/,
   );
+  assert.equal(cancelled, true);
 });
 
 test("fetchJsonWithPolicy aborts stalled response bodies", async () => {
@@ -696,6 +735,7 @@ test("fetchJsonWithPolicy aborts stalled response bodies", async () => {
 test("parseCorpusRunArgs rejects loose integers, missing values, and resume overrides", () => {
   assert.throws(() => parseCorpusRunArgs(["--max-rows", "10x"]), /positive integer/);
   assert.throws(() => parseCorpusRunArgs(["--page-size", "1.5"]), /positive integer/);
+  assert.throws(() => parseCorpusRunArgs(["--max-response-bytes", "1.5"]), /positive integer/);
   assert.throws(() => parseCorpusRunArgs(["--runtime-root"]), /requires a value/);
   assert.throws(
     () => parseCorpusRunArgs(["--resume", "/tmp/manifest.json", "--plan"]),

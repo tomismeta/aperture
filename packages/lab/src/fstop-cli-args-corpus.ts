@@ -57,6 +57,11 @@ export function parseCorpusRunArgs(argv: string[]): CorpusRunCliOptions {
           positive: true,
         });
         break;
+      case "--max-response-bytes":
+        options.maxResponseBytes = readStrictInteger(readFlagValue(argv, ++index, arg), arg, {
+          positive: true,
+        });
+        break;
       case "--max-retries":
         options.maxRetries = readStrictInteger(readFlagValue(argv, ++index, arg), arg, {
           positive: false,

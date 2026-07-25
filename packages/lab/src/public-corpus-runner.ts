@@ -72,6 +72,7 @@ export async function runPublicCorpusImport(
         offset: pageOffset,
         limit: pageLimit,
         timeoutMs: manifest.plan.requestTimeoutSeconds * 1000,
+        maxBytes: manifest.plan.maxResponseBytes,
         maxRetries: manifest.plan.maxRetries,
         ...(dependencies.fetch ? { fetch: dependencies.fetch } : {}),
         ...(dependencies.sleep ? { sleep: dependencies.sleep } : {}),

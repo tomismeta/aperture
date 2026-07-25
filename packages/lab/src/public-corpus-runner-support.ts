@@ -8,6 +8,7 @@ import {
 import { defaultLabRuntimeRoot } from "./runtime-paths.js";
 import {
   DEFAULT_PUBLIC_CORPUS_MAX_RETRIES,
+  DEFAULT_PUBLIC_CORPUS_MAX_RESPONSE_BYTES,
   DEFAULT_PUBLIC_CORPUS_MAX_ROWS,
   DEFAULT_PUBLIC_CORPUS_PAGE_SIZE,
   DEFAULT_PUBLIC_CORPUS_TIMEOUT_SECONDS,
@@ -55,6 +56,7 @@ export type PublicCorpusRunOptions = {
   plan?: boolean;
   existing?: PublicCorpusExistingPolicy;
   requestTimeoutSeconds?: number;
+  maxResponseBytes?: number;
   maxRetries?: number;
   resumeManifestPath?: string;
 };
@@ -100,6 +102,7 @@ export async function resolvePublicCorpusRun(
     maxRows: options.maxRows ?? DEFAULT_PUBLIC_CORPUS_MAX_ROWS,
     pageSize: options.pageSize ?? DEFAULT_PUBLIC_CORPUS_PAGE_SIZE,
     requestTimeoutSeconds: options.requestTimeoutSeconds ?? DEFAULT_PUBLIC_CORPUS_TIMEOUT_SECONDS,
+    maxResponseBytes: options.maxResponseBytes ?? DEFAULT_PUBLIC_CORPUS_MAX_RESPONSE_BYTES,
     maxRetries: options.maxRetries ?? DEFAULT_PUBLIC_CORPUS_MAX_RETRIES,
     existing: options.existing ?? "verify",
     dryRun: options.dryRun ?? false,

@@ -378,6 +378,7 @@ export function printCorpusRunUsage(): void {
       "  --run-id <id>                   Stable run id for repeatable VPS jobs",
       "  --resume <manifest-path>        Resume an incomplete run from its manifest",
       "  --request-timeout-seconds <n>   Fetch timeout per request (default: 30)",
+      "  --max-response-bytes <number>   Decompressed response cap, max 134217728 (default: 67108864)",
       "  --max-retries <number>          Retry budget for retryable fetch failures (default: 2)",
       "  --existing <verify|error|skip>  Existing bundle policy (default: verify)",
       "  --plan                          Build the manifest plan without network or writes",

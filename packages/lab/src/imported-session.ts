@@ -3,6 +3,7 @@ import type { SourceEvent } from "@tomismeta/aperture-core";
 import { IMPORTED_SESSION_SCHEMA_VERSION } from "./artifact-versions.js";
 import type { ReplayArtifactSource, ReplayScenario } from "./scenario.js";
 import { createSessionBundleFromScenario, type ReplaySessionBundle } from "./session-bundle.js";
+import type { CreateSessionBundleOptions } from "./session-bundle-model.js";
 export { IMPORTED_SESSION_SCHEMA_VERSION } from "./artifact-versions.js";
 
 export type ImportedSessionRole = "system" | "user" | "assistant" | "tool";
@@ -94,6 +95,7 @@ export function createSessionBundleFromImportedSession(
   options: {
     exportedAt?: string;
     source?: ImportedSessionSource;
+    replayTimeSource?: CreateSessionBundleOptions["replayTimeSource"];
   } = {},
 ): ReplaySessionBundle {
   const scenario = createReplayScenarioFromImportedSession(session);
@@ -103,5 +105,8 @@ export function createSessionBundleFromImportedSession(
       ? { source: options.source ?? session.source }
       : {}),
     ...(options.exportedAt !== undefined ? { exportedAt: options.exportedAt } : {}),
+    ...(options.replayTimeSource !== undefined
+      ? { replayTimeSource: options.replayTimeSource }
+      : {}),
   });
 }

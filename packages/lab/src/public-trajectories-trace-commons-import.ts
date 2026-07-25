@@ -241,7 +241,11 @@ export function createImportedSessionFromTraceCommonsRow(
         lastToolFamily = toolFamily;
       }
       const toolResultText = readTraceCommonsToolResultText(message);
-      const toolResultStatus = inferTraceCommonsToolResultStatus(message, toolResultText, toolFamily);
+      const toolResultStatus = inferTraceCommonsToolResultStatus(
+        message,
+        toolResultText,
+        toolFamily,
+      );
       if (!toolResultText && toolResultStatus === "running") {
         continue;
       }
@@ -250,7 +254,7 @@ export function createImportedSessionFromTraceCommonsRow(
       entries.push({
         index: entries.length,
         timestamp,
-        ...(message.tool_call_id ?? message.toolCallId
+        ...((message.tool_call_id ?? message.toolCallId)
           ? { toolCallId: message.tool_call_id ?? message.toolCallId }
           : {}),
         role: "tool",
@@ -334,9 +338,16 @@ export function createSessionBundleFromTraceCommonsRow(
   const session = createImportedSessionFromTraceCommonsRow(row, { split });
   const bundle = createSessionBundleFromImportedSession(session, {
     source: defaultTraceCommonsBundleSource(row, split),
-    ...(options.exportedAt !== undefined ? { exportedAt: options.exportedAt } : {}),
+    exportedAt: options.exportedAt ?? session.importedAt,
+    replayTimeSource: deterministicReplayTimeSource(session.importedAt),
   });
   return validateImportedTrajectoryBundle(bundle);
+}
+
+function deterministicReplayTimeSource(startIso: string): () => number {
+  const startMs = Date.parse(startIso);
+  let tick = 0;
+  return () => startMs + tick++;
 }
 
 export function defaultTraceCommonsBundleSource(

@@ -117,6 +117,41 @@ test("runPublicCorpusImport stops at an empty page by default", async () => {
   assert.equal(result.markdownPath, undefined);
 });
 
+test("runPublicCorpusImport verifies existing bundles across run timestamps", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "aperture-corpus-run-existing-"));
+  const runtimeRoot = path.join(directory, "runtime");
+  const fetchPage = async (request: TraceCommonsPageRequest): Promise<TraceCommonsRow[]> =>
+    createTraceCommonsRows(request.offset, request.limit);
+
+  await runPublicCorpusImport(
+    {
+      maxRows: 1,
+      pageSize: 1,
+      runtimeRoot,
+      runId: "existing-first",
+      exportedAt: "2026-03-28T00:00:00.000Z",
+    },
+    { fetchPage },
+  );
+
+  const second = await runPublicCorpusImport(
+    {
+      maxRows: 1,
+      pageSize: 1,
+      runtimeRoot,
+      runId: "existing-second",
+      exportedAt: "2026-04-01T00:00:00.000Z",
+    },
+    { fetchPage },
+  );
+
+  assert.equal(second.manifest.status, "completed");
+  assert.equal(second.manifest.progress.rowsImported, 1);
+  const recordLines = (await readFile(second.recordsPath!, "utf8")).trim().split("\n");
+  const record = JSON.parse(recordLines[0]!) as Record<string, unknown>;
+  assert.equal(record.status, "verified_existing");
+});
+
 test("runPublicCorpusImport checkpoints trusted empty ledger digests before fetch", async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "aperture-corpus-run-prefetch-"));
   const runtimeRoot = path.join(directory, "runtime");

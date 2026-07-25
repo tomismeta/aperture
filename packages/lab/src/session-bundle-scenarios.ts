@@ -18,8 +18,12 @@ export function createSessionBundle(
     schemaVersion: SESSION_BUNDLE_SCHEMA_VERSION,
     sessionId: options.sessionId ?? result.scenario.id,
     title: result.scenario.title,
-    ...(result.scenario.description !== undefined ? { description: result.scenario.description } : {}),
-    ...(result.scenario.doctrineTags !== undefined ? { doctrineTags: result.scenario.doctrineTags } : {}),
+    ...(result.scenario.description !== undefined
+      ? { description: result.scenario.description }
+      : {}),
+    ...(result.scenario.doctrineTags !== undefined
+      ? { doctrineTags: result.scenario.doctrineTags }
+      : {}),
     ...(options.source !== undefined ? { source: options.source } : {}),
     exportedAt: options.exportedAt ?? new Date().toISOString(),
     ...(result.scenario.core !== undefined ? { core: result.scenario.core } : {}),
@@ -39,7 +43,17 @@ export function createSessionBundleFromScenario(
   scenario: ReplayScenario,
   options: CreateSessionBundleOptions = {},
 ): ReplaySessionBundle {
-  return createSessionBundle(runReplayScenario(scenario), options);
+  if (!options.replayTimeSource) {
+    return createSessionBundle(runReplayScenario(scenario), options);
+  }
+  const replayScenario: ReplayScenario = {
+    ...scenario,
+    core: {
+      ...(scenario.core ?? {}),
+      timeSource: options.replayTimeSource,
+    },
+  };
+  return createSessionBundle({ ...runReplayScenario(replayScenario), scenario }, options);
 }
 
 export function createScenarioFromSessionBundle(

@@ -12,6 +12,7 @@ import {
   canonicalAttentionExportToScenario,
   createScenarioFromSessionBundle,
   createSessionBundle,
+  createSessionBundleFromScenario,
   createSessionBundleFromCanonicalAttentionExport,
   createRuntimeSessionCaptureCursor,
   createSessionBundleFromRuntimeCapture,
@@ -121,6 +122,47 @@ test("session bundles capture replay outputs and normalized source events", () =
     isKernelDecisionRecordFingerprint(bundle.decisionSnapshots[0]?.decisionRecordFingerprint),
   );
   assert.equal(bundle.outcomes.finalNowInteractionId, "interaction:bundle:1");
+});
+
+test("session bundle replay clock override is not persisted as core posture", () => {
+  const replayTimestamp = "2026-03-21T18:31:10.000Z";
+  const scenario: ReplayScenario = {
+    id: "bundle:clock",
+    title: "Clocked bundle replay",
+    steps: [
+      {
+        kind: "publishSource",
+        event: {
+          id: "src:bundle:clock",
+          taskId: "task:bundle:clock",
+          interactionId: "interaction:bundle:clock",
+          timestamp: "2026-03-21T18:30:00.000Z",
+          source: {
+            id: "paperclip",
+            kind: "human",
+            label: "Paperclip",
+          },
+          type: "human.input.requested",
+          title: "Approve deploy",
+          summary: "A deploy approval is waiting.",
+          request: {
+            kind: "approval",
+          },
+        },
+      },
+    ],
+  };
+
+  const bundle = createSessionBundleFromScenario(scenario, {
+    sessionId: "session:bundle:clock",
+    exportedAt: "2026-03-21T18:31:00.000Z",
+    replayTimeSource: () => Date.parse(replayTimestamp),
+  });
+
+  assert.ok(bundle.traces.length > 0);
+  assert.equal(bundle.traces[0]?.timestamp, replayTimestamp);
+  assert.equal(bundle.core, undefined);
+  assert.ok(!JSON.stringify(bundle).includes("replayTimeSource"));
 });
 
 test("session bundles can replay back into the same final attention outcome", () => {

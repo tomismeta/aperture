@@ -72,7 +72,6 @@ async function importTraceCommonsCorpusRow(input: {
     });
     const bundle = createSessionBundleFromTraceCommonsRow(input.row, {
       split: input.manifest.plan.split,
-      exportedAt: input.manifest.createdAt,
     });
     const bundlePath = defaultImportedTrajectoryBundlePath(
       bundle,

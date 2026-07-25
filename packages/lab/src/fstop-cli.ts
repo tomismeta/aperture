@@ -7,14 +7,9 @@ import {
   runSweepCli,
 } from "./fstop-cli-autoresearch.js";
 import { runGcCli } from "./fstop-cli-gc.js";
-import {
-  runIngestCli,
-  runTrajectoryImportCli,
-} from "./fstop-cli-ingest.js";
-import {
-  runCalibrationCli,
-  runReviewCli,
-} from "./fstop-cli-review.js";
+import { runIngestCli, runTrajectoryImportCli } from "./fstop-cli-ingest.js";
+import { runCorpusRunCli } from "./fstop-cli-corpus.js";
+import { runCalibrationCli, runReviewCli } from "./fstop-cli-review.js";
 import { runWorkflowSummaryCli } from "./fstop-cli-summary.js";
 import { printTopLevelUsage } from "./fstop-cli-usage.js";
 
@@ -62,6 +57,10 @@ export async function runFStopCli(argv: string[]): Promise<void> {
       return;
     case "trajectory-import":
       await runTrajectoryImportCli(rest);
+      return;
+    case "corpus-run":
+    case "corpus":
+      await runCorpusRunCli(rest);
       return;
     case "--help":
     case "-h":

@@ -67,6 +67,53 @@ export {
   DEFAULT_LAB_RUNTIME_ROOT,
 } from "./runtime-paths.js";
 export {
+  DEFAULT_PUBLIC_CORPUS_BUNDLES_DIR,
+  DEFAULT_PUBLIC_CORPUS_MAX_RETRIES,
+  DEFAULT_PUBLIC_CORPUS_MAX_ROWS,
+  DEFAULT_PUBLIC_CORPUS_PAGE_SIZE,
+  DEFAULT_PUBLIC_CORPUS_RUNS_DIR,
+  DEFAULT_PUBLIC_CORPUS_TIMEOUT_SECONDS,
+  appendPublicCorpusRecord,
+  defaultPublicCorpusBundleRoot,
+  defaultPublicCorpusRunId,
+  defaultPublicCorpusRunRoot,
+  renderPublicCorpusRunMarkdown,
+  writePublicCorpusRunManifestAtomic,
+  writePublicCorpusRunMarkdownAtomic,
+  type PublicCorpusDataset,
+  type PublicCorpusExistingPolicy,
+  type PublicCorpusRecordLedgerEntry,
+  type PublicCorpusRunManifest,
+  type PublicCorpusRunPlan,
+  type PublicCorpusRunStatus,
+} from "./public-corpus-manifest.js";
+export {
+  isPublicCorpusRunManifest,
+  readPublicCorpusRunManifest,
+} from "./public-corpus-manifest-validation.js";
+export {
+  reconcilePublicCorpusLedger,
+  type PublicCorpusLedgerSnapshot,
+} from "./public-corpus-ledger.js";
+export {
+  fetchJsonWithPolicy,
+  type PublicCorpusFetchLike,
+  type PublicCorpusFetchPolicy,
+  type PublicCorpusSleep,
+} from "./public-corpus-fetch-policy.js";
+export {
+  TRACE_COMMONS_ROWS_PAGE_LIMIT,
+  fetchTraceCommonsPage,
+  type TraceCommonsPageFetcher,
+  type TraceCommonsPageRequest,
+} from "./public-corpus-trace-commons-source.js";
+export {
+  runPublicCorpusImport,
+  type PublicCorpusRunDependencies,
+  type PublicCorpusRunOptions,
+  type PublicCorpusRunResult,
+} from "./public-corpus-runner.js";
+export {
   acquireAutoresearchProcessLock,
   isAutoresearchProcessAlive,
   readAutoresearchProcessLock,

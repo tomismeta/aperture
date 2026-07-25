@@ -48,6 +48,8 @@
     "lab:fstop:reviewer": "tsx scripts/fstop.ts reviewer",
     "lab:fstop:workflow-summary": "tsx scripts/fstop.ts workflow-summary",
     "lab:fstop:campaign": "tsx scripts/fstop.ts campaign",
+    "lab:corpus:run": "tsx scripts/fstop.ts corpus-run",
+    "lab:fstop:corpus": "tsx scripts/fstop.ts corpus-run",
     "lab:fstop:campaign:hermes": "tsx scripts/fstop.ts campaign --provider hermes --reviewer-provider hermes --optimizer-provider hermes",
     "lab:fstop:campaign:openclaw": "tsx scripts/fstop.ts campaign --provider openclaw --reviewer-provider openclaw --optimizer-provider openclaw",
     "lab:fstop:gc": "tsx scripts/fstop.ts gc",

@@ -23,6 +23,7 @@ Normal operator commands:
 - `pnpm lab:fstop:sweep ...`
 - `pnpm lab:fstop:campaign ...`
 - `pnpm lab:fstop:service ...`
+- `pnpm lab:corpus:run ...`
 
 Lower-level debugging commands:
 
@@ -190,6 +191,28 @@ dataset card warns that anonymization is best effort; treat imported bundles as
 review candidates, not automatically safe calibration truth.
 The Hugging Face rows API caps one request at 100 rows, so page larger runs with
 `--offset` and `--limit` rather than asking for one large pull.
+
+For VPS/lab-VM corpus harvesting, prefer the bounded corpus runner:
+
+```bash
+pnpm lab:corpus:run --dataset trace-commons --split train --max-rows 500 --page-size 50 --runtime-root /srv/aperture-lab --run-id trace-commons-smoke
+```
+
+This pages public trajectories through the same canonical import path, writes
+bundles under the selected runtime root's `bundles/public` directory, and
+records a manifest plus operator report under
+`<runtime-root>/corpus-runs/<run-id>`. The manifest keeps run posture, progress,
+ledger paths, and aggregate integrity digests; `records.jsonl` keeps per-row
+bundle paths and row digests. The run artifact does not copy raw public rows.
+Use `--dry-run` locally when checking a slice shape without writing bundles or
+manifests. Use `--plan` for a no-network, no-write preflight, and
+`--resume <manifest-path>` to continue an incomplete VPS run from its last
+recorded offset.
+
+Even though corpus runs do not mirror raw public rows, the normalized replay
+bundles still retain prompts, assistant messages, tool names, and outcome-bearing
+tool output. Treat VPS artifacts as sensitive Lab review material until a human
+has approved any promotion.
 
 To point F-Stop at a known raw export file directly, use:
 

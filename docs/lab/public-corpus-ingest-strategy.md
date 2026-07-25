@@ -158,6 +158,26 @@ Commons runs should page with explicit offsets. Lab bundles should also record
 the canonical source identity, a row digest, privacy posture, and license scope
 instead of preserving temporary conversion paths.
 
+For bounded VPS or lab-VM corpus runs, use the corpus runner instead of a
+manual offset loop:
+
+```bash
+pnpm lab:corpus:run --dataset trace-commons --split train --max-rows 500 --page-size 50 --runtime-root /srv/aperture-lab --run-id trace-commons-smoke
+```
+
+The runner writes deterministic bundles through the existing public trajectory
+importers and records an auditable manifest/report under
+`<runtime-root>/corpus-runs/<run-id>`. That manifest is the durable intake
+ledger root: it preserves dataset, split, offsets, limits, progress, ledger
+paths, source privacy posture, license scope, and aggregate integrity digests.
+The companion `records.jsonl` ledger preserves per-row bundle paths and row
+digests. The run artifact does not preserve raw public trace rows.
+
+The normalized bundles are still review artifacts, not public-safe fixtures by
+default. They can retain prompts, assistant messages, tool names, and
+outcome-bearing tool output, so any promotion into committed calibration data
+requires human privacy/license review.
+
 The importer should:
 
 - preserve source provenance
@@ -324,8 +344,9 @@ The current implementation slice should be:
 2. fetch rows from `trace-commons/agent-traces`
 3. normalize each session into the canonical `ImportedSession` shape
 4. write deterministic bundles under `.aperture/lab/bundles/public/trace-commons/train`
-5. run those bundles through `pnpm lab:fstop:review`
-6. promote only repeated high-confidence disagreements
+5. page bounded corpus runs with `pnpm lab:corpus:run`
+6. run those bundles through `pnpm lab:fstop:review`
+7. promote only repeated high-confidence disagreements
 
 ## After Trace Commons
 

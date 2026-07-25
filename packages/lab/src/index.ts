@@ -165,7 +165,12 @@ export {
   runPerturbedJudgmentBench,
 } from "./perturbation.js";
 export { renderJudgmentBenchMarkdown } from "./report.js";
-export { createWorkflowSummaryReport, renderWorkflowSummaryMarkdown } from "./workflow-summary.js";
+export {
+  createWorkflowSummaryReport,
+  createWorkflowSummaryReportFromSessions,
+  renderWorkflowSummaryMarkdown,
+  summarizeWorkflowSession,
+} from "./workflow-summary.js";
 export {
   executePromptCommand,
   runFStopRolePrompt,

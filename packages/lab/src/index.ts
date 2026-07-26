@@ -118,6 +118,16 @@ export {
   type PublicCorpusRunResult,
 } from "./public-corpus-runner.js";
 export {
+  prunePublicCorpusBundles,
+  type PublicCorpusPruneOptions,
+  type PublicCorpusPruneReport,
+} from "./public-corpus-prune.js";
+export {
+  isVerifiedPublicCorpusBundleRecord,
+  readVerifiedPublicCorpusManifestRecords,
+  type VerifiedPublicCorpusBundleRecord,
+} from "./public-corpus-verified-records.js";
+export {
   acquireAutoresearchProcessLock,
   isAutoresearchProcessAlive,
   readAutoresearchProcessLock,

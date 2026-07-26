@@ -33,6 +33,7 @@ export function printTopLevelUsage(): void {
       "  optimizer         Read an optimizer prompt on stdin and delegate to a configured provider",
       "  trajectory-import Import public trajectory bundles into the runtime bundle format",
       "  corpus-run        Run bounded public corpus import batches with manifests",
+      "  corpus-prune      Prune public corpus bundles not referenced by completed manifests",
     ].join("\n") + "\n",
   );
 }
@@ -407,6 +408,25 @@ export function printCorpusRunUsage(): void {
       "  --dry-run                       Fetch and convert without writing bundle or manifest files",
       "  --json                          Emit machine-readable JSON",
       "  --help, -h                      Show this message",
+    ].join("\n") + "\n",
+  );
+}
+
+export function printCorpusPruneUsage(): void {
+  process.stdout.write(
+    [
+      "Usage: pnpm lab:corpus:prune --manifest <path> [options]",
+      "",
+      "Audits public corpus bundle files against completed run manifests and prunes previously verified stale files only when --apply is explicit.",
+      "",
+      "Options:",
+      "  --manifest <path>           Desired completed manifest JSON (repeatable)",
+      "  --previous-manifest <path>  Previous completed manifest whose matching stale bundles may be deleted (repeatable)",
+      "  --bundle-root <path>        Bundle root to scan (default: single bundleRoot from manifests)",
+      "  --apply                     Delete verified stale bundle files; omitted means dry-run",
+      "  --dry-run                   Audit without deleting files",
+      "  --json                      Emit machine-readable JSON",
+      "  --help, -h                  Show this message",
     ].join("\n") + "\n",
   );
 }

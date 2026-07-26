@@ -1,13 +1,13 @@
-import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-import { digestPublicCorpusLedgerEntries } from "./public-corpus-ledger-format.js";
 import {
   digestJsonValue,
-  type PublicCorpusRecordLedgerEntry,
-  type PublicCorpusRunManifest,
 } from "./public-corpus-manifest.js";
 import { readPublicCorpusRunManifest } from "./public-corpus-manifest-validation.js";
+import {
+  isVerifiedPublicCorpusBundleRecord,
+  readVerifiedPublicCorpusManifestRecords,
+} from "./public-corpus-verified-records.js";
 import {
   findSessionBundleFiles,
   loadSessionBundleIfValid,
@@ -34,11 +34,11 @@ export async function resolveCandidateBundleInputs(options: {
   for (const manifestPath of options.manifestPaths) {
     const resolvedManifestPath = path.resolve(manifestPath);
     const manifest = await readPublicCorpusRunManifest(resolvedManifestPath);
-    const records = await readVerifiedManifestRecords(manifest);
+    const records = await readVerifiedPublicCorpusManifestRecords(manifest);
     manifestRecordCount += records.length;
 
     for (const record of records) {
-      if (!isVerifiedBundleManifestRecord(record)) {
+      if (!isVerifiedPublicCorpusBundleRecord(record)) {
         continue;
       }
       manifestBundleCount += 1;
@@ -88,92 +88,6 @@ export async function loadCandidateBundleIfValid(
   return bundle;
 }
 
-async function readVerifiedManifestRecords(
-  manifest: PublicCorpusRunManifest,
-): Promise<PublicCorpusRecordLedgerEntry[]> {
-  assertCompletedManifestIntegrity(manifest);
-
-  const [records, errors] = await Promise.all([
-    readPublicCorpusRecordLedgerReadOnly(manifest.artifacts.recordsPath),
-    readPublicCorpusRecordLedgerReadOnly(manifest.artifacts.errorsPath),
-  ]);
-  const recordsDigest = digestPublicCorpusLedgerEntries(records);
-  const errorsDigest = digestPublicCorpusLedgerEntries(errors);
-
-  if (manifest.integrity.recordsDigest !== recordsDigest) {
-    throw new Error(`Public corpus records digest mismatch: ${manifest.artifacts.recordsPath}`);
-  }
-  if (manifest.integrity.errorsDigest !== errorsDigest) {
-    throw new Error(`Public corpus errors digest mismatch: ${manifest.artifacts.errorsPath}`);
-  }
-
-  verifyManifestBundleSetDigest(manifest, records);
-  assertManifestRecordsAreLoadVerifiable(records);
-  return records;
-}
-
-async function readPublicCorpusRecordLedgerReadOnly(
-  filePath: string,
-): Promise<PublicCorpusRecordLedgerEntry[]> {
-  const text = await readFile(filePath, "utf8");
-  const entries: PublicCorpusRecordLedgerEntry[] = [];
-  const lines = text.split("\n");
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index]?.trim();
-    if (!line) {
-      continue;
-    }
-    const parsed = JSON.parse(line) as unknown;
-    if (!isPublicCorpusRecordLedgerEntry(parsed)) {
-      throw new Error(`Invalid public corpus ledger entry in ${filePath}:${index + 1}`);
-    }
-    entries.push(parsed);
-  }
-  return entries;
-}
-
-function assertCompletedManifestIntegrity(manifest: PublicCorpusRunManifest): void {
-  if (manifest.status !== "completed") {
-    throw new Error(`Public corpus manifest is not completed: ${manifest.artifacts.manifestPath}`);
-  }
-  if (!manifest.integrity.recordsDigest) {
-    throw new Error(`Public corpus manifest lacks recordsDigest: ${manifest.artifacts.manifestPath}`);
-  }
-  if (!manifest.integrity.errorsDigest) {
-    throw new Error(`Public corpus manifest lacks errorsDigest: ${manifest.artifacts.manifestPath}`);
-  }
-  if (!manifest.integrity.bundleSetDigest) {
-    throw new Error(
-      `Public corpus manifest lacks bundleSetDigest: ${manifest.artifacts.manifestPath}`,
-    );
-  }
-}
-
-function verifyManifestBundleSetDigest(
-  manifest: PublicCorpusRunManifest,
-  records: PublicCorpusRecordLedgerEntry[],
-): void {
-  const bundleSetDigest = digestJsonValue(
-    records.flatMap((record) => (record.bundleDigest ? [record.bundleDigest] : [])).sort(),
-  );
-  if (manifest.integrity.bundleSetDigest !== bundleSetDigest) {
-    throw new Error(`Public corpus bundle set digest mismatch: ${manifest.artifacts.recordsPath}`);
-  }
-}
-
-function assertManifestRecordsAreLoadVerifiable(
-  records: PublicCorpusRecordLedgerEntry[],
-): void {
-  for (const record of records) {
-    if (!isManifestLoadStatus(record.status) || !record.bundlePath) {
-      continue;
-    }
-    if (!record.bundleDigest) {
-      throw new Error(`Public corpus record lacks bundleDigest: ${record.recordId}`);
-    }
-  }
-}
-
 function verifyBundleDigest(input: CandidateBundleInput, bundle: ReplaySessionBundle): void {
   if (!input.record?.bundleDigest) {
     return;
@@ -183,39 +97,4 @@ function verifyBundleDigest(input: CandidateBundleInput, bundle: ReplaySessionBu
   if (bundleDigest !== input.record.bundleDigest) {
     throw new Error(`Public corpus bundle digest mismatch: ${input.bundlePath}`);
   }
-}
-
-function isVerifiedBundleManifestRecord(
-  record: PublicCorpusRecordLedgerEntry,
-): record is PublicCorpusRecordLedgerEntry & {
-  bundlePath: string;
-  bundleDigest: `sha256:${string}`;
-} {
-  return (
-    (record.status === "written" || record.status === "verified_existing") &&
-    typeof record.bundlePath === "string" &&
-    typeof record.bundleDigest === "string"
-  );
-}
-
-function isManifestLoadStatus(status: string): boolean {
-  return status === "written" || status === "verified_existing";
-}
-
-function isPublicCorpusRecordLedgerEntry(value: unknown): value is PublicCorpusRecordLedgerEntry {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-  const record = value as PublicCorpusRecordLedgerEntry;
-  return (
-    Number.isSafeInteger(record.offset) &&
-    record.offset >= 0 &&
-    Number.isSafeInteger(record.rowIndex) &&
-    record.rowIndex >= 0 &&
-    typeof record.recordId === "string" &&
-    typeof record.sourceIdentity === "string" &&
-    typeof record.rowDigest === "string" &&
-    record.rowDigest.startsWith("sha256:") &&
-    typeof record.status === "string"
-  );
 }

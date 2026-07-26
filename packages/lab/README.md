@@ -213,6 +213,18 @@ manifests. Use `--plan` for a no-network, no-write preflight, and
 `--resume <manifest-path>` to continue an incomplete VPS run from its last
 recorded offset.
 
+To audit or clean a refreshed manifest-backed corpus scope, use:
+
+```bash
+pnpm lab:corpus:prune --manifest /path/to/desired/manifest.json --previous-manifest /path/to/previous/manifest.json --json
+```
+
+This defaults to preview. Add `--apply` only when the report is acceptable.
+The prune command scans the manifest dataset/split scope, keeps desired manifest
+bundles, and deletes only stale files whose current digest matches a previous
+verified manifest. Unmanaged files are reported and retained, so ad hoc
+DataClaw/live-loop bundles are never removed by a Trace Commons manifest.
+
 Even though corpus runs do not mirror raw public rows, the normalized replay
 bundles still retain prompts, assistant messages, tool names, and outcome-bearing
 tool output. Treat VPS artifacts as sensitive Lab review material until a human

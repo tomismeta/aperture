@@ -14,7 +14,14 @@ export {
   parseSweepArgs,
 } from "./fstop-cli-args-autoresearch.js";
 export { parseIngestArgs, parseTrajectoryImportArgs } from "./fstop-cli-args-ingest.js";
-export { parseCorpusRunArgs, type CorpusRunCliOptions } from "./fstop-cli-args-corpus.js";
+export {
+  parseCorpusRunArgs,
+  type CorpusRunCliOptions,
+} from "./fstop-cli-args-corpus.js";
+export {
+  parseCorpusPruneArgs,
+  type CorpusPruneCliOptions,
+} from "./fstop-cli-args-corpus-prune.js";
 export {
   parseGcArgs,
   parseOptimizeArgs,

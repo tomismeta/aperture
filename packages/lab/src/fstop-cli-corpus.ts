@@ -1,8 +1,13 @@
 import path from "node:path";
 
 import { runPublicCorpusImport, type PublicCorpusRunDependencies } from "./public-corpus-runner.js";
-import { parseCorpusRunArgs } from "./fstop-cli-args.js";
+import { prunePublicCorpusBundles } from "./public-corpus-prune.js";
+import {
+  parseCorpusPruneArgs,
+  parseCorpusRunArgs,
+} from "./fstop-cli-args.js";
 import type { CorpusRunCliOptions } from "./fstop-cli-args-corpus.js";
+import type { CorpusPruneCliOptions } from "./fstop-cli-args-corpus-prune.js";
 
 export async function runCorpusRunCli(
   argv: string[],
@@ -36,9 +41,40 @@ export async function runCorpusRunCli(
   }
 }
 
+export async function runCorpusPruneCli(argv: string[]): Promise<void> {
+  const options = parseCorpusPruneArgs(argv);
+  const report = await prunePublicCorpusBundles(toPruneOptions(options));
+
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    return;
+  }
+
+  const mode = report.mode === "apply" ? "Deleted" : "Would delete";
+  process.stdout.write(
+    `${mode} ${report.deletableBundleCount} verified stale public corpus bundle${report.deletableBundleCount === 1 ? "" : "s"} under ${path.relative(process.cwd(), report.scopeRoot)}.\n`,
+  );
+  process.stdout.write(
+    `Desired: ${report.desiredBundleCount}; previous: ${report.previousBundleCount}; scanned: ${report.scannedBundleCount}; stale: ${report.staleBundleCount}; unmanaged retained: ${report.retainedUnmanagedBundleCount}; drifted previous retained: ${report.retainedDriftedPreviousBundleCount}.\n`,
+  );
+  if (report.deletableBundlePaths.length > 0) {
+    process.stdout.write("Deletable bundles:\n");
+    for (const bundlePath of report.deletableBundlePaths) {
+      process.stdout.write(`- ${path.relative(process.cwd(), bundlePath)}\n`);
+    }
+  }
+}
+
 function toRunnerOptions(
   options: CorpusRunCliOptions,
 ): Parameters<typeof runPublicCorpusImport>[0] {
   const { json: _json, ...runnerOptions } = options;
   return runnerOptions;
+}
+
+function toPruneOptions(
+  options: CorpusPruneCliOptions,
+): Parameters<typeof prunePublicCorpusBundles>[0] {
+  const { json: _json, ...pruneOptions } = options;
+  return pruneOptions;
 }

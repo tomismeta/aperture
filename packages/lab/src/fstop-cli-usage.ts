@@ -19,6 +19,7 @@ export function printTopLevelUsage(): void {
       "  sweep             Run a repeatable multi-lane unattended sweep",
       "  ingest            Normalize a raw export or canonical session into replay bundles",
       "  workflow-summary  Summarize workflow, approvals, runners, and usage from session bundles",
+      "  review-candidates Extract deterministic semantic review candidates from bundles",
       "  gc                Prune old runtime campaigns and artifacts",
       "  optimize          Run one bounded optimizer attempt against calibration cases",
       "  prepare           Prepare an offline-review artifact from a replay bundle",
@@ -211,6 +212,27 @@ export function printWorkflowSummaryUsage(): void {
       "  --output <path>       Write markdown summary to this path",
       "  --json                Emit the summary report as machine-readable JSON",
       "  --help, -h            Show this message",
+    ].join("\n") + "\n",
+  );
+}
+
+export function printReviewCandidateUsage(): void {
+  process.stdout.write(
+    [
+      "Usage: pnpm tsx scripts/fstop.ts review-candidates (--manifest <path> | --bundle <path> | --bundle-dir <path>) [options]",
+      "",
+      "Extracts deterministic semantic and judgment review candidates from replay session bundles.",
+      "",
+      "Options:",
+      "  --manifest <path>             Public corpus run manifest JSON to scan through its verified ledger (repeatable)",
+      "  --bundle <path>               Session bundle JSON file to scan (repeatable)",
+      "  --bundle-dir <path>           Directory of session bundles to scan recursively (repeatable)",
+      "  --limit-per-kind <number>     Retained examples per candidate kind (default: 30)",
+      "  --limit-per-session-kind <n>   Retained examples per session per kind (default: 3)",
+      "  --output <path>               Write candidate report JSON to this path",
+      "  --markdown-output <path>      Write markdown summary to this path",
+      "  --json                        Emit the report paths and payload as machine-readable JSON",
+      "  --help, -h                    Show this message",
     ].join("\n") + "\n",
   );
 }

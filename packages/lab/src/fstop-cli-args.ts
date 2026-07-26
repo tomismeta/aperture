@@ -22,6 +22,10 @@ export {
   parseWorkflowSummaryArgs,
 } from "./fstop-cli-args-ops.js";
 export {
+  parseReviewCandidateArgs,
+  type ReviewCandidateCliOptions,
+} from "./fstop-cli-args-review-candidates.js";
+export {
   parseCalibrationArgs,
   type CalibrationCommand,
   type CalibrationOptions,

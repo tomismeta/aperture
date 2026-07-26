@@ -46,6 +46,7 @@
     "lab:fstop:review:openclaw": "APERTURE_OPENCLAW_REVIEW_TIMEOUT=60 tsx scripts/offline-review-batch.ts --dataset swe-smith --split tool --limit 3 --reviewer-provider openclaw",
     "lab:fstop:review:run": "tsx scripts/fstop.ts review-run",
     "lab:fstop:reviewer": "tsx scripts/fstop.ts reviewer",
+    "lab:fstop:review-candidates": "tsx scripts/fstop.ts review-candidates",
     "lab:fstop:workflow-summary": "tsx scripts/fstop.ts workflow-summary",
     "lab:fstop:campaign": "tsx scripts/fstop.ts campaign",
     "lab:corpus:run": "tsx scripts/fstop.ts corpus-run",

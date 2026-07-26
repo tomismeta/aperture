@@ -79,6 +79,7 @@ export {
   defaultPublicCorpusBundleRoot,
   defaultPublicCorpusRunId,
   defaultPublicCorpusRunRoot,
+  digestJsonValue,
   renderPublicCorpusRunMarkdown,
   writePublicCorpusRunManifestAtomic,
   writePublicCorpusRunMarkdownAtomic,
@@ -89,6 +90,7 @@ export {
   type PublicCorpusRunPlan,
   type PublicCorpusRunStatus,
 } from "./public-corpus-manifest.js";
+export { digestPublicCorpusLedgerEntries } from "./public-corpus-ledger-format.js";
 export {
   isPublicCorpusRunManifest,
   readPublicCorpusRunManifest,
@@ -171,6 +173,19 @@ export {
   renderWorkflowSummaryMarkdown,
   summarizeWorkflowSession,
 } from "./workflow-summary.js";
+export {
+  DEFAULT_SEMANTIC_REVIEW_CANDIDATE_RESULTS_DIR,
+  SEMANTIC_REVIEW_CANDIDATE_KINDS,
+  createSemanticReviewCandidateReport,
+  createSemanticReviewCandidateReportFromPaths,
+  defaultSemanticReviewCandidateReportPath,
+  renderSemanticReviewCandidateMarkdown,
+  writeSemanticReviewCandidateMarkdown,
+  writeSemanticReviewCandidateReport,
+  type SemanticReviewCandidate,
+  type SemanticReviewCandidateKind,
+  type SemanticReviewCandidateReport,
+} from "./semantic-review-candidates.js";
 export {
   executePromptCommand,
   runFStopRolePrompt,

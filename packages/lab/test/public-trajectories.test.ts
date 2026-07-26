@@ -284,6 +284,66 @@ const SAMPLE_DATACLAW_GLOB_ROW: DataclawRow = {
   ],
 };
 
+function createDataclawToolStatusRow(options: {
+  sessionId: string;
+  tool?: string;
+  input?: unknown;
+  output: unknown;
+  status: string | undefined;
+}): DataclawRow {
+  return {
+    ...SAMPLE_DATACLAW_ROW,
+    session_id: options.sessionId,
+    stats: {
+      ...SAMPLE_DATACLAW_ROW.stats,
+      tool_uses: 1,
+    },
+    messages: [
+      {
+        role: "user",
+        content: "Inspect src/client.ts before changing behavior.",
+        timestamp: "2026-03-28T00:00:10.000Z",
+      },
+      {
+        role: "assistant",
+        content: "I'll inspect the implementation first.",
+        timestamp: "2026-03-28T00:00:30.000Z",
+        tool_uses: [
+          {
+            tool: options.tool ?? "Read",
+            input: options.input ?? {
+              file_path: "/workspace/src/client.ts",
+            },
+            output: options.output,
+            ...(options.status !== undefined ? { status: options.status } : {}),
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function readDataclawSingleToolResult(row: DataclawRow): {
+  status?: string;
+  title?: string;
+  toolFamily?: string;
+  stepIndex?: number;
+  bundle: ReturnType<typeof createSessionBundleFromDataclawRow>;
+} {
+  const bundle = createSessionBundleFromDataclawRow(row);
+  const normalized = bundle.normalizedEvents.find(
+    (snapshot) => snapshot.stepLabel === "tool:result:1:0",
+  );
+  const event = normalized?.event;
+  return {
+    ...(event?.type === "task.updated"
+      ? { status: event.status, title: event.title, toolFamily: event.toolFamily }
+      : {}),
+    ...(normalized ? { stepIndex: normalized.stepIndex } : {}),
+    bundle,
+  };
+}
+
 const SAMPLE_OPEN_AGENT_SESSIONS_ROW: OpenAgentSessionsRow = {
   gist_id: "477f0d09356c895de92ea7b187d6f2fe",
   gist_url: "https://gist.github.com/lukaskawerau/477f0d09356c895de92ea7b187d6f2fe",
@@ -844,6 +904,181 @@ test("DataClaw Glob calls normalize to search through import, replay, and semant
     replayed.semantics.some((snapshot) => snapshot.interpretation.toolFamily === "search"),
     true,
   );
+});
+
+test("DataClaw failed Read status with line-numbered output imports as running readback", () => {
+  const row = createDataclawToolStatusRow({
+    sessionId: "323e4567-e89b-12d3-a456-426614174000",
+    output: {
+      text: "1→export async function request() {\n2→  return fetch('/api');\n3→}",
+    },
+    status: "failed",
+  });
+  const scenario = createReplayScenarioFromDataclawRow(row);
+  const readResultStep = scenario.steps.find(
+    (step) => step.kind === "publishSource" && step.label === "tool:result:1:0",
+  );
+
+  assert.equal(readResultStep?.kind, "publishSource");
+  assert.equal(
+    readResultStep?.kind === "publishSource" && readResultStep.event.type === "task.updated"
+      ? readResultStep.event.status
+      : undefined,
+    "running",
+  );
+  assert.equal(
+    readResultStep?.kind === "publishSource" && readResultStep.event.type === "task.updated"
+      ? readResultStep.event.title
+      : undefined,
+    "read observation",
+  );
+
+  const bundle = createSessionBundleFromDataclawRow(row);
+  const readResult = bundle.normalizedEvents.find(
+    (snapshot) =>
+      snapshot.event.type === "task.updated" &&
+      snapshot.event.summary?.includes("export async function request"),
+  );
+  const semantic = bundle.semanticSnapshots.find(
+    (snapshot) => snapshot.stepIndex === readResult?.stepIndex,
+  );
+  const decision = bundle.decisionSnapshots.find(
+    (snapshot) => snapshot.stepIndex === readResult?.stepIndex,
+  );
+  assert.equal(readResult?.event.type, "task.updated");
+  assert.equal(
+    readResult?.event.type === "task.updated" ? readResult.event.status : undefined,
+    "running",
+  );
+  assert.notEqual(semantic?.interpretation.intentFrame, "failure");
+  assert.notEqual(semantic?.interpretation.activityClass, "tool_failure");
+  assert.notEqual(semantic?.interpretation.consequence, "high");
+  assert.notEqual(decision?.resultLane, "now");
+});
+
+test("DataClaw observational status conflicts require affirmative success evidence", () => {
+  const cases = [
+    {
+      name: "error Read with line-numbered output",
+      tool: "Read",
+      status: "error",
+      output: { text: "1→export const ok = true;\n2→" },
+      expectedStatus: "running",
+      expectedTitle: "read observation",
+      expectedToolFamily: "read",
+    },
+    {
+      name: "Read with no status and error-like file content",
+      tool: "Read",
+      status: undefined,
+      output: { text: "1→export function failFast() {\n2→  throw new Error('bad');\n3→}" },
+      expectedStatus: "running",
+      expectedTitle: "read observation",
+      expectedToolFamily: "read",
+    },
+    {
+      name: "failed Read with explicit ENOENT error",
+      tool: "Read",
+      status: "failed",
+      output: { error: "ENOENT: no such file or directory, open '/workspace/src/client.ts'" },
+      expectedStatus: "failed",
+      expectedTitle: "read failure",
+      expectedToolFamily: "read",
+    },
+    {
+      name: "failed Read with mixed content and error",
+      tool: "Read",
+      status: "failed",
+      output: {
+        text: "1→export const partial = true;",
+        error: "Read was interrupted before completion.",
+      },
+      expectedStatus: "failed",
+      expectedTitle: "read failure",
+      expectedToolFamily: "read",
+    },
+    {
+      name: "cancelled Read with partial content",
+      tool: "Read",
+      status: "cancelled",
+      output: { text: "1→export const partial = true;" },
+      expectedStatus: "failed",
+      expectedTitle: "read failure",
+      expectedToolFamily: "read",
+    },
+    {
+      name: "rejected Read with partial content",
+      tool: "Read",
+      status: "rejected",
+      output: { text: "1→export const partial = true;" },
+      expectedStatus: "failed",
+      expectedTitle: "read failure",
+      expectedToolFamily: "read",
+    },
+    {
+      name: "failed Bash with line-numbered output",
+      tool: "Bash",
+      status: "failed",
+      output: { text: "1→export const partial = true;" },
+      expectedStatus: "failed",
+      expectedTitle: "bash failure",
+      expectedToolFamily: "bash",
+    },
+    {
+      name: "failed Edit with line-numbered output",
+      tool: "Edit",
+      status: "failed",
+      output: { text: "1→export const partial = true;" },
+      expectedStatus: "failed",
+      expectedTitle: "edit failure",
+      expectedToolFamily: "edit",
+    },
+    {
+      name: "failed Glob with structured files",
+      tool: "Glob",
+      input: { pattern: "**/*.ts" },
+      status: "failed",
+      output: { files: ["src/client.ts"] },
+      expectedStatus: "running",
+      expectedTitle: "search observation",
+      expectedToolFamily: "search",
+    },
+    {
+      name: "failed Search with explicit error",
+      tool: "Search",
+      input: { query: "request" },
+      status: "failed",
+      output: { error: "search index unavailable" },
+      expectedStatus: "failed",
+      expectedTitle: "search failure",
+      expectedToolFamily: "search",
+    },
+    {
+      name: "failed Read without output",
+      tool: "Read",
+      status: "failed",
+      output: undefined,
+      expectedStatus: "failed",
+      expectedTitle: "read failure",
+      expectedToolFamily: "read",
+    },
+  ] as const;
+
+  for (const [index, entry] of cases.entries()) {
+    const result = readDataclawSingleToolResult(
+      createDataclawToolStatusRow({
+        sessionId: `${500 + index}e4567-e89b-12d3-a456-426614174000`,
+        tool: entry.tool,
+        ...("input" in entry ? { input: entry.input } : {}),
+        output: entry.output,
+        status: entry.status,
+      }),
+    );
+
+    assert.equal(result.status, entry.expectedStatus, entry.name);
+    assert.equal(result.title, entry.expectedTitle, entry.name);
+    assert.equal(result.toolFamily, entry.expectedToolFamily, entry.name);
+  }
 });
 
 test("DataClaw imported bundle paths stay under the dataset and split tree", () => {

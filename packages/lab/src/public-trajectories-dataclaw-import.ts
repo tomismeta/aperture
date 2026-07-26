@@ -1,5 +1,3 @@
-import type { SourceEvent } from "@tomismeta/aperture-core";
-
 import { IMPORTED_SESSION_SCHEMA_VERSION } from "./artifact-versions.js";
 import {
   createReplayScenarioFromImportedSession,
@@ -15,7 +13,6 @@ import {
   clipText,
   coerceImportedTimestamp,
   inferAssistantStatus,
-  inferObservationStatus,
   normalizeToolFamily,
   readIssueTitle,
   slug,
@@ -33,6 +30,7 @@ import {
   type DataclawToolUse,
 } from "./public-trajectories-types.js";
 import { readDataclawSplit } from "./public-trajectories-dataclaw-fetch.js";
+import { inferDataclawToolResultStatus } from "./public-trajectories-dataclaw-status.js";
 
 const DEFAULT_SOURCE_KIND = "public-trajectory";
 
@@ -362,42 +360,6 @@ function readDataclawFirstPrompt(messages: DataclawMessage[]): string {
 
 function readDataclawMessageText(message: DataclawMessage): string {
   return typeof message.content === "string" ? message.content.trim() : "";
-}
-
-function inferDataclawToolResultStatus(
-  toolUse: DataclawToolUse,
-  text: string | null,
-  toolFamily?: string,
-): Extract<SourceEvent, { type: "task.updated" }>["status"] {
-  const normalizedStatus =
-    typeof toolUse.status === "string" ? toolUse.status.trim().toLowerCase() : "";
-
-  if (
-    normalizedStatus.includes("fail") ||
-    normalizedStatus.includes("error") ||
-    normalizedStatus.includes("cancel") ||
-    normalizedStatus.includes("reject")
-  ) {
-    return "failed";
-  }
-
-  if (
-    normalizedStatus.includes("wait") ||
-    normalizedStatus.includes("pending") ||
-    normalizedStatus.includes("running")
-  ) {
-    return "waiting";
-  }
-
-  if (text) {
-    return inferObservationStatus(text, toolFamily);
-  }
-
-  if (normalizedStatus.includes("success") || normalizedStatus.includes("complete")) {
-    return "running";
-  }
-
-  return "running";
 }
 
 function summarizeDataclawToolCall(toolUse: DataclawToolUse): string | null {

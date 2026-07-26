@@ -128,6 +128,49 @@ const SAMPLE_DATACLAW_GLOB_ROW: DataclawRow = {
   ],
 };
 
+function createDataclawReadStatusRow(options: {
+  sessionId: string;
+  output: unknown;
+  status: string;
+}): DataclawRow {
+  return {
+    session_id: options.sessionId,
+    source: "claude",
+    project: "demo-project",
+    model: "claude-sonnet-4",
+    start_time: "2026-03-28T00:00:00.000Z",
+    stats: {
+      user_messages: 1,
+      assistant_messages: 1,
+      tool_uses: 1,
+      input_tokens: 123,
+      output_tokens: 45,
+    },
+    messages: [
+      {
+        role: "user",
+        content: "Inspect src/client.ts before changing behavior.",
+        timestamp: "2026-03-28T00:00:10.000Z",
+      },
+      {
+        role: "assistant",
+        content: "I'll inspect the implementation first.",
+        timestamp: "2026-03-28T00:00:30.000Z",
+        tool_uses: [
+          {
+            tool: "Read",
+            input: {
+              file_path: "/workspace/src/client.ts",
+            },
+            output: options.output,
+            status: options.status,
+          },
+        ],
+      },
+    ],
+  };
+}
+
 test("semantic review candidate reports shortlist deterministic review pressure", async () => {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-"));
   const bundle = createSessionBundleFromSweSmithRow(SAMPLE_ROW);
@@ -234,6 +277,37 @@ test("semantic review candidate reports treat canonical DataClaw Glob usage as k
   );
   assert.equal(report.summary.countsByKind.tool_taxonomy_gap, 0);
   assert.equal(report.candidatesByKind.tool_taxonomy_gap.length, 0);
+});
+
+test("semantic review candidate reports do not treat DataClaw readback status mismatches as failures", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-readback-"));
+  const bundle = createSessionBundleFromDataclawRow(
+    createDataclawReadStatusRow({
+      sessionId: "323e4567-e89b-12d3-a456-426614174000",
+      output: {
+        text: "1→export async function request() {\n2→  return fetch('/api');\n3→}",
+      },
+      status: "failed",
+    }),
+  );
+  const bundlePath = path.join(tempDir, "bundle.json");
+  await writeSessionBundle(bundlePath, bundle);
+
+  const report = await createSemanticReviewCandidateReportFromPaths({
+    bundlePaths: [bundlePath],
+    generatedAt: "2026-04-27T00:00:00.000Z",
+    maxCandidatesPerKind: 2,
+    repoRoot: tempDir,
+  });
+
+  assert.equal(
+    bundle.semanticSnapshots.some(
+      (snapshot) => snapshot.interpretation.activityClass === "tool_failure",
+    ),
+    false,
+  );
+  assert.equal(report.summary.countsByKind.failure_attention, 0);
+  assert.equal(report.summary.countsByKind.high_consequence_attention, 0);
 });
 
 test("review-candidates CLI writes JSON and markdown reports", async () => {

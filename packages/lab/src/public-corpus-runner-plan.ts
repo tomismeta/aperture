@@ -1,19 +1,20 @@
 import { defaultPublicTrajectorySplit } from "./public-trajectories-shared.js";
-import {
-  type PublicTrajectoryDataset,
-  type TraceCommonsSplit,
-} from "./public-trajectories-types.js";
+import { type PublicTrajectoryDataset } from "./public-trajectories-types.js";
+import { DATACLAW_ROWS_PAGE_LIMIT } from "./public-corpus-dataclaw-source.js";
 import { TRACE_COMMONS_ROWS_PAGE_LIMIT } from "./public-corpus-trace-commons-source.js";
 import {
   MAX_PUBLIC_CORPUS_RESPONSE_BYTES,
   type PublicCorpusDataset,
   type PublicCorpusExistingPolicy,
   type PublicCorpusRunPlan,
+  type PublicCorpusSplit,
 } from "./public-corpus-manifest.js";
+
+export const DEFAULT_DATACLAW_PUBLIC_CORPUS_PAGE_SIZE = 1 as const;
 
 export function createPublicCorpusRunPlan(input: {
   dataset: PublicCorpusDataset;
-  split: TraceCommonsSplit;
+  split: PublicCorpusSplit;
   offset: number;
   maxRows: number;
   pageSize: number;
@@ -36,9 +37,11 @@ export function createPublicCorpusRunPlan(input: {
   if (
     !Number.isSafeInteger(input.pageSize) ||
     input.pageSize <= 0 ||
-    input.pageSize > TRACE_COMMONS_ROWS_PAGE_LIMIT
+    input.pageSize > publicCorpusPageLimit(input.dataset)
   ) {
-    throw new Error(`--page-size must be between 1 and ${TRACE_COMMONS_ROWS_PAGE_LIMIT}`);
+    throw new Error(
+      `--page-size must be between 1 and ${publicCorpusPageLimit(input.dataset)} for ${input.dataset}`,
+    );
   }
   if (!Number.isSafeInteger(input.requestTimeoutSeconds) || input.requestTimeoutSeconds <= 0) {
     throw new Error("--request-timeout-seconds must be a positive integer");
@@ -73,21 +76,34 @@ export function createPublicCorpusRunPlan(input: {
 }
 
 export function readSupportedCorpusDataset(value: PublicTrajectoryDataset): PublicCorpusDataset {
-  if (value === "trace-commons") {
+  if (value === "dataclaw" || value === "trace-commons") {
     return value;
   }
   throw new Error(
-    "corpus-run currently supports trace-commons only; use trajectory-import for one-page diagnostics.",
+    "corpus-run currently supports dataclaw and trace-commons; use trajectory-import for one-page diagnostics.",
   );
 }
 
-export function readTraceCommonsCorpusSplit(value: string | undefined): TraceCommonsSplit {
+export function readPublicCorpusSplit(
+  dataset: PublicCorpusDataset,
+  value: string | undefined,
+): PublicCorpusSplit {
   if (value === undefined || value === "train") {
     return value ?? "train";
   }
-  throw new Error("Trace Commons corpus runs support split: train");
+  throw new Error(`${dataset} corpus runs support split: train`);
 }
 
-export function defaultTraceCommonsCorpusSplit(dataset: PublicCorpusDataset): TraceCommonsSplit {
-  return readTraceCommonsCorpusSplit(defaultPublicTrajectorySplit(dataset));
+export function defaultPublicCorpusSplit(dataset: PublicCorpusDataset): PublicCorpusSplit {
+  return readPublicCorpusSplit(dataset, defaultPublicTrajectorySplit(dataset));
+}
+
+export function defaultPublicCorpusPageSize(dataset: PublicCorpusDataset): number {
+  return dataset === "dataclaw"
+    ? DEFAULT_DATACLAW_PUBLIC_CORPUS_PAGE_SIZE
+    : TRACE_COMMONS_ROWS_PAGE_LIMIT / 4;
+}
+
+function publicCorpusPageLimit(dataset: PublicCorpusDataset): number {
+  return dataset === "dataclaw" ? DATACLAW_ROWS_PAGE_LIMIT : TRACE_COMMONS_ROWS_PAGE_LIMIT;
 }

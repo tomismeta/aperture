@@ -30,7 +30,7 @@ export type PublicCorpusPruneReport = {
   previousManifestDigests: `sha256:${string}`[];
   bundleRoot: string;
   scopeRoot: string;
-  dataset: "trace-commons";
+  dataset: "dataclaw" | "trace-commons";
   split: "train";
   manifestRecordCount: number;
   manifestBundleCount: number;
@@ -88,6 +88,9 @@ export async function prunePublicCorpusBundles(
         ...previousManifests.map((entry) => entry.manifest.artifacts.bundleRoot),
       ]);
   const scope = inferSingleScope([...manifests, ...previousManifests], bundleRoot);
+  if (scope.dataset !== "trace-commons") {
+    throw new Error("Public corpus prune currently supports Trace Commons manifests only.");
+  }
   const scopeRoot = path.join(bundleRoot, scope.dataset, scope.split);
   const desiredByPath = new Map<string, VerifiedPublicCorpusBundleRecord>();
   const previousByPath = new Map<string, VerifiedPublicCorpusBundleRecord>();
@@ -186,9 +189,14 @@ function inferSingleBundleRoot(bundleRoots: string[]): string {
 }
 
 function inferSingleScope(
-  entries: { manifest: { plan: { dataset: "trace-commons"; split: "train" }; artifacts: { bundleRoot: string } } }[],
+  entries: {
+    manifest: {
+      plan: { dataset: "dataclaw" | "trace-commons"; split: "train" };
+      artifacts: { bundleRoot: string };
+    };
+  }[],
   bundleRoot: string,
-): { dataset: "trace-commons"; split: "train" } {
+): { dataset: "dataclaw" | "trace-commons"; split: "train" } {
   const keys = new Set<string>();
   for (const { manifest } of entries) {
     if (path.resolve(manifest.artifacts.bundleRoot) !== bundleRoot) {
@@ -199,7 +207,11 @@ function inferSingleScope(
   if (keys.size !== 1) {
     throw new Error("Mixed manifest dataset/split scopes are not supported for corpus prune.");
   }
-  return { dataset: "trace-commons", split: "train" };
+  const [dataset] = [...keys][0]!.split("/");
+  if (dataset !== "dataclaw" && dataset !== "trace-commons") {
+    throw new Error(`Unsupported public corpus prune dataset: ${dataset}`);
+  }
+  return { dataset, split: "train" };
 }
 
 function assertPruneAuthorityManifest(manifest: {

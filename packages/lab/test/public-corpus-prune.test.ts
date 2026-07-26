@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   prunePublicCorpusBundles,
   runPublicCorpusImport,
+  type DataclawRow,
   type TraceCommonsRow,
 } from "../src/index.js";
 import { parseCorpusPruneArgs } from "../src/fstop-cli-args-corpus-prune.js";
@@ -179,6 +180,27 @@ test("prunePublicCorpusBundles rejects partial completed manifests as prune auth
   );
 });
 
+test("prunePublicCorpusBundles rejects DataClaw manifests before scanning", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "aperture-corpus-prune-dataclaw-"));
+  const runtimeRoot = path.join(directory, "runtime");
+  const dataclaw = await runPublicCorpusImport(
+    {
+      dataset: "dataclaw",
+      maxRows: 1,
+      runtimeRoot,
+      runId: "dataclaw-run",
+      exportedAt: "2026-03-28T00:00:00.000Z",
+    },
+    { fetchPage: async () => [createDataclawRow(0)] },
+  );
+
+  await assert.rejects(
+    prunePublicCorpusBundles({ manifestPaths: [dataclaw.manifestPath!], apply: true }),
+    /Trace Commons manifests only/,
+  );
+  await readFile(dataclaw.bundlePaths[0]!, "utf8");
+});
+
 test("parseCorpusPruneArgs accepts desired and previous manifests but defaults to preview", () => {
   const options = parseCorpusPruneArgs([
     "--manifest",
@@ -196,6 +218,37 @@ test("parseCorpusPruneArgs accepts desired and previous manifests but defaults t
 
 function createTraceCommonsRows(offset: number, limit: number): TraceCommonsRow[] {
   return Array.from({ length: limit }, (_, index) => createTraceCommonsRow(offset + index));
+}
+
+function createDataclawRow(index: number): DataclawRow {
+  const timestamp = new Date(Date.UTC(2026, 2, 28, 0, 0, index)).toISOString();
+  return {
+    session_id: `dataclaw-session-${index}`,
+    model: "claude-sonnet",
+    project: "aperture",
+    source: "claude",
+    start_time: timestamp,
+    messages: [
+      {
+        role: "user",
+        content: `Fix the DataClaw parser ${index}.`,
+        timestamp,
+      },
+      {
+        role: "assistant",
+        content: "I will inspect the failing test first.",
+        timestamp,
+        tool_uses: [
+          {
+            tool: "exec_command",
+            input: { cmd: "pnpm test parser" },
+            output: "AssertionError: parser missed a tool result",
+            status: "failed",
+          },
+        ],
+      },
+    ],
+  };
 }
 
 function createTraceCommonsRow(index: number): TraceCommonsRow {

@@ -3,14 +3,13 @@ import path from "node:path";
 
 import {
   type PublicTrajectoryDataset,
-  type TraceCommonsSplit,
+  type PublicTrajectorySplit,
 } from "./public-trajectories-types.js";
 import { defaultLabRuntimeRoot } from "./runtime-paths.js";
 import {
   DEFAULT_PUBLIC_CORPUS_MAX_RETRIES,
   DEFAULT_PUBLIC_CORPUS_MAX_RESPONSE_BYTES,
   DEFAULT_PUBLIC_CORPUS_MAX_ROWS,
-  DEFAULT_PUBLIC_CORPUS_PAGE_SIZE,
   DEFAULT_PUBLIC_CORPUS_TIMEOUT_SECONDS,
   createInitialPublicCorpusManifest,
   defaultPublicCorpusBundleRoot,
@@ -35,15 +34,16 @@ import {
 } from "./public-corpus-manifest-validation.js";
 import {
   createPublicCorpusRunPlan,
-  defaultTraceCommonsCorpusSplit,
+  defaultPublicCorpusPageSize,
+  defaultPublicCorpusSplit,
+  readPublicCorpusSplit,
   readSupportedCorpusDataset,
-  readTraceCommonsCorpusSplit,
 } from "./public-corpus-runner-plan.js";
 import type { ReplaySessionBundle } from "./session-bundle.js";
 
 export type PublicCorpusRunOptions = {
   dataset?: PublicTrajectoryDataset;
-  split?: TraceCommonsSplit;
+  split?: PublicTrajectorySplit;
   offset?: number;
   maxRows?: number;
   pageSize?: number;
@@ -88,9 +88,7 @@ export async function resolvePublicCorpusRun(
   }
 
   const dataset = readSupportedCorpusDataset(options.dataset ?? "trace-commons");
-  const split = readTraceCommonsCorpusSplit(
-    options.split ?? defaultTraceCommonsCorpusSplit(dataset),
-  );
+  const split = readPublicCorpusSplit(dataset, options.split ?? defaultPublicCorpusSplit(dataset));
   const runtimeRoot = path.resolve(options.runtimeRoot ?? defaultLabRuntimeRoot());
   const outputRoot = path.resolve(options.outputRoot ?? defaultPublicCorpusRunRoot(runtimeRoot));
   const bundleRoot = path.resolve(options.bundleRoot ?? defaultPublicCorpusBundleRoot(runtimeRoot));
@@ -100,7 +98,7 @@ export async function resolvePublicCorpusRun(
     split,
     offset: options.offset ?? 0,
     maxRows: options.maxRows ?? DEFAULT_PUBLIC_CORPUS_MAX_ROWS,
-    pageSize: options.pageSize ?? DEFAULT_PUBLIC_CORPUS_PAGE_SIZE,
+    pageSize: options.pageSize ?? defaultPublicCorpusPageSize(dataset),
     requestTimeoutSeconds: options.requestTimeoutSeconds ?? DEFAULT_PUBLIC_CORPUS_TIMEOUT_SECONDS,
     maxResponseBytes: options.maxResponseBytes ?? DEFAULT_PUBLIC_CORPUS_MAX_RESPONSE_BYTES,
     maxRetries: options.maxRetries ?? DEFAULT_PUBLIC_CORPUS_MAX_RETRIES,
@@ -111,6 +109,8 @@ export async function resolvePublicCorpusRun(
   const runId = safeRunId(
     options.runId ??
       defaultPublicCorpusRunId({
+        dataset,
+        split,
         createdAt,
         startOffset: plan.startOffset,
         maxRows: plan.maxRows,

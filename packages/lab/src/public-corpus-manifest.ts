@@ -5,15 +5,23 @@ import path from "node:path";
 import { PUBLIC_CORPUS_RUN_SCHEMA_VERSION } from "./artifact-versions.js";
 import { digestKernelCanonicalJson } from "./kernel-canonical-json.js";
 import {
+  DATACLAW_DATASET,
+  DEFAULT_DATACLAW_SPLIT,
   DEFAULT_TRACE_COMMONS_SPLIT,
+  HUGGINGFACE_DATACLAW_DATASET,
   HUGGINGFACE_TRACE_COMMONS_AGENT_TRACES_DATASET,
   TRACE_COMMONS_AGENT_TRACES_DATASET,
+  type DataclawSplit,
   type TraceCommonsSplit,
 } from "./public-trajectories-types.js";
 import { DEFAULT_LAB_RUNTIME_ROOT } from "./runtime-paths.js";
+import {
+  DATACLAW_DATASET_URL,
+  TRACE_COMMONS_DATASET_URL,
+  publicCorpusSourceMetadata,
+} from "./public-corpus-dataset-metadata.js";
 
-export const TRACE_COMMONS_DATASET_URL =
-  "https://huggingface.co/datasets/trace-commons/agent-traces" as const;
+export { DATACLAW_DATASET_URL, TRACE_COMMONS_DATASET_URL } from "./public-corpus-dataset-metadata.js";
 
 export const DEFAULT_PUBLIC_CORPUS_RUNS_DIR = path.join(DEFAULT_LAB_RUNTIME_ROOT, "corpus-runs");
 export const DEFAULT_PUBLIC_CORPUS_BUNDLES_DIR = path.join(
@@ -28,7 +36,8 @@ export const DEFAULT_PUBLIC_CORPUS_MAX_RETRIES = 2 as const;
 export const DEFAULT_PUBLIC_CORPUS_MAX_RESPONSE_BYTES = 67_108_864 as const;
 export const MAX_PUBLIC_CORPUS_RESPONSE_BYTES = 134_217_728 as const;
 
-export type PublicCorpusDataset = "trace-commons";
+export type PublicCorpusDataset = "dataclaw" | "trace-commons";
+export type PublicCorpusSplit = DataclawSplit | TraceCommonsSplit;
 export type PublicCorpusExistingPolicy = "verify" | "error" | "skip";
 export type PublicCorpusRunStatus = "planned" | "running" | "completed" | "failed" | "cancelled";
 export type PublicCorpusRecordStatus =
@@ -64,11 +73,13 @@ export type PublicCorpusRunManifest = {
   source: {
     kind: "public-trajectory";
     adapter: PublicCorpusDataset;
-    dataset: typeof TRACE_COMMONS_AGENT_TRACES_DATASET;
-    upstream: typeof HUGGINGFACE_TRACE_COMMONS_AGENT_TRACES_DATASET;
-    upstreamUrl: typeof TRACE_COMMONS_DATASET_URL;
+    dataset: typeof DATACLAW_DATASET | typeof TRACE_COMMONS_AGENT_TRACES_DATASET;
+    upstream:
+      | typeof HUGGINGFACE_DATACLAW_DATASET
+      | typeof HUGGINGFACE_TRACE_COMMONS_AGENT_TRACES_DATASET;
+    upstreamUrl: typeof DATACLAW_DATASET_URL | typeof TRACE_COMMONS_DATASET_URL;
     config: "default";
-    split: TraceCommonsSplit;
+    split: PublicCorpusSplit;
     requestedRevision: "live_rows_api_unpinned";
     resolvedRevision: "live_rows_api_unpinned";
     reproducibility: "digest-verifiable";
@@ -81,9 +92,11 @@ export type PublicCorpusRunManifest = {
     importerSchemaVersion: typeof PUBLIC_CORPUS_RUN_SCHEMA_VERSION;
   };
   privacy: {
-    classification: "public_anonymized_best_effort";
+    classification: "public_anonymized_best_effort" | "public_unredacted_review_required";
     redactionPosture: "review_required_before_promotion";
-    licenseScope: "dataset_compilation_cc_by_4.0_embedded_content_may_differ";
+    licenseScope:
+      | "dataset_compilation_cc_by_4.0_embedded_content_may_differ"
+      | "dataset_license_review_required_embedded_content_may_differ";
     rawRetention: "not_mirrored";
   };
   progress: {
@@ -142,6 +155,7 @@ export function createInitialPublicCorpusManifest(
   input: PublicCorpusManifestInput,
 ): PublicCorpusRunManifest {
   const manifestPath = path.join(input.runRoot, "manifest.json");
+  const source = publicCorpusSourceMetadata(input.plan.dataset, input.plan.split);
   return {
     schemaVersion: PUBLIC_CORPUS_RUN_SCHEMA_VERSION,
     runId: input.runId,
@@ -151,10 +165,10 @@ export function createInitialPublicCorpusManifest(
     updatedAt: input.createdAt,
     source: {
       kind: "public-trajectory",
-      adapter: "trace-commons",
-      dataset: TRACE_COMMONS_AGENT_TRACES_DATASET,
-      upstream: HUGGINGFACE_TRACE_COMMONS_AGENT_TRACES_DATASET,
-      upstreamUrl: TRACE_COMMONS_DATASET_URL,
+      adapter: input.plan.dataset,
+      dataset: source.dataset,
+      upstream: source.upstream,
+      upstreamUrl: source.upstreamUrl,
       config: "default",
       split: input.plan.split,
       requestedRevision: "live_rows_api_unpinned",
@@ -169,9 +183,9 @@ export function createInitialPublicCorpusManifest(
       importerSchemaVersion: PUBLIC_CORPUS_RUN_SCHEMA_VERSION,
     },
     privacy: {
-      classification: "public_anonymized_best_effort",
+      classification: source.classification,
       redactionPosture: "review_required_before_promotion",
-      licenseScope: "dataset_compilation_cc_by_4.0_embedded_content_may_differ",
+      licenseScope: source.licenseScope,
       rawRetention: "not_mirrored",
     },
     progress: {
@@ -206,15 +220,20 @@ export function defaultPublicCorpusBundleRoot(
 }
 
 export function defaultPublicCorpusRunId(input: {
+  dataset?: PublicCorpusDataset;
+  split?: PublicCorpusSplit;
   createdAt: string;
   startOffset: number;
   maxRows: number;
   pageSize: number;
 }): string {
+  const dataset = input.dataset ?? "trace-commons";
+  const split =
+    input.split ?? (dataset === "dataclaw" ? DEFAULT_DATACLAW_SPLIT : DEFAULT_TRACE_COMMONS_SPLIT);
   return safeRunId(
     [
-      "trace-commons",
-      DEFAULT_TRACE_COMMONS_SPLIT,
+      dataset,
+      split,
       `o${input.startOffset}`,
       `m${input.maxRows}`,
       `p${input.pageSize}`,

@@ -309,9 +309,16 @@ export function createSessionBundleFromDataclawRow(
   const session = createImportedSessionFromDataclawRow(row, { split });
   const bundle = createSessionBundleFromImportedSession(session, {
     source: defaultDataclawBundleSource(row, split),
-    ...(options.exportedAt !== undefined ? { exportedAt: options.exportedAt } : {}),
+    exportedAt: options.exportedAt ?? session.importedAt,
+    replayTimeSource: deterministicReplayTimeSource(session.importedAt),
   });
   return validateImportedTrajectoryBundle(bundle);
+}
+
+function deterministicReplayTimeSource(startIso: string): () => number {
+  const startMs = Date.parse(startIso);
+  let tick = 0;
+  return () => startMs + tick++;
 }
 
 export function defaultDataclawBundleSource(

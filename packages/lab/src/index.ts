@@ -75,6 +75,7 @@ export {
   DEFAULT_PUBLIC_CORPUS_RUNS_DIR,
   DEFAULT_PUBLIC_CORPUS_TIMEOUT_SECONDS,
   MAX_PUBLIC_CORPUS_RESPONSE_BYTES,
+  DATACLAW_DATASET_URL,
   appendPublicCorpusRecord,
   defaultPublicCorpusBundleRoot,
   defaultPublicCorpusRunId,
@@ -88,6 +89,7 @@ export {
   type PublicCorpusRecordLedgerEntry,
   type PublicCorpusRunManifest,
   type PublicCorpusRunPlan,
+  type PublicCorpusSplit,
   type PublicCorpusRunStatus,
 } from "./public-corpus-manifest.js";
 export { digestPublicCorpusLedgerEntries } from "./public-corpus-ledger-format.js";
@@ -105,6 +107,19 @@ export {
   type PublicCorpusFetchPolicy,
   type PublicCorpusSleep,
 } from "./public-corpus-fetch-policy.js";
+export {
+  DATACLAW_ROWS_PAGE_LIMIT,
+  fetchDataclawPage,
+  type DataclawPageFetcher,
+  type DataclawPageRequest,
+} from "./public-corpus-dataclaw-source.js";
+export {
+  fetchPublicCorpusPage,
+  type PublicCorpusPageFetcher,
+  type PublicCorpusPageRequest,
+  type PublicCorpusRow,
+  type PublicCorpusRows,
+} from "./public-corpus-runner-source.js";
 export {
   TRACE_COMMONS_ROWS_PAGE_LIMIT,
   fetchTraceCommonsPage,

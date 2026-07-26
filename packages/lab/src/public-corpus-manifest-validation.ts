@@ -3,16 +3,13 @@ import path from "node:path";
 
 import { PUBLIC_CORPUS_RUN_SCHEMA_VERSION } from "./artifact-versions.js";
 import {
-  HUGGINGFACE_TRACE_COMMONS_AGENT_TRACES_DATASET,
-  TRACE_COMMONS_AGENT_TRACES_DATASET,
-} from "./public-trajectories-types.js";
-import {
   MAX_PUBLIC_CORPUS_RESPONSE_BYTES,
-  TRACE_COMMONS_DATASET_URL,
+  type PublicCorpusDataset,
   type PublicCorpusRunManifest,
   type PublicCorpusRunPlan,
   type PublicCorpusRunStatus,
 } from "./public-corpus-manifest.js";
+import { isPublicCorpusSource } from "./public-corpus-manifest-source-validation.js";
 
 export async function readPublicCorpusRunManifest(
   filePath: string,
@@ -38,24 +35,15 @@ export function isPublicCorpusRunManifest(value: unknown): value is PublicCorpus
     typeof manifest.runId === "string" &&
     typeof manifest.createdAt === "string" &&
     typeof manifest.updatedAt === "string" &&
-    manifest.source?.kind === "public-trajectory" &&
-    manifest.source.adapter === "trace-commons" &&
-    manifest.source.dataset === TRACE_COMMONS_AGENT_TRACES_DATASET &&
-    manifest.source.upstream === HUGGINGFACE_TRACE_COMMONS_AGENT_TRACES_DATASET &&
-    manifest.source.upstreamUrl === TRACE_COMMONS_DATASET_URL &&
-    manifest.source.config === "default" &&
-    manifest.source.split === "train" &&
-    manifest.source.requestedRevision === "live_rows_api_unpinned" &&
-    manifest.source.resolvedRevision === "live_rows_api_unpinned" &&
-    manifest.source.reproducibility === "digest-verifiable" &&
+    isPublicCorpusSource(manifest.source, manifest.plan.dataset) &&
     isPublicCorpusProgress(manifest.progress, manifest.plan.startOffset, upperBound) &&
     typeof manifest.runtime?.runtimeRoot === "string" &&
     typeof manifest.runtime.cwd === "string" &&
     typeof manifest.runtime.nodeVersion === "string" &&
     manifest.runtime.importerSchemaVersion === PUBLIC_CORPUS_RUN_SCHEMA_VERSION &&
-    manifest.privacy?.classification === "public_anonymized_best_effort" &&
+    isPrivacyClassification(manifest.privacy?.classification) &&
     manifest.privacy.redactionPosture === "review_required_before_promotion" &&
-    manifest.privacy.licenseScope === "dataset_compilation_cc_by_4.0_embedded_content_may_differ" &&
+    isLicenseScope(manifest.privacy.licenseScope) &&
     manifest.privacy.rawRetention === "not_mirrored" &&
     isPublicCorpusArtifacts(manifest.artifacts) &&
     isPublicCorpusIntegrity(manifest.integrity)
@@ -66,7 +54,7 @@ function isPublicCorpusRunPlan(value: unknown): value is PublicCorpusRunPlan {
   if (typeof value !== "object" || value === null) return false;
   const plan = value as PublicCorpusRunPlan;
   return (
-    plan.dataset === "trace-commons" &&
+    isCorpusDataset(plan.dataset) &&
     plan.split === "train" &&
     isNonNegativeInteger(plan.startOffset) &&
     isPositiveInteger(plan.maxRows) &&
@@ -82,6 +70,21 @@ function isPublicCorpusRunPlan(value: unknown): value is PublicCorpusRunPlan {
     typeof plan.dryRun === "boolean" &&
     typeof plan.planOnly === "boolean"
   );
+}
+
+function isCorpusDataset(value: unknown): value is PublicCorpusDataset {
+  return value === "dataclaw" || value === "trace-commons";
+}
+
+function isLicenseScope(value: unknown): boolean {
+  return (
+    value === "dataset_compilation_cc_by_4.0_embedded_content_may_differ" ||
+    value === "dataset_license_review_required_embedded_content_may_differ"
+  );
+}
+
+function isPrivacyClassification(value: unknown): boolean {
+  return value === "public_anonymized_best_effort" || value === "public_unredacted_review_required";
 }
 
 function isPublicCorpusProgress(

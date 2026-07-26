@@ -20,7 +20,7 @@ export function parseCorpusRunArgs(argv: string[]): CorpusRunCliOptions {
         options.dataset = readDataset(readFlagValue(argv, ++index, arg));
         break;
       case "--split":
-        options.split = readTraceCommonsSplit(readFlagValue(argv, ++index, arg));
+        options.split = readCorpusRunSplit(readFlagValue(argv, ++index, arg));
         break;
       case "--offset":
         options.offset = readStrictInteger(readFlagValue(argv, ++index, arg), arg, {
@@ -95,7 +95,7 @@ export function parseCorpusRunArgs(argv: string[]): CorpusRunCliOptions {
   return options;
 }
 
-function readTraceCommonsSplit(value: string | undefined): "train" {
+function readCorpusRunSplit(value: string | undefined): "train" {
   if (value === "train") {
     return value;
   }

@@ -7,11 +7,14 @@ import test from "node:test";
 import {
   DEFAULT_PUBLIC_CORPUS_MAX_RESPONSE_BYTES,
   MAX_PUBLIC_CORPUS_RESPONSE_BYTES,
+  createSessionBundleFromDataclawRow,
   fetchJsonWithPolicy,
   isPublicCorpusRunManifest,
   renderPublicCorpusRunMarkdown,
   runPublicCorpusImport,
   writePublicCorpusRunManifestAtomic,
+  type DataclawRow,
+  type PublicCorpusPageRequest,
   type PublicCorpusRunManifest,
   type TraceCommonsPageRequest,
   type TraceCommonsRow,
@@ -84,6 +87,65 @@ test("runPublicCorpusImport writes manifest and record ledger without raw rows",
   assert.match(markdown, /Public Corpus Run/);
   assert.match(markdown, /Rows: 4 imported/);
   assert.match(markdown, /pnpm lab:fstop:review/);
+});
+
+test("runPublicCorpusImport writes DataClaw manifests and records through managed corpus runner", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "aperture-corpus-run-dataclaw-"));
+  const runtimeRoot = path.join(directory, "runtime");
+  const calls: PublicCorpusPageRequest[] = [];
+
+  const result = await runPublicCorpusImport(
+    {
+      dataset: "dataclaw",
+      offset: 0,
+      maxRows: 2,
+      runtimeRoot,
+      runId: "dataclaw-run",
+      exportedAt: "2026-03-28T00:00:00.000Z",
+    },
+    {
+      fetchPage: async (request) => {
+        calls.push(request);
+        return createDataclawRows(request.offset, request.limit);
+      },
+    },
+  );
+
+  assert.equal(result.manifest.runId, "dataclaw-run");
+  assert.equal(result.manifest.status, "completed");
+  assert.equal(result.manifest.plan.dataset, "dataclaw");
+  assert.equal(result.manifest.plan.pageSize, 1);
+  assert.equal(result.manifest.source.dataset, "woctordho/dataclaw");
+  assert.equal(
+    result.manifest.privacy.licenseScope,
+    "dataset_license_review_required_embedded_content_may_differ",
+  );
+  assert.equal(result.manifest.privacy.classification, "public_unredacted_review_required");
+  assert.deepEqual(
+    calls.map((call) => [call.dataset, call.offset, call.limit]),
+    [
+      ["dataclaw", 0, 1],
+      ["dataclaw", 1, 1],
+    ],
+  );
+  assert.equal(result.bundlePaths.length, 2);
+  assert.ok(result.bundlePaths.every((bundlePath) => bundlePath.includes("/dataclaw/train/")));
+
+  const recordLines = (await readFile(result.recordsPath!, "utf8")).trim().split("\n");
+  assert.equal(recordLines.length, 2);
+  const firstRecord = JSON.parse(recordLines[0]!) as Record<string, unknown>;
+  assert.equal(firstRecord.recordId, "dataclaw-session-0");
+  assert.equal(firstRecord.status, "written");
+  assert.match(String(firstRecord.bundleDigest), /^sha256:[a-f0-9]{64}$/);
+});
+
+test("DataClaw corpus bundles are deterministic across wall-clock time", async () => {
+  const row = createDataclawRow(7);
+  const first = createSessionBundleFromDataclawRow(row);
+  const second = createSessionBundleFromDataclawRow(row);
+
+  assert.deepEqual(first, second);
+  assert.equal(digestJsonValue(first), digestJsonValue(second));
 });
 
 test("runPublicCorpusImport stops at an empty page by default", async () => {
@@ -653,6 +715,12 @@ test("parseCorpusRunArgs accepts explicit response byte budget", () => {
   assert.equal(options.maxResponseBytes, 12_345_678);
 });
 
+test("parseCorpusRunArgs accepts managed DataClaw corpus runs", () => {
+  const options = parseCorpusRunArgs(["--dataset", "dataclaw", "--split", "train"]);
+  assert.equal(options.dataset, "dataclaw");
+  assert.equal(options.split, "train");
+});
+
 test("runCorpusRun CLI resume options can be passed to the runner", async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "aperture-corpus-run-cli-resume-"));
   const runtimeRoot = path.join(directory, "runtime");
@@ -821,6 +889,41 @@ async function createFailedAfterFirstPageRun(input: {
 
 function createTraceCommonsRows(offset: number, limit: number): TraceCommonsRow[] {
   return Array.from({ length: limit }, (_, index) => createTraceCommonsRow(offset + index));
+}
+
+function createDataclawRows(offset: number, limit: number): DataclawRow[] {
+  return Array.from({ length: limit }, (_, index) => createDataclawRow(offset + index));
+}
+
+function createDataclawRow(index: number): DataclawRow {
+  const timestamp = new Date(Date.UTC(2026, 2, 28, 0, 0, index)).toISOString();
+  return {
+    session_id: `dataclaw-session-${index}`,
+    model: "claude-sonnet",
+    project: "aperture",
+    source: "claude",
+    start_time: timestamp,
+    messages: [
+      {
+        role: "user",
+        content: `Fix the DataClaw parser ${index}.`,
+        timestamp,
+      },
+      {
+        role: "assistant",
+        content: "I will inspect the failing test first.",
+        timestamp,
+        tool_uses: [
+          {
+            tool: "exec_command",
+            input: { cmd: "pnpm test parser" },
+            output: "AssertionError: parser missed a tool result",
+            status: "failed",
+          },
+        ],
+      },
+    ],
+  };
 }
 
 function createTraceCommonsRow(index: number): TraceCommonsRow {

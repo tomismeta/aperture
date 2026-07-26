@@ -1,9 +1,5 @@
 import path from "node:path";
 
-import {
-  fetchTraceCommonsPage,
-  type TraceCommonsPageFetcher,
-} from "./public-corpus-trace-commons-source.js";
 import { type PublicCorpusRunManifest } from "./public-corpus-manifest.js";
 import {
   reconcilePublicCorpusLedger,
@@ -15,7 +11,11 @@ import {
   resolvePublicCorpusRun,
   type PublicCorpusRunOptions,
 } from "./public-corpus-runner-support.js";
-import { importTraceCommonsCorpusRows } from "./public-corpus-runner-records.js";
+import { importPublicCorpusRows } from "./public-corpus-runner-records.js";
+import {
+  fetchPublicCorpusPage,
+  type PublicCorpusPageFetcher,
+} from "./public-corpus-runner-source.js";
 import type { PublicCorpusFetchLike, PublicCorpusSleep } from "./public-corpus-fetch-policy.js";
 
 export type { PublicCorpusRunOptions } from "./public-corpus-runner-support.js";
@@ -30,7 +30,7 @@ export type PublicCorpusRunResult = {
 };
 
 export type PublicCorpusRunDependencies = {
-  fetchPage?: TraceCommonsPageFetcher;
+  fetchPage?: PublicCorpusPageFetcher;
   fetch?: PublicCorpusFetchLike;
   sleep?: PublicCorpusSleep;
 };
@@ -41,7 +41,7 @@ export async function runPublicCorpusImport(
 ): Promise<PublicCorpusRunResult> {
   const resolved = await resolvePublicCorpusRun(options);
   const { manifest } = resolved;
-  const fetchPage = dependencies.fetchPage ?? fetchTraceCommonsPage;
+  const fetchPage = dependencies.fetchPage ?? fetchPublicCorpusPage;
   const bundlePaths: string[] = [];
   const bundleDigests: `sha256:${string}`[] = [];
   const ledger =
@@ -68,6 +68,7 @@ export async function runPublicCorpusImport(
       await checkpointPublicCorpusManifest(manifest);
 
       const rows = await fetchPage({
+        dataset: manifest.plan.dataset,
         split: manifest.plan.split,
         offset: pageOffset,
         limit: pageLimit,
@@ -79,7 +80,7 @@ export async function runPublicCorpusImport(
       });
 
       manifest.progress.rowsFetched += rows.length;
-      await importTraceCommonsCorpusRows({
+      await importPublicCorpusRows({
         rows,
         offset: pageOffset,
         manifest,

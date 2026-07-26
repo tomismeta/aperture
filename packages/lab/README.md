@@ -211,7 +211,9 @@ bundle paths and row digests. The run artifact does not copy raw public rows.
 Use `--dry-run` locally when checking a slice shape without writing bundles or
 manifests. Use `--plan` for a no-network, no-write preflight, and
 `--resume <manifest-path>` to continue an incomplete VPS run from its last
-recorded offset.
+recorded offset. Managed corpus runs currently support Trace Commons and
+DataClaw; DataClaw defaults to one row per page because individual rows can be
+large.
 
 To audit or clean a refreshed manifest-backed corpus scope, use:
 
@@ -222,8 +224,8 @@ pnpm lab:corpus:prune --manifest /path/to/desired/manifest.json --previous-manif
 This defaults to preview. Add `--apply` only when the report is acceptable.
 The prune command scans the manifest dataset/split scope, keeps desired manifest
 bundles, and deletes only stale files whose current digest matches a previous
-verified manifest. Unmanaged files are reported and retained, so ad hoc
-DataClaw/live-loop bundles are never removed by a Trace Commons manifest.
+verified manifest. Unmanaged files are reported and retained, and one dataset's
+manifest can never authorize cleanup in another dataset's bundle scope.
 
 Even though corpus runs do not mirror raw public rows, the normalized replay
 bundles still retain prompts, assistant messages, tool names, and outcome-bearing

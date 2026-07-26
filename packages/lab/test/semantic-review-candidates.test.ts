@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import {
   createSemanticReviewCandidateReportFromPaths,
   createSessionBundleFromDataclawRow,
+  createSessionBundleFromScenario,
   createSessionBundleFromSweSmithRow,
   digestJsonValue,
   digestPublicCorpusLedgerEntries,
@@ -17,8 +18,18 @@ import {
   type DataclawRow,
   type PublicCorpusRecordLedgerEntry,
   type PublicCorpusRunManifest,
+  type ReplayScenario,
+  type SemanticReviewCandidateKind,
   type SweSmithRow,
 } from "../src/index.js";
+import type { OfflineReviewPreparedStep } from "../src/offline-review.js";
+import {
+  candidateKindsForStep,
+} from "../src/semantic-review-candidate-policy.js";
+import type {
+  ReplayDecisionSnapshot,
+  ReplaySemanticSnapshot,
+} from "../src/scenario.js";
 
 const execFile = promisify(execFileCallback);
 const TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -171,6 +182,113 @@ function createDataclawReadStatusRow(options: {
   };
 }
 
+function createRoutineAmbientBundle() {
+  const scenario: ReplayScenario = {
+    id: "routine-ambient",
+    title: "Routine ambient public trajectory update",
+    steps: [
+      {
+        kind: "publishSource",
+        label: "routine read",
+        event: {
+          id: "evt:routine-read",
+          taskId: "task:routine-read",
+          timestamp: "2026-04-27T00:00:00.000Z",
+          type: "task.updated",
+          source: {
+            id: "public:test",
+            kind: "public-trajectory",
+            label: "Public test",
+          },
+          title: "read observation",
+          summary: "1→export const ok = true;",
+          status: "running",
+          toolFamily: "read",
+        },
+      },
+    ],
+  };
+
+  return createSessionBundleFromScenario(scenario, {
+    exportedAt: "2026-04-27T00:00:00.000Z",
+    replayTimeSource: () => Date.parse("2026-04-27T00:00:00.000Z"),
+  });
+}
+
+function createMissingWhyNowPolicyInput(): {
+  step: OfflineReviewPreparedStep;
+  semantic: ReplaySemanticSnapshot;
+  decision: ReplayDecisionSnapshot;
+} {
+  const step: OfflineReviewPreparedStep = {
+    stepIndex: 0,
+    stepKind: "publishSource",
+    stepLabel: "routine read",
+    sourceExcerpt: "read observation -- 1->export const ok = true;",
+    sourceEvent: {
+      type: "task.updated",
+      title: "read observation",
+      summary: "1->export const ok = true;",
+      status: "running",
+      toolFamily: "read",
+    },
+    normalizedEvent: {
+      type: "task.updated",
+      title: "read observation",
+      summary: "1->export const ok = true;",
+      status: "running",
+      toolFamily: "read",
+    },
+    apertureRead: {
+      ask: null,
+      intentFrame: "status_update",
+      toolFamily: "read",
+      consequence: "low",
+      blocking: null,
+      episode: null,
+      confidence: "high",
+      source: null,
+      abstained: false,
+      whyNow: null,
+      relationKinds: [],
+    },
+    apertureDecision: {
+      evaluationKind: "candidate",
+      decisionKind: "ambient",
+      resultLane: "ambient",
+      semanticInfluence: [],
+    },
+  };
+  const semantic: ReplaySemanticSnapshot = {
+    stepIndex: 0,
+    stepKind: "publishSource",
+    stepLabel: "routine read",
+    interpretation: {
+      intentFrame: "status_update",
+      activityClass: "status_update",
+      toolFamily: "read",
+      consequence: "low",
+      factors: [],
+      relationHints: [],
+      confidence: "high",
+      reasons: [],
+      provenance: {},
+    },
+  };
+  const decision: ReplayDecisionSnapshot = {
+    stepIndex: 0,
+    stepKind: "publishSource",
+    stepLabel: "routine read",
+    evaluationKind: "candidate",
+    decisionKind: "ambient",
+    plannedLane: "ambient",
+    resultLane: "ambient",
+    semanticConfidence: "high",
+  };
+
+  return { step, semantic, decision };
+}
+
 test("semantic review candidate reports shortlist deterministic review pressure", async () => {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-"));
   const bundle = createSessionBundleFromSweSmithRow(SAMPLE_ROW);
@@ -188,7 +306,6 @@ test("semantic review candidate reports shortlist deterministic review pressure"
   assert.equal(report.schemaVersion, 1);
   assert.equal(report.selection.promotionAuthority, "review_required");
   assert.equal(report.input.scannedBundleCount, 1);
-  assert.ok(report.summary.countsByKind.missing_why_now > 0);
   assert.ok(report.summary.countsByKind.failure_attention > 0);
   assert.ok(report.candidatesByKind.failure_attention.length <= 1);
   assert.equal(
@@ -201,6 +318,255 @@ test("semantic review candidate reports shortlist deterministic review pressure"
     "toolFamily",
     "consequence",
   ]);
+});
+
+test("semantic review candidate reports keep missing whyNow for high-pressure semantics", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-why-now-"));
+  const bundle = createRoutineAmbientBundle();
+  const semantic = bundle.semanticSnapshots[0]?.interpretation;
+  assert.ok(semantic);
+  semantic.consequence = "high";
+  const bundlePath = path.join(tempDir, "bundle.json");
+  await writeSessionBundle(bundlePath, bundle);
+
+  const report = await createSemanticReviewCandidateReportFromPaths({
+    bundlePaths: [bundlePath],
+    generatedAt: "2026-04-27T00:00:00.000Z",
+    maxCandidatesPerKind: 2,
+    repoRoot: tempDir,
+  });
+
+  assert.equal(report.summary.countsByKind.missing_why_now, 1);
+  assert.equal(report.candidatesByKind.missing_why_now.length, 1);
+});
+
+test("semantic review candidate reports ignore missing whyNow on routine ambient updates", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-ambient-"));
+  const bundle = createRoutineAmbientBundle();
+  const bundlePath = path.join(tempDir, "bundle.json");
+  await writeSessionBundle(bundlePath, bundle);
+
+  const report = await createSemanticReviewCandidateReportFromPaths({
+    bundlePaths: [bundlePath],
+    generatedAt: "2026-04-27T00:00:00.000Z",
+    maxCandidatesPerKind: 2,
+    repoRoot: tempDir,
+  });
+
+  assert.equal(bundle.semanticSnapshots[0]?.interpretation.whyNow ?? null, null);
+  assert.equal(bundle.decisionSnapshots[0]?.resultLane, "ambient");
+  assert.equal(report.summary.countsByKind.missing_why_now, 0);
+  assert.equal(report.candidatesByKind.missing_why_now.length, 0);
+});
+
+test("missing whyNow policy follows attention-bearing review pressure", () => {
+  const cases: Array<{
+    name: string;
+    mutate: (input: {
+      step: OfflineReviewPreparedStep;
+      semantic: ReplaySemanticSnapshot | null;
+      decision: ReplayDecisionSnapshot | null;
+    }) => {
+      step?: OfflineReviewPreparedStep;
+      semantic?: ReplaySemanticSnapshot | null;
+      decision?: ReplayDecisionSnapshot | null;
+    } | void;
+    expectedMissingWhyNow: boolean;
+    expectedKinds?: SemanticReviewCandidateKind[];
+  }> = [
+    {
+      name: "low consequence ambient",
+      mutate: () => undefined,
+      expectedMissingWhyNow: false,
+    },
+    {
+      name: "medium consequence ambient",
+      mutate: ({ semantic }) => {
+        assert.ok(semantic);
+        semantic.interpretation.consequence = "medium";
+      },
+      expectedMissingWhyNow: false,
+    },
+    {
+      name: "high consequence ambient",
+      mutate: ({ semantic }) => {
+        assert.ok(semantic);
+        semantic.interpretation.consequence = "high";
+      },
+      expectedMissingWhyNow: true,
+      expectedKinds: ["high_consequence_attention"],
+    },
+    {
+      name: "failed source status",
+      mutate: ({ step }) => {
+        assert.ok(step.normalizedEvent);
+        step.normalizedEvent.status = "failed";
+      },
+      expectedMissingWhyNow: true,
+      expectedKinds: ["failure_attention"],
+    },
+    {
+      name: "blocked source status",
+      mutate: ({ step }) => {
+        assert.ok(step.normalizedEvent);
+        step.normalizedEvent.status = "blocked";
+      },
+      expectedMissingWhyNow: true,
+      expectedKinds: ["blocked_attention"],
+    },
+    {
+      name: "semantic failure",
+      mutate: ({ semantic }) => {
+        assert.ok(semantic);
+        semantic.interpretation.intentFrame = "failure";
+      },
+      expectedMissingWhyNow: true,
+      expectedKinds: ["failure_attention"],
+    },
+    {
+      name: "semantic blocked work",
+      mutate: ({ semantic }) => {
+        assert.ok(semantic);
+        semantic.interpretation.intentFrame = "blocked_work";
+      },
+      expectedMissingWhyNow: true,
+      expectedKinds: ["blocked_attention"],
+    },
+    {
+      name: "blocking aperture read",
+      mutate: ({ step }) => {
+        assert.ok(step.apertureRead);
+        step.apertureRead.blocking = "blocking";
+      },
+      expectedMissingWhyNow: true,
+      expectedKinds: ["blocked_attention"],
+    },
+    {
+      name: "queue decision",
+      mutate: ({ decision }) => {
+        assert.ok(decision);
+        decision.decisionKind = "queue";
+      },
+      expectedMissingWhyNow: true,
+      expectedKinds: ["queue_decision"],
+    },
+    {
+      name: "planned now decision",
+      mutate: ({ decision }) => {
+        assert.ok(decision);
+        decision.plannedLane = "now";
+      },
+      expectedMissingWhyNow: true,
+    },
+    {
+      name: "realized next decision",
+      mutate: ({ decision }) => {
+        assert.ok(decision);
+        decision.resultLane = "next";
+      },
+      expectedMissingWhyNow: true,
+      expectedKinds: ["queue_decision"],
+    },
+    {
+      name: "low confidence",
+      mutate: ({ semantic }) => {
+        assert.ok(semantic);
+        semantic.interpretation.confidence = "low";
+      },
+      expectedMissingWhyNow: true,
+      expectedKinds: ["semantic_uncertainty"],
+    },
+    {
+      name: "medium confidence",
+      mutate: ({ semantic }) => {
+        assert.ok(semantic);
+        semantic.interpretation.confidence = "medium";
+      },
+      expectedMissingWhyNow: true,
+      expectedKinds: ["semantic_uncertainty"],
+    },
+    {
+      name: "abstention",
+      mutate: ({ semantic }) => {
+        assert.ok(semantic);
+        semantic.interpretation.abstained = true;
+      },
+      expectedMissingWhyNow: true,
+      expectedKinds: ["semantic_uncertainty"],
+    },
+    {
+      name: "ambiguity",
+      mutate: ({ decision }) => {
+        assert.ok(decision);
+        decision.ambiguity = {
+          kind: "interrupt",
+          reason: "low_signal",
+          resolution: "ambient",
+        };
+      },
+      expectedMissingWhyNow: true,
+      expectedKinds: ["semantic_uncertainty"],
+    },
+    {
+      name: "relation hint",
+      mutate: ({ semantic }) => {
+        assert.ok(semantic);
+        semantic.interpretation.relationHints = [{ kind: "same_issue" }];
+      },
+      expectedMissingWhyNow: true,
+      expectedKinds: ["relation_signal"],
+    },
+    {
+      name: "tool taxonomy gap alone",
+      mutate: ({ step, semantic }) => {
+        assert.ok(semantic);
+        assert.ok(step.normalizedEvent);
+        semantic.interpretation.toolFamily = "python";
+        step.normalizedEvent.toolFamily = "python";
+      },
+      expectedMissingWhyNow: false,
+      expectedKinds: ["tool_taxonomy_gap"],
+    },
+    {
+      name: "nonempty whyNow under pressure",
+      mutate: ({ semantic }) => {
+        assert.ok(semantic);
+        semantic.interpretation.consequence = "high";
+        semantic.interpretation.whyNow = "This needs attention now.";
+      },
+      expectedMissingWhyNow: false,
+      expectedKinds: ["high_consequence_attention"],
+    },
+    {
+      name: "missing semantic snapshot",
+      mutate: ({ decision }) => {
+        assert.ok(decision);
+        decision.resultLane = "now";
+        return { semantic: null };
+      },
+      expectedMissingWhyNow: false,
+      expectedKinds: ["high_consequence_attention"],
+    },
+  ];
+
+  for (const entry of cases) {
+    const input = createMissingWhyNowPolicyInput();
+    const mutation = entry.mutate(input);
+    const kinds = candidateKindsForStep(
+      mutation?.step ?? input.step,
+      mutation?.semantic !== undefined ? mutation.semantic : input.semantic,
+      mutation?.decision !== undefined ? mutation.decision : input.decision,
+    );
+
+    assert.equal(
+      kinds.includes("missing_why_now"),
+      entry.expectedMissingWhyNow,
+      entry.name,
+    );
+    for (const expectedKind of entry.expectedKinds ?? []) {
+      assert.equal(kinds.includes(expectedKind), true, entry.name);
+    }
+  }
 });
 
 test("semantic review candidate reports flag unrecognized imported tool families", async () => {

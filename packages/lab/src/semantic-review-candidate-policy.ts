@@ -26,42 +26,57 @@ export function candidateKindsForStep(
   const sourceStatus = step.normalizedEvent?.status ?? step.sourceEvent?.status ?? null;
   const confidence = interpretation?.confidence ?? decision?.semanticConfidence ?? null;
   const toolFamily = interpretation?.toolFamily ?? step.normalizedEvent?.toolFamily ?? null;
-
-  if (semantic && !hasNonEmptyWhyNow(interpretation?.whyNow)) {
-    kinds.push("missing_why_now");
-  }
-  if (interpretation?.consequence === "high" || decision?.resultLane === "now") {
-    kinds.push("high_consequence_attention");
-  }
-  if (sourceStatus === "failed" || interpretation?.intentFrame === "failure") {
-    kinds.push("failure_attention");
-  }
-  if (
+  const isHighConsequenceAttention =
+    interpretation?.consequence === "high" || decision?.resultLane === "now";
+  const isFailureAttention = sourceStatus === "failed" || interpretation?.intentFrame === "failure";
+  const isBlockedAttention =
     sourceStatus === "blocked" ||
     interpretation?.intentFrame === "blocked_work" ||
-    step.apertureRead?.blocking === "blocking"
-  ) {
-    kinds.push("blocked_attention");
-  }
-  if (
+    step.apertureRead?.blocking === "blocking";
+  const isQueueDecision =
     decision?.decisionKind === "queue" ||
     decision?.plannedLane === "next" ||
-    decision?.resultLane === "next"
-  ) {
-    kinds.push("queue_decision");
-  }
-  if (
+    decision?.resultLane === "next";
+  const isAttentionRoutingDecision =
+    isQueueDecision || decision?.plannedLane === "now" || decision?.resultLane === "now";
+  const isSemanticUncertainty =
     confidence === "low" ||
     confidence === "medium" ||
     interpretation?.abstained === true ||
-    (decision?.ambiguity !== undefined && decision.ambiguity !== null)
+    (decision?.ambiguity !== undefined && decision.ambiguity !== null);
+  const hasRelationSignal = (interpretation?.relationHints.length ?? 0) > 0;
+
+  if (
+    semantic &&
+    !hasNonEmptyWhyNow(interpretation?.whyNow) &&
+    (isHighConsequenceAttention ||
+      isFailureAttention ||
+      isBlockedAttention ||
+      isAttentionRoutingDecision ||
+      isSemanticUncertainty ||
+      hasRelationSignal)
   ) {
+    kinds.push("missing_why_now");
+  }
+  if (isHighConsequenceAttention) {
+    kinds.push("high_consequence_attention");
+  }
+  if (isFailureAttention) {
+    kinds.push("failure_attention");
+  }
+  if (isBlockedAttention) {
+    kinds.push("blocked_attention");
+  }
+  if (isQueueDecision) {
+    kinds.push("queue_decision");
+  }
+  if (isSemanticUncertainty) {
     kinds.push("semantic_uncertainty");
   }
   if (hasToolTaxonomyGap(toolFamily)) {
     kinds.push("tool_taxonomy_gap");
   }
-  if ((interpretation?.relationHints.length ?? 0) > 0) {
+  if (hasRelationSignal) {
     kinds.push("relation_signal");
   }
 

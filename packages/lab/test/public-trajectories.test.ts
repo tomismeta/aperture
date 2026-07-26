@@ -156,6 +156,23 @@ test("public trajectory tool family normalization folds shell command aliases in
   assert.equal(normalizeToolFamily("powershell"), "powershell");
 });
 
+test("public trajectory tool family normalization folds glob into search", () => {
+  assert.equal(normalizeToolFamily("glob"), "search");
+  assert.equal(normalizeToolFamily("Glob"), "search");
+  assert.equal(normalizeToolFamily(" glob "), "search");
+  assert.equal(normalizeToolFamily("glob()"), "search");
+  assert.equal(normalizeToolFamily("glob:"), "search");
+  assert.equal(normalizeToolFamily("file_search"), "search");
+  assert.equal(normalizeToolFamily("grep"), "search");
+});
+
+test("public trajectory tool family normalization keeps glob matches exact", () => {
+  assert.equal(normalizeToolFamily("global"), "global");
+  assert.equal(normalizeToolFamily("glob_files"), "glob_files");
+  assert.equal(normalizeToolFamily("file_glob"), "file_glob");
+  assert.equal(normalizeToolFamily("mcp__glob"), "mcp__glob");
+});
+
 const SAMPLE_DATACLAW_ROW: DataclawRow = {
   session_id: "123e4567-e89b-12d3-a456-426614174000",
   source: "claude",
@@ -230,6 +247,39 @@ const SAMPLE_DATACLAW_ROW: DataclawRow = {
       role: "user",
       content: "Can you also add a regression test?",
       timestamp: "2026-03-28T00:03:00.000Z",
+    },
+  ],
+};
+
+const SAMPLE_DATACLAW_GLOB_ROW: DataclawRow = {
+  ...SAMPLE_DATACLAW_ROW,
+  session_id: "223e4567-e89b-12d3-a456-426614174000",
+  stats: {
+    ...SAMPLE_DATACLAW_ROW.stats,
+    tool_uses: 1,
+  },
+  messages: [
+    {
+      role: "user",
+      content: "Find the hip geometry tests before making any changes.",
+      timestamp: "2026-03-28T00:00:10.000Z",
+    },
+    {
+      role: "assistant",
+      content: "I'll locate matching tests first.",
+      timestamp: "2026-03-28T00:00:30.000Z",
+      tool_uses: [
+        {
+          tool: "Glob",
+          input: {
+            pattern: "**/test_scaled_mm_hip.py",
+          },
+          output: {
+            files: ["tests/test_scaled_mm_hip.py"],
+          },
+          status: "success",
+        },
+      ],
     },
   ],
 };
@@ -741,6 +791,59 @@ test("DataClaw rows can become replayable session bundles", () => {
   assert.equal(replayed.views.at(-1)?.nowInteractionId, bundle.outcomes.finalNowInteractionId);
   assert.equal(replayed.views.at(-1)?.nextInteractionIds.length, bundle.outcomes.finalNextCount);
   assert.equal(replayed.views.at(-1)?.ambientInteractionIds.length, bundle.outcomes.finalAmbientCount);
+});
+
+test("DataClaw Glob calls normalize to search through import, replay, and semantic capture", () => {
+  const session = createImportedSessionFromDataclawRow(SAMPLE_DATACLAW_GLOB_ROW);
+  const toolCallEntry = session.entries.find((entry) => entry.kind === "tool_call");
+  const toolResultEntry = session.entries.find((entry) => entry.kind === "tool_result");
+
+  assert.equal(toolCallEntry?.toolName, "Glob");
+  assert.equal(toolCallEntry?.toolFamily, "search");
+  assert.equal(toolResultEntry?.toolFamily, "search");
+  assert.equal(toolCallEntry?.sourceEvent?.type, "task.updated");
+  assert.equal(
+    toolCallEntry?.sourceEvent?.type === "task.updated"
+      ? toolCallEntry.sourceEvent.toolFamily
+      : undefined,
+    "search",
+  );
+  assert.equal(toolResultEntry?.sourceEvent?.type, "task.updated");
+  assert.equal(
+    toolResultEntry?.sourceEvent?.type === "task.updated"
+      ? toolResultEntry.sourceEvent.toolFamily
+      : undefined,
+    "search",
+  );
+
+  const scenario = createReplayScenarioFromDataclawRow(SAMPLE_DATACLAW_GLOB_ROW);
+  const searchSteps = scenario.steps.filter(
+    (step) =>
+      step.kind === "publishSource" &&
+      step.event.type === "task.updated" &&
+      step.event.toolFamily === "search",
+  );
+  assert.equal(searchSteps.length, 2);
+
+  const bundle = createSessionBundleFromDataclawRow(SAMPLE_DATACLAW_GLOB_ROW);
+  const replayed = runSessionBundle(bundle);
+  assert.equal(
+    bundle.normalizedEvents.some(
+      (snapshot) =>
+        snapshot.event.type === "task.updated" && snapshot.event.toolFamily === "search",
+    ),
+    true,
+  );
+  assert.equal(
+    bundle.semanticSnapshots.some(
+      (snapshot) => snapshot.interpretation.toolFamily === "search",
+    ),
+    true,
+  );
+  assert.equal(
+    replayed.semantics.some((snapshot) => snapshot.interpretation.toolFamily === "search"),
+    true,
+  );
 });
 
 test("DataClaw imported bundle paths stay under the dataset and split tree", () => {

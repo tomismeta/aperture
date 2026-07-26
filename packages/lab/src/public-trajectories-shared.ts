@@ -233,7 +233,12 @@ export function normalizeToolFamily(value: string | undefined): string | undefin
   }
   if (normalized.includes("read") || normalized.includes("open") || normalized.includes("view")) return "read";
   if (normalized.includes("edit") || normalized.includes("write") || normalized.includes("patch") || normalized.includes("replace")) return "edit";
-  if (normalized.includes("search") || normalized.includes("find") || normalized.includes("grep")) return "search";
+  if (
+    normalized.includes("search") ||
+    normalized.includes("find") ||
+    normalized.includes("grep") ||
+    alias === "glob"
+  ) return "search";
   if (normalized.includes("web") || normalized.includes("browser")) return "web";
   if (normalized.includes("task") || normalized.includes("subagent")) return "task";
   if (normalized === "submit") return undefined;

@@ -9,10 +9,12 @@ import { fileURLToPath } from "node:url";
 
 import {
   createSemanticReviewCandidateReportFromPaths,
+  createSessionBundleFromDataclawRow,
   createSessionBundleFromSweSmithRow,
   digestJsonValue,
   digestPublicCorpusLedgerEntries,
   writeSessionBundle,
+  type DataclawRow,
   type PublicCorpusRecordLedgerEntry,
   type PublicCorpusRunManifest,
   type SweSmithRow,
@@ -85,6 +87,45 @@ const SAMPLE_ROW: SweSmithRow = {
       message_type: "action",
     },
   ]),
+};
+
+const SAMPLE_DATACLAW_GLOB_ROW: DataclawRow = {
+  session_id: "223e4567-e89b-12d3-a456-426614174000",
+  source: "claude",
+  project: "demo-project",
+  model: "claude-sonnet-4",
+  start_time: "2026-03-28T00:00:00.000Z",
+  stats: {
+    user_messages: 1,
+    assistant_messages: 1,
+    tool_uses: 1,
+    input_tokens: 123,
+    output_tokens: 45,
+  },
+  messages: [
+    {
+      role: "user",
+      content: "Find the hip geometry tests before making any changes.",
+      timestamp: "2026-03-28T00:00:10.000Z",
+    },
+    {
+      role: "assistant",
+      content: "I'll locate matching tests first.",
+      timestamp: "2026-03-28T00:00:30.000Z",
+      tool_uses: [
+        {
+          tool: "Glob",
+          input: {
+            pattern: "**/test_scaled_mm_hip.py",
+          },
+          output: {
+            files: ["tests/test_scaled_mm_hip.py"],
+          },
+          status: "success",
+        },
+      ],
+    },
+  ],
 };
 
 test("semantic review candidate reports shortlist deterministic review pressure", async () => {
@@ -172,6 +213,27 @@ test("semantic review candidate reports treat canonical write tool family as kno
   });
 
   assert.equal(report.summary.countsByKind.tool_taxonomy_gap, 0);
+});
+
+test("semantic review candidate reports treat canonical DataClaw Glob usage as known", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-glob-"));
+  const bundle = createSessionBundleFromDataclawRow(SAMPLE_DATACLAW_GLOB_ROW);
+  const bundlePath = path.join(tempDir, "bundle.json");
+  await writeSessionBundle(bundlePath, bundle);
+
+  const report = await createSemanticReviewCandidateReportFromPaths({
+    bundlePaths: [bundlePath],
+    generatedAt: "2026-04-27T00:00:00.000Z",
+    maxCandidatesPerKind: 2,
+    repoRoot: tempDir,
+  });
+
+  assert.equal(
+    bundle.semanticSnapshots.some((snapshot) => snapshot.interpretation.toolFamily === "search"),
+    true,
+  );
+  assert.equal(report.summary.countsByKind.tool_taxonomy_gap, 0);
+  assert.equal(report.candidatesByKind.tool_taxonomy_gap.length, 0);
 });
 
 test("review-candidates CLI writes JSON and markdown reports", async () => {

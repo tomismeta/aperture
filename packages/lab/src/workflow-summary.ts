@@ -1,7 +1,4 @@
-import type {
-  ApertureEvent,
-  TaskStatus,
-} from "@tomismeta/aperture-core";
+import type { TaskStatus } from "@tomismeta/aperture-core";
 
 import type { ReplaySessionBundle } from "./session-bundle.js";
 import {
@@ -60,12 +57,23 @@ export function createWorkflowSummaryReport(
     generatedAt?: string;
   } = {},
 ): WorkflowSummaryReport {
-  const sessions = bundles
-    .map((bundle) => summarizeWorkflowSession(bundle))
-    .sort(
-      (left, right) =>
-        left.sessionId.localeCompare(right.sessionId) || left.exportedAt.localeCompare(right.exportedAt),
-    );
+  return createWorkflowSummaryReportFromSessions(
+    bundles.map((bundle) => summarizeWorkflowSession(bundle)),
+    options,
+  );
+}
+
+export function createWorkflowSummaryReportFromSessions(
+  inputSessions: WorkflowSummarySession[],
+  options: {
+    generatedAt?: string;
+  } = {},
+): WorkflowSummaryReport {
+  const sessions = [...inputSessions].sort(
+    (left, right) =>
+      left.sessionId.localeCompare(right.sessionId) ||
+      left.exportedAt.localeCompare(right.exportedAt),
+  );
   const requestKinds = createRequestCounts();
   const statuses = createStatusCounts();
   const workflow = mergeWorkflowTargetMetadataRollups(sessions.map((session) => session.workflow));
@@ -91,7 +99,7 @@ export function createWorkflowSummaryReport(
   return {
     generatedAt: options.generatedAt ?? new Date().toISOString(),
     input: {
-      bundleCount: bundles.length,
+      bundleCount: sessions.length,
     },
     summary: {
       sessionCount: sessions.length,
@@ -106,9 +114,7 @@ export function createWorkflowSummaryReport(
   };
 }
 
-export function renderWorkflowSummaryMarkdown(
-  report: WorkflowSummaryReport,
-): string {
+export function renderWorkflowSummaryMarkdown(report: WorkflowSummaryReport): string {
   const lines: string[] = [
     "# Workflow Summary",
     "",
@@ -200,23 +206,23 @@ export function renderWorkflowSummaryMarkdown(
   return lines.join("\n");
 }
 
-function summarizeWorkflowSession(bundle: ReplaySessionBundle): WorkflowSummarySession {
-  const events = bundle.normalizedEvents.map((snapshot) => snapshot.event);
+export function summarizeWorkflowSession(bundle: ReplaySessionBundle): WorkflowSummarySession {
   const taskIds = new Set<string>();
   const timestamps: string[] = [];
   const requestKinds = createRequestCounts();
   const statuses = createStatusCounts();
-  const eventMetadata = readEventWorkflowMetadata(events);
-  const fallbackMetadata = validateWorkflowTargetMetadata(bundle.explanation?.targetMetadata);
-  const workflow = rollupWorkflowTargetMetadata(
-    eventMetadata.length > 0 ? eventMetadata : [fallbackMetadata],
-  );
+  const eventMetadata: WorkflowTargetMetadata[] = [];
 
   let requestCount = 0;
 
-  for (const event of events) {
+  for (const snapshot of bundle.normalizedEvents) {
+    const event = snapshot.event;
     taskIds.add(event.taskId);
     timestamps.push(event.timestamp);
+    const metadata = validateWorkflowTargetMetadata(event.metadata);
+    if (metadata) {
+      eventMetadata.push(metadata);
+    }
 
     if (event.type === "human.input.requested") {
       requestCount += 1;
@@ -229,6 +235,11 @@ function summarizeWorkflowSession(bundle: ReplaySessionBundle): WorkflowSummaryS
     }
   }
 
+  const fallbackMetadata = validateWorkflowTargetMetadata(bundle.explanation?.targetMetadata);
+  const workflow = rollupWorkflowTargetMetadata(
+    eventMetadata.length > 0 ? eventMetadata : [fallbackMetadata],
+  );
+
   return {
     sessionId: bundle.sessionId,
     title: bundle.title,
@@ -239,7 +250,7 @@ function summarizeWorkflowSession(bundle: ReplaySessionBundle): WorkflowSummaryS
       endedAt: timestamps[timestamps.length - 1] ?? null,
     },
     counts: {
-      events: events.length,
+      events: bundle.normalizedEvents.length,
       tasks: taskIds.size,
       requests: requestCount,
       requestKinds,
@@ -247,15 +258,6 @@ function summarizeWorkflowSession(bundle: ReplaySessionBundle): WorkflowSummaryS
     },
     ...(hasWorkflowTargetMetadataRollup(workflow) ? { workflow } : {}),
   };
-}
-
-function readEventWorkflowMetadata(
-  events: ApertureEvent[],
-): WorkflowTargetMetadata[] {
-  return events.flatMap((event) => {
-    const metadata = validateWorkflowTargetMetadata(event.metadata);
-    return metadata ? [metadata] : [];
-  });
 }
 
 function createRequestCounts(): WorkflowSummaryRequestCounts {

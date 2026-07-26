@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile as execFileCallback } from "node:child_process";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -26,7 +26,8 @@ const SAMPLE_ROW: SweSmithRow = {
   model: "claude-3-7-sonnet-20250219",
   resolved: true,
   traj_id: "example/repo-123.run-42",
-  patch: "diff --git a/file.py b/file.py\nindex 111..222 100644\n--- a/file.py\n+++ b/file.py\n@@\n-print('bad')\n+print('good')\n",
+  patch:
+    "diff --git a/file.py b/file.py\nindex 111..222 100644\n--- a/file.py\n+++ b/file.py\n@@\n-print('bad')\n+print('good')\n",
   messages: JSON.stringify([
     {
       role: "system",
@@ -56,7 +57,7 @@ const SAMPLE_ROW: SweSmithRow = {
           index: 0,
           function: {
             name: "bash",
-            arguments: "{\"command\":\"pytest tests/test_widget.py\"}",
+            arguments: '{"command":"pytest tests/test_widget.py"}',
           },
           id: "toolu_bash",
           type: "function",
@@ -127,7 +128,10 @@ test("workflow summaries aggregate approvals, runners, and usage across bundles"
   assert.equal(report.summary.workflow?.usageTotals.inputTokens, 2000);
   assert.equal(report.summary.workflow?.usageTotals.outputTokens, 350);
   assert.equal(report.summary.workflow?.usageTotals.costUsd, 0.2);
-  assert.match(markdown, /- workflow: surfaces=terminal; runners=claude-code, codex; placements=cloud; approval states=pending; models=claude-sonnet-4, gpt-5.4/);
+  assert.match(
+    markdown,
+    /- workflow: surfaces=terminal; runners=claude-code, codex; placements=cloud; approval states=pending; models=claude-sonnet-4, gpt-5.4/,
+  );
   assert.match(markdown, /- workflow usage: input=2,000, output=350, cost=\$0.20/);
   assert.match(markdown, /### session:alpha/);
   assert.match(markdown, /- request kinds: approval=1/);
@@ -147,16 +151,13 @@ test("workflow-summary CLI emits machine-readable summaries from bundle inputs",
     }),
   );
 
-  const { stdout } = await execFile(process.execPath, [
-    TSX_CLI,
-    "scripts/fstop.ts",
-    "workflow-summary",
-    "--bundle",
-    bundlePath,
-    "--json",
-  ], {
-    cwd: REPO_ROOT,
-  });
+  const { stdout } = await execFile(
+    process.execPath,
+    [TSX_CLI, "scripts/fstop.ts", "workflow-summary", "--bundle", bundlePath, "--json"],
+    {
+      cwd: REPO_ROOT,
+    },
+  );
 
   const payload = JSON.parse(stdout) as {
     status: string;
@@ -168,6 +169,61 @@ test("workflow-summary CLI emits machine-readable summaries from bundle inputs",
   assert.equal(payload.report.summary.requestKinds.approval, 1);
   assert.deepEqual(payload.report.summary.workflow?.runners, ["codex"]);
   assert.equal(payload.report.summary.workflow?.usageTotals.outputTokens, 125);
+});
+
+test("workflow-summary CLI summarizes bundle directories without retaining duplicate inputs", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-workflow-summary-dir-"));
+  const nestedDir = path.join(tempDir, "nested");
+  const bundlePath = path.join(nestedDir, "bundle.json");
+  const outputPath = path.join(tempDir, "summary.md");
+
+  await writeSessionBundle(
+    bundlePath,
+    buildWorkflowBundle("session:dir", {
+      model: "gpt-5.4",
+      runner: "codex",
+      inputTokens: 300,
+      outputTokens: 75,
+      costUsd: 0.02,
+    }),
+  );
+  await writeFile(
+    path.join(tempDir, "not-a-bundle.json"),
+    '{"schemaVersion":"not-session"}\n',
+    "utf8",
+  );
+
+  const { stdout } = await execFile(
+    process.execPath,
+    [
+      TSX_CLI,
+      "scripts/fstop.ts",
+      "workflow-summary",
+      "--bundle",
+      bundlePath,
+      "--bundle-dir",
+      tempDir,
+      "--output",
+      outputPath,
+      "--json",
+    ],
+    {
+      cwd: REPO_ROOT,
+    },
+  );
+
+  const payload = JSON.parse(stdout) as {
+    status: string;
+    outputPath: string;
+    report: ReturnType<typeof createWorkflowSummaryReport>;
+  };
+  const markdown = await readFile(outputPath, "utf8");
+
+  assert.equal(payload.status, "ok");
+  assert.equal(payload.outputPath, outputPath);
+  assert.equal(payload.report.summary.sessionCount, 1);
+  assert.equal(payload.report.summary.eventCount, 6);
+  assert.match(markdown, /### session:dir/);
 });
 
 function buildWorkflowBundle(
@@ -183,24 +239,25 @@ function buildWorkflowBundle(
   const base = createSessionBundleFromSweSmithRow(SAMPLE_ROW);
   const normalizedEvents = base.normalizedEvents.map((snapshot, index) => ({
     ...snapshot,
-    event: index === 0
-      ? {
-          ...snapshot.event,
-          metadata: {
-            execution: {
-              surface: "terminal",
-              placement: "cloud",
-              runner: options.runner,
+    event:
+      index === 0
+        ? {
+            ...snapshot.event,
+            metadata: {
+              execution: {
+                surface: "terminal",
+                placement: "cloud",
+                runner: options.runner,
+              },
+              usage: {
+                model: options.model,
+                inputTokens: options.inputTokens,
+                outputTokens: options.outputTokens,
+                costUsd: options.costUsd,
+              },
             },
-            usage: {
-              model: options.model,
-              inputTokens: options.inputTokens,
-              outputTokens: options.outputTokens,
-              costUsd: options.costUsd,
-            },
-          },
-        }
-      : snapshot.event,
+          }
+        : snapshot.event,
   }));
 
   normalizedEvents.push({

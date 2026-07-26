@@ -14,7 +14,14 @@ export async function loadSessionBundles(
   directory: string = DEFAULT_SESSION_BUNDLES_DIR,
 ): Promise<ReplaySessionBundle[]> {
   try {
-    const bundles = await readSessionBundleDirectory(directory);
+    const bundlePaths = await findSessionBundleFiles(directory);
+    const bundles: ReplaySessionBundle[] = [];
+    for (const bundlePath of bundlePaths) {
+      const bundle = await loadSessionBundleIfValid(bundlePath);
+      if (bundle) {
+        bundles.push(bundle);
+      }
+    }
     return bundles.sort((left, right) => left.sessionId.localeCompare(right.sessionId));
   } catch (error) {
     if (isMissingDirectoryError(error)) {
@@ -25,13 +32,46 @@ export async function loadSessionBundles(
   }
 }
 
+export async function findSessionBundleFiles(
+  directory: string = DEFAULT_SESSION_BUNDLES_DIR,
+): Promise<string[]> {
+  try {
+    return (await readSessionBundleFilePaths(directory)).sort((left, right) =>
+      left.localeCompare(right),
+    );
+  } catch (error) {
+    if (isMissingDirectoryError(error)) {
+      return [];
+    }
+
+    throw error;
+  }
+}
+
 export async function loadSessionBundle(filePath: string): Promise<ReplaySessionBundle> {
+  const bundle = await loadSessionBundleIfValid(filePath);
+  if (!bundle) {
+    throw new Error(`Invalid session bundle at ${filePath}`);
+  }
+
+  return bundle;
+}
+
+export async function loadSessionBundleIfValid(
+  filePath: string,
+): Promise<ReplaySessionBundle | null> {
   const raw = await readFile(filePath, "utf8");
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    throw new Error(`Failed to parse session bundle at ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Failed to parse session bundle at ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+
+  if (!isRecord(parsed) || parsed.schemaVersion !== SESSION_BUNDLE_SCHEMA_VERSION) {
+    return null;
   }
 
   const bundle = validateSessionBundle(parsed);
@@ -55,42 +95,24 @@ export function createTempSessionBundlePath(prefix: string = "aperture-session-b
   return path.join(os.tmpdir(), basename);
 }
 
-async function readSessionBundleDirectory(directory: string): Promise<ReplaySessionBundle[]> {
+async function readSessionBundleFilePaths(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
-  const bundles: ReplaySessionBundle[] = [];
+  const bundlePaths: string[] = [];
 
   for (const entry of entries) {
     const absolutePath = path.join(directory, entry.name);
 
     if (entry.isDirectory()) {
-      bundles.push(...await readSessionBundleDirectory(absolutePath));
+      bundlePaths.push(...(await readSessionBundleFilePaths(absolutePath)));
       continue;
     }
 
-    if (!entry.isFile() || !entry.name.endsWith(".json")) {
-      continue;
+    if (entry.isFile() && entry.name.endsWith(".json")) {
+      bundlePaths.push(absolutePath);
     }
-
-    const raw = await readFile(absolutePath, "utf8");
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch (error) {
-      throw new Error(`Failed to parse session bundle at ${absolutePath}: ${error instanceof Error ? error.message : String(error)}`);
-    }
-
-    if (!isRecord(parsed) || parsed.schemaVersion !== SESSION_BUNDLE_SCHEMA_VERSION) {
-      continue;
-    }
-
-    const bundle = validateSessionBundle(parsed);
-    if (!bundle) {
-      throw new Error(`Invalid session bundle at ${absolutePath}`);
-    }
-    bundles.push(bundle);
   }
 
-  return bundles;
+  return bundlePaths;
 }
 
 function isMissingDirectoryError(error: unknown): error is NodeJS.ErrnoException {

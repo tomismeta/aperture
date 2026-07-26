@@ -23,6 +23,7 @@ Normal operator commands:
 - `pnpm lab:fstop:sweep ...`
 - `pnpm lab:fstop:campaign ...`
 - `pnpm lab:fstop:service ...`
+- `pnpm lab:corpus:run ...`
 
 Lower-level debugging commands:
 
@@ -188,8 +189,48 @@ trace-count provenance while keeping raw trace bulk out of replay steps.
 Trace Commons is useful real-world agent-session pressure data, but its own
 dataset card warns that anonymization is best effort; treat imported bundles as
 review candidates, not automatically safe calibration truth.
-The Hugging Face rows API caps one request at 100 rows, so page larger runs with
-`--offset` and `--limit` rather than asking for one large pull.
+The Hugging Face rows API caps one request at 100 rows, and Trace Commons rows
+are bulky. Page larger runs with `--offset`, `--max-rows`, and `--page-size`
+rather than asking for one large pull. The corpus runner records its exact
+decompressed response byte budget in the manifest. Prefer reducing
+`--page-size` when a page exceeds the 64 MiB default; for an unusually large
+row, `--max-response-bytes` can raise the cap to at most 134217728 bytes.
+
+For VPS/lab-VM corpus harvesting, prefer the bounded corpus runner:
+
+```bash
+pnpm lab:corpus:run --dataset trace-commons --split train --max-rows 100 --page-size 5 --runtime-root /srv/aperture-lab --run-id trace-commons-smoke
+```
+
+This pages public trajectories through the same canonical import path, writes
+bundles under the selected runtime root's `bundles/public` directory, and
+records a manifest plus operator report under
+`<runtime-root>/corpus-runs/<run-id>`. The manifest keeps run posture, progress,
+ledger paths, and aggregate integrity digests; `records.jsonl` keeps per-row
+bundle paths and row digests. The run artifact does not copy raw public rows.
+Use `--dry-run` locally when checking a slice shape without writing bundles or
+manifests. Use `--plan` for a no-network, no-write preflight, and
+`--resume <manifest-path>` to continue an incomplete VPS run from its last
+recorded offset. Managed corpus runs currently support Trace Commons and
+DataClaw; DataClaw defaults to one row per page because individual rows can be
+large.
+
+To audit or clean a refreshed manifest-backed corpus scope, use:
+
+```bash
+pnpm lab:corpus:prune --manifest /path/to/desired/manifest.json --previous-manifest /path/to/previous/manifest.json --json
+```
+
+This defaults to preview. Add `--apply` only when the report is acceptable.
+The prune command scans the manifest dataset/split scope, keeps desired manifest
+bundles, and deletes only stale files whose current digest matches a previous
+verified manifest. Unmanaged files are reported and retained, and one dataset's
+manifest can never authorize cleanup in another dataset's bundle scope.
+
+Even though corpus runs do not mirror raw public rows, the normalized replay
+bundles still retain prompts, assistant messages, tool names, and outcome-bearing
+tool output. Treat VPS artifacts as sensitive Lab review material until a human
+has approved any promotion.
 
 To point F-Stop at a known raw export file directly, use:
 

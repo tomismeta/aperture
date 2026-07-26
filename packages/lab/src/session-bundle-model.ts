@@ -155,6 +155,7 @@ export type CreateSessionBundleOptions = {
   sessionId?: string;
   source?: ReplaySessionBundleSource;
   exportedAt?: string;
+  replayTimeSource?: () => number;
 };
 
 export type CreateScenarioOptions = {

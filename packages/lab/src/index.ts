@@ -67,6 +67,82 @@ export {
   DEFAULT_LAB_RUNTIME_ROOT,
 } from "./runtime-paths.js";
 export {
+  DEFAULT_PUBLIC_CORPUS_BUNDLES_DIR,
+  DEFAULT_PUBLIC_CORPUS_MAX_RETRIES,
+  DEFAULT_PUBLIC_CORPUS_MAX_RESPONSE_BYTES,
+  DEFAULT_PUBLIC_CORPUS_MAX_ROWS,
+  DEFAULT_PUBLIC_CORPUS_PAGE_SIZE,
+  DEFAULT_PUBLIC_CORPUS_RUNS_DIR,
+  DEFAULT_PUBLIC_CORPUS_TIMEOUT_SECONDS,
+  MAX_PUBLIC_CORPUS_RESPONSE_BYTES,
+  DATACLAW_DATASET_URL,
+  appendPublicCorpusRecord,
+  defaultPublicCorpusBundleRoot,
+  defaultPublicCorpusRunId,
+  defaultPublicCorpusRunRoot,
+  digestJsonValue,
+  renderPublicCorpusRunMarkdown,
+  writePublicCorpusRunManifestAtomic,
+  writePublicCorpusRunMarkdownAtomic,
+  type PublicCorpusDataset,
+  type PublicCorpusExistingPolicy,
+  type PublicCorpusRecordLedgerEntry,
+  type PublicCorpusRunManifest,
+  type PublicCorpusRunPlan,
+  type PublicCorpusSplit,
+  type PublicCorpusRunStatus,
+} from "./public-corpus-manifest.js";
+export { digestPublicCorpusLedgerEntries } from "./public-corpus-ledger-format.js";
+export {
+  isPublicCorpusRunManifest,
+  readPublicCorpusRunManifest,
+} from "./public-corpus-manifest-validation.js";
+export {
+  reconcilePublicCorpusLedger,
+  type PublicCorpusLedgerSnapshot,
+} from "./public-corpus-ledger.js";
+export {
+  fetchJsonWithPolicy,
+  type PublicCorpusFetchLike,
+  type PublicCorpusFetchPolicy,
+  type PublicCorpusSleep,
+} from "./public-corpus-fetch-policy.js";
+export {
+  DATACLAW_ROWS_PAGE_LIMIT,
+  fetchDataclawPage,
+  type DataclawPageFetcher,
+  type DataclawPageRequest,
+} from "./public-corpus-dataclaw-source.js";
+export {
+  fetchPublicCorpusPage,
+  type PublicCorpusPageFetcher,
+  type PublicCorpusPageRequest,
+  type PublicCorpusRow,
+  type PublicCorpusRows,
+} from "./public-corpus-runner-source.js";
+export {
+  TRACE_COMMONS_ROWS_PAGE_LIMIT,
+  fetchTraceCommonsPage,
+  type TraceCommonsPageFetcher,
+  type TraceCommonsPageRequest,
+} from "./public-corpus-trace-commons-source.js";
+export {
+  runPublicCorpusImport,
+  type PublicCorpusRunDependencies,
+  type PublicCorpusRunOptions,
+  type PublicCorpusRunResult,
+} from "./public-corpus-runner.js";
+export {
+  prunePublicCorpusBundles,
+  type PublicCorpusPruneOptions,
+  type PublicCorpusPruneReport,
+} from "./public-corpus-prune.js";
+export {
+  isVerifiedPublicCorpusBundleRecord,
+  readVerifiedPublicCorpusManifestRecords,
+  type VerifiedPublicCorpusBundleRecord,
+} from "./public-corpus-verified-records.js";
+export {
   acquireAutoresearchProcessLock,
   isAutoresearchProcessAlive,
   readAutoresearchProcessLock,
@@ -116,7 +192,25 @@ export {
   runPerturbedJudgmentBench,
 } from "./perturbation.js";
 export { renderJudgmentBenchMarkdown } from "./report.js";
-export { createWorkflowSummaryReport, renderWorkflowSummaryMarkdown } from "./workflow-summary.js";
+export {
+  createWorkflowSummaryReport,
+  createWorkflowSummaryReportFromSessions,
+  renderWorkflowSummaryMarkdown,
+  summarizeWorkflowSession,
+} from "./workflow-summary.js";
+export {
+  DEFAULT_SEMANTIC_REVIEW_CANDIDATE_RESULTS_DIR,
+  SEMANTIC_REVIEW_CANDIDATE_KINDS,
+  createSemanticReviewCandidateReport,
+  createSemanticReviewCandidateReportFromPaths,
+  defaultSemanticReviewCandidateReportPath,
+  renderSemanticReviewCandidateMarkdown,
+  writeSemanticReviewCandidateMarkdown,
+  writeSemanticReviewCandidateReport,
+  type SemanticReviewCandidate,
+  type SemanticReviewCandidateKind,
+  type SemanticReviewCandidateReport,
+} from "./semantic-review-candidates.js";
 export {
   executePromptCommand,
   runFStopRolePrompt,

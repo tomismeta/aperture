@@ -20,7 +20,9 @@ export {
 } from "./session-bundle-capture.js";
 export {
   createTempSessionBundlePath,
+  findSessionBundleFiles,
   loadSessionBundle,
+  loadSessionBundleIfValid,
   loadSessionBundles,
   writeSessionBundle,
 } from "./session-bundle-files.js";

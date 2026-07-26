@@ -1,16 +1,21 @@
 import {
-  createWorkflowSummaryReport,
-  loadSessionBundle,
-  loadSessionBundles,
+  createWorkflowSummaryReportFromSessions,
   renderWorkflowSummaryMarkdown,
+  summarizeWorkflowSession,
 } from "./index.js";
 import { parseWorkflowSummaryArgs } from "./fstop-cli-args.js";
 import { emitResult, writeDirectoryFile } from "./fstop-cli-shared.js";
+import {
+  findSessionBundleFiles,
+  loadSessionBundle,
+  loadSessionBundleIfValid,
+} from "./session-bundle.js";
 
 export async function runWorkflowSummaryCli(argv: string[]): Promise<void> {
   const options = parseWorkflowSummaryArgs(argv);
-  const bundles = await loadDistinctBundles(options.bundlePaths, options.bundleDirectories);
-  const report = createWorkflowSummaryReport(bundles);
+  const report = createWorkflowSummaryReportFromSessions(
+    await loadDistinctBundleSummaries(options.bundlePaths, options.bundleDirectories),
+  );
   const markdown = renderWorkflowSummaryMarkdown(report);
 
   if (options.outputPath) {
@@ -39,24 +44,35 @@ export async function runWorkflowSummaryCli(argv: string[]): Promise<void> {
   );
 }
 
-async function loadDistinctBundles(
-  bundlePaths: string[],
-  bundleDirectories: string[],
-) {
-  const directBundles = await Promise.all(bundlePaths.map((bundlePath) => loadSessionBundle(bundlePath)));
-  const directoryBundles = (
-    await Promise.all(bundleDirectories.map((directory) => loadSessionBundles(directory)))
-  ).flat();
-
+async function loadDistinctBundleSummaries(bundlePaths: string[], bundleDirectories: string[]) {
   const seen = new Set<string>();
-  const bundles = [...directBundles, ...directoryBundles];
+  const summaries: ReturnType<typeof summarizeWorkflowSession>[] = [];
 
-  return bundles.filter((bundle) => {
+  for (const bundlePath of bundlePaths) {
+    const bundle = await loadSessionBundle(bundlePath);
     const key = `${bundle.sessionId}:${bundle.exportedAt}`;
     if (seen.has(key)) {
-      return false;
+      continue;
     }
     seen.add(key);
-    return true;
-  });
+    summaries.push(summarizeWorkflowSession(bundle));
+  }
+
+  for (const directory of bundleDirectories) {
+    const bundleFiles = await findSessionBundleFiles(directory);
+    for (const bundlePath of bundleFiles) {
+      const bundle = await loadSessionBundleIfValid(bundlePath);
+      if (!bundle) {
+        continue;
+      }
+      const key = `${bundle.sessionId}:${bundle.exportedAt}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      summaries.push(summarizeWorkflowSession(bundle));
+    }
+  }
+
+  return summaries;
 }

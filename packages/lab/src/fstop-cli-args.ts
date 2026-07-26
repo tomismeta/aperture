@@ -13,16 +13,25 @@ export {
   parseServiceArgs,
   parseSweepArgs,
 } from "./fstop-cli-args-autoresearch.js";
+export { parseIngestArgs, parseTrajectoryImportArgs } from "./fstop-cli-args-ingest.js";
 export {
-  parseIngestArgs,
-  parseTrajectoryImportArgs,
-} from "./fstop-cli-args-ingest.js";
+  parseCorpusRunArgs,
+  type CorpusRunCliOptions,
+} from "./fstop-cli-args-corpus.js";
+export {
+  parseCorpusPruneArgs,
+  type CorpusPruneCliOptions,
+} from "./fstop-cli-args-corpus-prune.js";
 export {
   parseGcArgs,
   parseOptimizeArgs,
   parseRoleArgs,
   parseWorkflowSummaryArgs,
 } from "./fstop-cli-args-ops.js";
+export {
+  parseReviewCandidateArgs,
+  type ReviewCandidateCliOptions,
+} from "./fstop-cli-args-review-candidates.js";
 export {
   parseCalibrationArgs,
   type CalibrationCommand,
@@ -83,7 +92,9 @@ export type WorkflowSummaryCliOptions = JsonOptions & {
 export type ServiceCliOptions = AutoresearchServiceCommandOptions & JsonOptions;
 export type SweepCliOptions = AutoresearchSweepCommandOptions & JsonOptions;
 export type CampaignCliOptions = AutoresearchCampaignCommandOptions & JsonOptions;
-export type RunCliOptions = AutoresearchRunCommandOptions & JsonOptions & Partial<{
-  inputDatasetHint: PublicTrajectoryDataset;
-  inputSplitHint: PublicTrajectorySplit;
-}>;
+export type RunCliOptions = AutoresearchRunCommandOptions &
+  JsonOptions &
+  Partial<{
+    inputDatasetHint: PublicTrajectoryDataset;
+    inputSplitHint: PublicTrajectorySplit;
+  }>;

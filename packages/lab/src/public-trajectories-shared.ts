@@ -215,8 +215,22 @@ export function normalizeToolFamily(value: string | undefined): string | undefin
     return undefined;
   }
 
-  const normalized = value.toLowerCase();
-  if (normalized === "bash" || normalized === "shell" || normalized === "terminal") return "bash";
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+
+  const alias = normalized.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  if (
+    normalized === "bash" ||
+    normalized === "shell" ||
+    normalized === "terminal" ||
+    alias === "exec_command" ||
+    alias === "shell_command" ||
+    alias === "run_shell_command"
+  ) {
+    return "bash";
+  }
   if (normalized.includes("read") || normalized.includes("open") || normalized.includes("view")) return "read";
   if (normalized.includes("edit") || normalized.includes("write") || normalized.includes("patch") || normalized.includes("replace")) return "edit";
   if (normalized.includes("search") || normalized.includes("find") || normalized.includes("grep")) return "search";

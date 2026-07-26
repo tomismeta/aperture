@@ -30,6 +30,7 @@ import {
   type SweSmithRow,
   type TraceCommonsRow,
 } from "../src/index.js";
+import { normalizeToolFamily } from "../src/public-trajectories-shared.js";
 
 const SAMPLE_ROW: SweSmithRow = {
   instance_id: "example/repo-123",
@@ -138,6 +139,22 @@ const SAMPLE_ROW: SweSmithRow = {
     },
   ]),
 };
+
+test("public trajectory tool family normalization folds shell command aliases into bash", () => {
+  assert.equal(normalizeToolFamily("bash"), "bash");
+  assert.equal(normalizeToolFamily("exec_command"), "bash");
+  assert.equal(normalizeToolFamily("exec-command"), "bash");
+  assert.equal(normalizeToolFamily("exec command"), "bash");
+  assert.equal(normalizeToolFamily("shell_command"), "bash");
+  assert.equal(normalizeToolFamily("shell-command"), "bash");
+  assert.equal(normalizeToolFamily("shell command"), "bash");
+  assert.equal(normalizeToolFamily("run_shell_command"), "bash");
+  assert.equal(normalizeToolFamily("run-shell-command"), "bash");
+  assert.equal(normalizeToolFamily("run shell command"), "bash");
+  assert.equal(normalizeToolFamily("command"), "command");
+  assert.equal(normalizeToolFamily("unknown_tool"), "unknown_tool");
+  assert.equal(normalizeToolFamily("powershell"), "powershell");
+});
 
 const SAMPLE_DATACLAW_ROW: DataclawRow = {
   session_id: "123e4567-e89b-12d3-a456-426614174000",

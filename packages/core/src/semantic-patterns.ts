@@ -91,6 +91,11 @@ export const ROUTINE_SUCCESS_PHRASES = [
   "command ran successfully and did not produce any output",
   "your command ran successfully and did not produce any output",
   "completed successfully and did not produce any output",
+  "exit code 0",
+  "exited with code 0",
+  "command exited with code 0",
+  "process exited with code 0",
+  "completed with exit code 0",
 ] as const;
 
 export const LOG_LIKE_OBSERVATION_PHRASES = ["tool-output", "dmesg"] as const;
@@ -127,6 +132,11 @@ export const EXPECTED_DIAGNOSTIC_FAILURE_PHRASES = [
   "form errors",
   "errorlist",
   "decompress result",
+  "no exception occurred",
+  "no exceptions occurred",
+  "expected exception",
+  "expected exception was caught",
+  "caught expected exception",
 ] as const;
 
 export const TERMINAL_FAILURE_PHRASES = [

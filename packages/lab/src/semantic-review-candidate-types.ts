@@ -2,6 +2,7 @@ import { SEMANTIC_REVIEW_CANDIDATE_REPORT_SCHEMA_VERSION } from "./artifact-vers
 import type { OfflineReviewFocusArea } from "./offline-review.js";
 import type { PublicCorpusRecordLedgerEntry } from "./public-corpus-manifest.js";
 import { defaultLabRuntimeSubdirectory } from "./runtime-paths.js";
+import type { SemanticReviewTaskFailureEvidenceSummary } from "./semantic-review-failure-evidence-types.js";
 
 export const SEMANTIC_REVIEW_CANDIDATE_KINDS = [
   "missing_why_now",
@@ -83,6 +84,8 @@ export type SemanticReviewCandidateReport = {
   selection: {
     maxCandidatesPerKind: number;
     maxCandidatesPerSessionPerKind: number;
+    maxFailureEvidenceExamplesPerKind: number;
+    maxFailureEvidenceExamplesPerSessionPerKind: number;
     retainedSort: "pressure_score_desc_path_step";
     promotionAuthority: "review_required";
   };
@@ -100,6 +103,7 @@ export type SemanticReviewCandidateReport = {
     candidateCount: number;
     countsByKind: Record<SemanticReviewCandidateKind, number>;
     retainedByKind: Record<SemanticReviewCandidateKind, number>;
+    failedTaskEvidence: SemanticReviewTaskFailureEvidenceSummary;
   };
   candidatesByKind: Record<SemanticReviewCandidateKind, SemanticReviewCandidate[]>;
 };

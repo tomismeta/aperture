@@ -44,6 +44,75 @@ test("semantic text evidence separates routine success from terminal failure evi
   assert.equal(exitCode.terminalFailureEvidence, true);
 });
 
+test("semantic text evidence handles terminal polarity conservatively", () => {
+  const exitCodeZero = readSemanticTextEvidence("bash failure Process exited with code 0.", "bash");
+  const exitCodeZeroWithIssue = readSemanticTextEvidence(
+    "bash failure Tests failed. Process exited with code 0.",
+    "bash",
+  );
+  const exitCodeZeroWithConnector = readSemanticTextEvidence(
+    "bash failure Process exit code was 0.",
+    "bash",
+  );
+  const jsonExitCodeZero = readSemanticTextEvidence(
+    '{"exit_code":0,"wall_time":"0 seconds","output":"ok"}',
+    "bash",
+  );
+  const nonzeroExitCode = readSemanticTextEvidence(
+    "bash failure Process exited with code 2.",
+    "bash",
+  );
+  const nonzeroExitCodeWithConnector = readSemanticTextEvidence(
+    "bash failure Process exit code was 2.",
+    "bash",
+  );
+  const jsonNonzeroExitCode = readSemanticTextEvidence(
+    '{"exit_code":1,"output":"Traceback (most recent call last): RuntimeError"}',
+    "bash",
+  );
+  const negatedException = readSemanticTextEvidence("OBSERVATION: No exception occurred.", "bash");
+  const expectedException = readSemanticTextEvidence(
+    "OBSERVATION: Expected exception was caught.",
+    "bash",
+  );
+  const realTraceback = readSemanticTextEvidence(
+    "OBSERVATION: No exception occurred earlier. Traceback follows from retry.",
+    "bash",
+  );
+  const benignThenRealException = readSemanticTextEvidence(
+    "OBSERVATION: No exception occurred during setup; an exception escaped during cleanup.",
+    "bash",
+  );
+  const benignThenRealPermissionDenied = readSemanticTextEvidence(
+    "OBSERVATION: No permission denied during setup; deploy failed: permission denied.",
+    "bash",
+  );
+
+  assert.equal(exitCodeZero.routineSuccessObservation, true);
+  assert.equal(exitCodeZero.terminalFailureEvidence, false);
+  assert.equal(exitCodeZeroWithIssue.routineSuccessObservation, false);
+  assert.equal(exitCodeZeroWithIssue.terminalFailureEvidence, false);
+  assert.equal(exitCodeZeroWithConnector.routineSuccessObservation, true);
+  assert.equal(exitCodeZeroWithConnector.terminalFailureEvidence, false);
+  assert.equal(jsonExitCodeZero.routineSuccessObservation, true);
+  assert.equal(jsonExitCodeZero.terminalFailureEvidence, false);
+  assert.equal(nonzeroExitCode.routineSuccessObservation, false);
+  assert.equal(nonzeroExitCode.terminalFailureEvidence, true);
+  assert.equal(nonzeroExitCodeWithConnector.routineSuccessObservation, false);
+  assert.equal(nonzeroExitCodeWithConnector.terminalFailureEvidence, true);
+  assert.equal(jsonNonzeroExitCode.routineSuccessObservation, false);
+  assert.equal(jsonNonzeroExitCode.terminalFailureEvidence, true);
+  assert.equal(negatedException.expectedDiagnosticFailure, true);
+  assert.equal(negatedException.terminalFailureEvidence, false);
+  assert.equal(expectedException.expectedDiagnosticFailure, true);
+  assert.equal(expectedException.terminalFailureEvidence, false);
+  assert.equal(realTraceback.expectedDiagnosticFailure, false);
+  assert.equal(realTraceback.terminalFailureEvidence, true);
+  assert.equal(benignThenRealException.expectedDiagnosticFailure, false);
+  assert.equal(benignThenRealException.terminalFailureEvidence, true);
+  assert.equal(benignThenRealPermissionDenied.terminalFailureEvidence, true);
+});
+
 test("semantic text evidence classifies readback observations without treating source dumps as routine", () => {
   const log = readSemanticTextEvidence(
     "<path>/tmp/tool-output/kernel.log</path> <type>file</type> <content>1190: [ 4.998830] amdgpu ring comp_1.2.1 uses VM inv eng 10 on hub 0",
@@ -110,6 +179,100 @@ test("task failure evidence applies terminal evidence before positive observatio
   assert.equal(evidence?.kind, "terminal_failure");
   assert.equal(evidence?.readsAsObservation, false);
   assert.equal(evidence?.consequenceBaseline, "high");
+});
+
+test("task failure evidence separates zero exit and expected diagnostics from terminal failures", () => {
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:exit-zero",
+      taskId: "task:evidence:exit-zero",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: "Process exited with code 0.",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "routine_bash_success_observation",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:no-exception",
+      taskId: "task:evidence:no-exception",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: "No exception occurred.",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "expected_diagnostic_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:json-exit-zero",
+      taskId: "task:evidence:json-exit-zero",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: '{"exit_code":0,"wall_time":"0 seconds","output":"ok"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "low",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:expected-exception",
+      taskId: "task:evidence:expected-exception",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: "Expected exception was caught.",
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "medium",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:nonzero-exit",
+      taskId: "task:evidence:nonzero-exit",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: "Process exited with code 2.",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:zero-exit-with-failed-tests",
+      taskId: "task:evidence:zero-exit-with-failed-tests",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: "Tests failed. Process exited with code 0.",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:nonzero-exit-connector",
+      taskId: "task:evidence:nonzero-exit-connector",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: "Process exit code was 2.",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+  );
 });
 
 test("task failure evidence preserves current observational classes", () => {

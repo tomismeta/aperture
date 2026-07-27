@@ -38,3 +38,8 @@ export { ProfileStore } from "./profile-store.js";
 export { loadPolicyConfig } from "./policy-config.js";
 export type { ApertureProfile, MemoryProfile } from "./profile-store.js";
 export type { PolicyConfig } from "./policy-config.js";
+export {
+  readTaskFailureSemanticEvidence,
+  type TaskFailureEvidenceKind,
+  type TaskFailureSemanticEvidence,
+} from "./semantic-evidence.js";

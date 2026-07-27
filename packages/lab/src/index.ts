@@ -201,6 +201,7 @@ export {
 export {
   DEFAULT_SEMANTIC_REVIEW_CANDIDATE_RESULTS_DIR,
   SEMANTIC_REVIEW_CANDIDATE_KINDS,
+  SEMANTIC_REVIEW_TASK_FAILURE_EVIDENCE_KINDS,
   createSemanticReviewCandidateReport,
   createSemanticReviewCandidateReportFromPaths,
   defaultSemanticReviewCandidateReportPath,
@@ -210,6 +211,10 @@ export {
   type SemanticReviewCandidate,
   type SemanticReviewCandidateKind,
   type SemanticReviewCandidateReport,
+  type SemanticReviewTaskFailureConsequenceBaseline,
+  type SemanticReviewTaskFailureEvidenceExample,
+  type SemanticReviewTaskFailureEvidenceKind,
+  type SemanticReviewTaskFailureEvidenceSummary,
 } from "./semantic-review-candidates.js";
 export {
   executePromptCommand,

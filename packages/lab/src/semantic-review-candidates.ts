@@ -27,6 +27,13 @@ import {
   type SemanticReviewCandidateKind,
   type SemanticReviewCandidateReport,
 } from "./semantic-review-candidate-types.js";
+import {
+  addFailureEvidenceExample,
+  classifyFailureEvidenceForStep,
+  createFailureEvidenceAccumulator,
+  finalizeFailureEvidenceSummary,
+  type SemanticReviewTaskFailureEvidenceAccumulator,
+} from "./semantic-review-failure-evidence.js";
 
 export {
   DEFAULT_SEMANTIC_REVIEW_CANDIDATE_RESULTS_DIR,
@@ -36,6 +43,13 @@ export {
   type SemanticReviewCandidateKind,
   type SemanticReviewCandidateReport,
 } from "./semantic-review-candidate-types.js";
+export {
+  SEMANTIC_REVIEW_TASK_FAILURE_EVIDENCE_KINDS,
+  type SemanticReviewTaskFailureConsequenceBaseline,
+  type SemanticReviewTaskFailureEvidenceExample,
+  type SemanticReviewTaskFailureEvidenceKind,
+  type SemanticReviewTaskFailureEvidenceSummary,
+} from "./semantic-review-failure-evidence-types.js";
 export {
   defaultSemanticReviewCandidateReportPath,
   renderSemanticReviewCandidateMarkdown,
@@ -47,8 +61,11 @@ type CandidateReportAccumulator = {
   repoRoot: string;
   maxCandidatesPerKind: number;
   maxCandidatesPerSessionPerKind: number;
+  maxFailureEvidenceExamplesPerKind: number;
+  maxFailureEvidenceExamplesPerSessionPerKind: number;
   countsByKind: Record<SemanticReviewCandidateKind, number>;
   candidatesByKind: Record<SemanticReviewCandidateKind, SemanticReviewCandidate[]>;
+  failedTaskEvidence: SemanticReviewTaskFailureEvidenceAccumulator;
   scannedBundleCount: number;
 };
 
@@ -144,8 +161,11 @@ function createCandidateReportAccumulator(options: {
     repoRoot: options.repoRoot ?? process.cwd(),
     maxCandidatesPerKind,
     maxCandidatesPerSessionPerKind,
+    maxFailureEvidenceExamplesPerKind: maxCandidatesPerKind,
+    maxFailureEvidenceExamplesPerSessionPerKind: maxCandidatesPerSessionPerKind,
     countsByKind: createKindCounts(),
     candidatesByKind: createKindBuckets(),
+    failedTaskEvidence: createFailureEvidenceAccumulator(),
     scannedBundleCount: 0,
   };
 }
@@ -168,6 +188,24 @@ function addBundleCandidates(
     const normalized = normalizedByStep.get(step.stepIndex) ?? null;
     const semantic = semanticByStep.get(step.stepIndex) ?? null;
     const decision = decisionByStep.get(step.stepIndex) ?? null;
+    const failureEvidence = classifyFailureEvidenceForStep(bundle.steps[step.stepIndex]);
+    if (failureEvidence) {
+      addFailureEvidenceExample(
+        accumulator.failedTaskEvidence,
+        {
+          maxExamplesPerKind: accumulator.maxFailureEvidenceExamplesPerKind,
+          maxExamplesPerSessionPerKind: accumulator.maxFailureEvidenceExamplesPerSessionPerKind,
+        },
+        {
+          bundle,
+          bundlePath,
+          step,
+          semantic: semantic as ReplaySemanticSnapshot | null,
+          decision: decision as ReplayDecisionSnapshot | null,
+          evidence: failureEvidence,
+        },
+      );
+    }
 
     for (const kind of candidateKindsForStep(step, semantic, decision)) {
       accumulator.countsByKind[kind] += 1;
@@ -218,6 +256,9 @@ function finalizeCandidateReport(
     selection: {
       maxCandidatesPerKind: accumulator.maxCandidatesPerKind,
       maxCandidatesPerSessionPerKind: accumulator.maxCandidatesPerSessionPerKind,
+      maxFailureEvidenceExamplesPerKind: accumulator.maxFailureEvidenceExamplesPerKind,
+      maxFailureEvidenceExamplesPerSessionPerKind:
+        accumulator.maxFailureEvidenceExamplesPerSessionPerKind,
       retainedSort: "pressure_score_desc_path_step",
       promotionAuthority: "review_required",
     },
@@ -241,6 +282,7 @@ function finalizeCandidateReport(
       candidateCount: sumCandidateCounts(accumulator.countsByKind),
       countsByKind: accumulator.countsByKind,
       retainedByKind,
+      failedTaskEvidence: finalizeFailureEvidenceSummary(accumulator.failedTaskEvidence),
     },
     candidatesByKind: accumulator.candidatesByKind,
   };

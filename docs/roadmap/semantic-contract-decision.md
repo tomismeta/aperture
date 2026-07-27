@@ -154,6 +154,67 @@ The one current exception is explicit and compiled before judgment:
 
 If Aperture later wants implied asks in status updates to change routing, that must become a deliberate policy decision, not an accidental side effect of richer semantics.
 
+## Product And Release Impact - 2026-07-27
+
+The semantic-evidence tranche changes runtime behavior only on narrow
+`task.updated` failed-status reads. It does not add a public SDK export and does
+not add a runtime dependency to `@tomismeta/aperture-core` or
+`@tomismeta/aperture`.
+
+Public surface invariants:
+
+- `readTaskFailureSemanticEvidence` remains absent from the root SDK export and
+  the `/semantic` export
+- the classifier is available only through the workspace-private
+  `@tomismeta/aperture-core/internal` seam for Lab audit workflows
+- the npm package `exports` map still does not expose `./internal`
+- session-bundle and trace schemas do not carry raw classifier evidence yet
+- the packaged product remains dependency-free in its runtime package path
+
+Runtime impact:
+
+- source users on current `main`, and consumers of the next npm release, get the
+  stricter failed-status classifier
+- installed npm consumers remain unaffected until a new package is published
+- adapters that provide explicit `toolFamily` or context tool-family evidence
+  can still receive bounded failed-status readback handling
+- adapters that only place tool-family truth in audit `metadata` no longer get
+  that metadata treated as routing evidence
+- zero-exit bash outputs and negated or expected exception wording no longer
+  enter the `terminal_failure` bucket by phrase alone
+
+Lab impact:
+
+- semantic review candidate reports are schema v2
+- the report now includes a failed-task-evidence census with counts by evidence
+  kind, tool family, consequence baseline, missing tool-family, and retained
+  deterministic examples
+- retained failed-evidence examples use the report's per-kind and
+  per-session/kind caps, so the shortlist is deterministic and not dominated by
+  one session
+- failed evidence is counted from raw `publishSource` and direct `publish`
+  events, once per failed task update, independently of candidate pressure
+  buckets
+
+Representative corpus checkpoint:
+
+- on a 99-bundle public trajectory census, Lab scanned 1,335 failed task
+  updates with no invalid bundles
+- 180 failed updates read as observations, including 150 routine bash
+  zero-exit observations and 30 read/edit observational payloads
+- 129 failed updates carried terminal failure evidence
+- 1,017 failed updates stayed unclassified and high-baseline, which remains the
+  conservative fallback bucket for future review
+- no failed evidence in that census depended on missing tool-family truth
+
+Release posture:
+
+- do not cut npm from this branch until `boundary:check`, `sdk:prove`,
+  `kernel:conformance`, `kernel:corpus`, product smoke, and a representative
+  corpus evidence census have passed
+- the release note should describe this as semantic robustness and auditability,
+  not a new public classifier API
+
 ## Human Input Contract
 
 For `human.input.requested`, semantic interpretation is allowed to project into the canonical event more strongly.

@@ -62,7 +62,7 @@ function isDataclawObservationalSuccessOutput(
   }
 
   if (toolFamily === "read") {
-    return isDataclawReadbackSuccess(text);
+    return hasDataclawStructuredReadContent(toolUse.output) || isDataclawReadbackSuccess(text);
   }
 
   if (toolFamily === "search") {
@@ -77,8 +77,71 @@ function isDataclawReadbackSuccess(text: string): boolean {
   return (
     /(?:^|\n)\d+→/.test(text.trim()) ||
     normalized.includes("showing abbreviated version") ||
-    normalized.includes("please use `str_replace_editor view`")
+    normalized.includes("please use `str_replace_editor view`") ||
+    isDataclawPlainReadContent(text)
   );
+}
+
+function isDataclawPlainReadContent(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed || isDataclawReadFailureText(trimmed)) {
+    return false;
+  }
+
+  const nonEmptyLineCount = trimmed.split(/\r?\n/).filter((line) => line.trim()).length;
+  if (nonEmptyLineCount < 2 && trimmed.length < 120) {
+    return false;
+  }
+
+  return [
+    /^\s*#(?:include|ifndef|define|pragma)\b/m,
+    /^\s*(?:import|from|export|class|def|function|const|let|var|type|interface)\b/m,
+    /^\s*(?:cmake_minimum_required|project|set)\s*\(/im,
+    /^\s*(?:package|use|namespace)\s+[\w.:-]+/m,
+  ].some((pattern) => pattern.test(trimmed));
+}
+
+function isDataclawReadFailureText(text: string): boolean {
+  const trimmed = text.trim();
+  const leading = trimmed.slice(0, 500);
+  const inspected = trimmed.length <= 500 ? trimmed : leading;
+  const leadingFailurePattern =
+    /^(?:error[:\s-]*)?(?:enoent|no such file|permission denied|failed to read|cannot read|(?:file\s+)?not found|is a directory)\b/i;
+  const strongFailurePattern =
+    /\b(?:enoent|no such file|permission denied|failed to read|cannot read|is a directory)\b/i;
+
+  return leadingFailurePattern.test(inspected) || strongFailurePattern.test(inspected);
+}
+
+function hasDataclawStructuredReadContent(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.some((entry) => hasDataclawStructuredReadContent(entry));
+  }
+
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const files = value.files;
+  if (Array.isArray(files) && files.some(hasDataclawStructuredFileContent)) {
+    return true;
+  }
+
+  return hasDataclawStructuredFileContent(value);
+}
+
+function hasDataclawStructuredFileContent(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const content = value.content;
+  if (typeof content !== "string" || content.trim().length === 0) {
+    return false;
+  }
+
+  const path = value.path ?? value.file ?? value.file_path;
+  return typeof path === "string" && path.trim().length > 0;
 }
 
 function hasDataclawStructuredSearchResults(value: unknown): boolean {

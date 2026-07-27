@@ -645,30 +645,62 @@ test("semantic review candidate reports treat canonical DataClaw Glob usage as k
   assert.equal(report.candidatesByKind.tool_taxonomy_gap.length, 0);
 });
 
-test("semantic review candidate reports do not treat DataClaw readback status mismatches as failures", async () => {
+test("semantic review candidate reports do not treat DataClaw read status mismatches as failures", async () => {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-readback-"));
-  const bundle = createSessionBundleFromDataclawRow(
-    createDataclawReadStatusRow({
-      sessionId: "323e4567-e89b-12d3-a456-426614174000",
-      output: {
-        text: "1→export async function request() {\n2→  return fetch('/api');\n3→}",
-      },
-      status: "failed",
+  const bundles = [
+    createSessionBundleFromDataclawRow(
+      createDataclawReadStatusRow({
+        sessionId: "323e4567-e89b-12d3-a456-426614174000",
+        output: {
+          text: "1→export async function request() {\n2→  return fetch('/api');\n3→}",
+        },
+        status: "failed",
+      }),
+    ),
+    createSessionBundleFromDataclawRow(
+      createDataclawReadStatusRow({
+        sessionId: "423e4567-e89b-12d3-a456-426614174000",
+        output: {
+          files: [
+            {
+              path: "/workspace/src/client.ts",
+              content: "export async function request() {\n  return fetch('/api');\n}",
+            },
+          ],
+        },
+        status: "failed",
+      }),
+    ),
+    createSessionBundleFromDataclawRow(
+      createDataclawReadStatusRow({
+        sessionId: "523e4567-e89b-12d3-a456-426614174000",
+        output: {
+          text: '#ifndef GRAMMAR_H\n#define GRAMMAR_H\n#include <memory>\nclass Parser { const char* error = "symbol not found"; };',
+        },
+        status: "failed",
+      }),
+    ),
+  ];
+  const bundlePaths = await Promise.all(
+    bundles.map(async (bundle, index) => {
+      const bundlePath = path.join(tempDir, `bundle-${index}.json`);
+      await writeSessionBundle(bundlePath, bundle);
+      return bundlePath;
     }),
   );
-  const bundlePath = path.join(tempDir, "bundle.json");
-  await writeSessionBundle(bundlePath, bundle);
 
   const report = await createSemanticReviewCandidateReportFromPaths({
-    bundlePaths: [bundlePath],
+    bundlePaths,
     generatedAt: "2026-04-27T00:00:00.000Z",
     maxCandidatesPerKind: 2,
     repoRoot: tempDir,
   });
 
   assert.equal(
-    bundle.semanticSnapshots.some(
-      (snapshot) => snapshot.interpretation.activityClass === "tool_failure",
+    bundles.some((bundle) =>
+      bundle.semanticSnapshots.some(
+        (snapshot) => snapshot.interpretation.activityClass === "tool_failure",
+      ),
     ),
     false,
   );

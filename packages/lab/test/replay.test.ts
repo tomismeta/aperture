@@ -10,7 +10,7 @@ import {
   isKernelDecisionRecordFingerprint,
 } from "../src/index.js";
 import type { ReplayCandidateTrace } from "../src/replay-trace.js";
-import { buildDecisionRecordSnapshot } from "../src/runner.js";
+import { buildDecisionRecordSnapshot } from "../src/replay-decision-snapshot.js";
 
 const VALID_REASON_CODES = [
   "route:queue",
@@ -84,6 +84,10 @@ test("replay runner captures frames, traces, responses, and final view state", (
   assert.equal(result.decisions.length, 1);
   assert.equal(result.normalizedEvents.length, 0);
   assert.equal(result.decisions[0]?.decisionKind, "activate");
+  assert.equal(typeof result.decisions[0]?.episodeId, "string");
+  assert.equal(typeof result.decisions[0]?.episodeKey, "string");
+  assert.equal(result.decisions[0]?.episodeSize, 1);
+  assert.equal(result.decisions[0]?.episodeObsolete, false);
   assert.equal(scorecard.signals.presented, 1);
   assert.equal(scorecard.signals.viewed, 1);
   assert.equal(scorecard.signals.responded, 1);
@@ -197,6 +201,9 @@ test("normalized replay runs retain semantic and decision detail for determinism
   );
   assert.equal(normalized.decisions[0]?.decisionRecordRoute, "activate");
   assert.equal(normalized.decisions[0]?.plannedLane, "now");
+  assert.equal(typeof normalized.decisions[0]?.episodeId, "string");
+  assert.equal(normalized.decisions[0]?.episodeSize, 1);
+  assert.equal(normalized.decisions[0]?.episodeObsolete, false);
   assert.equal(normalized.decisions[0]?.decisionRecordOperatorPresence, "present");
   assert.equal(normalized.decisions[0]?.decisionRecordCandidateScore, 1211);
   assert.equal(normalized.decisions[0]?.decisionRecordValueComponents.blocking, 1000);

@@ -25,9 +25,7 @@
         "activityClass": "tool_failure",
         "consequence": "high",
         "confidence": "high",
-        "relationHintsExact": [
-          { "kind": "same_issue", "target": "issue:corpus:repeat-failure" }
-        ],
+        "relationHintsExact": [{ "kind": "same_issue", "target": "issue:corpus:repeat-failure" }],
         "provenanceIncludes": {
           "relationHints": "hint"
         },
@@ -73,6 +71,15 @@
         "plannedLane": "now",
         "resultLane": "now",
         "semanticConfidence": "high",
+        "episodeId": "episode:custom-agent:status:issue:corpus:repeat-failure:1",
+        "episodeKey": "custom-agent:status:issue:corpus:repeat-failure",
+        "episodeState": "emerging",
+        "episodeSize": 1,
+        "episodeEvidenceScore": 2,
+        "episodeEvidenceReasonsInclude": [
+          "at least one related interaction carried high consequence or critical tone"
+        ],
+        "episodeObsolete": false,
         "decisionRecordCurrentFrameId": null,
         "decisionRecordCurrentEpisodeId": null,
         "decisionRecordOperatorPresence": "present",
@@ -83,10 +90,7 @@
           "evidence:current_frame:absent",
           "evidence:current_episode:absent"
         ],
-        "semanticImpactDecisionBearingIncludes": [
-          "activity (canonical)",
-          "relations (continuity)"
-        ]
+        "semanticImpactDecisionBearingIncludes": ["activity (canonical)", "relations (continuity)"]
       },
       {
         "stepLabel": "repeated failure",
@@ -97,6 +101,17 @@
         "plannedLane": "next",
         "resultLane": "now",
         "semanticConfidence": "high",
+        "episodeId": "episode:custom-agent:status:issue:corpus:repeat-failure:1",
+        "episodeKey": "custom-agent:status:issue:corpus:repeat-failure",
+        "episodeState": "actionable",
+        "episodeSize": 2,
+        "episodeEvidenceScore": 5,
+        "episodeEvidenceReasonsInclude": [
+          "multiple related interactions have accumulated in this episode",
+          "high-signal evidence is stacking up across the episode",
+          "semantic relation hints indicate this issue is recurring"
+        ],
+        "episodeObsolete": false,
         "decisionRecordCurrentFrameId": null,
         "decisionRecordCurrentEpisodeId": null,
         "decisionRecordOperatorPresence": "present",
@@ -107,10 +122,7 @@
           "evidence:current_frame:absent",
           "evidence:current_episode:absent"
         ],
-        "semanticImpactDecisionBearingIncludes": [
-          "activity (canonical)",
-          "relations (continuity)"
-        ]
+        "semanticImpactDecisionBearingIncludes": ["activity (canonical)", "relations (continuity)"]
       }
     ],
     "traceExpectations": {
@@ -131,9 +143,7 @@
         "summary": "Production build failed before release.",
         "status": "failed",
         "semanticHints": {
-          "relationHints": [
-            { "kind": "same_issue", "target": "issue:corpus:repeat-failure" }
-          ]
+          "relationHints": [{ "kind": "same_issue", "target": "issue:corpus:repeat-failure" }]
         }
       }
     },

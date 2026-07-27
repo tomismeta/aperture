@@ -39,6 +39,44 @@
     ],
     "decisionReadings": [
       {
+        "stepLabel": "initial rollout approval",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "episodeId": "episode:custom-agent:interruptive:issue:corpus:rollout:1",
+        "episodeKey": "custom-agent:interruptive:issue:corpus:rollout",
+        "episodeState": "actionable",
+        "episodeSize": 1,
+        "episodeEvidenceScore": 6,
+        "episodeEvidenceReasonsInclude": [
+          "operator-facing work makes this episode immediately actionable",
+          "at least one related interaction carried high consequence or critical tone"
+        ],
+        "episodeObsolete": false,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:activate", "lane:now"]
+      },
+      {
+        "stepLabel": "background scanner noise",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "episodeId": "episode:custom-agent:status:the-background-scanner-is-still-processing-files.:1",
+        "episodeKey": "custom-agent:status:the-background-scanner-is-still-processing-files.",
+        "episodeState": "emerging",
+        "episodeSize": 1,
+        "episodeEvidenceScore": 0,
+        "episodeObsolete": false,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:ambient", "lane:ambient"]
+      },
+      {
         "stepLabel": "superseding rollback",
         "evaluationKind": "candidate",
         "decisionRecordProjectionVersion": 2,
@@ -46,6 +84,17 @@
         "decisionRecordRoute": "activate",
         "plannedLane": "now",
         "resultLane": "now",
+        "episodeId": "episode:custom-agent:interruptive:issue:corpus:rollout:1",
+        "episodeKey": "custom-agent:interruptive:issue:corpus:rollout",
+        "episodeState": "actionable",
+        "episodeSize": 2,
+        "episodeEvidenceScore": 8,
+        "episodeEvidenceReasonsInclude": [
+          "operator-facing work makes this episode immediately actionable",
+          "multiple related interactions have accumulated in this episode",
+          "high-signal evidence is stacking up across the episode"
+        ],
+        "episodeObsolete": false,
         "decisionRecordCurrentFrameId": "frame:interaction:corpus:rollout:deploy",
         "decisionRecordOperatorPresence": "present",
         "decisionRecordReasonCodesInclude": [
@@ -82,9 +131,7 @@
         },
         "riskHint": "high",
         "semanticHints": {
-          "relationHints": [
-            { "kind": "same_issue", "target": "issue:corpus:rollout" }
-          ]
+          "relationHints": [{ "kind": "same_issue", "target": "issue:corpus:rollout" }]
         }
       }
     },

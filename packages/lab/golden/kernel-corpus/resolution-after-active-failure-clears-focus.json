@@ -2,11 +2,7 @@
   "id": "golden:kernel-corpus:resolution-after-active-failure-clears-focus",
   "title": "Resolution after an active failure clears focus",
   "description": "A resolved same-issue status should retire the active failure episode instead of creating a new interrupt.",
-  "doctrineTags": [
-    "kernel_corpus",
-    "episode_resolution",
-    "decision_stream_continuity"
-  ],
+  "doctrineTags": ["kernel_corpus", "episode_resolution", "decision_stream_continuity"],
   "semanticFamilies": ["episode_missed"],
   "expectations": {
     "finalNowInteractionId": null,
@@ -37,6 +33,27 @@
     ],
     "decisionReadings": [
       {
+        "stepLabel": "active build failure",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "episodeId": "episode:custom-agent:status:issue:corpus:build:1",
+        "episodeKey": "custom-agent:status:issue:corpus:build",
+        "episodeState": "emerging",
+        "episodeSize": 1,
+        "episodeEvidenceScore": 3,
+        "episodeEvidenceReasonsInclude": [
+          "at least one related interaction carried high consequence or critical tone",
+          "semantic relation hints indicate this issue is recurring"
+        ],
+        "episodeObsolete": false,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:activate", "lane:now"]
+      },
+      {
         "stepLabel": "resolved build issue",
         "evaluationKind": "candidate",
         "decisionRecordProjectionVersion": 2,
@@ -44,6 +61,15 @@
         "decisionRecordRoute": "ambient",
         "plannedLane": "ambient",
         "resultLane": "ambient",
+        "episodeId": "episode:custom-agent:status:issue:corpus:build:1",
+        "episodeKey": "custom-agent:status:issue:corpus:build",
+        "episodeState": "resolved",
+        "episodeSize": 2,
+        "episodeEvidenceScore": 0,
+        "episodeEvidenceReasonsInclude": [
+          "semantic relation hints indicate this episode is resolved"
+        ],
+        "episodeObsolete": false,
         "decisionRecordCurrentEpisodeId": null,
         "decisionRecordOperatorPresence": "present",
         "decisionRecordReasonCodesInclude": [

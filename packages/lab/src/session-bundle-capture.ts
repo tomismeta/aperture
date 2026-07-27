@@ -14,7 +14,7 @@ import type {
   ReplayViewSnapshot,
 } from "./scenario.js";
 import { isReplayCandidateTrace, type ReplayCandidateTrace } from "./replay-trace.js";
-import { buildDecisionRecordSnapshot, buildDecisionSemanticSnapshot } from "./runner.js";
+import { buildCandidateDecisionSnapshot } from "./replay-decision-snapshot.js";
 import {
   type CanonicalAttentionExportLike,
   type CreateScenarioOptions,
@@ -122,7 +122,7 @@ export function createSessionBundleFromRuntimeCapture(
       const matchedTrace = findNextTraceForEvent(normalized.id, traceMatches, usedTraceIndexes);
       if (matchedTrace) {
         decisionSnapshots.push(
-          buildDecisionSnapshotFromTrace(stepIndex, "publishSource", matchedTrace),
+          buildCandidateDecisionSnapshot({ kind: "publishSource" }, stepIndex, matchedTrace),
         );
       }
       return;
@@ -276,24 +276,6 @@ function findNextTraceForEvent(
   }
   usedIndexes.add(index);
   return traces[index] ?? null;
-}
-
-function buildDecisionSnapshotFromTrace(
-  stepIndex: number,
-  stepKind: Extract<ReplayObservationStep["kind"], "publishSource">,
-  trace: ReplayCandidateTrace,
-): ReplayDecisionSnapshot {
-  return {
-    stepIndex,
-    stepKind,
-    evaluationKind: "candidate",
-    decisionKind: trace.coordination.kind,
-    resultLane: trace.coordination.resultLane,
-    interactionId: trace.evaluation.adjusted.interactionId,
-    ...buildDecisionSemanticSnapshot(trace),
-    ...buildDecisionRecordSnapshot(trace),
-    ambiguity: trace.coordination.ambiguity,
-  };
 }
 
 function buildViewSnapshotFromRuntimeCapture(

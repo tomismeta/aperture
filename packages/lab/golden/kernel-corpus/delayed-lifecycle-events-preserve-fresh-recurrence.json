@@ -64,6 +64,15 @@
         "decisionRecordRoute": "ambient",
         "plannedLane": "ambient",
         "resultLane": "ambient",
+        "episodeId": "episode:custom-agent:status:issue:corpus:delayed-lifecycle:1",
+        "episodeKey": "custom-agent:status:issue:corpus:delayed-lifecycle",
+        "episodeState": "resolved",
+        "episodeSize": 2,
+        "episodeEvidenceScore": 0,
+        "episodeEvidenceReasonsInclude": [
+          "semantic relation hints indicate this episode is resolved"
+        ],
+        "episodeObsolete": false,
         "decisionRecordCurrentEpisodeId": null,
         "decisionRecordOperatorPresence": "present",
         "decisionRecordReasonCodesInclude": [
@@ -73,6 +82,23 @@
         ]
       },
       {
+        "stepLabel": "fresh recurrence",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "episodeId": "episode:custom-agent:status:issue:corpus:delayed-lifecycle:2",
+        "episodeKey": "custom-agent:status:issue:corpus:delayed-lifecycle",
+        "episodeState": "emerging",
+        "episodeSize": 1,
+        "episodeEvidenceScore": 0,
+        "episodeObsolete": false,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:ambient", "lane:ambient"]
+      },
+      {
         "stepLabel": "delayed resolution replay",
         "evaluationKind": "candidate",
         "decisionRecordProjectionVersion": 2,
@@ -80,6 +106,15 @@
         "decisionRecordRoute": "ambient",
         "plannedLane": "ambient",
         "resultLane": "none",
+        "episodeId": "episode:custom-agent:status:issue:corpus:delayed-lifecycle:1",
+        "episodeKey": "custom-agent:status:issue:corpus:delayed-lifecycle",
+        "episodeState": "stale",
+        "episodeSize": 2,
+        "episodeEvidenceScore": 0,
+        "episodeEvidenceReasonsInclude": [
+          "semantic relation hints indicate this episode is resolved"
+        ],
+        "episodeObsolete": true,
         "decisionRecordOperatorPresence": "present",
         "decisionRecordReasonCodesInclude": ["route:ambient", "lane:ambient"]
       },
@@ -91,6 +126,12 @@
         "decisionRecordRoute": "activate",
         "plannedLane": "now",
         "resultLane": "none",
+        "episodeId": "episode:custom-agent:status:issue:corpus:delayed-lifecycle:2",
+        "episodeKey": "custom-agent:status:issue:corpus:delayed-lifecycle",
+        "episodeState": "emerging",
+        "episodeSize": 1,
+        "episodeEvidenceScore": 0,
+        "episodeObsolete": true,
         "decisionRecordOperatorPresence": "present",
         "decisionRecordReasonCodesInclude": ["route:activate", "lane:now"]
       },
@@ -103,6 +144,16 @@
         "plannedLane": "ambient",
         "resultLane": "ambient",
         "decisionRecordCandidateScore": 0,
+        "episodeId": "episode:custom-agent:status:issue:corpus:delayed-lifecycle:2",
+        "episodeKey": "custom-agent:status:issue:corpus:delayed-lifecycle",
+        "episodeState": "batched",
+        "episodeSize": 2,
+        "episodeEvidenceScore": 3,
+        "episodeEvidenceReasonsInclude": [
+          "multiple related interactions have accumulated in this episode",
+          "semantic relation hints indicate this issue is escalating"
+        ],
+        "episodeObsolete": false,
         "decisionRecordOperatorPresence": "present",
         "decisionRecordReasonCodesInclude": ["route:ambient", "lane:ambient"]
       }

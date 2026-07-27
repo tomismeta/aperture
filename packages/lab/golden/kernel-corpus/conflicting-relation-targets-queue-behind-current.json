@@ -2,11 +2,7 @@
   "id": "golden:kernel-corpus:conflicting-relation-targets-queue-behind-current",
   "title": "Conflicting relation targets queue behind the current frame",
   "description": "A later approval with the same relation kind but a different target should not impersonate the current episode and replace the active decision.",
-  "doctrineTags": [
-    "kernel_corpus",
-    "relation_target_conflict",
-    "decision_stream_continuity"
-  ],
+  "doctrineTags": ["kernel_corpus", "relation_target_conflict", "decision_stream_continuity"],
   "semanticFamilies": ["episode_missed"],
   "expectations": {
     "finalNowInteractionId": "interaction:corpus:deploy:primary",
@@ -37,6 +33,27 @@
     ],
     "decisionReadings": [
       {
+        "stepLabel": "primary deploy approval",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "episodeId": "episode:custom-agent:interruptive:issue:deploy:primary:1",
+        "episodeKey": "custom-agent:interruptive:issue:deploy:primary",
+        "episodeState": "actionable",
+        "episodeSize": 1,
+        "episodeEvidenceScore": 6,
+        "episodeEvidenceReasonsInclude": [
+          "operator-facing work makes this episode immediately actionable",
+          "at least one related interaction carried high consequence or critical tone"
+        ],
+        "episodeObsolete": false,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:activate", "lane:now"]
+      },
+      {
         "stepLabel": "different target approval",
         "evaluationKind": "candidate",
         "decisionRecordProjectionVersion": 2,
@@ -44,6 +61,16 @@
         "decisionRecordRoute": "activate",
         "plannedLane": "now",
         "resultLane": "next",
+        "episodeId": "episode:custom-agent:interruptive:issue:deploy:secondary:1",
+        "episodeKey": "custom-agent:interruptive:issue:deploy:secondary",
+        "episodeState": "actionable",
+        "episodeSize": 1,
+        "episodeEvidenceScore": 6,
+        "episodeEvidenceReasonsInclude": [
+          "operator-facing work makes this episode immediately actionable",
+          "at least one related interaction carried high consequence or critical tone"
+        ],
+        "episodeObsolete": false,
         "decisionRecordCurrentFrameId": null,
         "decisionRecordCurrentEpisodeId": null,
         "decisionRecordOperatorPresence": "present",
@@ -75,9 +102,7 @@
         },
         "riskHint": "high",
         "semanticHints": {
-          "relationHints": [
-            { "kind": "same_issue", "target": "issue:deploy:primary" }
-          ]
+          "relationHints": [{ "kind": "same_issue", "target": "issue:deploy:primary" }]
         }
       }
     },

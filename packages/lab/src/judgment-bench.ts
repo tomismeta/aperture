@@ -1,6 +1,4 @@
 import type {
-  ReplayDecisionExpectation,
-  ReplayDecisionSnapshot,
   ReplayExplanationExpectation,
   ReplayScenario,
   ReplayScenarioExpectations,
@@ -12,6 +10,7 @@ import type { ReplaySemanticCalibrationFamily } from "./semantic-calibration.js"
 import { runReplayScenario, type ReplayRunResult } from "./runner.js";
 import { scoreReplayRun, type ReplayScorecard } from "./scorecard.js";
 import { loadGoldenScenarios } from "./golden.js";
+import { evaluateDecisionExpectation } from "./judgment-bench-decision.js";
 
 export type JudgmentBenchScenarioResult = {
   scenario: ReplayScenario;
@@ -426,207 +425,6 @@ function findSemanticSnapshot(
   return undefined;
 }
 
-function evaluateDecisionExpectation(
-  expectation: ReplayDecisionExpectation,
-  decisions: ReplayDecisionSnapshot[],
-): JudgmentBenchAssertionResult[] {
-  const target = findDecisionSnapshot(expectation, decisions);
-  const targetKey = expectation.stepLabel
-    ? `decision reading (${expectation.stepLabel})`
-    : `decision reading (step ${expectation.stepIndex ?? "?"})`;
-
-  if (!target) {
-    return [
-      {
-        name: `${targetKey} present`,
-        passed: false,
-        expected: expectation.stepLabel ?? expectation.stepIndex ?? "matching decision snapshot",
-        actual: null,
-      },
-    ];
-  }
-
-  const assertions: JudgmentBenchAssertionResult[] = [];
-
-  pushFieldAssertion(
-    assertions,
-    `${targetKey} evaluation kind`,
-    expectation.evaluationKind,
-    target.evaluationKind,
-  );
-  pushFieldAssertion(
-    assertions,
-    `${targetKey} decision kind`,
-    expectation.decisionKind,
-    target.decisionKind,
-  );
-  pushFieldAssertion(
-    assertions,
-    `${targetKey} decision record projection version`,
-    expectation.decisionRecordProjectionVersion,
-    target.decisionRecordProjectionVersion,
-  );
-  pushFieldAssertion(
-    assertions,
-    `${targetKey} decision record route`,
-    expectation.decisionRecordRoute,
-    target.decisionRecordRoute,
-  );
-  pushFieldAssertion(
-    assertions,
-    `${targetKey} planned lane`,
-    expectation.plannedLane,
-    target.plannedLane,
-  );
-  pushFieldAssertion(
-    assertions,
-    `${targetKey} result lane`,
-    expectation.resultLane,
-    target.resultLane,
-  );
-  pushFieldAssertion(
-    assertions,
-    `${targetKey} semantic confidence`,
-    expectation.semanticConfidence,
-    target.semanticConfidence,
-  );
-  pushFieldAssertion(
-    assertions,
-    `${targetKey} semantic abstained`,
-    expectation.semanticAbstained,
-    target.semanticAbstained ?? false,
-  );
-  pushFieldAssertion(
-    assertions,
-    `${targetKey} ambiguity reason`,
-    expectation.ambiguityReason,
-    target.ambiguity?.reason ?? null,
-  );
-  pushFieldAssertion(
-    assertions,
-    `${targetKey} ambiguity resolution`,
-    expectation.ambiguityResolution,
-    target.ambiguity?.resolution ?? null,
-  );
-  pushFieldAssertion(
-    assertions,
-    `${targetKey} decision record current frame`,
-    expectation.decisionRecordCurrentFrameId,
-    target.decisionRecordCurrentFrameId,
-  );
-  pushFieldAssertion(
-    assertions,
-    `${targetKey} decision record current episode`,
-    expectation.decisionRecordCurrentEpisodeId,
-    target.decisionRecordCurrentEpisodeId,
-  );
-  pushFieldAssertion(
-    assertions,
-    `${targetKey} decision record operator presence`,
-    expectation.decisionRecordOperatorPresence,
-    target.decisionRecordOperatorPresence,
-  );
-  pushFieldAssertion(
-    assertions,
-    `${targetKey} decision record candidate score`,
-    expectation.decisionRecordCandidateScore,
-    target.decisionRecordCandidateScore,
-  );
-
-  if (target.decisionRecordRoute !== undefined && target.decisionKind !== undefined) {
-    assertions.push({
-      name: `${targetKey} decision record route matches decision kind`,
-      passed:
-        target.decisionKind === "suppressed" || target.decisionRecordRoute === target.decisionKind,
-      expected: target.decisionKind,
-      actual: target.decisionRecordRoute,
-    });
-  }
-
-  if (expectation.decisionRecordValueComponentsInclude !== undefined) {
-    assertions.push({
-      name: `${targetKey} decision record value components include`,
-      passed: Object.entries(expectation.decisionRecordValueComponentsInclude).every(
-        ([component, expectedValue]) =>
-          target.decisionRecordValueComponents?.[
-            component as keyof NonNullable<ReplayDecisionSnapshot["decisionRecordValueComponents"]>
-          ] === expectedValue,
-      ),
-      expected: expectation.decisionRecordValueComponentsInclude,
-      actual: target.decisionRecordValueComponents ?? null,
-    });
-  }
-
-  if (
-    expectation.decisionRecordReasonsInclude &&
-    expectation.decisionRecordReasonsInclude.length > 0
-  ) {
-    assertions.push({
-      name: `${targetKey} decision record reasons include`,
-      passed: expectation.decisionRecordReasonsInclude.every((snippet) =>
-        (target.decisionRecordReasons ?? []).some((entry) => entry.includes(snippet)),
-      ),
-      expected: expectation.decisionRecordReasonsInclude,
-      actual: target.decisionRecordReasons ?? [],
-    });
-  }
-
-  if (
-    expectation.decisionRecordReasonCodesInclude &&
-    expectation.decisionRecordReasonCodesInclude.length > 0
-  ) {
-    assertions.push({
-      name: `${targetKey} decision record reason codes include`,
-      passed: expectation.decisionRecordReasonCodesInclude.every((code) =>
-        (target.decisionRecordReasonCodes ?? []).includes(code),
-      ),
-      expected: expectation.decisionRecordReasonCodesInclude,
-      actual: target.decisionRecordReasonCodes ?? [],
-    });
-  }
-
-  if (expectation.semanticInfluenceIncludes && expectation.semanticInfluenceIncludes.length > 0) {
-    assertions.push({
-      name: `${targetKey} semantic influence includes`,
-      passed: expectation.semanticInfluenceIncludes.every((snippet) =>
-        (target.semanticInfluence ?? []).some((entry) => entry.includes(snippet)),
-      ),
-      expected: expectation.semanticInfluenceIncludes,
-      actual: target.semanticInfluence ?? [],
-    });
-  }
-
-  if (
-    expectation.semanticImpactDecisionBearingIncludes &&
-    expectation.semanticImpactDecisionBearingIncludes.length > 0
-  ) {
-    assertions.push({
-      name: `${targetKey} semantic impact decision-bearing includes`,
-      passed: expectation.semanticImpactDecisionBearingIncludes.every((value) =>
-        (target.semanticImpactDecisionBearing ?? []).includes(value),
-      ),
-      expected: expectation.semanticImpactDecisionBearingIncludes,
-      actual: target.semanticImpactDecisionBearing ?? [],
-    });
-  }
-
-  if (
-    expectation.semanticImpactExplanatoryIncludes &&
-    expectation.semanticImpactExplanatoryIncludes.length > 0
-  ) {
-    assertions.push({
-      name: `${targetKey} semantic impact explanatory includes`,
-      passed: expectation.semanticImpactExplanatoryIncludes.every((value) =>
-        (target.semanticImpactExplanatory ?? []).includes(value),
-      ),
-      expected: expectation.semanticImpactExplanatoryIncludes,
-      actual: target.semanticImpactExplanatory ?? [],
-    });
-  }
-
-  return assertions;
-}
-
 function evaluateExplanationExpectation(
   expectation: ReplayExplanationExpectation,
   scorecard: ReplayScorecard,
@@ -748,21 +546,6 @@ function evaluateTraceExpectation(
   );
 
   return assertions;
-}
-
-function findDecisionSnapshot(
-  expectation: ReplayDecisionExpectation,
-  decisions: ReplayDecisionSnapshot[],
-): ReplayDecisionSnapshot | undefined {
-  if (expectation.stepLabel !== undefined) {
-    return decisions.find((snapshot) => snapshot.stepLabel === expectation.stepLabel);
-  }
-
-  if (expectation.stepIndex !== undefined) {
-    return decisions.find((snapshot) => snapshot.stepIndex === expectation.stepIndex);
-  }
-
-  return undefined;
 }
 
 function pushFieldAssertion(

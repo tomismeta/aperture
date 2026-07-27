@@ -22,6 +22,13 @@ export type ReplayDecisionPlannedLane = "now" | "next" | "ambient" | "none";
 export type ReplayDecisionOperatorPresence = "present" | "absent";
 export type ReplayDecisionRoute = "auto_approve" | "activate" | "queue" | "ambient" | "clear";
 export type ReplayCoordinationRoute = ReplayDecisionRoute | "suppressed";
+export type ReplayEpisodeState =
+  | "emerging"
+  | "actionable"
+  | "batched"
+  | "waiting"
+  | "stale"
+  | "resolved";
 export type ReplayDecisionValueComponents = {
   [component: string]: number | undefined;
 } & Partial<{
@@ -197,6 +204,13 @@ export type ReplayDecisionSnapshot = {
   semanticImpactDecisionBearing?: string[];
   semanticImpactExplanatory?: string[];
   ambiguity?: ReplayDecisionAmbiguity | null;
+  episodeId?: string | null;
+  episodeKey?: string | null;
+  episodeState?: ReplayEpisodeState;
+  episodeSize?: number;
+  episodeEvidenceScore?: number;
+  episodeEvidenceReasons?: string[];
+  episodeObsolete?: boolean;
   decisionRecordCurrentFrameId?: string | null;
   decisionRecordCurrentEpisodeId?: string | null;
   decisionRecordOperatorPresence?: ReplayDecisionOperatorPresence;
@@ -242,6 +256,13 @@ export type ReplayDecisionExpectation = {
   semanticImpactExplanatoryIncludes?: string[];
   ambiguityReason?: ReplayDecisionAmbiguity["reason"] | null;
   ambiguityResolution?: ReplayDecisionAmbiguity["resolution"] | null;
+  episodeId?: string | null;
+  episodeKey?: string | null;
+  episodeState?: ReplayEpisodeState;
+  episodeSize?: number;
+  episodeEvidenceScore?: number;
+  episodeEvidenceReasonsInclude?: string[];
+  episodeObsolete?: boolean;
   decisionRecordCurrentFrameId?: string | null;
   decisionRecordCurrentEpisodeId?: string | null;
   decisionRecordOperatorPresence?: ReplayDecisionOperatorPresence;

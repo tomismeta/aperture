@@ -2,11 +2,7 @@
   "id": "golden:kernel-corpus:superseding-approval-clears-obsolete-queued-step",
   "title": "Superseding approval clears obsolete queued step",
   "description": "A newer same-episode approval with explicit superseding evidence should replace the active step and remove an older queued approval for the same issue.",
-  "doctrineTags": [
-    "kernel_corpus",
-    "superseded_queue_cleanup",
-    "decision_stream_continuity"
-  ],
+  "doctrineTags": ["kernel_corpus", "superseded_queue_cleanup", "decision_stream_continuity"],
   "semanticFamilies": ["episode_missed"],
   "expectations": {
     "finalNowInteractionId": "interaction:corpus:superseded-approval:rollback",
@@ -55,6 +51,27 @@
     ],
     "decisionReadings": [
       {
+        "stepLabel": "initial deploy approval",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "episodeId": "episode:custom-agent:interruptive:issue:corpus:superseded-approval:1",
+        "episodeKey": "custom-agent:interruptive:issue:corpus:superseded-approval",
+        "episodeState": "actionable",
+        "episodeSize": 1,
+        "episodeEvidenceScore": 6,
+        "episodeEvidenceReasonsInclude": [
+          "operator-facing work makes this episode immediately actionable",
+          "at least one related interaction carried high consequence or critical tone"
+        ],
+        "episodeObsolete": false,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:activate", "lane:now"]
+      },
+      {
         "stepLabel": "queued canary approval",
         "evaluationKind": "candidate",
         "decisionRecordProjectionVersion": 2,
@@ -62,6 +79,17 @@
         "decisionRecordRoute": "queue",
         "plannedLane": "next",
         "resultLane": "next",
+        "episodeId": "episode:custom-agent:interruptive:issue:corpus:superseded-approval:1",
+        "episodeKey": "custom-agent:interruptive:issue:corpus:superseded-approval",
+        "episodeState": "actionable",
+        "episodeSize": 2,
+        "episodeEvidenceScore": 8,
+        "episodeEvidenceReasonsInclude": [
+          "operator-facing work makes this episode immediately actionable",
+          "multiple related interactions have accumulated in this episode",
+          "high-signal evidence is stacking up across the episode"
+        ],
+        "episodeObsolete": false,
         "decisionRecordCurrentFrameId": "frame:interaction:corpus:superseded-approval:deploy",
         "decisionRecordCurrentEpisodeId": "episode:custom-agent:interruptive:issue:corpus:superseded-approval:1",
         "decisionRecordOperatorPresence": "present",
@@ -81,6 +109,18 @@
         "decisionRecordRoute": "activate",
         "plannedLane": "now",
         "resultLane": "now",
+        "episodeId": "episode:custom-agent:interruptive:issue:corpus:superseded-approval:1",
+        "episodeKey": "custom-agent:interruptive:issue:corpus:superseded-approval",
+        "episodeState": "actionable",
+        "episodeSize": 3,
+        "episodeEvidenceScore": 9,
+        "episodeEvidenceReasonsInclude": [
+          "operator-facing work makes this episode immediately actionable",
+          "multiple related interactions have accumulated in this episode",
+          "the same episode keeps recurring without resolution",
+          "high-signal evidence is stacking up across the episode"
+        ],
+        "episodeObsolete": false,
         "decisionRecordCurrentFrameId": "frame:interaction:corpus:superseded-approval:deploy",
         "decisionRecordCurrentEpisodeId": "episode:custom-agent:interruptive:issue:corpus:superseded-approval:1",
         "decisionRecordOperatorPresence": "present",
@@ -118,9 +158,7 @@
         },
         "riskHint": "high",
         "semanticHints": {
-          "relationHints": [
-            { "kind": "same_issue", "target": "issue:corpus:superseded-approval" }
-          ]
+          "relationHints": [{ "kind": "same_issue", "target": "issue:corpus:superseded-approval" }]
         }
       }
     },
@@ -142,9 +180,7 @@
         },
         "riskHint": "high",
         "semanticHints": {
-          "relationHints": [
-            { "kind": "same_issue", "target": "issue:corpus:superseded-approval" }
-          ]
+          "relationHints": [{ "kind": "same_issue", "target": "issue:corpus:superseded-approval" }]
         }
       }
     },

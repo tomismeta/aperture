@@ -12,6 +12,7 @@ export const KERNEL_CORPUS_SCENARIO_IDS = [
   "golden:kernel-corpus:conflicting-relation-targets-queue-behind-current",
   "golden:kernel-corpus:delayed-lifecycle-events-preserve-fresh-recurrence",
   "golden:kernel-corpus:duplicate-relation-hints-collapse-to-targeted-evidence",
+  "golden:kernel-corpus:failed-status-routine-observation-stays-ambient",
   "golden:kernel-corpus:interleaved-supersede-with-background-noise",
   "golden:kernel-corpus:metadata-heavy-status-noise-stays-ambient",
   "golden:kernel-corpus:repeated-failure-refreshes-current-episode",
@@ -43,10 +44,15 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
   {
     id: "status_noise",
     scenarioIds: [
+      "golden:kernel-corpus:failed-status-routine-observation-stays-ambient",
       "golden:kernel-corpus:metadata-heavy-status-noise-stays-ambient",
       "golden:kernel-corpus:interleaved-supersede-with-background-noise",
       "golden:kernel-corpus:repeated-status-delivery-stays-one-ambient-frame",
     ],
+  },
+  {
+    id: "observational_status_conflict",
+    scenarioIds: ["golden:kernel-corpus:failed-status-routine-observation-stays-ambient"],
   },
   {
     id: "interleaved_lifecycle",

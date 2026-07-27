@@ -5,6 +5,7 @@ import {
   buildAttentionJudgmentInput,
   hasActionableBlockedLikeStatusSemantics,
   hasBlockedLikeStatusSemantics,
+  hasRoutineObservationalStatusConflictSemantics,
   readSemanticRelationEvidenceStrength,
   readSemanticEvidenceStrength,
   resolvePeripheralResolutionFloor,
@@ -78,6 +79,85 @@ test("judgment input gives explicit human-input semantics a strong evidence read
   assert.equal(input.semanticEvidence?.source, "explicit");
   assert.equal(input.semanticEvidence?.strength, "strong");
   assert.equal(input.relationEvidence, undefined);
+});
+
+test("judgment input marks routine observational failed-status conflicts", () => {
+  const input = buildAttentionJudgmentInput({
+    id: "evt:judgment-input:routine-observation-conflict",
+    taskId: "task:judgment-input:routine-observation-conflict",
+    timestamp,
+    type: "task.updated",
+    title: "bash failure",
+    summary: "Your command ran successfully and did not produce any output.",
+    status: "failed",
+    toolFamily: "bash",
+    semantic: {
+      intentFrame: "status_update",
+      activityClass: "status_update",
+      toolFamily: "bash",
+      consequence: "low",
+      factors: ["task.updated", "failed", "observational_failure"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["task status indicates failure but the update reads like observational output"],
+      provenance: {
+        intentFrame: "inferred",
+        activityClass: "inferred",
+        consequence: "inferred",
+        confidence: "inferred",
+        toolFamily: "source",
+      },
+    },
+  });
+  const candidate = {
+    taskId: "task:judgment-input:routine-observation-conflict",
+    interactionId: "interaction:judgment-input:routine-observation-conflict",
+    mode: "status" as const,
+    tone: "ambient" as const,
+    consequence: "low" as const,
+    title: "bash failure",
+    responseSpec: { kind: "none" as const },
+    priority: "background" as const,
+    blocking: false,
+    timestamp,
+    judgmentInput: input,
+  };
+
+  assert.equal(input.routineObservationalStatusConflict, true);
+  assert.equal(input.semanticEvidence?.strength, "qualified");
+  assert.equal(hasRoutineObservationalStatusConflictSemantics(candidate), true);
+});
+
+test("judgment input does not mark non-bash observational failures as routine status conflicts", () => {
+  const input = buildAttentionJudgmentInput({
+    id: "evt:judgment-input:read-observation-conflict",
+    taskId: "task:judgment-input:read-observation-conflict",
+    timestamp,
+    type: "task.updated",
+    title: "read failure",
+    summary: "Observation path /var/log/system.log showing first 20 lines",
+    status: "failed",
+    toolFamily: "read",
+    semantic: {
+      intentFrame: "status_update",
+      activityClass: "status_update",
+      toolFamily: "read",
+      consequence: "low",
+      factors: ["task.updated", "failed", "observational_failure"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["task status indicates failure but the update reads like observational output"],
+      provenance: {
+        intentFrame: "inferred",
+        activityClass: "inferred",
+        consequence: "inferred",
+        confidence: "inferred",
+        toolFamily: "source",
+      },
+    },
+  });
+
+  assert.equal(input.routineObservationalStatusConflict, undefined);
 });
 
 test("judgment input gives hinted relation semantics their own continuity strength", () => {

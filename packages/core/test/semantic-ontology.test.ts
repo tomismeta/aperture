@@ -149,6 +149,29 @@ test("duplicate relation hints do not demote source-shaped ontology reads to hin
   assert.equal(diagnostic.source, "explicit");
 });
 
+test("routine observational failed-status conflicts project to inferred task progress", () => {
+  const diagnostic = readSemanticOntologyDiagnostic({
+    id: "evt:ontology:routine-observation-conflict",
+    taskId: "task:ontology:routine-observation-conflict",
+    type: "task.updated",
+    timestamp,
+    title: "bash failure",
+    summary: "Your command ran successfully and did not produce any output.",
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.deepEqual(diagnostic, {
+    ask: "status",
+    activity: "task_progress",
+    consequence: "low",
+    blocking: "non_blocking",
+    episode: "unknown",
+    confidence: "high",
+    source: "inferred",
+  });
+});
+
 test("blocked wording can promote a waiting status into a blocking ontology read", () => {
   const diagnostic = readSemanticOntologyDiagnostic({
     id: "evt:ontology:blocked-wording",

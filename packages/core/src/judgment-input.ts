@@ -72,6 +72,9 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
       event.type === "task.updated" &&
       ontology.blocking === "blocking" &&
       event.status !== "blocked",
+    ...(hasRoutineObservationalStatusConflict(event, abstained)
+      ? { routineObservationalStatusConflict: true }
+      : {}),
   };
 }
 
@@ -178,6 +181,18 @@ export function hasActionableBlockedLikeStatusJudgmentInput(
   return evidence !== undefined && evidence.confidence !== "low" && !evidence.abstained;
 }
 
+export function hasRoutineObservationalStatusConflictSemantics(
+  candidate: AttentionCandidate,
+): boolean {
+  return hasRoutineObservationalStatusConflictJudgmentInput(candidate.judgmentInput);
+}
+
+export function hasRoutineObservationalStatusConflictJudgmentInput(
+  judgmentInput: AttentionJudgmentInput,
+): boolean {
+  return judgmentInput.routineObservationalStatusConflict === true;
+}
+
 export function resolvePeripheralResolutionFloor(
   candidate: AttentionCandidate,
   fallback: "queue" | "ambient",
@@ -206,6 +221,20 @@ function readSemanticEvidenceStrengthFromParts(
     case "high":
       return source === "inferred" ? "qualified" : "strong";
   }
+}
+
+function hasRoutineObservationalStatusConflict(event: ApertureEvent, abstained: boolean): boolean {
+  return (
+    event.type === "task.updated" &&
+    event.status === "failed" &&
+    event.semantic?.intentFrame === "status_update" &&
+    event.semantic.activityClass === "status_update" &&
+    event.semantic.toolFamily === "bash" &&
+    event.semantic.consequence === "low" &&
+    event.semantic.confidence === "high" &&
+    !abstained &&
+    event.semantic.factors.includes("observational_failure")
+  );
 }
 
 function readSemanticRelationEvidenceSource(

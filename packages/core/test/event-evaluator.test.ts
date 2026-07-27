@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { buildAttentionClaim } from "../src/attention-claim.js";
 import { EventEvaluator } from "../src/event-evaluator.js";
+import { normalizePublicEvaluationInput } from "../src/attention-evaluator-input.js";
 import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
 
 const evaluation = new EventEvaluator();
@@ -69,6 +71,137 @@ test("task.updated failed becomes a critical high-priority status", () => {
   assert.equal(result.candidate.tone, "critical");
   assert.equal(result.candidate.consequence, "high");
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+});
+
+test("failed-status routine bash observations route as non-interruptive status", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:failed-routine-observation",
+      taskId: "task:failed-routine-observation",
+      timestamp: "2026-03-08T12:02:15.000Z",
+      type: "task.updated",
+      title: "bash failure",
+      summary: "Your command ran successfully and did not produce any output.",
+      status: "failed",
+      toolFamily: "bash",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "background");
+  assert.equal(result.candidate.tone, "ambient");
+  assert.equal(result.candidate.consequence, "low");
+  assert.equal(result.candidate.responseSpec.kind, "none");
+  assert.equal(result.candidate.activityClass, "status_update");
+  assert.equal(result.candidate.provenance?.whyNow, undefined);
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.equal(
+    buildAttentionClaim(result.candidate).judgment?.routineObservationalStatusConflict,
+    true,
+  );
+  assert.equal(
+    normalizePublicEvaluationInput({ claim: buildAttentionClaim(result.candidate) }).candidate
+      .judgmentInput.routineObservationalStatusConflict,
+    true,
+  );
+  assert.deepEqual(result.candidate.judgmentInput.ontology, {
+    ask: "status",
+    activity: "task_progress",
+    consequence: "low",
+    blocking: "non_blocking",
+    episode: "unknown",
+    confidence: "high",
+    source: "inferred",
+  });
+});
+
+test("mixed bash success and terminal failure text keeps failed-status routing", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:mixed-bash-failure",
+      taskId: "task:mixed-bash-failure",
+      timestamp: "2026-03-08T12:02:20.000Z",
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        "Your command ran successfully and did not produce any output. Traceback follows from the repro step.",
+      status: "failed",
+      toolFamily: "bash",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.consequence, "high");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+  assert.equal(result.candidate.activityClass, "tool_failure");
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+});
+
+test("medium-confidence routine bash observations keep failed-status routing", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:medium-confidence-routine-observation",
+      taskId: "task:medium-confidence-routine-observation",
+      timestamp: "2026-03-08T12:02:25.000Z",
+      type: "task.updated",
+      title: "bash failure",
+      summary: "Your command ran successfully and did not produce any output.",
+      status: "failed",
+      toolFamily: "bash",
+      semanticHints: {
+        confidence: "medium",
+      },
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.consequence, "high");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+});
+
+test("low-consequence failed read observations do not trigger bash status-conflict routing", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:failed-read-log-observation",
+      taskId: "task:failed-read-log-observation",
+      timestamp: "2026-03-08T12:02:28.000Z",
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "<path>/tmp/tool-output/kernel.log</path> <type>file</type> <content>1190: [ 4.998830] amdgpu ring comp_1.2.1 uses VM inv eng 10 on hub 0",
+      status: "failed",
+      toolFamily: "read",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.consequence, "high");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+  assert.equal(result.candidate.activityClass, "status_update");
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
 });
 
 test("task.updated semantics enrich provenance without overriding status routing", () => {

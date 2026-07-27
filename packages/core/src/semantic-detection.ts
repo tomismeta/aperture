@@ -203,6 +203,10 @@ export function inferConsequenceFromSemanticText(
 }
 
 export function detectObservationalFailureStatus(text: string, toolFamily?: string): boolean {
+  if (toolFamily === "bash") {
+    return isRoutineSuccessObservation(text);
+  }
+
   if (toolFamily !== "edit" && toolFamily !== "read") {
     return false;
   }
@@ -218,6 +222,10 @@ export function detectRoutineObservationalFailureLowConsequence(
   text: string,
   toolFamily?: string,
 ): boolean {
+  if (toolFamily === "bash") {
+    return isRoutineSuccessObservation(text);
+  }
+
   if (toolFamily === "search") {
     return looksLikeSearchResultOutput(text);
   }
@@ -385,7 +393,30 @@ function escapeRegExp(value: string): string {
 }
 
 function isRoutineSuccessObservation(text: string): boolean {
-  return containsAnySemanticPhrase(text, ROUTINE_SUCCESS_PHRASES);
+  return (
+    isStandaloneRoutineSuccessObservation(text) &&
+    !containsAnySemanticPhrase(text, TERMINAL_FAILURE_PHRASES)
+  );
+}
+
+function isStandaloneRoutineSuccessObservation(text: string): boolean {
+  const normalizedText = text.replace(/\.+$/, "");
+  const successPhrases = ROUTINE_SUCCESS_PHRASES.map((phrase) => normalizeSemanticText(phrase));
+  const allowedPrefixes = [
+    "",
+    "observation",
+    "bash failure",
+    "bash observation",
+    "tool failure",
+    "tool observation",
+  ];
+
+  return allowedPrefixes.some((prefix) =>
+    successPhrases.some((phrase) => {
+      const expected = prefix.length > 0 ? `${prefix} ${phrase}` : phrase;
+      return normalizedText === expected;
+    }),
+  );
 }
 
 function dedupeRelationHints(hints: SemanticRelationHint[]): SemanticRelationHint[] {

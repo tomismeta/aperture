@@ -122,11 +122,20 @@ That means:
 
 The semantic layer is still useful on this path, but in a bounded way.
 
+The one current exception is explicit and compiled before judgment:
+
+- a `failed` status with high-confidence, low-consequence observational evidence
+  can become a routine observational status conflict
+- that conflict may lower status routing to non-interruptive status handling
+- core does not mutate the original `status`; trace records the semantic routing
+  exception
+
 ### What semantic interpretation is allowed to do on `task.updated`
 
 - infer `toolFamily` if the source omitted it
 - infer `activityClass` if the source omitted it
 - infer `relationHints` for continuity
+- compile routine observational status conflicts for judgment
 - provide `whyNow`, `factors`, and `reasons` for provenance and explanation
 - provide inspection metadata like `intentFrame`, `confidence`, and `abstained`
 
@@ -135,6 +144,8 @@ The semantic layer is still useful on this path, but in a bounded way.
 - silently override status-derived consequence
 - silently turn a passive status into a blocking human-input event
 - silently change response-spec shape from status handling into approval/choice/form handling
+- demote failed status from generic success wording, low-confidence semantics, or
+  payloads that also contain terminal failure evidence
 
 If Aperture later wants implied asks in status updates to change routing, that must become a deliberate policy decision, not an accidental side effect of richer semantics.
 
@@ -188,7 +199,7 @@ This remains a core rule of the semantic architecture.
 Near-term implementation should follow these rules:
 
 1. do not widen `SemanticInterpretation` further before this taxonomy stays stable
-2. keep `task.updated` status routing authoritative until a later policy change says otherwise
+2. keep `task.updated` status routing authoritative except for named, compiled judgment diagnostics
 3. keep relation semantics narrow and explicit
 4. treat confidence and abstention as visible signals with bounded ambiguity behavior, not hidden score math
 5. lock the contract with parity and determinism tests before larger refactors

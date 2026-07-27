@@ -7,6 +7,7 @@ import type { AttentionDecisionExplanation } from "./judgment-coordinator.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import {
   hasBlockedLikeStatusSemantics,
+  hasRoutineObservationalStatusConflictSemantics,
   isCandidateSemanticAbstained,
   isCandidateSemanticLowConfidence,
   readCandidateAttentionOntology,
@@ -244,9 +245,15 @@ function buildSemanticInfluence(
   const influence: string[] = [];
 
   if (event.type === "task.updated") {
-    influence.push(
-      "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics",
-    );
+    if (hasRoutineObservationalStatusConflictSemantics(adjusted)) {
+      influence.push(
+        "routine bash observational evidence lowered failed-status routing to non-interruptive status handling",
+      );
+    } else {
+      influence.push(
+        "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics",
+      );
+    }
 
     if (
       "activityClass" in event &&
@@ -257,7 +264,11 @@ function buildSemanticInfluence(
     }
 
     if (event.toolFamily === semantic.toolFamily && semantic.toolFamily !== undefined) {
-      influence.push("tool family enriched canonical status facts without changing the route");
+      influence.push(
+        hasRoutineObservationalStatusConflictSemantics(adjusted)
+          ? "tool family helped identify the observational status conflict"
+          : "tool family enriched canonical status facts without changing the route",
+      );
     }
 
     if (semantic.relationHints.length > 0) {
@@ -410,6 +421,28 @@ function buildSemanticImpact(
       }
       if (hasBlockedLikeStatusSemantics(adjusted)) {
         promoteSemanticField(contextOnly, routing, "intent", "blocking (judgment routing)");
+      }
+      if (hasRoutineObservationalStatusConflictSemantics(adjusted)) {
+        promoteSemanticField(
+          contextOnly,
+          routing,
+          "consequence",
+          "observational status conflict (judgment routing)",
+        );
+        promoteSemanticField(contextOnly, routing, "intent", "intent (status-conflict routing)");
+        promoteSemanticField(
+          contextOnly,
+          routing,
+          "activity",
+          "activity (status-conflict routing)",
+        );
+        promoteSemanticField(contextOnly, routing, "tool", "tool (status-conflict routing)");
+        promoteSemanticField(
+          contextOnly,
+          routing,
+          "confidence",
+          "confidence (status-conflict routing)",
+        );
       }
       break;
     case "human.input.requested":

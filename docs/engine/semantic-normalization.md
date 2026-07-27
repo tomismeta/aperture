@@ -75,6 +75,7 @@ This is where core compiles:
 - ontology projection
 - semantic evidence strength from `confidence + source`
 - blocked-like status diagnostics
+- routine observational status-conflict diagnostics
 
 into one small object that policy, ambiguity handling, planning, and trace can
 all consume consistently.
@@ -85,7 +86,8 @@ Current contract nuance:
   and provenance before routing
 - `task.updated` semantics enrich continuity, provenance, `toolFamily`, and
   `activityClass`
-- `task.updated.status` remains authoritative for status routing
+- `task.updated.status` remains authoritative for status routing except when
+  compiled routine observational evidence contradicts a noisy failed status
 - operator-directed status asks can stay low-confidence and `source: inferred`
   without pretending to be explicit request events
 

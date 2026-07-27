@@ -132,6 +132,7 @@ export type AttentionClaimJudgment = {
     strength: SemanticEvidenceStrength;
   };
   blockedLikeStatus?: boolean;
+  routineObservationalStatusConflict?: boolean;
 };
 
 export type AttentionClaimEpisode = {
@@ -200,6 +201,9 @@ function buildAttentionClaimJudgment(
       ? { relationEvidence: judgment.relationEvidence }
       : {}),
     blockedLikeStatus: judgment.blockedLikeStatus,
+    ...(judgment.routineObservationalStatusConflict === true
+      ? { routineObservationalStatusConflict: true }
+      : {}),
   };
 
   return Object.keys(claimJudgment).length > 0 ? claimJudgment : undefined;

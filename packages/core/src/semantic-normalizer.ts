@@ -138,7 +138,8 @@ function applyHumanInputSemanticDefaults(
 function prepareApertureEventFromSourceEvent(event: SourceEvent): ApertureEvent {
   // Non-human-input source events stay intentionally bounded. Core enriches
   // tool family, activity class, provenance, and relation semantics here, but
-  // task status remains the authoritative routing signal for status events.
+  // preserves task status as the source lifecycle fact. Named judgment-input
+  // diagnostics can still explain narrow status-routing exceptions later.
   switch (event.type) {
     case "task.started":
       return {

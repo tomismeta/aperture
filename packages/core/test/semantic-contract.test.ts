@@ -67,6 +67,36 @@ test("task.updated keeps status routing authoritative even when semantic fields 
   );
 });
 
+test("task.updated allows named observational status-conflict routing exceptions", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:status-contract:routine-observation-conflict",
+      taskId: "task:status-contract:routine-observation-conflict",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: "Your command ran successfully and did not produce any output.",
+      status: "failed",
+      toolFamily: "bash",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.deepEqual(candidateShape(result.candidate), {
+    mode: "status",
+    priority: "background",
+    tone: "ambient",
+    consequence: "low",
+    blocking: false,
+    responseSpec: "none",
+  });
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+});
+
 test("explanation-only semantic fields do not change task.updated routing", () => {
   const baseline = evaluation.evaluate({
     id: "evt:status-explanation:baseline",

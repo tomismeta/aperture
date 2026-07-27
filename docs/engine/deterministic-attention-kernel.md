@@ -169,6 +169,7 @@ The current messy corpus covers:
 - repeated same-issue failures that refresh the current episode without duplicate focus pressure
 - repeated passive statuses that remain one ambient frame
 - same-issue resolution after an active failure
+- delayed lifecycle replays that cannot retire or inflate a fresh recurrence
 - waiting status with blocking wording under operator absence
 - interleaved background noise between same-episode superseding approvals
 - superseding approval that replaces an active step and clears an obsolete queued approval

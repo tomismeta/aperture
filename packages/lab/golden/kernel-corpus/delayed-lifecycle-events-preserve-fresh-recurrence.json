@@ -1,0 +1,234 @@
+{
+  "id": "golden:kernel-corpus:delayed-lifecycle-events-preserve-fresh-recurrence",
+  "title": "Delayed lifecycle events preserve fresh recurrence",
+  "description": "Delayed resolution and high-signal replay events should be suppressed without retiring or inflating a newer recurrence episode.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "event_time_lifecycle",
+    "episode_resolution",
+    "decision_stream_continuity"
+  ],
+  "semanticFamilies": ["episode_missed"],
+  "expectations": {
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [
+      "interaction:task:corpus:delayed-lifecycle:resolved:status",
+      "interaction:task:corpus:delayed-lifecycle:follow-up:status"
+    ],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 3
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "initial resolution",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "consequence": "low",
+        "confidence": "high",
+        "relationKindsInclude": ["same_issue", "resolves"],
+        "ontology": {
+          "ask": "status",
+          "activity": "task_completion",
+          "consequence": "low",
+          "blocking": "non_blocking",
+          "episode": "resolved",
+          "source": "hinted"
+        }
+      },
+      {
+        "stepLabel": "delayed failed replay",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "consequence": "high",
+        "confidence": "high",
+        "relationKindsInclude": ["same_issue", "repeats"],
+        "ontology": {
+          "ask": "status",
+          "activity": "failure",
+          "consequence": "high",
+          "blocking": "non_blocking",
+          "episode": "resurfaced",
+          "source": "hinted"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "initial resolution",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "decisionRecordCurrentEpisodeId": null,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:ambient",
+          "lane:ambient",
+          "evidence:current_episode:absent"
+        ]
+      },
+      {
+        "stepLabel": "delayed resolution replay",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "suppressed",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "none",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:ambient", "lane:ambient"]
+      },
+      {
+        "stepLabel": "delayed failed replay",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "suppressed",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "none",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:activate", "lane:now"]
+      },
+      {
+        "stepLabel": "fresh follow-up",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "decisionRecordCandidateScore": 0,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:ambient", "lane:ambient"]
+      }
+    ],
+    "traceExpectations": {
+      "suppressedThenActivated": 0,
+      "actionableEpisodes": 0,
+      "actionableActivated": 0,
+      "deferredThenActivated": 0,
+      "mergedEpisodeUpdates": 1
+    }
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "initial failure",
+      "event": {
+        "id": "evt:corpus:delayed-lifecycle:failed",
+        "type": "task.updated",
+        "taskId": "task:corpus:delayed-lifecycle:initial",
+        "timestamp": "2026-04-18T10:00:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Build failed again",
+        "summary": "The deploy build failed and needs attention.",
+        "status": "failed",
+        "semanticHints": {
+          "relationHints": [{ "kind": "same_issue", "target": "issue:corpus:delayed-lifecycle" }]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "initial resolution",
+      "event": {
+        "id": "evt:corpus:delayed-lifecycle:resolved",
+        "type": "task.updated",
+        "taskId": "task:corpus:delayed-lifecycle:resolved",
+        "timestamp": "2026-04-18T10:02:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Build issue resolved",
+        "summary": "The same deploy build is fixed.",
+        "status": "completed",
+        "semanticHints": {
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:corpus:delayed-lifecycle" },
+            { "kind": "resolves", "target": "issue:corpus:delayed-lifecycle" }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "fresh recurrence",
+      "event": {
+        "id": "evt:corpus:delayed-lifecycle:recurrence",
+        "type": "task.updated",
+        "taskId": "task:corpus:delayed-lifecycle:recurrence",
+        "timestamp": "2026-04-18T10:03:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Build is running again",
+        "summary": "The same deploy build is running again after the fix.",
+        "status": "running",
+        "semanticHints": {
+          "relationHints": [{ "kind": "same_issue", "target": "issue:corpus:delayed-lifecycle" }]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "delayed resolution replay",
+      "event": {
+        "id": "evt:corpus:delayed-lifecycle:resolved-replay",
+        "type": "task.updated",
+        "taskId": "task:corpus:delayed-lifecycle:resolved",
+        "timestamp": "2026-04-18T10:01:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Build issue was already resolved",
+        "summary": "The same deploy build had already been fixed before the recurrence.",
+        "status": "completed",
+        "semanticHints": {
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:corpus:delayed-lifecycle" },
+            { "kind": "resolves", "target": "issue:corpus:delayed-lifecycle" }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "delayed failed replay",
+      "event": {
+        "id": "evt:corpus:delayed-lifecycle:old-failure",
+        "type": "task.updated",
+        "taskId": "task:corpus:delayed-lifecycle:old-failure",
+        "timestamp": "2026-04-18T10:02:30.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Build failed earlier",
+        "summary": "The same deploy build failed before the newer recurrence event.",
+        "status": "failed",
+        "semanticHints": {
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:corpus:delayed-lifecycle" },
+            { "kind": "repeats", "target": "issue:corpus:delayed-lifecycle" }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "fresh follow-up",
+      "event": {
+        "id": "evt:corpus:delayed-lifecycle:follow-up",
+        "type": "task.updated",
+        "taskId": "task:corpus:delayed-lifecycle:follow-up",
+        "timestamp": "2026-04-18T10:04:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Build is still running",
+        "summary": "The same deploy build is still running, but the follow-up risk has increased.",
+        "status": "running",
+        "semanticHints": {
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:corpus:delayed-lifecycle" },
+            { "kind": "escalates", "target": "issue:corpus:delayed-lifecycle" }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -89,12 +89,13 @@ export function adjustCriterionRule(
 
 export function clearCriterionVerdict(
   criterion: AttentionInterruptCriterion,
+  rationale: string[] = [],
 ): AttentionInterruptCriterionVerdict {
   return {
     criterion,
     peripheralResolution: null,
     ambiguity: null,
-    rationale: [],
+    rationale,
   };
 }
 

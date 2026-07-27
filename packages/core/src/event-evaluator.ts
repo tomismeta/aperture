@@ -7,7 +7,11 @@ import type {
   AttentionFormResponseSpec,
 } from "./frame.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
-import { buildAttentionJudgmentInput } from "./judgment-input.js";
+import {
+  buildAttentionJudgmentInput,
+  hasActionableBlockedLikeStatusJudgmentInput,
+} from "./judgment-input.js";
+import type { AttentionJudgmentInput } from "./judgment-input-types.js";
 import { semanticWhyNowForTaskStatus } from "./semantic-language.js";
 import { mergeSemanticProvenance } from "./semantic-provenance.js";
 
@@ -63,11 +67,13 @@ export class EventEvaluator {
   private evaluateTaskUpdate(event: TaskUpdatedEvent): AttentionCandidate {
     // Status events keep candidate-routing authority in the explicit task
     // status. The semantic layer can still enrich provenance, relation hints,
-    // tool family, activity class, and ontology diagnostics without silently
-    // turning status handling into a different decision path.
-    const priority = this.priorityForStatus(event.status);
-    const tone = this.toneForStatus(event.status);
-    const consequence = this.consequenceForStatus(event.status);
+    // tool family, activity class, and ontology diagnostics. Concrete
+    // blocked-like semantics may only lift the status posture; they do not turn
+    // the event into a blocking request or change the response contract.
+    const judgmentInput = buildAttentionJudgmentInput(event);
+    const priority = this.priorityForStatus(event.status, judgmentInput);
+    const tone = this.toneForStatus(event.status, judgmentInput);
+    const consequence = this.consequenceForStatus(event.status, judgmentInput);
     const responseSpec = this.responseSpecForStatus(event.status);
 
     return {
@@ -89,7 +95,7 @@ export class EventEvaluator {
       ...(event.semantic?.relationHints?.length
         ? { relationHints: event.semantic.relationHints }
         : {}),
-      ...buildJudgmentInputFields(event),
+      judgmentInput,
       ...buildStatusContext(event),
       ...buildStatusProvenance(event),
     };
@@ -220,7 +226,14 @@ export class EventEvaluator {
     }
   }
 
-  private priorityForStatus(status: TaskUpdatedEvent["status"]): AttentionCandidate["priority"] {
+  private priorityForStatus(
+    status: TaskUpdatedEvent["status"],
+    judgmentInput?: AttentionJudgmentInput,
+  ): AttentionCandidate["priority"] {
+    if (judgmentInput !== undefined && hasActionableBlockedLikeStatusJudgmentInput(judgmentInput)) {
+      return "normal";
+    }
+
     switch (status) {
       case "blocked":
         return "normal";
@@ -235,7 +248,14 @@ export class EventEvaluator {
     }
   }
 
-  private toneForStatus(status: TaskUpdatedEvent["status"]): AttentionCandidate["tone"] {
+  private toneForStatus(
+    status: TaskUpdatedEvent["status"],
+    judgmentInput?: AttentionJudgmentInput,
+  ): AttentionCandidate["tone"] {
+    if (judgmentInput !== undefined && hasActionableBlockedLikeStatusJudgmentInput(judgmentInput)) {
+      return "focused";
+    }
+
     switch (status) {
       case "blocked":
         return "focused";
@@ -252,7 +272,12 @@ export class EventEvaluator {
 
   private consequenceForStatus(
     status: TaskUpdatedEvent["status"],
+    judgmentInput?: AttentionJudgmentInput,
   ): AttentionCandidate["consequence"] {
+    if (judgmentInput !== undefined && hasActionableBlockedLikeStatusJudgmentInput(judgmentInput)) {
+      return "medium";
+    }
+
     switch (status) {
       case "blocked":
         return "medium";

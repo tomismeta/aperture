@@ -154,7 +154,7 @@ test("diagnostic status semantics do not change task.updated routing", () => {
   assert.equal(diagnosticVariant.candidate.responseSpec.kind, baseline.candidate.responseSpec.kind);
 });
 
-test("semantic blocking on waiting statuses stays status-shaped while recording blocked-like ontology", () => {
+test("semantic blocking on waiting statuses lifts status posture without making it a request", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({
       id: "evt:status:blocking-diagnostic",
@@ -173,13 +173,14 @@ test("semantic blocking on waiting statuses stays status-shaped while recording 
   }
 
   assert.equal(result.candidate.blocking, false);
-  assert.equal(result.candidate.priority, "background");
-  assert.equal(result.candidate.tone, "ambient");
+  assert.equal(result.candidate.priority, "normal");
+  assert.equal(result.candidate.tone, "focused");
+  assert.equal(result.candidate.consequence, "medium");
   assert.equal(result.candidate.responseSpec.kind, "none");
   assert.deepEqual(result.candidate.judgmentInput.ontology, {
     ask: "status",
     activity: "task_progress",
-    consequence: "low",
+    consequence: "medium",
     blocking: "blocking",
     episode: "unknown",
     confidence: "medium",

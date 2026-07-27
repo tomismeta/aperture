@@ -163,7 +163,7 @@ test("blocked wording can promote a waiting status into a blocking ontology read
   assert.deepEqual(diagnostic, {
     ask: "status",
     activity: "task_progress",
-    consequence: "low",
+    consequence: "medium",
     blocking: "blocking",
     episode: "unknown",
     confidence: "medium",

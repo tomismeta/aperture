@@ -1,0 +1,81 @@
+{
+  "id": "golden:kernel-corpus:running-blocked-wording-activates-empty-slot",
+  "title": "Running blocked wording activates an empty attention slot",
+  "description": "A running status with concrete stuck/cannot-continue wording should keep status authority but surface when no stronger current frame exists.",
+  "doctrineTags": ["kernel_corpus", "semantic_blocking", "empty_slot_activation"],
+  "semanticFamilies": ["blocking_missed"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:task:corpus:running:blocker:status",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "running blocker",
+        "intentFrame": "blocked_work",
+        "activityClass": "status_update",
+        "consequence": "medium",
+        "confidence": "medium",
+        "whyNowIncludes": "blocked",
+        "factorsInclude": ["semantic blocking signal"],
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "medium",
+          "blocking": "blocking",
+          "episode": "unknown",
+          "source": "inferred"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "running blocker",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "semanticConfidence": "medium",
+        "decisionRecordCurrentFrameId": null,
+        "decisionRecordCurrentEpisodeId": null,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:activate",
+          "lane:now",
+          "evidence:current_frame:absent",
+          "evidence:current_episode:absent",
+          "policy_gate:background:noop",
+          "policy_gate:peripheral_status:noop",
+          "policy_criterion:semantic_uncertainty:noop",
+          "policy_criterion:no_active_frame:verdict"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "activity (canonical)",
+          "blocking (judgment routing)"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "running blocker",
+      "event": {
+        "id": "evt:corpus:running:blocker",
+        "type": "task.updated",
+        "taskId": "task:corpus:running:blocker",
+        "timestamp": "2026-04-18T14:05:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Compile likely stuck on extension build lock",
+        "summary": "The compile is stuck on a zero-byte extension build lock file and cannot continue until the lock is cleared.",
+        "status": "running"
+      }
+    }
+  ]
+}

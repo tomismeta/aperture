@@ -2,19 +2,11 @@
   "id": "golden:semantics:low-confidence-blocked-like-waiting-stays-next",
   "title": "Low-confidence blocked-like waiting stays in next under an active blocker",
   "description": "When waiting-status text clearly says work cannot continue but the semantic confidence is low, the blocked-like routing floor should still keep the status queue-worthy instead of letting it fade into ambient.",
-  "doctrineTags": [
-    "semantic_normalization",
-    "semantic_ambiguity",
-    "queue_doctrine"
-  ],
-  "semanticFamilies": [
-    "confidence_too_low"
-  ],
+  "doctrineTags": ["semantic_normalization", "semantic_ambiguity", "queue_doctrine"],
+  "semanticFamilies": ["confidence_too_low"],
   "expectations": {
     "finalNowInteractionId": "interaction:approval-anchor:blocked-like-low-confidence",
-    "nextInteractionIds": [
-      "interaction:task:blocked-like-low-confidence:status"
-    ],
+    "nextInteractionIds": ["interaction:task:blocked-like-low-confidence:status"],
     "ambientInteractionIds": [],
     "resultLaneCounts": {
       "now": 1,
@@ -26,7 +18,7 @@
         "stepLabel": "low-confidence blocked-like waiting",
         "intentFrame": "blocked_work",
         "activityClass": "status_update",
-        "consequence": "low",
+        "consequence": "medium",
         "confidence": "low",
         "ontology": {
           "ask": "status",
@@ -36,9 +28,7 @@
           "source": "hinted"
         },
         "whyNowIncludes": "blocked",
-        "reasonsInclude": [
-          "status wording indicates work cannot continue yet"
-        ]
+        "reasonsInclude": ["status wording indicates work cannot continue yet"]
       }
     ],
     "decisionReadings": [
@@ -53,13 +43,10 @@
         "ambiguityResolution": null,
         "semanticImpactDecisionBearingIncludes": [
           "activity (canonical)",
-          "blocking (peripheral routing)",
+          "blocking (judgment routing)",
           "confidence (ambiguity)"
         ],
-        "semanticImpactExplanatoryIncludes": [
-          "consequence",
-          "why now"
-        ]
+        "semanticImpactExplanatoryIncludes": ["consequence", "why now"]
       }
     ]
   },

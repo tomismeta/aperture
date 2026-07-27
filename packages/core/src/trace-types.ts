@@ -17,6 +17,7 @@ import type { AttentionSignalSummary } from "./signal-summary.js";
 import type { AttentionValueBreakdown } from "./attention-value.js";
 import type {
   TraceCandidateTransition,
+  TraceDecisionKind,
   TraceEventTransition,
   TraceFrameTransition,
   TraceSemanticSummary,
@@ -108,13 +109,13 @@ export type ApertureTrace =
         currentPriority: AttentionPriority | null;
       };
       planner: {
-        kind: "auto_approve" | "activate" | "queue" | "ambient" | "clear";
+        kind: TraceDecisionKind;
         reasons: string[];
         reasonCodes: AttentionDecisionRecord["planning"]["reasonCodes"];
         continuityEvaluations: AttentionDecisionRecord["planning"]["continuityEvaluations"];
       };
       coordination: {
-        kind: "auto_approve" | "activate" | "queue" | "ambient" | "clear";
+        kind: TraceDecisionKind;
         resultLane: "now" | "next" | "ambient" | "none";
         candidateScore: number;
         currentScore: number | null;

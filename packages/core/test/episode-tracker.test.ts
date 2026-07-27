@@ -397,6 +397,430 @@ test("relation targets group wording-drifted updates into the same episode", () 
   assert.ok(second.episodeKey?.includes("issue:cache:prod"));
 });
 
+test("qualified resolving relation marks the episode resolved and resets evidence", () => {
+  const store = new EpisodeTracker();
+  const failed = store.assign(
+    createCandidate({
+      taskId: "task:build:failure",
+      interactionId: "interaction:build:failure",
+      blocking: false,
+      mode: "status",
+      title: "Build failed again",
+      summary: "The deploy build failed again before release.",
+      consequence: "high",
+      tone: "critical",
+      responseSpec: { kind: "none" },
+      relationHints: [
+        { kind: "same_issue", target: "issue:build:release" },
+        { kind: "repeats", target: "issue:build:release" },
+      ],
+      judgmentInput: {
+        blockedLikeStatus: false,
+        semanticEvidence: strongHintedSemanticEvidence(),
+      },
+    }),
+  );
+
+  const resolved = store.assign(
+    createCandidate({
+      taskId: "task:build:resolution",
+      interactionId: "interaction:build:resolution",
+      blocking: false,
+      mode: "status",
+      title: "Build issue resolved",
+      summary: "The deploy build is fixed and no longer blocked.",
+      consequence: "low",
+      tone: "ambient",
+      responseSpec: { kind: "none" },
+      relationHints: [
+        { kind: "same_issue", target: "issue:build:release" },
+        { kind: "resolves", target: "issue:build:release" },
+      ],
+      judgmentInput: {
+        blockedLikeStatus: false,
+        semanticEvidence: strongHintedSemanticEvidence(),
+      },
+      timestamp: "2026-03-08T12:01:00.000Z",
+    }),
+  );
+
+  assert.equal(resolved.episodeId, failed.episodeId);
+  assert.equal(resolved.episodeState, "resolved");
+  assert.equal(resolved.episodeEvidenceScore, 0);
+  assert.deepEqual(resolved.episodeEvidenceReasons, [
+    "semantic relation hints indicate this episode is resolved",
+  ]);
+
+  const reopened = store.assign(
+    createCandidate({
+      taskId: "task:build:reopened",
+      interactionId: "interaction:build:reopened",
+      blocking: false,
+      mode: "status",
+      title: "Build failed again",
+      summary: "The deploy build failed again after the fix.",
+      consequence: "high",
+      tone: "critical",
+      responseSpec: { kind: "none" },
+      relationHints: [{ kind: "same_issue", target: "issue:build:release" }],
+      timestamp: "2026-03-08T12:02:00.000Z",
+    }),
+  );
+
+  assert.notEqual(reopened.episodeId, failed.episodeId);
+  assert.equal(reopened.episodeSize, 1);
+  assert.equal(reopened.episodeEvidenceScore, 2);
+});
+
+test("resolved status episodes reopen with a fresh identity when interaction id is reused", () => {
+  const store = new EpisodeTracker();
+  const failed = store.assign(
+    createCandidate({
+      taskId: "task:build",
+      interactionId: "interaction:task:build:status",
+      blocking: false,
+      mode: "status",
+      title: "Build failed again",
+      summary: "The deploy build failed again.",
+      consequence: "high",
+      tone: "critical",
+      responseSpec: { kind: "none" },
+      relationHints: [{ kind: "same_issue", target: "issue:build:reused-status" }],
+    }),
+  );
+
+  const resolved = store.assign(
+    createCandidate({
+      taskId: "task:build",
+      interactionId: "interaction:task:build:status",
+      blocking: false,
+      mode: "status",
+      title: "Build issue resolved",
+      summary: "The deploy build is fixed.",
+      consequence: "low",
+      tone: "ambient",
+      responseSpec: { kind: "none" },
+      relationHints: [
+        { kind: "same_issue", target: "issue:build:reused-status" },
+        { kind: "resolves", target: "issue:build:reused-status" },
+      ],
+      judgmentInput: {
+        blockedLikeStatus: false,
+        semanticEvidence: strongHintedSemanticEvidence(),
+      },
+      timestamp: "2026-03-08T12:01:00.000Z",
+    }),
+  );
+
+  const reopened = store.assign(
+    createCandidate({
+      taskId: "task:build",
+      interactionId: "interaction:task:build:status",
+      blocking: false,
+      mode: "status",
+      title: "Build failed again",
+      summary: "The deploy build failed again after the fix.",
+      consequence: "high",
+      tone: "critical",
+      responseSpec: { kind: "none" },
+      relationHints: [{ kind: "same_issue", target: "issue:build:reused-status" }],
+      timestamp: "2026-03-08T12:02:00.000Z",
+    }),
+  );
+
+  assert.equal(resolved.episodeId, failed.episodeId);
+  assert.equal(resolved.episodeState, "resolved");
+  assert.notEqual(reopened.episodeId, failed.episodeId);
+  assert.equal(reopened.episodeSize, 1);
+  assert.equal(reopened.episodeState, "emerging");
+});
+
+test("delayed pre-resolution status updates stay attached to the resolved episode", () => {
+  const store = new EpisodeTracker();
+  const failed = store.assign(
+    createCandidate({
+      taskId: "task:build",
+      interactionId: "interaction:task:build:status",
+      blocking: false,
+      mode: "status",
+      title: "Build failed again",
+      summary: "The deploy build failed again.",
+      consequence: "high",
+      tone: "critical",
+      responseSpec: { kind: "none" },
+      relationHints: [{ kind: "same_issue", target: "issue:build:delayed" }],
+      timestamp: "2026-03-08T12:00:00.000Z",
+    }),
+  );
+  const resolved = store.assign(
+    createCandidate({
+      taskId: "task:build",
+      interactionId: "interaction:task:build:status",
+      blocking: false,
+      mode: "status",
+      title: "Build issue resolved",
+      summary: "The deploy build is fixed.",
+      consequence: "low",
+      tone: "ambient",
+      responseSpec: { kind: "none" },
+      relationHints: [
+        { kind: "same_issue", target: "issue:build:delayed" },
+        { kind: "resolves", target: "issue:build:delayed" },
+      ],
+      judgmentInput: {
+        blockedLikeStatus: false,
+        semanticEvidence: strongHintedSemanticEvidence(),
+      },
+      timestamp: "2026-03-08T12:02:00.000Z",
+    }),
+  );
+
+  const delayed = store.assign(
+    createCandidate({
+      taskId: "task:build",
+      interactionId: "interaction:task:build:status",
+      blocking: false,
+      mode: "status",
+      title: "Build failed again",
+      summary: "The deploy build failed before the fix landed.",
+      consequence: "high",
+      tone: "critical",
+      responseSpec: { kind: "none" },
+      relationHints: [{ kind: "same_issue", target: "issue:build:delayed" }],
+      timestamp: "2026-03-08T12:01:00.000Z",
+    }),
+  );
+
+  assert.equal(resolved.episodeId, failed.episodeId);
+  assert.equal(delayed.episodeId, resolved.episodeId);
+  assert.equal(delayed.episodeState, "resolved");
+  assert.equal(delayed.episodeEvidenceScore, 0);
+  assert.equal(delayed.episodeObsolete, true);
+});
+
+test("suppressed stale updates do not contribute future episode evidence", () => {
+  const firstOptions: Partial<InteractionCandidate> = {
+    taskId: "task:sync",
+    interactionId: "interaction:sync:first",
+    blocking: false,
+    mode: "status",
+    title: "Sync is running",
+    summary: "The sync is running.",
+    consequence: "low",
+    tone: "ambient",
+    responseSpec: { kind: "none" },
+    relationHints: [{ kind: "same_issue", target: "issue:sync:stale-neutral" }],
+    timestamp: "2026-03-08T12:00:00.000Z",
+  };
+  const freshOptions: Partial<InteractionCandidate> = {
+    ...firstOptions,
+    interactionId: "interaction:sync:fresh",
+    title: "Sync is still running",
+    summary: "The sync is still running.",
+    timestamp: "2026-03-08T12:01:00.000Z",
+  };
+  const staleOptions: Partial<InteractionCandidate> = {
+    ...firstOptions,
+    interactionId: "interaction:sync:stale-replay",
+    title: "Sync failed earlier",
+    summary: "The sync failed before the latest status.",
+    consequence: "high",
+    tone: "critical",
+    timestamp: "2026-03-08T11:59:00.000Z",
+  };
+
+  const baselineStore = new EpisodeTracker();
+  baselineStore.assign(createCandidate(firstOptions));
+  const baseline = baselineStore.assign(createCandidate(freshOptions));
+
+  const store = new EpisodeTracker();
+  const first = store.assign(createCandidate(firstOptions));
+  const stale = store.assign(createCandidate(staleOptions));
+  const fresh = store.assign(createCandidate(freshOptions));
+
+  assert.equal(stale.episodeId, first.episodeId);
+  assert.equal(stale.episodeObsolete, true);
+  assert.equal(stale.episodeSize, first.episodeSize);
+  assert.equal(fresh.episodeSize, baseline.episodeSize);
+  assert.equal(fresh.episodeEvidenceScore, baseline.episodeEvidenceScore);
+  assert.deepEqual(fresh.episodeEvidenceReasons, baseline.episodeEvidenceReasons);
+  assert.equal(fresh.episodeState, baseline.episodeState);
+  assert.equal(store.stats().boundInteractions, baselineStore.stats().boundInteractions);
+});
+
+test("delayed resolution replays stay attached but obsolete", () => {
+  const store = new EpisodeTracker();
+  const failed = store.assign(
+    createCandidate({
+      taskId: "task:build",
+      interactionId: "interaction:task:build:status",
+      blocking: false,
+      mode: "status",
+      title: "Build failed again",
+      summary: "The deploy build failed again.",
+      consequence: "high",
+      tone: "critical",
+      responseSpec: { kind: "none" },
+      relationHints: [{ kind: "same_issue", target: "issue:build:delayed-resolution" }],
+      timestamp: "2026-03-08T12:00:00.000Z",
+    }),
+  );
+  const resolved = store.assign(
+    createCandidate({
+      taskId: "task:build",
+      interactionId: "interaction:task:build:status",
+      blocking: false,
+      mode: "status",
+      title: "Build issue resolved",
+      summary: "The deploy build is fixed.",
+      consequence: "low",
+      tone: "ambient",
+      responseSpec: { kind: "none" },
+      relationHints: [
+        { kind: "same_issue", target: "issue:build:delayed-resolution" },
+        { kind: "resolves", target: "issue:build:delayed-resolution" },
+      ],
+      judgmentInput: {
+        blockedLikeStatus: false,
+        semanticEvidence: strongHintedSemanticEvidence(),
+      },
+      timestamp: "2026-03-08T12:02:00.000Z",
+    }),
+  );
+
+  const replayed = store.assign(
+    createCandidate({
+      taskId: "task:build",
+      interactionId: "interaction:task:build:status",
+      blocking: false,
+      mode: "status",
+      title: "Build issue resolved",
+      summary: "The deploy build had already been fixed.",
+      consequence: "low",
+      tone: "ambient",
+      responseSpec: { kind: "none" },
+      relationHints: [
+        { kind: "same_issue", target: "issue:build:delayed-resolution" },
+        { kind: "resolves", target: "issue:build:delayed-resolution" },
+      ],
+      judgmentInput: {
+        blockedLikeStatus: false,
+        semanticEvidence: strongHintedSemanticEvidence(),
+      },
+      timestamp: "2026-03-08T12:01:00.000Z",
+    }),
+  );
+
+  assert.equal(resolved.episodeId, failed.episodeId);
+  assert.equal(replayed.episodeId, resolved.episodeId);
+  assert.equal(replayed.episodeState, "resolved");
+  assert.equal(replayed.episodeEvidenceScore, 0);
+  assert.equal(replayed.episodeObsolete, true);
+});
+
+test("delayed dormant replay does not steal a fresh recurrence episode index", () => {
+  const store = new EpisodeTracker();
+  const failed = store.assign(
+    createCandidate({
+      taskId: "task:build",
+      interactionId: "interaction:task:build:initial-status",
+      blocking: false,
+      mode: "status",
+      title: "Build failed again",
+      summary: "The deploy build failed again.",
+      consequence: "high",
+      tone: "critical",
+      responseSpec: { kind: "none" },
+      relationHints: [{ kind: "same_issue", target: "issue:build:index-replay" }],
+      timestamp: "2026-03-08T12:00:00.000Z",
+    }),
+  );
+  const resolved = store.assign(
+    createCandidate({
+      taskId: "task:build",
+      interactionId: "interaction:task:build:initial-status",
+      blocking: false,
+      mode: "status",
+      title: "Build issue resolved",
+      summary: "The deploy build is fixed.",
+      consequence: "low",
+      tone: "ambient",
+      responseSpec: { kind: "none" },
+      relationHints: [
+        { kind: "same_issue", target: "issue:build:index-replay" },
+        { kind: "resolves", target: "issue:build:index-replay" },
+      ],
+      judgmentInput: {
+        blockedLikeStatus: false,
+        semanticEvidence: strongHintedSemanticEvidence(),
+      },
+      timestamp: "2026-03-08T12:02:00.000Z",
+    }),
+  );
+  const recurrence = store.assign(
+    createCandidate({
+      taskId: "task:build",
+      interactionId: "interaction:task:build:retry-status",
+      blocking: false,
+      mode: "status",
+      title: "Build failed again",
+      summary: "The deploy build failed again after the fix.",
+      consequence: "high",
+      tone: "critical",
+      responseSpec: { kind: "none" },
+      relationHints: [{ kind: "same_issue", target: "issue:build:index-replay" }],
+      timestamp: "2026-03-08T12:03:00.000Z",
+    }),
+  );
+  const replayed = store.assign(
+    createCandidate({
+      taskId: "task:build",
+      interactionId: "interaction:task:build:initial-status",
+      blocking: false,
+      mode: "status",
+      title: "Build issue resolved earlier",
+      summary: "The deploy build had already been fixed.",
+      consequence: "low",
+      tone: "ambient",
+      responseSpec: { kind: "none" },
+      relationHints: [
+        { kind: "same_issue", target: "issue:build:index-replay" },
+        { kind: "resolves", target: "issue:build:index-replay" },
+      ],
+      judgmentInput: {
+        blockedLikeStatus: false,
+        semanticEvidence: strongHintedSemanticEvidence(),
+      },
+      timestamp: "2026-03-08T12:01:00.000Z",
+    }),
+  );
+  const continued = store.assign(
+    createCandidate({
+      taskId: "task:build",
+      interactionId: "interaction:task:build:retry-followup-status",
+      blocking: false,
+      mode: "status",
+      title: "Build is still failing",
+      summary: "The deploy build is still failing after the retry.",
+      consequence: "high",
+      tone: "critical",
+      responseSpec: { kind: "none" },
+      relationHints: [
+        { kind: "same_issue", target: "issue:build:index-replay" },
+        { kind: "repeats", target: "issue:build:index-replay" },
+      ],
+      timestamp: "2026-03-08T12:04:00.000Z",
+    }),
+  );
+
+  assert.equal(resolved.episodeId, failed.episodeId);
+  assert.notEqual(recurrence.episodeId, failed.episodeId);
+  assert.equal(replayed.episodeId, resolved.episodeId);
+  assert.equal(replayed.episodeObsolete, true);
+  assert.equal(continued.episodeId, recurrence.episodeId);
+  assert.equal(continued.episodeSize, 2);
+});
+
 test("resolved episodes reopen with a fresh identity and reset evidence", () => {
   const store = new EpisodeTracker();
   store.assign(

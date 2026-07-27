@@ -10,8 +10,24 @@ export function hasSemanticRelationKind(
 export function readSemanticRelationTarget(
   relationHints: SemanticRelationHint[] | undefined,
 ): string | null {
-  const targetHint = (relationHints ?? []).find(
-    (hint) => typeof hint.target === "string" && hint.target.length > 0,
-  );
-  return targetHint?.target ?? null;
+  const targets = readSemanticRelationTargets(relationHints);
+  return targets.length === 1 ? (targets[0] ?? null) : null;
+}
+
+export function hasConflictingSemanticRelationTargets(
+  relationHints: SemanticRelationHint[] | undefined,
+): boolean {
+  return readSemanticRelationTargets(relationHints).length > 1;
+}
+
+export function readSemanticRelationTargets(
+  relationHints: SemanticRelationHint[] | undefined,
+): string[] {
+  const targets = new Set<string>();
+  for (const hint of relationHints ?? []) {
+    if (typeof hint.target === "string" && hint.target.length > 0) {
+      targets.add(hint.target);
+    }
+  }
+  return [...targets];
 }

@@ -54,4 +54,5 @@ export type AttentionCandidate = {
   episodeSize?: number;
   episodeEvidenceScore?: number;
   episodeEvidenceReasons?: string[];
+  episodeObsolete?: boolean;
 };

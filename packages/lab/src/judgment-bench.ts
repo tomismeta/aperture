@@ -536,7 +536,8 @@ function evaluateDecisionExpectation(
   if (target.decisionRecordRoute !== undefined && target.decisionKind !== undefined) {
     assertions.push({
       name: `${targetKey} decision record route matches decision kind`,
-      passed: target.decisionRecordRoute === target.decisionKind,
+      passed:
+        target.decisionKind === "suppressed" || target.decisionRecordRoute === target.decisionKind,
       expected: target.decisionKind,
       actual: target.decisionRecordRoute,
     });

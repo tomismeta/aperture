@@ -9,6 +9,8 @@ import {
   buildKernelDecisionRecordProjection,
   buildKernelDecisionRecordProjectionFromSnapshot,
 } from "../src/index.js";
+import type { ReplayDecisionSnapshot } from "../src/scenario.js";
+import { validateApertureTrace } from "../src/validation-trace.js";
 import { validateReplayDecisionSnapshot } from "../src/validation-replay-decision.js";
 
 const VALID_REASON_CODES = [
@@ -22,7 +24,7 @@ const VALID_REASON_CODES = [
   "evidence:current_episode:absent",
 ];
 
-const VALID_SNAPSHOT = {
+const VALID_SNAPSHOT: ReplayDecisionSnapshot = {
   stepIndex: 0,
   stepKind: "publish",
   evaluationKind: "candidate",
@@ -80,6 +82,83 @@ test("kernel decision projection keeps v1 readable and requires v2 realized lane
     }),
   );
   assert.equal(validateReplayDecisionSnapshot({ ...VALID_SNAPSHOT, resultLane: undefined }), null);
+});
+
+test("kernel decision projection accepts suppressed effective decisions with executable record routes", () => {
+  const suppressedSnapshot: ReplayDecisionSnapshot = {
+    ...VALID_SNAPSHOT,
+    decisionKind: "suppressed",
+    decisionRecordRoute: "auto_approve",
+    plannedLane: "none",
+    resultLane: "none",
+    decisionRecordReasonCodes: [
+      "route:auto_approve",
+      "lane:none",
+      "policy:minimum_lane:now",
+      "policy:auto_approve",
+      "pressure:level:steady",
+      "pressure:overload:low",
+      "evidence:operator_presence:present",
+      "evidence:current_frame:absent",
+      "evidence:current_episode:absent",
+    ],
+  };
+
+  assert.ok(validateReplayDecisionSnapshot(suppressedSnapshot));
+  assert.equal(
+    buildKernelDecisionRecordProjectionFromSnapshot(suppressedSnapshot)?.route,
+    "auto_approve",
+  );
+  assert.equal(validateReplayDecisionSnapshot({ ...suppressedSnapshot, resultLane: "next" }), null);
+});
+
+test("kernel decision projection rejects mismatched executed routes", () => {
+  assert.equal(
+    validateReplayDecisionSnapshot({
+      ...VALID_SNAPSHOT,
+      decisionKind: "ambient",
+      decisionRecordRoute: "queue",
+    }),
+    null,
+  );
+});
+
+test("trace validation rejects suppressed decisions with materialized lanes", () => {
+  const emptyAttention = { now: null, next: [], ambient: [] };
+  const trace = {
+    timestamp: "2026-03-08T12:00:00.000Z",
+    event: {
+      id: "evt:suppressed-trace",
+      taskId: "task:suppressed-trace",
+      timestamp: "2026-03-08T12:00:00.000Z",
+      type: "task.started",
+      title: "Trace validation",
+    },
+    eventTransition: {
+      kind: "direct_enriched",
+      original: {},
+      finalized: {},
+      changedFields: [],
+    },
+    evaluation: { kind: "candidate" },
+    taskView: emptyAttention,
+    attentionView: emptyAttention,
+    coordination: {
+      kind: "suppressed",
+      resultLane: "next",
+    },
+  };
+
+  assert.equal(validateApertureTrace(trace), null);
+  assert.ok(
+    validateApertureTrace({
+      ...trace,
+      coordination: {
+        kind: "suppressed",
+        resultLane: "none",
+      },
+    }),
+  );
 });
 
 test("kernel decision projection rejects malformed snapshot components directly", () => {

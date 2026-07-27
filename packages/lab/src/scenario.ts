@@ -21,6 +21,7 @@ import type { ReplaySemanticCalibrationFamily } from "./semantic-calibration.js"
 export type ReplayDecisionPlannedLane = "now" | "next" | "ambient" | "none";
 export type ReplayDecisionOperatorPresence = "present" | "absent";
 export type ReplayDecisionRoute = "auto_approve" | "activate" | "queue" | "ambient" | "clear";
+export type ReplayCoordinationRoute = ReplayDecisionRoute | "suppressed";
 export type ReplayDecisionValueComponents = {
   [component: string]: number | undefined;
 } & Partial<{
@@ -185,7 +186,7 @@ export type ReplayDecisionSnapshot = {
   stepLabel?: string;
   evaluationKind: "candidate" | "clear" | "noop";
   decisionRecordProjectionVersion?: KernelDecisionRecordProjectionVersion;
-  decisionKind?: ReplayDecisionRoute;
+  decisionKind?: ReplayCoordinationRoute;
   decisionRecordRoute?: ReplayDecisionRoute;
   plannedLane?: ReplayDecisionPlannedLane;
   resultLane?: "now" | "next" | "ambient" | "none";
@@ -230,7 +231,7 @@ export type ReplayDecisionExpectation = {
   stepLabel?: string;
   evaluationKind?: "candidate" | "clear" | "noop";
   decisionRecordProjectionVersion?: KernelDecisionRecordProjectionVersion;
-  decisionKind?: ReplayDecisionRoute;
+  decisionKind?: ReplayCoordinationRoute;
   decisionRecordRoute?: ReplayDecisionRoute;
   plannedLane?: ReplayDecisionPlannedLane;
   resultLane?: "now" | "next" | "ambient" | "none";

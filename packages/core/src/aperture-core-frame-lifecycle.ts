@@ -4,11 +4,11 @@ import type { AttentionResponse } from "./frame-response.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import type { AttentionSignal } from "./interaction-signal.js";
 import { signalMetadataForFrame } from "./memory-aggregator.js";
-import { hasSemanticRelationKind } from "./semantic-relations.js";
 import { TaskViewStore } from "./task-view-store.js";
 import type { CoreClock } from "./time.js";
 import { FramePlanner } from "./frame-planner.js";
 import { ApertureCoreResponseExpiredError } from "./aperture-core-error.js";
+import { findSupersededEpisodeFrames } from "./aperture-core-relation-lifecycle.js";
 import {
   buildAttentionTransitionSignals,
   buildAutoResponseSignal,
@@ -118,6 +118,7 @@ export class ApertureCoreFrameLifecycle {
   }
 
   queueFrame(taskId: string, frame: AttentionFrame): AttentionFrame {
+    this.clearEngagementIfDemotingNow(taskId, frame.interactionId);
     const taskView = this.runtime.taskViews.addNext(taskId, frame);
     this.runtime.recordSignal(buildDeferredSignal(frame, "next"));
     this.runtime.notifyTaskView(taskId, taskView);
@@ -126,6 +127,7 @@ export class ApertureCoreFrameLifecycle {
   }
 
   addAmbientFrame(taskId: string, frame: AttentionFrame): AttentionFrame {
+    this.clearEngagementIfDemotingNow(taskId, frame.interactionId);
     const taskView = this.runtime.taskViews.addAmbient(taskId, frame);
     this.runtime.recordSignal(buildDeferredSignal(frame, "suppressed"));
     this.runtime.notifyTaskView(taskId, taskView);
@@ -239,13 +241,7 @@ export class ApertureCoreFrameLifecycle {
     candidate: AttentionCandidate,
     attentionView: AttentionView,
   ): AttentionFrame[] {
-    if (!candidate.episodeId || !hasSemanticRelationKind(candidate.relationHints, "supersedes")) {
-      return [];
-    }
-
-    return findVisibleEpisodeFrames(attentionView, candidate.episodeId, {
-      excludedInteractionId: candidate.interactionId,
-    });
+    return findSupersededEpisodeFrames(candidate, attentionView);
   }
 
   applyResponseExpiry(frame: AttentionFrame): AttentionFrame {
@@ -350,5 +346,11 @@ export class ApertureCoreFrameLifecycle {
   ): AttentionFrame {
     const planned = this.applyResponseExpiry(this.runtime.planner.plan(candidate, existingFrame));
     return this.commitFrame({ ...planned, id: existingFrame.id }, [existingFrame]);
+  }
+
+  private clearEngagementIfDemotingNow(taskId: string, interactionId: string): void {
+    if (this.runtime.taskViews.get(taskId).now?.interactionId === interactionId) {
+      this.runtime.clearOperatorEngagement(taskId, interactionId);
+    }
   }
 }

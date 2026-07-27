@@ -13,6 +13,7 @@ import {
 
 const TRACE_PLANNED_LANES = new Set(["now", "next", "ambient", "none"]);
 const TRACE_OPERATOR_PRESENCE = new Set(["present", "absent"]);
+const TRACE_COORDINATION_KINDS = new Set([...DECISION_KINDS, "suppressed"]);
 
 export function validateApertureTrace(value: unknown): ReplayApertureTrace | null {
   if (!isRecord(value)) {
@@ -35,8 +36,9 @@ export function validateApertureTrace(value: unknown): ReplayApertureTrace | nul
     if (
       !isRecord(value.coordination) ||
       typeof value.coordination.kind !== "string" ||
-      !DECISION_KINDS.has(value.coordination.kind) ||
+      !TRACE_COORDINATION_KINDS.has(value.coordination.kind) ||
       !RESULT_BUCKETS.has(String(value.coordination.resultLane)) ||
+      (value.coordination.kind === "suppressed" && value.coordination.resultLane !== "none") ||
       (value.decisionRecord !== undefined && !validateReplayDecisionRecord(value.decisionRecord))
     ) {
       return null;

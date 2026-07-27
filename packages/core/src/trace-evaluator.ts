@@ -129,7 +129,8 @@ export function evaluateTraceSession(traces: ApertureTrace[]): TraceEvaluationRe
     if (
       trace.coordination.kind === "activate" &&
       previousDecision &&
-      previousDecision !== "activate"
+      previousDecision !== "activate" &&
+      previousDecision !== "suppressed"
     ) {
       if (!activatedAfterDeferral.has(episode.id)) {
         activatedAfterDeferral.add(episode.id);
@@ -172,6 +173,7 @@ function incrementDecisionCount(report: TraceEvaluationReport, decision: Candida
       report.ambient += 1;
       break;
     case "clear":
+    case "suppressed":
       break;
   }
 }

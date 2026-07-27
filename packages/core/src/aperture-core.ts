@@ -19,6 +19,7 @@ import { distillMemoryProfile } from "./memory-aggregator.js";
 import { selectPeripheralBucket } from "./attention-planner.js";
 import { ApertureCoreAttentionEvidence } from "./aperture-core-attention-evidence.js";
 import { ApertureCoreFrameLifecycle } from "./aperture-core-frame-lifecycle.js";
+import { ApertureCoreRelationLifecycle } from "./aperture-core-relation-lifecycle.js";
 import { ProfileStore, type MemoryProfile, type ApertureProfile } from "./profile-store.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import type { AttentionSurfaceCapabilities } from "./surface-capabilities.js";
@@ -113,6 +114,7 @@ export class ApertureCore {
   private readonly planner = new FramePlanner();
   private readonly attentionEvidence: ApertureCoreAttentionEvidence;
   private readonly frameLifecycle: ApertureCoreFrameLifecycle;
+  private readonly relationLifecycle: ApertureCoreRelationLifecycle;
   private readonly profileStore: ProfileStore | undefined;
   private readonly markdownRootDir: string | undefined;
   private baseMemoryProfile: MemoryProfile;
@@ -151,21 +153,25 @@ export class ApertureCore {
       getOperatorPresence: () => this.getOperatorPresence(),
       getSurfaceCapabilities: () => this.getSurfaceCapabilities(),
     });
-    this.frameLifecycle = new ApertureCoreFrameLifecycle({
+    const lifecycleRuntime = {
       taskViews: this.taskViews,
       planner: this.planner,
       episodes: this.episodes,
       clock: this.clock,
       responseExpiryMs: this.responseExpiryMs,
       getAttentionView: () => this.getAttentionView(),
-      recordSignal: (signal) => this.recordSignal(signal),
-      clearOperatorEngagement: (taskId, interactionId) =>
+      recordSignal: (signal: AttentionSignal) => this.recordSignal(signal),
+      clearOperatorEngagement: (taskId: string | undefined, interactionId: string | undefined) =>
         this.operatorEngagement.clear(taskId, interactionId),
-      notifyFrame: (taskId, frame) => this.listeners.emitFrame(taskId, frame),
-      notifyTaskView: (taskId, taskView) => this.listeners.emitTaskView(taskId, taskView),
+      notifyFrame: (taskId: string, frame: AttentionFrame | null) =>
+        this.listeners.emitFrame(taskId, frame),
+      notifyTaskView: (taskId: string, taskView: AttentionTaskView) =>
+        this.listeners.emitTaskView(taskId, taskView),
       notifyAttentionView: () => this.listeners.emitAttentionView(this.getAttentionView()),
-      emitResponse: (response) => this.listeners.emitResponse(response),
-    });
+      emitResponse: (response: AttentionResponse) => this.listeners.emitResponse(response),
+    };
+    this.frameLifecycle = new ApertureCoreFrameLifecycle(lifecycleRuntime);
+    this.relationLifecycle = new ApertureCoreRelationLifecycle(lifecycleRuntime);
   }
 
   static async fromMarkdown(rootDir: string): Promise<ApertureCore> {
@@ -271,6 +277,7 @@ export class ApertureCore {
           candidate,
           evidence,
         );
+        const suppressed = shouldSuppressObsoleteEpisodeCandidate(explanation.decision.candidate);
         const result = this.applyCandidateDecision(explanation, evidence, preAttentionView);
         const postAttentionView = this.getAttentionView();
         this.notifyTrace(
@@ -288,6 +295,7 @@ export class ApertureCore {
               adjusted: candidate,
               explanation,
               result,
+              suppressed,
             },
           ),
         );
@@ -324,6 +332,23 @@ export class ApertureCore {
     evidence: AttentionEvidenceContext,
     preAttentionView: AttentionView,
   ): AttentionFrame | null {
+    if (shouldSuppressObsoleteEpisodeCandidate(explanation.decision.candidate)) {
+      return null;
+    }
+
+    if (
+      explanation.decision.kind !== "auto_approve" &&
+      this.relationLifecycle.shouldRetireResolvedEpisodeFrames(
+        explanation.decision.candidate,
+        preAttentionView,
+      )
+    ) {
+      return this.relationLifecycle.materializeResolvedEpisodeFrame(
+        explanation.decision.candidate,
+        preAttentionView,
+      );
+    }
+
     switch (explanation.decision.kind) {
       case "auto_approve":
         return this.frameLifecycle.applyAutoResponse(
@@ -652,6 +677,10 @@ export class ApertureCore {
     this.coordinator = nextCoordinator;
     return true;
   }
+}
+
+function shouldSuppressObsoleteEpisodeCandidate(candidate: AttentionCandidate): boolean {
+  return candidate.episodeObsolete === true;
 }
 
 function shouldRefreshVisibleStatusEpisodeFrame(

@@ -11,7 +11,7 @@
   "expectations": {
     "finalNowInteractionId": null,
     "nextInteractionIds": [],
-    "ambientInteractionIds": ["interaction:task:corpus:build:status"],
+    "ambientInteractionIds": ["interaction:task:corpus:build-resolution:status"],
     "resultLaneCounts": {
       "now": 1,
       "next": 0,
@@ -44,12 +44,12 @@
         "decisionRecordRoute": "ambient",
         "plannedLane": "ambient",
         "resultLane": "ambient",
-        "decisionRecordCurrentEpisodeId": "episode:custom-agent:status:issue:corpus:build:1",
+        "decisionRecordCurrentEpisodeId": null,
         "decisionRecordOperatorPresence": "present",
         "decisionRecordReasonCodesInclude": [
           "route:ambient",
           "lane:ambient",
-          "evidence:current_episode:present"
+          "evidence:current_episode:absent"
         ]
       }
     ]
@@ -61,7 +61,7 @@
       "event": {
         "id": "evt:corpus:build:failed",
         "type": "task.updated",
-        "taskId": "task:corpus:build",
+        "taskId": "task:corpus:build-failure",
         "timestamp": "2026-04-16T14:03:00.000Z",
         "source": { "id": "custom-agent" },
         "title": "Build failed again",
@@ -81,7 +81,7 @@
       "event": {
         "id": "evt:corpus:build:resolved",
         "type": "task.updated",
-        "taskId": "task:corpus:build",
+        "taskId": "task:corpus:build-resolution",
         "timestamp": "2026-04-16T14:03:30.000Z",
         "source": { "id": "custom-agent" },
         "title": "Build issue resolved",

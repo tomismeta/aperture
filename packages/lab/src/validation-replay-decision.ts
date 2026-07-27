@@ -24,6 +24,7 @@ import {
 
 const PLANNED_LANES = new Set(["now", "next", "ambient", "none"]);
 const OPERATOR_PRESENCE = new Set(["present", "absent"]);
+const COORDINATION_KINDS = new Set([...DECISION_KINDS, "suppressed"]);
 
 export function validateReplayDecisionSnapshot(value: unknown): ReplayDecisionSnapshot | null {
   if (
@@ -50,11 +51,12 @@ export function validateReplayDecisionSnapshot(value: unknown): ReplayDecisionSn
     ) ||
     !STEP_KINDS.has(value.stepKind as ReplayObservationStep["kind"]) ||
     !["candidate", "clear", "noop"].includes(String(value.evaluationKind)) ||
-    (value.decisionKind !== undefined && !DECISION_KINDS.has(String(value.decisionKind))) ||
+    (value.decisionKind !== undefined && !COORDINATION_KINDS.has(String(value.decisionKind))) ||
     (value.decisionRecordRoute !== undefined &&
       !DECISION_KINDS.has(String(value.decisionRecordRoute))) ||
     (value.plannedLane !== undefined && !PLANNED_LANES.has(String(value.plannedLane))) ||
     (value.resultLane !== undefined && !RESULT_BUCKETS.has(String(value.resultLane))) ||
+    (value.decisionKind === "suppressed" && value.resultLane !== "none") ||
     (value.semanticConfidence !== undefined &&
       !SEMANTIC_CONFIDENCE.has(String(value.semanticConfidence))) ||
     (value.decisionRecordOperatorPresence !== undefined &&
@@ -69,7 +71,6 @@ export function validateReplayDecisionSnapshot(value: unknown): ReplayDecisionSn
 
   return value as ReplayDecisionSnapshot;
 }
-
 export function validateReplayDecisionExpectation(
   value: unknown,
 ): ReplayDecisionExpectation | null {
@@ -84,11 +85,12 @@ export function validateReplayDecisionExpectation(
       !["candidate", "clear", "noop"].includes(String(value.evaluationKind))) ||
     (value.decisionRecordProjectionVersion !== undefined &&
       !isKernelDecisionRecordProjectionVersion(value.decisionRecordProjectionVersion)) ||
-    (value.decisionKind !== undefined && !DECISION_KINDS.has(String(value.decisionKind))) ||
+    (value.decisionKind !== undefined && !COORDINATION_KINDS.has(String(value.decisionKind))) ||
     (value.decisionRecordRoute !== undefined &&
       !DECISION_KINDS.has(String(value.decisionRecordRoute))) ||
     (value.plannedLane !== undefined && !PLANNED_LANES.has(String(value.plannedLane))) ||
     (value.resultLane !== undefined && !RESULT_BUCKETS.has(String(value.resultLane))) ||
+    (value.decisionKind === "suppressed" && value.resultLane !== "none") ||
     (value.semanticConfidence !== undefined &&
       !SEMANTIC_CONFIDENCE.has(String(value.semanticConfidence))) ||
     (value.semanticAbstained !== undefined && typeof value.semanticAbstained !== "boolean") ||

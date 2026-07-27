@@ -90,10 +90,18 @@ This is also where core compiles `AttentionJudgmentInput`, the small internal
 semantic/evidence seam built from ontology, semantic evidence strength, and
 blocked-like status diagnostics.
 
+The narrow failed-status exception is backed by a private semantic evidence
+classifier in [semantic-evidence.ts](../../packages/core/src/semantic-evidence.ts).
+That classifier reads source facts and ordered text evidence before judgment:
+terminal failure evidence wins over routine observation evidence, and semantic
+`factors` remain explanatory.
+
 Status-routing nuance:
 
 - `task.updated.status` remains authoritative for status routing except for
   compiled routine observational status conflicts
+- semantic hints can reduce confidence or abstain from that exception, but they
+  cannot manufacture it without raw routine bash success evidence
 - richer semantics can still affect continuity, ambiguity handling, peripheral
   routing, and trace
 

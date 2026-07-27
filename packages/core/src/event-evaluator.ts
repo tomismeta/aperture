@@ -72,10 +72,7 @@ export class EventEvaluator {
     // blocked-like semantics may only lift the status posture; they do not turn
     // the event into a blocking request or change the response contract.
     const judgmentInput = buildAttentionJudgmentInput(event);
-    const priority = this.priorityForStatus(event.status, judgmentInput);
-    const tone = this.toneForStatus(event.status, judgmentInput);
-    const consequence = this.consequenceForStatus(event.status, judgmentInput);
-    const responseSpec = this.responseSpecForStatus(event.status, judgmentInput);
+    const disposition = this.statusDispositionForStatus(event.status, judgmentInput);
 
     return {
       taskId: event.taskId,
@@ -85,11 +82,11 @@ export class EventEvaluator {
       ...(event.toolFamily !== undefined ? { toolFamily: event.toolFamily } : {}),
       ...(event.activityClass !== undefined ? { activityClass: event.activityClass } : {}),
       mode: "status",
-      tone,
-      consequence,
+      tone: disposition.tone,
+      consequence: disposition.consequence,
       title: event.title,
-      responseSpec,
-      priority,
+      responseSpec: disposition.responseSpec,
+      priority: disposition.priority,
       blocking: false,
       timestamp: event.timestamp,
       ...(event.summary !== undefined ? { summary: event.summary } : {}),
@@ -98,7 +95,7 @@ export class EventEvaluator {
         : {}),
       judgmentInput,
       ...buildStatusContext(event),
-      ...buildStatusProvenance(event, judgmentInput),
+      ...buildStatusProvenance(event, disposition.includeFailureProvenance),
     };
   }
 
@@ -201,122 +198,63 @@ export class EventEvaluator {
     }
   }
 
-  private responseSpecForStatus(
+  private statusDispositionForStatus(
     status: TaskUpdatedEvent["status"],
-    judgmentInput?: AttentionJudgmentInput,
-  ): AttentionAcknowledgeResponseSpec | { kind: "none" } {
-    if (
-      judgmentInput !== undefined &&
-      hasRoutineObservationalStatusConflictJudgmentInput(judgmentInput)
-    ) {
-      return { kind: "none" };
+    judgmentInput: AttentionJudgmentInput,
+  ): {
+    priority: AttentionCandidate["priority"];
+    tone: AttentionCandidate["tone"];
+    consequence: AttentionCandidate["consequence"];
+    responseSpec: AttentionAcknowledgeResponseSpec | { kind: "none" };
+    includeFailureProvenance: boolean;
+  } {
+    if (hasRoutineObservationalStatusConflictJudgmentInput(judgmentInput)) {
+      return {
+        priority: "background",
+        tone: "ambient",
+        consequence: "low",
+        responseSpec: { kind: "none" },
+        includeFailureProvenance: false,
+      };
+    }
+
+    if (hasActionableBlockedLikeStatusJudgmentInput(judgmentInput)) {
+      return {
+        priority: "normal",
+        tone: "focused",
+        consequence: "medium",
+        responseSpec: statusResponseSpec(status),
+        includeFailureProvenance: status === "failed",
+      };
     }
 
     switch (status) {
-      case "blocked":
       case "failed":
         return {
-          kind: "acknowledge",
-          actions: [
-            {
-              id: "acknowledge",
-              label: "Acknowledge",
-              kind: "acknowledge",
-              emphasis: "primary",
-            },
-          ],
+          priority: "high",
+          tone: "critical",
+          consequence: "high",
+          responseSpec: statusResponseSpec(status),
+          includeFailureProvenance: true,
+        };
+      case "blocked":
+        return {
+          priority: "normal",
+          tone: "focused",
+          consequence: "medium",
+          responseSpec: statusResponseSpec(status),
+          includeFailureProvenance: false,
         };
       case "running":
       case "waiting":
       case "completed":
-        return { kind: "none" };
-      default:
-        return unreachableTaskStatus(status);
-    }
-  }
-
-  private priorityForStatus(
-    status: TaskUpdatedEvent["status"],
-    judgmentInput?: AttentionJudgmentInput,
-  ): AttentionCandidate["priority"] {
-    if (
-      judgmentInput !== undefined &&
-      hasRoutineObservationalStatusConflictJudgmentInput(judgmentInput)
-    ) {
-      return "background";
-    }
-
-    if (judgmentInput !== undefined && hasActionableBlockedLikeStatusJudgmentInput(judgmentInput)) {
-      return "normal";
-    }
-
-    switch (status) {
-      case "blocked":
-        return "normal";
-      case "failed":
-        return "high";
-      case "running":
-      case "waiting":
-      case "completed":
-        return "background";
-      default:
-        return unreachableTaskStatus(status);
-    }
-  }
-
-  private toneForStatus(
-    status: TaskUpdatedEvent["status"],
-    judgmentInput?: AttentionJudgmentInput,
-  ): AttentionCandidate["tone"] {
-    if (
-      judgmentInput !== undefined &&
-      hasRoutineObservationalStatusConflictJudgmentInput(judgmentInput)
-    ) {
-      return "ambient";
-    }
-
-    if (judgmentInput !== undefined && hasActionableBlockedLikeStatusJudgmentInput(judgmentInput)) {
-      return "focused";
-    }
-
-    switch (status) {
-      case "blocked":
-        return "focused";
-      case "failed":
-        return "critical";
-      case "running":
-      case "waiting":
-      case "completed":
-        return "ambient";
-      default:
-        return unreachableTaskStatus(status);
-    }
-  }
-
-  private consequenceForStatus(
-    status: TaskUpdatedEvent["status"],
-    judgmentInput?: AttentionJudgmentInput,
-  ): AttentionCandidate["consequence"] {
-    if (
-      judgmentInput !== undefined &&
-      hasRoutineObservationalStatusConflictJudgmentInput(judgmentInput)
-    ) {
-      return "low";
-    }
-
-    if (judgmentInput !== undefined && hasActionableBlockedLikeStatusJudgmentInput(judgmentInput)) {
-      return "medium";
-    }
-
-    switch (status) {
-      case "blocked":
-        return "medium";
-      case "failed":
-        return "high";
-      case "running":
-      case "waiting":
-      case "completed":
-        return "low";
+        return {
+          priority: "background",
+          tone: "ambient",
+          consequence: "low",
+          responseSpec: statusResponseSpec(status),
+          includeFailureProvenance: false,
+        };
       default:
         return unreachableTaskStatus(status);
     }
@@ -345,21 +283,18 @@ function buildStatusContext(
 
 function buildStatusProvenance(
   event: TaskUpdatedEvent,
-  judgmentInput: AttentionJudgmentInput,
+  includeFailureProvenance: boolean,
 ): { provenance: { whyNow?: string; factors?: string[] } } | {} {
-  const routineObservationalStatusConflict =
-    hasRoutineObservationalStatusConflictJudgmentInput(judgmentInput);
   const provenance = mergeSemanticProvenance({
     semantic: event.semantic,
     fallbackWhyNow:
       event.status === "blocked"
         ? semanticWhyNowForTaskStatus("blocked")
-        : event.status === "failed" && !routineObservationalStatusConflict
+        : event.status === "failed" && includeFailureProvenance
           ? semanticWhyNowForTaskStatus("failed")
           : undefined,
     extraFactors:
-      event.status === "blocked" ||
-      (event.status === "failed" && !routineObservationalStatusConflict)
+      event.status === "blocked" || (event.status === "failed" && includeFailureProvenance)
         ? [event.status]
         : [],
   });
@@ -371,6 +306,32 @@ function buildStatusProvenance(
   return {
     provenance,
   };
+}
+
+function statusResponseSpec(
+  status: TaskUpdatedEvent["status"],
+): AttentionAcknowledgeResponseSpec | { kind: "none" } {
+  switch (status) {
+    case "blocked":
+    case "failed":
+      return {
+        kind: "acknowledge",
+        actions: [
+          {
+            id: "acknowledge",
+            label: "Acknowledge",
+            kind: "acknowledge",
+            emphasis: "primary",
+          },
+        ],
+      };
+    case "running":
+    case "waiting":
+    case "completed":
+      return { kind: "none" };
+    default:
+      return unreachableTaskStatus(status);
+  }
 }
 
 function buildJudgmentInputFields(event: ApertureEvent): Pick<AttentionCandidate, "judgmentInput"> {

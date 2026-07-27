@@ -202,9 +202,13 @@ test("expected diagnostic failure detection excludes terminal-style failures", (
   const terminalFailure = normalizeSemanticText(
     "Form is valid false Exception traceback while running the repro",
   );
+  const exitCodeFailure = normalizeSemanticText(
+    "Form is valid false Form errors errorlist exited with code 1",
+  );
 
   assert.equal(detectExpectedDiagnosticFailure(diagnostic, "bash"), true);
   assert.equal(detectExpectedDiagnosticFailure(terminalFailure, "bash"), false);
+  assert.equal(detectExpectedDiagnosticFailure(exitCodeFailure, "bash"), false);
 });
 
 test("relation detection recognizes repeating escalations with issue language", () => {

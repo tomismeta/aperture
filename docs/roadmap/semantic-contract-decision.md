@@ -124,11 +124,14 @@ The semantic layer is still useful on this path, but in a bounded way.
 
 The one current exception is explicit and compiled before judgment:
 
-- a `failed` status with high-confidence, low-consequence observational evidence
-  can become a routine observational status conflict
+- a `failed` status with high-confidence, low-consequence, engine-owned routine
+  bash success evidence can become a routine observational status conflict
 - that conflict may lower status routing to non-interruptive status handling
 - core does not mutate the original `status`; trace records the semantic routing
   exception
+- adapter-supplied semantic hints may veto the exception through confidence,
+  abstention, or the final semantic shape, but they cannot manufacture the
+  underlying raw evidence
 
 ### What semantic interpretation is allowed to do on `task.updated`
 
@@ -146,6 +149,8 @@ The one current exception is explicit and compiled before judgment:
 - silently change response-spec shape from status handling into approval/choice/form handling
 - demote failed status from generic success wording, low-confidence semantics, or
   payloads that also contain terminal failure evidence
+- demote failed status because adapter-provided `factors` or `reasons` claim an
+  observational payload without matching engine-owned evidence
 
 If Aperture later wants implied asks in status updates to change routing, that must become a deliberate policy decision, not an accidental side effect of richer semantics.
 
@@ -191,6 +196,8 @@ Examples:
 - explicit `toolFamily` beats inferred `toolFamily`
 - explicit source activity class beats inferred activity class
 - explicit semantic hints beat generic built-in interpretation
+- engine-owned evidence beats explanatory semantic factors for named judgment
+  diagnostics
 
 This remains a core rule of the semantic architecture.
 

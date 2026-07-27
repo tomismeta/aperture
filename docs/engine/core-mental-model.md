@@ -20,8 +20,10 @@ graph TD
   A["Source event<br/>What happened?"] --> B["Semantics<br/>What does it mean?"]
   E["Heuristics<br/>How we infer meaning"] --> B
   B --> C["Ontology<br/>Small shared labels"]
+  A --> I["Evidence classifier<br/>What raw evidence is present?"]
   B --> D["Judgment input<br/>What semantic evidence should judgment trust?"]
   C --> D
+  I --> D
   D --> F["Judgment<br/>What deserves attention?"]
   F --> G["Lane<br/>now / next / ambient"]
   F --> H["Trace<br/>Why did that happen?"]
@@ -33,6 +35,8 @@ graph TD
 - **Semantics** is Aperture's read of what an event means.
 - **Ontology** is the small stable vocabulary used to describe that meaning.
 - **Heuristics** are the concrete rules that help infer meaning from messy source events.
+- **Evidence classification** is the private ordered read of raw event evidence
+  used by narrow judgment diagnostics.
 - **Judgment** is the decision about what belongs in `now`, `next`, or `ambient`.
 - **Trace** is the explanation of why that judgment happened.
 
@@ -110,7 +114,7 @@ than routing directly on ontology objects.
 
 Actual current data path:
 
-`SourceEvent/ApertureEvent -> finalized event (usually EnrichedApertureEvent) -> AttentionJudgmentInput -> AttentionCandidate -> policy/value/pressure/planning -> lane/trace`
+`SourceEvent/ApertureEvent -> finalized event (usually EnrichedApertureEvent) -> semantic evidence -> AttentionJudgmentInput -> AttentionCandidate -> policy/value/pressure/planning -> lane/trace`
 
 ### 4. Heuristics
 
@@ -128,6 +132,12 @@ Examples:
 - relation detection like `same issue` or `resolves`
 
 Think of heuristics as the **inference machinery**.
+
+For narrow status diagnostics, core also runs an internal evidence classifier.
+That classifier is stricter than general semantic interpretation: it uses raw
+event text and explicit tool-family facts, applies terminal failure evidence
+before positive observations, and does not let explanatory `factors` create
+decision-bearing evidence.
 
 ### 5. Judgment
 
@@ -156,7 +166,9 @@ Think of judgment as the **attention-routing layer**.
 
 Status paths keep raw task status authoritative by default, even when the
 semantic and ontology reads are richer. Named judgment-input diagnostics, such
-as routine observational status conflicts, are the explicit exception path.
+as routine observational status conflicts, are the explicit exception path. A
+semantic hint may make that exception less certain; it cannot create the raw
+evidence required for it.
 
 ### 6. Trace
 

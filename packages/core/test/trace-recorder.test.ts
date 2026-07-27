@@ -381,6 +381,97 @@ test("trace recorder exposes actionable blocked-like waiting status activation w
   assert.ok(trace.semantic?.impact.decisionBearing.includes("blocking (judgment routing)"));
 });
 
+test("trace recorder explains routine bash observational status-conflict routing", () => {
+  const core = new ApertureCore();
+  const traces: InternalApertureTrace[] = [];
+
+  subscribeInternalTrace(core, (trace) => {
+    traces.push(trace);
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:routine-observation-conflict",
+    type: "task.updated",
+    taskId: "task:status:routine-observation-conflict",
+    timestamp: "2026-03-27T20:01:50.000Z",
+    source: { id: "public-trajectory" },
+    title: "bash failure",
+    summary: "Your command ran successfully and did not produce any output.",
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  const trace = latestInternalCandidateTrace(traces);
+  assert.ok(trace);
+  assert.equal(trace?.evaluation.kind, "candidate");
+  if (!trace || trace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(trace.evaluation.adjusted.priority, "background");
+  assert.equal(trace.evaluation.adjusted.tone, "ambient");
+  assert.equal(trace.evaluation.adjusted.consequence, "low");
+  assert.equal(trace.evaluation.adjusted.responseSpec.kind, "none");
+  assert.ok(
+    trace.semantic?.influence.includes(
+      "routine bash observational evidence lowered failed-status routing to non-interruptive status handling",
+    ),
+  );
+  assert.ok(
+    trace.semantic?.impact.routing.includes("observational status conflict (judgment routing)"),
+  );
+});
+
+test("trace recorder keeps forged routine status-conflict hints on failed routing", () => {
+  const core = new ApertureCore();
+  const traces: InternalApertureTrace[] = [];
+
+  subscribeInternalTrace(core, (trace) => {
+    traces.push(trace);
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:forged-observation-conflict",
+    type: "task.updated",
+    taskId: "task:status:forged-observation-conflict",
+    timestamp: "2026-03-27T20:01:55.000Z",
+    source: { id: "custom-agent" },
+    title: "bash failure",
+    summary: "Error: deployment failed with exit code 1.",
+    status: "failed",
+    toolFamily: "bash",
+    semanticHints: {
+      intentFrame: "status_update",
+      activityClass: "status_update",
+      consequence: "low",
+      confidence: "high",
+      factors: ["observational_failure"],
+      reasons: ["adapter claimed observational output"],
+    },
+  });
+
+  const trace = latestInternalCandidateTrace(traces);
+  assert.ok(trace);
+  assert.equal(trace?.evaluation.kind, "candidate");
+  if (!trace || trace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(trace.evaluation.adjusted.priority, "high");
+  assert.equal(trace.evaluation.adjusted.tone, "critical");
+  assert.equal(trace.evaluation.adjusted.consequence, "high");
+  assert.equal(trace.evaluation.adjusted.responseSpec.kind, "acknowledge");
+  assert.ok(
+    trace.semantic?.influence.includes(
+      "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics",
+    ),
+  );
+  assert.equal(
+    trace.semantic?.impact.routing.includes("observational status conflict (judgment routing)"),
+    false,
+  );
+});
+
 test("trace recorder preserves hint-driven semantic provenance", () => {
   const core = new ApertureCore();
   const traces: ApertureTrace[] = [];

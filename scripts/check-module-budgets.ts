@@ -20,6 +20,8 @@ const budgets = [
   { file: "packages/core/src/aperture-core.ts", maxLines: 1000 },
   { file: "packages/core/src/aperture-core-attention-evidence.ts", maxLines: 175 },
   { file: "packages/core/src/aperture-core-frame-lifecycle.ts", maxLines: 375 },
+  { file: "packages/core/src/aperture-core-relation-lifecycle.ts", maxLines: 250 },
+  { file: "packages/core/src/episode-tracker.ts", maxLines: 700 },
   { file: "packages/core/src/attention-claim.ts", maxLines: 275 },
   { file: "packages/core/src/attention-decision-record.ts", maxLines: 175 },
   { file: "packages/core/src/attention-decision-record-builder.ts", maxLines: 125 },

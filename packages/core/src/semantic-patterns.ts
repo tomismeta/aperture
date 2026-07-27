@@ -89,6 +89,7 @@ export const TAGGED_FILE_OBSERVATION_PHRASES = ["path", "type file", "content"] 
 export const ROUTINE_SUCCESS_PHRASES = [
   "ran successfully and did not produce any output",
   "command ran successfully and did not produce any output",
+  "your command ran successfully and did not produce any output",
   "completed successfully and did not produce any output",
 ] as const;
 

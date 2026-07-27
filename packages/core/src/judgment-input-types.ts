@@ -23,6 +23,10 @@ export type AttentionJudgmentInput = {
   // statuses that semantically read as blocked without becoming a full
   // human-input interaction.
   blockedLikeStatus: boolean;
+  // Narrow contradiction diagnostic for imported or adapter status noise:
+  // the source reported a failed task status, but the semantic read found a
+  // routine observational payload rather than actionable failure evidence.
+  routineObservationalStatusConflict?: boolean;
 };
 
 export type CandidateSemanticEvidence = NonNullable<AttentionJudgmentInput["semanticEvidence"]>;

@@ -154,9 +154,9 @@ Judgment uses:
 
 Think of judgment as the **attention-routing layer**.
 
-Today, some status paths still keep raw task status authoritative even when the
-semantic and ontology reads are richer. That is an intentional boundary in the
-current engine, not a documentation bug.
+Status paths keep raw task status authoritative by default, even when the
+semantic and ontology reads are richer. Named judgment-input diagnostics, such
+as routine observational status conflicts, are the explicit exception path.
 
 ### 6. Trace
 

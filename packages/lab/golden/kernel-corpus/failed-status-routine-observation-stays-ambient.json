@@ -1,0 +1,90 @@
+{
+  "id": "golden:kernel-corpus:failed-status-routine-observation-stays-ambient",
+  "title": "Failed-status routine observation stays ambient",
+  "description": "Imported trajectories can report failed transport status even when the observation payload says a bash command succeeded with no output.",
+  "doctrineTags": ["kernel_corpus", "semantic_normalization", "status_noise", "ambient_doctrine"],
+  "semanticFamilies": ["consequence_overread"],
+  "expectations": {
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
+    "ambientInteractionIds": ["interaction:task:public-cleanup-status-conflict:status"],
+    "resultLaneCounts": {
+      "now": 0,
+      "next": 0,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "silent cleanup status conflict",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "toolFamily": "bash",
+        "consequence": "low",
+        "confidence": "high",
+        "factorsInclude": ["observational_failure"],
+        "reasonsInclude": [
+          "task status indicates failure but the update reads like observational output"
+        ],
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "low",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "inferred"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "silent cleanup status conflict",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "semanticConfidence": "high",
+        "episodeEvidenceScore": 0,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordCandidateScore": 0,
+        "decisionRecordValueComponentsInclude": {
+          "priority": 0,
+          "tone": 0,
+          "consequence": 0
+        },
+        "decisionRecordReasonsInclude": ["background work should remain peripheral by default"],
+        "decisionRecordReasonCodesInclude": [
+          "route:ambient",
+          "lane:ambient",
+          "policy:minimum_lane:ambient",
+          "policy:peripheral_only"
+        ],
+        "semanticInfluenceIncludes": [
+          "routine bash observational evidence lowered failed-status routing to non-interruptive status handling"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "observational status conflict (judgment routing)"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "silent cleanup status conflict",
+      "event": {
+        "id": "evt:public-cleanup-status-conflict",
+        "type": "task.updated",
+        "taskId": "task:public-cleanup-status-conflict",
+        "timestamp": "2026-04-18T15:02:00.000Z",
+        "source": { "id": "swe-smith", "kind": "public-trajectory" },
+        "title": "bash failure",
+        "summary": "Your command ran successfully and did not produce any output.",
+        "status": "failed",
+        "toolFamily": "bash"
+      }
+    }
+  ]
+}

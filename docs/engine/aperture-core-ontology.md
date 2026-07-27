@@ -185,9 +185,9 @@ In simplified form:
 - `ask`, `activity`, and `consequence` can shape canonical events and traceable
   judgment inputs
 - `blocking` is the clean cross-source supervision dimension; status-event
-  routing still keeps explicit task status authoritative, but clearly blocked
-  waiting statuses can now stay queue-worthy without becoming full blocking
-  interactions
+  routing still keeps explicit task status authoritative by default, while
+  clearly blocked waiting statuses and named observational status conflicts can
+  affect judgment without becoming full blocking interactions
 - `episode` shapes continuity and resurfacing
 - `confidence` and `source` combine into semantic evidence strength for
   ambiguity and trust handling

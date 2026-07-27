@@ -212,6 +212,9 @@ function buildJudgmentInputFromClaim(
       ? { relationEvidence: judgment.relationEvidence }
       : {}),
     blockedLikeStatus: judgment?.blockedLikeStatus ?? false,
+    ...(judgment?.routineObservationalStatusConflict === true
+      ? { routineObservationalStatusConflict: true }
+      : {}),
   };
 }
 

@@ -519,6 +519,94 @@ test("public trajectory silent cleanup observations stay low-consequence status 
   assert.equal(interpretation.consequence, "low");
 });
 
+test("public trajectory failed-status bash success observations stay low-consequence status updates", () => {
+  const event: SourceEvent = {
+    id: "evt:public-cleanup-status-conflict",
+    type: "task.updated",
+    taskId: "task:public-cleanup-status-conflict",
+    timestamp,
+    source: { id: "swe-smith", kind: "public-trajectory" },
+    title: "bash failure",
+    summary: "Your command ran successfully and did not produce any output.",
+    status: "failed",
+    toolFamily: "bash",
+  };
+  const interpretation = interpretSourceEvent(event);
+  const normalized = normalizeSourceEvent(event);
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "low");
+  assert.equal(interpretation.whyNow, undefined);
+  assert.deepEqual(interpretation.factors, ["task.updated", "failed", "observational_failure"]);
+  assert.equal(normalized.type, "task.updated");
+  if (normalized.type === "task.updated") {
+    assert.equal(normalized.status, "failed");
+    assert.equal(normalized.activityClass, "status_update");
+    assert.equal(normalized.semantic.activityClass, "status_update");
+    assert.equal(normalized.semantic.consequence, "low");
+  }
+});
+
+test("public trajectory failed-status bash tracebacks remain high-consequence failures", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:public-traceback",
+    type: "task.updated",
+    taskId: "task:public-traceback",
+    timestamp,
+    source: { id: "swe-smith", kind: "public-trajectory" },
+    title: "bash observation",
+    summary: "Traceback (most recent call last): Error: subprocess failed.",
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.consequence, "high");
+  assert.equal(interpretation.whyNow, "Work has failed and should be reviewed.");
+});
+
+test("public trajectory mixed bash success and terminal failures remain high-consequence failures", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:public-mixed-bash-failure",
+    type: "task.updated",
+    taskId: "task:public-mixed-bash-failure",
+    timestamp,
+    source: { id: "swe-smith", kind: "public-trajectory" },
+    title: "bash failure",
+    summary:
+      "Your command ran successfully and did not produce any output. Traceback follows from the next repro step.",
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.consequence, "high");
+  assert.equal(interpretation.whyNow, "Work has failed and should be reviewed.");
+});
+
+test("public trajectory mixed bash success and exit-code failures remain high-consequence failures", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:public-mixed-exit-code-failure",
+    type: "task.updated",
+    taskId: "task:public-mixed-exit-code-failure",
+    timestamp,
+    source: { id: "swe-smith", kind: "public-trajectory" },
+    title: "bash failure",
+    summary:
+      "Your command ran successfully and did not produce any output. Error: deployment failed with exit code 1.",
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.consequence, "high");
+  assert.equal(interpretation.whyNow, "Work has failed and should be reviewed.");
+});
+
 test("passive waiting approval wording stays status-shaped without inventing an implied ask", () => {
   const normalized = normalizeSourceEvent({
     id: "evt:blocked",

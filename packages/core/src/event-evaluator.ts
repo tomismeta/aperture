@@ -10,6 +10,7 @@ import type { AttentionCandidate } from "./interaction-candidate.js";
 import {
   buildAttentionJudgmentInput,
   hasActionableBlockedLikeStatusJudgmentInput,
+  hasRoutineObservationalStatusConflictJudgmentInput,
 } from "./judgment-input.js";
 import type { AttentionJudgmentInput } from "./judgment-input-types.js";
 import { semanticWhyNowForTaskStatus } from "./semantic-language.js";
@@ -74,7 +75,7 @@ export class EventEvaluator {
     const priority = this.priorityForStatus(event.status, judgmentInput);
     const tone = this.toneForStatus(event.status, judgmentInput);
     const consequence = this.consequenceForStatus(event.status, judgmentInput);
-    const responseSpec = this.responseSpecForStatus(event.status);
+    const responseSpec = this.responseSpecForStatus(event.status, judgmentInput);
 
     return {
       taskId: event.taskId,
@@ -97,7 +98,7 @@ export class EventEvaluator {
         : {}),
       judgmentInput,
       ...buildStatusContext(event),
-      ...buildStatusProvenance(event),
+      ...buildStatusProvenance(event, judgmentInput),
     };
   }
 
@@ -202,7 +203,15 @@ export class EventEvaluator {
 
   private responseSpecForStatus(
     status: TaskUpdatedEvent["status"],
+    judgmentInput?: AttentionJudgmentInput,
   ): AttentionAcknowledgeResponseSpec | { kind: "none" } {
+    if (
+      judgmentInput !== undefined &&
+      hasRoutineObservationalStatusConflictJudgmentInput(judgmentInput)
+    ) {
+      return { kind: "none" };
+    }
+
     switch (status) {
       case "blocked":
       case "failed":
@@ -230,6 +239,13 @@ export class EventEvaluator {
     status: TaskUpdatedEvent["status"],
     judgmentInput?: AttentionJudgmentInput,
   ): AttentionCandidate["priority"] {
+    if (
+      judgmentInput !== undefined &&
+      hasRoutineObservationalStatusConflictJudgmentInput(judgmentInput)
+    ) {
+      return "background";
+    }
+
     if (judgmentInput !== undefined && hasActionableBlockedLikeStatusJudgmentInput(judgmentInput)) {
       return "normal";
     }
@@ -252,6 +268,13 @@ export class EventEvaluator {
     status: TaskUpdatedEvent["status"],
     judgmentInput?: AttentionJudgmentInput,
   ): AttentionCandidate["tone"] {
+    if (
+      judgmentInput !== undefined &&
+      hasRoutineObservationalStatusConflictJudgmentInput(judgmentInput)
+    ) {
+      return "ambient";
+    }
+
     if (judgmentInput !== undefined && hasActionableBlockedLikeStatusJudgmentInput(judgmentInput)) {
       return "focused";
     }
@@ -274,6 +297,13 @@ export class EventEvaluator {
     status: TaskUpdatedEvent["status"],
     judgmentInput?: AttentionJudgmentInput,
   ): AttentionCandidate["consequence"] {
+    if (
+      judgmentInput !== undefined &&
+      hasRoutineObservationalStatusConflictJudgmentInput(judgmentInput)
+    ) {
+      return "low";
+    }
+
     if (judgmentInput !== undefined && hasActionableBlockedLikeStatusJudgmentInput(judgmentInput)) {
       return "medium";
     }
@@ -315,16 +345,23 @@ function buildStatusContext(
 
 function buildStatusProvenance(
   event: TaskUpdatedEvent,
+  judgmentInput: AttentionJudgmentInput,
 ): { provenance: { whyNow?: string; factors?: string[] } } | {} {
+  const routineObservationalStatusConflict =
+    hasRoutineObservationalStatusConflictJudgmentInput(judgmentInput);
   const provenance = mergeSemanticProvenance({
     semantic: event.semantic,
     fallbackWhyNow:
       event.status === "blocked"
         ? semanticWhyNowForTaskStatus("blocked")
-        : event.status === "failed"
+        : event.status === "failed" && !routineObservationalStatusConflict
           ? semanticWhyNowForTaskStatus("failed")
           : undefined,
-    extraFactors: event.status === "blocked" || event.status === "failed" ? [event.status] : [],
+    extraFactors:
+      event.status === "blocked" ||
+      (event.status === "failed" && !routineObservationalStatusConflict)
+        ? [event.status]
+        : [],
   });
 
   if (provenance === undefined) {

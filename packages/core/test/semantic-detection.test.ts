@@ -7,6 +7,7 @@ import {
   HIGH_RISK_PHRASES,
   ISSUE_SIGNAL_PHRASES,
   REPEAT_PHRASES,
+  ROUTINE_SUCCESS_PHRASES,
 } from "../src/semantic-patterns.js";
 import {
   detectExpectedDiagnosticFailure,
@@ -139,6 +140,57 @@ test("routine observational failure stays low consequence for log-like reads but
   assert.equal(detectRoutineObservationalFailureLowConsequence(logObservation, "read"), true);
   assert.equal(
     detectRoutineObservationalFailureLowConsequence(sourceCodeObservation, "read"),
+    false,
+  );
+});
+
+test("routine successful bash observations demote failed transport status", () => {
+  for (const phrase of ROUTINE_SUCCESS_PHRASES) {
+    const routineSuccess = normalizeSemanticText(phrase);
+
+    assert.equal(detectObservationalFailureStatus(routineSuccess, "bash"), true);
+    assert.equal(detectRoutineObservationalFailureLowConsequence(routineSuccess, "bash"), true);
+  }
+});
+
+test("routine successful bash observation detection stays bounded", () => {
+  const routineSuccess = normalizeSemanticText(
+    "Your command ran successfully and did not produce any output.",
+  );
+  const nearMiss = normalizeSemanticText("The command completed successfully.");
+  const terminalFailure = normalizeSemanticText(
+    "Traceback (most recent call last): Error: subprocess failed.",
+  );
+  const mixedFailure = normalizeSemanticText(
+    "Your command ran successfully and did not produce any output. Traceback follows.",
+  );
+  const mixedExitCodeFailure = normalizeSemanticText(
+    "Your command ran successfully and did not produce any output. Error: deployment failed with exit code 1.",
+  );
+  const prefixedSuccess = normalizeSemanticText(
+    "OBSERVATION: Your command ran successfully and did not produce any output.",
+  );
+  const titledSuccess = normalizeSemanticText(
+    "bash failure Your command ran successfully and did not produce any output.",
+  );
+
+  assert.equal(detectObservationalFailureStatus(prefixedSuccess, "bash"), true);
+  assert.equal(detectRoutineObservationalFailureLowConsequence(prefixedSuccess, "bash"), true);
+  assert.equal(detectObservationalFailureStatus(titledSuccess, "bash"), true);
+  assert.equal(detectRoutineObservationalFailureLowConsequence(titledSuccess, "bash"), true);
+  assert.equal(detectObservationalFailureStatus(routineSuccess), false);
+  assert.equal(detectRoutineObservationalFailureLowConsequence(routineSuccess), false);
+  assert.equal(detectObservationalFailureStatus(routineSuccess, "read"), false);
+  assert.equal(detectRoutineObservationalFailureLowConsequence(routineSuccess, "read"), false);
+  assert.equal(detectObservationalFailureStatus(nearMiss, "bash"), false);
+  assert.equal(detectRoutineObservationalFailureLowConsequence(nearMiss, "bash"), false);
+  assert.equal(detectObservationalFailureStatus(terminalFailure, "bash"), false);
+  assert.equal(detectRoutineObservationalFailureLowConsequence(terminalFailure, "bash"), false);
+  assert.equal(detectObservationalFailureStatus(mixedFailure, "bash"), false);
+  assert.equal(detectRoutineObservationalFailureLowConsequence(mixedFailure, "bash"), false);
+  assert.equal(detectObservationalFailureStatus(mixedExitCodeFailure, "bash"), false);
+  assert.equal(
+    detectRoutineObservationalFailureLowConsequence(mixedExitCodeFailure, "bash"),
     false,
   );
 });

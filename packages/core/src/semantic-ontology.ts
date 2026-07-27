@@ -128,6 +128,9 @@ function readOntologyActivity(
       ) {
         return "question";
       }
+      if (isRoutineObservationalStatusConflict(event, interpretation)) {
+        return "task_progress";
+      }
       if (event.status === "failed" || interpretation.intentFrame === "failure") {
         return "failure";
       }
@@ -204,6 +207,23 @@ function hasResurfacingRelation(relationHints: SemanticRelationHint[]): boolean 
   );
 }
 
+function isRoutineObservationalStatusConflict(
+  event: SemanticOntologyEvent,
+  interpretation: SemanticInterpretation,
+): boolean {
+  return (
+    event.type === "task.updated" &&
+    event.status === "failed" &&
+    interpretation.intentFrame === "status_update" &&
+    interpretation.activityClass === "status_update" &&
+    interpretation.toolFamily === "bash" &&
+    interpretation.consequence === "low" &&
+    interpretation.confidence === "high" &&
+    interpretation.abstained !== true &&
+    interpretation.factors.includes("observational_failure")
+  );
+}
+
 function readOntologySource(
   event: SemanticOntologyEvent,
   interpretation: SemanticInterpretation,
@@ -212,6 +232,10 @@ function readOntologySource(
 
   if (hasOntologyAuthorityHint(interpretation)) {
     return "hinted";
+  }
+
+  if (isRoutineObservationalStatusConflict(event, interpretation)) {
+    return "inferred";
   }
 
   if (isExplicitEventShapedSemanticRead(event, interpretation)) {

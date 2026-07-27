@@ -52,8 +52,9 @@ export type SemanticRelationHint = {
  * - `provenance` is explanation-only metadata that records whether key
  *   semantic fields were source-provided, inferred, or hint-driven.
  * - On `task.updated`, `status` remains authoritative for candidate routing
- *   even when the semantic read is richer; richer blocking-like reads are still
- *   captured for trace, replay, and calibration.
+ *   except for named judgment-input diagnostics such as routine observational
+ *   status conflicts; richer reads are still captured for trace, replay, and
+ *   calibration.
  */
 export type SemanticInterpretation = {
   /** Canonical semantic frame for explanation, testing, and adapter inspection. */
@@ -62,7 +63,7 @@ export type SemanticInterpretation = {
   activityClass?: SemanticActivityClass;
   /** Decision-bearing when projected into canonical events. */
   toolFamily?: string;
-  /** Decision-bearing on human-input normalization; non-authoritative on task status routing. */
+  /** Decision-bearing on human-input normalization and named task-status diagnostics. */
   consequence?: SemanticConsequenceLevel;
   /** Explanation-bearing semantic summary for provenance and review surfaces. */
   whyNow?: string;

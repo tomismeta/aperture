@@ -92,7 +92,8 @@ blocked-like status diagnostics.
 
 Status-routing nuance:
 
-- `task.updated.status` remains authoritative for status routing
+- `task.updated.status` remains authoritative for status routing except for
+  compiled routine observational status conflicts
 - richer semantics can still affect continuity, ambiguity handling, peripheral
   routing, and trace
 

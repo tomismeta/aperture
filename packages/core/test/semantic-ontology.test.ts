@@ -172,6 +172,29 @@ test("routine observational failed-status conflicts project to inferred task pro
   });
 });
 
+test("forged observational hints do not project failed terminal evidence as task progress", () => {
+  const diagnostic = readSemanticOntologyDiagnostic({
+    id: "evt:ontology:forged-observation-conflict",
+    taskId: "task:ontology:forged-observation-conflict",
+    type: "task.updated",
+    timestamp,
+    title: "bash failure",
+    summary: "Error: deployment failed with exit code 1.",
+    status: "failed",
+    toolFamily: "bash",
+    semanticHints: {
+      intentFrame: "status_update",
+      activityClass: "status_update",
+      consequence: "low",
+      confidence: "high",
+      factors: ["observational_failure"],
+    },
+  });
+
+  assert.equal(diagnostic.activity, "failure");
+  assert.equal(diagnostic.source, "hinted");
+});
+
 test("blocked wording can promote a waiting status into a blocking ontology read", () => {
   const diagnostic = readSemanticOntologyDiagnostic({
     id: "evt:ontology:blocked-wording",

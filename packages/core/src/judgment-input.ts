@@ -1,5 +1,6 @@
 import type { ApertureEvent } from "./events.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
+import { hasRoutineObservationalStatusConflictSemanticRead } from "./semantic-evidence.js";
 import { projectAttentionOntologyDiagnostic } from "./semantic-ontology.js";
 import type { SemanticConfidence } from "./semantic-types.js";
 import type {
@@ -224,17 +225,9 @@ function readSemanticEvidenceStrengthFromParts(
 }
 
 function hasRoutineObservationalStatusConflict(event: ApertureEvent, abstained: boolean): boolean {
-  return (
-    event.type === "task.updated" &&
-    event.status === "failed" &&
-    event.semantic?.intentFrame === "status_update" &&
-    event.semantic.activityClass === "status_update" &&
-    event.semantic.toolFamily === "bash" &&
-    event.semantic.consequence === "low" &&
-    event.semantic.confidence === "high" &&
-    !abstained &&
-    event.semantic.factors.includes("observational_failure")
-  );
+  return event.semantic
+    ? hasRoutineObservationalStatusConflictSemanticRead(event, event.semantic, abstained)
+    : false;
 }
 
 function readSemanticRelationEvidenceSource(

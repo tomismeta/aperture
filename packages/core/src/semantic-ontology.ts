@@ -1,6 +1,7 @@
 import type { ApertureEvent } from "./events.js";
 import type { SourceEvent } from "./source-event.js";
 import { interpretSourceEvent } from "./semantic-interpreter.js";
+import { hasRoutineObservationalStatusConflictSemanticRead } from "./semantic-evidence.js";
 import type { SemanticInterpretation, SemanticRelationHint } from "./semantic-types.js";
 import type {
   AttentionOntologyActivity,
@@ -211,17 +212,7 @@ function isRoutineObservationalStatusConflict(
   event: SemanticOntologyEvent,
   interpretation: SemanticInterpretation,
 ): boolean {
-  return (
-    event.type === "task.updated" &&
-    event.status === "failed" &&
-    interpretation.intentFrame === "status_update" &&
-    interpretation.activityClass === "status_update" &&
-    interpretation.toolFamily === "bash" &&
-    interpretation.consequence === "low" &&
-    interpretation.confidence === "high" &&
-    interpretation.abstained !== true &&
-    interpretation.factors.includes("observational_failure")
-  );
+  return hasRoutineObservationalStatusConflictSemanticRead(event, interpretation);
 }
 
 function readOntologySource(

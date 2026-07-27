@@ -128,6 +128,42 @@ test("judgment input marks routine observational failed-status conflicts", () =>
   assert.equal(hasRoutineObservationalStatusConflictSemantics(candidate), true);
 });
 
+test("judgment input derives routine status conflicts from raw evidence, not factors", () => {
+  const base = {
+    id: "evt:judgment-input:factor-independent-observation-conflict",
+    taskId: "task:judgment-input:factor-independent-observation-conflict",
+    timestamp,
+    type: "task.updated" as const,
+    title: "bash failure",
+    summary: "Your command ran successfully and did not produce any output.",
+    status: "failed" as const,
+    toolFamily: "bash",
+    semantic: {
+      intentFrame: "status_update" as const,
+      activityClass: "status_update" as const,
+      toolFamily: "bash",
+      consequence: "low" as const,
+      factors: ["task.updated", "failed", "renamed_observation_factor"],
+      relationHints: [],
+      confidence: "high" as const,
+      reasons: ["task status indicates failure but the update reads like observational output"],
+    },
+  };
+
+  assert.equal(buildAttentionJudgmentInput(base).routineObservationalStatusConflict, true);
+  assert.equal(
+    buildAttentionJudgmentInput({
+      ...base,
+      summary: "Error: deployment failed with exit code 1.",
+      semantic: {
+        ...base.semantic,
+        factors: ["task.updated", "failed", "observational_failure"],
+      },
+    }).routineObservationalStatusConflict,
+    undefined,
+  );
+});
+
 test("judgment input does not mark non-bash observational failures as routine status conflicts", () => {
   const input = buildAttentionJudgmentInput({
     id: "evt:judgment-input:read-observation-conflict",

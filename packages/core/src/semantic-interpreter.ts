@@ -8,11 +8,8 @@ import type {
   SemanticRelationHint,
 } from "./semantic-types.js";
 import {
-  detectExpectedDiagnosticFailure,
   detectSemanticBlockingSignal,
-  detectRoutineObservationalFailureLowConsequence,
   dedupeSemanticStrings,
-  detectObservationalFailureStatus,
   detectSemanticRelationHints,
   detectImpliedOperatorAsk,
   inferConsequenceFromSemanticText,
@@ -21,6 +18,7 @@ import {
   readExplicitSemanticToolFamily,
   type SemanticDetectionContextItem,
 } from "./semantic-detection.js";
+import { readTaskFailureSemanticEvidence } from "./semantic-evidence.js";
 import {
   semanticActivityClassForRequestKind,
   semanticIntentFrameForRequestKind,
@@ -123,12 +121,9 @@ function inferTaskUpdateSemantics(
   const { toolFamily, source: toolFamilySource } = resolveSemanticToolFamily(taxonomyInput, true);
   const relationProvenance =
     relationHints.length > 0 ? inferredSemanticProvenance(["relationHints"]) : {};
-  const observationalFailure =
-    event.status === "failed" && detectObservationalFailureStatus(text, toolFamily);
-  const routineObservationalFailureLowConsequence =
-    event.status === "failed" && detectRoutineObservationalFailureLowConsequence(text, toolFamily);
-  const expectedDiagnosticFailure =
-    event.status === "failed" && detectExpectedDiagnosticFailure(text, toolFamily);
+  const failureEvidence = event.status === "failed" ? readTaskFailureSemanticEvidence(event) : null;
+  const observationalFailure = failureEvidence?.readsAsObservation === true;
+  const expectedDiagnosticFailure = failureEvidence?.kind === "expected_diagnostic_failure";
 
   switch (event.status) {
     case "failed":
@@ -139,7 +134,7 @@ function inferTaskUpdateSemantics(
           ...(toolFamily ? { toolFamily } : {}),
           consequence: inferConsequenceFromSemanticText(
             text,
-            routineObservationalFailureLowConsequence ? "low" : "high",
+            failureEvidence?.consequenceBaseline ?? "high",
             toolFamily,
           ),
           factors: ["task.updated", "failed", "observational_failure"],
@@ -165,11 +160,7 @@ function inferTaskUpdateSemantics(
         ...(toolFamily ? { toolFamily } : {}),
         consequence: inferConsequenceFromSemanticText(
           text,
-          routineObservationalFailureLowConsequence
-            ? "low"
-            : expectedDiagnosticFailure
-              ? "medium"
-              : "high",
+          failureEvidence?.consequenceBaseline ?? "high",
           toolFamily,
         ),
         whyNow: semanticWhyNowForTaskStatus("failed") ?? "Work has failed and should be reviewed.",

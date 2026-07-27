@@ -2,7 +2,7 @@
 
 Aperture now uses an explicit layered event model:
 
-`raw source payload -> SourceEvent -> EnrichedApertureEvent -> AttentionJudgmentInput -> AttentionCandidate -> AttentionFrame -> AttentionResponse`
+`raw source payload -> SourceEvent -> EnrichedApertureEvent -> semantic evidence -> AttentionJudgmentInput -> AttentionCandidate -> AttentionFrame -> AttentionResponse`
 
 The intent is simple:
 
@@ -70,6 +70,13 @@ Internal semantic-to-judgment seam owned by core.
 
 Lives in [packages/core/src/judgment-input.ts](../../packages/core/src/judgment-input.ts).
 
+Before this seam, core performs a private semantic-evidence read in
+[packages/core/src/semantic-evidence.ts](../../packages/core/src/semantic-evidence.ts).
+That classifier is deliberately not part of the public semantic API. It reads
+engine-owned event facts such as status, title, summary, explicit tool family,
+and context. It does not trust adapter-supplied `factors`, `reasons`, or audit
+metadata as evidence.
+
 This is where core compiles:
 
 - ontology projection
@@ -87,7 +94,9 @@ Current contract nuance:
 - `task.updated` semantics enrich continuity, provenance, `toolFamily`, and
   `activityClass`
 - `task.updated.status` remains authoritative for status routing except when
-  compiled routine observational evidence contradicts a noisy failed status
+  engine-owned routine observational evidence contradicts a noisy failed status
+- semantic hints may veto that exception by lowering confidence, abstaining, or
+  changing the final semantic shape; they may not create the raw evidence
 - operator-directed status asks can stay low-confidence and `source: inferred`
   without pretending to be explicit request events
 
@@ -147,4 +156,4 @@ This keeps direct-core usage available while making adapter semantics more consi
 
 For advanced readers, the actual current hot path is:
 
-`SourceEvent/ApertureEvent -> finalized event (usually EnrichedApertureEvent) -> AttentionJudgmentInput -> AttentionCandidate -> judgment -> AttentionFrame/AttentionView + trace`
+`SourceEvent/ApertureEvent -> finalized event (usually EnrichedApertureEvent) -> semantic evidence -> AttentionJudgmentInput -> AttentionCandidate -> judgment -> AttentionFrame/AttentionView + trace`

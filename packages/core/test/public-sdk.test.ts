@@ -46,6 +46,8 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.equal("inferConsequenceFromSemanticText" in sdk, false);
   assert.equal("inferSemanticToolFamily" in sdk, false);
   assert.equal("normalizeSemanticText" in sdk, false);
+  assert.equal("readSemanticTextEvidence" in sdk, false);
+  assert.equal("readTaskFailureSemanticEvidence" in sdk, false);
   assert.equal("readExplicitSemanticToolFamily" in sdk, false);
   assert.equal("hasSemanticRelationKind" in sdk, false);
   assert.equal("readSemanticRelationTarget" in sdk, false);
@@ -86,6 +88,8 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.equal("createEventKernel" in sdk, false);
   assert.equal("evaluateAttention" in sdk, false);
   assert.equal("AttentionEvaluator" in sdk, false);
+  assert.equal("readSemanticTextEvidence" in semanticSdk, false);
+  assert.equal("readTaskFailureSemanticEvidence" in semanticSdk, false);
 
   assert.equal(typeof sdk.baseAttentionSurfaceCapabilities, "object");
   assert.equal(typeof sdk.mergeAttentionSurfaceCapabilities, "function");

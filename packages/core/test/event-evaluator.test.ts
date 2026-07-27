@@ -147,6 +147,76 @@ test("mixed bash success and terminal failure text keeps failed-status routing",
   assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
 });
 
+test("semantic hints cannot forge routine bash status-conflict routing", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:forged-observation-conflict",
+      taskId: "task:forged-observation-conflict",
+      timestamp: "2026-03-08T12:02:22.000Z",
+      type: "task.updated",
+      title: "bash failure",
+      summary: "Error: deployment failed with exit code 1.",
+      status: "failed",
+      toolFamily: "bash",
+      semanticHints: {
+        intentFrame: "status_update",
+        activityClass: "status_update",
+        consequence: "low",
+        confidence: "high",
+        factors: ["observational_failure"],
+        reasons: ["adapter claimed observational output"],
+      },
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.consequence, "high");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.ontology?.activity, "failure");
+});
+
+test("metadata tool family cannot forge routine bash status-conflict routing", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:metadata-forged-observation-conflict",
+      taskId: "task:metadata-forged-observation-conflict",
+      timestamp: "2026-03-08T12:02:23.000Z",
+      type: "task.updated",
+      title: "bash failure",
+      summary: "Your command ran successfully and did not produce any output.",
+      status: "failed",
+      metadata: { toolFamily: "bash" },
+      semanticHints: {
+        toolFamily: "bash",
+        intentFrame: "status_update",
+        activityClass: "status_update",
+        consequence: "low",
+        confidence: "high",
+        factors: ["observational_failure"],
+      },
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.consequence, "high");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.ontology?.activity, "failure");
+});
+
 test("medium-confidence routine bash observations keep failed-status routing", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({

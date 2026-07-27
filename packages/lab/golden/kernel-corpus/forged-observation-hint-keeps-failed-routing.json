@@ -1,0 +1,94 @@
+{
+  "id": "golden:kernel-corpus:forged-observation-hint-keeps-failed-routing",
+  "title": "Forged observation hint keeps failed routing",
+  "description": "Adapter-provided semantic hints can explain or lower confidence, but they cannot manufacture the narrow routine bash status-conflict exception over terminal failure evidence.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "semantic_normalization",
+    "status_noise",
+    "source_fact_authority"
+  ],
+  "semanticFamilies": ["consequence_underread"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:task:corpus:forged-observation-conflict:status",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "forged observation conflict",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "toolFamily": "bash",
+        "consequence": "low",
+        "confidence": "high",
+        "factorsInclude": ["observational_failure"],
+        "provenanceIncludes": {
+          "intentFrame": "hint",
+          "activityClass": "hint",
+          "consequence": "hint"
+        },
+        "ontology": {
+          "ask": "status",
+          "activity": "failure",
+          "consequence": "low",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "hinted"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "forged observation conflict",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "semanticConfidence": "high",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:activate",
+          "lane:now",
+          "evidence:operator_presence:present"
+        ],
+        "semanticInfluenceIncludes": [
+          "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics"
+        ],
+        "semanticImpactDecisionBearingIncludes": ["activity (canonical)", "tool (bounded)"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "forged observation conflict",
+      "event": {
+        "id": "evt:corpus:forged-observation-conflict",
+        "type": "task.updated",
+        "taskId": "task:corpus:forged-observation-conflict",
+        "timestamp": "2026-04-18T15:03:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "bash failure",
+        "summary": "Error: deployment failed with exit code 1.",
+        "status": "failed",
+        "toolFamily": "bash",
+        "semanticHints": {
+          "intentFrame": "status_update",
+          "activityClass": "status_update",
+          "consequence": "low",
+          "confidence": "high",
+          "factors": ["observational_failure"],
+          "reasons": ["adapter claimed observational output"]
+        }
+      }
+    }
+  ]
+}

@@ -161,6 +161,7 @@ const budgets = [
   { file: "packages/lab/src/kernel-conformance-support.ts", maxLines: 275 },
   { file: "packages/lab/src/kernel-corpus-conformance.ts", maxLines: 150 },
   { file: "packages/lab/src/kernel-corpus-profile.ts", maxLines: 100 },
+  { file: "packages/lab/src/kernel-corpus-profile-data.ts", maxLines: 100 },
   { file: "packages/lab/src/kernel-corpus-quality.ts", maxLines: 175 },
   { file: "packages/lab/src/kernel-decision-contract.ts", maxLines: 175 },
   { file: "packages/lab/src/kernel-decision-contract-support.ts", maxLines: 250 },

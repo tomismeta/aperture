@@ -226,7 +226,11 @@ function inferTaskUpdateSemantics(
         intentFrame: blockingSignal === "blocking" ? "blocked_work" : "status_update",
         activityClass: "status_update",
         ...(toolFamily ? { toolFamily } : {}),
-        consequence: inferConsequenceFromSemanticText(text, "low", toolFamily),
+        consequence: inferConsequenceFromSemanticText(
+          text,
+          blockingSignal === "blocking" ? "medium" : "low",
+          toolFamily,
+        ),
         ...(() => {
           const whyNow =
             blockingSignal === "blocking"

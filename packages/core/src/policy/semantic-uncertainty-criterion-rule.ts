@@ -1,4 +1,5 @@
 import {
+  hasActionableBlockedLikeStatusSemantics,
   isCandidateSemanticAbstained,
   readCandidateSemanticConfidence,
   readCandidateSemanticEvidence,
@@ -23,6 +24,12 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
 
   if (candidate.blocking) {
     return noopPolicyCriterionRule("semantic_uncertainty");
+  }
+
+  if (hasActionableBlockedLikeStatusSemantics(candidate)) {
+    return noopPolicyCriterionRule("semantic_uncertainty", [
+      "blocked-like status semantics are concrete enough to remain eligible for ordinary interrupt rules",
+    ]);
   }
 
   if (isCandidateSemanticAbstained(candidate)) {

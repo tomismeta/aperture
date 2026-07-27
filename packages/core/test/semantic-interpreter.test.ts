@@ -44,6 +44,7 @@ test("waiting status with explicit blocking wording becomes blocked work semanti
 
   assert.equal(interpretation.intentFrame, "blocked_work");
   assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "medium");
   assert.equal(interpretation.confidence, "medium");
   assert.ok(interpretation.reasons.includes("status wording indicates work cannot continue yet"));
 });

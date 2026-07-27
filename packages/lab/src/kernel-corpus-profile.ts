@@ -17,6 +17,7 @@ export const KERNEL_CORPUS_SCENARIO_IDS = [
   "golden:kernel-corpus:repeated-low-confidence-failures-stay-queued",
   "golden:kernel-corpus:repeated-status-delivery-stays-one-ambient-frame",
   "golden:kernel-corpus:resolution-after-active-failure-clears-focus",
+  "golden:kernel-corpus:running-blocked-wording-activates-empty-slot",
   "golden:kernel-corpus:source-risk-outranks-low-confidence-hint",
   "golden:kernel-corpus:superseding-approval-clears-obsolete-queued-step",
   "golden:kernel-corpus:waiting-wording-blocked-under-absence",
@@ -36,9 +37,7 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
   },
   {
     id: "relation_hint_canonicalization",
-    scenarioIds: [
-      "golden:kernel-corpus:duplicate-relation-hints-collapse-to-targeted-evidence",
-    ],
+    scenarioIds: ["golden:kernel-corpus:duplicate-relation-hints-collapse-to-targeted-evidence"],
   },
   {
     id: "status_noise",
@@ -71,6 +70,10 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
   {
     id: "operator_absence",
     scenarioIds: ["golden:kernel-corpus:waiting-wording-blocked-under-absence"],
+  },
+  {
+    id: "semantic_blocking_empty_slot",
+    scenarioIds: ["golden:kernel-corpus:running-blocked-wording-activates-empty-slot"],
   },
 ] as const;
 

@@ -163,6 +163,21 @@ export function hasBlockedLikeStatusSemantics(candidate: AttentionCandidate): bo
   return candidate.judgmentInput.blockedLikeStatus;
 }
 
+export function hasActionableBlockedLikeStatusSemantics(candidate: AttentionCandidate): boolean {
+  return hasActionableBlockedLikeStatusJudgmentInput(candidate.judgmentInput);
+}
+
+export function hasActionableBlockedLikeStatusJudgmentInput(
+  judgmentInput: AttentionJudgmentInput,
+): boolean {
+  if (!judgmentInput.blockedLikeStatus) {
+    return false;
+  }
+
+  const evidence = judgmentInput.semanticEvidence;
+  return evidence !== undefined && evidence.confidence !== "low" && !evidence.abstained;
+}
+
 export function resolvePeripheralResolutionFloor(
   candidate: AttentionCandidate,
   fallback: "queue" | "ambient",

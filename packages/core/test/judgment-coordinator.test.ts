@@ -103,6 +103,117 @@ test("queues ambiguous non-blocking work when the surface is empty", () => {
   assert.equal(decision.kind, "queue");
 });
 
+test("actionable blocked-like status can fill an empty attention slot", () => {
+  const explanation = coordinator.explain(
+    null,
+    createCandidate({
+      mode: "status",
+      tone: "ambient",
+      consequence: "low",
+      title: "Compile likely stuck",
+      summary: "The extension build is stuck on a lock file and cannot continue.",
+      responseSpec: { kind: "none" },
+      priority: "background",
+      blocking: false,
+      judgmentInput: {
+        blockedLikeStatus: true,
+        semanticEvidence: {
+          confidence: "medium",
+          source: "inferred",
+          strength: "weak",
+          abstained: false,
+        },
+      },
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "activate");
+  assert.equal(explanation.ambiguity, null);
+  assert.equal(
+    explanation.policyGateEvaluations.find((evaluation) => evaluation.rule === "background")?.kind,
+    "noop",
+  );
+  assert.equal(
+    explanation.policyCriterionEvaluations.find(
+      (evaluation) => evaluation.rule === "semantic_uncertainty",
+    )?.kind,
+    "noop",
+  );
+  assert.ok(
+    explanation.policyCriterionEvaluations
+      .find((evaluation) => evaluation.rule === "no_active_frame")
+      ?.rationale.includes(
+        "blocked-like status semantics are concrete enough to fill an empty attention slot",
+      ),
+  );
+});
+
+test("low-confidence blocked-like status stays peripheral", () => {
+  const explanation = coordinator.explain(
+    null,
+    createCandidate({
+      mode: "status",
+      tone: "ambient",
+      consequence: "low",
+      title: "Maybe waiting",
+      summary: "This may be waiting on something, but the signal is unclear.",
+      responseSpec: { kind: "none" },
+      priority: "background",
+      blocking: false,
+      judgmentInput: {
+        blockedLikeStatus: true,
+        semanticEvidence: {
+          confidence: "low",
+          source: "inferred",
+          strength: "weak",
+          abstained: false,
+        },
+      },
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "queue");
+});
+
+test("actionable blocked-like status stays queued behind stronger current work", () => {
+  const explanation = coordinator.explain(
+    createFrame({
+      mode: "approval",
+      tone: "critical",
+      consequence: "high",
+      responseSpec: {
+        kind: "approval",
+        actions: [
+          { id: "approve", label: "Approve", kind: "approve", emphasis: "primary" },
+          { id: "reject", label: "Reject", kind: "reject", emphasis: "danger" },
+        ],
+      },
+    }),
+    createCandidate({
+      mode: "status",
+      tone: "ambient",
+      consequence: "low",
+      title: "Compile likely stuck",
+      summary: "The extension build is stuck on a lock file and cannot continue.",
+      responseSpec: { kind: "none" },
+      priority: "background",
+      blocking: false,
+      judgmentInput: {
+        blockedLikeStatus: true,
+        semanticEvidence: {
+          confidence: "medium",
+          source: "inferred",
+          strength: "weak",
+          abstained: false,
+        },
+      },
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "queue");
+  assert.match(explanation.reasons.join(" "), /blocking work keeps non-blocking updates/);
+});
+
 test("operator absence keeps blocking work queued instead of activating immediately", () => {
   const explanation = coordinator.explain(null, createCandidate(), {
     operatorPresence: "absent",

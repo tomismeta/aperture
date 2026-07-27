@@ -1,15 +1,9 @@
 {
   "id": "golden:semantics:blocked-wording-on-waiting-status",
-  "title": "Blocked wording on waiting status becomes queue-worthy without changing status shape",
-  "description": "When waiting-status text clearly says work cannot continue, the semantic layer should read blocked work and make the status queue-worthy without silently turning it into a human-input interaction.",
-  "doctrineTags": [
-    "semantic_normalization",
-    "semantic_robustness",
-    "ambient_doctrine"
-  ],
-  "semanticFamilies": [
-    "blocking_missed"
-  ],
+  "title": "Blocked wording on waiting status activates an empty attention slot",
+  "description": "When waiting-status text clearly says work cannot continue, the semantic layer should read blocked work and surface it without silently turning it into a human-input interaction.",
+  "doctrineTags": ["semantic_normalization", "semantic_robustness", "ambient_doctrine"],
+  "semanticFamilies": ["blocking_missed"],
   "expectations": {
     "finalNowInteractionId": "interaction:task:blocked-wording:status",
     "nextInteractionIds": [],
@@ -24,7 +18,7 @@
         "stepLabel": "blocked wording status",
         "intentFrame": "blocked_work",
         "activityClass": "status_update",
-        "consequence": "low",
+        "consequence": "medium",
         "confidence": "medium",
         "ontology": {
           "ask": "status",
@@ -34,30 +28,24 @@
           "source": "inferred"
         },
         "whyNowIncludes": "blocked",
-        "reasonsInclude": [
-          "status wording indicates work cannot continue yet"
-        ]
+        "reasonsInclude": ["status wording indicates work cannot continue yet"]
       }
     ],
     "decisionReadings": [
       {
         "stepLabel": "blocked wording status",
         "evaluationKind": "candidate",
-        "decisionKind": "queue",
+        "decisionKind": "activate",
         "resultLane": "now",
         "semanticConfidence": "medium",
         "semanticInfluenceIncludes": [
-          "semantic blocking marked the waiting status as blocked-like for peripheral routing while status handling stayed non-blocking"
+          "semantic blocking marked the status as blocked-like for judgment routing while status handling stayed non-blocking"
         ],
         "semanticImpactDecisionBearingIncludes": [
           "activity (canonical)",
-          "blocking (peripheral routing)"
+          "blocking (judgment routing)"
         ],
-        "semanticImpactExplanatoryIncludes": [
-          "consequence",
-          "why now",
-          "confidence"
-        ]
+        "semanticImpactExplanatoryIncludes": ["consequence", "why now", "confidence"]
       }
     ]
   },

@@ -328,7 +328,7 @@ test("trace recorder promotes abstention to ambiguity-bearing impact on non-bloc
   });
 });
 
-test("trace recorder exposes blocked-like waiting status queue decisions without changing status mode", () => {
+test("trace recorder exposes actionable blocked-like waiting status activation without changing status mode", () => {
   const core = new ApertureCore();
   const traces: InternalApertureTrace[] = [];
 
@@ -356,26 +356,29 @@ test("trace recorder exposes blocked-like waiting status queue decisions without
 
   assert.equal(trace.semantic?.intentFrame, "blocked_work");
   assert.equal(trace.semantic?.ontology.blocking, "blocking");
-  assert.equal(trace.coordination.kind, "queue");
+  assert.equal(trace.coordination.kind, "activate");
   assert.equal(trace.coordination.resultLane, "now");
-  assert.equal(trace.decisionRecord.planning.route, "queue");
-  assert.equal(trace.decisionRecord.planning.plannedLane, "next");
+  assert.equal(trace.decisionRecord.planning.route, "activate");
+  assert.equal(trace.decisionRecord.planning.plannedLane, "now");
   assert.deepEqual(trace.decisionRecord.planning.reasonCodes, trace.coordination.reasonCodes);
-  assert.ok(trace.decisionRecord.planning.reasonCodes.includes("route:queue"));
-  assert.ok(trace.decisionRecord.planning.reasonCodes.includes("lane:next"));
+  assert.ok(trace.decisionRecord.planning.reasonCodes.includes("route:activate"));
+  assert.ok(trace.decisionRecord.planning.reasonCodes.includes("lane:now"));
   assert.ok(trace.decisionRecord.planning.reasonCodes.includes("evidence:current_frame:absent"));
+  assert.ok(
+    trace.decisionRecord.planning.reasonCodes.includes("policy_criterion:no_active_frame:verdict"),
+  );
   assert.equal(trace.decisionRecord.value.claimScore, trace.coordination.candidateScore);
   assert.equal(trace.decisionRecord.value.currentScore, trace.coordination.currentScore);
   assert.equal(trace.decisionRecord.policy.criterion, trace.coordination.criterion);
   assert.equal(trace.decisionRecord.evidenceSnapshot.currentFrameId, null);
   assert.ok(
     trace.semantic?.influence.includes(
-      "semantic blocking marked the waiting status as blocked-like for peripheral routing while status handling stayed non-blocking",
+      "semantic blocking marked the status as blocked-like for judgment routing while status handling stayed non-blocking",
     ),
   );
   assert.equal(trace.semantic?.impact.routingAuthority, "status");
-  assert.deepEqual(trace.semantic?.impact.routing, ["blocking (peripheral routing)"]);
-  assert.ok(trace.semantic?.impact.decisionBearing.includes("blocking (peripheral routing)"));
+  assert.deepEqual(trace.semantic?.impact.routing, ["blocking (judgment routing)"]);
+  assert.ok(trace.semantic?.impact.decisionBearing.includes("blocking (judgment routing)"));
 });
 
 test("trace recorder preserves hint-driven semantic provenance", () => {

@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildAttentionJudgmentInput,
+  hasActionableBlockedLikeStatusSemantics,
   hasBlockedLikeStatusSemantics,
   readSemanticRelationEvidenceStrength,
   readSemanticEvidenceStrength,
@@ -173,6 +174,34 @@ test("judgment-input helpers preserve the blocked-like status peripheral floor",
   };
 
   assert.equal(hasBlockedLikeStatusSemantics(candidate), true);
+  assert.equal(hasActionableBlockedLikeStatusSemantics(candidate), true);
   assert.equal(readSemanticEvidenceStrength(candidate), "weak");
   assert.equal(resolvePeripheralResolutionFloor(candidate, "ambient"), "queue");
+});
+
+test("judgment-input does not treat low-confidence blocked-like status as actionable", () => {
+  const candidate = {
+    taskId: "task:blocked-like-low",
+    interactionId: "interaction:blocked-like-low",
+    mode: "status" as const,
+    tone: "ambient" as const,
+    consequence: "low" as const,
+    title: "Might be waiting",
+    responseSpec: { kind: "none" as const },
+    priority: "background" as const,
+    blocking: false,
+    timestamp,
+    judgmentInput: {
+      blockedLikeStatus: true,
+      semanticEvidence: {
+        confidence: "low" as const,
+        source: "inferred" as const,
+        strength: "weak" as const,
+        abstained: false,
+      },
+    },
+  };
+
+  assert.equal(hasBlockedLikeStatusSemantics(candidate), true);
+  assert.equal(hasActionableBlockedLikeStatusSemantics(candidate), false);
 });

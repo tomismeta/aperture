@@ -1539,7 +1539,7 @@ test("committed bucket matches ambient routing for passive status", () => {
   assert.equal(core.getAttentionView().ambient[0]?.interactionId, "interaction:task:status:status");
 });
 
-test("blocked-like waiting statuses become queue-worthy without changing status routing", () => {
+test("actionable blocked-like waiting statuses activate an empty attention slot", () => {
   const core = new ApertureCore();
   const traces: PublicApertureTrace[] = [];
 
@@ -1564,16 +1564,17 @@ test("blocked-like waiting statuses become queue-worthy without changing status 
     return;
   }
 
-  assert.equal(candidateTrace.coordination.kind, "queue");
+  assert.equal(candidateTrace.coordination.kind, "activate");
   assert.equal(candidateTrace.coordination.resultLane, "now");
   assert.equal(
     core.getAttentionView().now?.interactionId,
     "interaction:task:status:blocking-next:status",
   );
   assert.equal(
-    core.getTaskView("task:status:blocking-next").next[0]?.interactionId,
+    core.getTaskView("task:status:blocking-next").now?.interactionId,
     "interaction:task:status:blocking-next:status",
   );
+  assert.equal(core.getTaskView("task:status:blocking-next").next.length, 0);
   assert.equal(core.getAttentionView().ambient.length, 0);
 });
 
@@ -1631,7 +1632,7 @@ test("low-confidence blocked-like waiting stays queued behind active now work", 
   );
   assert.deepEqual(candidateTrace.semantic?.impact.decisionBearing, [
     "activity (canonical)",
-    "blocking (peripheral routing)",
+    "blocking (judgment routing)",
     "confidence (ambiguity)",
   ]);
   assert.equal(core.getAttentionView().ambient.length, 0);
@@ -1691,7 +1692,7 @@ test("abstained blocked-like waiting stays queued behind active now work", () =>
   );
   assert.deepEqual(candidateTrace.semantic?.impact.decisionBearing, [
     "activity (canonical)",
-    "blocking (peripheral routing)",
+    "blocking (judgment routing)",
     "abstention (ambiguity)",
   ]);
   assert.equal(core.getAttentionView().ambient.length, 0);

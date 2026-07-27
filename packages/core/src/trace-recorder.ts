@@ -229,7 +229,7 @@ function buildSemanticInfluence(
     if (ontology.blocking !== "non_blocking" && !adjusted.blocking) {
       influence.push(
         ontology.blocking === "blocking"
-          ? "semantic blocking marked the waiting status as blocked-like for peripheral routing while status handling stayed non-blocking"
+          ? "semantic blocking marked the status as blocked-like for judgment routing while status handling stayed non-blocking"
           : "semantic waiting stayed diagnostic because status updates still route as non-blocking candidates",
       );
     }
@@ -371,7 +371,7 @@ function buildSemanticImpact(
         promoteSemanticField(contextOnly, continuity, "relations", "relations (continuity)");
       }
       if (hasBlockedLikeStatusSemantics(adjusted)) {
-        promoteSemanticField(contextOnly, routing, "intent", "blocking (peripheral routing)");
+        promoteSemanticField(contextOnly, routing, "intent", "blocking (judgment routing)");
       }
       break;
     case "human.input.requested":

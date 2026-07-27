@@ -1,4 +1,5 @@
 import { findVisibleEpisodeFrames, isCandidateInActionableEpisode } from "../episode-tracker.js";
+import { hasActionableBlockedLikeStatusSemantics } from "../judgment-input.js";
 
 import {
   ambiguousPeripheralCriterionVerdict,
@@ -25,6 +26,15 @@ export const evaluateNoActiveFrameCriterionRule: PolicyCriterionRule = (input) =
     }).length > 0
   ) {
     return noopPolicyCriterionRule("no_active_frame");
+  }
+
+  if (hasActionableBlockedLikeStatusSemantics(candidate)) {
+    return verdictPolicyCriterionRule(
+      "no_active_frame",
+      clearCriterionVerdict(criterion, [
+        "blocked-like status semantics are concrete enough to fill an empty attention slot",
+      ]),
+    );
   }
 
   if (candidateScore >= criterion.activationThreshold) {

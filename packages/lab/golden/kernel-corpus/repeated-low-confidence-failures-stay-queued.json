@@ -78,6 +78,15 @@
         "semanticConfidence": "low",
         "ambiguityReason": "low_signal",
         "ambiguityResolution": "queue",
+        "episodeId": "episode:custom-agent:status:issue:corpus:uncertain-failure:1",
+        "episodeKey": "custom-agent:status:issue:corpus:uncertain-failure",
+        "episodeState": "emerging",
+        "episodeSize": 1,
+        "episodeEvidenceScore": 2,
+        "episodeEvidenceReasonsInclude": [
+          "at least one related interaction carried high consequence or critical tone"
+        ],
+        "episodeObsolete": false,
         "decisionRecordOperatorPresence": "present",
         "decisionRecordReasonCodesInclude": [
           "route:queue",
@@ -102,6 +111,17 @@
         "semanticConfidence": "low",
         "ambiguityReason": "low_signal",
         "ambiguityResolution": "queue",
+        "episodeId": "episode:custom-agent:status:issue:corpus:uncertain-failure:1",
+        "episodeKey": "custom-agent:status:issue:corpus:uncertain-failure",
+        "episodeState": "actionable",
+        "episodeSize": 2,
+        "episodeEvidenceScore": 5,
+        "episodeEvidenceReasonsInclude": [
+          "multiple related interactions have accumulated in this episode",
+          "high-signal evidence is stacking up across the episode",
+          "semantic relation hints indicate this issue is recurring"
+        ],
+        "episodeObsolete": false,
         "decisionRecordOperatorPresence": "present",
         "decisionRecordReasonCodesInclude": [
           "route:queue",
@@ -160,9 +180,7 @@
         "status": "failed",
         "semanticHints": {
           "confidence": "low",
-          "relationHints": [
-            { "kind": "same_issue", "target": "issue:corpus:uncertain-failure" }
-          ]
+          "relationHints": [{ "kind": "same_issue", "target": "issue:corpus:uncertain-failure" }]
         }
       }
     },

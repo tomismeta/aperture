@@ -2,7 +2,7 @@ import type { AttentionResponse, AttentionSignal } from "@tomismeta/aperture-cor
 import type { ApertureTrace } from "@tomismeta/aperture-core/internal";
 
 import { loadGoldenScenarios } from "./golden.js";
-import { compareKernelCanonicalKey } from "./kernel-canonical-json.js";
+import { normalizeDecision, type NormalizedDecision } from "./determinism-decision.js";
 import { runReplayScenario } from "./runner.js";
 import type { ReplayRunResult } from "./runner.js";
 import type { ReplayScenario } from "./scenario.js";
@@ -102,32 +102,6 @@ type NormalizedSemantic = {
   };
 };
 
-type NormalizedDecision = {
-  stepIndex: number;
-  stepLabel?: string;
-  evaluationKind: "candidate" | "clear" | "noop";
-  decisionKind?: string;
-  decisionRecordProjectionVersion?: number;
-  decisionRecordRoute?: string;
-  plannedLane?: string;
-  resultLane?: string;
-  interactionId?: string;
-  decisionRecordCurrentFrameId?: string | null;
-  decisionRecordCurrentEpisodeId?: string | null;
-  decisionRecordOperatorPresence?: string;
-  decisionRecordCandidateScore?: number;
-  decisionRecordValueComponents: Record<string, number>;
-  decisionRecordReasons: string[];
-  decisionRecordReasonCodes: string[];
-  decisionRecordFingerprint?: string;
-  semanticConfidence?: string;
-  semanticAbstained?: boolean;
-  semanticInfluence: string[];
-  semanticImpactDecisionBearing: string[];
-  semanticImpactExplanatory: string[];
-  ambiguity?: { reason: string; resolution: string } | null;
-};
-
 export async function runDeterminismAudit(
   scenarios?: ReplayScenario[],
 ): Promise<DeterminismAuditRun> {
@@ -192,54 +166,7 @@ export function normalizeReplayRun(run: ReplayRunResult): NormalizedReplayRun {
       provenance: semantic.interpretation.provenance ?? {},
       ...(semantic.ontology ? { ontology: semantic.ontology } : {}),
     })),
-    decisions: run.decisions.map((decision) => ({
-      stepIndex: decision.stepIndex,
-      ...(decision.stepLabel ? { stepLabel: decision.stepLabel } : {}),
-      evaluationKind: decision.evaluationKind,
-      ...(decision.decisionKind ? { decisionKind: decision.decisionKind } : {}),
-      ...(decision.decisionRecordProjectionVersion !== undefined
-        ? { decisionRecordProjectionVersion: decision.decisionRecordProjectionVersion }
-        : {}),
-      ...(decision.decisionRecordRoute
-        ? { decisionRecordRoute: decision.decisionRecordRoute }
-        : {}),
-      ...(decision.plannedLane ? { plannedLane: decision.plannedLane } : {}),
-      ...(decision.resultLane ? { resultLane: decision.resultLane } : {}),
-      ...(decision.interactionId ? { interactionId: decision.interactionId } : {}),
-      ...(decision.decisionRecordCurrentFrameId !== undefined
-        ? { decisionRecordCurrentFrameId: decision.decisionRecordCurrentFrameId }
-        : {}),
-      ...(decision.decisionRecordCurrentEpisodeId !== undefined
-        ? { decisionRecordCurrentEpisodeId: decision.decisionRecordCurrentEpisodeId }
-        : {}),
-      ...(decision.decisionRecordOperatorPresence
-        ? { decisionRecordOperatorPresence: decision.decisionRecordOperatorPresence }
-        : {}),
-      ...(decision.decisionRecordCandidateScore !== undefined
-        ? { decisionRecordCandidateScore: decision.decisionRecordCandidateScore }
-        : {}),
-      decisionRecordValueComponents: normalizeNumberMap(
-        decision.decisionRecordValueComponents ?? {},
-      ),
-      decisionRecordReasons: decision.decisionRecordReasons ?? [],
-      decisionRecordReasonCodes: decision.decisionRecordReasonCodes ?? [],
-      ...(decision.decisionRecordFingerprint
-        ? { decisionRecordFingerprint: decision.decisionRecordFingerprint }
-        : {}),
-      ...(decision.semanticConfidence ? { semanticConfidence: decision.semanticConfidence } : {}),
-      ...(decision.semanticAbstained === true ? { semanticAbstained: true } : {}),
-      semanticInfluence: decision.semanticInfluence ?? [],
-      semanticImpactDecisionBearing: decision.semanticImpactDecisionBearing ?? [],
-      semanticImpactExplanatory: decision.semanticImpactExplanatory ?? [],
-      ...(decision.ambiguity
-        ? {
-            ambiguity: {
-              reason: decision.ambiguity.reason,
-              resolution: decision.ambiguity.resolution,
-            },
-          }
-        : {}),
-    })),
+    decisions: run.decisions.map(normalizeDecision),
     signals: run.signals.map(normalizeSignal),
     responses: run.responses.map(normalizeResponse),
   };
@@ -331,14 +258,6 @@ function normalizeResponse(response: AttentionResponse): NormalizedResponse {
     interactionId: response.interactionId,
     responseKind: response.response.kind,
   };
-}
-
-function normalizeNumberMap(value: Record<string, number | undefined>): Record<string, number> {
-  return Object.fromEntries(
-    Object.entries(value)
-      .filter((entry): entry is [string, number] => typeof entry[1] === "number")
-      .sort(([left], [right]) => compareKernelCanonicalKey(left, right)),
-  );
 }
 
 function sameValue(left: unknown, right: unknown): boolean {

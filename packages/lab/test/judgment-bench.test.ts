@@ -345,6 +345,35 @@ test("semantic relation hint exact expectations are order-sensitive", async () =
   ]);
 });
 
+test("decision record reason expectations match prose substrings", async () => {
+  const scenarios = await loadGoldenScenarios();
+  const fixture = scenarios.find(
+    (scenario) => scenario.id === "golden:kernel:current-frame-queue-decision-record",
+  );
+  assert.ok(fixture);
+
+  const result = await runJudgmentBench([
+    {
+      ...fixture,
+      id: "test:decision-record-reason-substring",
+      expectations: {
+        decisionReadings: [
+          {
+            stepLabel: "secondary approval",
+            decisionRecordReasonsInclude: ["outranks"],
+          },
+        ],
+      },
+    },
+  ]);
+  const assertion = result.scenarios[0]?.assertions.find(
+    (entry) =>
+      entry.name === "decision reading (secondary approval) decision record reasons include",
+  );
+
+  assert.equal(assertion?.passed, true);
+});
+
 test("replay validation rejects malformed exact relation hints", () => {
   const invalidScenario = {
     id: "test:invalid-relation-hints-exact",

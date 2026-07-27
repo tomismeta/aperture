@@ -21,6 +21,15 @@ import {
   STEP_KINDS,
   isStringOrNull,
 } from "./validation-support.js";
+import {
+  isReplayDecisionValueComponents,
+  isReplayEpisodeEvidenceScore,
+  isReplayEpisodeSize,
+  isReplayEpisodeState,
+  validateReplayDecisionAmbiguity,
+  validateReplayEpisodeExpectationEvidence,
+  validateReplayEpisodeSnapshotEvidence,
+} from "./validation-replay-decision-support.js";
 
 const PLANNED_LANES = new Set(["now", "next", "ambient", "none"]);
 const OPERATOR_PRESENCE = new Set(["present", "absent"]);
@@ -40,6 +49,13 @@ export function validateReplayDecisionSnapshot(value: unknown): ReplayDecisionSn
         interactionId: isString,
         semanticAbstained: isBoolean,
         decisionRecordProjectionVersion: isKernelDecisionRecordProjectionVersion,
+        episodeId: isStringOrNull,
+        episodeKey: isStringOrNull,
+        episodeState: isReplayEpisodeState,
+        episodeSize: isReplayEpisodeSize,
+        episodeEvidenceScore: isReplayEpisodeEvidenceScore,
+        episodeEvidenceReasons: isStringArray,
+        episodeObsolete: isBoolean,
         decisionRecordCurrentFrameId: isStringOrNull,
         decisionRecordCurrentEpisodeId: isStringOrNull,
         decisionRecordCandidateScore: isNumber,
@@ -62,6 +78,7 @@ export function validateReplayDecisionSnapshot(value: unknown): ReplayDecisionSn
     (value.decisionRecordOperatorPresence !== undefined &&
       !OPERATOR_PRESENCE.has(String(value.decisionRecordOperatorPresence))) ||
     !validateReplayDecisionAmbiguity(value.ambiguity) ||
+    !validateReplayEpisodeSnapshotEvidence(value) ||
     (value.decisionRecordProjectionVersion !== undefined &&
       !validateKernelDecisionRecordProjection(value)) ||
     !validateDecisionRecordFingerprint(value as ReplayDecisionSnapshot)
@@ -112,6 +129,10 @@ export function validateReplayDecisionExpectation(
         value.ambiguityResolution === "queue" ||
         value.ambiguityResolution === "ambient"
       )) ||
+    (value.episodeId !== undefined && !isStringOrNull(value.episodeId)) ||
+    (value.episodeKey !== undefined && !isStringOrNull(value.episodeKey)) ||
+    (value.episodeState !== undefined && !isReplayEpisodeState(value.episodeState)) ||
+    (value.episodeObsolete !== undefined && typeof value.episodeObsolete !== "boolean") ||
     (value.decisionRecordCurrentFrameId !== undefined &&
       !isStringOrNull(value.decisionRecordCurrentFrameId)) ||
     (value.decisionRecordCurrentEpisodeId !== undefined &&
@@ -125,7 +146,8 @@ export function validateReplayDecisionExpectation(
     (value.decisionRecordReasonsInclude !== undefined &&
       !isStringArray(value.decisionRecordReasonsInclude)) ||
     (value.decisionRecordReasonCodesInclude !== undefined &&
-      !isKernelDecisionReasonCodeArray(value.decisionRecordReasonCodesInclude))
+      !isKernelDecisionReasonCodeArray(value.decisionRecordReasonCodesInclude)) ||
+    !validateReplayEpisodeExpectationEvidence(value)
   ) {
     return null;
   }
@@ -147,28 +169,5 @@ function validateDecisionRecordFingerprint(value: ReplayDecisionSnapshot): boole
   return (
     projection !== null &&
     value.decisionRecordFingerprint === fingerprintKernelDecisionRecordProjection(projection)
-  );
-}
-
-function isReplayDecisionValueComponents(
-  value: unknown,
-): value is NonNullable<ReplayDecisionSnapshot["decisionRecordValueComponents"]> {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  return Object.entries(value).every(
-    ([, componentValue]) => typeof componentValue === "number" && Number.isFinite(componentValue),
-  );
-}
-
-function validateReplayDecisionAmbiguity(value: unknown): boolean {
-  return (
-    value === undefined ||
-    value === null ||
-    (isRecord(value) &&
-      value.kind === "interrupt" &&
-      (value.reason === "low_signal" || value.reason === "small_score_gap") &&
-      (value.resolution === "queue" || value.resolution === "ambient"))
   );
 }

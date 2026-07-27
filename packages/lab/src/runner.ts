@@ -4,22 +4,12 @@ import {
   type AttentionResponse,
   type AttentionSignal,
 } from "@tomismeta/aperture-core";
-import {
-  subscribeInternalTrace,
-  isCandidateTrace,
-  type ApertureTrace,
-} from "@tomismeta/aperture-core/internal";
+import { subscribeInternalTrace, type ApertureTrace } from "@tomismeta/aperture-core/internal";
 import {
   normalizeSourceEvent,
   readSemanticOntologyDiagnostic,
 } from "@tomismeta/aperture-core/semantic";
 
-import {
-  buildKernelDecisionRecordProjection,
-  fingerprintKernelDecisionRecordProjection,
-  readKernelDecisionRecordComponents,
-  readKernelDecisionRecordScore,
-} from "./kernel-decision-contract.js";
 import type {
   ReplayObservationStep,
   ReplayDecisionSnapshot,
@@ -28,7 +18,7 @@ import type {
   ReplaySemanticSnapshot,
   ReplayViewSnapshot,
 } from "./scenario.js";
-import type { ReplayCandidateTrace } from "./replay-trace.js";
+import { buildDecisionSnapshot } from "./replay-decision-snapshot.js";
 
 export type ReplayStepResult = {
   stepIndex: number;
@@ -166,127 +156,5 @@ export function runReplayScenario(scenario: ReplayScenario): ReplayRunResult {
     semantics,
     normalizedEvents,
     decisions,
-  };
-}
-
-export function buildDecisionSemanticSnapshot(
-  trace: ReplayCandidateTrace,
-): Pick<ReplayDecisionSnapshot, "semanticConfidence" | "semanticAbstained"> {
-  const adjusted = trace.evaluation.adjusted as {
-    judgmentInput?: {
-      semanticEvidence?: {
-        confidence?: ReplayDecisionSnapshot["semanticConfidence"];
-        abstained?: boolean;
-      };
-    };
-    semanticConfidence?: ReplayDecisionSnapshot["semanticConfidence"];
-    semanticAbstained?: boolean;
-  };
-  const semanticEvidence = adjusted.judgmentInput?.semanticEvidence;
-  const confidence =
-    semanticEvidence?.confidence ?? adjusted.semanticConfidence ?? trace.semantic?.confidence;
-  const abstained =
-    semanticEvidence?.abstained ?? adjusted.semanticAbstained ?? trace.semantic?.abstained;
-
-  return {
-    ...(confidence !== undefined ? { semanticConfidence: confidence } : {}),
-    ...(abstained === true ? { semanticAbstained: true } : {}),
-  };
-}
-
-export function buildDecisionRecordSnapshot(
-  trace: ReplayCandidateTrace,
-): Pick<
-  ReplayDecisionSnapshot,
-  | "decisionRecordProjectionVersion"
-  | "decisionRecordRoute"
-  | "plannedLane"
-  | "decisionRecordCurrentFrameId"
-  | "decisionRecordCurrentEpisodeId"
-  | "decisionRecordOperatorPresence"
-  | "decisionRecordCandidateScore"
-  | "decisionRecordValueComponents"
-  | "decisionRecordReasons"
-  | "decisionRecordReasonCodes"
-  | "decisionRecordFingerprint"
-> {
-  const record = trace.decisionRecord;
-  if (!record) {
-    return {};
-  }
-
-  const projection = buildKernelDecisionRecordProjection(record, {
-    realizedLane: trace.coordination.resultLane,
-  });
-  const valueComponents =
-    projection?.value.components ??
-    readKernelDecisionRecordComponents(record.value.breakdown.components);
-  const decisionRecordCandidateScore =
-    projection?.value.candidateScore ?? readKernelDecisionRecordScore(record);
-  if (decisionRecordCandidateScore === null || valueComponents === null) {
-    return {};
-  }
-
-  return {
-    ...(projection !== null
-      ? {
-          decisionRecordProjectionVersion: projection.version,
-          decisionRecordReasonCodes: projection.reasonCodes,
-          decisionRecordFingerprint: fingerprintKernelDecisionRecordProjection(projection),
-        }
-      : {}),
-    decisionRecordRoute: projection?.route ?? record.planning.route,
-    plannedLane: projection?.plannedLane ?? record.planning.plannedLane,
-    decisionRecordCurrentFrameId:
-      projection?.evidence.currentFrameId ?? record.evidenceSnapshot.currentFrameId,
-    decisionRecordCurrentEpisodeId:
-      projection?.evidence.currentEpisodeId ?? record.evidenceSnapshot.currentEpisodeId,
-    decisionRecordOperatorPresence:
-      projection?.evidence.operatorPresence ?? record.evidenceSnapshot.operatorPresence,
-    decisionRecordCandidateScore,
-    decisionRecordValueComponents: valueComponents,
-    decisionRecordReasons: projection?.reasons ?? record.planning.reasons,
-  };
-}
-
-function buildDecisionSnapshot(
-  step: ReplayObservationStep,
-  stepIndex: number,
-  trace: ApertureTrace | undefined,
-): ReplayDecisionSnapshot | null {
-  if (!trace) {
-    return null;
-  }
-
-  if (!isCandidateTrace(trace)) {
-    return {
-      stepIndex,
-      stepKind: step.kind,
-      ...(step.label ? { stepLabel: step.label } : {}),
-      evaluationKind: trace.evaluation.kind,
-      ...(trace.evaluation.kind === "clear" ? { decisionKind: "clear" } : {}),
-    };
-  }
-
-  return {
-    stepIndex,
-    stepKind: step.kind,
-    ...(step.label ? { stepLabel: step.label } : {}),
-    evaluationKind: "candidate",
-    decisionKind: trace.coordination.kind,
-    resultLane: trace.coordination.resultLane,
-    interactionId: trace.evaluation.adjusted.interactionId,
-    ...buildDecisionSemanticSnapshot(trace),
-    ...buildDecisionRecordSnapshot(trace),
-    ...(trace.semantic?.influence !== undefined
-      ? { semanticInfluence: trace.semantic.influence }
-      : {}),
-    ...(trace.semantic?.impact.decisionBearing !== undefined
-      ? { semanticImpactDecisionBearing: trace.semantic.impact.decisionBearing }
-      : {}),
-    ...(trace.semantic?.impact.explanatory !== undefined
-      ? { semanticImpactExplanatory: trace.semantic.impact.explanatory }
-      : {}),
-    ambiguity: trace.coordination.ambiguity,
   };
 }

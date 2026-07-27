@@ -11,7 +11,10 @@ import {
 } from "../src/index.js";
 import type { ReplayDecisionSnapshot } from "../src/scenario.js";
 import { validateApertureTrace } from "../src/validation-trace.js";
-import { validateReplayDecisionSnapshot } from "../src/validation-replay-decision.js";
+import {
+  validateReplayDecisionExpectation,
+  validateReplayDecisionSnapshot,
+} from "../src/validation-replay-decision.js";
 
 const VALID_REASON_CODES = [
   "route:queue",
@@ -82,6 +85,73 @@ test("kernel decision projection keeps v1 readable and requires v2 realized lane
     }),
   );
   assert.equal(validateReplayDecisionSnapshot({ ...VALID_SNAPSHOT, resultLane: undefined }), null);
+});
+
+test("replay decision validation enforces episode evidence coherence", () => {
+  const episodeSnapshot: ReplayDecisionSnapshot = {
+    ...VALID_SNAPSHOT,
+    episodeId: "episode:validation:1",
+    episodeKey: "validation:key",
+    episodeState: "emerging",
+    episodeSize: 1,
+    episodeEvidenceScore: 0,
+    episodeEvidenceReasons: [],
+    episodeObsolete: false,
+  };
+  const staleSnapshot: ReplayDecisionSnapshot = {
+    stepIndex: 1,
+    stepKind: "publish",
+    evaluationKind: "candidate",
+    decisionKind: "suppressed",
+    resultLane: "none",
+    episodeId: "episode:validation:1",
+    episodeKey: "validation:key",
+    episodeState: "stale",
+    episodeSize: 1,
+    episodeEvidenceScore: 0,
+    episodeEvidenceReasons: [],
+    episodeObsolete: true,
+  };
+
+  assert.ok(validateReplayDecisionSnapshot(episodeSnapshot));
+  assert.ok(validateReplayDecisionSnapshot(staleSnapshot));
+  assert.ok(
+    validateReplayDecisionExpectation({
+      stepLabel: "stale replay",
+      decisionKind: "suppressed",
+      resultLane: "none",
+      episodeObsolete: true,
+      episodeEvidenceReasonsInclude: ["semantic relation hints indicate this episode is resolved"],
+    }),
+  );
+  assert.equal(validateReplayDecisionSnapshot({ ...episodeSnapshot, episodeKey: undefined }), null);
+  assert.equal(validateReplayDecisionSnapshot({ ...episodeSnapshot, episodeState: "done" }), null);
+  assert.equal(validateReplayDecisionSnapshot({ ...episodeSnapshot, episodeSize: 0 }), null);
+  assert.equal(
+    validateReplayDecisionSnapshot({
+      ...episodeSnapshot,
+      episodeEvidenceScore: Number.POSITIVE_INFINITY,
+    }),
+    null,
+  );
+  assert.equal(validateReplayDecisionSnapshot({ ...episodeSnapshot, episodeObsolete: true }), null);
+  assert.equal(validateReplayDecisionSnapshot({ ...staleSnapshot, episodeObsolete: false }), null);
+  assert.equal(
+    validateReplayDecisionExpectation({
+      decisionKind: "activate",
+      resultLane: "now",
+      episodeObsolete: true,
+    }),
+    null,
+  );
+  assert.equal(
+    validateReplayDecisionExpectation({
+      decisionKind: "suppressed",
+      resultLane: "none",
+      episodeObsolete: false,
+    }),
+    null,
+  );
 });
 
 test("kernel decision projection accepts suppressed effective decisions with executable record routes", () => {

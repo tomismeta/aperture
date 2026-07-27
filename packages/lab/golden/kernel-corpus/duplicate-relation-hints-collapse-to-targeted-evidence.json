@@ -2,11 +2,7 @@
   "id": "golden:kernel-corpus:duplicate-relation-hints-collapse-to-targeted-evidence",
   "title": "Duplicate relation hints collapse to targeted evidence",
   "description": "Inferred targetless relation hints and duplicate targeted source hints should normalize to one targeted relation set.",
-  "doctrineTags": [
-    "kernel_corpus",
-    "relation_hint_canonicalization",
-    "semantic_authority"
-  ],
+  "doctrineTags": ["kernel_corpus", "relation_hint_canonicalization", "semantic_authority"],
   "semanticFamilies": ["episode_missed"],
   "expectations": {
     "finalNowInteractionId": "interaction:corpus:duplicate-relations:rollback",
@@ -51,6 +47,16 @@
         "decisionRecordRoute": "activate",
         "plannedLane": "now",
         "resultLane": "now",
+        "episodeId": "episode:custom-agent:interruptive:issue:corpus:duplicate-relations:1",
+        "episodeKey": "custom-agent:interruptive:issue:corpus:duplicate-relations",
+        "episodeState": "actionable",
+        "episodeSize": 1,
+        "episodeEvidenceScore": 6,
+        "episodeEvidenceReasonsInclude": [
+          "operator-facing work makes this episode immediately actionable",
+          "at least one related interaction carried high consequence or critical tone"
+        ],
+        "episodeObsolete": false,
         "decisionRecordCurrentFrameId": null,
         "decisionRecordCurrentEpisodeId": null,
         "decisionRecordOperatorPresence": "present",

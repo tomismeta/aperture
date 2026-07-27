@@ -1,13 +1,9 @@
 import { KERNEL_DECISION_RECORD_PROJECTION_VERSION } from "./artifact-versions.js";
 import { compareKernelCanonicalKey, digestKernelCanonicalJson } from "./kernel-canonical-json.js";
-import {
-  buildKernelDecisionRecordProjectionFromSnapshot,
-  fingerprintKernelDecisionRecordProjection,
-  type KernelDecisionRecordProjection,
-} from "./kernel-decision-contract.js";
+import { buildDecisionOutput } from "./kernel-conformance-decision-output.js";
 import { runJudgmentBench, type JudgmentBenchScenarioResult } from "./judgment-bench.js";
 import type { ReplayRunResult } from "./runner.js";
-import type { ReplayDecisionSnapshot, ReplayScenario } from "./scenario.js";
+import type { ReplayScenario } from "./scenario.js";
 import { validateReplayDecisionSnapshot } from "./validation-replay-decision.js";
 
 export const KERNEL_CONFORMANCE_REPORT_SCHEMA_VERSION = 1 as const;
@@ -202,39 +198,6 @@ function normalizeRelationHint(hint: { kind: string; target?: string }): {
     kind: hint.kind,
     target: hint.target ?? null,
   };
-}
-
-function buildDecisionOutput(decision: ReplayDecisionSnapshot): unknown {
-  const projection = buildKernelDecisionRecordProjectionFromSnapshot(decision);
-
-  return {
-    stepIndex: decision.stepIndex,
-    stepLabel: decision.stepLabel ?? null,
-    evaluationKind: decision.evaluationKind,
-    decisionKind: decision.decisionKind ?? null,
-    realizedLane: decision.resultLane ?? null,
-    interactionId: decision.interactionId ?? null,
-    semanticConfidence: decision.semanticConfidence ?? null,
-    semanticAbstained: decision.semanticAbstained === true,
-    ambiguity: decision.ambiguity ?? null,
-    projection: projection === null ? null : buildProjectionOutput(projection),
-    fingerprint: projection === null ? null : fingerprintKernelDecisionRecordProjection(projection),
-  };
-}
-
-function buildProjectionOutput(projection: KernelDecisionRecordProjection): unknown {
-  const shared = {
-    schema: projection.schema,
-    version: projection.version,
-    route: projection.route,
-    evidence: projection.evidence,
-    value: projection.value,
-    reasonCodes: projection.reasonCodes,
-  };
-
-  return "plannedLane" in projection
-    ? { ...shared, plannedLane: projection.plannedLane, realizedLane: projection.realizedLane }
-    : { ...shared, lane: projection.lane };
 }
 
 function collectProjectionValidationFailures(run: ReplayRunResult): string[] {

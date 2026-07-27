@@ -600,6 +600,7 @@ export type {
   ReplayCaptureMetadata,
   ReplayDecisionExpectation,
   ReplayDecisionSnapshot,
+  ReplayEpisodeState,
   ReplayScenario,
   ReplayObservationStep,
   ReplayScenarioProvenance,

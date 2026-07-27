@@ -6,6 +6,7 @@ import {
   SEMANTIC_REVIEW_CANDIDATE_KINDS,
   type SemanticReviewCandidateReport,
 } from "./semantic-review-candidate-types.js";
+import { renderFailureEvidenceMarkdown } from "./semantic-review-failure-evidence-render.js";
 
 export function defaultSemanticReviewCandidateReportPath(
   report: Pick<SemanticReviewCandidateReport, "generatedAt">,
@@ -44,6 +45,8 @@ export function renderSemanticReviewCandidateMarkdown(
     `Manifest records: ${formatCount(report.input.manifestRecordCount)}`,
     `Retained per kind: ${report.selection.maxCandidatesPerKind}`,
     `Retained per session/kind: ${report.selection.maxCandidatesPerSessionPerKind}`,
+    `Failure evidence examples per kind: ${report.selection.maxFailureEvidenceExamplesPerKind}`,
+    `Failure evidence examples per session/kind: ${report.selection.maxFailureEvidenceExamplesPerSessionPerKind}`,
     `Promotion authority: ${report.selection.promotionAuthority}`,
     "",
     "## Summary",
@@ -52,6 +55,8 @@ export function renderSemanticReviewCandidateMarkdown(
       (kind) =>
         `- ${kind}: count=${formatCount(report.summary.countsByKind[kind])}, retained=${formatCount(report.summary.retainedByKind[kind])}`,
     ),
+    "",
+    ...renderFailureEvidenceMarkdown(report),
     "",
     "## Shortlist",
     "",

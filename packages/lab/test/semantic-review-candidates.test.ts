@@ -23,13 +23,8 @@ import {
   type SweSmithRow,
 } from "../src/index.js";
 import type { OfflineReviewPreparedStep } from "../src/offline-review.js";
-import {
-  candidateKindsForStep,
-} from "../src/semantic-review-candidate-policy.js";
-import type {
-  ReplayDecisionSnapshot,
-  ReplaySemanticSnapshot,
-} from "../src/scenario.js";
+import { candidateKindsForStep } from "../src/semantic-review-candidate-policy.js";
+import type { ReplayDecisionSnapshot, ReplaySemanticSnapshot } from "../src/scenario.js";
 
 const execFile = promisify(execFileCallback);
 const TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -215,6 +210,123 @@ function createRoutineAmbientBundle() {
   });
 }
 
+function createMetadataOnlyToolFamilyFailedBundle() {
+  const scenario: ReplayScenario = {
+    id: "metadata-only-tool-family",
+    title: "Metadata-only tool-family failed update",
+    steps: [
+      {
+        kind: "publishSource",
+        label: "metadata-only failed update",
+        event: {
+          id: "evt:metadata-only",
+          taskId: "task:metadata-only",
+          timestamp: "2026-04-27T00:00:00.000Z",
+          type: "task.updated",
+          title: "done",
+          summary: "completed",
+          status: "failed",
+          metadata: {
+            toolFamily: "bash",
+          },
+        },
+      },
+    ],
+  };
+
+  return createSessionBundleFromScenario(scenario, {
+    exportedAt: "2026-04-27T00:00:00.000Z",
+    replayTimeSource: () => Date.parse("2026-04-27T00:00:00.000Z"),
+  });
+}
+
+function createDirectPublishFailedBundle() {
+  const scenario: ReplayScenario = {
+    id: "direct-publish-failed-update",
+    title: "Direct publish failed update",
+    steps: [
+      {
+        kind: "publish",
+        label: "direct failed update",
+        event: {
+          id: "evt:direct-failed",
+          taskId: "task:direct-failed",
+          timestamp: "2026-04-27T00:00:00.000Z",
+          type: "task.updated",
+          title: "bash failure",
+          summary: "Process exited with code 2.",
+          status: "failed",
+          toolFamily: "bash",
+        },
+      },
+    ],
+  };
+
+  return createSessionBundleFromScenario(scenario, {
+    exportedAt: "2026-04-27T00:00:00.000Z",
+    replayTimeSource: () => Date.parse("2026-04-27T00:00:00.000Z"),
+  });
+}
+
+function createFailedReadbackBundle(options: {
+  id: string;
+  title: string;
+  outputSummaries: string[];
+}) {
+  const scenario: ReplayScenario = {
+    id: options.id,
+    title: options.title,
+    steps: options.outputSummaries.map((summary, index) => ({
+      kind: "publishSource" as const,
+      label: `failed readback ${index + 1}`,
+      event: {
+        id: `evt:${options.id}:${index}`,
+        taskId: `task:${options.id}:${index}`,
+        timestamp: "2026-04-27T00:00:00.000Z",
+        type: "task.updated" as const,
+        title: "read failure",
+        summary,
+        status: "failed" as const,
+        toolFamily: "read",
+      },
+    })),
+  };
+
+  return createSessionBundleFromScenario(scenario, {
+    exportedAt: "2026-04-27T00:00:00.000Z",
+    replayTimeSource: () => Date.parse("2026-04-27T00:00:00.000Z"),
+  });
+}
+
+function createRepeatedUnclassifiedFailedBundle(options: {
+  id: string;
+  title: string;
+  count: number;
+}) {
+  const scenario: ReplayScenario = {
+    id: options.id,
+    title: options.title,
+    steps: Array.from({ length: options.count }, (_, index) => ({
+      kind: "publishSource" as const,
+      label: `failed update ${index + 1}`,
+      event: {
+        id: `evt:${options.id}:${index}`,
+        taskId: `task:${options.id}`,
+        timestamp: "2026-04-27T00:00:00.000Z",
+        type: "task.updated" as const,
+        title: "agent status",
+        summary: `No clear classifier evidence ${index + 1}.`,
+        status: "failed" as const,
+      },
+    })),
+  };
+
+  return createSessionBundleFromScenario(scenario, {
+    exportedAt: "2026-04-27T00:00:00.000Z",
+    replayTimeSource: () => Date.parse("2026-04-27T00:00:00.000Z"),
+  });
+}
+
 function createMissingWhyNowPolicyInput(): {
   step: OfflineReviewPreparedStep;
   semantic: ReplaySemanticSnapshot;
@@ -303,10 +415,15 @@ test("semantic review candidate reports shortlist deterministic review pressure"
     repoRoot: tempDir,
   });
 
-  assert.equal(report.schemaVersion, 1);
+  assert.equal(report.schemaVersion, 2);
   assert.equal(report.selection.promotionAuthority, "review_required");
+  assert.equal(report.selection.maxFailureEvidenceExamplesPerKind, 2);
+  assert.equal(report.selection.maxFailureEvidenceExamplesPerSessionPerKind, 1);
   assert.equal(report.input.scannedBundleCount, 1);
   assert.ok(report.summary.countsByKind.failure_attention > 0);
+  assert.ok(report.summary.failedTaskEvidence.failedTaskUpdateCount > 0);
+  assert.ok(report.summary.failedTaskEvidence.countsByKind.terminal_failure > 0);
+  assert.ok(report.summary.failedTaskEvidence.retainedExamplesByKind.terminal_failure.length > 0);
   assert.ok(report.candidatesByKind.failure_attention.length <= 1);
   assert.equal(
     Object.hasOwn(report.candidatesByKind.failure_attention[0] ?? {}, "expectedValue"),
@@ -558,11 +675,7 @@ test("missing whyNow policy follows attention-bearing review pressure", () => {
       mutation?.decision !== undefined ? mutation.decision : input.decision,
     );
 
-    assert.equal(
-      kinds.includes("missing_why_now"),
-      entry.expectedMissingWhyNow,
-      entry.name,
-    );
+    assert.equal(kinds.includes("missing_why_now"), entry.expectedMissingWhyNow, entry.name);
     for (const expectedKind of entry.expectedKinds ?? []) {
       assert.equal(kinds.includes(expectedKind), true, entry.name);
     }
@@ -706,6 +819,123 @@ test("semantic review candidate reports do not treat DataClaw read status mismat
   );
   assert.equal(report.summary.countsByKind.failure_attention, 0);
   assert.equal(report.summary.countsByKind.high_consequence_attention, 0);
+  assert.equal(report.summary.failedTaskEvidence.failedTaskUpdateCount, 0);
+  assert.equal(report.summary.failedTaskEvidence.countsByKind.observational_payload, 0);
+  assert.equal(report.summary.failedTaskEvidence.readsAsObservationCount, 0);
+});
+
+test("semantic review evidence audit classifies failed readbacks as observational payload", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-payload-"));
+  const bundle = createFailedReadbackBundle({
+    id: "failed-readbacks",
+    title: "Failed readback status mismatch",
+    outputSummaries: [
+      "Result of running cat -n /workspace/src/client.ts: 1 export const ok = true;",
+      "<path>/workspace/src/client.ts</path> <type>file</type> <content>export const ok = true;</content>",
+      "Observation path /workspace/src/client.ts showing first 10 lines export function request() { return true; }",
+    ],
+  });
+  const bundlePath = path.join(tempDir, "bundle.json");
+  await writeSessionBundle(bundlePath, bundle);
+
+  const report = await createSemanticReviewCandidateReportFromPaths({
+    bundlePaths: [bundlePath],
+    generatedAt: "2026-04-27T00:00:00.000Z",
+    maxCandidatesPerKind: 2,
+    repoRoot: tempDir,
+  });
+
+  assert.equal(report.summary.failedTaskEvidence.failedTaskUpdateCount, 3);
+  assert.equal(report.summary.failedTaskEvidence.countsByKind.observational_payload, 3);
+  assert.equal(report.summary.failedTaskEvidence.readsAsObservationCount, 3);
+  assert.equal(report.summary.failedTaskEvidence.countsByToolFamily.read, 3);
+  assert.equal(
+    report.summary.failedTaskEvidence.retainedExamplesByKind.observational_payload.length,
+    2,
+  );
+});
+
+test("semantic review evidence audit ignores metadata-only tool-family routing evidence", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-metadata-"));
+  const bundle = createMetadataOnlyToolFamilyFailedBundle();
+  const bundlePath = path.join(tempDir, "bundle.json");
+  await writeSessionBundle(bundlePath, bundle);
+
+  const report = await createSemanticReviewCandidateReportFromPaths({
+    bundlePaths: [bundlePath],
+    generatedAt: "2026-04-27T00:00:00.000Z",
+    maxCandidatesPerKind: 2,
+    repoRoot: tempDir,
+  });
+
+  assert.equal(report.summary.failedTaskEvidence.failedTaskUpdateCount, 1);
+  assert.equal(report.summary.failedTaskEvidence.countsByKind.unclassified_failure, 1);
+  assert.equal(report.summary.failedTaskEvidence.missingToolFamilyCount, 1);
+  assert.equal(
+    Object.hasOwn(report.summary.failedTaskEvidence.countsByToolFamily, "unknown"),
+    false,
+  );
+  assert.equal(
+    report.summary.failedTaskEvidence.retainedExamplesByKind.unclassified_failure[0]?.event
+      .toolFamily,
+    null,
+  );
+});
+
+test("semantic review evidence audit counts direct publish failed task updates", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-publish-"));
+  const bundle = createDirectPublishFailedBundle();
+  const bundlePath = path.join(tempDir, "bundle.json");
+  await writeSessionBundle(bundlePath, bundle);
+
+  const report = await createSemanticReviewCandidateReportFromPaths({
+    bundlePaths: [bundlePath],
+    generatedAt: "2026-04-27T00:00:00.000Z",
+    maxCandidatesPerKind: 2,
+    repoRoot: tempDir,
+  });
+
+  assert.equal(report.summary.failedTaskEvidence.failedTaskUpdateCount, 1);
+  assert.equal(report.summary.failedTaskEvidence.countsByKind.terminal_failure, 1);
+  assert.equal(report.summary.failedTaskEvidence.countsByToolFamily.bash, 1);
+});
+
+test("semantic review evidence audit retains deterministic per-session examples", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-caps-"));
+  const firstBundle = createRepeatedUnclassifiedFailedBundle({
+    id: "first-session",
+    title: "First repeated failures",
+    count: 2,
+  });
+  const secondBundle = createRepeatedUnclassifiedFailedBundle({
+    id: "second-session",
+    title: "Second repeated failures",
+    count: 1,
+  });
+  const firstPath = path.join(tempDir, "b-first.json");
+  const secondPath = path.join(tempDir, "a-second.json");
+  await writeSessionBundle(firstPath, firstBundle);
+  await writeSessionBundle(secondPath, secondBundle);
+
+  const report = await createSemanticReviewCandidateReportFromPaths({
+    bundlePaths: [firstPath, secondPath],
+    generatedAt: "2026-04-27T00:00:00.000Z",
+    maxCandidatesPerKind: 2,
+    maxCandidatesPerSessionPerKind: 1,
+    repoRoot: tempDir,
+  });
+
+  const examples = report.summary.failedTaskEvidence.retainedExamplesByKind.unclassified_failure;
+  assert.equal(report.summary.failedTaskEvidence.failedTaskUpdateCount, 3);
+  assert.equal(examples.length, 2);
+  assert.deepEqual(
+    examples.map((example) => example.sessionId),
+    ["second-session", "first-session"],
+  );
+  assert.deepEqual(
+    examples.map((example) => example.bundlePath),
+    ["a-second.json", "b-first.json"],
+  );
 });
 
 test("review-candidates CLI writes JSON and markdown reports", async () => {

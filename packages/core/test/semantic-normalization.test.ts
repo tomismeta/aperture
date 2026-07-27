@@ -548,6 +548,47 @@ test("public trajectory failed-status bash success observations stay low-consequ
   }
 });
 
+test("public trajectory failed-status bash exit-code zero observations stay low-consequence status updates", () => {
+  const normalized = normalizeSourceEvent({
+    id: "evt:public-json-exit-zero",
+    type: "task.updated",
+    taskId: "task:public-json-exit-zero",
+    timestamp,
+    source: { id: "dataclaw", kind: "public-trajectory" },
+    title: "bash failure",
+    summary: '{"exit_code":0,"wall_time":"0 seconds","output":"ok"}',
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(normalized.type, "task.updated");
+  if (normalized.type === "task.updated") {
+    assert.equal(normalized.status, "failed");
+    assert.equal(normalized.activityClass, "status_update");
+    assert.equal(normalized.semantic.activityClass, "status_update");
+    assert.equal(normalized.semantic.consequence, "low");
+  }
+});
+
+test("public trajectory zero-exit outputs with explicit failures stay high-consequence failures", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:public-zero-exit-with-failure",
+    type: "task.updated",
+    taskId: "task:public-zero-exit-with-failure",
+    timestamp,
+    source: { id: "swe-smith", kind: "public-trajectory" },
+    title: "bash failure",
+    summary: "Tests failed. Process exit code was 0.",
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.consequence, "high");
+  assert.equal(interpretation.whyNow, "Work has failed and should be reviewed.");
+});
+
 test("public trajectory failed-status bash tracebacks remain high-consequence failures", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:public-traceback",
@@ -557,6 +598,45 @@ test("public trajectory failed-status bash tracebacks remain high-consequence fa
     source: { id: "swe-smith", kind: "public-trajectory" },
     title: "bash observation",
     summary: "Traceback (most recent call last): Error: subprocess failed.",
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.consequence, "high");
+  assert.equal(interpretation.whyNow, "Work has failed and should be reviewed.");
+});
+
+test("public trajectory benign then real terminal wording stays high-consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:public-benign-then-terminal",
+    type: "task.updated",
+    taskId: "task:public-benign-then-terminal",
+    timestamp,
+    source: { id: "swe-smith", kind: "public-trajectory" },
+    title: "bash observation",
+    summary: "No exception occurred during setup; an exception escaped during cleanup.",
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.consequence, "high");
+  assert.equal(interpretation.whyNow, "Work has failed and should be reviewed.");
+});
+
+test("public trajectory failed-status bash JSON nonzero exits remain high-consequence failures", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:public-json-nonzero-exit",
+    type: "task.updated",
+    taskId: "task:public-json-nonzero-exit",
+    timestamp,
+    source: { id: "dataclaw", kind: "public-trajectory" },
+    title: "bash failure",
+    summary:
+      '{"exit_code":1,"wall_time":"2.9 seconds","output":"Traceback (most recent call last): RuntimeError"}',
     status: "failed",
     toolFamily: "bash",
   });

@@ -495,6 +495,642 @@ test("superseding blocking episode steps retire stale queued episode residue", (
   assert.equal(core.getTaskView("task:episode:c").now?.interactionId, "interaction:episode:c");
 });
 
+test("qualified resolving relation retires a targeted active episode across tasks", () => {
+  const core = new ApertureCore();
+
+  core.publishSourceEvent({
+    id: "src:status:build:failed",
+    type: "task.updated",
+    taskId: "task:build:failure",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build failed again",
+    summary: "The deploy build failed again before release.",
+    status: "failed",
+    semanticHints: {
+      relationHints: [
+        { kind: "same_issue", target: "issue:build:release" },
+        { kind: "repeats", target: "issue:build:release" },
+      ],
+    },
+  });
+
+  const active = core.getAttentionView().now;
+  const activeEpisodeId = readFrameEpisodeId(active);
+  assert.equal(active?.interactionId, "interaction:task:build:failure:status");
+  assert.ok(activeEpisodeId);
+
+  core.publishSourceEvent({
+    id: "src:status:build:resolved",
+    type: "task.updated",
+    taskId: "task:build:resolution",
+    timestamp: "2026-03-08T12:01:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build issue resolved",
+    summary: "The deploy build is fixed and no longer blocked.",
+    status: "completed",
+    semanticHints: {
+      relationHints: [
+        { kind: "same_issue", target: "issue:build:release" },
+        { kind: "resolves", target: "issue:build:release" },
+      ],
+    },
+  });
+
+  const attentionView = core.getAttentionView();
+  assert.equal(attentionView.now, null);
+  assert.deepEqual(attentionView.next, []);
+  assert.deepEqual(
+    attentionView.ambient.map((frame) => frame.interactionId),
+    ["interaction:task:build:resolution:status"],
+  );
+  assert.equal(core.getTaskView("task:build:failure").now, null);
+  assert.equal(core.getTaskView("task:build:failure").next.length, 0);
+  assert.equal(core.getTaskView("task:build:resolution").ambient.length, 1);
+  assert.equal(readFrameEpisodeId(attentionView.ambient[0] ?? null), activeEpisodeId);
+  assert.equal(attentionView.ambient[0]?.metadata?.episode?.state, "resolved");
+  assert.equal(attentionView.ambient[0]?.metadata?.episode?.evidenceScore, 0);
+});
+
+test("conflicting resolving relation targets do not retire an active episode", () => {
+  const core = new ApertureCore();
+
+  core.publishSourceEvent({
+    id: "src:status:conflict:failed",
+    type: "task.updated",
+    taskId: "task:conflict:failure",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Deploy failed again",
+    summary: "The production deploy failed again.",
+    status: "failed",
+    semanticHints: {
+      relationHints: [{ kind: "same_issue", target: "issue:deploy:primary" }],
+    },
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:conflict:resolved",
+    type: "task.updated",
+    taskId: "task:conflict:resolution",
+    timestamp: "2026-03-08T12:01:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Deploy issue resolved",
+    summary: "The production deploy is fixed and no longer blocked.",
+    status: "completed",
+    semanticHints: {
+      relationHints: [
+        { kind: "same_issue", target: "issue:deploy:primary" },
+        { kind: "resolves", target: "issue:deploy:secondary" },
+      ],
+    },
+  });
+
+  const attentionView = core.getAttentionView();
+  assert.equal(attentionView.now?.interactionId, "interaction:task:conflict:failure:status");
+  assert.deepEqual(attentionView.next, []);
+  assert.deepEqual(
+    attentionView.ambient.map((frame) => frame.interactionId),
+    ["interaction:task:conflict:resolution:status"],
+  );
+});
+
+test("conflicting same-task resolving targets do not mark the active episode resolved", () => {
+  const core = new ApertureCore();
+
+  core.publishSourceEvent({
+    id: "src:status:same-task-conflict:failed",
+    type: "task.updated",
+    taskId: "task:same-task-conflict",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Deploy failed again",
+    summary: "The production deploy failed again.",
+    status: "failed",
+    semanticHints: {
+      relationHints: [{ kind: "same_issue", target: "issue:deploy:primary" }],
+    },
+  });
+
+  const activeEpisodeId = readFrameEpisodeId(core.getAttentionView().now);
+
+  core.publishSourceEvent({
+    id: "src:status:same-task-conflict:resolved",
+    type: "task.updated",
+    taskId: "task:same-task-conflict",
+    timestamp: "2026-03-08T12:01:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Deploy issue resolved",
+    summary: "The production deploy is fixed and no longer blocked.",
+    status: "completed",
+    semanticHints: {
+      relationHints: [
+        { kind: "same_issue", target: "issue:deploy:primary" },
+        { kind: "resolves", target: "issue:deploy:secondary" },
+      ],
+    },
+  });
+
+  const attentionView = core.getAttentionView();
+  assert.equal(attentionView.now, null);
+  assert.deepEqual(attentionView.next, []);
+  assert.equal(
+    attentionView.ambient[0]?.interactionId,
+    "interaction:task:same-task-conflict:status",
+  );
+  assert.equal(readFrameEpisodeId(attentionView.ambient[0] ?? null), activeEpisodeId);
+  assert.notEqual(attentionView.ambient[0]?.metadata?.episode?.state, "resolved");
+});
+
+test("weak resolving relation evidence stays diagnostic and does not retire an active episode", () => {
+  const core = new ApertureCore();
+
+  core.publishSourceEvent({
+    id: "src:status:weak-resolution:failed",
+    type: "task.updated",
+    taskId: "task:weak-resolution:failure",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build failed again",
+    summary: "The deploy build failed again before release.",
+    status: "failed",
+    semanticHints: {
+      relationHints: [{ kind: "same_issue", target: "issue:weak-resolution" }],
+    },
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:weak-resolution:resolved",
+    type: "task.updated",
+    taskId: "task:weak-resolution:resolution",
+    timestamp: "2026-03-08T12:01:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build issue may be resolved",
+    summary: "The deploy build might be fixed, but verification is inconclusive.",
+    status: "completed",
+    semanticHints: {
+      abstained: true,
+      relationHints: [
+        { kind: "same_issue", target: "issue:weak-resolution" },
+        { kind: "resolves", target: "issue:weak-resolution" },
+      ],
+    },
+  });
+
+  const attentionView = core.getAttentionView();
+  assert.equal(attentionView.now?.interactionId, "interaction:task:weak-resolution:failure:status");
+  assert.deepEqual(
+    attentionView.ambient.map((frame) => frame.interactionId),
+    ["interaction:task:weak-resolution:resolution:status"],
+  );
+  assert.equal(
+    readFrameEpisodeId(attentionView.ambient[0] ?? null),
+    readFrameEpisodeId(attentionView.now),
+  );
+  assert.notEqual(attentionView.ambient[0]?.metadata?.episode?.state, "resolved");
+});
+
+test("same-interaction resolution demotion clears held engagement", () => {
+  const core = new ApertureCore();
+
+  core.publishSourceEvent({
+    id: "src:status:engaged-resolution:failed",
+    type: "task.updated",
+    taskId: "task:engaged-resolution",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build failed again",
+    summary: "The deploy build failed again before release.",
+    status: "failed",
+    semanticHints: {
+      relationHints: [{ kind: "same_issue", target: "issue:engaged-resolution" }],
+    },
+  });
+
+  core.engage("task:engaged-resolution", "interaction:task:engaged-resolution:status");
+
+  core.publishSourceEvent({
+    id: "src:status:engaged-resolution:resolved",
+    type: "task.updated",
+    taskId: "task:engaged-resolution",
+    timestamp: "2026-03-08T12:01:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build issue resolved",
+    summary: "The deploy build is fixed and no longer blocked.",
+    status: "completed",
+    semanticHints: {
+      relationHints: [
+        { kind: "same_issue", target: "issue:engaged-resolution" },
+        { kind: "resolves", target: "issue:engaged-resolution" },
+      ],
+    },
+  });
+
+  const attentionView = core.getAttentionView();
+  assert.equal(attentionView.now, null);
+  assert.equal(
+    attentionView.ambient[0]?.interactionId,
+    "interaction:task:engaged-resolution:status",
+  );
+  assert.equal(attentionView.ambient[0]?.metadata?.episode?.state, "resolved");
+});
+
+test("out-of-order resolving relation cannot retire newer episode evidence", () => {
+  const core = new ApertureCore();
+
+  core.publishSourceEvent({
+    id: "src:status:ordering:failed",
+    type: "task.updated",
+    taskId: "task:ordering:failure",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build failed again",
+    summary: "The deploy build failed again.",
+    status: "failed",
+    semanticHints: {
+      relationHints: [{ kind: "same_issue", target: "issue:ordering" }],
+    },
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:ordering:still-failed",
+    type: "task.updated",
+    taskId: "task:ordering:retry",
+    timestamp: "2026-03-08T12:02:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build failed again",
+    summary: "The same deploy build is still failing.",
+    status: "failed",
+    semanticHints: {
+      relationHints: [
+        { kind: "same_issue", target: "issue:ordering" },
+        { kind: "repeats", target: "issue:ordering" },
+      ],
+    },
+  });
+
+  const currentEpisodeId = readFrameEpisodeId(core.getAttentionView().now);
+
+  core.publishSourceEvent({
+    id: "src:status:ordering:resolved",
+    type: "task.updated",
+    taskId: "task:ordering:resolution",
+    timestamp: "2026-03-08T12:01:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build issue resolved",
+    summary: "The deploy build was fixed.",
+    status: "completed",
+    semanticHints: {
+      relationHints: [
+        { kind: "same_issue", target: "issue:ordering" },
+        { kind: "resolves", target: "issue:ordering" },
+      ],
+    },
+  });
+
+  const attentionView = core.getAttentionView();
+  assert.equal(attentionView.now?.interactionId, "interaction:task:ordering:retry:status");
+  assert.equal(readFrameEpisodeId(attentionView.now), currentEpisodeId);
+  assert.deepEqual(attentionView.ambient, []);
+});
+
+test("out-of-order status update cannot refresh newer visible episode evidence", () => {
+  const core = new ApertureCore();
+
+  core.publishSourceEvent({
+    id: "src:status:ordering-status:newer",
+    type: "task.updated",
+    taskId: "task:ordering-status",
+    timestamp: "2026-03-08T12:02:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build failed now",
+    summary: "The deploy build is currently failing.",
+    status: "failed",
+    semanticHints: {
+      relationHints: [{ kind: "same_issue", target: "issue:ordering-status" }],
+    },
+  });
+
+  const currentEpisodeId = readFrameEpisodeId(core.getAttentionView().now);
+  assert.ok(currentEpisodeId);
+
+  core.publishSourceEvent({
+    id: "src:status:ordering-status:older",
+    type: "task.updated",
+    taskId: "task:ordering-status",
+    timestamp: "2026-03-08T12:01:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build failed earlier",
+    summary: "The deploy build failed before the current status.",
+    status: "failed",
+    semanticHints: {
+      relationHints: [{ kind: "same_issue", target: "issue:ordering-status" }],
+    },
+  });
+
+  const attentionView = core.getAttentionView();
+  assert.equal(readFrameEpisodeId(attentionView.now), currentEpisodeId);
+  assert.equal(attentionView.now?.title, "Build failed now");
+  assert.equal(attentionView.now?.timing.updatedAt, "2026-03-08T12:02:00.000Z");
+});
+
+test("stale auto-approvable candidate cannot emit a response", () => {
+  const core = new ApertureCore({
+    policyConfig: {
+      version: 1,
+      updatedAt: "2026-03-08T12:00:00.000Z",
+      policy: {
+        lowRiskRead: {
+          autoApprove: true,
+        },
+      },
+    },
+  });
+  const responses: unknown[] = [];
+  const signals: unknown[] = [];
+  const traces: PublicApertureTrace[] = [];
+
+  core.onResponse((response) => {
+    responses.push(response);
+  });
+  core.onSignal((signal) => {
+    signals.push(signal);
+  });
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+
+  core.publish({
+    id: "evt:stale-auto-approve:newer",
+    taskId: "task:stale-auto-approve",
+    timestamp: "2026-03-08T12:02:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:stale-auto-approve",
+    title: "Approve destructive command",
+    summary: "Approve removing generated artifacts.",
+    request: { kind: "approval" },
+    consequence: "high",
+    toolFamily: "bash",
+  });
+
+  const currentEpisodeId = readFrameEpisodeId(core.getAttentionView().now);
+  assert.ok(currentEpisodeId);
+
+  core.publish({
+    id: "evt:stale-auto-approve:older",
+    taskId: "task:stale-auto-approve",
+    timestamp: "2026-03-08T12:01:00.000Z",
+    type: "human.input.requested",
+    interactionId: "interaction:stale-auto-approve",
+    title: "Read config.ts",
+    summary: "Read config.ts.",
+    request: { kind: "approval" },
+    consequence: "low",
+    toolFamily: "read",
+  });
+
+  const attentionView = core.getAttentionView();
+  assert.equal(readFrameEpisodeId(attentionView.now), currentEpisodeId);
+  assert.equal(attentionView.now?.title, "Approve destructive command");
+  assert.deepEqual(responses, []);
+  assert.deepEqual(
+    signals.map((signal) =>
+      signal && typeof signal === "object" && "kind" in signal ? signal.kind : null,
+    ),
+    ["presented"],
+  );
+
+  const staleTrace = traces.findLast(
+    (trace) =>
+      trace.evaluation.kind === "candidate" && trace.event.id === "evt:stale-auto-approve:older",
+  );
+  assert.equal(staleTrace?.evaluation.kind, "candidate");
+  if (!staleTrace || staleTrace.evaluation.kind !== "candidate") {
+    return;
+  }
+  assert.equal(staleTrace.coordination.kind, "suppressed");
+  assert.equal(staleTrace.coordination.resultLane, "none");
+  assert.deepEqual(staleTrace.frameTransition.changedFields, []);
+  assert.deepEqual(staleTrace.coordination.reasons, [
+    "stale event-time candidate was suppressed by episode lifecycle",
+  ]);
+});
+
+test("delayed pre-resolution failure does not reopen a resolved episode", () => {
+  const core = new ApertureCore();
+
+  core.publishSourceEvent({
+    id: "src:status:delayed-failure:failed",
+    type: "task.updated",
+    taskId: "task:delayed-failure",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build failed again",
+    summary: "The deploy build failed again.",
+    status: "failed",
+    semanticHints: {
+      relationHints: [{ kind: "same_issue", target: "issue:delayed-failure" }],
+    },
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:delayed-failure:resolved",
+    type: "task.updated",
+    taskId: "task:delayed-failure",
+    timestamp: "2026-03-08T12:02:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build issue resolved",
+    summary: "The deploy build is fixed and no longer blocked.",
+    status: "completed",
+    semanticHints: {
+      relationHints: [
+        { kind: "same_issue", target: "issue:delayed-failure" },
+        { kind: "resolves", target: "issue:delayed-failure" },
+      ],
+    },
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:delayed-failure:old-failure",
+    type: "task.updated",
+    taskId: "task:delayed-failure",
+    timestamp: "2026-03-08T12:01:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build failed again",
+    summary: "The deploy build failed before the fix landed.",
+    status: "failed",
+    semanticHints: {
+      relationHints: [{ kind: "same_issue", target: "issue:delayed-failure" }],
+    },
+  });
+
+  const attentionView = core.getAttentionView();
+  assert.equal(attentionView.now, null);
+  assert.deepEqual(attentionView.next, []);
+  assert.deepEqual(
+    attentionView.ambient.map((frame) => frame.interactionId),
+    ["interaction:task:delayed-failure:status"],
+  );
+  assert.equal(attentionView.ambient[0]?.title, "Build issue resolved");
+  assert.equal(attentionView.ambient[0]?.timing.updatedAt, "2026-03-08T12:02:00.000Z");
+  assert.equal(attentionView.ambient[0]?.metadata?.episode?.state, "resolved");
+});
+
+test("delayed resolution replay does not overwrite newer resolved audit", () => {
+  const core = new ApertureCore();
+
+  core.publishSourceEvent({
+    id: "src:status:delayed-resolution-replay:failed",
+    type: "task.updated",
+    taskId: "task:delayed-resolution-replay",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build failed again",
+    summary: "The deploy build failed again.",
+    status: "failed",
+    semanticHints: {
+      relationHints: [{ kind: "same_issue", target: "issue:delayed-resolution-replay" }],
+    },
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:delayed-resolution-replay:resolved",
+    type: "task.updated",
+    taskId: "task:delayed-resolution-replay",
+    timestamp: "2026-03-08T12:02:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build issue resolved",
+    summary: "The deploy build is fixed and no longer blocked.",
+    status: "completed",
+    semanticHints: {
+      relationHints: [
+        { kind: "same_issue", target: "issue:delayed-resolution-replay" },
+        { kind: "resolves", target: "issue:delayed-resolution-replay" },
+      ],
+    },
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:delayed-resolution-replay:old-resolution",
+    type: "task.updated",
+    taskId: "task:delayed-resolution-replay",
+    timestamp: "2026-03-08T12:01:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build issue resolved earlier",
+    summary: "The deploy build had already been fixed.",
+    status: "completed",
+    semanticHints: {
+      relationHints: [
+        { kind: "same_issue", target: "issue:delayed-resolution-replay" },
+        { kind: "resolves", target: "issue:delayed-resolution-replay" },
+      ],
+    },
+  });
+
+  const attentionView = core.getAttentionView();
+  assert.equal(attentionView.now, null);
+  assert.deepEqual(attentionView.next, []);
+  assert.deepEqual(
+    attentionView.ambient.map((frame) => frame.interactionId),
+    ["interaction:task:delayed-resolution-replay:status"],
+  );
+  assert.equal(attentionView.ambient[0]?.title, "Build issue resolved");
+  assert.equal(attentionView.ambient[0]?.timing.updatedAt, "2026-03-08T12:02:00.000Z");
+  assert.equal(attentionView.ambient[0]?.metadata?.episode?.state, "resolved");
+});
+
+test("delayed dormant replay does not fork a fresh visible recurrence", () => {
+  const core = new ApertureCore();
+
+  core.publishSourceEvent({
+    id: "src:status:index-replay:failed",
+    type: "task.updated",
+    taskId: "task:index-replay:initial",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build failed again",
+    summary: "The deploy build failed again.",
+    status: "failed",
+    semanticHints: {
+      relationHints: [{ kind: "same_issue", target: "issue:index-replay" }],
+    },
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:index-replay:resolved",
+    type: "task.updated",
+    taskId: "task:index-replay:initial",
+    timestamp: "2026-03-08T12:02:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build issue resolved",
+    summary: "The deploy build is fixed and no longer blocked.",
+    status: "completed",
+    semanticHints: {
+      relationHints: [
+        { kind: "same_issue", target: "issue:index-replay" },
+        { kind: "resolves", target: "issue:index-replay" },
+      ],
+    },
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:index-replay:retry",
+    type: "task.updated",
+    taskId: "task:index-replay:retry",
+    timestamp: "2026-03-08T12:03:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build failed again",
+    summary: "The deploy build failed again after the fix.",
+    status: "failed",
+    semanticHints: {
+      relationHints: [{ kind: "same_issue", target: "issue:index-replay" }],
+    },
+  });
+
+  const recurrenceEpisodeId = readFrameEpisodeId(core.getAttentionView().now);
+  assert.ok(recurrenceEpisodeId);
+
+  core.publishSourceEvent({
+    id: "src:status:index-replay:old-resolution",
+    type: "task.updated",
+    taskId: "task:index-replay:initial",
+    timestamp: "2026-03-08T12:01:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build issue resolved earlier",
+    summary: "The deploy build had already been fixed.",
+    status: "completed",
+    semanticHints: {
+      relationHints: [
+        { kind: "same_issue", target: "issue:index-replay" },
+        { kind: "resolves", target: "issue:index-replay" },
+      ],
+    },
+  });
+
+  assert.equal(readFrameEpisodeId(core.getAttentionView().now), recurrenceEpisodeId);
+
+  core.publishSourceEvent({
+    id: "src:status:index-replay:followup",
+    type: "task.updated",
+    taskId: "task:index-replay:retry-followup",
+    timestamp: "2026-03-08T12:04:00.000Z",
+    source: { id: "custom-agent" },
+    title: "Build is still failing",
+    summary: "The deploy build is still failing after the retry.",
+    status: "failed",
+    semanticHints: {
+      relationHints: [
+        { kind: "same_issue", target: "issue:index-replay" },
+        { kind: "repeats", target: "issue:index-replay" },
+      ],
+    },
+  });
+
+  const attentionView = core.getAttentionView();
+  assert.equal(readFrameEpisodeId(attentionView.now), recurrenceEpisodeId);
+  assert.equal(attentionView.now?.title, "Build is still failing");
+});
+
 test("weak inferred superseding episode wording stays queued behind the current step", () => {
   const core = new ApertureCore();
   const traces: PublicApertureTrace[] = [];

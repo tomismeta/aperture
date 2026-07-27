@@ -1,4 +1,8 @@
-import { KERNEL_DECISION_RECORD_PROJECTION_V1_VERSION, KERNEL_DECISION_RECORD_PROJECTION_VERSION, type KernelDecisionRecordProjectionVersion } from "./artifact-versions.js";
+import {
+  KERNEL_DECISION_RECORD_PROJECTION_V1_VERSION,
+  KERNEL_DECISION_RECORD_PROJECTION_VERSION,
+  type KernelDecisionRecordProjectionVersion,
+} from "./artifact-versions.js";
 import { DECISION_KINDS, RESULT_BUCKETS } from "./validation-support.js";
 const DECISION_PLANNED_LANES = new Set(["now", "next", "ambient", "none"]);
 const POLICY_MINIMUM_LANES = new Set(["now", "next", "ambient"]);
@@ -11,24 +15,14 @@ const PRESSURE_OVERLOAD_RISKS = new Set(["low", "rising", "high"]);
 const OPERATOR_PRESENCE = new Set(["present", "absent"]);
 const EVIDENCE_PRESENCE = new Set(["present", "absent"]);
 const SIMPLE_RULE_NAME = /^[a-z][a-z0-9_]*$/;
-type KernelDecisionProjectionCandidate = {
-  evaluationKind?: unknown;
-  decisionKind?: unknown;
-  decisionRecordProjectionVersion?: unknown;
-  decisionRecordRoute?: unknown;
-  plannedLane?: unknown;
-  resultLane?: unknown;
-  decisionRecordCurrentFrameId?: unknown;
-  decisionRecordCurrentEpisodeId?: unknown;
-  decisionRecordOperatorPresence?: unknown;
-  decisionRecordCandidateScore?: unknown;
-  decisionRecordValueComponents?: unknown;
-  decisionRecordReasons?: unknown;
-  decisionRecordReasonCodes?: unknown;
-};
 
-export function isKernelDecisionRecordProjectionVersion(value: unknown): value is KernelDecisionRecordProjectionVersion {
-  return value === KERNEL_DECISION_RECORD_PROJECTION_V1_VERSION || value === KERNEL_DECISION_RECORD_PROJECTION_VERSION;
+export function isKernelDecisionRecordProjectionVersion(
+  value: unknown,
+): value is KernelDecisionRecordProjectionVersion {
+  return (
+    value === KERNEL_DECISION_RECORD_PROJECTION_V1_VERSION ||
+    value === KERNEL_DECISION_RECORD_PROJECTION_VERSION
+  );
 }
 
 export function isKernelDecisionReasonCode(value: unknown): value is string {
@@ -73,9 +67,7 @@ export function isKernelDecisionReasonCodeArray(value: unknown): value is string
   return isStringArray(value) && value.every(isKernelDecisionReasonCode);
 }
 
-export function validateKernelDecisionRecordProjection(
-  value: KernelDecisionProjectionCandidate,
-): boolean {
+export function validateKernelDecisionRecordProjection(value: Record<string, unknown>): boolean {
   if (!isKernelDecisionRecordProjectionVersion(value.decisionRecordProjectionVersion)) {
     return false;
   }
@@ -90,9 +82,10 @@ export function validateKernelDecisionRecordProjection(
     value.evaluationKind !== "candidate" ||
     typeof value.decisionKind !== "string" ||
     typeof route !== "string" ||
-    route !== value.decisionKind ||
+    (value.decisionKind !== "suppressed" && route !== value.decisionKind) ||
     typeof lane !== "string" ||
     plannedLaneForDecisionRoute(route) !== lane ||
+    (value.decisionKind === "suppressed" && value.resultLane !== "none") ||
     (value.resultLane !== undefined &&
       (typeof value.resultLane !== "string" || !RESULT_BUCKETS.has(value.resultLane))) ||
     (version === KERNEL_DECISION_RECORD_PROJECTION_VERSION && value.resultLane === undefined) ||

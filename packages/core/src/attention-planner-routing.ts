@@ -17,6 +17,7 @@ import {
   hasBlockedLikeStatusSemantics,
   resolvePeripheralResolutionFloor,
 } from "./judgment-input.js";
+import { hasSemanticRelationKind } from "./semantic-relations.js";
 import { hasResurfacingPressure } from "./continuity/deferral-escalation-continuity-rule.js";
 import type {
   AttentionPlanDecision,
@@ -410,6 +411,10 @@ function shouldPreemptForPressure(
 }
 
 function isActionableEpisode(candidate: AttentionCandidate): boolean {
+  if (hasSemanticRelationKind(candidate.relationHints, "resolves")) {
+    return false;
+  }
+
   return (
     !candidate.blocking &&
     isCandidateInActionableEpisode(candidate) &&

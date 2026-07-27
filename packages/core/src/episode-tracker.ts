@@ -4,6 +4,7 @@ import { readSemanticRelationEvidenceStrength } from "./judgment-input.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
 import type { SemanticRelationHint } from "./semantic-types.js";
 import { readSemanticRelationTarget } from "./semantic-relations.js";
+import { hasQualifiedResolvingRelation } from "./semantic-relation-judgment.js";
 import { createCoreClock, type CoreClock } from "./time.js";
 
 export type EpisodeState = "emerging" | "actionable" | "batched" | "waiting" | "stale" | "resolved";
@@ -77,13 +78,22 @@ export class EpisodeTracker {
     const key = buildEpisodeKey(candidate);
     const existingId = this.byInteractionId.get(candidate.interactionId);
     const boundRecord = existingId ? this.byId.get(existingId) : undefined;
-    const keyedRecord = boundRecord ? null : this.byKey.get(key);
-    const record = boundRecord ?? this.resolveAssignableRecord(key, keyedRecord, candidate);
+    const reusableBoundRecord =
+      boundRecord && !this.shouldRollEpisode(boundRecord, candidate.timestamp)
+        ? boundRecord
+        : undefined;
+    const keyedRecord = reusableBoundRecord ? null : this.byKey.get(key);
+    const record = reusableBoundRecord ?? this.resolveAssignableRecord(key, keyedRecord, candidate);
     const nextRecord = this.evolveRecord(record, candidate);
+    const obsolete = isObsoleteCandidate(record, candidate, this.clock);
 
-    this.byKey.set(nextRecord.key, nextRecord);
+    if (shouldIndexRecord(nextRecord, this.byKey.get(nextRecord.key))) {
+      this.byKey.set(nextRecord.key, nextRecord);
+    }
     this.byId.set(nextRecord.id, nextRecord);
-    this.byInteractionId.set(candidate.interactionId, nextRecord.id);
+    if (!obsolete) {
+      this.byInteractionId.set(candidate.interactionId, nextRecord.id);
+    }
     this.pruneDormantRecords();
 
     return {
@@ -94,6 +104,7 @@ export class EpisodeTracker {
       episodeSize: nextRecord.size,
       episodeEvidenceScore: nextRecord.evidenceScore,
       episodeEvidenceReasons: [...nextRecord.evidenceReasons],
+      ...(obsolete ? { episodeObsolete: true } : {}),
     };
   }
 
@@ -174,18 +185,21 @@ export class EpisodeTracker {
   private createRecord(key: string, candidate: AttentionCandidate): EpisodeRecord {
     const nextSequence = (this.nextSequenceByKey.get(key) ?? 0) + 1;
     this.nextSequenceByKey.set(key, nextSequence);
+    const resolvingEpisode = isResolvingEpisodeCandidate(candidate);
     const persistedRelationKinds = shouldPersistEpisodeRelationEvidence(candidate)
       ? (candidate.relationHints ?? []).map((hint) => hint.kind)
       : [];
     return {
       id: `episode:${key}:${nextSequence}`,
       key,
-      state: candidate.blocking ? "actionable" : "emerging",
+      state: resolvingEpisode ? "resolved" : candidate.blocking ? "actionable" : "emerging",
       size: 0,
-      evidenceScore: candidate.blocking ? DEFAULTS.blockingBoost : 0,
-      evidenceReasons: candidate.blocking
-        ? ["operator-facing work makes this episode immediately actionable"]
-        : [],
+      evidenceScore: resolvingEpisode ? 0 : candidate.blocking ? DEFAULTS.blockingBoost : 0,
+      evidenceReasons: resolvingEpisode
+        ? ["semantic relation hints indicate this episode is resolved"]
+        : candidate.blocking
+          ? ["operator-facing work makes this episode immediately actionable"]
+          : [],
       lastInteractionId: candidate.interactionId,
       updatedAt: candidate.timestamp,
       interactions: new Set<string>(),
@@ -219,7 +233,7 @@ export class EpisodeTracker {
 
   private shouldRollEpisode(record: EpisodeRecord, nextTimestamp: string): boolean {
     if (isDormantEpisodeState(record.state)) {
-      return true;
+      return isAfterTimestamp(nextTimestamp, record.updatedAt, this.clock);
     }
 
     const previousMs = this.clock.parse(record.updatedAt);
@@ -232,6 +246,14 @@ export class EpisodeTracker {
   }
 
   private evolveRecord(record: EpisodeRecord, candidate: AttentionCandidate): EpisodeRecord {
+    if (isStaleCandidate(record, candidate, this.clock)) {
+      return record;
+    }
+
+    if (isDormantEpisodeState(record.state)) {
+      return preserveRecordState(record, candidate);
+    }
+
     const interactions = new Set(record.interactions);
     interactions.add(candidate.interactionId);
 
@@ -253,6 +275,15 @@ export class EpisodeTracker {
         (candidate.consequence === "high" || candidate.tone === "critical" ? 1 : 0),
     };
     const evidence = measureEpisodeEvidence(nextRecord, candidate);
+    if (isResolvingEpisodeCandidate(candidate)) {
+      return {
+        ...nextRecord,
+        evidenceScore: 0,
+        evidenceReasons: ["semantic relation hints indicate this episode is resolved"],
+        state: "resolved",
+      };
+    }
+
     return {
       ...nextRecord,
       evidenceScore: evidence.score,
@@ -508,6 +539,69 @@ function normalizeEpisodePart(value: string): string {
 function shouldPersistEpisodeRelationEvidence(candidate: AttentionCandidate): boolean {
   const strength = readSemanticRelationEvidenceStrength(candidate);
   return strength === null || strength !== "weak";
+}
+
+function isResolvingEpisodeCandidate(candidate: AttentionCandidate): boolean {
+  return hasQualifiedResolvingRelation(candidate);
+}
+
+function shouldIndexRecord(record: EpisodeRecord, current: EpisodeRecord | undefined): boolean {
+  if (!current || current.id === record.id) {
+    return true;
+  }
+
+  return !isDormantEpisodeState(record.state);
+}
+
+function isStaleCandidate(
+  record: EpisodeRecord,
+  candidate: AttentionCandidate,
+  clock: CoreClock,
+): boolean {
+  return isBeforeTimestamp(candidate.timestamp, record.updatedAt, clock);
+}
+
+function isBeforeTimestamp(left: string, right: string, clock: CoreClock): boolean {
+  const leftMs = clock.parse(left);
+  const rightMs = clock.parse(right);
+  if (leftMs !== null && rightMs !== null) {
+    return leftMs < rightMs;
+  }
+
+  return left < right;
+}
+
+function isAfterTimestamp(left: string, right: string, clock: CoreClock): boolean {
+  const leftMs = clock.parse(left);
+  const rightMs = clock.parse(right);
+  if (leftMs !== null && rightMs !== null) {
+    return leftMs > rightMs;
+  }
+
+  return left > right;
+}
+
+function isObsoleteCandidate(
+  record: EpisodeRecord,
+  candidate: AttentionCandidate,
+  clock: CoreClock,
+): boolean {
+  return isStaleCandidate(record, candidate, clock);
+}
+
+function preserveRecordState(record: EpisodeRecord, candidate: AttentionCandidate): EpisodeRecord {
+  const interactions = new Set(record.interactions);
+  interactions.add(candidate.interactionId);
+
+  const modes = new Set(record.modes);
+  modes.add(candidate.mode);
+
+  return {
+    ...record,
+    size: interactions.size,
+    interactions,
+    modes,
+  };
 }
 
 function readString(value: unknown, key: string): string | null {

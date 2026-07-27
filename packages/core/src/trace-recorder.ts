@@ -18,6 +18,7 @@ import { projectAttentionOntologyDiagnostic } from "./semantic-ontology.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import type {
   TraceCandidateTransition,
+  TraceDecisionKind,
   TraceEventTransition,
   TraceFrameTransition,
 } from "./trace-common.js";
@@ -44,6 +45,7 @@ type CandidateTraceInput = {
   adjusted: AttentionCandidate;
   explanation: AttentionDecisionExplanation;
   result: AttentionFrame | null;
+  suppressed?: boolean;
 };
 
 export class TraceRecorder {
@@ -63,8 +65,10 @@ export class TraceRecorder {
 
   recordCandidate(snapshot: TraceSnapshot, input: CandidateTraceInput): ApertureTrace {
     const { original, adjusted, explanation, result } = input;
+    const suppressed = input.suppressed === true;
     const semantic = buildSemanticSummary(snapshot.event, adjusted);
     const decisionRecord = explanation.record;
+    const coordination = buildTraceCoordination(decisionRecord, snapshot, adjusted, suppressed);
 
     return {
       ...snapshot,
@@ -74,7 +78,10 @@ export class TraceRecorder {
         adjusted,
       },
       candidateTransition: buildCandidateTransition(original, adjusted),
-      frameTransition: buildFrameTransition(snapshot.current, result),
+      frameTransition: buildFrameTransition(
+        snapshot.current,
+        suppressed ? snapshot.current : result,
+      ),
       heuristics: {
         scoreOffset: adjusted.attentionScoreOffset ?? 0,
         rationale: adjusted.attentionRationale ?? [],
@@ -100,27 +107,58 @@ export class TraceRecorder {
         continuityEvaluations: decisionRecord.planning.continuityEvaluations,
       },
       coordination: {
-        kind: decisionRecord.planning.route,
-        resultLane: findResultLane(
-          snapshot.attentionView,
-          adjusted.taskId,
-          adjusted.interactionId,
-          decisionRecord.planning.route,
-        ),
+        kind: coordination.kind,
+        resultLane: coordination.resultLane,
         candidateScore: decisionRecord.value.claimScore,
         currentScore: decisionRecord.value.currentScore,
         currentPriority: decisionRecord.value.currentPriority,
         criterion: decisionRecord.policy.criterion,
         ambiguity: decisionRecord.planning.ambiguity,
-        reasons: decisionRecord.planning.reasons,
-        reasonCodes: decisionRecord.planning.reasonCodes,
-        continuityEvaluations: decisionRecord.planning.continuityEvaluations,
+        reasons: coordination.reasons,
+        reasonCodes: coordination.reasonCodes,
+        continuityEvaluations: coordination.continuityEvaluations,
       },
       pressureForecast: decisionRecord.evidenceSnapshot.pressureForecast,
       attentionBurden: decisionRecord.evidenceSnapshot.attentionBurden,
       result,
     };
   }
+}
+
+function buildTraceCoordination(
+  decisionRecord: AttentionDecisionExplanation["record"],
+  snapshot: TraceSnapshot,
+  adjusted: AttentionCandidate,
+  suppressed: boolean,
+): {
+  kind: TraceDecisionKind;
+  resultLane: "now" | "next" | "ambient" | "none";
+  reasons: string[];
+  reasonCodes: AttentionDecisionExplanation["record"]["planning"]["reasonCodes"];
+  continuityEvaluations: AttentionDecisionExplanation["record"]["planning"]["continuityEvaluations"];
+} {
+  if (suppressed) {
+    return {
+      kind: "suppressed",
+      resultLane: "none",
+      reasons: ["stale event-time candidate was suppressed by episode lifecycle"],
+      reasonCodes: [],
+      continuityEvaluations: [],
+    };
+  }
+
+  return {
+    kind: decisionRecord.planning.route,
+    resultLane: findResultLane(
+      snapshot.attentionView,
+      adjusted.taskId,
+      adjusted.interactionId,
+      decisionRecord.planning.route,
+    ),
+    reasons: decisionRecord.planning.reasons,
+    reasonCodes: decisionRecord.planning.reasonCodes,
+    continuityEvaluations: decisionRecord.planning.continuityEvaluations,
+  };
 }
 
 function buildCandidateTransition(

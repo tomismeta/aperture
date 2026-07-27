@@ -977,10 +977,46 @@ test("DataClaw observational status conflicts require affirmative success eviden
       expectedToolFamily: "read",
     },
     {
+      name: "failed Read with structured files content",
+      tool: "Read",
+      status: "failed",
+      output: {
+        files: [
+          {
+            path: "/workspace/src/client.ts",
+            content: "export async function request() {\n  return fetch('/api');\n}",
+          },
+        ],
+      },
+      expectedStatus: "running",
+      expectedTitle: "read observation",
+      expectedToolFamily: "read",
+    },
+    {
+      name: "failed Read with plain source content",
+      tool: "Read",
+      status: "failed",
+      output: {
+        text: '#ifndef GRAMMAR_H\n#define GRAMMAR_H\n#include <memory>\nclass Parser { const char* error = "symbol not found"; };',
+      },
+      expectedStatus: "running",
+      expectedTitle: "read observation",
+      expectedToolFamily: "read",
+    },
+    {
       name: "failed Read with explicit ENOENT error",
       tool: "Read",
       status: "failed",
       output: { error: "ENOENT: no such file or directory, open '/workspace/src/client.ts'" },
+      expectedStatus: "failed",
+      expectedTitle: "read failure",
+      expectedToolFamily: "read",
+    },
+    {
+      name: "failed Read with plain ENOENT text",
+      tool: "Read",
+      status: "failed",
+      output: { text: "ENOENT: no such file or directory, open '/workspace/src/client.ts'" },
       expectedStatus: "failed",
       expectedTitle: "read failure",
       expectedToolFamily: "read",

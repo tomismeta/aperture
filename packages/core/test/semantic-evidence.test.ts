@@ -541,13 +541,156 @@ test("task failure evidence classifies structured tool output without treating i
     "terminal_failure",
     "structured source plus negative exit should be terminal",
   );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-structured-source",
+      taskId: "task:evidence:truncated-structured-source",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"exit_code":0,"wall_time":"0.0510 seconds","output":"#!/usr/bin/env python3\\nimport torch\\nfrom pathlib import Path',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "truncated structured source output should not downgrade failed status",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-structured-nonzero",
+      taskId: "task:evidence:truncated-structured-nonzero",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"exit_code":2,"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "truncated structured nonzero exit should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:marked-truncated-structured-source",
+      taskId: "task:evidence:marked-truncated-structured-source",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"exit_code":0,"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }...","truncated":true}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "marked truncated source output should not downgrade failed status",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:marked-truncated-structured-nonzero",
+      taskId: "task:evidence:marked-truncated-structured-nonzero",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"exit_code":2,"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }...","truncated":true}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "marked truncated nonzero exit should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:marked-truncated-loader-error",
+      taskId: "task:evidence:marked-truncated-loader-error",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"exit_code":0,"wall_time":"0.0510 seconds","output":"library load error: libbitsandbytes_cpu.so: cannot open shared object file...","truncated":true}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "marked truncated visible diagnostics should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-structured-loader-error",
+      taskId: "task:evidence:truncated-structured-loader-error",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"exit_code":0,"wall_time":"4.5 seconds","output":"library load error: libbitsandbytes_cpu.so: cannot open shared object file',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "truncated structured loader diagnostics should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-structured-neutral",
+      taskId: "task:evidence:truncated-structured-neutral",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: '{"wall_time":"0.0510 seconds","output":"Collected 42 rows from the benchmark',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "truncated structured neutral output should not downgrade failed status",
+  );
+  for (const [id, summary] of [
+    ["truncated-empty-output-zero-exit", '{"exit_code":0,"wall_time":"0.0510 seconds","output":"'],
+    [
+      "truncated-whitespace-output-zero-exit",
+      '{"exit_code":0,"wall_time":"0.0510 seconds","output":"   ',
+    ],
+    [
+      "truncated-invalid-wall-time-zero-exit",
+      '{"exit_code":0,"wall_time":"later","output":"#include <stdio.h>',
+    ],
+  ] as const) {
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:${id}`,
+        taskId: `task:evidence:${id}`,
+        timestamp,
+        type: "task.updated",
+        title: "bash failure",
+        summary,
+        status: "failed",
+        toolFamily: "bash",
+      })?.kind,
+      "unclassified_failure",
+      `${id} should not become routine success`,
+    );
+  }
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-structured-extra-key",
+      taskId: "task:evidence:truncated-structured-extra-key",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: '{"status":"failed","wall_time":"0.0510 seconds","output":"#include <stdio.h>',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "truncated recovery should not repair arbitrary JSON-like payloads",
+  );
 });
 
 test("task failure evidence keeps invalid structured output high and unclassified", () => {
   for (const [id, summary] of [
     ["malformed-json", '{"wall_time":"0.1 seconds","output":"ok"'],
     ["array-json", '["0.1 seconds", "ok"]'],
-    ["empty-object", "{}"],
     ["missing-output", '{"wall_time":"0.1 seconds"}'],
     ["wrong-output-type", '{"wall_time":"0.1 seconds","output":12}'],
     ["wrong-wall-time-type", '{"wall_time":0.1,"output":"ok"}'],
@@ -556,6 +699,14 @@ test("task failure evidence keeps invalid structured output high and unclassifie
     ["trailing-wall-time", '{"wall_time":"0.1 seconds later","output":"ok"}'],
     ["invalid-exit-code", '{"exit_code":"ok","wall_time":"0.1 seconds","output":"ok"}'],
     ["extra-status-key", '{"status":"failed","wall_time":"0.1 seconds","output":"ok"}'],
+    [
+      "extra-status-key-zero-exit",
+      '{"status":"ok","exit_code":0,"wall_time":"0.1 seconds","output":"patch applied successfully"}',
+    ],
+    [
+      "marked-truncated-output-without-wall-time",
+      '{"exit_code":0,"output":"patch applied successfully","truncated":true}',
+    ],
   ] as const) {
     assert.equal(
       readTaskFailureSemanticEvidence({
@@ -571,6 +722,33 @@ test("task failure evidence keeps invalid structured output high and unclassifie
       "unclassified_failure",
     );
   }
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:empty-object",
+      taskId: "task:evidence:empty-object",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: "{}",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "empty_failure_payload",
+    "empty payloads should be classified but not downgraded",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:empty-object-unknown-tool",
+      taskId: "task:evidence:empty-object-unknown-tool",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary: "{}",
+      status: "failed",
+    })?.kind,
+    "unclassified_failure",
+    "empty payload classification requires explicit tool-family evidence",
+  );
 });
 
 test("task failure evidence preserves current observational classes", () => {
@@ -1013,6 +1191,19 @@ test("task failure evidence preserves current observational classes", () => {
       type: "task.updated",
       title: "search failure",
       summary: "2126-| S_MIN_F32 | S_CMP_LE_F32 |\n2127-| S_MAX_F32 | S_CMP_GT_F32 |",
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "routine_search_output",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:inline-grep-context-output",
+      taskId: "task:evidence:inline-grep-context-output",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary: "2126-| S_MIN_F32 | S_CMP_LE_F32 | 2127-| S_MAX_F32 | S_CMP_GT_F32 |",
       status: "failed",
       toolFamily: "search",
     })?.kind,

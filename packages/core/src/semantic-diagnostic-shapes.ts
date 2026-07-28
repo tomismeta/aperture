@@ -20,6 +20,8 @@ export function hasStrongRuntimeDiagnosticEvidence(text: string): boolean {
       /\bapply_patch verification failed\b/i,
       /\bsegmentation fault\b/i,
       /\bsymbol lookup error\b/i,
+      /\blibrary load error\b/i,
+      /\bcannot open shared object file\b/i,
       /\bcommand not found\b/i,
       /(?:^|[\r\n])\s*(?:[^\r\n:]+:\s*)*(?:permission denied|operation not permitted)\b/i,
       /(?:^|[\r\n])\s*(?:uncaught|unhandled)\s+exception\b/i,

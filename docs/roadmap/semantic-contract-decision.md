@@ -243,9 +243,9 @@ Core semantic changes:
 
 Lab impact:
 
-- semantic review candidate reports are schema v3
-- `structured_tool_output_observation` is a new internal failed-task evidence
-  kind
+- semantic review candidate reports are schema v4
+- `structured_tool_output_observation` and `empty_failure_payload` are new
+  internal failed-task evidence kinds
 - retained examples and counts include the new evidence kind; this is a Lab
   report schema change, not a public npm SDK change
 
@@ -262,6 +262,31 @@ Representative corpus checkpoint:
   86 observational payloads, and 11 routine search outputs; the representative
   public checkpoint contains no structured bash output observations after the
   stricter diagnostic pass
+
+Transport summary boundary:
+
+- public trajectory importers must preserve `sourceEvent.summary` as semantic
+  input up to the work-event summary contract limit; 220/240 character clipping
+  is reserved for human-facing excerpts
+- structured tool-output summaries must remain valid JSON when clipped; only the
+  `output` field may be shortened, while `exit_code` and `wall_time` remain
+  parseable
+- core may treat malformed structured prefixes as terminal only when a visible
+  nonzero exit or strong diagnostic is present; incomplete source-shaped
+  prefixes must not become observational evidence
+- exact empty failed tool payloads are classified as a known high-consequence
+  transport-empty failure shape, not as observation
+
+Matched reimport checkpoint:
+
+- on the original DataClaw offset-6 record set, the old importer produced 269
+  invalid JSON-like failed summaries across 295 failed updates
+- the fixed importer produced 0 invalid JSON-like failed summaries on the same
+  19 sessions; all 269 long structured summaries remained parseable JSON
+- unclassified failed updates on that matched set dropped from 192 to 105
+- structured tool-output observations moved from 0 to 69, terminal failures from
+  100 to 113, routine search outputs from 3 to 4, and observational payloads
+  from 0 to 4 without adding product-specific phrase rules
 
 ## Human Input Contract
 

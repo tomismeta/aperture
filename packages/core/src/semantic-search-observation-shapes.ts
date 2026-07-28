@@ -10,7 +10,7 @@ export function looksLikeSearchResultObservation(normalizedText: string, rawText
 }
 
 function looksLikeRepeatedGrepContextOutput(text: string): boolean {
-  const matches = text.match(/(?:^|\r?\n)\s*\d+-\|\s+\S/g);
+  const matches = text.match(/(?:^|\s)\d+[-:]\|\s+\S/g);
   return (matches?.length ?? 0) >= 2;
 }
 

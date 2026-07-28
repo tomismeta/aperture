@@ -38,9 +38,18 @@ export function hasStrongRuntimeDiagnosticEvidence(text: string): boolean {
       /(?:^|[\r\n])\s*(?:file does not exist|unrecognized arguments)\b/i,
       /\b(?:exit code|exit_code|exit-code|exited with code|exit status|exited with status|return code|return_code|returned code)\s*(?:is|was)?\s*-?[1-9]\d*\b/i,
     ].some((pattern) => pattern.test(text)) ||
+    looksLikeCMakeError(text) ||
     looksLikePackageManagerError(text) ||
     looksLikeCompilerError(text) ||
     looksLikeRuntimeError(text)
+  );
+}
+
+function looksLikeCMakeError(text: string): boolean {
+  const errorAtLocation = /CMake Error at \S+:\d+\s+\(/i;
+  return (
+    /(?:^|[\r\n])\s*CMake Error at \S+:\d+\s+\(/i.test(text) ||
+    (/(?:^|[\r\n])\s*total output lines:\s*\d+\b/i.test(text) && errorAtLocation.test(text))
   );
 }
 

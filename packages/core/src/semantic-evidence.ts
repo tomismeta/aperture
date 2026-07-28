@@ -33,6 +33,7 @@ import {
   looksLikeStrongRawSourceObservation,
   looksLikeStructuredToolOutputObservation,
 } from "./semantic-observation-shapes.js";
+import { looksLikeReadTruncationProtocolObservation } from "./semantic-read-observation-shapes.js";
 import { looksLikeSearchResultObservation } from "./semantic-search-observation-shapes.js";
 import {
   looksLikeStructuredToolOutputEnvelope,
@@ -167,7 +168,10 @@ export function readTaskFailureSemanticEvidence(
     toolFamily === "read" && looksLikeStrongRawSourceObservation(event.summary ?? "");
   const rawReadListingObservation =
     toolFamily === "read" && looksLikeTruncatedRawReadListingObservation(event.summary ?? "");
-  const rawReadStructuredObservation = rawReadSourceObservation || rawReadListingObservation;
+  const rawReadTruncationObservation =
+    toolFamily === "read" && looksLikeReadTruncationProtocolObservation(event.summary ?? "");
+  const rawReadStructuredObservation =
+    rawReadSourceObservation || rawReadListingObservation || rawReadTruncationObservation;
   const zeroExitStructuredToolOutput = diagnosticStructuredToolOutput?.exitCode === 0;
   const searchOutputObservation = toolFamily === "search" && text.searchResultOutput;
   const searchFailureDiagnostic =
@@ -227,6 +231,16 @@ export function readTaskFailureSemanticEvidence(
     };
   }
 
+  if (rawReadTruncationObservation) {
+    return {
+      kind: "observational_payload",
+      toolFamily: "read",
+      readsAsObservation: true,
+      consequenceBaseline: "low",
+      text,
+    };
+  }
+
   if (
     supportsStructuredToolOutput &&
     diagnosticStructuredToolOutput &&
@@ -280,7 +294,8 @@ export function readTaskFailureSemanticEvidence(
     (text.observationalReadback ||
       text.taggedFileObservation ||
       text.readObservationPayload ||
-      rawReadListingObservation)
+      rawReadListingObservation ||
+      rawReadTruncationObservation)
   ) {
     return {
       kind: "observational_payload",

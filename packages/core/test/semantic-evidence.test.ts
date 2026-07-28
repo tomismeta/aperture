@@ -2130,6 +2130,270 @@ test("observational status-conflict evidence includes structural read documents 
   );
 });
 
+test("observational status-conflict evidence includes corpus-derived event shapes conservatively", () => {
+  const readTruncationNotice =
+    "IMPORTANT: The file content has been truncated. Status: Showing lines 1-2000 of 5755 total lines. Action: To read more of the file, you can use the 'offset' and 'limit' parameters.";
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-read-truncation-protocol",
+      taskId: "task:evidence:raw-read-truncation-protocol",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary: readTruncationNotice,
+      status: "failed",
+      toolFamily: "read",
+    })?.consequenceBaseline,
+    "low",
+    "raw read truncation protocol notices are low-consequence observations",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-read-truncation-protocol",
+      taskId: "task:evidence:structured-read-truncation-protocol",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: `{"wall_time":"0.0510 seconds","output":"${readTruncationNotice}"}`,
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "medium",
+    "structured read truncation protocol notices are medium-consequence observations",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-multiple-includes",
+      taskId: "task:evidence:structured-multiple-includes",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"#include <torch/extension.h>\\n#include <ATen/cuda/CUDAContext.h>"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "line-anchored include clusters are source observations",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-spdx-header",
+      taskId: "task:evidence:structured-spdx-header",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"// SPDX-License-Identifier: GPL-2.0 OR MIT\\n/* driver declarations follow */"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "SPDX headers are source observations",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-embedded-git-patch",
+      taskId: "task:evidence:structured-embedded-git-patch",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"commit b878abc1234\\nAuthor: dev\\n\\nfix driver\\n\\ndiff --git a/drivers/gpu.c b/drivers/gpu.c\\nindex beb9d12..fd79abc 100644\\n--- a/drivers/gpu.c\\n+++ b/drivers/gpu.c"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "embedded commit patches require commit, diff, and index anchors",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-embedded-git-patch-without-commit",
+      taskId: "task:evidence:structured-embedded-git-patch-without-commit",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"Patch follows\\n\\ndiff --git a/drivers/gpu.c b/drivers/gpu.c\\nindex beb9d12..fd79abc 100644\\n--- a/drivers/gpu.c\\n+++ b/drivers/gpu.c"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "embedded patches require diff and index anchors without requiring a commit header",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-flattened-numbered-source",
+      taskId: "task:evidence:structured-flattened-numbered-source",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"520 temp = get_value(); 521 if (temp > limit) 522 break;"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "flattened numbered source requires monotone spans and source statement grammar",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-kernel-log",
+      taskId: "task:evidence:structured-kernel-log",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"[ 510.963965] amdgpu ring comp_1 uses VM inv eng 10 [ 511.002010] amdgpu ring gfx_0 uses VM inv eng 0"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "medium",
+    "flattened kernel logs require repeated dmesg timestamp entries",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-numbered-kernel-log",
+      taskId: "task:evidence:structured-numbered-kernel-log",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"Total output lines: 464 1:[ 187.250342] amdgpu started 2:[ 187.260342] amdgpu ready"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "medium",
+    "numbered flattened kernel logs require total-output and repeated dmesg entries",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-cmake-warning-log",
+      taskId: "task:evidence:structured-cmake-warning-log",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"Total output lines: 431\\nBuilding ROCr Runtime\\nCMake Deprecation Warning at CMakeLists.txt:44 (cmake_minimum_required): compatibility note"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "medium",
+    "CMake warning logs require total-output and CMake warning location grammar",
+  );
+
+  for (const [id, summary] of [
+    [
+      "invalid-read-truncation-bounds",
+      readTruncationNotice.replace("1-2000 of 5755", "2000-1 of 5755"),
+    ],
+    [
+      "overflow-read-truncation-bounds",
+      readTruncationNotice.replace("1-2000 of 5755", "1-2000 of 1999"),
+    ],
+    [
+      "mixed-read-truncation-parameters",
+      readTruncationNotice.replace("'offset' and 'limit'", "'offset' and 'end_line'"),
+    ],
+    ["trailing-read-truncation-prose", `${readTruncationNotice} This may need review.`],
+    ["single-include", "#include <torch/extension.h>"],
+    ["include-prose", "Please add #include <a.h> and #include <b.h> before rebuilding"],
+    ["bare-license-prose", "Copyright 2026 Example. Permission is hereby granted."],
+    ["unclosed-license-comment", "/* Copyright 2026 Example. Permission is hereby granted."],
+    [
+      "patch-prose-without-index",
+      "Patch includes diff --git a/src/app.ts b/src/app.ts but no index line",
+    ],
+    ["short-numbered-source", "520 temp = get_value(); 521 if (temp > limit)"],
+    ["nonmonotone-numbered-source", "520 temp = get_value(); 519 if (temp > limit) 521 break;"],
+    ["numbered-assignment-prose", "1 task = pending 2 status = ready 3 return to menu;"],
+    [
+      "ordered-list-source-words",
+      "1. if the value is high\\n2. return to the menu\\n3. break the work apart",
+    ],
+    ["json-numeric-keys", '{"1":"return 0","2":"break","3":"continue"}'],
+    ["version-number-context", "1 2.3.4 release 2 10:30 build 3 notes only"],
+    [
+      "generic-colon-context",
+      "1450: context before line\\n1451: context after line\\n1452: context tail",
+    ],
+    ["single-kernel-timestamp", "[ 510.963965] amdgpu ring comp_1 uses VM inv eng 10"],
+    [
+      "cmake-warning-without-total-lines",
+      "CMake Deprecation Warning at CMakeLists.txt:44 (cmake_minimum_required): compatibility note",
+    ],
+  ] as const) {
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:${id}`,
+        taskId: `task:evidence:${id}`,
+        timestamp,
+        type: "task.updated",
+        title: "read failure",
+        summary,
+        status: "failed",
+        toolFamily: "read",
+      })?.kind,
+      "unclassified_failure",
+      `${id} should remain unclassified`,
+    );
+  }
+
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:source-string-cmake-error",
+      taskId: "task:evidence:source-string-cmake-error",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"const message = \\"CMake Error at CMakeLists.txt:44 (project)\\";"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "CMake error text inside source code is not a runtime diagnostic",
+  );
+
+  for (const [id, output] of [
+    [
+      "nonzero-flattened-source",
+      '{"exit_code":2,"wall_time":"0.0510 seconds","output":"520 temp = get_value(); 521 if (temp > limit) 522 break;"}',
+    ],
+    [
+      "source-plus-traceback",
+      '{"wall_time":"0.0510 seconds","output":"520 temp = get_value(); 521 if (temp > limit) 522 break;\\nTraceback (most recent call last): RuntimeError"}',
+    ],
+    [
+      "cmake-error",
+      '{"wall_time":"0.0510 seconds","output":"Total output lines: 431\\nCMake Error at CMakeLists.txt:44 (project): failed"}',
+    ],
+    [
+      "cmake-warning-plus-error",
+      '{"wall_time":"0.0510 seconds","output":"Total output lines: 431\\nCMake Warning at CMakeLists.txt:44 (project): compatibility note\\nCMake Error at CMakeLists.txt:45 (add_library): failed"}',
+    ],
+    [
+      "flattened-cmake-warning-plus-error",
+      '{"wall_time":"0.0510 seconds","output":"Total output lines: 431 CMake Warning at CMakeLists.txt:44 (project): compatibility note CMake Error at CMakeLists.txt:45 (add_library): failed"}',
+    ],
+  ] as const) {
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:${id}`,
+        taskId: `task:evidence:${id}`,
+        timestamp,
+        type: "task.updated",
+        title: "bash failure",
+        summary: output,
+        status: "failed",
+        toolFamily: "bash",
+      })?.kind,
+      "terminal_failure",
+      `${id} should stay terminal`,
+    );
+  }
+});
+
 test("routine observational status-conflict cannot be created by explanatory factors alone", () => {
   const event = {
     id: "evt:evidence:forged-observation-conflict",

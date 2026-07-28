@@ -1036,6 +1036,21 @@ test("task failure evidence classifies structured tool output without treating i
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:malformed-structured-final-brace-source",
+      taskId: "task:evidence:malformed-structured-final-brace-source",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"output":"diff --git a/src/app\\.ts b/src/app\\.ts\\n--- a/src/app\\.ts","wall_time":"0.0510 seconds"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "malformed structured envelopes can recover allowed suffix fields before the final brace",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:truncated-output-first-nonzero",
       taskId: "task:evidence:truncated-output-first-nonzero",
       timestamp,
@@ -1048,6 +1063,21 @@ test("task failure evidence classifies structured tool output without treating i
     })?.kind,
     "terminal_failure",
     "visible output-first nonzero exit metadata remains terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:malformed-output-first-nonzero-final-brace",
+      taskId: "task:evidence:malformed-output-first-nonzero-final-brace",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"output":"diff --git a/src/app\\.ts b/src/app\\.ts\\n--- a/src/app\\.ts","exit_code":2}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "visible output-first nonzero exit metadata remains terminal with final-brace recovery",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -1066,6 +1096,21 @@ test("task failure evidence classifies structured tool output without treating i
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:malformed-output-first-invalid-wall-time-final-brace",
+      taskId: "task:evidence:malformed-output-first-invalid-wall-time-final-brace",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"output":"diff --git a/src/app\\.ts b/src/app\\.ts\\n--- a/src/app\\.ts","wall_time":"later"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "invalid wall time still blocks final-brace recovery",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:truncated-output-first-unknown-key",
       taskId: "task:evidence:truncated-output-first-unknown-key",
       timestamp,
@@ -1081,6 +1126,21 @@ test("task failure evidence classifies structured tool output without treating i
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:malformed-output-first-unknown-key-final-brace",
+      taskId: "task:evidence:malformed-output-first-unknown-key-final-brace",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"output":"diff --git a/src/app\\.ts b/src/app\\.ts\\n--- a/src/app\\.ts","status":"ok"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "unknown suffix fields still block final-brace recovery",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:truncated-wall-exit-output-source",
       taskId: "task:evidence:truncated-wall-exit-output-source",
       timestamp,
@@ -1093,6 +1153,66 @@ test("task failure evidence classifies structured tool output without treating i
     })?.kind,
     "structured_tool_output_observation",
     "permuted wall-time and exit-code prefixes can recover source-shaped output",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:malformed-structured-line-numbered-document",
+      taskId: "task:evidence:malformed-structured-line-numbered-document",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1\\t# PC Sampling GFX1151\\n2\\t\\n3\\t## Goal\\n4\\t- produce a non-empty host-trap csv\\n5\\t- avoid GPU reset\\n6\\t```sh\\n7\\tmake test"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "medium",
+    "structured line-numbered markdown documents require headings plus list or fence structure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:malformed-structured-line-numbered-document-prose",
+      taskId: "task:evidence:malformed-structured-line-numbered-document-prose",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1\\t# Project Notes\\n2\\tordinary text only\\n3\\t## Details\\n4\\twithout repeated list or fence structure"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "line-numbered markdown headings alone are not enough",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:malformed-structured-line-numbered-document-nonmonotone",
+      taskId: "task:evidence:malformed-structured-line-numbered-document-nonmonotone",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1\\t# Project Notes\\n3\\t## Goal\\n2\\t- item one\\n4\\t- item two"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "line-numbered markdown documents require monotone line numbers",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:malformed-structured-kernel-diagnostic",
+      taskId: "task:evidence:malformed-structured-kernel-diagnostic",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0516 seconds","output":"[ 226.262885] amdxdna: *ERROR* SVA bind failed\\\\.\\n[ 226.287574] amdgpu: cleanup ready"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "malformed structured kernel diagnostics must not become observations",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -2254,6 +2374,51 @@ test("observational status-conflict evidence includes corpus-derived event shape
   );
   assert.deepEqual(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-block-spdx-license-header",
+      taskId: "task:evidence:structured-block-spdx-license-header",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"/* SPDX-License-Identifier: GPL-2.0 OR MIT */\\n/*\\n * Copyright 2014-2022 Advanced Micro Devices, Inc.\\n * Permission is hereby granted"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "block SPDX license headers are source observations",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-banner-license-header",
+      taskId: "task:evidence:structured-banner-license-header",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"////////////////////////////////////////////////////////////////////////////////\\n//\\n// The University of Illinois/NCSA\\n// Open Source License (NCSA)\\n// Copyright (c) 2024 Example"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "banner line-comment license headers are source observations",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-read-flattened-license-header",
+      taskId: "task:evidence:raw-read-flattened-license-header",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "// Copyright (c) 2010-2024 Example. Produced // at the Example Laboratory. // This file is part of the Example project.",
+      status: "failed",
+      toolFamily: "read",
+    })?.consequenceBaseline,
+    "high",
+    "flattened source comment license headers are raw read source observations",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:structured-line-numbered-license-header",
       taskId: "task:evidence:structured-line-numbered-license-header",
       timestamp,
@@ -2326,6 +2491,111 @@ test("observational status-conflict evidence includes corpus-derived event shape
     })?.consequenceBaseline,
     "high",
     "line-numbered source fragments require monotone source-shaped spans",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-line-numbered-assembly-source",
+      taskId: "task:evidence:structured-line-numbered-assembly-source",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"480\\t s_mov_b32 ttmp6, ttmp13\\n482\\t.pc_sampling_exit:\\n485\\t s_getreg_b32 ttmp2, hwreg(HW_REG_TRAPSTS)"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "line-numbered assembly excerpts are source observations",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-plain-assembly-source",
+      taskId: "task:evidence:structured-plain-assembly-source",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"s_mul_i32 ttmp13, ttmp13, ttmp7\\ns_mul_i32 ttmp4, ttmp13, 0x40\\ns_mul_hi_u32 ttmp5, ttmp13, 0x40\\n.endif\\ns_add_u32 ttmp4, ttmp4, 0x40"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "plain assembly excerpts need repeated instruction and directive evidence",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-read-assembly-source",
+      taskId: "task:evidence:raw-read-assembly-source",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "v_mov_b32 v2, ttmp8\nflat_store_dword v[0:1], v2 glc slc\ns_add_u32 ttmp0, ttmp0, 0x4\ns_addc_u32 ttmp1, ttmp1, 0",
+      status: "failed",
+      toolFamily: "read",
+    })?.consequenceBaseline,
+    "high",
+    "raw read assembly excerpts are source observations",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-c-like-return-source",
+      taskId: "task:evidence:structured-c-like-return-source",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"}\\n/* Allocation not found */\\ninfo->type = HSA_EXT_POINTER_TYPE_UNKNOWN;\\nreturn HSA_STATUS_ERROR;\\n}\\nhsa_status_t status = HSA_STATUS_SUCCESS;"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "mid-block C-like return fragments are source observations",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-c-like-diagnostic-string-source",
+      taskId: "task:evidence:structured-c-like-diagnostic-string-source",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"dev_err(dev, \\"Failed to flush TC\\\\n\\");\\nkfd_flush_tlb(qpd_to_pdd(qpd), TLB_FLUSH_LEGACY);\\nset_pasid_vmid_mapping(dqm, 0, qpd->vmid);\\ndqm->vmid = qpd->vmid;"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "diagnostic words inside C-like source strings do not make the source readback terminal",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-c-like-std-source",
+      taskId: "task:evidence:structured-c-like-std-source",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"std::memset(&ret, 0, sizeof(PcSamplingRecordT));\\nret.size = sizeof(PcSamplingRecordT);\\nret.wave_in_group = sample.wave_id;\\nret.dispatch_id = correlation_id;"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "std/member C-like fragments are source observations",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-c-like-access-source",
+      taskId: "task:evidence:structured-c-like-access-source",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"private:\\nstd::unordered_map<DispatchPkt, dispatch_correlation_ids_t> dispatch_to_correlation{};\\nstd::atomic<size_t> cache_reset_count{1};\\nsize_t object_id = 0;\\nstd::mutex mut;"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "C++ access-label fragments with declarations are source observations",
   );
   assert.deepEqual(
     readTaskFailureSemanticEvidence({
@@ -2538,6 +2808,7 @@ test("observational status-conflict evidence includes corpus-derived event shape
     ["include-prose", "Please add #include <a.h> and #include <b.h> before rebuilding"],
     ["short-flattened-include-cluster", '#include "a.h" #include "b.h" before rebuilding'],
     ["bare-license-prose", "Copyright 2026 Example. Permission is hereby granted."],
+    ["markdown-license-prose", "# Copyright Notes\nPermission is hereby granted in prose."],
     ["unclosed-license-comment", "/* Copyright 2026 Example. Permission is hereby granted."],
     ["single-numbered-license-line", "1 // SPDX-License-Identifier: GPL-2.0 OR MIT"],
     [
@@ -2546,6 +2817,10 @@ test("observational status-conflict evidence includes corpus-derived event shape
     ],
     ["short-numbered-source", "520 temp = get_value(); 521 if (temp > limit)"],
     ["nonmonotone-numbered-source", "520 temp = get_value(); 519 if (temp > limit) 521 break;"],
+    [
+      "nonmonotone-numbered-c-like-source-fragment",
+      "3 info->type = HSA_EXT_POINTER_TYPE_UNKNOWN;\n1 return HSA_STATUS_ERROR;\n2 dqm->vmid = qpd->vmid;\n4 std::memset(&ret, 0, sizeof(PcSamplingRecordT));",
+    ],
     ["two-span-line-numbered-source", "1 #!/bin/bash\n2 set -euo pipefail"],
     ["nonmonotone-line-numbered-source", '1 #!/bin/bash\n3 set -euo pipefail\n2 ROOT_DIR="$PWD"'],
     ["numbered-assignment-prose", "1 task = pending 2 status = ready 3 return to menu;"],
@@ -2559,6 +2834,22 @@ test("observational status-conflict evidence includes corpus-derived event shape
       "1 Please call Foo()\n2 Then run Bar()\n3 Please call Baz()",
     ],
     ["numbered-prose-with-brace", "1 int this is prose\n2 }\n3 continue with setup"],
+    ["single-assembly-directive", ".set VALUE, 1"],
+    ["single-assembly-label", "trap_entry:"],
+    ["two-line-assembly-looking-source", "s_mov_b32 ttmp6, ttmp13\ns_waitcnt lgkmcnt(0)"],
+    [
+      "nonmonotone-numbered-assembly",
+      "1 s_mov_b32 ttmp6, ttmp13\n3 s_waitcnt lgkmcnt(0)\n2 s_branch .done",
+    ],
+    ["numbered-assembly-prose", "1 mov forward\n2 add context\n3 return later"],
+    [
+      "markdown-directive-prose",
+      "# Assembly Notes\n.if is discussed here\n- mov means move in prose",
+    ],
+    [
+      "shell-set-log",
+      "set -euo pipefail\nmake[1]: Entering directory '/repo'\nwarning: compiler differs",
+    ],
     [
       "ordered-list-source-words",
       "1. if the value is high\\n2. return to the menu\\n3. break the work apart",
@@ -2587,6 +2878,18 @@ test("observational status-conflict evidence includes corpus-derived event shape
       "unnumbered-mid-block-source-fragment",
       'dev_err(dev, "Failed to flush TC");\\nkfd_flush_tlb(qpd, TLB_FLUSH_LEGACY);\\nset_pasid_vmid_mapping(dqm, 0, qpd->vmid);',
     ],
+    [
+      "three-line-c-like-source-fragment",
+      "info->type = HSA_EXT_POINTER_TYPE_UNKNOWN;\nreturn HSA_STATUS_ERROR;\n}",
+    ],
+    [
+      "c-like-prose-functions",
+      "Please call reset_queue(dev);\nThen call flush(dev);\nNow return later;",
+    ],
+    ["markdown-c-like-list", "- if (ready) {\n- return ok;\n- flush_queue(dev);"],
+    ["markdown-c-like-fence", "```c\nif (ready) {\nreturn ok;\n}\n```"],
+    ["single-source-location-row", "/tmp/source.cpp:12: flush_queue(dev);"],
+    ["json-c-like-fragment", '{"output":"ret.size = sizeof(PcSamplingRecordT);"}'],
     ["single-kernel-timestamp", "[ 510.963965] amdgpu ring comp_1 uses VM inv eng 10"],
     [
       "markdown-table-with-one-body-row",
@@ -2691,6 +2994,34 @@ test("observational status-conflict evidence includes corpus-derived event shape
     })?.kind,
     "unclassified_failure",
     "numbered kernel BUG lockup logs must not become observational payloads",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:assembly-error-label",
+      taskId: "task:evidence:assembly-error-label",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary: "error:\nfatal:\nwarning:\ns_mov_b32 ttmp6, ttmp13",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "terminal_failure",
+    "error and fatal labels must not become source observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:c-like-compiler-diagnostic",
+      taskId: "task:evidence:c-like-compiler-diagnostic",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary: "src/source.cpp:12: error: expected ';'\nsrc/source.cpp:13: warning: unused value",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "terminal_failure",
+    "compiler diagnostics must not become source observations",
   );
 
   for (const [id, output] of [

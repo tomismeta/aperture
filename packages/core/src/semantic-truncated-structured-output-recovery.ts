@@ -53,6 +53,9 @@ function readVisibleSuffixFields(value: string): PartialEnvelopeFields | null {
   const fields: PartialEnvelopeFields = {};
 
   while (rest.length > 0) {
+    if (rest === "}") {
+      return fields;
+    }
     const keyMatch = /^,\s*"([a-z_]+)"\s*:\s*/.exec(rest);
     if (!keyMatch) {
       return null;
@@ -100,7 +103,7 @@ function readSuffixExitCode(value: string): { exitCode: number; rest: string } |
   if (match === null || exitCode === null) {
     return null;
   }
-  return { exitCode, rest: readSuffixRest(value.slice(match[0].length)) };
+  return { exitCode, rest: value.slice(match[0].length).trim() };
 }
 
 function readSuffixWallTime(value: string): { wallTime: string; rest: string } | null {
@@ -109,16 +112,12 @@ function readSuffixWallTime(value: string): { wallTime: string; rest: string } |
   if (!match || !looksLikeWallTime(wallTime)) {
     return null;
   }
-  return { wallTime, rest: readSuffixRest(value.slice(match[0].length)) };
+  return { wallTime, rest: value.slice(match[0].length).trim() };
 }
 
 function readSuffixTruncated(value: string): string | null {
   const match = /^true\b/.exec(value);
-  return match ? readSuffixRest(value.slice(match[0].length)) : null;
-}
-
-function readSuffixRest(value: string): string {
-  return value.trim();
+  return match ? value.slice(match[0].length).trim() : null;
 }
 
 function readJsonStringPrefix(value: string): { text: string; suffix: string } {

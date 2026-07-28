@@ -1,3 +1,5 @@
+import { looksLikeLineNumberedMarkdownDocumentObservation } from "./semantic-line-numbered-document-observation-shapes.js";
+
 export function looksLikeMarkdownDocumentObservation(text: string): boolean {
   const normalized = stripObservationStatusPrefix(text);
   const headingCount = [...normalized.matchAll(/(?:^|[\r\n])\s{0,3}#{1,6}\s+\S/g)].length;
@@ -10,7 +12,9 @@ export function looksLikeMarkdownDocumentObservation(text: string): boolean {
 export function looksLikeStructuredMarkdownDocumentObservation(text: string): boolean {
   const normalized = stripObservationStatusPrefix(text);
   return (
-    looksLikeMarkdownTableObservation(normalized) || looksLikeMarkdownDocumentObservation(text)
+    looksLikeMarkdownTableObservation(normalized) ||
+    looksLikeLineNumberedMarkdownDocumentObservation(normalized) ||
+    looksLikeMarkdownDocumentObservation(text)
   );
 }
 

@@ -1,6 +1,9 @@
+import { looksLikeAssemblySourceObservation } from "./semantic-assembly-source-observation-shapes.js";
+import { looksLikeCLikeSourceFragmentObservation } from "./semantic-c-like-source-observation-shapes.js";
 import {
   looksLikeFlattenedIncludeSourceCluster,
   looksLikeLineNumberedSourceLicenseHeader,
+  looksLikeSourceLicenseCommentHeader,
 } from "./semantic-source-header-observation-shapes.js";
 
 export function looksLikeStrongRawSourceObservation(value: string): boolean {
@@ -11,8 +14,10 @@ export function looksLikeStrongRawSourceObservation(value: string): boolean {
 
   return (
     looksLikeRawSourcePrefix(text) ||
+    looksLikeAssemblySourceObservation(text) ||
+    looksLikeCLikeSourceFragmentObservation(text) ||
     looksLikeLineNumberedSourceFragment(text) ||
-    looksLikeSourceLicenseHeader(text) ||
+    looksLikeSourceLicenseCommentHeader(text) ||
     looksLikeLineNumberedSourceLicenseHeader(text) ||
     looksLikeMultipleIncludeDirectives(text) ||
     looksLikeFlattenedIncludeSourceCluster(text) ||
@@ -30,16 +35,6 @@ function stripObservationStatusPrefix(value: string): string {
 function looksLikeRawSourcePrefix(text: string): boolean {
   return /^\s*(?:#!\/|diff\s+--git\b|---\s+\S|@@\s+|#ifndef\b|#pragma\s+once\b|cmake_minimum_required\s*\(|import\b|from\b|class\b|def\b|function\b|export\b|const\b|let\b|var\b|interface\b|type\b|struct\b|enum\b|void\b|static\b)/i.test(
     text,
-  );
-}
-
-function looksLikeSourceLicenseHeader(text: string): boolean {
-  const blockComment = /^\s*\/\*([\s\S]{0,600}?)\*\//.exec(text);
-
-  return (
-    /^\s*\/\/\s*SPDX-License-Identifier:\s*\S/i.test(text) ||
-    (blockComment !== null &&
-      /\b(?:copyright|permission is hereby granted)\b/i.test(blockComment[1] ?? ""))
   );
 }
 

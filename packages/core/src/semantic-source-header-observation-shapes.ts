@@ -33,3 +33,36 @@ export function looksLikeLineNumberedSourceLicenseHeader(text: string): boolean 
     )
   );
 }
+
+export function looksLikeSourceLicenseCommentHeader(text: string): boolean {
+  const trimmed = text.trim();
+  const blockComment = /^\s*\/\*([\s\S]{0,900}?)\*\//.exec(trimmed);
+
+  return (
+    /^\s*\/\/\s*SPDX-License-Identifier:\s*\S/i.test(trimmed) ||
+    (blockComment !== null && LICENSE_HEADER_PATTERN.test(blockComment[1] ?? "")) ||
+    looksLikeMultilineCommentLicenseHeader(trimmed) ||
+    looksLikeFlattenedCommentLicenseHeader(trimmed)
+  );
+}
+
+function looksLikeMultilineCommentLicenseHeader(text: string): boolean {
+  const head = text.split(/\r?\n/).slice(0, 12);
+  const commentLines = head.filter((line) => /^\s*(?:\/\/+|#)\s*(?:\S|$)/.test(line)).length;
+
+  return commentLines >= 3 && LICENSE_HEADER_PATTERN.test(head.join("\n"));
+}
+
+function looksLikeFlattenedCommentLicenseHeader(text: string): boolean {
+  if (!/^\s*(?:\/\/|#)\s+/.test(text)) {
+    return false;
+  }
+
+  return (
+    [...text.slice(0, 900).matchAll(/(?:^|\s)(?:\/\/|#)\s+/g)].length >= 3 &&
+    LICENSE_HEADER_PATTERN.test(text.slice(0, 900))
+  );
+}
+
+const LICENSE_HEADER_PATTERN =
+  /\b(?:SPDX-License-Identifier|copyright|permission is hereby granted|open source license)\b/i;

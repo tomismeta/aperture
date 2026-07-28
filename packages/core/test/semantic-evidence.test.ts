@@ -498,6 +498,110 @@ test("task failure evidence classifies structured tool output without treating i
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-rg-io-error",
+      taskId: "task:evidence:structured-rg-io-error",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"rg: /tmp/dmesg.log: IO error for operation on /tmp/dmesg.log: Input/output error"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "structured ripgrep IO diagnostics should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-rg-io-error",
+      taskId: "task:evidence:truncated-rg-io-error",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"rg: /tmp/dmesg.log: IO error for operation on /tmp/dmesg.log: Input/output...',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "recovered ripgrep IO diagnostics should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:read-rg-io-error",
+      taskId: "task:evidence:read-rg-io-error",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary: "rg: /tmp/dmesg.log: IO error for operation on /tmp/dmesg.log: Input/output error",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "unclassified_failure",
+    "raw reads do not inherit structured tool-output ripgrep diagnostics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-rg-io-error-prose",
+      taskId: "task:evidence:structured-rg-io-error-prose",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"The note says rg: /tmp/dmesg.log: IO error for operation on /tmp/dmesg.log."}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "ripgrep IO diagnostics must be anchored at the diagnostic line start",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-rg-io-error-source-string",
+      taskId: "task:evidence:structured-rg-io-error-source-string",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"const message = \\"rg: /tmp/dmesg.log: IO error for operation on /tmp/dmesg.log\\";\\nreturn message;"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "source string literals mentioning ripgrep diagnostics stay observational",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-rg-warning",
+      taskId: "task:evidence:structured-rg-warning",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"rg: warning: /tmp/dmesg.log was ignored by a glob pattern"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "ripgrep warnings without the IO diagnostic phrase stay unclassified",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-grep-io-error",
+      taskId: "task:evidence:structured-grep-io-error",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"grep: /tmp/dmesg.log: IO error for operation on /tmp/dmesg.log: Input/output error"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "non-ripgrep prefixes are not promoted by the ripgrep-specific diagnostic",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:structured-source-plus-traceback",
       taskId: "task:evidence:structured-source-plus-traceback",
       timestamp,

@@ -7,12 +7,14 @@ export const KERNEL_CORPUS_SCENARIO_IDS = [
   "golden:kernel-corpus:forged-observation-hint-keeps-failed-routing",
   "golden:kernel-corpus:interleaved-supersede-with-background-noise",
   "golden:kernel-corpus:metadata-heavy-status-noise-stays-ambient",
+  "golden:kernel-corpus:observational-status-conflict-preserves-high",
   "golden:kernel-corpus:repeated-failure-refreshes-current-episode",
   "golden:kernel-corpus:repeated-low-confidence-failures-stay-queued",
   "golden:kernel-corpus:repeated-status-delivery-stays-one-ambient-frame",
   "golden:kernel-corpus:resolution-after-active-failure-clears-focus",
   "golden:kernel-corpus:running-blocked-wording-activates-empty-slot",
   "golden:kernel-corpus:source-risk-outranks-low-confidence-hint",
+  "golden:kernel-corpus:source-shaped-runtime-terminal-stays-failure",
   "golden:kernel-corpus:superseding-approval-clears-obsolete-queued-step",
   "golden:kernel-corpus:waiting-wording-blocked-under-absence",
 ] as const;
@@ -23,6 +25,7 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
     scenarioIds: [
       "golden:kernel-corpus:alarmist-read-approval-stays-low-risk",
       "golden:kernel-corpus:forged-observation-hint-keeps-failed-routing",
+      "golden:kernel-corpus:source-shaped-runtime-terminal-stays-failure",
       "golden:kernel-corpus:source-risk-outranks-low-confidence-hint",
     ],
   },
@@ -40,7 +43,9 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
       "golden:kernel-corpus:failed-status-routine-observation-stays-ambient",
       "golden:kernel-corpus:forged-observation-hint-keeps-failed-routing",
       "golden:kernel-corpus:metadata-heavy-status-noise-stays-ambient",
+      "golden:kernel-corpus:observational-status-conflict-preserves-high",
       "golden:kernel-corpus:interleaved-supersede-with-background-noise",
+      "golden:kernel-corpus:source-shaped-runtime-terminal-stays-failure",
       "golden:kernel-corpus:repeated-status-delivery-stays-one-ambient-frame",
     ],
   },
@@ -49,6 +54,7 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
     scenarioIds: [
       "golden:kernel-corpus:failed-status-routine-observation-stays-ambient",
       "golden:kernel-corpus:forged-observation-hint-keeps-failed-routing",
+      "golden:kernel-corpus:observational-status-conflict-preserves-high",
     ],
   },
   {

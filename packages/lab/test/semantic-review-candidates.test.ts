@@ -415,7 +415,7 @@ test("semantic review candidate reports shortlist deterministic review pressure"
     repoRoot: tempDir,
   });
 
-  assert.equal(report.schemaVersion, 2);
+  assert.equal(report.schemaVersion, 3);
   assert.equal(report.selection.promotionAuthority, "review_required");
   assert.equal(report.selection.maxFailureEvidenceExamplesPerKind, 2);
   assert.equal(report.selection.maxFailureEvidenceExamplesPerSessionPerKind, 1);

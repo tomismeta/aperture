@@ -1,0 +1,78 @@
+{
+  "id": "golden:kernel-corpus:observational-status-conflict-preserves-high",
+  "title": "Observational status conflict preserves high consequence",
+  "description": "Raw source readback reported through a failed status remains observational while keeping high consequence and interruptive visibility.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "semantic_normalization",
+    "status_noise",
+    "observational_status_conflict"
+  ],
+  "semanticFamilies": ["consequence_underread"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:task:corpus:raw-source-high-observation:status",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "raw source high observation",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "toolFamily": "read",
+        "consequence": "high",
+        "confidence": "high",
+        "factorsInclude": ["observational_failure"],
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "high",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "inferred"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "raw source high observation",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "semanticConfidence": "high",
+        "decisionRecordReasonCodesInclude": ["route:activate", "lane:now", "policy:may_interrupt"],
+        "semanticInfluenceIncludes": [
+          "engine-owned observational evidence resolved noisy failed-status routing as status handling"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "observational status conflict (judgment routing)"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "raw source high observation",
+      "event": {
+        "id": "evt:corpus:raw-source-high-observation",
+        "type": "task.updated",
+        "taskId": "task:corpus:raw-source-high-observation",
+        "timestamp": "2026-04-18T15:05:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "read failure",
+        "summary": "#include <stdio.h>\nint main() { return 0; }",
+        "status": "failed",
+        "toolFamily": "read"
+      }
+    }
+  ]
+}

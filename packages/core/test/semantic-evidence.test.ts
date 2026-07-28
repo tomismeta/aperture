@@ -91,7 +91,7 @@ test("semantic text evidence handles terminal polarity conservatively", () => {
   assert.equal(exitCodeZero.routineSuccessObservation, true);
   assert.equal(exitCodeZero.terminalFailureEvidence, false);
   assert.equal(exitCodeZeroWithIssue.routineSuccessObservation, false);
-  assert.equal(exitCodeZeroWithIssue.terminalFailureEvidence, false);
+  assert.equal(exitCodeZeroWithIssue.terminalFailureEvidence, true);
   assert.equal(exitCodeZeroWithConnector.routineSuccessObservation, true);
   assert.equal(exitCodeZeroWithConnector.terminalFailureEvidence, false);
   assert.equal(jsonExitCodeZero.routineSuccessObservation, true);
@@ -258,7 +258,7 @@ test("task failure evidence separates zero exit and expected diagnostics from te
       status: "failed",
       toolFamily: "bash",
     })?.kind,
-    "unclassified_failure",
+    "terminal_failure",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -273,6 +273,304 @@ test("task failure evidence separates zero exit and expected diagnostics from te
     })?.kind,
     "terminal_failure",
   );
+});
+
+test("task failure evidence classifies structured tool output without treating it as success", () => {
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-output",
+      taskId: "task:evidence:structured-output",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: '{"wall_time":"0.0510 seconds","output":"Collected 42 rows from the benchmark."}',
+      status: "failed",
+      toolFamily: "bash",
+    }),
+    {
+      kind: "unclassified_failure",
+      toolFamily: "bash",
+      readsAsObservation: false,
+      consequenceBaseline: "high",
+      text: {
+        routineSuccessObservation: false,
+        terminalFailureEvidence: false,
+        expectedDiagnosticFailure: false,
+        observationalReadback: false,
+        taggedFileObservation: false,
+        readObservationPayload: false,
+        searchResultOutput: false,
+        sourceCodeObservation: false,
+        logObservation: false,
+        buildMetadataObservation: false,
+      },
+    },
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-source-output",
+      taskId: "task:evidence:structured-source-output",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"#include <stdexcept>\\nint main() { throw new Error(); return 0; }"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "structured source output should stay a high-consequence observation",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-string-zero-exit",
+      taskId: "task:evidence:structured-string-zero-exit",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: '{"exit_code":"0","wall_time":"0.0510 seconds","output":"ok"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "routine_bash_success_observation",
+    "structured zero exit should stay routine success",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-nonzero-source-output",
+      taskId: "task:evidence:structured-nonzero-source-output",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"exit_code":"2","wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "structured nonzero exit should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-traceback",
+      taskId: "task:evidence:structured-traceback",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"Traceback (most recent call last): RuntimeError"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "structured traceback should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-failed-tests",
+      taskId: "task:evidence:structured-failed-tests",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: '{"wall_time":"0.0510 seconds","output":"Tests failed: 3 assertions failed."}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "structured failed tests should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-npm-error",
+      taskId: "task:evidence:structured-npm-error",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: '{"wall_time":"0.0510 seconds","output":"npm ERR! code EACCES"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "structured package-manager errors should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-compiler-error",
+      taskId: "task:evidence:structured-compiler-error",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"src/main.cc:42:7: error: use of undeclared identifier x"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "structured compiler errors should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-node-error",
+      taskId: "task:evidence:structured-node-error",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"Error: connect ECONNREFUSED 127.0.0.1:5432"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "structured Node connection errors should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-rust-panic",
+      taskId: "task:evidence:structured-rust-panic",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"thread main panicked at index out of bounds"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "structured Rust panics should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-git-fatal",
+      taskId: "task:evidence:structured-git-fatal",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: '{"wall_time":"0.0510 seconds","output":"fatal: repository not found"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "structured git fatal errors should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-unshaped-output",
+      taskId: "task:evidence:structured-unshaped-output",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: '{"wall_time":"0.0510 seconds","output":"hello world"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "a structured wrapper alone should not downgrade failed status",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-positive-prefix-real-failure",
+      taskId: "task:evidence:structured-positive-prefix-real-failure",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"Loaded configuration, then request failed because the service rejected it"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "positive structured prefixes must not hide later failure wording",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-operation-not-permitted",
+      taskId: "task:evidence:structured-operation-not-permitted",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"rm: /protected/file: Operation not permitted"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "prefixed operation-permission failures should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-source-plus-traceback",
+      taskId: "task:evidence:structured-source-plus-traceback",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }\\nTraceback (most recent call last): RuntimeError"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "structured source plus traceback should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-source-plus-test-failed",
+      taskId: "task:evidence:structured-source-plus-test-failed",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }\\ntest failed: expected 1"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "structured source plus singular test failure should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-source-plus-negative-exit",
+      taskId: "task:evidence:structured-source-plus-negative-exit",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }\\nprocess exited with code -1"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "structured source plus negative exit should be terminal",
+  );
+});
+
+test("task failure evidence keeps invalid structured output high and unclassified", () => {
+  for (const [id, summary] of [
+    ["malformed-json", '{"wall_time":"0.1 seconds","output":"ok"'],
+    ["array-json", '["0.1 seconds", "ok"]'],
+    ["empty-object", "{}"],
+    ["missing-output", '{"wall_time":"0.1 seconds"}'],
+    ["wrong-output-type", '{"wall_time":"0.1 seconds","output":12}'],
+    ["wrong-wall-time-type", '{"wall_time":0.1,"output":"ok"}'],
+    ["empty-wall-time", '{"wall_time":"","output":"ok"}'],
+    ["arbitrary-wall-time", '{"wall_time":"later","output":"ok"}'],
+    ["trailing-wall-time", '{"wall_time":"0.1 seconds later","output":"ok"}'],
+    ["invalid-exit-code", '{"exit_code":"ok","wall_time":"0.1 seconds","output":"ok"}'],
+    ["extra-status-key", '{"status":"failed","wall_time":"0.1 seconds","output":"ok"}'],
+  ] as const) {
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:${id}`,
+        taskId: `task:evidence:${id}`,
+        timestamp,
+        type: "task.updated",
+        title: "bash failure",
+        summary,
+        status: "failed",
+        toolFamily: "bash",
+      })?.kind,
+      "unclassified_failure",
+    );
+  }
 });
 
 test("task failure evidence preserves current observational classes", () => {
@@ -331,6 +629,157 @@ test("task failure evidence preserves current observational classes", () => {
     })?.consequenceBaseline,
     "high",
   );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-read-source",
+      taskId: "task:evidence:raw-read-source",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        '#include <stdexcept>\nint main() { throw new Error("permission denied"); return 0; }',
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "observational_payload",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-read-source-quoted-terminal-literal",
+      taskId: "task:evidence:raw-read-source-quoted-terminal-literal",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        '#include <stdio.h>\nconst char *message = "no such file or directory";\nint main() { return 0; }',
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "observational_payload",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-read-source-runtime-error-literal",
+      taskId: "task:evidence:raw-read-source-runtime-error-literal",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        '#include <stdio.h>\nconst char *message = "RuntimeError";\nint main() { return 0; }',
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "observational_payload",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-read-source-status-error-literal",
+      taskId: "task:evidence:raw-read-source-status-error-literal",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        '#include <stdio.h>\nconst char *message = "status: error";\nint main() { return 0; }',
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "observational_payload",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-read-source-plus-traceback",
+      taskId: "task:evidence:raw-read-source-plus-traceback",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "#include <stdexcept>\nint main() { return 0; }\nTraceback (most recent call last): RuntimeError",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "terminal_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-read-source-plus-cpp-crash",
+      taskId: "task:evidence:raw-read-source-plus-cpp-crash",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "#include <stdexcept>\nint main() { return 0; }\nterminate called after throwing an instance of 'std::runtime_error'",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "terminal_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-read-source-plus-permission-denied",
+      taskId: "task:evidence:raw-read-source-plus-permission-denied",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary: "#include <stdexcept>\nint main() { return 0; }\nPermission denied",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "terminal_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-read-source-plus-operation-not-permitted",
+      taskId: "task:evidence:raw-read-source-plus-operation-not-permitted",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "#include <stdexcept>\nint main() { return 0; }\nrm: /protected/file: Operation not permitted",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "terminal_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-read-source-plus-uncaught-exception",
+      taskId: "task:evidence:raw-read-source-plus-uncaught-exception",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary: "#include <stdexcept>\nint main() { return 0; }\nUncaught exception: RuntimeError",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "terminal_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-read-source-plus-compiler-error",
+      taskId: "task:evidence:raw-read-source-plus-compiler-error",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "#include <stdio.h>\nint main() { return 0; }\nsrc/main.cc:42:7: error: use of undeclared identifier x",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "terminal_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:single-source-keyword",
+      taskId: "task:evidence:single-source-keyword",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary: "return",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "unclassified_failure",
+  );
   assert.equal(
     readTaskFailureSemanticEvidence({
       id: "evt:evidence:search-output",
@@ -342,8 +791,288 @@ test("task failure evidence preserves current observational classes", () => {
         "OBSERVATION: Found 12 matches in 3 files. Showing first 10 results from /repo/src/app.ts",
       status: "failed",
       toolFamily: "search",
+    })?.readsAsObservation,
+    true,
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-search-output",
+      taskId: "task:evidence:web-search-output",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary:
+        'Web search results for "llvm 14 intrinsic round": LLVM includes constrained rounding intrinsics.',
+      status: "failed",
+      toolFamily: "search",
     })?.kind,
     "routine_search_output",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-search-query-network-error",
+      taskId: "task:evidence:web-search-query-network-error",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary:
+        'Web search results for "network error": troubleshooting guides and protocol references.',
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "routine_search_output",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-search-network-error-content",
+      taskId: "task:evidence:web-search-network-error-content",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary: 'Web search results for "network error": A network error occurs when packets drop.',
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "routine_search_output",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-search-backend-failure",
+      taskId: "task:evidence:web-search-backend-failure",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary: "Web search results for query failed because the backend is unavailable.",
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "terminal_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-search-network-failure",
+      taskId: "task:evidence:web-search-network-failure",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary: "Web search results for query could not be retrieved due to a network error.",
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "terminal_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-search-colon-request-failure",
+      taskId: "task:evidence:web-search-colon-request-failure",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary: "Web search results for query: request failed due to a network error.",
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "terminal_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-search-quoted-colon-backend-failure",
+      taskId: "task:evidence:web-search-quoted-colon-backend-failure",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary: 'Web search results for "query": backend is unavailable.',
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "terminal_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-search-backend-failure-colon-payload",
+      taskId: "task:evidence:web-search-backend-failure-colon-payload",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary: "Web search results for query: Backend unavailable: retry later.",
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "terminal_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-search-backend-failure-comma-payload",
+      taskId: "task:evidence:web-search-backend-failure-comma-payload",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary: "Web search results for query: Backend unavailable, retry later.",
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "terminal_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-search-backend-failure-hyphen-payload",
+      taskId: "task:evidence:web-search-backend-failure-hyphen-payload",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary: "Web search results for query: Backend unavailable - retry later.",
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "terminal_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-search-backend-failure-paren-payload",
+      taskId: "task:evidence:web-search-backend-failure-paren-payload",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary: "Web search results for query: Backend unavailable (retry later).",
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "terminal_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-search-backend-failure-newline-payload",
+      taskId: "task:evidence:web-search-backend-failure-newline-payload",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary: "Web search results for query: Backend unavailable\nRetry later.",
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "terminal_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-search-backend-unavailable-content",
+      taskId: "task:evidence:web-search-backend-unavailable-content",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary:
+        'Web search results for "backend unavailable": Backend unavailable pages should return HTTP 503.',
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "terminal_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-search-backend-unavailable-handling",
+      taskId: "task:evidence:web-search-backend-unavailable-handling",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary: "Web search results for query: Backend unavailable handling request.",
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "terminal_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-search-backend-unavailable-response",
+      taskId: "task:evidence:web-search-backend-unavailable-response",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary: "Web search results for query: Backend unavailable response from upstream.",
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "terminal_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-search-backend-unavailable-message",
+      taskId: "task:evidence:web-search-backend-unavailable-message",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary: "Web search results for query: Backend unavailable message from provider.",
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "terminal_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:grep-context-output",
+      taskId: "task:evidence:grep-context-output",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary: "2126-| S_MIN_F32 | S_CMP_LE_F32 |\n2127-| S_MAX_F32 | S_CMP_GT_F32 |",
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "routine_search_output",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:search-result-terminal-content",
+      taskId: "task:evidence:search-result-terminal-content",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary: 'Web search results for "tests failed": tests failed in /repo/src/app.test.ts.',
+      status: "failed",
+      toolFamily: "search",
+    }),
+    {
+      kind: "routine_search_output",
+      toolFamily: "search",
+      readsAsObservation: true,
+      consequenceBaseline: "high",
+      text: {
+        routineSuccessObservation: false,
+        terminalFailureEvidence: true,
+        expectedDiagnosticFailure: false,
+        observationalReadback: false,
+        taggedFileObservation: false,
+        readObservationPayload: false,
+        searchResultOutput: true,
+        sourceCodeObservation: true,
+        logObservation: false,
+        buildMetadataObservation: false,
+      },
+    },
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:grep-false-positive",
+      taskId: "task:evidence:grep-false-positive",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary: "Search backend unavailable; retry windows 2- pending and 3- aborted.",
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "unclassified_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:single-grep-line",
+      taskId: "task:evidence:single-grep-line",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary: "2126-| S_MIN_F32 | S_CMP_LE_F32 |",
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "unclassified_failure",
   );
 });
 
@@ -431,6 +1160,86 @@ test("routine observational status-conflict evidence is a narrow semantic read",
     false,
   );
   assert.equal(hasRoutineObservationalStatusConflictSemanticRead(event, semantic, true), false);
+});
+
+test("observational status-conflict evidence includes structured, read, and search observations", () => {
+  assert.equal(
+    hasRoutineObservationalStatusConflictSemanticRead(
+      {
+        id: "evt:evidence:structured-observation-conflict",
+        taskId: "task:evidence:structured-observation-conflict",
+        timestamp,
+        type: "task.updated",
+        title: "bash failure",
+        summary:
+          '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }"}',
+        status: "failed",
+        toolFamily: "bash",
+      },
+      {
+        intentFrame: "status_update" as const,
+        activityClass: "status_update" as const,
+        toolFamily: "bash",
+        consequence: "high" as const,
+        factors: ["task.updated", "failed", "observational_failure"],
+        relationHints: [],
+        confidence: "high" as const,
+        reasons: ["task status indicates failure but the update reads like observational output"],
+      },
+    ),
+    true,
+  );
+  assert.equal(
+    hasRoutineObservationalStatusConflictSemanticRead(
+      {
+        id: "evt:evidence:read-observation-conflict",
+        taskId: "task:evidence:read-observation-conflict",
+        timestamp,
+        type: "task.updated",
+        title: "read failure",
+        summary: "#include <stdio.h>\nint main() { return 0; }",
+        status: "failed",
+        toolFamily: "read",
+      },
+      {
+        intentFrame: "status_update" as const,
+        activityClass: "status_update" as const,
+        toolFamily: "read",
+        consequence: "high" as const,
+        factors: ["task.updated", "failed", "observational_failure"],
+        relationHints: [],
+        confidence: "high" as const,
+        reasons: ["task status indicates failure but the update reads like observational output"],
+      },
+    ),
+    true,
+  );
+  assert.equal(
+    hasRoutineObservationalStatusConflictSemanticRead(
+      {
+        id: "evt:evidence:search-observation-conflict",
+        taskId: "task:evidence:search-observation-conflict",
+        timestamp,
+        type: "task.updated",
+        title: "search failure",
+        summary:
+          'Web search results for "llvm 14 intrinsic round": LLVM includes constrained rounding intrinsics.',
+        status: "failed",
+        toolFamily: "search",
+      },
+      {
+        intentFrame: "status_update" as const,
+        activityClass: "status_update" as const,
+        toolFamily: "search",
+        consequence: "low" as const,
+        factors: ["task.updated", "failed", "observational_failure"],
+        relationHints: [],
+        confidence: "high" as const,
+        reasons: ["task status indicates failure but the update reads like observational output"],
+      },
+    ),
+    true,
+  );
 });
 
 test("routine observational status-conflict cannot be created by explanatory factors alone", () => {

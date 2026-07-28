@@ -427,7 +427,7 @@ test("failed read build metadata dumps stay status updates at low consequence", 
   assert.equal(interpretation.consequence, "low");
 });
 
-test("failed search result dumps stay low-consequence failures", () => {
+test("failed search result dumps stay low-consequence status updates", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:search-result-dump",
     type: "task.updated",
@@ -441,9 +441,64 @@ test("failed search result dumps stay low-consequence failures", () => {
     toolFamily: "search",
   });
 
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "low");
+});
+
+test("structured bash output without exit or source evidence stays failure-shaped", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:structured-output-unclassified",
+    type: "task.updated",
+    taskId: "task:structured-output-unclassified",
+    timestamp,
+    source: source("custom-agent"),
+    title: "bash failure",
+    summary: '{"wall_time":"0.0510 seconds","output":"Collected benchmark rows."}',
+    status: "failed",
+    toolFamily: "bash",
+  });
+
   assert.equal(interpretation.intentFrame, "failure");
   assert.equal(interpretation.activityClass, "tool_failure");
-  assert.equal(interpretation.consequence, "low");
+  assert.equal(interpretation.consequence, "high");
+});
+
+test("structured bash source output stays observational but high consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:structured-source-output-observation",
+    type: "task.updated",
+    taskId: "task:structured-source-output-observation",
+    timestamp,
+    source: source("custom-agent"),
+    title: "bash failure",
+    summary:
+      '{"wall_time":"0.0510 seconds","output":"#include <stdexcept>\\nint main() { throw new Error(); return 0; }"}',
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "high");
+});
+
+test("raw read source failures stay observational while preserving high attention", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:raw-read-source-observation",
+    type: "task.updated",
+    taskId: "task:raw-read-source-observation",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary: '#include <stdexcept>\nint main() { throw new Error("permission denied"); return 0; }',
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "high");
 });
 
 test("plain failed reads without observational payload stay failures", () => {

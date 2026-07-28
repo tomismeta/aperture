@@ -2,6 +2,7 @@ import type { TaskFailureEvidenceKind } from "@tomismeta/aperture-core/internal"
 
 const SEMANTIC_REVIEW_TASK_FAILURE_EVIDENCE_KIND_RECORD = {
   routine_bash_success_observation: true,
+  structured_tool_output_observation: true,
   observational_payload: true,
   routine_search_output: true,
   expected_diagnostic_failure: true,

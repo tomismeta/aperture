@@ -246,7 +246,7 @@ test("medium-confidence routine bash observations keep failed-status routing", (
   assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
 });
 
-test("low-consequence failed read observations do not trigger bash status-conflict routing", () => {
+test("low-consequence failed read observations use observational status-conflict routing", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({
       id: "evt:failed-read-log-observation",
@@ -266,12 +266,66 @@ test("low-consequence failed read observations do not trigger bash status-confli
     return;
   }
 
+  assert.equal(result.candidate.priority, "background");
+  assert.equal(result.candidate.tone, "ambient");
+  assert.equal(result.candidate.consequence, "low");
+  assert.equal(result.candidate.responseSpec.kind, "none");
+  assert.equal(result.candidate.activityClass, "status_update");
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+});
+
+test("neutral structured output without source shape keeps failed-status routing", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:structured-unclassified-failure",
+      taskId: "task:structured-unclassified-failure",
+      timestamp: "2026-03-08T12:02:29.000Z",
+      type: "task.updated",
+      title: "bash failure",
+      summary: '{"wall_time":"0.0510 seconds","output":"Collected benchmark rows."}',
+      status: "failed",
+      toolFamily: "bash",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.consequence, "high");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+  assert.equal(result.candidate.activityClass, "tool_failure");
+  assert.notEqual(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+});
+
+test("observational status-conflict routing preserves high consequence", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:raw-source-high-observation",
+      taskId: "task:raw-source-high-observation",
+      timestamp: "2026-03-08T12:02:29.500Z",
+      type: "task.updated",
+      title: "read failure",
+      summary: "#include <stdio.h>\nint main() { return 0; }",
+      status: "failed",
+      toolFamily: "read",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
   assert.equal(result.candidate.priority, "high");
   assert.equal(result.candidate.tone, "critical");
   assert.equal(result.candidate.consequence, "high");
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
   assert.equal(result.candidate.activityClass, "status_update");
-  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
 });
 
 test("task.updated semantics enrich provenance without overriding status routing", () => {

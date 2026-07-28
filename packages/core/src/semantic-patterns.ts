@@ -145,6 +145,15 @@ export const TERMINAL_FAILURE_PHRASES = [
   "permission denied",
   "command not found",
   "segmentation fault",
+  "apply_patch verification failed",
+  "no such file or directory",
+  "file does not exist",
+  "unrecognized arguments",
+  "symbol lookup error",
+  "assertion failed",
+  "tests failed",
+  "test failed",
+  "failed tests",
 ] as const;
 
 export const REPEAT_PHRASES = [

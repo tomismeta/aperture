@@ -94,7 +94,7 @@ Current contract nuance:
 - `task.updated` semantics enrich continuity, provenance, `toolFamily`, and
   `activityClass`
 - `task.updated.status` remains authoritative for status routing except when
-  engine-owned routine observational evidence contradicts a noisy failed status
+  engine-owned observational evidence contradicts a noisy failed status
 - semantic hints may veto that exception by lowering confidence, abstaining, or
   changing the final semantic shape; they may not create the raw evidence
 - operator-directed status asks can stay low-confidence and `source: inferred`

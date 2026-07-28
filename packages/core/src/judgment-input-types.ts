@@ -23,9 +23,10 @@ export type AttentionJudgmentInput = {
   // statuses that semantically read as blocked without becoming a full
   // human-input interaction.
   blockedLikeStatus: boolean;
-  // Narrow contradiction diagnostic for imported or adapter status noise:
-  // the source reported a failed task status, but the semantic read found a
-  // routine observational payload rather than actionable failure evidence.
+  // Compatibility diagnostic for imported or adapter status noise: the source
+  // reported a failed task status, but the engine-owned semantic read found an
+  // observational payload. Low observations may become ambient; medium/high
+  // observations keep their consequence while routing as status work.
   routineObservationalStatusConflict?: boolean;
 };
 

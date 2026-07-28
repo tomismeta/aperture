@@ -209,13 +209,10 @@ export class EventEvaluator {
     includeFailureProvenance: boolean;
   } {
     if (hasRoutineObservationalStatusConflictJudgmentInput(judgmentInput)) {
-      return {
-        priority: "background",
-        tone: "ambient",
-        consequence: "low",
-        responseSpec: { kind: "none" },
-        includeFailureProvenance: false,
-      };
+      return statusDispositionForObservationalStatusConflict(
+        judgmentInput.ontology?.consequence ?? "low",
+        status,
+      );
     }
 
     if (hasActionableBlockedLikeStatusJudgmentInput(judgmentInput)) {
@@ -258,6 +255,46 @@ export class EventEvaluator {
       default:
         return unreachableTaskStatus(status);
     }
+  }
+}
+
+function statusDispositionForObservationalStatusConflict(
+  consequence: AttentionCandidate["consequence"],
+  status: TaskUpdatedEvent["status"],
+): {
+  priority: AttentionCandidate["priority"];
+  tone: AttentionCandidate["tone"];
+  consequence: AttentionCandidate["consequence"];
+  responseSpec: AttentionAcknowledgeResponseSpec | { kind: "none" };
+  includeFailureProvenance: boolean;
+} {
+  switch (consequence) {
+    case "low":
+      return {
+        priority: "background",
+        tone: "ambient",
+        consequence: "low",
+        responseSpec: { kind: "none" },
+        includeFailureProvenance: false,
+      };
+    case "medium":
+      return {
+        priority: "normal",
+        tone: "focused",
+        consequence: "medium",
+        responseSpec: statusResponseSpec(status),
+        includeFailureProvenance: false,
+      };
+    case "high":
+      return {
+        priority: "high",
+        tone: "critical",
+        consequence: "high",
+        responseSpec: statusResponseSpec(status),
+        includeFailureProvenance: false,
+      };
+    default:
+      return unreachableConsequence(consequence);
   }
 }
 
@@ -353,4 +390,8 @@ function unreachableRequest(request: never): never {
 
 function unreachableTaskStatus(status: never): never {
   throw new Error(`Unhandled task status in event evaluator: ${status}`);
+}
+
+function unreachableConsequence(consequence: never): never {
+  throw new Error(`Unhandled consequence in event evaluator: ${consequence}`);
 }

@@ -12,7 +12,6 @@ import {
   OBSERVATIONAL_READBACK_PHRASES,
   PATH_LIKE_TOKEN_PATTERN,
   ROUTINE_SUCCESS_PHRASES,
-  SEARCH_RESULT_OUTPUT_PATTERN,
   SOURCE_CODE_CONTENT_PATTERN,
   SOURCE_CODE_FILENAME_PATTERN,
   SOURCE_CODE_PATH_PATTERN,
@@ -21,6 +20,17 @@ import {
 } from "./semantic-patterns.js";
 import type { SemanticInterpretation } from "./semantic-types.js";
 import { containsAnySemanticPhrase, normalizeSemanticText } from "./semantic-text.js";
+import {
+  hasStrongRuntimeDiagnosticEvidence,
+  hasToolOutputFailureDiagnosticEvidence,
+  looksLikeSearchFailureDiagnostic,
+} from "./semantic-diagnostic-shapes.js";
+import {
+  looksLikeStrongRawSourceObservation,
+  looksLikeStructuredToolOutputObservation,
+  readStructuredToolOutputObservation,
+} from "./semantic-observation-shapes.js";
+import { looksLikeSearchResultObservation } from "./semantic-search-observation-shapes.js";
 import { readExplicitSemanticToolFamily } from "./semantic-tool-family.js";
 
 export type SemanticTextEvidence = {
@@ -38,6 +48,7 @@ export type SemanticTextEvidence = {
 
 export type TaskFailureEvidenceKind =
   | "routine_bash_success_observation"
+  | "structured_tool_output_observation"
   | "observational_payload"
   | "routine_search_output"
   | "expected_diagnostic_failure"
@@ -89,7 +100,7 @@ export function readSemanticTextEvidence(value: string, toolFamily?: string): Se
     observationalReadback: containsAnySemanticPhrase(text, OBSERVATIONAL_READBACK_PHRASES),
     taggedFileObservation: looksLikeTaggedFileObservation(text),
     readObservationPayload: looksLikeReadObservationPayload(text),
-    searchResultOutput: looksLikeSearchResultOutput(text),
+    searchResultOutput: looksLikeSearchResultObservation(text, value),
     sourceCodeObservation: looksLikeSourceCodeObservation(text),
     logObservation: looksLikeLogObservation(text),
     buildMetadataObservation: looksLikeBuildMetadataObservation(text),
@@ -110,13 +121,60 @@ export function readTaskFailureSemanticEvidence(
       ...(event.toolFamily !== undefined ? { toolFamily: event.toolFamily } : {}),
       ...(event.context !== undefined ? { context: event.context } : {}),
     }) ?? undefined;
-  const text = readSemanticTextEvidence(`${event.title} ${event.summary ?? ""}`, toolFamily);
+  const text = readSemanticTextEvidence(
+    toolFamily === "search"
+      ? (event.summary ?? event.title)
+      : `${event.title} ${event.summary ?? ""}`,
+    toolFamily,
+  );
+  const structuredToolOutput =
+    toolFamily === "bash" ? readStructuredToolOutputObservation(event.summary) : null;
+  const structuredOutputSourceObservation =
+    structuredToolOutput !== null &&
+    looksLikeStrongRawSourceObservation(structuredToolOutput.output);
+  const structuredOutputObservation =
+    structuredToolOutput !== null &&
+    looksLikeStructuredToolOutputObservation(structuredToolOutput.output);
+  const rawReadSourceObservation =
+    toolFamily === "read" && looksLikeStrongRawSourceObservation(event.summary ?? "");
+  const searchOutputObservation = toolFamily === "search" && text.searchResultOutput;
+  const searchFailureDiagnostic =
+    toolFamily === "search" && looksLikeSearchFailureDiagnostic(event.summary ?? "");
+  const structuredOutputFailureDiagnostic =
+    structuredToolOutput !== null &&
+    hasToolOutputFailureDiagnosticEvidence(structuredToolOutput.output);
+  const strongSourceRuntimeDiagnostic =
+    (structuredToolOutput !== null &&
+      structuredOutputSourceObservation &&
+      hasStrongRuntimeDiagnosticEvidence(structuredToolOutput.output)) ||
+    (rawReadSourceObservation && hasStrongRuntimeDiagnosticEvidence(event.summary ?? ""));
+  const terminalFailureEvidence =
+    structuredToolOutput?.exitCode !== undefined && structuredToolOutput.exitCode !== 0
+      ? true
+      : strongSourceRuntimeDiagnostic
+        ? true
+        : structuredOutputFailureDiagnostic || searchFailureDiagnostic
+          ? true
+          : text.terminalFailureEvidence &&
+            !searchOutputObservation &&
+            (!rawReadSourceObservation || strongSourceRuntimeDiagnostic) &&
+            (!structuredOutputSourceObservation || strongSourceRuntimeDiagnostic);
 
-  if (text.terminalFailureEvidence) {
+  if (terminalFailureEvidence) {
     return {
       kind: "terminal_failure",
       ...(toolFamily !== undefined ? { toolFamily } : {}),
       readsAsObservation: false,
+      consequenceBaseline: "high",
+      text,
+    };
+  }
+
+  if (rawReadSourceObservation) {
+    return {
+      kind: "observational_payload",
+      toolFamily: "read",
+      readsAsObservation: true,
       consequenceBaseline: "high",
       text,
     };
@@ -128,6 +186,16 @@ export function readTaskFailureSemanticEvidence(
       toolFamily,
       readsAsObservation: true,
       consequenceBaseline: "low",
+      text,
+    };
+  }
+
+  if (structuredToolOutput && structuredOutputObservation) {
+    return {
+      kind: "structured_tool_output_observation",
+      toolFamily: "bash",
+      readsAsObservation: true,
+      consequenceBaseline: structuredOutputSourceObservation ? "high" : "medium",
       text,
     };
   }
@@ -146,8 +214,8 @@ export function readTaskFailureSemanticEvidence(
     return {
       kind: "routine_search_output",
       toolFamily,
-      readsAsObservation: false,
-      consequenceBaseline: "low",
+      readsAsObservation: true,
+      consequenceBaseline: text.terminalFailureEvidence ? "high" : "low",
       text,
     };
   }
@@ -189,11 +257,11 @@ export function hasRoutineObservationalStatusConflictSemanticRead(
   return (
     event.type === "task.updated" &&
     event.status === "failed" &&
-    failureEvidence?.kind === "routine_bash_success_observation" &&
+    failureEvidence?.readsAsObservation === true &&
     interpretation.intentFrame === "status_update" &&
     interpretation.activityClass === "status_update" &&
-    interpretation.toolFamily === "bash" &&
-    interpretation.consequence === "low" &&
+    failureEvidence.toolFamily === interpretation.toolFamily &&
+    interpretation.consequence === failureEvidence.consequenceBaseline &&
     interpretation.confidence === "high" &&
     !abstained
   );
@@ -214,13 +282,6 @@ function looksLikeReadObservationPayload(text: string): boolean {
 function looksLikeTaggedFileObservation(text: string): boolean {
   return (
     containsAnySemanticPhrase(text, TAGGED_FILE_OBSERVATION_PHRASES) && containsPathLikeToken(text)
-  );
-}
-
-function looksLikeSearchResultOutput(text: string): boolean {
-  return (
-    SEARCH_RESULT_OUTPUT_PATTERN.test(text) ||
-    (containsPathLikeToken(text) && /\bmatch(?:es)?\b/.test(text))
   );
 }
 

@@ -540,6 +540,25 @@ test("truncated structured edit source output stays observational", () => {
   assert.equal(interpretation.consequence, "high");
 });
 
+test("truncated structured listing output stays observational at medium consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:truncated-listing-output",
+    type: "task.updated",
+    taskId: "task:truncated-listing-output",
+    timestamp,
+    source: source("custom-agent"),
+    title: "bash failure",
+    summary:
+      '{"wall_time":"0.0510 seconds","output":"Total output lines: 106\\n\\nsrc/runtime/trap_handler.s:71:.set TTMP6_SPI_TTMPS_SETUP_DISABLED_SHIFT , 31',
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "medium");
+});
+
 test("failed read markdown documents stay status updates", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:read-markdown-document",
@@ -569,6 +588,25 @@ test("failed read build logs stay low-consequence status updates", () => {
     title: "read failure",
     summary:
       "DKMS make.log for module 1.0\nBuilding module(s)\nchecking for a BSD-compatible install... /usr/bin/install -c check",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "low");
+});
+
+test("failed flattened read build logs stay low-consequence status updates", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:read-flattened-build-log",
+    type: "task.updated",
+    taskId: "task:read-flattened-build-log",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary:
+      "DKMS (dkms-3.2.0) make.log for amdgpu/1.0 Building module(s) # command: 'make' KERNELVER=6.19.0 checking for a BSD-compatible install... /usr/bin/install -c",
     status: "failed",
     toolFamily: "read",
   });

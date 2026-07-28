@@ -35,6 +35,7 @@ const budgets = [
   { file: "packages/core/src/attention-record-json.ts", maxLines: 125 },
   { file: "packages/core/src/semantic-evidence.ts", maxLines: 525 },
   { file: "packages/core/src/semantic-diagnostic-shapes.ts", maxLines: 100 },
+  { file: "packages/core/src/semantic-listing-observation-shapes.ts", maxLines: 125 },
   { file: "packages/core/src/semantic-observation-shapes.ts", maxLines: 150 },
   { file: "packages/core/src/semantic-structured-output.ts", maxLines: 125 },
   { file: "packages/core/src/semantic-terminal-evidence.ts", maxLines: 175 },

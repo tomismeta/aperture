@@ -24,6 +24,10 @@ import {
   looksLikeSearchFailureDiagnostic,
 } from "./semantic-diagnostic-shapes.js";
 import {
+  looksLikeRecoveredListingObservation,
+  looksLikeTruncatedRawReadListingObservation,
+} from "./semantic-listing-observation-shapes.js";
+import {
   looksLikeBuildOrLogObservation,
   looksLikePlainReadObservation,
   looksLikeStrongRawSourceObservation,
@@ -156,13 +160,20 @@ export function readTaskFailureSemanticEvidence(
     looksLikeStrongRawSourceObservation(diagnosticStructuredToolOutput.output);
   const structuredOutputObservation =
     diagnosticStructuredToolOutput !== null &&
-    looksLikeStructuredToolOutputObservation(diagnosticStructuredToolOutput.output);
+    (looksLikeStructuredToolOutputObservation(diagnosticStructuredToolOutput.output) ||
+      (truncatedStructuredToolOutput !== null &&
+        looksLikeRecoveredListingObservation(truncatedStructuredToolOutput.output)));
   const rawReadSourceObservation =
     toolFamily === "read" && looksLikeStrongRawSourceObservation(event.summary ?? "");
+  const rawReadListingObservation =
+    toolFamily === "read" && looksLikeTruncatedRawReadListingObservation(event.summary ?? "");
+  const rawReadStructuredObservation = rawReadSourceObservation || rawReadListingObservation;
   const zeroExitStructuredToolOutput = diagnosticStructuredToolOutput?.exitCode === 0;
   const searchOutputObservation = toolFamily === "search" && text.searchResultOutput;
   const searchFailureDiagnostic =
     toolFamily === "search" && looksLikeSearchFailureDiagnostic(event.summary ?? "");
+  const readFailureDiagnostic =
+    toolFamily === "read" && looksLikeExplicitReadFailureDiagnostic(event.summary ?? "");
   const structuredOutputFailureDiagnostic =
     diagnosticStructuredToolOutput !== null &&
     hasToolOutputFailureDiagnosticEvidence(diagnosticStructuredToolOutput.output);
@@ -170,18 +181,18 @@ export function readTaskFailureSemanticEvidence(
     (structuredToolOutput !== null &&
       structuredOutputSourceObservation &&
       hasStrongRuntimeDiagnosticEvidence(structuredToolOutput.output)) ||
-    (rawReadSourceObservation && hasStrongRuntimeDiagnosticEvidence(event.summary ?? ""));
+    (rawReadStructuredObservation && hasStrongRuntimeDiagnosticEvidence(event.summary ?? ""));
   const terminalFailureEvidence =
     diagnosticStructuredToolOutput?.exitCode !== undefined &&
     diagnosticStructuredToolOutput.exitCode !== 0
       ? true
       : strongSourceRuntimeDiagnostic
         ? true
-        : structuredOutputFailureDiagnostic || searchFailureDiagnostic
+        : structuredOutputFailureDiagnostic || searchFailureDiagnostic || readFailureDiagnostic
           ? true
           : text.terminalFailureEvidence &&
             !searchOutputObservation &&
-            (!rawReadSourceObservation || strongSourceRuntimeDiagnostic) &&
+            (!rawReadStructuredObservation || strongSourceRuntimeDiagnostic) &&
             (!structuredOutputSourceObservation || strongSourceRuntimeDiagnostic);
 
   if (terminalFailureEvidence) {
@@ -264,7 +275,10 @@ export function readTaskFailureSemanticEvidence(
 
   if (
     (toolFamily === "edit" || toolFamily === "read") &&
-    (text.observationalReadback || text.taggedFileObservation || text.readObservationPayload)
+    (text.observationalReadback ||
+      text.taggedFileObservation ||
+      text.readObservationPayload ||
+      rawReadListingObservation)
   ) {
     return {
       kind: "observational_payload",
@@ -324,6 +338,17 @@ function looksLikeReadObservationPayload(text: string): boolean {
 function looksLikeTaggedFileObservation(text: string): boolean {
   return (
     containsAnySemanticPhrase(text, TAGGED_FILE_OBSERVATION_PHRASES) && containsPathLikeToken(text)
+  );
+}
+
+function looksLikeExplicitReadFailureDiagnostic(value: string): boolean {
+  const text = value
+    .trim()
+    .replace(/^(?:read|tool)\s+failure\s+/i, "")
+    .replace(/^#{1,6}\s+/, "");
+
+  return /^(?:read\s+failed\b|failed to (?:read|open)\b|could not (?:read|open)\b|unable to (?:read|open)\b)/i.test(
+    text,
   );
 }
 

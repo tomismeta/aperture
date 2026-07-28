@@ -647,6 +647,81 @@ test("task failure evidence classifies structured tool output without treating i
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-listing-total-lines",
+      taskId: "task:evidence:truncated-listing-total-lines",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"Total output lines: 106\\n\\nsrc/runtime/trap_handler.s:71:.set TTMP6_SPI_TTMPS_SETUP_DISABLED_SHIFT , 31',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "parser-recovered total-output listings should become observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-two-line-listing",
+      taskId: "task:evidence:truncated-two-line-listing",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"src/runtime/trap_handler.s:71:.set TTMP6_SPI_TTMPS_SETUP_DISABLED_SHIFT , 31\\nsrc/runtime/trap_handler.s:72:s_mov_b32 ttmp6, ttmp6',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "parser-recovered repeated listing entries should become observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-single-source-line",
+      taskId: "task:evidence:truncated-single-source-line",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"src/runtime/trap_handler.s:71:.set TTMP6_SPI_TTMPS_SETUP_DISABLED_SHIFT , 31...',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "one source-location line plus ellipsis is not enough",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:complete-total-lines-listing",
+      taskId: "task:evidence:complete-total-lines-listing",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"Total output lines: 106\\n\\nsrc/runtime/trap_handler.s:71:.set TTMP6_SPI_TTMPS_SETUP_DISABLED_SHIFT , 31"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "complete envelopes do not use recovered-listing repair",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-listing-plus-traceback",
+      taskId: "task:evidence:truncated-listing-plus-traceback",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"src/app.ts:10:export const value = 1;\\nsrc/app.ts:11:throw new Error();\\nTraceback (most recent call last): RuntimeError',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "visible diagnostics after listing lines remain terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:truncated-output-only-source",
       taskId: "task:evidence:truncated-output-only-source",
       timestamp,
@@ -916,6 +991,21 @@ test("task failure evidence preserves current observational classes", () => {
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:read-flattened-build-log",
+      taskId: "task:evidence:read-flattened-build-log",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "DKMS (dkms-3.2.0) make.log for amdgpu/1.0 Building module(s) # command: 'make' KERNELVER=6.19.0 checking for a BSD-compatible install... /usr/bin/install -c",
+      status: "failed",
+      toolFamily: "read",
+    })?.consequenceBaseline,
+    "low",
+    "flattened build logs need multiple build/log markers",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:read-source",
       taskId: "task:evidence:read-source",
       timestamp,
@@ -983,6 +1073,93 @@ test("task failure evidence preserves current observational classes", () => {
       toolFamily: "read",
     })?.kind,
     "observational_payload",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-read-truncated-listing",
+      taskId: "task:evidence:raw-read-truncated-listing",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "src/app.ts:10:export const value = 1;\nsrc/app.ts:11:export const next = 2;\nsrc/app.ts:12:export const last = 3;...",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "observational_payload",
+    "raw reads can recover only repeated truncated listing entries",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-read-listing-runtime-error",
+      taskId: "task:evidence:raw-read-listing-runtime-error",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary: "## Runtime log\n- request id: 123\n- state: rejected\nError: request rejected...",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "terminal_failure",
+    "raw-read listing recovery must not bypass strong diagnostics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-read-single-listing-line",
+      taskId: "task:evidence:raw-read-single-listing-line",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary: "src/app.ts:10:export const value = 1;...",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "unclassified_failure",
+    "one raw-read listing line plus ellipsis is not enough",
+  );
+  for (const [id, summary] of [
+    ["read-log-checking-prose", "Could not open /tmp/make.log while checking for a replacement"],
+    [
+      "read-log-building-prose",
+      "Could not open /tmp/make.log while building module(s) for replacement notes",
+    ],
+    [
+      "read-log-building-command-prose",
+      "Could not open /tmp/make.log while building module(s) command: make",
+    ],
+    [
+      "read-log-failed-read-prose",
+      "Failed to read DKMS make.log while building module(s) KERNELVER=6.19",
+    ],
+  ] as const) {
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:${id}`,
+        taskId: `task:evidence:${id}`,
+        timestamp,
+        type: "task.updated",
+        title: "read failure",
+        summary,
+        status: "failed",
+        toolFamily: "read",
+      })?.kind,
+      "terminal_failure",
+      `${id} should remain a read failure diagnostic`,
+    );
+  }
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-read-markdown-read-failed",
+      taskId: "task:evidence:raw-read-markdown-read-failed",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary: "# Read failed\n- /tmp/make.log\n- building module(s)\n- command: make...",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "terminal_failure",
+    "markdown read-failed envelopes should not become listing observations",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -1639,7 +1816,7 @@ test("observational status-conflict evidence includes structural read documents 
       status: "failed",
       toolFamily: "read",
     })?.kind,
-    "unclassified_failure",
+    "terminal_failure",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({

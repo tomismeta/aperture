@@ -38,19 +38,38 @@ export function looksLikeBuildOrLogObservation(value: string): boolean {
     /\b(?:make|cmake|ninja|pytest|unittest|dkms)[^\r\n]{0,80}\.log\b/i,
     /\btotal output lines:\s*\d+\b/i,
     /(?:^|[\r\n])\s*\[\s*\d+%]\s+(?:building|linking|generating)\b/i,
-    /(?:^|[\r\n])\s*(?:checking for a\b|building module\(s\)\b|building [a-z0-9_ -]*object\b|linking [a-z0-9_ -]*target\b)/i,
+    /(?:^|[\r\n])\s*checking for a\b/i,
+    /(?:^|[\r\n])\s*building module\(s\)(?=\s|$)/i,
+    /(?:^|[\r\n])\s*building [a-z0-9_ -]*object\b/i,
+    /(?:^|[\r\n])\s*linking [a-z0-9_ -]*target\b/i,
     /(?:^|[\r\n])\s*[^\r\n:]+:\d+:\s*(?:userwarning|warning):\s+\S/i,
   ].filter((pattern) => pattern.test(text)).length;
 
-  return markers >= 2 || countRepeatedBuildLogLines(text) >= 2;
+  return (
+    markers >= 2 ||
+    countRepeatedBuildLogLines(text) >= 2 ||
+    looksLikeFlattenedBuildLogObservation(text)
+  );
 }
 
 function countRepeatedBuildLogLines(text: string): number {
   return [
     ...text.matchAll(
-      /(?:^|[\r\n])\s*(?:checking for a\b|building module\(s\)\b|building [a-z0-9_ -]*object\b|linking [a-z0-9_ -]*target\b|\[\s*\d+%]\s+(?:building|linking|generating)\b)/gi,
+      /(?:^|[\r\n])\s*(?:checking for a\b|building module\(s\)(?=\s|$)|building [a-z0-9_ -]*object\b|linking [a-z0-9_ -]*target\b|\[\s*\d+%]\s+(?:building|linking|generating)\b)/gi,
     ),
   ].length;
+}
+
+function looksLikeFlattenedBuildLogObservation(text: string): boolean {
+  return (
+    /\b(?:make|cmake|ninja|pytest|unittest|dkms)[^\r\n]{0,80}\.log\b/i.test(text) &&
+    /\bbuilding module\(s\)(?=\s|$)|\b(?:building|linking) [a-z0-9_ -]*(?:object|target)\b/i.test(
+      text,
+    ) &&
+    /\b(?:command:\s*['"]?(?:make|cmake|ninja)\b|kernelver=|checking for a [a-z0-9 -]+\.{3})/i.test(
+      text,
+    )
+  );
 }
 
 function looksLikeMarkdownDocumentObservation(text: string): boolean {

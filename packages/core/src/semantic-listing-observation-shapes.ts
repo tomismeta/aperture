@@ -1,18 +1,29 @@
-type ListingEntryKind = "grep" | "kernel_log" | "markdown" | "path_line" | "source_location";
+import {
+  readListingEntries,
+  type ListingEntry,
+  type ListingEntryKind,
+} from "./semantic-listing-entry-shapes.js";
+import { looksLikeKernelLogDiagnosticPayload } from "./semantic-kernel-log-shapes.js";
 
-type ListingEntry = {
-  kind: ListingEntryKind;
-  line: string;
-};
-
-export function looksLikeRecoveredListingObservation(value: string): boolean {
+export function looksLikeStrongListingObservation(value: string): boolean {
   const text = stripObservationStatusPrefix(value);
   if (text.length === 0) {
     return false;
   }
 
   const entries = readListingEntries(text);
+  if (hasDiagnosticKernelLogEntry(entries)) {
+    return false;
+  }
+  if (!hasMonotoneRequiredListingEntries(entries)) {
+    return false;
+  }
+
   return entries.length >= 2 || (hasTotalOutputLineMarker(text) && entries.length >= 1);
+}
+
+export function looksLikeRecoveredListingObservation(value: string): boolean {
+  return looksLikeStrongListingObservation(value);
 }
 
 export function looksLikeTruncatedRawReadListingObservation(value: string): boolean {
@@ -25,59 +36,34 @@ export function looksLikeTruncatedRawReadListingObservation(value: string): bool
   return entries.length >= 3 || hasRepeatedStrongListingGrammar(entries);
 }
 
-function readListingEntries(text: string): ListingEntry[] {
-  const entries: ListingEntry[] = [];
-
-  for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    const kind = readListingEntryKind(line);
-    if (kind !== null) {
-      entries.push({ kind, line });
-    }
-  }
-
-  return dedupeListingEntries(entries);
-}
-
-function readListingEntryKind(line: string): ListingEntryKind | null {
-  if (SOURCE_LOCATION_LINE_PATTERN.test(line)) {
-    return "source_location";
-  }
-  if (PATH_LINE_ENTRY_PATTERN.test(line)) {
-    return "path_line";
-  }
-  if (/^\d{1,6}[-:](?:\||\s+\S)/.test(line)) {
-    return "grep";
-  }
-  if (/^\[\s*\d+(?:\.\d+)?]\s+\S/.test(line)) {
-    return "kernel_log";
-  }
-  if (/^(?:#{1,6}\s+\S|```)/.test(line)) {
-    return "markdown";
-  }
-
-  return null;
-}
-
-function dedupeListingEntries(entries: ListingEntry[]): ListingEntry[] {
-  const seen = new Set<string>();
-  return entries.filter((entry) => {
-    const key = `${entry.kind}:${entry.line}`;
-    if (seen.has(key)) {
-      return false;
-    }
-    seen.add(key);
-    return true;
-  });
-}
-
 function hasRepeatedStrongListingGrammar(entries: ListingEntry[]): boolean {
+  if (hasDiagnosticKernelLogEntry(entries)) {
+    return false;
+  }
+  if (!hasMonotoneRequiredListingEntries(entries)) {
+    return false;
+  }
+
   const counts = new Map<ListingEntryKind, number>();
   for (const entry of entries) {
     counts.set(entry.kind, (counts.get(entry.kind) ?? 0) + 1);
   }
 
   return [...counts.values()].some((count) => count >= 2);
+}
+
+function hasDiagnosticKernelLogEntry(entries: ListingEntry[]): boolean {
+  return entries.some(
+    (entry) => entry.kind === "kernel_log" && looksLikeKernelLogDiagnosticPayload(entry.line),
+  );
+}
+
+function hasMonotoneRequiredListingEntries(entries: ListingEntry[]): boolean {
+  const required = entries.filter((entry) => entry.requiresMonotone === true);
+  return required.every(
+    (entry, index) =>
+      index === 0 || (entry.lineNumber ?? 0) > (required[index - 1]?.lineNumber ?? 0),
+  );
 }
 
 function hasTotalOutputLineMarker(text: string): boolean {
@@ -91,9 +77,3 @@ function hasVisibleTruncationBoundary(text: string): boolean {
 function stripObservationStatusPrefix(value: string): string {
   return value.trim().replace(/^(?:bash|edit|read|search|tool)\s+failure\s+/, "");
 }
-
-const SOURCE_LOCATION_LINE_PATTERN =
-  /^[^\s:\r\n]+\.(?:c|cc|cpp|cxx|cu|cuh|h|hpp|hh|s|asm|ts|tsx|js|jsx|py|rb|go|rs|java|kt|swift):\d+(?::\d+)?:\s*\S/i;
-
-const PATH_LINE_ENTRY_PATTERN =
-  /^(?!(?:[a-z][a-z0-9+.-]*:\/\/))(?:(?:(?:\/|\.{1,2}\/|[^\s:\r\n]+\/)[^\s:\r\n]*\.(?:md|markdown|txt|rst|adoc|json|jsonl|ya?ml|toml|ini|cfg|cmake|ll|td))|(?:Makefile|GNUmakefile|CMakeLists\.txt)):\d+(?::\d+)?:\s*\S/i;

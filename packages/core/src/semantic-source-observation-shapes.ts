@@ -1,3 +1,8 @@
+import {
+  looksLikeFlattenedIncludeSourceCluster,
+  looksLikeLineNumberedSourceLicenseHeader,
+} from "./semantic-source-header-observation-shapes.js";
+
 export function looksLikeStrongRawSourceObservation(value: string): boolean {
   const text = stripObservationStatusPrefix(value);
   if (text.length === 0) {
@@ -6,9 +11,11 @@ export function looksLikeStrongRawSourceObservation(value: string): boolean {
 
   return (
     looksLikeRawSourcePrefix(text) ||
-    looksLikeLineNumberedRawSource(text) ||
+    looksLikeLineNumberedSourceFragment(text) ||
     looksLikeSourceLicenseHeader(text) ||
+    looksLikeLineNumberedSourceLicenseHeader(text) ||
     looksLikeMultipleIncludeDirectives(text) ||
+    looksLikeFlattenedIncludeSourceCluster(text) ||
     looksLikeEmbeddedGitPatchObservation(text) ||
     looksLikeFlattenedNumberedSourceObservation(text) ||
     countSourceLocationLines(text) >= 2 ||
@@ -23,14 +30,6 @@ function stripObservationStatusPrefix(value: string): string {
 function looksLikeRawSourcePrefix(text: string): boolean {
   return /^\s*(?:#!\/|diff\s+--git\b|---\s+\S|@@\s+|#ifndef\b|#pragma\s+once\b|cmake_minimum_required\s*\(|import\b|from\b|class\b|def\b|function\b|export\b|const\b|let\b|var\b|interface\b|type\b|struct\b|enum\b|void\b|static\b)/i.test(
     text,
-  );
-}
-
-function looksLikeLineNumberedRawSource(text: string): boolean {
-  return (
-    /(?:^|[\r\n])\s*\d+\s+(?:#include\b|static\b|struct\b|enum\b|typedef\b|void\b|int\b|char\b|bool\b|return\b|namespace\b|class\b|def\b|function\b|const\b|let\b|var\b)/i.test(
-      text,
-    ) || countLineNumberedSourceIntroLines(text) >= 2
   );
 }
 
@@ -64,11 +63,20 @@ function looksLikeFlattenedNumberedSourceObservation(text: string): boolean {
     return false;
   }
 
-  const spans = readFlattenedNumberedSourceSpans(text);
+  return looksLikeStrongNumberedSourceSpans(readFlattenedNumberedSourceSpans(text));
+}
+
+function looksLikeLineNumberedSourceFragment(text: string): boolean {
+  return (
+    !/^\s*(?:\{|\[|")/.test(text) &&
+    looksLikeStrongNumberedSourceSpans(readLineNumberedSourceSpans(text))
+  );
+}
+
+function looksLikeStrongNumberedSourceSpans(spans: NumberedSourceSpan[]): boolean {
   if (spans.length < 3 || !hasStrictlyIncreasingLineNumbers(spans)) {
     return false;
   }
-
   return spans.filter((span) => looksLikeSourceStatement(span.body)).length >= 2;
 }
 
@@ -88,30 +96,48 @@ function readFlattenedNumberedSourceSpans(text: string): NumberedSourceSpan[] {
   return spans;
 }
 
-type NumberedSourceSpan = {
-  line: number;
-  body: string;
-};
+function readLineNumberedSourceSpans(text: string): NumberedSourceSpan[] {
+  const spans: NumberedSourceSpan[] = [];
+  for (const rawLine of text.split(/\r?\n/)) {
+    const match = /^\s*(\d{1,6})(?:[ \t]+|:\s*)(\S[\s\S]*)$/.exec(rawLine);
+    if (match) {
+      spans.push({ line: Number.parseInt(match[1]!, 10), body: match[2]!.trim().slice(0, 160) });
+    }
+  }
+  return spans;
+}
+
+type NumberedSourceSpan = { line: number; body: string };
 
 function hasStrictlyIncreasingLineNumbers(spans: NumberedSourceSpan[]): boolean {
   return spans.every((span, index) => index === 0 || span.line > spans[index - 1]!.line);
 }
 
 function looksLikeSourceStatement(body: string): boolean {
+  if (/^(?:[a-z0-9-]+\.)+[a-z]{2,}(?:$|[/:]\S*)/i.test(body)) {
+    return false;
+  }
+
   return [
     /^#!\/(?:usr\/bin\/env\s+)?(?:ba)?sh\b/,
     /^set\s+-euo\s+pipefail\b/,
+    /^(?:export\s+|readonly\s+|local\s+)?[a-z_$][a-z0-9_$]*=(?=\S)(?=.*(?:["'`$(){}]|\S+$)).+$/i,
+    /^[a-z_$][a-z0-9_$]*\s*\(\)\s*\{$/i,
+    /^[a-z_$][a-z0-9_:]*\s*\([^)]*\)\s*;?$/i,
     /^(?:if|for|while|switch)\s*\(/,
+    /^[{}]\s*;?$/,
     /^(?:break|continue)(?:\s+[a-z_$][a-z0-9_$]*)?\s*;?$/i,
     /^return(?:\s+(?:[a-z_$][a-z0-9_$.]*(?:\([^)]*\))?|-?\d+(?:\.\d+)?|true|false|null|nullptr|none))?\s*;?$/i,
-    /^(?:static|struct|enum|typedef|void|int|char|bool)\s+[*&\s]*[a-z_$][a-z0-9_$]*/i,
+    /^(?=.*(?:\b[a-z_$][a-z0-9_$:<>]*_t\b|::|[<&*]|\b(?:static|inline|extern|const|virtual|void|int|char|bool|auto|struct|enum)\b))(?:[a-z_$][a-z0-9_$:<>*&,]*\s+)+[*&\s]*[~a-z_$][a-z0-9_$:<>]*\s*\([^)]*\)\s*(?:\{|;|const\b|override\b)/i,
+    /^(?:(?:static|inline|extern|const)\s+)*(?:struct|enum|typedef|void|int|char|bool|[a-z_$][a-z0-9_$:<>]*_t)\s+[*&\s]*[a-z_$][a-z0-9_$]*\s*(?:\([^)]*\)|[=;,[{])/i,
     /^(?:const|let|var)\s+[a-z_$][a-z0-9_$]*\s*=/i,
     /^function\s+[a-z_$][a-z0-9_$]*\s*\(/i,
     /^export\s+(?:const|let|var|function|class|interface|type)\b/i,
     /^(?:class|interface)\s+[a-z_$][a-z0-9_$]*(?:\s+(?:extends|implements)\b|\s*\{|$)/i,
     /^type\s+[a-z_$][a-z0-9_$]*\s*=/i,
     /^[a-z_$][a-z0-9_$]*\s*(?:=|:=)\s*\S.*;\s*$/i,
-    /^[a-z_$][a-z0-9_$]*(?:->|\.)[a-z_$][a-z0-9_$]*/i,
+    /^[a-z_$][a-z0-9_$:<>]*(?:->|::)[a-z_$][a-z0-9_$:]*/i,
+    /^(?:this|[a-z_$][a-z0-9_$]*)\.[a-z_$][a-z0-9_$]*(?:\s*\(|\s*(?:=|\+=|-=|\*=|\/=))/i,
     /^#include\s*(?:<[^>]+>|"[^"]+")/,
     /^from\s+[a-z_$][a-z0-9_$.]*\s+import\s+(?:\*|[a-z_$][a-z0-9_$]*(?:\s+as\s+[a-z_$][a-z0-9_$]*)?(?:\s*,\s*[a-z_$][a-z0-9_$]*(?:\s+as\s+[a-z_$][a-z0-9_$]*)?)*)$/i,
     /^import\s+[a-z_$][a-z0-9_$.]*(?:\s+as\s+[a-z_$][a-z0-9_$]*)?(?:\s*,\s*[a-z_$][a-z0-9_$.]*)*$/i,
@@ -144,21 +170,3 @@ function countRawSourceMarkers(text: string): number {
 
   return markers.reduce((count, marker) => count + (marker.test(text) ? 1 : 0), 0);
 }
-
-function countLineNumberedSourceIntroLines(text: string): number {
-  return [...text.matchAll(LINE_NUMBERED_SOURCE_INTRO_PATTERN)].length;
-}
-
-const SOURCE_IDENTIFIER_PATTERN = "[a-z_$][a-z0-9_$]*";
-const PY_MODULE_PATTERN = `${SOURCE_IDENTIFIER_PATTERN}(?:\\.${SOURCE_IDENTIFIER_PATTERN})*`;
-const PY_IMPORT_TARGET_PATTERN = `${PY_MODULE_PATTERN}(?:\\s+as\\s+${SOURCE_IDENTIFIER_PATTERN})?`;
-const PY_IMPORT_LIST_PATTERN = `${PY_IMPORT_TARGET_PATTERN}(?:\\s*,\\s*${PY_IMPORT_TARGET_PATTERN})*`;
-const PY_FROM_IMPORT_LIST_PATTERN = `(?:\\*|${SOURCE_IDENTIFIER_PATTERN}(?:\\s+as\\s+${SOURCE_IDENTIFIER_PATTERN})?(?:\\s*,\\s*${SOURCE_IDENTIFIER_PATTERN}(?:\\s+as\\s+${SOURCE_IDENTIFIER_PATTERN})?)*)`;
-const STATEMENT_END_PATTERN = "\\s*;?(?:\\s*(?:#|\\/\\/).*)?(?=$|[\\r\\n])";
-const PY_IMPORT_LINE_PATTERN = `(?:import\\s+${PY_IMPORT_LIST_PATTERN}|from\\s+(?:\\.{1,2})?${PY_MODULE_PATTERN}\\s+import\\s+${PY_FROM_IMPORT_LIST_PATTERN})${STATEMENT_END_PATTERN}`;
-const TS_EXPORT_LINE_PATTERN = `export\\s+(?:(?:const|let|var)\\s+${SOURCE_IDENTIFIER_PATTERN}\\s*(?::[^=\\r\\n]+)?=|(?:default\\s+)?function\\s+${SOURCE_IDENTIFIER_PATTERN}\\s*\\(|(?:default\\s+)?(?:class|interface)\\s+${SOURCE_IDENTIFIER_PATTERN}(?:\\s+(?:extends|implements)\\s+[^\\r\\n{]+)?\\s*(?:\\{|${STATEMENT_END_PATTERN})|type\\s+${SOURCE_IDENTIFIER_PATTERN}\\s*=)`;
-const TS_INTERFACE_LINE_PATTERN = `interface\\s+${SOURCE_IDENTIFIER_PATTERN}(?:\\s+extends\\s+[^\\r\\n{]+)?\\s*(?:\\{|${STATEMENT_END_PATTERN})`;
-const LINE_NUMBERED_SOURCE_INTRO_PATTERN = new RegExp(
-  `(?:^|[\\r\\n])\\s*\\d+\\s+(?:${PY_IMPORT_LINE_PATTERN}|${TS_EXPORT_LINE_PATTERN}|${TS_INTERFACE_LINE_PATTERN}|type\\s+${SOURCE_IDENTIFIER_PATTERN}\\s*=)`,
-  "gi",
-);

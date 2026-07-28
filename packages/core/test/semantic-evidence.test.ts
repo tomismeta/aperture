@@ -713,7 +713,7 @@ test("task failure evidence classifies structured tool output without treating i
       type: "task.updated",
       title: "bash failure",
       summary:
-        '{"wall_time":"0.0510 seconds","output":"1\\timport os\\n2\\tfrom pathlib import Path',
+        '{"wall_time":"0.0510 seconds","output":"1\\timport os\\n2\\tfrom pathlib import Path\\n3\\tclass Runner:',
       status: "failed",
       toolFamily: "bash",
     })?.kind,
@@ -727,7 +727,8 @@ test("task failure evidence classifies structured tool output without treating i
       timestamp,
       type: "task.updated",
       title: "bash failure",
-      summary: '{"wall_time":"0.0510 seconds","output":"1 import functools\\n2 import os',
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1 import functools\\n2 import os\\n3 import sys',
       status: "failed",
       toolFamily: "bash",
     })?.kind,
@@ -742,7 +743,7 @@ test("task failure evidence classifies structured tool output without treating i
       type: "task.updated",
       title: "bash failure",
       summary:
-        '{"wall_time":"0.0510 seconds","output":"1 export const value = 1;\\n2 export function run(',
+        '{"wall_time":"0.0510 seconds","output":"1 export const value = 1;\\n2 export function run() {\\n3 return value;',
       status: "failed",
       toolFamily: "bash",
     })?.kind,
@@ -757,7 +758,7 @@ test("task failure evidence classifies structured tool output without treating i
       type: "task.updated",
       title: "bash failure",
       summary:
-        '{"wall_time":"0.0510 seconds","output":"1 interface Options {\\n2 type Config = Options',
+        '{"wall_time":"0.0510 seconds","output":"1 interface Options {\\n2 type Config = Options\\n3 const value = 1;',
       status: "failed",
       toolFamily: "bash",
     })?.kind,
@@ -796,6 +797,21 @@ test("task failure evidence classifies structured tool output without treating i
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-zero-exit-single-listing",
+      taskId: "task:evidence:truncated-zero-exit-single-listing",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"exit_code":0,"wall_time":"0.0510 seconds","output":"docs/guide.md:17:Build failed is documented here...',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "zero-exit metadata does not promote one listing row",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:complete-total-lines-listing",
       taskId: "task:evidence:complete-total-lines-listing",
       timestamp,
@@ -806,8 +822,8 @@ test("task failure evidence classifies structured tool output without treating i
       status: "failed",
       toolFamily: "bash",
     })?.kind,
-    "unclassified_failure",
-    "complete envelopes do not use recovered-listing repair",
+    "structured_tool_output_observation",
+    "complete structured envelopes can carry listing observations",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -821,8 +837,8 @@ test("task failure evidence classifies structured tool output without treating i
       status: "failed",
       toolFamily: "bash",
     })?.kind,
-    "unclassified_failure",
-    "complete envelopes do not use doc/config listing repair",
+    "structured_tool_output_observation",
+    "complete structured envelopes can carry doc/config listing observations",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -2208,6 +2224,21 @@ test("observational status-conflict evidence includes corpus-derived event shape
   );
   assert.deepEqual(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-flattened-include-source",
+      taskId: "task:evidence:structured-flattened-include-source",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"#include \\"vector_codegen.h\\" #include <cmath> #include <iostream> #include \\"debug.h\\" std::unique_ptr<Node> Parser::parse() { return nullptr; }"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "flattened include clusters need source-shaped structure",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:structured-spdx-header",
       taskId: "task:evidence:structured-spdx-header",
       timestamp,
@@ -2220,6 +2251,21 @@ test("observational status-conflict evidence includes corpus-derived event shape
     })?.consequenceBaseline,
     "high",
     "SPDX headers are source observations",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-line-numbered-license-header",
+      taskId: "task:evidence:structured-line-numbered-license-header",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1\\t// SPDX-License-Identifier: GPL-2.0 OR MIT\\n2\\t/*\\n3\\t * Copyright 2023 Example\\n4\\t * Permission is hereby granted"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "line-numbered license headers are source observations",
   );
   assert.deepEqual(
     readTaskFailureSemanticEvidence({
@@ -2268,6 +2314,81 @@ test("observational status-conflict evidence includes corpus-derived event shape
   );
   assert.deepEqual(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-line-numbered-shell-source",
+      taskId: "task:evidence:structured-line-numbered-shell-source",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1\\t#!/bin/bash\\n2\\tset -euo pipefail\\n4\\tROOT_DIR=\\"$(cd \\"$(dirname \\"${BASH_SOURCE[0]}\\")\\" && pwd)\\""}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "line-numbered source fragments require monotone source-shaped spans",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-no-space-grep-context",
+      taskId: "task:evidence:structured-no-space-grep-context",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"2265:hsa_status_t GpuAgent::UpdateTrapHandlerWithPCS() {\\n2266: /* source context follows */"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "medium",
+    "line-numbered grep context allows no space after the colon",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-no-space-technical-doc-context",
+      taskId: "task:evidence:structured-no-space-technical-doc-context",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1450:TRAPSTS\\n1622:relative to S_TRAP and PC[47:0]\\n2044:TRAP_EN"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "medium",
+    "line-numbered technical grep context uses structural tokens rather than plain prose",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-no-space-marker-log-context",
+      taskId: "task:evidence:structured-no-space-marker-log-context",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"25:PcSamplingStart: entry, isActive=0\\n26:PcSamplingStart: method=0"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "medium",
+    "line-numbered marker logs use camel-case and key/value body shape",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-tabbed-line-numbered-source-context",
+      taskId: "task:evidence:structured-tabbed-line-numbered-source-context",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"3570\\t}\\n3572\\tvoid GpuAgent::PcSamplingThread(pcs_data_t& pcs_data) {\\n3573\\t// TODO: Implement lost sample count"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "line-numbered source fragments can include structural brace context",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:structured-kernel-log",
       taskId: "task:evidence:structured-kernel-log",
       timestamp,
@@ -2294,7 +2415,22 @@ test("observational status-conflict evidence includes corpus-derived event shape
       toolFamily: "bash",
     })?.consequenceBaseline,
     "medium",
-    "numbered flattened kernel logs require total-output and repeated dmesg entries",
+    "numbered flattened kernel logs accept total-output with repeated dmesg entries",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-numbered-kernel-log-without-total-lines",
+      taskId: "task:evidence:structured-numbered-kernel-log-without-total-lines",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1227:[ 360.591683] amdgpu trigger_pc_sample_trap\\n1228:[ 360.591693] amdgpu sweep complete"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "medium",
+    "structured numbered kernel logs need repeated timestamp entries, not total-output",
   );
   assert.deepEqual(
     readTaskFailureSemanticEvidence({
@@ -2310,6 +2446,66 @@ test("observational status-conflict evidence includes corpus-derived event shape
     })?.consequenceBaseline,
     "medium",
     "CMake warning logs require total-output and CMake warning location grammar",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-cmake-warning-without-total-lines",
+      taskId: "task:evidence:structured-cmake-warning-without-total-lines",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"Building ROCr Runtime...\\nCMake Deprecation Warning at CMakeLists.txt:44 (cmake_minimum_required): compatibility note"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "medium",
+    "structured CMake warning logs do not require a total-output wrapper",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-make-warning-log",
+      taskId: "task:evidence:structured-make-warning-log",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"13.2677 seconds","output":"make[1]: Entering directory \'/repo/driver\'\\nwarning: the compiler differs from the one used to build the kernel\\n  CC [M] module.o"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "medium",
+    "structured make warning logs need build-log grammar",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-markdown-table",
+      taskId: "task:evidence:structured-markdown-table",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"| Counter | Description |\\n|---------|-------------|\\n| LDSBankConflict | LDS bank conflicts |\\n| L2CacheHit | L2 cache hit rate |"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "medium",
+    "structured markdown tables are document observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-markdown-table-one-body-row",
+      taskId: "task:evidence:structured-markdown-table-one-body-row",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"| Counter | Description |\\n|---------|-------------|\\n| LDSBankConflict | LDS bank conflicts |"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "structured markdown tables need at least two body rows",
   );
 
   for (const [id, summary] of [
@@ -2334,17 +2530,35 @@ test("observational status-conflict evidence includes corpus-derived event shape
       "arbitrary-read-truncation-ellipsis",
       "IMPORTANT: The file content has been truncated. Status: Showing lines 1-2 of 3 total lines. Action: To read more of the file, you can use the 'offset' and 'limit' parameters in a subsequent 'read_file' call. For example, to review...",
     ],
+    [
+      "raw-read-markdown-table",
+      "| Counter | Description |\n|---------|-------------|\n| A | one |\n| B | two |",
+    ],
     ["single-include", "#include <torch/extension.h>"],
     ["include-prose", "Please add #include <a.h> and #include <b.h> before rebuilding"],
+    ["short-flattened-include-cluster", '#include "a.h" #include "b.h" before rebuilding'],
     ["bare-license-prose", "Copyright 2026 Example. Permission is hereby granted."],
     ["unclosed-license-comment", "/* Copyright 2026 Example. Permission is hereby granted."],
+    ["single-numbered-license-line", "1 // SPDX-License-Identifier: GPL-2.0 OR MIT"],
     [
       "patch-prose-without-index",
       "Patch includes diff --git a/src/app.ts b/src/app.ts but no index line",
     ],
     ["short-numbered-source", "520 temp = get_value(); 521 if (temp > limit)"],
     ["nonmonotone-numbered-source", "520 temp = get_value(); 519 if (temp > limit) 521 break;"],
+    ["two-span-line-numbered-source", "1 #!/bin/bash\n2 set -euo pipefail"],
+    ["nonmonotone-line-numbered-source", '1 #!/bin/bash\n3 set -euo pipefail\n2 ROOT_DIR="$PWD"'],
     ["numbered-assignment-prose", "1 task = pending 2 status = ready 3 return to menu;"],
+    ["single-keyword-numbered-prose", "1 int this is prose"],
+    [
+      "three-line-numbered-return-prose",
+      "1 int this is prose\n2 return to menu\n3 continue with setup",
+    ],
+    [
+      "three-line-numbered-call-prose",
+      "1 Please call Foo()\n2 Then run Bar()\n3 Please call Baz()",
+    ],
+    ["numbered-prose-with-brace", "1 int this is prose\n2 }\n3 continue with setup"],
     [
       "ordered-list-source-words",
       "1. if the value is high\\n2. return to the menu\\n3. break the work apart",
@@ -2355,7 +2569,29 @@ test("observational status-conflict evidence includes corpus-derived event shape
       "generic-colon-context",
       "1450: context before line\\n1451: context after line\\n1452: context tail",
     ],
+    ["single-no-space-grep-context", "2265:hsa_status_t GpuAgent::UpdateTrapHandlerWithPCS() {"],
+    ["no-space-prose-context", "1:Introduction\n2:Details"],
+    ["no-space-function-call-prose", "1:Please call Foo()\n2:Then call Bar()"],
+    ["no-space-domain-context", "1:docs.example.com\n2:api.example.com"],
+    ["three-row-no-space-domain-context", "1:docs.example.com\n2:api.example.com\n3:ordinary tail"],
+    ["three-row-space-domain-context", "1 docs.example.com\n2 api.example.com\n3 ordinary tail"],
+    ["three-row-tab-domain-context", "1\tdocs.example.com\n2\tapi.example.com\n3\tordinary tail"],
+    ["no-space-json-context", '1:{"state":"ready"}\n2:{"state":"done"}'],
+    ["no-space-url-context", "1:https://example.test/a\n2:https://example.test/b"],
+    ["no-space-clock-context", "1:12:30\n2:13:00"],
+    [
+      "nonmonotone-no-space-grep-context",
+      "2265:hsa_status_t GpuAgent::UpdateTrapHandlerWithPCS() {\\n2264: /* older context */",
+    ],
+    [
+      "unnumbered-mid-block-source-fragment",
+      'dev_err(dev, "Failed to flush TC");\\nkfd_flush_tlb(qpd, TLB_FLUSH_LEGACY);\\nset_pasid_vmid_mapping(dqm, 0, qpd->vmid);',
+    ],
     ["single-kernel-timestamp", "[ 510.963965] amdgpu ring comp_1 uses VM inv eng 10"],
+    [
+      "markdown-table-with-one-body-row",
+      "| Counter | Description |\n|---------|-------------|\n| A | one |",
+    ],
     [
       "kernel-log-diagnostic",
       "[ 226.262885] amdxdna 0000:c6:00.1: [drm] *ERROR* amdxdna_drm_open: SVA bind device failed, ret -19 [ 226.287574] amdgpu: pcs hosttrap: set target vmid=0",
@@ -2426,11 +2662,45 @@ test("observational status-conflict evidence includes corpus-derived event shape
     "unclassified_failure",
     "numbered diagnostic kernel logs must not become observational payloads",
   );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-kernel-panic-log-diagnostic",
+      taskId: "task:evidence:structured-kernel-panic-log-diagnostic",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0516 seconds","output":"1:[ 226.262885] Kernel panic - not syncing\\n2:[ 226.287574] CPU: 0 PID: 1"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "numbered kernel panic logs must not become observational payloads",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-kernel-bug-lockup-diagnostic",
+      taskId: "task:evidence:structured-kernel-bug-lockup-diagnostic",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0516 seconds","output":"1:[ 226.262885] BUG: soft lockup - CPU#0 stuck\\n2:[ 226.287574] watchdog: soft lockup pending"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "numbered kernel BUG lockup logs must not become observational payloads",
+  );
 
   for (const [id, output] of [
     [
       "nonzero-flattened-source",
       '{"exit_code":2,"wall_time":"0.0510 seconds","output":"520 temp = get_value(); 521 if (temp > limit) 522 break;"}',
+    ],
+    [
+      "nonzero-single-listing",
+      '{"exit_code":2,"wall_time":"0.0510 seconds","output":"docs/guide.md:17:Build failed is documented here..."}',
     ],
     [
       "source-plus-traceback",

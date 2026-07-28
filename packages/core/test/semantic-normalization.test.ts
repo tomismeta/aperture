@@ -586,7 +586,8 @@ test("truncated structured line-numbered source intro stays observational at hig
     timestamp,
     source: source("custom-agent"),
     title: "bash failure",
-    summary: '{"wall_time":"0.0510 seconds","output":"1\\timport os\\n2\\tfrom pathlib import Path',
+    summary:
+      '{"wall_time":"0.0510 seconds","output":"1\\timport os\\n2\\tfrom pathlib import Path\\n3\\tclass Runner:',
     status: "failed",
     toolFamily: "bash",
   });

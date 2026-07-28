@@ -1,4 +1,10 @@
+import {
+  looksLikeMarkdownDocumentObservation,
+  looksLikeStructuredMarkdownDocumentObservation,
+} from "./semantic-document-observation-shapes.js";
+import { looksLikeKernelLogDiagnosticPayload } from "./semantic-kernel-log-shapes.js";
 import { looksLikeReadTruncationProtocolObservation } from "./semantic-read-observation-shapes.js";
+import { looksLikeStrongListingObservation } from "./semantic-listing-observation-shapes.js";
 import { looksLikeStrongRawSourceObservation } from "./semantic-source-observation-shapes.js";
 
 export { looksLikeStrongRawSourceObservation } from "./semantic-source-observation-shapes.js";
@@ -6,9 +12,13 @@ export { looksLikeStrongRawSourceObservation } from "./semantic-source-observati
 export function looksLikeStructuredToolOutputObservation(output: string): boolean {
   return (
     looksLikeStrongRawSourceObservation(output) ||
+    looksLikeStructuredNumberedKernelLogObservation(output) ||
     looksLikeBuildOrLogObservation(output) ||
     looksLikeReadTruncationProtocolObservation(output) ||
-    looksLikeMarkdownDocumentObservation(output)
+    looksLikeStructuredMarkdownDocumentObservation(output) ||
+    looksLikeStrongListingObservation(output) ||
+    looksLikeStructuredCMakeWarningLogObservation(output) ||
+    looksLikeStructuredMakeWarningLogObservation(output)
   );
 }
 
@@ -78,10 +88,8 @@ function looksLikeFlattenedKernelLogObservation(text: string): boolean {
   );
 }
 
-function looksLikeKernelLogDiagnosticPayload(text: string): boolean {
-  return /(?:^|[\r\n]|\s)(?:\d+:\s*)?\[\s*\d+(?:\.\d+)?][^\r\n]*(?:\*ERROR\*|\b(?:error|failed|failure|fault)\b)/i.test(
-    text,
-  );
+function looksLikeStructuredNumberedKernelLogObservation(text: string): boolean {
+  return !looksLikeKernelLogDiagnosticPayload(text) && countNumberedDmesgEntries(text) >= 2;
 }
 
 function countDmesgTimestampEntries(text: string): number {
@@ -100,13 +108,20 @@ function looksLikeCMakeWarningLogObservation(text: string): boolean {
   );
 }
 
-function looksLikeMarkdownDocumentObservation(text: string): boolean {
-  const normalized = stripObservationStatusPrefix(text);
-  const headingCount = [...normalized.matchAll(/(?:^|[\r\n])\s{0,3}#{1,6}\s+\S/g)].length;
-  const listCount = [...normalized.matchAll(/(?:^|[\r\n])\s*(?:[-*]\s+\S|\d+\.\s+\S)/g)].length;
-  const hasCodeFence = /(?:^|[\r\n])\s*```/.test(normalized);
+function looksLikeStructuredCMakeWarningLogObservation(text: string): boolean {
+  return (
+    /(?:^|[\r\n])\s*CMake (?:Deprecation )?Warning at (?:[^\s:]+\/)*(?:CMakeLists\.txt|[^\s:]+\.cmake):\d+\s+\(/i.test(
+      text,
+    ) && !/\bCMake Error at\b/i.test(text)
+  );
+}
 
-  return normalized.length >= 160 && headingCount >= 2 && (listCount >= 2 || hasCodeFence);
+function looksLikeStructuredMakeWarningLogObservation(text: string): boolean {
+  return (
+    /(?:^|[\r\n])\s*make\[\d+]:\s+Entering directory\b/i.test(text) &&
+    /(?:^|[\r\n])\s*(?:warning:\s+\S[^\r\n]*|(?:CC|LD)\s+\[M\])/i.test(text) &&
+    !/(?:^|[\r\n])\s*make(?:\[\d+\])?:\s+\*\*\*/i.test(text)
+  );
 }
 
 function stripObservationStatusPrefix(value: string): string {

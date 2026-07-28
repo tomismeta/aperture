@@ -159,6 +159,7 @@ export function readTaskFailureSemanticEvidence(
   const structuredOutputSourceObservation =
     diagnosticStructuredToolOutput !== null &&
     looksLikeStrongRawSourceObservation(diagnosticStructuredToolOutput.output);
+  const zeroExitStructuredToolOutput = diagnosticStructuredToolOutput?.exitCode === 0;
   const structuredOutputObservation =
     diagnosticStructuredToolOutput !== null &&
     (looksLikeStructuredToolOutputObservation(diagnosticStructuredToolOutput.output) ||
@@ -172,7 +173,6 @@ export function readTaskFailureSemanticEvidence(
     toolFamily === "read" && looksLikeReadTruncationProtocolObservation(event.summary ?? "");
   const rawReadStructuredObservation =
     rawReadSourceObservation || rawReadListingObservation || rawReadTruncationObservation;
-  const zeroExitStructuredToolOutput = diagnosticStructuredToolOutput?.exitCode === 0;
   const searchOutputObservation = toolFamily === "search" && text.searchResultOutput;
   const searchFailureDiagnostic =
     toolFamily === "search" && looksLikeSearchFailureDiagnostic(event.summary ?? "");

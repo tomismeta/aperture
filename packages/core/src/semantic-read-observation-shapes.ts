@@ -20,4 +20,4 @@ export function looksLikeReadTruncationProtocolObservation(value: string): boole
 }
 
 const READ_TRUNCATION_PROTOCOL_PATTERN =
-  /^IMPORTANT:\s+The file content has been truncated\.\s+Status:\s+Showing lines\s+(\d+)-(\d+)\s+of\s+(\d+)\s+total lines\.\s+Action:\s+To read more of the file,\s+you can use the (?:'offset' and 'limit'|'start_line' and 'end_line') parameters\.?\s*$/i;
+  /^IMPORTANT:\s+The file content has been truncated\.\s+Status:\s+Showing lines\s+(\d+)-(\d+)\s+of\s+(\d+)\s+total lines\.\s+Action:\s+To read more of the file,\s+you can use the (?:'offset' and 'limit'|'start_line' and 'end_line') parameters(?:\.?\s*| in a subsequent 'read_file' call\.\s+For example,\s+to read\b[\s\S]{0,400})$/i;

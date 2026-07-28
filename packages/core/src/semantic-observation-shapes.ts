@@ -68,9 +68,19 @@ function looksLikeFlattenedBuildLogObservation(text: string): boolean {
 }
 
 function looksLikeFlattenedKernelLogObservation(text: string): boolean {
+  if (looksLikeKernelLogDiagnosticPayload(text)) {
+    return false;
+  }
+
   return (
     countDmesgTimestampEntries(text) >= 2 ||
     (/\btotal output lines:\s*\d+\b/i.test(text) && countNumberedDmesgEntries(text) >= 2)
+  );
+}
+
+function looksLikeKernelLogDiagnosticPayload(text: string): boolean {
+  return /(?:^|[\r\n]|\s)\[\s*\d+(?:\.\d+)?][^\r\n]*(?:\*ERROR\*|\b(?:error|failed|failure|fault)\b)/i.test(
+    text,
   );
 }
 

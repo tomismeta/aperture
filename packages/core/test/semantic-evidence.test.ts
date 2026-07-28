@@ -2163,6 +2163,21 @@ test("observational status-conflict evidence includes corpus-derived event shape
   );
   assert.deepEqual(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-read-truncation-protocol-with-continuation",
+      taskId: "task:evidence:raw-read-truncation-protocol-with-continuation",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "IMPORTANT: The file content has been truncated. Status: Showing lines 191-200 of 385 total lines. Action: To read more of the file, you can use the 'offset' and 'limit' parameters in a subsequent 'read_file' call. For example, to read the next section, call read_file with offset 200 and limit 100...",
+      status: "failed",
+      toolFamily: "read",
+    })?.consequenceBaseline,
+    "low",
+    "official read_file continuation text is part of the truncation protocol",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:structured-multiple-includes",
       taskId: "task:evidence:structured-multiple-includes",
       timestamp,
@@ -2319,6 +2334,10 @@ test("observational status-conflict evidence includes corpus-derived event shape
     ],
     ["single-kernel-timestamp", "[ 510.963965] amdgpu ring comp_1 uses VM inv eng 10"],
     [
+      "kernel-log-diagnostic",
+      "[ 226.262885] amdxdna 0000:c6:00.1: [drm] *ERROR* amdxdna_drm_open: SVA bind device failed, ret -19 [ 226.287574] amdgpu: pcs hosttrap: set target vmid=0",
+    ],
+    [
       "cmake-warning-without-total-lines",
       "CMake Deprecation Warning at CMakeLists.txt:44 (cmake_minimum_required): compatibility note",
     ],
@@ -2353,6 +2372,21 @@ test("observational status-conflict evidence includes corpus-derived event shape
     })?.kind,
     "structured_tool_output_observation",
     "CMake error text inside source code is not a runtime diagnostic",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-kernel-log-diagnostic",
+      taskId: "task:evidence:structured-kernel-log-diagnostic",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0516 seconds","output":"[ 226.262885] amdxdna 0000:c6:00.1: [drm] *ERROR* amdxdna_drm_open: SVA bind device failed, ret -19\\n[ 226.287574] amdgpu: pcs hosttrap: set target vmid=0"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "diagnostic kernel logs must not become observational payloads",
   );
 
   for (const [id, output] of [

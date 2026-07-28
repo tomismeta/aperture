@@ -1301,8 +1301,8 @@ test("task failure evidence classifies structured tool output without treating i
       status: "failed",
       toolFamily: "bash",
     })?.kind,
-    "unclassified_failure",
-    "malformed structured kernel diagnostics must not become observations",
+    "terminal_failure",
+    "malformed structured kernel diagnostics are terminal evidence",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -3212,8 +3212,8 @@ test("observational status-conflict evidence includes corpus-derived event shape
       status: "failed",
       toolFamily: "bash",
     })?.kind,
-    "unclassified_failure",
-    "diagnostic kernel logs must not become observational payloads",
+    "terminal_failure",
+    "diagnostic kernel logs are terminal evidence",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -3227,8 +3227,8 @@ test("observational status-conflict evidence includes corpus-derived event shape
       status: "failed",
       toolFamily: "bash",
     })?.kind,
-    "unclassified_failure",
-    "numbered diagnostic kernel logs must not become observational payloads",
+    "terminal_failure",
+    "numbered diagnostic kernel logs are terminal evidence",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -3242,8 +3242,8 @@ test("observational status-conflict evidence includes corpus-derived event shape
       status: "failed",
       toolFamily: "bash",
     })?.kind,
-    "unclassified_failure",
-    "numbered kernel panic logs must not become observational payloads",
+    "terminal_failure",
+    "numbered kernel panic logs are terminal evidence",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -3257,8 +3257,8 @@ test("observational status-conflict evidence includes corpus-derived event shape
       status: "failed",
       toolFamily: "bash",
     })?.kind,
-    "unclassified_failure",
-    "numbered kernel BUG lockup logs must not become observational payloads",
+    "terminal_failure",
+    "numbered kernel BUG lockup logs are terminal evidence",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({

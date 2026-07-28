@@ -1,5 +1,7 @@
+import { looksLikeKernelLogDiagnosticPayload } from "./semantic-kernel-log-shapes.js";
+
 export function hasToolOutputFailureDiagnosticEvidence(text: string): boolean {
-  return hasStrongRuntimeDiagnosticEvidence(text);
+  return hasStrongRuntimeDiagnosticEvidence(text) || looksLikeKernelLogDiagnosticPayload(text);
 }
 
 export function looksLikeSearchFailureDiagnostic(rawText: string): boolean {

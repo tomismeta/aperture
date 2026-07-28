@@ -173,7 +173,9 @@ export function readTaskFailureSemanticEvidence(
   const searchFailureDiagnostic =
     toolFamily === "search" && looksLikeSearchFailureDiagnostic(event.summary ?? "");
   const readFailureDiagnostic =
-    toolFamily === "read" && looksLikeExplicitReadFailureDiagnostic(event.summary ?? "");
+    toolFamily === "read" &&
+    (looksLikeExplicitReadFailureDiagnostic(event.summary ?? "") ||
+      (hasStrongRuntimeDiagnosticEvidence(event.summary ?? "") && !rawReadSourceObservation));
   const structuredOutputFailureDiagnostic =
     diagnosticStructuredToolOutput !== null &&
     hasToolOutputFailureDiagnosticEvidence(diagnosticStructuredToolOutput.output);
@@ -330,7 +332,7 @@ function looksLikeReadObservationPayload(text: string): boolean {
 
   return (
     containsAnySemanticPhrase(text, OBSERVATIONAL_PAYLOAD_PHRASES) ||
-    containsCodeLikeContent(text) ||
+    (containsSourceCodePath(text) && containsCodeLikeContent(text)) ||
     containsLineNumberedCodeContent(text)
   );
 }
@@ -362,6 +364,10 @@ function containsCodeLikeContent(text: string): boolean {
 
 function containsLineNumberedCodeContent(text: string): boolean {
   return LINE_NUMBERED_CODE_PATTERN.test(text);
+}
+
+function containsSourceCodePath(text: string): boolean {
+  return SOURCE_CODE_PATH_PATTERN.test(text) || SOURCE_CODE_FILENAME_PATTERN.test(text);
 }
 
 function looksLikeSourceCodeObservation(text: string): boolean {

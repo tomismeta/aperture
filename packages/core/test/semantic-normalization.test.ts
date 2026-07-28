@@ -559,6 +559,43 @@ test("truncated structured listing output stays observational at medium conseque
   assert.equal(interpretation.consequence, "medium");
 });
 
+test("truncated structured doc path listing output stays observational at medium consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:truncated-doc-listing-output",
+    type: "task.updated",
+    taskId: "task:truncated-doc-listing-output",
+    timestamp,
+    source: source("custom-agent"),
+    title: "bash failure",
+    summary:
+      '{"wall_time":"0.0510 seconds","output":"Total output lines: 42\\n\\n/repo/README.md:17:Build the project from a clean checkout',
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "medium");
+});
+
+test("truncated structured line-numbered source intro stays observational at high consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:truncated-line-numbered-source-intro",
+    type: "task.updated",
+    taskId: "task:truncated-line-numbered-source-intro",
+    timestamp,
+    source: source("custom-agent"),
+    title: "bash failure",
+    summary: '{"wall_time":"0.0510 seconds","output":"1\\timport os\\n2\\tfrom pathlib import Path',
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "high");
+});
+
 test("failed read markdown documents stay status updates", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:read-markdown-document",

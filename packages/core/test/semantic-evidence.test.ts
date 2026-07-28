@@ -662,6 +662,21 @@ test("task failure evidence classifies structured tool output without treating i
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-doc-listing-total-lines",
+      taskId: "task:evidence:truncated-doc-listing-total-lines",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"Total output lines: 42\\n\\n/repo/README.md:17:Build the project from a clean checkout',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "parser-recovered doc path listings with total-output markers should become observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:truncated-two-line-listing",
       taskId: "task:evidence:truncated-two-line-listing",
       timestamp,
@@ -674,6 +689,80 @@ test("task failure evidence classifies structured tool output without treating i
     })?.kind,
     "structured_tool_output_observation",
     "parser-recovered repeated listing entries should become observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-two-line-doc-listing",
+      taskId: "task:evidence:truncated-two-line-doc-listing",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"docs/guide.md:17:Build the project from a clean checkout\\nconfig/settings.json:21:{\\"mode\\":\\"debug\\"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "parser-recovered repeated doc/config path listings should become observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-line-numbered-source-intro",
+      taskId: "task:evidence:truncated-line-numbered-source-intro",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1\\timport os\\n2\\tfrom pathlib import Path',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "repeated line-numbered source intro syntax should become observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-line-numbered-python-imports",
+      taskId: "task:evidence:truncated-line-numbered-python-imports",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: '{"wall_time":"0.0510 seconds","output":"1 import functools\\n2 import os',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "repeated line-numbered Python imports should become observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-line-numbered-ts-exports",
+      taskId: "task:evidence:truncated-line-numbered-ts-exports",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1 export const value = 1;\\n2 export function run(',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "repeated line-numbered TypeScript exports should become observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-line-numbered-ts-interface",
+      taskId: "task:evidence:truncated-line-numbered-ts-interface",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1 interface Options {\\n2 type Config = Options',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "repeated line-numbered TypeScript declarations should become observations",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -692,6 +781,21 @@ test("task failure evidence classifies structured tool output without treating i
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-single-doc-listing",
+      taskId: "task:evidence:truncated-single-doc-listing",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"docs/guide.md:17:Build the project from a clean checkout',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "one doc/config path line without total-output marker is not enough",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:complete-total-lines-listing",
       taskId: "task:evidence:complete-total-lines-listing",
       timestamp,
@@ -707,6 +811,66 @@ test("task failure evidence classifies structured tool output without treating i
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:complete-total-lines-doc-listing",
+      taskId: "task:evidence:complete-total-lines-doc-listing",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"Total output lines: 42\\n\\n/repo/README.md:17:Build the project from a clean checkout"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "complete envelopes do not use doc/config listing repair",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-prose-path-reference",
+      taskId: "task:evidence:truncated-prose-path-reference",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"Total output lines: 2\\nsee /repo/README.md line 17 for build notes',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "prose path references are not listing entries",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-uri-path-reference",
+      taskId: "task:evidence:truncated-uri-path-reference",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"Total output lines: 2\\nhttps://example.test/docs/readme.md:17:Build notes',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "URI path references are not listing entries",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-log-path-reference",
+      taskId: "task:evidence:truncated-log-path-reference",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"Total output lines: 2\\n/var/log/build.log:17:Compilation failed',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "log path line references are not listing entries",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:truncated-listing-plus-traceback",
       taskId: "task:evidence:truncated-listing-plus-traceback",
       timestamp,
@@ -719,6 +883,125 @@ test("task failure evidence classifies structured tool output without treating i
     })?.kind,
     "terminal_failure",
     "visible diagnostics after listing lines remain terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-doc-listing-plus-error",
+      taskId: "task:evidence:truncated-doc-listing-plus-error",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"docs/guide.md:17:Build the project from a clean checkout\\ndocs/guide.md:18:Run tests\\nError: permission denied',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "visible diagnostics after doc listing lines remain terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-ordered-list-prose",
+      taskId: "task:evidence:truncated-ordered-list-prose",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1. import packages before running the project\\n2. from the report, copy the settings',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "markdown ordered-list prose is not line-numbered source",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-single-weak-source-intro",
+      taskId: "task:evidence:truncated-single-weak-source-intro",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: '{"wall_time":"0.0510 seconds","output":"1 import os',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "one weak line-numbered source intro is not enough",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-line-numbered-import-prose",
+      taskId: "task:evidence:truncated-line-numbered-import-prose",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1 import packages before running the project\\n2 import settings before testing',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "line-numbered import prose is not source intro syntax",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-line-numbered-from-prose",
+      taskId: "task:evidence:truncated-line-numbered-from-prose",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1 from report import settings before running\\n2 from notes import values before testing',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "line-numbered from/import prose is not source intro syntax",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-line-numbered-export-prose",
+      taskId: "task:evidence:truncated-line-numbered-export-prose",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1 export const packages before running the project\\n2 export const settings before testing',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "line-numbered export prose is not source intro syntax",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-line-numbered-interface-prose",
+      taskId: "task:evidence:truncated-line-numbered-interface-prose",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1 interface with the terminal before running\\n2 interface with settings before testing',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "line-numbered interface prose is not source intro syntax",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-line-numbered-prose",
+      taskId: "task:evidence:truncated-line-numbered-prose",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1 type the command into the terminal\\n2 from the report, copy the settings',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "line-numbered prose is not source intro syntax",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -1116,6 +1399,20 @@ test("task failure evidence preserves current observational classes", () => {
     })?.kind,
     "unclassified_failure",
     "one raw-read listing line plus ellipsis is not enough",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-read-single-doc-listing-line",
+      taskId: "task:evidence:raw-read-single-doc-listing-line",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary: "/repo/README.md:17:Build the project from a clean checkout...",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "unclassified_failure",
+    "one raw-read doc/config listing line plus ellipsis is not enough",
   );
   for (const [id, summary] of [
     ["read-log-checking-prose", "Could not open /tmp/make.log while checking for a replacement"],

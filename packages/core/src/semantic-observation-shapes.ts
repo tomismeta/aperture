@@ -92,8 +92,10 @@ function looksLikeRawSourcePrefix(text: string): boolean {
 }
 
 function looksLikeLineNumberedRawSource(text: string): boolean {
-  return /\b\d+\s+(?:#include\b|static\b|struct\b|enum\b|typedef\b|void\b|int\b|char\b|bool\b|return\b|namespace\b|class\b|def\b|function\b|const\b|let\b|var\b)/i.test(
-    text,
+  return (
+    /(?:^|[\r\n])\s*\d+\s+(?:#include\b|static\b|struct\b|enum\b|typedef\b|void\b|int\b|char\b|bool\b|return\b|namespace\b|class\b|def\b|function\b|const\b|let\b|var\b)/i.test(
+      text,
+    ) || countLineNumberedSourceIntroLines(text) >= 2
   );
 }
 
@@ -123,3 +125,21 @@ function countRawSourceMarkers(text: string): number {
 
   return markers.reduce((count, marker) => count + (marker.test(text) ? 1 : 0), 0);
 }
+
+function countLineNumberedSourceIntroLines(text: string): number {
+  return [...text.matchAll(LINE_NUMBERED_SOURCE_INTRO_PATTERN)].length;
+}
+
+const SOURCE_IDENTIFIER_PATTERN = "[a-z_$][a-z0-9_$]*";
+const PY_MODULE_PATTERN = `${SOURCE_IDENTIFIER_PATTERN}(?:\\.${SOURCE_IDENTIFIER_PATTERN})*`;
+const PY_IMPORT_TARGET_PATTERN = `${PY_MODULE_PATTERN}(?:\\s+as\\s+${SOURCE_IDENTIFIER_PATTERN})?`;
+const PY_IMPORT_LIST_PATTERN = `${PY_IMPORT_TARGET_PATTERN}(?:\\s*,\\s*${PY_IMPORT_TARGET_PATTERN})*`;
+const PY_FROM_IMPORT_LIST_PATTERN = `(?:\\*|${SOURCE_IDENTIFIER_PATTERN}(?:\\s+as\\s+${SOURCE_IDENTIFIER_PATTERN})?(?:\\s*,\\s*${SOURCE_IDENTIFIER_PATTERN}(?:\\s+as\\s+${SOURCE_IDENTIFIER_PATTERN})?)*)`;
+const STATEMENT_END_PATTERN = "\\s*;?(?:\\s*(?:#|\\/\\/).*)?(?=$|[\\r\\n])";
+const PY_IMPORT_LINE_PATTERN = `(?:import\\s+${PY_IMPORT_LIST_PATTERN}|from\\s+(?:\\.{1,2})?${PY_MODULE_PATTERN}\\s+import\\s+${PY_FROM_IMPORT_LIST_PATTERN})${STATEMENT_END_PATTERN}`;
+const TS_EXPORT_LINE_PATTERN = `export\\s+(?:(?:const|let|var)\\s+${SOURCE_IDENTIFIER_PATTERN}\\s*(?::[^=\\r\\n]+)?=|(?:default\\s+)?function\\s+${SOURCE_IDENTIFIER_PATTERN}\\s*\\(|(?:default\\s+)?(?:class|interface)\\s+${SOURCE_IDENTIFIER_PATTERN}(?:\\s+(?:extends|implements)\\s+[^\\r\\n{]+)?\\s*(?:\\{|${STATEMENT_END_PATTERN})|type\\s+${SOURCE_IDENTIFIER_PATTERN}\\s*=)`;
+const TS_INTERFACE_LINE_PATTERN = `interface\\s+${SOURCE_IDENTIFIER_PATTERN}(?:\\s+extends\\s+[^\\r\\n{]+)?\\s*(?:\\{|${STATEMENT_END_PATTERN})`;
+const LINE_NUMBERED_SOURCE_INTRO_PATTERN = new RegExp(
+  `(?:^|[\\r\\n])\\s*\\d+\\s+(?:${PY_IMPORT_LINE_PATTERN}|${TS_EXPORT_LINE_PATTERN}|${TS_INTERFACE_LINE_PATTERN}|type\\s+${SOURCE_IDENTIFIER_PATTERN}\\s*=)`,
+  "gi",
+);

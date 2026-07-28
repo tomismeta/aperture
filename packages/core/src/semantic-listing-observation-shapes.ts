@@ -1,4 +1,4 @@
-type ListingEntryKind = "grep" | "kernel_log" | "markdown" | "source_location";
+type ListingEntryKind = "grep" | "kernel_log" | "markdown" | "path_line" | "source_location";
 
 type ListingEntry = {
   kind: ListingEntryKind;
@@ -43,13 +43,16 @@ function readListingEntryKind(line: string): ListingEntryKind | null {
   if (SOURCE_LOCATION_LINE_PATTERN.test(line)) {
     return "source_location";
   }
+  if (PATH_LINE_ENTRY_PATTERN.test(line)) {
+    return "path_line";
+  }
   if (/^\d{1,6}[-:](?:\||\s+\S)/.test(line)) {
     return "grep";
   }
   if (/^\[\s*\d+(?:\.\d+)?]\s+\S/.test(line)) {
     return "kernel_log";
   }
-  if (/^(?:#{1,6}\s+\S|[-*]\s+\S|\d+\.\s+\S|```)/.test(line)) {
+  if (/^(?:#{1,6}\s+\S|```)/.test(line)) {
     return "markdown";
   }
 
@@ -91,3 +94,6 @@ function stripObservationStatusPrefix(value: string): string {
 
 const SOURCE_LOCATION_LINE_PATTERN =
   /^[^\s:\r\n]+\.(?:c|cc|cpp|cxx|cu|cuh|h|hpp|hh|s|asm|ts|tsx|js|jsx|py|rb|go|rs|java|kt|swift):\d+(?::\d+)?:\s*\S/i;
+
+const PATH_LINE_ENTRY_PATTERN =
+  /^(?!(?:[a-z][a-z0-9+.-]*:\/\/))(?:(?:(?:\/|\.{1,2}\/|[^\s:\r\n]+\/)[^\s:\r\n]*\.(?:md|markdown|txt|rst|adoc|json|jsonl|ya?ml|toml|ini|cfg|cmake|ll|td))|(?:Makefile|GNUmakefile|CMakeLists\.txt)):\d+(?::\d+)?:\s*\S/i;

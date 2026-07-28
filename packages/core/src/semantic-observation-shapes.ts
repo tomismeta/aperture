@@ -1,5 +1,5 @@
 export function looksLikeStrongRawSourceObservation(value: string): boolean {
-  const text = value.trim();
+  const text = stripObservationStatusPrefix(value);
   if (text.length === 0) {
     return false;
   }
@@ -7,12 +7,63 @@ export function looksLikeStrongRawSourceObservation(value: string): boolean {
   return (
     looksLikeRawSourcePrefix(text) ||
     looksLikeLineNumberedRawSource(text) ||
+    countSourceLocationLines(text) >= 2 ||
     countRawSourceMarkers(text) >= 3
   );
 }
 
 export function looksLikeStructuredToolOutputObservation(output: string): boolean {
-  return looksLikeStrongRawSourceObservation(output);
+  return (
+    looksLikeStrongRawSourceObservation(output) ||
+    looksLikeBuildOrLogObservation(output) ||
+    looksLikeMarkdownDocumentObservation(output)
+  );
+}
+
+export function looksLikePlainReadObservation(value: string): boolean {
+  return (
+    looksLikeStrongRawSourceObservation(value) ||
+    looksLikeBuildOrLogObservation(value) ||
+    looksLikeMarkdownDocumentObservation(value)
+  );
+}
+
+export function looksLikeBuildOrLogObservation(value: string): boolean {
+  const text = stripObservationStatusPrefix(value);
+  if (text.length === 0) {
+    return false;
+  }
+
+  const markers = [
+    /\b(?:make|cmake|ninja|pytest|unittest|dkms)[^\r\n]{0,80}\.log\b/i,
+    /\btotal output lines:\s*\d+\b/i,
+    /(?:^|[\r\n])\s*\[\s*\d+%]\s+(?:building|linking|generating)\b/i,
+    /(?:^|[\r\n])\s*(?:checking for a\b|building module\(s\)\b|building [a-z0-9_ -]*object\b|linking [a-z0-9_ -]*target\b)/i,
+    /(?:^|[\r\n])\s*[^\r\n:]+:\d+:\s*(?:userwarning|warning):\s+\S/i,
+  ].filter((pattern) => pattern.test(text)).length;
+
+  return markers >= 2 || countRepeatedBuildLogLines(text) >= 2;
+}
+
+function countRepeatedBuildLogLines(text: string): number {
+  return [
+    ...text.matchAll(
+      /(?:^|[\r\n])\s*(?:checking for a\b|building module\(s\)\b|building [a-z0-9_ -]*object\b|linking [a-z0-9_ -]*target\b|\[\s*\d+%]\s+(?:building|linking|generating)\b)/gi,
+    ),
+  ].length;
+}
+
+function looksLikeMarkdownDocumentObservation(text: string): boolean {
+  const normalized = stripObservationStatusPrefix(text);
+  const headingCount = [...normalized.matchAll(/(?:^|[\r\n])\s{0,3}#{1,6}\s+\S/g)].length;
+  const listCount = [...normalized.matchAll(/(?:^|[\r\n])\s*(?:[-*]\s+\S|\d+\.\s+\S)/g)].length;
+  const hasCodeFence = /(?:^|[\r\n])\s*```/.test(normalized);
+
+  return normalized.length >= 160 && headingCount >= 2 && (listCount >= 2 || hasCodeFence);
+}
+
+function stripObservationStatusPrefix(value: string): string {
+  return value.trim().replace(/^(?:bash|edit|read|search|tool)\s+failure\s+/, "");
 }
 
 function looksLikeRawSourcePrefix(text: string): boolean {
@@ -26,6 +77,13 @@ function looksLikeLineNumberedRawSource(text: string): boolean {
     text,
   );
 }
+
+function countSourceLocationLines(text: string): number {
+  return [...text.matchAll(SOURCE_LOCATION_LINE_PATTERN)].length;
+}
+
+const SOURCE_LOCATION_LINE_PATTERN =
+  /(?:^|[\r\n])\s*[^\s:\r\n]+\.(?:c|cc|cpp|cxx|cu|cuh|h|hpp|hh|s|asm|ts|tsx|js|jsx|py|rb|go|rs|java|kt|swift):\d+(?::\d+)?:/gi;
 
 function countRawSourceMarkers(text: string): number {
   const markers = [

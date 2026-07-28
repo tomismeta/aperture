@@ -1,6 +1,6 @@
 export type StructuredToolOutputObservation = {
   output: string;
-  wallTime: string;
+  wallTime?: string;
   exitCode?: number;
 };
 
@@ -45,7 +45,7 @@ export function looksLikeStructuredToolOutputEnvelope(summary: string | undefine
     return false;
   }
 
-  if (/^\s*\{(?=[\s\S]*"wall_time"\s*:)(?=[\s\S]*"output"\s*:)/.test(summary)) {
+  if (/^\s*\{\s*(?:"exit_code"\s*:|"wall_time"\s*:|"output"\s*:)/.test(summary)) {
     return true;
   }
 
@@ -74,7 +74,7 @@ export function parseJsonObject(value: string): Record<string, unknown> | null {
   }
 }
 
-function looksLikeWallTime(value: string): boolean {
+export function looksLikeWallTime(value: string): boolean {
   return /^\d+(?:\.\d+)?\s*(?:ms|s|sec|secs|second|seconds)$/i.test(value.trim());
 }
 

@@ -24,6 +24,8 @@ import {
   looksLikeSearchFailureDiagnostic,
 } from "./semantic-diagnostic-shapes.js";
 import {
+  looksLikeBuildOrLogObservation,
+  looksLikePlainReadObservation,
   looksLikeStrongRawSourceObservation,
   looksLikeStructuredToolOutputObservation,
 } from "./semantic-observation-shapes.js";
@@ -37,7 +39,7 @@ import {
   looksLikeTerminalFailureEvidence,
   looksLikeZeroTerminalExit,
 } from "./semantic-terminal-evidence.js";
-import { readTruncatedStructuredToolOutputDiagnosticEvidence } from "./semantic-truncated-structured-output.js";
+import { readTruncatedStructuredToolOutputEnvelope } from "./semantic-truncated-structured-output.js";
 import { readExplicitSemanticToolFamily } from "./semantic-tool-family.js";
 
 export type SemanticTextEvidence = {
@@ -107,10 +109,12 @@ export function readSemanticTextEvidence(value: string, toolFamily?: string): Se
       !terminalFailureEvidence,
     observationalReadback: containsAnySemanticPhrase(text, OBSERVATIONAL_READBACK_PHRASES),
     taggedFileObservation: looksLikeTaggedFileObservation(text),
-    readObservationPayload: looksLikeReadObservationPayload(text),
+    readObservationPayload:
+      looksLikeReadObservationPayload(text) ||
+      (toolFamily === "read" && looksLikePlainReadObservation(value)),
     searchResultOutput: looksLikeSearchResultObservation(text, value),
     sourceCodeObservation: looksLikeSourceCodeObservation(text),
-    logObservation: looksLikeLogObservation(text),
+    logObservation: looksLikeLogObservation(text, value),
     buildMetadataObservation: looksLikeBuildMetadataObservation(text),
   };
 }
@@ -135,24 +139,27 @@ export function readTaskFailureSemanticEvidence(
       : `${event.title} ${event.summary ?? ""}`,
     toolFamily,
   );
-  const structuredToolOutput =
-    toolFamily === "bash" ? readStructuredToolOutputObservation(event.summary) : null;
+  const supportsStructuredToolOutput = toolFamily === "bash" || toolFamily === "edit";
+  const structuredToolOutput = supportsStructuredToolOutput
+    ? readStructuredToolOutputObservation(event.summary)
+    : null;
   const unsafeStructuredToolOutputEnvelope =
-    toolFamily === "bash" &&
+    supportsStructuredToolOutput &&
     structuredToolOutput === null &&
     looksLikeStructuredToolOutputEnvelope(event.summary);
   const truncatedStructuredToolOutput = unsafeStructuredToolOutputEnvelope
-    ? readTruncatedStructuredToolOutputDiagnosticEvidence(event.summary)
+    ? readTruncatedStructuredToolOutputEnvelope(event.summary)
     : null;
   const diagnosticStructuredToolOutput = structuredToolOutput ?? truncatedStructuredToolOutput;
   const structuredOutputSourceObservation =
-    structuredToolOutput !== null &&
-    looksLikeStrongRawSourceObservation(structuredToolOutput.output);
+    diagnosticStructuredToolOutput !== null &&
+    looksLikeStrongRawSourceObservation(diagnosticStructuredToolOutput.output);
   const structuredOutputObservation =
-    structuredToolOutput !== null &&
-    looksLikeStructuredToolOutputObservation(structuredToolOutput.output);
+    diagnosticStructuredToolOutput !== null &&
+    looksLikeStructuredToolOutputObservation(diagnosticStructuredToolOutput.output);
   const rawReadSourceObservation =
     toolFamily === "read" && looksLikeStrongRawSourceObservation(event.summary ?? "");
+  const zeroExitStructuredToolOutput = diagnosticStructuredToolOutput?.exitCode === 0;
   const searchOutputObservation = toolFamily === "search" && text.searchResultOutput;
   const searchFailureDiagnostic =
     toolFamily === "search" && looksLikeSearchFailureDiagnostic(event.summary ?? "");
@@ -208,25 +215,29 @@ export function readTaskFailureSemanticEvidence(
   }
 
   if (
+    supportsStructuredToolOutput &&
+    diagnosticStructuredToolOutput &&
+    structuredOutputObservation
+  ) {
+    return {
+      kind: "structured_tool_output_observation",
+      toolFamily,
+      readsAsObservation: true,
+      consequenceBaseline: structuredOutputSourceObservation ? "high" : "medium",
+      text,
+    };
+  }
+
+  if (
     toolFamily === "bash" &&
     text.routineSuccessObservation &&
-    !unsafeStructuredToolOutputEnvelope
+    (!unsafeStructuredToolOutputEnvelope || zeroExitStructuredToolOutput)
   ) {
     return {
       kind: "routine_bash_success_observation",
       toolFamily,
       readsAsObservation: true,
       consequenceBaseline: "low",
-      text,
-    };
-  }
-
-  if (structuredToolOutput && structuredOutputObservation) {
-    return {
-      kind: "structured_tool_output_observation",
-      toolFamily: "bash",
-      readsAsObservation: true,
-      consequenceBaseline: structuredOutputSourceObservation ? "high" : "medium",
       text,
     };
   }
@@ -337,9 +348,11 @@ function looksLikeSourceCodeObservation(text: string): boolean {
   );
 }
 
-function looksLikeLogObservation(text: string): boolean {
+function looksLikeLogObservation(text: string, rawText: string): boolean {
   return (
-    LOG_OUTPUT_PATTERN.test(text) || containsAnySemanticPhrase(text, LOG_LIKE_OBSERVATION_PHRASES)
+    LOG_OUTPUT_PATTERN.test(text) ||
+    looksLikeBuildOrLogObservation(rawText) ||
+    containsAnySemanticPhrase(text, LOG_LIKE_OBSERVATION_PHRASES)
   );
 }
 

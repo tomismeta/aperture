@@ -271,9 +271,11 @@ Transport summary boundary:
 - structured tool-output summaries must remain valid JSON when clipped; only the
   `output` field may be shortened, while `exit_code` and `wall_time` remain
   parseable
-- core may treat malformed structured prefixes as terminal only when a visible
-  nonzero exit or strong diagnostic is present; incomplete source-shaped
-  prefixes must not become observational evidence
+- core may recover incomplete structured tool-output prefixes only through the
+  neutral envelope parser: visible nonzero exits and strong diagnostics remain
+  terminal, zero exits require non-empty recovered output with valid visible
+  fields, and output-only prefixes require strong source/document/log structure
+  before becoming observational evidence
 - exact empty failed tool payloads are classified as a known high-consequence
   transport-empty failure shape, not as observation
 
@@ -310,6 +312,18 @@ Use:
 - run a fresh clean corpus import after the summary-preservation fix
 - generate a v5 review-candidates report from the verified manifest
 - promote only repeated, source-agnostic event shapes into core semantics
+
+## Structural Envelope Hardening - 2026-07-28
+
+The first core follow-up from the v5 event-shape review keeps the contract
+structural. Explicit bash/edit failed-status tool-output envelopes may now be
+recovered from truncated prefixes when visible top-level fields before and after
+`output` validate and the recovered output has strong source, document, log, or
+build shape. Nonzero exit metadata and visible runtime/compiler/test diagnostics
+still classify as terminal failures first. Plain wrappers, invalid wall-time or
+exit metadata, unknown complete keys, unknown visible suffix fields, empty
+output, and generic failed-read text remain unclassified or terminal rather than
+observational.
 
 ## Human Input Contract
 

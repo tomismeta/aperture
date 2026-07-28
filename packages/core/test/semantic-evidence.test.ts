@@ -553,8 +553,8 @@ test("task failure evidence classifies structured tool output without treating i
       status: "failed",
       toolFamily: "bash",
     })?.kind,
-    "unclassified_failure",
-    "truncated structured source output should not downgrade failed status",
+    "structured_tool_output_observation",
+    "truncated structured source output should become observational evidence",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -583,8 +583,8 @@ test("task failure evidence classifies structured tool output without treating i
       status: "failed",
       toolFamily: "bash",
     })?.kind,
-    "unclassified_failure",
-    "marked truncated source output should not downgrade failed status",
+    "structured_tool_output_observation",
+    "marked truncated source output should become observational evidence",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -644,6 +644,123 @@ test("task failure evidence classifies structured tool output without treating i
     })?.kind,
     "unclassified_failure",
     "truncated structured neutral output should not downgrade failed status",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-output-only-source",
+      taskId: "task:evidence:truncated-output-only-source",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"output":"diff --git a/src/app.ts b/src/app.ts\\n--- a/src/app.ts\\n+++ b/src/app.ts',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "output-only recovery is allowed for strong source-shaped payloads",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-output-first-nonzero",
+      taskId: "task:evidence:truncated-output-first-nonzero",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"output":"diff --git a/src/app.ts b/src/app.ts\\n--- a/src/app.ts\\n+++ b/src/app.ts","exit_code":2',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "visible output-first nonzero exit metadata remains terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-output-first-invalid-wall-time",
+      taskId: "task:evidence:truncated-output-first-invalid-wall-time",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"output":"diff --git a/src/app.ts b/src/app.ts\\n--- a/src/app.ts\\n+++ b/src/app.ts","wall_time":"later"',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "visible output-first invalid wall time blocks recovery",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-output-first-unknown-key",
+      taskId: "task:evidence:truncated-output-first-unknown-key",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"output":"diff --git a/src/app.ts b/src/app.ts\\n--- a/src/app.ts\\n+++ b/src/app.ts","status":"ok"',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "visible output-first unknown fields block recovery",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-wall-exit-output-source",
+      taskId: "task:evidence:truncated-wall-exit-output-source",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","exit_code":0,"output":"diff --git a/src/app.ts b/src/app.ts\\n--- a/src/app.ts',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "permuted wall-time and exit-code prefixes can recover source-shaped output",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-output-only-plain",
+      taskId: "task:evidence:truncated-output-only-plain",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: '{"output":"hello world',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "output-only recovery should not classify plain text wrappers",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:complete-output-only-source",
+      taskId: "task:evidence:complete-output-only-source",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: '{"output":"#include <stdio.h>\\nint main() { return 0; }"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "complete JSON output-only wrappers are not repaired as structured envelopes",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:output-embedded-exit-code",
+      taskId: "task:evidence:output-embedded-exit-code",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: '{"output":"{\\"exit_code\\":0,\\"output\\":\\"ok\\"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "exit_code text inside output should not count as envelope metadata",
   );
   for (const [id, summary] of [
     ["truncated-empty-output-zero-exit", '{"exit_code":0,"wall_time":"0.0510 seconds","output":"'],
@@ -706,6 +823,10 @@ test("task failure evidence keeps invalid structured output high and unclassifie
     [
       "marked-truncated-output-without-wall-time",
       '{"exit_code":0,"output":"patch applied successfully","truncated":true}',
+    ],
+    [
+      "marked-truncated-extra-key",
+      '{"exit_code":0,"wall_time":"0.1 seconds","output":"#include <stdio.h>","status":"ok","truncated":true}',
     ],
   ] as const) {
     assert.equal(
@@ -1430,6 +1551,108 @@ test("observational status-conflict evidence includes structured, read, and sear
       },
     ),
     true,
+  );
+});
+
+test("observational status-conflict evidence includes truncated structural output observations", () => {
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-zero-exit",
+      taskId: "task:evidence:truncated-zero-exit",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"exit_code":0,"wall_time":"0 seconds","output":"dict[str, torch.Tensor]\\nA dictionary containing converted weights.',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "routine_bash_success_observation",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-source-output",
+      taskId: "task:evidence:truncated-source-output",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0509 seconds","output":"diff --git a/src/app.ts b/src/app.ts\\n--- a/src/app.ts\\n+++ b/src/app.ts',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-edit-output",
+      taskId: "task:evidence:truncated-edit-output",
+      timestamp,
+      type: "task.updated",
+      title: "edit failure",
+      summary:
+        '{"wall_time":"0.0509 seconds","output":"src/kernel.cu:12:__global__ void run() {}\\nsrc/kernel.cu:13:return;',
+      status: "failed",
+      toolFamily: "edit",
+    })?.kind,
+    "structured_tool_output_observation",
+  );
+});
+
+test("observational status-conflict evidence includes structural read documents and logs", () => {
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:read-markdown-document",
+      taskId: "task:evidence:read-markdown-document",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "# Project Guide\n## Build\n1. Configure the project with the documented cache settings\n2. Run the build from a clean directory\n3. Copy the resulting module into the local plugin directory\n```sh\ncmake -B build\ncmake --build build\n```",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "observational_payload",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:read-build-log",
+      taskId: "task:evidence:read-build-log",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "DKMS make.log for module 1.0\nBuilding module(s)\nchecking for a BSD-compatible install... /usr/bin/install -c check",
+      status: "failed",
+      toolFamily: "read",
+    })?.consequenceBaseline,
+    "low",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:read-log-filename-only",
+      taskId: "task:evidence:read-log-filename-only",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary: "Could not open /tmp/make.log",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "unclassified_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:output-log-filename-only",
+      taskId: "task:evidence:output-log-filename-only",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: '{"output":"Could not open pytest run.log',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
   );
 });
 

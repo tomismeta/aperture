@@ -483,6 +483,101 @@ test("structured bash source output stays observational but high consequence", (
   assert.equal(interpretation.consequence, "high");
 });
 
+test("truncated structured bash source output stays observational", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:truncated-structured-source-output",
+    type: "task.updated",
+    taskId: "task:truncated-structured-source-output",
+    timestamp,
+    source: source("custom-agent"),
+    title: "bash failure",
+    summary:
+      '{"wall_time":"0.0509 seconds","output":"diff --git a/src/app.ts b/src/app.ts\\n--- a/src/app.ts\\n+++ b/src/app.ts\\n@@ -1 +1 @@\\nexport const ok = true;',
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "high");
+});
+
+test("truncated structured bash zero exits stay low-consequence status updates", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:truncated-zero-exit-output",
+    type: "task.updated",
+    taskId: "task:truncated-zero-exit-output",
+    timestamp,
+    source: source("custom-agent"),
+    title: "bash failure",
+    summary:
+      '{"exit_code":0,"wall_time":"0 seconds","output":"dict[str, torch.Tensor]\\nA dictionary containing converted weights.',
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "low");
+});
+
+test("truncated structured edit source output stays observational", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:truncated-edit-source-output",
+    type: "task.updated",
+    taskId: "task:truncated-edit-source-output",
+    timestamp,
+    source: source("custom-agent"),
+    title: "edit failure",
+    summary:
+      '{"wall_time":"0.0509 seconds","output":"src/kernel.cu:12:__global__ void run() {}\\nsrc/kernel.cu:13:return;',
+    status: "failed",
+    toolFamily: "edit",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "high");
+});
+
+test("failed read markdown documents stay status updates", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:read-markdown-document",
+    type: "task.updated",
+    taskId: "task:read-markdown-document",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary:
+      "# Project Guide\n## Build\n1. Configure the project with the documented cache settings\n2. Run the build from a clean directory\n3. Copy the resulting module into the local plugin directory\n```sh\ncmake -B build\ncmake --build build\n```",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "high");
+});
+
+test("failed read build logs stay low-consequence status updates", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:read-build-log",
+    type: "task.updated",
+    taskId: "task:read-build-log",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary:
+      "DKMS make.log for module 1.0\nBuilding module(s)\nchecking for a BSD-compatible install... /usr/bin/install -c check",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "low");
+});
+
 test("raw read source failures stay observational while preserving high attention", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:raw-read-source-observation",

@@ -1171,6 +1171,36 @@ test("task failure evidence classifies structured tool output without treating i
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-clipped-line-numbered-document",
+      taskId: "task:evidence:truncated-clipped-line-numbered-document",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1\\t# PC Sampling GFX1151\\n2\\t\\n3\\t## Goal\\n4\\t- produce a non-empty host-trap csv...',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "medium",
+    "visibly clipped line-numbered markdown documents can use one list anchor",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-clipped-line-numbered-document-fence",
+      taskId: "task:evidence:truncated-clipped-line-numbered-document-fence",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1\\t# PC Sampling GFX1151\\n2\\t\\n3\\t## Repro\\n4\\t```sh...',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "medium",
+    "visibly clipped line-numbered markdown documents can use fence structure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:malformed-structured-line-numbered-document-prose",
       taskId: "task:evidence:malformed-structured-line-numbered-document-prose",
       timestamp,
@@ -1186,6 +1216,36 @@ test("task failure evidence classifies structured tool output without treating i
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-clipped-line-numbered-document-one-heading",
+      taskId: "task:evidence:truncated-clipped-line-numbered-document-one-heading",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1\\t# Project Notes\\n2\\t\\n3\\t- item one\\n4\\t- item two...',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "clipped line-numbered markdown documents still need two headings",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-clipped-line-numbered-document-no-list",
+      taskId: "task:evidence:truncated-clipped-line-numbered-document-no-list",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1\\t# Project Notes\\n2\\tordinary text\\n3\\t## Details\\n4\\twithout list structure...',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "clipped line-numbered markdown headings alone are still not enough",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:malformed-structured-line-numbered-document-nonmonotone",
       taskId: "task:evidence:malformed-structured-line-numbered-document-nonmonotone",
       timestamp,
@@ -1198,6 +1258,36 @@ test("task failure evidence classifies structured tool output without treating i
     })?.kind,
     "unclassified_failure",
     "line-numbered markdown documents require monotone line numbers",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-clipped-line-numbered-document-nonmonotone",
+      taskId: "task:evidence:truncated-clipped-line-numbered-document-nonmonotone",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1\\t# Project Notes\\n3\\t## Goal\\n2\\t- item one\\n4\\titem tail...',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "clipped line-numbered markdown documents still require monotone line numbers",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-clipped-line-numbered-prose",
+      taskId: "task:evidence:truncated-clipped-line-numbered-prose",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1\\tfirst step\\n2\\tsecond step\\n3\\tthird step\\n4\\tfourth step...',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "clipped generic line-numbered prose is not a markdown document observation",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -2479,6 +2569,66 @@ test("observational status-conflict evidence includes corpus-derived event shape
   );
   assert.deepEqual(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-clipped-line-numbered-source-default-context",
+      taskId: "task:evidence:structured-clipped-line-numbered-source-default-context",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"430\\trocp_pcs_config.method = ROCPROFILER_PC_SAMPLING_METHOD_STOCHASTIC;\\n431\\tbreak;\\n432\\tdefault:\\n433\\t// Sampling method unsupported, return the error\\n434\\treturn ROCPROFILE...',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "clipped line-numbered source accepts source labels and comments as structural context",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-clipped-line-numbered-source-function-context",
+      taskId: "task:evidence:structured-clipped-line-numbered-source-function-context",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"260\\t\\n261\\tstatic inline struct v11_sdma_mqd *get_sdma_mqd(void *mqd)\\n262\\t{\\n263\\treturn (struct v11_sdma_mqd *)mqd;\\n264\\t}\\n265\\t\\n266\\tstatic int hqd_load_v11(struct amdgpu_device *ad...',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "clipped line-numbered source accepts multi-row function context",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-clipped-line-numbered-source-commented-function",
+      taskId: "task:evidence:structured-clipped-line-numbered-source-commented-function",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"3570\\t}\\n3571\\t\\n3572\\tvoid GpuAgent::PcSamplingThread(pcs_data_t& pcs_data, const char* thread_name) {\\n3573\\t// TODO: Implement lost sample count\\n3574\\t// TODO: Implement latency\\n3575\\t...',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "clipped line-numbered source accepts function headers followed by source comments",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-clipped-line-numbered-python-import-context",
+      taskId: "task:evidence:structured-clipped-line-numbered-python-import-context",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1\\t#!/usr/bin/env python3\\n2\\t\\n3\\timport torch\\n4\\tfrom torch._inductor import config\\n5\\t\\n6\\tfrom kernel.hip.hip_kernel_prepacked import (\\n7\\t_PREPACKED_CONFIGS,\\n8\\tprepack_b_for_scal...',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "clipped line-numbered source accepts multiline Python import context",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:structured-line-numbered-shell-source",
       taskId: "task:evidence:structured-line-numbered-shell-source",
       timestamp,
@@ -2596,6 +2746,96 @@ test("observational status-conflict evidence includes corpus-derived event shape
     })?.consequenceBaseline,
     "high",
     "C++ access-label fragments with declarations are source observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-clipped-c-like-assignment-source",
+      taskId: "task:evidence:truncated-clipped-c-like-assignment-source",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"std::memset(&ret, 0, sizeof(PcSamplingRecordT));\\nret.size = sizeof(PcSamplingRecordT);\\nret.wave_in_group = sample...',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "visibly clipped C-like final assignments are source observations with strong anchors",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-clipped-c-like-call-source",
+      taskId: "task:evidence:truncated-clipped-c-like-call-source",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"dqm->vmid = qpd->vmid;\\nret.size = sizeof(PcSamplingRecordT);\\nCHECK_HIP(hipStreamSynchronize(stream...',
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "high",
+    "visibly clipped C-like final calls are source observations with strong anchors",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-clipped-c-like-diagnostic-string-source",
+      taskId: "task:evidence:truncated-clipped-c-like-diagnostic-string-source",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"dev_err(dev, \\"Failed to flush TC\\");\\nkfd_flush_tlb(qpd_to_pdd(qpd), TLB_FLUSH_LEGACY);\\ndqm->vmid = qpd->vmid;\\nret.wave_in_group = sample...',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "diagnostic words inside clipped C-like source strings do not make the source terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-clipped-c-like-nonzero",
+      taskId: "task:evidence:truncated-clipped-c-like-nonzero",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"exit_code":2,"wall_time":"0.0510 seconds","output":"std::memset(&ret, 0, sizeof(PcSamplingRecordT));\\nret.size = sizeof(PcSamplingRecordT);\\nret.wave_in_group = sample...',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "clipped C-like source still respects visible nonzero exit metadata",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-clipped-c-like-invalid-wall-time",
+      taskId: "task:evidence:truncated-clipped-c-like-invalid-wall-time",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"later","output":"std::memset(&ret, 0, sizeof(PcSamplingRecordT));\\nret.size = sizeof(PcSamplingRecordT);\\nret.wave_in_group = sample...',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "clipped C-like source still rejects invalid visible wall time metadata",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-clipped-c-like-unknown-suffix",
+      taskId: "task:evidence:truncated-clipped-c-like-unknown-suffix",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"output":"std::memset(&ret, 0, sizeof(PcSamplingRecordT));\\nret.size = sizeof(PcSamplingRecordT);\\nret.wave_in_group = sample...","status":"ok"',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "clipped C-like source still rejects unknown visible suffix metadata",
   );
   assert.deepEqual(
     readTaskFailureSemanticEvidence({
@@ -2883,14 +3123,39 @@ test("observational status-conflict evidence includes corpus-derived event shape
       "info->type = HSA_EXT_POINTER_TYPE_UNKNOWN;\nreturn HSA_STATUS_ERROR;\n}",
     ],
     [
+      "three-line-c-like-source-fragment-without-clipping",
+      "std::memset(&ret, 0, sizeof(PcSamplingRecordT));\nret.size = sizeof(PcSamplingRecordT);\nret.wave_in_group = sample",
+    ],
+    [
+      "two-line-clipped-c-like-source-fragment",
+      "ret.size = sizeof(PcSamplingRecordT);\nret.wave_in_group = sample...",
+    ],
+    [
+      "numbered-clipped-c-like-source-fragment",
+      "1 std::memset(&ret, 0, sizeof(PcSamplingRecordT));\n2 ret.size = sizeof(PcSamplingRecordT);\n3 ret.wave_in_group = sample...",
+    ],
+    [
       "c-like-prose-functions",
       "Please call reset_queue(dev);\nThen call flush(dev);\nNow return later;",
     ],
     ["markdown-c-like-list", "- if (ready) {\n- return ok;\n- flush_queue(dev);"],
+    [
+      "markdown-clipped-c-like-list",
+      "- std::memset(&ret, 0, sizeof(PcSamplingRecordT));\n- ret.size = sizeof(PcSamplingRecordT);\n- ret.wave_in_group = sample...",
+    ],
     ["markdown-c-like-fence", "```c\nif (ready) {\nreturn ok;\n}\n```"],
     ["single-source-location-row", "/tmp/source.cpp:12: flush_queue(dev);"],
+    ["source-location-clipped-c-like-row", "/tmp/source.cpp:12: ret.wave_in_group = sample..."],
     ["json-c-like-fragment", '{"output":"ret.size = sizeof(PcSamplingRecordT);"}'],
     ["single-kernel-timestamp", "[ 510.963965] amdgpu ring comp_1 uses VM inv eng 10"],
+    [
+      "kernel-timestamp-clipped-c-like",
+      "[ 510.963965] amdgpu ret.size = sizeof(PcSamplingRecordT); ret.wave_in_group = sample...",
+    ],
+    [
+      "shell-build-clipped-c-like",
+      "set -euo pipefail\nmake[1]: Entering directory '/repo'\nret.wave_in_group = sample...",
+    ],
     [
       "markdown-table-with-one-body-row",
       "| Counter | Description |\n|---------|-------------|\n| A | one |",
@@ -3022,6 +3287,36 @@ test("observational status-conflict evidence includes corpus-derived event shape
     })?.kind,
     "terminal_failure",
     "compiler diagnostics must not become source observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:clipped-error-label-c-like",
+      taskId: "task:evidence:clipped-error-label-c-like",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "error:\nstd::memset(&ret, 0, sizeof(PcSamplingRecordT));\nret.size = sizeof(PcSamplingRecordT);\nret.wave_in_group = sample...",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "terminal_failure",
+    "clipped source-like text after an error label remains terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:clipped-warning-compiler-diagnostic",
+      taskId: "task:evidence:clipped-warning-compiler-diagnostic",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "src/source.cpp:12: warning: unused value\nstd::memset(&ret, 0, sizeof(PcSamplingRecordT));\nret.wave_in_group = sample...",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "unclassified_failure",
+    "warning-only clipped compiler diagnostics stay non-observational",
   );
 
   for (const [id, output] of [

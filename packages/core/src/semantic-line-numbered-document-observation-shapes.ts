@@ -4,7 +4,9 @@ export function looksLikeLineNumberedMarkdownDocumentObservation(text: string): 
     return false;
   }
 
-  return looksLikeStructuredMarkdownDocument(spans.map((span) => span.body).join("\n"));
+  return looksLikeStructuredMarkdownDocument(spans.map((span) => span.body).join("\n"), {
+    clipped: hasVisibleTruncationBoundary(text),
+  });
 }
 
 type LineNumberedDocumentSpan = { line: number; body: string };
@@ -24,14 +26,21 @@ function hasStrictlyIncreasingLineNumbers(spans: LineNumberedDocumentSpan[]): bo
   return spans.every((span, index) => index === 0 || span.line > spans[index - 1]!.line);
 }
 
-function looksLikeStructuredMarkdownDocument(text: string): boolean {
+function looksLikeStructuredMarkdownDocument(text: string, options: { clipped: boolean }): boolean {
   const headingCount = [...text.matchAll(/(?:^|[\r\n])\s{0,3}#{1,6}\s+\S/g)].length;
   const listCount = [...text.matchAll(/(?:^|[\r\n])\s*(?:[-*]\s+\S|\d+\.\s+\S)/g)].length;
+  const requiredListCount = options.clipped ? 1 : 2;
 
   return (
     headingCount >= 2 &&
-    (listCount >= 2 || /(?:^|[\r\n])\s*```/.test(text) || looksLikeMarkdownTable(text))
+    (listCount >= requiredListCount ||
+      /(?:^|[\r\n])\s*```/.test(text) ||
+      looksLikeMarkdownTable(text))
   );
+}
+
+function hasVisibleTruncationBoundary(text: string): boolean {
+  return /\.\.\.\s*$/.test(text.trim());
 }
 
 function looksLikeMarkdownTable(text: string): boolean {

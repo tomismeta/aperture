@@ -1,34 +1,50 @@
+import {
+  isCLikeCommentOnlyLine,
+  readCLikeLine,
+  readClippedCLikeLine,
+  type CLikeLine,
+} from "./semantic-c-like-source-line-shapes.js";
+
 export function looksLikeCLikeSourceFragmentObservation(value: string): boolean {
   const text = value.trim();
-  return text.length > 0 && !looksLikeRejectedContainer(text) && hasStrongCLikeRun(text);
+  return (
+    text.length > 0 &&
+    !looksLikeRejectedContainer(text) &&
+    (hasStrongCLikeRun(text) || hasClippedCLikeRun(text))
+  );
 }
 
-type CLikeCategory =
-  | "access"
-  | "assignment"
-  | "brace"
-  | "call"
-  | "control"
-  | "declaration"
-  | "return";
-
-type CLikeLine = {
-  category: CLikeCategory;
-  strongAnchor: boolean;
-  nontrivialAnchor: boolean;
-};
-
 function hasStrongCLikeRun(text: string): boolean {
+  return hasCLikeRun(text, { allowClippedFinalLine: false, minLines: 4 });
+}
+
+function hasClippedCLikeRun(text: string): boolean {
+  return (
+    hasVisibleTruncationBoundary(text) &&
+    hasCLikeRun(text, { allowClippedFinalLine: true, minLines: 3 })
+  );
+}
+
+function hasCLikeRun(
+  text: string,
+  options: { allowClippedFinalLine: boolean; minLines: number },
+): boolean {
+  const lines = text.split(/\r?\n/);
+  const lastContentIndex = readLastContentLineIndex(lines);
   let run: CLikeLine[] = [];
-  for (const rawLine of text.split(/\r?\n/)) {
+  for (const [index, rawLine] of lines.entries()) {
     const line = rawLine.trim();
-    if (line.length === 0 || isCommentOnlyLine(line)) {
+    if (line.length === 0 || isCLikeCommentOnlyLine(line)) {
       continue;
     }
 
-    const parsed = readCLikeLine(line);
+    const parsed =
+      readCLikeLine(line) ??
+      (options.allowClippedFinalLine && index === lastContentIndex
+        ? readClippedCLikeLine(line)
+        : null);
     if (parsed === null) {
-      if (hasRequiredCLikeEvidence(run)) {
+      if (hasRequiredCLikeEvidence(run, options.minLines)) {
         return true;
       }
       run = [];
@@ -37,88 +53,19 @@ function hasStrongCLikeRun(text: string): boolean {
     run.push(parsed);
   }
 
-  return hasRequiredCLikeEvidence(run);
+  return hasRequiredCLikeEvidence(run, options.minLines);
 }
 
-function hasRequiredCLikeEvidence(run: CLikeLine[]): boolean {
+function hasRequiredCLikeEvidence(run: CLikeLine[], minLines: number): boolean {
   const categories = new Set(run.map((line) => line.category));
   const strongAnchors = run.filter((line) => line.strongAnchor).length;
 
   return (
-    run.length >= 4 &&
+    run.length >= minLines &&
     categories.size >= 2 &&
     strongAnchors >= 2 &&
     run.some((line) => line.nontrivialAnchor)
   );
-}
-
-function readCLikeLine(line: string): CLikeLine | null {
-  if (/^(?:public|private|protected):$/.test(line)) {
-    return { category: "access", strongAnchor: true, nontrivialAnchor: true };
-  }
-  if (/^[{}]\s*;?$/.test(line) || /^\}\s*(?:else\b|while\s*\().*/.test(line)) {
-    return { category: "brace", strongAnchor: false, nontrivialAnchor: false };
-  }
-  if (/^(?:if|for|while|switch)\s*\(.+\)\s*\{?$/.test(line) || /^case\s+.+:\s*$/.test(line)) {
-    return {
-      category: "control",
-      strongAnchor: /[{};]|->|::|\bstd::/.test(line),
-      nontrivialAnchor: true,
-    };
-  }
-  if (/^(?:return|break|continue)\b.*;$/.test(line)) {
-    return {
-      category: "return",
-      strongAnchor: /[A-Z_]{3,}|->|::|\bstd::/.test(line),
-      nontrivialAnchor: false,
-    };
-  }
-  if (looksLikeCLikeDeclaration(line)) {
-    return {
-      category: "declaration",
-      strongAnchor: true,
-      nontrivialAnchor: /(?:\bstd::|->|::|[*&<>]|\b(?:size_t|uint\d+_t|int\d+_t)\b)/.test(line),
-    };
-  }
-  if (looksLikeCLikeAssignment(line)) {
-    return {
-      category: "assignment",
-      strongAnchor: /(?:->|::|\.[a-z_][a-z0-9_]*|\[[^\]]+])|\b[A-Z_]{3,}\b/i.test(line),
-      nontrivialAnchor: /(?:->|::|\.[a-z_][a-z0-9_]*)/i.test(line),
-    };
-  }
-  if (looksLikeCLikeCall(line)) {
-    return {
-      category: "call",
-      strongAnchor: /(?:->|::|\.[a-z_][a-z0-9_]*|\b[A-Z_]{3,}\s*\()/i.test(line),
-      nontrivialAnchor: /(?:->|::|\.[a-z_][a-z0-9_]*)/i.test(line),
-    };
-  }
-
-  return null;
-}
-
-function looksLikeCLikeDeclaration(line: string): boolean {
-  return /^(?:(?:const|static|inline|extern|volatile|mutable|constexpr)\s+)*(?:std::)?[a-z_][a-z0-9_:<>]*(?:\s*[*&]|\s+)+[a-z_][a-z0-9_]*(?:\s*[({=;[]|\s+\{)/i.test(
-    line,
-  );
-}
-
-function looksLikeCLikeAssignment(line: string): boolean {
-  return /^[a-z_][a-z0-9_]*(?:(?:->|\.|::)[a-z_][a-z0-9_]*|\[[^\]]+])*\s*(?:=|\+=|-=|\*=|\/=|%=|&=|\|=|<<=|>>=).+;$/i.test(
-    line,
-  );
-}
-
-function looksLikeCLikeCall(line: string): boolean {
-  if (!/;$/.test(line)) {
-    return false;
-  }
-  if (/^(?:please|then|now|maybe|should|must|can)\b/i.test(line)) {
-    return false;
-  }
-
-  return /^(?:(?:[a-z_][a-z0-9_]*)(?:->|\.|::))?[a-z_][a-z0-9_:]*\s*\(.+\)\s*;$/i.test(line);
 }
 
 function looksLikeRejectedContainer(text: string): boolean {
@@ -152,6 +99,16 @@ function containsLineNumberedRows(text: string): boolean {
   return /(?:^|[\r\n])\s*\d{1,6}(?:[ \t]+|:\s*)\S/.test(text);
 }
 
-function isCommentOnlyLine(line: string): boolean {
-  return /^(?:(?:\/\/|#|;)\s*|\/\*+|\*\/?)/.test(line);
+function hasVisibleTruncationBoundary(text: string): boolean {
+  return /\.\.\.\s*$/.test(text);
+}
+
+function readLastContentLineIndex(lines: string[]): number {
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index]?.trim() ?? "";
+    if (line.length > 0 && !isCLikeCommentOnlyLine(line)) {
+      return index;
+    }
+  }
+  return -1;
 }

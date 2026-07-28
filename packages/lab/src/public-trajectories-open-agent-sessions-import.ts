@@ -12,6 +12,7 @@ import type { ReplaySessionBundle, ReplaySessionBundleSource } from "./session-b
 import {
   buildAssistantTitle,
   buildObservationTitle,
+  clipSourceEventSummary,
   clipText,
   coerceImportedTimestamp,
   inferAssistantStatus,
@@ -101,7 +102,7 @@ export function createImportedSessionFromOpenAgentSessionsRow(
             timestamp,
             source: eventSource,
             title,
-            summary: clipText(summary, 220),
+            summary: clipSourceEventSummary(summary),
           },
         });
         started = true;
@@ -125,7 +126,7 @@ export function createImportedSessionFromOpenAgentSessionsRow(
           timestamp,
           source: eventSource,
           title: "user follow-up",
-          summary: clipText(userText, 240),
+          summary: clipSourceEventSummary(userText),
           status: "running",
         },
       });
@@ -152,7 +153,7 @@ export function createImportedSessionFromOpenAgentSessionsRow(
             timestamp,
             source: eventSource,
             title: clipText(assistantText, 96),
-            summary: clipText(assistantText, 240),
+            summary: clipSourceEventSummary(assistantText),
             status: inferAssistantStatus(assistantText),
           },
         });
@@ -187,7 +188,7 @@ export function createImportedSessionFromOpenAgentSessionsRow(
             source: eventSource,
             ...(toolFamily ? { toolFamily } : {}),
             title: buildAssistantTitle(toolFamily, toolCallSummary ?? toolName),
-            ...(toolCallSummary ? { summary: clipText(toolCallSummary, 240) } : {}),
+            ...(toolCallSummary ? { summary: clipSourceEventSummary(toolCallSummary) } : {}),
             status: "running",
           },
         });
@@ -235,7 +236,7 @@ export function createImportedSessionFromOpenAgentSessionsRow(
           source: eventSource,
           ...(toolFamily ? { toolFamily } : {}),
           title: buildObservationTitle(toolResultStatus, toolFamily),
-          ...(toolResultText ? { summary: clipText(toolResultText, 240) } : {}),
+          ...(toolResultText ? { summary: clipSourceEventSummary(toolResultText) } : {}),
           status: toolResultStatus,
         },
       });
@@ -260,7 +261,7 @@ export function createImportedSessionFromOpenAgentSessionsRow(
         timestamp: importedAt,
         source: eventSource,
         title,
-        summary: clipText(summary, 220),
+        summary: clipSourceEventSummary(summary),
       },
     });
   }

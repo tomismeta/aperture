@@ -164,7 +164,7 @@ test("judgment input derives routine status conflicts from raw evidence, not fac
   );
 });
 
-test("judgment input does not mark non-bash observational failures as routine status conflicts", () => {
+test("judgment input marks engine-owned non-bash observations as status conflicts", () => {
   const input = buildAttentionJudgmentInput({
     id: "evt:judgment-input:read-observation-conflict",
     taskId: "task:judgment-input:read-observation-conflict",
@@ -193,7 +193,8 @@ test("judgment input does not mark non-bash observational failures as routine st
     },
   });
 
-  assert.equal(input.routineObservationalStatusConflict, undefined);
+  assert.equal(input.routineObservationalStatusConflict, true);
+  assert.equal(input.semanticEvidence?.strength, "qualified");
 });
 
 test("judgment input gives hinted relation semantics their own continuity strength", () => {

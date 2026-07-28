@@ -16,6 +16,7 @@ import {
 } from "./public-trajectories-types.js";
 
 const SYNTHETIC_START_TIME_MS = Date.UTC(2026, 0, 1, 0, 0, 0, 0);
+const SOURCE_EVENT_SUMMARY_MAX_LENGTH = 8_192;
 
 const NON_FAILING_READBACK_PHRASES = [
   "file created successfully",
@@ -268,6 +269,70 @@ export function syntheticTimestamp(stepIndex: number): string {
 export function clipText(value: string, maxLength: number): string {
   const normalized = toSingleLine(value) ?? value;
   return normalized.length <= maxLength ? normalized : `${normalized.slice(0, maxLength - 3)}...`;
+}
+
+export function clipSourceEventSummary(
+  value: string,
+  maxLength: number = SOURCE_EVENT_SUMMARY_MAX_LENGTH,
+): string {
+  const normalized = toSingleLine(value) ?? value;
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return clipStructuredOutputSummary(normalized, maxLength) ?? clipText(normalized, maxLength);
+}
+
+function clipStructuredOutputSummary(value: string, maxLength: number): string | null {
+  const parsed = parseJsonObject(value);
+  if (!parsed || typeof parsed.output !== "string") {
+    return null;
+  }
+
+  const clipped = { ...parsed };
+  let low = 0;
+  let high = parsed.output.length;
+  let best: string | null = null;
+
+  while (low <= high) {
+    const midpoint = Math.floor((low + high) / 2);
+    clipped.output =
+      midpoint < parsed.output.length ? `${parsed.output.slice(0, midpoint)}...` : parsed.output;
+    if (midpoint < parsed.output.length) {
+      clipped.truncated = true;
+    } else {
+      delete clipped.truncated;
+    }
+    const candidate = stringifyJsonObject(clipped);
+
+    if (candidate !== null && candidate.length <= maxLength) {
+      best = candidate;
+      low = midpoint + 1;
+    } else {
+      high = midpoint - 1;
+    }
+  }
+
+  return best;
+}
+
+function parseJsonObject(value: string): Record<string, unknown> | null {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function stringifyJsonObject(value: Record<string, unknown>): string | null {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return null;
+  }
 }
 
 export function toSingleLine(value: string): string | null {

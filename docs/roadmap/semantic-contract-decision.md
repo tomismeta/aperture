@@ -215,6 +215,79 @@ Release posture:
 - the release note should describe this as semantic robustness and auditability,
   not a new public classifier API
 
+## Unclassified Failed Evidence Tranche - 2026-07-28
+
+The unclassified-failure tranche upgrades the same internal classifier without
+changing the public SDK surface or adding runtime dependencies.
+
+Core semantic changes:
+
+- valid bash `{"wall_time": "...", "output": "..."}` envelopes without an
+  `exit_code` are parsed as structured tool output, but the wrapper alone does
+  not downgrade failed status
+- structured output only becomes an observation when the output is strongly
+  source/code-shaped; neutral result summaries stay failure-shaped without
+  explicit zero-exit evidence
+- explicit nonzero top-level exit codes remain terminal, even when the output is
+  source-shaped
+- common structured diagnostics, including package-manager errors, compiler
+  errors, runtime exceptions, git fatal errors, Rust panics, refused
+  connections, and operation-permission failures, remain terminal failures
+- read-tool failures carrying strong raw source/code grammar are treated as
+  observational payloads with a high consequence baseline
+- exact search-result envelopes now read as low-consequence observations rather
+  than low-consequence failures; search backend failures remain terminal,
+  including colon-form result envelopes
+- empty `{}` payloads, malformed JSON, unknown JSON shapes, invalid exit-code
+  fields, and ambiguous single-line matches remain unclassified and high
+
+Lab impact:
+
+- semantic review candidate reports are schema v4
+- `structured_tool_output_observation` and `empty_failure_payload` are new
+  internal failed-task evidence kinds
+- retained examples and counts include the new evidence kind; this is a Lab
+  report schema change, not a public npm SDK change
+
+Representative corpus checkpoint:
+
+- on the same 99-bundle public trajectory census, Lab scanned 1,335 failed task
+  updates with no invalid bundles
+- failed updates reading as observations increased from 180 to 247
+- terminal failures increased from 129 to 216 after adding concrete terminal
+  tool/runtime phrases such as missing files, patch verification failures, and
+  assertion/test failures
+- unclassified high-baseline failed updates dropped from 1,017 to 872
+- the new observation distribution is 150 routine bash zero-exit observations,
+  86 observational payloads, and 11 routine search outputs; the representative
+  public checkpoint contains no structured bash output observations after the
+  stricter diagnostic pass
+
+Transport summary boundary:
+
+- public trajectory importers must preserve `sourceEvent.summary` as semantic
+  input up to the work-event summary contract limit; 220/240 character clipping
+  is reserved for human-facing excerpts
+- structured tool-output summaries must remain valid JSON when clipped; only the
+  `output` field may be shortened, while `exit_code` and `wall_time` remain
+  parseable
+- core may treat malformed structured prefixes as terminal only when a visible
+  nonzero exit or strong diagnostic is present; incomplete source-shaped
+  prefixes must not become observational evidence
+- exact empty failed tool payloads are classified as a known high-consequence
+  transport-empty failure shape, not as observation
+
+Matched reimport checkpoint:
+
+- on the original DataClaw offset-6 record set, the old importer produced 269
+  invalid JSON-like failed summaries across 295 failed updates
+- the fixed importer produced 0 invalid JSON-like failed summaries on the same
+  19 sessions; all 269 long structured summaries remained parseable JSON
+- unclassified failed updates on that matched set dropped from 192 to 105
+- structured tool-output observations moved from 0 to 69, terminal failures from
+  100 to 113, routine search outputs from 3 to 4, and observational payloads
+  from 0 to 4 without adding product-specific phrase rules
+
 ## Human Input Contract
 
 For `human.input.requested`, semantic interpretation is allowed to project into the canonical event more strongly.

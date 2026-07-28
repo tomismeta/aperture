@@ -10,6 +10,7 @@ import type { ReplaySessionBundle, ReplaySessionBundleSource } from "./session-b
 import {
   buildAssistantTitle,
   buildObservationTitle,
+  clipSourceEventSummary,
   clipText,
   coerceImportedTimestamp,
   inferAssistantStatus,
@@ -98,7 +99,7 @@ export function createImportedSessionFromDataclawRow(
             timestamp,
             source: eventSource,
             title,
-            summary: clipText(summary, 220),
+            summary: clipSourceEventSummary(summary),
           },
         });
         started = true;
@@ -126,7 +127,7 @@ export function createImportedSessionFromDataclawRow(
                 timestamp,
                 source: eventSource,
                 title: "user follow-up",
-                summary: clipText(messageText, 240),
+                summary: clipSourceEventSummary(messageText),
                 status: "running",
               },
             }
@@ -154,7 +155,7 @@ export function createImportedSessionFromDataclawRow(
           timestamp,
           source: eventSource,
           title: clipText(assistantSummary, 96),
-          summary: clipText(assistantSummary, 240),
+          summary: clipSourceEventSummary(assistantSummary),
           status: inferAssistantStatus(assistantSummary),
         },
       });
@@ -205,7 +206,7 @@ export function createImportedSessionFromDataclawRow(
           source: eventSource,
           ...(toolFamily ? { toolFamily } : {}),
           title: buildAssistantTitle(toolFamily, toolCallSummary ?? toolName),
-          ...(toolCallSummary ? { summary: clipText(toolCallSummary, 240) } : {}),
+          ...(toolCallSummary ? { summary: clipSourceEventSummary(toolCallSummary) } : {}),
           status: "running",
         },
       });
@@ -235,7 +236,7 @@ export function createImportedSessionFromDataclawRow(
           source: eventSource,
           ...(toolFamily ? { toolFamily } : {}),
           title: buildObservationTitle(toolResultStatus, toolFamily),
-          ...(toolResultText ? { summary: clipText(toolResultText, 240) } : {}),
+          ...(toolResultText ? { summary: clipSourceEventSummary(toolResultText) } : {}),
           status: toolResultStatus,
         },
       });
@@ -259,7 +260,7 @@ export function createImportedSessionFromDataclawRow(
         timestamp: coerceImportedTimestamp(row.start_time, row.start_time, 0),
         source: eventSource,
         title,
-        summary: clipText(summary, 220),
+        summary: clipSourceEventSummary(summary),
       },
     });
   }

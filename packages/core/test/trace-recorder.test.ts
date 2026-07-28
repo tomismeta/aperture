@@ -381,7 +381,7 @@ test("trace recorder exposes actionable blocked-like waiting status activation w
   assert.ok(trace.semantic?.impact.decisionBearing.includes("blocking (judgment routing)"));
 });
 
-test("trace recorder explains routine bash observational status-conflict routing", () => {
+test("trace recorder explains observational status-conflict routing", () => {
   const core = new ApertureCore();
   const traces: InternalApertureTrace[] = [];
 
@@ -414,7 +414,7 @@ test("trace recorder explains routine bash observational status-conflict routing
   assert.equal(trace.evaluation.adjusted.responseSpec.kind, "none");
   assert.ok(
     trace.semantic?.influence.includes(
-      "routine bash observational evidence lowered failed-status routing to non-interruptive status handling",
+      "engine-owned observational evidence resolved noisy failed-status routing as status handling",
     ),
   );
   assert.ok(

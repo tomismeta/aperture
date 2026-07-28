@@ -30,7 +30,7 @@ import {
   type SweSmithRow,
   type TraceCommonsRow,
 } from "../src/index.js";
-import { normalizeToolFamily } from "../src/public-trajectories-shared.js";
+import { clipSourceEventSummary, normalizeToolFamily } from "../src/public-trajectories-shared.js";
 
 const SAMPLE_ROW: SweSmithRow = {
   instance_id: "example/repo-123",
@@ -817,6 +817,61 @@ test("DataClaw rows first map into canonical imported sessions", () => {
   assert.equal(session.entries[4]?.toolFamily, "read");
   assert.equal(finalEvent?.type, "task.updated");
   assert.equal(finalEvent?.title, "user follow-up");
+});
+
+test("public trajectory source summaries preserve valid structured output", () => {
+  const summary = JSON.stringify({
+    exit_code: 0,
+    wall_time: "0.0500 seconds",
+    output: `#include <stdio.h>\n${"int value = 1;\n".repeat(900)}`,
+  });
+  const clipped = clipSourceEventSummary(summary);
+  const parsed = JSON.parse(clipped) as {
+    exit_code: number;
+    truncated: boolean;
+    wall_time: string;
+    output: string;
+  };
+
+  assert.ok(clipped.length <= 8192);
+  assert.equal(parsed.exit_code, 0);
+  assert.equal(parsed.truncated, true);
+  assert.equal(parsed.wall_time, "0.0500 seconds");
+  assert.match(parsed.output, /^#include <stdio\.h>/);
+  assert.match(parsed.output, /\.\.\.$/);
+});
+
+test("DataClaw source-event summaries keep structured tool output parseable", () => {
+  const longOutput = `#include <stdio.h>\n${"int value = 1;\n".repeat(900)}`;
+  const row = createDataclawToolStatusRow({
+    sessionId: "423e4567-e89b-12d3-a456-426614174000",
+    tool: "Bash",
+    output: {
+      exit_code: 0,
+      wall_time: "0.0500 seconds",
+      output: longOutput,
+    },
+    status: "failed",
+  });
+  const session = createImportedSessionFromDataclawRow(row);
+  const toolResult = session.entries.find((entry) => entry.label === "tool:result:1:0");
+  const summary =
+    toolResult?.sourceEvent?.type === "task.updated" ? toolResult.sourceEvent.summary : undefined;
+  const parsed = JSON.parse(summary ?? "") as {
+    exit_code: number;
+    truncated: boolean;
+    wall_time: string;
+    output: string;
+  };
+
+  assert.ok((toolResult?.excerpt?.length ?? 0) <= 240);
+  assert.ok((summary?.length ?? 0) > 240);
+  assert.ok((summary?.length ?? 0) <= 8192);
+  assert.equal(parsed.exit_code, 0);
+  assert.equal(parsed.truncated, true);
+  assert.equal(parsed.wall_time, "0.0500 seconds");
+  assert.match(parsed.output, /^#include <stdio\.h>/);
+  assert.match(parsed.output, /\.\.\.$/);
 });
 
 test("DataClaw rows map into replay scenarios with user, tool, and follow-up steps", () => {

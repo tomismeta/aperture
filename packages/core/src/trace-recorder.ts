@@ -247,7 +247,7 @@ function buildSemanticInfluence(
   if (event.type === "task.updated") {
     if (hasRoutineObservationalStatusConflictSemantics(adjusted)) {
       influence.push(
-        "routine bash observational evidence lowered failed-status routing to non-interruptive status handling",
+        "engine-owned observational evidence resolved noisy failed-status routing as status handling",
       );
     } else {
       influence.push(

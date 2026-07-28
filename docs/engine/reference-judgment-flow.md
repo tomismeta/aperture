@@ -101,7 +101,7 @@ Status-routing nuance:
 - `task.updated.status` remains authoritative for status routing except for
   compiled routine observational status conflicts
 - semantic hints can reduce confidence or abstain from that exception, but they
-  cannot manufacture it without raw routine bash success evidence
+  cannot manufacture it without raw engine-owned observational evidence
 - richer semantics can still affect continuity, ambiguity handling, peripheral
   routing, and trace
 

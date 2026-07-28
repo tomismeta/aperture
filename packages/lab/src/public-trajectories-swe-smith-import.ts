@@ -10,6 +10,7 @@ import type { ReplaySessionBundle, ReplaySessionBundleSource } from "./session-b
 import {
   buildAssistantTitle,
   buildObservationTitle,
+  clipSourceEventSummary,
   clipText,
   inferAssistantStatus,
   inferObservationStatus,
@@ -116,7 +117,7 @@ export function createImportedSessionFromSweSmithTrajectory(
           timestamp: syntheticTimestamp(entries.length),
           source: eventSource,
           title: issueTitle,
-          summary: clipText(issueSummary, 220),
+          summary: clipSourceEventSummary(issueSummary),
         },
       });
       continue;
@@ -176,7 +177,7 @@ export function createImportedSessionFromSweSmithTrajectory(
                 source: eventSource,
                 ...(toolFamily ? { toolFamily } : {}),
                 title: buildAssistantTitle(toolFamily, assistantSummary),
-                summary: clipText(assistantSummary, 240),
+                summary: clipSourceEventSummary(assistantSummary),
                 status: inferAssistantStatus(assistantSummary),
               },
             }
@@ -211,7 +212,7 @@ export function createImportedSessionFromSweSmithTrajectory(
           source: eventSource,
           ...(lastToolFamily ? { toolFamily: lastToolFamily } : {}),
           title: buildObservationTitle(status, lastToolFamily),
-          summary: clipText(toSingleLine(observationText) ?? observationText, 240),
+          summary: clipSourceEventSummary(toSingleLine(observationText) ?? observationText),
           status,
         },
       });
@@ -235,7 +236,7 @@ export function createImportedSessionFromSweSmithTrajectory(
         timestamp: syntheticTimestamp(0),
         source: eventSource,
         title: issueTitle,
-        summary: clipText(issueSummary, 220),
+        summary: clipSourceEventSummary(issueSummary),
       },
     });
     for (const [index, entry] of entries.entries()) {

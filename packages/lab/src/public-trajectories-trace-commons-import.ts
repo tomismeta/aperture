@@ -9,6 +9,7 @@ import {
 import type { ReplayScenario } from "./scenario.js";
 import type { ReplaySessionBundle } from "./session-bundle.js";
 import {
+  clipSourceEventSummary,
   clipText,
   coerceImportedTimestamp,
   inferAssistantStatus,
@@ -137,7 +138,7 @@ export function createImportedSessionFromTraceCommonsRow(
             timestamp,
             source: eventSource,
             title,
-            summary: clipText(summary, 220),
+            summary: clipSourceEventSummary(summary),
           },
         });
         started = true;
@@ -162,7 +163,7 @@ export function createImportedSessionFromTraceCommonsRow(
           timestamp,
           source: eventSource,
           title: "user follow-up",
-          summary: clipText(userText, 240),
+          summary: clipSourceEventSummary(userText),
           status: "running",
         },
       });
@@ -190,7 +191,7 @@ export function createImportedSessionFromTraceCommonsRow(
             timestamp,
             source: eventSource,
             title: clipText(assistantText, 96),
-            summary: clipText(assistantText, 240),
+            summary: clipSourceEventSummary(assistantText),
             status: inferAssistantStatus(assistantText),
           },
         });
@@ -226,7 +227,7 @@ export function createImportedSessionFromTraceCommonsRow(
             source: eventSource,
             ...(toolFamily ? { toolFamily } : {}),
             title: buildTraceCommonsAssistantTitle(toolFamily, toolCallSummary, toolName),
-            ...(toolCallSummary ? { summary: clipText(toolCallSummary, 240) } : {}),
+            ...(toolCallSummary ? { summary: clipSourceEventSummary(toolCallSummary) } : {}),
             status: "running",
           },
         });
@@ -273,7 +274,7 @@ export function createImportedSessionFromTraceCommonsRow(
           source: eventSource,
           ...(toolFamily ? { toolFamily } : {}),
           title: buildTraceCommonsObservationTitle(toolResultStatus, toolFamily),
-          ...(toolResultText ? { summary: clipText(toolResultText, 240) } : {}),
+          ...(toolResultText ? { summary: clipSourceEventSummary(toolResultText) } : {}),
           status: toolResultStatus,
         },
       });
@@ -297,7 +298,7 @@ export function createImportedSessionFromTraceCommonsRow(
         timestamp: importedAt,
         source: eventSource,
         title,
-        summary: clipText(summary, 220),
+        summary: clipSourceEventSummary(summary),
       },
     });
   }

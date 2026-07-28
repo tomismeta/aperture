@@ -79,7 +79,7 @@ function looksLikeFlattenedKernelLogObservation(text: string): boolean {
 }
 
 function looksLikeKernelLogDiagnosticPayload(text: string): boolean {
-  return /(?:^|[\r\n]|\s)\[\s*\d+(?:\.\d+)?][^\r\n]*(?:\*ERROR\*|\b(?:error|failed|failure|fault)\b)/i.test(
+  return /(?:^|[\r\n]|\s)(?:\d+:\s*)?\[\s*\d+(?:\.\d+)?][^\r\n]*(?:\*ERROR\*|\b(?:error|failed|failure|fault)\b)/i.test(
     text,
   );
 }

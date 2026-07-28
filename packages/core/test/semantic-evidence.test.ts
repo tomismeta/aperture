@@ -2178,6 +2178,21 @@ test("observational status-conflict evidence includes corpus-derived event shape
   );
   assert.deepEqual(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-read-truncation-protocol-with-truncated-continuation",
+      taskId: "task:evidence:raw-read-truncation-protocol-with-truncated-continuation",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "IMPORTANT: The file content has been truncated. Status: Showing lines 827-1050 of 2562 total lines. Action: To read more of the file, you can use the 'start_line' and 'end_line' parameters in a subsequent 'read_file' call. For example, t...",
+      status: "failed",
+      toolFamily: "read",
+    })?.consequenceBaseline,
+    "low",
+    "corpus-truncated official read_file continuation text is still protocol-shaped",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:structured-multiple-includes",
       taskId: "task:evidence:structured-multiple-includes",
       timestamp,
@@ -2311,6 +2326,14 @@ test("observational status-conflict evidence includes corpus-derived event shape
       readTruncationNotice.replace("'offset' and 'limit'", "'offset' and 'end_line'"),
     ],
     ["trailing-read-truncation-prose", `${readTruncationNotice} This may need review.`],
+    [
+      "arbitrary-read-truncation-continuation",
+      "IMPORTANT: The file content has been truncated. Status: Showing lines 1-2 of 3 total lines. Action: To read more of the file, you can use the 'offset' and 'limit' parameters in a subsequent 'read_file' call. For example, to read this unrelated prose should still be rejected.",
+    ],
+    [
+      "arbitrary-read-truncation-ellipsis",
+      "IMPORTANT: The file content has been truncated. Status: Showing lines 1-2 of 3 total lines. Action: To read more of the file, you can use the 'offset' and 'limit' parameters in a subsequent 'read_file' call. For example, to review...",
+    ],
     ["single-include", "#include <torch/extension.h>"],
     ["include-prose", "Please add #include <a.h> and #include <b.h> before rebuilding"],
     ["bare-license-prose", "Copyright 2026 Example. Permission is hereby granted."],
@@ -2387,6 +2410,21 @@ test("observational status-conflict evidence includes corpus-derived event shape
     })?.kind,
     "unclassified_failure",
     "diagnostic kernel logs must not become observational payloads",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-numbered-kernel-log-diagnostic",
+      taskId: "task:evidence:structured-numbered-kernel-log-diagnostic",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0516 seconds","output":"Total output lines: 2 1:[ 226.262885] amdxdna: *ERROR* SVA bind device failed 2:[ 226.287574] amdgpu: cleanup ready"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "numbered diagnostic kernel logs must not become observational payloads",
   );
 
   for (const [id, output] of [

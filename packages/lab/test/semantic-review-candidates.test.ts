@@ -7,6 +7,8 @@ import test from "node:test";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
+import type { TaskFailureSemanticEvidence } from "@tomismeta/aperture-core/internal";
+
 import {
   createSemanticReviewCandidateReportFromPaths,
   createSessionBundleFromDataclawRow,
@@ -24,6 +26,7 @@ import {
 } from "../src/index.js";
 import type { OfflineReviewPreparedStep } from "../src/offline-review.js";
 import { candidateKindsForStep } from "../src/semantic-review-candidate-policy.js";
+import { readFailureEvidenceEventShape } from "../src/semantic-review-failure-event-shapes.js";
 import type { ReplayDecisionSnapshot, ReplaySemanticSnapshot } from "../src/scenario.js";
 
 const execFile = promisify(execFileCallback);
@@ -327,6 +330,95 @@ function createRepeatedUnclassifiedFailedBundle(options: {
   });
 }
 
+function createUnclassifiedEventShapeBundle() {
+  const scenario: ReplayScenario = {
+    id: "unclassified-event-shapes",
+    title: "Unclassified event shape coverage",
+    steps: [
+      {
+        kind: "publishSource",
+        label: "plain unclassified",
+        event: {
+          id: "evt:shape:plain",
+          taskId: "task:shape:plain",
+          timestamp: "2026-04-27T00:00:00.000Z",
+          type: "task.updated",
+          title: "agent status",
+          summary: "No clear classifier evidence.",
+          status: "failed",
+        },
+      },
+      {
+        kind: "publishSource",
+        label: "line context unclassified",
+        event: {
+          id: "evt:shape:line-context",
+          taskId: "task:shape:line-context",
+          timestamp: "2026-04-27T00:00:00.000Z",
+          type: "task.updated",
+          title: "agent status",
+          summary: "12-| alpha 13-| beta",
+          status: "failed",
+        },
+      },
+      {
+        kind: "publishSource",
+        label: "malformed structured unclassified",
+        event: {
+          id: "evt:shape:malformed",
+          taskId: "task:shape:malformed",
+          timestamp: "2026-04-27T00:00:00.000Z",
+          type: "task.updated",
+          title: "bash failure",
+          summary: '{"wall_time":"later","output":"ok"',
+          status: "failed",
+          toolFamily: "bash",
+        },
+      },
+      {
+        kind: "publishSource",
+        label: "marked truncated unclassified",
+        event: {
+          id: "evt:shape:truncated",
+          taskId: "task:shape:truncated",
+          timestamp: "2026-04-27T00:00:00.000Z",
+          type: "task.updated",
+          title: "bash failure",
+          summary: '{"exit_code":0,"output":"patch applied successfully","truncated":true}',
+          status: "failed",
+          toolFamily: "bash",
+        },
+      },
+    ],
+  };
+
+  return createSessionBundleFromScenario(scenario, {
+    exportedAt: "2026-04-27T00:00:00.000Z",
+    replayTimeSource: () => Date.parse("2026-04-27T00:00:00.000Z"),
+  });
+}
+
+function createUnclassifiedEvidence(toolFamily?: string): TaskFailureSemanticEvidence {
+  return {
+    kind: "unclassified_failure",
+    ...(toolFamily ? { toolFamily } : {}),
+    readsAsObservation: false,
+    consequenceBaseline: "high",
+    text: {
+      routineSuccessObservation: false,
+      terminalFailureEvidence: false,
+      expectedDiagnosticFailure: false,
+      observationalReadback: false,
+      taggedFileObservation: false,
+      readObservationPayload: false,
+      searchResultOutput: false,
+      sourceCodeObservation: false,
+      logObservation: false,
+      buildMetadataObservation: false,
+    },
+  };
+}
+
 function createMissingWhyNowPolicyInput(): {
   step: OfflineReviewPreparedStep;
   semantic: ReplaySemanticSnapshot;
@@ -415,10 +507,12 @@ test("semantic review candidate reports shortlist deterministic review pressure"
     repoRoot: tempDir,
   });
 
-  assert.equal(report.schemaVersion, 4);
+  assert.equal(report.schemaVersion, 5);
   assert.equal(report.selection.promotionAuthority, "review_required");
   assert.equal(report.selection.maxFailureEvidenceExamplesPerKind, 2);
   assert.equal(report.selection.maxFailureEvidenceExamplesPerSessionPerKind, 1);
+  assert.equal(report.selection.maxUnclassifiedEventShapes, 2);
+  assert.equal(report.selection.maxUnclassifiedExamplesPerEventShape, 1);
   assert.equal(report.input.scannedBundleCount, 1);
   assert.ok(report.summary.countsByKind.failure_attention > 0);
   assert.ok(report.summary.failedTaskEvidence.failedTaskUpdateCount > 0);
@@ -682,6 +776,78 @@ test("missing whyNow policy follows attention-bearing review pressure", () => {
   }
 });
 
+test("semantic review event shapes bucket unknown tools and value variants", () => {
+  const first = readFailureEvidenceEventShape({
+    evidence: createUnclassifiedEvidence("Vendor Alpha Tool"),
+    event: {
+      summary: '{"exit_code":0,"output":"alpha result","truncated":true}',
+      toolFamily: "Vendor Alpha Tool",
+    },
+  });
+  const second = readFailureEvidenceEventShape({
+    evidence: createUnclassifiedEvidence("Vendor Beta Tool"),
+    event: {
+      summary: '{"exit_code":0,"output":"beta result","truncated":false}',
+      toolFamily: "Vendor Beta Tool",
+    },
+  });
+
+  assert.equal(first, second);
+  assert.equal(
+    first,
+    "tool:other|summary:json_object:keys=exit_code,output,truncated;exit_code=number;output=text:plain:short;truncated=boolean",
+  );
+  assert.equal(first.includes("vendor"), false);
+  assert.equal(first.includes("true"), false);
+  assert.equal(first.includes("false"), false);
+});
+
+test("semantic review event shapes preserve canonical write tools", () => {
+  assert.equal(
+    readFailureEvidenceEventShape({
+      evidence: createUnclassifiedEvidence("write"),
+      event: {
+        summary: "No clear classifier evidence.",
+        toolFamily: "write",
+      },
+    }),
+    "tool:write|summary:text:plain:short",
+  );
+});
+
+test("semantic review event shapes use JSON-aware object value types", () => {
+  assert.equal(
+    readFailureEvidenceEventShape({
+      evidence: createUnclassifiedEvidence("bash"),
+      event: {
+        summary: '{"exit_code":null,"output":null,"truncated":{"source":"hidden"},"wall_time":[1]}',
+        toolFamily: "bash",
+      },
+    }),
+    "tool:bash|summary:json_object:keys=exit_code,output,truncated,wall_time;exit_code=null;output=null;truncated=object;wall_time=array",
+  );
+});
+
+test("semantic review event shapes distinguish valid JSON primitives from prose", () => {
+  const cases = [
+    ['"hello"', "tool:none|summary:json_string"],
+    ["123", "tool:none|summary:json_number"],
+    ["true", "tool:none|summary:json_boolean"],
+    ["null", "tool:none|summary:json_null"],
+    ["hello", "tool:none|summary:text:plain:short"],
+  ] as const;
+
+  for (const [summary, expected] of cases) {
+    assert.equal(
+      readFailureEvidenceEventShape({
+        evidence: createUnclassifiedEvidence(),
+        event: { summary, toolFamily: null },
+      }),
+      expected,
+    );
+  }
+});
+
 test("semantic review candidate reports flag unrecognized imported tool families", async () => {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-tools-"));
   const bundle = createSessionBundleFromSweSmithRow(SAMPLE_ROW);
@@ -822,6 +988,7 @@ test("semantic review candidate reports do not treat DataClaw read status mismat
   assert.equal(report.summary.failedTaskEvidence.failedTaskUpdateCount, 0);
   assert.equal(report.summary.failedTaskEvidence.countsByKind.observational_payload, 0);
   assert.equal(report.summary.failedTaskEvidence.readsAsObservationCount, 0);
+  assert.deepEqual(report.summary.failedTaskEvidence.unclassifiedEventShapeCounts, {});
 });
 
 test("semantic review evidence audit classifies failed readbacks as observational payload", async () => {
@@ -871,6 +1038,9 @@ test("semantic review evidence audit ignores metadata-only tool-family routing e
   assert.equal(report.summary.failedTaskEvidence.failedTaskUpdateCount, 1);
   assert.equal(report.summary.failedTaskEvidence.countsByKind.unclassified_failure, 1);
   assert.equal(report.summary.failedTaskEvidence.missingToolFamilyCount, 1);
+  assert.deepEqual(report.summary.failedTaskEvidence.unclassifiedEventShapeCounts, {
+    "tool:none|summary:text:plain:short": 1,
+  });
   assert.equal(
     Object.hasOwn(report.summary.failedTaskEvidence.countsByToolFamily, "unknown"),
     false,
@@ -879,6 +1049,78 @@ test("semantic review evidence audit ignores metadata-only tool-family routing e
     report.summary.failedTaskEvidence.retainedExamplesByKind.unclassified_failure[0]?.event
       .toolFamily,
     null,
+  );
+  assert.equal(
+    report.summary.failedTaskEvidence.retainedExamplesByKind.unclassified_failure[0]?.eventShape,
+    "tool:none|summary:text:plain:short",
+  );
+});
+
+test("semantic review evidence audit clusters unclassified event shapes", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-shapes-"));
+  const bundle = createUnclassifiedEventShapeBundle();
+  const bundlePath = path.join(tempDir, "bundle.json");
+  await writeSessionBundle(bundlePath, bundle);
+
+  const report = await createSemanticReviewCandidateReportFromPaths({
+    bundlePaths: [bundlePath],
+    generatedAt: "2026-04-27T00:00:00.000Z",
+    maxCandidatesPerKind: 5,
+    repoRoot: tempDir,
+  });
+
+  assert.equal(report.summary.failedTaskEvidence.failedTaskUpdateCount, 4);
+  assert.equal(report.summary.failedTaskEvidence.countsByKind.unclassified_failure, 4);
+  assert.deepEqual(report.summary.failedTaskEvidence.unclassifiedEventShapeCounts, {
+    "tool:bash|summary:json_object:keys=exit_code,output,truncated;exit_code=number;output=text:plain:short;truncated=boolean": 1,
+    "tool:bash|summary:malformed_json_object:keys=output,wall_time": 1,
+    "tool:none|summary:text:line_numbered_context": 1,
+    "tool:none|summary:text:plain:short": 1,
+  });
+  assert.equal(
+    report.summary.failedTaskEvidence.retainedUnclassifiedExamplesByEventShape[
+      "tool:bash|summary:malformed_json_object:keys=output,wall_time"
+    ]?.[0]?.event.summary,
+    '{"wall_time":"later","output":"ok"',
+  );
+});
+
+test("semantic review evidence audit bounds retained unclassified event-shape examples", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-shape-caps-"));
+  const bundlePaths = await Promise.all(
+    Array.from({ length: 4 }, async (_, index) => {
+      const bundle = createRepeatedUnclassifiedFailedBundle({
+        id: `same-shape-${index}`,
+        title: `Same shape ${index}`,
+        count: 1,
+      });
+      const bundlePath = path.join(tempDir, `bundle-${index}.json`);
+      await writeSessionBundle(bundlePath, bundle);
+      return bundlePath;
+    }),
+  );
+
+  const report = await createSemanticReviewCandidateReportFromPaths({
+    bundlePaths,
+    generatedAt: "2026-04-27T00:00:00.000Z",
+    maxCandidatesPerKind: 2,
+    maxCandidatesPerSessionPerKind: 2,
+    repoRoot: tempDir,
+  });
+
+  const shape = "tool:none|summary:text:plain:short";
+  assert.deepEqual(report.summary.failedTaskEvidence.unclassifiedEventShapeCounts, {
+    [shape]: 4,
+  });
+  assert.equal(
+    report.summary.failedTaskEvidence.retainedUnclassifiedExamplesByEventShape[shape]?.length,
+    2,
+  );
+  assert.deepEqual(
+    report.summary.failedTaskEvidence.retainedUnclassifiedExamplesByEventShape[shape]?.map(
+      (example) => example.sessionId,
+    ),
+    ["same-shape-0", "same-shape-1"],
   );
 });
 

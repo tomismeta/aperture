@@ -288,6 +288,29 @@ Matched reimport checkpoint:
   100 to 113, routine search outputs from 3 to 4, and observational payloads
   from 0 to 4 without adding product-specific phrase rules
 
+## Event Shape Review Tranche - 2026-07-28
+
+The next branch keeps classifier changes corpus-led. Before adding more core
+semantic rules, Lab now records structural event-shape clusters for remaining
+`unclassified_failure` updates.
+
+Lab impact:
+
+- semantic review candidate reports are schema v5
+- failed-task evidence examples include an `eventShape` field
+- the failed-task evidence summary includes counts and retained examples by
+  unclassified event shape
+- event shapes are built from structure only: tool family, JSON validity,
+  stable JSON key sets, malformed JSON-like prefixes, payload value type,
+  line-number context, source-like grammar, path density, and length buckets
+- event shapes must not include raw payload values or product-specific wording
+
+Use:
+
+- run a fresh clean corpus import after the summary-preservation fix
+- generate a v5 review-candidates report from the verified manifest
+- promote only repeated, source-agnostic event shapes into core semantics
+
 ## Human Input Contract
 
 For `human.input.requested`, semantic interpretation is allowed to project into the canonical event more strongly.

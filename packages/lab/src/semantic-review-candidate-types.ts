@@ -86,6 +86,8 @@ export type SemanticReviewCandidateReport = {
     maxCandidatesPerSessionPerKind: number;
     maxFailureEvidenceExamplesPerKind: number;
     maxFailureEvidenceExamplesPerSessionPerKind: number;
+    maxUnclassifiedEventShapes: number;
+    maxUnclassifiedExamplesPerEventShape: number;
     retainedSort: "pressure_score_desc_path_step";
     promotionAuthority: "review_required";
   };

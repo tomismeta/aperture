@@ -52,6 +52,7 @@ export type SemanticReviewTaskFailureEvidenceExample = {
     resultLane: string | null;
     reasonCodes: string[];
   };
+  eventShape: string;
 };
 
 export type SemanticReviewTaskFailureEvidenceSummary = {
@@ -61,6 +62,11 @@ export type SemanticReviewTaskFailureEvidenceSummary = {
   countsByKind: Record<SemanticReviewTaskFailureEvidenceKind, number>;
   countsByToolFamily: Record<string, number>;
   missingToolFamilyCount: number;
+  unclassifiedEventShapeCounts: Record<string, number>;
+  retainedUnclassifiedExamplesByEventShape: Record<
+    string,
+    SemanticReviewTaskFailureEvidenceExample[]
+  >;
   retainedExamplesByKind: Record<
     SemanticReviewTaskFailureEvidenceKind,
     SemanticReviewTaskFailureEvidenceExample[]

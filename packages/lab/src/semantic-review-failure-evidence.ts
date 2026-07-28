@@ -10,8 +10,14 @@ import type {
   ReplaySemanticSnapshot,
 } from "./scenario.js";
 import type { ReplaySessionBundle } from "./session-bundle.js";
+import { readFailureEvidenceEventShape } from "./semantic-review-failure-event-shapes.js";
 import {
-  SEMANTIC_REVIEW_TASK_FAILURE_EVIDENCE_KINDS,
+  createFailureEvidenceExampleBuckets,
+  createFailureEvidenceKindCounts,
+  finalizeRetainedUnclassifiedExamplesByEventShape,
+  retainFailureEvidenceExamples,
+} from "./semantic-review-failure-evidence-retention.js";
+import {
   type SemanticReviewTaskFailureConsequenceBaseline,
   type SemanticReviewTaskFailureEvidenceExample,
   type SemanticReviewTaskFailureEvidenceKind,
@@ -25,6 +31,8 @@ export type SemanticReviewTaskFailureEvidenceAccumulator = {
   countsByKind: Record<SemanticReviewTaskFailureEvidenceKind, number>;
   countsByToolFamily: Map<string, number>;
   missingToolFamilyCount: number;
+  unclassifiedEventShapeCounts: Map<string, number>;
+  retainedUnclassifiedExamplesByEventShape: Map<string, SemanticReviewTaskFailureEvidenceExample[]>;
   retainedExamplesByKind: Record<
     SemanticReviewTaskFailureEvidenceKind,
     SemanticReviewTaskFailureEvidenceExample[]
@@ -53,6 +61,8 @@ export function createFailureEvidenceAccumulator(): SemanticReviewTaskFailureEvi
     countsByKind: createFailureEvidenceKindCounts(),
     countsByToolFamily: new Map(),
     missingToolFamilyCount: 0,
+    unclassifiedEventShapeCounts: new Map(),
+    retainedUnclassifiedExamplesByEventShape: new Map(),
     retainedExamplesByKind: createFailureEvidenceExampleBuckets(),
   };
 }
@@ -62,6 +72,7 @@ export function addFailureEvidenceExample(
   limits: {
     maxExamplesPerKind: number;
     maxExamplesPerSessionPerKind: number;
+    maxUnclassifiedExamplesPerEventShape: number;
   },
   input: {
     bundle: ReplaySessionBundle;
@@ -89,16 +100,36 @@ export function addFailureEvidenceExample(
     accumulator.missingToolFamilyCount += 1;
   }
 
+  const example = buildFailureEvidenceExample(input);
   const bucket = accumulator.retainedExamplesByKind[input.evidence.kind];
   accumulator.retainedExamplesByKind[input.evidence.kind] = retainFailureEvidenceExamples(
     bucket,
-    buildFailureEvidenceExample(input),
+    example,
     limits,
   );
+
+  if (input.evidence.kind === "unclassified_failure") {
+    accumulator.unclassifiedEventShapeCounts.set(
+      example.eventShape,
+      (accumulator.unclassifiedEventShapeCounts.get(example.eventShape) ?? 0) + 1,
+    );
+    accumulator.retainedUnclassifiedExamplesByEventShape.set(
+      example.eventShape,
+      retainFailureEvidenceExamples(
+        accumulator.retainedUnclassifiedExamplesByEventShape.get(example.eventShape) ?? [],
+        example,
+        {
+          maxExamplesPerKind: limits.maxUnclassifiedExamplesPerEventShape,
+          maxExamplesPerSessionPerKind: limits.maxExamplesPerSessionPerKind,
+        },
+      ),
+    );
+  }
 }
 
 export function finalizeFailureEvidenceSummary(
   accumulator: SemanticReviewTaskFailureEvidenceAccumulator,
+  limits: { maxUnclassifiedEventShapes: number },
 ): SemanticReviewTaskFailureEvidenceSummary {
   return {
     failedTaskUpdateCount: accumulator.failedTaskUpdateCount,
@@ -111,30 +142,18 @@ export function finalizeFailureEvidenceSummary(
       ),
     ),
     missingToolFamilyCount: accumulator.missingToolFamilyCount,
+    unclassifiedEventShapeCounts: Object.fromEntries(
+      [...accumulator.unclassifiedEventShapeCounts.entries()].sort(([left], [right]) =>
+        left.localeCompare(right),
+      ),
+    ),
+    retainedUnclassifiedExamplesByEventShape: finalizeRetainedUnclassifiedExamplesByEventShape({
+      counts: accumulator.unclassifiedEventShapeCounts,
+      examplesByShape: accumulator.retainedUnclassifiedExamplesByEventShape,
+      maxEventShapes: limits.maxUnclassifiedEventShapes,
+    }),
     retainedExamplesByKind: accumulator.retainedExamplesByKind,
   };
-}
-
-function createFailureEvidenceKindCounts(): Record<SemanticReviewTaskFailureEvidenceKind, number> {
-  const counts = {} as Record<SemanticReviewTaskFailureEvidenceKind, number>;
-  for (const kind of SEMANTIC_REVIEW_TASK_FAILURE_EVIDENCE_KINDS) {
-    counts[kind] = 0;
-  }
-  return counts;
-}
-
-function createFailureEvidenceExampleBuckets(): Record<
-  SemanticReviewTaskFailureEvidenceKind,
-  SemanticReviewTaskFailureEvidenceExample[]
-> {
-  const buckets = {} as Record<
-    SemanticReviewTaskFailureEvidenceKind,
-    SemanticReviewTaskFailureEvidenceExample[]
-  >;
-  for (const kind of SEMANTIC_REVIEW_TASK_FAILURE_EVIDENCE_KINDS) {
-    buckets[kind] = [];
-  }
-  return buckets;
 }
 
 function buildFailureEvidenceExample(input: {
@@ -147,6 +166,13 @@ function buildFailureEvidenceExample(input: {
 }): SemanticReviewTaskFailureEvidenceExample {
   const sourceEvent = input.step.sourceEvent;
   const interpretation = input.semantic?.interpretation;
+  const eventShape = readFailureEvidenceEventShape({
+    evidence: input.evidence,
+    event: {
+      summary: sourceEvent?.summary ?? null,
+      toolFamily: sourceEvent?.toolFamily ?? null,
+    },
+  });
 
   return {
     bundlePath: input.bundlePath,
@@ -182,42 +208,6 @@ function buildFailureEvidenceExample(input: {
       resultLane: input.decision?.resultLane ?? null,
       reasonCodes: input.decision?.decisionRecordReasonCodes ?? [],
     },
+    eventShape,
   };
-}
-
-function retainFailureEvidenceExamples(
-  bucket: SemanticReviewTaskFailureEvidenceExample[],
-  example: SemanticReviewTaskFailureEvidenceExample,
-  limits: {
-    maxExamplesPerKind: number;
-    maxExamplesPerSessionPerKind: number;
-  },
-): SemanticReviewTaskFailureEvidenceExample[] {
-  const retained: SemanticReviewTaskFailureEvidenceExample[] = [];
-  const perSession = new Map<string, number>();
-
-  for (const entry of [...bucket, example].sort(compareFailureEvidenceExamples)) {
-    const sessionCount = perSession.get(entry.sessionId) ?? 0;
-    if (sessionCount >= limits.maxExamplesPerSessionPerKind) {
-      continue;
-    }
-    retained.push(entry);
-    perSession.set(entry.sessionId, sessionCount + 1);
-    if (retained.length >= limits.maxExamplesPerKind) {
-      break;
-    }
-  }
-
-  return retained;
-}
-
-function compareFailureEvidenceExamples(
-  left: SemanticReviewTaskFailureEvidenceExample,
-  right: SemanticReviewTaskFailureEvidenceExample,
-): number {
-  return (
-    left.bundlePath.localeCompare(right.bundlePath) ||
-    left.stepIndex - right.stepIndex ||
-    left.sessionId.localeCompare(right.sessionId)
-  );
 }

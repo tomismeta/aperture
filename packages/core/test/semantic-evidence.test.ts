@@ -2192,6 +2192,144 @@ test("task failure evidence preserves current observational classes", () => {
   );
 });
 
+test("task failure evidence classifies explicit missing-tool observation transcripts", () => {
+  const catReadback = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:missing-tool-cat-readback",
+    taskId: "task:evidence:missing-tool-cat-readback",
+    timestamp,
+    type: "task.updated",
+    title: "tool failure",
+    summary:
+      "OBSERVATION: Here's the result of running `cat -n` on /testbed/yamllint/cli.py: 1 #!/usr/bin/env python3 2 import sys 3 def main(): return 0",
+    status: "failed",
+  });
+
+  assert.equal(catReadback?.kind, "observational_payload");
+  assert.equal(catReadback.readsAsObservation, true);
+  assert.equal(catReadback.consequenceBaseline, "high");
+  assert.equal(catReadback.toolFamily, undefined);
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-edited-file-readback",
+      taskId: "task:evidence:missing-tool-edited-file-readback",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary:
+        "OBSERVATION: The file /testbed/reproduce.py has been edited. Here's the result of running `cat -n` on a snippet of /testbed/reproduce.py: 1 #!/usr/bin/env python3 2 import sys",
+      status: "failed",
+    })?.kind,
+    "observational_payload",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-search-output",
+      taskId: "task:evidence:missing-tool-search-output",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary:
+        "OBSERVATION: Found 12 matches in 3 files. Showing first 10 results from /repo/src/app.ts",
+      status: "failed",
+    })?.kind,
+    "observational_payload",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-command-success-observation",
+      taskId: "task:evidence:missing-tool-command-success-observation",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary:
+        'OBSERVATION: Running yamllint... Output: ./normal.yaml 1:1 warning missing document start "---" (document-start) Test PASSED: expected warnings were reported.',
+      status: "failed",
+    })?.kind,
+    "observational_payload",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-empty-observation",
+      taskId: "task:evidence:missing-tool-empty-observation",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary: "OBSERVATION: {}",
+      status: "failed",
+    })?.kind,
+    "unclassified_failure",
+    "empty observation transcripts stay unclassified without tool-family evidence",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-generic-observation-path",
+      taskId: "task:evidence:missing-tool-generic-observation-path",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary: "OBSERVATION: Found a problem in /repo/file.txt.",
+      status: "failed",
+    })?.kind,
+    "unclassified_failure",
+    "OBSERVATION prefix plus a path is not enough",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-rejected-use",
+      taskId: "task:evidence:missing-tool-rejected-use",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary:
+        "OBSERVATION: The user doesn't want to proceed with this tool use. The tool use was rejected. STOP what you are doing and wait.",
+      status: "failed",
+    })?.kind,
+    "unclassified_failure",
+    "rejected tool-use prose is not an observation transcript",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-diagnostic-observation",
+      taskId: "task:evidence:missing-tool-diagnostic-observation",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary: "OBSERVATION: Traceback (most recent call last): RuntimeError",
+      status: "failed",
+    })?.kind,
+    "terminal_failure",
+    "terminal diagnostics stay terminal before missing-tool observation recovery",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-rg-diagnostic-observation",
+      taskId: "task:evidence:missing-tool-rg-diagnostic-observation",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary:
+        "OBSERVATION: rg: /tmp/dmesg.log: IO error for operation on /tmp/dmesg.log: Input/output error",
+      status: "failed",
+    })?.kind,
+    "unclassified_failure",
+    "tool-output diagnostics are not downgraded by missing-tool observation recovery",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-nonprefixed-readback",
+      taskId: "task:evidence:missing-tool-nonprefixed-readback",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary:
+        "Here's the result of running `cat -n` on /testbed/yamllint/cli.py: 1 #!/usr/bin/env python3",
+      status: "failed",
+    })?.kind,
+    "unclassified_failure",
+    "missing-tool readback recovery requires an explicit observation prefix",
+  );
+});
+
 test("task failure evidence uses explicit context tool family without text inference", () => {
   assert.equal(
     readTaskFailureSemanticEvidence({

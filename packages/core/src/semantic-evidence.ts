@@ -44,6 +44,7 @@ import {
   looksLikeTerminalFailureEvidence,
   looksLikeZeroTerminalExit,
 } from "./semantic-terminal-evidence.js";
+import { looksLikeToolOutputDiagnosticPayload } from "./semantic-tool-output-diagnostic-shapes.js";
 import { readTruncatedStructuredToolOutputEnvelope } from "./semantic-truncated-structured-output.js";
 import { readExplicitSemanticToolFamily } from "./semantic-tool-family.js";
 
@@ -183,6 +184,9 @@ export function readTaskFailureSemanticEvidence(
   const structuredOutputFailureDiagnostic =
     diagnosticStructuredToolOutput !== null &&
     hasToolOutputFailureDiagnosticEvidence(diagnosticStructuredToolOutput.output);
+  const missingToolObservationTranscript =
+    toolFamily === undefined &&
+    looksLikeExplicitMissingToolObservationTranscript(event.summary ?? "");
   const strongSourceRuntimeDiagnostic =
     (structuredToolOutput !== null &&
       structuredOutputSourceObservation &&
@@ -216,6 +220,15 @@ export function readTaskFailureSemanticEvidence(
       kind: "empty_failure_payload",
       toolFamily,
       readsAsObservation: false,
+      consequenceBaseline: "high",
+      text,
+    };
+  }
+
+  if (missingToolObservationTranscript) {
+    return {
+      kind: "observational_payload",
+      readsAsObservation: true,
       consequenceBaseline: "high",
       text,
     };
@@ -366,6 +379,55 @@ function looksLikeExplicitReadFailureDiagnostic(value: string): boolean {
 
   return /^(?:read\s+failed\b|failed to (?:read|open)\b|could not (?:read|open)\b|unable to (?:read|open)\b)/i.test(
     text,
+  );
+}
+
+function looksLikeExplicitMissingToolObservationTranscript(value: string): boolean {
+  const match = /^\s*OBSERVATION:\s*([\s\S]+)$/i.exec(value);
+  const body = match?.[1]?.trim() ?? "";
+  if (
+    body.length === 0 ||
+    body === "{}" ||
+    looksLikeRejectedToolUseTranscript(body) ||
+    looksLikeMissingToolObservationDiagnostic(body)
+  ) {
+    return false;
+  }
+
+  const text = normalizeSemanticText(body);
+  return (
+    containsAnySemanticPhrase(text, OBSERVATIONAL_READBACK_PHRASES) ||
+    looksLikeTaggedFileObservation(text) ||
+    looksLikeStrongRawSourceObservation(body) ||
+    looksLikePlainReadObservation(body) ||
+    looksLikeBuildOrLogObservation(body) ||
+    looksLikeSearchResultObservation(text, body) ||
+    looksLikeSuccessfulCommandObservationTranscript(text)
+  );
+}
+
+function looksLikeRejectedToolUseTranscript(text: string): boolean {
+  return (
+    /\btool use was rejected\b/i.test(text) ||
+    /\buser doesn['’]?t want to proceed\b/i.test(text) ||
+    /\bstop what you are doing and wait\b/i.test(text)
+  );
+}
+
+function looksLikeMissingToolObservationDiagnostic(text: string): boolean {
+  return (
+    looksLikeTerminalFailureEvidence(normalizeSemanticText(text)) ||
+    hasStrongRuntimeDiagnosticEvidence(text) ||
+    looksLikeToolOutputDiagnosticPayload(text)
+  );
+}
+
+function looksLikeSuccessfulCommandObservationTranscript(text: string): boolean {
+  return (
+    /\brunning (?:command|[a-z0-9_.-]+)\b/.test(text) &&
+    /\b(?:test passed|tests passed|all checks passed|all .* tests passed|no problems found)\b/.test(
+      text,
+    )
   );
 }
 

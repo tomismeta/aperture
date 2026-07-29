@@ -12,13 +12,14 @@ import {
 import { looksLikeSearchResultObservation } from "./semantic-search-observation-shapes.js";
 import { containsAnySemanticPhrase, normalizeSemanticText } from "./semantic-text.js";
 import { looksLikeTerminalFailureEvidence } from "./semantic-terminal-evidence.js";
+import { hasToolUseRejectionSignal } from "./semantic-tool-use-rejection-shapes.js";
 import { looksLikeToolOutputDiagnosticPayload } from "./semantic-tool-output-diagnostic-shapes.js";
 
 export function looksLikeExplicitObservationTranscript(value: string): boolean {
   const body = readExplicitObservationTranscriptBody(value);
   if (
     body === null ||
-    looksLikeRejectedToolUseTranscript(body) ||
+    hasToolUseRejectionSignal(body) ||
     looksLikeObservationTranscriptDiagnostic(body)
   ) {
     return false;
@@ -47,14 +48,6 @@ function looksLikeTaggedFileObservationTranscript(text: string): boolean {
   return (
     containsAnySemanticPhrase(text, TAGGED_FILE_OBSERVATION_PHRASES) &&
     PATH_LIKE_TOKEN_PATTERN.test(text)
-  );
-}
-
-function looksLikeRejectedToolUseTranscript(text: string): boolean {
-  return (
-    /\btool use was rejected\b/i.test(text) ||
-    /\buser doesn['’]?t want to proceed\b/i.test(text) ||
-    /\bstop what you are doing and wait\b/i.test(text)
   );
 }
 

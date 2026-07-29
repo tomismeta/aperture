@@ -6,9 +6,18 @@ import {
   readTaskFailureSemanticEvidence,
   readSemanticTextEvidence,
 } from "../src/semantic-evidence.js";
+import { looksLikeExplicitObservationTranscript } from "../src/semantic-observation-transcript-shapes.js";
 import { isSemanticCommandExecutionToolFamily } from "../src/semantic-tool-family.js";
+import {
+  hasToolUseRejectionSignal,
+  looksLikeToolUseRejectionOutcome,
+} from "../src/semantic-tool-use-rejection-shapes.js";
 
 const timestamp = "2026-04-05T18:45:00.000Z";
+const rejectedToolUseMessage =
+  "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
+const declinedActionMessage =
+  "The user doesn't want to take this action right now. STOP what you are doing and wait for the user to tell you how to proceed.";
 
 test("semantic text evidence classifies exact routine bash success observations", () => {
   const evidence = readSemanticTextEvidence(
@@ -37,6 +46,75 @@ test("semantic command execution families are exact", () => {
   assert.equal(isSemanticCommandExecutionToolFamily("terminal"), false);
   assert.equal(isSemanticCommandExecutionToolFamily("exec_command_extra"), false);
   assert.equal(isSemanticCommandExecutionToolFamily(undefined), false);
+});
+
+test("tool-use rejection outcome shape requires coherent full-message clauses", () => {
+  assert.equal(looksLikeToolUseRejectionOutcome(rejectedToolUseMessage), true);
+  assert.equal(looksLikeToolUseRejectionOutcome(declinedActionMessage), true);
+  assert.equal(
+    looksLikeToolUseRejectionOutcome(
+      "The user doesn’t want to take this action right now! STOP what you are doing and wait for the user to tell you how to proceed.",
+    ),
+    true,
+  );
+  assert.equal(
+    looksLikeToolUseRejectionOutcome(
+      "OBSERVATION:\nThe user doesn’t want to proceed with this tool use.\nThe tool use was rejected.\nSTOP what you are doing and wait for the user to tell you how to proceed.",
+    ),
+    true,
+  );
+  assert.equal(
+    looksLikeToolUseRejectionOutcome(
+      "The user doesn't want to proceed with this tool use! The tool use was rejected (for example, no file contents were changed). STOP what you are doing and wait for the user to tell you how to proceed.",
+    ),
+    true,
+  );
+  assert.equal(
+    looksLikeToolUseRejectionOutcome(
+      "The user doesn't want to proceed with this tool use! The tool use was rejected (e.g. no file contents were changed). STOP what you are doing and wait for the user to tell you how to proceed.",
+    ),
+    true,
+  );
+  assert.equal(
+    looksLikeToolUseRejectionOutcome(
+      "The user doesn't want to proceed with this tool use. The tool use was rejected (if this was a write operation, no mutation happened). STOP what you are doing and wait for the user to tell you how to proceed.",
+    ),
+    true,
+  );
+
+  assert.equal(looksLikeToolUseRejectionOutcome(`log: ${rejectedToolUseMessage}`), false);
+  assert.equal(looksLikeToolUseRejectionOutcome(`"${rejectedToolUseMessage}"`), false);
+  assert.equal(
+    looksLikeToolUseRejectionOutcome(`${rejectedToolUseMessage} Traceback follows.`),
+    false,
+  );
+  assert.equal(
+    looksLikeToolUseRejectionOutcome(
+      "If the tool use was rejected, stop what you are doing and wait.",
+    ),
+    false,
+  );
+  assert.equal(looksLikeToolUseRejectionOutcome("The remote service rejected the request."), false);
+  assert.equal(looksLikeToolUseRejectionOutcome("The tool use was rejected."), false);
+  assert.equal(looksLikeToolUseRejectionOutcome("The user rejected this recommendation."), false);
+  assert.equal(
+    looksLikeToolUseRejectionOutcome(
+      "The user doesn't want to proceed with this tool use. The tool use was rejected (this parenthetical is not explanatory). STOP what you are doing and wait for the user to tell you how to proceed.",
+    ),
+    false,
+  );
+});
+
+test("tool-use rejection signal excludes explicit observation transcript recovery", () => {
+  for (const body of [
+    "The tool use was rejected. Here is the result of running `cat -n` on /tmp/file.ts: 1 export const x = 1;",
+    "The user doesn't want to proceed. Here is the result of running `cat -n` on /tmp/file.ts: 1 export const x = 1;",
+    "The user doesn't want to take this action right now. Here is the result of running `cat -n` on /tmp/file.ts: 1 export const x = 1;",
+    "STOP what you are doing and wait. Here is the result of running `cat -n` on /tmp/file.ts: 1 export const x = 1;",
+  ]) {
+    assert.equal(hasToolUseRejectionSignal(body), true);
+    assert.equal(looksLikeExplicitObservationTranscript(`OBSERVATION: ${body}`), false);
+  }
 });
 
 test("semantic text evidence separates routine success from terminal failure evidence", () => {
@@ -284,6 +362,95 @@ test("task failure evidence separates zero exit and expected diagnostics from te
     })?.kind,
     "terminal_failure",
   );
+});
+
+test("task failure evidence classifies explicit tool-use rejection outcomes as low observations", () => {
+  const bash = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:bash-tool-use-rejection",
+    taskId: "task:evidence:bash-tool-use-rejection",
+    timestamp,
+    type: "task.updated",
+    title: "bash failure",
+    summary: rejectedToolUseMessage,
+    status: "failed",
+    toolFamily: "bash",
+  });
+  const edit = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:edit-tool-use-rejection",
+    taskId: "task:evidence:edit-tool-use-rejection",
+    timestamp,
+    type: "task.updated",
+    title: "edit failure",
+    summary: rejectedToolUseMessage,
+    status: "failed",
+    toolFamily: "edit",
+  });
+  const absent = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:absent-tool-use-rejection",
+    taskId: "task:evidence:absent-tool-use-rejection",
+    timestamp,
+    type: "task.updated",
+    title: "tool failure",
+    summary: rejectedToolUseMessage,
+    status: "failed",
+  });
+  const web = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:web-tool-use-rejection",
+    taskId: "task:evidence:web-tool-use-rejection",
+    timestamp,
+    type: "task.updated",
+    title: "web failure",
+    summary: rejectedToolUseMessage,
+    status: "failed",
+    toolFamily: "web",
+  });
+
+  assert.equal(bash?.kind, "rejected_tool_use_observation");
+  assert.equal(bash.toolFamily, "bash");
+  assert.equal(bash.readsAsObservation, true);
+  assert.equal(bash.consequenceBaseline, "low");
+  assert.equal(edit?.kind, "rejected_tool_use_observation");
+  assert.equal(edit.toolFamily, "edit");
+  assert.equal(edit.readsAsObservation, true);
+  assert.equal(edit.consequenceBaseline, "low");
+  assert.equal(absent?.kind, "rejected_tool_use_observation");
+  assert.equal(absent && "toolFamily" in absent, false);
+  assert.equal(absent.readsAsObservation, true);
+  assert.equal(absent.consequenceBaseline, "low");
+  assert.equal(web?.kind, "rejected_tool_use_observation");
+  assert.equal(web.toolFamily, "web");
+  assert.equal(web.readsAsObservation, true);
+  assert.equal(web.consequenceBaseline, "low");
+});
+
+test("task failure evidence keeps terminal diagnostics ahead of rejection language", () => {
+  const evidence = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:terminal-before-tool-use-rejection",
+    taskId: "task:evidence:terminal-before-tool-use-rejection",
+    timestamp,
+    type: "task.updated",
+    title: "bash failure Traceback (most recent call last): RuntimeError",
+    summary: rejectedToolUseMessage,
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(looksLikeToolUseRejectionOutcome(rejectedToolUseMessage), true);
+  assert.equal(
+    readSemanticTextEvidence(`bash failure ${rejectedToolUseMessage}`, "bash")
+      .terminalFailureEvidence,
+    false,
+  );
+  assert.equal(
+    readSemanticTextEvidence(
+      `bash failure Traceback (most recent call last): RuntimeError ${rejectedToolUseMessage}`,
+      "bash",
+    ).terminalFailureEvidence,
+    true,
+  );
+  assert.equal(evidence?.kind, "terminal_failure");
+  assert.equal(evidence?.readsAsObservation, false);
+  assert.equal(evidence?.consequenceBaseline, "high");
 });
 
 test("task failure evidence classifies structured tool output without treating it as success", () => {

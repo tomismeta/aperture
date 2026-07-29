@@ -13,6 +13,8 @@ import { interpretSourceEvent } from "../src/semantic-interpreter.js";
 import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
 
 const timestamp = "2026-03-10T12:00:00.000Z";
+const rejectedToolUseMessage =
+  "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
 
 function source(id: string): SourceRef {
   return { id };
@@ -794,6 +796,83 @@ test("public trajectory failed-status bash exit-code zero observations stay low-
     assert.equal(normalized.semantic.activityClass, "status_update");
     assert.equal(normalized.semantic.consequence, "low");
   }
+});
+
+test("public trajectory tool-use rejection outcomes stay low-consequence status updates", () => {
+  const bash = normalizeSourceEvent({
+    id: "evt:public-bash-tool-use-rejection",
+    type: "task.updated",
+    taskId: "task:public-bash-tool-use-rejection",
+    timestamp,
+    source: { id: "dataclaw", kind: "public-trajectory" },
+    title: "bash failure",
+    summary: rejectedToolUseMessage,
+    status: "failed",
+    toolFamily: "bash",
+  });
+  const edit = normalizeSourceEvent({
+    id: "evt:public-edit-tool-use-rejection",
+    type: "task.updated",
+    taskId: "task:public-edit-tool-use-rejection",
+    timestamp,
+    source: { id: "dataclaw", kind: "public-trajectory" },
+    title: "edit failure",
+    summary: rejectedToolUseMessage,
+    status: "failed",
+    toolFamily: "edit",
+  });
+  const absent = normalizeSourceEvent({
+    id: "evt:public-absent-tool-use-rejection",
+    type: "task.updated",
+    taskId: "task:public-absent-tool-use-rejection",
+    timestamp,
+    source: { id: "dataclaw", kind: "public-trajectory" },
+    title: "tool failure",
+    summary: rejectedToolUseMessage,
+    status: "failed",
+  });
+
+  assert.equal(bash.type, "task.updated");
+  assert.equal(edit.type, "task.updated");
+  assert.equal(absent.type, "task.updated");
+  if (
+    bash.type !== "task.updated" ||
+    edit.type !== "task.updated" ||
+    absent.type !== "task.updated"
+  ) {
+    return;
+  }
+
+  assert.equal(bash.semantic.intentFrame, "status_update");
+  assert.equal(bash.semantic.activityClass, "status_update");
+  assert.equal(bash.semantic.toolFamily, "bash");
+  assert.equal(bash.semantic.consequence, "low");
+  assert.equal(edit.semantic.intentFrame, "status_update");
+  assert.equal(edit.semantic.activityClass, "status_update");
+  assert.equal(edit.semantic.toolFamily, "edit");
+  assert.equal(edit.semantic.consequence, "low");
+  assert.equal(absent.semantic.intentFrame, "status_update");
+  assert.equal(absent.semantic.activityClass, "status_update");
+  assert.equal(absent.semantic.toolFamily, undefined);
+  assert.equal(absent.semantic.consequence, "low");
+});
+
+test("tool-use rejection outcome disables text-only tool inference from conditional edit wording", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:public-absent-tool-use-rejection-no-inferred-edit",
+    type: "task.updated",
+    taskId: "task:public-absent-tool-use-rejection-no-inferred-edit",
+    timestamp,
+    source: { id: "dataclaw", kind: "public-trajectory" },
+    title: "tool failure",
+    summary: rejectedToolUseMessage,
+    status: "failed",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.toolFamily, undefined);
+  assert.equal(interpretation.consequence, "low");
 });
 
 test("public trajectory zero-exit outputs with explicit failures stay high-consequence failures", () => {

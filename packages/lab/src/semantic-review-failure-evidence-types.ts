@@ -8,6 +8,7 @@ const SEMANTIC_REVIEW_TASK_FAILURE_EVIDENCE_KIND_RECORD = {
   routine_search_output: true,
   expected_diagnostic_failure: true,
   terminal_failure: true,
+  rejected_tool_use_observation: true,
   unclassified_failure: true,
 } as const satisfies Record<TaskFailureEvidenceKind, true>;
 

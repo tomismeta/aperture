@@ -7,6 +7,10 @@ import { normalizePublicEvaluationInput } from "../src/attention-evaluator-input
 import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
 
 const evaluation = new EventEvaluator();
+const rejectedToolUseMessage =
+  "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
+const declinedActionMessage =
+  "The user doesn't want to take this action right now. STOP what you are doing and wait for the user to tell you how to proceed.";
 
 test("task.started becomes a background status candidate", () => {
   const result = evaluation.evaluate({
@@ -394,6 +398,100 @@ test("command execution aliases preserve family while using command observation 
   assert.equal(result.candidate.responseSpec.kind, "none");
   assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
   assert.equal(result.candidate.judgmentInput.ontology?.activity, "task_progress");
+});
+
+test("tool-use rejection outcomes route as background status updates", () => {
+  for (const [id, title, summary, toolFamily] of [
+    ["bash", "bash failure", rejectedToolUseMessage, "bash"],
+    ["edit", "edit failure", rejectedToolUseMessage, "edit"],
+    ["web", "web failure", rejectedToolUseMessage, "web"],
+    ["absent", "tool failure", rejectedToolUseMessage, undefined],
+    ["declined-action", "bash failure", declinedActionMessage, "bash"],
+  ] as const) {
+    const result = evaluation.evaluate(
+      normalizeSourceEvent({
+        id: `evt:${id}:tool-use-rejection`,
+        taskId: `task:${id}:tool-use-rejection`,
+        timestamp: "2026-03-08T12:02:29.925Z",
+        type: "task.updated",
+        title,
+        summary,
+        status: "failed",
+        ...(toolFamily !== undefined ? { toolFamily } : {}),
+      }),
+    );
+
+    assert.equal(result.kind, "candidate");
+    if (result.kind !== "candidate") {
+      return;
+    }
+
+    assert.equal(result.candidate.toolFamily, toolFamily);
+    assert.equal(result.candidate.priority, "background");
+    assert.equal(result.candidate.tone, "ambient");
+    assert.equal(result.candidate.consequence, "low");
+    assert.equal(result.candidate.responseSpec.kind, "none");
+    assert.equal(result.candidate.activityClass, "status_update");
+    assert.equal(result.candidate.provenance?.whyNow, undefined);
+    assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+    assert.equal(result.candidate.judgmentInput.ontology?.activity, "task_progress");
+    assert.equal(result.candidate.judgmentInput.ontology?.consequence, "low");
+  }
+});
+
+test("tool-use rejection hints cannot forge status-conflict routing", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:hinted-tool-use-rejection",
+      taskId: "task:hinted-tool-use-rejection",
+      timestamp: "2026-03-08T12:02:29.950Z",
+      type: "task.updated",
+      title: "tool failure",
+      summary: rejectedToolUseMessage,
+      status: "failed",
+      semanticHints: {
+        toolFamily: "edit",
+      },
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.toolFamily, undefined);
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+});
+
+test("nonmatching rejection prose keeps failed-status routing", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:service-rejection",
+      taskId: "task:service-rejection",
+      timestamp: "2026-03-08T12:02:29.975Z",
+      type: "task.updated",
+      title: "bash failure",
+      summary: "The remote service rejected the request after the command retried.",
+      status: "failed",
+      toolFamily: "bash",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.consequence, "high");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+  assert.equal(result.candidate.activityClass, "tool_failure");
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
 });
 
 test("mismatched command alias hints cannot forge status-conflict routing", () => {

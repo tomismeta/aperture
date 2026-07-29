@@ -118,10 +118,13 @@ function inferTaskUpdateSemantics(
     event.toolFamily,
     event.context,
   );
-  const { toolFamily, source: toolFamilySource } = resolveSemanticToolFamily(taxonomyInput, true);
+  const failureEvidence = event.status === "failed" ? readTaskFailureSemanticEvidence(event) : null;
+  const { toolFamily, source: toolFamilySource } = resolveSemanticToolFamily(
+    taxonomyInput,
+    failureEvidence?.kind !== "rejected_tool_use_observation",
+  );
   const relationProvenance =
     relationHints.length > 0 ? inferredSemanticProvenance(["relationHints"]) : {};
-  const failureEvidence = event.status === "failed" ? readTaskFailureSemanticEvidence(event) : null;
   const observationalFailure = failureEvidence?.readsAsObservation === true;
   const expectedDiagnosticFailure = failureEvidence?.kind === "expected_diagnostic_failure";
 
@@ -132,11 +135,14 @@ function inferTaskUpdateSemantics(
           intentFrame: "status_update",
           activityClass: "status_update",
           ...(toolFamily ? { toolFamily } : {}),
-          consequence: inferConsequenceFromSemanticText(
-            text,
-            failureEvidence?.consequenceBaseline ?? "high",
-            toolFamily,
-          ),
+          consequence:
+            failureEvidence?.kind === "rejected_tool_use_observation"
+              ? failureEvidence.consequenceBaseline
+              : inferConsequenceFromSemanticText(
+                  text,
+                  failureEvidence?.consequenceBaseline ?? "high",
+                  toolFamily,
+                ),
           factors: ["task.updated", "failed", "observational_failure"],
           relationHints,
           confidence: "high",

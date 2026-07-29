@@ -50,6 +50,7 @@ import {
   isSemanticCommandExecutionToolFamily,
   readExplicitSemanticToolFamily,
 } from "./semantic-tool-family.js";
+import { looksLikeToolUseRejectionOutcome } from "./semantic-tool-use-rejection-shapes.js";
 
 export type SemanticTextEvidence = {
   routineSuccessObservation: boolean;
@@ -72,6 +73,7 @@ export type TaskFailureEvidenceKind =
   | "routine_search_output"
   | "expected_diagnostic_failure"
   | "terminal_failure"
+  | "rejected_tool_use_observation"
   | "unclassified_failure";
 
 export type TaskFailureSemanticEvidence = {
@@ -193,6 +195,7 @@ export function readTaskFailureSemanticEvidence(
     hasToolOutputFailureDiagnosticEvidence(diagnosticStructuredToolOutput.output);
   const missingToolObservationTranscript =
     toolFamily === undefined && looksLikeExplicitObservationTranscript(event.summary ?? "");
+  const rejectedToolUseOutcome = looksLikeToolUseRejectionOutcome(event.summary ?? "");
   const strongSourceRuntimeDiagnostic =
     (structuredToolOutput !== null &&
       structuredOutputSourceObservation &&
@@ -236,6 +239,16 @@ export function readTaskFailureSemanticEvidence(
       kind: "observational_payload",
       readsAsObservation: true,
       consequenceBaseline: "high",
+      text,
+    };
+  }
+
+  if (rejectedToolUseOutcome) {
+    return {
+      kind: "rejected_tool_use_observation",
+      ...(toolFamily !== undefined ? { toolFamily } : {}),
+      readsAsObservation: true,
+      consequenceBaseline: "low",
       text,
     };
   }

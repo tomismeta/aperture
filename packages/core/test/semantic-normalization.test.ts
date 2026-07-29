@@ -15,6 +15,10 @@ import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
 const timestamp = "2026-03-10T12:00:00.000Z";
 const rejectedToolUseMessage =
   "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
+const successfulTestObservationTranscript =
+  "OBSERVATION: === Testing quote formatting === All quote formatting tests passed!";
+const abbreviatedFileViewObservationTranscript =
+  "OBSERVATION: <NOTE>This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.</NOTE> 1 # fmt: off 2 from __future__ import an...";
 
 function source(id: string): SourceRef {
   return { id };
@@ -873,6 +877,40 @@ test("tool-use rejection outcome disables text-only tool inference from conditio
   assert.equal(interpretation.activityClass, "status_update");
   assert.equal(interpretation.toolFamily, undefined);
   assert.equal(interpretation.consequence, "low");
+});
+
+test("missing-tool successful test and abbreviated file-view transcripts stay low status updates", () => {
+  for (const [id, summary] of [
+    ["successful-test", successfulTestObservationTranscript],
+    ["abbreviated-file-view", abbreviatedFileViewObservationTranscript],
+  ] as const) {
+    const event: SourceEvent = {
+      id: `evt:public-${id}-observation-transcript`,
+      type: "task.updated",
+      taskId: `task:public-${id}-observation-transcript`,
+      timestamp,
+      source: { id: "dataclaw", kind: "public-trajectory" },
+      title: "tool failure",
+      summary,
+      status: "failed",
+    };
+    const interpretation = interpretSourceEvent(event);
+    const normalized = normalizeSourceEvent(event);
+
+    assert.equal(interpretation.intentFrame, "status_update");
+    assert.equal(interpretation.activityClass, "status_update");
+    assert.equal(interpretation.toolFamily, undefined);
+    assert.equal(interpretation.consequence, "low");
+    assert.equal(normalized.type, "task.updated");
+    if (normalized.type !== "task.updated") {
+      return;
+    }
+    assert.equal(normalized.toolFamily, undefined);
+    assert.equal(normalized.activityClass, "status_update");
+    assert.equal(normalized.semantic.toolFamily, undefined);
+    assert.equal(normalized.semantic.activityClass, "status_update");
+    assert.equal(normalized.semantic.consequence, "low");
+  }
 });
 
 test("public trajectory zero-exit outputs with explicit failures stay high-consequence failures", () => {

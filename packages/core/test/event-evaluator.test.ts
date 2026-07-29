@@ -11,6 +11,10 @@ const rejectedToolUseMessage =
   "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
 const declinedActionMessage =
   "The user doesn't want to take this action right now. STOP what you are doing and wait for the user to tell you how to proceed.";
+const successfulTestObservationTranscript =
+  "OBSERVATION: === Testing quote formatting === All quote formatting tests passed!";
+const abbreviatedFileViewObservationTranscript =
+  "OBSERVATION: <NOTE>This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.</NOTE> 1 # fmt: off 2 from __future__ import an...";
 
 test("task.started becomes a background status candidate", () => {
   const result = evaluation.evaluate({
@@ -372,6 +376,44 @@ test("missing-tool observation transcripts route through observational status co
   });
 });
 
+test("missing-tool successful test and abbreviated file-view transcripts route quietly", () => {
+  for (const [id, summary] of [
+    ["successful-test", successfulTestObservationTranscript],
+    ["abbreviated-file-view", abbreviatedFileViewObservationTranscript],
+  ] as const) {
+    const event = normalizeSourceEvent({
+      id: `evt:${id}-observation-transcript`,
+      taskId: `task:${id}-observation-transcript`,
+      timestamp: "2026-03-08T12:02:29.800Z",
+      type: "task.updated",
+      title: "tool failure",
+      summary,
+      status: "failed",
+    });
+    const result = evaluation.evaluate(event);
+
+    assert.equal(event.toolFamily, undefined);
+    assert.equal(event.semantic.toolFamily, undefined);
+    assert.equal(event.semantic.activityClass, "status_update");
+    assert.equal(event.semantic.consequence, "low");
+    assert.equal(result.kind, "candidate");
+    if (result.kind !== "candidate") {
+      return;
+    }
+
+    assert.equal(result.candidate.toolFamily, undefined);
+    assert.equal(result.candidate.activityClass, "status_update");
+    assert.equal(result.candidate.priority, "background");
+    assert.equal(result.candidate.tone, "ambient");
+    assert.equal(result.candidate.consequence, "low");
+    assert.equal(result.candidate.responseSpec.kind, "none");
+    assert.equal(result.candidate.provenance?.whyNow, undefined);
+    assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+    assert.equal(result.candidate.judgmentInput.ontology?.activity, "task_progress");
+    assert.equal(result.candidate.judgmentInput.ontology?.consequence, "low");
+  }
+});
+
 test("command execution aliases preserve family while using command observation routing", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({
@@ -465,6 +507,35 @@ test("tool-use rejection hints cannot forge status-conflict routing", () => {
   assert.equal(result.candidate.tone, "critical");
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
   assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+});
+
+test("successful-test observation hints cannot forge status-conflict routing", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:hinted-successful-test-observation",
+      taskId: "task:hinted-successful-test-observation",
+      timestamp: "2026-03-08T12:02:29.960Z",
+      type: "task.updated",
+      title: "tool failure",
+      summary: successfulTestObservationTranscript,
+      status: "failed",
+      semanticHints: {
+        toolFamily: "bash",
+      },
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.toolFamily, undefined);
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.ontology?.activity, "failure");
 });
 
 test("nonmatching rejection prose keeps failed-status routing", () => {

@@ -33,7 +33,7 @@ import {
   looksLikeStrongRawSourceObservation,
   looksLikeStructuredToolOutputObservation,
 } from "./semantic-observation-shapes.js";
-import { looksLikeExplicitObservationTranscript } from "./semantic-observation-transcript-shapes.js";
+import { readExplicitObservationTranscript } from "./semantic-observation-transcript-shapes.js";
 import { looksLikeReadTruncationProtocolObservation } from "./semantic-read-observation-shapes.js";
 import { looksLikeSearchResultObservation } from "./semantic-search-observation-shapes.js";
 import {
@@ -194,7 +194,7 @@ export function readTaskFailureSemanticEvidence(
     diagnosticStructuredToolOutput !== null &&
     hasToolOutputFailureDiagnosticEvidence(diagnosticStructuredToolOutput.output);
   const missingToolObservationTranscript =
-    toolFamily === undefined && looksLikeExplicitObservationTranscript(event.summary ?? "");
+    toolFamily === undefined ? readExplicitObservationTranscript(event.summary ?? "") : null;
   const rejectedToolUseOutcome = looksLikeToolUseRejectionOutcome(event.summary ?? "");
   const strongSourceRuntimeDiagnostic =
     (structuredToolOutput !== null &&
@@ -238,7 +238,7 @@ export function readTaskFailureSemanticEvidence(
     return {
       kind: "observational_payload",
       readsAsObservation: true,
-      consequenceBaseline: "high",
+      consequenceBaseline: missingToolObservationTranscript.consequenceBaseline,
       text,
     };
   }

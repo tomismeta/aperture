@@ -14,6 +14,10 @@ import {
 const timestamp = "2026-04-05T18:30:00.000Z";
 const rejectedToolUseMessage =
   "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
+const successfulTestObservationTranscript =
+  "OBSERVATION: === Testing quote formatting === All quote formatting tests passed!";
+const abbreviatedFileViewObservationTranscript =
+  "OBSERVATION: <NOTE>This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.</NOTE> 1 # fmt: off 2 from __future__ import an...";
 
 test("judgment input compiles blocked-like waiting statuses into one internal seam", () => {
   const input = buildAttentionJudgmentInput({
@@ -232,6 +236,86 @@ test("judgment input marks absent-family observation transcripts as status confl
   assert.equal(input.ontology?.consequence, "high");
   assert.equal(input.ontology && "toolFamily" in input.ontology, false);
   assert.equal(input.semanticEvidence?.strength, "qualified");
+});
+
+test("judgment input marks low missing-tool transcript subclasses only on raw agreement", () => {
+  for (const [id, summary] of [
+    ["successful-test", successfulTestObservationTranscript],
+    ["abbreviated-file-view", abbreviatedFileViewObservationTranscript],
+  ] as const) {
+    const input = buildAttentionJudgmentInput({
+      id: `evt:judgment-input:${id}-observation-conflict`,
+      taskId: `task:judgment-input:${id}-observation-conflict`,
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary,
+      status: "failed",
+      semantic: {
+        intentFrame: "status_update",
+        activityClass: "status_update",
+        consequence: "low",
+        factors: ["task.updated", "failed", "observational_failure"],
+        relationHints: [],
+        confidence: "high",
+        reasons: ["task status indicates failure but the update reads like observational output"],
+        provenance: {
+          intentFrame: "inferred",
+          activityClass: "inferred",
+          consequence: "inferred",
+          confidence: "inferred",
+        },
+      },
+    });
+
+    assert.equal(input.routineObservationalStatusConflict, true);
+    assert.equal(input.ontology?.source, "inferred");
+    assert.equal(input.ontology?.activity, "task_progress");
+    assert.equal(input.ontology?.consequence, "low");
+    assert.equal(input.ontology && "toolFamily" in input.ontology, false);
+    assert.equal(input.semanticEvidence?.strength, "qualified");
+  }
+
+  const mismatchedFamilyInput = buildAttentionJudgmentInput({
+    id: "evt:judgment-input:hinted-successful-test-observation-conflict",
+    taskId: "task:judgment-input:hinted-successful-test-observation-conflict",
+    timestamp,
+    type: "task.updated",
+    title: "tool failure",
+    summary: successfulTestObservationTranscript,
+    status: "failed",
+    semantic: {
+      intentFrame: "status_update",
+      activityClass: "status_update",
+      toolFamily: "bash",
+      consequence: "low",
+      factors: ["task.updated", "failed", "observational_failure"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["semantic hint claimed bash ownership"],
+    },
+  });
+  const liftedConsequenceInput = buildAttentionJudgmentInput({
+    id: "evt:judgment-input:lifted-successful-test-observation-conflict",
+    taskId: "task:judgment-input:lifted-successful-test-observation-conflict",
+    timestamp,
+    type: "task.updated",
+    title: "tool failure",
+    summary: successfulTestObservationTranscript,
+    status: "failed",
+    semantic: {
+      intentFrame: "status_update",
+      activityClass: "status_update",
+      consequence: "high",
+      factors: ["task.updated", "failed", "observational_failure"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["semantic consequence was lifted"],
+    },
+  });
+
+  assert.equal(mismatchedFamilyInput.routineObservationalStatusConflict, undefined);
+  assert.equal(liftedConsequenceInput.routineObservationalStatusConflict, undefined);
 });
 
 test("judgment input marks tool-use rejection outcomes as status conflicts only on raw agreement", () => {

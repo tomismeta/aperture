@@ -3,6 +3,7 @@ import {
   PATH_LIKE_TOKEN_PATTERN,
   TAGGED_FILE_OBSERVATION_PHRASES,
 } from "./semantic-patterns.js";
+import { looksLikeAbbreviatedFileViewObservation } from "./semantic-abbreviated-file-view-observation-shapes.js";
 import { hasStrongRuntimeDiagnosticEvidence } from "./semantic-diagnostic-shapes.js";
 import {
   looksLikeBuildOrLogObservation,
@@ -10,31 +11,55 @@ import {
   looksLikeStrongRawSourceObservation,
 } from "./semantic-observation-shapes.js";
 import { looksLikeSearchResultObservation } from "./semantic-search-observation-shapes.js";
+import {
+  looksLikeFailedTestOutputDiagnostic,
+  looksLikeSuccessfulTestOutputObservation,
+} from "./semantic-test-output-observation-shapes.js";
 import { containsAnySemanticPhrase, normalizeSemanticText } from "./semantic-text.js";
 import { looksLikeTerminalFailureEvidence } from "./semantic-terminal-evidence.js";
 import { hasToolUseRejectionSignal } from "./semantic-tool-use-rejection-shapes.js";
 import { looksLikeToolOutputDiagnosticPayload } from "./semantic-tool-output-diagnostic-shapes.js";
 
-export function looksLikeExplicitObservationTranscript(value: string): boolean {
+export type ExplicitObservationTranscript = {
+  shape: "existing_observation" | "successful_test" | "abbreviated_file_view";
+  consequenceBaseline: "low" | "high";
+};
+
+export function readExplicitObservationTranscript(
+  value: string,
+): ExplicitObservationTranscript | null {
   const body = readExplicitObservationTranscriptBody(value);
   if (
     body === null ||
     hasToolUseRejectionSignal(body) ||
     looksLikeObservationTranscriptDiagnostic(body)
   ) {
-    return false;
+    return null;
   }
 
   const text = normalizeSemanticText(body);
-  return (
+  if (looksLikeSuccessfulTestOutputObservation(body)) {
+    return { shape: "successful_test", consequenceBaseline: "low" };
+  }
+  if (looksLikeAbbreviatedFileViewObservation(body)) {
+    return { shape: "abbreviated_file_view", consequenceBaseline: "low" };
+  }
+  if (
     containsAnySemanticPhrase(text, OBSERVATIONAL_READBACK_PHRASES) ||
     looksLikeTaggedFileObservationTranscript(text) ||
     looksLikeStrongRawSourceObservation(body) ||
     looksLikePlainReadObservation(body) ||
     looksLikeBuildOrLogObservation(body) ||
-    looksLikeSearchResultObservation(text, body) ||
-    looksLikeSuccessfulCommandObservationTranscript(text)
-  );
+    looksLikeSearchResultObservation(text, body)
+  ) {
+    return { shape: "existing_observation", consequenceBaseline: "high" };
+  }
+
+  return null;
+}
+
+export function looksLikeExplicitObservationTranscript(value: string): boolean {
+  return readExplicitObservationTranscript(value) !== null;
 }
 
 function readExplicitObservationTranscriptBody(value: string): string | null {
@@ -55,15 +80,7 @@ function looksLikeObservationTranscriptDiagnostic(text: string): boolean {
   return (
     looksLikeTerminalFailureEvidence(normalizeSemanticText(text)) ||
     hasStrongRuntimeDiagnosticEvidence(text) ||
+    looksLikeFailedTestOutputDiagnostic(text) ||
     looksLikeToolOutputDiagnosticPayload(text)
-  );
-}
-
-function looksLikeSuccessfulCommandObservationTranscript(text: string): boolean {
-  return (
-    /\brunning (?:command|[a-z0-9_.-]+)\b/.test(text) &&
-    /\b(?:test passed|tests passed|all checks passed|all .* tests passed|no problems found)\b/.test(
-      text,
-    )
   );
 }

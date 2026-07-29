@@ -6,7 +6,10 @@ import {
   readTaskFailureSemanticEvidence,
   readSemanticTextEvidence,
 } from "../src/semantic-evidence.js";
-import { looksLikeExplicitObservationTranscript } from "../src/semantic-observation-transcript-shapes.js";
+import {
+  readExplicitObservationTranscript,
+  looksLikeExplicitObservationTranscript,
+} from "../src/semantic-observation-transcript-shapes.js";
 import { isSemanticCommandExecutionToolFamily } from "../src/semantic-tool-family.js";
 import {
   hasToolUseRejectionSignal,
@@ -18,6 +21,13 @@ const rejectedToolUseMessage =
   "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
 const declinedActionMessage =
   "The user doesn't want to take this action right now. STOP what you are doing and wait for the user to tell you how to proceed.";
+const successfulTestObservationTranscript =
+  "OBSERVATION: === Testing quote formatting === All quote formatting tests passed!";
+const unittestSuccessObservationTranscript = "OBSERVATION: Ran 3 tests in 0.012s OK";
+const pytestSuccessObservationTranscript =
+  "OBSERVATION: ============================= 7 passed, 1 warning in 0.42s =============================";
+const abbreviatedFileViewObservationTranscript =
+  "OBSERVATION: <NOTE>This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.</NOTE> 1 # fmt: off 2 from __future__ import an...";
 
 test("semantic text evidence classifies exact routine bash success observations", () => {
   const evidence = readSemanticTextEvidence(
@@ -2457,6 +2467,52 @@ test("task failure evidence preserves current observational classes", () => {
   );
 });
 
+test("explicit observation transcripts classify only narrow low-consequence subclasses", () => {
+  assert.deepEqual(readExplicitObservationTranscript(successfulTestObservationTranscript), {
+    shape: "successful_test",
+    consequenceBaseline: "low",
+  });
+  assert.deepEqual(readExplicitObservationTranscript(unittestSuccessObservationTranscript), {
+    shape: "successful_test",
+    consequenceBaseline: "low",
+  });
+  assert.deepEqual(readExplicitObservationTranscript(pytestSuccessObservationTranscript), {
+    shape: "successful_test",
+    consequenceBaseline: "low",
+  });
+  assert.deepEqual(readExplicitObservationTranscript(abbreviatedFileViewObservationTranscript), {
+    shape: "abbreviated_file_view",
+    consequenceBaseline: "low",
+  });
+  assert.deepEqual(
+    readExplicitObservationTranscript(
+      "OBSERVATION: Here's the result of running `cat -n` on /testbed/yamllint/cli.py: 1 #!/usr/bin/env python3 2 import sys",
+    ),
+    {
+      shape: "existing_observation",
+      consequenceBaseline: "high",
+    },
+  );
+
+  for (const summary of [
+    "OBSERVATION: Thank you for your work on this issue. Please carefully follow the steps below to help review your changes.",
+    'OBSERVATION: The output should say "All quote formatting tests passed!" after the patch.',
+    "OBSERVATION: === Testing quote formatting === The expected output is All quote formatting tests passed! after the patch.",
+    "OBSERVATION: Ran 3 tests in 0.012s. The report should end with OK before submission.",
+    "OBSERVATION: 7 passed in 0.42s is the expected result; then submit the patch.",
+    "OBSERVATION: Running pytest should report all tests passed before you continue.",
+    "OBSERVATION: FAILED (failures=0, errors=0)",
+    "OBSERVATION: <NOTE>This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.</NOTE>",
+    "OBSERVATION: usage: str_replace_editor [-h] [--view_range VIEW_RANGE VIEW_RANGE] command path str_replace_editor: error: argument --view_range: expected 2 arguments",
+    'OBSERVATION: File "/testbed/test_fixes.py", line 8 print("x") ^ SyntaxError: invalid syntax',
+    "OBSERVATION: test_disabled (tests.rules.test_anchors.AnchorsTestCase) ... FAIL FAILED (failures=1, errors=1)",
+    "OBSERVATION: === Testing quote formatting === All quote formatting tests passed! FAILED (failures=1)",
+  ]) {
+    assert.equal(readExplicitObservationTranscript(summary), null);
+    assert.equal(looksLikeExplicitObservationTranscript(summary), false);
+  }
+});
+
 test("task failure evidence classifies explicit missing-tool observation transcripts", () => {
   const catReadback = readTaskFailureSemanticEvidence({
     id: "evt:evidence:missing-tool-cat-readback",
@@ -2499,19 +2555,31 @@ test("task failure evidence classifies explicit missing-tool observation transcr
     })?.kind,
     "observational_payload",
   );
-  assert.equal(
-    readTaskFailureSemanticEvidence({
-      id: "evt:evidence:missing-tool-command-success-observation",
-      taskId: "task:evidence:missing-tool-command-success-observation",
+  for (const [id, summary] of [
+    ["successful-test", successfulTestObservationTranscript],
+    ["unittest-success", unittestSuccessObservationTranscript],
+    ["pytest-success", pytestSuccessObservationTranscript],
+    ["abbreviated-file-view", abbreviatedFileViewObservationTranscript],
+    [
+      "command-success",
+      'OBSERVATION: Running yamllint... Output: ./normal.yaml 1:1 warning missing document start "---" (document-start) Test PASSED: expected warnings were reported.',
+    ],
+  ] as const) {
+    const evidence = readTaskFailureSemanticEvidence({
+      id: `evt:evidence:missing-tool-${id}`,
+      taskId: `task:evidence:missing-tool-${id}`,
       timestamp,
       type: "task.updated",
       title: "tool failure",
-      summary:
-        'OBSERVATION: Running yamllint... Output: ./normal.yaml 1:1 warning missing document start "---" (document-start) Test PASSED: expected warnings were reported.',
+      summary,
       status: "failed",
-    })?.kind,
-    "observational_payload",
-  );
+    });
+
+    assert.equal(evidence?.kind, "observational_payload");
+    assert.equal(evidence.readsAsObservation, true);
+    assert.equal(evidence.consequenceBaseline, "low");
+    assert.equal(evidence.toolFamily, undefined);
+  }
   assert.equal(
     readTaskFailureSemanticEvidence({
       id: "evt:evidence:missing-tool-empty-observation",
@@ -2579,6 +2647,66 @@ test("task failure evidence classifies explicit missing-tool observation transcr
     "unclassified_failure",
     "tool-output diagnostics are not downgraded by missing-tool observation recovery",
   );
+  for (const [id, summary] of [
+    [
+      "generic-review-instructions",
+      "OBSERVATION: Thank you for your work on this issue. Please carefully follow the steps below to help review your changes.",
+    ],
+    [
+      "quoted-success-instructions",
+      'OBSERVATION: The output should say "All quote formatting tests passed!" after the patch.',
+    ],
+    [
+      "banner-success-instructions",
+      "OBSERVATION: === Testing quote formatting === The expected output is All quote formatting tests passed! after the patch.",
+    ],
+    [
+      "unittest-success-instructions",
+      "OBSERVATION: Ran 3 tests in 0.012s. The report should end with OK before submission.",
+    ],
+    [
+      "pytest-success-instructions",
+      "OBSERVATION: 7 passed in 0.42s is the expected result; then submit the patch.",
+    ],
+    [
+      "command-success-instructions",
+      "OBSERVATION: Running pytest should report all tests passed before you continue.",
+    ],
+    ["zero-failure-summary", "OBSERVATION: FAILED (failures=0, errors=0)"],
+    [
+      "abbreviated-note-without-payload",
+      "OBSERVATION: <NOTE>This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.</NOTE>",
+    ],
+    [
+      "str-replace-usage-diagnostic",
+      "OBSERVATION: usage: str_replace_editor [-h] [--view_range VIEW_RANGE VIEW_RANGE] command path str_replace_editor: error: argument --view_range: expected 2 arguments",
+    ],
+    [
+      "syntax-error-diagnostic",
+      'OBSERVATION: File "/testbed/test_fixes.py", line 8 print("x") ^ SyntaxError: invalid syntax',
+    ],
+    [
+      "failing-unittest-diagnostic",
+      "OBSERVATION: test_disabled (tests.rules.test_anchors.AnchorsTestCase) ... FAIL FAILED (failures=1, errors=1)",
+    ],
+    [
+      "mixed-success-and-failure",
+      "OBSERVATION: === Testing quote formatting === All quote formatting tests passed! FAILED (failures=1)",
+    ],
+  ] as const) {
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:missing-tool-${id}`,
+        taskId: `task:evidence:missing-tool-${id}`,
+        timestamp,
+        type: "task.updated",
+        title: "tool failure",
+        summary,
+        status: "failed",
+      })?.kind,
+      "unclassified_failure",
+    );
+  }
   assert.equal(
     readTaskFailureSemanticEvidence({
       id: "evt:evidence:missing-tool-nonprefixed-readback",

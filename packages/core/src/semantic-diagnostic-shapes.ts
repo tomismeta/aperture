@@ -1,4 +1,5 @@
 import { looksLikeToolOutputDiagnosticPayload } from "./semantic-tool-output-diagnostic-shapes.js";
+import { looksLikeRuntimePanicDiagnostic } from "./semantic-panic-diagnostic-shapes.js";
 
 export function hasToolOutputFailureDiagnosticEvidence(text: string): boolean {
   return hasStrongRuntimeDiagnosticEvidence(text) || looksLikeToolOutputDiagnosticPayload(text);
@@ -30,18 +31,15 @@ export function hasStrongRuntimeDiagnosticEvidence(text: string): boolean {
       /(?:^|[\r\n])\s*(?:fatal\s+error|compiler\s+error)\b/i,
       /(?:^|[\r\n])\s*error:\s+\S/i,
       /\beconnrefused\b/i,
-      /(?:^|[\r\n])\s*panic:\s+\S/i,
-      /\bfailed to execute:\s+[^\r\n]*;\s*panic:\s+\S/i,
       /\bthread\b[^\r\n]*\bpanicked at\b/i,
       /(?:^|[\r\n])\s*terminate called after throwing\b/i,
-      /\btests failed\b/i,
-      /\btest failed\b/i,
-      /\bfailed tests\b/i,
+      /(?:^|[\r\n])\s*(?:tests?\s+failed|failed\s+tests)\b/i,
       /\bassertion failed\b/i,
       /(?:^|[\r\n])\s*(?:[a-z0-9_./-]+:\s*)+\s*no such file or directory\b/i,
       /(?:^|[\r\n])\s*(?:file does not exist|unrecognized arguments)\b/i,
       /\b(?:exit code|exit_code|exit-code|exited with code|exit status|exited with status|return code|return_code|returned code)\s*(?:is|was)?\s*-?[1-9]\d*\b/i,
     ].some((pattern) => pattern.test(text)) ||
+    looksLikeRuntimePanicDiagnostic(text) ||
     looksLikeCMakeError(text) ||
     looksLikePackageManagerError(text) ||
     looksLikeCompilerError(text) ||

@@ -18,39 +18,21 @@ import {
 } from "./semantic-patterns.js";
 import type { SemanticInterpretation } from "./semantic-types.js";
 import { containsAnySemanticPhrase, normalizeSemanticText } from "./semantic-text.js";
-import {
-  hasStrongRuntimeDiagnosticEvidence,
-  hasToolOutputFailureDiagnosticEvidence,
-  looksLikeSearchFailureDiagnostic,
-} from "./semantic-diagnostic-shapes.js";
-import {
-  looksLikeRecoveredListingObservation,
-  looksLikeTruncatedRawReadListingObservation,
-} from "./semantic-listing-observation-shapes.js";
+import { readTaskFailureSemanticSignals } from "./semantic-task-failure-signals.js";
 import {
   looksLikeBuildOrLogObservation,
   looksLikePlainReadObservation,
-  looksLikeStrongRawSourceObservation,
-  looksLikeStructuredToolOutputObservation,
 } from "./semantic-observation-shapes.js";
-import { readExplicitObservationTranscript } from "./semantic-observation-transcript-shapes.js";
-import { looksLikeReadTruncationProtocolObservation } from "./semantic-read-observation-shapes.js";
 import { looksLikeSearchResultObservation } from "./semantic-search-observation-shapes.js";
-import {
-  looksLikeStructuredToolOutputEnvelope,
-  readStructuredToolOutputObservation,
-} from "./semantic-structured-output.js";
 import {
   looksLikeContradictoryFailureObservation,
   looksLikeTerminalFailureEvidence,
   looksLikeZeroTerminalExit,
 } from "./semantic-terminal-evidence.js";
-import { readTruncatedStructuredToolOutputEnvelope } from "./semantic-truncated-structured-output.js";
 import {
   isSemanticCommandExecutionToolFamily,
   readExplicitSemanticToolFamily,
 } from "./semantic-tool-family.js";
-import { looksLikeToolUseRejectionOutcome } from "./semantic-tool-use-rejection-shapes.js";
 
 export type SemanticTextEvidence = {
   routineSuccessObservation: boolean;
@@ -153,72 +135,24 @@ export function readTaskFailureSemanticEvidence(
       : `${event.title} ${event.summary ?? ""}`,
     toolFamily,
   );
-  const supportsStructuredToolOutput =
-    isSemanticCommandExecutionToolFamily(toolFamily) || toolFamily === "edit";
-  const structuredToolOutput = supportsStructuredToolOutput
-    ? readStructuredToolOutputObservation(event.summary)
-    : null;
-  const unsafeStructuredToolOutputEnvelope =
-    supportsStructuredToolOutput &&
-    structuredToolOutput === null &&
-    looksLikeStructuredToolOutputEnvelope(event.summary);
-  const truncatedStructuredToolOutput = unsafeStructuredToolOutputEnvelope
-    ? readTruncatedStructuredToolOutputEnvelope(event.summary)
-    : null;
-  const diagnosticStructuredToolOutput = structuredToolOutput ?? truncatedStructuredToolOutput;
-  const structuredOutputSourceObservation =
-    diagnosticStructuredToolOutput !== null &&
-    looksLikeStrongRawSourceObservation(diagnosticStructuredToolOutput.output);
-  const zeroExitStructuredToolOutput = diagnosticStructuredToolOutput?.exitCode === 0;
-  const structuredOutputObservation =
-    diagnosticStructuredToolOutput !== null &&
-    (looksLikeStructuredToolOutputObservation(diagnosticStructuredToolOutput.output) ||
-      (truncatedStructuredToolOutput !== null &&
-        looksLikeRecoveredListingObservation(truncatedStructuredToolOutput.output)));
-  const rawReadSourceObservation =
-    toolFamily === "read" && looksLikeStrongRawSourceObservation(event.summary ?? "");
-  const rawReadListingObservation =
-    toolFamily === "read" && looksLikeTruncatedRawReadListingObservation(event.summary ?? "");
-  const rawReadTruncationObservation =
-    toolFamily === "read" && looksLikeReadTruncationProtocolObservation(event.summary ?? "");
-  const rawReadStructuredObservation =
-    rawReadSourceObservation || rawReadListingObservation || rawReadTruncationObservation;
+  const signals = readTaskFailureSemanticSignals({ summary: event.summary, toolFamily });
   const searchOutputObservation = toolFamily === "search" && text.searchResultOutput;
-  const searchFailureDiagnostic =
-    toolFamily === "search" && looksLikeSearchFailureDiagnostic(event.summary ?? "");
-  const readFailureDiagnostic =
-    toolFamily === "read" &&
-    (looksLikeExplicitReadFailureDiagnostic(event.summary ?? "") ||
-      (hasStrongRuntimeDiagnosticEvidence(event.summary ?? "") && !rawReadSourceObservation));
-  const structuredOutputFailureDiagnostic =
-    diagnosticStructuredToolOutput !== null &&
-    hasToolOutputFailureDiagnosticEvidence(diagnosticStructuredToolOutput.output);
-  const rawToolOutputFailureDiagnostic =
-    supportsStructuredToolOutput &&
-    diagnosticStructuredToolOutput === null &&
-    hasToolOutputFailureDiagnosticEvidence(event.summary ?? "");
-  const missingToolObservationTranscript =
-    toolFamily === undefined ? readExplicitObservationTranscript(event.summary ?? "") : null;
-  const rejectedToolUseOutcome = looksLikeToolUseRejectionOutcome(event.summary ?? "");
-  const strongSourceRuntimeDiagnostic =
-    (structuredToolOutput !== null &&
-      structuredOutputSourceObservation &&
-      hasStrongRuntimeDiagnosticEvidence(structuredToolOutput.output)) ||
-    (rawReadStructuredObservation && hasStrongRuntimeDiagnosticEvidence(event.summary ?? ""));
-  const terminalFailureEvidence =
-    diagnosticStructuredToolOutput?.exitCode !== undefined &&
-    diagnosticStructuredToolOutput.exitCode !== 0
+  const terminalFailureEvidence = signals.structuredOutputExitFailure
+    ? true
+    : signals.strongSourceRuntimeDiagnostic
       ? true
-      : strongSourceRuntimeDiagnostic
+      : signals.structuredOutputFailureDiagnostic ||
+          signals.searchFailureDiagnostic ||
+          signals.readFailureDiagnostic ||
+          signals.diagnosticObservationTranscript
         ? true
-        : structuredOutputFailureDiagnostic || searchFailureDiagnostic || readFailureDiagnostic
+        : signals.rawToolOutputFailureDiagnostic
           ? true
-          : rawToolOutputFailureDiagnostic
-            ? true
-            : text.terminalFailureEvidence &&
-              !searchOutputObservation &&
-              (!rawReadStructuredObservation || strongSourceRuntimeDiagnostic) &&
-              (!structuredOutputSourceObservation || strongSourceRuntimeDiagnostic);
+          : text.terminalFailureEvidence &&
+            signals.missingToolObservationTranscript === null &&
+            !searchOutputObservation &&
+            (!signals.rawReadStructuredObservation || signals.strongSourceRuntimeDiagnostic) &&
+            (!signals.structuredOutputSourceObservation || signals.strongSourceRuntimeDiagnostic);
 
   if (terminalFailureEvidence) {
     return {
@@ -240,16 +174,16 @@ export function readTaskFailureSemanticEvidence(
     };
   }
 
-  if (missingToolObservationTranscript) {
+  if (signals.missingToolObservationTranscript) {
     return {
       kind: "observational_payload",
       readsAsObservation: true,
-      consequenceBaseline: missingToolObservationTranscript.consequenceBaseline,
+      consequenceBaseline: signals.missingToolObservationTranscript.consequenceBaseline,
       text,
     };
   }
 
-  if (rejectedToolUseOutcome) {
+  if (signals.rejectedToolUseOutcome) {
     return {
       kind: "rejected_tool_use_observation",
       ...(toolFamily !== undefined ? { toolFamily } : {}),
@@ -259,7 +193,7 @@ export function readTaskFailureSemanticEvidence(
     };
   }
 
-  if (rawReadSourceObservation) {
+  if (signals.rawReadSourceObservation) {
     return {
       kind: "observational_payload",
       toolFamily: "read",
@@ -269,7 +203,7 @@ export function readTaskFailureSemanticEvidence(
     };
   }
 
-  if (rawReadTruncationObservation) {
+  if (signals.rawReadTruncationObservation) {
     return {
       kind: "observational_payload",
       toolFamily: "read",
@@ -280,15 +214,15 @@ export function readTaskFailureSemanticEvidence(
   }
 
   if (
-    supportsStructuredToolOutput &&
-    diagnosticStructuredToolOutput &&
-    structuredOutputObservation
+    signals.supportsStructuredToolOutput &&
+    signals.diagnosticStructuredToolOutput &&
+    signals.structuredOutputObservation
   ) {
     return {
       kind: "structured_tool_output_observation",
       ...(toolFamily !== undefined ? { toolFamily } : {}),
       readsAsObservation: true,
-      consequenceBaseline: structuredOutputSourceObservation ? "high" : "medium",
+      consequenceBaseline: signals.structuredOutputSourceObservation ? "high" : "medium",
       text,
     };
   }
@@ -296,7 +230,7 @@ export function readTaskFailureSemanticEvidence(
   if (
     isSemanticCommandExecutionToolFamily(toolFamily) &&
     text.routineSuccessObservation &&
-    (!unsafeStructuredToolOutputEnvelope || zeroExitStructuredToolOutput)
+    (!signals.unsafeStructuredToolOutputEnvelope || signals.zeroExitStructuredToolOutput)
   ) {
     return {
       kind: "routine_bash_success_observation",
@@ -332,8 +266,8 @@ export function readTaskFailureSemanticEvidence(
     (text.observationalReadback ||
       text.taggedFileObservation ||
       text.readObservationPayload ||
-      rawReadListingObservation ||
-      rawReadTruncationObservation)
+      signals.rawReadListingObservation ||
+      signals.rawReadTruncationObservation)
   ) {
     return {
       kind: "observational_payload",
@@ -400,17 +334,6 @@ function looksLikeReadObservationPayload(text: string): boolean {
 function looksLikeTaggedFileObservation(text: string): boolean {
   return (
     containsAnySemanticPhrase(text, TAGGED_FILE_OBSERVATION_PHRASES) && containsPathLikeToken(text)
-  );
-}
-
-function looksLikeExplicitReadFailureDiagnostic(value: string): boolean {
-  const text = value
-    .trim()
-    .replace(/^(?:read|tool)\s+failure\s+/i, "")
-    .replace(/^#{1,6}\s+/, "");
-
-  return /^(?:read\s+failed\b|failed to (?:read|open)\b|could not (?:read|open)\b|unable to (?:read|open)\b)/i.test(
-    text,
   );
 }
 

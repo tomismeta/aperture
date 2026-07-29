@@ -16,7 +16,6 @@ export function looksLikeFailedTestOutputDiagnostic(value: string): boolean {
   return [
     /\bFAILED\s+\([^)]*\b(?:failures|errors)=[1-9]\d*/i,
     /(?:^|[\r\n])\s*(?:FAIL|ERROR):\s+\S/i,
-    /\b(?:test failed|tests failed|failed tests)\b/i,
     /\b(?:failures|errors)=[1-9]\d*\b/i,
     /\b[1-9]\d*\s+failed\b/i,
     /\b[1-9]\d*\s+errors?\b/i,

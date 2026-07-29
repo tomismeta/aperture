@@ -29,14 +29,28 @@ export function readExplicitObservationTranscript(
   value: string,
 ): ExplicitObservationTranscript | null {
   const body = readExplicitObservationTranscriptBody(value);
-  if (
-    body === null ||
-    hasToolUseRejectionSignal(body) ||
-    looksLikeObservationTranscriptDiagnostic(body)
-  ) {
+  if (body === null || hasToolUseRejectionSignal(body)) {
     return null;
   }
 
+  return readObservationTranscriptBody(body);
+}
+
+export function looksLikeExplicitObservationTranscript(value: string): boolean {
+  return readExplicitObservationTranscript(value) !== null;
+}
+
+export function looksLikeExplicitDiagnosticObservationTranscript(value: string): boolean {
+  const body = readExplicitObservationTranscriptBody(value);
+  return (
+    body !== null &&
+    !hasToolUseRejectionSignal(body) &&
+    readObservationTranscriptBody(body) === null &&
+    looksLikeObservationTranscriptDiagnostic(body)
+  );
+}
+
+function readObservationTranscriptBody(body: string): ExplicitObservationTranscript | null {
   const text = normalizeSemanticText(body);
   if (looksLikeSuccessfulTestOutputObservation(body)) {
     return { shape: "successful_test", consequenceBaseline: "low" };
@@ -56,10 +70,6 @@ export function readExplicitObservationTranscript(
   }
 
   return null;
-}
-
-export function looksLikeExplicitObservationTranscript(value: string): boolean {
-  return readExplicitObservationTranscript(value) !== null;
 }
 
 function readExplicitObservationTranscriptBody(value: string): string | null {

@@ -23,6 +23,7 @@ export function looksLikeStrongRawSourceObservation(value: string): boolean {
     looksLikeLineNumberedSourceFragment(text) ||
     looksLikeSourceLicenseCommentHeader(text) ||
     looksLikeLineNumberedSourceLicenseHeader(text) ||
+    looksLikeCommentedSourceSnippet(text) ||
     looksLikeMultipleIncludeDirectives(text) ||
     looksLikeFlattenedIncludeSourceCluster(text) ||
     looksLikeEmbeddedGitPatchObservation(text) ||
@@ -48,6 +49,15 @@ function looksLikeMultipleIncludeDirectives(text: string): boolean {
   );
 
   return new Set(includes.filter((include) => include !== undefined)).size >= 2;
+}
+
+function looksLikeCommentedSourceSnippet(text: string): boolean {
+  return (
+    /(?:^|[\r\n])\s*(?:\/\/|#|\/\*)[^\r\n]*(?:$|[\r\n])/i.test(text) &&
+    /(?:^|[\r\n])\s*(?:export\s+(?:const|function|class)\b|(?:const|let|var)\s+[a-z_$][a-z0-9_$]*\s*=|return\s+[^;\r\n]+;|function\s+[a-z_$][a-z0-9_$]*\s*\(|class\s+[a-z_$][a-z0-9_$]*\b|def\s+[a-z_][a-z0-9_]*\s*\()/i.test(
+      text,
+    )
+  );
 }
 
 function looksLikeEmbeddedGitPatchObservation(text: string): boolean {

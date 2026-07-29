@@ -6,8 +6,10 @@ import {
   readTaskFailureSemanticEvidence,
   readSemanticTextEvidence,
 } from "../src/semantic-evidence.js";
+import { readTaskFailureSemanticSignals } from "../src/semantic-task-failure-signals.js";
 import {
   readExplicitObservationTranscript,
+  looksLikeExplicitDiagnosticObservationTranscript,
   looksLikeExplicitObservationTranscript,
 } from "../src/semantic-observation-transcript-shapes.js";
 import { isSemanticCommandExecutionToolFamily } from "../src/semantic-tool-family.js";
@@ -56,6 +58,267 @@ test("semantic command execution families are exact", () => {
   assert.equal(isSemanticCommandExecutionToolFamily("terminal"), false);
   assert.equal(isSemanticCommandExecutionToolFamily("exec_command_extra"), false);
   assert.equal(isSemanticCommandExecutionToolFamily(undefined), false);
+});
+
+test("task failure semantic signals are auditable and boundary scoped", () => {
+  const rawUsageDiagnostic =
+    "usage: rocprof-compute [mode] [options] tool: error: argument --list-metrics: invalid choice: 'gfx1151'";
+  const searchFailureSummary = 'Web search results for "octra": backend is unavailable';
+  const runtimePanic = "panic: unable to open database file: not a directory";
+  const sourcePanicLabel = "#include <stdio.h>\nint main() {\npanic: return 1;\n}\n";
+  const clippedAssignmentPanicLabel =
+    "#include <stdio.h>\nint main() {\npanic: error = cleanup()\nreturn 0;\n}\n";
+  const compoundSourcePanicLiteral =
+    'const message = "Failed to execute: query; panic: cleanup();";\nreturn message;';
+  const realisticCompoundSourcePanicLiteral =
+    'const message = "Failed to execute: query; panic: unable to open database file";\nreturn message;';
+  const failedLiteralSourceObservation = "OBSERVATION: const result = `1 failed`; return result;";
+  const failedLiteralReadbackObservation =
+    'OBSERVATION: Here is the result of running cat -n on /tmp/test.ts: 1 const expected = "1 failed";';
+  const failedLiteralCommentedSourceObservation =
+    "OBSERVATION: // fixture: FAILED (failures=1, errors=0)\nexport const expected = true;";
+  const failedPhraseSourceObservation =
+    "OBSERVATION: const message = `test failed`; return message;";
+  const failedPhraseReadbackObservation =
+    'OBSERVATION: Here is the result of running cat -n on /tmp/test.ts: 1 const message = "test failed";';
+  const failedPhraseCommentedSourceObservation =
+    "OBSERVATION: // fixture: tests failed\nexport const expected = true;";
+  const directFailedLiteralObservation = "OBSERVATION: 1 failed";
+  const directFailedPhraseObservation = "OBSERVATION: test failed: expected 1";
+  const negatedFailedTestsObservation = "OBSERVATION: No tests failed. 0 failed.";
+
+  const rawCommandDiagnostic = readTaskFailureSemanticSignals({
+    summary: rawUsageDiagnostic,
+    toolFamily: "exec_command",
+  });
+  assert.equal(rawCommandDiagnostic.structuredOutputEnvelope.kind, "raw");
+  assert.equal(rawCommandDiagnostic.rawToolOutputFailureDiagnostic, true);
+  assert.equal(rawCommandDiagnostic.diagnosticStructuredToolOutput, null);
+  assert.equal(rawCommandDiagnostic.readFailureDiagnostic, false);
+  assert.equal(rawCommandDiagnostic.searchFailureDiagnostic, false);
+
+  const rawEditDiagnostic = readTaskFailureSemanticSignals({
+    summary: rawUsageDiagnostic,
+    toolFamily: "edit",
+  });
+  assert.equal(rawEditDiagnostic.structuredOutputEnvelope.kind, "raw");
+  assert.equal(rawEditDiagnostic.rawToolOutputFailureDiagnostic, true);
+
+  const rawReadUsageText = readTaskFailureSemanticSignals({
+    summary: rawUsageDiagnostic,
+    toolFamily: "read",
+  });
+  assert.equal(rawReadUsageText.structuredOutputEnvelope.kind, "unsupported");
+  assert.equal(rawReadUsageText.rawToolOutputFailureDiagnostic, false);
+  assert.equal(rawReadUsageText.readFailureDiagnostic, false);
+
+  const rawSearchUsageText = readTaskFailureSemanticSignals({
+    summary: rawUsageDiagnostic,
+    toolFamily: "search",
+  });
+  assert.equal(rawSearchUsageText.structuredOutputEnvelope.kind, "unsupported");
+  assert.equal(rawSearchUsageText.rawToolOutputFailureDiagnostic, false);
+  assert.equal(rawSearchUsageText.searchFailureDiagnostic, false);
+
+  const searchFailure = readTaskFailureSemanticSignals({
+    summary: searchFailureSummary,
+    toolFamily: "search",
+  });
+  assert.equal(searchFailure.searchFailureDiagnostic, true);
+  assert.equal(searchFailure.rawToolOutputFailureDiagnostic, false);
+
+  for (const toolFamily of ["read", "bash", "exec_command", "run_shell_command", "edit"]) {
+    const signal = readTaskFailureSemanticSignals({
+      summary: searchFailureSummary,
+      toolFamily,
+    });
+    assert.equal(signal.searchFailureDiagnostic, false, `${toolFamily} does not own search errors`);
+  }
+
+  const validStructuredRuntimeDiagnostic = readTaskFailureSemanticSignals({
+    summary:
+      '{"wall_time":"0.0510 seconds","output":"panic: unable to open database file: not a directory"}',
+    toolFamily: "bash",
+  });
+  assert.equal(validStructuredRuntimeDiagnostic.structuredOutputEnvelope.kind, "valid");
+  assert.equal(validStructuredRuntimeDiagnostic.structuredOutputFailureDiagnostic, true);
+  assert.equal(validStructuredRuntimeDiagnostic.rawToolOutputFailureDiagnostic, false);
+
+  const structuredSourceLiteral = readTaskFailureSemanticSignals({
+    summary:
+      '{"wall_time":"0.0510 seconds","output":"const message = \\"rg: /tmp/dmesg.log: IO error for operation on /tmp/dmesg.log\\";\\nreturn message;"}',
+    toolFamily: "bash",
+  });
+  assert.equal(structuredSourceLiteral.structuredOutputEnvelope.kind, "valid");
+  assert.notEqual(structuredSourceLiteral.diagnosticStructuredToolOutput, null);
+  assert.equal(structuredSourceLiteral.structuredOutputObservation, true);
+  assert.equal(structuredSourceLiteral.structuredOutputFailureDiagnostic, false);
+  assert.equal(structuredSourceLiteral.rawToolOutputFailureDiagnostic, false);
+
+  const structuredCompoundSourceLiteral = readTaskFailureSemanticSignals({
+    summary: JSON.stringify({ wall_time: "0.0510 seconds", output: compoundSourcePanicLiteral }),
+    toolFamily: "bash",
+  });
+  assert.equal(structuredCompoundSourceLiteral.structuredOutputEnvelope.kind, "valid");
+  assert.equal(structuredCompoundSourceLiteral.structuredOutputObservation, true);
+  assert.equal(structuredCompoundSourceLiteral.structuredOutputFailureDiagnostic, false);
+  assert.equal(structuredCompoundSourceLiteral.rawToolOutputFailureDiagnostic, false);
+
+  const structuredRealisticCompoundSourceLiteral = readTaskFailureSemanticSignals({
+    summary: JSON.stringify({
+      wall_time: "0.0510 seconds",
+      output: realisticCompoundSourcePanicLiteral,
+    }),
+    toolFamily: "bash",
+  });
+  assert.equal(structuredRealisticCompoundSourceLiteral.structuredOutputEnvelope.kind, "valid");
+  assert.equal(structuredRealisticCompoundSourceLiteral.structuredOutputObservation, true);
+  assert.equal(structuredRealisticCompoundSourceLiteral.structuredOutputFailureDiagnostic, false);
+  assert.equal(structuredRealisticCompoundSourceLiteral.rawToolOutputFailureDiagnostic, false);
+
+  const validStructuredSourceLabel = readTaskFailureSemanticSignals({
+    summary: JSON.stringify({ wall_time: "0.0510 seconds", output: sourcePanicLabel }),
+    toolFamily: "bash",
+  });
+  assert.equal(validStructuredSourceLabel.structuredOutputEnvelope.kind, "valid");
+  assert.equal(validStructuredSourceLabel.structuredOutputObservation, true);
+  assert.equal(validStructuredSourceLabel.structuredOutputFailureDiagnostic, false);
+  assert.equal(validStructuredSourceLabel.strongSourceRuntimeDiagnostic, false);
+
+  const validStructuredAssignmentLabel = readTaskFailureSemanticSignals({
+    summary: JSON.stringify({ wall_time: "0.0510 seconds", output: clippedAssignmentPanicLabel }),
+    toolFamily: "bash",
+  });
+  assert.equal(validStructuredAssignmentLabel.structuredOutputEnvelope.kind, "valid");
+  assert.equal(validStructuredAssignmentLabel.structuredOutputObservation, true);
+  assert.equal(validStructuredAssignmentLabel.structuredOutputFailureDiagnostic, false);
+  assert.equal(validStructuredAssignmentLabel.strongSourceRuntimeDiagnostic, false);
+
+  const recoveredStructuredDiagnostic = readTaskFailureSemanticSignals({
+    summary: `{"wall_time":"0.0510 seconds","output":"${runtimePanic}`,
+    toolFamily: "bash",
+  });
+  assert.equal(recoveredStructuredDiagnostic.structuredOutputEnvelope.kind, "recovered");
+  assert.notEqual(recoveredStructuredDiagnostic.diagnosticStructuredToolOutput, null);
+  assert.equal(recoveredStructuredDiagnostic.structuredOutputFailureDiagnostic, true);
+  assert.equal(recoveredStructuredDiagnostic.rawToolOutputFailureDiagnostic, false);
+
+  const recoveredStructuredSourceLabel = readTaskFailureSemanticSignals({
+    summary:
+      '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() {\\npanic: return 1;\\n}\\n',
+    toolFamily: "bash",
+  });
+  assert.equal(recoveredStructuredSourceLabel.structuredOutputEnvelope.kind, "recovered");
+  assert.equal(recoveredStructuredSourceLabel.structuredOutputObservation, true);
+  assert.equal(recoveredStructuredSourceLabel.structuredOutputFailureDiagnostic, false);
+  assert.equal(recoveredStructuredSourceLabel.rawToolOutputFailureDiagnostic, false);
+
+  const recoveredStructuredAssignmentLabel = readTaskFailureSemanticSignals({
+    summary:
+      '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() {\\npanic: error = cleanup()\\nreturn 0;\\n}\\n',
+    toolFamily: "bash",
+  });
+  assert.equal(recoveredStructuredAssignmentLabel.structuredOutputEnvelope.kind, "recovered");
+  assert.equal(recoveredStructuredAssignmentLabel.structuredOutputObservation, true);
+  assert.equal(recoveredStructuredAssignmentLabel.structuredOutputFailureDiagnostic, false);
+  assert.equal(recoveredStructuredAssignmentLabel.rawToolOutputFailureDiagnostic, false);
+
+  const recoveredRealisticCompoundSourceLiteral = readTaskFailureSemanticSignals({
+    summary:
+      '{"wall_time":"0.0510 seconds","output":"const message = \\"Failed to execute: query; panic: unable to open database file\\";\\nreturn message;',
+    toolFamily: "bash",
+  });
+  assert.equal(recoveredRealisticCompoundSourceLiteral.structuredOutputEnvelope.kind, "recovered");
+  assert.equal(recoveredRealisticCompoundSourceLiteral.structuredOutputObservation, true);
+  assert.equal(recoveredRealisticCompoundSourceLiteral.structuredOutputFailureDiagnostic, false);
+  assert.equal(recoveredRealisticCompoundSourceLiteral.rawToolOutputFailureDiagnostic, false);
+
+  const invalidStructuredDiagnostic = readTaskFailureSemanticSignals({
+    summary: '{"wall_time":"nope","output":"panic: unable to open database file"}',
+    toolFamily: "bash",
+  });
+  assert.equal(invalidStructuredDiagnostic.structuredOutputEnvelope.kind, "invalid");
+  assert.equal(invalidStructuredDiagnostic.structuredOutputFailureDiagnostic, false);
+  assert.equal(invalidStructuredDiagnostic.rawToolOutputFailureDiagnostic, false);
+
+  const rawReadPanic = readTaskFailureSemanticSignals({
+    summary: runtimePanic,
+    toolFamily: "read",
+  });
+  assert.equal(rawReadPanic.structuredOutputEnvelope.kind, "unsupported");
+  assert.equal(rawReadPanic.rawToolOutputFailureDiagnostic, false);
+  assert.equal(rawReadPanic.readFailureDiagnostic, true);
+
+  const panicLabel = readTaskFailureSemanticSignals({
+    summary: sourcePanicLabel,
+    toolFamily: "bash",
+  });
+  assert.equal(panicLabel.structuredOutputEnvelope.kind, "raw");
+  assert.equal(panicLabel.rawToolOutputFailureDiagnostic, false);
+  assert.equal(panicLabel.structuredOutputFailureDiagnostic, false);
+
+  const clippedAssignmentLabel = readTaskFailureSemanticSignals({
+    summary: clippedAssignmentPanicLabel,
+    toolFamily: "bash",
+  });
+  assert.equal(clippedAssignmentLabel.structuredOutputEnvelope.kind, "raw");
+  assert.equal(clippedAssignmentLabel.rawToolOutputFailureDiagnostic, false);
+  assert.equal(clippedAssignmentLabel.structuredOutputFailureDiagnostic, false);
+
+  const compoundSourceLiteral = readTaskFailureSemanticSignals({
+    summary: compoundSourcePanicLiteral,
+    toolFamily: "bash",
+  });
+  assert.equal(compoundSourceLiteral.structuredOutputEnvelope.kind, "raw");
+  assert.equal(compoundSourceLiteral.rawToolOutputFailureDiagnostic, false);
+  assert.equal(compoundSourceLiteral.structuredOutputFailureDiagnostic, false);
+
+  const realisticCompoundSourceLiteral = readTaskFailureSemanticSignals({
+    summary: realisticCompoundSourcePanicLiteral,
+    toolFamily: "bash",
+  });
+  assert.equal(realisticCompoundSourceLiteral.structuredOutputEnvelope.kind, "raw");
+  assert.equal(realisticCompoundSourceLiteral.rawToolOutputFailureDiagnostic, false);
+  assert.equal(realisticCompoundSourceLiteral.structuredOutputFailureDiagnostic, false);
+
+  const panicAssignmentLabel = readTaskFailureSemanticSignals({
+    summary: "panic: error = cleanup();",
+    toolFamily: "bash",
+  });
+  assert.equal(panicAssignmentLabel.structuredOutputEnvelope.kind, "raw");
+  assert.equal(panicAssignmentLabel.rawToolOutputFailureDiagnostic, false);
+  assert.equal(panicAssignmentLabel.structuredOutputFailureDiagnostic, false);
+
+  for (const summary of [
+    failedLiteralSourceObservation,
+    failedLiteralReadbackObservation,
+    failedLiteralCommentedSourceObservation,
+    failedPhraseSourceObservation,
+    failedPhraseReadbackObservation,
+    failedPhraseCommentedSourceObservation,
+  ]) {
+    const signal = readTaskFailureSemanticSignals({ summary });
+    assert.equal(signal.diagnosticObservationTranscript, false);
+    assert.equal(signal.missingToolObservationTranscript?.shape, "existing_observation");
+  }
+
+  const directFailedLiteral = readTaskFailureSemanticSignals({
+    summary: directFailedLiteralObservation,
+  });
+  assert.equal(directFailedLiteral.diagnosticObservationTranscript, true);
+  assert.equal(directFailedLiteral.missingToolObservationTranscript, null);
+
+  const directFailedPhrase = readTaskFailureSemanticSignals({
+    summary: directFailedPhraseObservation,
+  });
+  assert.equal(directFailedPhrase.diagnosticObservationTranscript, true);
+  assert.equal(directFailedPhrase.missingToolObservationTranscript, null);
+
+  const negatedFailedTests = readTaskFailureSemanticSignals({
+    summary: negatedFailedTestsObservation,
+  });
+  assert.equal(negatedFailedTests.diagnosticObservationTranscript, false);
+  assert.equal(negatedFailedTests.missingToolObservationTranscript, null);
 });
 
 test("tool-use rejection outcome shape requires coherent full-message clauses", () => {
@@ -862,6 +1125,20 @@ test("task failure evidence classifies structured tool output without treating i
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-line-panic",
+      taskId: "task:evidence:raw-command-line-panic",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: "panic: unable to open database file: not a directory",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "raw command line-start panic diagnostics should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:raw-command-panic-label",
       taskId: "task:evidence:raw-command-panic-label",
       timestamp,
@@ -873,6 +1150,91 @@ test("task failure evidence classifies structured tool output without treating i
     })?.kind,
     "unclassified_failure",
     "raw command source labels named panic are not runtime diagnostics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-line-panic-label",
+      taskId: "task:evidence:raw-command-line-panic-label",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: "#include <stdio.h>\nint main() {\npanic:\n  return 1;\n}\n",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "raw command source labels with line-start panic stay unclassified",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-same-line-panic-label",
+      taskId: "task:evidence:raw-command-same-line-panic-label",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: "#include <stdio.h>\nint main() {\npanic: return 1;\n}\n",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "raw command source labels with same-line panic statements stay unclassified",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-compound-panic-source-literal",
+      taskId: "task:evidence:raw-command-compound-panic-source-literal",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: 'const message = "Failed to execute: query; panic: cleanup();";\nreturn message;',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "raw command source literals with compound panic text are not runtime diagnostics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-realistic-compound-panic-source-literal",
+      taskId: "task:evidence:raw-command-realistic-compound-panic-source-literal",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        'const message = "Failed to execute: query; panic: unable to open database file";\nreturn message;',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "raw command source literals with realistic compound panic text are not runtime diagnostics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-panic-assignment-label",
+      taskId: "task:evidence:raw-command-panic-assignment-label",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: "panic: error = cleanup();",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "raw command semicolon-terminated panic assignments are not runtime diagnostics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-clipped-panic-assignment-label",
+      taskId: "task:evidence:raw-command-clipped-panic-assignment-label",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: "#include <stdio.h>\nint main() {\npanic: error = cleanup()\nreturn 0;\n}\n",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "raw command clipped panic assignment labels are not runtime diagnostics",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -964,18 +1326,93 @@ test("task failure evidence classifies structured tool output without treating i
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-compound-panic-source-string",
+      taskId: "task:evidence:structured-compound-panic-source-string",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"const message = \\"Failed to execute: query; panic: cleanup();\\";\\nreturn message;"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "structured source strings with compound panic text stay observational",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-realistic-compound-panic-source-string",
+      taskId: "task:evidence:structured-realistic-compound-panic-source-string",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"const message = \\"Failed to execute: query; panic: unable to open database file\\";\\nreturn message;"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "structured source strings with realistic compound panic text stay observational",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:recovered-realistic-compound-panic-source-string",
+      taskId: "task:evidence:recovered-realistic-compound-panic-source-string",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"const message = \\"Failed to execute: query; panic: unable to open database file\\";\\nreturn message;',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "recovered source strings with realistic compound panic text stay observational",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:structured-panic-label-source-string",
       taskId: "task:evidence:structured-panic-label-source-string",
       timestamp,
       type: "task.updated",
       title: "bash failure",
       summary:
-        '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { if (failed) goto panic; panic: return 1; return 0; }"}',
+        '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() {\\npanic: return 1;\\n}\\n"}',
       status: "failed",
       toolFamily: "bash",
     })?.kind,
     "structured_tool_output_observation",
     "structured source labels named panic stay observational",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-clipped-panic-assignment-source-string",
+      taskId: "task:evidence:structured-clipped-panic-assignment-source-string",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() {\\npanic: error = cleanup()\\nreturn 0;\\n}\\n"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "structured clipped panic assignment labels stay observational",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:recovered-clipped-panic-assignment-source-string",
+      taskId: "task:evidence:recovered-clipped-panic-assignment-source-string",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() {\\npanic: error = cleanup()\\nreturn 0;\\n}\\n',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "recovered clipped panic assignment labels stay observational",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -1036,6 +1473,53 @@ test("task failure evidence classifies structured tool output without treating i
     })?.kind,
     "terminal_failure",
     "structured source plus singular test failure should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:recovered-source-plus-test-failed",
+      taskId: "task:evidence:recovered-source-plus-test-failed",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }\\ntest failed: expected 1',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "recovered source plus line-start test failure should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-test-failed-source-literal",
+      taskId: "task:evidence:structured-test-failed-source-literal",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: JSON.stringify({
+        wall_time: "0.0510 seconds",
+        output: 'const message = "test failed";\nreturn message;',
+      }),
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "structured source literals mentioning test failed stay observational",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:recovered-test-failed-source-literal",
+      taskId: "task:evidence:recovered-test-failed-source-literal",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"const message = \\"test failed\\";\\nreturn message;',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "recovered source literals mentioning test failed stay observational",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -2626,22 +3110,61 @@ test("explicit observation transcripts classify only narrow low-consequence subc
     },
   );
 
-  for (const summary of [
-    "OBSERVATION: Thank you for your work on this issue. Please carefully follow the steps below to help review your changes.",
-    'OBSERVATION: The output should say "All quote formatting tests passed!" after the patch.',
-    "OBSERVATION: === Testing quote formatting === The expected output is All quote formatting tests passed! after the patch.",
-    "OBSERVATION: Ran 3 tests in 0.012s. The report should end with OK before submission.",
-    "OBSERVATION: 7 passed in 0.42s is the expected result; then submit the patch.",
-    "OBSERVATION: Running pytest should report all tests passed before you continue.",
-    "OBSERVATION: FAILED (failures=0, errors=0)",
-    "OBSERVATION: <NOTE>This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.</NOTE>",
-    "OBSERVATION: usage: str_replace_editor [-h] [--view_range VIEW_RANGE VIEW_RANGE] command path str_replace_editor: error: argument --view_range: expected 2 arguments",
-    'OBSERVATION: File "/testbed/test_fixes.py", line 8 print("x") ^ SyntaxError: invalid syntax',
-    "OBSERVATION: test_disabled (tests.rules.test_anchors.AnchorsTestCase) ... FAIL FAILED (failures=1, errors=1)",
-    "OBSERVATION: === Testing quote formatting === All quote formatting tests passed! FAILED (failures=1)",
+  for (const [summary, diagnostic] of [
+    [
+      "OBSERVATION: Thank you for your work on this issue. Please carefully follow the steps below to help review your changes.",
+      false,
+    ],
+    [
+      'OBSERVATION: The output should say "All quote formatting tests passed!" after the patch.',
+      false,
+    ],
+    [
+      "OBSERVATION: === Testing quote formatting === The expected output is All quote formatting tests passed! after the patch.",
+      false,
+    ],
+    ["OBSERVATION: Ran 3 tests in 0.012s. The report should end with OK before submission.", false],
+    ["OBSERVATION: 7 passed in 0.42s is the expected result; then submit the patch.", false],
+    ["OBSERVATION: Running pytest should report all tests passed before you continue.", false],
+    ["OBSERVATION: FAILED (failures=0, errors=0)", false],
+    [
+      "OBSERVATION: <NOTE>This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.</NOTE>",
+      false,
+    ],
+    [
+      "OBSERVATION: usage: str_replace_editor [-h] [--view_range VIEW_RANGE VIEW_RANGE] command path str_replace_editor: error: argument --view_range: expected 2 arguments",
+      true,
+    ],
+    [
+      'OBSERVATION: File "/testbed/test_fixes.py", line 8 print("x") ^ SyntaxError: invalid syntax',
+      false,
+    ],
+    [
+      "OBSERVATION: test_disabled (tests.rules.test_anchors.AnchorsTestCase) ... FAIL FAILED (failures=1, errors=1)",
+      true,
+    ],
+    [
+      "OBSERVATION: === Testing quote formatting === All quote formatting tests passed! FAILED (failures=1)",
+      true,
+    ],
+    ["OBSERVATION: 1 failed", true],
+    ["OBSERVATION: test failed: expected 1", true],
+    ["OBSERVATION: No tests failed. 0 failed.", false],
   ]) {
     assert.equal(readExplicitObservationTranscript(summary), null);
     assert.equal(looksLikeExplicitObservationTranscript(summary), false);
+    assert.equal(looksLikeExplicitDiagnosticObservationTranscript(summary), diagnostic);
+  }
+  for (const summary of [
+    "OBSERVATION: const result = `1 failed`; return result;",
+    'OBSERVATION: Here is the result of running cat -n on /tmp/test.ts: 1 const expected = "1 failed";',
+    "OBSERVATION: // fixture: FAILED (failures=1, errors=0)\nexport const expected = true;",
+    "OBSERVATION: const message = `test failed`; return message;",
+    'OBSERVATION: Here is the result of running cat -n on /tmp/test.ts: 1 const message = "test failed";',
+    "OBSERVATION: // fixture: tests failed\nexport const expected = true;",
+  ]) {
+    assert.equal(readExplicitObservationTranscript(summary)?.shape, "existing_observation");
+    assert.equal(looksLikeExplicitDiagnosticObservationTranscript(summary), false);
   }
 });
 
@@ -2776,54 +3299,98 @@ test("task failure evidence classifies explicit missing-tool observation transcr
         "OBSERVATION: rg: /tmp/dmesg.log: IO error for operation on /tmp/dmesg.log: Input/output error",
       status: "failed",
     })?.kind,
-    "unclassified_failure",
-    "tool-output diagnostics are not downgraded by missing-tool observation recovery",
+    "terminal_failure",
+    "tool-output diagnostics are terminal and not downgraded by missing-tool observation recovery",
   );
-  for (const [id, summary] of [
+  for (const [id, summary, kind] of [
     [
       "generic-review-instructions",
       "OBSERVATION: Thank you for your work on this issue. Please carefully follow the steps below to help review your changes.",
+      "unclassified_failure",
     ],
     [
       "quoted-success-instructions",
       'OBSERVATION: The output should say "All quote formatting tests passed!" after the patch.',
+      "unclassified_failure",
     ],
     [
       "banner-success-instructions",
       "OBSERVATION: === Testing quote formatting === The expected output is All quote formatting tests passed! after the patch.",
+      "unclassified_failure",
     ],
     [
       "unittest-success-instructions",
       "OBSERVATION: Ran 3 tests in 0.012s. The report should end with OK before submission.",
+      "unclassified_failure",
     ],
     [
       "pytest-success-instructions",
       "OBSERVATION: 7 passed in 0.42s is the expected result; then submit the patch.",
+      "unclassified_failure",
     ],
     [
       "command-success-instructions",
       "OBSERVATION: Running pytest should report all tests passed before you continue.",
+      "unclassified_failure",
     ],
-    ["zero-failure-summary", "OBSERVATION: FAILED (failures=0, errors=0)"],
+    ["zero-failure-summary", "OBSERVATION: FAILED (failures=0, errors=0)", "unclassified_failure"],
     [
       "abbreviated-note-without-payload",
       "OBSERVATION: <NOTE>This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.</NOTE>",
+      "unclassified_failure",
     ],
     [
       "str-replace-usage-diagnostic",
       "OBSERVATION: usage: str_replace_editor [-h] [--view_range VIEW_RANGE VIEW_RANGE] command path str_replace_editor: error: argument --view_range: expected 2 arguments",
+      "terminal_failure",
     ],
     [
       "syntax-error-diagnostic",
       'OBSERVATION: File "/testbed/test_fixes.py", line 8 print("x") ^ SyntaxError: invalid syntax',
+      "unclassified_failure",
     ],
     [
       "failing-unittest-diagnostic",
       "OBSERVATION: test_disabled (tests.rules.test_anchors.AnchorsTestCase) ... FAIL FAILED (failures=1, errors=1)",
+      "terminal_failure",
     ],
     [
       "mixed-success-and-failure",
       "OBSERVATION: === Testing quote formatting === All quote formatting tests passed! FAILED (failures=1)",
+      "terminal_failure",
+    ],
+    ["direct-failed-count", "OBSERVATION: 1 failed", "terminal_failure"],
+    ["direct-failed-phrase", "OBSERVATION: test failed: expected 1", "terminal_failure"],
+    ["negated-failed-tests", "OBSERVATION: No tests failed. 0 failed.", "unclassified_failure"],
+    [
+      "failed-source-literal",
+      "OBSERVATION: const result = `1 failed`; return result;",
+      "observational_payload",
+    ],
+    [
+      "failed-readback-literal",
+      'OBSERVATION: Here is the result of running cat -n on /tmp/test.ts: 1 const expected = "1 failed";',
+      "observational_payload",
+    ],
+    [
+      "failed-commented-source-literal",
+      "OBSERVATION: // fixture: FAILED (failures=1, errors=0)\nexport const expected = true;",
+      "observational_payload",
+    ],
+    [
+      "failed-phrase-source-literal",
+      "OBSERVATION: const message = `test failed`; return message;",
+      "observational_payload",
+    ],
+    [
+      "failed-phrase-readback-literal",
+      'OBSERVATION: Here is the result of running cat -n on /tmp/test.ts: 1 const message = "test failed";',
+      "observational_payload",
+    ],
+    [
+      "failed-phrase-commented-source-literal",
+      "OBSERVATION: // fixture: tests failed\nexport const expected = true;",
+      "observational_payload",
     ],
   ] as const) {
     assert.equal(
@@ -2836,7 +3403,7 @@ test("task failure evidence classifies explicit missing-tool observation transcr
         summary,
         status: "failed",
       })?.kind,
-      "unclassified_failure",
+      kind,
     );
   }
   assert.equal(

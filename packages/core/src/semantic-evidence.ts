@@ -46,7 +46,10 @@ import {
   looksLikeZeroTerminalExit,
 } from "./semantic-terminal-evidence.js";
 import { readTruncatedStructuredToolOutputEnvelope } from "./semantic-truncated-structured-output.js";
-import { readExplicitSemanticToolFamily } from "./semantic-tool-family.js";
+import {
+  isSemanticCommandExecutionToolFamily,
+  readExplicitSemanticToolFamily,
+} from "./semantic-tool-family.js";
 
 export type SemanticTextEvidence = {
   routineSuccessObservation: boolean;
@@ -101,16 +104,19 @@ type SemanticEvidenceTaskUpdateEvent = {
 export function readSemanticTextEvidence(value: string, toolFamily?: string): SemanticTextEvidence {
   const text = normalizeSemanticText(value);
   const terminalFailureEvidence = looksLikeTerminalFailureEvidence(text);
+  const commandExecutionTool = isSemanticCommandExecutionToolFamily(toolFamily);
+  const routineCommandText = stripCommandExecutionRoutinePrefix(text, toolFamily);
 
   return {
     routineSuccessObservation:
-      toolFamily === "bash" &&
-      (isStandaloneRoutineSuccessObservation(text) ||
-        (looksLikeZeroTerminalExit(text) && !looksLikeContradictoryFailureObservation(text))) &&
+      commandExecutionTool &&
+      (isStandaloneRoutineSuccessObservation(text, toolFamily) ||
+        (looksLikeZeroTerminalExit(routineCommandText) &&
+          !looksLikeContradictoryFailureObservation(routineCommandText))) &&
       !terminalFailureEvidence,
     terminalFailureEvidence,
     expectedDiagnosticFailure:
-      toolFamily === "bash" &&
+      commandExecutionTool &&
       containsAnySemanticPhrase(text, EXPECTED_DIAGNOSTIC_FAILURE_PHRASES) &&
       !terminalFailureEvidence,
     observationalReadback: containsAnySemanticPhrase(text, OBSERVATIONAL_READBACK_PHRASES),
@@ -145,7 +151,8 @@ export function readTaskFailureSemanticEvidence(
       : `${event.title} ${event.summary ?? ""}`,
     toolFamily,
   );
-  const supportsStructuredToolOutput = toolFamily === "bash" || toolFamily === "edit";
+  const supportsStructuredToolOutput =
+    isSemanticCommandExecutionToolFamily(toolFamily) || toolFamily === "edit";
   const structuredToolOutput = supportsStructuredToolOutput
     ? readStructuredToolOutputObservation(event.summary)
     : null;
@@ -260,7 +267,7 @@ export function readTaskFailureSemanticEvidence(
   ) {
     return {
       kind: "structured_tool_output_observation",
-      toolFamily,
+      ...(toolFamily !== undefined ? { toolFamily } : {}),
       readsAsObservation: true,
       consequenceBaseline: structuredOutputSourceObservation ? "high" : "medium",
       text,
@@ -268,23 +275,23 @@ export function readTaskFailureSemanticEvidence(
   }
 
   if (
-    toolFamily === "bash" &&
+    isSemanticCommandExecutionToolFamily(toolFamily) &&
     text.routineSuccessObservation &&
     (!unsafeStructuredToolOutputEnvelope || zeroExitStructuredToolOutput)
   ) {
     return {
       kind: "routine_bash_success_observation",
-      toolFamily,
+      ...(toolFamily !== undefined ? { toolFamily } : {}),
       readsAsObservation: true,
       consequenceBaseline: "low",
       text,
     };
   }
 
-  if (toolFamily === "bash" && text.expectedDiagnosticFailure) {
+  if (isSemanticCommandExecutionToolFamily(toolFamily) && text.expectedDiagnosticFailure) {
     return {
       kind: "expected_diagnostic_failure",
-      toolFamily,
+      ...(toolFamily !== undefined ? { toolFamily } : {}),
       readsAsObservation: false,
       consequenceBaseline: "medium",
       text,
@@ -427,17 +434,10 @@ function looksLikeBuildMetadataObservation(text: string): boolean {
   );
 }
 
-function isStandaloneRoutineSuccessObservation(text: string): boolean {
+function isStandaloneRoutineSuccessObservation(text: string, toolFamily?: string): boolean {
   const normalizedText = text.replace(/\.+$/, "");
   const successPhrases = ROUTINE_SUCCESS_PHRASES.map((phrase) => normalizeSemanticText(phrase));
-  const allowedPrefixes = [
-    "",
-    "observation",
-    "bash failure",
-    "bash observation",
-    "tool failure",
-    "tool observation",
-  ];
+  const allowedPrefixes = commandExecutionRoutinePrefixes(toolFamily);
 
   return allowedPrefixes.some((prefix) =>
     successPhrases.some((phrase) => {
@@ -445,4 +445,32 @@ function isStandaloneRoutineSuccessObservation(text: string): boolean {
       return normalizedText === expected;
     }),
   );
+}
+
+function stripCommandExecutionRoutinePrefix(text: string, toolFamily?: string): string {
+  for (const prefix of commandExecutionRoutinePrefixes(toolFamily).filter(Boolean)) {
+    if (text === prefix) {
+      return "";
+    }
+
+    if (text.startsWith(`${prefix} `)) {
+      return text.slice(prefix.length + 1);
+    }
+  }
+
+  return text;
+}
+
+function commandExecutionRoutinePrefixes(toolFamily?: string): string[] {
+  return [
+    "",
+    "observation",
+    "bash failure",
+    "bash observation",
+    "tool failure",
+    "tool observation",
+    ...(toolFamily && toolFamily !== "bash"
+      ? [`${toolFamily} failure`, `${toolFamily} observation`]
+      : []),
+  ];
 }

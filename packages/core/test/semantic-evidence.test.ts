@@ -6,6 +6,7 @@ import {
   readTaskFailureSemanticEvidence,
   readSemanticTextEvidence,
 } from "../src/semantic-evidence.js";
+import { isSemanticCommandExecutionToolFamily } from "../src/semantic-tool-family.js";
 
 const timestamp = "2026-04-05T18:45:00.000Z";
 
@@ -26,6 +27,16 @@ test("routine success observations stay tool-family bounded", () => {
   );
 
   assert.equal(evidence.routineSuccessObservation, false);
+});
+
+test("semantic command execution families are exact", () => {
+  assert.equal(isSemanticCommandExecutionToolFamily("bash"), true);
+  assert.equal(isSemanticCommandExecutionToolFamily("exec_command"), true);
+  assert.equal(isSemanticCommandExecutionToolFamily("run_shell_command"), true);
+  assert.equal(isSemanticCommandExecutionToolFamily("shell"), false);
+  assert.equal(isSemanticCommandExecutionToolFamily("terminal"), false);
+  assert.equal(isSemanticCommandExecutionToolFamily("exec_command_extra"), false);
+  assert.equal(isSemanticCommandExecutionToolFamily(undefined), false);
 });
 
 test("semantic text evidence separates routine success from terminal failure evidence", () => {
@@ -320,6 +331,93 @@ test("task failure evidence classifies structured tool output without treating i
     })?.consequenceBaseline,
     "high",
     "structured source output should stay a high-consequence observation",
+  );
+  const execCommandSourceOutput = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:exec-command-structured-source-output",
+    taskId: "task:evidence:exec-command-structured-source-output",
+    timestamp,
+    type: "task.updated",
+    title: "exec_command failure",
+    summary:
+      '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }"}',
+    status: "failed",
+    toolFamily: "exec_command",
+  });
+
+  assert.equal(execCommandSourceOutput?.kind, "structured_tool_output_observation");
+  assert.equal(execCommandSourceOutput.toolFamily, "exec_command");
+  assert.equal(execCommandSourceOutput.readsAsObservation, true);
+  assert.equal(execCommandSourceOutput.consequenceBaseline, "high");
+  const truncatedExecCommandSourceOutput = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:exec-command-truncated-structured-source-output",
+    taskId: "task:evidence:exec-command-truncated-structured-source-output",
+    timestamp,
+    type: "task.updated",
+    title: "exec_command failure",
+    summary:
+      '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }',
+    status: "failed",
+    toolFamily: "exec_command",
+  });
+
+  assert.equal(truncatedExecCommandSourceOutput?.kind, "structured_tool_output_observation");
+  assert.equal(truncatedExecCommandSourceOutput.toolFamily, "exec_command");
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:run-shell-command-zero-exit",
+      taskId: "task:evidence:run-shell-command-zero-exit",
+      timestamp,
+      type: "task.updated",
+      title: "run_shell_command failure",
+      summary: '{"exit_code":0,"wall_time":"0.0510 seconds","output":"ok"}',
+      status: "failed",
+      toolFamily: "run_shell_command",
+    })?.kind,
+    "routine_bash_success_observation",
+    "run_shell_command keeps command success behavior without alias conversion",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:exec-command-routine-success",
+      taskId: "task:evidence:exec-command-routine-success",
+      timestamp,
+      type: "task.updated",
+      title: "exec_command failure",
+      summary: "Your command ran successfully and did not produce any output.",
+      status: "failed",
+      toolFamily: "exec_command",
+    })?.kind,
+    "routine_bash_success_observation",
+    "alias-specific command titles should read as routine success",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:exec-command-structured-traceback",
+      taskId: "task:evidence:exec-command-structured-traceback",
+      timestamp,
+      type: "task.updated",
+      title: "exec_command failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"Traceback (most recent call last): RuntimeError"}',
+      status: "failed",
+      toolFamily: "exec_command",
+    })?.kind,
+    "terminal_failure",
+    "terminal evidence still wins for command aliases",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:exec-command-unshaped-output",
+      taskId: "task:evidence:exec-command-unshaped-output",
+      timestamp,
+      type: "task.updated",
+      title: "exec_command failure",
+      summary: '{"wall_time":"0.0510 seconds","output":"hello world"}',
+      status: "failed",
+      toolFamily: "exec_command",
+    })?.kind,
+    "unclassified_failure",
+    "neutral command alias structured output remains unclassified",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({

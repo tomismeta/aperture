@@ -368,6 +368,63 @@ test("missing-tool observation transcripts route through observational status co
   });
 });
 
+test("command execution aliases preserve family while using command observation routing", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:exec-command-routine-observation",
+      taskId: "task:exec-command-routine-observation",
+      timestamp: "2026-03-08T12:02:29.875Z",
+      type: "task.updated",
+      title: "exec_command failure",
+      summary: "Your command ran successfully and did not produce any output.",
+      status: "failed",
+      toolFamily: "exec_command",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.toolFamily, "exec_command");
+  assert.equal(result.candidate.priority, "background");
+  assert.equal(result.candidate.tone, "ambient");
+  assert.equal(result.candidate.consequence, "low");
+  assert.equal(result.candidate.responseSpec.kind, "none");
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.equal(result.candidate.judgmentInput.ontology?.activity, "task_progress");
+});
+
+test("mismatched command alias hints cannot forge status-conflict routing", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:mismatched-command-alias-observation",
+      taskId: "task:mismatched-command-alias-observation",
+      timestamp: "2026-03-08T12:02:29.900Z",
+      type: "task.updated",
+      title: "exec_command failure",
+      summary: "Your command ran successfully and did not produce any output.",
+      status: "failed",
+      toolFamily: "exec_command",
+      semanticHints: {
+        toolFamily: "bash",
+      },
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.toolFamily, "exec_command");
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.ontology?.activity, "failure");
+});
+
 test("task.updated semantics enrich provenance without overriding status routing", () => {
   const result = evaluation.evaluate({
     id: "evt:waiting-semantic",

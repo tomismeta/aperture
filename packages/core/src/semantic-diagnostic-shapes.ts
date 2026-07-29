@@ -30,6 +30,8 @@ export function hasStrongRuntimeDiagnosticEvidence(text: string): boolean {
       /(?:^|[\r\n])\s*(?:fatal\s+error|compiler\s+error)\b/i,
       /(?:^|[\r\n])\s*error:\s+\S/i,
       /\beconnrefused\b/i,
+      /(?:^|[\r\n])\s*panic:\s+\S/i,
+      /\bfailed to execute:\s+[^\r\n]*;\s*panic:\s+\S/i,
       /\bthread\b[^\r\n]*\bpanicked at\b/i,
       /(?:^|[\r\n])\s*terminate called after throwing\b/i,
       /\btests failed\b/i,

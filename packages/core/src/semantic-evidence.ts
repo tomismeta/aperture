@@ -193,6 +193,10 @@ export function readTaskFailureSemanticEvidence(
   const structuredOutputFailureDiagnostic =
     diagnosticStructuredToolOutput !== null &&
     hasToolOutputFailureDiagnosticEvidence(diagnosticStructuredToolOutput.output);
+  const rawToolOutputFailureDiagnostic =
+    supportsStructuredToolOutput &&
+    diagnosticStructuredToolOutput === null &&
+    hasToolOutputFailureDiagnosticEvidence(event.summary ?? "");
   const missingToolObservationTranscript =
     toolFamily === undefined ? readExplicitObservationTranscript(event.summary ?? "") : null;
   const rejectedToolUseOutcome = looksLikeToolUseRejectionOutcome(event.summary ?? "");
@@ -209,10 +213,12 @@ export function readTaskFailureSemanticEvidence(
         ? true
         : structuredOutputFailureDiagnostic || searchFailureDiagnostic || readFailureDiagnostic
           ? true
-          : text.terminalFailureEvidence &&
-            !searchOutputObservation &&
-            (!rawReadStructuredObservation || strongSourceRuntimeDiagnostic) &&
-            (!structuredOutputSourceObservation || strongSourceRuntimeDiagnostic);
+          : rawToolOutputFailureDiagnostic
+            ? true
+            : text.terminalFailureEvidence &&
+              !searchOutputObservation &&
+              (!rawReadStructuredObservation || strongSourceRuntimeDiagnostic) &&
+              (!structuredOutputSourceObservation || strongSourceRuntimeDiagnostic);
 
   if (terminalFailureEvidence) {
     return {

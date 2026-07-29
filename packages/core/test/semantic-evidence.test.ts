@@ -817,6 +817,123 @@ test("task failure evidence classifies structured tool output without treating i
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-compiler-error",
+      taskId: "task:evidence:raw-command-compiler-error",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        "/home/user/probe.hip.cpp:240:28: error: no matching function for call to 'waveRunsLoad'",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "raw command compiler diagnostics should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-usage-diagnostic",
+      taskId: "task:evidence:raw-command-usage-diagnostic",
+      timestamp,
+      type: "task.updated",
+      title: "exec_command failure",
+      summary:
+        "usage: rocprof-compute [mode] [options] tool: error: argument --list-metrics: invalid choice: 'gfx1151'",
+      status: "failed",
+      toolFamily: "exec_command",
+    })?.kind,
+    "terminal_failure",
+    "raw command usage diagnostics should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-panic",
+      taskId: "task:evidence:raw-command-panic",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        "Failed to execute: CREATE TABLE exec_info ( Property, Value ); panic: unable to open database file: not a directory",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "raw command panic diagnostics should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-panic-label",
+      taskId: "task:evidence:raw-command-panic-label",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: "if (failed) goto panic; panic: cleanup();",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "raw command source labels named panic are not runtime diagnostics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:read-line-panic",
+      taskId: "task:evidence:read-line-panic",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary: "panic: unable to open database file: not a directory",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "terminal_failure",
+    "raw read line-start panic output remains a strong runtime diagnostic",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-source-string-diagnostic-reference",
+      taskId: "task:evidence:raw-command-source-string-diagnostic-reference",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        'const message = "rg: /tmp/dmesg.log: IO error for operation on /tmp/dmesg.log";\nreturn message;',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "raw command source literals mentioning diagnostics are not line-start diagnostics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-warning",
+      taskId: "task:evidence:raw-command-warning",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: "/home/user/venv/lib/pkg.py:167: UserWarning: compiled against ROCm version 7.11.0",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "raw warnings are not terminal command diagnostics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:read-command-usage-text",
+      taskId: "task:evidence:read-command-usage-text",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "usage: rocprof-compute [mode] [options] tool: error: argument --list-metrics: invalid choice: 'gfx1151'",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "unclassified_failure",
+    "raw read output does not inherit command-output usage diagnostics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:structured-rg-io-error-prose",
       taskId: "task:evidence:structured-rg-io-error-prose",
       timestamp,
@@ -844,6 +961,21 @@ test("task failure evidence classifies structured tool output without treating i
     })?.kind,
     "structured_tool_output_observation",
     "source string literals mentioning ripgrep diagnostics stay observational",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-panic-label-source-string",
+      taskId: "task:evidence:structured-panic-label-source-string",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { if (failed) goto panic; panic: return 1; return 0; }"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "structured source labels named panic stay observational",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({

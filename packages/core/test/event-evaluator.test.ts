@@ -328,6 +328,46 @@ test("observational status-conflict routing preserves high consequence", () => {
   assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
 });
 
+test("missing-tool observation transcripts route through observational status conflict", () => {
+  const event = normalizeSourceEvent({
+    id: "evt:missing-tool-observation-conflict",
+    taskId: "task:missing-tool-observation-conflict",
+    timestamp: "2026-03-08T12:02:29.750Z",
+    type: "task.updated",
+    title: "tool failure",
+    summary:
+      "OBSERVATION: Here's the result of running `cat -n` on /testbed/yamllint/cli.py: 1 #!/usr/bin/env python3 2 import sys",
+    status: "failed",
+  });
+  const result = evaluation.evaluate(event);
+
+  assert.equal(event.toolFamily, undefined);
+  assert.equal(event.semantic.toolFamily, undefined);
+  assert.equal(event.semantic.activityClass, "status_update");
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.toolFamily, undefined);
+  assert.equal(result.candidate.activityClass, "status_update");
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.consequence, "high");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+  assert.equal(result.candidate.provenance?.whyNow, undefined);
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.deepEqual(result.candidate.judgmentInput.ontology, {
+    ask: "status",
+    activity: "task_progress",
+    consequence: "high",
+    blocking: "non_blocking",
+    episode: "unknown",
+    confidence: "high",
+    source: "inferred",
+  });
+});
+
 test("task.updated semantics enrich provenance without overriding status routing", () => {
   const result = evaluation.evaluate({
     id: "evt:waiting-semantic",

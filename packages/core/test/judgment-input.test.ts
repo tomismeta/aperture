@@ -197,6 +197,41 @@ test("judgment input marks engine-owned non-bash observations as status conflict
   assert.equal(input.semanticEvidence?.strength, "qualified");
 });
 
+test("judgment input marks absent-family observation transcripts as status conflicts", () => {
+  const input = buildAttentionJudgmentInput({
+    id: "evt:judgment-input:missing-tool-observation-conflict",
+    taskId: "task:judgment-input:missing-tool-observation-conflict",
+    timestamp,
+    type: "task.updated",
+    title: "tool failure",
+    summary:
+      "OBSERVATION: Here's the result of running `cat -n` on /testbed/yamllint/cli.py: 1 #!/usr/bin/env python3 2 import sys",
+    status: "failed",
+    semantic: {
+      intentFrame: "status_update",
+      activityClass: "status_update",
+      consequence: "high",
+      factors: ["task.updated", "failed", "observational_failure"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["task status indicates failure but the update reads like observational output"],
+      provenance: {
+        intentFrame: "inferred",
+        activityClass: "inferred",
+        consequence: "inferred",
+        confidence: "inferred",
+      },
+    },
+  });
+
+  assert.equal(input.routineObservationalStatusConflict, true);
+  assert.equal(input.ontology?.source, "inferred");
+  assert.equal(input.ontology?.activity, "task_progress");
+  assert.equal(input.ontology?.consequence, "high");
+  assert.equal(input.ontology && "toolFamily" in input.ontology, false);
+  assert.equal(input.semanticEvidence?.strength, "qualified");
+});
+
 test("judgment input gives hinted relation semantics their own continuity strength", () => {
   const input = buildAttentionJudgmentInput({
     id: "evt:judgment-input:relation-hint",

@@ -48,6 +48,7 @@ const budgets = [
   { file: "packages/core/src/semantic-clipped-read-window-shapes.ts", maxLines: 50 },
   { file: "packages/core/src/semantic-kernel-log-shapes.ts", maxLines: 25 },
   { file: "packages/core/src/semantic-panic-diagnostic-shapes.ts", maxLines: 50 },
+  { file: "packages/core/src/semantic-python-diagnostic-shapes.ts", maxLines: 25 },
   { file: "packages/core/src/semantic-line-numbered-document-observation-shapes.ts", maxLines: 75 },
   { file: "packages/core/src/semantic-line-numbered-document-span-shapes.ts", maxLines: 50 },
   { file: "packages/core/src/semantic-listing-body-shapes.ts", maxLines: 75 },

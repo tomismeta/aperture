@@ -12,6 +12,8 @@ import {
   looksLikeExplicitDiagnosticObservationTranscript,
   looksLikeExplicitObservationTranscript,
 } from "../src/semantic-observation-transcript-shapes.js";
+import { readExplicitNonDiagnosticObservationTranscript } from "../src/semantic-nondiagnostic-observation-transcript-shapes.js";
+import { looksLikeObservationTranscriptDiagnostic } from "../src/semantic-observation-transcript-diagnostic-shapes.js";
 import {
   looksLikeSectionedTestOutputFailure,
   readSectionedTestOutputObservation,
@@ -3034,6 +3036,93 @@ test("task failure evidence preserves current observational classes", () => {
       toolFamily: "bash",
     })?.kind,
     "routine_bash_success_observation",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:command-observation-source",
+      taskId: "task:evidence:command-observation-source",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        'OBSERVATION: def finish(self, chunk: Optional[Union[str, bytes, dict]] = None) -> "Future[None]": """Finishes this response."""',
+      status: "failed",
+      toolFamily: "bash",
+    }),
+    {
+      kind: "observational_payload",
+      toolFamily: "bash",
+      readsAsObservation: true,
+      consequenceBaseline: "high",
+      text: readSemanticTextEvidence(
+        'bash failure OBSERVATION: def finish(self, chunk: Optional[Union[str, bytes, dict]] = None) -> "Future[None]": """Finishes this response."""',
+        "bash",
+      ),
+    },
+    "command-family explicit source observations should not remain failed work",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:command-observation-log",
+      taskId: "task:evidence:command-observation-log",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        "OBSERVATION: [1] 305 [2025-04-06 03:44:01 +0000] [307] [DEBUG] Current configuration: config: ./gunicorn.conf.py bind: ['127.0.0.1:8000']",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "observational_payload",
+    "command-family explicit log observations should not remain failed work",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:command-observation-diagnostic",
+      taskId: "task:evidence:command-observation-diagnostic",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        'OBSERVATION: Error: found undefined alias "missing" in "<unicode string>", line 6, column 9',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "command-family diagnostic observations should not be demoted to observational payloads",
+  );
+  const overlappingDiagnosticObservation =
+    'OBSERVATION: Here\'s the result of running `cat -n` on /tmp/test.py:\n1 import os\nTraceback (most recent call last):\n  File "/tmp/test.py", line 1, in <module>';
+  assert.equal(
+    readExplicitObservationTranscript(overlappingDiagnosticObservation)?.shape,
+    "existing_observation",
+    "overlapping fixture must exercise the legacy observation transcript reader",
+  );
+  assert.equal(
+    looksLikeObservationTranscriptDiagnostic(
+      overlappingDiagnosticObservation.replace(/^OBSERVATION:\s*/i, ""),
+    ),
+    true,
+    "overlapping fixture must also look diagnostic after the observation prefix",
+  );
+  assert.equal(
+    readExplicitNonDiagnosticObservationTranscript(overlappingDiagnosticObservation),
+    null,
+    "non-diagnostic command observation recovery must reject diagnostic overlap",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:command-observation-readback-traceback",
+      taskId: "task:evidence:command-observation-readback-traceback",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: overlappingDiagnosticObservation,
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "diagnostic readback observations should keep terminal precedence",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({

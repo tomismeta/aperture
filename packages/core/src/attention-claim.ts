@@ -5,7 +5,10 @@ import type {
   AttentionOntologyDiagnostic,
 } from "./semantic-ontology-types.js";
 import type { SemanticConfidence, SemanticRelationHint } from "./semantic-types.js";
-import type { SemanticEvidenceStrength } from "./judgment-input-types.js";
+import type {
+  ObservationalStatusConflictEvidence,
+  SemanticEvidenceStrength,
+} from "./judgment-input-types.js";
 
 export type AttentionClaimMode = "status" | "approval" | "choice" | "form";
 
@@ -133,6 +136,7 @@ export type AttentionClaimJudgment = {
   };
   blockedLikeStatus?: boolean;
   routineObservationalStatusConflict?: boolean;
+  observationalStatusConflict?: ObservationalStatusConflictEvidence;
 };
 
 export type AttentionClaimEpisode = {
@@ -203,6 +207,9 @@ function buildAttentionClaimJudgment(
     blockedLikeStatus: judgment.blockedLikeStatus,
     ...(judgment.routineObservationalStatusConflict === true
       ? { routineObservationalStatusConflict: true }
+      : {}),
+    ...(judgment.observationalStatusConflict !== undefined
+      ? { observationalStatusConflict: judgment.observationalStatusConflict }
       : {}),
   };
 

@@ -6,6 +6,19 @@ import type {
 
 export type SemanticEvidenceStrength = "weak" | "qualified" | "strong";
 
+export type ObservationalStatusConflictKind =
+  | "command_success_observation"
+  | "structured_output_observation"
+  | "payload_observation"
+  | "search_output_observation"
+  | "rejected_tool_use_observation";
+
+export type ObservationalStatusConflictEvidence = {
+  kind: ObservationalStatusConflictKind;
+  toolFamily?: string;
+  baselineConsequence: "low" | "medium" | "high";
+};
+
 export type AttentionJudgmentInput = {
   ontology?: AttentionOntologyDiagnostic;
   semanticEvidence?: {
@@ -28,6 +41,7 @@ export type AttentionJudgmentInput = {
   // observational payload. Low observations may become ambient; medium/high
   // observations keep their consequence while routing as status work.
   routineObservationalStatusConflict?: boolean;
+  observationalStatusConflict?: ObservationalStatusConflictEvidence;
 };
 
 export type CandidateSemanticEvidence = NonNullable<AttentionJudgmentInput["semanticEvidence"]>;

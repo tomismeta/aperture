@@ -1,7 +1,8 @@
 import type { ApertureEvent } from "./events.js";
 import type { SourceEvent } from "./source-event.js";
 import { interpretSourceEvent } from "./semantic-interpreter.js";
-import { hasRoutineObservationalStatusConflictSemanticRead } from "./semantic-evidence.js";
+import { readRoutineObservationalStatusConflictEvidence } from "./semantic-evidence.js";
+import type { ObservationalStatusConflictEvidence } from "./judgment-input-types.js";
 import type { SemanticInterpretation, SemanticRelationHint } from "./semantic-types.js";
 import type {
   AttentionOntologyActivity,
@@ -52,16 +53,28 @@ export function projectAttentionOntologyDiagnostic(
   event: SemanticOntologyEvent,
   interpretation: SemanticInterpretation,
 ): AttentionOntologyDiagnostic {
+  return projectAttentionOntologyDiagnosticWithStatusConflictEvidence(
+    event,
+    interpretation,
+    readRoutineObservationalStatusConflictEvidence(event, interpretation),
+  );
+}
+
+export function projectAttentionOntologyDiagnosticWithStatusConflictEvidence(
+  event: SemanticOntologyEvent,
+  interpretation: SemanticInterpretation,
+  observationalStatusConflict: ObservationalStatusConflictEvidence | null,
+): AttentionOntologyDiagnostic {
   return {
     ask: readOntologyAsk(event, interpretation),
-    activity: readOntologyActivity(event, interpretation),
+    activity: readOntologyActivity(event, interpretation, observationalStatusConflict),
     ...(interpretation.consequence !== undefined
       ? { consequence: interpretation.consequence }
       : {}),
     blocking: readOntologyBlocking(event, interpretation),
     episode: readOntologyEpisode(event, interpretation),
     confidence: interpretation.confidence,
-    source: readOntologySource(event, interpretation),
+    source: readOntologySource(event, interpretation, observationalStatusConflict),
   };
 }
 
@@ -108,6 +121,7 @@ function readOntologyAsk(
 function readOntologyActivity(
   event: SemanticOntologyEvent,
   interpretation: SemanticInterpretation,
+  observationalStatusConflict: ObservationalStatusConflictEvidence | null,
 ): AttentionOntologyActivity {
   switch (event.type) {
     case "human.input.requested":
@@ -129,7 +143,7 @@ function readOntologyActivity(
       ) {
         return "question";
       }
-      if (isRoutineObservationalStatusConflict(event, interpretation)) {
+      if (observationalStatusConflict !== null) {
         return "task_progress";
       }
       if (event.status === "failed" || interpretation.intentFrame === "failure") {
@@ -208,16 +222,10 @@ function hasResurfacingRelation(relationHints: SemanticRelationHint[]): boolean 
   );
 }
 
-function isRoutineObservationalStatusConflict(
-  event: SemanticOntologyEvent,
-  interpretation: SemanticInterpretation,
-): boolean {
-  return hasRoutineObservationalStatusConflictSemanticRead(event, interpretation);
-}
-
 function readOntologySource(
   event: SemanticOntologyEvent,
   interpretation: SemanticInterpretation,
+  observationalStatusConflict: ObservationalStatusConflictEvidence | null,
 ): AttentionOntologyAuthority {
   const provenanceKinds = Object.values(interpretation.provenance ?? {});
 
@@ -225,7 +233,7 @@ function readOntologySource(
     return "hinted";
   }
 
-  if (isRoutineObservationalStatusConflict(event, interpretation)) {
+  if (observationalStatusConflict !== null) {
     return "inferred";
   }
 

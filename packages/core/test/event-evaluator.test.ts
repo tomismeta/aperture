@@ -107,14 +107,33 @@ test("failed-status routine bash observations route as non-interruptive status",
   assert.equal(result.candidate.activityClass, "status_update");
   assert.equal(result.candidate.provenance?.whyNow, undefined);
   assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.deepEqual(result.candidate.judgmentInput.observationalStatusConflict, {
+    kind: "command_success_observation",
+    toolFamily: "bash",
+    baselineConsequence: "low",
+  });
   assert.equal(
     buildAttentionClaim(result.candidate).judgment?.routineObservationalStatusConflict,
     true,
   );
+  assert.deepEqual(buildAttentionClaim(result.candidate).judgment?.observationalStatusConflict, {
+    kind: "command_success_observation",
+    toolFamily: "bash",
+    baselineConsequence: "low",
+  });
   assert.equal(
     normalizePublicEvaluationInput({ claim: buildAttentionClaim(result.candidate) }).candidate
       .judgmentInput.routineObservationalStatusConflict,
     true,
+  );
+  assert.deepEqual(
+    normalizePublicEvaluationInput({ claim: buildAttentionClaim(result.candidate) }).candidate
+      .judgmentInput.observationalStatusConflict,
+    {
+      kind: "command_success_observation",
+      toolFamily: "bash",
+      baselineConsequence: "low",
+    },
   );
   assert.deepEqual(result.candidate.judgmentInput.ontology, {
     ask: "status",
@@ -334,6 +353,11 @@ test("observational status-conflict routing preserves high consequence", () => {
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
   assert.equal(result.candidate.activityClass, "status_update");
   assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.deepEqual(result.candidate.judgmentInput.observationalStatusConflict, {
+    kind: "payload_observation",
+    toolFamily: "read",
+    baselineConsequence: "high",
+  });
 });
 
 test("valid source function prefixes preserve observational routing", () => {
@@ -369,6 +393,10 @@ test("valid source function prefixes preserve observational routing", () => {
     assert.equal(result.candidate.responseSpec.kind, "acknowledge");
     assert.equal(result.candidate.activityClass, "status_update");
     assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+    assert.equal(
+      result.candidate.judgmentInput.observationalStatusConflict?.kind,
+      "payload_observation",
+    );
   }
 });
 
@@ -410,6 +438,7 @@ test("source-like prose prefixes keep failed-status routing", () => {
     assert.equal(result.candidate.responseSpec.kind, "acknowledge");
     assert.equal(result.candidate.activityClass, "tool_failure");
     assert.notEqual(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+    assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
   }
 });
 

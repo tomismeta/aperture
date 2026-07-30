@@ -196,6 +196,8 @@ function buildCandidateFromClaim(claim: AttentionClaim): AttentionCandidate {
 function buildJudgmentInputFromClaim(
   judgment: AttentionClaimJudgment | undefined,
 ): AttentionCandidate["judgmentInput"] {
+  const observationalStatusConflict = judgment?.observationalStatusConflict;
+
   return {
     ...(judgment?.ontology !== undefined ? { ontology: judgment.ontology } : {}),
     ...(judgment?.semanticEvidence !== undefined
@@ -212,9 +214,11 @@ function buildJudgmentInputFromClaim(
       ? { relationEvidence: judgment.relationEvidence }
       : {}),
     blockedLikeStatus: judgment?.blockedLikeStatus ?? false,
-    ...(judgment?.routineObservationalStatusConflict === true
+    ...(judgment?.routineObservationalStatusConflict === true ||
+    observationalStatusConflict !== undefined
       ? { routineObservationalStatusConflict: true }
       : {}),
+    ...(observationalStatusConflict !== undefined ? { observationalStatusConflict } : {}),
   };
 }
 

@@ -130,6 +130,11 @@ test("judgment input marks routine observational failed-status conflicts", () =>
   };
 
   assert.equal(input.routineObservationalStatusConflict, true);
+  assert.deepEqual(input.observationalStatusConflict, {
+    kind: "command_success_observation",
+    toolFamily: "bash",
+    baselineConsequence: "low",
+  });
   assert.equal(input.semanticEvidence?.strength, "qualified");
   assert.equal(hasRoutineObservationalStatusConflictSemantics(candidate), true);
 });
@@ -156,7 +161,9 @@ test("judgment input derives routine status conflicts from raw evidence, not fac
     },
   };
 
-  assert.equal(buildAttentionJudgmentInput(base).routineObservationalStatusConflict, true);
+  const observationInput = buildAttentionJudgmentInput(base);
+  assert.equal(observationInput.routineObservationalStatusConflict, true);
+  assert.equal(observationInput.observationalStatusConflict?.kind, "command_success_observation");
   assert.equal(
     buildAttentionJudgmentInput({
       ...base,
@@ -166,6 +173,17 @@ test("judgment input derives routine status conflicts from raw evidence, not fac
         factors: ["task.updated", "failed", "observational_failure"],
       },
     }).routineObservationalStatusConflict,
+    undefined,
+  );
+  assert.equal(
+    buildAttentionJudgmentInput({
+      ...base,
+      summary: "Error: deployment failed with exit code 1.",
+      semantic: {
+        ...base.semantic,
+        factors: ["task.updated", "failed", "observational_failure"],
+      },
+    }).observationalStatusConflict,
     undefined,
   );
 });
@@ -200,6 +218,11 @@ test("judgment input marks engine-owned non-bash observations as status conflict
   });
 
   assert.equal(input.routineObservationalStatusConflict, true);
+  assert.deepEqual(input.observationalStatusConflict, {
+    kind: "payload_observation",
+    toolFamily: "read",
+    baselineConsequence: "low",
+  });
   assert.equal(input.semanticEvidence?.strength, "qualified");
 });
 
@@ -231,6 +254,10 @@ test("judgment input marks absent-family observation transcripts as status confl
   });
 
   assert.equal(input.routineObservationalStatusConflict, true);
+  assert.deepEqual(input.observationalStatusConflict, {
+    kind: "payload_observation",
+    baselineConsequence: "high",
+  });
   assert.equal(input.ontology?.source, "inferred");
   assert.equal(input.ontology?.activity, "task_progress");
   assert.equal(input.ontology?.consequence, "high");
@@ -269,6 +296,10 @@ test("judgment input marks low missing-tool transcript subclasses only on raw ag
     });
 
     assert.equal(input.routineObservationalStatusConflict, true);
+    assert.deepEqual(input.observationalStatusConflict, {
+      kind: "payload_observation",
+      baselineConsequence: "low",
+    });
     assert.equal(input.ontology?.source, "inferred");
     assert.equal(input.ontology?.activity, "task_progress");
     assert.equal(input.ontology?.consequence, "low");
@@ -316,6 +347,8 @@ test("judgment input marks low missing-tool transcript subclasses only on raw ag
 
   assert.equal(mismatchedFamilyInput.routineObservationalStatusConflict, undefined);
   assert.equal(liftedConsequenceInput.routineObservationalStatusConflict, undefined);
+  assert.equal(mismatchedFamilyInput.observationalStatusConflict, undefined);
+  assert.equal(liftedConsequenceInput.observationalStatusConflict, undefined);
 });
 
 test("judgment input marks tool-use rejection outcomes as status conflicts only on raw agreement", () => {
@@ -399,8 +432,19 @@ test("judgment input marks tool-use rejection outcomes as status conflicts only 
 
   assert.equal(bashInput.routineObservationalStatusConflict, true);
   assert.equal(absentInput.routineObservationalStatusConflict, true);
+  assert.deepEqual(bashInput.observationalStatusConflict, {
+    kind: "rejected_tool_use_observation",
+    toolFamily: "bash",
+    baselineConsequence: "low",
+  });
+  assert.deepEqual(absentInput.observationalStatusConflict, {
+    kind: "rejected_tool_use_observation",
+    baselineConsequence: "low",
+  });
   assert.equal(mismatchedInput.routineObservationalStatusConflict, undefined);
   assert.equal(liftedConsequenceInput.routineObservationalStatusConflict, undefined);
+  assert.equal(mismatchedInput.observationalStatusConflict, undefined);
+  assert.equal(liftedConsequenceInput.observationalStatusConflict, undefined);
 });
 
 test("judgment input gives hinted relation semantics their own continuity strength", () => {

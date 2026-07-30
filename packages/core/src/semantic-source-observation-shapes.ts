@@ -1,4 +1,7 @@
-import { looksLikeAssemblySourceObservation } from "./semantic-assembly-source-observation-shapes.js";
+import {
+  looksLikeAssemblySourceObservation,
+  looksLikeAssemblySourceStatement,
+} from "./semantic-assembly-source-observation-shapes.js";
 import { looksLikeCLikeSourceFragmentObservation } from "./semantic-c-like-source-observation-shapes.js";
 import {
   looksLikeFlattenedNumberedSourceObservation,
@@ -9,7 +12,10 @@ import {
   looksLikeLineNumberedSourceLicenseHeader,
   looksLikeSourceLicenseCommentHeader,
 } from "./semantic-source-header-observation-shapes.js";
-import { looksLikeStandaloneSourcePrefix } from "./semantic-source-statement-shapes.js";
+import {
+  looksLikeSourceStatement,
+  looksLikeStandaloneSourcePrefix,
+} from "./semantic-source-statement-shapes.js";
 
 export function looksLikeStrongRawSourceObservation(value: string): boolean {
   const text = stripObservationStatusPrefix(value);
@@ -89,12 +95,46 @@ function looksLikeEmbeddedGitPatchObservation(text: string): boolean {
   );
 }
 
-function countSourceLocationLines(text: string): number {
-  return [...text.matchAll(SOURCE_LOCATION_LINE_PATTERN)].length;
+export function looksLikeClippedSourceLocationObservation(text: string): boolean {
+  const spans = readSourceLocationSpans(text);
+
+  return (
+    spans.length === 1 &&
+    hasVisibleTruncationBoundary(text) &&
+    hasClippedPathContinuation(text) &&
+    looksLikeSourceLocationBody(spans[0]!.body)
+  );
 }
 
+function countSourceLocationLines(text: string): number {
+  return readSourceLocationSpans(text).length;
+}
+
+function readSourceLocationSpans(text: string): SourceLocationSpan[] {
+  return [...text.matchAll(SOURCE_LOCATION_LINE_PATTERN)].map((match) => ({
+    body: (match[1] ?? "").trim(),
+  }));
+}
+
+function looksLikeSourceLocationBody(body: string): boolean {
+  return looksLikeSourceStatement(body) || looksLikeAssemblySourceStatement(body);
+}
+
+function hasVisibleTruncationBoundary(text: string): boolean {
+  return /\.\.\.\s*$/.test(text.trim());
+}
+
+function hasClippedPathContinuation(text: string): boolean {
+  return text
+    .split(/\r?\n/)
+    .slice(1)
+    .some((line) => /^\s*(?:\/|\.\.?\/|[a-z0-9_.-]+\/)\S*\/\S*\.\.\.\s*$/i.test(line));
+}
+
+type SourceLocationSpan = { body: string };
+
 const SOURCE_LOCATION_LINE_PATTERN =
-  /(?:^|[\r\n])\s*[^\s:\r\n]+\.(?:c|cc|cpp|cxx|cu|cuh|h|hpp|hh|s|asm|ts|tsx|js|jsx|py|rb|go|rs|java|kt|swift):\d+(?::\d+)?:/gi;
+  /(?:^|[\r\n])\s*[^\s:\r\n]+\.(?:c|cc|cpp|cxx|cu|cuh|h|hpp|hh|s|asm|ts|tsx|js|jsx|py|rb|go|rs|java|kt|swift):\d+(?::\d+)?:\s*([^\r\n]*)/gi;
 
 function countRawSourceMarkers(text: string): number {
   const markers = [

@@ -25,6 +25,36 @@ function hasClippedCLikeRun(text: string): boolean {
   );
 }
 
+export function looksLikeClippedCLikeArgumentContext(text: string): boolean {
+  if (!hasVisibleTruncationBoundary(text)) {
+    return false;
+  }
+
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !isCLikeCommentOnlyLine(line));
+
+  return (
+    lines.length >= 5 &&
+    lines.filter(looksLikeCLikeArgumentContinuation).length >= 3 &&
+    lines.filter(looksLikeStrongCLikeArgumentContinuation).length >= 2 &&
+    lines.some((line) => /^\)\s*;?\s*$/.test(line)) &&
+    lines.some((line) => readCLikeLine(line) !== null || readClippedCLikeLine(line) !== null)
+  );
+}
+
+function looksLikeCLikeArgumentContinuation(line: string): boolean {
+  return (
+    /^[a-z0-9_()[\].:&*>\s,-]+,\s*(?:(?:\/\/|\/\*)[^\r\n]*)?$/i.test(line) &&
+    /(?:[_()[\].:]|->|::|\b\d+\b)/.test(line)
+  );
+}
+
+function looksLikeStrongCLikeArgumentContinuation(line: string): boolean {
+  return /(?:->|::|\.|\[[^\]]+])/.test(line);
+}
+
 function hasCLikeRun(
   text: string,
   options: { allowClippedFinalLine: boolean; minLines: number },

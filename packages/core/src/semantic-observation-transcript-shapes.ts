@@ -7,6 +7,8 @@ import {
   looksLikePlainReadObservation,
   looksLikeStrongRawSourceObservation,
 } from "./semantic-observation-shapes.js";
+import { looksLikeBareDiagnosticObservationBody } from "./semantic-bare-diagnostic-observation-shapes.js";
+import { looksLikeLinterOutputObservation } from "./semantic-linter-output-observation-shapes.js";
 import { looksLikeLocationDiagnosticObservation } from "./semantic-location-diagnostic-shapes.js";
 import { looksLikeSectionedSourceObservation } from "./semantic-sectioned-source-observation-shapes.js";
 import { looksLikeSearchResultObservation } from "./semantic-search-observation-shapes.js";
@@ -78,11 +80,15 @@ function readObservationTranscriptBody(body: string): ExplicitObservationTranscr
   if (looksLikeLocationDiagnosticObservation(body)) {
     return null;
   }
+  if (looksLikeBareDiagnosticObservationBody(body)) {
+    return null;
+  }
   if (
     looksLikeTaggedFileObservationTranscript(text) ||
     looksLikeSectionedSourceObservation(body) ||
     looksLikeStrongRawSourceObservation(body) ||
     looksLikePlainReadObservation(body) ||
+    looksLikeLinterOutputObservation(body) ||
     looksLikeBuildOrLogObservation(body) ||
     looksLikeSearchResultObservation(text, body)
   ) {

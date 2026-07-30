@@ -1166,6 +1166,130 @@ test("task failure evidence classifies structured tool output without treating i
   assert.equal(rawCommandDiffEvidence.toolFamily, "bash");
   assert.equal(rawCommandDiffEvidence.readsAsObservation, true);
   assert.equal(rawCommandDiffEvidence.consequenceBaseline, "high");
+  const rawCommandSourceReadback = "#include <stdio.h>\nint main() {\npanic:\n  return 1;\n}\n";
+  const rawCommandSourceReadbackSignals = readTaskFailureSemanticSignals({
+    summary: rawCommandSourceReadback,
+    toolFamily: "bash",
+  });
+  assert.equal(
+    rawCommandSourceReadbackSignals.rawCommandTextObservation?.consequenceBaseline,
+    "high",
+  );
+  const rawCommandSourceReadbackEvidence = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:raw-command-source-readback",
+    taskId: "task:evidence:raw-command-source-readback",
+    timestamp,
+    type: "task.updated",
+    title: "bash failure",
+    summary: rawCommandSourceReadback,
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(rawCommandSourceReadbackEvidence?.kind, "observational_payload");
+  assert.equal(rawCommandSourceReadbackEvidence.toolFamily, "bash");
+  assert.equal(rawCommandSourceReadbackEvidence.readsAsObservation, true);
+  assert.equal(rawCommandSourceReadbackEvidence.consequenceBaseline, "high");
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:edit-raw-command-source-readback",
+      taskId: "task:evidence:edit-raw-command-source-readback",
+      timestamp,
+      type: "task.updated",
+      title: "edit failure",
+      summary: rawCommandSourceReadback,
+      status: "failed",
+      toolFamily: "edit",
+    })?.kind,
+    "unclassified_failure",
+    "raw command source readback does not leak into edit semantics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-raw-command-source-readback",
+      taskId: "task:evidence:web-raw-command-source-readback",
+      timestamp,
+      type: "task.updated",
+      title: "web failure",
+      summary: rawCommandSourceReadback,
+      status: "failed",
+      toolFamily: "web",
+    })?.kind,
+    "unclassified_failure",
+    "raw command source readback does not leak into unsupported tool semantics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-source-readback-with-traceback",
+      taskId: "task:evidence:raw-command-source-readback-with-traceback",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: `${rawCommandSourceReadback}\nTraceback (most recent call last):\nRuntimeError: failed`,
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "terminal diagnostics embedded in raw command source readbacks keep terminal precedence",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-successful-test-output",
+      taskId: "task:evidence:raw-command-successful-test-output",
+      timestamp,
+      type: "task.updated",
+      title: "exec_command failure",
+      summary: "=== Testing parser === All parser tests passed!",
+      status: "failed",
+      toolFamily: "exec_command",
+    })?.consequenceBaseline,
+    "low",
+    "successful raw command test output should remain low-consequence observation evidence",
+  );
+  const rawCommandWarning =
+    "/repo/venv/lib/python3.13/site-packages/pkg/__init__.py:167: UserWarning: The program was compiled against version 1 but the installed version is different...";
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-warning-readback",
+      taskId: "task:evidence:raw-command-warning-readback",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: rawCommandWarning,
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "medium",
+    "path-qualified command warnings are medium-consequence readback observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-warning-with-error",
+      taskId: "task:evidence:raw-command-warning-with-error",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: `${rawCommandWarning}\n/repo/src/app.ts:33: error: no matching function`,
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "command warning readbacks do not override explicit error diagnostics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-command-warning-readback",
+      taskId: "task:evidence:web-command-warning-readback",
+      timestamp,
+      type: "task.updated",
+      title: "web failure",
+      summary: rawCommandWarning,
+      status: "failed",
+      toolFamily: "web",
+    })?.kind,
+    "unclassified_failure",
+    "command warning readbacks do not leak into unsupported tool semantics",
+  );
   for (const [id, summary] of [
     ["raw-command-diff-prose-reference", `The expected patch starts with ${rawCommandDiff}`],
     ["raw-command-diff-expected-output", `Expected output:\n${rawCommandDiff}`],
@@ -1611,8 +1735,8 @@ test("task failure evidence classifies structured tool output without treating i
       status: "failed",
       toolFamily: "bash",
     })?.kind,
-    "unclassified_failure",
-    "raw command source labels with line-start panic stay unclassified",
+    "observational_payload",
+    "raw command source labels with line-start panic are source readback observations",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -1625,8 +1749,8 @@ test("task failure evidence classifies structured tool output without treating i
       status: "failed",
       toolFamily: "bash",
     })?.kind,
-    "unclassified_failure",
-    "raw command source labels with same-line panic statements stay unclassified",
+    "observational_payload",
+    "raw command source labels with same-line panic statements are source readback observations",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -1682,8 +1806,8 @@ test("task failure evidence classifies structured tool output without treating i
       status: "failed",
       toolFamily: "bash",
     })?.kind,
-    "unclassified_failure",
-    "raw command clipped panic assignment labels are not runtime diagnostics",
+    "observational_payload",
+    "raw command clipped panic assignment labels are source readback observations",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -2796,6 +2920,81 @@ test("task failure evidence classifies structured tool output without treating i
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-path-qualified-readback",
+      taskId: "task:evidence:truncated-path-qualified-readback",
+      timestamp,
+      type: "task.updated",
+      title: "exec_command failure",
+      summary:
+        '{"wall_time":"0.0513 seconds","output":"/repo/src/driver.c:584:\\tWREG32(SOC15_REG_OFFSET(GC, 0, regSQ_CMD), sq_cmd);\\n/repo/src/driver...',
+      status: "failed",
+      toolFamily: "exec_command",
+    })?.consequenceBaseline,
+    "medium",
+    "clipped command path-qualified readbacks are medium-consequence observations, not source authority",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-path-qualified-diagnostic-readback",
+      taskId: "task:evidence:truncated-path-qualified-diagnostic-readback",
+      timestamp,
+      type: "task.updated",
+      title: "exec_command failure",
+      summary:
+        '{"wall_time":"0.0513 seconds","output":"/repo/src/app.ts:33: error TS2345: Argument of type string is not assignable...',
+      status: "failed",
+      toolFamily: "exec_command",
+    })?.kind,
+    "terminal_failure",
+    "clipped path-qualified diagnostics keep terminal precedence",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-truncated-path-qualified-readback",
+      taskId: "task:evidence:web-truncated-path-qualified-readback",
+      timestamp,
+      type: "task.updated",
+      title: "web failure",
+      summary:
+        '{"wall_time":"0.0513 seconds","output":"/repo/docs/CHANGELOG.md:33:* ordinary readback content...',
+      status: "failed",
+      toolFamily: "web",
+    })?.kind,
+    "unclassified_failure",
+    "recovered command readback semantics do not leak into unsupported tool output",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-toolchain-warning-readback",
+      taskId: "task:evidence:truncated-toolchain-warning-readback",
+      timestamp,
+      type: "task.updated",
+      title: "run_shell_command failure",
+      summary:
+        '{"output":"clang: warning: CUDA version 12.9 is only partially supported [-Wunknown-cuda-version]\\nIn file included from /repo/src/kernel.cu:1:...',
+      status: "failed",
+      toolFamily: "run_shell_command",
+    })?.consequenceBaseline,
+    "medium",
+    "clipped toolchain warnings are recovered command output observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-toolchain-warning-with-error",
+      taskId: "task:evidence:truncated-toolchain-warning-with-error",
+      timestamp,
+      type: "task.updated",
+      title: "run_shell_command failure",
+      summary:
+        '{"output":"clang: warning: CUDA version 12.9 is only partially supported [-Wunknown-cuda-version]\\n/repo/src/kernel.cu:9: error: no matching function...',
+      status: "failed",
+      toolFamily: "run_shell_command",
+    })?.kind,
+    "terminal_failure",
+    "recovered warning output does not override compiler errors",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:truncated-wall-exit-output-source",
       taskId: "task:evidence:truncated-wall-exit-output-source",
       timestamp,
@@ -3163,6 +3362,21 @@ test("task failure evidence preserves current observational classes", () => {
     })?.kind,
     "observational_payload",
     "command-family explicit log observations should not remain failed work",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:command-observation-linter-output",
+      taskId: "task:evidence:command-observation-linter-output",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        'OBSERVATION: Running yamllint... ./normal.yaml 1:1 warning missing document start "---" (document-start) ./dupe.yaml 2:4 warning wrong indentation (indentation)',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "observational_payload",
+    "command-family explicit linter output observations should not remain failed work",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -4714,6 +4928,24 @@ test("explicit observation transcripts classify only narrow low-consequence subc
   assert.deepEqual(
     readExplicitObservationTranscript(
       "OBSERVATION: Here's the result of running `cat -n` on /testbed/yamllint/cli.py: 1 #!/usr/bin/env python3 2 import sys",
+    ),
+    {
+      shape: "existing_observation",
+      consequenceBaseline: "high",
+    },
+  );
+  assert.deepEqual(
+    readExplicitObservationTranscript(
+      'OBSERVATION: Running yamllint... ./normal.yaml 1:1 warning missing document start "---" (document-start) ./dupe.yaml 2:4 warning wrong indentation (indentation)',
+    ),
+    {
+      shape: "existing_observation",
+      consequenceBaseline: "high",
+    },
+  );
+  assert.deepEqual(
+    readExplicitObservationTranscript(
+      "OBSERVATION: Test 1: Cross-document anchors ============================== Line 6, column 3: found undefined alias: f_m (anchors) Test 2: Duplicate anchors ============================== Line 8, column 1: duplicate anchor value (anchors)",
     ),
     {
       shape: "existing_observation",

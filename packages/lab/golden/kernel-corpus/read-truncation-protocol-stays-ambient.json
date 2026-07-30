@@ -1,0 +1,87 @@
+{
+  "id": "golden:kernel-corpus:read-truncation-protocol-stays-ambient",
+  "title": "Read truncation protocol stays ambient",
+  "description": "A failed read transport status that only reports the exact read truncation protocol should become low-consequence ambient status noise.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "semantic_normalization",
+    "status_noise",
+    "ambient_doctrine",
+    "owned_read_transport"
+  ],
+  "semanticFamilies": ["consequence_overread"],
+  "expectations": {
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
+    "ambientInteractionIds": ["interaction:task:corpus:read-truncation-protocol:status"],
+    "resultLaneCounts": {
+      "now": 0,
+      "next": 0,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "read truncation protocol",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "toolFamily": "read",
+        "consequence": "low",
+        "confidence": "high",
+        "factorsInclude": ["observational_failure"],
+        "reasonsInclude": [
+          "task status indicates failure but the update reads like observational output"
+        ],
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "low",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "inferred"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "read truncation protocol",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "semanticConfidence": "high",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:ambient",
+          "lane:ambient",
+          "policy:peripheral_only"
+        ],
+        "semanticInfluenceIncludes": [
+          "engine-owned observational evidence resolved noisy failed-status routing as status handling"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "observational status conflict (judgment routing)"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "read truncation protocol",
+      "event": {
+        "id": "evt:corpus:read-truncation-protocol",
+        "type": "task.updated",
+        "taskId": "task:corpus:read-truncation-protocol",
+        "timestamp": "2026-04-18T15:11:00.000Z",
+        "source": { "id": "dataclaw", "kind": "public-trajectory" },
+        "title": "read failure",
+        "summary": "IMPORTANT: The file content has been truncated. Status: Showing lines 1-2000 of 5755 total lines. Action: To read more of the file, you can use the 'offset' and 'limit' parameters.",
+        "status": "failed",
+        "toolFamily": "read"
+      }
+    }
+  ]
+}

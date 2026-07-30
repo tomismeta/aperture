@@ -208,6 +208,16 @@ export function readTaskFailureSemanticEvidence(
     };
   }
 
+  if (signals.rawCommandDiffObservation) {
+    return {
+      kind: "observational_payload",
+      ...(toolFamily !== undefined ? { toolFamily } : {}),
+      readsAsObservation: true,
+      consequenceBaseline: "high",
+      text,
+    };
+  }
+
   if (signals.rawReadSourceObservation) {
     return {
       kind: "observational_payload",

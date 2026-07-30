@@ -19,6 +19,7 @@ import {
 } from "./semantic-observation-transcript-shapes.js";
 import { readExplicitNonDiagnosticObservationTranscript } from "./semantic-nondiagnostic-observation-transcript-shapes.js";
 import { looksLikeReadTruncationProtocolObservation } from "./semantic-read-observation-shapes.js";
+import { looksLikeExplicitReadFailureDiagnostic } from "./semantic-read-failure-diagnostic-shapes.js";
 import {
   looksLikeStructuredToolOutputEnvelope,
   readStructuredToolOutputObservation,
@@ -27,6 +28,7 @@ import {
 import { isSemanticCommandExecutionToolFamily } from "./semantic-tool-family.js";
 import { looksLikeToolUseRejectionOutcome } from "./semantic-tool-use-rejection-shapes.js";
 import { readTruncatedStructuredToolOutputEnvelope } from "./semantic-truncated-structured-output.js";
+import { looksLikeUnifiedDiffObservation } from "./semantic-unified-diff-observation-shapes.js";
 
 export type TaskFailureStructuredOutputEnvelope =
   | { kind: "unsupported" }
@@ -56,6 +58,7 @@ export type TaskFailureSemanticSignals = {
   strongSourceRuntimeDiagnostic: boolean;
   diagnosticObservationTranscript: boolean;
   commandObservationTranscript: ExplicitObservationTranscript | null;
+  rawCommandDiffObservation: boolean;
   missingToolObservationTranscript: ExplicitObservationTranscript | null;
   rejectedToolUseOutcome: boolean;
 };
@@ -143,6 +146,11 @@ export function readTaskFailureSemanticSignals(input: {
     commandObservationTranscript: isSemanticCommandExecutionToolFamily(input.toolFamily)
       ? readExplicitNonDiagnosticObservationTranscript(summary)
       : null,
+    rawCommandDiffObservation:
+      isSemanticCommandExecutionToolFamily(input.toolFamily) &&
+      diagnosticStructuredToolOutput === null &&
+      structuredOutputEnvelope.kind === "raw" &&
+      looksLikeUnifiedDiffObservation(summary),
     missingToolObservationTranscript:
       input.toolFamily === undefined ? readExplicitObservationTranscript(summary) : null,
     rejectedToolUseOutcome: looksLikeToolUseRejectionOutcome(summary),
@@ -162,13 +170,4 @@ function readTaskFailureStructuredOutputEnvelope(
 
   const recovered = readTruncatedStructuredToolOutputEnvelope(summary);
   return recovered === null ? { kind: "invalid" } : { kind: "recovered", output: recovered };
-}
-
-function looksLikeExplicitReadFailureDiagnostic(value: string): boolean {
-  return /^(?:read\s+failed\b|failed to (?:read|open)\b|could not (?:read|open)\b|unable to (?:read|open)\b)/i.test(
-    value
-      .trim()
-      .replace(/^(?:read|tool)\s+failure\s+/i, "")
-      .replace(/^#{1,6}\s+/, ""),
-  );
 }

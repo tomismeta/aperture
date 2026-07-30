@@ -6302,6 +6302,9 @@ test("observational status-conflict evidence includes truncated structural outpu
 });
 
 test("observational status-conflict evidence includes structural read documents and logs", () => {
+  const ownedReadArrowWindow =
+    "1\u2192# GFX1151 Reference (Non-CK) 2\u2192 3\u2192This file keeps hardware/profiling/runtime facts for this machine. 4\u2192CK-specific notes are in `CK_REFERENCE.md`. 5\u2192 6\u2192## Hardware Snapshot 7\u2192 8\u2192| Item | Value | 9\u2192|---|---| 10\u2192| GPU | RDNA 3.5 (`gfx1151`) 11\u2192...";
+
   assert.equal(
     readTaskFailureSemanticEvidence({
       id: "evt:evidence:read-markdown-document",
@@ -6316,6 +6319,178 @@ test("observational status-conflict evidence includes structural read documents 
     })?.kind,
     "observational_payload",
   );
+  for (const [id, summary] of [
+    [
+      "read-owned-amd-logo-arrow-window",
+      '1\u2192![AMD logo](2dfa6ac3edfe874f68aa0cbccaa42322_img.jpg) 2\u2192 3\u2192The AMD logo is displayed in the upper center of the page. It consists of the letters "AMD" in a bold, black, sans-serif font, followed by a stylized square icon that represent...',
+    ],
+    ["read-owned-gfx-reference-arrow-window", ownedReadArrowWindow],
+    [
+      "read-owned-hip-plan-arrow-window",
+      "1\u2192# HIP GEMM Kernel Optimization Plan 2\u2192 3\u2192## Target 4\u2192 5\u2192Kernel: `scaled_mm_kernel_wmma_k0mk1` fp8x fp16 mixed-precision GEMM on RDNA 3.5 (gfx1151). 6\u2192Best config: `(2,4,2,2,4,4)` maps to BlockM=128, BlockN=256...",
+    ],
+    [
+      "read-owned-dmidecode-arrow-window",
+      "1\u2192# dmidecode 3.6 2\u2192Getting SMBIOS data from sysfs. 3\u2192SMBIOS 3.7.0 present. 4\u2192 5\u2192Handle 0x0011, DMI type 16, 23 bytes 6\u2192Physical Memory Array 7\u2192 Location: System Board Or Motherboard 8\u2192 Use: System Memory 9\u2192 Error Correction Type: None 10\u2192...",
+    ],
+    [
+      "read-owned-arrow-source-diagnostic-literal",
+      '1\u2192const message = "SyntaxError: invalid syntax"; 2\u2192return message; 3\u2192...',
+    ],
+    [
+      "read-owned-natural-number-body-arrow-window",
+      "1\u2192There are 2 systems in the rack 2\u2192Second body 3\u2192Third body...",
+    ],
+    [
+      "read-owned-natural-memory-size-arrow-window",
+      "1\u2192Requires 4 GB of memory 2\u2192Second body 3\u2192Third body...",
+    ],
+    [
+      "read-owned-natural-type-count-arrow-window",
+      "1\u2192Supports 4 type variants 2\u2192Second body 3\u2192Third body...",
+    ],
+  ] as const) {
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:${id}`,
+        taskId: `task:evidence:${id}`,
+        timestamp,
+        type: "task.updated",
+        title: "read failure",
+        summary,
+        status: "failed",
+        toolFamily: "read",
+      })?.kind,
+      "observational_payload",
+      `${id} should be a read-owned observation`,
+    );
+  }
+  for (const toolFamily of [undefined, "bash", "edit", "search", "web"] as const) {
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:read-owned-arrow-boundary-${toolFamily ?? "missing"}`,
+        taskId: `task:evidence:read-owned-arrow-boundary-${toolFamily ?? "missing"}`,
+        timestamp,
+        type: "task.updated",
+        title: `${toolFamily ?? "tool"} failure`,
+        summary: ownedReadArrowWindow,
+        status: "failed",
+        ...(toolFamily !== undefined ? { toolFamily } : {}),
+      })?.kind,
+      "unclassified_failure",
+      "read-owned arrow windows require explicit read ownership",
+    );
+  }
+  for (const [id, summary] of [
+    ["read-owned-nonconsecutive-arrow-window", "1\u2192# Guide 3\u2192Skipped line 4\u2192..."],
+    ["read-owned-nonmonotone-arrow-window", "2\u2192# Guide 1\u2192Earlier line 3\u2192..."],
+    ["read-owned-mixed-numbering-window", "1\u2192# Guide 2 Plain body 3\u2192..."],
+    [
+      "read-owned-mixed-numbering-after-arrow-window",
+      "1\u2192# Guide 2\u2192Body 3\u2192More 4 # Legacy...",
+    ],
+    [
+      "read-owned-mixed-numbering-before-arrow-window",
+      "9 # Legacy 1\u2192# Guide 2\u2192Body 3\u2192More...",
+    ],
+    [
+      "read-owned-prefixed-mixed-numbering-before-arrow-window",
+      "prefix 9 # Legacy 1\u2192# Guide 2\u2192## Build 3\u2192- Configure 4\u2192- Run tests...",
+    ],
+    [
+      "read-owned-duplicate-mixed-numbering-window",
+      "1\u2192# Guide 2 # Legacy 2\u2192## Build 3\u2192- Configure 4\u2192- Run tests...",
+    ],
+    [
+      "read-owned-mixed-numbering-skipped-legacy-row",
+      "1\u2192# Guide 2\u2192Body 3\u2192More 5 # Legacy...",
+    ],
+    ["read-owned-empty-arrow-window", "1\u2192 2\u2192 3\u2192..."],
+    [
+      "read-owned-unclipped-arrow-prose",
+      "1\u2192First instruction 2\u2192Second instruction 3\u2192Third instruction",
+    ],
+    [
+      "read-owned-flattened-python-without-transport-window",
+      'import os import sys from functools import lru_cache from typing import Optional import torch from torch.utils.cpp_extension import load_inline import time @lru_cache(maxsize=1) def _load_hip_extension(): source_path = os.path.join(os.path.dirname(__file__), "kernel.cpp")...',
+    ],
+    [
+      "read-owned-flattened-review-instructions",
+      "Please import the class and return to the review instructions before editing the file...",
+    ],
+  ] as const) {
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:${id}`,
+        taskId: `task:evidence:${id}`,
+        timestamp,
+        type: "task.updated",
+        title: "read failure",
+        summary,
+        status: "failed",
+        toolFamily: "read",
+      })?.kind,
+      "unclassified_failure",
+      `${id} should not satisfy read-owned observation grammar`,
+    );
+  }
+  for (const [id, summary] of [
+    ["read-owned-read-failure", "Failed to read /tmp/missing.txt"],
+    ["read-owned-traceback", "Traceback (most recent call last): RuntimeError"],
+    ["read-owned-syntax-error", "SyntaxError: invalid syntax"],
+    ["read-owned-compiler-error", "src/app.ts:4:1: error: expected token"],
+    [
+      "read-owned-arrow-window-compiler-error",
+      "1\u2192import os 2\u2192const x = 1; 3\u2192src/app.ts:4:1: error: expected token...",
+    ],
+    [
+      "read-owned-flattened-compiler-error",
+      "import os import sys def build(): path = os.path.join('/tmp') src/app.ts:4:1: error: expected token...",
+    ],
+    [
+      "read-owned-flattened-syntax-error",
+      "import os import sys def build(): path = os.path.join('/tmp') SyntaxError: invalid syntax...",
+    ],
+    [
+      "read-owned-flattened-read-failure",
+      "import os import sys def build(): path = os.path.join('/tmp') Failed to read /tmp/x...",
+    ],
+    [
+      "read-owned-arrow-window-read-failed",
+      "1\u2192partial content 2\u2192more content 3\u2192Read failed: backend unavailable...",
+    ],
+    [
+      "read-owned-arrow-window-file-not-found-error",
+      "1\u2192partial content 2\u2192FileNotFoundError: missing path 3\u2192...",
+    ],
+    [
+      "read-owned-arrow-window-key-error",
+      "1\u2192partial content 2\u2192KeyError: missing key 3\u2192...",
+    ],
+    [
+      "read-owned-arrow-window-os-error",
+      "1\u2192partial content 2\u2192OSError: disk unavailable 3\u2192...",
+    ],
+    [
+      "read-owned-arrow-window-timeout-error",
+      "1\u2192partial content 2\u2192TimeoutError: request timed out 3\u2192...",
+    ],
+  ] as const) {
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:${id}`,
+        taskId: `task:evidence:${id}`,
+        timestamp,
+        type: "task.updated",
+        title: "read failure",
+        summary,
+        status: "failed",
+        toolFamily: "read",
+      })?.kind,
+      "terminal_failure",
+      `${id} should keep terminal precedence`,
+    );
+  }
   assert.deepEqual(
     readTaskFailureSemanticEvidence({
       id: "evt:evidence:read-arrow-numbered-python-source",
@@ -7334,6 +7509,14 @@ test("observational status-conflict evidence includes corpus-derived event shape
     [
       "mixed-arrow-space-numbered-document",
       "1\u2192# Project Guide 2 Legacy row 3\u2192## Build 4\u2192- Configure 5\u2192- Run tests",
+    ],
+    [
+      "mixed-arrow-duplicate-numbered-document",
+      "1\u2192# Project Guide 2 # Legacy row 2\u2192## Build 3\u2192- Configure 4\u2192- Run tests",
+    ],
+    [
+      "mixed-prefix-arrow-numbered-document",
+      "prefix 9 # Legacy 1\u2192# Project Guide 2\u2192## Build 3\u2192- Configure 4\u2192- Run tests",
     ],
     [
       "nonmonotone-arrow-numbered-source",

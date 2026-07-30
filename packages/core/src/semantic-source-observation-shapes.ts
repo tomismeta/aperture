@@ -25,6 +25,7 @@ export function looksLikeStrongRawSourceObservation(value: string): boolean {
     looksLikeSourceLicenseCommentHeader(text) ||
     looksLikeLineNumberedSourceLicenseHeader(text) ||
     looksLikeCommentedSourceSnippet(text) ||
+    looksLikeDecoratedSourceSnippet(text) ||
     looksLikeMultipleIncludeDirectives(text) ||
     looksLikeFlattenedIncludeSourceCluster(text) ||
     looksLikeEmbeddedGitPatchObservation(text) ||
@@ -72,6 +73,12 @@ function looksLikeCommentedSourceSnippet(text: string): boolean {
     /(?:^|[\r\n])\s*(?:export\s+(?:const|function|class)\b|(?:const|let|var)\s+[a-z_$][a-z0-9_$]*\s*=|return\s+[^;\r\n]+;|function\s+[a-z_$][a-z0-9_$]*\s*\(|class\s+[a-z_$][a-z0-9_$]*\b|def\s+[a-z_][a-z0-9_]*\s*\()/i.test(
       text,
     )
+  );
+}
+
+function looksLikeDecoratedSourceSnippet(text: string): boolean {
+  return /(?:^|[\r\n])\s*@[a-zA-Z_][a-zA-Z0-9_.]*(?:\([^)\r\n]*\))?\s*(?:[\r\n]+)\s*(?:(?:async\s+)?def\s+[a-zA-Z_][a-zA-Z0-9_]*\s*\(|(?:export\s+)?(?:class|function)\s+[a-zA-Z_$][a-zA-Z0-9_$]*)/i.test(
+    text,
   );
 }
 

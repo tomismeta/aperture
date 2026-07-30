@@ -12,6 +12,10 @@ import {
   looksLikeExplicitDiagnosticObservationTranscript,
   looksLikeExplicitObservationTranscript,
 } from "../src/semantic-observation-transcript-shapes.js";
+import {
+  looksLikeSectionedTestOutputFailure,
+  readSectionedTestOutputObservation,
+} from "../src/semantic-test-result-section-shapes.js";
 import { isSemanticCommandExecutionToolFamily } from "../src/semantic-tool-family.js";
 import {
   hasToolUseRejectionSignal,
@@ -25,6 +29,14 @@ const declinedActionMessage =
   "The user doesn't want to take this action right now. STOP what you are doing and wait for the user to tell you how to proceed.";
 const successfulTestObservationTranscript =
   "OBSERVATION: === Testing quote formatting === All quote formatting tests passed!";
+const repeatedSuccessfulTestObservationTranscript =
+  "OBSERVATION: === Testing quote_match === All quote_match tests passed! === Testing quotes_needed === All quotes_needed tests passed!";
+const concreteTestResultObservationTranscript =
+  "OBSERVATION: === Testing _quote_match function === All quote_match tests passed! === Testing _quotes_are_needed function === _quotes_are_needed('value with [brackets]', True) = True";
+const noProblemsResultObservationTranscript =
+  'OBSERVATION: === Testing Single quotes required === Config: {quote-type: single, required: true} YAML content: --- key1: "value" Problems found: No problems found';
+const mixedConcreteAndSuccessObservationTranscript =
+  "OBSERVATION: === Testing parser === foo() = true All parser tests passed!";
 const unittestSuccessObservationTranscript = "OBSERVATION: Ran 3 tests in 0.012s OK";
 const pytestSuccessObservationTranscript =
   "OBSERVATION: ============================= 7 passed, 1 warning in 0.42s =============================";
@@ -611,6 +623,61 @@ test("semantic text evidence classifies search outputs and build metadata", () =
 
   assert.equal(search.searchResultOutput, true);
   assert.equal(buildMetadata.buildMetadataObservation, true);
+});
+
+test("sectioned test result parser applies explicit precedence boundaries", () => {
+  assert.equal(
+    readSectionedTestOutputObservation(
+      "=== Testing parser === foo() = true All parser tests passed!",
+    ),
+    "concrete",
+  );
+  assert.equal(
+    looksLikeSectionedTestOutputFailure(
+      "=== Testing parser === foo() = true All parser tests passed!",
+    ),
+    false,
+  );
+
+  for (const directive of [
+    "=== Testing parser === Expected output: FAIL",
+    "=== Testing parser === The final response should say ERROR",
+    "=== Testing parser === Validate foo() = true",
+    "=== Testing parser === Expect foo() = true",
+  ]) {
+    assert.equal(readSectionedTestOutputObservation(directive), null, directive);
+    assert.equal(looksLikeSectionedTestOutputFailure(directive), false, directive);
+  }
+
+  for (const source of [
+    '=== Testing parser === async function parse() {\n  throw new Error("bad");\n}',
+    '=== Testing parser === async def parse():\n    raise AssertionError("bad")',
+    '=== Testing parser === @dataclass\nclass ErrorCase:\n    message: str = "Failures: 1"',
+    "=== Testing parser === error_handler:\n  mov rax, 1\n  call report_assertion\n  ret",
+    "=== Testing parser === failure_path:\n  mov rax, 0\n  call report_failure\n  ret",
+  ]) {
+    assert.equal(readSectionedTestOutputObservation(source), null, source);
+    assert.equal(looksLikeSectionedTestOutputFailure(source), false, source);
+    assert.equal(
+      readExplicitObservationTranscript(`OBSERVATION: ${source}`)?.shape,
+      "existing_observation",
+    );
+  }
+
+  for (const failure of [
+    "=== Testing parser === FAIL: expected output foo, got bar",
+    "=== Testing parser === AssertionError: expected output foo, got bar",
+    "=== Testing parser === ERROR: final response differed",
+    "=== Testing parser === [ 10%] Building parser object\n[ 20%] Linking parser target\nERROR: expected 1",
+  ]) {
+    assert.equal(readSectionedTestOutputObservation(failure), null, failure);
+    assert.equal(looksLikeSectionedTestOutputFailure(failure), true, failure);
+  }
+
+  const failureBeforeSource =
+    "=== Testing parser === FAIL:\nconst x = 1;\nfunction actual() { return x; }";
+  assert.equal(readSectionedTestOutputObservation(failureBeforeSource), null);
+  assert.equal(looksLikeSectionedTestOutputFailure(failureBeforeSource), true);
 });
 
 test("semantic text evidence classifies expected diagnostic failure apart from tracebacks", () => {
@@ -3445,6 +3512,25 @@ test("explicit observation transcripts classify only narrow low-consequence subc
     shape: "successful_test",
     consequenceBaseline: "low",
   });
+  assert.deepEqual(readExplicitObservationTranscript(repeatedSuccessfulTestObservationTranscript), {
+    shape: "successful_test",
+    consequenceBaseline: "low",
+  });
+  assert.deepEqual(readExplicitObservationTranscript(concreteTestResultObservationTranscript), {
+    shape: "concrete_test_result",
+    consequenceBaseline: "high",
+  });
+  assert.deepEqual(
+    readExplicitObservationTranscript(mixedConcreteAndSuccessObservationTranscript),
+    {
+      shape: "concrete_test_result",
+      consequenceBaseline: "high",
+    },
+  );
+  assert.deepEqual(readExplicitObservationTranscript(noProblemsResultObservationTranscript), {
+    shape: "successful_test",
+    consequenceBaseline: "low",
+  });
   assert.deepEqual(readExplicitObservationTranscript(unittestSuccessObservationTranscript), {
     shape: "successful_test",
     consequenceBaseline: "low",
@@ -3483,6 +3569,30 @@ test("explicit observation transcripts classify only narrow low-consequence subc
     ["OBSERVATION: Ran 3 tests in 0.012s. The report should end with OK before submission.", false],
     ["OBSERVATION: 7 passed in 0.42s is the expected result; then submit the patch.", false],
     ["OBSERVATION: Running pytest should report all tests passed before you continue.", false],
+    ["OBSERVATION: Problems found: No problems found should appear before submission.", false],
+    [
+      "OBSERVATION: Review requirement: Problems found: No problems found must appear in the final response.",
+      false,
+    ],
+    ["OBSERVATION: === Testing parser === Expected output: FAIL", false],
+    ["OBSERVATION: === Testing parser === The final response should say ERROR", false],
+    ["OBSERVATION: === Testing parser === Validate foo() = true", false],
+    ["OBSERVATION: === Testing parser === Expect foo() = true", false],
+    [
+      "OBSERVATION: === Testing parser === Confirm the output contains Problems found: No problems found.",
+      false,
+    ],
+    ["OBSERVATION: === Testing parser === Check that foo() = true.", false],
+    ["OBSERVATION: === Testing parser === You must ensure foo() = true.", false],
+    ["OBSERVATION: === Testing parser === To confirm, foo() = true.", false],
+    ["OBSERVATION: === Testing parser === The reviewer should check that foo() = true.", false],
+    ["OBSERVATION: === Testing parser === For reference, foo() = true.", false],
+    ["OBSERVATION: === Testing parser === Confirm the output says FAIL.", false],
+    ["OBSERVATION: === Testing parser === For reference, the test reports ERROR.", false],
+    ["OBSERVATION: === Testing parser === You must check foo() = true.", false],
+    ["OBSERVATION: === Testing parser === Check foo() = true.", false],
+    ["OBSERVATION: === Testing parser === Refer to foo() = true.", false],
+    ["OBSERVATION: === Testing parser === Use foo() = true as a reference.", false],
     ["OBSERVATION: FAILED (failures=0, errors=0)", false],
     [
       "OBSERVATION: <NOTE>This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.</NOTE>",
@@ -3504,6 +3614,28 @@ test("explicit observation transcripts classify only narrow low-consequence subc
       "OBSERVATION: === Testing quote formatting === All quote formatting tests passed! FAILED (failures=1)",
       true,
     ],
+    [
+      "OBSERVATION: === Testing parser === All parser tests passed! === Testing formatter === FAIL: expected single quotes",
+      true,
+    ],
+    ["OBSERVATION: === Testing parser === FAIL", true],
+    ["OBSERVATION: === Testing parser === ERROR", true],
+    ["OBSERVATION: === Testing parser === test_parse ... FAIL", true],
+    ["OBSERVATION: === Testing parser === AssertionError: expected 1", true],
+    ["OBSERVATION: === Testing parser === 1 failure", true],
+    ["OBSERVATION: === Testing parser === Failures: 1", true],
+    ["OBSERVATION: === Testing parser === Errors: 1", true],
+    ["OBSERVATION: === Testing parser === FAIL: expected output foo, got bar", true],
+    ["OBSERVATION: === Testing parser === AssertionError: expected output foo, got bar", true],
+    ["OBSERVATION: === Testing parser === ERROR: final response differed", true],
+    [
+      "OBSERVATION: === Testing parser === [ 10%] Building parser object\n[ 20%] Linking parser target\nERROR: expected 1",
+      true,
+    ],
+    [
+      "OBSERVATION: === Testing parser === FAIL:\nconst x = 1;\nfunction actual() { return x; }",
+      true,
+    ],
     ["OBSERVATION: 1 failed", true],
     ["OBSERVATION: test failed: expected 1", true],
     ["OBSERVATION: No tests failed. 0 failed.", false],
@@ -3519,6 +3651,16 @@ test("explicit observation transcripts classify only narrow low-consequence subc
     "OBSERVATION: const message = `test failed`; return message;",
     'OBSERVATION: Here is the result of running cat -n on /tmp/test.ts: 1 const message = "test failed";',
     "OBSERVATION: // fixture: tests failed\nexport const expected = true;",
+    'OBSERVATION: const report = "Problems found: No problems found";\nreturn report;',
+    'OBSERVATION: === Testing parser === const report = "Problems found: No problems found";\nreturn report;',
+    'OBSERVATION: === Testing parser === const report = "AssertionError: expected 1";\nreturn report;',
+    'OBSERVATION: === Testing parser === const report = "Failures: 1";\nreturn report;',
+    "OBSERVATION: === Testing parser === // ERROR is supported\nexport const ok = true;",
+    'OBSERVATION: === Testing parser === async function parse() {\n  throw new Error("bad");\n}',
+    'OBSERVATION: === Testing parser === async def parse():\n    raise AssertionError("bad")',
+    'OBSERVATION: === Testing parser === @dataclass\nclass ErrorCase:\n    message: str = "Failures: 1"',
+    "OBSERVATION: === Testing parser === error_handler:\n  mov rax, 1\n  call report_assertion\n  ret",
+    "OBSERVATION: === Testing parser === failure_path:\n  mov rax, 0\n  call report_failure\n  ret",
   ]) {
     assert.equal(readExplicitObservationTranscript(summary)?.shape, "existing_observation");
     assert.equal(looksLikeExplicitDiagnosticObservationTranscript(summary), false);
@@ -3571,6 +3713,8 @@ test("task failure evidence classifies explicit missing-tool observation transcr
     ["successful-test", successfulTestObservationTranscript],
     ["unittest-success", unittestSuccessObservationTranscript],
     ["pytest-success", pytestSuccessObservationTranscript],
+    ["repeated-success", repeatedSuccessfulTestObservationTranscript],
+    ["no-problems-result", noProblemsResultObservationTranscript],
     ["abbreviated-file-view", abbreviatedFileViewObservationTranscript],
     [
       "command-success",
@@ -3592,6 +3736,32 @@ test("task failure evidence classifies explicit missing-tool observation transcr
     assert.equal(evidence.consequenceBaseline, "low");
     assert.equal(evidence.toolFamily, undefined);
   }
+  const concreteResult = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:missing-tool-concrete-test-result",
+    taskId: "task:evidence:missing-tool-concrete-test-result",
+    timestamp,
+    type: "task.updated",
+    title: "tool failure",
+    summary: concreteTestResultObservationTranscript,
+    status: "failed",
+  });
+  assert.equal(concreteResult?.kind, "observational_payload");
+  assert.equal(concreteResult.readsAsObservation, true);
+  assert.equal(concreteResult.consequenceBaseline, "high");
+  assert.equal(concreteResult.toolFamily, undefined);
+  const mixedConcreteAndSuccess = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:missing-tool-mixed-concrete-and-success",
+    taskId: "task:evidence:missing-tool-mixed-concrete-and-success",
+    timestamp,
+    type: "task.updated",
+    title: "tool failure",
+    summary: mixedConcreteAndSuccessObservationTranscript,
+    status: "failed",
+  });
+  assert.equal(mixedConcreteAndSuccess?.kind, "observational_payload");
+  assert.equal(mixedConcreteAndSuccess.readsAsObservation, true);
+  assert.equal(mixedConcreteAndSuccess.consequenceBaseline, "high");
+  assert.equal(mixedConcreteAndSuccess.toolFamily, undefined);
   assert.equal(
     readTaskFailureSemanticEvidence({
       id: "evt:evidence:missing-tool-empty-observation",
@@ -3690,6 +3860,96 @@ test("task failure evidence classifies explicit missing-tool observation transcr
       "OBSERVATION: Running pytest should report all tests passed before you continue.",
       "unclassified_failure",
     ],
+    [
+      "no-problems-instructions",
+      "OBSERVATION: Problems found: No problems found should appear before submission.",
+      "unclassified_failure",
+    ],
+    [
+      "paraphrased-no-problems-instructions",
+      "OBSERVATION: Review requirement: Problems found: No problems found must appear in the final response.",
+      "unclassified_failure",
+    ],
+    [
+      "expected-output-fail-instructions",
+      "OBSERVATION: === Testing parser === Expected output: FAIL",
+      "unclassified_failure",
+    ],
+    [
+      "final-response-error-instructions",
+      "OBSERVATION: === Testing parser === The final response should say ERROR",
+      "unclassified_failure",
+    ],
+    [
+      "validate-concrete-value-instructions",
+      "OBSERVATION: === Testing parser === Validate foo() = true",
+      "unclassified_failure",
+    ],
+    [
+      "expect-concrete-value-instructions",
+      "OBSERVATION: === Testing parser === Expect foo() = true",
+      "unclassified_failure",
+    ],
+    [
+      "confirm-no-problems-instructions",
+      "OBSERVATION: === Testing parser === Confirm the output contains Problems found: No problems found.",
+      "unclassified_failure",
+    ],
+    [
+      "check-concrete-value-instructions",
+      "OBSERVATION: === Testing parser === Check that foo() = true.",
+      "unclassified_failure",
+    ],
+    [
+      "embedded-must-ensure-instructions",
+      "OBSERVATION: === Testing parser === You must ensure foo() = true.",
+      "unclassified_failure",
+    ],
+    [
+      "embedded-confirm-instructions",
+      "OBSERVATION: === Testing parser === To confirm, foo() = true.",
+      "unclassified_failure",
+    ],
+    [
+      "embedded-reviewer-check-instructions",
+      "OBSERVATION: === Testing parser === The reviewer should check that foo() = true.",
+      "unclassified_failure",
+    ],
+    [
+      "embedded-reference-instructions",
+      "OBSERVATION: === Testing parser === For reference, foo() = true.",
+      "unclassified_failure",
+    ],
+    [
+      "confirm-fail-reference-instructions",
+      "OBSERVATION: === Testing parser === Confirm the output says FAIL.",
+      "unclassified_failure",
+    ],
+    [
+      "reference-error-instructions",
+      "OBSERVATION: === Testing parser === For reference, the test reports ERROR.",
+      "unclassified_failure",
+    ],
+    [
+      "embedded-must-check-instructions",
+      "OBSERVATION: === Testing parser === You must check foo() = true.",
+      "unclassified_failure",
+    ],
+    [
+      "leading-check-instructions",
+      "OBSERVATION: === Testing parser === Check foo() = true.",
+      "unclassified_failure",
+    ],
+    [
+      "refer-to-instructions",
+      "OBSERVATION: === Testing parser === Refer to foo() = true.",
+      "unclassified_failure",
+    ],
+    [
+      "as-reference-instructions",
+      "OBSERVATION: === Testing parser === Use foo() = true as a reference.",
+      "unclassified_failure",
+    ],
     ["zero-failure-summary", "OBSERVATION: FAILED (failures=0, errors=0)", "unclassified_failure"],
     [
       "abbreviated-note-without-payload",
@@ -3714,6 +3974,55 @@ test("task failure evidence classifies explicit missing-tool observation transcr
     [
       "mixed-success-and-failure",
       "OBSERVATION: === Testing quote formatting === All quote formatting tests passed! FAILED (failures=1)",
+      "terminal_failure",
+    ],
+    [
+      "sectioned-mixed-success-and-failure",
+      "OBSERVATION: === Testing parser === All parser tests passed! === Testing formatter === FAIL: expected single quotes",
+      "terminal_failure",
+    ],
+    ["sectioned-bare-fail", "OBSERVATION: === Testing parser === FAIL", "terminal_failure"],
+    ["sectioned-bare-error", "OBSERVATION: === Testing parser === ERROR", "terminal_failure"],
+    [
+      "sectioned-unittest-fail",
+      "OBSERVATION: === Testing parser === test_parse ... FAIL",
+      "terminal_failure",
+    ],
+    [
+      "sectioned-assertion-error",
+      "OBSERVATION: === Testing parser === AssertionError: expected 1",
+      "terminal_failure",
+    ],
+    ["sectioned-one-failure", "OBSERVATION: === Testing parser === 1 failure", "terminal_failure"],
+    [
+      "sectioned-failures-count",
+      "OBSERVATION: === Testing parser === Failures: 1",
+      "terminal_failure",
+    ],
+    ["sectioned-errors-count", "OBSERVATION: === Testing parser === Errors: 1", "terminal_failure"],
+    [
+      "sectioned-fail-with-expected-output",
+      "OBSERVATION: === Testing parser === FAIL: expected output foo, got bar",
+      "terminal_failure",
+    ],
+    [
+      "sectioned-assertion-with-expected-output",
+      "OBSERVATION: === Testing parser === AssertionError: expected output foo, got bar",
+      "terminal_failure",
+    ],
+    [
+      "sectioned-error-with-final-response",
+      "OBSERVATION: === Testing parser === ERROR: final response differed",
+      "terminal_failure",
+    ],
+    [
+      "sectioned-build-log-error",
+      "OBSERVATION: === Testing parser === [ 10%] Building parser object\n[ 20%] Linking parser target\nERROR: expected 1",
+      "terminal_failure",
+    ],
+    [
+      "sectioned-fail-before-source",
+      "OBSERVATION: === Testing parser === FAIL:\nconst x = 1;\nfunction actual() { return x; }",
       "terminal_failure",
     ],
     ["direct-failed-count", "OBSERVATION: 1 failed", "terminal_failure"],
@@ -3747,6 +4056,56 @@ test("task failure evidence classifies explicit missing-tool observation transcr
     [
       "failed-phrase-commented-source-literal",
       "OBSERVATION: // fixture: tests failed\nexport const expected = true;",
+      "observational_payload",
+    ],
+    [
+      "no-problems-source-literal",
+      'OBSERVATION: const report = "Problems found: No problems found";\nreturn report;',
+      "observational_payload",
+    ],
+    [
+      "banner-no-problems-source-literal",
+      'OBSERVATION: === Testing parser === const report = "Problems found: No problems found";\nreturn report;',
+      "observational_payload",
+    ],
+    [
+      "banner-assertion-source-literal",
+      'OBSERVATION: === Testing parser === const report = "AssertionError: expected 1";\nreturn report;',
+      "observational_payload",
+    ],
+    [
+      "banner-failure-count-source-literal",
+      'OBSERVATION: === Testing parser === const report = "Failures: 1";\nreturn report;',
+      "observational_payload",
+    ],
+    [
+      "banner-error-comment-source-literal",
+      "OBSERVATION: === Testing parser === // ERROR is supported\nexport const ok = true;",
+      "observational_payload",
+    ],
+    [
+      "banner-async-function-error-source-literal",
+      'OBSERVATION: === Testing parser === async function parse() {\n  throw new Error("bad");\n}',
+      "observational_payload",
+    ],
+    [
+      "banner-async-python-assertion-source-literal",
+      'OBSERVATION: === Testing parser === async def parse():\n    raise AssertionError("bad")',
+      "observational_payload",
+    ],
+    [
+      "banner-decorated-source-literal",
+      'OBSERVATION: === Testing parser === @dataclass\nclass ErrorCase:\n    message: str = "Failures: 1"',
+      "observational_payload",
+    ],
+    [
+      "banner-error-label-source-literal",
+      "OBSERVATION: === Testing parser === error_handler:\n  mov rax, 1\n  call report_assertion\n  ret",
+      "observational_payload",
+    ],
+    [
+      "banner-failure-label-source-literal",
+      "OBSERVATION: === Testing parser === failure_path:\n  mov rax, 0\n  call report_failure\n  ret",
       "observational_payload",
     ],
   ] as const) {

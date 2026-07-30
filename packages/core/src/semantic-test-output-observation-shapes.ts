@@ -1,15 +1,30 @@
-export function looksLikeSuccessfulTestOutputObservation(value: string): boolean {
+import { readSectionedTestOutputObservation } from "./semantic-test-result-section-shapes.js";
+
+export type TestOutputObservation = {
+  consequenceBaseline: "low" | "high";
+};
+
+export function readTestOutputObservation(value: string): TestOutputObservation | null {
   const text = value.trim();
   if (looksLikeFailedTestOutputDiagnostic(text)) {
-    return false;
+    return null;
   }
 
-  return (
-    looksLikeBannerTestSuccess(text) ||
+  const sectioned = readSectionedTestOutputObservation(text);
+  if (sectioned !== null) {
+    return { consequenceBaseline: sectioned === "success" ? "low" : "high" };
+  }
+
+  return looksLikeBannerTestSuccess(text) ||
     looksLikeUnittestSuccess(text) ||
     looksLikePytestSuccess(text) ||
     looksLikeCommandTestSuccess(text)
-  );
+    ? { consequenceBaseline: "low" }
+    : null;
+}
+
+export function looksLikeSuccessfulTestOutputObservation(value: string): boolean {
+  return readTestOutputObservation(value)?.consequenceBaseline === "low";
 }
 
 export function looksLikeFailedTestOutputDiagnostic(value: string): boolean {
@@ -24,7 +39,7 @@ export function looksLikeFailedTestOutputDiagnostic(value: string): boolean {
 }
 
 function looksLikeBannerTestSuccess(text: string): boolean {
-  return /^\s*===\s*Testing\b[^=\r\n]{1,160}===\s*All\s+[a-z0-9_. -]{1,160}\s+tests?\s+passed!?\s*$/i.test(
+  return /^\s*===\s*Testing\b[^=\r\n]{1,160}===\s*All\s+[a-z0-9_. _-]{1,160}\s+tests?\s+passed!?\s*$/i.test(
     text,
   );
 }

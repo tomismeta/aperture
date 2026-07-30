@@ -4,24 +4,25 @@ import {
   TAGGED_FILE_OBSERVATION_PHRASES,
 } from "./semantic-patterns.js";
 import { looksLikeAbbreviatedFileViewObservation } from "./semantic-abbreviated-file-view-observation-shapes.js";
-import { hasStrongRuntimeDiagnosticEvidence } from "./semantic-diagnostic-shapes.js";
+import { looksLikeObservationTranscriptDiagnostic } from "./semantic-observation-transcript-diagnostic-shapes.js";
 import {
   looksLikeBuildOrLogObservation,
   looksLikePlainReadObservation,
   looksLikeStrongRawSourceObservation,
 } from "./semantic-observation-shapes.js";
+import { looksLikeSectionedSourceObservation } from "./semantic-sectioned-source-observation-shapes.js";
 import { looksLikeSearchResultObservation } from "./semantic-search-observation-shapes.js";
-import {
-  looksLikeFailedTestOutputDiagnostic,
-  looksLikeSuccessfulTestOutputObservation,
-} from "./semantic-test-output-observation-shapes.js";
+import { readTestOutputObservation } from "./semantic-test-output-observation-shapes.js";
+import { looksLikeSectionedTestOutputFailure } from "./semantic-test-result-section-shapes.js";
 import { containsAnySemanticPhrase, normalizeSemanticText } from "./semantic-text.js";
-import { looksLikeTerminalFailureEvidence } from "./semantic-terminal-evidence.js";
 import { hasToolUseRejectionSignal } from "./semantic-tool-use-rejection-shapes.js";
-import { looksLikeToolOutputDiagnosticPayload } from "./semantic-tool-output-diagnostic-shapes.js";
 
 export type ExplicitObservationTranscript = {
-  shape: "existing_observation" | "successful_test" | "abbreviated_file_view";
+  shape:
+    | "existing_observation"
+    | "successful_test"
+    | "concrete_test_result"
+    | "abbreviated_file_view";
   consequenceBaseline: "low" | "high";
 };
 
@@ -52,15 +53,26 @@ export function looksLikeExplicitDiagnosticObservationTranscript(value: string):
 
 function readObservationTranscriptBody(body: string): ExplicitObservationTranscript | null {
   const text = normalizeSemanticText(body);
-  if (looksLikeSuccessfulTestOutputObservation(body)) {
-    return { shape: "successful_test", consequenceBaseline: "low" };
+  const testOutput = readTestOutputObservation(body);
+  if (testOutput !== null) {
+    if (looksLikeObservationTranscriptDiagnostic(body)) {
+      return null;
+    }
+    return {
+      shape: testOutput.consequenceBaseline === "low" ? "successful_test" : "concrete_test_result",
+      consequenceBaseline: testOutput.consequenceBaseline,
+    };
   }
   if (looksLikeAbbreviatedFileViewObservation(body)) {
     return { shape: "abbreviated_file_view", consequenceBaseline: "low" };
   }
+  if (looksLikeSectionedTestOutputFailure(body)) {
+    return null;
+  }
   if (
     containsAnySemanticPhrase(text, OBSERVATIONAL_READBACK_PHRASES) ||
     looksLikeTaggedFileObservationTranscript(text) ||
+    looksLikeSectionedSourceObservation(body) ||
     looksLikeStrongRawSourceObservation(body) ||
     looksLikePlainReadObservation(body) ||
     looksLikeBuildOrLogObservation(body) ||
@@ -83,14 +95,5 @@ function looksLikeTaggedFileObservationTranscript(text: string): boolean {
   return (
     containsAnySemanticPhrase(text, TAGGED_FILE_OBSERVATION_PHRASES) &&
     PATH_LIKE_TOKEN_PATTERN.test(text)
-  );
-}
-
-function looksLikeObservationTranscriptDiagnostic(text: string): boolean {
-  return (
-    looksLikeTerminalFailureEvidence(normalizeSemanticText(text)) ||
-    hasStrongRuntimeDiagnosticEvidence(text) ||
-    looksLikeFailedTestOutputDiagnostic(text) ||
-    looksLikeToolOutputDiagnosticPayload(text)
   );
 }

@@ -223,6 +223,16 @@ export function readTaskFailureSemanticEvidence(
     };
   }
 
+  if (signals.rawCommandTextObservation) {
+    return {
+      kind: "observational_payload",
+      ...(toolFamily !== undefined ? { toolFamily } : {}),
+      readsAsObservation: true,
+      consequenceBaseline: signals.rawCommandTextObservation.consequenceBaseline,
+      text,
+    };
+  }
+
   if (signals.rawReadSourceObservation) {
     return {
       kind: "observational_payload",

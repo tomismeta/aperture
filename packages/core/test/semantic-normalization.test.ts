@@ -637,6 +637,44 @@ test("truncated structured line-numbered source intro stays observational at hig
   assert.equal(interpretation.consequence, "high");
 });
 
+test("arrow-numbered read source stays observational at high consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:arrow-numbered-read-source",
+    type: "task.updated",
+    taskId: "task:arrow-numbered-read-source",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary:
+      "1\u2192import os 2\u2192from functools import lru_cache 3\u2192from typing import Optional 4\u2192 5\u2192import torch 6\u2192from torch.utils.cpp_extension import load_inline 7\u2192import time 8\u2192 9\u2192 10\u2192@lru_cache(maxsize=1) 11\u2192def _load_hip_extension(): 12\u2192 source_path ...",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "high");
+});
+
+test("arrow-numbered read documents stay observational at high consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:arrow-numbered-read-document",
+    type: "task.updated",
+    taskId: "task:arrow-numbered-read-document",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary:
+      "1\u2192# Project Guide 2\u2192## Build 3\u2192- Configure the project 4\u2192- Run tests",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "high");
+});
+
 test("failed read markdown documents stay status updates", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:read-markdown-document",

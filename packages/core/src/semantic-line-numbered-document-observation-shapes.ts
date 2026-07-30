@@ -1,5 +1,33 @@
+import {
+  containsArrowNumberedDocumentMarker,
+  hasStrictlyIncreasingLineNumbers,
+  readArrowNumberedDocumentSpans,
+  readLineNumberedDocumentSpans,
+  type LineNumberedDocumentSpan,
+} from "./semantic-line-numbered-document-span-shapes.js";
+
 export function looksLikeLineNumberedMarkdownDocumentObservation(text: string): boolean {
-  const spans = readLineNumberedDocumentSpans(text);
+  const normalized = stripObservationStatusPrefix(text);
+  return containsArrowNumberedDocumentMarker(normalized)
+    ? looksLikeArrowNumberedMarkdownDocumentObservation(normalized)
+    : looksLikeLineNumberedMarkdownDocumentSpans(
+        readLineNumberedDocumentSpans(normalized),
+        normalized,
+      );
+}
+
+export function looksLikeArrowNumberedMarkdownDocumentObservation(text: string): boolean {
+  const normalized = stripObservationStatusPrefix(text);
+  return looksLikeLineNumberedMarkdownDocumentSpans(
+    readArrowNumberedDocumentSpans(normalized),
+    normalized,
+  );
+}
+
+function looksLikeLineNumberedMarkdownDocumentSpans(
+  spans: LineNumberedDocumentSpan[],
+  text: string,
+): boolean {
   if (spans.length < 4 || !hasStrictlyIncreasingLineNumbers(spans)) {
     return false;
   }
@@ -7,23 +35,6 @@ export function looksLikeLineNumberedMarkdownDocumentObservation(text: string): 
   return looksLikeStructuredMarkdownDocument(spans.map((span) => span.body).join("\n"), {
     clipped: hasVisibleTruncationBoundary(text),
   });
-}
-
-type LineNumberedDocumentSpan = { line: number; body: string };
-
-function readLineNumberedDocumentSpans(text: string): LineNumberedDocumentSpan[] {
-  const spans: LineNumberedDocumentSpan[] = [];
-  for (const rawLine of text.split(/\r?\n/)) {
-    const match = /^\s*(\d{1,6})(?:[ \t]+|:\s+)(.*)$/.exec(rawLine);
-    if (match) {
-      spans.push({ line: Number.parseInt(match[1]!, 10), body: match[2]!.trimEnd() });
-    }
-  }
-  return spans;
-}
-
-function hasStrictlyIncreasingLineNumbers(spans: LineNumberedDocumentSpan[]): boolean {
-  return spans.every((span, index) => index === 0 || span.line > spans[index - 1]!.line);
 }
 
 function looksLikeStructuredMarkdownDocument(text: string, options: { clipped: boolean }): boolean {
@@ -56,4 +67,8 @@ function looksLikeMarkdownTable(text: string): boolean {
 
 function isMarkdownTableRow(line: string): boolean {
   return /^\|.+\|\s*$/.test(line);
+}
+
+function stripObservationStatusPrefix(value: string): string {
+  return value.trim().replace(/^(?:bash|edit|read|search|tool)\s+failure\s+/, "");
 }

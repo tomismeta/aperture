@@ -1,4 +1,5 @@
 import {
+  looksLikeArrowNumberedMarkdownDocumentObservation,
   looksLikeMarkdownDocumentObservation,
   looksLikeStructuredMarkdownDocumentObservation,
 } from "./semantic-document-observation-shapes.js";
@@ -27,6 +28,7 @@ export function looksLikePlainReadObservation(value: string): boolean {
     looksLikeStrongRawSourceObservation(value) ||
     looksLikeBuildOrLogObservation(value) ||
     looksLikeReadTruncationProtocolObservation(value) ||
+    looksLikeArrowNumberedMarkdownDocumentObservation(value) ||
     looksLikeMarkdownDocumentObservation(value)
   );
 }

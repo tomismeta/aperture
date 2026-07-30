@@ -3872,6 +3872,109 @@ test("observational status-conflict evidence includes structural read documents 
   );
   assert.deepEqual(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:read-arrow-numbered-python-source",
+      taskId: "task:evidence:read-arrow-numbered-python-source",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "1\u2192import os 2\u2192from functools import lru_cache 3\u2192from typing import Optional 4\u2192 5\u2192import torch 6\u2192from torch.utils.cpp_extension import load_inline 7\u2192import time 8\u2192 9\u2192 10\u2192@lru_cache(maxsize=1) 11\u2192def _load_hip_extension(): 12\u2192 source_path ...",
+      status: "failed",
+      toolFamily: "read",
+    })?.consequenceBaseline,
+    "high",
+    "arrow-numbered flattened source readbacks should stay high-consequence observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:read-arrow-numbered-markdown-document",
+      taskId: "task:evidence:read-arrow-numbered-markdown-document",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "1\u2192# Project Guide 2\u2192## Build 3\u2192- Configure the project 4\u2192- Run the build",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "observational_payload",
+    "arrow-numbered markdown readbacks should reuse document structure rules",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:read-arrow-numbered-amd-manual-fragment",
+      taskId: "task:evidence:read-arrow-numbered-amd-manual-fragment",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "2783\u2192## 7.6. Dual Issue VALU 2784\u2192 2785\u2192The VOPD instruction encoding allows a single shader instruction to encode two separate VALU operations that are executed in parallel. The two operations must be independent of each other. This ins...",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "unclassified_failure",
+    "single-heading arrow-numbered manual fragments do not weaken document evidence",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:read-legacy-numbered-markdown-document",
+      taskId: "task:evidence:read-legacy-numbered-markdown-document",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary: "1 # Project Guide\n2 ## Build\n3 - Configure the project\n4 - Run tests",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "unclassified_failure",
+    "raw reads only accept arrow-numbered document structure in this tranche",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-arrow-numbered-source",
+      taskId: "task:evidence:missing-tool-arrow-numbered-source",
+      timestamp,
+      type: "task.updated",
+      title: "observation",
+      summary:
+        "1\u2192import os 2\u2192from functools import lru_cache 3\u2192from typing import Optional 4\u2192import torch",
+      status: "failed",
+    })?.kind,
+    "unclassified_failure",
+    "missing-tool-family arrow source text is not enough to create a read observation",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-nonzero-arrow-source",
+      taskId: "task:evidence:structured-nonzero-arrow-source",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"exit_code":1,"wall_time":"0.0510 seconds","output":"1\u2192import os 2\u2192from functools import lru_cache 3\u2192from typing import Optional"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "nonzero structured command exits retain terminal precedence over arrow source observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-mixed-numbered-document",
+      taskId: "task:evidence:structured-mixed-numbered-document",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"1 # Project Guide\\n2 ## Build\\n3 - Configure\\n4 - Run tests\\n5\u2192- Ship"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "structured document observations do not mix legacy and arrow numbering modes",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:read-build-log",
       taskId: "task:evidence:read-build-log",
       timestamp,
@@ -4620,6 +4723,31 @@ test("observational status-conflict evidence includes corpus-derived event shape
     ["two-span-line-numbered-source", "1 #!/bin/bash\n2 set -euo pipefail"],
     ["nonmonotone-line-numbered-source", '1 #!/bin/bash\n3 set -euo pipefail\n2 ROOT_DIR="$PWD"'],
     ["numbered-assignment-prose", "1 task = pending 2 status = ready 3 return to menu;"],
+    [
+      "arrow-numbered-prose",
+      "1\u2192type the command into the terminal 2\u2192from the report, copy settings 3\u2192return later",
+    ],
+    [
+      "mixed-arrow-space-numbered-source",
+      "1\u2192import os 2 from pathlib import Path 3\u2192import sys 4\u2192import re",
+    ],
+    [
+      "mixed-space-arrow-numbered-source",
+      "1 import os 2 import sys 3\u2192import re 4 import pathlib",
+    ],
+    [
+      "mixed-arrow-space-numbered-document",
+      "1\u2192# Project Guide 2 Legacy row 3\u2192## Build 4\u2192- Configure 5\u2192- Run tests",
+    ],
+    [
+      "nonmonotone-arrow-numbered-source",
+      "1\u2192import os 3\u2192from pathlib import Path 2\u2192import sys",
+    ],
+    ["blank-arrow-numbered-source", "1\u2192 2\u2192 3\u2192import os 4\u2192"],
+    [
+      "arrow-numbered-heading-prose",
+      "1\u2192# Notes 2\u2192## Build 3\u2192plain paragraph 4\u2192another paragraph",
+    ],
     ["single-keyword-numbered-prose", "1 int this is prose"],
     [
       "three-line-numbered-return-prose",

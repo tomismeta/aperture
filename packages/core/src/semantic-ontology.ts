@@ -2,7 +2,7 @@ import type { ApertureEvent } from "./events.js";
 import type { SourceEvent } from "./source-event.js";
 import { interpretSourceEvent } from "./semantic-interpreter.js";
 import { readRoutineObservationalStatusConflictEvidence } from "./semantic-evidence.js";
-import type { ObservationalStatusConflictEvidence } from "./judgment-input-types.js";
+import type { ObservationalStatusConflictEvidence } from "./observational-status-conflict.js";
 import type { SemanticInterpretation, SemanticRelationHint } from "./semantic-types.js";
 import type {
   AttentionOntologyActivity,

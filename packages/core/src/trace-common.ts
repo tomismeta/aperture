@@ -7,9 +7,13 @@ import type {
   SemanticRelationHint,
 } from "./semantic-types.js";
 import type { ApertureEvent } from "./events.js";
-import type { ObservationalStatusConflictEvidence } from "./judgment-input-types.js";
+import type { ObservationalStatusConflictEvidence } from "./observational-status-conflict.js";
 import type { AttentionOntologyDiagnostic } from "./semantic-ontology.js";
 import type { SourceEvent } from "./source-event.js";
+export type {
+  ObservationalStatusConflictEvidence,
+  ObservationalStatusConflictKind,
+} from "./observational-status-conflict.js";
 
 export type TraceDecisionKind =
   | "auto_approve"

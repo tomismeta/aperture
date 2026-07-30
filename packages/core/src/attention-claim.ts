@@ -4,11 +4,9 @@ import type {
   AttentionOntologyAuthority,
   AttentionOntologyDiagnostic,
 } from "./semantic-ontology-types.js";
+import type { ObservationalStatusConflictEvidence } from "./observational-status-conflict.js";
 import type { SemanticConfidence, SemanticRelationHint } from "./semantic-types.js";
-import type {
-  ObservationalStatusConflictEvidence,
-  SemanticEvidenceStrength,
-} from "./judgment-input-types.js";
+import type { SemanticEvidenceStrength } from "./judgment-input-types.js";
 
 export type AttentionClaimMode = "status" | "approval" | "choice" | "form";
 

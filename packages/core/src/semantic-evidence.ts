@@ -20,7 +20,7 @@ import type { SemanticInterpretation } from "./semantic-types.js";
 import type {
   ObservationalStatusConflictEvidence,
   ObservationalStatusConflictKind,
-} from "./judgment-input-types.js";
+} from "./observational-status-conflict.js";
 import { containsAnySemanticPhrase, normalizeSemanticText } from "./semantic-text.js";
 import { readTaskFailureSemanticSignals } from "./semantic-task-failure-signals.js";
 import {

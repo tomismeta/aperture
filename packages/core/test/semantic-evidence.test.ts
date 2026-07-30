@@ -2876,6 +2876,51 @@ test("task failure evidence classifies structured tool output without treating i
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-path-qualified-readback",
+      taskId: "task:evidence:truncated-path-qualified-readback",
+      timestamp,
+      type: "task.updated",
+      title: "exec_command failure",
+      summary:
+        '{"wall_time":"0.0513 seconds","output":"/repo/src/driver.c:584:\\tWREG32(SOC15_REG_OFFSET(GC, 0, regSQ_CMD), sq_cmd);\\n/repo/src/driver...',
+      status: "failed",
+      toolFamily: "exec_command",
+    })?.consequenceBaseline,
+    "medium",
+    "clipped command path-qualified readbacks are medium-consequence observations, not source authority",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-path-qualified-diagnostic-readback",
+      taskId: "task:evidence:truncated-path-qualified-diagnostic-readback",
+      timestamp,
+      type: "task.updated",
+      title: "exec_command failure",
+      summary:
+        '{"wall_time":"0.0513 seconds","output":"/repo/src/app.ts:33: error TS2345: Argument of type string is not assignable...',
+      status: "failed",
+      toolFamily: "exec_command",
+    })?.kind,
+    "terminal_failure",
+    "clipped path-qualified diagnostics keep terminal precedence",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-truncated-path-qualified-readback",
+      taskId: "task:evidence:web-truncated-path-qualified-readback",
+      timestamp,
+      type: "task.updated",
+      title: "web failure",
+      summary:
+        '{"wall_time":"0.0513 seconds","output":"/repo/docs/CHANGELOG.md:33:* ordinary readback content...',
+      status: "failed",
+      toolFamily: "web",
+    })?.kind,
+    "unclassified_failure",
+    "recovered command readback semantics do not leak into unsupported tool output",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:truncated-wall-exit-output-source",
       taskId: "task:evidence:truncated-wall-exit-output-source",
       timestamp,

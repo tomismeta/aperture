@@ -79,6 +79,10 @@ const budgets = [
   { file: "packages/core/src/semantic-observation-shapes.ts", maxLines: 150 },
   { file: "packages/core/src/semantic-read-observation-shapes.ts", maxLines: 50 },
   {
+    file: "packages/core/src/semantic-recovered-command-output-observation-shapes.ts",
+    maxLines: 75,
+  },
+  {
     file: "packages/core/src/semantic-recovered-command-source-observation-shapes.ts",
     maxLines: 75,
   },

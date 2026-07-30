@@ -27,8 +27,8 @@ import {
   looksLikeExplicitDiagnosticReferenceObservationTranscript,
 } from "./semantic-observation-transcript-reference-shapes.js";
 import { looksLikeReadTruncationProtocolObservation } from "./semantic-read-observation-shapes.js";
+import { readRecoveredCommandOutputObservation } from "./semantic-recovered-command-output-observation-shapes.js";
 import { looksLikeExplicitReadFailureDiagnostic } from "./semantic-read-failure-diagnostic-shapes.js";
-import { looksLikeRecoveredCommandSourceObservation } from "./semantic-recovered-command-source-observation-shapes.js";
 import type { StructuredToolOutputObservation } from "./semantic-structured-output.js";
 import {
   readTaskFailureStructuredOutputEnvelope,
@@ -83,19 +83,19 @@ export function readTaskFailureSemanticSignals(input: {
     structuredOutputEnvelope.kind === "valid" || structuredOutputEnvelope.kind === "recovered"
       ? structuredOutputEnvelope.output
       : null;
-  const recoveredCommandSourceObservation =
-    commandExecutionToolFamily &&
-    structuredOutputEnvelope.kind === "recovered" &&
-    diagnosticStructuredToolOutput !== null &&
-    looksLikeRecoveredCommandSourceObservation(diagnosticStructuredToolOutput.output);
+  const recoveredCommandOutputObservation = readRecoveredCommandOutputObservation({
+    commandExecutionToolFamily,
+    recoveredEnvelope: structuredOutputEnvelope.kind === "recovered",
+    output: diagnosticStructuredToolOutput?.output,
+  });
   const structuredOutputSourceObservation =
     diagnosticStructuredToolOutput !== null &&
     (looksLikeStrongRawSourceObservation(diagnosticStructuredToolOutput.output) ||
-      recoveredCommandSourceObservation);
+      recoveredCommandOutputObservation.source);
   const structuredOutputObservation =
     diagnosticStructuredToolOutput !== null &&
     (looksLikeStructuredToolOutputObservation(diagnosticStructuredToolOutput.output) ||
-      recoveredCommandSourceObservation ||
+      recoveredCommandOutputObservation.any ||
       (structuredOutputEnvelope.kind === "recovered" &&
         looksLikeRecoveredListingObservation(diagnosticStructuredToolOutput.output)));
   const rawReadSourceObservation =

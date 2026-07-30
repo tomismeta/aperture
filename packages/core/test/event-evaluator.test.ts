@@ -336,6 +336,83 @@ test("observational status-conflict routing preserves high consequence", () => {
   assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
 });
 
+test("valid source function prefixes preserve observational routing", () => {
+  for (const [id, summary] of [
+    ["javascript-empty-function-body", "function run() {}"],
+    ["javascript-function-body", "function run() { return true; }"],
+    ["javascript-function-object-body", "function run() { return { ok: true }; }"],
+    ["javascript-function-quoted-brace", 'function run() { return "}"; }'],
+    ["typescript-export-async-function", "export async function run(): Promise<void> {"],
+    ["javascript-export-default-function", "export default function run() {}"],
+  ] as const) {
+    const result = evaluation.evaluate(
+      normalizeSourceEvent({
+        id: `evt:valid-source-function-${id}`,
+        taskId: `task:valid-source-function-${id}`,
+        timestamp: "2026-03-08T12:02:29.600Z",
+        type: "task.updated",
+        title: "read failure",
+        summary,
+        status: "failed",
+        toolFamily: "read",
+      }),
+    );
+
+    assert.equal(result.kind, "candidate");
+    if (result.kind !== "candidate") {
+      return;
+    }
+
+    assert.equal(result.candidate.priority, "high");
+    assert.equal(result.candidate.tone, "critical");
+    assert.equal(result.candidate.consequence, "high");
+    assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+    assert.equal(result.candidate.activityClass, "status_update");
+    assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  }
+});
+
+test("source-like prose prefixes keep failed-status routing", () => {
+  for (const [id, summary] of [
+    ["class-prefix", "class schedule needs review before Friday"],
+    ["type-prefix", "type the command into the terminal"],
+    ["import-prefix", "import the records from the old system"],
+    ["title-case-class-prefix", "Class Schedule"],
+    ["title-case-interface-prefix", "Interface Status"],
+    ["function-prose-parameters", "function run(this through legal first)"],
+    ["function-prose-suffix", "function run() this through legal first"],
+    ["function-review-suffix", "function review() before Friday"],
+    ["python-def-prose-suffix", "def plan() this through legal first"],
+    ["python-async-def-prose-suffix", "async def review() before Friday"],
+    ["const-prose-assignment", "const plan = review this before Friday"],
+  ] as const) {
+    const result = evaluation.evaluate(
+      normalizeSourceEvent({
+        id: `evt:source-like-prose-${id}`,
+        taskId: `task:source-like-prose-${id}`,
+        timestamp: "2026-03-08T12:02:29.625Z",
+        type: "task.updated",
+        title: "read failure",
+        summary,
+        status: "failed",
+        toolFamily: "read",
+      }),
+    );
+
+    assert.equal(result.kind, "candidate");
+    if (result.kind !== "candidate") {
+      return;
+    }
+
+    assert.equal(result.candidate.priority, "high");
+    assert.equal(result.candidate.tone, "critical");
+    assert.equal(result.candidate.consequence, "high");
+    assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+    assert.equal(result.candidate.activityClass, "tool_failure");
+    assert.notEqual(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  }
+});
+
 test("missing-tool observation transcripts route through observational status conflict", () => {
   const event = normalizeSourceEvent({
     id: "evt:missing-tool-observation-conflict",

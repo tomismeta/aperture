@@ -9,6 +9,7 @@ import {
   looksLikeLineNumberedSourceLicenseHeader,
   looksLikeSourceLicenseCommentHeader,
 } from "./semantic-source-header-observation-shapes.js";
+import { looksLikeStandaloneSourcePrefix } from "./semantic-source-statement-shapes.js";
 
 export function looksLikeStrongRawSourceObservation(value: string): boolean {
   const text = stripObservationStatusPrefix(value);
@@ -38,8 +39,22 @@ function stripObservationStatusPrefix(value: string): string {
 }
 
 function looksLikeRawSourcePrefix(text: string): boolean {
-  return /^\s*(?:#!\/|diff\s+--git\b|---\s+\S|@@\s+|#ifndef\b|#pragma\s+once\b|cmake_minimum_required\s*\(|import\b|from\b|class\b|def\b|function\b|export\b|const\b|let\b|var\b|interface\b|type\b|struct\b|enum\b|void\b|static\b)/i.test(
-    text,
+  const firstLine = readFirstContentLine(text);
+  return looksLikeStructuralSourcePrefix(firstLine) || looksLikeStandaloneSourcePrefix(firstLine);
+}
+
+function readFirstContentLine(text: string): string {
+  return (
+    text
+      .split(/\r?\n/)
+      .find((line) => line.trim().length > 0)
+      ?.trim() ?? ""
+  );
+}
+
+function looksLikeStructuralSourcePrefix(line: string): boolean {
+  return /^(?:#!\/|diff\s+--git\b|---\s+\S|@@\s+|#ifndef\b|#pragma\s+once\b|cmake_minimum_required\s*\()/i.test(
+    line,
   );
 }
 

@@ -2758,6 +2758,72 @@ test("task failure evidence preserves current observational classes", () => {
     })?.kind,
     "observational_payload",
   );
+  for (const [id, summary] of [
+    ["prose-class-prefix", "class schedule needs review before Friday"],
+    ["prose-type-prefix", "type the command into the terminal"],
+    ["prose-import-prefix", "import the records from the old system"],
+    ["title-case-class-prefix", "Class Schedule"],
+    ["title-case-interface-prefix", "Interface Status"],
+    ["title-case-struct-prefix", "Struct Review"],
+    ["title-case-enum-prefix", "Enum Options"],
+    ["function-prose-parameters", "function run(this through legal first)"],
+    ["function-prose-suffix", "function run() this through legal first"],
+    ["function-review-suffix", "function review() before Friday"],
+    ["python-def-prose-suffix", "def plan() this through legal first"],
+    ["python-async-def-prose-suffix", "async def review() before Friday"],
+    ["const-prose-assignment", "const plan = review this before Friday"],
+  ] as const) {
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:raw-read-${id}`,
+        taskId: `task:evidence:raw-read-${id}`,
+        timestamp,
+        type: "task.updated",
+        title: "read failure",
+        summary,
+        status: "failed",
+        toolFamily: "read",
+      })?.kind,
+      "unclassified_failure",
+      `${id} should not become source observation evidence from a leading keyword alone`,
+    );
+  }
+  for (const [id, summary] of [
+    ["python-import", "import os"],
+    ["python-import-alias-list", "import os, sys as system"],
+    ["python-from-import", "from pathlib import Path"],
+    ["python-relative-from-import", "from . import sibling"],
+    ["python-parent-from-import", "from ..pkg import value"],
+    ["javascript-default-named-import", 'import React, { useState } from "react";'],
+    ["typescript-type-import", 'import type { Config } from "./config";'],
+    ["typescript-function", "function run(): void {"],
+    ["javascript-empty-function-body", "function run() {}"],
+    ["javascript-function-body", "function run() { return true; }"],
+    ["javascript-function-object-body", "function run() { return { ok: true }; }"],
+    ["javascript-function-quoted-brace", 'function run() { return "}"; }'],
+    ["typescript-export-async-function", "export async function run(): Promise<void> {"],
+    ["javascript-export-default-function", "export default function run() {}"],
+    ["typescript-type", "type Config = { enabled: boolean }"],
+    ["typescript-class", "class Runner { constructor() {} }"],
+    ["python-def", "def plan() -> None:"],
+    ["python-async-def", "async def review():"],
+    ["c-like-function", "void GpuAgent::PcSamplingThread(pcs_data_t& pcs_data) {"],
+  ] as const) {
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:raw-read-${id}`,
+        taskId: `task:evidence:raw-read-${id}`,
+        timestamp,
+        type: "task.updated",
+        title: "read failure",
+        summary,
+        status: "failed",
+        toolFamily: "read",
+      })?.kind,
+      "observational_payload",
+      `${id} should keep coherent single-line source syntax observational`,
+    );
+  }
   assert.equal(
     readTaskFailureSemanticEvidence({
       id: "evt:evidence:raw-read-source-quoted-terminal-literal",

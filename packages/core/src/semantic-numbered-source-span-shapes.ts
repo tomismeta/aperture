@@ -4,6 +4,7 @@ import {
   readClippedCLikeLine,
   type CLikeLine,
 } from "./semantic-c-like-source-line-shapes.js";
+import { looksLikeSourceStatement } from "./semantic-source-statement-shapes.js";
 
 export type NumberedSourceSpan = { line: number; body: string };
 
@@ -118,38 +119,4 @@ function hasClippedNumberedCLikeRun(spans: NumberedSourceSpan[]): boolean {
       categories.has("declaration") &&
       strongAnchors >= 1)
   );
-}
-
-function looksLikeSourceStatement(body: string): boolean {
-  if (/^(?:[a-z0-9-]+\.)+[a-z]{2,}(?:$|[/:]\S*)/i.test(body)) {
-    return false;
-  }
-
-  return [
-    /^#!\/(?:usr\/bin\/env\s+)?[a-z0-9_.+-]+\b/i,
-    /^set\s+-euo\s+pipefail\b/,
-    /^(?:export\s+|readonly\s+|local\s+)?[a-z_$][a-z0-9_$]*=(?=\S)(?=.*(?:["'`$(){}]|\S+$)).+$/i,
-    /^[a-z_$][a-z0-9_$]*\s*\(\)\s*\{$/i,
-    /^[a-z_$][a-z0-9_:]*\s*\([^)]*\)\s*;?$/i,
-    /^(?:if|for|while|switch)\s*\(/,
-    /^[{}]\s*;?$/,
-    /^(?:case\s+.+|default):\s*$/i,
-    /^(?:break|continue)(?:\s+[a-z_$][a-z0-9_$]*)?\s*;?$/i,
-    /^return\s+\([^)]{1,100}\)\s*\S.*;?$/i,
-    /^return(?:\s+(?:[a-z_$][a-z0-9_$.]*(?:\([^)]*\))?|-?\d+(?:\.\d+)?|true|false|null|nullptr|none))?\s*;?$/i,
-    /^(?=.*(?:\b[a-z_$][a-z0-9_$:<>]*_t\b|::|[<&*]|\b(?:static|inline|extern|const|virtual|void|int|char|bool|auto|struct|enum)\b))(?:[a-z_$][a-z0-9_$:<>*&,]*\s+)+[*&\s]*[~a-z_$][a-z0-9_$:<>]*\s*\([^)]*\)\s*(?:\{|;|const\b|override\b)/i,
-    /^(?:(?:const|static|inline|extern|volatile|mutable|constexpr)\s+)*(?:struct|enum|class)\s+[a-z_$][a-z0-9_$:<>]*\s+[*&\s]*[a-z_$][a-z0-9_$]*\s*(?:[=;,{]|\[[^\]]+])/i,
-    /^(?:(?:static|inline|extern|const)\s+)*(?:struct|enum|typedef|void|int|char|bool|[a-z_$][a-z0-9_$:<>]*_t)\s+[*&\s]*[a-z_$][a-z0-9_$]*\s*(?:\([^)]*\)|[=;,[{])/i,
-    /^(?:const|let|var)\s+[a-z_$][a-z0-9_$]*\s*=/i,
-    /^function\s+[a-z_$][a-z0-9_$]*\s*\(/i,
-    /^export\s+(?:const|let|var|function|class|interface|type)\b/i,
-    /^(?:class|interface)\s+[a-z_$][a-z0-9_$]*(?:\s+(?:extends|implements)\b|\s*\{|$)/i,
-    /^type\s+[a-z_$][a-z0-9_$]*\s*=/i,
-    /^[a-z_$][a-z0-9_$]*\s*(?:=|:=)\s*\S.*;\s*$/i,
-    /^[a-z_$][a-z0-9_$:<>]*(?:->|::)[a-z_$][a-z0-9_$:]*/i,
-    /^(?:this|[a-z_$][a-z0-9_$]*)\.[a-z_$][a-z0-9_$]*(?:\s*\(|\s*(?:=|\+=|-=|\*=|\/=))/i,
-    /^#include\s*(?:<[^>]+>|"[^"]+")/,
-    /^from\s+[a-z_$][a-z0-9_$.]*\s+import\s+(?:\*|[a-z_$][a-z0-9_$]*(?:\s+as\s+[a-z_$][a-z0-9_$]*)?(?:\s*,\s*[a-z_$][a-z0-9_$]*(?:\s+as\s+[a-z_$][a-z0-9_$]*)?)*)$/i,
-    /^import\s+[a-z_$][a-z0-9_$.]*(?:\s+as\s+[a-z_$][a-z0-9_$]*)?(?:\s*,\s*[a-z_$][a-z0-9_$.]*)*$/i,
-  ].some((pattern) => pattern.test(body));
 }

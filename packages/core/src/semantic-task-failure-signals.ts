@@ -8,10 +8,7 @@ import {
   type CommandTextObservation,
 } from "./semantic-command-text-observation-shapes.js";
 import { readEditOutputOutcome, type EditOutputOutcome } from "./semantic-edit-output-shapes.js";
-import {
-  looksLikeRecoveredListingObservation,
-  looksLikeTruncatedRawReadListingObservation,
-} from "./semantic-listing-observation-shapes.js";
+import { looksLikeRecoveredListingObservation } from "./semantic-listing-observation-shapes.js";
 import {
   looksLikeStrongRawSourceObservation,
   looksLikeStructuredToolOutputObservation,
@@ -26,9 +23,8 @@ import {
   looksLikeExplicitActualDiagnosticObservationTranscript,
   looksLikeExplicitDiagnosticReferenceObservationTranscript,
 } from "./semantic-observation-transcript-reference-shapes.js";
-import { looksLikeReadTruncationProtocolObservation } from "./semantic-read-observation-shapes.js";
+import { readRawReadFailureSignals } from "./semantic-raw-read-failure-signals.js";
 import { readRecoveredCommandOutputObservation } from "./semantic-recovered-command-output-observation-shapes.js";
-import { looksLikeExplicitReadFailureDiagnostic } from "./semantic-read-failure-diagnostic-shapes.js";
 import type { StructuredToolOutputObservation } from "./semantic-structured-output.js";
 import { readSemanticStructuredOutputOwnership } from "./semantic-structured-output-ownership.js";
 import {
@@ -98,14 +94,14 @@ export function readTaskFailureSemanticSignals(input: {
       recoveredCommandOutputObservation.any ||
       (structuredOutputEnvelope.kind === "recovered" &&
         looksLikeRecoveredListingObservation(diagnosticStructuredToolOutput.output)));
-  const rawReadSourceObservation =
-    input.toolFamily === "read" && looksLikeStrongRawSourceObservation(summary);
-  const rawReadListingObservation =
-    input.toolFamily === "read" && looksLikeTruncatedRawReadListingObservation(summary);
-  const rawReadTruncationObservation =
-    input.toolFamily === "read" && looksLikeReadTruncationProtocolObservation(summary);
-  const rawReadStructuredObservation =
-    rawReadSourceObservation || rawReadListingObservation || rawReadTruncationObservation;
+  const {
+    rawReadSourceObservation,
+    rawReadListingObservation,
+    rawReadTruncationObservation,
+    rawReadStructuredObservation,
+    readFailureDiagnostic,
+    rawReadStrongRuntimeDiagnostic,
+  } = readRawReadFailureSignals({ summary, readTool: input.toolFamily === "read" });
   const editOutputOutcome =
     input.toolFamily !== "edit" || structuredOutputEnvelope.kind === "invalid"
       ? null
@@ -113,12 +109,6 @@ export function readTaskFailureSemanticSignals(input: {
           structuredOutputEnvelope.kind === "raw" ? summary : undefined,
           diagnosticStructuredToolOutput?.output,
         );
-  const searchFailureDiagnostic =
-    input.toolFamily === "search" && looksLikeSearchFailureDiagnostic(summary);
-  const readFailureDiagnostic =
-    input.toolFamily === "read" &&
-    (looksLikeExplicitReadFailureDiagnostic(summary) ||
-      (hasStrongRuntimeDiagnosticEvidence(summary) && !rawReadSourceObservation));
   const structuredOutputFailureDiagnostic =
     diagnosticStructuredToolOutput !== null &&
     hasToolOutputFailureDiagnosticEvidence(diagnosticStructuredToolOutput.output);
@@ -145,7 +135,8 @@ export function readTaskFailureSemanticSignals(input: {
     rawReadTruncationObservation,
     rawReadStructuredObservation,
     editOutputOutcome,
-    searchFailureDiagnostic,
+    searchFailureDiagnostic:
+      input.toolFamily === "search" && looksLikeSearchFailureDiagnostic(summary),
     readFailureDiagnostic,
     structuredOutputFailureDiagnostic,
     rawToolOutputFailureDiagnostic:
@@ -157,7 +148,7 @@ export function readTaskFailureSemanticSignals(input: {
       (structuredOutputEnvelope.kind === "valid" &&
         structuredOutputSourceObservation &&
         hasStrongRuntimeDiagnosticEvidence(structuredOutputEnvelope.output.output)) ||
-      (rawReadStructuredObservation && hasStrongRuntimeDiagnosticEvidence(summary)),
+      rawReadStrongRuntimeDiagnostic,
     diagnosticObservationTranscript:
       input.toolFamily === undefined && looksLikeExplicitDiagnosticObservationTranscript(summary),
     commandDiagnosticObservationTranscript:

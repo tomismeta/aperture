@@ -7,9 +7,17 @@ import { looksLikeKernelLogDiagnosticPayload } from "./semantic-kernel-log-shape
 import { looksLikeClippedArrowReadWindowObservation } from "./semantic-clipped-read-window-shapes.js";
 import { looksLikeReadTruncationProtocolObservation } from "./semantic-read-observation-shapes.js";
 import { looksLikeStrongListingObservation } from "./semantic-listing-observation-shapes.js";
+import { looksLikeOwnedReadTransportObservation } from "./semantic-owned-read-observation-shapes.js";
 import { looksLikeStrongRawSourceObservation } from "./semantic-source-observation-shapes.js";
 
 export { looksLikeStrongRawSourceObservation } from "./semantic-source-observation-shapes.js";
+export { hasOwnedReadTerminalDiagnosticEvidence } from "./semantic-owned-read-observation-shapes.js";
+
+export function looksLikeOwnedRawReadObservation(value: string): boolean {
+  return (
+    looksLikeStrongRawSourceObservation(value) || looksLikeOwnedReadTransportObservation(value)
+  );
+}
 
 export function looksLikeStructuredToolOutputObservation(output: string): boolean {
   return (

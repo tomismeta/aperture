@@ -1,6 +1,9 @@
 import { looksLikeToolOutputDiagnosticPayload } from "./semantic-tool-output-diagnostic-shapes.js";
 import { looksLikeRuntimePanicDiagnostic } from "./semantic-panic-diagnostic-shapes.js";
 import { looksLikePythonLocationError } from "./semantic-python-diagnostic-shapes.js";
+import { looksLikeRuntimeError } from "./semantic-runtime-error-diagnostic-shapes.js";
+
+export { hasUnquotedEmbeddedRuntimeDiagnosticEvidence } from "./semantic-runtime-error-diagnostic-shapes.js";
 
 export function hasToolOutputFailureDiagnosticEvidence(text: string): boolean {
   return hasStrongRuntimeDiagnosticEvidence(text) || looksLikeToolOutputDiagnosticPayload(text);
@@ -89,10 +92,4 @@ function looksLikeCompilerError(text: string): boolean {
     /(?:^|[\r\n])\s*fatal:\s+\S/i,
     /(?:^|[\r\n])\s*make(?:\[\d+\])?:\s+\*\*\*/i,
   ].some((pattern) => pattern.test(text));
-}
-
-function looksLikeRuntimeError(text: string): boolean {
-  return /(?:^|[\r\n])\s*(?:[a-z0-9_./-]+:\s*)?(?:assertionerror|importerror|modulenotfounderror|referenceerror|runtimeerror|syntaxerror|typeerror|valueerror)\b/i.test(
-    text,
-  );
 }

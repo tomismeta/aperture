@@ -1,0 +1,73 @@
+import {
+  containsArrowNumberedDocumentMarker,
+  hasStrictlyIncreasingLineNumbers,
+  type LineNumberedDocumentSpan,
+} from "./semantic-line-numbered-document-span-shapes.js";
+import { readArrowNumberedDocumentSpanParts } from "./semantic-arrow-numbered-document-span-parser.js";
+import { hasUnquotedEmbeddedRuntimeDiagnosticEvidence } from "./semantic-diagnostic-shapes.js";
+import { looksLikeExplicitReadFailureDiagnostic } from "./semantic-read-failure-diagnostic-shapes.js";
+import { containsOwnedReadTransportMixedNumbering } from "./semantic-owned-read-transport-numbering.js";
+
+export function hasOwnedReadTerminalDiagnosticEvidence(value: string): boolean {
+  const text = stripObservationStatusPrefix(value);
+  return (
+    looksLikeExplicitReadFailureDiagnostic(text) ||
+    hasEmbeddedReadFailureDiagnostic(text) ||
+    hasUnquotedEmbeddedRuntimeDiagnosticEvidence(text)
+  );
+}
+
+export function looksLikeOwnedReadTransportObservation(value: string): boolean {
+  const text = stripObservationStatusPrefix(value);
+  if (text.length === 0 || hasOwnedReadTerminalDiagnosticEvidence(text)) {
+    return false;
+  }
+
+  return looksLikeClippedArrowReadWindow(text);
+}
+
+function looksLikeClippedArrowReadWindow(text: string): boolean {
+  if (!containsArrowNumberedDocumentMarker(text) || !hasVisibleClippingBoundary(text)) {
+    return false;
+  }
+
+  if (containsOwnedReadTransportMixedNumbering(text)) {
+    return false;
+  }
+
+  const spans = readArrowNumberedDocumentSpanParts(text).map(({ line, body }) => ({ line, body }));
+  return (
+    spans.length >= 3 &&
+    hasStrictlyIncreasingLineNumbers(spans) &&
+    hasConsecutiveLineNumbers(spans) &&
+    spans.filter((span) => span.body.trim().length > 0).length >= 2
+  );
+}
+
+function hasConsecutiveLineNumbers(spans: LineNumberedDocumentSpan[]): boolean {
+  return spans.every((span, index) => index === 0 || span.line === spans[index - 1]!.line + 1);
+}
+
+function hasVisibleClippingBoundary(text: string): boolean {
+  return /\.\.\.\s*$/.test(text.trim());
+}
+
+function stripObservationStatusPrefix(value: string): string {
+  return value.trim().replace(/^(?:bash|edit|read|search|tool)\s+failure\s+/, "");
+}
+
+function hasEmbeddedReadFailureDiagnostic(text: string): boolean {
+  return hasUnquotedMatch(
+    text,
+    /\b(?:read failed|failed to (?:read|open)|could not (?:read|open)|unable to (?:read|open))\b/gi,
+  );
+}
+
+function hasUnquotedMatch(text: string, pattern: RegExp): boolean {
+  for (const match of text.matchAll(pattern)) {
+    if (!/[="'`]\s*$/.test(text.slice(Math.max(0, match.index - 3), match.index))) {
+      return true;
+    }
+  }
+  return false;
+}

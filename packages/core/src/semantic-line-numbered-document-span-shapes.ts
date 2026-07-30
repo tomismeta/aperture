@@ -1,3 +1,8 @@
+import {
+  containsMixedArrowAndLegacyNumbering,
+  readArrowNumberedDocumentSpanParts,
+} from "./semantic-arrow-numbered-document-span-parser.js";
+
 export type LineNumberedDocumentSpan = { line: number; body: string };
 
 export function readLineNumberedDocumentSpans(text: string): LineNumberedDocumentSpan[] {
@@ -12,23 +17,11 @@ export function readLineNumberedDocumentSpans(text: string): LineNumberedDocumen
 }
 
 export function readArrowNumberedDocumentSpans(text: string): LineNumberedDocumentSpan[] {
-  if (containsLegacyNumberedSeparator(text)) {
+  if (containsMixedArrowAndLegacyNumbering(text)) {
     return [];
   }
 
-  const spans: LineNumberedDocumentSpan[] = [];
-  const pattern = /(?:^|[\r\n]|\s)(\d{1,6})\u2192([\s\S]*?)(?=(?:[\r\n]|\s)\d{1,6}\u2192|$)/g;
-  let match: RegExpExecArray | null;
-
-  while ((match = pattern.exec(text)) !== null) {
-    const line = Number.parseInt(match[1] ?? "", 10);
-    const body = (match[2] ?? "").trimEnd();
-    if (Number.isSafeInteger(line)) {
-      spans.push({ line, body });
-    }
-  }
-
-  return spans;
+  return readArrowNumberedDocumentSpanParts(text).map(({ line, body }) => ({ line, body }));
 }
 
 export function hasStrictlyIncreasingLineNumbers(spans: LineNumberedDocumentSpan[]): boolean {
@@ -37,8 +30,4 @@ export function hasStrictlyIncreasingLineNumbers(spans: LineNumberedDocumentSpan
 
 export function containsArrowNumberedDocumentMarker(text: string): boolean {
   return /(?:^|[\r\n]|\s)\d{1,6}\u2192/.test(text);
-}
-
-function containsLegacyNumberedSeparator(text: string): boolean {
-  return /(?:^|[\r\n]|\s)\d{1,6}(?:[ \t]+|:\s+)\S/.test(text);
 }

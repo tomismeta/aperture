@@ -6,6 +6,7 @@ import type { SemanticConfidence } from "./semantic-types.js";
 import type {
   AttentionJudgmentInput,
   CandidateSemanticEvidence,
+  ObservationalStatusConflictEvidence,
   SemanticEvidenceStrength,
 } from "./judgment-input-types.js";
 import type {
@@ -107,6 +108,12 @@ export function readCandidateSemanticRelationEvidence(
   candidate: AttentionCandidate,
 ): AttentionJudgmentInput["relationEvidence"] | null {
   return candidate.judgmentInput.relationEvidence ?? null;
+}
+
+export function readCandidateObservationalStatusConflictEvidence(
+  candidate: AttentionCandidate,
+): ObservationalStatusConflictEvidence | null {
+  return candidate.judgmentInput.observationalStatusConflict ?? null;
 }
 
 export function readSemanticRelationEvidenceStrength(

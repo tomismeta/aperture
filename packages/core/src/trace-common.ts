@@ -7,6 +7,7 @@ import type {
   SemanticRelationHint,
 } from "./semantic-types.js";
 import type { ApertureEvent } from "./events.js";
+import type { ObservationalStatusConflictEvidence } from "./judgment-input-types.js";
 import type { AttentionOntologyDiagnostic } from "./semantic-ontology.js";
 import type { SourceEvent } from "./source-event.js";
 
@@ -110,8 +111,8 @@ export type TraceContinuityEvaluation = {
  * Stable semantic summary for SDK consumers.
  *
  * `intentFrame`, `activityClass`, `toolFamily`, `consequence`, `confidence`,
- * `abstained`, `ontology`, `provenance`, and `impact` are suitable for
- * programmatic use.
+ * `abstained`, `observationalStatusConflict`, `ontology`, `provenance`, and
+ * `impact` are suitable for programmatic use.
  * `whyNow`, `factors`, `reasons`, and `influence` are explanatory text and
  * may evolve as the product language gets clearer.
  */
@@ -122,6 +123,7 @@ export type TraceSemanticSummary = {
   consequence?: SemanticConsequenceLevel;
   confidence?: SemanticConfidence;
   abstained?: boolean;
+  observationalStatusConflict?: ObservationalStatusConflictEvidence;
   ontology: AttentionOntologyDiagnostic;
   whyNow?: string;
   relationHints: SemanticRelationHint[];

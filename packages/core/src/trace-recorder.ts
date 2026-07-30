@@ -10,6 +10,7 @@ import {
   hasRoutineObservationalStatusConflictSemantics,
   isCandidateSemanticAbstained,
   isCandidateSemanticLowConfidence,
+  readCandidateObservationalStatusConflictEvidence,
   readCandidateAttentionOntology,
   readCandidateSemanticConfidence,
   readCandidateSemanticEvidence,
@@ -209,6 +210,7 @@ function buildSemanticSummary(
   const ontology =
     readCandidateAttentionOntology(adjusted) ?? projectAttentionOntologyDiagnostic(event, semantic);
   const semanticEvidence = readCandidateSemanticEvidence(adjusted);
+  const observationalStatusConflict = readCandidateObservationalStatusConflictEvidence(adjusted);
 
   return {
     intentFrame: semantic.intentFrame,
@@ -219,6 +221,7 @@ function buildSemanticSummary(
       ? { confidence: semanticEvidence.confidence }
       : {}),
     ...(semanticEvidence?.abstained === true ? { abstained: true } : {}),
+    ...(observationalStatusConflict !== null ? { observationalStatusConflict } : {}),
     ontology,
     ...(semantic.whyNow !== undefined ? { whyNow: semantic.whyNow } : {}),
     relationHints: semantic.relationHints,

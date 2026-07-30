@@ -63,6 +63,8 @@ type CandidateReportAccumulator = {
   maxCandidatesPerSessionPerKind: number;
   maxFailureEvidenceExamplesPerKind: number;
   maxFailureEvidenceExamplesPerSessionPerKind: number;
+  maxUnclassifiedEventShapes: number;
+  maxUnclassifiedExamplesPerEventShape: number;
   countsByKind: Record<SemanticReviewCandidateKind, number>;
   candidatesByKind: Record<SemanticReviewCandidateKind, SemanticReviewCandidate[]>;
   failedTaskEvidence: SemanticReviewTaskFailureEvidenceAccumulator;
@@ -154,6 +156,8 @@ function createCandidateReportAccumulator(options: {
 }): CandidateReportAccumulator {
   const maxCandidatesPerKind = options.maxCandidatesPerKind ?? 30;
   const maxCandidatesPerSessionPerKind = options.maxCandidatesPerSessionPerKind ?? 3;
+  const maxUnclassifiedEventShapes = maxCandidatesPerKind;
+  const maxUnclassifiedExamplesPerEventShape = maxCandidatesPerSessionPerKind;
   assertPositiveInteger(maxCandidatesPerKind, "maxCandidatesPerKind");
   assertPositiveInteger(maxCandidatesPerSessionPerKind, "maxCandidatesPerSessionPerKind");
 
@@ -163,6 +167,8 @@ function createCandidateReportAccumulator(options: {
     maxCandidatesPerSessionPerKind,
     maxFailureEvidenceExamplesPerKind: maxCandidatesPerKind,
     maxFailureEvidenceExamplesPerSessionPerKind: maxCandidatesPerSessionPerKind,
+    maxUnclassifiedEventShapes,
+    maxUnclassifiedExamplesPerEventShape,
     countsByKind: createKindCounts(),
     candidatesByKind: createKindBuckets(),
     failedTaskEvidence: createFailureEvidenceAccumulator(),
@@ -195,6 +201,7 @@ function addBundleCandidates(
         {
           maxExamplesPerKind: accumulator.maxFailureEvidenceExamplesPerKind,
           maxExamplesPerSessionPerKind: accumulator.maxFailureEvidenceExamplesPerSessionPerKind,
+          maxUnclassifiedExamplesPerEventShape: accumulator.maxUnclassifiedExamplesPerEventShape,
         },
         {
           bundle,
@@ -259,6 +266,8 @@ function finalizeCandidateReport(
       maxFailureEvidenceExamplesPerKind: accumulator.maxFailureEvidenceExamplesPerKind,
       maxFailureEvidenceExamplesPerSessionPerKind:
         accumulator.maxFailureEvidenceExamplesPerSessionPerKind,
+      maxUnclassifiedEventShapes: accumulator.maxUnclassifiedEventShapes,
+      maxUnclassifiedExamplesPerEventShape: accumulator.maxUnclassifiedExamplesPerEventShape,
       retainedSort: "pressure_score_desc_path_step",
       promotionAuthority: "review_required",
     },
@@ -282,7 +291,9 @@ function finalizeCandidateReport(
       candidateCount: sumCandidateCounts(accumulator.countsByKind),
       countsByKind: accumulator.countsByKind,
       retainedByKind,
-      failedTaskEvidence: finalizeFailureEvidenceSummary(accumulator.failedTaskEvidence),
+      failedTaskEvidence: finalizeFailureEvidenceSummary(accumulator.failedTaskEvidence, {
+        maxUnclassifiedEventShapes: accumulator.maxUnclassifiedEventShapes,
+      }),
     },
     candidatesByKind: accumulator.candidatesByKind,
   };

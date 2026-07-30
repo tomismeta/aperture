@@ -96,6 +96,13 @@ function createInternalCandidate(claim: AttentionClaim): AttentionCandidate {
         ? { relationEvidence: claim.judgment.relationEvidence }
         : {}),
       blockedLikeStatus: claim.judgment?.blockedLikeStatus ?? false,
+      ...(claim.judgment?.routineObservationalStatusConflict === true ||
+      claim.judgment?.observationalStatusConflict !== undefined
+        ? { routineObservationalStatusConflict: true }
+        : {}),
+      ...(claim.judgment?.observationalStatusConflict !== undefined
+        ? { observationalStatusConflict: claim.judgment.observationalStatusConflict }
+        : {}),
     },
     ...(claim.relationHints !== undefined ? { relationHints: claim.relationHints } : {}),
     responseSpec: claim.responseSpec,
@@ -183,6 +190,40 @@ test("public attention evaluator returns owned JSON-safe record values", () => {
 
   claim.context!.items![0]!.value = "mutated.ts";
   assert.equal(record.claim.context?.items?.[0]?.value, "package.json");
+});
+
+test("public attention evaluator preserves observational status-conflict evidence", () => {
+  const observationalStatusConflict = {
+    kind: "command_success_observation" as const,
+    toolFamily: "bash",
+    baselineConsequence: "low" as const,
+  };
+  const claim = createClaim({
+    mode: "status",
+    toolFamily: "bash",
+    activityClass: "status_update",
+    tone: "ambient",
+    consequence: "low",
+    responseSpec: { kind: "none" },
+    priority: "background",
+    blocking: false,
+    judgment: {
+      blockedLikeStatus: false,
+      routineObservationalStatusConflict: true,
+      observationalStatusConflict,
+    },
+  });
+
+  const record = evaluateAttention({ claim });
+  const candidate = createInternalCandidate(claim);
+
+  assert.deepEqual(record.claim.judgment?.observationalStatusConflict, observationalStatusConflict);
+  assert.equal(record.claim.judgment?.routineObservationalStatusConflict, true);
+  assert.deepEqual(
+    candidate.judgmentInput.observationalStatusConflict,
+    observationalStatusConflict,
+  );
+  assert.equal(candidate.judgmentInput.routineObservationalStatusConflict, true);
 });
 
 test("decorative metadata does not enter the evaluator record", () => {

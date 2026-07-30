@@ -412,6 +412,16 @@ test("trace recorder explains observational status-conflict routing", () => {
   assert.equal(trace.evaluation.adjusted.tone, "ambient");
   assert.equal(trace.evaluation.adjusted.consequence, "low");
   assert.equal(trace.evaluation.adjusted.responseSpec.kind, "none");
+  assert.deepEqual(trace.semantic?.observationalStatusConflict, {
+    kind: "command_success_observation",
+    toolFamily: "bash",
+    baselineConsequence: "low",
+  });
+  assert.deepEqual(trace.decisionRecord.claim.judgment?.observationalStatusConflict, {
+    kind: "command_success_observation",
+    toolFamily: "bash",
+    baselineConsequence: "low",
+  });
   assert.ok(
     trace.semantic?.influence.includes(
       "engine-owned observational evidence resolved noisy failed-status routing as status handling",
@@ -420,6 +430,44 @@ test("trace recorder explains observational status-conflict routing", () => {
   assert.ok(
     trace.semantic?.impact.routing.includes("observational status conflict (judgment routing)"),
   );
+});
+
+test("public trace summary carries observational status-conflict evidence", () => {
+  const core = new ApertureCore();
+  const traces: ApertureTrace[] = [];
+
+  core.onTrace((trace) => {
+    traces.push(trace);
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:public-routine-observation-conflict",
+    type: "task.updated",
+    taskId: "task:status:public-routine-observation-conflict",
+    timestamp: "2026-03-27T20:01:52.000Z",
+    source: { id: "public-trajectory" },
+    title: "bash failure",
+    summary: "Your command ran successfully and did not produce any output.",
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  const trace = latestCandidateTrace(traces);
+  assert.ok(trace);
+  assert.equal(trace?.evaluation.kind, "candidate");
+  if (!trace || trace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.deepEqual(trace.semantic?.observationalStatusConflict, {
+    kind: "command_success_observation",
+    toolFamily: "bash",
+    baselineConsequence: "low",
+  });
+  assert.ok(
+    trace.semantic?.impact.routing.includes("observational status conflict (judgment routing)"),
+  );
+  assert.equal("decisionRecord" in trace, false);
 });
 
 test("trace recorder keeps forged routine status-conflict hints on failed routing", () => {
@@ -461,11 +509,49 @@ test("trace recorder keeps forged routine status-conflict hints on failed routin
   assert.equal(trace.evaluation.adjusted.tone, "critical");
   assert.equal(trace.evaluation.adjusted.consequence, "high");
   assert.equal(trace.evaluation.adjusted.responseSpec.kind, "acknowledge");
+  assert.equal(trace.semantic?.observationalStatusConflict, undefined);
   assert.ok(
     trace.semantic?.influence.includes(
       "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics",
     ),
   );
+  assert.equal(
+    trace.semantic?.impact.routing.includes("observational status conflict (judgment routing)"),
+    false,
+  );
+});
+
+test("trace summary omits observational conflict evidence for source-like prose failures", () => {
+  const core = new ApertureCore();
+  const traces: InternalApertureTrace[] = [];
+
+  subscribeInternalTrace(core, (trace) => {
+    traces.push(trace);
+  });
+
+  core.publishSourceEvent({
+    id: "src:status:source-like-prose-failure",
+    type: "task.updated",
+    taskId: "task:status:source-like-prose-failure",
+    timestamp: "2026-03-27T20:01:56.000Z",
+    source: { id: "public-trajectory" },
+    title: "read failure",
+    summary: "class schedule needs review before Friday",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  const trace = latestInternalCandidateTrace(traces);
+  assert.ok(trace);
+  assert.equal(trace?.evaluation.kind, "candidate");
+  if (!trace || trace.evaluation.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(trace.evaluation.adjusted.priority, "high");
+  assert.equal(trace.evaluation.adjusted.tone, "critical");
+  assert.equal(trace.evaluation.adjusted.consequence, "high");
+  assert.equal(trace.semantic?.observationalStatusConflict, undefined);
   assert.equal(
     trace.semantic?.impact.routing.includes("observational status conflict (judgment routing)"),
     false,

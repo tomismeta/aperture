@@ -3,6 +3,11 @@ import type {
   AttentionOntologyAuthority,
   AttentionOntologyDiagnostic,
 } from "./semantic-ontology-types.js";
+import type { ObservationalStatusConflictEvidence } from "./observational-status-conflict.js";
+export type {
+  ObservationalStatusConflictEvidence,
+  ObservationalStatusConflictKind,
+} from "./observational-status-conflict.js";
 
 export type SemanticEvidenceStrength = "weak" | "qualified" | "strong";
 
@@ -28,6 +33,7 @@ export type AttentionJudgmentInput = {
   // observational payload. Low observations may become ambient; medium/high
   // observations keep their consequence while routing as status work.
   routineObservationalStatusConflict?: boolean;
+  observationalStatusConflict?: ObservationalStatusConflictEvidence;
 };
 
 export type CandidateSemanticEvidence = NonNullable<AttentionJudgmentInput["semanticEvidence"]>;

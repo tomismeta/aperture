@@ -17,7 +17,10 @@ import {
 } from "./semantic-patterns.js";
 import { readSemanticTextEvidence } from "./semantic-evidence.js";
 import { containsAnySemanticPhrase, containsSemanticPhrase } from "./semantic-text.js";
-import type { SemanticToolFamilyContextItem } from "./semantic-tool-family.js";
+import {
+  isSemanticCommandExecutionToolFamily,
+  type SemanticToolFamilyContextItem,
+} from "./semantic-tool-family.js";
 import type { SemanticRelationHint } from "./semantic-types.js";
 
 export { containsAnySemanticPhrase, normalizeSemanticText } from "./semantic-text.js";
@@ -124,7 +127,11 @@ export function inferConsequenceFromSemanticText(
     return "high";
   }
 
-  if (toolFamily === "write" || toolFamily === "edit" || toolFamily === "bash") {
+  if (
+    toolFamily === "write" ||
+    toolFamily === "edit" ||
+    isSemanticCommandExecutionToolFamily(toolFamily)
+  ) {
     return fallback === "low" ? "medium" : fallback;
   }
 
@@ -134,7 +141,7 @@ export function inferConsequenceFromSemanticText(
 export function detectObservationalFailureStatus(text: string, toolFamily?: string): boolean {
   const evidence = readSemanticTextEvidence(text, toolFamily);
 
-  if (toolFamily === "bash") {
+  if (isSemanticCommandExecutionToolFamily(toolFamily)) {
     return evidence.routineSuccessObservation;
   }
 
@@ -155,7 +162,7 @@ export function detectRoutineObservationalFailureLowConsequence(
 ): boolean {
   const evidence = readSemanticTextEvidence(text, toolFamily);
 
-  if (toolFamily === "bash") {
+  if (isSemanticCommandExecutionToolFamily(toolFamily)) {
     return evidence.routineSuccessObservation;
   }
 
@@ -183,7 +190,7 @@ export function detectRoutineObservationalFailureLowConsequence(
 }
 
 export function detectExpectedDiagnosticFailure(text: string, toolFamily?: string): boolean {
-  if (toolFamily !== "bash") {
+  if (!isSemanticCommandExecutionToolFamily(toolFamily)) {
     return false;
   }
 

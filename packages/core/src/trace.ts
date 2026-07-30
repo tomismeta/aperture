@@ -33,6 +33,8 @@ export type {
   TraceSemanticImpact,
   TraceSemanticRoutingAuthority,
   TraceSemanticSummary,
+  ObservationalStatusConflictEvidence,
+  ObservationalStatusConflictKind,
 } from "./trace-common.js";
 export type {
   AttentionOntologyDiagnostic,

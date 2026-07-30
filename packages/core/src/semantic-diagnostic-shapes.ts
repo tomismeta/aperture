@@ -1,5 +1,8 @@
+import { looksLikeToolOutputDiagnosticPayload } from "./semantic-tool-output-diagnostic-shapes.js";
+import { looksLikeRuntimePanicDiagnostic } from "./semantic-panic-diagnostic-shapes.js";
+
 export function hasToolOutputFailureDiagnosticEvidence(text: string): boolean {
-  return hasStrongRuntimeDiagnosticEvidence(text);
+  return hasStrongRuntimeDiagnosticEvidence(text) || looksLikeToolOutputDiagnosticPayload(text);
 }
 
 export function looksLikeSearchFailureDiagnostic(rawText: string): boolean {
@@ -30,17 +33,25 @@ export function hasStrongRuntimeDiagnosticEvidence(text: string): boolean {
       /\beconnrefused\b/i,
       /\bthread\b[^\r\n]*\bpanicked at\b/i,
       /(?:^|[\r\n])\s*terminate called after throwing\b/i,
-      /\btests failed\b/i,
-      /\btest failed\b/i,
-      /\bfailed tests\b/i,
+      /(?:^|[\r\n])\s*(?:tests?\s+failed|failed\s+tests)\b/i,
       /\bassertion failed\b/i,
       /(?:^|[\r\n])\s*(?:[a-z0-9_./-]+:\s*)+\s*no such file or directory\b/i,
       /(?:^|[\r\n])\s*(?:file does not exist|unrecognized arguments)\b/i,
       /\b(?:exit code|exit_code|exit-code|exited with code|exit status|exited with status|return code|return_code|returned code)\s*(?:is|was)?\s*-?[1-9]\d*\b/i,
     ].some((pattern) => pattern.test(text)) ||
+    looksLikeRuntimePanicDiagnostic(text) ||
+    looksLikeCMakeError(text) ||
     looksLikePackageManagerError(text) ||
     looksLikeCompilerError(text) ||
     looksLikeRuntimeError(text)
+  );
+}
+
+function looksLikeCMakeError(text: string): boolean {
+  const errorAtLocation = /CMake Error at \S+:\d+\s+\(/i;
+  return (
+    /(?:^|[\r\n])\s*CMake Error at \S+:\d+\s+\(/i.test(text) ||
+    (/(?:^|[\r\n])\s*total output lines:\s*\d+\b/i.test(text) && errorAtLocation.test(text))
   );
 }
 

@@ -13,6 +13,12 @@ import { interpretSourceEvent } from "../src/semantic-interpreter.js";
 import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
 
 const timestamp = "2026-03-10T12:00:00.000Z";
+const rejectedToolUseMessage =
+  "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
+const successfulTestObservationTranscript =
+  "OBSERVATION: === Testing quote formatting === All quote formatting tests passed!";
+const abbreviatedFileViewObservationTranscript =
+  "OBSERVATION: <NOTE>This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.</NOTE> 1 # fmt: off 2 from __future__ import an...";
 
 function source(id: string): SourceRef {
   return { id };
@@ -370,6 +376,40 @@ test("failed edit readback observations stay status updates semantically", () =>
   assert.equal(interpretation.whyNow, undefined);
 });
 
+test("failed edit outcome envelopes preserve applied versus failed semantics", () => {
+  const applied = interpretSourceEvent({
+    id: "evt:edit-applied-readback",
+    type: "task.updated",
+    taskId: "task:edit-applied-readback",
+    timestamp,
+    source: source("custom-agent"),
+    title: "edit failure",
+    summary:
+      "Successfully modified file: /repo/src/app.ts (1 replacements). Here is the updated code:\nexport const value = 1;",
+    status: "failed",
+    toolFamily: "edit",
+  });
+  const failed = interpretSourceEvent({
+    id: "evt:edit-precondition-failure",
+    type: "task.updated",
+    taskId: "task:edit-precondition-failure",
+    timestamp,
+    source: source("custom-agent"),
+    title: "edit failure",
+    summary:
+      "<tool_use_error>File has not been read yet. Read it first before writing to it.</tool_use_error>",
+    status: "failed",
+    toolFamily: "edit",
+  });
+
+  assert.equal(applied.intentFrame, "status_update");
+  assert.equal(applied.activityClass, "status_update");
+  assert.equal(applied.consequence, "high");
+  assert.equal(failed.intentFrame, "failure");
+  assert.equal(failed.activityClass, "tool_failure");
+  assert.equal(failed.consequence, "high");
+});
+
 test("failed read source dumps stay status updates at high consequence", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:read-content-observation",
@@ -446,6 +486,81 @@ test("failed search result dumps stay low-consequence status updates", () => {
   assert.equal(interpretation.consequence, "low");
 });
 
+test("failed grep context dumps stay low-consequence status updates", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:search-grep-context-dump",
+    type: "task.updated",
+    taskId: "task:search-grep-context-dump",
+    timestamp,
+    source: source("custom-agent"),
+    title: "search failure",
+    summary:
+      "2255-- VOP3SD has an SDST field 2256- - V_ADD_CO_U32 adds with carry-out 2257- - V_DIV_SCALE_F32 uses the same encoding",
+    status: "failed",
+    toolFamily: "search",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "low");
+});
+
+test("ordinary numbered search lists stay failure-shaped", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:search-numbered-list",
+    type: "task.updated",
+    taskId: "task:search-numbered-list",
+    timestamp,
+    source: source("custom-agent"),
+    title: "search failure",
+    summary: "1- first item 2- second item 3- third item",
+    status: "failed",
+    toolFamily: "search",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.consequence, "high");
+});
+
+test("failed arrow-numbered technical read fragments stay status updates", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:read-technical-doc-fragment",
+    type: "task.updated",
+    taskId: "task:read-technical-doc-fragment",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary:
+      "2783\u2192## 7.6. Dual Issue VALU 2784\u2192 2785\u2192The VOPD instruction encoding allows a single shader instruction to encode two separate VALU operations that are executed in parallel. The two operations must be independent of each other. This ins...",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "high");
+});
+
+test("unclipped acronym-rich arrow read prose stays failure-shaped", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:read-acronym-prose",
+    type: "task.updated",
+    taskId: "task:read-acronym-prose",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary:
+      "101\u2192## 7.6. API SDK Notes 102\u2192 103\u2192The API and SDK entries are discussed here without an emitted read-window clipping boundary.",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.consequence, "high");
+});
+
 test("structured bash output without exit or source evidence stays failure-shaped", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:structured-output-unclassified",
@@ -481,6 +596,215 @@ test("structured bash source output stays observational but high consequence", (
   assert.equal(interpretation.intentFrame, "status_update");
   assert.equal(interpretation.activityClass, "status_update");
   assert.equal(interpretation.consequence, "high");
+});
+
+test("truncated structured bash source output stays observational", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:truncated-structured-source-output",
+    type: "task.updated",
+    taskId: "task:truncated-structured-source-output",
+    timestamp,
+    source: source("custom-agent"),
+    title: "bash failure",
+    summary:
+      '{"wall_time":"0.0509 seconds","output":"diff --git a/src/app.ts b/src/app.ts\\n--- a/src/app.ts\\n+++ b/src/app.ts\\n@@ -1 +1 @@\\nexport const ok = true;',
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "high");
+});
+
+test("truncated structured bash zero exits stay low-consequence status updates", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:truncated-zero-exit-output",
+    type: "task.updated",
+    taskId: "task:truncated-zero-exit-output",
+    timestamp,
+    source: source("custom-agent"),
+    title: "bash failure",
+    summary:
+      '{"exit_code":0,"wall_time":"0 seconds","output":"dict[str, torch.Tensor]\\nA dictionary containing converted weights.',
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "low");
+});
+
+test("truncated structured edit source output stays observational", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:truncated-edit-source-output",
+    type: "task.updated",
+    taskId: "task:truncated-edit-source-output",
+    timestamp,
+    source: source("custom-agent"),
+    title: "edit failure",
+    summary:
+      '{"wall_time":"0.0509 seconds","output":"src/kernel.cu:12:__global__ void run() {}\\nsrc/kernel.cu:13:return;',
+    status: "failed",
+    toolFamily: "edit",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "high");
+});
+
+test("truncated structured listing output stays observational at medium consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:truncated-listing-output",
+    type: "task.updated",
+    taskId: "task:truncated-listing-output",
+    timestamp,
+    source: source("custom-agent"),
+    title: "bash failure",
+    summary:
+      '{"wall_time":"0.0510 seconds","output":"Total output lines: 106\\n\\nsrc/runtime/trap_handler.s:71:.set TTMP6_SPI_TTMPS_SETUP_DISABLED_SHIFT , 31',
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "medium");
+});
+
+test("truncated structured doc path listing output stays observational at medium consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:truncated-doc-listing-output",
+    type: "task.updated",
+    taskId: "task:truncated-doc-listing-output",
+    timestamp,
+    source: source("custom-agent"),
+    title: "bash failure",
+    summary:
+      '{"wall_time":"0.0510 seconds","output":"Total output lines: 42\\n\\n/repo/README.md:17:Build the project from a clean checkout',
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "medium");
+});
+
+test("truncated structured line-numbered source intro stays observational at high consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:truncated-line-numbered-source-intro",
+    type: "task.updated",
+    taskId: "task:truncated-line-numbered-source-intro",
+    timestamp,
+    source: source("custom-agent"),
+    title: "bash failure",
+    summary:
+      '{"wall_time":"0.0510 seconds","output":"1\\timport os\\n2\\tfrom pathlib import Path\\n3\\tclass Runner:',
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "high");
+});
+
+test("arrow-numbered read source stays observational at high consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:arrow-numbered-read-source",
+    type: "task.updated",
+    taskId: "task:arrow-numbered-read-source",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary:
+      "1\u2192import os 2\u2192from functools import lru_cache 3\u2192from typing import Optional 4\u2192 5\u2192import torch 6\u2192from torch.utils.cpp_extension import load_inline 7\u2192import time 8\u2192 9\u2192 10\u2192@lru_cache(maxsize=1) 11\u2192def _load_hip_extension(): 12\u2192 source_path ...",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "high");
+});
+
+test("arrow-numbered read documents stay observational at high consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:arrow-numbered-read-document",
+    type: "task.updated",
+    taskId: "task:arrow-numbered-read-document",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary:
+      "1\u2192# Project Guide 2\u2192## Build 3\u2192- Configure the project 4\u2192- Run tests",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "high");
+});
+
+test("failed read markdown documents stay status updates", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:read-markdown-document",
+    type: "task.updated",
+    taskId: "task:read-markdown-document",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary:
+      "# Project Guide\n## Build\n1. Configure the project with the documented cache settings\n2. Run the build from a clean directory\n3. Copy the resulting module into the local plugin directory\n```sh\ncmake -B build\ncmake --build build\n```",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "high");
+});
+
+test("failed read build logs stay low-consequence status updates", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:read-build-log",
+    type: "task.updated",
+    taskId: "task:read-build-log",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary:
+      "DKMS make.log for module 1.0\nBuilding module(s)\nchecking for a BSD-compatible install... /usr/bin/install -c check",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "low");
+});
+
+test("failed flattened read build logs stay low-consequence status updates", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:read-flattened-build-log",
+    type: "task.updated",
+    taskId: "task:read-flattened-build-log",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary:
+      "DKMS (dkms-3.2.0) make.log for amdgpu/1.0 Building module(s) # command: 'make' KERNELVER=6.19.0 checking for a BSD-compatible install... /usr/bin/install -c",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "low");
 });
 
 test("raw read source failures stay observational while preserving high attention", () => {
@@ -620,6 +944,117 @@ test("public trajectory failed-status bash exit-code zero observations stay low-
   if (normalized.type === "task.updated") {
     assert.equal(normalized.status, "failed");
     assert.equal(normalized.activityClass, "status_update");
+    assert.equal(normalized.semantic.activityClass, "status_update");
+    assert.equal(normalized.semantic.consequence, "low");
+  }
+});
+
+test("public trajectory tool-use rejection outcomes stay low-consequence status updates", () => {
+  const bash = normalizeSourceEvent({
+    id: "evt:public-bash-tool-use-rejection",
+    type: "task.updated",
+    taskId: "task:public-bash-tool-use-rejection",
+    timestamp,
+    source: { id: "dataclaw", kind: "public-trajectory" },
+    title: "bash failure",
+    summary: rejectedToolUseMessage,
+    status: "failed",
+    toolFamily: "bash",
+  });
+  const edit = normalizeSourceEvent({
+    id: "evt:public-edit-tool-use-rejection",
+    type: "task.updated",
+    taskId: "task:public-edit-tool-use-rejection",
+    timestamp,
+    source: { id: "dataclaw", kind: "public-trajectory" },
+    title: "edit failure",
+    summary: rejectedToolUseMessage,
+    status: "failed",
+    toolFamily: "edit",
+  });
+  const absent = normalizeSourceEvent({
+    id: "evt:public-absent-tool-use-rejection",
+    type: "task.updated",
+    taskId: "task:public-absent-tool-use-rejection",
+    timestamp,
+    source: { id: "dataclaw", kind: "public-trajectory" },
+    title: "tool failure",
+    summary: rejectedToolUseMessage,
+    status: "failed",
+  });
+
+  assert.equal(bash.type, "task.updated");
+  assert.equal(edit.type, "task.updated");
+  assert.equal(absent.type, "task.updated");
+  if (
+    bash.type !== "task.updated" ||
+    edit.type !== "task.updated" ||
+    absent.type !== "task.updated"
+  ) {
+    return;
+  }
+
+  assert.equal(bash.semantic.intentFrame, "status_update");
+  assert.equal(bash.semantic.activityClass, "status_update");
+  assert.equal(bash.semantic.toolFamily, "bash");
+  assert.equal(bash.semantic.consequence, "low");
+  assert.equal(edit.semantic.intentFrame, "status_update");
+  assert.equal(edit.semantic.activityClass, "status_update");
+  assert.equal(edit.semantic.toolFamily, "edit");
+  assert.equal(edit.semantic.consequence, "low");
+  assert.equal(absent.semantic.intentFrame, "status_update");
+  assert.equal(absent.semantic.activityClass, "status_update");
+  assert.equal(absent.semantic.toolFamily, undefined);
+  assert.equal(absent.semantic.consequence, "low");
+});
+
+test("tool-use rejection outcome disables text-only tool inference from conditional edit wording", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:public-absent-tool-use-rejection-no-inferred-edit",
+    type: "task.updated",
+    taskId: "task:public-absent-tool-use-rejection-no-inferred-edit",
+    timestamp,
+    source: { id: "dataclaw", kind: "public-trajectory" },
+    title: "tool failure",
+    summary: rejectedToolUseMessage,
+    status: "failed",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.toolFamily, undefined);
+  assert.equal(interpretation.consequence, "low");
+});
+
+test("missing-tool successful test and abbreviated file-view transcripts stay low status updates", () => {
+  for (const [id, summary] of [
+    ["successful-test", successfulTestObservationTranscript],
+    ["abbreviated-file-view", abbreviatedFileViewObservationTranscript],
+  ] as const) {
+    const event: SourceEvent = {
+      id: `evt:public-${id}-observation-transcript`,
+      type: "task.updated",
+      taskId: `task:public-${id}-observation-transcript`,
+      timestamp,
+      source: { id: "dataclaw", kind: "public-trajectory" },
+      title: "tool failure",
+      summary,
+      status: "failed",
+    };
+    const interpretation = interpretSourceEvent(event);
+    const normalized = normalizeSourceEvent(event);
+
+    assert.equal(interpretation.intentFrame, "status_update");
+    assert.equal(interpretation.activityClass, "status_update");
+    assert.equal(interpretation.toolFamily, undefined);
+    assert.equal(interpretation.consequence, "low");
+    assert.equal(normalized.type, "task.updated");
+    if (normalized.type !== "task.updated") {
+      return;
+    }
+    assert.equal(normalized.toolFamily, undefined);
+    assert.equal(normalized.activityClass, "status_update");
+    assert.equal(normalized.semantic.toolFamily, undefined);
     assert.equal(normalized.semantic.activityClass, "status_update");
     assert.equal(normalized.semantic.consequence, "low");
   }

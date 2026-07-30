@@ -12,6 +12,12 @@ import {
 } from "../src/judgment-input.js";
 
 const timestamp = "2026-04-05T18:30:00.000Z";
+const rejectedToolUseMessage =
+  "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
+const successfulTestObservationTranscript =
+  "OBSERVATION: === Testing quote formatting === All quote formatting tests passed!";
+const abbreviatedFileViewObservationTranscript =
+  "OBSERVATION: <NOTE>This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.</NOTE> 1 # fmt: off 2 from __future__ import an...";
 
 test("judgment input compiles blocked-like waiting statuses into one internal seam", () => {
   const input = buildAttentionJudgmentInput({
@@ -124,6 +130,11 @@ test("judgment input marks routine observational failed-status conflicts", () =>
   };
 
   assert.equal(input.routineObservationalStatusConflict, true);
+  assert.deepEqual(input.observationalStatusConflict, {
+    kind: "command_success_observation",
+    toolFamily: "bash",
+    baselineConsequence: "low",
+  });
   assert.equal(input.semanticEvidence?.strength, "qualified");
   assert.equal(hasRoutineObservationalStatusConflictSemantics(candidate), true);
 });
@@ -150,7 +161,9 @@ test("judgment input derives routine status conflicts from raw evidence, not fac
     },
   };
 
-  assert.equal(buildAttentionJudgmentInput(base).routineObservationalStatusConflict, true);
+  const observationInput = buildAttentionJudgmentInput(base);
+  assert.equal(observationInput.routineObservationalStatusConflict, true);
+  assert.equal(observationInput.observationalStatusConflict?.kind, "command_success_observation");
   assert.equal(
     buildAttentionJudgmentInput({
       ...base,
@@ -160,6 +173,17 @@ test("judgment input derives routine status conflicts from raw evidence, not fac
         factors: ["task.updated", "failed", "observational_failure"],
       },
     }).routineObservationalStatusConflict,
+    undefined,
+  );
+  assert.equal(
+    buildAttentionJudgmentInput({
+      ...base,
+      summary: "Error: deployment failed with exit code 1.",
+      semantic: {
+        ...base.semantic,
+        factors: ["task.updated", "failed", "observational_failure"],
+      },
+    }).observationalStatusConflict,
     undefined,
   );
 });
@@ -194,7 +218,233 @@ test("judgment input marks engine-owned non-bash observations as status conflict
   });
 
   assert.equal(input.routineObservationalStatusConflict, true);
+  assert.deepEqual(input.observationalStatusConflict, {
+    kind: "payload_observation",
+    toolFamily: "read",
+    baselineConsequence: "low",
+  });
   assert.equal(input.semanticEvidence?.strength, "qualified");
+});
+
+test("judgment input marks absent-family observation transcripts as status conflicts", () => {
+  const input = buildAttentionJudgmentInput({
+    id: "evt:judgment-input:missing-tool-observation-conflict",
+    taskId: "task:judgment-input:missing-tool-observation-conflict",
+    timestamp,
+    type: "task.updated",
+    title: "tool failure",
+    summary:
+      "OBSERVATION: Here's the result of running `cat -n` on /testbed/yamllint/cli.py: 1 #!/usr/bin/env python3 2 import sys",
+    status: "failed",
+    semantic: {
+      intentFrame: "status_update",
+      activityClass: "status_update",
+      consequence: "high",
+      factors: ["task.updated", "failed", "observational_failure"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["task status indicates failure but the update reads like observational output"],
+      provenance: {
+        intentFrame: "inferred",
+        activityClass: "inferred",
+        consequence: "inferred",
+        confidence: "inferred",
+      },
+    },
+  });
+
+  assert.equal(input.routineObservationalStatusConflict, true);
+  assert.deepEqual(input.observationalStatusConflict, {
+    kind: "payload_observation",
+    baselineConsequence: "high",
+  });
+  assert.equal(input.ontology?.source, "inferred");
+  assert.equal(input.ontology?.activity, "task_progress");
+  assert.equal(input.ontology?.consequence, "high");
+  assert.equal(input.ontology && "toolFamily" in input.ontology, false);
+  assert.equal(input.semanticEvidence?.strength, "qualified");
+});
+
+test("judgment input marks low missing-tool transcript subclasses only on raw agreement", () => {
+  for (const [id, summary] of [
+    ["successful-test", successfulTestObservationTranscript],
+    ["abbreviated-file-view", abbreviatedFileViewObservationTranscript],
+  ] as const) {
+    const input = buildAttentionJudgmentInput({
+      id: `evt:judgment-input:${id}-observation-conflict`,
+      taskId: `task:judgment-input:${id}-observation-conflict`,
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary,
+      status: "failed",
+      semantic: {
+        intentFrame: "status_update",
+        activityClass: "status_update",
+        consequence: "low",
+        factors: ["task.updated", "failed", "observational_failure"],
+        relationHints: [],
+        confidence: "high",
+        reasons: ["task status indicates failure but the update reads like observational output"],
+        provenance: {
+          intentFrame: "inferred",
+          activityClass: "inferred",
+          consequence: "inferred",
+          confidence: "inferred",
+        },
+      },
+    });
+
+    assert.equal(input.routineObservationalStatusConflict, true);
+    assert.deepEqual(input.observationalStatusConflict, {
+      kind: "payload_observation",
+      baselineConsequence: "low",
+    });
+    assert.equal(input.ontology?.source, "inferred");
+    assert.equal(input.ontology?.activity, "task_progress");
+    assert.equal(input.ontology?.consequence, "low");
+    assert.equal(input.ontology && "toolFamily" in input.ontology, false);
+    assert.equal(input.semanticEvidence?.strength, "qualified");
+  }
+
+  const mismatchedFamilyInput = buildAttentionJudgmentInput({
+    id: "evt:judgment-input:hinted-successful-test-observation-conflict",
+    taskId: "task:judgment-input:hinted-successful-test-observation-conflict",
+    timestamp,
+    type: "task.updated",
+    title: "tool failure",
+    summary: successfulTestObservationTranscript,
+    status: "failed",
+    semantic: {
+      intentFrame: "status_update",
+      activityClass: "status_update",
+      toolFamily: "bash",
+      consequence: "low",
+      factors: ["task.updated", "failed", "observational_failure"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["semantic hint claimed bash ownership"],
+    },
+  });
+  const liftedConsequenceInput = buildAttentionJudgmentInput({
+    id: "evt:judgment-input:lifted-successful-test-observation-conflict",
+    taskId: "task:judgment-input:lifted-successful-test-observation-conflict",
+    timestamp,
+    type: "task.updated",
+    title: "tool failure",
+    summary: successfulTestObservationTranscript,
+    status: "failed",
+    semantic: {
+      intentFrame: "status_update",
+      activityClass: "status_update",
+      consequence: "high",
+      factors: ["task.updated", "failed", "observational_failure"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["semantic consequence was lifted"],
+    },
+  });
+
+  assert.equal(mismatchedFamilyInput.routineObservationalStatusConflict, undefined);
+  assert.equal(liftedConsequenceInput.routineObservationalStatusConflict, undefined);
+  assert.equal(mismatchedFamilyInput.observationalStatusConflict, undefined);
+  assert.equal(liftedConsequenceInput.observationalStatusConflict, undefined);
+});
+
+test("judgment input marks tool-use rejection outcomes as status conflicts only on raw agreement", () => {
+  const bashInput = buildAttentionJudgmentInput({
+    id: "evt:judgment-input:bash-tool-use-rejection",
+    taskId: "task:judgment-input:bash-tool-use-rejection",
+    timestamp,
+    type: "task.updated",
+    title: "bash failure",
+    summary: rejectedToolUseMessage,
+    status: "failed",
+    toolFamily: "bash",
+    semantic: {
+      intentFrame: "status_update",
+      activityClass: "status_update",
+      toolFamily: "bash",
+      consequence: "low",
+      factors: ["task.updated", "failed", "observational_failure"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["task status indicates failure but the update reads like observational output"],
+    },
+  });
+  const absentInput = buildAttentionJudgmentInput({
+    id: "evt:judgment-input:absent-tool-use-rejection",
+    taskId: "task:judgment-input:absent-tool-use-rejection",
+    timestamp,
+    type: "task.updated",
+    title: "tool failure",
+    summary: rejectedToolUseMessage,
+    status: "failed",
+    semantic: {
+      intentFrame: "status_update",
+      activityClass: "status_update",
+      consequence: "low",
+      factors: ["task.updated", "failed", "observational_failure"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["task status indicates failure but the update reads like observational output"],
+    },
+  });
+  const mismatchedInput = buildAttentionJudgmentInput({
+    id: "evt:judgment-input:mismatched-tool-use-rejection",
+    taskId: "task:judgment-input:mismatched-tool-use-rejection",
+    timestamp,
+    type: "task.updated",
+    title: "tool failure",
+    summary: rejectedToolUseMessage,
+    status: "failed",
+    semantic: {
+      intentFrame: "status_update",
+      activityClass: "status_update",
+      toolFamily: "edit",
+      consequence: "low",
+      factors: ["task.updated", "failed", "observational_failure"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["semantic hint claimed edit ownership"],
+    },
+  });
+  const liftedConsequenceInput = buildAttentionJudgmentInput({
+    id: "evt:judgment-input:lifted-tool-use-rejection",
+    taskId: "task:judgment-input:lifted-tool-use-rejection",
+    timestamp,
+    type: "task.updated",
+    title: "bash failure",
+    summary: rejectedToolUseMessage,
+    status: "failed",
+    toolFamily: "bash",
+    semantic: {
+      intentFrame: "status_update",
+      activityClass: "status_update",
+      toolFamily: "bash",
+      consequence: "medium",
+      factors: ["task.updated", "failed", "observational_failure"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["semantic consequence was lifted"],
+    },
+  });
+
+  assert.equal(bashInput.routineObservationalStatusConflict, true);
+  assert.equal(absentInput.routineObservationalStatusConflict, true);
+  assert.deepEqual(bashInput.observationalStatusConflict, {
+    kind: "rejected_tool_use_observation",
+    toolFamily: "bash",
+    baselineConsequence: "low",
+  });
+  assert.deepEqual(absentInput.observationalStatusConflict, {
+    kind: "rejected_tool_use_observation",
+    baselineConsequence: "low",
+  });
+  assert.equal(mismatchedInput.routineObservationalStatusConflict, undefined);
+  assert.equal(liftedConsequenceInput.routineObservationalStatusConflict, undefined);
+  assert.equal(mismatchedInput.observationalStatusConflict, undefined);
+  assert.equal(liftedConsequenceInput.observationalStatusConflict, undefined);
 });
 
 test("judgment input gives hinted relation semantics their own continuity strength", () => {

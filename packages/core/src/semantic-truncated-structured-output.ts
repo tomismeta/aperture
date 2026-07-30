@@ -1,7 +1,15 @@
 import type { StructuredToolOutputObservation } from "./semantic-structured-output.js";
-import { parseJsonObject, readOptionalIntegerExitCode } from "./semantic-structured-output.js";
+import {
+  looksLikeWallTime,
+  parseJsonObject,
+  readOptionalIntegerExitCode,
+} from "./semantic-structured-output.js";
+import {
+  readIntegerExitCodeToken,
+  readPartialEnvelopeOutput,
+} from "./semantic-truncated-structured-output-recovery.js";
 
-export function readTruncatedStructuredToolOutputDiagnosticEvidence(
+export function readTruncatedStructuredToolOutputEnvelope(
   summary: string | undefined,
 ): StructuredToolOutputObservation | null {
   if (summary === undefined) {
@@ -13,10 +21,14 @@ export function readTruncatedStructuredToolOutputDiagnosticEvidence(
     return marked;
   }
 
-  return readTruncatedStructuredToolOutputObservation(summary);
+  if (parseJsonObject(summary) !== null) {
+    return null;
+  }
+
+  return readTruncatedStructuredToolOutputEnvelopePrefix(summary);
 }
 
-function readTruncatedStructuredToolOutputObservation(
+function readTruncatedStructuredToolOutputEnvelopePrefix(
   summary: string,
 ): StructuredToolOutputObservation | null {
   const withExitCode =
@@ -24,29 +36,41 @@ function readTruncatedStructuredToolOutputObservation(
       summary,
     );
   if (withExitCode) {
-    const output = decodeTruncatedJsonStringContent(summary.slice(withExitCode[0].length));
     const exitCode = readIntegerExitCodeToken(withExitCode[1] ?? "");
+    const wallTime = withExitCode[2] ?? "";
+    return readPartialEnvelopeOutput(summary.slice(withExitCode[0].length), {
+      ...(exitCode !== null ? { exitCode } : { invalid: true }),
+      wallTime,
+    });
+  }
 
-    if (exitCode === null || output.trim().length === 0) {
-      return null;
-    }
-
-    return { output, wallTime: withExitCode[2] ?? "", exitCode };
+  const withWallTimeThenExitCode =
+    /^\s*\{\s*"wall_time"\s*:\s*"([^"]+)"\s*,\s*"exit_code"\s*:\s*("[+-]?\d+"|-?\d+)\s*,\s*"output"\s*:\s*"/.exec(
+      summary,
+    );
+  if (withWallTimeThenExitCode) {
+    const exitCode = readIntegerExitCodeToken(withWallTimeThenExitCode[2] ?? "");
+    return readPartialEnvelopeOutput(summary.slice(withWallTimeThenExitCode[0].length), {
+      ...(exitCode !== null ? { exitCode } : { invalid: true }),
+      wallTime: withWallTimeThenExitCode[1] ?? "",
+    });
   }
 
   const withoutExitCode = /^\s*\{\s*"wall_time"\s*:\s*"([^"]+)"\s*,\s*"output"\s*:\s*"/.exec(
     summary,
   );
-  if (!withoutExitCode) {
+  if (withoutExitCode) {
+    return readPartialEnvelopeOutput(summary.slice(withoutExitCode[0].length), {
+      wallTime: withoutExitCode[1] ?? "",
+    });
+  }
+
+  const outputOnly = /^\s*\{\s*"output"\s*:\s*"/.exec(summary);
+  if (!outputOnly) {
     return null;
   }
 
-  const output = decodeTruncatedJsonStringContent(summary.slice(withoutExitCode[0].length));
-  if (output.trim().length === 0) {
-    return null;
-  }
-
-  return { output, wallTime: withoutExitCode[1] ?? "" };
+  return readPartialEnvelopeOutput(summary.slice(outputOnly[0].length), {});
 }
 
 function readMarkedTruncatedStructuredToolOutputObservation(
@@ -57,7 +81,10 @@ function readMarkedTruncatedStructuredToolOutputObservation(
     parsed === null ||
     parsed.truncated !== true ||
     typeof parsed.wall_time !== "string" ||
-    typeof parsed.output !== "string"
+    typeof parsed.output !== "string" ||
+    !looksLikeWallTime(parsed.wall_time) ||
+    hasUnexpectedMarkedTruncatedKeys(parsed) ||
+    parsed.output.trim().length === 0
   ) {
     return null;
   }
@@ -74,73 +101,7 @@ function readMarkedTruncatedStructuredToolOutputObservation(
   };
 }
 
-function readIntegerExitCodeToken(value: string): number | null {
-  const normalized = value.replace(/^"|"$/g, "").trim();
-  return /^-?\d+$/.test(normalized) ? Number.parseInt(normalized, 10) : null;
-}
-
-function decodeTruncatedJsonStringContent(value: string): string {
-  const closedValue = removeTrailingClosedJsonStringQuote(value);
-  let output = "";
-
-  for (let index = 0; index < closedValue.length; index += 1) {
-    const current = closedValue[index];
-    if (current !== "\\") {
-      output += current;
-      continue;
-    }
-
-    const escaped = closedValue[index + 1];
-    if (escaped === undefined) {
-      break;
-    }
-    index += 1;
-
-    switch (escaped) {
-      case "n":
-        output += "\n";
-        break;
-      case "r":
-        output += "\r";
-        break;
-      case "t":
-        output += "\t";
-        break;
-      case "u":
-        output += decodeUnicodeEscape(closedValue, index);
-        index += isUnicodeEscape(closedValue, index) ? 4 : 0;
-        break;
-      default:
-        output += escaped;
-        break;
-    }
-  }
-
-  return output;
-}
-
-function decodeUnicodeEscape(value: string, index: number): string {
-  const hex = value.slice(index + 1, index + 5);
-  return /^[0-9a-f]{4}$/i.test(hex) ? String.fromCharCode(Number.parseInt(hex, 16)) : "u";
-}
-
-function isUnicodeEscape(value: string, index: number): boolean {
-  return /^[0-9a-f]{4}$/i.test(value.slice(index + 1, index + 5));
-}
-
-function removeTrailingClosedJsonStringQuote(value: string): string {
-  const match = /"\s*$/.exec(value);
-  if (!match || match.index === undefined || hasOddBackslashRunBefore(value, match.index)) {
-    return value;
-  }
-
-  return value.slice(0, match.index);
-}
-
-function hasOddBackslashRunBefore(value: string, index: number): boolean {
-  let count = 0;
-  for (let cursor = index - 1; cursor >= 0 && value[cursor] === "\\"; cursor -= 1) {
-    count += 1;
-  }
-  return count % 2 === 1;
+function hasUnexpectedMarkedTruncatedKeys(value: Record<string, unknown>): boolean {
+  const allowedKeys = new Set(["exit_code", "output", "truncated", "wall_time"]);
+  return Object.keys(value).some((key) => !allowedKeys.has(key));
 }

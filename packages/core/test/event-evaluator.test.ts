@@ -7,6 +7,14 @@ import { normalizePublicEvaluationInput } from "../src/attention-evaluator-input
 import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
 
 const evaluation = new EventEvaluator();
+const rejectedToolUseMessage =
+  "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
+const declinedActionMessage =
+  "The user doesn't want to take this action right now. STOP what you are doing and wait for the user to tell you how to proceed.";
+const successfulTestObservationTranscript =
+  "OBSERVATION: === Testing quote formatting === All quote formatting tests passed!";
+const abbreviatedFileViewObservationTranscript =
+  "OBSERVATION: <NOTE>This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.</NOTE> 1 # fmt: off 2 from __future__ import an...";
 
 test("task.started becomes a background status candidate", () => {
   const result = evaluation.evaluate({
@@ -99,14 +107,33 @@ test("failed-status routine bash observations route as non-interruptive status",
   assert.equal(result.candidate.activityClass, "status_update");
   assert.equal(result.candidate.provenance?.whyNow, undefined);
   assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.deepEqual(result.candidate.judgmentInput.observationalStatusConflict, {
+    kind: "command_success_observation",
+    toolFamily: "bash",
+    baselineConsequence: "low",
+  });
   assert.equal(
     buildAttentionClaim(result.candidate).judgment?.routineObservationalStatusConflict,
     true,
   );
+  assert.deepEqual(buildAttentionClaim(result.candidate).judgment?.observationalStatusConflict, {
+    kind: "command_success_observation",
+    toolFamily: "bash",
+    baselineConsequence: "low",
+  });
   assert.equal(
     normalizePublicEvaluationInput({ claim: buildAttentionClaim(result.candidate) }).candidate
       .judgmentInput.routineObservationalStatusConflict,
     true,
+  );
+  assert.deepEqual(
+    normalizePublicEvaluationInput({ claim: buildAttentionClaim(result.candidate) }).candidate
+      .judgmentInput.observationalStatusConflict,
+    {
+      kind: "command_success_observation",
+      toolFamily: "bash",
+      baselineConsequence: "low",
+    },
   );
   assert.deepEqual(result.candidate.judgmentInput.ontology, {
     ask: "status",
@@ -326,6 +353,444 @@ test("observational status-conflict routing preserves high consequence", () => {
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
   assert.equal(result.candidate.activityClass, "status_update");
   assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.deepEqual(result.candidate.judgmentInput.observationalStatusConflict, {
+    kind: "payload_observation",
+    toolFamily: "read",
+    baselineConsequence: "high",
+  });
+});
+
+test("valid source function prefixes preserve observational routing", () => {
+  for (const [id, summary] of [
+    ["javascript-empty-function-body", "function run() {}"],
+    ["javascript-function-body", "function run() { return true; }"],
+    ["javascript-function-object-body", "function run() { return { ok: true }; }"],
+    ["javascript-function-quoted-brace", 'function run() { return "}"; }'],
+    ["typescript-export-async-function", "export async function run(): Promise<void> {"],
+    ["javascript-export-default-function", "export default function run() {}"],
+  ] as const) {
+    const result = evaluation.evaluate(
+      normalizeSourceEvent({
+        id: `evt:valid-source-function-${id}`,
+        taskId: `task:valid-source-function-${id}`,
+        timestamp: "2026-03-08T12:02:29.600Z",
+        type: "task.updated",
+        title: "read failure",
+        summary,
+        status: "failed",
+        toolFamily: "read",
+      }),
+    );
+
+    assert.equal(result.kind, "candidate");
+    if (result.kind !== "candidate") {
+      return;
+    }
+
+    assert.equal(result.candidate.priority, "high");
+    assert.equal(result.candidate.tone, "critical");
+    assert.equal(result.candidate.consequence, "high");
+    assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+    assert.equal(result.candidate.activityClass, "status_update");
+    assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+    assert.equal(
+      result.candidate.judgmentInput.observationalStatusConflict?.kind,
+      "payload_observation",
+    );
+  }
+});
+
+test("source-like prose prefixes keep failed-status routing", () => {
+  for (const [id, summary] of [
+    ["class-prefix", "class schedule needs review before Friday"],
+    ["type-prefix", "type the command into the terminal"],
+    ["import-prefix", "import the records from the old system"],
+    ["title-case-class-prefix", "Class Schedule"],
+    ["title-case-interface-prefix", "Interface Status"],
+    ["function-prose-parameters", "function run(this through legal first)"],
+    ["function-prose-suffix", "function run() this through legal first"],
+    ["function-review-suffix", "function review() before Friday"],
+    ["python-def-prose-suffix", "def plan() this through legal first"],
+    ["python-async-def-prose-suffix", "async def review() before Friday"],
+    ["const-prose-assignment", "const plan = review this before Friday"],
+  ] as const) {
+    const result = evaluation.evaluate(
+      normalizeSourceEvent({
+        id: `evt:source-like-prose-${id}`,
+        taskId: `task:source-like-prose-${id}`,
+        timestamp: "2026-03-08T12:02:29.625Z",
+        type: "task.updated",
+        title: "read failure",
+        summary,
+        status: "failed",
+        toolFamily: "read",
+      }),
+    );
+
+    assert.equal(result.kind, "candidate");
+    if (result.kind !== "candidate") {
+      return;
+    }
+
+    assert.equal(result.candidate.priority, "high");
+    assert.equal(result.candidate.tone, "critical");
+    assert.equal(result.candidate.consequence, "high");
+    assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+    assert.equal(result.candidate.activityClass, "tool_failure");
+    assert.notEqual(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+    assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
+  }
+});
+
+test("missing-tool observation transcripts route through observational status conflict", () => {
+  const event = normalizeSourceEvent({
+    id: "evt:missing-tool-observation-conflict",
+    taskId: "task:missing-tool-observation-conflict",
+    timestamp: "2026-03-08T12:02:29.750Z",
+    type: "task.updated",
+    title: "tool failure",
+    summary:
+      "OBSERVATION: Here's the result of running `cat -n` on /testbed/yamllint/cli.py: 1 #!/usr/bin/env python3 2 import sys",
+    status: "failed",
+  });
+  const result = evaluation.evaluate(event);
+
+  assert.equal(event.toolFamily, undefined);
+  assert.equal(event.semantic.toolFamily, undefined);
+  assert.equal(event.semantic.activityClass, "status_update");
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.toolFamily, undefined);
+  assert.equal(result.candidate.activityClass, "status_update");
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.consequence, "high");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+  assert.equal(result.candidate.provenance?.whyNow, undefined);
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.deepEqual(result.candidate.judgmentInput.ontology, {
+    ask: "status",
+    activity: "task_progress",
+    consequence: "high",
+    blocking: "non_blocking",
+    episode: "unknown",
+    confidence: "high",
+    source: "inferred",
+  });
+});
+
+test("missing-tool successful test and abbreviated file-view transcripts route quietly", () => {
+  for (const [id, summary] of [
+    ["successful-test", successfulTestObservationTranscript],
+    ["abbreviated-file-view", abbreviatedFileViewObservationTranscript],
+  ] as const) {
+    const event = normalizeSourceEvent({
+      id: `evt:${id}-observation-transcript`,
+      taskId: `task:${id}-observation-transcript`,
+      timestamp: "2026-03-08T12:02:29.800Z",
+      type: "task.updated",
+      title: "tool failure",
+      summary,
+      status: "failed",
+    });
+    const result = evaluation.evaluate(event);
+
+    assert.equal(event.toolFamily, undefined);
+    assert.equal(event.semantic.toolFamily, undefined);
+    assert.equal(event.semantic.activityClass, "status_update");
+    assert.equal(event.semantic.consequence, "low");
+    assert.equal(result.kind, "candidate");
+    if (result.kind !== "candidate") {
+      return;
+    }
+
+    assert.equal(result.candidate.toolFamily, undefined);
+    assert.equal(result.candidate.activityClass, "status_update");
+    assert.equal(result.candidate.priority, "background");
+    assert.equal(result.candidate.tone, "ambient");
+    assert.equal(result.candidate.consequence, "low");
+    assert.equal(result.candidate.responseSpec.kind, "none");
+    assert.equal(result.candidate.provenance?.whyNow, undefined);
+    assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+    assert.equal(result.candidate.judgmentInput.ontology?.activity, "task_progress");
+    assert.equal(result.candidate.judgmentInput.ontology?.consequence, "low");
+  }
+});
+
+test("read and search corpus output fragments route through observational status conflict", () => {
+  const readEvent = normalizeSourceEvent({
+    id: "evt:read-technical-doc-observation-conflict",
+    taskId: "task:read-technical-doc-observation-conflict",
+    timestamp: "2026-03-08T12:02:29.825Z",
+    type: "task.updated",
+    title: "read failure",
+    summary:
+      "2783\u2192## 7.6. Dual Issue VALU 2784\u2192 2785\u2192The VOPD instruction encoding allows a single shader instruction to encode two separate VALU operations that are executed in parallel. The two operations must be independent of each other. This ins...",
+    status: "failed",
+    toolFamily: "read",
+  });
+  const readResult = evaluation.evaluate(readEvent);
+
+  assert.equal(readEvent.semantic.activityClass, "status_update");
+  assert.equal(readEvent.semantic.consequence, "high");
+  assert.equal(readResult.kind, "candidate");
+  if (readResult.kind !== "candidate") {
+    return;
+  }
+  assert.equal(readResult.candidate.activityClass, "status_update");
+  assert.equal(readResult.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.deepEqual(readResult.candidate.judgmentInput.observationalStatusConflict, {
+    kind: "payload_observation",
+    toolFamily: "read",
+    baselineConsequence: "high",
+  });
+
+  const searchEvent = normalizeSourceEvent({
+    id: "evt:search-grep-context-observation-conflict",
+    taskId: "task:search-grep-context-observation-conflict",
+    timestamp: "2026-03-08T12:02:29.850Z",
+    type: "task.updated",
+    title: "search failure",
+    summary:
+      "2255-- VOP3SD has an SDST field 2256- - V_ADD_CO_U32 adds with carry-out 2257- - V_DIV_SCALE_F32 uses the same encoding",
+    status: "failed",
+    toolFamily: "search",
+  });
+  const searchResult = evaluation.evaluate(searchEvent);
+
+  assert.equal(searchEvent.semantic.activityClass, "status_update");
+  assert.equal(searchEvent.semantic.consequence, "low");
+  assert.equal(searchResult.kind, "candidate");
+  if (searchResult.kind !== "candidate") {
+    return;
+  }
+  assert.equal(searchResult.candidate.priority, "background");
+  assert.deepEqual(searchResult.candidate.judgmentInput.observationalStatusConflict, {
+    kind: "search_output_observation",
+    toolFamily: "search",
+    baselineConsequence: "low",
+  });
+});
+
+test("adversarial read and search fragments do not forge observational conflicts", () => {
+  for (const [id, toolFamily, title, summary] of [
+    [
+      "search-numbered-list",
+      "search",
+      "search failure",
+      "1- first item 2- second item 3- third item",
+    ],
+    [
+      "read-acronym-prose",
+      "read",
+      "read failure",
+      "101\u2192## 7.6. API SDK Notes 102\u2192 103\u2192The API and SDK entries are discussed here without an emitted read-window clipping boundary.",
+    ],
+  ] as const) {
+    const event = normalizeSourceEvent({
+      id: `evt:${id}`,
+      taskId: `task:${id}`,
+      timestamp: "2026-03-08T12:02:29.860Z",
+      type: "task.updated",
+      title,
+      summary,
+      status: "failed",
+      toolFamily,
+    });
+    const result = evaluation.evaluate(event);
+
+    assert.equal(event.semantic.activityClass, "tool_failure");
+    assert.equal(result.kind, "candidate");
+    if (result.kind !== "candidate") {
+      return;
+    }
+    assert.equal(result.candidate.activityClass, "tool_failure");
+    assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+    assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
+  }
+});
+
+test("command execution aliases preserve family while using command observation routing", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:exec-command-routine-observation",
+      taskId: "task:exec-command-routine-observation",
+      timestamp: "2026-03-08T12:02:29.875Z",
+      type: "task.updated",
+      title: "exec_command failure",
+      summary: "Your command ran successfully and did not produce any output.",
+      status: "failed",
+      toolFamily: "exec_command",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.toolFamily, "exec_command");
+  assert.equal(result.candidate.priority, "background");
+  assert.equal(result.candidate.tone, "ambient");
+  assert.equal(result.candidate.consequence, "low");
+  assert.equal(result.candidate.responseSpec.kind, "none");
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.equal(result.candidate.judgmentInput.ontology?.activity, "task_progress");
+});
+
+test("tool-use rejection outcomes route as background status updates", () => {
+  for (const [id, title, summary, toolFamily] of [
+    ["bash", "bash failure", rejectedToolUseMessage, "bash"],
+    ["edit", "edit failure", rejectedToolUseMessage, "edit"],
+    ["web", "web failure", rejectedToolUseMessage, "web"],
+    ["absent", "tool failure", rejectedToolUseMessage, undefined],
+    ["declined-action", "bash failure", declinedActionMessage, "bash"],
+  ] as const) {
+    const result = evaluation.evaluate(
+      normalizeSourceEvent({
+        id: `evt:${id}:tool-use-rejection`,
+        taskId: `task:${id}:tool-use-rejection`,
+        timestamp: "2026-03-08T12:02:29.925Z",
+        type: "task.updated",
+        title,
+        summary,
+        status: "failed",
+        ...(toolFamily !== undefined ? { toolFamily } : {}),
+      }),
+    );
+
+    assert.equal(result.kind, "candidate");
+    if (result.kind !== "candidate") {
+      return;
+    }
+
+    assert.equal(result.candidate.toolFamily, toolFamily);
+    assert.equal(result.candidate.priority, "background");
+    assert.equal(result.candidate.tone, "ambient");
+    assert.equal(result.candidate.consequence, "low");
+    assert.equal(result.candidate.responseSpec.kind, "none");
+    assert.equal(result.candidate.activityClass, "status_update");
+    assert.equal(result.candidate.provenance?.whyNow, undefined);
+    assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+    assert.equal(result.candidate.judgmentInput.ontology?.activity, "task_progress");
+    assert.equal(result.candidate.judgmentInput.ontology?.consequence, "low");
+  }
+});
+
+test("tool-use rejection hints cannot forge status-conflict routing", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:hinted-tool-use-rejection",
+      taskId: "task:hinted-tool-use-rejection",
+      timestamp: "2026-03-08T12:02:29.950Z",
+      type: "task.updated",
+      title: "tool failure",
+      summary: rejectedToolUseMessage,
+      status: "failed",
+      semanticHints: {
+        toolFamily: "edit",
+      },
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.toolFamily, undefined);
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+});
+
+test("successful-test observation hints cannot forge status-conflict routing", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:hinted-successful-test-observation",
+      taskId: "task:hinted-successful-test-observation",
+      timestamp: "2026-03-08T12:02:29.960Z",
+      type: "task.updated",
+      title: "tool failure",
+      summary: successfulTestObservationTranscript,
+      status: "failed",
+      semanticHints: {
+        toolFamily: "bash",
+      },
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.toolFamily, undefined);
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.ontology?.activity, "failure");
+});
+
+test("nonmatching rejection prose keeps failed-status routing", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:service-rejection",
+      taskId: "task:service-rejection",
+      timestamp: "2026-03-08T12:02:29.975Z",
+      type: "task.updated",
+      title: "bash failure",
+      summary: "The remote service rejected the request after the command retried.",
+      status: "failed",
+      toolFamily: "bash",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.consequence, "high");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+  assert.equal(result.candidate.activityClass, "tool_failure");
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+});
+
+test("mismatched command alias hints cannot forge status-conflict routing", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:mismatched-command-alias-observation",
+      taskId: "task:mismatched-command-alias-observation",
+      timestamp: "2026-03-08T12:02:29.900Z",
+      type: "task.updated",
+      title: "exec_command failure",
+      summary: "Your command ran successfully and did not produce any output.",
+      status: "failed",
+      toolFamily: "exec_command",
+      semanticHints: {
+        toolFamily: "bash",
+      },
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.toolFamily, "exec_command");
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.ontology?.activity, "failure");
 });
 
 test("task.updated semantics enrich provenance without overriding status routing", () => {

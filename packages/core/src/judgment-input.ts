@@ -1,11 +1,12 @@
 import type { ApertureEvent } from "./events.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
-import { hasRoutineObservationalStatusConflictSemanticRead } from "./semantic-evidence.js";
-import { projectAttentionOntologyDiagnostic } from "./semantic-ontology.js";
+import { readRoutineObservationalStatusConflictEvidence } from "./semantic-evidence.js";
+import { projectAttentionOntologyDiagnosticWithStatusConflictEvidence } from "./semantic-ontology.js";
 import type { SemanticConfidence } from "./semantic-types.js";
 import type {
   AttentionJudgmentInput,
   CandidateSemanticEvidence,
+  ObservationalStatusConflictEvidence,
   SemanticEvidenceStrength,
 } from "./judgment-input-types.js";
 import type {
@@ -46,8 +47,17 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
     };
   }
 
-  const ontology = projectAttentionOntologyDiagnostic(event, event.semantic);
   const abstained = event.semantic.abstained === true;
+  const observationalStatusConflict = readRoutineObservationalStatusConflictEvidence(
+    event,
+    event.semantic,
+    abstained,
+  );
+  const ontology = projectAttentionOntologyDiagnosticWithStatusConflictEvidence(
+    event,
+    event.semantic,
+    observationalStatusConflict,
+  );
 
   return {
     ontology,
@@ -73,8 +83,11 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
       event.type === "task.updated" &&
       ontology.blocking === "blocking" &&
       event.status !== "blocked",
-    ...(hasRoutineObservationalStatusConflict(event, abstained)
-      ? { routineObservationalStatusConflict: true }
+    ...(observationalStatusConflict !== null
+      ? {
+          routineObservationalStatusConflict: true,
+          observationalStatusConflict,
+        }
       : {}),
   };
 }
@@ -95,6 +108,12 @@ export function readCandidateSemanticRelationEvidence(
   candidate: AttentionCandidate,
 ): AttentionJudgmentInput["relationEvidence"] | null {
   return candidate.judgmentInput.relationEvidence ?? null;
+}
+
+export function readCandidateObservationalStatusConflictEvidence(
+  candidate: AttentionCandidate,
+): ObservationalStatusConflictEvidence | null {
+  return candidate.judgmentInput.observationalStatusConflict ?? null;
 }
 
 export function readSemanticRelationEvidenceStrength(
@@ -191,7 +210,10 @@ export function hasRoutineObservationalStatusConflictSemantics(
 export function hasRoutineObservationalStatusConflictJudgmentInput(
   judgmentInput: AttentionJudgmentInput,
 ): boolean {
-  return judgmentInput.routineObservationalStatusConflict === true;
+  return (
+    judgmentInput.routineObservationalStatusConflict === true ||
+    judgmentInput.observationalStatusConflict !== undefined
+  );
 }
 
 export function resolvePeripheralResolutionFloor(
@@ -222,12 +244,6 @@ function readSemanticEvidenceStrengthFromParts(
     case "high":
       return source === "inferred" ? "qualified" : "strong";
   }
-}
-
-function hasRoutineObservationalStatusConflict(event: ApertureEvent, abstained: boolean): boolean {
-  return event.semantic
-    ? hasRoutineObservationalStatusConflictSemanticRead(event, event.semantic, abstained)
-    : false;
 }
 
 function readSemanticRelationEvidenceSource(

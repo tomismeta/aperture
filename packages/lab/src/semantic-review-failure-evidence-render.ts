@@ -21,6 +21,10 @@ export function renderFailureEvidenceMarkdown(report: SemanticReviewCandidateRep
     "",
     ...renderToolFamilyCounts(report),
     "",
+    "### Unclassified Event Shapes",
+    "",
+    ...renderUnclassifiedEventShapeCounts(report),
+    "",
     "### Examples",
     "",
     ...renderFailureEvidenceExamples(report),
@@ -34,6 +38,15 @@ function renderToolFamilyCounts(report: SemanticReviewCandidateReport): string[]
   }
 
   return entries.map(([toolFamily, count]) => `- ${toolFamily}: ${formatCount(count)}`);
+}
+
+function renderUnclassifiedEventShapeCounts(report: SemanticReviewCandidateReport): string[] {
+  const entries = Object.entries(report.summary.failedTaskEvidence.unclassifiedEventShapeCounts);
+  if (entries.length === 0) {
+    return ["- (none)"];
+  }
+
+  return entries.map(([shape, count]) => `- ${shape}: ${formatCount(count)}`);
 }
 
 function renderFailureEvidenceExamples(report: SemanticReviewCandidateReport): string[] {
@@ -57,6 +70,7 @@ function renderFailureEvidenceExamples(report: SemanticReviewCandidateReport): s
       lines.push(
         `  evidence: tool=${example.evidence.toolFamily ?? "none"}, observation=${String(example.evidence.readsAsObservation)}, baseline=${example.evidence.consequenceBaseline}`,
       );
+      lines.push(`  shape: ${example.eventShape}`);
       lines.push(
         `  semantic: intent=${example.semantic.intentFrame ?? "none"}, activity=${example.semantic.activityClass ?? "none"}, tool=${example.semantic.toolFamily ?? "none"}, consequence=${example.semantic.consequence ?? "none"}, confidence=${example.semantic.confidence ?? "none"}`,
       );

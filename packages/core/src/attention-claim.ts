@@ -4,6 +4,7 @@ import type {
   AttentionOntologyAuthority,
   AttentionOntologyDiagnostic,
 } from "./semantic-ontology-types.js";
+import type { ObservationalStatusConflictEvidence } from "./observational-status-conflict.js";
 import type { SemanticConfidence, SemanticRelationHint } from "./semantic-types.js";
 import type { SemanticEvidenceStrength } from "./judgment-input-types.js";
 
@@ -133,6 +134,7 @@ export type AttentionClaimJudgment = {
   };
   blockedLikeStatus?: boolean;
   routineObservationalStatusConflict?: boolean;
+  observationalStatusConflict?: ObservationalStatusConflictEvidence;
 };
 
 export type AttentionClaimEpisode = {
@@ -203,6 +205,9 @@ function buildAttentionClaimJudgment(
     blockedLikeStatus: judgment.blockedLikeStatus,
     ...(judgment.routineObservationalStatusConflict === true
       ? { routineObservationalStatusConflict: true }
+      : {}),
+    ...(judgment.observationalStatusConflict !== undefined
+      ? { observationalStatusConflict: judgment.observationalStatusConflict }
       : {}),
   };
 

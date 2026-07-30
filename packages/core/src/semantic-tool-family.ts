@@ -67,6 +67,12 @@ export function inferSemanticToolFamily(input: SemanticToolFamilyInput): string 
   );
 }
 
+export function isSemanticCommandExecutionToolFamily(toolFamily: string | undefined): boolean {
+  return (
+    toolFamily === "bash" || toolFamily === "exec_command" || toolFamily === "run_shell_command"
+  );
+}
+
 function readMetadataToolFamily(metadata?: Record<string, unknown>): string | null {
   const value = metadata?.toolFamily;
   return typeof value === "string" ? value : null;

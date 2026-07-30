@@ -53,6 +53,7 @@ export type SemanticTextEvidence = {
 
 export type TaskFailureEvidenceKind =
   | "routine_bash_success_observation"
+  | "structured_execution_success_observation"
   | "structured_tool_output_observation"
   | "empty_failure_payload"
   | "observational_payload"
@@ -253,11 +254,7 @@ export function readTaskFailureSemanticEvidence(
     };
   }
 
-  if (
-    signals.supportsStructuredToolOutput &&
-    signals.diagnosticStructuredToolOutput &&
-    signals.structuredOutputObservation
-  ) {
+  if (signals.diagnosticStructuredToolOutput && signals.structuredOutputObservation) {
     return {
       kind: "structured_tool_output_observation",
       ...(toolFamily !== undefined ? { toolFamily } : {}),
@@ -267,10 +264,21 @@ export function readTaskFailureSemanticEvidence(
     };
   }
 
+  if (signals.structuredOutputZeroExitSuccess) {
+    return {
+      kind: "structured_execution_success_observation",
+      ...(toolFamily !== undefined ? { toolFamily } : {}),
+      readsAsObservation: true,
+      consequenceBaseline: "low",
+      text,
+    };
+  }
+
   if (
     isSemanticCommandExecutionToolFamily(toolFamily) &&
     text.routineSuccessObservation &&
-    (!signals.unsafeStructuredToolOutputEnvelope || signals.zeroExitStructuredToolOutput)
+    (!signals.unsafeStructuredToolOutputEnvelope ||
+      signals.diagnosticStructuredToolOutput?.exitCode === 0)
   ) {
     return {
       kind: "routine_bash_success_observation",
@@ -383,6 +391,8 @@ function readObservationalStatusConflictKind(
   switch (kind) {
     case "routine_bash_success_observation":
       return "command_success_observation";
+    case "structured_execution_success_observation":
+      return "execution_success_observation";
     case "structured_tool_output_observation":
       return "structured_output_observation";
     case "observational_payload":

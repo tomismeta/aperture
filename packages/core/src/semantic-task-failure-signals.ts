@@ -30,6 +30,7 @@ import { looksLikeReadTruncationProtocolObservation } from "./semantic-read-obse
 import { readRecoveredCommandOutputObservation } from "./semantic-recovered-command-output-observation-shapes.js";
 import { looksLikeExplicitReadFailureDiagnostic } from "./semantic-read-failure-diagnostic-shapes.js";
 import type { StructuredToolOutputObservation } from "./semantic-structured-output.js";
+import { readSemanticStructuredOutputOwnership } from "./semantic-structured-output-ownership.js";
 import {
   readTaskFailureStructuredOutputEnvelope,
   type TaskFailureStructuredOutputEnvelope,
@@ -40,13 +41,12 @@ import { looksLikeUnifiedDiffObservation } from "./semantic-unified-diff-observa
 
 export type TaskFailureSemanticSignals = {
   structuredOutputEnvelope: TaskFailureStructuredOutputEnvelope;
-  supportsStructuredToolOutput: boolean;
   unsafeStructuredToolOutputEnvelope: boolean;
   diagnosticStructuredToolOutput: StructuredToolOutputObservation | null;
   structuredOutputExitFailure: boolean;
+  structuredOutputZeroExitSuccess: boolean;
   structuredOutputSourceObservation: boolean;
   structuredOutputObservation: boolean;
-  zeroExitStructuredToolOutput: boolean;
   rawReadSourceObservation: boolean;
   rawReadListingObservation: boolean;
   rawReadTruncationObservation: boolean;
@@ -74,10 +74,10 @@ export function readTaskFailureSemanticSignals(input: {
 }): TaskFailureSemanticSignals {
   const summary = input.summary ?? "";
   const commandExecutionToolFamily = isSemanticCommandExecutionToolFamily(input.toolFamily);
-  const supportsStructuredToolOutput = commandExecutionToolFamily || input.toolFamily === "edit";
+  const structuredOutputOwnership = readSemanticStructuredOutputOwnership(input.toolFamily);
   const structuredOutputEnvelope = readTaskFailureStructuredOutputEnvelope(
     input.summary,
-    supportsStructuredToolOutput,
+    structuredOutputOwnership,
   );
   const diagnosticStructuredToolOutput =
     structuredOutputEnvelope.kind === "valid" || structuredOutputEnvelope.kind === "recovered"
@@ -128,19 +128,18 @@ export function readTaskFailureSemanticSignals(input: {
     structuredOutputEnvelope.kind === "raw"
       ? readCommandTextObservation(summary)
       : null;
-
   return {
     structuredOutputEnvelope,
-    supportsStructuredToolOutput,
     unsafeStructuredToolOutputEnvelope:
       structuredOutputEnvelope.kind === "recovered" || structuredOutputEnvelope.kind === "invalid",
     diagnosticStructuredToolOutput,
     structuredOutputExitFailure:
       diagnosticStructuredToolOutput?.exitCode !== undefined &&
       diagnosticStructuredToolOutput.exitCode !== 0,
+    structuredOutputZeroExitSuccess:
+      diagnosticStructuredToolOutput?.exitCode === 0 && structuredOutputOwnership === "exact",
     structuredOutputSourceObservation,
     structuredOutputObservation,
-    zeroExitStructuredToolOutput: diagnosticStructuredToolOutput?.exitCode === 0,
     rawReadSourceObservation,
     rawReadListingObservation,
     rawReadTruncationObservation,
@@ -150,7 +149,7 @@ export function readTaskFailureSemanticSignals(input: {
     readFailureDiagnostic,
     structuredOutputFailureDiagnostic,
     rawToolOutputFailureDiagnostic:
-      supportsStructuredToolOutput &&
+      structuredOutputOwnership === "native" &&
       diagnosticStructuredToolOutput === null &&
       structuredOutputEnvelope.kind === "raw" &&
       hasToolOutputFailureDiagnosticEvidence(summary),

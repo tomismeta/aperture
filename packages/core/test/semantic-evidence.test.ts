@@ -6385,6 +6385,156 @@ test("observational status-conflict evidence includes corpus-derived event shape
     "unclassified_failure",
     "clipped C-like source still rejects unknown visible suffix metadata",
   );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:exec-command-truncated-source-location-assembly",
+      taskId: "task:evidence:exec-command-truncated-source-location-assembly",
+      timestamp,
+      type: "task.updated",
+      title: "exec_command failure",
+      summary:
+        '{"wall_time":"0.0513 seconds","output":"/home/user/repo/runtime/trap_handler/trap_handler.s:71:.set TTMP6_SPI_TTMPS_SETUP_DISABLED_SHIFT , 31\\n/home/user/repo/runtime/trap_handler/trap...',
+      status: "failed",
+      toolFamily: "exec_command",
+    })?.kind,
+    "structured_tool_output_observation",
+    "clipped path-qualified assembly source hits are source observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:exec-command-truncated-c-like-argument-source",
+      taskId: "task:evidence:exec-command-truncated-c-like-argument-source",
+      timestamp,
+      type: "task.updated",
+      title: "exec_command failure",
+      summary:
+        '{"wall_time":"0.0000 seconds","output":"d_a, d_b_prepacked, d_bias, d_c,\\nopts.m, opts.n, opts.k,\\n1, // has_bias=1\\nopts.block_warps_m, opts.block_warps_n, opts.unroll_k,\\nstream\\n);\\nif (!launched) {...',
+      status: "failed",
+      toolFamily: "exec_command",
+    })?.kind,
+    "structured_tool_output_observation",
+    "clipped C-like argument blocks are source observations when anchored by code context",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:exec-command-truncated-pointer-argument-source",
+      taskId: "task:evidence:exec-command-truncated-pointer-argument-source",
+      timestamp,
+      type: "task.updated",
+      title: "exec_command failure",
+      summary:
+        '{"wall_time":"0.0000 seconds","output":"ctx->first,\\nctx->second,\\nctx->third,\\nstream\\n);\\nif (!launched) {...',
+      status: "failed",
+      toolFamily: "exec_command",
+    })?.kind,
+    "structured_tool_output_observation",
+    "clipped C-like argument blocks accept pointer-member arguments",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:exec-command-truncated-c-like-stream-source",
+      taskId: "task:evidence:exec-command-truncated-c-like-stream-source",
+      timestamp,
+      type: "task.updated",
+      title: "exec_command failure",
+      summary:
+        '{"wall_time":"0.0000 seconds","output":"if (!launched) {\\nstd::cerr << \\"Failed to launch kernel: unsupported config\\" << std::endl;\\nreturn EXIT_FAILURE;\\n}\\nCHECK_HIP(hipStreamSynchronize(stream));\\nstd::vector<float> timing...',
+      status: "failed",
+      toolFamily: "exec_command",
+    })?.kind,
+    "structured_tool_output_observation",
+    "diagnostic literals inside clipped C++ stream source stay observational",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:edit-truncated-c-like-stream-source",
+      taskId: "task:evidence:edit-truncated-c-like-stream-source",
+      timestamp,
+      type: "task.updated",
+      title: "edit failure",
+      summary:
+        '{"wall_time":"0.0000 seconds","output":"if (!launched) {\\nstd::cerr << \\"Failed to launch kernel: unsupported config\\" << std::endl;\\nreturn EXIT_FAILURE;\\n}\\nCHECK_HIP(hipStreamSynchronize(stream));\\nstd::vector<float> timing...',
+      status: "failed",
+      toolFamily: "edit",
+    })?.kind,
+    "unclassified_failure",
+    "recovered clipped C++ stream source hardening does not leak into edit semantics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:exec-command-truncated-weak-list-prose",
+      taskId: "task:evidence:exec-command-truncated-weak-list-prose",
+      timestamp,
+      type: "task.updated",
+      title: "exec_command failure",
+      summary:
+        '{"wall_time":"0.0000 seconds","output":"first item,\\nsecond item,\\nthird item,\\n);\\nmaybe later...',
+      status: "failed",
+      toolFamily: "exec_command",
+    })?.kind,
+    "unclassified_failure",
+    "clipped argument-block observations require code-shaped anchors",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:exec-command-truncated-identifier-list-prose",
+      taskId: "task:evidence:exec-command-truncated-identifier-list-prose",
+      timestamp,
+      type: "task.updated",
+      title: "exec_command failure",
+      summary:
+        '{"wall_time":"0.0000 seconds","output":"alpha_item,\\nbeta_item,\\ngamma_item,\\n);\\nreturn later;\\nnotes...',
+      status: "failed",
+      toolFamily: "exec_command",
+    })?.kind,
+    "unclassified_failure",
+    "clipped argument-block observations require strong member-access evidence",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:edit-truncated-c-like-argument-source",
+      taskId: "task:evidence:edit-truncated-c-like-argument-source",
+      timestamp,
+      type: "task.updated",
+      title: "edit failure",
+      summary:
+        '{"wall_time":"0.0000 seconds","output":"d_a, d_b_prepacked, d_bias, d_c,\\nopts.m, opts.n, opts.k,\\nopts.block_warps_m, opts.block_warps_n, opts.unroll_k,\\nstream\\n);\\nif (!launched) {...',
+      status: "failed",
+      toolFamily: "edit",
+    })?.kind,
+    "unclassified_failure",
+    "recovered clipped command-output source hardening does not leak into edit semantics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:edit-truncated-source-location-assembly",
+      taskId: "task:evidence:edit-truncated-source-location-assembly",
+      timestamp,
+      type: "task.updated",
+      title: "edit failure",
+      summary:
+        '{"wall_time":"0.0513 seconds","output":"/home/user/repo/runtime/trap_handler/trap_handler.s:71:.set TTMP6_SPI_TTMPS_SETUP_DISABLED_SHIFT , 31\\n/home/user/repo/runtime/trap_handler/trap...',
+      status: "failed",
+      toolFamily: "edit",
+    })?.kind,
+    "unclassified_failure",
+    "recovered clipped command source-location hardening does not leak into edit semantics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-truncated-source-location-unsupported",
+      taskId: "task:evidence:web-truncated-source-location-unsupported",
+      timestamp,
+      type: "task.updated",
+      title: "web failure",
+      summary:
+        '{"wall_time":"0.0513 seconds","output":"/home/user/repo/runtime/trap_handler/trap_handler.s:71:.set TTMP6_SPI_TTMPS_SETUP_DISABLED_SHIFT , 31\\n/home/user/repo/runtime/trap_handler/trap...',
+      status: "failed",
+      toolFamily: "web",
+    })?.kind,
+    "unclassified_failure",
+    "structured command-output recovery remains tool-family bounded",
+  );
   assert.deepEqual(
     readTaskFailureSemanticEvidence({
       id: "evt:evidence:structured-no-space-grep-context",

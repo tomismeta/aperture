@@ -17,6 +17,12 @@ export function looksLikeAssemblySourceObservation(value: string): boolean {
   return hasPlainAssemblyEvidence(spans);
 }
 
+export function looksLikeAssemblySourceStatement(value: string): boolean {
+  const body = value.trim();
+  const instruction = readAssemblyInstructionMnemonic(body);
+  return isAssemblyDirective(body) || instruction?.hasOperandEvidence === true;
+}
+
 type AssemblySpan = { body: string; lineNumber?: number };
 
 function readAssemblySpans(text: string): AssemblySpan[] {

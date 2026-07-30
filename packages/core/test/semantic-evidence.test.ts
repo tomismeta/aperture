@@ -1440,6 +1440,20 @@ test("task failure evidence classifies structured tool output without treating i
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-cli-parse-diagnostic",
+      taskId: "task:evidence:raw-command-cli-parse-diagnostic",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: "jq: parse error: Unfinished JSON term at EOF at line 213, column 0",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "raw command CLI parse diagnostics should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:raw-command-flattened-python-syntax-diagnostic",
       taskId: "task:evidence:raw-command-flattened-python-syntax-diagnostic",
       timestamp,
@@ -1612,6 +1626,98 @@ test("task failure evidence classifies structured tool output without treating i
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-cli-parse-prose-reference",
+      taskId: "task:evidence:raw-command-cli-parse-prose-reference",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: "The note says jq: parse error: Unfinished JSON term means the fixture is clipped.",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "raw command prose references to CLI parse diagnostics are not terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-cli-parse-expected-output",
+      taskId: "task:evidence:raw-command-cli-parse-expected-output",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        "Expected output:\njq: parse error: Unfinished JSON term at EOF at line 213, column 0",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "raw command expected-output blocks mentioning CLI parse diagnostics are not terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-cli-parse-yaml-mapping",
+      taskId: "task:evidence:raw-command-cli-parse-yaml-mapping",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: "diagnostics:\n  jq: parse error: Unfinished JSON term at EOF at line 213, column 0",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "raw command YAML-like mappings mentioning CLI parse diagnostics are not terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-cli-parse-generic-label",
+      taskId: "task:evidence:raw-command-cli-parse-generic-label",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: "parser: parse error: fixture at line 1",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "generic parser labels are not command-output parse diagnostics",
+  );
+  for (const [label, summary] of [
+    ["expected", "expected: parse error: fixture at line 1"],
+    ["fixture", "fixture: parse error: fixture at line 1"],
+    ["message", "message: parse error: fixture at line 1"],
+    ["output", "output: parse error: fixture at line 1"],
+  ] as const) {
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:raw-command-cli-parse-${label}-label`,
+        taskId: `task:evidence:raw-command-cli-parse-${label}-label`,
+        timestamp,
+        type: "task.updated",
+        title: "bash failure",
+        summary,
+        status: "failed",
+        toolFamily: "bash",
+      })?.kind,
+      "unclassified_failure",
+      `generic ${label} labels are not command-output parse diagnostics`,
+    );
+  }
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-cli-parse-source-string",
+      taskId: "task:evidence:raw-command-cli-parse-source-string",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: 'const message = "jq: parse error: Unfinished JSON term at EOF";\nreturn message;',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "raw command source literals mentioning CLI parse diagnostics are not terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:raw-command-python-location-source-string",
       taskId: "task:evidence:raw-command-python-location-source-string",
       timestamp,
@@ -1716,6 +1822,20 @@ test("task failure evidence classifies structured tool output without treating i
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:read-cli-parse-text",
+      taskId: "task:evidence:read-cli-parse-text",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary: "jq: parse error: Unfinished JSON term at EOF at line 213, column 0",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "unclassified_failure",
+    "raw read output does not inherit command-output CLI parse diagnostics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:structured-rg-io-error-prose",
       taskId: "task:evidence:structured-rg-io-error-prose",
       timestamp,
@@ -1728,6 +1848,36 @@ test("task failure evidence classifies structured tool output without treating i
     })?.kind,
     "unclassified_failure",
     "ripgrep IO diagnostics must be anchored at the diagnostic line start",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-cli-parse-expected-output",
+      taskId: "task:evidence:structured-cli-parse-expected-output",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"Expected output:\\njq: parse error: Unfinished JSON term at EOF at line 213, column 0"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "structured expected-output blocks mentioning CLI parse diagnostics are not terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-cli-parse-diagnostic",
+      taskId: "task:evidence:structured-cli-parse-diagnostic",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"jq: parse error: Unfinished JSON term at EOF at line 213, column 0"}',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "structured command output CLI parse diagnostics should be terminal",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -3733,6 +3883,7 @@ test("explicit observation transcripts classify only narrow low-consequence subc
       "OBSERVATION: usage: str_replace_editor [-h] [--view_range VIEW_RANGE VIEW_RANGE] command path str_replace_editor: error: argument --view_range: expected 2 arguments",
       true,
     ],
+    ["OBSERVATION: jq: parse error: Unfinished JSON term at EOF at line 213, column 0", true],
     [
       'OBSERVATION: File "/testbed/test_fixes.py", line 8 print("x") ^ SyntaxError: invalid syntax',
       true,
@@ -3792,6 +3943,7 @@ test("explicit observation transcripts classify only narrow low-consequence subc
     'OBSERVATION: === Testing parser === @dataclass\nclass ErrorCase:\n    message: str = "Failures: 1"',
     "OBSERVATION: === Testing parser === error_handler:\n  mov rax, 1\n  call report_assertion\n  ret",
     "OBSERVATION: === Testing parser === failure_path:\n  mov rax, 0\n  call report_failure\n  ret",
+    'OBSERVATION: const message = "jq: parse error: Unfinished JSON term at EOF";\nreturn message;',
     'OBSERVATION: const message = "File \\"/testbed/test_fixes.py\\", line 8 SyntaxError: invalid syntax";\nreturn message;',
   ]) {
     assert.equal(readExplicitObservationTranscript(summary)?.shape, "existing_observation");
@@ -3960,6 +4112,19 @@ test("task failure evidence classifies explicit missing-tool observation transcr
     })?.kind,
     "terminal_failure",
     "tool-output diagnostics are terminal and not downgraded by missing-tool observation recovery",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-cli-parse-diagnostic-observation",
+      taskId: "task:evidence:missing-tool-cli-parse-diagnostic-observation",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary: "OBSERVATION: jq: parse error: Unfinished JSON term at EOF at line 213, column 0",
+      status: "failed",
+    })?.kind,
+    "terminal_failure",
+    "CLI parse diagnostics are terminal and not downgraded by missing-tool observation recovery",
   );
   for (const [id, summary, kind] of [
     [

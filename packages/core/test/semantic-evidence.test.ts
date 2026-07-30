@@ -1134,6 +1134,94 @@ test("task failure evidence classifies structured tool output without treating i
 
   assert.equal(truncatedExecCommandSourceOutput?.kind, "structured_tool_output_observation");
   assert.equal(truncatedExecCommandSourceOutput.toolFamily, "exec_command");
+  const rawCommandDiff = [
+    "diff --git a/src/app.ts b/src/app.ts",
+    "index abcdef1..abcdef2 100644",
+    "--- a/src/app.ts",
+    "+++ b/src/app.ts",
+    "@@ -1,3 +1,4 @@",
+    " export const ok = true;",
+    "+export const added = true;",
+  ].join("\n");
+  const rawCommandDiffEvidence = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:raw-command-unified-diff",
+    taskId: "task:evidence:raw-command-unified-diff",
+    timestamp,
+    type: "task.updated",
+    title: "bash failure",
+    summary: rawCommandDiff,
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(
+    readTaskFailureSemanticSignals({
+      summary: rawCommandDiff,
+      toolFamily: "bash",
+    }).rawCommandDiffObservation,
+    true,
+    "anchored raw command unified diffs should expose a dedicated observation signal",
+  );
+  assert.equal(rawCommandDiffEvidence?.kind, "observational_payload");
+  assert.equal(rawCommandDiffEvidence.toolFamily, "bash");
+  assert.equal(rawCommandDiffEvidence.readsAsObservation, true);
+  assert.equal(rawCommandDiffEvidence.consequenceBaseline, "high");
+  for (const [id, summary] of [
+    ["raw-command-diff-prose-reference", `The expected patch starts with ${rawCommandDiff}`],
+    ["raw-command-diff-expected-output", `Expected output:\n${rawCommandDiff}`],
+    ["raw-command-diff-source-string", `const patch = ${JSON.stringify(rawCommandDiff)};`],
+    [
+      "raw-command-plain-diff-fixture",
+      "--- expected output\n+++ actual output\n@@ parser fixture @@",
+    ],
+    [
+      "raw-command-flattened-diff-fixture",
+      "diff --git a/x b/x index abcdef1..abcdef2 100644 --- a/x +++ b/x @@ fixture @@",
+    ],
+  ] as const) {
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:${id}`,
+        taskId: `task:evidence:${id}`,
+        timestamp,
+        type: "task.updated",
+        title: "bash failure",
+        summary,
+        status: "failed",
+        toolFamily: "bash",
+      })?.kind,
+      "unclassified_failure",
+      `${id} should not be treated as raw command diff output`,
+    );
+  }
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-diff-with-traceback",
+      taskId: "task:evidence:raw-command-diff-with-traceback",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: `${rawCommandDiff}\nTraceback (most recent call last):\nRuntimeError: failed`,
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "terminal diagnostics embedded in diff output should keep terminal precedence",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-read-unified-diff",
+      taskId: "task:evidence:raw-read-unified-diff",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary: rawCommandDiff,
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "observational_payload",
+    "raw read diffs continue through existing read source-observation handling",
+  );
   assert.equal(
     readTaskFailureSemanticEvidence({
       id: "evt:evidence:run-shell-command-zero-exit",

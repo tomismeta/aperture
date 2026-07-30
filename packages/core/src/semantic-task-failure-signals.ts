@@ -18,24 +18,20 @@ import {
   type ExplicitObservationTranscript,
 } from "./semantic-observation-transcript-shapes.js";
 import { readExplicitNonDiagnosticObservationTranscript } from "./semantic-nondiagnostic-observation-transcript-shapes.js";
+import {
+  looksLikeExplicitActualDiagnosticObservationTranscript,
+  looksLikeExplicitDiagnosticReferenceObservationTranscript,
+} from "./semantic-observation-transcript-reference-shapes.js";
 import { looksLikeReadTruncationProtocolObservation } from "./semantic-read-observation-shapes.js";
 import { looksLikeExplicitReadFailureDiagnostic } from "./semantic-read-failure-diagnostic-shapes.js";
+import type { StructuredToolOutputObservation } from "./semantic-structured-output.js";
 import {
-  looksLikeStructuredToolOutputEnvelope,
-  readStructuredToolOutputObservation,
-  type StructuredToolOutputObservation,
-} from "./semantic-structured-output.js";
+  readTaskFailureStructuredOutputEnvelope,
+  type TaskFailureStructuredOutputEnvelope,
+} from "./semantic-task-failure-structured-output.js";
 import { isSemanticCommandExecutionToolFamily } from "./semantic-tool-family.js";
 import { looksLikeToolUseRejectionOutcome } from "./semantic-tool-use-rejection-shapes.js";
-import { readTruncatedStructuredToolOutputEnvelope } from "./semantic-truncated-structured-output.js";
 import { looksLikeUnifiedDiffObservation } from "./semantic-unified-diff-observation-shapes.js";
-
-export type TaskFailureStructuredOutputEnvelope =
-  | { kind: "unsupported" }
-  | { kind: "raw" }
-  | { kind: "valid"; output: StructuredToolOutputObservation }
-  | { kind: "recovered"; output: StructuredToolOutputObservation }
-  | { kind: "invalid" };
 
 export type TaskFailureSemanticSignals = {
   structuredOutputEnvelope: TaskFailureStructuredOutputEnvelope;
@@ -57,6 +53,9 @@ export type TaskFailureSemanticSignals = {
   rawToolOutputFailureDiagnostic: boolean;
   strongSourceRuntimeDiagnostic: boolean;
   diagnosticObservationTranscript: boolean;
+  commandDiagnosticObservationTranscript: boolean;
+  commandActualDiagnosticObservationTranscript: boolean;
+  commandDiagnosticReferenceObservationTranscript: boolean;
   commandObservationTranscript: ExplicitObservationTranscript | null;
   rawCommandDiffObservation: boolean;
   missingToolObservationTranscript: ExplicitObservationTranscript | null;
@@ -68,8 +67,8 @@ export function readTaskFailureSemanticSignals(input: {
   toolFamily?: string | undefined;
 }): TaskFailureSemanticSignals {
   const summary = input.summary ?? "";
-  const supportsStructuredToolOutput =
-    isSemanticCommandExecutionToolFamily(input.toolFamily) || input.toolFamily === "edit";
+  const commandExecutionToolFamily = isSemanticCommandExecutionToolFamily(input.toolFamily);
+  const supportsStructuredToolOutput = commandExecutionToolFamily || input.toolFamily === "edit";
   const structuredOutputEnvelope = readTaskFailureStructuredOutputEnvelope(
     input.summary,
     supportsStructuredToolOutput,
@@ -143,11 +142,18 @@ export function readTaskFailureSemanticSignals(input: {
       (rawReadStructuredObservation && hasStrongRuntimeDiagnosticEvidence(summary)),
     diagnosticObservationTranscript:
       input.toolFamily === undefined && looksLikeExplicitDiagnosticObservationTranscript(summary),
-    commandObservationTranscript: isSemanticCommandExecutionToolFamily(input.toolFamily)
+    commandDiagnosticObservationTranscript:
+      commandExecutionToolFamily && looksLikeExplicitDiagnosticObservationTranscript(summary),
+    commandActualDiagnosticObservationTranscript:
+      commandExecutionToolFamily && looksLikeExplicitActualDiagnosticObservationTranscript(summary),
+    commandDiagnosticReferenceObservationTranscript:
+      commandExecutionToolFamily &&
+      looksLikeExplicitDiagnosticReferenceObservationTranscript(summary),
+    commandObservationTranscript: commandExecutionToolFamily
       ? readExplicitNonDiagnosticObservationTranscript(summary)
       : null,
     rawCommandDiffObservation:
-      isSemanticCommandExecutionToolFamily(input.toolFamily) &&
+      commandExecutionToolFamily &&
       diagnosticStructuredToolOutput === null &&
       structuredOutputEnvelope.kind === "raw" &&
       looksLikeUnifiedDiffObservation(summary),
@@ -155,19 +161,4 @@ export function readTaskFailureSemanticSignals(input: {
       input.toolFamily === undefined ? readExplicitObservationTranscript(summary) : null,
     rejectedToolUseOutcome: looksLikeToolUseRejectionOutcome(summary),
   };
-}
-
-function readTaskFailureStructuredOutputEnvelope(
-  summary: string | undefined,
-  supportsStructuredToolOutput: boolean,
-): TaskFailureStructuredOutputEnvelope {
-  if (!supportsStructuredToolOutput) return { kind: "unsupported" };
-
-  const valid = readStructuredToolOutputObservation(summary);
-  if (valid !== null) return { kind: "valid", output: valid };
-
-  if (!looksLikeStructuredToolOutputEnvelope(summary)) return { kind: "raw" };
-
-  const recovered = readTruncatedStructuredToolOutputEnvelope(summary);
-  return recovered === null ? { kind: "invalid" } : { kind: "recovered", output: recovered };
 }

@@ -1,17 +1,17 @@
-import {
-  OBSERVATIONAL_READBACK_PHRASES,
-  PATH_LIKE_TOKEN_PATTERN,
-  TAGGED_FILE_OBSERVATION_PHRASES,
-} from "./semantic-patterns.js";
+import { OBSERVATIONAL_READBACK_PHRASES } from "./semantic-patterns.js";
 import { looksLikeAbbreviatedFileViewObservation } from "./semantic-abbreviated-file-view-observation-shapes.js";
 import { looksLikeObservationTranscriptDiagnostic } from "./semantic-observation-transcript-diagnostic-shapes.js";
+import { readExplicitObservationTranscriptBody } from "./semantic-observation-transcript-body.js";
 import {
   looksLikeBuildOrLogObservation,
   looksLikePlainReadObservation,
   looksLikeStrongRawSourceObservation,
 } from "./semantic-observation-shapes.js";
+import { looksLikeLocationDiagnosticObservation } from "./semantic-location-diagnostic-shapes.js";
 import { looksLikeSectionedSourceObservation } from "./semantic-sectioned-source-observation-shapes.js";
 import { looksLikeSearchResultObservation } from "./semantic-search-observation-shapes.js";
+import { looksLikeSourceFixtureObservation } from "./semantic-source-fixture-observation-shapes.js";
+import { looksLikeTaggedFileObservationTranscript } from "./semantic-tagged-file-observation-transcript-shapes.js";
 import { readTestOutputObservation } from "./semantic-test-output-observation-shapes.js";
 import { looksLikeSectionedTestOutputFailure } from "./semantic-test-result-section-shapes.js";
 import { containsAnySemanticPhrase, normalizeSemanticText } from "./semantic-text.js";
@@ -66,11 +66,19 @@ function readObservationTranscriptBody(body: string): ExplicitObservationTranscr
   if (looksLikeAbbreviatedFileViewObservation(body)) {
     return { shape: "abbreviated_file_view", consequenceBaseline: "low" };
   }
+  if (
+    containsAnySemanticPhrase(text, OBSERVATIONAL_READBACK_PHRASES) ||
+    looksLikeSourceFixtureObservation(body)
+  ) {
+    return { shape: "existing_observation", consequenceBaseline: "high" };
+  }
   if (looksLikeSectionedTestOutputFailure(body)) {
     return null;
   }
+  if (looksLikeLocationDiagnosticObservation(body)) {
+    return null;
+  }
   if (
-    containsAnySemanticPhrase(text, OBSERVATIONAL_READBACK_PHRASES) ||
     looksLikeTaggedFileObservationTranscript(text) ||
     looksLikeSectionedSourceObservation(body) ||
     looksLikeStrongRawSourceObservation(body) ||
@@ -82,18 +90,4 @@ function readObservationTranscriptBody(body: string): ExplicitObservationTranscr
   }
 
   return null;
-}
-
-function readExplicitObservationTranscriptBody(value: string): string | null {
-  const match = /^\s*OBSERVATION:\s*([\s\S]+)$/i.exec(value);
-  const body = match?.[1]?.trim() ?? "";
-
-  return body.length > 0 && body !== "{}" ? body : null;
-}
-
-function looksLikeTaggedFileObservationTranscript(text: string): boolean {
-  return (
-    containsAnySemanticPhrase(text, TAGGED_FILE_OBSERVATION_PHRASES) &&
-    PATH_LIKE_TOKEN_PATTERN.test(text)
-  );
 }

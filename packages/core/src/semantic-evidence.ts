@@ -149,11 +149,16 @@ export function readTaskFailureSemanticEvidence(
           signals.editOutputOutcome === "failure" ||
           signals.searchFailureDiagnostic ||
           signals.readFailureDiagnostic ||
-          signals.diagnosticObservationTranscript
+          signals.diagnosticObservationTranscript ||
+          signals.commandActualDiagnosticObservationTranscript ||
+          (signals.commandDiagnosticObservationTranscript &&
+            !signals.commandDiagnosticReferenceObservationTranscript)
         ? true
-        : signals.rawToolOutputFailureDiagnostic
+        : signals.rawToolOutputFailureDiagnostic &&
+            !signals.commandDiagnosticReferenceObservationTranscript
           ? true
           : text.terminalFailureEvidence &&
+            !signals.commandDiagnosticReferenceObservationTranscript &&
             signals.missingToolObservationTranscript === null &&
             !searchOutputObservation &&
             (!signals.rawReadStructuredObservation || signals.strongSourceRuntimeDiagnostic) &&

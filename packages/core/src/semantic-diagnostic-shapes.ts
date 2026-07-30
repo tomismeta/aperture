@@ -1,5 +1,6 @@
 import { looksLikeToolOutputDiagnosticPayload } from "./semantic-tool-output-diagnostic-shapes.js";
 import { looksLikeRuntimePanicDiagnostic } from "./semantic-panic-diagnostic-shapes.js";
+import { looksLikePythonLocationError } from "./semantic-python-diagnostic-shapes.js";
 
 export function hasToolOutputFailureDiagnosticEvidence(text: string): boolean {
   return hasStrongRuntimeDiagnosticEvidence(text) || looksLikeToolOutputDiagnosticPayload(text);
@@ -43,6 +44,7 @@ export function hasStrongRuntimeDiagnosticEvidence(text: string): boolean {
     looksLikeCMakeError(text) ||
     looksLikePackageManagerError(text) ||
     looksLikeCompilerError(text) ||
+    looksLikePythonLocationError(text) ||
     looksLikeRuntimeError(text)
   );
 }

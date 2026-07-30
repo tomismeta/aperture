@@ -17,6 +17,7 @@ import {
   readSectionedTestOutputObservation,
 } from "../src/semantic-test-result-section-shapes.js";
 import { isSemanticCommandExecutionToolFamily } from "../src/semantic-tool-family.js";
+import { looksLikePythonLocationError } from "../src/semantic-python-diagnostic-shapes.js";
 import {
   hasToolUseRejectionSignal,
   looksLikeToolUseRejectionOutcome,
@@ -70,6 +71,46 @@ test("semantic command execution families are exact", () => {
   assert.equal(isSemanticCommandExecutionToolFamily("terminal"), false);
   assert.equal(isSemanticCommandExecutionToolFamily("exec_command_extra"), false);
   assert.equal(isSemanticCommandExecutionToolFamily(undefined), false);
+});
+
+test("Python location diagnostics are bounded event shapes", () => {
+  for (const summary of [
+    'File "/testbed/test_fixes.py", line 8 print("x") ^ SyntaxError: invalid syntax',
+    `  File "/testbed/test_fixes.py", line 8 ${"x".repeat(760)} ^ SyntaxError: invalid syntax`,
+  ]) {
+    assert.equal(looksLikePythonLocationError(summary), true, summary);
+  }
+
+  for (const summary of [
+    '\nFile "/testbed/test_fixes.py", line 8 ^ SyntaxError: invalid syntax',
+    '\u2028File "/testbed/test_fixes.py", line 8 ^ SyntaxError: invalid syntax',
+    '\u000bFile "/testbed/test_fixes.py", line 8 ^ SyntaxError: invalid syntax',
+    `File "/testbed/test_fixes.py", line 8 ${"x".repeat(801)} ^ SyntaxError: invalid syntax`,
+    'File "/testbed/test_fixes.py", line 8 ^ SyntaxError invalid syntax',
+    'File "/testbed/test_fixes.py", line 8 should emit SyntaxError: in the expected output',
+    'File "/testbed/test_fixes.py", line 8 ^ should emit SyntaxError: in the expected output',
+    'The output said File "/testbed/test_fixes.py", line 8 SyntaxError: invalid syntax',
+    'Expected output:\nFile "/testbed/test_fixes.py", line 8 SyntaxError: invalid syntax',
+    'const expected = `\nFile "/testbed/test_fixes.py", line 8 SyntaxError: invalid syntax\n`;',
+    'File "/testbed/test_fixes.py", line 8\nunrelated output\nSyntaxError: invalid syntax',
+    'File\n"/testbed/test_fixes.py", line 8 SyntaxError: invalid syntax',
+    'File "/testbed/test_fixes.py",\nline 8 SyntaxError: invalid syntax',
+    'File "/testbed/test_fixes.py", line\n8 SyntaxError: invalid syntax',
+    'File "/testbed/test_fixes.py", line 8 SyntaxError\n: invalid syntax',
+    'File "/testbed/test_fixes.py", line 8 ^\u2028SyntaxError: invalid syntax',
+    'File "/testbed/test_fixes.py", line 8 ^\u2029SyntaxError: invalid syntax',
+    'File "/testbed/test_fixes.py", line 8 ^\u000bSyntaxError: invalid syntax',
+    'File "/testbed/test_fixes.py", line 8 ^\u000cSyntaxError: invalid syntax',
+    'File "/testbed/test\u0085_fixes.py", line 8 ^ SyntaxError: invalid syntax',
+    'File "/testbed/test_fixes.py", line 8 left\u0085right ^ SyntaxError: invalid syntax',
+    'File "/testbed/test_fixes.py", line 8 left\u001cright ^ SyntaxError: invalid syntax',
+    'File "/testbed/test_fixes.py", line 8 left\u001dright ^ SyntaxError: invalid syntax',
+    'File "/testbed/test_fixes.py", line 8 left\u001eright ^ SyntaxError: invalid syntax',
+    'File "/testbed/test_fixes.pyc", line 8 SyntaxError: invalid syntax',
+    'File "/testbed/test_fixes.py", line 8 ^ CustomError: invalid syntax',
+  ]) {
+    assert.equal(looksLikePythonLocationError(summary), false, summary);
+  }
 });
 
 test("task failure semantic signals are auditable and boundary scoped", () => {
@@ -1399,6 +1440,21 @@ test("task failure evidence classifies structured tool output without treating i
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-flattened-python-syntax-diagnostic",
+      taskId: "task:evidence:raw-command-flattened-python-syntax-diagnostic",
+      timestamp,
+      type: "task.updated",
+      title: "exec_command failure",
+      summary:
+        'File "/testbed/test_fixes.py", line 8 print(f"quote_type=single") ^ SyntaxError: invalid syntax',
+      status: "failed",
+      toolFamily: "exec_command",
+    })?.kind,
+    "terminal_failure",
+    "raw command flattened Python syntax diagnostics should be terminal",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:raw-command-panic",
       taskId: "task:evidence:raw-command-panic",
       timestamp,
@@ -1553,6 +1609,81 @@ test("task failure evidence classifies structured tool output without treating i
     })?.kind,
     "unclassified_failure",
     "raw command source literals mentioning diagnostics are not line-start diagnostics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-python-location-source-string",
+      taskId: "task:evidence:raw-command-python-location-source-string",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        'const message = "File \\"/testbed/test_fixes.py\\", line 8 SyntaxError: invalid syntax";\nreturn message;',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "raw command source literals mentioning Python diagnostics are not flattened diagnostics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-python-location-expected-output",
+      taskId: "task:evidence:raw-command-python-location-expected-output",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        'Expected output:\nFile "/testbed/test_fixes.py", line 8 SyntaxError: invalid syntax',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "raw command prose examples mentioning Python diagnostics are not flattened diagnostics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-python-location-led-prose",
+      taskId: "task:evidence:raw-command-python-location-led-prose",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        'File "/testbed/test_fixes.py", line 8 should emit SyntaxError: in the expected output',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "raw command location-led prose mentioning Python diagnostics is not flattened diagnostics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-python-caret-led-prose",
+      taskId: "task:evidence:raw-command-python-caret-led-prose",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        'File "/testbed/test_fixes.py", line 8 ^ should emit SyntaxError: in the expected output',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "raw command caret-led prose mentioning Python diagnostics is not flattened diagnostics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-python-location-cross-line",
+      taskId: "task:evidence:raw-command-python-location-cross-line",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        'File "/testbed/test_fixes.py", line 8\nunrelated output\nsyntax error: invalid syntax',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "raw command cross-line Python location fragments are not flattened diagnostics",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -3604,7 +3735,7 @@ test("explicit observation transcripts classify only narrow low-consequence subc
     ],
     [
       'OBSERVATION: File "/testbed/test_fixes.py", line 8 print("x") ^ SyntaxError: invalid syntax',
-      false,
+      true,
     ],
     [
       "OBSERVATION: test_disabled (tests.rules.test_anchors.AnchorsTestCase) ... FAIL FAILED (failures=1, errors=1)",
@@ -3661,6 +3792,7 @@ test("explicit observation transcripts classify only narrow low-consequence subc
     'OBSERVATION: === Testing parser === @dataclass\nclass ErrorCase:\n    message: str = "Failures: 1"',
     "OBSERVATION: === Testing parser === error_handler:\n  mov rax, 1\n  call report_assertion\n  ret",
     "OBSERVATION: === Testing parser === failure_path:\n  mov rax, 0\n  call report_failure\n  ret",
+    'OBSERVATION: const message = "File \\"/testbed/test_fixes.py\\", line 8 SyntaxError: invalid syntax";\nreturn message;',
   ]) {
     assert.equal(readExplicitObservationTranscript(summary)?.shape, "existing_observation");
     assert.equal(looksLikeExplicitDiagnosticObservationTranscript(summary), false);
@@ -3964,7 +4096,7 @@ test("task failure evidence classifies explicit missing-tool observation transcr
     [
       "syntax-error-diagnostic",
       'OBSERVATION: File "/testbed/test_fixes.py", line 8 print("x") ^ SyntaxError: invalid syntax',
-      "unclassified_failure",
+      "terminal_failure",
     ],
     [
       "failing-unittest-diagnostic",

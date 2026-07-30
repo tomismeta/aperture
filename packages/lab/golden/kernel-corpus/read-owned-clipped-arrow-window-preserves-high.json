@@ -1,0 +1,83 @@
+{
+  "id": "golden:kernel-corpus:read-owned-clipped-arrow-window-preserves-high",
+  "title": "Read-owned clipped arrow window preserves high consequence",
+  "description": "A failed read transport status that carries a clipped, read-owned arrow window should become an observational status conflict while preserving high consequence and now routing.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "semantic_normalization",
+    "status_noise",
+    "source_fact_authority",
+    "owned_read_transport"
+  ],
+  "semanticFamilies": ["consequence_underread"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:task:corpus:read-owned-clipped-arrow-window:status",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "read-owned clipped arrow window",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "toolFamily": "read",
+        "consequence": "high",
+        "confidence": "high",
+        "factorsInclude": ["observational_failure"],
+        "reasonsInclude": [
+          "task status indicates failure but the update reads like observational output"
+        ],
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "high",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "inferred"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "read-owned clipped arrow window",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "semanticConfidence": "high",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:activate", "lane:now", "policy:may_interrupt"],
+        "semanticInfluenceIncludes": [
+          "engine-owned observational evidence resolved noisy failed-status routing as status handling"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "observational status conflict (judgment routing)"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "read-owned clipped arrow window",
+      "event": {
+        "id": "evt:corpus:read-owned-clipped-arrow-window",
+        "type": "task.updated",
+        "taskId": "task:corpus:read-owned-clipped-arrow-window",
+        "timestamp": "2026-04-18T15:10:00.000Z",
+        "source": { "id": "dataclaw", "kind": "public-trajectory" },
+        "title": "read failure",
+        "summary": "1\u2192# HIP Kernel Optimization Plan 2\u2192 3\u2192## Target 4\u2192Kernel: scaled_mm_kernel_wmma_k0mk1 5\u2192Best config maps BlockM=128 and BlockN=256 6\u2192## Next steps 7\u2192...",
+        "status": "failed",
+        "toolFamily": "read"
+      }
+    }
+  ]
+}

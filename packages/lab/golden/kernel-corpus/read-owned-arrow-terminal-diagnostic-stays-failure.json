@@ -1,0 +1,78 @@
+{
+  "id": "golden:kernel-corpus:read-owned-arrow-terminal-diagnostic-stays-failure",
+  "title": "Read-owned arrow terminal diagnostic stays failure",
+  "description": "A read-owned arrow window that contains an unquoted compiler diagnostic must remain terminal failure evidence instead of being softened as observational payload.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "semantic_normalization",
+    "source_fact_authority",
+    "owned_read_transport"
+  ],
+  "semanticFamilies": ["consequence_underread"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:task:corpus:read-owned-arrow-terminal-diagnostic:status",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "read-owned arrow terminal diagnostic",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "toolFamily": "read",
+        "consequence": "high",
+        "confidence": "high",
+        "factorsInclude": ["failed"],
+        "reasonsInclude": ["task status explicitly indicates failure"],
+        "ontology": {
+          "ask": "status",
+          "activity": "failure",
+          "consequence": "high",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "explicit"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "read-owned arrow terminal diagnostic",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "semanticConfidence": "high",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:activate", "lane:now", "policy:may_interrupt"],
+        "semanticInfluenceIncludes": [
+          "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics"
+        ],
+        "semanticImpactDecisionBearingIncludes": ["activity (canonical)", "tool (bounded)"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "read-owned arrow terminal diagnostic",
+      "event": {
+        "id": "evt:corpus:read-owned-arrow-terminal-diagnostic",
+        "type": "task.updated",
+        "taskId": "task:corpus:read-owned-arrow-terminal-diagnostic",
+        "timestamp": "2026-04-18T15:12:00.000Z",
+        "source": { "id": "dataclaw", "kind": "public-trajectory" },
+        "title": "read failure",
+        "summary": "1\u2192import os 2\u2192const x = 1; 3\u2192src/app.ts:4:1: error: expected token...",
+        "status": "failed",
+        "toolFamily": "read"
+      }
+    }
+  ]
+}

@@ -376,6 +376,40 @@ test("failed edit readback observations stay status updates semantically", () =>
   assert.equal(interpretation.whyNow, undefined);
 });
 
+test("failed edit outcome envelopes preserve applied versus failed semantics", () => {
+  const applied = interpretSourceEvent({
+    id: "evt:edit-applied-readback",
+    type: "task.updated",
+    taskId: "task:edit-applied-readback",
+    timestamp,
+    source: source("custom-agent"),
+    title: "edit failure",
+    summary:
+      "Successfully modified file: /repo/src/app.ts (1 replacements). Here is the updated code:\nexport const value = 1;",
+    status: "failed",
+    toolFamily: "edit",
+  });
+  const failed = interpretSourceEvent({
+    id: "evt:edit-precondition-failure",
+    type: "task.updated",
+    taskId: "task:edit-precondition-failure",
+    timestamp,
+    source: source("custom-agent"),
+    title: "edit failure",
+    summary:
+      "<tool_use_error>File has not been read yet. Read it first before writing to it.</tool_use_error>",
+    status: "failed",
+    toolFamily: "edit",
+  });
+
+  assert.equal(applied.intentFrame, "status_update");
+  assert.equal(applied.activityClass, "status_update");
+  assert.equal(applied.consequence, "high");
+  assert.equal(failed.intentFrame, "failure");
+  assert.equal(failed.activityClass, "tool_failure");
+  assert.equal(failed.consequence, "high");
+});
+
 test("failed read source dumps stay status updates at high consequence", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:read-content-observation",

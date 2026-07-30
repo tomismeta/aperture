@@ -86,6 +86,18 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
   const directFailedLiteralObservation = "OBSERVATION: 1 failed";
   const directFailedPhraseObservation = "OBSERVATION: test failed: expected 1";
   const negatedFailedTestsObservation = "OBSERVATION: No tests failed. 0 failed.";
+  const editNotReadError =
+    "<tool_use_error>File has not been read yet. Read it first before writing to it.</tool_use_error>";
+  const editModifiedSinceReadError =
+    "<tool_use_error>File has been modified since read, either by the user or by a linter. Read it again before attempting to write it.</tool_use_error>";
+  const editAppliedReadback =
+    "Successfully modified file: /repo/src/app.ts (1 replacements). Here is the updated code:\nexport const value = 1;";
+  const editReplacementMiss =
+    "Could not find the exact text in /repo/src/app.ts. The old text must match exactly including all whitespace and newlines.";
+  const editIndexedReplacementMiss =
+    "Could not find edits[1] in /repo/src/app.ts. The oldText must match exactly including all whitespace and newlines.";
+  const editAmbiguousReplacement =
+    "Found 2 occurrences of the text in /repo/src/app.ts. The text must be unique. Please provide more context to make it unique.";
 
   const rawCommandDiagnostic = readTaskFailureSemanticSignals({
     summary: rawUsageDiagnostic,
@@ -103,6 +115,98 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
   });
   assert.equal(rawEditDiagnostic.structuredOutputEnvelope.kind, "raw");
   assert.equal(rawEditDiagnostic.rawToolOutputFailureDiagnostic, true);
+  assert.equal(rawEditDiagnostic.editOutputOutcome, null);
+
+  const rawEditNotReadError = readTaskFailureSemanticSignals({
+    summary: editNotReadError,
+    toolFamily: "edit",
+  });
+  assert.equal(rawEditNotReadError.structuredOutputEnvelope.kind, "raw");
+  assert.equal(rawEditNotReadError.editOutputOutcome, "failure");
+  assert.equal(rawEditNotReadError.rawToolOutputFailureDiagnostic, false);
+
+  const rawEditModifiedSinceReadError = readTaskFailureSemanticSignals({
+    summary: editModifiedSinceReadError,
+    toolFamily: "edit",
+  });
+  assert.equal(rawEditModifiedSinceReadError.editOutputOutcome, "failure");
+
+  const rawEditPatchError = readTaskFailureSemanticSignals({
+    summary: "apply_patch error",
+    toolFamily: "edit",
+  });
+  assert.equal(rawEditPatchError.editOutputOutcome, "failure");
+
+  const rawEditError = readTaskFailureSemanticSignals({
+    summary: "edit error",
+    toolFamily: "edit",
+  });
+  assert.equal(rawEditError.editOutputOutcome, "failure");
+
+  const rawWriteError = readTaskFailureSemanticSignals({
+    summary: "write error",
+    toolFamily: "edit",
+  });
+  assert.equal(rawWriteError.editOutputOutcome, "failure");
+
+  const rawEditReplacementMiss = readTaskFailureSemanticSignals({
+    summary: editReplacementMiss,
+    toolFamily: "edit",
+  });
+  assert.equal(rawEditReplacementMiss.editOutputOutcome, "failure");
+
+  const rawEditIndexedReplacementMiss = readTaskFailureSemanticSignals({
+    summary: editIndexedReplacementMiss,
+    toolFamily: "edit",
+  });
+  assert.equal(rawEditIndexedReplacementMiss.editOutputOutcome, "failure");
+
+  const rawEditAmbiguousReplacement = readTaskFailureSemanticSignals({
+    summary: editAmbiguousReplacement,
+    toolFamily: "edit",
+  });
+  assert.equal(rawEditAmbiguousReplacement.editOutputOutcome, "failure");
+
+  const readOwnedEditNotReadText = readTaskFailureSemanticSignals({
+    summary: editNotReadError,
+    toolFamily: "read",
+  });
+  assert.equal(readOwnedEditNotReadText.structuredOutputEnvelope.kind, "unsupported");
+  assert.equal(readOwnedEditNotReadText.editOutputOutcome, null);
+
+  const rawEditAppliedReadback = readTaskFailureSemanticSignals({
+    summary: editAppliedReadback,
+    toolFamily: "edit",
+  });
+  assert.equal(rawEditAppliedReadback.editOutputOutcome, "applied");
+
+  const structuredEditAppliedReadback = readTaskFailureSemanticSignals({
+    summary: JSON.stringify({ wall_time: "0.0510 seconds", output: editAppliedReadback }),
+    toolFamily: "edit",
+  });
+  assert.equal(structuredEditAppliedReadback.structuredOutputEnvelope.kind, "valid");
+  assert.equal(structuredEditAppliedReadback.editOutputOutcome, "applied");
+
+  const recoveredEditAppliedReadback = readTaskFailureSemanticSignals({
+    summary: `{"wall_time":"0.0510 seconds","output":"${editAppliedReadback}`,
+    toolFamily: "edit",
+  });
+  assert.equal(recoveredEditAppliedReadback.structuredOutputEnvelope.kind, "recovered");
+  assert.equal(recoveredEditAppliedReadback.editOutputOutcome, "applied");
+
+  const invalidEditOutputOnlyReadback = readTaskFailureSemanticSignals({
+    summary: JSON.stringify({ output: editAppliedReadback }),
+    toolFamily: "edit",
+  });
+  assert.equal(invalidEditOutputOnlyReadback.structuredOutputEnvelope.kind, "invalid");
+  assert.equal(invalidEditOutputOnlyReadback.editOutputOutcome, null);
+
+  const invalidEditExtraKeyReadback = readTaskFailureSemanticSignals({
+    summary: JSON.stringify({ output: editAppliedReadback, status: "ok" }),
+    toolFamily: "edit",
+  });
+  assert.equal(invalidEditExtraKeyReadback.structuredOutputEnvelope.kind, "invalid");
+  assert.equal(invalidEditExtraKeyReadback.editOutputOutcome, null);
 
   const rawReadUsageText = readTaskFailureSemanticSignals({
     summary: rawUsageDiagnostic,
@@ -694,6 +798,124 @@ test("task failure evidence classifies explicit tool-use rejection outcomes as l
   assert.equal(web.toolFamily, "web");
   assert.equal(web.readsAsObservation, true);
   assert.equal(web.consequenceBaseline, "low");
+});
+
+test("task failure evidence routes edit output outcomes by result semantics", () => {
+  const preconditionFailure = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:edit-tool-use-error",
+    taskId: "task:evidence:edit-tool-use-error",
+    timestamp,
+    type: "task.updated",
+    title: "edit failure",
+    summary:
+      "<tool_use_error>File has not been read yet. Read it first before writing to it.</tool_use_error>",
+    status: "failed",
+    toolFamily: "edit",
+  });
+  const noReplacementFailure = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:edit-no-replacement",
+    taskId: "task:evidence:edit-no-replacement",
+    timestamp,
+    type: "task.updated",
+    title: "edit failure",
+    summary:
+      "OBSERVATION: No replacement was performed, old_str `export const missing = true;` was not found.",
+    status: "failed",
+    toolFamily: "edit",
+  });
+  const replacementMissFailure = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:edit-replacement-miss",
+    taskId: "task:evidence:edit-replacement-miss",
+    timestamp,
+    type: "task.updated",
+    title: "edit failure",
+    summary:
+      "Could not find the exact text in /repo/src/app.ts. The old text must match exactly including all whitespace and newlines.",
+    status: "failed",
+    toolFamily: "edit",
+  });
+  const appliedReadback = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:edit-applied-readback",
+    taskId: "task:evidence:edit-applied-readback",
+    timestamp,
+    type: "task.updated",
+    title: "edit failure",
+    summary:
+      "Successfully modified file: /repo/src/app.ts (1 replacements). Here is the updated code:\nexport const value = 1;",
+    status: "failed",
+    toolFamily: "edit",
+  });
+  const createdReadback = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:edit-created-readback",
+    taskId: "task:evidence:edit-created-readback",
+    timestamp,
+    type: "task.updated",
+    title: "edit failure",
+    summary:
+      '{"wall_time":"0.0510 seconds","output":"Successfully created and wrote to new file: /repo/src/new-file.ts. Here is the updated code:\\nexport const value = 1;"}',
+    status: "failed",
+    toolFamily: "edit",
+  });
+  const recoveredReadback = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:edit-recovered-readback",
+    taskId: "task:evidence:edit-recovered-readback",
+    timestamp,
+    type: "task.updated",
+    title: "edit failure",
+    summary:
+      '{"wall_time":"0.0510 seconds","output":"Successfully modified file: /repo/src/app.ts (1 replacements). Here is the updated code:\\nexport const value = 1;',
+    status: "failed",
+    toolFamily: "edit",
+  });
+  const invalidMissingWallTimeReadback = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:edit-invalid-missing-wall-time-readback",
+    taskId: "task:evidence:edit-invalid-missing-wall-time-readback",
+    timestamp,
+    type: "task.updated",
+    title: "edit failure",
+    summary:
+      '{"output":"Successfully modified file: /repo/src/app.ts (1 replacements). Here is the updated code:\\nexport const value = 1;"}',
+    status: "failed",
+    toolFamily: "edit",
+  });
+  const invalidExtraKeyReadback = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:edit-invalid-extra-key-readback",
+    taskId: "task:evidence:edit-invalid-extra-key-readback",
+    timestamp,
+    type: "task.updated",
+    title: "edit failure",
+    summary:
+      '{"wall_time":"0.0510 seconds","output":"Successfully modified file: /repo/src/app.ts (1 replacements). Here is the updated code:\\nexport const value = 1;","status":"ok"}',
+    status: "failed",
+    toolFamily: "edit",
+  });
+  const bashOwnedAppliedText = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:bash-owned-edit-applied-text",
+    taskId: "task:evidence:bash-owned-edit-applied-text",
+    timestamp,
+    type: "task.updated",
+    title: "bash failure",
+    summary:
+      "Successfully modified file: /repo/src/app.ts (1 replacements). Here is the updated code:\nexport const value = 1;",
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(preconditionFailure?.kind, "terminal_failure");
+  assert.equal(preconditionFailure?.readsAsObservation, false);
+  assert.equal(preconditionFailure?.consequenceBaseline, "high");
+  assert.equal(noReplacementFailure?.kind, "terminal_failure");
+  assert.equal(replacementMissFailure?.kind, "terminal_failure");
+  assert.equal(appliedReadback?.kind, "observational_payload");
+  assert.equal(appliedReadback?.readsAsObservation, true);
+  assert.equal(appliedReadback?.consequenceBaseline, "high");
+  assert.equal(createdReadback?.kind, "observational_payload");
+  assert.equal(createdReadback?.readsAsObservation, true);
+  assert.equal(recoveredReadback?.kind, "observational_payload");
+  assert.equal(recoveredReadback?.readsAsObservation, true);
+  assert.equal(invalidMissingWallTimeReadback?.kind, "unclassified_failure");
+  assert.equal(invalidExtraKeyReadback?.kind, "unclassified_failure");
+  assert.equal(bashOwnedAppliedText?.kind, "unclassified_failure");
 });
 
 test("task failure evidence keeps terminal diagnostics ahead of rejection language", () => {

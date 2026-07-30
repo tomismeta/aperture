@@ -142,6 +142,7 @@ export function readTaskFailureSemanticEvidence(
     : signals.strongSourceRuntimeDiagnostic
       ? true
       : signals.structuredOutputFailureDiagnostic ||
+          signals.editOutputOutcome === "failure" ||
           signals.searchFailureDiagnostic ||
           signals.readFailureDiagnostic ||
           signals.diagnosticObservationTranscript
@@ -263,9 +264,11 @@ export function readTaskFailureSemanticEvidence(
 
   if (
     (toolFamily === "edit" || toolFamily === "read") &&
+    signals.structuredOutputEnvelope.kind !== "invalid" &&
     (text.observationalReadback ||
       text.taggedFileObservation ||
       text.readObservationPayload ||
+      signals.editOutputOutcome === "applied" ||
       signals.rawReadListingObservation ||
       signals.rawReadTruncationObservation)
   ) {

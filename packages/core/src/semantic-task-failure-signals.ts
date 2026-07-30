@@ -3,6 +3,7 @@ import {
   hasToolOutputFailureDiagnosticEvidence,
   looksLikeSearchFailureDiagnostic,
 } from "./semantic-diagnostic-shapes.js";
+import { readEditOutputOutcome, type EditOutputOutcome } from "./semantic-edit-output-shapes.js";
 import {
   looksLikeRecoveredListingObservation,
   looksLikeTruncatedRawReadListingObservation,
@@ -46,6 +47,7 @@ export type TaskFailureSemanticSignals = {
   rawReadListingObservation: boolean;
   rawReadTruncationObservation: boolean;
   rawReadStructuredObservation: boolean;
+  editOutputOutcome: EditOutputOutcome | null;
   searchFailureDiagnostic: boolean;
   readFailureDiagnostic: boolean;
   structuredOutputFailureDiagnostic: boolean;
@@ -87,6 +89,13 @@ export function readTaskFailureSemanticSignals(input: {
     input.toolFamily === "read" && looksLikeReadTruncationProtocolObservation(summary);
   const rawReadStructuredObservation =
     rawReadSourceObservation || rawReadListingObservation || rawReadTruncationObservation;
+  const editOutputOutcome =
+    input.toolFamily !== "edit" || structuredOutputEnvelope.kind === "invalid"
+      ? null
+      : readEditOutputOutcome(
+          structuredOutputEnvelope.kind === "raw" ? summary : undefined,
+          diagnosticStructuredToolOutput?.output,
+        );
   const searchFailureDiagnostic =
     input.toolFamily === "search" && looksLikeSearchFailureDiagnostic(summary);
   const readFailureDiagnostic =
@@ -113,6 +122,7 @@ export function readTaskFailureSemanticSignals(input: {
     rawReadListingObservation,
     rawReadTruncationObservation,
     rawReadStructuredObservation,
+    editOutputOutcome,
     searchFailureDiagnostic,
     readFailureDiagnostic,
     structuredOutputFailureDiagnostic,
@@ -138,30 +148,22 @@ function readTaskFailureStructuredOutputEnvelope(
   summary: string | undefined,
   supportsStructuredToolOutput: boolean,
 ): TaskFailureStructuredOutputEnvelope {
-  if (!supportsStructuredToolOutput) {
-    return { kind: "unsupported" };
-  }
+  if (!supportsStructuredToolOutput) return { kind: "unsupported" };
 
   const valid = readStructuredToolOutputObservation(summary);
-  if (valid !== null) {
-    return { kind: "valid", output: valid };
-  }
+  if (valid !== null) return { kind: "valid", output: valid };
 
-  if (!looksLikeStructuredToolOutputEnvelope(summary)) {
-    return { kind: "raw" };
-  }
+  if (!looksLikeStructuredToolOutputEnvelope(summary)) return { kind: "raw" };
 
   const recovered = readTruncatedStructuredToolOutputEnvelope(summary);
   return recovered === null ? { kind: "invalid" } : { kind: "recovered", output: recovered };
 }
 
 function looksLikeExplicitReadFailureDiagnostic(value: string): boolean {
-  const text = value
-    .trim()
-    .replace(/^(?:read|tool)\s+failure\s+/i, "")
-    .replace(/^#{1,6}\s+/, "");
-
   return /^(?:read\s+failed\b|failed to (?:read|open)\b|could not (?:read|open)\b|unable to (?:read|open)\b)/i.test(
-    text,
+    value
+      .trim()
+      .replace(/^(?:read|tool)\s+failure\s+/i, "")
+      .replace(/^#{1,6}\s+/, ""),
   );
 }

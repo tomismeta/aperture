@@ -520,6 +520,99 @@ test("missing-tool successful test and abbreviated file-view transcripts route q
   }
 });
 
+test("read and search corpus output fragments route through observational status conflict", () => {
+  const readEvent = normalizeSourceEvent({
+    id: "evt:read-technical-doc-observation-conflict",
+    taskId: "task:read-technical-doc-observation-conflict",
+    timestamp: "2026-03-08T12:02:29.825Z",
+    type: "task.updated",
+    title: "read failure",
+    summary:
+      "2783\u2192## 7.6. Dual Issue VALU 2784\u2192 2785\u2192The VOPD instruction encoding allows a single shader instruction to encode two separate VALU operations that are executed in parallel. The two operations must be independent of each other. This ins...",
+    status: "failed",
+    toolFamily: "read",
+  });
+  const readResult = evaluation.evaluate(readEvent);
+
+  assert.equal(readEvent.semantic.activityClass, "status_update");
+  assert.equal(readEvent.semantic.consequence, "high");
+  assert.equal(readResult.kind, "candidate");
+  if (readResult.kind !== "candidate") {
+    return;
+  }
+  assert.equal(readResult.candidate.activityClass, "status_update");
+  assert.equal(readResult.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.deepEqual(readResult.candidate.judgmentInput.observationalStatusConflict, {
+    kind: "payload_observation",
+    toolFamily: "read",
+    baselineConsequence: "high",
+  });
+
+  const searchEvent = normalizeSourceEvent({
+    id: "evt:search-grep-context-observation-conflict",
+    taskId: "task:search-grep-context-observation-conflict",
+    timestamp: "2026-03-08T12:02:29.850Z",
+    type: "task.updated",
+    title: "search failure",
+    summary:
+      "2255-- VOP3SD has an SDST field 2256- - V_ADD_CO_U32 adds with carry-out 2257- - V_DIV_SCALE_F32 uses the same encoding",
+    status: "failed",
+    toolFamily: "search",
+  });
+  const searchResult = evaluation.evaluate(searchEvent);
+
+  assert.equal(searchEvent.semantic.activityClass, "status_update");
+  assert.equal(searchEvent.semantic.consequence, "low");
+  assert.equal(searchResult.kind, "candidate");
+  if (searchResult.kind !== "candidate") {
+    return;
+  }
+  assert.equal(searchResult.candidate.priority, "background");
+  assert.deepEqual(searchResult.candidate.judgmentInput.observationalStatusConflict, {
+    kind: "search_output_observation",
+    toolFamily: "search",
+    baselineConsequence: "low",
+  });
+});
+
+test("adversarial read and search fragments do not forge observational conflicts", () => {
+  for (const [id, toolFamily, title, summary] of [
+    [
+      "search-numbered-list",
+      "search",
+      "search failure",
+      "1- first item 2- second item 3- third item",
+    ],
+    [
+      "read-acronym-prose",
+      "read",
+      "read failure",
+      "101\u2192## 7.6. API SDK Notes 102\u2192 103\u2192The API and SDK entries are discussed here without an emitted read-window clipping boundary.",
+    ],
+  ] as const) {
+    const event = normalizeSourceEvent({
+      id: `evt:${id}`,
+      taskId: `task:${id}`,
+      timestamp: "2026-03-08T12:02:29.860Z",
+      type: "task.updated",
+      title,
+      summary,
+      status: "failed",
+      toolFamily,
+    });
+    const result = evaluation.evaluate(event);
+
+    assert.equal(event.semantic.activityClass, "tool_failure");
+    assert.equal(result.kind, "candidate");
+    if (result.kind !== "candidate") {
+      return;
+    }
+    assert.equal(result.candidate.activityClass, "tool_failure");
+    assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+    assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
+  }
+});
+
 test("command execution aliases preserve family while using command observation routing", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({

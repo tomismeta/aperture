@@ -486,6 +486,81 @@ test("failed search result dumps stay low-consequence status updates", () => {
   assert.equal(interpretation.consequence, "low");
 });
 
+test("failed grep context dumps stay low-consequence status updates", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:search-grep-context-dump",
+    type: "task.updated",
+    taskId: "task:search-grep-context-dump",
+    timestamp,
+    source: source("custom-agent"),
+    title: "search failure",
+    summary:
+      "2255-- VOP3SD has an SDST field 2256- - V_ADD_CO_U32 adds with carry-out 2257- - V_DIV_SCALE_F32 uses the same encoding",
+    status: "failed",
+    toolFamily: "search",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "low");
+});
+
+test("ordinary numbered search lists stay failure-shaped", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:search-numbered-list",
+    type: "task.updated",
+    taskId: "task:search-numbered-list",
+    timestamp,
+    source: source("custom-agent"),
+    title: "search failure",
+    summary: "1- first item 2- second item 3- third item",
+    status: "failed",
+    toolFamily: "search",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.consequence, "high");
+});
+
+test("failed arrow-numbered technical read fragments stay status updates", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:read-technical-doc-fragment",
+    type: "task.updated",
+    taskId: "task:read-technical-doc-fragment",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary:
+      "2783\u2192## 7.6. Dual Issue VALU 2784\u2192 2785\u2192The VOPD instruction encoding allows a single shader instruction to encode two separate VALU operations that are executed in parallel. The two operations must be independent of each other. This ins...",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "high");
+});
+
+test("unclipped acronym-rich arrow read prose stays failure-shaped", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:read-acronym-prose",
+    type: "task.updated",
+    taskId: "task:read-acronym-prose",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary:
+      "101\u2192## 7.6. API SDK Notes 102\u2192 103\u2192The API and SDK entries are discussed here without an emitted read-window clipping boundary.",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.consequence, "high");
+});
+
 test("structured bash output without exit or source evidence stays failure-shaped", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:structured-output-unclassified",

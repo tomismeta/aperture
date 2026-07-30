@@ -3294,7 +3294,8 @@ test("task failure evidence preserves current observational classes", () => {
       timestamp,
       type: "task.updated",
       title: "search failure",
-      summary: "2126-| S_MIN_F32 | S_CMP_LE_F32 |\n2127-| S_MAX_F32 | S_CMP_GT_F32 |",
+      summary:
+        "2126-| S_MIN_F32 | S_CMP_LE_F32 |\n2127-| S_MAX_F32 | S_CMP_GT_F32 |\n2128-| S_MIN_I32 | S_CMP_LT_I32 |",
       status: "failed",
       toolFamily: "search",
     })?.kind,
@@ -3307,7 +3308,36 @@ test("task failure evidence preserves current observational classes", () => {
       timestamp,
       type: "task.updated",
       title: "search failure",
-      summary: "2126-| S_MIN_F32 | S_CMP_LE_F32 | 2127-| S_MAX_F32 | S_CMP_GT_F32 |",
+      summary:
+        "2126-| S_MIN_F32 | S_CMP_LE_F32 | 2127-| S_MAX_F32 | S_CMP_GT_F32 | 2128-| S_MIN_I32 | S_CMP_LT_I32 |",
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "routine_search_output",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:inline-double-dash-grep-context-output",
+      taskId: "task:evidence:inline-double-dash-grep-context-output",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary:
+        "2255-- VOP3SD has an SDST field 2256- - V_ADD_CO_U32 adds with carry-out 2257- - V_DIV_SCALE_F32 uses the same encoding",
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "routine_search_output",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:inline-path-grep-context-output",
+      taskId: "task:evidence:inline-path-grep-context-output",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary:
+        "/repo/docs/plan.md-45-- This adds integer ALU overhead /repo/docs/plan.md-46- The fast path remains documented",
       status: "failed",
       toolFamily: "search",
     })?.kind,
@@ -3358,12 +3388,51 @@ test("task failure evidence preserves current observational classes", () => {
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
+      id: "evt:evidence:numbered-list-false-positive",
+      taskId: "task:evidence:numbered-list-false-positive",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary: "1- first item 2- second item 3- third item",
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "unclassified_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:unrelated-path-grep-false-positive",
+      taskId: "task:evidence:unrelated-path-grep-false-positive",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary: "alpha.txt-9- one beta.md-1- two",
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "unclassified_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
       id: "evt:evidence:single-grep-line",
       taskId: "task:evidence:single-grep-line",
       timestamp,
       type: "task.updated",
       title: "search failure",
       summary: "2126-| S_MIN_F32 | S_CMP_LE_F32 |",
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "unclassified_failure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:two-line-grep-context",
+      taskId: "task:evidence:two-line-grep-context",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary: "2126-| S_MIN_F32 | S_CMP_LE_F32 |\n2127-| S_MAX_F32 | S_CMP_GT_F32 |",
       status: "failed",
       toolFamily: "search",
     })?.kind,
@@ -3978,8 +4047,8 @@ test("observational status-conflict evidence includes structural read documents 
       status: "failed",
       toolFamily: "read",
     })?.kind,
-    "unclassified_failure",
-    "single-heading arrow-numbered manual fragments do not weaken document evidence",
+    "observational_payload",
+    "numbered technical manual fragments are read observations even when clipped to one section",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -4813,6 +4882,18 @@ test("observational status-conflict evidence includes corpus-derived event shape
     [
       "arrow-numbered-heading-prose",
       "1\u2192# Notes 2\u2192## Build 3\u2192plain paragraph 4\u2192another paragraph",
+    ],
+    [
+      "arrow-numbered-nontechnical-section-prose",
+      "1\u2192## 1. Build 2\u2192 3\u2192plain paragraph without technical anchors 4\u2192another plain paragraph",
+    ],
+    [
+      "arrow-numbered-acronym-prose-without-clipping",
+      "101\u2192## 7.6. API SDK Notes 102\u2192 103\u2192The API and SDK entries are discussed here without an emitted read-window clipping boundary.",
+    ],
+    [
+      "nonconsecutive-arrow-numbered-read-window",
+      "2783\u2192## 7.6. Dual Issue VALU 2785\u2192 2786\u2192The VOPD instruction encoding allows a single shader instruction to encode two separate VALU operations that are executed in parallel...",
     ],
     ["single-keyword-numbered-prose", "1 int this is prose"],
     [

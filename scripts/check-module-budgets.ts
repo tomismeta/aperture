@@ -44,6 +44,7 @@ const budgets = [
   { file: "packages/core/src/semantic-assembly-source-observation-shapes.ts", maxLines: 175 },
   { file: "packages/core/src/semantic-c-like-source-line-shapes.ts", maxLines: 150 },
   { file: "packages/core/src/semantic-c-like-source-observation-shapes.ts", maxLines: 175 },
+  { file: "packages/core/src/semantic-clipped-read-window-shapes.ts", maxLines: 50 },
   { file: "packages/core/src/semantic-kernel-log-shapes.ts", maxLines: 25 },
   { file: "packages/core/src/semantic-panic-diagnostic-shapes.ts", maxLines: 50 },
   { file: "packages/core/src/semantic-line-numbered-document-observation-shapes.ts", maxLines: 75 },

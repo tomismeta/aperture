@@ -3176,8 +3176,718 @@ test("task failure evidence preserves current observational classes", () => {
       status: "failed",
       toolFamily: "bash",
     })?.kind,
-    "unclassified_failure",
-    "command-family diagnostic observations should not be demoted to observational payloads",
+    "terminal_failure",
+    "command-family diagnostic observations should be terminal, not observational payloads",
+  );
+  for (const [toolFamily, summary] of [
+    [
+      "bash",
+      "OBSERVATION: test1.yaml 6:3 error found undefined alias: f_m (anchors) 6:46 error no new line character at the end of file (new-line-at-end-of-file)",
+    ],
+    [
+      "exec_command",
+      "OBSERVATION: Running yamllint on file: /tmp/input.yaml Command output: /tmp/input.yaml:2:12: [error] forbidden not a number value '.nan' (float-values)",
+    ],
+    [
+      "run_shell_command",
+      "OBSERVATION: Test case 3 - Empty anchor: Line 2: syntax error: expected alphabetic or numeric character, but found '\\n' (syntax) (level: error)",
+    ],
+  ] as const) {
+    const signals = readTaskFailureSemanticSignals({ summary, toolFamily });
+    assert.equal(
+      signals.commandDiagnosticObservationTranscript,
+      true,
+      `${toolFamily} should expose command diagnostic observation parity`,
+    );
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:${toolFamily}-location-diagnostic-observation`,
+        taskId: `task:evidence:${toolFamily}-location-diagnostic-observation`,
+        timestamp,
+        type: "task.updated",
+        title: `${toolFamily} failure`,
+        summary,
+        status: "failed",
+        toolFamily,
+      })?.kind,
+      "terminal_failure",
+      `${toolFamily} location diagnostics should be terminal failures`,
+    );
+  }
+  for (const toolFamily of ["bash", "exec_command", "run_shell_command"] as const) {
+    for (const [id, summary] of [
+      [
+        "expected-then-command-output-traceback",
+        "OBSERVATION: Expected output:\nfoo.ts 1:2 error fixture (rule)\nCommand output:\nTraceback (most recent call last):\nRuntimeError: actual failure",
+      ],
+      [
+        "expected-then-pytest-output-assertion",
+        "OBSERVATION: Expected output:\nfoo.ts 1:2 error fixture (rule)\npytest output:\nE   AssertionError: expected 1",
+      ],
+      [
+        "expected-then-direct-traceback",
+        "OBSERVATION: Expected output:\nfoo.ts 1:2 error fixture (rule)\nTraceback (most recent call last):\nRuntimeError: actual failure",
+      ],
+    ] as const) {
+      assert.equal(
+        readTaskFailureSemanticEvidence({
+          id: `evt:evidence:${toolFamily}-${id}`,
+          taskId: `task:evidence:${toolFamily}-${id}`,
+          timestamp,
+          type: "task.updated",
+          title: `${toolFamily} failure`,
+          summary,
+          status: "failed",
+          toolFamily,
+        })?.kind,
+        "terminal_failure",
+        `${toolFamily} should recover later runtime diagnostics after a reference block`,
+      );
+    }
+  }
+  const multiLineDiagnosticObservation =
+    "OBSERVATION: src/a.ts:1:2: [error] first problem (rule-a)\nsrc/b.ts:2:3: [error] second problem (rule-b)";
+  assert.equal(
+    readTaskFailureSemanticSignals({
+      summary: multiLineDiagnosticObservation,
+      toolFamily: "bash",
+    }).commandDiagnosticObservationTranscript,
+    true,
+    "multi-line command diagnostic observations should not be vetoed as source",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:multi-line-command-diagnostic-observation",
+      taskId: "task:evidence:multi-line-command-diagnostic-observation",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: multiLineDiagnosticObservation,
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "multi-line command diagnostic observations should remain terminal failures",
+  );
+  for (const [id, summary] of [
+    [
+      "prefixed-bracketed-command-diagnostic-observation",
+      "OBSERVATION: eslint results: src/a.ts:1:2: [error] first problem (rule-a)",
+    ],
+    [
+      "expected-then-actual-command-diagnostic-observation",
+      "OBSERVATION: Expected output: foo.ts 1:2 error fixture text (rule)\nActual output:\nbar.ts 3:4 error actual failure (rule)",
+    ],
+    [
+      "documentation-output-then-actual-command-diagnostic-observation",
+      "OBSERVATION: Documentation output: foo.ts 1:2 error fixture text (rule)\nActual output:\nbar.ts 3:4 error actual failure (rule)",
+    ],
+    [
+      "example-output-then-traceback-command-diagnostic-observation",
+      "OBSERVATION: Example output: foo.ts 1:2 error fixture text (rule)\nTraceback (most recent call last):\nRuntimeError: actual failure",
+    ],
+    [
+      "docs-wrapper-received-stderr-traceback-command-diagnostic-observation",
+      "OBSERVATION: According to the docs:\nReceived stderr:\nTraceback (most recent call last):\nRuntimeError: actual failure",
+    ],
+    [
+      "flattened-expected-then-actual-command-diagnostic-observation",
+      "OBSERVATION: Expected output: foo.ts 1:2 error fixture text (rule) Actual output: bar.ts 3:4 error actual failure (rule)",
+    ],
+    [
+      "source-call-then-actual-command-diagnostic-observation",
+      'OBSERVATION: logger.error("foo.ts 1:2 error fixture text (rule)")\nActual output:\nbar.ts 3:4 error actual failure (rule)',
+    ],
+    [
+      "source-preamble-then-actual-command-diagnostic-observation",
+      'OBSERVATION: Actual output:\nlogger.info("starting")\nbar.ts 3:4 error actual failure (rule)',
+    ],
+    [
+      "expected-then-actual-results-command-diagnostic-observation",
+      "OBSERVATION: Expected results: clean\nActual results:\nbar.ts 3:4 error actual failure (rule)",
+    ],
+    [
+      "actual-report-command-diagnostic-observation",
+      "OBSERVATION: Actual report:\nbar.ts 3:4 error actual failure (rule)",
+    ],
+    [
+      "received-results-command-diagnostic-observation",
+      "OBSERVATION: Received results:\nbar.ts 3:4 error actual failure (rule)",
+    ],
+    [
+      "actual-sample-file-command-diagnostic-observation",
+      "OBSERVATION: Actual output:\nsample.ts 1:2 error real failure (rule)",
+    ],
+    [
+      "actual-example-file-command-diagnostic-observation",
+      "OBSERVATION: Actual output:\nexample.ts 1:2 error real failure (rule)",
+    ],
+    [
+      "actual-fixture-file-command-diagnostic-observation",
+      "OBSERVATION: Actual output:\nfixture.ts 1:2 error real failure (rule)",
+    ],
+    [
+      "actual-baseline-file-command-diagnostic-observation",
+      "OBSERVATION: Actual output:\nbaseline.ts 1:2 error real failure (rule)",
+    ],
+    [
+      "actual-sectioned-test-command-diagnostic-observation",
+      "OBSERVATION: Actual output:\n=== Testing parser ===\nFAIL",
+    ],
+    [
+      "actual-sectioned-inline-test-command-diagnostic-observation",
+      "OBSERVATION: Actual output:\n=== Testing parser ===\ntest_parse ... FAIL",
+    ],
+    [
+      "actual-typescript-command-diagnostic-observation",
+      "OBSERVATION: Received stderr:\nsrc/a.ts(1,2): error TS2322: Type 'string' is not assignable to type 'number'.",
+    ],
+    [
+      "actual-ansi-command-diagnostic-observation",
+      "OBSERVATION: Received stderr:\u001b[31msrc/a.ts:1:2: error first problem (rule-a)\u001b[0m",
+    ],
+    [
+      "actual-pytest-assertion-command-diagnostic-observation",
+      "OBSERVATION: Received output:\nE   AssertionError: expected 1",
+    ],
+    [
+      "unsectioned-source-preamble-command-diagnostic-observation",
+      'OBSERVATION: logger.info("starting")\nbar.ts 3:4 error actual failure (rule)',
+    ],
+  ] as const) {
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:${id}`,
+        taskId: `task:evidence:${id}`,
+        timestamp,
+        type: "task.updated",
+        title: "bash failure",
+        summary,
+        status: "failed",
+        toolFamily: "bash",
+      })?.kind,
+      "terminal_failure",
+      `${id} should classify actual diagnostic output as terminal`,
+    );
+  }
+  for (const [id, toolFamily, summary] of [
+    [
+      "warning-only-location-observation",
+      "bash",
+      'OBSERVATION: test.yaml 1:1 warning missing document start "---" (document-start)',
+    ],
+    [
+      "expected-output-location-reference",
+      "bash",
+      "OBSERVATION: Expected output: test.yaml 1:1 error missing document end (document-end)",
+    ],
+    [
+      "expected-results-location-reference",
+      "bash",
+      "OBSERVATION: Expected results: src/a.ts:1:2: [error] first problem (rule-a)",
+    ],
+    [
+      "expected-report-location-reference",
+      "bash",
+      "OBSERVATION: Expected report: src/a.ts:1:2: [error] first problem (rule-a)",
+    ],
+    [
+      "expected-diagnostics-location-reference",
+      "bash",
+      "OBSERVATION: Expected diagnostics: src/a.ts:1:2: [error] first problem (rule-a)",
+    ],
+    [
+      "example-results-location-reference",
+      "bash",
+      "OBSERVATION: Example results: src/a.ts:1:2: [error] first problem (rule-a)",
+    ],
+    [
+      "example-modified-output-location-reference",
+      "bash",
+      "OBSERVATION: Example eslint output: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "example-current-modified-output-location-reference",
+      "bash",
+      "OBSERVATION: Example current eslint output: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "reference-output-from-tool-location-reference",
+      "bash",
+      "OBSERVATION: Reference output from eslint: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "desired-output-location-reference",
+      "bash",
+      "OBSERVATION: Desired output: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "for-reference-location-reference",
+      "bash",
+      "OBSERVATION: For reference, foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "sample-from-tool-location-reference",
+      "bash",
+      "OBSERVATION: Sample from eslint: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "golden-output-location-reference",
+      "bash",
+      "OBSERVATION: Golden output: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "baseline-results-location-reference",
+      "bash",
+      "OBSERVATION: Baseline results: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "canonical-report-location-reference",
+      "bash",
+      "OBSERVATION: Canonical report: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "fixture-output-location-reference",
+      "bash",
+      "OBSERVATION: Fixture output: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "documentation-output-location-reference",
+      "bash",
+      "OBSERVATION: Documentation output: src/a.ts:1:2: [error] first problem (rule-a)",
+    ],
+    [
+      "the-report-location-reference",
+      "bash",
+      "OBSERVATION: The report: src/a.ts:1:2: [error] first problem (rule-a)",
+    ],
+    [
+      "example-actual-output-location-reference",
+      "bash",
+      "OBSERVATION: Example actual output: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "expected-actual-output-location-reference",
+      "bash",
+      "OBSERVATION: Expected actual output: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "for-reference-actual-output-location-reference",
+      "bash",
+      "OBSERVATION: For reference, actual output: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "docs-actual-output-location-reference",
+      "bash",
+      "OBSERVATION: According to the docs, actual output: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "for-example-multiline-actual-output-location-reference",
+      "bash",
+      "OBSERVATION: For example:\nActual output:\nfoo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "here-is-example-multiline-actual-output-location-reference",
+      "bash",
+      "OBSERVATION: Here is an example:\nActual output:\nfoo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "in-docs-multiline-actual-output-location-reference",
+      "bash",
+      "OBSERVATION: In the docs:\nActual output:\nfoo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "shown-docs-multiline-actual-output-location-reference",
+      "bash",
+      "OBSERVATION: As shown in the docs:\nActual output:\nfoo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "documentation-format-multiline-actual-output-location-reference",
+      "bash",
+      "OBSERVATION: The eslint documentation shows this format:\nActual output:\nfoo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "multiline-for-reference-actual-output-location-reference",
+      "bash",
+      "OBSERVATION: For reference:\nActual output:\nfoo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "multiline-docs-actual-output-location-reference",
+      "bash",
+      "OBSERVATION: According to the docs:\nActual output:\nfoo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "multiline-fixture-received-report-location-reference",
+      "bash",
+      "OBSERVATION: Fixture output:\nReceived report:\nfoo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "example-arbitrary-actual-output-location-reference",
+      "bash",
+      "OBSERVATION: Example: actual output: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "expected-note-actual-output-location-reference",
+      "bash",
+      "OBSERVATION: Expected note: actual output: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "sample-arbitrary-received-report-location-reference",
+      "bash",
+      "OBSERVATION: Sample: received report: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "expected-error-location-probe",
+      "bash",
+      "OBSERVATION: Expected error: Rule did not match at line 1, column 1",
+    ],
+    [
+      "failed-as-expected-probe",
+      "bash",
+      "OBSERVATION: Test 1 failed as expected with: 'int' object has no attribute 'reshape'",
+    ],
+    [
+      "test-colon-failed-as-expected-probe",
+      "bash",
+      "OBSERVATION: Test 1: failed as expected: foo.yaml 1:1 error bad value (rule)",
+    ],
+    [
+      "probe-failed-as-expected-probe",
+      "bash",
+      "OBSERVATION: Probe failed as expected: foo.yaml 1:1 error bad value (rule)",
+    ],
+    [
+      "error-occurred-as-expected-probe",
+      "bash",
+      "OBSERVATION: Error occurred as expected: './dvc.yaml' validation failed: 2 errors",
+    ],
+    [
+      "parenthetical-expected-probe",
+      "bash",
+      "OBSERVATION: Error reading invalid hex file (expected): non-hexadecimal number found in fromhex() arg at position 6",
+    ],
+    [
+      "prose-location-example",
+      "bash",
+      "OBSERVATION: For example, foo.yaml 1:1 error message (rule)",
+    ],
+    [
+      "output-format-location-reference",
+      "bash",
+      "OBSERVATION: Output format: file.yaml 1:1 error message (rule-name)",
+    ],
+    [
+      "linter-themed-prose-location-reference",
+      "bash",
+      "OBSERVATION: The eslint documentation shows foo.ts 1:2 error example text (rule)",
+    ],
+    [
+      "linter-themed-prose-currently-shows-reference",
+      "bash",
+      "OBSERVATION: The eslint documentation currently shows foo.ts 1:2 error example text (rule)",
+    ],
+    [
+      "linter-themed-prose-according-to-reference",
+      "bash",
+      "OBSERVATION: According to the eslint documentation, foo.ts 1:2 error example text (rule)",
+    ],
+    [
+      "linter-themed-prose-says-reference",
+      "bash",
+      "OBSERVATION: The eslint documentation says foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "linter-themed-prose-display-reference",
+      "bash",
+      "OBSERVATION: The eslint docs currently display foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "linter-themed-prose-docs-colon-reference",
+      "bash",
+      "OBSERVATION: According to eslint docs: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "docs-show-location-reference",
+      "bash",
+      "OBSERVATION: The docs show foo.ts 1:2 error example text (rule)",
+    ],
+    [
+      "sample-output-location-reference",
+      "bash",
+      "OBSERVATION: Sample output: src/a.ts:1:2: [error] fixture (rule)",
+    ],
+    [
+      "sample-output-space-location-reference",
+      "bash",
+      "OBSERVATION: Sample output: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "reference-results-location-reference",
+      "bash",
+      "OBSERVATION: Reference results: src/a.ts:1:2: [error] fixture (rule)",
+    ],
+    [
+      "reference-results-space-location-reference",
+      "bash",
+      "OBSERVATION: Reference results: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "illustrative-report-location-reference",
+      "bash",
+      "OBSERVATION: Illustrative report: src/a.ts:1:2: [error] fixture (rule)",
+    ],
+    [
+      "illustrative-report-space-location-reference",
+      "bash",
+      "OBSERVATION: Illustrative report: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "previous-report-location-reference",
+      "bash",
+      "OBSERVATION: Previous report: src/a.ts:1:2: [error] fixture (rule)",
+    ],
+    [
+      "previous-report-space-location-reference",
+      "bash",
+      "OBSERVATION: Previous report: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "assignment-location-reference",
+      "bash",
+      'OBSERVATION: message = "foo.yaml 1:1 error missing end (rule)"',
+    ],
+    [
+      "print-call-location-reference",
+      "bash",
+      'OBSERVATION: print("foo.yaml 1:1 error missing end (rule)")',
+    ],
+    [
+      "logger-error-location-reference",
+      "bash",
+      'OBSERVATION: logger.error("foo.yaml 1:1 error bad value (rule)")',
+    ],
+    [
+      "logger-exception-location-reference",
+      "bash",
+      'OBSERVATION: logger.exception("fixture exception")',
+    ],
+    [
+      "actual-source-call-location-reference",
+      "bash",
+      'OBSERVATION: Expected output: diagnostic\nActual output:\nlogger.error("src/a.ts 1:2 error fixture (rule)")',
+    ],
+    [
+      "actual-source-push-call-location-reference",
+      "bash",
+      'OBSERVATION: Actual output:\nerrors.push("foo.ts 1:2 error fixture (rule)")',
+    ],
+    [
+      "source-text-location-reference",
+      "bash",
+      "OBSERVATION: Source text: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "this-example-shows-location-reference",
+      "bash",
+      "OBSERVATION: This example shows: foo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "unsectioned-benign-then-example-output-reference",
+      "bash",
+      "OBSERVATION: starting\nExample output:\nfoo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "unsectioned-benign-then-throw-source-reference",
+      "bash",
+      'OBSERVATION: starting\nthrow new Error("tests failed")',
+    ],
+    [
+      "unsectioned-benign-then-constructor-source-reference",
+      "bash",
+      'OBSERVATION: starting\nTypeError("fixture failure")',
+    ],
+    [
+      "actual-clean-then-expected-output-reference",
+      "bash",
+      "OBSERVATION: Actual output:\nclean\nExpected output:\nfoo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "actual-clean-then-expected-results-reference",
+      "bash",
+      "OBSERVATION: Actual output:\nclean\nExpected results:\nfoo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "actual-clean-then-expected-report-reference",
+      "bash",
+      "OBSERVATION: Actual output:\nclean\nExpected report:\nfoo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "actual-clean-then-expected-diagnostics-reference",
+      "bash",
+      "OBSERVATION: Actual output:\nclean\nExpected diagnostics:\nfoo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "actual-clean-then-expected-errors-reference",
+      "bash",
+      "OBSERVATION: Actual output:\nclean\nExpected errors:\nfoo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "actual-clean-then-expected-failures-reference",
+      "bash",
+      "OBSERVATION: Actual output:\nclean\nExpected failures:\nfoo.ts 1:2 error fixture (rule)",
+    ],
+    [
+      "actual-throw-error-source-location-reference",
+      "bash",
+      'OBSERVATION: Actual output:\nthrow new Error("tests failed")',
+    ],
+    [
+      "actual-raise-runtime-source-location-reference",
+      "bash",
+      'OBSERVATION: Actual output:\nraise RuntimeError("expected exception")',
+    ],
+    [
+      "actual-new-exception-source-location-reference",
+      "bash",
+      'OBSERVATION: Actual output:\nnew Exception("fixture")',
+    ],
+    [
+      "actual-assigned-new-error-source-location-reference",
+      "bash",
+      'OBSERVATION: Actual output:\nconst err = new Error("expected exception")',
+    ],
+    [
+      "actual-quoted-exception-source-location-reference",
+      "bash",
+      'OBSERVATION: Actual output:\n"expected exception"',
+    ],
+    [
+      "actual-constructor-call-location-reference",
+      "bash",
+      'OBSERVATION: Expected output: diagnostic\nActual output:\nTypeError("fixture error")',
+    ],
+    [
+      "actual-only-constructor-call-location-reference",
+      "bash",
+      'OBSERVATION: Actual output:\nTypeError("fixture error")',
+    ],
+    [
+      "actual-constructor-call-with-benign-tail-reference",
+      "bash",
+      'OBSERVATION: Actual output:\nTypeError("fixture failure")\ncompleted',
+    ],
+    [
+      "actual-benign-then-constructor-call-reference",
+      "bash",
+      'OBSERVATION: Actual output:\nstarting\nTypeError("fixture failure")',
+    ],
+    [
+      "actual-benign-then-source-call-reference",
+      "bash",
+      'OBSERVATION: Actual output:\nstarting\nlogger.error("foo.ts 1:2 error fixture (rule)")',
+    ],
+    [
+      "actual-runtime-constructor-call-location-reference",
+      "bash",
+      'OBSERVATION: Expected output: diagnostic\nActual output:\nRuntimeError("fixture failure")',
+    ],
+    [
+      "received-only-runtime-constructor-call-location-reference",
+      "bash",
+      'OBSERVATION: Received output:\nRuntimeError("fixture failure")',
+    ],
+    [
+      "process-stdout-write-location-reference",
+      "bash",
+      'OBSERVATION: process.stdout.write("foo.yaml 1:1 error bad value (rule)")',
+    ],
+    [
+      "read-location-diagnostic-observation",
+      "read",
+      "OBSERVATION: test.yaml 2:27 error no new line character at the end of file (new-line-at-end-of-file)",
+    ],
+    [
+      "search-location-diagnostic-observation",
+      "search",
+      "OBSERVATION: test.yaml 2:27 error no new line character at the end of file (new-line-at-end-of-file)",
+    ],
+  ] as const) {
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:${id}`,
+        taskId: `task:evidence:${id}`,
+        timestamp,
+        type: "task.updated",
+        title: `${toolFamily} failure`,
+        summary,
+        status: "failed",
+        toolFamily,
+      })?.kind,
+      "unclassified_failure",
+      `${id} should not be promoted by command diagnostic observation parity`,
+    );
+  }
+  for (const [id, summary] of [
+    [
+      "multiline-template-source-fixture-actual-output-reference",
+      "OBSERVATION: const fixture = `\nActual output:\nfoo.ts 1:2 error fixture (rule)\n`;",
+    ],
+    [
+      "fenced-source-fixture-actual-output-reference",
+      "OBSERVATION: Source fixture:\n```text\nActual output:\nfoo.ts 1:2 error fixture (rule)\n```",
+    ],
+    [
+      "cat-numbered-readback-actual-output-reference",
+      'OBSERVATION: Here is the result of running `cat -n` on /tmp/test.py:\nfixture = """\nActual output:\nfoo.ts 1:2 error fixture (rule)\n"""',
+    ],
+    [
+      "python-triple-quoted-fixture-actual-output-reference",
+      'OBSERVATION: fixture = """\nActual output:\nfoo.ts 1:2 error fixture (rule)\n"""',
+    ],
+  ] as const) {
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:${id}`,
+        taskId: `task:evidence:${id}`,
+        timestamp,
+        type: "task.updated",
+        title: "bash failure",
+        summary,
+        status: "failed",
+        toolFamily: "bash",
+      })?.kind,
+      "observational_payload",
+      `${id} should stay source observation rather than terminal failure`,
+    );
+  }
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:source-string-location-reference",
+      taskId: "task:evidence:source-string-location-reference",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        'OBSERVATION: const fixture = "test.yaml 1:1 error missing document end"; return fixture;',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "observational_payload",
+    "source literals with diagnostic-looking text should remain observations, not terminal failures",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-location-diagnostic-observation",
+      taskId: "task:evidence:missing-tool-location-diagnostic-observation",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary:
+        "OBSERVATION: Error parsing YAML: found undefined alias 'i' in \"<unicode string>\", line 5, column 3",
+      status: "failed",
+    })?.kind,
+    "terminal_failure",
+    "missing-tool diagnostic observation transcripts keep existing terminal behavior",
   );
   const overlappingDiagnosticObservation =
     'OBSERVATION: Here\'s the result of running `cat -n` on /tmp/test.py:\n1 import os\nTraceback (most recent call last):\n  File "/tmp/test.py", line 1, in <module>';
@@ -4066,6 +4776,81 @@ test("explicit observation transcripts classify only narrow low-consequence subc
       true,
     ],
     [
+      "OBSERVATION: test1.yaml 6:3 error found undefined alias: f_m (anchors) 6:46 error no new line character at the end of file (new-line-at-end-of-file)",
+      true,
+    ],
+    [
+      "OBSERVATION: /tmp/input.yaml:2:12: [error] forbidden not a number value '.nan' (float-values)",
+      true,
+    ],
+    [
+      "OBSERVATION: src/a.ts:1:2: [error] first problem (rule-a)\nsrc/b.ts:2:3: [error] second problem (rule-b)",
+      true,
+    ],
+    ["OBSERVATION: eslint results: src/a.ts:1:2: [error] first problem (rule-a)", true],
+    [
+      "OBSERVATION: Expected output: foo.ts 1:2 error fixture text (rule)\nActual output:\nbar.ts 3:4 error actual failure (rule)",
+      true,
+    ],
+    [
+      "OBSERVATION: Documentation output: foo.ts 1:2 error fixture text (rule)\nActual output:\nbar.ts 3:4 error actual failure (rule)",
+      true,
+    ],
+    [
+      "OBSERVATION: Example output: foo.ts 1:2 error fixture text (rule)\nTraceback (most recent call last):\nRuntimeError: actual failure",
+      true,
+    ],
+    [
+      "OBSERVATION: According to the docs:\nReceived stderr:\nTraceback (most recent call last):\nRuntimeError: actual failure",
+      true,
+    ],
+    [
+      "OBSERVATION: Expected output: foo.ts 1:2 error fixture text (rule) Actual output: bar.ts 3:4 error actual failure (rule)",
+      true,
+    ],
+    [
+      'OBSERVATION: logger.error("foo.ts 1:2 error fixture text (rule)")\nActual output:\nbar.ts 3:4 error actual failure (rule)',
+      true,
+    ],
+    [
+      'OBSERVATION: Actual output:\nlogger.info("starting")\nbar.ts 3:4 error actual failure (rule)',
+      true,
+    ],
+    ['OBSERVATION: logger.info("starting")\nbar.ts 3:4 error actual failure (rule)', true],
+    [
+      "OBSERVATION: Expected results: clean\nActual results:\nbar.ts 3:4 error actual failure (rule)",
+      true,
+    ],
+    ["OBSERVATION: Actual report:\nbar.ts 3:4 error actual failure (rule)", true],
+    ["OBSERVATION: Received results:\nbar.ts 3:4 error actual failure (rule)", true],
+    ["OBSERVATION: Actual output:\nsample.ts 1:2 error real failure (rule)", true],
+    ["OBSERVATION: Actual output:\nexample.ts 1:2 error real failure (rule)", true],
+    ["OBSERVATION: Actual output:\nfixture.ts 1:2 error real failure (rule)", true],
+    ["OBSERVATION: Actual output:\nbaseline.ts 1:2 error real failure (rule)", true],
+    ["OBSERVATION: Actual output:\n=== Testing parser ===\nFAIL", true],
+    ["OBSERVATION: Actual output:\n=== Testing parser ===\ntest_parse ... FAIL", true],
+    [
+      "OBSERVATION: Received stderr:\nsrc/a.ts(1,2): error TS2322: Type 'string' is not assignable to type 'number'.",
+      true,
+    ],
+    [
+      "OBSERVATION: Received stderr:\u001b[31msrc/a.ts:1:2: error first problem (rule-a)\u001b[0m",
+      true,
+    ],
+    ["OBSERVATION: Received output:\nE   AssertionError: expected 1", true],
+    ['OBSERVATION: logger.info("starting")\nbar.ts 3:4 error actual failure (rule)', true],
+    [
+      "OBSERVATION: Error parsing YAML: found undefined alias 'i' in \"<unicode string>\", line 5, column 3",
+      true,
+    ],
+    [
+      "OBSERVATION: Test case 3 - Empty anchor: Line 2: syntax error: expected alphabetic or numeric character, but found '\\n' (syntax) (level: error)",
+      true,
+    ],
+    ["OBSERVATION: Error: expected a list for dictionary value @ data['params']", true],
+    ["OBSERVATION: Error: parser expected error token, got EOF", true],
+    ["OBSERVATION: Error parsing YAML: expected error token at line 2, column 3", true],
+    [
       "OBSERVATION: test_disabled (tests.rules.test_anchors.AnchorsTestCase) ... FAIL FAILED (failures=1, errors=1)",
       true,
     ],
@@ -4098,6 +4883,137 @@ test("explicit observation transcripts classify only narrow low-consequence subc
     ["OBSERVATION: 1 failed", true],
     ["OBSERVATION: test failed: expected 1", true],
     ["OBSERVATION: No tests failed. 0 failed.", false],
+    ['OBSERVATION: test.yaml 1:1 warning missing document start "---" (document-start)', false],
+    [
+      "OBSERVATION: Expected output: test.yaml 1:1 error missing document end (document-end)",
+      false,
+    ],
+    ["OBSERVATION: Expected results: src/a.ts:1:2: [error] first problem (rule-a)", false],
+    ["OBSERVATION: Expected report: src/a.ts:1:2: [error] first problem (rule-a)", false],
+    ["OBSERVATION: Expected diagnostics: src/a.ts:1:2: [error] first problem (rule-a)", false],
+    ["OBSERVATION: Example results: src/a.ts:1:2: [error] first problem (rule-a)", false],
+    ["OBSERVATION: Example eslint output: foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: Example current eslint output: foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: Reference output from eslint: foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: Desired output: foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: For reference, foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: Sample from eslint: foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: Golden output: foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: Baseline results: foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: Canonical report: foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: Fixture output: foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: Documentation output: src/a.ts:1:2: [error] first problem (rule-a)", false],
+    ["OBSERVATION: The report: src/a.ts:1:2: [error] first problem (rule-a)", false],
+    ["OBSERVATION: Example actual output: foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: Expected actual output: foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: For reference, actual output: foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: According to the docs, actual output: foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: For reference:\nActual output:\nfoo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: For example:\nActual output:\nfoo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: Here is an example:\nActual output:\nfoo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: In the docs:\nActual output:\nfoo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: As shown in the docs:\nActual output:\nfoo.ts 1:2 error fixture (rule)", false],
+    [
+      "OBSERVATION: The eslint documentation shows this format:\nActual output:\nfoo.ts 1:2 error fixture (rule)",
+      false,
+    ],
+    ["OBSERVATION: According to the docs:\nActual output:\nfoo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: Fixture output:\nReceived report:\nfoo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: Actual output:\nFor reference:\nfoo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: Actual output:\nExample output:\nfoo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: Actual output:\nAccording to the docs:\nfoo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: starting\nExample output:\nfoo.ts 1:2 error fixture (rule)", false],
+    ['OBSERVATION: starting\nthrow new Error("tests failed")', false],
+    ['OBSERVATION: starting\nTypeError("fixture failure")', false],
+    [
+      "OBSERVATION: Actual output:\nclean\nExpected output:\nfoo.ts 1:2 error fixture (rule)",
+      false,
+    ],
+    [
+      "OBSERVATION: Actual output:\nclean\nExpected results:\nfoo.ts 1:2 error fixture (rule)",
+      false,
+    ],
+    [
+      "OBSERVATION: Actual output:\nclean\nExpected report:\nfoo.ts 1:2 error fixture (rule)",
+      false,
+    ],
+    [
+      "OBSERVATION: Actual output:\nclean\nExpected diagnostics:\nfoo.ts 1:2 error fixture (rule)",
+      false,
+    ],
+    [
+      "OBSERVATION: Actual output:\nclean\nExpected errors:\nfoo.ts 1:2 error fixture (rule)",
+      false,
+    ],
+    [
+      "OBSERVATION: Actual output:\nclean\nExpected failures:\nfoo.ts 1:2 error fixture (rule)",
+      false,
+    ],
+    ["OBSERVATION: Example: actual output: foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: Expected note: actual output: foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: Sample: received report: foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: Expected error: Rule did not match at line 1, column 1", false],
+    ["OBSERVATION: Test 1 failed as expected with: 'int' object has no attribute 'reshape'", false],
+    ["OBSERVATION: Test 1: failed as expected: foo.yaml 1:1 error bad value (rule)", false],
+    ["OBSERVATION: Probe failed as expected: foo.yaml 1:1 error bad value (rule)", false],
+    ["OBSERVATION: Error occurred as expected: './dvc.yaml' validation failed: 2 errors", false],
+    [
+      "OBSERVATION: Error reading invalid hex file (expected): non-hexadecimal number found in fromhex() arg at position 6",
+      false,
+    ],
+    ["OBSERVATION: For example, foo.yaml 1:1 error message (rule)", false],
+    ["OBSERVATION: Output format: file.yaml 1:1 error message (rule-name)", false],
+    ["OBSERVATION: The eslint documentation shows foo.ts 1:2 error example text (rule)", false],
+    [
+      "OBSERVATION: The eslint documentation currently shows foo.ts 1:2 error example text (rule)",
+      false,
+    ],
+    [
+      "OBSERVATION: According to the eslint documentation, foo.ts 1:2 error example text (rule)",
+      false,
+    ],
+    ["OBSERVATION: The docs show foo.ts 1:2 error example text (rule)", false],
+    ["OBSERVATION: Sample output: src/a.ts:1:2: [error] fixture (rule)", false],
+    ["OBSERVATION: Sample output: foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: Reference results: src/a.ts:1:2: [error] fixture (rule)", false],
+    ["OBSERVATION: Reference results: foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: Illustrative report: src/a.ts:1:2: [error] fixture (rule)", false],
+    ["OBSERVATION: Illustrative report: foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: Previous report: src/a.ts:1:2: [error] fixture (rule)", false],
+    ["OBSERVATION: Previous report: foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: The eslint documentation says foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: The eslint docs currently display foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: According to eslint docs: foo.ts 1:2 error fixture (rule)", false],
+    ['OBSERVATION: message = "foo.yaml 1:1 error missing end (rule)"', false],
+    ['OBSERVATION: print("foo.yaml 1:1 error missing end (rule)")', false],
+    ['OBSERVATION: logger.error("foo.yaml 1:1 error bad value (rule)")', false],
+    ['OBSERVATION: logger.exception("fixture exception")', false],
+    [
+      'OBSERVATION: Expected output: diagnostic\nActual output:\nlogger.error("src/a.ts 1:2 error fixture (rule)")',
+      false,
+    ],
+    ['OBSERVATION: Actual output:\nerrors.push("foo.ts 1:2 error fixture (rule)")', false],
+    ["OBSERVATION: Source text: foo.ts 1:2 error fixture (rule)", false],
+    ["OBSERVATION: This example shows: foo.ts 1:2 error fixture (rule)", false],
+    ['OBSERVATION: Actual output:\nthrow new Error("tests failed")', false],
+    ['OBSERVATION: Actual output:\nraise RuntimeError("expected exception")', false],
+    ['OBSERVATION: Actual output:\nnew Exception("fixture")', false],
+    ['OBSERVATION: Actual output:\nconst err = new Error("expected exception")', false],
+    ['OBSERVATION: Actual output:\n"expected exception"', false],
+    ['OBSERVATION: Expected output: diagnostic\nActual output:\nTypeError("fixture error")', false],
+    ['OBSERVATION: Actual output:\nTypeError("fixture error")', false],
+    ['OBSERVATION: Actual output:\nTypeError("fixture failure")\ncompleted', false],
+    ['OBSERVATION: Actual output:\nstarting\nTypeError("fixture failure")', false],
+    [
+      'OBSERVATION: Actual output:\nstarting\nlogger.error("foo.ts 1:2 error fixture (rule)")',
+      false,
+    ],
+    [
+      'OBSERVATION: Expected output: diagnostic\nActual output:\nRuntimeError("fixture failure")',
+      false,
+    ],
+    ['OBSERVATION: Received output:\nRuntimeError("fixture failure")', false],
+    ['OBSERVATION: process.stdout.write("foo.yaml 1:1 error bad value (rule)")', false],
   ]) {
     assert.equal(readExplicitObservationTranscript(summary), null);
     assert.equal(looksLikeExplicitObservationTranscript(summary), false);
@@ -4122,6 +5038,11 @@ test("explicit observation transcripts classify only narrow low-consequence subc
     "OBSERVATION: === Testing parser === failure_path:\n  mov rax, 0\n  call report_failure\n  ret",
     'OBSERVATION: const message = "jq: parse error: Unfinished JSON term at EOF";\nreturn message;',
     'OBSERVATION: const message = "File \\"/testbed/test_fixes.py\\", line 8 SyntaxError: invalid syntax";\nreturn message;',
+    'OBSERVATION: const fixture = "test.yaml 1:1 error missing document end"; return fixture;',
+    "OBSERVATION: const fixture = `\nActual output:\nfoo.ts 1:2 error fixture (rule)\n`;",
+    "OBSERVATION: Source fixture:\n```text\nActual output:\nfoo.ts 1:2 error fixture (rule)\n```",
+    'OBSERVATION: Here is the result of running `cat -n` on /tmp/test.py:\nfixture = """\nActual output:\nfoo.ts 1:2 error fixture (rule)\n"""',
+    'OBSERVATION: fixture = """\nActual output:\nfoo.ts 1:2 error fixture (rule)\n"""',
   ]) {
     assert.equal(readExplicitObservationTranscript(summary)?.shape, "existing_observation");
     assert.equal(looksLikeExplicitDiagnosticObservationTranscript(summary), false);

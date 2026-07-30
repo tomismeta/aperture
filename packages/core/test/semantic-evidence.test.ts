@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   hasRoutineObservationalStatusConflictSemanticRead,
+  readRoutineObservationalStatusConflictEvidence,
   readTaskFailureSemanticEvidence,
   readSemanticTextEvidence,
 } from "../src/semantic-evidence.js";
@@ -399,6 +400,36 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
   assert.equal(invalidStructuredDiagnostic.structuredOutputEnvelope.kind, "invalid");
   assert.equal(invalidStructuredDiagnostic.structuredOutputFailureDiagnostic, false);
   assert.equal(invalidStructuredDiagnostic.rawToolOutputFailureDiagnostic, false);
+
+  const missingToolExactSource = readTaskFailureSemanticSignals({
+    summary:
+      '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }"}',
+  });
+  assert.equal(missingToolExactSource.structuredOutputEnvelope.kind, "valid");
+  assert.equal(missingToolExactSource.structuredOutputObservation, true);
+
+  const opaqueToolExactSource = readTaskFailureSemanticSignals({
+    summary:
+      '{"wall_time":"0.0510 seconds","output":"diff --git a/src/app.ts b/src/app.ts\\n--- a/src/app.ts\\n+++ b/src/app.ts"}',
+    toolFamily: "opaque_runner",
+  });
+  assert.equal(opaqueToolExactSource.structuredOutputEnvelope.kind, "valid");
+  assert.equal(opaqueToolExactSource.structuredOutputObservation, true);
+
+  const explicitReadExactSource = readTaskFailureSemanticSignals({
+    summary:
+      '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }"}',
+    toolFamily: "read",
+  });
+  assert.equal(explicitReadExactSource.structuredOutputEnvelope.kind, "unsupported");
+  assert.equal(explicitReadExactSource.structuredOutputObservation, false);
+
+  const missingToolTruncatedEnvelope = readTaskFailureSemanticSignals({
+    summary:
+      '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }',
+  });
+  assert.equal(missingToolTruncatedEnvelope.structuredOutputEnvelope.kind, "invalid");
+  assert.equal(missingToolTruncatedEnvelope.structuredOutputObservation, false);
 
   const rawReadPanic = readTaskFailureSemanticSignals({
     summary: runtimePanic,
@@ -1416,6 +1447,274 @@ test("task failure evidence classifies structured tool output without treating i
     })?.kind,
     "routine_bash_success_observation",
     "structured zero exit should stay routine success",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-exact-source-output",
+      taskId: "task:evidence:missing-tool-exact-source-output",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }"}',
+      status: "failed",
+    })?.kind,
+    "structured_tool_output_observation",
+    "missing tool families can own exact structured source observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:opaque-tool-exact-source-output",
+      taskId: "task:evidence:opaque-tool-exact-source-output",
+      timestamp,
+      type: "task.updated",
+      title: "opaque_runner failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"diff --git a/src/app.ts b/src/app.ts\\n--- a/src/app.ts\\n+++ b/src/app.ts"}',
+      status: "failed",
+      toolFamily: "opaque_runner",
+    })?.kind,
+    "structured_tool_output_observation",
+    "opaque tool families can own exact structured output observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-exact-zero-exit",
+      taskId: "task:evidence:missing-tool-exact-zero-exit",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary: '{"exit_code":0,"wall_time":"0.0510 seconds","output":"collected 42 rows"}',
+      status: "failed",
+    })?.kind,
+    "structured_execution_success_observation",
+    "missing tool exact zero exit is affirmative success evidence",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:opaque-tool-exact-zero-exit",
+      taskId: "task:evidence:opaque-tool-exact-zero-exit",
+      timestamp,
+      type: "task.updated",
+      title: "opaque_runner failure",
+      summary: '{"exit_code":0,"wall_time":"0.0510 seconds","output":"ok"}',
+      status: "failed",
+      toolFamily: "opaque_runner",
+    })?.kind,
+    "structured_execution_success_observation",
+    "opaque tool exact zero exit is affirmative success evidence",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:opaque-tool-string-zero-exit",
+      taskId: "task:evidence:opaque-tool-string-zero-exit",
+      timestamp,
+      type: "task.updated",
+      title: "opaque_runner failure",
+      summary: '{"exit_code":"0","wall_time":"0.0510 seconds","output":"ok"}',
+      status: "failed",
+      toolFamily: "opaque_runner",
+    })?.kind,
+    "unclassified_failure",
+    "opaque exact ownership requires numeric JSON exit codes",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-zero-exit-traceback",
+      taskId: "task:evidence:missing-tool-zero-exit-traceback",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary:
+        '{"exit_code":0,"wall_time":"0.0510 seconds","output":"Traceback (most recent call last): RuntimeError"}',
+      status: "failed",
+    })?.kind,
+    "terminal_failure",
+    "zero-exit exact ownership does not override terminal diagnostics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:opaque-tool-exact-nonzero-source",
+      taskId: "task:evidence:opaque-tool-exact-nonzero-source",
+      timestamp,
+      type: "task.updated",
+      title: "opaque_runner failure",
+      summary:
+        '{"exit_code":2,"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }"}',
+      status: "failed",
+      toolFamily: "opaque_runner",
+    })?.kind,
+    "terminal_failure",
+    "nonzero exact structured output remains terminal even when output looks observational",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:opaque-tool-exact-traceback",
+      taskId: "task:evidence:opaque-tool-exact-traceback",
+      timestamp,
+      type: "task.updated",
+      title: "opaque_runner failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"Traceback (most recent call last): RuntimeError"}',
+      status: "failed",
+      toolFamily: "opaque_runner",
+    })?.kind,
+    "terminal_failure",
+    "terminal diagnostics inside exact structured output still win",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-exact-neutral-output",
+      taskId: "task:evidence:missing-tool-exact-neutral-output",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary: '{"wall_time":"0.0510 seconds","output":"hello world"}',
+      status: "failed",
+    })?.kind,
+    "unclassified_failure",
+    "neutral exact structured output without exit code remains unclassified",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-exact-zero-exit",
+      taskId: "task:evidence:web-exact-zero-exit",
+      timestamp,
+      type: "task.updated",
+      title: "web failure",
+      summary:
+        '{"exit_code":0,"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }"}',
+      status: "failed",
+      toolFamily: "web",
+    })?.kind,
+    "unclassified_failure",
+    "explicit web families do not inherit structured execution-envelope ownership",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:read-exact-zero-exit",
+      taskId: "task:evidence:read-exact-zero-exit",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        '{"exit_code":0,"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }"}',
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "unclassified_failure",
+    "explicit read families do not inherit structured execution-envelope ownership",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:search-exact-zero-exit",
+      taskId: "task:evidence:search-exact-zero-exit",
+      timestamp,
+      type: "task.updated",
+      title: "search failure",
+      summary:
+        '{"exit_code":0,"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }"}',
+      status: "failed",
+      toolFamily: "search",
+    })?.kind,
+    "unclassified_failure",
+    "explicit search families do not inherit structured execution-envelope ownership",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:write-exact-zero-exit",
+      taskId: "task:evidence:write-exact-zero-exit",
+      timestamp,
+      type: "task.updated",
+      title: "write failure",
+      summary:
+        '{"exit_code":0,"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }"}',
+      status: "failed",
+      toolFamily: "write",
+    })?.kind,
+    "unclassified_failure",
+    "explicit write families do not inherit structured execution-envelope ownership",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-extra-key-source-output",
+      taskId: "task:evidence:missing-tool-extra-key-source-output",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }","status":"ok"}',
+      status: "failed",
+    })?.kind,
+    "unclassified_failure",
+    "extra envelope keys keep absent-family output unclassified",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-invalid-wall-time",
+      taskId: "task:evidence:missing-tool-invalid-wall-time",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary: '{"wall_time":"soon","output":"#include <stdio.h>\\nint main() { return 0; }"}',
+      status: "failed",
+    })?.kind,
+    "unclassified_failure",
+    "invalid envelope timing keeps absent-family output unclassified",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-invalid-output-type",
+      taskId: "task:evidence:missing-tool-invalid-output-type",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary: '{"wall_time":"0.0510 seconds","output":["#include <stdio.h>"]}',
+      status: "failed",
+    })?.kind,
+    "unclassified_failure",
+    "wrong output type keeps absent-family output unclassified",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-empty-output",
+      taskId: "task:evidence:missing-tool-empty-output",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary: '{"wall_time":"0.0510 seconds","output":"  "}',
+      status: "failed",
+    })?.kind,
+    "unclassified_failure",
+    "empty output keeps absent-family envelope unclassified",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-truncated-source-output",
+      taskId: "task:evidence:missing-tool-truncated-source-output",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }',
+      status: "failed",
+    })?.kind,
+    "unclassified_failure",
+    "truncated absent-family envelopes do not use command recovery",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-reference-wrapper",
+      taskId: "task:evidence:missing-tool-reference-wrapper",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary:
+        'Expected output:\\n{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }"}',
+      status: "failed",
+    })?.kind,
+    "unclassified_failure",
+    "reference wrappers around exact envelopes remain unclassified",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -5852,6 +6151,32 @@ test("routine observational status-conflict evidence is a narrow semantic read",
 });
 
 test("observational status-conflict evidence includes structured, read, and search observations", () => {
+  assert.deepEqual(
+    readRoutineObservationalStatusConflictEvidence(
+      {
+        id: "evt:evidence:execution-success-observation-conflict",
+        taskId: "task:evidence:execution-success-observation-conflict",
+        timestamp,
+        type: "task.updated",
+        title: "tool failure",
+        summary: '{"exit_code":0,"wall_time":"0.0510 seconds","output":"collected 42 rows"}',
+        status: "failed",
+      },
+      {
+        intentFrame: "status_update" as const,
+        activityClass: "status_update" as const,
+        consequence: "low" as const,
+        factors: ["task.updated", "failed", "observational_failure"],
+        relationHints: [],
+        confidence: "high" as const,
+        reasons: ["task status indicates failure but the update reads like observational output"],
+      },
+    ),
+    {
+      kind: "execution_success_observation",
+      baselineConsequence: "low",
+    },
+  );
   assert.equal(
     hasRoutineObservationalStatusConflictSemanticRead(
       {

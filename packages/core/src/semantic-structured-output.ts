@@ -4,8 +4,13 @@ export type StructuredToolOutputObservation = {
   exitCode?: number;
 };
 
+export type StructuredToolOutputObservationOptions = {
+  coerceStringExitCode?: boolean;
+};
+
 export function readStructuredToolOutputObservation(
   summary: string | undefined,
+  options: StructuredToolOutputObservationOptions = {},
 ): StructuredToolOutputObservation | null {
   if (summary === undefined) {
     return null;
@@ -28,7 +33,7 @@ export function readStructuredToolOutputObservation(
     return null;
   }
 
-  const exitCode = readOptionalIntegerExitCode(parsed);
+  const exitCode = readOptionalIntegerExitCode(parsed, options);
   if (exitCode === "invalid") {
     return null;
   }
@@ -85,6 +90,7 @@ function hasUnexpectedStructuredOutputKeys(value: Record<string, unknown>): bool
 
 export function readOptionalIntegerExitCode(
   value: Record<string, unknown>,
+  options: StructuredToolOutputObservationOptions = {},
 ): number | "invalid" | undefined {
   if (!Object.prototype.hasOwnProperty.call(value, "exit_code")) {
     return undefined;
@@ -95,7 +101,11 @@ export function readOptionalIntegerExitCode(
     return rawExitCode;
   }
 
-  if (typeof rawExitCode === "string" && /^-?\d+$/.test(rawExitCode.trim())) {
+  if (
+    options.coerceStringExitCode !== false &&
+    typeof rawExitCode === "string" &&
+    /^-?\d+$/.test(rawExitCode.trim())
+  ) {
     return Number.parseInt(rawExitCode, 10);
   }
 

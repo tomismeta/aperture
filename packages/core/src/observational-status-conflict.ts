@@ -1,5 +1,6 @@
 export type ObservationalStatusConflictKind =
   | "command_success_observation"
+  | "execution_success_observation"
   | "structured_output_observation"
   | "payload_observation"
   | "search_output_observation"

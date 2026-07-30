@@ -17,6 +17,7 @@ import {
   looksLikeExplicitDiagnosticObservationTranscript,
   type ExplicitObservationTranscript,
 } from "./semantic-observation-transcript-shapes.js";
+import { readExplicitNonDiagnosticObservationTranscript } from "./semantic-nondiagnostic-observation-transcript-shapes.js";
 import { looksLikeReadTruncationProtocolObservation } from "./semantic-read-observation-shapes.js";
 import {
   looksLikeStructuredToolOutputEnvelope,
@@ -54,6 +55,7 @@ export type TaskFailureSemanticSignals = {
   rawToolOutputFailureDiagnostic: boolean;
   strongSourceRuntimeDiagnostic: boolean;
   diagnosticObservationTranscript: boolean;
+  commandObservationTranscript: ExplicitObservationTranscript | null;
   missingToolObservationTranscript: ExplicitObservationTranscript | null;
   rejectedToolUseOutcome: boolean;
 };
@@ -138,6 +140,9 @@ export function readTaskFailureSemanticSignals(input: {
       (rawReadStructuredObservation && hasStrongRuntimeDiagnosticEvidence(summary)),
     diagnosticObservationTranscript:
       input.toolFamily === undefined && looksLikeExplicitDiagnosticObservationTranscript(summary),
+    commandObservationTranscript: isSemanticCommandExecutionToolFamily(input.toolFamily)
+      ? readExplicitNonDiagnosticObservationTranscript(summary)
+      : null,
     missingToolObservationTranscript:
       input.toolFamily === undefined ? readExplicitObservationTranscript(summary) : null,
     rejectedToolUseOutcome: looksLikeToolUseRejectionOutcome(summary),

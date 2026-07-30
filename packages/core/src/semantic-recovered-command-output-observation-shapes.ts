@@ -1,4 +1,5 @@
 import { hasToolOutputFailureDiagnosticEvidence } from "./semantic-diagnostic-shapes.js";
+import { looksLikeWarningOnlyCommandOutputObservation } from "./semantic-command-warning-observation-shapes.js";
 import { looksLikeRecoveredCommandSourceObservation } from "./semantic-recovered-command-source-observation-shapes.js";
 
 export type RecoveredCommandOutputObservation = {
@@ -35,7 +36,8 @@ function looksLikeRecoveredCommandReadbackObservation(value: string): boolean {
     text.length > 0 &&
     hasVisibleTruncationBoundary(text) &&
     !hasToolOutputFailureDiagnosticEvidence(text) &&
-    (documentLocationRows >= 2 ||
+    (looksLikeWarningOnlyCommandOutputObservation(text) ||
+      documentLocationRows >= 2 ||
       sourceLocationRows >= 2 ||
       (sourceLocationRows >= 1 && hasClippedPathContinuation(text)))
   );

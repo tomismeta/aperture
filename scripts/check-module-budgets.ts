@@ -40,6 +40,8 @@ const budgets = [
   { file: "packages/core/src/semantic-diagnostic-reference-shapes.ts", maxLines: 50 },
   { file: "packages/core/src/semantic-document-observation-shapes.ts", maxLines: 75 },
   { file: "packages/core/src/semantic-edit-output-shapes.ts", maxLines: 75 },
+  { file: "packages/core/src/semantic-command-text-observation-boundaries.ts", maxLines: 35 },
+  { file: "packages/core/src/semantic-command-warning-observation-shapes.ts", maxLines: 50 },
   { file: "packages/core/src/semantic-command-text-observation-shapes.ts", maxLines: 100 },
   { file: "packages/core/src/semantic-linter-output-observation-shapes.ts", maxLines: 60 },
   { file: "packages/core/src/semantic-bare-diagnostic-observation-shapes.ts", maxLines: 10 },

@@ -1246,6 +1246,50 @@ test("task failure evidence classifies structured tool output without treating i
     "low",
     "successful raw command test output should remain low-consequence observation evidence",
   );
+  const rawCommandWarning =
+    "/repo/venv/lib/python3.13/site-packages/pkg/__init__.py:167: UserWarning: The program was compiled against version 1 but the installed version is different...";
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-warning-readback",
+      taskId: "task:evidence:raw-command-warning-readback",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: rawCommandWarning,
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "medium",
+    "path-qualified command warnings are medium-consequence readback observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-warning-with-error",
+      taskId: "task:evidence:raw-command-warning-with-error",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: `${rawCommandWarning}\n/repo/src/app.ts:33: error: no matching function`,
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "command warning readbacks do not override explicit error diagnostics",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:web-command-warning-readback",
+      taskId: "task:evidence:web-command-warning-readback",
+      timestamp,
+      type: "task.updated",
+      title: "web failure",
+      summary: rawCommandWarning,
+      status: "failed",
+      toolFamily: "web",
+    })?.kind,
+    "unclassified_failure",
+    "command warning readbacks do not leak into unsupported tool semantics",
+  );
   for (const [id, summary] of [
     ["raw-command-diff-prose-reference", `The expected patch starts with ${rawCommandDiff}`],
     ["raw-command-diff-expected-output", `Expected output:\n${rawCommandDiff}`],
@@ -2918,6 +2962,36 @@ test("task failure evidence classifies structured tool output without treating i
     })?.kind,
     "unclassified_failure",
     "recovered command readback semantics do not leak into unsupported tool output",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-toolchain-warning-readback",
+      taskId: "task:evidence:truncated-toolchain-warning-readback",
+      timestamp,
+      type: "task.updated",
+      title: "run_shell_command failure",
+      summary:
+        '{"output":"clang: warning: CUDA version 12.9 is only partially supported [-Wunknown-cuda-version]\\nIn file included from /repo/src/kernel.cu:1:...',
+      status: "failed",
+      toolFamily: "run_shell_command",
+    })?.consequenceBaseline,
+    "medium",
+    "clipped toolchain warnings are recovered command output observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-toolchain-warning-with-error",
+      taskId: "task:evidence:truncated-toolchain-warning-with-error",
+      timestamp,
+      type: "task.updated",
+      title: "run_shell_command failure",
+      summary:
+        '{"output":"clang: warning: CUDA version 12.9 is only partially supported [-Wunknown-cuda-version]\\n/repo/src/kernel.cu:9: error: no matching function...',
+      status: "failed",
+      toolFamily: "run_shell_command",
+    })?.kind,
+    "terminal_failure",
+    "recovered warning output does not override compiler errors",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({

@@ -1,6 +1,9 @@
 export const KERNEL_CORPUS_SCENARIO_IDS = [
   "golden:kernel-corpus:alarmist-read-approval-stays-low-risk",
   "golden:kernel-corpus:bare-nonzero-command-exit-plans-next-without-ambiguity",
+  "golden:kernel-corpus:bash-compiler-source-diagnostic-stays-terminal",
+  "golden:kernel-corpus:bash-loader-path-heavy-diagnostic-stays-terminal",
+  "golden:kernel-corpus:bash-loader-plain-diagnostic-stays-terminal",
   "golden:kernel-corpus:command-owned-technical-observation-stays-medium",
   "golden:kernel-corpus:command-test-progress-observation-stays-medium",
   "golden:kernel-corpus:conflicting-relation-targets-queue-behind-current",

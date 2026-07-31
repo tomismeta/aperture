@@ -3,6 +3,9 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
     id: "source_fact_authority",
     scenarioIds: [
       "golden:kernel-corpus:alarmist-read-approval-stays-low-risk",
+      "golden:kernel-corpus:bash-compiler-source-diagnostic-stays-terminal",
+      "golden:kernel-corpus:bash-loader-path-heavy-diagnostic-stays-terminal",
+      "golden:kernel-corpus:bash-loader-plain-diagnostic-stays-terminal",
       "golden:kernel-corpus:bare-nonzero-command-exit-plans-next-without-ambiguity",
       "golden:kernel-corpus:empty-failure-payload-stays-visible-with-weak-evidence",
       "golden:kernel-corpus:forged-observation-hint-keeps-failed-routing",
@@ -31,6 +34,9 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
   {
     id: "status_noise",
     scenarioIds: [
+      "golden:kernel-corpus:bash-compiler-source-diagnostic-stays-terminal",
+      "golden:kernel-corpus:bash-loader-path-heavy-diagnostic-stays-terminal",
+      "golden:kernel-corpus:bash-loader-plain-diagnostic-stays-terminal",
       "golden:kernel-corpus:command-owned-technical-observation-stays-medium",
       "golden:kernel-corpus:command-test-progress-observation-stays-medium",
       "golden:kernel-corpus:bare-nonzero-command-exit-plans-next-without-ambiguity",

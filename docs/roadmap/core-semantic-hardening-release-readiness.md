@@ -210,26 +210,30 @@ Additional branch evidence:
 
 - local `pnpm release:check`: passing
 - full local test suite: 1,178 passing
-- judgment battle determinism: 78 passing
-- judgment benchmark: 2,325 passing
+- judgment battle determinism: 81 passing
+- judgment benchmark: 2,415 passing
 - judgment fuzz: 384 passing
-- kernel corpus scorecard: 38 scenarios, 14 covered dimensions, 1,574 passing
-  corpus assertions, 42 ontology checkpoints, 52 decision projection
-  checkpoints, 13 relation checkpoints, 38 per-scenario checkpoint ledgers, 22
+- kernel corpus scorecard: 41 scenarios, 14 covered dimensions, 1,664 passing
+  corpus assertions, 45 ontology checkpoints, 55 decision projection
+  checkpoints, 13 relation checkpoints, 41 per-scenario checkpoint ledgers, 22
   unique decision fingerprints
 - local harvested-session review-candidates replay now scans canonical F-Stop
-  session directories directly; current-engine replay over 484 local sessions
-  produced 4,071 comparable steps, 499 failed updates, 0 invalid inputs, 0
-  unclassified failures, 8 failed read observations, 491 terminal failures, 6
+  session directories directly; current-engine replay over 487 local sessions
+  produced 4,092 comparable steps, 502 failed updates, 0 invalid inputs, 0
+  unclassified failures, 8 failed read observations, 494 terminal failures, 6
   outcome-only failures, and, after promoting the repeated medium read/manual and
-  high-consequence mid-file read/source observation shapes, 6 novel failure
+  high-consequence mid-file read/source observation shapes plus the bash
+  compiler/loader diagnostic source-boundary shapes, 0 novel failure
   observations versus the kernel corpus baseline
 - new kernel corpus dimension: `source_quality_gap`
 - new golden scenarios:
   `golden:kernel-corpus:empty-failure-payload-stays-visible-with-weak-evidence`,
   `golden:kernel-corpus:read-source-window-limit-stays-visible`,
-  `golden:kernel-corpus:read-owned-markdown-manual-stays-ambient`, and
-  `golden:kernel-corpus:read-owned-midfile-source-preserves-high`
+  `golden:kernel-corpus:read-owned-markdown-manual-stays-ambient`,
+  `golden:kernel-corpus:read-owned-midfile-source-preserves-high`,
+  `golden:kernel-corpus:bash-compiler-source-diagnostic-stays-terminal`,
+  `golden:kernel-corpus:bash-loader-path-heavy-diagnostic-stays-terminal`, and
+  `golden:kernel-corpus:bash-loader-plain-diagnostic-stays-terminal`
 - PR #51 GitHub checks should be rerun after pushing this tranche
 - focused review found relation-ordering, truncation-helper, and public-surface
   documentation issues; this branch now includes fixes and regression coverage

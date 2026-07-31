@@ -31,11 +31,17 @@ export {
   type KernelCorpusDimensionCoverage,
 } from "./kernel-corpus-conformance.js";
 export {
+  assertKernelCorpusScorecardComparisonPassed,
   assertKernelCorpusScorecardPassed,
+  buildKernelCorpusScorecardComparison,
   buildKernelCorpusScorecard,
+  KERNEL_CORPUS_SCORECARD_COMPARISON_SCHEMA_VERSION,
   KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION,
   KERNEL_CORPUS_SCORECARD_THRESHOLDS,
+  parseKernelCorpusScorecard,
+  type KernelCorpusScorecardComparison,
   type KernelCorpusScorecard,
+  type KernelCorpusScorecardScenarioCheckpoints,
 } from "./kernel-corpus-scorecard.js";
 export {
   KERNEL_CORPUS_COVERAGE_DIMENSIONS,

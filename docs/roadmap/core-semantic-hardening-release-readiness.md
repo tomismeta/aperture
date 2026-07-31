@@ -133,6 +133,12 @@ Current review evidence:
   compact scorecard for scenario count, dimension coverage, semantic ontology
   checkpoints, decision projection checkpoints, relation checkpoints, and
   decision-fingerprint uniqueness as a reported snapshot
+- the scorecard carries per-scenario semantic ontology, relation, and decision
+  projection checkpoint digests; `pnpm kernel:corpus` compares the generated
+  scorecard against the committed baseline so aggregate totals cannot hide a
+  lost scenario-specific semantic or judgment assertion
+- `pnpm kernel:corpus:write` refuses to overwrite the scorecard without a valid
+  baseline comparison unless an intentional scorecard rebaseline flag is used
 - classifier growth is now guarded by module budgets for:
   - `packages/core/src/semantic-detection.ts`
   - `packages/core/src/semantic-owned-observation-payload-shapes.ts`
@@ -192,7 +198,8 @@ Additional branch evidence:
 - judgment fuzz: 384 passing
 - kernel corpus scorecard: 34 scenarios, 13 covered dimensions, 1,421 passing
   corpus assertions, 38 ontology checkpoints, 47 decision projection
-  checkpoints, 13 relation checkpoints, 19 unique decision fingerprints
+  checkpoints, 13 relation checkpoints, 34 per-scenario checkpoint ledgers, 19
+  unique decision fingerprints
 - PR #51 GitHub `release-check`: passing
 - PR #51 kernel conformance shards: passing
 - focused review found relation-ordering, truncation-helper, and public-surface

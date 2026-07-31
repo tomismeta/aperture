@@ -1,8 +1,13 @@
 import { compareKernelCanonicalKey, digestKernelCanonicalJson } from "./kernel-canonical-json.js";
 import type { KernelCorpusConformanceReport } from "./kernel-corpus-conformance.js";
-import type { ReplayDecisionExpectation, ReplayScenario } from "./scenario.js";
+import {
+  collectKernelCorpusScenarioCheckpoints,
+  parseKernelCorpusScorecardValue,
+} from "./kernel-corpus-scorecard-support.js";
+import type { ReplayScenario, ReplayScenarioExpectations } from "./scenario.js";
 
-export const KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION = 1 as const;
+export const KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION = 2 as const;
+export const KERNEL_CORPUS_SCORECARD_COMPARISON_SCHEMA_VERSION = 1 as const;
 
 export const KERNEL_CORPUS_SCORECARD_THRESHOLDS = {
   minimumScenarios: 34,
@@ -68,19 +73,74 @@ export type KernelCorpusScorecard = {
     id: string;
     assertionCount: number;
   }>;
+  scenarioCheckpoints: KernelCorpusScorecardScenarioCheckpoints[];
+};
+
+export type KernelCorpusScorecardScenarioCheckpoints = {
+  id: string;
+  semanticOntology: string[];
+  relation: string[];
+  decisionProjection: string[];
+};
+
+export type KernelCorpusScorecardComparison = {
+  schemaVersion: typeof KERNEL_CORPUS_SCORECARD_COMPARISON_SCHEMA_VERSION;
+  passed: boolean;
+  failures: string[];
+  baseline: KernelCorpusScorecardComparisonEndpoint;
+  candidate: KernelCorpusScorecardComparisonEndpoint;
+  deltas: {
+    scenarios: number;
+    coverageDimensions: number;
+    missingDimensions: number;
+    totalAssertions: number;
+    minimumAssertionsPerScenario: number;
+    semanticOntologyCheckpoints: number;
+    relationCheckpoints: number;
+    decisionProjectionCheckpoints: number;
+  };
+  dimensionDeltas: Array<{
+    id: string;
+    baselineScenarioCount: number;
+    candidateScenarioCount: number;
+    delta: number;
+  }>;
+  scenarioCheckpointDeltas: Array<{
+    id: string;
+    missingSemanticOntology: string[];
+    missingRelation: string[];
+    missingDecisionProjection: string[];
+  }>;
+};
+
+type KernelCorpusScorecardComparisonEndpoint = {
+  profile: KernelCorpusScorecard["profile"];
+  passed: boolean;
 };
 
 type ScorecardMetrics = KernelCorpusScorecard["summary"];
 type ScorecardMetricsResult = {
   metrics: ScorecardMetrics;
   integrityFailures: string[];
+  scenarioCheckpoints: KernelCorpusScorecardScenarioCheckpoints[];
 };
+
+export function parseKernelCorpusScorecard(source: string): KernelCorpusScorecard {
+  return parseKernelCorpusScorecardValue(
+    source,
+    KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION,
+    KERNEL_CORPUS_SCORECARD_THRESHOLDS,
+  );
+}
 
 export function buildKernelCorpusScorecard(
   report: KernelCorpusConformanceReport,
   scenarios: ReplayScenario[],
 ): KernelCorpusScorecard {
-  const { metrics, integrityFailures } = collectScorecardMetrics(report, scenarios);
+  const { metrics, integrityFailures, scenarioCheckpoints } = collectScorecardMetrics(
+    report,
+    scenarios,
+  );
   const failures = collectScorecardFailures(report, metrics, integrityFailures);
 
   return {
@@ -111,7 +171,72 @@ export function buildKernelCorpusScorecard(
           compareKernelCanonicalKey(left.id, right.id),
       )
       .slice(0, 5),
+    scenarioCheckpoints,
   };
+}
+
+export function buildKernelCorpusScorecardComparison(
+  baseline: KernelCorpusScorecard,
+  candidate: KernelCorpusScorecard,
+): KernelCorpusScorecardComparison {
+  const deltas = {
+    scenarios: candidate.summary.scenarios.total - baseline.summary.scenarios.total,
+    coverageDimensions: candidate.summary.dimensions.covered - baseline.summary.dimensions.covered,
+    missingDimensions: candidate.summary.dimensions.missing - baseline.summary.dimensions.missing,
+    totalAssertions: candidate.summary.assertions.total - baseline.summary.assertions.total,
+    minimumAssertionsPerScenario:
+      candidate.summary.assertions.minimumPerScenario -
+      baseline.summary.assertions.minimumPerScenario,
+    semanticOntologyCheckpoints:
+      candidate.summary.semanticCheckpoints.ontology -
+      baseline.summary.semanticCheckpoints.ontology,
+    relationCheckpoints:
+      candidate.summary.semanticCheckpoints.relation -
+      baseline.summary.semanticCheckpoints.relation,
+    decisionProjectionCheckpoints:
+      candidate.summary.decisionCheckpoints.projection -
+      baseline.summary.decisionCheckpoints.projection,
+  };
+  const dimensionDeltas = compareScorecardDimensions(baseline, candidate);
+  const scenarioCheckpointDeltas = compareScenarioCheckpoints(baseline, candidate);
+  const failures = collectScorecardComparisonFailures(
+    baseline,
+    candidate,
+    deltas,
+    dimensionDeltas,
+    scenarioCheckpointDeltas,
+  );
+
+  return {
+    schemaVersion: KERNEL_CORPUS_SCORECARD_COMPARISON_SCHEMA_VERSION,
+    passed: failures.length === 0,
+    failures,
+    baseline: {
+      profile: baseline.profile,
+      passed: baseline.passed,
+    },
+    candidate: {
+      profile: candidate.profile,
+      passed: candidate.passed,
+    },
+    deltas,
+    dimensionDeltas,
+    scenarioCheckpointDeltas,
+  };
+}
+
+export function assertKernelCorpusScorecardComparisonPassed(
+  comparison: KernelCorpusScorecardComparison,
+): void {
+  if (comparison.passed) {
+    return;
+  }
+
+  throw new Error(
+    `Kernel corpus scorecard comparison failed: ${
+      comparison.failures.join(", ") || "unknown failure"
+    }`,
+  );
 }
 
 export function assertKernelCorpusScorecardPassed(scorecard: KernelCorpusScorecard): void {
@@ -137,14 +262,27 @@ function collectScorecardMetrics(
     (scenario) => scenario.decisionFingerprints,
   );
   const integrityFailures: string[] = [];
-  const expectations = report.scenarioIds.flatMap((id) =>
-    readDigestBoundExpectations(id, scenarioById, resultById, integrityFailures),
+  const expectationsByScenario = report.scenarioIds.map((id) => ({
+    id,
+    expectations: readDigestBoundExpectation(id, scenarioById, resultById, integrityFailures),
+  }));
+  const expectations = expectationsByScenario.flatMap(({ expectations: scenarioExpectations }) =>
+    scenarioExpectations ? [scenarioExpectations] : [],
   );
-  const semanticReadings = expectations.flatMap(
-    (expectation) => expectation.semanticReadings ?? [],
+  const checkpointResults = expectationsByScenario.map(
+    ({ id, expectations: scenarioExpectations }) =>
+      collectKernelCorpusScenarioCheckpoints(id, scenarioExpectations),
   );
-  const decisionReadings = expectations.flatMap(
-    (expectation) => expectation.decisionReadings ?? [],
+  const scenarioCheckpoints = checkpointResults.map((result) => result.checkpoints);
+  integrityFailures.push(...checkpointResults.flatMap((result) => result.failures));
+  const semanticOntologyCheckpointCount = sum(
+    scenarioCheckpoints.map((scenario) => scenario.semanticOntology.length),
+  );
+  const relationCheckpointCount = sum(
+    scenarioCheckpoints.map((scenario) => scenario.relation.length),
+  );
+  const decisionProjectionCheckpointCount = sum(
+    scenarioCheckpoints.map((scenario) => scenario.decisionProjection.length),
   );
 
   return {
@@ -174,18 +312,13 @@ function collectScorecardMetrics(
         averagePerScenario: scenarioCount === 0 ? 0 : round(totalAssertions / scenarioCount),
       },
       semanticCheckpoints: {
-        total: semanticReadings.length,
-        ontology: semanticReadings.filter((reading) => reading.ontology !== undefined).length,
-        relation: semanticReadings.filter(
-          (reading) =>
-            reading.relationKindsInclude !== undefined ||
-            reading.relationKindsExact !== undefined ||
-            reading.relationHintsExact !== undefined,
-        ).length,
+        total: semanticOntologyCheckpointCount + relationCheckpointCount,
+        ontology: semanticOntologyCheckpointCount,
+        relation: relationCheckpointCount,
       },
       decisionCheckpoints: {
-        total: decisionReadings.length,
-        projection: decisionReadings.filter(isDecisionProjectionCheckpoint).length,
+        total: decisionProjectionCheckpointCount,
+        projection: decisionProjectionCheckpointCount,
       },
       fingerprints: {
         total: decisionFingerprints.length,
@@ -197,6 +330,7 @@ function collectScorecardMetrics(
       },
     },
     integrityFailures,
+    scenarioCheckpoints,
   };
 }
 
@@ -252,23 +386,152 @@ function collectScorecardFailures(
   return failures;
 }
 
-function readDigestBoundExpectations(
+function compareScorecardDimensions(
+  baseline: KernelCorpusScorecard,
+  candidate: KernelCorpusScorecard,
+): KernelCorpusScorecardComparison["dimensionDeltas"] {
+  const candidateDimensions = new Map(
+    candidate.dimensions.map((dimension) => [dimension.id, dimension.scenarioCount]),
+  );
+
+  return baseline.dimensions
+    .map((dimension) => {
+      const candidateScenarioCount = candidateDimensions.get(dimension.id) ?? 0;
+      return {
+        id: dimension.id,
+        baselineScenarioCount: dimension.scenarioCount,
+        candidateScenarioCount,
+        delta: candidateScenarioCount - dimension.scenarioCount,
+      };
+    })
+    .sort((left, right) => compareKernelCanonicalKey(left.id, right.id));
+}
+
+function compareScenarioCheckpoints(
+  baseline: KernelCorpusScorecard,
+  candidate: KernelCorpusScorecard,
+): KernelCorpusScorecardComparison["scenarioCheckpointDeltas"] {
+  const candidateById = new Map(
+    candidate.scenarioCheckpoints.map((scenario) => [scenario.id, scenario]),
+  );
+
+  return baseline.scenarioCheckpoints
+    .map((scenario) => {
+      const candidateScenario = candidateById.get(scenario.id);
+      return {
+        id: scenario.id,
+        missingSemanticOntology: missingDigests(
+          scenario.semanticOntology,
+          candidateScenario?.semanticOntology ?? [],
+        ),
+        missingRelation: missingDigests(scenario.relation, candidateScenario?.relation ?? []),
+        missingDecisionProjection: missingDigests(
+          scenario.decisionProjection,
+          candidateScenario?.decisionProjection ?? [],
+        ),
+      };
+    })
+    .filter(
+      (scenario) =>
+        scenario.missingSemanticOntology.length > 0 ||
+        scenario.missingRelation.length > 0 ||
+        scenario.missingDecisionProjection.length > 0,
+    )
+    .sort((left, right) => compareKernelCanonicalKey(left.id, right.id));
+}
+
+function collectScorecardComparisonFailures(
+  baseline: KernelCorpusScorecard,
+  candidate: KernelCorpusScorecard,
+  deltas: KernelCorpusScorecardComparison["deltas"],
+  dimensionDeltas: KernelCorpusScorecardComparison["dimensionDeltas"],
+  scenarioCheckpointDeltas: KernelCorpusScorecardComparison["scenarioCheckpointDeltas"],
+): string[] {
+  const failures: string[] = [];
+  if (baseline.schemaVersion !== candidate.schemaVersion) {
+    failures.push(
+      `scorecard_comparison:schema_version_mismatch:${baseline.schemaVersion}:${candidate.schemaVersion}`,
+    );
+  }
+  if (baseline.profile.id !== candidate.profile.id) {
+    failures.push(
+      `scorecard_comparison:profile_id_mismatch:${baseline.profile.id}:${candidate.profile.id}`,
+    );
+  }
+  if (baseline.profile.version !== candidate.profile.version) {
+    failures.push(
+      `scorecard_comparison:profile_version_mismatch:${baseline.profile.version}:${candidate.profile.version}`,
+    );
+  }
+  if (!baseline.passed) {
+    failures.push("scorecard_comparison:baseline_failed");
+  }
+  if (!candidate.passed) {
+    failures.push("scorecard_comparison:candidate_failed");
+  }
+  pushNonNegativeDeltaFailure(failures, "scenarios", deltas.scenarios);
+  pushNonNegativeDeltaFailure(failures, "coverage_dimensions", deltas.coverageDimensions);
+  pushNonPositiveDeltaFailure(failures, "missing_dimensions", deltas.missingDimensions);
+  pushNonNegativeDeltaFailure(failures, "total_assertions", deltas.totalAssertions);
+  pushNonNegativeDeltaFailure(
+    failures,
+    "minimum_assertions_per_scenario",
+    deltas.minimumAssertionsPerScenario,
+  );
+  pushNonNegativeDeltaFailure(
+    failures,
+    "semantic_ontology_checkpoints",
+    deltas.semanticOntologyCheckpoints,
+  );
+  pushNonNegativeDeltaFailure(failures, "relation_checkpoints", deltas.relationCheckpoints);
+  pushNonNegativeDeltaFailure(
+    failures,
+    "decision_projection_checkpoints",
+    deltas.decisionProjectionCheckpoints,
+  );
+
+  for (const dimension of dimensionDeltas) {
+    if (dimension.delta < 0) {
+      failures.push(`scorecard_comparison:dimension:${dimension.id}:regressed:${dimension.delta}`);
+    }
+  }
+
+  for (const scenario of scenarioCheckpointDeltas) {
+    for (const digest of scenario.missingSemanticOntology) {
+      failures.push(
+        `scorecard_comparison:scenario:${scenario.id}:missing_semantic_ontology:${digest}`,
+      );
+    }
+    for (const digest of scenario.missingRelation) {
+      failures.push(`scorecard_comparison:scenario:${scenario.id}:missing_relation:${digest}`);
+    }
+    for (const digest of scenario.missingDecisionProjection) {
+      failures.push(
+        `scorecard_comparison:scenario:${scenario.id}:missing_decision_projection:${digest}`,
+      );
+    }
+  }
+
+  return failures;
+}
+
+function readDigestBoundExpectation(
   id: string,
   scenarioById: ReadonlyMap<string, ReplayScenario>,
   resultById: ReadonlyMap<string, { inputDigest: string }>,
   integrityFailures: string[],
-): NonNullable<ReplayScenario["expectations"]>[] {
+): ReplayScenarioExpectations | null {
   const scenario = scenarioById.get(id);
   const result = resultById.get(id);
   if (!scenario || !result) {
     integrityFailures.push(`scorecard:missing_digest_bound_scenario:${id}`);
-    return [];
+    return null;
   }
   if (digestKernelCanonicalJson(buildScenarioInput(scenario)) !== result.inputDigest) {
     integrityFailures.push(`scorecard:input_digest_mismatch:${id}`);
-    return [];
+    return null;
   }
-  return scenario.expectations ? [scenario.expectations] : [];
+  return scenario.expectations ?? null;
 }
 
 function buildScenarioInput(scenario: ReplayScenario): unknown {
@@ -280,15 +543,6 @@ function buildScenarioInput(scenario: ReplayScenario): unknown {
   };
 }
 
-function isDecisionProjectionCheckpoint(reading: ReplayDecisionExpectation): boolean {
-  return (
-    reading.decisionRecordProjectionVersion !== undefined &&
-    reading.decisionRecordRoute !== undefined &&
-    reading.resultLane !== undefined &&
-    (reading.decisionRecordReasonCodesInclude?.length ?? 0) > 0
-  );
-}
-
 function pushMinimumFailure(
   failures: string[],
   id: string,
@@ -296,9 +550,38 @@ function pushMinimumFailure(
   threshold: keyof typeof KERNEL_CORPUS_SCORECARD_THRESHOLDS,
 ): void {
   const expected = KERNEL_CORPUS_SCORECARD_THRESHOLDS[threshold];
+  if (!Number.isFinite(actual)) {
+    failures.push(`scorecard:${id}:invalid_number`);
+    return;
+  }
   if (actual < expected) {
     failures.push(`scorecard:${id}:minimum:${actual}<${expected}`);
   }
+}
+
+function pushNonNegativeDeltaFailure(failures: string[], id: string, delta: number): void {
+  if (!Number.isFinite(delta)) {
+    failures.push(`scorecard_comparison:${id}:invalid_delta`);
+    return;
+  }
+  if (delta < 0) {
+    failures.push(`scorecard_comparison:${id}:regressed:${delta}`);
+  }
+}
+
+function pushNonPositiveDeltaFailure(failures: string[], id: string, delta: number): void {
+  if (!Number.isFinite(delta)) {
+    failures.push(`scorecard_comparison:${id}:invalid_delta`);
+    return;
+  }
+  if (delta > 0) {
+    failures.push(`scorecard_comparison:${id}:regressed:+${delta}`);
+  }
+}
+
+function missingDigests(baseline: readonly string[], candidate: readonly string[]): string[] {
+  const candidateDigests = new Set(candidate);
+  return baseline.filter((digest) => !candidateDigests.has(digest)).sort(compareKernelCanonicalKey);
 }
 
 function sum(values: readonly number[]): number {

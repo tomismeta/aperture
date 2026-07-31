@@ -2,7 +2,8 @@ import { readdir, readFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const scriptPath = fileURLToPath(import.meta.url);
+const defaultRepoRoot = resolve(dirname(scriptPath), "..");
 const ignoredDirNames = new Set([".git", "dist", "public-dist", "node_modules"]);
 const boundaryRules = [
   {
@@ -40,11 +41,15 @@ const coreCorpusLabelRules = [
   },
 ] as const;
 
-type ImportViolation = { file: string; label: string; imports: string[]; guidance: string };
-type CorpusLabelViolation = { file: string; labels: string[] };
+export type ImportViolation = { file: string; label: string; imports: string[]; guidance: string };
+export type CorpusLabelViolation = { file: string; labels: string[] };
+export type BoundaryCheckResult = {
+  importViolations: ImportViolation[];
+  corpusLabelViolations: CorpusLabelViolation[];
+};
 
-async function main(): Promise<void> {
-  const files = await collectSourceFiles(repoRoot);
+export async function checkPackageBoundaries(root = defaultRepoRoot): Promise<BoundaryCheckResult> {
+  const files = await collectSourceFiles(root);
   const importViolations: ImportViolation[] = [];
   const corpusLabelViolations: CorpusLabelViolation[] = [];
 
@@ -72,7 +77,7 @@ async function main(): Promise<void> {
       });
     }
 
-    if (isProductionCoreSource(file)) {
+    if (isProductionCoreSource(root, file)) {
       const labels = collectCorpusLabels(content);
       if (labels.length > 0) {
         corpusLabelViolations.push({ file, labels });
@@ -80,15 +85,15 @@ async function main(): Promise<void> {
     }
   }
 
-  if (importViolations.length === 0 && corpusLabelViolations.length === 0) {
-    return;
-  }
+  return { importViolations, corpusLabelViolations };
+}
 
+export function renderBoundaryCheckReport(root: string, result: BoundaryCheckResult): string {
   const lines = ["Package boundary check failed.", ""];
 
-  for (const violation of importViolations) {
+  for (const violation of result.importViolations) {
     lines.push(`These non-test files still reach into ${violation.label} directly:`);
-    lines.push(`- ${relative(repoRoot, violation.file)}`);
+    lines.push(`- ${relative(root, violation.file)}`);
     for (const importPath of violation.imports) {
       lines.push(`    ${importPath}`);
     }
@@ -97,10 +102,10 @@ async function main(): Promise<void> {
     lines.push("");
   }
 
-  if (corpusLabelViolations.length > 0) {
+  if (result.corpusLabelViolations.length > 0) {
     lines.push("Production core contains corpus-specific labels:");
-    for (const violation of corpusLabelViolations) {
-      lines.push(`- ${relative(repoRoot, violation.file)}: ${violation.labels.join(", ")}`);
+    for (const violation of result.corpusLabelViolations) {
+      lines.push(`- ${relative(root, violation.file)}: ${violation.labels.join(", ")}`);
     }
     lines.push("");
     lines.push(
@@ -109,7 +114,17 @@ async function main(): Promise<void> {
     lines.push("");
   }
 
-  process.stderr.write(`${lines.join("\n")}\n`);
+  return lines.join("\n");
+}
+
+async function main(): Promise<void> {
+  const result = await checkPackageBoundaries(defaultRepoRoot);
+
+  if (result.importViolations.length === 0 && result.corpusLabelViolations.length === 0) {
+    return;
+  }
+
+  process.stderr.write(`${renderBoundaryCheckReport(defaultRepoRoot, result)}\n`);
   process.exitCode = 1;
 }
 
@@ -151,8 +166,8 @@ function shouldIgnore(file: string): boolean {
   return false;
 }
 
-function isProductionCoreSource(file: string): boolean {
-  return relative(repoRoot, file).startsWith("packages/core/src/");
+function isProductionCoreSource(root: string, file: string): boolean {
+  return relative(root, file).startsWith("packages/core/src/");
 }
 
 function collectCorpusLabels(content: string): string[] {
@@ -167,8 +182,10 @@ function collectCorpusLabels(content: string): string[] {
   return [...labels];
 }
 
-void main().catch((error) => {
-  const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`${message}\n`);
-  process.exit(1);
-});
+if (process.argv[1] === scriptPath) {
+  void main().catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`${message}\n`);
+    process.exit(1);
+  });
+}

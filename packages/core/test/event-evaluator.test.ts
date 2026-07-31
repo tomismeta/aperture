@@ -181,6 +181,67 @@ test("structured outcome-only nonzero exits route like raw outcome-only failures
   assert.equal(explanation.ambiguity, null);
 });
 
+test("empty failed payloads stay visible without critical routing", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:failed-empty-payload",
+      taskId: "task:failed-empty-payload",
+      timestamp: "2026-03-08T12:02:06.500Z",
+      type: "task.updated",
+      title: "edit failure",
+      summary: "{}",
+      status: "failed",
+      toolFamily: "edit",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "normal");
+  assert.equal(result.candidate.tone, "focused");
+  assert.equal(result.candidate.consequence, "medium");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+  assert.equal(result.candidate.judgmentInput.failureEvidence?.kind, "empty_failure_payload");
+  assert.equal(result.candidate.judgmentInput.failureEvidence?.failureDetail, "absent_evidence");
+  assert.equal(result.candidate.judgmentInput.semanticEvidence?.confidence, "high");
+  assert.equal(result.candidate.judgmentInput.semanticEvidence?.strength, "weak");
+
+  const explanation = coordinator.explain(null, result.candidate);
+  assert.equal(explanation.decision.kind, "queue");
+  assert.equal(explanation.policy.minimumLane, "next");
+  assert.equal(explanation.ambiguity?.reason, "low_signal");
+});
+
+test("high-risk empty failed payloads keep critical routing", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:failed-empty-payload-high-risk",
+      taskId: "task:failed-empty-payload-high-risk",
+      timestamp: "2026-03-08T12:02:06.750Z",
+      type: "task.updated",
+      title: "prod deploy failure",
+      summary: "{}",
+      status: "failed",
+      toolFamily: "bash",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.consequence, "high");
+  assert.equal(result.candidate.judgmentInput.failureEvidence?.kind, "empty_failure_payload");
+  assert.equal(result.candidate.judgmentInput.failureEvidence?.semanticAgreement, "uncertain");
+  assert.equal(result.candidate.judgmentInput.semanticEvidence?.strength, "strong");
+});
+
 test("truncated outcome-only hints keep failed statuses conservative", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({

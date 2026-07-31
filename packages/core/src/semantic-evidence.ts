@@ -43,6 +43,7 @@ import {
 } from "./semantic-failure-detail.js";
 import { readExplicitOperationSuccessObservationTranscript } from "./semantic-operation-success-observation-shapes.js";
 import { TRUNCATED_SOURCE_EVIDENCE_FACTOR } from "./semantic-source-quality.js";
+import { looksLikeEmptyJsonObject } from "./semantic-structured-output.js";
 
 export type SemanticTextEvidence = {
   routineSuccessObservation: boolean;
@@ -152,7 +153,6 @@ export function readTaskFailureSemanticEvidence(
     toolFamily,
   );
   const signals = readTaskFailureSemanticSignals({ summary: event.summary, toolFamily });
-  const searchOutputObservation = toolFamily === "search" && text.searchResultOutput;
   const terminalFailureEvidence = signals.structuredOutputExitFailure
     ? true
     : signals.strongSourceRuntimeDiagnostic
@@ -172,7 +172,7 @@ export function readTaskFailureSemanticEvidence(
           : text.terminalFailureEvidence &&
             !signals.commandDiagnosticReferenceObservationTranscript &&
             signals.missingToolObservationTranscript === null &&
-            !searchOutputObservation &&
+            !(toolFamily === "search" && text.searchResultOutput) &&
             (!signals.rawReadStructuredObservation || signals.strongSourceRuntimeDiagnostic) &&
             (!signals.structuredOutputSourceObservation || signals.strongSourceRuntimeDiagnostic) &&
             !signals.structuredOutputSingleListingObservation;
@@ -195,12 +195,13 @@ export function readTaskFailureSemanticEvidence(
     };
   }
 
-  if (toolFamily !== undefined && event.summary?.trim() === "{}") {
+  if (toolFamily !== undefined && looksLikeEmptyJsonObject(event.summary)) {
     return {
       kind: "empty_failure_payload",
+      failureDetail: "absent_evidence",
       toolFamily,
       readsAsObservation: false,
-      consequenceBaseline: "high",
+      consequenceBaseline: "medium",
       text,
     };
   }
@@ -426,7 +427,7 @@ function hasCompatibleFailureEvidenceToolFamily(
 }
 
 function looksLikeReadObservationPayload(text: string): boolean {
-  if (!containsPathLikeToken(text)) {
+  if (!PATH_LIKE_TOKEN_PATTERN.test(text)) {
     return false;
   }
 
@@ -439,12 +440,9 @@ function looksLikeReadObservationPayload(text: string): boolean {
 
 function looksLikeTaggedFileObservation(text: string): boolean {
   return (
-    containsAnySemanticPhrase(text, TAGGED_FILE_OBSERVATION_PHRASES) && containsPathLikeToken(text)
+    containsAnySemanticPhrase(text, TAGGED_FILE_OBSERVATION_PHRASES) &&
+    PATH_LIKE_TOKEN_PATTERN.test(text)
   );
-}
-
-function containsPathLikeToken(text: string): boolean {
-  return PATH_LIKE_TOKEN_PATTERN.test(text);
 }
 
 function containsCodeLikeContent(text: string): boolean {

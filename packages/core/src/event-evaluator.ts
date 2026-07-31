@@ -10,7 +10,7 @@ import type { AttentionCandidate } from "./interaction-candidate.js";
 import {
   buildAttentionJudgmentInput,
   hasActionableBlockedLikeStatusJudgmentInput,
-  hasOutcomeOnlyFailureStatusJudgmentInput,
+  hasLimitedFailureStatusJudgmentInput,
   hasRoutineObservationalStatusConflictJudgmentInput,
 } from "./judgment-input.js";
 import type { AttentionJudgmentInput } from "./judgment-input-types.js";
@@ -263,7 +263,7 @@ function statusDispositionForFailedStatus(
   responseSpec: AttentionAcknowledgeResponseSpec | { kind: "none" };
   includeFailureProvenance: boolean;
 } {
-  if (hasEngineOwnedOutcomeOnlyFailure(judgmentInput)) {
+  if (hasEngineOwnedLimitedFailure(judgmentInput)) {
     return {
       priority: "normal",
       tone: "focused",
@@ -282,8 +282,8 @@ function statusDispositionForFailedStatus(
   };
 }
 
-function hasEngineOwnedOutcomeOnlyFailure(judgmentInput: AttentionJudgmentInput): boolean {
-  return hasOutcomeOnlyFailureStatusJudgmentInput(judgmentInput);
+function hasEngineOwnedLimitedFailure(judgmentInput: AttentionJudgmentInput): boolean {
+  return hasLimitedFailureStatusJudgmentInput(judgmentInput);
 }
 
 function statusDispositionForObservationalStatusConflict(

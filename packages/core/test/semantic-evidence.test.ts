@@ -4204,20 +4204,24 @@ test("task failure evidence keeps invalid structured output high and unclassifie
       "unclassified_failure",
     );
   }
-  assert.equal(
-    readTaskFailureSemanticEvidence({
-      id: "evt:evidence:empty-object",
-      taskId: "task:evidence:empty-object",
-      timestamp,
-      type: "task.updated",
-      title: "bash failure",
-      summary: "{}",
-      status: "failed",
-      toolFamily: "bash",
-    })?.kind,
-    "empty_failure_payload",
-    "empty payloads should be classified but not downgraded",
-  );
+  for (const toolFamily of ["bash", "exec_command", "edit", "read"] as const) {
+    for (const [index, summary] of ["{}", "{ }", "{\n}", "\n{}\t"].entries()) {
+      const emptyPayloadEvidence = readTaskFailureSemanticEvidence({
+        id: `evt:evidence:empty-object:${toolFamily}:${index}`,
+        taskId: `task:evidence:empty-object:${toolFamily}:${index}`,
+        timestamp,
+        type: "task.updated",
+        title: `${toolFamily} failure`,
+        summary,
+        status: "failed",
+        toolFamily,
+      });
+      assert.equal(emptyPayloadEvidence?.kind, "empty_failure_payload", summary);
+      assert.equal(emptyPayloadEvidence?.failureDetail, "absent_evidence", summary);
+      assert.equal(emptyPayloadEvidence?.readsAsObservation, false, summary);
+      assert.equal(emptyPayloadEvidence?.consequenceBaseline, "medium", summary);
+    }
+  }
   assert.equal(
     readTaskFailureSemanticEvidence({
       id: "evt:evidence:empty-object-unknown-tool",

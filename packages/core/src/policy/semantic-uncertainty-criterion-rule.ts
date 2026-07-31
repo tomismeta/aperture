@@ -92,9 +92,7 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
           reason: "low_signal",
           resolution,
         },
-        [
-          "inferred semantic evidence stays peripheral until stronger source-backed context arrives",
-        ],
+        ["weak semantic evidence stays peripheral until stronger source-backed context arrives"],
       ),
     );
   }

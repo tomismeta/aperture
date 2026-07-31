@@ -1,5 +1,5 @@
 import {
-  hasOutcomeOnlyFailureStatusSemantics,
+  hasLimitedFailureStatusSemantics,
   hasRoutineObservationalStatusConflictSemantics,
   readCandidateSemanticEvidence,
 } from "../judgment-input.js";
@@ -14,7 +14,7 @@ export function isSoftenedFailureStatusCandidate(candidate: AttentionCandidate):
   return (
     candidate.mode === "status" &&
     candidate.responseSpec.kind === "acknowledge" &&
-    hasOutcomeOnlyFailureStatusSemantics(candidate)
+    hasLimitedFailureStatusSemantics(candidate)
   );
 }
 

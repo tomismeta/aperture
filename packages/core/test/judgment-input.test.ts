@@ -5,6 +5,8 @@ import {
   buildAttentionJudgmentInput,
   hasActionableBlockedLikeStatusSemantics,
   hasBlockedLikeStatusSemantics,
+  hasLimitedFailureStatusJudgmentInput,
+  hasLimitedFailureStatusSemantics,
   hasOutcomeOnlyFailureStatusJudgmentInput,
   hasOutcomeOnlyFailureStatusSemantics,
   hasRoutineObservationalStatusConflictSemantics,
@@ -143,6 +145,98 @@ test("judgment input exposes outcome-only failed status as named semantic eviden
   assert.equal(input.failureEvidence?.semanticAgreement, "stable");
   assert.equal(hasOutcomeOnlyFailureStatusJudgmentInput(input), true);
   assert.equal(hasOutcomeOnlyFailureStatusSemantics(candidate), true);
+});
+
+test("judgment input treats empty failed payloads as weak limited failure evidence", () => {
+  const input = buildAttentionJudgmentInput({
+    id: "evt:judgment-input:empty-failure-payload",
+    taskId: "task:judgment-input:empty-failure-payload",
+    timestamp,
+    type: "task.updated",
+    title: "edit failure",
+    summary: "{}",
+    status: "failed",
+    toolFamily: "edit",
+    semantic: {
+      intentFrame: "failure",
+      activityClass: "tool_failure",
+      toolFamily: "edit",
+      consequence: "medium",
+      whyNow: "Work has failed and should be reviewed.",
+      factors: ["task.updated", "failed"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["task status indicates failure"],
+      provenance: {
+        intentFrame: "inferred",
+        activityClass: "inferred",
+        consequence: "inferred",
+        whyNow: "inferred",
+        confidence: "inferred",
+        toolFamily: "source",
+      },
+    },
+  });
+  const candidate = {
+    taskId: "task:judgment-input:empty-failure-payload",
+    interactionId: "interaction:judgment-input:empty-failure-payload",
+    mode: "status" as const,
+    tone: "focused" as const,
+    consequence: "medium" as const,
+    title: "edit failure",
+    responseSpec: { kind: "acknowledge" as const },
+    priority: "normal" as const,
+    blocking: false,
+    timestamp,
+    judgmentInput: input,
+  };
+
+  assert.equal(input.failureEvidence?.kind, "empty_failure_payload");
+  assert.equal(input.failureEvidence?.failureDetail, "absent_evidence");
+  assert.equal(input.failureEvidence?.consequenceBaseline, "medium");
+  assert.equal(input.failureEvidence?.semanticAgreement, "stable");
+  assert.equal(input.semanticEvidence?.confidence, "high");
+  assert.equal(input.semanticEvidence?.strength, "weak");
+  assert.equal(hasLimitedFailureStatusJudgmentInput(input), true);
+  assert.equal(hasLimitedFailureStatusSemantics(candidate), true);
+  assert.equal(hasOutcomeOnlyFailureStatusJudgmentInput(input), false);
+});
+
+test("high-consequence empty failed payloads do not become limited failures", () => {
+  const input = buildAttentionJudgmentInput({
+    id: "evt:judgment-input:empty-failure-high-risk",
+    taskId: "task:judgment-input:empty-failure-high-risk",
+    timestamp,
+    type: "task.updated",
+    title: "prod deploy failure",
+    summary: "{}",
+    status: "failed",
+    toolFamily: "bash",
+    semantic: {
+      intentFrame: "failure",
+      activityClass: "tool_failure",
+      toolFamily: "bash",
+      consequence: "high",
+      whyNow: "Work has failed and should be reviewed.",
+      factors: ["task.updated", "failed"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["task status indicates failure"],
+      provenance: {
+        intentFrame: "inferred",
+        activityClass: "inferred",
+        consequence: "inferred",
+        whyNow: "inferred",
+        confidence: "inferred",
+        toolFamily: "source",
+      },
+    },
+  });
+
+  assert.equal(input.failureEvidence?.kind, "empty_failure_payload");
+  assert.equal(input.failureEvidence?.semanticAgreement, "uncertain");
+  assert.equal(input.semanticEvidence?.strength, "strong");
+  assert.equal(hasLimitedFailureStatusJudgmentInput(input), false);
 });
 
 test("judgment input keeps diagnostic and low-confidence failures out of outcome-only routing", () => {

@@ -252,6 +252,34 @@ function createMetadataOnlyToolFamilyFailedBundle() {
   });
 }
 
+function createEmptyFailedToolPayloadBundle(summary = "{ }") {
+  const scenario: ReplayScenario = {
+    id: "empty-failed-tool-payload",
+    title: "Empty failed tool payload",
+    steps: [
+      {
+        kind: "publishSource",
+        label: "empty edit failure",
+        event: {
+          id: "evt:empty-failed-tool-payload",
+          taskId: "task:empty-failed-tool-payload",
+          timestamp: "2026-04-27T00:00:00.000Z",
+          type: "task.updated",
+          title: "edit failure",
+          summary,
+          status: "failed",
+          toolFamily: "edit",
+        },
+      },
+    ],
+  };
+
+  return createSessionBundleFromScenario(scenario, {
+    exportedAt: "2026-04-27T00:00:00.000Z",
+    replayTimeSource: () => Date.parse("2026-04-27T00:00:00.000Z"),
+  });
+}
+
 function createDirectPublishFailedBundle() {
   const scenario: ReplayScenario = {
     id: "direct-publish-failed-update",
@@ -1621,6 +1649,43 @@ test("semantic review evidence audit classifies failed readbacks as observationa
   );
 });
 
+test("semantic review evidence audit counts absent failed tool payloads", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-empty-"));
+  const bundle = createEmptyFailedToolPayloadBundle("{ }");
+  const bundlePath = path.join(tempDir, "bundle.json");
+  await writeSessionBundle(bundlePath, bundle);
+
+  const report = await createSemanticReviewCandidateReportFromPaths({
+    bundlePaths: [bundlePath],
+    generatedAt: "2026-04-27T00:00:00.000Z",
+    maxCandidatesPerKind: 2,
+    repoRoot: tempDir,
+  });
+
+  assert.equal(report.summary.failedTaskEvidence.failedTaskUpdateCount, 1);
+  assert.equal(report.summary.failedTaskEvidence.countsByKind.empty_failure_payload, 1);
+  assert.deepEqual(report.summary.failedTaskEvidence.failureDetailCounts, {
+    outcome_only: 0,
+    diagnostic: 0,
+    indeterminate: 0,
+    absent_evidence: 1,
+  });
+  assert.equal(report.summary.failedTaskEvidence.consequenceBaselineCounts.medium, 1);
+  assert.equal(report.summary.failedTaskEvidence.countsByToolFamily.edit, 1);
+  assert.deepEqual(report.summary.failedTaskEvidence.unclassifiedEventShapeCounts, {});
+  assert.deepEqual(report.summary.failedTaskEvidence.parserGapCandidateEventShapeCounts, {});
+
+  const example = report.summary.failedTaskEvidence.retainedExamplesByKind.empty_failure_payload[0];
+  assert.equal(example?.eventShape, "tool:edit|summary:json_object:keys=none");
+  assert.equal(example?.evidence.failureDetail, "absent_evidence");
+  assert.equal(example?.evidence.consequenceBaseline, "medium");
+
+  const markdown = renderSemanticReviewCandidateMarkdown(report);
+  assert.match(markdown, /absent_evidence=1/);
+  assert.match(markdown, /- empty_failure_payload: count=1, retained=1/);
+  assert.match(markdown, /detail=absent_evidence/);
+});
+
 test("semantic review evidence audit ignores metadata-only tool-family routing evidence", async () => {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-metadata-"));
   const bundle = createMetadataOnlyToolFamilyFailedBundle();
@@ -1640,6 +1705,7 @@ test("semantic review evidence audit ignores metadata-only tool-family routing e
     outcome_only: 0,
     diagnostic: 0,
     indeterminate: 1,
+    absent_evidence: 0,
   });
   assert.equal(report.summary.failedTaskEvidence.missingToolFamilyCount, 1);
   assert.deepEqual(report.summary.failedTaskEvidence.unclassifiedEventShapeCounts, {
@@ -1682,6 +1748,7 @@ test("semantic review evidence audit clusters unclassified event shapes", async 
     outcome_only: 0,
     diagnostic: 0,
     indeterminate: 4,
+    absent_evidence: 0,
   });
   assert.deepEqual(report.summary.failedTaskEvidence.unclassifiedEventShapeCounts, {
     "tool:bash|summary:json_object:keys=exit_code,output,truncated;exit_code=number;output=text:plain:short;truncated=boolean": 1,
@@ -1742,6 +1809,7 @@ test("semantic review evidence audit separates clipped summaries from true parse
     outcome_only: 0,
     diagnostic: 0,
     indeterminate: 2,
+    absent_evidence: 0,
   });
   assert.equal(report.summary.failedTaskEvidence.evidenceLossCounts.clipped_summary, 1);
   assert.deepEqual(
@@ -1784,6 +1852,7 @@ test("semantic review evidence audit records clipped classified failures as evid
     outcome_only: 0,
     diagnostic: 1,
     indeterminate: 0,
+    absent_evidence: 0,
   });
   assert.equal(report.summary.failedTaskEvidence.evidenceLossCounts.clipped_summary, 1);
   assert.deepEqual(report.summary.failedTaskEvidence.parserGapCandidateEventShapeCounts, {});
@@ -1823,6 +1892,7 @@ test("semantic review evidence audit trusts source truncation metadata", async (
     outcome_only: 0,
     diagnostic: 0,
     indeterminate: 1,
+    absent_evidence: 0,
   });
   assert.equal(report.summary.failedTaskEvidence.evidenceLossCounts.clipped_summary, 1);
   assert.deepEqual(report.summary.failedTaskEvidence.parserGapCandidateEventShapeCounts, {});

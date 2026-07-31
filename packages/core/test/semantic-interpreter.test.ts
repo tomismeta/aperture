@@ -67,6 +67,45 @@ test("failed readback output stays observational instead of becoming a hard fail
   assert.equal(interpretation.confidence, "high");
 });
 
+test("failed empty tool payloads become medium-consequence source-quality gaps", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:empty-failure-payload",
+    type: "task.updated",
+    taskId: "task:empty-failure-payload",
+    timestamp,
+    source: source("custom-agent"),
+    title: "edit failure",
+    summary: "{}",
+    status: "failed",
+    toolFamily: "edit",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.toolFamily, "edit");
+  assert.equal(interpretation.consequence, "medium");
+  assert.equal(interpretation.confidence, "high");
+  assert.equal(interpretation.whyNow, "Work has failed and should be reviewed.");
+});
+
+test("high-risk wording can still lift an empty failure payload", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:empty-failure-high-risk",
+    type: "task.updated",
+    taskId: "task:empty-failure-high-risk",
+    timestamp,
+    source: source("custom-agent"),
+    title: "prod deploy failure",
+    summary: "{}",
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.consequence, "high");
+  assert.equal(interpretation.confidence, "high");
+});
+
 test("approval requests with explicit low-risk read work stay medium-confidence low consequence", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:read-approval",

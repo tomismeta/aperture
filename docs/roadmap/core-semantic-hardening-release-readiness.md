@@ -98,6 +98,8 @@ API compatibility risk is low:
 - root, evaluator, and trace runtime entrypoints are unchanged
 - evaluator consumers who exhaustively model `AttentionClaimJudgment` may see
   the new optional `outcomeOnlyFailureStatus` field
+- semantic/evaluator consumers who exhaustively model task failure details may
+  see the new `absent_evidence` detail for payloadless failed tool updates
 - `SourceEvent` remains the same structural DTO; only metadata guidance changed
 
 Behavioral compatibility risk is real but intentional:
@@ -108,6 +110,10 @@ Behavioral compatibility risk is real but intentional:
   may route more quietly
 - complete nonzero command exits with no diagnostic payload may route as medium
   outcome-only failures
+- explicit tool-family failed updates whose payload is only `{}` now stay
+  visible as medium-consequence limited failure evidence instead of routing as
+  critical by default; higher-risk wording or terminal diagnostics still
+  escalates them
 - truncated failures should remain conservative rather than being softened by
   incomplete source evidence
 - relation wording such as resolved, regressed, returned, not fixed, or no
@@ -141,6 +147,7 @@ Current review evidence:
   baseline comparison unless an intentional scorecard rebaseline flag is used
 - classifier growth is now guarded by module budgets for:
   - `packages/core/src/semantic-detection.ts`
+  - `packages/core/src/semantic-evidence.ts`
   - `packages/core/src/semantic-owned-observation-payload-shapes.ts`
 - the packed SDK example compiles the new semantic helper import through
   `@tomismeta/aperture-core/semantic`
@@ -192,16 +199,19 @@ pnpm exec tsx --test packages/core/test/semantic-detection.test.ts packages/core
 
 Additional branch evidence:
 
-- full local test suite: 1,150 passing
-- judgment battle determinism: 74 passing
-- judgment benchmark: 2,172 passing
+- local `pnpm release:check`: passing
+- full local test suite: 1,164 passing
+- judgment battle determinism: 75 passing
+- judgment benchmark: 2,211 passing
 - judgment fuzz: 384 passing
-- kernel corpus scorecard: 34 scenarios, 13 covered dimensions, 1,421 passing
-  corpus assertions, 38 ontology checkpoints, 47 decision projection
-  checkpoints, 13 relation checkpoints, 34 per-scenario checkpoint ledgers, 19
+- kernel corpus scorecard: 35 scenarios, 14 covered dimensions, 1,460 passing
+  corpus assertions, 39 ontology checkpoints, 48 decision projection
+  checkpoints, 13 relation checkpoints, 35 per-scenario checkpoint ledgers, 20
   unique decision fingerprints
-- PR #51 GitHub `release-check`: passing
-- PR #51 kernel conformance shards: passing
+- new kernel corpus dimension: `source_quality_gap`
+- new golden scenario:
+  `golden:kernel-corpus:empty-failure-payload-stays-visible-with-weak-evidence`
+- PR #51 GitHub checks should be rerun after pushing this tranche
 - focused review found relation-ordering, truncation-helper, and public-surface
   documentation issues; this branch now includes fixes and regression coverage
 

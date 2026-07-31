@@ -6,7 +6,7 @@ import {
 import { normalizeSemanticText } from "./semantic-text.js";
 import { isSemanticCommandExecutionToolFamily } from "./semantic-tool-family.js";
 
-export type TaskFailureDetail = "outcome_only" | "diagnostic" | "indeterminate";
+export type TaskFailureDetail = "outcome_only" | "diagnostic" | "indeterminate" | "absent_evidence";
 export type TaskFailureTerminalShape = "bare_nonzero_exit";
 
 export function readTerminalFailureDetail(input: {

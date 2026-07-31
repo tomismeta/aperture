@@ -67,17 +67,20 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
     event.semantic,
     observationalStatusConflict,
   );
+  const blockedLikeStatus =
+    event.type === "task.updated" && ontology.blocking === "blocking" && event.status !== "blocked";
 
   return {
     ontology,
     semanticEvidence: {
       confidence: ontology.confidence,
       source: ontology.source,
-      strength: readSemanticEvidenceStrengthFromParts(
-        ontology.confidence,
-        ontology.source,
+      strength: deriveCompiledSemanticEvidenceStrength({
+        ontology,
+        failureEvidence,
+        blockedLikeStatus,
         abstained,
-      ),
+      }),
       abstained,
     },
     ...(event.semantic.relationHints.length > 0
@@ -105,10 +108,7 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
           },
         }
       : {}),
-    blockedLikeStatus:
-      event.type === "task.updated" &&
-      ontology.blocking === "blocking" &&
-      event.status !== "blocked",
+    blockedLikeStatus,
     ...(observationalStatusConflict !== null
       ? {
           routineObservationalStatusConflict: true,
@@ -237,6 +237,10 @@ export function hasOutcomeOnlyFailureStatusSemantics(candidate: AttentionCandida
   return hasOutcomeOnlyFailureStatusJudgmentInput(candidate.judgmentInput);
 }
 
+export function hasLimitedFailureStatusSemantics(candidate: AttentionCandidate): boolean {
+  return hasLimitedFailureStatusJudgmentInput(candidate.judgmentInput);
+}
+
 export function hasOutcomeOnlyFailureStatusJudgmentInput(
   judgmentInput: AttentionJudgmentInput,
 ): boolean {
@@ -244,6 +248,18 @@ export function hasOutcomeOnlyFailureStatusJudgmentInput(
     judgmentInput.failureEvidence?.kind === "terminal_failure" &&
     judgmentInput.failureEvidence.failureDetail === "outcome_only" &&
     judgmentInput.failureEvidence.semanticAgreement === "stable"
+  );
+}
+
+export function hasLimitedFailureStatusJudgmentInput(
+  judgmentInput: AttentionJudgmentInput,
+): boolean {
+  return (
+    hasOutcomeOnlyFailureStatusJudgmentInput(judgmentInput) ||
+    (judgmentInput.failureEvidence?.kind === "empty_failure_payload" &&
+      judgmentInput.failureEvidence.failureDetail === "absent_evidence" &&
+      judgmentInput.failureEvidence.consequenceBaseline === "medium" &&
+      judgmentInput.failureEvidence.semanticAgreement === "stable")
   );
 }
 
@@ -284,6 +300,29 @@ function readSemanticEvidenceStrengthFromParts(
     case "high":
       return source === "inferred" ? "qualified" : "strong";
   }
+}
+
+function deriveCompiledSemanticEvidenceStrength(input: {
+  ontology: AttentionOntologyDiagnostic;
+  failureEvidence: TaskFailureSemanticEvidence | null;
+  blockedLikeStatus: boolean;
+  abstained: boolean;
+}): SemanticEvidenceStrength {
+  if (
+    input.failureEvidence?.kind === "empty_failure_payload" &&
+    input.failureEvidence.failureDetail === "absent_evidence" &&
+    input.failureEvidence.consequenceBaseline === "medium" &&
+    input.ontology.consequence === "medium" &&
+    !input.blockedLikeStatus
+  ) {
+    return "weak";
+  }
+
+  return readSemanticEvidenceStrengthFromParts(
+    input.ontology.confidence,
+    input.ontology.source,
+    input.abstained,
+  );
 }
 
 function readTaskFailureSemanticAgreement(input: {

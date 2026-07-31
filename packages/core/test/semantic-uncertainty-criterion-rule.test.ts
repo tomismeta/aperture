@@ -96,7 +96,7 @@ test("medium-confidence inferred semantics still stay peripheral when the source
   assert.equal(evaluation.verdict.peripheralResolution, "queue");
   assert.equal(evaluation.verdict.ambiguity?.reason, "low_signal");
   assert.deepEqual(evaluation.rationale, [
-    "inferred semantic evidence stays peripheral until stronger source-backed context arrives",
+    "weak semantic evidence stays peripheral until stronger source-backed context arrives",
   ]);
 });
 

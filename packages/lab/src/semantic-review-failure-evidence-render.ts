@@ -13,7 +13,7 @@ export function renderFailureEvidenceMarkdown(report: SemanticReviewCandidateRep
     `Reads as observation: ${formatCount(report.summary.failedTaskEvidence.readsAsObservationCount)}`,
     `Missing tool family: ${formatCount(report.summary.failedTaskEvidence.missingToolFamilyCount)}`,
     `Consequence baselines: low=${formatCount(report.summary.failedTaskEvidence.consequenceBaselineCounts.low)}, medium=${formatCount(report.summary.failedTaskEvidence.consequenceBaselineCounts.medium)}, high=${formatCount(report.summary.failedTaskEvidence.consequenceBaselineCounts.high)}`,
-    `Failure detail: outcome_only=${formatCount(report.summary.failedTaskEvidence.failureDetailCounts.outcome_only)}, diagnostic=${formatCount(report.summary.failedTaskEvidence.failureDetailCounts.diagnostic)}, indeterminate=${formatCount(report.summary.failedTaskEvidence.failureDetailCounts.indeterminate)}`,
+    `Failure detail: outcome_only=${formatCount(report.summary.failedTaskEvidence.failureDetailCounts.outcome_only)}, diagnostic=${formatCount(report.summary.failedTaskEvidence.failureDetailCounts.diagnostic)}, indeterminate=${formatCount(report.summary.failedTaskEvidence.failureDetailCounts.indeterminate)}, absent_evidence=${formatCount(report.summary.failedTaskEvidence.failureDetailCounts.absent_evidence)}`,
     "",
     "### By Kind",
     "",

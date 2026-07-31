@@ -1309,7 +1309,7 @@ test("medium-confidence inferred work still stays peripheral when the semantic s
   });
   assert.ok(
     explanation.reasons.includes(
-      "inferred semantic evidence stays peripheral until stronger source-backed context arrives",
+      "weak semantic evidence stays peripheral until stronger source-backed context arrives",
     ),
   );
 });
@@ -1388,7 +1388,7 @@ test("medium-confidence inferred evidence can keep borderline status work queued
   assert.equal(inferredExplanation.criterion?.criterion.activationThreshold, 182);
   assert.deepEqual(inferredExplanation.criterion?.rationale, [
     "inferred semantic evidence needs a clearer margin before interrupting",
-    "inferred semantic evidence stays peripheral until stronger source-backed context arrives",
+    "weak semantic evidence stays peripheral until stronger source-backed context arrives",
   ]);
   assert.equal(inferredExplanation.policyCriterionEvaluations[2]?.rule, "source_trust");
   assert.equal(inferredExplanation.policyCriterionEvaluations[2]?.kind, "adjust");

@@ -4,6 +4,7 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
     scenarioIds: [
       "golden:kernel-corpus:alarmist-read-approval-stays-low-risk",
       "golden:kernel-corpus:bare-nonzero-command-exit-plans-next-without-ambiguity",
+      "golden:kernel-corpus:empty-failure-payload-stays-visible-with-weak-evidence",
       "golden:kernel-corpus:forged-observation-hint-keeps-failed-routing",
       "golden:kernel-corpus:failed-status-mixed-procedural-failure-stays-visible",
       "golden:kernel-corpus:hinted-or-forged-outcome-only-softening-is-rejected",
@@ -31,6 +32,7 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
       "golden:kernel-corpus:command-owned-technical-observation-stays-medium",
       "golden:kernel-corpus:command-test-progress-observation-stays-medium",
       "golden:kernel-corpus:bare-nonzero-command-exit-plans-next-without-ambiguity",
+      "golden:kernel-corpus:empty-failure-payload-stays-visible-with-weak-evidence",
       "golden:kernel-corpus:failed-status-file-operation-success-stays-ambient",
       "golden:kernel-corpus:failed-status-mixed-procedural-failure-stays-visible",
       "golden:kernel-corpus:failed-status-procedural-observation-stays-ambient",
@@ -74,6 +76,10 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
   {
     id: "low_confidence_failure_pressure",
     scenarioIds: ["golden:kernel-corpus:repeated-low-confidence-failures-stay-queued"],
+  },
+  {
+    id: "source_quality_gap",
+    scenarioIds: ["golden:kernel-corpus:empty-failure-payload-stays-visible-with-weak-evidence"],
   },
   {
     id: "repeated_failure_lifecycle",

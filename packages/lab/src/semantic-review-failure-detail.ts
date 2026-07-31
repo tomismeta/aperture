@@ -5,5 +5,6 @@ export function createFailureDetailCounts(): Record<SemanticReviewTaskFailureDet
     outcome_only: 0,
     diagnostic: 0,
     indeterminate: 0,
+    absent_evidence: 0,
   };
 }

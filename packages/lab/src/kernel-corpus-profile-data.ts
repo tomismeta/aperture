@@ -6,6 +6,7 @@ export const KERNEL_CORPUS_SCENARIO_IDS = [
   "golden:kernel-corpus:conflicting-relation-targets-queue-behind-current",
   "golden:kernel-corpus:delayed-lifecycle-events-preserve-fresh-recurrence",
   "golden:kernel-corpus:duplicate-relation-hints-collapse-to-targeted-evidence",
+  "golden:kernel-corpus:empty-failure-payload-stays-visible-with-weak-evidence",
   "golden:kernel-corpus:failed-status-file-operation-success-stays-ambient",
   "golden:kernel-corpus:failed-status-mixed-procedural-failure-stays-visible",
   "golden:kernel-corpus:failed-status-procedural-observation-stays-ambient",

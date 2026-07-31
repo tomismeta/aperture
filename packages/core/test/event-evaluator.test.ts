@@ -1669,6 +1669,32 @@ test("explicit form tool families stay semantic-only during evaluation", () => {
   assert.equal(result.candidate.judgmentInput.semanticEvidence?.confidence, "low");
 });
 
+test("completed task updates stay status candidates without clearing state", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:completed-update",
+      taskId: "task:1",
+      timestamp: "2026-03-08T12:03:30.000Z",
+      type: "task.updated",
+      title: "Command completed",
+      summary: "The command finished successfully.",
+      status: "completed",
+      toolFamily: "bash",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.mode, "status");
+  assert.equal(result.candidate.priority, "background");
+  assert.equal(result.candidate.responseSpec.kind, "none");
+  assert.equal(result.candidate.activityClass, "tool_completion");
+  assert.equal(result.candidate.judgmentInput.ontology.activity, "task_completion");
+});
+
 test("completed tasks clear current interaction state", () => {
   const result = evaluation.evaluate({
     id: "evt:complete",

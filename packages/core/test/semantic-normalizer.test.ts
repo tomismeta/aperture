@@ -61,6 +61,34 @@ test("source normalization and direct enrichment share task-update semantic defa
   assert.deepEqual(enrichApertureEvent(directEvent), normalizeSourceEvent(sourceEvent));
 });
 
+test("source normalization and direct enrichment share completed-update semantic defaults", () => {
+  const sourceEvent = {
+    id: "evt:source-completed",
+    type: "task.updated" as const,
+    taskId: "task:completed",
+    timestamp,
+    source: { id: "custom-agent" },
+    title: "Workspace ready",
+    summary: "The workspace setup completed.",
+    status: "completed" as const,
+    activityClass: "session_status" as const,
+  };
+
+  const directEvent = {
+    id: sourceEvent.id,
+    type: sourceEvent.type,
+    taskId: sourceEvent.taskId,
+    timestamp: sourceEvent.timestamp,
+    source: sourceEvent.source,
+    title: sourceEvent.title,
+    summary: sourceEvent.summary,
+    status: sourceEvent.status,
+    activityClass: sourceEvent.activityClass,
+  };
+
+  assert.deepEqual(enrichApertureEvent(directEvent), normalizeSourceEvent(sourceEvent));
+});
+
 test("source normalization preserves adapter metadata for downstream review surfaces", () => {
   const sourceEvent = {
     id: "evt:source-background",

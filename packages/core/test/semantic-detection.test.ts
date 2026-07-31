@@ -10,6 +10,7 @@ import {
   ROUTINE_SUCCESS_PHRASES,
 } from "../src/semantic-patterns.js";
 import {
+  detectImpliedOperatorAsk,
   detectExpectedDiagnosticFailure,
   detectObservationalFailureStatus,
   detectRoutineObservationalFailureLowConsequence,
@@ -55,6 +56,18 @@ test("blocking phrase detection does not overread constant-like log tokens", () 
   );
 
   assert.equal(detectSemanticBlockingSignal(text), null);
+});
+
+test("implied ask detection reads direct operator confirmation requests", () => {
+  const text = normalizeSemanticText("Can you confirm the deploy result before I close this out?");
+
+  assert.equal(detectImpliedOperatorAsk(text), true);
+});
+
+test("implied ask detection honors negated operator request wording", () => {
+  const text = normalizeSemanticText("No action needed; continuing automatically.");
+
+  assert.equal(detectImpliedOperatorAsk(text), false);
 });
 
 test("semantic pattern families keep repeat and contextual resolve phrases distinct", () => {

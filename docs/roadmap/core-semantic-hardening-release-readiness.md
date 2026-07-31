@@ -44,11 +44,15 @@ The main behavior changes are:
   recurrence, and escalation language governs the final deterministic read
 - procedural, readback, listing, command-output, source-window, and transcript
   shapes are parsed as event shapes rather than corpus-specific exceptions
+- `task.updated` events whose status is `completed` now receive completion
+  semantics without adapter-specific hints, while explicit source activity,
+  operator-directed asks, waiting text, and blocker text preserve their narrower
+  status-shaped semantics
 
 This is a behavioral improvement, not just Lab tooling. Core production code now
 has more explicit machinery for source-quality facts, observational status
 conflicts, outcome-only failures, owned observation payloads, and relation
-polarity.
+polarity, and completed-update lifecycle reads.
 
 ## Public Package Surface
 
@@ -225,7 +229,9 @@ Additional branch evidence:
 
 - local `pnpm release:check`: passing
 - PR #51 GitHub checks on commit `9407f28`: passing
-- full local test suite: 1,178 passing
+- full local test suite: 1,178 passing at commit `9407f28`; focused local suites
+  on the completed-update tranche add 222/222 passing semantic, normalization,
+  ontology, and evaluator checks
 - focused public SDK surface suite after product-surface audit:
   `packages/core/test/public-sdk.test.ts` passed 11/11
 - packed SDK proof after product-surface audit: tarball shape plus full engine,
@@ -236,9 +242,9 @@ Additional branch evidence:
 - judgment battle determinism: 81 passing
 - judgment benchmark: 2,415 passing
 - judgment fuzz: 384 passing
-- kernel corpus scorecard v3: 41 scenarios, 14 covered dimensions, 1,664
-  passing corpus assertions, 45 ontology checkpoints, 55 decision projection
-  checkpoints, 13 relation checkpoints, 41 per-scenario checkpoint ledgers, 22
+- kernel corpus scorecard v3: 44 scenarios, 15 covered dimensions, 1,756
+  passing corpus assertions, 49 ontology checkpoints, 58 decision projection
+  checkpoints, 13 relation checkpoints, 44 per-scenario checkpoint ledgers, 22
   unique decision fingerprints, and semantic/judgment outcome coverage for
   intent frames, activity classes, ontology sources, routes, lanes, confidence,
   consequences, and failure details
@@ -250,7 +256,8 @@ Additional branch evidence:
   high-consequence mid-file read/source observation shapes plus the bash
   compiler/loader diagnostic source-boundary shapes, 0 novel failure
   observations versus the kernel corpus baseline
-- new kernel corpus dimension: `source_quality_gap`
+- new kernel corpus dimensions: `source_quality_gap` and
+  `completed_update_semantics`
 - new golden scenarios:
   `golden:kernel-corpus:empty-failure-payload-stays-visible-with-weak-evidence`,
   `golden:kernel-corpus:read-source-window-limit-stays-visible`,
@@ -259,6 +266,10 @@ Additional branch evidence:
   `golden:kernel-corpus:bash-compiler-source-diagnostic-stays-terminal`,
   `golden:kernel-corpus:bash-loader-path-heavy-diagnostic-stays-terminal`, and
   `golden:kernel-corpus:bash-loader-plain-diagnostic-stays-terminal`
+- completed-update golden scenarios:
+  `golden:kernel-corpus:completed-update-blocker-stays-status-shaped`,
+  `golden:kernel-corpus:completed-update-implied-ask-stays-status-shaped`, and
+  `golden:kernel-corpus:completed-update-session-activity-preserves-source`
 - focused review found relation-ordering, truncation-helper, and public-surface
   documentation issues; this branch now includes fixes and regression coverage
 

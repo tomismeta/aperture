@@ -16,8 +16,8 @@
     "semanticReadings": [
       {
         "stepLabel": "resolved build issue",
-        "intentFrame": "status_update",
-        "activityClass": "status_update",
+        "intentFrame": "completion",
+        "activityClass": "tool_completion",
         "consequence": "low",
         "confidence": "high",
         "relationKindsInclude": ["same_issue", "resolves"],

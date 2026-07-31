@@ -7,6 +7,7 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
       "golden:kernel-corpus:bash-loader-path-heavy-diagnostic-stays-terminal",
       "golden:kernel-corpus:bash-loader-plain-diagnostic-stays-terminal",
       "golden:kernel-corpus:bare-nonzero-command-exit-plans-next-without-ambiguity",
+      "golden:kernel-corpus:completed-update-session-activity-preserves-source",
       "golden:kernel-corpus:empty-failure-payload-stays-visible-with-weak-evidence",
       "golden:kernel-corpus:forged-observation-hint-keeps-failed-routing",
       "golden:kernel-corpus:failed-status-mixed-procedural-failure-stays-visible",
@@ -39,6 +40,8 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
       "golden:kernel-corpus:bash-loader-plain-diagnostic-stays-terminal",
       "golden:kernel-corpus:command-owned-technical-observation-stays-medium",
       "golden:kernel-corpus:command-test-progress-observation-stays-medium",
+      "golden:kernel-corpus:completed-update-implied-ask-stays-status-shaped",
+      "golden:kernel-corpus:completed-update-session-activity-preserves-source",
       "golden:kernel-corpus:bare-nonzero-command-exit-plans-next-without-ambiguity",
       "golden:kernel-corpus:empty-failure-payload-stays-visible-with-weak-evidence",
       "golden:kernel-corpus:failed-status-file-operation-success-stays-ambient",
@@ -87,6 +90,17 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
     scenarioIds: ["golden:kernel-corpus:interleaved-supersede-with-background-noise"],
   },
   {
+    id: "completed_update_semantics",
+    scenarioIds: [
+      "golden:kernel-corpus:completed-update-blocker-stays-status-shaped",
+      "golden:kernel-corpus:completed-update-implied-ask-stays-status-shaped",
+      "golden:kernel-corpus:completed-update-session-activity-preserves-source",
+      "golden:kernel-corpus:delayed-lifecycle-events-preserve-fresh-recurrence",
+      "golden:kernel-corpus:repeated-low-confidence-failures-stay-queued",
+      "golden:kernel-corpus:resolution-after-active-failure-clears-focus",
+    ],
+  },
+  {
     id: "low_confidence_failure_pressure",
     scenarioIds: ["golden:kernel-corpus:repeated-low-confidence-failures-stay-queued"],
   },
@@ -122,6 +136,9 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
   },
   {
     id: "semantic_blocking_empty_slot",
-    scenarioIds: ["golden:kernel-corpus:running-blocked-wording-activates-empty-slot"],
+    scenarioIds: [
+      "golden:kernel-corpus:completed-update-blocker-stays-status-shaped",
+      "golden:kernel-corpus:running-blocked-wording-activates-empty-slot",
+    ],
   },
 ] as const;

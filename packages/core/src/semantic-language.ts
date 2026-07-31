@@ -117,3 +117,7 @@ export function semanticReasonsForLifecycle(type: "task_started" | "completion")
       return ["task completion is an explicit lifecycle fact"];
   }
 }
+
+export function semanticReasonsForCompletedTaskUpdate(): string[] {
+  return ["task update status explicitly indicates completed work"];
+}

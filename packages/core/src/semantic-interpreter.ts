@@ -22,6 +22,7 @@ import { readTaskFailureSemanticEvidence } from "./semantic-evidence.js";
 import {
   semanticActivityClassForRequestKind,
   semanticIntentFrameForRequestKind,
+  semanticReasonsForCompletedTaskUpdate,
   semanticReasonsForLifecycle,
   semanticWhyNowForObservationalStatusConflict,
   semanticWhyNowForRelationHints,
@@ -227,6 +228,35 @@ function inferTaskUpdateSemantics(
     case "running":
     case "waiting":
     case "completed":
+      if (event.status === "completed" && blockingSignal === null && !impliedAsk) {
+        const activityClass = event.activityClass ?? "tool_completion";
+
+        return {
+          intentFrame: "completion",
+          activityClass,
+          ...(toolFamily ? { toolFamily } : {}),
+          consequence: inferConsequenceFromSemanticText(text, "low", toolFamily),
+          ...(relationWhyNow !== undefined ? { whyNow: relationWhyNow } : {}),
+          factors: ["task.updated", "completed"],
+          relationHints,
+          confidence: "high",
+          reasons: semanticReasonsForCompletedTaskUpdate(),
+          provenance: {
+            ...inferredSemanticProvenance([
+              "intentFrame",
+              "consequence",
+              ...(relationWhyNow !== undefined ? (["whyNow"] as const) : []),
+              "confidence",
+            ]),
+            ...(event.activityClass === undefined
+              ? inferredSemanticProvenance(["activityClass"])
+              : sourceSemanticProvenance(["activityClass"])),
+            ...semanticToolFamilyProvenance(toolFamilySource),
+            ...relationProvenance,
+          },
+        };
+      }
+
       return {
         intentFrame: blockingSignal === "blocking" ? "blocked_work" : "status_update",
         activityClass: "status_update",

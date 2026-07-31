@@ -114,6 +114,55 @@ test("normalizes high-risk human input into critical approval semantics", () => 
   }
 });
 
+test("normalizes completed task updates into completion activity without adapter hints", () => {
+  const normalized = normalizeSourceEvent({
+    id: "evt:completed-update",
+    type: "task.updated",
+    taskId: "task:completed-update",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Command completed",
+    summary: "The command finished successfully.",
+    status: "completed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(normalized.type, "task.updated");
+  if (normalized.type !== "task.updated") {
+    throw new Error("Expected normalized task.updated event.");
+  }
+
+  assert.equal(normalized.activityClass, "tool_completion");
+  assert.equal(normalized.semantic.intentFrame, "completion");
+  assert.equal(normalized.semantic.activityClass, "tool_completion");
+  assert.equal(normalized.semantic.toolFamily, "bash");
+  assert.equal(normalized.semantic.provenance?.activityClass, "inferred");
+});
+
+test("normalizes completed task updates without overriding explicit source activity", () => {
+  const normalized = normalizeSourceEvent({
+    id: "evt:completed-session-status",
+    type: "task.updated",
+    taskId: "task:completed-session-status",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Workspace ready",
+    summary: "The workspace setup completed.",
+    status: "completed",
+    activityClass: "session_status",
+  });
+
+  assert.equal(normalized.type, "task.updated");
+  if (normalized.type !== "task.updated") {
+    throw new Error("Expected normalized task.updated event.");
+  }
+
+  assert.equal(normalized.activityClass, "session_status");
+  assert.equal(normalized.semantic.intentFrame, "completion");
+  assert.equal(normalized.semantic.activityClass, "session_status");
+  assert.equal(normalized.semantic.provenance?.activityClass, "source");
+});
+
 test("normalizes medium-risk human input into focused approval semantics", () => {
   const event: SourceEvent = {
     id: "evt:approval",

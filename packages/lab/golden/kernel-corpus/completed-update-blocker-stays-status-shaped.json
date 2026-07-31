@@ -1,0 +1,66 @@
+{
+  "id": "golden:kernel-corpus:completed-update-blocker-stays-status-shaped",
+  "title": "Completed update blocker stays status-shaped",
+  "description": "A completed update with strict blocker wording should not collapse into ordinary completion semantics.",
+  "doctrineTags": ["kernel_corpus", "completed_update_semantics", "semantic_blocking_empty_slot"],
+  "semanticFamilies": ["blocking_missed"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:task:corpus:completed-blocker:status",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "completed blocker",
+        "intentFrame": "blocked_work",
+        "activityClass": "status_update",
+        "consequence": "medium",
+        "confidence": "medium",
+        "whyNowIncludes": "blocked",
+        "factorsInclude": ["semantic blocking signal"],
+        "ontology": {
+          "ask": "status",
+          "activity": "task_completion",
+          "consequence": "medium",
+          "blocking": "blocking",
+          "episode": "unknown",
+          "source": "inferred"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "completed blocker",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "semanticConfidence": "medium",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:activate", "lane:now"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "completed blocker",
+      "event": {
+        "id": "evt:corpus:completed:blocker",
+        "type": "task.updated",
+        "taskId": "task:corpus:completed-blocker",
+        "timestamp": "2026-04-16T14:08:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Deploy completed",
+        "summary": "Cannot continue until credentials are provided.",
+        "status": "completed"
+      }
+    }
+  ]
+}

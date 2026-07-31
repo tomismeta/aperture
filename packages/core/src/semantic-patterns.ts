@@ -10,6 +10,11 @@ export const IMPLIED_OPERATOR_ASKS = [
   "what should i do",
 ] as const;
 
+export const IMPLIED_OPERATOR_ASK_PATTERNS = [
+  /\b(?:can|could|would|will) you (?:please )?(?:approve|check|choose|confirm|decide|provide|review|select|share|tell|verify)\b/,
+  /\bplease (?:approve|choose|confirm|decide|provide|select|verify)\b/,
+] as const;
+
 export const IMPLIED_OPERATOR_NEGATIONS = [
   "no action needed",
   "no approval needed",

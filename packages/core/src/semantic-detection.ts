@@ -4,10 +4,15 @@ import {
   EXPLICIT_WAITING_PHRASES,
   HIGH_RISK_PHRASES,
   IMPLIED_OPERATOR_ASKS,
+  IMPLIED_OPERATOR_ASK_PATTERNS,
   IMPLIED_OPERATOR_NEGATIONS,
 } from "./semantic-patterns.js";
 import { readSemanticTextEvidence } from "./semantic-evidence.js";
-import { containsAnySemanticPhrase, containsSemanticPhrase } from "./semantic-text.js";
+import {
+  containsAnySemanticPhrase,
+  containsSemanticPhrase,
+  normalizeSemanticText,
+} from "./semantic-text.js";
 import {
   isSemanticCommandExecutionToolFamily,
   type SemanticToolFamilyContextItem,
@@ -40,7 +45,12 @@ export function detectImpliedOperatorAsk(text: string): boolean {
     return false;
   }
 
-  return containsAnySemanticPhrase(text, IMPLIED_OPERATOR_ASKS);
+  if (containsAnySemanticPhrase(text, IMPLIED_OPERATOR_ASKS)) {
+    return true;
+  }
+
+  const normalizedText = normalizeSemanticText(text);
+  return IMPLIED_OPERATOR_ASK_PATTERNS.some((pattern) => pattern.test(normalizedText));
 }
 
 export function detectSemanticBlockingSignal(text: string): SemanticBlockingSignal | null {

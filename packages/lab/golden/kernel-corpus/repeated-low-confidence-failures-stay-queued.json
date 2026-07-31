@@ -20,6 +20,21 @@
     },
     "semanticReadings": [
       {
+        "stepLabel": "background delivery",
+        "intentFrame": "completion",
+        "activityClass": "tool_completion",
+        "consequence": "low",
+        "confidence": "high",
+        "ontology": {
+          "ask": "status",
+          "activity": "task_completion",
+          "consequence": "low",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "source": "explicit"
+        }
+      },
+      {
         "stepLabel": "first uncertain failure",
         "intentFrame": "failure",
         "activityClass": "tool_failure",

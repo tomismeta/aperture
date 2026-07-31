@@ -88,6 +88,143 @@ test("failed empty tool payloads become medium-consequence source-quality gaps",
   assert.equal(interpretation.whyNow, "Work has failed and should be reviewed.");
 });
 
+test("completed task updates become completion semantics without adapter hints", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:completed-update",
+    type: "task.updated",
+    taskId: "task:completed-update",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Codex command completed",
+    summary: "Codex finished the command.",
+    status: "completed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "completion");
+  assert.equal(interpretation.activityClass, "tool_completion");
+  assert.equal(interpretation.toolFamily, "bash");
+  assert.equal(interpretation.consequence, "medium");
+  assert.equal(interpretation.confidence, "high");
+  assert.deepEqual(interpretation.reasons, [
+    "task update status explicitly indicates completed work",
+  ]);
+  assert.equal(interpretation.provenance?.intentFrame, "inferred");
+  assert.equal(interpretation.provenance?.activityClass, "inferred");
+});
+
+test("completed task updates with implied asks stay low-confidence status updates", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:completed-implied-ask",
+    type: "task.updated",
+    taskId: "task:completed-implied-ask",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Deploy completed",
+    summary: "Can you confirm the deploy result before I close this out?",
+    status: "completed",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.confidence, "low");
+  assert.equal(interpretation.whyNow, "Status text implies the operator may need to respond.");
+});
+
+test("completed task updates with blocking text stay blocked status updates", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:completed-blocking",
+    type: "task.updated",
+    taskId: "task:completed-blocking",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Deploy completed",
+    summary: "Cannot continue until credentials are provided.",
+    status: "completed",
+  });
+
+  assert.equal(interpretation.intentFrame, "blocked_work");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "medium");
+  assert.equal(interpretation.confidence, "medium");
+  assert.equal(interpretation.whyNow, "Work is blocked and may require operator attention.");
+});
+
+test("completed task updates with waiting text stay status-shaped", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:completed-waiting",
+    type: "task.updated",
+    taskId: "task:completed-waiting",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Deploy completed",
+    summary: "Approval required before continuing.",
+    status: "completed",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.confidence, "high");
+});
+
+test("completed task updates with negated asks remain completion-shaped", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:completed-no-action",
+    type: "task.updated",
+    taskId: "task:completed-no-action",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Deploy completed",
+    summary: "No action needed; continuing automatically.",
+    status: "completed",
+  });
+
+  assert.equal(interpretation.intentFrame, "completion");
+  assert.equal(interpretation.activityClass, "tool_completion");
+  assert.equal(interpretation.confidence, "high");
+});
+
+test("completed task updates preserve explicit source activity semantics", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:completed-session-status",
+    type: "task.updated",
+    taskId: "task:completed-session-status",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Workspace ready",
+    summary: "The workspace setup completed.",
+    status: "completed",
+    activityClass: "session_status",
+  });
+
+  assert.equal(interpretation.intentFrame, "completion");
+  assert.equal(interpretation.activityClass, "session_status");
+  assert.equal(interpretation.provenance?.activityClass, "source");
+});
+
+test("semantic hints can override completed task update defaults", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:completed-hinted",
+    type: "task.updated",
+    taskId: "task:completed-hinted",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Workspace recovered",
+    summary: "The workspace recovered from a stream interruption.",
+    status: "completed",
+    semanticHints: {
+      activityClass: "session_status",
+      confidence: "medium",
+      reasons: ["adapter preserved platform lifecycle context"],
+    },
+  });
+
+  assert.equal(interpretation.intentFrame, "completion");
+  assert.equal(interpretation.activityClass, "session_status");
+  assert.equal(interpretation.confidence, "medium");
+  assert.equal(interpretation.provenance?.activityClass, "hint");
+});
+
 test("high-risk wording can still lift an empty failure payload", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:empty-failure-high-risk",

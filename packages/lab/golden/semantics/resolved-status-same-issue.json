@@ -8,15 +8,11 @@
     "relation_semantics",
     "ambient_doctrine"
   ],
-  "semanticFamilies": [
-    "episode_missed"
-  ],
+  "semanticFamilies": ["episode_missed"],
   "expectations": {
     "finalNowInteractionId": null,
     "nextInteractionIds": [],
-    "ambientInteractionIds": [
-      "interaction:task:build-resolved:status"
-    ],
+    "ambientInteractionIds": ["interaction:task:build-resolved:status"],
     "resultLaneCounts": {
       "now": 0,
       "next": 0,
@@ -25,8 +21,8 @@
     "semanticReadings": [
       {
         "stepLabel": "resolved status",
-        "intentFrame": "status_update",
-        "activityClass": "status_update",
+        "intentFrame": "completion",
+        "activityClass": "tool_completion",
         "consequence": "low",
         "relationKindsInclude": ["same_issue", "resolves"]
       }

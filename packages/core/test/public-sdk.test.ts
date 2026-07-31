@@ -60,6 +60,8 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.equal("semanticWhyNowForRequestKind" in sdk, false);
   assert.equal("semanticWhyNowForTaskStatus" in sdk, false);
   assert.equal("interpretSourceEvent" in sdk, false);
+  assert.equal("semanticHintsForTruncatedSourceEvidence" in sdk, false);
+  assert.equal("TRUNCATED_SOURCE_EVIDENCE_FACTOR" in sdk, false);
   assert.equal("AttentionPolicy" in sdk, false);
   assert.equal("AttentionValue" in sdk, false);
   assert.equal("AttentionPlanner" in sdk, false);
@@ -319,9 +321,18 @@ test("public SDK exposes surface capability helpers through the root package", (
 test("advanced semantic helpers live behind the semantic subpath", () => {
   assert.equal("interpretSourceEvent" in sdk, false);
   assert.equal("normalizeSourceEvent" in sdk, false);
+  assert.equal("semanticHintsForTruncatedSourceEvidence" in sdk, false);
+  assert.equal("TRUNCATED_SOURCE_EVIDENCE_FACTOR" in sdk, false);
 
   assert.equal(typeof semanticSdk.interpretSourceEvent, "function");
   assert.equal(typeof semanticSdk.normalizeSourceEvent, "function");
+  assert.equal(typeof semanticSdk.semanticHintsForTruncatedSourceEvidence, "function");
+  assert.equal(semanticSdk.TRUNCATED_SOURCE_EVIDENCE_FACTOR, "source evidence truncated");
+
+  const hints = semanticSdk.semanticHintsForTruncatedSourceEvidence({ status: "failed" });
+  assert.equal(hints.confidence, "low");
+  assert.equal(hints.consequence, "high");
+  assert.deepEqual(hints.factors, [semanticSdk.TRUNCATED_SOURCE_EVIDENCE_FACTOR]);
 });
 
 test("trace helpers live behind the trace subpath", () => {

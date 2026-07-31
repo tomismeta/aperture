@@ -40,6 +40,7 @@ import type {
   SemanticInterpretationHints,
   SemanticOntologyDiagnostic,
   SemanticRelationHint,
+  TruncatedSourceEvidenceHintOptions,
 } from "../src/semantic.js";
 import type {
   AttentionClaimAction,
@@ -99,6 +100,7 @@ void (0 as unknown as AttentionOntologyDiagnostic);
 void (0 as unknown as SemanticOntologyDiagnostic);
 void (0 as unknown as SemanticRelationHint);
 void (0 as unknown as SemanticConfidence);
+void (0 as unknown as TruncatedSourceEvidenceHintOptions);
 void (0 as unknown as AttentionClaim);
 void (0 as unknown as AttentionClaimAction);
 void (0 as unknown as AttentionClaimContext);

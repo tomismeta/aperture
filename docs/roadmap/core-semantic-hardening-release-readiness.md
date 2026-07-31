@@ -129,6 +129,10 @@ Current review evidence:
   corpus-specific labels
 - public-corpus importers and calibration logic remain in `packages/lab`
 - Lab consumes source-quality support through public or bounded core seams
+- `pnpm kernel:corpus` verifies both the full corpus conformance report and a
+  compact scorecard for scenario count, dimension coverage, semantic ontology
+  checkpoints, decision projection checkpoints, relation checkpoints, and
+  decision-fingerprint uniqueness as a reported snapshot
 - classifier growth is now guarded by module budgets for:
   - `packages/core/src/semantic-detection.ts`
   - `packages/core/src/semantic-owned-observation-payload-shapes.ts`
@@ -182,10 +186,13 @@ pnpm exec tsx --test packages/core/test/semantic-detection.test.ts packages/core
 
 Additional branch evidence:
 
-- full local test suite: 1,149 passing
+- full local test suite: 1,150 passing
 - judgment battle determinism: 74 passing
 - judgment benchmark: 2,172 passing
 - judgment fuzz: 384 passing
+- kernel corpus scorecard: 34 scenarios, 13 covered dimensions, 1,421 passing
+  corpus assertions, 38 ontology checkpoints, 47 decision projection
+  checkpoints, 13 relation checkpoints, 19 unique decision fingerprints
 - PR #51 GitHub `release-check`: passing
 - PR #51 kernel conformance shards: passing
 - focused review found relation-ordering, truncation-helper, and public-surface

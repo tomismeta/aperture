@@ -31,6 +31,13 @@ export {
   type KernelCorpusDimensionCoverage,
 } from "./kernel-corpus-conformance.js";
 export {
+  assertKernelCorpusScorecardPassed,
+  buildKernelCorpusScorecard,
+  KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION,
+  KERNEL_CORPUS_SCORECARD_THRESHOLDS,
+  type KernelCorpusScorecard,
+} from "./kernel-corpus-scorecard.js";
+export {
   KERNEL_CORPUS_COVERAGE_DIMENSIONS,
   KERNEL_CORPUS_PROFILE,
   KERNEL_CORPUS_PROFILE_ID,

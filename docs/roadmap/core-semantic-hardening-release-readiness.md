@@ -14,7 +14,10 @@ until a new package is published.
 - Package versions on branch:
   - `@tomismeta/aperture-core@0.8.0`
   - `@tomismeta/aperture@0.4.2`
-- Version decision: not applied
+- Version decision: not applied by this PR; package versions are inherited from
+  the branch base
+- Published npm latest at this audit point: `@tomismeta/aperture-core@0.7.0`
+- Release tags: no `0.8.0` tag exists locally or on `origin` at this audit point
 - Runtime dependencies: unchanged
 - Published package manifests: no version, export-map, files-list, or runtime
   dependency changes
@@ -173,8 +176,9 @@ Do not publish directly from this PR without a version and release-note pass.
 
 Recommended version posture:
 
-- prefer the next minor for `@tomismeta/aperture-core`, because the API change is
-  additive but the semantic and judgment behavior changes are meaningful
+- prefer the next minor after the currently versioned core package for
+  `@tomismeta/aperture-core`, because the API change is additive but the
+  semantic and judgment behavior changes are meaningful
 - do not cut `@tomismeta/aperture` unless the product package should ship the
   embedded core behavior at the same time
 - if cutting `@tomismeta/aperture`, describe it as embedded core judgment
@@ -209,7 +213,12 @@ pnpm exec tsx --test packages/core/test/semantic-detection.test.ts packages/core
 Additional branch evidence:
 
 - local `pnpm release:check`: passing
+- PR #51 GitHub checks on commit `9407f28`: passing
 - full local test suite: 1,178 passing
+- focused public SDK surface suite after product-surface audit:
+  `packages/core/test/public-sdk.test.ts` passed 11/11
+- packed SDK proof after product-surface audit: tarball shape plus full engine,
+  evaluator, semantic, and trace entrypoint examples passed
 - judgment battle determinism: 81 passing
 - judgment benchmark: 2,415 passing
 - judgment fuzz: 384 passing
@@ -234,7 +243,6 @@ Additional branch evidence:
   `golden:kernel-corpus:bash-compiler-source-diagnostic-stays-terminal`,
   `golden:kernel-corpus:bash-loader-path-heavy-diagnostic-stays-terminal`, and
   `golden:kernel-corpus:bash-loader-plain-diagnostic-stays-terminal`
-- PR #51 GitHub checks should be rerun after pushing this tranche
 - focused review found relation-ordering, truncation-helper, and public-surface
   documentation issues; this branch now includes fixes and regression coverage
 

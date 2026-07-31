@@ -26,6 +26,7 @@
         "toolFamily": "read",
         "consequence": "high",
         "confidence": "high",
+        "whyNowIncludes": "high-consequence observation output",
         "factorsInclude": ["observational_failure"],
         "ontology": {
           "ask": "status",

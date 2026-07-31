@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { readTaskFailureSemanticEvidence } from "@tomismeta/aperture-core/internal";
+
 import {
   createReplayScenarioFromImportedSession,
   createSessionBundleFromImportedSession,
@@ -67,6 +69,206 @@ test("canonical imported sessions compile only replayable source events into sce
   assert.equal(scenario.steps.length, 2);
   assert.equal(scenario.steps[0]?.kind, "publishSource");
   assert.equal(scenario.steps[1]?.kind, "publishSource");
+});
+
+test("imported tool-result replay refreshes stale clipped summaries from full text", () => {
+  const fullToolText = [
+    "/repo/node_modules/tsx/dist/register.cjs:3",
+    "const loader = true; ".repeat(120),
+    "Error: Cannot find module './packages/tui/src/keys.js'",
+    "Require stack:",
+    "- /repo/[eval]",
+    "Node.js v25.2.1",
+    "Command exited with code 1",
+  ].join("\n");
+  const session: ImportedSession = {
+    schemaVersion: 1,
+    sessionId: "imported:stale-tool-summary",
+    title: "Imported stale tool summary",
+    importedAt: "2026-03-29T00:00:00.000Z",
+    entries: [
+      {
+        index: 0,
+        timestamp: "2026-03-29T00:00:00.000Z",
+        role: "tool",
+        kind: "tool_result",
+        significance: "attention",
+        text: fullToolText,
+        sourceEvent: {
+          id: "imported:stale-tool-summary:tool",
+          type: "task.updated",
+          taskId: "imported:stale-tool-summary",
+          timestamp: "2026-03-29T00:00:00.000Z",
+          toolFamily: "bash",
+          title: "bash failure",
+          summary: "/repo/node_modules/tsx/dist/register.cjs:3 const loader = true...",
+          status: "failed",
+        },
+      },
+    ],
+  };
+
+  const scenario = createReplayScenarioFromImportedSession(session);
+  const event = scenario.steps[0]?.kind === "publishSource" ? scenario.steps[0].event : undefined;
+
+  assert.equal(event?.type, "task.updated");
+  assert.match(event?.summary ?? "", /Cannot find module '\.\/packages\/tui\/src\/keys\.js'/);
+  assert.equal(readTaskFailureSemanticEvidence(event)?.kind, "terminal_failure");
+});
+
+test("imported command-family tool-result replay refreshes stale clipped summaries from full text", () => {
+  const fullToolText = [
+    "/repo/node_modules/tsx/dist/register.cjs:3",
+    "const loader = true; ".repeat(120),
+    "Error: Cannot find module './packages/core/src/index.js'",
+    "Require stack:",
+    "- /repo/[eval]",
+    "Node.js v25.2.1",
+    "Command exited with code 1",
+  ].join("\n");
+  const session: ImportedSession = {
+    schemaVersion: 1,
+    sessionId: "imported:stale-exec-command-summary",
+    title: "Imported stale exec command summary",
+    importedAt: "2026-03-29T00:00:00.000Z",
+    entries: [
+      {
+        index: 0,
+        timestamp: "2026-03-29T00:00:00.000Z",
+        role: "tool",
+        kind: "tool_result",
+        significance: "attention",
+        text: fullToolText,
+        sourceEvent: {
+          id: "imported:stale-exec-command-summary:tool",
+          type: "task.updated",
+          taskId: "imported:stale-exec-command-summary",
+          timestamp: "2026-03-29T00:00:00.000Z",
+          toolFamily: "exec_command",
+          title: "exec_command failure",
+          summary: "/repo/node_modules/tsx/dist/register.cjs:3 const loader = true...",
+          status: "failed",
+        },
+      },
+    ],
+  };
+
+  const scenario = createReplayScenarioFromImportedSession(session);
+  const event = scenario.steps[0]?.kind === "publishSource" ? scenario.steps[0].event : undefined;
+
+  assert.equal(event?.type, "task.updated");
+  assert.equal(event?.toolFamily, "bash");
+  assert.match(event?.summary ?? "", /Cannot find module '\.\/packages\/core\/src\/index\.js'/);
+  assert.equal(readTaskFailureSemanticEvidence(event)?.kind, "terminal_failure");
+});
+
+test("imported tool-result replay does not refresh clipped non-failed summaries", () => {
+  const session: ImportedSession = {
+    schemaVersion: 1,
+    sessionId: "imported:running-tool-summary",
+    title: "Imported running tool summary",
+    importedAt: "2026-03-29T00:00:00.000Z",
+    entries: [
+      {
+        index: 0,
+        timestamp: "2026-03-29T00:00:00.000Z",
+        role: "tool",
+        kind: "tool_result",
+        significance: "attention",
+        text: `${"progress output ".repeat(120)}Command exited with code 1`,
+        sourceEvent: {
+          id: "imported:running-tool-summary:tool",
+          type: "task.updated",
+          taskId: "imported:running-tool-summary",
+          timestamp: "2026-03-29T00:00:00.000Z",
+          toolFamily: "bash",
+          title: "bash update",
+          summary: "progress output...",
+          status: "running",
+        },
+      },
+    ],
+  };
+
+  const scenario = createReplayScenarioFromImportedSession(session);
+  const event = scenario.steps[0]?.kind === "publishSource" ? scenario.steps[0].event : undefined;
+
+  assert.equal(event?.type, "task.updated");
+  assert.equal(event?.summary, "progress output...");
+});
+
+test("imported tool-result replay does not refresh failed read summaries", () => {
+  const session: ImportedSession = {
+    schemaVersion: 1,
+    sessionId: "imported:read-tool-summary",
+    title: "Imported read tool summary",
+    importedAt: "2026-03-29T00:00:00.000Z",
+    entries: [
+      {
+        index: 0,
+        timestamp: "2026-03-29T00:00:00.000Z",
+        role: "tool",
+        kind: "tool_result",
+        significance: "attention",
+        text: `${"source excerpt ".repeat(120)}[169 more lines in file. Use offset=110 to continue]`,
+        sourceEvent: {
+          id: "imported:read-tool-summary:tool",
+          type: "task.updated",
+          taskId: "imported:read-tool-summary",
+          timestamp: "2026-03-29T00:00:00.000Z",
+          toolFamily: "read",
+          title: "read failure",
+          summary: "source excerpt...",
+          status: "failed",
+        },
+      },
+    ],
+  };
+
+  const scenario = createReplayScenarioFromImportedSession(session);
+  const event = scenario.steps[0]?.kind === "publishSource" ? scenario.steps[0].event : undefined;
+
+  assert.equal(event?.type, "task.updated");
+  assert.equal(event?.summary, "source excerpt...");
+});
+
+test("imported tool-result replay refreshes oversized stale summaries with bounded text", () => {
+  const fullToolText = `${"source context ".repeat(700)}Command exited with code 1`;
+  const session: ImportedSession = {
+    schemaVersion: 1,
+    sessionId: "imported:oversized-tool-summary",
+    title: "Imported oversized tool summary",
+    importedAt: "2026-03-29T00:00:00.000Z",
+    entries: [
+      {
+        index: 0,
+        timestamp: "2026-03-29T00:00:00.000Z",
+        role: "tool",
+        kind: "tool_result",
+        significance: "attention",
+        text: fullToolText,
+        sourceEvent: {
+          id: "imported:oversized-tool-summary:tool",
+          type: "task.updated",
+          taskId: "imported:oversized-tool-summary",
+          timestamp: "2026-03-29T00:00:00.000Z",
+          toolFamily: "bash",
+          title: "bash failure",
+          summary: "source context...",
+          status: "failed",
+        },
+      },
+    ],
+  };
+
+  const scenario = createReplayScenarioFromImportedSession(session);
+  const event = scenario.steps[0]?.kind === "publishSource" ? scenario.steps[0].event : undefined;
+
+  assert.equal(event?.type, "task.updated");
+  assert.notEqual(event?.summary, "source context...");
+  assert.match(event?.summary ?? "", / \.\.\. /);
+  assert.match(event?.summary ?? "", /Command exited with code 1$/);
+  assert.ok((event?.summary?.length ?? Infinity) < fullToolText.length);
 });
 
 test("canonical imported sessions can become replayable session bundles", () => {

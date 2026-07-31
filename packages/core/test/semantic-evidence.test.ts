@@ -13,6 +13,11 @@ import {
   looksLikeExplicitDiagnosticObservationTranscript,
   looksLikeExplicitObservationTranscript,
 } from "../src/semantic-observation-transcript-shapes.js";
+import {
+  looksLikeCompactOperationSuccessObservation,
+  readExplicitOperationSuccessObservationTranscript,
+} from "../src/semantic-operation-success-observation-shapes.js";
+import { looksLikeLinterOutputObservation } from "../src/semantic-linter-output-observation-shapes.js";
 import { readExplicitNonDiagnosticObservationTranscript } from "../src/semantic-nondiagnostic-observation-transcript-shapes.js";
 import { looksLikeObservationTranscriptDiagnostic } from "../src/semantic-observation-transcript-diagnostic-shapes.js";
 import {
@@ -20,11 +25,15 @@ import {
   readSectionedTestOutputObservation,
 } from "../src/semantic-test-result-section-shapes.js";
 import { isSemanticCommandExecutionToolFamily } from "../src/semantic-tool-family.js";
-import { looksLikePythonLocationError } from "../src/semantic-python-diagnostic-shapes.js";
+import {
+  looksLikePythonExceptionGroupDiagnostic,
+  looksLikePythonLocationError,
+} from "../src/semantic-python-diagnostic-shapes.js";
 import {
   hasToolUseRejectionSignal,
   looksLikeToolUseRejectionOutcome,
 } from "../src/semantic-tool-use-rejection-shapes.js";
+import { looksLikeBareNonzeroTerminalExitEvidence } from "../src/semantic-terminal-evidence.js";
 
 const timestamp = "2026-04-05T18:45:00.000Z";
 const rejectedToolUseMessage =
@@ -46,6 +55,14 @@ const pytestSuccessObservationTranscript =
   "OBSERVATION: ============================= 7 passed, 1 warning in 0.42s =============================";
 const abbreviatedFileViewObservationTranscript =
   "OBSERVATION: <NOTE>This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.</NOTE> 1 # fmt: off 2 from __future__ import an...";
+const proceduralHarnessObservationTranscript =
+  "OBSERVATION: Thank you for your work on this issue. Please carefully follow the steps below to help review your changes. 1. If you made any changes to your code after running the reproduction script, please run the reproduction script again. 2. Confirm the reproduction script passes before submitting.";
+const mixedProceduralFailureObservationTranscript =
+  "OBSERVATION: Thank you for your work on this issue. Please carefully follow the steps below to help review your changes. The script exited with code 1 and the issue still does not work. 1. Run the reproduction script again after making changes. 2. Confirm the script exits with code 0 before submitting.";
+const editMissObservationTranscript =
+  "OBSERVATION: No replacement was performed, old_str `def emit(self, text_gen, margin_char=None):` was not found in the file.";
+const failingTestObservationTranscript =
+  "OBSERVATION: test_yes_no_for_booleans (tests.test_config.SimpleConfigTestCase) ... ERROR ====================================================================== ERROR: test_yes_no_for_booleans";
 
 test("semantic text evidence classifies exact routine bash success observations", () => {
   const evidence = readSemanticTextEvidence(
@@ -116,6 +133,109 @@ test("Python location diagnostics are bounded event shapes", () => {
   }
 });
 
+test("Python exception group diagnostics are bounded event shapes", () => {
+  for (const summary of [
+    "exceptiongroup.ExceptionGroup: Group of errors (2 sub-exceptions)",
+    "ExceptionGroup: Outer group (3 sub-exceptions)",
+    "OBSERVATION: exceptiongroup.ExceptionGroup: Group of errors (2 sub-exceptions)",
+    "OBSERVATION: ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)",
+  ]) {
+    assert.equal(looksLikePythonExceptionGroupDiagnostic(summary), true, summary);
+  }
+
+  for (const summary of [
+    "The exception group should be reported as ExceptionGroup: Group of errors (2 sub-exceptions).",
+    "Expected output:\nExceptionGroup: Group of errors (2 sub-exceptions)",
+    "Sample output:\nExceptionGroup: Group of errors (2 sub-exceptions)",
+    "Fixture:\nExceptionGroup: Group of errors (2 sub-exceptions)",
+    "Reference diagnostics:\nExceptionGroup: Group of errors (2 sub-exceptions)",
+    'const expected = "ExceptionGroup: Group of errors (2 sub-exceptions)";',
+    "ExceptionGroup: Group of errors",
+    "ExceptionGroup: Group of errors (0 sub-exceptions)",
+    "ExceptionGroup: Group of errors (2 sub-exceptions) while running tests",
+    "ExceptionGroup should contain 2 sub-exceptions",
+    "OBSERVATION: Running pytest should produce ExceptionGroup: Group of errors (2 sub-exceptions).",
+  ]) {
+    assert.equal(looksLikePythonExceptionGroupDiagnostic(summary), false, summary);
+  }
+});
+
+test("compact operation success observations are bounded event shapes", () => {
+  for (const summary of [
+    "File created successfully at: /testbed/reproduce_error.py",
+    "File created successfully at: /testbed/exception_test.py",
+    "File created successfully at: /testbed/traceback_failed_error.py",
+    "File created successfully at: ./tmp/reproduce_error.py",
+    String.raw`File created successfully at: C:\tmp\reproduce_error.py`,
+    "The file /testbed/reproduce_error.py has been edited.",
+  ]) {
+    assert.equal(looksLikeCompactOperationSuccessObservation(summary), true, summary);
+  }
+
+  for (const summary of [
+    "Expected output: File created successfully at: /testbed/reproduce_error.py",
+    "File created successfully at: /testbed/reproduce_error.py and then run it",
+    "File created successfully at:",
+    "File created successfully at: reproduce_error.py",
+    "File created successfully at: https://example.com/reproduce_error.py",
+    "File created successfully at: /tmp/<path>",
+    "File created successfully at: /tmp/reproduce_error.py...",
+    'File created successfully at: "/tmp/reproduce_error.py"',
+    'const message = "File created successfully at: /testbed/reproduce_error.py";',
+    "File created successfully at: /testbed/reproduce_error.py\nexport const value = 1;",
+    "The file /testbed/reproduce_error.py has not been edited.",
+  ]) {
+    assert.equal(looksLikeCompactOperationSuccessObservation(summary), false, summary);
+  }
+
+  assert.deepEqual(
+    readExplicitOperationSuccessObservationTranscript(
+      "OBSERVATION: File created successfully at: /testbed/reproduce_error.py",
+    ),
+    { kind: "file_created", consequenceBaseline: "low" },
+  );
+  assert.deepEqual(
+    readExplicitOperationSuccessObservationTranscript(
+      "File created successfully at: /testbed/reproduce_error.py",
+    ),
+    null,
+  );
+});
+
+test("linter output observations count findings outside quoted fixture spans", () => {
+  for (const summary of [
+    'Running yamllint... ./.yamllint 1:1 warning missing document start "---" (document-start) ./normal.yaml 1:1 warning missing document start "---" (document-start) ./ign-dup/duplicates.yaml 1:1 warning missing document start "---" (document-start) ...',
+    'Here\'s yamllint output: ./.yamllint 1:1 warning missing document start "---" (document-start) ./normal.yaml 1:1 warning missing document start "---" (document-start) ...',
+    'Tool\'s lint output: ./normal.yaml 1:1 warning missing document start "---" (document-start)',
+    'Developers\' lint output: ./normal.yaml 1:1 warning missing document start "---" (document-start)',
+    "Prefix 'clean' then lint output: ./normal.yaml 1:1 warning missing document start \"---\" (document-start)",
+    "Prefix 'status' then lint output: ./normal.yaml 1:1 warning missing document start \"---\" (document-start)",
+    'Running yamllint...\n./normal.yaml 1:1 warning missing document start "---" (document-start)',
+    'logger.info("foo.yaml 1:1 warning fixture (rule)") ./normal.yaml 1:1 warning missing document start "---" (document-start) ./dupe.yaml 2:4 warning wrong indentation (indentation)',
+    'logger.error("foo.yaml 1:1 error fixture (rule)") ./normal.yaml 1:1 warning missing document start "---" (document-start) ./dupe.yaml 2:4 warning wrong indentation (indentation)',
+  ]) {
+    assert.equal(looksLikeLinterOutputObservation(summary), true, summary);
+  }
+
+  for (const summary of [
+    'foo.yaml 1:1 warning missing document start "---" (document-start)',
+    'message = "foo.yaml 1:1 warning missing document start \\"---\\" (document-start)"',
+    'print("foo.yaml 1:1 warning missing document start \\"---\\" (document-start)")',
+    'logger.warning("foo.yaml 1:1 warning missing document start \\"---\\" (document-start)")',
+    'process.stdout.write("foo.yaml 1:1 warning missing document start \\"---\\" (document-start)")',
+    'const fixture = `foo.yaml 1:1 warning missing document start "---" (document-start)`;',
+    `logger.warning("${"x".repeat(300)} foo.yaml 1:1 warning fixture (rule) bar.yaml 2:2 warning fixture (rule)")`,
+    "const fixture = `foo.yaml 1:1 warning fixture (rule)\nbar.yaml 2:2 warning fixture (rule)`;",
+    "const fixture = 'developers' lint output: foo.yaml 1:1 warning fixture (rule) bar.yaml 2:2 warning fixture (rule)';",
+    "const fixture = 'status' then lint output: foo.yaml 1:1 warning fixture (rule) bar.yaml 2:2 warning fixture (rule)';",
+    'Expected output: foo.yaml 1:1 warning missing document start "---" (document-start)',
+    'Please verify foo.yaml 1:1 warning missing document start "---" (document-start)',
+    'Running yamllint... ./normal.yaml 1:1 warning missing document start "---" (document-start) ./bad.yaml 2:4 error wrong indentation (indentation)',
+  ]) {
+    assert.equal(looksLikeLinterOutputObservation(summary), false, summary);
+  }
+});
+
 test("task failure semantic signals are auditable and boundary scoped", () => {
   const rawUsageDiagnostic =
     "usage: rocprof-compute [mode] [options] tool: error: argument --list-metrics: invalid choice: 'gfx1151'";
@@ -128,6 +248,8 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     'const message = "Failed to execute: query; panic: cleanup();";\nreturn message;';
   const realisticCompoundSourcePanicLiteral =
     'const message = "Failed to execute: query; panic: unable to open database file";\nreturn message;';
+  const exceptionGroupSourceFixture =
+    '# fixture\nexpected = "ExceptionGroup: Group of errors (2 sub-exceptions)"\ndef test_exception_group():\n    assert expected';
   const failedLiteralSourceObservation = "OBSERVATION: const result = `1 failed`; return result;";
   const failedLiteralReadbackObservation =
     'OBSERVATION: Here is the result of running cat -n on /tmp/test.ts: 1 const expected = "1 failed";';
@@ -336,6 +458,15 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
   assert.equal(structuredRealisticCompoundSourceLiteral.structuredOutputFailureDiagnostic, false);
   assert.equal(structuredRealisticCompoundSourceLiteral.rawToolOutputFailureDiagnostic, false);
 
+  const structuredExceptionGroupSourceFixture = readTaskFailureSemanticSignals({
+    summary: JSON.stringify({ wall_time: "0.0510 seconds", output: exceptionGroupSourceFixture }),
+    toolFamily: "bash",
+  });
+  assert.equal(structuredExceptionGroupSourceFixture.structuredOutputEnvelope.kind, "valid");
+  assert.equal(structuredExceptionGroupSourceFixture.structuredOutputObservation, true);
+  assert.equal(structuredExceptionGroupSourceFixture.structuredOutputFailureDiagnostic, false);
+  assert.equal(structuredExceptionGroupSourceFixture.strongSourceRuntimeDiagnostic, false);
+
   const validStructuredSourceLabel = readTaskFailureSemanticSignals({
     summary: JSON.stringify({ wall_time: "0.0510 seconds", output: sourcePanicLabel }),
     toolFamily: "bash",
@@ -423,6 +554,88 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
   });
   assert.equal(explicitReadExactSource.structuredOutputEnvelope.kind, "unsupported");
   assert.equal(explicitReadExactSource.structuredOutputObservation, false);
+
+  const zeroExitSingleDocumentRow =
+    '{"exit_code":0,"wall_time":"0.0510 seconds","output":"docs/guide.md:17:Test failed is documented here..."}';
+  for (const toolFamily of ["bash", "exec_command", "run_shell_command"]) {
+    const signal = readTaskFailureSemanticSignals({
+      summary: zeroExitSingleDocumentRow,
+      toolFamily,
+    });
+    assert.equal(signal.structuredOutputEnvelope.kind, "valid");
+    assert.equal(
+      signal.structuredOutputSingleListingObservation,
+      true,
+      `${toolFamily} owns zero-exit single document rows`,
+    );
+    assert.equal(signal.structuredOutputObservation, true);
+    assert.equal(signal.structuredOutputSourceObservation, false);
+  }
+  assert.equal(
+    readTaskFailureSemanticSignals({
+      summary: JSON.stringify({
+        exit_code: 0,
+        wall_time: "0.0510 seconds",
+        output: "Bash failure docs/guide.md:17:Test failed is documented here...",
+      }),
+      toolFamily: "bash",
+    }).structuredOutputSingleListingObservation,
+    true,
+    "single listing status-prefix stripping is case-insensitive",
+  );
+
+  const zeroExitSingleSourceRow = readTaskFailureSemanticSignals({
+    summary:
+      '{"exit_code":0,"wall_time":"0.0510 seconds","output":"src/runtime/trap_handler.s:71:.set TTMP6_SPI_TTMPS_SETUP_DISABLED_SHIFT , 31...',
+    toolFamily: "bash",
+  });
+  assert.equal(zeroExitSingleSourceRow.structuredOutputSingleListingObservation, true);
+  assert.equal(zeroExitSingleSourceRow.structuredOutputSourceObservation, true);
+
+  for (const [summary, expectedObservation] of [
+    [
+      JSON.stringify({
+        exit_code: 0,
+        wall_time: "0.0510 seconds",
+        output: "=== Testing exception formatting === All exception formatting tests passed!",
+      }),
+      true,
+    ],
+    [
+      JSON.stringify({
+        exit_code: 0,
+        wall_time: "0.0510 seconds",
+        output: "/repo/test_nunchaku/quantize.py:34: UserWarning: test failed is documented here",
+      }),
+      false,
+    ],
+  ] as const) {
+    const signal = readTaskFailureSemanticSignals({ summary, toolFamily: "bash" });
+    assert.equal(signal.structuredOutputObservation, expectedObservation);
+    assert.equal(
+      signal.structuredOutputSingleListingObservation,
+      false,
+      "pre-existing owned payload shapes do not borrow the single-listing signal",
+    );
+  }
+
+  for (const [toolFamily, summary] of [
+    ["edit", zeroExitSingleDocumentRow],
+    ["opaque_runner", zeroExitSingleDocumentRow],
+    [undefined, zeroExitSingleDocumentRow],
+    ["bash", '{"exit_code":0,"wall_time":"0.0510 seconds","output":"# Heading..."}'],
+    [
+      "bash",
+      '{"exit_code":0,"wall_time":"0.0510 seconds","output":"docs/guide.md:17:Build notes...\\nextra prose',
+    ],
+  ] as const) {
+    const signal = readTaskFailureSemanticSignals({ summary, toolFamily });
+    assert.equal(
+      signal.structuredOutputSingleListingObservation,
+      false,
+      `${toolFamily ?? "missing tool"} does not own a single-row listing exception for ${summary}`,
+    );
+  }
 
   const missingToolTruncatedEnvelope = readTaskFailureSemanticSignals({
     summary:
@@ -788,6 +1001,150 @@ test("task failure evidence applies terminal evidence before positive observatio
   assert.equal(evidence?.consequenceBaseline, "high");
 });
 
+test("task failure evidence treats complete no-output nonzero command exits as medium consequence", () => {
+  for (const [id, title, toolFamily, summary] of [
+    ["no-output-command-exit", "bash failure", "bash", "(no output) Command exited with code 1"],
+    [
+      "exec-command-exit",
+      "exec_command failure",
+      "exec_command",
+      "(no output) Command exited with code 1",
+    ],
+    [
+      "run-shell-command-exit",
+      "run_shell_command failure",
+      "run_shell_command",
+      "No stdout no stderr command failed with non-zero exit",
+    ],
+  ] as const) {
+    const evidence = readTaskFailureSemanticEvidence({
+      id: `evt:evidence:${id}`,
+      taskId: `task:evidence:${id}`,
+      timestamp,
+      type: "task.updated",
+      title,
+      summary,
+      status: "failed",
+      toolFamily,
+    });
+
+    assert.equal(looksLikeBareNonzeroTerminalExitEvidence(summary), true);
+    assert.equal(evidence?.kind, "terminal_failure");
+    assert.equal(evidence?.failureDetail, "outcome_only");
+    assert.equal(evidence?.terminalShape, "bare_nonzero_exit");
+    assert.equal(evidence?.readsAsObservation, false);
+    assert.equal(evidence?.consequenceBaseline, "medium");
+  }
+});
+
+test("task failure evidence keeps incomplete raw nonzero exits high consequence", () => {
+  for (const [id, title, toolFamily, summary] of [
+    ["plain-process-exit", "bash failure", "bash", "Process exited with code 2."],
+    [
+      "unqualified-nonzero-exit",
+      "run_shell_command failure",
+      "run_shell_command",
+      "Command failed with non-zero exit",
+    ],
+    ["single-channel-note", "bash failure", "bash", "No stderr command exited with code 1"],
+  ] as const) {
+    const evidence = readTaskFailureSemanticEvidence({
+      id: `evt:evidence:${id}`,
+      taskId: `task:evidence:${id}`,
+      timestamp,
+      type: "task.updated",
+      title,
+      summary,
+      status: "failed",
+      toolFamily,
+    });
+
+    assert.equal(looksLikeBareNonzeroTerminalExitEvidence(summary), false);
+    assert.equal(evidence?.kind, "terminal_failure");
+    assert.notEqual(evidence?.failureDetail, "outcome_only");
+    assert.equal(evidence?.terminalShape, undefined);
+    assert.equal(evidence?.readsAsObservation, false);
+    assert.equal(evidence?.consequenceBaseline, "high");
+  }
+});
+
+test("task failure evidence treats complete structured nonzero no-output envelopes as outcome-only", () => {
+  for (const [id, toolFamily, output] of [
+    ["bash-no-output", "bash", "(no output)"],
+    ["exec-command-no-stdout-stderr", "exec_command", "no stdout no stderr"],
+    ["unknown-exact-no-output", undefined, "No output."],
+  ] as const) {
+    const evidence = readTaskFailureSemanticEvidence({
+      id: `evt:evidence:${id}`,
+      taskId: `task:evidence:${id}`,
+      timestamp,
+      type: "task.updated",
+      title: `${toolFamily ?? "tool"} failure`,
+      summary: JSON.stringify({ exit_code: 1, wall_time: "0.0510 seconds", output }),
+      status: "failed",
+      ...(toolFamily !== undefined ? { toolFamily } : {}),
+    });
+
+    assert.equal(evidence?.kind, "terminal_failure");
+    assert.equal(evidence?.failureDetail, "outcome_only");
+    assert.equal(evidence?.terminalShape, undefined);
+    assert.equal(evidence?.readsAsObservation, false);
+    assert.equal(evidence?.consequenceBaseline, "medium");
+  }
+});
+
+test("task failure evidence keeps incomplete structured nonzero exits indeterminate", () => {
+  for (const [id, summary] of [
+    ["recovered-no-output", '{"exit_code":1,"wall_time":"0.0510 seconds","output":"(no output)'],
+    [
+      "marked-truncated-no-output",
+      '{"exit_code":1,"wall_time":"0.0510 seconds","output":"(no output)","truncated":true}',
+    ],
+    ["substantive-unknown-output", '{"exit_code":1,"wall_time":"0.0510 seconds","output":"ok"}'],
+    ["single-channel-note", '{"exit_code":1,"wall_time":"0.0510 seconds","output":"no stderr"}'],
+  ] as const) {
+    const evidence = readTaskFailureSemanticEvidence({
+      id: `evt:evidence:${id}`,
+      taskId: `task:evidence:${id}`,
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary,
+      status: "failed",
+      toolFamily: "bash",
+    });
+
+    assert.equal(evidence?.kind, "terminal_failure");
+    assert.equal(evidence?.failureDetail, "indeterminate");
+    assert.equal(evidence?.consequenceBaseline, "high");
+  }
+});
+
+test("task failure evidence keeps diagnostic nonzero command exits high consequence", () => {
+  for (const [id, summary] of [
+    ["deployment-error", "Error: deployment failed with exit code 1."],
+    ["failed-tests", "Tests failed. Process exited with code 1."],
+    ["traceback", "Traceback (most recent call last): RuntimeError. Command exited with code 1."],
+  ] as const) {
+    const evidence = readTaskFailureSemanticEvidence({
+      id: `evt:evidence:${id}`,
+      taskId: `task:evidence:${id}`,
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary,
+      status: "failed",
+      toolFamily: "bash",
+    });
+
+    assert.equal(looksLikeBareNonzeroTerminalExitEvidence(summary), false);
+    assert.equal(evidence?.kind, "terminal_failure");
+    assert.equal(evidence?.failureDetail, "diagnostic");
+    assert.equal(evidence?.terminalShape, undefined);
+    assert.equal(evidence?.consequenceBaseline, "high");
+  }
+});
+
 test("task failure evidence separates zero exit and expected diagnostics from terminal failures", () => {
   assert.deepEqual(
     readTaskFailureSemanticEvidence({
@@ -1103,6 +1460,7 @@ test("task failure evidence classifies structured tool output without treating i
     }),
     {
       kind: "unclassified_failure",
+      failureDetail: "indeterminate",
       toolFamily: "bash",
       readsAsObservation: false,
       consequenceBaseline: "high",
@@ -1165,6 +1523,22 @@ test("task failure evidence classifies structured tool output without treating i
 
   assert.equal(truncatedExecCommandSourceOutput?.kind, "structured_tool_output_observation");
   assert.equal(truncatedExecCommandSourceOutput.toolFamily, "exec_command");
+  const quotedWarningUnqualifiedStructuredLinterOutput = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:quoted-warning-unqualified-structured-linter-output",
+    taskId: "task:evidence:quoted-warning-unqualified-structured-linter-output",
+    timestamp,
+    type: "task.updated",
+    title: "bash failure",
+    summary: JSON.stringify({
+      wall_time: "0.0510 seconds",
+      output:
+        'logger.warning("foo.yaml 1:1 warning fixture (rule)") lint output: foo.yaml 1:1 missing document start (document-start)',
+    }),
+    status: "failed",
+    toolFamily: "bash",
+  });
+  assert.equal(quotedWarningUnqualifiedStructuredLinterOutput?.kind, "unclassified_failure");
+  assert.equal(quotedWarningUnqualifiedStructuredLinterOutput.readsAsObservation, false);
   const rawCommandDiff = [
     "diff --git a/src/app.ts b/src/app.ts",
     "index abcdef1..abcdef2 100644",
@@ -1277,6 +1651,44 @@ test("task failure evidence classifies structured tool output without treating i
     "low",
     "successful raw command test output should remain low-consequence observation evidence",
   );
+  const ginkgoProgressOutput =
+    "Running Suite: GCN3 Timing Simulator - /repo/amd/timing/cu\n" +
+    "=====================================================================\n" +
+    "Random Seed: \u001b[1m1776087919\u001b[0m\n" +
+    "Will run \u001b[1m152\u001b[0m of \u001b[1m152\u001b[0m specs\n" +
+    "\u001b[38;5;10m\u2022\u001b[0m";
+  const rawCommandGinkgoProgress = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:raw-command-ginkgo-progress",
+    taskId: "task:evidence:raw-command-ginkgo-progress",
+    timestamp,
+    type: "task.updated",
+    title: "bash failure",
+    summary: ginkgoProgressOutput,
+    status: "failed",
+    toolFamily: "bash",
+  });
+  assert.equal(rawCommandGinkgoProgress?.kind, "observational_payload");
+  assert.equal(rawCommandGinkgoProgress.toolFamily, "bash");
+  assert.equal(rawCommandGinkgoProgress.readsAsObservation, true);
+  assert.equal(
+    rawCommandGinkgoProgress.consequenceBaseline,
+    "medium",
+    "test runner progress without visible diagnostics is a bounded observation, not success",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-ginkgo-failure",
+      taskId: "task:evidence:raw-command-ginkgo-failure",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: `${ginkgoProgressOutput}\nFailure [0.001 seconds]\nExpected true to be false`,
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "Ginkgo progress output with visible failure diagnostics remains terminal",
+  );
   const rawCommandWarning =
     "/repo/venv/lib/python3.13/site-packages/pkg/__init__.py:167: UserWarning: The program was compiled against version 1 but the installed version is different...";
   assert.equal(
@@ -1306,6 +1718,40 @@ test("task failure evidence classifies structured tool output without treating i
     })?.kind,
     "terminal_failure",
     "command warning readbacks do not override explicit error diagnostics",
+  );
+  for (const [id, diagnostic] of [
+    ["windows-error", String.raw`C:\repo\app.ts:33: error: no matching function`],
+    ["windows-fatal", String.raw`C:\repo\app.ts:33: fatal: missing header`],
+  ] as const) {
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:raw-command-warning-with-${id}`,
+        taskId: `task:evidence:raw-command-warning-with-${id}`,
+        timestamp,
+        type: "task.updated",
+        title: "bash failure",
+        summary: `${String.raw`C:\repo\pkg.py:167: UserWarning: compiled version mismatch...`}\n${diagnostic}`,
+        status: "failed",
+        toolFamily: "bash",
+      })?.kind,
+      "terminal_failure",
+      `Windows command warnings do not override ${id} diagnostics`,
+    );
+  }
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:quoted-raw-command-warning-readback",
+      taskId: "task:evidence:quoted-raw-command-warning-readback",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        'logger.info("\\n/repo/pkg.py:167: UserWarning: fixture warning\\n")\ntruncated output...',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "quoted command warnings must not become medium-consequence command readbacks",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -1759,6 +2205,86 @@ test("task failure evidence classifies structured tool output without treating i
     })?.kind,
     "terminal_failure",
     "structured failed tests should be terminal",
+  );
+  const structuredGinkgoProgress = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:structured-ginkgo-progress",
+    taskId: "task:evidence:structured-ginkgo-progress",
+    timestamp,
+    type: "task.updated",
+    title: "bash failure",
+    summary: JSON.stringify({
+      wall_time: "0.0510 seconds",
+      output: ginkgoProgressOutput,
+    }),
+    status: "failed",
+    toolFamily: "bash",
+  });
+  assert.equal(structuredGinkgoProgress?.kind, "structured_tool_output_observation");
+  assert.equal(structuredGinkgoProgress.toolFamily, "bash");
+  assert.equal(structuredGinkgoProgress.readsAsObservation, true);
+  assert.equal(
+    structuredGinkgoProgress.consequenceBaseline,
+    "medium",
+    "structured test runner progress is a medium observation, not terminal failure evidence",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-pytest-progress",
+      taskId: "task:evidence:structured-pytest-progress",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: JSON.stringify({
+        wall_time: "0.0510 seconds",
+        output:
+          "============================= test session starts ==============================\n" +
+          "platform linux -- Python 3.10.15, pytest-8.3.4, pluggy-1.5.0 -- /opt/bin/python\n" +
+          "cachedir: .pytest_cache\nrootdir: /testbed\ncollected 122 items",
+      }),
+      status: "failed",
+      toolFamily: "bash",
+    })?.consequenceBaseline,
+    "medium",
+    "structured pytest session progress is observational without requiring a final pass summary",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:structured-pytest-progress-with-failure",
+      taskId: "task:evidence:structured-pytest-progress-with-failure",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: JSON.stringify({
+        wall_time: "0.0510 seconds",
+        output:
+          "============================= test session starts ==============================\n" +
+          "platform linux -- Python 3.10.15, pytest-8.3.4, pluggy-1.5.0 -- /opt/bin/python\n" +
+          "collected 2 items\ntest_parser.py::test_parse FAILED",
+      }),
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "pytest progress with visible failed test status remains terminal",
+  );
+  const missingToolPytestProgress = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:missing-tool-pytest-progress",
+    taskId: "task:evidence:missing-tool-pytest-progress",
+    timestamp,
+    type: "task.updated",
+    title: "tool failure",
+    summary:
+      "OBSERVATION: ============================= test session starts ==============================\n" +
+      "platform linux -- Python 3.10.15, pytest-8.3.4, pluggy-1.5.0 -- /opt/bin/python\n" +
+      "cachedir: .pytest_cache\nrootdir: /testbed\ncollected 122 items",
+    status: "failed",
+  });
+  assert.equal(missingToolPytestProgress?.kind, "observational_payload");
+  assert.equal(missingToolPytestProgress.readsAsObservation, true);
+  assert.equal(
+    missingToolPytestProgress.consequenceBaseline,
+    "medium",
+    "explicit test-runner observation transcripts do not require tool-family evidence",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -2885,8 +3411,106 @@ test("task failure evidence classifies structured tool output without treating i
       status: "failed",
       toolFamily: "bash",
     })?.kind,
-    "unclassified_failure",
-    "zero-exit metadata does not promote one listing row",
+    "structured_tool_output_observation",
+    "zero-exit command metadata can promote one listing row to observation",
+  );
+  const documentedIssueRow = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:truncated-zero-exit-single-documented-issue",
+    taskId: "task:evidence:truncated-zero-exit-single-documented-issue",
+    timestamp,
+    type: "task.updated",
+    title: "bash failure",
+    summary:
+      '{"exit_code":0,"wall_time":"0.0510 seconds","output":"docs/guide.md:17:Test failed is documented here...',
+    status: "failed",
+    toolFamily: "bash",
+  });
+  assert.equal(documentedIssueRow?.kind, "structured_tool_output_observation");
+  assert.equal(documentedIssueRow?.consequenceBaseline, "medium");
+  for (const [id, output] of [
+    ["test-failed-row", "reports/results.txt:17:Test failed: expected 1, got 2..."],
+    ["tests-failed-row", "reports/results.txt:17:Tests failed..."],
+    ["build-failed-row", "docs/results.md:17:Build failed: missing artifact..."],
+    ["assertion-error-row", "tests/test_parser.py:17:AssertionError: expected output..."],
+    ["unhandled-exception-row", "src/app.ts:17:Unhandled exception: boom..."],
+    ["failed-marker-row", "reports/results.txt:17:FAILED tests/test_parser.py::test_parse..."],
+  ] as const) {
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:truncated-zero-exit-single-${id}`,
+        taskId: `task:evidence:truncated-zero-exit-single-${id}`,
+        timestamp,
+        type: "task.updated",
+        title: "bash failure",
+        summary: JSON.stringify({ exit_code: 0, wall_time: "0.0510 seconds", output }),
+        status: "failed",
+        toolFamily: "bash",
+      })?.kind,
+      "terminal_failure",
+      `zero-exit single listing row does not override direct diagnostic body: ${output}`,
+    );
+  }
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-zero-exit-single-source-location",
+      taskId: "task:evidence:truncated-zero-exit-single-source-location",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"exit_code":0,"wall_time":"0.0510 seconds","output":"src/runtime/trap_handler.s:71:.set TTMP6_SPI_TTMPS_SETUP_DISABLED_SHIFT , 31...',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "structured_tool_output_observation",
+    "zero-exit command metadata can promote one source-location row to observation",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-zero-exit-single-row-plus-prose",
+      taskId: "task:evidence:truncated-zero-exit-single-row-plus-prose",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"exit_code":0,"wall_time":"0.0510 seconds","output":"docs/guide.md:17:Test failed is documented here...\\nextra prose',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "zero-exit single-row exception consumes the whole visible payload",
+  );
+  for (const toolFamily of ["edit", "opaque_runner"] as const) {
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:${toolFamily}-zero-exit-single-row`,
+        taskId: `task:evidence:${toolFamily}-zero-exit-single-row`,
+        timestamp,
+        type: "task.updated",
+        title: `${toolFamily} failure`,
+        summary:
+          '{"exit_code":0,"wall_time":"0.0510 seconds","output":"docs/guide.md:17:Test failed is documented here...',
+        status: "failed",
+        toolFamily,
+      })?.kind,
+      "terminal_failure",
+      `${toolFamily} does not receive the command-owned single-row exception`,
+    );
+  }
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:truncated-zero-exit-single-diagnostic-location",
+      taskId: "task:evidence:truncated-zero-exit-single-diagnostic-location",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        '{"exit_code":0,"wall_time":"0.0510 seconds","output":"src/runtime/trap_handler.s:71: error: invalid operand...',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "zero-exit single listing rows do not override visible diagnostics",
   );
   assert.equal(
     readTaskFailureSemanticEvidence({
@@ -5224,6 +5848,18 @@ test("explicit observation transcripts classify only narrow low-consequence subc
     shape: "abbreviated_file_view",
     consequenceBaseline: "low",
   });
+  assert.deepEqual(readExplicitObservationTranscript(proceduralHarnessObservationTranscript), {
+    shape: "procedural_harness_observation",
+    consequenceBaseline: "low",
+  });
+  for (const summary of [
+    mixedProceduralFailureObservationTranscript,
+    "OBSERVATION: Please follow the checks below. The verification command timed out after 60 seconds. Run the reproduction script again before submitting.",
+    "OBSERVATION: Please follow the steps below. The reproduction command returned nonzero and needs another pass. Rerun the reproduction command after changes.",
+    "OBSERVATION: Please follow the steps below. The reproduction script reported permission denied. Rerun the reproduction script after fixing access.",
+  ]) {
+    assert.equal(readExplicitObservationTranscript(summary), null);
+  }
   assert.deepEqual(
     readExplicitObservationTranscript(
       "OBSERVATION: Here's the result of running `cat -n` on /testbed/yamllint/cli.py: 1 #!/usr/bin/env python3 2 import sys",
@@ -5236,6 +5872,24 @@ test("explicit observation transcripts classify only narrow low-consequence subc
   assert.deepEqual(
     readExplicitObservationTranscript(
       'OBSERVATION: Running yamllint... ./normal.yaml 1:1 warning missing document start "---" (document-start) ./dupe.yaml 2:4 warning wrong indentation (indentation)',
+    ),
+    {
+      shape: "existing_observation",
+      consequenceBaseline: "high",
+    },
+  );
+  assert.deepEqual(
+    readExplicitObservationTranscript(
+      'OBSERVATION: Running yamllint... ./.yamllint 1:1 warning missing document start "---" (document-start) ./normal.yaml 1:1 warning missing document start "---" (document-start) ./ign-dup/duplicates.yaml 1:1 warning missing document start "---" (document-start) ...',
+    ),
+    {
+      shape: "existing_observation",
+      consequenceBaseline: "high",
+    },
+  );
+  assert.deepEqual(
+    readExplicitObservationTranscript(
+      'OBSERVATION: logger.error("foo.yaml 1:1 error fixture (rule)") ./normal.yaml 1:1 warning missing document start "---" (document-start) ./dupe.yaml 2:4 warning wrong indentation (indentation)',
     ),
     {
       shape: "existing_observation",
@@ -5335,6 +5989,8 @@ test("explicit observation transcripts classify only narrow low-consequence subc
       "OBSERVATION: According to the docs:\nReceived stderr:\nTraceback (most recent call last):\nRuntimeError: actual failure",
       true,
     ],
+    ["OBSERVATION: Actual output:\nExceptionGroup: Group of errors (2 sub-exceptions)", true],
+    [mixedProceduralFailureObservationTranscript, true],
     [
       "OBSERVATION: Expected output: foo.ts 1:2 error fixture text (rule) Actual output: bar.ts 3:4 error actual failure (rule)",
       true,
@@ -5417,6 +6073,14 @@ test("explicit observation transcripts classify only narrow low-consequence subc
     ['OBSERVATION: test.yaml 1:1 warning missing document start "---" (document-start)', false],
     [
       "OBSERVATION: Expected output: test.yaml 1:1 error missing document end (document-end)",
+      false,
+    ],
+    [
+      "OBSERVATION: Testing _quote_match function: quote_type='single' -> True (should be True) quote_type='double' -> False (should be False) ...",
+      false,
+    ],
+    [
+      "OBSERVATION: Expected output: File created successfully at: /testbed/reproduce_error.py",
       false,
     ],
     ["OBSERVATION: Expected results: src/a.ts:1:2: [error] first problem (rule-a)", false],
@@ -5543,6 +6207,7 @@ test("explicit observation transcripts classify only narrow low-consequence subc
       'OBSERVATION: Expected output: diagnostic\nActual output:\nRuntimeError("fixture failure")',
       false,
     ],
+    ["OBSERVATION: Expected output:\nExceptionGroup: Group of errors (2 sub-exceptions)", false],
     ['OBSERVATION: Received output:\nRuntimeError("fixture failure")', false],
     ['OBSERVATION: process.stdout.write("foo.yaml 1:1 error bad value (rule)")', false],
   ]) {
@@ -5578,6 +6243,8 @@ test("explicit observation transcripts classify only narrow low-consequence subc
     assert.equal(readExplicitObservationTranscript(summary)?.shape, "existing_observation");
     assert.equal(looksLikeExplicitDiagnosticObservationTranscript(summary), false);
   }
+  assert.equal(readExplicitObservationTranscript(editMissObservationTranscript), null);
+  assert.equal(readExplicitObservationTranscript(failingTestObservationTranscript), null);
 });
 
 test("task failure evidence classifies explicit missing-tool observation transcripts", () => {
@@ -5596,6 +6263,60 @@ test("task failure evidence classifies explicit missing-tool observation transcr
   assert.equal(catReadback.readsAsObservation, true);
   assert.equal(catReadback.consequenceBaseline, "high");
   assert.equal(catReadback.toolFamily, undefined);
+  const flattenedYamllint = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:missing-tool-flattened-yamllint-observation",
+    taskId: "task:evidence:missing-tool-flattened-yamllint-observation",
+    timestamp,
+    type: "task.updated",
+    title: "tool failure",
+    summary:
+      'OBSERVATION: Running yamllint... ./.yamllint 1:1 warning missing document start "---" (document-start) ./normal.yaml 1:1 warning missing document start "---" (document-start) ./ign-dup/duplicates.yaml 1:1 warning missing document start "---" (document-start) ...',
+    status: "failed",
+  });
+  assert.equal(flattenedYamllint?.kind, "observational_payload");
+  assert.equal(flattenedYamllint.readsAsObservation, true);
+  assert.equal(flattenedYamllint.consequenceBaseline, "high");
+  assert.equal(flattenedYamllint.toolFamily, undefined);
+  const quotedErrorYamllint = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:missing-tool-quoted-error-yamllint-observation",
+    taskId: "task:evidence:missing-tool-quoted-error-yamllint-observation",
+    timestamp,
+    type: "task.updated",
+    title: "tool failure",
+    summary:
+      'OBSERVATION: logger.error("foo.yaml 1:1 error fixture (rule)") ./normal.yaml 1:1 warning missing document start "---" (document-start) ./dupe.yaml 2:4 warning wrong indentation (indentation)',
+    status: "failed",
+  });
+  assert.equal(quotedErrorYamllint?.kind, "observational_payload");
+  assert.equal(quotedErrorYamllint.readsAsObservation, true);
+  assert.equal(quotedErrorYamllint.consequenceBaseline, "high");
+  assert.equal(quotedErrorYamllint.toolFamily, undefined);
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-apostrophe-yamllint-observation",
+      taskId: "task:evidence:missing-tool-apostrophe-yamllint-observation",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary:
+        'OBSERVATION: Here\'s yamllint output: ./.yamllint 1:1 warning missing document start "---" (document-start) ./normal.yaml 1:1 warning missing document start "---" (document-start) ...',
+      status: "failed",
+    })?.kind,
+    "observational_payload",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-possessive-yamllint-observation",
+      taskId: "task:evidence:missing-tool-possessive-yamllint-observation",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary:
+        'OBSERVATION: Developers\' lint output: ./normal.yaml 1:1 warning missing document start "---" (document-start)',
+      status: "failed",
+    })?.kind,
+    "observational_payload",
+  );
   assert.equal(
     readTaskFailureSemanticEvidence({
       id: "evt:evidence:missing-tool-edited-file-readback",
@@ -5629,6 +6350,7 @@ test("task failure evidence classifies explicit missing-tool observation transcr
     ["repeated-success", repeatedSuccessfulTestObservationTranscript],
     ["no-problems-result", noProblemsResultObservationTranscript],
     ["abbreviated-file-view", abbreviatedFileViewObservationTranscript],
+    ["procedural-harness", proceduralHarnessObservationTranscript],
     [
       "command-success",
       'OBSERVATION: Running yamllint... Output: ./normal.yaml 1:1 warning missing document start "---" (document-start) Test PASSED: expected warnings were reported.',
@@ -5754,6 +6476,130 @@ test("task failure evidence classifies explicit missing-tool observation transcr
     })?.kind,
     "terminal_failure",
     "CLI parse diagnostics are terminal and not downgraded by missing-tool observation recovery",
+  );
+  const missingToolExceptionGroup = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:missing-tool-exception-group-observation",
+    taskId: "task:evidence:missing-tool-exception-group-observation",
+    timestamp,
+    type: "task.updated",
+    title: "tool failure",
+    summary: "OBSERVATION: exceptiongroup.ExceptionGroup: Group of errors (2 sub-exceptions)",
+    status: "failed",
+  });
+  assert.equal(missingToolExceptionGroup?.kind, "terminal_failure");
+  assert.equal(missingToolExceptionGroup?.failureDetail, "diagnostic");
+  assert.equal(missingToolExceptionGroup?.consequenceBaseline, "high");
+  const missingToolFileCreated = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:missing-tool-file-created-observation",
+    taskId: "task:evidence:missing-tool-file-created-observation",
+    timestamp,
+    type: "task.updated",
+    title: "tool failure",
+    summary: "OBSERVATION: File created successfully at: /testbed/exception_test.py",
+    status: "failed",
+  });
+  assert.equal(missingToolFileCreated?.kind, "operation_success_observation");
+  assert.equal(missingToolFileCreated?.readsAsObservation, true);
+  assert.equal(missingToolFileCreated?.consequenceBaseline, "low");
+  const missingToolFileEdited = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:missing-tool-file-edited-observation",
+    taskId: "task:evidence:missing-tool-file-edited-observation",
+    timestamp,
+    type: "task.updated",
+    title: "tool failure",
+    summary: "OBSERVATION: The file /testbed/traceback_failed_error.py has been edited.",
+    status: "failed",
+  });
+  assert.equal(missingToolFileEdited?.kind, "operation_success_observation");
+  assert.equal(missingToolFileEdited?.readsAsObservation, true);
+  assert.equal(missingToolFileEdited?.consequenceBaseline, "low");
+  for (const [id, summary] of [
+    ["edit-miss", editMissObservationTranscript],
+    ["failing-test", failingTestObservationTranscript],
+  ] as const) {
+    assert.notEqual(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:missing-tool-${id}`,
+        taskId: `task:evidence:missing-tool-${id}`,
+        timestamp,
+        type: "task.updated",
+        title: "tool failure",
+        summary,
+        status: "failed",
+      })?.kind,
+      "observational_payload",
+    );
+  }
+  for (const toolFamily of ["bash", "exec_command"] as const) {
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:${toolFamily}-file-created-observation`,
+        taskId: `task:evidence:${toolFamily}-file-created-observation`,
+        timestamp,
+        type: "task.updated",
+        title: `${toolFamily} failure`,
+        summary: "OBSERVATION: File created successfully at: /testbed/exception_test.py",
+        status: "failed",
+        toolFamily,
+      })?.kind,
+      "unclassified_failure",
+      `${toolFamily} failures must not soften from operation-success text alone`,
+    );
+  }
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:unenveloped-file-created-observation",
+      taskId: "task:evidence:unenveloped-file-created-observation",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary: "File created successfully at: /testbed/exception_test.py",
+      status: "failed",
+    })?.kind,
+    "unclassified_failure",
+    "missing-tool operation success requires the explicit observation envelope",
+  );
+  for (const [id, summary] of [
+    [
+      "expected-exception-group-reference",
+      "OBSERVATION: Expected output:\nExceptionGroup: Group of errors (2 sub-exceptions)",
+    ],
+    [
+      "sample-exception-group-reference",
+      "OBSERVATION: Sample output:\nExceptionGroup: Group of errors (2 sub-exceptions)",
+    ],
+    [
+      "reference-exception-group-reference",
+      "OBSERVATION: Reference diagnostics:\nExceptionGroup: Group of errors (2 sub-exceptions)",
+    ],
+  ] as const) {
+    assert.equal(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:${id}`,
+        taskId: `task:evidence:${id}`,
+        timestamp,
+        type: "task.updated",
+        title: "tool failure",
+        summary,
+        status: "failed",
+      })?.kind,
+      "unclassified_failure",
+      `${id} must not become terminal diagnostic evidence`,
+    );
+  }
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:expected-file-created-reference",
+      taskId: "task:evidence:expected-file-created-reference",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary:
+        "OBSERVATION: Expected output: File created successfully at: /testbed/exception_test.py",
+      status: "failed",
+    })?.kind,
+    "unclassified_failure",
+    "expected file-created output must not become operation-success evidence",
   );
   for (const [id, summary, kind] of [
     [
@@ -6415,6 +7261,14 @@ test("observational status-conflict evidence includes structural read documents 
       'import os import sys from functools import lru_cache from typing import Optional import torch from torch.utils.cpp_extension import load_inline import time @lru_cache(maxsize=1) def _load_hip_extension(): source_path = os.path.join(os.path.dirname(__file__), "kernel.cpp")...',
     ],
     [
+      "read-owned-flattened-markdown-instructions",
+      "# Review Steps Please import the class and return to the review instructions. ## Notes - Use the requested output format - Do not edit unrelated files...",
+    ],
+    [
+      "read-owned-unclipped-ts-config-like-text",
+      'options: params.options.map((o) => o.label), answer: null, details: { type: "question" } as QuestionDetails',
+    ],
+    [
       "read-owned-flattened-review-instructions",
       "Please import the class and return to the review instructions before editing the file...",
     ],
@@ -6521,6 +7375,83 @@ test("observational status-conflict evidence includes structural read documents 
     "observational_payload",
     "arrow-numbered markdown readbacks should reuse document structure rules",
   );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:read-flattened-ts-file-start-source",
+      taskId: "task:evidence:read-flattened-ts-file-start-source",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        '/** * Interactive mode for the coding agent. * Handles TUI rendering and user interaction. */ import * as crypto from "node:crypto"; import * as fs from "node:fs"; import * as os from "node:os";...',
+      status: "failed",
+      toolFamily: "read",
+    })?.consequenceBaseline,
+    "high",
+    "read-owned flattened file-start TypeScript source should stay source-level",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:read-flattened-ts-mid-file-source",
+      taskId: "task:evidence:read-flattened-ts-mid-file-source",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        'options: params.options.map((o) => (typeof o === "string" ? o : o.label)), answer: null, details: { content: [{ type: "text", text: "Error: No options provided" }] } as QuestionDetails, if (params.options.length === 0) { return ...',
+      status: "failed",
+      toolFamily: "read",
+    })?.consequenceBaseline,
+    "high",
+    "read-owned flattened mid-file TypeScript source requires multiple syntax families",
+  );
+  assert.deepEqual(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:read-flattened-markdown-technical-document",
+      taskId: "task:evidence:read-flattened-markdown-technical-document",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "# @mariozechner/pi-tui Minimal terminal UI framework with differential rendering and synchronized output for interactive CLI applications. ## Features - **Differential Rendering**: Three-strategy rendering system - **Components**: Reusable terminal widgets...",
+      status: "failed",
+      toolFamily: "read",
+    })?.consequenceBaseline,
+    "medium",
+    "read-owned flattened markdown technical documents should be medium observations",
+  );
+  for (const [id, summary, toolFamily] of [
+    [
+      "bash-flattened-ts-mid-file-source-stays-failure",
+      'options: params.options.map((o) => (typeof o === "string" ? o : o.label)), answer: null, details: { content: [{ type: "text", text: "Error: No options provided" }] } as QuestionDetails, if (params.options.length === 0) { return ...',
+      "bash",
+    ],
+    [
+      "bash-flattened-markdown-technical-document-stays-failure",
+      "# @mariozechner/pi-tui Minimal terminal UI framework with differential rendering and synchronized output for interactive CLI applications. ## Features - **Differential Rendering**: Three-strategy rendering system - **Components**: Reusable terminal widgets...",
+      "bash",
+    ],
+    [
+      "missing-tool-flattened-markdown-technical-document-stays-failure",
+      "# @mariozechner/pi-tui Minimal terminal UI framework with differential rendering and synchronized output for interactive CLI applications. ## Features - **Differential Rendering**: Three-strategy rendering system - **Components**: Reusable terminal widgets...",
+      undefined,
+    ],
+  ] as const) {
+    assert.notEqual(
+      readTaskFailureSemanticEvidence({
+        id: `evt:evidence:${id}`,
+        taskId: `task:evidence:${id}`,
+        timestamp,
+        type: "task.updated",
+        title: `${toolFamily ?? "tool"} failure`,
+        summary,
+        status: "failed",
+        ...(toolFamily !== undefined ? { toolFamily } : {}),
+      })?.kind,
+      "observational_payload",
+      `${id} should not inherit read-owned flattened file grammar`,
+    );
+  }
   assert.equal(
     readTaskFailureSemanticEvidence({
       id: "evt:evidence:read-arrow-numbered-amd-manual-fragment",
@@ -6921,6 +7852,126 @@ test("observational status-conflict evidence includes corpus-derived event shape
     })?.consequenceBaseline,
     "high",
     "line-numbered source fragments require monotone source-shaped spans",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:recovered-line-numbered-technical-manual",
+      taskId: "task:evidence:recovered-line-numbered-technical-manual",
+      timestamp,
+      type: "task.updated",
+      title: "exec_command failure",
+      summary:
+        '{"wall_time":"0.0501 seconds","output":"2300\\t\\n 2301\\t3.4. Wave State Registers\\n 2302\\t\\n 2303\\t21 of 644\\n 2304\\t\\n 2305\\t\\n\\"RDNA3.5\\" Instruction Set Architecture\\n 2306\\t\\n 2307\\t3.4.2. Mode register\\n 2308\\t\\n 2309\\tMode register ...',
+      status: "failed",
+      toolFamily: "exec_command",
+    })?.consequenceBaseline,
+    "medium",
+    "recovered line-numbered technical manual snippets are owned observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:recovered-uppercase-shell-source",
+      taskId: "task:evidence:recovered-uppercase-shell-source",
+      timestamp,
+      type: "task.updated",
+      title: "exec_command failure",
+      summary:
+        '{"wall_time":"0.0515 seconds","output":"1\\t#!/bin/bash\\n 2\\tset -euo pipefail\\n 3\\t\\n 4\\tROOT_DIR=\\"$(cd \\\\\\"$(dirname \\\\\\"${BASH_SOURCE[0]}\\\\\\")\\\\\\" && pwd)\\"\\n 5\\tOUT_DIR=\\"${ROOT_DIR}/pc_sampling_test_out\\"\\n 6\\tLOG_ROOT=\\"${ROOT_DIR}/pc_samp...',
+      status: "failed",
+      toolFamily: "exec_command",
+    })?.consequenceBaseline,
+    "high",
+    "recovered clipped shell snippets recognize uppercase assignment source structure",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-flattened-python-source",
+      taskId: "task:evidence:raw-command-flattened-python-source",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        'import functools import os from pathlib import Path from torch.utils.cpp_extension import _import_module_from_library, load def get_rocm_lib_dirs() -> list[str]: rocm_lib_dirs = [] for env_var in ("ROCM_HOME", "ROCM_PATH"): rocm_home = o...',
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "observational_payload",
+    "explicit command-owned flattened source excerpts are observations",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-flattened-import-instructions",
+      taskId: "task:evidence:raw-command-flattened-import-instructions",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        "Please import the class and return to the review instructions before editing the file...",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "command-owned flattened source recognition rejects instructional prose",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-flattened-typescript-compiler-error",
+      taskId: "task:evidence:raw-command-flattened-typescript-compiler-error",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary:
+        "> check > tsgo --noEmit Checked 405 files in 233ms. No fixes applied. packages/coding-agent/examples/extensions/modal-editor.ts(83,50): error TS2554: Expected 2 arguments, but got 1...",
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "terminal_failure",
+    "flattened TypeScript compiler diagnostics stay terminal failures",
+  );
+
+  const clippedJavaScriptRuntimeSourceContextDiagnostic =
+    '/Users/badlogic/workspaces/pi-mono/node_modules/tsx/dist/register-D46fvsV_.cjs:3 `)},"createLog"),x=I(g.bgLightYellow(g.black(" CJS "))),ae=I(g.bgBlue(" ESM "));function createExtensions(){return new URLSearchParams()}...';
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:raw-command-clipped-js-runtime-source-context",
+      taskId: "task:evidence:raw-command-clipped-js-runtime-source-context",
+      timestamp,
+      type: "task.updated",
+      title: "bash failure",
+      summary: clippedJavaScriptRuntimeSourceContextDiagnostic,
+      status: "failed",
+      toolFamily: "bash",
+    })?.kind,
+    "unclassified_failure",
+    "clipped JavaScript runtime source context without visible diagnostics remains ambiguous",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-explicit-flattened-source-observation",
+      taskId: "task:evidence:missing-tool-explicit-flattened-source-observation",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary:
+        "OBSERVATION: def check(conf, token, prev, next, nextnext, context): if (conf['forbid'] is True and isinstance(token, yaml.FlowSequenceStartToken)): yield LintProblem(token.start_mark.line + 1, token.end_mark.column + 1, 'forbidden flow s...",
+      status: "failed",
+    })?.kind,
+    "observational_payload",
+    "explicit observation ownership can carry flattened source without inferring a tool family",
+  );
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:missing-tool-explicit-negative-edit-outcome",
+      taskId: "task:evidence:missing-tool-explicit-negative-edit-outcome",
+      timestamp,
+      type: "task.updated",
+      title: "tool failure",
+      summary:
+        "OBSERVATION: No replacement was performed, old_str `@singledispatch def format_exception( __exc: BaseException, limit: Optional[int] = None, chain: bool = True, ) -> List[str]: return list( PatchedTracebackException( type(__exc), __exc, ...",
+      status: "failed",
+    })?.kind,
+    "unclassified_failure",
+    "negative operation outcomes keep failure shape even when they quote source",
   );
   assert.deepEqual(
     readTaskFailureSemanticEvidence({
@@ -7497,6 +8548,14 @@ test("observational status-conflict evidence includes corpus-derived event shape
     [
       "arrow-numbered-prose",
       "1\u2192type the command into the terminal 2\u2192from the report, copy settings 3\u2192return later",
+    ],
+    [
+      "raw-read-flattened-import-instructions",
+      "Please import the class and return to the review instructions before editing the file...",
+    ],
+    [
+      "recovered-line-numbered-technical-prose-without-anchors",
+      '{"wall_time":"0.0510 seconds","output":"1\\tfirst step\\n2\\tsecond step\\n3\\tthird step\\n4\\tfourth step...',
     ],
     [
       "mixed-arrow-space-numbered-source",

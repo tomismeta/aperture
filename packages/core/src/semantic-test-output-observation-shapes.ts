@@ -1,7 +1,11 @@
 import { readSectionedTestOutputObservation } from "./semantic-test-result-section-shapes.js";
+import {
+  looksLikeTestRunnerFailureDiagnostic,
+  looksLikeTestRunnerProgress,
+} from "./semantic-test-runner-output-shapes.js";
 
 export type TestOutputObservation = {
-  consequenceBaseline: "low" | "high";
+  consequenceBaseline: "low" | "medium" | "high";
 };
 
 export function readTestOutputObservation(value: string): TestOutputObservation | null {
@@ -20,7 +24,9 @@ export function readTestOutputObservation(value: string): TestOutputObservation 
     looksLikePytestSuccess(text) ||
     looksLikeCommandTestSuccess(text)
     ? { consequenceBaseline: "low" }
-    : null;
+    : looksLikeTestRunnerProgress(text)
+      ? { consequenceBaseline: "medium" }
+      : null;
 }
 
 export function looksLikeSuccessfulTestOutputObservation(value: string): boolean {
@@ -28,14 +34,17 @@ export function looksLikeSuccessfulTestOutputObservation(value: string): boolean
 }
 
 export function looksLikeFailedTestOutputDiagnostic(value: string): boolean {
-  return [
-    /\bFAILED\s+\([^)]*\b(?:failures|errors)=[1-9]\d*/i,
-    /(?:^|[\r\n])\s*(?:FAIL|ERROR):\s+\S/i,
-    /\b(?:failures|errors)=[1-9]\d*\b/i,
-    /\b[1-9]\d*\s+failed\b/i,
-    /\b[1-9]\d*\s+errors?\b/i,
-    /(?:^|[\r\n])\s*=+\s*(?:FAILURES|ERRORS)\s*=+/i,
-  ].some((pattern) => pattern.test(value));
+  return (
+    looksLikeTestRunnerFailureDiagnostic(value) ||
+    [
+      /\bFAILED\s+\([^)]*\b(?:failures|errors)=[1-9]\d*/i,
+      /(?:^|[\r\n])\s*(?:FAIL|ERROR):\s+\S/i,
+      /\b(?:failures|errors)=[1-9]\d*\b/i,
+      /\b[1-9]\d*\s+failed\b/i,
+      /\b[1-9]\d*\s+errors?\b/i,
+      /(?:^|[\r\n])\s*=+\s*(?:FAILURES|ERRORS)\s*=+/i,
+    ].some((pattern) => pattern.test(value))
+  );
 }
 
 function looksLikeBannerTestSuccess(text: string): boolean {

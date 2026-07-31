@@ -1,6 +1,10 @@
 import type { ApertureEvent } from "./events.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
-import { readRoutineObservationalStatusConflictEvidence } from "./semantic-evidence.js";
+import {
+  readRoutineObservationalStatusConflictEvidence,
+  readTaskFailureSemanticEvidence,
+  type TaskFailureSemanticEvidence,
+} from "./semantic-evidence.js";
 import { projectAttentionOntologyDiagnosticWithStatusConflictEvidence } from "./semantic-ontology.js";
 import type { SemanticConfidence } from "./semantic-types.js";
 import type {
@@ -8,6 +12,7 @@ import type {
   CandidateSemanticEvidence,
   ObservationalStatusConflictEvidence,
   SemanticEvidenceStrength,
+  TaskFailureSemanticAgreement,
 } from "./judgment-input-types.js";
 import type {
   AttentionOntologyAuthority,
@@ -48,6 +53,10 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
   }
 
   const abstained = event.semantic.abstained === true;
+  const failureEvidence =
+    event.type === "task.updated" && event.status === "failed"
+      ? readTaskFailureSemanticEvidence(event)
+      : null;
   const observationalStatusConflict = readRoutineObservationalStatusConflictEvidence(
     event,
     event.semantic,
@@ -76,6 +85,23 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
           relationEvidence: {
             source: readSemanticRelationEvidenceSource(event.semantic),
             strength: deriveSemanticRelationEvidenceStrength(event.semantic, abstained),
+          },
+        }
+      : {}),
+    ...(failureEvidence !== null
+      ? {
+          failureEvidence: {
+            kind: failureEvidence.kind,
+            ...(failureEvidence.failureDetail !== undefined
+              ? { failureDetail: failureEvidence.failureDetail }
+              : {}),
+            consequenceBaseline: failureEvidence.consequenceBaseline,
+            semanticAgreement: readTaskFailureSemanticAgreement({
+              event,
+              failureEvidence,
+              ontology,
+              abstained,
+            }),
           },
         }
       : {}),
@@ -207,6 +233,20 @@ export function hasRoutineObservationalStatusConflictSemantics(
   return hasRoutineObservationalStatusConflictJudgmentInput(candidate.judgmentInput);
 }
 
+export function hasOutcomeOnlyFailureStatusSemantics(candidate: AttentionCandidate): boolean {
+  return hasOutcomeOnlyFailureStatusJudgmentInput(candidate.judgmentInput);
+}
+
+export function hasOutcomeOnlyFailureStatusJudgmentInput(
+  judgmentInput: AttentionJudgmentInput,
+): boolean {
+  return (
+    judgmentInput.failureEvidence?.kind === "terminal_failure" &&
+    judgmentInput.failureEvidence.failureDetail === "outcome_only" &&
+    judgmentInput.failureEvidence.semanticAgreement === "stable"
+  );
+}
+
 export function hasRoutineObservationalStatusConflictJudgmentInput(
   judgmentInput: AttentionJudgmentInput,
 ): boolean {
@@ -244,6 +284,68 @@ function readSemanticEvidenceStrengthFromParts(
     case "high":
       return source === "inferred" ? "qualified" : "strong";
   }
+}
+
+function readTaskFailureSemanticAgreement(input: {
+  event: ApertureEvent;
+  failureEvidence: TaskFailureSemanticEvidence;
+  ontology: AttentionOntologyDiagnostic;
+  abstained: boolean;
+}): TaskFailureSemanticAgreement {
+  const semantic = input.event.semantic;
+  if (
+    semantic === undefined ||
+    input.abstained ||
+    semantic.confidence === "low" ||
+    input.ontology.confidence === "low" ||
+    (input.failureEvidence.kind === "terminal_failure" &&
+      input.failureEvidence.failureDetail === "indeterminate")
+  ) {
+    return "uncertain";
+  }
+
+  if (hasFailureSemanticOverride(semantic.provenance)) {
+    return "overridden";
+  }
+
+  return failureEvidenceAgreesWithSemanticRead(input.failureEvidence, semantic, input.ontology)
+    ? "stable"
+    : "uncertain";
+}
+
+function hasFailureSemanticOverride(
+  provenance: NonNullable<ApertureEvent["semantic"]>["provenance"] | undefined,
+): boolean {
+  return (
+    provenance?.intentFrame === "hint" ||
+    provenance?.intentFrame === "source" ||
+    provenance?.activityClass === "hint" ||
+    provenance?.activityClass === "source" ||
+    provenance?.consequence === "hint" ||
+    provenance?.consequence === "source"
+  );
+}
+
+function failureEvidenceAgreesWithSemanticRead(
+  failureEvidence: TaskFailureSemanticEvidence,
+  semantic: NonNullable<ApertureEvent["semantic"]>,
+  ontology: AttentionOntologyDiagnostic,
+): boolean {
+  const expectedActivity = failureEvidence.readsAsObservation ? "task_progress" : "failure";
+  const expectedIntentFrame = failureEvidence.readsAsObservation ? "status_update" : "failure";
+  const expectedActivityClass = failureEvidence.readsAsObservation
+    ? "status_update"
+    : "tool_failure";
+
+  return (
+    ontology.ask === "status" &&
+    ontology.activity === expectedActivity &&
+    ontology.blocking === "non_blocking" &&
+    semantic.intentFrame === expectedIntentFrame &&
+    semantic.activityClass === expectedActivityClass &&
+    semantic.consequence === failureEvidence.consequenceBaseline &&
+    ontology.consequence === failureEvidence.consequenceBaseline
+  );
 }
 
 function readSemanticRelationEvidenceSource(

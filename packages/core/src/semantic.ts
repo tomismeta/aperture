@@ -1,5 +1,9 @@
 export { interpretSourceEvent } from "./semantic-interpreter.js";
 export {
+  TRUNCATED_SOURCE_EVIDENCE_FACTOR,
+  semanticHintsForTruncatedSourceEvidence,
+} from "./semantic-source-quality.js";
+export {
   projectAttentionOntologyDiagnostic,
   projectSemanticOntologyDiagnostic,
   readAttentionOntologyDiagnostic,
@@ -17,6 +21,7 @@ export type {
   SemanticIntentFrame,
   SemanticRelationHint,
 } from "./semantic-types.js";
+export type { TruncatedSourceEvidenceHintOptions } from "./semantic-source-quality.js";
 export type {
   AttentionOntologyActivity,
   AttentionOntologyAsk,

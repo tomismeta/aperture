@@ -4,12 +4,13 @@ import {
   hasOwnedReadTerminalDiagnosticEvidence,
   looksLikeOwnedRawReadObservation,
 } from "./semantic-observation-shapes.js";
+import { readOwnedObservationPayload } from "./semantic-owned-observation-payload-shapes.js";
 import { looksLikeReadTruncationProtocolObservation } from "./semantic-read-observation-shapes.js";
 
 export type RawReadFailureSignals = {
   rawReadSourceObservation: boolean;
   rawReadListingObservation: boolean;
-  rawReadTruncationObservation: boolean;
+  rawReadObservationBaseline: "low" | "medium" | "high" | null;
   rawReadStructuredObservation: boolean;
   readFailureDiagnostic: boolean;
   rawReadStrongRuntimeDiagnostic: boolean;
@@ -21,19 +22,39 @@ export function readRawReadFailureSignals(input: {
 }): RawReadFailureSignals {
   const ownedTerminalDiagnostic =
     input.readTool && hasOwnedReadTerminalDiagnosticEvidence(input.summary);
-  const rawReadSourceObservation =
-    input.readTool && !ownedTerminalDiagnostic && looksLikeOwnedRawReadObservation(input.summary);
-  const rawReadListingObservation =
-    input.readTool && looksLikeTruncatedRawReadListingObservation(input.summary);
   const rawReadTruncationObservation =
     input.readTool && looksLikeReadTruncationProtocolObservation(input.summary);
+  const rawReadOwnedObservation =
+    input.readTool &&
+    !ownedTerminalDiagnostic &&
+    !rawReadTruncationObservation &&
+    !hasReadTransportWindow(input.summary)
+      ? readOwnedObservationPayload(input.summary, { allowReadOwnedFlattenedFilePayloads: true })
+      : null;
+  const rawReadSourceObservation =
+    input.readTool &&
+    !ownedTerminalDiagnostic &&
+    ((hasReadTransportWindow(input.summary) && looksLikeOwnedRawReadObservation(input.summary)) ||
+      rawReadOwnedObservation?.source === true);
+  const rawReadListingObservation =
+    input.readTool && looksLikeTruncatedRawReadListingObservation(input.summary);
   const rawReadStructuredObservation =
-    rawReadSourceObservation || rawReadListingObservation || rawReadTruncationObservation;
+    rawReadSourceObservation ||
+    rawReadListingObservation ||
+    rawReadTruncationObservation ||
+    rawReadOwnedObservation?.shape === "document";
+  const rawReadObservationBaseline = rawReadTruncationObservation
+    ? "low"
+    : rawReadOwnedObservation?.shape === "document"
+      ? rawReadOwnedObservation.consequenceBaseline
+      : rawReadSourceObservation
+        ? "high"
+        : null;
 
   return {
     rawReadSourceObservation,
     rawReadListingObservation,
-    rawReadTruncationObservation,
+    rawReadObservationBaseline,
     rawReadStructuredObservation,
     readFailureDiagnostic:
       ownedTerminalDiagnostic ||
@@ -43,4 +64,8 @@ export function readRawReadFailureSignals(input: {
     rawReadStrongRuntimeDiagnostic:
       rawReadStructuredObservation && hasStrongRuntimeDiagnosticEvidence(input.summary),
   };
+}
+
+function hasReadTransportWindow(text: string): boolean {
+  return /[\r\n]/.test(text) || /(?:^|\s)\d{1,6}\u2192\S/.test(text);
 }

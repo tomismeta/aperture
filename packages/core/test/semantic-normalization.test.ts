@@ -8,9 +8,11 @@ import {
 import { mapCodexServerRequest, type CodexServerRequest } from "../../codex/src/index.js";
 import { mapOpencodeEvent } from "../../opencode/src/index.js";
 import { ApertureCore, type SourceEvent, type SourceRef } from "../src/index.js";
+import { semanticHintsForTruncatedSourceEvidence } from "../src/semantic.js";
 import { normalizeSemanticText } from "../src/semantic-detection.js";
 import { interpretSourceEvent } from "../src/semantic-interpreter.js";
 import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
+import { readAttentionOntologyDiagnostic } from "../src/semantic-ontology.js";
 
 const timestamp = "2026-03-10T12:00:00.000Z";
 const rejectedToolUseMessage =
@@ -373,7 +375,10 @@ test("failed edit readback observations stay status updates semantically", () =>
   assert.equal(interpretation.intentFrame, "status_update");
   assert.equal(interpretation.activityClass, "status_update");
   assert.equal(interpretation.consequence, "high");
-  assert.equal(interpretation.whyNow, undefined);
+  assert.equal(
+    interpretation.whyNow,
+    "A failed status carried high-consequence observation output that should be reviewed.",
+  );
 });
 
 test("failed edit outcome envelopes preserve applied versus failed semantics", () => {
@@ -427,6 +432,10 @@ test("failed read source dumps stay status updates at high consequence", () => {
   assert.equal(interpretation.intentFrame, "status_update");
   assert.equal(interpretation.activityClass, "status_update");
   assert.equal(interpretation.consequence, "high");
+  assert.equal(
+    interpretation.whyNow,
+    "A failed status carried high-consequence observation output that should be reviewed.",
+  );
 });
 
 test("failed read log dumps stay status updates at low consequence", () => {
@@ -672,6 +681,7 @@ test("truncated structured listing output stays observational at medium conseque
   assert.equal(interpretation.intentFrame, "status_update");
   assert.equal(interpretation.activityClass, "status_update");
   assert.equal(interpretation.consequence, "medium");
+  assert.equal(interpretation.whyNow, undefined);
 });
 
 test("truncated structured doc path listing output stays observational at medium consequence", () => {
@@ -710,6 +720,52 @@ test("truncated structured line-numbered source intro stays observational at hig
   assert.equal(interpretation.intentFrame, "status_update");
   assert.equal(interpretation.activityClass, "status_update");
   assert.equal(interpretation.consequence, "high");
+  assert.equal(
+    interpretation.whyNow,
+    "A failed status carried high-consequence observation output that should be reviewed.",
+  );
+});
+
+test("recovered structured technical manual excerpts stay medium-consequence observations", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:recovered-technical-manual-output",
+    type: "task.updated",
+    taskId: "task:recovered-technical-manual-output",
+    timestamp,
+    source: source("custom-agent"),
+    title: "exec_command failure",
+    summary:
+      '{"wall_time":"0.0501 seconds","output":"2300\\t\\n 2301\\t3.4. Wave State Registers\\n 2302\\t\\n 2303\\t21 of 644\\n 2304\\t\\n 2305\\t\\n\\"RDNA3.5\\" Instruction Set Architecture\\n 2306\\t\\n 2307\\t3.4.2. Mode register\\n 2308\\t\\n 2309\\tMode register ...',
+    status: "failed",
+    toolFamily: "exec_command",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "medium");
+});
+
+test("explicit command-owned flattened source stays observational at high consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:raw-command-flattened-source",
+    type: "task.updated",
+    taskId: "task:raw-command-flattened-source",
+    timestamp,
+    source: source("custom-agent"),
+    title: "bash failure",
+    summary:
+      'import functools import os from pathlib import Path from torch.utils.cpp_extension import _import_module_from_library, load def get_rocm_lib_dirs() -> list[str]: rocm_lib_dirs = [] for env_var in ("ROCM_HOME", "ROCM_PATH"): rocm_home = o...',
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "high");
+  assert.equal(
+    interpretation.whyNow,
+    "A failed status carried high-consequence observation output that should be reviewed.",
+  );
 });
 
 test("arrow-numbered read source stays observational at high consequence", () => {
@@ -729,6 +785,33 @@ test("arrow-numbered read source stays observational at high consequence", () =>
   assert.equal(interpretation.intentFrame, "status_update");
   assert.equal(interpretation.activityClass, "status_update");
   assert.equal(interpretation.consequence, "high");
+  assert.equal(
+    interpretation.whyNow,
+    "A failed status carried high-consequence observation output that should be reviewed.",
+  );
+});
+
+test("flattened read-owned TypeScript source stays observational at high consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:flattened-read-typescript-source",
+    type: "task.updated",
+    taskId: "task:flattened-read-typescript-source",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary:
+      '/** * Interactive mode for the coding agent. */ import * as crypto from "node:crypto"; import * as fs from "node:fs"; import * as os from "node:os";...',
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "high");
+  assert.equal(
+    interpretation.whyNow,
+    "A failed status carried high-consequence observation output that should be reviewed.",
+  );
 });
 
 test("arrow-numbered read documents stay observational at high consequence", () => {
@@ -748,6 +831,26 @@ test("arrow-numbered read documents stay observational at high consequence", () 
   assert.equal(interpretation.intentFrame, "status_update");
   assert.equal(interpretation.activityClass, "status_update");
   assert.equal(interpretation.consequence, "high");
+});
+
+test("flattened read-owned markdown technical documents stay medium observations", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:flattened-read-markdown-document",
+    type: "task.updated",
+    taskId: "task:flattened-read-markdown-document",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary:
+      "# @mariozechner/pi-tui Minimal terminal UI framework with differential rendering and synchronized output for interactive CLI applications. ## Features - **Differential Rendering**: Three-strategy rendering system - **Components**: Reusable terminal widgets...",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "medium");
+  assert.equal(interpretation.whyNow, undefined);
 });
 
 test("failed read markdown documents stay status updates", () => {
@@ -927,6 +1030,86 @@ test("public trajectory failed-status bash success observations stay low-consequ
   }
 });
 
+test("public trajectory missing-tool file creation observations stay low-consequence status updates", () => {
+  const event: SourceEvent = {
+    id: "evt:public-file-created-status-conflict",
+    type: "task.updated",
+    taskId: "task:public-file-created-status-conflict",
+    timestamp,
+    source: { id: "swe-smith", kind: "public-trajectory" },
+    title: "tool failure",
+    summary: "OBSERVATION: File created successfully at: /testbed/exception_test.py",
+    status: "failed",
+  };
+  const interpretation = interpretSourceEvent(event);
+  const normalized = normalizeSourceEvent(event);
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "low");
+  assert.equal(interpretation.whyNow, undefined);
+  assert.deepEqual(interpretation.factors, ["task.updated", "failed", "observational_failure"]);
+  assert.equal(normalized.type, "task.updated");
+  if (normalized.type === "task.updated") {
+    assert.equal(normalized.status, "failed");
+    assert.equal(normalized.activityClass, "status_update");
+    assert.equal(normalized.semantic.activityClass, "status_update");
+    assert.equal(normalized.semantic.consequence, "low");
+    assert.equal(normalized.semantic.toolFamily, undefined);
+  }
+});
+
+test("public trajectory known-command file creation text stays failed status", () => {
+  const event: SourceEvent = {
+    id: "evt:public-command-file-created-failure",
+    type: "task.updated",
+    taskId: "task:public-command-file-created-failure",
+    timestamp,
+    source: { id: "swe-smith", kind: "public-trajectory" },
+    title: "bash failure",
+    summary: "OBSERVATION: File created successfully at: /testbed/exception_test.py",
+    status: "failed",
+    toolFamily: "bash",
+  };
+  const interpretation = interpretSourceEvent(event);
+  const normalized = normalizeSourceEvent(event);
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.consequence, "high");
+  assert.equal(normalized.type, "task.updated");
+  if (normalized.type === "task.updated") {
+    assert.equal(normalized.status, "failed");
+    assert.equal(normalized.activityClass, "tool_failure");
+    assert.equal(normalized.semantic.activityClass, "tool_failure");
+    assert.equal(normalized.semantic.consequence, "high");
+    assert.equal(normalized.semantic.toolFamily, "bash");
+  }
+});
+
+test("public trajectory explicit flattened observations keep status without inferring tool family", () => {
+  const normalized = normalizeSourceEvent({
+    id: "evt:public-flattened-observation",
+    type: "task.updated",
+    taskId: "task:public-flattened-observation",
+    timestamp,
+    source: { id: "swe-smith", kind: "public-trajectory" },
+    title: "tool failure",
+    summary:
+      "OBSERVATION: def check(conf, token, prev, next, nextnext, context): if (conf['forbid'] is True and isinstance(token, yaml.FlowSequenceStartToken)): yield LintProblem(token.start_mark.line + 1, token.end_mark.column + 1, 'forbidden flow s...",
+    status: "failed",
+  });
+
+  assert.equal(normalized.type, "task.updated");
+  if (normalized.type === "task.updated") {
+    assert.equal(normalized.status, "failed");
+    assert.equal(normalized.activityClass, "status_update");
+    assert.equal(normalized.semantic.activityClass, "status_update");
+    assert.equal(normalized.semantic.toolFamily, undefined);
+    assert.equal(normalized.semantic.consequence, "high");
+  }
+});
+
 test("public trajectory failed-status bash exit-code zero observations stay low-consequence status updates", () => {
   const normalized = normalizeSourceEvent({
     id: "evt:public-json-exit-zero",
@@ -1096,6 +1279,69 @@ test("public trajectory failed-status bash tracebacks remain high-consequence fa
   assert.equal(interpretation.activityClass, "tool_failure");
   assert.equal(interpretation.consequence, "high");
   assert.equal(interpretation.whyNow, "Work has failed and should be reviewed.");
+});
+
+test("public trajectory bare nonzero bash exits remain failures with medium consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:public-bare-nonzero-exit",
+    type: "task.updated",
+    taskId: "task:public-bare-nonzero-exit",
+    timestamp,
+    source: { id: "swe-smith", kind: "public-trajectory" },
+    title: "bash failure",
+    summary: "(no output) Command exited with code 1",
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.consequence, "medium");
+  assert.equal(interpretation.whyNow, "Work has failed and should be reviewed.");
+  assert.equal(interpretation.provenance?.consequence, "inferred");
+});
+
+test("public trajectory structured outcome-only exits match raw bare-exit semantics", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:public-structured-outcome-only-exit",
+    type: "task.updated",
+    taskId: "task:public-structured-outcome-only-exit",
+    timestamp,
+    source: { id: "swe-smith", kind: "public-trajectory" },
+    title: "exec_command failure",
+    summary: '{"exit_code":1,"wall_time":"0.0510 seconds","output":"(no output)"}',
+    status: "failed",
+    toolFamily: "exec_command",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.consequence, "medium");
+  assert.equal(interpretation.confidence, "high");
+  assert.equal(interpretation.provenance?.consequence, "inferred");
+});
+
+test("truncated source evidence hints keep failed outcome-only exits high consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:public-truncated-outcome-only-exit",
+    type: "task.updated",
+    taskId: "task:public-truncated-outcome-only-exit",
+    timestamp,
+    source: { id: "open-agent-sessions", kind: "public-trajectory" },
+    title: "exec_command failure",
+    summary: '{"exit_code":1,"wall_time":"0.0510 seconds","output":"(no output)"}',
+    status: "failed",
+    toolFamily: "exec_command",
+    metadata: { truncated: true },
+    semanticHints: semanticHintsForTruncatedSourceEvidence({ status: "failed" }),
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.consequence, "high");
+  assert.equal(interpretation.confidence, "low");
+  assert.equal(interpretation.provenance?.consequence, "hint");
+  assert.equal(interpretation.provenance?.confidence, "hint");
 });
 
 test("public trajectory benign then real terminal wording stays high-consequence", () => {
@@ -1326,6 +1572,125 @@ test("task updates can infer relation hints from recurring and resolving languag
     resolved.relationHints.map((hint) => hint.kind),
     ["same_issue", "resolves"],
   );
+  assert.equal(
+    resolved.whyNow,
+    "A related episode appears resolved and can update attention state.",
+  );
+  assert.equal(resolved.provenance?.whyNow, "inferred");
+});
+
+test("prospective verification wording does not infer resolved episode semantics", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:verify-resolution",
+    type: "task.updated",
+    taskId: "task:verify-resolution",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Verify build issue",
+    summary: "Run the script again to confirm that the issue is fixed.",
+    status: "running",
+  });
+
+  assert.equal(
+    interpretation.relationHints.some((hint) => hint.kind === "resolves"),
+    false,
+  );
+  assert.notEqual(
+    interpretation.whyNow,
+    "A related episode appears resolved and can update attention state.",
+  );
+  assert.notEqual(interpretation.provenance?.whyNow, "inferred");
+});
+
+test("question resolution wording does not infer resolved episode semantics", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:question-resolution",
+    type: "task.updated",
+    taskId: "task:question-resolution",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Check build issue",
+    summary: "Can you confirm the issue was fixed?",
+    status: "waiting",
+  });
+
+  assert.equal(
+    interpretation.relationHints.some((hint) => hint.kind === "resolves"),
+    false,
+  );
+  assert.notEqual(
+    interpretation.whyNow,
+    "A related episode appears resolved and can update attention state.",
+  );
+});
+
+test("separate asserted recovery clauses still infer resolved episode semantics", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:separate-recovery-clause",
+    type: "task.updated",
+    taskId: "task:separate-recovery-clause",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Verify dashboards now",
+    summary: "The production outage recovered after rollback.",
+    status: "completed",
+  });
+
+  assert.deepEqual(
+    interpretation.relationHints.map((hint) => hint.kind),
+    ["same_issue", "resolves"],
+  );
+  assert.equal(
+    interpretation.whyNow,
+    "A related episode appears resolved and can update attention state.",
+  );
+});
+
+test("prior negated resolution clauses do not suppress later asserted recovery semantics", () => {
+  const event = {
+    id: "evt:mixed-resolution-polarity",
+    type: "task.updated",
+    taskId: "task:mixed-resolution-polarity",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Build issue update",
+    summary: "The issue was not fixed before. It is fixed now.",
+    status: "completed",
+  } satisfies SourceEvent;
+  const interpretation = interpretSourceEvent(event);
+  const ontology = readAttentionOntologyDiagnostic(event, interpretation);
+
+  assert.deepEqual(
+    interpretation.relationHints.map((hint) => hint.kind),
+    ["same_issue", "resolves"],
+  );
+  assert.equal(ontology.episode, "resolved");
+  assert.equal(
+    interpretation.whyNow,
+    "A related episode appears resolved and can update attention state.",
+  );
+});
+
+test("later negated resolution clauses prevent stale resolved episode semantics", () => {
+  const event = {
+    id: "evt:stale-resolution-polarity",
+    type: "task.updated",
+    taskId: "task:stale-resolution-polarity",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Build issue update",
+    summary: "The issue was fixed yesterday. It is not fixed now.",
+    status: "failed",
+  } satisfies SourceEvent;
+  const interpretation = interpretSourceEvent(event);
+  const ontology = readAttentionOntologyDiagnostic(event, interpretation);
+
+  assert.deepEqual(interpretation.relationHints, []);
+  assert.notEqual(ontology.episode, "resolved");
+  assert.notEqual(
+    interpretation.whyNow,
+    "A related episode appears resolved and can update attention state.",
+  );
 });
 
 test("generic successful completion wording does not infer a resolved episode by itself", () => {
@@ -1341,6 +1706,7 @@ test("generic successful completion wording does not infer a resolved episode by
   });
 
   assert.deepEqual(interpretation.relationHints, []);
+  assert.equal(interpretation.whyNow, undefined);
 });
 
 test("recovery wording with issue context still infers a resolved episode", () => {
@@ -1358,6 +1724,10 @@ test("recovery wording with issue context still infers a resolved episode", () =
   assert.deepEqual(
     interpretation.relationHints.map((hint) => hint.kind),
     ["same_issue", "resolves"],
+  );
+  assert.equal(
+    interpretation.whyNow,
+    "A related episode appears resolved and can update attention state.",
   );
 });
 

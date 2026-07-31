@@ -230,6 +230,7 @@ export function printReviewCandidateUsage(): void {
       "  --bundle-dir <path>           Directory of session bundles to scan recursively (repeatable)",
       "  --limit-per-kind <number>     Retained examples per candidate kind (default: 30)",
       "  --limit-per-session-kind <n>   Retained examples per session per kind (default: 3)",
+      "  --replay-current              Recompute bundle snapshots through the current engine before candidate extraction",
       "  --output <path>               Write candidate report JSON to this path",
       "  --markdown-output <path>      Write markdown summary to this path",
       "  --json                        Emit the report paths and payload as machine-readable JSON",

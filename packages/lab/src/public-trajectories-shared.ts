@@ -2,8 +2,13 @@ import path from "node:path";
 
 import type { SourceEvent } from "@tomismeta/aperture-core";
 
-import { defaultSessionBundlePath, runSessionBundle, type ReplaySessionBundle } from "./session-bundle.js";
+import {
+  defaultSessionBundlePath,
+  runSessionBundle,
+  type ReplaySessionBundle,
+} from "./session-bundle.js";
 import { isRecord as isShapeRecord } from "./shape.js";
+import { clipText } from "./source-event-summary.js";
 import {
   DEFAULT_DATACLAW_SPLIT,
   DEFAULT_OPEN_AGENT_SESSIONS_SPLIT,
@@ -14,9 +19,9 @@ import {
   type PublicTrajectoryDataset,
   type PublicTrajectorySplit,
 } from "./public-trajectories-types.js";
+export { clipSourceEventSummary, clipText, toSingleLine } from "./source-event-summary.js";
 
 const SYNTHETIC_START_TIME_MS = Date.UTC(2026, 0, 1, 0, 0, 0, 0);
-const SOURCE_EVENT_SUMMARY_MAX_LENGTH = 8_192;
 
 const NON_FAILING_READBACK_PHRASES = [
   "file created successfully",
@@ -64,22 +69,24 @@ export function defaultImportedTrajectoryBundlePath(
   return defaultSessionBundlePath(bundle, path.join(rootDirectory, dataset, split));
 }
 
-export function validateImportedTrajectoryBundle(
-  bundle: ReplaySessionBundle,
-): ReplaySessionBundle {
+export function validateImportedTrajectoryBundle(bundle: ReplaySessionBundle): ReplaySessionBundle {
   const replayed = runSessionBundle(bundle);
   const finalView = replayed.views.at(-1);
 
   if (!finalView) {
-    throw new Error(`Imported trajectory bundle ${bundle.sessionId} did not produce a final attention view.`);
+    throw new Error(
+      `Imported trajectory bundle ${bundle.sessionId} did not produce a final attention view.`,
+    );
   }
 
   if (
-    finalView.nowInteractionId !== bundle.outcomes.finalNowInteractionId
-    || finalView.nextInteractionIds.length !== bundle.outcomes.finalNextCount
-    || finalView.ambientInteractionIds.length !== bundle.outcomes.finalAmbientCount
+    finalView.nowInteractionId !== bundle.outcomes.finalNowInteractionId ||
+    finalView.nextInteractionIds.length !== bundle.outcomes.finalNextCount ||
+    finalView.ambientInteractionIds.length !== bundle.outcomes.finalAmbientCount
   ) {
-    throw new Error(`Imported trajectory bundle ${bundle.sessionId} failed roundtrip replay validation.`);
+    throw new Error(
+      `Imported trajectory bundle ${bundle.sessionId} failed roundtrip replay validation.`,
+    );
   }
 
   return bundle;
@@ -107,11 +114,11 @@ export function inferAssistantStatus(
 ): Extract<SourceEvent, { type: "task.updated" }>["status"] {
   const normalized = text.toLowerCase();
   if (
-    normalized.includes("could you")
-    || normalized.includes("can you")
-    || normalized.includes("would you")
-    || normalized.includes("please confirm")
-    || normalized.includes("let me know")
+    normalized.includes("could you") ||
+    normalized.includes("can you") ||
+    normalized.includes("would you") ||
+    normalized.includes("please confirm") ||
+    normalized.includes("let me know")
   ) {
     return "waiting";
   }
@@ -129,24 +136,24 @@ export function inferObservationStatus(
   }
 
   if (
-    normalized.includes("traceback")
-    || normalized.includes("exception")
-    || normalized.includes("permission denied")
-    || normalized.includes("command not found")
-    || normalized.includes("segmentation fault")
-    || normalized.includes("forbidden")
-    || /\bfailed\b/.test(normalized)
-    || /\bfailure\b/.test(normalized)
-    || /\berror\b(?::|\s|$)/.test(normalized)
-    || /\b[a-z]+error\b(?::|\s|$)/.test(normalized)
+    normalized.includes("traceback") ||
+    normalized.includes("exception") ||
+    normalized.includes("permission denied") ||
+    normalized.includes("command not found") ||
+    normalized.includes("segmentation fault") ||
+    normalized.includes("forbidden") ||
+    /\bfailed\b/.test(normalized) ||
+    /\bfailure\b/.test(normalized) ||
+    /\berror\b(?::|\s|$)/.test(normalized) ||
+    /\b[a-z]+error\b(?::|\s|$)/.test(normalized)
   ) {
     return "failed";
   }
 
   if (
-    normalized.includes("waiting")
-    || normalized.includes("awaiting")
-    || normalized.includes("pending")
+    normalized.includes("waiting") ||
+    normalized.includes("awaiting") ||
+    normalized.includes("pending")
   ) {
     return "waiting";
   }
@@ -232,14 +239,22 @@ export function normalizeToolFamily(value: string | undefined): string | undefin
   ) {
     return "bash";
   }
-  if (normalized.includes("read") || normalized.includes("open") || normalized.includes("view")) return "read";
-  if (normalized.includes("edit") || normalized.includes("write") || normalized.includes("patch") || normalized.includes("replace")) return "edit";
+  if (normalized.includes("read") || normalized.includes("open") || normalized.includes("view"))
+    return "read";
+  if (
+    normalized.includes("edit") ||
+    normalized.includes("write") ||
+    normalized.includes("patch") ||
+    normalized.includes("replace")
+  )
+    return "edit";
   if (
     normalized.includes("search") ||
     normalized.includes("find") ||
     normalized.includes("grep") ||
     alias === "glob"
-  ) return "search";
+  )
+    return "search";
   if (normalized.includes("web") || normalized.includes("browser")) return "web";
   if (normalized.includes("task") || normalized.includes("subagent")) return "task";
   if (normalized === "submit") return undefined;
@@ -263,85 +278,15 @@ export function coerceImportedTimestamp(
 }
 
 export function syntheticTimestamp(stepIndex: number): string {
-  return new Date(SYNTHETIC_START_TIME_MS + (stepIndex * 1000)).toISOString();
-}
-
-export function clipText(value: string, maxLength: number): string {
-  const normalized = toSingleLine(value) ?? value;
-  return normalized.length <= maxLength ? normalized : `${normalized.slice(0, maxLength - 3)}...`;
-}
-
-export function clipSourceEventSummary(
-  value: string,
-  maxLength: number = SOURCE_EVENT_SUMMARY_MAX_LENGTH,
-): string {
-  const normalized = toSingleLine(value) ?? value;
-  if (normalized.length <= maxLength) {
-    return normalized;
-  }
-
-  return clipStructuredOutputSummary(normalized, maxLength) ?? clipText(normalized, maxLength);
-}
-
-function clipStructuredOutputSummary(value: string, maxLength: number): string | null {
-  const parsed = parseJsonObject(value);
-  if (!parsed || typeof parsed.output !== "string") {
-    return null;
-  }
-
-  const clipped = { ...parsed };
-  let low = 0;
-  let high = parsed.output.length;
-  let best: string | null = null;
-
-  while (low <= high) {
-    const midpoint = Math.floor((low + high) / 2);
-    clipped.output =
-      midpoint < parsed.output.length ? `${parsed.output.slice(0, midpoint)}...` : parsed.output;
-    if (midpoint < parsed.output.length) {
-      clipped.truncated = true;
-    } else {
-      delete clipped.truncated;
-    }
-    const candidate = stringifyJsonObject(clipped);
-
-    if (candidate !== null && candidate.length <= maxLength) {
-      best = candidate;
-      low = midpoint + 1;
-    } else {
-      high = midpoint - 1;
-    }
-  }
-
-  return best;
-}
-
-function parseJsonObject(value: string): Record<string, unknown> | null {
-  try {
-    const parsed: unknown = JSON.parse(value);
-    return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function stringifyJsonObject(value: Record<string, unknown>): string | null {
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return null;
-  }
-}
-
-export function toSingleLine(value: string): string | null {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  return normalized.length > 0 ? normalized : null;
+  return new Date(SYNTHETIC_START_TIME_MS + stepIndex * 1000).toISOString();
 }
 
 export function slug(value: string): string {
-  const normalized = value.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+  const normalized = value
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
   return normalized.length > 0 ? normalized : "trajectory";
 }
 
@@ -353,10 +298,7 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
   return isShapeRecord(value);
 }
 
-function looksLikeSuccessfulObservation(
-  text: string,
-  toolFamily?: string,
-): boolean {
+function looksLikeSuccessfulObservation(text: string, toolFamily?: string): boolean {
   if (containsAnyPhrase(text, ROUTINE_SUCCESS_OBSERVATION_PHRASES)) {
     return true;
   }

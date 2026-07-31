@@ -17,10 +17,8 @@ import {
   TAGGED_FILE_OBSERVATION_PHRASES,
 } from "./semantic-patterns.js";
 import type { SemanticInterpretation } from "./semantic-types.js";
-import type {
-  ObservationalStatusConflictEvidence,
-  ObservationalStatusConflictKind,
-} from "./observational-status-conflict.js";
+import type { ObservationalStatusConflictEvidence } from "./observational-status-conflict.js";
+import { readObservationalStatusConflictKind } from "./observational-status-conflict-kind.js";
 import { containsAnySemanticPhrase, normalizeSemanticText } from "./semantic-text.js";
 import { readTaskFailureSemanticSignals } from "./semantic-task-failure-signals.js";
 import {
@@ -37,6 +35,14 @@ import {
   isSemanticCommandExecutionToolFamily,
   readExplicitSemanticToolFamily,
 } from "./semantic-tool-family.js";
+import {
+  readTerminalFailureDetail,
+  readTerminalFailureShape,
+  type TaskFailureDetail,
+  type TaskFailureTerminalShape,
+} from "./semantic-failure-detail.js";
+import { readExplicitOperationSuccessObservationTranscript } from "./semantic-operation-success-observation-shapes.js";
+import { TRUNCATED_SOURCE_EVIDENCE_FACTOR } from "./semantic-source-quality.js";
 
 export type SemanticTextEvidence = {
   routineSuccessObservation: boolean;
@@ -54,6 +60,7 @@ export type SemanticTextEvidence = {
 export type TaskFailureEvidenceKind =
   | "routine_bash_success_observation"
   | "structured_execution_success_observation"
+  | "operation_success_observation"
   | "structured_tool_output_observation"
   | "empty_failure_payload"
   | "observational_payload"
@@ -63,8 +70,12 @@ export type TaskFailureEvidenceKind =
   | "rejected_tool_use_observation"
   | "unclassified_failure";
 
+export type { TaskFailureDetail, TaskFailureTerminalShape };
+
 export type TaskFailureSemanticEvidence = {
   kind: TaskFailureEvidenceKind;
+  failureDetail?: TaskFailureDetail;
+  terminalShape?: TaskFailureTerminalShape;
   toolFamily?: string;
   readsAsObservation: boolean;
   consequenceBaseline: "low" | "medium" | "high";
@@ -163,14 +174,23 @@ export function readTaskFailureSemanticEvidence(
             signals.missingToolObservationTranscript === null &&
             !searchOutputObservation &&
             (!signals.rawReadStructuredObservation || signals.strongSourceRuntimeDiagnostic) &&
-            (!signals.structuredOutputSourceObservation || signals.strongSourceRuntimeDiagnostic);
+            (!signals.structuredOutputSourceObservation || signals.strongSourceRuntimeDiagnostic) &&
+            !signals.structuredOutputSingleListingObservation;
 
   if (terminalFailureEvidence) {
+    const terminalShape = readTerminalFailureShape({ summary: event.summary, toolFamily });
+    const failureDetail = readTerminalFailureDetail({
+      summary: event.summary,
+      signals,
+      toolFamily,
+    });
     return {
       kind: "terminal_failure",
+      failureDetail,
+      ...(terminalShape !== null ? { terminalShape } : {}),
       ...(toolFamily !== undefined ? { toolFamily } : {}),
       readsAsObservation: false,
-      consequenceBaseline: "high",
+      consequenceBaseline: failureDetail === "outcome_only" ? "medium" : "high",
       text,
     };
   }
@@ -181,6 +201,19 @@ export function readTaskFailureSemanticEvidence(
       toolFamily,
       readsAsObservation: false,
       consequenceBaseline: "high",
+      text,
+    };
+  }
+
+  const operationSuccessObservation =
+    toolFamily === undefined
+      ? readExplicitOperationSuccessObservationTranscript(event.summary)
+      : null;
+  if (operationSuccessObservation) {
+    return {
+      kind: "operation_success_observation",
+      readsAsObservation: true,
+      consequenceBaseline: operationSuccessObservation.consequenceBaseline,
       text,
     };
   }
@@ -234,22 +267,12 @@ export function readTaskFailureSemanticEvidence(
     };
   }
 
-  if (signals.rawReadSourceObservation) {
+  if (signals.rawReadObservationBaseline) {
     return {
       kind: "observational_payload",
       toolFamily: "read",
       readsAsObservation: true,
-      consequenceBaseline: "high",
-      text,
-    };
-  }
-
-  if (signals.rawReadTruncationObservation) {
-    return {
-      kind: "observational_payload",
-      toolFamily: "read",
-      readsAsObservation: true,
-      consequenceBaseline: "low",
+      consequenceBaseline: signals.rawReadObservationBaseline,
       text,
     };
   }
@@ -316,8 +339,7 @@ export function readTaskFailureSemanticEvidence(
       text.taggedFileObservation ||
       text.readObservationPayload ||
       signals.editOutputOutcome === "applied" ||
-      signals.rawReadListingObservation ||
-      signals.rawReadTruncationObservation)
+      signals.rawReadListingObservation)
   ) {
     return {
       kind: "observational_payload",
@@ -335,6 +357,7 @@ export function readTaskFailureSemanticEvidence(
 
   return {
     kind: "unclassified_failure",
+    failureDetail: "indeterminate",
     ...(toolFamily !== undefined ? { toolFamily } : {}),
     readsAsObservation: false,
     consequenceBaseline: "high",
@@ -365,7 +388,7 @@ export function readRoutineObservationalStatusConflictEvidence(
     interpretation.activityClass === "status_update" &&
     hasCompatibleFailureEvidenceToolFamily(failureEvidence, interpretation) &&
     interpretation.consequence === failureEvidence.consequenceBaseline &&
-    interpretation.confidence === "high" &&
+    hasStableObservationalStatusConflictConfidence(interpretation) &&
     !abstained
   ) {
     const kind = readObservationalStatusConflictKind(failureEvidence.kind);
@@ -385,28 +408,14 @@ export function readRoutineObservationalStatusConflictEvidence(
   return null;
 }
 
-function readObservationalStatusConflictKind(
-  kind: TaskFailureEvidenceKind,
-): ObservationalStatusConflictKind | null {
-  switch (kind) {
-    case "routine_bash_success_observation":
-      return "command_success_observation";
-    case "structured_execution_success_observation":
-      return "execution_success_observation";
-    case "structured_tool_output_observation":
-      return "structured_output_observation";
-    case "observational_payload":
-      return "payload_observation";
-    case "routine_search_output":
-      return "search_output_observation";
-    case "rejected_tool_use_observation":
-      return "rejected_tool_use_observation";
-    case "empty_failure_payload":
-    case "expected_diagnostic_failure":
-    case "terminal_failure":
-    case "unclassified_failure":
-      return null;
-  }
+function hasStableObservationalStatusConflictConfidence(
+  interpretation: SemanticInterpretation,
+): boolean {
+  return (
+    interpretation.confidence === "high" ||
+    (interpretation.confidence === "low" &&
+      interpretation.factors.includes(TRUNCATED_SOURCE_EVIDENCE_FACTOR))
+  );
 }
 
 function hasCompatibleFailureEvidenceToolFamily(

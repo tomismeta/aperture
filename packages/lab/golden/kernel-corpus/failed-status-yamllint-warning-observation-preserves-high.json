@@ -1,0 +1,81 @@
+{
+  "id": "golden:kernel-corpus:failed-status-yamllint-warning-observation-preserves-high",
+  "title": "Failed-status yamllint warning observation preserves high consequence",
+  "description": "Imported trajectories can report failed transport status with no tool family even when an explicit observation contains concrete warning-only linter output with quoted diagnostic values.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "semantic_normalization",
+    "status_noise",
+    "observational_status_conflict"
+  ],
+  "semanticFamilies": ["consequence_underread"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:task:public-yamllint-warning-status-conflict:status",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "yamllint warning status conflict",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "toolFamily": null,
+        "consequence": "high",
+        "confidence": "high",
+        "whyNowIncludes": "high-consequence observation output",
+        "factorsInclude": ["observational_failure"],
+        "reasonsInclude": [
+          "task status indicates failure but the update reads like observational output"
+        ],
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "high",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "inferred"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "yamllint warning status conflict",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "semanticConfidence": "high",
+        "decisionRecordReasonCodesInclude": ["route:activate", "lane:now", "policy:may_interrupt"],
+        "semanticInfluenceIncludes": [
+          "engine-owned observational evidence resolved noisy failed-status routing as status handling"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "observational status conflict (judgment routing)"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "yamllint warning status conflict",
+      "event": {
+        "id": "evt:public-yamllint-warning-status-conflict",
+        "type": "task.updated",
+        "taskId": "task:public-yamllint-warning-status-conflict",
+        "timestamp": "2026-04-18T15:05:20.000Z",
+        "source": { "id": "swe-smith", "kind": "public-trajectory" },
+        "title": "tool failure",
+        "summary": "OBSERVATION: Running yamllint... ./.yamllint 1:1 warning missing document start \"---\" (document-start) ./normal.yaml 1:1 warning missing document start \"---\" (document-start) ./ign-dup/duplicates.yaml 1:1 warning missing document start \"---\" (document-start) ...",
+        "status": "failed"
+      }
+    }
+  ]
+}

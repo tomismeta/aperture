@@ -5,6 +5,8 @@ import {
   buildAttentionJudgmentInput,
   hasActionableBlockedLikeStatusSemantics,
   hasBlockedLikeStatusSemantics,
+  hasOutcomeOnlyFailureStatusJudgmentInput,
+  hasOutcomeOnlyFailureStatusSemantics,
   hasRoutineObservationalStatusConflictSemantics,
   readSemanticRelationEvidenceStrength,
   readSemanticEvidenceStrength,
@@ -18,6 +20,10 @@ const successfulTestObservationTranscript =
   "OBSERVATION: === Testing quote formatting === All quote formatting tests passed!";
 const abbreviatedFileViewObservationTranscript =
   "OBSERVATION: <NOTE>This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.</NOTE> 1 # fmt: off 2 from __future__ import an...";
+const proceduralHarnessObservationTranscript =
+  "OBSERVATION: Thank you for your work on this issue. Please carefully follow the steps below to help review your changes. 1. If you made any changes to your code after running the reproduction script, please run the reproduction script again. 2. Confirm the reproduction script passes before submitting.";
+const mixedProceduralFailureObservationTranscript =
+  "OBSERVATION: Thank you for your work on this issue. Please carefully follow the steps below to help review your changes. The script exited with code 1 and the issue still does not work. 1. Run the reproduction script again after making changes. 2. Confirm the script exits with code 0 before submitting.";
 
 test("judgment input compiles blocked-like waiting statuses into one internal seam", () => {
   const input = buildAttentionJudgmentInput({
@@ -85,6 +91,126 @@ test("judgment input gives explicit human-input semantics a strong evidence read
   assert.equal(input.semanticEvidence?.source, "explicit");
   assert.equal(input.semanticEvidence?.strength, "strong");
   assert.equal(input.relationEvidence, undefined);
+});
+
+test("judgment input exposes outcome-only failed status as named semantic evidence", () => {
+  const input = buildAttentionJudgmentInput({
+    id: "evt:judgment-input:outcome-only-failure",
+    taskId: "task:judgment-input:outcome-only-failure",
+    timestamp,
+    type: "task.updated",
+    title: "exec_command failure",
+    summary: '{"exit_code":1,"wall_time":"0.0510 seconds","output":"(no output)"}',
+    status: "failed",
+    toolFamily: "exec_command",
+    semantic: {
+      intentFrame: "failure",
+      activityClass: "tool_failure",
+      toolFamily: "exec_command",
+      consequence: "medium",
+      whyNow: "Work has failed and should be reviewed.",
+      factors: ["task.updated", "failed"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["task status indicates failure"],
+      provenance: {
+        intentFrame: "inferred",
+        activityClass: "inferred",
+        consequence: "inferred",
+        whyNow: "inferred",
+        confidence: "inferred",
+        toolFamily: "source",
+      },
+    },
+  });
+  const candidate = {
+    taskId: "task:judgment-input:outcome-only-failure",
+    interactionId: "interaction:judgment-input:outcome-only-failure",
+    mode: "status" as const,
+    tone: "focused" as const,
+    consequence: "medium" as const,
+    title: "exec_command failure",
+    responseSpec: { kind: "acknowledge" as const, label: "Acknowledge" },
+    priority: "normal" as const,
+    blocking: false,
+    timestamp,
+    judgmentInput: input,
+  };
+
+  assert.equal(input.failureEvidence?.kind, "terminal_failure");
+  assert.equal(input.failureEvidence?.failureDetail, "outcome_only");
+  assert.equal(input.failureEvidence?.consequenceBaseline, "medium");
+  assert.equal(input.failureEvidence?.semanticAgreement, "stable");
+  assert.equal(hasOutcomeOnlyFailureStatusJudgmentInput(input), true);
+  assert.equal(hasOutcomeOnlyFailureStatusSemantics(candidate), true);
+});
+
+test("judgment input keeps diagnostic and low-confidence failures out of outcome-only routing", () => {
+  const diagnosticInput = buildAttentionJudgmentInput({
+    id: "evt:judgment-input:diagnostic-failure",
+    taskId: "task:judgment-input:diagnostic-failure",
+    timestamp,
+    type: "task.updated",
+    title: "exec_command failure",
+    summary: '{"exit_code":2,"wall_time":"0.0510 seconds","output":"sh: foo: command not found"}',
+    status: "failed",
+    toolFamily: "exec_command",
+    semantic: {
+      intentFrame: "failure",
+      activityClass: "tool_failure",
+      toolFamily: "exec_command",
+      consequence: "high",
+      whyNow: "Work has failed and should be reviewed.",
+      factors: ["task.updated", "failed"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["task status indicates failure"],
+      provenance: {
+        intentFrame: "inferred",
+        activityClass: "inferred",
+        consequence: "inferred",
+        whyNow: "inferred",
+        confidence: "inferred",
+        toolFamily: "source",
+      },
+    },
+  });
+  const truncatedInput = buildAttentionJudgmentInput({
+    id: "evt:judgment-input:truncated-outcome-only-failure",
+    taskId: "task:judgment-input:truncated-outcome-only-failure",
+    timestamp,
+    type: "task.updated",
+    title: "exec_command failure",
+    summary: '{"exit_code":1,"wall_time":"0.0510 seconds","output":"(no output)"}',
+    status: "failed",
+    toolFamily: "exec_command",
+    semantic: {
+      intentFrame: "failure",
+      activityClass: "tool_failure",
+      toolFamily: "exec_command",
+      consequence: "high",
+      whyNow: "Work has failed and should be reviewed.",
+      factors: ["task.updated", "failed", "source evidence truncated"],
+      relationHints: [],
+      confidence: "low",
+      reasons: ["source failure evidence was truncated before Aperture saw the full output"],
+      provenance: {
+        intentFrame: "inferred",
+        activityClass: "inferred",
+        consequence: "hint",
+        whyNow: "inferred",
+        confidence: "hint",
+        toolFamily: "source",
+      },
+    },
+  });
+
+  assert.equal(diagnosticInput.failureEvidence?.failureDetail, "diagnostic");
+  assert.equal(diagnosticInput.failureEvidence?.semanticAgreement, "stable");
+  assert.equal(hasOutcomeOnlyFailureStatusJudgmentInput(diagnosticInput), false);
+  assert.equal(truncatedInput.failureEvidence?.failureDetail, "outcome_only");
+  assert.equal(truncatedInput.failureEvidence?.semanticAgreement, "uncertain");
+  assert.equal(hasOutcomeOnlyFailureStatusJudgmentInput(truncatedInput), false);
 });
 
 test("judgment input marks routine observational failed-status conflicts", () => {
@@ -269,6 +395,7 @@ test("judgment input marks low missing-tool transcript subclasses only on raw ag
   for (const [id, summary] of [
     ["successful-test", successfulTestObservationTranscript],
     ["abbreviated-file-view", abbreviatedFileViewObservationTranscript],
+    ["procedural-harness", proceduralHarnessObservationTranscript],
   ] as const) {
     const input = buildAttentionJudgmentInput({
       id: `evt:judgment-input:${id}-observation-conflict`,
@@ -349,6 +476,30 @@ test("judgment input marks low missing-tool transcript subclasses only on raw ag
   assert.equal(liftedConsequenceInput.routineObservationalStatusConflict, undefined);
   assert.equal(mismatchedFamilyInput.observationalStatusConflict, undefined);
   assert.equal(liftedConsequenceInput.observationalStatusConflict, undefined);
+
+  const mixedFailureInput = buildAttentionJudgmentInput({
+    id: "evt:judgment-input:mixed-procedural-failure",
+    taskId: "task:judgment-input:mixed-procedural-failure",
+    timestamp,
+    type: "task.updated",
+    title: "tool failure",
+    summary: mixedProceduralFailureObservationTranscript,
+    status: "failed",
+    semantic: {
+      intentFrame: "failure",
+      activityClass: "tool_failure",
+      consequence: "high",
+      factors: ["task.updated", "failed"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["task status indicates failure"],
+    },
+  });
+
+  assert.equal(mixedFailureInput.routineObservationalStatusConflict, undefined);
+  assert.equal(mixedFailureInput.observationalStatusConflict, undefined);
+  assert.equal(mixedFailureInput.failureEvidence?.kind, "terminal_failure");
+  assert.equal(mixedFailureInput.failureEvidence?.failureDetail, "diagnostic");
 });
 
 test("judgment input marks tool-use rejection outcomes as status conflicts only on raw agreement", () => {

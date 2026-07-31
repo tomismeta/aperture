@@ -1,0 +1,91 @@
+{
+  "id": "golden:kernel-corpus:structured-outcome-only-command-exit-plans-next-without-ambiguity",
+  "title": "Structured outcome-only command exit plans next without ambiguity",
+  "description": "A complete structured execution envelope whose only failure fact is a nonzero exit should match the raw bare-exit judgment posture.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "semantic_normalization",
+    "status_noise",
+    "source_fact_authority",
+    "command_exit_shape",
+    "structured_output_ownership"
+  ],
+  "semanticFamilies": ["consequence_overread"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:task:corpus:structured-outcome-only-exit:status",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "structured outcome-only command exit",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "toolFamily": "exec_command",
+        "consequence": "medium",
+        "confidence": "high",
+        "whyNowIncludes": "failed and should be reviewed",
+        "factorsInclude": ["failed"],
+        "reasonsInclude": ["task status explicitly indicates failure"],
+        "provenanceIncludes": {
+          "consequence": "inferred"
+        },
+        "ontology": {
+          "ask": "status",
+          "activity": "failure",
+          "consequence": "medium",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "explicit"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "structured outcome-only command exit",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "queue",
+        "decisionRecordRoute": "queue",
+        "plannedLane": "next",
+        "resultLane": "now",
+        "semanticConfidence": "high",
+        "ambiguityReason": null,
+        "ambiguityResolution": null,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:queue",
+          "lane:next",
+          "criterion:peripheral_resolution:queue",
+          "policy:minimum_lane:next"
+        ],
+        "semanticInfluenceIncludes": [
+          "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics"
+        ],
+        "semanticImpactDecisionBearingIncludes": ["activity (canonical)", "tool (bounded)"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "structured outcome-only command exit",
+      "event": {
+        "id": "evt:corpus:structured-outcome-only-exit",
+        "type": "task.updated",
+        "taskId": "task:corpus:structured-outcome-only-exit",
+        "timestamp": "2026-04-18T15:14:30.000Z",
+        "source": { "id": "dataclaw", "kind": "public-trajectory" },
+        "title": "exec_command failure",
+        "summary": "{\"exit_code\":1,\"wall_time\":\"0.0510 seconds\",\"output\":\"(no output)\"}",
+        "status": "failed",
+        "toolFamily": "exec_command"
+      }
+    }
+  ]
+}

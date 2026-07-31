@@ -1,5 +1,3 @@
-import path from "node:path";
-
 import { SEMANTIC_REVIEW_CANDIDATE_REPORT_SCHEMA_VERSION } from "./artifact-versions.js";
 import { prepareOfflineReviewArtifact } from "./offline-review.js";
 import type {
@@ -15,24 +13,35 @@ import {
 import {
   buildSemanticReviewCandidate,
   candidateKindsForStep,
-  createKindBuckets,
-  createKindCounts,
   retainSemanticReviewCandidate,
   sumCandidateCounts,
 } from "./semantic-review-candidate-policy.js";
 import {
-  SEMANTIC_REVIEW_CANDIDATE_KINDS,
+  countRetainedCandidatesByKind,
+  createSemanticReviewCandidateEngineFingerprint,
+  prepareBundleForCandidateReview,
+  recordReplayClockReference,
+  repoRelativePath,
+} from "./semantic-review-candidate-report-support.js";
+import {
+  createCandidateReportAccumulator,
+  type CandidateReportAccumulator,
+} from "./semantic-review-candidate-accumulator.js";
+import {
+  addCoverageLedgerStep,
+  finalizeCoverageLedgerSummary,
+  unavailableCoverageBaselineComparison,
+  type SemanticReviewCoverageBaselineComparisonInput,
+} from "./semantic-review-coverage-ledger.js";
+import { createKernelCorpusCoverageBaselineComparison } from "./semantic-review-coverage-baseline.js";
+import {
   type CandidateBundleInput,
-  type SemanticReviewCandidate,
-  type SemanticReviewCandidateKind,
   type SemanticReviewCandidateReport,
 } from "./semantic-review-candidate-types.js";
 import {
   addFailureEvidenceExample,
   classifyFailureEvidenceForStep,
-  createFailureEvidenceAccumulator,
   finalizeFailureEvidenceSummary,
-  type SemanticReviewTaskFailureEvidenceAccumulator,
 } from "./semantic-review-failure-evidence.js";
 
 export {
@@ -51,26 +60,23 @@ export {
   type SemanticReviewTaskFailureEvidenceSummary,
 } from "./semantic-review-failure-evidence-types.js";
 export {
+  type SemanticReviewCoverageBaseline,
+  type SemanticReviewCoverageEvaluationMode,
+  type SemanticReviewCoverageBaselineComparison,
+  type SemanticReviewCoverageBaselineComparisonStatus,
+  type SemanticReviewCoverageObservations,
+  type SemanticReviewCoverageReport,
+  type SemanticReviewLedgerSignatureCount,
+  type SemanticReviewLedgerSignatureExample,
+  type SemanticReviewNoveltySummary,
+  type SemanticReviewSignatureBaselineComparison,
+} from "./semantic-review-coverage-ledger-types.js";
+export {
   defaultSemanticReviewCandidateReportPath,
   renderSemanticReviewCandidateMarkdown,
   writeSemanticReviewCandidateMarkdown,
   writeSemanticReviewCandidateReport,
 } from "./semantic-review-candidate-render.js";
-
-type CandidateReportAccumulator = {
-  repoRoot: string;
-  maxCandidatesPerKind: number;
-  maxCandidatesPerSessionPerKind: number;
-  maxFailureEvidenceExamplesPerKind: number;
-  maxFailureEvidenceExamplesPerSessionPerKind: number;
-  maxUnclassifiedEventShapes: number;
-  maxUnclassifiedExamplesPerEventShape: number;
-  countsByKind: Record<SemanticReviewCandidateKind, number>;
-  candidatesByKind: Record<SemanticReviewCandidateKind, SemanticReviewCandidate[]>;
-  failedTaskEvidence: SemanticReviewTaskFailureEvidenceAccumulator;
-  scannedBundleCount: number;
-};
-
 export async function createSemanticReviewCandidateReportFromPaths(options: {
   manifestPaths?: readonly string[];
   bundlePaths?: readonly string[];
@@ -79,6 +85,7 @@ export async function createSemanticReviewCandidateReportFromPaths(options: {
   maxCandidatesPerKind?: number;
   maxCandidatesPerSessionPerKind?: number;
   repoRoot?: string;
+  replayCurrent?: boolean;
 }): Promise<SemanticReviewCandidateReport> {
   const inputs = await resolveCandidateBundleInputs({
     manifestPaths: options.manifestPaths ?? [],
@@ -97,6 +104,11 @@ export async function createSemanticReviewCandidateReportFromPaths(options: {
     addBundleCandidates(accumulator, input, bundle);
   }
 
+  const coverageBaselineComparison = await createKernelCorpusCoverageBaselineComparison({
+    evaluationMode: accumulator.evaluationMode,
+    repoRoot: accumulator.repoRoot,
+  });
+
   return finalizeCandidateReport(accumulator, {
     ...(options.generatedAt !== undefined ? { generatedAt: options.generatedAt } : {}),
     manifestPaths: options.manifestPaths ?? [],
@@ -106,6 +118,7 @@ export async function createSemanticReviewCandidateReportFromPaths(options: {
     invalidBundleCount,
     manifestRecordCount: inputs.manifestRecordCount,
     manifestBundleCount: inputs.manifestBundleCount,
+    coverageBaselineComparison,
   });
 }
 
@@ -116,6 +129,7 @@ export function createSemanticReviewCandidateReport(
     maxCandidatesPerKind?: number;
     maxCandidatesPerSessionPerKind?: number;
     repoRoot?: string;
+    replayCurrent?: boolean;
     manifestPaths?: readonly string[];
     bundlePaths?: readonly string[];
     bundleDirectories?: readonly string[];
@@ -131,6 +145,7 @@ export function createSemanticReviewCandidateReport(
     ...(options.repoRoot !== undefined ? { repoRoot: options.repoRoot } : {}),
     maxCandidatesPerKind,
     maxCandidatesPerSessionPerKind,
+    ...(options.replayCurrent !== undefined ? { replayCurrent: options.replayCurrent } : {}),
   });
 
   for (const { input, bundle } of bundles) {
@@ -146,34 +161,11 @@ export function createSemanticReviewCandidateReport(
     invalidBundleCount: options.invalidBundleCount ?? 0,
     manifestRecordCount: options.manifestRecordCount ?? 0,
     manifestBundleCount: options.manifestBundleCount ?? 0,
+    coverageBaselineComparison: unavailableCoverageBaselineComparison(
+      "unavailable_sync_report",
+      "Kernel corpus baseline comparison requires the async report path.",
+    ),
   });
-}
-
-function createCandidateReportAccumulator(options: {
-  maxCandidatesPerKind?: number;
-  maxCandidatesPerSessionPerKind?: number;
-  repoRoot?: string;
-}): CandidateReportAccumulator {
-  const maxCandidatesPerKind = options.maxCandidatesPerKind ?? 30;
-  const maxCandidatesPerSessionPerKind = options.maxCandidatesPerSessionPerKind ?? 3;
-  const maxUnclassifiedEventShapes = maxCandidatesPerKind;
-  const maxUnclassifiedExamplesPerEventShape = maxCandidatesPerSessionPerKind;
-  assertPositiveInteger(maxCandidatesPerKind, "maxCandidatesPerKind");
-  assertPositiveInteger(maxCandidatesPerSessionPerKind, "maxCandidatesPerSessionPerKind");
-
-  return {
-    repoRoot: options.repoRoot ?? process.cwd(),
-    maxCandidatesPerKind,
-    maxCandidatesPerSessionPerKind,
-    maxFailureEvidenceExamplesPerKind: maxCandidatesPerKind,
-    maxFailureEvidenceExamplesPerSessionPerKind: maxCandidatesPerSessionPerKind,
-    maxUnclassifiedEventShapes,
-    maxUnclassifiedExamplesPerEventShape,
-    countsByKind: createKindCounts(),
-    candidatesByKind: createKindBuckets(),
-    failedTaskEvidence: createFailureEvidenceAccumulator(),
-    scannedBundleCount: 0,
-  };
 }
 
 function addBundleCandidates(
@@ -183,18 +175,34 @@ function addBundleCandidates(
 ): void {
   accumulator.scannedBundleCount += 1;
   const bundlePath = repoRelativePath(input.bundlePath, accumulator.repoRoot);
-  const artifact = prepareOfflineReviewArtifact(bundle, { bundlePath });
+  const preparedBundle = prepareBundleForCandidateReview(bundle, accumulator.evaluationMode);
+  recordReplayClockReference(accumulator.replayClock, preparedBundle.replayClockReference);
+  const reviewBundle = preparedBundle.bundle;
+  const artifact = prepareOfflineReviewArtifact(reviewBundle, { bundlePath });
   const normalizedByStep = new Map(
-    bundle.normalizedEvents.map((entry) => [entry.stepIndex, entry]),
+    reviewBundle.normalizedEvents.map((entry) => [entry.stepIndex, entry]),
   );
-  const semanticByStep = new Map(bundle.semanticSnapshots.map((entry) => [entry.stepIndex, entry]));
-  const decisionByStep = new Map(bundle.decisionSnapshots.map((entry) => [entry.stepIndex, entry]));
+  const semanticByStep = new Map(
+    reviewBundle.semanticSnapshots.map((entry) => [entry.stepIndex, entry]),
+  );
+  const decisionByStep = new Map(
+    reviewBundle.decisionSnapshots.map((entry) => [entry.stepIndex, entry]),
+  );
 
   for (const step of artifact.steps) {
     const normalized = normalizedByStep.get(step.stepIndex) ?? null;
     const semantic = semanticByStep.get(step.stepIndex) ?? null;
     const decision = decisionByStep.get(step.stepIndex) ?? null;
-    const failureEvidence = classifyFailureEvidenceForStep(bundle.steps[step.stepIndex]);
+    const failureEvidence = classifyFailureEvidenceForStep(reviewBundle.steps[step.stepIndex]);
+    addCoverageLedgerStep(accumulator.coverageLedger, {
+      bundle: reviewBundle,
+      bundlePath,
+      step,
+      normalized: normalized as ReplayNormalizedEventSnapshot | null,
+      semantic: semantic as ReplaySemanticSnapshot | null,
+      decision: decision as ReplayDecisionSnapshot | null,
+      failureEvidence,
+    });
     if (failureEvidence) {
       addFailureEvidenceExample(
         accumulator.failedTaskEvidence,
@@ -204,7 +212,7 @@ function addBundleCandidates(
           maxUnclassifiedExamplesPerEventShape: accumulator.maxUnclassifiedExamplesPerEventShape,
         },
         {
-          bundle,
+          bundle: reviewBundle,
           bundlePath,
           step,
           semantic: semantic as ReplaySemanticSnapshot | null,
@@ -219,7 +227,7 @@ function addBundleCandidates(
       accumulator.candidatesByKind[kind] = retainSemanticReviewCandidate(
         accumulator.candidatesByKind[kind],
         buildSemanticReviewCandidate(kind, {
-          bundle,
+          bundle: reviewBundle,
           bundlePath,
           input,
           repoRoot: accumulator.repoRoot,
@@ -248,14 +256,11 @@ function finalizeCandidateReport(
     invalidBundleCount: number;
     manifestRecordCount: number;
     manifestBundleCount: number;
+    coverageBaselineComparison: SemanticReviewCoverageBaselineComparisonInput;
   },
 ): SemanticReviewCandidateReport {
-  const retainedByKind = Object.fromEntries(
-    SEMANTIC_REVIEW_CANDIDATE_KINDS.map((kind) => [
-      kind,
-      accumulator.candidatesByKind[kind].length,
-    ]),
-  ) as Record<SemanticReviewCandidateKind, number>;
+  const retainedByKind = countRetainedCandidatesByKind(accumulator.candidatesByKind);
+  const engine = createSemanticReviewCandidateEngineFingerprint();
 
   return {
     schemaVersion: SEMANTIC_REVIEW_CANDIDATE_REPORT_SCHEMA_VERSION,
@@ -281,6 +286,9 @@ function finalizeCandidateReport(
       bundleDirectories: [...(options.bundleDirectories ?? [])].map((entry) =>
         repoRelativePath(entry, accumulator.repoRoot),
       ),
+      evaluationMode: accumulator.evaluationMode,
+      engine,
+      replayClock: accumulator.replayClock,
       fileCount: options.fileCount,
       scannedBundleCount: accumulator.scannedBundleCount,
       invalidBundleCount: options.invalidBundleCount,
@@ -295,21 +303,12 @@ function finalizeCandidateReport(
         maxUnclassifiedEventShapes: accumulator.maxUnclassifiedEventShapes,
       }),
     },
+    coverage: finalizeCoverageLedgerSummary(accumulator.coverageLedger, {
+      maxSignatureEntries: accumulator.maxCandidatesPerKind,
+      engineFingerprint: engine.fingerprint,
+      evaluationMode: accumulator.evaluationMode,
+      baselineComparison: options.coverageBaselineComparison,
+    }),
     candidatesByKind: accumulator.candidatesByKind,
   };
-}
-
-function repoRelativePath(filePath: string, repoRoot: string): string {
-  const absolute = path.resolve(filePath);
-  const relative = path.relative(repoRoot, absolute);
-  if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
-    return absolute;
-  }
-  return relative;
-}
-
-function assertPositiveInteger(value: number, label: string): void {
-  if (!Number.isInteger(value) || value < 1) {
-    throw new Error(`${label} must be a positive integer.`);
-  }
 }

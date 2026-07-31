@@ -36,6 +36,10 @@ import {
   type OpenAgentSessionsSplit,
 } from "./public-trajectories-types.js";
 import { readOpenAgentSessionsSplit } from "./public-trajectories-open-agent-sessions-fetch.js";
+import {
+  buildTaskUpdateSourceQualityFields,
+  buildTruncatedSourceEvidenceSemanticHints,
+} from "./public-trajectories-source-quality.js";
 
 const DEFAULT_SOURCE_KIND = "public-trajectory";
 
@@ -216,6 +220,14 @@ export function createImportedSessionFromOpenAgentSessionsRow(
       if (!toolResultText && toolResultStatus === "running") {
         continue;
       }
+      const metadata = buildOpenAgentSessionsMessageMetadata(message);
+      const semanticHints = buildTruncatedSourceEvidenceSemanticHints(message, toolResultStatus);
+      const sourceQuality = buildTaskUpdateSourceQualityFields({
+        summary: toolResultText,
+        status: toolResultStatus,
+        metadata,
+        semanticHints,
+      });
 
       entries.push({
         index: entries.length,
@@ -235,8 +247,8 @@ export function createImportedSessionFromOpenAgentSessionsRow(
           timestamp,
           source: eventSource,
           ...(toolFamily ? { toolFamily } : {}),
+          ...sourceQuality,
           title: buildObservationTitle(toolResultStatus, toolFamily),
-          ...(toolResultText ? { summary: clipSourceEventSummary(toolResultText) } : {}),
           status: toolResultStatus,
         },
       });
@@ -314,6 +326,12 @@ export function createImportedSessionFromOpenAgentSessionsRow(
     importedAt: row.metadata?.created_at ?? syntheticTimestamp(0),
     entries,
   };
+}
+
+function buildOpenAgentSessionsMessageMetadata(
+  message: OpenAgentSessionsMessage,
+): Record<string, unknown> | undefined {
+  return message.truncated === true ? { truncated: true } : undefined;
 }
 
 export function createReplayScenarioFromOpenAgentSessionsRow(

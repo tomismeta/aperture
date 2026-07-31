@@ -8,3 +8,17 @@ export function looksLikePythonLocationError(text: string): boolean {
     diagnosticBody,
   );
 }
+
+export function looksLikePythonExceptionGroupDiagnostic(text: string): boolean {
+  const candidate = text.trim();
+  return (
+    !/[\r\n]/.test(candidate) &&
+    /^(?:OBSERVATION:\s*)?(?:[a-z_][\w]*(?:\.[a-z_][\w]*)*\.)?ExceptionGroup:\s+\S[^\r\n]{0,260}\(\s*[1-9]\d*\s+sub-exceptions?\s*\)$/i.test(
+      candidate,
+    )
+  );
+}
+
+export function looksLikePythonRuntimeDiagnostic(text: string): boolean {
+  return looksLikePythonLocationError(text) || looksLikePythonExceptionGroupDiagnostic(text);
+}

@@ -129,11 +129,13 @@ export function buildRecommendationItem(
   let recommendation: OfflineReviewRecommendation = "ignore";
   for (const disagreement of disagreements) {
     confidenceCounts[disagreement.confidence] += 1;
-    if (compareRecommendationPriority(
-      disagreement.recommendation,
-      recommendation,
-      options.priorityByRecommendation,
-    ) < 0) {
+    if (
+      compareRecommendationPriority(
+        disagreement.recommendation,
+        recommendation,
+        options.priorityByRecommendation,
+      ) < 0
+    ) {
       recommendation = disagreement.recommendation;
     }
   }
@@ -176,15 +178,17 @@ export function compareRecommendationItems(
 function buildSourceExcerpt(step: ReplayObservationStep): string | null {
   switch (step.kind) {
     case "publishSource":
-      return compactText([
-        readEventStringField(step.event, "title"),
-        readEventStringField(step.event, "summary"),
-      ].filter(isNonEmptyString).join(" — "));
+      return compactText(
+        [readEventStringField(step.event, "title"), readEventStringField(step.event, "summary")]
+          .filter(isNonEmptyString)
+          .join(" — "),
+      );
     case "publish":
-      return compactText([
-        readEventStringField(step.event, "title"),
-        readEventStringField(step.event, "summary"),
-      ].filter(isNonEmptyString).join(" — "));
+      return compactText(
+        [readEventStringField(step.event, "title"), readEventStringField(step.event, "summary")]
+          .filter(isNonEmptyString)
+          .join(" — "),
+      );
     case "submit":
       return compactText(`response:${step.response.response.kind}`);
     case "signal":
@@ -194,7 +198,9 @@ function buildSourceExcerpt(step: ReplayObservationStep): string | null {
   }
 }
 
-function buildSourceEventSummary(step: ReplayObservationStep): OfflineReviewPreparedStep["sourceEvent"] {
+function buildSourceEventSummary(
+  step: ReplayObservationStep,
+): OfflineReviewPreparedStep["sourceEvent"] {
   if (step.kind !== "publishSource" && step.kind !== "publish") {
     return null;
   }
@@ -206,6 +212,7 @@ function buildSourceEventSummary(step: ReplayObservationStep): OfflineReviewPrep
     summary: readEventStringField(event, "summary"),
     status: readEventStringField(event, "status"),
     toolFamily: readEventStringField(event, "toolFamily"),
+    metadata: readEventMetadata(event),
   };
 }
 
@@ -213,9 +220,10 @@ function buildSemanticSummary(
   step: ReplayObservationStep,
   snapshot: ReplaySemanticSnapshot,
 ): NonNullable<OfflineReviewPreparedStep["apertureRead"]> {
-  const ontology = step.kind === "publishSource"
-    ? (snapshot.ontology ?? readSemanticOntologyDiagnostic(step.event, snapshot.interpretation))
-    : null;
+  const ontology =
+    step.kind === "publishSource"
+      ? (snapshot.ontology ?? readSemanticOntologyDiagnostic(step.event, snapshot.interpretation))
+      : null;
 
   return {
     ask: ontology?.ask ?? null,
@@ -260,11 +268,13 @@ function looksLikeCompletedReviewAnswer(step: OfflineReviewPreparedStep): boolea
     return false;
   }
 
-  return text.startsWith("here is ")
-    || text.startsWith("here's ")
-    || text.startsWith("based on ")
-    || text.includes("## ")
-    || /\*\*\d+\./.test(text);
+  return (
+    text.startsWith("here is ") ||
+    text.startsWith("here's ") ||
+    text.startsWith("based on ") ||
+    text.includes("## ") ||
+    /\*\*\d+\./.test(text)
+  );
 }
 
 function normalizeOfflineReviewScalar(value: string | boolean | null): string | boolean | null {
@@ -311,4 +321,13 @@ function readEventStringField(
   field: "title" | "summary" | "status" | "toolFamily",
 ): string | null {
   return typeof value[field] === "string" ? value[field] : null;
+}
+
+function readEventMetadata(
+  value: { type: string } & Record<string, unknown>,
+): Record<string, unknown> | null {
+  const metadata = value.metadata;
+  return metadata !== null && typeof metadata === "object" && !Array.isArray(metadata)
+    ? (metadata as Record<string, unknown>)
+    : null;
 }

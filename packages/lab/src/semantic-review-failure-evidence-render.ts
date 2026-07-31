@@ -1,4 +1,8 @@
 import type { SemanticReviewCandidateReport } from "./semantic-review-candidate-types.js";
+import {
+  renderEvidenceLossExamples,
+  renderParserGapCandidateExamples,
+} from "./semantic-review-failure-evidence-compact-render.js";
 import { SEMANTIC_REVIEW_TASK_FAILURE_EVIDENCE_KINDS } from "./semantic-review-failure-evidence-types.js";
 
 export function renderFailureEvidenceMarkdown(report: SemanticReviewCandidateReport): string[] {
@@ -9,6 +13,7 @@ export function renderFailureEvidenceMarkdown(report: SemanticReviewCandidateRep
     `Reads as observation: ${formatCount(report.summary.failedTaskEvidence.readsAsObservationCount)}`,
     `Missing tool family: ${formatCount(report.summary.failedTaskEvidence.missingToolFamilyCount)}`,
     `Consequence baselines: low=${formatCount(report.summary.failedTaskEvidence.consequenceBaselineCounts.low)}, medium=${formatCount(report.summary.failedTaskEvidence.consequenceBaselineCounts.medium)}, high=${formatCount(report.summary.failedTaskEvidence.consequenceBaselineCounts.high)}`,
+    `Failure detail: outcome_only=${formatCount(report.summary.failedTaskEvidence.failureDetailCounts.outcome_only)}, diagnostic=${formatCount(report.summary.failedTaskEvidence.failureDetailCounts.diagnostic)}, indeterminate=${formatCount(report.summary.failedTaskEvidence.failureDetailCounts.indeterminate)}`,
     "",
     "### By Kind",
     "",
@@ -21,9 +26,21 @@ export function renderFailureEvidenceMarkdown(report: SemanticReviewCandidateRep
     "",
     ...renderToolFamilyCounts(report),
     "",
-    "### Unclassified Event Shapes",
+    "### Parser Gap Candidate Event Shapes",
     "",
-    ...renderUnclassifiedEventShapeCounts(report),
+    ...renderParserGapCandidateEventShapeCounts(report),
+    "",
+    "### Evidence Loss Signals",
+    "",
+    ...renderEvidenceLossCounts(report),
+    "",
+    "### Parser Gap Candidate Examples",
+    "",
+    ...renderParserGapCandidateExamples(report),
+    "",
+    "### Evidence Loss Examples",
+    "",
+    ...renderEvidenceLossExamples(report),
     "",
     "### Examples",
     "",
@@ -33,20 +50,27 @@ export function renderFailureEvidenceMarkdown(report: SemanticReviewCandidateRep
 
 function renderToolFamilyCounts(report: SemanticReviewCandidateReport): string[] {
   const entries = Object.entries(report.summary.failedTaskEvidence.countsByToolFamily);
-  if (entries.length === 0) {
-    return ["- (none)"];
-  }
-
-  return entries.map(([toolFamily, count]) => `- ${toolFamily}: ${formatCount(count)}`);
+  return entries.length === 0
+    ? ["- (none)"]
+    : entries.map(([toolFamily, count]) => `- ${toolFamily}: ${formatCount(count)}`);
 }
 
-function renderUnclassifiedEventShapeCounts(report: SemanticReviewCandidateReport): string[] {
-  const entries = Object.entries(report.summary.failedTaskEvidence.unclassifiedEventShapeCounts);
-  if (entries.length === 0) {
-    return ["- (none)"];
-  }
+function renderParserGapCandidateEventShapeCounts(report: SemanticReviewCandidateReport): string[] {
+  const entries = Object.entries(
+    report.summary.failedTaskEvidence.parserGapCandidateEventShapeCounts,
+  );
+  return entries.length === 0
+    ? ["- (none)"]
+    : entries.map(([shape, count]) => `- ${shape}: ${formatCount(count)}`);
+}
 
-  return entries.map(([shape, count]) => `- ${shape}: ${formatCount(count)}`);
+function renderEvidenceLossCounts(report: SemanticReviewCandidateReport): string[] {
+  const entries = Object.entries(report.summary.failedTaskEvidence.evidenceLossCounts).filter(
+    ([, count]) => count > 0,
+  );
+  return entries.length === 0
+    ? ["- (none)"]
+    : entries.map(([kind, count]) => `- ${kind}: ${formatCount(count)}`);
 }
 
 function renderFailureEvidenceExamples(report: SemanticReviewCandidateReport): string[] {
@@ -67,8 +91,14 @@ function renderFailureEvidenceExamples(report: SemanticReviewCandidateReport): s
       if (example.stepLabel) {
         lines.push(`  step: ${example.stepLabel}`);
       }
+      const terminalShape = example.evidence.terminalShape
+        ? `, terminalShape=${example.evidence.terminalShape}`
+        : "";
+      const failureDetail = example.evidence.failureDetail
+        ? `, detail=${example.evidence.failureDetail}`
+        : "";
       lines.push(
-        `  evidence: tool=${example.evidence.toolFamily ?? "none"}, observation=${String(example.evidence.readsAsObservation)}, baseline=${example.evidence.consequenceBaseline}`,
+        `  evidence: tool=${example.evidence.toolFamily ?? "none"}, observation=${String(example.evidence.readsAsObservation)}, baseline=${example.evidence.consequenceBaseline}${failureDetail}${terminalShape}`,
       );
       lines.push(`  shape: ${example.eventShape}`);
       lines.push(

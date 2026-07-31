@@ -1,0 +1,81 @@
+{
+  "id": "golden:kernel-corpus:known-command-operation-success-text-stays-failure",
+  "title": "Known command operation success text stays failure",
+  "description": "A known command failure can print operation-success text before exiting nonzero; without missing-tool authority or structured success evidence it must remain failed-status work.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "semantic_normalization",
+    "status_noise",
+    "source_fact_authority"
+  ],
+  "semanticFamilies": ["consequence_underread"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:task:public-command-file-created-failure:status",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "known command file creation text",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "toolFamily": "bash",
+        "consequence": "high",
+        "confidence": "high",
+        "factorsInclude": ["failed"],
+        "ontology": {
+          "ask": "status",
+          "activity": "failure",
+          "consequence": "high",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "explicit"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "known command file creation text",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "semanticConfidence": "high",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:activate",
+          "lane:now",
+          "evidence:operator_presence:present"
+        ],
+        "semanticInfluenceIncludes": [
+          "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics"
+        ],
+        "semanticImpactDecisionBearingIncludes": ["activity (canonical)", "tool (bounded)"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "known command file creation text",
+      "event": {
+        "id": "evt:public-command-file-created-failure",
+        "type": "task.updated",
+        "taskId": "task:public-command-file-created-failure",
+        "timestamp": "2026-04-18T15:02:45.000Z",
+        "source": { "id": "swe-smith", "kind": "public-trajectory" },
+        "title": "bash failure",
+        "summary": "OBSERVATION: File created successfully at: /testbed/exception_test.py",
+        "status": "failed",
+        "toolFamily": "bash"
+      }
+    }
+  ]
+}

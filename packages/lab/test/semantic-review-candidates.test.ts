@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
 import type { TaskFailureSemanticEvidence } from "@tomismeta/aperture-core/internal";
+import { TRUNCATED_SOURCE_EVIDENCE_FACTOR } from "@tomismeta/aperture-core/semantic";
 
 import {
   createSemanticReviewCandidateReportFromPaths,
@@ -16,6 +17,9 @@ import {
   createSessionBundleFromSweSmithRow,
   digestJsonValue,
   digestPublicCorpusLedgerEntries,
+  KERNEL_CORPUS_SCENARIO_IDS,
+  loadGoldenScenarios,
+  renderSemanticReviewCandidateMarkdown,
   writeSessionBundle,
   type DataclawRow,
   type PublicCorpusRecordLedgerEntry,
@@ -25,8 +29,13 @@ import {
   type SweSmithRow,
 } from "../src/index.js";
 import type { OfflineReviewPreparedStep } from "../src/offline-review.js";
+import { prepareBundleForCandidateReview } from "../src/semantic-review-candidate-report-support.js";
 import { candidateKindsForStep } from "../src/semantic-review-candidate-policy.js";
 import { readFailureEvidenceEventShape } from "../src/semantic-review-failure-event-shapes.js";
+import {
+  clipSourceEventSummary,
+  isClippedSourceEventSummary,
+} from "../src/source-event-summary.js";
 import type { ReplayDecisionSnapshot, ReplaySemanticSnapshot } from "../src/scenario.js";
 
 const execFile = promisify(execFileCallback);
@@ -301,6 +310,91 @@ function createFailedReadbackBundle(options: {
   });
 }
 
+function createResponseExpiryReplayBundle() {
+  const taskId = "task:response-expiry-replay";
+  const interactionId = "approval:response-expiry-replay";
+  const scenario: ReplayScenario = {
+    id: "response-expiry-replay",
+    title: "Response expiry replay coverage",
+    core: {
+      responseExpiryMs: 60_000,
+    },
+    steps: [
+      {
+        kind: "publishSource",
+        label: "approval request",
+        event: {
+          id: "evt:response-expiry-replay:approval",
+          taskId,
+          interactionId,
+          timestamp: "2026-04-27T00:00:00.000Z",
+          type: "human.input.requested",
+          title: "Approve filesystem write",
+          summary: "Approve writing generated output to the workspace.",
+          request: { kind: "approval" },
+          riskHint: "high",
+        },
+      },
+      {
+        kind: "submit",
+        label: "approval response",
+        response: {
+          taskId,
+          interactionId,
+          response: { kind: "approved" },
+        },
+      },
+    ],
+  };
+
+  return createSessionBundleFromScenario(scenario, {
+    exportedAt: "2026-04-27T00:00:10.000Z",
+    replayTimeSource: () => Date.parse("2026-04-27T00:00:10.000Z"),
+  });
+}
+
+function createOutOfOrderTimestampBundle() {
+  const scenario: ReplayScenario = {
+    id: "out-of-order-replay-clock",
+    title: "Out-of-order replay clock coverage",
+    steps: [
+      {
+        kind: "publishSource",
+        label: "newer status",
+        event: {
+          id: "evt:out-of-order:newer",
+          taskId: "task:out-of-order:newer",
+          timestamp: "2026-04-27T00:01:00.000Z",
+          type: "task.updated",
+          title: "Build failed",
+          summary: "The build failed after tests completed.",
+          status: "failed",
+          toolFamily: "bash",
+        },
+      },
+      {
+        kind: "publishSource",
+        label: "older delayed status",
+        event: {
+          id: "evt:out-of-order:older",
+          taskId: "task:out-of-order:older",
+          timestamp: "2026-04-27T00:00:00.000Z",
+          type: "task.updated",
+          title: "Earlier build output",
+          summary: "Delayed earlier build output arrived after the failure.",
+          status: "running",
+          toolFamily: "bash",
+        },
+      },
+    ],
+  };
+
+  return createSessionBundleFromScenario(scenario, {
+    exportedAt: "2026-04-27T00:01:10.000Z",
+    replayTimeSource: () => Date.parse("2026-04-27T00:01:10.000Z"),
+  });
+}
+
 function createRepeatedUnclassifiedFailedBundle(options: {
   id: string;
   title: string;
@@ -398,6 +492,111 @@ function createUnclassifiedEventShapeBundle() {
   });
 }
 
+function createClippedUnclassifiedFailedBundle() {
+  const scenario: ReplayScenario = {
+    id: "clipped-unclassified-failure",
+    title: "Clipped unclassified failure coverage",
+    steps: [
+      {
+        kind: "publishSource",
+        label: "clipped failed output",
+        event: {
+          id: "evt:clipped:failure",
+          taskId: "task:clipped:failure",
+          timestamp: "2026-04-27T00:00:00.000Z",
+          type: "task.updated",
+          title: "bash failure",
+          summary:
+            "/workspace/node_modules/tool/dist/register.cjs:3 minified runtime prelude with loader frames, bundled resolver code, and no visible terminal diagnostic before the preserved artifact boundary...",
+          status: "failed",
+          toolFamily: "bash",
+        },
+      },
+      {
+        kind: "publishSource",
+        label: "plain failed status",
+        event: {
+          id: "evt:plain:failure",
+          taskId: "task:plain:failure",
+          timestamp: "2026-04-27T00:00:01.000Z",
+          type: "task.updated",
+          title: "bash failure",
+          summary: "No clear classifier evidence.",
+          status: "failed",
+          toolFamily: "bash",
+        },
+      },
+    ],
+  };
+
+  return createSessionBundleFromScenario(scenario, {
+    exportedAt: "2026-04-27T00:00:00.000Z",
+    replayTimeSource: () => Date.parse("2026-04-27T00:00:00.000Z"),
+  });
+}
+
+function createClippedClassifiedFailedBundle() {
+  const scenario: ReplayScenario = {
+    id: "clipped-classified-failure",
+    title: "Clipped classified failure coverage",
+    steps: [
+      {
+        kind: "publishSource",
+        label: "clipped terminal failure",
+        event: {
+          id: "evt:clipped:terminal",
+          taskId: "task:clipped:terminal",
+          timestamp: "2026-04-27T00:00:00.000Z",
+          type: "task.updated",
+          title: "bash failure",
+          summary: clipSourceEventSummary(
+            `Traceback (most recent call last): ${"runtime frame ".repeat(
+              80,
+            )} TypeError: invalid provider response`,
+            220,
+          ),
+          status: "failed",
+          toolFamily: "bash",
+        },
+      },
+    ],
+  };
+
+  return createSessionBundleFromScenario(scenario, {
+    exportedAt: "2026-04-27T00:00:00.000Z",
+    replayTimeSource: () => Date.parse("2026-04-27T00:00:00.000Z"),
+  });
+}
+
+function createMetadataTruncatedUnclassifiedFailedBundle() {
+  const scenario: ReplayScenario = {
+    id: "metadata-truncated-failure",
+    title: "Metadata truncated failure coverage",
+    steps: [
+      {
+        kind: "publishSource",
+        label: "metadata truncated failure",
+        event: {
+          id: "evt:metadata-truncated:failure",
+          taskId: "task:metadata-truncated:failure",
+          timestamp: "2026-04-27T00:00:00.000Z",
+          type: "task.updated",
+          title: "bash failure",
+          summary: "No clear classifier evidence.",
+          status: "failed",
+          toolFamily: "bash",
+          metadata: { truncated: true },
+        },
+      },
+    ],
+  };
+
+  return createSessionBundleFromScenario(scenario, {
+    exportedAt: "2026-04-27T00:00:00.000Z",
+    replayTimeSource: () => Date.parse("2026-04-27T00:00:00.000Z"),
+  });
+}
+
 function createUnclassifiedEvidence(toolFamily?: string): TaskFailureSemanticEvidence {
   return {
     kind: "unclassified_failure",
@@ -417,6 +616,10 @@ function createUnclassifiedEvidence(toolFamily?: string): TaskFailureSemanticEvi
       buildMetadataObservation: false,
     },
   };
+}
+
+function sumRecordValues(record: Record<string, number>): number {
+  return Object.values(record).reduce((sum, count) => sum + count, 0);
 }
 
 function createMissingWhyNowPolicyInput(): {
@@ -507,16 +710,32 @@ test("semantic review candidate reports shortlist deterministic review pressure"
     repoRoot: tempDir,
   });
 
-  assert.equal(report.schemaVersion, 5);
+  assert.equal(report.schemaVersion, 13);
   assert.equal(report.selection.promotionAuthority, "review_required");
+  assert.equal(report.input.evaluationMode, "persisted_bundle_snapshots");
+  assert.deepEqual(report.input.engine, {
+    corePackage: { name: "@tomismeta/aperture-core", version: "0.8.0" },
+    kernelDecisionRecordProjectionVersion: 2,
+    fingerprint: "@tomismeta/aperture-core@0.8.0/kernel-decision-v2",
+  });
+  assert.equal(report.input.replayClock.strategy, "none");
   assert.equal(report.selection.maxFailureEvidenceExamplesPerKind, 2);
   assert.equal(report.selection.maxFailureEvidenceExamplesPerSessionPerKind, 1);
   assert.equal(report.selection.maxUnclassifiedEventShapes, 2);
   assert.equal(report.selection.maxUnclassifiedExamplesPerEventShape, 1);
   assert.equal(report.input.scannedBundleCount, 1);
   assert.ok(report.summary.countsByKind.failure_attention > 0);
+  assert.equal(report.coverage.shapeSchemaVersion, 1);
+  assert.equal(report.coverage.baseline.profileId, "aperture.kernel.messy_event_corpus.v2");
+  assert.equal(report.coverage.baseline.engineFingerprint, report.input.engine.fingerprint);
+  assert.equal(report.coverage.baseline.evaluationMode, report.input.evaluationMode);
+  assert.equal(report.coverage.baseline.signatureSetDigest, null);
+  assert.equal(report.coverage.corpusComparison.status, "not_comparable_persisted_snapshots");
+  assert.equal(report.coverage.observations.stepCount, bundle.steps.length);
+  assert.equal(report.coverage.corpusNovelty.failureSignature.observedCount, 1);
   assert.ok(report.summary.failedTaskEvidence.failedTaskUpdateCount > 0);
   assert.ok(report.summary.failedTaskEvidence.countsByKind.terminal_failure > 0);
+  assert.ok(report.summary.failedTaskEvidence.failureDetailCounts.diagnostic > 0);
   assert.ok(report.summary.failedTaskEvidence.retainedExamplesByKind.terminal_failure.length > 0);
   assert.ok(report.candidatesByKind.failure_attention.length <= 1);
   assert.equal(
@@ -529,6 +748,116 @@ test("semantic review candidate reports shortlist deterministic review pressure"
     "toolFamily",
     "consequence",
   ]);
+});
+
+test("semantic review candidate reports ledger corpus novelty and judgment coverage", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-ledger-"));
+  const repeatedPaths = await Promise.all(
+    [
+      createRepeatedUnclassifiedFailedBundle({
+        id: "ledger-repeated-a",
+        title: "Ledger repeated A",
+        count: 2,
+      }),
+      createRepeatedUnclassifiedFailedBundle({
+        id: "ledger-repeated-b",
+        title: "Ledger repeated B",
+        count: 1,
+      }),
+      createFailedReadbackBundle({
+        id: "ledger-readback",
+        title: "Ledger readback",
+        outputSummaries: [
+          "Result of running cat -n /workspace/src/client.ts: 1 export const ok = true;",
+        ],
+      }),
+    ].map(async (bundle, index) => {
+      const bundlePath = path.join(tempDir, `bundle-${index}.json`);
+      await writeSessionBundle(bundlePath, bundle);
+      return bundlePath;
+    }),
+  );
+
+  const report = await createSemanticReviewCandidateReportFromPaths({
+    bundlePaths: repeatedPaths,
+    generatedAt: "2026-04-27T00:00:00.000Z",
+    maxCandidatesPerKind: 3,
+    repoRoot: tempDir,
+  });
+  const coverage = report.coverage;
+
+  assert.equal(coverage.baseline.profileId, "aperture.kernel.messy_event_corpus.v2");
+  assert.equal(coverage.baseline.authority, "engine_observation_coverage");
+  assert.match(coverage.baseline.profileDigest, /^sha256:/);
+  assert.equal(coverage.observations.stepCount, 4);
+  assert.equal(coverage.observations.semanticComparableCount, 4);
+  assert.equal(coverage.observations.judgmentComparableCount, 4);
+  assert.equal(
+    coverage.corpusNovelty.failureSignature.observedCount,
+    report.summary.failedTaskEvidence.failedTaskUpdateCount,
+  );
+  assert.ok(
+    coverage.corpusNovelty.failureSignature.uniqueSignatureCount <
+      coverage.corpusNovelty.failureSignature.observedCount,
+  );
+  assert.ok(coverage.corpusNovelty.failureSignature.duplicateObservationCount > 0);
+  assert.ok(coverage.corpusNovelty.failureSignature.repeatedSignatureCount > 0);
+  assert.ok(coverage.corpusNovelty.failureSignature.maxSignatureCount > 1);
+  assert.match(
+    coverage.corpusNovelty.failureSignature.topSignatures[0]?.signature ?? "",
+    /failure:unclassified_failure/,
+  );
+  assert.equal(
+    coverage.corpusNovelty.failureSignature.topSignatures[0]?.firstExample.bundlePath,
+    "bundle-0.json",
+  );
+  assert.equal(
+    sumRecordValues(coverage.judgment.resultLaneCounts),
+    coverage.observations.stepCount,
+  );
+  assert.equal(
+    sumRecordValues(coverage.semantic.consequenceCounts),
+    coverage.observations.stepCount,
+  );
+
+  const markdown = renderSemanticReviewCandidateMarkdown(report);
+  assert.match(markdown, /Engine Coverage/);
+  assert.match(markdown, /Judgment Coverage/);
+  assert.match(markdown, /Failed Task Signatures/);
+});
+
+test("semantic review coverage compares current replay against kernel corpus baseline", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-kernel-"));
+  const scenarios = await loadGoldenScenarios();
+  const scenario = scenarios.find((entry) => entry.id === KERNEL_CORPUS_SCENARIO_IDS[0]);
+  assert.ok(scenario);
+  const bundlePath = path.join(tempDir, "kernel-bundle.json");
+  await writeSessionBundle(
+    bundlePath,
+    createSessionBundleFromScenario(scenario, {
+      exportedAt: "2026-04-27T00:00:00.000Z",
+      replayTimeSource: () => Date.parse("2026-04-27T00:00:00.000Z"),
+    }),
+  );
+
+  const report = await createSemanticReviewCandidateReportFromPaths({
+    bundlePaths: [bundlePath],
+    generatedAt: "2026-04-27T00:00:00.000Z",
+    maxCandidatesPerKind: 5,
+    repoRoot: tempDir,
+    replayCurrent: true,
+  });
+
+  assert.equal(report.coverage.corpusComparison.status, "compared");
+  assert.match(report.coverage.baseline.signatureSetDigest ?? "", /^sha256:/);
+  assert.equal(report.coverage.corpusComparison.structuralSignature?.novelSignatureCount, 0);
+  assert.equal(report.coverage.corpusComparison.structuralSignature?.novelObservationCount, 0);
+  assert.equal(report.coverage.corpusComparison.failureSignature?.novelSignatureCount, 0);
+  assert.equal(report.coverage.corpusComparison.failureSignature?.novelObservationCount, 0);
+  assert.ok(
+    (report.coverage.corpusComparison.structuralSignature?.coveredObservationCount ?? 0) > 0,
+  );
+  assert.match(renderSemanticReviewCandidateMarkdown(report), /Status: compared/);
 });
 
 test("semantic review candidate reports keep missing whyNow for high-pressure semantics", async () => {
@@ -570,6 +899,145 @@ test("semantic review candidate reports ignore missing whyNow on routine ambient
   assert.equal(report.candidatesByKind.missing_why_now.length, 0);
 });
 
+test("semantic review candidate reports do not treat established ambient read observations as routing ambiguity", async () => {
+  const tempDir = await mkdtemp(
+    path.join(os.tmpdir(), "aperture-review-candidates-read-observation-"),
+  );
+  const bundle = createFailedReadbackBundle({
+    id: "ambient-read-observation",
+    title: "Ambient failed readback observation",
+    outputSummaries: [
+      "# @mariozechner/pi-tui Minimal terminal UI framework with differential rendering and synchronized output for interactive CLI applications. ## Features - **Differential Rendering**: Three-strategy rendering system - **Components**: Reusable terminal widgets...",
+    ],
+  });
+  const bundlePath = path.join(tempDir, "bundle.json");
+  await writeSessionBundle(bundlePath, bundle);
+
+  const report = await createSemanticReviewCandidateReportFromPaths({
+    bundlePaths: [bundlePath],
+    generatedAt: "2026-04-27T00:00:00.000Z",
+    maxCandidatesPerKind: 2,
+    repoRoot: tempDir,
+  });
+
+  assert.equal(bundle.semanticSnapshots[0]?.interpretation.intentFrame, "status_update");
+  assert.equal(bundle.semanticSnapshots[0]?.interpretation.consequence, "medium");
+  assert.equal(bundle.decisionSnapshots[0]?.decisionKind, "ambient");
+  assert.equal(bundle.decisionSnapshots[0]?.ambiguity ?? null, null);
+  assert.equal(report.summary.countsByKind.failure_attention, 1);
+  assert.equal(report.summary.countsByKind.routing_ambiguity, 0);
+  assert.equal(report.candidatesByKind.routing_ambiguity.length, 0);
+});
+
+test("semantic review candidate reports can replay stale bundles through the current engine", async () => {
+  const tempDir = await mkdtemp(
+    path.join(os.tmpdir(), "aperture-review-candidates-current-replay-"),
+  );
+  const bundle = createFailedReadbackBundle({
+    id: "current-replay-read-observation",
+    title: "Current replay read observation",
+    outputSummaries: [
+      "# @mariozechner/pi-tui Minimal terminal UI framework with differential rendering and synchronized output for interactive CLI applications. ## Features - **Differential Rendering**: Three-strategy rendering system - **Components**: Reusable terminal widgets...",
+    ],
+  });
+  const persistedDecision = bundle.decisionSnapshots[0];
+  assert.ok(persistedDecision);
+  assert.equal(persistedDecision.ambiguity ?? null, null);
+  persistedDecision.ambiguity = {
+    kind: "interrupt",
+    reason: "low_signal",
+    resolution: "ambient",
+  };
+  const bundlePath = path.join(tempDir, "bundle.json");
+  await writeSessionBundle(bundlePath, bundle);
+
+  const persistedReport = await createSemanticReviewCandidateReportFromPaths({
+    bundlePaths: [bundlePath],
+    generatedAt: "2026-04-27T00:00:00.000Z",
+    maxCandidatesPerKind: 2,
+    repoRoot: tempDir,
+  });
+  const replayedReport = await createSemanticReviewCandidateReportFromPaths({
+    bundlePaths: [bundlePath],
+    generatedAt: "2026-04-27T00:00:00.000Z",
+    maxCandidatesPerKind: 2,
+    repoRoot: tempDir,
+    replayCurrent: true,
+  });
+
+  assert.equal(persistedReport.input.evaluationMode, "persisted_bundle_snapshots");
+  assert.equal(persistedReport.summary.countsByKind.routing_ambiguity, 1);
+  assert.equal(replayedReport.input.evaluationMode, "current_engine_replay");
+  assert.equal(
+    replayedReport.input.replayClock.strategy,
+    "monotonic_step_timestamp_previous_timestamp_fallback",
+  );
+  assert.equal(
+    replayedReport.input.replayClock.referenceTimestampSourceCounts.first_step_timestamp,
+    1,
+  );
+  assert.equal(replayedReport.summary.countsByKind.failure_attention, 1);
+  assert.equal(replayedReport.summary.countsByKind.routing_ambiguity, 0);
+  assert.equal(replayedReport.candidatesByKind.routing_ambiguity.length, 0);
+});
+
+test("semantic review current replay uses historical step time instead of wall clock", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-replay-clock-"));
+  const bundlePath = path.join(tempDir, "bundle.json");
+  await writeSessionBundle(bundlePath, createResponseExpiryReplayBundle());
+  const originalDateNow = Date.now;
+
+  try {
+    Date.now = () => Date.parse("2099-01-01T00:00:00.000Z");
+    const farFutureReport = await createSemanticReviewCandidateReportFromPaths({
+      bundlePaths: [bundlePath],
+      generatedAt: "2026-04-27T00:00:00.000Z",
+      maxCandidatesPerKind: 5,
+      repoRoot: tempDir,
+      replayCurrent: true,
+    });
+
+    Date.now = () => Date.parse("2027-01-01T00:00:00.000Z");
+    const nearFutureReport = await createSemanticReviewCandidateReportFromPaths({
+      bundlePaths: [bundlePath],
+      generatedAt: "2026-04-27T00:00:00.000Z",
+      maxCandidatesPerKind: 5,
+      repoRoot: tempDir,
+      replayCurrent: true,
+    });
+
+    assert.equal(farFutureReport.input.evaluationMode, "current_engine_replay");
+    assert.equal(
+      farFutureReport.input.replayClock.strategy,
+      "monotonic_step_timestamp_previous_timestamp_fallback",
+    );
+    assert.equal(
+      farFutureReport.input.replayClock.referenceTimestampSourceCounts.first_step_timestamp,
+      1,
+    );
+    assert.equal(
+      farFutureReport.input.replayClock.earliestReferenceTimestamp,
+      "2026-04-27T00:00:00.000Z",
+    );
+    assert.deepEqual(farFutureReport.summary, nearFutureReport.summary);
+    assert.deepEqual(farFutureReport.candidatesByKind, nearFutureReport.candidatesByKind);
+  } finally {
+    Date.now = originalDateNow;
+  }
+});
+
+test("semantic review current replay clock does not rewind on delayed event timestamps", () => {
+  const prepared = prepareBundleForCandidateReview(
+    createOutOfOrderTimestampBundle(),
+    "current_engine_replay",
+  );
+
+  assert.deepEqual(
+    prepared.bundle.traces.map((trace) => trace.timestamp),
+    ["2026-04-27T00:01:00.000Z", "2026-04-27T00:01:00.000Z"],
+  );
+});
+
 test("missing whyNow policy follows attention-bearing review pressure", () => {
   const cases: Array<{
     name: string;
@@ -584,6 +1052,7 @@ test("missing whyNow policy follows attention-bearing review pressure", () => {
     } | void;
     expectedMissingWhyNow: boolean;
     expectedKinds?: SemanticReviewCandidateKind[];
+    expectedAbsentKinds?: SemanticReviewCandidateKind[];
   }> = [
     {
       name: "low consequence ambient",
@@ -668,6 +1137,19 @@ test("missing whyNow policy follows attention-bearing review pressure", () => {
         decision.plannedLane = "now";
       },
       expectedMissingWhyNow: true,
+      expectedKinds: ["high_consequence_attention"],
+    },
+    {
+      name: "queue materialized in empty slot",
+      mutate: ({ decision }) => {
+        assert.ok(decision);
+        decision.decisionKind = "queue";
+        decision.plannedLane = "next";
+        decision.resultLane = "now";
+      },
+      expectedMissingWhyNow: true,
+      expectedKinds: ["queue_decision"],
+      expectedAbsentKinds: ["high_consequence_attention"],
     },
     {
       name: "realized next decision",
@@ -686,6 +1168,20 @@ test("missing whyNow policy follows attention-bearing review pressure", () => {
       },
       expectedMissingWhyNow: true,
       expectedKinds: ["semantic_uncertainty"],
+    },
+    {
+      name: "resolved source-quality confidence loss",
+      mutate: ({ semantic, decision }) => {
+        assert.ok(semantic);
+        assert.ok(decision);
+        semantic.interpretation.confidence = "low";
+        semantic.interpretation.factors = [TRUNCATED_SOURCE_EVIDENCE_FACTOR];
+        decision.semanticConfidence = "low";
+        decision.ambiguity = null;
+        decision.decisionRecordReasonCodes = ["policy_criterion:semantic_uncertainty:noop"];
+      },
+      expectedMissingWhyNow: false,
+      expectedAbsentKinds: ["semantic_uncertainty"],
     },
     {
       name: "medium confidence",
@@ -716,7 +1212,25 @@ test("missing whyNow policy follows attention-bearing review pressure", () => {
         };
       },
       expectedMissingWhyNow: true,
-      expectedKinds: ["semantic_uncertainty"],
+      expectedKinds: ["routing_ambiguity"],
+      expectedAbsentKinds: ["semantic_uncertainty"],
+    },
+    {
+      name: "high confidence small score gap",
+      mutate: ({ decision, semantic }) => {
+        assert.ok(decision);
+        assert.ok(semantic);
+        semantic.interpretation.confidence = "high";
+        decision.semanticConfidence = "high";
+        decision.ambiguity = {
+          kind: "interrupt",
+          reason: "small_score_gap",
+          resolution: "ambient",
+        };
+      },
+      expectedMissingWhyNow: true,
+      expectedKinds: ["routing_ambiguity"],
+      expectedAbsentKinds: ["semantic_uncertainty"],
     },
     {
       name: "relation hint",
@@ -726,6 +1240,51 @@ test("missing whyNow policy follows attention-bearing review pressure", () => {
       },
       expectedMissingWhyNow: true,
       expectedKinds: ["relation_signal"],
+    },
+    {
+      name: "relation hint with high consequence",
+      mutate: ({ semantic }) => {
+        assert.ok(semantic);
+        semantic.interpretation.consequence = "high";
+        semantic.interpretation.relationHints = [{ kind: "same_issue" }];
+      },
+      expectedMissingWhyNow: true,
+      expectedKinds: ["high_consequence_attention", "relation_signal"],
+    },
+    {
+      name: "ambient observational status conflict",
+      mutate: ({ step, semantic, decision }) => {
+        assert.ok(step.normalizedEvent);
+        assert.ok(semantic);
+        assert.ok(decision);
+        step.normalizedEvent.status = "failed";
+        semantic.interpretation.consequence = "medium";
+        semantic.interpretation.factors = ["task.updated", "failed", "observational_failure"];
+        decision.decisionKind = "ambient";
+        decision.plannedLane = "ambient";
+        decision.resultLane = "ambient";
+      },
+      expectedMissingWhyNow: false,
+      expectedKinds: ["failure_attention"],
+    },
+    {
+      name: "preserved ambient observational status conflict in empty slot",
+      mutate: ({ step, semantic, decision }) => {
+        assert.ok(step.normalizedEvent);
+        assert.ok(semantic);
+        assert.ok(decision);
+        step.normalizedEvent.status = "failed";
+        semantic.interpretation.consequence = "medium";
+        semantic.interpretation.factors = ["task.updated", "failed", "observational_failure"];
+        decision.decisionKind = "ambient";
+        decision.plannedLane = "ambient";
+        decision.resultLane = "now";
+        decision.ambiguity = null;
+        decision.decisionRecordReasonCodes = ["criterion:peripheral_resolution:ambient"];
+      },
+      expectedMissingWhyNow: false,
+      expectedKinds: ["failure_attention"],
+      expectedAbsentKinds: ["routing_ambiguity"],
     },
     {
       name: "tool taxonomy gap alone",
@@ -752,6 +1311,8 @@ test("missing whyNow policy follows attention-bearing review pressure", () => {
       name: "missing semantic snapshot",
       mutate: ({ decision }) => {
         assert.ok(decision);
+        decision.decisionKind = "activate";
+        decision.plannedLane = "now";
         decision.resultLane = "now";
         return { semantic: null };
       },
@@ -772,6 +1333,9 @@ test("missing whyNow policy follows attention-bearing review pressure", () => {
     assert.equal(kinds.includes("missing_why_now"), entry.expectedMissingWhyNow, entry.name);
     for (const expectedKind of entry.expectedKinds ?? []) {
       assert.equal(kinds.includes(expectedKind), true, entry.name);
+    }
+    for (const absentKind of entry.expectedAbsentKinds ?? []) {
+      assert.equal(kinds.includes(absentKind), false, entry.name);
     }
   }
 });
@@ -901,6 +1465,41 @@ test("semantic review candidate reports treat canonical write tool family as kno
   });
 
   assert.equal(report.summary.countsByKind.tool_taxonomy_gap, 0);
+});
+
+test("semantic review candidate reports treat command execution aliases as known", async () => {
+  for (const toolFamily of ["exec_command", "run_shell_command"] as const) {
+    const tempDir = await mkdtemp(
+      path.join(os.tmpdir(), `aperture-review-candidates-${toolFamily}-`),
+    );
+    const bundle = createSessionBundleFromSweSmithRow(SAMPLE_ROW);
+    for (const normalized of bundle.normalizedEvents) {
+      const event = normalized.event as { toolFamily?: string };
+      if (event.toolFamily === "bash") {
+        event.toolFamily = toolFamily;
+      }
+    }
+    for (const semantic of bundle.semanticSnapshots) {
+      if (semantic.interpretation.toolFamily === "bash") {
+        semantic.interpretation.toolFamily = toolFamily;
+      }
+    }
+    const bundlePath = path.join(tempDir, "bundle.json");
+    await writeSessionBundle(bundlePath, bundle);
+
+    const report = await createSemanticReviewCandidateReportFromPaths({
+      bundlePaths: [bundlePath],
+      generatedAt: "2026-04-27T00:00:00.000Z",
+      maxCandidatesPerKind: 2,
+      repoRoot: tempDir,
+    });
+
+    assert.equal(
+      report.summary.countsByKind.tool_taxonomy_gap,
+      0,
+      `${toolFamily} should not be a taxonomy gap`,
+    );
+  }
 });
 
 test("semantic review candidate reports treat canonical DataClaw Glob usage as known", async () => {
@@ -1037,8 +1636,16 @@ test("semantic review evidence audit ignores metadata-only tool-family routing e
 
   assert.equal(report.summary.failedTaskEvidence.failedTaskUpdateCount, 1);
   assert.equal(report.summary.failedTaskEvidence.countsByKind.unclassified_failure, 1);
+  assert.deepEqual(report.summary.failedTaskEvidence.failureDetailCounts, {
+    outcome_only: 0,
+    diagnostic: 0,
+    indeterminate: 1,
+  });
   assert.equal(report.summary.failedTaskEvidence.missingToolFamilyCount, 1);
   assert.deepEqual(report.summary.failedTaskEvidence.unclassifiedEventShapeCounts, {
+    "tool:none|summary:text:plain:short": 1,
+  });
+  assert.deepEqual(report.summary.failedTaskEvidence.parserGapCandidateEventShapeCounts, {
     "tool:none|summary:text:plain:short": 1,
   });
   assert.equal(
@@ -1071,18 +1678,169 @@ test("semantic review evidence audit clusters unclassified event shapes", async 
 
   assert.equal(report.summary.failedTaskEvidence.failedTaskUpdateCount, 4);
   assert.equal(report.summary.failedTaskEvidence.countsByKind.unclassified_failure, 4);
+  assert.deepEqual(report.summary.failedTaskEvidence.failureDetailCounts, {
+    outcome_only: 0,
+    diagnostic: 0,
+    indeterminate: 4,
+  });
   assert.deepEqual(report.summary.failedTaskEvidence.unclassifiedEventShapeCounts, {
     "tool:bash|summary:json_object:keys=exit_code,output,truncated;exit_code=number;output=text:plain:short;truncated=boolean": 1,
     "tool:bash|summary:malformed_json_object:keys=output,wall_time": 1,
     "tool:none|summary:text:line_numbered_context": 1,
     "tool:none|summary:text:plain:short": 1,
   });
+  assert.deepEqual(report.summary.failedTaskEvidence.parserGapCandidateEventShapeCounts, {
+    "tool:bash|summary:malformed_json_object:keys=output,wall_time": 1,
+    "tool:none|summary:text:line_numbered_context": 1,
+    "tool:none|summary:text:plain:short": 1,
+  });
+  assert.equal(report.summary.failedTaskEvidence.evidenceLossCounts.clipped_summary, 1);
+  assert.equal(
+    report.summary.failedTaskEvidence.retainedEvidenceLossExamples.clipped_summary[0]?.stepLabel,
+    "marked truncated unclassified",
+  );
   assert.equal(
     report.summary.failedTaskEvidence.retainedUnclassifiedExamplesByEventShape[
       "tool:bash|summary:malformed_json_object:keys=output,wall_time"
     ]?.[0]?.event.summary,
     '{"wall_time":"later","output":"ok"',
   );
+});
+
+test("semantic review evidence audit separates clipped summaries from true parser gaps", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-clipped-"));
+  const bundle = createClippedUnclassifiedFailedBundle();
+  const middleClippedSummary = clipSourceEventSummary(
+    `${"/workspace/node_modules/tool/dist/register.cjs:3"} ${"minified runtime prelude ".repeat(
+      80,
+    )} preserved tail without a parser-visible diagnostic`,
+    180,
+  );
+  assert.match(middleClippedSummary, / \.\.\. /);
+  assert.equal(middleClippedSummary.trimEnd().endsWith("..."), false);
+  const firstStep = bundle.steps[0];
+  assert.equal(firstStep?.kind, "publishSource");
+  assert.equal(firstStep.event.type, "task.updated");
+  firstStep.event.summary = middleClippedSummary;
+  const secondStep = bundle.steps[1];
+  assert.equal(secondStep?.kind, "publishSource");
+  assert.equal(secondStep.event.type, "task.updated");
+  secondStep.event.summary = "No clear classifier evidence...";
+  const bundlePath = path.join(tempDir, "bundle.json");
+  await writeSessionBundle(bundlePath, bundle);
+
+  const report = await createSemanticReviewCandidateReportFromPaths({
+    bundlePaths: [bundlePath],
+    generatedAt: "2026-04-27T00:00:00.000Z",
+    maxCandidatesPerKind: 5,
+    repoRoot: tempDir,
+  });
+
+  assert.equal(report.summary.failedTaskEvidence.failedTaskUpdateCount, 2);
+  assert.equal(report.summary.failedTaskEvidence.countsByKind.unclassified_failure, 2);
+  assert.deepEqual(report.summary.failedTaskEvidence.failureDetailCounts, {
+    outcome_only: 0,
+    diagnostic: 0,
+    indeterminate: 2,
+  });
+  assert.equal(report.summary.failedTaskEvidence.evidenceLossCounts.clipped_summary, 1);
+  assert.deepEqual(
+    report.summary.failedTaskEvidence.retainedEvidenceLossExamples.clipped_summary.map(
+      (example) => example.stepLabel,
+    ),
+    ["clipped failed output"],
+  );
+  assert.deepEqual(report.summary.failedTaskEvidence.unclassifiedEventShapeCounts, {
+    "tool:bash|summary:text:plain:medium": 1,
+    "tool:bash|summary:text:plain:short": 1,
+  });
+  assert.deepEqual(report.summary.failedTaskEvidence.parserGapCandidateEventShapeCounts, {
+    "tool:bash|summary:text:plain:short": 1,
+  });
+  const markdown = renderSemanticReviewCandidateMarkdown(report);
+  assert.match(markdown, /Parser Gap Candidate Examples/);
+  assert.match(markdown, /plain failed status/);
+  assert.match(markdown, /Evidence Loss Examples/);
+  assert.match(markdown, /clipped failed output/);
+});
+
+test("semantic review evidence audit records clipped classified failures as evidence loss", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-loss-"));
+  const bundle = createClippedClassifiedFailedBundle();
+  const bundlePath = path.join(tempDir, "bundle.json");
+  await writeSessionBundle(bundlePath, bundle);
+
+  const report = await createSemanticReviewCandidateReportFromPaths({
+    bundlePaths: [bundlePath],
+    generatedAt: "2026-04-27T00:00:00.000Z",
+    maxCandidatesPerKind: 5,
+    repoRoot: tempDir,
+  });
+
+  assert.equal(report.summary.failedTaskEvidence.failedTaskUpdateCount, 1);
+  assert.equal(report.summary.failedTaskEvidence.countsByKind.terminal_failure, 1);
+  assert.equal(report.summary.failedTaskEvidence.countsByKind.unclassified_failure, 0);
+  assert.deepEqual(report.summary.failedTaskEvidence.failureDetailCounts, {
+    outcome_only: 0,
+    diagnostic: 1,
+    indeterminate: 0,
+  });
+  assert.equal(report.summary.failedTaskEvidence.evidenceLossCounts.clipped_summary, 1);
+  assert.deepEqual(report.summary.failedTaskEvidence.parserGapCandidateEventShapeCounts, {});
+  assert.deepEqual(
+    report.summary.failedTaskEvidence.retainedEvidenceLossExamples.clipped_summary.map(
+      (example) => [example.stepLabel, example.evidence.kind],
+    ),
+    [["clipped terminal failure", "terminal_failure"]],
+  );
+  assert.deepEqual(
+    report.summary.failedTaskEvidence.retainedEvidenceLossExamples.clipped_summary.map(
+      (example) => example.evidence.failureDetail,
+    ),
+    ["diagnostic"],
+  );
+  assert.match(renderSemanticReviewCandidateMarkdown(report), /clipped terminal failure/);
+});
+
+test("semantic review evidence audit trusts source truncation metadata", async () => {
+  const tempDir = await mkdtemp(
+    path.join(os.tmpdir(), "aperture-review-candidates-metadata-loss-"),
+  );
+  const bundle = createMetadataTruncatedUnclassifiedFailedBundle();
+  const bundlePath = path.join(tempDir, "bundle.json");
+  await writeSessionBundle(bundlePath, bundle);
+
+  const report = await createSemanticReviewCandidateReportFromPaths({
+    bundlePaths: [bundlePath],
+    generatedAt: "2026-04-27T00:00:00.000Z",
+    maxCandidatesPerKind: 5,
+    repoRoot: tempDir,
+  });
+
+  assert.equal(report.summary.failedTaskEvidence.failedTaskUpdateCount, 1);
+  assert.equal(report.summary.failedTaskEvidence.countsByKind.unclassified_failure, 1);
+  assert.deepEqual(report.summary.failedTaskEvidence.failureDetailCounts, {
+    outcome_only: 0,
+    diagnostic: 0,
+    indeterminate: 1,
+  });
+  assert.equal(report.summary.failedTaskEvidence.evidenceLossCounts.clipped_summary, 1);
+  assert.deepEqual(report.summary.failedTaskEvidence.parserGapCandidateEventShapeCounts, {});
+  assert.deepEqual(
+    report.summary.failedTaskEvidence.retainedEvidenceLossExamples.clipped_summary.map(
+      (example) => example.stepLabel,
+    ),
+    ["metadata truncated failure"],
+  );
+});
+
+test("source event summaries detect generated legacy tail clipping conservatively", () => {
+  const clippedLegacyTail = `${"/workspace/node_modules/tool/dist/register.cjs:3"} ${"minified runtime prelude ".repeat(
+    20,
+  )}...`;
+
+  assert.equal(isClippedSourceEventSummary(clippedLegacyTail), true);
+  assert.equal(isClippedSourceEventSummary("No clear classifier evidence..."), false);
 });
 
 test("semantic review evidence audit bounds retained unclassified event-shape examples", async () => {
@@ -1112,8 +1870,15 @@ test("semantic review evidence audit bounds retained unclassified event-shape ex
   assert.deepEqual(report.summary.failedTaskEvidence.unclassifiedEventShapeCounts, {
     [shape]: 4,
   });
+  assert.deepEqual(report.summary.failedTaskEvidence.parserGapCandidateEventShapeCounts, {
+    [shape]: 4,
+  });
   assert.equal(
     report.summary.failedTaskEvidence.retainedUnclassifiedExamplesByEventShape[shape]?.length,
+    2,
+  );
+  assert.equal(
+    report.summary.failedTaskEvidence.retainedParserGapCandidateExamplesByEventShape[shape]?.length,
     2,
   );
   assert.deepEqual(
@@ -1199,6 +1964,7 @@ test("review-candidates CLI writes JSON and markdown reports", async () => {
       outputPath,
       "--limit-per-kind",
       "2",
+      "--replay-current",
       "--json",
     ],
     { cwd: REPO_ROOT },
@@ -1210,16 +1976,26 @@ test("review-candidates CLI writes JSON and markdown reports", async () => {
     markdownPath: string;
     input: Awaited<ReturnType<typeof createSemanticReviewCandidateReportFromPaths>>["input"];
     summary: Awaited<ReturnType<typeof createSemanticReviewCandidateReportFromPaths>>["summary"];
+    coverage: Awaited<ReturnType<typeof createSemanticReviewCandidateReportFromPaths>>["coverage"];
   };
   const markdown = await readFile(markdownPath, "utf8");
 
   assert.equal(payload.status, "ok");
   assert.equal(payload.outputPath, outputPath);
   assert.equal(payload.markdownPath, markdownPath);
+  assert.equal(payload.input.evaluationMode, "current_engine_replay");
   assert.equal(payload.input.scannedBundleCount, 1);
+  assert.equal(payload.coverage.baseline.evaluationMode, "current_engine_replay");
+  assert.equal(payload.coverage.corpusComparison.status, "compared");
+  assert.match(payload.coverage.baseline.signatureSetDigest ?? "", /^sha256:/);
   assert.ok(payload.summary.countsByKind.failure_attention > 0);
   assert.match(markdown, /Semantic Review Candidate Census/);
+  assert.match(markdown, /Evaluation mode: current_engine_replay/);
+  assert.match(markdown, /Engine: @tomismeta\/aperture-core@0\.8\.0\/kernel-decision-v2/);
+  assert.match(markdown, /Replay clock: monotonic_step_timestamp_previous_timestamp_fallback/);
+  assert.match(markdown, /Engine Coverage/);
   assert.match(markdown, /failure_attention/);
+  assert.match(markdown, /Parser Gap Candidate Event Shapes/);
 });
 
 test("review-candidates CLI rejects missing path option values", async () => {

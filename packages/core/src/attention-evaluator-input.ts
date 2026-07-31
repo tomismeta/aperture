@@ -219,6 +219,16 @@ function buildJudgmentInputFromClaim(
       ? { routineObservationalStatusConflict: true }
       : {}),
     ...(observationalStatusConflict !== undefined ? { observationalStatusConflict } : {}),
+    ...(judgment?.outcomeOnlyFailureStatus === true
+      ? {
+          failureEvidence: {
+            kind: "terminal_failure",
+            failureDetail: "outcome_only",
+            consequenceBaseline: "medium",
+            semanticAgreement: "stable",
+          },
+        }
+      : {}),
   };
 }
 

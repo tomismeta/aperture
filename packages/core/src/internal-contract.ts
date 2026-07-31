@@ -40,6 +40,9 @@ export type { ApertureProfile, MemoryProfile } from "./profile-store.js";
 export type { PolicyConfig } from "./policy-config.js";
 export {
   readTaskFailureSemanticEvidence,
+  type TaskFailureDetail,
   type TaskFailureEvidenceKind,
   type TaskFailureSemanticEvidence,
+  type TaskFailureTerminalShape,
 } from "./semantic-evidence.js";
+export { isSemanticCommandExecutionToolFamily } from "./semantic-tool-family.js";

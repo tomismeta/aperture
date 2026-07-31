@@ -1,5 +1,6 @@
 import { hasToolOutputFailureDiagnosticEvidence } from "./semantic-diagnostic-shapes.js";
 import { looksLikeObservationReferenceWrapper } from "./semantic-observation-reference-wrapper-shapes.js";
+import { hasMatchOutsideQuotedSpans } from "./semantic-quoted-span.js";
 
 export function looksLikeWarningOnlyCommandOutputObservation(value: string): boolean {
   const text = value.trim();
@@ -14,15 +15,18 @@ export function looksLikeWarningOnlyCommandOutputObservation(value: string): boo
 }
 
 function looksLikePathQualifiedWarning(text: string): boolean {
-  return PATH_QUALIFIED_WARNING_PATTERN.test(text);
+  return hasMatchOutsideQuotedSpans(text, PATH_QUALIFIED_WARNING_PATTERN);
 }
 
 function looksLikeToolchainWarning(text: string): boolean {
-  return TOOLCHAIN_WARNING_PATTERN.test(text) || CMAKE_WARNING_PATTERN.test(text);
+  return (
+    hasMatchOutsideQuotedSpans(text, TOOLCHAIN_WARNING_PATTERN) ||
+    hasMatchOutsideQuotedSpans(text, CMAKE_WARNING_PATTERN)
+  );
 }
 
 function looksLikeExplicitErrorLine(text: string): boolean {
-  return /(?:^|[\r\n])\s*(?:[a-z0-9_./-]+:\d+(?::\d+)?:\s*)?(?:error|fatal):\s+\S/i.test(text);
+  return hasMatchOutsideQuotedSpans(text, EXPLICIT_ERROR_LINE_PATTERN);
 }
 
 function hasVisibleTruncationBoundary(text: string): boolean {
@@ -30,9 +34,12 @@ function hasVisibleTruncationBoundary(text: string): boolean {
 }
 
 const PATH_QUALIFIED_WARNING_PATTERN =
-  /(?:^|[\r\n])\s*(?:\/|\.{1,2}\/|~\/|[a-zA-Z]:\\)?[^\s:\r\n]+\.[a-zA-Z0-9]{1,8}:\d+(?::\d+)?:\s*(?:[A-Za-z_][A-Za-z0-9_]*Warning|warning):\s+\S/;
+  /(?:^|[\r\n])\s*(?:\/|\.{1,2}\/|~\/|[a-zA-Z]:\\)?[^\s:\r\n]+\.[a-zA-Z0-9]{1,8}:\d+(?::\d+)?:\s*(?:[A-Za-z_][A-Za-z0-9_]*Warning|warning):\s+\S/gi;
 
 const TOOLCHAIN_WARNING_PATTERN =
-  /(?:^|[\r\n])\s*(?:clang|gcc|g\+\+|cc|c\+\+|ld|nvcc|hipcc)\s*:\s*warning:\s+\S/i;
+  /(?:^|[\r\n])\s*(?:clang|gcc|g\+\+|cc|c\+\+|ld|nvcc|hipcc)\s*:\s*warning:\s+\S/gi;
 
-const CMAKE_WARNING_PATTERN = /(?:^|[\r\n])\s*CMake (?:Deprecation )?Warning at \S+:\d+\s+\(/i;
+const CMAKE_WARNING_PATTERN = /(?:^|[\r\n])\s*CMake (?:Deprecation )?Warning at \S+:\d+\s+\(/gi;
+
+const EXPLICIT_ERROR_LINE_PATTERN =
+  /(?:^|[\r\n])\s*(?:(?:\/|\.{1,2}\/|~\/|[a-zA-Z]:\\)?[^\s:\r\n]+\.[a-zA-Z0-9]{1,8}:\d+(?::\d+)?:\s*)?(?:error|fatal):\s+\S/gi;

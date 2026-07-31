@@ -222,6 +222,84 @@ test("relation detection recognizes repeating escalations with issue language", 
   );
 });
 
+test("relation detection survives surface punctuation and spacing noise", () => {
+  assert.deepEqual(
+    detectSemanticRelationHints(
+      "BUILD   failed   AGAIN !!. The   same   BUILD   is   STILL   failing   in   production. !!",
+    ).map((hint) => hint.kind),
+    ["same_issue", "repeats"],
+  );
+  assert.deepEqual(
+    detectSemanticRelationHints(
+      "DEPLOY   issue   did   not   REGRESS !!. The   production   DEPLOY   issue   did   not   REGRESS   after   the   fix   and   shows   no   regression   NOW. !!",
+    ),
+    [],
+  );
+});
+
+test("relation detection reads asserted cues after prior negated clauses", () => {
+  assert.deepEqual(
+    detectSemanticRelationHints("The issue was not fixed before. It is fixed now.").map(
+      (hint) => hint.kind,
+    ),
+    ["same_issue", "resolves"],
+  );
+  assert.deepEqual(
+    detectSemanticRelationHints("The issue did not regress yesterday. It regressed today.").map(
+      (hint) => hint.kind,
+    ),
+    ["same_issue", "escalates"],
+  );
+  assert.deepEqual(
+    detectSemanticRelationHints("The issue did not regress before but regressed today.").map(
+      (hint) => hint.kind,
+    ),
+    ["same_issue", "escalates"],
+  );
+  assert.deepEqual(
+    detectSemanticRelationHints("The issue did not return yesterday. It returned today.").map(
+      (hint) => hint.kind,
+    ),
+    ["same_issue", "repeats"],
+  );
+  assert.deepEqual(
+    detectSemanticRelationHints("The issue did not return before but returned today.").map(
+      (hint) => hint.kind,
+    ),
+    ["same_issue", "repeats"],
+  );
+});
+
+test("relation detection lets later negated clauses override stale assertions", () => {
+  assert.deepEqual(
+    detectSemanticRelationHints("The issue was fixed yesterday. It is not fixed now."),
+    [],
+  );
+  assert.deepEqual(
+    detectSemanticRelationHints("The issue regressed yesterday. It did not regress today."),
+    [],
+  );
+  assert.deepEqual(
+    detectSemanticRelationHints("The issue returned yesterday. It did not return today."),
+    [],
+  );
+});
+
+test("relation detection treats preserved separators as lexical negation boundaries", () => {
+  for (const separator of [" ", "-", "_", "/", "."]) {
+    assert.deepEqual(
+      detectSemanticRelationHints(`The deploy issue shows no${separator}regression now.`),
+      [],
+      separator,
+    );
+    assert.deepEqual(
+      detectSemanticRelationHints(`The deploy issue is not${separator}returning now.`),
+      [],
+      separator,
+    );
+  }
+});
+
 test("contextual resolve wording only resolves when issue context is present", () => {
   const withIssueContext = normalizeSemanticText("The production outage recovered after rollback.");
   const withoutIssueContext = normalizeSemanticText("Completed successfully after cleanup.");
@@ -239,6 +317,39 @@ test("negated resolve wording does not infer resolved relation hints", () => {
   );
 
   assert.deepEqual(detectSemanticRelationHints(text), []);
+});
+
+test("prospective verification wording does not infer resolved relation hints", () => {
+  const examples = [
+    "Run the script again to confirm that the issue is fixed.",
+    "Rerun the test to see if the error is fixed.",
+    "Please verify whether the regression is resolved.",
+    "Can you confirm the issue was fixed?",
+    "1. Confirm the failure is resolved before submitting.",
+    "The deploy issue should be fixed after the retry.",
+  ];
+
+  for (const example of examples) {
+    const hints = detectSemanticRelationHints(example).map((hint) => hint.kind);
+    assert.equal(hints.includes("resolves"), false, example);
+  }
+});
+
+test("asserted fixed wording still infers resolved relation hints", () => {
+  const examples = [
+    "Great! The error is fixed.",
+    "The retry fixed the issue.",
+    "Tests confirm the issue is fixed.",
+    "Verify dashboards now; the production outage recovered after rollback.",
+  ];
+
+  for (const example of examples) {
+    assert.deepEqual(
+      detectSemanticRelationHints(example).map((hint) => hint.kind),
+      ["same_issue", "resolves"],
+      example,
+    );
+  }
 });
 
 test("negated escalation wording does not infer escalating relation hints", () => {

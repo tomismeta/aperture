@@ -6,6 +6,7 @@ import {
   SEMANTIC_REVIEW_CANDIDATE_KINDS,
   type SemanticReviewCandidateReport,
 } from "./semantic-review-candidate-types.js";
+import { renderCoverageLedgerMarkdown } from "./semantic-review-coverage-ledger-render.js";
 import { renderFailureEvidenceMarkdown } from "./semantic-review-failure-evidence-render.js";
 
 export function defaultSemanticReviewCandidateReportPath(
@@ -39,6 +40,9 @@ export function renderSemanticReviewCandidateMarkdown(
     "# Semantic Review Candidate Census",
     "",
     `Generated: ${report.generatedAt}`,
+    `Evaluation mode: ${report.input.evaluationMode}`,
+    `Engine: ${report.input.engine.fingerprint}`,
+    `Replay clock: ${report.input.replayClock.strategy}`,
     `Bundles scanned: ${formatCount(report.input.scannedBundleCount)}`,
     `Files considered: ${formatCount(report.input.fileCount)}`,
     `Invalid bundle files: ${formatCount(report.input.invalidBundleCount)}`,
@@ -55,6 +59,8 @@ export function renderSemanticReviewCandidateMarkdown(
       (kind) =>
         `- ${kind}: count=${formatCount(report.summary.countsByKind[kind])}, retained=${formatCount(report.summary.retainedByKind[kind])}`,
     ),
+    "",
+    ...renderCoverageLedgerMarkdown(report),
     "",
     ...renderFailureEvidenceMarkdown(report),
     "",

@@ -2,11 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { buildAttentionClaim } from "../src/attention-claim.js";
+import { evaluateAttention } from "../src/attention-evaluator.js";
 import { EventEvaluator } from "../src/event-evaluator.js";
+import { JudgmentCoordinator } from "../src/judgment-coordinator.js";
 import { normalizePublicEvaluationInput } from "../src/attention-evaluator-input.js";
+import { semanticHintsForTruncatedSourceEvidence } from "../src/semantic-source-quality.js";
 import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
 
 const evaluation = new EventEvaluator();
+const coordinator = new JudgmentCoordinator();
 const rejectedToolUseMessage =
   "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
 const declinedActionMessage =
@@ -15,6 +19,14 @@ const successfulTestObservationTranscript =
   "OBSERVATION: === Testing quote formatting === All quote formatting tests passed!";
 const abbreviatedFileViewObservationTranscript =
   "OBSERVATION: <NOTE>This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.</NOTE> 1 # fmt: off 2 from __future__ import an...";
+const proceduralHarnessObservationTranscript =
+  "OBSERVATION: Thank you for your work on this issue. Please carefully follow the steps below to help review your changes. 1. If you made any changes to your code after running the reproduction script, please run the reproduction script again. 2. Confirm the reproduction script passes before submitting.";
+const mixedProceduralFailureObservationTranscript =
+  "OBSERVATION: Thank you for your work on this issue. Please carefully follow the steps below to help review your changes. The script exited with code 1 and the issue still does not work. 1. Run the reproduction script again after making changes. 2. Confirm the script exits with code 0 before submitting.";
+const editMissObservationTranscript =
+  "OBSERVATION: No replacement was performed, old_str `def emit(self, text_gen, margin_char=None):` was not found in the file.";
+const failingTestObservationTranscript =
+  "OBSERVATION: test_yes_no_for_booleans (tests.test_config.SimpleConfigTestCase) ... ERROR ====================================================================== ERROR: test_yes_no_for_booleans";
 
 test("task.started becomes a background status candidate", () => {
   const result = evaluation.evaluate({
@@ -81,6 +93,155 @@ test("task.updated failed becomes a critical high-priority status", () => {
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
 });
 
+test("bare nonzero command exits route as focused medium failed statuses", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:failed-bare-nonzero-exit",
+      taskId: "task:failed-bare-nonzero-exit",
+      timestamp: "2026-03-08T12:02:05.000Z",
+      type: "task.updated",
+      title: "bash failure",
+      summary: "(no output) Command exited with code 1",
+      status: "failed",
+      toolFamily: "bash",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "normal");
+  assert.equal(result.candidate.tone, "focused");
+  assert.equal(result.candidate.consequence, "medium");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+  assert.equal(result.candidate.activityClass, "tool_failure");
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.failureEvidence?.semanticAgreement, "stable");
+  assert.deepEqual(result.candidate.judgmentInput.ontology, {
+    ask: "status",
+    activity: "failure",
+    consequence: "medium",
+    blocking: "non_blocking",
+    episode: "unknown",
+    confidence: "high",
+    source: "explicit",
+  });
+
+  const explanation = coordinator.explain(null, result.candidate);
+  assert.equal(explanation.decision.kind, "queue");
+  assert.equal(explanation.policy.mayInterrupt, false);
+  assert.equal(explanation.policy.requiresOperatorResponse, false);
+  assert.equal(explanation.policy.minimumLane, "next");
+  assert.equal(explanation.criterion?.peripheralResolution, "queue");
+  assert.equal(explanation.ambiguity, null);
+  assert.equal(explanation.reasonCodes.includes("criterion:ambiguity:low_signal"), false);
+
+  const claim = buildAttentionClaim(result.candidate);
+  assert.equal(Object.hasOwn(claim.judgment ?? {}, "failureEvidence"), false);
+  assert.equal(claim.judgment?.outcomeOnlyFailureStatus, true);
+  const publicRecord = evaluateAttention({ claim });
+  assert.equal(publicRecord.decision.kind, "queue");
+  assert.equal(publicRecord.planning.plannedLane, "next");
+  assert.equal(publicRecord.policy.verdict.minimumLane, "next");
+  assert.equal(publicRecord.planning.ambiguity, null);
+  assert.equal(publicRecord.planning.reasonCodes.includes("criterion:ambiguity:low_signal"), false);
+});
+
+test("structured outcome-only nonzero exits route like raw outcome-only failures", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:failed-structured-outcome-only-exit",
+      taskId: "task:failed-structured-outcome-only-exit",
+      timestamp: "2026-03-08T12:02:06.000Z",
+      type: "task.updated",
+      title: "exec_command failure",
+      summary: '{"exit_code":1,"wall_time":"0.0510 seconds","output":"(no output)"}',
+      status: "failed",
+      toolFamily: "exec_command",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "normal");
+  assert.equal(result.candidate.tone, "focused");
+  assert.equal(result.candidate.consequence, "medium");
+  assert.equal(result.candidate.judgmentInput.failureEvidence?.kind, "terminal_failure");
+  assert.equal(result.candidate.judgmentInput.failureEvidence?.failureDetail, "outcome_only");
+  assert.equal(result.candidate.judgmentInput.failureEvidence?.semanticAgreement, "stable");
+
+  const explanation = coordinator.explain(null, result.candidate);
+  assert.equal(explanation.decision.kind, "queue");
+  assert.equal(explanation.policy.minimumLane, "next");
+  assert.equal(explanation.ambiguity, null);
+});
+
+test("truncated outcome-only hints keep failed statuses conservative", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:failed-truncated-outcome-only-exit",
+      taskId: "task:failed-truncated-outcome-only-exit",
+      timestamp: "2026-03-08T12:02:07.000Z",
+      type: "task.updated",
+      title: "exec_command failure",
+      summary: '{"exit_code":1,"wall_time":"0.0510 seconds","output":"(no output)"}',
+      status: "failed",
+      toolFamily: "exec_command",
+      metadata: { truncated: true },
+      semanticHints: semanticHintsForTruncatedSourceEvidence({ status: "failed" }),
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.consequence, "high");
+  assert.equal(result.candidate.judgmentInput.failureEvidence?.failureDetail, "outcome_only");
+  assert.equal(result.candidate.judgmentInput.failureEvidence?.semanticAgreement, "uncertain");
+  assert.equal(result.candidate.judgmentInput.semanticEvidence?.confidence, "low");
+  assert.equal(result.candidate.judgmentInput.ontology?.consequence, "high");
+  assert.equal(result.candidate.judgmentInput.ontology?.confidence, "low");
+});
+
+test("hinted outcome-only softening is rejected for diagnostic failures", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:failed-forged-outcome-only-softening",
+      taskId: "task:failed-forged-outcome-only-softening",
+      timestamp: "2026-03-08T12:02:08.000Z",
+      type: "task.updated",
+      title: "exec_command failure",
+      summary: '{"exit_code":2,"wall_time":"0.0510 seconds","output":"sh: foo: command not found"}',
+      status: "failed",
+      toolFamily: "exec_command",
+      semanticHints: {
+        consequence: "medium",
+        reasons: ["adapter claimed this only needs acknowledgement"],
+      },
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.consequence, "high");
+  assert.equal(result.candidate.judgmentInput.failureEvidence?.failureDetail, "diagnostic");
+  assert.equal(result.candidate.judgmentInput.failureEvidence?.semanticAgreement, "overridden");
+});
+
 test("failed-status routine bash observations route as non-interruptive status", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({
@@ -144,6 +305,102 @@ test("failed-status routine bash observations route as non-interruptive status",
     confidence: "high",
     source: "inferred",
   });
+});
+
+test("failed-status missing-tool operation success observations route as non-interruptive status", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:failed-file-created-observation",
+      taskId: "task:failed-file-created-observation",
+      timestamp: "2026-03-08T12:02:16.000Z",
+      type: "task.updated",
+      title: "tool failure",
+      summary: "OBSERVATION: File created successfully at: /testbed/exception_test.py",
+      status: "failed",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "background");
+  assert.equal(result.candidate.tone, "ambient");
+  assert.equal(result.candidate.consequence, "low");
+  assert.equal(result.candidate.responseSpec.kind, "none");
+  assert.equal(result.candidate.activityClass, "status_update");
+  assert.equal(result.candidate.provenance?.whyNow, undefined);
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.deepEqual(result.candidate.judgmentInput.observationalStatusConflict, {
+    kind: "payload_observation",
+    baselineConsequence: "low",
+  });
+  assert.deepEqual(result.candidate.judgmentInput.ontology, {
+    ask: "status",
+    activity: "task_progress",
+    consequence: "low",
+    blocking: "non_blocking",
+    episode: "unknown",
+    confidence: "high",
+    source: "inferred",
+  });
+});
+
+test("known command operation success text keeps failed-status routing", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:failed-command-file-created-observation",
+      taskId: "task:failed-command-file-created-observation",
+      timestamp: "2026-03-08T12:02:17.000Z",
+      type: "task.updated",
+      title: "bash failure",
+      summary: "OBSERVATION: File created successfully at: /testbed/exception_test.py",
+      status: "failed",
+      toolFamily: "bash",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.consequence, "high");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+  assert.equal(result.candidate.activityClass, "tool_failure");
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
+});
+
+test("inline expectation probes keep failed-status routing while truncated", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:failed-inline-expectation-truncated",
+      taskId: "task:failed-inline-expectation-truncated",
+      timestamp: "2026-03-08T12:02:18.000Z",
+      type: "task.updated",
+      title: "tool failure",
+      summary:
+        "OBSERVATION: Testing _quote_match function: quote_type='single', token_style=single quote -> True (should be True) quote_type='single', token_style=double quote -> False (should be False) ...",
+      status: "failed",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.consequence, "high");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+  assert.equal(result.candidate.activityClass, "tool_failure");
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
 });
 
 test("mixed bash success and terminal failure text keeps failed-status routing", () => {
@@ -469,7 +726,10 @@ test("missing-tool observation transcripts route through observational status co
   assert.equal(result.candidate.tone, "critical");
   assert.equal(result.candidate.consequence, "high");
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
-  assert.equal(result.candidate.provenance?.whyNow, undefined);
+  assert.equal(
+    result.candidate.provenance?.whyNow,
+    "A failed status carried high-consequence observation output that should be reviewed.",
+  );
   assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
   assert.deepEqual(result.candidate.judgmentInput.ontology, {
     ask: "status",
@@ -486,6 +746,7 @@ test("missing-tool successful test and abbreviated file-view transcripts route q
   for (const [id, summary] of [
     ["successful-test", successfulTestObservationTranscript],
     ["abbreviated-file-view", abbreviatedFileViewObservationTranscript],
+    ["procedural-harness", proceduralHarnessObservationTranscript],
   ] as const) {
     const event = normalizeSourceEvent({
       id: `evt:${id}-observation-transcript`,
@@ -517,6 +778,45 @@ test("missing-tool successful test and abbreviated file-view transcripts route q
     assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
     assert.equal(result.candidate.judgmentInput.ontology?.activity, "task_progress");
     assert.equal(result.candidate.judgmentInput.ontology?.consequence, "low");
+  }
+});
+
+test("procedural observation recovery stays bounded", () => {
+  for (const [id, summary] of [
+    ["edit-miss", editMissObservationTranscript],
+    ["failing-test", failingTestObservationTranscript],
+    ["mixed-procedural-failure", mixedProceduralFailureObservationTranscript],
+  ] as const) {
+    const event = normalizeSourceEvent({
+      id: `evt:${id}-not-procedural-observation`,
+      taskId: `task:${id}-not-procedural-observation`,
+      timestamp: "2026-03-08T12:02:29.810Z",
+      type: "task.updated",
+      title: "tool failure",
+      summary,
+      status: "failed",
+    });
+    const result = evaluation.evaluate(event);
+
+    assert.equal(event.semantic.activityClass, "tool_failure");
+    assert.equal(event.semantic.intentFrame, "failure");
+    assert.equal(result.kind, "candidate");
+    if (result.kind !== "candidate") {
+      return;
+    }
+    assert.equal(result.candidate.activityClass, "tool_failure");
+    assert.equal(result.candidate.priority, "high");
+    assert.equal(result.candidate.tone, "critical");
+    assert.equal(result.candidate.consequence, "high");
+    assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+    assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
+    if (id === "mixed-procedural-failure") {
+      assert.deepEqual(
+        result.candidate.relationHints?.map((hint) => hint.kind),
+        ["same_issue", "repeats"],
+      );
+      assert.equal(result.candidate.judgmentInput.ontology?.episode, "resurfaced");
+    }
   }
 });
 

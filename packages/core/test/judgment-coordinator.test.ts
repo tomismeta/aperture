@@ -1100,6 +1100,129 @@ test("explanation marks ambiguity when low-signal work stays peripheral", () => 
   );
 });
 
+test("high-confidence policy-peripheral status stays ambient without ambiguity", () => {
+  const explanation = coordinator.explain(
+    null,
+    createCandidate({
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      priority: "normal",
+      blocking: false,
+      responseSpec: { kind: "none" },
+      judgmentInput: {
+        blockedLikeStatus: false,
+        ontology: {
+          ask: "status",
+          activity: "task_progress",
+          consequence: "medium",
+          blocking: "non_blocking",
+          episode: "unknown",
+          confidence: "high",
+          source: "inferred",
+        },
+        semanticEvidence: {
+          confidence: "high",
+          source: "inferred",
+          strength: "qualified",
+          abstained: false,
+        },
+      },
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "ambient");
+  assert.equal(explanation.ambiguity, null);
+  assert.equal(explanation.criterion?.peripheralResolution, "ambient");
+  assert.ok(
+    explanation.reasons.includes(
+      "policy-peripheral status work stays peripheral without ambiguity",
+    ),
+  );
+  assert.equal(explanation.reasonCodes.includes("criterion:peripheral_resolution:ambient"), true);
+  assert.equal(explanation.reasonCodes.includes("criterion:ambiguity:low_signal"), false);
+});
+
+test("high-confidence policy-peripheral status can stay next without ambiguity", () => {
+  const explanation = coordinator.explain(
+    null,
+    createCandidate({
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      priority: "normal",
+      blocking: false,
+      activityClass: "tool_failure",
+      responseSpec: {
+        kind: "acknowledge",
+        actions: [
+          {
+            id: "acknowledge",
+            label: "Acknowledge",
+            kind: "acknowledge",
+            emphasis: "primary",
+          },
+        ],
+      },
+      judgmentInput: {
+        blockedLikeStatus: false,
+        ontology: {
+          ask: "status",
+          activity: "failure",
+          consequence: "medium",
+          blocking: "non_blocking",
+          episode: "unknown",
+          confidence: "high",
+          source: "explicit",
+        },
+        semanticEvidence: {
+          confidence: "high",
+          source: "explicit",
+          strength: "strong",
+          abstained: false,
+        },
+        failureEvidence: {
+          kind: "terminal_failure",
+          failureDetail: "outcome_only",
+          consequenceBaseline: "medium",
+          semanticAgreement: "stable",
+        },
+      },
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "queue");
+  assert.equal(explanation.ambiguity, null);
+  assert.equal(explanation.criterion?.peripheralResolution, "queue");
+  assert.equal(explanation.reasonCodes.includes("criterion:peripheral_resolution:queue"), true);
+  assert.equal(explanation.reasonCodes.includes("criterion:ambiguity:low_signal"), false);
+});
+
+test("policy-peripheral status without semantic evidence remains ambiguity-bearing", () => {
+  const explanation = coordinator.explain(
+    null,
+    createCandidate({
+      mode: "status",
+      tone: "focused",
+      consequence: "medium",
+      priority: "normal",
+      blocking: false,
+      responseSpec: { kind: "none" },
+      judgmentInput: {
+        blockedLikeStatus: false,
+      },
+    }),
+  );
+
+  assert.equal(explanation.decision.kind, "ambient");
+  assert.deepEqual(explanation.ambiguity, {
+    kind: "interrupt",
+    reason: "low_signal",
+    resolution: "ambient",
+  });
+  assert.equal(explanation.reasonCodes.includes("criterion:ambiguity:low_signal"), true);
+});
+
 test("low-confidence non-blocking work stays queued through semantic ambiguity handling", () => {
   const explanation = coordinator.explain(
     null,

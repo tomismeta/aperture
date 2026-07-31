@@ -1,0 +1,90 @@
+{
+  "id": "golden:kernel-corpus:command-owned-technical-observation-stays-medium",
+  "title": "Command-owned technical observation stays medium",
+  "description": "A failed native command status that carries a recovered technical document excerpt should become an observational status conflict without pretending the command succeeded.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "semantic_normalization",
+    "status_noise",
+    "observational_status_conflict",
+    "owned_command_transport"
+  ],
+  "semanticFamilies": ["consequence_underread"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:task:corpus:command-owned-technical-observation:status",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "command-owned technical observation",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "toolFamily": "exec_command",
+        "consequence": "medium",
+        "confidence": "high",
+        "factorsInclude": ["observational_failure"],
+        "reasonsInclude": [
+          "task status indicates failure but the update reads like observational output"
+        ],
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "medium",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "inferred"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "command-owned technical observation",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "now",
+        "semanticConfidence": "high",
+        "ambiguityReason": null,
+        "ambiguityResolution": null,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:ambient",
+          "lane:ambient",
+          "criterion:peripheral_resolution:ambient",
+          "policy:peripheral_only"
+        ],
+        "semanticInfluenceIncludes": [
+          "engine-owned observational evidence resolved noisy failed-status routing as status handling"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "observational status conflict (judgment routing)"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "command-owned technical observation",
+      "event": {
+        "id": "evt:corpus:command-owned-technical-observation",
+        "type": "task.updated",
+        "taskId": "task:corpus:command-owned-technical-observation",
+        "timestamp": "2026-04-18T15:12:00.000Z",
+        "source": { "id": "dataclaw", "kind": "public-trajectory" },
+        "title": "exec_command failure",
+        "summary": "{\"wall_time\":\"0.0501 seconds\",\"output\":\"2300\\t\\n 2301\\t3.4. Wave State Registers\\n 2302\\t\\n 2303\\t21 of 644\\n 2304\\t\\n 2305\\t\\n\\\"RDNA3.5\\\" Instruction Set Architecture\\n 2306\\t\\n 2307\\t3.4.2. Mode register\\n 2308\\t\\n 2309\\tMode register ...",
+        "status": "failed",
+        "toolFamily": "exec_command"
+      }
+    }
+  ]
+}

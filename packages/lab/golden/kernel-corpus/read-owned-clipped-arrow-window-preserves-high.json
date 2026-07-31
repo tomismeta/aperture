@@ -27,6 +27,7 @@
         "toolFamily": "read",
         "consequence": "high",
         "confidence": "high",
+        "whyNowIncludes": "high-consequence observation output",
         "factorsInclude": ["observational_failure"],
         "reasonsInclude": [
           "task status indicates failure but the update reads like observational output"

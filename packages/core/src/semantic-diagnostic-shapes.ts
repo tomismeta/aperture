@@ -1,7 +1,9 @@
 import { looksLikeToolOutputDiagnosticPayload } from "./semantic-tool-output-diagnostic-shapes.js";
 import { looksLikeRuntimePanicDiagnostic } from "./semantic-panic-diagnostic-shapes.js";
-import { looksLikePythonLocationError } from "./semantic-python-diagnostic-shapes.js";
+import { looksLikePathQualifiedFailureDiagnostic } from "./semantic-path-qualified-failure-diagnostic-shapes.js";
+import { looksLikePythonRuntimeDiagnostic } from "./semantic-python-diagnostic-shapes.js";
 import { looksLikeRuntimeError } from "./semantic-runtime-error-diagnostic-shapes.js";
+import { looksLikeTestRunnerFailureDiagnostic } from "./semantic-test-runner-output-shapes.js";
 
 export { hasUnquotedEmbeddedRuntimeDiagnosticEvidence } from "./semantic-runtime-error-diagnostic-shapes.js";
 
@@ -34,6 +36,7 @@ export function hasStrongRuntimeDiagnosticEvidence(text: string): boolean {
       /(?:^|[\r\n])\s*(?:uncaught|unhandled)\s+exception\b/i,
       /(?:^|[\r\n])\s*(?:fatal\s+error|compiler\s+error)\b/i,
       /(?:^|[\r\n])\s*error:\s+\S/i,
+      /(?:^|[\r\n])\s*(?:npm\s+err!?|pnpm\s+err!?|yarn\s+error\b|err_pnpm_)/i,
       /\beconnrefused\b/i,
       /\bthread\b[^\r\n]*\bpanicked at\b/i,
       /(?:^|[\r\n])\s*terminate called after throwing\b/i,
@@ -43,11 +46,12 @@ export function hasStrongRuntimeDiagnosticEvidence(text: string): boolean {
       /(?:^|[\r\n])\s*(?:file does not exist|unrecognized arguments)\b/i,
       /\b(?:exit code|exit_code|exit-code|exited with code|exit status|exited with status|return code|return_code|returned code)\s*(?:is|was)?\s*-?[1-9]\d*\b/i,
     ].some((pattern) => pattern.test(text)) ||
+    looksLikePathQualifiedFailureDiagnostic(text) ||
     looksLikeRuntimePanicDiagnostic(text) ||
     looksLikeCMakeError(text) ||
-    looksLikePackageManagerError(text) ||
     looksLikeCompilerError(text) ||
-    looksLikePythonLocationError(text) ||
+    looksLikeTestRunnerFailureDiagnostic(text) ||
+    looksLikePythonRuntimeDiagnostic(text) ||
     looksLikeRuntimeError(text)
   );
 }
@@ -58,10 +62,6 @@ function looksLikeCMakeError(text: string): boolean {
     /(?:^|[\r\n])\s*CMake Error at \S+:\d+\s+\(/i.test(text) ||
     (/(?:^|[\r\n])\s*total output lines:\s*\d+\b/i.test(text) && errorAtLocation.test(text))
   );
-}
-
-function looksLikePackageManagerError(text: string): boolean {
-  return /(?:^|[\r\n])\s*(?:npm\s+err!?|pnpm\s+err!?|yarn\s+error\b|err_pnpm_)/i.test(text);
 }
 
 function readWebSearchResultPayload(rawText: string): string | null {
@@ -86,7 +86,8 @@ function looksLikeSearchFailurePayload(text: string): boolean {
 
 function looksLikeCompilerError(text: string): boolean {
   return [
-    /(?:^|[\r\n])\s*(?:[a-z0-9_./-]+:\d+(?::\d+)?|[a-z0-9_./-]+\.(?:c|cc|cpp|cxx|h|hpp|ts|tsx|js|jsx|py|rs|go|java|kt|swift):\d+(?::\d+)?)\s*:\s*(?:fatal\s+)?error\b/i,
+    /(?:^|[\r\n])\s*(?:[A-Za-z]:[\\/])?(?:[./\\\w-]+[\\/])?[\w.-]+(?:\.[a-z0-9]{1,8})?:\d+(?::\d+)?\s*:\s*(?:(?:fatal\s+)?error\b|fatal:\s+\S)/i,
+    /\b(?:[A-Za-z]:[\\/])?(?:[./\\\w-]+[\\/])?[\w.-]+\.(?:ts|tsx|js|jsx)\(\d+,\d+\):\s*error\s+TS\d+\b/i,
     /(?:^|[\r\n])\s*(?:clang|gcc|g\+\+|cc|c\+\+|ld|make(?:\[\d+\])?)\s*:\s*(?:fatal\s+)?error\b/i,
     /(?:^|[\r\n])\s*error\s+(?:ts)?\d+\b/i,
     /(?:^|[\r\n])\s*fatal:\s+\S/i,

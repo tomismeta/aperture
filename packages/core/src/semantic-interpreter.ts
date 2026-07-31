@@ -23,6 +23,8 @@ import {
   semanticActivityClassForRequestKind,
   semanticIntentFrameForRequestKind,
   semanticReasonsForLifecycle,
+  semanticWhyNowForObservationalStatusConflict,
+  semanticWhyNowForRelationHints,
   semanticReasonsForTaskStatus,
   semanticWhyNowForRequestKind,
   semanticWhyNowForTaskStatus,
@@ -108,10 +110,11 @@ function inferSemanticInterpretation(event: SourceEvent): SemanticInterpretation
 function inferTaskUpdateSemantics(
   event: Extract<SourceEvent, { type: "task.updated" }>,
 ): SemanticInterpretation {
+  const rawText = joinSemanticTextParts(event.title, event.summary);
   const text = normalizeSemanticText(`${event.title} ${event.summary ?? ""}`);
   const impliedAsk = detectImpliedOperatorAsk(text);
   const blockingSignal = detectSemanticBlockingSignal(text);
-  const relationHints = detectSemanticRelationHints(text);
+  const relationHints = detectSemanticRelationHints(rawText);
   const taxonomyInput = buildTaxonomyInput(
     event.title,
     event.summary,
@@ -125,24 +128,28 @@ function inferTaskUpdateSemantics(
   );
   const relationProvenance =
     relationHints.length > 0 ? inferredSemanticProvenance(["relationHints"]) : {};
+  const relationWhyNow = semanticWhyNowForRelationHints(relationHints);
   const observationalFailure = failureEvidence?.readsAsObservation === true;
   const expectedDiagnosticFailure = failureEvidence?.kind === "expected_diagnostic_failure";
 
   switch (event.status) {
     case "failed":
       if (observationalFailure) {
+        const consequence =
+          failureEvidence?.kind === "rejected_tool_use_observation"
+            ? failureEvidence.consequenceBaseline
+            : inferConsequenceFromSemanticText(
+                text,
+                failureEvidence?.consequenceBaseline ?? "high",
+                toolFamily,
+              );
+        const whyNow = semanticWhyNowForObservationalStatusConflict(consequence) ?? relationWhyNow;
         return {
           intentFrame: "status_update",
           activityClass: "status_update",
           ...(toolFamily ? { toolFamily } : {}),
-          consequence:
-            failureEvidence?.kind === "rejected_tool_use_observation"
-              ? failureEvidence.consequenceBaseline
-              : inferConsequenceFromSemanticText(
-                  text,
-                  failureEvidence?.consequenceBaseline ?? "high",
-                  toolFamily,
-                ),
+          consequence,
+          ...(whyNow !== undefined ? { whyNow } : {}),
           factors: ["task.updated", "failed", "observational_failure"],
           relationHints,
           confidence: "high",
@@ -152,6 +159,7 @@ function inferTaskUpdateSemantics(
               "intentFrame",
               "activityClass",
               "consequence",
+              ...(whyNow !== undefined ? (["whyNow"] as const) : []),
               "confidence",
             ]),
             ...semanticToolFamilyProvenance(toolFamilySource),
@@ -234,7 +242,7 @@ function inferTaskUpdateSemantics(
               ? semanticWhyNowForTaskStatus("blocked")
               : impliedAsk
                 ? semanticWhyNowForTaskStatus(event.status, { impliedAsk })
-                : undefined;
+                : relationWhyNow;
           return whyNow !== undefined ? { whyNow } : {};
         })(),
         factors: [
@@ -259,7 +267,7 @@ function inferTaskUpdateSemantics(
             "confidence",
           ]),
           ...semanticToolFamilyProvenance(toolFamilySource),
-          ...(blockingSignal === "blocking" || impliedAsk
+          ...(blockingSignal === "blocking" || impliedAsk || relationWhyNow !== undefined
             ? inferredSemanticProvenance(["whyNow"])
             : {}),
           ...relationProvenance,
@@ -283,8 +291,9 @@ function inferHumanInputSemantics(
     taxonomyInput,
     event.request.kind === "approval",
   );
-  const text = normalizeSemanticText(`${event.title} ${event.summary}`);
-  const relationHints = detectSemanticRelationHints(text);
+  const rawText = joinSemanticTextParts(event.title, event.summary);
+  const text = normalizeSemanticText(rawText);
+  const relationHints = detectSemanticRelationHints(rawText);
   const baseConsequence =
     event.riskHint ?? consequenceFromRequestKind(event.request.kind, toolFamily);
   const consequence = inferConsequenceFromSemanticText(text, baseConsequence, toolFamily);
@@ -360,6 +369,10 @@ function semanticToolFamilyProvenance(
     default:
       return unreachableToolFamilySource(source);
   }
+}
+
+function joinSemanticTextParts(title: string, summary?: string): string {
+  return summary ? `${title}. ${summary}` : title;
 }
 
 function resolveSemanticToolFamily(

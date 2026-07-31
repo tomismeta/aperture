@@ -240,6 +240,7 @@ export type OfflineReviewPreparedStep = {
     summary: string | null;
     status: string | null;
     toolFamily: string | null;
+    metadata?: Record<string, unknown> | null;
   } | null;
   normalizedEvent: {
     type: string;

@@ -1,9 +1,6 @@
 import type { SourceEvent } from "@tomismeta/aperture-core";
 
-import type {
-  ImportedSessionEntry,
-  ImportedSessionRawReference,
-} from "./imported-session.js";
+import type { ImportedSessionEntry, ImportedSessionRawReference } from "./imported-session.js";
 import {
   clipText,
   inferObservationStatus,
@@ -41,7 +38,9 @@ export function readPiMonoSessionName(path: readonly PiMonoIndexedTrace[]): stri
   return undefined;
 }
 
-export function readPiMonoSessionNameFromTraces(traces: readonly PiMonoTrace[]): string | undefined {
+export function readPiMonoSessionNameFromTraces(
+  traces: readonly PiMonoTrace[],
+): string | undefined {
   for (let index = traces.length - 1; index >= 0; index -= 1) {
     const trace = traces[index];
     if (trace?.type === "session_info" && typeof trace.name === "string") {
@@ -79,8 +78,10 @@ export function readPiMonoMessageText(
   }
 
   const textBlocks = content
-    .filter((block): block is PiMonoContentBlock & { type: "text"; text: string } =>
-      isRecord(block) && block.type === "text" && typeof block.text === "string")
+    .filter(
+      (block): block is PiMonoContentBlock & { type: "text"; text: string } =>
+        isRecord(block) && block.type === "text" && typeof block.text === "string",
+    )
     .map((block) => block.text.trim())
     .filter((block) => block.length > 0);
 
@@ -97,6 +98,16 @@ export function readPiMonoAssistantText(
   return readPiMonoMessageText(content);
 }
 
+export function buildPiMonoMessageMetadata(message: PiMonoMessage) {
+  const metadata: Record<string, unknown> = {};
+  if (message.truncated === true) metadata.truncated = true;
+  if (typeof message.fullOutputPath === "string" && message.fullOutputPath.trim().length > 0) {
+    metadata.fullOutputPath = message.fullOutputPath.trim();
+  }
+
+  return Object.keys(metadata).length > 0 ? metadata : undefined;
+}
+
 export function readPiMonoToolCalls(
   content: string | PiMonoContentBlock[] | undefined,
 ): Array<{ id: string; name: string; arguments: unknown }> {
@@ -106,31 +117,35 @@ export function readPiMonoToolCalls(
 
   return content.flatMap((block) => {
     if (
-      !isRecord(block)
-      || block.type !== "toolCall"
-      || typeof block.id !== "string"
-      || typeof block.name !== "string"
+      !isRecord(block) ||
+      block.type !== "toolCall" ||
+      typeof block.id !== "string" ||
+      typeof block.name !== "string"
     ) {
       return [];
     }
 
-    return [{
-      id: block.id,
-      name: block.name,
-      arguments: block.arguments,
-    }];
+    return [
+      {
+        id: block.id,
+        name: block.name,
+        arguments: block.arguments,
+      },
+    ];
   });
 }
 
 export function readPiMonoToolResultText(message: PiMonoMessage): string | undefined {
-  return readPiMonoMessageText(message.content)
-    ?? stringifyStructuredValue(message.details)
-    ?? undefined;
+  return (
+    readPiMonoMessageText(message.content) ?? stringifyStructuredValue(message.details) ?? undefined
+  );
 }
 
-export function summarizePiMonoToolCall(
-  toolCall: { id: string; name: string; arguments: unknown },
-): string | undefined {
+export function summarizePiMonoToolCall(toolCall: {
+  id: string;
+  name: string;
+  arguments: unknown;
+}): string | undefined {
   const argsText = stringifyStructuredValue(toolCall.arguments);
   return argsText ? `${toolCall.name}\n${argsText}` : toolCall.name;
 }
@@ -143,9 +158,7 @@ export function summarizePiMonoBashExecution(message: PiMonoMessage): string | u
     typeof message.output === "string" && message.output.trim().length > 0
       ? message.output.trim()
       : undefined,
-    typeof message.exitCode === "number"
-      ? `exit_code: ${message.exitCode}`
-      : undefined,
+    typeof message.exitCode === "number" ? `exit_code: ${message.exitCode}` : undefined,
     message.cancelled ? "cancelled: true" : undefined,
   ].filter((part): part is string => part !== undefined);
 
@@ -188,9 +201,11 @@ export function inferPiMonoBashExecutionStatus(
 
 export function summarizePiMonoMessageContext(message: PiMonoMessage): string | undefined {
   if (message.role === "custom") {
-    return readPiMonoMessageText(message.content)
-      ?? stringifyStructuredValue(message.details)
-      ?? undefined;
+    return (
+      readPiMonoMessageText(message.content) ??
+      stringifyStructuredValue(message.details) ??
+      undefined
+    );
   }
 
   if (message.role === "branchSummary" || message.role === "compactionSummary") {
@@ -210,13 +225,17 @@ export function summarizePiMonoTraceBoundary(trace: PiMonoTrace): string | undef
       }
       return typeof trace.modelId === "string" ? `model change: ${trace.modelId}` : undefined;
     case "thinking_level_change":
-      return typeof trace.thinkingLevel === "string" ? `thinking level: ${trace.thinkingLevel}` : undefined;
+      return typeof trace.thinkingLevel === "string"
+        ? `thinking level: ${trace.thinkingLevel}`
+        : undefined;
     case "compaction":
       return typeof trace.summary === "string" ? trace.summary.trim() : undefined;
     case "branch_summary":
       return typeof trace.summary === "string" ? trace.summary.trim() : undefined;
     case "custom_message":
-      return readPiMonoMessageText(trace.content) ?? stringifyStructuredValue(trace.details) ?? undefined;
+      return (
+        readPiMonoMessageText(trace.content) ?? stringifyStructuredValue(trace.details) ?? undefined
+      );
     case "custom":
       return stringifyStructuredValue(trace.data) ?? undefined;
     case "label":
@@ -339,9 +358,8 @@ export function selectPiMonoReplayPath(traces: readonly PiMonoTrace[]): PiMonoPa
   let current: PiMonoIndexedTrace | undefined = bestLeaf;
   while (current) {
     path.push(current);
-    current = typeof current.trace.parentId === "string"
-      ? byId.get(current.trace.parentId)
-      : undefined;
+    current =
+      typeof current.trace.parentId === "string" ? byId.get(current.trace.parentId) : undefined;
   }
   path.reverse();
 
@@ -360,17 +378,17 @@ function readPiMonoTraceDepth(
   let current: PiMonoIndexedTrace | undefined = indexedTrace;
   while (current) {
     depth += 1;
-    current = typeof current.trace.parentId === "string"
-      ? byId.get(current.trace.parentId)
-      : undefined;
+    current =
+      typeof current.trace.parentId === "string" ? byId.get(current.trace.parentId) : undefined;
   }
   return depth;
 }
 
 function readPiMonoTraceTime(indexedTrace: PiMonoIndexedTrace): number {
-  const parsed = typeof indexedTrace.trace.timestamp === "string"
-    ? Date.parse(indexedTrace.trace.timestamp)
-    : Number.NaN;
+  const parsed =
+    typeof indexedTrace.trace.timestamp === "string"
+      ? Date.parse(indexedTrace.trace.timestamp)
+      : Number.NaN;
   if (Number.isFinite(parsed)) {
     return parsed;
   }

@@ -216,6 +216,31 @@ the advanced semantic entrypoint:
 import { interpretSourceEvent, normalizeSourceEvent } from "@tomismeta/aperture-core/semantic";
 ```
 
+Adapters that know source output was clipped before it reached Aperture can pass
+a bounded semantic hint instead of encoding that fact into title or summary text:
+
+```ts
+import type { SourceEvent } from "@tomismeta/aperture-core";
+import { semanticHintsForTruncatedSourceEvidence } from "@tomismeta/aperture-core/semantic";
+
+const event: SourceEvent = {
+  id: "evt:test:failed",
+  taskId: "task:test",
+  timestamp: new Date().toISOString(),
+  type: "task.updated",
+  status: "failed",
+  title: "Test command failed",
+  summary: "The process exited nonzero after the captured output was clipped.",
+  semanticHints: semanticHintsForTruncatedSourceEvidence({ status: "failed" }),
+};
+```
+
+Use this only for adapter-known source-quality facts, such as clipped stderr,
+paginated logs, or a transcript window that omitted earlier evidence. The helper
+lowers semantic confidence and, for failed status by default, preserves high
+consequence. It does not parse logs, recover missing evidence, or make unrelated
+failures severe.
+
 If you want to type `onTrace(...)` callbacks directly or inspect why a route
 happened through the public explanation contract, use the trace entrypoint:
 

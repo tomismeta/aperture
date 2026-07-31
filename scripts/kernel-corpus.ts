@@ -16,7 +16,7 @@ import {
 } from "../packages/lab/src/index.js";
 
 const DEFAULT_REPORT_PATH = "packages/lab/conformance/kernel-corpus-v2.json";
-const DEFAULT_SCORECARD_PATH = "packages/lab/conformance/kernel-corpus-scorecard-v2.json";
+const DEFAULT_SCORECARD_PATH = "packages/lab/conformance/kernel-corpus-scorecard-v3.json";
 const scriptPath = fileURLToPath(import.meta.url);
 
 export type KernelCorpusCommandOptions = {

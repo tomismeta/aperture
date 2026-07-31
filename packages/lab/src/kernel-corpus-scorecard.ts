@@ -1,13 +1,15 @@
 import { compareKernelCanonicalKey, digestKernelCanonicalJson } from "./kernel-canonical-json.js";
+import { isCandidateTrace } from "@tomismeta/aperture-core/internal";
 import type { KernelCorpusConformanceReport } from "./kernel-corpus-conformance.js";
 import {
   collectKernelCorpusScenarioCheckpoints,
   parseKernelCorpusScorecardValue,
 } from "./kernel-corpus-scorecard-support.js";
+import { runReplayScenario } from "./runner.js";
 import type { ReplayScenario, ReplayScenarioExpectations } from "./scenario.js";
 
-export const KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION = 2 as const;
-export const KERNEL_CORPUS_SCORECARD_COMPARISON_SCHEMA_VERSION = 1 as const;
+export const KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION = 3 as const;
+export const KERNEL_CORPUS_SCORECARD_COMPARISON_SCHEMA_VERSION = 2 as const;
 
 export const KERNEL_CORPUS_SCORECARD_THRESHOLDS = {
   minimumScenarios: 34,
@@ -69,6 +71,7 @@ export type KernelCorpusScorecard = {
     id: string;
     scenarioCount: number;
   }>;
+  outcomeCoverage: KernelCorpusScorecardOutcomeCoverage;
   weakestScenarios: Array<{
     id: string;
     assertionCount: number;
@@ -82,6 +85,36 @@ export type KernelCorpusScorecardScenarioCheckpoints = {
   relation: string[];
   decisionProjection: string[];
 };
+
+export type KernelCorpusScorecardOutcomeCoverage = {
+  semantic: {
+    intentFrames: KernelCorpusScorecardOutcomeDistribution;
+    activityClasses: KernelCorpusScorecardOutcomeDistribution;
+    toolFamilies: KernelCorpusScorecardOutcomeDistribution;
+    consequences: KernelCorpusScorecardOutcomeDistribution;
+    confidences: KernelCorpusScorecardOutcomeDistribution;
+    ontologyActivities: KernelCorpusScorecardOutcomeDistribution;
+    ontologyConsequences: KernelCorpusScorecardOutcomeDistribution;
+    ontologySources: KernelCorpusScorecardOutcomeDistribution;
+  };
+  judgment: {
+    evaluationKinds: KernelCorpusScorecardOutcomeDistribution;
+    decisionKinds: KernelCorpusScorecardOutcomeDistribution;
+    decisionRecordRoutes: KernelCorpusScorecardOutcomeDistribution;
+    plannedLanes: KernelCorpusScorecardOutcomeDistribution;
+    resultLanes: KernelCorpusScorecardOutcomeDistribution;
+    candidateConsequences: KernelCorpusScorecardOutcomeDistribution;
+    semanticConfidences: KernelCorpusScorecardOutcomeDistribution;
+    failureDetails: KernelCorpusScorecardOutcomeDistribution;
+  };
+};
+
+export type KernelCorpusScorecardOutcomeDistribution = Array<{
+  id: string;
+  count: number;
+  scenarioCount: number;
+  scenarioIds: string[];
+}>;
 
 export type KernelCorpusScorecardComparison = {
   schemaVersion: typeof KERNEL_CORPUS_SCORECARD_COMPARISON_SCHEMA_VERSION;
@@ -110,6 +143,17 @@ export type KernelCorpusScorecardComparison = {
     missingSemanticOntology: string[];
     missingRelation: string[];
     missingDecisionProjection: string[];
+  }>;
+  outcomeCoverageDeltas: Array<{
+    path: string;
+    id: string;
+    baselineCount: number;
+    candidateCount: number;
+    delta: number;
+    baselineScenarioCount: number;
+    candidateScenarioCount: number;
+    scenarioDelta: number;
+    missingScenarioIds: string[];
   }>;
 };
 
@@ -141,7 +185,8 @@ export function buildKernelCorpusScorecard(
     report,
     scenarios,
   );
-  const failures = collectScorecardFailures(report, metrics, integrityFailures);
+  const outcomeCoverage = buildKernelCorpusOutcomeCoverage(report, scenarios);
+  const failures = collectScorecardFailures(report, metrics, integrityFailures, outcomeCoverage);
 
   return {
     schemaVersion: KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION,
@@ -160,6 +205,7 @@ export function buildKernelCorpusScorecard(
         scenarioCount: dimension.presentScenarioIds.length,
       }))
       .sort((left, right) => compareKernelCanonicalKey(left.id, right.id)),
+    outcomeCoverage,
     weakestScenarios: report.scenarios
       .map((scenario) => ({
         id: scenario.id,
@@ -199,12 +245,14 @@ export function buildKernelCorpusScorecardComparison(
   };
   const dimensionDeltas = compareScorecardDimensions(baseline, candidate);
   const scenarioCheckpointDeltas = compareScenarioCheckpoints(baseline, candidate);
+  const outcomeCoverageDeltas = compareOutcomeCoverage(baseline, candidate);
   const failures = collectScorecardComparisonFailures(
     baseline,
     candidate,
     deltas,
     dimensionDeltas,
     scenarioCheckpointDeltas,
+    outcomeCoverageDeltas,
   );
 
   return {
@@ -222,6 +270,7 @@ export function buildKernelCorpusScorecardComparison(
     deltas,
     dimensionDeltas,
     scenarioCheckpointDeltas,
+    outcomeCoverageDeltas,
   };
 }
 
@@ -338,6 +387,7 @@ function collectScorecardFailures(
   report: KernelCorpusConformanceReport,
   metrics: ScorecardMetrics,
   integrityFailures: string[],
+  outcomeCoverage: KernelCorpusScorecardOutcomeCoverage,
 ): string[] {
   const failures: string[] = [...integrityFailures];
   if (!report.passed) {
@@ -383,7 +433,14 @@ function collectScorecardFailures(
     metrics.semanticCheckpoints.relation,
     "minimumRelationCheckpoints",
   );
+  failures.push(...collectOutcomeCoverageFailures(outcomeCoverage));
   return failures;
+}
+
+function collectOutcomeCoverageFailures(coverage: KernelCorpusScorecardOutcomeCoverage): string[] {
+  return listOutcomeCoverageDistributions(coverage)
+    .filter(({ distribution }) => distribution.length === 0)
+    .map(({ path }) => `scorecard:empty_outcome_coverage:${path}`);
 }
 
 function compareScorecardDimensions(
@@ -446,6 +503,7 @@ function collectScorecardComparisonFailures(
   deltas: KernelCorpusScorecardComparison["deltas"],
   dimensionDeltas: KernelCorpusScorecardComparison["dimensionDeltas"],
   scenarioCheckpointDeltas: KernelCorpusScorecardComparison["scenarioCheckpointDeltas"],
+  outcomeCoverageDeltas: KernelCorpusScorecardComparison["outcomeCoverageDeltas"],
 ): string[] {
   const failures: string[] = [];
   if (baseline.schemaVersion !== candidate.schemaVersion) {
@@ -512,7 +570,286 @@ function collectScorecardComparisonFailures(
     }
   }
 
+  for (const outcome of outcomeCoverageDeltas) {
+    if (outcome.delta < 0) {
+      failures.push(
+        `scorecard_comparison:outcome_coverage:${outcome.path}:${outcome.id}:regressed:${outcome.delta}`,
+      );
+    }
+    if (outcome.scenarioDelta < 0) {
+      failures.push(
+        `scorecard_comparison:outcome_coverage:${outcome.path}:${outcome.id}:scenario_regressed:${outcome.scenarioDelta}`,
+      );
+    }
+    for (const id of outcome.missingScenarioIds) {
+      failures.push(
+        `scorecard_comparison:outcome_coverage:${outcome.path}:${outcome.id}:missing_scenario:${id}`,
+      );
+    }
+  }
+
   return failures;
+}
+
+function buildKernelCorpusOutcomeCoverage(
+  report: KernelCorpusConformanceReport,
+  scenarios: ReplayScenario[],
+): KernelCorpusScorecardOutcomeCoverage {
+  const scenarioById = new Map(scenarios.map((scenario) => [scenario.id, scenario]));
+  const accumulators = createOutcomeCoverageAccumulators();
+
+  for (const id of report.scenarioIds) {
+    const scenario = scenarioById.get(id);
+    if (!scenario) {
+      continue;
+    }
+
+    const run = runReplayScenario(scenario);
+    for (const semantic of run.semantics) {
+      addOutcome(accumulators.semantic.intentFrames, semantic.interpretation.intentFrame, id);
+      addOutcome(accumulators.semantic.activityClasses, semantic.interpretation.activityClass, id);
+      addOutcome(accumulators.semantic.toolFamilies, semantic.interpretation.toolFamily, id);
+      addOutcome(accumulators.semantic.consequences, semantic.interpretation.consequence, id);
+      addOutcome(accumulators.semantic.confidences, semantic.interpretation.confidence, id);
+      addOutcome(accumulators.semantic.ontologyActivities, semantic.ontology?.activity, id);
+      addOutcome(accumulators.semantic.ontologyConsequences, semantic.ontology?.consequence, id);
+      addOutcome(accumulators.semantic.ontologySources, semantic.ontology?.source, id);
+    }
+
+    for (const decision of run.decisions) {
+      addOutcome(accumulators.judgment.evaluationKinds, decision.evaluationKind, id);
+      addOutcome(accumulators.judgment.decisionKinds, decision.decisionKind, id);
+      addOutcome(accumulators.judgment.decisionRecordRoutes, decision.decisionRecordRoute, id);
+      addOutcome(accumulators.judgment.plannedLanes, decision.plannedLane, id);
+      addOutcome(accumulators.judgment.resultLanes, decision.resultLane, id);
+      addOutcome(accumulators.judgment.semanticConfidences, decision.semanticConfidence, id);
+    }
+
+    for (const trace of run.traces) {
+      if (!isCandidateTrace(trace)) {
+        continue;
+      }
+      addOutcome(
+        accumulators.judgment.candidateConsequences,
+        trace.evaluation.adjusted.consequence,
+        id,
+      );
+      addOutcome(
+        accumulators.judgment.failureDetails,
+        trace.evaluation.adjusted.judgmentInput.failureEvidence?.failureDetail,
+        id,
+      );
+    }
+  }
+
+  return finalizeOutcomeCoverage(accumulators);
+}
+
+type OutcomeCoverageAccumulators = {
+  semantic: {
+    intentFrames: OutcomeDistributionAccumulator;
+    activityClasses: OutcomeDistributionAccumulator;
+    toolFamilies: OutcomeDistributionAccumulator;
+    consequences: OutcomeDistributionAccumulator;
+    confidences: OutcomeDistributionAccumulator;
+    ontologyActivities: OutcomeDistributionAccumulator;
+    ontologyConsequences: OutcomeDistributionAccumulator;
+    ontologySources: OutcomeDistributionAccumulator;
+  };
+  judgment: {
+    evaluationKinds: OutcomeDistributionAccumulator;
+    decisionKinds: OutcomeDistributionAccumulator;
+    decisionRecordRoutes: OutcomeDistributionAccumulator;
+    plannedLanes: OutcomeDistributionAccumulator;
+    resultLanes: OutcomeDistributionAccumulator;
+    candidateConsequences: OutcomeDistributionAccumulator;
+    semanticConfidences: OutcomeDistributionAccumulator;
+    failureDetails: OutcomeDistributionAccumulator;
+  };
+};
+
+type OutcomeDistributionAccumulator = Map<string, { count: number; scenarioIds: Set<string> }>;
+
+function createOutcomeCoverageAccumulators(): OutcomeCoverageAccumulators {
+  return {
+    semantic: {
+      intentFrames: new Map(),
+      activityClasses: new Map(),
+      toolFamilies: new Map(),
+      consequences: new Map(),
+      confidences: new Map(),
+      ontologyActivities: new Map(),
+      ontologyConsequences: new Map(),
+      ontologySources: new Map(),
+    },
+    judgment: {
+      evaluationKinds: new Map(),
+      decisionKinds: new Map(),
+      decisionRecordRoutes: new Map(),
+      plannedLanes: new Map(),
+      resultLanes: new Map(),
+      candidateConsequences: new Map(),
+      semanticConfidences: new Map(),
+      failureDetails: new Map(),
+    },
+  };
+}
+
+function addOutcome(
+  accumulator: OutcomeDistributionAccumulator,
+  value: string | undefined | null,
+  scenarioId: string,
+): void {
+  if (value === undefined || value === null || value.length === 0) {
+    return;
+  }
+
+  const current = accumulator.get(value) ?? { count: 0, scenarioIds: new Set<string>() };
+  current.count += 1;
+  current.scenarioIds.add(scenarioId);
+  accumulator.set(value, current);
+}
+
+function finalizeOutcomeCoverage(
+  accumulators: OutcomeCoverageAccumulators,
+): KernelCorpusScorecardOutcomeCoverage {
+  return {
+    semantic: {
+      intentFrames: finalizeOutcomeDistribution(accumulators.semantic.intentFrames),
+      activityClasses: finalizeOutcomeDistribution(accumulators.semantic.activityClasses),
+      toolFamilies: finalizeOutcomeDistribution(accumulators.semantic.toolFamilies),
+      consequences: finalizeOutcomeDistribution(accumulators.semantic.consequences),
+      confidences: finalizeOutcomeDistribution(accumulators.semantic.confidences),
+      ontologyActivities: finalizeOutcomeDistribution(accumulators.semantic.ontologyActivities),
+      ontologyConsequences: finalizeOutcomeDistribution(accumulators.semantic.ontologyConsequences),
+      ontologySources: finalizeOutcomeDistribution(accumulators.semantic.ontologySources),
+    },
+    judgment: {
+      evaluationKinds: finalizeOutcomeDistribution(accumulators.judgment.evaluationKinds),
+      decisionKinds: finalizeOutcomeDistribution(accumulators.judgment.decisionKinds),
+      decisionRecordRoutes: finalizeOutcomeDistribution(accumulators.judgment.decisionRecordRoutes),
+      plannedLanes: finalizeOutcomeDistribution(accumulators.judgment.plannedLanes),
+      resultLanes: finalizeOutcomeDistribution(accumulators.judgment.resultLanes),
+      candidateConsequences: finalizeOutcomeDistribution(
+        accumulators.judgment.candidateConsequences,
+      ),
+      semanticConfidences: finalizeOutcomeDistribution(accumulators.judgment.semanticConfidences),
+      failureDetails: finalizeOutcomeDistribution(accumulators.judgment.failureDetails),
+    },
+  };
+}
+
+function finalizeOutcomeDistribution(
+  accumulator: OutcomeDistributionAccumulator,
+): KernelCorpusScorecardOutcomeDistribution {
+  return [...accumulator.entries()]
+    .map(([id, value]) => ({
+      id,
+      count: value.count,
+      scenarioCount: value.scenarioIds.size,
+      scenarioIds: [...value.scenarioIds].sort(compareKernelCanonicalKey),
+    }))
+    .sort((left, right) => compareKernelCanonicalKey(left.id, right.id));
+}
+
+function compareOutcomeCoverage(
+  baseline: KernelCorpusScorecard,
+  candidate: KernelCorpusScorecard,
+): KernelCorpusScorecardComparison["outcomeCoverageDeltas"] {
+  const deltas: KernelCorpusScorecardComparison["outcomeCoverageDeltas"] = [];
+  const baselineDistributions = flattenOutcomeCoverage(baseline.outcomeCoverage);
+  const candidateDistributions = new Map(
+    flattenOutcomeCoverage(candidate.outcomeCoverage).map((entry) => [
+      `${entry.path}\0${entry.id}`,
+      entry,
+    ]),
+  );
+
+  for (const baselineEntry of baselineDistributions) {
+    const candidateEntry = candidateDistributions.get(`${baselineEntry.path}\0${baselineEntry.id}`);
+    const candidateCount = candidateEntry?.count ?? 0;
+    const candidateScenarioCount = candidateEntry?.scenarioCount ?? 0;
+    const delta = candidateCount - baselineEntry.count;
+    const scenarioDelta = candidateScenarioCount - baselineEntry.scenarioCount;
+    const candidateScenarioIds = new Set(candidateEntry?.scenarioIds ?? []);
+    const missingScenarioIds = baselineEntry.scenarioIds.filter(
+      (id) => !candidateScenarioIds.has(id),
+    );
+    if (delta < 0 || scenarioDelta < 0 || missingScenarioIds.length > 0) {
+      deltas.push({
+        path: baselineEntry.path,
+        id: baselineEntry.id,
+        baselineCount: baselineEntry.count,
+        candidateCount,
+        delta,
+        baselineScenarioCount: baselineEntry.scenarioCount,
+        candidateScenarioCount,
+        scenarioDelta,
+        missingScenarioIds,
+      });
+    }
+  }
+
+  return deltas.sort(
+    (left, right) =>
+      compareKernelCanonicalKey(left.path, right.path) ||
+      compareKernelCanonicalKey(left.id, right.id),
+  );
+}
+
+function flattenOutcomeCoverage(coverage: KernelCorpusScorecardOutcomeCoverage): Array<{
+  path: string;
+  id: string;
+  count: number;
+  scenarioCount: number;
+  scenarioIds: string[];
+}> {
+  return listOutcomeCoverageDistributions(coverage).flatMap(({ path, distribution }) =>
+    flattenOutcomeDistribution(path, distribution),
+  );
+}
+
+function listOutcomeCoverageDistributions(coverage: KernelCorpusScorecardOutcomeCoverage): Array<{
+  path: string;
+  distribution: KernelCorpusScorecardOutcomeDistribution;
+}> {
+  return [
+    { path: "semantic.intentFrames", distribution: coverage.semantic.intentFrames },
+    { path: "semantic.activityClasses", distribution: coverage.semantic.activityClasses },
+    { path: "semantic.toolFamilies", distribution: coverage.semantic.toolFamilies },
+    { path: "semantic.consequences", distribution: coverage.semantic.consequences },
+    { path: "semantic.confidences", distribution: coverage.semantic.confidences },
+    { path: "semantic.ontologyActivities", distribution: coverage.semantic.ontologyActivities },
+    { path: "semantic.ontologyConsequences", distribution: coverage.semantic.ontologyConsequences },
+    { path: "semantic.ontologySources", distribution: coverage.semantic.ontologySources },
+    { path: "judgment.evaluationKinds", distribution: coverage.judgment.evaluationKinds },
+    { path: "judgment.decisionKinds", distribution: coverage.judgment.decisionKinds },
+    {
+      path: "judgment.decisionRecordRoutes",
+      distribution: coverage.judgment.decisionRecordRoutes,
+    },
+    { path: "judgment.plannedLanes", distribution: coverage.judgment.plannedLanes },
+    { path: "judgment.resultLanes", distribution: coverage.judgment.resultLanes },
+    {
+      path: "judgment.candidateConsequences",
+      distribution: coverage.judgment.candidateConsequences,
+    },
+    { path: "judgment.semanticConfidences", distribution: coverage.judgment.semanticConfidences },
+    { path: "judgment.failureDetails", distribution: coverage.judgment.failureDetails },
+  ];
+}
+
+function flattenOutcomeDistribution(
+  path: string,
+  distribution: KernelCorpusScorecardOutcomeDistribution,
+): Array<{
+  path: string;
+  id: string;
+  count: number;
+  scenarioCount: number;
+  scenarioIds: string[];
+}> {
+  return distribution.map((entry) => ({ path, ...entry }));
 }
 
 function readDigestBoundExpectation(

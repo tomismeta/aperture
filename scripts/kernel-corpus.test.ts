@@ -17,7 +17,7 @@ test("kernel corpus write compares scorecard baselines unless override is explic
   const root = await mkdtemp(join(tmpdir(), "aperture-kernel-corpus-"));
   try {
     const reportPath = join(root, "kernel-corpus-v2.json");
-    const scorecardPath = join(root, "kernel-corpus-scorecard-v2.json");
+    const scorecardPath = join(root, "kernel-corpus-scorecard-v3.json");
     const scenarios = await loadGoldenScenarios();
     const report = await buildKernelCorpusConformanceReport(scenarios);
     const scorecard = buildKernelCorpusScorecard(report, scenarios);

@@ -41,7 +41,7 @@ test("kernel corpus conformance report matches the committed v2 artifact", async
   const scorecard = buildKernelCorpusScorecard(report, scenarios);
   const committed = await readFile("packages/lab/conformance/kernel-corpus-v2.json", "utf8");
   const committedScorecard = await readFile(
-    "packages/lab/conformance/kernel-corpus-scorecard-v2.json",
+    "packages/lab/conformance/kernel-corpus-scorecard-v3.json",
     "utf8",
   );
   const parsedCommittedScorecard = parseKernelCorpusScorecard(committedScorecard);
@@ -86,6 +86,20 @@ test("kernel corpus conformance report matches the committed v2 artifact", async
     scorecard.summary.decisionCheckpoints.projection,
     sum(scorecard.scenarioCheckpoints.map((scenario) => scenario.decisionProjection.length)),
   );
+  assert.ok(
+    scorecard.outcomeCoverage.semantic.intentFrames.some((entry) => entry.id === "failure"),
+  );
+  assert.ok(
+    scorecard.outcomeCoverage.semantic.activityClasses.some((entry) => entry.id === "tool_failure"),
+  );
+  assert.ok(
+    scorecard.outcomeCoverage.judgment.failureDetails.some(
+      (entry) => entry.id === "source_window_limit",
+    ),
+  );
+  assert.ok(
+    scorecard.outcomeCoverage.judgment.decisionRecordRoutes.some((entry) => entry.id === "queue"),
+  );
   assert.deepEqual(parsedCommittedScorecard, scorecard);
   assertKernelCorpusScorecardPassed(scorecard);
   assert.equal(committed, `${serializeKernelCanonicalJson(report)}\n`);
@@ -97,7 +111,7 @@ test("kernel corpus scorecard comparison protects the committed quality baseline
   const scenarios = await loadGoldenScenarios();
   const scorecard = buildKernelCorpusScorecard(report, scenarios);
   const committedScorecard = parseKernelCorpusScorecard(
-    await readFile("packages/lab/conformance/kernel-corpus-scorecard-v2.json", "utf8"),
+    await readFile("packages/lab/conformance/kernel-corpus-scorecard-v3.json", "utf8"),
   );
   const comparison = buildKernelCorpusScorecardComparison(committedScorecard, scorecard);
 
@@ -116,7 +130,77 @@ test("kernel corpus scorecard comparison protects the committed quality baseline
   });
   assert.ok(comparison.dimensionDeltas.every((dimension) => dimension.delta === 0));
   assert.deepEqual(comparison.scenarioCheckpointDeltas, []);
+  assert.deepEqual(comparison.outcomeCoverageDeltas, []);
   assertKernelCorpusScorecardComparisonPassed(comparison);
+});
+
+test("kernel corpus scorecard comparison fails closed on outcome coverage regressions", async () => {
+  const report = await buildKernelCorpusConformanceReport();
+  const scenarios = await loadGoldenScenarios();
+  const baseline = buildKernelCorpusScorecard(report, scenarios);
+  const target = baseline.outcomeCoverage.judgment.failureDetails.find(
+    (entry) => entry.id === "source_window_limit",
+  );
+
+  assert.ok(target);
+
+  const candidate = {
+    ...baseline,
+    outcomeCoverage: {
+      ...baseline.outcomeCoverage,
+      judgment: {
+        ...baseline.outcomeCoverage.judgment,
+        failureDetails: baseline.outcomeCoverage.judgment.failureDetails.map((entry) =>
+          entry.id === target.id
+            ? {
+                ...entry,
+                count: entry.count - 1,
+                scenarioCount: entry.scenarioCount - 1,
+              }
+            : entry,
+        ),
+      },
+    },
+  };
+  const comparison = buildKernelCorpusScorecardComparison(baseline, candidate);
+
+  assert.equal(comparison.passed, false);
+  assert.match(
+    comparison.failures.join("\n"),
+    /scorecard_comparison:outcome_coverage:judgment\.failureDetails:source_window_limit:regressed/,
+  );
+  assert.match(
+    comparison.failures.join("\n"),
+    /scorecard_comparison:outcome_coverage:judgment\.failureDetails:source_window_limit:scenario_regressed/,
+  );
+
+  const swappedScenarioCandidate = {
+    ...baseline,
+    outcomeCoverage: {
+      ...baseline.outcomeCoverage,
+      judgment: {
+        ...baseline.outcomeCoverage.judgment,
+        failureDetails: baseline.outcomeCoverage.judgment.failureDetails.map((entry) =>
+          entry.id === target.id
+            ? {
+                ...entry,
+                scenarioIds: ["golden:kernel-corpus:alarmist-read-approval-stays-low-risk"],
+              }
+            : entry,
+        ),
+      },
+    },
+  };
+  const swappedScenarioComparison = buildKernelCorpusScorecardComparison(
+    baseline,
+    swappedScenarioCandidate,
+  );
+
+  assert.equal(swappedScenarioComparison.passed, false);
+  assert.match(
+    swappedScenarioComparison.failures.join("\n"),
+    /scorecard_comparison:outcome_coverage:judgment\.failureDetails:source_window_limit:missing_scenario:golden:kernel-corpus:read-source-window-limit-stays-visible/,
+  );
 });
 
 test("kernel corpus scorecard comparison fails closed on semantic and judgment regressions", async () => {
@@ -254,6 +338,53 @@ test("kernel corpus scorecard parsing fails closed on malformed baselines", () =
       ),
     /Invalid kernel corpus scorecard/,
   );
+});
+
+test("kernel corpus scorecard parsing rejects malformed outcome coverage", async () => {
+  const report = await buildKernelCorpusConformanceReport();
+  const scenarios = await loadGoldenScenarios();
+  const scorecard = buildKernelCorpusScorecard(report, scenarios);
+
+  const invalidDistributions = [
+    [],
+    [{ id: "failure", count: 1, scenarioCount: 1, scenarioIds: [] }],
+    [
+      { id: "failure", count: 1, scenarioCount: 1, scenarioIds: ["scenario:a"] },
+      { id: "failure", count: 1, scenarioCount: 1, scenarioIds: ["scenario:b"] },
+    ],
+    [{ id: "failure", count: 0.5, scenarioCount: 1, scenarioIds: ["scenario:a"] }],
+    [{ id: "failure", count: 1, scenarioCount: 2, scenarioIds: ["scenario:a", "scenario:b"] }],
+    [
+      {
+        id: "failure",
+        count: 2,
+        scenarioCount: 2,
+        scenarioIds: ["scenario:b", "scenario:a"],
+      },
+    ],
+  ];
+
+  for (const distribution of invalidDistributions) {
+    const candidate = structuredClone(scorecard);
+    candidate.outcomeCoverage.semantic.intentFrames = distribution;
+
+    assert.throws(
+      () => parseKernelCorpusScorecard(JSON.stringify(candidate)),
+      /Invalid kernel corpus scorecard/,
+    );
+  }
+});
+
+test("kernel corpus scorecard generation fails closed on empty outcome coverage", async () => {
+  const report = await buildKernelCorpusConformanceReport();
+  const scorecard = buildKernelCorpusScorecard(report, []);
+
+  assert.equal(scorecard.passed, false);
+  assert.ok(scorecard.failures.includes("scorecard:empty_outcome_coverage:semantic.intentFrames"));
+  assert.ok(
+    scorecard.failures.includes("scorecard:empty_outcome_coverage:judgment.evaluationKinds"),
+  );
+  assert.throws(() => assertKernelCorpusScorecardPassed(scorecard), /empty_outcome_coverage/);
 });
 
 test("kernel corpus scorecard rejects empty or duplicate checkpoint definitions", async () => {

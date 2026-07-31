@@ -149,12 +149,16 @@ Current review evidence:
 - Lab consumes source-quality support through public or bounded core seams
 - `pnpm kernel:corpus` verifies both the full corpus conformance report and a
   compact scorecard for scenario count, dimension coverage, semantic ontology
-  checkpoints, decision projection checkpoints, relation checkpoints, and
-  decision-fingerprint uniqueness as a reported snapshot
+  checkpoints, decision projection checkpoints, relation checkpoints,
+  decision-fingerprint uniqueness, and semantic/judgment outcome coverage as a
+  reported snapshot
 - the scorecard carries per-scenario semantic ontology, relation, and decision
-  projection checkpoint digests; `pnpm kernel:corpus` compares the generated
+  projection checkpoint digests plus actual outcome distributions for semantic
+  intents, activities, consequences, ontology sources, judgment routes, lanes,
+  confidence, and failure details; `pnpm kernel:corpus` compares the generated
   scorecard against the committed baseline so aggregate totals cannot hide a
-  lost scenario-specific semantic or judgment assertion
+  lost scenario-specific semantic or judgment assertion or a lost covered
+  outcome shape
 - `pnpm kernel:corpus:write` refuses to overwrite the scorecard without a valid
   baseline comparison unless an intentional scorecard rebaseline flag is used
 - classifier growth is now guarded by module budgets for:
@@ -232,10 +236,12 @@ Additional branch evidence:
 - judgment battle determinism: 81 passing
 - judgment benchmark: 2,415 passing
 - judgment fuzz: 384 passing
-- kernel corpus scorecard: 41 scenarios, 14 covered dimensions, 1,664 passing
-  corpus assertions, 45 ontology checkpoints, 55 decision projection
+- kernel corpus scorecard v3: 41 scenarios, 14 covered dimensions, 1,664
+  passing corpus assertions, 45 ontology checkpoints, 55 decision projection
   checkpoints, 13 relation checkpoints, 41 per-scenario checkpoint ledgers, 22
-  unique decision fingerprints
+  unique decision fingerprints, and semantic/judgment outcome coverage for
+  intent frames, activity classes, ontology sources, routes, lanes, confidence,
+  consequences, and failure details
 - local harvested-session review-candidates replay now scans canonical F-Stop
   session directories directly; current-engine replay over 487 local sessions
   produced 4,092 comparable steps, 502 failed updates, 0 invalid inputs, 0

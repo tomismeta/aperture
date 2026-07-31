@@ -39,6 +39,8 @@ export {
   KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION,
   KERNEL_CORPUS_SCORECARD_THRESHOLDS,
   parseKernelCorpusScorecard,
+  type KernelCorpusScorecardOutcomeCoverage,
+  type KernelCorpusScorecardOutcomeDistribution,
   type KernelCorpusScorecardComparison,
   type KernelCorpusScorecard,
   type KernelCorpusScorecardScenarioCheckpoints,

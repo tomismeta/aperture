@@ -1,6 +1,8 @@
 import { compareKernelCanonicalKey, digestKernelCanonicalJson } from "./kernel-canonical-json.js";
 import type {
   KernelCorpusScorecard,
+  KernelCorpusScorecardOutcomeCoverage,
+  KernelCorpusScorecardOutcomeDistribution,
   KernelCorpusScorecardScenarioCheckpoints,
 } from "./kernel-corpus-scorecard.js";
 import type {
@@ -81,6 +83,7 @@ function isKernelCorpusScorecard(
     isScorecardThresholds(value.thresholds, thresholds) &&
     isScorecardSummary(value.summary) &&
     isScorecardDimensions(value.dimensions) &&
+    isOutcomeCoverage(value.outcomeCoverage) &&
     isWeakestScenarios(value.weakestScenarios) &&
     isScenarioCheckpointArray(value.scenarioCheckpoints)
   );
@@ -167,6 +170,61 @@ function isWeakestScenarios(value: unknown): value is KernelCorpusScorecard["wea
         isFiniteNumber(scenario.assertionCount),
     )
   );
+}
+
+function isOutcomeCoverage(value: unknown): value is KernelCorpusScorecardOutcomeCoverage {
+  return (
+    isRecord(value) &&
+    isRecord(value.semantic) &&
+    isOutcomeDistribution(value.semantic.intentFrames) &&
+    isOutcomeDistribution(value.semantic.activityClasses) &&
+    isOutcomeDistribution(value.semantic.toolFamilies) &&
+    isOutcomeDistribution(value.semantic.consequences) &&
+    isOutcomeDistribution(value.semantic.confidences) &&
+    isOutcomeDistribution(value.semantic.ontologyActivities) &&
+    isOutcomeDistribution(value.semantic.ontologyConsequences) &&
+    isOutcomeDistribution(value.semantic.ontologySources) &&
+    isRecord(value.judgment) &&
+    isOutcomeDistribution(value.judgment.evaluationKinds) &&
+    isOutcomeDistribution(value.judgment.decisionKinds) &&
+    isOutcomeDistribution(value.judgment.decisionRecordRoutes) &&
+    isOutcomeDistribution(value.judgment.plannedLanes) &&
+    isOutcomeDistribution(value.judgment.resultLanes) &&
+    isOutcomeDistribution(value.judgment.candidateConsequences) &&
+    isOutcomeDistribution(value.judgment.semanticConfidences) &&
+    isOutcomeDistribution(value.judgment.failureDetails)
+  );
+}
+
+function isOutcomeDistribution(value: unknown): value is KernelCorpusScorecardOutcomeDistribution {
+  if (!Array.isArray(value) || value.length === 0) {
+    return false;
+  }
+
+  const ids = new Set<string>();
+  for (const [index, entry] of value.entries()) {
+    if (
+      !isRecord(entry) ||
+      typeof entry.id !== "string" ||
+      entry.id.length === 0 ||
+      ids.has(entry.id) ||
+      (index > 0 && compareKernelCanonicalKey(value[index - 1]?.id ?? "", entry.id) >= 0) ||
+      !isNonNegativeInteger(entry.count) ||
+      entry.count === 0 ||
+      !isNonNegativeInteger(entry.scenarioCount) ||
+      entry.scenarioCount === 0 ||
+      entry.scenarioCount > entry.count ||
+      !isStringArray(entry.scenarioIds) ||
+      entry.scenarioIds.length !== entry.scenarioCount ||
+      new Set(entry.scenarioIds).size !== entry.scenarioIds.length ||
+      !isSortedStrings(entry.scenarioIds)
+    ) {
+      return false;
+    }
+    ids.add(entry.id);
+  }
+
+  return true;
 }
 
 function isScenarioCheckpointArray(
@@ -372,6 +430,16 @@ function hasSubstantiveValue(value: unknown): boolean {
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+function isSortedStrings(value: string[]): boolean {
+  return value.every(
+    (entry, index) => index === 0 || compareKernelCanonicalKey(value[index - 1] ?? "", entry) < 0,
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

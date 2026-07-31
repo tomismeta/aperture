@@ -212,6 +212,37 @@ test("truncated outcome-only hints keep failed statuses conservative", () => {
   assert.equal(result.candidate.judgmentInput.ontology?.confidence, "low");
 });
 
+test("truncated source evidence helper cannot undercut failed status consequence", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:failed-truncated-undercut-attempt",
+      taskId: "task:failed-truncated-undercut-attempt",
+      timestamp: "2026-03-08T12:02:07.500Z",
+      type: "task.updated",
+      title: "exec_command failure",
+      summary: '{"exit_code":1,"wall_time":"0.0510 seconds","output":"(no output)"}',
+      status: "failed",
+      toolFamily: "exec_command",
+      metadata: { truncated: true },
+      semanticHints: semanticHintsForTruncatedSourceEvidence({
+        status: "failed",
+        consequence: "low" as never,
+      }),
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.consequence, "high");
+  assert.equal(result.candidate.judgmentInput.semanticEvidence?.confidence, "low");
+  assert.equal(result.candidate.judgmentInput.ontology?.consequence, "high");
+});
+
 test("hinted outcome-only softening is rejected for diagnostic failures", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({

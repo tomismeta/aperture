@@ -1,4 +1,5 @@
 import { readListingEntries } from "./semantic-listing-entry-shapes.js";
+import { stripObservationStatusPrefix } from "./semantic-observation-text.js";
 
 export type SingleOwnedListingObservation = {
   consequenceBaseline: "medium" | "high";
@@ -51,10 +52,6 @@ function hasListingDiagnosticLine(text: string): boolean {
     /:\d+(?::\d+)?:\s*(?:(?:fatal\s+)?error|fatal|userwarning|warning):\s+\S/i.test(text) ||
     (body !== null && looksLikeSingleListingDiagnosticBody(body))
   );
-}
-
-function stripObservationStatusPrefix(value: string): string {
-  return value.trim().replace(/^(?:bash|edit|read|search|tool)\s+failure\s+/i, "");
 }
 
 function listingDiagnosticBody(text: string): string | null {

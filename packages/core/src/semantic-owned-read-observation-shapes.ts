@@ -7,6 +7,10 @@ import { readArrowNumberedDocumentSpanParts } from "./semantic-arrow-numbered-do
 import { hasUnquotedEmbeddedRuntimeDiagnosticEvidence } from "./semantic-diagnostic-shapes.js";
 import { looksLikeExplicitReadFailureDiagnostic } from "./semantic-read-failure-diagnostic-shapes.js";
 import { containsOwnedReadTransportMixedNumbering } from "./semantic-owned-read-transport-numbering.js";
+import {
+  hasVisibleTruncationBoundary,
+  stripObservationStatusPrefix,
+} from "./semantic-observation-text.js";
 
 export function hasOwnedReadTerminalDiagnosticEvidence(value: string): boolean {
   const text = stripObservationStatusPrefix(value);
@@ -27,7 +31,7 @@ export function looksLikeOwnedReadTransportObservation(value: string): boolean {
 }
 
 function looksLikeClippedArrowReadWindow(text: string): boolean {
-  if (!containsArrowNumberedDocumentMarker(text) || !hasVisibleClippingBoundary(text)) {
+  if (!containsArrowNumberedDocumentMarker(text) || !hasVisibleTruncationBoundary(text)) {
     return false;
   }
 
@@ -46,14 +50,6 @@ function looksLikeClippedArrowReadWindow(text: string): boolean {
 
 function hasConsecutiveLineNumbers(spans: LineNumberedDocumentSpan[]): boolean {
   return spans.every((span, index) => index === 0 || span.line === spans[index - 1]!.line + 1);
-}
-
-function hasVisibleClippingBoundary(text: string): boolean {
-  return /\.\.\.\s*$/.test(text.trim());
-}
-
-function stripObservationStatusPrefix(value: string): string {
-  return value.trim().replace(/^(?:bash|edit|read|search|tool)\s+failure\s+/, "");
 }
 
 function hasEmbeddedReadFailureDiagnostic(text: string): boolean {

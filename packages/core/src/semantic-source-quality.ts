@@ -1,11 +1,11 @@
 import type { TaskStatus } from "./events.js";
-import type { SemanticConsequenceLevel, SemanticInterpretationHints } from "./semantic-types.js";
+import type { SemanticInterpretationHints } from "./semantic-types.js";
 
 export const TRUNCATED_SOURCE_EVIDENCE_FACTOR = "source evidence truncated";
 
 export type TruncatedSourceEvidenceHintOptions = {
   status?: TaskStatus;
-  consequence?: SemanticConsequenceLevel | false;
+  consequence?: "high" | false;
   reason?: string;
 };
 
@@ -24,12 +24,12 @@ export function semanticHintsForTruncatedSourceEvidence(
 
 function truncatedSourceEvidenceConsequence(
   options: TruncatedSourceEvidenceHintOptions,
-): SemanticConsequenceLevel | undefined {
+): "high" | undefined {
   if (options.consequence === false) {
     return undefined;
   }
-  if (options.consequence !== undefined) {
-    return options.consequence;
+  if (options.consequence === "high") {
+    return "high";
   }
   return options.status === "failed" ? "high" : undefined;
 }

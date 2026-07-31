@@ -1,18 +1,7 @@
-import {
-  CONTEXTUAL_RESOLVE_PHRASES,
-  DIRECT_RESOLVE_PHRASES,
-  NEGATED_RESOLVE_PHRASES,
-} from "./semantic-patterns.js";
-import { normalizeSemanticText } from "./semantic-text.js";
-
 export type ResolutionPolarity = "asserted" | "modal" | "negated" | "prospective";
 
-type ResolutionCue = { tokens: string[] };
-type ResolutionClause = { tokens: string[]; isQuestion: boolean };
+export type ResolutionClause = { tokens: string[]; isQuestion: boolean };
 
-const DIRECT_RESOLUTION_CUES = DIRECT_RESOLVE_PHRASES.map(toResolutionCue);
-const CONTEXTUAL_RESOLUTION_CUES = CONTEXTUAL_RESOLVE_PHRASES.map(toResolutionCue);
-const NEGATED_RESOLUTION_CUES = NEGATED_RESOLVE_PHRASES.map(toResolutionCue);
 const LOOKBEHIND_TOKEN_COUNT = 12;
 const LOCAL_NEGATION_TOKENS = new Set(["never", "not"]);
 const MODAL_TOKENS = new Set(["could", "expected", "hopefully", "may", "might", "should", "would"]);
@@ -57,41 +46,10 @@ const QUESTION_PREFIXES = [
   ["would", "you"],
 ] as const;
 
-export function hasAssertedDirectResolutionSignal(value: string): boolean {
-  return hasAssertedResolutionSignal(value, DIRECT_RESOLUTION_CUES);
-}
-
-export function hasAssertedContextualResolutionSignal(value: string): boolean {
-  return hasAssertedResolutionSignal(value, CONTEXTUAL_RESOLUTION_CUES);
-}
-
-function hasAssertedResolutionSignal(value: string, cues: readonly ResolutionCue[]): boolean {
-  let latestPolarity: ResolutionPolarity | null = null;
-  for (const clause of readResolutionClauses(value)) {
-    const events: Array<{ start: number; polarity: ResolutionPolarity }> = [];
-    for (const cue of NEGATED_RESOLUTION_CUES) {
-      for (const start of findCueStarts(clause.tokens, cue.tokens)) {
-        events.push({ start, polarity: "negated" });
-      }
-    }
-
-    for (const cue of cues) {
-      for (const start of findCueStarts(clause.tokens, cue.tokens)) {
-        events.push({ start, polarity: readResolutionPolarity(clause, start) });
-      }
-    }
-
-    events
-      .sort((left, right) => left.start - right.start)
-      .forEach((event) => {
-        latestPolarity = event.polarity;
-      });
-  }
-
-  return latestPolarity === "asserted";
-}
-
-function readResolutionPolarity(clause: ResolutionClause, start: number): ResolutionPolarity {
+export function readResolutionPolarity(
+  clause: ResolutionClause,
+  start: number,
+): ResolutionPolarity {
   const tokens = clause.tokens;
   const lookbehind = tokens.slice(Math.max(0, start - LOOKBEHIND_TOKEN_COUNT), start);
   const localLookbehind = lookbehind.slice(-4);
@@ -156,59 +114,6 @@ function hasConditionalAfter(tokens: readonly string[], index: number): boolean 
 
 function isListMarkerToken(token: string): boolean {
   return /^\d+$/.test(token);
-}
-
-function findCueStarts(tokens: readonly string[], cueTokens: readonly string[]): number[] {
-  const starts: number[] = [];
-  for (let index = 0; index <= tokens.length - cueTokens.length; index += 1) {
-    if (cueTokens.every((token, offset) => tokens[index + offset] === token)) {
-      starts.push(index);
-    }
-  }
-  return starts;
-}
-
-function toResolutionCue(phrase: string): ResolutionCue {
-  return { tokens: tokenizeResolutionText(phrase) };
-}
-
-function readResolutionClauses(value: string): ResolutionClause[] {
-  const clauses: ResolutionClause[] = [];
-  let start = 0;
-  for (const match of value.matchAll(/[.!?;:]+/g)) {
-    const end = match.index;
-    const clause = toResolutionClause(value.slice(start, end), match[0].includes("?"));
-    if (clause !== null) {
-      clauses.push(clause);
-    }
-    start = end + match[0].length;
-  }
-
-  const finalClause = toResolutionClause(value.slice(start), false);
-  if (finalClause !== null) {
-    clauses.push(finalClause);
-  }
-
-  return clauses.length > 0
-    ? clauses
-    : [toResolutionClause(value, false)].filter(isResolutionClause);
-}
-
-function toResolutionClause(value: string, isQuestion: boolean): ResolutionClause | null {
-  const tokens = tokenizeResolutionText(value);
-  if (tokens.length === 0) {
-    return null;
-  }
-
-  return { tokens, isQuestion };
-}
-
-function isResolutionClause(value: ResolutionClause | null): value is ResolutionClause {
-  return value !== null;
-}
-
-function tokenizeResolutionText(value: string): string[] {
-  return normalizeSemanticText(value).match(/[a-z0-9]+/g) ?? [];
 }
 
 function hasTokenSequence(tokens: readonly string[], sequence: readonly string[]): boolean {

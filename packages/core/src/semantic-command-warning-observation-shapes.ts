@@ -1,5 +1,6 @@
 import { hasToolOutputFailureDiagnosticEvidence } from "./semantic-diagnostic-shapes.js";
 import { looksLikeObservationReferenceWrapper } from "./semantic-observation-reference-wrapper-shapes.js";
+import { hasVisibleTruncationBoundary } from "./semantic-observation-text.js";
 import { hasMatchOutsideQuotedSpans } from "./semantic-quoted-span.js";
 
 export function looksLikeWarningOnlyCommandOutputObservation(value: string): boolean {
@@ -27,10 +28,6 @@ function looksLikeToolchainWarning(text: string): boolean {
 
 function looksLikeExplicitErrorLine(text: string): boolean {
   return hasMatchOutsideQuotedSpans(text, EXPLICIT_ERROR_LINE_PATTERN);
-}
-
-function hasVisibleTruncationBoundary(text: string): boolean {
-  return /\.\.\.\s*$/.test(text);
 }
 
 const PATH_QUALIFIED_WARNING_PATTERN =

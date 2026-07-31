@@ -238,8 +238,8 @@ const event: SourceEvent = {
 Use this only for adapter-known source-quality facts, such as clipped stderr,
 paginated logs, or a transcript window that omitted earlier evidence. The helper
 lowers semantic confidence and, for failed status by default, preserves high
-consequence. It does not parse logs, recover missing evidence, or make unrelated
-failures severe.
+consequence. It cannot lower failed evidence to medium or low consequence. It
+does not parse logs, recover missing evidence, or make unrelated failures severe.
 
 If you want to type `onTrace(...)` callbacks directly or inspect why a route
 happened through the public explanation contract, use the trace entrypoint:

@@ -4,6 +4,7 @@ import {
   readClippedCLikeLine,
   type CLikeLine,
 } from "./semantic-c-like-source-line-shapes.js";
+import { hasVisibleTruncationBoundary } from "./semantic-observation-text.js";
 
 export function looksLikeCLikeSourceFragmentObservation(value: string): boolean {
   const text = value.trim();
@@ -127,10 +128,6 @@ function containsSourceLocationRows(text: string): boolean {
 
 function containsLineNumberedRows(text: string): boolean {
   return /(?:^|[\r\n])\s*\d{1,6}(?:[ \t]+|:\s*)\S/.test(text);
-}
-
-function hasVisibleTruncationBoundary(text: string): boolean {
-  return /\.\.\.\s*$/.test(text);
 }
 
 function readLastContentLineIndex(lines: string[]): number {

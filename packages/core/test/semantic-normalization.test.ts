@@ -777,7 +777,7 @@ test("arrow-numbered read source stays observational at high consequence", () =>
     source: source("custom-agent"),
     title: "read failure",
     summary:
-      "1\u2192import os 2\u2192from functools import lru_cache 3\u2192from typing import Optional 4\u2192 5\u2192import torch 6\u2192from torch.utils.cpp_extension import load_inline 7\u2192import time 8\u2192 9\u2192 10\u2192@lru_cache(maxsize=1) 11\u2192def _load_hip_extension(): 12\u2192 source_path ...",
+      "1\u2192import os 2\u2192from functools import lru_cache 3\u2192from typing import Optional 4\u2192 5\u2192import torch 6\u2192from torch.utils.cpp_extension import load_inline 7\u2192import time 8\u2192 9\u2192 10\u2192@lru_cache(maxsize=1) 11\u2192def _load_hip_extension(): 12\u2192 source_path \u2026",
     status: "failed",
     toolFamily: "read",
   });
@@ -1026,6 +1026,29 @@ test("public trajectory failed-status bash success observations stay low-consequ
     assert.equal(normalized.status, "failed");
     assert.equal(normalized.activityClass, "status_update");
     assert.equal(normalized.semantic.activityClass, "status_update");
+    assert.equal(normalized.semantic.consequence, "low");
+  }
+});
+
+test("observation status prefixes are stripped case-insensitively", () => {
+  const event: SourceEvent = {
+    id: "evt:uppercase-observation-status-prefix",
+    type: "task.updated",
+    taskId: "task:uppercase-observation-status-prefix",
+    timestamp,
+    source: source("custom-agent"),
+    title: "BASH failure Your command ran successfully and did not produce any output.",
+    status: "failed",
+    toolFamily: "bash",
+  };
+  const interpretation = interpretSourceEvent(event);
+  const normalized = normalizeSourceEvent(event);
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "low");
+  assert.equal(normalized.type, "task.updated");
+  if (normalized.type === "task.updated") {
     assert.equal(normalized.semantic.consequence, "low");
   }
 });
@@ -1688,6 +1711,56 @@ test("later negated resolution clauses prevent stale resolved episode semantics"
   assert.deepEqual(interpretation.relationHints, []);
   assert.notEqual(ontology.episode, "resolved");
   assert.notEqual(
+    interpretation.whyNow,
+    "A related episode appears resolved and can update attention state.",
+  );
+});
+
+test("later asserted resurfacing clauses override stale resolved episode semantics", () => {
+  const event = {
+    id: "evt:latest-resurfacing-relation",
+    type: "task.updated",
+    taskId: "task:latest-resurfacing-relation",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Build issue update",
+    summary: "The issue was fixed yesterday, but regressed today.",
+    status: "failed",
+  } satisfies SourceEvent;
+  const interpretation = interpretSourceEvent(event);
+  const ontology = readAttentionOntologyDiagnostic(event, interpretation);
+
+  assert.deepEqual(
+    interpretation.relationHints.map((hint) => hint.kind),
+    ["same_issue", "escalates"],
+  );
+  assert.equal(ontology.episode, "resurfaced");
+  assert.notEqual(
+    interpretation.whyNow,
+    "A related episode appears resolved and can update attention state.",
+  );
+});
+
+test("later asserted resolution clauses override stale resurfacing semantics", () => {
+  const event = {
+    id: "evt:latest-resolution-relation",
+    type: "task.updated",
+    taskId: "task:latest-resolution-relation",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Build issue update",
+    summary: "The issue regressed yesterday, but it is fixed today.",
+    status: "completed",
+  } satisfies SourceEvent;
+  const interpretation = interpretSourceEvent(event);
+  const ontology = readAttentionOntologyDiagnostic(event, interpretation);
+
+  assert.deepEqual(
+    interpretation.relationHints.map((hint) => hint.kind),
+    ["same_issue", "resolves"],
+  );
+  assert.equal(ontology.episode, "resolved");
+  assert.equal(
     interpretation.whyNow,
     "A related episode appears resolved and can update attention state.",
   );

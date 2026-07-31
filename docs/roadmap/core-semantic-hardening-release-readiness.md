@@ -16,7 +16,11 @@ until a new package is published.
   - `@tomismeta/aperture@0.4.2`
 - Version decision: not applied
 - Runtime dependencies: unchanged
-- Package manifests and lockfile: unchanged
+- Published package manifests: no version, export-map, files-list, or runtime
+  dependency changes
+- Root workspace manifest: updated only to include the new package-boundary test
+  in normal test and format gates
+- Lockfile: unchanged
 
 ## What This Tranche Changes
 
@@ -56,7 +60,7 @@ The existing package export map is unchanged:
 - `./semantic`
 - `./trace`
 
-The only additive public API is on the existing `./semantic` subpath:
+The only additive public runtime helper is on the existing `./semantic` subpath:
 
 - `semanticHintsForTruncatedSourceEvidence(...)`
 - `TRUNCATED_SOURCE_EVIDENCE_FACTOR`
@@ -69,18 +73,31 @@ a transcript window that omitted earlier evidence.
 They should not be described as a parser, classifier, recovery mechanism, or
 general failure-severity override. The helper only supplies bounded semantic
 hints: low confidence, a source-quality factor, and high consequence by default
-for failed truncated evidence.
+for failed truncated evidence. It cannot lower failed evidence to medium or low
+consequence.
+
+The evaluator subpath also has an additive optional type field:
+
+- `AttentionClaimJudgment.outcomeOnlyFailureStatus`
+
+This is a replay and explanation marker for complete nonzero command exits that
+have outcome-only failure evidence. It does not add a new evaluator runtime
+function.
 
 ## Existing User Impact
 
 API compatibility risk is low:
 
-- no package manifest changes
+- no published package version changes
+- no published package export-map changes
+- no published package runtime dependency changes
 - no lockfile changes
 - no new runtime dependencies
 - no removed entrypoints
 - no export map changes
-- root, evaluator, and trace entrypoints are unchanged
+- root, evaluator, and trace runtime entrypoints are unchanged
+- evaluator consumers who exhaustively model `AttentionClaimJudgment` may see
+  the new optional `outcomeOnlyFailureStatus` field
 - `SourceEvent` remains the same structural DTO; only metadata guidance changed
 
 Behavioral compatibility risk is real but intentional:
@@ -117,6 +134,8 @@ Current review evidence:
   - `packages/core/src/semantic-owned-observation-payload-shapes.ts`
 - the packed SDK example compiles the new semantic helper import through
   `@tomismeta/aperture-core/semantic`
+- the public SDK manifest test asserts `@tomismeta/aperture-core` has no
+  runtime `dependencies`, `peerDependencies`, or `optionalDependencies`
 
 The implementation should continue to prefer event-shape predicates over
 dataset-specific branches. If a future corpus finding cannot be explained as a
@@ -156,18 +175,21 @@ pnpm sdk:prove
 pnpm typecheck
 pnpm format:check
 pnpm architecture:check
+pnpm boundary:check
+pnpm exec tsx --test packages/core/test/public-sdk.test.ts
 pnpm exec tsx --test packages/core/test/semantic-detection.test.ts packages/core/test/semantic-normalization.test.ts packages/core/test/semantic-evidence.test.ts packages/core/test/event-evaluator.test.ts packages/core/test/judgment-input.test.ts packages/core/test/judgment-coordinator.test.ts
 ```
 
 Additional branch evidence:
 
-- full local test suite: 1,142 passing
+- full local test suite: 1,149 passing
 - judgment battle determinism: 74 passing
 - judgment benchmark: 2,172 passing
 - judgment fuzz: 384 passing
 - PR #51 GitHub `release-check`: passing
 - PR #51 kernel conformance shards: passing
-- independent focused review: no high or medium blockers
+- focused review found relation-ordering, truncation-helper, and public-surface
+  documentation issues; this branch now includes fixes and regression coverage
 
 ## Remaining Work
 

@@ -10,6 +10,10 @@ import {
   looksLikeStrongRawSourceObservation,
 } from "./semantic-observation-shapes.js";
 import { looksLikeObservationReferenceWrapper } from "./semantic-observation-reference-wrapper-shapes.js";
+import {
+  hasVisibleTruncationBoundary,
+  stripObservationStatusPrefix,
+} from "./semantic-observation-text.js";
 import { looksLikeSourceStatement } from "./semantic-source-statement-shapes.js";
 import {
   readLineNumberedDocumentSpans,
@@ -109,10 +113,6 @@ export function readOwnedObservationPayload(
   }
 
   return null;
-}
-
-function stripObservationStatusPrefix(value: string): string {
-  return value.trim().replace(/^(?:bash|edit|read|search|tool)\s+failure\s+/i, "");
 }
 
 function looksLikeNegativeOperationOutcome(text: string): boolean {
@@ -305,10 +305,6 @@ function countMatches(text: string, pattern: RegExp): number {
 
 function containsLineBreak(text: string): boolean {
   return /[\r\n]/.test(text);
-}
-
-function hasVisibleTruncationBoundary(text: string): boolean {
-  return /\.\.\.\s*$/.test(text.trim());
 }
 
 function looksLikeInstructionalProse(text: string): boolean {

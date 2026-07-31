@@ -285,6 +285,43 @@ test("relation detection lets later negated clauses override stale assertions", 
   );
 });
 
+test("relation detection lets latest asserted relation family govern continuity", () => {
+  const cases: Array<{ text: string; hints: string[] }> = [
+    {
+      text: "The issue was fixed yesterday, but returned today.",
+      hints: ["same_issue", "repeats"],
+    },
+    {
+      text: "The issue returned yesterday, but it is fixed today.",
+      hints: ["same_issue", "resolves"],
+    },
+    {
+      text: "The issue was fixed yesterday, but use this plan instead today.",
+      hints: ["same_issue", "supersedes"],
+    },
+    {
+      text: "The issue had to use this plan instead yesterday, but it is fixed today.",
+      hints: ["same_issue", "resolves"],
+    },
+    {
+      text: "The issue was fixed yesterday, but regressed today.",
+      hints: ["same_issue", "escalates"],
+    },
+    {
+      text: "The issue regressed yesterday, but it is fixed today.",
+      hints: ["same_issue", "resolves"],
+    },
+  ];
+
+  for (const { text, hints } of cases) {
+    assert.deepEqual(
+      detectSemanticRelationHints(text).map((hint) => hint.kind),
+      hints,
+      text,
+    );
+  }
+});
+
 test("relation detection treats preserved separators as lexical negation boundaries", () => {
   for (const separator of [" ", "-", "_", "/", "."]) {
     assert.deepEqual(

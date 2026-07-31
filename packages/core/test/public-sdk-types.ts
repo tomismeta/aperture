@@ -119,3 +119,12 @@ void (0 as unknown as AttentionEvaluationInput);
 void (0 as unknown as AttentionOperatorPresence);
 void (0 as unknown as EvaluatorObservationalStatusConflictEvidence);
 void (0 as unknown as EvaluatorObservationalStatusConflictKind);
+
+const truncatedSourceOptions: TruncatedSourceEvidenceHintOptions = {
+  status: "failed",
+  consequence: "high",
+};
+const evaluatorJudgment: AttentionClaimJudgment = { outcomeOnlyFailureStatus: true };
+
+void truncatedSourceOptions;
+void evaluatorJudgment;

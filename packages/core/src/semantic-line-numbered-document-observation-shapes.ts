@@ -5,6 +5,10 @@ import {
   readLineNumberedDocumentSpans,
   type LineNumberedDocumentSpan,
 } from "./semantic-line-numbered-document-span-shapes.js";
+import {
+  hasVisibleTruncationBoundary,
+  stripObservationStatusPrefix,
+} from "./semantic-observation-text.js";
 
 export function looksLikeLineNumberedMarkdownDocumentObservation(text: string): boolean {
   const normalized = stripObservationStatusPrefix(text);
@@ -50,10 +54,6 @@ function looksLikeStructuredMarkdownDocument(text: string, options: { clipped: b
   );
 }
 
-function hasVisibleTruncationBoundary(text: string): boolean {
-  return /\.\.\.\s*$/.test(text.trim());
-}
-
 function looksLikeMarkdownTable(text: string): boolean {
   const lines = text.split(/\r?\n/).map((line) => line.trim());
   return lines.some(
@@ -67,8 +67,4 @@ function looksLikeMarkdownTable(text: string): boolean {
 
 function isMarkdownTableRow(line: string): boolean {
   return /^\|.+\|\s*$/.test(line);
-}
-
-function stripObservationStatusPrefix(value: string): string {
-  return value.trim().replace(/^(?:bash|edit|read|search|tool)\s+failure\s+/, "");
 }

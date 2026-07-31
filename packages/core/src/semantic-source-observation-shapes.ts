@@ -16,6 +16,10 @@ import {
   looksLikeSourceStatement,
   looksLikeStandaloneSourcePrefix,
 } from "./semantic-source-statement-shapes.js";
+import {
+  hasVisibleTruncationBoundary,
+  stripObservationStatusPrefix,
+} from "./semantic-observation-text.js";
 
 export function looksLikeStrongRawSourceObservation(value: string): boolean {
   const text = stripObservationStatusPrefix(value);
@@ -39,10 +43,6 @@ export function looksLikeStrongRawSourceObservation(value: string): boolean {
     countSourceLocationLines(text) >= 2 ||
     countRawSourceMarkers(text) >= 3
   );
-}
-
-function stripObservationStatusPrefix(value: string): string {
-  return value.trim().replace(/^(?:bash|edit|read|search|tool)\s+failure\s+/, "");
 }
 
 function looksLikeRawSourcePrefix(text: string): boolean {
@@ -118,10 +118,6 @@ function readSourceLocationSpans(text: string): SourceLocationSpan[] {
 
 function looksLikeSourceLocationBody(body: string): boolean {
   return looksLikeSourceStatement(body) || looksLikeAssemblySourceStatement(body);
-}
-
-function hasVisibleTruncationBoundary(text: string): boolean {
-  return /\.\.\.\s*$/.test(text.trim());
 }
 
 function hasClippedPathContinuation(text: string): boolean {

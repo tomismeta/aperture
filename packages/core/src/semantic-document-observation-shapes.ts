@@ -1,4 +1,5 @@
 import { looksLikeLineNumberedMarkdownDocumentObservation } from "./semantic-line-numbered-document-observation-shapes.js";
+import { stripObservationStatusPrefix } from "./semantic-observation-text.js";
 
 export {
   looksLikeArrowNumberedMarkdownDocumentObservation,
@@ -55,8 +56,4 @@ function isMarkdownTableRow(line: string): boolean {
 
 function countMarkdownTableColumns(line: string): number {
   return line.replace(/^\|/, "").replace(/\|$/, "").split("|").length;
-}
-
-function stripObservationStatusPrefix(value: string): string {
-  return value.trim().replace(/^(?:bash|edit|read|search|tool)\s+failure\s+/, "");
 }

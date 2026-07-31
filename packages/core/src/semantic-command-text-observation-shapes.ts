@@ -1,5 +1,6 @@
 import { readExplicitObservationTranscriptBody } from "./semantic-observation-transcript-body.js";
 import { looksLikeRejectedCommandTextObservation } from "./semantic-command-text-observation-boundaries.js";
+import { stripObservationStatusPrefix } from "./semantic-observation-text.js";
 import { readOwnedObservationPayload } from "./semantic-owned-observation-payload-shapes.js";
 
 export type CommandTextObservation = {
@@ -19,8 +20,4 @@ export function readCommandTextObservation(value: string): CommandTextObservatio
 function readCommandObservationBody(value: string): string {
   const text = stripObservationStatusPrefix(value);
   return readExplicitObservationTranscriptBody(text) ?? text;
-}
-
-function stripObservationStatusPrefix(value: string): string {
-  return value.trim().replace(/^(?:bash|edit|read|search|tool)\s+failure\s+/i, "");
 }

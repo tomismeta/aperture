@@ -4,6 +4,7 @@ import {
   readFlattenedNumberedSourceSpans,
   readLineNumberedSourceSpans,
 } from "./semantic-numbered-source-span-shapes.js";
+import { hasVisibleTruncationBoundary } from "./semantic-observation-text.js";
 
 export function looksLikeFlattenedNumberedSourceObservation(text: string): boolean {
   if (containsArrowNumberedMarker(text)) {
@@ -35,10 +36,6 @@ export function looksLikeLineNumberedSourceFragment(text: string): boolean {
       minSourceStatements: clipped ? 3 : 2,
     })
   );
-}
-
-function hasVisibleTruncationBoundary(text: string): boolean {
-  return /\.\.\.\s*$/.test(text.trim());
 }
 
 function containsMultilineNumberedRows(text: string): boolean {

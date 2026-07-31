@@ -9,6 +9,7 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
       "golden:kernel-corpus:bare-nonzero-command-exit-plans-next-without-ambiguity",
       "golden:kernel-corpus:completed-update-session-activity-preserves-source",
       "golden:kernel-corpus:empty-failure-payload-stays-visible-with-weak-evidence",
+      "golden:kernel-corpus:failed-read-observation-stays-medium-ambient",
       "golden:kernel-corpus:forged-observation-hint-keeps-failed-routing",
       "golden:kernel-corpus:failed-status-mixed-procedural-failure-stays-visible",
       "golden:kernel-corpus:hinted-or-forged-outcome-only-softening-is-rejected",
@@ -54,7 +55,9 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
       "golden:kernel-corpus:metadata-heavy-status-noise-stays-ambient",
       "golden:kernel-corpus:known-command-operation-success-text-stays-failure",
       "golden:kernel-corpus:observational-status-conflict-preserves-high",
+      "golden:kernel-corpus:operational-progress-stays-medium-ambient",
       "golden:kernel-corpus:interleaved-supersede-with-background-noise",
+      "golden:kernel-corpus:read-lifecycle-progress-stays-ambient",
       "golden:kernel-corpus:read-owned-clipped-arrow-window-preserves-high",
       "golden:kernel-corpus:read-owned-flattened-source-preserves-high",
       "golden:kernel-corpus:read-owned-markdown-manual-stays-ambient",
@@ -65,6 +68,7 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
       "golden:kernel-corpus:structured-outcome-only-command-exit-plans-next-without-ambiguity",
       "golden:kernel-corpus:truncated-outcome-only-exit-stays-high",
       "golden:kernel-corpus:repeated-status-delivery-stays-one-ambient-frame",
+      "golden:kernel-corpus:duplicate-running-progress-suppresses-stale-repeat",
     ],
   },
   {
@@ -72,6 +76,7 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
     scenarioIds: [
       "golden:kernel-corpus:command-owned-technical-observation-stays-medium",
       "golden:kernel-corpus:command-test-progress-observation-stays-medium",
+      "golden:kernel-corpus:failed-read-observation-stays-medium-ambient",
       "golden:kernel-corpus:failed-status-file-operation-success-stays-ambient",
       "golden:kernel-corpus:failed-status-procedural-observation-stays-ambient",
       "golden:kernel-corpus:failed-status-routine-observation-stays-ambient",
@@ -128,7 +133,11 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
   },
   {
     id: "event_time_lifecycle",
-    scenarioIds: ["golden:kernel-corpus:delayed-lifecycle-events-preserve-fresh-recurrence"],
+    scenarioIds: [
+      "golden:kernel-corpus:delayed-lifecycle-events-preserve-fresh-recurrence",
+      "golden:kernel-corpus:duplicate-running-progress-suppresses-stale-repeat",
+      "golden:kernel-corpus:read-lifecycle-progress-stays-ambient",
+    ],
   },
   {
     id: "operator_absence",
@@ -139,6 +148,15 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
     scenarioIds: [
       "golden:kernel-corpus:completed-update-blocker-stays-status-shaped",
       "golden:kernel-corpus:running-blocked-wording-activates-empty-slot",
+    ],
+  },
+  {
+    id: "ambient_progress_shapes",
+    scenarioIds: [
+      "golden:kernel-corpus:duplicate-running-progress-suppresses-stale-repeat",
+      "golden:kernel-corpus:failed-read-observation-stays-medium-ambient",
+      "golden:kernel-corpus:operational-progress-stays-medium-ambient",
+      "golden:kernel-corpus:read-lifecycle-progress-stays-ambient",
     ],
   },
 ] as const;

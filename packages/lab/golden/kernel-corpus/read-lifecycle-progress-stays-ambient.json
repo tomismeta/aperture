@@ -1,0 +1,206 @@
+{
+  "id": "golden:kernel-corpus:read-lifecycle-progress-stays-ambient",
+  "title": "Read lifecycle progress stays ambient",
+  "description": "Session start, inferred read progress, explicit read progress, and passive waiting read status should compose into one low-consequence ambient lifecycle.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "ambient_progress_shapes",
+    "status_noise",
+    "owned_read_transport"
+  ],
+  "semanticFamilies": ["consequence_overread"],
+  "expectations": {
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
+    "ambientInteractionIds": ["interaction:task:corpus:read-lifecycle:status"],
+    "resultLaneCounts": {
+      "now": 0,
+      "next": 0,
+      "ambient": 4
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "session start",
+        "intentFrame": "task_started",
+        "activityClass": "session_status",
+        "consequence": "low",
+        "confidence": "high",
+        "ontology": {
+          "ask": "none",
+          "activity": "background_work",
+          "consequence": "low",
+          "blocking": "non_blocking",
+          "episode": "new",
+          "confidence": "high",
+          "source": "explicit"
+        }
+      },
+      {
+        "stepLabel": "inferred read progress",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "toolFamily": "read",
+        "consequence": "low",
+        "confidence": "high",
+        "provenanceIncludes": {
+          "toolFamily": "inferred"
+        },
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "low",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "explicit"
+        }
+      },
+      {
+        "stepLabel": "explicit read progress",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "toolFamily": "read",
+        "consequence": "low",
+        "confidence": "high",
+        "provenanceIncludes": {
+          "toolFamily": "source"
+        },
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "low",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "explicit"
+        }
+      },
+      {
+        "stepLabel": "waiting read progress",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "toolFamily": "read",
+        "consequence": "low",
+        "confidence": "high",
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "low",
+          "blocking": "waiting",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "explicit"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "session start",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "semanticConfidence": "high",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:ambient", "lane:ambient"]
+      },
+      {
+        "stepLabel": "inferred read progress",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "semanticConfidence": "high",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:ambient", "lane:ambient"]
+      },
+      {
+        "stepLabel": "explicit read progress",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "semanticConfidence": "high",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:ambient", "lane:ambient"]
+      },
+      {
+        "stepLabel": "waiting read progress",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "semanticConfidence": "high",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:ambient", "lane:ambient"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "session start",
+      "event": {
+        "id": "evt:corpus:read-lifecycle:start",
+        "type": "task.started",
+        "taskId": "task:corpus:read-lifecycle",
+        "timestamp": "2026-04-18T15:39:00.000Z",
+        "source": { "id": "custom-agent", "kind": "public-trajectory" },
+        "title": "Session started",
+        "summary": "A source inspection task started."
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "inferred read progress",
+      "event": {
+        "id": "evt:corpus:read-lifecycle:inferred-read",
+        "type": "task.updated",
+        "taskId": "task:corpus:read-lifecycle",
+        "timestamp": "2026-04-18T15:39:01.000Z",
+        "source": { "id": "custom-agent", "kind": "public-trajectory" },
+        "title": "Read source context",
+        "summary": "Read repository files to understand the current implementation.",
+        "status": "running"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "explicit read progress",
+      "event": {
+        "id": "evt:corpus:read-lifecycle:explicit-read",
+        "type": "task.updated",
+        "taskId": "task:corpus:read-lifecycle",
+        "timestamp": "2026-04-18T15:39:02.000Z",
+        "source": { "id": "custom-agent", "kind": "public-trajectory" },
+        "title": "Read operation running",
+        "summary": "Reading src/kernel.ts lines 1-160 for context.",
+        "status": "running",
+        "toolFamily": "read"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "waiting read progress",
+      "event": {
+        "id": "evt:corpus:read-lifecycle:waiting-read",
+        "type": "task.updated",
+        "taskId": "task:corpus:read-lifecycle",
+        "timestamp": "2026-04-18T15:39:03.000Z",
+        "source": { "id": "custom-agent", "kind": "public-trajectory" },
+        "title": "Read operation waiting",
+        "summary": "Waiting on the source stream to expose the next file window; no operator action is requested.",
+        "status": "waiting",
+        "toolFamily": "read"
+      }
+    }
+  ]
+}

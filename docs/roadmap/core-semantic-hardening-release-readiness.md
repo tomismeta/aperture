@@ -48,11 +48,18 @@ The main behavior changes are:
   semantics without adapter-specific hints, while explicit source activity,
   operator-directed asks, waiting text, and blocker text preserve their narrower
   status-shaped semantics
+- common ambient progress traffic is now locked in the kernel corpus: task
+  starts, running read/bash/edit progress, waiting read progress, stale duplicate
+  running updates, and failed read observations stay ambient or suppressed unless
+  general evidence makes them actionable
 
 This is a behavioral improvement, not just Lab tooling. Core production code now
 has more explicit machinery for source-quality facts, observational status
 conflicts, outcome-only failures, owned observation payloads, and relation
-polarity, and completed-update lifecycle reads.
+polarity, and completed-update lifecycle reads. The ambient-progress work is a
+kernel contract hardening: it proves the existing semantic and judgment axes are
+expressive enough for those real corpus shapes without adding adapter-specific
+runtime branches.
 
 ## Public Package Surface
 
@@ -227,10 +234,10 @@ pnpm exec tsx --test packages/core/test/semantic-detection.test.ts packages/core
 
 Additional branch evidence:
 
-- local `pnpm release:check`: passing
-- PR #51 GitHub checks on commit `9407f28`: passing
-- full local test suite: 1,178 passing at commit `9407f28`; focused local suites
-  on the completed-update tranche add 222/222 passing semantic, normalization,
+- local `pnpm release:check`: passing on July 31, 2026 after the
+  ambient-progress kernel corpus tranche
+- full local test suite: 1,194 passing; focused local suites on the
+  completed-update tranche add 222/222 passing semantic, normalization,
   ontology, and evaluator checks
 - focused public SDK surface suite after product-surface audit:
   `packages/core/test/public-sdk.test.ts` passed 11/11
@@ -239,25 +246,25 @@ Additional branch evidence:
 - packed product smoke after product-surface audit: install, help, hook setup,
   packaged runtime semantic/judgment/routing probe, uninstall cleanup,
   dependency-free manifest, and no library `main` passed
-- judgment battle determinism: 81 passing
-- judgment benchmark: 2,415 passing
+- judgment battle determinism: 88/88 stable
+- judgment benchmark: 2,731 passing
 - judgment fuzz: 384 passing
-- kernel corpus scorecard v3: 44 scenarios, 15 covered dimensions, 1,756
-  passing corpus assertions, 49 ontology checkpoints, 58 decision projection
-  checkpoints, 13 relation checkpoints, 44 per-scenario checkpoint ledgers, 22
+- kernel corpus scorecard v3: 48 scenarios, 16 covered dimensions, 1,980
+  passing corpus assertions, 57 ontology checkpoints, 68 decision projection
+  checkpoints, 13 relation checkpoints, 48 per-scenario checkpoint ledgers, 23
   unique decision fingerprints, and semantic/judgment outcome coverage for
   intent frames, activity classes, ontology sources, routes, lanes, confidence,
   consequences, and failure details
-- local harvested-session review-candidates replay now scans canonical F-Stop
-  session directories directly; current-engine replay over 487 local sessions
-  produced 4,092 comparable steps, 502 failed updates, 0 invalid inputs, 0
-  unclassified failures, 8 failed read observations, 494 terminal failures, 6
-  outcome-only failures, and, after promoting the repeated medium read/manual and
-  high-consequence mid-file read/source observation shapes plus the bash
-  compiler/loader diagnostic source-boundary shapes, 0 novel failure
+- local harvested-session review-candidates replay scans 499 local session
+  bundles directly; current-engine replay produced 4,176 comparable steps, 514
+  failed updates, 0 invalid inputs, 0 semantic abstentions, 0 missing semantic
+  snapshots, 0 missing judgment snapshots, 0 unclassified failures, 0 missing
+  tool families, 8 failed read observations, 506 terminal failures, 6
+  outcome-only failures, 0 novel structural observations, and 0 novel failure
   observations versus the kernel corpus baseline
 - new kernel corpus dimensions: `source_quality_gap` and
   `completed_update_semantics`
+- latest kernel corpus dimension: `ambient_progress_shapes`
 - new golden scenarios:
   `golden:kernel-corpus:empty-failure-payload-stays-visible-with-weak-evidence`,
   `golden:kernel-corpus:read-source-window-limit-stays-visible`,
@@ -270,6 +277,11 @@ Additional branch evidence:
   `golden:kernel-corpus:completed-update-blocker-stays-status-shaped`,
   `golden:kernel-corpus:completed-update-implied-ask-stays-status-shaped`, and
   `golden:kernel-corpus:completed-update-session-activity-preserves-source`
+- ambient-progress golden scenarios:
+  `golden:kernel-corpus:duplicate-running-progress-suppresses-stale-repeat`,
+  `golden:kernel-corpus:failed-read-observation-stays-medium-ambient`,
+  `golden:kernel-corpus:operational-progress-stays-medium-ambient`, and
+  `golden:kernel-corpus:read-lifecycle-progress-stays-ambient`
 - focused review found relation-ordering, truncation-helper, and public-surface
   documentation issues; this branch now includes fixes and regression coverage
 
@@ -279,6 +291,7 @@ Before merge:
 
 - keep PR #51 draft until human review is comfortable
 - review this note against the final PR body
+- rerun GitHub checks after the latest local corpus tranche is pushed
 - avoid adding unrelated features to the release-readiness pass
 
 After merge, before npm:

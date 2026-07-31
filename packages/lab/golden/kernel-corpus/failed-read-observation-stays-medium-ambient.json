@@ -1,0 +1,121 @@
+{
+  "id": "golden:kernel-corpus:failed-read-observation-stays-medium-ambient",
+  "title": "Failed read observation stays medium ambient",
+  "description": "A failed read transport status carrying source-like observational content should become medium status context rather than a tool failure or interrupt.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "ambient_progress_shapes",
+    "semantic_normalization",
+    "status_noise",
+    "observational_status_conflict",
+    "owned_read_transport"
+  ],
+  "semanticFamilies": ["consequence_underread"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:corpus:failed-read-observation:approval",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": ["interaction:task:corpus:failed-read-observation:status"],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "failed read observation",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "toolFamily": "read",
+        "consequence": "medium",
+        "confidence": "high",
+        "factorsInclude": ["observational_failure"],
+        "reasonsInclude": [
+          "task status indicates failure but the update reads like observational output"
+        ],
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "medium",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "inferred"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "current approval",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:activate", "lane:now", "policy:may_interrupt"]
+      },
+      {
+        "stepLabel": "failed read observation",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "semanticConfidence": "high",
+        "ambiguityReason": null,
+        "ambiguityResolution": null,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:ambient",
+          "lane:ambient",
+          "criterion:peripheral_resolution:ambient",
+          "policy:peripheral_only"
+        ],
+        "semanticInfluenceIncludes": [
+          "engine-owned observational evidence resolved noisy failed-status routing as status handling"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "observational status conflict (judgment routing)"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "current approval",
+      "event": {
+        "id": "evt:corpus:failed-read-observation:approval",
+        "type": "human.input.requested",
+        "taskId": "task:corpus:failed-read-observation:active",
+        "interactionId": "interaction:corpus:failed-read-observation:approval",
+        "timestamp": "2026-04-18T15:42:50.000Z",
+        "source": { "id": "custom-agent" },
+        "toolFamily": "bash",
+        "title": "Approve production command",
+        "summary": "Run the deployment command.",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "high"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "failed read observation",
+      "event": {
+        "id": "evt:corpus:failed-read-observation",
+        "type": "task.updated",
+        "taskId": "task:corpus:failed-read-observation",
+        "timestamp": "2026-04-18T15:43:00.000Z",
+        "source": { "id": "custom-agent", "kind": "public-trajectory" },
+        "title": "read failure",
+        "summary": "# Runtime Manual Minimal terminal UI framework with differential rendering and synchronized output for interactive CLI applications. ## Features - **Differential Rendering**: Three-strategy rendering system that only u...",
+        "status": "failed",
+        "toolFamily": "read"
+      }
+    }
+  ]
+}

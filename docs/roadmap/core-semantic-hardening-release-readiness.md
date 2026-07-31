@@ -213,20 +213,22 @@ Additional branch evidence:
 - judgment battle determinism: 76 passing
 - judgment benchmark: 2,249 passing
 - judgment fuzz: 384 passing
-- kernel corpus scorecard: 36 scenarios, 14 covered dimensions, 1,498 passing
-  corpus assertions, 40 ontology checkpoints, 49 decision projection
-  checkpoints, 13 relation checkpoints, 36 per-scenario checkpoint ledgers, 21
+- kernel corpus scorecard: 37 scenarios, 14 covered dimensions, 1,541 passing
+  corpus assertions, 41 ontology checkpoints, 51 decision projection
+  checkpoints, 13 relation checkpoints, 37 per-scenario checkpoint ledgers, 22
   unique decision fingerprints
 - local harvested-session review-candidates replay now scans canonical F-Stop
   session directories directly; current-engine replay over 484 local sessions
   produced 4,071 comparable steps, 499 failed updates, 0 invalid inputs, 0
   unclassified failures, 8 failed read observations, 491 terminal failures, 6
-  outcome-only failures, and 12 novel failure observations versus the kernel
-  corpus baseline
+  outcome-only failures, and, after promoting the repeated medium read/manual
+  observation shape, 8 novel failure observations versus the kernel corpus
+  baseline
 - new kernel corpus dimension: `source_quality_gap`
 - new golden scenarios:
-  `golden:kernel-corpus:empty-failure-payload-stays-visible-with-weak-evidence`
-  and `golden:kernel-corpus:read-source-window-limit-stays-visible`
+  `golden:kernel-corpus:empty-failure-payload-stays-visible-with-weak-evidence`,
+  `golden:kernel-corpus:read-source-window-limit-stays-visible`, and
+  `golden:kernel-corpus:read-owned-markdown-manual-stays-ambient`
 - PR #51 GitHub checks should be rerun after pushing this tranche
 - focused review found relation-ordering, truncation-helper, and public-surface
   documentation issues; this branch now includes fixes and regression coverage

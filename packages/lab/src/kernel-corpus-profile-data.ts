@@ -22,6 +22,7 @@ export const KERNEL_CORPUS_SCENARIO_IDS = [
   "golden:kernel-corpus:read-owned-arrow-terminal-diagnostic-stays-failure",
   "golden:kernel-corpus:read-owned-clipped-arrow-window-preserves-high",
   "golden:kernel-corpus:read-owned-flattened-source-preserves-high",
+  "golden:kernel-corpus:read-owned-markdown-manual-stays-ambient",
   "golden:kernel-corpus:read-source-window-limit-stays-visible",
   "golden:kernel-corpus:read-truncation-protocol-stays-ambient",
   "golden:kernel-corpus:repeated-failure-refreshes-current-episode",

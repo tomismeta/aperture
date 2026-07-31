@@ -1,0 +1,120 @@
+{
+  "id": "golden:kernel-corpus:read-owned-markdown-manual-stays-ambient",
+  "title": "Read-owned flattened markdown manual stays ambient",
+  "description": "A failed read transport status carrying flattened markdown/manual content should become an observational status conflict and stay ambient behind current high-consequence work instead of escalating as a failed tool.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "semantic_normalization",
+    "status_noise",
+    "observational_status_conflict",
+    "owned_read_transport"
+  ],
+  "semanticFamilies": ["consequence_underread"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:corpus:rollout:approval",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": ["interaction:task:corpus:read-owned-markdown-manual:status"],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "read-owned markdown manual",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "toolFamily": "read",
+        "consequence": "medium",
+        "confidence": "high",
+        "factorsInclude": ["observational_failure"],
+        "reasonsInclude": [
+          "task status indicates failure but the update reads like observational output"
+        ],
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "medium",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "inferred"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "current rollout approval",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:activate", "lane:now", "policy:may_interrupt"]
+      },
+      {
+        "stepLabel": "read-owned markdown manual",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "semanticConfidence": "high",
+        "ambiguityReason": null,
+        "ambiguityResolution": null,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:ambient",
+          "lane:ambient",
+          "criterion:peripheral_resolution:ambient",
+          "policy:peripheral_only"
+        ],
+        "semanticInfluenceIncludes": [
+          "engine-owned observational evidence resolved noisy failed-status routing as status handling"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "observational status conflict (judgment routing)"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "current rollout approval",
+      "event": {
+        "id": "evt:corpus:rollout:approval",
+        "type": "human.input.requested",
+        "taskId": "task:corpus:rollout",
+        "interactionId": "interaction:corpus:rollout:approval",
+        "timestamp": "2026-04-18T15:14:50.000Z",
+        "source": { "id": "custom-agent" },
+        "toolFamily": "filesystem",
+        "title": "Approve production rollout",
+        "summary": "Write the production rollout manifest.",
+        "request": {
+          "kind": "approval"
+        },
+        "riskHint": "high"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "read-owned markdown manual",
+      "event": {
+        "id": "evt:corpus:read-owned-markdown-manual",
+        "type": "task.updated",
+        "taskId": "task:corpus:read-owned-markdown-manual",
+        "timestamp": "2026-04-18T15:15:00.000Z",
+        "source": { "id": "open-agent-sessions", "kind": "public-trajectory" },
+        "title": "read failure",
+        "summary": "# Terminal UI Framework Minimal terminal UI framework with differential rendering and synchronized output for interactive CLI applications. ## Features - **Differential Rendering**: Updates only changed regions. - **Synchronized Output**: Reduces flicker. - **Components**: Reusable terminal widgets...",
+        "status": "failed",
+        "toolFamily": "read"
+      }
+    }
+  ]
+}

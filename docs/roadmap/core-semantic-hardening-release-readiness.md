@@ -108,6 +108,8 @@ The intended boundary remains:
 Current review evidence:
 
 - corpus-specific source names are absent from `packages/core/src`
+- `pnpm boundary:check` now guards `packages/core/src` against known
+  corpus-specific labels
 - public-corpus importers and calibration logic remain in `packages/lab`
 - Lab consumes source-quality support through public or bounded core seams
 - classifier growth is now guarded by module budgets for:

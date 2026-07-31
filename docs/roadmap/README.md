@@ -21,6 +21,7 @@ These notes are still active and should be read as current direction:
 - [Architecture Hardening Program](./architecture-hardening-program.md)
 - [Semantic Contract Maturation Plan](./semantic-contract-maturation-plan.md)
 - [Semantic Contract Decision](./semantic-contract-decision.md)
+- [Core Semantic Hardening Release Readiness](./core-semantic-hardening-release-readiness.md)
 - [Host Surface Expansion Note](./host-surface-expansion-note.md)
 
 ## Historical Or Supporting Notes

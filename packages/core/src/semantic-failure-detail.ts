@@ -6,7 +6,12 @@ import {
 import { normalizeSemanticText } from "./semantic-text.js";
 import { isSemanticCommandExecutionToolFamily } from "./semantic-tool-family.js";
 
-export type TaskFailureDetail = "outcome_only" | "diagnostic" | "indeterminate" | "absent_evidence";
+export type TaskFailureDetail =
+  | "outcome_only"
+  | "diagnostic"
+  | "indeterminate"
+  | "absent_evidence"
+  | "source_window_limit";
 export type TaskFailureTerminalShape = "bare_nonzero_exit";
 
 export function readTerminalFailureDetail(input: {
@@ -16,6 +21,10 @@ export function readTerminalFailureDetail(input: {
 }): TaskFailureDetail {
   if (hasCompleteOutcomeOnlyNonzeroExit(input)) {
     return "outcome_only";
+  }
+
+  if (input.signals.sourceWindowLimitFailure) {
+    return "source_window_limit";
   }
 
   if (hasSubstantiveTerminalDiagnostic(input)) {

@@ -9,6 +9,8 @@ import {
   REPEAT_PHRASES,
   SUPERSEDE_PHRASES,
 } from "./semantic-patterns.js";
+import { readImperativeSupersessionRelationEvents } from "./semantic-imperative-supersession-relation.js";
+import { dedupeRelationHints } from "./semantic-relation-hint-dedupe.js";
 import { readResolutionPolarity } from "./semantic-resolution-polarity.js";
 import type { SemanticRelationHint } from "./semantic-types.js";
 import { normalizeSemanticLexicalText } from "./semantic-text.js";
@@ -143,6 +145,7 @@ function readRelationSignalEvents(value: string): RelationSignalEvent[] {
       ...readPhraseRelationEvents(clause, "repeats", REPEAT_PHRASES, NEGATED_REPEAT_PHRASES),
       ...readResolutionRelationEvents(clause),
       ...readPhraseRelationEvents(clause, "supersedes", SUPERSEDE_PHRASES, []),
+      ...readImperativeSupersessionRelationEvents(clause),
       ...readPhraseRelationEvents(clause, "escalates", ESCALATE_PHRASES, NEGATED_ESCALATE_PHRASES),
     ].sort((left, right) => left.start - right.start || left.end - right.end);
 
@@ -330,20 +333,4 @@ function hasTokenSequence(tokens: readonly string[], sequence: readonly string[]
     }
   }
   return false;
-}
-
-function dedupeRelationHints(hints: SemanticRelationHint[]): SemanticRelationHint[] {
-  const seen = new Set<string>();
-  const result: SemanticRelationHint[] = [];
-
-  for (const hint of hints) {
-    const key = `${hint.kind}:${hint.target ?? ""}`;
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    result.push(hint);
-  }
-
-  return result;
 }

@@ -46,6 +46,7 @@ export type TaskFailureSemanticSignals = {
   editOutputOutcome: EditOutputOutcome | null;
   searchFailureDiagnostic: boolean;
   readFailureDiagnostic: boolean;
+  sourceWindowLimitFailure: boolean;
   structuredOutputFailureDiagnostic: boolean;
   rawToolOutputFailureDiagnostic: boolean;
   strongSourceRuntimeDiagnostic: boolean;
@@ -86,6 +87,7 @@ export function readTaskFailureSemanticSignals(input: {
     rawReadObservationBaseline,
     rawReadStructuredObservation,
     readFailureDiagnostic,
+    sourceWindowLimitFailure,
     rawReadStrongRuntimeDiagnostic,
   } = readRawReadFailureSignals({ summary, readTool: input.toolFamily === "read" });
   const editOutputOutcome =
@@ -126,6 +128,7 @@ export function readTaskFailureSemanticSignals(input: {
     searchFailureDiagnostic:
       input.toolFamily === "search" && looksLikeSearchFailureDiagnostic(summary),
     readFailureDiagnostic,
+    sourceWindowLimitFailure,
     structuredOutputFailureDiagnostic,
     rawToolOutputFailureDiagnostic:
       structuredOutputOwnership === "native" &&

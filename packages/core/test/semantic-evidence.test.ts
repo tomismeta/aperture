@@ -1145,6 +1145,110 @@ test("task failure evidence keeps diagnostic nonzero command exits high conseque
   }
 });
 
+test("task failure evidence treats read source-window limits as bounded terminal failures", () => {
+  for (const [id, summary] of [
+    [
+      "size",
+      "File content (347.9KB) exceeds maximum allowed size (256KB). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.",
+    ],
+    [
+      "tokens",
+      "File content (178139 tokens) exceeds maximum allowed tokens (25000). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.",
+    ],
+  ] as const) {
+    const signals = readTaskFailureSemanticSignals({ summary, toolFamily: "read" });
+    const evidence = readTaskFailureSemanticEvidence({
+      id: `evt:evidence:source-window-limit:${id}`,
+      taskId: `task:evidence:source-window-limit:${id}`,
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary,
+      status: "failed",
+      toolFamily: "read",
+    });
+
+    assert.equal(signals.sourceWindowLimitFailure, true);
+    assert.equal(evidence?.kind, "terminal_failure");
+    assert.equal(evidence?.failureDetail, "source_window_limit");
+    assert.equal(evidence?.toolFamily, "read");
+    assert.equal(evidence?.readsAsObservation, false);
+    assert.equal(evidence?.consequenceBaseline, "medium");
+  }
+});
+
+test("task failure evidence rejects non-read and quoted source-window limit wording", () => {
+  const summary =
+    "File content (347.9KB) exceeds maximum allowed size (256KB). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.";
+  const cases = [
+    { title: "bash failure", toolFamily: "bash", summary },
+    { title: "search failure", toolFamily: "search", summary },
+    {
+      title: "read failure",
+      toolFamily: "read",
+      summary: `OBSERVATION: ${summary}`,
+    },
+    {
+      title: "read failure",
+      toolFamily: "read",
+      summary: `/workspace/app.ts ${summary}`,
+    },
+    {
+      title: "read failure",
+      toolFamily: "read",
+      summary:
+        "File content (unknown) exceeds maximum allowed size (policy). Use offset and limit parameters to read specific portions of the file.",
+    },
+    {
+      title: "read failure",
+      toolFamily: "read",
+      summary: "Error: permission denied while opening /workspace/app.ts.",
+    },
+  ] as const;
+
+  for (const testCase of cases) {
+    const signals = readTaskFailureSemanticSignals({
+      summary: testCase.summary,
+      toolFamily: testCase.toolFamily,
+    });
+    const evidence = readTaskFailureSemanticEvidence({
+      id: `evt:evidence:not-source-window-limit:${testCase.toolFamily}`,
+      taskId: `task:evidence:not-source-window-limit:${testCase.toolFamily}`,
+      timestamp,
+      type: "task.updated",
+      title: testCase.title,
+      summary: testCase.summary,
+      status: "failed",
+      toolFamily: testCase.toolFamily,
+    });
+
+    assert.equal(signals.sourceWindowLimitFailure, false, testCase.summary);
+    assert.notEqual(evidence?.failureDetail, "source_window_limit", testCase.summary);
+  }
+});
+
+test("task failure evidence keeps mixed read source-window diagnostics high consequence", () => {
+  const summary =
+    "File content (347.9KB) exceeds maximum allowed size (256KB). Use offset and limit parameters to read specific portions of the file. Permission denied while opening /workspace/app.ts.";
+  const signals = readTaskFailureSemanticSignals({ summary, toolFamily: "read" });
+  const evidence = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:source-window-limit-permission-denied",
+    taskId: "task:evidence:source-window-limit-permission-denied",
+    timestamp,
+    type: "task.updated",
+    title: "read failure",
+    summary,
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(signals.sourceWindowLimitFailure, false);
+  assert.equal(signals.readFailureDiagnostic, true);
+  assert.equal(evidence?.kind, "terminal_failure");
+  assert.equal(evidence?.failureDetail, "diagnostic");
+  assert.equal(evidence?.consequenceBaseline, "high");
+});
+
 test("task failure evidence separates zero exit and expected diagnostics from terminal failures", () => {
   assert.deepEqual(
     readTaskFailureSemanticEvidence({

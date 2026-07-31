@@ -190,7 +190,10 @@ export function readTaskFailureSemanticEvidence(
       ...(terminalShape !== null ? { terminalShape } : {}),
       ...(toolFamily !== undefined ? { toolFamily } : {}),
       readsAsObservation: false,
-      consequenceBaseline: failureDetail === "outcome_only" ? "medium" : "high",
+      consequenceBaseline:
+        failureDetail === "outcome_only" || failureDetail === "source_window_limit"
+          ? "medium"
+          : "high",
       text,
     };
   }
@@ -433,8 +436,9 @@ function looksLikeReadObservationPayload(text: string): boolean {
 
   return (
     containsAnySemanticPhrase(text, OBSERVATIONAL_PAYLOAD_PHRASES) ||
-    (containsSourceCodePath(text) && containsCodeLikeContent(text)) ||
-    containsLineNumberedCodeContent(text)
+    ((SOURCE_CODE_PATH_PATTERN.test(text) || SOURCE_CODE_FILENAME_PATTERN.test(text)) &&
+      CODE_CONTENT_PATTERN.test(text)) ||
+    LINE_NUMBERED_CODE_PATTERN.test(text)
   );
 }
 
@@ -443,18 +447,6 @@ function looksLikeTaggedFileObservation(text: string): boolean {
     containsAnySemanticPhrase(text, TAGGED_FILE_OBSERVATION_PHRASES) &&
     PATH_LIKE_TOKEN_PATTERN.test(text)
   );
-}
-
-function containsCodeLikeContent(text: string): boolean {
-  return CODE_CONTENT_PATTERN.test(text);
-}
-
-function containsLineNumberedCodeContent(text: string): boolean {
-  return LINE_NUMBERED_CODE_PATTERN.test(text);
-}
-
-function containsSourceCodePath(text: string): boolean {
-  return SOURCE_CODE_PATH_PATTERN.test(text) || SOURCE_CODE_FILENAME_PATTERN.test(text);
 }
 
 function looksLikeSourceCodeObservation(text: string): boolean {

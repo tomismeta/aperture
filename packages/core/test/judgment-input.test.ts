@@ -239,6 +239,62 @@ test("high-consequence empty failed payloads do not become limited failures", ()
   assert.equal(hasLimitedFailureStatusJudgmentInput(input), false);
 });
 
+test("judgment input treats read source-window limits as strong limited failures", () => {
+  const input = buildAttentionJudgmentInput({
+    id: "evt:judgment-input:read-source-window-limit",
+    taskId: "task:judgment-input:read-source-window-limit",
+    timestamp,
+    type: "task.updated",
+    title: "read failure",
+    summary:
+      "File content (347.9KB) exceeds maximum allowed size (256KB). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.",
+    status: "failed",
+    toolFamily: "read",
+    semantic: {
+      intentFrame: "failure",
+      activityClass: "tool_failure",
+      toolFamily: "read",
+      consequence: "medium",
+      whyNow: "Work has failed and should be reviewed.",
+      factors: ["task.updated", "failed"],
+      relationHints: [],
+      confidence: "high",
+      reasons: ["task status indicates failure"],
+      provenance: {
+        intentFrame: "inferred",
+        activityClass: "inferred",
+        consequence: "inferred",
+        whyNow: "inferred",
+        confidence: "inferred",
+        toolFamily: "source",
+      },
+    },
+  });
+  const candidate = {
+    taskId: "task:judgment-input:read-source-window-limit",
+    interactionId: "interaction:judgment-input:read-source-window-limit",
+    mode: "status" as const,
+    tone: "focused" as const,
+    consequence: "medium" as const,
+    title: "read failure",
+    responseSpec: { kind: "acknowledge" as const },
+    priority: "normal" as const,
+    blocking: false,
+    timestamp,
+    judgmentInput: input,
+  };
+
+  assert.equal(input.failureEvidence?.kind, "terminal_failure");
+  assert.equal(input.failureEvidence?.failureDetail, "source_window_limit");
+  assert.equal(input.failureEvidence?.consequenceBaseline, "medium");
+  assert.equal(input.failureEvidence?.semanticAgreement, "stable");
+  assert.equal(input.semanticEvidence?.confidence, "high");
+  assert.equal(input.semanticEvidence?.strength, "strong");
+  assert.equal(hasLimitedFailureStatusJudgmentInput(input), true);
+  assert.equal(hasLimitedFailureStatusSemantics(candidate), true);
+  assert.equal(hasOutcomeOnlyFailureStatusJudgmentInput(input), false);
+});
+
 test("judgment input keeps diagnostic and low-confidence failures out of outcome-only routing", () => {
   const diagnosticInput = buildAttentionJudgmentInput({
     id: "evt:judgment-input:diagnostic-failure",

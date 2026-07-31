@@ -337,6 +337,46 @@ test("relation detection treats preserved separators as lexical negation boundar
   }
 });
 
+test("relation detection does not treat bounded read guidance as supersession", () => {
+  assert.deepEqual(
+    detectSemanticRelationHints(
+      "File content (347.9KB) exceeds maximum allowed size (256KB). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.",
+    ),
+    [],
+  );
+});
+
+test("relation detection recognizes bounded imperative supersession wording", () => {
+  for (const text of [
+    "Use the canary plan instead.",
+    "Use this rollback manifest instead.",
+    "Switch to the safe deploy plan instead.",
+    "Adopt the queued remediation path instead.",
+    "Follow the operator recovery checklist instead.",
+    "Replace the canary plan with rollback.",
+  ]) {
+    assert.deepEqual(
+      detectSemanticRelationHints(text).map((hint) => hint.kind),
+      ["same_issue", "supersedes"],
+      text,
+    );
+  }
+});
+
+test("relation detection excludes instead-of constructions from supersession", () => {
+  for (const text of [
+    "Use offset and limit parameters instead of reading the whole file.",
+    "Search for specific content instead of reading the whole file.",
+    "The agent may use the cache and retry instead.",
+    "Should we use rollback instead?",
+    "Don't use rollback instead.",
+    "The tool can follow redirects instead.",
+    "The agent may replace the current plan with rollback.",
+  ]) {
+    assert.deepEqual(detectSemanticRelationHints(text), [], text);
+  }
+});
+
 test("contextual resolve wording only resolves when issue context is present", () => {
   const withIssueContext = normalizeSemanticText("The production outage recovered after rollback.");
   const withoutIssueContext = normalizeSemanticText("Completed successfully after cleanup.");

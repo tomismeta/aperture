@@ -12,6 +12,7 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
       "golden:kernel-corpus:read-owned-arrow-terminal-diagnostic-stays-failure",
       "golden:kernel-corpus:read-owned-clipped-arrow-window-preserves-high",
       "golden:kernel-corpus:read-owned-flattened-source-preserves-high",
+      "golden:kernel-corpus:read-source-window-limit-stays-visible",
       "golden:kernel-corpus:source-shaped-runtime-terminal-stays-failure",
       "golden:kernel-corpus:source-risk-outranks-low-confidence-hint",
       "golden:kernel-corpus:structured-outcome-only-command-exit-plans-next-without-ambiguity",
@@ -46,6 +47,7 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
       "golden:kernel-corpus:interleaved-supersede-with-background-noise",
       "golden:kernel-corpus:read-owned-clipped-arrow-window-preserves-high",
       "golden:kernel-corpus:read-owned-flattened-source-preserves-high",
+      "golden:kernel-corpus:read-source-window-limit-stays-visible",
       "golden:kernel-corpus:read-truncation-protocol-stays-ambient",
       "golden:kernel-corpus:source-shaped-runtime-terminal-stays-failure",
       "golden:kernel-corpus:structured-outcome-only-command-exit-plans-next-without-ambiguity",
@@ -79,7 +81,10 @@ export const KERNEL_CORPUS_COVERAGE_DIMENSIONS = [
   },
   {
     id: "source_quality_gap",
-    scenarioIds: ["golden:kernel-corpus:empty-failure-payload-stays-visible-with-weak-evidence"],
+    scenarioIds: [
+      "golden:kernel-corpus:empty-failure-payload-stays-visible-with-weak-evidence",
+      "golden:kernel-corpus:read-source-window-limit-stays-visible",
+    ],
   },
   {
     id: "repeated_failure_lifecycle",

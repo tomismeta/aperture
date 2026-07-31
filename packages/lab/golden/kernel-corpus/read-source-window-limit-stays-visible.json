@@ -1,0 +1,102 @@
+{
+  "id": "golden:kernel-corpus:read-source-window-limit-stays-visible",
+  "title": "Read source-window limit stays visible",
+  "description": "A failed read event caused by a source window limit should remain failure-shaped and visible without becoming a critical diagnostic or a superseding relation.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "semantic_normalization",
+    "status_noise",
+    "source_fact_authority",
+    "source_quality_gap"
+  ],
+  "semanticFamilies": ["consequence_overread"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:corpus:read-window-anchor",
+    "nextInteractionIds": ["interaction:task:corpus:read-window-limit:status"],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 1,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "bounded read failure",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "toolFamily": "read",
+        "consequence": "medium",
+        "confidence": "high",
+        "whyNowIncludes": "failed and should be reviewed",
+        "factorsInclude": ["failed"],
+        "reasonsInclude": ["task status explicitly indicates failure"],
+        "provenanceIncludes": {
+          "consequence": "inferred",
+          "confidence": "inferred",
+          "toolFamily": "source"
+        },
+        "ontology": {
+          "ask": "status",
+          "activity": "failure",
+          "consequence": "medium",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "explicit"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "bounded read failure",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "queue",
+        "decisionRecordRoute": "queue",
+        "plannedLane": "next",
+        "resultLane": "next",
+        "semanticConfidence": "high",
+        "semanticAbstained": false,
+        "ambiguityReason": null,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:queue", "lane:next"],
+        "semanticInfluenceIncludes": [
+          "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics"
+        ],
+        "semanticImpactDecisionBearingIncludes": ["activity (canonical)", "tool (bounded)"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publish",
+      "label": "approval anchor",
+      "event": {
+        "id": "evt:corpus:read-window-anchor",
+        "type": "human.input.requested",
+        "taskId": "task:corpus:read-window-anchor",
+        "interactionId": "interaction:corpus:read-window-anchor",
+        "timestamp": "2026-04-18T15:17:00.000Z",
+        "title": "Approve rollout",
+        "summary": "Rollout waits for approval.",
+        "consequence": "high",
+        "request": { "kind": "approval" }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "bounded read failure",
+      "event": {
+        "id": "evt:corpus:read-window-limit",
+        "type": "task.updated",
+        "taskId": "task:corpus:read-window-limit",
+        "timestamp": "2026-04-18T15:17:10.000Z",
+        "source": { "id": "public-corpus", "kind": "public-trajectory" },
+        "title": "read failure",
+        "summary": "File content (347.9KB) exceeds maximum allowed size (256KB). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.",
+        "status": "failed",
+        "toolFamily": "read"
+      }
+    }
+  ]
+}

@@ -99,7 +99,10 @@ API compatibility risk is low:
 - evaluator consumers who exhaustively model `AttentionClaimJudgment` may see
   the new optional `outcomeOnlyFailureStatus` field
 - semantic/evaluator consumers who exhaustively model task failure details may
-  see the new `absent_evidence` detail for payloadless failed tool updates
+  see the new `absent_evidence` detail for payloadless failed tool updates and
+  `source_window_limit` for bounded read window-limit failures
+- Lab semantic review candidate reports move from schema version 13 to 14
+  because `failureDetailCounts` now includes `source_window_limit`
 - `SourceEvent` remains the same structural DTO; only metadata guidance changed
 
 Behavioral compatibility risk is real but intentional:
@@ -114,10 +117,16 @@ Behavioral compatibility risk is real but intentional:
   visible as medium-consequence limited failure evidence instead of routing as
   critical by default; higher-risk wording or terminal diagnostics still
   escalates them
+- read failures caused only by concrete source-window limits now stay visible as
+  medium-consequence limited failure evidence; mixed strong diagnostics such as
+  permission failures remain high-consequence diagnostics
 - truncated failures should remain conservative rather than being softened by
   incomplete source evidence
 - relation wording such as resolved, regressed, returned, not fixed, or no
   regression now follows deterministic latest-clause polarity
+- supersession inference no longer treats every bare `instead` token as a
+  relation; it still reads bounded imperative replacement wording such as
+  "use/follow/switch/adopt ... instead" while excluding `instead of ...`
 
 Release notes should call this out as a semantic/judgment behavior hardening
 release, not as a cosmetic or docs-only release.
@@ -200,17 +209,18 @@ pnpm exec tsx --test packages/core/test/semantic-detection.test.ts packages/core
 Additional branch evidence:
 
 - local `pnpm release:check`: passing
-- full local test suite: 1,164 passing
-- judgment battle determinism: 75 passing
-- judgment benchmark: 2,211 passing
+- full local test suite: 1,176 passing
+- judgment battle determinism: 76 passing
+- judgment benchmark: 2,249 passing
 - judgment fuzz: 384 passing
-- kernel corpus scorecard: 35 scenarios, 14 covered dimensions, 1,460 passing
-  corpus assertions, 39 ontology checkpoints, 48 decision projection
-  checkpoints, 13 relation checkpoints, 35 per-scenario checkpoint ledgers, 20
+- kernel corpus scorecard: 36 scenarios, 14 covered dimensions, 1,498 passing
+  corpus assertions, 40 ontology checkpoints, 49 decision projection
+  checkpoints, 13 relation checkpoints, 36 per-scenario checkpoint ledgers, 21
   unique decision fingerprints
 - new kernel corpus dimension: `source_quality_gap`
-- new golden scenario:
+- new golden scenarios:
   `golden:kernel-corpus:empty-failure-payload-stays-visible-with-weak-evidence`
+  and `golden:kernel-corpus:read-source-window-limit-stays-visible`
 - PR #51 GitHub checks should be rerun after pushing this tranche
 - focused review found relation-ordering, truncation-helper, and public-surface
   documentation issues; this branch now includes fixes and regression coverage

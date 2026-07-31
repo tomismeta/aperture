@@ -6,20 +6,12 @@ import {
 } from "./semantic-observation-shapes.js";
 import { readOwnedObservationPayload } from "./semantic-owned-observation-payload-shapes.js";
 import { looksLikeReadTruncationProtocolObservation } from "./semantic-read-observation-shapes.js";
+import {
+  looksLikeSourceWindowLimitFailure,
+  looksLikeSourceWindowLimitMixedDiagnostic,
+} from "./semantic-source-window-limit-shapes.js";
 
-export type RawReadFailureSignals = {
-  rawReadSourceObservation: boolean;
-  rawReadListingObservation: boolean;
-  rawReadObservationBaseline: "low" | "medium" | "high" | null;
-  rawReadStructuredObservation: boolean;
-  readFailureDiagnostic: boolean;
-  rawReadStrongRuntimeDiagnostic: boolean;
-};
-
-export function readRawReadFailureSignals(input: {
-  summary: string;
-  readTool: boolean;
-}): RawReadFailureSignals {
+export function readRawReadFailureSignals(input: { summary: string; readTool: boolean }) {
   const ownedTerminalDiagnostic =
     input.readTool && hasOwnedReadTerminalDiagnosticEvidence(input.summary);
   const rawReadTruncationObservation =
@@ -50,6 +42,17 @@ export function readRawReadFailureSignals(input: {
       : rawReadSourceObservation
         ? "high"
         : null;
+  const strongDiagnostic = input.readTool && hasStrongRuntimeDiagnosticEvidence(input.summary);
+  const rawReadStrongRuntimeDiagnostic = rawReadStructuredObservation && strongDiagnostic;
+  const sourceWindowLimitFailure =
+    input.readTool &&
+    !rawReadStructuredObservation &&
+    !strongDiagnostic &&
+    looksLikeSourceWindowLimitFailure(input.summary);
+  const sourceWindowLimitMixedDiagnostic =
+    input.readTool &&
+    !rawReadStructuredObservation &&
+    looksLikeSourceWindowLimitMixedDiagnostic(input.summary);
 
   return {
     rawReadSourceObservation,
@@ -58,11 +61,11 @@ export function readRawReadFailureSignals(input: {
     rawReadStructuredObservation,
     readFailureDiagnostic:
       ownedTerminalDiagnostic ||
-      (input.readTool &&
-        hasStrongRuntimeDiagnosticEvidence(input.summary) &&
-        !rawReadSourceObservation),
-    rawReadStrongRuntimeDiagnostic:
-      rawReadStructuredObservation && hasStrongRuntimeDiagnosticEvidence(input.summary),
+      sourceWindowLimitFailure ||
+      sourceWindowLimitMixedDiagnostic ||
+      (strongDiagnostic && !rawReadSourceObservation),
+    sourceWindowLimitFailure,
+    rawReadStrongRuntimeDiagnostic,
   };
 }
 

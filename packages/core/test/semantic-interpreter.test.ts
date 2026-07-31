@@ -269,6 +269,31 @@ test("empty relation hints do not erase inferred relations", () => {
   assert.equal(interpretation.provenance?.relationHints, "inferred");
 });
 
+test("read source-window limit guidance does not infer supersession", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:read-source-window-limit",
+    type: "task.updated",
+    taskId: "task:read-source-window-limit",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary:
+      "File content (347.9KB) exceeds maximum allowed size (256KB). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.toolFamily, "read");
+  assert.equal(interpretation.consequence, "medium");
+  assert.equal(interpretation.confidence, "high");
+  assert.deepEqual(
+    interpretation.relationHints.map((hint) => hint.kind),
+    [],
+  );
+});
+
 test("relation hints merge with inferred relations", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:merged-relation-hints",

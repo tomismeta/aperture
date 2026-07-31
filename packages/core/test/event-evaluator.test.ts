@@ -215,6 +215,72 @@ test("empty failed payloads stay visible without critical routing", () => {
   assert.equal(explanation.ambiguity?.reason, "low_signal");
 });
 
+test("read source-window limits stay visible without critical routing", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:failed-read-source-window-limit",
+      taskId: "task:failed-read-source-window-limit",
+      timestamp: "2026-03-08T12:02:06.625Z",
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "File content (347.9KB) exceeds maximum allowed size (256KB). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.",
+      status: "failed",
+      toolFamily: "read",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "normal");
+  assert.equal(result.candidate.tone, "focused");
+  assert.equal(result.candidate.consequence, "medium");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+  assert.deepEqual(result.candidate.relationHints, undefined);
+  assert.equal(result.candidate.judgmentInput.failureEvidence?.kind, "terminal_failure");
+  assert.equal(
+    result.candidate.judgmentInput.failureEvidence?.failureDetail,
+    "source_window_limit",
+  );
+  assert.equal(result.candidate.judgmentInput.failureEvidence?.semanticAgreement, "stable");
+  assert.equal(result.candidate.judgmentInput.semanticEvidence?.strength, "strong");
+
+  const explanation = coordinator.explain(null, result.candidate);
+  assert.equal(explanation.decision.kind, "queue");
+  assert.equal(explanation.policy.minimumLane, "next");
+  assert.equal(explanation.ambiguity, null);
+});
+
+test("mixed read source-window diagnostics keep critical routing", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:failed-read-source-window-permission-denied",
+      taskId: "task:failed-read-source-window-permission-denied",
+      timestamp: "2026-03-08T12:02:06.650Z",
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "File content (347.9KB) exceeds maximum allowed size (256KB). Use offset and limit parameters to read specific portions of the file. Permission denied while opening /workspace/app.ts.",
+      status: "failed",
+      toolFamily: "read",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.consequence, "high");
+  assert.equal(result.candidate.judgmentInput.failureEvidence?.kind, "terminal_failure");
+  assert.equal(result.candidate.judgmentInput.failureEvidence?.failureDetail, "diagnostic");
+});
+
 test("high-risk empty failed payloads keep critical routing", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({

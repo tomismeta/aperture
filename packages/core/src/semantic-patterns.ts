@@ -209,14 +209,7 @@ export const CONTEXTUAL_RESOLVE_PHRASES = [
   "succeeded after",
 ] as const;
 
-export const SUPERSEDE_PHRASES = [
-  "instead",
-  "supersedes",
-  "superseded",
-  "replaced by",
-  "use this plan instead",
-  "follow this plan instead",
-] as const;
+export const SUPERSEDE_PHRASES = ["supersedes", "superseded", "replaced by"] as const;
 
 export const ESCALATE_PHRASES = [
   "worse",

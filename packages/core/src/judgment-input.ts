@@ -259,6 +259,10 @@ export function hasLimitedFailureStatusJudgmentInput(
     (judgmentInput.failureEvidence?.kind === "empty_failure_payload" &&
       judgmentInput.failureEvidence.failureDetail === "absent_evidence" &&
       judgmentInput.failureEvidence.consequenceBaseline === "medium" &&
+      judgmentInput.failureEvidence.semanticAgreement === "stable") ||
+    (judgmentInput.failureEvidence?.kind === "terminal_failure" &&
+      judgmentInput.failureEvidence.failureDetail === "source_window_limit" &&
+      judgmentInput.failureEvidence.consequenceBaseline === "medium" &&
       judgmentInput.failureEvidence.semanticAgreement === "stable")
   );
 }

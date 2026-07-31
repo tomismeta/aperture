@@ -1,0 +1,85 @@
+{
+  "id": "golden:kernel-corpus:read-owned-midfile-source-preserves-high",
+  "title": "Read-owned mid-file source preserves high consequence",
+  "description": "A failed read transport status carrying a flattened mid-file TypeScript source slice should become an observational status conflict while preserving source-level consequence.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "semantic_normalization",
+    "status_noise",
+    "observational_status_conflict",
+    "source_fact_authority",
+    "owned_read_transport"
+  ],
+  "semanticFamilies": ["consequence_underread"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:task:corpus:read-owned-midfile-source:status",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "read-owned mid-file source",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "toolFamily": "read",
+        "consequence": "high",
+        "confidence": "high",
+        "whyNowIncludes": "high-consequence observation output",
+        "factorsInclude": ["observational_failure"],
+        "reasonsInclude": [
+          "task status indicates failure but the update reads like observational output"
+        ],
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "high",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "inferred"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "read-owned mid-file source",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "semanticConfidence": "high",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:activate", "lane:now", "policy:may_interrupt"],
+        "semanticInfluenceIncludes": [
+          "engine-owned observational evidence resolved noisy failed-status routing as status handling"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "observational status conflict (judgment routing)"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "read-owned mid-file source",
+      "event": {
+        "id": "evt:corpus:read-owned-midfile-source",
+        "type": "task.updated",
+        "taskId": "task:corpus:read-owned-midfile-source",
+        "timestamp": "2026-04-18T15:16:00.000Z",
+        "source": { "id": "open-agent-sessions", "kind": "public-trajectory" },
+        "title": "read failure",
+        "summary": "options: params.options.map((option) => (typeof option === \"string\" ? option : option.label)), answer: null, } as QuestionDetails; if (params.options.length === 0) { return { content: [{ type: \"text\", text: \"Error: No options provided\" }], details: { question: params.question, options: [], answer: null } as QuestionDetails, }; } if (editMode) { editor.setText(value); refresh(); done({ answer: value.trim(), wasCustom: true }); }...",
+        "status": "failed",
+        "toolFamily": "read"
+      }
+    }
+  ]
+}

@@ -209,26 +209,27 @@ pnpm exec tsx --test packages/core/test/semantic-detection.test.ts packages/core
 Additional branch evidence:
 
 - local `pnpm release:check`: passing
-- full local test suite: 1,176 passing
-- judgment battle determinism: 76 passing
-- judgment benchmark: 2,249 passing
+- full local test suite: 1,178 passing
+- judgment battle determinism: 78 passing
+- judgment benchmark: 2,325 passing
 - judgment fuzz: 384 passing
-- kernel corpus scorecard: 37 scenarios, 14 covered dimensions, 1,541 passing
-  corpus assertions, 41 ontology checkpoints, 51 decision projection
-  checkpoints, 13 relation checkpoints, 37 per-scenario checkpoint ledgers, 22
+- kernel corpus scorecard: 38 scenarios, 14 covered dimensions, 1,574 passing
+  corpus assertions, 42 ontology checkpoints, 52 decision projection
+  checkpoints, 13 relation checkpoints, 38 per-scenario checkpoint ledgers, 22
   unique decision fingerprints
 - local harvested-session review-candidates replay now scans canonical F-Stop
   session directories directly; current-engine replay over 484 local sessions
   produced 4,071 comparable steps, 499 failed updates, 0 invalid inputs, 0
   unclassified failures, 8 failed read observations, 491 terminal failures, 6
-  outcome-only failures, and, after promoting the repeated medium read/manual
-  observation shape, 8 novel failure observations versus the kernel corpus
-  baseline
+  outcome-only failures, and, after promoting the repeated medium read/manual and
+  high-consequence mid-file read/source observation shapes, 6 novel failure
+  observations versus the kernel corpus baseline
 - new kernel corpus dimension: `source_quality_gap`
 - new golden scenarios:
   `golden:kernel-corpus:empty-failure-payload-stays-visible-with-weak-evidence`,
-  `golden:kernel-corpus:read-source-window-limit-stays-visible`, and
-  `golden:kernel-corpus:read-owned-markdown-manual-stays-ambient`
+  `golden:kernel-corpus:read-source-window-limit-stays-visible`,
+  `golden:kernel-corpus:read-owned-markdown-manual-stays-ambient`, and
+  `golden:kernel-corpus:read-owned-midfile-source-preserves-high`
 - PR #51 GitHub checks should be rerun after pushing this tranche
 - focused review found relation-ordering, truncation-helper, and public-surface
   documentation issues; this branch now includes fixes and regression coverage

@@ -262,6 +262,14 @@ Additional branch evidence:
   tool families, 8 failed read observations, 506 terminal failures, 6
   outcome-only failures, 0 novel structural observations, and 0 novel failure
   observations versus the kernel corpus baseline
+- source-quality audit note: the replay's `clipped_summary: 4` evidence-loss
+  count is four replay observations, not four independent parser misses; the
+  retained examples reduce to two unique bash loader failures duplicated across
+  two imports, and each currently routes as `terminal_failure` / `diagnostic` /
+  high consequence / activate-now with no routing ambiguity. Treat clipped
+  evidence as a monitoring signal unless it produces `unclassified_failure`,
+  `indeterminate`, softened consequence, parser-gap signatures, or routing
+  ambiguity.
 - new kernel corpus dimensions: `source_quality_gap` and
   `completed_update_semantics`
 - latest kernel corpus dimension: `ambient_progress_shapes`

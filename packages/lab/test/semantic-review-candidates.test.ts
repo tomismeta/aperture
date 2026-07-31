@@ -12,6 +12,7 @@ import { TRUNCATED_SOURCE_EVIDENCE_FACTOR } from "@tomismeta/aperture-core/seman
 
 import {
   createSemanticReviewCandidateReportFromPaths,
+  createFStopSessionFromSessionBundle,
   createSessionBundleFromDataclawRow,
   createSessionBundleFromScenario,
   createSessionBundleFromSweSmithRow,
@@ -20,6 +21,7 @@ import {
   KERNEL_CORPUS_SCENARIO_IDS,
   loadGoldenScenarios,
   renderSemanticReviewCandidateMarkdown,
+  writeFStopSessionFile,
   writeSessionBundle,
   type DataclawRow,
   type PublicCorpusRecordLedgerEntry,
@@ -805,6 +807,28 @@ test("semantic review candidate reports shortlist deterministic review pressure"
     "toolFamily",
     "consequence",
   ]);
+});
+
+test("semantic review candidate reports scan canonical FStop sessions from directories", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-fstop-"));
+  const bundle = createSessionBundleFromSweSmithRow(SAMPLE_ROW);
+  const session = createFStopSessionFromSessionBundle(bundle, {
+    importedAt: "2026-04-27T00:00:00.000Z",
+  });
+  await writeFStopSessionFile(path.join(tempDir, "session.json"), session);
+
+  const report = await createSemanticReviewCandidateReportFromPaths({
+    bundleDirectories: [tempDir],
+    generatedAt: "2026-04-27T00:00:00.000Z",
+    maxCandidatesPerKind: 2,
+    repoRoot: tempDir,
+  });
+
+  assert.equal(report.input.fileCount, 1);
+  assert.equal(report.input.scannedBundleCount, 1);
+  assert.equal(report.input.invalidBundleCount, 0);
+  assert.ok(report.summary.countsByKind.failure_attention > 0);
+  assert.ok(report.summary.failedTaskEvidence.failedTaskUpdateCount > 0);
 });
 
 test("semantic review candidate reports ledger corpus novelty and judgment coverage", async () => {
@@ -2290,6 +2314,57 @@ test("semantic review candidates reject manifest records whose bundle bytes drif
       repoRoot: tempDir,
     }),
     /bundle digest mismatch/,
+  );
+});
+
+test("semantic review candidates reject manifest records whose bundle cannot load", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aperture-review-candidates-unloadable-"));
+  const runRoot = path.join(tempDir, "run");
+  const bundleRoot = path.join(tempDir, "bundles");
+  const bundle = createSessionBundleFromSweSmithRow(SAMPLE_ROW);
+  const bundlePath = path.join(bundleRoot, "bundle.json");
+  await mkdir(bundleRoot, { recursive: true });
+  await writeFile(bundlePath, "{}\n", "utf8");
+
+  const record: PublicCorpusRecordLedgerEntry = {
+    offset: 42,
+    rowIndex: 0,
+    recordId: "trace:42",
+    sourceIdentity: "trace/source/42",
+    rowDigest: digestJsonValue({ row: 42 }),
+    status: "written",
+    sessionId: bundle.sessionId,
+    bundlePath,
+    bundleDigest: digestJsonValue(bundle),
+  };
+  const recordsPath = path.join(runRoot, "records.jsonl");
+  const errorsPath = path.join(runRoot, "errors.jsonl");
+  const manifestPath = path.join(runRoot, "manifest.json");
+  await mkdir(runRoot, { recursive: true });
+  await writeFile(recordsPath, `${JSON.stringify(record)}\n`, "utf8");
+  await writeFile(errorsPath, "", "utf8");
+
+  const manifest = buildManifest({
+    tempDir,
+    runRoot,
+    bundleRoot,
+    manifestPath,
+    recordsPath,
+    errorsPath,
+    recordsDigest: digestPublicCorpusLedgerEntries([record]),
+    errorsDigest: digestPublicCorpusLedgerEntries([]),
+    bundleSetDigest: digestJsonValue([record.bundleDigest]),
+  });
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+
+  await assert.rejects(
+    createSemanticReviewCandidateReportFromPaths({
+      manifestPaths: [manifestPath],
+      generatedAt: "2026-04-27T00:00:00.000Z",
+      maxCandidatesPerKind: 1,
+      repoRoot: tempDir,
+    }),
+    /Public corpus bundle failed to load/,
   );
 });
 

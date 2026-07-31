@@ -10,9 +10,9 @@ import {
 } from "./public-corpus-verified-records.js";
 import {
   findSessionBundleFiles,
-  loadSessionBundleIfValid,
   type ReplaySessionBundle,
 } from "./session-bundle.js";
+import { loadReplayBundleFromFStopInputFile } from "./fstop-session.js";
 import type { CandidateBundleInput } from "./semantic-review-candidate-types.js";
 
 export type ResolvedCandidateBundleInputs = {
@@ -80,8 +80,17 @@ export async function resolveCandidateBundleInputs(options: {
 export async function loadCandidateBundleIfValid(
   input: CandidateBundleInput,
 ): Promise<ReplaySessionBundle | null> {
-  const bundle = await loadSessionBundleIfValid(input.bundlePath);
-  if (!bundle) {
+  let bundle: ReplaySessionBundle;
+  try {
+    bundle = await loadReplayBundleFromFStopInputFile(input.bundlePath);
+  } catch (error) {
+    if (input.record?.bundleDigest) {
+      throw new Error(
+        `Public corpus bundle failed to load: ${input.bundlePath}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
     return null;
   }
   verifyBundleDigest(input, bundle);

@@ -217,6 +217,12 @@ Additional branch evidence:
   corpus assertions, 40 ontology checkpoints, 49 decision projection
   checkpoints, 13 relation checkpoints, 36 per-scenario checkpoint ledgers, 21
   unique decision fingerprints
+- local harvested-session review-candidates replay now scans canonical F-Stop
+  session directories directly; current-engine replay over 484 local sessions
+  produced 4,071 comparable steps, 499 failed updates, 0 invalid inputs, 0
+  unclassified failures, 8 failed read observations, 491 terminal failures, 6
+  outcome-only failures, and 12 novel failure observations versus the kernel
+  corpus baseline
 - new kernel corpus dimension: `source_quality_gap`
 - new golden scenarios:
   `golden:kernel-corpus:empty-failure-payload-stays-visible-with-weak-evidence`

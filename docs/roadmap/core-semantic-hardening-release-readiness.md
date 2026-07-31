@@ -165,6 +165,13 @@ Current review evidence:
   `@tomismeta/aperture-core/semantic`
 - the public SDK manifest test asserts `@tomismeta/aperture-core` has no
   runtime `dependencies`, `peerDependencies`, or `optionalDependencies`
+- the product package smoke test installs the packed `@tomismeta/aperture`
+  tarball, starts the packaged `aperture internal runtime` on a random local
+  port, publishes a lexically distinct bounded read source-window failure
+  through `/runtime/events/source`, and verifies the emitted runtime session
+  trace uses the current core semantic judgment and softened failure routing
+  (`failure` / `tool_failure` / `read` / `source_window_limit` / `medium` /
+  queued)
 
 The implementation should continue to prefer event-shape predicates over
 dataset-specific branches. If a future corpus finding cannot be explained as a
@@ -219,6 +226,9 @@ Additional branch evidence:
   `packages/core/test/public-sdk.test.ts` passed 11/11
 - packed SDK proof after product-surface audit: tarball shape plus full engine,
   evaluator, semantic, and trace entrypoint examples passed
+- packed product smoke after product-surface audit: install, help, hook setup,
+  packaged runtime semantic/judgment/routing probe, uninstall cleanup,
+  dependency-free manifest, and no library `main` passed
 - judgment battle determinism: 81 passing
 - judgment benchmark: 2,415 passing
 - judgment fuzz: 384 passing

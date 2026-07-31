@@ -107,12 +107,18 @@ test("@tomismeta/aperture-core package manifest publishes only supported subpath
   ) as {
     exports?: Record<string, unknown>;
     files?: string[];
+    dependencies?: Record<string, string>;
+    peerDependencies?: Record<string, string>;
+    optionalDependencies?: Record<string, string>;
   };
   const exportMap = packageJson.exports ?? {};
 
   assert.deepEqual(Object.keys(exportMap).sort(), [".", "./evaluator", "./semantic", "./trace"]);
   assert.equal("./internal" in exportMap, false);
   assert.deepEqual(packageJson.files, ["public-dist", "README.md", "LICENSE"]);
+  assert.equal(packageJson.dependencies, undefined);
+  assert.equal(packageJson.peerDependencies, undefined);
+  assert.equal(packageJson.optionalDependencies, undefined);
 });
 
 test("public SDK supports the simple event in -> frame out -> response in loop", () => {

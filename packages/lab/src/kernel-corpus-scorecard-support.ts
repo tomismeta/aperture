@@ -207,7 +207,19 @@ function isOutcomeCoverage(value: unknown): value is KernelCorpusScorecardOutcom
     isOutcomeDistribution(value.judgment.resultLanes) &&
     isOutcomeDistribution(value.judgment.candidateConsequences) &&
     isOutcomeDistribution(value.judgment.semanticConfidences) &&
-    isOutcomeDistribution(value.judgment.failureDetails)
+    isOutcomeDistribution(value.judgment.failureDetails) &&
+    isOutcomeDistribution(value.judgment.observationPresence) &&
+    isOutcomeDistribution(value.judgment.observationKinds) &&
+    isOutcomeDistribution(value.judgment.observationPolarities) &&
+    isOutcomeDistribution(value.judgment.observationEvidenceLosses) &&
+    isOptionalOutcomeDistribution(value.judgment.observationDiagnosticClasses) &&
+    isOptionalOutcomeDistribution(value.judgment.observationRecoveryHints) &&
+    isOutcomeDistribution(value.judgment.observationSubjects) &&
+    isOutcomeDistribution(value.judgment.observationOwners) &&
+    isOutcomeDistribution(value.judgment.observationStrengths) &&
+    isOutcomeDistribution(value.judgment.observationAgreements) &&
+    isOutcomeDistribution(value.judgment.observationProvenanceOrigins) &&
+    isOutcomeDistribution(value.judgment.observationProvenanceAuthorities)
   );
 }
 
@@ -240,6 +252,12 @@ function isOutcomeDistribution(value: unknown): value is KernelCorpusScorecardOu
   }
 
   return true;
+}
+
+function isOptionalOutcomeDistribution(
+  value: unknown,
+): value is KernelCorpusScorecardOutcomeDistribution {
+  return Array.isArray(value) && (value.length === 0 || isOutcomeDistribution(value));
 }
 
 function isScenarioCheckpointArray(

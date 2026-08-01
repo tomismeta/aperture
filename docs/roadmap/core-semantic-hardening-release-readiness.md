@@ -281,7 +281,15 @@ Additional branch evidence:
 - judgment battle determinism: 89/89 stable
 - judgment benchmark: 2,765 passing
 - judgment fuzz: 384 passing
-- kernel corpus scorecard v3: 49 scenarios, 16 covered dimensions, 2,014
+- kernel corpus scorecard v4 is current; v3 is retained as historical
+  pre-Observation-IR evidence. v4 keeps the same 49 scenarios, 16 covered
+  dimensions, 2,014 passing corpus assertions, 58 ontology checkpoints, 69
+  decision projection checkpoints, 13 relation checkpoints, 49 per-scenario
+  checkpoint ledgers, and 23 unique decision fingerprints, while adding private
+  Observation IR outcome coverage for presence, kind, polarity, agreement,
+  evidence loss, diagnostic class, recovery hint, subject, owner, strength, and
+  provenance origin/authority.
+- kernel corpus scorecard v3 historical baseline: 49 scenarios, 16 covered dimensions, 2,014
   passing corpus assertions, 58 ontology checkpoints, 69 decision projection
   checkpoints, 13 relation checkpoints, 49 per-scenario checkpoint ledgers, 23
   unique decision fingerprints, and semantic/judgment outcome coverage for

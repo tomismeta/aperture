@@ -139,6 +139,54 @@ test("boundary checker rejects adapter implementation imports from core tests", 
   }
 });
 
+test("boundary checker rejects raw judgment failure evidence outside the IR seam", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-boundaries-"));
+  try {
+    await writeRepoFile(
+      root,
+      "packages/core/src/policy/semantic-raw-policy.ts",
+      "export function reads(candidate: { judgmentInput: { failureEvidence?: unknown } }) { return candidate.judgmentInput.failureEvidence; }\n",
+    );
+    await writeRepoFile(
+      root,
+      "packages/core/src/judgment-input.ts",
+      "export function compat(judgmentInput: { failureEvidence?: unknown }) { return judgmentInput.failureEvidence; }\n",
+    );
+
+    const result = await checkPackageBoundaries(root);
+
+    assert.deepEqual(result.importViolations, []);
+    assert.deepEqual(result.corpusLabelViolations, []);
+    assert.equal(result.judgmentInputViolations.length, 1);
+    assert.match(
+      result.judgmentInputViolations[0]?.file ?? "",
+      /packages\/core\/src\/policy\/semantic-raw-policy\.ts$/,
+    );
+    assert.match(renderBoundaryCheckReport(root, result), /observationEvidence/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("boundary checker returns no raw judgment failure evidence violations for clean core", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-boundaries-"));
+  try {
+    await writeRepoFile(
+      root,
+      "packages/core/src/policy/semantic-ir-policy.ts",
+      "export function reads(candidate: { judgmentInput: { observationEvidence?: unknown } }) { return candidate.judgmentInput.observationEvidence; }\n",
+    );
+
+    const result = await checkPackageBoundaries(root);
+
+    assert.deepEqual(result.importViolations, []);
+    assert.deepEqual(result.corpusLabelViolations, []);
+    assert.deepEqual(result.judgmentInputViolations, []);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 async function writeRepoFile(root: string, relativePath: string, content: string): Promise<void> {
   const file = resolve(root, relativePath);
   await mkdir(dirname(file), { recursive: true });

@@ -68,18 +68,22 @@ const coreCorpusLabelRules = [
     pattern: /\b(?:public trajectory|public trajectories|public-trajectory)\b/g,
   },
 ] as const;
+const rawJudgmentFailureEvidencePattern = /\bjudgmentInput\.failureEvidence\b/g;
 
 export type ImportViolation = { file: string; label: string; imports: string[]; guidance: string };
 export type CorpusLabelViolation = { file: string; labels: string[] };
+export type JudgmentInputViolation = { file: string; matches: string[]; guidance: string };
 export type BoundaryCheckResult = {
   importViolations: ImportViolation[];
   corpusLabelViolations: CorpusLabelViolation[];
+  judgmentInputViolations: JudgmentInputViolation[];
 };
 
 export async function checkPackageBoundaries(root = defaultRepoRoot): Promise<BoundaryCheckResult> {
   const files = await collectSourceFiles(root);
   const importViolations: ImportViolation[] = [];
   const corpusLabelViolations: CorpusLabelViolation[] = [];
+  const judgmentInputViolations: JudgmentInputViolation[] = [];
 
   for (const file of files) {
     const content = await readFile(file, "utf8");
@@ -115,6 +119,15 @@ export async function checkPackageBoundaries(root = defaultRepoRoot): Promise<Bo
         collectWorkspacePackageImports(importSpecifiers),
         "Keep production core independent. Share contracts through public core exports or move integration coverage into the owning adapter package.",
       );
+      const rawFailureEvidenceReads = collectRawJudgmentFailureEvidenceReads(root, file, content);
+      if (rawFailureEvidenceReads.length > 0) {
+        judgmentInputViolations.push({
+          file,
+          matches: rawFailureEvidenceReads,
+          guidance:
+            "Judgment and policy code should consume observationEvidence. Keep failureEvidence reads in the compiler/compatibility projection only.",
+        });
+      }
     }
     if (shouldIgnore(file)) {
       continue;
@@ -146,7 +159,7 @@ export async function checkPackageBoundaries(root = defaultRepoRoot): Promise<Bo
     }
   }
 
-  return { importViolations, corpusLabelViolations };
+  return { importViolations, corpusLabelViolations, judgmentInputViolations };
 }
 
 export function renderBoundaryCheckReport(root: string, result: BoundaryCheckResult): string {
@@ -175,13 +188,27 @@ export function renderBoundaryCheckReport(root: string, result: BoundaryCheckRes
     lines.push("");
   }
 
+  if (result.judgmentInputViolations.length > 0) {
+    lines.push("Production core reads raw judgment failure evidence outside the IR seam:");
+    for (const violation of result.judgmentInputViolations) {
+      lines.push(`- ${relative(root, violation.file)}: ${violation.matches.join(", ")}`);
+    }
+    lines.push("");
+    lines.push(result.judgmentInputViolations[0]?.guidance ?? "");
+    lines.push("");
+  }
+
   return lines.join("\n");
 }
 
 async function main(): Promise<void> {
   const result = await checkPackageBoundaries(defaultRepoRoot);
 
-  if (result.importViolations.length === 0 && result.corpusLabelViolations.length === 0) {
+  if (
+    result.importViolations.length === 0 &&
+    result.corpusLabelViolations.length === 0 &&
+    result.judgmentInputViolations.length === 0
+  ) {
     return;
   }
 
@@ -253,6 +280,28 @@ function collectModuleSpecifiers(content: string): string[] {
   }
 
   return [...specifiers];
+}
+
+function collectRawJudgmentFailureEvidenceReads(
+  root: string,
+  file: string,
+  content: string,
+): string[] {
+  if (isRawJudgmentFailureEvidenceAllowed(root, file)) {
+    return [];
+  }
+
+  return [...content.matchAll(rawJudgmentFailureEvidencePattern)]
+    .map((match) => match[0])
+    .filter(Boolean);
+}
+
+function isRawJudgmentFailureEvidenceAllowed(root: string, file: string): boolean {
+  const relativeFile = relative(root, file).replace(/\\/g, "/");
+  return (
+    relativeFile === "packages/core/src/attention-evaluator-input.ts" ||
+    relativeFile === "packages/core/src/judgment-input.ts"
+  );
 }
 
 function collectSiblingImplementationImports(

@@ -41,7 +41,7 @@ test("kernel corpus conformance report matches the committed v2 artifact", async
   const scorecard = buildKernelCorpusScorecard(report, scenarios);
   const committed = await readFile("packages/lab/conformance/kernel-corpus-v2.json", "utf8");
   const committedScorecard = await readFile(
-    "packages/lab/conformance/kernel-corpus-scorecard-v3.json",
+    "packages/lab/conformance/kernel-corpus-scorecard-v4.json",
     "utf8",
   );
   const parsedCommittedScorecard = parseKernelCorpusScorecard(committedScorecard);
@@ -98,6 +98,45 @@ test("kernel corpus conformance report matches the committed v2 artifact", async
     ),
   );
   assert.ok(
+    scorecard.outcomeCoverage.judgment.observationKinds.some((entry) => entry.id === "diagnostic"),
+  );
+  assert.equal(
+    sumDistribution(scorecard.outcomeCoverage.judgment.observationPresence),
+    sumDistribution(scorecard.outcomeCoverage.judgment.candidateConsequences),
+  );
+  assertRequiredObservationTotalsMatchPresence(scorecard);
+  assert.ok(
+    scorecard.outcomeCoverage.judgment.observationPolarities.some(
+      (entry) => entry.id === "failure",
+    ),
+  );
+  assert.ok(
+    scorecard.outcomeCoverage.judgment.observationEvidenceLosses.some(
+      (entry) => entry.id === "partial",
+    ),
+  );
+  assert.ok(
+    scorecard.outcomeCoverage.judgment.observationDiagnosticClasses.some(
+      (entry) => entry.id === "source_limit",
+    ),
+  );
+  assert.ok(
+    scorecard.outcomeCoverage.judgment.observationSubjects.some((entry) => entry.id === "source"),
+  );
+  assert.ok(
+    scorecard.outcomeCoverage.judgment.observationAgreements.some((entry) => entry.id === "stable"),
+  );
+  assert.ok(
+    scorecard.outcomeCoverage.judgment.observationProvenanceOrigins.some(
+      (entry) => entry.id === "semantic_evidence",
+    ),
+  );
+  assert.ok(
+    scorecard.outcomeCoverage.judgment.observationProvenanceAuthorities.some(
+      (entry) => entry.id === "explicit",
+    ),
+  );
+  assert.ok(
     scorecard.outcomeCoverage.judgment.decisionRecordRoutes.some((entry) => entry.id === "queue"),
   );
   assert.deepEqual(parsedCommittedScorecard, scorecard);
@@ -111,7 +150,7 @@ test("kernel corpus scorecard comparison protects the committed quality baseline
   const scenarios = await loadGoldenScenarios();
   const scorecard = buildKernelCorpusScorecard(report, scenarios);
   const committedScorecard = parseKernelCorpusScorecard(
-    await readFile("packages/lab/conformance/kernel-corpus-scorecard-v3.json", "utf8"),
+    await readFile("packages/lab/conformance/kernel-corpus-scorecard-v4.json", "utf8"),
   );
   const comparison = buildKernelCorpusScorecardComparison(committedScorecard, scorecard);
 
@@ -132,6 +171,33 @@ test("kernel corpus scorecard comparison protects the committed quality baseline
   assert.deepEqual(comparison.scenarioCheckpointDeltas, []);
   assert.deepEqual(comparison.outcomeCoverageDeltas, []);
   assertKernelCorpusScorecardComparisonPassed(comparison);
+});
+
+test("kernel corpus scorecard v4 migration is additive over historical v3", async () => {
+  const historical = JSON.parse(
+    await readFile("packages/lab/conformance/kernel-corpus-scorecard-v3.json", "utf8"),
+  ) as Record<string, unknown>;
+  const current = JSON.parse(
+    await readFile("packages/lab/conformance/kernel-corpus-scorecard-v4.json", "utf8"),
+  ) as Record<string, unknown>;
+  const projected = structuredClone(current);
+
+  projected.schemaVersion = 3;
+  const judgment = (projected.outcomeCoverage as { judgment: Record<string, unknown> }).judgment;
+  delete judgment.observationPresence;
+  delete judgment.observationKinds;
+  delete judgment.observationPolarities;
+  delete judgment.observationEvidenceLosses;
+  delete judgment.observationDiagnosticClasses;
+  delete judgment.observationRecoveryHints;
+  delete judgment.observationSubjects;
+  delete judgment.observationOwners;
+  delete judgment.observationStrengths;
+  delete judgment.observationAgreements;
+  delete judgment.observationProvenanceOrigins;
+  delete judgment.observationProvenanceAuthorities;
+
+  assert.deepEqual(projected, historical);
 });
 
 test("kernel corpus scorecard comparison fails closed on outcome coverage regressions", async () => {
@@ -201,6 +267,81 @@ test("kernel corpus scorecard comparison fails closed on outcome coverage regres
     swappedScenarioComparison.failures.join("\n"),
     /scorecard_comparison:outcome_coverage:judgment\.failureDetails:source_window_limit:missing_scenario:golden:kernel-corpus:read-source-window-limit-stays-visible/,
   );
+});
+
+test("kernel corpus scorecard comparison fails closed on observation IR presence regressions", async () => {
+  const report = await buildKernelCorpusConformanceReport();
+  const scenarios = await loadGoldenScenarios();
+  const baseline = buildKernelCorpusScorecard(report, scenarios);
+  const target = baseline.outcomeCoverage.judgment.observationPresence.find(
+    (entry) => entry.id === "present",
+  );
+
+  assert.ok(target);
+
+  const candidate = {
+    ...baseline,
+    outcomeCoverage: {
+      ...baseline.outcomeCoverage,
+      judgment: {
+        ...baseline.outcomeCoverage.judgment,
+        observationPresence: baseline.outcomeCoverage.judgment.observationPresence.map((entry) =>
+          entry.id === target.id
+            ? {
+                ...entry,
+                count: entry.count - 1,
+                scenarioCount: entry.scenarioCount - 1,
+              }
+            : entry,
+        ),
+      },
+    },
+  };
+  const comparison = buildKernelCorpusScorecardComparison(baseline, candidate);
+
+  assert.equal(comparison.passed, false);
+  assert.match(
+    comparison.failures.join("\n"),
+    /scorecard_comparison:outcome_coverage:judgment\.observationPresence:present:regressed/,
+  );
+  assert.match(
+    comparison.failures.join("\n"),
+    /scorecard_comparison:outcome_coverage:judgment\.observationPresence:present:scenario_regressed/,
+  );
+});
+
+test("kernel corpus scorecard comparison treats observation detail buckets as informational", async () => {
+  const report = await buildKernelCorpusConformanceReport();
+  const scenarios = await loadGoldenScenarios();
+  const baseline = buildKernelCorpusScorecard(report, scenarios);
+  const target = baseline.outcomeCoverage.judgment.observationKinds.find(
+    (entry) => entry.id === "unknown",
+  );
+
+  assert.ok(target);
+
+  const candidate = {
+    ...baseline,
+    outcomeCoverage: {
+      ...baseline.outcomeCoverage,
+      judgment: {
+        ...baseline.outcomeCoverage.judgment,
+        observationKinds: baseline.outcomeCoverage.judgment.observationKinds.map((entry) =>
+          entry.id === target.id
+            ? {
+                ...entry,
+                count: entry.count - 1,
+                scenarioCount: entry.scenarioCount - 1,
+              }
+            : entry,
+        ),
+      },
+    },
+  };
+  const comparison = buildKernelCorpusScorecardComparison(baseline, candidate);
+
+  assert.equal(comparison.passed, true);
+  assert.deepEqual(comparison.outcomeCoverageDeltas, []);
 });
 
 test("kernel corpus scorecard comparison fails closed on semantic and judgment regressions", async () => {
@@ -344,6 +485,14 @@ test("kernel corpus scorecard parsing rejects malformed outcome coverage", async
   const report = await buildKernelCorpusConformanceReport();
   const scenarios = await loadGoldenScenarios();
   const scorecard = buildKernelCorpusScorecard(report, scenarios);
+  const missingObservationAgreement = structuredClone(scorecard);
+  delete (missingObservationAgreement.outcomeCoverage.judgment as Record<string, unknown>)
+    .observationAgreements;
+
+  assert.throws(
+    () => parseKernelCorpusScorecard(JSON.stringify(missingObservationAgreement)),
+    /Invalid kernel corpus scorecard/,
+  );
 
   const invalidDistributions = [
     [],
@@ -484,4 +633,44 @@ test("kernel corpus scorecard binds expectation metrics to report input digests"
 
 function sum(values: readonly number[]): number {
   return values.reduce((total, value) => total + value, 0);
+}
+
+function sumDistribution(distribution: Array<{ count: number }>): number {
+  return sum(distribution.map((entry) => entry.count));
+}
+
+function countDistributionId(
+  distribution: Array<{ id: string; count: number }>,
+  id: string,
+): number {
+  return distribution.find((entry) => entry.id === id)?.count ?? 0;
+}
+
+function assertRequiredObservationTotalsMatchPresence(
+  scorecard: ReturnType<typeof buildKernelCorpusScorecard>,
+): void {
+  const judgment = scorecard.outcomeCoverage.judgment;
+  const present = countDistributionId(judgment.observationPresence, "present");
+  const requiredDistributions = [
+    judgment.observationKinds,
+    judgment.observationPolarities,
+    judgment.observationEvidenceLosses,
+    judgment.observationSubjects,
+    judgment.observationOwners,
+    judgment.observationStrengths,
+    judgment.observationAgreements,
+    judgment.observationProvenanceOrigins,
+    judgment.observationProvenanceAuthorities,
+  ];
+  const optionalDistributions = [
+    judgment.observationDiagnosticClasses,
+    judgment.observationRecoveryHints,
+  ];
+
+  for (const distribution of requiredDistributions) {
+    assert.equal(sumDistribution(distribution), present);
+  }
+  for (const distribution of optionalDistributions) {
+    assert.ok(sumDistribution(distribution) <= present);
+  }
 }

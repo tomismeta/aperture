@@ -18,6 +18,8 @@ until a new package is published.
   the branch base
 - Published npm latest at this audit point: `@tomismeta/aperture-core@0.7.0`
 - Release tags: no `0.8.0` tag exists locally or on `origin` at this audit point
+- `docs/releases/aperture-core-v0.8.0.md` is a draft/unpublished release note
+  while npm latest remains `0.7.0`
 - Runtime dependencies: unchanged
 - Published package manifests: no version, export-map, files-list, or runtime
   dependency changes

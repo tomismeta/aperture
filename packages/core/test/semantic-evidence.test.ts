@@ -167,7 +167,12 @@ test("compact operation success observations are bounded event shapes", () => {
     "File created successfully at: /testbed/traceback_failed_error.py",
     "File created successfully at: ./tmp/reproduce_error.py",
     String.raw`File created successfully at: C:\tmp\reproduce_error.py`,
+    "Created file: /testbed/reproduce_error.py",
+    "Successfully wrote file ./tmp/reproduce_error.py",
+    "File /testbed/reproduce_error.py was created successfully.",
     "The file /testbed/reproduce_error.py has been edited.",
+    "Updated file: /testbed/reproduce_error.py",
+    "File /testbed/reproduce_error.py was modified successfully.",
   ]) {
     assert.equal(looksLikeCompactOperationSuccessObservation(summary), true, summary);
   }
@@ -184,6 +189,8 @@ test("compact operation success observations are bounded event shapes", () => {
     'const message = "File created successfully at: /testbed/reproduce_error.py";',
     "File created successfully at: /testbed/reproduce_error.py\nexport const value = 1;",
     "The file /testbed/reproduce_error.py has not been edited.",
+    "Created file: /testbed/reproduce_error.py and then ran it",
+    "File /testbed/reproduce_error.py was not updated.",
   ]) {
     assert.equal(looksLikeCompactOperationSuccessObservation(summary), false, summary);
   }
@@ -1154,6 +1161,14 @@ test("task failure evidence treats read source-window limits as bounded terminal
     [
       "tokens",
       "File content (178139 tokens) exceeds maximum allowed tokens (25000). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.",
+    ],
+    [
+      "paraphrased-size",
+      "Read payload (512KB) is too large for the configured read window (256KB). Use start_line and end_line parameters to read specific portions of the file.",
+    ],
+    [
+      "paraphrased-tokens",
+      "Document output (12000 tokens) exceeded the max token limit (8000 tokens). Search for specific content instead.",
     ],
   ] as const) {
     const signals = readTaskFailureSemanticSignals({ summary, toolFamily: "read" });

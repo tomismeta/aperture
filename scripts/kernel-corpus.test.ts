@@ -68,3 +68,77 @@ test("kernel corpus write requires an existing scorecard baseline by default", a
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("kernel corpus check compares supplied protected base scorecard", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-kernel-corpus-"));
+  const previousExitCode = process.exitCode;
+  try {
+    const reportPath = join(root, "kernel-corpus-v2.json");
+    const scorecardPath = join(root, "kernel-corpus-scorecard-v3.json");
+    const scenarios = await loadGoldenScenarios();
+    const report = await buildKernelCorpusConformanceReport(scenarios);
+    const scorecard = buildKernelCorpusScorecard(report, scenarios);
+    const stricterBase = {
+      ...scorecard,
+      summary: {
+        ...scorecard.summary,
+        assertions: {
+          ...scorecard.summary.assertions,
+          total: scorecard.summary.assertions.total + 1,
+        },
+      },
+    };
+
+    await writeFile(reportPath, `${serializeKernelCanonicalJson(report)}\n`, "utf8");
+    await writeFile(scorecardPath, `${serializeKernelCanonicalJson(scorecard)}\n`, "utf8");
+
+    process.exitCode = undefined;
+    await runKernelCorpusCommand({
+      args: ["--check"],
+      reportPath,
+      scorecardPath,
+      baseScorecard: stricterBase,
+    });
+
+    assert.equal(process.exitCode, 1);
+  } finally {
+    process.exitCode = previousExitCode;
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("kernel corpus check compares branch-history scorecard when protected base is unavailable", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-kernel-corpus-"));
+  const previousExitCode = process.exitCode;
+  try {
+    const reportPath = join(root, "kernel-corpus-v2.json");
+    const scorecardPath = join(root, "kernel-corpus-scorecard-v3.json");
+    const scenarios = await loadGoldenScenarios();
+    const report = await buildKernelCorpusConformanceReport(scenarios);
+    const scorecard = buildKernelCorpusScorecard(report, scenarios);
+    const stricterHistoricalBase = {
+      ...scorecard,
+      thresholds: {
+        ...scorecard.thresholds,
+        minimumTotalAssertions: scorecard.thresholds.minimumTotalAssertions + 1,
+      },
+    };
+
+    await writeFile(reportPath, `${serializeKernelCanonicalJson(report)}\n`, "utf8");
+    await writeFile(scorecardPath, `${serializeKernelCanonicalJson(scorecard)}\n`, "utf8");
+
+    process.exitCode = undefined;
+    await runKernelCorpusCommand({
+      args: ["--check"],
+      reportPath,
+      scorecardPath,
+      baseScorecardRef: false,
+      historicalBaseScorecard: stricterHistoricalBase,
+    });
+
+    assert.equal(process.exitCode, 1);
+  } finally {
+    process.exitCode = previousExitCode;
+    await rm(root, { recursive: true, force: true });
+  }
+});

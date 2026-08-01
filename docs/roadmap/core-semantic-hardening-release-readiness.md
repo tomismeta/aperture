@@ -44,6 +44,11 @@ The main behavior changes are:
   recurrence, and escalation language governs the final deterministic read
 - procedural, readback, listing, command-output, source-window, and transcript
   shapes are parsed as event shapes rather than corpus-specific exceptions
+- compact file-created and file-edited observations now use bounded operation
+  grammars for safe path-bearing outcomes instead of exact corpus phrases
+- read source-window limits now require structural agreement across subject,
+  measurement, policy-limit language, and recovery guidance instead of matching
+  one upstream diagnostic envelope
 - `task.updated` events whose status is `completed` now receive completion
   semantics without adapter-specific hints, while explicit source activity,
   operator-directed asks, waiting text, and blocker text preserve their narrower
@@ -156,6 +161,13 @@ Current review evidence:
 - corpus-specific source names are absent from `packages/core/src`
 - `pnpm boundary:check` now guards `packages/core/src` against known
   corpus-specific labels
+- `pnpm boundary:check` also rejects production core imports from sibling
+  package implementations and rejects core test imports from adapter
+  implementation files or adapter workspace packages; relative implementation
+  imports are resolved and normalized before classification so alternate `../`
+  and `./` spellings cannot bypass the gate
+- cross-adapter semantic parity coverage now lives in the product integration
+  test layer instead of core
 - public-corpus importers and calibration logic remain in `packages/lab`
 - Lab consumes source-quality support through public or bounded core seams
 - `pnpm kernel:corpus` verifies both the full corpus conformance report and a
@@ -172,10 +184,19 @@ Current review evidence:
   outcome shape
 - `pnpm kernel:corpus:write` refuses to overwrite the scorecard without a valid
   baseline comparison unless an intentional scorecard rebaseline flag is used
+- `pnpm kernel:corpus` compares against the protected base scorecard when it is
+  available in git history; for this PR shape, where `main` does not yet contain
+  the v3 artifact, it falls back to the previous committed branch scorecard and
+  also fails on threshold regressions, so the branch cannot pass only by updating
+  its own scorecard baseline
 - classifier growth is now guarded by module budgets for:
   - `packages/core/src/semantic-detection.ts`
   - `packages/core/src/semantic-evidence.ts`
   - `packages/core/src/semantic-owned-observation-payload-shapes.ts`
+- recursive semantic-module discovery currently accounts for 100 core semantic
+  modules and 8,567 lines; each discovered module has an explicit line budget,
+  and the architecture gate also enforces aggregate semantic-module count and
+  total-line budgets
 - the packed SDK example compiles the new semantic helper import through
   `@tomismeta/aperture-core/semantic`
 - the public SDK manifest test asserts `@tomismeta/aperture-core` has no
@@ -234,9 +255,9 @@ pnpm exec tsx --test packages/core/test/semantic-detection.test.ts packages/core
 
 Additional branch evidence:
 
-- local `pnpm release:check`: passing on July 31, 2026 after the
-  ambient-progress kernel corpus tranche
-- full local test suite: 1,194 passing; focused local suites on the
+- local `pnpm release:check`: passing on August 1, 2026 UTC, which was July 31,
+  2026 in the local America/Denver run context, after the Sol remediation pass
+- full local test suite: 1,199 passing; focused local suites on the
   completed-update tranche add 222/222 passing semantic, normalization,
   ontology, and evaluator checks
 - focused public SDK surface suite after product-surface audit:
@@ -292,6 +313,14 @@ Additional branch evidence:
   `golden:kernel-corpus:read-lifecycle-progress-stays-ambient`
 - focused review found relation-ordering, truncation-helper, and public-surface
   documentation issues; this branch now includes fixes and regression coverage
+- Sol review found the original merge-blocking risks plus follow-up gate gaps:
+  exact corpus-derived phrase matching, self-baselined corpus scorecards, weak
+  dependency-direction boundaries, semantic-module budget loopholes, and lost
+  cross-adapter parity coverage. This branch now remediates those by
+  generalizing the predicates, comparing scorecards against protected base or
+  branch history, failing threshold regressions, relocating cross-adapter parity
+  to a product integration test, tightening package-boundary checks, and adding
+  explicit plus aggregate recursive semantic-module budgets.
 
 ## Remaining Work
 

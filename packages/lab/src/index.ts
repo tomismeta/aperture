@@ -38,6 +38,7 @@ export {
   KERNEL_CORPUS_SCORECARD_COMPARISON_SCHEMA_VERSION,
   KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION,
   KERNEL_CORPUS_SCORECARD_THRESHOLDS,
+  parseHistoricalKernelCorpusScorecard,
   parseKernelCorpusScorecard,
   type KernelCorpusScorecardOutcomeCoverage,
   type KernelCorpusScorecardOutcomeDistribution,

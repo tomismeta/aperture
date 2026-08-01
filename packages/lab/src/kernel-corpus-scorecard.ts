@@ -12,12 +12,12 @@ export const KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION = 3 as const;
 export const KERNEL_CORPUS_SCORECARD_COMPARISON_SCHEMA_VERSION = 2 as const;
 
 export const KERNEL_CORPUS_SCORECARD_THRESHOLDS = {
-  minimumScenarios: 34,
-  minimumCoverageDimensions: 13,
-  minimumTotalAssertions: 1421,
+  minimumScenarios: 48,
+  minimumCoverageDimensions: 16,
+  minimumTotalAssertions: 1980,
   minimumAssertionsPerScenario: 25,
-  minimumSemanticOntologyCheckpoints: 38,
-  minimumDecisionProjectionCheckpoints: 47,
+  minimumSemanticOntologyCheckpoints: 57,
+  minimumDecisionProjectionCheckpoints: 68,
   minimumRelationCheckpoints: 13,
 } as const;
 
@@ -175,6 +175,10 @@ export function parseKernelCorpusScorecard(source: string): KernelCorpusScorecar
     KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION,
     KERNEL_CORPUS_SCORECARD_THRESHOLDS,
   );
+}
+
+export function parseHistoricalKernelCorpusScorecard(source: string): KernelCorpusScorecard {
+  return parseKernelCorpusScorecardValue(source, KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION, null);
 }
 
 export function buildKernelCorpusScorecard(
@@ -547,6 +551,7 @@ function collectScorecardComparisonFailures(
     "decision_projection_checkpoints",
     deltas.decisionProjectionCheckpoints,
   );
+  pushThresholdRegressionFailures(failures, baseline.thresholds, candidate.thresholds);
 
   for (const dimension of dimensionDeltas) {
     if (dimension.delta < 0) {
@@ -589,6 +594,16 @@ function collectScorecardComparisonFailures(
   }
 
   return failures;
+}
+
+function pushThresholdRegressionFailures(
+  failures: string[],
+  baseline: KernelCorpusScorecard["thresholds"],
+  candidate: KernelCorpusScorecard["thresholds"],
+): void {
+  for (const key of Object.keys(baseline) as Array<keyof KernelCorpusScorecard["thresholds"]>) {
+    pushNonNegativeDeltaFailure(failures, `threshold:${key}`, candidate[key] - baseline[key]);
+  }
 }
 
 function buildKernelCorpusOutcomeCoverage(

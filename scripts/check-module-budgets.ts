@@ -1,8 +1,9 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const scriptPath = fileURLToPath(import.meta.url);
+const repoRoot = resolve(dirname(scriptPath), "..");
 
 const budgets = [
   { file: "packages/runtime/src/runtime.ts", maxLines: 800 },
@@ -34,9 +35,14 @@ const budgets = [
   { file: "packages/core/src/attention-evaluator-profile-config.ts", maxLines: 175 },
   { file: "packages/core/src/attention-evaluator-runtime-config.ts", maxLines: 125 },
   { file: "packages/core/src/attention-record-json.ts", maxLines: 125 },
+  { file: "packages/core/src/semantic-bare-nonzero-terminal-exit.ts", maxLines: 25 },
   { file: "packages/core/src/semantic-detection.ts", maxLines: 375 },
   { file: "packages/core/src/semantic-relation-detection.ts", maxLines: 350 },
   { file: "packages/core/src/semantic-evidence.ts", maxLines: 525 },
+  { file: "packages/core/src/semantic-failure-detail.ts", maxLines: 125 },
+  { file: "packages/core/src/semantic-imperative-supersession-relation.ts", maxLines: 125 },
+  { file: "packages/core/src/semantic-interpreter.ts", maxLines: 700 },
+  { file: "packages/core/src/semantic-language.ts", maxLines: 150 },
   { file: "packages/core/src/semantic-abbreviated-file-view-observation-shapes.ts", maxLines: 50 },
   { file: "packages/core/src/semantic-diagnostic-shapes.ts", maxLines: 100 },
   { file: "packages/core/src/semantic-runtime-error-diagnostic-shapes.ts", maxLines: 50 },
@@ -65,6 +71,22 @@ const budgets = [
   { file: "packages/core/src/semantic-observation-transcript-reference-shapes.ts", maxLines: 50 },
   { file: "packages/core/src/semantic-observation-transcript-shapes.ts", maxLines: 100 },
   { file: "packages/core/src/semantic-observation-transcript-types.ts", maxLines: 25 },
+  {
+    file: "packages/core/src/semantic-nondiagnostic-observation-transcript-shapes.ts",
+    maxLines: 35,
+  },
+  { file: "packages/core/src/semantic-normalizer.ts", maxLines: 325 },
+  { file: "packages/core/src/semantic-ontology-types.ts", maxLines: 75 },
+  { file: "packages/core/src/semantic-ontology.ts", maxLines: 375 },
+  { file: "packages/core/src/semantic-operation-success-observation-shapes.ts", maxLines: 100 },
+  { file: "packages/core/src/semantic-path-qualified-failure-diagnostic-shapes.ts", maxLines: 20 },
+  { file: "packages/core/src/semantic-patterns.ts", maxLines: 300 },
+  { file: "packages/core/src/semantic-provenance.ts", maxLines: 50 },
+  { file: "packages/core/src/semantic-quoted-span.ts", maxLines: 100 },
+  { file: "packages/core/src/semantic-read-failure-diagnostic-shapes.ts", maxLines: 25 },
+  { file: "packages/core/src/semantic-relation-hint-dedupe.ts", maxLines: 30 },
+  { file: "packages/core/src/semantic-relation-judgment.ts", maxLines: 30 },
+  { file: "packages/core/src/semantic-relations.ts", maxLines: 50 },
   { file: "packages/core/src/semantic-source-fixture-observation-shapes.ts", maxLines: 15 },
   { file: "packages/core/src/semantic-tagged-file-observation-transcript-shapes.ts", maxLines: 15 },
   { file: "packages/core/src/semantic-task-failure-structured-output.ts", maxLines: 40 },
@@ -100,10 +122,19 @@ const budgets = [
     maxLines: 75,
   },
   { file: "packages/core/src/semantic-resolution-polarity.ts", maxLines: 225 },
+  { file: "packages/core/src/semantic-single-listing-observation-shapes.ts", maxLines: 100 },
   { file: "packages/core/src/semantic-source-header-observation-shapes.ts", maxLines: 75 },
+  { file: "packages/core/src/semantic-source-literal-wrapper-shapes.ts", maxLines: 25 },
   { file: "packages/core/src/semantic-source-observation-shapes.ts", maxLines: 175 },
+  { file: "packages/core/src/semantic-source-quality.ts", maxLines: 60 },
   { file: "packages/core/src/semantic-source-statement-shapes.ts", maxLines: 225 },
+  { file: "packages/core/src/semantic-source-window-limit-shapes.ts", maxLines: 60 },
   { file: "packages/core/src/semantic-sectioned-source-observation-shapes.ts", maxLines: 25 },
+  {
+    file: "packages/core/src/semantic-structured-output-observation-signals.ts",
+    maxLines: 75,
+  },
+  { file: "packages/core/src/semantic-structured-output-ownership.ts", maxLines: 35 },
   { file: "packages/core/src/semantic-structured-output.ts", maxLines: 125 },
   { file: "packages/core/src/semantic-test-output-observation-shapes.ts", maxLines: 75 },
   { file: "packages/core/src/semantic-test-runner-output-shapes.ts", maxLines: 50 },
@@ -116,6 +147,12 @@ const budgets = [
   { file: "packages/core/src/semantic-truncated-structured-output.ts", maxLines: 175 },
   { file: "packages/core/src/semantic-search-observation-shapes.ts", maxLines: 75 },
   { file: "packages/core/src/semantic-task-failure-signals.ts", maxLines: 185 },
+  { file: "packages/core/src/semantic-text.ts", maxLines: 75 },
+  { file: "packages/core/src/semantic-tool-family.ts", maxLines: 125 },
+  { file: "packages/core/src/semantic-types.ts", maxLines: 125 },
+  { file: "packages/core/src/semantic-unified-diff-observation-shapes.ts", maxLines: 35 },
+  { file: "packages/core/src/semantic.ts", maxLines: 60 },
+  { file: "packages/core/src/policy/semantic-uncertainty-criterion-rule.ts", maxLines: 175 },
   { file: "packages/core/src/evaluator.ts", maxLines: 75 },
   { file: "packages/core/src/attention-planner.ts", maxLines: 700 },
   { file: "packages/core/src/attention-planner-routing.ts", maxLines: 500 },
@@ -275,6 +312,9 @@ const budgets = [
 
 async function main(): Promise<void> {
   const violations: Array<{ file: string; lineCount: number; maxLines: number }> = [];
+  const missingBudgetFiles: string[] = [];
+  const aggregateViolations: Array<{ label: string; value: number; max: number }> = [];
+  const budgetedFiles = new Set(budgets.map((budget) => budget.file));
 
   for (const budget of budgets) {
     const absolutePath = resolve(repoRoot, budget.file);
@@ -289,23 +329,66 @@ async function main(): Promise<void> {
     }
   }
 
-  if (violations.length === 0) {
+  const semanticFiles = await collectCoreSemanticFiles();
+  let semanticLineCount = 0;
+  for (const file of semanticFiles) {
+    const relativeFile = relative(repoRoot, file);
+    if (!budgetedFiles.has(relativeFile)) {
+      missingBudgetFiles.push(relativeFile);
+    }
+    semanticLineCount += (await readFile(file, "utf8")).split("\n").length;
+  }
+  if (semanticFiles.length > 100) {
+    aggregateViolations.push({
+      label: "packages/core/src/semantic*.ts module count",
+      value: semanticFiles.length,
+      max: 100,
+    });
+  }
+  if (semanticLineCount > 8700) {
+    aggregateViolations.push({
+      label: "packages/core/src/semantic*.ts total lines",
+      value: semanticLineCount,
+      max: 8700,
+    });
+  }
+
+  if (
+    violations.length === 0 &&
+    missingBudgetFiles.length === 0 &&
+    aggregateViolations.length === 0
+  ) {
     return;
   }
 
-  const lines = [
-    "Module budget check failed.",
-    "These files exceeded their line-count budgets:",
-    "",
-  ];
+  const lines = ["Module budget check failed.", ""];
 
-  for (const violation of violations) {
-    lines.push(
-      `- ${relative(repoRoot, resolve(repoRoot, violation.file))}: ${violation.lineCount} lines (budget ${violation.maxLines})`,
-    );
+  if (violations.length > 0) {
+    lines.push("These files exceeded their line-count budgets:", "");
+    for (const violation of violations) {
+      lines.push(
+        `- ${relative(repoRoot, resolve(repoRoot, violation.file))}: ${violation.lineCount} lines (budget ${violation.maxLines})`,
+      );
+    }
+    lines.push("");
   }
 
-  lines.push("");
+  if (missingBudgetFiles.length > 0) {
+    lines.push("These semantic core modules are missing explicit budgets:", "");
+    for (const file of missingBudgetFiles) {
+      lines.push(`- ${file}`);
+    }
+    lines.push("");
+  }
+
+  if (aggregateViolations.length > 0) {
+    lines.push("These aggregate budgets were exceeded:", "");
+    for (const violation of aggregateViolations) {
+      lines.push(`- ${violation.label}: ${violation.value} (budget ${violation.max})`);
+    }
+    lines.push("");
+  }
+
   lines.push(
     "Split command shells, parser/usage surfaces, or mapper families before adding more logic to these files.",
   );
@@ -313,8 +396,40 @@ async function main(): Promise<void> {
   process.exitCode = 1;
 }
 
-void main().catch((error) => {
-  const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`${message}\n`);
-  process.exit(1);
-});
+export async function collectCoreSemanticFiles(root = repoRoot): Promise<string[]> {
+  const directory = resolve(root, "packages/core/src");
+  const files = await collectTypeScriptFiles(directory);
+  return files.filter((file) => isCoreSemanticModule(root, file)).sort();
+}
+
+async function collectTypeScriptFiles(directory: string): Promise<string[]> {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files: string[] = [];
+
+  for (const entry of entries) {
+    const fullPath = resolve(directory, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await collectTypeScriptFiles(fullPath)));
+      continue;
+    }
+    if (entry.isFile() && entry.name.endsWith(".ts")) {
+      files.push(fullPath);
+    }
+  }
+
+  return files;
+}
+
+function isCoreSemanticModule(root: string, file: string): boolean {
+  const relativeFile = relative(root, file).replace(/\\/g, "/");
+  const basename = relativeFile.split("/").at(-1) ?? "";
+  return /^packages\/core\/src\/semantic\//.test(relativeFile) || /^semantic.*\.ts$/.test(basename);
+}
+
+if (process.argv[1] === scriptPath) {
+  void main().catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`${message}\n`);
+    process.exit(1);
+  });
+}

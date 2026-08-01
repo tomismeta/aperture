@@ -20,12 +20,20 @@ export function readCompactOperationSuccessObservation(
     return null;
   }
 
-  const createdPath = /^File created successfully at:\s+(\S+)$/i.exec(text)?.[1];
+  const createdPath = readOperationPath(text, [
+    /^file\s+created(?:\s+successfully)?\s+at:\s+(\S+?)(?:\.)?$/i,
+    /^(?:successfully\s+)?(?:created|wrote|saved)\s+(?:new\s+)?file(?:\s+at)?:?\s+(\S+?)(?:\.)?$/i,
+    /^file\s+(\S+?)\s+(?:was\s+)?(?:created|written|saved)(?:\s+successfully)?(?:\.)?$/i,
+  ]);
   if (createdPath !== undefined && looksLikeSupportedPathToken(createdPath)) {
     return { kind: "file_created", consequenceBaseline: "low" };
   }
 
-  const editedPath = /^The file\s+(\S+)\s+has been edited\.$/i.exec(text)?.[1];
+  const editedPath = readOperationPath(text, [
+    /^the\s+file\s+(\S+?)\s+has\s+been\s+(?:edited|updated|modified)(?:\.)?$/i,
+    /^(?:successfully\s+)?(?:edited|updated|modified)\s+file:?\s+(\S+?)(?:\.)?$/i,
+    /^file\s+(\S+?)\s+(?:was|has\s+been)\s+(?:edited|updated|modified)(?:\s+successfully)?(?:\.)?$/i,
+  ]);
   if (editedPath !== undefined && looksLikeSupportedPathToken(editedPath)) {
     return { kind: "file_edited", consequenceBaseline: "low" };
   }
@@ -35,6 +43,16 @@ export function readCompactOperationSuccessObservation(
 
 export function looksLikeCompactOperationSuccessObservation(value: string): boolean {
   return readCompactOperationSuccessObservation(value) !== null;
+}
+
+function readOperationPath(text: string, patterns: readonly RegExp[]): string | undefined {
+  for (const pattern of patterns) {
+    const path = pattern.exec(text)?.[1];
+    if (path !== undefined) {
+      return path;
+    }
+  }
+  return undefined;
 }
 
 function looksLikeSupportedPathToken(path: string): boolean {
@@ -53,6 +71,8 @@ function hasUnsafeOperationOutcomeText(text: string): boolean {
       text,
     ) ||
     /^```/.test(text) ||
-    /\bnot\s+been\s+edited\b/i.test(text)
+    /\bnot\s+(?:be\s+|been\s+|was\s+|were\s+)?(?:created|written|saved|edited|updated|modified)\b/i.test(
+      text,
+    )
   );
 }

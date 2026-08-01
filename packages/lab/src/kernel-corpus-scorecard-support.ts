@@ -14,7 +14,7 @@ import type {
 export function parseKernelCorpusScorecardValue(
   source: string,
   schemaVersion: KernelCorpusScorecard["schemaVersion"],
-  thresholds: KernelCorpusScorecard["thresholds"],
+  thresholds: KernelCorpusScorecard["thresholds"] | null,
 ): KernelCorpusScorecard {
   const value = JSON.parse(source) as unknown;
   if (!isKernelCorpusScorecard(value, schemaVersion, thresholds)) {
@@ -72,7 +72,7 @@ export function collectKernelCorpusScenarioCheckpoints(
 function isKernelCorpusScorecard(
   value: unknown,
   schemaVersion: KernelCorpusScorecard["schemaVersion"],
-  thresholds: KernelCorpusScorecard["thresholds"],
+  thresholds: KernelCorpusScorecard["thresholds"] | null,
 ): value is KernelCorpusScorecard {
   return (
     isRecord(value) &&
@@ -80,7 +80,9 @@ function isKernelCorpusScorecard(
     isScorecardProfile(value.profile) &&
     typeof value.passed === "boolean" &&
     isStringArray(value.failures) &&
-    isScorecardThresholds(value.thresholds, thresholds) &&
+    (thresholds === null
+      ? isScorecardThresholdShape(value.thresholds)
+      : isScorecardThresholds(value.thresholds, thresholds)) &&
     isScorecardSummary(value.summary) &&
     isScorecardDimensions(value.dimensions) &&
     isOutcomeCoverage(value.outcomeCoverage) &&
@@ -112,6 +114,19 @@ function isScorecardThresholds(
     value.minimumDecisionProjectionCheckpoints ===
       thresholds.minimumDecisionProjectionCheckpoints &&
     value.minimumRelationCheckpoints === thresholds.minimumRelationCheckpoints
+  );
+}
+
+function isScorecardThresholdShape(value: unknown): value is KernelCorpusScorecard["thresholds"] {
+  return (
+    isRecord(value) &&
+    isFiniteNumber(value.minimumScenarios) &&
+    isFiniteNumber(value.minimumCoverageDimensions) &&
+    isFiniteNumber(value.minimumTotalAssertions) &&
+    isFiniteNumber(value.minimumAssertionsPerScenario) &&
+    isFiniteNumber(value.minimumSemanticOntologyCheckpoints) &&
+    isFiniteNumber(value.minimumDecisionProjectionCheckpoints) &&
+    isFiniteNumber(value.minimumRelationCheckpoints)
   );
 }
 

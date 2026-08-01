@@ -1,10 +1,38 @@
 import { readdir, readFile } from "node:fs/promises";
-import { dirname, relative, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRepoRoot = resolve(dirname(scriptPath), "..");
-const ignoredDirNames = new Set([".git", "dist", "public-dist", "node_modules"]);
+const ignoredDirNames = new Set([
+  ".aperture",
+  ".claude",
+  ".codex",
+  ".git",
+  "dist",
+  "public-dist",
+  "node_modules",
+]);
+const siblingPackageNames = [
+  "aperture",
+  "claude-code",
+  "codex",
+  "lab",
+  "opencode",
+  "pi",
+  "runtime",
+  "tui",
+] as const;
+const prohibitedWorkspacePackages = [
+  "@tomismeta/aperture",
+  "@aperture/claude-code",
+  "@aperture/codex",
+  "@aperture/lab",
+  "@aperture/opencode",
+  "@aperture/pi",
+  "@aperture/runtime",
+  "@aperture/tui",
+] as const;
 const boundaryRules = [
   {
     label: "packages/core/src",
@@ -54,11 +82,44 @@ export async function checkPackageBoundaries(root = defaultRepoRoot): Promise<Bo
   const corpusLabelViolations: CorpusLabelViolation[] = [];
 
   for (const file of files) {
+    const content = await readFile(file, "utf8");
+    const importSpecifiers = collectModuleSpecifiers(content);
+    if (isCoreTestSource(root, file)) {
+      pushImportViolation(
+        importViolations,
+        file,
+        "adapter implementation from core tests",
+        collectSiblingImplementationImports(root, file, importSpecifiers),
+        "Core tests should validate canonical SourceEvents. Adapter parity belongs in the adapter package that owns the mapper.",
+      );
+      pushImportViolation(
+        importViolations,
+        file,
+        "adapter workspace package from core tests",
+        collectWorkspacePackageImports(importSpecifiers),
+        "Core tests should validate canonical SourceEvents. Adapter parity belongs in the adapter package that owns the mapper.",
+      );
+    }
+    if (isProductionCoreSource(root, file)) {
+      pushImportViolation(
+        importViolations,
+        file,
+        "sibling package implementation from production core",
+        collectSiblingImplementationImports(root, file, importSpecifiers),
+        "Keep production core independent. Share contracts through public core exports or move integration coverage into the owning adapter package.",
+      );
+      pushImportViolation(
+        importViolations,
+        file,
+        "sibling workspace package from production core",
+        collectWorkspacePackageImports(importSpecifiers),
+        "Keep production core independent. Share contracts through public core exports or move integration coverage into the owning adapter package.",
+      );
+    }
     if (shouldIgnore(file)) {
       continue;
     }
 
-    const content = await readFile(file, "utf8");
     for (const rule of boundaryRules) {
       if (rule.filePattern && !rule.filePattern.test(file)) {
         continue;
@@ -92,7 +153,7 @@ export function renderBoundaryCheckReport(root: string, result: BoundaryCheckRes
   const lines = ["Package boundary check failed.", ""];
 
   for (const violation of result.importViolations) {
-    lines.push(`These non-test files still reach into ${violation.label} directly:`);
+    lines.push(`These files still reach into ${violation.label} directly:`);
     lines.push(`- ${relative(root, violation.file)}`);
     for (const importPath of violation.imports) {
       lines.push(`    ${importPath}`);
@@ -168,6 +229,73 @@ function shouldIgnore(file: string): boolean {
 
 function isProductionCoreSource(root: string, file: string): boolean {
   return relative(root, file).startsWith("packages/core/src/");
+}
+
+function isCoreTestSource(root: string, file: string): boolean {
+  return relative(root, file).startsWith("packages/core/test/");
+}
+
+function collectModuleSpecifiers(content: string): string[] {
+  const specifiers = new Set<string>();
+  const importExportPattern =
+    /\b(?:import|export)\s+(?:type\s+)?(?:[^"'`]*?\s+from\s+)?["'`]([^"'`]+)["'`]/g;
+  const callPattern = /\b(?:import|require)\s*\(\s*["'`]([^"'`]+)["'`]\s*\)/g;
+
+  for (const match of content.matchAll(importExportPattern)) {
+    if (match[1] !== undefined) {
+      specifiers.add(match[1]);
+    }
+  }
+  for (const match of content.matchAll(callPattern)) {
+    if (match[1] !== undefined) {
+      specifiers.add(match[1]);
+    }
+  }
+
+  return [...specifiers];
+}
+
+function collectSiblingImplementationImports(
+  root: string,
+  file: string,
+  specifiers: string[],
+): string[] {
+  const packageSrcRoots = siblingPackageNames.map((name) => resolve(root, "packages", name, "src"));
+  return specifiers.filter((specifier) => {
+    if (!specifier.startsWith(".")) {
+      return false;
+    }
+    const resolvedSpecifier = resolve(dirname(file), specifier);
+    return packageSrcRoots.some((packageSrcRoot) =>
+      isPathWithinOrEqual(resolvedSpecifier, packageSrcRoot),
+    );
+  });
+}
+
+function collectWorkspacePackageImports(specifiers: string[]): string[] {
+  return specifiers.filter((specifier) =>
+    prohibitedWorkspacePackages.some(
+      (packageName) => specifier === packageName || specifier.startsWith(`${packageName}/`),
+    ),
+  );
+}
+
+function pushImportViolation(
+  violations: ImportViolation[],
+  file: string,
+  label: string,
+  imports: string[],
+  guidance: string,
+): void {
+  if (imports.length === 0) {
+    return;
+  }
+  violations.push({ file, label, imports, guidance });
+}
+
+function isPathWithinOrEqual(candidate: string, parent: string): boolean {
+  const relativePath = relative(parent, candidate);
+  return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
 }
 
 function collectCorpusLabels(content: string): string[] {

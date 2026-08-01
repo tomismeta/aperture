@@ -81,28 +81,21 @@ export type TaskFailureSemanticEvidence = {
   failureDetail?: TaskFailureDetail;
   terminalShape?: TaskFailureTerminalShape;
   toolFamily?: string;
+  observation?: TaskFailureObservation;
   readsAsObservation: boolean;
   consequenceBaseline: "low" | "medium" | "high";
   text: SemanticTextEvidence;
 };
 
-type SemanticEvidenceTaskUpdateEvent = {
-  id?: string;
-  taskId?: string;
-  timestamp?: string;
+type SemanticEvidenceTaskUpdateEvent = Record<string, unknown> & {
   type: string;
   status?: string;
   title?: string;
   summary?: string;
   toolFamily?: string;
   context?: {
-    items?: Array<{
-      id: string;
-      label: string;
-      value?: string;
-    }>;
+    items?: Array<{ id: string; label: string; value?: string }>;
   };
-  metadata?: Record<string, unknown>;
 };
 
 export function readSemanticTextEvidence(value: string, toolFamily?: string): SemanticTextEvidence {
@@ -156,29 +149,26 @@ export function readTaskFailureSemanticEvidence(
     toolFamily,
   );
   const signals = readTaskFailureSemanticSignals({ summary: event.summary, toolFamily });
-  const terminalFailureEvidence = signals.structuredOutputExitFailure
-    ? true
-    : signals.strongSourceRuntimeDiagnostic
-      ? true
-      : signals.structuredOutputFailureDiagnostic ||
-          signals.editOutputOutcome === "failure" ||
-          signals.searchFailureDiagnostic ||
-          signals.readFailureDiagnostic ||
-          signals.diagnosticObservationTranscript ||
-          signals.commandActualDiagnosticObservationTranscript ||
-          (signals.commandDiagnosticObservationTranscript &&
-            !signals.commandDiagnosticReferenceObservationTranscript)
-        ? true
-        : signals.rawToolOutputFailureDiagnostic &&
-            !signals.commandDiagnosticReferenceObservationTranscript
-          ? true
-          : text.terminalFailureEvidence &&
-            !signals.commandDiagnosticReferenceObservationTranscript &&
-            !isMissingToolObservationTranscript(signals.observation) &&
-            !(toolFamily === "search" && text.searchResultOutput) &&
-            (!signals.rawReadStructuredObservation || signals.strongSourceRuntimeDiagnostic) &&
-            (!signals.structuredOutputSourceObservation || signals.strongSourceRuntimeDiagnostic) &&
-            !signals.structuredOutputSingleListingObservation;
+  const terminalFailureEvidence =
+    signals.structuredOutputExitFailure ||
+    signals.strongSourceRuntimeDiagnostic ||
+    signals.structuredOutputFailureDiagnostic ||
+    signals.editOutputOutcome === "failure" ||
+    signals.searchFailureDiagnostic ||
+    signals.readFailureDiagnostic ||
+    signals.diagnosticObservationTranscript ||
+    signals.commandActualDiagnosticObservationTranscript ||
+    (signals.commandDiagnosticObservationTranscript &&
+      !signals.commandDiagnosticReferenceObservationTranscript) ||
+    (signals.rawToolOutputFailureDiagnostic &&
+      !signals.commandDiagnosticReferenceObservationTranscript) ||
+    (text.terminalFailureEvidence &&
+      !signals.commandDiagnosticReferenceObservationTranscript &&
+      !isMissingToolObservationTranscript(signals.observation) &&
+      !(toolFamily === "search" && text.searchResultOutput) &&
+      (!signals.rawReadStructuredObservation || signals.strongSourceRuntimeDiagnostic) &&
+      (!signals.structuredOutputSourceObservation || signals.strongSourceRuntimeDiagnostic) &&
+      !signals.structuredOutputSingleListingObservation);
 
   if (terminalFailureEvidence) {
     const terminalShape = readTerminalFailureShape({ summary: event.summary, toolFamily });
@@ -304,6 +294,7 @@ function readObservationSemanticEvidence(
   return {
     kind: readObservationEvidenceKind(observation),
     ...(observation.toolFamily !== undefined ? { toolFamily: observation.toolFamily } : {}),
+    observation,
     readsAsObservation: true,
     consequenceBaseline: observation.consequenceBaseline,
     text,

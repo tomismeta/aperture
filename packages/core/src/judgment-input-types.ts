@@ -5,13 +5,15 @@ import type {
   AttentionOntologyDiagnostic,
 } from "./semantic-ontology-types.js";
 import type { ObservationalStatusConflictEvidence } from "./observational-status-conflict.js";
+import type { AttentionObservationAgreement, AttentionObservationIR } from "./observation.js";
 export type {
   ObservationalStatusConflictEvidence,
   ObservationalStatusConflictKind,
 } from "./observational-status-conflict.js";
+export type { AttentionObservationIR } from "./observation.js";
 
 export type SemanticEvidenceStrength = "weak" | "qualified" | "strong";
-export type TaskFailureSemanticAgreement = "stable" | "overridden" | "uncertain";
+export type TaskFailureSemanticAgreement = AttentionObservationAgreement;
 
 export type AttentionJudgmentInput = {
   ontology?: AttentionOntologyDiagnostic;
@@ -31,6 +33,7 @@ export type AttentionJudgmentInput = {
     consequenceBaseline: "low" | "medium" | "high";
     semanticAgreement: TaskFailureSemanticAgreement;
   };
+  observationEvidence?: AttentionObservationIR;
   // Narrow status-routing diagnostic, not a generic proxy for blockingness.
   // Human input is already blocking by contract; this exists only for task
   // statuses that semantically read as blocked without becoming a full

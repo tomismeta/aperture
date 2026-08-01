@@ -1,0 +1,327 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { compileAttentionObservation } from "../src/observation-compiler.js";
+import type { AttentionObservationIR } from "../src/observation.js";
+import type {
+  SemanticTextEvidence,
+  TaskFailureSemanticEvidence,
+} from "../src/semantic-evidence.js";
+import type { AttentionOntologyDiagnostic } from "../src/semantic-ontology-types.js";
+
+const emptyText: SemanticTextEvidence = {
+  routineSuccessObservation: false,
+  terminalFailureEvidence: false,
+  expectedDiagnosticFailure: false,
+  observationalReadback: false,
+  taggedFileObservation: false,
+  readObservationPayload: false,
+  searchResultOutput: false,
+  sourceCodeObservation: false,
+  logObservation: false,
+  buildMetadataObservation: false,
+};
+
+const ontology: AttentionOntologyDiagnostic = {
+  ask: "status",
+  activity: "failure",
+  consequence: "medium",
+  blocking: "non_blocking",
+  episode: "unknown",
+  confidence: "high",
+  source: "explicit",
+};
+
+function evidence(
+  overrides: Omit<
+    TaskFailureSemanticEvidence,
+    "consequenceBaseline" | "readsAsObservation" | "text"
+  > &
+    Partial<
+      Pick<TaskFailureSemanticEvidence, "consequenceBaseline" | "readsAsObservation" | "text">
+    >,
+): TaskFailureSemanticEvidence {
+  return {
+    consequenceBaseline: "medium",
+    readsAsObservation: false,
+    text: emptyText,
+    ...overrides,
+  };
+}
+
+function compile(
+  failureEvidence: TaskFailureSemanticEvidence,
+  input: Partial<Parameters<typeof compileAttentionObservation>[0]> = {},
+): AttentionObservationIR {
+  return compileAttentionObservation({
+    failureEvidence,
+    ontology: { ...ontology, consequence: failureEvidence.consequenceBaseline },
+    abstained: false,
+    agreement: "stable",
+    ...input,
+  });
+}
+
+test("observation compiler maps every task-failure evidence kind into compressed IR", () => {
+  const cases: Array<{
+    name: string;
+    evidence: TaskFailureSemanticEvidence;
+    expected: Partial<AttentionObservationIR> & {
+      ownership?: Partial<AttentionObservationIR["ownership"]>;
+      provenance?: Partial<AttentionObservationIR["provenance"]>;
+    };
+  }> = [
+    {
+      name: "routine command success",
+      evidence: evidence({
+        kind: "routine_bash_success_observation",
+        toolFamily: "bash",
+        readsAsObservation: true,
+        consequenceBaseline: "low",
+      }),
+      expected: { kind: "outcome", polarity: "success", subject: "tool" },
+    },
+    {
+      name: "structured execution success",
+      evidence: evidence({
+        kind: "structured_execution_success_observation",
+        toolFamily: "bash",
+        observation: {
+          kind: "execution_success",
+          origin: "structured_output",
+          subject: "tool",
+          consequenceBaseline: "low",
+          toolFamily: "bash",
+        },
+        readsAsObservation: true,
+        consequenceBaseline: "low",
+      }),
+      expected: {
+        kind: "outcome",
+        polarity: "success",
+        subject: "tool",
+        provenance: { origin: "structured_output" },
+      },
+    },
+    {
+      name: "operation success transcript",
+      evidence: evidence({
+        kind: "operation_success_observation",
+        readsAsObservation: true,
+        consequenceBaseline: "low",
+      }),
+      expected: { kind: "outcome", polarity: "success", subject: "unknown" },
+    },
+    {
+      name: "structured source payload",
+      evidence: evidence({
+        kind: "structured_tool_output_observation",
+        toolFamily: "bash",
+        observation: {
+          kind: "payload",
+          origin: "structured_output",
+          subject: "source",
+          consequenceBaseline: "high",
+          toolFamily: "bash",
+        },
+        readsAsObservation: true,
+        consequenceBaseline: "high",
+      }),
+      expected: {
+        kind: "payload",
+        polarity: "neutral",
+        subject: "source",
+        provenance: { origin: "structured_output" },
+      },
+    },
+    {
+      name: "empty failure payload",
+      evidence: evidence({
+        kind: "empty_failure_payload",
+        failureDetail: "absent_evidence",
+        toolFamily: "edit",
+      }),
+      expected: {
+        kind: "outcome",
+        polarity: "failure",
+        evidenceLoss: "absent",
+        recoveryHint: "request_evidence",
+        strength: "weak",
+      },
+    },
+    {
+      name: "observational diff payload",
+      evidence: evidence({
+        kind: "observational_payload",
+        toolFamily: "bash",
+        observation: {
+          kind: "payload",
+          origin: "transcript",
+          subject: "diff",
+          consequenceBaseline: "high",
+          toolFamily: "bash",
+        },
+        readsAsObservation: true,
+        consequenceBaseline: "high",
+      }),
+      expected: {
+        kind: "payload",
+        polarity: "neutral",
+        subject: "source",
+        provenance: { origin: "transcript" },
+      },
+    },
+    {
+      name: "routine search output",
+      evidence: evidence({
+        kind: "routine_search_output",
+        toolFamily: "search",
+        readsAsObservation: true,
+        consequenceBaseline: "low",
+      }),
+      expected: { kind: "payload", polarity: "neutral", subject: "search" },
+    },
+    {
+      name: "expected diagnostic failure",
+      evidence: evidence({
+        kind: "expected_diagnostic_failure",
+        toolFamily: "bash",
+      }),
+      expected: {
+        kind: "diagnostic",
+        polarity: "failure",
+        diagnosticClass: "expected",
+        recoveryHint: "inspect_diagnostic",
+      },
+    },
+    {
+      name: "terminal outcome-only failure",
+      evidence: evidence({
+        kind: "terminal_failure",
+        failureDetail: "outcome_only",
+        toolFamily: "bash",
+      }),
+      expected: { kind: "outcome", polarity: "failure", evidenceLoss: "none" },
+    },
+    {
+      name: "terminal runtime diagnostic",
+      evidence: evidence({
+        kind: "terminal_failure",
+        failureDetail: "diagnostic",
+        toolFamily: "bash",
+        consequenceBaseline: "high",
+      }),
+      expected: {
+        kind: "diagnostic",
+        polarity: "failure",
+        diagnosticClass: "runtime",
+        recoveryHint: "inspect_diagnostic",
+      },
+    },
+    {
+      name: "terminal source-window limit",
+      evidence: evidence({
+        kind: "terminal_failure",
+        failureDetail: "source_window_limit",
+        toolFamily: "read",
+      }),
+      expected: {
+        kind: "diagnostic",
+        polarity: "failure",
+        subject: "source",
+        evidenceLoss: "partial",
+        diagnosticClass: "source_limit",
+        recoveryHint: "narrow_evidence_scope",
+      },
+    },
+    {
+      name: "tool-use rejection",
+      evidence: evidence({
+        kind: "rejected_tool_use_observation",
+        toolFamily: "bash",
+        observation: {
+          kind: "tool_rejection",
+          origin: "status_text",
+          subject: "tool",
+          consequenceBaseline: "low",
+          toolFamily: "bash",
+        },
+        readsAsObservation: true,
+        consequenceBaseline: "low",
+      }),
+      expected: {
+        kind: "control",
+        polarity: "neutral",
+        recoveryHint: "await_authorization",
+        provenance: { origin: "status_text" },
+      },
+    },
+    {
+      name: "unclassified failure",
+      evidence: evidence({
+        kind: "unclassified_failure",
+        failureDetail: "indeterminate",
+        consequenceBaseline: "high",
+      }),
+      expected: {
+        kind: "unknown",
+        polarity: "failure",
+        evidenceLoss: "unknown",
+        recoveryHint: "inspect_original_evidence",
+        strength: "weak",
+      },
+    },
+  ];
+
+  for (const testCase of cases) {
+    const observation = compile(testCase.evidence);
+
+    for (const [key, value] of Object.entries(testCase.expected)) {
+      if (key === "ownership" || key === "provenance") {
+        continue;
+      }
+      assert.deepEqual(observation[key as keyof AttentionObservationIR], value, testCase.name);
+    }
+    assert.equal(observation.agreement, "stable", testCase.name);
+    assert.equal(
+      observation.consequenceBaseline,
+      testCase.evidence.consequenceBaseline,
+      testCase.name,
+    );
+    assert.deepEqual(
+      { ...observation.ownership, ...testCase.expected.ownership },
+      observation.ownership,
+      testCase.name,
+    );
+    assert.deepEqual(
+      { ...observation.provenance, ...testCase.expected.provenance },
+      observation.provenance,
+      testCase.name,
+    );
+  }
+});
+
+test("observation compiler lowers certainty for uncertainty and evidence loss", () => {
+  const absent = evidence({
+    kind: "empty_failure_payload",
+    failureDetail: "absent_evidence",
+    toolFamily: "edit",
+  });
+  const runtimeDiagnostic = evidence({
+    kind: "terminal_failure",
+    failureDetail: "diagnostic",
+    toolFamily: "bash",
+    consequenceBaseline: "high",
+  });
+
+  assert.equal(compile(absent).strength, "weak");
+  assert.equal(compile(runtimeDiagnostic).strength, "strong");
+  assert.equal(compile(runtimeDiagnostic, { agreement: "overridden" }).strength, "weak");
+  assert.equal(compile(runtimeDiagnostic, { abstained: true }).strength, "weak");
+  assert.equal(
+    compile(runtimeDiagnostic, {
+      ontology: { ...ontology, consequence: "high", confidence: "low" },
+    }).strength,
+    "weak",
+  );
+});

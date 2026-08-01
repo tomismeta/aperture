@@ -55,6 +55,31 @@ function run(
   });
 }
 
+function runExpectFailure(command: string, args: string[], cwd: string, expectedOutput: RegExp): void {
+  try {
+    execFileSync(command, args, {
+      cwd,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        npm_config_ignore_scripts: "true",
+      },
+      encoding: "utf8",
+    });
+  } catch (error) {
+    const output =
+      error !== null && typeof error === "object"
+        ? `${"stdout" in error ? String(error.stdout ?? "") : ""}${
+            "stderr" in error ? String(error.stderr ?? "") : ""
+          }`
+        : "";
+    assert.match(output, expectedOutput);
+    return;
+  }
+
+  assert.fail(`${command} ${args.join(" ")} was expected to fail`);
+}
+
 function tarballName(pkg: CorePackageJson): string {
   return `${pkg.name.replace(/^@/, "").replace(/\//g, "-")}-${pkg.version}.tgz`;
 }
@@ -266,6 +291,70 @@ async function main(): Promise<void> {
       run("pnpm", ["exec", "tsc", "--noEmit"], exampleDir);
       run("pnpm", ["exec", "tsx", "index.ts"], exampleDir);
     }
+
+    const negativeDir = join(tempRoot, "core-internal-observation-negative");
+    await mkdir(negativeDir, { recursive: true });
+    await writeFile(
+      join(negativeDir, "index.ts"),
+      [
+        'import type { AttentionObservationIR as RootObservation } from "@tomismeta/aperture-core";',
+        'import type { AttentionObservationIR as EvaluatorObservation } from "@tomismeta/aperture-core/evaluator";',
+        'import type { AttentionObservationIR as SemanticObservation } from "@tomismeta/aperture-core/semantic";',
+        'import type { AttentionObservationIR as TraceObservation } from "@tomismeta/aperture-core/trace";',
+        "void (0 as unknown as RootObservation);",
+        "void (0 as unknown as EvaluatorObservation);",
+        "void (0 as unknown as SemanticObservation);",
+        "void (0 as unknown as TraceObservation);",
+      ].join("\n"),
+      "utf8",
+    );
+    await writeFile(
+      join(negativeDir, "package.json"),
+      `${JSON.stringify(
+        {
+          name: "core-internal-observation-negative",
+          private: true,
+          type: "module",
+          dependencies: {
+            "@tomismeta/aperture-core": `file:${tarballPath}`,
+          },
+          devDependencies: {
+            "@types/node": "^24.1.0",
+            typescript: "^5.9.2",
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+    await writeFile(
+      join(negativeDir, "pnpm-workspace.yaml"),
+      "packages:\n  - .\nautoInstallPeers: false\n",
+      "utf8",
+    );
+    await writeFile(
+      join(negativeDir, "tsconfig.json"),
+      `${JSON.stringify(
+        {
+          compilerOptions: {
+            target: "ES2022",
+            module: "NodeNext",
+            moduleResolution: "NodeNext",
+            strict: true,
+            noEmit: true,
+            skipLibCheck: false,
+            types: ["node"],
+          },
+          include: ["index.ts"],
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+    run("pnpm", ["install", "--prefer-offline"], negativeDir, { ignoreScripts: false });
+    runExpectFailure("pnpm", ["exec", "tsc", "--noEmit"], negativeDir, /AttentionObservationIR/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

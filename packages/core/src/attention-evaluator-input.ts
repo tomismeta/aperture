@@ -15,6 +15,7 @@ import type { EpisodeSummary } from "./episode-tracker.js";
 import type { SourceRef } from "./events.js";
 import type { AttentionFrame } from "./frame.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
+import { createStableFailureOutcomeObservation } from "./observation.js";
 import { formatTimestamp, parseTimestamp } from "./time.js";
 
 export type AttentionEvaluationClock = string | number;
@@ -197,6 +198,11 @@ function buildJudgmentInputFromClaim(
   judgment: AttentionClaimJudgment | undefined,
 ): AttentionCandidate["judgmentInput"] {
   const observationalStatusConflict = judgment?.observationalStatusConflict;
+  const observationAuthority =
+    judgment?.ontology?.source ?? judgment?.semanticEvidence?.source ?? "unknown";
+  const hasRoutineObservationalStatusConflict =
+    judgment?.routineObservationalStatusConflict === true ||
+    observationalStatusConflict !== undefined;
 
   return {
     ...(judgment?.ontology !== undefined ? { ontology: judgment.ontology } : {}),
@@ -214,13 +220,14 @@ function buildJudgmentInputFromClaim(
       ? { relationEvidence: judgment.relationEvidence }
       : {}),
     blockedLikeStatus: judgment?.blockedLikeStatus ?? false,
-    ...(judgment?.routineObservationalStatusConflict === true ||
-    observationalStatusConflict !== undefined
-      ? { routineObservationalStatusConflict: true }
-      : {}),
+    ...(hasRoutineObservationalStatusConflict ? { routineObservationalStatusConflict: true } : {}),
     ...(observationalStatusConflict !== undefined ? { observationalStatusConflict } : {}),
     ...(judgment?.outcomeOnlyFailureStatus === true
       ? {
+          observationEvidence: createStableFailureOutcomeObservation({
+            authority: observationAuthority,
+            strength: judgment.semanticEvidence?.strength ?? "strong",
+          }),
           failureEvidence: {
             kind: "terminal_failure",
             failureDetail: "outcome_only",

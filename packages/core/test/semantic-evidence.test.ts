@@ -4422,6 +4422,13 @@ test("task failure evidence preserves current observational classes", () => {
     {
       kind: "observational_payload",
       toolFamily: "bash",
+      observation: {
+        kind: "payload",
+        origin: "transcript",
+        subject: "tool",
+        consequenceBaseline: "high",
+        toolFamily: "bash",
+      },
       readsAsObservation: true,
       consequenceBaseline: "high",
       text: readSemanticTextEvidence(

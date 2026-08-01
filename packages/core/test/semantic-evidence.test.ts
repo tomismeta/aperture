@@ -8038,7 +8038,7 @@ test("observational status-conflict evidence includes corpus-derived event shape
   );
 
   const clippedJavaScriptRuntimeSourceContextDiagnostic =
-    '/Users/badlogic/workspaces/pi-mono/node_modules/tsx/dist/register-D46fvsV_.cjs:3 `)},"createLog"),x=I(g.bgLightYellow(g.black(" CJS "))),ae=I(g.bgBlue(" ESM "));function createExtensions(){return new URLSearchParams()}...';
+    '/workspace/project/node_modules/tsx/dist/register-D46fvsV_.cjs:3 `)},"createLog"),x=I(g.bgLightYellow(g.black(" CJS "))),ae=I(g.bgBlue(" ESM "));function createExtensions(){return new URLSearchParams()}...';
   assert.equal(
     readTaskFailureSemanticEvidence({
       id: "evt:evidence:raw-command-clipped-js-runtime-source-context",

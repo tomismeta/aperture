@@ -22,9 +22,17 @@ The package path should broaden distribution, not redefine the product.
 
 Today, the real judgment layer lives in the [Aperture core SDK package](../../packages/core/package.json), published on npm as `@tomismeta/aperture-core`.
 
-Current version:
+Current workspace package version:
 
 - `@tomismeta/aperture-core@0.8.0`
+
+Current published npm latest:
+
+- `@tomismeta/aperture-core@0.7.0`
+
+The workspace version and published npm latest can differ while a release branch
+is under review. Treat the published npm package and the versioned release notes
+as the source of truth for what external consumers can install today.
 
 If you want the opinionated local CLI/TUI product, use `@tomismeta/aperture`.
 If you want to embed the deterministic judgment loop in your own host or

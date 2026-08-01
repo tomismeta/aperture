@@ -55,6 +55,10 @@ const pytestSuccessObservationTranscript =
   "OBSERVATION: ============================= 7 passed, 1 warning in 0.42s =============================";
 const abbreviatedFileViewObservationTranscript =
   "OBSERVATION: <NOTE>This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.</NOTE> 1 # fmt: off 2 from __future__ import an...";
+const rangeBasedAbbreviatedFileViewObservationTranscript =
+  "OBSERVATION: <NOTE>Output was shortened because this document exceeds display limits. This is a partial preview; request a specific line range to inspect more.</NOTE> 10 export function run() { 11 const value = 1;";
+const lineFetchAbbreviatedFileViewObservationTranscript =
+  "OBSERVATION: <NOTE>The captured source is longer than the viewer can show in full. Showing a compact excerpt; fetch lines 120-180 to continue.</NOTE> 120 def main(): 121 import os";
 const proceduralHarnessObservationTranscript =
   "OBSERVATION: Thank you for your work on this issue. Please carefully follow the steps below to help review your changes. 1. If you made any changes to your code after running the reproduction script, please run the reproduction script again. 2. Confirm the reproduction script passes before submitting.";
 const mixedProceduralFailureObservationTranscript =
@@ -5987,6 +5991,15 @@ test("explicit observation transcripts classify only narrow low-consequence subc
     shape: "abbreviated_file_view",
     consequenceBaseline: "low",
   });
+  for (const transcript of [
+    rangeBasedAbbreviatedFileViewObservationTranscript,
+    lineFetchAbbreviatedFileViewObservationTranscript,
+  ]) {
+    assert.deepEqual(readExplicitObservationTranscript(transcript), {
+      shape: "abbreviated_file_view",
+      consequenceBaseline: "low",
+    });
+  }
   assert.deepEqual(readExplicitObservationTranscript(proceduralHarnessObservationTranscript), {
     shape: "procedural_harness_observation",
     consequenceBaseline: "low",
@@ -6524,6 +6537,20 @@ test("task failure evidence classifies explicit missing-tool observation transcr
   assert.equal(explicitReadAbbreviatedFileView.readsAsObservation, true);
   assert.equal(explicitReadAbbreviatedFileView.consequenceBaseline, "low");
   assert.equal(explicitReadAbbreviatedFileView.toolFamily, "read");
+  const explicitReadGeneralizedAbbreviatedFileView = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:read-generalized-abbreviated-file-view",
+    taskId: "task:evidence:read-generalized-abbreviated-file-view",
+    timestamp,
+    type: "task.updated",
+    title: "read failure",
+    summary: lineFetchAbbreviatedFileViewObservationTranscript,
+    status: "failed",
+    toolFamily: "read",
+  });
+  assert.equal(explicitReadGeneralizedAbbreviatedFileView?.kind, "observational_payload");
+  assert.equal(explicitReadGeneralizedAbbreviatedFileView.readsAsObservation, true);
+  assert.equal(explicitReadGeneralizedAbbreviatedFileView.consequenceBaseline, "low");
+  assert.equal(explicitReadGeneralizedAbbreviatedFileView.toolFamily, "read");
   assert.equal(
     readTaskFailureSemanticEvidence({
       id: "evt:evidence:read-abbreviated-file-view-note-only",

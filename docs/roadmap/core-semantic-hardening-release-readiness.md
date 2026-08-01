@@ -231,7 +231,10 @@ Before publish:
 
 1. choose the target version
 2. update `packages/core/package.json`
-3. add a versioned `docs/releases/aperture-core-vX.Y.Z.md`
+3. replace or supersede the existing unreleased
+   `docs/releases/aperture-core-v0.8.0.md` note if `0.8.0` remains the chosen
+   target version, or add a new versioned
+   `docs/releases/aperture-core-vX.Y.Z.md`
 4. update any npm-facing README links that should point at the new release
 5. run `pnpm release:check`
 6. run `pnpm sdk:prove`
@@ -262,6 +265,10 @@ Additional branch evidence:
   ontology, and evaluator checks
 - focused semantic/kernel/lab suites for the explicit read abbreviated-file-view
   tranche add 96/96 passing checks
+- Sol follow-up generalized the abbreviated-file-view recognizer away from
+  exact provider command wording; the production predicate now requires
+  oversized-source, partial-view, range-recovery, and source-payload structure,
+  with lexical variants covered in focused semantic tests
 - focused public SDK surface suite after product-surface audit:
   `packages/core/test/public-sdk.test.ts` passed 11/11
 - packed SDK proof after product-surface audit: tarball shape plus full engine,

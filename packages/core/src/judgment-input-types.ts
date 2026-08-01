@@ -1,19 +1,21 @@
 import type { SemanticConfidence } from "./semantic-types.js";
-import type { TaskFailureDetail, TaskFailureEvidenceKind } from "./semantic-evidence.js";
 import type {
   AttentionOntologyAuthority,
   AttentionOntologyDiagnostic,
 } from "./semantic-ontology-types.js";
 import type { ObservationalStatusConflictEvidence } from "./observational-status-conflict.js";
-import type { AttentionObservationAgreement, AttentionObservationIR } from "./observation.js";
+import type {
+  NormalizedObservationSemanticAgreement,
+  NormalizedObservation,
+} from "./normalized-observation.js";
 export type {
   ObservationalStatusConflictEvidence,
   ObservationalStatusConflictKind,
 } from "./observational-status-conflict.js";
-export type { AttentionObservationIR } from "./observation.js";
+export type { NormalizedObservation } from "./normalized-observation.js";
 
 export type SemanticEvidenceStrength = "weak" | "qualified" | "strong";
-export type TaskFailureSemanticAgreement = AttentionObservationAgreement;
+export type TaskFailureSemanticAgreement = NormalizedObservationSemanticAgreement;
 
 export type AttentionJudgmentInput = {
   ontology?: AttentionOntologyDiagnostic;
@@ -27,13 +29,7 @@ export type AttentionJudgmentInput = {
     source: AttentionOntologyAuthority;
     strength: SemanticEvidenceStrength;
   };
-  failureEvidence?: {
-    kind: TaskFailureEvidenceKind;
-    failureDetail?: TaskFailureDetail;
-    consequenceBaseline: "low" | "medium" | "high";
-    semanticAgreement: TaskFailureSemanticAgreement;
-  };
-  observationEvidence?: AttentionObservationIR;
+  observation?: NormalizedObservation;
   // Narrow status-routing diagnostic, not a generic proxy for blockingness.
   // Human input is already blocking by contract; this exists only for task
   // statuses that semantically read as blocked without becoming a full

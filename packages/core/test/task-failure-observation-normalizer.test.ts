@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { compileAttentionObservation } from "../src/observation-compiler.js";
-import type { AttentionObservationIR } from "../src/observation.js";
+import { normalizeTaskFailureObservation } from "../src/task-failure-observation-normalizer.js";
+import type { NormalizedObservation } from "../src/normalized-observation.js";
 import type {
   SemanticTextEvidence,
   TaskFailureSemanticEvidence,
@@ -51,24 +51,24 @@ function evidence(
 
 function compile(
   failureEvidence: TaskFailureSemanticEvidence,
-  input: Partial<Parameters<typeof compileAttentionObservation>[0]> = {},
-): AttentionObservationIR {
-  return compileAttentionObservation({
+  input: Partial<Parameters<typeof normalizeTaskFailureObservation>[0]> = {},
+): NormalizedObservation {
+  return normalizeTaskFailureObservation({
     failureEvidence,
     ontology: { ...ontology, consequence: failureEvidence.consequenceBaseline },
     abstained: false,
-    agreement: "stable",
+    semanticAgreement: "stable",
     ...input,
   });
 }
 
-test("observation compiler maps every task-failure evidence kind into compressed IR", () => {
+test("task-failure observation normalizer maps every evidence kind into the normalized document", () => {
   const cases: Array<{
     name: string;
     evidence: TaskFailureSemanticEvidence;
-    expected: Partial<AttentionObservationIR> & {
-      ownership?: Partial<AttentionObservationIR["ownership"]>;
-      provenance?: Partial<AttentionObservationIR["provenance"]>;
+    expected: Partial<NormalizedObservation> & {
+      ownership?: Partial<NormalizedObservation["ownership"]>;
+      provenance?: Partial<NormalizedObservation["provenance"]>;
     };
   }> = [
     {
@@ -146,7 +146,7 @@ test("observation compiler maps every task-failure evidence kind into compressed
         polarity: "failure",
         evidenceLoss: "absent",
         recoveryHint: "request_evidence",
-        strength: "weak",
+        evidenceStrength: "weak",
       },
     },
     {
@@ -268,7 +268,7 @@ test("observation compiler maps every task-failure evidence kind into compressed
         polarity: "failure",
         evidenceLoss: "unknown",
         recoveryHint: "inspect_original_evidence",
-        strength: "weak",
+        evidenceStrength: "weak",
       },
     },
   ];
@@ -280,9 +280,9 @@ test("observation compiler maps every task-failure evidence kind into compressed
       if (key === "ownership" || key === "provenance") {
         continue;
       }
-      assert.deepEqual(observation[key as keyof AttentionObservationIR], value, testCase.name);
+      assert.deepEqual(observation[key as keyof NormalizedObservation], value, testCase.name);
     }
-    assert.equal(observation.agreement, "stable", testCase.name);
+    assert.equal(observation.semanticAgreement, "stable", testCase.name);
     assert.equal(
       observation.consequenceBaseline,
       testCase.evidence.consequenceBaseline,
@@ -301,7 +301,7 @@ test("observation compiler maps every task-failure evidence kind into compressed
   }
 });
 
-test("observation compiler lowers certainty for uncertainty and evidence loss", () => {
+test("task-failure observation normalizer lowers certainty for uncertainty and evidence loss", () => {
   const absent = evidence({
     kind: "empty_failure_payload",
     failureDetail: "absent_evidence",
@@ -314,14 +314,17 @@ test("observation compiler lowers certainty for uncertainty and evidence loss", 
     consequenceBaseline: "high",
   });
 
-  assert.equal(compile(absent).strength, "weak");
-  assert.equal(compile(runtimeDiagnostic).strength, "strong");
-  assert.equal(compile(runtimeDiagnostic, { agreement: "overridden" }).strength, "weak");
-  assert.equal(compile(runtimeDiagnostic, { abstained: true }).strength, "weak");
+  assert.equal(compile(absent).evidenceStrength, "weak");
+  assert.equal(compile(runtimeDiagnostic).evidenceStrength, "strong");
+  assert.equal(
+    compile(runtimeDiagnostic, { semanticAgreement: "overridden" }).evidenceStrength,
+    "weak",
+  );
+  assert.equal(compile(runtimeDiagnostic, { abstained: true }).evidenceStrength, "weak");
   assert.equal(
     compile(runtimeDiagnostic, {
       ontology: { ...ontology, consequence: "high", confidence: "low" },
-    }).strength,
+    }).evidenceStrength,
     "weak",
   );
 });

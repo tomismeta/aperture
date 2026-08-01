@@ -64,6 +64,7 @@ export function collectKernelCorpusScenarioCheckpoints(
       semanticOntology,
       relation,
       decisionProjection,
+      normalizedObservation: [],
     },
     failures,
   };
@@ -113,7 +114,10 @@ function isScorecardThresholds(
     value.minimumSemanticOntologyCheckpoints === thresholds.minimumSemanticOntologyCheckpoints &&
     value.minimumDecisionProjectionCheckpoints ===
       thresholds.minimumDecisionProjectionCheckpoints &&
-    value.minimumRelationCheckpoints === thresholds.minimumRelationCheckpoints
+    value.minimumRelationCheckpoints === thresholds.minimumRelationCheckpoints &&
+    value.minimumNormalizedObservationCheckpoints ===
+      thresholds.minimumNormalizedObservationCheckpoints &&
+    value.minimumNormalizedObservationScenarios === thresholds.minimumNormalizedObservationScenarios
   );
 }
 
@@ -126,7 +130,9 @@ function isScorecardThresholdShape(value: unknown): value is KernelCorpusScoreca
     isFiniteNumber(value.minimumAssertionsPerScenario) &&
     isFiniteNumber(value.minimumSemanticOntologyCheckpoints) &&
     isFiniteNumber(value.minimumDecisionProjectionCheckpoints) &&
-    isFiniteNumber(value.minimumRelationCheckpoints)
+    isFiniteNumber(value.minimumRelationCheckpoints) &&
+    isFiniteNumber(value.minimumNormalizedObservationCheckpoints) &&
+    isFiniteNumber(value.minimumNormalizedObservationScenarios)
   );
 }
 
@@ -154,6 +160,10 @@ function isScorecardSummary(value: unknown): value is KernelCorpusScorecard["sum
     isRecord(value.decisionCheckpoints) &&
     isFiniteNumber(value.decisionCheckpoints.total) &&
     isFiniteNumber(value.decisionCheckpoints.projection) &&
+    isRecord(value.normalizedObservationCheckpoints) &&
+    isFiniteNumber(value.normalizedObservationCheckpoints.total) &&
+    isFiniteNumber(value.normalizedObservationCheckpoints.scenarios) &&
+    isFiniteNumber(value.normalizedObservationCheckpoints.unique) &&
     isRecord(value.fingerprints) &&
     isFiniteNumber(value.fingerprints.total) &&
     isFiniteNumber(value.fingerprints.unique) &&
@@ -208,18 +218,18 @@ function isOutcomeCoverage(value: unknown): value is KernelCorpusScorecardOutcom
     isOutcomeDistribution(value.judgment.candidateConsequences) &&
     isOutcomeDistribution(value.judgment.semanticConfidences) &&
     isOutcomeDistribution(value.judgment.failureDetails) &&
-    isOutcomeDistribution(value.judgment.observationPresence) &&
-    isOutcomeDistribution(value.judgment.observationKinds) &&
-    isOutcomeDistribution(value.judgment.observationPolarities) &&
-    isOutcomeDistribution(value.judgment.observationEvidenceLosses) &&
-    isOptionalOutcomeDistribution(value.judgment.observationDiagnosticClasses) &&
-    isOptionalOutcomeDistribution(value.judgment.observationRecoveryHints) &&
-    isOutcomeDistribution(value.judgment.observationSubjects) &&
-    isOutcomeDistribution(value.judgment.observationOwners) &&
-    isOutcomeDistribution(value.judgment.observationStrengths) &&
-    isOutcomeDistribution(value.judgment.observationAgreements) &&
-    isOutcomeDistribution(value.judgment.observationProvenanceOrigins) &&
-    isOutcomeDistribution(value.judgment.observationProvenanceAuthorities)
+    isOutcomeDistribution(value.judgment.normalizedObservationPresence) &&
+    isOutcomeDistribution(value.judgment.normalizedObservationKinds) &&
+    isOutcomeDistribution(value.judgment.normalizedObservationPolarities) &&
+    isOutcomeDistribution(value.judgment.normalizedObservationEvidenceLosses) &&
+    isOptionalOutcomeDistribution(value.judgment.normalizedObservationDiagnosticClasses) &&
+    isOptionalOutcomeDistribution(value.judgment.normalizedObservationRecoveryHints) &&
+    isOutcomeDistribution(value.judgment.normalizedObservationSubjects) &&
+    isOutcomeDistribution(value.judgment.normalizedObservationOwners) &&
+    isOutcomeDistribution(value.judgment.normalizedObservationEvidenceStrengths) &&
+    isOutcomeDistribution(value.judgment.normalizedObservationSemanticAgreements) &&
+    isOutcomeDistribution(value.judgment.normalizedObservationProvenanceOrigins) &&
+    isOutcomeDistribution(value.judgment.normalizedObservationProvenanceAuthorities)
   );
 }
 
@@ -272,7 +282,8 @@ function isScenarioCheckpoints(value: unknown): value is KernelCorpusScorecardSc
     typeof value.id === "string" &&
     isStringArray(value.semanticOntology) &&
     isStringArray(value.relation) &&
-    isStringArray(value.decisionProjection)
+    isStringArray(value.decisionProjection) &&
+    isStringArray(value.normalizedObservation)
   );
 }
 

@@ -119,13 +119,13 @@ export async function checkPackageBoundaries(root = defaultRepoRoot): Promise<Bo
         collectWorkspacePackageImports(importSpecifiers),
         "Keep production core independent. Share contracts through public core exports or move integration coverage into the owning adapter package.",
       );
-      const rawFailureEvidenceReads = collectRawJudgmentFailureEvidenceReads(root, file, content);
+      const rawFailureEvidenceReads = collectRawJudgmentFailureEvidenceReads(content);
       if (rawFailureEvidenceReads.length > 0) {
         judgmentInputViolations.push({
           file,
           matches: rawFailureEvidenceReads,
           guidance:
-            "Judgment and policy code should consume observationEvidence. Keep failureEvidence reads in the compiler/compatibility projection only.",
+            "Judgment and policy code should consume observation. Keep raw task-failure evidence local to semantic evidence readers and the NormalizedObservation normalizer.",
         });
       }
     }
@@ -189,7 +189,7 @@ export function renderBoundaryCheckReport(root: string, result: BoundaryCheckRes
   }
 
   if (result.judgmentInputViolations.length > 0) {
-    lines.push("Production core reads raw judgment failure evidence outside the IR seam:");
+    lines.push("Production core reads raw judgment failure evidence after normalization:");
     for (const violation of result.judgmentInputViolations) {
       lines.push(`- ${relative(root, violation.file)}: ${violation.matches.join(", ")}`);
     }
@@ -282,26 +282,10 @@ function collectModuleSpecifiers(content: string): string[] {
   return [...specifiers];
 }
 
-function collectRawJudgmentFailureEvidenceReads(
-  root: string,
-  file: string,
-  content: string,
-): string[] {
-  if (isRawJudgmentFailureEvidenceAllowed(root, file)) {
-    return [];
-  }
-
+function collectRawJudgmentFailureEvidenceReads(content: string): string[] {
   return [...content.matchAll(rawJudgmentFailureEvidencePattern)]
     .map((match) => match[0])
     .filter(Boolean);
-}
-
-function isRawJudgmentFailureEvidenceAllowed(root: string, file: string): boolean {
-  const relativeFile = relative(root, file).replace(/\\/g, "/");
-  return (
-    relativeFile === "packages/core/src/attention-evaluator-input.ts" ||
-    relativeFile === "packages/core/src/judgment-input.ts"
-  );
 }
 
 function collectSiblingImplementationImports(

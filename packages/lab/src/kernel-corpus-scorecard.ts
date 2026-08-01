@@ -8,7 +8,7 @@ import {
 import { runReplayScenario } from "./runner.js";
 import type { ReplayScenario, ReplayScenarioExpectations } from "./scenario.js";
 
-export const KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION = 4 as const;
+export const KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION = 5 as const;
 export const KERNEL_CORPUS_SCORECARD_COMPARISON_SCHEMA_VERSION = 2 as const;
 
 export const KERNEL_CORPUS_SCORECARD_THRESHOLDS = {
@@ -19,6 +19,8 @@ export const KERNEL_CORPUS_SCORECARD_THRESHOLDS = {
   minimumSemanticOntologyCheckpoints: 58,
   minimumDecisionProjectionCheckpoints: 69,
   minimumRelationCheckpoints: 13,
+  minimumNormalizedObservationCheckpoints: 36,
+  minimumNormalizedObservationScenarios: 33,
 } as const;
 
 export type KernelCorpusScorecard = {
@@ -58,6 +60,11 @@ export type KernelCorpusScorecard = {
       total: number;
       projection: number;
     };
+    normalizedObservationCheckpoints: {
+      total: number;
+      scenarios: number;
+      unique: number;
+    };
     fingerprints: {
       total: number;
       unique: number;
@@ -84,6 +91,7 @@ export type KernelCorpusScorecardScenarioCheckpoints = {
   semanticOntology: string[];
   relation: string[];
   decisionProjection: string[];
+  normalizedObservation: string[];
 };
 
 export type KernelCorpusScorecardOutcomeCoverage = {
@@ -106,18 +114,18 @@ export type KernelCorpusScorecardOutcomeCoverage = {
     candidateConsequences: KernelCorpusScorecardOutcomeDistribution;
     semanticConfidences: KernelCorpusScorecardOutcomeDistribution;
     failureDetails: KernelCorpusScorecardOutcomeDistribution;
-    observationPresence: KernelCorpusScorecardOutcomeDistribution;
-    observationKinds: KernelCorpusScorecardOutcomeDistribution;
-    observationPolarities: KernelCorpusScorecardOutcomeDistribution;
-    observationEvidenceLosses: KernelCorpusScorecardOutcomeDistribution;
-    observationDiagnosticClasses: KernelCorpusScorecardOutcomeDistribution;
-    observationRecoveryHints: KernelCorpusScorecardOutcomeDistribution;
-    observationSubjects: KernelCorpusScorecardOutcomeDistribution;
-    observationOwners: KernelCorpusScorecardOutcomeDistribution;
-    observationStrengths: KernelCorpusScorecardOutcomeDistribution;
-    observationAgreements: KernelCorpusScorecardOutcomeDistribution;
-    observationProvenanceOrigins: KernelCorpusScorecardOutcomeDistribution;
-    observationProvenanceAuthorities: KernelCorpusScorecardOutcomeDistribution;
+    normalizedObservationPresence: KernelCorpusScorecardOutcomeDistribution;
+    normalizedObservationKinds: KernelCorpusScorecardOutcomeDistribution;
+    normalizedObservationPolarities: KernelCorpusScorecardOutcomeDistribution;
+    normalizedObservationEvidenceLosses: KernelCorpusScorecardOutcomeDistribution;
+    normalizedObservationDiagnosticClasses: KernelCorpusScorecardOutcomeDistribution;
+    normalizedObservationRecoveryHints: KernelCorpusScorecardOutcomeDistribution;
+    normalizedObservationSubjects: KernelCorpusScorecardOutcomeDistribution;
+    normalizedObservationOwners: KernelCorpusScorecardOutcomeDistribution;
+    normalizedObservationEvidenceStrengths: KernelCorpusScorecardOutcomeDistribution;
+    normalizedObservationSemanticAgreements: KernelCorpusScorecardOutcomeDistribution;
+    normalizedObservationProvenanceOrigins: KernelCorpusScorecardOutcomeDistribution;
+    normalizedObservationProvenanceAuthorities: KernelCorpusScorecardOutcomeDistribution;
   };
 };
 
@@ -143,6 +151,8 @@ export type KernelCorpusScorecardComparison = {
     semanticOntologyCheckpoints: number;
     relationCheckpoints: number;
     decisionProjectionCheckpoints: number;
+    normalizedObservationCheckpoints: number;
+    normalizedObservationScenarios: number;
   };
   dimensionDeltas: Array<{
     id: string;
@@ -155,6 +165,7 @@ export type KernelCorpusScorecardComparison = {
     missingSemanticOntology: string[];
     missingRelation: string[];
     missingDecisionProjection: string[];
+    missingNormalizedObservation: string[];
   }>;
   outcomeCoverageDeltas: Array<{
     path: string;
@@ -190,7 +201,19 @@ export function parseKernelCorpusScorecard(source: string): KernelCorpusScorecar
 }
 
 export function parseHistoricalKernelCorpusScorecard(source: string): KernelCorpusScorecard {
-  return parseKernelCorpusScorecardValue(source, KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION, null);
+  try {
+    return parseKernelCorpusScorecardValue(source, KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION, null);
+  } catch (error) {
+    const value = JSON.parse(source) as unknown;
+    if (isHistoricalV4Scorecard(value)) {
+      return parseKernelCorpusScorecardValue(
+        JSON.stringify(migrateHistoricalV4Scorecard(value)),
+        KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION,
+        null,
+      );
+    }
+    throw error;
+  }
 }
 
 export function buildKernelCorpusScorecard(
@@ -258,6 +281,12 @@ export function buildKernelCorpusScorecardComparison(
     decisionProjectionCheckpoints:
       candidate.summary.decisionCheckpoints.projection -
       baseline.summary.decisionCheckpoints.projection,
+    normalizedObservationCheckpoints:
+      candidate.summary.normalizedObservationCheckpoints.total -
+      baseline.summary.normalizedObservationCheckpoints.total,
+    normalizedObservationScenarios:
+      candidate.summary.normalizedObservationCheckpoints.scenarios -
+      baseline.summary.normalizedObservationCheckpoints.scenarios,
   };
   const dimensionDeltas = compareScorecardDimensions(baseline, candidate);
   const scenarioCheckpointDeltas = compareScenarioCheckpoints(baseline, candidate);
@@ -338,7 +367,14 @@ function collectScorecardMetrics(
     ({ id, expectations: scenarioExpectations }) =>
       collectKernelCorpusScenarioCheckpoints(id, scenarioExpectations),
   );
-  const scenarioCheckpoints = checkpointResults.map((result) => result.checkpoints);
+  const scenarioCheckpoints = checkpointResults.map((result) => ({
+    ...result.checkpoints,
+    normalizedObservation: collectNormalizedObservationCheckpoints(
+      result.checkpoints.id,
+      scenarioById,
+      resultById,
+    ),
+  }));
   integrityFailures.push(...checkpointResults.flatMap((result) => result.failures));
   const semanticOntologyCheckpointCount = sum(
     scenarioCheckpoints.map((scenario) => scenario.semanticOntology.length),
@@ -349,6 +385,10 @@ function collectScorecardMetrics(
   const decisionProjectionCheckpointCount = sum(
     scenarioCheckpoints.map((scenario) => scenario.decisionProjection.length),
   );
+  const normalizedObservationCheckpointDigests = scenarioCheckpoints.flatMap(
+    (scenario) => scenario.normalizedObservation,
+  );
+  const normalizedObservationCheckpointCount = normalizedObservationCheckpointDigests.length;
 
   return {
     metrics: {
@@ -384,6 +424,13 @@ function collectScorecardMetrics(
       decisionCheckpoints: {
         total: decisionProjectionCheckpointCount,
         projection: decisionProjectionCheckpointCount,
+      },
+      normalizedObservationCheckpoints: {
+        total: normalizedObservationCheckpointCount,
+        scenarios: scenarioCheckpoints.filter(
+          (scenario) => scenario.normalizedObservation.length > 0,
+        ).length,
+        unique: new Set(normalizedObservationCheckpointDigests).size,
       },
       fingerprints: {
         total: decisionFingerprints.length,
@@ -449,6 +496,18 @@ function collectScorecardFailures(
     metrics.semanticCheckpoints.relation,
     "minimumRelationCheckpoints",
   );
+  pushMinimumFailure(
+    failures,
+    "normalized_observation_checkpoints",
+    metrics.normalizedObservationCheckpoints.total,
+    "minimumNormalizedObservationCheckpoints",
+  );
+  pushMinimumFailure(
+    failures,
+    "normalized_observation_scenarios",
+    metrics.normalizedObservationCheckpoints.scenarios,
+    "minimumNormalizedObservationScenarios",
+  );
   failures.push(...collectOutcomeCoverageFailures(outcomeCoverage));
   return failures;
 }
@@ -457,68 +516,82 @@ function collectOutcomeCoverageFailures(coverage: KernelCorpusScorecardOutcomeCo
   const failures = listOutcomeCoverageDistributions(coverage)
     .filter(({ distribution, required }) => required && distribution.length === 0)
     .map(({ path }) => `scorecard:empty_outcome_coverage:${path}`);
-  failures.push(...collectObservationCoverageIntegrityFailures(coverage));
+  failures.push(...collectNormalizedObservationCoverageIntegrityFailures(coverage));
   return failures;
 }
 
-function collectObservationCoverageIntegrityFailures(
+function collectNormalizedObservationCoverageIntegrityFailures(
   coverage: KernelCorpusScorecardOutcomeCoverage,
 ): string[] {
   const failures: string[] = [];
   const candidateTotal = sumOutcomeDistribution(coverage.judgment.candidateConsequences);
-  const presenceTotal = sumOutcomeDistribution(coverage.judgment.observationPresence);
+  const presenceTotal = sumOutcomeDistribution(coverage.judgment.normalizedObservationPresence);
   const presentCount = readOutcomeDistributionCount(
-    coverage.judgment.observationPresence,
+    coverage.judgment.normalizedObservationPresence,
     "present",
   );
 
   if (presenceTotal !== candidateTotal) {
     failures.push(
-      `scorecard:observation_presence_total:${presenceTotal}!=candidate_traces:${candidateTotal}`,
+      `scorecard:normalized_observation_presence_total:${presenceTotal}!=candidate_traces:${candidateTotal}`,
     );
   }
 
   const requiredObservationDimensions = [
-    { path: "judgment.observationKinds", distribution: coverage.judgment.observationKinds },
     {
-      path: "judgment.observationPolarities",
-      distribution: coverage.judgment.observationPolarities,
+      path: "judgment.normalizedObservationKinds",
+      distribution: coverage.judgment.normalizedObservationKinds,
     },
     {
-      path: "judgment.observationEvidenceLosses",
-      distribution: coverage.judgment.observationEvidenceLosses,
-    },
-    { path: "judgment.observationSubjects", distribution: coverage.judgment.observationSubjects },
-    { path: "judgment.observationOwners", distribution: coverage.judgment.observationOwners },
-    { path: "judgment.observationStrengths", distribution: coverage.judgment.observationStrengths },
-    {
-      path: "judgment.observationAgreements",
-      distribution: coverage.judgment.observationAgreements,
+      path: "judgment.normalizedObservationPolarities",
+      distribution: coverage.judgment.normalizedObservationPolarities,
     },
     {
-      path: "judgment.observationProvenanceOrigins",
-      distribution: coverage.judgment.observationProvenanceOrigins,
+      path: "judgment.normalizedObservationEvidenceLosses",
+      distribution: coverage.judgment.normalizedObservationEvidenceLosses,
     },
     {
-      path: "judgment.observationProvenanceAuthorities",
-      distribution: coverage.judgment.observationProvenanceAuthorities,
+      path: "judgment.normalizedObservationSubjects",
+      distribution: coverage.judgment.normalizedObservationSubjects,
+    },
+    {
+      path: "judgment.normalizedObservationOwners",
+      distribution: coverage.judgment.normalizedObservationOwners,
+    },
+    {
+      path: "judgment.normalizedObservationEvidenceStrengths",
+      distribution: coverage.judgment.normalizedObservationEvidenceStrengths,
+    },
+    {
+      path: "judgment.normalizedObservationSemanticAgreements",
+      distribution: coverage.judgment.normalizedObservationSemanticAgreements,
+    },
+    {
+      path: "judgment.normalizedObservationProvenanceOrigins",
+      distribution: coverage.judgment.normalizedObservationProvenanceOrigins,
+    },
+    {
+      path: "judgment.normalizedObservationProvenanceAuthorities",
+      distribution: coverage.judgment.normalizedObservationProvenanceAuthorities,
     },
   ];
   const optionalObservationDimensions = [
     {
-      path: "judgment.observationDiagnosticClasses",
-      distribution: coverage.judgment.observationDiagnosticClasses,
+      path: "judgment.normalizedObservationDiagnosticClasses",
+      distribution: coverage.judgment.normalizedObservationDiagnosticClasses,
     },
     {
-      path: "judgment.observationRecoveryHints",
-      distribution: coverage.judgment.observationRecoveryHints,
+      path: "judgment.normalizedObservationRecoveryHints",
+      distribution: coverage.judgment.normalizedObservationRecoveryHints,
     },
   ];
 
   for (const { path, distribution } of requiredObservationDimensions) {
     const total = sumOutcomeDistribution(distribution);
     if (total !== presentCount) {
-      failures.push(`scorecard:observation_dimension_total:${path}:${total}!=${presentCount}`);
+      failures.push(
+        `scorecard:normalized_observation_dimension_total:${path}:${total}!=${presentCount}`,
+      );
     }
   }
 
@@ -526,7 +599,7 @@ function collectObservationCoverageIntegrityFailures(
     const total = sumOutcomeDistribution(distribution);
     if (total > presentCount) {
       failures.push(
-        `scorecard:observation_optional_dimension_total:${path}:${total}>${presentCount}`,
+        `scorecard:normalized_observation_optional_dimension_total:${path}:${total}>${presentCount}`,
       );
     }
   }
@@ -577,13 +650,18 @@ function compareScenarioCheckpoints(
           scenario.decisionProjection,
           candidateScenario?.decisionProjection ?? [],
         ),
+        missingNormalizedObservation: missingDigests(
+          scenario.normalizedObservation,
+          candidateScenario?.normalizedObservation ?? [],
+        ),
       };
     })
     .filter(
       (scenario) =>
         scenario.missingSemanticOntology.length > 0 ||
         scenario.missingRelation.length > 0 ||
-        scenario.missingDecisionProjection.length > 0,
+        scenario.missingDecisionProjection.length > 0 ||
+        scenario.missingNormalizedObservation.length > 0,
     )
     .sort((left, right) => compareKernelCanonicalKey(left.id, right.id));
 }
@@ -638,6 +716,16 @@ function collectScorecardComparisonFailures(
     "decision_projection_checkpoints",
     deltas.decisionProjectionCheckpoints,
   );
+  pushNonNegativeDeltaFailure(
+    failures,
+    "normalized_observation_checkpoints",
+    deltas.normalizedObservationCheckpoints,
+  );
+  pushNonNegativeDeltaFailure(
+    failures,
+    "normalized_observation_scenarios",
+    deltas.normalizedObservationScenarios,
+  );
   pushThresholdRegressionFailures(failures, baseline.thresholds, candidate.thresholds);
 
   for (const dimension of dimensionDeltas) {
@@ -658,6 +746,11 @@ function collectScorecardComparisonFailures(
     for (const digest of scenario.missingDecisionProjection) {
       failures.push(
         `scorecard_comparison:scenario:${scenario.id}:missing_decision_projection:${digest}`,
+      );
+    }
+    for (const digest of scenario.missingNormalizedObservation) {
+      failures.push(
+        `scorecard_comparison:scenario:${scenario.id}:missing_normalized_observation:${digest}`,
       );
     }
   }
@@ -738,35 +831,55 @@ function buildKernelCorpusOutcomeCoverage(
       );
       addOutcome(
         accumulators.judgment.failureDetails,
-        trace.evaluation.adjusted.judgmentInput.failureEvidence?.failureDetail,
+        readNormalizedFailureDetail(trace.evaluation.adjusted.judgmentInput.observation),
         id,
       );
-      const observation = trace.evaluation.adjusted.judgmentInput.observationEvidence;
+      const observation = trace.evaluation.adjusted.judgmentInput.observation;
       addOutcome(
-        accumulators.judgment.observationPresence,
+        accumulators.judgment.normalizedObservationPresence,
         observation === undefined ? "absent" : "present",
         id,
       );
-      addOutcome(accumulators.judgment.observationKinds, observation?.kind, id);
-      addOutcome(accumulators.judgment.observationPolarities, observation?.polarity, id);
-      addOutcome(accumulators.judgment.observationEvidenceLosses, observation?.evidenceLoss, id);
+      addOutcome(accumulators.judgment.normalizedObservationKinds, observation?.kind, id);
+      addOutcome(accumulators.judgment.normalizedObservationPolarities, observation?.polarity, id);
       addOutcome(
-        accumulators.judgment.observationDiagnosticClasses,
+        accumulators.judgment.normalizedObservationEvidenceLosses,
+        observation?.evidenceLoss,
+        id,
+      );
+      addOutcome(
+        accumulators.judgment.normalizedObservationDiagnosticClasses,
         observation?.diagnosticClass,
         id,
       );
-      addOutcome(accumulators.judgment.observationRecoveryHints, observation?.recoveryHint, id);
-      addOutcome(accumulators.judgment.observationSubjects, observation?.subject, id);
-      addOutcome(accumulators.judgment.observationOwners, observation?.ownership.owner, id);
-      addOutcome(accumulators.judgment.observationStrengths, observation?.strength, id);
-      addOutcome(accumulators.judgment.observationAgreements, observation?.agreement, id);
       addOutcome(
-        accumulators.judgment.observationProvenanceOrigins,
+        accumulators.judgment.normalizedObservationRecoveryHints,
+        observation?.recoveryHint,
+        id,
+      );
+      addOutcome(accumulators.judgment.normalizedObservationSubjects, observation?.subject, id);
+      addOutcome(
+        accumulators.judgment.normalizedObservationOwners,
+        observation?.ownership.owner,
+        id,
+      );
+      addOutcome(
+        accumulators.judgment.normalizedObservationEvidenceStrengths,
+        observation?.evidenceStrength,
+        id,
+      );
+      addOutcome(
+        accumulators.judgment.normalizedObservationSemanticAgreements,
+        observation?.semanticAgreement,
+        id,
+      );
+      addOutcome(
+        accumulators.judgment.normalizedObservationProvenanceOrigins,
         observation?.provenance.origin,
         id,
       );
       addOutcome(
-        accumulators.judgment.observationProvenanceAuthorities,
+        accumulators.judgment.normalizedObservationProvenanceAuthorities,
         observation?.provenance.authority,
         id,
       );
@@ -774,6 +887,49 @@ function buildKernelCorpusOutcomeCoverage(
   }
 
   return finalizeOutcomeCoverage(accumulators);
+}
+
+function readNormalizedFailureDetail(
+  observation:
+    | {
+        kind?: string;
+        polarity?: string;
+        evidenceLoss?: string;
+        diagnosticClass?: string;
+      }
+    | undefined,
+): string | undefined {
+  if (observation === undefined) {
+    return undefined;
+  }
+
+  if (observation.kind === "diagnostic") {
+    switch (observation.diagnosticClass) {
+      case "runtime":
+        return "diagnostic";
+      case "source_limit":
+        return "source_window_limit";
+      default:
+        return undefined;
+    }
+  }
+
+  if (observation.kind === "outcome") {
+    switch (observation.evidenceLoss) {
+      case "absent":
+        return "absent_evidence";
+      case "unknown":
+        return "indeterminate";
+      case "none":
+        return observation.polarity === "failure" ? "outcome_only" : undefined;
+      default:
+        return undefined;
+    }
+  }
+
+  return observation.kind === "unknown" && observation.evidenceLoss === "unknown"
+    ? "indeterminate"
+    : undefined;
 }
 
 type OutcomeCoverageAccumulators = {
@@ -796,18 +952,18 @@ type OutcomeCoverageAccumulators = {
     candidateConsequences: OutcomeDistributionAccumulator;
     semanticConfidences: OutcomeDistributionAccumulator;
     failureDetails: OutcomeDistributionAccumulator;
-    observationPresence: OutcomeDistributionAccumulator;
-    observationKinds: OutcomeDistributionAccumulator;
-    observationPolarities: OutcomeDistributionAccumulator;
-    observationEvidenceLosses: OutcomeDistributionAccumulator;
-    observationDiagnosticClasses: OutcomeDistributionAccumulator;
-    observationRecoveryHints: OutcomeDistributionAccumulator;
-    observationSubjects: OutcomeDistributionAccumulator;
-    observationOwners: OutcomeDistributionAccumulator;
-    observationStrengths: OutcomeDistributionAccumulator;
-    observationAgreements: OutcomeDistributionAccumulator;
-    observationProvenanceOrigins: OutcomeDistributionAccumulator;
-    observationProvenanceAuthorities: OutcomeDistributionAccumulator;
+    normalizedObservationPresence: OutcomeDistributionAccumulator;
+    normalizedObservationKinds: OutcomeDistributionAccumulator;
+    normalizedObservationPolarities: OutcomeDistributionAccumulator;
+    normalizedObservationEvidenceLosses: OutcomeDistributionAccumulator;
+    normalizedObservationDiagnosticClasses: OutcomeDistributionAccumulator;
+    normalizedObservationRecoveryHints: OutcomeDistributionAccumulator;
+    normalizedObservationSubjects: OutcomeDistributionAccumulator;
+    normalizedObservationOwners: OutcomeDistributionAccumulator;
+    normalizedObservationEvidenceStrengths: OutcomeDistributionAccumulator;
+    normalizedObservationSemanticAgreements: OutcomeDistributionAccumulator;
+    normalizedObservationProvenanceOrigins: OutcomeDistributionAccumulator;
+    normalizedObservationProvenanceAuthorities: OutcomeDistributionAccumulator;
   };
 };
 
@@ -834,18 +990,18 @@ function createOutcomeCoverageAccumulators(): OutcomeCoverageAccumulators {
       candidateConsequences: new Map(),
       semanticConfidences: new Map(),
       failureDetails: new Map(),
-      observationPresence: new Map(),
-      observationKinds: new Map(),
-      observationPolarities: new Map(),
-      observationEvidenceLosses: new Map(),
-      observationDiagnosticClasses: new Map(),
-      observationRecoveryHints: new Map(),
-      observationSubjects: new Map(),
-      observationOwners: new Map(),
-      observationStrengths: new Map(),
-      observationAgreements: new Map(),
-      observationProvenanceOrigins: new Map(),
-      observationProvenanceAuthorities: new Map(),
+      normalizedObservationPresence: new Map(),
+      normalizedObservationKinds: new Map(),
+      normalizedObservationPolarities: new Map(),
+      normalizedObservationEvidenceLosses: new Map(),
+      normalizedObservationDiagnosticClasses: new Map(),
+      normalizedObservationRecoveryHints: new Map(),
+      normalizedObservationSubjects: new Map(),
+      normalizedObservationOwners: new Map(),
+      normalizedObservationEvidenceStrengths: new Map(),
+      normalizedObservationSemanticAgreements: new Map(),
+      normalizedObservationProvenanceOrigins: new Map(),
+      normalizedObservationProvenanceAuthorities: new Map(),
     },
   };
 }
@@ -890,31 +1046,41 @@ function finalizeOutcomeCoverage(
       ),
       semanticConfidences: finalizeOutcomeDistribution(accumulators.judgment.semanticConfidences),
       failureDetails: finalizeOutcomeDistribution(accumulators.judgment.failureDetails),
-      observationPresence: finalizeOutcomeDistribution(accumulators.judgment.observationPresence),
-      observationKinds: finalizeOutcomeDistribution(accumulators.judgment.observationKinds),
-      observationPolarities: finalizeOutcomeDistribution(
-        accumulators.judgment.observationPolarities,
+      normalizedObservationPresence: finalizeOutcomeDistribution(
+        accumulators.judgment.normalizedObservationPresence,
       ),
-      observationEvidenceLosses: finalizeOutcomeDistribution(
-        accumulators.judgment.observationEvidenceLosses,
+      normalizedObservationKinds: finalizeOutcomeDistribution(
+        accumulators.judgment.normalizedObservationKinds,
       ),
-      observationDiagnosticClasses: finalizeOutcomeDistribution(
-        accumulators.judgment.observationDiagnosticClasses,
+      normalizedObservationPolarities: finalizeOutcomeDistribution(
+        accumulators.judgment.normalizedObservationPolarities,
       ),
-      observationRecoveryHints: finalizeOutcomeDistribution(
-        accumulators.judgment.observationRecoveryHints,
+      normalizedObservationEvidenceLosses: finalizeOutcomeDistribution(
+        accumulators.judgment.normalizedObservationEvidenceLosses,
       ),
-      observationSubjects: finalizeOutcomeDistribution(accumulators.judgment.observationSubjects),
-      observationOwners: finalizeOutcomeDistribution(accumulators.judgment.observationOwners),
-      observationStrengths: finalizeOutcomeDistribution(accumulators.judgment.observationStrengths),
-      observationAgreements: finalizeOutcomeDistribution(
-        accumulators.judgment.observationAgreements,
+      normalizedObservationDiagnosticClasses: finalizeOutcomeDistribution(
+        accumulators.judgment.normalizedObservationDiagnosticClasses,
       ),
-      observationProvenanceOrigins: finalizeOutcomeDistribution(
-        accumulators.judgment.observationProvenanceOrigins,
+      normalizedObservationRecoveryHints: finalizeOutcomeDistribution(
+        accumulators.judgment.normalizedObservationRecoveryHints,
       ),
-      observationProvenanceAuthorities: finalizeOutcomeDistribution(
-        accumulators.judgment.observationProvenanceAuthorities,
+      normalizedObservationSubjects: finalizeOutcomeDistribution(
+        accumulators.judgment.normalizedObservationSubjects,
+      ),
+      normalizedObservationOwners: finalizeOutcomeDistribution(
+        accumulators.judgment.normalizedObservationOwners,
+      ),
+      normalizedObservationEvidenceStrengths: finalizeOutcomeDistribution(
+        accumulators.judgment.normalizedObservationEvidenceStrengths,
+      ),
+      normalizedObservationSemanticAgreements: finalizeOutcomeDistribution(
+        accumulators.judgment.normalizedObservationSemanticAgreements,
+      ),
+      normalizedObservationProvenanceOrigins: finalizeOutcomeDistribution(
+        accumulators.judgment.normalizedObservationProvenanceOrigins,
+      ),
+      normalizedObservationProvenanceAuthorities: finalizeOutcomeDistribution(
+        accumulators.judgment.normalizedObservationProvenanceAuthorities,
       ),
     },
   };
@@ -982,7 +1148,7 @@ function compareOutcomeCoverage(
       });
     }
   }
-  deltas.push(...compareObservationPresenceCoverage(baseline, candidate));
+  deltas.push(...compareNormalizedObservationPresenceCoverage(baseline, candidate));
 
   return deltas.sort(
     (left, right) =>
@@ -991,12 +1157,12 @@ function compareOutcomeCoverage(
   );
 }
 
-function compareObservationPresenceCoverage(
+function compareNormalizedObservationPresenceCoverage(
   baseline: KernelCorpusScorecard,
   candidate: KernelCorpusScorecard,
 ): KernelCorpusScorecardComparison["outcomeCoverageDeltas"] {
   const baselineEntry = readOutcomeDistributionEntry(
-    baseline.outcomeCoverage.judgment.observationPresence,
+    baseline.outcomeCoverage.judgment.normalizedObservationPresence,
     "present",
   );
   if (baselineEntry === null) {
@@ -1004,7 +1170,7 @@ function compareObservationPresenceCoverage(
   }
 
   const candidateEntry = readOutcomeDistributionEntry(
-    candidate.outcomeCoverage.judgment.observationPresence,
+    candidate.outcomeCoverage.judgment.normalizedObservationPresence,
     "present",
   );
   const candidateCount = candidateEntry?.count ?? 0;
@@ -1019,7 +1185,7 @@ function compareObservationPresenceCoverage(
   return delta < 0 || scenarioDelta < 0 || missingScenarioIds.length > 0
     ? [
         {
-          path: "judgment.observationPresence",
+          path: "judgment.normalizedObservationPresence",
           id: "present",
           baselineCount: baselineEntry.count,
           candidateCount,
@@ -1110,48 +1276,54 @@ function listOutcomeCoverageDistributions(
     protectedDistribution("judgment.semanticConfidences", coverage.judgment.semanticConfidences),
     protectedDistribution("judgment.failureDetails", coverage.judgment.failureDetails),
     informationalDistribution(
-      "judgment.observationPresence",
-      coverage.judgment.observationPresence,
-    ),
-    informationalDistribution("judgment.observationKinds", coverage.judgment.observationKinds),
-    informationalDistribution(
-      "judgment.observationPolarities",
-      coverage.judgment.observationPolarities,
+      "judgment.normalizedObservationPresence",
+      coverage.judgment.normalizedObservationPresence,
     ),
     informationalDistribution(
-      "judgment.observationEvidenceLosses",
-      coverage.judgment.observationEvidenceLosses,
+      "judgment.normalizedObservationKinds",
+      coverage.judgment.normalizedObservationKinds,
     ),
     informationalDistribution(
-      "judgment.observationDiagnosticClasses",
-      coverage.judgment.observationDiagnosticClasses,
+      "judgment.normalizedObservationPolarities",
+      coverage.judgment.normalizedObservationPolarities,
+    ),
+    informationalDistribution(
+      "judgment.normalizedObservationEvidenceLosses",
+      coverage.judgment.normalizedObservationEvidenceLosses,
+    ),
+    informationalDistribution(
+      "judgment.normalizedObservationDiagnosticClasses",
+      coverage.judgment.normalizedObservationDiagnosticClasses,
       { required: false },
     ),
     informationalDistribution(
-      "judgment.observationRecoveryHints",
-      coverage.judgment.observationRecoveryHints,
+      "judgment.normalizedObservationRecoveryHints",
+      coverage.judgment.normalizedObservationRecoveryHints,
       { required: false },
     ),
     informationalDistribution(
-      "judgment.observationSubjects",
-      coverage.judgment.observationSubjects,
-    ),
-    informationalDistribution("judgment.observationOwners", coverage.judgment.observationOwners),
-    informationalDistribution(
-      "judgment.observationStrengths",
-      coverage.judgment.observationStrengths,
+      "judgment.normalizedObservationSubjects",
+      coverage.judgment.normalizedObservationSubjects,
     ),
     informationalDistribution(
-      "judgment.observationAgreements",
-      coverage.judgment.observationAgreements,
+      "judgment.normalizedObservationOwners",
+      coverage.judgment.normalizedObservationOwners,
     ),
     informationalDistribution(
-      "judgment.observationProvenanceOrigins",
-      coverage.judgment.observationProvenanceOrigins,
+      "judgment.normalizedObservationEvidenceStrengths",
+      coverage.judgment.normalizedObservationEvidenceStrengths,
     ),
     informationalDistribution(
-      "judgment.observationProvenanceAuthorities",
-      coverage.judgment.observationProvenanceAuthorities,
+      "judgment.normalizedObservationSemanticAgreements",
+      coverage.judgment.normalizedObservationSemanticAgreements,
+    ),
+    informationalDistribution(
+      "judgment.normalizedObservationProvenanceOrigins",
+      coverage.judgment.normalizedObservationProvenanceOrigins,
+    ),
+    informationalDistribution(
+      "judgment.normalizedObservationProvenanceAuthorities",
+      coverage.judgment.normalizedObservationProvenanceAuthorities,
     ),
   ];
 }
@@ -1167,6 +1339,58 @@ function flattenOutcomeDistribution(
   scenarioIds: string[];
 }> {
   return distribution.map((entry) => ({ path, ...entry }));
+}
+
+function collectNormalizedObservationCheckpoints(
+  id: string,
+  scenarioById: ReadonlyMap<string, ReplayScenario>,
+  resultById: ReadonlyMap<string, { inputDigest: string }>,
+): string[] {
+  const scenario = scenarioById.get(id);
+  const result = resultById.get(id);
+  if (
+    !scenario ||
+    !result ||
+    digestKernelCanonicalJson(buildScenarioInput(scenario)) !== result.inputDigest
+  ) {
+    return [];
+  }
+
+  const digests: string[] = [];
+  const seen = new Set<string>();
+  const run = runReplayScenario(scenario);
+  for (const trace of run.traces) {
+    if (!isCandidateTrace(trace)) {
+      continue;
+    }
+
+    const candidate = trace.evaluation.adjusted;
+    const observation = candidate.judgmentInput.observation;
+    if (observation === undefined) {
+      continue;
+    }
+
+    const digest = digestKernelCanonicalJson({
+      kind: "normalized_observation",
+      candidate: {
+        interactionId: candidate.interactionId,
+        mode: candidate.mode,
+        tone: candidate.tone,
+        consequence: candidate.consequence,
+        ...(candidate.toolFamily !== undefined ? { toolFamily: candidate.toolFamily } : {}),
+        ...(candidate.activityClass !== undefined
+          ? { activityClass: candidate.activityClass }
+          : {}),
+      },
+      observation,
+    });
+    if (!seen.has(digest)) {
+      seen.add(digest);
+      digests.push(digest);
+    }
+  }
+
+  return digests.sort(compareKernelCanonicalKey);
 }
 
 function readDigestBoundExpectation(
@@ -1195,6 +1419,78 @@ function buildScenarioInput(scenario: ReplayScenario): unknown {
     expectations: scenario.expectations ?? null,
     steps: scenario.steps,
   };
+}
+
+function isHistoricalV4Scorecard(value: unknown): value is Record<string, unknown> {
+  return isRecord(value) && value.schemaVersion === 4 && isRecord(value.outcomeCoverage);
+}
+
+function migrateHistoricalV4Scorecard(value: Record<string, unknown>): Record<string, unknown> {
+  const migrated = structuredClone(value) as Record<string, unknown>;
+  migrated.schemaVersion = KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION;
+
+  const thresholds = ensureRecord(migrated.thresholds);
+  thresholds.minimumNormalizedObservationCheckpoints = 0;
+  thresholds.minimumNormalizedObservationScenarios = 0;
+
+  const summary = ensureRecord(migrated.summary);
+  summary.normalizedObservationCheckpoints = {
+    total: 0,
+    scenarios: 0,
+    unique: 0,
+  };
+
+  const outcomeCoverage = ensureRecord(migrated.outcomeCoverage);
+  const judgment = ensureRecord(outcomeCoverage.judgment);
+  moveRecordField(judgment, "observationPresence", "normalizedObservationPresence");
+  moveRecordField(judgment, "observationKinds", "normalizedObservationKinds");
+  moveRecordField(judgment, "observationPolarities", "normalizedObservationPolarities");
+  moveRecordField(judgment, "observationEvidenceLosses", "normalizedObservationEvidenceLosses");
+  moveRecordField(
+    judgment,
+    "observationDiagnosticClasses",
+    "normalizedObservationDiagnosticClasses",
+  );
+  moveRecordField(judgment, "observationRecoveryHints", "normalizedObservationRecoveryHints");
+  moveRecordField(judgment, "observationSubjects", "normalizedObservationSubjects");
+  moveRecordField(judgment, "observationOwners", "normalizedObservationOwners");
+  moveRecordField(judgment, "observationStrengths", "normalizedObservationEvidenceStrengths");
+  moveRecordField(judgment, "observationAgreements", "normalizedObservationSemanticAgreements");
+  moveRecordField(
+    judgment,
+    "observationProvenanceOrigins",
+    "normalizedObservationProvenanceOrigins",
+  );
+  moveRecordField(
+    judgment,
+    "observationProvenanceAuthorities",
+    "normalizedObservationProvenanceAuthorities",
+  );
+
+  const scenarioCheckpoints = migrated.scenarioCheckpoints;
+  if (Array.isArray(scenarioCheckpoints)) {
+    for (const scenario of scenarioCheckpoints) {
+      if (isRecord(scenario)) {
+        scenario.normalizedObservation = [];
+      }
+    }
+  }
+
+  return migrated;
+}
+
+function ensureRecord(value: unknown): Record<string, unknown> {
+  if (!isRecord(value)) {
+    return {};
+  }
+  return value;
+}
+
+function moveRecordField(record: Record<string, unknown>, from: string, to: string): void {
+  if (from in record) {
+    record[to] = record[from];
+    delete record[from];
+  }
 }
 
 function pushMinimumFailure(
@@ -1244,4 +1540,8 @@ function sum(values: readonly number[]): number {
 
 function round(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

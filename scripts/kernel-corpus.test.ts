@@ -17,7 +17,7 @@ test("kernel corpus write compares scorecard baselines unless override is explic
   const root = await mkdtemp(join(tmpdir(), "aperture-kernel-corpus-"));
   try {
     const reportPath = join(root, "kernel-corpus-v2.json");
-    const scorecardPath = join(root, "kernel-corpus-scorecard-v4.json");
+    const scorecardPath = join(root, "kernel-corpus-scorecard-v5.json");
     const scenarios = await loadGoldenScenarios();
     const report = await buildKernelCorpusConformanceReport(scenarios);
     const scorecard = buildKernelCorpusScorecard(report, scenarios);
@@ -74,7 +74,7 @@ test("kernel corpus check compares supplied protected base scorecard", async () 
   const previousExitCode = process.exitCode;
   try {
     const reportPath = join(root, "kernel-corpus-v2.json");
-    const scorecardPath = join(root, "kernel-corpus-scorecard-v4.json");
+    const scorecardPath = join(root, "kernel-corpus-scorecard-v5.json");
     const scenarios = await loadGoldenScenarios();
     const report = await buildKernelCorpusConformanceReport(scenarios);
     const scorecard = buildKernelCorpusScorecard(report, scenarios);
@@ -112,7 +112,7 @@ test("kernel corpus check compares branch-history scorecard when protected base 
   const previousExitCode = process.exitCode;
   try {
     const reportPath = join(root, "kernel-corpus-v2.json");
-    const scorecardPath = join(root, "kernel-corpus-scorecard-v4.json");
+    const scorecardPath = join(root, "kernel-corpus-scorecard-v5.json");
     const scenarios = await loadGoldenScenarios();
     const report = await buildKernelCorpusConformanceReport(scenarios);
     const scorecard = buildKernelCorpusScorecard(report, scenarios);

@@ -139,7 +139,7 @@ test("boundary checker rejects adapter implementation imports from core tests", 
   }
 });
 
-test("boundary checker rejects raw judgment failure evidence outside the IR seam", async () => {
+test("boundary checker rejects raw judgment failure evidence outside the normalization seam", async () => {
   const root = await mkdtemp(join(tmpdir(), "aperture-boundaries-"));
   try {
     await writeRepoFile(
@@ -157,12 +157,20 @@ test("boundary checker rejects raw judgment failure evidence outside the IR seam
 
     assert.deepEqual(result.importViolations, []);
     assert.deepEqual(result.corpusLabelViolations, []);
-    assert.equal(result.judgmentInputViolations.length, 1);
-    assert.match(
-      result.judgmentInputViolations[0]?.file ?? "",
-      /packages\/core\/src\/policy\/semantic-raw-policy\.ts$/,
+    assert.equal(result.judgmentInputViolations.length, 2);
+    assert.equal(
+      result.judgmentInputViolations.some((violation) =>
+        /packages\/core\/src\/policy\/semantic-raw-policy\.ts$/.test(violation.file),
+      ),
+      true,
     );
-    assert.match(renderBoundaryCheckReport(root, result), /observationEvidence/);
+    assert.equal(
+      result.judgmentInputViolations.some((violation) =>
+        /packages\/core\/src\/judgment-input\.ts$/.test(violation.file),
+      ),
+      true,
+    );
+    assert.match(renderBoundaryCheckReport(root, result), /observation/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -174,7 +182,7 @@ test("boundary checker returns no raw judgment failure evidence violations for c
     await writeRepoFile(
       root,
       "packages/core/src/policy/semantic-ir-policy.ts",
-      "export function reads(candidate: { judgmentInput: { observationEvidence?: unknown } }) { return candidate.judgmentInput.observationEvidence; }\n",
+      "export function reads(candidate: { judgmentInput: { observation?: unknown } }) { return candidate.judgmentInput.observation; }\n",
     );
 
     const result = await checkPackageBoundaries(root);

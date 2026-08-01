@@ -55,7 +55,12 @@ function run(
   });
 }
 
-function runExpectFailure(command: string, args: string[], cwd: string, expectedOutput: RegExp): void {
+function runExpectFailure(
+  command: string,
+  args: string[],
+  cwd: string,
+  expectedOutput: RegExp,
+): void {
   try {
     execFileSync(command, args, {
       cwd,
@@ -297,10 +302,10 @@ async function main(): Promise<void> {
     await writeFile(
       join(negativeDir, "index.ts"),
       [
-        'import type { AttentionObservationIR as RootObservation } from "@tomismeta/aperture-core";',
-        'import type { AttentionObservationIR as EvaluatorObservation } from "@tomismeta/aperture-core/evaluator";',
-        'import type { AttentionObservationIR as SemanticObservation } from "@tomismeta/aperture-core/semantic";',
-        'import type { AttentionObservationIR as TraceObservation } from "@tomismeta/aperture-core/trace";',
+        'import type { NormalizedObservation as RootObservation } from "@tomismeta/aperture-core";',
+        'import type { NormalizedObservation as EvaluatorObservation } from "@tomismeta/aperture-core/evaluator";',
+        'import type { NormalizedObservation as SemanticObservation } from "@tomismeta/aperture-core/semantic";',
+        'import type { NormalizedObservation as TraceObservation } from "@tomismeta/aperture-core/trace";',
         "void (0 as unknown as RootObservation);",
         "void (0 as unknown as EvaluatorObservation);",
         "void (0 as unknown as SemanticObservation);",
@@ -354,7 +359,7 @@ async function main(): Promise<void> {
       "utf8",
     );
     run("pnpm", ["install", "--prefer-offline"], negativeDir, { ignoreScripts: false });
-    runExpectFailure("pnpm", ["exec", "tsc", "--noEmit"], negativeDir, /AttentionObservationIR/);
+    runExpectFailure("pnpm", ["exec", "tsc", "--noEmit"], negativeDir, /NormalizedObservation/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

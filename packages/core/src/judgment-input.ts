@@ -14,8 +14,8 @@ import type {
   SemanticEvidenceStrength,
   TaskFailureSemanticAgreement,
 } from "./judgment-input-types.js";
-import { compileAttentionObservation } from "./observation-compiler.js";
-import type { AttentionObservationIR } from "./observation.js";
+import { normalizeTaskFailureObservation } from "./task-failure-observation-normalizer.js";
+import type { NormalizedObservation } from "./normalized-observation.js";
 import type {
   AttentionOntologyAuthority,
   AttentionOntologyDiagnostic,
@@ -23,7 +23,7 @@ import type {
 
 export type {
   AttentionJudgmentInput,
-  AttentionObservationIR,
+  NormalizedObservation,
   CandidateSemanticEvidence,
   SemanticEvidenceStrength,
 } from "./judgment-input-types.js";
@@ -81,13 +81,13 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
           abstained,
         })
       : null;
-  const observationEvidence =
+  const observation =
     failureEvidence !== null && failureAgreement !== null
-      ? compileAttentionObservation({
+      ? normalizeTaskFailureObservation({
           failureEvidence,
           ontology,
           abstained,
-          agreement: failureAgreement,
+          semanticAgreement: failureAgreement,
         })
       : null;
 
@@ -98,7 +98,7 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
       source: ontology.source,
       strength: deriveCompiledSemanticEvidenceStrength({
         ontology,
-        observationEvidence,
+        observation,
         blockedLikeStatus,
         abstained,
       }),
@@ -112,19 +112,7 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
           },
         }
       : {}),
-    ...(failureEvidence !== null && failureAgreement !== null
-      ? {
-          failureEvidence: {
-            kind: failureEvidence.kind,
-            ...(failureEvidence.failureDetail !== undefined
-              ? { failureDetail: failureEvidence.failureDetail }
-              : {}),
-            consequenceBaseline: failureEvidence.consequenceBaseline,
-            semanticAgreement: failureAgreement,
-          },
-        }
-      : {}),
-    ...(observationEvidence !== null ? { observationEvidence } : {}),
+    ...(observation !== null ? { observation } : {}),
     blockedLikeStatus,
     ...(observationalStatusConflict !== null
       ? {
@@ -153,10 +141,10 @@ export function readCandidateSemanticRelationEvidence(
   return candidate.judgmentInput.relationEvidence ?? null;
 }
 
-export function readCandidateObservationEvidence(
+export function readCandidateObservation(
   candidate: AttentionCandidate,
-): AttentionObservationIR | null {
-  return candidate.judgmentInput.observationEvidence ?? null;
+): NormalizedObservation | null {
+  return candidate.judgmentInput.observation ?? null;
 }
 
 export function readCandidateObservationalStatusConflictEvidence(
@@ -267,30 +255,30 @@ export function hasLimitedFailureStatusSemantics(candidate: AttentionCandidate):
 export function hasOutcomeOnlyFailureStatusJudgmentInput(
   judgmentInput: AttentionJudgmentInput,
 ): boolean {
-  const observation = judgmentInput.observationEvidence;
+  const observation = judgmentInput.observation;
   return (
     observation?.kind === "outcome" &&
     observation.polarity === "failure" &&
     observation.evidenceLoss === "none" &&
     observation.consequenceBaseline === "medium" &&
-    observation.agreement === "stable"
+    observation.semanticAgreement === "stable"
   );
 }
 
 export function hasLimitedFailureStatusJudgmentInput(
   judgmentInput: AttentionJudgmentInput,
 ): boolean {
-  const observation = judgmentInput.observationEvidence;
+  const observation = judgmentInput.observation;
   return (
     hasOutcomeOnlyFailureStatusJudgmentInput(judgmentInput) ||
     (observation?.evidenceLoss === "absent" &&
       observation.recoveryHint === "request_evidence" &&
       observation.consequenceBaseline === "medium" &&
-      observation.agreement === "stable") ||
+      observation.semanticAgreement === "stable") ||
     (observation?.evidenceLoss === "partial" &&
       observation.recoveryHint === "narrow_evidence_scope" &&
       observation.consequenceBaseline === "medium" &&
-      observation.agreement === "stable")
+      observation.semanticAgreement === "stable")
   );
 }
 
@@ -335,14 +323,14 @@ function readSemanticEvidenceStrengthFromParts(
 
 function deriveCompiledSemanticEvidenceStrength(input: {
   ontology: AttentionOntologyDiagnostic;
-  observationEvidence: AttentionObservationIR | null;
+  observation: NormalizedObservation | null;
   blockedLikeStatus: boolean;
   abstained: boolean;
 }): SemanticEvidenceStrength {
   if (
-    input.observationEvidence?.kind === "outcome" &&
-    input.observationEvidence.evidenceLoss === "absent" &&
-    input.observationEvidence.consequenceBaseline === "medium" &&
+    input.observation?.kind === "outcome" &&
+    input.observation.evidenceLoss === "absent" &&
+    input.observation.consequenceBaseline === "medium" &&
     input.ontology.consequence === "medium" &&
     !input.blockedLikeStatus
   ) {

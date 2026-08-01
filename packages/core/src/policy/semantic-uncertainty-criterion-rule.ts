@@ -1,6 +1,6 @@
 import {
   hasActionableBlockedLikeStatusSemantics,
-  readCandidateObservationEvidence,
+  readCandidateObservation,
   hasRoutineObservationalStatusConflictSemantics,
   isCandidateSemanticAbstained,
   readCandidateSemanticConfidence,
@@ -109,7 +109,7 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
 function hasVisibleDiagnosticFailureEvidence(
   candidate: Parameters<PolicyCriterionRule>[0]["candidate"],
 ): boolean {
-  const observation = readCandidateObservationEvidence(candidate);
+  const observation = readCandidateObservation(candidate);
   return (
     observation?.kind === "diagnostic" &&
     observation.diagnosticClass === "runtime" &&

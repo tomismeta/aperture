@@ -175,15 +175,16 @@ Current review evidence:
 - `pnpm kernel:corpus` verifies both the full corpus conformance report and a
   compact scorecard for scenario count, dimension coverage, semantic ontology
   checkpoints, decision projection checkpoints, relation checkpoints,
-  decision-fingerprint uniqueness, and semantic/judgment outcome coverage as a
-  reported snapshot
+  NormalizedObservation checkpoints, decision-fingerprint uniqueness, and
+  semantic/judgment outcome coverage as a reported snapshot
 - the scorecard carries per-scenario semantic ontology, relation, and decision
-  projection checkpoint digests plus actual outcome distributions for semantic
-  intents, activities, consequences, ontology sources, judgment routes, lanes,
-  confidence, and failure details; `pnpm kernel:corpus` compares the generated
-  scorecard against the committed baseline so aggregate totals cannot hide a
-  lost scenario-specific semantic or judgment assertion or a lost covered
-  outcome shape
+  projection checkpoint digests, per-scenario NormalizedObservation checkpoint
+  digests, plus actual outcome distributions for semantic intents, activities,
+  consequences, ontology sources, judgment routes, lanes, confidence, failure
+  details, and NormalizedObservation dimensions; `pnpm kernel:corpus` compares
+  the generated scorecard against the committed baseline so aggregate totals
+  cannot hide a lost scenario-specific semantic/judgment assertion, a lost
+  normalized semantic document, or a lost covered outcome shape
 - `pnpm kernel:corpus:write` refuses to overwrite the scorecard without a valid
   baseline comparison unless an intentional scorecard rebaseline flag is used
 - `pnpm kernel:corpus` compares against the protected base scorecard when it is
@@ -281,14 +282,15 @@ Additional branch evidence:
 - judgment battle determinism: 89/89 stable
 - judgment benchmark: 2,765 passing
 - judgment fuzz: 384 passing
-- kernel corpus scorecard v4 is current; v3 is retained as historical
-  pre-Observation-IR evidence. v4 keeps the same 49 scenarios, 16 covered
-  dimensions, 2,014 passing corpus assertions, 58 ontology checkpoints, 69
-  decision projection checkpoints, 13 relation checkpoints, 49 per-scenario
-  checkpoint ledgers, and 23 unique decision fingerprints, while adding private
-  Observation IR outcome coverage for presence, kind, polarity, agreement,
-  evidence loss, diagnostic class, recovery hint, subject, owner, strength, and
-  provenance origin/authority.
+- kernel corpus scorecard v5 is current; v4 and v3 are retained as historical
+  evidence. v5 keeps the same 49 scenarios, 16 covered dimensions, 2,014
+  passing corpus assertions, 58 ontology checkpoints, 69 decision projection
+  checkpoints, 13 relation checkpoints, 49 per-scenario checkpoint ledgers, and
+  23 unique decision fingerprints, while adding 36 per-scenario
+  NormalizedObservation checkpoints across 33 scenarios plus private
+  NormalizedObservation outcome coverage for presence, kind, polarity, semantic
+  agreement, evidence loss, diagnostic class, recovery hint, subject, owner,
+  evidence strength, and provenance origin/authority.
 - kernel corpus scorecard v3 historical baseline: 49 scenarios, 16 covered dimensions, 2,014
   passing corpus assertions, 58 ontology checkpoints, 69 decision projection
   checkpoints, 13 relation checkpoints, 49 per-scenario checkpoint ledgers, 23

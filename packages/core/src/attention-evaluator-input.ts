@@ -15,7 +15,7 @@ import type { EpisodeSummary } from "./episode-tracker.js";
 import type { SourceRef } from "./events.js";
 import type { AttentionFrame } from "./frame.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
-import { createStableFailureOutcomeObservation } from "./observation.js";
+import { createStableFailureOutcomeObservation } from "./task-failure-observation-normalizer.js";
 import { formatTimestamp, parseTimestamp } from "./time.js";
 
 export type AttentionEvaluationClock = string | number;
@@ -224,16 +224,10 @@ function buildJudgmentInputFromClaim(
     ...(observationalStatusConflict !== undefined ? { observationalStatusConflict } : {}),
     ...(judgment?.outcomeOnlyFailureStatus === true
       ? {
-          observationEvidence: createStableFailureOutcomeObservation({
+          observation: createStableFailureOutcomeObservation({
             authority: observationAuthority,
-            strength: judgment.semanticEvidence?.strength ?? "strong",
+            evidenceStrength: judgment.semanticEvidence?.strength ?? "strong",
           }),
-          failureEvidence: {
-            kind: "terminal_failure",
-            failureDetail: "outcome_only",
-            consequenceBaseline: "medium",
-            semanticAgreement: "stable",
-          },
         }
       : {}),
   };

@@ -776,6 +776,18 @@ test("tool-use rejection outcome shape requires coherent full-message clauses", 
   );
   assert.equal(
     looksLikeToolUseRejectionOutcome(
+      "The user does not want to proceed with this tool use. Tool use rejected. Stop and wait for the user to proceed.",
+    ),
+    true,
+  );
+  assert.equal(
+    looksLikeToolUseRejectionOutcome(
+      "The user does not want to take this action. Stop and wait for the user to proceed.",
+    ),
+    true,
+  );
+  assert.equal(
+    looksLikeToolUseRejectionOutcome(
       "The user doesn't want to proceed with this tool use! The tool use was rejected (for example, no file contents were changed). STOP what you are doing and wait for the user to tell you how to proceed.",
     ),
     true,

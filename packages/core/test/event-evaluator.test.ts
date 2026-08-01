@@ -118,7 +118,8 @@ test("bare nonzero command exits route as focused medium failed statuses", () =>
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
   assert.equal(result.candidate.activityClass, "tool_failure");
   assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
-  assert.equal(result.candidate.judgmentInput.failureEvidence?.semanticAgreement, "stable");
+  assert.equal(Object.hasOwn(result.candidate.judgmentInput, "failureEvidence"), false);
+  assert.equal(result.candidate.judgmentInput.observation?.semanticAgreement, "stable");
   assert.deepEqual(result.candidate.judgmentInput.ontology, {
     ask: "status",
     activity: "failure",
@@ -140,7 +141,7 @@ test("bare nonzero command exits route as focused medium failed statuses", () =>
 
   const claim = buildAttentionClaim(result.candidate);
   assert.equal(Object.hasOwn(claim.judgment ?? {}, "failureEvidence"), false);
-  assert.equal(Object.hasOwn(claim.judgment ?? {}, "observationEvidence"), false);
+  assert.equal(Object.hasOwn(claim.judgment ?? {}, "observation"), false);
   assert.equal(claim.judgment?.outcomeOnlyFailureStatus, true);
   const publicRecord = evaluateAttention({ claim });
   assert.equal(publicRecord.decision.kind, "queue");
@@ -172,12 +173,10 @@ test("structured outcome-only nonzero exits route like raw outcome-only failures
   assert.equal(result.candidate.priority, "normal");
   assert.equal(result.candidate.tone, "focused");
   assert.equal(result.candidate.consequence, "medium");
-  assert.equal(result.candidate.judgmentInput.failureEvidence?.kind, "terminal_failure");
-  assert.equal(result.candidate.judgmentInput.failureEvidence?.failureDetail, "outcome_only");
-  assert.equal(result.candidate.judgmentInput.failureEvidence?.semanticAgreement, "stable");
-  assert.equal(result.candidate.judgmentInput.observationEvidence?.kind, "outcome");
-  assert.equal(result.candidate.judgmentInput.observationEvidence?.polarity, "failure");
-  assert.equal(result.candidate.judgmentInput.observationEvidence?.agreement, "stable");
+  assert.equal(Object.hasOwn(result.candidate.judgmentInput, "failureEvidence"), false);
+  assert.equal(result.candidate.judgmentInput.observation?.kind, "outcome");
+  assert.equal(result.candidate.judgmentInput.observation?.polarity, "failure");
+  assert.equal(result.candidate.judgmentInput.observation?.semanticAgreement, "stable");
 
   const explanation = coordinator.explain(null, result.candidate);
   assert.equal(explanation.decision.kind, "queue");
@@ -208,13 +207,10 @@ test("empty failed payloads stay visible without critical routing", () => {
   assert.equal(result.candidate.tone, "focused");
   assert.equal(result.candidate.consequence, "medium");
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
-  assert.equal(result.candidate.judgmentInput.failureEvidence?.kind, "empty_failure_payload");
-  assert.equal(result.candidate.judgmentInput.failureEvidence?.failureDetail, "absent_evidence");
-  assert.equal(result.candidate.judgmentInput.observationEvidence?.evidenceLoss, "absent");
-  assert.equal(
-    result.candidate.judgmentInput.observationEvidence?.recoveryHint,
-    "request_evidence",
-  );
+  assert.equal(Object.hasOwn(result.candidate.judgmentInput, "failureEvidence"), false);
+  assert.equal(result.candidate.judgmentInput.observation?.kind, "outcome");
+  assert.equal(result.candidate.judgmentInput.observation?.evidenceLoss, "absent");
+  assert.equal(result.candidate.judgmentInput.observation?.recoveryHint, "request_evidence");
   assert.equal(result.candidate.judgmentInput.semanticEvidence?.confidence, "high");
   assert.equal(result.candidate.judgmentInput.semanticEvidence?.strength, "weak");
 
@@ -249,15 +245,11 @@ test("read source-window limits stay visible without critical routing", () => {
   assert.equal(result.candidate.consequence, "medium");
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
   assert.deepEqual(result.candidate.relationHints, undefined);
-  assert.equal(result.candidate.judgmentInput.failureEvidence?.kind, "terminal_failure");
-  assert.equal(
-    result.candidate.judgmentInput.failureEvidence?.failureDetail,
-    "source_window_limit",
-  );
-  assert.equal(result.candidate.judgmentInput.failureEvidence?.semanticAgreement, "stable");
-  assert.equal(result.candidate.judgmentInput.observationEvidence?.kind, "diagnostic");
-  assert.equal(result.candidate.judgmentInput.observationEvidence?.diagnosticClass, "source_limit");
-  assert.equal(result.candidate.judgmentInput.observationEvidence?.evidenceLoss, "partial");
+  assert.equal(Object.hasOwn(result.candidate.judgmentInput, "failureEvidence"), false);
+  assert.equal(result.candidate.judgmentInput.observation?.kind, "diagnostic");
+  assert.equal(result.candidate.judgmentInput.observation?.diagnosticClass, "source_limit");
+  assert.equal(result.candidate.judgmentInput.observation?.semanticAgreement, "stable");
+  assert.equal(result.candidate.judgmentInput.observation?.evidenceLoss, "partial");
   assert.equal(result.candidate.judgmentInput.semanticEvidence?.strength, "strong");
 
   const explanation = coordinator.explain(null, result.candidate);
@@ -289,10 +281,9 @@ test("mixed read source-window diagnostics keep critical routing", () => {
   assert.equal(result.candidate.priority, "high");
   assert.equal(result.candidate.tone, "critical");
   assert.equal(result.candidate.consequence, "high");
-  assert.equal(result.candidate.judgmentInput.failureEvidence?.kind, "terminal_failure");
-  assert.equal(result.candidate.judgmentInput.failureEvidence?.failureDetail, "diagnostic");
-  assert.equal(result.candidate.judgmentInput.observationEvidence?.kind, "diagnostic");
-  assert.equal(result.candidate.judgmentInput.observationEvidence?.diagnosticClass, "runtime");
+  assert.equal(Object.hasOwn(result.candidate.judgmentInput, "failureEvidence"), false);
+  assert.equal(result.candidate.judgmentInput.observation?.kind, "diagnostic");
+  assert.equal(result.candidate.judgmentInput.observation?.diagnosticClass, "runtime");
 });
 
 test("high-risk empty failed payloads keep critical routing", () => {
@@ -317,10 +308,10 @@ test("high-risk empty failed payloads keep critical routing", () => {
   assert.equal(result.candidate.priority, "high");
   assert.equal(result.candidate.tone, "critical");
   assert.equal(result.candidate.consequence, "high");
-  assert.equal(result.candidate.judgmentInput.failureEvidence?.kind, "empty_failure_payload");
-  assert.equal(result.candidate.judgmentInput.failureEvidence?.semanticAgreement, "uncertain");
-  assert.equal(result.candidate.judgmentInput.observationEvidence?.agreement, "uncertain");
-  assert.equal(result.candidate.judgmentInput.observationEvidence?.strength, "weak");
+  assert.equal(Object.hasOwn(result.candidate.judgmentInput, "failureEvidence"), false);
+  assert.equal(result.candidate.judgmentInput.observation?.kind, "outcome");
+  assert.equal(result.candidate.judgmentInput.observation?.semanticAgreement, "uncertain");
+  assert.equal(result.candidate.judgmentInput.observation?.evidenceStrength, "weak");
   assert.equal(result.candidate.judgmentInput.semanticEvidence?.strength, "strong");
 });
 
@@ -348,8 +339,9 @@ test("truncated outcome-only hints keep failed statuses conservative", () => {
   assert.equal(result.candidate.priority, "high");
   assert.equal(result.candidate.tone, "critical");
   assert.equal(result.candidate.consequence, "high");
-  assert.equal(result.candidate.judgmentInput.failureEvidence?.failureDetail, "outcome_only");
-  assert.equal(result.candidate.judgmentInput.failureEvidence?.semanticAgreement, "uncertain");
+  assert.equal(Object.hasOwn(result.candidate.judgmentInput, "failureEvidence"), false);
+  assert.equal(result.candidate.judgmentInput.observation?.kind, "outcome");
+  assert.equal(result.candidate.judgmentInput.observation?.semanticAgreement, "uncertain");
   assert.equal(result.candidate.judgmentInput.semanticEvidence?.confidence, "low");
   assert.equal(result.candidate.judgmentInput.ontology?.consequence, "high");
   assert.equal(result.candidate.judgmentInput.ontology?.confidence, "low");
@@ -412,10 +404,10 @@ test("hinted outcome-only softening is rejected for diagnostic failures", () => 
   assert.equal(result.candidate.priority, "high");
   assert.equal(result.candidate.tone, "critical");
   assert.equal(result.candidate.consequence, "high");
-  assert.equal(result.candidate.judgmentInput.failureEvidence?.failureDetail, "diagnostic");
-  assert.equal(result.candidate.judgmentInput.failureEvidence?.semanticAgreement, "overridden");
-  assert.equal(result.candidate.judgmentInput.observationEvidence?.agreement, "overridden");
-  assert.equal(result.candidate.judgmentInput.observationEvidence?.strength, "weak");
+  assert.equal(Object.hasOwn(result.candidate.judgmentInput, "failureEvidence"), false);
+  assert.equal(result.candidate.judgmentInput.observation?.kind, "diagnostic");
+  assert.equal(result.candidate.judgmentInput.observation?.semanticAgreement, "overridden");
+  assert.equal(result.candidate.judgmentInput.observation?.evidenceStrength, "weak");
 });
 
 test("failed-status routine bash observations route as non-interruptive status", () => {

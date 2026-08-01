@@ -1,31 +1,55 @@
 import type {
-  AttentionObservationAuthority,
-  AttentionObservationDiagnosticClass,
-  AttentionObservationEvidenceLoss,
-  AttentionObservationIR,
-  AttentionObservationKind,
-  AttentionObservationOrigin,
-  AttentionObservationOwner,
-  AttentionObservationPolarity,
-  AttentionObservationRecoveryHint,
-  AttentionObservationStrength,
-  AttentionObservationSubject,
-  AttentionObservationAgreement,
-} from "./observation.js";
+  NormalizedObservationAuthority,
+  NormalizedObservationDiagnosticClass,
+  NormalizedObservationEvidenceLoss,
+  NormalizedObservation,
+  NormalizedObservationKind,
+  NormalizedObservationOrigin,
+  NormalizedObservationOwner,
+  NormalizedObservationPolarity,
+  NormalizedObservationRecoveryHint,
+  NormalizedObservationEvidenceStrength,
+  NormalizedObservationSubject,
+  NormalizedObservationSemanticAgreement,
+} from "./normalized-observation.js";
 import type { TaskFailureSemanticEvidence } from "./semantic-evidence.js";
 import type {
   AttentionOntologyAuthority,
   AttentionOntologyDiagnostic,
 } from "./semantic-ontology-types.js";
 
-// First compiler target: task-failure evidence. The IR vocabulary is deliberately
-// broader so other event families can compile into the same document later.
-export function compileAttentionObservation(input: {
+// First normalizer target: task-failure evidence. The normalized vocabulary is
+// deliberately broader so other event families can flow through the same
+// document later.
+export function createStableFailureOutcomeObservation(input: {
+  authority?: NormalizedObservationAuthority;
+  owner?: NormalizedObservationOwner;
+  evidenceStrength?: NormalizedObservationEvidenceStrength;
+  subject?: NormalizedObservationSubject;
+  toolFamily?: string;
+}): NormalizedObservation {
+  return {
+    kind: "outcome",
+    polarity: "failure",
+    semanticAgreement: "stable",
+    ownership: {
+      owner: input.owner ?? "engine",
+      ...(input.toolFamily !== undefined ? { toolFamily: input.toolFamily } : {}),
+    },
+    evidenceStrength: input.evidenceStrength ?? "strong",
+    subject: input.subject ?? "unknown",
+    evidenceLoss: "none",
+    provenance: { origin: "semantic_evidence", authority: input.authority ?? "unknown" },
+    consequenceBaseline: "medium",
+  };
+}
+
+export function normalizeTaskFailureObservation(input: {
   failureEvidence: TaskFailureSemanticEvidence;
   ontology: AttentionOntologyDiagnostic;
   abstained: boolean;
-  agreement: AttentionObservationAgreement;
-}): AttentionObservationIR {
+  semanticAgreement: NormalizedObservationSemanticAgreement;
+}): NormalizedObservation {
   const evidenceLoss = readObservationEvidenceLoss(input.failureEvidence);
   const diagnosticClass = readObservationDiagnosticClass(input.failureEvidence);
   const recoveryHint = readObservationRecoveryHint(input.failureEvidence, evidenceLoss);
@@ -34,15 +58,15 @@ export function compileAttentionObservation(input: {
   return {
     kind: readObservationKind(input.failureEvidence),
     polarity: readObservationPolarity(input.failureEvidence),
-    agreement: input.agreement,
+    semanticAgreement: input.semanticAgreement,
     ownership: {
       owner: readObservationOwner(input.failureEvidence),
       ...(toolFamily !== undefined ? { toolFamily } : {}),
     },
-    strength: deriveObservationEvidenceStrength({
+    evidenceStrength: deriveObservationEvidenceStrength({
       ontology: input.ontology,
       abstained: input.abstained,
-      agreement: input.agreement,
+      semanticAgreement: input.semanticAgreement,
       evidenceLoss,
     }),
     subject: readObservationSubject(input.failureEvidence),
@@ -57,7 +81,7 @@ export function compileAttentionObservation(input: {
   };
 }
 
-function readObservationKind(evidence: TaskFailureSemanticEvidence): AttentionObservationKind {
+function readObservationKind(evidence: TaskFailureSemanticEvidence): NormalizedObservationKind {
   switch (evidence.kind) {
     case "expected_diagnostic_failure":
       return "diagnostic";
@@ -87,7 +111,7 @@ function readObservationKind(evidence: TaskFailureSemanticEvidence): AttentionOb
 
 function readObservationPolarity(
   evidence: TaskFailureSemanticEvidence,
-): AttentionObservationPolarity {
+): NormalizedObservationPolarity {
   if (!evidence.readsAsObservation) {
     return "failure";
   }
@@ -104,7 +128,7 @@ function readObservationPolarity(
   }
 }
 
-function readObservationOwner(evidence: TaskFailureSemanticEvidence): AttentionObservationOwner {
+function readObservationOwner(evidence: TaskFailureSemanticEvidence): NormalizedObservationOwner {
   if (evidence.toolFamily !== undefined) {
     return "tool";
   }
@@ -118,7 +142,7 @@ function readObservationOwner(evidence: TaskFailureSemanticEvidence): AttentionO
 
 function readObservationSubject(
   evidence: TaskFailureSemanticEvidence,
-): AttentionObservationSubject {
+): NormalizedObservationSubject {
   if (evidence.observation !== undefined) {
     return normalizeObservationSubject(evidence.observation.subject);
   }
@@ -140,7 +164,7 @@ function readObservationSubject(
 
 function normalizeObservationSubject(
   subject: NonNullable<TaskFailureSemanticEvidence["observation"]>["subject"],
-): AttentionObservationSubject {
+): NormalizedObservationSubject {
   switch (subject) {
     case "source":
     case "diff":
@@ -158,7 +182,7 @@ function normalizeObservationSubject(
 
 function readObservationEvidenceLoss(
   evidence: TaskFailureSemanticEvidence,
-): AttentionObservationEvidenceLoss {
+): NormalizedObservationEvidenceLoss {
   switch (evidence.failureDetail) {
     case "absent_evidence":
       return "absent";
@@ -173,7 +197,7 @@ function readObservationEvidenceLoss(
 
 function readObservationDiagnosticClass(
   evidence: TaskFailureSemanticEvidence,
-): AttentionObservationDiagnosticClass | null {
+): NormalizedObservationDiagnosticClass | null {
   if (evidence.kind === "expected_diagnostic_failure") {
     return "expected";
   }
@@ -190,8 +214,8 @@ function readObservationDiagnosticClass(
 
 function readObservationRecoveryHint(
   evidence: TaskFailureSemanticEvidence,
-  evidenceLoss: AttentionObservationEvidenceLoss,
-): AttentionObservationRecoveryHint | null {
+  evidenceLoss: NormalizedObservationEvidenceLoss,
+): NormalizedObservationRecoveryHint | null {
   if (evidence.kind === "rejected_tool_use_observation") {
     return "await_authorization";
   }
@@ -208,13 +232,13 @@ function readObservationRecoveryHint(
   }
 }
 
-function readObservationOrigin(evidence: TaskFailureSemanticEvidence): AttentionObservationOrigin {
+function readObservationOrigin(evidence: TaskFailureSemanticEvidence): NormalizedObservationOrigin {
   return evidence.observation?.origin ?? "semantic_evidence";
 }
 
 function readObservationAuthority(
   source: AttentionOntologyAuthority | undefined,
-): AttentionObservationAuthority {
+): NormalizedObservationAuthority {
   switch (source) {
     case "explicit":
     case "hinted":
@@ -228,12 +252,12 @@ function readObservationAuthority(
 function deriveObservationEvidenceStrength(input: {
   ontology: AttentionOntologyDiagnostic;
   abstained: boolean;
-  agreement: AttentionObservationAgreement;
-  evidenceLoss: AttentionObservationEvidenceLoss;
-}): AttentionObservationStrength {
+  semanticAgreement: NormalizedObservationSemanticAgreement;
+  evidenceLoss: NormalizedObservationEvidenceLoss;
+}): NormalizedObservationEvidenceStrength {
   if (
     input.abstained ||
-    input.agreement !== "stable" ||
+    input.semanticAgreement !== "stable" ||
     input.ontology.confidence === "low" ||
     input.evidenceLoss === "absent" ||
     input.evidenceLoss === "unknown"

@@ -139,16 +139,13 @@ test("judgment input exposes outcome-only failed status as named semantic eviden
     judgmentInput: input,
   };
 
-  assert.equal(input.failureEvidence?.kind, "terminal_failure");
-  assert.equal(input.failureEvidence?.failureDetail, "outcome_only");
-  assert.equal(input.failureEvidence?.consequenceBaseline, "medium");
-  assert.equal(input.failureEvidence?.semanticAgreement, "stable");
-  assert.deepEqual(input.observationEvidence, {
+  assert.equal(Object.hasOwn(input, "failureEvidence"), false);
+  assert.deepEqual(input.observation, {
     kind: "outcome",
     polarity: "failure",
-    agreement: "stable",
+    semanticAgreement: "stable",
     ownership: { owner: "tool", toolFamily: "exec_command" },
-    strength: "strong",
+    evidenceStrength: "strong",
     subject: "tool",
     evidenceLoss: "none",
     provenance: { origin: "semantic_evidence", authority: "explicit" },
@@ -202,16 +199,13 @@ test("judgment input treats empty failed payloads as weak limited failure eviden
     judgmentInput: input,
   };
 
-  assert.equal(input.failureEvidence?.kind, "empty_failure_payload");
-  assert.equal(input.failureEvidence?.failureDetail, "absent_evidence");
-  assert.equal(input.failureEvidence?.consequenceBaseline, "medium");
-  assert.equal(input.failureEvidence?.semanticAgreement, "stable");
-  assert.deepEqual(input.observationEvidence, {
+  assert.equal(Object.hasOwn(input, "failureEvidence"), false);
+  assert.deepEqual(input.observation, {
     kind: "outcome",
     polarity: "failure",
-    agreement: "stable",
+    semanticAgreement: "stable",
     ownership: { owner: "tool", toolFamily: "edit" },
-    strength: "weak",
+    evidenceStrength: "weak",
     subject: "tool",
     evidenceLoss: "absent",
     recoveryHint: "request_evidence",
@@ -256,8 +250,10 @@ test("high-consequence empty failed payloads do not become limited failures", ()
     },
   });
 
-  assert.equal(input.failureEvidence?.kind, "empty_failure_payload");
-  assert.equal(input.failureEvidence?.semanticAgreement, "uncertain");
+  assert.equal(Object.hasOwn(input, "failureEvidence"), false);
+  assert.equal(input.observation?.kind, "outcome");
+  assert.equal(input.observation?.semanticAgreement, "uncertain");
+  assert.equal(input.observation?.evidenceLoss, "absent");
   assert.equal(input.semanticEvidence?.strength, "strong");
   assert.equal(hasLimitedFailureStatusJudgmentInput(input), false);
 });
@@ -307,16 +303,13 @@ test("judgment input treats read source-window limits as strong limited failures
     judgmentInput: input,
   };
 
-  assert.equal(input.failureEvidence?.kind, "terminal_failure");
-  assert.equal(input.failureEvidence?.failureDetail, "source_window_limit");
-  assert.equal(input.failureEvidence?.consequenceBaseline, "medium");
-  assert.equal(input.failureEvidence?.semanticAgreement, "stable");
-  assert.deepEqual(input.observationEvidence, {
+  assert.equal(Object.hasOwn(input, "failureEvidence"), false);
+  assert.deepEqual(input.observation, {
     kind: "diagnostic",
     polarity: "failure",
-    agreement: "stable",
+    semanticAgreement: "stable",
     ownership: { owner: "tool", toolFamily: "read" },
-    strength: "strong",
+    evidenceStrength: "strong",
     subject: "source",
     evidenceLoss: "partial",
     diagnosticClass: "source_limit",
@@ -391,16 +384,16 @@ test("judgment input keeps diagnostic and low-confidence failures out of outcome
     },
   });
 
-  assert.equal(diagnosticInput.failureEvidence?.failureDetail, "diagnostic");
-  assert.equal(diagnosticInput.failureEvidence?.semanticAgreement, "stable");
-  assert.equal(diagnosticInput.observationEvidence?.kind, "diagnostic");
-  assert.equal(diagnosticInput.observationEvidence?.diagnosticClass, "runtime");
-  assert.equal(diagnosticInput.observationEvidence?.recoveryHint, "inspect_diagnostic");
+  assert.equal(Object.hasOwn(diagnosticInput, "failureEvidence"), false);
+  assert.equal(diagnosticInput.observation?.kind, "diagnostic");
+  assert.equal(diagnosticInput.observation?.semanticAgreement, "stable");
+  assert.equal(diagnosticInput.observation?.diagnosticClass, "runtime");
+  assert.equal(diagnosticInput.observation?.recoveryHint, "inspect_diagnostic");
   assert.equal(hasOutcomeOnlyFailureStatusJudgmentInput(diagnosticInput), false);
-  assert.equal(truncatedInput.failureEvidence?.failureDetail, "outcome_only");
-  assert.equal(truncatedInput.failureEvidence?.semanticAgreement, "uncertain");
-  assert.equal(truncatedInput.observationEvidence?.agreement, "uncertain");
-  assert.equal(truncatedInput.observationEvidence?.strength, "weak");
+  assert.equal(Object.hasOwn(truncatedInput, "failureEvidence"), false);
+  assert.equal(truncatedInput.observation?.kind, "outcome");
+  assert.equal(truncatedInput.observation?.semanticAgreement, "uncertain");
+  assert.equal(truncatedInput.observation?.evidenceStrength, "weak");
   assert.equal(hasOutcomeOnlyFailureStatusJudgmentInput(truncatedInput), false);
 });
 
@@ -452,12 +445,12 @@ test("judgment input marks routine observational failed-status conflicts", () =>
     toolFamily: "bash",
     baselineConsequence: "low",
   });
-  assert.deepEqual(input.observationEvidence, {
+  assert.deepEqual(input.observation, {
     kind: "outcome",
     polarity: "success",
-    agreement: "stable",
+    semanticAgreement: "stable",
     ownership: { owner: "tool", toolFamily: "bash" },
-    strength: "qualified",
+    evidenceStrength: "qualified",
     subject: "tool",
     evidenceLoss: "none",
     provenance: { origin: "semantic_evidence", authority: "inferred" },
@@ -700,8 +693,9 @@ test("judgment input marks low missing-tool transcript subclasses only on raw ag
 
   assert.equal(mixedFailureInput.routineObservationalStatusConflict, undefined);
   assert.equal(mixedFailureInput.observationalStatusConflict, undefined);
-  assert.equal(mixedFailureInput.failureEvidence?.kind, "terminal_failure");
-  assert.equal(mixedFailureInput.failureEvidence?.failureDetail, "diagnostic");
+  assert.equal(Object.hasOwn(mixedFailureInput, "failureEvidence"), false);
+  assert.equal(mixedFailureInput.observation?.kind, "diagnostic");
+  assert.equal(mixedFailureInput.observation?.diagnosticClass, "runtime");
 });
 
 test("judgment input marks tool-use rejection outcomes as status conflicts only on raw agreement", () => {
@@ -790,12 +784,12 @@ test("judgment input marks tool-use rejection outcomes as status conflicts only 
     toolFamily: "bash",
     baselineConsequence: "low",
   });
-  assert.deepEqual(bashInput.observationEvidence, {
+  assert.deepEqual(bashInput.observation, {
     kind: "control",
     polarity: "neutral",
-    agreement: "stable",
+    semanticAgreement: "stable",
     ownership: { owner: "tool", toolFamily: "bash" },
-    strength: "qualified",
+    evidenceStrength: "qualified",
     subject: "tool",
     evidenceLoss: "none",
     recoveryHint: "await_authorization",

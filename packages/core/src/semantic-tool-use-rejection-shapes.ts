@@ -1,9 +1,8 @@
-const DECLINED_ACTION_PATTERN =
-  /^the\s+user\s+doesn['’]?t\s+want\s+to\s+take\s+this\s+action\s+right\s+now\b([\s\S]*)$/i;
-const REJECTED_TOOL_USE_PATTERN =
-  /^the\s+user\s+doesn['’]?t\s+want\s+to\s+proceed\s+with\s+this\s+tool\s+use\b([\s\S]*)$/i;
-const STOP_AND_WAIT_PATTERN =
-  /^stop\s+what\s+you\s+are\s+doing\s+and\s+wait\s+for\s+the\s+user\s+to\s+tell\s+you\s+how\s+to\s+proceed\.$/i;
+const USER_REFUSAL_PATTERN =
+  /^the\s+user\s+(?:doesn['’]?t|does\s+not)\s+want\s+to\s+(proceed\s+with\s+this\s+tool\s+use|take\s+this\s+action(?:\s+right\s+now)?)\b/i;
+const TOOL_USE_REJECTED_PATTERN = /^(?:the\s+)?tool\s+use\s+(?:was\s+)?rejected\b/i;
+const STOP_WAIT_FOR_USER_PATTERN =
+  /^stop\b[\s\S]*\bwait\b[\s\S]*\buser\b[\s\S]*\bproceed\b\s*[.!?]?$/i;
 
 export function hasToolUseRejectionSignal(value: string): boolean {
   return (
@@ -15,37 +14,35 @@ export function hasToolUseRejectionSignal(value: string): boolean {
 }
 
 export function looksLikeToolUseRejectionOutcome(value: string): boolean {
-  const body = stripOptionalObservationPrefix(value.trim());
+  const body = value
+    .trim()
+    .replace(/^OBSERVATION:\s*/i, "")
+    .trim();
+  const refusal = USER_REFUSAL_PATTERN.exec(body);
 
-  return looksLikeRejectedToolUseOutcome(body) || looksLikeDeclinedActionOutcome(body);
-}
-
-function stripOptionalObservationPrefix(value: string): string {
-  return value.replace(/^OBSERVATION:\s*/i, "").trim();
-}
-
-function looksLikeRejectedToolUseOutcome(value: string): boolean {
-  const match = REJECTED_TOOL_USE_PATTERN.exec(value);
-  return match ? looksLikeToolUseRejectionRemainder(match[1] ?? "") : false;
-}
-
-function looksLikeDeclinedActionOutcome(value: string): boolean {
-  const match = DECLINED_ACTION_PATTERN.exec(value);
-  return match ? STOP_AND_WAIT_PATTERN.test(consumeSeparator(match[1] ?? "")) : false;
-}
-
-function looksLikeToolUseRejectionRemainder(value: string): boolean {
-  let remainder = consumeSeparator(value);
-  const toolUseRejection = /^the\s+tool\s+use\s+was\s+rejected\b/i.exec(remainder);
-  if (!toolUseRejection) {
+  if (!refusal) {
     return false;
   }
 
-  remainder = remainder.slice(toolUseRejection[0].length);
-  remainder = consumeOptionalParenthetical(remainder);
-  remainder = consumeSeparator(remainder);
+  let remainder = consumeSeparator(body.slice(refusal[0].length));
+  if (/\btool\s+use\b/i.test(refusal[1] ?? "")) {
+    const toolUseRejection = consumeToolUseRejectionClause(remainder);
+    if (toolUseRejection === null) {
+      return false;
+    }
+    remainder = consumeSeparator(toolUseRejection);
+  }
 
-  return STOP_AND_WAIT_PATTERN.test(remainder);
+  return STOP_WAIT_FOR_USER_PATTERN.test(remainder);
+}
+
+function consumeToolUseRejectionClause(value: string): string | null {
+  const match = TOOL_USE_REJECTED_PATTERN.exec(value);
+  if (!match) {
+    return null;
+  }
+
+  return consumeOptionalParenthetical(value.slice(match[0].length));
 }
 
 function consumeSeparator(value: string): string {

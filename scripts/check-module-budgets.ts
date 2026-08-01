@@ -4,6 +4,10 @@ import { fileURLToPath } from "node:url";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = resolve(dirname(scriptPath), "..");
+const SEMANTIC_MODULE_COUNT_BUDGET = 100;
+const SEMANTIC_LINE_COUNT_BUDGET = 8695;
+const SEMANTIC_MATCHER_SITE_BUDGET = 600;
+const SEMANTIC_PHRASE_LITERAL_BUDGET = 175;
 
 const budgets = [
   { file: "packages/runtime/src/runtime.ts", maxLines: 800 },
@@ -333,25 +337,44 @@ async function main(): Promise<void> {
 
   const semanticFiles = await collectCoreSemanticFiles();
   let semanticLineCount = 0;
+  let semanticMatcherSiteCount = 0;
+  let semanticPhraseLiteralCount = 0;
   for (const file of semanticFiles) {
     const relativeFile = relative(repoRoot, file);
+    const text = await readFile(file, "utf8");
     if (!budgetedFiles.has(relativeFile)) {
       missingBudgetFiles.push(relativeFile);
     }
-    semanticLineCount += (await readFile(file, "utf8")).split("\n").length;
+    semanticLineCount += text.split("\n").length;
+    semanticMatcherSiteCount += countSemanticMatcherSites(text);
+    semanticPhraseLiteralCount += countSemanticPhraseLiterals(text);
   }
-  if (semanticFiles.length > 100) {
+  if (semanticFiles.length > SEMANTIC_MODULE_COUNT_BUDGET) {
     aggregateViolations.push({
       label: "packages/core/src/semantic*.ts module count",
       value: semanticFiles.length,
-      max: 100,
+      max: SEMANTIC_MODULE_COUNT_BUDGET,
     });
   }
-  if (semanticLineCount > 8695) {
+  if (semanticLineCount > SEMANTIC_LINE_COUNT_BUDGET) {
     aggregateViolations.push({
       label: "packages/core/src/semantic*.ts total lines",
       value: semanticLineCount,
-      max: 8695,
+      max: SEMANTIC_LINE_COUNT_BUDGET,
+    });
+  }
+  if (semanticMatcherSiteCount > SEMANTIC_MATCHER_SITE_BUDGET) {
+    aggregateViolations.push({
+      label: "packages/core/src/semantic*.ts matcher sites",
+      value: semanticMatcherSiteCount,
+      max: SEMANTIC_MATCHER_SITE_BUDGET,
+    });
+  }
+  if (semanticPhraseLiteralCount > SEMANTIC_PHRASE_LITERAL_BUDGET) {
+    aggregateViolations.push({
+      label: "packages/core/src/semantic*.ts phrase literals",
+      value: semanticPhraseLiteralCount,
+      max: SEMANTIC_PHRASE_LITERAL_BUDGET,
     });
   }
 
@@ -402,6 +425,40 @@ export async function collectCoreSemanticFiles(root = repoRoot): Promise<string[
   const directory = resolve(root, "packages/core/src");
   const files = await collectTypeScriptFiles(directory);
   return files.filter((file) => isCoreSemanticModule(root, file)).sort();
+}
+
+export function countSemanticMatcherSites(text: string): number {
+  return text
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith("//"))
+    .reduce((count, line) => count + countLineSemanticMatcherSites(line), 0);
+}
+
+export function countSemanticPhraseLiterals(text: string): number {
+  const phraseArrayPattern =
+    /\b(?:export\s+)?const\s+[A-Z0-9_]*(?:PHRASES|NEGATIONS)\s*=\s*\[([\s\S]*?)\]\s*as const/g;
+  return [...text.matchAll(phraseArrayPattern)].reduce(
+    (count, match) => count + countStringLiterals(stripCommentLines(match[1] ?? "")),
+    0,
+  );
+}
+
+function countLineSemanticMatcherSites(line: string): number {
+  const regexLiteralSites = line.match(/\/(?![/*])(?:\\.|[^/\\\r\n])+\/[dgimsuvy]*/g)?.length ?? 0;
+  const dynamicRegexSites = line.match(/\bnew RegExp\s*\(/g)?.length ?? 0;
+  const phraseMatcherSites = line.match(/\bcontainsAnySemanticPhrase\s*\(/g)?.length ?? 0;
+  return regexLiteralSites + dynamicRegexSites + phraseMatcherSites;
+}
+
+function stripCommentLines(text: string): string {
+  return text
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith("//"))
+    .join("\n");
+}
+
+function countStringLiterals(text: string): number {
+  return text.match(/(["'`])(?:\\.|(?!\1)[^\\\r\n])*\1/g)?.length ?? 0;
 }
 
 async function collectTypeScriptFiles(directory: string): Promise<string[]> {

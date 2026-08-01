@@ -1503,6 +1503,27 @@ test("task failure evidence routes edit output outcomes by result semantics", ()
     status: "failed",
     toolFamily: "edit",
   });
+  const oldTextReplacementMissFailure = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:edit-oldtext-replacement-miss",
+    taskId: "task:evidence:edit-oldtext-replacement-miss",
+    timestamp,
+    type: "task.updated",
+    title: "edit failure",
+    summary:
+      "Could not find edits[2] in /repo/src/app.ts. The oldText must match exactly including all whitespace and newlines.",
+    status: "failed",
+    toolFamily: "edit",
+  });
+  const modifiedSinceReadFailure = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:edit-modified-since-read",
+    taskId: "task:evidence:edit-modified-since-read",
+    timestamp,
+    type: "task.updated",
+    title: "edit failure",
+    summary: "File has been modified since read by another process. Read it again before writing.",
+    status: "failed",
+    toolFamily: "edit",
+  });
   const appliedReadback = readTaskFailureSemanticEvidence({
     id: "evt:evidence:edit-applied-readback",
     taskId: "task:evidence:edit-applied-readback",
@@ -1511,6 +1532,26 @@ test("task failure evidence routes edit output outcomes by result semantics", ()
     title: "edit failure",
     summary:
       "Successfully modified file: /repo/src/app.ts (1 replacements). Here is the updated code:\nexport const value = 1;",
+    status: "failed",
+    toolFamily: "edit",
+  });
+  const appliedWithDiagnosticReadback = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:edit-applied-with-diagnostic-readback",
+    taskId: "task:evidence:edit-applied-with-diagnostic-readback",
+    timestamp,
+    type: "task.updated",
+    title: "edit failure",
+    summary: "Edit applied successfully. LSP errors detected in this file, please fix:\nline 1",
+    status: "failed",
+    toolFamily: "edit",
+  });
+  const contradictoryAppliedFailure = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:edit-contradictory-applied-failure",
+    taskId: "task:evidence:edit-contradictory-applied-failure",
+    timestamp,
+    type: "task.updated",
+    title: "edit failure",
+    summary: "Edit applied successfully? No, the edit was rolled back and failed.",
     status: "failed",
     toolFamily: "edit",
   });
@@ -1575,9 +1616,15 @@ test("task failure evidence routes edit output outcomes by result semantics", ()
   assert.equal(preconditionFailure?.consequenceBaseline, "high");
   assert.equal(noReplacementFailure?.kind, "terminal_failure");
   assert.equal(replacementMissFailure?.kind, "terminal_failure");
+  assert.equal(oldTextReplacementMissFailure?.kind, "terminal_failure");
+  assert.equal(modifiedSinceReadFailure?.kind, "terminal_failure");
   assert.equal(appliedReadback?.kind, "observational_payload");
   assert.equal(appliedReadback?.readsAsObservation, true);
   assert.equal(appliedReadback?.consequenceBaseline, "high");
+  assert.equal(appliedWithDiagnosticReadback?.kind, "observational_payload");
+  assert.equal(appliedWithDiagnosticReadback?.readsAsObservation, true);
+  assert.equal(contradictoryAppliedFailure?.kind, "unclassified_failure");
+  assert.equal(contradictoryAppliedFailure?.readsAsObservation, false);
   assert.equal(createdReadback?.kind, "observational_payload");
   assert.equal(createdReadback?.readsAsObservation, true);
   assert.equal(recoveredReadback?.kind, "observational_payload");

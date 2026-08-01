@@ -68,7 +68,12 @@ const coreCorpusLabelRules = [
     pattern: /\b(?:public trajectory|public trajectories|public-trajectory)\b/g,
   },
 ] as const;
-const rawJudgmentFailureEvidencePattern = /\bjudgmentInput\.failureEvidence\b/g;
+const rawJudgmentFailureEvidencePatterns = [
+  /\bjudgmentInput\s*(?:\?\.|\.)\s*failureEvidence\b/g,
+  /\bjudgmentInput\s*(?:\?\.)?\s*\[\s*["']failureEvidence["']\s*\]/g,
+  /\b(?:const|let|var)\s*\{[^}]*\bfailureEvidence\b[^}]*\}\s*=\s*[^;\n]*\bjudgmentInput\b/g,
+  /\{\s*judgmentInput\s*:\s*\{[^}]*\bfailureEvidence\b[^}]*\}/g,
+] as const;
 
 export type ImportViolation = { file: string; label: string; imports: string[]; guidance: string };
 export type CorpusLabelViolation = { file: string; labels: string[] };
@@ -283,9 +288,47 @@ function collectModuleSpecifiers(content: string): string[] {
 }
 
 function collectRawJudgmentFailureEvidenceReads(content: string): string[] {
-  return [...content.matchAll(rawJudgmentFailureEvidencePattern)]
-    .map((match) => match[0])
-    .filter(Boolean);
+  const matches = new Set(
+    rawJudgmentFailureEvidencePatterns.flatMap((pattern) =>
+      [...content.matchAll(pattern)].map((match) => match[0]).filter(Boolean),
+    ),
+  );
+  for (const alias of collectJudgmentInputAliases(content)) {
+    for (const match of collectIdentifierFailureEvidenceReads(content, alias)) {
+      matches.add(match);
+    }
+  }
+  return [...matches];
+}
+
+function collectJudgmentInputAliases(content: string): string[] {
+  const aliases = new Set<string>();
+  const aliasPattern =
+    /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*[^;\n]*\bjudgmentInput\b\s*(?:;|\n|$)/g;
+  for (const match of content.matchAll(aliasPattern)) {
+    if (match[1] !== undefined && match[1] !== "judgmentInput") {
+      aliases.add(match[1]);
+    }
+  }
+  return [...aliases];
+}
+
+function collectIdentifierFailureEvidenceReads(content: string, identifier: string): string[] {
+  const escapedIdentifier = escapeRegExp(identifier);
+  const patterns = [
+    new RegExp(`\\b${escapedIdentifier}\\s*(?:\\?\\.|\\.)\\s*failureEvidence\\b`, "g"),
+    new RegExp(
+      `\\b${escapedIdentifier}\\s*(?:\\?\\.)?\\s*\\[\\s*["']failureEvidence["']\\s*\\]`,
+      "g",
+    ),
+  ];
+  return patterns.flatMap((pattern) =>
+    [...content.matchAll(pattern)].map((match) => match[0]).filter(Boolean),
+  );
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function collectSiblingImplementationImports(

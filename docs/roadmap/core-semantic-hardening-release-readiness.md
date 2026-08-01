@@ -197,9 +197,9 @@ Current review evidence:
   - `packages/core/src/semantic-evidence.ts`
   - `packages/core/src/semantic-owned-observation-payload-shapes.ts`
 - recursive semantic-module discovery currently accounts for 100 core semantic
-  modules and 8,567 lines; each discovered module has an explicit line budget,
-  and the architecture gate also enforces aggregate semantic-module count and
-  total-line budgets
+  modules; each discovered module has an explicit line budget, and the
+  architecture gate also enforces aggregate semantic-module count, total-line,
+  matcher-site, and phrase-table literal budgets
 - the packed SDK example compiles the new semantic helper import through
   `@tomismeta/aperture-core/semantic`
 - the public SDK manifest test asserts `@tomismeta/aperture-core` has no
@@ -261,9 +261,9 @@ pnpm exec tsx --test packages/core/test/semantic-detection.test.ts packages/core
 
 Additional branch evidence:
 
-- local `pnpm release:check`: passing on August 1, 2026 UTC, which was July 31,
-  2026 in the local America/Denver run context, after the Sol remediation pass
-- full local test suite: 1,199 passing; focused local suites on the
+- local `pnpm release:check`: passing on August 1, 2026 in the local
+  America/Denver run context, after the Sol remediation pass
+- full local test suite: 1,210 passing; focused local suites on the
   completed-update tranche add 222/222 passing semantic, normalization,
   ontology, and evaluator checks
 - focused semantic/kernel/lab suites for the explicit read abbreviated-file-view
@@ -291,6 +291,19 @@ Additional branch evidence:
   NormalizedObservation outcome coverage for presence, kind, polarity, semantic
   agreement, evidence loss, diagnostic class, recovery hint, subject, owner,
   evidence strength, and provenance origin/authority.
+- semantic compression checkpoint after `NormalizedObservation`: edit-output
+  failure/applied result parsing moved from exact template variants to
+  structural clauses for precondition failures, replacement misses, ambiguous
+  targets, no-op replacements, and applied edits. The edit-output matcher-site
+  count dropped from 16 to 9, contradictory applied-edit wording no longer reads
+  as an applied observation, and `pnpm architecture:check` now gates 100 semantic
+  modules, 8,691 semantic LOC, 599 aggregate semantic matcher sites under a 600
+  ceiling, and phrase-table literals at 175.
+- package-boundary hardening now rejects post-normalization
+  `judgmentInput.failureEvidence` access through direct property reads, bracket
+  reads, optional chaining, destructuring, and one-step aliases, keeping raw
+  task-failure evidence local to semantic evidence readers and the
+  `NormalizedObservation` normalizer.
 - kernel corpus scorecard v3 historical baseline: 49 scenarios, 16 covered dimensions, 2,014
   passing corpus assertions, 58 ontology checkpoints, 69 decision projection
   checkpoints, 13 relation checkpoints, 49 per-scenario checkpoint ledgers, 23

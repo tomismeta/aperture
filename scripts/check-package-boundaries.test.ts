@@ -152,12 +152,42 @@ test("boundary checker rejects raw judgment failure evidence outside the normali
       "packages/core/src/judgment-input.ts",
       "export function compat(judgmentInput: { failureEvidence?: unknown }) { return judgmentInput.failureEvidence; }\n",
     );
+    await writeRepoFile(
+      root,
+      "packages/core/src/attention-policy.ts",
+      "export function bracket(judgmentInput: Record<string, unknown>) { return judgmentInput['failureEvidence']; }\n",
+    );
+    await writeRepoFile(
+      root,
+      "packages/core/src/attention-planner.ts",
+      "export function destructure(candidate: { judgmentInput: { failureEvidence?: unknown } }) { const { failureEvidence } = candidate.judgmentInput; return failureEvidence; }\n",
+    );
+    await writeRepoFile(
+      root,
+      "packages/core/src/attention-value.ts",
+      "export function nested(candidate: { judgmentInput: { failureEvidence?: unknown } }) { const { judgmentInput: { failureEvidence } } = candidate; return failureEvidence; }\n",
+    );
+    await writeRepoFile(
+      root,
+      "packages/core/src/attention-optional.ts",
+      "export function optional(candidate: { judgmentInput?: { failureEvidence?: unknown } }) { return candidate.judgmentInput?.failureEvidence; }\n",
+    );
+    await writeRepoFile(
+      root,
+      "packages/core/src/attention-alias.ts",
+      "export function alias(candidate: { judgmentInput: { failureEvidence?: unknown } }) { const input = candidate.judgmentInput; return input.failureEvidence; }\n",
+    );
+    await writeRepoFile(
+      root,
+      "packages/core/src/attention-param.ts",
+      "export function param({ judgmentInput: { failureEvidence } }: { judgmentInput: { failureEvidence?: unknown } }) { return failureEvidence; }\n",
+    );
 
     const result = await checkPackageBoundaries(root);
 
     assert.deepEqual(result.importViolations, []);
     assert.deepEqual(result.corpusLabelViolations, []);
-    assert.equal(result.judgmentInputViolations.length, 2);
+    assert.equal(result.judgmentInputViolations.length, 8);
     assert.equal(
       result.judgmentInputViolations.some((violation) =>
         /packages\/core\/src\/policy\/semantic-raw-policy\.ts$/.test(violation.file),
@@ -167,6 +197,42 @@ test("boundary checker rejects raw judgment failure evidence outside the normali
     assert.equal(
       result.judgmentInputViolations.some((violation) =>
         /packages\/core\/src\/judgment-input\.ts$/.test(violation.file),
+      ),
+      true,
+    );
+    assert.equal(
+      result.judgmentInputViolations.some((violation) =>
+        /packages\/core\/src\/attention-policy\.ts$/.test(violation.file),
+      ),
+      true,
+    );
+    assert.equal(
+      result.judgmentInputViolations.some((violation) =>
+        /packages\/core\/src\/attention-planner\.ts$/.test(violation.file),
+      ),
+      true,
+    );
+    assert.equal(
+      result.judgmentInputViolations.some((violation) =>
+        /packages\/core\/src\/attention-value\.ts$/.test(violation.file),
+      ),
+      true,
+    );
+    assert.equal(
+      result.judgmentInputViolations.some((violation) =>
+        /packages\/core\/src\/attention-optional\.ts$/.test(violation.file),
+      ),
+      true,
+    );
+    assert.equal(
+      result.judgmentInputViolations.some((violation) =>
+        /packages\/core\/src\/attention-alias\.ts$/.test(violation.file),
+      ),
+      true,
+    );
+    assert.equal(
+      result.judgmentInputViolations.some((violation) =>
+        /packages\/core\/src\/attention-param\.ts$/.test(violation.file),
       ),
       true,
     );

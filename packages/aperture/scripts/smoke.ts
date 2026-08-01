@@ -291,14 +291,15 @@ async function assertPackagedRuntimeUsesCurrentCore(
     );
 
     const judgmentInput = asRecord(adjusted.judgmentInput, "runtime trace adjusted judgment input");
-    const failureEvidence = asRecord(
-      judgmentInput.failureEvidence,
-      "runtime trace failure evidence",
-    );
-    assert.equal(failureEvidence.kind, "terminal_failure");
-    assert.equal(failureEvidence.failureDetail, "source_window_limit");
-    assert.equal(failureEvidence.consequenceBaseline, "medium");
-    assert.equal(failureEvidence.semanticAgreement, "stable");
+    assert.equal(Object.hasOwn(judgmentInput, "failureEvidence"), false);
+    const observation = asRecord(judgmentInput.observation, "runtime trace observation");
+    assert.equal(observation.kind, "diagnostic");
+    assert.equal(observation.polarity, "failure");
+    assert.equal(observation.diagnosticClass, "source_limit");
+    assert.equal(observation.evidenceLoss, "partial");
+    assert.equal(observation.recoveryHint, "narrow_evidence_scope");
+    assert.equal(observation.consequenceBaseline, "medium");
+    assert.equal(observation.semanticAgreement, "stable");
     const semanticEvidence = asRecord(
       judgmentInput.semanticEvidence,
       "runtime trace semantic evidence",

@@ -66,6 +66,7 @@ test("observation semantics stays source-internal and out of package entrypoints
     assert.equal(source.includes("observation-semantics"), false, entrypoint);
     assert.equal(source.includes("task-failure-observation-grammar"), false, entrypoint);
     assert.equal(source.includes("task-failure-payload-observation-grammar"), false, entrypoint);
+    assert.equal(source.includes("task-failure-evidence-observation-grammar"), false, entrypoint);
     assert.equal(source.includes("TaskFailureObservationGrammarInput"), false, entrypoint);
     assert.equal(source.includes("TaskFailurePayloadObservationGrammarInput"), false, entrypoint);
   }
@@ -94,6 +95,14 @@ test("task-failure observation grammar stays document-first and source-internal"
     new URL("../src/task-failure-payload-observation-grammar.ts", import.meta.url),
     "utf8",
   );
+  const evidenceGrammar = readFileSync(
+    new URL("../src/task-failure-evidence-observation-grammar.ts", import.meta.url),
+    "utf8",
+  );
+  const core = readFileSync(
+    new URL("../src/task-failure-observation-core.ts", import.meta.url),
+    "utf8",
+  );
   const signals = readFileSync(
     new URL("../src/semantic-task-failure-signals.ts", import.meta.url),
     "utf8",
@@ -109,14 +118,28 @@ test("task-failure observation grammar stays document-first and source-internal"
   assert.match(grammar, /ObservationSemantics/);
   assert.match(payloadGrammar, /readTaskFailurePayloadObservationSemantics/);
   assert.match(payloadGrammar, /ObservationSemantics/);
+  assert.match(evidenceGrammar, /readTaskFailureEvidenceObservationSemantics/);
+  assert.match(evidenceGrammar, /ObservationSemantics/);
+  assert.match(evidenceGrammar, /import type \{ TaskFailureSemanticEvidence \}/);
+  assert.match(core, /readTaskFailureEvidenceObservationSemantics/);
+  for (const rawEvidenceBranch of [
+    "evidence.kind",
+    "evidence.failureDetail",
+    "evidence.readsAsObservation",
+    "evidence.consequenceBaseline",
+  ]) {
+    assert.equal(core.includes(rawEvidenceBranch), false, rawEvidenceBranch);
+  }
   assert.equal(grammar.includes("export type TaskFailureObservation ="), false);
   assert.equal(grammar.includes("export type TaskFailureObservationGrammarInput"), false);
   assert.equal(
     payloadGrammar.includes("export type TaskFailurePayloadObservationGrammarInput"),
     false,
   );
+  assert.equal(evidenceGrammar.includes("export type TaskFailureEvidenceObservationInput"), false);
   assert.equal(/export\s+type\s+\w*(?:Match|Signals)\b/.test(grammar), false);
   assert.equal(/export\s+type\s+\w*(?:Match|Signals)\b/.test(payloadGrammar), false);
+  assert.equal(/export\s+type\s+\w*(?:Match|Signals)\b/.test(evidenceGrammar), false);
   assert.equal(payloadShapes.includes("TaskFailureStructuredOutputEnvelope"), false);
   assert.equal(payloadShapes.includes("semantic-tool-family"), false);
   assert.equal(payloadShapes.includes("ObservationSemantics"), false);
@@ -137,6 +160,7 @@ test("task-failure observation grammar stays document-first and source-internal"
   ]) {
     assert.equal(grammar.includes(forbidden), false, forbidden);
     assert.equal(payloadGrammar.includes(forbidden), false, forbidden);
+    assert.equal(evidenceGrammar.includes(forbidden), false, forbidden);
   }
 
   for (const removedPayloadField of [

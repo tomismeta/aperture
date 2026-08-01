@@ -17,6 +17,8 @@ const TASK_FAILURE_OBSERVATION_GRAMMAR_FILE =
   "packages/core/src/task-failure-observation-grammar.ts";
 const TASK_FAILURE_PAYLOAD_OBSERVATION_GRAMMAR_FILE =
   "packages/core/src/task-failure-payload-observation-grammar.ts";
+const TASK_FAILURE_EVIDENCE_OBSERVATION_GRAMMAR_FILE =
+  "packages/core/src/task-failure-evidence-observation-grammar.ts";
 const TASK_FAILURE_OBSERVATION_CORE_FILE = "packages/core/src/task-failure-observation-core.ts";
 const TASK_FAILURE_OBSERVATION_NORMALIZER_FILE =
   "packages/core/src/task-failure-observation-normalizer.ts";
@@ -25,12 +27,15 @@ const observationPrimitiveBudgetFiles = [
   NORMALIZED_OBSERVATION_FILE,
   TASK_FAILURE_OBSERVATION_GRAMMAR_FILE,
   TASK_FAILURE_PAYLOAD_OBSERVATION_GRAMMAR_FILE,
+  TASK_FAILURE_EVIDENCE_OBSERVATION_GRAMMAR_FILE,
   TASK_FAILURE_OBSERVATION_CORE_FILE,
   TASK_FAILURE_OBSERVATION_NORMALIZER_FILE,
 ] as const;
 const taskFailureParsingBudgetFiles = [
   TASK_FAILURE_OBSERVATION_GRAMMAR_FILE,
   TASK_FAILURE_PAYLOAD_OBSERVATION_GRAMMAR_FILE,
+  // The evidence observation grammar has no lexical parsing; it is governed
+  // by the observation primitive aggregate and its explicit file budget.
   "packages/core/src/semantic-task-failure-signals.ts",
   "packages/core/src/semantic-evidence.ts",
   "packages/core/src/semantic-failure-detail.ts",
@@ -71,6 +76,7 @@ const budgets = [
   { file: NORMALIZED_OBSERVATION_FILE, maxLines: 75 },
   { file: TASK_FAILURE_OBSERVATION_GRAMMAR_FILE, maxLines: 250 },
   { file: TASK_FAILURE_PAYLOAD_OBSERVATION_GRAMMAR_FILE, maxLines: 225 },
+  { file: TASK_FAILURE_EVIDENCE_OBSERVATION_GRAMMAR_FILE, maxLines: 205 },
   { file: TASK_FAILURE_OBSERVATION_CORE_FILE, maxLines: 205 },
   { file: TASK_FAILURE_OBSERVATION_NORMALIZER_FILE, maxLines: 150 },
   { file: "packages/core/src/attention-evaluator.ts", maxLines: 350 },

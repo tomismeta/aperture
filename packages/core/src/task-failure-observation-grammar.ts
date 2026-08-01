@@ -57,29 +57,6 @@ export function readTaskFailureObservationSemantics(
   return null;
 }
 
-export function readTaskFailureEditDiagnosticObservationSemantics(input: {
-  editOutputOutcome: EditOutputOutcome | null;
-  toolFamily: string | undefined;
-  consequenceBaseline: ObservationSemantics["consequenceBaseline"];
-}): ObservationSemantics | null {
-  if (input.editOutputOutcome !== "failure") {
-    return null;
-  }
-
-  return {
-    ...baseObservation({
-      kind: "diagnostic",
-      polarity: "failure",
-      origin: "semantic_evidence",
-      subject: "tool",
-      consequenceBaseline: input.consequenceBaseline,
-      ...(input.toolFamily !== undefined ? { toolFamily: input.toolFamily } : {}),
-    }),
-    diagnosticClass: "runtime",
-    recoveryHint: "inspect_diagnostic",
-  };
-}
-
 function transcriptObservation(
   transcript: ExplicitObservationTranscript,
   toolFamily?: string,

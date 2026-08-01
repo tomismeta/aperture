@@ -90,6 +90,7 @@ const rawTaskFailureEvidenceMembers = new Set([
 ]);
 const rawTaskFailureEvidenceReadAllowlist = new Set([
   "packages/core/src/semantic-evidence.ts",
+  "packages/core/src/task-failure-evidence-observation-grammar.ts",
   "packages/core/src/task-failure-observation-core.ts",
   "packages/core/src/task-failure-observation-normalizer.ts",
 ]);

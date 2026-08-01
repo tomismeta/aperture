@@ -126,6 +126,11 @@ test("module budget checker counts the observation primitive as one governed sur
     );
     await writeRepoFile(
       root,
+      "packages/core/src/task-failure-evidence-observation-grammar.ts",
+      "const one = 1;\nconst two = 2;\n",
+    );
+    await writeRepoFile(
+      root,
       "packages/core/src/task-failure-observation-core.ts",
       "const one = 1;\nconst two = 2;\n",
     );
@@ -135,7 +140,7 @@ test("module budget checker counts the observation primitive as one governed sur
       "const one = 1;\nconst two = 2;\nconst three = 3;\n",
     );
 
-    assert.equal(await countObservationPrimitiveLines(root), 20);
+    assert.equal(await countObservationPrimitiveLines(root), 23);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

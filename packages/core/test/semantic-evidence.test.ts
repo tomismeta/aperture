@@ -80,22 +80,27 @@ function observationSemantics(input: {
   origin: ObservationSemantics["provenance"]["origin"];
   subject: ObservationSemantics["subject"];
   consequenceBaseline: ObservationSemantics["consequenceBaseline"];
+  owner?: ObservationSemantics["ownership"]["owner"];
   toolFamily?: string;
+  evidenceLoss?: ObservationSemantics["evidenceLoss"];
+  diagnosticClass?: ObservationSemantics["diagnosticClass"];
   recoveryHint?: ObservationSemantics["recoveryHint"];
+  evidenceCertainty?: ObservationSemantics["evidenceCertainty"];
 }): ObservationSemantics {
   return {
     kind: input.kind,
     polarity: input.polarity,
     ownership: {
-      owner: input.toolFamily === undefined ? "source" : "tool",
+      owner: input.owner ?? (input.toolFamily === undefined ? "source" : "tool"),
       ...(input.toolFamily !== undefined ? { toolFamily: input.toolFamily } : {}),
     },
     subject: input.subject,
-    evidenceLoss: "none",
+    evidenceLoss: input.evidenceLoss ?? "none",
+    ...(input.diagnosticClass !== undefined ? { diagnosticClass: input.diagnosticClass } : {}),
     ...(input.recoveryHint !== undefined ? { recoveryHint: input.recoveryHint } : {}),
     provenance: { origin: input.origin },
     consequenceBaseline: input.consequenceBaseline,
-    evidenceCertainty: "determinate",
+    evidenceCertainty: input.evidenceCertainty ?? "determinate",
   };
 }
 
@@ -1527,6 +1532,170 @@ test("host-style failed event fixtures route through observation semantics gramm
   }
 });
 
+test("task failure evidence attaches canonical observation semantics to non-payload families", () => {
+  const cases = [
+    {
+      name: "terminal outcome-only",
+      event: {
+        title: "bash failure",
+        summary: "(no output) Command exited with code 1",
+        toolFamily: "bash",
+      },
+      expectedKind: "terminal_failure",
+      expected: observationSemantics({
+        kind: "outcome",
+        polarity: "failure",
+        origin: "semantic_evidence",
+        subject: "tool",
+        consequenceBaseline: "medium",
+        toolFamily: "bash",
+      }),
+    },
+    {
+      name: "read source window",
+      event: {
+        title: "read failure",
+        summary:
+          "Read payload (512KB) is too large for the configured read window (256KB). Use start_line and end_line parameters to read specific portions of the file.",
+        toolFamily: "read",
+      },
+      expectedKind: "terminal_failure",
+      expected: observationSemantics({
+        kind: "diagnostic",
+        polarity: "failure",
+        origin: "semantic_evidence",
+        subject: "source",
+        consequenceBaseline: "medium",
+        toolFamily: "read",
+        evidenceLoss: "partial",
+        diagnosticClass: "source_limit",
+        recoveryHint: "narrow_evidence_scope",
+      }),
+    },
+    {
+      name: "empty payload",
+      event: {
+        title: "edit failure",
+        summary: "{}",
+        toolFamily: "edit",
+      },
+      expectedKind: "empty_failure_payload",
+      expected: observationSemantics({
+        kind: "outcome",
+        polarity: "failure",
+        origin: "semantic_evidence",
+        subject: "tool",
+        consequenceBaseline: "medium",
+        toolFamily: "edit",
+        evidenceLoss: "absent",
+        recoveryHint: "request_evidence",
+      }),
+    },
+    {
+      name: "expected diagnostic",
+      event: {
+        title: "bash failure",
+        summary:
+          "OBSERVATION: Form is valid: False. Form errors: amount required. Decompress result: [None, 'USD']",
+        toolFamily: "bash",
+      },
+      expectedKind: "expected_diagnostic_failure",
+      expected: observationSemantics({
+        kind: "diagnostic",
+        polarity: "failure",
+        origin: "semantic_evidence",
+        subject: "tool",
+        consequenceBaseline: "medium",
+        toolFamily: "bash",
+        diagnosticClass: "expected",
+        recoveryHint: "inspect_diagnostic",
+      }),
+    },
+    {
+      name: "operation success",
+      event: {
+        title: "tool failure",
+        summary: "OBSERVATION: File created successfully at: /testbed/exception_test.py",
+      },
+      expectedKind: "operation_success_observation",
+      expected: observationSemantics({
+        kind: "outcome",
+        polarity: "success",
+        origin: "semantic_evidence",
+        subject: "unknown",
+        consequenceBaseline: "low",
+      }),
+    },
+    {
+      name: "routine command success",
+      event: {
+        title: "bash failure",
+        summary: "Your command ran successfully and did not produce any output.",
+        toolFamily: "bash",
+      },
+      expectedKind: "routine_bash_success_observation",
+      expected: observationSemantics({
+        kind: "outcome",
+        polarity: "success",
+        origin: "semantic_evidence",
+        subject: "tool",
+        consequenceBaseline: "low",
+        toolFamily: "bash",
+      }),
+    },
+    {
+      name: "search output",
+      event: {
+        title: "search failure",
+        summary: 'Web search results for "aperture": /repo/README.md: Aperture overview',
+        toolFamily: "search",
+      },
+      expectedKind: "routine_search_output",
+      expected: observationSemantics({
+        kind: "payload",
+        polarity: "neutral",
+        origin: "semantic_evidence",
+        subject: "search",
+        consequenceBaseline: "low",
+        toolFamily: "search",
+      }),
+    },
+    {
+      name: "unclassified failure",
+      event: {
+        title: "tool failure",
+        summary: "The tool stopped for a reason that has not been classified.",
+      },
+      expectedKind: "unclassified_failure",
+      expected: observationSemantics({
+        kind: "unknown",
+        polarity: "failure",
+        origin: "semantic_evidence",
+        subject: "unknown",
+        consequenceBaseline: "high",
+        owner: "unknown",
+        evidenceLoss: "unknown",
+        recoveryHint: "inspect_original_evidence",
+      }),
+    },
+  ] as const;
+
+  for (const testCase of cases) {
+    const evidence = readTaskFailureSemanticEvidence({
+      id: `evt:evidence:observation-contract:${testCase.name}`,
+      taskId: `task:evidence:observation-contract:${testCase.name}`,
+      timestamp,
+      type: "task.updated",
+      status: "failed",
+      ...testCase.event,
+    });
+    assert.notEqual(evidence, null, testCase.name);
+    assert.equal(evidence?.kind, testCase.expectedKind, testCase.name);
+    assert.deepEqual(evidence?.observationSemantics, testCase.expected, testCase.name);
+    assert.deepEqual(readTaskFailureObservationCore(evidence), testCase.expected, testCase.name);
+  }
+});
+
 test("task failure evidence treats complete no-output nonzero command exits as medium consequence", () => {
   for (const [id, title, toolFamily, summary] of [
     ["no-output-command-exit", "bash failure", "bash", "(no output) Command exited with code 1"],
@@ -2203,6 +2372,16 @@ test("task failure evidence classifies structured tool output without treating i
       kind: "unclassified_failure",
       failureDetail: "indeterminate",
       toolFamily: "bash",
+      observationSemantics: observationSemantics({
+        kind: "unknown",
+        polarity: "failure",
+        origin: "semantic_evidence",
+        subject: "tool",
+        consequenceBaseline: "high",
+        toolFamily: "bash",
+        evidenceLoss: "unknown",
+        recoveryHint: "inspect_original_evidence",
+      }),
       readsAsObservation: false,
       consequenceBaseline: "high",
       text: {
@@ -6479,6 +6658,14 @@ test("task failure evidence preserves current observational classes", () => {
     {
       kind: "routine_search_output",
       toolFamily: "search",
+      observationSemantics: observationSemantics({
+        kind: "payload",
+        polarity: "neutral",
+        origin: "semantic_evidence",
+        subject: "search",
+        consequenceBaseline: "high",
+        toolFamily: "search",
+      }),
       readsAsObservation: true,
       consequenceBaseline: "high",
       text: {

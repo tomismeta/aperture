@@ -4,6 +4,8 @@ import test from "node:test";
 import { interpretSourceEvent } from "../src/semantic-interpreter.js";
 
 const timestamp = "2026-04-06T12:00:00.000Z";
+const rejectedToolUseMessage =
+  "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
 
 function source(id: string) {
   return { id, kind: "agent" as const };
@@ -86,6 +88,91 @@ test("failed empty tool payloads become medium-consequence source-quality gaps",
   assert.equal(interpretation.consequence, "medium");
   assert.equal(interpretation.confidence, "high");
   assert.equal(interpretation.whyNow, "Work has failed and should be reviewed.");
+});
+
+test("failed task semantic interpretation routes observation-core evidence shapes", () => {
+  const cases = [
+    {
+      id: "tool-rejection",
+      title: "bash failure",
+      summary: rejectedToolUseMessage,
+      toolFamily: "bash",
+      expected: {
+        intentFrame: "status_update",
+        activityClass: "status_update",
+        consequence: "low",
+        toolFamily: "bash",
+      },
+    },
+    {
+      id: "success-observation",
+      title: "bash failure",
+      summary: "Your command ran successfully and did not produce any output.",
+      toolFamily: "bash",
+      expected: {
+        intentFrame: "status_update",
+        activityClass: "status_update",
+        consequence: "low",
+        toolFamily: "bash",
+      },
+    },
+    {
+      id: "payload-observation",
+      title: "read failure output",
+      summary: "Observation: contents of /workspace/app.log showing top 20 lines",
+      toolFamily: "read",
+      expected: {
+        intentFrame: "status_update",
+        activityClass: "status_update",
+        consequence: "low",
+        toolFamily: "read",
+      },
+    },
+    {
+      id: "expected-diagnostic",
+      title: "bash failure",
+      summary:
+        "OBSERVATION: Form is valid: False. Form errors: amount required. Decompress result: [None, 'USD']",
+      toolFamily: "bash",
+      expected: {
+        intentFrame: "failure",
+        activityClass: "tool_failure",
+        consequence: "medium",
+        toolFamily: "bash",
+      },
+    },
+    {
+      id: "terminal-failure",
+      title: "bash failure",
+      summary: "Traceback (most recent call last): RuntimeError: deploy failed",
+      toolFamily: "bash",
+      expected: {
+        intentFrame: "failure",
+        activityClass: "tool_failure",
+        consequence: "high",
+        toolFamily: "bash",
+      },
+    },
+  ];
+
+  for (const testCase of cases) {
+    const interpretation = interpretSourceEvent({
+      id: `evt:observation-core:${testCase.id}`,
+      type: "task.updated",
+      taskId: `task:observation-core:${testCase.id}`,
+      timestamp,
+      source: source("custom-agent"),
+      title: testCase.title,
+      summary: testCase.summary,
+      status: "failed",
+      toolFamily: testCase.toolFamily,
+    });
+
+    assert.equal(interpretation.intentFrame, testCase.expected.intentFrame, testCase.id);
+    assert.equal(interpretation.activityClass, testCase.expected.activityClass, testCase.id);
+    assert.equal(interpretation.consequence, testCase.expected.consequence, testCase.id);
+    assert.equal(interpretation.toolFamily, testCase.expected.toolFamily, testCase.id);
+  }
 });
 
 test("completed task updates become completion semantics without adapter hints", () => {

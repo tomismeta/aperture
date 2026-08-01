@@ -30,6 +30,10 @@ import {
   semanticWhyNowForRequestKind,
   semanticWhyNowForTaskStatus,
 } from "./semantic-language.js";
+import {
+  readTaskFailureObservationCore,
+  type TaskFailureObservationCore,
+} from "./task-failure-observation-core.js";
 
 export type SemanticInterpreter = (event: SourceEvent) => SemanticInterpretation;
 type SemanticProvenanceField = keyof SemanticFieldProvenance;
@@ -123,25 +127,28 @@ function inferTaskUpdateSemantics(
     event.context,
   );
   const failureEvidence = event.status === "failed" ? readTaskFailureSemanticEvidence(event) : null;
+  const failureObservationCore =
+    failureEvidence !== null ? readTaskFailureObservationCore(failureEvidence) : null;
+  const awaitsAuthorization = failureObservationCore?.recoveryHint === "await_authorization";
   const { toolFamily, source: toolFamilySource } = resolveSemanticToolFamily(
     taxonomyInput,
-    failureEvidence?.kind !== "rejected_tool_use_observation",
+    !awaitsAuthorization,
   );
   const relationProvenance =
     relationHints.length > 0 ? inferredSemanticProvenance(["relationHints"]) : {};
   const relationWhyNow = semanticWhyNowForRelationHints(relationHints);
-  const observationalFailure = failureEvidence?.readsAsObservation === true;
-  const expectedDiagnosticFailure = failureEvidence?.kind === "expected_diagnostic_failure";
+  const observationalFailure = taskFailureObservationReadsAsStatusUpdate(failureObservationCore);
+  const expectedDiagnosticFailure = failureObservationCore?.diagnosticClass === "expected";
 
   switch (event.status) {
     case "failed":
       if (observationalFailure) {
         const consequence =
-          failureEvidence?.kind === "rejected_tool_use_observation"
-            ? failureEvidence.consequenceBaseline
+          awaitsAuthorization && failureObservationCore !== null
+            ? failureObservationCore.consequenceBaseline
             : inferConsequenceFromSemanticText(
                 text,
-                failureEvidence?.consequenceBaseline ?? "high",
+                failureObservationCore?.consequenceBaseline ?? "high",
                 toolFamily,
               );
         const whyNow = semanticWhyNowForObservationalStatusConflict(consequence) ?? relationWhyNow;
@@ -175,7 +182,7 @@ function inferTaskUpdateSemantics(
         ...(toolFamily ? { toolFamily } : {}),
         consequence: inferConsequenceFromSemanticText(
           text,
-          failureEvidence?.consequenceBaseline ?? "high",
+          failureObservationCore?.consequenceBaseline ?? "high",
           toolFamily,
         ),
         whyNow: semanticWhyNowForTaskStatus("failed") ?? "Work has failed and should be reviewed.",
@@ -634,6 +641,12 @@ function buildTaxonomyInput(
     ...(toolFamily !== undefined ? { toolFamily } : {}),
     ...(context?.items !== undefined ? { context: { items: context.items } } : {}),
   };
+}
+
+function taskFailureObservationReadsAsStatusUpdate(
+  observation: TaskFailureObservationCore | null,
+): boolean {
+  return observation?.polarity === "neutral" || observation?.polarity === "success";
 }
 
 function unreachableSourceEvent(event: never): never {

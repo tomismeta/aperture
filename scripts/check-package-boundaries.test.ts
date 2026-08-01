@@ -261,6 +261,71 @@ test("boundary checker returns no raw judgment failure evidence violations for c
   }
 });
 
+test("boundary checker rejects raw task-failure evidence member reads outside the observation seam", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-boundaries-"));
+  try {
+    await writeRepoFile(
+      root,
+      "packages/core/src/semantic-interpreter.ts",
+      "import { readTaskFailureSemanticEvidence } from './semantic-evidence.js';\nexport function reads(event: unknown) { const raw = readTaskFailureSemanticEvidence(event as never); const alias = raw; return alias?.kind; }\n",
+    );
+    await writeRepoFile(
+      root,
+      "packages/core/src/attention-raw-bracket.ts",
+      "import { readTaskFailureSemanticEvidence } from './semantic-evidence.js';\nexport function reads(event: unknown) { const raw = readTaskFailureSemanticEvidence(event as never); return raw?.['terminalShape']; }\n",
+    );
+    await writeRepoFile(
+      root,
+      "packages/core/src/attention-raw-destructure.ts",
+      "import { readTaskFailureSemanticEvidence } from './semantic-evidence.js';\nexport function reads(event: unknown) { const raw = readTaskFailureSemanticEvidence(event as never); const { consequenceBaseline } = raw as never; return consequenceBaseline; }\n",
+    );
+    await writeRepoFile(
+      root,
+      "packages/core/src/attention-raw-typed-param.ts",
+      "import type { TaskFailureSemanticEvidence } from './semantic-evidence.js';\nexport function reads(raw: TaskFailureSemanticEvidence) { return raw.text; }\n",
+    );
+    await writeRepoFile(
+      root,
+      "packages/core/src/semantic-evidence.ts",
+      "export type TaskFailureSemanticEvidence = { readsAsObservation: boolean };\nexport function read(failureEvidence: TaskFailureSemanticEvidence) { return failureEvidence.readsAsObservation; }\n",
+    );
+    await writeRepoFile(
+      root,
+      "packages/core/src/task-failure-observation-core.ts",
+      "import type { TaskFailureSemanticEvidence } from './semantic-evidence.js';\nexport function normalize(evidence: TaskFailureSemanticEvidence & { kind: string }) { return evidence.kind; }\n",
+    );
+
+    const result = await checkPackageBoundaries(root);
+
+    assert.deepEqual(result.importViolations, []);
+    assert.deepEqual(result.corpusLabelViolations, []);
+    assert.equal(result.judgmentInputViolations.length, 4);
+    assert.equal(
+      result.judgmentInputViolations.some((violation) => violation.matches.includes("alias?.kind")),
+      true,
+    );
+    assert.equal(
+      result.judgmentInputViolations.some((violation) =>
+        violation.matches.includes("raw?.['terminalShape']"),
+      ),
+      true,
+    );
+    assert.equal(
+      result.judgmentInputViolations.some((violation) =>
+        violation.matches.includes("consequenceBaseline"),
+      ),
+      true,
+    );
+    assert.equal(
+      result.judgmentInputViolations.some((violation) => violation.matches.includes("raw.text")),
+      true,
+    );
+    assert.match(renderBoundaryCheckReport(root, result), /observation document/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 async function writeRepoFile(root: string, relativePath: string, content: string): Promise<void> {
   const file = resolve(root, relativePath);
   await mkdir(dirname(file), { recursive: true });

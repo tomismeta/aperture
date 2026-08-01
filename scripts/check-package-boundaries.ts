@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRepoRoot = resolve(dirname(scriptPath), "..");
@@ -74,6 +75,23 @@ const rawJudgmentFailureEvidencePatterns = [
   /\b(?:const|let|var)\s*\{[^}]*\bfailureEvidence\b[^}]*\}\s*=\s*[^;\n]*\bjudgmentInput\b/g,
   /\{\s*judgmentInput\s*:\s*\{[^}]*\bfailureEvidence\b[^}]*\}/g,
 ] as const;
+const taskFailureEvidenceSignalPattern =
+  /\b(?:TaskFailureSemanticEvidence|readTaskFailureSemanticEvidence)\b/;
+const rawTaskFailureEvidenceMembers = new Set([
+  "kind",
+  "failureDetail",
+  "terminalShape",
+  "toolFamily",
+  "observation",
+  "readsAsObservation",
+  "consequenceBaseline",
+  "text",
+]);
+const rawTaskFailureEvidenceReadAllowlist = new Set([
+  "packages/core/src/semantic-evidence.ts",
+  "packages/core/src/task-failure-observation-core.ts",
+  "packages/core/src/task-failure-observation-normalizer.ts",
+]);
 
 export type ImportViolation = { file: string; label: string; imports: string[]; guidance: string };
 export type CorpusLabelViolation = { file: string; labels: string[] };
@@ -131,6 +149,17 @@ export async function checkPackageBoundaries(root = defaultRepoRoot): Promise<Bo
           matches: rawFailureEvidenceReads,
           guidance:
             "Judgment and policy code should consume observation. Keep raw task-failure evidence local to semantic evidence readers and the NormalizedObservation normalizer.",
+        });
+      }
+      const rawTaskFailureEvidenceReads = allowsRawTaskFailureEvidenceReads(root, file)
+        ? []
+        : collectRawTaskFailureEvidenceMemberReads(content);
+      if (rawTaskFailureEvidenceReads.length > 0) {
+        judgmentInputViolations.push({
+          file,
+          matches: rawTaskFailureEvidenceReads,
+          guidance:
+            "Production core should consume the observation document after raw task-failure evidence is normalized. Keep raw TaskFailureSemanticEvidence member reads local to semantic evidence readers and the observation normalizer/core seam.",
         });
       }
     }
@@ -194,7 +223,7 @@ export function renderBoundaryCheckReport(root: string, result: BoundaryCheckRes
   }
 
   if (result.judgmentInputViolations.length > 0) {
-    lines.push("Production core reads raw judgment failure evidence after normalization:");
+    lines.push("Production core reads raw task-failure evidence after observation normalization:");
     for (const violation of result.judgmentInputViolations) {
       lines.push(`- ${relative(root, violation.file)}: ${violation.matches.join(", ")}`);
     }
@@ -299,6 +328,207 @@ function collectRawJudgmentFailureEvidenceReads(content: string): string[] {
     }
   }
   return [...matches];
+}
+
+function collectRawTaskFailureEvidenceMemberReads(content: string): string[] {
+  if (!taskFailureEvidenceSignalPattern.test(content)) {
+    return [];
+  }
+  const source = ts.createSourceFile(
+    "check-package-boundaries.ts",
+    content,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const rawAliases = new Set<string>();
+  const matches = new Set<string>();
+
+  const visit = (node: ts.Node): void => {
+    if (ts.isParameter(node)) {
+      collectTaskFailureEvidenceParameterAliases(node, rawAliases, matches, source);
+    }
+
+    if (ts.isVariableDeclaration(node)) {
+      collectTaskFailureEvidenceVariableAliases(node, rawAliases, matches, source);
+    }
+
+    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+      if (
+        ts.isObjectLiteralExpression(node.left) &&
+        isRawTaskFailureEvidenceExpression(node.right)
+      ) {
+        collectTaskFailureEvidenceObjectLiteralReads(node.left, matches, source);
+      }
+    }
+
+    if (
+      ts.isPropertyAccessExpression(node) &&
+      rawTaskFailureEvidenceMembers.has(node.name.text) &&
+      isRawTaskFailureEvidenceExpression(node.expression)
+    ) {
+      matches.add(node.getText(source));
+    }
+
+    if (ts.isElementAccessExpression(node) && isRawTaskFailureEvidenceExpression(node.expression)) {
+      const memberName = readStringLiteralText(node.argumentExpression);
+      if (memberName !== null && rawTaskFailureEvidenceMembers.has(memberName)) {
+        matches.add(node.getText(source));
+      }
+    }
+
+    ts.forEachChild(node, visit);
+  };
+
+  function isRawTaskFailureEvidenceExpression(expression: ts.Expression): boolean {
+    const unwrapped = unwrapExpression(expression);
+    return (
+      (ts.isIdentifier(unwrapped) && rawAliases.has(unwrapped.text)) ||
+      isTaskFailureEvidenceReaderCall(unwrapped)
+    );
+  }
+
+  visit(source);
+  return [...matches];
+}
+
+function allowsRawTaskFailureEvidenceReads(root: string, file: string): boolean {
+  const relativeFile = relative(root, file).replace(/\\/g, "/");
+  return rawTaskFailureEvidenceReadAllowlist.has(relativeFile);
+}
+
+function collectTaskFailureEvidenceParameterAliases(
+  parameter: ts.ParameterDeclaration,
+  rawAliases: Set<string>,
+  matches: Set<string>,
+  source: ts.SourceFile,
+): void {
+  if (!hasTaskFailureEvidenceType(parameter.type)) {
+    return;
+  }
+
+  if (ts.isIdentifier(parameter.name)) {
+    rawAliases.add(parameter.name.text);
+    return;
+  }
+
+  if (ts.isObjectBindingPattern(parameter.name)) {
+    collectTaskFailureEvidenceBindingReads(parameter.name, matches, source);
+  }
+}
+
+function collectTaskFailureEvidenceVariableAliases(
+  declaration: ts.VariableDeclaration,
+  rawAliases: Set<string>,
+  matches: Set<string>,
+  source: ts.SourceFile,
+): void {
+  if (ts.isIdentifier(declaration.name)) {
+    if (
+      hasTaskFailureEvidenceType(declaration.type) ||
+      (declaration.initializer !== undefined &&
+        isTaskFailureEvidenceReaderOrAlias(declaration.initializer, rawAliases))
+    ) {
+      rawAliases.add(declaration.name.text);
+    }
+    return;
+  }
+
+  if (
+    ts.isObjectBindingPattern(declaration.name) &&
+    declaration.initializer !== undefined &&
+    isTaskFailureEvidenceReaderOrAlias(declaration.initializer, rawAliases)
+  ) {
+    collectTaskFailureEvidenceBindingReads(declaration.name, matches, source);
+  }
+}
+
+function isTaskFailureEvidenceReaderOrAlias(
+  expression: ts.Expression,
+  rawAliases: Set<string>,
+): boolean {
+  const unwrapped = unwrapExpression(expression);
+  return (
+    (ts.isIdentifier(unwrapped) && rawAliases.has(unwrapped.text)) ||
+    isTaskFailureEvidenceReaderCall(unwrapped)
+  );
+}
+
+function isTaskFailureEvidenceReaderCall(expression: ts.Expression): boolean {
+  return (
+    ts.isCallExpression(expression) &&
+    ts.isIdentifier(expression.expression) &&
+    expression.expression.text === "readTaskFailureSemanticEvidence"
+  );
+}
+
+function collectTaskFailureEvidenceBindingReads(
+  binding: ts.ObjectBindingPattern,
+  matches: Set<string>,
+  source: ts.SourceFile,
+): void {
+  for (const element of binding.elements) {
+    const memberName = readBindingElementMemberName(element);
+    if (memberName !== null && rawTaskFailureEvidenceMembers.has(memberName)) {
+      matches.add(element.getText(source));
+    }
+  }
+}
+
+function collectTaskFailureEvidenceObjectLiteralReads(
+  literal: ts.ObjectLiteralExpression,
+  matches: Set<string>,
+  source: ts.SourceFile,
+): void {
+  for (const property of literal.properties) {
+    const memberName = readObjectLiteralPropertyName(property.name);
+    if (memberName !== null && rawTaskFailureEvidenceMembers.has(memberName)) {
+      matches.add(property.getText(source));
+    }
+  }
+}
+
+function hasTaskFailureEvidenceType(type: ts.TypeNode | undefined): boolean {
+  return type?.getText().includes("TaskFailureSemanticEvidence") === true;
+}
+
+function unwrapExpression(expression: ts.Expression): ts.Expression {
+  let current = expression;
+  while (
+    ts.isParenthesizedExpression(current) ||
+    ts.isNonNullExpression(current) ||
+    ts.isAsExpression(current) ||
+    ts.isTypeAssertionExpression(current) ||
+    ts.isSatisfiesExpression(current)
+  ) {
+    current = current.expression;
+  }
+  return current;
+}
+
+function readBindingElementMemberName(element: ts.BindingElement): string | null {
+  if (element.propertyName !== undefined) {
+    return readPropertyNameText(element.propertyName);
+  }
+  return ts.isIdentifier(element.name) ? element.name.text : null;
+}
+
+function readObjectLiteralPropertyName(name: ts.PropertyName | undefined): string | null {
+  if (name === undefined) {
+    return null;
+  }
+  return readPropertyNameText(name);
+}
+
+function readPropertyNameText(name: ts.PropertyName): string | null {
+  if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) {
+    return name.text;
+  }
+  return null;
+}
+
+function readStringLiteralText(expression: ts.Expression): string | null {
+  return ts.isStringLiteralLike(expression) ? expression.text : null;
 }
 
 function collectJudgmentInputAliases(content: string): string[] {

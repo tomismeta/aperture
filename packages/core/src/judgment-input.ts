@@ -11,7 +11,11 @@ import type {
   SemanticEvidenceStrength,
   TaskFailureSemanticAgreement,
 } from "./judgment-input-types.js";
-import { normalizeTaskFailureObservation } from "./task-failure-observation-normalizer.js";
+import {
+  enrichTaskFailureObservation,
+  readTaskFailureObservationCore,
+  type TaskFailureObservationCore,
+} from "./task-failure-observation-normalizer.js";
 import type { NormalizedObservation } from "./normalized-observation.js";
 import type {
   AttentionOntologyAuthority,
@@ -57,16 +61,18 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
     event.type === "task.updated" && event.status === "failed"
       ? readTaskFailureSemanticEvidence(event)
       : null;
+  const failureObservationCore =
+    failureEvidence !== null ? readTaskFailureObservationCore(failureEvidence) : null;
   const preliminaryOntology = projectAttentionOntologyDiagnosticWithStatusConflictEvidence(
     event,
     event.semantic,
     null,
   );
   const preliminaryObservation =
-    failureEvidence !== null
+    failureObservationCore !== null
       ? compileTaskFailureObservation({
           event,
-          failureEvidence,
+          core: failureObservationCore,
           ontology: preliminaryOntology,
           abstained,
         })
@@ -88,10 +94,10 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
   const blockedLikeStatus =
     event.type === "task.updated" && ontology.blocking === "blocking" && event.status !== "blocked";
   const observation =
-    failureEvidence !== null
+    failureObservationCore !== null
       ? compileTaskFailureObservation({
           event,
-          failureEvidence,
+          core: failureObservationCore,
           ontology,
           abstained,
         })
@@ -350,33 +356,21 @@ function deriveCompiledSemanticEvidenceStrength(input: {
   );
 }
 
-type TaskFailureObservationInput = Omit<
-  Parameters<typeof normalizeTaskFailureObservation>[0],
-  "semanticAgreement"
->;
-
-function compileTaskFailureObservation(
-  input: TaskFailureObservationInput & { event: ApertureEvent },
-): NormalizedObservation {
-  const draftObservation = normalizeTaskFailureObservation({
-    failureEvidence: input.failureEvidence,
-    ontology: input.ontology,
-    abstained: input.abstained,
-    semanticAgreement: "uncertain",
-  });
+function compileTaskFailureObservation(input: {
+  event: ApertureEvent;
+  core: TaskFailureObservationCore;
+  ontology: AttentionOntologyDiagnostic;
+  abstained: boolean;
+}): NormalizedObservation {
   const semanticAgreement = readObservationSemanticAgreement({
     event: input.event,
-    observation: draftObservation,
+    observation: input.core,
     ontology: input.ontology,
     abstained: input.abstained,
   });
 
-  if (semanticAgreement === "uncertain") {
-    return draftObservation;
-  }
-
-  return normalizeTaskFailureObservation({
-    failureEvidence: input.failureEvidence,
+  return enrichTaskFailureObservation({
+    core: input.core,
     ontology: input.ontology,
     abstained: input.abstained,
     semanticAgreement,
@@ -385,7 +379,7 @@ function compileTaskFailureObservation(
 
 function readObservationSemanticAgreement(input: {
   event: ApertureEvent;
-  observation: NormalizedObservation;
+  observation: TaskFailureObservationCore;
   ontology: AttentionOntologyDiagnostic;
   abstained: boolean;
 }): TaskFailureSemanticAgreement {
@@ -422,7 +416,7 @@ function hasFailureSemanticOverride(
 }
 
 function observationAgreesWithSemanticRead(
-  observation: NormalizedObservation,
+  observation: TaskFailureObservationCore,
   semantic: NonNullable<ApertureEvent["semantic"]>,
   ontology: AttentionOntologyDiagnostic,
 ): boolean {

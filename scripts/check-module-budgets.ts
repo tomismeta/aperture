@@ -34,6 +34,7 @@ const budgets = [
   { file: "packages/core/src/attention-decision-record-schema.ts", maxLines: 10 },
   { file: "packages/core/src/observational-status-conflict.ts", maxLines: 25 },
   { file: "packages/core/src/normalized-observation.ts", maxLines: 75 },
+  { file: "packages/core/src/task-failure-observation-core.ts", maxLines: 225 },
   { file: "packages/core/src/task-failure-observation-normalizer.ts", maxLines: 275 },
   { file: "packages/core/src/attention-evaluator.ts", maxLines: 350 },
   { file: "packages/core/src/attention-evaluator-config.ts", maxLines: 125 },

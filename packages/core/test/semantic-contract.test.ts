@@ -15,6 +15,10 @@ test("task-failure judgment agreement stays behind the normalized observation bo
   assert.equal(source.includes("type TaskFailureSemanticEvidence"), false);
   assert.equal(source.includes("readTaskFailureSemanticAgreement"), false);
   assert.equal(source.includes("failureEvidenceAgreesWithSemanticRead"), false);
+  assert.equal(source.includes("normalizeTaskFailureObservation"), false);
+  assert.equal(source.includes("draftObservation"), false);
+  assert.match(source, /readTaskFailureObservationCore/);
+  assert.match(source, /enrichTaskFailureObservation/);
   assert.match(source, /function readObservationSemanticAgreement/);
   assert.match(source, /function observationAgreesWithSemanticRead/);
 
@@ -23,6 +27,25 @@ test("task-failure judgment agreement stays behind the normalized observation bo
     "failureEvidence.failureDetail",
     "failureEvidence.readsAsObservation",
     "failureEvidence.consequenceBaseline",
+  ]) {
+    assert.equal(source.includes(rawEvidenceBranch), false, rawEvidenceBranch);
+  }
+});
+
+test("task-failure semantic interpreter stays behind the observation-core boundary", () => {
+  const source = readFileSync(new URL("../src/semantic-interpreter.ts", import.meta.url), "utf8");
+
+  assert.match(source, /readTaskFailureObservationCore/);
+
+  for (const rawEvidenceBranch of [
+    "failureEvidence.kind",
+    "failureEvidence.failureDetail",
+    "failureEvidence.readsAsObservation",
+    "failureEvidence.consequenceBaseline",
+    "failureEvidence?.kind",
+    "failureEvidence?.failureDetail",
+    "failureEvidence?.readsAsObservation",
+    "failureEvidence?.consequenceBaseline",
   ]) {
     assert.equal(source.includes(rawEvidenceBranch), false, rawEvidenceBranch);
   }

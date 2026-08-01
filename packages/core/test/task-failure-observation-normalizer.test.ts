@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizeTaskFailureObservation } from "../src/task-failure-observation-normalizer.js";
+import {
+  enrichTaskFailureObservation,
+  normalizeTaskFailureObservation,
+  readTaskFailureObservationCore,
+} from "../src/task-failure-observation-normalizer.js";
 import type { NormalizedObservation } from "../src/normalized-observation.js";
 import {
   readObservationalStatusConflictKind,
@@ -65,6 +69,194 @@ function compile(
     ...input,
   });
 }
+
+test("task-failure observation core preserves ontology-independent semantic facts", () => {
+  const failureEvidence = evidence({
+    kind: "terminal_failure",
+    failureDetail: "diagnostic",
+    toolFamily: "bash",
+    consequenceBaseline: "high",
+  });
+  const core = readTaskFailureObservationCore(failureEvidence);
+
+  assert.deepEqual(core, {
+    kind: "diagnostic",
+    polarity: "failure",
+    ownership: { owner: "tool", toolFamily: "bash" },
+    subject: "tool",
+    evidenceLoss: "none",
+    diagnosticClass: "runtime",
+    recoveryHint: "inspect_diagnostic",
+    provenance: { origin: "semantic_evidence" },
+    consequenceBaseline: "high",
+    evidenceCertainty: "determinate",
+  });
+  assert.equal("semanticAgreement" in core, false);
+  assert.equal("evidenceStrength" in core, false);
+  assert.equal("authority" in core.provenance, false);
+  assert.deepEqual(
+    enrichTaskFailureObservation({
+      core,
+      ontology: { ...ontology, consequence: "high" },
+      abstained: false,
+      semanticAgreement: "stable",
+    }),
+    compile(failureEvidence),
+  );
+});
+
+test("task-failure observation enrichment owns evidence-certainty constraints", () => {
+  const core = readTaskFailureObservationCore(
+    evidence({
+      kind: "terminal_failure",
+      failureDetail: "indeterminate",
+      toolFamily: "bash",
+      consequenceBaseline: "high",
+    }),
+  );
+
+  assert.equal(core.evidenceCertainty, "indeterminate");
+  assert.equal(
+    enrichTaskFailureObservation({
+      core,
+      ontology: { ...ontology, consequence: "high" },
+      abstained: false,
+      semanticAgreement: "overridden",
+    }).semanticAgreement,
+    "uncertain",
+  );
+
+  const unclassified = readTaskFailureObservationCore(
+    evidence({
+      kind: "unclassified_failure",
+      failureDetail: "indeterminate",
+      consequenceBaseline: "high",
+    }),
+  );
+
+  assert.equal(unclassified.evidenceCertainty, "determinate");
+  assert.equal(
+    enrichTaskFailureObservation({
+      core: unclassified,
+      ontology: { ...ontology, consequence: "high" },
+      abstained: false,
+      semanticAgreement: "stable",
+    }).semanticAgreement,
+    "stable",
+  );
+});
+
+test("task-failure observation enrichment derives strength from ontology and evidence quality", () => {
+  const diagnosticCore = readTaskFailureObservationCore(
+    evidence({
+      kind: "terminal_failure",
+      failureDetail: "diagnostic",
+      toolFamily: "bash",
+      consequenceBaseline: "high",
+    }),
+  );
+  const absentCore = readTaskFailureObservationCore(
+    evidence({
+      kind: "empty_failure_payload",
+      failureDetail: "absent_evidence",
+      toolFamily: "edit",
+    }),
+  );
+  const cases: Array<{
+    name: string;
+    core: typeof diagnosticCore;
+    ontology: AttentionOntologyDiagnostic;
+    abstained: boolean;
+    semanticAgreement: Parameters<typeof enrichTaskFailureObservation>[0]["semanticAgreement"];
+    expectedStrength: NormalizedObservation["evidenceStrength"];
+    expectedAuthority: NormalizedObservation["provenance"]["authority"];
+  }> = [
+    {
+      name: "high explicit stable",
+      core: diagnosticCore,
+      ontology: { ...ontology, consequence: "high", confidence: "high", source: "explicit" },
+      abstained: false,
+      semanticAgreement: "stable",
+      expectedStrength: "strong",
+      expectedAuthority: "explicit",
+    },
+    {
+      name: "high inferred stable",
+      core: diagnosticCore,
+      ontology: { ...ontology, consequence: "high", confidence: "high", source: "inferred" },
+      abstained: false,
+      semanticAgreement: "stable",
+      expectedStrength: "qualified",
+      expectedAuthority: "inferred",
+    },
+    {
+      name: "medium hinted stable",
+      core: diagnosticCore,
+      ontology: { ...ontology, consequence: "high", confidence: "medium", source: "hinted" },
+      abstained: false,
+      semanticAgreement: "stable",
+      expectedStrength: "qualified",
+      expectedAuthority: "hinted",
+    },
+    {
+      name: "medium inferred stable",
+      core: diagnosticCore,
+      ontology: { ...ontology, consequence: "high", confidence: "medium", source: "inferred" },
+      abstained: false,
+      semanticAgreement: "stable",
+      expectedStrength: "weak",
+      expectedAuthority: "inferred",
+    },
+    {
+      name: "low explicit stable",
+      core: diagnosticCore,
+      ontology: { ...ontology, consequence: "high", confidence: "low", source: "explicit" },
+      abstained: false,
+      semanticAgreement: "stable",
+      expectedStrength: "weak",
+      expectedAuthority: "explicit",
+    },
+    {
+      name: "abstained",
+      core: diagnosticCore,
+      ontology: { ...ontology, consequence: "high", confidence: "high", source: "explicit" },
+      abstained: true,
+      semanticAgreement: "stable",
+      expectedStrength: "weak",
+      expectedAuthority: "explicit",
+    },
+    {
+      name: "overridden",
+      core: diagnosticCore,
+      ontology: { ...ontology, consequence: "high", confidence: "high", source: "explicit" },
+      abstained: false,
+      semanticAgreement: "overridden",
+      expectedStrength: "weak",
+      expectedAuthority: "explicit",
+    },
+    {
+      name: "absent evidence",
+      core: absentCore,
+      ontology,
+      abstained: false,
+      semanticAgreement: "stable",
+      expectedStrength: "weak",
+      expectedAuthority: "explicit",
+    },
+  ];
+
+  for (const testCase of cases) {
+    const observation = enrichTaskFailureObservation({
+      core: testCase.core,
+      ontology: testCase.ontology,
+      abstained: testCase.abstained,
+      semanticAgreement: testCase.semanticAgreement,
+    });
+
+    assert.equal(observation.evidenceStrength, testCase.expectedStrength, testCase.name);
+    assert.equal(observation.provenance.authority, testCase.expectedAuthority, testCase.name);
+  }
+});
 
 test("task-failure observation normalizer maps every evidence kind into the normalized document", () => {
   const cases: Array<{
@@ -279,6 +471,18 @@ test("task-failure observation normalizer maps every evidence kind into the norm
 
   for (const testCase of cases) {
     const observation = compile(testCase.evidence);
+    const core = readTaskFailureObservationCore(testCase.evidence);
+    const enriched = enrichTaskFailureObservation({
+      core,
+      ontology: { ...ontology, consequence: testCase.evidence.consequenceBaseline },
+      abstained: false,
+      semanticAgreement: "stable",
+    });
+
+    assert.deepEqual(enriched, observation, testCase.name);
+    assert.equal("semanticAgreement" in core, false, testCase.name);
+    assert.equal("evidenceStrength" in core, false, testCase.name);
+    assert.equal("authority" in core.provenance, false, testCase.name);
 
     for (const [key, value] of Object.entries(testCase.expected)) {
       if (key === "ownership" || key === "provenance") {

@@ -1,6 +1,19 @@
-import { readdir, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import {
+  collectCoreSemanticFiles,
+  readSemanticKernelArchitectureMetrics,
+} from "./semantic-kernel-surface-support.js";
+export {
+  collectCoreSemanticFiles,
+  collectSemanticMatcherGovernedFiles,
+  countObservationPrimitiveLines,
+  countSemanticMatcherSites,
+  countSemanticPhraseLiterals,
+  countTaskFailureParsingLines,
+} from "./semantic-kernel-surface-support.js";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = resolve(dirname(scriptPath), "..");
@@ -23,32 +36,6 @@ const TASK_FAILURE_EVIDENCE_OBSERVATION_GRAMMAR_FILE =
 const TASK_FAILURE_OBSERVATION_CORE_FILE = "packages/core/src/task-failure-observation-core.ts";
 const TASK_FAILURE_OBSERVATION_NORMALIZER_FILE =
   "packages/core/src/task-failure-observation-normalizer.ts";
-const observationPrimitiveBudgetFiles = [
-  OBSERVATION_SEMANTICS_FILE,
-  OBSERVATION_SEMANTIC_READ_FILE,
-  NORMALIZED_OBSERVATION_FILE,
-  TASK_FAILURE_OBSERVATION_GRAMMAR_FILE,
-  TASK_FAILURE_PAYLOAD_OBSERVATION_GRAMMAR_FILE,
-  TASK_FAILURE_EVIDENCE_OBSERVATION_GRAMMAR_FILE,
-  TASK_FAILURE_OBSERVATION_CORE_FILE,
-  TASK_FAILURE_OBSERVATION_NORMALIZER_FILE,
-] as const;
-const taskFailureParsingBudgetFiles = [
-  TASK_FAILURE_OBSERVATION_GRAMMAR_FILE,
-  TASK_FAILURE_PAYLOAD_OBSERVATION_GRAMMAR_FILE,
-  // The evidence observation grammar has no lexical parsing; it is governed
-  // by the observation primitive aggregate and its explicit file budget.
-  "packages/core/src/semantic-task-failure-signals.ts",
-  "packages/core/src/semantic-evidence.ts",
-  "packages/core/src/semantic-failure-detail.ts",
-  "packages/core/src/semantic-edit-output-shapes.ts",
-  "packages/core/src/semantic-tool-use-rejection-shapes.ts",
-  "packages/core/src/semantic-task-failure-structured-output.ts",
-] as const;
-const semanticMatcherGovernanceFiles = [
-  TASK_FAILURE_OBSERVATION_GRAMMAR_FILE,
-  TASK_FAILURE_PAYLOAD_OBSERVATION_GRAMMAR_FILE,
-] as const;
 
 const budgets = [
   { file: "packages/runtime/src/runtime.ts", maxLines: 800 },
@@ -135,7 +122,6 @@ const budgets = [
   { file: "packages/core/src/semantic-patterns.ts", maxLines: 300 },
   { file: "packages/core/src/semantic-provenance.ts", maxLines: 50 },
   { file: "packages/core/src/semantic-quoted-span.ts", maxLines: 100 },
-  { file: "packages/core/src/semantic-read-failure-diagnostic-shapes.ts", maxLines: 25 },
   { file: "packages/core/src/semantic-relation-hint-dedupe.ts", maxLines: 30 },
   { file: "packages/core/src/semantic-relation-judgment.ts", maxLines: 30 },
   { file: "packages/core/src/semantic-relations.ts", maxLines: 50 },
@@ -148,7 +134,6 @@ const budgets = [
   { file: "packages/core/src/semantic-c-like-source-line-shapes.ts", maxLines: 150 },
   { file: "packages/core/src/semantic-c-like-source-observation-shapes.ts", maxLines: 175 },
   { file: "packages/core/src/semantic-clipped-read-window-shapes.ts", maxLines: 50 },
-  { file: "packages/core/src/semantic-kernel-log-shapes.ts", maxLines: 25 },
   { file: "packages/core/src/semantic-panic-diagnostic-shapes.ts", maxLines: 50 },
   { file: "packages/core/src/semantic-procedural-observation-shapes.ts", maxLines: 75 },
   { file: "packages/core/src/semantic-python-diagnostic-shapes.ts", maxLines: 25 },
@@ -376,10 +361,8 @@ async function main(): Promise<void> {
     }
   }
 
-  const semanticFiles = await collectCoreSemanticFiles();
+  const semanticFiles = await collectCoreSemanticFiles(repoRoot);
   let semanticLineCount = 0;
-  let semanticMatcherSiteCount = 0;
-  let semanticPhraseLiteralCount = 0;
   for (const file of semanticFiles) {
     const relativeFile = relative(repoRoot, file);
     const text = await readFile(file, "utf8");
@@ -388,14 +371,11 @@ async function main(): Promise<void> {
     }
     semanticLineCount += text.split("\n").length;
   }
-  const semanticMatcherFiles = await collectSemanticMatcherGovernedFiles();
-  for (const file of semanticMatcherFiles) {
-    const text = await readFile(file, "utf8");
-    semanticMatcherSiteCount += countSemanticMatcherSites(text);
-    semanticPhraseLiteralCount += countSemanticPhraseLiterals(text);
-  }
-  const observationPrimitiveLineCount = await countObservationPrimitiveLines();
-  const taskFailureParsingLineCount = await countTaskFailureParsingLines();
+  const semanticArchitecture = await readSemanticKernelArchitectureMetrics(repoRoot);
+  const semanticMatcherSiteCount = semanticArchitecture.semanticMatcherSiteCount;
+  const semanticPhraseLiteralCount = semanticArchitecture.semanticPhraseLiteralCount;
+  const observationPrimitiveLineCount = semanticArchitecture.observationPrimitiveLineCount;
+  const taskFailureParsingLineCount = semanticArchitecture.taskFailureParsingLineCount;
   if (semanticFiles.length > SEMANTIC_MODULE_COUNT_BUDGET) {
     aggregateViolations.push({
       label: "packages/core/src/semantic*.ts module count",
@@ -482,97 +462,9 @@ async function main(): Promise<void> {
   process.exitCode = 1;
 }
 
-export async function collectCoreSemanticFiles(root = repoRoot): Promise<string[]> {
-  const directory = resolve(root, "packages/core/src");
-  const files = await collectTypeScriptFiles(directory);
-  return files.filter((file) => isCoreSemanticModule(root, file)).sort();
-}
-
-export async function collectSemanticMatcherGovernedFiles(root = repoRoot): Promise<string[]> {
-  const files = new Set(await collectCoreSemanticFiles(root));
-  for (const file of semanticMatcherGovernanceFiles) {
-    files.add(resolve(root, file));
-  }
-  return [...files].sort();
-}
-
-export async function countObservationPrimitiveLines(root = repoRoot): Promise<number> {
-  let lineCount = 0;
-  for (const file of observationPrimitiveBudgetFiles) {
-    lineCount += await readLineCount(resolve(root, file));
-  }
-  return lineCount;
-}
-
-export async function countTaskFailureParsingLines(root = repoRoot): Promise<number> {
-  let lineCount = 0;
-  for (const file of taskFailureParsingBudgetFiles) {
-    lineCount += await readLineCount(resolve(root, file));
-  }
-  return lineCount;
-}
-
-export function countSemanticMatcherSites(text: string): number {
-  return text
-    .split("\n")
-    .filter((line) => !line.trimStart().startsWith("//"))
-    .reduce((count, line) => count + countLineSemanticMatcherSites(line), 0);
-}
-
-export function countSemanticPhraseLiterals(text: string): number {
-  const phraseArrayPattern =
-    /\b(?:export\s+)?const\s+[A-Z0-9_]*(?:PHRASES|NEGATIONS)\s*=\s*\[([\s\S]*?)\]\s*as const/g;
-  return [...text.matchAll(phraseArrayPattern)].reduce(
-    (count, match) => count + countStringLiterals(stripCommentLines(match[1] ?? "")),
-    0,
-  );
-}
-
-function countLineSemanticMatcherSites(line: string): number {
-  const regexLiteralSites = line.match(/\/(?![/*])(?:\\.|[^/\\\r\n])+\/[dgimsuvy]*/g)?.length ?? 0;
-  const dynamicRegexSites = line.match(/\bnew RegExp\s*\(/g)?.length ?? 0;
-  const phraseMatcherSites = line.match(/\bcontainsAnySemanticPhrase\s*\(/g)?.length ?? 0;
-  return regexLiteralSites + dynamicRegexSites + phraseMatcherSites;
-}
-
-function stripCommentLines(text: string): string {
-  return text
-    .split("\n")
-    .filter((line) => !line.trimStart().startsWith("//"))
-    .join("\n");
-}
-
-function countStringLiterals(text: string): number {
-  return text.match(/(["'`])(?:\\.|(?!\1)[^\\\r\n])*\1/g)?.length ?? 0;
-}
-
-async function collectTypeScriptFiles(directory: string): Promise<string[]> {
-  const entries = await readdir(directory, { withFileTypes: true });
-  const files: string[] = [];
-
-  for (const entry of entries) {
-    const fullPath = resolve(directory, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...(await collectTypeScriptFiles(fullPath)));
-      continue;
-    }
-    if (entry.isFile() && entry.name.endsWith(".ts")) {
-      files.push(fullPath);
-    }
-  }
-
-  return files;
-}
-
 async function readLineCount(file: string): Promise<number> {
   const text = await readFile(file, "utf8");
   return text.split("\n").length;
-}
-
-function isCoreSemanticModule(root: string, file: string): boolean {
-  const relativeFile = relative(root, file).replace(/\\/g, "/");
-  const basename = relativeFile.split("/").at(-1) ?? "";
-  return /^packages\/core\/src\/semantic\//.test(relativeFile) || /^semantic.*\.ts$/.test(basename);
 }
 
 if (process.argv[1] === scriptPath) {

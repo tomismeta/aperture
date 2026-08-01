@@ -5,7 +5,6 @@ import {
 } from "./semantic-line-numbered-document-span-shapes.js";
 import { readArrowNumberedDocumentSpanParts } from "./semantic-arrow-numbered-document-span-parser.js";
 import { hasUnquotedEmbeddedRuntimeDiagnosticEvidence } from "./semantic-diagnostic-shapes.js";
-import { looksLikeExplicitReadFailureDiagnostic } from "./semantic-read-failure-diagnostic-shapes.js";
 import { containsOwnedReadTransportMixedNumbering } from "./semantic-owned-read-transport-numbering.js";
 import {
   hasVisibleTruncationBoundary,
@@ -45,6 +44,15 @@ function looksLikeClippedArrowReadWindow(text: string): boolean {
     hasStrictlyIncreasingLineNumbers(spans) &&
     hasConsecutiveLineNumbers(spans) &&
     spans.filter((span) => span.body.trim().length > 0).length >= 2
+  );
+}
+
+function looksLikeExplicitReadFailureDiagnostic(value: string): boolean {
+  return /^(?:read\s+failed\b|failed to (?:read|open)\b|could not (?:read|open)\b|unable to (?:read|open)\b)/i.test(
+    value
+      .trim()
+      .replace(/^(?:read|tool)\s+failure\s+/i, "")
+      .replace(/^#{1,6}\s+/, ""),
   );
 }
 

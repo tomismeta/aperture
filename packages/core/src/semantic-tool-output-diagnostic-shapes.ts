@@ -1,6 +1,10 @@
-import { looksLikeKernelLogDiagnosticPayload } from "./semantic-kernel-log-shapes.js";
-
 const CLI_PARSE_ERROR_EMITTERS = new Set(["jq"]);
+const KERNEL_LOG_DIAGNOSTIC_PATTERN =
+  /(?:^|[\r\n]|\s)(?:\d+:\s*)?\[\s*\d+(?:\.\d+)?][^\r\n]*(?:\*ERROR\*|\b(?:error|failed|failure|fault)\b|\bkernel panic\b|\bBUG:\s*(?:soft|hard) lockup\b)/i;
+
+export function looksLikeKernelLogDiagnosticPayload(text: string): boolean {
+  return KERNEL_LOG_DIAGNOSTIC_PATTERN.test(text);
+}
 
 export function looksLikeToolOutputDiagnosticPayload(text: string): boolean {
   return (

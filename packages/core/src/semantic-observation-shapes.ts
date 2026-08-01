@@ -3,7 +3,7 @@ import {
   looksLikeMarkdownDocumentObservation,
   looksLikeStructuredMarkdownDocumentObservation,
 } from "./semantic-document-observation-shapes.js";
-import { looksLikeKernelLogDiagnosticPayload } from "./semantic-kernel-log-shapes.js";
+import { looksLikeKernelLogDiagnosticPayload } from "./semantic-tool-output-diagnostic-shapes.js";
 import { looksLikeClippedArrowReadWindowObservation } from "./semantic-clipped-read-window-shapes.js";
 import { looksLikeReadTruncationProtocolObservation } from "./semantic-read-observation-shapes.js";
 import { looksLikeStrongListingObservation } from "./semantic-listing-observation-shapes.js";

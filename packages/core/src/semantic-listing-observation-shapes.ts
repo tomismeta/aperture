@@ -3,7 +3,7 @@ import {
   type ListingEntry,
   type ListingEntryKind,
 } from "./semantic-listing-entry-shapes.js";
-import { looksLikeKernelLogDiagnosticPayload } from "./semantic-kernel-log-shapes.js";
+import { looksLikeKernelLogDiagnosticPayload } from "./semantic-tool-output-diagnostic-shapes.js";
 import {
   hasVisibleTruncationBoundary,
   stripObservationStatusPrefix,

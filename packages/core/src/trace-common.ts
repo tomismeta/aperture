@@ -75,6 +75,33 @@ export type TraceInterruptCriterionVerdict = {
 
 export type TraceSemanticRoutingAuthority = "status" | "request" | "event";
 
+export type TraceObservationSummary = {
+  kind: "control" | "diagnostic" | "outcome" | "payload" | "unknown";
+  polarity: "failure" | "neutral" | "success" | "unknown";
+  owner: "engine" | "source" | "tool" | "unknown";
+  toolFamily?: string;
+  subject: "command" | "document" | "search" | "source" | "tool" | "unknown";
+  evidenceLoss: "absent" | "none" | "partial" | "unknown";
+  evidenceStrength: "weak" | "qualified" | "strong";
+  semanticAgreement: "stable" | "overridden" | "uncertain";
+  diagnosticClass?: "expected" | "runtime" | "source_limit";
+  recoveryHint?:
+    | "await_authorization"
+    | "inspect_diagnostic"
+    | "inspect_original_evidence"
+    | "narrow_evidence_scope"
+    | "request_evidence";
+  provenanceOrigin:
+    | "command_output"
+    | "read_output"
+    | "semantic_evidence"
+    | "status_text"
+    | "structured_output"
+    | "transcript";
+  provenanceAuthority: "explicit" | "hinted" | "inferred" | "unknown";
+  consequenceBaseline: "low" | "medium" | "high";
+};
+
 /**
  * Stable semantic impact summary for SDK consumers.
  *
@@ -115,8 +142,8 @@ export type TraceContinuityEvaluation = {
  * Stable semantic summary for SDK consumers.
  *
  * `intentFrame`, `activityClass`, `toolFamily`, `consequence`, `confidence`,
- * `abstained`, `observationalStatusConflict`, `ontology`, `provenance`, and
- * `impact` are suitable for programmatic use.
+ * `abstained`, `observation`, `observationalStatusConflict`, `ontology`,
+ * `provenance`, and `impact` are suitable for programmatic use.
  * `whyNow`, `factors`, `reasons`, and `influence` are explanatory text and
  * may evolve as the product language gets clearer.
  */
@@ -127,6 +154,7 @@ export type TraceSemanticSummary = {
   consequence?: SemanticConsequenceLevel;
   confidence?: SemanticConfidence;
   abstained?: boolean;
+  observation?: TraceObservationSummary;
   observationalStatusConflict?: ObservationalStatusConflictEvidence;
   ontology: AttentionOntologyDiagnostic;
   whyNow?: string;

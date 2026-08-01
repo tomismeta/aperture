@@ -277,6 +277,12 @@ function renderSemanticSection(
     ),
   );
 
+  if (semantic.observation) {
+    lines.push(
+      ...renderWrappedDetailLine("observation", renderObservationSummary(semantic), color),
+    );
+  }
+
   if (semantic.whyNow) {
     lines.push(...renderWrappedDetailLine("why now", semantic.whyNow, color));
   }
@@ -339,6 +345,34 @@ function renderSemanticSection(
   }
 
   return lines;
+}
+
+function renderObservationSummary(semantic: NonNullable<CandidateTrace["semantic"]>): string {
+  const observation = semantic.observation;
+  if (!observation) {
+    return "";
+  }
+
+  const owner =
+    observation.toolFamily !== undefined
+      ? `${observation.owner}:${observation.toolFamily}`
+      : observation.owner;
+  const parts = [
+    `${observation.kind}/${observation.polarity}`,
+    `subject: ${observation.subject}`,
+    `evidence: ${observation.evidenceStrength}`,
+    `loss: ${observation.evidenceLoss}`,
+    `agreement: ${observation.semanticAgreement}`,
+    `owner: ${owner}`,
+    `origin: ${observation.provenanceOrigin}/${observation.provenanceAuthority}`,
+    `baseline: ${observation.consequenceBaseline}`,
+    ...(observation.diagnosticClass !== undefined
+      ? [`diagnostic: ${observation.diagnosticClass}`]
+      : []),
+    ...(observation.recoveryHint !== undefined ? [`recovery: ${observation.recoveryHint}`] : []),
+  ];
+
+  return parts.join(" · ");
 }
 
 function renderSemanticProvenance(

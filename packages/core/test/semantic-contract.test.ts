@@ -61,6 +61,8 @@ test("observation semantics stays source-internal and out of package entrypoints
   for (const entrypoint of [
     "../src/index.ts",
     "../src/semantic.ts",
+    "../src/evaluator.ts",
+    "../src/trace.ts",
     "../src/internal-contract.ts",
   ]) {
     const source = readFileSync(new URL(entrypoint, import.meta.url), "utf8");
@@ -87,6 +89,33 @@ test("observation semantics owns vocabulary upstream of normalized observations"
 
   assert.equal(semantics.includes("normalized-observation"), false);
   assert.match(normalized, /from "\.\/observation-semantics\.js"/);
+});
+
+test("trace, why, and policy surfaces consume projected observation contracts", () => {
+  const traceCommon = readFileSync(new URL("../src/trace-common.ts", import.meta.url), "utf8");
+  const traceRecorder = readFileSync(new URL("../src/trace-recorder.ts", import.meta.url), "utf8");
+  const whyRenderer = readFileSync(new URL("../../tui/src/render-why.ts", import.meta.url), "utf8");
+  const peripheralPolicy = readFileSync(
+    new URL("../src/policy/peripheral-status-candidate.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(traceCommon, /export type TraceObservationSummary/);
+  assert.match(traceCommon, /observation\?: TraceObservationSummary/);
+  assert.equal(traceCommon.includes("NormalizedObservation"), false);
+  assert.equal(traceCommon.includes("ObservationSemantics"), false);
+  assert.equal(traceCommon.includes("evidenceCertainty"), false);
+
+  assert.match(traceRecorder, /readCandidateObservation/);
+  assert.match(traceRecorder, /function buildTraceObservationSummary/);
+  assert.match(traceRecorder, /observation \(judgment contract\)/);
+
+  assert.match(whyRenderer, /semantic\.observation/);
+  assert.match(whyRenderer, /function renderObservationSummary/);
+
+  assert.match(peripheralPolicy, /readCandidateObservation/);
+  assert.match(peripheralPolicy, /observation\.semanticAgreement === "stable"/);
+  assert.match(peripheralPolicy, /observation\.evidenceStrength !== "weak"/);
 });
 
 test("observation semantic read owns consumer-facing status/failure mapping", () => {

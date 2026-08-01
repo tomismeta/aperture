@@ -98,6 +98,15 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.equal("readSemanticTextEvidence" in semanticSdk, false);
   assert.equal("readTaskFailureSemanticEvidence" in semanticSdk, false);
   assert.equal("readTaskFailureSemanticSignals" in semanticSdk, false);
+  assert.equal("readCandidateObservation" in semanticSdk, false);
+  assert.equal("NormalizedObservation" in semanticSdk, false);
+  assert.equal("ObservationSemantics" in semanticSdk, false);
+  assert.equal("readCandidateObservation" in evaluatorSdk, false);
+  assert.equal("NormalizedObservation" in evaluatorSdk, false);
+  assert.equal("ObservationSemantics" in evaluatorSdk, false);
+  assert.equal("readCandidateObservation" in traceSdk, false);
+  assert.equal("NormalizedObservation" in traceSdk, false);
+  assert.equal("ObservationSemantics" in traceSdk, false);
 
   assert.equal(typeof sdk.baseAttentionSurfaceCapabilities, "object");
   assert.equal(typeof sdk.mergeAttentionSurfaceCapabilities, "function");

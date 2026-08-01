@@ -10,11 +10,13 @@ import {
   hasRoutineObservationalStatusConflictSemantics,
   isCandidateSemanticAbstained,
   isCandidateSemanticLowConfidence,
+  readCandidateObservation,
   readCandidateObservationalStatusConflictEvidence,
   readCandidateAttentionOntology,
   readCandidateSemanticConfidence,
   readCandidateSemanticEvidence,
 } from "./judgment-input.js";
+import type { NormalizedObservation } from "./normalized-observation.js";
 import type { AttentionPressure } from "./attention-pressure.js";
 import { projectAttentionOntologyDiagnostic } from "./semantic-ontology.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
@@ -23,6 +25,7 @@ import type {
   TraceDecisionKind,
   TraceEventTransition,
   TraceFrameTransition,
+  TraceObservationSummary,
 } from "./trace-common.js";
 import { diffTraceObjects } from "./trace-diff.js";
 import type { ApertureTrace, TraceSemanticSummary } from "./trace-types.js";
@@ -209,6 +212,7 @@ function buildSemanticSummary(
 
   const ontology =
     readCandidateAttentionOntology(adjusted) ?? projectAttentionOntologyDiagnostic(event, semantic);
+  const observation = readCandidateObservation(adjusted);
   const semanticEvidence = readCandidateSemanticEvidence(adjusted);
   const observationalStatusConflict = readCandidateObservationalStatusConflictEvidence(adjusted);
 
@@ -221,6 +225,7 @@ function buildSemanticSummary(
       ? { confidence: semanticEvidence.confidence }
       : {}),
     ...(semanticEvidence?.abstained === true ? { abstained: true } : {}),
+    ...(observation !== null ? { observation: buildTraceObservationSummary(observation) } : {}),
     ...(observationalStatusConflict !== null ? { observationalStatusConflict } : {}),
     ontology,
     ...(semantic.whyNow !== undefined ? { whyNow: semantic.whyNow } : {}),
@@ -230,6 +235,28 @@ function buildSemanticSummary(
     influence: buildSemanticInfluence(event, adjusted),
     impact: buildSemanticImpact(event, adjusted),
     ...(semantic.provenance !== undefined ? { provenance: semantic.provenance } : {}),
+  };
+}
+
+function buildTraceObservationSummary(observation: NormalizedObservation): TraceObservationSummary {
+  return {
+    kind: observation.kind,
+    polarity: observation.polarity,
+    owner: observation.ownership.owner,
+    ...(observation.ownership.toolFamily !== undefined
+      ? { toolFamily: observation.ownership.toolFamily }
+      : {}),
+    subject: observation.subject,
+    evidenceLoss: observation.evidenceLoss,
+    evidenceStrength: observation.evidenceStrength,
+    semanticAgreement: observation.semanticAgreement,
+    ...(observation.diagnosticClass !== undefined
+      ? { diagnosticClass: observation.diagnosticClass }
+      : {}),
+    ...(observation.recoveryHint !== undefined ? { recoveryHint: observation.recoveryHint } : {}),
+    provenanceOrigin: observation.provenance.origin,
+    provenanceAuthority: observation.provenance.authority,
+    consequenceBaseline: observation.consequenceBaseline,
   };
 }
 
@@ -361,6 +388,7 @@ function buildSemanticImpact(
   const continuity = new Set<string>();
   const ambiguity = new Set<string>();
   const contextOnly = new Set<string>();
+  const observation = readCandidateObservation(adjusted);
   const semanticEvidence = readCandidateSemanticEvidence(adjusted);
   const routingAuthority = buildSemanticRoutingAuthority(event);
 
@@ -407,6 +435,10 @@ function buildSemanticImpact(
     contextOnly.add("abstention");
   }
 
+  if (observation !== null) {
+    contextOnly.add("observation");
+  }
+
   switch (event.type) {
     case "task.updated":
       if (
@@ -426,6 +458,12 @@ function buildSemanticImpact(
         promoteSemanticField(contextOnly, routing, "intent", "blocking (judgment routing)");
       }
       if (hasRoutineObservationalStatusConflictSemantics(adjusted)) {
+        promoteSemanticField(
+          contextOnly,
+          routing,
+          "observation",
+          "observation (judgment contract)",
+        );
         promoteSemanticField(
           contextOnly,
           routing,

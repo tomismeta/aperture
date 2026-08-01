@@ -37,6 +37,7 @@ export type {
   TraceFrameTransition,
   TraceGateEvaluation,
   TraceInterruptCriterionVerdict,
+  TraceObservationSummary,
   TraceResultLane,
   TraceSemanticImpact,
   TraceSemanticRoutingAuthority,

@@ -1,6 +1,7 @@
 import {
   hasLimitedFailureStatusSemantics,
   hasRoutineObservationalStatusConflictSemantics,
+  readCandidateObservation,
   readCandidateSemanticEvidence,
 } from "../judgment-input.js";
 import type { AttentionCandidate } from "../interaction-candidate.js";
@@ -32,11 +33,17 @@ export function isEstablishedPolicyPeripheralStatus(
 }
 
 function hasStableSemanticStatusEvidence(candidate: AttentionCandidate): boolean {
+  if (hasRoutineObservationalStatusConflictSemantics(candidate)) {
+    return true;
+  }
+
+  const observation = readCandidateObservation(candidate);
+  if (observation !== null) {
+    return observation.semanticAgreement === "stable" && observation.evidenceStrength !== "weak";
+  }
+
   const semanticEvidence = readCandidateSemanticEvidence(candidate);
   return (
-    hasRoutineObservationalStatusConflictSemantics(candidate) ||
-    (semanticEvidence !== null &&
-      semanticEvidence.strength !== "weak" &&
-      !semanticEvidence.abstained)
+    semanticEvidence !== null && semanticEvidence.strength !== "weak" && !semanticEvidence.abstained
   );
 }

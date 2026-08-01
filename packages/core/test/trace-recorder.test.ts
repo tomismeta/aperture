@@ -464,10 +464,149 @@ test("public trace summary carries observational status-conflict evidence", () =
     toolFamily: "bash",
     baselineConsequence: "low",
   });
+  assert.deepEqual(trace.semantic?.observation, {
+    kind: "outcome",
+    polarity: "success",
+    owner: "tool",
+    toolFamily: "bash",
+    subject: "tool",
+    evidenceLoss: "none",
+    evidenceStrength: "qualified",
+    semanticAgreement: "stable",
+    provenanceOrigin: "semantic_evidence",
+    provenanceAuthority: "inferred",
+    consequenceBaseline: "low",
+  });
+  assert.ok(trace.semantic?.impact.routing.includes("observation (judgment contract)"));
   assert.ok(
     trace.semantic?.impact.routing.includes("observational status conflict (judgment routing)"),
   );
   assert.equal("decisionRecord" in trace, false);
+});
+
+test("trace recorder projects normalized observations without leaking internal IR shape", () => {
+  const cases = [
+    {
+      name: "runtime diagnostic",
+      event: {
+        id: "src:status:runtime-diagnostic",
+        type: "task.updated",
+        taskId: "task:status:runtime-diagnostic",
+        timestamp: "2026-03-27T20:02:00.000Z",
+        source: { id: "public-trajectory" },
+        title: "bash failure",
+        summary: "Error: deployment failed with exit code 1.",
+        status: "failed",
+        toolFamily: "bash",
+      } as const,
+      observation: {
+        kind: "diagnostic",
+        polarity: "failure",
+        owner: "tool",
+        toolFamily: "bash",
+        subject: "tool",
+        evidenceLoss: "none",
+        evidenceStrength: "strong",
+        semanticAgreement: "stable",
+        diagnosticClass: "runtime",
+        recoveryHint: "inspect_diagnostic",
+        provenanceOrigin: "semantic_evidence",
+        provenanceAuthority: "explicit",
+        consequenceBaseline: "high",
+      },
+    },
+    {
+      name: "source-window diagnostic",
+      event: {
+        id: "src:status:source-window",
+        type: "task.updated",
+        taskId: "task:status:source-window",
+        timestamp: "2026-03-27T20:02:10.000Z",
+        source: { id: "public-trajectory" },
+        title: "read failure",
+        summary:
+          "File content (347.9KB) exceeds maximum allowed size (256KB). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.",
+        status: "failed",
+        toolFamily: "read",
+      } as const,
+      observation: {
+        kind: "diagnostic",
+        polarity: "failure",
+        owner: "tool",
+        toolFamily: "read",
+        subject: "source",
+        evidenceLoss: "partial",
+        evidenceStrength: "strong",
+        semanticAgreement: "stable",
+        diagnosticClass: "source_limit",
+        recoveryHint: "narrow_evidence_scope",
+        provenanceOrigin: "semantic_evidence",
+        provenanceAuthority: "explicit",
+        consequenceBaseline: "medium",
+      },
+    },
+    {
+      name: "uncertain indeterminate command evidence",
+      event: {
+        id: "src:status:uncertain-command",
+        type: "task.updated",
+        taskId: "task:status:uncertain-command",
+        timestamp: "2026-03-27T20:02:20.000Z",
+        source: { id: "public-trajectory" },
+        title: "bash failure",
+        summary:
+          '{"exit_code":1,"wall_time":"0.0510 seconds","output":"(no output)","truncated":true}',
+        status: "failed",
+        toolFamily: "bash",
+      } as const,
+      observation: {
+        kind: "unknown",
+        polarity: "failure",
+        owner: "tool",
+        toolFamily: "bash",
+        subject: "tool",
+        evidenceLoss: "unknown",
+        evidenceStrength: "weak",
+        semanticAgreement: "uncertain",
+        recoveryHint: "inspect_original_evidence",
+        provenanceOrigin: "semantic_evidence",
+        provenanceAuthority: "explicit",
+        consequenceBaseline: "high",
+      },
+    },
+  ] as const;
+
+  for (const testCase of cases) {
+    const core = new ApertureCore();
+    const traces: ApertureTrace[] = [];
+
+    core.onTrace((trace) => {
+      traces.push(trace);
+    });
+
+    core.publishSourceEvent(testCase.event);
+
+    const trace = latestCandidateTrace(traces);
+    assert.ok(trace, testCase.name);
+    assert.equal(trace?.evaluation.kind, "candidate", testCase.name);
+    if (!trace || trace.evaluation.kind !== "candidate") {
+      continue;
+    }
+
+    const observation = trace.semantic?.observation;
+    assert.deepEqual(observation, testCase.observation, testCase.name);
+    assert.ok(trace.semantic?.impact.contextOnly.includes("observation"), testCase.name);
+    assert.equal(trace.semantic?.impact.routing.includes("observation (judgment contract)"), false);
+
+    assert.ok(observation, testCase.name);
+    if (!observation) {
+      continue;
+    }
+
+    assert.equal("ownership" in observation, false, testCase.name);
+    assert.equal("provenance" in observation, false, testCase.name);
+    assert.equal("evidenceCertainty" in observation, false, testCase.name);
+  }
 });
 
 test("trace recorder keeps forged routine status-conflict hints on failed routing", () => {

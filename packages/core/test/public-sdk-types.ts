@@ -28,6 +28,7 @@ import type {
   TraceInterruptCriterion,
   TraceInterruptCriterionVerdict,
   TraceFrameTransition,
+  TraceObservationSummary,
   TraceResultLane,
   TraceSemanticSummary,
   ObservationalStatusConflictEvidence as TraceObservationalStatusConflictEvidence,
@@ -90,6 +91,7 @@ void (0 as unknown as TraceGateEvaluation);
 void (0 as unknown as TraceInterruptCriterion);
 void (0 as unknown as TraceInterruptCriterionVerdict);
 void (0 as unknown as TraceFrameTransition);
+void (0 as unknown as TraceObservationSummary);
 void (0 as unknown as TraceResultLane);
 void (0 as unknown as TraceSemanticSummary);
 void (0 as unknown as TraceObservationalStatusConflictEvidence);

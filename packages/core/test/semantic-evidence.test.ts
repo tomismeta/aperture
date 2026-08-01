@@ -37,6 +37,9 @@ import { looksLikeBareNonzeroTerminalExitEvidence } from "../src/semantic-termin
 import type { ObservationSemantics } from "../src/observation-semantics.js";
 import { readTaskFailureObservationCore } from "../src/task-failure-observation-core.js";
 import { readSemanticOntologyDiagnostic } from "../src/semantic-ontology.js";
+import { readTaskFailurePayloadObservationSemantics } from "../src/task-failure-payload-observation-grammar.js";
+import { readSemanticStructuredOutputOwnership } from "../src/semantic-structured-output-ownership.js";
+import { readTaskFailureStructuredOutputEnvelope } from "../src/semantic-task-failure-structured-output.js";
 
 const timestamp = "2026-04-05T18:45:00.000Z";
 const rejectedToolUseMessage =
@@ -94,6 +97,20 @@ function observationSemantics(input: {
     consequenceBaseline: input.consequenceBaseline,
     evidenceCertainty: "determinate",
   };
+}
+
+function payloadObservationSemantics(input: {
+  summary: string;
+  toolFamily?: string;
+}): ObservationSemantics | null {
+  return readTaskFailurePayloadObservationSemantics({
+    summary: input.summary,
+    toolFamily: input.toolFamily,
+    structuredOutputEnvelope: readTaskFailureStructuredOutputEnvelope(
+      input.summary,
+      readSemanticStructuredOutputOwnership(input.toolFamily),
+    ),
+  });
 }
 
 test("semantic text evidence classifies exact routine bash success observations", () => {
@@ -494,7 +511,10 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
   });
   assert.equal(structuredSourceLiteral.structuredOutputEnvelope.kind, "valid");
   assert.notEqual(structuredSourceLiteral.diagnosticStructuredToolOutput, null);
-  assert.equal(structuredSourceLiteral.structuredOutputObservation, true);
+  assert.equal(
+    structuredSourceLiteral.observationSemantics?.provenance.origin,
+    "structured_output",
+  );
   assert.equal(structuredSourceLiteral.structuredOutputFailureDiagnostic, false);
   assert.equal(structuredSourceLiteral.rawToolOutputFailureDiagnostic, false);
 
@@ -503,7 +523,10 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     toolFamily: "bash",
   });
   assert.equal(structuredCompoundSourceLiteral.structuredOutputEnvelope.kind, "valid");
-  assert.equal(structuredCompoundSourceLiteral.structuredOutputObservation, true);
+  assert.equal(
+    structuredCompoundSourceLiteral.observationSemantics?.provenance.origin,
+    "structured_output",
+  );
   assert.equal(structuredCompoundSourceLiteral.structuredOutputFailureDiagnostic, false);
   assert.equal(structuredCompoundSourceLiteral.rawToolOutputFailureDiagnostic, false);
 
@@ -515,7 +538,10 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     toolFamily: "bash",
   });
   assert.equal(structuredRealisticCompoundSourceLiteral.structuredOutputEnvelope.kind, "valid");
-  assert.equal(structuredRealisticCompoundSourceLiteral.structuredOutputObservation, true);
+  assert.equal(
+    structuredRealisticCompoundSourceLiteral.observationSemantics?.provenance.origin,
+    "structured_output",
+  );
   assert.equal(structuredRealisticCompoundSourceLiteral.structuredOutputFailureDiagnostic, false);
   assert.equal(structuredRealisticCompoundSourceLiteral.rawToolOutputFailureDiagnostic, false);
 
@@ -524,7 +550,10 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     toolFamily: "bash",
   });
   assert.equal(structuredExceptionGroupSourceFixture.structuredOutputEnvelope.kind, "valid");
-  assert.equal(structuredExceptionGroupSourceFixture.structuredOutputObservation, true);
+  assert.equal(
+    structuredExceptionGroupSourceFixture.observationSemantics?.provenance.origin,
+    "structured_output",
+  );
   assert.equal(structuredExceptionGroupSourceFixture.structuredOutputFailureDiagnostic, false);
   assert.equal(structuredExceptionGroupSourceFixture.strongSourceRuntimeDiagnostic, false);
 
@@ -533,7 +562,10 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     toolFamily: "bash",
   });
   assert.equal(validStructuredSourceLabel.structuredOutputEnvelope.kind, "valid");
-  assert.equal(validStructuredSourceLabel.structuredOutputObservation, true);
+  assert.equal(
+    validStructuredSourceLabel.observationSemantics?.provenance.origin,
+    "structured_output",
+  );
   assert.equal(validStructuredSourceLabel.structuredOutputFailureDiagnostic, false);
   assert.equal(validStructuredSourceLabel.strongSourceRuntimeDiagnostic, false);
 
@@ -542,7 +574,10 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     toolFamily: "bash",
   });
   assert.equal(validStructuredAssignmentLabel.structuredOutputEnvelope.kind, "valid");
-  assert.equal(validStructuredAssignmentLabel.structuredOutputObservation, true);
+  assert.equal(
+    validStructuredAssignmentLabel.observationSemantics?.provenance.origin,
+    "structured_output",
+  );
   assert.equal(validStructuredAssignmentLabel.structuredOutputFailureDiagnostic, false);
   assert.equal(validStructuredAssignmentLabel.strongSourceRuntimeDiagnostic, false);
 
@@ -561,7 +596,10 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     toolFamily: "bash",
   });
   assert.equal(recoveredStructuredSourceLabel.structuredOutputEnvelope.kind, "recovered");
-  assert.equal(recoveredStructuredSourceLabel.structuredOutputObservation, true);
+  assert.equal(
+    recoveredStructuredSourceLabel.observationSemantics?.provenance.origin,
+    "structured_output",
+  );
   assert.equal(recoveredStructuredSourceLabel.structuredOutputFailureDiagnostic, false);
   assert.equal(recoveredStructuredSourceLabel.rawToolOutputFailureDiagnostic, false);
 
@@ -571,7 +609,10 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     toolFamily: "bash",
   });
   assert.equal(recoveredStructuredAssignmentLabel.structuredOutputEnvelope.kind, "recovered");
-  assert.equal(recoveredStructuredAssignmentLabel.structuredOutputObservation, true);
+  assert.equal(
+    recoveredStructuredAssignmentLabel.observationSemantics?.provenance.origin,
+    "structured_output",
+  );
   assert.equal(recoveredStructuredAssignmentLabel.structuredOutputFailureDiagnostic, false);
   assert.equal(recoveredStructuredAssignmentLabel.rawToolOutputFailureDiagnostic, false);
 
@@ -581,7 +622,10 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     toolFamily: "bash",
   });
   assert.equal(recoveredRealisticCompoundSourceLiteral.structuredOutputEnvelope.kind, "recovered");
-  assert.equal(recoveredRealisticCompoundSourceLiteral.structuredOutputObservation, true);
+  assert.equal(
+    recoveredRealisticCompoundSourceLiteral.observationSemantics?.provenance.origin,
+    "structured_output",
+  );
   assert.equal(recoveredRealisticCompoundSourceLiteral.structuredOutputFailureDiagnostic, false);
   assert.equal(recoveredRealisticCompoundSourceLiteral.rawToolOutputFailureDiagnostic, false);
 
@@ -598,7 +642,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
       '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }"}',
   });
   assert.equal(missingToolExactSource.structuredOutputEnvelope.kind, "valid");
-  assert.equal(missingToolExactSource.structuredOutputObservation, true);
+  assert.equal(missingToolExactSource.observationSemantics?.provenance.origin, "structured_output");
 
   const opaqueToolExactSource = readTaskFailureSemanticSignals({
     summary:
@@ -606,7 +650,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     toolFamily: "opaque_runner",
   });
   assert.equal(opaqueToolExactSource.structuredOutputEnvelope.kind, "valid");
-  assert.equal(opaqueToolExactSource.structuredOutputObservation, true);
+  assert.equal(opaqueToolExactSource.observationSemantics?.provenance.origin, "structured_output");
 
   const explicitReadExactSource = readTaskFailureSemanticSignals({
     summary:
@@ -614,7 +658,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     toolFamily: "read",
   });
   assert.equal(explicitReadExactSource.structuredOutputEnvelope.kind, "unsupported");
-  assert.equal(explicitReadExactSource.structuredOutputObservation, false);
+  assert.equal(explicitReadExactSource.observationSemantics, null);
 
   const zeroExitSingleDocumentRow =
     '{"exit_code":0,"wall_time":"0.0510 seconds","output":"docs/guide.md:17:Test failed is documented here..."}';
@@ -625,12 +669,11 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     });
     assert.equal(signal.structuredOutputEnvelope.kind, "valid");
     assert.equal(
-      signal.structuredOutputSingleListingObservation,
-      true,
+      signal.observationSemantics?.provenance.origin,
+      "structured_output",
       `${toolFamily} owns zero-exit single document rows`,
     );
-    assert.equal(signal.structuredOutputObservation, true);
-    assert.equal(signal.structuredOutputSourceObservation, false);
+    assert.equal(signal.observationSemantics?.subject, "tool");
   }
   assert.equal(
     readTaskFailureSemanticSignals({
@@ -640,8 +683,8 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
         output: "Bash failure docs/guide.md:17:Test failed is documented here...",
       }),
       toolFamily: "bash",
-    }).structuredOutputSingleListingObservation,
-    true,
+    }).observationSemantics?.provenance.origin,
+    "structured_output",
     "single listing status-prefix stripping is case-insensitive",
   );
 
@@ -650,8 +693,11 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
       '{"exit_code":0,"wall_time":"0.0510 seconds","output":"src/runtime/trap_handler.s:71:.set TTMP6_SPI_TTMPS_SETUP_DISABLED_SHIFT , 31...',
     toolFamily: "bash",
   });
-  assert.equal(zeroExitSingleSourceRow.structuredOutputSingleListingObservation, true);
-  assert.equal(zeroExitSingleSourceRow.structuredOutputSourceObservation, true);
+  assert.equal(
+    zeroExitSingleSourceRow.observationSemantics?.provenance.origin,
+    "structured_output",
+  );
+  assert.equal(zeroExitSingleSourceRow.observationSemantics?.subject, "source");
 
   for (const [summary, expectedObservation] of [
     [
@@ -672,10 +718,11 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     ],
   ] as const) {
     const signal = readTaskFailureSemanticSignals({ summary, toolFamily: "bash" });
-    assert.equal(signal.structuredOutputObservation, expectedObservation);
+    assert.equal(signal.observationSemantics?.kind === "payload", expectedObservation);
     assert.equal(
-      signal.structuredOutputSingleListingObservation,
-      false,
+      signal.observationSemantics?.subject === "tool" &&
+        signal.observationSemantics.provenance.origin === "structured_output",
+      expectedObservation,
       "pre-existing owned payload shapes do not borrow the single-listing signal",
     );
   }
@@ -692,7 +739,8 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
   ] as const) {
     const signal = readTaskFailureSemanticSignals({ summary, toolFamily });
     assert.equal(
-      signal.structuredOutputSingleListingObservation,
+      signal.observationSemantics?.kind === "payload" &&
+        signal.observationSemantics.provenance.origin === "structured_output",
       false,
       `${toolFamily ?? "missing tool"} does not own a single-row listing exception for ${summary}`,
     );
@@ -703,7 +751,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
       '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }',
   });
   assert.equal(missingToolTruncatedEnvelope.structuredOutputEnvelope.kind, "invalid");
-  assert.equal(missingToolTruncatedEnvelope.structuredOutputObservation, false);
+  assert.equal(missingToolTruncatedEnvelope.observationSemantics, null);
 
   const rawReadPanic = readTaskFailureSemanticSignals({
     summary: runtimePanic,
@@ -1097,6 +1145,282 @@ test("task failure semantic signals compile execution observations into one fiel
     consequenceBaseline: "low",
     evidenceCertainty: "determinate",
   });
+});
+
+test("task failure payload observation grammar emits canonical source and read documents", () => {
+  const cases = [
+    {
+      name: "read truncation protocol",
+      summary:
+        "IMPORTANT: The file content has been truncated. Status: Showing lines 1-50 of 120 total lines. Action: To read more of the file, you can use the 'offset' and 'limit' parameters.",
+      toolFamily: "read",
+      expected: observationSemantics({
+        kind: "payload",
+        polarity: "neutral",
+        origin: "read_output",
+        subject: "document",
+        consequenceBaseline: "low",
+        toolFamily: "read",
+      }),
+    },
+    {
+      name: "read clipped source",
+      summary: "#include <stdio.h>\nint main() {\n  return 0;\n}",
+      toolFamily: "read",
+      expected: observationSemantics({
+        kind: "payload",
+        polarity: "neutral",
+        origin: "read_output",
+        subject: "source",
+        consequenceBaseline: "high",
+        toolFamily: "read",
+      }),
+    },
+    {
+      name: "read truncated listing",
+      summary:
+        "src/app.ts:10:export const value = 1;\nsrc/app.ts:11:export const next = 2;\nsrc/app.ts:12:export const last = 3;...",
+      toolFamily: "read",
+      expected: observationSemantics({
+        kind: "payload",
+        polarity: "neutral",
+        origin: "read_output",
+        subject: "source",
+        consequenceBaseline: "high",
+        toolFamily: "read",
+      }),
+    },
+    {
+      name: "read build log",
+      summary:
+        "DKMS (dkms-3.2.0) make.log for amdgpu/1.0 Building module(s) # command: 'make' KERNELVER=6.19.0 checking for a BSD-compatible install...",
+      toolFamily: "read",
+      expected: observationSemantics({
+        kind: "payload",
+        polarity: "neutral",
+        origin: "read_output",
+        subject: "document",
+        consequenceBaseline: "low",
+        toolFamily: "read",
+      }),
+    },
+    {
+      name: "read tagged source",
+      summary:
+        "<path>/workspace/src/client.ts</path> <type>file</type> <content>export const ok = true;</content>",
+      toolFamily: "read",
+      expected: observationSemantics({
+        kind: "payload",
+        polarity: "neutral",
+        origin: "read_output",
+        subject: "source",
+        consequenceBaseline: "high",
+        toolFamily: "read",
+      }),
+    },
+    {
+      name: "read metadata log",
+      summary: "Observation path /var/log/system.log showing first 20 lines",
+      toolFamily: "read",
+      expected: observationSemantics({
+        kind: "payload",
+        polarity: "neutral",
+        origin: "read_output",
+        subject: "document",
+        consequenceBaseline: "low",
+        toolFamily: "read",
+      }),
+    },
+    {
+      name: "read cat readback source",
+      summary: "Result of running cat -n /workspace/src/client.ts: 1 export const ok = true;",
+      toolFamily: "read",
+      expected: observationSemantics({
+        kind: "payload",
+        polarity: "neutral",
+        origin: "read_output",
+        subject: "source",
+        consequenceBaseline: "high",
+        toolFamily: "read",
+      }),
+    },
+    {
+      name: "raw command source",
+      summary: "#include <stdio.h>\nint main() {\n  return 0;\n}",
+      toolFamily: "bash",
+      expected: observationSemantics({
+        kind: "payload",
+        polarity: "neutral",
+        origin: "command_output",
+        subject: "source",
+        consequenceBaseline: "high",
+        toolFamily: "bash",
+      }),
+    },
+    {
+      name: "raw command diff",
+      summary: [
+        "diff --git a/src/app.ts b/src/app.ts",
+        "index abcdef1..abcdef2 100644",
+        "--- a/src/app.ts",
+        "+++ b/src/app.ts",
+        "@@ -1,2 +1,3 @@",
+        " export const ok = true;",
+        "+export const added = true;",
+      ].join("\n"),
+      toolFamily: "bash",
+      expected: observationSemantics({
+        kind: "payload",
+        polarity: "neutral",
+        origin: "command_output",
+        subject: "source",
+        consequenceBaseline: "high",
+        toolFamily: "bash",
+      }),
+    },
+    {
+      name: "raw command test progress",
+      summary: "=== Testing parser === All parser tests passed!",
+      toolFamily: "exec_command",
+      expected: observationSemantics({
+        kind: "payload",
+        polarity: "neutral",
+        origin: "command_output",
+        subject: "document",
+        consequenceBaseline: "low",
+        toolFamily: "exec_command",
+      }),
+    },
+    {
+      name: "raw command warning",
+      summary: "/repo/pkg.py:167: UserWarning: fixture warning...",
+      toolFamily: "run_shell_command",
+      expected: observationSemantics({
+        kind: "payload",
+        polarity: "neutral",
+        origin: "command_output",
+        subject: "document",
+        consequenceBaseline: "medium",
+        toolFamily: "run_shell_command",
+      }),
+    },
+    {
+      name: "structured source",
+      summary: JSON.stringify({
+        wall_time: "0.0510 seconds",
+        output: "#include <stdio.h>\nint main() { return 0; }",
+      }),
+      toolFamily: "bash",
+      expected: observationSemantics({
+        kind: "payload",
+        polarity: "neutral",
+        origin: "structured_output",
+        subject: "source",
+        consequenceBaseline: "high",
+        toolFamily: "bash",
+      }),
+    },
+    {
+      name: "recovered structured source",
+      summary:
+        '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }',
+      toolFamily: "bash",
+      expected: observationSemantics({
+        kind: "payload",
+        polarity: "neutral",
+        origin: "structured_output",
+        subject: "source",
+        consequenceBaseline: "high",
+        toolFamily: "bash",
+      }),
+    },
+    {
+      name: "zero-exit single document listing",
+      summary: JSON.stringify({
+        exit_code: 0,
+        wall_time: "0.0510 seconds",
+        output: "docs/guide.md:17:Test failed is documented here...",
+      }),
+      toolFamily: "bash",
+      expected: observationSemantics({
+        kind: "payload",
+        polarity: "neutral",
+        origin: "structured_output",
+        subject: "tool",
+        consequenceBaseline: "medium",
+        toolFamily: "bash",
+      }),
+    },
+    {
+      name: "zero-exit single source listing",
+      summary:
+        '{"exit_code":0,"wall_time":"0.0510 seconds","output":"src/runtime/trap_handler.s:71:.set TTMP6_SPI_TTMPS_SETUP_DISABLED_SHIFT , 31...',
+      toolFamily: "bash",
+      expected: observationSemantics({
+        kind: "payload",
+        polarity: "neutral",
+        origin: "structured_output",
+        subject: "source",
+        consequenceBaseline: "high",
+        toolFamily: "bash",
+      }),
+    },
+  ] as const;
+
+  for (const testCase of cases) {
+    assert.deepEqual(
+      payloadObservationSemantics({
+        summary: testCase.summary,
+        toolFamily: testCase.toolFamily,
+      }),
+      testCase.expected,
+      testCase.name,
+    );
+  }
+
+  for (const testCase of [
+    {
+      name: "read prose",
+      summary: "class schedule needs review before Friday",
+      toolFamily: "read",
+    },
+    {
+      name: "read terminal diagnostic",
+      summary: "Failed to read DKMS make.log while building module(s) KERNELVER=6.19",
+      toolFamily: "read",
+    },
+    {
+      name: "raw command wrapper",
+      summary:
+        'Expected output:\n{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }"}',
+      toolFamily: "bash",
+    },
+    {
+      name: "structured diagnostic",
+      summary: JSON.stringify({
+        wall_time: "0.0510 seconds",
+        output: "Traceback (most recent call last): RuntimeError",
+      }),
+      toolFamily: "bash",
+    },
+    {
+      name: "unsupported read structured envelope",
+      summary: JSON.stringify({
+        wall_time: "0.0510 seconds",
+        output: "#include <stdio.h>\nint main() { return 0; }",
+      }),
+      toolFamily: "read",
+    },
+  ] as const) {
+    assert.equal(
+      payloadObservationSemantics({
+        summary: testCase.summary,
+        toolFamily: testCase.toolFamily,
+      }),
+      null,
+      testCase.name,
+    );
+  }
 });
 
 test("host-style failed event fixtures route through observation semantics grammar", () => {

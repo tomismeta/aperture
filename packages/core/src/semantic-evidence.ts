@@ -165,9 +165,8 @@ export function readTaskFailureSemanticEvidence(
       !signals.commandDiagnosticReferenceObservationTranscript &&
       !isMissingToolObservationTranscript(signals.observationSemantics) &&
       !(toolFamily === "search" && text.searchResultOutput) &&
-      (!signals.rawReadStructuredObservation || signals.strongSourceRuntimeDiagnostic) &&
-      (!signals.structuredOutputSourceObservation || signals.strongSourceRuntimeDiagnostic) &&
-      !signals.structuredOutputSingleListingObservation);
+      (!payloadObservationSuppressesGenericTerminalEvidence(signals.observationSemantics) ||
+        signals.strongSourceRuntimeDiagnostic));
 
   if (terminalFailureEvidence) {
     const terminalShape = readTerminalFailureShape({ summary: event.summary, toolFamily });
@@ -264,24 +263,18 @@ export function readTaskFailureSemanticEvidence(
   }
 
   if (
-    (toolFamily === "edit" || toolFamily === "read") &&
+    toolFamily === "edit" &&
     signals.structuredOutputEnvelope.kind !== "invalid" &&
     (text.observationalReadback ||
       text.taggedFileObservation ||
       text.readObservationPayload ||
-      signals.editOutputOutcome === "applied" ||
-      signals.rawReadListingObservation)
+      signals.editOutputOutcome === "applied")
   ) {
     return {
       kind: "observational_payload",
       toolFamily,
       readsAsObservation: true,
-      consequenceBaseline:
-        toolFamily === "read" &&
-        !text.sourceCodeObservation &&
-        (text.searchResultOutput || text.logObservation || text.buildMetadataObservation)
-          ? "low"
-          : "high",
+      consequenceBaseline: "high",
       text,
     };
   }
@@ -336,6 +329,16 @@ function isMissingToolObservationTranscript(observation: ObservationSemantics | 
   return (
     observation?.provenance.origin === "transcript" &&
     observation.ownership.toolFamily === undefined
+  );
+}
+
+function payloadObservationSuppressesGenericTerminalEvidence(
+  observation: ObservationSemantics | null,
+): boolean {
+  return (
+    observation?.kind === "payload" &&
+    (observation.provenance.origin === "read_output" ||
+      observation.provenance.origin === "structured_output")
   );
 }
 

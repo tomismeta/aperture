@@ -3,25 +3,20 @@ import type {
   ObservationSemantics,
   ObservationSubject,
 } from "./observation-semantics.js";
-import type { CommandTextObservation } from "./semantic-command-text-observation-shapes.js";
 import type { EditOutputOutcome } from "./semantic-edit-output-shapes.js";
 import type { ExplicitObservationTranscript } from "./semantic-observation-transcript-shapes.js";
+import type { TaskFailureStructuredOutputEnvelope } from "./semantic-task-failure-structured-output.js";
+import { readTaskFailurePayloadObservationSemantics } from "./task-failure-payload-observation-grammar.js";
 
 type TaskFailureObservationGrammarInput = {
   commandObservationTranscript: ExplicitObservationTranscript | null;
   editOutputOutcome: EditOutputOutcome | null;
   missingToolObservationTranscript: ExplicitObservationTranscript | null;
-  rawCommandDiffObservation: boolean;
-  rawCommandTextObservation: CommandTextObservation | null;
-  rawReadListingObservation: boolean;
-  rawReadObservationBaseline: "low" | "medium" | "high" | null;
-  rawReadSourceObservation: boolean;
   readAbbreviatedFileViewObservation: ExplicitObservationTranscript | null;
   rejectedToolUseOutcome: boolean;
-  structuredOutputPayloadAvailable: boolean;
-  structuredOutputObservation: boolean;
-  structuredOutputSourceObservation: boolean;
+  structuredOutputEnvelope: TaskFailureStructuredOutputEnvelope;
   structuredOutputZeroExitSuccess: boolean;
+  summary: string;
   toolFamily: string | undefined;
 };
 
@@ -40,25 +35,6 @@ export function readTaskFailureObservationSemantics(
   if (input.editOutputOutcome === "applied") {
     return payloadObservation("semantic_evidence", "tool", "high", input.toolFamily);
   }
-  if (input.rawCommandDiffObservation) {
-    return payloadObservation("command_output", "source", "high", input.toolFamily);
-  }
-  if (input.rawCommandTextObservation) {
-    return payloadObservation(
-      "command_output",
-      normalizeObservationSubject(input.rawCommandTextObservation.shape),
-      input.rawCommandTextObservation.consequenceBaseline,
-      input.toolFamily,
-    );
-  }
-  if (input.rawReadObservationBaseline) {
-    return payloadObservation(
-      "read_output",
-      input.rawReadSourceObservation ? "source" : "document",
-      input.rawReadObservationBaseline,
-      "read",
-    );
-  }
   if (input.readAbbreviatedFileViewObservation) {
     return payloadObservation(
       "read_output",
@@ -67,13 +43,13 @@ export function readTaskFailureObservationSemantics(
       "read",
     );
   }
-  if (input.structuredOutputPayloadAvailable && input.structuredOutputObservation) {
-    return payloadObservation(
-      "structured_output",
-      input.structuredOutputSourceObservation ? "source" : "tool",
-      input.structuredOutputSourceObservation ? "high" : "medium",
-      input.toolFamily,
-    );
+  const payloadObservationSemantics = readTaskFailurePayloadObservationSemantics({
+    summary: input.summary,
+    structuredOutputEnvelope: input.structuredOutputEnvelope,
+    toolFamily: input.toolFamily,
+  });
+  if (payloadObservationSemantics !== null) {
+    return payloadObservationSemantics;
   }
   if (input.structuredOutputZeroExitSuccess) {
     return outcomeObservation("structured_output", "low", input.toolFamily);
@@ -190,17 +166,4 @@ function baseObservation(input: {
     consequenceBaseline: input.consequenceBaseline,
     evidenceCertainty: "determinate",
   };
-}
-
-function normalizeObservationSubject(subject: CommandTextObservation["shape"]): ObservationSubject {
-  switch (subject) {
-    case "source":
-    case "diff":
-      return "source";
-    case "document":
-    case "linter":
-    case "readback":
-    case "test":
-      return "document";
-  }
 }

@@ -58,6 +58,11 @@ test("module budget checker includes observation grammar in matcher governance",
       "packages/core/src/task-failure-observation-grammar.ts",
       "export const grammar = true;\n",
     );
+    await writeRepoFile(
+      root,
+      "packages/core/src/task-failure-payload-observation-grammar.ts",
+      "export const payloadGrammar = true;\n",
+    );
 
     const governedFiles = (await collectSemanticMatcherGovernedFiles(root)).map((file) =>
       file.replace(`${root}/`, ""),
@@ -66,6 +71,7 @@ test("module budget checker includes observation grammar in matcher governance",
     assert.deepEqual(governedFiles, [
       "packages/core/src/semantic-top-level.ts",
       "packages/core/src/task-failure-observation-grammar.ts",
+      "packages/core/src/task-failure-payload-observation-grammar.ts",
     ]);
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -115,6 +121,11 @@ test("module budget checker counts the observation primitive as one governed sur
     );
     await writeRepoFile(
       root,
+      "packages/core/src/task-failure-payload-observation-grammar.ts",
+      "const one = 1;\nconst two = 2;\n",
+    );
+    await writeRepoFile(
+      root,
       "packages/core/src/task-failure-observation-core.ts",
       "const one = 1;\nconst two = 2;\n",
     );
@@ -124,7 +135,7 @@ test("module budget checker counts the observation primitive as one governed sur
       "const one = 1;\nconst two = 2;\nconst three = 3;\n",
     );
 
-    assert.equal(await countObservationPrimitiveLines(root), 17);
+    assert.equal(await countObservationPrimitiveLines(root), 20);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -137,6 +148,11 @@ test("module budget checker counts task-failure parsing as one governed surface"
       root,
       "packages/core/src/task-failure-observation-grammar.ts",
       "const one = 1;\n",
+    );
+    await writeRepoFile(
+      root,
+      "packages/core/src/task-failure-payload-observation-grammar.ts",
+      "const one = 1;\nconst two = 2;\n",
     );
     await writeRepoFile(
       root,
@@ -163,11 +179,6 @@ test("module budget checker counts task-failure parsing as one governed surface"
       root,
       "packages/core/src/semantic-task-failure-structured-output.ts",
       "const one = 1;\n",
-    );
-    await writeRepoFile(
-      root,
-      "packages/core/src/semantic-raw-read-failure-signals.ts",
-      "const one = 1;\nconst two = 2;\n",
     );
 
     assert.equal(await countTaskFailureParsingLines(root), 20);

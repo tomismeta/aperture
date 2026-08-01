@@ -15,6 +15,8 @@ const OBSERVATION_SEMANTICS_FILE = "packages/core/src/observation-semantics.ts";
 const NORMALIZED_OBSERVATION_FILE = "packages/core/src/normalized-observation.ts";
 const TASK_FAILURE_OBSERVATION_GRAMMAR_FILE =
   "packages/core/src/task-failure-observation-grammar.ts";
+const TASK_FAILURE_PAYLOAD_OBSERVATION_GRAMMAR_FILE =
+  "packages/core/src/task-failure-payload-observation-grammar.ts";
 const TASK_FAILURE_OBSERVATION_CORE_FILE = "packages/core/src/task-failure-observation-core.ts";
 const TASK_FAILURE_OBSERVATION_NORMALIZER_FILE =
   "packages/core/src/task-failure-observation-normalizer.ts";
@@ -22,20 +24,24 @@ const observationPrimitiveBudgetFiles = [
   OBSERVATION_SEMANTICS_FILE,
   NORMALIZED_OBSERVATION_FILE,
   TASK_FAILURE_OBSERVATION_GRAMMAR_FILE,
+  TASK_FAILURE_PAYLOAD_OBSERVATION_GRAMMAR_FILE,
   TASK_FAILURE_OBSERVATION_CORE_FILE,
   TASK_FAILURE_OBSERVATION_NORMALIZER_FILE,
 ] as const;
 const taskFailureParsingBudgetFiles = [
   TASK_FAILURE_OBSERVATION_GRAMMAR_FILE,
+  TASK_FAILURE_PAYLOAD_OBSERVATION_GRAMMAR_FILE,
   "packages/core/src/semantic-task-failure-signals.ts",
   "packages/core/src/semantic-evidence.ts",
   "packages/core/src/semantic-failure-detail.ts",
   "packages/core/src/semantic-edit-output-shapes.ts",
   "packages/core/src/semantic-tool-use-rejection-shapes.ts",
   "packages/core/src/semantic-task-failure-structured-output.ts",
-  "packages/core/src/semantic-raw-read-failure-signals.ts",
 ] as const;
-const semanticMatcherGovernanceFiles = [TASK_FAILURE_OBSERVATION_GRAMMAR_FILE] as const;
+const semanticMatcherGovernanceFiles = [
+  TASK_FAILURE_OBSERVATION_GRAMMAR_FILE,
+  TASK_FAILURE_PAYLOAD_OBSERVATION_GRAMMAR_FILE,
+] as const;
 
 const budgets = [
   { file: "packages/runtime/src/runtime.ts", maxLines: 800 },
@@ -64,6 +70,7 @@ const budgets = [
   { file: OBSERVATION_SEMANTICS_FILE, maxLines: 50 },
   { file: NORMALIZED_OBSERVATION_FILE, maxLines: 75 },
   { file: TASK_FAILURE_OBSERVATION_GRAMMAR_FILE, maxLines: 250 },
+  { file: TASK_FAILURE_PAYLOAD_OBSERVATION_GRAMMAR_FILE, maxLines: 225 },
   { file: TASK_FAILURE_OBSERVATION_CORE_FILE, maxLines: 205 },
   { file: TASK_FAILURE_OBSERVATION_NORMALIZER_FILE, maxLines: 150 },
   { file: "packages/core/src/attention-evaluator.ts", maxLines: 350 },
@@ -88,7 +95,6 @@ const budgets = [
   { file: "packages/core/src/semantic-edit-output-shapes.ts", maxLines: 75 },
   { file: "packages/core/src/semantic-command-text-observation-boundaries.ts", maxLines: 35 },
   { file: "packages/core/src/semantic-command-warning-observation-shapes.ts", maxLines: 50 },
-  { file: "packages/core/src/semantic-command-text-observation-shapes.ts", maxLines: 100 },
   { file: "packages/core/src/semantic-linter-output-observation-shapes.ts", maxLines: 60 },
   { file: "packages/core/src/semantic-bare-diagnostic-observation-shapes.ts", maxLines: 10 },
   { file: "packages/core/src/semantic-observation-reference-wrapper-shapes.ts", maxLines: 20 },
@@ -145,10 +151,10 @@ const budgets = [
   { file: "packages/core/src/semantic-numbered-source-observation-shapes.ts", maxLines: 75 },
   { file: "packages/core/src/semantic-numbered-source-span-shapes.ts", maxLines: 175 },
   { file: "packages/core/src/semantic-observation-shapes.ts", maxLines: 150 },
+  { file: "packages/core/src/semantic-payload-observation-shapes.ts", maxLines: 285 },
   { file: "packages/core/src/semantic-owned-observation-payload-shapes.ts", maxLines: 400 },
   { file: "packages/core/src/semantic-owned-read-observation-shapes.ts", maxLines: 125 },
   { file: "packages/core/src/semantic-owned-read-transport-numbering.ts", maxLines: 75 },
-  { file: "packages/core/src/semantic-raw-read-failure-signals.ts", maxLines: 75 },
   { file: "packages/core/src/semantic-read-observation-shapes.ts", maxLines: 50 },
   {
     file: "packages/core/src/semantic-recovered-command-output-observation-shapes.ts",
@@ -167,10 +173,6 @@ const budgets = [
   { file: "packages/core/src/semantic-source-statement-shapes.ts", maxLines: 225 },
   { file: "packages/core/src/semantic-source-window-limit-shapes.ts", maxLines: 60 },
   { file: "packages/core/src/semantic-sectioned-source-observation-shapes.ts", maxLines: 25 },
-  {
-    file: "packages/core/src/semantic-structured-output-observation-signals.ts",
-    maxLines: 75,
-  },
   { file: "packages/core/src/semantic-structured-output-ownership.ts", maxLines: 35 },
   { file: "packages/core/src/semantic-structured-output.ts", maxLines: 125 },
   { file: "packages/core/src/semantic-test-output-observation-shapes.ts", maxLines: 75 },

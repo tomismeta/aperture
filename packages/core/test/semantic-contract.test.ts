@@ -65,7 +65,9 @@ test("observation semantics stays source-internal and out of package entrypoints
     assert.equal(source.includes("ObservationSemantics"), false, entrypoint);
     assert.equal(source.includes("observation-semantics"), false, entrypoint);
     assert.equal(source.includes("task-failure-observation-grammar"), false, entrypoint);
+    assert.equal(source.includes("task-failure-payload-observation-grammar"), false, entrypoint);
     assert.equal(source.includes("TaskFailureObservationGrammarInput"), false, entrypoint);
+    assert.equal(source.includes("TaskFailurePayloadObservationGrammarInput"), false, entrypoint);
   }
 });
 
@@ -88,15 +90,36 @@ test("task-failure observation grammar stays document-first and source-internal"
     new URL("../src/task-failure-observation-grammar.ts", import.meta.url),
     "utf8",
   );
+  const payloadGrammar = readFileSync(
+    new URL("../src/task-failure-payload-observation-grammar.ts", import.meta.url),
+    "utf8",
+  );
   const signals = readFileSync(
     new URL("../src/semantic-task-failure-signals.ts", import.meta.url),
     "utf8",
   );
+  const evidence = readFileSync(new URL("../src/semantic-evidence.ts", import.meta.url), "utf8");
+  const payloadShapes = readFileSync(
+    new URL("../src/semantic-payload-observation-shapes.ts", import.meta.url),
+    "utf8",
+  );
 
   assert.match(grammar, /readTaskFailureObservationSemantics/);
+  assert.match(grammar, /readTaskFailurePayloadObservationSemantics/);
   assert.match(grammar, /ObservationSemantics/);
+  assert.match(payloadGrammar, /readTaskFailurePayloadObservationSemantics/);
+  assert.match(payloadGrammar, /ObservationSemantics/);
   assert.equal(grammar.includes("export type TaskFailureObservation ="), false);
   assert.equal(grammar.includes("export type TaskFailureObservationGrammarInput"), false);
+  assert.equal(
+    payloadGrammar.includes("export type TaskFailurePayloadObservationGrammarInput"),
+    false,
+  );
+  assert.equal(/export\s+type\s+\w*(?:Match|Signals)\b/.test(grammar), false);
+  assert.equal(/export\s+type\s+\w*(?:Match|Signals)\b/.test(payloadGrammar), false);
+  assert.equal(payloadShapes.includes("TaskFailureStructuredOutputEnvelope"), false);
+  assert.equal(payloadShapes.includes("semantic-tool-family"), false);
+  assert.equal(payloadShapes.includes("ObservationSemantics"), false);
   assert.equal(grammar.includes("TaskFailureObservationEvidenceKind"), false);
   assert.equal(grammar.includes("structured_tool_output_observation"), false);
   assert.equal(grammar.includes("semantic-failure-detail"), false);
@@ -113,6 +136,35 @@ test("task-failure observation grammar stays document-first and source-internal"
     "./index.js",
   ]) {
     assert.equal(grammar.includes(forbidden), false, forbidden);
+    assert.equal(payloadGrammar.includes(forbidden), false, forbidden);
+  }
+
+  for (const removedPayloadField of [
+    "rawReadSourceObservation",
+    "rawReadListingObservation",
+    "rawReadObservationBaseline",
+    "rawReadStructuredObservation",
+    "structuredOutputSingleListingObservation",
+    "structuredOutputSourceObservation",
+    "structuredOutputObservation",
+  ]) {
+    assert.equal(signals.includes(removedPayloadField), false, removedPayloadField);
+    assert.equal(evidence.includes(removedPayloadField), false, removedPayloadField);
+  }
+
+  for (const leafModule of [
+    "../src/semantic-command-text-observation-boundaries.ts",
+    "../src/semantic-listing-observation-shapes.ts",
+    "../src/semantic-owned-observation-payload-shapes.ts",
+    "../src/semantic-owned-read-observation-shapes.ts",
+    "../src/semantic-payload-observation-shapes.ts",
+    "../src/semantic-read-observation-shapes.ts",
+    "../src/semantic-source-observation-shapes.ts",
+  ]) {
+    const source = readFileSync(new URL(leafModule, import.meta.url), "utf8");
+    assert.equal(source.includes("task-failure-observation-grammar"), false, leafModule);
+    assert.equal(source.includes("task-failure-payload-observation-grammar"), false, leafModule);
+    assert.equal(source.includes("ObservationSemantics"), false, leafModule);
   }
 });
 

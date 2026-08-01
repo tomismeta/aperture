@@ -26,9 +26,7 @@ export function readTaskFailureObservationCore(
     evidenceLoss,
     ...(diagnosticClass !== null ? { diagnosticClass } : {}),
     ...(recoveryHint !== null ? { recoveryHint } : {}),
-    provenance: {
-      origin: readObservationOrigin(),
-    },
+    provenance: { origin: "semantic_evidence" },
     consequenceBaseline: evidence.consequenceBaseline,
     evidenceCertainty:
       evidence.kind === "terminal_failure" && evidence.failureDetail === "indeterminate"
@@ -166,8 +164,4 @@ function readObservationRecoveryHint(
     case "none":
       return readObservationDiagnosticClass(evidence) !== null ? "inspect_diagnostic" : null;
   }
-}
-
-function readObservationOrigin(): ObservationSemantics["provenance"]["origin"] {
-  return "semantic_evidence";
 }

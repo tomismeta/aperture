@@ -18,7 +18,7 @@ import {
 } from "./semantic-patterns.js";
 import type { SemanticInterpretation } from "./semantic-types.js";
 import type { ObservationalStatusConflictEvidence } from "./observational-status-conflict.js";
-import { readObservationalStatusConflictKind } from "./observational-status-conflict-kind.js";
+import { readObservationalStatusConflictEvidenceFromObservation } from "./observational-status-conflict-kind.js";
 import { containsAnySemanticPhrase, normalizeSemanticText } from "./semantic-text.js";
 import {
   readTaskFailureSemanticSignals,
@@ -45,8 +45,8 @@ import {
   type TaskFailureTerminalShape,
 } from "./semantic-failure-detail.js";
 import { readExplicitOperationSuccessObservationTranscript } from "./semantic-operation-success-observation-shapes.js";
-import { TRUNCATED_SOURCE_EVIDENCE_FACTOR } from "./semantic-source-quality.js";
 import { looksLikeEmptyJsonObject } from "./semantic-structured-output.js";
+import { normalizeTaskFailureObservation } from "./task-failure-observation-normalizer.js";
 
 export type SemanticTextEvidence = {
   routineSuccessObservation: boolean;
@@ -332,50 +332,31 @@ export function readRoutineObservationalStatusConflictEvidence(
   abstained = interpretation.abstained === true,
 ): ObservationalStatusConflictEvidence | null {
   const failureEvidence = readTaskFailureSemanticEvidence(event);
-
-  if (
-    event.type === "task.updated" &&
-    event.status === "failed" &&
-    failureEvidence?.readsAsObservation === true &&
-    interpretation.intentFrame === "status_update" &&
-    interpretation.activityClass === "status_update" &&
-    hasCompatibleFailureEvidenceToolFamily(failureEvidence, interpretation) &&
-    interpretation.consequence === failureEvidence.consequenceBaseline &&
-    hasStableObservationalStatusConflictConfidence(interpretation) &&
-    !abstained
-  ) {
-    const kind = readObservationalStatusConflictKind(failureEvidence.kind);
-    if (kind === null) {
-      return null;
-    }
-
-    return {
-      kind,
-      ...(failureEvidence.toolFamily !== undefined
-        ? { toolFamily: failureEvidence.toolFamily }
-        : {}),
-      baselineConsequence: failureEvidence.consequenceBaseline,
-    };
+  if (failureEvidence === null) {
+    return null;
   }
 
-  return null;
-}
-
-function hasStableObservationalStatusConflictConfidence(
-  interpretation: SemanticInterpretation,
-): boolean {
-  return (
-    interpretation.confidence === "high" ||
-    (interpretation.confidence === "low" &&
-      interpretation.factors.includes(TRUNCATED_SOURCE_EVIDENCE_FACTOR))
-  );
-}
-
-function hasCompatibleFailureEvidenceToolFamily(
-  failureEvidence: TaskFailureSemanticEvidence,
-  interpretation: SemanticInterpretation,
-): boolean {
-  return failureEvidence.toolFamily === interpretation.toolFamily;
+  return readObservationalStatusConflictEvidenceFromObservation({
+    event,
+    interpretation,
+    abstained,
+    observation: normalizeTaskFailureObservation({
+      failureEvidence,
+      ontology: {
+        ask: "status",
+        activity: failureEvidence.readsAsObservation ? "task_progress" : "failure",
+        ...(interpretation.consequence !== undefined
+          ? { consequence: interpretation.consequence }
+          : {}),
+        blocking: "non_blocking",
+        episode: "unknown",
+        confidence: interpretation.confidence,
+        source: "inferred",
+      },
+      abstained,
+      semanticAgreement: "stable",
+    }),
+  });
 }
 
 function looksLikeReadObservationPayload(text: string): boolean {

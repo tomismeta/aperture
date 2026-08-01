@@ -460,7 +460,7 @@ test("judgment input marks routine observational failed-status conflicts", () =>
   assert.equal(hasRoutineObservationalStatusConflictSemantics(candidate), true);
 });
 
-test("judgment input derives routine status conflicts from raw evidence, not factors", () => {
+test("judgment input derives routine status conflicts from typed observations, not factors", () => {
   const base = {
     id: "evt:judgment-input:factor-independent-observation-conflict",
     taskId: "task:judgment-input:factor-independent-observation-conflict",
@@ -485,6 +485,9 @@ test("judgment input derives routine status conflicts from raw evidence, not fac
   const observationInput = buildAttentionJudgmentInput(base);
   assert.equal(observationInput.routineObservationalStatusConflict, true);
   assert.equal(observationInput.observationalStatusConflict?.kind, "command_success_observation");
+  assert.equal(observationInput.observation?.kind, "outcome");
+  assert.equal(observationInput.observation?.polarity, "success");
+  assert.equal(observationInput.observation?.semanticAgreement, "stable");
   assert.equal(
     buildAttentionJudgmentInput({
       ...base,
@@ -544,6 +547,11 @@ test("judgment input marks engine-owned non-bash observations as status conflict
     toolFamily: "read",
     baselineConsequence: "low",
   });
+  assert.equal(input.observation?.kind, "payload");
+  assert.equal(input.observation?.polarity, "neutral");
+  assert.equal(input.observation?.semanticAgreement, "stable");
+  assert.equal(input.observation?.ownership.toolFamily, "read");
+  assert.equal(input.observation?.consequenceBaseline, "low");
   assert.equal(input.semanticEvidence?.strength, "qualified");
 });
 
@@ -579,6 +587,10 @@ test("judgment input marks absent-family observation transcripts as status confl
     kind: "payload_observation",
     baselineConsequence: "high",
   });
+  assert.equal(input.observation?.kind, "payload");
+  assert.equal(input.observation?.polarity, "neutral");
+  assert.equal(input.observation?.semanticAgreement, "stable");
+  assert.equal(input.observation?.consequenceBaseline, "high");
   assert.equal(input.ontology?.source, "inferred");
   assert.equal(input.ontology?.activity, "task_progress");
   assert.equal(input.ontology?.consequence, "high");
@@ -586,7 +598,7 @@ test("judgment input marks absent-family observation transcripts as status confl
   assert.equal(input.semanticEvidence?.strength, "qualified");
 });
 
-test("judgment input marks low missing-tool transcript subclasses only on raw agreement", () => {
+test("judgment input marks low missing-tool transcript subclasses only on typed observation agreement", () => {
   for (const [id, summary] of [
     ["successful-test", successfulTestObservationTranscript],
     ["abbreviated-file-view", abbreviatedFileViewObservationTranscript],
@@ -622,6 +634,10 @@ test("judgment input marks low missing-tool transcript subclasses only on raw ag
       kind: "payload_observation",
       baselineConsequence: "low",
     });
+    assert.equal(input.observation?.kind, "payload");
+    assert.equal(input.observation?.polarity, "neutral");
+    assert.equal(input.observation?.semanticAgreement, "stable");
+    assert.equal(input.observation?.consequenceBaseline, "low");
     assert.equal(input.ontology?.source, "inferred");
     assert.equal(input.ontology?.activity, "task_progress");
     assert.equal(input.ontology?.consequence, "low");
@@ -698,7 +714,7 @@ test("judgment input marks low missing-tool transcript subclasses only on raw ag
   assert.equal(mixedFailureInput.observation?.diagnosticClass, "runtime");
 });
 
-test("judgment input marks tool-use rejection outcomes as status conflicts only on raw agreement", () => {
+test("judgment input marks tool-use rejection outcomes as status conflicts only on typed observation agreement", () => {
   const bashInput = buildAttentionJudgmentInput({
     id: "evt:judgment-input:bash-tool-use-rejection",
     taskId: "task:judgment-input:bash-tool-use-rejection",

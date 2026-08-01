@@ -241,6 +241,18 @@ function asStringArray(value: unknown, label: string): string[] {
   return value as string[];
 }
 
+function findRuntimeCandidateTrace(traces: unknown[], eventId: string): Record<string, unknown> {
+  const trace = traces.find((entry) => {
+    const candidate = asRecord(entry, "runtime trace");
+    return (
+      asRecord(candidate.event, "runtime trace event").id === eventId &&
+      asRecord(candidate.evaluation, "runtime trace evaluation").kind === "candidate"
+    );
+  });
+  assert.ok(trace, `expected packaged runtime to emit candidate trace for ${eventId}`);
+  return asRecord(trace, "runtime trace");
+}
+
 async function assertPackagedRuntimeUsesCurrentCore(
   binPath: string,
   installDir: string,
@@ -265,21 +277,31 @@ async function assertPackagedRuntimeUsesCurrentCore(
         },
       }),
     });
+    await runtimeFetchJson(runtime, "/events/source", {
+      method: "POST",
+      body: JSON.stringify({
+        event: {
+          id: "evt:product-smoke:edit-applied-readback",
+          type: "task.updated",
+          taskId: "task:product-smoke:edit-applied-readback",
+          timestamp: "2026-05-09T13:25:30.000Z",
+          source: { id: "product-smoke" },
+          title: "edit failure",
+          summary:
+            "Successfully modified file: /repo/src/app.ts (1 replacements). Here is the updated code:\nexport const value = 1;",
+          status: "failed",
+          toolFamily: "edit",
+        },
+      }),
+    });
 
     const capture = asRecord(await runtimeFetchJson(runtime, "/session"), "runtime session");
     const traces = capture.traces;
     assert.ok(Array.isArray(traces), "runtime session should expose traces");
-    const trace = traces.find((entry) => {
-      const candidate = asRecord(entry, "runtime trace");
-      return (
-        asRecord(candidate.event, "runtime trace event").id ===
-          "evt:product-smoke:read-start-line-window-limit" &&
-        asRecord(candidate.evaluation, "runtime trace evaluation").kind === "candidate"
-      );
-    });
-    assert.ok(trace, "expected packaged runtime to emit a candidate trace");
-
-    const traceRecord = asRecord(trace, "runtime trace");
+    const traceRecord = findRuntimeCandidateTrace(
+      traces,
+      "evt:product-smoke:read-start-line-window-limit",
+    );
     const evaluation = asRecord(traceRecord.evaluation, "runtime trace evaluation");
     const adjusted = asRecord(evaluation.adjusted, "runtime trace adjusted candidate");
     assert.equal(adjusted.priority, "normal");
@@ -337,6 +359,52 @@ async function assertPackagedRuntimeUsesCurrentCore(
     assert.equal(ontology.activity, "failure");
     assert.equal(ontology.consequence, "medium");
     assert.equal(ontology.source, "explicit");
+
+    const readbackTraceRecord = findRuntimeCandidateTrace(
+      traces,
+      "evt:product-smoke:edit-applied-readback",
+    );
+    const readbackEvaluation = asRecord(
+      readbackTraceRecord.evaluation,
+      "runtime readback trace evaluation",
+    );
+    const readbackAdjusted = asRecord(
+      readbackEvaluation.adjusted,
+      "runtime readback trace adjusted candidate",
+    );
+    assert.equal(readbackAdjusted.priority, "high");
+    assert.equal(readbackAdjusted.tone, "critical");
+    assert.equal(readbackAdjusted.consequence, "high");
+    assert.equal(
+      asRecord(readbackAdjusted.responseSpec, "runtime readback response spec").kind,
+      "acknowledge",
+    );
+
+    const readbackJudgmentInput = asRecord(
+      readbackAdjusted.judgmentInput,
+      "runtime readback judgment input",
+    );
+    assert.equal(Object.hasOwn(readbackJudgmentInput, "failureEvidence"), false);
+    assert.equal(readbackJudgmentInput.routineObservationalStatusConflict, true);
+    const readbackObservation = asRecord(
+      readbackJudgmentInput.observation,
+      "runtime readback observation",
+    );
+    assert.equal(readbackObservation.kind, "payload");
+    assert.equal(readbackObservation.polarity, "neutral");
+    assert.equal(readbackObservation.semanticAgreement, "stable");
+    assert.equal(readbackObservation.evidenceLoss, "none");
+    assert.equal(readbackObservation.consequenceBaseline, "high");
+    const readbackOwnership = asRecord(readbackObservation.ownership, "runtime readback owner");
+    assert.equal(readbackOwnership.owner, "tool");
+    assert.equal(readbackOwnership.toolFamily, "edit");
+    const readbackConflict = asRecord(
+      readbackJudgmentInput.observationalStatusConflict,
+      "runtime readback observational status conflict",
+    );
+    assert.equal(readbackConflict.kind, "payload_observation");
+    assert.equal(readbackConflict.toolFamily, "edit");
+    assert.equal(readbackConflict.baselineConsequence, "high");
   } finally {
     await stopPackagedRuntime(runtime.child);
   }

@@ -18,9 +18,7 @@ import type {
   AttentionOntologyDiagnostic,
 } from "./semantic-ontology-types.js";
 
-// First normalizer target: task-failure evidence. The normalized vocabulary is
-// deliberately broader so other event families can flow through the same
-// document later.
+// First target: task-failure evidence, with vocabulary broad enough for later event families.
 export function createStableFailureOutcomeObservation(input: {
   authority?: NormalizedObservationAuthority;
   owner?: NormalizedObservationOwner;

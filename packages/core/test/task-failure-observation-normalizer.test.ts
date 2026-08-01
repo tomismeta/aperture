@@ -3,6 +3,10 @@ import test from "node:test";
 
 import { normalizeTaskFailureObservation } from "../src/task-failure-observation-normalizer.js";
 import type { NormalizedObservation } from "../src/normalized-observation.js";
+import {
+  readObservationalStatusConflictKind,
+  readObservationalStatusConflictKindFromObservation,
+} from "../src/observational-status-conflict-kind.js";
 import type {
   SemanticTextEvidence,
   TaskFailureSemanticEvidence,
@@ -299,6 +303,122 @@ test("task-failure observation normalizer maps every evidence kind into the norm
       testCase.name,
     );
   }
+});
+
+test("normalized observations preserve status-conflict kind parity with legacy evidence kinds", () => {
+  const parityCases = [
+    evidence({
+      kind: "routine_bash_success_observation",
+      toolFamily: "bash",
+      readsAsObservation: true,
+      consequenceBaseline: "low",
+    }),
+    evidence({
+      kind: "structured_execution_success_observation",
+      toolFamily: "bash",
+      observation: {
+        kind: "execution_success",
+        origin: "structured_output",
+        subject: "tool",
+        consequenceBaseline: "low",
+        toolFamily: "bash",
+      },
+      readsAsObservation: true,
+      consequenceBaseline: "low",
+    }),
+    evidence({
+      kind: "operation_success_observation",
+      readsAsObservation: true,
+      consequenceBaseline: "low",
+    }),
+    evidence({
+      kind: "structured_tool_output_observation",
+      toolFamily: "bash",
+      observation: {
+        kind: "payload",
+        origin: "structured_output",
+        subject: "source",
+        consequenceBaseline: "high",
+        toolFamily: "bash",
+      },
+      readsAsObservation: true,
+      consequenceBaseline: "high",
+    }),
+    evidence({
+      kind: "observational_payload",
+      toolFamily: "bash",
+      observation: {
+        kind: "payload",
+        origin: "transcript",
+        subject: "diff",
+        consequenceBaseline: "high",
+        toolFamily: "bash",
+      },
+      readsAsObservation: true,
+      consequenceBaseline: "high",
+    }),
+    evidence({
+      kind: "routine_search_output",
+      toolFamily: "search",
+      readsAsObservation: true,
+      consequenceBaseline: "low",
+    }),
+    evidence({
+      kind: "rejected_tool_use_observation",
+      toolFamily: "bash",
+      observation: {
+        kind: "tool_rejection",
+        origin: "status_text",
+        subject: "tool",
+        consequenceBaseline: "low",
+        toolFamily: "bash",
+      },
+      readsAsObservation: true,
+      consequenceBaseline: "low",
+    }),
+    evidence({
+      kind: "empty_failure_payload",
+      failureDetail: "absent_evidence",
+      toolFamily: "edit",
+    }),
+    evidence({
+      kind: "expected_diagnostic_failure",
+      toolFamily: "bash",
+    }),
+    evidence({
+      kind: "terminal_failure",
+      failureDetail: "diagnostic",
+      toolFamily: "bash",
+    }),
+    evidence({
+      kind: "unclassified_failure",
+      failureDetail: "indeterminate",
+      consequenceBaseline: "high",
+    }),
+  ];
+
+  for (const failureEvidence of parityCases) {
+    assert.equal(
+      readObservationalStatusConflictKindFromObservation(compile(failureEvidence)),
+      readObservationalStatusConflictKind(failureEvidence.kind),
+      failureEvidence.kind,
+    );
+  }
+
+  assert.equal(
+    readObservationalStatusConflictKindFromObservation({
+      kind: "outcome",
+      polarity: "success",
+      semanticAgreement: "stable",
+      ownership: { owner: "tool", toolFamily: "edit" },
+      evidenceStrength: "qualified",
+      subject: "tool",
+      evidenceLoss: "none",
+      provenance: { origin: "semantic_evidence", authority: "inferred" },
+      consequenceBaseline: "high",
+    }),
+    "payload_observation",
+  );
 });
 
 test("task-failure observation normalizer lowers certainty for uncertainty and evidence loss", () => {

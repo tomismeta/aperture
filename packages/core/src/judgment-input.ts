@@ -1,10 +1,10 @@
 import type { ApertureEvent } from "./events.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import {
-  readRoutineObservationalStatusConflictEvidence,
   readTaskFailureSemanticEvidence,
   type TaskFailureSemanticEvidence,
 } from "./semantic-evidence.js";
+import { readObservationalStatusConflictEvidenceFromObservation } from "./observational-status-conflict-kind.js";
 import { projectAttentionOntologyDiagnosticWithStatusConflictEvidence } from "./semantic-ontology.js";
 import type { SemanticConfidence } from "./semantic-types.js";
 import type {
@@ -60,16 +60,43 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
     event.type === "task.updated" && event.status === "failed"
       ? readTaskFailureSemanticEvidence(event)
       : null;
-  const observationalStatusConflict = readRoutineObservationalStatusConflictEvidence(
+  const preliminaryOntology = projectAttentionOntologyDiagnosticWithStatusConflictEvidence(
     event,
     event.semantic,
+    null,
+  );
+  const preliminaryFailureAgreement =
+    failureEvidence !== null
+      ? readTaskFailureSemanticAgreement({
+          event,
+          failureEvidence,
+          ontology: preliminaryOntology,
+          abstained,
+        })
+      : null;
+  const preliminaryObservation =
+    failureEvidence !== null && preliminaryFailureAgreement !== null
+      ? normalizeTaskFailureObservation({
+          failureEvidence,
+          ontology: preliminaryOntology,
+          abstained,
+          semanticAgreement: preliminaryFailureAgreement,
+        })
+      : null;
+  const observationalStatusConflict = readObservationalStatusConflictEvidenceFromObservation({
+    event,
+    observation: preliminaryObservation,
+    interpretation: event.semantic,
     abstained,
-  );
-  const ontology = projectAttentionOntologyDiagnosticWithStatusConflictEvidence(
-    event,
-    event.semantic,
-    observationalStatusConflict,
-  );
+  });
+  const ontology =
+    observationalStatusConflict !== null
+      ? projectAttentionOntologyDiagnosticWithStatusConflictEvidence(
+          event,
+          event.semantic,
+          observationalStatusConflict,
+        )
+      : preliminaryOntology;
   const blockedLikeStatus =
     event.type === "task.updated" && ontology.blocking === "blocking" && event.status !== "blocked";
   const failureAgreement =

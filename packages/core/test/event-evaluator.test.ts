@@ -504,6 +504,17 @@ test("failed-status missing-tool operation success observations route as non-int
     kind: "payload_observation",
     baselineConsequence: "low",
   });
+  assert.deepEqual(result.candidate.judgmentInput.observation, {
+    kind: "outcome",
+    polarity: "success",
+    semanticAgreement: "stable",
+    ownership: { owner: "source" },
+    evidenceStrength: "qualified",
+    subject: "unknown",
+    evidenceLoss: "none",
+    provenance: { origin: "semantic_evidence", authority: "inferred" },
+    consequenceBaseline: "low",
+  });
   assert.deepEqual(result.candidate.judgmentInput.ontology, {
     ask: "status",
     activity: "task_progress",
@@ -513,6 +524,51 @@ test("failed-status missing-tool operation success observations route as non-int
     confidence: "high",
     source: "inferred",
   });
+});
+
+test("failed edit applied readbacks route through typed observation status conflicts", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:failed-edit-applied-readback",
+      taskId: "task:failed-edit-applied-readback",
+      timestamp: "2026-03-08T12:02:16.500Z",
+      type: "task.updated",
+      title: "edit failure",
+      summary:
+        "Successfully modified file: /repo/src/app.ts (1 replacements). Here is the updated code:\nexport const value = 1;",
+      status: "failed",
+      toolFamily: "edit",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "high");
+  assert.equal(result.candidate.tone, "critical");
+  assert.equal(result.candidate.consequence, "high");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+  assert.equal(result.candidate.activityClass, "status_update");
+  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.deepEqual(result.candidate.judgmentInput.observationalStatusConflict, {
+    kind: "payload_observation",
+    toolFamily: "edit",
+    baselineConsequence: "high",
+  });
+  assert.deepEqual(result.candidate.judgmentInput.observation, {
+    kind: "payload",
+    polarity: "neutral",
+    semanticAgreement: "stable",
+    ownership: { owner: "tool", toolFamily: "edit" },
+    evidenceStrength: "qualified",
+    subject: "tool",
+    evidenceLoss: "none",
+    provenance: { origin: "semantic_evidence", authority: "inferred" },
+    consequenceBaseline: "high",
+  });
+  assert.equal(Object.hasOwn(result.candidate.judgmentInput, "failureEvidence"), false);
 });
 
 test("known command operation success text keeps failed-status routing", () => {

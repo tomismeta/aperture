@@ -1,36 +1,13 @@
 import type {
-  NormalizedObservationDiagnosticClass,
-  NormalizedObservationEvidenceLoss,
-  NormalizedObservationKind,
-  NormalizedObservationOrigin,
-  NormalizedObservationOwner,
-  NormalizedObservationPolarity,
-  NormalizedObservationRecoveryHint,
-  NormalizedObservationSubject,
-} from "./normalized-observation.js";
+  ObservationDiagnosticClass,
+  ObservationRecoveryHint,
+  ObservationSemantics,
+} from "./observation-semantics.js";
 import type { TaskFailureSemanticEvidence } from "./semantic-evidence.js";
-
-export type TaskFailureObservationCore = {
-  kind: NormalizedObservationKind;
-  polarity: NormalizedObservationPolarity;
-  ownership: {
-    owner: NormalizedObservationOwner;
-    toolFamily?: string;
-  };
-  subject: NormalizedObservationSubject;
-  evidenceLoss: NormalizedObservationEvidenceLoss;
-  diagnosticClass?: NormalizedObservationDiagnosticClass;
-  recoveryHint?: NormalizedObservationRecoveryHint;
-  provenance: {
-    origin: NormalizedObservationOrigin;
-  };
-  consequenceBaseline: "low" | "medium" | "high";
-  evidenceCertainty: "determinate" | "indeterminate";
-};
 
 export function readTaskFailureObservationCore(
   evidence: TaskFailureSemanticEvidence,
-): TaskFailureObservationCore {
+): ObservationSemantics {
   const evidenceLoss = readObservationEvidenceLoss(evidence);
   const diagnosticClass = readObservationDiagnosticClass(evidence);
   const recoveryHint = readObservationRecoveryHint(evidence, evidenceLoss);
@@ -56,9 +33,7 @@ export function readTaskFailureObservationCore(
   };
 }
 
-function readObservationKind(
-  evidence: TaskFailureSemanticEvidence,
-): TaskFailureObservationCore["kind"] {
+function readObservationKind(evidence: TaskFailureSemanticEvidence): ObservationSemantics["kind"] {
   switch (evidence.kind) {
     case "expected_diagnostic_failure":
       return "diagnostic";
@@ -88,7 +63,7 @@ function readObservationKind(
 
 function readObservationPolarity(
   evidence: TaskFailureSemanticEvidence,
-): TaskFailureObservationCore["polarity"] {
+): ObservationSemantics["polarity"] {
   if (!evidence.readsAsObservation) {
     return "failure";
   }
@@ -107,7 +82,7 @@ function readObservationPolarity(
 
 function readObservationOwner(
   evidence: TaskFailureSemanticEvidence,
-): TaskFailureObservationCore["ownership"]["owner"] {
+): ObservationSemantics["ownership"]["owner"] {
   if (evidence.toolFamily !== undefined) {
     return "tool";
   }
@@ -121,7 +96,7 @@ function readObservationOwner(
 
 function readObservationSubject(
   evidence: TaskFailureSemanticEvidence,
-): TaskFailureObservationCore["subject"] {
+): ObservationSemantics["subject"] {
   if (evidence.observation !== undefined) {
     return normalizeObservationSubject(evidence.observation.subject);
   }
@@ -143,7 +118,7 @@ function readObservationSubject(
 
 function normalizeObservationSubject(
   subject: NonNullable<TaskFailureSemanticEvidence["observation"]>["subject"],
-): TaskFailureObservationCore["subject"] {
+): ObservationSemantics["subject"] {
   switch (subject) {
     case "source":
     case "diff":
@@ -161,7 +136,7 @@ function normalizeObservationSubject(
 
 function readObservationEvidenceLoss(
   evidence: TaskFailureSemanticEvidence,
-): TaskFailureObservationCore["evidenceLoss"] {
+): ObservationSemantics["evidenceLoss"] {
   switch (evidence.failureDetail) {
     case "absent_evidence":
       return "absent";
@@ -176,7 +151,7 @@ function readObservationEvidenceLoss(
 
 function readObservationDiagnosticClass(
   evidence: TaskFailureSemanticEvidence,
-): NormalizedObservationDiagnosticClass | null {
+): ObservationDiagnosticClass | null {
   if (evidence.kind === "expected_diagnostic_failure") {
     return "expected";
   }
@@ -193,8 +168,8 @@ function readObservationDiagnosticClass(
 
 function readObservationRecoveryHint(
   evidence: TaskFailureSemanticEvidence,
-  evidenceLoss: TaskFailureObservationCore["evidenceLoss"],
-): NormalizedObservationRecoveryHint | null {
+  evidenceLoss: ObservationSemantics["evidenceLoss"],
+): ObservationRecoveryHint | null {
   if (evidence.kind === "rejected_tool_use_observation") {
     return "await_authorization";
   }
@@ -213,6 +188,6 @@ function readObservationRecoveryHint(
 
 function readObservationOrigin(
   evidence: TaskFailureSemanticEvidence,
-): TaskFailureObservationCore["provenance"]["origin"] {
+): ObservationSemantics["provenance"]["origin"] {
   return evidence.observation?.origin ?? "semantic_evidence";
 }

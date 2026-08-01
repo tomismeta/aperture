@@ -17,7 +17,9 @@ test("task-failure judgment agreement stays behind the normalized observation bo
   assert.equal(source.includes("failureEvidenceAgreesWithSemanticRead"), false);
   assert.equal(source.includes("normalizeTaskFailureObservation"), false);
   assert.equal(source.includes("draftObservation"), false);
+  assert.equal(source.includes("type TaskFailureObservationCore"), false);
   assert.match(source, /readTaskFailureObservationCore/);
+  assert.match(source, /ObservationSemantics/);
   assert.match(source, /enrichTaskFailureObservation/);
   assert.match(source, /function readObservationSemanticAgreement/);
   assert.match(source, /function observationAgreesWithSemanticRead/);
@@ -36,6 +38,8 @@ test("task-failure semantic interpreter stays behind the observation-core bounda
   const source = readFileSync(new URL("../src/semantic-interpreter.ts", import.meta.url), "utf8");
 
   assert.match(source, /readTaskFailureObservationCore/);
+  assert.match(source, /ObservationSemantics/);
+  assert.equal(source.includes("type TaskFailureObservationCore"), false);
 
   for (const rawEvidenceBranch of [
     "failureEvidence.kind",
@@ -49,6 +53,32 @@ test("task-failure semantic interpreter stays behind the observation-core bounda
   ]) {
     assert.equal(source.includes(rawEvidenceBranch), false, rawEvidenceBranch);
   }
+});
+
+test("observation semantics stays source-internal and out of package entrypoints", () => {
+  for (const entrypoint of [
+    "../src/index.ts",
+    "../src/semantic.ts",
+    "../src/internal-contract.ts",
+  ]) {
+    const source = readFileSync(new URL(entrypoint, import.meta.url), "utf8");
+    assert.equal(source.includes("ObservationSemantics"), false, entrypoint);
+    assert.equal(source.includes("observation-semantics"), false, entrypoint);
+  }
+});
+
+test("observation semantics owns vocabulary upstream of normalized observations", () => {
+  const semantics = readFileSync(
+    new URL("../src/observation-semantics.ts", import.meta.url),
+    "utf8",
+  );
+  const normalized = readFileSync(
+    new URL("../src/normalized-observation.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(semantics.includes("normalized-observation"), false);
+  assert.match(normalized, /from "\.\/observation-semantics\.js"/);
 });
 
 function candidateShape(candidate: {

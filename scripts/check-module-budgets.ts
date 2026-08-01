@@ -8,6 +8,19 @@ const SEMANTIC_MODULE_COUNT_BUDGET = 100;
 const SEMANTIC_LINE_COUNT_BUDGET = 8695;
 const SEMANTIC_MATCHER_SITE_BUDGET = 600;
 const SEMANTIC_PHRASE_LITERAL_BUDGET = 175;
+const OBSERVATION_PRIMITIVE_LINE_COUNT_BUDGET = 425;
+
+const OBSERVATION_SEMANTICS_FILE = "packages/core/src/observation-semantics.ts";
+const NORMALIZED_OBSERVATION_FILE = "packages/core/src/normalized-observation.ts";
+const TASK_FAILURE_OBSERVATION_CORE_FILE = "packages/core/src/task-failure-observation-core.ts";
+const TASK_FAILURE_OBSERVATION_NORMALIZER_FILE =
+  "packages/core/src/task-failure-observation-normalizer.ts";
+const observationPrimitiveBudgetFiles = [
+  OBSERVATION_SEMANTICS_FILE,
+  NORMALIZED_OBSERVATION_FILE,
+  TASK_FAILURE_OBSERVATION_CORE_FILE,
+  TASK_FAILURE_OBSERVATION_NORMALIZER_FILE,
+] as const;
 
 const budgets = [
   { file: "packages/runtime/src/runtime.ts", maxLines: 800 },
@@ -33,9 +46,10 @@ const budgets = [
   { file: "packages/core/src/attention-decision-record-projection.ts", maxLines: 175 },
   { file: "packages/core/src/attention-decision-record-schema.ts", maxLines: 10 },
   { file: "packages/core/src/observational-status-conflict.ts", maxLines: 25 },
-  { file: "packages/core/src/normalized-observation.ts", maxLines: 75 },
-  { file: "packages/core/src/task-failure-observation-core.ts", maxLines: 225 },
-  { file: "packages/core/src/task-failure-observation-normalizer.ts", maxLines: 275 },
+  { file: OBSERVATION_SEMANTICS_FILE, maxLines: 50 },
+  { file: NORMALIZED_OBSERVATION_FILE, maxLines: 75 },
+  { file: TASK_FAILURE_OBSERVATION_CORE_FILE, maxLines: 205 },
+  { file: TASK_FAILURE_OBSERVATION_NORMALIZER_FILE, maxLines: 150 },
   { file: "packages/core/src/attention-evaluator.ts", maxLines: 350 },
   { file: "packages/core/src/attention-evaluator-config.ts", maxLines: 125 },
   { file: "packages/core/src/attention-evaluator-input.ts", maxLines: 325 },
@@ -325,8 +339,7 @@ async function main(): Promise<void> {
 
   for (const budget of budgets) {
     const absolutePath = resolve(repoRoot, budget.file);
-    const text = await readFile(absolutePath, "utf8");
-    const lineCount = text.split("\n").length;
+    const lineCount = await readLineCount(absolutePath);
     if (lineCount > budget.maxLines) {
       violations.push({
         file: budget.file,
@@ -350,6 +363,7 @@ async function main(): Promise<void> {
     semanticMatcherSiteCount += countSemanticMatcherSites(text);
     semanticPhraseLiteralCount += countSemanticPhraseLiterals(text);
   }
+  const observationPrimitiveLineCount = await countObservationPrimitiveLines();
   if (semanticFiles.length > SEMANTIC_MODULE_COUNT_BUDGET) {
     aggregateViolations.push({
       label: "packages/core/src/semantic*.ts module count",
@@ -376,6 +390,13 @@ async function main(): Promise<void> {
       label: "packages/core/src/semantic*.ts phrase literals",
       value: semanticPhraseLiteralCount,
       max: SEMANTIC_PHRASE_LITERAL_BUDGET,
+    });
+  }
+  if (observationPrimitiveLineCount > OBSERVATION_PRIMITIVE_LINE_COUNT_BUDGET) {
+    aggregateViolations.push({
+      label: "packages/core/src observation primitive total lines",
+      value: observationPrimitiveLineCount,
+      max: OBSERVATION_PRIMITIVE_LINE_COUNT_BUDGET,
     });
   }
 
@@ -428,6 +449,14 @@ export async function collectCoreSemanticFiles(root = repoRoot): Promise<string[
   return files.filter((file) => isCoreSemanticModule(root, file)).sort();
 }
 
+export async function countObservationPrimitiveLines(root = repoRoot): Promise<number> {
+  let lineCount = 0;
+  for (const file of observationPrimitiveBudgetFiles) {
+    lineCount += await readLineCount(resolve(root, file));
+  }
+  return lineCount;
+}
+
 export function countSemanticMatcherSites(text: string): number {
   return text
     .split("\n")
@@ -478,6 +507,11 @@ async function collectTypeScriptFiles(directory: string): Promise<string[]> {
   }
 
   return files;
+}
+
+async function readLineCount(file: string): Promise<number> {
+  const text = await readFile(file, "utf8");
+  return text.split("\n").length;
 }
 
 function isCoreSemanticModule(root: string, file: string): boolean {

@@ -30,10 +30,8 @@ import {
   semanticWhyNowForRequestKind,
   semanticWhyNowForTaskStatus,
 } from "./semantic-language.js";
-import {
-  readTaskFailureObservationCore,
-  type TaskFailureObservationCore,
-} from "./task-failure-observation-core.js";
+import { readTaskFailureObservationCore } from "./task-failure-observation-core.js";
+import type { ObservationSemantics } from "./observation-semantics.js";
 
 export type SemanticInterpreter = (event: SourceEvent) => SemanticInterpretation;
 type SemanticProvenanceField = keyof SemanticFieldProvenance;
@@ -137,7 +135,7 @@ function inferTaskUpdateSemantics(
   const relationProvenance =
     relationHints.length > 0 ? inferredSemanticProvenance(["relationHints"]) : {};
   const relationWhyNow = semanticWhyNowForRelationHints(relationHints);
-  const observationalFailure = taskFailureObservationReadsAsStatusUpdate(failureObservationCore);
+  const observationalFailure = observationReadsAsStatusUpdate(failureObservationCore);
   const expectedDiagnosticFailure = failureObservationCore?.diagnosticClass === "expected";
 
   switch (event.status) {
@@ -643,9 +641,7 @@ function buildTaxonomyInput(
   };
 }
 
-function taskFailureObservationReadsAsStatusUpdate(
-  observation: TaskFailureObservationCore | null,
-): boolean {
+function observationReadsAsStatusUpdate(observation: ObservationSemantics | null): boolean {
   return observation?.polarity === "neutral" || observation?.polarity === "success";
 }
 

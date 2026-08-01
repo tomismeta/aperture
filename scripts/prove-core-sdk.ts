@@ -38,6 +38,18 @@ type CorePackageJson = {
   exports?: Record<string, unknown>;
 };
 
+type PublicEntrypoint = {
+  label: string;
+  specifier: string;
+};
+
+const publicEntrypoints: PublicEntrypoint[] = [
+  { label: "root", specifier: "@tomismeta/aperture-core" },
+  { label: "evaluator", specifier: "@tomismeta/aperture-core/evaluator" },
+  { label: "semantic", specifier: "@tomismeta/aperture-core/semantic" },
+  { label: "trace", specifier: "@tomismeta/aperture-core/trace" },
+];
+
 function run(
   command: string,
   args: string[],
@@ -220,6 +232,87 @@ function assertTarballShape(entries: string[]): void {
   );
 }
 
+function packageSlug(value: string): string {
+  return value.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+}
+
+async function writeTypecheckOnlyConsumer(
+  projectDir: string,
+  packageName: string,
+  tarballPath: string,
+): Promise<void> {
+  await mkdir(projectDir, { recursive: true });
+  await writeFile(
+    join(projectDir, "package.json"),
+    `${JSON.stringify(
+      {
+        name: packageName,
+        private: true,
+        type: "module",
+        dependencies: {
+          "@tomismeta/aperture-core": `file:${tarballPath}`,
+        },
+        devDependencies: {
+          "@types/node": "^24.1.0",
+          typescript: "^5.9.2",
+        },
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+  await writeFile(
+    join(projectDir, "pnpm-workspace.yaml"),
+    "packages:\n  - .\nautoInstallPeers: false\n",
+    "utf8",
+  );
+  await writeFile(
+    join(projectDir, "tsconfig.json"),
+    `${JSON.stringify(
+      {
+        compilerOptions: {
+          target: "ES2022",
+          module: "NodeNext",
+          moduleResolution: "NodeNext",
+          strict: true,
+          noEmit: true,
+          skipLibCheck: false,
+          types: ["node"],
+        },
+        include: ["index.ts"],
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+}
+
+async function assertPublicEntrypointsDoNotExport(
+  tempRoot: string,
+  tarballPath: string,
+  symbolName: string,
+): Promise<void> {
+  const symbolSlug = packageSlug(symbolName);
+  for (const entrypoint of publicEntrypoints) {
+    const projectName = `core-${symbolSlug}-negative-${entrypoint.label}`;
+    const projectDir = join(tempRoot, projectName);
+    await writeTypecheckOnlyConsumer(projectDir, projectName, tarballPath);
+    await writeFile(
+      join(projectDir, "index.ts"),
+      [
+        `import type { ${symbolName} as ForbiddenExport } from "${entrypoint.specifier}";`,
+        "void (0 as unknown as ForbiddenExport);",
+      ].join("\n"),
+      "utf8",
+    );
+
+    run("pnpm", ["install", "--prefer-offline"], projectDir, { ignoreScripts: false });
+    runExpectFailure("pnpm", ["exec", "tsc", "--noEmit"], projectDir, new RegExp(symbolName));
+  }
+}
+
 async function main(): Promise<void> {
   const packageJson = JSON.parse(
     await readFile(join(coreDir, "package.json"), "utf8"),
@@ -297,69 +390,8 @@ async function main(): Promise<void> {
       run("pnpm", ["exec", "tsx", "index.ts"], exampleDir);
     }
 
-    const negativeDir = join(tempRoot, "core-internal-observation-negative");
-    await mkdir(negativeDir, { recursive: true });
-    await writeFile(
-      join(negativeDir, "index.ts"),
-      [
-        'import type { NormalizedObservation as RootObservation } from "@tomismeta/aperture-core";',
-        'import type { NormalizedObservation as EvaluatorObservation } from "@tomismeta/aperture-core/evaluator";',
-        'import type { NormalizedObservation as SemanticObservation } from "@tomismeta/aperture-core/semantic";',
-        'import type { NormalizedObservation as TraceObservation } from "@tomismeta/aperture-core/trace";',
-        "void (0 as unknown as RootObservation);",
-        "void (0 as unknown as EvaluatorObservation);",
-        "void (0 as unknown as SemanticObservation);",
-        "void (0 as unknown as TraceObservation);",
-      ].join("\n"),
-      "utf8",
-    );
-    await writeFile(
-      join(negativeDir, "package.json"),
-      `${JSON.stringify(
-        {
-          name: "core-internal-observation-negative",
-          private: true,
-          type: "module",
-          dependencies: {
-            "@tomismeta/aperture-core": `file:${tarballPath}`,
-          },
-          devDependencies: {
-            "@types/node": "^24.1.0",
-            typescript: "^5.9.2",
-          },
-        },
-        null,
-        2,
-      )}\n`,
-      "utf8",
-    );
-    await writeFile(
-      join(negativeDir, "pnpm-workspace.yaml"),
-      "packages:\n  - .\nautoInstallPeers: false\n",
-      "utf8",
-    );
-    await writeFile(
-      join(negativeDir, "tsconfig.json"),
-      `${JSON.stringify(
-        {
-          compilerOptions: {
-            target: "ES2022",
-            module: "NodeNext",
-            moduleResolution: "NodeNext",
-            strict: true,
-            noEmit: true,
-            skipLibCheck: false,
-            types: ["node"],
-          },
-          include: ["index.ts"],
-        },
-        null,
-        2,
-      )}\n`,
-      "utf8",
-    );
-    run("pnpm", ["install", "--prefer-offline"], negativeDir, { ignoreScripts: false });
-    runExpectFailure("pnpm", ["exec", "tsc", "--noEmit"], negativeDir, /NormalizedObservation/);
+    await assertPublicEntrypointsDoNotExport(tempRoot, tarballPath, "NormalizedObservation");
+    await assertPublicEntrypointsDoNotExport(tempRoot, tarballPath, "ObservationSemantics");
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

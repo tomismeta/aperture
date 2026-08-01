@@ -14,9 +14,9 @@ import type {
 import {
   enrichTaskFailureObservation,
   readTaskFailureObservationCore,
-  type TaskFailureObservationCore,
 } from "./task-failure-observation-normalizer.js";
 import type { NormalizedObservation } from "./normalized-observation.js";
+import type { ObservationSemantics } from "./observation-semantics.js";
 import type {
   AttentionOntologyAuthority,
   AttentionOntologyDiagnostic,
@@ -358,7 +358,7 @@ function deriveCompiledSemanticEvidenceStrength(input: {
 
 function compileTaskFailureObservation(input: {
   event: ApertureEvent;
-  core: TaskFailureObservationCore;
+  core: ObservationSemantics;
   ontology: AttentionOntologyDiagnostic;
   abstained: boolean;
 }): NormalizedObservation {
@@ -379,7 +379,7 @@ function compileTaskFailureObservation(input: {
 
 function readObservationSemanticAgreement(input: {
   event: ApertureEvent;
-  observation: TaskFailureObservationCore;
+  observation: ObservationSemantics;
   ontology: AttentionOntologyDiagnostic;
   abstained: boolean;
 }): TaskFailureSemanticAgreement {
@@ -416,7 +416,7 @@ function hasFailureSemanticOverride(
 }
 
 function observationAgreesWithSemanticRead(
-  observation: TaskFailureObservationCore,
+  observation: ObservationSemantics,
   semantic: NonNullable<ApertureEvent["semantic"]>,
   ontology: AttentionOntologyDiagnostic,
 ): boolean {

@@ -6,6 +6,7 @@ import test from "node:test";
 
 import {
   collectCoreSemanticFiles,
+  countObservationPrimitiveLines,
   countSemanticMatcherSites,
   countSemanticPhraseLiterals,
 } from "./check-module-budgets.ts";
@@ -67,6 +68,32 @@ test("module budget checker counts phrase-table literals", () => {
     `),
     3,
   );
+});
+
+test("module budget checker counts the observation primitive as one governed surface", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-module-budgets-"));
+  try {
+    await writeRepoFile(root, "packages/core/src/observation-semantics.ts", "type One = 1;\n");
+    await writeRepoFile(
+      root,
+      "packages/core/src/normalized-observation.ts",
+      "type One = 1;\ntype Two = 2;\n",
+    );
+    await writeRepoFile(
+      root,
+      "packages/core/src/task-failure-observation-core.ts",
+      "const one = 1;\nconst two = 2;\n",
+    );
+    await writeRepoFile(
+      root,
+      "packages/core/src/task-failure-observation-normalizer.ts",
+      "const one = 1;\nconst two = 2;\nconst three = 3;\n",
+    );
+
+    assert.equal(await countObservationPrimitiveLines(root), 12);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 async function writeRepoFile(root: string, relativePath: string, content: string): Promise<void> {

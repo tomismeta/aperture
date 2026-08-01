@@ -15,6 +15,7 @@ import type {
   SemanticTextEvidence,
   TaskFailureSemanticEvidence,
 } from "../src/semantic-evidence.js";
+import type { ObservationSemantics } from "../src/observation-semantics.js";
 import type { AttentionOntologyDiagnostic } from "../src/semantic-ontology-types.js";
 
 const emptyText: SemanticTextEvidence = {
@@ -77,7 +78,7 @@ test("task-failure observation core preserves ontology-independent semantic fact
     toolFamily: "bash",
     consequenceBaseline: "high",
   });
-  const core = readTaskFailureObservationCore(failureEvidence);
+  const core: ObservationSemantics = readTaskFailureObservationCore(failureEvidence);
 
   assert.deepEqual(core, {
     kind: "diagnostic",

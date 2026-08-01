@@ -34,6 +34,9 @@ import {
   looksLikeToolUseRejectionOutcome,
 } from "../src/semantic-tool-use-rejection-shapes.js";
 import { looksLikeBareNonzeroTerminalExitEvidence } from "../src/semantic-terminal-evidence.js";
+import type { ObservationSemantics } from "../src/observation-semantics.js";
+import { readTaskFailureObservationCore } from "../src/task-failure-observation-core.js";
+import { readSemanticOntologyDiagnostic } from "../src/semantic-ontology.js";
 
 const timestamp = "2026-04-05T18:45:00.000Z";
 const rejectedToolUseMessage =
@@ -67,6 +70,31 @@ const editMissObservationTranscript =
   "OBSERVATION: No replacement was performed, old_str `def emit(self, text_gen, margin_char=None):` was not found in the file.";
 const failingTestObservationTranscript =
   "OBSERVATION: test_yes_no_for_booleans (tests.test_config.SimpleConfigTestCase) ... ERROR ====================================================================== ERROR: test_yes_no_for_booleans";
+
+function observationSemantics(input: {
+  kind: ObservationSemantics["kind"];
+  polarity: ObservationSemantics["polarity"];
+  origin: ObservationSemantics["provenance"]["origin"];
+  subject: ObservationSemantics["subject"];
+  consequenceBaseline: ObservationSemantics["consequenceBaseline"];
+  toolFamily?: string;
+  recoveryHint?: ObservationSemantics["recoveryHint"];
+}): ObservationSemantics {
+  return {
+    kind: input.kind,
+    polarity: input.polarity,
+    ownership: {
+      owner: input.toolFamily === undefined ? "source" : "tool",
+      ...(input.toolFamily !== undefined ? { toolFamily: input.toolFamily } : {}),
+    },
+    subject: input.subject,
+    evidenceLoss: "none",
+    ...(input.recoveryHint !== undefined ? { recoveryHint: input.recoveryHint } : {}),
+    provenance: { origin: input.origin },
+    consequenceBaseline: input.consequenceBaseline,
+    evidenceCertainty: "determinate",
+  };
+}
 
 test("semantic text evidence classifies exact routine bash success observations", () => {
   const evidence = readSemanticTextEvidence(
@@ -366,18 +394,21 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     summary: abbreviatedFileViewObservationTranscript,
     toolFamily: "read",
   });
-  assert.deepEqual(readOwnedAbbreviatedFileView.observation, {
+  assert.deepEqual(readOwnedAbbreviatedFileView.observationSemantics, {
     kind: "payload",
-    origin: "read_output",
+    polarity: "neutral",
+    ownership: { owner: "tool", toolFamily: "read" },
     subject: "source",
+    evidenceLoss: "none",
+    provenance: { origin: "read_output" },
     consequenceBaseline: "low",
-    toolFamily: "read",
+    evidenceCertainty: "determinate",
   });
   assert.notEqual(
     readTaskFailureSemanticSignals({
       summary: abbreviatedFileViewObservationTranscript,
       toolFamily: "bash",
-    }).observation?.origin,
+    }).observationSemantics?.provenance.origin,
     "read_output",
     "read-owned abbreviated-file-view signal stays tool-family bounded",
   );
@@ -732,11 +763,15 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
   ]) {
     const signal = readTaskFailureSemanticSignals({ summary });
     assert.equal(signal.diagnosticObservationTranscript, false);
-    assert.deepEqual(signal.observation, {
+    assert.deepEqual(signal.observationSemantics, {
       kind: "payload",
-      origin: "transcript",
+      polarity: "neutral",
+      ownership: { owner: "source" },
       subject: "tool",
+      evidenceLoss: "none",
+      provenance: { origin: "transcript" },
       consequenceBaseline: "high",
+      evidenceCertainty: "determinate",
     });
   }
 
@@ -744,19 +779,19 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     summary: directFailedLiteralObservation,
   });
   assert.equal(directFailedLiteral.diagnosticObservationTranscript, true);
-  assert.equal(directFailedLiteral.observation, null);
+  assert.equal(directFailedLiteral.observationSemantics, null);
 
   const directFailedPhrase = readTaskFailureSemanticSignals({
     summary: directFailedPhraseObservation,
   });
   assert.equal(directFailedPhrase.diagnosticObservationTranscript, true);
-  assert.equal(directFailedPhrase.observation, null);
+  assert.equal(directFailedPhrase.observationSemantics, null);
 
   const negatedFailedTests = readTaskFailureSemanticSignals({
     summary: negatedFailedTestsObservation,
   });
   assert.equal(negatedFailedTests.diagnosticObservationTranscript, false);
-  assert.equal(negatedFailedTests.observation, null);
+  assert.equal(negatedFailedTests.observationSemantics, null);
 });
 
 test("tool-use rejection outcome shape requires coherent full-message clauses", () => {
@@ -1052,12 +1087,120 @@ test("task failure semantic signals compile execution observations into one fiel
   const summary = '{"exit_code":0,"wall_time":"0.0510 seconds","output":"No output."}';
   const signals = readTaskFailureSemanticSignals({ summary });
 
-  assert.deepEqual(signals.observation, {
-    kind: "execution_success",
-    origin: "structured_output",
+  assert.deepEqual(signals.observationSemantics, {
+    kind: "outcome",
+    polarity: "success",
+    ownership: { owner: "source" },
     subject: "tool",
+    evidenceLoss: "none",
+    provenance: { origin: "structured_output" },
     consequenceBaseline: "low",
+    evidenceCertainty: "determinate",
   });
+});
+
+test("host-style failed event fixtures route through observation semantics grammar", () => {
+  const cases = [
+    {
+      name: "codex rejected command",
+      sourceLabel: "Codex",
+      title: "bash failure",
+      summary: declinedActionMessage,
+      toolFamily: "bash",
+      expectedKind: "rejected_tool_use_observation",
+      expectedActivity: "task_progress",
+      expected: observationSemantics({
+        kind: "control",
+        polarity: "neutral",
+        origin: "status_text",
+        subject: "tool",
+        consequenceBaseline: "low",
+        toolFamily: "bash",
+        recoveryHint: "await_authorization",
+      }),
+    },
+    {
+      name: "claude edit precondition",
+      sourceLabel: "Claude Code",
+      title: "edit failure",
+      summary:
+        "<tool_use_error>File has not been read yet. Read it first before writing to it.</tool_use_error>",
+      toolFamily: "edit",
+      expectedKind: "terminal_failure",
+      expectedActivity: "failure",
+      expected: {
+        ...observationSemantics({
+          kind: "diagnostic",
+          polarity: "failure",
+          origin: "semantic_evidence",
+          subject: "tool",
+          consequenceBaseline: "high",
+          toolFamily: "edit",
+          recoveryHint: "inspect_diagnostic",
+        }),
+        diagnosticClass: "runtime" as const,
+      },
+    },
+    {
+      name: "opencode abbreviated read",
+      sourceLabel: "OpenCode",
+      title: "read failure",
+      summary: rangeBasedAbbreviatedFileViewObservationTranscript,
+      toolFamily: "read",
+      expectedKind: "observational_payload",
+      expectedActivity: "task_progress",
+      expected: observationSemantics({
+        kind: "payload",
+        polarity: "neutral",
+        origin: "read_output",
+        subject: "source",
+        consequenceBaseline: "low",
+        toolFamily: "read",
+      }),
+    },
+    {
+      name: "pi applied edit readback",
+      sourceLabel: "Pi",
+      title: "edit failure",
+      summary:
+        "Successfully modified file: /repo/src/app.ts (1 replacements). Here is the updated code:\nexport const value = 1;",
+      toolFamily: "edit",
+      expectedKind: "observational_payload",
+      expectedActivity: "task_progress",
+      expected: observationSemantics({
+        kind: "payload",
+        polarity: "neutral",
+        origin: "semantic_evidence",
+        subject: "tool",
+        consequenceBaseline: "high",
+        toolFamily: "edit",
+      }),
+    },
+  ] as const;
+
+  for (const testCase of cases) {
+    const event = {
+      id: `evt:evidence:host-style:${testCase.name}`,
+      taskId: `task:evidence:host-style:${testCase.name}`,
+      timestamp,
+      type: "task.updated" as const,
+      source: { id: testCase.sourceLabel.toLowerCase(), label: testCase.sourceLabel },
+      title: testCase.title,
+      summary: testCase.summary,
+      status: "failed" as const,
+      toolFamily: testCase.toolFamily,
+    };
+    const evidence = readTaskFailureSemanticEvidence(event);
+    assert.notEqual(evidence, null, testCase.name);
+    assert.equal(evidence?.kind, testCase.expectedKind, testCase.name);
+    assert.deepEqual(evidence?.observationSemantics, testCase.expected, testCase.name);
+    assert.deepEqual(readTaskFailureObservationCore(evidence), testCase.expected, testCase.name);
+
+    const ontology = readSemanticOntologyDiagnostic(event);
+    assert.equal(ontology.activity, testCase.expectedActivity, testCase.name);
+    assert.equal(ontology.ask, "status", testCase.name);
+    assert.equal(ontology.consequence, testCase.expected.consequenceBaseline, testCase.name);
+  }
 });
 
 test("task failure evidence treats complete no-output nonzero command exits as medium consequence", () => {
@@ -1514,6 +1657,17 @@ test("task failure evidence routes edit output outcomes by result semantics", ()
     status: "failed",
     toolFamily: "edit",
   });
+  const ambiguousReplacementFailure = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:edit-ambiguous-replacement",
+    taskId: "task:evidence:edit-ambiguous-replacement",
+    timestamp,
+    type: "task.updated",
+    title: "edit failure",
+    summary:
+      "Found 2 occurrences of the text in /repo/src/app.ts. The text must be unique. Please provide more context to make it unique.",
+    status: "failed",
+    toolFamily: "edit",
+  });
   const modifiedSinceReadFailure = readTaskFailureSemanticEvidence({
     id: "evt:evidence:edit-modified-since-read",
     taskId: "task:evidence:edit-modified-since-read",
@@ -1617,7 +1771,33 @@ test("task failure evidence routes edit output outcomes by result semantics", ()
   assert.equal(noReplacementFailure?.kind, "terminal_failure");
   assert.equal(replacementMissFailure?.kind, "terminal_failure");
   assert.equal(oldTextReplacementMissFailure?.kind, "terminal_failure");
+  assert.equal(ambiguousReplacementFailure?.kind, "terminal_failure");
   assert.equal(modifiedSinceReadFailure?.kind, "terminal_failure");
+  for (const failure of [
+    preconditionFailure,
+    noReplacementFailure,
+    replacementMissFailure,
+    oldTextReplacementMissFailure,
+    ambiguousReplacementFailure,
+    modifiedSinceReadFailure,
+  ]) {
+    assert.deepEqual(
+      failure?.observationSemantics,
+      {
+        ...observationSemantics({
+          kind: "diagnostic",
+          polarity: "failure",
+          origin: "semantic_evidence",
+          subject: "tool",
+          consequenceBaseline: "high",
+          toolFamily: "edit",
+          recoveryHint: "inspect_diagnostic",
+        }),
+        diagnosticClass: "runtime",
+      },
+      failure?.kind,
+    );
+  }
   assert.equal(appliedReadback?.kind, "observational_payload");
   assert.equal(appliedReadback?.readsAsObservation, true);
   assert.equal(appliedReadback?.consequenceBaseline, "high");
@@ -1629,6 +1809,25 @@ test("task failure evidence routes edit output outcomes by result semantics", ()
   assert.equal(createdReadback?.readsAsObservation, true);
   assert.equal(recoveredReadback?.kind, "observational_payload");
   assert.equal(recoveredReadback?.readsAsObservation, true);
+  for (const applied of [
+    appliedReadback,
+    appliedWithDiagnosticReadback,
+    createdReadback,
+    recoveredReadback,
+  ]) {
+    assert.deepEqual(
+      applied?.observationSemantics,
+      observationSemantics({
+        kind: "payload",
+        polarity: "neutral",
+        origin: "semantic_evidence",
+        subject: "tool",
+        consequenceBaseline: "high",
+        toolFamily: "edit",
+      }),
+      applied?.kind,
+    );
+  }
   assert.equal(invalidMissingWallTimeReadback?.kind, "unclassified_failure");
   assert.equal(invalidExtraKeyReadback?.kind, "unclassified_failure");
   assert.equal(bashOwnedAppliedText?.kind, "unclassified_failure");
@@ -1781,8 +1980,8 @@ test("task failure evidence classifies structured tool output without treating i
     readTaskFailureSemanticSignals({
       summary: rawCommandDiff,
       toolFamily: "bash",
-    }).observation?.subject,
-    "diff",
+    }).observationSemantics?.subject,
+    "source",
     "anchored raw command unified diffs should expose a dedicated observation signal",
   );
   assert.equal(rawCommandDiffEvidence?.kind, "observational_payload");
@@ -1794,7 +1993,7 @@ test("task failure evidence classifies structured tool output without treating i
     summary: rawCommandSourceReadback,
     toolFamily: "bash",
   });
-  assert.equal(rawCommandSourceReadbackSignals.observation?.consequenceBaseline, "high");
+  assert.equal(rawCommandSourceReadbackSignals.observationSemantics?.consequenceBaseline, "high");
   const rawCommandSourceReadbackEvidence = readTaskFailureSemanticEvidence({
     id: "evt:evidence:raw-command-source-readback",
     taskId: "task:evidence:raw-command-source-readback",
@@ -4481,13 +4680,14 @@ test("task failure evidence preserves current observational classes", () => {
     {
       kind: "observational_payload",
       toolFamily: "bash",
-      observation: {
+      observationSemantics: observationSemantics({
         kind: "payload",
+        polarity: "neutral",
         origin: "transcript",
         subject: "tool",
         consequenceBaseline: "high",
         toolFamily: "bash",
-      },
+      }),
       readsAsObservation: true,
       consequenceBaseline: "high",
       text: readSemanticTextEvidence(
@@ -6638,14 +6838,15 @@ test("task failure evidence classifies explicit missing-tool observation transcr
     readTaskFailureSemanticSignals({
       summary: lineFetchAbbreviatedFileViewObservationTranscript,
       toolFamily: "read",
-    }).observation,
-    {
+    }).observationSemantics,
+    observationSemantics({
       kind: "payload",
+      polarity: "neutral",
       origin: "read_output",
       subject: "source",
       consequenceBaseline: "low",
       toolFamily: "read",
-    },
+    }),
   );
   assert.equal(
     readTaskFailureSemanticEvidence({

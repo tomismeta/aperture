@@ -71,6 +71,31 @@ function compile(
   });
 }
 
+function semanticObservation(input: {
+  kind: ObservationSemantics["kind"];
+  polarity: ObservationSemantics["polarity"];
+  origin: ObservationSemantics["provenance"]["origin"];
+  subject: ObservationSemantics["subject"];
+  consequenceBaseline: ObservationSemantics["consequenceBaseline"];
+  toolFamily?: string;
+  recoveryHint?: ObservationSemantics["recoveryHint"];
+}): ObservationSemantics {
+  return {
+    kind: input.kind,
+    polarity: input.polarity,
+    ownership: {
+      owner: input.toolFamily === undefined ? "source" : "tool",
+      ...(input.toolFamily !== undefined ? { toolFamily: input.toolFamily } : {}),
+    },
+    subject: input.subject,
+    evidenceLoss: "none",
+    ...(input.recoveryHint !== undefined ? { recoveryHint: input.recoveryHint } : {}),
+    provenance: { origin: input.origin },
+    consequenceBaseline: input.consequenceBaseline,
+    evidenceCertainty: "determinate",
+  };
+}
+
 test("task-failure observation core preserves ontology-independent semantic facts", () => {
   const failureEvidence = evidence({
     kind: "terminal_failure",
@@ -283,13 +308,14 @@ test("task-failure observation normalizer maps every evidence kind into the norm
       evidence: evidence({
         kind: "structured_execution_success_observation",
         toolFamily: "bash",
-        observation: {
-          kind: "execution_success",
+        observationSemantics: semanticObservation({
+          kind: "outcome",
+          polarity: "success",
           origin: "structured_output",
           subject: "tool",
           consequenceBaseline: "low",
           toolFamily: "bash",
-        },
+        }),
         readsAsObservation: true,
         consequenceBaseline: "low",
       }),
@@ -314,13 +340,14 @@ test("task-failure observation normalizer maps every evidence kind into the norm
       evidence: evidence({
         kind: "structured_tool_output_observation",
         toolFamily: "bash",
-        observation: {
+        observationSemantics: semanticObservation({
           kind: "payload",
+          polarity: "neutral",
           origin: "structured_output",
           subject: "source",
           consequenceBaseline: "high",
           toolFamily: "bash",
-        },
+        }),
         readsAsObservation: true,
         consequenceBaseline: "high",
       }),
@@ -351,13 +378,14 @@ test("task-failure observation normalizer maps every evidence kind into the norm
       evidence: evidence({
         kind: "observational_payload",
         toolFamily: "bash",
-        observation: {
+        observationSemantics: semanticObservation({
           kind: "payload",
+          polarity: "neutral",
           origin: "transcript",
-          subject: "diff",
+          subject: "source",
           consequenceBaseline: "high",
           toolFamily: "bash",
-        },
+        }),
         readsAsObservation: true,
         consequenceBaseline: "high",
       }),
@@ -436,13 +464,15 @@ test("task-failure observation normalizer maps every evidence kind into the norm
       evidence: evidence({
         kind: "rejected_tool_use_observation",
         toolFamily: "bash",
-        observation: {
-          kind: "tool_rejection",
+        observationSemantics: semanticObservation({
+          kind: "control",
+          polarity: "neutral",
           origin: "status_text",
           subject: "tool",
           consequenceBaseline: "low",
           toolFamily: "bash",
-        },
+          recoveryHint: "await_authorization",
+        }),
         readsAsObservation: true,
         consequenceBaseline: "low",
       }),
@@ -521,13 +551,14 @@ test("normalized observations preserve status-conflict kind parity with legacy e
     evidence({
       kind: "structured_execution_success_observation",
       toolFamily: "bash",
-      observation: {
-        kind: "execution_success",
+      observationSemantics: semanticObservation({
+        kind: "outcome",
+        polarity: "success",
         origin: "structured_output",
         subject: "tool",
         consequenceBaseline: "low",
         toolFamily: "bash",
-      },
+      }),
       readsAsObservation: true,
       consequenceBaseline: "low",
     }),
@@ -539,26 +570,28 @@ test("normalized observations preserve status-conflict kind parity with legacy e
     evidence({
       kind: "structured_tool_output_observation",
       toolFamily: "bash",
-      observation: {
+      observationSemantics: semanticObservation({
         kind: "payload",
+        polarity: "neutral",
         origin: "structured_output",
         subject: "source",
         consequenceBaseline: "high",
         toolFamily: "bash",
-      },
+      }),
       readsAsObservation: true,
       consequenceBaseline: "high",
     }),
     evidence({
       kind: "observational_payload",
       toolFamily: "bash",
-      observation: {
+      observationSemantics: semanticObservation({
         kind: "payload",
+        polarity: "neutral",
         origin: "transcript",
-        subject: "diff",
+        subject: "source",
         consequenceBaseline: "high",
         toolFamily: "bash",
-      },
+      }),
       readsAsObservation: true,
       consequenceBaseline: "high",
     }),
@@ -571,13 +604,15 @@ test("normalized observations preserve status-conflict kind parity with legacy e
     evidence({
       kind: "rejected_tool_use_observation",
       toolFamily: "bash",
-      observation: {
-        kind: "tool_rejection",
+      observationSemantics: semanticObservation({
+        kind: "control",
+        polarity: "neutral",
         origin: "status_text",
         subject: "tool",
         consequenceBaseline: "low",
         toolFamily: "bash",
-      },
+        recoveryHint: "await_authorization",
+      }),
       readsAsObservation: true,
       consequenceBaseline: "low",
     }),

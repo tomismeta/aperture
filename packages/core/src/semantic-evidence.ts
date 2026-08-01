@@ -20,10 +20,7 @@ import type { SemanticInterpretation } from "./semantic-types.js";
 import type { ObservationalStatusConflictEvidence } from "./observational-status-conflict.js";
 import { readObservationalStatusConflictEvidenceFromObservation } from "./observational-status-conflict-kind.js";
 import { containsAnySemanticPhrase, normalizeSemanticText } from "./semantic-text.js";
-import {
-  readTaskFailureSemanticSignals,
-  type TaskFailureObservation,
-} from "./semantic-task-failure-signals.js";
+import { readTaskFailureSemanticSignals } from "./semantic-task-failure-signals.js";
 import {
   looksLikeBuildOrLogObservation,
   looksLikePlainReadObservation,
@@ -47,6 +44,8 @@ import {
 import { readExplicitOperationSuccessObservationTranscript } from "./semantic-operation-success-observation-shapes.js";
 import { looksLikeEmptyJsonObject } from "./semantic-structured-output.js";
 import { normalizeTaskFailureObservation } from "./task-failure-observation-normalizer.js";
+import type { ObservationSemantics } from "./observation-semantics.js";
+import { readTaskFailureEditDiagnosticObservationSemantics } from "./task-failure-observation-grammar.js";
 
 export type SemanticTextEvidence = {
   routineSuccessObservation: boolean;
@@ -81,7 +80,7 @@ export type TaskFailureSemanticEvidence = {
   failureDetail?: TaskFailureDetail;
   terminalShape?: TaskFailureTerminalShape;
   toolFamily?: string;
-  observation?: TaskFailureObservation;
+  observationSemantics?: ObservationSemantics;
   readsAsObservation: boolean;
   consequenceBaseline: "low" | "medium" | "high";
   text: SemanticTextEvidence;
@@ -164,7 +163,7 @@ export function readTaskFailureSemanticEvidence(
       !signals.commandDiagnosticReferenceObservationTranscript) ||
     (text.terminalFailureEvidence &&
       !signals.commandDiagnosticReferenceObservationTranscript &&
-      !isMissingToolObservationTranscript(signals.observation) &&
+      !isMissingToolObservationTranscript(signals.observationSemantics) &&
       !(toolFamily === "search" && text.searchResultOutput) &&
       (!signals.rawReadStructuredObservation || signals.strongSourceRuntimeDiagnostic) &&
       (!signals.structuredOutputSourceObservation || signals.strongSourceRuntimeDiagnostic) &&
@@ -177,16 +176,26 @@ export function readTaskFailureSemanticEvidence(
       signals,
       toolFamily,
     });
+    const consequenceBaseline =
+      failureDetail === "outcome_only" || failureDetail === "source_window_limit"
+        ? "medium"
+        : "high";
+    const observationSemantics =
+      failureDetail === "diagnostic"
+        ? readTaskFailureEditDiagnosticObservationSemantics({
+            editOutputOutcome: signals.editOutputOutcome,
+            toolFamily,
+            consequenceBaseline,
+          })
+        : null;
     return {
       kind: "terminal_failure",
       failureDetail,
       ...(terminalShape !== null ? { terminalShape } : {}),
       ...(toolFamily !== undefined ? { toolFamily } : {}),
+      ...(observationSemantics !== null ? { observationSemantics } : {}),
       readsAsObservation: false,
-      consequenceBaseline:
-        failureDetail === "outcome_only" || failureDetail === "source_window_limit"
-          ? "medium"
-          : "high",
+      consequenceBaseline,
       text,
     };
   }
@@ -215,8 +224,8 @@ export function readTaskFailureSemanticEvidence(
     };
   }
 
-  if (signals.observation !== null) {
-    return readObservationSemanticEvidence(signals.observation, text);
+  if (signals.observationSemantics !== null) {
+    return readObservationSemanticEvidence(signals.observationSemantics, text);
   }
 
   if (
@@ -288,34 +297,46 @@ export function readTaskFailureSemanticEvidence(
 }
 
 function readObservationSemanticEvidence(
-  observation: TaskFailureObservation,
+  semantics: ObservationSemantics,
   text: SemanticTextEvidence,
 ): TaskFailureSemanticEvidence {
   return {
-    kind: readObservationEvidenceKind(observation),
-    ...(observation.toolFamily !== undefined ? { toolFamily: observation.toolFamily } : {}),
-    observation,
+    kind: readObservationSemanticEvidenceKind(semantics),
+    ...(semantics.ownership.toolFamily !== undefined
+      ? { toolFamily: semantics.ownership.toolFamily }
+      : {}),
+    observationSemantics: semantics,
     readsAsObservation: true,
-    consequenceBaseline: observation.consequenceBaseline,
+    consequenceBaseline: semantics.consequenceBaseline,
     text,
   };
 }
 
-function readObservationEvidenceKind(observation: TaskFailureObservation): TaskFailureEvidenceKind {
-  switch (observation.kind) {
-    case "execution_success":
-      return "structured_execution_success_observation";
-    case "tool_rejection":
+function readObservationSemanticEvidenceKind(
+  semantics: ObservationSemantics,
+): TaskFailureEvidenceKind {
+  switch (semantics.kind) {
+    case "control":
       return "rejected_tool_use_observation";
+    case "outcome":
+      return semantics.polarity === "success"
+        ? "structured_execution_success_observation"
+        : "unclassified_failure";
     case "payload":
-      return observation.origin === "structured_output"
+      return semantics.provenance.origin === "structured_output"
         ? "structured_tool_output_observation"
         : "observational_payload";
+    case "diagnostic":
+    case "unknown":
+      return "unclassified_failure";
   }
 }
 
-function isMissingToolObservationTranscript(observation: TaskFailureObservation | null): boolean {
-  return observation?.origin === "transcript" && observation.toolFamily === undefined;
+function isMissingToolObservationTranscript(observation: ObservationSemantics | null): boolean {
+  return (
+    observation?.provenance.origin === "transcript" &&
+    observation.ownership.toolFamily === undefined
+  );
 }
 
 export function hasRoutineObservationalStatusConflictSemanticRead(

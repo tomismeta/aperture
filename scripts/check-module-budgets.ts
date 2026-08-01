@@ -8,19 +8,34 @@ const SEMANTIC_MODULE_COUNT_BUDGET = 100;
 const SEMANTIC_LINE_COUNT_BUDGET = 8695;
 const SEMANTIC_MATCHER_SITE_BUDGET = 600;
 const SEMANTIC_PHRASE_LITERAL_BUDGET = 175;
-const OBSERVATION_PRIMITIVE_LINE_COUNT_BUDGET = 425;
+const OBSERVATION_PRIMITIVE_LINE_COUNT_BUDGET = 650;
+const TASK_FAILURE_PARSING_LINE_COUNT_BUDGET = 1225;
 
 const OBSERVATION_SEMANTICS_FILE = "packages/core/src/observation-semantics.ts";
 const NORMALIZED_OBSERVATION_FILE = "packages/core/src/normalized-observation.ts";
+const TASK_FAILURE_OBSERVATION_GRAMMAR_FILE =
+  "packages/core/src/task-failure-observation-grammar.ts";
 const TASK_FAILURE_OBSERVATION_CORE_FILE = "packages/core/src/task-failure-observation-core.ts";
 const TASK_FAILURE_OBSERVATION_NORMALIZER_FILE =
   "packages/core/src/task-failure-observation-normalizer.ts";
 const observationPrimitiveBudgetFiles = [
   OBSERVATION_SEMANTICS_FILE,
   NORMALIZED_OBSERVATION_FILE,
+  TASK_FAILURE_OBSERVATION_GRAMMAR_FILE,
   TASK_FAILURE_OBSERVATION_CORE_FILE,
   TASK_FAILURE_OBSERVATION_NORMALIZER_FILE,
 ] as const;
+const taskFailureParsingBudgetFiles = [
+  TASK_FAILURE_OBSERVATION_GRAMMAR_FILE,
+  "packages/core/src/semantic-task-failure-signals.ts",
+  "packages/core/src/semantic-evidence.ts",
+  "packages/core/src/semantic-failure-detail.ts",
+  "packages/core/src/semantic-edit-output-shapes.ts",
+  "packages/core/src/semantic-tool-use-rejection-shapes.ts",
+  "packages/core/src/semantic-task-failure-structured-output.ts",
+  "packages/core/src/semantic-raw-read-failure-signals.ts",
+] as const;
+const semanticMatcherGovernanceFiles = [TASK_FAILURE_OBSERVATION_GRAMMAR_FILE] as const;
 
 const budgets = [
   { file: "packages/runtime/src/runtime.ts", maxLines: 800 },
@@ -48,6 +63,7 @@ const budgets = [
   { file: "packages/core/src/observational-status-conflict.ts", maxLines: 25 },
   { file: OBSERVATION_SEMANTICS_FILE, maxLines: 50 },
   { file: NORMALIZED_OBSERVATION_FILE, maxLines: 75 },
+  { file: TASK_FAILURE_OBSERVATION_GRAMMAR_FILE, maxLines: 250 },
   { file: TASK_FAILURE_OBSERVATION_CORE_FILE, maxLines: 205 },
   { file: TASK_FAILURE_OBSERVATION_NORMALIZER_FILE, maxLines: 150 },
   { file: "packages/core/src/attention-evaluator.ts", maxLines: 350 },
@@ -167,7 +183,7 @@ const budgets = [
   { file: "packages/core/src/semantic-truncated-structured-output-recovery.ts", maxLines: 175 },
   { file: "packages/core/src/semantic-truncated-structured-output.ts", maxLines: 175 },
   { file: "packages/core/src/semantic-search-observation-shapes.ts", maxLines: 75 },
-  { file: "packages/core/src/semantic-task-failure-signals.ts", maxLines: 350 },
+  { file: "packages/core/src/semantic-task-failure-signals.ts", maxLines: 200 },
   { file: "packages/core/src/semantic-text.ts", maxLines: 75 },
   { file: "packages/core/src/semantic-tool-family.ts", maxLines: 125 },
   { file: "packages/core/src/semantic-types.ts", maxLines: 125 },
@@ -360,10 +376,15 @@ async function main(): Promise<void> {
       missingBudgetFiles.push(relativeFile);
     }
     semanticLineCount += text.split("\n").length;
+  }
+  const semanticMatcherFiles = await collectSemanticMatcherGovernedFiles();
+  for (const file of semanticMatcherFiles) {
+    const text = await readFile(file, "utf8");
     semanticMatcherSiteCount += countSemanticMatcherSites(text);
     semanticPhraseLiteralCount += countSemanticPhraseLiterals(text);
   }
   const observationPrimitiveLineCount = await countObservationPrimitiveLines();
+  const taskFailureParsingLineCount = await countTaskFailureParsingLines();
   if (semanticFiles.length > SEMANTIC_MODULE_COUNT_BUDGET) {
     aggregateViolations.push({
       label: "packages/core/src/semantic*.ts module count",
@@ -380,14 +401,14 @@ async function main(): Promise<void> {
   }
   if (semanticMatcherSiteCount > SEMANTIC_MATCHER_SITE_BUDGET) {
     aggregateViolations.push({
-      label: "packages/core/src/semantic*.ts matcher sites",
+      label: "packages/core/src semantic parser matcher sites",
       value: semanticMatcherSiteCount,
       max: SEMANTIC_MATCHER_SITE_BUDGET,
     });
   }
   if (semanticPhraseLiteralCount > SEMANTIC_PHRASE_LITERAL_BUDGET) {
     aggregateViolations.push({
-      label: "packages/core/src/semantic*.ts phrase literals",
+      label: "packages/core/src semantic parser phrase literals",
       value: semanticPhraseLiteralCount,
       max: SEMANTIC_PHRASE_LITERAL_BUDGET,
     });
@@ -397,6 +418,13 @@ async function main(): Promise<void> {
       label: "packages/core/src observation primitive total lines",
       value: observationPrimitiveLineCount,
       max: OBSERVATION_PRIMITIVE_LINE_COUNT_BUDGET,
+    });
+  }
+  if (taskFailureParsingLineCount > TASK_FAILURE_PARSING_LINE_COUNT_BUDGET) {
+    aggregateViolations.push({
+      label: "packages/core/src task-failure parsing total lines",
+      value: taskFailureParsingLineCount,
+      max: TASK_FAILURE_PARSING_LINE_COUNT_BUDGET,
     });
   }
 
@@ -449,9 +477,25 @@ export async function collectCoreSemanticFiles(root = repoRoot): Promise<string[
   return files.filter((file) => isCoreSemanticModule(root, file)).sort();
 }
 
+export async function collectSemanticMatcherGovernedFiles(root = repoRoot): Promise<string[]> {
+  const files = new Set(await collectCoreSemanticFiles(root));
+  for (const file of semanticMatcherGovernanceFiles) {
+    files.add(resolve(root, file));
+  }
+  return [...files].sort();
+}
+
 export async function countObservationPrimitiveLines(root = repoRoot): Promise<number> {
   let lineCount = 0;
   for (const file of observationPrimitiveBudgetFiles) {
+    lineCount += await readLineCount(resolve(root, file));
+  }
+  return lineCount;
+}
+
+export async function countTaskFailureParsingLines(root = repoRoot): Promise<number> {
+  let lineCount = 0;
+  for (const file of taskFailureParsingBudgetFiles) {
     lineCount += await readLineCount(resolve(root, file));
   }
   return lineCount;

@@ -8,6 +8,10 @@ import type { TaskFailureSemanticEvidence } from "./semantic-evidence.js";
 export function readTaskFailureObservationCore(
   evidence: TaskFailureSemanticEvidence,
 ): ObservationSemantics {
+  if (evidence.observationSemantics !== undefined) {
+    return evidence.observationSemantics;
+  }
+
   const evidenceLoss = readObservationEvidenceLoss(evidence);
   const diagnosticClass = readObservationDiagnosticClass(evidence);
   const recoveryHint = readObservationRecoveryHint(evidence, evidenceLoss);
@@ -23,7 +27,7 @@ export function readTaskFailureObservationCore(
     ...(diagnosticClass !== null ? { diagnosticClass } : {}),
     ...(recoveryHint !== null ? { recoveryHint } : {}),
     provenance: {
-      origin: readObservationOrigin(evidence),
+      origin: readObservationOrigin(),
     },
     consequenceBaseline: evidence.consequenceBaseline,
     evidenceCertainty:
@@ -97,10 +101,6 @@ function readObservationOwner(
 function readObservationSubject(
   evidence: TaskFailureSemanticEvidence,
 ): ObservationSemantics["subject"] {
-  if (evidence.observation !== undefined) {
-    return normalizeObservationSubject(evidence.observation.subject);
-  }
-
   if (evidence.kind === "routine_search_output" || evidence.toolFamily === "search") {
     return "search";
   }
@@ -114,24 +114,6 @@ function readObservationSubject(
   }
 
   return "unknown";
-}
-
-function normalizeObservationSubject(
-  subject: NonNullable<TaskFailureSemanticEvidence["observation"]>["subject"],
-): ObservationSemantics["subject"] {
-  switch (subject) {
-    case "source":
-    case "diff":
-      return "source";
-    case "document":
-    case "linter":
-    case "listing":
-    case "readback":
-    case "test":
-      return "document";
-    case "tool":
-      return "tool";
-  }
 }
 
 function readObservationEvidenceLoss(
@@ -186,8 +168,6 @@ function readObservationRecoveryHint(
   }
 }
 
-function readObservationOrigin(
-  evidence: TaskFailureSemanticEvidence,
-): ObservationSemantics["provenance"]["origin"] {
-  return evidence.observation?.origin ?? "semantic_evidence";
+function readObservationOrigin(): ObservationSemantics["provenance"]["origin"] {
+  return "semantic_evidence";
 }

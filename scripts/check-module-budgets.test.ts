@@ -6,9 +6,11 @@ import test from "node:test";
 
 import {
   collectCoreSemanticFiles,
+  collectSemanticMatcherGovernedFiles,
   countObservationPrimitiveLines,
   countSemanticMatcherSites,
   countSemanticPhraseLiterals,
+  countTaskFailureParsingLines,
 } from "./check-module-budgets.ts";
 
 test("module budget checker discovers top-level and nested semantic core modules", async () => {
@@ -37,6 +39,33 @@ test("module budget checker discovers top-level and nested semantic core modules
     assert.deepEqual(semanticFiles, [
       "packages/core/src/semantic-top-level.ts",
       "packages/core/src/semantic/window-limit.ts",
+    ]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("module budget checker includes observation grammar in matcher governance", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-module-budgets-"));
+  try {
+    await writeRepoFile(
+      root,
+      "packages/core/src/semantic-top-level.ts",
+      "export const top = true;\n",
+    );
+    await writeRepoFile(
+      root,
+      "packages/core/src/task-failure-observation-grammar.ts",
+      "export const grammar = true;\n",
+    );
+
+    const governedFiles = (await collectSemanticMatcherGovernedFiles(root)).map((file) =>
+      file.replace(`${root}/`, ""),
+    );
+
+    assert.deepEqual(governedFiles, [
+      "packages/core/src/semantic-top-level.ts",
+      "packages/core/src/task-failure-observation-grammar.ts",
     ]);
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -81,6 +110,11 @@ test("module budget checker counts the observation primitive as one governed sur
     );
     await writeRepoFile(
       root,
+      "packages/core/src/task-failure-observation-grammar.ts",
+      "const one = 1;\nconst two = 2;\nconst three = 3;\nconst four = 4;\n",
+    );
+    await writeRepoFile(
+      root,
       "packages/core/src/task-failure-observation-core.ts",
       "const one = 1;\nconst two = 2;\n",
     );
@@ -90,7 +124,53 @@ test("module budget checker counts the observation primitive as one governed sur
       "const one = 1;\nconst two = 2;\nconst three = 3;\n",
     );
 
-    assert.equal(await countObservationPrimitiveLines(root), 12);
+    assert.equal(await countObservationPrimitiveLines(root), 17);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("module budget checker counts task-failure parsing as one governed surface", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-module-budgets-"));
+  try {
+    await writeRepoFile(
+      root,
+      "packages/core/src/task-failure-observation-grammar.ts",
+      "const one = 1;\n",
+    );
+    await writeRepoFile(
+      root,
+      "packages/core/src/semantic-task-failure-signals.ts",
+      "const one = 1;\nconst two = 2;\n",
+    );
+    await writeRepoFile(
+      root,
+      "packages/core/src/semantic-evidence.ts",
+      "const one = 1;\nconst two = 2;\nconst three = 3;\n",
+    );
+    await writeRepoFile(root, "packages/core/src/semantic-failure-detail.ts", "const one = 1;\n");
+    await writeRepoFile(
+      root,
+      "packages/core/src/semantic-edit-output-shapes.ts",
+      "const one = 1;\n",
+    );
+    await writeRepoFile(
+      root,
+      "packages/core/src/semantic-tool-use-rejection-shapes.ts",
+      "const one = 1;\n",
+    );
+    await writeRepoFile(
+      root,
+      "packages/core/src/semantic-task-failure-structured-output.ts",
+      "const one = 1;\n",
+    );
+    await writeRepoFile(
+      root,
+      "packages/core/src/semantic-raw-read-failure-signals.ts",
+      "const one = 1;\nconst two = 2;\n",
+    );
+
+    assert.equal(await countTaskFailureParsingLines(root), 20);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

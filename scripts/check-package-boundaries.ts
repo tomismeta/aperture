@@ -83,6 +83,7 @@ const rawTaskFailureEvidenceMembers = new Set([
   "terminalShape",
   "toolFamily",
   "observation",
+  "observationSemantics",
   "readsAsObservation",
   "consequenceBaseline",
   "text",

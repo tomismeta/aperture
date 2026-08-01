@@ -64,6 +64,8 @@ test("observation semantics stays source-internal and out of package entrypoints
     const source = readFileSync(new URL(entrypoint, import.meta.url), "utf8");
     assert.equal(source.includes("ObservationSemantics"), false, entrypoint);
     assert.equal(source.includes("observation-semantics"), false, entrypoint);
+    assert.equal(source.includes("task-failure-observation-grammar"), false, entrypoint);
+    assert.equal(source.includes("TaskFailureObservationGrammarInput"), false, entrypoint);
   }
 });
 
@@ -79,6 +81,39 @@ test("observation semantics owns vocabulary upstream of normalized observations"
 
   assert.equal(semantics.includes("normalized-observation"), false);
   assert.match(normalized, /from "\.\/observation-semantics\.js"/);
+});
+
+test("task-failure observation grammar stays document-first and source-internal", () => {
+  const grammar = readFileSync(
+    new URL("../src/task-failure-observation-grammar.ts", import.meta.url),
+    "utf8",
+  );
+  const signals = readFileSync(
+    new URL("../src/semantic-task-failure-signals.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(grammar, /readTaskFailureObservationSemantics/);
+  assert.match(grammar, /ObservationSemantics/);
+  assert.equal(grammar.includes("export type TaskFailureObservation ="), false);
+  assert.equal(grammar.includes("export type TaskFailureObservationGrammarInput"), false);
+  assert.equal(grammar.includes("TaskFailureObservationEvidenceKind"), false);
+  assert.equal(grammar.includes("structured_tool_output_observation"), false);
+  assert.equal(grammar.includes("semantic-failure-detail"), false);
+  assert.match(signals, /readTaskFailureObservationSemantics/);
+  assert.equal(signals.includes("TaskFailureObservationMatch"), false);
+
+  for (const forbidden of [
+    "normalized-observation",
+    "task-failure-observation-normalizer",
+    "semantic-ontology",
+    "semantic-interpreter",
+    "judgment-input",
+    "./semantic.js",
+    "./index.js",
+  ]) {
+    assert.equal(grammar.includes(forbidden), false, forbidden);
+  }
 });
 
 function candidateShape(candidate: {

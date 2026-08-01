@@ -38,7 +38,7 @@ const budgets = [
   { file: "packages/core/src/semantic-bare-nonzero-terminal-exit.ts", maxLines: 25 },
   { file: "packages/core/src/semantic-detection.ts", maxLines: 375 },
   { file: "packages/core/src/semantic-relation-detection.ts", maxLines: 350 },
-  { file: "packages/core/src/semantic-evidence.ts", maxLines: 525 },
+  { file: "packages/core/src/semantic-evidence.ts", maxLines: 475 },
   { file: "packages/core/src/semantic-failure-detail.ts", maxLines: 125 },
   { file: "packages/core/src/semantic-imperative-supersession-relation.ts", maxLines: 125 },
   { file: "packages/core/src/semantic-interpreter.ts", maxLines: 700 },
@@ -146,7 +146,7 @@ const budgets = [
   { file: "packages/core/src/semantic-truncated-structured-output-recovery.ts", maxLines: 175 },
   { file: "packages/core/src/semantic-truncated-structured-output.ts", maxLines: 175 },
   { file: "packages/core/src/semantic-search-observation-shapes.ts", maxLines: 75 },
-  { file: "packages/core/src/semantic-task-failure-signals.ts", maxLines: 185 },
+  { file: "packages/core/src/semantic-task-failure-signals.ts", maxLines: 350 },
   { file: "packages/core/src/semantic-text.ts", maxLines: 75 },
   { file: "packages/core/src/semantic-tool-family.ts", maxLines: 125 },
   { file: "packages/core/src/semantic-types.ts", maxLines: 125 },
@@ -345,11 +345,11 @@ async function main(): Promise<void> {
       max: 100,
     });
   }
-  if (semanticLineCount > 8700) {
+  if (semanticLineCount > 8695) {
     aggregateViolations.push({
       label: "packages/core/src/semantic*.ts total lines",
       value: semanticLineCount,
-      max: 8700,
+      max: 8695,
     });
   }
 

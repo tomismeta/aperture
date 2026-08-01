@@ -366,16 +366,19 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     summary: abbreviatedFileViewObservationTranscript,
     toolFamily: "read",
   });
-  assert.equal(
-    readOwnedAbbreviatedFileView.readAbbreviatedFileViewObservation?.shape,
-    "abbreviated_file_view",
-  );
-  assert.equal(
+  assert.deepEqual(readOwnedAbbreviatedFileView.observation, {
+    kind: "payload",
+    origin: "read_output",
+    subject: "source",
+    consequenceBaseline: "low",
+    toolFamily: "read",
+  });
+  assert.notEqual(
     readTaskFailureSemanticSignals({
       summary: abbreviatedFileViewObservationTranscript,
       toolFamily: "bash",
-    }).readAbbreviatedFileViewObservation,
-    null,
+    }).observation?.origin,
+    "read_output",
     "read-owned abbreviated-file-view signal stays tool-family bounded",
   );
 
@@ -729,26 +732,31 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
   ]) {
     const signal = readTaskFailureSemanticSignals({ summary });
     assert.equal(signal.diagnosticObservationTranscript, false);
-    assert.equal(signal.missingToolObservationTranscript?.shape, "existing_observation");
+    assert.deepEqual(signal.observation, {
+      kind: "payload",
+      origin: "transcript",
+      subject: "tool",
+      consequenceBaseline: "high",
+    });
   }
 
   const directFailedLiteral = readTaskFailureSemanticSignals({
     summary: directFailedLiteralObservation,
   });
   assert.equal(directFailedLiteral.diagnosticObservationTranscript, true);
-  assert.equal(directFailedLiteral.missingToolObservationTranscript, null);
+  assert.equal(directFailedLiteral.observation, null);
 
   const directFailedPhrase = readTaskFailureSemanticSignals({
     summary: directFailedPhraseObservation,
   });
   assert.equal(directFailedPhrase.diagnosticObservationTranscript, true);
-  assert.equal(directFailedPhrase.missingToolObservationTranscript, null);
+  assert.equal(directFailedPhrase.observation, null);
 
   const negatedFailedTests = readTaskFailureSemanticSignals({
     summary: negatedFailedTestsObservation,
   });
   assert.equal(negatedFailedTests.diagnosticObservationTranscript, false);
-  assert.equal(negatedFailedTests.missingToolObservationTranscript, null);
+  assert.equal(negatedFailedTests.observation, null);
 });
 
 test("tool-use rejection outcome shape requires coherent full-message clauses", () => {
@@ -1026,6 +1034,18 @@ test("task failure evidence applies terminal evidence before positive observatio
   assert.equal(evidence?.kind, "terminal_failure");
   assert.equal(evidence?.readsAsObservation, false);
   assert.equal(evidence?.consequenceBaseline, "high");
+});
+
+test("task failure semantic signals compile execution observations into one field", () => {
+  const summary = '{"exit_code":0,"wall_time":"0.0510 seconds","output":"No output."}';
+  const signals = readTaskFailureSemanticSignals({ summary });
+
+  assert.deepEqual(signals.observation, {
+    kind: "execution_success",
+    origin: "structured_output",
+    subject: "tool",
+    consequenceBaseline: "low",
+  });
 });
 
 test("task failure evidence treats complete no-output nonzero command exits as medium consequence", () => {
@@ -1702,8 +1722,8 @@ test("task failure evidence classifies structured tool output without treating i
     readTaskFailureSemanticSignals({
       summary: rawCommandDiff,
       toolFamily: "bash",
-    }).rawCommandDiffObservation,
-    true,
+    }).observation?.subject,
+    "diff",
     "anchored raw command unified diffs should expose a dedicated observation signal",
   );
   assert.equal(rawCommandDiffEvidence?.kind, "observational_payload");
@@ -1715,10 +1735,7 @@ test("task failure evidence classifies structured tool output without treating i
     summary: rawCommandSourceReadback,
     toolFamily: "bash",
   });
-  assert.equal(
-    rawCommandSourceReadbackSignals.rawCommandTextObservation?.consequenceBaseline,
-    "high",
-  );
+  assert.equal(rawCommandSourceReadbackSignals.observation?.consequenceBaseline, "high");
   const rawCommandSourceReadbackEvidence = readTaskFailureSemanticEvidence({
     id: "evt:evidence:raw-command-source-readback",
     taskId: "task:evidence:raw-command-source-readback",
@@ -6551,6 +6568,19 @@ test("task failure evidence classifies explicit missing-tool observation transcr
   assert.equal(explicitReadGeneralizedAbbreviatedFileView.readsAsObservation, true);
   assert.equal(explicitReadGeneralizedAbbreviatedFileView.consequenceBaseline, "low");
   assert.equal(explicitReadGeneralizedAbbreviatedFileView.toolFamily, "read");
+  assert.deepEqual(
+    readTaskFailureSemanticSignals({
+      summary: lineFetchAbbreviatedFileViewObservationTranscript,
+      toolFamily: "read",
+    }).observation,
+    {
+      kind: "payload",
+      origin: "read_output",
+      subject: "source",
+      consequenceBaseline: "low",
+      toolFamily: "read",
+    },
+  );
   assert.equal(
     readTaskFailureSemanticEvidence({
       id: "evt:evidence:read-abbreviated-file-view-note-only",

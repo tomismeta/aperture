@@ -20,7 +20,10 @@ import type { SemanticInterpretation } from "./semantic-types.js";
 import type { ObservationalStatusConflictEvidence } from "./observational-status-conflict.js";
 import { readObservationalStatusConflictKind } from "./observational-status-conflict-kind.js";
 import { containsAnySemanticPhrase, normalizeSemanticText } from "./semantic-text.js";
-import { readTaskFailureSemanticSignals } from "./semantic-task-failure-signals.js";
+import {
+  readTaskFailureSemanticSignals,
+  type TaskFailureObservation,
+} from "./semantic-task-failure-signals.js";
 import {
   looksLikeBuildOrLogObservation,
   looksLikePlainReadObservation,
@@ -171,7 +174,7 @@ export function readTaskFailureSemanticEvidence(
           ? true
           : text.terminalFailureEvidence &&
             !signals.commandDiagnosticReferenceObservationTranscript &&
-            signals.missingToolObservationTranscript === null &&
+            !isMissingToolObservationTranscript(signals.observation) &&
             !(toolFamily === "search" && text.searchResultOutput) &&
             (!signals.rawReadStructuredObservation || signals.strongSourceRuntimeDiagnostic) &&
             (!signals.structuredOutputSourceObservation || signals.strongSourceRuntimeDiagnostic) &&
@@ -222,93 +225,8 @@ export function readTaskFailureSemanticEvidence(
     };
   }
 
-  if (signals.missingToolObservationTranscript) {
-    return {
-      kind: "observational_payload",
-      readsAsObservation: true,
-      consequenceBaseline: signals.missingToolObservationTranscript.consequenceBaseline,
-      text,
-    };
-  }
-
-  if (signals.commandObservationTranscript) {
-    return {
-      kind: "observational_payload",
-      ...(toolFamily !== undefined ? { toolFamily } : {}),
-      readsAsObservation: true,
-      consequenceBaseline: signals.commandObservationTranscript.consequenceBaseline,
-      text,
-    };
-  }
-
-  if (signals.rejectedToolUseOutcome) {
-    return {
-      kind: "rejected_tool_use_observation",
-      ...(toolFamily !== undefined ? { toolFamily } : {}),
-      readsAsObservation: true,
-      consequenceBaseline: "low",
-      text,
-    };
-  }
-
-  if (signals.rawCommandDiffObservation) {
-    return {
-      kind: "observational_payload",
-      ...(toolFamily !== undefined ? { toolFamily } : {}),
-      readsAsObservation: true,
-      consequenceBaseline: "high",
-      text,
-    };
-  }
-
-  if (signals.rawCommandTextObservation) {
-    return {
-      kind: "observational_payload",
-      ...(toolFamily !== undefined ? { toolFamily } : {}),
-      readsAsObservation: true,
-      consequenceBaseline: signals.rawCommandTextObservation.consequenceBaseline,
-      text,
-    };
-  }
-
-  if (signals.rawReadObservationBaseline) {
-    return {
-      kind: "observational_payload",
-      toolFamily: "read",
-      readsAsObservation: true,
-      consequenceBaseline: signals.rawReadObservationBaseline,
-      text,
-    };
-  }
-
-  if (signals.readAbbreviatedFileViewObservation) {
-    return {
-      kind: "observational_payload",
-      toolFamily: "read",
-      readsAsObservation: true,
-      consequenceBaseline: signals.readAbbreviatedFileViewObservation.consequenceBaseline,
-      text,
-    };
-  }
-
-  if (signals.diagnosticStructuredToolOutput && signals.structuredOutputObservation) {
-    return {
-      kind: "structured_tool_output_observation",
-      ...(toolFamily !== undefined ? { toolFamily } : {}),
-      readsAsObservation: true,
-      consequenceBaseline: signals.structuredOutputSourceObservation ? "high" : "medium",
-      text,
-    };
-  }
-
-  if (signals.structuredOutputZeroExitSuccess) {
-    return {
-      kind: "structured_execution_success_observation",
-      ...(toolFamily !== undefined ? { toolFamily } : {}),
-      readsAsObservation: true,
-      consequenceBaseline: "low",
-      text,
-    };
+  if (signals.observation !== null) {
+    return readObservationSemanticEvidence(signals.observation, text);
   }
 
   if (
@@ -377,6 +295,36 @@ export function readTaskFailureSemanticEvidence(
     consequenceBaseline: "high",
     text,
   };
+}
+
+function readObservationSemanticEvidence(
+  observation: TaskFailureObservation,
+  text: SemanticTextEvidence,
+): TaskFailureSemanticEvidence {
+  return {
+    kind: readObservationEvidenceKind(observation),
+    ...(observation.toolFamily !== undefined ? { toolFamily: observation.toolFamily } : {}),
+    readsAsObservation: true,
+    consequenceBaseline: observation.consequenceBaseline,
+    text,
+  };
+}
+
+function readObservationEvidenceKind(observation: TaskFailureObservation): TaskFailureEvidenceKind {
+  switch (observation.kind) {
+    case "execution_success":
+      return "structured_execution_success_observation";
+    case "tool_rejection":
+      return "rejected_tool_use_observation";
+    case "payload":
+      return observation.origin === "structured_output"
+        ? "structured_tool_output_observation"
+        : "observational_payload";
+  }
+}
+
+function isMissingToolObservationTranscript(observation: TaskFailureObservation | null): boolean {
+  return observation?.origin === "transcript" && observation.toolFamily === undefined;
 }
 
 export function hasRoutineObservationalStatusConflictSemanticRead(

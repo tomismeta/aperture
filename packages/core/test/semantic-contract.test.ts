@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { EventEvaluator } from "../src/event-evaluator.js";
@@ -7,6 +8,25 @@ import { readBoundedToolFamily } from "../src/interaction-taxonomy.js";
 
 const evaluation = new EventEvaluator();
 const timestamp = "2026-03-27T17:00:00.000Z";
+
+test("task-failure judgment agreement stays behind the normalized observation boundary", () => {
+  const source = readFileSync(new URL("../src/judgment-input.ts", import.meta.url), "utf8");
+
+  assert.equal(source.includes("type TaskFailureSemanticEvidence"), false);
+  assert.equal(source.includes("readTaskFailureSemanticAgreement"), false);
+  assert.equal(source.includes("failureEvidenceAgreesWithSemanticRead"), false);
+  assert.match(source, /function readObservationSemanticAgreement/);
+  assert.match(source, /function observationAgreesWithSemanticRead/);
+
+  for (const rawEvidenceBranch of [
+    "failureEvidence.kind",
+    "failureEvidence.failureDetail",
+    "failureEvidence.readsAsObservation",
+    "failureEvidence.consequenceBaseline",
+  ]) {
+    assert.equal(source.includes(rawEvidenceBranch), false, rawEvidenceBranch);
+  }
+});
 
 function candidateShape(candidate: {
   mode: string;

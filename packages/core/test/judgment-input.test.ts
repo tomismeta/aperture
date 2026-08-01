@@ -258,6 +258,65 @@ test("high-consequence empty failed payloads do not become limited failures", ()
   assert.equal(hasLimitedFailureStatusJudgmentInput(input), false);
 });
 
+test("judgment input keeps unclassified failure observations stable when semantic failure agrees", () => {
+  const base = {
+    id: "evt:judgment-input:unclassified-failure",
+    taskId: "task:judgment-input:unclassified-failure",
+    timestamp,
+    type: "task.updated" as const,
+    title: "Build failed again",
+    summary: "The build failed again.",
+    status: "failed" as const,
+    semantic: {
+      intentFrame: "failure" as const,
+      activityClass: "tool_failure" as const,
+      consequence: "high" as const,
+      whyNow: "Work has failed and should be reviewed.",
+      factors: ["task.updated", "failed"],
+      relationHints: [],
+      confidence: "high" as const,
+      reasons: ["task status indicates failure"],
+      provenance: {
+        intentFrame: "inferred" as const,
+        activityClass: "inferred" as const,
+        consequence: "inferred" as const,
+        whyNow: "inferred" as const,
+        confidence: "inferred" as const,
+      },
+    },
+  };
+  const input = buildAttentionJudgmentInput(base);
+  const mismatchedInput = buildAttentionJudgmentInput({
+    ...base,
+    id: "evt:judgment-input:unclassified-failure-mismatch",
+    semantic: {
+      ...base.semantic,
+      consequence: "medium",
+    },
+  });
+  const overriddenInput = buildAttentionJudgmentInput({
+    ...base,
+    id: "evt:judgment-input:unclassified-failure-override",
+    semantic: {
+      ...base.semantic,
+      provenance: {
+        ...base.semantic.provenance,
+        intentFrame: "source",
+      },
+    },
+  });
+
+  assert.equal(Object.hasOwn(input, "failureEvidence"), false);
+  assert.equal(input.observation?.kind, "unknown");
+  assert.equal(input.observation?.polarity, "failure");
+  assert.equal(input.observation?.evidenceLoss, "unknown");
+  assert.equal(input.observation?.recoveryHint, "inspect_original_evidence");
+  assert.equal(input.observation?.semanticAgreement, "stable");
+  assert.equal(input.observation?.consequenceBaseline, "high");
+  assert.equal(mismatchedInput.observation?.semanticAgreement, "uncertain");
+  assert.equal(overriddenInput.observation?.semanticAgreement, "overridden");
+});
+
 test("judgment input treats read source-window limits as strong limited failures", () => {
   const input = buildAttentionJudgmentInput({
     id: "evt:judgment-input:read-source-window-limit",

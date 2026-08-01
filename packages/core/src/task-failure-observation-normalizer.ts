@@ -18,7 +18,6 @@ import type {
   AttentionOntologyDiagnostic,
 } from "./semantic-ontology-types.js";
 
-// First target: task-failure evidence, with vocabulary broad enough for later event families.
 export function createStableFailureOutcomeObservation(input: {
   authority?: NormalizedObservationAuthority;
   owner?: NormalizedObservationOwner;
@@ -52,11 +51,15 @@ export function normalizeTaskFailureObservation(input: {
   const diagnosticClass = readObservationDiagnosticClass(input.failureEvidence);
   const recoveryHint = readObservationRecoveryHint(input.failureEvidence, evidenceLoss);
   const toolFamily = input.failureEvidence.toolFamily;
-
+  const semanticAgreement =
+    input.failureEvidence.kind === "terminal_failure" &&
+    input.failureEvidence.failureDetail === "indeterminate"
+      ? "uncertain"
+      : input.semanticAgreement;
   return {
     kind: readObservationKind(input.failureEvidence),
     polarity: readObservationPolarity(input.failureEvidence),
-    semanticAgreement: input.semanticAgreement,
+    semanticAgreement,
     ownership: {
       owner: readObservationOwner(input.failureEvidence),
       ...(toolFamily !== undefined ? { toolFamily } : {}),
@@ -64,7 +67,7 @@ export function normalizeTaskFailureObservation(input: {
     evidenceStrength: deriveObservationEvidenceStrength({
       ontology: input.ontology,
       abstained: input.abstained,
-      semanticAgreement: input.semanticAgreement,
+      semanticAgreement,
       evidenceLoss,
     }),
     subject: readObservationSubject(input.failureEvidence),

@@ -427,6 +427,17 @@ test("task-failure observation normalizer lowers certainty for uncertainty and e
     failureDetail: "absent_evidence",
     toolFamily: "edit",
   });
+  const unclassified = evidence({
+    kind: "unclassified_failure",
+    failureDetail: "indeterminate",
+    consequenceBaseline: "high",
+  });
+  const terminalIndeterminate = evidence({
+    kind: "terminal_failure",
+    failureDetail: "indeterminate",
+    toolFamily: "bash",
+    consequenceBaseline: "high",
+  });
   const runtimeDiagnostic = evidence({
     kind: "terminal_failure",
     failureDetail: "diagnostic",
@@ -435,7 +446,23 @@ test("task-failure observation normalizer lowers certainty for uncertainty and e
   });
 
   assert.equal(compile(absent).evidenceStrength, "weak");
+  assert.equal(compile(unclassified).semanticAgreement, "stable");
+  assert.equal(compile(unclassified).evidenceStrength, "weak");
+  assert.equal(
+    compile(unclassified, { semanticAgreement: "uncertain" }).semanticAgreement,
+    "uncertain",
+  );
+  assert.equal(compile(terminalIndeterminate).semanticAgreement, "uncertain");
+  assert.equal(
+    compile(terminalIndeterminate, { semanticAgreement: "overridden" }).semanticAgreement,
+    "uncertain",
+  );
+  assert.equal(compile(terminalIndeterminate).evidenceStrength, "weak");
   assert.equal(compile(runtimeDiagnostic).evidenceStrength, "strong");
+  assert.equal(
+    compile(runtimeDiagnostic, { semanticAgreement: "overridden" }).semanticAgreement,
+    "overridden",
+  );
   assert.equal(
     compile(runtimeDiagnostic, { semanticAgreement: "overridden" }).evidenceStrength,
     "weak",

@@ -12,6 +12,7 @@ const timestamp = "2026-03-27T17:00:00.000Z";
 test("task-failure judgment agreement stays behind the normalized observation boundary", () => {
   const source = readFileSync(new URL("../src/judgment-input.ts", import.meta.url), "utf8");
 
+  assert.match(source, /readObservationExpectedSemanticRead/);
   assert.equal(source.includes("type TaskFailureSemanticEvidence"), false);
   assert.equal(source.includes("readTaskFailureSemanticAgreement"), false);
   assert.equal(source.includes("failureEvidenceAgreesWithSemanticRead"), false);
@@ -38,7 +39,8 @@ test("task-failure semantic interpreter stays behind the observation-core bounda
   const source = readFileSync(new URL("../src/semantic-interpreter.ts", import.meta.url), "utf8");
 
   assert.match(source, /readTaskFailureObservationCore/);
-  assert.match(source, /ObservationSemantics/);
+  assert.match(source, /observationReadsAsStatusUpdate/);
+  assert.match(source, /observation-semantic-read/);
   assert.equal(source.includes("type TaskFailureObservationCore"), false);
 
   for (const rawEvidenceBranch of [
@@ -64,6 +66,7 @@ test("observation semantics stays source-internal and out of package entrypoints
     const source = readFileSync(new URL(entrypoint, import.meta.url), "utf8");
     assert.equal(source.includes("ObservationSemantics"), false, entrypoint);
     assert.equal(source.includes("observation-semantics"), false, entrypoint);
+    assert.equal(source.includes("observation-semantic-read"), false, entrypoint);
     assert.equal(source.includes("task-failure-observation-grammar"), false, entrypoint);
     assert.equal(source.includes("task-failure-payload-observation-grammar"), false, entrypoint);
     assert.equal(source.includes("task-failure-evidence-observation-grammar"), false, entrypoint);
@@ -84,6 +87,32 @@ test("observation semantics owns vocabulary upstream of normalized observations"
 
   assert.equal(semantics.includes("normalized-observation"), false);
   assert.match(normalized, /from "\.\/observation-semantics\.js"/);
+});
+
+test("observation semantic read owns consumer-facing status/failure mapping", () => {
+  const semanticRead = readFileSync(
+    new URL("../src/observation-semantic-read.ts", import.meta.url),
+    "utf8",
+  );
+  const semanticEvidence = readFileSync(
+    new URL("../src/semantic-evidence.ts", import.meta.url),
+    "utf8",
+  );
+  const interpreter = readFileSync(
+    new URL("../src/semantic-interpreter.ts", import.meta.url),
+    "utf8",
+  );
+  const judgmentInput = readFileSync(new URL("../src/judgment-input.ts", import.meta.url), "utf8");
+
+  assert.match(semanticRead, /readObservationExpectedSemanticRead/);
+  assert.match(semanticRead, /observationReadsAsStatusUpdate/);
+  assert.equal(semanticRead.includes("export type ObservationExpectedSemanticRead"), false);
+  assert.match(semanticEvidence, /readObservationExpectedSemanticRead/);
+  assert.match(interpreter, /observationReadsAsStatusUpdate/);
+  assert.match(judgmentInput, /readObservationExpectedSemanticRead/);
+  assert.equal(semanticEvidence.includes("failureEvidence.readsAsObservation"), false);
+  assert.equal(judgmentInput.includes("const readsAsObservation ="), false);
+  assert.equal(interpreter.includes("function observationReadsAsStatusUpdate"), false);
 });
 
 test("task-failure observation grammar stays document-first and source-internal", () => {

@@ -30,8 +30,8 @@ import {
   semanticWhyNowForRequestKind,
   semanticWhyNowForTaskStatus,
 } from "./semantic-language.js";
+import { observationReadsAsStatusUpdate } from "./observation-semantic-read.js";
 import { readTaskFailureObservationCore } from "./task-failure-observation-core.js";
-import type { ObservationSemantics } from "./observation-semantics.js";
 
 export type SemanticInterpreter = (event: SourceEvent) => SemanticInterpretation;
 type SemanticProvenanceField = keyof SemanticFieldProvenance;
@@ -639,10 +639,6 @@ function buildTaxonomyInput(
     ...(toolFamily !== undefined ? { toolFamily } : {}),
     ...(context?.items !== undefined ? { context: { items: context.items } } : {}),
   };
-}
-
-function observationReadsAsStatusUpdate(observation: ObservationSemantics | null): boolean {
-  return observation?.polarity === "neutral" || observation?.polarity === "success";
 }
 
 function unreachableSourceEvent(event: never): never {

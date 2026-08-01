@@ -109,6 +109,7 @@ test("module budget checker counts the observation primitive as one governed sur
   const root = await mkdtemp(join(tmpdir(), "aperture-module-budgets-"));
   try {
     await writeRepoFile(root, "packages/core/src/observation-semantics.ts", "type One = 1;\n");
+    await writeRepoFile(root, "packages/core/src/observation-semantic-read.ts", "const one = 1;\n");
     await writeRepoFile(
       root,
       "packages/core/src/normalized-observation.ts",
@@ -140,7 +141,7 @@ test("module budget checker counts the observation primitive as one governed sur
       "const one = 1;\nconst two = 2;\nconst three = 3;\n",
     );
 
-    assert.equal(await countObservationPrimitiveLines(root), 23);
+    assert.equal(await countObservationPrimitiveLines(root), 25);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -19,6 +19,7 @@ import {
 import type { SemanticInterpretation } from "./semantic-types.js";
 import type { ObservationalStatusConflictEvidence } from "./observational-status-conflict.js";
 import { readObservationalStatusConflictEvidenceFromObservation } from "./observational-status-conflict-kind.js";
+import { readObservationExpectedSemanticRead } from "./observation-semantic-read.js";
 import { containsAnySemanticPhrase, normalizeSemanticText } from "./semantic-text.js";
 import { readTaskFailureSemanticSignals } from "./semantic-task-failure-signals.js";
 import {
@@ -43,7 +44,10 @@ import {
 } from "./semantic-failure-detail.js";
 import { readExplicitOperationSuccessObservationTranscript } from "./semantic-operation-success-observation-shapes.js";
 import { looksLikeEmptyJsonObject } from "./semantic-structured-output.js";
-import { normalizeTaskFailureObservation } from "./task-failure-observation-normalizer.js";
+import {
+  normalizeTaskFailureObservation,
+  readTaskFailureObservationCore,
+} from "./task-failure-observation-normalizer.js";
 import type { ObservationSemantics } from "./observation-semantics.js";
 import { readTaskFailureEvidenceObservationSemantics } from "./task-failure-evidence-observation-grammar.js";
 
@@ -359,6 +363,8 @@ export function readRoutineObservationalStatusConflictEvidence(
   if (failureEvidence === null) {
     return null;
   }
+  const observationCore = readTaskFailureObservationCore(failureEvidence);
+  const expected = readObservationExpectedSemanticRead(observationCore);
 
   return readObservationalStatusConflictEvidenceFromObservation({
     event,
@@ -368,7 +374,7 @@ export function readRoutineObservationalStatusConflictEvidence(
       failureEvidence,
       ontology: {
         ask: "status",
-        activity: failureEvidence.readsAsObservation ? "task_progress" : "failure",
+        activity: expected.activity,
         ...(interpretation.consequence !== undefined
           ? { consequence: interpretation.consequence }
           : {}),

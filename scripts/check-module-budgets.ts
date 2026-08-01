@@ -12,6 +12,7 @@ const OBSERVATION_PRIMITIVE_LINE_COUNT_BUDGET = 650;
 const TASK_FAILURE_PARSING_LINE_COUNT_BUDGET = 1225;
 
 const OBSERVATION_SEMANTICS_FILE = "packages/core/src/observation-semantics.ts";
+const OBSERVATION_SEMANTIC_READ_FILE = "packages/core/src/observation-semantic-read.ts";
 const NORMALIZED_OBSERVATION_FILE = "packages/core/src/normalized-observation.ts";
 const TASK_FAILURE_OBSERVATION_GRAMMAR_FILE =
   "packages/core/src/task-failure-observation-grammar.ts";
@@ -24,6 +25,7 @@ const TASK_FAILURE_OBSERVATION_NORMALIZER_FILE =
   "packages/core/src/task-failure-observation-normalizer.ts";
 const observationPrimitiveBudgetFiles = [
   OBSERVATION_SEMANTICS_FILE,
+  OBSERVATION_SEMANTIC_READ_FILE,
   NORMALIZED_OBSERVATION_FILE,
   TASK_FAILURE_OBSERVATION_GRAMMAR_FILE,
   TASK_FAILURE_PAYLOAD_OBSERVATION_GRAMMAR_FILE,
@@ -73,6 +75,7 @@ const budgets = [
   { file: "packages/core/src/attention-decision-record-schema.ts", maxLines: 10 },
   { file: "packages/core/src/observational-status-conflict.ts", maxLines: 25 },
   { file: OBSERVATION_SEMANTICS_FILE, maxLines: 50 },
+  { file: OBSERVATION_SEMANTIC_READ_FILE, maxLines: 50 },
   { file: NORMALIZED_OBSERVATION_FILE, maxLines: 75 },
   { file: TASK_FAILURE_OBSERVATION_GRAMMAR_FILE, maxLines: 250 },
   { file: TASK_FAILURE_PAYLOAD_OBSERVATION_GRAMMAR_FILE, maxLines: 225 },

@@ -2,6 +2,7 @@ import type { ApertureEvent } from "./events.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import { readTaskFailureSemanticEvidence } from "./semantic-evidence.js";
 import { readObservationalStatusConflictEvidenceFromObservation } from "./observational-status-conflict-kind.js";
+import { readObservationExpectedSemanticRead } from "./observation-semantic-read.js";
 import { projectAttentionOntologyDiagnosticWithStatusConflictEvidence } from "./semantic-ontology.js";
 import type { SemanticConfidence } from "./semantic-types.js";
 import type {
@@ -420,18 +421,14 @@ function observationAgreesWithSemanticRead(
   semantic: NonNullable<ApertureEvent["semantic"]>,
   ontology: AttentionOntologyDiagnostic,
 ): boolean {
-  const readsAsObservation =
-    observation.polarity === "neutral" || observation.polarity === "success";
-  const expectedActivity = readsAsObservation ? "task_progress" : "failure";
-  const expectedIntentFrame = readsAsObservation ? "status_update" : "failure";
-  const expectedActivityClass = readsAsObservation ? "status_update" : "tool_failure";
+  const expected = readObservationExpectedSemanticRead(observation);
 
   return (
     ontology.ask === "status" &&
-    ontology.activity === expectedActivity &&
+    ontology.activity === expected.activity &&
     ontology.blocking === "non_blocking" &&
-    semantic.intentFrame === expectedIntentFrame &&
-    semantic.activityClass === expectedActivityClass &&
+    semantic.intentFrame === expected.intentFrame &&
+    semantic.activityClass === expected.activityClass &&
     semantic.consequence === observation.consequenceBaseline &&
     ontology.consequence === observation.consequenceBaseline
   );

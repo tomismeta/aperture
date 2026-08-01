@@ -260,6 +260,8 @@ Additional branch evidence:
 - full local test suite: 1,199 passing; focused local suites on the
   completed-update tranche add 222/222 passing semantic, normalization,
   ontology, and evaluator checks
+- focused semantic/kernel/lab suites for the explicit read abbreviated-file-view
+  tranche add 96/96 passing checks
 - focused public SDK surface suite after product-surface audit:
   `packages/core/test/public-sdk.test.ts` passed 11/11
 - packed SDK proof after product-surface audit: tarball shape plus full engine,
@@ -267,12 +269,12 @@ Additional branch evidence:
 - packed product smoke after product-surface audit: install, help, hook setup,
   packaged runtime semantic/judgment/routing probe, uninstall cleanup,
   dependency-free manifest, and no library `main` passed
-- judgment battle determinism: 88/88 stable
-- judgment benchmark: 2,731 passing
+- judgment battle determinism: 89/89 stable
+- judgment benchmark: 2,765 passing
 - judgment fuzz: 384 passing
-- kernel corpus scorecard v3: 48 scenarios, 16 covered dimensions, 1,980
-  passing corpus assertions, 57 ontology checkpoints, 68 decision projection
-  checkpoints, 13 relation checkpoints, 48 per-scenario checkpoint ledgers, 23
+- kernel corpus scorecard v3: 49 scenarios, 16 covered dimensions, 2,014
+  passing corpus assertions, 58 ontology checkpoints, 69 decision projection
+  checkpoints, 13 relation checkpoints, 49 per-scenario checkpoint ledgers, 23
   unique decision fingerprints, and semantic/judgment outcome coverage for
   intent frames, activity classes, ontology sources, routes, lanes, confidence,
   consequences, and failure details
@@ -297,6 +299,7 @@ Additional branch evidence:
 - new golden scenarios:
   `golden:kernel-corpus:empty-failure-payload-stays-visible-with-weak-evidence`,
   `golden:kernel-corpus:read-source-window-limit-stays-visible`,
+  `golden:kernel-corpus:read-abbreviated-file-view-stays-ambient`,
   `golden:kernel-corpus:read-owned-markdown-manual-stays-ambient`,
   `golden:kernel-corpus:read-owned-midfile-source-preserves-high`,
   `golden:kernel-corpus:bash-compiler-source-diagnostic-stays-terminal`,

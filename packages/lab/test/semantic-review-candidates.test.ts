@@ -1680,6 +1680,7 @@ test("semantic review evidence audit classifies failed readbacks as observationa
       "Result of running cat -n /workspace/src/client.ts: 1 export const ok = true;",
       "<path>/workspace/src/client.ts</path> <type>file</type> <content>export const ok = true;</content>",
       "Observation path /workspace/src/client.ts showing first 10 lines export function request() { return true; }",
+      "OBSERVATION: <NOTE>This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.</NOTE> 1 # fmt: off 2 from __future__ import annotations 3 import os 4 def build(): ...",
     ],
   });
   const bundlePath = path.join(tempDir, "bundle.json");
@@ -1692,10 +1693,14 @@ test("semantic review evidence audit classifies failed readbacks as observationa
     repoRoot: tempDir,
   });
 
-  assert.equal(report.summary.failedTaskEvidence.failedTaskUpdateCount, 3);
-  assert.equal(report.summary.failedTaskEvidence.countsByKind.observational_payload, 3);
-  assert.equal(report.summary.failedTaskEvidence.readsAsObservationCount, 3);
-  assert.equal(report.summary.failedTaskEvidence.countsByToolFamily.read, 3);
+  assert.equal(report.summary.failedTaskEvidence.failedTaskUpdateCount, 4);
+  assert.equal(report.summary.failedTaskEvidence.countsByKind.observational_payload, 4);
+  assert.equal(report.summary.failedTaskEvidence.readsAsObservationCount, 4);
+  assert.equal(report.summary.failedTaskEvidence.consequenceBaselineCounts.low, 1);
+  assert.equal(report.summary.failedTaskEvidence.consequenceBaselineCounts.high, 3);
+  assert.equal(report.summary.failedTaskEvidence.countsByToolFamily.read, 4);
+  assert.deepEqual(report.summary.failedTaskEvidence.unclassifiedEventShapeCounts, {});
+  assert.deepEqual(report.summary.failedTaskEvidence.parserGapCandidateEventShapeCounts, {});
   assert.equal(
     report.summary.failedTaskEvidence.retainedExamplesByKind.observational_payload.length,
     2,

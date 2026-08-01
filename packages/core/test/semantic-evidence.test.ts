@@ -358,6 +358,22 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
   });
   assert.equal(readOwnedEditNotReadText.structuredOutputEnvelope.kind, "unsupported");
   assert.equal(readOwnedEditNotReadText.editOutputOutcome, null);
+  const readOwnedAbbreviatedFileView = readTaskFailureSemanticSignals({
+    summary: abbreviatedFileViewObservationTranscript,
+    toolFamily: "read",
+  });
+  assert.equal(
+    readOwnedAbbreviatedFileView.readAbbreviatedFileViewObservation?.shape,
+    "abbreviated_file_view",
+  );
+  assert.equal(
+    readTaskFailureSemanticSignals({
+      summary: abbreviatedFileViewObservationTranscript,
+      toolFamily: "bash",
+    }).readAbbreviatedFileViewObservation,
+    null,
+    "read-owned abbreviated-file-view signal stays tool-family bounded",
+  );
 
   const rawEditAppliedReadback = readTaskFailureSemanticSignals({
     summary: editAppliedReadback,
@@ -6494,6 +6510,48 @@ test("task failure evidence classifies explicit missing-tool observation transcr
     assert.equal(evidence.consequenceBaseline, "low");
     assert.equal(evidence.toolFamily, undefined);
   }
+  const explicitReadAbbreviatedFileView = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:read-abbreviated-file-view",
+    taskId: "task:evidence:read-abbreviated-file-view",
+    timestamp,
+    type: "task.updated",
+    title: "read failure",
+    summary: abbreviatedFileViewObservationTranscript,
+    status: "failed",
+    toolFamily: "read",
+  });
+  assert.equal(explicitReadAbbreviatedFileView?.kind, "observational_payload");
+  assert.equal(explicitReadAbbreviatedFileView.readsAsObservation, true);
+  assert.equal(explicitReadAbbreviatedFileView.consequenceBaseline, "low");
+  assert.equal(explicitReadAbbreviatedFileView.toolFamily, "read");
+  assert.equal(
+    readTaskFailureSemanticEvidence({
+      id: "evt:evidence:read-abbreviated-file-view-note-only",
+      taskId: "task:evidence:read-abbreviated-file-view-note-only",
+      timestamp,
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "OBSERVATION: <NOTE>This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.</NOTE>",
+      status: "failed",
+      toolFamily: "read",
+    })?.kind,
+    "unclassified_failure",
+    "explicit-read abbreviated file views require payload evidence",
+  );
+  const explicitReadAbbreviatedFileViewWithDiagnostic = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:read-abbreviated-file-view-diagnostic",
+    taskId: "task:evidence:read-abbreviated-file-view-diagnostic",
+    timestamp,
+    type: "task.updated",
+    title: "read failure",
+    summary: `${abbreviatedFileViewObservationTranscript}\nTraceback (most recent call last): RuntimeError`,
+    status: "failed",
+    toolFamily: "read",
+  });
+  assert.equal(explicitReadAbbreviatedFileViewWithDiagnostic?.kind, "terminal_failure");
+  assert.equal(explicitReadAbbreviatedFileViewWithDiagnostic.failureDetail, "diagnostic");
+  assert.equal(explicitReadAbbreviatedFileViewWithDiagnostic.consequenceBaseline, "high");
   const concreteResult = readTaskFailureSemanticEvidence({
     id: "evt:evidence:missing-tool-concrete-test-result",
     taskId: "task:evidence:missing-tool-concrete-test-result",

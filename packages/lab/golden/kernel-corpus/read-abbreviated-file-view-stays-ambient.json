@@ -1,0 +1,91 @@
+{
+  "id": "golden:kernel-corpus:read-abbreviated-file-view-stays-ambient",
+  "title": "Read abbreviated file view stays ambient",
+  "description": "A failed read transport status carrying an explicit abbreviated-file-view observation should become low-consequence ambient status noise rather than high unclassified failure pressure.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "semantic_normalization",
+    "status_noise",
+    "ambient_doctrine",
+    "observational_status_conflict",
+    "owned_read_transport"
+  ],
+  "semanticFamilies": ["consequence_overread"],
+  "expectations": {
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
+    "ambientInteractionIds": ["interaction:task:corpus:read-abbreviated-file-view:status"],
+    "resultLaneCounts": {
+      "now": 0,
+      "next": 0,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "read abbreviated file view",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "toolFamily": "read",
+        "consequence": "low",
+        "confidence": "high",
+        "factorsInclude": ["observational_failure"],
+        "reasonsInclude": [
+          "task status indicates failure but the update reads like observational output"
+        ],
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "low",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "inferred"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "read abbreviated file view",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "semanticConfidence": "high",
+        "ambiguityReason": null,
+        "ambiguityResolution": null,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:ambient",
+          "lane:ambient",
+          "criterion:peripheral_resolution:ambient",
+          "policy:peripheral_only"
+        ],
+        "semanticInfluenceIncludes": [
+          "engine-owned observational evidence resolved noisy failed-status routing as status handling"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "observational status conflict (judgment routing)"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "read abbreviated file view",
+      "event": {
+        "id": "evt:corpus:read-abbreviated-file-view",
+        "type": "task.updated",
+        "taskId": "task:corpus:read-abbreviated-file-view",
+        "timestamp": "2026-04-18T15:12:00.000Z",
+        "source": { "id": "dataclaw", "kind": "public-trajectory" },
+        "title": "read failure",
+        "summary": "OBSERVATION: <NOTE>This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.</NOTE> 1 # fmt: off 2 from __future__ import annotations 3 import os 4 def build(): ...",
+        "status": "failed",
+        "toolFamily": "read"
+      }
+    }
+  ]
+}

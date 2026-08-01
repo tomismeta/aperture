@@ -12,12 +12,12 @@ export const KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION = 3 as const;
 export const KERNEL_CORPUS_SCORECARD_COMPARISON_SCHEMA_VERSION = 2 as const;
 
 export const KERNEL_CORPUS_SCORECARD_THRESHOLDS = {
-  minimumScenarios: 48,
+  minimumScenarios: 49,
   minimumCoverageDimensions: 16,
-  minimumTotalAssertions: 1980,
+  minimumTotalAssertions: 2014,
   minimumAssertionsPerScenario: 25,
-  minimumSemanticOntologyCheckpoints: 57,
-  minimumDecisionProjectionCheckpoints: 68,
+  minimumSemanticOntologyCheckpoints: 58,
+  minimumDecisionProjectionCheckpoints: 69,
   minimumRelationCheckpoints: 13,
 } as const;
 

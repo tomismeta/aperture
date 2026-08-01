@@ -55,6 +55,7 @@ export type TaskFailureSemanticSignals = {
   commandActualDiagnosticObservationTranscript: boolean;
   commandDiagnosticReferenceObservationTranscript: boolean;
   commandObservationTranscript: ExplicitObservationTranscript | null;
+  readAbbreviatedFileViewObservation: ExplicitObservationTranscript | null;
   rawCommandDiffObservation: boolean;
   rawCommandTextObservation: CommandTextObservation | null;
   missingToolObservationTranscript: ExplicitObservationTranscript | null;
@@ -106,6 +107,11 @@ export function readTaskFailureSemanticSignals(input: {
     structuredOutputEnvelope.kind === "raw"
       ? readCommandTextObservation(summary)
       : null;
+  const readObservationTranscript =
+    input.toolFamily === "read" && diagnosticStructuredToolOutput === null
+      ? readExplicitObservationTranscript(summary)
+      : null;
+
   return {
     structuredOutputEnvelope,
     unsafeStructuredToolOutputEnvelope:
@@ -152,6 +158,10 @@ export function readTaskFailureSemanticSignals(input: {
     commandObservationTranscript: commandExecutionToolFamily
       ? readExplicitNonDiagnosticObservationTranscript(summary)
       : null,
+    readAbbreviatedFileViewObservation:
+      readObservationTranscript?.shape === "abbreviated_file_view"
+        ? readObservationTranscript
+        : null,
     rawCommandDiffObservation:
       commandExecutionToolFamily &&
       diagnosticStructuredToolOutput === null &&

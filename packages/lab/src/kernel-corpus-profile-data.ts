@@ -28,6 +28,7 @@ export const KERNEL_CORPUS_SCENARIO_IDS = [
   "golden:kernel-corpus:observational-status-conflict-preserves-high",
   "golden:kernel-corpus:operational-progress-stays-medium-ambient",
   "golden:kernel-corpus:prospective-resolution-verification-preserves-focus",
+  "golden:kernel-corpus:read-abbreviated-file-view-stays-ambient",
   "golden:kernel-corpus:read-lifecycle-progress-stays-ambient",
   "golden:kernel-corpus:read-owned-arrow-terminal-diagnostic-stays-failure",
   "golden:kernel-corpus:read-owned-clipped-arrow-window-preserves-high",

@@ -281,6 +281,16 @@ export function readTaskFailureSemanticEvidence(
     };
   }
 
+  if (signals.readAbbreviatedFileViewObservation) {
+    return {
+      kind: "observational_payload",
+      toolFamily: "read",
+      readsAsObservation: true,
+      consequenceBaseline: signals.readAbbreviatedFileViewObservation.consequenceBaseline,
+      text,
+    };
+  }
+
   if (signals.diagnosticStructuredToolOutput && signals.structuredOutputObservation) {
     return {
       kind: "structured_tool_output_observation",

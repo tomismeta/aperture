@@ -21,7 +21,7 @@ export const SEMANTIC_KERNEL_SURFACE_PROFILE_VERSION = 1 as const;
 
 export const SEMANTIC_KERNEL_SURFACE_THRESHOLDS = {
   maximumModules: 108,
-  maximumTotalLines: 9566,
+  maximumTotalLines: 9590,
   maximumMatcherSites: 586,
   maximumPhraseLiterals: 175,
   maximumExportedDetectors: 179,

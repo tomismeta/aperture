@@ -6,9 +6,7 @@ import {
   hasActionableBlockedLikeStatusSemantics,
   hasBlockedLikeStatusSemantics,
   hasLimitedFailureStatusJudgmentInput,
-  hasLimitedFailureStatusSemantics,
   hasOutcomeOnlyFailureStatusJudgmentInput,
-  hasOutcomeOnlyFailureStatusSemantics,
   hasRoutineObservationalStatusConflictSemantics,
   readSemanticRelationEvidenceStrength,
   readSemanticEvidenceStrength,
@@ -155,13 +153,15 @@ test("judgment input exposes outcome-only failed status as named semantic eviden
   assert.deepEqual(input.observation && projectObservationJudgmentContract(input.observation), {
     statusEvidence: "limited_failure",
     statusConflictKind: null,
+    recoveryPosture: "none",
+    baselineConsequence: "medium",
     outcomeOnlyFailureStatus: true,
     limitedFailureStatus: true,
     stableStatusEvidence: true,
     visibleDiagnosticFailure: false,
   });
   assert.equal(hasOutcomeOnlyFailureStatusJudgmentInput(input), true);
-  assert.equal(hasOutcomeOnlyFailureStatusSemantics(candidate), true);
+  assert.equal(hasOutcomeOnlyFailureStatusJudgmentInput(candidate.judgmentInput), true);
 });
 
 test("judgment input treats empty failed payloads as weak limited failure evidence", () => {
@@ -224,7 +224,7 @@ test("judgment input treats empty failed payloads as weak limited failure eviden
   assert.equal(input.semanticEvidence?.confidence, "high");
   assert.equal(input.semanticEvidence?.strength, "weak");
   assert.equal(hasLimitedFailureStatusJudgmentInput(input), true);
-  assert.equal(hasLimitedFailureStatusSemantics(candidate), true);
+  assert.equal(hasLimitedFailureStatusJudgmentInput(candidate.judgmentInput), true);
   assert.equal(hasOutcomeOnlyFailureStatusJudgmentInput(input), false);
 });
 
@@ -388,7 +388,7 @@ test("judgment input treats read source-window limits as strong limited failures
   assert.equal(input.semanticEvidence?.confidence, "high");
   assert.equal(input.semanticEvidence?.strength, "strong");
   assert.equal(hasLimitedFailureStatusJudgmentInput(input), true);
-  assert.equal(hasLimitedFailureStatusSemantics(candidate), true);
+  assert.equal(hasLimitedFailureStatusJudgmentInput(candidate.judgmentInput), true);
   assert.equal(hasOutcomeOnlyFailureStatusJudgmentInput(input), false);
 });
 

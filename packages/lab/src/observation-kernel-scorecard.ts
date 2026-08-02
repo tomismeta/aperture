@@ -79,13 +79,13 @@ export type ObservationKernelDistribution = Array<{
   fixtureCount: number;
   fixtureIds: string[];
 }>;
-
 export type ObservationKernelObservation = {
   fixtureId: string;
   dimension: string;
   sequence: number;
   digest: string;
   semanticDigest: string;
+  judgmentDigest: string;
   fields: ObservationKernelFields;
   judgment: ObservationKernelJudgmentFields;
 };
@@ -109,6 +109,8 @@ export type ObservationKernelFields = {
 export type ObservationKernelJudgmentFields = {
   statusEvidence: string;
   statusConflictKind: string | null;
+  recoveryPosture: string;
+  baselineConsequence: string;
   outcomeOnlyFailureStatus: boolean;
   limitedFailureStatus: boolean;
   stableStatusEvidence: boolean;
@@ -171,6 +173,7 @@ export function buildObservationKernelScorecard(): ObservationKernelScorecard {
           fixtureId: observation.fixtureId,
           digest: observation.digest,
           semanticDigest: observation.semanticDigest,
+          judgmentDigest: observation.judgmentDigest,
         })),
       }),
     },
@@ -257,6 +260,7 @@ function runObservationKernelFixture(
     };
     const judgment = projectObservationJudgmentContract(observation);
     const observationSequence = sequence++;
+    const judgmentDigest = digestKernelCanonicalJson(judgment);
     const semanticDigest = digestKernelCanonicalJson({ fields, judgment });
 
     return [
@@ -272,6 +276,7 @@ function runObservationKernelFixture(
           judgment,
         }),
         semanticDigest,
+        judgmentDigest,
         fields,
         judgment,
       },

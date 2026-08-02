@@ -127,11 +127,19 @@ test("trace, why, and policy surfaces consume projected observation contracts", 
   assert.match(whyRenderer, /function renderObservationSummary/);
 
   assert.match(judgmentInput, /projectObservationJudgmentContract/);
-  assert.match(peripheralPolicy, /hasStableStatusObservationSemantics/);
+  assert.match(judgmentInput, /readCandidateObservationJudgmentContract/);
+  assert.match(judgmentInput, /recoveryPosture/);
+  assert.match(judgmentInput, /baselineConsequence/);
+  assert.equal(judgmentInput.includes("input.observation.evidenceLoss"), false);
+  assert.match(peripheralPolicy, /readCandidateObservationJudgmentContract/);
+  assert.equal(peripheralPolicy.includes("hasStableStatusObservationSemantics"), false);
+  assert.equal(peripheralPolicy.includes("readCandidateObservation,"), false);
+  assert.equal(peripheralPolicy.includes("readCandidateObservation(candidate)"), false);
   assert.equal(peripheralPolicy.includes("observation.semanticAgreement"), false);
   assert.equal(peripheralPolicy.includes("observation.evidenceStrength"), false);
 
-  assert.match(uncertaintyPolicy, /hasVisibleDiagnosticFailureStatusSemantics/);
+  assert.match(uncertaintyPolicy, /readCandidateObservationJudgmentContract/);
+  assert.equal(uncertaintyPolicy.includes("hasVisibleDiagnosticFailureStatusSemantics"), false);
   assert.equal(uncertaintyPolicy.includes('observation.kind === "diagnostic"'), false);
   assert.equal(uncertaintyPolicy.includes('observation.diagnosticClass === "runtime"'), false);
 });

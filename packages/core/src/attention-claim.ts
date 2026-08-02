@@ -1,6 +1,6 @@
 import type { AttentionActivityClass, SourceRef } from "./events.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
-import { hasOutcomeOnlyFailureStatusSemantics } from "./judgment-input.js";
+import { readCandidateObservationJudgmentContract } from "./judgment-input.js";
 import type {
   AttentionOntologyAuthority,
   AttentionOntologyDiagnostic,
@@ -205,7 +205,9 @@ function buildAttentionClaimJudgment(
       ? { relationEvidence: judgment.relationEvidence }
       : {}),
     blockedLikeStatus: judgment.blockedLikeStatus,
-    ...(hasOutcomeOnlyFailureStatusSemantics(candidate) ? { outcomeOnlyFailureStatus: true } : {}),
+    ...(readCandidateObservationJudgmentContract(candidate)?.outcomeOnlyFailureStatus === true
+      ? { outcomeOnlyFailureStatus: true }
+      : {}),
     ...(judgment.routineObservationalStatusConflict === true
       ? { routineObservationalStatusConflict: true }
       : {}),

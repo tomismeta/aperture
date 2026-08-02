@@ -58,12 +58,121 @@ test("observation judgment projection covers the status-evidence truth table", (
   );
 });
 
+test("observation judgment projection classifies recovery posture", () => {
+  const cases: Array<[string, Partial<ObservationJudgmentDocument>, string]> = [
+    ["no recovery", {}, "none"],
+    [
+      "authorization",
+      { kind: "control", recoveryHint: "await_authorization" },
+      "authorization_required",
+    ],
+    [
+      "diagnostic",
+      {
+        kind: "diagnostic",
+        polarity: "failure",
+        diagnosticClass: "runtime",
+        recoveryHint: "inspect_diagnostic",
+      },
+      "diagnostic_inspection",
+    ],
+    [
+      "original evidence",
+      {
+        kind: "unknown",
+        polarity: "failure",
+        evidenceLoss: "unknown",
+        recoveryHint: "inspect_original_evidence",
+      },
+      "original_evidence_required",
+    ],
+    [
+      "scope",
+      {
+        kind: "diagnostic",
+        polarity: "failure",
+        diagnosticClass: "source_limit",
+        evidenceLoss: "partial",
+        recoveryHint: "narrow_evidence_scope",
+      },
+      "evidence_scope_required",
+    ],
+    [
+      "evidence",
+      {
+        kind: "outcome",
+        polarity: "failure",
+        evidenceLoss: "absent",
+        recoveryHint: "request_evidence",
+      },
+      "evidence_required",
+    ],
+    [
+      "contradictory evidence request",
+      {
+        kind: "outcome",
+        polarity: "failure",
+        evidenceLoss: "none",
+        recoveryHint: "request_evidence",
+      },
+      "none",
+    ],
+    [
+      "scope without source limit",
+      {
+        kind: "diagnostic",
+        polarity: "failure",
+        diagnosticClass: "runtime",
+        evidenceLoss: "partial",
+        recoveryHint: "narrow_evidence_scope",
+      },
+      "none",
+    ],
+  ];
+
+  for (const [name, input, expected] of cases) {
+    assert.equal(
+      projectObservationJudgmentContract(observation(input)).recoveryPosture,
+      expected,
+      name,
+    );
+  }
+});
+
 test("observation judgment projection classifies status conflicts structurally", () => {
   const cases: Array<[string, ObservationJudgmentDocument, string | null]> = [
     [
       "rejected control",
       observation({ kind: "control", recoveryHint: "await_authorization" }),
       "rejected_tool_use_observation",
+    ],
+    [
+      "malformed rejected control",
+      observation({
+        kind: "control",
+        polarity: "failure",
+        recoveryHint: "await_authorization",
+      }),
+      null,
+    ],
+    [
+      "source-owned tool control",
+      observation({
+        kind: "control",
+        ownership: { owner: "source" },
+        subject: "tool",
+        recoveryHint: "await_authorization",
+      }),
+      null,
+    ],
+    [
+      "tool-owned document control",
+      observation({
+        kind: "control",
+        subject: "document",
+        recoveryHint: "await_authorization",
+      }),
+      null,
     ],
     [
       "structured success",

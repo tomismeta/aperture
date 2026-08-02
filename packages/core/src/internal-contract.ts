@@ -43,7 +43,6 @@ export {
   resolveObservationStatusConflictKind,
   type ObservationJudgmentContract,
   type ObservationJudgmentDocument,
-  type ObservationJudgmentStatusEvidence,
 } from "./judgment-observation-contract.js";
 export {
   readTaskFailureSemanticEvidence,

@@ -113,6 +113,7 @@ function isObservationKernelObservation(value: unknown): value is ObservationKer
     isFiniteNumber(value.sequence) &&
     typeof value.digest === "string" &&
     typeof value.semanticDigest === "string" &&
+    typeof value.judgmentDigest === "string" &&
     isObservationKernelFields(value.fields) &&
     isObservationKernelJudgmentFields(value.judgment)
   );
@@ -144,6 +145,8 @@ function isObservationKernelJudgmentFields(
     isRecord(value) &&
     typeof value.statusEvidence === "string" &&
     (typeof value.statusConflictKind === "string" || value.statusConflictKind === null) &&
+    typeof value.recoveryPosture === "string" &&
+    typeof value.baselineConsequence === "string" &&
     typeof value.outcomeOnlyFailureStatus === "boolean" &&
     typeof value.limitedFailureStatus === "boolean" &&
     typeof value.stableStatusEvidence === "boolean" &&

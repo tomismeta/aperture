@@ -134,6 +134,27 @@ export const OBSERVATION_KERNEL_FIXTURES: ObservationKernelFixture[] = [
       toolFamily: "bash",
     }),
   ),
+  {
+    id: "context-host-tool-family-parity",
+    dimension: "context_host_tool_family_parity",
+    events: [
+      failedTaskEvent({
+        id: "evt:observation:context-host-tool-family-parity:command",
+        taskId: "task:observation:context-host-tool-family-parity",
+        title: "tool failure",
+        summary: "Your command ran successfully and did not produce any output.",
+        context: { items: [{ id: "tool_family", label: "Tool family", value: "exec_command" }] },
+      }),
+      failedTaskEvent({
+        id: "evt:observation:context-host-tool-family-parity:structured",
+        taskId: "task:observation:context-host-tool-family-parity",
+        title: "tool failure",
+        summary:
+          '{"exit_code":0,"wall_time":"0.125 seconds","output":"/repo/pkg/lib.rs:10:fn main() {}"}',
+        context: { items: [{ id: "tool_family", label: "Tool family", value: "custom_runner" }] },
+      }),
+    ],
+  },
   fixture(
     "search-result-output",
     "search_output_payload",
@@ -180,6 +201,7 @@ function failedTaskEvent(input: {
   title: string;
   summary: string;
   toolFamily?: string;
+  context?: { items?: Array<{ id: string; label: string; value?: string }> };
   semanticHints?: SourceEvent["semanticHints"];
 }): SourceEvent {
   return {
@@ -191,6 +213,7 @@ function failedTaskEvent(input: {
     summary: input.summary,
     status: "failed",
     ...(input.toolFamily !== undefined ? { toolFamily: input.toolFamily } : {}),
+    ...(input.context !== undefined ? { context: input.context } : {}),
     ...(input.semanticHints !== undefined ? { semanticHints: input.semanticHints } : {}),
   };
 }

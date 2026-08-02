@@ -1,8 +1,4 @@
-import type {
-  ObservationOrigin,
-  ObservationSemantics,
-  ObservationSubject,
-} from "./observation-semantics.js";
+import type { ObservationSemantics } from "./observation-semantics.js";
 import type { EditOutputOutcome } from "./semantic-edit-output-shapes.js";
 import type { ExplicitObservationTranscript } from "./semantic-observation-transcript-shapes.js";
 import type { TaskFailureStructuredOutputEnvelope } from "./semantic-task-failure-structured-output.js";
@@ -20,6 +16,8 @@ type TaskFailureObservationGrammarInput = {
   summary: string;
   toolFamily: string | undefined;
 };
+
+type ObservationOrigin = ObservationSemantics["provenance"]["origin"];
 
 export function readTaskFailureObservationSemantics(
   input: TaskFailureObservationGrammarInput,
@@ -81,7 +79,7 @@ function transcriptObservation(
 
 function payloadObservation(
   origin: ObservationOrigin,
-  subject: ObservationSubject,
+  subject: ObservationSemantics["subject"],
   consequenceBaseline: ObservationSemantics["consequenceBaseline"],
   toolFamily?: string,
 ): ObservationSemantics {
@@ -97,7 +95,7 @@ function payloadObservation(
 
 function outcomeObservation(
   origin: ObservationOrigin,
-  subject: ObservationSubject,
+  subject: ObservationSemantics["subject"],
   consequenceBaseline: ObservationSemantics["consequenceBaseline"],
   toolFamily?: string,
 ): ObservationSemantics {
@@ -121,6 +119,7 @@ function controlObservation(
       kind: "control",
       polarity: "neutral",
       origin,
+      owner: "tool",
       subject: "tool",
       consequenceBaseline: "low",
       ...(toolFamily !== undefined ? { toolFamily } : {}),
@@ -133,7 +132,8 @@ function baseObservation(input: {
   kind: ObservationSemantics["kind"];
   polarity: ObservationSemantics["polarity"];
   origin: ObservationOrigin;
-  subject: ObservationSubject;
+  owner?: ObservationSemantics["ownership"]["owner"];
+  subject: ObservationSemantics["subject"];
   consequenceBaseline: ObservationSemantics["consequenceBaseline"];
   toolFamily?: string;
 }): ObservationSemantics {
@@ -141,7 +141,7 @@ function baseObservation(input: {
     kind: input.kind,
     polarity: input.polarity,
     ownership: {
-      owner: input.toolFamily === undefined ? "source" : "tool",
+      owner: input.owner ?? (input.toolFamily === undefined ? "source" : "tool"),
       ...(input.toolFamily !== undefined ? { toolFamily: input.toolFamily } : {}),
     },
     subject: input.subject,

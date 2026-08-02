@@ -12,36 +12,59 @@ export type ObservationJudgmentDocument = Omit<
   };
 };
 
-export type ObservationJudgmentStatusEvidence =
-  | "limited_failure"
-  | "stable_observation"
-  | "visible_diagnostic_failure"
-  | "weak_or_uncertain";
-
 export type ObservationJudgmentContract = {
-  statusEvidence: ObservationJudgmentStatusEvidence;
+  statusEvidence:
+    | "limited_failure"
+    | "stable_observation"
+    | "visible_diagnostic_failure"
+    | "weak_or_uncertain";
   statusConflictKind: ObservationalStatusConflictKind | null;
+  recoveryPosture:
+    | "authorization_required"
+    | "diagnostic_inspection"
+    | "evidence_required"
+    | "evidence_scope_required"
+    | "original_evidence_required"
+    | "none";
+  baselineConsequence: ObservationJudgmentDocument["consequenceBaseline"];
   outcomeOnlyFailureStatus: boolean;
   limitedFailureStatus: boolean;
   stableStatusEvidence: boolean;
   visibleDiagnosticFailure: boolean;
 };
 
+type RecoveryPostureKey =
+  `${ObservationJudgmentDocument["kind"]}:${ObservationJudgmentDocument["polarity"]}:${ObservationJudgmentDocument["evidenceLoss"]}:${NonNullable<ObservationJudgmentDocument["diagnosticClass"]> | ""}:${NonNullable<ObservationJudgmentDocument["recoveryHint"]> | ""}`;
+type RecoveryPosture = ObservationJudgmentContract["recoveryPosture"];
+
+const RECOVERY_POSTURE_BY_KEY: Readonly<Partial<Record<RecoveryPostureKey, RecoveryPosture>>> = {
+  "control:neutral:none::await_authorization": "authorization_required",
+  "diagnostic:failure:none:runtime:inspect_diagnostic": "diagnostic_inspection",
+  "diagnostic:failure:none:expected:inspect_diagnostic": "diagnostic_inspection",
+  "unknown:failure:unknown::inspect_original_evidence": "original_evidence_required",
+  "diagnostic:failure:partial:source_limit:narrow_evidence_scope": "evidence_scope_required",
+  "outcome:failure:absent::request_evidence": "evidence_required",
+};
+
 export function projectObservationJudgmentContract(
   observation: ObservationJudgmentDocument,
 ): ObservationJudgmentContract {
+  const recoveryPosture = readObservationRecoveryPosture(observation);
   const outcomeOnlyFailureStatus = isOutcomeOnlyFailure(observation);
-  const limitedFailureStatus =
-    outcomeOnlyFailureStatus || isAbsentFailure(observation) || isPartialFailure(observation);
+  const limitedFailureStatus = isLimitedFailure(observation, recoveryPosture);
   const stableStatusEvidence = hasStableStatusEvidence(observation);
   const visibleDiagnosticFailure = isVisibleDiagnosticFailure(observation);
   return {
-    statusEvidence: readStatusEvidence({
-      limitedFailureStatus,
-      stableStatusEvidence,
-      visibleDiagnosticFailure,
-    }),
+    statusEvidence: limitedFailureStatus
+      ? "limited_failure"
+      : visibleDiagnosticFailure
+        ? "visible_diagnostic_failure"
+        : stableStatusEvidence
+          ? "stable_observation"
+          : "weak_or_uncertain",
     statusConflictKind: resolveObservationStatusConflictKind(observation),
+    recoveryPosture,
+    baselineConsequence: observation.consequenceBaseline,
     outcomeOnlyFailureStatus,
     limitedFailureStatus,
     stableStatusEvidence,
@@ -53,7 +76,9 @@ export function resolveObservationStatusConflictKind(
   observation: ObservationJudgmentDocument,
 ): ObservationalStatusConflictKind | null {
   if (observation.kind === "control") {
-    return observation.recoveryHint === "await_authorization"
+    return readObservationRecoveryPosture(observation) === "authorization_required" &&
+      observation.ownership.owner === "tool" &&
+      observation.subject === "tool"
       ? "rejected_tool_use_observation"
       : null;
   }
@@ -72,20 +97,6 @@ export function resolveObservationStatusConflictKind(
   return observation.subject === "command" ? "command_success_observation" : "payload_observation";
 }
 
-function readStatusEvidence(input: {
-  limitedFailureStatus: boolean;
-  stableStatusEvidence: boolean;
-  visibleDiagnosticFailure: boolean;
-}): ObservationJudgmentStatusEvidence {
-  return input.limitedFailureStatus
-    ? "limited_failure"
-    : input.visibleDiagnosticFailure
-      ? "visible_diagnostic_failure"
-      : input.stableStatusEvidence
-        ? "stable_observation"
-        : "weak_or_uncertain";
-}
-
 function isOutcomeOnlyFailure(observation: ObservationJudgmentDocument): boolean {
   return (
     isStableMediumFailure(observation) &&
@@ -94,21 +105,23 @@ function isOutcomeOnlyFailure(observation: ObservationJudgmentDocument): boolean
   );
 }
 
-function isAbsentFailure(observation: ObservationJudgmentDocument): boolean {
+function isLimitedFailure(
+  observation: ObservationJudgmentDocument,
+  recoveryPosture: RecoveryPosture,
+): boolean {
+  if (isOutcomeOnlyFailure(observation)) {
+    return true;
+  }
+  if (!isStableMediumFailure(observation)) {
+    return false;
+  }
   return (
-    isStableMediumFailure(observation) &&
-    observation.kind === "outcome" &&
-    observation.evidenceLoss === "absent" &&
-    observation.recoveryHint === "request_evidence"
-  );
-}
-
-function isPartialFailure(observation: ObservationJudgmentDocument): boolean {
-  return (
-    isStableMediumFailure(observation) &&
-    observation.kind === "diagnostic" &&
-    observation.evidenceLoss === "partial" &&
-    observation.recoveryHint === "narrow_evidence_scope"
+    (observation.kind === "outcome" &&
+      observation.evidenceLoss === "absent" &&
+      recoveryPosture === "evidence_required") ||
+    (observation.kind === "diagnostic" &&
+      observation.evidenceLoss === "partial" &&
+      recoveryPosture === "evidence_scope_required")
   );
 }
 
@@ -132,4 +145,10 @@ function isVisibleDiagnosticFailure(observation: ObservationJudgmentDocument): b
     observation.evidenceLoss === "none" &&
     observation.polarity === "failure"
   );
+}
+
+function readObservationRecoveryPosture(observation: ObservationJudgmentDocument): RecoveryPosture {
+  const key =
+    `${observation.kind}:${observation.polarity}:${observation.evidenceLoss}:${observation.diagnosticClass ?? ""}:${observation.recoveryHint ?? ""}` as RecoveryPostureKey;
+  return RECOVERY_POSTURE_BY_KEY[key] ?? "none";
 }

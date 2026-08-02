@@ -1,9 +1,7 @@
 import {
-  hasLimitedFailureStatusSemantics,
   hasRoutineObservationalStatusConflictSemantics,
-  readCandidateObservation,
+  readCandidateObservationJudgmentContract,
   readCandidateSemanticEvidence,
-  hasStableStatusObservationSemantics,
 } from "../judgment-input.js";
 import type { AttentionCandidate } from "../interaction-candidate.js";
 
@@ -16,7 +14,7 @@ export function isSoftenedFailureStatusCandidate(candidate: AttentionCandidate):
   return (
     candidate.mode === "status" &&
     candidate.responseSpec.kind === "acknowledge" &&
-    hasLimitedFailureStatusSemantics(candidate)
+    readCandidateObservationJudgmentContract(candidate)?.limitedFailureStatus === true
   );
 }
 
@@ -38,12 +36,9 @@ function hasStableSemanticStatusEvidence(candidate: AttentionCandidate): boolean
     return true;
   }
 
-  if (hasStableStatusObservationSemantics(candidate)) {
-    return true;
-  }
-
-  if (readCandidateObservation(candidate) !== null) {
-    return false;
+  const observationContract = readCandidateObservationJudgmentContract(candidate);
+  if (observationContract !== null) {
+    return observationContract.stableStatusEvidence;
   }
 
   const semanticEvidence = readCandidateSemanticEvidence(candidate);

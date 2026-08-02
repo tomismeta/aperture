@@ -47,6 +47,8 @@ These runnable repo examples use `@tomismeta/aperture-core` directly:
   - full `ApertureCore` loop with publish -> frame -> submit
 - [core-judgment-primitives/index.ts](./core-judgment-primitives/index.ts)
   - lower-level judgment types and lane reasoning
+- [core-kernel-entrypoint/index.ts](./core-kernel-entrypoint/index.ts)
+  - host-neutral event -> observation -> judgment projection
 - [core-semantic-entrypoint/index.ts](./core-semantic-entrypoint/index.ts)
   - semantic interpretation and normalization helpers
 - [core-trace-entrypoint/index.ts](./core-trace-entrypoint/index.ts)

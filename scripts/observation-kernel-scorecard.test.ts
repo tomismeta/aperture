@@ -4,10 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { EventEvaluator } from "../packages/core/src/event-evaluator.js";
-import { projectObservationJudgmentContract } from "../packages/core/src/judgment-observation-contract.js";
-import { normalizeSourceEvent } from "../packages/core/src/semantic-normalizer.js";
-import type { SourceEvent } from "../packages/core/src/source-event.js";
+import {
+  projectApertureKernelEvent,
+  type ApertureKernelEvent,
+} from "../packages/core/src/kernel.js";
 import {
   buildObservationKernelScorecard,
   digestKernelCanonicalJson,
@@ -129,16 +129,20 @@ test("observation kernel scorecard covers the normalized observation contract", 
   );
 });
 
-test("observation kernel proves host-context judgment parity", () => {
+test("observation kernel proves host capability judgment parity", () => {
   for (const caseSpec of OBSERVATION_KERNEL_HOST_CONTEXT_PARITY_CASES) {
     const direct = readObservationJudgmentParity(caseSpec.direct);
     const context = readObservationJudgmentParity(caseSpec.context);
+    const generic = readObservationJudgmentParity(caseSpec.generic);
 
     assert.equal(direct.judgmentDigest, context.judgmentDigest, caseSpec.id);
-    assert.equal(direct.toolFamily, caseSpec.toolFamily, caseSpec.id);
-    assert.equal(context.toolFamily, caseSpec.toolFamily, caseSpec.id);
+    assert.equal(direct.judgmentDigest, generic.judgmentDigest, caseSpec.id);
+    assert.equal(direct.capabilityFamily, caseSpec.capabilityFamily, caseSpec.id);
+    assert.equal(context.capabilityFamily, caseSpec.capabilityFamily, caseSpec.id);
+    assert.equal(generic.capabilityFamily, caseSpec.capabilityFamily, caseSpec.id);
     assert.equal(direct.statusConflictKind, caseSpec.statusConflictKind, caseSpec.id);
     assert.equal(context.statusConflictKind, caseSpec.statusConflictKind, caseSpec.id);
+    assert.equal(generic.statusConflictKind, caseSpec.statusConflictKind, caseSpec.id);
   }
 });
 
@@ -209,57 +213,78 @@ const OBSERVATION_KERNEL_HOST_CONTEXT_PARITY_CASES = [
   ),
 ] as const;
 
-function parityCase(id: string, statusConflictKind: string, summary: string, toolFamily: string) {
+function parityCase(
+  id: string,
+  statusConflictKind: string,
+  summary: string,
+  capabilityFamily: string,
+) {
   return {
     id,
-    toolFamily,
+    capabilityFamily,
     statusConflictKind,
-    direct: failedTaskEvent(`direct:${id}`, summary, { toolFamily }),
-    context: failedTaskEvent(`context:${id}`, summary, { contextToolFamily: toolFamily }),
+    direct: failedTaskEvent(`direct:${id}`, summary, { capabilityFamily }),
+    context: failedTaskEvent(`context:${id}`, summary, {
+      contextCapabilityFamily: capabilityFamily,
+    }),
+    generic: failedTaskEvent(`generic:${id}`, summary, {
+      metadataCapabilityFamily: capabilityFamily,
+    }),
   };
 }
 
-function readObservationJudgmentParity(event: SourceEvent): {
+function readObservationJudgmentParity(event: ApertureKernelEvent): {
   judgmentDigest: string;
-  toolFamily: string | null;
+  capabilityFamily: string | null;
   statusConflictKind: string | null;
 } {
-  const result = new EventEvaluator().evaluate(normalizeSourceEvent(event));
-  assert.equal(result.kind, "candidate");
-  if (result.kind !== "candidate") {
-    throw new Error(`Expected candidate for ${event.id}`);
-  }
-  const observation = result.candidate.judgmentInput.observation;
-  assert.notEqual(observation, undefined);
-  if (observation === undefined) {
+  const projection = projectApertureKernelEvent(event);
+  assert.equal(projection.evaluation.kind, "candidate");
+  assert.notEqual(projection.observation, null);
+  assert.notEqual(projection.judgment, null);
+  if (projection.observation === null || projection.judgment === null) {
     throw new Error(`Expected observation for ${event.id}`);
   }
-  const judgment = projectObservationJudgmentContract(observation);
   return {
-    judgmentDigest: digestKernelCanonicalJson(judgment),
-    toolFamily: observation.ownership.toolFamily ?? null,
-    statusConflictKind: judgment.statusConflictKind,
+    judgmentDigest: digestKernelCanonicalJson(projection.judgment),
+    capabilityFamily: projection.observation.ownership.capabilityFamily ?? null,
+    statusConflictKind: projection.judgment.statusConflictKind,
   };
 }
 
 function failedTaskEvent(
   id: string,
   summary: string,
-  options: { toolFamily?: string; contextToolFamily?: string },
-): SourceEvent {
+  options: {
+    capabilityFamily?: string;
+    contextCapabilityFamily?: string;
+    metadataCapabilityFamily?: string;
+  },
+): ApertureKernelEvent {
   return {
     id: `evt:observation:host-context-parity:${id}`,
-    taskId: `task:observation:host-context-parity:${id}`,
-    timestamp: "2026-04-22T18:30:00.000Z",
-    type: "task.updated",
-    title: `${options.toolFamily ?? "tool"} failure`,
+    workId: `work:observation:host-context-parity:${id}`,
+    occurredAt: "2026-04-22T18:30:00.000Z",
+    kind: "work.updated",
+    title: "Host observation",
     summary,
     status: "failed",
-    ...(options.toolFamily !== undefined ? { toolFamily: options.toolFamily } : {}),
-    ...(options.contextToolFamily !== undefined
+    ...(options.capabilityFamily !== undefined
+      ? { facts: { capabilityFamily: options.capabilityFamily } }
+      : {}),
+    ...(options.metadataCapabilityFamily === undefined
+      ? {}
+      : { metadata: { capabilityFamily: options.metadataCapabilityFamily } }),
+    ...(options.contextCapabilityFamily !== undefined
       ? {
           context: {
-            items: [{ id: "tool_family", label: "Tool family", value: options.contextToolFamily }],
+            items: [
+              {
+                id: "capability_family",
+                label: "Capability family",
+                value: options.contextCapabilityFamily,
+              },
+            ],
           },
         }
       : {}),

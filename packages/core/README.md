@@ -130,6 +130,7 @@ Runnable repo examples live in:
 - [examples/core-full-engine/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-full-engine/index.ts)
 - [examples/core-attention-evaluator/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-attention-evaluator/index.ts)
 - [examples/core-judgment-primitives/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-judgment-primitives/index.ts)
+- [examples/core-kernel-entrypoint/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-kernel-entrypoint/index.ts)
 - [examples/core-semantic-entrypoint/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-semantic-entrypoint/index.ts)
 - [examples/core-trace-entrypoint/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-trace-entrypoint/index.ts)
 
@@ -206,6 +207,58 @@ against explicit context, config, and clock input, then returns a versioned
 time; `record.evaluatedAt` records the evaluation clock. It does not apply
 events, mutate state, accept human responses, replay sessions, or report a
 realized lane. Use `ApertureCore` when you need those stateful engine behaviors.
+
+If you want Aperture's embeddable semantic judgment contract without Core's
+stateful surface loop, use the kernel subpath:
+
+```ts
+import {
+  projectApertureKernelEvent,
+  type ApertureKernelEvent,
+} from "@tomismeta/aperture-core/kernel";
+
+const event: ApertureKernelEvent = {
+  id: "evt:command",
+  workId: "work:command",
+  occurredAt: new Date().toISOString(),
+  kind: "work.updated",
+  title: "Command observation",
+  summary: "Your command ran successfully and did not produce any output.",
+  status: "failed",
+  facts: {
+    capabilityFamily: "exec_command",
+  },
+};
+
+const projection = projectApertureKernelEvent(event);
+
+console.log(projection.observation);
+console.log(projection.judgment);
+```
+
+`projectApertureKernelEvent(...)` is an opt-in adapter boundary. It accepts the
+kernel-owned neutral event DTO, finalizes it through Aperture's internal source
+seam, returns a bounded finalized-event projection, and returns the observation
+document and deterministic judgment contract when the event shape has one.
+
+Use `facts.capabilityFamily` for explicit source-known capability facts.
+`context.items` with `id: "capability_family"` and `metadata.capabilityFamily`
+are supported as weaker adapter aliases. Precedence is deterministic:
+`facts.capabilityFamily` wins over context, and context wins over
+`metadata.capabilityFamily`. Capability values are trimmed and lowercased before
+judgment.
+
+Observation documents currently exist for failed work updates that carry
+classifiable observational evidence, such as command success output, read
+payloads, search output, structured execution output, source-limit diagnostics,
+or rejected tool-use observations. Other candidate events can legitimately
+return `observation: null` and `judgment: null`; use the returned `evaluation`
+and finalized `event` for those cases.
+
+This subpath does not install adapters, open sockets, persist state, render UI,
+or make the package live inside another product. It runs only when the host
+imports `@tomismeta/aperture-core/kernel` and calls the projection function.
+Use `ApertureCore` when you need frames, views, continuity, and responses.
 
 For advanced consumers, the internal path is now:
 

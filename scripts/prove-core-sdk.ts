@@ -23,6 +23,10 @@ const examples: Example[] = [
     entrypoint: join(repoRoot, "examples", "core-attention-evaluator", "index.ts"),
   },
   {
+    name: "core-kernel-entrypoint",
+    entrypoint: join(repoRoot, "examples", "core-kernel-entrypoint", "index.ts"),
+  },
+  {
     name: "core-semantic-entrypoint",
     entrypoint: join(repoRoot, "examples", "core-semantic-entrypoint", "index.ts"),
   },
@@ -46,6 +50,7 @@ type PublicEntrypoint = {
 const publicEntrypoints: PublicEntrypoint[] = [
   { label: "root", specifier: "@tomismeta/aperture-core" },
   { label: "evaluator", specifier: "@tomismeta/aperture-core/evaluator" },
+  { label: "kernel", specifier: "@tomismeta/aperture-core/kernel" },
   { label: "semantic", specifier: "@tomismeta/aperture-core/semantic" },
   { label: "trace", specifier: "@tomismeta/aperture-core/trace" },
 ];
@@ -154,6 +159,16 @@ function assertTarballShape(entries: string[]): void {
     entries.includes("package/public-dist/semantic.js"),
     true,
     "tarball should include semantic entrypoint",
+  );
+  assert.equal(
+    entries.includes("package/public-dist/kernel.js"),
+    true,
+    "tarball should include kernel entrypoint",
+  );
+  assert.equal(
+    entries.includes("package/public-dist/kernel.d.ts"),
+    true,
+    "tarball should include kernel declarations",
   );
   assert.equal(
     entries.includes("package/public-dist/trace.js"),
@@ -313,6 +328,29 @@ async function assertPublicEntrypointsDoNotExport(
   }
 }
 
+async function assertEntrypointDoesNotExport(
+  tempRoot: string,
+  tarballPath: string,
+  entrypoint: PublicEntrypoint,
+  symbolName: string,
+): Promise<void> {
+  const symbolSlug = packageSlug(symbolName);
+  const projectName = `core-${symbolSlug}-negative-${entrypoint.label}`;
+  const projectDir = join(tempRoot, projectName);
+  await writeTypecheckOnlyConsumer(projectDir, projectName, tarballPath);
+  await writeFile(
+    join(projectDir, "index.ts"),
+    [
+      `import type { ${symbolName} as ForbiddenExport } from "${entrypoint.specifier}";`,
+      "void (0 as unknown as ForbiddenExport);",
+    ].join("\n"),
+    "utf8",
+  );
+
+  run("pnpm", ["install", "--prefer-offline"], projectDir, { ignoreScripts: false });
+  runExpectFailure("pnpm", ["exec", "tsc", "--noEmit"], projectDir, new RegExp(symbolName));
+}
+
 async function main(): Promise<void> {
   const packageJson = JSON.parse(
     await readFile(join(coreDir, "package.json"), "utf8"),
@@ -333,6 +371,14 @@ async function main(): Promise<void> {
 
     const tarballPath = join(packDir, tarballName(packageJson));
     assertTarballShape(listTarballEntries(tarballPath));
+    const kernelDeclaration = execFileSync(
+      "tar",
+      ["-xOzf", tarballPath, "package/public-dist/kernel.d.ts"],
+      { cwd: repoRoot, stdio: ["ignore", "pipe", "inherit"], encoding: "utf8" },
+    );
+    assert.equal(kernelDeclaration.includes("observational-status-conflict"), false);
+    assert.equal(kernelDeclaration.includes("SourceEvent"), false);
+    assert.equal(kernelDeclaration.includes("EnrichedApertureEvent"), false);
 
     for (const example of examples) {
       const exampleDir = join(tempRoot, example.name);
@@ -392,6 +438,18 @@ async function main(): Promise<void> {
 
     await assertPublicEntrypointsDoNotExport(tempRoot, tarballPath, "NormalizedObservation");
     await assertPublicEntrypointsDoNotExport(tempRoot, tarballPath, "ObservationSemantics");
+    await assertEntrypointDoesNotExport(
+      tempRoot,
+      tarballPath,
+      { label: "kernel-source-event", specifier: "@tomismeta/aperture-core/kernel" },
+      "SourceEvent",
+    );
+    await assertEntrypointDoesNotExport(
+      tempRoot,
+      tarballPath,
+      { label: "kernel-enriched-event", specifier: "@tomismeta/aperture-core/kernel" },
+      "EnrichedApertureEvent",
+    );
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

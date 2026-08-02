@@ -70,10 +70,12 @@ test("observation semantics stays source-internal and out of package entrypoints
     "../src/index.ts",
     "../src/semantic.ts",
     "../src/evaluator.ts",
+    "../src/kernel.ts",
     "../src/trace.ts",
     "../src/internal-contract.ts",
   ]) {
     const source = readFileSync(new URL(entrypoint, import.meta.url), "utf8");
+    assert.equal(source.includes("NormalizedObservation"), false, entrypoint);
     assert.equal(source.includes("ObservationSemantics"), false, entrypoint);
     assert.equal(source.includes("observation-semantics"), false, entrypoint);
     assert.equal(source.includes("observation-semantic-read"), false, entrypoint);
@@ -83,6 +85,19 @@ test("observation semantics stays source-internal and out of package entrypoints
     assert.equal(source.includes("TaskFailureObservationGrammarInput"), false, entrypoint);
     assert.equal(source.includes("TaskFailurePayloadObservationGrammarInput"), false, entrypoint);
   }
+});
+
+test("kernel entrypoint exposes projection without product-specific vocabulary", () => {
+  const source = readFileSync(new URL("../src/kernel.ts", import.meta.url), "utf8");
+
+  assert.match(source, /projectApertureKernelEvent/);
+  assert.match(source, /projectObservationJudgmentContract/);
+  assert.equal(source.includes("export type ApertureKernelEvent = SourceEvent"), false);
+  assert.equal(
+    source.includes("export type ApertureKernelProjection = {\n  event: ApertureKernelFinalEvent;"),
+    true,
+  );
+  assert.equal(source.toLowerCase().includes("buzz"), false);
 });
 
 test("observation semantics owns vocabulary upstream of normalized observations", () => {

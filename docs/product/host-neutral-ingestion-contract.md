@@ -223,6 +223,28 @@ shows a few Aperture-local choices:
 That is fine internally.
 It is just not the cleanest public contract if the goal is broad adoption.
 
+## SDK Kernel Projection
+
+For embedded SDK consumers, `@tomismeta/aperture-core/kernel` exposes an opt-in
+projection helper:
+
+```ts
+projectApertureKernelEvent(event);
+```
+
+That path is not the product `/work` ingestion API. It is a package-level,
+kernel-owned event DTO for hosts that already have an in-process event and want
+the minimal deterministic projection:
+
+`kernel event -> bounded finalized event -> observation document -> judgment contract`
+
+The kernel projection prefers `facts.capabilityFamily`; `context.items` with
+`id: "capability_family"` and `metadata.capabilityFamily` are weaker adapter
+aliases. Precedence is `facts.capabilityFamily`, then context, then
+`metadata.capabilityFamily`. Product ingestion should still prefer
+`WorkEvent.facts` with `capabilityFamily`, then map it into Aperture's internal
+`SourceEvent` shape.
+
 ## Structured Event: `WorkEvent`
 
 This is the host-neutral event Aperture should be able to consume.
@@ -314,9 +336,7 @@ Richer producers can still send the fuller shape below.
     "consequence": "high"
   },
   "context": {
-    "items": [
-      { "id": "branch", "label": "Branch", "value": "release/42" }
-    ]
+    "items": [{ "id": "branch", "label": "Branch", "value": "release/42" }]
   }
 }
 ```
@@ -391,9 +411,7 @@ This is the full recommended external event shape.
     "consequence": "high"
   },
   "context": {
-    "items": [
-      { "id": "branch", "label": "Branch", "value": "release/42" }
-    ]
+    "items": [{ "id": "branch", "label": "Branch", "value": "release/42" }]
   }
 }
 ```
@@ -576,9 +594,7 @@ Recommended shape:
 
 ```json
 {
-  "items": [
-    { "id": "branch", "label": "Branch", "value": "release/42" }
-  ]
+  "items": [{ "id": "branch", "label": "Branch", "value": "release/42" }]
 }
 ```
 
@@ -589,17 +605,17 @@ an untyped dump of source-native JSON.
 
 This is how the proposed public contract maps to current internals.
 
-| Proposed external field | Current Aperture field |
-| --- | --- |
-| `kind: "work.started"` | `type: "task.started"` |
-| `kind: "work.updated"` | `type: "task.updated"` |
-| `kind: "input.requested"` | `type: "human.input.requested"` |
-| `facts.capabilityFamily` | `toolFamily` |
-| `facts.activityCategory` | `activityClass` |
-| `hints.consequence` | `riskHint` for `input.requested`; otherwise `semanticHints.consequence` |
-| `hints.capabilityFamily` | `toolFamily` when source-suggested rather than explicit |
-| `hints.activityCategory` | `activityClass` when source-suggested rather than explicit |
-| `hints.requestKind` | `semanticHints.intentFrame` or request-family mapping when source-suggested |
+| Proposed external field   | Current Aperture field                                                      |
+| ------------------------- | --------------------------------------------------------------------------- |
+| `kind: "work.started"`    | `type: "task.started"`                                                      |
+| `kind: "work.updated"`    | `type: "task.updated"`                                                      |
+| `kind: "input.requested"` | `type: "human.input.requested"`                                             |
+| `facts.capabilityFamily`  | `toolFamily`                                                                |
+| `facts.activityCategory`  | `activityClass`                                                             |
+| `hints.consequence`       | `riskHint` for `input.requested`; otherwise `semanticHints.consequence`     |
+| `hints.capabilityFamily`  | `toolFamily` when source-suggested rather than explicit                     |
+| `hints.activityCategory`  | `activityClass` when source-suggested rather than explicit                  |
+| `hints.requestKind`       | `semanticHints.intentFrame` or request-family mapping when source-suggested |
 
 This is why the right short-term move is:
 

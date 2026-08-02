@@ -124,7 +124,13 @@ test("@tomismeta/aperture-core package manifest publishes only supported subpath
   };
   const exportMap = packageJson.exports ?? {};
 
-  assert.deepEqual(Object.keys(exportMap).sort(), [".", "./evaluator", "./semantic", "./trace"]);
+  assert.deepEqual(Object.keys(exportMap).sort(), [
+    ".",
+    "./evaluator",
+    "./kernel",
+    "./semantic",
+    "./trace",
+  ]);
   assert.equal("./internal" in exportMap, false);
   assert.deepEqual(packageJson.files, ["public-dist", "README.md", "LICENSE"]);
   assert.equal(packageJson.dependencies, undefined);

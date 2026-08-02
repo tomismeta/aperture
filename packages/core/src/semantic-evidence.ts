@@ -382,7 +382,12 @@ function looksLikeBuildMetadataObservation(text: string): boolean {
 }
 
 function isStandaloneRoutineSuccessObservation(text: string, toolFamily?: string): boolean {
-  const normalizedText = text.replace(/\.+$/, "");
+  const trimmedText = text.replace(/\.+$/, "");
+  const observationPrefixIndex = trimmedText.indexOf(" observation ");
+  const normalizedText =
+    observationPrefixIndex > 0 && !trimmedText.slice(0, observationPrefixIndex).includes(" ")
+      ? trimmedText.slice(observationPrefixIndex + " observation ".length)
+      : trimmedText;
   const successPhrases = ROUTINE_SUCCESS_PHRASES.map((phrase) => normalizeSemanticText(phrase));
   const allowedPrefixes = commandExecutionRoutinePrefixes(toolFamily);
 
@@ -396,13 +401,8 @@ function isStandaloneRoutineSuccessObservation(text: string, toolFamily?: string
 
 function stripCommandExecutionRoutinePrefix(text: string, toolFamily?: string): string {
   for (const prefix of commandExecutionRoutinePrefixes(toolFamily).filter(Boolean)) {
-    if (text === prefix) {
-      return "";
-    }
-
-    if (text.startsWith(`${prefix} `)) {
-      return text.slice(prefix.length + 1);
-    }
+    if (text === prefix) return "";
+    if (text.startsWith(`${prefix} `)) return text.slice(prefix.length + 1);
   }
 
   return text;
@@ -413,11 +413,7 @@ function commandExecutionRoutinePrefixes(toolFamily?: string): string[] {
     "",
     "observation",
     "bash failure",
-    "bash observation",
     "tool failure",
-    "tool observation",
-    ...(toolFamily && toolFamily !== "bash"
-      ? [`${toolFamily} failure`, `${toolFamily} observation`]
-      : []),
+    ...(toolFamily && toolFamily !== "bash" ? [`${toolFamily} failure`] : []),
   ];
 }

@@ -139,14 +139,7 @@ function inferTaskUpdateSemantics(
   switch (event.status) {
     case "failed":
       if (observationalFailure) {
-        const consequence =
-          awaitsAuthorization && failureObservationCore !== null
-            ? failureObservationCore.consequenceBaseline
-            : inferConsequenceFromSemanticText(
-                text,
-                failureObservationCore?.consequenceBaseline ?? "high",
-                toolFamily,
-              );
+        const consequence = failureObservationCore?.consequenceBaseline ?? "high";
         const whyNow = semanticWhyNowForObservationalStatusConflict(consequence) ?? relationWhyNow;
         return {
           intentFrame: "status_update",

@@ -20,10 +20,10 @@ test("observation kernel scorecard covers the normalized observation contract", 
   const scorecard = buildObservationKernelScorecard();
 
   assert.equal(scorecard.passed, true);
-  assert.equal(scorecard.summary.fixtures.total, 14);
-  assert.equal(scorecard.summary.fixtures.withObservation, 14);
-  assert.equal(scorecard.summary.observations.total, 16);
-  assert.equal(scorecard.summary.observations.unique, 16);
+  assert.equal(scorecard.summary.fixtures.total, 15);
+  assert.equal(scorecard.summary.fixtures.withObservation, 15);
+  assert.equal(scorecard.summary.observations.total, 17);
+  assert.equal(scorecard.summary.observations.unique, 17);
   assert.equal(
     new Set(scorecard.observations.map((observation) => observation.semanticDigest)).size,
     scorecard.summary.observations.unique,
@@ -127,6 +127,53 @@ test("observation kernel scorecard covers the normalized observation contract", 
       "structured_output_observation",
     ],
   );
+  assert.deepEqual(
+    scorecard.coverage.extractorIds.map((entry) => entry.id),
+    [
+      "command_success",
+      "empty_payload",
+      "expected_diagnostic",
+      "operation_success",
+      "payload",
+      "read_truncated_source",
+      "rejected_tool_use",
+      "search_output",
+      "structured_execution_success",
+      "structured_output",
+      "terminal_diagnostic",
+      "terminal_outcome",
+      "unknown_failure",
+    ],
+  );
+  assertExtractor(
+    scorecard,
+    "context-host-tool-family-parity",
+    "command_success",
+    "command_success_observation",
+  );
+  assertExtractor(scorecard, "read-source-window-limit", "read_truncated_source", null);
+  assertExtractor(
+    scorecard,
+    "rejected-tool-use",
+    "rejected_tool_use",
+    "rejected_tool_use_observation",
+  );
+  assertExtractor(scorecard, "search-result-output", "search_output", "search_output_observation");
+  assertExtractor(
+    scorecard,
+    "structured-output-source-readback",
+    "structured_output",
+    "structured_output_observation",
+  );
+  assertExtractor(
+    scorecard,
+    "context-host-tool-family-parity",
+    "structured_execution_success",
+    "execution_success_observation",
+    1,
+  );
+  assertExtractor(scorecard, "expected-diagnostic-output", "expected_diagnostic", null);
+  assertExtractor(scorecard, "ambiguous-terminal-output", "unknown_failure", null);
 });
 
 test("observation kernel proves host capability judgment parity", () => {
@@ -250,6 +297,22 @@ function readObservationJudgmentParity(event: ApertureKernelEvent): {
     capabilityFamily: projection.observation.ownership.capabilityFamily ?? null,
     statusConflictKind: projection.judgment.statusConflictKind,
   };
+}
+
+function assertExtractor(
+  scorecard: ReturnType<typeof buildObservationKernelScorecard>,
+  fixtureId: string,
+  extractorId: string,
+  statusConflictKind: string | null,
+  sequence = 0,
+): void {
+  const observation = scorecard.observations.find(
+    (entry) => entry.fixtureId === fixtureId && entry.sequence === sequence,
+  );
+
+  assert.ok(observation, fixtureId);
+  assert.equal(observation?.fields.observationExtractorId, extractorId, fixtureId);
+  assert.equal(observation?.judgment.statusConflictKind, statusConflictKind, fixtureId);
 }
 
 function failedTaskEvent(

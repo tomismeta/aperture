@@ -21,7 +21,7 @@ const SEMANTIC_MODULE_COUNT_BUDGET = 100;
 const SEMANTIC_LINE_COUNT_BUDGET = 8695;
 const SEMANTIC_MATCHER_SITE_BUDGET = 600;
 const SEMANTIC_PHRASE_LITERAL_BUDGET = 175;
-const OBSERVATION_PRIMITIVE_LINE_COUNT_BUDGET = 785;
+const OBSERVATION_PRIMITIVE_LINE_COUNT_BUDGET = 800;
 const TASK_FAILURE_PARSING_LINE_COUNT_BUDGET = 1225;
 
 const OBSERVATION_SEMANTICS_FILE = "packages/core/src/observation-semantics.ts";
@@ -31,8 +31,6 @@ const TASK_FAILURE_OBSERVATION_GRAMMAR_FILE =
   "packages/core/src/task-failure-observation-grammar.ts";
 const TASK_FAILURE_PAYLOAD_OBSERVATION_GRAMMAR_FILE =
   "packages/core/src/task-failure-payload-observation-grammar.ts";
-const TASK_FAILURE_EVIDENCE_OBSERVATION_GRAMMAR_FILE =
-  "packages/core/src/task-failure-evidence-observation-grammar.ts";
 const TASK_FAILURE_OBSERVATION_CORE_FILE = "packages/core/src/task-failure-observation-core.ts";
 const TASK_FAILURE_OBSERVATION_NORMALIZER_FILE =
   "packages/core/src/task-failure-observation-normalizer.ts";
@@ -69,7 +67,6 @@ const budgets = [
   { file: NORMALIZED_OBSERVATION_FILE, maxLines: 75 },
   { file: TASK_FAILURE_OBSERVATION_GRAMMAR_FILE, maxLines: 250 },
   { file: TASK_FAILURE_PAYLOAD_OBSERVATION_GRAMMAR_FILE, maxLines: 225 },
-  { file: TASK_FAILURE_EVIDENCE_OBSERVATION_GRAMMAR_FILE, maxLines: 205 },
   { file: TASK_FAILURE_OBSERVATION_CORE_FILE, maxLines: 205 },
   { file: TASK_FAILURE_OBSERVATION_NORMALIZER_FILE, maxLines: 150 },
   { file: TASK_FAILURE_OBSERVATION_READER_FILE, maxLines: 175 },

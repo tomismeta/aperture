@@ -1,7 +1,9 @@
 import { ApertureCore } from "@tomismeta/aperture-core";
 import {
+  extractTaskFailureObservationCore,
   isCandidateTrace,
   projectObservationJudgmentContract,
+  readTaskFailureSemanticEvidence,
   subscribeInternalTrace,
   type ApertureTrace,
 } from "@tomismeta/aperture-core/internal";
@@ -71,6 +73,7 @@ export type ObservationKernelCoverage = {
   provenanceOrigins: ObservationKernelDistribution;
   provenanceAuthorities: ObservationKernelDistribution;
   consequenceBaselines: ObservationKernelDistribution;
+  extractorIds: ObservationKernelDistribution;
 };
 
 export type ObservationKernelDistribution = Array<{
@@ -104,6 +107,7 @@ export type ObservationKernelFields = {
   provenanceOrigin: string;
   provenanceAuthority: string;
   consequenceBaseline: string;
+  observationExtractorId: string | null;
 };
 
 export type ObservationKernelJudgmentFields = {
@@ -243,6 +247,11 @@ function runObservationKernelFixture(
     if (observation === undefined) {
       return [];
     }
+    const failureEvidence = readTaskFailureSemanticEvidence(trace.event);
+    const observationExtractorId =
+      failureEvidence === null
+        ? null
+        : extractTaskFailureObservationCore(failureEvidence).observationExtractorId;
     const fields: ObservationKernelFields = {
       kind: observation.kind,
       polarity: observation.polarity,
@@ -257,6 +266,7 @@ function runObservationKernelFixture(
       provenanceOrigin: observation.provenance.origin,
       provenanceAuthority: observation.provenance.authority,
       consequenceBaseline: observation.consequenceBaseline,
+      observationExtractorId,
     };
     const judgment = projectObservationJudgmentContract(observation);
     const observationSequence = sequence++;
@@ -289,55 +299,25 @@ function buildObservationKernelCoverage(
 ): ObservationKernelCoverage {
   const accumulators = createObservationAccumulators();
   for (const observation of observations) {
-    addObservationOutcome(accumulators.dimensions, observation.dimension, observation.fixtureId);
-    addObservationOutcome(accumulators.kinds, observation.fields.kind, observation.fixtureId);
-    addObservationOutcome(
-      accumulators.polarities,
-      observation.fields.polarity,
-      observation.fixtureId,
-    );
-    addObservationOutcome(accumulators.owners, observation.fields.owner, observation.fixtureId);
-    addObservationOutcome(accumulators.subjects, observation.fields.subject, observation.fixtureId);
-    addObservationOutcome(
-      accumulators.evidenceLosses,
-      observation.fields.evidenceLoss,
-      observation.fixtureId,
-    );
-    addObservationOutcome(
-      accumulators.evidenceStrengths,
-      observation.fields.evidenceStrength,
-      observation.fixtureId,
-    );
-    addObservationOutcome(
-      accumulators.semanticAgreements,
-      observation.fields.semanticAgreement,
-      observation.fixtureId,
-    );
-    addObservationOutcome(
-      accumulators.diagnosticClasses,
-      observation.fields.diagnosticClass,
-      observation.fixtureId,
-    );
-    addObservationOutcome(
-      accumulators.recoveryHints,
-      observation.fields.recoveryHint,
-      observation.fixtureId,
-    );
-    addObservationOutcome(
-      accumulators.provenanceOrigins,
-      observation.fields.provenanceOrigin,
-      observation.fixtureId,
-    );
-    addObservationOutcome(
-      accumulators.provenanceAuthorities,
-      observation.fields.provenanceAuthority,
-      observation.fixtureId,
-    );
-    addObservationOutcome(
-      accumulators.consequenceBaselines,
-      observation.fields.consequenceBaseline,
-      observation.fixtureId,
-    );
+    const values: Array<[keyof ObservationKernelCoverage, string | null]> = [
+      ["dimensions", observation.dimension],
+      ["kinds", observation.fields.kind],
+      ["polarities", observation.fields.polarity],
+      ["owners", observation.fields.owner],
+      ["subjects", observation.fields.subject],
+      ["evidenceLosses", observation.fields.evidenceLoss],
+      ["evidenceStrengths", observation.fields.evidenceStrength],
+      ["semanticAgreements", observation.fields.semanticAgreement],
+      ["diagnosticClasses", observation.fields.diagnosticClass],
+      ["recoveryHints", observation.fields.recoveryHint],
+      ["provenanceOrigins", observation.fields.provenanceOrigin],
+      ["provenanceAuthorities", observation.fields.provenanceAuthority],
+      ["consequenceBaselines", observation.fields.consequenceBaseline],
+      ["extractorIds", observation.fields.observationExtractorId],
+    ];
+    for (const [field, value] of values) {
+      addObservationOutcome(accumulators[field], value, observation.fixtureId);
+    }
   }
 
   return {
@@ -354,6 +334,7 @@ function buildObservationKernelCoverage(
     provenanceOrigins: finalizeObservationDistribution(accumulators.provenanceOrigins),
     provenanceAuthorities: finalizeObservationDistribution(accumulators.provenanceAuthorities),
     consequenceBaselines: finalizeObservationDistribution(accumulators.consequenceBaselines),
+    extractorIds: finalizeObservationDistribution(accumulators.extractorIds),
   };
 }
 
@@ -375,6 +356,7 @@ function createObservationAccumulators(): Record<
     provenanceOrigins: new Map(),
     provenanceAuthorities: new Map(),
     consequenceBaselines: new Map(),
+    extractorIds: new Map(),
   };
 }
 

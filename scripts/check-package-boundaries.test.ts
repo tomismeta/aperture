@@ -561,11 +561,6 @@ test("boundary checker rejects raw task-failure evidence member reads outside th
     );
     await writeRepoFile(
       root,
-      "packages/core/src/task-failure-evidence-observation-grammar.ts",
-      "import type { TaskFailureSemanticEvidence } from './semantic-evidence.js';\nexport function normalize(evidence: TaskFailureSemanticEvidence & { kind: string }) { return evidence.kind; }\n",
-    );
-    await writeRepoFile(
-      root,
       "packages/core/src/task-failure-observation-reader.ts",
       "import { readTaskFailureSemanticEvidence } from './semantic-evidence.js';\nexport function read(event: unknown) { const raw = readTaskFailureSemanticEvidence(event as never); return raw?.kind; }\n",
     );

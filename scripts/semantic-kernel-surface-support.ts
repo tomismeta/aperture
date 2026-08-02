@@ -35,7 +35,6 @@ export const OBSERVATION_PRIMITIVE_FILES = [
   "packages/core/src/normalized-observation.ts",
   "packages/core/src/task-failure-observation-grammar.ts",
   "packages/core/src/task-failure-payload-observation-grammar.ts",
-  "packages/core/src/task-failure-evidence-observation-grammar.ts",
   "packages/core/src/task-failure-observation-core.ts",
   "packages/core/src/task-failure-observation-normalizer.ts",
   "packages/core/src/task-failure-observation-reader.ts",
@@ -191,7 +190,6 @@ export const SEMANTIC_KERNEL_SURFACE_MANIFEST = [
       "packages/core/src/observation-semantic-read.ts",
       "packages/core/src/observation-semantics.ts",
       "packages/core/src/observational-status-conflict.ts",
-      "packages/core/src/task-failure-evidence-observation-grammar.ts",
       "packages/core/src/task-failure-observation-core.ts",
       "packages/core/src/task-failure-observation-grammar.ts",
       "packages/core/src/task-failure-observation-normalizer.ts",
@@ -1161,8 +1159,7 @@ function isSemanticKernelSurfacePath(path: string): boolean {
     /^observational.*\.ts$/.test(basename) ||
     basename === "normalized-observation.ts" ||
     /^task-failure-observation.*\.ts$/.test(basename) ||
-    basename === "task-failure-payload-observation-grammar.ts" ||
-    basename === "task-failure-evidence-observation-grammar.ts"
+    basename === "task-failure-payload-observation-grammar.ts"
   );
 }
 

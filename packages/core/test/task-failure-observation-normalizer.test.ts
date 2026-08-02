@@ -14,6 +14,11 @@ import type {
 } from "../src/semantic-evidence.js";
 import type { ObservationSemantics } from "../src/observation-semantics.js";
 import type { AttentionOntologyDiagnostic } from "../src/semantic-ontology-types.js";
+import { extractTaskFailureObservationCore } from "../src/task-failure-observation-core.js";
+import type { TaskFailureObservationSyntax } from "../src/task-failure-observation-grammar.js";
+
+type EnrichedTaskFailureSemanticEvidence = TaskFailureSemanticEvidence &
+  ReturnType<typeof extractTaskFailureObservationCore>;
 
 const emptyText: SemanticTextEvidence = {
   routineSuccessObservation: false,
@@ -41,18 +46,22 @@ const ontology: AttentionOntologyDiagnostic = {
 function evidence(
   overrides: Omit<
     TaskFailureSemanticEvidence,
-    "consequenceBaseline" | "readsAsObservation" | "text"
+    "consequenceBaseline" | "observationSyntax" | "readsAsObservation" | "text"
   > &
     Partial<
-      Pick<TaskFailureSemanticEvidence, "consequenceBaseline" | "readsAsObservation" | "text">
+      Pick<
+        TaskFailureSemanticEvidence,
+        "consequenceBaseline" | "observationSyntax" | "readsAsObservation" | "text"
+      >
     >,
-): TaskFailureSemanticEvidence {
-  return {
+): EnrichedTaskFailureSemanticEvidence {
+  const candidate: TaskFailureSemanticEvidence = {
     consequenceBaseline: "medium",
     readsAsObservation: false,
     text: emptyText,
     ...overrides,
   };
+  return { ...candidate, ...extractTaskFailureObservationCore(candidate) };
 }
 
 function compile(
@@ -68,30 +77,103 @@ function compile(
   });
 }
 
-function semanticObservation(input: {
-  kind: ObservationSemantics["kind"];
-  polarity: ObservationSemantics["polarity"];
+function observationSyntax(input: {
+  kind: "payload" | "outcome" | "control";
   origin: ObservationSemantics["provenance"]["origin"];
   subject: ObservationSemantics["subject"];
   consequenceBaseline: ObservationSemantics["consequenceBaseline"];
   toolFamily?: string;
-  recoveryHint?: ObservationSemantics["recoveryHint"];
-}): ObservationSemantics {
-  return {
-    kind: input.kind,
-    polarity: input.polarity,
-    ownership: {
-      owner: input.toolFamily === undefined ? "source" : "tool",
+  recoveryHint?: NonNullable<ObservationSemantics["recoveryHint"]>;
+}): TaskFailureObservationSyntax {
+  if (input.kind === "control") {
+    return {
+      kind: "control",
+      origin: input.origin,
+      recoveryHint: input.recoveryHint ?? "await_authorization",
       ...(input.toolFamily !== undefined ? { toolFamily: input.toolFamily } : {}),
-    },
-    subject: input.subject,
-    evidenceLoss: "none",
-    ...(input.recoveryHint !== undefined ? { recoveryHint: input.recoveryHint } : {}),
-    provenance: { origin: input.origin },
-    consequenceBaseline: input.consequenceBaseline,
-    evidenceCertainty: "determinate",
+    };
+  }
+  if (input.kind === "outcome") {
+    return {
+      kind: "outcome",
+      origin: input.origin,
+      subject: input.subject,
+      consequenceBaseline: input.consequenceBaseline,
+      ...(input.toolFamily !== undefined ? { toolFamily: input.toolFamily } : {}),
+    };
+  }
+  return {
+    kind: "payload",
+    origin: input.origin,
+    fallbackSubject: input.subject,
+    payload: { source: input.subject === "source", consequenceBaseline: input.consequenceBaseline },
+    ...(input.toolFamily !== undefined ? { toolFamily: input.toolFamily } : {}),
   };
 }
+
+test("task-failure observation extractors cover durable evidence families", () => {
+  assert.equal(
+    evidence({
+      kind: "routine_bash_success_observation",
+      toolFamily: "bash",
+      readsAsObservation: true,
+      consequenceBaseline: "low",
+    }).observationExtractorId,
+    "command_success",
+  );
+  assert.equal(
+    evidence({
+      kind: "terminal_failure",
+      failureDetail: "source_window_limit",
+      toolFamily: "read",
+    }).observationExtractorId,
+    "read_truncated_source",
+  );
+  assert.equal(
+    evidence({
+      kind: "routine_search_output",
+      toolFamily: "search",
+      readsAsObservation: true,
+      consequenceBaseline: "low",
+    }).observationExtractorId,
+    "search_output",
+  );
+  assert.equal(
+    evidence({
+      kind: "structured_tool_output_observation",
+      toolFamily: "bash",
+      observationSyntax: observationSyntax({
+        kind: "payload",
+        polarity: "neutral",
+        origin: "structured_output",
+        subject: "source",
+        consequenceBaseline: "high",
+        toolFamily: "bash",
+      }),
+      readsAsObservation: true,
+      consequenceBaseline: "high",
+    }).observationExtractorId,
+    "structured_output",
+  );
+  assert.equal(
+    evidence({
+      kind: "rejected_tool_use_observation",
+      toolFamily: "bash",
+      observationSyntax: observationSyntax({
+        kind: "control",
+        polarity: "neutral",
+        origin: "status_text",
+        subject: "tool",
+        consequenceBaseline: "low",
+        toolFamily: "bash",
+        recoveryHint: "await_authorization",
+      }),
+      readsAsObservation: true,
+      consequenceBaseline: "low",
+    }).observationExtractorId,
+    "rejected_tool_use",
+  );
+});
 
 test("task-failure observation core preserves ontology-independent semantic facts", () => {
   const failureEvidence = evidence({
@@ -305,7 +387,7 @@ test("task-failure observation normalizer maps every evidence kind into the norm
       evidence: evidence({
         kind: "structured_execution_success_observation",
         toolFamily: "bash",
-        observationSemantics: semanticObservation({
+        observationSyntax: observationSyntax({
           kind: "outcome",
           polarity: "success",
           origin: "structured_output",
@@ -337,7 +419,7 @@ test("task-failure observation normalizer maps every evidence kind into the norm
       evidence: evidence({
         kind: "structured_tool_output_observation",
         toolFamily: "bash",
-        observationSemantics: semanticObservation({
+        observationSyntax: observationSyntax({
           kind: "payload",
           polarity: "neutral",
           origin: "structured_output",
@@ -375,7 +457,7 @@ test("task-failure observation normalizer maps every evidence kind into the norm
       evidence: evidence({
         kind: "observational_payload",
         toolFamily: "bash",
-        observationSemantics: semanticObservation({
+        observationSyntax: observationSyntax({
           kind: "payload",
           polarity: "neutral",
           origin: "transcript",
@@ -461,7 +543,7 @@ test("task-failure observation normalizer maps every evidence kind into the norm
       evidence: evidence({
         kind: "rejected_tool_use_observation",
         toolFamily: "bash",
-        observationSemantics: semanticObservation({
+        observationSyntax: observationSyntax({
           kind: "control",
           polarity: "neutral",
           origin: "status_text",
@@ -558,7 +640,7 @@ test("status-conflict kinds are derived from normalized observation fields", () 
       failureEvidence: evidence({
         kind: "structured_execution_success_observation",
         toolFamily: "bash",
-        observationSemantics: semanticObservation({
+        observationSyntax: observationSyntax({
           kind: "outcome",
           polarity: "success",
           origin: "structured_output",
@@ -585,7 +667,7 @@ test("status-conflict kinds are derived from normalized observation fields", () 
       failureEvidence: evidence({
         kind: "structured_tool_output_observation",
         toolFamily: "bash",
-        observationSemantics: semanticObservation({
+        observationSyntax: observationSyntax({
           kind: "payload",
           polarity: "neutral",
           origin: "structured_output",
@@ -603,7 +685,7 @@ test("status-conflict kinds are derived from normalized observation fields", () 
       failureEvidence: evidence({
         kind: "observational_payload",
         toolFamily: "bash",
-        observationSemantics: semanticObservation({
+        observationSyntax: observationSyntax({
           kind: "payload",
           polarity: "neutral",
           origin: "transcript",
@@ -631,7 +713,7 @@ test("status-conflict kinds are derived from normalized observation fields", () 
       failureEvidence: evidence({
         kind: "rejected_tool_use_observation",
         toolFamily: "bash",
-        observationSemantics: semanticObservation({
+        observationSyntax: observationSyntax({
           kind: "control",
           polarity: "neutral",
           origin: "status_text",

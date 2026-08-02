@@ -86,7 +86,8 @@ function isObservationKernelCoverage(value: unknown): value is ObservationKernel
     isObservationDistribution(value.recoveryHints) &&
     isObservationDistribution(value.provenanceOrigins) &&
     isObservationDistribution(value.provenanceAuthorities) &&
-    isObservationDistribution(value.consequenceBaselines)
+    isObservationDistribution(value.consequenceBaselines) &&
+    isObservationDistribution(value.extractorIds)
   );
 }
 
@@ -134,7 +135,8 @@ function isObservationKernelFields(value: unknown): value is ObservationKernelFi
     (typeof value.recoveryHint === "string" || value.recoveryHint === null) &&
     typeof value.provenanceOrigin === "string" &&
     typeof value.provenanceAuthority === "string" &&
-    typeof value.consequenceBaseline === "string"
+    typeof value.consequenceBaseline === "string" &&
+    (typeof value.observationExtractorId === "string" || value.observationExtractorId === null)
   );
 }
 

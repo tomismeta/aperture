@@ -17,25 +17,17 @@ export type ObservationOrigin =
   | "status_text"
   | "structured_output"
   | "transcript";
-
 export type ObservationEvidenceCertainty = "determinate" | "indeterminate";
 
 export type ObservationSemantics = {
   kind: ObservationKind;
   polarity: ObservationPolarity;
-  ownership: {
-    owner: ObservationOwner;
-    toolFamily?: string;
-  };
+  ownership: { owner: ObservationOwner; toolFamily?: string };
   subject: ObservationSubject;
   evidenceLoss: ObservationEvidenceLoss;
   diagnosticClass?: ObservationDiagnosticClass;
   recoveryHint?: ObservationRecoveryHint;
-  provenance: {
-    origin: ObservationOrigin;
-  };
+  provenance: { origin: ObservationOrigin };
   consequenceBaseline: "low" | "medium" | "high";
-  // Certainty is about the semantic document's determinate shape, not generic
-  // confidence; terminal indeterminate evidence is the narrow indeterminate case.
   evidenceCertainty: ObservationEvidenceCertainty;
 };

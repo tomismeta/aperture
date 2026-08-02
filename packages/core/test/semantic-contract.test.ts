@@ -199,10 +199,6 @@ test("task-failure observation grammar stays document-first and source-internal"
     new URL("../src/task-failure-payload-observation-grammar.ts", import.meta.url),
     "utf8",
   );
-  const evidenceGrammar = readFileSync(
-    new URL("../src/task-failure-evidence-observation-grammar.ts", import.meta.url),
-    "utf8",
-  );
   const core = readFileSync(
     new URL("../src/task-failure-observation-core.ts", import.meta.url),
     "utf8",
@@ -217,15 +213,20 @@ test("task-failure observation grammar stays document-first and source-internal"
     "utf8",
   );
 
-  assert.match(grammar, /readTaskFailureObservationSemantics/);
-  assert.match(grammar, /readTaskFailurePayloadObservationSemantics/);
+  assert.match(grammar, /readTaskFailureObservationSyntax/);
+  assert.match(grammar, /readTaskFailurePayloadObservationSyntax/);
   assert.match(grammar, /ObservationSemantics/);
-  assert.match(payloadGrammar, /readTaskFailurePayloadObservationSemantics/);
+  assert.match(payloadGrammar, /readTaskFailurePayloadObservationSyntax/);
   assert.match(payloadGrammar, /ObservationSemantics/);
-  assert.match(evidenceGrammar, /readTaskFailureEvidenceObservationSemantics/);
-  assert.match(evidenceGrammar, /ObservationSemantics/);
-  assert.match(evidenceGrammar, /import type \{ TaskFailureSemanticEvidence \}/);
-  assert.match(core, /readTaskFailureEvidenceObservationSemantics/);
+  assert.match(core, /TASK_FAILURE_OBSERVATION_EXTRACTORS/);
+  assert.match(core, /satisfies Record<TaskFailureEvidenceKind, ObservationExtractor>/);
+  assert.match(core, /extractTaskFailureObservationCore/);
+  assert.match(core, /observationExtractorId/);
+  assert.match(core, /observationSyntax/);
+  assert.equal(evidence.includes("task-failure-observation-core"), false);
+  assert.equal(evidence.includes("observationExtractorId"), false);
+  assert.equal(evidence.includes("observationSemantics"), false);
+  assert.match(evidence, /observationSyntax/);
   assert.equal(evidence.includes("task-failure-observation-normalizer"), false);
   assert.equal(evidence.includes("observational-status-conflict"), false);
   assert.equal(evidence.includes("observation-semantic-read"), false);
@@ -243,17 +244,15 @@ test("task-failure observation grammar stays document-first and source-internal"
     payloadGrammar.includes("export type TaskFailurePayloadObservationGrammarInput"),
     false,
   );
-  assert.equal(evidenceGrammar.includes("export type TaskFailureEvidenceObservationInput"), false);
   assert.equal(/export\s+type\s+\w*(?:Match|Signals)\b/.test(grammar), false);
   assert.equal(/export\s+type\s+\w*(?:Match|Signals)\b/.test(payloadGrammar), false);
-  assert.equal(/export\s+type\s+\w*(?:Match|Signals)\b/.test(evidenceGrammar), false);
   assert.equal(payloadShapes.includes("TaskFailureStructuredOutputEnvelope"), false);
   assert.equal(payloadShapes.includes("semantic-tool-family"), false);
   assert.equal(payloadShapes.includes("ObservationSemantics"), false);
   assert.equal(grammar.includes("TaskFailureObservationEvidenceKind"), false);
   assert.equal(grammar.includes("structured_tool_output_observation"), false);
   assert.equal(grammar.includes("semantic-failure-detail"), false);
-  assert.match(signals, /readTaskFailureObservationSemantics/);
+  assert.match(signals, /readTaskFailureObservationSyntax/);
   assert.equal(signals.includes("TaskFailureObservationMatch"), false);
 
   for (const forbidden of [
@@ -267,7 +266,6 @@ test("task-failure observation grammar stays document-first and source-internal"
   ]) {
     assert.equal(grammar.includes(forbidden), false, forbidden);
     assert.equal(payloadGrammar.includes(forbidden), false, forbidden);
-    assert.equal(evidenceGrammar.includes(forbidden), false, forbidden);
   }
 
   for (const removedPayloadField of [

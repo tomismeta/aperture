@@ -36,7 +36,8 @@ import { looksLikeBareNonzeroTerminalExitEvidence } from "../src/semantic-termin
 import type { ObservationSemantics } from "../src/observation-semantics.js";
 import { readTaskFailureObservationCore } from "../src/task-failure-observation-core.js";
 import { readSemanticOntologyDiagnostic } from "../src/semantic-ontology.js";
-import { readTaskFailurePayloadObservationSemantics } from "../src/task-failure-payload-observation-grammar.js";
+import { readTaskFailurePayloadObservationSyntax } from "../src/task-failure-payload-observation-grammar.js";
+import type { TaskFailureObservationSyntax } from "../src/task-failure-observation-grammar.js";
 import { readSemanticStructuredOutputOwnership } from "../src/semantic-structured-output-ownership.js";
 import { readTaskFailureStructuredOutputEnvelope } from "../src/semantic-task-failure-structured-output.js";
 
@@ -124,13 +125,40 @@ function payloadObservationSemantics(input: {
   summary: string;
   toolFamily?: string;
 }): ObservationSemantics | null {
-  return readTaskFailurePayloadObservationSemantics({
+  const syntax = readTaskFailurePayloadObservationSyntax({
     summary: input.summary,
     toolFamily: input.toolFamily,
     structuredOutputEnvelope: readTaskFailureStructuredOutputEnvelope(
       input.summary,
       readSemanticStructuredOutputOwnership(input.toolFamily),
     ),
+  });
+  return syntax === null ? null : syntaxObservationSemantics({ kind: "payload", ...syntax });
+}
+
+function signalObservationSemantics(
+  signal: ReturnType<typeof readTaskFailureSemanticSignals>,
+): ObservationSemantics | null {
+  return signal.observationSyntax === null
+    ? null
+    : syntaxObservationSemantics(signal.observationSyntax);
+}
+
+function evidenceObservationSemantics(
+  evidence: ReturnType<typeof readTaskFailureSemanticEvidence>,
+): ObservationSemantics | null {
+  return evidence === null ? null : readTaskFailureObservationCore(evidence);
+}
+
+function syntaxObservationSemantics(
+  observationSyntax: TaskFailureObservationSyntax,
+): ObservationSemantics {
+  return readTaskFailureObservationCore({
+    kind: "observational_payload",
+    observationSyntax,
+    readsAsObservation: true,
+    consequenceBaseline: "high",
+    text: readSemanticTextEvidence(""),
   });
 }
 
@@ -432,7 +460,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     summary: abbreviatedFileViewObservationTranscript,
     toolFamily: "read",
   });
-  assert.deepEqual(readOwnedAbbreviatedFileView.observationSemantics, {
+  assert.deepEqual(signalObservationSemantics(readOwnedAbbreviatedFileView), {
     kind: "payload",
     polarity: "neutral",
     ownership: { owner: "tool", toolFamily: "read" },
@@ -446,7 +474,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     readTaskFailureSemanticSignals({
       summary: abbreviatedFileViewObservationTranscript,
       toolFamily: "bash",
-    }).observationSemantics?.provenance.origin,
+    }).observationSyntax?.origin,
     "read_output",
     "read-owned abbreviated-file-view signal stays tool-family bounded",
   );
@@ -533,7 +561,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
   assert.equal(structuredSourceLiteral.structuredOutputEnvelope.kind, "valid");
   assert.notEqual(structuredSourceLiteral.diagnosticStructuredToolOutput, null);
   assert.equal(
-    structuredSourceLiteral.observationSemantics?.provenance.origin,
+    signalObservationSemantics(structuredSourceLiteral)?.provenance.origin,
     "structured_output",
   );
   assert.equal(structuredSourceLiteral.structuredOutputFailureDiagnostic, false);
@@ -545,7 +573,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
   });
   assert.equal(structuredCompoundSourceLiteral.structuredOutputEnvelope.kind, "valid");
   assert.equal(
-    structuredCompoundSourceLiteral.observationSemantics?.provenance.origin,
+    signalObservationSemantics(structuredCompoundSourceLiteral)?.provenance.origin,
     "structured_output",
   );
   assert.equal(structuredCompoundSourceLiteral.structuredOutputFailureDiagnostic, false);
@@ -560,7 +588,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
   });
   assert.equal(structuredRealisticCompoundSourceLiteral.structuredOutputEnvelope.kind, "valid");
   assert.equal(
-    structuredRealisticCompoundSourceLiteral.observationSemantics?.provenance.origin,
+    signalObservationSemantics(structuredRealisticCompoundSourceLiteral)?.provenance.origin,
     "structured_output",
   );
   assert.equal(structuredRealisticCompoundSourceLiteral.structuredOutputFailureDiagnostic, false);
@@ -572,7 +600,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
   });
   assert.equal(structuredExceptionGroupSourceFixture.structuredOutputEnvelope.kind, "valid");
   assert.equal(
-    structuredExceptionGroupSourceFixture.observationSemantics?.provenance.origin,
+    signalObservationSemantics(structuredExceptionGroupSourceFixture)?.provenance.origin,
     "structured_output",
   );
   assert.equal(structuredExceptionGroupSourceFixture.structuredOutputFailureDiagnostic, false);
@@ -584,7 +612,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
   });
   assert.equal(validStructuredSourceLabel.structuredOutputEnvelope.kind, "valid");
   assert.equal(
-    validStructuredSourceLabel.observationSemantics?.provenance.origin,
+    signalObservationSemantics(validStructuredSourceLabel)?.provenance.origin,
     "structured_output",
   );
   assert.equal(validStructuredSourceLabel.structuredOutputFailureDiagnostic, false);
@@ -596,7 +624,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
   });
   assert.equal(validStructuredAssignmentLabel.structuredOutputEnvelope.kind, "valid");
   assert.equal(
-    validStructuredAssignmentLabel.observationSemantics?.provenance.origin,
+    signalObservationSemantics(validStructuredAssignmentLabel)?.provenance.origin,
     "structured_output",
   );
   assert.equal(validStructuredAssignmentLabel.structuredOutputFailureDiagnostic, false);
@@ -618,7 +646,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
   });
   assert.equal(recoveredStructuredSourceLabel.structuredOutputEnvelope.kind, "recovered");
   assert.equal(
-    recoveredStructuredSourceLabel.observationSemantics?.provenance.origin,
+    signalObservationSemantics(recoveredStructuredSourceLabel)?.provenance.origin,
     "structured_output",
   );
   assert.equal(recoveredStructuredSourceLabel.structuredOutputFailureDiagnostic, false);
@@ -631,7 +659,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
   });
   assert.equal(recoveredStructuredAssignmentLabel.structuredOutputEnvelope.kind, "recovered");
   assert.equal(
-    recoveredStructuredAssignmentLabel.observationSemantics?.provenance.origin,
+    signalObservationSemantics(recoveredStructuredAssignmentLabel)?.provenance.origin,
     "structured_output",
   );
   assert.equal(recoveredStructuredAssignmentLabel.structuredOutputFailureDiagnostic, false);
@@ -644,7 +672,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
   });
   assert.equal(recoveredRealisticCompoundSourceLiteral.structuredOutputEnvelope.kind, "recovered");
   assert.equal(
-    recoveredRealisticCompoundSourceLiteral.observationSemantics?.provenance.origin,
+    signalObservationSemantics(recoveredRealisticCompoundSourceLiteral)?.provenance.origin,
     "structured_output",
   );
   assert.equal(recoveredRealisticCompoundSourceLiteral.structuredOutputFailureDiagnostic, false);
@@ -663,7 +691,10 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
       '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }"}',
   });
   assert.equal(missingToolExactSource.structuredOutputEnvelope.kind, "valid");
-  assert.equal(missingToolExactSource.observationSemantics?.provenance.origin, "structured_output");
+  assert.equal(
+    signalObservationSemantics(missingToolExactSource)?.provenance.origin,
+    "structured_output",
+  );
 
   const opaqueToolExactSource = readTaskFailureSemanticSignals({
     summary:
@@ -671,7 +702,10 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     toolFamily: "opaque_runner",
   });
   assert.equal(opaqueToolExactSource.structuredOutputEnvelope.kind, "valid");
-  assert.equal(opaqueToolExactSource.observationSemantics?.provenance.origin, "structured_output");
+  assert.equal(
+    signalObservationSemantics(opaqueToolExactSource)?.provenance.origin,
+    "structured_output",
+  );
 
   const explicitReadExactSource = readTaskFailureSemanticSignals({
     summary:
@@ -679,7 +713,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     toolFamily: "read",
   });
   assert.equal(explicitReadExactSource.structuredOutputEnvelope.kind, "unsupported");
-  assert.equal(explicitReadExactSource.observationSemantics, null);
+  assert.equal(signalObservationSemantics(explicitReadExactSource), null);
 
   const zeroExitSingleDocumentRow =
     '{"exit_code":0,"wall_time":"0.0510 seconds","output":"docs/guide.md:17:Test failed is documented here..."}';
@@ -690,11 +724,11 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     });
     assert.equal(signal.structuredOutputEnvelope.kind, "valid");
     assert.equal(
-      signal.observationSemantics?.provenance.origin,
+      signalObservationSemantics(signal)?.provenance.origin,
       "structured_output",
       `${toolFamily} owns zero-exit single document rows`,
     );
-    assert.equal(signal.observationSemantics?.subject, "tool");
+    assert.equal(signalObservationSemantics(signal)?.subject, "tool");
   }
   assert.equal(
     readTaskFailureSemanticSignals({
@@ -704,7 +738,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
         output: "Bash failure docs/guide.md:17:Test failed is documented here...",
       }),
       toolFamily: "bash",
-    }).observationSemantics?.provenance.origin,
+    }).observationSyntax?.origin,
     "structured_output",
     "single listing status-prefix stripping is case-insensitive",
   );
@@ -715,10 +749,10 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     toolFamily: "bash",
   });
   assert.equal(
-    zeroExitSingleSourceRow.observationSemantics?.provenance.origin,
+    signalObservationSemantics(zeroExitSingleSourceRow)?.provenance.origin,
     "structured_output",
   );
-  assert.equal(zeroExitSingleSourceRow.observationSemantics?.subject, "source");
+  assert.equal(signalObservationSemantics(zeroExitSingleSourceRow)?.subject, "source");
 
   for (const [summary, expectedObservation] of [
     [
@@ -739,10 +773,10 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     ],
   ] as const) {
     const signal = readTaskFailureSemanticSignals({ summary, toolFamily: "bash" });
-    assert.equal(signal.observationSemantics?.kind === "payload", expectedObservation);
+    assert.equal(signalObservationSemantics(signal)?.kind === "payload", expectedObservation);
     assert.equal(
-      signal.observationSemantics?.subject === "tool" &&
-        signal.observationSemantics.provenance.origin === "structured_output",
+      signalObservationSemantics(signal)?.subject === "tool" &&
+        signalObservationSemantics(signal)?.provenance.origin === "structured_output",
       expectedObservation,
       "pre-existing owned payload shapes do not borrow the single-listing signal",
     );
@@ -760,8 +794,8 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
   ] as const) {
     const signal = readTaskFailureSemanticSignals({ summary, toolFamily });
     assert.equal(
-      signal.observationSemantics?.kind === "payload" &&
-        signal.observationSemantics.provenance.origin === "structured_output",
+      signalObservationSemantics(signal)?.kind === "payload" &&
+        signalObservationSemantics(signal)?.provenance.origin === "structured_output",
       false,
       `${toolFamily ?? "missing tool"} does not own a single-row listing exception for ${summary}`,
     );
@@ -772,7 +806,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
       '{"wall_time":"0.0510 seconds","output":"#include <stdio.h>\\nint main() { return 0; }',
   });
   assert.equal(missingToolTruncatedEnvelope.structuredOutputEnvelope.kind, "invalid");
-  assert.equal(missingToolTruncatedEnvelope.observationSemantics, null);
+  assert.equal(signalObservationSemantics(missingToolTruncatedEnvelope), null);
 
   const rawReadPanic = readTaskFailureSemanticSignals({
     summary: runtimePanic,
@@ -832,7 +866,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
   ]) {
     const signal = readTaskFailureSemanticSignals({ summary });
     assert.equal(signal.diagnosticObservationTranscript, false);
-    assert.deepEqual(signal.observationSemantics, {
+    assert.deepEqual(signalObservationSemantics(signal), {
       kind: "payload",
       polarity: "neutral",
       ownership: { owner: "source" },
@@ -848,19 +882,19 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     summary: directFailedLiteralObservation,
   });
   assert.equal(directFailedLiteral.diagnosticObservationTranscript, true);
-  assert.equal(directFailedLiteral.observationSemantics, null);
+  assert.equal(signalObservationSemantics(directFailedLiteral), null);
 
   const directFailedPhrase = readTaskFailureSemanticSignals({
     summary: directFailedPhraseObservation,
   });
   assert.equal(directFailedPhrase.diagnosticObservationTranscript, true);
-  assert.equal(directFailedPhrase.observationSemantics, null);
+  assert.equal(signalObservationSemantics(directFailedPhrase), null);
 
   const negatedFailedTests = readTaskFailureSemanticSignals({
     summary: negatedFailedTestsObservation,
   });
   assert.equal(negatedFailedTests.diagnosticObservationTranscript, false);
-  assert.equal(negatedFailedTests.observationSemantics, null);
+  assert.equal(signalObservationSemantics(negatedFailedTests), null);
 });
 
 test("tool-use rejection outcome shape requires coherent full-message clauses", () => {
@@ -1156,7 +1190,7 @@ test("task failure semantic signals compile execution observations into one fiel
   const summary = '{"exit_code":0,"wall_time":"0.0510 seconds","output":"No output."}';
   const signals = readTaskFailureSemanticSignals({ summary });
 
-  assert.deepEqual(signals.observationSemantics, {
+  assert.deepEqual(signalObservationSemantics(signals), {
     kind: "outcome",
     polarity: "success",
     ownership: { owner: "source" },
@@ -1538,7 +1572,6 @@ test("host-style failed event fixtures route through observation semantics gramm
     const evidence = readTaskFailureSemanticEvidence(event);
     assert.notEqual(evidence, null, testCase.name);
     assert.equal(evidence?.kind, testCase.expectedKind, testCase.name);
-    assert.deepEqual(evidence?.observationSemantics, testCase.expected, testCase.name);
     assert.deepEqual(readTaskFailureObservationCore(evidence), testCase.expected, testCase.name);
 
     const ontology = readSemanticOntologyDiagnostic(event);
@@ -1707,7 +1740,6 @@ test("task failure evidence attaches canonical observation semantics to non-payl
     });
     assert.notEqual(evidence, null, testCase.name);
     assert.equal(evidence?.kind, testCase.expectedKind, testCase.name);
-    assert.deepEqual(evidence?.observationSemantics, testCase.expected, testCase.name);
     assert.deepEqual(readTaskFailureObservationCore(evidence), testCase.expected, testCase.name);
   }
 });
@@ -2290,8 +2322,9 @@ test("task failure evidence routes edit output outcomes by result semantics", ()
     ambiguousReplacementFailure,
     modifiedSinceReadFailure,
   ]) {
+    assert.notEqual(failure, null);
     assert.deepEqual(
-      failure?.observationSemantics,
+      readTaskFailureObservationCore(failure),
       {
         ...observationSemantics({
           kind: "diagnostic",
@@ -2325,7 +2358,7 @@ test("task failure evidence routes edit output outcomes by result semantics", ()
     recoveredReadback,
   ]) {
     assert.deepEqual(
-      applied?.observationSemantics,
+      evidenceObservationSemantics(applied),
       observationSemantics({
         kind: "payload",
         polarity: "neutral",
@@ -2388,16 +2421,6 @@ test("task failure evidence classifies structured tool output without treating i
       kind: "unclassified_failure",
       failureDetail: "indeterminate",
       toolFamily: "bash",
-      observationSemantics: observationSemantics({
-        kind: "unknown",
-        polarity: "failure",
-        origin: "semantic_evidence",
-        subject: "tool",
-        consequenceBaseline: "high",
-        toolFamily: "bash",
-        evidenceLoss: "unknown",
-        recoveryHint: "inspect_original_evidence",
-      }),
       readsAsObservation: false,
       consequenceBaseline: "high",
       text: {
@@ -2496,10 +2519,12 @@ test("task failure evidence classifies structured tool output without treating i
   });
 
   assert.equal(
-    readTaskFailureSemanticSignals({
-      summary: rawCommandDiff,
-      toolFamily: "bash",
-    }).observationSemantics?.subject,
+    signalObservationSemantics(
+      readTaskFailureSemanticSignals({
+        summary: rawCommandDiff,
+        toolFamily: "bash",
+      }),
+    )?.subject,
     "source",
     "anchored raw command unified diffs should expose a dedicated observation signal",
   );
@@ -2512,7 +2537,10 @@ test("task failure evidence classifies structured tool output without treating i
     summary: rawCommandSourceReadback,
     toolFamily: "bash",
   });
-  assert.equal(rawCommandSourceReadbackSignals.observationSemantics?.consequenceBaseline, "high");
+  assert.equal(
+    signalObservationSemantics(rawCommandSourceReadbackSignals)?.consequenceBaseline,
+    "high",
+  );
   const rawCommandSourceReadbackEvidence = readTaskFailureSemanticEvidence({
     id: "evt:evidence:raw-command-source-readback",
     taskId: "task:evidence:raw-command-source-readback",
@@ -5184,36 +5212,38 @@ test("task failure evidence preserves current observational classes", () => {
     })?.kind,
     "routine_bash_success_observation",
   );
+  const commandObservationSource = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:command-observation-source",
+    taskId: "task:evidence:command-observation-source",
+    timestamp,
+    type: "task.updated",
+    title: "bash failure",
+    summary:
+      'OBSERVATION: def finish(self, chunk: Optional[Union[str, bytes, dict]] = None) -> "Future[None]": """Finishes this response."""',
+    status: "failed",
+    toolFamily: "bash",
+  });
+  assert.equal(commandObservationSource?.kind, "observational_payload");
+  assert.equal(commandObservationSource?.toolFamily, "bash");
+  assert.equal(commandObservationSource?.readsAsObservation, true);
+  assert.equal(commandObservationSource?.consequenceBaseline, "high");
   assert.deepEqual(
-    readTaskFailureSemanticEvidence({
-      id: "evt:evidence:command-observation-source",
-      taskId: "task:evidence:command-observation-source",
-      timestamp,
-      type: "task.updated",
-      title: "bash failure",
-      summary:
-        'OBSERVATION: def finish(self, chunk: Optional[Union[str, bytes, dict]] = None) -> "Future[None]": """Finishes this response."""',
-      status: "failed",
+    commandObservationSource?.text,
+    readSemanticTextEvidence(
+      'bash failure OBSERVATION: def finish(self, chunk: Optional[Union[str, bytes, dict]] = None) -> "Future[None]": """Finishes this response."""',
+      "bash",
+    ),
+  );
+  assert.deepEqual(
+    evidenceObservationSemantics(commandObservationSource),
+    observationSemantics({
+      kind: "payload",
+      polarity: "neutral",
+      origin: "transcript",
+      subject: "tool",
+      consequenceBaseline: "high",
       toolFamily: "bash",
     }),
-    {
-      kind: "observational_payload",
-      toolFamily: "bash",
-      observationSemantics: observationSemantics({
-        kind: "payload",
-        polarity: "neutral",
-        origin: "transcript",
-        subject: "tool",
-        consequenceBaseline: "high",
-        toolFamily: "bash",
-      }),
-      readsAsObservation: true,
-      consequenceBaseline: "high",
-      text: readSemanticTextEvidence(
-        'bash failure OBSERVATION: def finish(self, chunk: Optional[Union[str, bytes, dict]] = None) -> "Future[None]": """Finishes this response."""',
-        "bash",
-      ),
-    },
     "command-family explicit source observations should not remain failed work",
   );
   assert.equal(
@@ -6674,14 +6704,6 @@ test("task failure evidence preserves current observational classes", () => {
     {
       kind: "routine_search_output",
       toolFamily: "search",
-      observationSemantics: observationSemantics({
-        kind: "payload",
-        polarity: "neutral",
-        origin: "semantic_evidence",
-        subject: "search",
-        consequenceBaseline: "high",
-        toolFamily: "search",
-      }),
       readsAsObservation: true,
       consequenceBaseline: "high",
       text: {
@@ -7362,10 +7384,12 @@ test("task failure evidence classifies explicit missing-tool observation transcr
   assert.equal(explicitReadGeneralizedAbbreviatedFileView.consequenceBaseline, "low");
   assert.equal(explicitReadGeneralizedAbbreviatedFileView.toolFamily, "read");
   assert.deepEqual(
-    readTaskFailureSemanticSignals({
-      summary: lineFetchAbbreviatedFileViewObservationTranscript,
-      toolFamily: "read",
-    }).observationSemantics,
+    signalObservationSemantics(
+      readTaskFailureSemanticSignals({
+        summary: lineFetchAbbreviatedFileViewObservationTranscript,
+        toolFamily: "read",
+      }),
+    ),
     observationSemantics({
       kind: "payload",
       polarity: "neutral",

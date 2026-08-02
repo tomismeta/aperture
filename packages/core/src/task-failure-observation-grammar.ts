@@ -2,7 +2,10 @@ import type { ObservationSemantics } from "./observation-semantics.js";
 import type { EditOutputOutcome } from "./semantic-edit-output-shapes.js";
 import type { ExplicitObservationTranscript } from "./semantic-observation-transcript-shapes.js";
 import type { TaskFailureStructuredOutputEnvelope } from "./semantic-task-failure-structured-output.js";
-import { readTaskFailurePayloadObservationSemantics } from "./task-failure-payload-observation-grammar.js";
+import {
+  readTaskFailurePayloadObservationSyntax,
+  type TaskFailurePayloadObservationSyntax,
+} from "./task-failure-payload-observation-grammar.js";
 
 type TaskFailureObservationGrammarInput = {
   commandObservationTranscript: ExplicitObservationTranscript | null;
@@ -18,10 +21,27 @@ type TaskFailureObservationGrammarInput = {
 };
 
 type ObservationOrigin = ObservationSemantics["provenance"]["origin"];
+type ObservationSubject = ObservationSemantics["subject"];
 
-export function readTaskFailureObservationSemantics(
+export type TaskFailureObservationSyntax =
+  | (TaskFailurePayloadObservationSyntax & { kind: "payload" })
+  | {
+      kind: "outcome";
+      origin: ObservationOrigin;
+      subject: ObservationSubject;
+      consequenceBaseline: ObservationSemantics["consequenceBaseline"];
+      toolFamily?: string;
+    }
+  | {
+      kind: "control";
+      origin: ObservationOrigin;
+      recoveryHint: NonNullable<ObservationSemantics["recoveryHint"]>;
+      toolFamily?: string;
+    };
+
+export function readTaskFailureObservationSyntax(
   input: TaskFailureObservationGrammarInput,
-): ObservationSemantics | null {
+): TaskFailureObservationSyntax | null {
   if (input.missingToolObservationTranscript) {
     return transcriptObservation(input.missingToolObservationTranscript);
   }
@@ -42,13 +62,13 @@ export function readTaskFailureObservationSemantics(
       "read",
     );
   }
-  const payloadObservationSemantics = readTaskFailurePayloadObservationSemantics({
+  const payloadObservationSyntax = readTaskFailurePayloadObservationSyntax({
     summary: input.summary,
     structuredOutputEnvelope: input.structuredOutputEnvelope,
     toolFamily: input.toolFamily,
   });
-  if (payloadObservationSemantics !== null) {
-    return payloadObservationSemantics;
+  if (payloadObservationSyntax !== null) {
+    return { kind: "payload", ...payloadObservationSyntax };
   }
   if (input.structuredOutputZeroExitSuccess) {
     return outcomeObservation(
@@ -64,7 +84,7 @@ export function readTaskFailureObservationSemantics(
 function transcriptObservation(
   transcript: ExplicitObservationTranscript,
   toolFamily?: string,
-): ObservationSemantics {
+): TaskFailureObservationSyntax {
   return payloadObservation(
     "transcript",
     transcript.shape === "abbreviated_file_view"
@@ -79,75 +99,43 @@ function transcriptObservation(
 
 function payloadObservation(
   origin: ObservationOrigin,
-  subject: ObservationSemantics["subject"],
+  subject: ObservationSubject,
   consequenceBaseline: ObservationSemantics["consequenceBaseline"],
   toolFamily?: string,
-): ObservationSemantics {
-  return baseObservation({
+): TaskFailureObservationSyntax {
+  return {
     kind: "payload",
-    polarity: "neutral",
     origin,
-    subject,
-    consequenceBaseline,
+    fallbackSubject: subject,
+    payload: { source: subject === "source", consequenceBaseline },
     ...(toolFamily !== undefined ? { toolFamily } : {}),
-  });
+  };
 }
 
 function outcomeObservation(
   origin: ObservationOrigin,
-  subject: ObservationSemantics["subject"],
+  subject: ObservationSubject,
   consequenceBaseline: ObservationSemantics["consequenceBaseline"],
   toolFamily?: string,
-): ObservationSemantics {
-  return baseObservation({
+): TaskFailureObservationSyntax {
+  return {
     kind: "outcome",
-    polarity: "success",
     origin,
     subject,
     consequenceBaseline,
     ...(toolFamily !== undefined ? { toolFamily } : {}),
-  });
+  };
 }
 
 function controlObservation(
   origin: ObservationOrigin,
   recoveryHint: NonNullable<ObservationSemantics["recoveryHint"]>,
   toolFamily?: string,
-): ObservationSemantics {
+): TaskFailureObservationSyntax {
   return {
-    ...baseObservation({
-      kind: "control",
-      polarity: "neutral",
-      origin,
-      owner: "tool",
-      subject: "tool",
-      consequenceBaseline: "low",
-      ...(toolFamily !== undefined ? { toolFamily } : {}),
-    }),
+    kind: "control",
+    origin,
     recoveryHint,
-  };
-}
-
-function baseObservation(input: {
-  kind: ObservationSemantics["kind"];
-  polarity: ObservationSemantics["polarity"];
-  origin: ObservationOrigin;
-  owner?: ObservationSemantics["ownership"]["owner"];
-  subject: ObservationSemantics["subject"];
-  consequenceBaseline: ObservationSemantics["consequenceBaseline"];
-  toolFamily?: string;
-}): ObservationSemantics {
-  return {
-    kind: input.kind,
-    polarity: input.polarity,
-    ownership: {
-      owner: input.owner ?? (input.toolFamily === undefined ? "source" : "tool"),
-      ...(input.toolFamily !== undefined ? { toolFamily: input.toolFamily } : {}),
-    },
-    subject: input.subject,
-    evidenceLoss: "none",
-    provenance: { origin: input.origin },
-    consequenceBaseline: input.consequenceBaseline,
-    evidenceCertainty: "determinate",
+    ...(toolFamily !== undefined ? { toolFamily } : {}),
   };
 }

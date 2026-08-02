@@ -17,9 +17,16 @@ type TaskFailurePayloadObservationGrammarInput = {
 type ObservationOrigin = ObservationSemantics["provenance"]["origin"];
 type ObservationSubject = ObservationSemantics["subject"];
 
-export function readTaskFailurePayloadObservationSemantics(
+export type TaskFailurePayloadObservationSyntax = {
+  origin: ObservationOrigin;
+  fallbackSubject: ObservationSubject;
+  payload: PayloadSyntaxObservation;
+  toolFamily?: string;
+};
+
+export function readTaskFailurePayloadObservationSyntax(
   input: TaskFailurePayloadObservationGrammarInput,
-): ObservationSemantics | null {
+): TaskFailurePayloadObservationSyntax | null {
   if (input.toolFamily === "read") {
     const readObservation = syntaxObservation(
       readReadOutputPayloadObservation(input.summary),
@@ -68,22 +75,15 @@ function syntaxObservation(
   origin: ObservationOrigin,
   fallbackSubject: ObservationSubject,
   toolFamily?: string,
-): ObservationSemantics | null {
+): TaskFailurePayloadObservationSyntax | null {
   if (payload === null) {
     return null;
   }
 
   return {
-    kind: "payload",
-    polarity: "neutral",
-    ownership: {
-      owner: toolFamily === undefined ? "source" : "tool",
-      ...(toolFamily !== undefined ? { toolFamily } : {}),
-    },
-    subject: payload.source ? "source" : fallbackSubject,
-    evidenceLoss: "none",
-    provenance: { origin },
-    consequenceBaseline: payload.consequenceBaseline,
-    evidenceCertainty: "determinate",
+    origin,
+    fallbackSubject,
+    payload,
+    ...(toolFamily !== undefined ? { toolFamily } : {}),
   };
 }

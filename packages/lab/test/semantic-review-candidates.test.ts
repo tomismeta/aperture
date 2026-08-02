@@ -7,7 +7,11 @@ import test from "node:test";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
-import type { TaskFailureSemanticEvidence } from "@tomismeta/aperture-core/internal";
+import {
+  extractTaskFailureObservationCore,
+  type TaskFailureObservationInput,
+  type TaskFailureSemanticEvidence,
+} from "@tomismeta/aperture-core/internal";
 import { TRUNCATED_SOURCE_EVIDENCE_FACTOR } from "@tomismeta/aperture-core/semantic";
 
 import {
@@ -657,24 +661,25 @@ function createMetadataTruncatedUnclassifiedFailedBundle() {
 }
 
 function createUnclassifiedEvidence(toolFamily?: string): TaskFailureSemanticEvidence {
-  return {
+  const text = {
+    routineSuccessObservation: false,
+    terminalFailureEvidence: false,
+    expectedDiagnosticFailure: false,
+    observationalReadback: false,
+    taggedFileObservation: false,
+    readObservationPayload: false,
+    searchResultOutput: false,
+    sourceCodeObservation: false,
+    logObservation: false,
+    buildMetadataObservation: false,
+  };
+  const evidence: TaskFailureObservationInput = {
     kind: "unclassified_failure",
     ...(toolFamily ? { toolFamily } : {}),
     readsAsObservation: false,
     consequenceBaseline: "high",
-    text: {
-      routineSuccessObservation: false,
-      terminalFailureEvidence: false,
-      expectedDiagnosticFailure: false,
-      observationalReadback: false,
-      taggedFileObservation: false,
-      readObservationPayload: false,
-      searchResultOutput: false,
-      sourceCodeObservation: false,
-      logObservation: false,
-      buildMetadataObservation: false,
-    },
   };
+  return { ...evidence, text, ...extractTaskFailureObservationCore(evidence) };
 }
 
 function sumRecordValues(record: Record<string, number>): number {

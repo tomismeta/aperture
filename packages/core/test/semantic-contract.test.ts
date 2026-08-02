@@ -11,19 +11,26 @@ const timestamp = "2026-03-27T17:00:00.000Z";
 
 test("task-failure judgment agreement stays behind the normalized observation boundary", () => {
   const source = readFileSync(new URL("../src/judgment-input.ts", import.meta.url), "utf8");
+  const reader = readFileSync(
+    new URL("../src/task-failure-observation-reader.ts", import.meta.url),
+    "utf8",
+  );
 
-  assert.match(source, /readObservationExpectedSemanticRead/);
+  assert.match(source, /readTaskFailureObservationCoreFromEvent/);
+  assert.match(source, /normalizeTaskFailureObservationFromCore/);
+  assert.equal(source.match(/readTaskFailureObservationCoreFromEvent\(/g)?.length, 1);
   assert.equal(source.includes("type TaskFailureSemanticEvidence"), false);
   assert.equal(source.includes("readTaskFailureSemanticAgreement"), false);
   assert.equal(source.includes("failureEvidenceAgreesWithSemanticRead"), false);
-  assert.equal(source.includes("normalizeTaskFailureObservation"), false);
+  assert.equal(source.includes("readTaskFailureSemanticEvidence"), false);
   assert.equal(source.includes("draftObservation"), false);
   assert.equal(source.includes("type TaskFailureObservationCore"), false);
-  assert.match(source, /readTaskFailureObservationCore/);
-  assert.match(source, /ObservationSemantics/);
-  assert.match(source, /enrichTaskFailureObservation/);
-  assert.match(source, /function readObservationSemanticAgreement/);
-  assert.match(source, /function observationAgreesWithSemanticRead/);
+  assert.match(reader, /readObservationExpectedSemanticRead/);
+  assert.match(reader, /readTaskFailureObservationCoreFromEvent/);
+  assert.match(reader, /ObservationSemantics/);
+  assert.match(reader, /enrichTaskFailureObservation/);
+  assert.match(reader, /function readTaskFailureObservationSemanticAgreement/);
+  assert.match(reader, /function observationAgreesWithSemanticRead/);
 
   for (const rawEvidenceBranch of [
     "failureEvidence.kind",
@@ -38,9 +45,10 @@ test("task-failure judgment agreement stays behind the normalized observation bo
 test("task-failure semantic interpreter stays behind the observation-core boundary", () => {
   const source = readFileSync(new URL("../src/semantic-interpreter.ts", import.meta.url), "utf8");
 
-  assert.match(source, /readTaskFailureObservationCore/);
+  assert.match(source, /readTaskFailureObservationCoreFromEvent/);
   assert.match(source, /observationReadsAsStatusUpdate/);
   assert.match(source, /observation-semantic-read/);
+  assert.equal(source.includes("readTaskFailureSemanticEvidence"), false);
   assert.equal(source.includes("type TaskFailureObservationCore"), false);
 
   for (const rawEvidenceBranch of [
@@ -127,6 +135,10 @@ test("observation semantic read owns consumer-facing status/failure mapping", ()
     new URL("../src/semantic-evidence.ts", import.meta.url),
     "utf8",
   );
+  const observationReader = readFileSync(
+    new URL("../src/task-failure-observation-reader.ts", import.meta.url),
+    "utf8",
+  );
   const interpreter = readFileSync(
     new URL("../src/semantic-interpreter.ts", import.meta.url),
     "utf8",
@@ -136,9 +148,10 @@ test("observation semantic read owns consumer-facing status/failure mapping", ()
   assert.match(semanticRead, /readObservationExpectedSemanticRead/);
   assert.match(semanticRead, /observationReadsAsStatusUpdate/);
   assert.equal(semanticRead.includes("export type ObservationExpectedSemanticRead"), false);
-  assert.match(semanticEvidence, /readObservationExpectedSemanticRead/);
+  assert.match(observationReader, /readObservationExpectedSemanticRead/);
   assert.match(interpreter, /observationReadsAsStatusUpdate/);
-  assert.match(judgmentInput, /readObservationExpectedSemanticRead/);
+  assert.equal(semanticEvidence.includes("readObservationExpectedSemanticRead"), false);
+  assert.equal(judgmentInput.includes("readObservationExpectedSemanticRead"), false);
   assert.equal(semanticEvidence.includes("failureEvidence.readsAsObservation"), false);
   assert.equal(judgmentInput.includes("const readsAsObservation ="), false);
   assert.equal(interpreter.includes("function observationReadsAsStatusUpdate"), false);
@@ -180,6 +193,9 @@ test("task-failure observation grammar stays document-first and source-internal"
   assert.match(evidenceGrammar, /ObservationSemantics/);
   assert.match(evidenceGrammar, /import type \{ TaskFailureSemanticEvidence \}/);
   assert.match(core, /readTaskFailureEvidenceObservationSemantics/);
+  assert.equal(evidence.includes("task-failure-observation-normalizer"), false);
+  assert.equal(evidence.includes("observational-status-conflict"), false);
+  assert.equal(evidence.includes("observation-semantic-read"), false);
   for (const rawEvidenceBranch of [
     "evidence.kind",
     "evidence.failureDetail",

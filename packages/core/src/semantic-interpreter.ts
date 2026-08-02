@@ -18,7 +18,6 @@ import {
   readExplicitSemanticToolFamily,
   type SemanticDetectionContextItem,
 } from "./semantic-detection.js";
-import { readTaskFailureSemanticEvidence } from "./semantic-evidence.js";
 import {
   semanticActivityClassForRequestKind,
   semanticIntentFrameForRequestKind,
@@ -31,7 +30,7 @@ import {
   semanticWhyNowForTaskStatus,
 } from "./semantic-language.js";
 import { observationReadsAsStatusUpdate } from "./observation-semantic-read.js";
-import { readTaskFailureObservationCore } from "./task-failure-observation-core.js";
+import { readTaskFailureObservationCoreFromEvent } from "./task-failure-observation-reader.js";
 
 export type SemanticInterpreter = (event: SourceEvent) => SemanticInterpretation;
 type SemanticProvenanceField = keyof SemanticFieldProvenance;
@@ -124,9 +123,8 @@ function inferTaskUpdateSemantics(
     event.toolFamily,
     event.context,
   );
-  const failureEvidence = event.status === "failed" ? readTaskFailureSemanticEvidence(event) : null;
   const failureObservationCore =
-    failureEvidence !== null ? readTaskFailureObservationCore(failureEvidence) : null;
+    event.status === "failed" ? readTaskFailureObservationCoreFromEvent(event) : null;
   const awaitsAuthorization = failureObservationCore?.recoveryHint === "await_authorization";
   const { toolFamily, source: toolFamilySource } = resolveSemanticToolFamily(
     taxonomyInput,

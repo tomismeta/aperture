@@ -34,6 +34,7 @@ test("semantic kernel surface report covers every declared family", async () => 
     "packages/core/src/judgment-input.ts",
     "packages/core/src/observational-status-conflict-kind.ts",
     "packages/core/src/task-failure-observation-normalizer.ts",
+    "packages/core/src/task-failure-observation-reader.ts",
     "packages/core/src/trace-recorder.ts",
   ]);
 });

@@ -16,10 +16,6 @@ import {
   SOURCE_CODE_PATH_PATTERN,
   TAGGED_FILE_OBSERVATION_PHRASES,
 } from "./semantic-patterns.js";
-import type { SemanticInterpretation } from "./semantic-types.js";
-import type { ObservationalStatusConflictEvidence } from "./observational-status-conflict.js";
-import { readObservationalStatusConflictEvidenceFromObservation } from "./observational-status-conflict-kind.js";
-import { readObservationExpectedSemanticRead } from "./observation-semantic-read.js";
 import { containsAnySemanticPhrase, normalizeSemanticText } from "./semantic-text.js";
 import { readTaskFailureSemanticSignals } from "./semantic-task-failure-signals.js";
 import {
@@ -44,10 +40,6 @@ import {
 } from "./semantic-failure-detail.js";
 import { readExplicitOperationSuccessObservationTranscript } from "./semantic-operation-success-observation-shapes.js";
 import { looksLikeEmptyJsonObject } from "./semantic-structured-output.js";
-import {
-  normalizeTaskFailureObservation,
-  readTaskFailureObservationCore,
-} from "./task-failure-observation-normalizer.js";
 import type { ObservationSemantics } from "./observation-semantics.js";
 import { readTaskFailureEvidenceObservationSemantics } from "./task-failure-evidence-observation-grammar.js";
 
@@ -344,49 +336,6 @@ function payloadObservationSuppressesGenericTerminalEvidence(
     (observation.provenance.origin === "read_output" ||
       observation.provenance.origin === "structured_output")
   );
-}
-
-export function hasRoutineObservationalStatusConflictSemanticRead(
-  event: SemanticEvidenceTaskUpdateEvent,
-  interpretation: SemanticInterpretation,
-  abstained = interpretation.abstained === true,
-): boolean {
-  return readRoutineObservationalStatusConflictEvidence(event, interpretation, abstained) !== null;
-}
-
-export function readRoutineObservationalStatusConflictEvidence(
-  event: SemanticEvidenceTaskUpdateEvent,
-  interpretation: SemanticInterpretation,
-  abstained = interpretation.abstained === true,
-): ObservationalStatusConflictEvidence | null {
-  const failureEvidence = readTaskFailureSemanticEvidence(event);
-  if (failureEvidence === null) {
-    return null;
-  }
-  const observationCore = readTaskFailureObservationCore(failureEvidence);
-  const expected = readObservationExpectedSemanticRead(observationCore);
-
-  return readObservationalStatusConflictEvidenceFromObservation({
-    event,
-    interpretation,
-    abstained,
-    observation: normalizeTaskFailureObservation({
-      failureEvidence,
-      ontology: {
-        ask: "status",
-        activity: expected.activity,
-        ...(interpretation.consequence !== undefined
-          ? { consequence: interpretation.consequence }
-          : {}),
-        blocking: "non_blocking",
-        episode: "unknown",
-        confidence: interpretation.confidence,
-        source: "inferred",
-      },
-      abstained,
-      semanticAgreement: "stable",
-    }),
-  });
 }
 
 function looksLikeReadObservationPayload(text: string): boolean {

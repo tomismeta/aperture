@@ -20,13 +20,13 @@ export const SEMANTIC_KERNEL_SURFACE_PROFILE_ID = "semantic-kernel-surface" as c
 export const SEMANTIC_KERNEL_SURFACE_PROFILE_VERSION = 1 as const;
 
 export const SEMANTIC_KERNEL_SURFACE_THRESHOLDS = {
-  maximumModules: 106,
-  maximumTotalLines: 9403,
+  maximumModules: 107,
+  maximumTotalLines: 9493,
   maximumMatcherSites: 586,
   maximumPhraseLiterals: 175,
   maximumExportedDetectors: 179,
   maximumFamilyModules: 29,
-  maximumNormalizedObservationDirectConsumers: 5,
+  maximumNormalizedObservationDirectConsumers: 6,
 } as const;
 
 export const OBSERVATION_PRIMITIVE_FILES = [
@@ -38,6 +38,7 @@ export const OBSERVATION_PRIMITIVE_FILES = [
   "packages/core/src/task-failure-evidence-observation-grammar.ts",
   "packages/core/src/task-failure-observation-core.ts",
   "packages/core/src/task-failure-observation-normalizer.ts",
+  "packages/core/src/task-failure-observation-reader.ts",
 ] as const;
 
 export const TASK_FAILURE_PARSING_FILES = [
@@ -193,6 +194,7 @@ export const SEMANTIC_KERNEL_SURFACE_MANIFEST = [
       "packages/core/src/task-failure-observation-core.ts",
       "packages/core/src/task-failure-observation-grammar.ts",
       "packages/core/src/task-failure-observation-normalizer.ts",
+      "packages/core/src/task-failure-observation-reader.ts",
       "packages/core/src/task-failure-payload-observation-grammar.ts",
     ],
   },

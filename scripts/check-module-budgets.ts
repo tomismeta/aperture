@@ -21,7 +21,7 @@ const SEMANTIC_MODULE_COUNT_BUDGET = 100;
 const SEMANTIC_LINE_COUNT_BUDGET = 8695;
 const SEMANTIC_MATCHER_SITE_BUDGET = 600;
 const SEMANTIC_PHRASE_LITERAL_BUDGET = 175;
-const OBSERVATION_PRIMITIVE_LINE_COUNT_BUDGET = 650;
+const OBSERVATION_PRIMITIVE_LINE_COUNT_BUDGET = 785;
 const TASK_FAILURE_PARSING_LINE_COUNT_BUDGET = 1225;
 
 const OBSERVATION_SEMANTICS_FILE = "packages/core/src/observation-semantics.ts";
@@ -36,6 +36,7 @@ const TASK_FAILURE_EVIDENCE_OBSERVATION_GRAMMAR_FILE =
 const TASK_FAILURE_OBSERVATION_CORE_FILE = "packages/core/src/task-failure-observation-core.ts";
 const TASK_FAILURE_OBSERVATION_NORMALIZER_FILE =
   "packages/core/src/task-failure-observation-normalizer.ts";
+const TASK_FAILURE_OBSERVATION_READER_FILE = "packages/core/src/task-failure-observation-reader.ts";
 
 const budgets = [
   { file: "packages/runtime/src/runtime.ts", maxLines: 800 },
@@ -69,6 +70,7 @@ const budgets = [
   { file: TASK_FAILURE_EVIDENCE_OBSERVATION_GRAMMAR_FILE, maxLines: 205 },
   { file: TASK_FAILURE_OBSERVATION_CORE_FILE, maxLines: 205 },
   { file: TASK_FAILURE_OBSERVATION_NORMALIZER_FILE, maxLines: 150 },
+  { file: TASK_FAILURE_OBSERVATION_READER_FILE, maxLines: 175 },
   { file: "packages/core/src/attention-evaluator.ts", maxLines: 350 },
   { file: "packages/core/src/attention-evaluator-config.ts", maxLines: 125 },
   { file: "packages/core/src/attention-evaluator-input.ts", maxLines: 325 },

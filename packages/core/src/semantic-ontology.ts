@@ -1,7 +1,7 @@
 import type { ApertureEvent } from "./events.js";
 import type { SourceEvent } from "./source-event.js";
 import { interpretSourceEvent } from "./semantic-interpreter.js";
-import { readRoutineObservationalStatusConflictEvidence } from "./semantic-evidence.js";
+import { readRoutineObservationalStatusConflictEvidenceFromEvent } from "./task-failure-observation-reader.js";
 import type { ObservationalStatusConflictEvidence } from "./observational-status-conflict.js";
 import type { SemanticInterpretation, SemanticRelationHint } from "./semantic-types.js";
 import type {
@@ -56,7 +56,7 @@ export function projectAttentionOntologyDiagnostic(
   return projectAttentionOntologyDiagnosticWithStatusConflictEvidence(
     event,
     interpretation,
-    readRoutineObservationalStatusConflictEvidence(event, interpretation),
+    readRoutineObservationalStatusConflictEvidenceFromEvent(event, interpretation),
   );
 }
 

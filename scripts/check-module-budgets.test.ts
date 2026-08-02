@@ -140,8 +140,13 @@ test("module budget checker counts the observation primitive as one governed sur
       "packages/core/src/task-failure-observation-normalizer.ts",
       "const one = 1;\nconst two = 2;\nconst three = 3;\n",
     );
+    await writeRepoFile(
+      root,
+      "packages/core/src/task-failure-observation-reader.ts",
+      "const one = 1;\nconst two = 2;\n",
+    );
 
-    assert.equal(await countObservationPrimitiveLines(root), 25);
+    assert.equal(await countObservationPrimitiveLines(root), 28);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

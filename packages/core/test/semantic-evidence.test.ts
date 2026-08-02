@@ -2,11 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  hasRoutineObservationalStatusConflictSemanticRead,
-  readRoutineObservationalStatusConflictEvidence,
   readTaskFailureSemanticEvidence,
   readSemanticTextEvidence,
 } from "../src/semantic-evidence.js";
+import { readRoutineObservationalStatusConflictEvidenceFromEvent } from "../src/task-failure-observation-reader.js";
 import { readTaskFailureSemanticSignals } from "../src/semantic-task-failure-signals.js";
 import {
   readExplicitObservationTranscript,
@@ -42,6 +41,23 @@ import { readSemanticStructuredOutputOwnership } from "../src/semantic-structure
 import { readTaskFailureStructuredOutputEnvelope } from "../src/semantic-task-failure-structured-output.js";
 
 const timestamp = "2026-04-05T18:45:00.000Z";
+type RoutineObservationalStatusConflictEvent = Parameters<
+  typeof readRoutineObservationalStatusConflictEvidenceFromEvent
+>[0];
+type RoutineObservationalStatusConflictSemantic = Parameters<
+  typeof readRoutineObservationalStatusConflictEvidenceFromEvent
+>[1];
+
+function readsAsRoutineObservationalStatusConflict(
+  event: RoutineObservationalStatusConflictEvent,
+  semantic: RoutineObservationalStatusConflictSemantic,
+  abstained?: boolean,
+): boolean {
+  return (
+    readRoutineObservationalStatusConflictEvidenceFromEvent(event, semantic, abstained) !== null
+  );
+}
+
 const rejectedToolUseMessage =
   "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
 const declinedActionMessage =
@@ -7994,27 +8010,27 @@ test("routine observational status-conflict evidence is a narrow semantic read",
     toolFamily: "bash",
   };
 
-  assert.equal(hasRoutineObservationalStatusConflictSemanticRead(event, semantic), true);
+  assert.equal(readsAsRoutineObservationalStatusConflict(event, semantic), true);
   assert.equal(
-    hasRoutineObservationalStatusConflictSemanticRead(event, {
+    readsAsRoutineObservationalStatusConflict(event, {
       ...semantic,
       confidence: "medium",
     }),
     false,
   );
   assert.equal(
-    hasRoutineObservationalStatusConflictSemanticRead(event, {
+    readsAsRoutineObservationalStatusConflict(event, {
       ...semantic,
       toolFamily: "read",
     }),
     false,
   );
-  assert.equal(hasRoutineObservationalStatusConflictSemanticRead(event, semantic, true), false);
+  assert.equal(readsAsRoutineObservationalStatusConflict(event, semantic, true), false);
 });
 
 test("observational status-conflict evidence includes structured, read, and search observations", () => {
   assert.deepEqual(
-    readRoutineObservationalStatusConflictEvidence(
+    readRoutineObservationalStatusConflictEvidenceFromEvent(
       {
         id: "evt:evidence:execution-success-observation-conflict",
         taskId: "task:evidence:execution-success-observation-conflict",
@@ -8040,7 +8056,7 @@ test("observational status-conflict evidence includes structured, read, and sear
     },
   );
   assert.equal(
-    hasRoutineObservationalStatusConflictSemanticRead(
+    readsAsRoutineObservationalStatusConflict(
       {
         id: "evt:evidence:structured-observation-conflict",
         taskId: "task:evidence:structured-observation-conflict",
@@ -8066,7 +8082,7 @@ test("observational status-conflict evidence includes structured, read, and sear
     true,
   );
   assert.equal(
-    hasRoutineObservationalStatusConflictSemanticRead(
+    readsAsRoutineObservationalStatusConflict(
       {
         id: "evt:evidence:read-observation-conflict",
         taskId: "task:evidence:read-observation-conflict",
@@ -8091,7 +8107,7 @@ test("observational status-conflict evidence includes structured, read, and sear
     true,
   );
   assert.equal(
-    hasRoutineObservationalStatusConflictSemanticRead(
+    readsAsRoutineObservationalStatusConflict(
       {
         id: "evt:evidence:search-observation-conflict",
         taskId: "task:evidence:search-observation-conflict",
@@ -9934,7 +9950,7 @@ test("routine observational status-conflict cannot be created by explanatory fac
     reasons: ["adapter claimed observational output"],
   };
 
-  assert.equal(hasRoutineObservationalStatusConflictSemanticRead(event, semantic), false);
+  assert.equal(readsAsRoutineObservationalStatusConflict(event, semantic), false);
 });
 
 test("routine observational status-conflict does not depend on explanatory factor naming", () => {
@@ -9959,5 +9975,5 @@ test("routine observational status-conflict does not depend on explanatory facto
     reasons: ["task status indicates failure but the update reads like observational output"],
   };
 
-  assert.equal(hasRoutineObservationalStatusConflictSemanticRead(event, semantic), true);
+  assert.equal(readsAsRoutineObservationalStatusConflict(event, semantic), true);
 });

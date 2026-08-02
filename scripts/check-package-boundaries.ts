@@ -93,7 +93,15 @@ const rawTaskFailureEvidenceReadAllowlist = new Set([
   "packages/core/src/task-failure-evidence-observation-grammar.ts",
   "packages/core/src/task-failure-observation-core.ts",
   "packages/core/src/task-failure-observation-normalizer.ts",
+  "packages/core/src/task-failure-observation-reader.ts",
 ]);
+const rawTaskFailureEvidenceReaderExportName = "readTaskFailureSemanticEvidence";
+const rawTaskFailureEvidenceReaderSourceFile = "packages/core/src/semantic-evidence.ts";
+
+type RawTaskFailureReaderExports = {
+  readers: Set<string>;
+  namespaces: Map<string, RawTaskFailureReaderExports>;
+};
 
 export type ImportViolation = { file: string; label: string; imports: string[]; guidance: string };
 export type CorpusLabelViolation = { file: string; labels: string[] };
@@ -106,6 +114,10 @@ export type BoundaryCheckResult = {
 
 export async function checkPackageBoundaries(root = defaultRepoRoot): Promise<BoundaryCheckResult> {
   const files = await collectSourceFiles(root);
+  const rawTaskFailureEvidenceReaderExports = await collectRawTaskFailureEvidenceReaderExports(
+    root,
+    files,
+  );
   const importViolations: ImportViolation[] = [];
   const corpusLabelViolations: CorpusLabelViolation[] = [];
   const judgmentInputViolations: JudgmentInputViolation[] = [];
@@ -155,7 +167,15 @@ export async function checkPackageBoundaries(root = defaultRepoRoot): Promise<Bo
       }
       const rawTaskFailureEvidenceReads = allowsRawTaskFailureEvidenceReads(root, file)
         ? []
-        : collectRawTaskFailureEvidenceMemberReads(content);
+        : [
+            ...collectRawTaskFailureEvidenceReaderUses(
+              root,
+              file,
+              content,
+              rawTaskFailureEvidenceReaderExports,
+            ),
+            ...collectRawTaskFailureEvidenceMemberReads(content),
+          ];
       if (rawTaskFailureEvidenceReads.length > 0) {
         judgmentInputViolations.push({
           file,
@@ -394,6 +414,922 @@ function collectRawTaskFailureEvidenceMemberReads(content: string): string[] {
   return [...matches];
 }
 
+async function collectRawTaskFailureEvidenceReaderExports(
+  root: string,
+  files: string[],
+): Promise<Map<string, RawTaskFailureReaderExports>> {
+  const sourceFile = resolve(root, rawTaskFailureEvidenceReaderSourceFile);
+  const exportsByFile = new Map<string, RawTaskFailureReaderExports>([
+    [sourceFile, createRawTaskFailureReaderExports([rawTaskFailureEvidenceReaderExportName])],
+  ]);
+  const sourceFiles = new Map<string, ts.SourceFile>();
+
+  for (const file of files) {
+    if (!isProductionCoreSource(root, file)) {
+      continue;
+    }
+    const content = await readFile(file, "utf8");
+    sourceFiles.set(
+      file,
+      ts.createSourceFile(
+        "check-package-boundaries.ts",
+        content,
+        ts.ScriptTarget.Latest,
+        true,
+        ts.ScriptKind.TS,
+      ),
+    );
+  }
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [file, source] of sourceFiles) {
+      const rawExports = readRawTaskFailureReaderReExports(root, file, source, exportsByFile);
+      if (!hasRawTaskFailureReaderExports(rawExports)) {
+        continue;
+      }
+      const fileExports = exportsByFile.get(file) ?? createRawTaskFailureReaderExports();
+      changed = mergeRawTaskFailureReaderExports(fileExports, rawExports) || changed;
+      exportsByFile.set(file, fileExports);
+    }
+  }
+
+  return exportsByFile;
+}
+
+function readRawTaskFailureReaderReExports(
+  root: string,
+  file: string,
+  source: ts.SourceFile,
+  exportsByFile: Map<string, RawTaskFailureReaderExports>,
+): RawTaskFailureReaderExports {
+  const reExports = createRawTaskFailureReaderExports();
+  const localRawReaderBindings = collectRawTaskFailureReaderLocalImportBindings(
+    root,
+    file,
+    source,
+    exportsByFile,
+  );
+  collectLocalRawTaskFailureReaderVariableBindings();
+
+  for (const statement of source.statements) {
+    if (ts.isExportAssignment(statement) && !statement.isExportEquals) {
+      if (isLocalRawTaskFailureReaderReference(statement.expression)) {
+        reExports.readers.add("default");
+      }
+      const namespaceExports = resolveLocalRawTaskFailureReaderNamespaceExpression(
+        statement.expression,
+      );
+      if (namespaceExports !== null) {
+        mergeRawTaskFailureReaderNamespaceExport(reExports, "default", namespaceExports);
+      }
+      continue;
+    }
+
+    if (!ts.isExportDeclaration(statement)) {
+      continue;
+    }
+    if (statement.moduleSpecifier === undefined) {
+      if (statement.exportClause === undefined || !ts.isNamedExports(statement.exportClause)) {
+        continue;
+      }
+      for (const element of statement.exportClause.elements) {
+        const sourceName = element.propertyName?.text ?? element.name.text;
+        if (localRawReaderBindings.readers.has(sourceName)) {
+          reExports.readers.add(element.name.text);
+        }
+        const namespaceExports = localRawReaderBindings.namespaces.get(sourceName);
+        if (namespaceExports !== undefined) {
+          mergeRawTaskFailureReaderNamespaceExport(reExports, element.name.text, namespaceExports);
+        }
+      }
+      continue;
+    }
+    const target = resolveLocalTsModule(root, file, readExportModuleSpecifier(statement));
+    if (target === null) {
+      continue;
+    }
+    const targetExports = exportsByFile.get(target);
+    if (targetExports === undefined) {
+      continue;
+    }
+
+    if (statement.exportClause === undefined) {
+      mergeRawTaskFailureReaderExports(reExports, targetExports);
+      continue;
+    }
+
+    if (ts.isNamespaceExport(statement.exportClause)) {
+      mergeRawTaskFailureReaderNamespaceExport(
+        reExports,
+        statement.exportClause.name.text,
+        targetExports,
+      );
+      continue;
+    }
+
+    if (!ts.isNamedExports(statement.exportClause)) {
+      continue;
+    }
+
+    for (const element of statement.exportClause.elements) {
+      const sourceName = element.propertyName?.text ?? element.name.text;
+      if (targetExports.readers.has(sourceName)) {
+        reExports.readers.add(element.name.text);
+      }
+      const namespaceExports = targetExports.namespaces.get(sourceName);
+      if (namespaceExports !== undefined) {
+        mergeRawTaskFailureReaderNamespaceExport(reExports, element.name.text, namespaceExports);
+      }
+    }
+  }
+
+  function isLocalRawTaskFailureReaderReference(expression: ts.Expression): boolean {
+    const unwrapped = unwrapExpression(expression);
+    if (ts.isIdentifier(unwrapped)) {
+      return localRawReaderBindings.readers.has(unwrapped.text);
+    }
+    const access = readStaticMemberAccess(unwrapped);
+    return (
+      access !== null &&
+      resolveLocalRawTaskFailureReaderNamespaceExpression(access.expression)?.readers.has(
+        access.name,
+      ) === true
+    );
+  }
+
+  function collectLocalRawTaskFailureReaderVariableBindings(): void {
+    let changed = true;
+    while (changed) {
+      changed = false;
+      const visitAlias = (node: ts.Node): void => {
+        if (ts.isVariableDeclaration(node) && node.initializer !== undefined) {
+          changed =
+            collectLocalRawTaskFailureReaderAliasTarget(node.name, node.initializer) || changed;
+        }
+        if (
+          ts.isBinaryExpression(node) &&
+          isRawTaskFailureReaderAliasAssignmentOperator(node.operatorToken.kind)
+        ) {
+          changed = collectLocalRawTaskFailureReaderAliasTarget(node.left, node.right) || changed;
+        }
+        ts.forEachChild(node, visitAlias);
+      };
+      visitAlias(source);
+    }
+  }
+
+  function collectLocalRawTaskFailureReaderAliasTarget(
+    target: ts.BindingName | ts.Expression,
+    value: ts.Expression,
+  ): boolean {
+    const namespaceExports = resolveLocalRawTaskFailureReaderNamespaceExpression(value);
+    const unwrappedTarget =
+      ts.isIdentifier(target) ||
+      ts.isObjectBindingPattern(target) ||
+      ts.isArrayBindingPattern(target)
+        ? target
+        : unwrapExpression(target);
+    let changed = false;
+    if (ts.isIdentifier(unwrappedTarget)) {
+      if (
+        isLocalRawTaskFailureReaderReference(value) &&
+        !localRawReaderBindings.readers.has(unwrappedTarget.text)
+      ) {
+        localRawReaderBindings.readers.add(unwrappedTarget.text);
+        changed = true;
+      }
+      if (namespaceExports !== null) {
+        changed =
+          mergeRawTaskFailureReaderNamespaceExport(
+            localRawReaderBindings,
+            unwrappedTarget.text,
+            namespaceExports,
+          ) || changed;
+      }
+    }
+
+    if (ts.isObjectBindingPattern(unwrappedTarget) && namespaceExports !== null) {
+      changed =
+        collectLocalRawTaskFailureReaderNamespaceBindingElements(
+          unwrappedTarget,
+          namespaceExports,
+        ) || changed;
+    }
+    if (ts.isObjectLiteralExpression(unwrappedTarget) && namespaceExports !== null) {
+      changed =
+        collectLocalRawTaskFailureReaderNamespaceAssignmentElements(
+          unwrappedTarget,
+          namespaceExports,
+        ) || changed;
+    }
+    return changed;
+  }
+
+  function collectLocalRawTaskFailureReaderNamespaceAssignmentElements(
+    literal: ts.ObjectLiteralExpression,
+    namespaceExports: RawTaskFailureReaderExports,
+  ): boolean {
+    let changed = false;
+    for (const property of literal.properties) {
+      if (ts.isSpreadAssignment(property)) {
+        continue;
+      }
+      const sourceName = readObjectLiteralPropertyName(property.name);
+      const target = readObjectLiteralAssignmentTarget(property);
+      if (sourceName === null || target === null) {
+        continue;
+      }
+
+      if (namespaceExports.readers.has(sourceName) && ts.isIdentifier(target)) {
+        if (!localRawReaderBindings.readers.has(target.text)) {
+          localRawReaderBindings.readers.add(target.text);
+          changed = true;
+        }
+      }
+
+      const nestedNamespaceExports = namespaceExports.namespaces.get(sourceName);
+      if (nestedNamespaceExports === undefined) {
+        continue;
+      }
+      if (ts.isIdentifier(target)) {
+        changed =
+          mergeRawTaskFailureReaderNamespaceExport(
+            localRawReaderBindings,
+            target.text,
+            nestedNamespaceExports,
+          ) || changed;
+      }
+      if (ts.isObjectLiteralExpression(target)) {
+        changed =
+          collectLocalRawTaskFailureReaderNamespaceAssignmentElements(
+            target,
+            nestedNamespaceExports,
+          ) || changed;
+      }
+    }
+    return changed;
+  }
+
+  function collectLocalRawTaskFailureReaderNamespaceBindingElements(
+    binding: ts.ObjectBindingPattern,
+    namespaceExports: RawTaskFailureReaderExports,
+  ): boolean {
+    let changed = false;
+    for (const element of binding.elements) {
+      const sourceName = readBindingElementMemberName(element);
+      if (sourceName === null) {
+        continue;
+      }
+
+      if (namespaceExports.readers.has(sourceName) && ts.isIdentifier(element.name)) {
+        if (!localRawReaderBindings.readers.has(element.name.text)) {
+          localRawReaderBindings.readers.add(element.name.text);
+          changed = true;
+        }
+      }
+
+      const nestedNamespaceExports = namespaceExports.namespaces.get(sourceName);
+      if (nestedNamespaceExports === undefined) {
+        continue;
+      }
+      if (ts.isIdentifier(element.name)) {
+        changed =
+          mergeRawTaskFailureReaderNamespaceExport(
+            localRawReaderBindings,
+            element.name.text,
+            nestedNamespaceExports,
+          ) || changed;
+      }
+      if (ts.isObjectBindingPattern(element.name)) {
+        changed =
+          collectLocalRawTaskFailureReaderNamespaceBindingElements(
+            element.name,
+            nestedNamespaceExports,
+          ) || changed;
+      }
+    }
+    return changed;
+  }
+
+  function resolveLocalRawTaskFailureReaderNamespaceExpression(
+    expression: ts.Expression,
+  ): RawTaskFailureReaderExports | null {
+    const unwrapped = unwrapExpression(expression);
+    if (ts.isAwaitExpression(unwrapped)) {
+      return resolveLocalRawTaskFailureReaderNamespaceExpression(unwrapped.expression);
+    }
+    if (
+      ts.isCallExpression(unwrapped) &&
+      unwrapped.expression.kind === ts.SyntaxKind.ImportKeyword
+    ) {
+      const specifier = unwrapped.arguments[0];
+      const target = resolveLocalTsModule(
+        root,
+        file,
+        specifier !== undefined ? readStringLiteralText(specifier) : null,
+      );
+      return target !== null ? (exportsByFile.get(target) ?? null) : null;
+    }
+    if (ts.isIdentifier(unwrapped)) {
+      return localRawReaderBindings.namespaces.get(unwrapped.text) ?? null;
+    }
+    const access = readStaticMemberAccess(unwrapped);
+    if (access !== null) {
+      return (
+        resolveLocalRawTaskFailureReaderNamespaceExpression(access.expression)?.namespaces.get(
+          access.name,
+        ) ?? null
+      );
+    }
+    return null;
+  }
+
+  return reExports;
+}
+
+function collectRawTaskFailureReaderLocalImportBindings(
+  root: string,
+  file: string,
+  source: ts.SourceFile,
+  exportsByFile: Map<string, RawTaskFailureReaderExports>,
+): RawTaskFailureReaderExports {
+  const bindings = createRawTaskFailureReaderExports();
+
+  for (const statement of source.statements) {
+    if (!ts.isImportDeclaration(statement) || statement.importClause?.isTypeOnly === true) {
+      continue;
+    }
+
+    const rawExports = readImportedRawTaskFailureReaderExports(
+      root,
+      file,
+      statement,
+      exportsByFile,
+    );
+    if (rawExports === null) {
+      continue;
+    }
+
+    if (statement.importClause?.name !== undefined) {
+      if (rawExports.readers.has("default")) {
+        bindings.readers.add(statement.importClause.name.text);
+      }
+      const defaultNamespaceExports = rawExports.namespaces.get("default");
+      if (defaultNamespaceExports !== undefined) {
+        mergeRawTaskFailureReaderNamespaceExport(
+          bindings,
+          statement.importClause.name.text,
+          defaultNamespaceExports,
+        );
+      }
+    }
+
+    const namedBindings = statement.importClause?.namedBindings;
+    if (namedBindings === undefined) {
+      continue;
+    }
+
+    if (ts.isNamespaceImport(namedBindings)) {
+      mergeRawTaskFailureReaderNamespaceExport(bindings, namedBindings.name.text, rawExports);
+      continue;
+    }
+
+    if (!ts.isNamedImports(namedBindings)) {
+      continue;
+    }
+
+    for (const element of namedBindings.elements) {
+      if (element.isTypeOnly) {
+        continue;
+      }
+      const importedName = element.propertyName?.text ?? element.name.text;
+      if (rawExports.readers.has(importedName)) {
+        bindings.readers.add(element.name.text);
+      }
+      const namespaceExports = rawExports.namespaces.get(importedName);
+      if (namespaceExports !== undefined) {
+        mergeRawTaskFailureReaderNamespaceExport(bindings, element.name.text, namespaceExports);
+      }
+    }
+  }
+
+  return bindings;
+}
+
+function collectRawTaskFailureEvidenceReaderUses(
+  root: string,
+  file: string,
+  content: string,
+  rawTaskFailureEvidenceReaderExports: Map<string, RawTaskFailureReaderExports>,
+): string[] {
+  const source = ts.createSourceFile(
+    "check-package-boundaries.ts",
+    content,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const localReaderBindings = new Set<string>();
+  const namespaceReaderBindings = new Map<string, RawTaskFailureReaderExports>();
+  const matches = new Set<string>();
+
+  for (const statement of source.statements) {
+    if (!ts.isImportDeclaration(statement) || statement.importClause?.isTypeOnly === true) {
+      continue;
+    }
+    const rawExports = readImportedRawTaskFailureReaderExports(
+      root,
+      file,
+      statement,
+      rawTaskFailureEvidenceReaderExports,
+    );
+    if (rawExports === null) {
+      continue;
+    }
+
+    if (statement.importClause?.name !== undefined) {
+      if (rawExports.readers.has("default")) {
+        localReaderBindings.add(statement.importClause.name.text);
+      }
+      const defaultNamespaceExports = rawExports.namespaces.get("default");
+      if (defaultNamespaceExports !== undefined) {
+        mergeRawTaskFailureReaderNamespaceBinding(
+          namespaceReaderBindings,
+          statement.importClause.name.text,
+          defaultNamespaceExports,
+        );
+      }
+    }
+
+    const namedBindings = statement.importClause?.namedBindings;
+    if (namedBindings === undefined) {
+      continue;
+    }
+
+    if (ts.isNamespaceImport(namedBindings)) {
+      mergeRawTaskFailureReaderNamespaceBinding(
+        namespaceReaderBindings,
+        namedBindings.name.text,
+        rawExports,
+      );
+      continue;
+    }
+
+    for (const element of namedBindings.elements) {
+      if (element.isTypeOnly) {
+        continue;
+      }
+      const importedName = element.propertyName?.text ?? element.name.text;
+      if (rawExports.readers.has(importedName)) {
+        localReaderBindings.add(element.name.text);
+      }
+      const namespaceExports = rawExports.namespaces.get(importedName);
+      if (namespaceExports !== undefined) {
+        mergeRawTaskFailureReaderNamespaceBinding(
+          namespaceReaderBindings,
+          element.name.text,
+          namespaceExports,
+        );
+      }
+    }
+  }
+
+  collectLocalRawTaskFailureReaderVariableBindings();
+
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node) && isTaskFailureEvidenceReaderReference(node.expression)) {
+      matches.add(node.getText(source));
+    }
+
+    if (ts.isCallExpression(node) || ts.isNewExpression(node)) {
+      collectRawTaskFailureReaderValueReference(node.expression);
+      for (const argument of node.arguments ?? []) {
+        const expression = ts.isSpreadElement(argument) ? argument.expression : argument;
+        collectRawTaskFailureReaderValueReference(expression);
+      }
+    }
+
+    if (ts.isVariableDeclaration(node) && node.initializer !== undefined) {
+      collectRawTaskFailureReaderValueReference(node.initializer);
+    }
+
+    if (
+      ts.isBinaryExpression(node) &&
+      isRawTaskFailureReaderAliasAssignmentOperator(node.operatorToken.kind) &&
+      containsTaskFailureReaderOrNamespaceReference(node.right)
+    ) {
+      collectRawTaskFailureReaderValueReference(node.right);
+    }
+
+    if (
+      ts.isBinaryExpression(node) &&
+      isRawTaskFailureReaderAliasAssignmentOperator(node.operatorToken.kind) &&
+      isStaticMemberAssignmentTarget(node.left) &&
+      (isTaskFailureEvidenceReaderReference(node.right) ||
+        resolveRawTaskFailureReaderNamespaceExpression(node.right) !== null)
+    ) {
+      matches.add(node.getText(source));
+    }
+
+    if (ts.isReturnStatement(node) && node.expression !== undefined) {
+      collectRawTaskFailureReaderValueReference(node.expression);
+    }
+
+    if (ts.isYieldExpression(node) && node.expression !== undefined) {
+      collectRawTaskFailureReaderValueReference(node.expression);
+    }
+
+    if (ts.isThrowStatement(node)) {
+      collectRawTaskFailureReaderValueReference(node.expression);
+    }
+
+    if (ts.isExpressionWithTypeArguments(node)) {
+      collectRawTaskFailureReaderValueReference(node.expression);
+    }
+
+    if (ts.isArrowFunction(node) && !ts.isBlock(node.body)) {
+      collectRawTaskFailureReaderValueReference(node.body);
+    }
+
+    if (ts.isParameter(node) && node.initializer !== undefined) {
+      collectRawTaskFailureReaderValueReference(node.initializer);
+    }
+
+    if (ts.isBindingElement(node) && node.initializer !== undefined) {
+      collectRawTaskFailureReaderValueReference(node.initializer);
+    }
+
+    if (ts.isPropertyDeclaration(node) && node.initializer !== undefined) {
+      collectRawTaskFailureReaderValueReference(node.initializer);
+    }
+
+    if (
+      ts.isExportAssignment(node) &&
+      !node.isExportEquals &&
+      containsTaskFailureReaderOrNamespaceReference(node.expression)
+    ) {
+      collectRawTaskFailureReaderValueReference(node.expression);
+    }
+
+    if (ts.isTaggedTemplateExpression(node) && isTaskFailureEvidenceReaderReference(node.tag)) {
+      matches.add(node.tag.getText(source));
+    }
+
+    if (ts.isConditionalExpression(node)) {
+      collectRawTaskFailureReaderValueReference(node.condition);
+      collectRawTaskFailureReaderValueReference(node.whenTrue);
+      collectRawTaskFailureReaderValueReference(node.whenFalse);
+    }
+
+    if (ts.isObjectLiteralExpression(node)) {
+      collectRawTaskFailureReaderObjectValueReferences(node);
+    }
+
+    if (ts.isArrayLiteralExpression(node)) {
+      for (const element of node.elements) {
+        const expression = ts.isSpreadElement(element) ? element.expression : element;
+        collectRawTaskFailureReaderValueReference(expression);
+      }
+    }
+
+    ts.forEachChild(node, visit);
+  };
+
+  function isTaskFailureEvidenceReaderReference(expression: ts.Expression): boolean {
+    const unwrapped = unwrapExpression(expression);
+    if (ts.isIdentifier(unwrapped)) {
+      return localReaderBindings.has(unwrapped.text);
+    }
+    const access = readStaticMemberAccess(unwrapped);
+    return (
+      access !== null &&
+      resolveRawTaskFailureReaderNamespaceExpression(access.expression)?.readers.has(
+        access.name,
+      ) === true
+    );
+  }
+
+  function isTaskFailureReaderOrNamespaceReference(expression: ts.Expression): boolean {
+    return (
+      isTaskFailureEvidenceReaderReference(expression) ||
+      resolveRawTaskFailureReaderNamespaceExpression(expression) !== null
+    );
+  }
+
+  function collectRawTaskFailureReaderValueReference(expression: ts.Expression): void {
+    const visitValue = (node: ts.Node): void => {
+      if (ts.isExpression(node) && isTaskFailureReaderOrNamespaceReference(node)) {
+        matches.add(node.getText(source));
+        return;
+      }
+      ts.forEachChild(node, visitValue);
+    };
+    visitValue(expression);
+  }
+
+  function containsTaskFailureReaderOrNamespaceReference(expression: ts.Expression): boolean {
+    let found = false;
+    const visitValue = (node: ts.Node): void => {
+      if (found) {
+        return;
+      }
+      if (ts.isExpression(node) && isTaskFailureReaderOrNamespaceReference(node)) {
+        found = true;
+        return;
+      }
+      ts.forEachChild(node, visitValue);
+    };
+    visitValue(expression);
+    return found;
+  }
+
+  function collectRawTaskFailureReaderObjectValueReferences(
+    literal: ts.ObjectLiteralExpression,
+  ): void {
+    for (const property of literal.properties) {
+      if (ts.isPropertyAssignment(property)) {
+        collectRawTaskFailureReaderValueReference(property.initializer);
+        continue;
+      }
+      if (ts.isShorthandPropertyAssignment(property)) {
+        collectRawTaskFailureReaderValueReference(property.name);
+        continue;
+      }
+      if (ts.isSpreadAssignment(property)) {
+        collectRawTaskFailureReaderValueReference(property.expression);
+      }
+    }
+  }
+
+  function resolveRawTaskFailureReaderNamespaceExpression(
+    expression: ts.Expression,
+  ): RawTaskFailureReaderExports | null {
+    const unwrapped = unwrapExpression(expression);
+    if (ts.isAwaitExpression(unwrapped)) {
+      return resolveRawTaskFailureReaderNamespaceExpression(unwrapped.expression);
+    }
+    if (
+      ts.isCallExpression(unwrapped) &&
+      unwrapped.expression.kind === ts.SyntaxKind.ImportKeyword
+    ) {
+      const specifier = unwrapped.arguments[0];
+      const target = resolveLocalTsModule(
+        root,
+        file,
+        specifier !== undefined ? readStringLiteralText(specifier) : null,
+      );
+      return target !== null ? (rawTaskFailureEvidenceReaderExports.get(target) ?? null) : null;
+    }
+    if (ts.isIdentifier(unwrapped)) {
+      return namespaceReaderBindings.get(unwrapped.text) ?? null;
+    }
+    const access = readStaticMemberAccess(unwrapped);
+    if (access !== null) {
+      return (
+        resolveRawTaskFailureReaderNamespaceExpression(access.expression)?.namespaces.get(
+          access.name,
+        ) ?? null
+      );
+    }
+    return null;
+  }
+
+  function isStaticMemberAssignmentTarget(expression: ts.Expression): boolean {
+    const unwrapped = unwrapExpression(expression);
+    const access = readStaticMemberAccess(unwrapped);
+    return access !== null;
+  }
+
+  function collectLocalRawTaskFailureReaderVariableBindings(): void {
+    let changed = true;
+    while (changed) {
+      changed = false;
+      const visitDeclaration = (node: ts.Node): void => {
+        if (ts.isVariableDeclaration(node) && node.initializer !== undefined) {
+          changed = collectRawTaskFailureReaderAliasTarget(node.name, node.initializer) || changed;
+        }
+        if (
+          ts.isBinaryExpression(node) &&
+          isRawTaskFailureReaderAliasAssignmentOperator(node.operatorToken.kind)
+        ) {
+          changed = collectRawTaskFailureReaderAliasTarget(node.left, node.right) || changed;
+        }
+        ts.forEachChild(node, visitDeclaration);
+      };
+      visitDeclaration(source);
+    }
+  }
+
+  function collectRawTaskFailureReaderAliasTarget(
+    target: ts.BindingName | ts.Expression,
+    value: ts.Expression,
+  ): boolean {
+    const namespaceExports = resolveRawTaskFailureReaderNamespaceExpression(value);
+    const unwrappedTarget =
+      ts.isIdentifier(target) ||
+      ts.isObjectBindingPattern(target) ||
+      ts.isArrayBindingPattern(target)
+        ? target
+        : unwrapExpression(target);
+    let changed = false;
+    if (ts.isIdentifier(unwrappedTarget)) {
+      if (
+        isTaskFailureEvidenceReaderReference(value) &&
+        !localReaderBindings.has(unwrappedTarget.text)
+      ) {
+        localReaderBindings.add(unwrappedTarget.text);
+        changed = true;
+      }
+      if (namespaceExports !== null) {
+        changed =
+          mergeRawTaskFailureReaderNamespaceBinding(
+            namespaceReaderBindings,
+            unwrappedTarget.text,
+            namespaceExports,
+          ) || changed;
+      }
+    }
+
+    if (ts.isObjectBindingPattern(unwrappedTarget) && namespaceExports !== null) {
+      changed =
+        collectRawTaskFailureReaderNamespaceBindingElements(unwrappedTarget, namespaceExports) ||
+        changed;
+    }
+    if (ts.isObjectLiteralExpression(unwrappedTarget) && namespaceExports !== null) {
+      changed =
+        collectRawTaskFailureReaderNamespaceAssignmentElements(unwrappedTarget, namespaceExports) ||
+        changed;
+    }
+    return changed;
+  }
+
+  function collectRawTaskFailureReaderNamespaceBindingElements(
+    binding: ts.ObjectBindingPattern,
+    namespaceExports: RawTaskFailureReaderExports,
+  ): boolean {
+    let changed = false;
+    for (const element of binding.elements) {
+      const sourceName = readBindingElementMemberName(element);
+      if (sourceName === null) {
+        continue;
+      }
+
+      if (namespaceExports.readers.has(sourceName) && ts.isIdentifier(element.name)) {
+        if (!localReaderBindings.has(element.name.text)) {
+          localReaderBindings.add(element.name.text);
+          changed = true;
+        }
+        matches.add(element.getText(source));
+      }
+
+      const nestedNamespaceExports = namespaceExports.namespaces.get(sourceName);
+      if (nestedNamespaceExports === undefined) {
+        continue;
+      }
+      if (ts.isIdentifier(element.name)) {
+        changed =
+          mergeRawTaskFailureReaderNamespaceBinding(
+            namespaceReaderBindings,
+            element.name.text,
+            nestedNamespaceExports,
+          ) || changed;
+        matches.add(element.getText(source));
+      }
+      if (ts.isObjectBindingPattern(element.name)) {
+        changed =
+          collectRawTaskFailureReaderNamespaceBindingElements(
+            element.name,
+            nestedNamespaceExports,
+          ) || changed;
+      }
+    }
+    return changed;
+  }
+
+  function collectRawTaskFailureReaderNamespaceAssignmentElements(
+    literal: ts.ObjectLiteralExpression,
+    namespaceExports: RawTaskFailureReaderExports,
+  ): boolean {
+    let changed = false;
+    for (const property of literal.properties) {
+      if (ts.isSpreadAssignment(property)) {
+        continue;
+      }
+      const sourceName = readObjectLiteralPropertyName(property.name);
+      const target = readObjectLiteralAssignmentTarget(property);
+      if (sourceName === null || target === null) {
+        continue;
+      }
+
+      if (namespaceExports.readers.has(sourceName) && ts.isIdentifier(target)) {
+        if (!localReaderBindings.has(target.text)) {
+          localReaderBindings.add(target.text);
+          changed = true;
+        }
+        matches.add(property.getText(source));
+      }
+
+      const nestedNamespaceExports = namespaceExports.namespaces.get(sourceName);
+      if (nestedNamespaceExports === undefined) {
+        continue;
+      }
+      if (ts.isIdentifier(target)) {
+        changed =
+          mergeRawTaskFailureReaderNamespaceBinding(
+            namespaceReaderBindings,
+            target.text,
+            nestedNamespaceExports,
+          ) || changed;
+        matches.add(property.getText(source));
+      }
+      if (ts.isObjectLiteralExpression(target)) {
+        changed =
+          collectRawTaskFailureReaderNamespaceAssignmentElements(target, nestedNamespaceExports) ||
+          changed;
+      }
+    }
+    return changed;
+  }
+
+  visit(source);
+  return [...matches];
+}
+
+function readImportedRawTaskFailureReaderExports(
+  root: string,
+  file: string,
+  statement: ts.ImportDeclaration,
+  exportsByFile: Map<string, RawTaskFailureReaderExports>,
+): RawTaskFailureReaderExports | null {
+  const target = resolveLocalTsModule(root, file, readImportModuleSpecifier(statement));
+  return target !== null ? (exportsByFile.get(target) ?? null) : null;
+}
+
+function createRawTaskFailureReaderExports(
+  readers: Iterable<string> = [],
+): RawTaskFailureReaderExports {
+  return { readers: new Set(readers), namespaces: new Map() };
+}
+
+function cloneRawTaskFailureReaderExports(
+  source: RawTaskFailureReaderExports,
+): RawTaskFailureReaderExports {
+  const clone = createRawTaskFailureReaderExports(source.readers);
+  for (const [name, namespaceExports] of source.namespaces) {
+    clone.namespaces.set(name, cloneRawTaskFailureReaderExports(namespaceExports));
+  }
+  return clone;
+}
+
+function hasRawTaskFailureReaderExports(exports: RawTaskFailureReaderExports): boolean {
+  return exports.readers.size > 0 || exports.namespaces.size > 0;
+}
+
+function mergeRawTaskFailureReaderExports(
+  target: RawTaskFailureReaderExports,
+  source: RawTaskFailureReaderExports,
+): boolean {
+  let changed = false;
+  for (const reader of source.readers) {
+    if (!target.readers.has(reader)) {
+      target.readers.add(reader);
+      changed = true;
+    }
+  }
+  for (const [name, namespaceExports] of source.namespaces) {
+    changed =
+      mergeRawTaskFailureReaderNamespaceBinding(target.namespaces, name, namespaceExports) ||
+      changed;
+  }
+  return changed;
+}
+
+function mergeRawTaskFailureReaderNamespaceExport(
+  target: RawTaskFailureReaderExports,
+  name: string,
+  source: RawTaskFailureReaderExports,
+): boolean {
+  return mergeRawTaskFailureReaderNamespaceBinding(target.namespaces, name, source);
+}
+
+function mergeRawTaskFailureReaderNamespaceBinding(
+  target: Map<string, RawTaskFailureReaderExports>,
+  name: string,
+  source: RawTaskFailureReaderExports,
+): boolean {
+  if (!hasRawTaskFailureReaderExports(source)) {
+    return false;
+  }
+  const current = target.get(name);
+  if (current === undefined) {
+    target.set(name, cloneRawTaskFailureReaderExports(source));
+    return true;
+  }
+  return mergeRawTaskFailureReaderExports(current, source);
+}
+
 function allowsRawTaskFailureEvidenceReads(root: string, file: string): boolean {
   const relativeFile = relative(root, file).replace(/\\/g, "/");
   return rawTaskFailureEvidenceReadAllowlist.has(relativeFile);
@@ -464,6 +1400,29 @@ function isTaskFailureEvidenceReaderCall(expression: ts.Expression): boolean {
   );
 }
 
+function readImportModuleSpecifier(statement: ts.ImportDeclaration): string | null {
+  return ts.isStringLiteral(statement.moduleSpecifier) ? statement.moduleSpecifier.text : null;
+}
+
+function readExportModuleSpecifier(statement: ts.ExportDeclaration): string | null {
+  return statement.moduleSpecifier !== undefined && ts.isStringLiteral(statement.moduleSpecifier)
+    ? statement.moduleSpecifier.text
+    : null;
+}
+
+function resolveLocalTsModule(
+  root: string,
+  fromFile: string,
+  specifier: string | null,
+): string | null {
+  if (specifier === null || !specifier.startsWith(".")) {
+    return null;
+  }
+
+  const resolved = resolve(dirname(fromFile), specifier.replace(/\.js$/, ".ts"));
+  return relative(root, resolved).startsWith("packages/core/src/") ? resolved : null;
+}
+
 function collectTaskFailureEvidenceBindingReads(
   binding: ts.ObjectBindingPattern,
   matches: Set<string>,
@@ -488,6 +1447,18 @@ function collectTaskFailureEvidenceObjectLiteralReads(
       matches.add(property.getText(source));
     }
   }
+}
+
+function readObjectLiteralAssignmentTarget(
+  property: ts.ObjectLiteralElementLike,
+): ts.Expression | null {
+  if (ts.isShorthandPropertyAssignment(property)) {
+    return property.name;
+  }
+  if (ts.isPropertyAssignment(property)) {
+    return unwrapExpression(property.initializer);
+  }
+  return null;
 }
 
 function hasTaskFailureEvidenceType(type: ts.TypeNode | undefined): boolean {
@@ -526,11 +1497,36 @@ function readPropertyNameText(name: ts.PropertyName): string | null {
   if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) {
     return name.text;
   }
+  if (ts.isComputedPropertyName(name) && ts.isStringLiteralLike(name.expression)) {
+    return name.expression.text;
+  }
   return null;
 }
 
 function readStringLiteralText(expression: ts.Expression): string | null {
   return ts.isStringLiteralLike(expression) ? expression.text : null;
+}
+
+function readStaticMemberAccess(
+  expression: ts.Expression,
+): { expression: ts.Expression; name: string } | null {
+  if (ts.isPropertyAccessExpression(expression)) {
+    return { expression: expression.expression, name: expression.name.text };
+  }
+  if (ts.isElementAccessExpression(expression)) {
+    const memberName = readStringLiteralText(expression.argumentExpression);
+    return memberName !== null ? { expression: expression.expression, name: memberName } : null;
+  }
+  return null;
+}
+
+function isRawTaskFailureReaderAliasAssignmentOperator(kind: ts.SyntaxKind): boolean {
+  return (
+    kind === ts.SyntaxKind.EqualsToken ||
+    kind === ts.SyntaxKind.BarBarEqualsToken ||
+    kind === ts.SyntaxKind.AmpersandAmpersandEqualsToken ||
+    kind === ts.SyntaxKind.QuestionQuestionEqualsToken
+  );
 }
 
 function collectJudgmentInputAliases(content: string): string[] {

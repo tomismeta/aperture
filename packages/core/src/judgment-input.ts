@@ -1,8 +1,6 @@
 import type { ApertureEvent } from "./events.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
-import { readTaskFailureSemanticEvidence } from "./semantic-evidence.js";
 import { readObservationalStatusConflictEvidenceFromObservation } from "./observational-status-conflict-kind.js";
-import { readObservationExpectedSemanticRead } from "./observation-semantic-read.js";
 import { projectAttentionOntologyDiagnosticWithStatusConflictEvidence } from "./semantic-ontology.js";
 import type { SemanticConfidence } from "./semantic-types.js";
 import type {
@@ -10,14 +8,12 @@ import type {
   CandidateSemanticEvidence,
   ObservationalStatusConflictEvidence,
   SemanticEvidenceStrength,
-  TaskFailureSemanticAgreement,
 } from "./judgment-input-types.js";
 import {
-  enrichTaskFailureObservation,
-  readTaskFailureObservationCore,
-} from "./task-failure-observation-normalizer.js";
+  normalizeTaskFailureObservationFromCore,
+  readTaskFailureObservationCoreFromEvent,
+} from "./task-failure-observation-reader.js";
 import type { NormalizedObservation } from "./normalized-observation.js";
-import type { ObservationSemantics } from "./observation-semantics.js";
 import type {
   AttentionOntologyAuthority,
   AttentionOntologyDiagnostic,
@@ -58,12 +54,10 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
   }
 
   const abstained = event.semantic.abstained === true;
-  const failureEvidence =
-    event.type === "task.updated" && event.status === "failed"
-      ? readTaskFailureSemanticEvidence(event)
-      : null;
   const failureObservationCore =
-    failureEvidence !== null ? readTaskFailureObservationCore(failureEvidence) : null;
+    event.type === "task.updated" && event.status === "failed"
+      ? readTaskFailureObservationCoreFromEvent(event)
+      : null;
   const preliminaryOntology = projectAttentionOntologyDiagnosticWithStatusConflictEvidence(
     event,
     event.semantic,
@@ -71,11 +65,12 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
   );
   const preliminaryObservation =
     failureObservationCore !== null
-      ? compileTaskFailureObservation({
+      ? normalizeTaskFailureObservationFromCore({
           event,
           core: failureObservationCore,
           ontology: preliminaryOntology,
           abstained,
+          interpretation: event.semantic,
         })
       : null;
   const observationalStatusConflict = readObservationalStatusConflictEvidenceFromObservation({
@@ -96,11 +91,12 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
     event.type === "task.updated" && ontology.blocking === "blocking" && event.status !== "blocked";
   const observation =
     failureObservationCore !== null
-      ? compileTaskFailureObservation({
+      ? normalizeTaskFailureObservationFromCore({
           event,
           core: failureObservationCore,
           ontology,
           abstained,
+          interpretation: event.semantic,
         })
       : null;
 
@@ -354,83 +350,6 @@ function deriveCompiledSemanticEvidenceStrength(input: {
     input.ontology.confidence,
     input.ontology.source,
     input.abstained,
-  );
-}
-
-function compileTaskFailureObservation(input: {
-  event: ApertureEvent;
-  core: ObservationSemantics;
-  ontology: AttentionOntologyDiagnostic;
-  abstained: boolean;
-}): NormalizedObservation {
-  const semanticAgreement = readObservationSemanticAgreement({
-    event: input.event,
-    observation: input.core,
-    ontology: input.ontology,
-    abstained: input.abstained,
-  });
-
-  return enrichTaskFailureObservation({
-    core: input.core,
-    ontology: input.ontology,
-    abstained: input.abstained,
-    semanticAgreement,
-  });
-}
-
-function readObservationSemanticAgreement(input: {
-  event: ApertureEvent;
-  observation: ObservationSemantics;
-  ontology: AttentionOntologyDiagnostic;
-  abstained: boolean;
-}): TaskFailureSemanticAgreement {
-  const semantic = input.event.semantic;
-  if (
-    semantic === undefined ||
-    input.abstained ||
-    semantic.confidence === "low" ||
-    input.ontology.confidence === "low"
-  ) {
-    return "uncertain";
-  }
-
-  if (hasFailureSemanticOverride(semantic.provenance)) {
-    return "overridden";
-  }
-
-  return observationAgreesWithSemanticRead(input.observation, semantic, input.ontology)
-    ? "stable"
-    : "uncertain";
-}
-
-function hasFailureSemanticOverride(
-  provenance: NonNullable<ApertureEvent["semantic"]>["provenance"] | undefined,
-): boolean {
-  return (
-    provenance?.intentFrame === "hint" ||
-    provenance?.intentFrame === "source" ||
-    provenance?.activityClass === "hint" ||
-    provenance?.activityClass === "source" ||
-    provenance?.consequence === "hint" ||
-    provenance?.consequence === "source"
-  );
-}
-
-function observationAgreesWithSemanticRead(
-  observation: ObservationSemantics,
-  semantic: NonNullable<ApertureEvent["semantic"]>,
-  ontology: AttentionOntologyDiagnostic,
-): boolean {
-  const expected = readObservationExpectedSemanticRead(observation);
-
-  return (
-    ontology.ask === "status" &&
-    ontology.activity === expected.activity &&
-    ontology.blocking === "non_blocking" &&
-    semantic.intentFrame === expected.intentFrame &&
-    semantic.activityClass === expected.activityClass &&
-    semantic.consequence === observation.consequenceBaseline &&
-    ontology.consequence === observation.consequenceBaseline
   );
 }
 

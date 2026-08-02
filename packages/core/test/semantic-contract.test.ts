@@ -107,6 +107,11 @@ test("trace, why, and policy surfaces consume projected observation contracts", 
     new URL("../src/policy/peripheral-status-candidate.ts", import.meta.url),
     "utf8",
   );
+  const judgmentInput = readFileSync(new URL("../src/judgment-input.ts", import.meta.url), "utf8");
+  const uncertaintyPolicy = readFileSync(
+    new URL("../src/policy/semantic-uncertainty-criterion-rule.ts", import.meta.url),
+    "utf8",
+  );
 
   assert.match(traceCommon, /export type TraceObservationSummary/);
   assert.match(traceCommon, /observation\?: TraceObservationSummary/);
@@ -121,9 +126,14 @@ test("trace, why, and policy surfaces consume projected observation contracts", 
   assert.match(whyRenderer, /semantic\.observation/);
   assert.match(whyRenderer, /function renderObservationSummary/);
 
-  assert.match(peripheralPolicy, /readCandidateObservation/);
-  assert.match(peripheralPolicy, /observation\.semanticAgreement === "stable"/);
-  assert.match(peripheralPolicy, /observation\.evidenceStrength !== "weak"/);
+  assert.match(judgmentInput, /projectObservationJudgmentContract/);
+  assert.match(peripheralPolicy, /hasStableStatusObservationSemantics/);
+  assert.equal(peripheralPolicy.includes("observation.semanticAgreement"), false);
+  assert.equal(peripheralPolicy.includes("observation.evidenceStrength"), false);
+
+  assert.match(uncertaintyPolicy, /hasVisibleDiagnosticFailureStatusSemantics/);
+  assert.equal(uncertaintyPolicy.includes('observation.kind === "diagnostic"'), false);
+  assert.equal(uncertaintyPolicy.includes('observation.diagnosticClass === "runtime"'), false);
 });
 
 test("observation semantic read owns consumer-facing status/failure mapping", () => {

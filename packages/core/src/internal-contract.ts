@@ -39,6 +39,13 @@ export { loadPolicyConfig } from "./policy-config.js";
 export type { ApertureProfile, MemoryProfile } from "./profile-store.js";
 export type { PolicyConfig } from "./policy-config.js";
 export {
+  projectObservationJudgmentContract,
+  resolveObservationStatusConflictKind,
+  type ObservationJudgmentContract,
+  type ObservationJudgmentDocument,
+  type ObservationJudgmentStatusEvidence,
+} from "./judgment-observation-contract.js";
+export {
   readTaskFailureSemanticEvidence,
   type TaskFailureDetail,
   type TaskFailureEvidenceKind,

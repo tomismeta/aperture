@@ -228,6 +228,7 @@ test("kernel corpus scorecard v5 migration preserves v4 coverage and adds normal
   const current = JSON.parse(
     await readFile("packages/lab/conformance/kernel-corpus-scorecard-v5.json", "utf8"),
   ) as Record<string, unknown>;
+  const comparableHistorical = structuredClone(historical);
   const projected = structuredClone(current);
 
   projected.schemaVersion = 4;
@@ -261,13 +262,17 @@ test("kernel corpus scorecard v5 migration preserves v4 coverage and adds normal
     "normalizedObservationProvenanceAuthorities",
     "observationProvenanceAuthorities",
   );
+  stripObservationDetailBuckets(judgment);
+  stripObservationDetailBuckets(
+    (comparableHistorical.outcomeCoverage as { judgment: Record<string, unknown> }).judgment,
+  );
   for (const scenario of projected.scenarioCheckpoints as Array<Record<string, unknown>>) {
     delete scenario.normalizedObservation;
   }
 
   const migratedHistorical = parseHistoricalKernelCorpusScorecard(JSON.stringify(historical));
 
-  assert.deepEqual(projected, historical);
+  assert.deepEqual(projected, comparableHistorical);
   assert.equal(migratedHistorical.schemaVersion, KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION);
   assert.equal(migratedHistorical.summary.normalizedObservationCheckpoints.total, 0);
 });
@@ -537,6 +542,35 @@ test("kernel corpus scorecard comparison fails closed on per-scenario checkpoint
   );
 });
 
+test("kernel corpus scorecard comparison allows normalized observation digest migrations", async () => {
+  const report = await buildKernelCorpusConformanceReport();
+  const scenarios = await loadGoldenScenarios();
+  const baseline = buildKernelCorpusScorecard(report, scenarios);
+  const target = baseline.scenarioCheckpoints.find(
+    (scenario) => scenario.normalizedObservation.length > 0,
+  );
+
+  assert.ok(target);
+
+  const candidate = {
+    ...baseline,
+    scenarioCheckpoints: baseline.scenarioCheckpoints.map((scenario) =>
+      scenario.id === target.id
+        ? {
+            ...scenario,
+            normalizedObservation: scenario.normalizedObservation.map(
+              (_digest, index) => `sha256:normalized-observation-migration-${index}`,
+            ),
+          }
+        : scenario,
+    ),
+  };
+  const comparison = buildKernelCorpusScorecardComparison(baseline, candidate);
+
+  assert.equal(comparison.passed, true);
+  assert.doesNotMatch(comparison.failures.join("\n"), /missing_normalized_observation/);
+});
+
 test("kernel corpus scorecard comparison fails closed on profile mismatches", async () => {
   const report = await buildKernelCorpusConformanceReport();
   const scenarios = await loadGoldenScenarios();
@@ -780,4 +814,22 @@ function assertRequiredObservationTotalsMatchPresence(
 function moveRecordField(record: Record<string, unknown>, from: string, to: string): void {
   record[to] = record[from];
   delete record[from];
+}
+
+function stripObservationDetailBuckets(judgment: Record<string, unknown>): void {
+  for (const key of [
+    "observationKinds",
+    "observationPolarities",
+    "observationEvidenceLosses",
+    "observationDiagnosticClasses",
+    "observationRecoveryHints",
+    "observationSubjects",
+    "observationOwners",
+    "observationStrengths",
+    "observationAgreements",
+    "observationProvenanceOrigins",
+    "observationProvenanceAuthorities",
+  ]) {
+    delete judgment[key];
+  }
 }

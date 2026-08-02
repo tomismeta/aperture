@@ -23,6 +23,14 @@ test("semantic kernel surface report covers every declared family", async () => 
   assert.equal(report.passed, true, report.failures.join(", "));
   assert.deepEqual(actualFamilies, expectedFamilies);
   assert.equal(
+    report.families
+      .find((family) => family.id === "observation_kernel_projection")
+      ?.files.some(
+        (file) => file.path === "packages/core/src/judgment-observation-status-conflict.ts",
+      ),
+    true,
+  );
+  assert.equal(
     report.summary.modules,
     report.families.reduce((total, family) => total + family.modules, 0),
   );
@@ -32,7 +40,6 @@ test("semantic kernel surface report covers every declared family", async () => 
   assert.deepEqual(report.imports.normalizedObservationDirectConsumers, [
     "packages/core/src/judgment-input-types.ts",
     "packages/core/src/judgment-input.ts",
-    "packages/core/src/observational-status-conflict-kind.ts",
     "packages/core/src/task-failure-observation-normalizer.ts",
     "packages/core/src/task-failure-observation-reader.ts",
     "packages/core/src/trace-recorder.ts",

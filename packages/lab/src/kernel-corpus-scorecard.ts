@@ -650,10 +650,10 @@ function compareScenarioCheckpoints(
           scenario.decisionProjection,
           candidateScenario?.decisionProjection ?? [],
         ),
-        missingNormalizedObservation: missingDigests(
-          scenario.normalizedObservation,
-          candidateScenario?.normalizedObservation ?? [],
-        ),
+        missingNormalizedObservation:
+          (candidateScenario?.normalizedObservation.length ?? 0) < scenario.normalizedObservation.length
+            ? scenario.normalizedObservation.slice(candidateScenario?.normalizedObservation.length ?? 0)
+            : [],
       };
     })
     .filter(

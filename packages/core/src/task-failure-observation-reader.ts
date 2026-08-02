@@ -1,6 +1,6 @@
 import type { NormalizedObservation } from "./normalized-observation.js";
 import type { ObservationalStatusConflictEvidence } from "./observational-status-conflict.js";
-import { readObservationalStatusConflictEvidenceFromObservation } from "./observational-status-conflict-kind.js";
+import { buildObservationStatusConflictEvidence } from "./judgment-observation-status-conflict.js";
 import { readObservationExpectedSemanticRead } from "./observation-semantic-read.js";
 import type { ObservationSemantics } from "./observation-semantics.js";
 import { readTaskFailureSemanticEvidence } from "./semantic-evidence.js";
@@ -55,32 +55,31 @@ export function readRoutineObservationalStatusConflictEvidenceFromEvent(
   abstained = interpretation.abstained === true,
 ): ObservationalStatusConflictEvidence | null {
   const core = readTaskFailureObservationCoreFromEvent(event);
-  if (core === null) {
-    return null;
-  }
+  if (core === null) return null;
 
   const expected = readObservationExpectedSemanticRead(core);
+  const observation = enrichTaskFailureObservation({
+    core,
+    ontology: {
+      ask: "status",
+      activity: expected.activity,
+      ...(interpretation.consequence !== undefined
+        ? { consequence: interpretation.consequence }
+        : {}),
+      blocking: "non_blocking",
+      episode: "unknown",
+      confidence: interpretation.confidence,
+      source: "inferred",
+    },
+    abstained,
+    semanticAgreement: "stable",
+  });
 
-  return readObservationalStatusConflictEvidenceFromObservation({
+  return buildObservationStatusConflictEvidence({
     event,
+    observation,
     interpretation,
     abstained,
-    observation: enrichTaskFailureObservation({
-      core,
-      ontology: {
-        ask: "status",
-        activity: expected.activity,
-        ...(interpretation.consequence !== undefined
-          ? { consequence: interpretation.consequence }
-          : {}),
-        blocking: "non_blocking",
-        episode: "unknown",
-        confidence: interpretation.confidence,
-        source: "inferred",
-      },
-      abstained,
-      semanticAgreement: "stable",
-    }),
   });
 }
 

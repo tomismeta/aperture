@@ -1654,7 +1654,7 @@ test("task failure evidence attaches canonical observation semantics to non-payl
         kind: "outcome",
         polarity: "success",
         origin: "semantic_evidence",
-        subject: "tool",
+        subject: "command",
         consequenceBaseline: "low",
         toolFamily: "bash",
       }),

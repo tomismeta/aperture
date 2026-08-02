@@ -97,6 +97,7 @@ export function readTaskFailureSemanticSignals(input: {
     missingToolObservationTranscript,
     readAbbreviatedFileViewObservation,
     rejectedToolUseOutcome,
+    commandExecutionToolFamily,
     structuredOutputEnvelope,
     structuredOutputZeroExitSuccess,
     summary,

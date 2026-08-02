@@ -1,23 +1,14 @@
-import type {
-  ObservationDiagnosticClass,
-  ObservationEvidenceLoss,
-  ObservationKind,
-  ObservationOrigin,
-  ObservationOwner,
-  ObservationPolarity,
-  ObservationRecoveryHint,
-  ObservationSemantics,
-  ObservationSubject,
+import type { ObservationSemantics } from "./observation-semantics.js";
+export type {
+  ObservationDiagnosticClass as NormalizedObservationDiagnosticClass,
+  ObservationEvidenceLoss as NormalizedObservationEvidenceLoss,
+  ObservationKind as NormalizedObservationKind,
+  ObservationOrigin as NormalizedObservationOrigin,
+  ObservationOwner as NormalizedObservationOwner,
+  ObservationPolarity as NormalizedObservationPolarity,
+  ObservationRecoveryHint as NormalizedObservationRecoveryHint,
+  ObservationSubject as NormalizedObservationSubject,
 } from "./observation-semantics.js";
-
-export type NormalizedObservationKind = ObservationKind;
-export type NormalizedObservationPolarity = ObservationPolarity;
-export type NormalizedObservationOwner = ObservationOwner;
-export type NormalizedObservationSubject = ObservationSubject;
-export type NormalizedObservationEvidenceLoss = ObservationEvidenceLoss;
-export type NormalizedObservationDiagnosticClass = ObservationDiagnosticClass;
-export type NormalizedObservationRecoveryHint = ObservationRecoveryHint;
-export type NormalizedObservationOrigin = ObservationOrigin;
 
 export type NormalizedObservationSemanticAgreement = "stable" | "overridden" | "uncertain";
 export type NormalizedObservationEvidenceStrength = "weak" | "qualified" | "strong";

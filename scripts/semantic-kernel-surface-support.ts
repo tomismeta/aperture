@@ -20,8 +20,8 @@ export const SEMANTIC_KERNEL_SURFACE_PROFILE_ID = "semantic-kernel-surface" as c
 export const SEMANTIC_KERNEL_SURFACE_PROFILE_VERSION = 1 as const;
 
 export const SEMANTIC_KERNEL_SURFACE_THRESHOLDS = {
-  maximumModules: 107,
-  maximumTotalLines: 9493,
+  maximumModules: 108,
+  maximumTotalLines: 9566,
   maximumMatcherSites: 586,
   maximumPhraseLiterals: 175,
   maximumExportedDetectors: 179,
@@ -185,10 +185,11 @@ export const SEMANTIC_KERNEL_SURFACE_MANIFEST = [
   {
     family: "observation_kernel_projection",
     files: [
+      "packages/core/src/judgment-observation-contract.ts",
+      "packages/core/src/judgment-observation-status-conflict.ts",
       "packages/core/src/normalized-observation.ts",
       "packages/core/src/observation-semantic-read.ts",
       "packages/core/src/observation-semantics.ts",
-      "packages/core/src/observational-status-conflict-kind.ts",
       "packages/core/src/observational-status-conflict.ts",
       "packages/core/src/task-failure-evidence-observation-grammar.ts",
       "packages/core/src/task-failure-observation-core.ts",
@@ -1155,6 +1156,7 @@ function isSemanticKernelSurfacePath(path: string): boolean {
   const basename = path.split("/").at(-1) ?? "";
   return (
     /^semantic.*\.ts$/.test(basename) ||
+    /^judgment-observation.*\.ts$/.test(basename) ||
     /^observation.*\.ts$/.test(basename) ||
     /^observational.*\.ts$/.test(basename) ||
     basename === "normalized-observation.ts" ||

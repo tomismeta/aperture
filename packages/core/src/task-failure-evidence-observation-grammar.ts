@@ -92,13 +92,16 @@ function readObservationOwner(
 function readObservationSubject(
   input: TaskFailureEvidenceObservationInput,
 ): ObservationSemantics["subject"] {
-  return input.kind === "routine_search_output" || input.toolFamily === "search"
-    ? "search"
-    : input.failureDetail === "source_window_limit"
-      ? "source"
-      : input.toolFamily !== undefined
-        ? "tool"
-        : "unknown";
+  return input.kind === "routine_bash_success_observation" ||
+    input.kind === "structured_execution_success_observation"
+    ? "command"
+    : input.kind === "routine_search_output" || input.toolFamily === "search"
+      ? "search"
+      : input.failureDetail === "source_window_limit"
+        ? "source"
+        : input.toolFamily !== undefined
+          ? "tool"
+          : "unknown";
 }
 
 function readObservationEvidenceLoss(

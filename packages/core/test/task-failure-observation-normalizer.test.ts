@@ -7,7 +7,7 @@ import {
   readTaskFailureObservationCore,
 } from "../src/task-failure-observation-normalizer.js";
 import type { NormalizedObservation } from "../src/normalized-observation.js";
-import { readObservationalStatusConflictKindFromObservation } from "../src/observational-status-conflict-kind.js";
+import { resolveObservationStatusConflictKind } from "../src/judgment-observation-contract.js";
 import type {
   SemanticTextEvidence,
   TaskFailureSemanticEvidence,
@@ -298,7 +298,7 @@ test("task-failure observation normalizer maps every evidence kind into the norm
         readsAsObservation: true,
         consequenceBaseline: "low",
       }),
-      expected: { kind: "outcome", polarity: "success", subject: "tool" },
+      expected: { kind: "outcome", polarity: "success", subject: "command" },
     },
     {
       name: "structured execution success",
@@ -541,7 +541,7 @@ test("status-conflict kinds are derived from normalized observation fields", () 
   const parityCases: Array<{
     name: string;
     failureEvidence: TaskFailureSemanticEvidence;
-    expected: ReturnType<typeof readObservationalStatusConflictKindFromObservation>;
+    expected: ReturnType<typeof resolveObservationStatusConflictKind>;
   }> = [
     {
       name: "command success observation",
@@ -683,15 +683,11 @@ test("status-conflict kinds are derived from normalized observation fields", () 
   ];
 
   for (const { name, failureEvidence, expected } of parityCases) {
-    assert.equal(
-      readObservationalStatusConflictKindFromObservation(compile(failureEvidence)),
-      expected,
-      name,
-    );
+    assert.equal(resolveObservationStatusConflictKind(compile(failureEvidence)), expected, name);
   }
 
   assert.equal(
-    readObservationalStatusConflictKindFromObservation({
+    resolveObservationStatusConflictKind({
       kind: "outcome",
       polarity: "success",
       semanticAgreement: "stable",

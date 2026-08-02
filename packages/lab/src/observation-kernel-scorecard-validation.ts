@@ -7,6 +7,7 @@ import {
   type ObservationKernelCoverage,
   type ObservationKernelDistribution,
   type ObservationKernelFields,
+  type ObservationKernelJudgmentFields,
   type ObservationKernelObservation,
   type ObservationKernelScorecard,
 } from "./observation-kernel-scorecard.js";
@@ -109,8 +110,11 @@ function isObservationKernelObservation(value: unknown): value is ObservationKer
     isRecord(value) &&
     typeof value.fixtureId === "string" &&
     typeof value.dimension === "string" &&
+    isFiniteNumber(value.sequence) &&
     typeof value.digest === "string" &&
-    isObservationKernelFields(value.fields)
+    typeof value.semanticDigest === "string" &&
+    isObservationKernelFields(value.fields) &&
+    isObservationKernelJudgmentFields(value.judgment)
   );
 }
 
@@ -130,6 +134,20 @@ function isObservationKernelFields(value: unknown): value is ObservationKernelFi
     typeof value.provenanceOrigin === "string" &&
     typeof value.provenanceAuthority === "string" &&
     typeof value.consequenceBaseline === "string"
+  );
+}
+
+function isObservationKernelJudgmentFields(
+  value: unknown,
+): value is ObservationKernelJudgmentFields {
+  return (
+    isRecord(value) &&
+    typeof value.statusEvidence === "string" &&
+    (typeof value.statusConflictKind === "string" || value.statusConflictKind === null) &&
+    typeof value.outcomeOnlyFailureStatus === "boolean" &&
+    typeof value.limitedFailureStatus === "boolean" &&
+    typeof value.stableStatusEvidence === "boolean" &&
+    typeof value.visibleDiagnosticFailure === "boolean"
   );
 }
 

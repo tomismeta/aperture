@@ -14,6 +14,7 @@ type TaskFailureObservationGrammarInput = {
   missingToolObservationTranscript: ExplicitObservationTranscript | null;
   readAbbreviatedFileViewObservation: ExplicitObservationTranscript | null;
   rejectedToolUseOutcome: boolean;
+  commandExecutionToolFamily: boolean;
   structuredOutputEnvelope: TaskFailureStructuredOutputEnvelope;
   structuredOutputZeroExitSuccess: boolean;
   summary: string;
@@ -52,7 +53,12 @@ export function readTaskFailureObservationSemantics(
     return payloadObservationSemantics;
   }
   if (input.structuredOutputZeroExitSuccess) {
-    return outcomeObservation("structured_output", "low", input.toolFamily);
+    return outcomeObservation(
+      "structured_output",
+      input.commandExecutionToolFamily ? "command" : "tool",
+      "low",
+      input.toolFamily,
+    );
   }
   return null;
 }
@@ -91,6 +97,7 @@ function payloadObservation(
 
 function outcomeObservation(
   origin: ObservationOrigin,
+  subject: ObservationSubject,
   consequenceBaseline: ObservationSemantics["consequenceBaseline"],
   toolFamily?: string,
 ): ObservationSemantics {
@@ -98,7 +105,7 @@ function outcomeObservation(
     kind: "outcome",
     polarity: "success",
     origin,
-    subject: "tool",
+    subject,
     consequenceBaseline,
     ...(toolFamily !== undefined ? { toolFamily } : {}),
   });

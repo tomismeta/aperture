@@ -1,6 +1,7 @@
 import { ApertureCore } from "@tomismeta/aperture-core";
 import {
   isCandidateTrace,
+  projectObservationJudgmentContract,
   subscribeInternalTrace,
   type ApertureTrace,
 } from "@tomismeta/aperture-core/internal";
@@ -17,10 +18,10 @@ export const OBSERVATION_KERNEL_SCORECARD_PROFILE_ID = "observation-kernel-score
 export const OBSERVATION_KERNEL_SCORECARD_PROFILE_VERSION = 1 as const;
 
 export const OBSERVATION_KERNEL_SCORECARD_THRESHOLDS = {
-  minimumFixtures: 10,
-  minimumObservationFixtures: 10,
-  minimumObservations: 10,
-  minimumCoveredDimensions: 10,
+  minimumFixtures: 13,
+  minimumObservationFixtures: 13,
+  minimumObservations: 14,
+  minimumCoveredDimensions: 13,
 } as const;
 
 export type ObservationKernelScorecard = {
@@ -82,8 +83,11 @@ export type ObservationKernelDistribution = Array<{
 export type ObservationKernelObservation = {
   fixtureId: string;
   dimension: string;
+  sequence: number;
   digest: string;
+  semanticDigest: string;
   fields: ObservationKernelFields;
+  judgment: ObservationKernelJudgmentFields;
 };
 
 export type ObservationKernelFields = {
@@ -100,6 +104,15 @@ export type ObservationKernelFields = {
   provenanceOrigin: string;
   provenanceAuthority: string;
   consequenceBaseline: string;
+};
+
+export type ObservationKernelJudgmentFields = {
+  statusEvidence: string;
+  statusConflictKind: string | null;
+  outcomeOnlyFailureStatus: boolean;
+  limitedFailureStatus: boolean;
+  stableStatusEvidence: boolean;
+  visibleDiagnosticFailure: boolean;
 };
 
 type ObservationAccumulator = Map<string, { count: number; fixtureIds: Set<string> }>;
@@ -125,7 +138,9 @@ export function buildObservationKernelScorecard(): ObservationKernelScorecard {
     failures.push("observation_kernel:non_deterministic_observations");
   }
 
-  const uniqueDigests = new Set(observations.map((observation) => observation.digest));
+  const uniqueSemanticDigests = new Set(
+    observations.map((observation) => observation.semanticDigest),
+  );
   const coveredDimensions = new Set(observations.map((observation) => observation.dimension));
   const missingDimensions = OBSERVATION_KERNEL_FIXTURES.map((fixture) => fixture.dimension).filter(
     (dimension) => !coveredDimensions.has(dimension),
@@ -135,7 +150,7 @@ export function buildObservationKernelScorecard(): ObservationKernelScorecard {
   failures.push(
     ...collectThresholdFailures({
       observations,
-      uniqueDigests,
+      uniqueSemanticDigests,
       coveredDimensions,
       missingDimensions,
     }),
@@ -150,11 +165,12 @@ export function buildObservationKernelScorecard(): ObservationKernelScorecard {
         fixtures: OBSERVATION_KERNEL_FIXTURES.map((fixture) => ({
           id: fixture.id,
           dimension: fixture.dimension,
-          event: fixture.event,
+          events: fixture.events,
         })),
         observations: observations.map((observation) => ({
           fixtureId: observation.fixtureId,
           digest: observation.digest,
+          semanticDigest: observation.semanticDigest,
         })),
       }),
     },
@@ -168,7 +184,7 @@ export function buildObservationKernelScorecard(): ObservationKernelScorecard {
       },
       observations: {
         total: observations.length,
-        unique: uniqueDigests.size,
+        unique: uniqueSemanticDigests.size,
       },
       dimensions: {
         total: OBSERVATION_KERNEL_FIXTURES.length,
@@ -184,6 +200,7 @@ export function buildObservationKernelScorecard(): ObservationKernelScorecard {
     observations: observations.sort(
       (left, right) =>
         compareKernelCanonicalKey(left.fixtureId, right.fixtureId) ||
+        left.sequence - right.sequence ||
         compareKernelCanonicalKey(left.digest, right.digest),
     ),
   };
@@ -210,8 +227,11 @@ function runObservationKernelFixture(
     traces.push(trace);
   });
 
-  core.publish(normalizeSourceEvent(fixture.event));
+  for (const event of fixture.events) {
+    core.publish(normalizeSourceEvent(event));
+  }
 
+  let sequence = 0;
   return traces.flatMap((trace) => {
     if (!isCandidateTrace(trace)) {
       return [];
@@ -235,17 +255,25 @@ function runObservationKernelFixture(
       provenanceAuthority: observation.provenance.authority,
       consequenceBaseline: observation.consequenceBaseline,
     };
+    const judgment = projectObservationJudgmentContract(observation);
+    const observationSequence = sequence++;
+    const semanticDigest = digestKernelCanonicalJson({ fields, judgment });
 
     return [
       {
         fixtureId: fixture.id,
         dimension: fixture.dimension,
+        sequence: observationSequence,
         digest: digestKernelCanonicalJson({
           fixtureId: fixture.id,
           dimension: fixture.dimension,
+          sequence: observationSequence,
           fields,
+          judgment,
         }),
+        semanticDigest,
         fields,
+        judgment,
       },
     ];
   });
@@ -375,7 +403,7 @@ function finalizeObservationDistribution(
 
 function collectThresholdFailures(input: {
   observations: readonly ObservationKernelObservation[];
-  uniqueDigests: ReadonlySet<string>;
+  uniqueSemanticDigests: ReadonlySet<string>;
   coveredDimensions: ReadonlySet<string>;
   missingDimensions: readonly string[];
 }): string[] {
@@ -402,8 +430,8 @@ function collectThresholdFailures(input: {
   for (const dimension of input.missingDimensions) {
     failures.push(`observation_kernel:missing_dimension:${dimension}`);
   }
-  if (input.uniqueDigests.size !== input.observations.length) {
-    failures.push("observation_kernel:duplicate_observation_digest");
+  if (input.uniqueSemanticDigests.size !== input.observations.length) {
+    failures.push("observation_kernel:duplicate_semantic_observation_digest");
   }
   return failures;
 }

@@ -14,6 +14,7 @@ import {
   readSemanticEvidenceStrength,
   resolvePeripheralResolutionFloor,
 } from "../src/judgment-input.js";
+import { projectObservationJudgmentContract } from "../src/judgment-observation-contract.js";
 
 const timestamp = "2026-04-05T18:30:00.000Z";
 const rejectedToolUseMessage =
@@ -150,6 +151,14 @@ test("judgment input exposes outcome-only failed status as named semantic eviden
     evidenceLoss: "none",
     provenance: { origin: "semantic_evidence", authority: "explicit" },
     consequenceBaseline: "medium",
+  });
+  assert.deepEqual(input.observation && projectObservationJudgmentContract(input.observation), {
+    statusEvidence: "limited_failure",
+    statusConflictKind: null,
+    outcomeOnlyFailureStatus: true,
+    limitedFailureStatus: true,
+    stableStatusEvidence: true,
+    visibleDiagnosticFailure: false,
   });
   assert.equal(hasOutcomeOnlyFailureStatusJudgmentInput(input), true);
   assert.equal(hasOutcomeOnlyFailureStatusSemantics(candidate), true);
@@ -510,7 +519,7 @@ test("judgment input marks routine observational failed-status conflicts", () =>
     semanticAgreement: "stable",
     ownership: { owner: "tool", toolFamily: "bash" },
     evidenceStrength: "qualified",
-    subject: "tool",
+    subject: "command",
     evidenceLoss: "none",
     provenance: { origin: "semantic_evidence", authority: "inferred" },
     consequenceBaseline: "low",

@@ -1,6 +1,7 @@
 import type { ApertureEvent } from "./events.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
-import { readObservationalStatusConflictEvidenceFromObservation } from "./observational-status-conflict-kind.js";
+import { projectObservationJudgmentContract } from "./judgment-observation-contract.js";
+import { buildObservationStatusConflictEvidence } from "./judgment-observation-status-conflict.js";
 import { projectAttentionOntologyDiagnosticWithStatusConflictEvidence } from "./semantic-ontology.js";
 import type { SemanticConfidence } from "./semantic-types.js";
 import type {
@@ -73,7 +74,7 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
           interpretation: event.semantic,
         })
       : null;
-  const observationalStatusConflict = readObservationalStatusConflictEvidenceFromObservation({
+  const observationalStatusConflict = buildObservationStatusConflictEvidence({
     event,
     observation: preliminaryObservation,
     interpretation: event.semantic,
@@ -253,6 +254,20 @@ export function hasRoutineObservationalStatusConflictSemantics(
   return hasRoutineObservationalStatusConflictJudgmentInput(candidate.judgmentInput);
 }
 
+export function hasStableStatusObservationSemantics(candidate: AttentionCandidate): boolean {
+  const observation = readCandidateObservation(candidate);
+  return (
+    observation !== null && projectObservationJudgmentContract(observation).stableStatusEvidence
+  );
+}
+
+export function hasVisibleDiagnosticFailureStatusSemantics(candidate: AttentionCandidate): boolean {
+  const observation = readCandidateObservation(candidate);
+  return (
+    observation !== null && projectObservationJudgmentContract(observation).visibleDiagnosticFailure
+  );
+}
+
 export function hasOutcomeOnlyFailureStatusSemantics(candidate: AttentionCandidate): boolean {
   return hasOutcomeOnlyFailureStatusJudgmentInput(candidate.judgmentInput);
 }
@@ -266,11 +281,8 @@ export function hasOutcomeOnlyFailureStatusJudgmentInput(
 ): boolean {
   const observation = judgmentInput.observation;
   return (
-    observation?.kind === "outcome" &&
-    observation.polarity === "failure" &&
-    observation.evidenceLoss === "none" &&
-    observation.consequenceBaseline === "medium" &&
-    observation.semanticAgreement === "stable"
+    observation !== undefined &&
+    projectObservationJudgmentContract(observation).outcomeOnlyFailureStatus
   );
 }
 
@@ -279,15 +291,8 @@ export function hasLimitedFailureStatusJudgmentInput(
 ): boolean {
   const observation = judgmentInput.observation;
   return (
-    hasOutcomeOnlyFailureStatusJudgmentInput(judgmentInput) ||
-    (observation?.evidenceLoss === "absent" &&
-      observation.recoveryHint === "request_evidence" &&
-      observation.consequenceBaseline === "medium" &&
-      observation.semanticAgreement === "stable") ||
-    (observation?.evidenceLoss === "partial" &&
-      observation.recoveryHint === "narrow_evidence_scope" &&
-      observation.consequenceBaseline === "medium" &&
-      observation.semanticAgreement === "stable")
+    observation !== undefined &&
+    projectObservationJudgmentContract(observation).limitedFailureStatus
   );
 }
 
@@ -337,7 +342,8 @@ function deriveCompiledSemanticEvidenceStrength(input: {
   abstained: boolean;
 }): SemanticEvidenceStrength {
   if (
-    input.observation?.kind === "outcome" &&
+    input.observation !== null &&
+    projectObservationJudgmentContract(input.observation).statusEvidence === "limited_failure" &&
     input.observation.evidenceLoss === "absent" &&
     input.observation.consequenceBaseline === "medium" &&
     input.ontology.consequence === "medium" &&

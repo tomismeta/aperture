@@ -3,6 +3,7 @@ import {
   hasRoutineObservationalStatusConflictSemantics,
   readCandidateObservation,
   readCandidateSemanticEvidence,
+  hasStableStatusObservationSemantics,
 } from "../judgment-input.js";
 import type { AttentionCandidate } from "../interaction-candidate.js";
 
@@ -37,9 +38,12 @@ function hasStableSemanticStatusEvidence(candidate: AttentionCandidate): boolean
     return true;
   }
 
-  const observation = readCandidateObservation(candidate);
-  if (observation !== null) {
-    return observation.semanticAgreement === "stable" && observation.evidenceStrength !== "weak";
+  if (hasStableStatusObservationSemantics(candidate)) {
+    return true;
+  }
+
+  if (readCandidateObservation(candidate) !== null) {
+    return false;
   }
 
   const semanticEvidence = readCandidateSemanticEvidence(candidate);

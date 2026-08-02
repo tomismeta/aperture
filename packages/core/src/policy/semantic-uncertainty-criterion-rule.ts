@@ -1,7 +1,7 @@
 import {
   hasActionableBlockedLikeStatusSemantics,
-  readCandidateObservation,
   hasRoutineObservationalStatusConflictSemantics,
+  hasVisibleDiagnosticFailureStatusSemantics,
   isCandidateSemanticAbstained,
   readCandidateSemanticConfidence,
   readCandidateSemanticEvidence,
@@ -109,13 +109,7 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
 function hasVisibleDiagnosticFailureEvidence(
   candidate: Parameters<PolicyCriterionRule>[0]["candidate"],
 ): boolean {
-  const observation = readCandidateObservation(candidate);
-  return (
-    observation?.kind === "diagnostic" &&
-    observation.diagnosticClass === "runtime" &&
-    observation.evidenceLoss === "none" &&
-    observation.polarity === "failure"
-  );
+  return hasVisibleDiagnosticFailureStatusSemantics(candidate);
 }
 
 function resolveSemanticUncertaintyPeripheralResolution(

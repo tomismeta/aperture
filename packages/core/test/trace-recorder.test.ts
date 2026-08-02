@@ -469,7 +469,7 @@ test("public trace summary carries observational status-conflict evidence", () =
     polarity: "success",
     owner: "tool",
     toolFamily: "bash",
-    subject: "tool",
+    subject: "command",
     evidenceLoss: "none",
     evidenceStrength: "qualified",
     semanticAgreement: "stable",

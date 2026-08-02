@@ -18,6 +18,20 @@ export {
   serializeKernelCanonicalJson,
 } from "./kernel-canonical-json.js";
 export {
+  assertObservationKernelScorecardPassed,
+  buildObservationKernelScorecard,
+  OBSERVATION_KERNEL_SCORECARD_PROFILE_ID,
+  OBSERVATION_KERNEL_SCORECARD_PROFILE_VERSION,
+  OBSERVATION_KERNEL_SCORECARD_SCHEMA_VERSION,
+  OBSERVATION_KERNEL_SCORECARD_THRESHOLDS,
+  type ObservationKernelCoverage,
+  type ObservationKernelDistribution,
+  type ObservationKernelFields,
+  type ObservationKernelObservation,
+  type ObservationKernelScorecard,
+} from "./observation-kernel-scorecard.js";
+export { parseObservationKernelScorecard } from "./observation-kernel-scorecard-validation.js";
+export {
   assertKernelConformanceReportPassed,
   buildKernelConformanceReport,
   KERNEL_CONFORMANCE_REPORT_SCHEMA_VERSION,

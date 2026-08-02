@@ -7,10 +7,7 @@ import {
   readTaskFailureObservationCore,
 } from "../src/task-failure-observation-normalizer.js";
 import type { NormalizedObservation } from "../src/normalized-observation.js";
-import {
-  readObservationalStatusConflictKind,
-  readObservationalStatusConflictKindFromObservation,
-} from "../src/observational-status-conflict-kind.js";
+import { readObservationalStatusConflictKindFromObservation } from "../src/observational-status-conflict-kind.js";
 import type {
   SemanticTextEvidence,
   TaskFailureSemanticEvidence,
@@ -540,108 +537,156 @@ test("task-failure observation normalizer maps every evidence kind into the norm
   }
 });
 
-test("normalized observations preserve status-conflict kind parity with legacy evidence kinds", () => {
-  const parityCases = [
-    evidence({
-      kind: "routine_bash_success_observation",
-      toolFamily: "bash",
-      readsAsObservation: true,
-      consequenceBaseline: "low",
-    }),
-    evidence({
-      kind: "structured_execution_success_observation",
-      toolFamily: "bash",
-      observationSemantics: semanticObservation({
-        kind: "outcome",
-        polarity: "success",
-        origin: "structured_output",
-        subject: "tool",
+test("status-conflict kinds are derived from normalized observation fields", () => {
+  const parityCases: Array<{
+    name: string;
+    failureEvidence: TaskFailureSemanticEvidence;
+    expected: ReturnType<typeof readObservationalStatusConflictKindFromObservation>;
+  }> = [
+    {
+      name: "command success observation",
+      failureEvidence: evidence({
+        kind: "routine_bash_success_observation",
+        toolFamily: "bash",
+        readsAsObservation: true,
         consequenceBaseline: "low",
-        toolFamily: "bash",
       }),
-      readsAsObservation: true,
-      consequenceBaseline: "low",
-    }),
-    evidence({
-      kind: "operation_success_observation",
-      readsAsObservation: true,
-      consequenceBaseline: "low",
-    }),
-    evidence({
-      kind: "structured_tool_output_observation",
-      toolFamily: "bash",
-      observationSemantics: semanticObservation({
-        kind: "payload",
-        polarity: "neutral",
-        origin: "structured_output",
-        subject: "source",
-        consequenceBaseline: "high",
+      expected: "command_success_observation",
+    },
+    {
+      name: "structured execution success observation",
+      failureEvidence: evidence({
+        kind: "structured_execution_success_observation",
         toolFamily: "bash",
-      }),
-      readsAsObservation: true,
-      consequenceBaseline: "high",
-    }),
-    evidence({
-      kind: "observational_payload",
-      toolFamily: "bash",
-      observationSemantics: semanticObservation({
-        kind: "payload",
-        polarity: "neutral",
-        origin: "transcript",
-        subject: "source",
-        consequenceBaseline: "high",
-        toolFamily: "bash",
-      }),
-      readsAsObservation: true,
-      consequenceBaseline: "high",
-    }),
-    evidence({
-      kind: "routine_search_output",
-      toolFamily: "search",
-      readsAsObservation: true,
-      consequenceBaseline: "low",
-    }),
-    evidence({
-      kind: "rejected_tool_use_observation",
-      toolFamily: "bash",
-      observationSemantics: semanticObservation({
-        kind: "control",
-        polarity: "neutral",
-        origin: "status_text",
-        subject: "tool",
+        observationSemantics: semanticObservation({
+          kind: "outcome",
+          polarity: "success",
+          origin: "structured_output",
+          subject: "tool",
+          consequenceBaseline: "low",
+          toolFamily: "bash",
+        }),
+        readsAsObservation: true,
         consequenceBaseline: "low",
-        toolFamily: "bash",
-        recoveryHint: "await_authorization",
       }),
-      readsAsObservation: true,
-      consequenceBaseline: "low",
-    }),
-    evidence({
-      kind: "empty_failure_payload",
-      failureDetail: "absent_evidence",
-      toolFamily: "edit",
-    }),
-    evidence({
-      kind: "expected_diagnostic_failure",
-      toolFamily: "bash",
-    }),
-    evidence({
-      kind: "terminal_failure",
-      failureDetail: "diagnostic",
-      toolFamily: "bash",
-    }),
-    evidence({
-      kind: "unclassified_failure",
-      failureDetail: "indeterminate",
-      consequenceBaseline: "high",
-    }),
+      expected: "execution_success_observation",
+    },
+    {
+      name: "operation success observation",
+      failureEvidence: evidence({
+        kind: "operation_success_observation",
+        readsAsObservation: true,
+        consequenceBaseline: "low",
+      }),
+      expected: "payload_observation",
+    },
+    {
+      name: "structured tool output observation",
+      failureEvidence: evidence({
+        kind: "structured_tool_output_observation",
+        toolFamily: "bash",
+        observationSemantics: semanticObservation({
+          kind: "payload",
+          polarity: "neutral",
+          origin: "structured_output",
+          subject: "source",
+          consequenceBaseline: "high",
+          toolFamily: "bash",
+        }),
+        readsAsObservation: true,
+        consequenceBaseline: "high",
+      }),
+      expected: "structured_output_observation",
+    },
+    {
+      name: "transcript payload observation",
+      failureEvidence: evidence({
+        kind: "observational_payload",
+        toolFamily: "bash",
+        observationSemantics: semanticObservation({
+          kind: "payload",
+          polarity: "neutral",
+          origin: "transcript",
+          subject: "source",
+          consequenceBaseline: "high",
+          toolFamily: "bash",
+        }),
+        readsAsObservation: true,
+        consequenceBaseline: "high",
+      }),
+      expected: "payload_observation",
+    },
+    {
+      name: "search output observation",
+      failureEvidence: evidence({
+        kind: "routine_search_output",
+        toolFamily: "search",
+        readsAsObservation: true,
+        consequenceBaseline: "low",
+      }),
+      expected: "search_output_observation",
+    },
+    {
+      name: "rejected tool-use observation",
+      failureEvidence: evidence({
+        kind: "rejected_tool_use_observation",
+        toolFamily: "bash",
+        observationSemantics: semanticObservation({
+          kind: "control",
+          polarity: "neutral",
+          origin: "status_text",
+          subject: "tool",
+          consequenceBaseline: "low",
+          toolFamily: "bash",
+          recoveryHint: "await_authorization",
+        }),
+        readsAsObservation: true,
+        consequenceBaseline: "low",
+      }),
+      expected: "rejected_tool_use_observation",
+    },
+    {
+      name: "empty failed payload",
+      failureEvidence: evidence({
+        kind: "empty_failure_payload",
+        failureDetail: "absent_evidence",
+        toolFamily: "edit",
+      }),
+      expected: null,
+    },
+    {
+      name: "expected diagnostic failure",
+      failureEvidence: evidence({
+        kind: "expected_diagnostic_failure",
+        toolFamily: "bash",
+      }),
+      expected: null,
+    },
+    {
+      name: "terminal diagnostic failure",
+      failureEvidence: evidence({
+        kind: "terminal_failure",
+        failureDetail: "diagnostic",
+        toolFamily: "bash",
+      }),
+      expected: null,
+    },
+    {
+      name: "unclassified failure",
+      failureEvidence: evidence({
+        kind: "unclassified_failure",
+        failureDetail: "indeterminate",
+        consequenceBaseline: "high",
+      }),
+      expected: null,
+    },
   ];
 
-  for (const failureEvidence of parityCases) {
+  for (const { name, failureEvidence, expected } of parityCases) {
     assert.equal(
       readObservationalStatusConflictKindFromObservation(compile(failureEvidence)),
-      readObservationalStatusConflictKind(failureEvidence.kind),
-      failureEvidence.kind,
+      expected,
+      name,
     );
   }
 

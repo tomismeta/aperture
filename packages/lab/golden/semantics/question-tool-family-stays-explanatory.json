@@ -1,15 +1,9 @@
 {
   "id": "golden:semantics:question-tool-family-stays-explanatory",
-  "title": "Question-path tool family stays explanatory even with explicit source context",
-  "description": "Explicit tool-family context on a question request should stay visible in semantics and trace output without promoting the question into tool-policy routing.",
-  "doctrineTags": [
-    "semantic_normalization",
-    "semantic_robustness",
-    "traceability"
-  ],
-  "semanticFamilies": [
-    "ask_overread"
-  ],
+  "title": "Question-path tool family stays explanatory even with explicit source tool family",
+  "description": "Explicit source-event tool family on a question request should stay visible in semantics and trace output without promoting the question into tool-policy routing.",
+  "doctrineTags": ["semantic_normalization", "semantic_robustness", "traceability"],
+  "semanticFamilies": ["ask_overread"],
   "expectations": {
     "finalNowInteractionId": "interaction:question:tool-family",
     "nextInteractionIds": [],
@@ -21,7 +15,7 @@
     },
     "semanticReadings": [
       {
-        "stepLabel": "question with explicit tool context",
+        "stepLabel": "question with explicit source tool family",
         "intentFrame": "question_request",
         "activityClass": "question_request",
         "toolFamily": "read",
@@ -30,7 +24,7 @@
         "whyNowIncludes": "decision is required before work can continue",
         "reasonsInclude": [
           "request kind establishes an explicit operator decision point",
-          "tool family was supplied by the source or context"
+          "tool family was supplied by the source event"
         ],
         "provenanceIncludes": {
           "intentFrame": "inferred",
@@ -44,28 +38,21 @@
     ],
     "decisionReadings": [
       {
-        "stepLabel": "question with explicit tool context",
+        "stepLabel": "question with explicit source tool family",
         "evaluationKind": "candidate",
         "decisionKind": "activate",
         "resultLane": "now",
         "semanticConfidence": "low",
-        "semanticInfluenceIncludes": [
-          "tool family stayed context-only on the question/form path"
-        ],
-        "semanticImpactDecisionBearingIncludes": [
-          "consequence (canonical)"
-        ],
-        "semanticImpactExplanatoryIncludes": [
-          "tool",
-          "why now"
-        ]
+        "semanticInfluenceIncludes": ["tool family stayed semantic-only on the question/form path"],
+        "semanticImpactDecisionBearingIncludes": ["consequence (canonical)"],
+        "semanticImpactExplanatoryIncludes": ["tool", "why now"]
       }
     ]
   },
   "steps": [
     {
       "kind": "publishSource",
-      "label": "question with explicit tool context",
+      "label": "question with explicit source tool family",
       "event": {
         "id": "evt:question:tool-family",
         "type": "human.input.requested",
@@ -75,17 +62,11 @@
         "source": { "id": "custom-agent" },
         "title": "Should we read the config first?",
         "summary": "Choose the next step.",
-        "context": {
-          "items": [
-            { "id": "toolFamily", "label": "Tool Family", "value": "read" }
-          ]
-        },
+        "toolFamily": "read",
         "request": {
           "kind": "choice",
           "selectionMode": "single",
-          "options": [
-            { "id": "yes", "label": "Yes" }
-          ]
+          "options": [{ "id": "yes", "label": "Yes" }]
         }
       }
     }

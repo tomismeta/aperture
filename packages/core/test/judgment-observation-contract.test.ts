@@ -4,15 +4,15 @@ import test from "node:test";
 import {
   projectObservationJudgmentContract,
   resolveObservationStatusConflictKind,
-  type ObservationJudgmentDocument,
 } from "../src/judgment-observation-contract.js";
+import type { NormalizedObservation } from "../src/normalized-observation.js";
 
 function observation(
-  overrides: Partial<Omit<ObservationJudgmentDocument, "ownership" | "provenance">> & {
-    ownership?: Partial<ObservationJudgmentDocument["ownership"]>;
-    provenance?: Partial<ObservationJudgmentDocument["provenance"]>;
+  overrides: Partial<Omit<NormalizedObservation, "ownership" | "provenance">> & {
+    ownership?: Partial<NormalizedObservation["ownership"]>;
+    provenance?: Partial<NormalizedObservation["provenance"]>;
   } = {},
-): ObservationJudgmentDocument {
+): NormalizedObservation {
   const { ownership, provenance, ...flat } = overrides;
   return {
     kind: "payload",
@@ -59,7 +59,7 @@ test("observation judgment projection covers the status-evidence truth table", (
 });
 
 test("observation judgment projection classifies recovery posture", () => {
-  const cases: Array<[string, Partial<ObservationJudgmentDocument>, string]> = [
+  const cases: Array<[string, Partial<NormalizedObservation>, string]> = [
     ["no recovery", {}, "none"],
     [
       "authorization",
@@ -140,7 +140,7 @@ test("observation judgment projection classifies recovery posture", () => {
 });
 
 test("observation judgment projection classifies status conflicts structurally", () => {
-  const cases: Array<[string, ObservationJudgmentDocument, string | null]> = [
+  const cases: Array<[string, NormalizedObservation, string | null]> = [
     [
       "rejected control",
       observation({ kind: "control", recoveryHint: "await_authorization" }),

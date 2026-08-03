@@ -19,9 +19,7 @@ core.publishSourceEvent({
   source: { id: "custom-agent" },
   title: "Should we inspect the config first?",
   summary: "Choose the next step.",
-  context: {
-    items: [{ id: "toolFamily", label: "Tool Family", value: "read" }],
-  },
+  toolFamily: "read",
   request: {
     kind: "choice",
     selectionMode: "single",

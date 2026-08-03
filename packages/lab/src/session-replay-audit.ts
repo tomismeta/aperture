@@ -489,7 +489,7 @@ function compareSemanticSnapshot(
     comparableSemanticInterpretation(captured),
     comparableSemanticInterpretation(replayed),
   );
-  const ontologyStatus = compareSemanticOntology(captured.ontology, replayed.ontology);
+  const ontologyStatus = compareAttentionOntology(captured.ontology, replayed.ontology);
 
   if (!interpretationMatches || ontologyStatus === "mismatch") {
     return "mismatch";
@@ -498,7 +498,7 @@ function compareSemanticSnapshot(
   return ontologyStatus === "unavailable" ? "unavailable" : "match";
 }
 
-function compareSemanticOntology(
+function compareAttentionOntology(
   captured: SessionReplayOntologyComparable | null,
   replayed: SessionReplayOntologyComparable | null,
 ): Exclude<SessionReplayComparisonStatus, "incompatible_version"> {

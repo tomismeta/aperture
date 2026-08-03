@@ -26,7 +26,7 @@
           "activity": "task_progress",
           "blocking": "blocking",
           "episode": "unknown",
-          "source": "hinted"
+          "source": "inferred"
         },
         "whyNowIncludes": "blocked",
         "reasonsInclude": ["status wording indicates work cannot continue yet"]

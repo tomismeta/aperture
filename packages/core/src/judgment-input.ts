@@ -4,8 +4,8 @@ import {
   projectObservationJudgmentContract,
   type ObservationJudgmentContract,
 } from "./judgment-observation-contract.js";
-import { buildObservationStatusConflictEvidence } from "./judgment-observation-status-conflict.js";
-import { projectAttentionOntologyDiagnosticWithStatusConflictEvidence } from "./semantic-ontology.js";
+import { buildObservationStatusConflictEvidenceFromCore } from "./judgment-observation-status-conflict.js";
+import { projectAttentionOntologyDiagnosticWithStatusConflictEvidence } from "./attention-ontology-projector.js";
 import type { SemanticConfidence } from "./semantic-types.js";
 import type {
   AttentionJudgmentInput,
@@ -62,35 +62,17 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
     event.type === "task.updated" && event.status === "failed"
       ? readTaskFailureObservationCoreFromEvent(event)
       : null;
-  const preliminaryOntology = projectAttentionOntologyDiagnosticWithStatusConflictEvidence(
+  const observationalStatusConflict = buildObservationStatusConflictEvidenceFromCore({
     event,
-    event.semantic,
-    null,
-  );
-  const preliminaryObservation =
-    failureObservationCore !== null
-      ? normalizeTaskFailureObservationFromCore({
-          event,
-          core: failureObservationCore,
-          ontology: preliminaryOntology,
-          abstained,
-          interpretation: event.semantic,
-        })
-      : null;
-  const observationalStatusConflict = buildObservationStatusConflictEvidence({
-    event,
-    observation: preliminaryObservation,
+    core: failureObservationCore,
     interpretation: event.semantic,
     abstained,
   });
-  const ontology =
-    observationalStatusConflict !== null
-      ? projectAttentionOntologyDiagnosticWithStatusConflictEvidence(
-          event,
-          event.semantic,
-          observationalStatusConflict,
-        )
-      : preliminaryOntology;
+  const ontology = projectAttentionOntologyDiagnosticWithStatusConflictEvidence(
+    event,
+    event.semantic,
+    observationalStatusConflict,
+  );
   const blockedLikeStatus =
     event.type === "task.updated" && ontology.blocking === "blocking" && event.status !== "blocked";
   const observation =
@@ -127,12 +109,7 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
       : {}),
     ...(observation !== null ? { observation } : {}),
     blockedLikeStatus,
-    ...(observationalStatusConflict !== null
-      ? {
-          routineObservationalStatusConflict: true,
-          observationalStatusConflict,
-        }
-      : {}),
+    ...(observationalStatusConflict !== null ? { observationalStatusConflict } : {}),
   };
 }
 
@@ -182,12 +159,6 @@ export function readCandidateAttentionOntology(
   candidate: AttentionCandidate,
 ): AttentionOntologyDiagnostic | null {
   return candidate.judgmentInput.ontology ?? null;
-}
-
-export function readCandidateSemanticOntology(
-  candidate: AttentionCandidate,
-): AttentionOntologyDiagnostic | null {
-  return readCandidateAttentionOntology(candidate);
 }
 
 export function readCandidateSemanticConfidence(
@@ -257,10 +228,8 @@ export function hasActionableBlockedLikeStatusJudgmentInput(
   return evidence !== undefined && evidence.confidence !== "low" && !evidence.abstained;
 }
 
-export function hasRoutineObservationalStatusConflictSemantics(
-  candidate: AttentionCandidate,
-): boolean {
-  return hasRoutineObservationalStatusConflictJudgmentInput(candidate.judgmentInput);
+export function hasObservationalStatusConflictSemantics(candidate: AttentionCandidate): boolean {
+  return hasObservationalStatusConflictJudgmentInput(candidate.judgmentInput);
 }
 
 export function hasOutcomeOnlyFailureStatusJudgmentInput(
@@ -275,13 +244,10 @@ export function hasLimitedFailureStatusJudgmentInput(
   return readJudgmentInputObservationContract(judgmentInput)?.limitedFailureStatus === true;
 }
 
-export function hasRoutineObservationalStatusConflictJudgmentInput(
+export function hasObservationalStatusConflictJudgmentInput(
   judgmentInput: AttentionJudgmentInput,
 ): boolean {
-  return (
-    judgmentInput.routineObservationalStatusConflict === true ||
-    judgmentInput.observationalStatusConflict !== undefined
-  );
+  return judgmentInput.observationalStatusConflict !== undefined;
 }
 
 export function resolvePeripheralResolutionFloor(

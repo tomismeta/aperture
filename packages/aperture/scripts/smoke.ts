@@ -385,7 +385,10 @@ async function assertPackagedRuntimeUsesCurrentCore(
       "runtime readback judgment input",
     );
     assert.equal(Object.hasOwn(readbackJudgmentInput, "failureEvidence"), false);
-    assert.equal(readbackJudgmentInput.routineObservationalStatusConflict, true);
+    assert.equal(
+      Object.hasOwn(readbackJudgmentInput, "routineObservationalStatusConflict"),
+      false,
+    );
     const readbackObservation = asRecord(
       readbackJudgmentInput.observation,
       "runtime readback observation",

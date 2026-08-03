@@ -42,8 +42,8 @@ export {
   projectObservationJudgmentContract,
   resolveObservationStatusConflictKind,
   type ObservationJudgmentContract,
-  type ObservationJudgmentDocument,
 } from "./judgment-observation-contract.js";
+export { buildAttentionJudgmentInput } from "./judgment-input.js";
 export {
   readTaskFailureSemanticEvidence,
   type TaskFailureDetail,

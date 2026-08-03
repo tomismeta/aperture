@@ -4,7 +4,6 @@ export {
   semanticHintsForTruncatedSourceEvidence,
 } from "./semantic-source-quality.js";
 export {
-  projectAttentionOntologyDiagnostic,
   projectSemanticOntologyDiagnostic,
   readAttentionOntologyDiagnostic,
   readSemanticOntologyDiagnostic,

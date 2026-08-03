@@ -83,7 +83,7 @@ function collectSemanticCheckpointFailures(
     (reading) => reading.stepLabel !== undefined && reading.ontology !== undefined,
   )
     ? []
-    : [`weak_scenario:${id}:missing_semantic_ontology_checkpoint`];
+    : [`weak_scenario:${id}:missing_attention_ontology_checkpoint`];
 }
 
 function collectDecisionCheckpointFailures(
@@ -126,9 +126,7 @@ function collectDimensionIntegrityFailures(): string[] {
   const profileIds = new Set<string>(KERNEL_CORPUS_SCENARIO_IDS);
   const assignedIds = new Set<string>();
   const dimensionIds = KERNEL_CORPUS_COVERAGE_DIMENSIONS.map((dimension) => dimension.id);
-  const failures = collectDuplicateValues(dimensionIds).map(
-    (id) => `duplicate_dimension:${id}`,
-  );
+  const failures = collectDuplicateValues(dimensionIds).map((id) => `duplicate_dimension:${id}`);
 
   for (const dimension of KERNEL_CORPUS_COVERAGE_DIMENSIONS) {
     for (const id of collectDuplicateValues([...dimension.scenarioIds])) {

@@ -30,9 +30,6 @@ const claim: AttentionClaim = {
   priority: "normal",
   blocking: true,
   timestamp: "2026-03-13T18:00:00.000Z",
-  judgment: {
-    blockedLikeStatus: false,
-  },
 };
 
 const record = evaluateAttention({

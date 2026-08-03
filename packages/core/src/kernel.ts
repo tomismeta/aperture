@@ -205,7 +205,7 @@ export type ApertureKernelObservation = {
   consequenceBaseline: ApertureKernelConsequenceLevel;
 };
 
-export type ApertureKernelJudgment = {
+export type ApertureKernelObservationJudgment = {
   statusEvidence:
     | "limited_failure"
     | "stable_observation"
@@ -238,16 +238,36 @@ export type ApertureKernelEvaluation =
       workId: string;
     };
 
-export type ApertureKernelProjection = {
+export const APERTURE_KERNEL_EXPLANATION_SCHEMA_VERSION = 1 as const;
+
+export type ApertureKernelResult = {
   event: ApertureKernelFinalEvent;
   evaluation: ApertureKernelEvaluation;
   observation: ApertureKernelObservation | null;
-  judgment: ApertureKernelJudgment | null;
+  observationJudgment: ApertureKernelObservationJudgment | null;
+  explanation: ApertureKernelExplanation;
 };
+
+export type ApertureKernelExplanation = {
+  schemaVersion: typeof APERTURE_KERNEL_EXPLANATION_SCHEMA_VERSION;
+  flow: readonly ["normalize", "observe", "judge"];
+  reasonCodes: string[];
+};
+
+type ApertureKernelEvaluationResult = Omit<ApertureKernelResult, "explanation">;
 
 type SourceObservation = NonNullable<AttentionJudgmentInput["observation"]>;
 
-export function projectApertureKernelEvent(event: ApertureKernelEvent): ApertureKernelProjection {
+export function evaluateApertureKernelEvent(event: ApertureKernelEvent): ApertureKernelResult {
+  const result = evaluateApertureKernelResult(event);
+
+  return {
+    ...result,
+    explanation: explainApertureKernelResult(result),
+  };
+}
+
+function evaluateApertureKernelResult(event: ApertureKernelEvent): ApertureKernelEvaluationResult {
   const finalizedEvent = normalizeSourceEvent(toSourceEvent(event));
   const result = new EventEvaluator().evaluate(finalizedEvent);
 
@@ -259,7 +279,7 @@ export function projectApertureKernelEvent(event: ApertureKernelEvent): Aperture
         workId: result.taskId,
       },
       observation: null,
-      judgment: null,
+      observationJudgment: null,
     };
   }
 
@@ -274,7 +294,23 @@ export function projectApertureKernelEvent(event: ApertureKernelEvent): Aperture
       mode: result.candidate.mode,
     },
     observation: observation === undefined ? null : projectKernelObservation(observation),
-    judgment: observation === undefined ? null : projectKernelJudgment(observation),
+    observationJudgment:
+      observation === undefined ? null : projectKernelObservationJudgment(observation),
+  };
+}
+
+function explainApertureKernelResult(
+  result: ApertureKernelEvaluationResult,
+): ApertureKernelExplanation {
+  return {
+    schemaVersion: APERTURE_KERNEL_EXPLANATION_SCHEMA_VERSION,
+    flow: ["normalize", "observe", "judge"],
+    reasonCodes: [
+      "kernel:normalize:event",
+      `kernel:evaluate:${result.evaluation.kind}`,
+      ...explainKernelObservation(result.observation),
+      ...explainKernelObservationJudgment(result.observationJudgment),
+    ],
   };
 }
 
@@ -407,7 +443,9 @@ function projectKernelObservation(observation: SourceObservation): ApertureKerne
   };
 }
 
-function projectKernelJudgment(observation: SourceObservation): ApertureKernelJudgment {
+function projectKernelObservationJudgment(
+  observation: SourceObservation,
+): ApertureKernelObservationJudgment {
   const contract = projectObservationJudgmentContract(observation);
   return {
     statusEvidence: contract.statusEvidence,
@@ -421,29 +459,43 @@ function projectKernelJudgment(observation: SourceObservation): ApertureKernelJu
   };
 }
 
-function readCapabilityFamily(event: ApertureKernelEvent): string | null {
-  return (
-    normalizeCapabilityFamily(event.facts?.capabilityFamily) ??
-    readContextCapabilityFamily(event.context) ??
-    normalizeCapabilityFamily(event.metadata?.capabilityFamily)
-  );
-}
-
-function readContextCapabilityFamily(context: ApertureKernelContext | undefined): string | null {
-  for (const item of context?.items ?? []) {
-    const id = item.id.toLowerCase();
-    const label = item.label.toLowerCase();
-    if (
-      id === "capabilityfamily" ||
-      id === "capability_family" ||
-      id === "capability" ||
-      label === "capability family"
-    ) {
-      return normalizeCapabilityFamily(item.value);
-    }
+function explainKernelObservation(observation: ApertureKernelObservation | null): string[] {
+  if (observation === null) {
+    return ["kernel:observe:absent"];
   }
 
-  return null;
+  return [
+    "kernel:observe:present",
+    `kernel:observe:kind:${observation.kind}`,
+    `kernel:observe:polarity:${observation.polarity}`,
+    `kernel:observe:owner:${observation.ownership.owner}`,
+    `kernel:observe:subject:${observation.subject}`,
+    `kernel:observe:evidence_loss:${observation.evidenceLoss}`,
+    `kernel:observe:evidence_strength:${observation.evidenceStrength}`,
+    `kernel:observe:agreement:${observation.semanticAgreement}`,
+    `kernel:observe:provenance:${observation.provenance.origin}:${observation.provenance.authority}`,
+  ];
+}
+
+function explainKernelObservationJudgment(
+  observationJudgment: ApertureKernelObservationJudgment | null,
+): string[] {
+  if (observationJudgment === null) {
+    return ["kernel:judge:absent"];
+  }
+
+  return [
+    `kernel:judge:status_evidence:${observationJudgment.statusEvidence}`,
+    observationJudgment.statusConflictKind === null
+      ? "kernel:judge:status_conflict:none"
+      : `kernel:judge:status_conflict:${observationJudgment.statusConflictKind}`,
+    `kernel:judge:recovery:${observationJudgment.recoveryPosture}`,
+    `kernel:judge:baseline:${observationJudgment.baselineConsequence}`,
+  ];
+}
+
+function readCapabilityFamily(event: ApertureKernelEvent): string | null {
+  return normalizeCapabilityFamily(event.facts?.capabilityFamily);
 }
 
 function normalizeCapabilityFamily(value: unknown): string | null {

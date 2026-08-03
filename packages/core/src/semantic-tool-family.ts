@@ -4,28 +4,14 @@ import {
   normalizeSemanticText,
 } from "./semantic-text.js";
 
-export type SemanticToolFamilyContextItem = {
-  id: string;
-  label: string;
-  value?: string;
-};
-
 export type SemanticToolFamilyInput = {
   title: string;
   summary?: string;
   toolFamily?: string;
-  context?: {
-    items?: SemanticToolFamilyContextItem[];
-  };
-  metadata?: Record<string, unknown>;
 };
 
 export function readExplicitSemanticToolFamily(input: SemanticToolFamilyInput): string | null {
-  return (
-    normalizeToolFamily(input.toolFamily) ??
-    normalizeToolFamily(readMetadataToolFamily(input.metadata)) ??
-    normalizeToolFamily(readContextToolFamily(input.context))
-  );
+  return normalizeToolFamily(input.toolFamily);
 }
 
 export function inferSemanticToolFamily(input: SemanticToolFamilyInput): string | null {
@@ -71,27 +57,6 @@ export function isSemanticCommandExecutionToolFamily(toolFamily: string | undefi
   return (
     toolFamily === "bash" || toolFamily === "exec_command" || toolFamily === "run_shell_command"
   );
-}
-
-function readMetadataToolFamily(metadata?: Record<string, unknown>): string | null {
-  const value = metadata?.toolFamily;
-  return typeof value === "string" ? value : null;
-}
-
-function readContextToolFamily(input?: SemanticToolFamilyInput["context"]): string | null {
-  if (!input?.items) {
-    return null;
-  }
-
-  for (const item of input.items) {
-    const id = item.id.toLowerCase();
-    const label = item.label.toLowerCase();
-    if (id === "toolfamily" || id === "tool_family" || id === "tool" || label === "tool family") {
-      return item.value ?? null;
-    }
-  }
-
-  return null;
 }
 
 function normalizeToolFamily(value: string | null | undefined): string | null {

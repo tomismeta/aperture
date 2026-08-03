@@ -34,9 +34,6 @@ function createClaim(overrides: Partial<AttentionClaim> = {}): AttentionClaim {
     priority: "normal",
     blocking: true,
     timestamp: "2026-03-13T18:00:00.000Z",
-    judgment: {
-      blockedLikeStatus: false,
-    },
     ...overrides,
   };
 }
@@ -95,14 +92,7 @@ function createInternalCandidate(claim: AttentionClaim): AttentionCandidate {
       ...(claim.judgment?.relationEvidence !== undefined
         ? { relationEvidence: claim.judgment.relationEvidence }
         : {}),
-      blockedLikeStatus: claim.judgment?.blockedLikeStatus ?? false,
-      ...(claim.judgment?.routineObservationalStatusConflict === true ||
-      claim.judgment?.observationalStatusConflict !== undefined
-        ? { routineObservationalStatusConflict: true }
-        : {}),
-      ...(claim.judgment?.observationalStatusConflict !== undefined
-        ? { observationalStatusConflict: claim.judgment.observationalStatusConflict }
-        : {}),
+      blockedLikeStatus: false,
     },
     ...(claim.relationHints !== undefined ? { relationHints: claim.relationHints } : {}),
     responseSpec: claim.responseSpec,
@@ -192,12 +182,7 @@ test("public attention evaluator returns owned JSON-safe record values", () => {
   assert.equal(record.claim.context?.items?.[0]?.value, "package.json");
 });
 
-test("public attention evaluator preserves observational status-conflict evidence", () => {
-  const observationalStatusConflict = {
-    kind: "command_success_observation" as const,
-    toolFamily: "bash",
-    baselineConsequence: "low" as const,
-  };
+test("public attention evaluator drops caller-supplied compiled judgment fields", () => {
   const claim = createClaim({
     mode: "status",
     toolFamily: "bash",
@@ -208,22 +193,26 @@ test("public attention evaluator preserves observational status-conflict evidenc
     priority: "background",
     blocking: false,
     judgment: {
-      blockedLikeStatus: false,
-      routineObservationalStatusConflict: true,
-      observationalStatusConflict,
+      ontology: {
+        ask: "status",
+        activity: "task_progress",
+        consequence: "low",
+        blocking: "non_blocking",
+        episode: "unknown",
+        confidence: "high",
+        source: "explicit",
+      },
+      // @ts-expect-error Public claims cannot inject compiled judgment fields.
+      compiledStatusMarker: true,
     },
   });
 
   const record = evaluateAttention({ claim });
   const candidate = createInternalCandidate(claim);
 
-  assert.deepEqual(record.claim.judgment?.observationalStatusConflict, observationalStatusConflict);
-  assert.equal(record.claim.judgment?.routineObservationalStatusConflict, true);
-  assert.deepEqual(
-    candidate.judgmentInput.observationalStatusConflict,
-    observationalStatusConflict,
-  );
-  assert.equal(candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.deepEqual(record.claim.judgment?.ontology, claim.judgment?.ontology);
+  assert.equal("compiledStatusMarker" in (record.claim.judgment ?? {}), false);
+  assert.equal(candidate.judgmentInput.observationalStatusConflict, undefined);
 });
 
 test("decorative metadata does not enter the evaluator record", () => {
@@ -334,7 +323,6 @@ test("public attention evaluator is byte-stable for repeated JSON evaluation", (
           source: "explicit",
           strength: "strong",
         },
-        blockedLikeStatus: false,
       },
     }),
     context: {

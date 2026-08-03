@@ -323,9 +323,7 @@ test("candidate traces expose semantic summaries with routing influence", () => 
     source: { id: "custom-agent" },
     title: "Should we inspect the config first?",
     summary: "Choose the next step.",
-    context: {
-      items: [{ id: "toolFamily", label: "Tool Family", value: "read" }],
-    },
+    toolFamily: "read",
     request: {
       kind: "choice",
       selectionMode: "single",
@@ -345,7 +343,7 @@ test("candidate traces expose semantic summaries with routing influence", () => 
   assert.equal(trace.semantic?.confidence, "low");
   assert.equal(trace.semantic?.ontology.ask, "choice");
   assert.equal(trace.semantic?.ontology.blocking, "blocking");
-  assert.ok(trace.semantic?.reasons.includes("tool family was supplied by the source or context"));
+  assert.ok(trace.semantic?.reasons.includes("tool family was supplied by the source event"));
   assert.equal(trace.semantic?.impact.routingAuthority, "request");
   assert.deepEqual(trace.semantic?.impact.canonical, [
     "activity (canonical)",
@@ -354,7 +352,9 @@ test("candidate traces expose semantic summaries with routing influence", () => 
   assert.deepEqual(trace.semantic?.impact.ambiguity, []);
   assert.deepEqual(trace.semantic?.impact.contextOnly, ["intent", "tool", "why now", "confidence"]);
   assert.ok(
-    trace.semantic?.influence.includes("tool family stayed context-only on the question/form path"),
+    trace.semantic?.influence.includes(
+      "tool family stayed semantic-only on the question/form path",
+    ),
   );
   assert.ok(
     trace.semantic?.influence.includes(

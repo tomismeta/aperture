@@ -173,7 +173,7 @@ test("JudgmentBench runs across the golden scenarios and produces a summary", as
     questionToolScenario?.assertions.find(
       (assertion) =>
         assertion.name ===
-        "decision reading (question with explicit tool context) semantic impact explanatory includes",
+        "decision reading (question with explicit source tool family) semantic impact explanatory includes",
     )?.passed,
     true,
   );

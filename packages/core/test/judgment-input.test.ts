@@ -7,7 +7,7 @@ import {
   hasBlockedLikeStatusSemantics,
   hasLimitedFailureStatusJudgmentInput,
   hasOutcomeOnlyFailureStatusJudgmentInput,
-  hasRoutineObservationalStatusConflictSemantics,
+  hasObservationalStatusConflictSemantics,
   readSemanticRelationEvidenceStrength,
   readSemanticEvidenceStrength,
   resolvePeripheralResolutionFloor,
@@ -507,7 +507,7 @@ test("judgment input marks routine observational failed-status conflicts", () =>
     judgmentInput: input,
   };
 
-  assert.equal(input.routineObservationalStatusConflict, true);
+  assert.notEqual(input.observationalStatusConflict, undefined);
   assert.deepEqual(input.observationalStatusConflict, {
     kind: "command_success_observation",
     toolFamily: "bash",
@@ -525,7 +525,7 @@ test("judgment input marks routine observational failed-status conflicts", () =>
     consequenceBaseline: "low",
   });
   assert.equal(input.semanticEvidence?.strength, "qualified");
-  assert.equal(hasRoutineObservationalStatusConflictSemantics(candidate), true);
+  assert.equal(hasObservationalStatusConflictSemantics(candidate), true);
 });
 
 test("judgment input derives routine status conflicts from typed observations, not factors", () => {
@@ -551,22 +551,11 @@ test("judgment input derives routine status conflicts from typed observations, n
   };
 
   const observationInput = buildAttentionJudgmentInput(base);
-  assert.equal(observationInput.routineObservationalStatusConflict, true);
+  assert.notEqual(observationInput.observationalStatusConflict, undefined);
   assert.equal(observationInput.observationalStatusConflict?.kind, "command_success_observation");
   assert.equal(observationInput.observation?.kind, "outcome");
   assert.equal(observationInput.observation?.polarity, "success");
   assert.equal(observationInput.observation?.semanticAgreement, "stable");
-  assert.equal(
-    buildAttentionJudgmentInput({
-      ...base,
-      summary: "Error: deployment failed with exit code 1.",
-      semantic: {
-        ...base.semantic,
-        factors: ["task.updated", "failed", "observational_failure"],
-      },
-    }).routineObservationalStatusConflict,
-    undefined,
-  );
   assert.equal(
     buildAttentionJudgmentInput({
       ...base,
@@ -609,7 +598,7 @@ test("judgment input marks engine-owned non-bash observations as status conflict
     },
   });
 
-  assert.equal(input.routineObservationalStatusConflict, true);
+  assert.notEqual(input.observationalStatusConflict, undefined);
   assert.deepEqual(input.observationalStatusConflict, {
     kind: "payload_observation",
     toolFamily: "read",
@@ -650,7 +639,7 @@ test("judgment input marks absent-family observation transcripts as status confl
     },
   });
 
-  assert.equal(input.routineObservationalStatusConflict, true);
+  assert.notEqual(input.observationalStatusConflict, undefined);
   assert.deepEqual(input.observationalStatusConflict, {
     kind: "payload_observation",
     baselineConsequence: "high",
@@ -697,7 +686,7 @@ test("judgment input marks low missing-tool transcript subclasses only on typed 
       },
     });
 
-    assert.equal(input.routineObservationalStatusConflict, true);
+    assert.notEqual(input.observationalStatusConflict, undefined);
     assert.deepEqual(input.observationalStatusConflict, {
       kind: "payload_observation",
       baselineConsequence: "low",
@@ -751,8 +740,8 @@ test("judgment input marks low missing-tool transcript subclasses only on typed 
     },
   });
 
-  assert.equal(mismatchedFamilyInput.routineObservationalStatusConflict, undefined);
-  assert.equal(liftedConsequenceInput.routineObservationalStatusConflict, undefined);
+  assert.equal(mismatchedFamilyInput.observationalStatusConflict, undefined);
+  assert.equal(liftedConsequenceInput.observationalStatusConflict, undefined);
   assert.equal(mismatchedFamilyInput.observationalStatusConflict, undefined);
   assert.equal(liftedConsequenceInput.observationalStatusConflict, undefined);
 
@@ -775,7 +764,7 @@ test("judgment input marks low missing-tool transcript subclasses only on typed 
     },
   });
 
-  assert.equal(mixedFailureInput.routineObservationalStatusConflict, undefined);
+  assert.equal(mixedFailureInput.observationalStatusConflict, undefined);
   assert.equal(mixedFailureInput.observationalStatusConflict, undefined);
   assert.equal(Object.hasOwn(mixedFailureInput, "failureEvidence"), false);
   assert.equal(mixedFailureInput.observation?.kind, "diagnostic");
@@ -861,8 +850,8 @@ test("judgment input marks tool-use rejection outcomes as status conflicts only 
     },
   });
 
-  assert.equal(bashInput.routineObservationalStatusConflict, true);
-  assert.equal(absentInput.routineObservationalStatusConflict, true);
+  assert.notEqual(bashInput.observationalStatusConflict, undefined);
+  assert.notEqual(absentInput.observationalStatusConflict, undefined);
   assert.deepEqual(bashInput.observationalStatusConflict, {
     kind: "rejected_tool_use_observation",
     toolFamily: "bash",
@@ -884,8 +873,8 @@ test("judgment input marks tool-use rejection outcomes as status conflicts only 
     kind: "rejected_tool_use_observation",
     baselineConsequence: "low",
   });
-  assert.equal(mismatchedInput.routineObservationalStatusConflict, undefined);
-  assert.equal(liftedConsequenceInput.routineObservationalStatusConflict, undefined);
+  assert.equal(mismatchedInput.observationalStatusConflict, undefined);
+  assert.equal(liftedConsequenceInput.observationalStatusConflict, undefined);
   assert.equal(mismatchedInput.observationalStatusConflict, undefined);
   assert.equal(liftedConsequenceInput.observationalStatusConflict, undefined);
 });

@@ -4,10 +4,7 @@ import type {
   AttentionOntologyDiagnostic,
 } from "./semantic-ontology-types.js";
 import type { ObservationalStatusConflictEvidence } from "./observational-status-conflict.js";
-import type {
-  NormalizedObservationSemanticAgreement,
-  NormalizedObservation,
-} from "./normalized-observation.js";
+import type { NormalizedObservation } from "./normalized-observation.js";
 export type {
   ObservationalStatusConflictEvidence,
   ObservationalStatusConflictKind,
@@ -15,7 +12,6 @@ export type {
 export type { NormalizedObservation } from "./normalized-observation.js";
 
 export type SemanticEvidenceStrength = "weak" | "qualified" | "strong";
-export type TaskFailureSemanticAgreement = NormalizedObservationSemanticAgreement;
 
 export type AttentionJudgmentInput = {
   ontology?: AttentionOntologyDiagnostic;
@@ -35,11 +31,10 @@ export type AttentionJudgmentInput = {
   // statuses that semantically read as blocked without becoming a full
   // human-input interaction.
   blockedLikeStatus: boolean;
-  // Compatibility diagnostic for imported or adapter status noise: the source
-  // reported a failed task status, but the engine-owned semantic read found an
+  // Diagnostic for imported or adapter status noise: the source reported a
+  // failed task status, but the engine-owned semantic read found an
   // observational payload. Low observations may become ambient; medium/high
   // observations keep their consequence while routing as status work.
-  routineObservationalStatusConflict?: boolean;
   observationalStatusConflict?: ObservationalStatusConflictEvidence;
 };
 

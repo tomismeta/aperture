@@ -4,11 +4,12 @@ import {
   type AttentionResponse,
   type AttentionSignal,
 } from "@tomismeta/aperture-core";
-import { subscribeInternalTrace, type ApertureTrace } from "@tomismeta/aperture-core/internal";
 import {
-  normalizeSourceEvent,
-  readSemanticOntologyDiagnostic,
-} from "@tomismeta/aperture-core/semantic";
+  buildAttentionJudgmentInput,
+  subscribeInternalTrace,
+  type ApertureTrace,
+} from "@tomismeta/aperture-core/internal";
+import { normalizeSourceEvent } from "@tomismeta/aperture-core/semantic";
 
 import type {
   ReplayObservationStep,
@@ -110,12 +111,16 @@ export function runReplayScenario(
             "Normalized source events must preserve semantic interpretation for replay capture.",
           );
         }
+        const judgmentInput = buildAttentionJudgmentInput(normalized);
+        if (!judgmentInput.ontology) {
+          throw new Error("Normalized source events must compile attention ontology for replay.");
+        }
         semantics.push({
           stepIndex,
           stepKind: replayStep.kind,
           ...(step.label ? { stepLabel: step.label } : {}),
           interpretation: normalized.semantic,
-          ontology: readSemanticOntologyDiagnostic(replayStep.event, normalized.semantic),
+          ontology: judgmentInput.ontology,
         });
         normalizedEvents.push({
           stepIndex,

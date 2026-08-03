@@ -1,6 +1,6 @@
 import {
   hasActionableBlockedLikeStatusSemantics,
-  hasRoutineObservationalStatusConflictSemantics,
+  hasObservationalStatusConflictSemantics,
   isCandidateSemanticAbstained,
   readCandidateObservationJudgmentContract,
   readCandidateSemanticConfidence,
@@ -34,7 +34,7 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
     ]);
   }
 
-  if (hasRoutineObservationalStatusConflictSemantics(candidate)) {
+  if (hasObservationalStatusConflictSemantics(candidate)) {
     return noopPolicyCriterionRule("semantic_uncertainty", [
       "observational status-conflict evidence already owns peripheral status routing",
     ]);

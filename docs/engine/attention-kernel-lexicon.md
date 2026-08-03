@@ -4,16 +4,17 @@ This note names the public and internal words for Aperture's deterministic
 attention judgment work.
 
 The package remains `@tomismeta/aperture-core`. Public API language should use
-`Core SDK` for the stateful engine and `attention evaluator` for the pure
-claim-to-record primitive. The word `kernel` is reserved for internal
-architecture, replay, and conformance discussions.
+`Core SDK` for the stateful engine, `attention evaluator` for the pure
+claim-to-record primitive, and `kernel entrypoint` only for the stateless
+host-neutral observation/judgment prefix at
+`@tomismeta/aperture-core/kernel`.
 
 | Term                    | Use It For                                                                                                                      | Do Not Use It For                                                                                 |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | Core SDK                | The npm package and embeddable TypeScript API.                                                                                  | A specific judgment record or route.                                                              |
 | ApertureCore            | The stateful event loop: publish events, maintain surfaced state, accept responses, and emit traces.                            | A pure one-claim evaluator.                                                                       |
 | attention evaluator     | The pure public primitive that evaluates one attention claim against explicit context, config, and clock input.                 | Runtime hosting, adapters, persistence, replay sessions, UI state, or human response application. |
-| attention kernel        | The internal deterministic judgment architecture and conformance target.                                                        | Public stateful API names such as `createAttentionKernel`, `apply`, or `snapshot`.                |
+| attention kernel        | The deterministic judgment architecture and conformance target; public use is limited to the stateless `./kernel` entrypoint.   | Public stateful API names such as `createAttentionKernel`, `apply`, or `snapshot`.                |
 | SourceEvent             | Adapter-facing source-native facts before normalization.                                                                        | Final semantic meaning.                                                                           |
 | ApertureEvent           | Canonical event meaning consumed by Core after normalization or direct publishing.                                              | Host-native payloads that still need mapping.                                                     |
 | semantic interpretation | Rich meaning inferred from source facts and bounded hints.                                                                      | The compact ontology or final judgment.                                                           |
@@ -37,6 +38,7 @@ Preferred public API language:
 - `core.getAttentionView()`
 - `core.submit(...)`
 - `evaluateAttention(...)` from `@tomismeta/aperture-core/evaluator`
+- `evaluateApertureKernelEvent(...)` from `@tomismeta/aperture-core/kernel`
 - `AttentionDecisionRecord`
 
 Avoid public API language that implies a second stateful engine:
@@ -57,5 +59,6 @@ Compatibility notes:
 - `AttentionOntologyDiagnostic.source` is the compatibility field for ontology
   authority/provenance. Do not introduce a competing `authority` field without a
   future major-version plan.
-- `judgment` is the decision act; `attention` is the managed resource; `kernel`
-  is the internal deterministic architecture and conformance shorthand.
+- `judgment` is the decision act; `attention` is the managed resource; the
+  public `kernel` subpath is a stateless observation/judgment entrypoint, not a
+  second stateful engine.

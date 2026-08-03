@@ -1,67 +1,28 @@
-import type { AttentionBurden } from "./attention-burden.js";
 import type {
   AttentionClaim,
-  AttentionClaimContext,
   AttentionClaimEpisode,
   AttentionClaimJudgment,
-  AttentionClaimProvenance,
-  AttentionClaimResponseSpec,
 } from "./attention-claim.js";
 import type { AttentionEvidenceInput } from "./attention-evidence.js";
-import type { AttentionOperatorPresence } from "./attention-decision-record.js";
-import type { AttentionEvaluationConfig } from "./attention-evaluator-config.js";
-import type { AttentionPressure } from "./attention-pressure.js";
 import type { EpisodeSummary } from "./episode-tracker.js";
-import type { SourceRef } from "./events.js";
 import type { AttentionFrame } from "./frame.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
-import { createStableFailureOutcomeObservation } from "./task-failure-observation-normalizer.js";
 import { formatTimestamp, parseTimestamp } from "./time.js";
+import type {
+  AttentionEvaluationClock,
+  AttentionEvaluationContext,
+  AttentionEvaluationFrame,
+  AttentionEvaluationInput,
+  InternalAttentionEvaluationInput,
+} from "./attention-evaluator-input-types.js";
 
-export type AttentionEvaluationClock = string | number;
-
-export type AttentionEvaluationFrame = {
-  id: string;
-  taskId: string;
-  interactionId: string;
-  source?: SourceRef;
-  mode: AttentionClaim["mode"];
-  tone: AttentionClaim["tone"];
-  consequence: AttentionClaim["consequence"];
-  title: string;
-  summary?: string;
-  context?: AttentionClaimContext;
-  responseSpec?: AttentionClaimResponseSpec;
-  provenance?: AttentionClaimProvenance;
-  timestamp: string;
-  updatedAt?: string;
-  expiresAt?: string;
-  scoreAdjustment?: number;
-  episode?: AttentionClaimEpisode;
-};
-
-export type AttentionEvaluationContext = {
-  current?: AttentionEvaluationFrame | null;
-  currentEpisode?: AttentionClaimEpisode | null;
-  pressure?: AttentionPressure;
-  burden?: AttentionBurden;
-  operatorPresence?: AttentionOperatorPresence;
-};
-
-export type AttentionEvaluationInput = {
-  claim: AttentionClaim;
-  context?: AttentionEvaluationContext;
-  config?: AttentionEvaluationConfig;
-  now?: AttentionEvaluationClock;
-};
-
-export type InternalAttentionEvaluationInput = {
-  candidate: AttentionCandidate;
-  current?: AttentionFrame | null;
-  context?: AttentionEvidenceInput;
-  evaluatedAt: string;
-  recordClaim?: AttentionClaim;
-};
+export type {
+  AttentionEvaluationClock,
+  AttentionEvaluationContext,
+  AttentionEvaluationFrame,
+  AttentionEvaluationInput,
+  InternalAttentionEvaluationInput,
+} from "./attention-evaluator-input-types.js";
 
 export function normalizePublicEvaluationInput(
   input: AttentionEvaluationInput,
@@ -83,6 +44,8 @@ export function normalizePublicEvaluationInput(
 }
 
 function normalizeAttentionClaim(claim: AttentionClaim): AttentionClaim {
+  const judgment = normalizeAttentionClaimJudgment(claim.judgment);
+
   return {
     taskId: claim.taskId,
     interactionId: claim.interactionId,
@@ -96,7 +59,7 @@ function normalizeAttentionClaim(claim: AttentionClaim): AttentionClaim {
     ...(claim.summary !== undefined ? { summary: claim.summary } : {}),
     ...(claim.context !== undefined ? { context: claim.context } : {}),
     ...(claim.provenance !== undefined ? { provenance: claim.provenance } : {}),
-    ...(claim.judgment !== undefined ? { judgment: claim.judgment } : {}),
+    ...(judgment !== undefined ? { judgment } : {}),
     ...(claim.relationHints !== undefined ? { relationHints: claim.relationHints } : {}),
     responseSpec: claim.responseSpec,
     priority: claim.priority,
@@ -197,40 +160,54 @@ function buildCandidateFromClaim(claim: AttentionClaim): AttentionCandidate {
 function buildJudgmentInputFromClaim(
   judgment: AttentionClaimJudgment | undefined,
 ): AttentionCandidate["judgmentInput"] {
-  const observationalStatusConflict = judgment?.observationalStatusConflict;
-  const observationAuthority =
-    judgment?.ontology?.source ?? judgment?.semanticEvidence?.source ?? "unknown";
-  const hasRoutineObservationalStatusConflict =
-    judgment?.routineObservationalStatusConflict === true ||
-    observationalStatusConflict !== undefined;
-
+  const semanticEvidence = judgment?.semanticEvidence;
   return {
     ...(judgment?.ontology !== undefined ? { ontology: judgment.ontology } : {}),
-    ...(judgment?.semanticEvidence !== undefined
+    ...(semanticEvidence !== undefined
       ? {
           semanticEvidence: {
-            confidence: judgment.semanticEvidence.confidence,
-            source: judgment.semanticEvidence.source,
-            strength: judgment.semanticEvidence.strength,
-            abstained: judgment.semanticEvidence.abstained ?? false,
+            confidence: semanticEvidence.confidence,
+            source: semanticEvidence.source,
+            strength: semanticEvidence.strength,
+            abstained: semanticEvidence.abstained ?? false,
           },
         }
       : {}),
     ...(judgment?.relationEvidence !== undefined
       ? { relationEvidence: judgment.relationEvidence }
       : {}),
-    blockedLikeStatus: judgment?.blockedLikeStatus ?? false,
-    ...(hasRoutineObservationalStatusConflict ? { routineObservationalStatusConflict: true } : {}),
-    ...(observationalStatusConflict !== undefined ? { observationalStatusConflict } : {}),
-    ...(judgment?.outcomeOnlyFailureStatus === true
+    blockedLikeStatus: false,
+  };
+}
+
+function normalizeAttentionClaimJudgment(
+  judgment: AttentionClaimJudgment | undefined,
+): AttentionClaimJudgment | undefined {
+  if (judgment === undefined) {
+    return undefined;
+  }
+
+  const semanticEvidence = judgment.semanticEvidence;
+  const normalized: AttentionClaimJudgment = {
+    ...(judgment.ontology !== undefined ? { ontology: judgment.ontology } : {}),
+    ...(semanticEvidence !== undefined
       ? {
-          observation: createStableFailureOutcomeObservation({
-            authority: observationAuthority,
-            evidenceStrength: judgment.semanticEvidence?.strength ?? "strong",
-          }),
+          semanticEvidence: {
+            confidence: semanticEvidence.confidence,
+            source: semanticEvidence.source,
+            strength: semanticEvidence.strength,
+            ...(semanticEvidence.abstained !== undefined
+              ? { abstained: semanticEvidence.abstained }
+              : {}),
+          },
         }
       : {}),
+    ...(judgment.relationEvidence !== undefined
+      ? { relationEvidence: judgment.relationEvidence }
+      : {}),
   };
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
 function normalizeEvaluationContext(context: AttentionEvaluationContext | undefined): {

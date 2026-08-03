@@ -256,9 +256,6 @@ test("judgment explanations include a canonical decision record", () => {
     consequence: candidate.consequence,
     title: candidate.title,
     responseSpec: candidate.responseSpec,
-    judgment: {
-      blockedLikeStatus: false,
-    },
     priority: candidate.priority,
     blocking: candidate.blocking,
     timestamp: candidate.timestamp,

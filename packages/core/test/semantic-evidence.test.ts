@@ -4,8 +4,12 @@ import test from "node:test";
 import {
   readTaskFailureSemanticEvidence,
   readSemanticTextEvidence,
+  type SemanticTextEvidence,
+  type SemanticTextShape,
 } from "../src/semantic-evidence.js";
-import { readRoutineObservationalStatusConflictEvidenceFromEvent } from "../src/task-failure-observation-reader.js";
+import { readTaskFailureTerminalProfile } from "../src/semantic-failure-detail.js";
+import { buildAttentionJudgmentInput } from "../src/judgment-input.js";
+import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
 import { readTaskFailureSemanticSignals } from "../src/semantic-task-failure-signals.js";
 import {
   readExplicitObservationTranscript,
@@ -35,28 +39,67 @@ import {
 import { looksLikeBareNonzeroTerminalExitEvidence } from "../src/semantic-terminal-evidence.js";
 import type { ObservationSemantics } from "../src/observation-semantics.js";
 import { readTaskFailureObservationCore } from "../src/task-failure-observation-core.js";
-import { readSemanticOntologyDiagnostic } from "../src/semantic-ontology.js";
 import { readTaskFailurePayloadObservationSyntax } from "../src/task-failure-payload-observation-grammar.js";
 import type { TaskFailureObservationSyntax } from "../src/task-failure-observation-grammar.js";
 import { readSemanticStructuredOutputOwnership } from "../src/semantic-structured-output-ownership.js";
 import { readTaskFailureStructuredOutputEnvelope } from "../src/semantic-task-failure-structured-output.js";
+import type { ApertureEvent } from "../src/events.js";
 
 const timestamp = "2026-04-05T18:45:00.000Z";
-type RoutineObservationalStatusConflictEvent = Parameters<
-  typeof readRoutineObservationalStatusConflictEvidenceFromEvent
->[0];
-type RoutineObservationalStatusConflictSemantic = Parameters<
-  typeof readRoutineObservationalStatusConflictEvidenceFromEvent
->[1];
+type ObservationalStatusConflictEvent = Extract<ApertureEvent, { type: "task.updated" }>;
+type ObservationalStatusConflictSemantic = NonNullable<ApertureEvent["semantic"]>;
 
 function readsAsRoutineObservationalStatusConflict(
-  event: RoutineObservationalStatusConflictEvent,
-  semantic: RoutineObservationalStatusConflictSemantic,
+  event: ObservationalStatusConflictEvent,
+  semantic: ObservationalStatusConflictSemantic,
   abstained?: boolean,
 ): boolean {
+  return readObservationalStatusConflict(event, semantic, abstained) !== null;
+}
+
+function readObservationalStatusConflict(
+  event: ObservationalStatusConflictEvent,
+  semantic: ObservationalStatusConflictSemantic,
+  abstained?: boolean,
+) {
   return (
-    readRoutineObservationalStatusConflictEvidenceFromEvent(event, semantic, abstained) !== null
+    buildAttentionJudgmentInput({
+      ...event,
+      semantic: abstained === undefined ? semantic : { ...semantic, abstained },
+    }).observationalStatusConflict ?? null
   );
+}
+
+function readTerminalProfile(summary: string, toolFamily?: string) {
+  const text = readSemanticTextEvidence(summary, toolFamily);
+  return readTaskFailureTerminalProfile({
+    summary,
+    signals: readTaskFailureSemanticSignals({ summary, toolFamily }),
+    toolFamily,
+    textSearchResultOutput: hasSemanticTextShape(text, "search_result"),
+    textTerminalFailureEvidence: hasSemanticTextShape(text, "terminal_failure"),
+  });
+}
+
+function hasSemanticTextShape(evidence: SemanticTextEvidence, shape: SemanticTextShape): boolean {
+  return evidence.shapes.includes(shape);
+}
+
+function readEvidenceProfile(summary: string, toolFamily?: string) {
+  const evidence = readTaskFailureSemanticEvidence({
+    id: `evt:evidence:profile:${toolFamily ?? "source"}:${summary}`,
+    taskId: `task:evidence:profile:${toolFamily ?? "source"}`,
+    timestamp,
+    type: "task.updated",
+    title: `${toolFamily ?? "tool"} failure`,
+    summary,
+    status: "failed",
+    ...(toolFamily !== undefined ? { toolFamily } : {}),
+  });
+  assert.notEqual(evidence, null);
+  if (evidence === null) throw new Error("unreachable");
+  const { text: _text, ...profile } = evidence;
+  return profile;
 }
 
 const rejectedToolUseMessage =
@@ -168,8 +211,8 @@ test("semantic text evidence classifies exact routine bash success observations"
     "bash",
   );
 
-  assert.equal(evidence.routineSuccessObservation, true);
-  assert.equal(evidence.terminalFailureEvidence, false);
+  assert.equal(hasSemanticTextShape(evidence, "routine_success"), true);
+  assert.equal(hasSemanticTextShape(evidence, "terminal_failure"), false);
 });
 
 test("routine success observations stay tool-family bounded", () => {
@@ -178,7 +221,7 @@ test("routine success observations stay tool-family bounded", () => {
     "read",
   );
 
-  assert.equal(evidence.routineSuccessObservation, false);
+  assert.equal(hasSemanticTextShape(evidence, "routine_success"), false);
 });
 
 test("semantic command execution families are exact", () => {
@@ -344,7 +387,7 @@ test("linter output observations count findings outside quoted fixture spans", (
 test("task failure semantic signals are auditable and boundary scoped", () => {
   const rawUsageDiagnostic =
     "usage: rocprof-compute [mode] [options] tool: error: argument --list-metrics: invalid choice: 'gfx1151'";
-  const searchFailureSummary = 'Web search results for "octra": backend is unavailable';
+  const searchFailureSummary = 'Web search results for "ledger": backend is unavailable';
   const runtimePanic = "panic: unable to open database file: not a directory";
   const sourcePanicLabel = "#include <stdio.h>\nint main() {\npanic: return 1;\n}\n";
   const clippedAssignmentPanicLabel =
@@ -988,10 +1031,10 @@ test("semantic text evidence separates routine success from terminal failure evi
     "bash",
   );
 
-  assert.equal(traceback.routineSuccessObservation, false);
-  assert.equal(traceback.terminalFailureEvidence, true);
-  assert.equal(exitCode.routineSuccessObservation, false);
-  assert.equal(exitCode.terminalFailureEvidence, true);
+  assert.equal(hasSemanticTextShape(traceback, "routine_success"), false);
+  assert.equal(hasSemanticTextShape(traceback, "terminal_failure"), true);
+  assert.equal(hasSemanticTextShape(exitCode, "routine_success"), false);
+  assert.equal(hasSemanticTextShape(exitCode, "terminal_failure"), true);
 });
 
 test("semantic text evidence handles terminal polarity conservatively", () => {
@@ -1038,29 +1081,29 @@ test("semantic text evidence handles terminal polarity conservatively", () => {
     "bash",
   );
 
-  assert.equal(exitCodeZero.routineSuccessObservation, true);
-  assert.equal(exitCodeZero.terminalFailureEvidence, false);
-  assert.equal(exitCodeZeroWithIssue.routineSuccessObservation, false);
-  assert.equal(exitCodeZeroWithIssue.terminalFailureEvidence, true);
-  assert.equal(exitCodeZeroWithConnector.routineSuccessObservation, true);
-  assert.equal(exitCodeZeroWithConnector.terminalFailureEvidence, false);
-  assert.equal(jsonExitCodeZero.routineSuccessObservation, true);
-  assert.equal(jsonExitCodeZero.terminalFailureEvidence, false);
-  assert.equal(nonzeroExitCode.routineSuccessObservation, false);
-  assert.equal(nonzeroExitCode.terminalFailureEvidence, true);
-  assert.equal(nonzeroExitCodeWithConnector.routineSuccessObservation, false);
-  assert.equal(nonzeroExitCodeWithConnector.terminalFailureEvidence, true);
-  assert.equal(jsonNonzeroExitCode.routineSuccessObservation, false);
-  assert.equal(jsonNonzeroExitCode.terminalFailureEvidence, true);
-  assert.equal(negatedException.expectedDiagnosticFailure, true);
-  assert.equal(negatedException.terminalFailureEvidence, false);
-  assert.equal(expectedException.expectedDiagnosticFailure, true);
-  assert.equal(expectedException.terminalFailureEvidence, false);
-  assert.equal(realTraceback.expectedDiagnosticFailure, false);
-  assert.equal(realTraceback.terminalFailureEvidence, true);
-  assert.equal(benignThenRealException.expectedDiagnosticFailure, false);
-  assert.equal(benignThenRealException.terminalFailureEvidence, true);
-  assert.equal(benignThenRealPermissionDenied.terminalFailureEvidence, true);
+  assert.equal(hasSemanticTextShape(exitCodeZero, "routine_success"), true);
+  assert.equal(hasSemanticTextShape(exitCodeZero, "terminal_failure"), false);
+  assert.equal(hasSemanticTextShape(exitCodeZeroWithIssue, "routine_success"), false);
+  assert.equal(hasSemanticTextShape(exitCodeZeroWithIssue, "terminal_failure"), true);
+  assert.equal(hasSemanticTextShape(exitCodeZeroWithConnector, "routine_success"), true);
+  assert.equal(hasSemanticTextShape(exitCodeZeroWithConnector, "terminal_failure"), false);
+  assert.equal(hasSemanticTextShape(jsonExitCodeZero, "routine_success"), true);
+  assert.equal(hasSemanticTextShape(jsonExitCodeZero, "terminal_failure"), false);
+  assert.equal(hasSemanticTextShape(nonzeroExitCode, "routine_success"), false);
+  assert.equal(hasSemanticTextShape(nonzeroExitCode, "terminal_failure"), true);
+  assert.equal(hasSemanticTextShape(nonzeroExitCodeWithConnector, "routine_success"), false);
+  assert.equal(hasSemanticTextShape(nonzeroExitCodeWithConnector, "terminal_failure"), true);
+  assert.equal(hasSemanticTextShape(jsonNonzeroExitCode, "routine_success"), false);
+  assert.equal(hasSemanticTextShape(jsonNonzeroExitCode, "terminal_failure"), true);
+  assert.equal(hasSemanticTextShape(negatedException, "expected_diagnostic"), true);
+  assert.equal(hasSemanticTextShape(negatedException, "terminal_failure"), false);
+  assert.equal(hasSemanticTextShape(expectedException, "expected_diagnostic"), true);
+  assert.equal(hasSemanticTextShape(expectedException, "terminal_failure"), false);
+  assert.equal(hasSemanticTextShape(realTraceback, "expected_diagnostic"), false);
+  assert.equal(hasSemanticTextShape(realTraceback, "terminal_failure"), true);
+  assert.equal(hasSemanticTextShape(benignThenRealException, "expected_diagnostic"), false);
+  assert.equal(hasSemanticTextShape(benignThenRealException, "terminal_failure"), true);
+  assert.equal(hasSemanticTextShape(benignThenRealPermissionDenied, "terminal_failure"), true);
 });
 
 test("semantic text evidence classifies readback observations without treating source dumps as routine", () => {
@@ -1073,14 +1116,14 @@ test("semantic text evidence classifies readback observations without treating s
     "read",
   );
 
-  assert.equal(log.taggedFileObservation, true);
-  assert.equal(log.readObservationPayload, false);
-  assert.equal(log.logObservation, true);
-  assert.equal(log.sourceCodeObservation, false);
-  assert.equal(source.taggedFileObservation, true);
-  assert.equal(source.readObservationPayload, true);
-  assert.equal(source.sourceCodeObservation, true);
-  assert.equal(source.logObservation, false);
+  assert.equal(hasSemanticTextShape(log, "tagged_file"), true);
+  assert.equal(hasSemanticTextShape(log, "read_payload"), false);
+  assert.equal(hasSemanticTextShape(log, "log"), true);
+  assert.equal(hasSemanticTextShape(log, "source_code"), false);
+  assert.equal(hasSemanticTextShape(source, "tagged_file"), true);
+  assert.equal(hasSemanticTextShape(source, "read_payload"), true);
+  assert.equal(hasSemanticTextShape(source, "source_code"), true);
+  assert.equal(hasSemanticTextShape(source, "log"), false);
 });
 
 test("semantic text evidence classifies search outputs and build metadata", () => {
@@ -1093,8 +1136,8 @@ test("semantic text evidence classifies search outputs and build metadata", () =
     "read",
   );
 
-  assert.equal(search.searchResultOutput, true);
-  assert.equal(buildMetadata.buildMetadataObservation, true);
+  assert.equal(hasSemanticTextShape(search, "search_result"), true);
+  assert.equal(hasSemanticTextShape(buildMetadata, "build_metadata"), true);
 });
 
 test("sectioned test result parser applies explicit precedence boundaries", () => {
@@ -1162,10 +1205,10 @@ test("semantic text evidence classifies expected diagnostic failure apart from t
     "bash",
   );
 
-  assert.equal(diagnostic.expectedDiagnosticFailure, true);
-  assert.equal(diagnostic.terminalFailureEvidence, false);
-  assert.equal(traceback.expectedDiagnosticFailure, false);
-  assert.equal(traceback.terminalFailureEvidence, true);
+  assert.equal(hasSemanticTextShape(diagnostic, "expected_diagnostic"), true);
+  assert.equal(hasSemanticTextShape(diagnostic, "terminal_failure"), false);
+  assert.equal(hasSemanticTextShape(traceback, "expected_diagnostic"), false);
+  assert.equal(hasSemanticTextShape(traceback, "terminal_failure"), true);
 });
 
 test("task failure evidence applies terminal evidence before positive observations", () => {
@@ -1574,7 +1617,7 @@ test("host-style failed event fixtures route through observation semantics gramm
     assert.equal(evidence?.kind, testCase.expectedKind, testCase.name);
     assert.deepEqual(readTaskFailureObservationCore(evidence), testCase.expected, testCase.name);
 
-    const ontology = readSemanticOntologyDiagnostic(event);
+    const ontology = buildAttentionJudgmentInput(normalizeSourceEvent(event)).ontology;
     assert.equal(ontology.activity, testCase.expectedActivity, testCase.name);
     assert.equal(ontology.ask, "status", testCase.name);
     assert.equal(ontology.consequence, testCase.expected.consequenceBaseline, testCase.name);
@@ -1744,6 +1787,143 @@ test("task failure evidence attaches canonical observation semantics to non-payl
   }
 });
 
+test("task failure evidence profile owns ordered family selection", () => {
+  const cases = [
+    {
+      name: "terminal",
+      summary: "(no output) Command exited with code 1",
+      toolFamily: "bash",
+      expected: {
+        kind: "terminal_failure",
+        failureDetail: "outcome_only",
+        readsAsObservation: false,
+        consequenceBaseline: "medium",
+        toolFamily: "bash",
+      },
+    },
+    {
+      name: "empty",
+      summary: "{}",
+      toolFamily: "edit",
+      expected: {
+        kind: "empty_failure_payload",
+        failureDetail: "absent_evidence",
+        readsAsObservation: false,
+        consequenceBaseline: "medium",
+        toolFamily: "edit",
+      },
+    },
+    {
+      name: "operation success",
+      summary: "OBSERVATION: File created successfully at: /testbed/exception_test.py",
+      expected: {
+        kind: "operation_success_observation",
+        readsAsObservation: true,
+        consequenceBaseline: "low",
+      },
+    },
+    {
+      name: "structured success syntax",
+      summary: '{"exit_code":0,"wall_time":"0.0510 seconds","output":"ok"}',
+      observationSyntaxKind: "outcome",
+      expected: {
+        kind: "structured_execution_success_observation",
+        readsAsObservation: true,
+        consequenceBaseline: "low",
+      },
+    },
+    {
+      name: "rejected control syntax",
+      summary: rejectedToolUseMessage,
+      toolFamily: "bash",
+      observationSyntaxKind: "control",
+      expected: {
+        kind: "rejected_tool_use_observation",
+        readsAsObservation: true,
+        consequenceBaseline: "low",
+        toolFamily: "bash",
+      },
+    },
+    {
+      name: "routine success",
+      summary: "Your command ran successfully and did not produce any output.",
+      toolFamily: "bash",
+      expected: {
+        kind: "routine_bash_success_observation",
+        readsAsObservation: true,
+        consequenceBaseline: "low",
+        toolFamily: "bash",
+      },
+    },
+    {
+      name: "expected diagnostic",
+      summary:
+        "OBSERVATION: Form is valid: False. Form errors: amount required. Decompress result: [None, 'USD']",
+      toolFamily: "bash",
+      expected: {
+        kind: "expected_diagnostic_failure",
+        readsAsObservation: false,
+        consequenceBaseline: "medium",
+        toolFamily: "bash",
+      },
+    },
+    {
+      name: "search output",
+      summary: 'Web search results for "aperture": /repo/README.md: Aperture overview',
+      toolFamily: "search",
+      expected: {
+        kind: "routine_search_output",
+        readsAsObservation: true,
+        consequenceBaseline: "low",
+        toolFamily: "search",
+      },
+    },
+    {
+      name: "edit payload",
+      summary:
+        "Successfully modified file: /repo/src/app.ts (1 replacements). Here is the updated code:\nexport const value = 1;",
+      toolFamily: "edit",
+      expected: {
+        kind: "observational_payload",
+        readsAsObservation: true,
+        consequenceBaseline: "high",
+        toolFamily: "edit",
+      },
+    },
+    {
+      name: "fallback",
+      summary: "The tool stopped for a reason that has not been classified.",
+      expected: {
+        kind: "unclassified_failure",
+        failureDetail: "indeterminate",
+        readsAsObservation: false,
+        consequenceBaseline: "high",
+      },
+    },
+  ] as const;
+
+  for (const testCase of cases) {
+    const profile = readEvidenceProfile(
+      testCase.summary,
+      "toolFamily" in testCase ? testCase.toolFamily : undefined,
+    );
+    assert.deepEqual(
+      {
+        kind: profile.kind,
+        readsAsObservation: profile.readsAsObservation,
+        consequenceBaseline: profile.consequenceBaseline,
+        ...(profile.failureDetail !== undefined ? { failureDetail: profile.failureDetail } : {}),
+        ...(profile.toolFamily !== undefined ? { toolFamily: profile.toolFamily } : {}),
+      },
+      testCase.expected,
+      testCase.name,
+    );
+    if ("observationSyntaxKind" in testCase) {
+      assert.equal(profile.observationSyntax?.kind, testCase.observationSyntaxKind, testCase.name);
+    }
+  }
+});
+
 test("task failure evidence treats complete no-output nonzero command exits as medium consequence", () => {
   for (const [id, title, toolFamily, summary] of [
     ["no-output-command-exit", "bash failure", "bash", "(no output) Command exited with code 1"],
@@ -1778,6 +1958,65 @@ test("task failure evidence treats complete no-output nonzero command exits as m
     assert.equal(evidence?.readsAsObservation, false);
     assert.equal(evidence?.consequenceBaseline, "medium");
   }
+});
+
+test("task failure terminal profile owns terminal-shape consequence classification", () => {
+  assert.deepEqual(readTerminalProfile("(no output) Command exited with code 1", "bash"), {
+    failureDetail: "outcome_only",
+    terminalShape: "bare_nonzero_exit",
+    consequenceBaseline: "medium",
+  });
+  assert.deepEqual(readTerminalProfile("Error: deployment failed with exit code 1.", "bash"), {
+    failureDetail: "diagnostic",
+    consequenceBaseline: "high",
+  });
+  assert.equal(
+    readTerminalProfile("Search results for repository: found 12 matches.", "search"),
+    null,
+  );
+});
+
+test("task failure evidence treats no-matching command work as outcome-only", () => {
+  for (const [id, summary, toolFamily] of [
+    ["pytest-no-tests", "No tests found, exiting with code 5", "bash"],
+    ["collected-zero-items", "collected 0 items", "exec_command"],
+    ["no-files-matching", "No files matching '*.spec.ts' were found.", "run_shell_command"],
+  ] as const) {
+    const evidence = readTaskFailureSemanticEvidence({
+      id: `evt:evidence:${id}`,
+      taskId: `task:evidence:${id}`,
+      timestamp,
+      type: "task.updated",
+      title: `${toolFamily} failure`,
+      summary,
+      status: "failed",
+      toolFamily,
+    });
+
+    assert.equal(evidence?.kind, "terminal_failure", id);
+    assert.equal(evidence?.failureDetail, "outcome_only", id);
+    assert.equal(evidence?.terminalShape, undefined, id);
+    assert.equal(evidence?.readsAsObservation, false, id);
+    assert.equal(evidence?.consequenceBaseline, "medium", id);
+  }
+});
+
+test("no-matching command work stays bounded by command ownership and diagnostics", () => {
+  assert.equal(readTerminalProfile("No tests found, exiting with code 5", "search"), null);
+
+  const diagnostic = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:no-match-with-diagnostic",
+    taskId: "task:evidence:no-match-with-diagnostic",
+    timestamp,
+    type: "task.updated",
+    title: "bash failure",
+    summary: "No tests found. AssertionError: expected 1 to equal 2.",
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.notEqual(diagnostic?.failureDetail, "outcome_only");
+  assert.equal(diagnostic?.consequenceBaseline, "high");
 });
 
 test("task failure evidence keeps incomplete raw nonzero exits high consequence", () => {
@@ -2389,15 +2628,20 @@ test("task failure evidence keeps terminal diagnostics ahead of rejection langua
 
   assert.equal(looksLikeToolUseRejectionOutcome(rejectedToolUseMessage), true);
   assert.equal(
-    readSemanticTextEvidence(`bash failure ${rejectedToolUseMessage}`, "bash")
-      .terminalFailureEvidence,
+    hasSemanticTextShape(
+      readSemanticTextEvidence(`bash failure ${rejectedToolUseMessage}`, "bash"),
+      "terminal_failure",
+    ),
     false,
   );
   assert.equal(
-    readSemanticTextEvidence(
-      `bash failure Traceback (most recent call last): RuntimeError ${rejectedToolUseMessage}`,
-      "bash",
-    ).terminalFailureEvidence,
+    hasSemanticTextShape(
+      readSemanticTextEvidence(
+        `bash failure Traceback (most recent call last): RuntimeError ${rejectedToolUseMessage}`,
+        "bash",
+      ),
+      "terminal_failure",
+    ),
     true,
   );
   assert.equal(evidence?.kind, "terminal_failure");
@@ -2423,18 +2667,7 @@ test("task failure evidence classifies structured tool output without treating i
       toolFamily: "bash",
       readsAsObservation: false,
       consequenceBaseline: "high",
-      text: {
-        routineSuccessObservation: false,
-        terminalFailureEvidence: false,
-        expectedDiagnosticFailure: false,
-        observationalReadback: false,
-        taggedFileObservation: false,
-        readObservationPayload: false,
-        searchResultOutput: false,
-        sourceCodeObservation: false,
-        logObservation: false,
-        buildMetadataObservation: false,
-      },
+      text: { shapes: [] },
     },
   );
   assert.equal(
@@ -6706,18 +6939,7 @@ test("task failure evidence preserves current observational classes", () => {
       toolFamily: "search",
       readsAsObservation: true,
       consequenceBaseline: "high",
-      text: {
-        routineSuccessObservation: false,
-        terminalFailureEvidence: true,
-        expectedDiagnosticFailure: false,
-        observationalReadback: false,
-        taggedFileObservation: false,
-        readObservationPayload: false,
-        searchResultOutput: true,
-        sourceCodeObservation: true,
-        logObservation: false,
-        buildMetadataObservation: false,
-      },
+      text: { shapes: ["terminal_failure", "search_result", "source_code"] },
     },
   );
   assert.equal(
@@ -7966,19 +8188,17 @@ test("task failure evidence classifies explicit missing-tool observation transcr
   );
 });
 
-test("task failure evidence uses explicit context tool family without text inference", () => {
+test("task failure evidence uses explicit event tool family without text inference", () => {
   assert.equal(
     readTaskFailureSemanticEvidence({
-      id: "evt:evidence:context-tool",
-      taskId: "task:evidence:context-tool",
+      id: "evt:evidence:event-tool",
+      taskId: "task:evidence:event-tool",
       timestamp,
       type: "task.updated",
       title: "tool failure",
       summary: "Your command ran successfully and did not produce any output.",
       status: "failed",
-      context: {
-        items: [{ id: "tool_family", label: "Tool Family", value: "bash" }],
-      },
+      toolFamily: "bash",
     })?.kind,
     "routine_bash_success_observation",
   );
@@ -7994,6 +8214,24 @@ test("task failure evidence uses explicit context tool family without text infer
     })?.kind,
     "unclassified_failure",
   );
+});
+
+test("task failure evidence does not use context as tool-family evidence", () => {
+  const evidence = readTaskFailureSemanticEvidence({
+    id: "evt:evidence:context-tool-family",
+    taskId: "task:evidence:context-tool-family",
+    timestamp,
+    type: "task.updated",
+    title: "tool failure",
+    summary: "Your command ran successfully and did not produce any output.",
+    status: "failed",
+    context: {
+      items: [{ id: "tool_family", label: "Tool Family", value: "bash" }],
+    },
+  });
+
+  assert.equal(evidence?.kind, "unclassified_failure");
+  assert.equal(evidence?.toolFamily, undefined);
 });
 
 test("task failure evidence does not use audit metadata as tool-family evidence", () => {
@@ -8054,7 +8292,7 @@ test("routine observational status-conflict evidence is a narrow semantic read",
 
 test("observational status-conflict evidence includes structured, read, and search observations", () => {
   assert.deepEqual(
-    readRoutineObservationalStatusConflictEvidenceFromEvent(
+    readObservationalStatusConflict(
       {
         id: "evt:evidence:execution-success-observation-conflict",
         taskId: "task:evidence:execution-success-observation-conflict",

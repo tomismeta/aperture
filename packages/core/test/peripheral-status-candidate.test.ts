@@ -3,7 +3,10 @@ import test from "node:test";
 
 import type { AttentionCandidate } from "../src/interaction-candidate.js";
 import type { NormalizedObservation } from "../src/normalized-observation.js";
-import type { CandidateSemanticEvidence } from "../src/judgment-input-types.js";
+import type {
+  CandidateSemanticEvidence,
+  ObservationalStatusConflictEvidence,
+} from "../src/judgment-input-types.js";
 import { isEstablishedPolicyPeripheralStatus } from "../src/policy/peripheral-status-candidate.js";
 
 const stableSemanticEvidence: CandidateSemanticEvidence = {
@@ -45,7 +48,7 @@ function observation(
 function candidate(input: {
   observation?: NormalizedObservation;
   semanticEvidence?: CandidateSemanticEvidence;
-  routineObservationalStatusConflict?: boolean;
+  observationalStatusConflict?: ObservationalStatusConflictEvidence;
 }): AttentionCandidate {
   return {
     taskId: "task:status",
@@ -62,8 +65,8 @@ function candidate(input: {
       blockedLikeStatus: false,
       ...(input.observation !== undefined ? { observation: input.observation } : {}),
       ...(input.semanticEvidence !== undefined ? { semanticEvidence: input.semanticEvidence } : {}),
-      ...(input.routineObservationalStatusConflict === true
-        ? { routineObservationalStatusConflict: true }
+      ...(input.observationalStatusConflict !== undefined
+        ? { observationalStatusConflict: input.observationalStatusConflict }
         : {}),
     },
   };
@@ -117,7 +120,7 @@ test("peripheral status policy does not let legacy evidence rescue weak observat
   }
 });
 
-test("peripheral status policy keeps legacy fallback and routine-conflict compatibility", () => {
+test("peripheral status policy keeps semantic fallback and structured status-conflict authority", () => {
   assert.equal(ambientPeripheral(candidate({ semanticEvidence: stableSemanticEvidence })), true);
 
   assert.equal(
@@ -128,7 +131,11 @@ test("peripheral status policy keeps legacy fallback and routine-conflict compat
           semanticAgreement: "uncertain",
         }),
         semanticEvidence: stableSemanticEvidence,
-        routineObservationalStatusConflict: true,
+        observationalStatusConflict: {
+          kind: "payload_observation",
+          toolFamily: "bash",
+          baselineConsequence: "low",
+        },
       }),
     ),
     true,

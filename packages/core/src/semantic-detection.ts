@@ -7,31 +7,22 @@ import {
   IMPLIED_OPERATOR_ASK_PATTERNS,
   IMPLIED_OPERATOR_NEGATIONS,
 } from "./semantic-patterns.js";
-import { readSemanticTextEvidence } from "./semantic-evidence.js";
+import { semanticTextShapeMatcher } from "./semantic-evidence.js";
 import {
   containsAnySemanticPhrase,
   containsSemanticPhrase,
   normalizeSemanticText,
 } from "./semantic-text.js";
-import {
-  isSemanticCommandExecutionToolFamily,
-  type SemanticToolFamilyContextItem,
-} from "./semantic-tool-family.js";
+import { isSemanticCommandExecutionToolFamily } from "./semantic-tool-family.js";
 
 export { containsAnySemanticPhrase, normalizeSemanticText } from "./semantic-text.js";
 export { detectSemanticRelationHints } from "./semantic-relation-detection.js";
 export { inferSemanticToolFamily, readExplicitSemanticToolFamily } from "./semantic-tool-family.js";
 
-export type SemanticDetectionContextItem = SemanticToolFamilyContextItem;
-
 export type SemanticDetectionInput = {
   title: string;
   summary?: string;
   toolFamily?: string;
-  context?: {
-    items?: SemanticDetectionContextItem[];
-  };
-  metadata?: Record<string, unknown>;
 };
 
 export type SemanticBlockingSignal = "blocking" | "waiting";
@@ -74,9 +65,9 @@ export function inferConsequenceFromSemanticText(
   fallback: AttentionConsequenceLevel,
   toolFamily?: string,
 ): AttentionConsequenceLevel {
-  const evidence = readSemanticTextEvidence(text, toolFamily);
+  const hasShape = semanticTextShapeMatcher(text, toolFamily);
 
-  if (evidence.routineSuccessObservation) {
+  if (hasShape("routine_success")) {
     return fallback;
   }
 
@@ -102,51 +93,47 @@ export function inferConsequenceFromSemanticText(
 }
 
 export function detectObservationalFailureStatus(text: string, toolFamily?: string): boolean {
-  const evidence = readSemanticTextEvidence(text, toolFamily);
+  const hasShape = semanticTextShapeMatcher(text, toolFamily);
 
   if (isSemanticCommandExecutionToolFamily(toolFamily)) {
-    return evidence.routineSuccessObservation;
+    return hasShape("routine_success");
   }
 
   if (toolFamily !== "edit" && toolFamily !== "read") {
     return false;
   }
 
-  return (
-    evidence.observationalReadback ||
-    evidence.taggedFileObservation ||
-    evidence.readObservationPayload
-  );
+  return hasShape("observational_readback") || hasShape("tagged_file") || hasShape("read_payload");
 }
 
 export function detectRoutineObservationalFailureLowConsequence(
   text: string,
   toolFamily?: string,
 ): boolean {
-  const evidence = readSemanticTextEvidence(text, toolFamily);
+  const hasShape = semanticTextShapeMatcher(text, toolFamily);
 
   if (isSemanticCommandExecutionToolFamily(toolFamily)) {
-    return evidence.routineSuccessObservation;
+    return hasShape("routine_success");
   }
 
   if (toolFamily === "search") {
-    return evidence.searchResultOutput;
+    return hasShape("search_result");
   }
 
   if (toolFamily === "read") {
-    if (evidence.searchResultOutput) {
+    if (hasShape("search_result")) {
       return true;
     }
 
-    if (!evidence.taggedFileObservation && !evidence.readObservationPayload) {
+    if (!hasShape("tagged_file") && !hasShape("read_payload")) {
       return false;
     }
 
-    if (evidence.sourceCodeObservation) {
+    if (hasShape("source_code")) {
       return false;
     }
 
-    return evidence.logObservation || evidence.buildMetadataObservation;
+    return hasShape("log") || hasShape("build_metadata");
   }
 
   return false;
@@ -157,7 +144,7 @@ export function detectExpectedDiagnosticFailure(text: string, toolFamily?: strin
     return false;
   }
 
-  return readSemanticTextEvidence(text, toolFamily).expectedDiagnosticFailure;
+  return semanticTextShapeMatcher(text, toolFamily)("expected_diagnostic");
 }
 
 function containsAnySemanticRiskPhrase(value: string, phrases: readonly string[]): boolean {

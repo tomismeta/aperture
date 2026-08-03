@@ -104,12 +104,12 @@ In practice, that means:
 
 The hot path inside core is:
 
-`event -> enrich -> compile judgment input -> judge -> surface -> respond`
+`event -> enrich -> normalize observation -> compile judgment input -> judge -> surface -> respond`
 
 That maps to:
 
 - `ApertureEvent` or `SourceEvent`
-- shared event meaning plus a compiled semantic/evidence seam
+- shared event meaning plus a compiled semantic/observation seam
 - policy, value, criterion, and continuity-aware judgment
 - surfaced state for now / next / ambient
 - `AttentionResponse` back into core
@@ -213,7 +213,7 @@ stateful surface loop, use the kernel subpath:
 
 ```ts
 import {
-  projectApertureKernelEvent,
+  evaluateApertureKernelEvent,
   type ApertureKernelEvent,
 } from "@tomismeta/aperture-core/kernel";
 
@@ -230,39 +230,51 @@ const event: ApertureKernelEvent = {
   },
 };
 
-const projection = projectApertureKernelEvent(event);
+const result = evaluateApertureKernelEvent(event);
 
-console.log(projection.observation);
-console.log(projection.judgment);
+console.log(result.observation);
+console.log(result.observationJudgment);
+console.log(result.explanation.reasonCodes);
 ```
 
-`projectApertureKernelEvent(...)` is an opt-in adapter boundary. It accepts the
-kernel-owned neutral event DTO, finalizes it through Aperture's internal source
-seam, returns a bounded finalized-event projection, and returns the observation
-document and deterministic judgment contract when the event shape has one.
+`evaluateApertureKernelEvent(...)` is the small embeddable kernel contract:
+
+`neutral host event -> normalize -> observe -> judge`
+
+It accepts the kernel-owned neutral event DTO, finalizes it through Aperture's
+internal source seam, returns a bounded finalized-event projection, and returns
+the observation document, deterministic judgment contract, and stable
+explanation reason codes when the event shape has one.
+
+If your host has its own event shape, keep that mapping outside core. The host
+adapter should return an `ApertureKernelEvent | null`; pass accepted kernel
+events to `evaluateApertureKernelEvent(...)`. The kernel owns normalization,
+observation, and judgment after that boundary.
 
 Use `facts.capabilityFamily` for explicit source-known capability facts.
-`context.items` with `id: "capability_family"` and `metadata.capabilityFamily`
-are supported as weaker adapter aliases. Precedence is deterministic:
-`facts.capabilityFamily` wins over context, and context wins over
-`metadata.capabilityFamily`. Capability values are trimmed and lowercased before
-judgment.
+`context.items` and `metadata` remain descriptive host payload fields; they do
+not promote capability authority. Capability values are trimmed and lowercased
+before judgment.
 
 Observation documents currently exist for failed work updates that carry
 classifiable observational evidence, such as command success output, read
 payloads, search output, structured execution output, source-limit diagnostics,
 or rejected tool-use observations. Other candidate events can legitimately
-return `observation: null` and `judgment: null`; use the returned `evaluation`
-and finalized `event` for those cases.
+return `observation: null` and `observationJudgment: null`; use the returned
+`evaluation` and finalized `event` for those cases.
 
 This subpath does not install adapters, open sockets, persist state, render UI,
 or make the package live inside another product. It runs only when the host
-imports `@tomismeta/aperture-core/kernel` and calls the projection function.
+imports `@tomismeta/aperture-core/kernel` and calls the kernel function.
 Use `ApertureCore` when you need frames, views, continuity, and responses.
 
 For advanced consumers, the internal path is now:
 
-`SourceEvent/ApertureEvent -> finalized event (usually EnrichedApertureEvent) -> AttentionJudgmentInput -> AttentionCandidate -> judgment -> AttentionFrame/AttentionView + trace`
+`SourceEvent/ApertureEvent -> finalized event (usually EnrichedApertureEvent) -> private semantic evidence -> normalized observation -> AttentionJudgmentInput -> AttentionCandidate -> judgment -> AttentionFrame/AttentionView + trace`
+
+That private semantic-evidence step is not a public SDK contract. The public
+kernel projection returns the normalized observation document and deterministic
+judgment contract instead of exposing raw task-failure evidence internals.
 
 If you want to invoke Aperture's semantic parsing directly before publishing a
 canonical `ApertureEvent`, or you want the richer semantic types directly, use

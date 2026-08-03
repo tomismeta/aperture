@@ -16,7 +16,6 @@ import {
   inferSemanticToolFamily,
   normalizeSemanticText,
   readExplicitSemanticToolFamily,
-  type SemanticDetectionContextItem,
 } from "./semantic-detection.js";
 import {
   semanticActivityClassForRequestKind,
@@ -117,12 +116,7 @@ function inferTaskUpdateSemantics(
   const impliedAsk = detectImpliedOperatorAsk(text);
   const blockingSignal = detectSemanticBlockingSignal(text);
   const relationHints = detectSemanticRelationHints(rawText);
-  const taxonomyInput = buildTaxonomyInput(
-    event.title,
-    event.summary,
-    event.toolFamily,
-    event.context,
-  );
+  const taxonomyInput = buildTaxonomyInput(event.title, event.summary, event.toolFamily);
   const failureObservationCore =
     event.status === "failed" ? readTaskFailureObservationCoreFromEvent(event) : null;
   const awaitsAuthorization = failureObservationCore?.recoveryHint === "await_authorization";
@@ -134,7 +128,7 @@ function inferTaskUpdateSemantics(
     relationHints.length > 0 ? inferredSemanticProvenance(["relationHints"]) : {};
   const relationWhyNow = semanticWhyNowForRelationHints(relationHints);
   const observationalFailure = observationReadsAsStatusUpdate(failureObservationCore);
-  const expectedDiagnosticFailure = failureObservationCore?.diagnosticClass === "expected";
+  const hasExpectedDiagnosticClass = failureObservationCore?.diagnosticClass === "expected";
 
   switch (event.status) {
     case "failed":
@@ -178,7 +172,7 @@ function inferTaskUpdateSemantics(
         factors: ["task.updated", "failed"],
         relationHints,
         confidence: impliedAsk ? "medium" : "high",
-        reasons: expectedDiagnosticFailure
+        reasons: hasExpectedDiagnosticClass
           ? [
               ...semanticReasonsForTaskStatus("failed", { impliedAsk }),
               "failure content looks like expected diagnostic output from repro work",
@@ -307,12 +301,7 @@ function inferTaskUpdateSemantics(
 function inferHumanInputSemantics(
   event: Extract<SourceEvent, { type: "human.input.requested" }>,
 ): SemanticInterpretation {
-  const taxonomyInput = buildTaxonomyInput(
-    event.title,
-    event.summary,
-    event.toolFamily,
-    event.context,
-  );
+  const taxonomyInput = buildTaxonomyInput(event.title, event.summary, event.toolFamily);
   const { toolFamily, source: toolFamilySource } = resolveSemanticToolFamily(
     taxonomyInput,
     event.request.kind === "approval",
@@ -346,7 +335,7 @@ function inferHumanInputSemantics(
         ? "source provided an explicit risk hint"
         : "request kind establishes an explicit operator decision point",
       ...(toolFamilySource === "explicit"
-        ? ["tool family was supplied by the source or context"]
+        ? ["tool family was supplied by the source event"]
         : toolFamilySource === "inferred"
           ? ["tool family was inferred from approval wording"]
           : []),
@@ -406,9 +395,6 @@ function resolveSemanticToolFamily(
     title: string;
     summary?: string;
     toolFamily?: string;
-    context?: {
-      items?: SemanticDetectionContextItem[];
-    };
   },
   allowTextInference: boolean,
 ): {
@@ -615,20 +601,15 @@ function buildTaxonomyInput(
   title: string,
   summary?: string,
   toolFamily?: string,
-  context?: Extract<SourceEvent, { type: "human.input.requested" }>["context"],
 ): {
   title: string;
   summary?: string;
   toolFamily?: string;
-  context?: {
-    items?: SemanticDetectionContextItem[];
-  };
 } {
   return {
     title,
     ...(summary !== undefined ? { summary } : {}),
     ...(toolFamily !== undefined ? { toolFamily } : {}),
-    ...(context?.items !== undefined ? { context: { items: context.items } } : {}),
   };
 }
 

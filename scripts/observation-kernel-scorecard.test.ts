@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import {
-  projectApertureKernelEvent,
+  evaluateApertureKernelEvent,
   type ApertureKernelEvent,
 } from "../packages/core/src/kernel.js";
 import {
@@ -42,7 +42,7 @@ test("observation kernel scorecard covers the normalized observation contract", 
   );
   assert.equal(
     scorecard.observations.filter(
-      (observation) => observation.fixtureId === "context-host-tool-family-parity",
+      (observation) => observation.fixtureId === "explicit-tool-family-authority",
     ).length,
     2,
   );
@@ -147,7 +147,7 @@ test("observation kernel scorecard covers the normalized observation contract", 
   );
   assertExtractor(
     scorecard,
-    "context-host-tool-family-parity",
+    "explicit-tool-family-authority",
     "command_success",
     "command_success_observation",
   );
@@ -167,7 +167,7 @@ test("observation kernel scorecard covers the normalized observation contract", 
   );
   assertExtractor(
     scorecard,
-    "context-host-tool-family-parity",
+    "explicit-tool-family-authority",
     "structured_execution_success",
     "execution_success_observation",
     1,
@@ -176,20 +176,16 @@ test("observation kernel scorecard covers the normalized observation contract", 
   assertExtractor(scorecard, "ambiguous-terminal-output", "unknown_failure", null);
 });
 
-test("observation kernel proves host capability judgment parity", () => {
-  for (const caseSpec of OBSERVATION_KERNEL_HOST_CONTEXT_PARITY_CASES) {
-    const direct = readObservationJudgmentParity(caseSpec.direct);
-    const context = readObservationJudgmentParity(caseSpec.context);
-    const generic = readObservationJudgmentParity(caseSpec.generic);
+test("observation kernel keeps facts capability authoritative without context or metadata aliases", () => {
+  for (const caseSpec of OBSERVATION_KERNEL_CAPABILITY_AUTHORITY_CASES) {
+    const direct = readObservationJudgmentAuthority(caseSpec.direct);
+    const context = readObservationJudgmentAuthority(caseSpec.context);
+    const generic = readObservationJudgmentAuthority(caseSpec.generic);
 
-    assert.equal(direct.judgmentDigest, context.judgmentDigest, caseSpec.id);
-    assert.equal(direct.judgmentDigest, generic.judgmentDigest, caseSpec.id);
     assert.equal(direct.capabilityFamily, caseSpec.capabilityFamily, caseSpec.id);
-    assert.equal(context.capabilityFamily, caseSpec.capabilityFamily, caseSpec.id);
-    assert.equal(generic.capabilityFamily, caseSpec.capabilityFamily, caseSpec.id);
+    assert.equal(context.topLevelCapabilityFamily, null, caseSpec.id);
+    assert.equal(generic.topLevelCapabilityFamily, null, caseSpec.id);
     assert.equal(direct.statusConflictKind, caseSpec.statusConflictKind, caseSpec.id);
-    assert.equal(context.statusConflictKind, caseSpec.statusConflictKind, caseSpec.id);
-    assert.equal(generic.statusConflictKind, caseSpec.statusConflictKind, caseSpec.id);
   }
 });
 
@@ -233,26 +229,26 @@ test("observation kernel scorecard check rejects stale artifacts", async () => {
   }
 });
 
-const OBSERVATION_KERNEL_HOST_CONTEXT_PARITY_CASES = [
-  parityCase(
+const OBSERVATION_KERNEL_CAPABILITY_AUTHORITY_CASES = [
+  authorityCase(
     "command",
     "command_success_observation",
     "Your command ran successfully and did not produce any output.",
     "exec_command",
   ),
-  parityCase(
+  authorityCase(
     "read",
     "payload_observation",
     "OBSERVATION: <NOTE>This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.</NOTE> 1 # fmt: off 2 from __future__ import annotations",
     "read",
   ),
-  parityCase(
+  authorityCase(
     "search",
     "search_output_observation",
     'Web search results for "aperture": /repo/README.md: Aperture overview',
     "search",
   ),
-  parityCase(
+  authorityCase(
     "structured",
     "execution_success_observation",
     '{"exit_code":0,"wall_time":"0.125 seconds","output":"/repo/pkg/lib.rs:10:fn main() {}"}',
@@ -260,7 +256,7 @@ const OBSERVATION_KERNEL_HOST_CONTEXT_PARITY_CASES = [
   ),
 ] as const;
 
-function parityCase(
+function authorityCase(
   id: string,
   statusConflictKind: string,
   summary: string,
@@ -280,22 +276,24 @@ function parityCase(
   };
 }
 
-function readObservationJudgmentParity(event: ApertureKernelEvent): {
+function readObservationJudgmentAuthority(event: ApertureKernelEvent): {
   judgmentDigest: string;
   capabilityFamily: string | null;
+  topLevelCapabilityFamily: string | null;
   statusConflictKind: string | null;
 } {
-  const projection = projectApertureKernelEvent(event);
-  assert.equal(projection.evaluation.kind, "candidate");
-  assert.notEqual(projection.observation, null);
-  assert.notEqual(projection.judgment, null);
-  if (projection.observation === null || projection.judgment === null) {
+  const result = evaluateApertureKernelEvent(event);
+  assert.equal(result.evaluation.kind, "candidate");
+  assert.notEqual(result.observation, null);
+  assert.notEqual(result.observationJudgment, null);
+  if (result.observation === null || result.observationJudgment === null) {
     throw new Error(`Expected observation for ${event.id}`);
   }
   return {
-    judgmentDigest: digestKernelCanonicalJson(projection.judgment),
-    capabilityFamily: projection.observation.ownership.capabilityFamily ?? null,
-    statusConflictKind: projection.judgment.statusConflictKind,
+    judgmentDigest: digestKernelCanonicalJson(result.observationJudgment),
+    capabilityFamily: result.observation.ownership.capabilityFamily ?? null,
+    topLevelCapabilityFamily: result.event.capabilityFamily ?? null,
+    statusConflictKind: result.observationJudgment.statusConflictKind,
   };
 }
 
@@ -325,8 +323,8 @@ function failedTaskEvent(
   },
 ): ApertureKernelEvent {
   return {
-    id: `evt:observation:host-context-parity:${id}`,
-    workId: `work:observation:host-context-parity:${id}`,
+    id: `evt:observation:capability-authority:${id}`,
+    workId: `work:observation:capability-authority:${id}`,
     occurredAt: "2026-04-22T18:30:00.000Z",
     kind: "work.updated",
     title: "Host observation",

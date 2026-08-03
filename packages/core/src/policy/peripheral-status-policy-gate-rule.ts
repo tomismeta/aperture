@@ -5,7 +5,7 @@ import {
 } from "./policy-gate-rule.js";
 import {
   hasActionableBlockedLikeStatusSemantics,
-  hasRoutineObservationalStatusConflictSemantics,
+  hasObservationalStatusConflictSemantics,
 } from "../judgment-input.js";
 import { isSoftenedFailureStatusCandidate } from "./peripheral-status-candidate.js";
 
@@ -29,7 +29,7 @@ export const evaluatePeripheralStatusPolicyGateRule: PolicyGateRule = (input) =>
         requiresOperatorResponse: false,
         minimumLane: "ambient",
         minimumLaneIsSticky: false,
-        rationale: hasRoutineObservationalStatusConflictSemantics(candidate)
+        rationale: hasObservationalStatusConflictSemantics(candidate)
           ? ["observational status-conflict work should preserve peripheral routing"]
           : ["non-critical status work should start in the periphery"],
       });

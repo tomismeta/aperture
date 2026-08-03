@@ -661,18 +661,7 @@ function createMetadataTruncatedUnclassifiedFailedBundle() {
 }
 
 function createUnclassifiedEvidence(toolFamily?: string): TaskFailureSemanticEvidence {
-  const text = {
-    routineSuccessObservation: false,
-    terminalFailureEvidence: false,
-    expectedDiagnosticFailure: false,
-    observationalReadback: false,
-    taggedFileObservation: false,
-    readObservationPayload: false,
-    searchResultOutput: false,
-    sourceCodeObservation: false,
-    logObservation: false,
-    buildMetadataObservation: false,
-  };
+  const text = { shapes: [] };
   const evidence: TaskFailureObservationInput = {
     kind: "unclassified_failure",
     ...(toolFamily ? { toolFamily } : {}),

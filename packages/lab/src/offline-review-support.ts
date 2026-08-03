@@ -1,4 +1,5 @@
-import { readSemanticOntologyDiagnostic } from "@tomismeta/aperture-core/semantic";
+import { buildAttentionJudgmentInput } from "@tomismeta/aperture-core/internal";
+import { normalizeSourceEvent } from "@tomismeta/aperture-core/semantic";
 
 import type { ReplayObservationStep, ReplaySemanticSnapshot } from "./scenario.js";
 import type { ReplaySessionBundle } from "./session-bundle.js";
@@ -222,7 +223,7 @@ function buildSemanticSummary(
 ): NonNullable<OfflineReviewPreparedStep["apertureRead"]> {
   const ontology =
     step.kind === "publishSource"
-      ? (snapshot.ontology ?? readSemanticOntologyDiagnostic(step.event, snapshot.interpretation))
+      ? (snapshot.ontology ?? readCompiledAttentionOntologyForSourceStep(step))
       : null;
 
   return {
@@ -238,6 +239,16 @@ function buildSemanticSummary(
     whyNow: snapshot.interpretation.whyNow ?? null,
     relationKinds: snapshot.interpretation.relationHints.map((hint) => hint.kind),
   };
+}
+
+function readCompiledAttentionOntologyForSourceStep(
+  step: Extract<ReplayObservationStep, { kind: "publishSource" }>,
+) {
+  const ontology = buildAttentionJudgmentInput(normalizeSourceEvent(step.event)).ontology;
+  if (!ontology) {
+    throw new Error("Source replay step must compile attention ontology for offline review.");
+  }
+  return ontology;
 }
 
 function inferOfflineReviewStatus(step: OfflineReviewPreparedStep): string | null {

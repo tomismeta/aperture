@@ -350,19 +350,17 @@ test("approval requests with explicit low-risk read work stay medium-confidence 
   assert.equal(interpretation.provenance?.toolFamily, "source");
 });
 
-test("choice requests keep explicit context tool family without pretending the ask is higher confidence", () => {
+test("choice requests keep explicit event tool family without pretending the ask is higher confidence", () => {
   const interpretation = interpretSourceEvent({
-    id: "evt:choice-context-tool",
+    id: "evt:choice-event-tool",
     type: "human.input.requested",
-    taskId: "task:choice-context-tool",
-    interactionId: "interaction:choice-context-tool",
+    taskId: "task:choice-event-tool",
+    interactionId: "interaction:choice-event-tool",
     timestamp,
     source: source("custom-agent"),
     title: "Choose the next step",
     summary: "Decide whether to continue.",
-    context: {
-      items: [{ id: "toolFamily", label: "Tool Family", value: "read" }],
-    },
+    toolFamily: "read",
     request: {
       kind: "choice",
       selectionMode: "single",

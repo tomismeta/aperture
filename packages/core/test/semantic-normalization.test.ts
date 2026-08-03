@@ -2003,7 +2003,7 @@ test("choice requests do not infer tool family from question wording alone", () 
   }
 });
 
-test("choice requests still preserve explicit tool family from context", () => {
+test("choice requests still preserve explicit event tool family as semantic-only", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:question-explicit-tool-family",
     type: "human.input.requested",
@@ -2013,9 +2013,7 @@ test("choice requests still preserve explicit tool family from context", () => {
     source: source("custom-agent"),
     title: "Should we read the config first?",
     summary: "Choose the next step.",
-    context: {
-      items: [{ id: "toolFamily", label: "Tool Family", value: "read" }],
-    },
+    toolFamily: "read",
     request: {
       kind: "choice",
       selectionMode: "single",
@@ -2028,7 +2026,7 @@ test("choice requests still preserve explicit tool family from context", () => {
 
   assert.equal(interpretation.toolFamily, "read");
   assert.equal(interpretation.confidence, "low");
-  assert.ok(interpretation.reasons.includes("tool family was supplied by the source or context"));
+  assert.ok(interpretation.reasons.includes("tool family was supplied by the source event"));
   assert.equal(interpretation.provenance?.toolFamily, "source");
 
   const normalized = normalizeSourceEvent({
@@ -2040,9 +2038,7 @@ test("choice requests still preserve explicit tool family from context", () => {
     source: source("custom-agent"),
     title: "Should we read the config first?",
     summary: "Choose the next step.",
-    context: {
-      items: [{ id: "toolFamily", label: "Tool Family", value: "read" }],
-    },
+    toolFamily: "read",
     request: {
       kind: "choice",
       selectionMode: "single",

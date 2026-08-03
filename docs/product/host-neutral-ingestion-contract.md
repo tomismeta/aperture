@@ -223,26 +223,35 @@ shows a few Aperture-local choices:
 That is fine internally.
 It is just not the cleanest public contract if the goal is broad adoption.
 
-## SDK Kernel Projection
+## SDK Kernel Evaluation
 
 For embedded SDK consumers, `@tomismeta/aperture-core/kernel` exposes an opt-in
-projection helper:
+kernel helper:
 
 ```ts
-projectApertureKernelEvent(event);
+evaluateApertureKernelEvent(event);
 ```
 
 That path is not the product `/work` ingestion API. It is a package-level,
 kernel-owned event DTO for hosts that already have an in-process event and want
-the minimal deterministic projection:
+the minimal deterministic path:
 
-`kernel event -> bounded finalized event -> observation document -> judgment contract`
+`kernel event -> bounded finalized event -> observation document -> judgment contract -> explanation codes`
 
-The kernel projection prefers `facts.capabilityFamily`; `context.items` with
-`id: "capability_family"` and `metadata.capabilityFamily` are weaker adapter
-aliases. Precedence is `facts.capabilityFamily`, then context, then
-`metadata.capabilityFamily`. Product ingestion should still prefer
-`WorkEvent.facts` with `capabilityFamily`, then map it into Aperture's internal
+Hosts with a source-native event envelope can keep that mapping in adapter code
+and call the kernel only after mapping to the neutral DTO:
+
+```ts
+const event = adapter(hostEvent);
+if (event !== null) {
+  evaluateApertureKernelEvent(event);
+}
+```
+
+The kernel projection accepts capability authority only from
+`facts.capabilityFamily`. `context.items` and `metadata` remain descriptive
+payloads and do not promote capability facts. Product ingestion should still
+prefer `WorkEvent.facts` with `capabilityFamily`, then map it into Aperture's internal
 `SourceEvent` shape.
 
 ## Structured Event: `WorkEvent`

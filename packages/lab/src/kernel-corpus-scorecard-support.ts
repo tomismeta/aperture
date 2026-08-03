@@ -31,9 +31,9 @@ export function collectKernelCorpusScenarioCheckpoints(
   failures: string[];
 } {
   const failures: string[] = [];
-  const semanticOntology = collectUniqueCheckpointDigests(
+  const attentionOntology = collectUniqueCheckpointDigests(
     id,
-    "semantic_ontology",
+    "attention_ontology",
     expectations?.semanticReadings ?? [],
     failures,
     isSubstantiveOntologyCheckpoint,
@@ -61,7 +61,7 @@ export function collectKernelCorpusScenarioCheckpoints(
   return {
     checkpoints: {
       id,
-      semanticOntology,
+      attentionOntology,
       relation,
       decisionProjection,
       normalizedObservation: [],
@@ -111,7 +111,7 @@ function isScorecardThresholds(
     value.minimumCoverageDimensions === thresholds.minimumCoverageDimensions &&
     value.minimumTotalAssertions === thresholds.minimumTotalAssertions &&
     value.minimumAssertionsPerScenario === thresholds.minimumAssertionsPerScenario &&
-    value.minimumSemanticOntologyCheckpoints === thresholds.minimumSemanticOntologyCheckpoints &&
+    value.minimumAttentionOntologyCheckpoints === thresholds.minimumAttentionOntologyCheckpoints &&
     value.minimumDecisionProjectionCheckpoints ===
       thresholds.minimumDecisionProjectionCheckpoints &&
     value.minimumRelationCheckpoints === thresholds.minimumRelationCheckpoints &&
@@ -128,7 +128,7 @@ function isScorecardThresholdShape(value: unknown): value is KernelCorpusScoreca
     isFiniteNumber(value.minimumCoverageDimensions) &&
     isFiniteNumber(value.minimumTotalAssertions) &&
     isFiniteNumber(value.minimumAssertionsPerScenario) &&
-    isFiniteNumber(value.minimumSemanticOntologyCheckpoints) &&
+    isFiniteNumber(value.minimumAttentionOntologyCheckpoints) &&
     isFiniteNumber(value.minimumDecisionProjectionCheckpoints) &&
     isFiniteNumber(value.minimumRelationCheckpoints) &&
     isFiniteNumber(value.minimumNormalizedObservationCheckpoints) &&
@@ -280,7 +280,7 @@ function isScenarioCheckpoints(value: unknown): value is KernelCorpusScorecardSc
   return (
     isRecord(value) &&
     typeof value.id === "string" &&
-    isStringArray(value.semanticOntology) &&
+    isStringArray(value.attentionOntology) &&
     isStringArray(value.relation) &&
     isStringArray(value.decisionProjection) &&
     isStringArray(value.normalizedObservation)

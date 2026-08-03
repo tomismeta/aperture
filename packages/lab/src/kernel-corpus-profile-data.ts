@@ -25,6 +25,7 @@ export const KERNEL_CORPUS_SCENARIO_IDS = [
   "golden:kernel-corpus:interleaved-supersede-with-background-noise",
   "golden:kernel-corpus:known-command-operation-success-text-stays-failure",
   "golden:kernel-corpus:metadata-heavy-status-noise-stays-ambient",
+  "golden:kernel-corpus:no-matching-command-work-plans-next-without-ambiguity",
   "golden:kernel-corpus:observational-status-conflict-preserves-high",
   "golden:kernel-corpus:operational-progress-stays-medium-ambient",
   "golden:kernel-corpus:prospective-resolution-verification-preserves-focus",

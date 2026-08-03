@@ -33,8 +33,7 @@ import {
   readExplicitSemanticToolFamily,
 } from "./semantic-tool-family.js";
 import {
-  readTerminalFailureDetail,
-  readTerminalFailureShape,
+  readTaskFailureTerminalProfile,
   type TaskFailureDetail,
   type TaskFailureTerminalShape,
 } from "./semantic-failure-detail.js";
@@ -42,18 +41,19 @@ import { readExplicitOperationSuccessObservationTranscript } from "./semantic-op
 import { looksLikeEmptyJsonObject } from "./semantic-structured-output.js";
 import type { TaskFailureObservationSyntax } from "./task-failure-observation-grammar.js";
 
-export type SemanticTextEvidence = {
-  routineSuccessObservation: boolean;
-  terminalFailureEvidence: boolean;
-  expectedDiagnosticFailure: boolean;
-  observationalReadback: boolean;
-  taggedFileObservation: boolean;
-  readObservationPayload: boolean;
-  searchResultOutput: boolean;
-  sourceCodeObservation: boolean;
-  logObservation: boolean;
-  buildMetadataObservation: boolean;
-};
+export type SemanticTextShape =
+  | "routine_success"
+  | "terminal_failure"
+  | "expected_diagnostic"
+  | "observational_readback"
+  | "tagged_file"
+  | "read_payload"
+  | "search_result"
+  | "source_code"
+  | "log"
+  | "build_metadata";
+
+export type SemanticTextEvidence = { shapes: readonly SemanticTextShape[] };
 
 export type TaskFailureEvidenceKind =
   | "routine_bash_success_observation"
@@ -80,6 +80,7 @@ export type TaskFailureSemanticEvidence = {
   consequenceBaseline: "low" | "medium" | "high";
   text: SemanticTextEvidence;
 };
+type TaskFailureEvidenceProfile = Omit<TaskFailureSemanticEvidence, "text">;
 
 type SemanticEvidenceTaskUpdateEvent = Record<string, unknown> & {
   type: string;
@@ -87,39 +88,49 @@ type SemanticEvidenceTaskUpdateEvent = Record<string, unknown> & {
   title?: string;
   summary?: string;
   toolFamily?: string;
-  context?: {
-    items?: Array<{ id: string; label: string; value?: string }>;
-  };
 };
 
 export function readSemanticTextEvidence(value: string, toolFamily?: string): SemanticTextEvidence {
   const text = normalizeSemanticText(value);
-  const terminalFailureEvidence = looksLikeTerminalFailureEvidence(text);
+  const hasTerminalFailureShape = looksLikeTerminalFailureEvidence(text);
   const commandExecutionTool = isSemanticCommandExecutionToolFamily(toolFamily);
   const routineCommandText = stripCommandExecutionRoutinePrefix(text, toolFamily);
+  const shapes: SemanticTextShape[] = [];
+  if (
+    commandExecutionTool &&
+    (isStandaloneRoutineSuccessObservation(text, toolFamily) ||
+      (looksLikeZeroTerminalExit(routineCommandText) &&
+        !looksLikeContradictoryFailureObservation(routineCommandText))) &&
+    !hasTerminalFailureShape
+  ) {
+    shapes.push("routine_success");
+  }
+  if (hasTerminalFailureShape) {
+    shapes.push("terminal_failure");
+  } else if (
+    commandExecutionTool &&
+    containsAnySemanticPhrase(text, EXPECTED_DIAGNOSTIC_FAILURE_PHRASES)
+  ) {
+    shapes.push("expected_diagnostic");
+  }
+  if (containsAnySemanticPhrase(text, OBSERVATIONAL_READBACK_PHRASES))
+    shapes.push("observational_readback");
+  if (looksLikeTaggedFileObservation(text)) shapes.push("tagged_file");
+  if (looksLikeReadObservationPayload(text)) shapes.push("read_payload");
+  else if (toolFamily === "read" && looksLikePlainReadObservation(value))
+    shapes.push("read_payload");
+  if (looksLikeSearchResultObservation(text, value)) shapes.push("search_result");
+  if (looksLikeSourceCodeObservation(text)) shapes.push("source_code");
+  if (looksLikeLogObservation(text, value)) shapes.push("log");
+  if (BUILD_METADATA_PATTERN.test(text) || containsAnySemanticPhrase(text, BUILD_METADATA_PHRASES))
+    shapes.push("build_metadata");
 
-  return {
-    routineSuccessObservation:
-      commandExecutionTool &&
-      (isStandaloneRoutineSuccessObservation(text, toolFamily) ||
-        (looksLikeZeroTerminalExit(routineCommandText) &&
-          !looksLikeContradictoryFailureObservation(routineCommandText))) &&
-      !terminalFailureEvidence,
-    terminalFailureEvidence,
-    expectedDiagnosticFailure:
-      commandExecutionTool &&
-      containsAnySemanticPhrase(text, EXPECTED_DIAGNOSTIC_FAILURE_PHRASES) &&
-      !terminalFailureEvidence,
-    observationalReadback: containsAnySemanticPhrase(text, OBSERVATIONAL_READBACK_PHRASES),
-    taggedFileObservation: looksLikeTaggedFileObservation(text),
-    readObservationPayload:
-      looksLikeReadObservationPayload(text) ||
-      (toolFamily === "read" && looksLikePlainReadObservation(value)),
-    searchResultOutput: looksLikeSearchResultObservation(text, value),
-    sourceCodeObservation: looksLikeSourceCodeObservation(text),
-    logObservation: looksLikeLogObservation(text, value),
-    buildMetadataObservation: looksLikeBuildMetadataObservation(text),
-  };
+  return { shapes };
+}
+
+export function semanticTextShapeMatcher(value: string, toolFamily?: string) {
+  const shapes = readSemanticTextEvidence(value, toolFamily).shapes;
+  return (shape: SemanticTextShape): boolean => shapes.includes(shape);
 }
 
 export function readTaskFailureSemanticEvidence(
@@ -134,7 +145,6 @@ export function readTaskFailureSemanticEvidence(
       title: event.title,
       ...(event.summary !== undefined ? { summary: event.summary } : {}),
       ...(event.toolFamily !== undefined ? { toolFamily: event.toolFamily } : {}),
-      ...(event.context !== undefined ? { context: event.context } : {}),
     }) ?? undefined;
   const text = readSemanticTextEvidence(
     toolFamily === "search"
@@ -143,79 +153,66 @@ export function readTaskFailureSemanticEvidence(
     toolFamily,
   );
   const signals = readTaskFailureSemanticSignals({ summary: event.summary, toolFamily });
-  const terminalFailureEvidence =
-    signals.structuredOutputExitFailure ||
-    signals.strongSourceRuntimeDiagnostic ||
-    signals.structuredOutputFailureDiagnostic ||
-    signals.editOutputOutcome === "failure" ||
-    signals.searchFailureDiagnostic ||
-    signals.readFailureDiagnostic ||
-    signals.diagnosticObservationTranscript ||
-    signals.commandActualDiagnosticObservationTranscript ||
-    (signals.commandDiagnosticObservationTranscript &&
-      !signals.commandDiagnosticReferenceObservationTranscript) ||
-    (signals.rawToolOutputFailureDiagnostic &&
-      !signals.commandDiagnosticReferenceObservationTranscript) ||
-    (text.terminalFailureEvidence &&
-      !signals.commandDiagnosticReferenceObservationTranscript &&
-      !isMissingToolObservationTranscript(signals.observationSyntax) &&
-      !(toolFamily === "search" && text.searchResultOutput) &&
-      (!payloadObservationSuppressesGenericTerminalEvidence(signals.observationSyntax) ||
-        signals.strongSourceRuntimeDiagnostic));
+  const profile = readTaskFailureEvidenceProfile({
+    summary: event.summary,
+    signals,
+    text,
+    toolFamily,
+  });
 
-  if (terminalFailureEvidence) {
-    const terminalShape = readTerminalFailureShape({ summary: event.summary, toolFamily });
-    const failureDetail = readTerminalFailureDetail({
-      summary: event.summary,
-      signals,
-      toolFamily,
-    });
-    const consequenceBaseline =
-      failureDetail === "outcome_only" || failureDetail === "source_window_limit"
-        ? "medium"
-        : "high";
+  return { ...profile, text };
+}
+
+function readTaskFailureEvidenceProfile(input: {
+  summary: string | undefined;
+  signals: ReturnType<typeof readTaskFailureSemanticSignals>;
+  text: SemanticTextEvidence;
+  toolFamily: string | undefined;
+}): TaskFailureEvidenceProfile {
+  const { signals, summary, text, toolFamily } = input;
+  const hasShape = text.shapes.includes.bind(text.shapes);
+  const terminalProfile = readTaskFailureTerminalProfile({
+    summary,
+    signals,
+    toolFamily,
+    searchResultText: hasShape("search_result"),
+    terminalFailureText: hasShape("terminal_failure"),
+  });
+  if (terminalProfile !== null) {
+    const { failureDetail, terminalShape } = terminalProfile;
     return {
       kind: "terminal_failure",
       failureDetail,
-      ...(terminalShape !== null ? { terminalShape } : {}),
+      ...(terminalShape !== undefined ? { terminalShape } : {}),
       ...(toolFamily !== undefined ? { toolFamily } : {}),
       readsAsObservation: false,
-      consequenceBaseline,
-      text,
+      consequenceBaseline: terminalProfile.consequenceBaseline,
     };
   }
-
-  if (toolFamily !== undefined && looksLikeEmptyJsonObject(event.summary)) {
+  if (toolFamily !== undefined && looksLikeEmptyJsonObject(summary)) {
     return {
       kind: "empty_failure_payload",
       failureDetail: "absent_evidence",
       toolFamily,
       readsAsObservation: false,
       consequenceBaseline: "medium",
-      text,
     };
   }
-
   const operationSuccessObservation =
-    toolFamily === undefined
-      ? readExplicitOperationSuccessObservationTranscript(event.summary)
-      : null;
+    toolFamily === undefined ? readExplicitOperationSuccessObservationTranscript(summary) : null;
   if (operationSuccessObservation) {
     return {
       kind: "operation_success_observation",
       readsAsObservation: true,
       consequenceBaseline: operationSuccessObservation.consequenceBaseline,
-      text,
     };
   }
-
   if (signals.observationSyntax !== null) {
-    return readObservationSyntaxEvidence(signals.observationSyntax, text);
+    return readObservationSyntaxEvidenceProfile(signals.observationSyntax);
   }
-
   if (
     isSemanticCommandExecutionToolFamily(toolFamily) &&
-    text.routineSuccessObservation &&
+    hasShape("routine_success") &&
     (!signals.unsafeStructuredToolOutputEnvelope ||
       signals.diagnosticStructuredToolOutput?.exitCode === 0)
   ) {
@@ -224,36 +221,31 @@ export function readTaskFailureSemanticEvidence(
       ...(toolFamily !== undefined ? { toolFamily } : {}),
       readsAsObservation: true,
       consequenceBaseline: "low",
-      text,
     };
   }
-
-  if (isSemanticCommandExecutionToolFamily(toolFamily) && text.expectedDiagnosticFailure) {
+  if (isSemanticCommandExecutionToolFamily(toolFamily) && hasShape("expected_diagnostic")) {
     return {
       kind: "expected_diagnostic_failure",
       ...(toolFamily !== undefined ? { toolFamily } : {}),
       readsAsObservation: false,
       consequenceBaseline: "medium",
-      text,
     };
   }
-
-  if (toolFamily === "search" && text.searchResultOutput) {
+  if (toolFamily === "search" && hasShape("search_result")) {
     return {
       kind: "routine_search_output",
       toolFamily,
       readsAsObservation: true,
-      consequenceBaseline: text.terminalFailureEvidence ? "high" : "low",
-      text,
+      consequenceBaseline: hasShape("terminal_failure") ? "high" : "low",
     };
   }
 
   if (
     toolFamily === "edit" &&
     signals.structuredOutputEnvelope.kind !== "invalid" &&
-    (text.observationalReadback ||
-      text.taggedFileObservation ||
-      text.readObservationPayload ||
+    (hasShape("observational_readback") ||
+      hasShape("tagged_file") ||
+      hasShape("read_payload") ||
       signals.editOutputOutcome === "applied")
   ) {
     return {
@@ -261,7 +253,6 @@ export function readTaskFailureSemanticEvidence(
       toolFamily,
       readsAsObservation: true,
       consequenceBaseline: "high",
-      text,
     };
   }
 
@@ -271,14 +262,12 @@ export function readTaskFailureSemanticEvidence(
     ...(toolFamily !== undefined ? { toolFamily } : {}),
     readsAsObservation: false,
     consequenceBaseline: "high",
-    text,
   };
 }
 
-function readObservationSyntaxEvidence(
+function readObservationSyntaxEvidenceProfile(
   syntax: TaskFailureObservationSyntax,
-  text: SemanticTextEvidence,
-): TaskFailureSemanticEvidence {
+): TaskFailureEvidenceProfile {
   return {
     kind: readObservationSyntaxEvidenceKind(syntax),
     ...(syntax.toolFamily !== undefined ? { toolFamily: syntax.toolFamily } : {}),
@@ -290,38 +279,17 @@ function readObservationSyntaxEvidence(
         : syntax.kind === "payload"
           ? syntax.payload.consequenceBaseline
           : syntax.consequenceBaseline,
-    text,
   };
 }
 
 function readObservationSyntaxEvidenceKind(
   syntax: TaskFailureObservationSyntax,
 ): TaskFailureEvidenceKind {
-  switch (syntax.kind) {
-    case "control":
-      return "rejected_tool_use_observation";
-    case "outcome":
-      return "structured_execution_success_observation";
-    case "payload":
-      return syntax.origin === "structured_output"
-        ? "structured_tool_output_observation"
-        : "observational_payload";
-  }
-}
-
-function isMissingToolObservationTranscript(
-  observation: TaskFailureObservationSyntax | null,
-): boolean {
-  return observation?.origin === "transcript" && observation.toolFamily === undefined;
-}
-
-function payloadObservationSuppressesGenericTerminalEvidence(
-  observation: TaskFailureObservationSyntax | null,
-): boolean {
-  return (
-    observation?.kind === "payload" &&
-    (observation.origin === "read_output" || observation.origin === "structured_output")
-  );
+  if (syntax.kind === "control") return "rejected_tool_use_observation";
+  if (syntax.kind === "outcome") return "structured_execution_success_observation";
+  return syntax.origin === "structured_output"
+    ? "structured_tool_output_observation"
+    : "observational_payload";
 }
 
 function looksLikeReadObservationPayload(text: string): boolean {
@@ -361,12 +329,6 @@ function looksLikeLogObservation(text: string, rawText: string): boolean {
   );
 }
 
-function looksLikeBuildMetadataObservation(text: string): boolean {
-  return (
-    BUILD_METADATA_PATTERN.test(text) || containsAnySemanticPhrase(text, BUILD_METADATA_PHRASES)
-  );
-}
-
 function isStandaloneRoutineSuccessObservation(text: string, toolFamily?: string): boolean {
   const trimmedText = text.replace(/\.+$/, "");
   const observationPrefixIndex = trimmedText.indexOf(" observation ");
@@ -375,9 +337,8 @@ function isStandaloneRoutineSuccessObservation(text: string, toolFamily?: string
       ? trimmedText.slice(observationPrefixIndex + " observation ".length)
       : trimmedText;
   const successPhrases = ROUTINE_SUCCESS_PHRASES.map((phrase) => normalizeSemanticText(phrase));
-  const allowedPrefixes = commandExecutionRoutinePrefixes(toolFamily);
 
-  return allowedPrefixes.some((prefix) =>
+  return commandExecutionRoutinePrefixes(toolFamily).some((prefix) =>
     successPhrases.some((phrase) => {
       const expected = prefix.length > 0 ? `${prefix} ${phrase}` : phrase;
       return normalizedText === expected;
@@ -395,11 +356,6 @@ function stripCommandExecutionRoutinePrefix(text: string, toolFamily?: string): 
 }
 
 function commandExecutionRoutinePrefixes(toolFamily?: string): string[] {
-  return [
-    "",
-    "observation",
-    "bash failure",
-    "tool failure",
-    ...(toolFamily && toolFamily !== "bash" ? [`${toolFamily} failure`] : []),
-  ];
+  const prefixes = ["", "observation", "bash failure", "tool failure"];
+  return toolFamily && toolFamily !== "bash" ? [...prefixes, `${toolFamily} failure`] : prefixes;
 }

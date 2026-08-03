@@ -8,15 +8,15 @@ import {
 import { runReplayScenario } from "./runner.js";
 import type { ReplayScenario, ReplayScenarioExpectations } from "./scenario.js";
 
-export const KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION = 5 as const;
-export const KERNEL_CORPUS_SCORECARD_COMPARISON_SCHEMA_VERSION = 2 as const;
+export const KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION = 6 as const;
+export const KERNEL_CORPUS_SCORECARD_COMPARISON_SCHEMA_VERSION = 3 as const;
 
 export const KERNEL_CORPUS_SCORECARD_THRESHOLDS = {
   minimumScenarios: 49,
   minimumCoverageDimensions: 16,
   minimumTotalAssertions: 2014,
   minimumAssertionsPerScenario: 25,
-  minimumSemanticOntologyCheckpoints: 58,
+  minimumAttentionOntologyCheckpoints: 58,
   minimumDecisionProjectionCheckpoints: 69,
   minimumRelationCheckpoints: 13,
   minimumNormalizedObservationCheckpoints: 36,
@@ -88,7 +88,7 @@ export type KernelCorpusScorecard = {
 
 export type KernelCorpusScorecardScenarioCheckpoints = {
   id: string;
-  semanticOntology: string[];
+  attentionOntology: string[];
   relation: string[];
   decisionProjection: string[];
   normalizedObservation: string[];
@@ -148,7 +148,7 @@ export type KernelCorpusScorecardComparison = {
     missingDimensions: number;
     totalAssertions: number;
     minimumAssertionsPerScenario: number;
-    semanticOntologyCheckpoints: number;
+    attentionOntologyCheckpoints: number;
     relationCheckpoints: number;
     decisionProjectionCheckpoints: number;
     normalizedObservationCheckpoints: number;
@@ -162,7 +162,7 @@ export type KernelCorpusScorecardComparison = {
   }>;
   scenarioCheckpointDeltas: Array<{
     id: string;
-    missingSemanticOntology: string[];
+    missingAttentionOntology: string[];
     missingRelation: string[];
     missingDecisionProjection: string[];
     missingNormalizedObservation: string[];
@@ -207,7 +207,14 @@ export function parseHistoricalKernelCorpusScorecard(source: string): KernelCorp
     const value = JSON.parse(source) as unknown;
     if (isHistoricalV4Scorecard(value)) {
       return parseKernelCorpusScorecardValue(
-        JSON.stringify(migrateHistoricalV4Scorecard(value)),
+        JSON.stringify(migrateHistoricalV5Scorecard(migrateHistoricalV4Scorecard(value))),
+        KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION,
+        null,
+      );
+    }
+    if (isHistoricalV5Scorecard(value)) {
+      return parseKernelCorpusScorecardValue(
+        JSON.stringify(migrateHistoricalV5Scorecard(value)),
         KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION,
         null,
       );
@@ -272,7 +279,7 @@ export function buildKernelCorpusScorecardComparison(
     minimumAssertionsPerScenario:
       candidate.summary.assertions.minimumPerScenario -
       baseline.summary.assertions.minimumPerScenario,
-    semanticOntologyCheckpoints:
+    attentionOntologyCheckpoints:
       candidate.summary.semanticCheckpoints.ontology -
       baseline.summary.semanticCheckpoints.ontology,
     relationCheckpoints:
@@ -376,8 +383,8 @@ function collectScorecardMetrics(
     ),
   }));
   integrityFailures.push(...checkpointResults.flatMap((result) => result.failures));
-  const semanticOntologyCheckpointCount = sum(
-    scenarioCheckpoints.map((scenario) => scenario.semanticOntology.length),
+  const attentionOntologyCheckpointCount = sum(
+    scenarioCheckpoints.map((scenario) => scenario.attentionOntology.length),
   );
   const relationCheckpointCount = sum(
     scenarioCheckpoints.map((scenario) => scenario.relation.length),
@@ -417,8 +424,8 @@ function collectScorecardMetrics(
         averagePerScenario: scenarioCount === 0 ? 0 : round(totalAssertions / scenarioCount),
       },
       semanticCheckpoints: {
-        total: semanticOntologyCheckpointCount + relationCheckpointCount,
-        ontology: semanticOntologyCheckpointCount,
+        total: attentionOntologyCheckpointCount + relationCheckpointCount,
+        ontology: attentionOntologyCheckpointCount,
         relation: relationCheckpointCount,
       },
       decisionCheckpoints: {
@@ -480,9 +487,9 @@ function collectScorecardFailures(
   );
   pushMinimumFailure(
     failures,
-    "semantic_ontology_checkpoints",
+    "attention_ontology_checkpoints",
     metrics.semanticCheckpoints.ontology,
-    "minimumSemanticOntologyCheckpoints",
+    "minimumAttentionOntologyCheckpoints",
   );
   pushMinimumFailure(
     failures,
@@ -641,9 +648,9 @@ function compareScenarioCheckpoints(
       const candidateScenario = candidateById.get(scenario.id);
       return {
         id: scenario.id,
-        missingSemanticOntology: missingDigests(
-          scenario.semanticOntology,
-          candidateScenario?.semanticOntology ?? [],
+        missingAttentionOntology: missingDigests(
+          scenario.attentionOntology,
+          candidateScenario?.attentionOntology ?? [],
         ),
         missingRelation: missingDigests(scenario.relation, candidateScenario?.relation ?? []),
         missingDecisionProjection: missingDigests(
@@ -651,14 +658,17 @@ function compareScenarioCheckpoints(
           candidateScenario?.decisionProjection ?? [],
         ),
         missingNormalizedObservation:
-          (candidateScenario?.normalizedObservation.length ?? 0) < scenario.normalizedObservation.length
-            ? scenario.normalizedObservation.slice(candidateScenario?.normalizedObservation.length ?? 0)
+          (candidateScenario?.normalizedObservation.length ?? 0) <
+          scenario.normalizedObservation.length
+            ? scenario.normalizedObservation.slice(
+                candidateScenario?.normalizedObservation.length ?? 0,
+              )
             : [],
       };
     })
     .filter(
       (scenario) =>
-        scenario.missingSemanticOntology.length > 0 ||
+        scenario.missingAttentionOntology.length > 0 ||
         scenario.missingRelation.length > 0 ||
         scenario.missingDecisionProjection.length > 0 ||
         scenario.missingNormalizedObservation.length > 0,
@@ -707,8 +717,8 @@ function collectScorecardComparisonFailures(
   );
   pushNonNegativeDeltaFailure(
     failures,
-    "semantic_ontology_checkpoints",
-    deltas.semanticOntologyCheckpoints,
+    "attention_ontology_checkpoints",
+    deltas.attentionOntologyCheckpoints,
   );
   pushNonNegativeDeltaFailure(failures, "relation_checkpoints", deltas.relationCheckpoints);
   pushNonNegativeDeltaFailure(
@@ -735,9 +745,9 @@ function collectScorecardComparisonFailures(
   }
 
   for (const scenario of scenarioCheckpointDeltas) {
-    for (const digest of scenario.missingSemanticOntology) {
+    for (const digest of scenario.missingAttentionOntology) {
       failures.push(
-        `scorecard_comparison:scenario:${scenario.id}:missing_semantic_ontology:${digest}`,
+        `scorecard_comparison:scenario:${scenario.id}:missing_attention_ontology:${digest}`,
       );
     }
     for (const digest of scenario.missingRelation) {
@@ -1427,7 +1437,7 @@ function isHistoricalV4Scorecard(value: unknown): value is Record<string, unknow
 
 function migrateHistoricalV4Scorecard(value: Record<string, unknown>): Record<string, unknown> {
   const migrated = structuredClone(value) as Record<string, unknown>;
-  migrated.schemaVersion = KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION;
+  migrated.schemaVersion = 5;
 
   const thresholds = ensureRecord(migrated.thresholds);
   thresholds.minimumNormalizedObservationCheckpoints = 0;
@@ -1472,6 +1482,33 @@ function migrateHistoricalV4Scorecard(value: Record<string, unknown>): Record<st
     for (const scenario of scenarioCheckpoints) {
       if (isRecord(scenario)) {
         scenario.normalizedObservation = [];
+      }
+    }
+  }
+
+  return migrated;
+}
+
+function isHistoricalV5Scorecard(value: unknown): value is Record<string, unknown> {
+  return isRecord(value) && value.schemaVersion === 5 && isRecord(value.outcomeCoverage);
+}
+
+function migrateHistoricalV5Scorecard(value: Record<string, unknown>): Record<string, unknown> {
+  const migrated = structuredClone(value) as Record<string, unknown>;
+  migrated.schemaVersion = KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION;
+
+  const thresholds = ensureRecord(migrated.thresholds);
+  moveRecordField(
+    thresholds,
+    "minimumSemanticOntologyCheckpoints",
+    "minimumAttentionOntologyCheckpoints",
+  );
+
+  const scenarioCheckpoints = migrated.scenarioCheckpoints;
+  if (Array.isArray(scenarioCheckpoints)) {
+    for (const scenario of scenarioCheckpoints) {
+      if (isRecord(scenario)) {
+        moveRecordField(scenario, "semanticOntology", "attentionOntology");
       }
     }
   }

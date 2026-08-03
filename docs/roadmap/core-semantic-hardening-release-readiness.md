@@ -21,8 +21,10 @@ until a new package is published.
 - `docs/releases/aperture-core-v0.8.0.md` is a draft/unpublished release note
   while npm latest remains `0.7.0`
 - Runtime dependencies: unchanged
-- Published package manifests: no version, export-map, files-list, or runtime
-  dependency changes
+- Published package manifests: core is versioned at `0.8.0`; its export map
+  includes the root SDK plus explicit `./evaluator`, `./semantic`, `./kernel`,
+  and `./trace` subpaths. The files list and runtime dependency surface are
+  unchanged.
 - Root workspace manifest: updated only to include the new package-boundary test
   in normal test and format gates
 - Lockfile: unchanged
@@ -38,6 +40,9 @@ The main behavior changes are:
   instead of always becoming critical failed work
 - complete outcome-only nonzero command exits are treated as medium failed
   statuses instead of diagnostic high-severity failures
+- failed command outputs whose complete payload says no matching work was found
+  now route through the same bounded outcome-only profile when command ownership
+  is explicit
 - truncated failed evidence remains conservative, so clipped source output does
   not accidentally soften a failure
 - semantic hints and metadata cannot forge low-impact status-conflict routing
@@ -74,14 +79,20 @@ The root SDK surface remains focused on the stateful engine loop:
 
 `ApertureCore -> publish/publishSourceEvent -> AttentionFrame/AttentionView -> submit`
 
-The existing package export map is unchanged:
+The package export map is intentionally small and explicit:
 
 - `.`
 - `./evaluator`
 - `./semantic`
+- `./kernel`
 - `./trace`
 
-The only additive public runtime helper is on the existing `./semantic` subpath:
+The additive embeddable primitive is on `./kernel`:
+
+- `evaluateApertureKernelEvent(...)`
+- kernel DTOs for host-neutral event input and projected judgment output
+
+The additive source-quality helper is on `./semantic`:
 
 - `semanticHintsForTruncatedSourceEvidence(...)`
 - `TRUNCATED_SOURCE_EVIDENCE_FACTOR`
@@ -97,28 +108,19 @@ hints: low confidence, a source-quality factor, and high consequence by default
 for failed truncated evidence. It cannot lower failed evidence to medium or low
 consequence.
 
-The evaluator subpath also has an additive optional type field:
-
-- `AttentionClaimJudgment.outcomeOnlyFailureStatus`
-
-This is a replay and explanation marker for complete nonzero command exits that
-have outcome-only failure evidence. It does not add a new evaluator runtime
-function.
-
 ## Existing User Impact
 
 API compatibility risk is low:
 
 - no published package version changes
-- no published package export-map changes
 - no published package runtime dependency changes
 - no lockfile changes
 - no new runtime dependencies
 - no removed entrypoints
-- no export map changes
-- root, evaluator, and trace runtime entrypoints are unchanged
-- evaluator consumers who exhaustively model `AttentionClaimJudgment` may see
-  the new optional `outcomeOnlyFailureStatus` field
+- root, semantic, evaluator, and trace entrypoints remain compatible
+- `./kernel` is an additive advanced subpath for embedders
+- evaluator claims no longer expose compiled status-judgment markers; those
+  remain engine-owned in trace semantics and internal judgment input
 - semantic/evaluator consumers who exhaustively model task failure details may
   see the new `absent_evidence` detail for payloadless failed tool updates and
   `source_window_limit` for bounded read window-limit failures
@@ -246,48 +248,43 @@ Before publish:
 
 ## Validation Evidence
 
-Current branch validation:
+Current branch validation on August 3, 2026:
 
 ```bash
 pnpm release:check
-pnpm sdk:prove
-pnpm typecheck
-pnpm format:check
-pnpm architecture:check
-pnpm boundary:check
-pnpm exec tsx --test packages/core/test/public-sdk.test.ts
-pnpm exec tsx --test packages/core/test/semantic-detection.test.ts packages/core/test/semantic-normalization.test.ts packages/core/test/semantic-evidence.test.ts packages/core/test/event-evaluator.test.ts packages/core/test/judgment-input.test.ts packages/core/test/judgment-coordinator.test.ts
+pnpm judgment:bench
 ```
 
 Additional branch evidence:
 
-- local `pnpm release:check`: passing on August 1, 2026 in the local
-  America/Denver run context, after the Sol remediation pass
-- full local test suite: 1,210 passing; focused local suites on the
-  completed-update tranche add 222/222 passing semantic, normalization,
-  ontology, and evaluator checks
+- local `pnpm release:check`: passing on August 3, 2026. This includes
+  typecheck, lint, format check, production dependency audit, contract and
+  schema validation, boundary and architecture checks, kernel conformance,
+  semantic surface, kernel corpus, observation kernel, full tests, judgment
+  battle, packed SDK proof, and product smoke.
+- full local test suite: 1,278 passing
+- JudgmentBench: 90 scenarios, 2,801/2,801 assertions, 100.0% score
+- judgment battle: 90/90 deterministic, 2,801/2,801 benchmark assertions, and
+  384/384 fuzz assertions
+- packed SDK proof: tarball shape plus full engine, evaluator, kernel,
+  semantic, trace entrypoint examples, and negative export checks passed
+- packed product smoke: install, help, hook setup, packaged runtime
+  semantic/judgment/routing probe, uninstall cleanup, dependency-free manifest,
+  and no library `main` passed
+- focused local suites on the completed-update tranche add 222/222 passing
+  semantic, normalization, ontology, and evaluator checks
 - focused semantic/kernel/lab suites for the explicit read abbreviated-file-view
   tranche add 96/96 passing checks
 - Sol follow-up generalized the abbreviated-file-view recognizer away from
   exact provider command wording; the production predicate now requires
   oversized-source, partial-view, range-recovery, and source-payload structure,
   with lexical variants covered in focused semantic tests
-- focused public SDK surface suite after product-surface audit:
-  `packages/core/test/public-sdk.test.ts` passed 11/11
-- packed SDK proof after product-surface audit: tarball shape plus full engine,
-  evaluator, semantic, and trace entrypoint examples passed
-- packed product smoke after product-surface audit: install, help, hook setup,
-  packaged runtime semantic/judgment/routing probe, uninstall cleanup,
-  dependency-free manifest, and no library `main` passed
-- judgment battle determinism: 89/89 stable
-- judgment benchmark: 2,765 passing
-- judgment fuzz: 384 passing
-- kernel corpus scorecard v5 is current; v4 and v3 are retained as historical
-  evidence. v5 keeps the same 49 scenarios, 16 covered dimensions, 2,014
-  passing corpus assertions, 58 ontology checkpoints, 69 decision projection
-  checkpoints, 13 relation checkpoints, 49 per-scenario checkpoint ledgers, and
-  23 unique decision fingerprints, while adding 36 per-scenario
-  NormalizedObservation checkpoints across 33 scenarios plus private
+- kernel corpus scorecard v6 is current; earlier scorecards are retained as
+  historical evidence. v6 covers 50 scenarios, 16 dimensions, 2,050 passing
+  corpus assertions, 59 ontology checkpoints, 70 decision projection
+  checkpoints, 13 relation checkpoints, and 23 unique decision fingerprints,
+  while tracking 37 per-scenario NormalizedObservation checkpoints across 34
+  scenarios plus private
   NormalizedObservation outcome coverage for presence, kind, polarity, semantic
   agreement, evidence loss, diagnostic class, recovery hint, subject, owner,
   evidence strength, and provenance origin/authority.
@@ -296,14 +293,18 @@ Additional branch evidence:
   structural clauses for precondition failures, replacement misses, ambiguous
   targets, no-op replacements, and applied edits. The edit-output matcher-site
   count dropped from 16 to 9, contradictory applied-edit wording no longer reads
-  as an applied observation, and `pnpm architecture:check` now gates 100 semantic
-  modules, 8,691 semantic LOC, 599 aggregate semantic matcher sites under a 600
-  ceiling, and phrase-table literals at 175.
+  as an applied observation, and the semantic kernel surface report now records
+  96 semantic modules, 8,177 semantic LOC, 586 matcher sites, 175 phrase-table
+  literals, and 1,067 task-failure parsing lines with no surface failures.
 - package-boundary hardening now rejects post-normalization
   `judgmentInput.failureEvidence` access through direct property reads, bracket
   reads, optional chaining, destructuring, and one-step aliases, keeping raw
   task-failure evidence local to semantic evidence readers and the
   `NormalizedObservation` normalizer.
+- no-matching command-work payloads are now covered by structural outcome-only
+  terminal grammar, a focused evaluator regression, and the kernel corpus
+  scenario
+  `golden:kernel-corpus:no-matching-command-work-plans-next-without-ambiguity`.
 - kernel corpus scorecard v3 historical baseline: 49 scenarios, 16 covered dimensions, 2,014
   passing corpus assertions, 58 ontology checkpoints, 69 decision projection
   checkpoints, 13 relation checkpoints, 49 per-scenario checkpoint ledgers, 23
@@ -328,7 +329,7 @@ Additional branch evidence:
 - new kernel corpus dimensions: `source_quality_gap` and
   `completed_update_semantics`
 - latest kernel corpus dimension: `ambient_progress_shapes`
-- new golden scenarios:
+- source-quality and diagnostic golden scenarios:
   `golden:kernel-corpus:empty-failure-payload-stays-visible-with-weak-evidence`,
   `golden:kernel-corpus:read-source-window-limit-stays-visible`,
   `golden:kernel-corpus:read-abbreviated-file-view-stays-ambient`,
@@ -346,6 +347,8 @@ Additional branch evidence:
   `golden:kernel-corpus:failed-read-observation-stays-medium-ambient`,
   `golden:kernel-corpus:operational-progress-stays-medium-ambient`, and
   `golden:kernel-corpus:read-lifecycle-progress-stays-ambient`
+- outcome-only command-work golden scenario:
+  `golden:kernel-corpus:no-matching-command-work-plans-next-without-ambiguity`
 - focused review found relation-ordering, truncation-helper, and public-surface
   documentation issues; this branch now includes fixes and regression coverage
 - Sol review found the original merge-blocking risks plus follow-up gate gaps:

@@ -34,10 +34,10 @@ import {
   SEMANTIC_PROVENANCE_FIELDS,
   SEMANTIC_PROVENANCE_KINDS,
   STEP_KINDS,
-  isPartialSemanticOntologyDiagnostic,
+  isPartialAttentionOntologyDiagnostic,
   isStringOrNull,
   validateAttentionView,
-  validateSemanticOntologyDiagnostic,
+  validateAttentionOntologyDiagnostic,
 } from "./validation-support.js";
 import {
   validateApertureEvent,
@@ -181,7 +181,7 @@ export function validateReplaySemanticSnapshot(value: unknown): ReplaySemanticSn
     ) ||
     !STEP_KINDS.has(value.stepKind as ReplayObservationStep["kind"]) ||
     validateSemanticInterpretation(value.interpretation) === null ||
-    (value.ontology !== undefined && validateSemanticOntologyDiagnostic(value.ontology) === null)
+    (value.ontology !== undefined && validateAttentionOntologyDiagnostic(value.ontology) === null)
   ) {
     return null;
   }
@@ -274,7 +274,7 @@ function validateReplaySemanticExpectation(value: unknown): ReplaySemanticExpect
     (value.factorsInclude !== undefined && !isStringArray(value.factorsInclude)) ||
     (value.provenanceIncludes !== undefined &&
       !isReplaySemanticProvenanceExpectation(value.provenanceIncludes)) ||
-    (value.ontology !== undefined && !isPartialSemanticOntologyDiagnostic(value.ontology))
+    (value.ontology !== undefined && !isPartialAttentionOntologyDiagnostic(value.ontology))
   ) {
     return null;
   }

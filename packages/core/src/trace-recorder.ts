@@ -6,8 +6,9 @@ import type { AttentionFrame, AttentionTaskView, AttentionView } from "./frame.j
 import type { AttentionDecisionExplanation } from "./judgment-coordinator.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import {
+  buildAttentionJudgmentInput,
   hasBlockedLikeStatusSemantics,
-  hasRoutineObservationalStatusConflictSemantics,
+  hasObservationalStatusConflictSemantics,
   isCandidateSemanticAbstained,
   isCandidateSemanticLowConfidence,
   readCandidateObservation,
@@ -18,7 +19,6 @@ import {
 } from "./judgment-input.js";
 import type { NormalizedObservation } from "./normalized-observation.js";
 import type { AttentionPressure } from "./attention-pressure.js";
-import { projectAttentionOntologyDiagnostic } from "./semantic-ontology.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import type {
   TraceCandidateTransition,
@@ -210,8 +210,7 @@ function buildSemanticSummary(
     return undefined;
   }
 
-  const ontology =
-    readCandidateAttentionOntology(adjusted) ?? projectAttentionOntologyDiagnostic(event, semantic);
+  const ontology = readCandidateAttentionOntology(adjusted) ?? compileTraceAttentionOntology(event);
   const observation = readCandidateObservation(adjusted);
   const semanticEvidence = readCandidateSemanticEvidence(adjusted);
   const observationalStatusConflict = readCandidateObservationalStatusConflictEvidence(adjusted);
@@ -269,13 +268,12 @@ function buildSemanticInfluence(
     return [];
   }
 
-  const ontology =
-    readCandidateAttentionOntology(adjusted) ?? projectAttentionOntologyDiagnostic(event, semantic);
+  const ontology = readCandidateAttentionOntology(adjusted) ?? compileTraceAttentionOntology(event);
 
   const influence: string[] = [];
 
   if (event.type === "task.updated") {
-    if (hasRoutineObservationalStatusConflictSemantics(adjusted)) {
+    if (hasObservationalStatusConflictSemantics(adjusted)) {
       influence.push(
         "engine-owned observational evidence resolved noisy failed-status routing as status handling",
       );
@@ -295,7 +293,7 @@ function buildSemanticInfluence(
 
     if (event.toolFamily === semantic.toolFamily && semantic.toolFamily !== undefined) {
       influence.push(
-        hasRoutineObservationalStatusConflictSemantics(adjusted)
+        hasObservationalStatusConflictSemantics(adjusted)
           ? "tool family helped identify the observational status conflict"
           : "tool family enriched canonical status facts without changing the route",
       );
@@ -343,7 +341,7 @@ function buildSemanticInfluence(
       if (event.request.kind === "approval") {
         influence.push("tool family remained decision-bearing on the approval path");
       } else {
-        influence.push("tool family stayed context-only on the question/form path");
+        influence.push("tool family stayed semantic-only on the question/form path");
       }
     }
 
@@ -366,9 +364,7 @@ function buildSemanticInfluence(
     }
 
     if (influence.length === 0) {
-      influence.push(
-        "semantic interpretation mostly stayed context-only beyond the explicit request",
-      );
+      influence.push("semantic interpretation stayed explanatory beyond the explicit request");
     }
 
     return influence;
@@ -376,6 +372,16 @@ function buildSemanticInfluence(
 
   influence.push("semantic interpretation was recorded for explanation only");
   return influence;
+}
+
+function compileTraceAttentionOntology(
+  event: ApertureTrace["event"],
+): NonNullable<ReturnType<typeof readCandidateAttentionOntology>> {
+  const ontology = buildAttentionJudgmentInput(event).ontology;
+  if (!ontology) {
+    throw new Error("Trace semantic summary requires compiled attention ontology.");
+  }
+  return ontology;
 }
 
 function buildSemanticImpact(
@@ -457,7 +463,7 @@ function buildSemanticImpact(
       if (hasBlockedLikeStatusSemantics(adjusted)) {
         promoteSemanticField(contextOnly, routing, "intent", "blocking (judgment routing)");
       }
-      if (hasRoutineObservationalStatusConflictSemantics(adjusted)) {
+      if (hasObservationalStatusConflictSemantics(adjusted)) {
         promoteSemanticField(
           contextOnly,
           routing,

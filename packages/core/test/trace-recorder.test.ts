@@ -48,9 +48,7 @@ test("trace recorder captures explanatory-only tool family on question paths", (
     source: { id: "custom-agent" },
     title: "Should we read the config first?",
     summary: "Choose the next step.",
-    context: {
-      items: [{ id: "toolFamily", label: "Tool Family", value: "read" }],
-    },
+    toolFamily: "read",
     request: {
       kind: "choice",
       selectionMode: "single",
@@ -96,7 +94,9 @@ test("trace recorder captures explanatory-only tool family on question paths", (
     source: "explicit",
   });
   assert.ok(
-    trace.semantic?.influence.includes("tool family stayed context-only on the question/form path"),
+    trace.semantic?.influence.includes(
+      "tool family stayed semantic-only on the question/form path",
+    ),
   );
   assert.equal(trace.semantic?.provenance?.toolFamily, "source");
   assert.deepEqual(trace.semantic?.impact, {
@@ -128,9 +128,7 @@ test("trace recorder captures explanatory-only tool family on form paths", () =>
     source: { id: "custom-agent" },
     title: "Fill out the release form",
     summary: "Provide the required deployment fields.",
-    context: {
-      items: [{ id: "toolFamily", label: "Tool Family", value: "read" }],
-    },
+    toolFamily: "read",
     request: {
       kind: "form",
       fields: [{ id: "reason", label: "Reason", input: { kind: "text" } }],
@@ -156,7 +154,9 @@ test("trace recorder captures explanatory-only tool family on form paths", () =>
     source: "explicit",
   });
   assert.ok(
-    trace.semantic?.influence.includes("tool family stayed context-only on the question/form path"),
+    trace.semantic?.influence.includes(
+      "tool family stayed semantic-only on the question/form path",
+    ),
   );
   assert.equal(trace.semantic?.provenance?.toolFamily, "source");
   assert.deepEqual(trace.semantic?.impact, {
@@ -309,7 +309,7 @@ test("trace recorder promotes abstention to ambiguity-bearing impact on non-bloc
     blocking: "waiting",
     episode: "unknown",
     confidence: "high",
-    source: "hinted",
+    source: "explicit",
   });
   assert.ok(
     trace.semantic?.influence.includes(
@@ -417,11 +417,7 @@ test("trace recorder explains observational status-conflict routing", () => {
     toolFamily: "bash",
     baselineConsequence: "low",
   });
-  assert.deepEqual(trace.decisionRecord.claim.judgment?.observationalStatusConflict, {
-    kind: "command_success_observation",
-    toolFamily: "bash",
-    baselineConsequence: "low",
-  });
+  assert.equal("observationalStatusConflict" in (trace.decisionRecord.claim.judgment ?? {}), false);
   assert.ok(
     trace.semantic?.influence.includes(
       "engine-owned observational evidence resolved noisy failed-status routing as status handling",

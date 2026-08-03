@@ -11,7 +11,7 @@ import {
   buildAttentionJudgmentInput,
   hasActionableBlockedLikeStatusJudgmentInput,
   hasLimitedFailureStatusJudgmentInput,
-  hasRoutineObservationalStatusConflictJudgmentInput,
+  hasObservationalStatusConflictJudgmentInput,
 } from "./judgment-input.js";
 import type { AttentionJudgmentInput } from "./judgment-input-types.js";
 import { semanticWhyNowForTaskStatus } from "./semantic-language.js";
@@ -209,7 +209,7 @@ export class EventEvaluator {
     responseSpec: AttentionAcknowledgeResponseSpec | { kind: "none" };
     includeFailureProvenance: boolean;
   } {
-    if (hasRoutineObservationalStatusConflictJudgmentInput(judgmentInput)) {
+    if (hasObservationalStatusConflictJudgmentInput(judgmentInput)) {
       return statusDispositionForObservationalStatusConflict(
         judgmentInput.ontology?.consequence ?? "low",
         event.status,

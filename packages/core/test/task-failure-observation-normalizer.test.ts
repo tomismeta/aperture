@@ -20,18 +20,7 @@ import type { TaskFailureObservationSyntax } from "../src/task-failure-observati
 type EnrichedTaskFailureSemanticEvidence = TaskFailureSemanticEvidence &
   ReturnType<typeof extractTaskFailureObservationCore>;
 
-const emptyText: SemanticTextEvidence = {
-  routineSuccessObservation: false,
-  terminalFailureEvidence: false,
-  expectedDiagnosticFailure: false,
-  observationalReadback: false,
-  taggedFileObservation: false,
-  readObservationPayload: false,
-  searchResultOutput: false,
-  sourceCodeObservation: false,
-  logObservation: false,
-  buildMetadataObservation: false,
-};
+const emptyText: SemanticTextEvidence = { shapes: [] };
 
 const ontology: AttentionOntologyDiagnostic = {
   ask: "status",

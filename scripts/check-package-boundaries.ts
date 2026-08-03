@@ -96,6 +96,11 @@ const rawTaskFailureEvidenceReadAllowlist = new Set([
 ]);
 const rawTaskFailureEvidenceReaderExportName = "readTaskFailureSemanticEvidence";
 const rawTaskFailureEvidenceReaderSourceFile = "packages/core/src/semantic-evidence.ts";
+const rawSemanticTextEvidenceReadAllowlist = new Set(["packages/core/src/semantic-evidence.ts"]);
+const rawSemanticTextEvidencePatterns = [
+  /\b(?:SemanticTextEvidence|readSemanticTextEvidence)\b/g,
+  /\.\s*shapes\b/g,
+] as const;
 
 type RawTaskFailureReaderExports = {
   readers: Set<string>;
@@ -181,6 +186,17 @@ export async function checkPackageBoundaries(root = defaultRepoRoot): Promise<Bo
           matches: rawTaskFailureEvidenceReads,
           guidance:
             "Production core should consume the observation document after raw task-failure evidence is normalized. Keep raw TaskFailureSemanticEvidence member reads local to semantic evidence readers and the observation normalizer/core seam.",
+        });
+      }
+      const rawSemanticTextEvidenceReads = allowsRawSemanticTextEvidenceReads(root, file)
+        ? []
+        : collectRawSemanticTextEvidenceReads(content);
+      if (rawSemanticTextEvidenceReads.length > 0) {
+        judgmentInputViolations.push({
+          file,
+          matches: rawSemanticTextEvidenceReads,
+          guidance:
+            "Production core should not consume the raw SemanticTextEvidence shape profile outside semantic-evidence. Use evidence-owned helpers or normalized observation documents.",
         });
       }
     }
@@ -349,6 +365,16 @@ function collectRawJudgmentFailureEvidenceReads(content: string): string[] {
     }
   }
   return [...matches];
+}
+
+function collectRawSemanticTextEvidenceReads(content: string): string[] {
+  return [
+    ...new Set(
+      rawSemanticTextEvidencePatterns.flatMap((pattern) =>
+        [...content.matchAll(pattern)].map((match) => match[0]).filter(Boolean),
+      ),
+    ),
+  ];
 }
 
 function collectRawTaskFailureEvidenceMemberReads(content: string): string[] {
@@ -1332,6 +1358,11 @@ function mergeRawTaskFailureReaderNamespaceBinding(
 function allowsRawTaskFailureEvidenceReads(root: string, file: string): boolean {
   const relativeFile = relative(root, file).replace(/\\/g, "/");
   return rawTaskFailureEvidenceReadAllowlist.has(relativeFile);
+}
+
+function allowsRawSemanticTextEvidenceReads(root: string, file: string): boolean {
+  const relativeFile = relative(root, file).replace(/\\/g, "/");
+  return rawSemanticTextEvidenceReadAllowlist.has(relativeFile);
 }
 
 function collectTaskFailureEvidenceParameterAliases(

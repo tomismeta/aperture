@@ -74,23 +74,23 @@ export const OBSERVATION_KERNEL_FIXTURES: ObservationKernelFixture[] = [
     toolFamily: "bash",
   }),
   {
-    id: "context-host-tool-family-parity",
-    dimension: "context_host_tool_family_parity",
+    id: "explicit-tool-family-authority",
+    dimension: "explicit_tool_family_authority",
     events: [
       failedTaskEvent({
-        id: "evt:observation:context-host-tool-family-parity:command",
-        taskId: "task:observation:context-host-tool-family-parity",
+        id: "evt:observation:explicit-tool-family-authority:command",
+        taskId: "task:observation:explicit-tool-family-authority",
         title: "tool failure",
         summary: "Your command ran successfully and did not produce any output.",
-        context: { items: [{ id: "tool_family", label: "Tool family", value: "exec_command" }] },
+        toolFamily: "exec_command",
       }),
       failedTaskEvent({
-        id: "evt:observation:context-host-tool-family-parity:structured",
-        taskId: "task:observation:context-host-tool-family-parity",
+        id: "evt:observation:explicit-tool-family-authority:structured",
+        taskId: "task:observation:explicit-tool-family-authority",
         title: "tool failure",
         summary:
           '{"exit_code":0,"wall_time":"0.125 seconds","output":"/repo/pkg/lib.rs:10:fn main() {}"}',
-        context: { items: [{ id: "tool_family", label: "Tool family", value: "custom_runner" }] },
+        toolFamily: "custom_runner",
       }),
     ],
   },

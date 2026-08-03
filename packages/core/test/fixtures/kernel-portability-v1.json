@@ -1,0 +1,128 @@
+{
+  "id": "aperture.kernel.portability.v1",
+  "description": "Host-agnostic fixture proving unrelated event shapes can feed the kernel through adapter-owned mapping without adding host vocabulary to core.",
+  "cases": [
+    {
+      "id": "record-log-command-observation",
+      "host": "record-log",
+      "event": {
+        "recordId": "record:portable:command",
+        "workKey": "work:portable:command",
+        "recordedAt": "2026-04-22T18:30:00.000Z",
+        "title": "Command observation",
+        "status": "failed",
+        "text": "Your command ran successfully and did not produce any output.",
+        "capability": "exec_command"
+      },
+      "expected": {
+        "observation": {
+          "kind": "outcome",
+          "polarity": "success",
+          "ownership": {
+            "owner": "tool",
+            "capabilityFamily": "exec_command"
+          },
+          "subject": "command",
+          "evidenceLoss": "none",
+          "semanticAgreement": "stable",
+          "evidenceStrength": "qualified",
+          "provenance": {
+            "origin": "semantic_evidence",
+            "authority": "inferred"
+          },
+          "consequenceBaseline": "low"
+        },
+        "observationJudgment": {
+          "statusEvidence": "stable_observation",
+          "statusConflictKind": "command_success_observation",
+          "recoveryPosture": "none",
+          "baselineConsequence": "low",
+          "outcomeOnlyFailureStatus": false,
+          "limitedFailureStatus": false,
+          "stableStatusEvidence": true,
+          "visibleDiagnosticFailure": false
+        },
+        "explanationReasonCodes": [
+          "kernel:normalize:event",
+          "kernel:evaluate:candidate",
+          "kernel:observe:present",
+          "kernel:observe:kind:outcome",
+          "kernel:observe:polarity:success",
+          "kernel:observe:owner:tool",
+          "kernel:observe:subject:command",
+          "kernel:observe:evidence_loss:none",
+          "kernel:observe:evidence_strength:qualified",
+          "kernel:observe:agreement:stable",
+          "kernel:observe:provenance:semantic_evidence:inferred",
+          "kernel:judge:status_evidence:stable_observation",
+          "kernel:judge:status_conflict:command_success_observation",
+          "kernel:judge:recovery:none",
+          "kernel:judge:baseline:low"
+        ]
+      }
+    },
+    {
+      "id": "snapshot-state-command-observation",
+      "host": "snapshot-state",
+      "event": {
+        "messageId": "message:portable:command",
+        "observedAt": "2026-04-22T18:30:00.000Z",
+        "job": {
+          "id": "work:portable:command:snapshot",
+          "name": "Command observation"
+        },
+        "state": "error",
+        "output": {
+          "summary": "Your command ran successfully and did not produce any output.",
+          "capabilityFamily": "exec_command"
+        }
+      },
+      "expected": {
+        "observation": {
+          "kind": "outcome",
+          "polarity": "success",
+          "ownership": {
+            "owner": "tool",
+            "capabilityFamily": "exec_command"
+          },
+          "subject": "command",
+          "evidenceLoss": "none",
+          "semanticAgreement": "stable",
+          "evidenceStrength": "qualified",
+          "provenance": {
+            "origin": "semantic_evidence",
+            "authority": "inferred"
+          },
+          "consequenceBaseline": "low"
+        },
+        "observationJudgment": {
+          "statusEvidence": "stable_observation",
+          "statusConflictKind": "command_success_observation",
+          "recoveryPosture": "none",
+          "baselineConsequence": "low",
+          "outcomeOnlyFailureStatus": false,
+          "limitedFailureStatus": false,
+          "stableStatusEvidence": true,
+          "visibleDiagnosticFailure": false
+        },
+        "explanationReasonCodes": [
+          "kernel:normalize:event",
+          "kernel:evaluate:candidate",
+          "kernel:observe:present",
+          "kernel:observe:kind:outcome",
+          "kernel:observe:polarity:success",
+          "kernel:observe:owner:tool",
+          "kernel:observe:subject:command",
+          "kernel:observe:evidence_loss:none",
+          "kernel:observe:evidence_strength:qualified",
+          "kernel:observe:agreement:stable",
+          "kernel:observe:provenance:semantic_evidence:inferred",
+          "kernel:judge:status_evidence:stable_observation",
+          "kernel:judge:status_conflict:command_success_observation",
+          "kernel:judge:recovery:none",
+          "kernel:judge:baseline:low"
+        ]
+      }
+    }
+  ]
+}

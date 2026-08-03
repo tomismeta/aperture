@@ -261,6 +261,46 @@ test("boundary checker returns no raw judgment failure evidence violations for c
   }
 });
 
+test("boundary checker rejects raw semantic text evidence profile reads outside semantic evidence", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-boundaries-"));
+  try {
+    await writeRepoFile(
+      root,
+      "packages/core/src/semantic-detection.ts",
+      "import { readSemanticTextEvidence } from './semantic-evidence.js';\nexport function reads(text: string) { return readSemanticTextEvidence(text).shapes.includes('routine_success'); }\n",
+    );
+    await writeRepoFile(
+      root,
+      "packages/core/src/attention-text-profile.ts",
+      "import type { SemanticTextEvidence } from './semantic-evidence.js';\nexport function reads(evidence: SemanticTextEvidence) { return evidence.shapes; }\n",
+    );
+    await writeRepoFile(
+      root,
+      "packages/core/src/semantic-evidence.ts",
+      "export type SemanticTextEvidence = { shapes: readonly string[] };\nexport function readSemanticTextEvidence(): SemanticTextEvidence { return { shapes: [] }; }\n",
+    );
+
+    const result = await checkPackageBoundaries(root);
+
+    assert.deepEqual(result.importViolations, []);
+    assert.deepEqual(result.corpusLabelViolations, []);
+    assert.equal(result.judgmentInputViolations.length, 2);
+    assert.equal(
+      result.judgmentInputViolations.some((violation) =>
+        violation.matches.includes("readSemanticTextEvidence"),
+      ),
+      true,
+    );
+    assert.equal(
+      result.judgmentInputViolations.some((violation) => violation.matches.includes(".shapes")),
+      true,
+    );
+    assert.match(renderBoundaryCheckReport(root, result), /SemanticTextEvidence shape profile/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("boundary checker rejects raw task-failure evidence member reads outside the observation seam", async () => {
   const root = await mkdtemp(join(tmpdir(), "aperture-boundaries-"));
   try {

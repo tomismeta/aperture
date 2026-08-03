@@ -1,5 +1,5 @@
 import type { AttentionView } from "@tomismeta/aperture-core";
-import type { SemanticOntologyDiagnostic } from "@tomismeta/aperture-core/semantic";
+import type { AttentionOntologyDiagnostic } from "@tomismeta/aperture-core/semantic";
 
 import { hasShape, isNumber, isNullable, isRecord, isString, isStringArray } from "./shape.js";
 
@@ -87,8 +87,8 @@ export const SEMANTIC_ACTIVITY_CLASSES = new Set([
   "session_status",
   "status_update",
 ]);
-export const SEMANTIC_ONTOLOGY_ASK = new Set(["approval", "choice", "form", "status", "none"]);
-export const SEMANTIC_ONTOLOGY_ACTIVITY = new Set([
+export const ATTENTION_ONTOLOGY_ASK = new Set(["approval", "choice", "form", "status", "none"]);
+export const ATTENTION_ONTOLOGY_ACTIVITY = new Set([
   "decision_request",
   "question",
   "task_progress",
@@ -96,15 +96,15 @@ export const SEMANTIC_ONTOLOGY_ACTIVITY = new Set([
   "failure",
   "background_work",
 ]);
-export const SEMANTIC_ONTOLOGY_BLOCKING = new Set(["blocking", "waiting", "non_blocking"]);
-export const SEMANTIC_ONTOLOGY_EPISODE = new Set([
+export const ATTENTION_ONTOLOGY_BLOCKING = new Set(["blocking", "waiting", "non_blocking"]);
+export const ATTENTION_ONTOLOGY_EPISODE = new Set([
   "new",
   "same_issue",
   "resurfaced",
   "resolved",
   "unknown",
 ]);
-export const SEMANTIC_ONTOLOGY_SOURCE = new Set(["explicit", "hinted", "inferred"]);
+export const ATTENTION_ONTOLOGY_AUTHORITY = new Set(["explicit", "hinted", "inferred"]);
 export const RELATION_KINDS = new Set([
   "same_issue",
   "resolves",
@@ -126,44 +126,44 @@ export const SEMANTIC_PROVENANCE_KINDS = new Set(["source", "inferred", "hint"])
 
 export const isStringOrNull = isNullable(isString);
 
-export function validateSemanticOntologyDiagnostic(
+export function validateAttentionOntologyDiagnostic(
   value: unknown,
-): SemanticOntologyDiagnostic | null {
+): AttentionOntologyDiagnostic | null {
   if (
     !isRecord(value) ||
     typeof value.ask !== "string" ||
-    !SEMANTIC_ONTOLOGY_ASK.has(value.ask) ||
+    !ATTENTION_ONTOLOGY_ASK.has(value.ask) ||
     typeof value.activity !== "string" ||
-    !SEMANTIC_ONTOLOGY_ACTIVITY.has(value.activity) ||
+    !ATTENTION_ONTOLOGY_ACTIVITY.has(value.activity) ||
     typeof value.blocking !== "string" ||
-    !SEMANTIC_ONTOLOGY_BLOCKING.has(value.blocking) ||
+    !ATTENTION_ONTOLOGY_BLOCKING.has(value.blocking) ||
     typeof value.episode !== "string" ||
-    !SEMANTIC_ONTOLOGY_EPISODE.has(value.episode) ||
+    !ATTENTION_ONTOLOGY_EPISODE.has(value.episode) ||
     typeof value.confidence !== "string" ||
     !SEMANTIC_CONFIDENCE.has(value.confidence) ||
     typeof value.source !== "string" ||
-    !SEMANTIC_ONTOLOGY_SOURCE.has(value.source) ||
+    !ATTENTION_ONTOLOGY_AUTHORITY.has(value.source) ||
     (value.consequence !== undefined && !CONSEQUENCE_LEVELS.has(String(value.consequence)))
   ) {
     return null;
   }
 
-  return value as SemanticOntologyDiagnostic;
+  return value as AttentionOntologyDiagnostic;
 }
 
-export function isPartialSemanticOntologyDiagnostic(value: unknown): boolean {
+export function isPartialAttentionOntologyDiagnostic(value: unknown): boolean {
   if (!isRecord(value)) {
     return false;
   }
 
   return (
-    (value.ask === undefined || SEMANTIC_ONTOLOGY_ASK.has(String(value.ask))) &&
-    (value.activity === undefined || SEMANTIC_ONTOLOGY_ACTIVITY.has(String(value.activity))) &&
+    (value.ask === undefined || ATTENTION_ONTOLOGY_ASK.has(String(value.ask))) &&
+    (value.activity === undefined || ATTENTION_ONTOLOGY_ACTIVITY.has(String(value.activity))) &&
     (value.consequence === undefined || CONSEQUENCE_LEVELS.has(String(value.consequence))) &&
-    (value.blocking === undefined || SEMANTIC_ONTOLOGY_BLOCKING.has(String(value.blocking))) &&
-    (value.episode === undefined || SEMANTIC_ONTOLOGY_EPISODE.has(String(value.episode))) &&
+    (value.blocking === undefined || ATTENTION_ONTOLOGY_BLOCKING.has(String(value.blocking))) &&
+    (value.episode === undefined || ATTENTION_ONTOLOGY_EPISODE.has(String(value.episode))) &&
     (value.confidence === undefined || SEMANTIC_CONFIDENCE.has(String(value.confidence))) &&
-    (value.source === undefined || SEMANTIC_ONTOLOGY_SOURCE.has(String(value.source)))
+    (value.source === undefined || ATTENTION_ONTOLOGY_AUTHORITY.has(String(value.source)))
   );
 }
 

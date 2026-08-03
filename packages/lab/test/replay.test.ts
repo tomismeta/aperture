@@ -160,7 +160,7 @@ test("normalized replay runs retain semantic and decision detail for determinism
     steps: [
       {
         kind: "publishSource",
-        label: "question with tool context",
+        label: "question with source tool family",
         event: {
           id: "src:semantic:1",
           taskId: "task:semantic",
@@ -170,9 +170,7 @@ test("normalized replay runs retain semantic and decision detail for determinism
           type: "human.input.requested",
           title: "Should we read the config first?",
           summary: "Choose the next step.",
-          context: {
-            items: [{ id: "toolFamily", label: "Tool Family", value: "read" }],
-          },
+          toolFamily: "read",
           request: {
             kind: "choice",
             selectionMode: "single",
@@ -211,7 +209,7 @@ test("normalized replay runs retain semantic and decision detail for determinism
   assert.ok(isKernelDecisionRecordFingerprint(normalized.decisions[0]?.decisionRecordFingerprint));
   assert.ok(
     normalized.decisions[0]?.semanticInfluence.includes(
-      "tool family stayed context-only on the question/form path",
+      "tool family stayed semantic-only on the question/form path",
     ),
   );
 });

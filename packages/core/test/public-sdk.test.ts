@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 
 import * as sdk from "../src/index.js";
 import * as evaluatorSdk from "../src/evaluator.js";
+import * as kernelSdk from "../src/kernel.js";
 import * as semanticSdk from "../src/semantic.js";
 import * as traceSdk from "../src/trace.js";
 
@@ -107,6 +108,15 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.equal("readCandidateObservation" in traceSdk, false);
   assert.equal("NormalizedObservation" in traceSdk, false);
   assert.equal("ObservationSemantics" in traceSdk, false);
+  assert.deepEqual(Object.keys(kernelSdk).sort(), [
+    "APERTURE_KERNEL_EXPLANATION_SCHEMA_VERSION",
+    "evaluateApertureKernelEvent",
+  ]);
+  assert.equal(typeof kernelSdk.evaluateApertureKernelEvent, "function");
+  assert.equal("SourceEvent" in kernelSdk, false);
+  assert.equal("readSemanticTextEvidence" in kernelSdk, false);
+  assert.equal("readTaskFailureSemanticEvidence" in kernelSdk, false);
+  assert.equal("ObservationSemantics" in kernelSdk, false);
 
   assert.equal(typeof sdk.baseAttentionSurfaceCapabilities, "object");
   assert.equal(typeof sdk.mergeAttentionSurfaceCapabilities, "function");
@@ -397,9 +407,7 @@ test("public SDK supports trace inspection through the trace subpath", () => {
     source: { id: "custom-agent" },
     title: "Should we inspect the config first?",
     summary: "Choose the next step.",
-    context: {
-      items: [{ id: "toolFamily", label: "Tool Family", value: "read" }],
-    },
+    toolFamily: "read",
     request: {
       kind: "choice",
       selectionMode: "single",

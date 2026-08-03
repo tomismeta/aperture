@@ -1,5 +1,5 @@
 import {
-  hasRoutineObservationalStatusConflictSemantics,
+  hasObservationalStatusConflictSemantics,
   readCandidateObservationJudgmentContract,
   readCandidateSemanticEvidence,
 } from "../judgment-input.js";
@@ -32,7 +32,7 @@ export function isEstablishedPolicyPeripheralStatus(
 }
 
 function hasStableSemanticStatusEvidence(candidate: AttentionCandidate): boolean {
-  if (hasRoutineObservationalStatusConflictSemantics(candidate)) {
+  if (hasObservationalStatusConflictSemantics(candidate)) {
     return true;
   }
 

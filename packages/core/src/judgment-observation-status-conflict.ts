@@ -1,6 +1,6 @@
-import type { ObservationJudgmentDocument } from "./judgment-observation-contract.js";
-import { projectObservationJudgmentContract } from "./judgment-observation-contract.js";
+import { resolveObservationStatusConflictKindFromShape } from "./judgment-observation-contract.js";
 import type { ObservationalStatusConflictEvidence } from "./observational-status-conflict.js";
+import type { ObservationSemantics } from "./observation-semantics.js";
 import { TRUNCATED_SOURCE_EVIDENCE_FACTOR } from "./semantic-source-quality.js";
 import type { SemanticInterpretation } from "./semantic-types.js";
 
@@ -9,38 +9,36 @@ type ObservationStatusConflictEvent = {
   status?: string;
 };
 
-export function buildObservationStatusConflictEvidence(input: {
+export function buildObservationStatusConflictEvidenceFromCore(input: {
   event: ObservationStatusConflictEvent;
-  observation: ObservationJudgmentDocument | null;
+  core: ObservationSemantics | null;
   interpretation: SemanticInterpretation;
   abstained: boolean;
 }): ObservationalStatusConflictEvidence | null {
-  const observation = input.observation;
-  const contract = observation !== null ? projectObservationJudgmentContract(observation) : null;
+  const core = input.core;
   if (
     input.event.type !== "task.updated" ||
     input.event.status !== "failed" ||
-    observation === null ||
-    contract === null ||
+    core === null ||
     input.interpretation.intentFrame !== "status_update" ||
     input.interpretation.activityClass !== "status_update" ||
-    observation.ownership.toolFamily !== input.interpretation.toolFamily ||
-    input.interpretation.consequence !== contract.baselineConsequence ||
+    core.ownership.toolFamily !== input.interpretation.toolFamily ||
+    input.interpretation.consequence !== core.consequenceBaseline ||
     !hasStableObservationStatusConflictConfidence(input.interpretation) ||
     input.abstained
   ) {
     return null;
   }
 
-  const kind = contract.statusConflictKind;
+  const kind = resolveObservationStatusConflictKindFromShape(core);
   return kind === null
     ? null
     : {
         kind,
-        ...(observation.ownership.toolFamily !== undefined
-          ? { toolFamily: observation.ownership.toolFamily }
+        ...(core.ownership.toolFamily !== undefined
+          ? { toolFamily: core.ownership.toolFamily }
           : {}),
-        baselineConsequence: contract.baselineConsequence,
+        baselineConsequence: core.consequenceBaseline,
       };
 }
 

@@ -82,11 +82,11 @@ test("regression remains an intentional overlap between issue and escalation phr
   assert.ok(ESCALATE_PHRASES.includes("regression"));
 });
 
-test("explicit tool family can come from metadata or context", () => {
+test("explicit tool family comes only from the event field", () => {
   assert.equal(
     readExplicitSemanticToolFamily({
       title: "ignored",
-      metadata: { toolFamily: "BASH" },
+      toolFamily: "BASH",
     }),
     "bash",
   );
@@ -94,11 +94,22 @@ test("explicit tool family can come from metadata or context", () => {
   assert.equal(
     readExplicitSemanticToolFamily({
       title: "ignored",
+      summary: "metadata no longer carries authority",
+      // @ts-expect-error metadata is intentionally outside the semantic tool-family contract.
+      metadata: { toolFamily: "BASH" },
+    }),
+    null,
+  );
+
+  assert.equal(
+    readExplicitSemanticToolFamily({
+      title: "ignored",
+      // @ts-expect-error context is intentionally outside the semantic tool-family contract.
       context: {
         items: [{ id: "tool_family", label: "Tool Family", value: "read" }],
       },
     }),
-    "read",
+    null,
   );
 });
 

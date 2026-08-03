@@ -117,7 +117,7 @@ test("bare nonzero command exits route as focused medium failed statuses", () =>
   assert.equal(result.candidate.consequence, "medium");
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
   assert.equal(result.candidate.activityClass, "tool_failure");
-  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
   assert.equal(Object.hasOwn(result.candidate.judgmentInput, "failureEvidence"), false);
   assert.equal(result.candidate.judgmentInput.observation?.semanticAgreement, "stable");
   assert.deepEqual(result.candidate.judgmentInput.ontology, {
@@ -142,13 +142,11 @@ test("bare nonzero command exits route as focused medium failed statuses", () =>
   const claim = buildAttentionClaim(result.candidate);
   assert.equal(Object.hasOwn(claim.judgment ?? {}, "failureEvidence"), false);
   assert.equal(Object.hasOwn(claim.judgment ?? {}, "observation"), false);
-  assert.equal(claim.judgment?.outcomeOnlyFailureStatus, true);
+  assert.equal(result.candidate.judgmentInput.observation?.kind, "outcome");
   const publicRecord = evaluateAttention({ claim });
-  assert.equal(publicRecord.decision.kind, "queue");
-  assert.equal(publicRecord.planning.plannedLane, "next");
-  assert.equal(publicRecord.policy.verdict.minimumLane, "next");
-  assert.equal(publicRecord.planning.ambiguity, null);
-  assert.equal(publicRecord.planning.reasonCodes.includes("criterion:ambiguity:low_signal"), false);
+  assert.equal(publicRecord.decision.kind, "ambient");
+  assert.equal(publicRecord.planning.plannedLane, "ambient");
+  assert.equal(publicRecord.policy.verdict.minimumLane, "ambient");
 });
 
 test("structured outcome-only nonzero exits route like raw outcome-only failures", () => {
@@ -182,6 +180,72 @@ test("structured outcome-only nonzero exits route like raw outcome-only failures
   assert.equal(explanation.decision.kind, "queue");
   assert.equal(explanation.policy.minimumLane, "next");
   assert.equal(explanation.ambiguity, null);
+});
+
+test("no-matching command work routes as focused medium outcome-only status", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:failed-no-matching-command-work",
+      taskId: "task:failed-no-matching-command-work",
+      timestamp: "2026-03-08T12:02:06.250Z",
+      type: "task.updated",
+      title: "test command failed",
+      summary: "No tests found, exiting with code 5",
+      status: "failed",
+      toolFamily: "bash",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") {
+    return;
+  }
+
+  assert.equal(result.candidate.priority, "normal");
+  assert.equal(result.candidate.tone, "focused");
+  assert.equal(result.candidate.consequence, "medium");
+  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
+  assert.equal(Object.hasOwn(result.candidate.judgmentInput, "failureEvidence"), false);
+  assert.deepEqual(result.candidate.judgmentInput.observation, {
+    kind: "outcome",
+    polarity: "failure",
+    semanticAgreement: "stable",
+    ownership: {
+      owner: "tool",
+      toolFamily: "bash",
+    },
+    evidenceStrength: "strong",
+    subject: "tool",
+    evidenceLoss: "none",
+    provenance: {
+      origin: "semantic_evidence",
+      authority: "explicit",
+    },
+    consequenceBaseline: "medium",
+  });
+  assert.deepEqual(result.candidate.judgmentInput.ontology, {
+    ask: "status",
+    activity: "failure",
+    consequence: "medium",
+    blocking: "non_blocking",
+    episode: "unknown",
+    confidence: "high",
+    source: "explicit",
+  });
+
+  const explanation = coordinator.explain(null, result.candidate);
+  assert.equal(explanation.decision.kind, "queue");
+  assert.equal(explanation.policy.mayInterrupt, false);
+  assert.equal(explanation.policy.minimumLane, "next");
+  assert.equal(explanation.criterion?.peripheralResolution, "queue");
+  assert.equal(explanation.ambiguity, null);
+
+  const claim = buildAttentionClaim(result.candidate);
+  assert.equal(Object.hasOwn(claim.judgment ?? {}, "observation"), false);
+  const publicRecord = evaluateAttention({ claim });
+  assert.equal(publicRecord.decision.kind, "ambient");
+  assert.equal(publicRecord.planning.plannedLane, "ambient");
 });
 
 test("empty failed payloads stay visible without critical routing", () => {
@@ -435,34 +499,20 @@ test("failed-status routine bash observations route as non-interruptive status",
   assert.equal(result.candidate.responseSpec.kind, "none");
   assert.equal(result.candidate.activityClass, "status_update");
   assert.equal(result.candidate.provenance?.whyNow, undefined);
-  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.notEqual(result.candidate.judgmentInput.observationalStatusConflict, undefined);
   assert.deepEqual(result.candidate.judgmentInput.observationalStatusConflict, {
     kind: "command_success_observation",
     toolFamily: "bash",
     baselineConsequence: "low",
   });
   assert.equal(
-    buildAttentionClaim(result.candidate).judgment?.routineObservationalStatusConflict,
-    true,
+    "observationalStatusConflict" in (buildAttentionClaim(result.candidate).judgment ?? {}),
+    false,
   );
-  assert.deepEqual(buildAttentionClaim(result.candidate).judgment?.observationalStatusConflict, {
-    kind: "command_success_observation",
-    toolFamily: "bash",
-    baselineConsequence: "low",
-  });
   assert.equal(
     normalizePublicEvaluationInput({ claim: buildAttentionClaim(result.candidate) }).candidate
-      .judgmentInput.routineObservationalStatusConflict,
-    true,
-  );
-  assert.deepEqual(
-    normalizePublicEvaluationInput({ claim: buildAttentionClaim(result.candidate) }).candidate
       .judgmentInput.observationalStatusConflict,
-    {
-      kind: "command_success_observation",
-      toolFamily: "bash",
-      baselineConsequence: "low",
-    },
+    undefined,
   );
   assert.deepEqual(result.candidate.judgmentInput.ontology, {
     ask: "status",
@@ -499,7 +549,7 @@ test("failed-status missing-tool operation success observations route as non-int
   assert.equal(result.candidate.responseSpec.kind, "none");
   assert.equal(result.candidate.activityClass, "status_update");
   assert.equal(result.candidate.provenance?.whyNow, undefined);
-  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.notEqual(result.candidate.judgmentInput.observationalStatusConflict, undefined);
   assert.deepEqual(result.candidate.judgmentInput.observationalStatusConflict, {
     kind: "payload_observation",
     baselineConsequence: "low",
@@ -551,7 +601,7 @@ test("failed edit applied readbacks route through typed observation status confl
   assert.equal(result.candidate.consequence, "high");
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
   assert.equal(result.candidate.activityClass, "status_update");
-  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.notEqual(result.candidate.judgmentInput.observationalStatusConflict, undefined);
   assert.deepEqual(result.candidate.judgmentInput.observationalStatusConflict, {
     kind: "payload_observation",
     toolFamily: "edit",
@@ -595,7 +645,7 @@ test("known command operation success text keeps failed-status routing", () => {
   assert.equal(result.candidate.consequence, "high");
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
   assert.equal(result.candidate.activityClass, "tool_failure");
-  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
   assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
 });
 
@@ -623,7 +673,7 @@ test("inline expectation probes keep failed-status routing while truncated", () 
   assert.equal(result.candidate.consequence, "high");
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
   assert.equal(result.candidate.activityClass, "tool_failure");
-  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
   assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
 });
 
@@ -652,7 +702,7 @@ test("mixed bash success and terminal failure text keeps failed-status routing",
   assert.equal(result.candidate.consequence, "high");
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
   assert.equal(result.candidate.activityClass, "tool_failure");
-  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
 });
 
 test("semantic hints cannot forge routine bash status-conflict routing", () => {
@@ -686,7 +736,7 @@ test("semantic hints cannot forge routine bash status-conflict routing", () => {
   assert.equal(result.candidate.tone, "critical");
   assert.equal(result.candidate.consequence, "high");
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
-  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
   assert.equal(result.candidate.judgmentInput.ontology?.activity, "failure");
 });
 
@@ -721,7 +771,7 @@ test("metadata tool family cannot forge routine bash status-conflict routing", (
   assert.equal(result.candidate.tone, "critical");
   assert.equal(result.candidate.consequence, "high");
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
-  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
   assert.equal(result.candidate.judgmentInput.ontology?.activity, "failure");
 });
 
@@ -751,7 +801,7 @@ test("medium-confidence routine bash observations keep failed-status routing", (
   assert.equal(result.candidate.tone, "critical");
   assert.equal(result.candidate.consequence, "high");
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
-  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
 });
 
 test("low-consequence failed read observations use observational status-conflict routing", () => {
@@ -779,7 +829,7 @@ test("low-consequence failed read observations use observational status-conflict
   assert.equal(result.candidate.consequence, "low");
   assert.equal(result.candidate.responseSpec.kind, "none");
   assert.equal(result.candidate.activityClass, "status_update");
-  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.notEqual(result.candidate.judgmentInput.observationalStatusConflict, undefined);
 });
 
 test("neutral structured output without source shape keeps failed-status routing", () => {
@@ -806,7 +856,7 @@ test("neutral structured output without source shape keeps failed-status routing
   assert.equal(result.candidate.consequence, "high");
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
   assert.equal(result.candidate.activityClass, "tool_failure");
-  assert.notEqual(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
 });
 
 test("observational status-conflict routing preserves high consequence", () => {
@@ -833,7 +883,7 @@ test("observational status-conflict routing preserves high consequence", () => {
   assert.equal(result.candidate.consequence, "high");
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
   assert.equal(result.candidate.activityClass, "status_update");
-  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.notEqual(result.candidate.judgmentInput.observationalStatusConflict, undefined);
   assert.deepEqual(result.candidate.judgmentInput.observationalStatusConflict, {
     kind: "payload_observation",
     toolFamily: "read",
@@ -873,7 +923,7 @@ test("valid source function prefixes preserve observational routing", () => {
     assert.equal(result.candidate.consequence, "high");
     assert.equal(result.candidate.responseSpec.kind, "acknowledge");
     assert.equal(result.candidate.activityClass, "status_update");
-    assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+    assert.notEqual(result.candidate.judgmentInput.observationalStatusConflict, undefined);
     assert.equal(
       result.candidate.judgmentInput.observationalStatusConflict?.kind,
       "payload_observation",
@@ -918,7 +968,7 @@ test("source-like prose prefixes keep failed-status routing", () => {
     assert.equal(result.candidate.consequence, "high");
     assert.equal(result.candidate.responseSpec.kind, "acknowledge");
     assert.equal(result.candidate.activityClass, "tool_failure");
-    assert.notEqual(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+    assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
     assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
   }
 });
@@ -954,7 +1004,7 @@ test("missing-tool observation transcripts route through observational status co
     result.candidate.provenance?.whyNow,
     "A failed status carried high-consequence observation output that should be reviewed.",
   );
-  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.notEqual(result.candidate.judgmentInput.observationalStatusConflict, undefined);
   assert.deepEqual(result.candidate.judgmentInput.ontology, {
     ask: "status",
     activity: "task_progress",
@@ -999,7 +1049,7 @@ test("missing-tool successful test and abbreviated file-view transcripts route q
     assert.equal(result.candidate.consequence, "low");
     assert.equal(result.candidate.responseSpec.kind, "none");
     assert.equal(result.candidate.provenance?.whyNow, undefined);
-    assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+    assert.notEqual(result.candidate.judgmentInput.observationalStatusConflict, undefined);
     assert.equal(result.candidate.judgmentInput.ontology?.activity, "task_progress");
     assert.equal(result.candidate.judgmentInput.ontology?.consequence, "low");
   }
@@ -1065,7 +1115,7 @@ test("read and search corpus output fragments route through observational status
     return;
   }
   assert.equal(readResult.candidate.activityClass, "status_update");
-  assert.equal(readResult.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.notEqual(readResult.candidate.judgmentInput.observationalStatusConflict, undefined);
   assert.deepEqual(readResult.candidate.judgmentInput.observationalStatusConflict, {
     kind: "payload_observation",
     toolFamily: "read",
@@ -1132,7 +1182,7 @@ test("adversarial read and search fragments do not forge observational conflicts
       return;
     }
     assert.equal(result.candidate.activityClass, "tool_failure");
-    assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+    assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
     assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
   }
 });
@@ -1161,7 +1211,7 @@ test("command execution aliases preserve family while using command observation 
   assert.equal(result.candidate.tone, "ambient");
   assert.equal(result.candidate.consequence, "low");
   assert.equal(result.candidate.responseSpec.kind, "none");
-  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.notEqual(result.candidate.judgmentInput.observationalStatusConflict, undefined);
   assert.equal(result.candidate.judgmentInput.ontology?.activity, "task_progress");
 });
 
@@ -1198,7 +1248,7 @@ test("tool-use rejection outcomes route as background status updates", () => {
     assert.equal(result.candidate.responseSpec.kind, "none");
     assert.equal(result.candidate.activityClass, "status_update");
     assert.equal(result.candidate.provenance?.whyNow, undefined);
-    assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+    assert.notEqual(result.candidate.judgmentInput.observationalStatusConflict, undefined);
     assert.equal(result.candidate.judgmentInput.ontology?.activity, "task_progress");
     assert.equal(result.candidate.judgmentInput.ontology?.consequence, "low");
   }
@@ -1229,7 +1279,7 @@ test("tool-use rejection hints cannot forge status-conflict routing", () => {
   assert.equal(result.candidate.priority, "high");
   assert.equal(result.candidate.tone, "critical");
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
-  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
 });
 
 test("successful-test observation hints cannot forge status-conflict routing", () => {
@@ -1257,7 +1307,7 @@ test("successful-test observation hints cannot forge status-conflict routing", (
   assert.equal(result.candidate.priority, "high");
   assert.equal(result.candidate.tone, "critical");
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
-  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
   assert.equal(result.candidate.judgmentInput.ontology?.activity, "failure");
 });
 
@@ -1285,7 +1335,7 @@ test("nonmatching rejection prose keeps failed-status routing", () => {
   assert.equal(result.candidate.consequence, "high");
   assert.equal(result.candidate.responseSpec.kind, "acknowledge");
   assert.equal(result.candidate.activityClass, "tool_failure");
-  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
 });
 
 test("mismatched command alias hints cannot forge status-conflict routing", () => {
@@ -1313,7 +1363,7 @@ test("mismatched command alias hints cannot forge status-conflict routing", () =
   assert.equal(result.candidate.toolFamily, "exec_command");
   assert.equal(result.candidate.priority, "high");
   assert.equal(result.candidate.tone, "critical");
-  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
   assert.equal(result.candidate.judgmentInput.ontology?.activity, "failure");
 });
 
@@ -1683,7 +1733,7 @@ test("explicit question tool families stay semantic-only during evaluation", () 
       factors: ["human.input.requested", "choice"],
       relationHints: [],
       confidence: "low",
-      reasons: ["tool family was supplied by the source or context"],
+      reasons: ["tool family was supplied by the source event"],
     },
   });
 
@@ -1720,7 +1770,7 @@ test("explicit form tool families stay semantic-only during evaluation", () => {
       factors: ["human.input.requested", "form"],
       relationHints: [],
       confidence: "low",
-      reasons: ["tool family was supplied by the source or context"],
+      reasons: ["tool family was supplied by the source event"],
     },
   });
 

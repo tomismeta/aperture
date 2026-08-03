@@ -42,7 +42,7 @@ test("kernel corpus conformance report matches the committed v2 artifact", async
   const scorecard = buildKernelCorpusScorecard(report, scenarios);
   const committed = await readFile("packages/lab/conformance/kernel-corpus-v2.json", "utf8");
   const committedScorecard = await readFile(
-    "packages/lab/conformance/kernel-corpus-scorecard-v5.json",
+    "packages/lab/conformance/kernel-corpus-scorecard-v6.json",
     "utf8",
   );
   const parsedCommittedScorecard = parseKernelCorpusScorecard(committedScorecard);
@@ -77,7 +77,7 @@ test("kernel corpus conformance report matches the committed v2 artifact", async
   assert.equal(scorecard.scenarioCheckpoints.length, KERNEL_CORPUS_SCENARIO_IDS.length);
   assert.equal(
     scorecard.summary.semanticCheckpoints.ontology,
-    sum(scorecard.scenarioCheckpoints.map((scenario) => scenario.semanticOntology.length)),
+    sum(scorecard.scenarioCheckpoints.map((scenario) => scenario.attentionOntology.length)),
   );
   assert.equal(
     scorecard.summary.semanticCheckpoints.relation,
@@ -169,7 +169,7 @@ test("kernel corpus scorecard comparison protects the committed quality baseline
   const scenarios = await loadGoldenScenarios();
   const scorecard = buildKernelCorpusScorecard(report, scenarios);
   const committedScorecard = parseKernelCorpusScorecard(
-    await readFile("packages/lab/conformance/kernel-corpus-scorecard-v5.json", "utf8"),
+    await readFile("packages/lab/conformance/kernel-corpus-scorecard-v6.json", "utf8"),
   );
   const comparison = buildKernelCorpusScorecardComparison(committedScorecard, scorecard);
 
@@ -182,7 +182,7 @@ test("kernel corpus scorecard comparison protects the committed quality baseline
     missingDimensions: 0,
     totalAssertions: 0,
     minimumAssertionsPerScenario: 0,
-    semanticOntologyCheckpoints: 0,
+    attentionOntologyCheckpoints: 0,
     relationCheckpoints: 0,
     decisionProjectionCheckpoints: 0,
     normalizedObservationCheckpoints: 0,
@@ -275,6 +275,46 @@ test("kernel corpus scorecard v5 migration preserves v4 coverage and adds normal
   assert.deepEqual(projected, comparableHistorical);
   assert.equal(migratedHistorical.schemaVersion, KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION);
   assert.equal(migratedHistorical.summary.normalizedObservationCheckpoints.total, 0);
+});
+
+test("kernel corpus scorecard v6 migration renames active attention ontology checkpoints", async () => {
+  const historical = JSON.parse(
+    await readFile("packages/lab/conformance/kernel-corpus-scorecard-v5.json", "utf8"),
+  ) as Record<string, unknown>;
+  const current = JSON.parse(
+    await readFile("packages/lab/conformance/kernel-corpus-scorecard-v6.json", "utf8"),
+  ) as Record<string, unknown>;
+  const currentAsV5 = structuredClone(current);
+
+  currentAsV5.schemaVersion = 5;
+  moveRecordField(
+    currentAsV5.thresholds as Record<string, unknown>,
+    "minimumAttentionOntologyCheckpoints",
+    "minimumSemanticOntologyCheckpoints",
+  );
+  for (const scenario of currentAsV5.scenarioCheckpoints as Array<Record<string, unknown>>) {
+    moveRecordField(scenario, "attentionOntology", "semanticOntology");
+  }
+
+  const migratedCurrent = parseHistoricalKernelCorpusScorecard(JSON.stringify(currentAsV5));
+  const migratedHistorical = parseHistoricalKernelCorpusScorecard(JSON.stringify(historical));
+
+  assert.deepEqual(migratedCurrent, current);
+  assert.equal(migratedHistorical.schemaVersion, KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION);
+  assert.equal(
+    migratedHistorical.thresholds.minimumAttentionOntologyCheckpoints,
+    (historical.thresholds as Record<string, unknown>).minimumSemanticOntologyCheckpoints,
+  );
+  assert.ok(
+    migratedHistorical.scenarioCheckpoints.every((scenario) =>
+      Object.prototype.hasOwnProperty.call(scenario, "attentionOntology"),
+    ),
+  );
+  assert.ok(
+    migratedHistorical.scenarioCheckpoints.every(
+      (scenario) => !Object.prototype.hasOwnProperty.call(scenario, "semanticOntology"),
+    ),
+  );
 });
 
 test("kernel corpus scorecard comparison fails closed on outcome coverage regressions", async () => {
@@ -471,7 +511,7 @@ test("kernel corpus scorecard comparison fails closed on semantic and judgment r
   );
   assert.match(
     comparison.failures.join("\n"),
-    /scorecard_comparison:semantic_ontology_checkpoints:regressed/,
+    /scorecard_comparison:attention_ontology_checkpoints:regressed/,
   );
   assert.match(
     comparison.failures.join("\n"),
@@ -502,7 +542,7 @@ test("kernel corpus scorecard comparison fails closed on per-scenario checkpoint
   const baseline = buildKernelCorpusScorecard(report, scenarios);
   const target = baseline.scenarioCheckpoints.find(
     (scenario) =>
-      scenario.semanticOntology.length > 0 &&
+      scenario.attentionOntology.length > 0 &&
       scenario.relation.length > 0 &&
       scenario.decisionProjection.length > 0 &&
       scenario.normalizedObservation.length > 0,
@@ -516,7 +556,7 @@ test("kernel corpus scorecard comparison fails closed on per-scenario checkpoint
       scenario.id === target.id
         ? {
             ...scenario,
-            semanticOntology: scenario.semanticOntology.slice(1),
+            attentionOntology: scenario.attentionOntology.slice(1),
             relation: scenario.relation.slice(1),
             decisionProjection: scenario.decisionProjection.slice(1),
             normalizedObservation: scenario.normalizedObservation.slice(1),
@@ -529,7 +569,7 @@ test("kernel corpus scorecard comparison fails closed on per-scenario checkpoint
   assert.equal(comparison.passed, false);
   assert.match(
     comparison.failures.join("\n"),
-    /scorecard_comparison:scenario:.*:missing_semantic_ontology/,
+    /scorecard_comparison:scenario:.*:missing_attention_ontology/,
   );
   assert.match(comparison.failures.join("\n"), /scorecard_comparison:scenario:.*:missing_relation/);
   assert.match(
@@ -723,9 +763,9 @@ test("kernel corpus scorecard rejects empty or duplicate checkpoint definitions"
   ]);
 
   assert.equal(scorecard.passed, false);
-  assert.match(scorecard.failures.join("\n"), /scorecard:duplicate_semantic_ontology_checkpoint/);
+  assert.match(scorecard.failures.join("\n"), /scorecard:duplicate_attention_ontology_checkpoint/);
   assert.match(scorecard.failures.join("\n"), /scorecard:empty_relation_checkpoint/);
-  assert.match(scorecard.failures.join("\n"), /scorecard:empty_semantic_ontology_checkpoint/);
+  assert.match(scorecard.failures.join("\n"), /scorecard:empty_attention_ontology_checkpoint/);
 });
 
 test("kernel corpus conformance fails closed on weak scenarios", async () => {

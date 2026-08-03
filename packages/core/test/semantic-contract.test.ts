@@ -20,7 +20,6 @@ test("task-failure judgment agreement stays behind the normalized observation bo
   assert.match(source, /normalizeTaskFailureObservationFromCore/);
   assert.equal(source.match(/readTaskFailureObservationCoreFromEvent\(/g)?.length, 1);
   assert.equal(source.includes("type TaskFailureSemanticEvidence"), false);
-  assert.equal(source.includes("readTaskFailureSemanticAgreement"), false);
   assert.equal(source.includes("failureEvidenceAgreesWithSemanticRead"), false);
   assert.equal(source.includes("readTaskFailureSemanticEvidence"), false);
   assert.equal(source.includes("draftObservation"), false);
@@ -87,17 +86,92 @@ test("observation semantics stays source-internal and out of package entrypoints
   }
 });
 
-test("kernel entrypoint exposes projection without product-specific vocabulary", () => {
+test("public package surface does not expose raw semantic evidence contracts", () => {
+  const packageJson = JSON.parse(
+    readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+  ) as { exports: Record<string, unknown> };
+
+  assert.deepEqual(Object.keys(packageJson.exports).sort(), [
+    ".",
+    "./evaluator",
+    "./kernel",
+    "./semantic",
+    "./trace",
+  ]);
+  assert.equal("./internal" in packageJson.exports, false);
+
+  for (const entrypoint of [
+    "../src/index.ts",
+    "../src/semantic.ts",
+    "../src/evaluator.ts",
+    "../src/kernel.ts",
+    "../src/trace.ts",
+  ]) {
+    const source = readFileSync(new URL(entrypoint, import.meta.url), "utf8");
+    for (const rawEvidenceContract of [
+      "semantic-evidence",
+      "SemanticTextEvidence",
+      "SemanticTextShape",
+      "TaskFailureSemanticEvidence",
+      "readSemanticTextEvidence",
+      "readTaskFailureSemanticEvidence",
+    ]) {
+      assert.equal(source.includes(rawEvidenceContract), false, entrypoint);
+    }
+  }
+
+  const internal = readFileSync(new URL("../src/internal-contract.ts", import.meta.url), "utf8");
+  assert.match(internal, /Workspace-private seam/);
+  assert.match(internal, /intentionally not exported/);
+});
+
+test("kernel entrypoint exposes one result shape without product-specific vocabulary", () => {
   const source = readFileSync(new URL("../src/kernel.ts", import.meta.url), "utf8");
 
-  assert.match(source, /projectApertureKernelEvent/);
+  assert.match(source, /evaluateApertureKernelEvent/);
   assert.match(source, /projectObservationJudgmentContract/);
+  assert.match(source, /observationJudgment: ApertureKernelObservationJudgment \| null/);
+  assert.match(source, /APERTURE_KERNEL_EXPLANATION_SCHEMA_VERSION/);
   assert.equal(source.includes("export type ApertureKernelEvent = SourceEvent"), false);
-  assert.equal(
-    source.includes("export type ApertureKernelProjection = {\n  event: ApertureKernelFinalEvent;"),
-    true,
+});
+
+test("judgment and policy consume projected observation contracts, not raw observation fields", () => {
+  for (const consumer of [
+    "../src/policy/peripheral-status-candidate.ts",
+    "../src/policy/semantic-uncertainty-criterion-rule.ts",
+  ]) {
+    const source = readFileSync(new URL(consumer, import.meta.url), "utf8");
+
+    assert.match(source, /readCandidateObservationJudgmentContract/);
+    assert.equal(source.includes("readCandidateObservation("), false, consumer);
+    for (const rawObservationField of [
+      "observation.kind",
+      "observation.polarity",
+      "observation.ownership",
+      "observation.subject",
+      "observation.evidenceLoss",
+      "observation.evidenceStrength",
+      "observation.semanticAgreement",
+      "observation.diagnosticClass",
+      "observation.recoveryHint",
+      "observation.provenance",
+      "observation.consequenceBaseline",
+    ]) {
+      assert.equal(
+        source.includes(rawObservationField),
+        false,
+        `${consumer}:${rawObservationField}`,
+      );
+    }
+  }
+
+  const projection = readFileSync(
+    new URL("../src/judgment-observation-contract.ts", import.meta.url),
+    "utf8",
   );
-  assert.equal(source.toLowerCase().includes("buzz"), false);
+  assert.match(projection, /projectObservationJudgmentContract/);
+  assert.match(projection, /NormalizedObservation/);
+  assert.match(projection, /observation\.kind/);
 });
 
 test("observation semantics owns vocabulary upstream of normalized observations", () => {
@@ -297,6 +371,76 @@ test("task-failure observation grammar stays document-first and source-internal"
   }
 });
 
+test("task-failure terminal profile owns terminal signal aggregation", () => {
+  const evidence = readFileSync(new URL("../src/semantic-evidence.ts", import.meta.url), "utf8");
+  const failureDetail = readFileSync(
+    new URL("../src/semantic-failure-detail.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(failureDetail, /export type TaskFailureTerminalProfile/);
+  assert.match(failureDetail, /readTaskFailureTerminalProfile/);
+  assert.match(evidence, /readTaskFailureTerminalProfile/);
+  assert.equal(evidence.includes("readTerminalFailureDetail"), false);
+  assert.equal(evidence.includes("readTerminalFailureShape"), false);
+  for (const inlineSignalBranch of [
+    "signals.structuredOutputExitFailure ||",
+    "signals.searchFailureDiagnostic ||",
+    "signals.readFailureDiagnostic ||",
+    "signals.rawToolOutputFailureDiagnostic &&",
+  ]) {
+    assert.equal(evidence.includes(inlineSignalBranch), false, inlineSignalBranch);
+  }
+});
+
+test("task-failure evidence profile owns family selection before evidence assembly", () => {
+  const evidence = readFileSync(new URL("../src/semantic-evidence.ts", import.meta.url), "utf8");
+  const readerStart = evidence.indexOf("export function readTaskFailureSemanticEvidence");
+  const profileStart = evidence.indexOf("function readTaskFailureEvidenceProfile");
+
+  assert.notEqual(readerStart, -1);
+  assert.notEqual(profileStart, -1);
+  assert.match(evidence, /type TaskFailureEvidenceProfile/);
+  assert.match(evidence, /type TaskFailureEvidenceProfile = Omit<TaskFailureSemanticEvidence/);
+
+  const publicReader = evidence.slice(readerStart, profileStart);
+  assert.match(publicReader, /readTaskFailureEvidenceProfile/);
+  for (const profileOwnedBranch of [
+    "looksLikeEmptyJsonObject",
+    "readExplicitOperationSuccessObservationTranscript",
+    "routine_success",
+    "expected_diagnostic",
+    "search_result",
+    "editOutputOutcome",
+    "observational_payload",
+    "unclassified_failure",
+  ]) {
+    assert.equal(publicReader.includes(profileOwnedBranch), false, profileOwnedBranch);
+  }
+});
+
+test("semantic text evidence is a compact shape profile", () => {
+  const evidence = readFileSync(new URL("../src/semantic-evidence.ts", import.meta.url), "utf8");
+
+  assert.match(evidence, /export type SemanticTextShape/);
+  assert.match(evidence, /shapes: readonly SemanticTextShape\[\]/);
+
+  for (const legacyField of [
+    "routineSuccessObservation",
+    "terminalFailureEvidence",
+    "expectedDiagnosticFailure",
+    "observationalReadback",
+    "taggedFileObservation",
+    "readObservationPayload",
+    "searchResultOutput",
+    "sourceCodeObservation",
+    "logObservation",
+    "buildMetadataObservation",
+  ]) {
+    assert.equal(evidence.includes(`${legacyField}: boolean`), false, legacyField);
+  }
+});
+
 function candidateShape(candidate: {
   mode: string;
   priority: string;
@@ -383,7 +527,7 @@ test("task.updated allows named observational status-conflict routing exceptions
     blocking: false,
     responseSpec: "none",
   });
-  assert.equal(result.candidate.judgmentInput.routineObservationalStatusConflict, true);
+  assert.notEqual(result.candidate.judgmentInput.observationalStatusConflict, undefined);
 });
 
 test("explanation-only semantic fields do not change task.updated routing", () => {

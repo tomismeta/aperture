@@ -1,15 +1,17 @@
-import type { ObservationSemantics } from "./observation-semantics.js";
 import type { ObservationalStatusConflictKind } from "./observational-status-conflict.js";
 
-export type ObservationJudgmentDocument = Omit<
-  ObservationSemantics,
-  "evidenceCertainty" | "provenance"
+type NormalizedObservationInput = import("./normalized-observation.js").NormalizedObservation;
+type ObservationStatusConflictShape = Pick<
+  NormalizedObservationInput,
+  | "kind"
+  | "polarity"
+  | "ownership"
+  | "subject"
+  | "evidenceLoss"
+  | "diagnosticClass"
+  | "recoveryHint"
 > & {
-  semanticAgreement: "stable" | "overridden" | "uncertain";
-  evidenceStrength: "weak" | "qualified" | "strong";
-  provenance: ObservationSemantics["provenance"] & {
-    authority: "explicit" | "hinted" | "inferred" | "unknown";
-  };
+  provenance: { origin: string };
 };
 
 export type ObservationJudgmentContract = {
@@ -26,7 +28,7 @@ export type ObservationJudgmentContract = {
     | "evidence_scope_required"
     | "original_evidence_required"
     | "none";
-  baselineConsequence: ObservationJudgmentDocument["consequenceBaseline"];
+  baselineConsequence: NormalizedObservationInput["consequenceBaseline"];
   outcomeOnlyFailureStatus: boolean;
   limitedFailureStatus: boolean;
   stableStatusEvidence: boolean;
@@ -34,7 +36,7 @@ export type ObservationJudgmentContract = {
 };
 
 type RecoveryPostureKey =
-  `${ObservationJudgmentDocument["kind"]}:${ObservationJudgmentDocument["polarity"]}:${ObservationJudgmentDocument["evidenceLoss"]}:${NonNullable<ObservationJudgmentDocument["diagnosticClass"]> | ""}:${NonNullable<ObservationJudgmentDocument["recoveryHint"]> | ""}`;
+  `${NormalizedObservationInput["kind"]}:${NormalizedObservationInput["polarity"]}:${NormalizedObservationInput["evidenceLoss"]}:${NonNullable<NormalizedObservationInput["diagnosticClass"]> | ""}:${NonNullable<NormalizedObservationInput["recoveryHint"]> | ""}`;
 type RecoveryPosture = ObservationJudgmentContract["recoveryPosture"];
 
 const RECOVERY_POSTURE_BY_KEY: Readonly<Partial<Record<RecoveryPostureKey, RecoveryPosture>>> = {
@@ -47,7 +49,7 @@ const RECOVERY_POSTURE_BY_KEY: Readonly<Partial<Record<RecoveryPostureKey, Recov
 };
 
 export function projectObservationJudgmentContract(
-  observation: ObservationJudgmentDocument,
+  observation: NormalizedObservationInput,
 ): ObservationJudgmentContract {
   const recoveryPosture = readObservationRecoveryPosture(observation);
   const outcomeOnlyFailureStatus = isOutcomeOnlyFailure(observation);
@@ -73,7 +75,13 @@ export function projectObservationJudgmentContract(
 }
 
 export function resolveObservationStatusConflictKind(
-  observation: ObservationJudgmentDocument,
+  observation: NormalizedObservationInput,
+): ObservationalStatusConflictKind | null {
+  return resolveObservationStatusConflictKindFromShape(observation);
+}
+
+export function resolveObservationStatusConflictKindFromShape(
+  observation: ObservationStatusConflictShape,
 ): ObservationalStatusConflictKind | null {
   if (observation.kind === "control") {
     return readObservationRecoveryPosture(observation) === "authorization_required" &&
@@ -97,7 +105,7 @@ export function resolveObservationStatusConflictKind(
   return observation.subject === "command" ? "command_success_observation" : "payload_observation";
 }
 
-function isOutcomeOnlyFailure(observation: ObservationJudgmentDocument): boolean {
+function isOutcomeOnlyFailure(observation: NormalizedObservationInput): boolean {
   return (
     isStableMediumFailure(observation) &&
     observation.kind === "outcome" &&
@@ -106,7 +114,7 @@ function isOutcomeOnlyFailure(observation: ObservationJudgmentDocument): boolean
 }
 
 function isLimitedFailure(
-  observation: ObservationJudgmentDocument,
+  observation: NormalizedObservationInput,
   recoveryPosture: RecoveryPosture,
 ): boolean {
   if (isOutcomeOnlyFailure(observation)) {
@@ -125,7 +133,7 @@ function isLimitedFailure(
   );
 }
 
-function isStableMediumFailure(observation: ObservationJudgmentDocument): boolean {
+function isStableMediumFailure(observation: NormalizedObservationInput): boolean {
   return (
     observation.polarity === "failure" &&
     observation.evidenceLoss !== "unknown" &&
@@ -134,11 +142,11 @@ function isStableMediumFailure(observation: ObservationJudgmentDocument): boolea
   );
 }
 
-function hasStableStatusEvidence(observation: ObservationJudgmentDocument): boolean {
+function hasStableStatusEvidence(observation: NormalizedObservationInput): boolean {
   return observation.semanticAgreement === "stable" && observation.evidenceStrength !== "weak";
 }
 
-function isVisibleDiagnosticFailure(observation: ObservationJudgmentDocument): boolean {
+function isVisibleDiagnosticFailure(observation: NormalizedObservationInput): boolean {
   return (
     observation.kind === "diagnostic" &&
     observation.diagnosticClass === "runtime" &&
@@ -147,7 +155,12 @@ function isVisibleDiagnosticFailure(observation: ObservationJudgmentDocument): b
   );
 }
 
-function readObservationRecoveryPosture(observation: ObservationJudgmentDocument): RecoveryPosture {
+function readObservationRecoveryPosture(
+  observation: Pick<
+    NormalizedObservationInput,
+    "kind" | "polarity" | "evidenceLoss" | "diagnosticClass" | "recoveryHint"
+  >,
+): RecoveryPosture {
   const key =
     `${observation.kind}:${observation.polarity}:${observation.evidenceLoss}:${observation.diagnosticClass ?? ""}:${observation.recoveryHint ?? ""}` as RecoveryPostureKey;
   return RECOVERY_POSTURE_BY_KEY[key] ?? "none";

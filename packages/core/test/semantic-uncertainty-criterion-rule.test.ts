@@ -96,7 +96,7 @@ test("medium-confidence inferred semantics still stay peripheral when the source
   assert.equal(evaluation.verdict.peripheralResolution, "queue");
   assert.equal(evaluation.verdict.ambiguity?.reason, "low_signal");
   assert.deepEqual(evaluation.rationale, [
-    "inferred semantic evidence stays peripheral until stronger source-backed context arrives",
+    "weak semantic evidence stays peripheral until stronger source-backed context arrives",
   ]);
 });
 
@@ -126,6 +126,48 @@ test("low-confidence semantics keep non-blocking work peripheral", () => {
   assert.equal(evaluation.kind, "verdict");
   assert.equal(evaluation.verdict.peripheralResolution, "queue");
   assert.equal(evaluation.verdict.ambiguity?.reason, "low_signal");
+});
+
+test("visible diagnostic observations bypass the semantic uncertainty rule", () => {
+  const evaluation = evaluateSemanticUncertaintyCriterionRule({
+    candidate: {
+      ...baseCandidate,
+      judgmentInput: {
+        blockedLikeStatus: false,
+        observation: {
+          kind: "diagnostic",
+          polarity: "failure",
+          semanticAgreement: "stable",
+          ownership: { owner: "tool", toolFamily: "fixture" },
+          evidenceStrength: "strong",
+          subject: "tool",
+          evidenceLoss: "none",
+          diagnosticClass: "runtime",
+          recoveryHint: "inspect_diagnostic",
+          provenance: { origin: "semantic_evidence", authority: "explicit" },
+          consequenceBaseline: "high",
+        },
+        semanticEvidence: {
+          confidence: "low",
+          source: "inferred",
+          strength: "weak",
+          abstained: false,
+        },
+      },
+    },
+    policyVerdict: basePolicyVerdict,
+    evidence: createAttentionEvidenceContext(),
+    candidateScore: 4,
+    currentScore: null,
+    criterion: { activationThreshold: 4, promotionMargin: 1 },
+    sourceTrustAdjustment: 0,
+    peripheralResolution: "queue",
+  });
+
+  assert.equal(evaluation.kind, "noop");
+  assert.deepEqual(evaluation.rationale, [
+    "visible diagnostic failure evidence is concrete enough for ordinary interrupt rules",
+  ]);
 });
 
 test("abstained semantics keep non-blocking work peripheral", () => {

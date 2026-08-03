@@ -1,0 +1,77 @@
+{
+  "id": "golden:kernel-corpus:bash-compiler-source-diagnostic-stays-terminal",
+  "title": "Bash compiler source diagnostic stays terminal",
+  "description": "Bash-owned compiler diagnostics with source-like type wording must remain terminal failure evidence instead of being softened as observational source payloads.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "semantic_normalization",
+    "status_noise",
+    "source_fact_authority",
+    "command_diagnostic_shape"
+  ],
+  "semanticFamilies": ["consequence_underread"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:task:corpus:bash-compiler-source-like-diagnostic:status",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "compiler source-like diagnostic",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "toolFamily": "bash",
+        "consequence": "high",
+        "confidence": "high",
+        "factorsInclude": ["failed"],
+        "ontology": {
+          "ask": "status",
+          "activity": "failure",
+          "consequence": "high",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "explicit"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "compiler source-like diagnostic",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "semanticConfidence": "high",
+        "decisionRecordReasonCodesInclude": ["route:activate", "lane:now", "policy:may_interrupt"],
+        "semanticInfluenceIncludes": [
+          "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics"
+        ],
+        "semanticImpactDecisionBearingIncludes": ["activity (canonical)", "tool (bounded)"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "compiler source-like diagnostic",
+      "event": {
+        "id": "evt:corpus:bash-compiler-source-like-diagnostic",
+        "type": "task.updated",
+        "taskId": "task:corpus:bash-compiler-source-like-diagnostic",
+        "timestamp": "2026-04-18T15:17:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "bash failure",
+        "summary": "> package check > tsgo --noEmit Checked 405 files in 233ms. No fixes applied. packages/app/examples/modal-editor.ts(83,50): error TS2554: Argument of type string is not assignable to parameter of type number...",
+        "status": "failed",
+        "toolFamily": "bash"
+      }
+    }
+  ]
+}

@@ -2,20 +2,12 @@
   "id": "golden:semantics:abstained-waiting-status-stays-ambient",
   "title": "Abstained blocked status stays ambient",
   "description": "When semantic interpretation abstains on non-blocking blocked status work, the ambiguity lane should preserve an ambient outcome instead of inventing interruptive certainty.",
-  "doctrineTags": [
-    "semantic_normalization",
-    "semantic_ambiguity",
-    "ambient_doctrine"
-  ],
-  "semanticFamilies": [
-    "confidence_too_high"
-  ],
+  "doctrineTags": ["semantic_normalization", "semantic_ambiguity", "ambient_doctrine"],
+  "semanticFamilies": ["confidence_too_high"],
   "expectations": {
     "finalNowInteractionId": "interaction:approval-anchor:ambient",
     "nextInteractionIds": [],
-    "ambientInteractionIds": [
-      "interaction:task:abstained-blocked:status"
-    ],
+    "ambientInteractionIds": ["interaction:task:abstained-blocked:status"],
     "resultLaneCounts": {
       "now": 1,
       "next": 0,
@@ -34,7 +26,7 @@
           "activity": "task_progress",
           "blocking": "blocking",
           "episode": "unknown",
-          "source": "hinted"
+          "source": "explicit"
         },
         "relationKindsExact": [],
         "whyNowIncludes": "blocked",

@@ -1,0 +1,77 @@
+{
+  "id": "golden:kernel-corpus:bash-loader-plain-diagnostic-stays-terminal",
+  "title": "Bash loader plain diagnostic stays terminal",
+  "description": "A bash-owned clipped loader stack with source-like text but few path tokens must remain terminal failure evidence.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "semantic_normalization",
+    "status_noise",
+    "source_fact_authority",
+    "command_diagnostic_shape"
+  ],
+  "semanticFamilies": ["consequence_underread"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:task:corpus:bash-loader-plain-diagnostic:status",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "clipped plain loader diagnostic",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "toolFamily": "bash",
+        "consequence": "high",
+        "confidence": "high",
+        "factorsInclude": ["failed"],
+        "ontology": {
+          "ask": "status",
+          "activity": "failure",
+          "consequence": "high",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "explicit"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "clipped plain loader diagnostic",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "semanticConfidence": "high",
+        "decisionRecordReasonCodesInclude": ["route:activate", "lane:now", "policy:may_interrupt"],
+        "semanticInfluenceIncludes": [
+          "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics"
+        ],
+        "semanticImpactDecisionBearingIncludes": ["activity (canonical)", "tool (bounded)"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "clipped plain loader diagnostic",
+      "event": {
+        "id": "evt:corpus:bash-loader-plain-diagnostic",
+        "type": "task.updated",
+        "taskId": "task:corpus:bash-loader-plain-diagnostic",
+        "timestamp": "2026-04-18T15:17:20.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "bash failure",
+        "summary": "/workspace/project/node_modules/tsx/dist/register.cjs:3 `)},\"createLog\"),x=I(g.bgLightYellow(g.black(\" CJS \"))),ae=I(g.bgBlue(\" ESM \")),oe=[\".cts\",\".mts\",\".ts\",\".tsx\",\".jsx\"],ie=[\".js\",\".cjs\",\".mjs\"],k=[\".ts\",\".tsx\",\".jsx\"],F=o((s,e,r,n)=>{const t=Object.getOwnPropertyDescriptor(s,e);t?.set?s[e]=r:(!t||t.configurable)&&Object.defineProperty(s,e,{value:r,enumerable:t?.enumerable||n?.enumerable,writable:n?.writable??(t?t.writable:!0),configurable:n?.configurable??(t?t.configurable:!0)})},\"safeSet\"),ce=o((s,e,r)=>{const n=e[\".js\"],t=o((a,i)=>{if(s.enabled===!1)return n(a,i);const[c,f]=i.split(\"?\");if((new URLSearchParams(f).get(\"namespace\")??void 0)!==r)return n(a,i);x(2,\"load\",{filePat ... register.cjs:4:1102 at m._resolveFilename (file:///register.mjs:1:789) at defaultResolveImpl (node:internal/modules/cjs/loader:1058:19) at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1063:22) at Module._load (node:internal/modules/cjs/loader:1226:37) { code: 'MODULE_NOT_FOUND', requireStack: [ '[eval]' ] } Node.js v25.2.1 Command exited with code 1",
+        "status": "failed",
+        "toolFamily": "bash"
+      }
+    }
+  ]
+}

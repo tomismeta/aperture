@@ -1,16 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  mapClaudeCodeHookEvent,
-  type ClaudeCodePreToolUseEvent,
-} from "../../claude-code/src/index.js";
-import { mapCodexServerRequest, type CodexServerRequest } from "../../codex/src/index.js";
-import { mapOpencodeEvent } from "../../opencode/src/index.js";
 import { ApertureCore, type SourceEvent, type SourceRef } from "../src/index.js";
+import { semanticHintsForTruncatedSourceEvidence } from "../src/semantic.js";
 import { normalizeSemanticText } from "../src/semantic-detection.js";
 import { interpretSourceEvent } from "../src/semantic-interpreter.js";
 import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
+import { readAttentionOntologyDiagnostic } from "../src/semantic-ontology.js";
 
 const timestamp = "2026-03-10T12:00:00.000Z";
 const rejectedToolUseMessage =
@@ -22,72 +18,6 @@ const abbreviatedFileViewObservationTranscript =
 
 function source(id: string): SourceRef {
   return { id };
-}
-
-type SourceHumanInputRequestedEvent = Extract<SourceEvent, { type: "human.input.requested" }>;
-type NormalizedHumanInputRequestedEvent = Extract<
-  ReturnType<typeof normalizeSourceEvent>,
-  { type: "human.input.requested" }
->;
-
-function singleHumanInputRequestedEvent(events: SourceEvent[]): SourceHumanInputRequestedEvent {
-  assert.equal(events.length, 1);
-  assert.equal(events[0]?.type, "human.input.requested");
-  if (events[0]?.type !== "human.input.requested") {
-    throw new Error("Expected exactly one human.input.requested event.");
-  }
-  return events[0];
-}
-
-function normalizeHumanInputEvent(
-  event: SourceHumanInputRequestedEvent,
-): NormalizedHumanInputRequestedEvent {
-  const normalized = normalizeSourceEvent(event);
-  assert.equal(normalized.type, "human.input.requested");
-  if (normalized.type !== "human.input.requested") {
-    throw new Error("Expected a normalized human.input.requested event.");
-  }
-  return normalized;
-}
-
-function humanInputContractSnapshot(event: NormalizedHumanInputRequestedEvent) {
-  const includeApprovalToolFamily = event.request.kind === "approval";
-
-  return {
-    request:
-      event.request.kind === "choice"
-        ? {
-            kind: event.request.kind,
-            selectionMode: event.request.selectionMode,
-            optionCount: event.request.options.length,
-          }
-        : {
-            kind: event.request.kind,
-          },
-    activityClass: event.activityClass,
-    ...(includeApprovalToolFamily && event.toolFamily !== undefined
-      ? { toolFamily: event.toolFamily }
-      : {}),
-    tone: event.tone,
-    consequence: event.consequence,
-    semantic: {
-      intentFrame: event.semantic?.intentFrame,
-      activityClass: event.semantic?.activityClass,
-      ...(includeApprovalToolFamily && event.semantic?.toolFamily !== undefined
-        ? { toolFamily: event.semantic.toolFamily }
-        : {}),
-      confidence: event.semantic?.confidence,
-      abstained: event.semantic?.abstained,
-      provenance: {
-        intentFrame: event.semantic?.provenance?.intentFrame,
-        activityClass: event.semantic?.provenance?.activityClass,
-        ...(includeApprovalToolFamily && event.semantic?.provenance?.toolFamily !== undefined
-          ? { toolFamily: event.semantic.provenance.toolFamily }
-          : {}),
-        confidence: event.semantic?.provenance?.confidence,
-      },
-    },
-  };
 }
 
 test("normalizes high-risk human input into critical approval semantics", () => {
@@ -110,6 +40,55 @@ test("normalizes high-risk human input into critical approval semantics", () => 
     assert.equal(normalized.tone, "critical");
     assert.equal(normalized.consequence, "high");
   }
+});
+
+test("normalizes completed task updates into completion activity without adapter hints", () => {
+  const normalized = normalizeSourceEvent({
+    id: "evt:completed-update",
+    type: "task.updated",
+    taskId: "task:completed-update",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Command completed",
+    summary: "The command finished successfully.",
+    status: "completed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(normalized.type, "task.updated");
+  if (normalized.type !== "task.updated") {
+    throw new Error("Expected normalized task.updated event.");
+  }
+
+  assert.equal(normalized.activityClass, "tool_completion");
+  assert.equal(normalized.semantic.intentFrame, "completion");
+  assert.equal(normalized.semantic.activityClass, "tool_completion");
+  assert.equal(normalized.semantic.toolFamily, "bash");
+  assert.equal(normalized.semantic.provenance?.activityClass, "inferred");
+});
+
+test("normalizes completed task updates without overriding explicit source activity", () => {
+  const normalized = normalizeSourceEvent({
+    id: "evt:completed-session-status",
+    type: "task.updated",
+    taskId: "task:completed-session-status",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Workspace ready",
+    summary: "The workspace setup completed.",
+    status: "completed",
+    activityClass: "session_status",
+  });
+
+  assert.equal(normalized.type, "task.updated");
+  if (normalized.type !== "task.updated") {
+    throw new Error("Expected normalized task.updated event.");
+  }
+
+  assert.equal(normalized.activityClass, "session_status");
+  assert.equal(normalized.semantic.intentFrame, "completion");
+  assert.equal(normalized.semantic.activityClass, "session_status");
+  assert.equal(normalized.semantic.provenance?.activityClass, "source");
 });
 
 test("normalizes medium-risk human input into focused approval semantics", () => {
@@ -373,7 +352,10 @@ test("failed edit readback observations stay status updates semantically", () =>
   assert.equal(interpretation.intentFrame, "status_update");
   assert.equal(interpretation.activityClass, "status_update");
   assert.equal(interpretation.consequence, "high");
-  assert.equal(interpretation.whyNow, undefined);
+  assert.equal(
+    interpretation.whyNow,
+    "A failed status carried high-consequence observation output that should be reviewed.",
+  );
 });
 
 test("failed edit outcome envelopes preserve applied versus failed semantics", () => {
@@ -427,6 +409,10 @@ test("failed read source dumps stay status updates at high consequence", () => {
   assert.equal(interpretation.intentFrame, "status_update");
   assert.equal(interpretation.activityClass, "status_update");
   assert.equal(interpretation.consequence, "high");
+  assert.equal(
+    interpretation.whyNow,
+    "A failed status carried high-consequence observation output that should be reviewed.",
+  );
 });
 
 test("failed read log dumps stay status updates at low consequence", () => {
@@ -672,6 +658,7 @@ test("truncated structured listing output stays observational at medium conseque
   assert.equal(interpretation.intentFrame, "status_update");
   assert.equal(interpretation.activityClass, "status_update");
   assert.equal(interpretation.consequence, "medium");
+  assert.equal(interpretation.whyNow, undefined);
 });
 
 test("truncated structured doc path listing output stays observational at medium consequence", () => {
@@ -710,6 +697,52 @@ test("truncated structured line-numbered source intro stays observational at hig
   assert.equal(interpretation.intentFrame, "status_update");
   assert.equal(interpretation.activityClass, "status_update");
   assert.equal(interpretation.consequence, "high");
+  assert.equal(
+    interpretation.whyNow,
+    "A failed status carried high-consequence observation output that should be reviewed.",
+  );
+});
+
+test("recovered structured technical manual excerpts stay medium-consequence observations", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:recovered-technical-manual-output",
+    type: "task.updated",
+    taskId: "task:recovered-technical-manual-output",
+    timestamp,
+    source: source("custom-agent"),
+    title: "exec_command failure",
+    summary:
+      '{"wall_time":"0.0501 seconds","output":"2300\\t\\n 2301\\t3.4. Wave State Registers\\n 2302\\t\\n 2303\\t21 of 644\\n 2304\\t\\n 2305\\t\\n\\"RDNA3.5\\" Instruction Set Architecture\\n 2306\\t\\n 2307\\t3.4.2. Mode register\\n 2308\\t\\n 2309\\tMode register ...',
+    status: "failed",
+    toolFamily: "exec_command",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "medium");
+});
+
+test("explicit command-owned flattened source stays observational at high consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:raw-command-flattened-source",
+    type: "task.updated",
+    taskId: "task:raw-command-flattened-source",
+    timestamp,
+    source: source("custom-agent"),
+    title: "bash failure",
+    summary:
+      'import functools import os from pathlib import Path from torch.utils.cpp_extension import _import_module_from_library, load def get_rocm_lib_dirs() -> list[str]: rocm_lib_dirs = [] for env_var in ("ROCM_HOME", "ROCM_PATH"): rocm_home = o...',
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "high");
+  assert.equal(
+    interpretation.whyNow,
+    "A failed status carried high-consequence observation output that should be reviewed.",
+  );
 });
 
 test("arrow-numbered read source stays observational at high consequence", () => {
@@ -721,7 +754,7 @@ test("arrow-numbered read source stays observational at high consequence", () =>
     source: source("custom-agent"),
     title: "read failure",
     summary:
-      "1\u2192import os 2\u2192from functools import lru_cache 3\u2192from typing import Optional 4\u2192 5\u2192import torch 6\u2192from torch.utils.cpp_extension import load_inline 7\u2192import time 8\u2192 9\u2192 10\u2192@lru_cache(maxsize=1) 11\u2192def _load_hip_extension(): 12\u2192 source_path ...",
+      "1\u2192import os 2\u2192from functools import lru_cache 3\u2192from typing import Optional 4\u2192 5\u2192import torch 6\u2192from torch.utils.cpp_extension import load_inline 7\u2192import time 8\u2192 9\u2192 10\u2192@lru_cache(maxsize=1) 11\u2192def _load_hip_extension(): 12\u2192 source_path \u2026",
     status: "failed",
     toolFamily: "read",
   });
@@ -729,6 +762,33 @@ test("arrow-numbered read source stays observational at high consequence", () =>
   assert.equal(interpretation.intentFrame, "status_update");
   assert.equal(interpretation.activityClass, "status_update");
   assert.equal(interpretation.consequence, "high");
+  assert.equal(
+    interpretation.whyNow,
+    "A failed status carried high-consequence observation output that should be reviewed.",
+  );
+});
+
+test("flattened read-owned TypeScript source stays observational at high consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:flattened-read-typescript-source",
+    type: "task.updated",
+    taskId: "task:flattened-read-typescript-source",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary:
+      '/** * Interactive mode for the coding agent. */ import * as crypto from "node:crypto"; import * as fs from "node:fs"; import * as os from "node:os";...',
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "high");
+  assert.equal(
+    interpretation.whyNow,
+    "A failed status carried high-consequence observation output that should be reviewed.",
+  );
 });
 
 test("arrow-numbered read documents stay observational at high consequence", () => {
@@ -748,6 +808,26 @@ test("arrow-numbered read documents stay observational at high consequence", () 
   assert.equal(interpretation.intentFrame, "status_update");
   assert.equal(interpretation.activityClass, "status_update");
   assert.equal(interpretation.consequence, "high");
+});
+
+test("flattened read-owned markdown technical documents stay medium observations", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:flattened-read-markdown-document",
+    type: "task.updated",
+    taskId: "task:flattened-read-markdown-document",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary:
+      "# @mariozechner/pi-tui Minimal terminal UI framework with differential rendering and synchronized output for interactive CLI applications. ## Features - **Differential Rendering**: Three-strategy rendering system - **Components**: Reusable terminal widgets...",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "medium");
+  assert.equal(interpretation.whyNow, undefined);
 });
 
 test("failed read markdown documents stay status updates", () => {
@@ -867,7 +947,7 @@ test("public trajectory diagnostic failures stay medium-consequence failures", (
     type: "task.updated",
     taskId: "task:public-diagnostic",
     timestamp,
-    source: { id: "swe-smith", kind: "public-trajectory" },
+    source: { id: "trajectory-fixture", kind: "public-trajectory" },
     title: "bash failure",
     summary:
       "OBSERVATION: Form is valid: False. Form errors: amount required. Decompress result: [None, 'USD']",
@@ -886,7 +966,7 @@ test("public trajectory silent cleanup observations stay low-consequence status 
     type: "task.updated",
     taskId: "task:public-cleanup",
     timestamp,
-    source: { id: "swe-smith", kind: "public-trajectory" },
+    source: { id: "trajectory-fixture", kind: "public-trajectory" },
     title: "bash observation",
     summary: "Your command ran successfully and did not produce any output.",
     status: "running",
@@ -904,7 +984,7 @@ test("public trajectory failed-status bash success observations stay low-consequ
     type: "task.updated",
     taskId: "task:public-cleanup-status-conflict",
     timestamp,
-    source: { id: "swe-smith", kind: "public-trajectory" },
+    source: { id: "trajectory-fixture", kind: "public-trajectory" },
     title: "bash failure",
     summary: "Your command ran successfully and did not produce any output.",
     status: "failed",
@@ -927,13 +1007,116 @@ test("public trajectory failed-status bash success observations stay low-consequ
   }
 });
 
+test("observation status prefixes are stripped case-insensitively", () => {
+  const event: SourceEvent = {
+    id: "evt:uppercase-observation-status-prefix",
+    type: "task.updated",
+    taskId: "task:uppercase-observation-status-prefix",
+    timestamp,
+    source: source("custom-agent"),
+    title: "BASH failure Your command ran successfully and did not produce any output.",
+    status: "failed",
+    toolFamily: "bash",
+  };
+  const interpretation = interpretSourceEvent(event);
+  const normalized = normalizeSourceEvent(event);
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "low");
+  assert.equal(normalized.type, "task.updated");
+  if (normalized.type === "task.updated") {
+    assert.equal(normalized.semantic.consequence, "low");
+  }
+});
+
+test("public trajectory missing-tool file creation observations stay low-consequence status updates", () => {
+  const event: SourceEvent = {
+    id: "evt:public-file-created-status-conflict",
+    type: "task.updated",
+    taskId: "task:public-file-created-status-conflict",
+    timestamp,
+    source: { id: "trajectory-fixture", kind: "public-trajectory" },
+    title: "tool failure",
+    summary: "OBSERVATION: File created successfully at: /testbed/exception_test.py",
+    status: "failed",
+  };
+  const interpretation = interpretSourceEvent(event);
+  const normalized = normalizeSourceEvent(event);
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "low");
+  assert.equal(interpretation.whyNow, undefined);
+  assert.deepEqual(interpretation.factors, ["task.updated", "failed", "observational_failure"]);
+  assert.equal(normalized.type, "task.updated");
+  if (normalized.type === "task.updated") {
+    assert.equal(normalized.status, "failed");
+    assert.equal(normalized.activityClass, "status_update");
+    assert.equal(normalized.semantic.activityClass, "status_update");
+    assert.equal(normalized.semantic.consequence, "low");
+    assert.equal(normalized.semantic.toolFamily, undefined);
+  }
+});
+
+test("public trajectory known-command file creation text stays failed status", () => {
+  const event: SourceEvent = {
+    id: "evt:public-command-file-created-failure",
+    type: "task.updated",
+    taskId: "task:public-command-file-created-failure",
+    timestamp,
+    source: { id: "trajectory-fixture", kind: "public-trajectory" },
+    title: "bash failure",
+    summary: "OBSERVATION: File created successfully at: /testbed/exception_test.py",
+    status: "failed",
+    toolFamily: "bash",
+  };
+  const interpretation = interpretSourceEvent(event);
+  const normalized = normalizeSourceEvent(event);
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.consequence, "high");
+  assert.equal(normalized.type, "task.updated");
+  if (normalized.type === "task.updated") {
+    assert.equal(normalized.status, "failed");
+    assert.equal(normalized.activityClass, "tool_failure");
+    assert.equal(normalized.semantic.activityClass, "tool_failure");
+    assert.equal(normalized.semantic.consequence, "high");
+    assert.equal(normalized.semantic.toolFamily, "bash");
+  }
+});
+
+test("public trajectory explicit flattened observations keep status without inferring tool family", () => {
+  const normalized = normalizeSourceEvent({
+    id: "evt:public-flattened-observation",
+    type: "task.updated",
+    taskId: "task:public-flattened-observation",
+    timestamp,
+    source: { id: "trajectory-fixture", kind: "public-trajectory" },
+    title: "tool failure",
+    summary:
+      "OBSERVATION: def check(conf, token, prev, next, nextnext, context): if (conf['forbid'] is True and isinstance(token, yaml.FlowSequenceStartToken)): yield LintProblem(token.start_mark.line + 1, token.end_mark.column + 1, 'forbidden flow s...",
+    status: "failed",
+  });
+
+  assert.equal(normalized.type, "task.updated");
+  if (normalized.type === "task.updated") {
+    assert.equal(normalized.status, "failed");
+    assert.equal(normalized.activityClass, "status_update");
+    assert.equal(normalized.semantic.activityClass, "status_update");
+    assert.equal(normalized.semantic.toolFamily, undefined);
+    assert.equal(normalized.semantic.consequence, "high");
+  }
+});
+
 test("public trajectory failed-status bash exit-code zero observations stay low-consequence status updates", () => {
   const normalized = normalizeSourceEvent({
     id: "evt:public-json-exit-zero",
     type: "task.updated",
     taskId: "task:public-json-exit-zero",
     timestamp,
-    source: { id: "dataclaw", kind: "public-trajectory" },
+    source: { id: "trajectory-fixture", kind: "public-trajectory" },
     title: "bash failure",
     summary: '{"exit_code":0,"wall_time":"0 seconds","output":"ok"}',
     status: "failed",
@@ -955,7 +1138,7 @@ test("public trajectory tool-use rejection outcomes stay low-consequence status 
     type: "task.updated",
     taskId: "task:public-bash-tool-use-rejection",
     timestamp,
-    source: { id: "dataclaw", kind: "public-trajectory" },
+    source: { id: "trajectory-fixture", kind: "public-trajectory" },
     title: "bash failure",
     summary: rejectedToolUseMessage,
     status: "failed",
@@ -966,7 +1149,7 @@ test("public trajectory tool-use rejection outcomes stay low-consequence status 
     type: "task.updated",
     taskId: "task:public-edit-tool-use-rejection",
     timestamp,
-    source: { id: "dataclaw", kind: "public-trajectory" },
+    source: { id: "trajectory-fixture", kind: "public-trajectory" },
     title: "edit failure",
     summary: rejectedToolUseMessage,
     status: "failed",
@@ -977,7 +1160,7 @@ test("public trajectory tool-use rejection outcomes stay low-consequence status 
     type: "task.updated",
     taskId: "task:public-absent-tool-use-rejection",
     timestamp,
-    source: { id: "dataclaw", kind: "public-trajectory" },
+    source: { id: "trajectory-fixture", kind: "public-trajectory" },
     title: "tool failure",
     summary: rejectedToolUseMessage,
     status: "failed",
@@ -1014,7 +1197,7 @@ test("tool-use rejection outcome disables text-only tool inference from conditio
     type: "task.updated",
     taskId: "task:public-absent-tool-use-rejection-no-inferred-edit",
     timestamp,
-    source: { id: "dataclaw", kind: "public-trajectory" },
+    source: { id: "trajectory-fixture", kind: "public-trajectory" },
     title: "tool failure",
     summary: rejectedToolUseMessage,
     status: "failed",
@@ -1036,7 +1219,7 @@ test("missing-tool successful test and abbreviated file-view transcripts stay lo
       type: "task.updated",
       taskId: `task:public-${id}-observation-transcript`,
       timestamp,
-      source: { id: "dataclaw", kind: "public-trajectory" },
+      source: { id: "trajectory-fixture", kind: "public-trajectory" },
       title: "tool failure",
       summary,
       status: "failed",
@@ -1066,7 +1249,7 @@ test("public trajectory zero-exit outputs with explicit failures stay high-conse
     type: "task.updated",
     taskId: "task:public-zero-exit-with-failure",
     timestamp,
-    source: { id: "swe-smith", kind: "public-trajectory" },
+    source: { id: "trajectory-fixture", kind: "public-trajectory" },
     title: "bash failure",
     summary: "Tests failed. Process exit code was 0.",
     status: "failed",
@@ -1085,7 +1268,7 @@ test("public trajectory failed-status bash tracebacks remain high-consequence fa
     type: "task.updated",
     taskId: "task:public-traceback",
     timestamp,
-    source: { id: "swe-smith", kind: "public-trajectory" },
+    source: { id: "trajectory-fixture", kind: "public-trajectory" },
     title: "bash observation",
     summary: "Traceback (most recent call last): Error: subprocess failed.",
     status: "failed",
@@ -1098,13 +1281,76 @@ test("public trajectory failed-status bash tracebacks remain high-consequence fa
   assert.equal(interpretation.whyNow, "Work has failed and should be reviewed.");
 });
 
+test("public trajectory bare nonzero bash exits remain failures with medium consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:public-bare-nonzero-exit",
+    type: "task.updated",
+    taskId: "task:public-bare-nonzero-exit",
+    timestamp,
+    source: { id: "trajectory-fixture", kind: "public-trajectory" },
+    title: "bash failure",
+    summary: "(no output) Command exited with code 1",
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.consequence, "medium");
+  assert.equal(interpretation.whyNow, "Work has failed and should be reviewed.");
+  assert.equal(interpretation.provenance?.consequence, "inferred");
+});
+
+test("public trajectory structured outcome-only exits match raw bare-exit semantics", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:public-structured-outcome-only-exit",
+    type: "task.updated",
+    taskId: "task:public-structured-outcome-only-exit",
+    timestamp,
+    source: { id: "trajectory-fixture", kind: "public-trajectory" },
+    title: "exec_command failure",
+    summary: '{"exit_code":1,"wall_time":"0.0510 seconds","output":"(no output)"}',
+    status: "failed",
+    toolFamily: "exec_command",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.consequence, "medium");
+  assert.equal(interpretation.confidence, "high");
+  assert.equal(interpretation.provenance?.consequence, "inferred");
+});
+
+test("truncated source evidence hints keep failed outcome-only exits high consequence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:public-truncated-outcome-only-exit",
+    type: "task.updated",
+    taskId: "task:public-truncated-outcome-only-exit",
+    timestamp,
+    source: { id: "trajectory-fixture", kind: "public-trajectory" },
+    title: "exec_command failure",
+    summary: '{"exit_code":1,"wall_time":"0.0510 seconds","output":"(no output)"}',
+    status: "failed",
+    toolFamily: "exec_command",
+    metadata: { truncated: true },
+    semanticHints: semanticHintsForTruncatedSourceEvidence({ status: "failed" }),
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.consequence, "high");
+  assert.equal(interpretation.confidence, "low");
+  assert.equal(interpretation.provenance?.consequence, "hint");
+  assert.equal(interpretation.provenance?.confidence, "hint");
+});
+
 test("public trajectory benign then real terminal wording stays high-consequence", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:public-benign-then-terminal",
     type: "task.updated",
     taskId: "task:public-benign-then-terminal",
     timestamp,
-    source: { id: "swe-smith", kind: "public-trajectory" },
+    source: { id: "trajectory-fixture", kind: "public-trajectory" },
     title: "bash observation",
     summary: "No exception occurred during setup; an exception escaped during cleanup.",
     status: "failed",
@@ -1123,7 +1369,7 @@ test("public trajectory failed-status bash JSON nonzero exits remain high-conseq
     type: "task.updated",
     taskId: "task:public-json-nonzero-exit",
     timestamp,
-    source: { id: "dataclaw", kind: "public-trajectory" },
+    source: { id: "trajectory-fixture", kind: "public-trajectory" },
     title: "bash failure",
     summary:
       '{"exit_code":1,"wall_time":"2.9 seconds","output":"Traceback (most recent call last): RuntimeError"}',
@@ -1143,7 +1389,7 @@ test("public trajectory mixed bash success and terminal failures remain high-con
     type: "task.updated",
     taskId: "task:public-mixed-bash-failure",
     timestamp,
-    source: { id: "swe-smith", kind: "public-trajectory" },
+    source: { id: "trajectory-fixture", kind: "public-trajectory" },
     title: "bash failure",
     summary:
       "Your command ran successfully and did not produce any output. Traceback follows from the next repro step.",
@@ -1163,7 +1409,7 @@ test("public trajectory mixed bash success and exit-code failures remain high-co
     type: "task.updated",
     taskId: "task:public-mixed-exit-code-failure",
     timestamp,
-    source: { id: "swe-smith", kind: "public-trajectory" },
+    source: { id: "trajectory-fixture", kind: "public-trajectory" },
     title: "bash failure",
     summary:
       "Your command ran successfully and did not produce any output. Error: deployment failed with exit code 1.",
@@ -1326,6 +1572,175 @@ test("task updates can infer relation hints from recurring and resolving languag
     resolved.relationHints.map((hint) => hint.kind),
     ["same_issue", "resolves"],
   );
+  assert.equal(
+    resolved.whyNow,
+    "A related episode appears resolved and can update attention state.",
+  );
+  assert.equal(resolved.provenance?.whyNow, "inferred");
+});
+
+test("prospective verification wording does not infer resolved episode semantics", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:verify-resolution",
+    type: "task.updated",
+    taskId: "task:verify-resolution",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Verify build issue",
+    summary: "Run the script again to confirm that the issue is fixed.",
+    status: "running",
+  });
+
+  assert.equal(
+    interpretation.relationHints.some((hint) => hint.kind === "resolves"),
+    false,
+  );
+  assert.notEqual(
+    interpretation.whyNow,
+    "A related episode appears resolved and can update attention state.",
+  );
+  assert.notEqual(interpretation.provenance?.whyNow, "inferred");
+});
+
+test("question resolution wording does not infer resolved episode semantics", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:question-resolution",
+    type: "task.updated",
+    taskId: "task:question-resolution",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Check build issue",
+    summary: "Can you confirm the issue was fixed?",
+    status: "waiting",
+  });
+
+  assert.equal(
+    interpretation.relationHints.some((hint) => hint.kind === "resolves"),
+    false,
+  );
+  assert.notEqual(
+    interpretation.whyNow,
+    "A related episode appears resolved and can update attention state.",
+  );
+});
+
+test("separate asserted recovery clauses still infer resolved episode semantics", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:separate-recovery-clause",
+    type: "task.updated",
+    taskId: "task:separate-recovery-clause",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Verify dashboards now",
+    summary: "The production outage recovered after rollback.",
+    status: "completed",
+  });
+
+  assert.deepEqual(
+    interpretation.relationHints.map((hint) => hint.kind),
+    ["same_issue", "resolves"],
+  );
+  assert.equal(
+    interpretation.whyNow,
+    "A related episode appears resolved and can update attention state.",
+  );
+});
+
+test("prior negated resolution clauses do not suppress later asserted recovery semantics", () => {
+  const event = {
+    id: "evt:mixed-resolution-polarity",
+    type: "task.updated",
+    taskId: "task:mixed-resolution-polarity",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Build issue update",
+    summary: "The issue was not fixed before. It is fixed now.",
+    status: "completed",
+  } satisfies SourceEvent;
+  const interpretation = interpretSourceEvent(event);
+  const ontology = readAttentionOntologyDiagnostic(event, interpretation);
+
+  assert.deepEqual(
+    interpretation.relationHints.map((hint) => hint.kind),
+    ["same_issue", "resolves"],
+  );
+  assert.equal(ontology.episode, "resolved");
+  assert.equal(
+    interpretation.whyNow,
+    "A related episode appears resolved and can update attention state.",
+  );
+});
+
+test("later negated resolution clauses prevent stale resolved episode semantics", () => {
+  const event = {
+    id: "evt:stale-resolution-polarity",
+    type: "task.updated",
+    taskId: "task:stale-resolution-polarity",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Build issue update",
+    summary: "The issue was fixed yesterday. It is not fixed now.",
+    status: "failed",
+  } satisfies SourceEvent;
+  const interpretation = interpretSourceEvent(event);
+  const ontology = readAttentionOntologyDiagnostic(event, interpretation);
+
+  assert.deepEqual(interpretation.relationHints, []);
+  assert.notEqual(ontology.episode, "resolved");
+  assert.notEqual(
+    interpretation.whyNow,
+    "A related episode appears resolved and can update attention state.",
+  );
+});
+
+test("later asserted resurfacing clauses override stale resolved episode semantics", () => {
+  const event = {
+    id: "evt:latest-resurfacing-relation",
+    type: "task.updated",
+    taskId: "task:latest-resurfacing-relation",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Build issue update",
+    summary: "The issue was fixed yesterday, but regressed today.",
+    status: "failed",
+  } satisfies SourceEvent;
+  const interpretation = interpretSourceEvent(event);
+  const ontology = readAttentionOntologyDiagnostic(event, interpretation);
+
+  assert.deepEqual(
+    interpretation.relationHints.map((hint) => hint.kind),
+    ["same_issue", "escalates"],
+  );
+  assert.equal(ontology.episode, "resurfaced");
+  assert.notEqual(
+    interpretation.whyNow,
+    "A related episode appears resolved and can update attention state.",
+  );
+});
+
+test("later asserted resolution clauses override stale resurfacing semantics", () => {
+  const event = {
+    id: "evt:latest-resolution-relation",
+    type: "task.updated",
+    taskId: "task:latest-resolution-relation",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Build issue update",
+    summary: "The issue regressed yesterday, but it is fixed today.",
+    status: "completed",
+  } satisfies SourceEvent;
+  const interpretation = interpretSourceEvent(event);
+  const ontology = readAttentionOntologyDiagnostic(event, interpretation);
+
+  assert.deepEqual(
+    interpretation.relationHints.map((hint) => hint.kind),
+    ["same_issue", "resolves"],
+  );
+  assert.equal(ontology.episode, "resolved");
+  assert.equal(
+    interpretation.whyNow,
+    "A related episode appears resolved and can update attention state.",
+  );
 });
 
 test("generic successful completion wording does not infer a resolved episode by itself", () => {
@@ -1341,6 +1756,7 @@ test("generic successful completion wording does not infer a resolved episode by
   });
 
   assert.deepEqual(interpretation.relationHints, []);
+  assert.equal(interpretation.whyNow, undefined);
 });
 
 test("recovery wording with issue context still infers a resolved episode", () => {
@@ -1358,6 +1774,10 @@ test("recovery wording with issue context still infers a resolved episode", () =
   assert.deepEqual(
     interpretation.relationHints.map((hint) => hint.kind),
     ["same_issue", "resolves"],
+  );
+  assert.equal(
+    interpretation.whyNow,
+    "A related episode appears resolved and can update attention state.",
   );
 });
 
@@ -1583,7 +2003,7 @@ test("choice requests do not infer tool family from question wording alone", () 
   }
 });
 
-test("choice requests still preserve explicit tool family from context", () => {
+test("choice requests still preserve explicit event tool family as semantic-only", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:question-explicit-tool-family",
     type: "human.input.requested",
@@ -1593,9 +2013,7 @@ test("choice requests still preserve explicit tool family from context", () => {
     source: source("custom-agent"),
     title: "Should we read the config first?",
     summary: "Choose the next step.",
-    context: {
-      items: [{ id: "toolFamily", label: "Tool Family", value: "read" }],
-    },
+    toolFamily: "read",
     request: {
       kind: "choice",
       selectionMode: "single",
@@ -1608,7 +2026,7 @@ test("choice requests still preserve explicit tool family from context", () => {
 
   assert.equal(interpretation.toolFamily, "read");
   assert.equal(interpretation.confidence, "low");
-  assert.ok(interpretation.reasons.includes("tool family was supplied by the source or context"));
+  assert.ok(interpretation.reasons.includes("tool family was supplied by the source event"));
   assert.equal(interpretation.provenance?.toolFamily, "source");
 
   const normalized = normalizeSourceEvent({
@@ -1620,9 +2038,7 @@ test("choice requests still preserve explicit tool family from context", () => {
     source: source("custom-agent"),
     title: "Should we read the config first?",
     summary: "Choose the next step.",
-    context: {
-      items: [{ id: "toolFamily", label: "Tool Family", value: "read" }],
-    },
+    toolFamily: "read",
     request: {
       kind: "choice",
       selectionMode: "single",
@@ -1667,197 +2083,6 @@ test("equivalent source approvals normalize to equivalent semantics across sourc
       assert.equal(event.request.kind, "approval");
     }
   }
-});
-
-test("equivalent adapter approvals normalize to the same canonical human-input contract", () => {
-  const claudeEvent: ClaudeCodePreToolUseEvent = {
-    session_id: "session-semantic-parity",
-    cwd: "/repo",
-    hook_event_name: "PreToolUse",
-    tool_name: "Bash",
-    tool_use_id: "tool-approval-parity",
-    tool_input: {
-      command: "pnpm test",
-      description: "Run tests before continuing",
-    },
-  };
-
-  const opencodeEvents = mapOpencodeEvent(
-    {
-      type: "permission.asked",
-      properties: {
-        id: "perm-semantic-parity",
-        sessionID: "ses-semantic-parity",
-        title: "Run tests",
-        message: "Run bash tool",
-        metadata: {
-          tool: "bash",
-          callID: "call-semantic-parity",
-          description: "Run tests before continuing",
-          patterns: [{ value: "pnpm test" }],
-        },
-        createdAt: timestamp,
-      },
-    },
-    {
-      baseUrl: "http://127.0.0.1:4096",
-      scope: { directory: "/repo" as const },
-    },
-  );
-
-  const codexRequest: CodexServerRequest = {
-    id: "req-semantic-parity",
-    method: "item/commandExecution/requestApproval",
-    params: {
-      threadId: "thread-semantic-parity",
-      turnId: "turn-semantic-parity",
-      itemId: "item:semantic:approval",
-      command: "pnpm test",
-      cwd: "/repo",
-      reason: "Run tests before continuing",
-      availableDecisions: ["accept", "decline", "cancel"],
-    },
-  };
-  const codexMapped = mapCodexServerRequest(codexRequest);
-  assert.ok(codexMapped);
-
-  const normalized = [
-    normalizeHumanInputEvent(singleHumanInputRequestedEvent(mapClaudeCodeHookEvent(claudeEvent))),
-    normalizeHumanInputEvent(singleHumanInputRequestedEvent(opencodeEvents)),
-    normalizeHumanInputEvent(singleHumanInputRequestedEvent(codexMapped?.events ?? [])),
-  ];
-
-  const snapshots = normalized.map(humanInputContractSnapshot);
-  assert.deepEqual(snapshots[1], snapshots[0]);
-  assert.deepEqual(snapshots[2], snapshots[0]);
-  assert.deepEqual(snapshots[0], {
-    request: { kind: "approval" },
-    activityClass: "permission_request",
-    toolFamily: "bash",
-    tone: "focused",
-    consequence: "medium",
-    semantic: {
-      intentFrame: "approval_request",
-      activityClass: "permission_request",
-      toolFamily: "bash",
-      confidence: "medium",
-      abstained: undefined,
-      provenance: {
-        intentFrame: "inferred",
-        activityClass: "inferred",
-        toolFamily: "source",
-        confidence: "inferred",
-      },
-    },
-  });
-});
-
-test("equivalent adapter choice requests normalize to the same canonical human-input contract", () => {
-  const claudeEvent: ClaudeCodePreToolUseEvent = {
-    session_id: "session-question-parity",
-    cwd: "/repo",
-    hook_event_name: "PreToolUse",
-    tool_name: "AskUserQuestion",
-    tool_use_id: "tool-question-parity",
-    tool_input: {},
-    askUserQuestion: {
-      questions: [
-        {
-          header: "Deploy target",
-          question: "Where should I deploy?",
-          options: [
-            { label: "staging", description: "Staging environment" },
-            { label: "production", description: "Production environment" },
-          ],
-          multiSelect: false,
-        },
-      ],
-    },
-  };
-
-  const opencodeEvents = mapOpencodeEvent(
-    {
-      type: "question.asked",
-      properties: {
-        id: "question-semantic-parity",
-        sessionID: "ses-question-parity",
-        tool: {
-          callID: "call-question-parity",
-        },
-        questions: [
-          {
-            header: "Deploy target",
-            question: "Where should I deploy?",
-            options: [
-              { label: "staging", description: "Staging environment" },
-              { label: "production", description: "Production environment" },
-            ],
-          },
-        ],
-        createdAt: timestamp,
-      },
-    },
-    {
-      baseUrl: "http://127.0.0.1:4096",
-      scope: { directory: "/repo" as const },
-    },
-  );
-
-  const codexRequest: CodexServerRequest = {
-    id: "req-question-parity",
-    method: "item/tool/requestUserInput",
-    params: {
-      threadId: "thread-question-parity",
-      turnId: "turn-question-parity",
-      itemId: "item:semantic:question",
-      questions: [
-        {
-          id: "deploy_target",
-          header: "Deploy target",
-          question: "Where should I deploy?",
-          isOther: false,
-          isSecret: false,
-          options: [
-            { label: "staging", description: "Staging environment" },
-            { label: "production", description: "Production environment" },
-          ],
-        },
-      ],
-    },
-  };
-  const codexMapped = mapCodexServerRequest(codexRequest);
-  assert.ok(codexMapped);
-
-  const normalized = [
-    normalizeHumanInputEvent(singleHumanInputRequestedEvent(mapClaudeCodeHookEvent(claudeEvent))),
-    normalizeHumanInputEvent(singleHumanInputRequestedEvent(opencodeEvents)),
-    normalizeHumanInputEvent(singleHumanInputRequestedEvent(codexMapped?.events ?? [])),
-  ];
-
-  const snapshots = normalized.map(humanInputContractSnapshot);
-  assert.deepEqual(snapshots[1], snapshots[0]);
-  assert.deepEqual(snapshots[2], snapshots[0]);
-  assert.deepEqual(snapshots[0], {
-    request: {
-      kind: "choice",
-      selectionMode: "single",
-      optionCount: 2,
-    },
-    activityClass: "question_request",
-    tone: "focused",
-    consequence: "medium",
-    semantic: {
-      intentFrame: "question_request",
-      activityClass: "question_request",
-      confidence: "low",
-      abstained: undefined,
-      provenance: {
-        intentFrame: "inferred",
-        activityClass: "inferred",
-        confidence: "inferred",
-      },
-    },
-  });
 });
 
 test("publishSourceEvent feeds normalized events into the existing attention engine", () => {

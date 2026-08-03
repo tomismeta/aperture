@@ -2,11 +2,7 @@
   "id": "golden:kernel-corpus:alarmist-read-approval-stays-low-risk",
   "title": "Alarmist read approval stays low risk",
   "description": "Alarmist wording around a read-only approval should not inflate consequence or policy value beyond the source-shaped read path.",
-  "doctrineTags": [
-    "kernel_corpus",
-    "source_fact_authority",
-    "consequence_overread"
-  ],
+  "doctrineTags": ["kernel_corpus", "source_fact_authority", "consequence_overread"],
   "semanticFamilies": ["consequence_overread"],
   "expectations": {
     "finalNowInteractionId": "interaction:corpus:read:approval",
@@ -33,7 +29,7 @@
           "episode": "new",
           "source": "explicit"
         },
-        "reasonsInclude": ["tool family was supplied by the source or context"]
+        "reasonsInclude": ["tool family was supplied by the source event"]
       }
     ],
     "decisionReadings": [

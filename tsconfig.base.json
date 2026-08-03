@@ -19,6 +19,7 @@
     "paths": {
       "@tomismeta/aperture-core": ["packages/core/src/index.ts"],
       "@tomismeta/aperture-core/internal": ["packages/core/src/internal.ts"],
+      "@tomismeta/aperture-core/kernel": ["packages/core/src/kernel.ts"],
       "@tomismeta/aperture-core/semantic": ["packages/core/src/semantic.ts"],
       "@aperture/runtime": ["packages/runtime/src/index.ts"],
       "@aperture/runtime/internal": ["packages/runtime/src/internal.ts"],

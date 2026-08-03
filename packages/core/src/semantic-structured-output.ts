@@ -79,6 +79,15 @@ export function parseJsonObject(value: string): Record<string, unknown> | null {
   }
 }
 
+export function looksLikeEmptyJsonObject(value: string | undefined): boolean {
+  if (value === undefined) {
+    return false;
+  }
+
+  const parsed = parseJsonObject(value);
+  return parsed !== null && Object.keys(parsed).length === 0;
+}
+
 export function looksLikeWallTime(value: string): boolean {
   return /^\d+(?:\.\d+)?\s*(?:ms|s|sec|secs|second|seconds)$/i.test(value.trim());
 }

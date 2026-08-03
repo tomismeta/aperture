@@ -25,6 +25,7 @@ import {
   type TraceCommonsSplit,
 } from "./public-trajectories-types.js";
 import { readTraceCommonsSplit } from "./public-trajectories-trace-commons-fetch.js";
+import { buildTaskUpdateSourceQualityFields } from "./public-trajectories-source-quality.js";
 import {
   buildTraceCommonsAssistantTitle,
   buildTraceCommonsObservationTitle,
@@ -252,6 +253,10 @@ export function createImportedSessionFromTraceCommonsRow(
       }
 
       const timestamp = timestampForEntry();
+      const sourceQuality = buildTaskUpdateSourceQualityFields({
+        summary: toolResultText ?? undefined,
+        status: toolResultStatus,
+      });
       entries.push({
         index: entries.length,
         timestamp,
@@ -273,8 +278,8 @@ export function createImportedSessionFromTraceCommonsRow(
           timestamp,
           source: eventSource,
           ...(toolFamily ? { toolFamily } : {}),
+          ...sourceQuality,
           title: buildTraceCommonsObservationTitle(toolResultStatus, toolFamily),
-          ...(toolResultText ? { summary: clipSourceEventSummary(toolResultText) } : {}),
           status: toolResultStatus,
         },
       });

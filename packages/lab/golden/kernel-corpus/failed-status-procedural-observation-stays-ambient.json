@@ -1,0 +1,98 @@
+{
+  "id": "golden:kernel-corpus:failed-status-procedural-observation-stays-ambient",
+  "title": "Failed-status procedural observation stays ambient",
+  "description": "Imported trajectories can report failed transport status with no tool family while carrying a procedural harness observation rather than a task failure.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "semantic_normalization",
+    "status_noise",
+    "observational_status_conflict",
+    "ambient_doctrine"
+  ],
+  "semanticFamilies": ["consequence_overread"],
+  "expectations": {
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
+    "ambientInteractionIds": ["interaction:task:corpus:procedural-observation:status"],
+    "resultLaneCounts": {
+      "now": 0,
+      "next": 0,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "procedural harness observation",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "toolFamily": null,
+        "consequence": "low",
+        "confidence": "high",
+        "factorsInclude": ["observational_failure"],
+        "reasonsInclude": [
+          "task status indicates failure but the update reads like observational output"
+        ],
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "low",
+          "blocking": "non_blocking",
+          "episode": "resurfaced",
+          "confidence": "high",
+          "source": "inferred"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "procedural harness observation",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "semanticConfidence": "high",
+        "ambiguityReason": null,
+        "ambiguityResolution": null,
+        "episodeEvidenceScore": 1,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordCandidateScore": 0,
+        "decisionRecordValueComponentsInclude": {
+          "priority": 0,
+          "tone": 0,
+          "consequence": 0
+        },
+        "decisionRecordReasonsInclude": ["background work should remain peripheral by default"],
+        "decisionRecordReasonCodesInclude": [
+          "route:ambient",
+          "lane:ambient",
+          "criterion:peripheral_resolution:ambient",
+          "policy:minimum_lane:ambient",
+          "policy:peripheral_only"
+        ],
+        "semanticInfluenceIncludes": [
+          "engine-owned observational evidence resolved noisy failed-status routing as status handling"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "observational status conflict (judgment routing)"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "procedural harness observation",
+      "event": {
+        "id": "evt:corpus:procedural-observation",
+        "type": "task.updated",
+        "taskId": "task:corpus:procedural-observation",
+        "timestamp": "2026-04-18T15:20:00.000Z",
+        "source": { "id": "swe-smith", "kind": "public-trajectory" },
+        "title": "tool failure",
+        "summary": "OBSERVATION: Thank you for your work on this issue. Please carefully follow the steps below to help review your changes. 1. If you made any changes to your code after running the reproduction script, please run the reproduction script again. 2. Confirm the reproduction script passes before submitting.",
+        "status": "failed"
+      }
+    }
+  ]
+}

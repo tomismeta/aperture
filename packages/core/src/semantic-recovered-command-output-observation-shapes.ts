@@ -1,5 +1,6 @@
 import { hasToolOutputFailureDiagnosticEvidence } from "./semantic-diagnostic-shapes.js";
 import { looksLikeWarningOnlyCommandOutputObservation } from "./semantic-command-warning-observation-shapes.js";
+import { hasVisibleTruncationBoundary } from "./semantic-observation-text.js";
 import { looksLikeRecoveredCommandSourceObservation } from "./semantic-recovered-command-source-observation-shapes.js";
 
 export type RecoveredCommandOutputObservation = {
@@ -45,10 +46,6 @@ function looksLikeRecoveredCommandReadbackObservation(value: string): boolean {
 
 function countLocationRows(text: string, pattern: RegExp): number {
   return [...text.matchAll(pattern)].length;
-}
-
-function hasVisibleTruncationBoundary(text: string): boolean {
-  return /\.\.\.\s*$/.test(text);
 }
 
 function hasClippedPathContinuation(text: string): boolean {

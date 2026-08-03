@@ -1,0 +1,81 @@
+{
+  "id": "golden:kernel-corpus:failed-status-mixed-procedural-failure-stays-visible",
+  "title": "Failed-status mixed procedural failure stays visible",
+  "description": "A failed transport wrapper carrying procedural harness text plus actual failure language must remain visible failure work rather than ambient observation noise.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "semantic_normalization",
+    "status_noise",
+    "source_fact_authority"
+  ],
+  "semanticFamilies": ["consequence_underread"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:task:corpus:mixed-procedural-failure:status",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "mixed procedural failure",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "toolFamily": null,
+        "consequence": "high",
+        "confidence": "high",
+        "factorsInclude": ["failed"],
+        "ontology": {
+          "ask": "status",
+          "activity": "failure",
+          "consequence": "high",
+          "blocking": "non_blocking",
+          "episode": "resurfaced",
+          "confidence": "high",
+          "source": "explicit"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "mixed procedural failure",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "semanticConfidence": "high",
+        "episodeEvidenceScore": 3,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:activate",
+          "lane:now",
+          "evidence:operator_presence:present"
+        ],
+        "semanticInfluenceIncludes": [
+          "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics"
+        ],
+        "semanticImpactDecisionBearingIncludes": ["activity (canonical)"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "mixed procedural failure",
+      "event": {
+        "id": "evt:corpus:mixed-procedural-failure",
+        "type": "task.updated",
+        "taskId": "task:corpus:mixed-procedural-failure",
+        "timestamp": "2026-04-18T15:20:30.000Z",
+        "source": { "id": "swe-smith", "kind": "public-trajectory" },
+        "title": "tool failure",
+        "summary": "OBSERVATION: Thank you for your work on this issue. Please carefully follow the steps below to help review your changes. The script exited with code 1 and the issue still does not work. 1. Run the reproduction script again after making changes. 2. Confirm the script exits with code 0 before submitting.",
+        "status": "failed"
+      }
+    }
+  ]
+}

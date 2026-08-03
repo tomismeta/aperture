@@ -206,6 +206,72 @@ test("renderWhyOverlay shows semantic summary and influence notes", () => {
   assert.match(output, /basis:\s+tool family was supplied by the source or context/);
 });
 
+test("renderWhyOverlay shows normalized observation facts with wrapped details", () => {
+  const outputLines = renderWhyOverlay(
+    makeCandidateTrace({
+      intentFrame: "failure",
+      activityClass: "tool_failure",
+      toolFamily: "read",
+      consequence: "medium",
+      confidence: "high",
+      observation: {
+        kind: "diagnostic",
+        polarity: "failure",
+        owner: "tool",
+        toolFamily: "read_with_a_long_structural_source_window_identifier_for_wrapping_checks",
+        subject: "source",
+        evidenceLoss: "partial",
+        evidenceStrength: "strong",
+        semanticAgreement: "stable",
+        diagnosticClass: "source_limit",
+        recoveryHint: "narrow_evidence_scope",
+        provenanceOrigin: "semantic_evidence",
+        provenanceAuthority: "explicit",
+        consequenceBaseline: "medium",
+      },
+      ontology: {
+        ask: "status",
+        activity: "failure",
+        consequence: "medium",
+        blocking: "non_blocking",
+        episode: "unknown",
+        confidence: "high",
+        source: "explicit",
+      },
+      relationHints: [],
+      factors: ["task.updated", "failed"],
+      reasons: ["source failure evidence was bounded by the read window"],
+      influence: ["task status stayed authoritative for candidate routing"],
+      impact: {
+        routingAuthority: "status",
+        decisionBearing: ["activity (canonical)"],
+        explanatory: ["intent", "observation"],
+        canonical: ["activity (canonical)"],
+        routing: [],
+        continuity: [],
+        ambiguity: [],
+        contextOnly: ["intent", "observation"],
+      },
+    }),
+    false,
+    false,
+  );
+  const output = outputLines.join("\n");
+
+  assert.match(output, /observation:\s+diagnostic\/failure/);
+  assert.match(output, /subject:\s+source/);
+  assert.match(output, /evidence:\s+strong/);
+  assert.match(output, /loss:\s+partial/);
+  assert.match(output, /agreement:\s+stable/);
+  assert.match(output, /origin:\s+semantic_evidence\/explicit/);
+  assert.match(output, /diagnostic:\s+source_limit/);
+  assert.match(output, /recovery:\s+narrow_evidence_scope/);
+  assert.equal(
+    outputLines.some((line) => /^ {16}\S/.test(line)),
+    true,
+  );
+});
+
 test("renderWhyOverlay shows semantic why-now text when available", () => {
   const output = renderWhyOverlay(
     makeCandidateTrace({

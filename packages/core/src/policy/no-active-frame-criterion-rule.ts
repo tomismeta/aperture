@@ -1,10 +1,12 @@
 import { findVisibleEpisodeFrames, isCandidateInActionableEpisode } from "../episode-tracker.js";
 import { hasActionableBlockedLikeStatusSemantics } from "../judgment-input.js";
+import { isEstablishedPolicyPeripheralStatus } from "./peripheral-status-candidate.js";
 
 import {
   ambiguousPeripheralCriterionVerdict,
   clearCriterionVerdict,
   noopPolicyCriterionRule,
+  preservedPeripheralCriterionVerdict,
   verdictPolicyCriterionRule,
   type PolicyCriterionRule,
 } from "./policy-criterion-rule.js";
@@ -39,6 +41,15 @@ export const evaluateNoActiveFrameCriterionRule: PolicyCriterionRule = (input) =
 
   if (candidateScore >= criterion.activationThreshold) {
     return verdictPolicyCriterionRule("no_active_frame", clearCriterionVerdict(criterion));
+  }
+
+  if (isEstablishedPolicyPeripheralStatus(candidate, input.policyVerdict)) {
+    return verdictPolicyCriterionRule(
+      "no_active_frame",
+      preservedPeripheralCriterionVerdict(criterion, peripheralResolution, [
+        "policy-peripheral status work stays peripheral without ambiguity",
+      ]),
+    );
   }
 
   return verdictPolicyCriterionRule(

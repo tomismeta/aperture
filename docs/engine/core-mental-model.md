@@ -182,7 +182,7 @@ The trace is how Aperture shows:
 
 - what it read semantically
 - what mattered to the decision
-- what stayed context-only
+- what stayed explanatory-only
 - what route was chosen
 
 Think of trace as the **why layer**.

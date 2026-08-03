@@ -4,10 +4,10 @@ import type {
   SemanticConfidence,
   SemanticConsequenceLevel,
   SemanticIntentFrame,
-  SemanticOntologyAsk,
-  SemanticOntologyBlocking,
-  SemanticOntologyEpisode,
-  SemanticOntologySource,
+  AttentionOntologyAsk,
+  AttentionOntologyBlocking,
+  AttentionOntologyEpisode,
+  AttentionOntologyAuthority,
 } from "@tomismeta/aperture-core/semantic";
 
 import {
@@ -240,6 +240,7 @@ export type OfflineReviewPreparedStep = {
     summary: string | null;
     status: string | null;
     toolFamily: string | null;
+    metadata?: Record<string, unknown> | null;
   } | null;
   normalizedEvent: {
     type: string;
@@ -249,14 +250,14 @@ export type OfflineReviewPreparedStep = {
     toolFamily: string | null;
   } | null;
   apertureRead: {
-    ask: SemanticOntologyAsk | null;
+    ask: AttentionOntologyAsk | null;
     intentFrame: SemanticIntentFrame | null;
     toolFamily: string | null;
     consequence: SemanticConsequenceLevel | null;
-    blocking: SemanticOntologyBlocking | null;
-    episode: SemanticOntologyEpisode | null;
+    blocking: AttentionOntologyBlocking | null;
+    episode: AttentionOntologyEpisode | null;
     confidence: SemanticConfidence | null;
-    source: SemanticOntologySource | null;
+    source: AttentionOntologyAuthority | null;
     abstained: boolean;
     whyNow: string | null;
     relationKinds: string[];

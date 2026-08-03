@@ -1,0 +1,92 @@
+{
+  "id": "golden:kernel-corpus:failed-status-file-operation-success-stays-ambient",
+  "title": "Failed-status file operation success stays ambient",
+  "description": "Imported trajectories can report failed transport status with no tool family even when an explicit observation says a file operation succeeded.",
+  "doctrineTags": ["kernel_corpus", "semantic_normalization", "status_noise", "ambient_doctrine"],
+  "semanticFamilies": ["consequence_overread"],
+  "expectations": {
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
+    "ambientInteractionIds": ["interaction:task:public-file-created-status-conflict:status"],
+    "resultLaneCounts": {
+      "now": 0,
+      "next": 0,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "file creation status conflict",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "toolFamily": null,
+        "consequence": "low",
+        "confidence": "high",
+        "factorsInclude": ["observational_failure"],
+        "reasonsInclude": [
+          "task status indicates failure but the update reads like observational output"
+        ],
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "low",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "inferred"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "file creation status conflict",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "semanticConfidence": "high",
+        "ambiguityReason": null,
+        "ambiguityResolution": null,
+        "episodeEvidenceScore": 0,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordCandidateScore": 0,
+        "decisionRecordValueComponentsInclude": {
+          "priority": 0,
+          "tone": 0,
+          "consequence": 0
+        },
+        "decisionRecordReasonsInclude": ["background work should remain peripheral by default"],
+        "decisionRecordReasonCodesInclude": [
+          "route:ambient",
+          "lane:ambient",
+          "criterion:peripheral_resolution:ambient",
+          "policy:minimum_lane:ambient",
+          "policy:peripheral_only"
+        ],
+        "semanticInfluenceIncludes": [
+          "engine-owned observational evidence resolved noisy failed-status routing as status handling"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "observational status conflict (judgment routing)"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "file creation status conflict",
+      "event": {
+        "id": "evt:public-file-created-status-conflict",
+        "type": "task.updated",
+        "taskId": "task:public-file-created-status-conflict",
+        "timestamp": "2026-04-18T15:02:30.000Z",
+        "source": { "id": "swe-smith", "kind": "public-trajectory" },
+        "title": "tool failure",
+        "summary": "OBSERVATION: File created successfully at: /testbed/exception_test.py",
+        "status": "failed"
+      }
+    }
+  ]
+}

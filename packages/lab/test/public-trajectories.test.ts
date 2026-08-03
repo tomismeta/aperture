@@ -37,7 +37,8 @@ const SAMPLE_ROW: SweSmithRow = {
   model: "claude-3-7-sonnet-20250219",
   resolved: true,
   traj_id: "example/repo-123.run-42",
-  patch: "diff --git a/file.py b/file.py\nindex 111..222 100644\n--- a/file.py\n+++ b/file.py\n@@\n-print('bad')\n+print('good')\n",
+  patch:
+    "diff --git a/file.py b/file.py\nindex 111..222 100644\n--- a/file.py\n+++ b/file.py\n@@\n-print('bad')\n+print('good')\n",
   messages: JSON.stringify([
     {
       role: "system",
@@ -67,7 +68,7 @@ const SAMPLE_ROW: SweSmithRow = {
           index: 0,
           function: {
             name: "bash",
-            arguments: "{\"command\":\"pytest tests/test_widget.py\"}",
+            arguments: '{"command":"pytest tests/test_widget.py"}',
           },
           id: "toolu_bash",
           type: "function",
@@ -98,7 +99,7 @@ const SAMPLE_ROW: SweSmithRow = {
           index: 0,
           function: {
             name: "edit",
-            arguments: "{\"path\":\"/testbed/provider.py\"}",
+            arguments: '{"path":"/testbed/provider.py"}',
           },
           id: "toolu_edit",
           type: "function",
@@ -517,7 +518,7 @@ const SAMPLE_TRACE_COMMONS_ROW: TraceCommonsRow = {
           type: "function",
           function: {
             name: "Bash",
-            arguments: "{\"command\":\"sed -n '1,120p' src/client.ts\"}",
+            arguments: '{"command":"sed -n \'1,120p\' src/client.ts"}',
           },
         },
       ],
@@ -567,9 +568,7 @@ const SAMPLE_TRACE_COMMONS_ROW: TraceCommonsRow = {
 
 test("SWE-smith rows parse from dataset-style rows payloads", () => {
   const rows = parseSweSmithRowsResponse({
-    rows: [
-      { row: SAMPLE_ROW },
-    ],
+    rows: [{ row: SAMPLE_ROW }],
   });
 
   assert.equal(rows.length, 1);
@@ -578,9 +577,7 @@ test("SWE-smith rows parse from dataset-style rows payloads", () => {
 
 test("DataClaw rows parse from dataset-style rows payloads", () => {
   const rows = parseDataclawRowsResponse({
-    rows: [
-      { row: SAMPLE_DATACLAW_ROW },
-    ],
+    rows: [{ row: SAMPLE_DATACLAW_ROW }],
   });
 
   assert.equal(rows.length, 1);
@@ -590,9 +587,7 @@ test("DataClaw rows parse from dataset-style rows payloads", () => {
 
 test("Trace Commons rows parse from dataset-style rows payloads", () => {
   const rows = parseTraceCommonsRowsResponse({
-    rows: [
-      { row: SAMPLE_TRACE_COMMONS_ROW },
-    ],
+    rows: [{ row: SAMPLE_TRACE_COMMONS_ROW }],
   });
 
   assert.equal(rows.length, 1);
@@ -616,10 +611,9 @@ test("Trace Commons rows parse live-shaped null identity rows with deterministic
             session_id: "sessions_cursor_debaa898-grafana-loki-monitoring",
             trace_type: "hermes",
           },
-          file_path: "/var/folders/tmp/tc-sessions/sessions_cursor_debaa898-grafana-loki-monitoring.jsonl",
-          messages: [
-            { role: "assistant", content: "" },
-          ],
+          file_path:
+            "/var/folders/tmp/tc-sessions/sessions_cursor_debaa898-grafana-loki-monitoring.jsonl",
+          messages: [{ role: "assistant", content: "" }],
           tools: [],
           trace: [
             {
@@ -647,7 +641,8 @@ test("Trace Commons rows parse live-shaped null identity rows with deterministic
             source_file: "sessions_opencode_ses_129b55f7effeSKRtimLg9wxpXa.json",
             trace_type: "structured",
           },
-          file_path: "/var/folders/tmp/tc-sessions/sessions_opencode_ses_129b55f7effeSKRtimLg9wxpXa.json",
+          file_path:
+            "/var/folders/tmp/tc-sessions/sessions_opencode_ses_129b55f7effeSKRtimLg9wxpXa.json",
           messages: [],
           tools: [],
           trace: [
@@ -722,7 +717,10 @@ test("Trace Commons rows parse live-shaped null identity rows with deterministic
   assert.match(rows[1]?.prompt ?? "", /Loki logs/);
   assert.equal(rows[2]?.harness, "opencode");
   assert.equal(rows[2]?.session_id, "ses_129b55f7effeSKRtimLg9wxpXa");
-  assert.equal(rows[2]?.messages.some((message) => message.role === "tool"), true);
+  assert.equal(
+    rows[2]?.messages.some((message) => message.role === "tool"),
+    true,
+  );
 });
 
 test("SWE-smith message helpers preserve transcript text", () => {
@@ -794,14 +792,25 @@ test("SWE-smith rows can become replayable session bundles", () => {
   assert.ok(bundle.source?.capture?.notes?.includes("split=tool"));
   assert.equal(replayed.views.at(-1)?.nowInteractionId, bundle.outcomes.finalNowInteractionId);
   assert.equal(replayed.views.at(-1)?.nextInteractionIds.length, bundle.outcomes.finalNextCount);
-  assert.equal(replayed.views.at(-1)?.ambientInteractionIds.length, bundle.outcomes.finalAmbientCount);
+  assert.equal(
+    replayed.views.at(-1)?.ambientInteractionIds.length,
+    bundle.outcomes.finalAmbientCount,
+  );
 });
 
 test("SWE-smith imported bundle paths stay under the dataset and split tree", () => {
   const bundle = createSessionBundleFromSweSmithRow(SAMPLE_ROW);
-  const filePath = defaultImportedTrajectoryBundlePath(bundle, "swe-smith", "tool", "/tmp/aperture-imports");
+  const filePath = defaultImportedTrajectoryBundlePath(
+    bundle,
+    "swe-smith",
+    "tool",
+    "/tmp/aperture-imports",
+  );
 
-  assert.match(filePath, /\/tmp\/aperture-imports\/swe-smith\/tool\/public-swe-smith-example-repo-123-run-42\.json$/);
+  assert.match(
+    filePath,
+    /\/tmp\/aperture-imports\/swe-smith\/tool\/public-swe-smith-example-repo-123-run-42\.json$/,
+  );
 });
 
 test("DataClaw rows first map into canonical imported sessions", () => {
@@ -841,6 +850,25 @@ test("public trajectory source summaries preserve valid structured output", () =
   assert.match(parsed.output, /\.\.\.$/);
 });
 
+test("public trajectory source summaries preserve plain-text tails", () => {
+  const summary = [
+    "Runtime loader emitted source context.",
+    "const loader = true; ".repeat(100),
+    "Error: Cannot find module './packages/tui/src/keys.js'",
+    "Command exited with code 1",
+  ].join("\n");
+  const clipped = clipSourceEventSummary(summary, 300);
+  const defaultClipped = clipSourceEventSummary(summary);
+
+  assert.ok(clipped.length <= 300);
+  assert.match(clipped, /^Runtime loader emitted source context/);
+  assert.match(clipped, / \.\.\. /);
+  assert.match(clipped, /Cannot find module '\.\/packages\/tui\/src\/keys\.js'/);
+  assert.match(clipped, /Command exited with code 1$/);
+  assert.ok(defaultClipped.length <= 1200);
+  assert.match(defaultClipped, /Command exited with code 1$/);
+});
+
 test("DataClaw source-event summaries keep structured tool output parseable", () => {
   const longOutput = `#include <stdio.h>\n${"int value = 1;\n".repeat(900)}`;
   const row = createDataclawToolStatusRow({
@@ -872,6 +900,10 @@ test("DataClaw source-event summaries keep structured tool output parseable", ()
   assert.equal(parsed.wall_time, "0.0500 seconds");
   assert.match(parsed.output, /^#include <stdio\.h>/);
   assert.match(parsed.output, /\.\.\.$/);
+  assert.equal(toolResult?.sourceEvent?.metadata?.truncated, true);
+  assert.equal(toolResult?.sourceEvent?.semanticHints?.confidence, "low");
+  assert.equal(toolResult?.sourceEvent?.semanticHints?.consequence, undefined);
+  assert.deepEqual(toolResult?.sourceEvent?.semanticHints?.factors, ["source evidence truncated"]);
 });
 
 test("DataClaw rows map into replay scenarios with user, tool, and follow-up steps", () => {
@@ -905,7 +937,10 @@ test("DataClaw rows can become replayable session bundles", () => {
   assert.ok(bundle.source?.capture?.notes?.includes("project=demo-project"));
   assert.equal(replayed.views.at(-1)?.nowInteractionId, bundle.outcomes.finalNowInteractionId);
   assert.equal(replayed.views.at(-1)?.nextInteractionIds.length, bundle.outcomes.finalNextCount);
-  assert.equal(replayed.views.at(-1)?.ambientInteractionIds.length, bundle.outcomes.finalAmbientCount);
+  assert.equal(
+    replayed.views.at(-1)?.ambientInteractionIds.length,
+    bundle.outcomes.finalAmbientCount,
+  );
 });
 
 test("DataClaw Glob calls normalize to search through import, replay, and semantic capture", () => {
@@ -950,9 +985,7 @@ test("DataClaw Glob calls normalize to search through import, replay, and semant
     true,
   );
   assert.equal(
-    bundle.semanticSnapshots.some(
-      (snapshot) => snapshot.interpretation.toolFamily === "search",
-    ),
+    bundle.semanticSnapshots.some((snapshot) => snapshot.interpretation.toolFamily === "search"),
     true,
   );
   assert.equal(
@@ -1174,7 +1207,12 @@ test("DataClaw observational status conflicts require affirmative success eviden
 
 test("DataClaw imported bundle paths stay under the dataset and split tree", () => {
   const bundle = createSessionBundleFromDataclawRow(SAMPLE_DATACLAW_ROW);
-  const filePath = defaultImportedTrajectoryBundlePath(bundle, "dataclaw", "train", "/tmp/aperture-imports");
+  const filePath = defaultImportedTrajectoryBundlePath(
+    bundle,
+    "dataclaw",
+    "train",
+    "/tmp/aperture-imports",
+  );
 
   assert.match(
     filePath,
@@ -1186,8 +1224,14 @@ test("OpenAgentSessions rows first map into canonical imported sessions", () => 
   const session = createImportedSessionFromOpenAgentSessionsRow(SAMPLE_OPEN_AGENT_SESSIONS_ROW);
   const finalEvent = session.entries.at(-1)?.sourceEvent;
 
-  assert.equal(session.sessionId, "public:open-agent-sessions:934689fd-f66b-44aa-a945-28b47d1a6cb9");
-  assert.match(session.title, /^Let's make an extension that redacts out personal identifying information and shares the sess\.\.\.$/);
+  assert.equal(
+    session.sessionId,
+    "public:open-agent-sessions:934689fd-f66b-44aa-a945-28b47d1a6cb9",
+  );
+  assert.match(
+    session.title,
+    /^Let's make an extension that redacts out personal identifying information and shares the sess\.\.\.$/,
+  );
   assert.equal(session.source?.id, "open-agent-sessions:approved");
   assert.equal(session.source?.license, "CC0-1.0");
   assert.equal(session.entries[0]?.sourceEvent?.type, "task.started");
@@ -1196,7 +1240,10 @@ test("OpenAgentSessions rows first map into canonical imported sessions", () => 
   assert.equal(session.entries[3]?.kind, "tool_result");
   assert.equal(session.entries[3]?.toolFamily, "bash");
   assert.equal(finalEvent?.type, "task.updated");
-  assert.equal(finalEvent?.type === "task.updated" ? finalEvent.title : undefined, "user follow-up");
+  assert.equal(
+    finalEvent?.type === "task.updated" ? finalEvent.title : undefined,
+    "user follow-up",
+  );
 });
 
 test("OpenAgentSessions rows map into replay scenarios with user, tool, and follow-up steps", () => {
@@ -1208,16 +1255,28 @@ test("OpenAgentSessions rows map into replay scenarios with user, tool, and foll
   const finalStep = scenario.steps.at(-1);
 
   assert.equal(firstStep?.kind, "publishSource");
-  assert.equal(firstStep?.kind === "publishSource" ? firstStep.event.type : undefined, "task.started");
-  assert.equal(secondStep?.kind === "publishSource" ? secondStep.event.type : undefined, "task.updated");
-  assert.equal(thirdStep?.kind === "publishSource" ? thirdStep.event.type : undefined, "task.updated");
+  assert.equal(
+    firstStep?.kind === "publishSource" ? firstStep.event.type : undefined,
+    "task.started",
+  );
+  assert.equal(
+    secondStep?.kind === "publishSource" ? secondStep.event.type : undefined,
+    "task.updated",
+  );
+  assert.equal(
+    thirdStep?.kind === "publishSource" ? thirdStep.event.type : undefined,
+    "task.updated",
+  );
   assert.equal(
     thirdStep?.kind === "publishSource" && thirdStep.event.type === "task.updated"
       ? thirdStep.event.toolFamily
       : undefined,
     "bash",
   );
-  assert.equal(fourthStep?.kind === "publishSource" ? fourthStep.event.type : undefined, "task.updated");
+  assert.equal(
+    fourthStep?.kind === "publishSource" ? fourthStep.event.type : undefined,
+    "task.updated",
+  );
   assert.equal(
     fourthStep?.kind === "publishSource" && fourthStep.event.type === "task.updated"
       ? fourthStep.event.toolFamily
@@ -1240,12 +1299,20 @@ test("OpenAgentSessions rows can become replayable session bundles", () => {
   assert.ok(bundle.source?.capture?.notes?.includes("dataset=open-agent-sessions"));
   assert.equal(replayed.views.at(-1)?.nowInteractionId, bundle.outcomes.finalNowInteractionId);
   assert.equal(replayed.views.at(-1)?.nextInteractionIds.length, bundle.outcomes.finalNextCount);
-  assert.equal(replayed.views.at(-1)?.ambientInteractionIds.length, bundle.outcomes.finalAmbientCount);
+  assert.equal(
+    replayed.views.at(-1)?.ambientInteractionIds.length,
+    bundle.outcomes.finalAmbientCount,
+  );
 });
 
 test("OpenAgentSessions imported bundle paths stay under the dataset and split tree", () => {
   const bundle = createSessionBundleFromOpenAgentSessionsRow(SAMPLE_OPEN_AGENT_SESSIONS_ROW);
-  const filePath = defaultImportedTrajectoryBundlePath(bundle, "open-agent-sessions", "approved", "/tmp/aperture-imports");
+  const filePath = defaultImportedTrajectoryBundlePath(
+    bundle,
+    "open-agent-sessions",
+    "approved",
+    "/tmp/aperture-imports",
+  );
 
   assert.match(
     filePath,
@@ -1257,7 +1324,10 @@ test("Trace Commons rows first map into canonical imported sessions", () => {
   const session = createImportedSessionFromTraceCommonsRow(SAMPLE_TRACE_COMMONS_ROW);
   const finalEvent = session.entries.at(-1)?.sourceEvent;
 
-  assert.equal(session.sessionId, "public:trace-commons:claude_code:07b57159-218e-4330-a64e-0ec4b4355056");
+  assert.equal(
+    session.sessionId,
+    "public:trace-commons:claude_code:07b57159-218e-4330-a64e-0ec4b4355056",
+  );
   assert.equal(session.source?.id, "huggingface:trace-commons-agent-traces");
   assert.equal(session.source?.redacted, true);
   assert.equal(session.entries[0]?.kind, "boundary");
@@ -1267,7 +1337,10 @@ test("Trace Commons rows first map into canonical imported sessions", () => {
   assert.equal(session.entries[4]?.kind, "tool_result");
   assert.equal(session.entries[4]?.toolFamily, "bash");
   assert.equal(finalEvent?.type, "task.updated");
-  assert.equal(finalEvent?.type === "task.updated" ? finalEvent.title : undefined, "user follow-up");
+  assert.equal(
+    finalEvent?.type === "task.updated" ? finalEvent.title : undefined,
+    "user follow-up",
+  );
 });
 
 test("Trace Commons rows map into replay scenarios with user, assistant, tool, and follow-up steps", () => {
@@ -1298,18 +1371,38 @@ test("Trace Commons rows can become replayable session bundles", () => {
   assert.equal(bundle.source?.id, "huggingface:trace-commons-agent-traces");
   assert.ok(bundle.source?.capture?.notes?.includes("dataset=trace-commons/agent-traces"));
   assert.ok(bundle.source?.capture?.notes?.includes("harness=claude_code"));
-  assert.ok(bundle.source?.capture?.notes?.includes("source_identity=sessions_claude_code_07b57159-218e-4330-a64e-0ec4b4355056.jsonl"));
-  assert.ok(bundle.source?.capture?.notes?.includes("privacy=public_anonymized_best_effort_review_required"));
-  assert.ok(bundle.source?.capture?.notes?.includes("license_scope=dataset_compilation_cc_by_4.0_embedded_content_may_differ"));
+  assert.ok(
+    bundle.source?.capture?.notes?.includes(
+      "source_identity=sessions_claude_code_07b57159-218e-4330-a64e-0ec4b4355056.jsonl",
+    ),
+  );
+  assert.ok(
+    bundle.source?.capture?.notes?.includes(
+      "privacy=public_anonymized_best_effort_review_required",
+    ),
+  );
+  assert.ok(
+    bundle.source?.capture?.notes?.includes(
+      "license_scope=dataset_compilation_cc_by_4.0_embedded_content_may_differ",
+    ),
+  );
   assert.ok(bundle.source?.capture?.notes?.some((note) => note.startsWith("row_digest_sha256=")));
   assert.equal(replayed.views.at(-1)?.nowInteractionId, bundle.outcomes.finalNowInteractionId);
   assert.equal(replayed.views.at(-1)?.nextInteractionIds.length, bundle.outcomes.finalNextCount);
-  assert.equal(replayed.views.at(-1)?.ambientInteractionIds.length, bundle.outcomes.finalAmbientCount);
+  assert.equal(
+    replayed.views.at(-1)?.ambientInteractionIds.length,
+    bundle.outcomes.finalAmbientCount,
+  );
 });
 
 test("Trace Commons imported bundle paths stay under the dataset and split tree", () => {
   const bundle = createSessionBundleFromTraceCommonsRow(SAMPLE_TRACE_COMMONS_ROW);
-  const filePath = defaultImportedTrajectoryBundlePath(bundle, "trace-commons", "train", "/tmp/aperture-imports");
+  const filePath = defaultImportedTrajectoryBundlePath(
+    bundle,
+    "trace-commons",
+    "train",
+    "/tmp/aperture-imports",
+  );
 
   assert.match(
     filePath,
@@ -1321,11 +1414,14 @@ test("Trace Commons replay timestamps stay monotonic when messages omit timestam
   const row: TraceCommonsRow = {
     ...SAMPLE_TRACE_COMMONS_ROW,
     session_id: "trace-no-message-timestamps",
-    messages: SAMPLE_TRACE_COMMONS_ROW.messages.map(({ timestamp: _timestamp, ...message }) => message),
+    messages: SAMPLE_TRACE_COMMONS_ROW.messages.map(
+      ({ timestamp: _timestamp, ...message }) => message,
+    ),
   };
   const scenario = createReplayScenarioFromTraceCommonsRow(row);
   const timestamps = scenario.steps.map((step) =>
-    step.kind === "publishSource" ? step.event.timestamp : "");
+    step.kind === "publishSource" ? step.event.timestamp : "",
+  );
   const uniqueTimestamps = new Set(timestamps);
 
   assert.equal(timestamps.length, uniqueTimestamps.size);
@@ -1366,11 +1462,8 @@ test("OpenAgentSessions rows merge homepage-approved gists with the bulk URL fee
   const originalFetch = globalThis.fetch;
 
   globalThis.fetch = (async (input: string | URL | Request) => {
-    const url = typeof input === "string"
-      ? input
-      : input instanceof URL
-        ? input.toString()
-        : input.url;
+    const url =
+      typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
 
     if (url === OPEN_AGENT_SESSIONS_URLS_URL) {
       return new Response(`https://gist.github.com/lukaskawerau/${gistIds[0]}\n`, { status: 200 });
@@ -1390,14 +1483,17 @@ test("OpenAgentSessions rows merge homepage-approved gists with the bulk URL fee
     const gistMatch = url.match(/https:\/\/api\.github\.com\/gists\/([a-f0-9]+)/i);
     if (gistMatch?.[1]) {
       const gistId = gistMatch[1];
-      return new Response(JSON.stringify({
-        owner: { login: "lukaskawerau" },
-        files: {
-          [`2026-03-28_${gistId}.redacted.jsonl`]: {
-            raw_url: `https://example.invalid/${gistId}.jsonl`,
+      return new Response(
+        JSON.stringify({
+          owner: { login: "lukaskawerau" },
+          files: {
+            [`2026-03-28_${gistId}.redacted.jsonl`]: {
+              raw_url: `https://example.invalid/${gistId}.jsonl`,
+            },
           },
-        },
-      }), { status: 200 });
+        }),
+        { status: 200 },
+      );
     }
 
     const jsonlMatch = url.match(/https:\/\/example\.invalid\/([a-f0-9]+)\.jsonl/i);
@@ -1411,8 +1507,14 @@ test("OpenAgentSessions rows merge homepage-approved gists with the bulk URL fee
 
   try {
     const rows = await fetchOpenAgentSessionsRows({ limit: 3, dryRun: true });
-    assert.deepEqual(rows.map((row) => row.gist_id), gistIds);
-    assert.deepEqual(rows.map((row) => row.session_id), gistIds.map((gistId) => `session-${gistId}`));
+    assert.deepEqual(
+      rows.map((row) => row.gist_id),
+      gistIds,
+    );
+    assert.deepEqual(
+      rows.map((row) => row.session_id),
+      gistIds.map((gistId) => `session-${gistId}`),
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -1434,7 +1536,7 @@ test("OpenAgentSessions bashExecution messages import as bash observations", () 
           output: "Authentication complete.",
           exitCode: 0,
           cancelled: false,
-          truncated: false,
+          truncated: true,
           timestamp: 1774696571303,
         },
       },
@@ -1451,12 +1553,53 @@ test("OpenAgentSessions bashExecution messages import as bash observations", () 
   assert.equal(bashStep?.event.status, "running");
   assert.equal(bashStep?.event.title, "bash observation");
   assert.match(bashStep?.event.summary ?? "", /gh auth refresh/);
+  assert.equal(bashStep?.event.metadata?.truncated, true);
+  assert.equal(bashStep?.event.semanticHints?.confidence, "low");
+  assert.equal(bashStep?.event.semanticHints?.consequence, undefined);
+  assert.deepEqual(bashStep?.event.semanticHints?.factors, ["source evidence truncated"]);
   assert.equal(
     userFollowupStep?.kind === "publishSource" && userFollowupStep.event.type === "task.updated"
       ? userFollowupStep.event.title
       : undefined,
     "user follow-up",
   );
+});
+
+test("OpenAgentSessions generated clipping is promoted to source-quality hints", () => {
+  const row: OpenAgentSessionsRow = {
+    ...SAMPLE_OPEN_AGENT_SESSIONS_ROW,
+    session_id: "bfcb85f5-4b9f-40e3-9703-8dcd8b21cf99",
+    events: [
+      ...SAMPLE_OPEN_AGENT_SESSIONS_ROW.events,
+      {
+        type: "message",
+        id: "bash-exec-generated-clipping",
+        timestamp: "2026-03-28T11:16:11.303Z",
+        message: {
+          role: "bashExecution",
+          command: "pnpm test",
+          output: `${"setup trace ".repeat(200)}\nError: Cannot find module './src/index.js'\nCommand exited with code 1`,
+          exitCode: 1,
+          cancelled: false,
+          truncated: false,
+          timestamp: 1774696571303,
+        },
+      },
+    ],
+  };
+
+  const scenario = createReplayScenarioFromOpenAgentSessionsRow(row);
+  const bashStep = scenario.steps.at(-1);
+
+  assert.equal(bashStep?.kind, "publishSource");
+  assert.equal(bashStep?.event.type, "task.updated");
+  assert.equal(bashStep?.event.status, "failed");
+  assert.equal(bashStep?.event.toolFamily, "bash");
+  assert.match(bashStep?.event.summary ?? "", / \.\.\. /);
+  assert.equal(bashStep?.event.metadata?.truncated, true);
+  assert.equal(bashStep?.event.semanticHints?.confidence, "low");
+  assert.equal(bashStep?.event.semanticHints?.consequence, undefined);
+  assert.deepEqual(bashStep?.event.semanticHints?.factors, ["source evidence truncated"]);
 });
 
 test("OpenAgentSessions bundle paths stay unique when session ids are redacted", () => {
@@ -1471,8 +1614,18 @@ test("OpenAgentSessions bundle paths stay unique when session ids are redacted",
     session_id: "[REDACTED_UUID]",
   });
 
-  const firstPath = defaultImportedTrajectoryBundlePath(firstBundle, "open-agent-sessions", "approved", "/tmp/aperture-imports");
-  const secondPath = defaultImportedTrajectoryBundlePath(secondBundle, "open-agent-sessions", "approved", "/tmp/aperture-imports");
+  const firstPath = defaultImportedTrajectoryBundlePath(
+    firstBundle,
+    "open-agent-sessions",
+    "approved",
+    "/tmp/aperture-imports",
+  );
+  const secondPath = defaultImportedTrajectoryBundlePath(
+    secondBundle,
+    "open-agent-sessions",
+    "approved",
+    "/tmp/aperture-imports",
+  );
 
   assert.notEqual(firstBundle.sessionId, secondBundle.sessionId);
   assert.notEqual(firstPath, secondPath);
@@ -1500,7 +1653,7 @@ test("successful edit observations with error-looking filenames stay running", (
           {
             function: {
               name: "edit",
-              arguments: "{\"path\":\"/testbed/reproduce_error.py\"}",
+              arguments: '{"path":"/testbed/reproduce_error.py"}',
             },
           },
         ],
@@ -1508,13 +1661,23 @@ test("successful edit observations with error-looking filenames stay running", (
       },
       {
         role: "tool",
-        content: [{ type: "text", text: "OBSERVATION: File created successfully at: /testbed/reproduce_error.py" }],
+        content: [
+          {
+            type: "text",
+            text: "OBSERVATION: File created successfully at: /testbed/reproduce_error.py",
+          },
+        ],
         agent: "main",
         message_type: "observation",
       },
       {
         role: "tool",
-        content: [{ type: "text", text: "OBSERVATION: The file /testbed/reproduce_error.py has been edited." }],
+        content: [
+          {
+            type: "text",
+            text: "OBSERVATION: The file /testbed/reproduce_error.py has been edited.",
+          },
+        ],
         agent: "main",
         message_type: "observation",
       },
@@ -1556,7 +1719,7 @@ test("readback and truncation observations stay running instead of failed", () =
           {
             function: {
               name: "edit",
-              arguments: "{\"path\":\"/testbed/src/apispec/core.py\"}",
+              arguments: '{"path":"/testbed/src/apispec/core.py"}',
             },
           },
         ],
@@ -1564,13 +1727,23 @@ test("readback and truncation observations stay running instead of failed", () =
       },
       {
         role: "tool",
-        content: [{ type: "text", text: "OBSERVATION: Here's the result of running `cat -n` on /testbed/src/apispec/core.py: 492 def path(...)" }],
+        content: [
+          {
+            type: "text",
+            text: "OBSERVATION: Here's the result of running `cat -n` on /testbed/src/apispec/core.py: 492 def path(...)",
+          },
+        ],
         agent: "main",
         message_type: "observation",
       },
       {
         role: "tool",
-        content: [{ type: "text", text: "OBSERVATION: This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next." }],
+        content: [
+          {
+            type: "text",
+            text: "OBSERVATION: This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.",
+          },
+        ],
         agent: "main",
         message_type: "observation",
       },
@@ -1610,7 +1783,7 @@ test("true traceback observations still import as failed", () => {
           {
             function: {
               name: "bash",
-              arguments: "{\"command\":\"python /testbed/repro.py\"}",
+              arguments: '{"command":"python /testbed/repro.py"}',
             },
           },
         ],
@@ -1618,7 +1791,9 @@ test("true traceback observations still import as failed", () => {
       },
       {
         role: "tool",
-        content: [{ type: "text", text: "Traceback (most recent call last): ValueError: broken input" }],
+        content: [
+          { type: "text", text: "Traceback (most recent call last): ValueError: broken input" },
+        ],
         agent: "main",
         message_type: "observation",
       },

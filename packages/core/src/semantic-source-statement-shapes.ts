@@ -35,8 +35,8 @@ function looksLikeStructuralSourceStatement(body: string): boolean {
 function looksLikeShellSourceStatement(body: string): boolean {
   return [
     /^set\s+-euo\s+pipefail\b/,
-    /^(?:export\s+|readonly\s+|local\s+)?[a-z_$][a-z0-9_$]*=(?=\S)(?=.*(?:["'`$(){}]|\S+$)).+$/,
-    /^[a-z_$][a-z0-9_$]*\s*\(\)\s*\{$/,
+    /^(?:export\s+|readonly\s+|local\s+)?[A-Za-z_$][A-Za-z0-9_$]*=(?=\S)(?=.*(?:["'`$(){}]|\S+$)).+$/,
+    /^[A-Za-z_$][A-Za-z0-9_$]*\s*\(\)\s*\{$/,
   ].some((pattern) => pattern.test(body));
 }
 

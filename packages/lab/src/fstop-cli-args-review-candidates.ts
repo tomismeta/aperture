@@ -12,6 +12,7 @@ export type ReviewCandidateCliOptions = JsonOptions & {
   markdownOutputPath?: string;
   maxCandidatesPerKind: number;
   maxCandidatesPerSessionPerKind: number;
+  replayCurrent: boolean;
 };
 
 export function parseReviewCandidateArgs(argv: string[]): ReviewCandidateCliOptions {
@@ -22,6 +23,7 @@ export function parseReviewCandidateArgs(argv: string[]): ReviewCandidateCliOpti
   let markdownOutputPath: string | undefined;
   let maxCandidatesPerKind = 30;
   let maxCandidatesPerSessionPerKind = 3;
+  let replayCurrent = false;
   let json = false;
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -47,6 +49,9 @@ export function parseReviewCandidateArgs(argv: string[]): ReviewCandidateCliOpti
         break;
       case "--limit-per-session-kind":
         maxCandidatesPerSessionPerKind = readInteger(argv[++index], "--limit-per-session-kind");
+        break;
+      case "--replay-current":
+        replayCurrent = true;
         break;
       case "--json":
         json = true;
@@ -77,6 +82,7 @@ export function parseReviewCandidateArgs(argv: string[]): ReviewCandidateCliOpti
     ...(markdownOutputPath ? { markdownOutputPath } : {}),
     maxCandidatesPerKind,
     maxCandidatesPerSessionPerKind,
+    replayCurrent,
     json,
   };
 }

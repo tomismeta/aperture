@@ -52,10 +52,13 @@
         "plannedLane": "ambient",
         "resultLane": "ambient",
         "semanticConfidence": "high",
+        "ambiguityReason": null,
+        "ambiguityResolution": null,
         "decisionRecordOperatorPresence": "present",
         "decisionRecordReasonCodesInclude": [
           "route:ambient",
           "lane:ambient",
+          "criterion:peripheral_resolution:ambient",
           "policy:peripheral_only"
         ],
         "semanticInfluenceIncludes": [

@@ -1,0 +1,90 @@
+{
+  "id": "golden:kernel-corpus:no-matching-command-work-plans-next-without-ambiguity",
+  "title": "No-matching command work plans next without ambiguity",
+  "description": "A failed command event whose payload reports that no matching work was found should remain failure evidence without being escalated as a high-consequence diagnostic.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "semantic_normalization",
+    "status_noise",
+    "source_fact_authority",
+    "command_exit_shape"
+  ],
+  "semanticFamilies": ["consequence_overread"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:task:corpus:no-matching-command-work:status",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "no-matching command work",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "toolFamily": "bash",
+        "consequence": "medium",
+        "confidence": "high",
+        "whyNowIncludes": "failed and should be reviewed",
+        "factorsInclude": ["failed"],
+        "reasonsInclude": ["task status explicitly indicates failure"],
+        "provenanceIncludes": {
+          "consequence": "inferred"
+        },
+        "ontology": {
+          "ask": "status",
+          "activity": "failure",
+          "consequence": "medium",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "explicit"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "no-matching command work",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "queue",
+        "decisionRecordRoute": "queue",
+        "plannedLane": "next",
+        "resultLane": "now",
+        "semanticConfidence": "high",
+        "ambiguityReason": null,
+        "ambiguityResolution": null,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:queue",
+          "lane:next",
+          "criterion:peripheral_resolution:queue",
+          "policy:minimum_lane:next"
+        ],
+        "semanticInfluenceIncludes": [
+          "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics"
+        ],
+        "semanticImpactDecisionBearingIncludes": ["activity (canonical)", "tool (bounded)"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "no-matching command work",
+      "event": {
+        "id": "evt:corpus:no-matching-command-work",
+        "type": "task.updated",
+        "taskId": "task:corpus:no-matching-command-work",
+        "timestamp": "2026-04-18T15:14:45.000Z",
+        "source": { "id": "public-corpus", "kind": "trajectory" },
+        "title": "bash failure",
+        "summary": "No tests found, exiting with code 5",
+        "status": "failed",
+        "toolFamily": "bash"
+      }
+    }
+  ]
+}

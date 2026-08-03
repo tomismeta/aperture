@@ -1,7 +1,11 @@
 import type { ApertureEvent } from "./events.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
-import { readRoutineObservationalStatusConflictEvidence } from "./semantic-evidence.js";
-import { projectAttentionOntologyDiagnosticWithStatusConflictEvidence } from "./semantic-ontology.js";
+import {
+  projectObservationJudgmentContract,
+  type ObservationJudgmentContract,
+} from "./judgment-observation-contract.js";
+import { buildObservationStatusConflictEvidenceFromCore } from "./judgment-observation-status-conflict.js";
+import { projectAttentionOntologyDiagnosticWithStatusConflictEvidence } from "./attention-ontology-projector.js";
 import type { SemanticConfidence } from "./semantic-types.js";
 import type {
   AttentionJudgmentInput,
@@ -9,6 +13,11 @@ import type {
   ObservationalStatusConflictEvidence,
   SemanticEvidenceStrength,
 } from "./judgment-input-types.js";
+import {
+  normalizeTaskFailureObservationFromCore,
+  readTaskFailureObservationCoreFromEvent,
+} from "./task-failure-observation-reader.js";
+import type { NormalizedObservation } from "./normalized-observation.js";
 import type {
   AttentionOntologyAuthority,
   AttentionOntologyDiagnostic,
@@ -16,6 +25,7 @@ import type {
 
 export type {
   AttentionJudgmentInput,
+  NormalizedObservation,
   CandidateSemanticEvidence,
   SemanticEvidenceStrength,
 } from "./judgment-input-types.js";
@@ -48,27 +58,45 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
   }
 
   const abstained = event.semantic.abstained === true;
-  const observationalStatusConflict = readRoutineObservationalStatusConflictEvidence(
+  const failureObservationCore =
+    event.type === "task.updated" && event.status === "failed"
+      ? readTaskFailureObservationCoreFromEvent(event)
+      : null;
+  const observationalStatusConflict = buildObservationStatusConflictEvidenceFromCore({
     event,
-    event.semantic,
+    core: failureObservationCore,
+    interpretation: event.semantic,
     abstained,
-  );
+  });
   const ontology = projectAttentionOntologyDiagnosticWithStatusConflictEvidence(
     event,
     event.semantic,
     observationalStatusConflict,
   );
+  const blockedLikeStatus =
+    event.type === "task.updated" && ontology.blocking === "blocking" && event.status !== "blocked";
+  const observation =
+    failureObservationCore !== null
+      ? normalizeTaskFailureObservationFromCore({
+          event,
+          core: failureObservationCore,
+          ontology,
+          abstained,
+          interpretation: event.semantic,
+        })
+      : null;
 
   return {
     ontology,
     semanticEvidence: {
       confidence: ontology.confidence,
       source: ontology.source,
-      strength: readSemanticEvidenceStrengthFromParts(
-        ontology.confidence,
-        ontology.source,
+      strength: deriveCompiledSemanticEvidenceStrength({
+        ontology,
+        observation,
+        blockedLikeStatus,
         abstained,
-      ),
+      }),
       abstained,
     },
     ...(event.semantic.relationHints.length > 0
@@ -79,16 +107,9 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
           },
         }
       : {}),
-    blockedLikeStatus:
-      event.type === "task.updated" &&
-      ontology.blocking === "blocking" &&
-      event.status !== "blocked",
-    ...(observationalStatusConflict !== null
-      ? {
-          routineObservationalStatusConflict: true,
-          observationalStatusConflict,
-        }
-      : {}),
+    ...(observation !== null ? { observation } : {}),
+    blockedLikeStatus,
+    ...(observationalStatusConflict !== null ? { observationalStatusConflict } : {}),
   };
 }
 
@@ -110,6 +131,18 @@ export function readCandidateSemanticRelationEvidence(
   return candidate.judgmentInput.relationEvidence ?? null;
 }
 
+export function readCandidateObservation(
+  candidate: AttentionCandidate,
+): NormalizedObservation | null {
+  return candidate.judgmentInput.observation ?? null;
+}
+
+export function readCandidateObservationJudgmentContract(
+  candidate: AttentionCandidate,
+): ObservationJudgmentContract | null {
+  return readJudgmentInputObservationContract(candidate.judgmentInput);
+}
+
 export function readCandidateObservationalStatusConflictEvidence(
   candidate: AttentionCandidate,
 ): ObservationalStatusConflictEvidence | null {
@@ -126,12 +159,6 @@ export function readCandidateAttentionOntology(
   candidate: AttentionCandidate,
 ): AttentionOntologyDiagnostic | null {
   return candidate.judgmentInput.ontology ?? null;
-}
-
-export function readCandidateSemanticOntology(
-  candidate: AttentionCandidate,
-): AttentionOntologyDiagnostic | null {
-  return readCandidateAttentionOntology(candidate);
 }
 
 export function readCandidateSemanticConfidence(
@@ -201,19 +228,26 @@ export function hasActionableBlockedLikeStatusJudgmentInput(
   return evidence !== undefined && evidence.confidence !== "low" && !evidence.abstained;
 }
 
-export function hasRoutineObservationalStatusConflictSemantics(
-  candidate: AttentionCandidate,
-): boolean {
-  return hasRoutineObservationalStatusConflictJudgmentInput(candidate.judgmentInput);
+export function hasObservationalStatusConflictSemantics(candidate: AttentionCandidate): boolean {
+  return hasObservationalStatusConflictJudgmentInput(candidate.judgmentInput);
 }
 
-export function hasRoutineObservationalStatusConflictJudgmentInput(
+export function hasOutcomeOnlyFailureStatusJudgmentInput(
   judgmentInput: AttentionJudgmentInput,
 ): boolean {
-  return (
-    judgmentInput.routineObservationalStatusConflict === true ||
-    judgmentInput.observationalStatusConflict !== undefined
-  );
+  return readJudgmentInputObservationContract(judgmentInput)?.outcomeOnlyFailureStatus === true;
+}
+
+export function hasLimitedFailureStatusJudgmentInput(
+  judgmentInput: AttentionJudgmentInput,
+): boolean {
+  return readJudgmentInputObservationContract(judgmentInput)?.limitedFailureStatus === true;
+}
+
+export function hasObservationalStatusConflictJudgmentInput(
+  judgmentInput: AttentionJudgmentInput,
+): boolean {
+  return judgmentInput.observationalStatusConflict !== undefined;
 }
 
 export function resolvePeripheralResolutionFloor(
@@ -244,6 +278,40 @@ function readSemanticEvidenceStrengthFromParts(
     case "high":
       return source === "inferred" ? "qualified" : "strong";
   }
+}
+
+function deriveCompiledSemanticEvidenceStrength(input: {
+  ontology: AttentionOntologyDiagnostic;
+  observation: NormalizedObservation | null;
+  blockedLikeStatus: boolean;
+  abstained: boolean;
+}): SemanticEvidenceStrength {
+  const observationContract =
+    input.observation !== null ? projectObservationJudgmentContract(input.observation) : null;
+  if (
+    observationContract !== null &&
+    observationContract.statusEvidence === "limited_failure" &&
+    observationContract.recoveryPosture === "evidence_required" &&
+    observationContract.baselineConsequence === "medium" &&
+    input.ontology.consequence === observationContract.baselineConsequence &&
+    !input.blockedLikeStatus
+  ) {
+    return "weak";
+  }
+
+  return readSemanticEvidenceStrengthFromParts(
+    input.ontology.confidence,
+    input.ontology.source,
+    input.abstained,
+  );
+}
+
+function readJudgmentInputObservationContract(
+  judgmentInput: AttentionJudgmentInput,
+): ObservationJudgmentContract | null {
+  return judgmentInput.observation !== undefined
+    ? projectObservationJudgmentContract(judgmentInput.observation)
+    : null;
 }
 
 function readSemanticRelationEvidenceSource(

@@ -22,6 +22,7 @@ import {
   trajectorySlug,
   validateImportedTrajectoryBundle,
 } from "./public-trajectories-shared.js";
+import { buildTaskUpdateSourceQualityFields } from "./public-trajectories-source-quality.js";
 import {
   DATACLAW_DATASET,
   DEFAULT_DATACLAW_SPLIT,
@@ -216,6 +217,10 @@ export function createImportedSessionFromDataclawRow(
       if (!toolResultText && toolResultStatus === "running") {
         continue;
       }
+      const sourceQuality = buildTaskUpdateSourceQualityFields({
+        summary: toolResultText ?? undefined,
+        status: toolResultStatus,
+      });
 
       entries.push({
         index: entries.length,
@@ -235,8 +240,8 @@ export function createImportedSessionFromDataclawRow(
           timestamp,
           source: eventSource,
           ...(toolFamily ? { toolFamily } : {}),
+          ...sourceQuality,
           title: buildObservationTitle(toolResultStatus, toolFamily),
-          ...(toolResultText ? { summary: clipSourceEventSummary(toolResultText) } : {}),
           status: toolResultStatus,
         },
       });

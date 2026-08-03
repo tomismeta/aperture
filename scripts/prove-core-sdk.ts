@@ -23,6 +23,10 @@ const examples: Example[] = [
     entrypoint: join(repoRoot, "examples", "core-attention-evaluator", "index.ts"),
   },
   {
+    name: "core-kernel-entrypoint",
+    entrypoint: join(repoRoot, "examples", "core-kernel-entrypoint", "index.ts"),
+  },
+  {
     name: "core-semantic-entrypoint",
     entrypoint: join(repoRoot, "examples", "core-semantic-entrypoint", "index.ts"),
   },
@@ -37,6 +41,19 @@ type CorePackageJson = {
   version: string;
   exports?: Record<string, unknown>;
 };
+
+type PublicEntrypoint = {
+  label: string;
+  specifier: string;
+};
+
+const publicEntrypoints: PublicEntrypoint[] = [
+  { label: "root", specifier: "@tomismeta/aperture-core" },
+  { label: "evaluator", specifier: "@tomismeta/aperture-core/evaluator" },
+  { label: "kernel", specifier: "@tomismeta/aperture-core/kernel" },
+  { label: "semantic", specifier: "@tomismeta/aperture-core/semantic" },
+  { label: "trace", specifier: "@tomismeta/aperture-core/trace" },
+];
 
 function run(
   command: string,
@@ -53,6 +70,36 @@ function run(
       npm_config_ignore_scripts: ignoreScripts ? "true" : "false",
     },
   });
+}
+
+function runExpectFailure(
+  command: string,
+  args: string[],
+  cwd: string,
+  expectedOutput: RegExp,
+): void {
+  try {
+    execFileSync(command, args, {
+      cwd,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        npm_config_ignore_scripts: "true",
+      },
+      encoding: "utf8",
+    });
+  } catch (error) {
+    const output =
+      error !== null && typeof error === "object"
+        ? `${"stdout" in error ? String(error.stdout ?? "") : ""}${
+            "stderr" in error ? String(error.stderr ?? "") : ""
+          }`
+        : "";
+    assert.match(output, expectedOutput);
+    return;
+  }
+
+  assert.fail(`${command} ${args.join(" ")} was expected to fail`);
 }
 
 function tarballName(pkg: CorePackageJson): string {
@@ -112,6 +159,16 @@ function assertTarballShape(entries: string[]): void {
     entries.includes("package/public-dist/semantic.js"),
     true,
     "tarball should include semantic entrypoint",
+  );
+  assert.equal(
+    entries.includes("package/public-dist/kernel.js"),
+    true,
+    "tarball should include kernel entrypoint",
+  );
+  assert.equal(
+    entries.includes("package/public-dist/kernel.d.ts"),
+    true,
+    "tarball should include kernel declarations",
   );
   assert.equal(
     entries.includes("package/public-dist/trace.js"),
@@ -190,6 +247,110 @@ function assertTarballShape(entries: string[]): void {
   );
 }
 
+function packageSlug(value: string): string {
+  return value.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+}
+
+async function writeTypecheckOnlyConsumer(
+  projectDir: string,
+  packageName: string,
+  tarballPath: string,
+): Promise<void> {
+  await mkdir(projectDir, { recursive: true });
+  await writeFile(
+    join(projectDir, "package.json"),
+    `${JSON.stringify(
+      {
+        name: packageName,
+        private: true,
+        type: "module",
+        dependencies: {
+          "@tomismeta/aperture-core": `file:${tarballPath}`,
+        },
+        devDependencies: {
+          "@types/node": "^24.1.0",
+          typescript: "^5.9.2",
+        },
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+  await writeFile(
+    join(projectDir, "pnpm-workspace.yaml"),
+    "packages:\n  - .\nautoInstallPeers: false\n",
+    "utf8",
+  );
+  await writeFile(
+    join(projectDir, "tsconfig.json"),
+    `${JSON.stringify(
+      {
+        compilerOptions: {
+          target: "ES2022",
+          module: "NodeNext",
+          moduleResolution: "NodeNext",
+          strict: true,
+          noEmit: true,
+          skipLibCheck: false,
+          types: ["node"],
+        },
+        include: ["index.ts"],
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+}
+
+async function assertPublicEntrypointsDoNotExport(
+  tempRoot: string,
+  tarballPath: string,
+  symbolName: string,
+): Promise<void> {
+  const symbolSlug = packageSlug(symbolName);
+  for (const entrypoint of publicEntrypoints) {
+    const projectName = `core-${symbolSlug}-negative-${entrypoint.label}`;
+    const projectDir = join(tempRoot, projectName);
+    await writeTypecheckOnlyConsumer(projectDir, projectName, tarballPath);
+    await writeFile(
+      join(projectDir, "index.ts"),
+      [
+        `import type { ${symbolName} as ForbiddenExport } from "${entrypoint.specifier}";`,
+        "void (0 as unknown as ForbiddenExport);",
+      ].join("\n"),
+      "utf8",
+    );
+
+    run("pnpm", ["install", "--prefer-offline"], projectDir, { ignoreScripts: false });
+    runExpectFailure("pnpm", ["exec", "tsc", "--noEmit"], projectDir, new RegExp(symbolName));
+  }
+}
+
+async function assertEntrypointDoesNotExport(
+  tempRoot: string,
+  tarballPath: string,
+  entrypoint: PublicEntrypoint,
+  symbolName: string,
+): Promise<void> {
+  const symbolSlug = packageSlug(symbolName);
+  const projectName = `core-${symbolSlug}-negative-${entrypoint.label}`;
+  const projectDir = join(tempRoot, projectName);
+  await writeTypecheckOnlyConsumer(projectDir, projectName, tarballPath);
+  await writeFile(
+    join(projectDir, "index.ts"),
+    [
+      `import type { ${symbolName} as ForbiddenExport } from "${entrypoint.specifier}";`,
+      "void (0 as unknown as ForbiddenExport);",
+    ].join("\n"),
+    "utf8",
+  );
+
+  run("pnpm", ["install", "--prefer-offline"], projectDir, { ignoreScripts: false });
+  runExpectFailure("pnpm", ["exec", "tsc", "--noEmit"], projectDir, new RegExp(symbolName));
+}
+
 async function main(): Promise<void> {
   const packageJson = JSON.parse(
     await readFile(join(coreDir, "package.json"), "utf8"),
@@ -210,6 +371,14 @@ async function main(): Promise<void> {
 
     const tarballPath = join(packDir, tarballName(packageJson));
     assertTarballShape(listTarballEntries(tarballPath));
+    const kernelDeclaration = execFileSync(
+      "tar",
+      ["-xOzf", tarballPath, "package/public-dist/kernel.d.ts"],
+      { cwd: repoRoot, stdio: ["ignore", "pipe", "inherit"], encoding: "utf8" },
+    );
+    assert.equal(kernelDeclaration.includes("observational-status-conflict"), false);
+    assert.equal(kernelDeclaration.includes("SourceEvent"), false);
+    assert.equal(kernelDeclaration.includes("EnrichedApertureEvent"), false);
 
     for (const example of examples) {
       const exampleDir = join(tempRoot, example.name);
@@ -266,6 +435,21 @@ async function main(): Promise<void> {
       run("pnpm", ["exec", "tsc", "--noEmit"], exampleDir);
       run("pnpm", ["exec", "tsx", "index.ts"], exampleDir);
     }
+
+    await assertPublicEntrypointsDoNotExport(tempRoot, tarballPath, "NormalizedObservation");
+    await assertPublicEntrypointsDoNotExport(tempRoot, tarballPath, "ObservationSemantics");
+    await assertEntrypointDoesNotExport(
+      tempRoot,
+      tarballPath,
+      { label: "kernel-source-event", specifier: "@tomismeta/aperture-core/kernel" },
+      "SourceEvent",
+    );
+    await assertEntrypointDoesNotExport(
+      tempRoot,
+      tarballPath,
+      { label: "kernel-enriched-event", specifier: "@tomismeta/aperture-core/kernel" },
+      "EnrichedApertureEvent",
+    );
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

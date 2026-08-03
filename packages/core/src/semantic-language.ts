@@ -1,6 +1,6 @@
 import type { AttentionActivityClass } from "./events.js";
 import type { AttentionConsequenceLevel } from "./frame.js";
-import type { SemanticIntentFrame } from "./semantic-types.js";
+import type { SemanticIntentFrame, SemanticRelationHint } from "./semantic-types.js";
 
 export function semanticIntentFrameForRequestKind(
   kind: "approval" | "choice" | "form",
@@ -65,6 +65,28 @@ export function semanticWhyNowForTaskStatus(
   }
 }
 
+export function semanticWhyNowForObservationalStatusConflict(
+  consequence: AttentionConsequenceLevel,
+): string | undefined {
+  switch (consequence) {
+    case "high":
+      return "A failed status carried high-consequence observation output that should be reviewed.";
+    case "medium":
+    case "low":
+      return undefined;
+  }
+}
+
+export function semanticWhyNowForRelationHints(
+  relationHints: readonly SemanticRelationHint[],
+): string | undefined {
+  if (relationHints.some((hint) => hint.kind === "resolves")) {
+    return "A related episode appears resolved and can update attention state.";
+  }
+
+  return undefined;
+}
+
 export function semanticReasonsForTaskStatus(
   status: "running" | "blocked" | "waiting" | "completed" | "failed",
   options?: { impliedAsk?: boolean; wasCancelled?: boolean },
@@ -94,4 +116,8 @@ export function semanticReasonsForLifecycle(type: "task_started" | "completion")
     case "completion":
       return ["task completion is an explicit lifecycle fact"];
   }
+}
+
+export function semanticReasonsForCompletedTaskUpdate(): string[] {
+  return ["task update status explicitly indicates completed work"];
 }

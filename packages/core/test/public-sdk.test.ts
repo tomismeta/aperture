@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 
 import * as sdk from "../src/index.js";
 import * as evaluatorSdk from "../src/evaluator.js";
+import * as kernelSdk from "../src/kernel.js";
 import * as semanticSdk from "../src/semantic.js";
 import * as traceSdk from "../src/trace.js";
 
@@ -50,6 +51,8 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.equal("readSemanticTextEvidence" in sdk, false);
   assert.equal("readTaskFailureSemanticEvidence" in sdk, false);
   assert.equal("readTaskFailureSemanticSignals" in sdk, false);
+  assert.equal("readCandidateObservation" in sdk, false);
+  assert.equal("NormalizedObservation" in sdk, false);
   assert.equal("readExplicitSemanticToolFamily" in sdk, false);
   assert.equal("hasSemanticRelationKind" in sdk, false);
   assert.equal("readSemanticRelationTarget" in sdk, false);
@@ -60,6 +63,8 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.equal("semanticWhyNowForRequestKind" in sdk, false);
   assert.equal("semanticWhyNowForTaskStatus" in sdk, false);
   assert.equal("interpretSourceEvent" in sdk, false);
+  assert.equal("semanticHintsForTruncatedSourceEvidence" in sdk, false);
+  assert.equal("TRUNCATED_SOURCE_EVIDENCE_FACTOR" in sdk, false);
   assert.equal("AttentionPolicy" in sdk, false);
   assert.equal("AttentionValue" in sdk, false);
   assert.equal("AttentionPlanner" in sdk, false);
@@ -94,6 +99,24 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.equal("readSemanticTextEvidence" in semanticSdk, false);
   assert.equal("readTaskFailureSemanticEvidence" in semanticSdk, false);
   assert.equal("readTaskFailureSemanticSignals" in semanticSdk, false);
+  assert.equal("readCandidateObservation" in semanticSdk, false);
+  assert.equal("NormalizedObservation" in semanticSdk, false);
+  assert.equal("ObservationSemantics" in semanticSdk, false);
+  assert.equal("readCandidateObservation" in evaluatorSdk, false);
+  assert.equal("NormalizedObservation" in evaluatorSdk, false);
+  assert.equal("ObservationSemantics" in evaluatorSdk, false);
+  assert.equal("readCandidateObservation" in traceSdk, false);
+  assert.equal("NormalizedObservation" in traceSdk, false);
+  assert.equal("ObservationSemantics" in traceSdk, false);
+  assert.deepEqual(Object.keys(kernelSdk).sort(), [
+    "APERTURE_KERNEL_EXPLANATION_SCHEMA_VERSION",
+    "evaluateApertureKernelEvent",
+  ]);
+  assert.equal(typeof kernelSdk.evaluateApertureKernelEvent, "function");
+  assert.equal("SourceEvent" in kernelSdk, false);
+  assert.equal("readSemanticTextEvidence" in kernelSdk, false);
+  assert.equal("readTaskFailureSemanticEvidence" in kernelSdk, false);
+  assert.equal("ObservationSemantics" in kernelSdk, false);
 
   assert.equal(typeof sdk.baseAttentionSurfaceCapabilities, "object");
   assert.equal(typeof sdk.mergeAttentionSurfaceCapabilities, "function");
@@ -105,12 +128,24 @@ test("@tomismeta/aperture-core package manifest publishes only supported subpath
   ) as {
     exports?: Record<string, unknown>;
     files?: string[];
+    dependencies?: Record<string, string>;
+    peerDependencies?: Record<string, string>;
+    optionalDependencies?: Record<string, string>;
   };
   const exportMap = packageJson.exports ?? {};
 
-  assert.deepEqual(Object.keys(exportMap).sort(), [".", "./evaluator", "./semantic", "./trace"]);
+  assert.deepEqual(Object.keys(exportMap).sort(), [
+    ".",
+    "./evaluator",
+    "./kernel",
+    "./semantic",
+    "./trace",
+  ]);
   assert.equal("./internal" in exportMap, false);
   assert.deepEqual(packageJson.files, ["public-dist", "README.md", "LICENSE"]);
+  assert.equal(packageJson.dependencies, undefined);
+  assert.equal(packageJson.peerDependencies, undefined);
+  assert.equal(packageJson.optionalDependencies, undefined);
 });
 
 test("public SDK supports the simple event in -> frame out -> response in loop", () => {
@@ -319,9 +354,24 @@ test("public SDK exposes surface capability helpers through the root package", (
 test("advanced semantic helpers live behind the semantic subpath", () => {
   assert.equal("interpretSourceEvent" in sdk, false);
   assert.equal("normalizeSourceEvent" in sdk, false);
+  assert.equal("semanticHintsForTruncatedSourceEvidence" in sdk, false);
+  assert.equal("TRUNCATED_SOURCE_EVIDENCE_FACTOR" in sdk, false);
 
   assert.equal(typeof semanticSdk.interpretSourceEvent, "function");
   assert.equal(typeof semanticSdk.normalizeSourceEvent, "function");
+  assert.equal(typeof semanticSdk.semanticHintsForTruncatedSourceEvidence, "function");
+  assert.equal(semanticSdk.TRUNCATED_SOURCE_EVIDENCE_FACTOR, "source evidence truncated");
+
+  const hints = semanticSdk.semanticHintsForTruncatedSourceEvidence({ status: "failed" });
+  assert.equal(hints.confidence, "low");
+  assert.equal(hints.consequence, "high");
+  assert.deepEqual(hints.factors, [semanticSdk.TRUNCATED_SOURCE_EVIDENCE_FACTOR]);
+
+  const invalidLowHints = semanticSdk.semanticHintsForTruncatedSourceEvidence({
+    status: "failed",
+    consequence: "low" as never,
+  });
+  assert.equal(invalidLowHints.consequence, "high");
 });
 
 test("trace helpers live behind the trace subpath", () => {
@@ -357,9 +407,7 @@ test("public SDK supports trace inspection through the trace subpath", () => {
     source: { id: "custom-agent" },
     title: "Should we inspect the config first?",
     summary: "Choose the next step.",
-    context: {
-      items: [{ id: "toolFamily", label: "Tool Family", value: "read" }],
-    },
+    toolFamily: "read",
     request: {
       kind: "choice",
       selectionMode: "single",

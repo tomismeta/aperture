@@ -29,6 +29,7 @@ export type {
   TraceGateEvaluation,
   TraceInterruptCriterion,
   TraceInterruptCriterionVerdict,
+  TraceObservationSummary,
   TraceResultLane,
   TraceSemanticImpact,
   TraceSemanticRoutingAuthority,

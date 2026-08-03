@@ -18,6 +18,7 @@ export async function runReviewCandidatesCli(argv: string[]): Promise<void> {
     bundleDirectories: options.bundleDirectories,
     maxCandidatesPerKind: options.maxCandidatesPerKind,
     maxCandidatesPerSessionPerKind: options.maxCandidatesPerSessionPerKind,
+    replayCurrent: options.replayCurrent,
   });
   const outputPath = options.outputPath ?? defaultSemanticReviewCandidateReportPath(report);
   const markdownPath =
@@ -39,6 +40,7 @@ export async function runReviewCandidatesCli(argv: string[]): Promise<void> {
       selection: report.selection,
       input: report.input,
       summary: report.summary,
+      coverage: report.coverage,
     },
     [
       renderSemanticReviewCandidateMarkdown(report),

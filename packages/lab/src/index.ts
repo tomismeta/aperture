@@ -18,6 +18,20 @@ export {
   serializeKernelCanonicalJson,
 } from "./kernel-canonical-json.js";
 export {
+  assertObservationKernelScorecardPassed,
+  buildObservationKernelScorecard,
+  OBSERVATION_KERNEL_SCORECARD_PROFILE_ID,
+  OBSERVATION_KERNEL_SCORECARD_PROFILE_VERSION,
+  OBSERVATION_KERNEL_SCORECARD_SCHEMA_VERSION,
+  OBSERVATION_KERNEL_SCORECARD_THRESHOLDS,
+  type ObservationKernelCoverage,
+  type ObservationKernelDistribution,
+  type ObservationKernelFields,
+  type ObservationKernelObservation,
+  type ObservationKernelScorecard,
+} from "./observation-kernel-scorecard.js";
+export { parseObservationKernelScorecard } from "./observation-kernel-scorecard-validation.js";
+export {
   assertKernelConformanceReportPassed,
   buildKernelConformanceReport,
   KERNEL_CONFORMANCE_REPORT_SCHEMA_VERSION,
@@ -30,6 +44,22 @@ export {
   type KernelCorpusDeterminismReport,
   type KernelCorpusDimensionCoverage,
 } from "./kernel-corpus-conformance.js";
+export {
+  assertKernelCorpusScorecardComparisonPassed,
+  assertKernelCorpusScorecardPassed,
+  buildKernelCorpusScorecardComparison,
+  buildKernelCorpusScorecard,
+  KERNEL_CORPUS_SCORECARD_COMPARISON_SCHEMA_VERSION,
+  KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION,
+  KERNEL_CORPUS_SCORECARD_THRESHOLDS,
+  parseHistoricalKernelCorpusScorecard,
+  parseKernelCorpusScorecard,
+  type KernelCorpusScorecardOutcomeCoverage,
+  type KernelCorpusScorecardOutcomeDistribution,
+  type KernelCorpusScorecardComparison,
+  type KernelCorpusScorecard,
+  type KernelCorpusScorecardScenarioCheckpoints,
+} from "./kernel-corpus-scorecard.js";
 export {
   KERNEL_CORPUS_COVERAGE_DIMENSIONS,
   KERNEL_CORPUS_PROFILE,
@@ -211,6 +241,16 @@ export {
   type SemanticReviewCandidate,
   type SemanticReviewCandidateKind,
   type SemanticReviewCandidateReport,
+  type SemanticReviewCoverageBaseline,
+  type SemanticReviewCoverageBaselineComparison,
+  type SemanticReviewCoverageBaselineComparisonStatus,
+  type SemanticReviewCoverageEvaluationMode,
+  type SemanticReviewCoverageObservations,
+  type SemanticReviewCoverageReport,
+  type SemanticReviewLedgerSignatureCount,
+  type SemanticReviewLedgerSignatureExample,
+  type SemanticReviewNoveltySummary,
+  type SemanticReviewSignatureBaselineComparison,
   type SemanticReviewTaskFailureConsequenceBaseline,
   type SemanticReviewTaskFailureEvidenceExample,
   type SemanticReviewTaskFailureEvidenceKind,

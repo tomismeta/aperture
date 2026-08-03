@@ -2,7 +2,39 @@ import { readFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+import {
+  collectCoreSemanticFiles,
+  readSemanticKernelArchitectureMetrics,
+} from "./semantic-kernel-surface-support.js";
+export {
+  collectCoreSemanticFiles,
+  collectSemanticMatcherGovernedFiles,
+  countObservationPrimitiveLines,
+  countSemanticMatcherSites,
+  countSemanticPhraseLiterals,
+  countTaskFailureParsingLines,
+} from "./semantic-kernel-surface-support.js";
+
+const scriptPath = fileURLToPath(import.meta.url);
+const repoRoot = resolve(dirname(scriptPath), "..");
+const SEMANTIC_MODULE_COUNT_BUDGET = 100;
+const SEMANTIC_LINE_COUNT_BUDGET = 8695;
+const SEMANTIC_MATCHER_SITE_BUDGET = 600;
+const SEMANTIC_PHRASE_LITERAL_BUDGET = 175;
+const OBSERVATION_PRIMITIVE_LINE_COUNT_BUDGET = 800;
+const TASK_FAILURE_PARSING_LINE_COUNT_BUDGET = 1225;
+
+const OBSERVATION_SEMANTICS_FILE = "packages/core/src/observation-semantics.ts";
+const OBSERVATION_SEMANTIC_READ_FILE = "packages/core/src/observation-semantic-read.ts";
+const NORMALIZED_OBSERVATION_FILE = "packages/core/src/normalized-observation.ts";
+const TASK_FAILURE_OBSERVATION_GRAMMAR_FILE =
+  "packages/core/src/task-failure-observation-grammar.ts";
+const TASK_FAILURE_PAYLOAD_OBSERVATION_GRAMMAR_FILE =
+  "packages/core/src/task-failure-payload-observation-grammar.ts";
+const TASK_FAILURE_OBSERVATION_CORE_FILE = "packages/core/src/task-failure-observation-core.ts";
+const TASK_FAILURE_OBSERVATION_NORMALIZER_FILE =
+  "packages/core/src/task-failure-observation-normalizer.ts";
+const TASK_FAILURE_OBSERVATION_READER_FILE = "packages/core/src/task-failure-observation-reader.ts";
 
 const budgets = [
   { file: "packages/runtime/src/runtime.ts", maxLines: 800 },
@@ -27,14 +59,31 @@ const budgets = [
   { file: "packages/core/src/attention-decision-record-builder.ts", maxLines: 125 },
   { file: "packages/core/src/attention-decision-record-projection.ts", maxLines: 175 },
   { file: "packages/core/src/attention-decision-record-schema.ts", maxLines: 10 },
+  { file: "packages/core/src/judgment-observation-contract.ts", maxLines: 200 },
+  { file: "packages/core/src/judgment-observation-status-conflict.ts", maxLines: 75 },
   { file: "packages/core/src/observational-status-conflict.ts", maxLines: 25 },
+  { file: OBSERVATION_SEMANTICS_FILE, maxLines: 50 },
+  { file: OBSERVATION_SEMANTIC_READ_FILE, maxLines: 50 },
+  { file: NORMALIZED_OBSERVATION_FILE, maxLines: 75 },
+  { file: TASK_FAILURE_OBSERVATION_GRAMMAR_FILE, maxLines: 250 },
+  { file: TASK_FAILURE_PAYLOAD_OBSERVATION_GRAMMAR_FILE, maxLines: 225 },
+  { file: TASK_FAILURE_OBSERVATION_CORE_FILE, maxLines: 205 },
+  { file: TASK_FAILURE_OBSERVATION_NORMALIZER_FILE, maxLines: 150 },
+  { file: TASK_FAILURE_OBSERVATION_READER_FILE, maxLines: 175 },
   { file: "packages/core/src/attention-evaluator.ts", maxLines: 350 },
   { file: "packages/core/src/attention-evaluator-config.ts", maxLines: 125 },
   { file: "packages/core/src/attention-evaluator-input.ts", maxLines: 325 },
   { file: "packages/core/src/attention-evaluator-profile-config.ts", maxLines: 175 },
   { file: "packages/core/src/attention-evaluator-runtime-config.ts", maxLines: 125 },
   { file: "packages/core/src/attention-record-json.ts", maxLines: 125 },
-  { file: "packages/core/src/semantic-evidence.ts", maxLines: 525 },
+  { file: "packages/core/src/semantic-bare-nonzero-terminal-exit.ts", maxLines: 25 },
+  { file: "packages/core/src/semantic-detection.ts", maxLines: 375 },
+  { file: "packages/core/src/semantic-relation-detection.ts", maxLines: 350 },
+  { file: "packages/core/src/semantic-evidence.ts", maxLines: 475 },
+  { file: "packages/core/src/semantic-failure-detail.ts", maxLines: 125 },
+  { file: "packages/core/src/semantic-imperative-supersession-relation.ts", maxLines: 125 },
+  { file: "packages/core/src/semantic-interpreter.ts", maxLines: 700 },
+  { file: "packages/core/src/semantic-language.ts", maxLines: 150 },
   { file: "packages/core/src/semantic-abbreviated-file-view-observation-shapes.ts", maxLines: 50 },
   { file: "packages/core/src/semantic-diagnostic-shapes.ts", maxLines: 100 },
   { file: "packages/core/src/semantic-runtime-error-diagnostic-shapes.ts", maxLines: 50 },
@@ -43,10 +92,10 @@ const budgets = [
   { file: "packages/core/src/semantic-edit-output-shapes.ts", maxLines: 75 },
   { file: "packages/core/src/semantic-command-text-observation-boundaries.ts", maxLines: 35 },
   { file: "packages/core/src/semantic-command-warning-observation-shapes.ts", maxLines: 50 },
-  { file: "packages/core/src/semantic-command-text-observation-shapes.ts", maxLines: 100 },
   { file: "packages/core/src/semantic-linter-output-observation-shapes.ts", maxLines: 60 },
   { file: "packages/core/src/semantic-bare-diagnostic-observation-shapes.ts", maxLines: 10 },
   { file: "packages/core/src/semantic-observation-reference-wrapper-shapes.ts", maxLines: 20 },
+  { file: "packages/core/src/semantic-observation-text.ts", maxLines: 25 },
   { file: "packages/core/src/semantic-location-diagnostic-shapes.ts", maxLines: 50 },
   { file: "packages/core/src/semantic-observation-transcript-actual-section.ts", maxLines: 40 },
   { file: "packages/core/src/semantic-observation-transcript-body.ts", maxLines: 15 },
@@ -61,6 +110,22 @@ const budgets = [
   { file: "packages/core/src/semantic-observation-transcript-diagnostic-shapes.ts", maxLines: 25 },
   { file: "packages/core/src/semantic-observation-transcript-reference-shapes.ts", maxLines: 50 },
   { file: "packages/core/src/semantic-observation-transcript-shapes.ts", maxLines: 100 },
+  { file: "packages/core/src/semantic-observation-transcript-types.ts", maxLines: 25 },
+  {
+    file: "packages/core/src/semantic-nondiagnostic-observation-transcript-shapes.ts",
+    maxLines: 35,
+  },
+  { file: "packages/core/src/semantic-normalizer.ts", maxLines: 325 },
+  { file: "packages/core/src/semantic-ontology-types.ts", maxLines: 75 },
+  { file: "packages/core/src/semantic-ontology.ts", maxLines: 375 },
+  { file: "packages/core/src/semantic-operation-success-observation-shapes.ts", maxLines: 100 },
+  { file: "packages/core/src/semantic-path-qualified-failure-diagnostic-shapes.ts", maxLines: 20 },
+  { file: "packages/core/src/semantic-patterns.ts", maxLines: 300 },
+  { file: "packages/core/src/semantic-provenance.ts", maxLines: 50 },
+  { file: "packages/core/src/semantic-quoted-span.ts", maxLines: 100 },
+  { file: "packages/core/src/semantic-relation-hint-dedupe.ts", maxLines: 30 },
+  { file: "packages/core/src/semantic-relation-judgment.ts", maxLines: 30 },
+  { file: "packages/core/src/semantic-relations.ts", maxLines: 50 },
   { file: "packages/core/src/semantic-source-fixture-observation-shapes.ts", maxLines: 15 },
   { file: "packages/core/src/semantic-tagged-file-observation-transcript-shapes.ts", maxLines: 15 },
   { file: "packages/core/src/semantic-task-failure-structured-output.ts", maxLines: 40 },
@@ -70,8 +135,8 @@ const budgets = [
   { file: "packages/core/src/semantic-c-like-source-line-shapes.ts", maxLines: 150 },
   { file: "packages/core/src/semantic-c-like-source-observation-shapes.ts", maxLines: 175 },
   { file: "packages/core/src/semantic-clipped-read-window-shapes.ts", maxLines: 50 },
-  { file: "packages/core/src/semantic-kernel-log-shapes.ts", maxLines: 25 },
   { file: "packages/core/src/semantic-panic-diagnostic-shapes.ts", maxLines: 50 },
+  { file: "packages/core/src/semantic-procedural-observation-shapes.ts", maxLines: 75 },
   { file: "packages/core/src/semantic-python-diagnostic-shapes.ts", maxLines: 25 },
   { file: "packages/core/src/semantic-line-numbered-document-observation-shapes.ts", maxLines: 75 },
   { file: "packages/core/src/semantic-line-numbered-document-span-shapes.ts", maxLines: 50 },
@@ -81,9 +146,10 @@ const budgets = [
   { file: "packages/core/src/semantic-numbered-source-observation-shapes.ts", maxLines: 75 },
   { file: "packages/core/src/semantic-numbered-source-span-shapes.ts", maxLines: 175 },
   { file: "packages/core/src/semantic-observation-shapes.ts", maxLines: 150 },
+  { file: "packages/core/src/semantic-payload-observation-shapes.ts", maxLines: 285 },
+  { file: "packages/core/src/semantic-owned-observation-payload-shapes.ts", maxLines: 400 },
   { file: "packages/core/src/semantic-owned-read-observation-shapes.ts", maxLines: 125 },
   { file: "packages/core/src/semantic-owned-read-transport-numbering.ts", maxLines: 75 },
-  { file: "packages/core/src/semantic-raw-read-failure-signals.ts", maxLines: 75 },
   { file: "packages/core/src/semantic-read-observation-shapes.ts", maxLines: 50 },
   {
     file: "packages/core/src/semantic-recovered-command-output-observation-shapes.ts",
@@ -93,12 +159,19 @@ const budgets = [
     file: "packages/core/src/semantic-recovered-command-source-observation-shapes.ts",
     maxLines: 75,
   },
+  { file: "packages/core/src/semantic-resolution-polarity.ts", maxLines: 225 },
+  { file: "packages/core/src/semantic-single-listing-observation-shapes.ts", maxLines: 100 },
   { file: "packages/core/src/semantic-source-header-observation-shapes.ts", maxLines: 75 },
+  { file: "packages/core/src/semantic-source-literal-wrapper-shapes.ts", maxLines: 25 },
   { file: "packages/core/src/semantic-source-observation-shapes.ts", maxLines: 175 },
+  { file: "packages/core/src/semantic-source-quality.ts", maxLines: 60 },
   { file: "packages/core/src/semantic-source-statement-shapes.ts", maxLines: 225 },
+  { file: "packages/core/src/semantic-source-window-limit-shapes.ts", maxLines: 60 },
   { file: "packages/core/src/semantic-sectioned-source-observation-shapes.ts", maxLines: 25 },
+  { file: "packages/core/src/semantic-structured-output-ownership.ts", maxLines: 35 },
   { file: "packages/core/src/semantic-structured-output.ts", maxLines: 125 },
   { file: "packages/core/src/semantic-test-output-observation-shapes.ts", maxLines: 75 },
+  { file: "packages/core/src/semantic-test-runner-output-shapes.ts", maxLines: 50 },
   { file: "packages/core/src/semantic-test-result-section-shapes.ts", maxLines: 100 },
   { file: "packages/core/src/semantic-test-section-parser.ts", maxLines: 50 },
   { file: "packages/core/src/semantic-terminal-evidence.ts", maxLines: 175 },
@@ -107,7 +180,13 @@ const budgets = [
   { file: "packages/core/src/semantic-truncated-structured-output-recovery.ts", maxLines: 175 },
   { file: "packages/core/src/semantic-truncated-structured-output.ts", maxLines: 175 },
   { file: "packages/core/src/semantic-search-observation-shapes.ts", maxLines: 75 },
-  { file: "packages/core/src/semantic-task-failure-signals.ts", maxLines: 185 },
+  { file: "packages/core/src/semantic-task-failure-signals.ts", maxLines: 200 },
+  { file: "packages/core/src/semantic-text.ts", maxLines: 75 },
+  { file: "packages/core/src/semantic-tool-family.ts", maxLines: 125 },
+  { file: "packages/core/src/semantic-types.ts", maxLines: 125 },
+  { file: "packages/core/src/semantic-unified-diff-observation-shapes.ts", maxLines: 35 },
+  { file: "packages/core/src/semantic.ts", maxLines: 60 },
+  { file: "packages/core/src/policy/semantic-uncertainty-criterion-rule.ts", maxLines: 175 },
   { file: "packages/core/src/evaluator.ts", maxLines: 75 },
   { file: "packages/core/src/attention-planner.ts", maxLines: 700 },
   { file: "packages/core/src/attention-planner-routing.ts", maxLines: 500 },
@@ -184,10 +263,16 @@ const budgets = [
   { file: "packages/lab/src/autoresearch-calibration-render.ts", maxLines: 175 },
   { file: "packages/lab/src/autoresearch-calibration-files.ts", maxLines: 100 },
   { file: "packages/lab/src/semantic-review-candidates.ts", maxLines: 325 },
+  { file: "packages/lab/src/semantic-review-candidate-accumulator.ts", maxLines: 100 },
   { file: "packages/lab/src/semantic-review-candidate-input.ts", maxLines: 275 },
   { file: "packages/lab/src/semantic-review-candidate-policy.ts", maxLines: 400 },
   { file: "packages/lab/src/semantic-review-candidate-render.ts", maxLines: 150 },
   { file: "packages/lab/src/semantic-review-candidate-types.ts", maxLines: 150 },
+  { file: "packages/lab/src/semantic-review-coverage-baseline.ts", maxLines: 125 },
+  { file: "packages/lab/src/semantic-review-coverage-ledger.ts", maxLines: 275 },
+  { file: "packages/lab/src/semantic-review-coverage-ledger-render.ts", maxLines: 120 },
+  { file: "packages/lab/src/semantic-review-coverage-signatures.ts", maxLines: 225 },
+  { file: "packages/lab/src/semantic-review-coverage-ledger-types.ts", maxLines: 125 },
   { file: "packages/lab/src/semantic-review-event-shape-support.ts", maxLines: 75 },
   { file: "packages/lab/src/semantic-review-failure-event-shapes.ts", maxLines: 200 },
   { file: "packages/lab/src/semantic-review-failure-evidence.ts", maxLines: 225 },
@@ -244,6 +329,9 @@ const budgets = [
   { file: "packages/lab/src/kernel-corpus-profile.ts", maxLines: 100 },
   { file: "packages/lab/src/kernel-corpus-profile-data.ts", maxLines: 100 },
   { file: "packages/lab/src/kernel-corpus-quality.ts", maxLines: 175 },
+  { file: "packages/lab/src/observation-kernel-fixtures.ts", maxLines: 225 },
+  { file: "packages/lab/src/observation-kernel-scorecard.ts", maxLines: 450 },
+  { file: "packages/lab/src/observation-kernel-scorecard-validation.ts", maxLines: 175 },
   { file: "packages/lab/src/kernel-decision-contract.ts", maxLines: 175 },
   { file: "packages/lab/src/kernel-decision-contract-support.ts", maxLines: 250 },
   { file: "packages/lab/src/kernel-decision-value.ts", maxLines: 75 },
@@ -261,11 +349,13 @@ const budgets = [
 
 async function main(): Promise<void> {
   const violations: Array<{ file: string; lineCount: number; maxLines: number }> = [];
+  const missingBudgetFiles: string[] = [];
+  const aggregateViolations: Array<{ label: string; value: number; max: number }> = [];
+  const budgetedFiles = new Set(budgets.map((budget) => budget.file));
 
   for (const budget of budgets) {
     const absolutePath = resolve(repoRoot, budget.file);
-    const text = await readFile(absolutePath, "utf8");
-    const lineCount = text.split("\n").length;
+    const lineCount = await readLineCount(absolutePath);
     if (lineCount > budget.maxLines) {
       violations.push({
         file: budget.file,
@@ -275,23 +365,100 @@ async function main(): Promise<void> {
     }
   }
 
-  if (violations.length === 0) {
+  const semanticFiles = await collectCoreSemanticFiles(repoRoot);
+  let semanticLineCount = 0;
+  for (const file of semanticFiles) {
+    const relativeFile = relative(repoRoot, file);
+    const text = await readFile(file, "utf8");
+    if (!budgetedFiles.has(relativeFile)) {
+      missingBudgetFiles.push(relativeFile);
+    }
+    semanticLineCount += text.split("\n").length;
+  }
+  const semanticArchitecture = await readSemanticKernelArchitectureMetrics(repoRoot);
+  const semanticMatcherSiteCount = semanticArchitecture.semanticMatcherSiteCount;
+  const semanticPhraseLiteralCount = semanticArchitecture.semanticPhraseLiteralCount;
+  const observationPrimitiveLineCount = semanticArchitecture.observationPrimitiveLineCount;
+  const taskFailureParsingLineCount = semanticArchitecture.taskFailureParsingLineCount;
+  if (semanticFiles.length > SEMANTIC_MODULE_COUNT_BUDGET) {
+    aggregateViolations.push({
+      label: "packages/core/src/semantic*.ts module count",
+      value: semanticFiles.length,
+      max: SEMANTIC_MODULE_COUNT_BUDGET,
+    });
+  }
+  if (semanticLineCount > SEMANTIC_LINE_COUNT_BUDGET) {
+    aggregateViolations.push({
+      label: "packages/core/src/semantic*.ts total lines",
+      value: semanticLineCount,
+      max: SEMANTIC_LINE_COUNT_BUDGET,
+    });
+  }
+  if (semanticMatcherSiteCount > SEMANTIC_MATCHER_SITE_BUDGET) {
+    aggregateViolations.push({
+      label: "packages/core/src semantic parser matcher sites",
+      value: semanticMatcherSiteCount,
+      max: SEMANTIC_MATCHER_SITE_BUDGET,
+    });
+  }
+  if (semanticPhraseLiteralCount > SEMANTIC_PHRASE_LITERAL_BUDGET) {
+    aggregateViolations.push({
+      label: "packages/core/src semantic parser phrase literals",
+      value: semanticPhraseLiteralCount,
+      max: SEMANTIC_PHRASE_LITERAL_BUDGET,
+    });
+  }
+  if (observationPrimitiveLineCount > OBSERVATION_PRIMITIVE_LINE_COUNT_BUDGET) {
+    aggregateViolations.push({
+      label: "packages/core/src observation primitive total lines",
+      value: observationPrimitiveLineCount,
+      max: OBSERVATION_PRIMITIVE_LINE_COUNT_BUDGET,
+    });
+  }
+  if (taskFailureParsingLineCount > TASK_FAILURE_PARSING_LINE_COUNT_BUDGET) {
+    aggregateViolations.push({
+      label: "packages/core/src task-failure parsing total lines",
+      value: taskFailureParsingLineCount,
+      max: TASK_FAILURE_PARSING_LINE_COUNT_BUDGET,
+    });
+  }
+
+  if (
+    violations.length === 0 &&
+    missingBudgetFiles.length === 0 &&
+    aggregateViolations.length === 0
+  ) {
     return;
   }
 
-  const lines = [
-    "Module budget check failed.",
-    "These files exceeded their line-count budgets:",
-    "",
-  ];
+  const lines = ["Module budget check failed.", ""];
 
-  for (const violation of violations) {
-    lines.push(
-      `- ${relative(repoRoot, resolve(repoRoot, violation.file))}: ${violation.lineCount} lines (budget ${violation.maxLines})`,
-    );
+  if (violations.length > 0) {
+    lines.push("These files exceeded their line-count budgets:", "");
+    for (const violation of violations) {
+      lines.push(
+        `- ${relative(repoRoot, resolve(repoRoot, violation.file))}: ${violation.lineCount} lines (budget ${violation.maxLines})`,
+      );
+    }
+    lines.push("");
   }
 
-  lines.push("");
+  if (missingBudgetFiles.length > 0) {
+    lines.push("These semantic core modules are missing explicit budgets:", "");
+    for (const file of missingBudgetFiles) {
+      lines.push(`- ${file}`);
+    }
+    lines.push("");
+  }
+
+  if (aggregateViolations.length > 0) {
+    lines.push("These aggregate budgets were exceeded:", "");
+    for (const violation of aggregateViolations) {
+      lines.push(`- ${violation.label}: ${violation.value} (budget ${violation.max})`);
+    }
+    lines.push("");
+  }
+
   lines.push(
     "Split command shells, parser/usage surfaces, or mapper families before adding more logic to these files.",
   );
@@ -299,8 +466,15 @@ async function main(): Promise<void> {
   process.exitCode = 1;
 }
 
-void main().catch((error) => {
-  const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`${message}\n`);
-  process.exit(1);
-});
+async function readLineCount(file: string): Promise<number> {
+  const text = await readFile(file, "utf8");
+  return text.split("\n").length;
+}
+
+if (process.argv[1] === scriptPath) {
+  void main().catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`${message}\n`);
+    process.exit(1);
+  });
+}

@@ -1,14 +1,5 @@
 import type { SemanticConfidence, SemanticConsequenceLevel } from "./semantic-types.js";
 
-/**
- * Compact attention ontology projected from richer semantic interpretation.
- *
- * The ontology is the stable kernel vocabulary for attention judgment. It is
- * intentionally smaller than `SemanticInterpretation`: detailed reasons,
- * relation targets, prose, and provenance stay in semantic traces, while this
- * shape carries only the dimensions judgment and conformance need to compare
- * across hosts.
- */
 export type AttentionOntologyDiagnostic = {
   ask: AttentionOntologyAsk;
   activity: AttentionOntologyActivity;
@@ -35,8 +26,7 @@ export type AttentionOntologyEpisode = "new" | "same_issue" | "resurfaced" | "re
 
 export type AttentionOntologyAuthority = "explicit" | "hinted" | "inferred";
 
-// Backwards-compatible semantic-era names. New kernel work should prefer the
-// `AttentionOntology*` names above.
+// Deprecated semantic-era names; prefer AttentionOntology*.
 export type SemanticOntologyDiagnostic = AttentionOntologyDiagnostic;
 export type SemanticOntologyAsk = AttentionOntologyAsk;
 export type SemanticOntologyActivity = AttentionOntologyActivity;

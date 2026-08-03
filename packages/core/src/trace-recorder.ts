@@ -6,23 +6,26 @@ import type { AttentionFrame, AttentionTaskView, AttentionView } from "./frame.j
 import type { AttentionDecisionExplanation } from "./judgment-coordinator.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import {
+  buildAttentionJudgmentInput,
   hasBlockedLikeStatusSemantics,
-  hasRoutineObservationalStatusConflictSemantics,
+  hasObservationalStatusConflictSemantics,
   isCandidateSemanticAbstained,
   isCandidateSemanticLowConfidence,
+  readCandidateObservation,
   readCandidateObservationalStatusConflictEvidence,
   readCandidateAttentionOntology,
   readCandidateSemanticConfidence,
   readCandidateSemanticEvidence,
 } from "./judgment-input.js";
+import type { NormalizedObservation } from "./normalized-observation.js";
 import type { AttentionPressure } from "./attention-pressure.js";
-import { projectAttentionOntologyDiagnostic } from "./semantic-ontology.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import type {
   TraceCandidateTransition,
   TraceDecisionKind,
   TraceEventTransition,
   TraceFrameTransition,
+  TraceObservationSummary,
 } from "./trace-common.js";
 import { diffTraceObjects } from "./trace-diff.js";
 import type { ApertureTrace, TraceSemanticSummary } from "./trace-types.js";
@@ -207,8 +210,8 @@ function buildSemanticSummary(
     return undefined;
   }
 
-  const ontology =
-    readCandidateAttentionOntology(adjusted) ?? projectAttentionOntologyDiagnostic(event, semantic);
+  const ontology = readCandidateAttentionOntology(adjusted) ?? compileTraceAttentionOntology(event);
+  const observation = readCandidateObservation(adjusted);
   const semanticEvidence = readCandidateSemanticEvidence(adjusted);
   const observationalStatusConflict = readCandidateObservationalStatusConflictEvidence(adjusted);
 
@@ -221,6 +224,7 @@ function buildSemanticSummary(
       ? { confidence: semanticEvidence.confidence }
       : {}),
     ...(semanticEvidence?.abstained === true ? { abstained: true } : {}),
+    ...(observation !== null ? { observation: buildTraceObservationSummary(observation) } : {}),
     ...(observationalStatusConflict !== null ? { observationalStatusConflict } : {}),
     ontology,
     ...(semantic.whyNow !== undefined ? { whyNow: semantic.whyNow } : {}),
@@ -233,6 +237,28 @@ function buildSemanticSummary(
   };
 }
 
+function buildTraceObservationSummary(observation: NormalizedObservation): TraceObservationSummary {
+  return {
+    kind: observation.kind,
+    polarity: observation.polarity,
+    owner: observation.ownership.owner,
+    ...(observation.ownership.toolFamily !== undefined
+      ? { toolFamily: observation.ownership.toolFamily }
+      : {}),
+    subject: observation.subject,
+    evidenceLoss: observation.evidenceLoss,
+    evidenceStrength: observation.evidenceStrength,
+    semanticAgreement: observation.semanticAgreement,
+    ...(observation.diagnosticClass !== undefined
+      ? { diagnosticClass: observation.diagnosticClass }
+      : {}),
+    ...(observation.recoveryHint !== undefined ? { recoveryHint: observation.recoveryHint } : {}),
+    provenanceOrigin: observation.provenance.origin,
+    provenanceAuthority: observation.provenance.authority,
+    consequenceBaseline: observation.consequenceBaseline,
+  };
+}
+
 function buildSemanticInfluence(
   event: ApertureTrace["event"],
   adjusted: AttentionCandidate,
@@ -242,13 +268,12 @@ function buildSemanticInfluence(
     return [];
   }
 
-  const ontology =
-    readCandidateAttentionOntology(adjusted) ?? projectAttentionOntologyDiagnostic(event, semantic);
+  const ontology = readCandidateAttentionOntology(adjusted) ?? compileTraceAttentionOntology(event);
 
   const influence: string[] = [];
 
   if (event.type === "task.updated") {
-    if (hasRoutineObservationalStatusConflictSemantics(adjusted)) {
+    if (hasObservationalStatusConflictSemantics(adjusted)) {
       influence.push(
         "engine-owned observational evidence resolved noisy failed-status routing as status handling",
       );
@@ -268,7 +293,7 @@ function buildSemanticInfluence(
 
     if (event.toolFamily === semantic.toolFamily && semantic.toolFamily !== undefined) {
       influence.push(
-        hasRoutineObservationalStatusConflictSemantics(adjusted)
+        hasObservationalStatusConflictSemantics(adjusted)
           ? "tool family helped identify the observational status conflict"
           : "tool family enriched canonical status facts without changing the route",
       );
@@ -316,7 +341,7 @@ function buildSemanticInfluence(
       if (event.request.kind === "approval") {
         influence.push("tool family remained decision-bearing on the approval path");
       } else {
-        influence.push("tool family stayed context-only on the question/form path");
+        influence.push("tool family stayed semantic-only on the question/form path");
       }
     }
 
@@ -339,9 +364,7 @@ function buildSemanticInfluence(
     }
 
     if (influence.length === 0) {
-      influence.push(
-        "semantic interpretation mostly stayed context-only beyond the explicit request",
-      );
+      influence.push("semantic interpretation stayed explanatory beyond the explicit request");
     }
 
     return influence;
@@ -349,6 +372,16 @@ function buildSemanticInfluence(
 
   influence.push("semantic interpretation was recorded for explanation only");
   return influence;
+}
+
+function compileTraceAttentionOntology(
+  event: ApertureTrace["event"],
+): NonNullable<ReturnType<typeof readCandidateAttentionOntology>> {
+  const ontology = buildAttentionJudgmentInput(event).ontology;
+  if (!ontology) {
+    throw new Error("Trace semantic summary requires compiled attention ontology.");
+  }
+  return ontology;
 }
 
 function buildSemanticImpact(
@@ -361,6 +394,7 @@ function buildSemanticImpact(
   const continuity = new Set<string>();
   const ambiguity = new Set<string>();
   const contextOnly = new Set<string>();
+  const observation = readCandidateObservation(adjusted);
   const semanticEvidence = readCandidateSemanticEvidence(adjusted);
   const routingAuthority = buildSemanticRoutingAuthority(event);
 
@@ -407,6 +441,10 @@ function buildSemanticImpact(
     contextOnly.add("abstention");
   }
 
+  if (observation !== null) {
+    contextOnly.add("observation");
+  }
+
   switch (event.type) {
     case "task.updated":
       if (
@@ -425,7 +463,13 @@ function buildSemanticImpact(
       if (hasBlockedLikeStatusSemantics(adjusted)) {
         promoteSemanticField(contextOnly, routing, "intent", "blocking (judgment routing)");
       }
-      if (hasRoutineObservationalStatusConflictSemantics(adjusted)) {
+      if (hasObservationalStatusConflictSemantics(adjusted)) {
+        promoteSemanticField(
+          contextOnly,
+          routing,
+          "observation",
+          "observation (judgment contract)",
+        );
         promoteSemanticField(
           contextOnly,
           routing,

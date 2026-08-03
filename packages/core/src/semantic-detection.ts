@@ -1,41 +1,28 @@
 import type { AttentionConsequenceLevel } from "./frame.js";
 import {
-  CONTEXTUAL_RESOLVE_PHRASES,
-  DIRECT_RESOLVE_PHRASES,
-  ESCALATE_PHRASES,
   EXPLICIT_BLOCKING_PHRASES,
   EXPLICIT_WAITING_PHRASES,
   HIGH_RISK_PHRASES,
   IMPLIED_OPERATOR_ASKS,
+  IMPLIED_OPERATOR_ASK_PATTERNS,
   IMPLIED_OPERATOR_NEGATIONS,
-  ISSUE_SIGNAL_PHRASES,
-  NEGATED_ESCALATE_PHRASES,
-  NEGATED_REPEAT_PHRASES,
-  NEGATED_RESOLVE_PHRASES,
-  REPEAT_PHRASES,
-  SUPERSEDE_PHRASES,
 } from "./semantic-patterns.js";
-import { readSemanticTextEvidence } from "./semantic-evidence.js";
-import { containsAnySemanticPhrase, containsSemanticPhrase } from "./semantic-text.js";
+import { semanticTextShapeMatcher } from "./semantic-evidence.js";
 import {
-  isSemanticCommandExecutionToolFamily,
-  type SemanticToolFamilyContextItem,
-} from "./semantic-tool-family.js";
-import type { SemanticRelationHint } from "./semantic-types.js";
+  containsAnySemanticPhrase,
+  containsSemanticPhrase,
+  normalizeSemanticText,
+} from "./semantic-text.js";
+import { isSemanticCommandExecutionToolFamily } from "./semantic-tool-family.js";
 
 export { containsAnySemanticPhrase, normalizeSemanticText } from "./semantic-text.js";
+export { detectSemanticRelationHints } from "./semantic-relation-detection.js";
 export { inferSemanticToolFamily, readExplicitSemanticToolFamily } from "./semantic-tool-family.js";
-
-export type SemanticDetectionContextItem = SemanticToolFamilyContextItem;
 
 export type SemanticDetectionInput = {
   title: string;
   summary?: string;
   toolFamily?: string;
-  context?: {
-    items?: SemanticDetectionContextItem[];
-  };
-  metadata?: Record<string, unknown>;
 };
 
 export type SemanticBlockingSignal = "blocking" | "waiting";
@@ -49,7 +36,12 @@ export function detectImpliedOperatorAsk(text: string): boolean {
     return false;
   }
 
-  return containsAnySemanticPhrase(text, IMPLIED_OPERATOR_ASKS);
+  if (containsAnySemanticPhrase(text, IMPLIED_OPERATOR_ASKS)) {
+    return true;
+  }
+
+  const normalizedText = normalizeSemanticText(text);
+  return IMPLIED_OPERATOR_ASK_PATTERNS.some((pattern) => pattern.test(normalizedText));
 }
 
 export function detectSemanticBlockingSignal(text: string): SemanticBlockingSignal | null {
@@ -68,52 +60,14 @@ export function detectSemanticBlockingSignal(text: string): SemanticBlockingSign
   return null;
 }
 
-export function detectSemanticRelationHints(text: string): SemanticRelationHint[] {
-  const hints: SemanticRelationHint[] = [];
-  const hasRepeatSignal =
-    containsAnySemanticPhrase(text, REPEAT_PHRASES) &&
-    !containsAnySemanticPhrase(text, NEGATED_REPEAT_PHRASES);
-  const hasDirectResolveSignal =
-    containsAnySemanticPhrase(text, DIRECT_RESOLVE_PHRASES) &&
-    !containsAnySemanticPhrase(text, NEGATED_RESOLVE_PHRASES);
-  const hasContextualResolveSignal =
-    containsAnySemanticPhrase(text, CONTEXTUAL_RESOLVE_PHRASES) &&
-    !containsAnySemanticPhrase(text, NEGATED_RESOLVE_PHRASES);
-  const hasEscalateSignal =
-    containsAnySemanticPhrase(text, ESCALATE_PHRASES) &&
-    !containsAnySemanticPhrase(text, NEGATED_ESCALATE_PHRASES);
-  const hasIssueSignal =
-    containsAnySemanticPhrase(text, ISSUE_SIGNAL_PHRASES) ||
-    containsAnySemanticPhrase(text, SUPERSEDE_PHRASES) ||
-    hasEscalateSignal;
-
-  if (hasRepeatSignal && hasIssueSignal) {
-    hints.push({ kind: "same_issue" }, { kind: "repeats" });
-  }
-
-  if (hasDirectResolveSignal || (hasContextualResolveSignal && hasIssueSignal)) {
-    hints.push({ kind: "same_issue" }, { kind: "resolves" });
-  }
-
-  if (containsAnySemanticPhrase(text, SUPERSEDE_PHRASES)) {
-    hints.push({ kind: "same_issue" }, { kind: "supersedes" });
-  }
-
-  if (hasEscalateSignal) {
-    hints.push({ kind: "same_issue" }, { kind: "escalates" });
-  }
-
-  return dedupeRelationHints(hints);
-}
-
 export function inferConsequenceFromSemanticText(
   text: string,
   fallback: AttentionConsequenceLevel,
   toolFamily?: string,
 ): AttentionConsequenceLevel {
-  const evidence = readSemanticTextEvidence(text, toolFamily);
+  const hasShape = semanticTextShapeMatcher(text, toolFamily);
 
-  if (evidence.routineSuccessObservation) {
+  if (hasShape("routine_success")) {
     return fallback;
   }
 
@@ -139,51 +93,47 @@ export function inferConsequenceFromSemanticText(
 }
 
 export function detectObservationalFailureStatus(text: string, toolFamily?: string): boolean {
-  const evidence = readSemanticTextEvidence(text, toolFamily);
+  const hasShape = semanticTextShapeMatcher(text, toolFamily);
 
   if (isSemanticCommandExecutionToolFamily(toolFamily)) {
-    return evidence.routineSuccessObservation;
+    return hasShape("routine_success");
   }
 
   if (toolFamily !== "edit" && toolFamily !== "read") {
     return false;
   }
 
-  return (
-    evidence.observationalReadback ||
-    evidence.taggedFileObservation ||
-    evidence.readObservationPayload
-  );
+  return hasShape("observational_readback") || hasShape("tagged_file") || hasShape("read_payload");
 }
 
 export function detectRoutineObservationalFailureLowConsequence(
   text: string,
   toolFamily?: string,
 ): boolean {
-  const evidence = readSemanticTextEvidence(text, toolFamily);
+  const hasShape = semanticTextShapeMatcher(text, toolFamily);
 
   if (isSemanticCommandExecutionToolFamily(toolFamily)) {
-    return evidence.routineSuccessObservation;
+    return hasShape("routine_success");
   }
 
   if (toolFamily === "search") {
-    return evidence.searchResultOutput;
+    return hasShape("search_result");
   }
 
   if (toolFamily === "read") {
-    if (evidence.searchResultOutput) {
+    if (hasShape("search_result")) {
       return true;
     }
 
-    if (!evidence.taggedFileObservation && !evidence.readObservationPayload) {
+    if (!hasShape("tagged_file") && !hasShape("read_payload")) {
       return false;
     }
 
-    if (evidence.sourceCodeObservation) {
+    if (hasShape("source_code")) {
       return false;
     }
 
-    return evidence.logObservation || evidence.buildMetadataObservation;
+    return hasShape("log") || hasShape("build_metadata");
   }
 
   return false;
@@ -194,7 +144,7 @@ export function detectExpectedDiagnosticFailure(text: string, toolFamily?: strin
     return false;
   }
 
-  return readSemanticTextEvidence(text, toolFamily).expectedDiagnosticFailure;
+  return semanticTextShapeMatcher(text, toolFamily)("expected_diagnostic");
 }
 
 function containsAnySemanticRiskPhrase(value: string, phrases: readonly string[]): boolean {
@@ -203,20 +153,4 @@ function containsAnySemanticRiskPhrase(value: string, phrases: readonly string[]
 
 function containsSemanticRiskPhrase(value: string, phrase: string): boolean {
   return containsSemanticPhrase(value, phrase);
-}
-
-function dedupeRelationHints(hints: SemanticRelationHint[]): SemanticRelationHint[] {
-  const seen = new Set<string>();
-  const result: SemanticRelationHint[] = [];
-
-  for (const hint of hints) {
-    const key = `${hint.kind}:${hint.target ?? ""}`;
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    result.push(hint);
-  }
-
-  return result;
 }

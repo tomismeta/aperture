@@ -77,10 +77,17 @@ engine-owned event facts such as status, title, summary, explicit tool family,
 and context. It does not trust adapter-supplied `factors`, `reasons`, or audit
 metadata as evidence.
 
+The raw task-failure evidence document is an internal compression boundary, not
+a routing API. Its text evidence is represented as a compact shape profile and
+is normalized into an observation document before judgment and policy consume it.
+Judgment-facing code should use the normalized observation document or the
+projected observation judgment contract instead of branching on raw text shapes.
+
 This is where core compiles:
 
 - ontology projection
 - semantic evidence strength from `confidence + source`
+- normalized observation documents and their judgment projection
 - blocked-like status diagnostics
 - routine observational status-conflict diagnostics
 
@@ -153,6 +160,15 @@ Integrations that emit `SourceEvent`s should pass them into:
 - `core.publishSourceEvent(event)`
 
 This keeps direct-core usage available while making adapter semantics more consistent.
+
+Hosts that want the stateless observation/judgment primitive instead of Core's
+stateful frame loop should use `@tomismeta/aperture-core/kernel`:
+
+`ApertureKernelEvent -> evaluateApertureKernelEvent(...) -> event/evaluation/observation/observationJudgment/explanation`
+
+Hosts with their own event envelope should keep that adapter-owned mapping
+outside core. The adapter should return an `ApertureKernelEvent | null`; pass
+accepted events to `evaluateApertureKernelEvent(...)`.
 
 For advanced readers, the actual current hot path is:
 

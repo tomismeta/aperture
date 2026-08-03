@@ -10,6 +10,7 @@ import {
   ROUTINE_SUCCESS_PHRASES,
 } from "../src/semantic-patterns.js";
 import {
+  detectImpliedOperatorAsk,
   detectExpectedDiagnosticFailure,
   detectObservationalFailureStatus,
   detectRoutineObservationalFailureLowConsequence,
@@ -57,6 +58,18 @@ test("blocking phrase detection does not overread constant-like log tokens", () 
   assert.equal(detectSemanticBlockingSignal(text), null);
 });
 
+test("implied ask detection reads direct operator confirmation requests", () => {
+  const text = normalizeSemanticText("Can you confirm the deploy result before I close this out?");
+
+  assert.equal(detectImpliedOperatorAsk(text), true);
+});
+
+test("implied ask detection honors negated operator request wording", () => {
+  const text = normalizeSemanticText("No action needed; continuing automatically.");
+
+  assert.equal(detectImpliedOperatorAsk(text), false);
+});
+
 test("semantic pattern families keep repeat and contextual resolve phrases distinct", () => {
   const overlap = REPEAT_PHRASES.filter((phrase) => CONTEXTUAL_RESOLVE_PHRASES.includes(phrase));
 
@@ -69,11 +82,11 @@ test("regression remains an intentional overlap between issue and escalation phr
   assert.ok(ESCALATE_PHRASES.includes("regression"));
 });
 
-test("explicit tool family can come from metadata or context", () => {
+test("explicit tool family comes only from the event field", () => {
   assert.equal(
     readExplicitSemanticToolFamily({
       title: "ignored",
-      metadata: { toolFamily: "BASH" },
+      toolFamily: "BASH",
     }),
     "bash",
   );
@@ -81,11 +94,22 @@ test("explicit tool family can come from metadata or context", () => {
   assert.equal(
     readExplicitSemanticToolFamily({
       title: "ignored",
+      summary: "metadata no longer carries authority",
+      // @ts-expect-error metadata is intentionally outside the semantic tool-family contract.
+      metadata: { toolFamily: "BASH" },
+    }),
+    null,
+  );
+
+  assert.equal(
+    readExplicitSemanticToolFamily({
+      title: "ignored",
+      // @ts-expect-error context is intentionally outside the semantic tool-family contract.
       context: {
         items: [{ id: "tool_family", label: "Tool Family", value: "read" }],
       },
     }),
-    "read",
+    null,
   );
 });
 
@@ -222,6 +246,161 @@ test("relation detection recognizes repeating escalations with issue language", 
   );
 });
 
+test("relation detection survives surface punctuation and spacing noise", () => {
+  assert.deepEqual(
+    detectSemanticRelationHints(
+      "BUILD   failed   AGAIN !!. The   same   BUILD   is   STILL   failing   in   production. !!",
+    ).map((hint) => hint.kind),
+    ["same_issue", "repeats"],
+  );
+  assert.deepEqual(
+    detectSemanticRelationHints(
+      "DEPLOY   issue   did   not   REGRESS !!. The   production   DEPLOY   issue   did   not   REGRESS   after   the   fix   and   shows   no   regression   NOW. !!",
+    ),
+    [],
+  );
+});
+
+test("relation detection reads asserted cues after prior negated clauses", () => {
+  assert.deepEqual(
+    detectSemanticRelationHints("The issue was not fixed before. It is fixed now.").map(
+      (hint) => hint.kind,
+    ),
+    ["same_issue", "resolves"],
+  );
+  assert.deepEqual(
+    detectSemanticRelationHints("The issue did not regress yesterday. It regressed today.").map(
+      (hint) => hint.kind,
+    ),
+    ["same_issue", "escalates"],
+  );
+  assert.deepEqual(
+    detectSemanticRelationHints("The issue did not regress before but regressed today.").map(
+      (hint) => hint.kind,
+    ),
+    ["same_issue", "escalates"],
+  );
+  assert.deepEqual(
+    detectSemanticRelationHints("The issue did not return yesterday. It returned today.").map(
+      (hint) => hint.kind,
+    ),
+    ["same_issue", "repeats"],
+  );
+  assert.deepEqual(
+    detectSemanticRelationHints("The issue did not return before but returned today.").map(
+      (hint) => hint.kind,
+    ),
+    ["same_issue", "repeats"],
+  );
+});
+
+test("relation detection lets later negated clauses override stale assertions", () => {
+  assert.deepEqual(
+    detectSemanticRelationHints("The issue was fixed yesterday. It is not fixed now."),
+    [],
+  );
+  assert.deepEqual(
+    detectSemanticRelationHints("The issue regressed yesterday. It did not regress today."),
+    [],
+  );
+  assert.deepEqual(
+    detectSemanticRelationHints("The issue returned yesterday. It did not return today."),
+    [],
+  );
+});
+
+test("relation detection lets latest asserted relation family govern continuity", () => {
+  const cases: Array<{ text: string; hints: string[] }> = [
+    {
+      text: "The issue was fixed yesterday, but returned today.",
+      hints: ["same_issue", "repeats"],
+    },
+    {
+      text: "The issue returned yesterday, but it is fixed today.",
+      hints: ["same_issue", "resolves"],
+    },
+    {
+      text: "The issue was fixed yesterday, but use this plan instead today.",
+      hints: ["same_issue", "supersedes"],
+    },
+    {
+      text: "The issue had to use this plan instead yesterday, but it is fixed today.",
+      hints: ["same_issue", "resolves"],
+    },
+    {
+      text: "The issue was fixed yesterday, but regressed today.",
+      hints: ["same_issue", "escalates"],
+    },
+    {
+      text: "The issue regressed yesterday, but it is fixed today.",
+      hints: ["same_issue", "resolves"],
+    },
+  ];
+
+  for (const { text, hints } of cases) {
+    assert.deepEqual(
+      detectSemanticRelationHints(text).map((hint) => hint.kind),
+      hints,
+      text,
+    );
+  }
+});
+
+test("relation detection treats preserved separators as lexical negation boundaries", () => {
+  for (const separator of [" ", "-", "_", "/", "."]) {
+    assert.deepEqual(
+      detectSemanticRelationHints(`The deploy issue shows no${separator}regression now.`),
+      [],
+      separator,
+    );
+    assert.deepEqual(
+      detectSemanticRelationHints(`The deploy issue is not${separator}returning now.`),
+      [],
+      separator,
+    );
+  }
+});
+
+test("relation detection does not treat bounded read guidance as supersession", () => {
+  assert.deepEqual(
+    detectSemanticRelationHints(
+      "File content (347.9KB) exceeds maximum allowed size (256KB). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.",
+    ),
+    [],
+  );
+});
+
+test("relation detection recognizes bounded imperative supersession wording", () => {
+  for (const text of [
+    "Use the canary plan instead.",
+    "Use this rollback manifest instead.",
+    "Switch to the safe deploy plan instead.",
+    "Adopt the queued remediation path instead.",
+    "Follow the operator recovery checklist instead.",
+    "Replace the canary plan with rollback.",
+  ]) {
+    assert.deepEqual(
+      detectSemanticRelationHints(text).map((hint) => hint.kind),
+      ["same_issue", "supersedes"],
+      text,
+    );
+  }
+});
+
+test("relation detection excludes instead-of constructions from supersession", () => {
+  for (const text of [
+    "Use offset and limit parameters instead of reading the whole file.",
+    "Search for specific content instead of reading the whole file.",
+    "The agent may use the cache and retry instead.",
+    "Should we use rollback instead?",
+    "Don't use rollback instead.",
+    "The tool can follow redirects instead.",
+    "The agent may replace the current plan with rollback.",
+  ]) {
+    assert.deepEqual(detectSemanticRelationHints(text), [], text);
+  }
+});
+
 test("contextual resolve wording only resolves when issue context is present", () => {
   const withIssueContext = normalizeSemanticText("The production outage recovered after rollback.");
   const withoutIssueContext = normalizeSemanticText("Completed successfully after cleanup.");
@@ -239,6 +418,39 @@ test("negated resolve wording does not infer resolved relation hints", () => {
   );
 
   assert.deepEqual(detectSemanticRelationHints(text), []);
+});
+
+test("prospective verification wording does not infer resolved relation hints", () => {
+  const examples = [
+    "Run the script again to confirm that the issue is fixed.",
+    "Rerun the test to see if the error is fixed.",
+    "Please verify whether the regression is resolved.",
+    "Can you confirm the issue was fixed?",
+    "1. Confirm the failure is resolved before submitting.",
+    "The deploy issue should be fixed after the retry.",
+  ];
+
+  for (const example of examples) {
+    const hints = detectSemanticRelationHints(example).map((hint) => hint.kind);
+    assert.equal(hints.includes("resolves"), false, example);
+  }
+});
+
+test("asserted fixed wording still infers resolved relation hints", () => {
+  const examples = [
+    "Great! The error is fixed.",
+    "The retry fixed the issue.",
+    "Tests confirm the issue is fixed.",
+    "Verify dashboards now; the production outage recovered after rollback.",
+  ];
+
+  for (const example of examples) {
+    assert.deepEqual(
+      detectSemanticRelationHints(example).map((hint) => hint.kind),
+      ["same_issue", "resolves"],
+      example,
+    );
+  }
 });
 
 test("negated escalation wording does not infer escalating relation hints", () => {

@@ -1,6 +1,8 @@
 import {
   hasActionableBlockedLikeStatusSemantics,
+  hasObservationalStatusConflictSemantics,
   isCandidateSemanticAbstained,
+  readCandidateObservationJudgmentContract,
   readCandidateSemanticConfidence,
   readCandidateSemanticEvidence,
   readSemanticEvidenceStrength,
@@ -29,6 +31,18 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
   if (hasActionableBlockedLikeStatusSemantics(candidate)) {
     return noopPolicyCriterionRule("semantic_uncertainty", [
       "blocked-like status semantics are concrete enough to remain eligible for ordinary interrupt rules",
+    ]);
+  }
+
+  if (hasObservationalStatusConflictSemantics(candidate)) {
+    return noopPolicyCriterionRule("semantic_uncertainty", [
+      "observational status-conflict evidence already owns peripheral status routing",
+    ]);
+  }
+
+  if (hasVisibleDiagnosticFailureEvidence(candidate)) {
+    return noopPolicyCriterionRule("semantic_uncertainty", [
+      "visible diagnostic failure evidence is concrete enough for ordinary interrupt rules",
     ]);
   }
 
@@ -79,9 +93,7 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
           reason: "low_signal",
           resolution,
         },
-        [
-          "inferred semantic evidence stays peripheral until stronger source-backed context arrives",
-        ],
+        ["weak semantic evidence stays peripheral until stronger source-backed context arrives"],
       ),
     );
   }
@@ -93,6 +105,12 @@ export const evaluateSemanticUncertaintyCriterionRule: PolicyCriterionRule = (in
       : [],
   );
 };
+
+function hasVisibleDiagnosticFailureEvidence(
+  candidate: Parameters<PolicyCriterionRule>[0]["candidate"],
+): boolean {
+  return readCandidateObservationJudgmentContract(candidate)?.visibleDiagnosticFailure === true;
+}
 
 function resolveSemanticUncertaintyPeripheralResolution(
   candidate: Parameters<PolicyCriterionRule>[0]["candidate"],

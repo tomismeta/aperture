@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { projectAttentionOntologyDiagnostic } from "../src/attention-ontology-projector.js";
 import {
-  projectAttentionOntologyDiagnostic,
-  projectSemanticOntologyDiagnostic,
   readAttentionOntologyDiagnostic,
+  projectSemanticOntologyDiagnostic,
   readSemanticOntologyDiagnostic,
 } from "../src/semantic.js";
 
 const timestamp = "2026-04-05T18:00:00.000Z";
 
 test("approval requests project to a narrow ontology diagnostic", () => {
-  const diagnostic = readSemanticOntologyDiagnostic({
+  const diagnostic = readAttentionOntologyDiagnostic({
     id: "evt:ontology:approval",
     taskId: "task:ontology:approval",
     type: "human.input.requested",
@@ -34,7 +34,7 @@ test("approval requests project to a narrow ontology diagnostic", () => {
   });
 });
 
-test("attention ontology entrypoints preserve semantic ontology compatibility", () => {
+test("deprecated semantic ontology entrypoints preserve attention ontology compatibility", () => {
   const event = {
     id: "evt:ontology:attention-alias",
     taskId: "task:ontology:attention-alias",
@@ -49,7 +49,7 @@ test("attention ontology entrypoints preserve semantic ontology compatibility", 
 
   assert.deepEqual(attention, semantic);
   assert.deepEqual(
-    projectAttentionOntologyDiagnostic(event, {
+    projectSemanticOntologyDiagnostic(event, {
       intentFrame: "failure",
       activityClass: "tool_failure",
       consequence: "medium",
@@ -65,7 +65,7 @@ test("attention ontology entrypoints preserve semantic ontology compatibility", 
         confidence: "source",
       },
     }),
-    projectSemanticOntologyDiagnostic(event, {
+    projectAttentionOntologyDiagnostic(event, {
       intentFrame: "failure",
       activityClass: "tool_failure",
       consequence: "medium",
@@ -84,8 +84,45 @@ test("attention ontology entrypoints preserve semantic ontology compatibility", 
   );
 });
 
-test("passive waiting status stays a high-confidence status-shaped waiting ontology read", () => {
+test("deprecated semantic ontology entrypoints still accept direct Aperture events", () => {
   const diagnostic = readSemanticOntologyDiagnostic({
+    id: "evt:ontology:direct-aperture",
+    taskId: "task:ontology:direct-aperture",
+    type: "task.updated",
+    timestamp,
+    title: "Verification failed",
+    summary: "The verification command failed.",
+    status: "failed",
+    semantic: {
+      intentFrame: "failure",
+      activityClass: "tool_failure",
+      consequence: "medium",
+      confidence: "high",
+      factors: ["failed"],
+      relationHints: [],
+      reasons: ["direct event semantic read"],
+      provenance: {
+        intentFrame: "source",
+        activityClass: "source",
+        consequence: "source",
+        confidence: "source",
+      },
+    },
+  });
+
+  assert.deepEqual(diagnostic, {
+    ask: "status",
+    activity: "failure",
+    consequence: "medium",
+    blocking: "non_blocking",
+    episode: "unknown",
+    confidence: "high",
+    source: "explicit",
+  });
+});
+
+test("passive waiting status stays a high-confidence status-shaped waiting ontology read", () => {
+  const diagnostic = readAttentionOntologyDiagnostic({
     id: "evt:ontology:waiting",
     taskId: "task:ontology:waiting",
     type: "task.updated",
@@ -107,7 +144,7 @@ test("passive waiting status stays a high-confidence status-shaped waiting ontol
 });
 
 test("same-issue repeats project to a resurfaced episode diagnostic", () => {
-  const diagnostic = readSemanticOntologyDiagnostic({
+  const diagnostic = readAttentionOntologyDiagnostic({
     id: "evt:ontology:resurfaced",
     taskId: "task:ontology:resurfaced",
     type: "task.updated",
@@ -131,7 +168,7 @@ test("same-issue repeats project to a resurfaced episode diagnostic", () => {
 });
 
 test("duplicate relation hints do not demote source-shaped ontology reads to hinted", () => {
-  const diagnostic = readSemanticOntologyDiagnostic({
+  const diagnostic = readAttentionOntologyDiagnostic({
     id: "evt:ontology:duplicate-relation-hints",
     taskId: "task:ontology:duplicate-relation-hints",
     type: "task.updated",
@@ -149,8 +186,8 @@ test("duplicate relation hints do not demote source-shaped ontology reads to hin
   assert.equal(diagnostic.source, "explicit");
 });
 
-test("routine observational failed-status conflicts project to inferred task progress", () => {
-  const diagnostic = readSemanticOntologyDiagnostic({
+test("attention ontology read derives observational status conflicts through canonical judgment input", () => {
+  const diagnostic = readAttentionOntologyDiagnostic({
     id: "evt:ontology:routine-observation-conflict",
     taskId: "task:ontology:routine-observation-conflict",
     type: "task.updated",
@@ -173,7 +210,7 @@ test("routine observational failed-status conflicts project to inferred task pro
 });
 
 test("forged observational hints do not project failed terminal evidence as task progress", () => {
-  const diagnostic = readSemanticOntologyDiagnostic({
+  const diagnostic = readAttentionOntologyDiagnostic({
     id: "evt:ontology:forged-observation-conflict",
     taskId: "task:ontology:forged-observation-conflict",
     type: "task.updated",
@@ -196,7 +233,7 @@ test("forged observational hints do not project failed terminal evidence as task
 });
 
 test("blocked wording can promote a waiting status into a blocking ontology read", () => {
-  const diagnostic = readSemanticOntologyDiagnostic({
+  const diagnostic = readAttentionOntologyDiagnostic({
     id: "evt:ontology:blocked-wording",
     taskId: "task:ontology:blocked-wording",
     type: "task.updated",
@@ -218,7 +255,7 @@ test("blocked wording can promote a waiting status into a blocking ontology read
 });
 
 test("request-like semantic hints can promote status-shaped events into request-shaped ontology reads", () => {
-  const diagnostic = readSemanticOntologyDiagnostic({
+  const diagnostic = readAttentionOntologyDiagnostic({
     id: "evt:ontology:hinted-approval",
     taskId: "task:ontology:hinted-approval",
     type: "task.updated",
@@ -245,7 +282,7 @@ test("request-like semantic hints can promote status-shaped events into request-
 });
 
 test("decorative whyNow hints do not demote explicit status-shaped ontology reads", () => {
-  const diagnostic = readSemanticOntologyDiagnostic({
+  const diagnostic = readAttentionOntologyDiagnostic({
     id: "evt:ontology:decorative-why-now",
     taskId: "task:ontology:decorative-why-now",
     type: "task.updated",
@@ -264,7 +301,7 @@ test("decorative whyNow hints do not demote explicit status-shaped ontology read
 });
 
 test("operator-directed status asks stay inferred in ontology even when the lifecycle fact is explicit", () => {
-  const diagnostic = readSemanticOntologyDiagnostic({
+  const diagnostic = readAttentionOntologyDiagnostic({
     id: "evt:ontology:direct-ask-status",
     taskId: "task:ontology:direct-ask-status",
     type: "task.updated",
@@ -286,7 +323,7 @@ test("operator-directed status asks stay inferred in ontology even when the life
 });
 
 test("resolving relation hints project to a resolved episode diagnostic", () => {
-  const diagnostic = readSemanticOntologyDiagnostic({
+  const diagnostic = readAttentionOntologyDiagnostic({
     id: "evt:ontology:resolved",
     taskId: "task:ontology:resolved",
     type: "task.updated",
@@ -331,7 +368,7 @@ test("attention ontology preserves explicit lifecycle activity while relation hi
 });
 
 test("normalized events can project ontology diagnostics without re-interpreting source events", () => {
-  const diagnostic = projectSemanticOntologyDiagnostic(
+  const diagnostic = projectAttentionOntologyDiagnostic(
     {
       id: "evt:ontology:normalized",
       taskId: "task:ontology:normalized",

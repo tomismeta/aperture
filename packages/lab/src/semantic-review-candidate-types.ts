@@ -2,6 +2,7 @@ import { SEMANTIC_REVIEW_CANDIDATE_REPORT_SCHEMA_VERSION } from "./artifact-vers
 import type { OfflineReviewFocusArea } from "./offline-review.js";
 import type { PublicCorpusRecordLedgerEntry } from "./public-corpus-manifest.js";
 import { defaultLabRuntimeSubdirectory } from "./runtime-paths.js";
+import type { SemanticReviewCoverageReport } from "./semantic-review-coverage-ledger-types.js";
 import type { SemanticReviewTaskFailureEvidenceSummary } from "./semantic-review-failure-evidence-types.js";
 
 export const SEMANTIC_REVIEW_CANDIDATE_KINDS = [
@@ -11,6 +12,7 @@ export const SEMANTIC_REVIEW_CANDIDATE_KINDS = [
   "blocked_attention",
   "queue_decision",
   "semantic_uncertainty",
+  "routing_ambiguity",
   "tool_taxonomy_gap",
   "relation_signal",
 ] as const;
@@ -21,6 +23,31 @@ export type CandidateBundleInput = {
   bundlePath: string;
   record?: PublicCorpusRecordLedgerEntry;
   manifestPath?: string;
+};
+
+export type SemanticReviewCandidateEvaluationMode =
+  | "persisted_bundle_snapshots"
+  | "current_engine_replay";
+
+export type SemanticReviewCandidateReplayClock = {
+  strategy: "none" | "monotonic_step_timestamp_previous_timestamp_fallback";
+  fallback: "previous_replay_timestamp_then_reference_timestamp";
+  referenceTimestampSourceCounts: {
+    first_step_timestamp: number;
+    exported_at: number;
+    unix_epoch: number;
+  };
+  earliestReferenceTimestamp: string | null;
+  latestReferenceTimestamp: string | null;
+};
+
+export type SemanticReviewCandidateEngineFingerprint = {
+  corePackage: {
+    name: string;
+    version: string;
+  };
+  kernelDecisionRecordProjectionVersion: number;
+  fingerprint: string;
 };
 
 export type SemanticReviewCandidate = {
@@ -92,6 +119,9 @@ export type SemanticReviewCandidateReport = {
     promotionAuthority: "review_required";
   };
   input: {
+    evaluationMode: SemanticReviewCandidateEvaluationMode;
+    engine: SemanticReviewCandidateEngineFingerprint;
+    replayClock: SemanticReviewCandidateReplayClock;
     manifestPaths: string[];
     bundlePaths: string[];
     bundleDirectories: string[];
@@ -107,6 +137,7 @@ export type SemanticReviewCandidateReport = {
     retainedByKind: Record<SemanticReviewCandidateKind, number>;
     failedTaskEvidence: SemanticReviewTaskFailureEvidenceSummary;
   };
+  coverage: SemanticReviewCoverageReport;
   candidatesByKind: Record<SemanticReviewCandidateKind, SemanticReviewCandidate[]>;
 };
 

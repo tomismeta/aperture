@@ -2,31 +2,21 @@ import { OBSERVATIONAL_READBACK_PHRASES } from "./semantic-patterns.js";
 import { looksLikeAbbreviatedFileViewObservation } from "./semantic-abbreviated-file-view-observation-shapes.js";
 import { looksLikeObservationTranscriptDiagnostic } from "./semantic-observation-transcript-diagnostic-shapes.js";
 import { readExplicitObservationTranscriptBody } from "./semantic-observation-transcript-body.js";
-import {
-  looksLikeBuildOrLogObservation,
-  looksLikePlainReadObservation,
-  looksLikeStrongRawSourceObservation,
-} from "./semantic-observation-shapes.js";
 import { looksLikeBareDiagnosticObservationBody } from "./semantic-bare-diagnostic-observation-shapes.js";
-import { looksLikeLinterOutputObservation } from "./semantic-linter-output-observation-shapes.js";
 import { looksLikeLocationDiagnosticObservation } from "./semantic-location-diagnostic-shapes.js";
 import { looksLikeSectionedSourceObservation } from "./semantic-sectioned-source-observation-shapes.js";
 import { looksLikeSearchResultObservation } from "./semantic-search-observation-shapes.js";
 import { looksLikeSourceFixtureObservation } from "./semantic-source-fixture-observation-shapes.js";
+import { looksLikeProceduralHarnessObservation } from "./semantic-procedural-observation-shapes.js";
 import { looksLikeTaggedFileObservationTranscript } from "./semantic-tagged-file-observation-transcript-shapes.js";
+import { readOwnedObservationPayload } from "./semantic-owned-observation-payload-shapes.js";
 import { readTestOutputObservation } from "./semantic-test-output-observation-shapes.js";
 import { looksLikeSectionedTestOutputFailure } from "./semantic-test-result-section-shapes.js";
 import { containsAnySemanticPhrase, normalizeSemanticText } from "./semantic-text.js";
 import { hasToolUseRejectionSignal } from "./semantic-tool-use-rejection-shapes.js";
+import type { ExplicitObservationTranscript } from "./semantic-observation-transcript-types.js";
 
-export type ExplicitObservationTranscript = {
-  shape:
-    | "existing_observation"
-    | "successful_test"
-    | "concrete_test_result"
-    | "abbreviated_file_view";
-  consequenceBaseline: "low" | "high";
-};
+export type { ExplicitObservationTranscript } from "./semantic-observation-transcript-types.js";
 
 export function readExplicitObservationTranscript(
   value: string,
@@ -83,13 +73,19 @@ function readObservationTranscriptBody(body: string): ExplicitObservationTranscr
   if (looksLikeBareDiagnosticObservationBody(body)) {
     return null;
   }
+  if (looksLikeProceduralHarnessObservation(body)) {
+    return { shape: "procedural_harness_observation", consequenceBaseline: "low" };
+  }
+  const ownedPayload = readOwnedObservationPayload(body, { allowNonWarningLinterFindings: true });
+  if (ownedPayload !== null) {
+    return {
+      shape: ownedPayload.shape === "test" ? "concrete_test_result" : "existing_observation",
+      consequenceBaseline: ownedPayload.consequenceBaseline,
+    };
+  }
   if (
     looksLikeTaggedFileObservationTranscript(text) ||
     looksLikeSectionedSourceObservation(body) ||
-    looksLikeStrongRawSourceObservation(body) ||
-    looksLikePlainReadObservation(body) ||
-    looksLikeLinterOutputObservation(body) ||
-    looksLikeBuildOrLogObservation(body) ||
     looksLikeSearchResultObservation(text, body)
   ) {
     return { shape: "existing_observation", consequenceBaseline: "high" };

@@ -1,0 +1,65 @@
+{
+  "id": "golden:kernel-corpus:completed-update-implied-ask-stays-status-shaped",
+  "title": "Completed update implied ask stays status-shaped",
+  "description": "A completed update that asks the operator for confirmation should remain a low-confidence status update.",
+  "doctrineTags": ["kernel_corpus", "completed_update_semantics", "semantic_uncertainty"],
+  "semanticFamilies": ["ask_missed"],
+  "expectations": {
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
+    "ambientInteractionIds": ["interaction:task:corpus:completed-ask:status"],
+    "resultLaneCounts": {
+      "now": 0,
+      "next": 0,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "completed ask",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "consequence": "low",
+        "confidence": "low",
+        "whyNowIncludes": "operator may need to respond",
+        "ontology": {
+          "ask": "status",
+          "activity": "task_completion",
+          "consequence": "low",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "source": "inferred"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "completed ask",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "semanticConfidence": "low",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:ambient", "lane:ambient"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "completed ask",
+      "event": {
+        "id": "evt:corpus:completed:ask",
+        "type": "task.updated",
+        "taskId": "task:corpus:completed-ask",
+        "timestamp": "2026-04-16T14:08:30.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Deploy completed",
+        "summary": "Can you confirm the deploy result before I close this out?",
+        "status": "completed"
+      }
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "id": "golden:kernel-corpus:completed-update-session-activity-preserves-source",
+  "title": "Completed update preserves explicit session activity",
+  "description": "A completed update with explicit session activity should not be semantically rewritten as tool completion.",
+  "doctrineTags": ["kernel_corpus", "completed_update_semantics", "source_fact_authority"],
+  "expectations": {
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
+    "ambientInteractionIds": ["interaction:task:corpus:completed-session:status"],
+    "resultLaneCounts": {
+      "now": 0,
+      "next": 0,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "completed session",
+        "intentFrame": "completion",
+        "activityClass": "session_status",
+        "consequence": "low",
+        "confidence": "high",
+        "provenanceIncludes": {
+          "activityClass": "source"
+        },
+        "ontology": {
+          "ask": "status",
+          "activity": "task_completion",
+          "consequence": "low",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "source": "explicit"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "completed session",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "semanticConfidence": "high",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:ambient", "lane:ambient"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "completed session",
+      "event": {
+        "id": "evt:corpus:completed:session",
+        "type": "task.updated",
+        "taskId": "task:corpus:completed-session",
+        "timestamp": "2026-04-16T14:09:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Workspace ready",
+        "summary": "The workspace setup completed.",
+        "status": "completed",
+        "activityClass": "session_status"
+      }
+    }
+  ]
+}

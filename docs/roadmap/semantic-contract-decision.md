@@ -176,8 +176,8 @@ Runtime impact:
 - source users on current `main`, and consumers of the next npm release, get the
   stricter failed-status classifier
 - installed npm consumers remain unaffected until a new package is published
-- adapters that provide explicit `toolFamily` or context tool-family evidence
-  can still receive bounded failed-status readback handling
+- adapters that provide explicit `toolFamily` can still receive bounded
+  failed-status readback handling
 - adapters that only place tool-family truth in audit `metadata` no longer get
   that metadata treated as routing evidence
 - zero-exit bash outputs and negated or expected exception wording no longer
@@ -341,8 +341,8 @@ Additional narrowing rule:
 
 - text-only tool-family inference should be treated as strongest on explicit
   approval requests
-- question and form requests should prefer explicit source or context tool-family
-  truth over wording-based inference
+- question and form requests should prefer explicit source `toolFamily` truth
+  over wording-based inference
 - even when question or form requests carry explicit tool-family metadata, that
   metadata should stay explanatory unless a later contract change deliberately
   promotes it into bounded policy, value, or memory paths

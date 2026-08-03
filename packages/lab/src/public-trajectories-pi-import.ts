@@ -32,6 +32,7 @@ import {
 import { readPiMonoSplit } from "./public-trajectories-pi-parse.js";
 import {
   buildPiMonoParentReference,
+  buildPiMonoMessageMetadata,
   buildPiMonoRawRef,
   buildPiMonoTraceIdentity,
   createPiMonoBoundaryEntry,
@@ -50,6 +51,10 @@ import {
   summarizePiMonoToolCall,
   summarizePiMonoTraceBoundary,
 } from "./public-trajectories-pi-support.js";
+import {
+  buildTaskUpdateSourceQualityFields,
+  buildTruncatedSourceEvidenceSemanticHints,
+} from "./public-trajectories-source-quality.js";
 
 const DEFAULT_SOURCE_KIND = "public-trajectory";
 
@@ -232,6 +237,14 @@ export function createImportedSessionFromPiMonoRow(
         if (!toolResultText && toolResultStatus === "running") {
           continue;
         }
+        const metadata = buildPiMonoMessageMetadata(message);
+        const semanticHints = buildTruncatedSourceEvidenceSemanticHints(message, toolResultStatus);
+        const sourceQuality = buildTaskUpdateSourceQualityFields({
+          summary: toolResultText,
+          status: toolResultStatus,
+          metadata,
+          semanticHints,
+        });
 
         entries.push({
           index: entries.length,
@@ -255,8 +268,8 @@ export function createImportedSessionFromPiMonoRow(
             timestamp,
             source: eventSource,
             ...(toolFamily ? { toolFamily } : {}),
+            ...sourceQuality,
             title: buildObservationTitle(toolResultStatus, toolFamily),
-            ...(toolResultText ? { summary: clipSourceEventSummary(toolResultText) } : {}),
             status: toolResultStatus,
           },
         });
@@ -269,6 +282,14 @@ export function createImportedSessionFromPiMonoRow(
         if (!bashSummary && bashStatus === "running") {
           continue;
         }
+        const metadata = buildPiMonoMessageMetadata(message);
+        const semanticHints = buildTruncatedSourceEvidenceSemanticHints(message, bashStatus);
+        const sourceQuality = buildTaskUpdateSourceQualityFields({
+          summary: bashSummary,
+          status: bashStatus,
+          metadata,
+          semanticHints,
+        });
 
         entries.push({
           index: entries.length,
@@ -289,8 +310,8 @@ export function createImportedSessionFromPiMonoRow(
             timestamp,
             source: eventSource,
             toolFamily: "bash",
+            ...sourceQuality,
             title: buildObservationTitle(bashStatus, "bash"),
-            ...(bashSummary ? { summary: clipSourceEventSummary(bashSummary) } : {}),
             status: bashStatus,
           },
         });

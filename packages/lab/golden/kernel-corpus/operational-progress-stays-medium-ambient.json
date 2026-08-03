@@ -1,0 +1,122 @@
+{
+  "id": "golden:kernel-corpus:operational-progress-stays-medium-ambient",
+  "title": "Operational progress stays medium ambient",
+  "description": "In-flight bash and edit operations are meaningful medium-consequence work progress, but should remain ambient until they complete, fail, block, or ask for operator input.",
+  "doctrineTags": ["kernel_corpus", "ambient_progress_shapes", "status_noise"],
+  "semanticFamilies": ["consequence_overread"],
+  "expectations": {
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [
+      "interaction:task:corpus:running-bash-progress:status",
+      "interaction:task:corpus:running-edit-progress:status"
+    ],
+    "resultLaneCounts": {
+      "now": 0,
+      "next": 0,
+      "ambient": 2
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "running bash progress",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "toolFamily": "bash",
+        "consequence": "medium",
+        "confidence": "high",
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "medium",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "explicit"
+        }
+      },
+      {
+        "stepLabel": "running edit progress",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "toolFamily": "edit",
+        "consequence": "medium",
+        "confidence": "high",
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "medium",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "explicit"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "running bash progress",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "semanticConfidence": "high",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:ambient",
+          "lane:ambient",
+          "criterion:peripheral_resolution:ambient"
+        ]
+      },
+      {
+        "stepLabel": "running edit progress",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "semanticConfidence": "high",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:ambient",
+          "lane:ambient",
+          "criterion:peripheral_resolution:ambient"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "running bash progress",
+      "event": {
+        "id": "evt:corpus:running-bash-progress",
+        "type": "task.updated",
+        "taskId": "task:corpus:running-bash-progress",
+        "timestamp": "2026-04-18T15:40:00.000Z",
+        "source": { "id": "custom-agent", "kind": "public-trajectory" },
+        "title": "bash command running",
+        "summary": "The command is still running and streaming progress.",
+        "status": "running",
+        "toolFamily": "bash"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "running edit progress",
+      "event": {
+        "id": "evt:corpus:running-edit-progress",
+        "type": "task.updated",
+        "taskId": "task:corpus:running-edit-progress",
+        "timestamp": "2026-04-18T15:40:01.000Z",
+        "source": { "id": "custom-agent", "kind": "public-trajectory" },
+        "title": "edit operation running",
+        "summary": "Applying the source patch to the working tree.",
+        "status": "running",
+        "toolFamily": "edit"
+      }
+    }
+  ]
+}

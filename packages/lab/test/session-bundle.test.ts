@@ -8,6 +8,7 @@ import {
   KERNEL_DECISION_RECORD_PROJECTION_V1_VERSION,
   KERNEL_DECISION_RECORD_PROJECTION_VERSION,
 } from "../src/artifact-versions.js";
+import type { SourceEvent } from "@tomismeta/aperture-core";
 import {
   canonicalAttentionExportToScenario,
   createScenarioFromSessionBundle,
@@ -163,6 +164,110 @@ test("session bundle replay clock override is not persisted as core posture", ()
   assert.equal(bundle.traces[0]?.timestamp, replayTimestamp);
   assert.equal(bundle.core, undefined);
   assert.ok(!JSON.stringify(bundle).includes("replayTimeSource"));
+});
+
+test("replay runner can use an initial fixed clock without a step clock", () => {
+  const result = runReplayScenario(
+    {
+      id: "runner:fixed-clock",
+      title: "Fixed replay clock",
+      steps: [
+        {
+          kind: "publishSource",
+          event: {
+            id: "evt:fixed-clock",
+            taskId: "task:fixed-clock",
+            timestamp: "2026-03-21T18:30:00.000Z",
+            type: "task.updated",
+            title: "Build running",
+            summary: "The build is still running.",
+            status: "running",
+          },
+        },
+      ],
+    },
+    {
+      initialTimeMs: Date.parse("2026-03-21T20:00:00.000Z"),
+    },
+  );
+
+  assert.equal(result.traces[0]?.timestamp, "2026-03-21T20:00:00.000Z");
+});
+
+test("plain replay preserves clipped-looking source events exactly", () => {
+  const event: SourceEvent = {
+    id: "evt:bundle:literal-ellipsis",
+    taskId: "task:bundle:literal-ellipsis",
+    timestamp: "2026-03-21T18:31:00.000Z",
+    type: "task.updated",
+    title: "bash failure",
+    summary: "The command printed a literal ellipsis ... and exited with code 1",
+    status: "failed",
+    toolFamily: "bash",
+  };
+  const result = runReplayScenario({
+    id: "bundle:literal-ellipsis",
+    title: "Literal ellipsis replay",
+    steps: [
+      {
+        kind: "publishSource",
+        label: "literal ellipsis",
+        event,
+      },
+    ],
+  });
+  const replayedEvent =
+    result.steps[0]?.step.kind === "publishSource" ? result.steps[0].step.event : null;
+
+  assert.deepEqual(replayedEvent, event);
+  assert.equal(replayedEvent?.metadata, undefined);
+  assert.equal(replayedEvent?.semanticHints, undefined);
+});
+
+test("current replay rehydrates clipped failed source summaries as source-quality hints", () => {
+  const result = runReplayScenario(
+    {
+      id: "bundle:clipped-source-quality",
+      title: "Clipped source-quality replay",
+      steps: [
+        {
+          kind: "publishSource",
+          label: "legacy clipped failure",
+          event: {
+            id: "evt:bundle:clipped-source-quality",
+            taskId: "task:bundle:clipped-source-quality",
+            timestamp: "2026-03-21T18:31:00.000Z",
+            type: "task.updated",
+            title: "bash failure",
+            summary:
+              '{"exit_code":1,"wall_time":"0.0510 seconds","output":"(no output)","truncated":true}',
+            status: "failed",
+            toolFamily: "bash",
+          },
+        },
+      ],
+    },
+    { rehydrateSourceQuality: true },
+  );
+  const replayedEvent =
+    result.steps[0]?.step.kind === "publishSource" ? result.steps[0].step.event : null;
+
+  assert.equal(replayedEvent?.metadata?.truncated, true);
+  assert.equal(replayedEvent?.semanticHints?.confidence, "low");
+  assert.equal(replayedEvent?.semanticHints?.consequence, undefined);
+  assert.equal(result.semantics[0]?.interpretation.consequence, "high");
+  assert.equal(result.semantics[0]?.interpretation.confidence, "low");
+  assert.equal(result.semantics[0]?.interpretation.provenance?.consequence, "inferred");
+  assert.equal(result.semantics[0]?.interpretation.provenance?.confidence, "hint");
+
+  const bundle = createSessionBundle(result, {
+    sessionId: "session:bundle:clipped-source-quality",
+    exportedAt: "2026-03-21T18:31:30.000Z",
+  });
+  const bundledEvent = bundle.steps[0]?.kind === "publishSource" ? bundle.steps[0].event : null;
+  assert.equal(bundledEvent?.metadata?.truncated, true);
+  assert.equal(bundledEvent?.semanticHints?.confidence, "low");
+  assert.equal(bundledEvent?.semanticHints?.consequence, undefined);
 });
 
 test("session bundles can replay back into the same final attention outcome", () => {

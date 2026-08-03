@@ -184,14 +184,14 @@ The corpus should continue adding adversarial examples:
 
 ## Public API Posture
 
-Decision as of 2026-07-23: publish a pure evaluator subpath, not a stateful
-kernel API.
+Decision as of 2026-08-03: keep the root package stateful, but publish narrow
+pure subpaths for embedders.
 
 The public `semantic` subpath exposes the attention-named ontology entry points
-as additive aliases over the existing semantic contract. The public `evaluator`
-subpath exposes `evaluateAttention(...)`, which evaluates one `AttentionClaim`
-against explicit context, config, and clock input and returns a versioned
-`AttentionDecisionRecord`.
+as additive aliases over the existing semantic contract. The public
+`evaluator` subpath exposes `evaluateAttention(...)`, which evaluates one
+`AttentionClaim` against explicit context, config, and clock input and returns a
+versioned `AttentionDecisionRecord`.
 
 The evaluator is deliberately narrower than Core:
 
@@ -206,13 +206,39 @@ The evaluator is deliberately narrower than Core:
 `event -> frame/view -> response` workflows. Lab replay and conformance remain
 the compatibility harness for messy event streams and realized-lane behavior.
 
+The public `kernel` subpath exposes an even smaller event-facing primitive for
+hosts that do not want Core's stateful surface loop:
+
+```ts
+evaluateApertureKernelEvent(event) -> {
+  event,
+  evaluation,
+  observation,
+  observationJudgment,
+  explanation
+}
+```
+
+Its host boundary is:
+
+```ts
+host event -> adapter-owned ApertureKernelEvent -> normalize -> observe -> judge
+```
+
+The adapter returns `ApertureKernelEvent | null`; accepted events are passed to
+`evaluateApertureKernelEvent(...)`. The kernel does not import source adapters,
+host protocols, product strings, persistence, networking, or UI behavior.
+
 The architecture shape is intentionally small:
 
 ```ts
 interpret(event) -> SemanticInterpretation
 projectOntology(semantic) -> AttentionOntologyDiagnostic
 evaluateAttention({ claim, context, config, now }) -> AttentionDecisionRecord
+evaluateApertureKernelEvent(event) -> observation + observation judgment + explanation codes
 ```
 
-Only the evaluator step is public today. Public trace explanation is emitted by
-the stateful `ApertureCore` loop; there is no public `explain(record)` API.
+The kernel explanation is deliberately code-first: stable reason codes describe
+normalization, candidate evaluation, observation presence, judgment status
+evidence, status-conflict handling, recovery posture, and baseline consequence.
+Prose explanation remains a UI or trace-rendering concern.

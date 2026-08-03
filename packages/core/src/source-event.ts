@@ -24,9 +24,12 @@ type SourceEventBase = {
   /**
    * Adapter-preserved metadata for audit, provenance, and review surfaces.
    *
-   * Core does not route on this metadata directly. It is carried through so
-   * runtimes and operators can inspect external execution and governance facts
-   * without forcing them into the canonical semantic vocabulary.
+   * Core does not route on arbitrary metadata directly. Promote source-quality
+   * facts through `semanticHints` when they should affect interpretation;
+   * documented adapter aliases are normalized into source fields before
+   * judgment. Other metadata is carried through so runtimes and operators can
+   * inspect external execution and governance facts without forcing them into
+   * the canonical semantic vocabulary.
    */
   metadata?: Record<string, unknown>;
   /**

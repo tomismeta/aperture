@@ -50,7 +50,3 @@ export type {
   AttentionDecisionRoute,
   AttentionOperatorPresence,
 } from "./attention-decision-record.js";
-export type {
-  ObservationalStatusConflictEvidence,
-  ObservationalStatusConflictKind,
-} from "./observational-status-conflict.js";

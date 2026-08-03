@@ -1,0 +1,104 @@
+{
+  "id": "golden:kernel-corpus:truncated-outcome-only-exit-stays-high",
+  "title": "Truncated outcome-only exit stays high",
+  "description": "A source-truncated nonzero no-output envelope may still expose outcome-only failure detail, but low-confidence source quality must keep failed-status routing conservative.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "semantic_normalization",
+    "status_noise",
+    "source_fact_authority",
+    "command_exit_shape",
+    "structured_output_ownership"
+  ],
+  "semanticFamilies": ["consequence_underread"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:task:corpus:truncated-outcome-only-exit:status",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "truncated outcome-only command exit",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "toolFamily": "exec_command",
+        "consequence": "high",
+        "confidence": "low",
+        "whyNowIncludes": "failed and should be reviewed",
+        "factorsInclude": ["failed", "source evidence truncated"],
+        "reasonsInclude": [
+          "source failure evidence was truncated before Aperture saw the full output"
+        ],
+        "provenanceIncludes": {
+          "consequence": "hint",
+          "confidence": "hint"
+        },
+        "ontology": {
+          "ask": "status",
+          "activity": "failure",
+          "consequence": "high",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "low",
+          "source": "hinted"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "truncated outcome-only command exit",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "queue",
+        "decisionRecordRoute": "queue",
+        "plannedLane": "next",
+        "resultLane": "now",
+        "semanticConfidence": "low",
+        "ambiguityReason": "low_signal",
+        "ambiguityResolution": "queue",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:queue",
+          "lane:next",
+          "criterion:ambiguity:low_signal",
+          "criterion:peripheral_resolution:queue",
+          "policy:may_interrupt"
+        ],
+        "semanticInfluenceIncludes": [
+          "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics"
+        ],
+        "semanticImpactDecisionBearingIncludes": ["activity (canonical)", "tool (bounded)"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "truncated outcome-only command exit",
+      "event": {
+        "id": "evt:corpus:truncated-outcome-only-exit",
+        "type": "task.updated",
+        "taskId": "task:corpus:truncated-outcome-only-exit",
+        "timestamp": "2026-04-18T15:15:30.000Z",
+        "source": { "id": "dataclaw", "kind": "public-trajectory" },
+        "title": "exec_command failure",
+        "summary": "{\"exit_code\":1,\"wall_time\":\"0.0510 seconds\",\"output\":\"(no output)\"}",
+        "status": "failed",
+        "toolFamily": "exec_command",
+        "metadata": { "truncated": true },
+        "semanticHints": {
+          "consequence": "high",
+          "confidence": "low",
+          "factors": ["source evidence truncated"],
+          "reasons": [
+            "source failure evidence was truncated before Aperture saw the full output"
+          ]
+        }
+      }
+    }
+  ]
+}

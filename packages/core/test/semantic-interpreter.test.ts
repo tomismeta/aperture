@@ -4,6 +4,8 @@ import test from "node:test";
 import { interpretSourceEvent } from "../src/semantic-interpreter.js";
 
 const timestamp = "2026-04-06T12:00:00.000Z";
+const rejectedToolUseMessage =
+  "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
 
 function source(id: string) {
   return { id, kind: "agent" as const };
@@ -67,6 +69,267 @@ test("failed readback output stays observational instead of becoming a hard fail
   assert.equal(interpretation.confidence, "high");
 });
 
+test("failed empty tool payloads become medium-consequence source-quality gaps", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:empty-failure-payload",
+    type: "task.updated",
+    taskId: "task:empty-failure-payload",
+    timestamp,
+    source: source("custom-agent"),
+    title: "edit failure",
+    summary: "{}",
+    status: "failed",
+    toolFamily: "edit",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.toolFamily, "edit");
+  assert.equal(interpretation.consequence, "medium");
+  assert.equal(interpretation.confidence, "high");
+  assert.equal(interpretation.whyNow, "Work has failed and should be reviewed.");
+});
+
+test("failed task semantic interpretation routes observation-core evidence shapes", () => {
+  const cases = [
+    {
+      id: "tool-rejection",
+      title: "bash failure",
+      summary: rejectedToolUseMessage,
+      toolFamily: "bash",
+      expected: {
+        intentFrame: "status_update",
+        activityClass: "status_update",
+        consequence: "low",
+        toolFamily: "bash",
+      },
+    },
+    {
+      id: "success-observation",
+      title: "bash failure",
+      summary: "Your command ran successfully and did not produce any output.",
+      toolFamily: "bash",
+      expected: {
+        intentFrame: "status_update",
+        activityClass: "status_update",
+        consequence: "low",
+        toolFamily: "bash",
+      },
+    },
+    {
+      id: "payload-observation",
+      title: "read failure output",
+      summary: "Observation: contents of /workspace/app.log showing top 20 lines",
+      toolFamily: "read",
+      expected: {
+        intentFrame: "status_update",
+        activityClass: "status_update",
+        consequence: "low",
+        toolFamily: "read",
+      },
+    },
+    {
+      id: "expected-diagnostic",
+      title: "bash failure",
+      summary:
+        "OBSERVATION: Form is valid: False. Form errors: amount required. Decompress result: [None, 'USD']",
+      toolFamily: "bash",
+      expected: {
+        intentFrame: "failure",
+        activityClass: "tool_failure",
+        consequence: "medium",
+        toolFamily: "bash",
+      },
+    },
+    {
+      id: "terminal-failure",
+      title: "bash failure",
+      summary: "Traceback (most recent call last): RuntimeError: deploy failed",
+      toolFamily: "bash",
+      expected: {
+        intentFrame: "failure",
+        activityClass: "tool_failure",
+        consequence: "high",
+        toolFamily: "bash",
+      },
+    },
+  ];
+
+  for (const testCase of cases) {
+    const interpretation = interpretSourceEvent({
+      id: `evt:observation-core:${testCase.id}`,
+      type: "task.updated",
+      taskId: `task:observation-core:${testCase.id}`,
+      timestamp,
+      source: source("custom-agent"),
+      title: testCase.title,
+      summary: testCase.summary,
+      status: "failed",
+      toolFamily: testCase.toolFamily,
+    });
+
+    assert.equal(interpretation.intentFrame, testCase.expected.intentFrame, testCase.id);
+    assert.equal(interpretation.activityClass, testCase.expected.activityClass, testCase.id);
+    assert.equal(interpretation.consequence, testCase.expected.consequence, testCase.id);
+    assert.equal(interpretation.toolFamily, testCase.expected.toolFamily, testCase.id);
+  }
+});
+
+test("completed task updates become completion semantics without adapter hints", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:completed-update",
+    type: "task.updated",
+    taskId: "task:completed-update",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Codex command completed",
+    summary: "Codex finished the command.",
+    status: "completed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "completion");
+  assert.equal(interpretation.activityClass, "tool_completion");
+  assert.equal(interpretation.toolFamily, "bash");
+  assert.equal(interpretation.consequence, "medium");
+  assert.equal(interpretation.confidence, "high");
+  assert.deepEqual(interpretation.reasons, [
+    "task update status explicitly indicates completed work",
+  ]);
+  assert.equal(interpretation.provenance?.intentFrame, "inferred");
+  assert.equal(interpretation.provenance?.activityClass, "inferred");
+});
+
+test("completed task updates with implied asks stay low-confidence status updates", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:completed-implied-ask",
+    type: "task.updated",
+    taskId: "task:completed-implied-ask",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Deploy completed",
+    summary: "Can you confirm the deploy result before I close this out?",
+    status: "completed",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.confidence, "low");
+  assert.equal(interpretation.whyNow, "Status text implies the operator may need to respond.");
+});
+
+test("completed task updates with blocking text stay blocked status updates", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:completed-blocking",
+    type: "task.updated",
+    taskId: "task:completed-blocking",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Deploy completed",
+    summary: "Cannot continue until credentials are provided.",
+    status: "completed",
+  });
+
+  assert.equal(interpretation.intentFrame, "blocked_work");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.consequence, "medium");
+  assert.equal(interpretation.confidence, "medium");
+  assert.equal(interpretation.whyNow, "Work is blocked and may require operator attention.");
+});
+
+test("completed task updates with waiting text stay status-shaped", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:completed-waiting",
+    type: "task.updated",
+    taskId: "task:completed-waiting",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Deploy completed",
+    summary: "Approval required before continuing.",
+    status: "completed",
+  });
+
+  assert.equal(interpretation.intentFrame, "status_update");
+  assert.equal(interpretation.activityClass, "status_update");
+  assert.equal(interpretation.confidence, "high");
+});
+
+test("completed task updates with negated asks remain completion-shaped", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:completed-no-action",
+    type: "task.updated",
+    taskId: "task:completed-no-action",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Deploy completed",
+    summary: "No action needed; continuing automatically.",
+    status: "completed",
+  });
+
+  assert.equal(interpretation.intentFrame, "completion");
+  assert.equal(interpretation.activityClass, "tool_completion");
+  assert.equal(interpretation.confidence, "high");
+});
+
+test("completed task updates preserve explicit source activity semantics", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:completed-session-status",
+    type: "task.updated",
+    taskId: "task:completed-session-status",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Workspace ready",
+    summary: "The workspace setup completed.",
+    status: "completed",
+    activityClass: "session_status",
+  });
+
+  assert.equal(interpretation.intentFrame, "completion");
+  assert.equal(interpretation.activityClass, "session_status");
+  assert.equal(interpretation.provenance?.activityClass, "source");
+});
+
+test("semantic hints can override completed task update defaults", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:completed-hinted",
+    type: "task.updated",
+    taskId: "task:completed-hinted",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Workspace recovered",
+    summary: "The workspace recovered from a stream interruption.",
+    status: "completed",
+    semanticHints: {
+      activityClass: "session_status",
+      confidence: "medium",
+      reasons: ["adapter preserved platform lifecycle context"],
+    },
+  });
+
+  assert.equal(interpretation.intentFrame, "completion");
+  assert.equal(interpretation.activityClass, "session_status");
+  assert.equal(interpretation.confidence, "medium");
+  assert.equal(interpretation.provenance?.activityClass, "hint");
+});
+
+test("high-risk wording can still lift an empty failure payload", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:empty-failure-high-risk",
+    type: "task.updated",
+    taskId: "task:empty-failure-high-risk",
+    timestamp,
+    source: source("custom-agent"),
+    title: "prod deploy failure",
+    summary: "{}",
+    status: "failed",
+    toolFamily: "bash",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.consequence, "high");
+  assert.equal(interpretation.confidence, "high");
+});
+
 test("approval requests with explicit low-risk read work stay medium-confidence low consequence", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:read-approval",
@@ -87,19 +350,17 @@ test("approval requests with explicit low-risk read work stay medium-confidence 
   assert.equal(interpretation.provenance?.toolFamily, "source");
 });
 
-test("choice requests keep explicit context tool family without pretending the ask is higher confidence", () => {
+test("choice requests keep explicit event tool family without pretending the ask is higher confidence", () => {
   const interpretation = interpretSourceEvent({
-    id: "evt:choice-context-tool",
+    id: "evt:choice-event-tool",
     type: "human.input.requested",
-    taskId: "task:choice-context-tool",
-    interactionId: "interaction:choice-context-tool",
+    taskId: "task:choice-event-tool",
+    interactionId: "interaction:choice-event-tool",
     timestamp,
     source: source("custom-agent"),
     title: "Choose the next step",
     summary: "Decide whether to continue.",
-    context: {
-      items: [{ id: "toolFamily", label: "Tool Family", value: "read" }],
-    },
+    toolFamily: "read",
     request: {
       kind: "choice",
       selectionMode: "single",
@@ -228,6 +489,31 @@ test("empty relation hints do not erase inferred relations", () => {
     ["same_issue", "repeats"],
   );
   assert.equal(interpretation.provenance?.relationHints, "inferred");
+});
+
+test("read source-window limit guidance does not infer supersession", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:read-source-window-limit",
+    type: "task.updated",
+    taskId: "task:read-source-window-limit",
+    timestamp,
+    source: source("custom-agent"),
+    title: "read failure",
+    summary:
+      "File content (347.9KB) exceeds maximum allowed size (256KB). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.",
+    status: "failed",
+    toolFamily: "read",
+  });
+
+  assert.equal(interpretation.intentFrame, "failure");
+  assert.equal(interpretation.activityClass, "tool_failure");
+  assert.equal(interpretation.toolFamily, "read");
+  assert.equal(interpretation.consequence, "medium");
+  assert.equal(interpretation.confidence, "high");
+  assert.deepEqual(
+    interpretation.relationHints.map((hint) => hint.kind),
+    [],
+  );
 });
 
 test("relation hints merge with inferred relations", () => {

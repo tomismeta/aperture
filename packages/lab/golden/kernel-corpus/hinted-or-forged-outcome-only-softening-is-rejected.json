@@ -1,0 +1,88 @@
+{
+  "id": "golden:kernel-corpus:hinted-or-forged-outcome-only-softening-is-rejected",
+  "title": "Hinted outcome-only softening is rejected",
+  "description": "A hint may lower the semantic consequence annotation, but diagnostic terminal evidence must not receive the stable outcome-only failed-status posture.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "semantic_normalization",
+    "status_noise",
+    "source_fact_authority",
+    "command_exit_shape",
+    "structured_output_ownership"
+  ],
+  "semanticFamilies": ["consequence_underread"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:task:corpus:forged-outcome-only-softening:status",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "hinted diagnostic command exit",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "toolFamily": "exec_command",
+        "consequence": "medium",
+        "confidence": "high",
+        "whyNowIncludes": "failed and should be reviewed",
+        "factorsInclude": ["failed"],
+        "reasonsInclude": ["adapter claimed this only needs acknowledgement"],
+        "provenanceIncludes": {
+          "consequence": "hint"
+        },
+        "ontology": {
+          "ask": "status",
+          "activity": "failure",
+          "consequence": "medium",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "hinted"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "hinted diagnostic command exit",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "semanticConfidence": "high",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:activate", "lane:now", "policy:may_interrupt"],
+        "semanticInfluenceIncludes": [
+          "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics"
+        ],
+        "semanticImpactDecisionBearingIncludes": ["activity (canonical)", "tool (bounded)"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "hinted diagnostic command exit",
+      "event": {
+        "id": "evt:corpus:forged-outcome-only-softening",
+        "type": "task.updated",
+        "taskId": "task:corpus:forged-outcome-only-softening",
+        "timestamp": "2026-04-18T15:16:30.000Z",
+        "source": { "id": "dataclaw", "kind": "public-trajectory" },
+        "title": "exec_command failure",
+        "summary": "{\"exit_code\":2,\"wall_time\":\"0.0510 seconds\",\"output\":\"sh: foo: command not found\"}",
+        "status": "failed",
+        "toolFamily": "exec_command",
+        "semanticHints": {
+          "consequence": "medium",
+          "reasons": ["adapter claimed this only needs acknowledgement"]
+        }
+      }
+    }
+  ]
+}

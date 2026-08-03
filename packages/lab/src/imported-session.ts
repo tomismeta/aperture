@@ -4,7 +4,10 @@ import { IMPORTED_SESSION_SCHEMA_VERSION } from "./artifact-versions.js";
 import type { ReplayArtifactSource, ReplayScenario } from "./scenario.js";
 import { createSessionBundleFromScenario, type ReplaySessionBundle } from "./session-bundle.js";
 import type { CreateSessionBundleOptions } from "./session-bundle-model.js";
+import { clipSourceEventSummary, isClippedSourceEventSummary } from "./source-event-summary.js";
 export { IMPORTED_SESSION_SCHEMA_VERSION } from "./artifact-versions.js";
+
+const STALE_IMPORTED_SUMMARY_MAX_LENGTH = 512;
 
 export type ImportedSessionRole = "system" | "user" | "assistant" | "tool";
 export type ImportedSessionKind =
@@ -70,7 +73,7 @@ export function createReplayScenarioFromImportedSession(session: ImportedSession
     )
     .map((entry) => ({
       kind: "publishSource" as const,
-      event: entry.sourceEvent,
+      event: canonicalizeImportedSourceEvent(sourceEventWithImportedTextSummary(entry)),
       label: entry.label ?? `${entry.role}:${entry.kind}:${entry.index}`,
     }));
 
@@ -109,4 +112,91 @@ export function createSessionBundleFromImportedSession(
       ? { replayTimeSource: options.replayTimeSource }
       : {}),
   });
+}
+
+function sourceEventWithImportedTextSummary(
+  entry: ImportedSessionEntry & { sourceEvent: SourceEvent },
+): SourceEvent {
+  if (
+    entry.kind !== "tool_result" ||
+    entry.sourceEvent.type !== "task.updated" ||
+    !isImportedCommandExecutionToolFamily(entry.sourceEvent.toolFamily) ||
+    entry.sourceEvent.status !== "failed" ||
+    !entry.text
+  ) {
+    return entry.sourceEvent;
+  }
+
+  const currentSummary = entry.sourceEvent.summary;
+  if (!shouldRefreshImportedToolSummary(currentSummary)) {
+    return entry.sourceEvent;
+  }
+
+  const summary = clipSourceEventSummary(entry.text);
+  if ((currentSummary?.length ?? 0) >= summary.length) {
+    return entry.sourceEvent;
+  }
+
+  return {
+    ...entry.sourceEvent,
+    summary,
+  };
+}
+
+function canonicalizeImportedSourceEvent(event: SourceEvent): SourceEvent {
+  if (event.type !== "task.updated") {
+    return event;
+  }
+
+  const toolFamily = canonicalImportedToolFamily(event.toolFamily);
+  if (toolFamily === event.toolFamily) {
+    return event;
+  }
+
+  const { toolFamily: _rawToolFamily, ...eventWithoutToolFamily } = event;
+  return {
+    ...eventWithoutToolFamily,
+    ...(toolFamily !== undefined ? { toolFamily } : {}),
+  };
+}
+
+function isImportedCommandExecutionToolFamily(value: string | undefined): boolean {
+  return canonicalImportedToolFamily(value) === "bash";
+}
+
+function canonicalImportedToolFamily(value: string | undefined): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+
+  const alias = normalized.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  if (
+    normalized === "bash" ||
+    normalized === "shell" ||
+    normalized === "terminal" ||
+    alias === "exec_command" ||
+    alias === "shell_command" ||
+    alias === "run_shell_command"
+  ) {
+    return "bash";
+  }
+
+  return normalized;
+}
+
+function shouldRefreshImportedToolSummary(currentSummary: string | undefined): boolean {
+  if (currentSummary === undefined) {
+    return true;
+  }
+
+  if (currentSummary.length > STALE_IMPORTED_SUMMARY_MAX_LENGTH) {
+    return false;
+  }
+
+  return isClippedSourceEventSummary(currentSummary) || currentSummary.trimEnd().endsWith("...");
 }

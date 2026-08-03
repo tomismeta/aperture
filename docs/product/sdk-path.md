@@ -22,9 +22,17 @@ The package path should broaden distribution, not redefine the product.
 
 Today, the real judgment layer lives in the [Aperture core SDK package](../../packages/core/package.json), published on npm as `@tomismeta/aperture-core`.
 
-Current version:
+Current workspace package version:
 
 - `@tomismeta/aperture-core@0.8.0`
+
+Current published npm latest:
+
+- `@tomismeta/aperture-core@0.7.0`
+
+The workspace version and published npm latest can differ while a release branch
+is under review. Treat the published npm package and the versioned release notes
+as the source of truth for what external consumers can install today.
 
 If you want the opinionated local CLI/TUI product, use `@tomismeta/aperture`.
 If you want to embed the deterministic judgment loop in your own host or
@@ -35,8 +43,9 @@ What is already true:
 - `ApertureCore` is exported and usable as a full engine surface
 - `SourceEvent` ingestion now includes a built-in deterministic semantic layer
 - a pure evaluator subpath exposes one-claim deterministic judgment records
+- a kernel subpath exposes the stateless host-neutral observation/judgment prefix
 - trace/explanation now has a dedicated subpath for SDK consumers
-- the only advanced public subpaths are `@tomismeta/aperture-core/semantic`, `@tomismeta/aperture-core/evaluator`, and `@tomismeta/aperture-core/trace`
+- the only advanced public subpaths are `@tomismeta/aperture-core/semantic`, `@tomismeta/aperture-core/evaluator`, `@tomismeta/aperture-core/kernel`, and `@tomismeta/aperture-core/trace`
 - the root public surface is intentionally minimal
 - external-consumer proof paths exist
 - `pnpm sdk:prove` verifies both external consumption and tarball shape
@@ -127,6 +136,23 @@ It does not apply events, mutate state, accept responses, replay sessions,
 persist data, or report realized placement. Use `ApertureCore` for those
 stateful engine behaviors.
 
+### `@tomismeta/aperture-core/kernel`
+
+This subpath contains the stateless host-neutral observation and observation
+judgment prefix.
+
+It exists for consumers who want to:
+
+- map their own host event shape into `ApertureKernelEvent` outside core
+- call `evaluateApertureKernelEvent(...)`
+- receive a bounded finalized event projection, normalized observation,
+  observation judgment contract, and versioned explanation reason codes
+
+It does not export host adapters, mutate state, apply attention policy,
+calculate continuity, accept responses, persist data, or render UI. Use the
+evaluator subpath for pure claim-to-record attention decisions; use
+`ApertureCore` for the full stateful loop.
+
 ### `@tomismeta/aperture-core/trace`
 
 This subpath contains the public explainability contract.
@@ -150,6 +176,7 @@ It currently contains:
 - the full engine facade for consumers who want the whole attention model
 - core event, source-event, frame, response, signal, and semantic types
 - a dedicated evaluator subpath for pure claim-to-record judgment
+- a dedicated kernel subpath for host-neutral observation/judgment projection
 - a dedicated trace subpath for explanation consumers
 - a deterministic semantic layer used internally by `publishSourceEvent(...)`
 

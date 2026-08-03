@@ -1,0 +1,90 @@
+{
+  "id": "golden:kernel-corpus:command-test-progress-observation-stays-medium",
+  "title": "Command test progress observation stays medium",
+  "description": "Imported trajectories can report failed transport status while carrying command-owned test-runner progress with no visible test failure diagnostic.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "semantic_normalization",
+    "status_noise",
+    "observational_status_conflict",
+    "owned_command_transport"
+  ],
+  "semanticFamilies": ["consequence_overread"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:task:corpus:command-test-progress-observation:status",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "command test progress observation",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "toolFamily": "bash",
+        "consequence": "medium",
+        "confidence": "high",
+        "factorsInclude": ["observational_failure"],
+        "reasonsInclude": [
+          "task status indicates failure but the update reads like observational output"
+        ],
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "medium",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "inferred"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "command test progress observation",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "now",
+        "semanticConfidence": "high",
+        "ambiguityReason": null,
+        "ambiguityResolution": null,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:ambient",
+          "lane:ambient",
+          "criterion:peripheral_resolution:ambient",
+          "policy:peripheral_only"
+        ],
+        "semanticInfluenceIncludes": [
+          "engine-owned observational evidence resolved noisy failed-status routing as status handling"
+        ],
+        "semanticImpactDecisionBearingIncludes": [
+          "observational status conflict (judgment routing)"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "command test progress observation",
+      "event": {
+        "id": "evt:corpus:command-test-progress-observation",
+        "type": "task.updated",
+        "taskId": "task:corpus:command-test-progress-observation",
+        "timestamp": "2026-04-18T15:18:00.000Z",
+        "source": { "id": "dataclaw", "kind": "public-trajectory" },
+        "title": "bash failure",
+        "summary": "Running Suite: GCN3 Timing Simulator - /repo/amd/timing/cu\n=====================================================================\nRandom Seed: \u001b[1m1776087919\u001b[0m\nWill run \u001b[1m152\u001b[0m of \u001b[1m152\u001b[0m specs\n\u001b[38;5;10m\u2022\u001b[0m",
+        "status": "failed",
+        "toolFamily": "bash"
+      }
+    }
+  ]
+}

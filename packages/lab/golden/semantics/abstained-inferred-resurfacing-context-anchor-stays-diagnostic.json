@@ -8,15 +8,11 @@
     "decision_stream_continuity",
     "ambient_doctrine"
   ],
-  "semanticFamilies": [
-    "episode_missed"
-  ],
+  "semanticFamilies": ["episode_missed"],
   "expectations": {
     "finalNowInteractionId": "interaction:blocker",
     "nextInteractionIds": [],
-    "ambientInteractionIds": [
-      "interaction:task:issue:b:status"
-    ],
+    "ambientInteractionIds": ["interaction:task:issue:b:status"],
     "resultLaneCounts": {
       "now": 1,
       "next": 0,
@@ -40,7 +36,7 @@
           "activity": "task_progress",
           "blocking": "waiting",
           "episode": "resurfaced",
-          "source": "hinted"
+          "source": "explicit"
         }
       }
     ],
@@ -57,11 +53,7 @@
           "relations (continuity)",
           "abstention (ambiguity)"
         ],
-        "semanticImpactExplanatoryIncludes": [
-          "intent",
-          "consequence",
-          "confidence"
-        ]
+        "semanticImpactExplanatoryIncludes": ["intent", "consequence", "confidence"]
       }
     ],
     "traceExpectations": {
@@ -97,9 +89,7 @@
         "summary": "Recovery work for the production deploy issue is underway.",
         "status": "running",
         "context": {
-          "items": [
-            { "id": "issue", "label": "Issue", "value": "issue:deploy:prod" }
-          ]
+          "items": [{ "id": "issue", "label": "Issue", "value": "issue:deploy:prod" }]
         }
       }
     },
@@ -116,9 +106,7 @@
         "summary": "The production deploy issue may have come back while recovery is still in progress.",
         "status": "waiting",
         "context": {
-          "items": [
-            { "id": "issue", "label": "Issue", "value": "issue:deploy:prod" }
-          ]
+          "items": [{ "id": "issue", "label": "Issue", "value": "issue:deploy:prod" }]
         },
         "semanticHints": {
           "abstained": true

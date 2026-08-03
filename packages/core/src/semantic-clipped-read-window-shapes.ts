@@ -4,10 +4,17 @@ import {
   readArrowNumberedDocumentSpans,
   type LineNumberedDocumentSpan,
 } from "./semantic-line-numbered-document-span-shapes.js";
+import {
+  hasVisibleTruncationBoundary,
+  stripObservationStatusPrefix,
+} from "./semantic-observation-text.js";
 
 export function looksLikeClippedArrowReadWindowObservation(text: string): boolean {
   const normalized = stripObservationStatusPrefix(text);
-  if (!containsArrowNumberedDocumentMarker(normalized) || !hasVisibleClippingBoundary(normalized)) {
+  if (
+    !containsArrowNumberedDocumentMarker(normalized) ||
+    !hasVisibleTruncationBoundary(normalized)
+  ) {
     return false;
   }
 
@@ -27,12 +34,4 @@ function hasConsecutiveLineNumbers(spans: LineNumberedDocumentSpan[]): boolean {
 
 function countNonemptyBodies(spans: LineNumberedDocumentSpan[]): number {
   return spans.filter((span) => span.body.trim().length > 0).length;
-}
-
-function hasVisibleClippingBoundary(text: string): boolean {
-  return /\.\.\.\s*$/.test(text.trim());
-}
-
-function stripObservationStatusPrefix(value: string): string {
-  return value.trim().replace(/^(?:bash|edit|read|search|tool)\s+failure\s+/, "");
 }

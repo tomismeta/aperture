@@ -3,10 +3,11 @@ import {
   looksLikeMarkdownDocumentObservation,
   looksLikeStructuredMarkdownDocumentObservation,
 } from "./semantic-document-observation-shapes.js";
-import { looksLikeKernelLogDiagnosticPayload } from "./semantic-kernel-log-shapes.js";
+import { looksLikeKernelLogDiagnosticPayload } from "./semantic-tool-output-diagnostic-shapes.js";
 import { looksLikeClippedArrowReadWindowObservation } from "./semantic-clipped-read-window-shapes.js";
 import { looksLikeReadTruncationProtocolObservation } from "./semantic-read-observation-shapes.js";
 import { looksLikeStrongListingObservation } from "./semantic-listing-observation-shapes.js";
+import { stripObservationStatusPrefix } from "./semantic-observation-text.js";
 import { looksLikeOwnedReadTransportObservation } from "./semantic-owned-read-observation-shapes.js";
 import { looksLikeStrongRawSourceObservation } from "./semantic-source-observation-shapes.js";
 
@@ -134,8 +135,4 @@ function looksLikeStructuredMakeWarningLogObservation(text: string): boolean {
     /(?:^|[\r\n])\s*(?:warning:\s+\S[^\r\n]*|(?:CC|LD)\s+\[M\])/i.test(text) &&
     !/(?:^|[\r\n])\s*make(?:\[\d+\])?:\s+\*\*\*/i.test(text)
   );
-}
-
-function stripObservationStatusPrefix(value: string): string {
-  return value.trim().replace(/^(?:bash|edit|read|search|tool)\s+failure\s+/, "");
 }

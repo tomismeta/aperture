@@ -1,0 +1,128 @@
+{
+  "id": "golden:kernel-corpus:prospective-resolution-verification-preserves-focus",
+  "title": "Prospective resolution verification preserves focus",
+  "description": "A status update asking to verify whether an issue is fixed should not resolve the active episode.",
+  "doctrineTags": ["kernel_corpus", "episode_resolution", "decision_stream_continuity"],
+  "semanticFamilies": ["episode_missed"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:task:corpus:prospective-resolution-failure:status",
+    "nextInteractionIds": [],
+    "ambientInteractionIds": ["interaction:task:corpus:prospective-resolution-verification:status"],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 0,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "prospective resolution verification",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "consequence": "low",
+        "confidence": "high",
+        "relationKindsExact": ["same_issue", "repeats"],
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "low",
+          "blocking": "non_blocking",
+          "episode": "resurfaced",
+          "confidence": "high",
+          "source": "hinted"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "active verification failure",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "now",
+        "episodeId": "episode:custom-agent:status:issue:corpus:prospective-resolution:1",
+        "episodeKey": "custom-agent:status:issue:corpus:prospective-resolution",
+        "episodeState": "emerging",
+        "episodeSize": 1,
+        "episodeEvidenceScore": 3,
+        "episodeEvidenceReasonsInclude": [
+          "at least one related interaction carried high consequence or critical tone",
+          "semantic relation hints indicate this issue is recurring"
+        ],
+        "episodeObsolete": false,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:activate", "lane:now"]
+      },
+      {
+        "stepLabel": "prospective resolution verification",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "episodeId": "episode:custom-agent:status:issue:corpus:prospective-resolution:1",
+        "episodeKey": "custom-agent:status:issue:corpus:prospective-resolution",
+        "episodeState": "actionable",
+        "episodeSize": 2,
+        "episodeEvidenceScore": 5,
+        "episodeEvidenceReasonsInclude": [
+          "multiple related interactions have accumulated in this episode",
+          "at least one related interaction carried high consequence or critical tone",
+          "high-signal evidence is stacking up across the episode",
+          "semantic relation hints indicate this issue is recurring"
+        ],
+        "episodeObsolete": false,
+        "decisionRecordCurrentEpisodeId": null,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:ambient",
+          "lane:ambient",
+          "evidence:current_episode:absent"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "active verification failure",
+      "event": {
+        "id": "evt:corpus:prospective-resolution:failed",
+        "type": "task.updated",
+        "taskId": "task:corpus:prospective-resolution-failure",
+        "timestamp": "2026-04-16T14:04:00.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Verification issue failed again",
+        "summary": "The same verification issue is still failing before release.",
+        "status": "failed",
+        "semanticHints": {
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:corpus:prospective-resolution" },
+            { "kind": "repeats", "target": "issue:corpus:prospective-resolution" }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "prospective resolution verification",
+      "event": {
+        "id": "evt:corpus:prospective-resolution:verify",
+        "type": "task.updated",
+        "taskId": "task:corpus:prospective-resolution-verification",
+        "timestamp": "2026-04-16T14:04:30.000Z",
+        "source": { "id": "custom-agent" },
+        "title": "Verify issue fix",
+        "summary": "Run the script again to confirm that the issue is fixed.",
+        "status": "running",
+        "semanticHints": {
+          "relationHints": [
+            { "kind": "same_issue", "target": "issue:corpus:prospective-resolution" }
+          ]
+        }
+      }
+    }
+  ]
+}

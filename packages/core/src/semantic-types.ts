@@ -38,24 +38,6 @@ export type SemanticRelationHint = {
   target?: string;
 };
 
-/**
- * Bounded semantic read of a {@link SourceEvent}.
- *
- * Contract notes:
- * - `toolFamily`, `activityClass`, `relationHints`, and human-input
- *   `consequence` can influence canonical events or downstream judgment.
- * - `intentFrame`, `whyNow`, `factors`, and `reasons` are primarily
- *   explanatory and benchmark-facing.
- * - `confidence` and `abstained` are live semantic uncertainty signals for
- *   ambiguity handling on non-blocking work; they do not rewrite canonical
- *   routing facts or act as general score multipliers.
- * - `provenance` is explanation-only metadata that records whether key
- *   semantic fields were source-provided, inferred, or hint-driven.
- * - On `task.updated`, `status` remains authoritative for candidate routing
- *   except for named judgment-input diagnostics such as routine observational
- *   status conflicts; richer reads are still captured for trace, replay, and
- *   calibration.
- */
 export type SemanticInterpretation = {
   /** Canonical semantic frame for explanation, testing, and adapter inspection. */
   intentFrame: SemanticIntentFrame;

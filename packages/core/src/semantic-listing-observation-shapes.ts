@@ -3,7 +3,11 @@ import {
   type ListingEntry,
   type ListingEntryKind,
 } from "./semantic-listing-entry-shapes.js";
-import { looksLikeKernelLogDiagnosticPayload } from "./semantic-kernel-log-shapes.js";
+import { looksLikeKernelLogDiagnosticPayload } from "./semantic-tool-output-diagnostic-shapes.js";
+import {
+  hasVisibleTruncationBoundary,
+  stripObservationStatusPrefix,
+} from "./semantic-observation-text.js";
 
 export function looksLikeStrongListingObservation(value: string): boolean {
   const text = stripObservationStatusPrefix(value);
@@ -68,12 +72,4 @@ function hasMonotoneRequiredListingEntries(entries: ListingEntry[]): boolean {
 
 function hasTotalOutputLineMarker(text: string): boolean {
   return /(?:^|[\r\n])\s*total output lines:\s*\d+\b/i.test(text);
-}
-
-function hasVisibleTruncationBoundary(text: string): boolean {
-  return /\.\.\.\s*$/.test(text.trim());
-}
-
-function stripObservationStatusPrefix(value: string): string {
-  return value.trim().replace(/^(?:bash|edit|read|search|tool)\s+failure\s+/, "");
 }

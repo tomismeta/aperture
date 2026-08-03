@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/index.ts", "src/evaluator.ts", "src/semantic.ts", "src/trace.ts"],
+  entry: ["src/index.ts", "src/evaluator.ts", "src/semantic.ts", "src/trace.ts", "src/kernel.ts"],
   outDir: "public-dist",
   format: ["esm"],
   platform: "node",

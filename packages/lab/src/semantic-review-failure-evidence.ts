@@ -10,7 +10,13 @@ import type {
   ReplaySemanticSnapshot,
 } from "./scenario.js";
 import type { ReplaySessionBundle } from "./session-bundle.js";
-import { readFailureEvidenceEventShape } from "./semantic-review-failure-event-shapes.js";
+import { buildFailureEvidenceExample } from "./semantic-review-failure-evidence-example.js";
+import { createFailureDetailCounts } from "./semantic-review-failure-detail.js";
+import {
+  createFailureEvidenceLossCounts,
+  createFailureEvidenceLossExampleBuckets,
+  readFailureEvidenceLossKind,
+} from "./semantic-review-failure-evidence-loss.js";
 import {
   createFailureEvidenceExampleBuckets,
   createFailureEvidenceKindCounts,
@@ -18,9 +24,12 @@ import {
   retainFailureEvidenceExamples,
 } from "./semantic-review-failure-evidence-retention.js";
 import {
+  type SemanticReviewTaskFailureDetail,
   type SemanticReviewTaskFailureConsequenceBaseline,
-  type SemanticReviewTaskFailureEvidenceExample,
   type SemanticReviewTaskFailureEvidenceKind,
+  type SemanticReviewTaskFailureEvidenceLossKind,
+  type SemanticReviewTaskFailureEvidenceExample,
+  type FailureEvidenceExampleBuckets,
   type SemanticReviewTaskFailureEvidenceSummary,
 } from "./semantic-review-failure-evidence-types.js";
 
@@ -28,15 +37,20 @@ export type SemanticReviewTaskFailureEvidenceAccumulator = {
   failedTaskUpdateCount: number;
   readsAsObservationCount: number;
   consequenceBaselineCounts: Record<SemanticReviewTaskFailureConsequenceBaseline, number>;
+  failureDetailCounts: Record<SemanticReviewTaskFailureDetail, number>;
   countsByKind: Record<SemanticReviewTaskFailureEvidenceKind, number>;
   countsByToolFamily: Map<string, number>;
   missingToolFamilyCount: number;
-  unclassifiedEventShapeCounts: Map<string, number>;
-  retainedUnclassifiedExamplesByEventShape: Map<string, SemanticReviewTaskFailureEvidenceExample[]>;
-  retainedExamplesByKind: Record<
-    SemanticReviewTaskFailureEvidenceKind,
+  evidenceLossCounts: Record<SemanticReviewTaskFailureEvidenceLossKind, number>;
+  retainedEvidenceLossExamples: FailureEvidenceExampleBuckets<SemanticReviewTaskFailureEvidenceLossKind>;
+  parserGapCandidateEventShapeCounts: Map<string, number>;
+  retainedParserGapCandidateExamplesByEventShape: Map<
+    string,
     SemanticReviewTaskFailureEvidenceExample[]
   >;
+  unclassifiedEventShapeCounts: Map<string, number>;
+  retainedUnclassifiedExamplesByEventShape: Map<string, SemanticReviewTaskFailureEvidenceExample[]>;
+  retainedExamplesByKind: FailureEvidenceExampleBuckets<SemanticReviewTaskFailureEvidenceKind>;
 };
 
 export function classifyFailureEvidenceForStep(
@@ -58,9 +72,14 @@ export function createFailureEvidenceAccumulator(): SemanticReviewTaskFailureEvi
       medium: 0,
       high: 0,
     },
+    failureDetailCounts: createFailureDetailCounts(),
     countsByKind: createFailureEvidenceKindCounts(),
     countsByToolFamily: new Map(),
     missingToolFamilyCount: 0,
+    evidenceLossCounts: createFailureEvidenceLossCounts(),
+    retainedEvidenceLossExamples: createFailureEvidenceLossExampleBuckets(),
+    parserGapCandidateEventShapeCounts: new Map(),
+    retainedParserGapCandidateExamplesByEventShape: new Map(),
     unclassifiedEventShapeCounts: new Map(),
     retainedUnclassifiedExamplesByEventShape: new Map(),
     retainedExamplesByKind: createFailureEvidenceExampleBuckets(),
@@ -86,6 +105,9 @@ export function addFailureEvidenceExample(
   accumulator.failedTaskUpdateCount += 1;
   accumulator.countsByKind[input.evidence.kind] += 1;
   accumulator.consequenceBaselineCounts[input.evidence.consequenceBaseline] += 1;
+  if (input.evidence.failureDetail !== undefined) {
+    accumulator.failureDetailCounts[input.evidence.failureDetail] += 1;
+  }
   if (input.evidence.readsAsObservation) {
     accumulator.readsAsObservationCount += 1;
   }
@@ -101,6 +123,16 @@ export function addFailureEvidenceExample(
   }
 
   const example = buildFailureEvidenceExample(input);
+  const evidenceLossKind = readFailureEvidenceLossKind(input.step.sourceEvent);
+  if (evidenceLossKind) {
+    accumulator.evidenceLossCounts[evidenceLossKind] += 1;
+    accumulator.retainedEvidenceLossExamples[evidenceLossKind] = retainFailureEvidenceExamples(
+      accumulator.retainedEvidenceLossExamples[evidenceLossKind],
+      example,
+      limits,
+    );
+  }
+
   const bucket = accumulator.retainedExamplesByKind[input.evidence.kind];
   accumulator.retainedExamplesByKind[input.evidence.kind] = retainFailureEvidenceExamples(
     bucket,
@@ -109,6 +141,24 @@ export function addFailureEvidenceExample(
   );
 
   if (input.evidence.kind === "unclassified_failure") {
+    if (!evidenceLossKind) {
+      accumulator.parserGapCandidateEventShapeCounts.set(
+        example.eventShape,
+        (accumulator.parserGapCandidateEventShapeCounts.get(example.eventShape) ?? 0) + 1,
+      );
+      accumulator.retainedParserGapCandidateExamplesByEventShape.set(
+        example.eventShape,
+        retainFailureEvidenceExamples(
+          accumulator.retainedParserGapCandidateExamplesByEventShape.get(example.eventShape) ?? [],
+          example,
+          {
+            maxExamplesPerKind: limits.maxUnclassifiedExamplesPerEventShape,
+            maxExamplesPerSessionPerKind: limits.maxExamplesPerSessionPerKind,
+          },
+        ),
+      );
+    }
+
     accumulator.unclassifiedEventShapeCounts.set(
       example.eventShape,
       (accumulator.unclassifiedEventShapeCounts.get(example.eventShape) ?? 0) + 1,
@@ -135,6 +185,7 @@ export function finalizeFailureEvidenceSummary(
     failedTaskUpdateCount: accumulator.failedTaskUpdateCount,
     readsAsObservationCount: accumulator.readsAsObservationCount,
     consequenceBaselineCounts: accumulator.consequenceBaselineCounts,
+    failureDetailCounts: accumulator.failureDetailCounts,
     countsByKind: accumulator.countsByKind,
     countsByToolFamily: Object.fromEntries(
       [...accumulator.countsByToolFamily.entries()].sort(([left], [right]) =>
@@ -142,6 +193,19 @@ export function finalizeFailureEvidenceSummary(
       ),
     ),
     missingToolFamilyCount: accumulator.missingToolFamilyCount,
+    evidenceLossCounts: accumulator.evidenceLossCounts,
+    retainedEvidenceLossExamples: accumulator.retainedEvidenceLossExamples,
+    parserGapCandidateEventShapeCounts: Object.fromEntries(
+      [...accumulator.parserGapCandidateEventShapeCounts.entries()].sort(([left], [right]) =>
+        left.localeCompare(right),
+      ),
+    ),
+    retainedParserGapCandidateExamplesByEventShape:
+      finalizeRetainedUnclassifiedExamplesByEventShape({
+        counts: accumulator.parserGapCandidateEventShapeCounts,
+        examplesByShape: accumulator.retainedParserGapCandidateExamplesByEventShape,
+        maxEventShapes: limits.maxUnclassifiedEventShapes,
+      }),
     unclassifiedEventShapeCounts: Object.fromEntries(
       [...accumulator.unclassifiedEventShapeCounts.entries()].sort(([left], [right]) =>
         left.localeCompare(right),
@@ -153,61 +217,5 @@ export function finalizeFailureEvidenceSummary(
       maxEventShapes: limits.maxUnclassifiedEventShapes,
     }),
     retainedExamplesByKind: accumulator.retainedExamplesByKind,
-  };
-}
-
-function buildFailureEvidenceExample(input: {
-  bundle: ReplaySessionBundle;
-  bundlePath: string;
-  step: OfflineReviewPreparedStep;
-  semantic: ReplaySemanticSnapshot | null;
-  decision: ReplayDecisionSnapshot | null;
-  evidence: TaskFailureSemanticEvidence;
-}): SemanticReviewTaskFailureEvidenceExample {
-  const sourceEvent = input.step.sourceEvent;
-  const interpretation = input.semantic?.interpretation;
-  const eventShape = readFailureEvidenceEventShape({
-    evidence: input.evidence,
-    event: {
-      summary: sourceEvent?.summary ?? null,
-      toolFamily: sourceEvent?.toolFamily ?? null,
-    },
-  });
-
-  return {
-    bundlePath: input.bundlePath,
-    sessionId: input.bundle.sessionId,
-    title: input.bundle.title,
-    stepIndex: input.step.stepIndex,
-    ...(input.step.stepLabel ? { stepLabel: input.step.stepLabel } : {}),
-    sourceExcerpt: input.step.sourceExcerpt,
-    evidence: {
-      kind: input.evidence.kind,
-      toolFamily: input.evidence.toolFamily ?? null,
-      readsAsObservation: input.evidence.readsAsObservation,
-      consequenceBaseline: input.evidence.consequenceBaseline,
-    },
-    event: {
-      type: sourceEvent?.type ?? "task.updated",
-      status: sourceEvent?.status ?? null,
-      title: sourceEvent?.title ?? null,
-      summary: sourceEvent?.summary ?? null,
-      toolFamily: sourceEvent?.toolFamily ?? null,
-    },
-    semantic: {
-      intentFrame: interpretation?.intentFrame ?? null,
-      activityClass: interpretation?.activityClass ?? null,
-      toolFamily: interpretation?.toolFamily ?? null,
-      consequence: interpretation?.consequence ?? null,
-      confidence: interpretation?.confidence ?? null,
-      abstained: interpretation?.abstained === true,
-    },
-    judgment: {
-      decisionKind: input.decision?.decisionKind ?? null,
-      plannedLane: input.decision?.plannedLane ?? null,
-      resultLane: input.decision?.resultLane ?? null,
-      reasonCodes: input.decision?.decisionRecordReasonCodes ?? [],
-    },
-    eventShape,
   };
 }

@@ -1,0 +1,108 @@
+{
+  "id": "golden:kernel-corpus:empty-failure-payload-stays-visible-with-weak-evidence",
+  "title": "Empty failure payload stays visible with weak evidence",
+  "description": "A failed tool event with an explicit tool family but an empty JSON payload should stay failure-shaped and visible without becoming a high-certainty critical diagnostic.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "semantic_normalization",
+    "status_noise",
+    "source_fact_authority",
+    "source_quality_gap"
+  ],
+  "semanticFamilies": ["consequence_overread"],
+  "expectations": {
+    "finalNowInteractionId": "interaction:corpus:empty-failure-anchor",
+    "nextInteractionIds": ["interaction:task:corpus:empty-failure:status"],
+    "ambientInteractionIds": [],
+    "resultLaneCounts": {
+      "now": 1,
+      "next": 1,
+      "ambient": 0
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "payloadless edit failure",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
+        "toolFamily": "edit",
+        "consequence": "medium",
+        "confidence": "high",
+        "whyNowIncludes": "failed and should be reviewed",
+        "factorsInclude": ["failed"],
+        "reasonsInclude": ["task status explicitly indicates failure"],
+        "provenanceIncludes": {
+          "consequence": "inferred",
+          "confidence": "inferred",
+          "toolFamily": "source"
+        },
+        "ontology": {
+          "ask": "status",
+          "activity": "failure",
+          "consequence": "medium",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "explicit"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "payloadless edit failure",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "queue",
+        "decisionRecordRoute": "queue",
+        "plannedLane": "next",
+        "resultLane": "next",
+        "semanticConfidence": "high",
+        "semanticAbstained": false,
+        "ambiguityReason": "low_signal",
+        "ambiguityResolution": "queue",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": [
+          "route:queue",
+          "lane:next",
+          "criterion:ambiguity:low_signal",
+          "policy_criterion:semantic_uncertainty:verdict"
+        ],
+        "semanticInfluenceIncludes": [
+          "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics"
+        ],
+        "semanticImpactDecisionBearingIncludes": ["activity (canonical)", "tool (bounded)"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publish",
+      "label": "approval anchor",
+      "event": {
+        "id": "evt:corpus:empty-failure-anchor",
+        "type": "human.input.requested",
+        "taskId": "task:corpus:empty-failure-anchor",
+        "interactionId": "interaction:corpus:empty-failure-anchor",
+        "timestamp": "2026-04-18T15:16:00.000Z",
+        "title": "Approve rollout",
+        "summary": "Rollout waits for approval.",
+        "consequence": "high",
+        "request": { "kind": "approval" }
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "payloadless edit failure",
+      "event": {
+        "id": "evt:corpus:empty-failure",
+        "type": "task.updated",
+        "taskId": "task:corpus:empty-failure",
+        "timestamp": "2026-04-18T15:16:10.000Z",
+        "source": { "id": "dataclaw", "kind": "public-trajectory" },
+        "title": "edit failure",
+        "summary": "{}",
+        "status": "failed",
+        "toolFamily": "edit"
+      }
+    }
+  ]
+}

@@ -10,7 +10,8 @@ import type { AttentionCandidate } from "./interaction-candidate.js";
 import {
   buildAttentionJudgmentInput,
   hasActionableBlockedLikeStatusJudgmentInput,
-  hasRoutineObservationalStatusConflictJudgmentInput,
+  hasLimitedFailureStatusJudgmentInput,
+  hasObservationalStatusConflictJudgmentInput,
 } from "./judgment-input.js";
 import type { AttentionJudgmentInput } from "./judgment-input-types.js";
 import { semanticWhyNowForTaskStatus } from "./semantic-language.js";
@@ -72,7 +73,7 @@ export class EventEvaluator {
     // blocked-like semantics may only lift the status posture; they do not turn
     // the event into a blocking request or change the response contract.
     const judgmentInput = buildAttentionJudgmentInput(event);
-    const disposition = this.statusDispositionForStatus(event.status, judgmentInput);
+    const disposition = this.statusDispositionForStatus(event, judgmentInput);
 
     return {
       taskId: event.taskId,
@@ -199,7 +200,7 @@ export class EventEvaluator {
   }
 
   private statusDispositionForStatus(
-    status: TaskUpdatedEvent["status"],
+    event: TaskUpdatedEvent,
     judgmentInput: AttentionJudgmentInput,
   ): {
     priority: AttentionCandidate["priority"];
@@ -208,10 +209,10 @@ export class EventEvaluator {
     responseSpec: AttentionAcknowledgeResponseSpec | { kind: "none" };
     includeFailureProvenance: boolean;
   } {
-    if (hasRoutineObservationalStatusConflictJudgmentInput(judgmentInput)) {
+    if (hasObservationalStatusConflictJudgmentInput(judgmentInput)) {
       return statusDispositionForObservationalStatusConflict(
         judgmentInput.ontology?.consequence ?? "low",
-        status,
+        event.status,
       );
     }
 
@@ -220,26 +221,20 @@ export class EventEvaluator {
         priority: "normal",
         tone: "focused",
         consequence: "medium",
-        responseSpec: statusResponseSpec(status),
-        includeFailureProvenance: status === "failed",
+        responseSpec: statusResponseSpec(event.status),
+        includeFailureProvenance: event.status === "failed",
       };
     }
 
-    switch (status) {
+    switch (event.status) {
       case "failed":
-        return {
-          priority: "high",
-          tone: "critical",
-          consequence: "high",
-          responseSpec: statusResponseSpec(status),
-          includeFailureProvenance: true,
-        };
+        return statusDispositionForFailedStatus(event, judgmentInput);
       case "blocked":
         return {
           priority: "normal",
           tone: "focused",
           consequence: "medium",
-          responseSpec: statusResponseSpec(status),
+          responseSpec: statusResponseSpec(event.status),
           includeFailureProvenance: false,
         };
       case "running":
@@ -249,13 +244,46 @@ export class EventEvaluator {
           priority: "background",
           tone: "ambient",
           consequence: "low",
-          responseSpec: statusResponseSpec(status),
+          responseSpec: statusResponseSpec(event.status),
           includeFailureProvenance: false,
         };
       default:
-        return unreachableTaskStatus(status);
+        return unreachableTaskStatus(event.status);
     }
   }
+}
+
+function statusDispositionForFailedStatus(
+  event: TaskUpdatedEvent,
+  judgmentInput: AttentionJudgmentInput,
+): {
+  priority: AttentionCandidate["priority"];
+  tone: AttentionCandidate["tone"];
+  consequence: AttentionCandidate["consequence"];
+  responseSpec: AttentionAcknowledgeResponseSpec | { kind: "none" };
+  includeFailureProvenance: boolean;
+} {
+  if (hasEngineOwnedLimitedFailure(judgmentInput)) {
+    return {
+      priority: "normal",
+      tone: "focused",
+      consequence: "medium",
+      responseSpec: statusResponseSpec(event.status),
+      includeFailureProvenance: true,
+    };
+  }
+
+  return {
+    priority: "high",
+    tone: "critical",
+    consequence: "high",
+    responseSpec: statusResponseSpec(event.status),
+    includeFailureProvenance: true,
+  };
+}
+
+function hasEngineOwnedLimitedFailure(judgmentInput: AttentionJudgmentInput): boolean {
+  return hasLimitedFailureStatusJudgmentInput(judgmentInput);
 }
 
 function statusDispositionForObservationalStatusConflict(

@@ -104,12 +104,12 @@ In practice, that means:
 
 The hot path inside core is:
 
-`event -> enrich -> compile judgment input -> judge -> surface -> respond`
+`event -> enrich -> normalize observation -> compile judgment input -> judge -> surface -> respond`
 
 That maps to:
 
 - `ApertureEvent` or `SourceEvent`
-- shared event meaning plus a compiled semantic/evidence seam
+- shared event meaning plus a compiled semantic/observation seam
 - policy, value, criterion, and continuity-aware judgment
 - surfaced state for now / next / ambient
 - `AttentionResponse` back into core
@@ -120,13 +120,17 @@ the TUI, see [Architecture Overview](https://github.com/tomismeta/aperture/blob/
 If you want the replay, benchmark, and calibration direction for evaluating
 judgment changes, see [Aperture Lab](https://github.com/tomismeta/aperture/blob/main/docs/lab/aperture-lab.md).
 
-For the current shipped release summary, see [Aperture Core SDK v0.8.0](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-core-v0.8.0.md).
+For the current published npm release summary, see [Aperture Core SDK v0.7.0](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-core-v0.7.0.md).
+The workspace package metadata may be ahead of npm while a release branch is
+under review; do not treat an unreleased version note as installable until the
+npm package is cut.
 
 Runnable repo examples live in:
 
 - [examples/core-full-engine/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-full-engine/index.ts)
 - [examples/core-attention-evaluator/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-attention-evaluator/index.ts)
 - [examples/core-judgment-primitives/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-judgment-primitives/index.ts)
+- [examples/core-kernel-entrypoint/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-kernel-entrypoint/index.ts)
 - [examples/core-semantic-entrypoint/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-semantic-entrypoint/index.ts)
 - [examples/core-trace-entrypoint/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-trace-entrypoint/index.ts)
 
@@ -204,9 +208,73 @@ time; `record.evaluatedAt` records the evaluation clock. It does not apply
 events, mutate state, accept human responses, replay sessions, or report a
 realized lane. Use `ApertureCore` when you need those stateful engine behaviors.
 
+If you want Aperture's embeddable semantic judgment contract without Core's
+stateful surface loop, use the kernel subpath:
+
+```ts
+import {
+  evaluateApertureKernelEvent,
+  type ApertureKernelEvent,
+} from "@tomismeta/aperture-core/kernel";
+
+const event: ApertureKernelEvent = {
+  id: "evt:command",
+  workId: "work:command",
+  occurredAt: new Date().toISOString(),
+  kind: "work.updated",
+  title: "Command observation",
+  summary: "Your command ran successfully and did not produce any output.",
+  status: "failed",
+  facts: {
+    capabilityFamily: "exec_command",
+  },
+};
+
+const result = evaluateApertureKernelEvent(event);
+
+console.log(result.observation);
+console.log(result.observationJudgment);
+console.log(result.explanation.reasonCodes);
+```
+
+`evaluateApertureKernelEvent(...)` is the small embeddable kernel contract:
+
+`neutral host event -> normalize -> observe -> judge`
+
+It accepts the kernel-owned neutral event DTO, finalizes it through Aperture's
+internal source seam, returns a bounded finalized-event projection, and returns
+the observation document, deterministic judgment contract, and stable
+explanation reason codes when the event shape has one.
+
+If your host has its own event shape, keep that mapping outside core. The host
+adapter should return an `ApertureKernelEvent | null`; pass accepted kernel
+events to `evaluateApertureKernelEvent(...)`. The kernel owns normalization,
+observation, and judgment after that boundary.
+
+Use `facts.capabilityFamily` for explicit source-known capability facts.
+`context.items` and `metadata` remain descriptive host payload fields; they do
+not promote capability authority. Capability values are trimmed and lowercased
+before judgment.
+
+Observation documents currently exist for failed work updates that carry
+classifiable observational evidence, such as command success output, read
+payloads, search output, structured execution output, source-limit diagnostics,
+or rejected tool-use observations. Other candidate events can legitimately
+return `observation: null` and `observationJudgment: null`; use the returned
+`evaluation` and finalized `event` for those cases.
+
+This subpath does not install adapters, open sockets, persist state, render UI,
+or make the package live inside another product. It runs only when the host
+imports `@tomismeta/aperture-core/kernel` and calls the kernel function.
+Use `ApertureCore` when you need frames, views, continuity, and responses.
+
 For advanced consumers, the internal path is now:
 
-`SourceEvent/ApertureEvent -> finalized event (usually EnrichedApertureEvent) -> AttentionJudgmentInput -> AttentionCandidate -> judgment -> AttentionFrame/AttentionView + trace`
+`SourceEvent/ApertureEvent -> finalized event (usually EnrichedApertureEvent) -> private semantic evidence -> normalized observation -> AttentionJudgmentInput -> AttentionCandidate -> judgment -> AttentionFrame/AttentionView + trace`
+
+That private semantic-evidence step is not a public SDK contract. The public
+kernel projection returns the normalized observation document and deterministic
+judgment contract instead of exposing raw task-failure evidence internals.
 
 If you want to invoke Aperture's semantic parsing directly before publishing a
 canonical `ApertureEvent`, or you want the richer semantic types directly, use
@@ -215,6 +283,31 @@ the advanced semantic entrypoint:
 ```ts
 import { interpretSourceEvent, normalizeSourceEvent } from "@tomismeta/aperture-core/semantic";
 ```
+
+Adapters that know source output was clipped before it reached Aperture can pass
+a bounded semantic hint instead of encoding that fact into title or summary text:
+
+```ts
+import type { SourceEvent } from "@tomismeta/aperture-core";
+import { semanticHintsForTruncatedSourceEvidence } from "@tomismeta/aperture-core/semantic";
+
+const event: SourceEvent = {
+  id: "evt:test:failed",
+  taskId: "task:test",
+  timestamp: new Date().toISOString(),
+  type: "task.updated",
+  status: "failed",
+  title: "Test command failed",
+  summary: "The process exited nonzero after the captured output was clipped.",
+  semanticHints: semanticHintsForTruncatedSourceEvidence({ status: "failed" }),
+};
+```
+
+Use this only for adapter-known source-quality facts, such as clipped stderr,
+paginated logs, or a transcript window that omitted earlier evidence. The helper
+lowers semantic confidence and, for failed status by default, preserves high
+consequence. It cannot lower failed evidence to medium or low consequence. It
+does not parse logs, recover missing evidence, or make unrelated failures severe.
 
 If you want to type `onTrace(...)` callbacks directly or inspect why a route
 happened through the public explanation contract, use the trace entrypoint:

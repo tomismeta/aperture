@@ -29,6 +29,7 @@ import {
   type SweSmithTrajectoryRow,
   type SweSmithTrajectorySplit,
 } from "./public-trajectories-types.js";
+import { buildTaskUpdateSourceQualityFields } from "./public-trajectories-source-quality.js";
 import {
   extractSweSmithMessageText,
   parseSweSmithMessages,
@@ -193,6 +194,10 @@ export function createImportedSessionFromSweSmithTrajectory(
       }
 
       const status = inferObservationStatus(observationText, lastToolFamily);
+      const sourceQuality = buildTaskUpdateSourceQualityFields({
+        summary: toSingleLine(observationText) ?? observationText,
+        status,
+      });
       entries.push({
         index: entries.length,
         timestamp: syntheticTimestamp(entries.length),
@@ -211,8 +216,8 @@ export function createImportedSessionFromSweSmithTrajectory(
           timestamp: syntheticTimestamp(entries.length),
           source: eventSource,
           ...(lastToolFamily ? { toolFamily: lastToolFamily } : {}),
+          ...sourceQuality,
           title: buildObservationTitle(status, lastToolFamily),
-          summary: clipSourceEventSummary(toSingleLine(observationText) ?? observationText),
           status,
         },
       });

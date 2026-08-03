@@ -1,6 +1,8 @@
 import path from "node:path";
 
-import type { OfflineReviewFocusArea, OfflineReviewPreparedStep } from "./offline-review.js";
+import { TRUNCATED_SOURCE_EVIDENCE_FACTOR } from "@tomismeta/aperture-core/semantic";
+
+import type { OfflineReviewPreparedStep } from "./offline-review.js";
 import type {
   ReplayDecisionSnapshot,
   ReplayNormalizedEventSnapshot,
@@ -12,9 +14,13 @@ import {
   type SemanticReviewCandidate,
   type SemanticReviewCandidateKind,
 } from "./semantic-review-candidate-types.js";
+import {
+  baseScoreForCandidateKind,
+  focusAreasForCandidateKind,
+  rationaleForCandidateKind,
+} from "./semantic-review-candidate-kind-policy.js";
+import { hasToolTaxonomyGap } from "./semantic-review-tool-taxonomy.js";
 import type { ReplaySessionBundle } from "./session-bundle.js";
-
-const KNOWN_TOOL_FAMILIES = new Set(["bash", "edit", "read", "search", "task", "web", "write"]);
 
 export function candidateKindsForStep(
   step: OfflineReviewPreparedStep,
@@ -27,7 +33,7 @@ export function candidateKindsForStep(
   const confidence = interpretation?.confidence ?? decision?.semanticConfidence ?? null;
   const toolFamily = interpretation?.toolFamily ?? step.normalizedEvent?.toolFamily ?? null;
   const isHighConsequenceAttention =
-    interpretation?.consequence === "high" || decision?.resultLane === "now";
+    interpretation?.consequence === "high" || isPlannedNowAttention(decision);
   const isFailureAttention = sourceStatus === "failed" || interpretation?.intentFrame === "failure";
   const isBlockedAttention =
     sourceStatus === "blocked" ||
@@ -39,21 +45,33 @@ export function candidateKindsForStep(
     decision?.resultLane === "next";
   const isAttentionRoutingDecision =
     isQueueDecision || decision?.plannedLane === "now" || decision?.resultLane === "now";
+  const hasLowConfidenceOrAbstention =
+    confidence === "low" || confidence === "medium" || interpretation?.abstained === true;
   const isSemanticUncertainty =
-    confidence === "low" ||
-    confidence === "medium" ||
-    interpretation?.abstained === true ||
-    (decision?.ambiguity !== undefined && decision.ambiguity !== null);
+    hasLowConfidenceOrAbstention &&
+    !hasResolvedSourceQualityOnlyUncertainty(interpretation, decision);
+  const isRoutingAmbiguity = decision?.ambiguity !== undefined && decision.ambiguity !== null;
   const hasRelationSignal = (interpretation?.relationHints.length ?? 0) > 0;
+  const isAmbientObservationalStatusConflict =
+    interpretation?.intentFrame === "status_update" &&
+    interpretation.activityClass === "status_update" &&
+    (interpretation.consequence === "low" || interpretation.consequence === "medium") &&
+    interpretation.factors.includes("observational_failure") &&
+    decision?.decisionKind === "ambient" &&
+    decision.plannedLane === "ambient" &&
+    !isRoutingAmbiguity &&
+    preservesAmbientPeripheralResolution(decision);
 
   if (
     semantic &&
     !hasNonEmptyWhyNow(interpretation?.whyNow) &&
+    !isAmbientObservationalStatusConflict &&
     (isHighConsequenceAttention ||
       isFailureAttention ||
       isBlockedAttention ||
       isAttentionRoutingDecision ||
       isSemanticUncertainty ||
+      isRoutingAmbiguity ||
       hasRelationSignal)
   ) {
     kinds.push("missing_why_now");
@@ -73,6 +91,9 @@ export function candidateKindsForStep(
   if (isSemanticUncertainty) {
     kinds.push("semantic_uncertainty");
   }
+  if (isRoutingAmbiguity) {
+    kinds.push("routing_ambiguity");
+  }
   if (hasToolTaxonomyGap(toolFamily)) {
     kinds.push("tool_taxonomy_gap");
   }
@@ -81,6 +102,40 @@ export function candidateKindsForStep(
   }
 
   return kinds;
+}
+
+function preservesAmbientPeripheralResolution(decision: ReplayDecisionSnapshot): boolean {
+  return (
+    decision.resultLane === "ambient" ||
+    (decision.resultLane === "now" &&
+      (decision.decisionRecordReasonCodes ?? []).includes(
+        "criterion:peripheral_resolution:ambient",
+      ))
+  );
+}
+
+function isPlannedNowAttention(decision: ReplayDecisionSnapshot | null): boolean {
+  return decision?.plannedLane === "now" || decision?.decisionKind === "activate";
+}
+
+function hasResolvedSourceQualityOnlyUncertainty(
+  interpretation: ReplaySemanticSnapshot["interpretation"] | undefined,
+  decision: ReplayDecisionSnapshot | null,
+): boolean {
+  if (interpretation?.abstained === true) {
+    return false;
+  }
+  if (interpretation?.factors.includes(TRUNCATED_SOURCE_EVIDENCE_FACTOR) !== true) {
+    return false;
+  }
+  if (
+    decision?.decisionRecordReasonCodes?.includes("policy_criterion:semantic_uncertainty:noop") !==
+    true
+  ) {
+    return false;
+  }
+
+  return decision.ambiguity === undefined || decision.ambiguity === null;
 }
 
 export function buildSemanticReviewCandidate(
@@ -184,7 +239,10 @@ export function createKindCounts(): Record<SemanticReviewCandidateKind, number> 
   >;
 }
 
-export function createKindBuckets(): Record<SemanticReviewCandidateKind, SemanticReviewCandidate[]> {
+export function createKindBuckets(): Record<
+  SemanticReviewCandidateKind,
+  SemanticReviewCandidate[]
+> {
   const buckets = {} as Record<SemanticReviewCandidateKind, SemanticReviewCandidate[]>;
   for (const kind of SEMANTIC_REVIEW_CANDIDATE_KINDS) {
     buckets[kind] = [];
@@ -272,69 +330,6 @@ function scoreCandidate(
   return score;
 }
 
-function baseScoreForCandidateKind(kind: SemanticReviewCandidateKind): number {
-  switch (kind) {
-    case "queue_decision":
-      return 60;
-    case "blocked_attention":
-      return 55;
-    case "semantic_uncertainty":
-      return 50;
-    case "high_consequence_attention":
-      return 45;
-    case "failure_attention":
-      return 40;
-    case "relation_signal":
-      return 32;
-    case "tool_taxonomy_gap":
-      return 25;
-    case "missing_why_now":
-      return 10;
-  }
-}
-
-function focusAreasForCandidateKind(kind: SemanticReviewCandidateKind): OfflineReviewFocusArea[] {
-  switch (kind) {
-    case "missing_why_now":
-      return ["summary", "status", "intentFrame", "consequence", "confidence"];
-    case "high_consequence_attention":
-      return ["status", "intentFrame", "consequence", "confidence"];
-    case "failure_attention":
-      return ["status", "intentFrame", "toolFamily", "consequence"];
-    case "blocked_attention":
-      return ["status", "blocking", "intentFrame", "confidence"];
-    case "queue_decision":
-      return ["blocking", "episode", "confidence", "consequence"];
-    case "semantic_uncertainty":
-      return ["intentFrame", "blocking", "confidence", "source"];
-    case "tool_taxonomy_gap":
-      return ["toolFamily", "intentFrame", "consequence"];
-    case "relation_signal":
-      return ["episode", "status", "intentFrame", "source"];
-  }
-}
-
-function rationaleForCandidateKind(kind: SemanticReviewCandidateKind): string {
-  switch (kind) {
-    case "missing_why_now":
-      return "Semantic interpretation lacks whyNow timing language; review only if the event should explain attention timing.";
-    case "high_consequence_attention":
-      return "High-consequence or now-lane attention should be checked for calibrated urgency.";
-    case "failure_attention":
-      return "Failure events are common corpus pressure points for consequence and status interpretation.";
-    case "blocked_attention":
-      return "Blocked-like wording/status should be checked for blocking-vs-waiting precision.";
-    case "queue_decision":
-      return "Queued decisions are rare in this corpus and should be inspected for routing correctness.";
-    case "semantic_uncertainty":
-      return "Lower confidence, abstention, or ambiguity identifies language that may deserve review coverage.";
-    case "tool_taxonomy_gap":
-      return "Unknown tool families point at importer or semantic taxonomy gaps.";
-    case "relation_signal":
-      return "Relation hints exercise continuity semantics and should be sampled for target accuracy.";
-  }
-}
-
 function compareCandidates(left: SemanticReviewCandidate, right: SemanticReviewCandidate): number {
   return (
     right.pressureScore - left.pressureScore ||
@@ -345,10 +340,6 @@ function compareCandidates(left: SemanticReviewCandidate, right: SemanticReviewC
 
 function hasNonEmptyWhyNow(value: string | null | undefined): boolean {
   return typeof value === "string" && value.trim().length > 0;
-}
-
-function hasToolTaxonomyGap(toolFamily: string | null | undefined): boolean {
-  return typeof toolFamily === "string" && !KNOWN_TOOL_FAMILIES.has(toolFamily);
 }
 
 function repoRelativePath(filePath: string, repoRoot: string): string {

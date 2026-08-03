@@ -1,0 +1,98 @@
+{
+  "id": "golden:kernel-corpus:duplicate-running-progress-suppresses-stale-repeat",
+  "title": "Duplicate running progress suppresses stale repeat",
+  "description": "A delayed duplicate running update should remain semantically valid progress while the stale event-time route suppresses any new lane entry.",
+  "doctrineTags": [
+    "kernel_corpus",
+    "ambient_progress_shapes",
+    "status_noise",
+    "repeated_status",
+    "event_time_lifecycle"
+  ],
+  "semanticFamilies": ["consequence_overread"],
+  "expectations": {
+    "finalNowInteractionId": null,
+    "nextInteractionIds": [],
+    "ambientInteractionIds": ["interaction:task:corpus:duplicate-progress:status"],
+    "resultLaneCounts": {
+      "now": 0,
+      "next": 0,
+      "ambient": 1
+    },
+    "semanticReadings": [
+      {
+        "stepLabel": "stale duplicate progress",
+        "intentFrame": "status_update",
+        "activityClass": "status_update",
+        "consequence": "low",
+        "confidence": "high",
+        "ontology": {
+          "ask": "status",
+          "activity": "task_progress",
+          "consequence": "low",
+          "blocking": "non_blocking",
+          "episode": "unknown",
+          "confidence": "high",
+          "source": "explicit"
+        }
+      }
+    ],
+    "decisionReadings": [
+      {
+        "stepLabel": "fresh running progress",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "ambient",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "ambient",
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:ambient", "lane:ambient"]
+      },
+      {
+        "stepLabel": "stale duplicate progress",
+        "evaluationKind": "candidate",
+        "decisionRecordProjectionVersion": 2,
+        "decisionKind": "suppressed",
+        "decisionRecordRoute": "ambient",
+        "plannedLane": "ambient",
+        "resultLane": "none",
+        "episodeObsolete": true,
+        "decisionRecordOperatorPresence": "present",
+        "decisionRecordReasonCodesInclude": ["route:ambient", "lane:ambient"]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "publishSource",
+      "label": "fresh running progress",
+      "event": {
+        "id": "evt:corpus:duplicate-progress:fresh",
+        "type": "task.updated",
+        "taskId": "task:corpus:duplicate-progress",
+        "timestamp": "2026-04-18T15:42:00.000Z",
+        "source": { "id": "custom-agent" },
+        "metadata": { "deliveryAttempt": 2 },
+        "title": "Progress update",
+        "summary": "The task is still running normally.",
+        "status": "running"
+      }
+    },
+    {
+      "kind": "publishSource",
+      "label": "stale duplicate progress",
+      "event": {
+        "id": "evt:corpus:duplicate-progress:stale",
+        "type": "task.updated",
+        "taskId": "task:corpus:duplicate-progress",
+        "timestamp": "2026-04-18T15:41:00.000Z",
+        "source": { "id": "custom-agent" },
+        "metadata": { "deliveryAttempt": 1, "replayed": true },
+        "title": "Progress update",
+        "summary": "The task is still running normally.",
+        "status": "running"
+      }
+    }
+  ]
+}

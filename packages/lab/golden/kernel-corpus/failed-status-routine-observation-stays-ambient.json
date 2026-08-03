@@ -46,6 +46,8 @@
         "plannedLane": "ambient",
         "resultLane": "ambient",
         "semanticConfidence": "high",
+        "ambiguityReason": null,
+        "ambiguityResolution": null,
         "episodeEvidenceScore": 0,
         "decisionRecordOperatorPresence": "present",
         "decisionRecordCandidateScore": 0,
@@ -58,6 +60,7 @@
         "decisionRecordReasonCodesInclude": [
           "route:ambient",
           "lane:ambient",
+          "criterion:peripheral_resolution:ambient",
           "policy:minimum_lane:ambient",
           "policy:peripheral_only"
         ],

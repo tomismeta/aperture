@@ -1,5 +1,5 @@
 import type { ReplayScenario, ReplayScenarioExpectations } from "./scenario.js";
-import { runReplayScenario, type ReplayRunResult } from "./runner.js";
+import { runReplayScenario, type ReplayRunOptions, type ReplayRunResult } from "./runner.js";
 import { scoreReplayRun } from "./scorecard.js";
 import type {
   CreateScenarioOptions,
@@ -27,7 +27,7 @@ export function createSessionBundle(
     ...(options.source !== undefined ? { source: options.source } : {}),
     exportedAt: options.exportedAt ?? new Date().toISOString(),
     ...(result.scenario.core !== undefined ? { core: result.scenario.core } : {}),
-    steps: result.scenario.steps,
+    steps: result.steps.map((step) => step.step),
     normalizedEvents: result.normalizedEvents,
     traces: result.traces,
     signals: result.signals,
@@ -95,8 +95,11 @@ export function sessionBundleToScenario(bundle: ReplaySessionBundle): ReplayScen
   });
 }
 
-export function runSessionBundle(bundle: ReplaySessionBundle): ReplayRunResult {
-  return runReplayScenario(sessionBundleToScenario(bundle));
+export function runSessionBundle(
+  bundle: ReplaySessionBundle,
+  options: ReplayRunOptions = {},
+): ReplayRunResult {
+  return runReplayScenario(sessionBundleToScenario(bundle), options);
 }
 
 function expectationsFromBundle(bundle: ReplaySessionBundle): ReplayScenarioExpectations {

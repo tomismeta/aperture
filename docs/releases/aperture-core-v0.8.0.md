@@ -1,8 +1,6 @@
 # Aperture Core SDK v0.8.0
 
-Status: draft release note for the workspace package version. This package
-version has not been published to npm yet; the current published npm latest is
-`@tomismeta/aperture-core@0.7.0`.
+Status: release note for `@tomismeta/aperture-core@0.8.0`.
 
 `@tomismeta/aperture-core@0.8.0` adds narrow public evaluator and kernel
 subpaths and hardens the deterministic semantic and judgment engine for messy

@@ -120,10 +120,9 @@ the TUI, see [Architecture Overview](https://github.com/tomismeta/aperture/blob/
 If you want the replay, benchmark, and calibration direction for evaluating
 judgment changes, see [Aperture Lab](https://github.com/tomismeta/aperture/blob/main/docs/lab/aperture-lab.md).
 
-For the current published npm release summary, see [Aperture Core SDK v0.7.0](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-core-v0.7.0.md).
-The workspace package metadata may be ahead of npm while a release branch is
-under review; do not treat an unreleased version note as installable until the
-npm package is cut.
+For the current npm release summary, see [Aperture Core SDK v0.8.0](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-core-v0.8.0.md).
+The source workspace may occasionally be ahead of npm between release commits;
+compare the package version you installed with npm when in doubt.
 
 Runnable repo examples live in:
 

@@ -610,7 +610,7 @@ Common response shapes:
 { taskId, interactionId, response: { kind: "option_selected", optionIds: ["safe"] } }
 
 // text response
-{ taskId, interactionId, response: { kind: "text_submitted", text: "Use /Users/tom/dev/test" } }
+{ taskId, interactionId, response: { kind: "text_submitted", text: "Use /workspace/project" } }
 
 // form
 { taskId, interactionId, response: { kind: "form_submitted", values: { reviewer: "Tom" } } }

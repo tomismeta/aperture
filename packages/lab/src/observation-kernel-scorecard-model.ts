@@ -6,10 +6,10 @@ export const OBSERVATION_KERNEL_SCORECARD_PROFILE_ID = "observation-kernel-score
 export const OBSERVATION_KERNEL_SCORECARD_PROFILE_VERSION = 3 as const;
 
 export const OBSERVATION_KERNEL_SCORECARD_THRESHOLDS = {
-  minimumFixtures: 16,
-  minimumObservationFixtures: 16,
-  minimumObservations: 18,
-  minimumCoveredDimensions: 16,
+  minimumFixtures: 40,
+  minimumObservationFixtures: 40,
+  minimumObservations: 42,
+  minimumCoveredDimensions: 40,
 } as const;
 
 export type ObservationKernelScorecard = {

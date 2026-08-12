@@ -1,7 +1,7 @@
 import type { SourceEvent } from "@tomismeta/aperture-core";
 import { assertValidSourceEvent } from "@tomismeta/aperture-core/internal";
 
-import holdoutArtifact from "../conformance/observation-kernel-holdout-v4.json" with { type: "json" };
+import holdoutArtifact from "../conformance/observation-kernel-holdout-v5.json" with { type: "json" };
 
 import type {
   ObservationKernelExpectedFields,
@@ -10,24 +10,24 @@ import type {
 import type { ObservationKernelFixture } from "./observation-kernel-fixtures.js";
 import type { ObservationKernelJudgmentFields } from "./observation-kernel-scorecard-model.js";
 
-export const OBSERVATION_KERNEL_HOLDOUT_SCHEMA_VERSION = 4 as const;
+export const OBSERVATION_KERNEL_HOLDOUT_SCHEMA_VERSION = 5 as const;
 export const OBSERVATION_KERNEL_HOLDOUT_OBSERVATION_CONTRACT_ID =
   "aperture-observation-judgment-contract/v1" as const;
 export const OBSERVATION_KERNEL_HOLDOUT_OBSERVATION_CONTRACT_DIGEST =
-  "sha256:9d53456de27a9db5342c98d100971bd3cec6336d2f61b1cef9048e2297ea294e" as const;
+  "sha256:12fcb300d3539d147a15621ce8b3f063271b5a08812605ce418704ead19b1f66" as const;
 export const OBSERVATION_KERNEL_HOLDOUT_SOURCE_EVIDENCE_CONTRACT_ID =
   "aperture-source-evidence-contract/v1" as const;
 export const OBSERVATION_KERNEL_HOLDOUT_SOURCE_EVIDENCE_CONTRACT_DIGEST =
   "sha256:78dff530a44fdc532fbe5790dd496d40e0295ba09b4ef8676b0ed7f70f5af715" as const;
 export const OBSERVATION_KERNEL_HOLDOUT_OUTPUT_CONTRACT_ID =
-  "aperture-source-evidence-observation-projection/v1" as const;
+  "aperture-source-evidence-observation-projection/v2" as const;
 export const OBSERVATION_KERNEL_HOLDOUT_OUTPUT_CONTRACT_DIGEST =
-  "sha256:a85a0c9811f6be6aed3344dc8ea37230db216e76bdf4f3a36bddbda0e92e747e" as const;
+  "sha256:b57e9efe4863d1a3060d365f426c4471b38ac80964777a8f2013c3f886abb455" as const;
 export const OBSERVATION_KERNEL_HOLDOUT_IMPLEMENTATION_FREEZE =
-  "d9df71cc45bac51bc0e834f173d1fac3b1b81a70" as const;
-export const OBSERVATION_KERNEL_HOLDOUT_FIXTURE_COUNT = 20 as const;
+  "2926ea9489526a572e232da51584f224cbcc7252" as const;
+export const OBSERVATION_KERNEL_HOLDOUT_FIXTURE_COUNT = 24 as const;
 export const OBSERVATION_KERNEL_HOLDOUT_TYPED_EVIDENCE_FIXTURE_COUNT = 12 as const;
-export const OBSERVATION_KERNEL_HOLDOUT_STRUCTURAL_FALLBACK_FIXTURE_COUNT = 8 as const;
+export const OBSERVATION_KERNEL_HOLDOUT_STRUCTURAL_FALLBACK_FIXTURE_COUNT = 12 as const;
 
 export type ObservationKernelHoldoutArtifact = {
   methodology: {
@@ -151,7 +151,7 @@ function isHoldoutFixture(value: unknown): boolean {
   if (
     !hasExactKeys(value, ["id", "dimension", "split", "events", "expected", "rationale"]) ||
     typeof value.id !== "string" ||
-    !/^holdout-v4-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.id) ||
+    !/^holdout-v5-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.id) ||
     typeof value.dimension !== "string" ||
     !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.dimension) ||
     value.split !== "holdout" ||
@@ -189,10 +189,10 @@ function isHoldoutFixture(value: unknown): boolean {
         "semanticHints",
       ]) &&
       typeof event.id === "string" &&
-      /^event-v4-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(event.id) &&
+      /^event-v5-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(event.id) &&
       typeof event.taskId === "string" &&
-      /^task-v4-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(event.taskId) &&
-      event.timestamp === "2026-08-12T22:00:00.000Z" &&
+      /^task-v5-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(event.taskId) &&
+      event.timestamp === "2026-08-13T00:30:00.000Z" &&
       event.type === "task.updated" &&
       event.status === "failed" &&
       typeof event.title === "string" &&

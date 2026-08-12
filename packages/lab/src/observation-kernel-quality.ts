@@ -93,7 +93,7 @@ export function evaluateObservationKernelQuality(
         fixture.split,
         "semantics",
         expectedOutcome.fields,
-        withoutExtractor(actualOutcome.fields),
+        actualOutcome.fields,
         assertions,
         failures,
       );
@@ -165,11 +165,6 @@ function compareRecord(
       );
     }
   }
-}
-
-function withoutExtractor(fields: ObservationKernelObservation["fields"]): object {
-  const { observationExtractorId: _observationExtractorId, ...publicFields } = fields;
-  return publicFields;
 }
 
 function groupObservationsByFixture(

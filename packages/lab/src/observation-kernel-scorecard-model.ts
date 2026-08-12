@@ -1,9 +1,9 @@
 import type { ObservationKernelFixtureSplit } from "./observation-kernel-fixtures.js";
 import type { ObservationKernelQuality } from "./observation-kernel-quality.js";
 
-export const OBSERVATION_KERNEL_SCORECARD_SCHEMA_VERSION = 2 as const;
+export const OBSERVATION_KERNEL_SCORECARD_SCHEMA_VERSION = 3 as const;
 export const OBSERVATION_KERNEL_SCORECARD_PROFILE_ID = "observation-kernel-scorecard" as const;
-export const OBSERVATION_KERNEL_SCORECARD_PROFILE_VERSION = 2 as const;
+export const OBSERVATION_KERNEL_SCORECARD_PROFILE_VERSION = 3 as const;
 
 export const OBSERVATION_KERNEL_SCORECARD_THRESHOLDS = {
   minimumFixtures: 16,
@@ -53,7 +53,6 @@ export type ObservationKernelCoverage = {
   provenanceOrigins: ObservationKernelDistribution;
   provenanceAuthorities: ObservationKernelDistribution;
   consequenceBaselines: ObservationKernelDistribution;
-  extractorIds: ObservationKernelDistribution;
 };
 
 export type ObservationKernelDistribution = Array<{
@@ -91,7 +90,6 @@ export type ObservationKernelFields = {
   provenanceOrigin: string;
   provenanceAuthority: string;
   consequenceBaseline: string;
-  observationExtractorId: string | null;
 };
 
 export type ObservationKernelJudgmentFields = {

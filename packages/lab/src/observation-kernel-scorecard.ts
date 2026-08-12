@@ -185,7 +185,6 @@ function runObservationKernelFixture(
       provenanceOrigin: observation.provenance.origin,
       provenanceAuthority: observation.provenance.authority,
       consequenceBaseline: observation.consequenceBaseline,
-      observationExtractorId: readHistoricalExtractorId(observation),
     };
     const judgment = projectObservationJudgmentContract(observation);
     const decision: ObservationKernelDecisionFields = {
@@ -223,37 +222,6 @@ function runObservationKernelFixture(
   });
 }
 
-function readHistoricalExtractorId(observation: {
-  kind: string;
-  polarity: string;
-  subject: string;
-  evidenceLoss: string;
-  diagnosticClass?: string;
-  provenance: { origin: string };
-  ownership: { owner: string };
-}): string {
-  if (observation.kind === "control") return "rejected_tool_use";
-  if (observation.kind === "diagnostic")
-    return observation.diagnosticClass === "source_limit"
-      ? "read_truncated_source"
-      : observation.diagnosticClass === "expected"
-        ? "expected_diagnostic"
-        : "terminal_diagnostic";
-  if (observation.kind === "outcome") {
-    if (observation.evidenceLoss === "absent") return "empty_payload";
-    if (observation.polarity === "failure") return "terminal_outcome";
-    if (observation.ownership.owner === "source") return "operation_success";
-    return observation.provenance.origin === "semantic_evidence"
-      ? "command_success"
-      : "structured_execution_success";
-  }
-  if (observation.kind === "payload") {
-    if (observation.provenance.origin === "structured_output") return "structured_output";
-    return observation.subject === "search" ? "search_output" : "payload";
-  }
-  return "unknown_failure";
-}
-
 function buildObservationKernelCoverage(
   observations: readonly ObservationKernelObservation[],
 ): ObservationKernelCoverage {
@@ -274,7 +242,6 @@ function buildObservationKernelCoverage(
       ["provenanceOrigins", observation.fields.provenanceOrigin],
       ["provenanceAuthorities", observation.fields.provenanceAuthority],
       ["consequenceBaselines", observation.fields.consequenceBaseline],
-      ["extractorIds", observation.fields.observationExtractorId],
     ];
     for (const [field, value] of values) {
       addObservationOutcome(accumulators[field], value, observation.fixtureId);
@@ -296,7 +263,6 @@ function buildObservationKernelCoverage(
     provenanceOrigins: finalizeObservationDistribution(accumulators.provenanceOrigins),
     provenanceAuthorities: finalizeObservationDistribution(accumulators.provenanceAuthorities),
     consequenceBaselines: finalizeObservationDistribution(accumulators.consequenceBaselines),
-    extractorIds: finalizeObservationDistribution(accumulators.extractorIds),
   };
 }
 
@@ -319,7 +285,6 @@ function createObservationAccumulators(): Record<
     provenanceOrigins: new Map(),
     provenanceAuthorities: new Map(),
     consequenceBaselines: new Map(),
-    extractorIds: new Map(),
   };
 }
 

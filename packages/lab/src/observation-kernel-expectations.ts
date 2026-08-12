@@ -4,10 +4,7 @@ import type {
 } from "./observation-kernel-scorecard.js";
 import { OBSERVATION_KERNEL_HOLDOUT_EXPECTATIONS } from "./observation-kernel-holdout.js";
 
-export type ObservationKernelExpectedFields = Omit<
-  ObservationKernelFields,
-  "observationExtractorId"
->;
+export type ObservationKernelExpectedFields = ObservationKernelFields;
 
 export type ObservationKernelExpectedDecision = {
   plannerKind: "activate" | "ambient" | "auto_approve" | "clear" | "queue" | "suppressed";

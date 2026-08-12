@@ -94,8 +94,7 @@ function isObservationKernelCoverage(value: unknown): value is ObservationKernel
     isObservationDistribution(value.recoveryHints) &&
     isObservationDistribution(value.provenanceOrigins) &&
     isObservationDistribution(value.provenanceAuthorities) &&
-    isObservationDistribution(value.consequenceBaselines) &&
-    isObservationDistribution(value.extractorIds)
+    isObservationDistribution(value.consequenceBaselines)
   );
 }
 

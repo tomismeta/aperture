@@ -9,7 +9,7 @@ import {
 } from "../packages/lab/src/index.js";
 import { isDirectExecution } from "./direct-execution.js";
 
-const DEFAULT_SCORECARD_PATH = "packages/lab/conformance/observation-kernel-scorecard-v2.json";
+const DEFAULT_SCORECARD_PATH = "packages/lab/conformance/observation-kernel-scorecard-v3.json";
 
 export type ObservationKernelScorecardCommandOptions = {
   args?: readonly string[];

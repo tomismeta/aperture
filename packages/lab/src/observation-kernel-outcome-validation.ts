@@ -19,8 +19,7 @@ export function isObservationKernelFields(value: unknown): value is ObservationK
     isNullableString(value.recoveryHint) &&
     typeof value.provenanceOrigin === "string" &&
     typeof value.provenanceAuthority === "string" &&
-    typeof value.consequenceBaseline === "string" &&
-    isNullableString(value.observationExtractorId)
+    typeof value.consequenceBaseline === "string"
   );
 }
 

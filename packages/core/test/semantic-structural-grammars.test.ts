@@ -101,7 +101,7 @@ test("complete terminal success envelopes do not require capability-name semanti
     assert.equal(evidence?.observationSyntax?.polarity, "success", summary);
     assert.equal(evidence?.observationSyntax?.subject, "command", summary);
     assert.equal(evidence?.observationSyntax?.origin, "command_output", summary);
-    assert.equal(evidence?.toolFamily, "Opaque.Executor/9", summary);
+    assert.equal(evidence?.toolFamily, "opaque.executor/9", summary);
   }
 
   for (const summary of [
@@ -366,6 +366,24 @@ test("event facts preserve assertion scope across negation, modality, and fields
       "Authorization was declined before invocation. No tool call occurred and no result exists.",
     ]),
     null,
+  );
+});
+
+test("assertion boundaries keep temporal and quantitative yet/but clauses intact", () => {
+  for (const summary of [
+    "The file is not ready yet. Read the source window before editing.",
+    "The result includes all but the final line of the document.",
+    "The transcript contains nothing but the command output.",
+    "The operation failed yet the returned diagnostic is incomplete.",
+  ]) {
+    assert.doesNotThrow(() => parseTaskFailureEventFact(summary), summary);
+  }
+
+  assert.equal(
+    parseTaskFailureEventFact(
+      "Authorization was declined before invocation. No tool call occurred and no result exists. STOP and wait for the user to proceed.",
+    ),
+    "authorization_control",
   );
 });
 

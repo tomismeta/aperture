@@ -9,14 +9,16 @@ export function parseTaskFailureEventFact(
   contradiction = false,
 ) {
   const fields = typeof value === "string" ? [value] : value;
-  const factFields =
-    fields.length > 1 && fields.slice(1).some((field) => field.trim()) ? fields.slice(1) : fields;
-  const rawEventText = factFields.join(". ").replace(QUOTED_TEXT, " quoted-content ");
-  const documentPayload =
-    COMPLETE_DOCUMENT_DELIVERY.test(rawEventText) && hasDocumentContent(rawEventText);
   const semanticFields = fields.map((field) =>
     field.replace(/^\s*OBSERVATION:\s*(?=the\s+user\b)/i, ""),
   );
+  const factFields =
+    fields.length > 1 && semanticFields.slice(1).some((field) => field.trim())
+      ? semanticFields.slice(1)
+      : semanticFields;
+  const rawEventText = factFields.join(". ").replace(QUOTED_TEXT, " quoted-content ");
+  const documentPayload =
+    COMPLETE_DOCUMENT_DELIVERY.test(rawEventText) && hasDocumentContent(rawEventText);
   const scoped = compileAssertionScope(semanticFields);
   if (scoped.authoritative.length === 0) return documentPayload ? "document_payload" : null;
   const factScope = compileAssertionScope(
@@ -37,8 +39,6 @@ export function parseTaskFailureEventFact(
         (!contradiction && !hasPositiveExecution(allPositiveEventText))),
   );
   if (fact !== undefined) return fact;
-  if (!contradiction && scoped.fields.some((field) => USER_REJECTION_CONTROL.test(field)))
-    return "authorization_control";
   if (SOURCE_WINDOW.test(positiveEventText))
     return SOURCE_DIAGNOSTIC.test(positiveEventText) ? "source_diagnostic" : "source_limit";
   if (!documentPayload) return null;
@@ -56,7 +56,7 @@ const EVENT_FACTS = {
   expected_source_diagnostic:
     /^(?=[\s\S]*\b(?:(?:complete|completed|bounded)\s+(?:diagnostic|validation)\s+(?:check|result|record)|(?:diagnostic|validation)\s+(?:check|result|record)\s+(?:is\s+)?complete)\b)(?=[\s\S]*\b(?:(?:expected|requested)\s+(?:observation|diagnostic|result)|expectedly\s+(?:failed|reported|returned))\b)(?=[\s\S]*\b(?:(?:failed|failure|invalid|error)\s+(?:source|document|syntax|parse|validation)|(?:source|document|syntax|parse)(?:\s+validation)?\s+(?:failed|failure|invalid|error))\b)[\s\S]+$/i,
   authorization_control:
-    /^(?=[\s\S]*\b(?:authorization|permission|approval|decision)\s+(?:(?:is|was|remains)\s+)?(?:required|needed|pending|declined|denied|rejected)\b)(?=[\s\S]*(?:\bbefore\b[\s\S]*\b(?:operation|invocation|execution|capability|tool|command)\b|\b(?:required|needed)\s+(?:first|before\s+execution)\b))(?=[\s\S]*\b(?:(?:the\s+)?(?:capability|tool|command|operation)\s+(?:has\s+not|was\s+not|did\s+not)\s+(?:been\s+)?(?:invoked|executed|run|started)|execution\s+(?:has\s+not|was\s+not|did\s+not)\s+(?:start(?:ed)?|begin|begun)|no\s+(?:tool\s+call|invocation|execution)\s+(?:occurred|started|was\s+(?:performed|run)))\b)(?=[\s\S]*\b(?:no\s+(?:execution\s+)?result\s+(?:exists|was\s+(?:produced|created|returned))|(?:an?\s+)?(?:execution\s+)?result\s+(?:is\s+absent|does\s+not\s+exist|was\s+not\s+(?:produced|created|returned)))\b)[\s\S]+$/i,
+    /^(?:(?=[\s\S]*\b(?:authorization|permission|approval|decision)\s+(?:(?:is|was|remains)\s+)?(?:required|needed|pending|declined|denied|rejected)\b)(?=[\s\S]*(?:\bbefore\b[\s\S]*\b(?:operation|invocation|execution|capability|tool|command)\b|\b(?:required|needed)\s+(?:first|before\s+execution)\b))(?=[\s\S]*\b(?:(?:the\s+)?(?:capability|tool|command|operation)\s+(?:has\s+not|was\s+not|did\s+not)\s+(?:been\s+)?(?:invoked|executed|run|started)|execution\s+(?:has\s+not|was\s+not|did\s+not)\s+(?:start(?:ed)?|begin|begun)|no\s+(?:tool\s+call|invocation|execution)\s+(?:occurred|started|was\s+(?:performed|run)))\b)(?=[\s\S]*\b(?:no\s+(?:execution\s+)?result\s+(?:exists|was\s+(?:produced|created|returned))|(?:an?\s+)?(?:execution\s+)?result\s+(?:is\s+absent|does\s+not\s+exist|was\s+not\s+(?:produced|created|returned)))\b)[\s\S]+$|(?!\s*(?:observation:\s*)?(?:log:|["'`]))(?![\s\S]*\btraceback\s+follows\b)(?![\s\S]*\((?!\s*(?:e\.?g\.?|for\s+example|if)\b)[^()]*\))(?=\s*(?:observation:\s*)?the\s+user\s+(?:doesn['’]?t|does\s+not)\s+want\s+to\s+(?:proceed\s+with\s+this\s+tool\s+use|take\s+this\s+action))(?=[\s\S]*(?:tool\s+use\s+(?:was\s+)?rejected|take\s+this\s+action))(?=[\s\S]*\bstop\b[\s\S]*\bwait(?:ing)?\b[\s\S]*\bfor\s+(?:the\s+)?user\b[\s\S]*\bproceed\b)[\s\S]*)$/i,
   terminal_success:
     /^(?=[\s\S]*\b(?:(?:complete|terminal)\s+(?:command|process|terminal|execution|outcome|result|record)|(?:command|process|terminal|execution|outcome|result|record)\s+(?:(?:is|was)\s+)?(?:complete|terminal)|(?:result|outcome|record)\s+is\s+(?:terminal\s+and\s+complete|complete\s+and\s+terminal)|execution\s+(?:is\s+)?complete|execution\s+(?:completed|finished))\b)(?=[\s\S]*\b(?:exit|return)\s+(?:code|status)\s+(?:is\s+|was\s+|reports?\s+|returned\s+)?(?:0|zero)\b)(?=[\s\S]*(?:\bno\s+(?:output|diagnostic|evidence)(?:\s+or\s+(?:output|diagnostic|evidence))?\s+channels?\s+is\s+missing\b|\b(?:standard\s+output|stdout)\b[\s\S]*\b(?:standard\s+error|stderr)\b))(?![\s\S]*\b(?:non[- ]?zero|crashed|runtimeerror|traceback)\b)[\s\S]+$/i,
   absent_failure:
@@ -92,5 +92,3 @@ const NEGATED_DOCUMENT_CONTENT =
 const POSITIVE_EXECUTION =
   /\b(?:(?:execution|operation|invocation|command|process|tool)(?:\s+invocation)?\s+(?:(?:(?:did|was)\s+)?(?:(?:later|subsequently)\s+)?(?:start(?:ed)?|run|ran|execute[ds]?|occurred|completed|finished|terminated|crashed|failed|exited|performed)|(?:(?:later|subsequently)\s+)?returned\s+(?:output|a\s+result))|(?:an?\s+)?result\s+(?:was\s+)?(?:(?:later|subsequently)\s+)?(?:produced|returned))\b/i;
 const hasPositiveExecution = (value: string) => POSITIVE_EXECUTION.test(value);
-const USER_REJECTION_CONTROL =
-  /^(?=the\s+user\s+(?:doesn['’]?t|does\s+not)\s+want\s+to\s+(?:proceed\s+with\s+this\s+tool\s+use|take\s+this\s+action(?:\s+right\s+now)?))(?:(?=[\s\S]*\bproceed\s+with\s+this\s+tool\s+use\b)(?=[\s\S]*\btool\s+use\s+(?:was\s+)?rejected\b(?:\s*\((?=[^()]*(?:\beg\b|\be\.g\.|\bfor example\b|\bif\b))[^()]*\)|(?!\s*\()))|(?=[\s\S]*\btake\s+this\s+action\b))(?=[\s\S]*\bstop\b[\s\S]*\bwait(?:ing)?\s+for\s+(?:the\s+)?user\s+to\s+(?:tell\s+you\s+how\s+to\s+)?proceed\b[.!]?\s*$)[\s\S]+$/i;

@@ -357,13 +357,12 @@ function toSourceEvent(event: ApertureKernelEvent): SourceEvent {
         ...(capabilityFamily === null ? {} : { toolFamily: capabilityFamily }),
         ...(activityClass === undefined ? {} : { activityClass }),
       };
-      return event.status === "failed"
-        ? {
-            ...update,
-            status: "failed",
-            ...(event.evidence === undefined ? {} : { evidence: event.evidence }),
-          }
-        : { ...update, status: event.status };
+      const evidence = (event as unknown as { evidence?: SourceEvidence }).evidence;
+      return {
+        ...update,
+        status: event.status,
+        ...(evidence === undefined ? {} : { evidence }),
+      } as SourceEvent;
     }
     case "input.requested":
       return {
@@ -520,7 +519,7 @@ function readCapabilityFamily(event: ApertureKernelEvent): string | null {
 }
 
 function normalizeCapabilityFamily(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+  return typeof value === "string" && value.trim().length > 0 ? value.trim().toLowerCase() : null;
 }
 
 function projectKernelOwnership(

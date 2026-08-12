@@ -423,10 +423,7 @@ test("truncated source evidence helper cannot undercut failed status consequence
       status: "failed",
       toolFamily: "exec_command",
       metadata: { truncated: true },
-      semanticHints: semanticHintsForTruncatedSourceEvidence({
-        status: "failed",
-        consequence: "low" as never,
-      }),
+      semanticHints: semanticHintsForTruncatedSourceEvidence({ status: "failed" }),
     }),
   );
 

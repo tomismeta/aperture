@@ -64,6 +64,6 @@ function normalizeToolFamily(value: string | null | undefined): string | null {
     return null;
   }
 
-  const normalized = value.trim();
+  const normalized = value.trim().toLowerCase();
   return normalized.length > 0 ? normalized : null;
 }

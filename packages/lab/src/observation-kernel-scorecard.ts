@@ -17,6 +17,7 @@ import { evaluateObservationKernelQuality } from "./observation-kernel-quality.j
 import {
   OBSERVATION_KERNEL_SCORECARD_PROFILE_ID,
   OBSERVATION_KERNEL_SCORECARD_PROFILE_VERSION,
+  OBSERVATION_KERNEL_SCORECARD_PROOF,
   OBSERVATION_KERNEL_SCORECARD_SCHEMA_VERSION,
   OBSERVATION_KERNEL_SCORECARD_THRESHOLDS,
   type ObservationKernelCoverage,
@@ -30,6 +31,7 @@ import {
 export {
   OBSERVATION_KERNEL_SCORECARD_PROFILE_ID,
   OBSERVATION_KERNEL_SCORECARD_PROFILE_VERSION,
+  OBSERVATION_KERNEL_SCORECARD_PROOF,
   OBSERVATION_KERNEL_SCORECARD_SCHEMA_VERSION,
   OBSERVATION_KERNEL_SCORECARD_THRESHOLDS,
   type ObservationKernelCoverage,
@@ -100,6 +102,7 @@ export function buildObservationKernelScorecard(): ObservationKernelScorecard {
       }),
     },
     thresholds: OBSERVATION_KERNEL_SCORECARD_THRESHOLDS,
+    proof: OBSERVATION_KERNEL_SCORECARD_PROOF,
     passed: failures.length === 0,
     failures,
     summary: {
@@ -109,8 +112,9 @@ export function buildObservationKernelScorecard(): ObservationKernelScorecard {
         calibration: OBSERVATION_KERNEL_FIXTURES.filter(
           (fixture) => fixture.split === "calibration",
         ).length,
-        holdout: OBSERVATION_KERNEL_FIXTURES.filter((fixture) => fixture.split === "holdout")
-          .length,
+        retiredRegression: OBSERVATION_KERNEL_FIXTURES.filter(
+          (fixture) => fixture.split === "holdout",
+        ).length,
       },
       observations: {
         total: observations.length,

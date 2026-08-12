@@ -88,7 +88,7 @@ test("explicit tool family comes only from the event field", () => {
       title: "ignored",
       toolFamily: "BASH",
     }),
-    "BASH",
+    "bash",
   );
 
   assert.equal(

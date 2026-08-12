@@ -21,10 +21,15 @@ test("observation kernel scorecard covers the normalized observation contract", 
   const scorecard = buildObservationKernelScorecard();
 
   assert.equal(scorecard.passed, true);
+  assert.deepEqual(scorecard.proof, {
+    releaseEligible: false,
+    retiredRegressionHoldout: true,
+    independentPostFreezeHoldoutRequired: true,
+  });
   assert.equal(scorecard.summary.fixtures.total, 40);
   assert.equal(scorecard.summary.fixtures.withObservation, 40);
   assert.equal(scorecard.summary.fixtures.calibration, 16);
-  assert.equal(scorecard.summary.fixtures.holdout, 24);
+  assert.equal(scorecard.summary.fixtures.retiredRegression, 24);
   assert.equal(scorecard.summary.observations.total, 42);
   assert.equal(
     new Set(scorecard.observations.map((observation) => observation.semanticDigest)).size,
@@ -38,7 +43,7 @@ test("observation kernel scorecard covers the normalized observation contract", 
   assert.equal(scorecard.quality.summary.judgment.score, 1);
   assert.equal(scorecard.quality.summary.decision.score, 1);
   assert.equal(scorecard.quality.summary.exactOutcomes.score, 1);
-  assert.equal(scorecard.quality.bySplit.holdout.exactOutcomes.total, 24);
+  assert.equal(scorecard.quality.bySplit.retired_regression.exactOutcomes.total, 24);
   assert.equal(scorecard.quality.semanticFields.length, 13);
   assert.equal(scorecard.quality.judgmentFields.length, 8);
   assert.equal(scorecard.quality.decisionFields.length, 2);

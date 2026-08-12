@@ -22,6 +22,7 @@ export {
   buildObservationKernelScorecard,
   OBSERVATION_KERNEL_SCORECARD_PROFILE_ID,
   OBSERVATION_KERNEL_SCORECARD_PROFILE_VERSION,
+  OBSERVATION_KERNEL_SCORECARD_PROOF,
   OBSERVATION_KERNEL_SCORECARD_SCHEMA_VERSION,
   OBSERVATION_KERNEL_SCORECARD_THRESHOLDS,
   type ObservationKernelCoverage,
@@ -56,6 +57,7 @@ export {
 export {
   assertKernelCorpusScorecardComparisonPassed,
   assertKernelCorpusScorecardPassed,
+  KERNEL_CORPUS_SCORECARD_PROOF,
   buildKernelCorpusScorecardComparison,
   buildKernelCorpusScorecard,
   KERNEL_CORPUS_SCORECARD_COMPARISON_SCHEMA_VERSION,

@@ -8,6 +8,7 @@ import { isObservationKernelQuality } from "./observation-kernel-quality-validat
 import {
   OBSERVATION_KERNEL_SCORECARD_PROFILE_ID,
   OBSERVATION_KERNEL_SCORECARD_PROFILE_VERSION,
+  OBSERVATION_KERNEL_SCORECARD_PROOF,
   OBSERVATION_KERNEL_SCORECARD_SCHEMA_VERSION,
   OBSERVATION_KERNEL_SCORECARD_THRESHOLDS,
   type ObservationKernelCoverage,
@@ -33,6 +34,7 @@ function isObservationKernelScorecard(value: unknown): value is ObservationKerne
     value.profile.version === OBSERVATION_KERNEL_SCORECARD_PROFILE_VERSION &&
     typeof value.profile.suiteDigest === "string" &&
     isObservationKernelThresholds(value.thresholds) &&
+    isObservationKernelProof(value.proof) &&
     typeof value.passed === "boolean" &&
     isStringArray(value.failures) &&
     isScorecardSummary(value.summary) &&
@@ -40,6 +42,19 @@ function isObservationKernelScorecard(value: unknown): value is ObservationKerne
     isObservationKernelCoverage(value.coverage) &&
     Array.isArray(value.observations) &&
     value.observations.every(isObservationKernelObservation)
+  );
+}
+
+function isObservationKernelProof(
+  value: unknown,
+): value is typeof OBSERVATION_KERNEL_SCORECARD_PROOF {
+  return (
+    isRecord(value) &&
+    value.releaseEligible === OBSERVATION_KERNEL_SCORECARD_PROOF.releaseEligible &&
+    value.retiredRegressionHoldout ===
+      OBSERVATION_KERNEL_SCORECARD_PROOF.retiredRegressionHoldout &&
+    value.independentPostFreezeHoldoutRequired ===
+      OBSERVATION_KERNEL_SCORECARD_PROOF.independentPostFreezeHoldoutRequired
   );
 }
 
@@ -64,7 +79,7 @@ function isScorecardSummary(value: unknown): value is ObservationKernelScorecard
     isFiniteNumber(value.fixtures.total) &&
     isFiniteNumber(value.fixtures.withObservation) &&
     isFiniteNumber(value.fixtures.calibration) &&
-    isFiniteNumber(value.fixtures.holdout) &&
+    isFiniteNumber(value.fixtures.retiredRegression) &&
     isRecord(value.observations) &&
     isFiniteNumber(value.observations.total) &&
     isFiniteNumber(value.observations.unique) &&

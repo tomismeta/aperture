@@ -4,6 +4,11 @@ import type { ObservationKernelQuality } from "./observation-kernel-quality.js";
 export const OBSERVATION_KERNEL_SCORECARD_SCHEMA_VERSION = 3 as const;
 export const OBSERVATION_KERNEL_SCORECARD_PROFILE_ID = "observation-kernel-scorecard" as const;
 export const OBSERVATION_KERNEL_SCORECARD_PROFILE_VERSION = 3 as const;
+export const OBSERVATION_KERNEL_SCORECARD_PROOF = {
+  releaseEligible: false,
+  retiredRegressionHoldout: true,
+  independentPostFreezeHoldoutRequired: true,
+} as const;
 
 export const OBSERVATION_KERNEL_SCORECARD_THRESHOLDS = {
   minimumFixtures: 40,
@@ -20,6 +25,7 @@ export type ObservationKernelScorecard = {
     suiteDigest: string;
   };
   thresholds: typeof OBSERVATION_KERNEL_SCORECARD_THRESHOLDS;
+  proof: typeof OBSERVATION_KERNEL_SCORECARD_PROOF;
   passed: boolean;
   failures: string[];
   summary: {
@@ -27,7 +33,7 @@ export type ObservationKernelScorecard = {
       total: number;
       withObservation: number;
       calibration: number;
-      holdout: number;
+      retiredRegression: number;
     };
     observations: { total: number; unique: number };
     dimensions: { total: number; covered: number; missing: number };

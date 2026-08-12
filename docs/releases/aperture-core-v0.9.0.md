@@ -1,6 +1,6 @@
 # Aperture Core SDK v0.9.0
 
-Status: release candidate for `@tomismeta/aperture-core@0.9.0`.
+Status: pre-release hardening; not release eligible yet.
 
 `@tomismeta/aperture-core@0.9.0` makes the stateless semantic kernel smaller,
 more measurable, and easier to embed. It adds field-level quality gates,
@@ -13,13 +13,13 @@ workload.
 
 - scores 13 normalized Observation fields, eight observation-judgment fields,
   two decision fields, and exact end-to-end outcomes
-- establishes a 16-fixture calibration freeze before an independently authored
-  holdout is added
+- records a 16-fixture calibration freeze plus a 24-fixture V5 regression
+  oracle that is explicitly retired from release proof
 - requires 100% field and exact-outcome agreement across 18 expected outcomes
 - consolidates task-failure payload parsing into the canonical observation
   grammar instead of maintaining a parallel grammar module
-- reduces the protected semantic surface to 106 modules, 171 exported detector
-  functions, 264 import edges, and 9,136 total lines
+- reduces the protected semantic surface to 104 modules, 163 exported detector
+  functions, 252 import edges, and 9,040 total lines
 - fixes command-success observations so their semantic result does not depend on
   host title vocabulary when explicit command ownership and summary evidence are
   present
@@ -46,12 +46,17 @@ the report diagnoses drift at three boundaries:
 2. deterministic observation judgment
 3. end-to-end planner and realized-lane outcome
 
-The implementation-freeze scorecard covers 16 calibration fixtures and 18
-expected outcomes:
+The scorecard covers 16 calibration fixtures and 18 expected outcomes. The
+24-fixture V5 holdout remains useful as a retired regression oracle, but it is
+not independent post-freeze evidence and is marked `releaseEligible: false`:
 
 - calibration: 234/234 semantic fields, 144/144 judgment fields, 36/36 decision
   fields, and 18/18 exact outcomes
 - repeated-run determinism: stable
+
+The next release-proof step is a fresh V6 holdout authored after the final
+implementation freeze by an independent reviewer who has not inspected the
+implementation, calibration expectations, or prior oracle.
 
 The release remains a candidate until an independent reviewer authors a fresh
 post-freeze holdout and the frozen implementation executes it without semantic
@@ -66,16 +71,16 @@ module was removed, and the semantic-surface gate understands this only as a
 valid consolidation when the old consumer disappears and edge, family, and
 detector counts do not grow.
 
-Compared with the protected 0.8 surface, this tranche records:
+The current generated surface proof records:
 
-- semantic modules: 96
-- semantic lines: 8,155
-- all semantic-surface modules: 106
-- all semantic-surface lines: 9,136
-- exported detector functions: 171
-- dependency fan-out: 264
-- Observation primitive lines: 745
-- task-failure parsing lines: 1,058
+- semantic modules: 94
+- semantic lines: 8,073
+- all semantic-surface modules: 104
+- all semantic-surface lines: 9,040
+- exported detector functions: 163
+- dependency fan-out: 252
+- Observation primitive lines: 736
+- task-failure parsing lines: 1,065
 
 The budgets fail on renewed module, matcher, phrase-table, or direct-consumer
 growth. Corpus findings must continue to enter production as structural grammar,
@@ -160,32 +165,21 @@ See [Kernel Scale Characterization](../engine/kernel-scale-characterization.md).
 
 ## Release Validation
 
-Local validation completed on August 12, 2026:
+Focused validation completed on August 12, 2026:
 
 ```bash
 pnpm release:check
 pnpm judgment:bench
 ```
 
-`pnpm release:check` includes typecheck, lint, formatting, production dependency
-audit, contract and schema validation, package-boundary and architecture checks,
-kernel conformance, semantic-surface, corpus, Observation quality, deterministic
-scale, the full test suite, judgment battle, packed SDK proof, and product smoke.
+The focused semantic and kernel contract suites pass, including 105 core
+regressions and 74 adversarial grammar cases. Typecheck, public-kernel
+conformance, Observation scorecard, and semantic-surface gates pass. Full
+release validation, independent V6 proof, package smoke, and publication are
+still outstanding.
 
-The completed run reported:
-
-- 1,284/1,284 tests passing
-- 90/90 JudgmentBattle scenarios deterministic
-- 2,801/2,801 benchmark assertions passing
-- 384/384 fuzz assertions passing
-- 30,000 kernel scale evaluations with one repeated SHA-256 result digest
-- packed 0.9.0 external-consumer examples passing for the full engine,
-  evaluator, kernel, host-neutral embedder, semantic, and trace entrypoints
-- packaged Aperture product smoke passing against the workspace core
-
-The standalone JudgmentBench run also passed 2,801/2,801 assertions.
-
-This release candidate does not change or publish the Aperture product package.
+This pre-release hardening tranche does not change or publish the Aperture
+product package.
 
 See:
 

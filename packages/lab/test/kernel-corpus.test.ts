@@ -13,6 +13,7 @@ import {
   KERNEL_CORPUS_COVERAGE_DIMENSIONS,
   KERNEL_CORPUS_PROFILE,
   KERNEL_CORPUS_SCORECARD_COMPARISON_SCHEMA_VERSION,
+  KERNEL_CORPUS_SCORECARD_PROOF,
   KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION,
   KERNEL_CORPUS_SCORECARD_THRESHOLDS,
   KERNEL_CORPUS_SCENARIO_IDS,
@@ -285,6 +286,7 @@ test("kernel corpus scorecard v6 migration renames active attention ontology che
     await readFile("packages/lab/conformance/kernel-corpus-scorecard-v6.json", "utf8"),
   ) as Record<string, unknown>;
   const currentAsV5 = structuredClone(current);
+  current.proof = KERNEL_CORPUS_SCORECARD_PROOF;
 
   currentAsV5.schemaVersion = 5;
   moveRecordField(

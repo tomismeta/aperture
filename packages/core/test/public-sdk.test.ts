@@ -366,14 +366,8 @@ test("advanced semantic helpers live behind the semantic subpath", () => {
 
   const hints = semanticSdk.semanticHintsForTruncatedSourceEvidence({ status: "failed" });
   assert.equal(hints.confidence, "low");
-  assert.equal(hints.consequence, "high");
+  assert.equal(Object.hasOwn(hints, "consequence"), false);
   assert.deepEqual(hints.factors, [semanticSdk.TRUNCATED_SOURCE_EVIDENCE_FACTOR]);
-
-  const invalidLowHints = semanticSdk.semanticHintsForTruncatedSourceEvidence({
-    status: "failed",
-    consequence: "low" as never,
-  });
-  assert.equal(invalidLowHints.consequence, "high");
 });
 
 test("trace helpers live behind the trace subpath", () => {

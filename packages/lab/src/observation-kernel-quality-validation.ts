@@ -16,7 +16,7 @@ export function isObservationKernelQuality(value: unknown): value is Observation
     isBreakdown(value.summary) &&
     isRecord(value.bySplit) &&
     isBreakdown(value.bySplit.calibration) &&
-    isBreakdown(value.bySplit.holdout) &&
+    isBreakdown(value.bySplit.retired_regression) &&
     isFieldAccuracyArray(value.semanticFields) &&
     isFieldAccuracyArray(value.judgmentFields) &&
     isFieldAccuracyArray(value.decisionFields)
@@ -28,7 +28,7 @@ function isThresholds(value: unknown): boolean {
   return (
     isRecord(value) &&
     value.minimumCalibrationFixtures === expected.minimumCalibrationFixtures &&
-    value.minimumHoldoutFixtures === expected.minimumHoldoutFixtures &&
+    value.minimumRetiredRegressionFixtures === expected.minimumRetiredRegressionFixtures &&
     value.minimumSemanticAccuracy === expected.minimumSemanticAccuracy &&
     value.minimumJudgmentAccuracy === expected.minimumJudgmentAccuracy &&
     value.minimumDecisionAccuracy === expected.minimumDecisionAccuracy &&
@@ -37,7 +37,9 @@ function isThresholds(value: unknown): boolean {
 }
 
 function isSplitFixtures(value: unknown): boolean {
-  return isRecord(value) && isFiniteNumber(value.calibration) && isFiniteNumber(value.holdout);
+  return (
+    isRecord(value) && isFiniteNumber(value.calibration) && isFiniteNumber(value.retired_regression)
+  );
 }
 
 function isBreakdown(value: unknown): value is ObservationKernelQualityBreakdown {

@@ -38,7 +38,7 @@
         "stepLabel": "first uncertain failure",
         "intentFrame": "failure",
         "activityClass": "tool_failure",
-        "consequence": "high",
+        "consequence": "medium",
         "confidence": "low",
         "relationHintsExact": [
           { "kind": "same_issue", "target": "issue:corpus:uncertain-failure" }
@@ -51,7 +51,7 @@
         "ontology": {
           "ask": "status",
           "activity": "failure",
-          "consequence": "high",
+          "consequence": "medium",
           "blocking": "non_blocking",
           "episode": "same_issue",
           "source": "hinted"
@@ -61,7 +61,7 @@
         "stepLabel": "second uncertain failure",
         "intentFrame": "failure",
         "activityClass": "tool_failure",
-        "consequence": "high",
+        "consequence": "medium",
         "confidence": "low",
         "relationHintsExact": [
           { "kind": "same_issue", "target": "issue:corpus:uncertain-failure" },
@@ -74,7 +74,7 @@
         "ontology": {
           "ask": "status",
           "activity": "failure",
-          "consequence": "high",
+          "consequence": "medium",
           "blocking": "non_blocking",
           "episode": "resurfaced",
           "source": "hinted"
@@ -194,7 +194,6 @@
         "summary": "Showing lines 20 to 40 of 900; the rest was clipped at the output boundary.",
         "status": "failed",
         "semanticHints": {
-          "consequence": "high",
           "confidence": "low",
           "factors": ["source evidence truncated"],
           "reasons": [
@@ -236,7 +235,6 @@
         "summary": "Showing lines 40 to 60 of 900; the rest was clipped at the output boundary.",
         "status": "failed",
         "semanticHints": {
-          "consequence": "high",
           "confidence": "low",
           "factors": ["source evidence truncated"],
           "reasons": [

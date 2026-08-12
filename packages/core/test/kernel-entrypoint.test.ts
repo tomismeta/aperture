@@ -181,6 +181,31 @@ test("kernel only treats facts capability family as capability authority", () =>
   assert.equal(contextual.event.capabilityFamily, undefined);
 });
 
+test("kernel canonicalizes capability family case before semantic matching", () => {
+  const lowercase = evaluateApertureKernelEvent(
+    failedTaskEvent(
+      "capability-lowercase",
+      "Your command ran successfully and did not produce any output.",
+      {
+        capabilityFamily: "bash",
+      },
+    ),
+  );
+  const mixedCase = evaluateApertureKernelEvent(
+    failedTaskEvent(
+      "capability-mixed-case",
+      "Your command ran successfully and did not produce any output.",
+      {
+        capabilityFamily: " Bash ",
+      },
+    ),
+  );
+
+  assert.equal(mixedCase.event.semantic.capabilityFamily, "bash");
+  assert.deepEqual(mixedCase.observation, lowercase.observation);
+  assert.deepEqual(mixedCase.observationJudgment, lowercase.observationJudgment);
+});
+
 test("kernel evaluation exposes candidates that do not yet have observation documents", () => {
   const result = evaluateApertureKernelEvent({
     id: "evt:kernel:approval",
@@ -403,7 +428,7 @@ test("typed source evidence deterministically covers every observation family", 
     assert.ok(observation, testCase.id);
     assert.ok(judgment, testCase.id);
     assert.equal(observation.ownership.owner, "tool", testCase.id);
-    assert.equal(observation.ownership.capabilityFamily, "Opaque-Capability/17", testCase.id);
+    assert.equal(observation.ownership.capabilityFamily, "opaque-capability/17", testCase.id);
     assert.equal(observation.semanticAgreement, "stable", testCase.id);
     assert.equal(observation.evidenceStrength, "strong", testCase.id);
     assert.equal(observation.provenance.authority, "explicit", testCase.id);
@@ -574,6 +599,26 @@ test("source, direct, and kernel events share one typed-evidence observation pat
 });
 
 test("kernel rejects malformed typed evidence at runtime", () => {
+  assert.throws(
+    () =>
+      evaluateApertureKernelEvent({
+        id: "evt:kernel:nonfailed-evidence",
+        workId: "work:kernel:nonfailed-evidence",
+        occurredAt: timestamp,
+        kind: "work.updated",
+        title: "Invalid running evidence",
+        status: "running",
+        evidence: {
+          kind: "outcome",
+          outcome: "success",
+          subject: "command",
+          channel: "command",
+          complete: true,
+        } as never,
+      }),
+    /event\.evidence/,
+  );
+
   assert.throws(
     () =>
       evaluateApertureKernelEvent({

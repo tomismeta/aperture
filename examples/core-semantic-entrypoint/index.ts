@@ -30,7 +30,7 @@ assert.equal(normalized.semantic?.intentFrame, "approval_request");
 
 const clippedFailureHints = semanticHintsForTruncatedSourceEvidence({ status: "failed" });
 assert.equal(clippedFailureHints.confidence, "low");
-assert.equal(clippedFailureHints.consequence, "high");
+assert.deepEqual(clippedFailureHints.reasons, ["source failure evidence was truncated before Aperture saw the full output"]);
 assert.deepEqual(clippedFailureHints.factors, [TRUNCATED_SOURCE_EVIDENCE_FACTOR]);
 
 console.log("semantic entrypoint example passed");

@@ -1,7 +1,7 @@
 import { resolveObservationStatusConflictKindFromShape } from "./judgment-observation-contract.js";
 import type { ObservationalStatusConflictEvidence } from "./observational-status-conflict.js";
 import type { ObservationSemantics } from "./observation-semantics.js";
-import { TRUNCATED_SOURCE_EVIDENCE_FACTOR, type SemanticInterpretation } from "./semantic-types.js";
+import type { SemanticInterpretation } from "./semantic-types.js";
 
 type ObservationStatusConflictEvent = {
   type: string;
@@ -44,9 +44,5 @@ export function buildObservationStatusConflictEvidenceFromCore(input: {
 function hasStableObservationStatusConflictConfidence(
   interpretation: SemanticInterpretation,
 ): boolean {
-  return (
-    interpretation.confidence === "high" ||
-    (interpretation.confidence === "low" &&
-      interpretation.factors.includes(TRUNCATED_SOURCE_EVIDENCE_FACTOR))
-  );
+  return interpretation.confidence === "high";
 }

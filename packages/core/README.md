@@ -120,7 +120,7 @@ the TUI, see [Architecture Overview](https://github.com/tomismeta/aperture/blob/
 If you want the replay, benchmark, and calibration direction for evaluating
 judgment changes, see [Aperture Lab](https://github.com/tomismeta/aperture/blob/main/docs/lab/aperture-lab.md).
 
-For the current workspace release candidate, see [Aperture Core SDK v0.9.0](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-core-v0.9.0.md).
+For the current workspace hardening tranche, see [Aperture Core SDK v0.9.0](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-core-v0.9.0.md).
 The source workspace may occasionally be ahead of npm between release commits;
 compare the package version you installed with npm when in doubt.
 
@@ -337,10 +337,9 @@ const event: SourceEvent = {
 
 Use the hint only for adapter-known source-quality facts that do not satisfy a
 typed evidence variant, such as clipped stderr or a transcript window that
-omitted earlier evidence. It lowers semantic confidence and, for failed status
-by default, preserves high consequence. It cannot lower failed evidence to
-medium or low consequence. It does not parse logs, recover missing evidence, or
-make unrelated failures severe. Failed task updates are status-authoritative:
+omitted earlier evidence. It lowers semantic confidence without changing the
+inferred consequence. It does not parse logs, recover missing evidence, or make
+unrelated failures severe. Failed task updates are status-authoritative:
 Core also accepts relation hints, but ignores every other generic semantic hint
 field rather than allowing adapter claims to override observed failure facts.
 

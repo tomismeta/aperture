@@ -466,6 +466,8 @@ test("bounded source-quality hints can demote confidence when evidence is trunca
 
   assert.equal(interpretation.confidence, "low");
   assert.equal(interpretation.provenance?.confidence, "hint");
+  assert.equal(interpretation.consequence, "medium");
+  assert.equal(interpretation.provenance?.consequence, "inferred");
 });
 
 test("truncation signatures cannot demote complete success observations", () => {

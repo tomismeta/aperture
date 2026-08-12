@@ -24,7 +24,7 @@
         "stepLabel": "uncertain failure status",
         "intentFrame": "failure",
         "activityClass": "tool_failure",
-        "consequence": "high",
+        "consequence": "medium",
         "confidence": "low"
       },
       {

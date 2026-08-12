@@ -80,6 +80,7 @@ test("kernel corpus check compares supplied protected base scorecard", async () 
     const scorecard = buildKernelCorpusScorecard(report, scenarios);
     const stricterBase = {
       ...scorecard,
+      proof: { ...scorecard.proof, releaseEligible: true },
       summary: {
         ...scorecard.summary,
         assertions: {
@@ -118,6 +119,7 @@ test("kernel corpus check compares branch-history scorecard when protected base 
     const scorecard = buildKernelCorpusScorecard(report, scenarios);
     const stricterHistoricalBase = {
       ...scorecard,
+      proof: { ...scorecard.proof, releaseEligible: true },
       thresholds: {
         ...scorecard.thresholds,
         minimumTotalAssertions: scorecard.thresholds.minimumTotalAssertions + 1,

@@ -49,12 +49,10 @@ function readApplicableSemanticHints(event: SourceEvent): SemanticInterpretation
     observation !== null &&
     observation.evidenceLoss === "partial" &&
     hints.confidence === "low" &&
-    hints.factors?.includes(TRUNCATED_SOURCE_EVIDENCE_FACTOR) === true &&
-    (hints.consequence === undefined || hints.consequence === "high")
+    hints.factors?.includes(TRUNCATED_SOURCE_EVIDENCE_FACTOR) === true
   )
     return {
       ...relationOnly,
-      ...(hints.consequence === undefined ? {} : { consequence: hints.consequence }),
       confidence: "low",
       factors: [TRUNCATED_SOURCE_EVIDENCE_FACTOR],
       ...(hints.reasons === undefined ? {} : { reasons: hints.reasons }),

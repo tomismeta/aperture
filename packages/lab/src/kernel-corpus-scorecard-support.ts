@@ -80,6 +80,10 @@ function isKernelCorpusScorecard(
     value.schemaVersion === schemaVersion &&
     isScorecardProfile(value.profile) &&
     typeof value.passed === "boolean" &&
+    isRecord(value.proof) &&
+    value.proof.retiredRegressionOracle === true &&
+    value.proof.releaseEligible === false &&
+    value.proof.independentPostFreezeHoldoutRequired === true &&
     isStringArray(value.failures) &&
     (thresholds === null
       ? isScorecardThresholdShape(value.thresholds)

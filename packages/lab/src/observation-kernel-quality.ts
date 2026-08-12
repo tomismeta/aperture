@@ -14,7 +14,7 @@ import type { ObservationKernelObservation } from "./observation-kernel-scorecar
 
 export const OBSERVATION_KERNEL_QUALITY_THRESHOLDS = {
   minimumCalibrationFixtures: 16,
-  minimumHoldoutFixtures: 24,
+  minimumRetiredRegressionFixtures: 24,
   minimumSemanticAccuracy: 1,
   minimumJudgmentAccuracy: 1,
   minimumDecisionAccuracy: 1,
@@ -42,9 +42,12 @@ export type ObservationKernelQuality = {
   thresholds: typeof OBSERVATION_KERNEL_QUALITY_THRESHOLDS;
   passed: boolean;
   failures: string[];
-  fixtures: Record<ObservationKernelFixtureSplit, number>;
+  fixtures: { calibration: number; retired_regression: number };
   summary: ObservationKernelQualityBreakdown;
-  bySplit: Record<ObservationKernelFixtureSplit, ObservationKernelQualityBreakdown>;
+  bySplit: {
+    calibration: ObservationKernelQualityBreakdown;
+    retired_regression: ObservationKernelQualityBreakdown;
+  };
   semanticFields: ObservationKernelFieldAccuracy[];
   judgmentFields: ObservationKernelFieldAccuracy[];
   decisionFields: ObservationKernelFieldAccuracy[];
@@ -123,7 +126,7 @@ export function evaluateObservationKernelQuality(
 
   const bySplit = {
     calibration: buildObservationQualityBreakdown(assertions, exact.calibration, "calibration"),
-    holdout: buildObservationQualityBreakdown(assertions, exact.holdout, "holdout"),
+    retired_regression: buildObservationQualityBreakdown(assertions, exact.holdout, "holdout"),
   };
   const summary = buildObservationQualityBreakdown(
     assertions,
@@ -136,7 +139,7 @@ export function evaluateObservationKernelQuality(
     thresholds: OBSERVATION_KERNEL_QUALITY_THRESHOLDS,
     passed: failures.length === 0,
     failures,
-    fixtures,
+    fixtures: { calibration: fixtures.calibration, retired_regression: fixtures.holdout },
     summary,
     bySplit,
     semanticFields: buildObservationFieldAccuracy(assertions, "semantics"),
@@ -206,8 +209,8 @@ function collectThresholdFailures(input: {
   const thresholds = OBSERVATION_KERNEL_QUALITY_THRESHOLDS;
   if (input.fixtures.calibration < thresholds.minimumCalibrationFixtures)
     input.failures.push("observation_quality:insufficient_calibration_fixtures");
-  if (input.fixtures.holdout < thresholds.minimumHoldoutFixtures)
-    input.failures.push("observation_quality:insufficient_holdout_fixtures");
+  if (input.fixtures.holdout < thresholds.minimumRetiredRegressionFixtures)
+    input.failures.push("observation_quality:insufficient_retired_regression_fixtures");
   if (input.summary.semantics.score < thresholds.minimumSemanticAccuracy)
     input.failures.push("observation_quality:semantic_accuracy_below_threshold");
   if (input.summary.judgment.score < thresholds.minimumJudgmentAccuracy)

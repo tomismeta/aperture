@@ -58,12 +58,6 @@ test("module budget checker includes observation grammar in matcher governance",
       "packages/core/src/task-failure-observation-grammar.ts",
       "export const grammar = true;\n",
     );
-    await writeRepoFile(
-      root,
-      "packages/core/src/task-failure-payload-observation-grammar.ts",
-      "export const payloadGrammar = true;\n",
-    );
-
     const governedFiles = (await collectSemanticMatcherGovernedFiles(root)).map((file) =>
       file.replace(`${root}/`, ""),
     );
@@ -71,7 +65,6 @@ test("module budget checker includes observation grammar in matcher governance",
     assert.deepEqual(governedFiles, [
       "packages/core/src/semantic-top-level.ts",
       "packages/core/src/task-failure-observation-grammar.ts",
-      "packages/core/src/task-failure-payload-observation-grammar.ts",
     ]);
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -118,12 +111,7 @@ test("module budget checker counts the observation primitive as one governed sur
     await writeRepoFile(
       root,
       "packages/core/src/task-failure-observation-grammar.ts",
-      "const one = 1;\nconst two = 2;\nconst three = 3;\nconst four = 4;\n",
-    );
-    await writeRepoFile(
-      root,
-      "packages/core/src/task-failure-payload-observation-grammar.ts",
-      "const one = 1;\nconst two = 2;\n",
+      "const one = 1;\nconst two = 2;\nconst three = 3;\nconst four = 4;\nconst five = 5;\nconst six = 6;\n",
     );
     await writeRepoFile(
       root,
@@ -141,7 +129,7 @@ test("module budget checker counts the observation primitive as one governed sur
       "const one = 1;\nconst two = 2;\n",
     );
 
-    assert.equal(await countObservationPrimitiveLines(root), 25);
+    assert.equal(await countObservationPrimitiveLines(root), 24);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -153,12 +141,7 @@ test("module budget checker counts task-failure parsing as one governed surface"
     await writeRepoFile(
       root,
       "packages/core/src/task-failure-observation-grammar.ts",
-      "const one = 1;\n",
-    );
-    await writeRepoFile(
-      root,
-      "packages/core/src/task-failure-payload-observation-grammar.ts",
-      "const one = 1;\nconst two = 2;\n",
+      "const one = 1;\nconst two = 2;\nconst three = 3;\n",
     );
     await writeRepoFile(
       root,
@@ -187,7 +170,7 @@ test("module budget checker counts task-failure parsing as one governed surface"
       "const one = 1;\n",
     );
 
-    assert.equal(await countTaskFailureParsingLines(root), 20);
+    assert.equal(await countTaskFailureParsingLines(root), 19);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

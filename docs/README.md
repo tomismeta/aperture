@@ -30,7 +30,7 @@ understand the current product surface.
 ### Build With The SDK
 
 1. [packages/core/README.md](../packages/core/README.md)
-2. [Aperture Core SDK v0.8.0](./releases/aperture-core-v0.8.0.md)
+2. [Aperture Core SDK v0.9.0](./releases/aperture-core-v0.9.0.md)
 3. [SDK Path](./product/sdk-path.md)
 4. [Core Mental Model](./engine/core-mental-model.md)
 
@@ -59,6 +59,7 @@ loop.
 - [Aperture v0.2.0](./releases/aperture-v0.2.0.md)
 - [Aperture v0.1.2](./releases/aperture-v0.1.2.md)
 - [Aperture v0.1.0](./releases/aperture-v0.1.0.md)
+- [Aperture Core SDK v0.9.0](./releases/aperture-core-v0.9.0.md)
 - [Aperture Core SDK v0.8.0](./releases/aperture-core-v0.8.0.md)
 - [Aperture Core SDK v0.7.0](./releases/aperture-core-v0.7.0.md)
 - [Aperture Core SDK v0.6.0](./releases/aperture-core-v0.6.0.md)
@@ -111,6 +112,7 @@ These docs explain the source-specific integration seams:
 - [Canonical Judgment Model](./engine/canonical-judgment-model.md)
 - [Reference Judgment Flow](./engine/reference-judgment-flow.md)
 - [Semantic Normalization](./engine/semantic-normalization.md)
+- [Kernel Scale Characterization](./engine/kernel-scale-characterization.md)
 - [Attention Frame](./engine/frame.md)
 - [SDK Path](./product/sdk-path.md)
 - [Interaction Signals](./engine/interaction-signals.md)

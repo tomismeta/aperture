@@ -146,12 +146,11 @@ export function readTaskFailureSemanticEvidence(
       ...(event.summary !== undefined ? { summary: event.summary } : {}),
       ...(event.toolFamily !== undefined ? { toolFamily: event.toolFamily } : {}),
     }) ?? undefined;
-  const text = readSemanticTextEvidence(
-    toolFamily === "search"
-      ? (event.summary ?? event.title)
-      : `${event.title} ${event.summary ?? ""}`,
-    toolFamily,
-  );
+  const text =
+    event.summary !== undefined &&
+    readSemanticTextEvidence(event.title, toolFamily).shapes.includes("terminal_failure")
+      ? { shapes: ["terminal_failure"] as const }
+      : readSemanticTextEvidence(event.summary ?? event.title, toolFamily);
   const signals = readTaskFailureSemanticSignals({ summary: event.summary, toolFamily });
   const profile = readTaskFailureEvidenceProfile({
     summary: event.summary,

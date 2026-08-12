@@ -102,6 +102,8 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.equal("readCandidateObservation" in semanticSdk, false);
   assert.equal("NormalizedObservation" in semanticSdk, false);
   assert.equal("ObservationSemantics" in semanticSdk, false);
+  assert.equal("readSemanticOntologyDiagnostic" in semanticSdk, false);
+  assert.equal("projectSemanticOntologyDiagnostic" in semanticSdk, false);
   assert.equal("readCandidateObservation" in evaluatorSdk, false);
   assert.equal("NormalizedObservation" in evaluatorSdk, false);
   assert.equal("ObservationSemantics" in evaluatorSdk, false);

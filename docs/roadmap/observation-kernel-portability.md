@@ -90,10 +90,14 @@ projection, not the surrounding product shell.
 
 ## Current Evidence
 
-The versioned Observation Kernel scorecard now covers structured output, search
-output, and a source-limit recovery flow. It snapshots both normalized
-observation fields and the derived judgment projection, so drift in the portable
-contract is visible before release.
+The version 2 Observation Kernel scorecard measures 13 normalized Observation
+fields, eight derived judgment fields, two decision fields, and exact outcomes.
+The implementation-freeze baseline covers structured output, search output,
+source-limit recovery, title-independent command success, and other messy
+structural families as calibration evidence. An independently authored
+post-freeze holdout is still required before release. Drift is attributed to
+semantics, judgment, or end-to-end decision behavior instead of being hidden in
+an aggregate snapshot.
 
 The public kernel entrypoint also has a host-neutral portability fixture at
 `packages/core/test/fixtures/kernel-portability-v1.json`. It feeds two unrelated
@@ -101,6 +105,11 @@ synthetic host event shapes through adapter-owned mappings and asserts the same
 normalized observation, deterministic judgment, and explanation reason codes.
 The fixture vocabulary is kept out of `packages/core/src/kernel.ts` by contract
 test.
+
+The packed SDK proof additionally executes
+`examples/core-kernel-host-embedder/index.ts` against the installed npm tarball.
+That reference embedder keeps both host adapters outside core and proves the
+public package surface, not a source-tree-only seam.
 
 The core decision path also consumes the projection directly: status-conflict,
 limited-failure helpers, stable peripheral status evidence, and visible

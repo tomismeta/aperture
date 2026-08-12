@@ -2,13 +2,36 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { projectAttentionOntologyDiagnostic } from "../src/attention-ontology-projector.js";
-import {
-  readAttentionOntologyDiagnostic,
-  projectSemanticOntologyDiagnostic,
-  readSemanticOntologyDiagnostic,
-} from "../src/semantic.js";
+import type { ApertureEvent } from "../src/events.js";
+import { readAttentionOntologyDiagnostic } from "../src/semantic.js";
 
 const timestamp = "2026-04-05T18:00:00.000Z";
+
+test("canonical ontology reader preserves normalized event semantics", () => {
+  const event: ApertureEvent = {
+    id: "evt:ontology:normalized-reader",
+    taskId: "task:ontology:normalized-reader",
+    type: "task.updated",
+    timestamp,
+    title: "Routine status",
+    summary: "Work is still running.",
+    status: "running",
+    semantic: {
+      intentFrame: "approval_request",
+      activityClass: "permission_request",
+      confidence: "high",
+      factors: ["normalized semantic authority"],
+      relationHints: [],
+      reasons: ["normalized event requires approval"],
+    },
+  };
+
+  const diagnostic = readAttentionOntologyDiagnostic(event);
+
+  assert.equal(diagnostic.ask, "approval");
+  assert.equal(diagnostic.activity, "decision_request");
+  assert.equal(diagnostic.blocking, "waiting");
+});
 
 test("approval requests project to a narrow ontology diagnostic", () => {
   const diagnostic = readAttentionOntologyDiagnostic({
@@ -29,93 +52,6 @@ test("approval requests project to a narrow ontology diagnostic", () => {
     consequence: "high",
     blocking: "blocking",
     episode: "new",
-    confidence: "high",
-    source: "explicit",
-  });
-});
-
-test("deprecated semantic ontology entrypoints preserve attention ontology compatibility", () => {
-  const event = {
-    id: "evt:ontology:attention-alias",
-    taskId: "task:ontology:attention-alias",
-    type: "task.updated" as const,
-    timestamp,
-    title: "Deploy failed",
-    summary: "The deployment command failed during verification.",
-    status: "failed" as const,
-  };
-  const attention = readAttentionOntologyDiagnostic(event);
-  const semantic = readSemanticOntologyDiagnostic(event);
-
-  assert.deepEqual(attention, semantic);
-  assert.deepEqual(
-    projectSemanticOntologyDiagnostic(event, {
-      intentFrame: "failure",
-      activityClass: "tool_failure",
-      consequence: "medium",
-      whyNow: "The task failed.",
-      factors: ["task.updated", "failed"],
-      relationHints: [],
-      confidence: "high",
-      reasons: ["status is failed"],
-      provenance: {
-        intentFrame: "source",
-        activityClass: "source",
-        consequence: "source",
-        confidence: "source",
-      },
-    }),
-    projectAttentionOntologyDiagnostic(event, {
-      intentFrame: "failure",
-      activityClass: "tool_failure",
-      consequence: "medium",
-      whyNow: "The task failed.",
-      factors: ["task.updated", "failed"],
-      relationHints: [],
-      confidence: "high",
-      reasons: ["status is failed"],
-      provenance: {
-        intentFrame: "source",
-        activityClass: "source",
-        consequence: "source",
-        confidence: "source",
-      },
-    }),
-  );
-});
-
-test("deprecated semantic ontology entrypoints still accept direct Aperture events", () => {
-  const diagnostic = readSemanticOntologyDiagnostic({
-    id: "evt:ontology:direct-aperture",
-    taskId: "task:ontology:direct-aperture",
-    type: "task.updated",
-    timestamp,
-    title: "Verification failed",
-    summary: "The verification command failed.",
-    status: "failed",
-    semantic: {
-      intentFrame: "failure",
-      activityClass: "tool_failure",
-      consequence: "medium",
-      confidence: "high",
-      factors: ["failed"],
-      relationHints: [],
-      reasons: ["direct event semantic read"],
-      provenance: {
-        intentFrame: "source",
-        activityClass: "source",
-        consequence: "source",
-        confidence: "source",
-      },
-    },
-  });
-
-  assert.deepEqual(diagnostic, {
-    ask: "status",
-    activity: "failure",
-    consequence: "medium",
-    blocking: "non_blocking",
-    episode: "unknown",
     confidence: "high",
     source: "explicit",
   });

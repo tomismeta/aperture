@@ -269,10 +269,6 @@ test("task-failure observation grammar stays document-first and source-internal"
     new URL("../src/task-failure-observation-grammar.ts", import.meta.url),
     "utf8",
   );
-  const payloadGrammar = readFileSync(
-    new URL("../src/task-failure-payload-observation-grammar.ts", import.meta.url),
-    "utf8",
-  );
   const core = readFileSync(
     new URL("../src/task-failure-observation-core.ts", import.meta.url),
     "utf8",
@@ -290,8 +286,6 @@ test("task-failure observation grammar stays document-first and source-internal"
   assert.match(grammar, /readTaskFailureObservationSyntax/);
   assert.match(grammar, /readTaskFailurePayloadObservationSyntax/);
   assert.match(grammar, /ObservationSemantics/);
-  assert.match(payloadGrammar, /readTaskFailurePayloadObservationSyntax/);
-  assert.match(payloadGrammar, /ObservationSemantics/);
   assert.match(core, /TASK_FAILURE_OBSERVATION_EXTRACTORS/);
   assert.match(core, /satisfies Record<TaskFailureEvidenceKind, ObservationExtractor>/);
   assert.match(core, /extractTaskFailureObservationCore/);
@@ -314,12 +308,7 @@ test("task-failure observation grammar stays document-first and source-internal"
   }
   assert.equal(grammar.includes("export type TaskFailureObservation ="), false);
   assert.equal(grammar.includes("export type TaskFailureObservationGrammarInput"), false);
-  assert.equal(
-    payloadGrammar.includes("export type TaskFailurePayloadObservationGrammarInput"),
-    false,
-  );
   assert.equal(/export\s+type\s+\w*(?:Match|Signals)\b/.test(grammar), false);
-  assert.equal(/export\s+type\s+\w*(?:Match|Signals)\b/.test(payloadGrammar), false);
   assert.equal(payloadShapes.includes("TaskFailureStructuredOutputEnvelope"), false);
   assert.equal(payloadShapes.includes("semantic-tool-family"), false);
   assert.equal(payloadShapes.includes("ObservationSemantics"), false);
@@ -339,7 +328,6 @@ test("task-failure observation grammar stays document-first and source-internal"
     "./index.js",
   ]) {
     assert.equal(grammar.includes(forbidden), false, forbidden);
-    assert.equal(payloadGrammar.includes(forbidden), false, forbidden);
   }
 
   for (const removedPayloadField of [
@@ -366,7 +354,6 @@ test("task-failure observation grammar stays document-first and source-internal"
   ]) {
     const source = readFileSync(new URL(leafModule, import.meta.url), "utf8");
     assert.equal(source.includes("task-failure-observation-grammar"), false, leafModule);
-    assert.equal(source.includes("task-failure-payload-observation-grammar"), false, leafModule);
     assert.equal(source.includes("ObservationSemantics"), false, leafModule);
   }
 });

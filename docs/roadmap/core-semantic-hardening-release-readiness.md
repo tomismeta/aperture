@@ -1,6 +1,8 @@
 # Core Semantic Hardening Release Readiness
 
-Status: draft release-readiness note for PR #51, written on July 31, 2026.
+Status: archived release-readiness note for PR #51, written on July 31, 2026.
+Its requirements were satisfied by the published
+[`@tomismeta/aperture-core@0.8.0`](../releases/aperture-core-v0.8.0.md) release.
 
 This note captures what should be true before publishing the corpus-driven core
 semantic and judgment hardening tranche. It is intentionally version-neutral:

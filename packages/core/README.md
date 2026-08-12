@@ -120,7 +120,7 @@ the TUI, see [Architecture Overview](https://github.com/tomismeta/aperture/blob/
 If you want the replay, benchmark, and calibration direction for evaluating
 judgment changes, see [Aperture Lab](https://github.com/tomismeta/aperture/blob/main/docs/lab/aperture-lab.md).
 
-For the current npm release summary, see [Aperture Core SDK v0.8.0](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-core-v0.8.0.md).
+For the current workspace release candidate, see [Aperture Core SDK v0.9.0](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-core-v0.9.0.md).
 The source workspace may occasionally be ahead of npm between release commits;
 compare the package version you installed with npm when in doubt.
 
@@ -130,6 +130,7 @@ Runnable repo examples live in:
 - [examples/core-attention-evaluator/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-attention-evaluator/index.ts)
 - [examples/core-judgment-primitives/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-judgment-primitives/index.ts)
 - [examples/core-kernel-entrypoint/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-kernel-entrypoint/index.ts)
+- [examples/core-kernel-host-embedder/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-kernel-host-embedder/index.ts)
 - [examples/core-semantic-entrypoint/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-semantic-entrypoint/index.ts)
 - [examples/core-trace-entrypoint/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-trace-entrypoint/index.ts)
 

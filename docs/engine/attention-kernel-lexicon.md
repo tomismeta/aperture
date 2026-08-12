@@ -54,11 +54,9 @@ Compatibility notes:
 
 - Replay snapshots still carry the legacy `resultLane` field. Kernel-facing
   projections and public judgment summaries should say `realizedLane`.
-- The older `SemanticOntology*` type names remain aliases. New docs and tests
-  should prefer `AttentionOntology*`.
-- `AttentionOntologyDiagnostic.source` is the compatibility field for ontology
-  authority/provenance. Do not introduce a competing `authority` field without a
-  future major-version plan.
+- `AttentionOntology*` is the only ontology vocabulary exported by core.
+- `AttentionOntologyDiagnostic.source` is the canonical ontology
+  authority/provenance field. Do not introduce a competing `authority` field.
 - `judgment` is the decision act; `attention` is the managed resource; the
   public `kernel` subpath is a stateless observation/judgment entrypoint, not a
   second stateful engine.

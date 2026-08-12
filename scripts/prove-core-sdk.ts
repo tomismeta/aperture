@@ -27,6 +27,10 @@ const examples: Example[] = [
     entrypoint: join(repoRoot, "examples", "core-kernel-entrypoint", "index.ts"),
   },
   {
+    name: "core-kernel-host-embedder",
+    entrypoint: join(repoRoot, "examples", "core-kernel-host-embedder", "index.ts"),
+  },
+  {
     name: "core-semantic-entrypoint",
     entrypoint: join(repoRoot, "examples", "core-semantic-entrypoint", "index.ts"),
   },
@@ -334,21 +338,35 @@ async function assertEntrypointDoesNotExport(
   entrypoint: PublicEntrypoint,
   symbolName: string,
 ): Promise<void> {
-  const symbolSlug = packageSlug(symbolName);
+  return assertEntrypointDoesNotExportTypes(tempRoot, tarballPath, entrypoint, [symbolName]);
+}
+
+async function assertEntrypointDoesNotExportTypes(
+  tempRoot: string,
+  tarballPath: string,
+  entrypoint: PublicEntrypoint,
+  symbolNames: readonly string[],
+): Promise<void> {
+  const symbolSlug = packageSlug(symbolNames.join("-"));
   const projectName = `core-${symbolSlug}-negative-${entrypoint.label}`;
   const projectDir = join(tempRoot, projectName);
   await writeTypecheckOnlyConsumer(projectDir, projectName, tarballPath);
   await writeFile(
     join(projectDir, "index.ts"),
     [
-      `import type { ${symbolName} as ForbiddenExport } from "${entrypoint.specifier}";`,
-      "void (0 as unknown as ForbiddenExport);",
+      `import type { ${symbolNames.join(", ")} } from "${entrypoint.specifier}";`,
+      ...symbolNames.map((symbolName) => `void (0 as unknown as ${symbolName});`),
     ].join("\n"),
     "utf8",
   );
 
   run("pnpm", ["install", "--prefer-offline"], projectDir, { ignoreScripts: false });
-  runExpectFailure("pnpm", ["exec", "tsc", "--noEmit"], projectDir, new RegExp(symbolName));
+  runExpectFailure(
+    "pnpm",
+    ["exec", "tsc", "--noEmit"],
+    projectDir,
+    new RegExp(symbolNames.join("|")),
+  );
 }
 
 async function main(): Promise<void> {
@@ -438,6 +456,26 @@ async function main(): Promise<void> {
 
     await assertPublicEntrypointsDoNotExport(tempRoot, tarballPath, "NormalizedObservation");
     await assertPublicEntrypointsDoNotExport(tempRoot, tarballPath, "ObservationSemantics");
+    const removedOntologyTypes = [
+      "SemanticOntologyActivity",
+      "SemanticOntologyAsk",
+      "SemanticOntologyBlocking",
+      "SemanticOntologyDiagnostic",
+      "SemanticOntologyEpisode",
+      "SemanticOntologySource",
+    ];
+    await assertEntrypointDoesNotExportTypes(
+      tempRoot,
+      tarballPath,
+      { label: "semantic-ontology-aliases", specifier: "@tomismeta/aperture-core/semantic" },
+      removedOntologyTypes,
+    );
+    await assertEntrypointDoesNotExportTypes(
+      tempRoot,
+      tarballPath,
+      { label: "trace-ontology-aliases", specifier: "@tomismeta/aperture-core/trace" },
+      removedOntologyTypes,
+    );
     await assertEntrypointDoesNotExport(
       tempRoot,
       tarballPath,

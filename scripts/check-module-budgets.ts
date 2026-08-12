@@ -6,6 +6,7 @@ import {
   collectCoreSemanticFiles,
   readSemanticKernelArchitectureMetrics,
 } from "./semantic-kernel-surface-support.js";
+import { isDirectExecution } from "./direct-execution.js";
 export {
   collectCoreSemanticFiles,
   collectSemanticMatcherGovernedFiles,
@@ -17,20 +18,18 @@ export {
 
 const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = resolve(dirname(scriptPath), "..");
-const SEMANTIC_MODULE_COUNT_BUDGET = 100;
-const SEMANTIC_LINE_COUNT_BUDGET = 8695;
-const SEMANTIC_MATCHER_SITE_BUDGET = 600;
+const SEMANTIC_MODULE_COUNT_BUDGET = 96;
+const SEMANTIC_LINE_COUNT_BUDGET = 8250;
+const SEMANTIC_MATCHER_SITE_BUDGET = 586;
 const SEMANTIC_PHRASE_LITERAL_BUDGET = 175;
-const OBSERVATION_PRIMITIVE_LINE_COUNT_BUDGET = 800;
-const TASK_FAILURE_PARSING_LINE_COUNT_BUDGET = 1225;
+const OBSERVATION_PRIMITIVE_LINE_COUNT_BUDGET = 750;
+const TASK_FAILURE_PARSING_LINE_COUNT_BUDGET = 1075;
 
 const OBSERVATION_SEMANTICS_FILE = "packages/core/src/observation-semantics.ts";
 const OBSERVATION_SEMANTIC_READ_FILE = "packages/core/src/observation-semantic-read.ts";
 const NORMALIZED_OBSERVATION_FILE = "packages/core/src/normalized-observation.ts";
 const TASK_FAILURE_OBSERVATION_GRAMMAR_FILE =
   "packages/core/src/task-failure-observation-grammar.ts";
-const TASK_FAILURE_PAYLOAD_OBSERVATION_GRAMMAR_FILE =
-  "packages/core/src/task-failure-payload-observation-grammar.ts";
 const TASK_FAILURE_OBSERVATION_CORE_FILE = "packages/core/src/task-failure-observation-core.ts";
 const TASK_FAILURE_OBSERVATION_NORMALIZER_FILE =
   "packages/core/src/task-failure-observation-normalizer.ts";
@@ -66,7 +65,6 @@ const budgets = [
   { file: OBSERVATION_SEMANTIC_READ_FILE, maxLines: 50 },
   { file: NORMALIZED_OBSERVATION_FILE, maxLines: 75 },
   { file: TASK_FAILURE_OBSERVATION_GRAMMAR_FILE, maxLines: 250 },
-  { file: TASK_FAILURE_PAYLOAD_OBSERVATION_GRAMMAR_FILE, maxLines: 225 },
   { file: TASK_FAILURE_OBSERVATION_CORE_FILE, maxLines: 205 },
   { file: TASK_FAILURE_OBSERVATION_NORMALIZER_FILE, maxLines: 150 },
   { file: TASK_FAILURE_OBSERVATION_READER_FILE, maxLines: 175 },
@@ -330,8 +328,15 @@ const budgets = [
   { file: "packages/lab/src/kernel-corpus-profile-data.ts", maxLines: 100 },
   { file: "packages/lab/src/kernel-corpus-quality.ts", maxLines: 175 },
   { file: "packages/lab/src/observation-kernel-fixtures.ts", maxLines: 225 },
-  { file: "packages/lab/src/observation-kernel-scorecard.ts", maxLines: 450 },
+  { file: "packages/lab/src/observation-kernel-expectations.ts", maxLines: 375 },
+  { file: "packages/lab/src/observation-kernel-outcome-validation.ts", maxLines: 75 },
+  { file: "packages/lab/src/observation-kernel-quality-metrics.ts", maxLines: 100 },
+  { file: "packages/lab/src/observation-kernel-quality.ts", maxLines: 250 },
+  { file: "packages/lab/src/observation-kernel-quality-validation.ts", maxLines: 100 },
+  { file: "packages/lab/src/observation-kernel-scorecard-model.ts", maxLines: 125 },
+  { file: "packages/lab/src/observation-kernel-scorecard.ts", maxLines: 400 },
   { file: "packages/lab/src/observation-kernel-scorecard-validation.ts", maxLines: 175 },
+  { file: "scripts/kernel-scale.ts", maxLines: 325 },
   { file: "packages/lab/src/kernel-decision-contract.ts", maxLines: 175 },
   { file: "packages/lab/src/kernel-decision-contract-support.ts", maxLines: 250 },
   { file: "packages/lab/src/kernel-decision-value.ts", maxLines: 75 },
@@ -471,7 +476,7 @@ async function readLineCount(file: string): Promise<number> {
   return text.split("\n").length;
 }
 
-if (process.argv[1] === scriptPath) {
+if (isDirectExecution(import.meta.url)) {
   void main().catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`${message}\n`);

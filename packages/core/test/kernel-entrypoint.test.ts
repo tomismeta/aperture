@@ -54,6 +54,41 @@ test("kernel evaluation exposes event to observation to observation-judgment con
   });
 });
 
+test("kernel command observations do not depend on host title vocabulary", () => {
+  const event = failedTaskEvent(
+    "kernel:host-title",
+    "Your command ran successfully and did not produce any output.",
+    { capabilityFamily: "exec_command" },
+  );
+  const baseline = evaluateApertureKernelEvent(event);
+  const hostTitled = evaluateApertureKernelEvent({ ...event, title: "Command status" });
+
+  assert.deepEqual(hostTitled.observation, baseline.observation);
+  assert.deepEqual(hostTitled.observationJudgment, baseline.observationJudgment);
+  assert.equal(hostTitled.observation?.kind, "outcome");
+  assert.equal(hostTitled.observation?.polarity, "success");
+});
+
+test("kernel command titles cannot fabricate or override summary evidence", () => {
+  const event = failedTaskEvent("kernel:title-authority", "Result unavailable.", {
+    capabilityFamily: "exec_command",
+  });
+  const titleOnlySuccess = evaluateApertureKernelEvent({
+    ...event,
+    title: "Your command ran successfully and did not produce any output.",
+  });
+  const terminalTitle = evaluateApertureKernelEvent({
+    ...event,
+    title: "Permission denied",
+    summary: "Your command ran successfully and did not produce any output.",
+  });
+
+  assert.notEqual(titleOnlySuccess.observation?.polarity, "success");
+  assert.equal(titleOnlySuccess.observationJudgment?.statusConflictKind, null);
+  assert.notEqual(terminalTitle.observation?.polarity, "success");
+  assert.equal(terminalTitle.observationJudgment?.statusConflictKind, null);
+});
+
 test("kernel evaluation exposes the stable normalize to observe to judge explanation", () => {
   const result = evaluateApertureKernelEvent(
     failedTaskEvent(

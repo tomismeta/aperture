@@ -99,7 +99,9 @@ With `@tomismeta/aperture-core`:
 
 - the deterministic judgment engine inside Aperture
 - a small public SDK loop
-- the advanced `/semantic` and `/trace` entrypoints for adapter and explanation consumers
+- a pure `/evaluator` entrypoint for claim-to-decision judgment
+- a host-neutral `/kernel` entrypoint for event-to-observation judgment
+- advanced `/semantic` and `/trace` entrypoints for adapter and explanation consumers
 
 ## The Loop
 
@@ -206,7 +208,7 @@ Repo-level examples and capture-review quickstarts live in
 - Product package: [`@tomismeta/aperture`](https://www.npmjs.com/package/@tomismeta/aperture)
 - SDK package: [`@tomismeta/aperture-core`](https://www.npmjs.com/package/@tomismeta/aperture-core)
 - Product release notes: [docs/releases/aperture-v0.4.3.md](./docs/releases/aperture-v0.4.3.md)
-- SDK release notes: [docs/releases/aperture-core-v0.8.0.md](./docs/releases/aperture-core-v0.8.0.md)
+- SDK release candidate: [docs/releases/aperture-core-v0.9.0.md](./docs/releases/aperture-core-v0.9.0.md)
 - Architecture overview: [docs/product/architecture-overview.md](./docs/product/architecture-overview.md)
 - Host-neutral ingestion contract: [docs/product/host-neutral-ingestion-contract.md](./docs/product/host-neutral-ingestion-contract.md)
 - Attention judgment doctrine: [docs/engine/attention-judgment-doctrine.md](./docs/engine/attention-judgment-doctrine.md)

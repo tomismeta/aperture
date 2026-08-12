@@ -52,14 +52,22 @@ public subpaths:
 1. `SourceEvent`
 2. `SemanticInterpretation`
 3. `AttentionOntologyDiagnostic`
-4. `AttentionJudgmentInput`
-5. `AttentionCandidate`
-6. `AttentionDecisionRecord`
-7. `ApertureTrace`
+4. `NormalizedObservation`
+5. `ObservationJudgmentContract`
+6. `AttentionJudgmentInput`
+7. `AttentionCandidate`
+8. `AttentionDecisionRecord`
+9. `ApertureTrace`
 
-`AttentionOntologyDiagnostic` is the compact kernel vocabulary. The older
-`SemanticOntologyDiagnostic` name remains a compatibility alias, but new kernel
-work should prefer the attention-named contract.
+`AttentionOntologyDiagnostic` is the compact, canonical ontology vocabulary.
+Core exports no parallel semantic-era ontology contract.
+
+`NormalizedObservation` is the typed semantic document between messy source
+evidence and deterministic judgment. `ObservationJudgmentContract` is its pure
+judgment projection. The public kernel exposes bounded copies of these artifacts
+as `ApertureKernelObservation` and `ApertureKernelObservationJudgment`; those are
+public DTO projections of the same path, not a second semantic or judgment
+implementation.
 
 `AttentionDecisionRecord` is the first-class judgment artifact. It binds the
 decision, claim, evaluation clock, evidence snapshot, policy evaluations, value calculation,
@@ -147,6 +155,16 @@ Each conformance case should assert:
 - stable decision reason codes from the record projection
 - the canonical decision fingerprint generated from the projection
 
+The version 2 Observation Kernel scorecard adds field-level quality evidence
+over that path. Human-authored expected values can be scored separately for
+calibration and holdout fixture splits across normalized Observation fields,
+the derived observation judgment, planner behavior, realized lane, and exact
+end-to-end outcomes. The implementation-freeze scorecard contains only
+calibration evidence; a holdout must be authored independently after that
+freeze and executed without semantic tuning before release. A scorecard drift
+therefore identifies which boundary changed instead of reporting only that a
+final route moved.
+
 The current kernel fixture matrix covers:
 
 - `activate` with no current frame and operator present
@@ -182,14 +200,26 @@ The corpus should continue adding adversarial examples:
 - safe read approvals
 - high-consequence writes
 
+## Scale Characterization
+
+`pnpm kernel:scale` evaluates a fixed mixed-event workload in repeated rounds
+through `evaluateApertureKernelEvent(...)`. Every round must produce the same
+SHA-256 digest over the complete canonical public result stream. The command
+reports throughput, round-mean latency, and heap movement while applying only a
+coarse performance regression floor.
+
+Machine-specific timing is not committed as a golden compatibility artifact.
+See [Kernel Scale Characterization](./kernel-scale-characterization.md) for the
+workload and release invariants.
+
 ## Public API Posture
 
 Decision as of 2026-08-03: keep the root package stateful, but publish narrow
 pure subpaths for embedders.
 
-The public `semantic` subpath exposes the attention-named ontology entry points
-as additive aliases over the existing semantic contract. The public
-`evaluator` subpath exposes `evaluateAttention(...)`, which evaluates one
+The public `semantic` subpath exposes the canonical attention ontology entry
+point and no parallel semantic-era aliases. The public `evaluator` subpath
+exposes `evaluateAttention(...)`, which evaluates one
 `AttentionClaim` against explicit context, config, and clock input and returns a
 versioned `AttentionDecisionRecord`.
 

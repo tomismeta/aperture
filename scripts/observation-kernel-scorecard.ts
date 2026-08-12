@@ -1,6 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import {
   assertObservationKernelScorecardPassed,
@@ -8,9 +7,9 @@ import {
   parseObservationKernelScorecard,
   serializeKernelCanonicalJson,
 } from "../packages/lab/src/index.js";
+import { isDirectExecution } from "./direct-execution.js";
 
-const DEFAULT_SCORECARD_PATH = "packages/lab/conformance/observation-kernel-scorecard-v1.json";
-const scriptPath = fileURLToPath(import.meta.url);
+const DEFAULT_SCORECARD_PATH = "packages/lab/conformance/observation-kernel-scorecard-v2.json";
 
 export type ObservationKernelScorecardCommandOptions = {
   args?: readonly string[];
@@ -42,7 +41,7 @@ export async function runObservationKernelScorecardCommand(
   }
 }
 
-if (process.argv[1] === scriptPath) {
+if (isDirectExecution(import.meta.url)) {
   void runObservationKernelScorecardCommand().catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`${message}\n`);

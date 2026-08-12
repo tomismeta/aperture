@@ -10,116 +10,38 @@ import {
 import { normalizeSourceEvent } from "@tomismeta/aperture-core/semantic";
 
 import { compareKernelCanonicalKey, digestKernelCanonicalJson } from "./kernel-canonical-json.js";
+import { OBSERVATION_KERNEL_EXPECTATIONS } from "./observation-kernel-expectations.js";
 import {
   OBSERVATION_KERNEL_FIXTURES,
   type ObservationKernelFixture,
 } from "./observation-kernel-fixtures.js";
+import { evaluateObservationKernelQuality } from "./observation-kernel-quality.js";
+import {
+  OBSERVATION_KERNEL_SCORECARD_PROFILE_ID,
+  OBSERVATION_KERNEL_SCORECARD_PROFILE_VERSION,
+  OBSERVATION_KERNEL_SCORECARD_SCHEMA_VERSION,
+  OBSERVATION_KERNEL_SCORECARD_THRESHOLDS,
+  type ObservationKernelCoverage,
+  type ObservationKernelDecisionFields,
+  type ObservationKernelDistribution,
+  type ObservationKernelFields,
+  type ObservationKernelObservation,
+  type ObservationKernelScorecard,
+} from "./observation-kernel-scorecard-model.js";
 
-export const OBSERVATION_KERNEL_SCORECARD_SCHEMA_VERSION = 1 as const;
-export const OBSERVATION_KERNEL_SCORECARD_PROFILE_ID = "observation-kernel-scorecard" as const;
-export const OBSERVATION_KERNEL_SCORECARD_PROFILE_VERSION = 1 as const;
-
-export const OBSERVATION_KERNEL_SCORECARD_THRESHOLDS = {
-  minimumFixtures: 13,
-  minimumObservationFixtures: 13,
-  minimumObservations: 14,
-  minimumCoveredDimensions: 13,
-} as const;
-
-export type ObservationKernelScorecard = {
-  schemaVersion: typeof OBSERVATION_KERNEL_SCORECARD_SCHEMA_VERSION;
-  profile: {
-    id: typeof OBSERVATION_KERNEL_SCORECARD_PROFILE_ID;
-    version: typeof OBSERVATION_KERNEL_SCORECARD_PROFILE_VERSION;
-    suiteDigest: string;
-  };
-  thresholds: typeof OBSERVATION_KERNEL_SCORECARD_THRESHOLDS;
-  passed: boolean;
-  failures: string[];
-  summary: {
-    fixtures: {
-      total: number;
-      withObservation: number;
-    };
-    observations: {
-      total: number;
-      unique: number;
-    };
-    dimensions: {
-      total: number;
-      covered: number;
-      missing: number;
-    };
-    determinism: {
-      repeatedRuns: 2;
-      stable: boolean;
-    };
-  };
-  coverage: ObservationKernelCoverage;
-  observations: ObservationKernelObservation[];
-};
-
-export type ObservationKernelCoverage = {
-  dimensions: ObservationKernelDistribution;
-  kinds: ObservationKernelDistribution;
-  polarities: ObservationKernelDistribution;
-  owners: ObservationKernelDistribution;
-  subjects: ObservationKernelDistribution;
-  evidenceLosses: ObservationKernelDistribution;
-  evidenceStrengths: ObservationKernelDistribution;
-  semanticAgreements: ObservationKernelDistribution;
-  diagnosticClasses: ObservationKernelDistribution;
-  recoveryHints: ObservationKernelDistribution;
-  provenanceOrigins: ObservationKernelDistribution;
-  provenanceAuthorities: ObservationKernelDistribution;
-  consequenceBaselines: ObservationKernelDistribution;
-  extractorIds: ObservationKernelDistribution;
-};
-
-export type ObservationKernelDistribution = Array<{
-  id: string;
-  count: number;
-  fixtureCount: number;
-  fixtureIds: string[];
-}>;
-export type ObservationKernelObservation = {
-  fixtureId: string;
-  dimension: string;
-  sequence: number;
-  digest: string;
-  semanticDigest: string;
-  judgmentDigest: string;
-  fields: ObservationKernelFields;
-  judgment: ObservationKernelJudgmentFields;
-};
-
-export type ObservationKernelFields = {
-  kind: string;
-  polarity: string;
-  owner: string;
-  toolFamily: string | null;
-  subject: string;
-  evidenceLoss: string;
-  evidenceStrength: string;
-  semanticAgreement: string;
-  diagnosticClass: string | null;
-  recoveryHint: string | null;
-  provenanceOrigin: string;
-  provenanceAuthority: string;
-  consequenceBaseline: string;
-  observationExtractorId: string | null;
-};
-
-export type ObservationKernelJudgmentFields = {
-  statusEvidence: string;
-  statusConflictKind: string | null;
-  recoveryPosture: string;
-  baselineConsequence: string;
-  outcomeOnlyFailureStatus: boolean;
-  limitedFailureStatus: boolean;
-  stableStatusEvidence: boolean;
-  visibleDiagnosticFailure: boolean;
-};
+export {
+  OBSERVATION_KERNEL_SCORECARD_PROFILE_ID,
+  OBSERVATION_KERNEL_SCORECARD_PROFILE_VERSION,
+  OBSERVATION_KERNEL_SCORECARD_SCHEMA_VERSION,
+  OBSERVATION_KERNEL_SCORECARD_THRESHOLDS,
+  type ObservationKernelCoverage,
+  type ObservationKernelDecisionFields,
+  type ObservationKernelDistribution,
+  type ObservationKernelFields,
+  type ObservationKernelJudgmentFields,
+  type ObservationKernelObservation,
+  type ObservationKernelScorecard,
+} from "./observation-kernel-scorecard-model.js";
 
 type ObservationAccumulator = Map<string, { count: number; fixtureIds: Set<string> }>;
 
@@ -152,6 +74,7 @@ export function buildObservationKernelScorecard(): ObservationKernelScorecard {
     (dimension) => !coveredDimensions.has(dimension),
   );
   const coverage = buildObservationKernelCoverage(observations);
+  const quality = evaluateObservationKernelQuality(observations);
 
   failures.push(
     ...collectThresholdFailures({
@@ -160,6 +83,7 @@ export function buildObservationKernelScorecard(): ObservationKernelScorecard {
       coveredDimensions,
       missingDimensions,
     }),
+    ...quality.failures,
   );
 
   return {
@@ -171,14 +95,10 @@ export function buildObservationKernelScorecard(): ObservationKernelScorecard {
         fixtures: OBSERVATION_KERNEL_FIXTURES.map((fixture) => ({
           id: fixture.id,
           dimension: fixture.dimension,
+          split: fixture.split,
           events: fixture.events,
         })),
-        observations: observations.map((observation) => ({
-          fixtureId: observation.fixtureId,
-          digest: observation.digest,
-          semanticDigest: observation.semanticDigest,
-          judgmentDigest: observation.judgmentDigest,
-        })),
+        expectations: OBSERVATION_KERNEL_EXPECTATIONS,
       }),
     },
     thresholds: OBSERVATION_KERNEL_SCORECARD_THRESHOLDS,
@@ -188,6 +108,11 @@ export function buildObservationKernelScorecard(): ObservationKernelScorecard {
       fixtures: {
         total: OBSERVATION_KERNEL_FIXTURES.length,
         withObservation: new Set(observations.map((observation) => observation.fixtureId)).size,
+        calibration: OBSERVATION_KERNEL_FIXTURES.filter(
+          (fixture) => fixture.split === "calibration",
+        ).length,
+        holdout: OBSERVATION_KERNEL_FIXTURES.filter((fixture) => fixture.split === "holdout")
+          .length,
       },
       observations: {
         total: observations.length,
@@ -203,6 +128,7 @@ export function buildObservationKernelScorecard(): ObservationKernelScorecard {
         stable,
       },
     },
+    quality,
     coverage,
     observations: observations.sort(
       (left, right) =>
@@ -269,9 +195,14 @@ function runObservationKernelFixture(
       observationExtractorId,
     };
     const judgment = projectObservationJudgmentContract(observation);
+    const decision: ObservationKernelDecisionFields = {
+      plannerKind: trace.coordination.kind,
+      resultLane: trace.coordination.resultLane,
+    };
     const observationSequence = sequence++;
     const judgmentDigest = digestKernelCanonicalJson(judgment);
-    const semanticDigest = digestKernelCanonicalJson({ fields, judgment });
+    const semanticDigest = digestKernelCanonicalJson(fields);
+    const decisionDigest = digestKernelCanonicalJson(decision);
 
     return [
       {
@@ -281,14 +212,19 @@ function runObservationKernelFixture(
         digest: digestKernelCanonicalJson({
           fixtureId: fixture.id,
           dimension: fixture.dimension,
+          split: fixture.split,
           sequence: observationSequence,
           fields,
           judgment,
+          decision,
         }),
         semanticDigest,
         judgmentDigest,
+        decisionDigest,
+        split: fixture.split,
         fields,
         judgment,
+        decision,
       },
     ];
   });
@@ -300,6 +236,7 @@ function buildObservationKernelCoverage(
   const accumulators = createObservationAccumulators();
   for (const observation of observations) {
     const values: Array<[keyof ObservationKernelCoverage, string | null]> = [
+      ["splits", observation.split],
       ["dimensions", observation.dimension],
       ["kinds", observation.fields.kind],
       ["polarities", observation.fields.polarity],
@@ -321,6 +258,7 @@ function buildObservationKernelCoverage(
   }
 
   return {
+    splits: finalizeObservationDistribution(accumulators.splits),
     dimensions: finalizeObservationDistribution(accumulators.dimensions),
     kinds: finalizeObservationDistribution(accumulators.kinds),
     polarities: finalizeObservationDistribution(accumulators.polarities),
@@ -343,6 +281,7 @@ function createObservationAccumulators(): Record<
   ObservationAccumulator
 > {
   return {
+    splits: new Map(),
     dimensions: new Map(),
     kinds: new Map(),
     polarities: new Map(),
@@ -416,9 +355,6 @@ function collectThresholdFailures(input: {
   }
   for (const dimension of input.missingDimensions) {
     failures.push(`observation_kernel:missing_dimension:${dimension}`);
-  }
-  if (input.uniqueSemanticDigests.size !== input.observations.length) {
-    failures.push("observation_kernel:duplicate_semantic_observation_digest");
   }
   return failures;
 }

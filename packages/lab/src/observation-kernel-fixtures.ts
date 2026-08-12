@@ -3,8 +3,11 @@ import type { SourceEvent } from "@tomismeta/aperture-core";
 export type ObservationKernelFixture = {
   id: string;
   dimension: string;
+  split: ObservationKernelFixtureSplit;
   events: SourceEvent[];
 };
+
+export type ObservationKernelFixtureSplit = "calibration" | "holdout";
 
 const rejectedToolUseMessage =
   "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
@@ -63,6 +66,11 @@ export const OBSERVATION_KERNEL_FIXTURES: ObservationKernelFixture[] = [
     summary: "OBSERVATION: === Testing quote formatting === All quote formatting tests passed!",
     toolFamily: "bash",
   }),
+  fixture("host-neutral-command-success-title", "host_neutral_title_invariance", {
+    title: "Command status",
+    summary: "Your command ran successfully and did not produce any output.",
+    toolFamily: "exec_command",
+  }),
   fixture("ambiguous-terminal-output", "indeterminate_terminal_evidence", {
     title: "tool failure",
     summary: "Command exited with code 1 after producing output that did not include a diagnostic.",
@@ -76,6 +84,7 @@ export const OBSERVATION_KERNEL_FIXTURES: ObservationKernelFixture[] = [
   {
     id: "explicit-tool-family-authority",
     dimension: "explicit_tool_family_authority",
+    split: "calibration",
     events: [
       failedTaskEvent({
         id: "evt:observation:explicit-tool-family-authority:command",
@@ -102,6 +111,7 @@ export const OBSERVATION_KERNEL_FIXTURES: ObservationKernelFixture[] = [
   {
     id: "source-limit-recovery-flow",
     dimension: "source_limit_recovery_flow",
+    split: "calibration",
     events: [
       failedTaskEvent({
         id: "evt:observation:source-limit-recovery-flow:limit",
@@ -132,6 +142,7 @@ function fixture(
   return {
     id,
     dimension,
+    split: "calibration",
     events: [
       failedTaskEvent({
         id: `evt:observation:${id}`,

@@ -11,6 +11,7 @@ import {
 import {
   buildObservationKernelScorecard,
   digestKernelCanonicalJson,
+  evaluateObservationKernelQuality,
   parseObservationKernelScorecard,
   serializeKernelCanonicalJson,
 } from "../packages/lab/src/index.js";
@@ -20,9 +21,11 @@ test("observation kernel scorecard covers the normalized observation contract", 
   const scorecard = buildObservationKernelScorecard();
 
   assert.equal(scorecard.passed, true);
-  assert.equal(scorecard.summary.fixtures.total, 15);
-  assert.equal(scorecard.summary.fixtures.withObservation, 15);
-  assert.equal(scorecard.summary.observations.total, 17);
+  assert.equal(scorecard.summary.fixtures.total, 16);
+  assert.equal(scorecard.summary.fixtures.withObservation, 16);
+  assert.equal(scorecard.summary.fixtures.calibration, 16);
+  assert.equal(scorecard.summary.fixtures.holdout, 0);
+  assert.equal(scorecard.summary.observations.total, 18);
   assert.equal(scorecard.summary.observations.unique, 17);
   assert.equal(
     new Set(scorecard.observations.map((observation) => observation.semanticDigest)).size,
@@ -30,6 +33,17 @@ test("observation kernel scorecard covers the normalized observation contract", 
   );
   assert.ok(scorecard.observations.every((observation) => observation.judgmentDigest.length > 0));
   assert.equal(scorecard.summary.determinism.stable, true);
+  assert.equal(scorecard.quality.passed, true);
+  assert.deepEqual(scorecard.quality.failures, []);
+  assert.equal(scorecard.quality.summary.semantics.score, 1);
+  assert.equal(scorecard.quality.summary.judgment.score, 1);
+  assert.equal(scorecard.quality.summary.decision.score, 1);
+  assert.equal(scorecard.quality.summary.exactOutcomes.score, 1);
+  assert.equal(scorecard.quality.bySplit.holdout.exactOutcomes.total, 0);
+  assert.equal(scorecard.quality.bySplit.holdout.exactOutcomes.score, 0);
+  assert.equal(scorecard.quality.semanticFields.length, 13);
+  assert.equal(scorecard.quality.judgmentFields.length, 8);
+  assert.equal(scorecard.quality.decisionFields.length, 2);
   assert.equal(
     scorecard.observations.some(
       (observation) => observation.fixtureId === "structured-output-source-readback",
@@ -189,12 +203,39 @@ test("observation kernel keeps facts capability authoritative without context or
   }
 });
 
+test("observation kernel quality identifies semantic, judgment, and decision drift separately", () => {
+  const scorecard = buildObservationKernelScorecard();
+  const [first, ...rest] = scorecard.observations;
+  assert.ok(first);
+  if (first === undefined) return;
+
+  const quality = evaluateObservationKernelQuality([
+    {
+      ...first,
+      fields: { ...first.fields, polarity: "unknown" },
+      judgment: { ...first.judgment, stableStatusEvidence: !first.judgment.stableStatusEvidence },
+      decision: { ...first.decision, resultLane: "none" },
+    },
+    ...rest,
+  ]);
+
+  assert.equal(quality.passed, false);
+  assert.equal(quality.summary.semantics.passed, quality.summary.semantics.total - 1);
+  assert.equal(quality.summary.judgment.passed, quality.summary.judgment.total - 1);
+  assert.equal(quality.summary.decision.passed, quality.summary.decision.total - 1);
+  assert.ok(quality.failures.some((failure) => failure.includes(":semantics:polarity:")));
+  assert.ok(
+    quality.failures.some((failure) => failure.includes(":judgment:stableStatusEvidence:")),
+  );
+  assert.ok(quality.failures.some((failure) => failure.includes(":decision:resultLane:")));
+});
+
 test("observation kernel scorecard check rejects stale artifacts", async () => {
   const root = await mkdtemp(join(tmpdir(), "aperture-observation-kernel-"));
   const previousExitCode = process.exitCode;
   const previousStderrWrite = process.stderr.write;
   try {
-    const scorecardPath = join(root, "observation-kernel-scorecard-v1.json");
+    const scorecardPath = join(root, "observation-kernel-scorecard-v2.json");
     const scorecard = buildObservationKernelScorecard();
 
     await runObservationKernelScorecardCommand({ args: ["--write"], scorecardPath });

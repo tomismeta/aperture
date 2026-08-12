@@ -39,8 +39,10 @@ import {
 import { looksLikeBareNonzeroTerminalExitEvidence } from "../src/semantic-terminal-evidence.js";
 import type { ObservationSemantics } from "../src/observation-semantics.js";
 import { readTaskFailureObservationCore } from "../src/task-failure-observation-core.js";
-import { readTaskFailurePayloadObservationSyntax } from "../src/task-failure-payload-observation-grammar.js";
-import type { TaskFailureObservationSyntax } from "../src/task-failure-observation-grammar.js";
+import {
+  readTaskFailurePayloadObservationSyntax,
+  type TaskFailureObservationSyntax,
+} from "../src/task-failure-observation-grammar.js";
 import { readSemanticStructuredOutputOwnership } from "../src/semantic-structured-output-ownership.js";
 import { readTaskFailureStructuredOutputEnvelope } from "../src/semantic-task-failure-structured-output.js";
 import type { ApertureEvent } from "../src/events.js";

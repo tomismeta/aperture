@@ -3,11 +3,7 @@ export {
   TRUNCATED_SOURCE_EVIDENCE_FACTOR,
   semanticHintsForTruncatedSourceEvidence,
 } from "./semantic-source-quality.js";
-export {
-  projectSemanticOntologyDiagnostic,
-  readAttentionOntologyDiagnostic,
-  readSemanticOntologyDiagnostic,
-} from "./semantic-ontology.js";
+export { readAttentionOntologyDiagnostic } from "./semantic-ontology.js";
 export { enrichApertureEvent, normalizeSourceEvent } from "./semantic-normalizer.js";
 
 export type { EnrichedApertureEvent } from "./events.js";
@@ -28,10 +24,4 @@ export type {
   AttentionOntologyBlocking,
   AttentionOntologyDiagnostic,
   AttentionOntologyEpisode,
-  SemanticOntologyActivity,
-  SemanticOntologyAsk,
-  SemanticOntologyBlocking,
-  SemanticOntologyDiagnostic,
-  SemanticOntologyEpisode,
-  SemanticOntologySource,
 } from "./semantic-ontology.js";

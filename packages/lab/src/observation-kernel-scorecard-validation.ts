@@ -1,13 +1,17 @@
 import { compareKernelCanonicalKey } from "./kernel-canonical-json.js";
 import {
+  isObservationKernelDecisionFields,
+  isObservationKernelFields,
+  isObservationKernelJudgmentFields,
+} from "./observation-kernel-outcome-validation.js";
+import { isObservationKernelQuality } from "./observation-kernel-quality-validation.js";
+import {
   OBSERVATION_KERNEL_SCORECARD_PROFILE_ID,
   OBSERVATION_KERNEL_SCORECARD_PROFILE_VERSION,
   OBSERVATION_KERNEL_SCORECARD_SCHEMA_VERSION,
   OBSERVATION_KERNEL_SCORECARD_THRESHOLDS,
   type ObservationKernelCoverage,
   type ObservationKernelDistribution,
-  type ObservationKernelFields,
-  type ObservationKernelJudgmentFields,
   type ObservationKernelObservation,
   type ObservationKernelScorecard,
 } from "./observation-kernel-scorecard.js";
@@ -32,6 +36,7 @@ function isObservationKernelScorecard(value: unknown): value is ObservationKerne
     typeof value.passed === "boolean" &&
     isStringArray(value.failures) &&
     isScorecardSummary(value.summary) &&
+    isObservationKernelQuality(value.quality) &&
     isObservationKernelCoverage(value.coverage) &&
     Array.isArray(value.observations) &&
     value.observations.every(isObservationKernelObservation)
@@ -58,6 +63,8 @@ function isScorecardSummary(value: unknown): value is ObservationKernelScorecard
     isRecord(value.fixtures) &&
     isFiniteNumber(value.fixtures.total) &&
     isFiniteNumber(value.fixtures.withObservation) &&
+    isFiniteNumber(value.fixtures.calibration) &&
+    isFiniteNumber(value.fixtures.holdout) &&
     isRecord(value.observations) &&
     isFiniteNumber(value.observations.total) &&
     isFiniteNumber(value.observations.unique) &&
@@ -74,6 +81,7 @@ function isScorecardSummary(value: unknown): value is ObservationKernelScorecard
 function isObservationKernelCoverage(value: unknown): value is ObservationKernelCoverage {
   return (
     isRecord(value) &&
+    isObservationDistribution(value.splits) &&
     isObservationDistribution(value.dimensions) &&
     isObservationDistribution(value.kinds) &&
     isObservationDistribution(value.polarities) &&
@@ -111,48 +119,15 @@ function isObservationKernelObservation(value: unknown): value is ObservationKer
     isRecord(value) &&
     typeof value.fixtureId === "string" &&
     typeof value.dimension === "string" &&
+    (value.split === "calibration" || value.split === "holdout") &&
     isFiniteNumber(value.sequence) &&
     typeof value.digest === "string" &&
     typeof value.semanticDigest === "string" &&
     typeof value.judgmentDigest === "string" &&
+    typeof value.decisionDigest === "string" &&
     isObservationKernelFields(value.fields) &&
-    isObservationKernelJudgmentFields(value.judgment)
-  );
-}
-
-function isObservationKernelFields(value: unknown): value is ObservationKernelFields {
-  return (
-    isRecord(value) &&
-    typeof value.kind === "string" &&
-    typeof value.polarity === "string" &&
-    typeof value.owner === "string" &&
-    (typeof value.toolFamily === "string" || value.toolFamily === null) &&
-    typeof value.subject === "string" &&
-    typeof value.evidenceLoss === "string" &&
-    typeof value.evidenceStrength === "string" &&
-    typeof value.semanticAgreement === "string" &&
-    (typeof value.diagnosticClass === "string" || value.diagnosticClass === null) &&
-    (typeof value.recoveryHint === "string" || value.recoveryHint === null) &&
-    typeof value.provenanceOrigin === "string" &&
-    typeof value.provenanceAuthority === "string" &&
-    typeof value.consequenceBaseline === "string" &&
-    (typeof value.observationExtractorId === "string" || value.observationExtractorId === null)
-  );
-}
-
-function isObservationKernelJudgmentFields(
-  value: unknown,
-): value is ObservationKernelJudgmentFields {
-  return (
-    isRecord(value) &&
-    typeof value.statusEvidence === "string" &&
-    (typeof value.statusConflictKind === "string" || value.statusConflictKind === null) &&
-    typeof value.recoveryPosture === "string" &&
-    typeof value.baselineConsequence === "string" &&
-    typeof value.outcomeOnlyFailureStatus === "boolean" &&
-    typeof value.limitedFailureStatus === "boolean" &&
-    typeof value.stableStatusEvidence === "boolean" &&
-    typeof value.visibleDiagnosticFailure === "boolean"
+    isObservationKernelJudgmentFields(value.judgment) &&
+    isObservationKernelDecisionFields(value.decision)
   );
 }
 

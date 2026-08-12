@@ -17,6 +17,7 @@ import {
   serializeKernelCanonicalJson,
   type KernelCorpusScorecard,
 } from "../packages/lab/src/index.js";
+import { isDirectExecution } from "./direct-execution.js";
 
 const DEFAULT_REPORT_PATH = "packages/lab/conformance/kernel-corpus-v2.json";
 const DEFAULT_SCORECARD_PATH = "packages/lab/conformance/kernel-corpus-scorecard-v6.json";
@@ -223,7 +224,7 @@ function isProtectedBaseUnavailable(error: unknown): boolean {
   );
 }
 
-if (process.argv[1] === scriptPath) {
+if (isDirectExecution(import.meta.url)) {
   void main().catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`${message}\n`);

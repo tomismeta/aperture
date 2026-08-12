@@ -14,7 +14,7 @@ import type { ObservationKernelObservation } from "./observation-kernel-scorecar
 
 export const OBSERVATION_KERNEL_QUALITY_THRESHOLDS = {
   minimumCalibrationFixtures: 16,
-  minimumHoldoutFixtures: 16,
+  minimumHoldoutFixtures: 20,
   minimumSemanticAccuracy: 1,
   minimumJudgmentAccuracy: 1,
   minimumDecisionAccuracy: 1,

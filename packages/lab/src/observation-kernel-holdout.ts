@@ -1,7 +1,7 @@
 import type { SourceEvent } from "@tomismeta/aperture-core";
 import { assertValidSourceEvent } from "@tomismeta/aperture-core/internal";
 
-import holdoutArtifact from "../conformance/observation-kernel-holdout-v3.json" with { type: "json" };
+import holdoutArtifact from "../conformance/observation-kernel-holdout-v4.json" with { type: "json" };
 
 import type {
   ObservationKernelExpectedFields,
@@ -10,7 +10,7 @@ import type {
 import type { ObservationKernelFixture } from "./observation-kernel-fixtures.js";
 import type { ObservationKernelJudgmentFields } from "./observation-kernel-scorecard-model.js";
 
-export const OBSERVATION_KERNEL_HOLDOUT_SCHEMA_VERSION = 3 as const;
+export const OBSERVATION_KERNEL_HOLDOUT_SCHEMA_VERSION = 4 as const;
 export const OBSERVATION_KERNEL_HOLDOUT_OBSERVATION_CONTRACT_ID =
   "aperture-observation-judgment-contract/v1" as const;
 export const OBSERVATION_KERNEL_HOLDOUT_OBSERVATION_CONTRACT_DIGEST =
@@ -24,8 +24,10 @@ export const OBSERVATION_KERNEL_HOLDOUT_OUTPUT_CONTRACT_ID =
 export const OBSERVATION_KERNEL_HOLDOUT_OUTPUT_CONTRACT_DIGEST =
   "sha256:a85a0c9811f6be6aed3344dc8ea37230db216e76bdf4f3a36bddbda0e92e747e" as const;
 export const OBSERVATION_KERNEL_HOLDOUT_IMPLEMENTATION_FREEZE =
-  "443ef2db017dce3b91e295bd79fb61de5423d5fa" as const;
-export const OBSERVATION_KERNEL_HOLDOUT_FIXTURE_COUNT = 16 as const;
+  "d9df71cc45bac51bc0e834f173d1fac3b1b81a70" as const;
+export const OBSERVATION_KERNEL_HOLDOUT_FIXTURE_COUNT = 20 as const;
+export const OBSERVATION_KERNEL_HOLDOUT_TYPED_EVIDENCE_FIXTURE_COUNT = 12 as const;
+export const OBSERVATION_KERNEL_HOLDOUT_STRUCTURAL_FALLBACK_FIXTURE_COUNT = 8 as const;
 
 export type ObservationKernelHoldoutArtifact = {
   methodology: {
@@ -42,6 +44,10 @@ export type ObservationKernelHoldoutArtifact = {
     authoredWithoutExecution: true;
     firstExecutionPermittedAfterCommit: true;
     fixtureCount: typeof OBSERVATION_KERNEL_HOLDOUT_FIXTURE_COUNT;
+    typedEvidenceFixtureCount: typeof OBSERVATION_KERNEL_HOLDOUT_TYPED_EVIDENCE_FIXTURE_COUNT;
+    structuralFallbackFixtureCount: typeof OBSERVATION_KERNEL_HOLDOUT_STRUCTURAL_FALLBACK_FIXTURE_COUNT;
+    authoredWithoutPriorOracleInspection: true;
+    authoredWithoutCalibrationInspection: true;
     notes: string[];
   };
   fixtures: Array<
@@ -61,6 +67,7 @@ export function parseObservationKernelHoldout(value: unknown): ObservationKernel
   const dimensions = new Set<string>();
   const eventIds = new Set<string>();
   const taskIds = new Set<string>();
+  let typedEvidenceFixtureCount = 0;
   for (const fixture of value.fixtures) {
     if (!isHoldoutFixture(fixture)) {
       throw new Error("Invalid Observation Kernel holdout fixture.");
@@ -76,10 +83,20 @@ export function parseObservationKernelHoldout(value: unknown): ObservationKernel
     }
     eventIds.add(event.id);
     taskIds.add(event.taskId);
+    if (event.evidence !== undefined) typedEvidenceFixtureCount += 1;
   }
   if (value.fixtures.length !== OBSERVATION_KERNEL_HOLDOUT_FIXTURE_COUNT) {
     throw new Error(
       `Observation Kernel holdout must contain exactly ${OBSERVATION_KERNEL_HOLDOUT_FIXTURE_COUNT} fixtures.`,
+    );
+  }
+  if (
+    typedEvidenceFixtureCount !== OBSERVATION_KERNEL_HOLDOUT_TYPED_EVIDENCE_FIXTURE_COUNT ||
+    value.fixtures.length - typedEvidenceFixtureCount !==
+      OBSERVATION_KERNEL_HOLDOUT_STRUCTURAL_FALLBACK_FIXTURE_COUNT
+  ) {
+    throw new Error(
+      `Observation Kernel holdout must contain exactly ${OBSERVATION_KERNEL_HOLDOUT_TYPED_EVIDENCE_FIXTURE_COUNT} typed-evidence and ${OBSERVATION_KERNEL_HOLDOUT_STRUCTURAL_FALLBACK_FIXTURE_COUNT} structural-fallback fixtures.`,
     );
   }
   return value as ObservationKernelHoldoutArtifact;
@@ -101,6 +118,10 @@ function isMethodology(value: unknown): boolean {
       "authoredWithoutExecution",
       "firstExecutionPermittedAfterCommit",
       "fixtureCount",
+      "typedEvidenceFixtureCount",
+      "structuralFallbackFixtureCount",
+      "authoredWithoutPriorOracleInspection",
+      "authoredWithoutCalibrationInspection",
       "notes",
     ]) &&
     value.schemaVersion === OBSERVATION_KERNEL_HOLDOUT_SCHEMA_VERSION &&
@@ -116,7 +137,12 @@ function isMethodology(value: unknown): boolean {
     value.authoredWithoutImplementationInspection === true &&
     value.authoredWithoutExecution === true &&
     value.firstExecutionPermittedAfterCommit === true &&
+    value.authoredWithoutPriorOracleInspection === true &&
+    value.authoredWithoutCalibrationInspection === true &&
     value.fixtureCount === OBSERVATION_KERNEL_HOLDOUT_FIXTURE_COUNT &&
+    value.typedEvidenceFixtureCount === OBSERVATION_KERNEL_HOLDOUT_TYPED_EVIDENCE_FIXTURE_COUNT &&
+    value.structuralFallbackFixtureCount ===
+      OBSERVATION_KERNEL_HOLDOUT_STRUCTURAL_FALLBACK_FIXTURE_COUNT &&
     isNonemptyStringArray(value.notes)
   );
 }
@@ -125,7 +151,7 @@ function isHoldoutFixture(value: unknown): boolean {
   if (
     !hasExactKeys(value, ["id", "dimension", "split", "events", "expected", "rationale"]) ||
     typeof value.id !== "string" ||
-    !/^holdout-v3-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.id) ||
+    !/^holdout-v4-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.id) ||
     typeof value.dimension !== "string" ||
     !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.dimension) ||
     value.split !== "holdout" ||
@@ -163,10 +189,10 @@ function isHoldoutFixture(value: unknown): boolean {
         "semanticHints",
       ]) &&
       typeof event.id === "string" &&
-      /^event-v3-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(event.id) &&
+      /^event-v4-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(event.id) &&
       typeof event.taskId === "string" &&
-      /^task-v3-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(event.taskId) &&
-      event.timestamp === "2026-08-12T18:00:00.000Z" &&
+      /^task-v4-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(event.taskId) &&
+      event.timestamp === "2026-08-12T22:00:00.000Z" &&
       event.type === "task.updated" &&
       event.status === "failed" &&
       typeof event.title === "string" &&

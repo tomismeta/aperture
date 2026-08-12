@@ -8,6 +8,7 @@ import {
   type SemanticTextShape,
 } from "../src/semantic-evidence.js";
 import { readTaskFailureTerminalProfile } from "../src/semantic-failure-detail.js";
+import { hasToolOutputFailureDiagnosticEvidence } from "../src/semantic-diagnostic-shapes.js";
 import { buildAttentionJudgmentInput } from "../src/judgment-input.js";
 import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
 import { readTaskFailureSemanticSignals } from "../src/semantic-task-failure-signals.js";
@@ -32,10 +33,7 @@ import {
   looksLikePythonExceptionGroupDiagnostic,
   looksLikePythonLocationError,
 } from "../src/semantic-python-diagnostic-shapes.js";
-import {
-  hasToolUseRejectionSignal,
-  readToolUseRejectionOutcome,
-} from "../src/semantic-tool-use-rejection-shapes.js";
+import { readPreExecutionControl } from "../src/semantic-tool-use-rejection-shapes.js";
 import { looksLikeBareNonzeroTerminalExitEvidence } from "../src/semantic-terminal-evidence.js";
 import type { ObservationSemantics } from "../src/observation-semantics.js";
 import { readTaskFailureObservationCore } from "../src/task-failure-observation-core.js";
@@ -44,12 +42,14 @@ import {
   type TaskFailureObservationSyntax,
 } from "../src/task-failure-observation-grammar.js";
 import { readSemanticStructuredOutputOwnership } from "../src/semantic-structured-output-ownership.js";
-import { readTaskFailureStructuredOutputEnvelope } from "../src/semantic-task-failure-structured-output.js";
+import { readTaskFailureEvidenceEnvelope } from "../src/semantic-task-failure-structured-output.js";
 import type { ApertureEvent } from "../src/events.js";
 
 const timestamp = "2026-04-05T18:45:00.000Z";
-const looksLikeToolUseRejectionOutcome = (value: string) =>
-  readToolUseRejectionOutcome(value) !== null;
+const readPreExecutionControlShape = (value: string) =>
+  readPreExecutionControl(value, hasToolOutputFailureDiagnosticEvidence(value, true));
+const looksLikePreExecutionControlOutcome = (value: string) =>
+  readPreExecutionControlShape(value)?.conflictingDiagnostic === false;
 type ObservationalStatusConflictEvent = Extract<ApertureEvent, { type: "task.updated" }>;
 type ObservationalStatusConflictSemantic = NonNullable<ApertureEvent["semantic"]>;
 
@@ -175,7 +175,7 @@ function payloadObservationSemantics(input: {
   const syntax = readTaskFailurePayloadObservationSyntax({
     summary: input.summary,
     toolFamily: input.toolFamily,
-    structuredOutputEnvelope: readTaskFailureStructuredOutputEnvelope(
+    structuredOutputEnvelope: readTaskFailureEvidenceEnvelope(
       input.summary,
       readSemanticStructuredOutputOwnership(input.toolFamily),
     ),
@@ -945,83 +945,89 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
 });
 
 test("tool-use rejection outcome shape requires coherent full-message clauses", () => {
-  assert.equal(looksLikeToolUseRejectionOutcome(rejectedToolUseMessage), true);
-  assert.equal(looksLikeToolUseRejectionOutcome(declinedActionMessage), true);
+  assert.equal(looksLikePreExecutionControlOutcome(rejectedToolUseMessage), true);
+  assert.equal(looksLikePreExecutionControlOutcome(declinedActionMessage), true);
   assert.equal(
-    looksLikeToolUseRejectionOutcome(
+    looksLikePreExecutionControlOutcome(
       "The user doesn’t want to take this action right now! STOP what you are doing and wait for the user to tell you how to proceed.",
     ),
     true,
   );
   assert.equal(
-    looksLikeToolUseRejectionOutcome(
+    looksLikePreExecutionControlOutcome(
       "OBSERVATION:\nThe user doesn’t want to proceed with this tool use.\nThe tool use was rejected.\nSTOP what you are doing and wait for the user to tell you how to proceed.",
     ),
     true,
   );
   assert.equal(
-    looksLikeToolUseRejectionOutcome(
+    looksLikePreExecutionControlOutcome(
       "The user does not want to proceed with this tool use. Tool use rejected. Stop and wait for the user to proceed.",
     ),
     true,
   );
   assert.equal(
-    looksLikeToolUseRejectionOutcome(
+    looksLikePreExecutionControlOutcome(
       "The user does not want to take this action. Stop and wait for the user to proceed.",
     ),
     true,
   );
   assert.equal(
-    looksLikeToolUseRejectionOutcome(
+    looksLikePreExecutionControlOutcome(
       "The user doesn't want to proceed with this tool use! The tool use was rejected (for example, no file contents were changed). STOP what you are doing and wait for the user to tell you how to proceed.",
     ),
     true,
   );
   assert.equal(
-    looksLikeToolUseRejectionOutcome(
+    looksLikePreExecutionControlOutcome(
       "The user doesn't want to proceed with this tool use! The tool use was rejected (e.g. no file contents were changed). STOP what you are doing and wait for the user to tell you how to proceed.",
     ),
     true,
   );
   assert.equal(
-    looksLikeToolUseRejectionOutcome(
+    looksLikePreExecutionControlOutcome(
       "The user doesn't want to proceed with this tool use. The tool use was rejected (if this was a write operation, no mutation happened). STOP what you are doing and wait for the user to tell you how to proceed.",
     ),
     true,
   );
 
-  assert.equal(looksLikeToolUseRejectionOutcome(`log: ${rejectedToolUseMessage}`), false);
-  assert.equal(looksLikeToolUseRejectionOutcome(`"${rejectedToolUseMessage}"`), false);
+  assert.equal(looksLikePreExecutionControlOutcome(`log: ${rejectedToolUseMessage}`), false);
+  assert.equal(looksLikePreExecutionControlOutcome(`"${rejectedToolUseMessage}"`), false);
   assert.equal(
-    looksLikeToolUseRejectionOutcome(`${rejectedToolUseMessage} Traceback follows.`),
+    looksLikePreExecutionControlOutcome(`${rejectedToolUseMessage} Traceback follows.`),
     false,
   );
   assert.equal(
-    looksLikeToolUseRejectionOutcome(
+    looksLikePreExecutionControlOutcome(
       "If the tool use was rejected, stop what you are doing and wait.",
     ),
     false,
   );
-  assert.equal(looksLikeToolUseRejectionOutcome("The remote service rejected the request."), false);
-  assert.equal(looksLikeToolUseRejectionOutcome("The tool use was rejected."), false);
-  assert.equal(looksLikeToolUseRejectionOutcome("The user rejected this recommendation."), false);
   assert.equal(
-    looksLikeToolUseRejectionOutcome(
+    looksLikePreExecutionControlOutcome("The remote service rejected the request."),
+    false,
+  );
+  assert.equal(looksLikePreExecutionControlOutcome("The tool use was rejected."), false);
+  assert.equal(
+    looksLikePreExecutionControlOutcome("The user rejected this recommendation."),
+    false,
+  );
+  assert.equal(
+    looksLikePreExecutionControlOutcome(
       "The user doesn't want to proceed with this tool use. The tool use was rejected (this parenthetical is not explanatory). STOP what you are doing and wait for the user to tell you how to proceed.",
     ),
     false,
   );
 });
 
-test("tool-use rejection signal excludes explicit observation transcript recovery", () => {
+test("incomplete control phrases do not suppress explicit observation transcript recovery", () => {
   for (const body of [
     "The tool use was rejected. Here is the result of running `cat -n` on /tmp/file.ts: 1 export const x = 1;",
     "The user doesn't want to proceed. Here is the result of running `cat -n` on /tmp/file.ts: 1 export const x = 1;",
     "The user doesn't want to take this action right now. Here is the result of running `cat -n` on /tmp/file.ts: 1 export const x = 1;",
     "STOP what you are doing and wait. Here is the result of running `cat -n` on /tmp/file.ts: 1 export const x = 1;",
   ]) {
-    assert.equal(hasToolUseRejectionSignal(body), true);
-    assert.equal(looksLikeExplicitObservationTranscript(`OBSERVATION: ${body}`), false);
+    assert.equal(readPreExecutionControlShape(body), null);
+    assert.equal(looksLikeExplicitObservationTranscript(`OBSERVATION: ${body}`), true);
   }
 });
 
@@ -2631,7 +2637,7 @@ test("task failure evidence keeps terminal diagnostics ahead of rejection langua
     toolFamily: "bash",
   });
 
-  assert.equal(looksLikeToolUseRejectionOutcome(rejectedToolUseMessage), true);
+  assert.equal(looksLikePreExecutionControlOutcome(rejectedToolUseMessage), true);
   assert.equal(
     hasSemanticTextShape(
       readSemanticTextEvidence(`bash failure ${rejectedToolUseMessage}`, "bash"),

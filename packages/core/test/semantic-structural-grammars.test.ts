@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { looksLikeBareNonzeroTerminalExitEvidence } from "../src/semantic-bare-nonzero-terminal-exit.js";
+import { hasToolOutputFailureDiagnosticEvidence } from "../src/semantic-diagnostic-shapes.js";
 import { readTaskFailureSemanticEvidence } from "../src/semantic-evidence.js";
 import { looksLikeSearchResultObservation } from "../src/semantic-search-observation-shapes.js";
 import {
@@ -10,7 +11,7 @@ import {
 } from "../src/semantic-source-window-limit-shapes.js";
 import { readTestOutputObservation } from "../src/semantic-test-output-observation-shapes.js";
 import { normalizeSemanticText } from "../src/semantic-text.js";
-import { readToolUseRejectionOutcome } from "../src/semantic-tool-use-rejection-shapes.js";
+import { readPreExecutionControl } from "../src/semantic-tool-use-rejection-shapes.js";
 
 const timestamp = "2026-08-13T00:00:00.000Z";
 
@@ -33,6 +34,15 @@ function readFailure(
 
 function looksLikeSearch(summary: string): boolean {
   return looksLikeSearchResultObservation(normalizeSemanticText(summary), summary);
+}
+
+function readCleanPreExecutionControl(summary: string) {
+  const read = readControl(summary);
+  return read?.conflictingDiagnostic === false ? read.outcome : null;
+}
+
+function readControl(summary: string) {
+  return readPreExecutionControl(summary, hasToolOutputFailureDiagnosticEvidence(summary, true));
 }
 
 test("outcome-only exits require nonzero status and multiple explicitly absent evidence channels", () => {
@@ -81,6 +91,61 @@ test("direct runtime diagnostics generalize across exact tool families without t
   }
 });
 
+test("complete terminal success envelopes do not require capability-name semantics", () => {
+  for (const summary of [
+    "Process invocation occurred and finished successfully with return code zero. The outcome is complete and terminal; no diagnostic or output channel is missing.",
+    "Subprocess executed and completed successfully with exit status 0. The record is terminal and complete; no evidence channel is missing.",
+  ]) {
+    const evidence = readFailure(summary, "Opaque.Executor/9");
+    assert.equal(evidence?.kind, "structured_execution_success_observation", summary);
+    assert.equal(evidence?.observationSyntax?.kind, "outcome", summary);
+    assert.equal(evidence?.observationSyntax?.polarity, "success", summary);
+    assert.equal(evidence?.observationSyntax?.subject, "command", summary);
+    assert.equal(evidence?.observationSyntax?.origin, "command_output", summary);
+    assert.equal(evidence?.toolFamily, "Opaque.Executor/9", summary);
+  }
+
+  for (const summary of [
+    "Expected result: process invocation occurred and finished successfully with return code zero. The outcome is complete and terminal; no diagnostic or output channel is missing.",
+    "For reference, process invocation occurred and finished successfully with return code zero. The outcome is complete and terminal; no diagnostic or output channel is missing.",
+    "If the process invocation occurred and finished successfully with return code zero, the outcome is complete and terminal; no diagnostic or output channel is missing.",
+    "Process invocation occurred and finished successfully with return code zero. The outcome is complete and terminal; the diagnostic channel is missing.",
+    "Process invocation occurred and finished successfully with return code zero. The outcome is complete and terminal; no diagnostic or output channel is missing. RuntimeError: worker crashed.",
+  ]) {
+    assert.notEqual(
+      readFailure(summary, "Opaque.Executor/9")?.observationSyntax?.polarity,
+      "success",
+    );
+  }
+});
+
+test("complete owned diagnostic envelopes classify their body without phrase enumeration", () => {
+  for (const summary of [
+    "Process invocation occurred and terminated. Its complete stderr output contains allocator invariant breach at address 71. No error content was omitted.",
+    "Subprocess ran and crashed. Complete terminal output shows worker violated a runtime invariant. No diagnostic text was omitted.",
+  ]) {
+    const evidence = readFailure(summary, "Opaque.Executor/9");
+    assert.equal(evidence?.kind, "terminal_failure", summary);
+    assert.equal(evidence?.observationSyntax?.kind, "diagnostic", summary);
+    assert.equal(evidence?.observationSyntax?.diagnosticClass, "runtime", summary);
+    assert.equal(evidence?.observationSyntax?.subject, "command", summary);
+    assert.equal(evidence?.observationSyntax?.origin, "command_output", summary);
+  }
+
+  for (const summary of [
+    'Reference text contains "Process invocation occurred and terminated. Its complete stderr output contains allocator breach. No error content was omitted."',
+    "For reference, process invocation occurred and terminated. Its complete stderr output contains allocator breach. No error content was omitted.",
+    "The documentation says: process invocation occurred and terminated. Its complete stderr output contains allocator breach. No error content was omitted.",
+    "Process invocation occurred and terminated. Its stderr output contains allocator invariant breach. No error content was omitted.",
+    "Process invocation occurred and completed successfully. Its complete stderr output contains no failure. No error content was omitted.",
+  ]) {
+    assert.notEqual(
+      readFailure(summary, "Opaque.Executor/9")?.observationSyntax?.kind,
+      "diagnostic",
+    );
+  }
+});
+
 test("bounded source windows require a measured range, an explicit boundary, and omitted remainder", () => {
   for (const summary of [
     "Returned lines 1 through 240 of 913; the remainder was intentionally omitted by the read limit.",
@@ -107,6 +172,32 @@ test("bounded source windows require a measured range, an explicit boundary, and
     ),
     true,
   );
+});
+
+test("balanced complete source envelopes protect diagnostic-looking payload text", () => {
+  for (const summary of [
+    'A read operation returned this complete bounded source payload and no content lies outside the declared view:\nBEGIN SOURCE VIEW\n"panic: worker aborted"\nEND SOURCE VIEW\nThe sentence is quoted source text.',
+    "Source operation delivered a complete document payload; no text was omitted.\nBEGIN DOCUMENT PAYLOAD\nerror: example configuration token\nEND DOCUMENT PAYLOAD",
+  ]) {
+    for (const toolFamily of ["Opaque.Reader/4", "read"]) {
+      const evidence = readFailure(summary, toolFamily);
+      assert.equal(evidence?.kind, "observational_payload", summary);
+      assert.equal(evidence?.observationSyntax?.kind, "payload", summary);
+      assert.equal(evidence?.observationSyntax?.subject, "source", summary);
+      assert.equal(evidence?.observationSyntax?.origin, "read_output", summary);
+      assert.equal(evidence?.consequenceBaseline, "low", summary);
+    }
+  }
+
+  for (const summary of [
+    "A read operation returned this complete payload and no content lies outside the declared view.\nBEGIN SOURCE VIEW\nvalue\nEND DOCUMENT VIEW",
+    "A read operation returned this complete payload and no content lies outside the declared view.\nBEGIN SOURCE VIEW\nBEGIN DOCUMENT VIEW\nvalue\nEND DOCUMENT VIEW\nEND SOURCE VIEW",
+    "A read operation returned this complete payload and no content lies outside the declared view.\nBEGIN SOURCE VIEW\nvalue\nEND SOURCE VIEW\nRuntimeError: the read transport crashed.",
+    'A read operation returned this complete payload and no content lies outside the declared view.\nconst marker = "BEGIN SOURCE VIEW";',
+    "For reference, a read operation returned this complete payload and no content lies outside the declared view.\nBEGIN SOURCE VIEW\nvalue\nEND SOURCE VIEW",
+  ]) {
+    assert.notEqual(readFailure(summary, "Opaque.Reader/4")?.observationSyntax?.kind, "payload");
+  }
 });
 
 test("search result observations require completed retrieval and concrete locators", () => {
@@ -138,7 +229,7 @@ test("pre-invocation authorization controls require both non-execution and absen
     "Approval was rejected before tool invocation. No execution occurred and no result was created.",
   ]) {
     assert.deepEqual(
-      readToolUseRejectionOutcome(summary),
+      readCleanPreExecutionControl(summary),
       { kind: "authorization_control", executionEvidence: "absent" },
       summary,
     );
@@ -151,7 +242,35 @@ test("pre-invocation authorization controls require both non-execution and absen
     "Authorization was declined before invocation; no tool call occurred.",
     'The log contained "authorization was declined before invocation".',
   ]) {
-    assert.equal(readToolUseRejectionOutcome(summary), null, summary);
+    assert.equal(readCleanPreExecutionControl(summary), null, summary);
+  }
+});
+
+test("pending authorization controls use the same complete pre-execution grammar", () => {
+  for (const summary of [
+    "Authorization is required before capability invocation. The capability has not been invoked, execution has not started, and an execution result is absent.",
+    "Permission remains pending before tool execution. No tool call occurred, execution did not start, and no result exists.",
+  ]) {
+    assert.deepEqual(
+      readCleanPreExecutionControl(summary),
+      { kind: "authorization_control", executionEvidence: "absent" },
+      summary,
+    );
+    assert.equal(readFailure(summary, "Opaque.Control/2")?.kind, "rejected_tool_use_observation");
+  }
+
+  for (const summary of [
+    "Authorization is required before capability invocation. The capability has not been invoked.",
+    "Authorization is required before capability invocation. The capability was invoked and a result was returned.",
+    'The log contains "Authorization is required before capability invocation. The capability has not been invoked and no result exists."',
+    "For reference, authorization is required before capability invocation. The capability has not been invoked and no result exists.",
+    "If authorization is required before capability invocation, the capability has not been invoked and no result exists.",
+    "Documentation says authorization is required before capability invocation. The capability has not been invoked and no result exists.",
+    "Quoted reference: authorization is required before capability invocation. The capability has not been invoked and no result exists.",
+    "Authorization is required before capability invocation. Execution has not started and no result exists. RuntimeError: controller crashed.",
+  ]) {
+    assert.equal(readCleanPreExecutionControl(summary), null, summary);
+    assert.notEqual(readFailure(summary, "Opaque.Control/2")?.observationSyntax?.kind, "control");
   }
 });
 
@@ -163,9 +282,10 @@ test("control authority never consumes contradictory terminal evidence", () => {
   for (const summary of [
     "Authorization was declined before invocation; no tool call occurred. RuntimeError: decoder crashed. No execution result exists.",
     "Authorization was declined before invocation; no tool call occurred and no execution result exists. RuntimeError: decoder crashed.",
+    "Authorization was declined before invocation; no tool call occurred and no execution result exists. TypeError: controller crashed.",
     "The user doesn't want to proceed with this tool use. The tool use was rejected. STOP what you are doing and RuntimeError: decoder crashed while waiting for the user to proceed.",
   ]) {
-    assert.equal(readToolUseRejectionOutcome(summary), null, summary);
+    assert.equal(readControl(summary)?.conflictingDiagnostic, true, summary);
     const evidence = readFailure(summary, "edit");
     assert.equal(evidence?.kind, "terminal_failure", summary);
     assert.equal(evidence?.consequenceBaseline, "high", summary);

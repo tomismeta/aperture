@@ -394,7 +394,7 @@ test("typed source evidence deterministically covers every observation family", 
   for (const testCase of cases) {
     const result = evaluateApertureKernelEvent(
       failedTaskEvent(testCase.id, "Contradictory prose says this was an unrelated success.", {
-        capabilityFamily: "opaque-capability-17",
+        capabilityFamily: "Opaque-Capability/17",
         evidence: testCase.evidence,
       }),
     );
@@ -403,7 +403,7 @@ test("typed source evidence deterministically covers every observation family", 
     assert.ok(observation, testCase.id);
     assert.ok(judgment, testCase.id);
     assert.equal(observation.ownership.owner, "tool", testCase.id);
-    assert.equal(observation.ownership.capabilityFamily, "opaque-capability-17", testCase.id);
+    assert.equal(observation.ownership.capabilityFamily, "Opaque-Capability/17", testCase.id);
     assert.equal(observation.semanticAgreement, "stable", testCase.id);
     assert.equal(observation.evidenceStrength, "strong", testCase.id);
     assert.equal(observation.provenance.authority, "explicit", testCase.id);

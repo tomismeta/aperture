@@ -150,18 +150,10 @@ function defaultBenignIssuePatterns(phrase: string): RegExp[] {
 }
 
 const BENIGN_EXCEPTION_PATTERNS = [
-  /\bno exceptions?(?: occurred| raised| reported| found| seen| present)?\b/,
-  /\bwithout (?:an? )?exceptions?\b/,
-  /\bexpected exceptions?(?: was| were)? (?:caught|handled|raised)\b/,
-  /\b(?:caught|handled) (?:the )?expected exceptions?\b/,
-  /\bexceptions?(?: was| were)? expected\b/,
+  /\b(?:no exceptions?(?: occurred| raised| reported| found| seen| present)?|without (?:an? )?exceptions?|expected exceptions?(?: was| were)? (?:caught|handled|raised)|(?:caught|handled) (?:the )?expected exceptions?|exceptions?(?: was| were)? expected)\b/,
 ] as const;
-
 const BENIGN_TRACEBACK_PATTERNS = [
-  /\bno tracebacks?(?: occurred| raised| reported| found| seen| present)?\b/,
-  /\bwithout (?:a )?tracebacks?\b/,
-  /\bexpected tracebacks?(?: was| were)? (?:caught|handled|raised|produced)\b/,
-  /\btracebacks?(?: was| were)? expected\b/,
+  /\b(?:no tracebacks?(?: occurred| raised| reported| found| seen| present)?|without (?:a )?tracebacks?|expected tracebacks?(?: was| were)? (?:caught|handled|raised|produced)|tracebacks?(?: was| were)? expected)\b/,
 ] as const;
 
 function escapeRegExp(value: string): string {

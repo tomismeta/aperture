@@ -195,6 +195,8 @@ function readTaskFailureEvidenceProfile(input: {
 }): TaskFailureEvidenceProfile {
   const { signals, summary, text, toolFamily } = input;
   const hasShape = text.shapes.includes.bind(text.shapes);
+  const observation = signals.observationSyntax;
+  if (observation?.boundedSource) return readObservationProfile(observation);
   const terminalProfile = readTaskFailureTerminalProfile({
     summary,
     signals,
@@ -223,9 +225,7 @@ function readTaskFailureEvidenceProfile(input: {
       operationSuccessObservation.consequenceBaseline,
     );
   }
-  if (signals.observationSyntax !== null) {
-    return readObservationSyntaxEvidenceProfile(signals.observationSyntax);
-  }
+  if (observation !== null) return readObservationProfile(observation);
   if (
     isSemanticCommandExecutionToolFamily(toolFamily) &&
     hasShape("routine_success") &&
@@ -262,9 +262,7 @@ function readTaskFailureEvidenceProfile(input: {
   });
 }
 
-function readObservationSyntaxEvidenceProfile(
-  syntax: TaskFailureObservationSyntax,
-): TaskFailureEvidenceProfile {
+function readObservationProfile(syntax: TaskFailureObservationSyntax): TaskFailureEvidenceProfile {
   return profile(
     readObservationSyntaxEvidenceKind(syntax),
     true,

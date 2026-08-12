@@ -44,7 +44,7 @@ export function hasStrongRuntimeDiagnosticEvidence(text: string): boolean {
       /\blibrary load error\b/i,
       /\bcannot open shared object file\b/i,
       /\bcommand not found\b/i,
-      /(?:^|[\r\n])\s*(?:[^\r\n:]+:\s*)*(?:permission denied|operation not permitted)\b/i,
+      /(?:^|[\r\n])\s*(?:[^\r\n:]+:\s*)*(?:permission denied(?!\s+before\s+(?:tool\s+)?(?:invocation|execution))|operation not permitted)\b/i,
       /(?:^|[\r\n])\s*(?:uncaught|unhandled)\s+exception\b/i,
       /(?:^|[\r\n])\s*(?:fatal\s+error|compiler\s+error)\b/i,
       /(?:^|[\r\n])\s*error:\s+\S/i,

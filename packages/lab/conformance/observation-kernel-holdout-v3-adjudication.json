@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "holdoutId": "aperture-observation-kernel-holdout/v3",
+  "implementationFreeze": "443ef2db017dce3b91e295bd79fb61de5423d5fa",
+  "oracleDigest": "sha256:e2a41d2b91ce696c8c438cd47feb0a9b8ac6550a6fc5c3041b8d46d54b690221",
+  "firstRunDigest": "sha256:21c60118cd7996f9513b64c061a3572646c0c7c5ae97e4a309763334c058e02a",
+  "verdict": {
+    "releaseEligible": false,
+    "retiredBecauseImplementationWillChange": true,
+    "expectationsRemainImmutable": true,
+    "summary": "The frozen implementation preserved all typed evidence meaning and judgment fields, but mutated eight opaque capability identities and did not recognize five independently worded text-fallback grammars. Any correction informed by this run retires v3 from release eligibility."
+  },
+  "firstRun": {
+    "deterministic": true,
+    "calibrationExactOutcomes": { "passed": 18, "total": 18 },
+    "holdoutSemanticFields": { "passed": 156, "total": 208 },
+    "holdoutJudgmentFields": { "passed": 109, "total": 128 },
+    "holdoutDecisionFields": { "passed": 26, "total": 32 },
+    "holdoutExactOutcomes": { "passed": 3, "total": 16 }
+  },
+  "typedEvidence": {
+    "fixtures": 11,
+    "semanticFields": { "passed": 135, "total": 143 },
+    "semanticFieldsExceptOpaqueIdentity": { "passed": 135, "total": 135 },
+    "judgmentFields": { "passed": 88, "total": 88 },
+    "decisionFields": { "passed": 22, "total": 22 },
+    "exactOutcomes": { "passed": 3, "total": 11 },
+    "finding": "All eight non-exact typed fixtures differed only because toolFamily was lowercased. Kind, polarity, ownership, subject, evidence loss and strength, agreement, diagnostics, recovery, provenance, consequence, judgment, and decision were exact for every typed fixture."
+  },
+  "textFallback": {
+    "fixtures": 5,
+    "semanticFields": { "passed": 21, "total": 65 },
+    "judgmentFields": { "passed": 21, "total": 40 },
+    "decisionFields": { "passed": 4, "total": 10 },
+    "exactOutcomes": { "passed": 0, "total": 5 },
+    "finding": "The indeterminate fallback preserved the conservative judgment but disagreed on ownership and authority. The success, runtime diagnostic, bounded source payload, and authorization cases remained unknown because the bounded grammars did not recognize the independently worded structural claims."
+  },
+  "correctionPolicy": [
+    "Preserve opaque capability identity byte-for-byte after validating that it is non-empty.",
+    "Generalize complete fallback grammars around event shapes and evidence boundaries, not holdout sentences or capability names.",
+    "Do not edit the v3 oracle or first-run artifact.",
+    "Treat v3 only as calibration after this adjudication.",
+    "Require a fresh independently authored v4 oracle after the corrected implementation is frozen."
+  ]
+}

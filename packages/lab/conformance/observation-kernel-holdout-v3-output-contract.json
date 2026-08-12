@@ -1,0 +1,103 @@
+{
+  "id": "aperture-source-evidence-observation-projection/v1",
+  "observationContract": {
+    "id": "aperture-observation-judgment-contract/v1",
+    "digest": "sha256:9d53456de27a9db5342c98d100971bd3cec6336d2f61b1cef9048e2297ea294e"
+  },
+  "sourceEvidenceContract": {
+    "id": "aperture-source-evidence-contract/v1",
+    "digest": "sha256:78dff530a44fdc532fbe5790dd496d40e0295ba09b4ef8676b0ed7f70f5af715"
+  },
+  "commonTypedEvidenceProjection": {
+    "semanticAgreement": "stable",
+    "evidenceStrength": "strong",
+    "provenanceAuthority": "explicit",
+    "toolFamily": "copy the event toolFamily exactly when present; otherwise null"
+  },
+  "ownership": {
+    "authorization": "tool",
+    "otherWithToolFamily": "tool",
+    "otherWithoutToolFamily": "source"
+  },
+  "originByChannel": {
+    "command": "command_output",
+    "read": "read_output",
+    "search": "transcript",
+    "structured": "structured_output",
+    "transcript": "transcript"
+  },
+  "variants": {
+    "outcomeSuccess": {
+      "kind": "outcome",
+      "polarity": "success",
+      "subject": "copy evidence.subject",
+      "evidenceLoss": "none",
+      "diagnosticClass": null,
+      "recoveryHint": null,
+      "consequenceBaseline": "low"
+    },
+    "outcomeFailure": {
+      "kind": "outcome",
+      "polarity": "failure",
+      "subject": "copy evidence.subject",
+      "evidenceLoss": "none",
+      "diagnosticClass": null,
+      "recoveryHint": null,
+      "consequenceBaseline": "medium"
+    },
+    "runtimeDiagnostic": {
+      "kind": "diagnostic",
+      "polarity": "failure",
+      "subject": "copy evidence.subject",
+      "evidenceLoss": "none",
+      "diagnosticClass": "runtime",
+      "recoveryHint": "inspect_diagnostic",
+      "consequenceBaseline": "high"
+    },
+    "expectedDiagnostic": {
+      "kind": "diagnostic",
+      "polarity": "failure",
+      "subject": "copy evidence.subject",
+      "evidenceLoss": "none",
+      "diagnosticClass": "expected",
+      "recoveryHint": "inspect_diagnostic",
+      "consequenceBaseline": "medium"
+    },
+    "sourceLimitDiagnostic": {
+      "kind": "diagnostic",
+      "polarity": "failure",
+      "subject": "source",
+      "evidenceLoss": "partial",
+      "diagnosticClass": "source_limit",
+      "recoveryHint": "narrow_evidence_scope",
+      "consequenceBaseline": "medium",
+      "provenanceOrigin": "read_output"
+    },
+    "payload": {
+      "kind": "payload",
+      "polarity": "neutral",
+      "subject": "copy evidence.subject",
+      "evidenceLoss": "none",
+      "diagnosticClass": null,
+      "recoveryHint": null,
+      "consequenceBaseline": "high when channel is structured or subject is tool; otherwise low"
+    },
+    "authorization": {
+      "kind": "control",
+      "polarity": "neutral",
+      "subject": "tool",
+      "evidenceLoss": "none",
+      "diagnosticClass": null,
+      "recoveryHint": "await_authorization",
+      "consequenceBaseline": "low",
+      "provenanceOrigin": "status_text"
+    }
+  },
+  "authorityRules": [
+    "Typed evidence determines every variant-owned field even when title, summary, metadata, semantic hints, or capability identity contradict it.",
+    "Only semantic relation hints may add episode continuity; they do not change Observation or judgment fields.",
+    "Capability identity is opaque and affects only ownership plus the copied toolFamily field.",
+    "Without typed evidence, the structural text families and precedence in the Observation And Judgment Contract v1 remain normative."
+  ],
+  "judgmentAndDecision": "Derive all judgment and isolated decision fields exactly from aperture-observation-judgment-contract/v1."
+}

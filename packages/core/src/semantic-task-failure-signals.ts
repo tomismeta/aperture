@@ -86,15 +86,14 @@ export function readTaskFailureSemanticSignals(input: {
     summary,
     toolFamily: input.toolFamily,
   });
-  const preExecutionControl =
-    observationSyntax?.kind === "control" && observationSyntax.executionEvidence === "absent";
+  const preExecutionControl = toolUseRejectionOutcome?.executionEvidence === "absent";
   const strongDiagnostic = hasStrongRuntimeDiagnosticEvidence(summary);
   const readPayloadObservation = isPayloadObservationOrigin(observationSyntax, "read_output");
   const readSourcePayloadObservation =
-    readPayloadObservation && readObservationSyntaxSubject(observationSyntax) === "source";
+    readPayloadObservation && observationSyntax?.subject === "source";
   const structuredSourcePayloadObservation =
     isPayloadObservationOrigin(observationSyntax, "structured_output") &&
-    readObservationSyntaxSubject(observationSyntax) === "source";
+    observationSyntax?.subject === "source";
   const sourceWindowLimitFailure =
     input.toolFamily === "read" &&
     !readPayloadObservation &&
@@ -153,12 +152,4 @@ function isPayloadObservationOrigin(
   origin: TaskFailureObservationSyntax["origin"],
 ): boolean {
   return observation?.kind === "payload" && observation.origin === origin;
-}
-
-function readObservationSyntaxSubject(
-  observation: TaskFailureObservationSyntax | null,
-): string | null {
-  if (observation?.kind !== "payload")
-    return observation?.kind === "outcome" ? observation.subject : null;
-  return observation.payload.source ? "source" : observation.fallbackSubject;
 }

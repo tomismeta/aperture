@@ -1,4 +1,5 @@
 import type { ObservationSemantics } from "./observation-semantics.js";
+import type { SourceEvidence } from "./events.js";
 import type { EditOutputOutcome } from "./semantic-edit-output-shapes.js";
 import type { ExplicitObservationTranscript } from "./semantic-observation-transcript-shapes.js";
 import {
@@ -22,57 +23,83 @@ type TaskFailureObservationGrammarInput = {
   summary: string;
   toolFamily: string | undefined;
 };
-
 type ObservationOrigin = ObservationSemantics["provenance"]["origin"];
 type ObservationSubject = ObservationSemantics["subject"];
-
-export type TaskFailureObservationSyntax =
-  | (TaskFailurePayloadObservationSyntax & { kind: "payload" })
-  | {
-      kind: "outcome";
-      origin: ObservationOrigin;
-      subject: ObservationSubject;
-      consequenceBaseline: ObservationSemantics["consequenceBaseline"];
-      toolFamily?: string;
-    }
-  | {
-      kind: "control";
-      origin: ObservationOrigin;
-      recoveryHint: NonNullable<ObservationSemantics["recoveryHint"]>;
-      executionEvidence: "absent" | "unspecified";
-      toolFamily?: string;
-    };
-
-type TaskFailurePayloadObservationSyntax = {
+export type TaskFailureObservationSyntax = Omit<
+  ObservationSemantics,
+  "evidenceCertainty" | "ownership" | "provenance"
+> & {
   origin: ObservationOrigin;
-  fallbackSubject: ObservationSubject;
-  payload: PayloadSyntaxObservation;
+  owner?: ObservationSemantics["ownership"]["owner"];
+  evidenceCertainty?: ObservationSemantics["evidenceCertainty"];
   toolFamily?: string;
 };
+type ObservationSyntaxDetails = Partial<
+  Pick<TaskFailureObservationSyntax, "diagnosticClass" | "evidenceLoss" | "recoveryHint">
+>;
+
+export function compileSourceEvidenceSyntax(evidence: SourceEvidence, toolFamily?: string) {
+  if (evidence.kind === "authorization")
+    return observationSyntax("control", "neutral", "status_text", "tool", "low", toolFamily, {
+      recoveryHint: "await_authorization",
+    });
+  const origin = sourceEvidenceOrigin(evidence.channel);
+  if (evidence.kind === "outcome")
+    return observationSyntax(
+      "outcome",
+      evidence.outcome,
+      origin,
+      evidence.subject,
+      evidence.outcome === "success" ? "low" : "medium",
+      toolFamily,
+    );
+  if (evidence.kind === "payload")
+    return payloadSyntax(
+      origin,
+      evidence.subject,
+      evidence.channel === "structured" || evidence.subject === "tool" ? "high" : "low",
+      toolFamily,
+    );
+  const sourceLimit = evidence.diagnostic === "source_limit";
+  return observationSyntax(
+    "diagnostic",
+    "failure",
+    origin,
+    sourceLimit ? "source" : evidence.subject,
+    evidence.diagnostic === "runtime" ? "high" : "medium",
+    toolFamily,
+    {
+      diagnosticClass: evidence.diagnostic,
+      evidenceLoss: sourceLimit ? "partial" : "none",
+      recoveryHint: sourceLimit ? "narrow_evidence_scope" : "inspect_diagnostic",
+    },
+  );
+}
+
+function sourceEvidenceOrigin(
+  channel: Exclude<SourceEvidence, { kind: "authorization" }>["channel"],
+): ObservationOrigin {
+  if (channel === "command") return "command_output";
+  if (channel === "read") return "read_output";
+  if (channel === "structured") return "structured_output";
+  return "transcript";
+}
 
 export function readTaskFailureObservationSyntax(
   input: TaskFailureObservationGrammarInput,
 ): TaskFailureObservationSyntax | null {
-  if (input.missingToolObservationTranscript) {
+  if (input.missingToolObservationTranscript)
     return transcriptObservation(input.missingToolObservationTranscript);
-  }
-  if (input.commandObservationTranscript) {
+  if (input.commandObservationTranscript)
     return transcriptObservation(input.commandObservationTranscript, input.toolFamily);
-  }
-  if (input.toolUseRejectionOutcome) {
-    return {
-      kind: "control",
-      origin: "status_text",
+  if (input.toolUseRejectionOutcome)
+    return observationSyntax("control", "neutral", "status_text", "tool", "low", input.toolFamily, {
       recoveryHint: "await_authorization",
-      executionEvidence: input.toolUseRejectionOutcome.executionEvidence,
-      ...(input.toolFamily !== undefined ? { toolFamily: input.toolFamily } : {}),
-    };
-  }
-  if (input.editOutputOutcome === "applied") {
-    return payloadObservation("semantic_evidence", "tool", "high", input.toolFamily);
-  }
+    });
+  if (input.editOutputOutcome === "applied")
+    return payloadSyntax("semantic_evidence", "tool", "high", input.toolFamily);
   if (input.readAbbreviatedFileViewObservation) {
-    return payloadObservation(
+    return payloadSyntax(
       "read_output",
       "source",
       input.readAbbreviatedFileViewObservation.consequenceBaseline,
@@ -84,11 +111,11 @@ export function readTaskFailureObservationSyntax(
     structuredOutputEnvelope: input.structuredOutputEnvelope,
     toolFamily: input.toolFamily,
   });
-  if (payloadObservationSyntax !== null) {
-    return { kind: "payload", ...payloadObservationSyntax };
-  }
+  if (payloadObservationSyntax !== null) return payloadObservationSyntax;
   if (input.structuredOutputZeroExitSuccess) {
-    return outcomeObservation(
+    return observationSyntax(
+      "outcome",
+      "success",
       "structured_output",
       input.commandExecutionToolFamily ? "command" : "tool",
       "low",
@@ -102,7 +129,7 @@ function transcriptObservation(
   transcript: ExplicitObservationTranscript,
   toolFamily?: string,
 ): TaskFailureObservationSyntax {
-  return payloadObservation(
+  return payloadSyntax(
     "transcript",
     transcript.shape === "abbreviated_file_view"
       ? "source"
@@ -114,33 +141,33 @@ function transcriptObservation(
   );
 }
 
-function payloadObservation(
+function payloadSyntax(
   origin: ObservationOrigin,
   subject: ObservationSubject,
-  consequenceBaseline: ObservationSemantics["consequenceBaseline"],
+  consequence: ObservationSemantics["consequenceBaseline"],
   toolFamily?: string,
-): TaskFailureObservationSyntax {
-  return {
-    kind: "payload",
-    origin,
-    fallbackSubject: subject,
-    payload: { source: subject === "source", consequenceBaseline },
-    ...(toolFamily !== undefined ? { toolFamily } : {}),
-  };
+) {
+  return observationSyntax("payload", "neutral", origin, subject, consequence, toolFamily);
 }
 
-function outcomeObservation(
+function observationSyntax(
+  kind: ObservationSemantics["kind"],
+  polarity: ObservationSemantics["polarity"],
   origin: ObservationOrigin,
   subject: ObservationSubject,
   consequenceBaseline: ObservationSemantics["consequenceBaseline"],
   toolFamily?: string,
+  details: ObservationSyntaxDetails = {},
 ): TaskFailureObservationSyntax {
   return {
-    kind: "outcome",
+    kind,
+    polarity,
     origin,
     subject,
+    evidenceLoss: "none",
     consequenceBaseline,
     ...(toolFamily !== undefined ? { toolFamily } : {}),
+    ...details,
   };
 }
 
@@ -148,7 +175,7 @@ export function readTaskFailurePayloadObservationSyntax(input: {
   summary: string;
   structuredOutputEnvelope: TaskFailureStructuredOutputEnvelope;
   toolFamily: string | undefined;
-}): TaskFailurePayloadObservationSyntax | null {
+}): TaskFailureObservationSyntax | null {
   if (input.toolFamily === "read") {
     const readObservation = syntaxObservation(
       readReadOutputPayloadObservation(input.summary),
@@ -158,7 +185,6 @@ export function readTaskFailurePayloadObservationSyntax(input: {
     );
     if (readObservation !== null) return readObservation;
   }
-
   if (
     isSemanticCommandExecutionToolFamily(input.toolFamily) &&
     input.structuredOutputEnvelope.kind === "raw"
@@ -170,7 +196,6 @@ export function readTaskFailurePayloadObservationSyntax(input: {
       input.toolFamily,
     );
   }
-
   const envelope = input.structuredOutputEnvelope;
   if (envelope.kind !== "valid" && envelope.kind !== "recovered") return null;
 
@@ -192,13 +217,13 @@ function syntaxObservation(
   origin: ObservationOrigin,
   fallbackSubject: ObservationSubject,
   toolFamily?: string,
-): TaskFailurePayloadObservationSyntax | null {
+): TaskFailureObservationSyntax | null {
   return payload === null
     ? null
-    : {
+    : payloadSyntax(
         origin,
-        fallbackSubject,
-        payload,
-        ...(toolFamily !== undefined ? { toolFamily } : {}),
-      };
+        payload.source ? "source" : fallbackSubject,
+        payload.consequenceBaseline,
+        toolFamily,
+      );
 }

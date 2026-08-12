@@ -215,19 +215,28 @@ stateful surface loop, use the kernel subpath:
 import {
   evaluateApertureKernelEvent,
   type ApertureKernelEvent,
+  type SourceEvidence,
 } from "@tomismeta/aperture-core/kernel";
+
+const evidence = {
+  kind: "payload",
+  subject: "search",
+  channel: "search",
+  complete: true,
+} as const satisfies SourceEvidence;
 
 const event: ApertureKernelEvent = {
   id: "evt:command",
   workId: "work:command",
   occurredAt: new Date().toISOString(),
   kind: "work.updated",
-  title: "Command observation",
-  summary: "Your command ran successfully and did not produce any output.",
+  title: "Search observation",
+  summary: "Host prose is descriptive and does not override the typed result.",
   status: "failed",
   facts: {
-    capabilityFamily: "exec_command",
+    capabilityFamily: "catalog",
   },
+  evidence,
 };
 
 const result = evaluateApertureKernelEvent(event);
@@ -254,7 +263,18 @@ observation, and judgment after that boundary.
 Use `facts.capabilityFamily` for explicit source-known capability facts.
 `context.items` and `metadata` remain descriptive host payload fields; they do
 not promote capability authority. Capability values are trimmed and lowercased
-before judgment.
+before judgment, but remain opaque identity: a capability name never implies
+command, read, search, or authorization semantics.
+
+Failed work updates may also carry `evidence`, a small typed `SourceEvidence`
+fact supplied only when the host reliably knows what its native result means.
+It can represent a complete outcome, diagnostic, payload, measured partial read
+window, or authorization requirement. When present, typed evidence is
+authoritative and Core derives the Observation, provenance, strength, semantic
+agreement, recovery, consequence, and judgment. Title and summary text cannot
+override it. When it is absent, Aperture retains its bounded structural text
+grammar. Runtime validation rejects evidence on non-failed updates and rejects
+malformed or incomplete variants.
 
 Observation documents currently exist for failed work updates that carry
 classifiable observational evidence, such as command success output, read
@@ -284,8 +304,20 @@ the advanced semantic entrypoint:
 import { interpretSourceEvent, normalizeSourceEvent } from "@tomismeta/aperture-core/semantic";
 ```
 
-Adapters that know source output was clipped before it reached Aperture can pass
-a bounded semantic hint instead of encoding that fact into title or summary text:
+For a measured partial read, prefer a typed `SourceEvidence` diagnostic:
+
+```ts
+const evidence: SourceEvidence = {
+  kind: "diagnostic",
+  diagnostic: "source_limit",
+  channel: "read",
+  window: { unit: "lines", offset: 200, length: 100, total: 640 },
+};
+```
+
+Adapters that know source output was clipped but cannot provide a measured read
+window can pass a bounded semantic hint instead of encoding that fact into title
+or summary text:
 
 ```ts
 import type { SourceEvent } from "@tomismeta/aperture-core";
@@ -303,11 +335,12 @@ const event: SourceEvent = {
 };
 ```
 
-Use this only for adapter-known source-quality facts, such as clipped stderr,
-paginated logs, or a transcript window that omitted earlier evidence. The helper
-lowers semantic confidence and, for failed status by default, preserves high
-consequence. It cannot lower failed evidence to medium or low consequence. It
-does not parse logs, recover missing evidence, or make unrelated failures severe.
+Use the hint only for adapter-known source-quality facts that do not satisfy a
+typed evidence variant, such as clipped stderr or a transcript window that
+omitted earlier evidence. It lowers semantic confidence and, for failed status
+by default, preserves high consequence. It cannot lower failed evidence to
+medium or low consequence. It does not parse logs, recover missing evidence, or
+make unrelated failures severe.
 
 If you want to type `onTrace(...)` callbacks directly or inspect why a route
 happened through the public explanation contract, use the trace entrypoint:
@@ -489,6 +522,10 @@ If you need a fully manual direct-event path, opt out:
 ```ts
 const frame = core.publish(event, { applySemanticDefaults: false });
 ```
+
+This option does not bypass `SourceEvidence` on a failed update. Typed evidence
+is an authoritative source fact, so Aperture still derives its canonical
+semantic and judgment document.
 
 You can also publish task lifecycle events like:
 

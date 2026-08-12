@@ -66,37 +66,12 @@ function compile(
   });
 }
 
-function observationSyntax(input: {
-  kind: "payload" | "outcome" | "control";
-  origin: ObservationSemantics["provenance"]["origin"];
-  subject: ObservationSemantics["subject"];
-  consequenceBaseline: ObservationSemantics["consequenceBaseline"];
-  toolFamily?: string;
-  recoveryHint?: NonNullable<ObservationSemantics["recoveryHint"]>;
-}): TaskFailureObservationSyntax {
-  if (input.kind === "control") {
-    return {
-      kind: "control",
-      origin: input.origin,
-      recoveryHint: input.recoveryHint ?? "await_authorization",
-      ...(input.toolFamily !== undefined ? { toolFamily: input.toolFamily } : {}),
-    };
-  }
-  if (input.kind === "outcome") {
-    return {
-      kind: "outcome",
-      origin: input.origin,
-      subject: input.subject,
-      consequenceBaseline: input.consequenceBaseline,
-      ...(input.toolFamily !== undefined ? { toolFamily: input.toolFamily } : {}),
-    };
-  }
+function observationSyntax(
+  input: Omit<TaskFailureObservationSyntax, "evidenceLoss">,
+): TaskFailureObservationSyntax {
   return {
-    kind: "payload",
-    origin: input.origin,
-    fallbackSubject: input.subject,
-    payload: { source: input.subject === "source", consequenceBaseline: input.consequenceBaseline },
-    ...(input.toolFamily !== undefined ? { toolFamily: input.toolFamily } : {}),
+    ...input,
+    evidenceLoss: "none",
   };
 }
 

@@ -286,8 +286,8 @@ test("task-failure observation grammar stays document-first and source-internal"
   assert.match(grammar, /readTaskFailureObservationSyntax/);
   assert.match(grammar, /readTaskFailurePayloadObservationSyntax/);
   assert.match(grammar, /ObservationSemantics/);
-  assert.match(core, /TASK_FAILURE_OBSERVATION_EXTRACTORS/);
-  assert.match(core, /satisfies Record<TaskFailureEvidenceKind, ObservationExtractor>/);
+  assert.match(core, /TASK_FAILURE_OBSERVATION_SYNTAX/);
+  assert.match(core, /satisfies Record<TaskFailureEvidenceKind, ObservationSyntaxCompiler>/);
   assert.match(core, /extractTaskFailureObservationCore/);
   assert.match(core, /observationExtractorId/);
   assert.match(core, /observationSyntax/);

@@ -4,10 +4,7 @@ import type {
   SourceTaskUpdatedEvent,
 } from "@tomismeta/aperture-core";
 
-import type {
-  OpencodeMessagePartUpdatedEvent,
-  OpencodeSseMessage,
-} from "./types.js";
+import type { OpencodeMessagePartUpdatedEvent, OpencodeSseMessage } from "./types.js";
 import {
   createOpencodeInstanceKey,
   normalizeTaskStatus,
@@ -32,17 +29,18 @@ export function mapSessionStatus(
   }
 
   const reason = reasonText(event);
-  const update: SourceEvent = {
+  const updateBase = {
     id: `opencode:${instanceKey}:event:session.status:${encodeURIComponent(sessionId)}:${encodeURIComponent(status)}:${Date.now()}`,
-    type: "task.updated",
+    type: "task.updated" as const,
     taskId: opencodeTaskId(instanceKey, sessionId),
     timestamp: new Date().toISOString(),
     source: opencodeSource(context),
-    activityClass: "session_status",
+    activityClass: "session_status" as const,
     semanticHints: sessionStatusSemanticHints(reason),
     title: `OpenCode session ${status}`,
-    status,
   };
+  const update: SourceTaskUpdatedEvent =
+    status === "failed" ? { ...updateBase, status: "failed" } : { ...updateBase, status };
   if (reason) {
     update.summary = reason;
   }
@@ -65,8 +63,7 @@ export function mapMessagePartUpdated(
   if (partType === "text") {
     const text = readString(part?.text);
     if (text && context.messageRole === "assistant" && looksLikeFollowUpQuestion(text)) {
-      const partId =
-        readString(part?.id) ?? readString(event.properties.partID) ?? `${Date.now()}`;
+      const partId = readString(part?.id) ?? readString(event.properties.partID) ?? `${Date.now()}`;
       const whyNow = followUpWhyNow("OpenCode");
       return [
         {
@@ -159,9 +156,9 @@ function taskActivitySemanticHints(
   };
 }
 
-function reasonText(
-  event: { properties: { reason?: unknown; status?: unknown } },
-): string | undefined {
+function reasonText(event: {
+  properties: { reason?: unknown; status?: unknown };
+}): string | undefined {
   return readString(event.properties.reason) ?? readStatusReason(event.properties.status);
 }
 

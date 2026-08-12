@@ -76,7 +76,7 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
   const blockedLikeStatus =
     event.type === "task.updated" && ontology.blocking === "blocking" && event.status !== "blocked";
   const observation =
-    failureObservationCore !== null
+    event.type === "task.updated" && event.status === "failed" && failureObservationCore !== null
       ? normalizeTaskFailureObservationFromCore({
           event,
           core: failureObservationCore,

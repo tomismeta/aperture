@@ -19,10 +19,14 @@ workload.
 - consolidates task-failure payload parsing into the canonical observation
   grammar instead of maintaining a parallel grammar module
 - reduces the protected semantic surface to 106 modules, 171 exported detector
-  functions, 262 import edges, and 9,101 total lines
+  functions, 264 import edges, and 9,136 total lines
 - fixes command-success observations so their semantic result does not depend on
   host title vocabulary when explicit command ownership and summary evidence are
   present
+- adds one typed `SourceEvidence` boundary for reliable host-native outcomes,
+  diagnostics, payloads, measured partial reads, and authorization requirements
+- proves typed evidence and text fallback lower through the same Observation and
+  judgment path, with typed facts authoritative over contradictory prose
 - proves two unrelated host event shapes can produce the same public-kernel
   observation, judgment, and reason-code projection
 - adds a deterministic mixed-event scale gate with repeated result digests and
@@ -65,13 +69,13 @@ detector counts do not grow.
 Compared with the protected 0.8 surface, this tranche records:
 
 - semantic modules: 96
-- semantic lines: 8,128
+- semantic lines: 8,155
 - all semantic-surface modules: 106
-- all semantic-surface lines: 9,101
+- all semantic-surface lines: 9,136
 - exported detector functions: 171
-- dependency fan-out: 262
-- Observation primitive lines: 737
-- task-failure parsing lines: 1,045
+- dependency fan-out: 264
+- Observation primitive lines: 745
+- task-failure parsing lines: 1,058
 
 The budgets fail on renewed module, matcher, phrase-table, or direct-consumer
 growth. Corpus findings must continue to enter production as structural grammar,
@@ -85,6 +89,12 @@ unrelated synthetic host event types into `ApertureKernelEvent` outside core and
 asserts an identical semantic projection through the published
 `@tomismeta/aperture-core/kernel` subpath.
 
+Both example adapters map different native result shapes into the same
+`SourceEvidence` payload. Their prose deliberately disagrees, while the public
+kernel returns the same Observation, judgment, and semantic explanation codes.
+Hosts cannot provide normalized Observation or judgment fields, and opaque
+capability names cannot acquire semantic meaning.
+
 The kernel remains:
 
 - stateless
@@ -94,6 +104,18 @@ The kernel remains:
 - separate from runtime hosting, persistence, adapters, and presentation
 
 ## API Impact And Migration
+
+`SourceEvidence` is exported from `./kernel` and is optional on failed
+`work.updated` events. This is additive, but runtime validation rejects it on
+other statuses. Existing consumers can omit the field and retain the bounded
+text grammar. Consumers with reliable native result facts should map those facts
+in their adapter instead of manufacturing phrases for Aperture to recognize.
+The direct-event semantic-default opt-out does not suppress typed evidence;
+evidence is an authoritative source contract, not an inferred default.
+
+The typed boundary does not add another evaluation API or semantic path:
+
+`kernel event -> SourceEvent -> observation syntax -> Observation -> judgment`
 
 This release removes deprecated semantic-era ontology aliases. Consumers must
 use the canonical names:

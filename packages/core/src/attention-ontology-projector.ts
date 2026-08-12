@@ -180,6 +180,10 @@ function readOntologySource(
 ): AttentionOntologyAuthority {
   const provenanceKinds = Object.values(interpretation.provenance ?? {});
 
+  if (event.type === "task.updated" && event.evidence !== undefined) {
+    return "explicit";
+  }
+
   if (hasOntologyAuthorityHint(interpretation)) {
     return "hinted";
   }

@@ -267,7 +267,7 @@ test("high-consequence empty failed payloads do not become limited failures", ()
   assert.equal(hasLimitedFailureStatusJudgmentInput(input), false);
 });
 
-test("judgment input keeps unclassified failure observations stable when semantic failure agrees", () => {
+test("judgment input keeps unclassified failure observations uncertain", () => {
   const base = {
     id: "evt:judgment-input:unclassified-failure",
     taskId: "task:judgment-input:unclassified-failure",
@@ -320,10 +320,10 @@ test("judgment input keeps unclassified failure observations stable when semanti
   assert.equal(input.observation?.polarity, "failure");
   assert.equal(input.observation?.evidenceLoss, "unknown");
   assert.equal(input.observation?.recoveryHint, "inspect_original_evidence");
-  assert.equal(input.observation?.semanticAgreement, "stable");
+  assert.equal(input.observation?.semanticAgreement, "uncertain");
   assert.equal(input.observation?.consequenceBaseline, "high");
   assert.equal(mismatchedInput.observation?.semanticAgreement, "uncertain");
-  assert.equal(overriddenInput.observation?.semanticAgreement, "overridden");
+  assert.equal(overriddenInput.observation?.semanticAgreement, "uncertain");
 });
 
 test("judgment input treats read source-window limits as strong limited failures", () => {

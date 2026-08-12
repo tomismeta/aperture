@@ -1,9 +1,12 @@
-import type { EnrichedApertureEvent } from "./events.js";
+import type { EnrichedApertureEvent, SourceEvidence } from "./events.js";
 import { EventEvaluator } from "./event-evaluator.js";
+import { assertValidSourceEvent } from "./aperture-core-validation.js";
 import type { AttentionJudgmentInput } from "./judgment-input-types.js";
 import { projectObservationJudgmentContract } from "./judgment-observation-contract.js";
 import { normalizeSourceEvent } from "./semantic-normalizer.js";
 import type { SourceEvent } from "./source-event.js";
+
+export type { SourceEvidence } from "./events.js";
 
 export type ApertureKernelConsequenceLevel = "low" | "medium" | "high";
 
@@ -86,13 +89,20 @@ export type ApertureKernelWorkStartedEvent = ApertureKernelEventBase & {
   summary?: string;
 };
 
-export type ApertureKernelWorkUpdatedEvent = ApertureKernelEventBase & {
+type ApertureKernelWorkUpdatedEventFields = ApertureKernelEventBase & {
   kind: "work.updated";
   title: string;
   summary?: string;
-  status: "running" | "blocked" | "waiting" | "completed" | "failed";
   progress?: number;
 };
+export type ApertureKernelWorkUpdatedEvent = ApertureKernelWorkUpdatedEventFields &
+  (
+    | { status: "failed"; evidence?: SourceEvidence }
+    | {
+        status: "running" | "blocked" | "waiting" | "completed";
+        evidence?: never;
+      }
+  );
 
 export type ApertureKernelInputRequestedEvent = ApertureKernelEventBase & {
   kind: "input.requested";
@@ -129,6 +139,7 @@ export type ApertureKernelFinalEvent = {
   title?: string;
   summary?: string;
   status?: ApertureKernelWorkUpdatedEvent["status"];
+  evidence?: SourceEvidence;
   progress?: number;
   interactionId?: string;
   capabilityFamily?: string;
@@ -268,7 +279,9 @@ export function evaluateApertureKernelEvent(event: ApertureKernelEvent): Apertur
 }
 
 function evaluateApertureKernelResult(event: ApertureKernelEvent): ApertureKernelEvaluationResult {
-  const finalizedEvent = normalizeSourceEvent(toSourceEvent(event));
+  const sourceEvent = toSourceEvent(event);
+  assertValidSourceEvent(sourceEvent);
+  const finalizedEvent = normalizeSourceEvent(sourceEvent);
   const result = new EventEvaluator().evaluate(finalizedEvent);
 
   if (result.kind !== "candidate") {
@@ -333,18 +346,25 @@ function toSourceEvent(event: ApertureKernelEvent): SourceEvent {
         title: event.title,
         ...(event.summary === undefined ? {} : { summary: event.summary }),
       };
-    case "work.updated":
-      return {
+    case "work.updated": {
+      const update = {
         ...base,
-        type: "task.updated",
+        type: "task.updated" as const,
         title: event.title,
-        status: event.status,
         ...(event.summary === undefined ? {} : { summary: event.summary }),
         ...(event.progress === undefined ? {} : { progress: event.progress }),
         ...(event.context === undefined ? {} : { context: event.context }),
         ...(capabilityFamily === null ? {} : { toolFamily: capabilityFamily }),
         ...(activityClass === undefined ? {} : { activityClass }),
       };
+      return event.status === "failed"
+        ? {
+            ...update,
+            status: "failed",
+            ...(event.evidence === undefined ? {} : { evidence: event.evidence }),
+          }
+        : { ...update, status: event.status };
+    }
     case "input.requested":
       return {
         ...base,
@@ -384,6 +404,7 @@ function projectKernelFinalEvent(event: EnrichedApertureEvent): ApertureKernelFi
     ...("title" in event ? { title: event.title } : {}),
     ...("summary" in event && event.summary !== undefined ? { summary: event.summary } : {}),
     ...("status" in event ? { status: event.status } : {}),
+    ...("evidence" in event && event.evidence !== undefined ? { evidence: event.evidence } : {}),
     ...("progress" in event && event.progress !== undefined ? { progress: event.progress } : {}),
     ...("interactionId" in event ? { interactionId: event.interactionId } : {}),
     ...("toolFamily" in event && event.toolFamily !== undefined

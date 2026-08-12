@@ -49,6 +49,61 @@ test("assertValidSourceEvent rejects non-object metadata", () => {
   }, /event\.metadata must be an object/);
 });
 
+test("source evidence is bounded to failed task updates", () => {
+  assert.throws(() => {
+    assertValidSourceEvent({
+      id: "evt:evidence-running",
+      type: "task.updated",
+      taskId: "task:evidence-running",
+      timestamp: "2026-04-06T00:05:00.000Z",
+      title: "Running",
+      status: "running",
+      evidence: {
+        kind: "payload",
+        subject: "search",
+        channel: "search",
+        complete: true,
+      },
+    });
+  }, /event\.evidence must be valid bounded source evidence/);
+});
+
+test("source evidence rejects invalid variants and undeclared fields", () => {
+  for (const evidence of [
+    {
+      kind: "diagnostic",
+      diagnostic: "source_limit",
+      channel: "read",
+      window: { unit: "bytes", offset: 0, length: 100, total: 100 },
+    },
+    {
+      kind: "authorization",
+      state: "required",
+      execution: "started",
+      result: "absent",
+    },
+    {
+      kind: "payload",
+      subject: "search",
+      channel: "search",
+      complete: true,
+      judgment: "ambient",
+    },
+  ]) {
+    assert.throws(() => {
+      assertValidSourceEvent({
+        id: "evt:evidence-invalid",
+        type: "task.updated",
+        taskId: "task:evidence-invalid",
+        timestamp: "2026-04-06T00:05:00.000Z",
+        title: "Failed",
+        status: "failed",
+        evidence: evidence as never,
+      });
+    }, /event\.evidence(?:\.window)? must be valid bounded source evidence/);
+  }
+});
+
 test("assertValidFrameResponse rejects empty option selections", () => {
   assert.throws(() => {
     assertValidFrameResponse({

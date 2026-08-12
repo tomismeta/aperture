@@ -180,7 +180,7 @@ function payloadObservationSemantics(input: {
       readSemanticStructuredOutputOwnership(input.toolFamily),
     ),
   });
-  return syntax === null ? null : syntaxObservationSemantics({ kind: "payload", ...syntax });
+  return syntax === null ? null : syntaxObservationSemantics(syntax);
 }
 
 function signalObservationSemantics(
@@ -1772,6 +1772,7 @@ test("task failure evidence attaches canonical observation semantics to non-payl
         owner: "unknown",
         evidenceLoss: "unknown",
         recoveryHint: "inspect_original_evidence",
+        evidenceCertainty: "indeterminate",
       }),
     },
   ] as const;

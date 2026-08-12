@@ -8,7 +8,12 @@ import {
   type ApertureKernelEvent,
   type ApertureKernelObservation,
   type ApertureKernelObservationJudgment,
+  type SourceEvidence,
 } from "../src/kernel.js";
+import type { ApertureEvent } from "../src/events.js";
+import type { SourceEvent } from "../src/source-event.js";
+import { EventEvaluator } from "../src/event-evaluator.js";
+import { enrichApertureEvent, normalizeSourceEvent } from "../src/semantic-normalizer.js";
 
 const timestamp = "2026-04-22T18:30:00.000Z";
 
@@ -213,6 +218,382 @@ test("kernel evaluation leaves non-candidate events observation-judgment-free", 
   assert.equal(result.observationJudgment, null);
 });
 
+test("typed source evidence deterministically covers every observation family", () => {
+  const cases: Array<{
+    id: string;
+    evidence: SourceEvidence;
+    expected: {
+      kind: ApertureKernelObservation["kind"];
+      polarity: ApertureKernelObservation["polarity"];
+      subject: ApertureKernelObservation["subject"];
+      evidenceLoss: ApertureKernelObservation["evidenceLoss"];
+      diagnosticClass: ApertureKernelObservation["diagnosticClass"] | null;
+      recoveryHint: ApertureKernelObservation["recoveryHint"] | null;
+      origin: ApertureKernelObservation["provenance"]["origin"];
+      baseline: ApertureKernelObservation["consequenceBaseline"];
+      statusEvidence: ApertureKernelObservationJudgment["statusEvidence"];
+      conflict: ApertureKernelObservationJudgment["statusConflictKind"];
+      recovery: ApertureKernelObservationJudgment["recoveryPosture"];
+    };
+  }> = [
+    {
+      id: "failure-outcome",
+      evidence: {
+        kind: "outcome",
+        outcome: "failure",
+        subject: "command",
+        channel: "command",
+        complete: true,
+      },
+      expected: expectedEvidence(
+        "outcome",
+        "failure",
+        "command",
+        "none",
+        null,
+        null,
+        "command_output",
+        "medium",
+        "limited_failure",
+        null,
+        "none",
+      ),
+    },
+    {
+      id: "success-outcome",
+      evidence: {
+        kind: "outcome",
+        outcome: "success",
+        subject: "command",
+        channel: "structured",
+        complete: true,
+      },
+      expected: expectedEvidence(
+        "outcome",
+        "success",
+        "command",
+        "none",
+        null,
+        null,
+        "structured_output",
+        "low",
+        "stable_observation",
+        "execution_success_observation",
+        "none",
+      ),
+    },
+    {
+      id: "runtime-diagnostic",
+      evidence: {
+        kind: "diagnostic",
+        diagnostic: "runtime",
+        subject: "tool",
+        channel: "transcript",
+        complete: true,
+      },
+      expected: expectedEvidence(
+        "diagnostic",
+        "failure",
+        "tool",
+        "none",
+        "runtime",
+        "inspect_diagnostic",
+        "transcript",
+        "high",
+        "visible_diagnostic_failure",
+        null,
+        "diagnostic_inspection",
+      ),
+    },
+    {
+      id: "expected-diagnostic",
+      evidence: {
+        kind: "diagnostic",
+        diagnostic: "expected",
+        subject: "document",
+        channel: "structured",
+        complete: true,
+      },
+      expected: expectedEvidence(
+        "diagnostic",
+        "failure",
+        "document",
+        "none",
+        "expected",
+        "inspect_diagnostic",
+        "structured_output",
+        "medium",
+        "stable_observation",
+        null,
+        "diagnostic_inspection",
+      ),
+    },
+    {
+      id: "source-limit",
+      evidence: {
+        kind: "diagnostic",
+        diagnostic: "source_limit",
+        channel: "read",
+        window: { unit: "bytes", offset: 0, length: 2048, total: 10_000 },
+      },
+      expected: expectedEvidence(
+        "diagnostic",
+        "failure",
+        "source",
+        "partial",
+        "source_limit",
+        "narrow_evidence_scope",
+        "read_output",
+        "medium",
+        "limited_failure",
+        null,
+        "evidence_scope_required",
+      ),
+    },
+    {
+      id: "search-payload",
+      evidence: { kind: "payload", subject: "search", channel: "search", complete: true },
+      expected: expectedEvidence(
+        "payload",
+        "neutral",
+        "search",
+        "none",
+        null,
+        null,
+        "transcript",
+        "low",
+        "stable_observation",
+        "search_output_observation",
+        "none",
+      ),
+    },
+    {
+      id: "authorization",
+      evidence: {
+        kind: "authorization",
+        state: "required",
+        execution: "not_started",
+        result: "absent",
+      },
+      expected: expectedEvidence(
+        "control",
+        "neutral",
+        "tool",
+        "none",
+        null,
+        "await_authorization",
+        "status_text",
+        "low",
+        "stable_observation",
+        "rejected_tool_use_observation",
+        "authorization_required",
+      ),
+    },
+  ];
+
+  for (const testCase of cases) {
+    const result = evaluateApertureKernelEvent(
+      failedTaskEvent(testCase.id, "Contradictory prose says this was an unrelated success.", {
+        capabilityFamily: "opaque-capability-17",
+        evidence: testCase.evidence,
+      }),
+    );
+    const observation = result.observation;
+    const judgment = result.observationJudgment;
+    assert.ok(observation, testCase.id);
+    assert.ok(judgment, testCase.id);
+    assert.equal(observation.ownership.owner, "tool", testCase.id);
+    assert.equal(observation.ownership.capabilityFamily, "opaque-capability-17", testCase.id);
+    assert.equal(observation.semanticAgreement, "stable", testCase.id);
+    assert.equal(observation.evidenceStrength, "strong", testCase.id);
+    assert.equal(observation.provenance.authority, "explicit", testCase.id);
+    assert.deepEqual(
+      {
+        kind: observation.kind,
+        polarity: observation.polarity,
+        subject: observation.subject,
+        evidenceLoss: observation.evidenceLoss,
+        diagnosticClass: observation.diagnosticClass ?? null,
+        recoveryHint: observation.recoveryHint ?? null,
+        origin: observation.provenance.origin,
+        baseline: observation.consequenceBaseline,
+        statusEvidence: judgment.statusEvidence,
+        conflict: judgment.statusConflictKind,
+        recovery: judgment.recoveryPosture,
+      },
+      testCase.expected,
+      testCase.id,
+    );
+  }
+});
+
+test("typed evidence semantics never depend on opaque capability identity or prose", () => {
+  const evidence: SourceEvidence = {
+    kind: "payload",
+    subject: "search",
+    channel: "search",
+    complete: true,
+  };
+  const first = evaluateApertureKernelEvent(
+    failedTaskEvent("typed-invariance-a", "Permission denied and execution failed.", {
+      capabilityFamily: "alpha_native_operation",
+      evidence,
+    }),
+  );
+  const second = evaluateApertureKernelEvent(
+    failedTaskEvent("typed-invariance-b", "All work completed successfully.", {
+      capabilityFamily: "beta_external_action",
+      evidence,
+    }),
+  );
+
+  assert.deepEqual(withoutCapabilityIdentity(first), withoutCapabilityIdentity(second));
+});
+
+test("typed evidence outranks recognized capability families, risk prose, and semantic hints", () => {
+  const evidence: SourceEvidence = {
+    kind: "outcome",
+    outcome: "failure",
+    subject: "command",
+    channel: "command",
+    complete: true,
+  };
+  const variants = [
+    ["read", "Critical destructive write breached production."],
+    ["search", "Everything completed successfully."],
+    ["edit", "Permission denied before execution."],
+    ["exec_command", "A harmless read returned one document."],
+  ] as const;
+  const results = variants.map(([capabilityFamily, summary], index) =>
+    evaluateApertureKernelEvent(
+      failedTaskEvent(`typed-authority-${index}`, summary, { capabilityFamily, evidence }),
+    ),
+  );
+  const baseline = results[0];
+  assert.ok(baseline);
+  for (const result of results) {
+    assert.deepEqual(withoutCapabilityIdentity(result), withoutCapabilityIdentity(baseline));
+    assert.equal(result.observation?.semanticAgreement, "stable");
+    assert.equal(result.observation?.evidenceStrength, "strong");
+    assert.equal(result.observation?.provenance.authority, "explicit");
+    assert.equal(result.observation?.consequenceBaseline, "medium");
+  }
+
+  const source: SourceEvent = {
+    id: "evt:typed-hint-authority",
+    taskId: "task:typed-hint-authority",
+    timestamp,
+    type: "task.updated",
+    title: "Host failure",
+    summary: "Critical destructive write breached production.",
+    status: "failed",
+    toolFamily: "exec_command",
+    evidence,
+  };
+  const hinted: SourceEvent = {
+    ...source,
+    semanticHints: {
+      intentFrame: "blocked_work",
+      activityClass: "tool_failure",
+      consequence: "high",
+      confidence: "low",
+      abstained: true,
+    },
+  };
+  const plainResult = new EventEvaluator().evaluate(normalizeSourceEvent(source));
+  const hintedResult = new EventEvaluator().evaluate(normalizeSourceEvent(hinted));
+  assert.equal(plainResult.kind, "candidate");
+  assert.equal(hintedResult.kind, "candidate");
+  if (plainResult.kind !== "candidate" || hintedResult.kind !== "candidate") return;
+  assert.deepEqual(
+    hintedResult.candidate.judgmentInput.observation,
+    plainResult.candidate.judgmentInput.observation,
+  );
+});
+
+test("source, direct, and kernel events share one typed-evidence observation path", () => {
+  const evidence: SourceEvidence = {
+    kind: "diagnostic",
+    diagnostic: "source_limit",
+    channel: "read",
+    window: { unit: "lines", offset: 20, length: 40, total: 900 },
+  };
+  const event = {
+    id: "evt:shared-evidence",
+    taskId: "work:shared-evidence",
+    timestamp,
+    type: "task.updated" as const,
+    title: "Opaque host update",
+    summary: "The prose says there was no truncation.",
+    status: "failed" as const,
+    toolFamily: "native-reader-42",
+    evidence,
+  };
+  const sourceResult = new EventEvaluator().evaluate(
+    normalizeSourceEvent(event satisfies SourceEvent),
+  );
+  const directResult = new EventEvaluator().evaluate(
+    enrichApertureEvent(event satisfies ApertureEvent),
+  );
+  const optedOutDirectResult = new EventEvaluator().evaluate(
+    enrichApertureEvent(event satisfies ApertureEvent, { skipSemanticDefaults: true }),
+  );
+  const kernelResult = evaluateApertureKernelEvent({
+    id: event.id,
+    workId: event.taskId,
+    occurredAt: event.timestamp,
+    kind: "work.updated",
+    title: event.title,
+    summary: event.summary,
+    status: event.status,
+    evidence,
+    facts: { capabilityFamily: event.toolFamily },
+  });
+
+  assert.equal(sourceResult.kind, "candidate");
+  assert.equal(directResult.kind, "candidate");
+  assert.equal(optedOutDirectResult.kind, "candidate");
+  if (
+    sourceResult.kind !== "candidate" ||
+    directResult.kind !== "candidate" ||
+    optedOutDirectResult.kind !== "candidate"
+  )
+    return;
+  assert.deepEqual(
+    sourceResult.candidate.judgmentInput.observation,
+    directResult.candidate.judgmentInput.observation,
+  );
+  assert.deepEqual(
+    optedOutDirectResult.candidate.judgmentInput.observation,
+    directResult.candidate.judgmentInput.observation,
+  );
+  assert.deepEqual(
+    projectInternalObservation(sourceResult.candidate.judgmentInput.observation),
+    kernelResult.observation,
+  );
+});
+
+test("kernel rejects malformed typed evidence at runtime", () => {
+  assert.throws(
+    () =>
+      evaluateApertureKernelEvent({
+        id: "evt:kernel:invalid-evidence",
+        workId: "work:kernel:invalid-evidence",
+        occurredAt: timestamp,
+        kind: "work.updated",
+        title: "Invalid source window",
+        status: "failed",
+        evidence: {
+          kind: "diagnostic",
+          diagnostic: "source_limit",
+          channel: "read",
+          window: { unit: "bytes", offset: 0, length: 100, total: 100 },
+        } as never,
+      }),
+    /event\.evidence\.window must be valid bounded source evidence/,
+  );
+});
+
 function runningTaskEvent(
   id: string,
   options: {
@@ -242,6 +623,7 @@ function failedTaskEvent(
   options: {
     capabilityFamily?: string;
     contextCapabilityFamily?: string;
+    evidence?: SourceEvidence;
     metadataCapabilityFamily?: string;
   },
 ): ApertureKernelEvent {
@@ -253,10 +635,79 @@ function failedTaskEvent(
     title: "Host observation",
     summary,
     status: "failed",
+    ...(options.evidence === undefined ? {} : { evidence: options.evidence }),
     ...(options.capabilityFamily === undefined
       ? {}
       : { facts: { capabilityFamily: options.capabilityFamily } }),
     ...contextAndMetadataOptions(options),
+  };
+}
+
+function expectedEvidence(
+  kind: ApertureKernelObservation["kind"],
+  polarity: ApertureKernelObservation["polarity"],
+  subject: ApertureKernelObservation["subject"],
+  evidenceLoss: ApertureKernelObservation["evidenceLoss"],
+  diagnosticClass: ApertureKernelObservation["diagnosticClass"] | null,
+  recoveryHint: ApertureKernelObservation["recoveryHint"] | null,
+  origin: ApertureKernelObservation["provenance"]["origin"],
+  baseline: ApertureKernelObservation["consequenceBaseline"],
+  statusEvidence: ApertureKernelObservationJudgment["statusEvidence"],
+  conflict: ApertureKernelObservationJudgment["statusConflictKind"],
+  recovery: ApertureKernelObservationJudgment["recoveryPosture"],
+) {
+  return {
+    kind,
+    polarity,
+    subject,
+    evidenceLoss,
+    diagnosticClass,
+    recoveryHint,
+    origin,
+    baseline,
+    statusEvidence,
+    conflict,
+    recovery,
+  };
+}
+
+function withoutCapabilityIdentity(result: ReturnType<typeof evaluateApertureKernelEvent>) {
+  return {
+    observation:
+      result.observation === null
+        ? null
+        : { ...result.observation, ownership: { owner: result.observation.ownership.owner } },
+    judgment: result.observationJudgment,
+    reasonCodes: result.explanation.reasonCodes,
+  };
+}
+
+function projectInternalObservation(
+  observation: Extract<
+    ReturnType<EventEvaluator["evaluate"]>,
+    { kind: "candidate" }
+  >["candidate"]["judgmentInput"]["observation"],
+): ApertureKernelObservation | null {
+  if (observation === undefined) return null;
+  return {
+    kind: observation.kind,
+    polarity: observation.polarity,
+    ownership: {
+      owner: observation.ownership.owner,
+      ...(observation.ownership.toolFamily === undefined
+        ? {}
+        : { capabilityFamily: observation.ownership.toolFamily }),
+    },
+    subject: observation.subject,
+    evidenceLoss: observation.evidenceLoss,
+    semanticAgreement: observation.semanticAgreement,
+    evidenceStrength: observation.evidenceStrength,
+    ...(observation.diagnosticClass === undefined
+      ? {}
+      : { diagnosticClass: observation.diagnosticClass }),
+    ...(observation.recoveryHint === undefined ? {} : { recoveryHint: observation.recoveryHint }),
+    provenance: observation.provenance,
+    consequenceBaseline: observation.consequenceBaseline,
   };
 }
 

@@ -4,6 +4,7 @@ import {
   evaluateApertureKernelEvent,
   type ApertureKernelEvent,
   type ApertureKernelResult,
+  type SourceEvidence,
 } from "@tomismeta/aperture-core/kernel";
 
 type RecordLogEvent = {
@@ -16,6 +17,7 @@ type RecordLogEvent = {
     label?: string;
     message?: string;
     capability?: string;
+    result?: { kind: "search-results"; complete: boolean };
   };
 };
 
@@ -29,7 +31,11 @@ type QueueMessage = {
     headline?: string;
     detail?: string;
   };
-  attributes?: { capabilityFamily?: string };
+  attributes?: {
+    capabilityFamily?: string;
+    evidenceClass?: "search";
+    complete?: boolean;
+  };
 };
 
 type KernelWorkStatus = Extract<ApertureKernelEvent, { kind: "work.updated" }>["status"];
@@ -50,34 +56,55 @@ const QUEUE_STATE_STATUS = {
 
 function adaptRecordLogEvent(event: RecordLogEvent): ApertureKernelEvent | null {
   if (event.recordType !== "work-state" || event.data.phase === undefined) return null;
-  return {
+  const status = RECORD_PHASE_STATUS[event.data.phase];
+  const update = {
     id: event.recordId,
     workId: event.streamId,
     occurredAt: event.recordedAt,
-    kind: "work.updated",
+    kind: "work.updated" as const,
     title: event.data.label ?? "Work update",
     summary: event.data.message,
-    status: RECORD_PHASE_STATUS[event.data.phase],
     ...(event.data.capability === undefined
       ? {}
       : { facts: { capabilityFamily: event.data.capability } }),
   };
+  const evidence = searchEvidence(event.data.result?.kind, event.data.result?.complete);
+  return status === "failed"
+    ? { ...update, status, ...(evidence === undefined ? {} : { evidence }) }
+    : { ...update, status };
 }
 
 function adaptQueueMessage(message: QueueMessage): ApertureKernelEvent | null {
   if (message.topic !== "execution.changed" || message.payload.state === undefined) return null;
-  return {
+  const status = QUEUE_STATE_STATUS[message.payload.state];
+  const update = {
     id: message.messageId,
     workId: message.partitionKey,
     occurredAt: message.sentAt,
-    kind: "work.updated",
+    kind: "work.updated" as const,
     title: message.payload.headline ?? "Work update",
     summary: message.payload.detail,
-    status: QUEUE_STATE_STATUS[message.payload.state],
     ...(message.attributes?.capabilityFamily === undefined
       ? {}
       : { facts: { capabilityFamily: message.attributes.capabilityFamily } }),
   };
+  const evidence = searchEvidence(message.attributes?.evidenceClass, message.attributes?.complete);
+  return status === "failed"
+    ? {
+        ...update,
+        status,
+        ...(evidence === undefined ? {} : { evidence }),
+      }
+    : { ...update, status };
+}
+
+function searchEvidence(
+  kind: string | undefined,
+  complete: boolean | undefined,
+): SourceEvidence | undefined {
+  return (kind === "search-results" || kind === "search") && complete === true
+    ? { kind: "payload", subject: "search", channel: "search", complete: true }
+    : undefined;
 }
 
 function semanticProjection(result: ApertureKernelResult) {
@@ -98,8 +125,9 @@ const recordEvent: RecordLogEvent = {
   data: {
     phase: "failed",
     label: "Command status",
-    message: "Your command ran successfully and did not produce any output.",
-    capability: "exec_command",
+    message: "The source prose mentions a permission failure, but the result facts are complete.",
+    capability: "catalog",
+    result: { kind: "search-results", complete: true },
   },
 };
 
@@ -111,9 +139,9 @@ const queueMessage: QueueMessage = {
   payload: {
     state: "failed",
     headline: "Command status",
-    detail: "Your command ran successfully and did not produce any output.",
+    detail: "The queue prose calls this a routine success.",
   },
-  attributes: { capabilityFamily: "exec_command" },
+  attributes: { capabilityFamily: "catalog", evidenceClass: "search", complete: true },
 };
 
 const recordKernelEvent = adaptRecordLogEvent(recordEvent);
@@ -125,9 +153,10 @@ const recordResult = evaluateApertureKernelEvent(recordKernelEvent);
 const queueResult = evaluateApertureKernelEvent(queueKernelEvent);
 
 assert.deepEqual(semanticProjection(recordResult), semanticProjection(queueResult));
-assert.equal(recordResult.observation?.kind, "outcome");
-assert.equal(recordResult.observation?.polarity, "success");
-assert.equal(recordResult.observationJudgment?.statusConflictKind, "command_success_observation");
+assert.equal(recordResult.observation?.kind, "payload");
+assert.equal(recordResult.observation?.subject, "search");
+assert.equal(recordResult.observation?.polarity, "neutral");
+assert.equal(recordResult.observationJudgment?.statusConflictKind, "search_output_observation");
 assert.equal(
   adaptRecordLogEvent({ ...recordEvent, recordType: "work-note" }),
   null,

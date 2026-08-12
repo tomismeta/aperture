@@ -39,7 +39,11 @@ import {
 } from "./semantic-failure-detail.js";
 import { readExplicitOperationSuccessObservationTranscript } from "./semantic-operation-success-observation-shapes.js";
 import { looksLikeEmptyJsonObject } from "./semantic-structured-output.js";
-import type { TaskFailureObservationSyntax } from "./task-failure-observation-grammar.js";
+import type { SourceEvidence } from "./events.js";
+import {
+  compileSourceEvidenceSyntax,
+  type TaskFailureObservationSyntax,
+} from "./task-failure-observation-grammar.js";
 
 export type SemanticTextShape =
   | "routine_success"
@@ -81,6 +85,9 @@ export type TaskFailureSemanticEvidence = {
   text: SemanticTextEvidence;
 };
 type TaskFailureEvidenceProfile = Omit<TaskFailureSemanticEvidence, "text">;
+type TaskFailureEvidenceDetails = Partial<
+  Pick<TaskFailureEvidenceProfile, "failureDetail" | "observationSyntax" | "terminalShape">
+>;
 
 type SemanticEvidenceTaskUpdateEvent = Record<string, unknown> & {
   type: string;
@@ -88,6 +95,7 @@ type SemanticEvidenceTaskUpdateEvent = Record<string, unknown> & {
   title?: string;
   summary?: string;
   toolFamily?: string;
+  evidence?: SourceEvidence;
 };
 
 export function readSemanticTextEvidence(value: string, toolFamily?: string): SemanticTextEvidence {
@@ -133,6 +141,23 @@ export function semanticTextShapeMatcher(value: string, toolFamily?: string) {
   return (shape: SemanticTextShape): boolean => shapes.includes(shape);
 }
 
+export function buildTaskFailureObservationInput(event: SemanticEvidenceTaskUpdateEvent) {
+  if (
+    event.type === "task.updated" &&
+    event.status === "failed" &&
+    event.title !== undefined &&
+    event.evidence !== undefined
+  ) {
+    const toolFamily =
+      readExplicitSemanticToolFamily({
+        title: event.title,
+        ...(event.toolFamily !== undefined ? { toolFamily: event.toolFamily } : {}),
+      }) ?? undefined;
+    return { syntax: compileSourceEvidenceSyntax(event.evidence, toolFamily) };
+  }
+  return readTaskFailureSemanticEvidence(event);
+}
+
 export function readTaskFailureSemanticEvidence(
   event: SemanticEvidenceTaskUpdateEvent,
 ): TaskFailureSemanticEvidence | null {
@@ -152,14 +177,14 @@ export function readTaskFailureSemanticEvidence(
       ? { shapes: ["terminal_failure"] as const }
       : readSemanticTextEvidence(event.summary ?? event.title, toolFamily);
   const signals = readTaskFailureSemanticSignals({ summary: event.summary, toolFamily });
-  const profile = readTaskFailureEvidenceProfile({
+  const selectedProfile = readTaskFailureEvidenceProfile({
     summary: event.summary,
     signals,
     text,
     toolFamily,
   });
 
-  return { ...profile, text };
+  return { ...selectedProfile, text };
 }
 
 function readTaskFailureEvidenceProfile(input: {
@@ -179,32 +204,24 @@ function readTaskFailureEvidenceProfile(input: {
   });
   if (terminalProfile !== null) {
     const { failureDetail, terminalShape } = terminalProfile;
-    return {
-      kind: "terminal_failure",
+    return profile("terminal_failure", false, terminalProfile.consequenceBaseline, toolFamily, {
       failureDetail,
       ...(terminalShape !== undefined ? { terminalShape } : {}),
-      ...(toolFamily !== undefined ? { toolFamily } : {}),
-      readsAsObservation: false,
-      consequenceBaseline: terminalProfile.consequenceBaseline,
-    };
+    });
   }
   if (toolFamily !== undefined && looksLikeEmptyJsonObject(summary)) {
-    return {
-      kind: "empty_failure_payload",
+    return profile("empty_failure_payload", false, "medium", toolFamily, {
       failureDetail: "absent_evidence",
-      toolFamily,
-      readsAsObservation: false,
-      consequenceBaseline: "medium",
-    };
+    });
   }
   const operationSuccessObservation =
     toolFamily === undefined ? readExplicitOperationSuccessObservationTranscript(summary) : null;
   if (operationSuccessObservation) {
-    return {
-      kind: "operation_success_observation",
-      readsAsObservation: true,
-      consequenceBaseline: operationSuccessObservation.consequenceBaseline,
-    };
+    return profile(
+      "operation_success_observation",
+      true,
+      operationSuccessObservation.consequenceBaseline,
+    );
   }
   if (signals.observationSyntax !== null) {
     return readObservationSyntaxEvidenceProfile(signals.observationSyntax);
@@ -215,28 +232,18 @@ function readTaskFailureEvidenceProfile(input: {
     (!signals.unsafeStructuredToolOutputEnvelope ||
       signals.diagnosticStructuredToolOutput?.exitCode === 0)
   ) {
-    return {
-      kind: "routine_bash_success_observation",
-      ...(toolFamily !== undefined ? { toolFamily } : {}),
-      readsAsObservation: true,
-      consequenceBaseline: "low",
-    };
+    return profile("routine_bash_success_observation", true, "low", toolFamily);
   }
   if (isSemanticCommandExecutionToolFamily(toolFamily) && hasShape("expected_diagnostic")) {
-    return {
-      kind: "expected_diagnostic_failure",
-      ...(toolFamily !== undefined ? { toolFamily } : {}),
-      readsAsObservation: false,
-      consequenceBaseline: "medium",
-    };
+    return profile("expected_diagnostic_failure", false, "medium", toolFamily);
   }
   if (toolFamily === "search" && hasShape("search_result")) {
-    return {
-      kind: "routine_search_output",
+    return profile(
+      "routine_search_output",
+      true,
+      hasShape("terminal_failure") ? "high" : "low",
       toolFamily,
-      readsAsObservation: true,
-      consequenceBaseline: hasShape("terminal_failure") ? "high" : "low",
-    };
+    );
   }
 
   if (
@@ -247,37 +254,41 @@ function readTaskFailureEvidenceProfile(input: {
       hasShape("read_payload") ||
       signals.editOutputOutcome === "applied")
   ) {
-    return {
-      kind: "observational_payload",
-      toolFamily,
-      readsAsObservation: true,
-      consequenceBaseline: "high",
-    };
+    return profile("observational_payload", true, "high", toolFamily);
   }
 
-  return {
-    kind: "unclassified_failure",
+  return profile("unclassified_failure", false, "high", toolFamily, {
     failureDetail: "indeterminate",
-    ...(toolFamily !== undefined ? { toolFamily } : {}),
-    readsAsObservation: false,
-    consequenceBaseline: "high",
-  };
+  });
 }
 
 function readObservationSyntaxEvidenceProfile(
   syntax: TaskFailureObservationSyntax,
 ): TaskFailureEvidenceProfile {
+  return profile(
+    readObservationSyntaxEvidenceKind(syntax),
+    true,
+    syntax.consequenceBaseline,
+    syntax.toolFamily,
+    {
+      observationSyntax: syntax,
+    },
+  );
+}
+
+function profile(
+  kind: TaskFailureEvidenceKind,
+  readsAsObservation: boolean,
+  consequenceBaseline: TaskFailureEvidenceProfile["consequenceBaseline"],
+  toolFamily?: string,
+  details: TaskFailureEvidenceDetails = {},
+): TaskFailureEvidenceProfile {
   return {
-    kind: readObservationSyntaxEvidenceKind(syntax),
-    ...(syntax.toolFamily !== undefined ? { toolFamily: syntax.toolFamily } : {}),
-    observationSyntax: syntax,
-    readsAsObservation: true,
-    consequenceBaseline:
-      syntax.kind === "control"
-        ? "low"
-        : syntax.kind === "payload"
-          ? syntax.payload.consequenceBaseline
-          : syntax.consequenceBaseline,
+    kind,
+    ...details,
+    ...(toolFamily !== undefined ? { toolFamily } : {}),
+    readsAsObservation,
+    consequenceBaseline,
   };
 }
 
@@ -285,7 +296,14 @@ function readObservationSyntaxEvidenceKind(
   syntax: TaskFailureObservationSyntax,
 ): TaskFailureEvidenceKind {
   if (syntax.kind === "control") return "rejected_tool_use_observation";
-  if (syntax.kind === "outcome") return "structured_execution_success_observation";
+  if (syntax.kind === "diagnostic")
+    return syntax.diagnosticClass === "expected"
+      ? "expected_diagnostic_failure"
+      : "terminal_failure";
+  if (syntax.kind === "outcome")
+    return syntax.polarity === "failure"
+      ? "terminal_failure"
+      : "structured_execution_success_observation";
   return syntax.origin === "structured_output"
     ? "structured_tool_output_observation"
     : "observational_payload";

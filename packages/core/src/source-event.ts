@@ -1,4 +1,10 @@
-import type { AttentionActivityClass, HumanInputRequest, SourceRef, TaskStatus } from "./events.js";
+import type {
+  AttentionActivityClass,
+  HumanInputRequest,
+  SourceEvidence,
+  SourceRef,
+  TaskStatus,
+} from "./events.js";
 import type { AttentionConsequenceLevel, AttentionContext, AttentionProvenance } from "./frame.js";
 import type { SemanticInterpretationHints } from "./semantic-types.js";
 
@@ -47,16 +53,20 @@ export type SourceTaskStartedEvent = SourceEventBase & {
   summary?: string;
 };
 
-export type SourceTaskUpdatedEvent = SourceEventBase & {
+type SourceTaskUpdatedEventFields = SourceEventBase & {
   type: "task.updated";
   toolFamily?: string;
   activityClass?: AttentionActivityClass;
   title: string;
   summary?: string;
-  status: TaskStatus;
   progress?: number;
   context?: AttentionContext;
 };
+export type SourceTaskUpdatedEvent = SourceTaskUpdatedEventFields &
+  (
+    | { status: "failed"; evidence?: SourceEvidence }
+    | { status: Exclude<TaskStatus, "failed">; evidence?: never }
+  );
 
 export type SourceHumanInputRequestedEvent = SourceEventBase & {
   type: "human.input.requested";

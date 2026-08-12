@@ -33,6 +33,55 @@ test("canonical ontology reader preserves normalized event semantics", () => {
   assert.equal(diagnostic.blocking, "waiting");
 });
 
+test("typed source evidence remains authoritative at the public ontology reader", () => {
+  const diagnostic = readAttentionOntologyDiagnostic(
+    {
+      id: "evt:ontology:typed-evidence-authority",
+      taskId: "task:ontology:typed-evidence-authority",
+      type: "task.updated",
+      timestamp,
+      title: "Command failed",
+      summary: "Error: deployment failed with exit code 1.",
+      status: "failed",
+      evidence: {
+        kind: "outcome",
+        outcome: "success",
+        subject: "command",
+        channel: "command",
+        complete: true,
+      },
+      semantic: {
+        intentFrame: "failure",
+        activityClass: "tool_failure",
+        consequence: "high",
+        confidence: "low",
+        factors: ["caller-authored semantics"],
+        relationHints: [],
+        reasons: ["caller-authored semantics"],
+      },
+    },
+    {
+      intentFrame: "failure",
+      activityClass: "tool_failure",
+      consequence: "high",
+      confidence: "low",
+      factors: ["diagnostic override"],
+      relationHints: [{ kind: "same_issue" }, { kind: "repeats" }],
+      reasons: ["diagnostic override"],
+    },
+  );
+
+  assert.deepEqual(diagnostic, {
+    ask: "status",
+    activity: "task_progress",
+    consequence: "low",
+    blocking: "non_blocking",
+    episode: "resurfaced",
+    confidence: "high",
+    source: "explicit",
+  });
+});
+
 test("approval requests project to a narrow ontology diagnostic", () => {
   const diagnostic = readAttentionOntologyDiagnostic({
     id: "evt:ontology:approval",

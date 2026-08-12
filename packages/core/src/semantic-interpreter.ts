@@ -36,7 +36,13 @@ type SemanticProvenanceField = keyof SemanticFieldProvenance;
 
 export function interpretSourceEvent(event: SourceEvent): SemanticInterpretation {
   const inferred = inferSemanticInterpretation(event);
-  return applySemanticHints(inferred, event.semanticHints);
+  const hints =
+    event.type === "task.updated" && event.status === "failed" && event.evidence !== undefined
+      ? event.semanticHints?.relationHints === undefined
+        ? undefined
+        : { relationHints: event.semanticHints.relationHints }
+      : event.semanticHints;
+  return applySemanticHints(inferred, hints);
 }
 
 function inferSemanticInterpretation(event: SourceEvent): SemanticInterpretation {
@@ -116,13 +122,14 @@ function inferTaskUpdateSemantics(
   const impliedAsk = detectImpliedOperatorAsk(text);
   const blockingSignal = detectSemanticBlockingSignal(text);
   const relationHints = detectSemanticRelationHints(rawText);
+  const evidenceAuthority = event.status === "failed" && event.evidence !== undefined;
   const taxonomyInput = buildTaxonomyInput(event.title, event.summary, event.toolFamily);
   const failureObservationCore =
     event.status === "failed" ? readTaskFailureObservationCoreFromEvent(event) : null;
   const awaitsAuthorization = failureObservationCore?.recoveryHint === "await_authorization";
   const { toolFamily, source: toolFamilySource } = resolveSemanticToolFamily(
     taxonomyInput,
-    !awaitsAuthorization,
+    !awaitsAuthorization && !evidenceAuthority,
   );
   const relationProvenance =
     relationHints.length > 0 ? inferredSemanticProvenance(["relationHints"]) : {};
@@ -141,12 +148,20 @@ function inferTaskUpdateSemantics(
           ...(toolFamily ? { toolFamily } : {}),
           consequence,
           ...(whyNow !== undefined ? { whyNow } : {}),
-          factors: ["task.updated", "failed", "observational_failure"],
+          factors: [
+            "task.updated",
+            "failed",
+            evidenceAuthority ? "source_evidence" : "observational_failure",
+          ],
           relationHints,
           confidence: "high",
-          reasons: ["task status indicates failure but the update reads like observational output"],
+          reasons: [
+            evidenceAuthority
+              ? "typed source evidence determines the failed update meaning"
+              : "task status indicates failure but the update reads like observational output",
+          ],
           provenance: {
-            ...inferredSemanticProvenance([
+            ...(evidenceAuthority ? sourceSemanticProvenance : inferredSemanticProvenance)([
               "intentFrame",
               "activityClass",
               "consequence",
@@ -163,23 +178,27 @@ function inferTaskUpdateSemantics(
         intentFrame: "failure",
         activityClass: "tool_failure",
         ...(toolFamily ? { toolFamily } : {}),
-        consequence: inferConsequenceFromSemanticText(
-          text,
-          failureObservationCore?.consequenceBaseline ?? "high",
-          toolFamily,
-        ),
+        consequence: evidenceAuthority
+          ? (failureObservationCore?.consequenceBaseline ?? "high")
+          : inferConsequenceFromSemanticText(
+              text,
+              failureObservationCore?.consequenceBaseline ?? "high",
+              toolFamily,
+            ),
         whyNow: semanticWhyNowForTaskStatus("failed") ?? "Work has failed and should be reviewed.",
-        factors: ["task.updated", "failed"],
+        factors: ["task.updated", "failed", ...(evidenceAuthority ? ["source_evidence"] : [])],
         relationHints,
-        confidence: impliedAsk ? "medium" : "high",
-        reasons: hasExpectedDiagnosticClass
-          ? [
-              ...semanticReasonsForTaskStatus("failed", { impliedAsk }),
-              "failure content looks like expected diagnostic output from repro work",
-            ]
-          : semanticReasonsForTaskStatus("failed", { impliedAsk }),
+        confidence: evidenceAuthority ? "high" : impliedAsk ? "medium" : "high",
+        reasons: evidenceAuthority
+          ? ["typed source evidence determines the failed update meaning"]
+          : hasExpectedDiagnosticClass
+            ? [
+                ...semanticReasonsForTaskStatus("failed", { impliedAsk }),
+                "failure content looks like expected diagnostic output from repro work",
+              ]
+            : semanticReasonsForTaskStatus("failed", { impliedAsk }),
         provenance: {
-          ...inferredSemanticProvenance([
+          ...(evidenceAuthority ? sourceSemanticProvenance : inferredSemanticProvenance)([
             "intentFrame",
             "activityClass",
             "consequence",
@@ -293,8 +312,6 @@ function inferTaskUpdateSemantics(
           ...relationProvenance,
         },
       };
-    default:
-      return unreachableTaskStatus(event.status);
   }
 }
 
@@ -615,10 +632,6 @@ function buildTaxonomyInput(
 
 function unreachableSourceEvent(event: never): never {
   throw new Error(`Unhandled source event in semantic interpreter: ${JSON.stringify(event)}`);
-}
-
-function unreachableTaskStatus(status: never): never {
-  throw new Error(`Unhandled task status in semantic interpreter: ${status}`);
 }
 
 function unreachableRequestKind(kind: never): never {

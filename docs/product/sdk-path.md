@@ -149,9 +149,17 @@ judgment prefix.
 It exists for consumers who want to:
 
 - map their own host event shape into `ApertureKernelEvent` outside core
+- provide a typed `SourceEvidence` fact when a failed host event carries a
+  reliable outcome, diagnostic, payload, partial-read window, or authorization
+  boundary
 - call `evaluateApertureKernelEvent(...)`
 - receive a bounded finalized event projection, normalized observation,
   observation judgment contract, and versioned explanation reason codes
+
+Typed evidence is optional and authoritative when present; host prose cannot
+override it. Without it, the kernel uses the same bounded structural text
+grammar as the stateful engine. Hosts never construct an Observation or
+judgment, and capability-family values remain opaque identity.
 
 It does not export host adapters, mutate state, apply attention policy,
 calculate continuity, accept responses, persist data, or render UI. Use the

@@ -261,6 +261,18 @@ The adapter returns `ApertureKernelEvent | null`; accepted events are passed to
 `evaluateApertureKernelEvent(...)`. The kernel does not import source adapters,
 host protocols, product strings, persistence, networking, or UI behavior.
 
+For failed work updates, the neutral DTO may include one `SourceEvidence` fact
+when the host reliably knows the structure of its native result. The closed
+union represents complete outcomes, diagnostics, payloads, measured partial
+read windows, and authorization requirements. It does not expose Observation
+fields for hosts to populate. Typed evidence is authoritative when present;
+otherwise the same path uses the bounded structural text grammar. Both lower
+through the single private syntax-to-Observation path before judgment.
+
+`facts.capabilityFamily` remains opaque identity. It can establish ownership,
+but its value never infers evidence kind, subject, channel, polarity, or
+diagnostic class. See [Source Evidence Contract v1](./source-evidence-contract-v1.md).
+
 The architecture shape is intentionally small:
 
 ```ts

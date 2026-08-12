@@ -32,17 +32,6 @@ export type ObservationKernelHoldoutArtifact = {
   >;
 };
 
-export const OBSERVATION_KERNEL_HOLDOUT = parseObservationKernelHoldout(holdoutArtifact);
-export const OBSERVATION_KERNEL_HOLDOUT_FIXTURES: ObservationKernelFixture[] =
-  OBSERVATION_KERNEL_HOLDOUT.fixtures.map(
-    ({ expected: _expected, rationale: _rationale, ...rest }) => rest,
-  );
-export const OBSERVATION_KERNEL_HOLDOUT_EXPECTATIONS: Readonly<
-  Record<string, readonly ObservationKernelExpectedOutcome[]>
-> = Object.fromEntries(
-  OBSERVATION_KERNEL_HOLDOUT.fixtures.map((fixture) => [fixture.id, fixture.expected]),
-);
-
 export function parseObservationKernelHoldout(value: unknown): ObservationKernelHoldoutArtifact {
   if (!isRecord(value) || !isMethodology(value.methodology) || !Array.isArray(value.fixtures)) {
     throw new Error("Invalid Observation Kernel holdout artifact.");
@@ -272,3 +261,14 @@ const PLANNER_KINDS = [
   "suppressed",
 ] as const;
 const RESULT_LANES = ["ambient", "next", "none", "now"] as const;
+
+export const OBSERVATION_KERNEL_HOLDOUT = parseObservationKernelHoldout(holdoutArtifact);
+export const OBSERVATION_KERNEL_HOLDOUT_FIXTURES: ObservationKernelFixture[] =
+  OBSERVATION_KERNEL_HOLDOUT.fixtures.map(
+    ({ expected: _expected, rationale: _rationale, ...rest }) => rest,
+  );
+export const OBSERVATION_KERNEL_HOLDOUT_EXPECTATIONS: Readonly<
+  Record<string, readonly ObservationKernelExpectedOutcome[]>
+> = Object.fromEntries(
+  OBSERVATION_KERNEL_HOLDOUT.fixtures.map((fixture) => [fixture.id, fixture.expected]),
+);

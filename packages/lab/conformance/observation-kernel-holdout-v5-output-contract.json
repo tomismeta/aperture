@@ -1,0 +1,179 @@
+{
+  "id": "aperture-source-evidence-observation-projection/v2",
+  "observationContract": {
+    "id": "aperture-observation-judgment-contract/v1",
+    "digest": "sha256:12fcb300d3539d147a15621ce8b3f063271b5a08812605ce418704ead19b1f66"
+  },
+  "sourceEvidenceContract": {
+    "id": "aperture-source-evidence-contract/v1",
+    "digest": "sha256:78dff530a44fdc532fbe5790dd496d40e0295ba09b4ef8676b0ed7f70f5af715"
+  },
+  "scoredFields": {
+    "observation": [
+      "kind",
+      "polarity",
+      "owner",
+      "toolFamily",
+      "subject",
+      "evidenceLoss",
+      "evidenceStrength",
+      "semanticAgreement",
+      "diagnosticClass",
+      "recoveryHint",
+      "provenanceOrigin",
+      "provenanceAuthority",
+      "consequenceBaseline"
+    ],
+    "judgment": [
+      "statusEvidence",
+      "statusConflictKind",
+      "recoveryPosture",
+      "baselineConsequence",
+      "outcomeOnlyFailureStatus",
+      "limitedFailureStatus",
+      "stableStatusEvidence",
+      "visibleDiagnosticFailure"
+    ],
+    "decision": ["plannerKind", "resultLane"]
+  },
+  "commonTypedEvidenceProjection": {
+    "semanticAgreement": "stable",
+    "evidenceStrength": "strong except absent evidence is weak",
+    "provenanceAuthority": "explicit",
+    "toolFamily": "copy the event toolFamily exactly when present; otherwise null"
+  },
+  "ownership": {
+    "authorization": "tool",
+    "classifiedWithToolFamily": "tool",
+    "classifiedWithoutToolFamily": "source",
+    "indeterminateWithoutToolFamily": "engine"
+  },
+  "originByChannel": {
+    "command": "command_output",
+    "read": "read_output",
+    "search": "transcript",
+    "structured": "structured_output",
+    "transcript": "transcript"
+  },
+  "typedVariants": {
+    "outcomeSuccess": {
+      "kind": "outcome",
+      "polarity": "success",
+      "subject": "copy evidence.subject",
+      "evidenceLoss": "none",
+      "diagnosticClass": null,
+      "recoveryHint": null,
+      "consequenceBaseline": "low"
+    },
+    "outcomeFailure": {
+      "kind": "outcome",
+      "polarity": "failure",
+      "subject": "copy evidence.subject",
+      "evidenceLoss": "none",
+      "diagnosticClass": null,
+      "recoveryHint": null,
+      "consequenceBaseline": "medium"
+    },
+    "runtimeDiagnostic": {
+      "kind": "diagnostic",
+      "polarity": "failure",
+      "subject": "copy evidence.subject",
+      "evidenceLoss": "none",
+      "diagnosticClass": "runtime",
+      "recoveryHint": "inspect_diagnostic",
+      "consequenceBaseline": "high"
+    },
+    "expectedDiagnostic": {
+      "kind": "diagnostic",
+      "polarity": "failure",
+      "subject": "copy evidence.subject",
+      "evidenceLoss": "none",
+      "diagnosticClass": "expected",
+      "recoveryHint": "inspect_diagnostic",
+      "consequenceBaseline": "medium"
+    },
+    "sourceLimitDiagnostic": {
+      "kind": "diagnostic",
+      "polarity": "failure",
+      "subject": "source",
+      "evidenceLoss": "partial",
+      "diagnosticClass": "source_limit",
+      "recoveryHint": "narrow_evidence_scope",
+      "consequenceBaseline": "medium",
+      "provenanceOrigin": "read_output"
+    },
+    "payload": {
+      "kind": "payload",
+      "polarity": "neutral",
+      "subject": "copy evidence.subject",
+      "evidenceLoss": "none",
+      "diagnosticClass": null,
+      "recoveryHint": null,
+      "consequenceBaseline": "high when channel is structured or subject is tool; otherwise low"
+    },
+    "authorization": {
+      "kind": "control",
+      "polarity": "neutral",
+      "subject": "tool",
+      "evidenceLoss": "none",
+      "diagnosticClass": null,
+      "recoveryHint": "await_authorization",
+      "consequenceBaseline": "low",
+      "provenanceOrigin": "status_text"
+    }
+  },
+  "fallbackVariants": {
+    "completeCommandSuccess": {
+      "shape": "outcome success, command subject, no loss, command_output origin, low baseline",
+      "authority": "inferred",
+      "strength": "qualified"
+    },
+    "completeOutcomeFailure": {
+      "shape": "outcome failure, command subject, no loss, command_output origin, medium baseline",
+      "authority": "explicit",
+      "strength": "strong"
+    },
+    "absentFailureEvidence": {
+      "shape": "outcome failure, command subject, absent loss, request_evidence, command_output origin, medium baseline",
+      "authority": "explicit",
+      "strength": "weak"
+    },
+    "completeRuntimeDiagnostic": {
+      "shape": "diagnostic failure, runtime class, no loss, inspect_diagnostic, command_output origin, high baseline",
+      "authority": "explicit",
+      "strength": "strong"
+    },
+    "boundedSourceWindow": {
+      "shape": "diagnostic failure, source_limit class, source subject, partial loss, narrow_evidence_scope, read_output origin, medium baseline",
+      "authority": "explicit",
+      "strength": "strong"
+    },
+    "completeDocumentPayload": {
+      "shape": "payload neutral, document subject, no loss, read_output origin, low baseline",
+      "authority": "inferred",
+      "strength": "qualified"
+    },
+    "preExecutionAuthorization": {
+      "shape": "control neutral, tool subject, no loss, await_authorization, status_text origin, low baseline",
+      "authority": "inferred",
+      "strength": "qualified"
+    },
+    "indeterminateFailure": {
+      "shape": "unknown failure, unknown subject, unknown loss, inspect_original_evidence, semantic_evidence origin, high baseline",
+      "authority": "explicit",
+      "strength": "weak",
+      "semanticAgreement": "uncertain"
+    }
+  },
+  "authorityRules": [
+    "Typed evidence determines every variant-owned field even when title, summary, metadata, semantic hints, or capability identity contradict it.",
+    "Without typed evidence, a complete structural failure that agrees with the explicit failed status has explicit provenance authority.",
+    "Without typed evidence, a complete success, payload, or control that overrides the failed transport status has inferred provenance authority.",
+    "At high confidence, explicit authority with complete evidence is strong and inferred authority is qualified; absent or unknown evidence is weak.",
+    "Only semantic relation hints may add episode continuity; they do not change Observation or judgment fields.",
+    "Capability identity is opaque and affects only ownership plus the copied toolFamily field.",
+    "Concrete terminal outcomes and diagnostics outrank payload and control language; complete payload boundaries protect quoted or hypothetical diagnostic text only when no asserted contradictory outcome exists.",
+    "A structural family that is incomplete, quoted, hypothetical, negated, or internally contradictory must not be promoted to a narrower semantic fact."
+  ],
+  "judgmentAndDecision": "Derive all judgment and isolated decision fields exactly from aperture-observation-judgment-contract/v1."
+}

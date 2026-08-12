@@ -1,0 +1,454 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tomismeta.dev/aperture/observation-kernel-holdout-v5.schema.json",
+  "title": "Aperture Observation Kernel Holdout v5",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["methodology", "fixtures"],
+  "properties": {
+    "methodology": { "$ref": "#/$defs/methodology" },
+    "fixtures": {
+      "type": "array",
+      "minItems": 24,
+      "maxItems": 24,
+      "items": { "$ref": "#/$defs/fixture" },
+      "allOf": [
+        {
+          "contains": {
+            "required": ["events"],
+            "properties": {
+              "events": { "contains": { "required": ["evidence"] } }
+            }
+          },
+          "minContains": 12,
+          "maxContains": 12
+        },
+        {
+          "contains": {
+            "required": ["events"],
+            "properties": {
+              "events": { "contains": { "not": { "required": ["evidence"] } } }
+            }
+          },
+          "minContains": 12,
+          "maxContains": 12
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "methodology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "observationContractId",
+        "observationContractDigest",
+        "sourceEvidenceContractId",
+        "sourceEvidenceContractDigest",
+        "outputContractId",
+        "outputContractDigest",
+        "implementationFreeze",
+        "author",
+        "authoredWithoutImplementationInspection",
+        "authoredWithoutExecution",
+        "firstExecutionPermittedAfterCommit",
+        "fixtureCount",
+        "typedEvidenceFixtureCount",
+        "structuralFallbackFixtureCount",
+        "authoredWithoutPriorOracleInspection",
+        "authoredWithoutCalibrationInspection",
+        "notes"
+      ],
+      "properties": {
+        "schemaVersion": { "const": 5 },
+        "observationContractId": {
+          "const": "aperture-observation-judgment-contract/v1"
+        },
+        "observationContractDigest": {
+          "const": "sha256:12fcb300d3539d147a15621ce8b3f063271b5a08812605ce418704ead19b1f66"
+        },
+        "sourceEvidenceContractId": {
+          "const": "aperture-source-evidence-contract/v1"
+        },
+        "sourceEvidenceContractDigest": {
+          "const": "sha256:78dff530a44fdc532fbe5790dd496d40e0295ba09b4ef8676b0ed7f70f5af715"
+        },
+        "outputContractId": {
+          "const": "aperture-source-evidence-observation-projection/v2"
+        },
+        "outputContractDigest": {
+          "const": "sha256:b57e9efe4863d1a3060d365f426c4471b38ac80964777a8f2013c3f886abb455"
+        },
+        "implementationFreeze": {
+          "const": "2926ea9489526a572e232da51584f224cbcc7252"
+        },
+        "author": { "const": "gpt-5.6-sol" },
+        "authoredWithoutImplementationInspection": { "const": true },
+        "authoredWithoutExecution": { "const": true },
+        "firstExecutionPermittedAfterCommit": { "const": true },
+        "authoredWithoutPriorOracleInspection": { "const": true },
+        "authoredWithoutCalibrationInspection": { "const": true },
+        "fixtureCount": { "const": 24 },
+        "typedEvidenceFixtureCount": { "const": 12 },
+        "structuralFallbackFixtureCount": { "const": 12 },
+        "notes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "dimension", "split", "events", "expected", "rationale"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^holdout-v5-[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "dimension": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "split": { "const": "holdout" },
+        "events": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": { "$ref": "#/$defs/event" }
+        },
+        "expected": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": { "$ref": "#/$defs/expected" }
+        },
+        "rationale": { "type": "string", "minLength": 1 }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "taskId", "timestamp", "type", "title", "summary", "status"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^event-v5-[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "taskId": {
+          "type": "string",
+          "pattern": "^task-v5-[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "timestamp": { "const": "2026-08-13T00:30:00.000Z" },
+        "type": { "const": "task.updated" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "status": { "const": "failed" },
+        "toolFamily": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[A-Za-z][A-Za-z0-9_.:/-]*$"
+        },
+        "metadata": { "type": "object" },
+        "evidence": { "$ref": "#/$defs/sourceEvidence" },
+        "semanticHints": { "$ref": "#/$defs/semanticHints" }
+      }
+    },
+    "sourceEvidence": {
+      "oneOf": [
+        { "$ref": "#/$defs/outcomeEvidence" },
+        { "$ref": "#/$defs/completeDiagnosticEvidence" },
+        { "$ref": "#/$defs/sourceLimitEvidence" },
+        { "$ref": "#/$defs/payloadEvidence" },
+        { "$ref": "#/$defs/authorizationEvidence" }
+      ]
+    },
+    "outcomeEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "outcome", "subject", "channel", "complete"],
+      "properties": {
+        "kind": { "const": "outcome" },
+        "outcome": { "enum": ["success", "failure"] },
+        "subject": { "$ref": "#/$defs/subject" },
+        "channel": { "$ref": "#/$defs/channel" },
+        "complete": { "const": true }
+      }
+    },
+    "completeDiagnosticEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "diagnostic", "subject", "channel", "complete"],
+      "properties": {
+        "kind": { "const": "diagnostic" },
+        "diagnostic": { "enum": ["runtime", "expected"] },
+        "subject": { "$ref": "#/$defs/subject" },
+        "channel": { "$ref": "#/$defs/channel" },
+        "complete": { "const": true }
+      }
+    },
+    "sourceLimitEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "diagnostic", "channel", "window"],
+      "properties": {
+        "kind": { "const": "diagnostic" },
+        "diagnostic": { "const": "source_limit" },
+        "channel": { "const": "read" },
+        "window": {
+          "oneOf": [
+            { "$ref": "#/$defs/lineWindowA" },
+            { "$ref": "#/$defs/lineWindowB" },
+            { "$ref": "#/$defs/byteWindowA" },
+            { "$ref": "#/$defs/byteWindowB" }
+          ]
+        }
+      }
+    },
+    "lineWindowA": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit", "offset", "length", "total"],
+      "properties": {
+        "unit": { "const": "lines" },
+        "offset": { "const": 0 },
+        "length": { "const": 120 },
+        "total": { "const": 900 }
+      }
+    },
+    "lineWindowB": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit", "offset", "length", "total"],
+      "properties": {
+        "unit": { "const": "lines" },
+        "offset": { "const": 40 },
+        "length": { "const": 80 },
+        "total": { "const": 640 }
+      }
+    },
+    "byteWindowA": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit", "offset", "length", "total"],
+      "properties": {
+        "unit": { "const": "bytes" },
+        "offset": { "const": 0 },
+        "length": { "const": 4096 },
+        "total": { "const": 65536 }
+      }
+    },
+    "byteWindowB": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit", "offset", "length", "total"],
+      "properties": {
+        "unit": { "const": "bytes" },
+        "offset": { "const": 8192 },
+        "length": { "const": 4096 },
+        "total": { "const": 131072 }
+      }
+    },
+    "payloadEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "subject", "channel", "complete"],
+      "properties": {
+        "kind": { "const": "payload" },
+        "subject": { "enum": ["document", "search", "source", "tool"] },
+        "channel": { "$ref": "#/$defs/channel" },
+        "complete": { "const": true }
+      }
+    },
+    "authorizationEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "state", "execution", "result"],
+      "properties": {
+        "kind": { "const": "authorization" },
+        "state": { "const": "required" },
+        "execution": { "const": "not_started" },
+        "result": { "const": "absent" }
+      }
+    },
+    "subject": { "enum": ["command", "document", "search", "source", "tool"] },
+    "channel": { "enum": ["command", "read", "search", "structured", "transcript"] },
+    "semanticHints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "intentFrame": {
+          "enum": [
+            "task_started",
+            "status_update",
+            "blocked_work",
+            "failure",
+            "approval_request",
+            "question_request",
+            "form_request",
+            "completion",
+            "cancellation"
+          ]
+        },
+        "activityClass": {
+          "enum": [
+            "permission_request",
+            "question_request",
+            "follow_up",
+            "tool_completion",
+            "tool_failure",
+            "session_status",
+            "status_update"
+          ]
+        },
+        "toolFamily": { "type": "string", "minLength": 1 },
+        "consequence": { "enum": ["low", "medium", "high"] },
+        "whyNow": { "type": "string", "minLength": 1 },
+        "factors": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "relationHints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind"],
+            "properties": {
+              "kind": {
+                "enum": ["same_issue", "resolves", "supersedes", "repeats", "escalates"]
+              },
+              "target": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "confidence": { "enum": ["low", "medium", "high"] },
+        "reasons": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "abstained": { "type": "boolean" }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fields", "judgment", "decision"],
+      "properties": {
+        "fields": { "$ref": "#/$defs/fields" },
+        "judgment": { "$ref": "#/$defs/judgment" },
+        "decision": { "$ref": "#/$defs/decision" }
+      }
+    },
+    "fields": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "polarity",
+        "owner",
+        "toolFamily",
+        "subject",
+        "evidenceLoss",
+        "evidenceStrength",
+        "semanticAgreement",
+        "diagnosticClass",
+        "recoveryHint",
+        "provenanceOrigin",
+        "provenanceAuthority",
+        "consequenceBaseline"
+      ],
+      "properties": {
+        "kind": { "enum": ["control", "diagnostic", "outcome", "payload", "unknown"] },
+        "polarity": { "enum": ["failure", "neutral", "success", "unknown"] },
+        "owner": { "enum": ["engine", "source", "tool", "unknown"] },
+        "toolFamily": { "type": ["string", "null"] },
+        "subject": { "enum": ["command", "document", "search", "source", "tool", "unknown"] },
+        "evidenceLoss": { "enum": ["absent", "none", "partial", "unknown"] },
+        "evidenceStrength": { "enum": ["weak", "qualified", "strong"] },
+        "semanticAgreement": { "enum": ["stable", "overridden", "uncertain"] },
+        "diagnosticClass": { "enum": ["expected", "runtime", "source_limit", null] },
+        "recoveryHint": {
+          "enum": [
+            "await_authorization",
+            "inspect_diagnostic",
+            "inspect_original_evidence",
+            "narrow_evidence_scope",
+            "request_evidence",
+            null
+          ]
+        },
+        "provenanceOrigin": {
+          "enum": [
+            "command_output",
+            "read_output",
+            "semantic_evidence",
+            "status_text",
+            "structured_output",
+            "transcript"
+          ]
+        },
+        "provenanceAuthority": { "enum": ["explicit", "hinted", "inferred", "unknown"] },
+        "consequenceBaseline": { "enum": ["low", "medium", "high"] }
+      }
+    },
+    "judgment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statusEvidence",
+        "statusConflictKind",
+        "recoveryPosture",
+        "baselineConsequence",
+        "outcomeOnlyFailureStatus",
+        "limitedFailureStatus",
+        "stableStatusEvidence",
+        "visibleDiagnosticFailure"
+      ],
+      "properties": {
+        "statusEvidence": {
+          "enum": [
+            "limited_failure",
+            "stable_observation",
+            "visible_diagnostic_failure",
+            "weak_or_uncertain"
+          ]
+        },
+        "statusConflictKind": {
+          "enum": [
+            "command_success_observation",
+            "execution_success_observation",
+            "payload_observation",
+            "rejected_tool_use_observation",
+            "search_output_observation",
+            "structured_output_observation",
+            null
+          ]
+        },
+        "recoveryPosture": {
+          "enum": [
+            "authorization_required",
+            "diagnostic_inspection",
+            "evidence_required",
+            "evidence_scope_required",
+            "original_evidence_required",
+            "none"
+          ]
+        },
+        "baselineConsequence": { "enum": ["low", "medium", "high"] },
+        "outcomeOnlyFailureStatus": { "type": "boolean" },
+        "limitedFailureStatus": { "type": "boolean" },
+        "stableStatusEvidence": { "type": "boolean" },
+        "visibleDiagnosticFailure": { "type": "boolean" }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plannerKind", "resultLane"],
+      "properties": {
+        "plannerKind": {
+          "enum": ["activate", "ambient", "auto_approve", "clear", "queue", "suppressed"]
+        },
+        "resultLane": { "enum": ["ambient", "next", "none", "now"] }
+      }
+    }
+  }
+}

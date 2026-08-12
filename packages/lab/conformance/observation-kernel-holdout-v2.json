@@ -1,0 +1,628 @@
+{
+  "methodology": {
+    "schemaVersion": 2,
+    "contractId": "aperture-observation-judgment-contract/v1",
+    "contractDigest": "sha256:9d53456de27a9db5342c98d100971bd3cec6336d2f61b1cef9048e2297ea294e",
+    "implementationFreeze": "ca18486a54544a8a154f7c626437f0d803cde933",
+    "author": "gpt-5.6-sol",
+    "authoredWithoutImplementationInspection": true,
+    "authoredWithoutExecution": true,
+    "firstExecutionPermittedAfterCommit": true,
+    "fixtureCount": 12,
+    "notes": [
+      "This oracle was authored solely from the supplied normative contract and frozen schema, with no implementation inspection, tool use, execution, simulation, calibration material, or runtime evidence.",
+      "The twelve fixtures were written as six ordered contrast pairs, each containing one self-contained event and complete semantic, judgment, and isolated-decision expectations.",
+      "All expected values are intended to be committed before any first execution and are not to be revised after results are observed."
+    ]
+  },
+  "fixtures": [
+    {
+      "id": "holdout-v2-pair1-complete-nonzero",
+      "dimension": "complete-nonzero-outcome-channelless",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v2-pair1-complete-nonzero",
+          "taskId": "task-v2-pair1-complete-nonzero",
+          "timestamp": "2026-08-12T12:00:00.000Z",
+          "type": "task.updated",
+          "title": "Final nonzero command outcome recorded",
+          "summary": "The `command_exec` capability reports a finished command with final exit status 7. This is expressly a complete outcome-only record: diagnostic-channel fields are outside its scope, while completion and the nonzero status are fully established.",
+          "status": "failed",
+          "toolFamily": "command_exec"
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "outcome",
+            "polarity": "failure",
+            "owner": "tool",
+            "toolFamily": "command_exec",
+            "subject": "command",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": null,
+            "recoveryHint": null,
+            "provenanceOrigin": "command_output",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "medium"
+          },
+          "judgment": {
+            "statusEvidence": "limited_failure",
+            "statusConflictKind": null,
+            "recoveryPosture": "none",
+            "baselineConsequence": "medium",
+            "outcomeOnlyFailureStatus": true,
+            "limitedFailureStatus": true,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "queue",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "A final status and completion are complete facts for an outcome-only command record. Channels outside that record do not create loss for the classified outcome."
+    },
+    {
+      "id": "holdout-v2-pair1-ambiguous-nonzero",
+      "dimension": "ambiguous-nonzero-status-fragment",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v2-pair1-ambiguous-nonzero",
+          "taskId": "task-v2-pair1-ambiguous-nonzero",
+          "timestamp": "2026-08-12T12:00:00.000Z",
+          "type": "task.updated",
+          "title": "Fragment suggests an uncertain nonzero end state",
+          "summary": "A fragmentary execution note says only that a nonzero end state may have occurred. It does not confirm completion, supply a final status value, identify who produced the note, or establish whether supporting evidence is complete.",
+          "status": "failed"
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "unknown",
+            "polarity": "failure",
+            "owner": "unknown",
+            "toolFamily": null,
+            "subject": "command",
+            "evidenceLoss": "unknown",
+            "evidenceStrength": "weak",
+            "semanticAgreement": "uncertain",
+            "diagnosticClass": null,
+            "recoveryHint": "inspect_original_evidence",
+            "provenanceOrigin": "status_text",
+            "provenanceAuthority": "unknown",
+            "consequenceBaseline": "high"
+          },
+          "judgment": {
+            "statusEvidence": "weak_or_uncertain",
+            "statusConflictKind": null,
+            "recoveryPosture": "original_evidence_required",
+            "baselineConsequence": "high",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": false,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "activate",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "The failed-status concern does not complete an outcome grammar or reveal evidence completeness, so the safer read remains indeterminate."
+    },
+    {
+      "id": "holdout-v2-pair2-direct-runtime",
+      "dimension": "direct-capability-runtime-diagnostic",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v2-pair2-direct-runtime",
+          "taskId": "task-v2-pair2-direct-runtime",
+          "timestamp": "2026-08-12T12:00:00.000Z",
+          "type": "task.updated",
+          "title": "Execution capability emits a terminal permission diagnostic",
+          "summary": "The `process_exec` capability directly emitted `permission denied while opening input-record` and terminated the command with final exit status 13. The terminal diagnostic is complete and no portion is withheld.",
+          "status": "failed",
+          "toolFamily": "process_exec"
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "diagnostic",
+            "polarity": "failure",
+            "owner": "tool",
+            "toolFamily": "process_exec",
+            "subject": "command",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": "runtime",
+            "recoveryHint": "inspect_diagnostic",
+            "provenanceOrigin": "command_output",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "high"
+          },
+          "judgment": {
+            "statusEvidence": "visible_diagnostic_failure",
+            "statusConflictKind": null,
+            "recoveryPosture": "diagnostic_inspection",
+            "baselineConsequence": "high",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": true
+          },
+          "decision": {
+            "plannerKind": "activate",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "The named execution capability supplies a direct, complete terminal error, establishing a visible runtime diagnostic rather than a payload or control."
+    },
+    {
+      "id": "holdout-v2-pair2-source-prose",
+      "dimension": "diagnostic-wording-inside-source-prose",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v2-pair2-source-prose",
+          "taskId": "task-v2-pair2-source-prose",
+          "timestamp": "2026-08-12T12:00:00.000Z",
+          "type": "task.updated",
+          "title": "Reference passage contains error-like wording",
+          "summary": "A complete source passage is presented as reference prose: `The example operator saw fatal parse error at byte 19 during startup.` The quotation is source material only, no capability execution is asserted, and no part of the passage is omitted.",
+          "status": "failed"
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "payload",
+            "polarity": "neutral",
+            "owner": "source",
+            "toolFamily": null,
+            "subject": "source",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": null,
+            "recoveryHint": null,
+            "provenanceOrigin": "read_output",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "low"
+          },
+          "judgment": {
+            "statusEvidence": "stable_observation",
+            "statusConflictKind": "payload_observation",
+            "recoveryPosture": "none",
+            "baselineConsequence": "low",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "ambient",
+            "resultLane": "ambient"
+          }
+        }
+      ],
+      "rationale": "The error-like sentence is explicitly bounded inside complete reference prose. Its source boundary prevents promotion to execution evidence."
+    },
+    {
+      "id": "holdout-v2-pair3-measured-window",
+      "dimension": "measured-bounded-source-window",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v2-pair3-measured-window",
+          "taskId": "task-v2-pair3-measured-window",
+          "timestamp": "2026-08-12T12:00:00.000Z",
+          "type": "task.updated",
+          "title": "Source read stops at a declared byte boundary",
+          "summary": "The `source_read` capability delivered bytes 0-2047 from a source measured at 10,000 bytes, making the included window 2,048 bytes. It declares the cutoff at byte 2,048 and identifies the remaining 7,952 bytes as omitted.",
+          "status": "failed",
+          "toolFamily": "source_read"
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "diagnostic",
+            "polarity": "failure",
+            "owner": "tool",
+            "toolFamily": "source_read",
+            "subject": "source",
+            "evidenceLoss": "partial",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": "source_limit",
+            "recoveryHint": "narrow_evidence_scope",
+            "provenanceOrigin": "read_output",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "medium"
+          },
+          "judgment": {
+            "statusEvidence": "limited_failure",
+            "statusConflictKind": null,
+            "recoveryPosture": "evidence_scope_required",
+            "baselineConsequence": "medium",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": true,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "queue",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "Measured bytes, total size, cutoff, and omitted remainder establish a declared partial source window with a narrowing recovery."
+    },
+    {
+      "id": "holdout-v2-pair3-line-reference",
+      "dimension": "line-span-citation-without-read-boundary",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v2-pair3-line-reference",
+          "taskId": "task-v2-pair3-line-reference",
+          "timestamp": "2026-08-12T12:00:00.000Z",
+          "type": "task.updated",
+          "title": "Editorial note cites a range of lines",
+          "summary": "The complete editorial annotation reads: `Consult lines 40-72 for the tokenization discussion.` It is a citation into a source, not a report of a bounded read; it declares neither omitted material nor a clipping boundary.",
+          "status": "failed"
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "payload",
+            "polarity": "neutral",
+            "owner": "source",
+            "toolFamily": null,
+            "subject": "source",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": null,
+            "recoveryHint": null,
+            "provenanceOrigin": "read_output",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "low"
+          },
+          "judgment": {
+            "statusEvidence": "stable_observation",
+            "statusConflictKind": "payload_observation",
+            "recoveryPosture": "none",
+            "baselineConsequence": "low",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "ambient",
+            "resultLane": "ambient"
+          }
+        }
+      ],
+      "rationale": "A citation to numbered lines is a complete source annotation, not proof that a reader clipped or withheld material."
+    },
+    {
+      "id": "holdout-v2-pair4-complete-search",
+      "dimension": "completed-counted-search-with-locators",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v2-pair4-complete-search",
+          "taskId": "task-v2-pair4-complete-search",
+          "timestamp": "2026-08-12T12:00:00.000Z",
+          "type": "task.updated",
+          "title": "Three-result catalog search completed",
+          "summary": "The `catalog_search` capability completed the query `pressure threshold` and found exactly 3 matches. Its complete result transcript lists `manuals/limits.txt#pressure`, `records/checks.csv#row-18`, and `guides/thresholds.txt#section-2`; no result is omitted.",
+          "status": "failed",
+          "toolFamily": "catalog_search"
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "payload",
+            "polarity": "neutral",
+            "owner": "tool",
+            "toolFamily": "catalog_search",
+            "subject": "search",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": null,
+            "recoveryHint": null,
+            "provenanceOrigin": "transcript",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "low"
+          },
+          "judgment": {
+            "statusEvidence": "stable_observation",
+            "statusConflictKind": "search_output_observation",
+            "recoveryPosture": "none",
+            "baselineConsequence": "low",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "ambient",
+            "resultLane": "ambient"
+          }
+        }
+      ],
+      "rationale": "An exact count, concrete locators, and an explicit completion statement establish a complete neutral search payload despite transport status."
+    },
+    {
+      "id": "holdout-v2-pair4-incomplete-search",
+      "dimension": "incomplete-search-claim-without-locators",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v2-pair4-incomplete-search",
+          "taskId": "task-v2-pair4-incomplete-search",
+          "timestamp": "2026-08-12T12:00:00.000Z",
+          "type": "task.updated",
+          "title": "Search fragment claims unspecified matches",
+          "summary": "An unidentified status fragment claims that a search may have found relevant entries, but operation completion is not established. It supplies no result count, no locators, and no result document; whether further evidence was omitted is unknown.",
+          "status": "failed"
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "unknown",
+            "polarity": "failure",
+            "owner": "unknown",
+            "toolFamily": null,
+            "subject": "search",
+            "evidenceLoss": "unknown",
+            "evidenceStrength": "weak",
+            "semanticAgreement": "uncertain",
+            "diagnosticClass": null,
+            "recoveryHint": "inspect_original_evidence",
+            "provenanceOrigin": "status_text",
+            "provenanceAuthority": "unknown",
+            "consequenceBaseline": "high"
+          },
+          "judgment": {
+            "statusEvidence": "weak_or_uncertain",
+            "statusConflictKind": null,
+            "recoveryPosture": "original_evidence_required",
+            "baselineConsequence": "high",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": false,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "activate",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "Without completion, count, locators, a result document, or a known producer, the failed search fragment cannot support a stable payload."
+    },
+    {
+      "id": "holdout-v2-pair5-preexecution-control",
+      "dimension": "complete-preexecution-authorization-control",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v2-pair5-preexecution-control",
+          "taskId": "task-v2-pair5-preexecution-control",
+          "timestamp": "2026-08-12T12:00:00.000Z",
+          "type": "task.updated",
+          "title": "Capability waits behind an authorization gate",
+          "summary": "Authorization remains pending for the `archive_write` capability. The capability has not been invoked, no execution result exists, and no output was produced; the gate is wholly pre-execution.",
+          "status": "failed",
+          "toolFamily": "archive_write"
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "control",
+            "polarity": "neutral",
+            "owner": "tool",
+            "toolFamily": "archive_write",
+            "subject": "tool",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": null,
+            "recoveryHint": "await_authorization",
+            "provenanceOrigin": "status_text",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "low"
+          },
+          "judgment": {
+            "statusEvidence": "stable_observation",
+            "statusConflictKind": "rejected_tool_use_observation",
+            "recoveryPosture": "authorization_required",
+            "baselineConsequence": "low",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "ambient",
+            "resultLane": "ambient"
+          }
+        }
+      ],
+      "rationale": "The grammar establishes both non-invocation and absence of a result before authorization, satisfying the authoritative control shape."
+    },
+    {
+      "id": "holdout-v2-pair5-postexecution-conflict",
+      "dimension": "authorization-wording-after-runtime-result",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v2-pair5-postexecution-conflict",
+          "taskId": "task-v2-pair5-postexecution-conflict",
+          "timestamp": "2026-08-12T12:00:00.000Z",
+          "type": "task.updated",
+          "title": "Authorization note follows an executed write",
+          "summary": "The `archive_write` capability was already invoked when a later note said permission had been refused. The operation terminated with final status 23 and directly emitted the complete diagnostic `destination locked; write aborted`; an execution result is present.",
+          "status": "failed",
+          "toolFamily": "archive_write"
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "diagnostic",
+            "polarity": "failure",
+            "owner": "tool",
+            "toolFamily": "archive_write",
+            "subject": "tool",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": "runtime",
+            "recoveryHint": "inspect_diagnostic",
+            "provenanceOrigin": "command_output",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "high"
+          },
+          "judgment": {
+            "statusEvidence": "visible_diagnostic_failure",
+            "statusConflictKind": null,
+            "recoveryPosture": "diagnostic_inspection",
+            "baselineConsequence": "high",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": true
+          },
+          "decision": {
+            "plannerKind": "activate",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "The operation already produced terminal evidence, so later authorization language cannot classify the event as a pre-execution control."
+    },
+    {
+      "id": "holdout-v2-pair6-expected-diagnostic",
+      "dimension": "verified-diagnostic-in-success-envelope",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v2-pair6-expected-diagnostic",
+          "taskId": "task-v2-pair6-expected-diagnostic",
+          "timestamp": "2026-08-12T12:00:00.000Z",
+          "type": "task.updated",
+          "title": "Successful case verifies its expected diagnostic",
+          "summary": "The `validation_runner` capability produced a complete structured envelope: case state `passed`, runner exit status 0, expected diagnostic `invalid width at column 8`, observed diagnostic identical, and comparison state `verified`. The diagnostic is the intended result.",
+          "status": "failed",
+          "toolFamily": "validation_runner"
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "diagnostic",
+            "polarity": "failure",
+            "owner": "tool",
+            "toolFamily": "validation_runner",
+            "subject": "tool",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": "expected",
+            "recoveryHint": "inspect_diagnostic",
+            "provenanceOrigin": "structured_output",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "medium"
+          },
+          "judgment": {
+            "statusEvidence": "stable_observation",
+            "statusConflictKind": null,
+            "recoveryPosture": "diagnostic_inspection",
+            "baselineConsequence": "medium",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "activate",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "The complete successful envelope verifies that the emitted diagnostic is the intended assertion target, giving it the expected diagnostic class."
+    },
+    {
+      "id": "holdout-v2-pair6-runner-failure",
+      "dimension": "actual-runner-failure-with-diagnostic",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v2-pair6-runner-failure",
+          "taskId": "task-v2-pair6-runner-failure",
+          "timestamp": "2026-08-12T12:00:00.000Z",
+          "type": "task.updated",
+          "title": "Runner terminates on an assertion mismatch",
+          "summary": "The `validation_runner` capability stopped with runner exit status 2 after an assertion mismatch. Its complete terminal stream directly reports `expected invalid width at column 8 but observed no diagnostic`, and the case envelope marks the runner itself failed.",
+          "status": "failed",
+          "toolFamily": "validation_runner"
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "diagnostic",
+            "polarity": "failure",
+            "owner": "tool",
+            "toolFamily": "validation_runner",
+            "subject": "tool",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": "runtime",
+            "recoveryHint": "inspect_diagnostic",
+            "provenanceOrigin": "command_output",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "high"
+          },
+          "judgment": {
+            "statusEvidence": "visible_diagnostic_failure",
+            "statusConflictKind": null,
+            "recoveryPosture": "diagnostic_inspection",
+            "baselineConsequence": "high",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": true
+          },
+          "decision": {
+            "plannerKind": "activate",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "The runner itself terminates unsuccessfully and reports an assertion mismatch, making the diagnostic an actual runtime failure."
+    }
+  ]
+}

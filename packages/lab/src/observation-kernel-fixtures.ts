@@ -1,5 +1,7 @@
 import type { SourceEvent } from "@tomismeta/aperture-core";
 
+import { OBSERVATION_KERNEL_HOLDOUT_FIXTURES } from "./observation-kernel-holdout.js";
+
 export type ObservationKernelFixture = {
   id: string;
   dimension: string;
@@ -12,7 +14,7 @@ export type ObservationKernelFixtureSplit = "calibration" | "holdout";
 const rejectedToolUseMessage =
   "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
 
-export const OBSERVATION_KERNEL_FIXTURES: ObservationKernelFixture[] = [
+const OBSERVATION_KERNEL_CALIBRATION_FIXTURES: ObservationKernelFixture[] = [
   fixture("bare-nonzero-command-exit", "outcome_failure", {
     title: "bash failure",
     summary: "(no output) Command exited with code 1",
@@ -177,3 +179,8 @@ function failedTaskEvent(input: FailedTaskEventInput): SourceEvent {
     ...(input.semanticHints !== undefined ? { semanticHints: input.semanticHints } : {}),
   };
 }
+
+export const OBSERVATION_KERNEL_FIXTURES: ObservationKernelFixture[] = [
+  ...OBSERVATION_KERNEL_CALIBRATION_FIXTURES,
+  ...OBSERVATION_KERNEL_HOLDOUT_FIXTURES,
+];

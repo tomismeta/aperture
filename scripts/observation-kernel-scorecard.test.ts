@@ -21,12 +21,11 @@ test("observation kernel scorecard covers the normalized observation contract", 
   const scorecard = buildObservationKernelScorecard();
 
   assert.equal(scorecard.passed, true);
-  assert.equal(scorecard.summary.fixtures.total, 16);
-  assert.equal(scorecard.summary.fixtures.withObservation, 16);
+  assert.equal(scorecard.summary.fixtures.total, 26);
+  assert.equal(scorecard.summary.fixtures.withObservation, 26);
   assert.equal(scorecard.summary.fixtures.calibration, 16);
-  assert.equal(scorecard.summary.fixtures.holdout, 0);
-  assert.equal(scorecard.summary.observations.total, 18);
-  assert.equal(scorecard.summary.observations.unique, 17);
+  assert.equal(scorecard.summary.fixtures.holdout, 10);
+  assert.equal(scorecard.summary.observations.total, 28);
   assert.equal(
     new Set(scorecard.observations.map((observation) => observation.semanticDigest)).size,
     scorecard.summary.observations.unique,
@@ -39,8 +38,7 @@ test("observation kernel scorecard covers the normalized observation contract", 
   assert.equal(scorecard.quality.summary.judgment.score, 1);
   assert.equal(scorecard.quality.summary.decision.score, 1);
   assert.equal(scorecard.quality.summary.exactOutcomes.score, 1);
-  assert.equal(scorecard.quality.bySplit.holdout.exactOutcomes.total, 0);
-  assert.equal(scorecard.quality.bySplit.holdout.exactOutcomes.score, 0);
+  assert.equal(scorecard.quality.bySplit.holdout.exactOutcomes.total, 10);
   assert.equal(scorecard.quality.semanticFields.length, 13);
   assert.equal(scorecard.quality.judgmentFields.length, 8);
   assert.equal(scorecard.quality.decisionFields.length, 2);

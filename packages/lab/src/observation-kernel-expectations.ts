@@ -2,6 +2,7 @@ import type {
   ObservationKernelFields,
   ObservationKernelJudgmentFields,
 } from "./observation-kernel-scorecard.js";
+import { OBSERVATION_KERNEL_HOLDOUT_EXPECTATIONS } from "./observation-kernel-holdout.js";
 
 export type ObservationKernelExpectedFields = Omit<
   ObservationKernelFields,
@@ -19,7 +20,7 @@ export type ObservationKernelExpectedOutcome = {
   decision: ObservationKernelExpectedDecision;
 };
 
-export const OBSERVATION_KERNEL_EXPECTATIONS: Readonly<
+const OBSERVATION_KERNEL_CALIBRATION_EXPECTATIONS: Readonly<
   Record<string, readonly ObservationKernelExpectedOutcome[]>
 > = {
   "abbreviated-read-view": [
@@ -349,3 +350,10 @@ function expected(
 ): ObservationKernelExpectedOutcome {
   return { fields: expectedFields, judgment, decision: expectedDecision };
 }
+
+export const OBSERVATION_KERNEL_EXPECTATIONS: Readonly<
+  Record<string, readonly ObservationKernelExpectedOutcome[]>
+> = {
+  ...OBSERVATION_KERNEL_CALIBRATION_EXPECTATIONS,
+  ...OBSERVATION_KERNEL_HOLDOUT_EXPECTATIONS,
+};
